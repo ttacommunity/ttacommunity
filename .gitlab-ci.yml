@@ -1,0 +1,83 @@
+# A thin wrapper: the ci job runs scripts/ci.sh, the same script developers run.
+# Everything runs on the self-hosted amd64 runners; scanners are tagged too.
+
+workflow:
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "schedule"'
+    - if: '$CI_PIPELINE_SOURCE == "web"'
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+    - if: '$CI_COMMIT_BRANCH && $CI_OPEN_MERGE_REQUESTS'
+      when: never
+    - if: '$CI_COMMIT_BRANCH'
+
+stages:
+  - test
+  - secret-detection
+  - build
+
+variables:
+  SECRET_DETECTION_ENABLED: 'true'
+  AST_ENABLE_MR_PIPELINES: 'true'
+  CI_IMAGE: docker.io/library/node:22-alpine@sha256:0a7108bf6c7bf5de370ffb1a3ed6be93d405b43ff159f681a8d18c0e2bc2e402
+  POSTGRES_IMAGE: docker.io/library/postgres:17-alpine@sha256:b0f9560a2de083e2cc7382e75f808c7381a32852a7ec49117deedb300e552b24
+  UV_VERSION: '0.12.19'
+  CRANE_VERSION: 'v0.22.1'
+
+include:
+  - template: Security/SAST.gitlab-ci.yml
+  - template: Security/Secret-Detection.gitlab-ci.yml
+
+.on_change: &on_change
+  - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+  - if: '$CI_PIPELINE_SOURCE == "push"'
+  - if: '$CI_PIPELINE_SOURCE == "web"'
+
+ci:
+  stage: test
+  tags: [amd64]
+  image: ${CI_IMAGE}
+  rules: *on_change
+  services:
+    - name: ${POSTGRES_IMAGE}
+      alias: postgres
+  variables:
+    POSTGRES_DB: ttac_test
+    POSTGRES_USER: ttac
+    POSTGRES_PASSWORD: ci-only-not-a-real-secret
+    TEST_DATABASE_URL: 'postgres://ttac:ci-only-not-a-real-secret@127.0.0.1:5432/ttac_test?sslmode=disable'
+    COREPACK_ENABLE_DOWNLOAD_PROMPT: '0'
+  before_script:
+    - apk add --no-cache bash git curl jq go shellcheck
+    - scripts/install-uv.sh "$UV_VERSION" /usr/local/bin
+  script:
+    - bash scripts/ci.sh
+
+engine-image:
+  stage: build
+  tags: [amd64]
+  image: ${CI_IMAGE}
+  rules:
+    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH && $CI_PIPELINE_SOURCE == "push"'
+      changes: [engine/**/*, scripts/engine-image.sh]
+    - if: '$CI_PIPELINE_SOURCE == "web"'
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+      when: manual
+      allow_failure: true
+  before_script:
+    - apk add --no-cache bash git curl jq tar
+    - scripts/install-uv.sh "$UV_VERSION" /usr/local/bin
+    - scripts/install-crane.sh "$CRANE_VERSION" /usr/local/bin
+    - crane auth login "$CI_REGISTRY" -u "$CI_REGISTRY_USER" -p "$CI_JOB_TOKEN"
+  script:
+    - ref="${CI_REGISTRY_IMAGE}/engine:sha-${CI_COMMIT_SHORT_SHA}"
+    - digest=$(scripts/engine-image.sh "$ref")
+    - crane config "$ref" | jq -e '.architecture == "amd64" and .config.User == "65532:65532"'
+    - echo "engine image ${ref}@${digest}"
+
+semgrep-sast:
+  tags: [amd64]
+  rules: *on_change
+
+secret_detection:
+  tags: [amd64]
+  rules: *on_change

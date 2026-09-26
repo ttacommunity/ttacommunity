@@ -1,0 +1,17 @@
+#!/usr/bin/env bash
+# Before a commit: refuse staged credentials, and staged Go that is not gofmt-clean.
+# Enable with: git config core.hooksPath .githooks
+set -uo pipefail
+
+cd "$(git rev-parse --show-toplevel)" || exit 1
+fail=0
+bash checks/secret-scan.sh --staged || fail=1
+
+if command -v gofmt >/dev/null 2>&1; then
+  mapfile -d '' staged_go < <(git diff --cached --name-only -z --diff-filter=ACM -- '*.go')
+  if [ ${#staged_go[@]} -gt 0 ] && unformatted=$(gofmt -l "${staged_go[@]}") && [ -n "$unformatted" ]; then
+    printf 'REFUSED: not gofmt-clean:\n%s\n' "$unformatted" >&2
+    fail=1
+  fi
+fi
+exit "$fail"
