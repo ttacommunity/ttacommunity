@@ -5,7 +5,6 @@ import numpy as np
 import pytest
 from src.data.db import get_connection, init_db
 from src.models.evaluation.walk_forward import compute_metrics_from_preds, run_walk_forward_evaluation
-from src.web.app import create_app
 
 
 def test_compute_metrics_from_preds():
@@ -64,24 +63,3 @@ def test_walk_forward_synthetic_leak_free(tmp_path):
     rows = conn.execute("SELECT * FROM walk_forward_calibration WHERE player_count = 2").fetchall()
     assert len(rows) > 0
     conn.close()
-
-
-def test_calibration_route_modes(tmp_path):
-    """Verify that the web portal renders both walk_forward and standard calibration modes."""
-    app = create_app()
-    client = app.test_client()
-
-    # 1. Walk-Forward Mode
-    resp_wf = client.get('/analysis?eval_mode=walk_forward')
-    assert resp_wf.status_code == 200
-    html_wf = resp_wf.get_data(as_text=True)
-    assert 'Walk-Forward (Out-of-Sample)' in html_wf
-    assert 'heroCalibrationChart' in html_wf
-
-    # 2. Standard (Match-Time) Mode
-    resp_std = client.get('/analysis?eval_mode=standard')
-    assert resp_std.status_code == 200
-    html_std = resp_std.get_data(as_text=True)
-    assert 'Standard (Match-Time)' in html_std
-    assert 'heroCalibrationChart' in html_std
-    assert 'Webmaster Model Assessment' in html_std

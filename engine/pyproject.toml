@@ -5,6 +5,7 @@ description = "The ttacommunity rating engine: DANeo's Glicko rating math, run a
 requires-python = "==3.12.*"
 dependencies = [
     "numpy>=1.26",
+    "python-dateutil>=2.9",
 ]
 
 [dependency-groups]
