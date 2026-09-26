@@ -8,18 +8,17 @@
   },
   "scripts": {
     "lint": "eslint .",
-    "check": "pnpm --recursive --if-present check",
+    "check": "pnpm --recursive --workspace-concurrency=1 --if-present check",
     "test": "vitest run",
-    "build": "pnpm --recursive --if-present build"
+    "build": "pnpm --recursive --workspace-concurrency=1 --if-present build"
   },
   "pnpm": {
-    "onlyBuiltDependencies": ["esbuild", "workerd"]
+    "onlyBuiltDependencies": ["esbuild"]
   },
   "devDependencies": {
     "eslint": "^10.11.0",
     "typescript": "~6.0.3",
     "typescript-eslint": "^8.70.1",
-    "vitest": "^5.0.2",
-    "wrangler": "^4.141.0"
+    "vitest": "^5.0.2"
   }
 }
