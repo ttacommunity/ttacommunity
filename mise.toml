@@ -1,0 +1,8 @@
+# Toolchain versions for native development and CI. `mise install` fetches them.
+# pnpm is pinned by web/package.json (packageManager) and run through corepack.
+[tools]
+node = "24.21.0"
+go = "1.27.1"
+uv = "0.12.19"
+crane = "0.22.1"
+shellcheck = "0.11.0"

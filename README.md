@@ -43,9 +43,11 @@ With Podman, the compose plugin talks to Podman's API socket. Turn it on once:
 scripts/dev.sh --native
 ```
 
-This needs **Go 1.26**, **uv** (which fetches Python 3.12 itself), **Node 22**
-with corepack (`corepack pnpm`), and `curl`. On Windows, use WSL2 or the
-containers.
+The toolchain versions are pinned in [`mise.toml`](mise.toml): Go, Node, uv
+(which fetches Python itself), crane and shellcheck. With
+[mise](https://mise.jdx.dev) installed, `mise install` fetches exactly those,
+and CI uses the same file. pnpm comes through Node's corepack, at the version
+`web/package.json` pins. On Windows, use WSL2 or the containers.
 
 ## Test it
 
