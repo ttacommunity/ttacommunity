@@ -30,8 +30,6 @@ from src.models.glicko2.adaptive_t import (
 )
 from src.models.evaluation.walk_forward import compute_metrics_from_preds, BIN_LABELS, IDEAL_POINTS
 
-CACHE_PATH = Path(__file__).resolve().parents[3] / "data" / "cache" / "calibration_cache.json"
-
 
 def evaluate_standard_glicko2(
     weighted: bool = False,
@@ -403,13 +401,6 @@ def run_standard_calibration_all(
     """Computes and saves standard calibration metrics for all model configurations across formats."""
     conn = get_connection(db_path)
     all_results = {}
-    if CACHE_PATH.exists():
-        try:
-            all_results = json.loads(CACHE_PATH.read_text(encoding="utf-8"))
-            # convert string keys back to int for format dict
-            all_results = {int(k): v for k, v in all_results.items()}
-        except Exception:
-            all_results = {}
 
     if formats is None:
         formats = [0, 2, 3, 4]
@@ -478,12 +469,6 @@ def run_standard_calibration_all(
 
                     if verbose:
                         print(f"    -> Brier: {res['brier']:.4f}, ECE: {res['ece_pct']:.2f}%, Accuracy: {res['accuracy']:.1f}%")
-
-        # Save to disk cache
-        CACHE_PATH.parent.mkdir(parents=True, exist_ok=True)
-        CACHE_PATH.write_text(json.dumps(all_results, indent=2), encoding="utf-8")
-        if verbose:
-            print(f"Saved standard calibration cache to {CACHE_PATH}")
 
         return all_results
     finally:
