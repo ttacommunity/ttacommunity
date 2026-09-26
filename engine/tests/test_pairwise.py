@@ -18,10 +18,14 @@ def add_match(conn, match_id, *players, eligible=1):
     for i, (name, score) in enumerate(players, start=1):
         cols[f"player{i}"] = name
         cols[f"score{i}"] = score
-    cols.update(match_id=match_id, tournament="T", date="2024-01-01", glicko_eligible=eligible)
+    cols.update(
+        match_id=match_id, tournament="T", date="2024-01-01", glicko_eligible=eligible
+    )
     names = ", ".join(cols)
     marks = ", ".join("?" for _ in cols)
-    conn.execute(f"INSERT INTO matches ({names}) VALUES ({marks})", tuple(cols.values()))
+    conn.execute(
+        f"INSERT INTO matches ({names}) VALUES ({marks})", tuple(cols.values())
+    )
     conn.commit()
 
 

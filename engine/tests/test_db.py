@@ -14,7 +14,9 @@ ENGINE_TABLES = {
 
 
 def tables(conn):
-    rows = conn.execute("SELECT name FROM sqlite_master WHERE type = 'table'").fetchall()
+    rows = conn.execute(
+        "SELECT name FROM sqlite_master WHERE type = 'table'"
+    ).fetchall()
     return {r["name"] for r in rows} - {"sqlite_sequence"}
 
 

@@ -24,3 +24,13 @@ markers = ["slow: convergence sweeps; CI runs them on main only"]
 
 [tool.ruff]
 target-version = "py312"
+# Upstream's code, kept as copied until it is refactored. Remove a file once it is.
+extend-exclude = [
+    "src/models",
+    "src/data/badges.py",
+    "tests/test_glicko2.py",
+    "tests/test_whr.py",
+    "tests/test_walk_forward.py",
+    "tests/test_retro_calibration.py",
+    "tests/test_reset_and_badges.py",
+]

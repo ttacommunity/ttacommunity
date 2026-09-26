@@ -1,4 +1,5 @@
 """Expands every match into the one-on-one results the rating models read."""
+
 import sqlite3
 
 
@@ -19,8 +20,8 @@ def expand_pairwise(conn: sqlite3.Connection) -> int:
     for row in rows:
         participants = []
         for i in range(1, 5):
-            p_name = row[f'player{i}']
-            score = row[f'score{i}']
+            p_name = row[f"player{i}"]
+            score = row[f"score{i}"]
             if p_name and score is not None:
                 participants.append((p_name, float(score)))
 
@@ -40,18 +41,32 @@ def expand_pairwise(conn: sqlite3.Connection) -> int:
                 else:
                     out_a = 0.5
 
-                pairwise_to_insert.append((
-                    row['match_id'], row['date'], row['tournament'], p_count,
-                    pa, pb, sa, sb, out_a, weight, row['glicko_eligible']
-                ))
+                pairwise_to_insert.append(
+                    (
+                        row["match_id"],
+                        row["date"],
+                        row["tournament"],
+                        p_count,
+                        pa,
+                        pb,
+                        sa,
+                        sb,
+                        out_a,
+                        weight,
+                        row["glicko_eligible"],
+                    )
+                )
 
     with conn:
-        conn.execute('DELETE FROM pairwise_matches;')
-        conn.executemany("""
+        conn.execute("DELETE FROM pairwise_matches;")
+        conn.executemany(
+            """
             INSERT INTO pairwise_matches (
                 match_id, date, tournament, player_count,
                 player_a, player_b, score_a, score_b, outcome_a, weight, glicko_eligible
             ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        """, pairwise_to_insert)
+        """,
+            pairwise_to_insert,
+        )
 
     return len(pairwise_to_insert)

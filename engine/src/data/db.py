@@ -1,4 +1,5 @@
 """The engine's SQLite schema and connections. The database path comes from ENGINE_DB_PATH."""
+
 import os
 import sqlite3
 from pathlib import Path
@@ -139,14 +140,14 @@ CREATE INDEX IF NOT EXISTS idx_std_calib_pc_month ON standard_calibration(player
 
 def get_connection(db_path=None):
     """Opens the database at db_path, or at ENGINE_DB_PATH. Raises RuntimeError if neither is set."""
-    path = db_path or os.environ.get('ENGINE_DB_PATH')
+    path = db_path or os.environ.get("ENGINE_DB_PATH")
     if not path:
-        raise RuntimeError('No database: pass db_path or set ENGINE_DB_PATH')
+        raise RuntimeError("No database: pass db_path or set ENGINE_DB_PATH")
     Path(path).parent.mkdir(parents=True, exist_ok=True)
     conn = sqlite3.connect(str(path), timeout=60.0)
     conn.row_factory = sqlite3.Row
-    conn.execute('PRAGMA foreign_keys = ON;')
-    conn.execute('PRAGMA busy_timeout = 60000;')
+    conn.execute("PRAGMA foreign_keys = ON;")
+    conn.execute("PRAGMA busy_timeout = 60000;")
     return conn
 
 

@@ -12,7 +12,9 @@ def seed(db):
     init_db(db)
     conn = get_connection(db)
     with conn:
-        for i, (a, b) in enumerate([("Alice", "Bob"), ("Bob", "Carol"), ("Alice", "Carol")], start=1):
+        for i, (a, b) in enumerate(
+            [("Alice", "Bob"), ("Bob", "Carol"), ("Alice", "Carol")], start=1
+        ):
             conn.execute(
                 "INSERT INTO matches (match_id, tournament, date, player_count, player1, score1, player2, score2) "
                 "VALUES (?, 'T', ?, 2, ?, 100, ?, 50)",
@@ -28,10 +30,14 @@ def test_calibration_is_stored_in_the_database_and_nowhere_else(tmp_path):
     seed(db)
     before = set(ENGINE_DIR.rglob("*.json"))
 
-    run_standard_calibration_all(db_path=db, verbose=False, model_filter=["glicko2_std"], formats=[2])
+    run_standard_calibration_all(
+        db_path=db, verbose=False, model_filter=["glicko2_std"], formats=[2]
+    )
 
     conn = get_connection(db)
-    stored = conn.execute("SELECT model_type, player_count, matches_evaluated FROM standard_calibration").fetchall()
+    stored = conn.execute(
+        "SELECT model_type, player_count, matches_evaluated FROM standard_calibration"
+    ).fetchall()
     conn.close()
     assert [tuple(r) for r in stored] == [("glicko2_std", 2, 3)]
     assert set(ENGINE_DIR.rglob("*.json")) == before
