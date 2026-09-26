@@ -33,35 +33,61 @@ include:
   - if: '$CI_PIPELINE_SOURCE == "push"'
   - if: '$CI_PIPELINE_SOURCE == "web"'
 
-# The toolchain mise.toml pins: the same versions a developer runs.
-.toolchain: &toolchain
-  - apt-get update -qq && apt-get install -y -qq --no-install-recommends bash ca-certificates curl git jq xz-utils >/dev/null
-  - scripts/install-mise.sh "$MISE_VERSION" /usr/local/bin
-  - mise install
-  - export PATH="$HOME/.local/share/mise/shims:$PATH"
-
-ci:
+# Each area of scripts/ci.sh is its own job, installing only the tools that
+# area needs from mise.toml, so each fits the runners' 1 GiB job limit.
+.ci_area:
   stage: test
   tags: [amd64]
   image: ${CI_IMAGE}
   rules: *on_change
+  variables:
+    APT_EXTRA: ''
+    COREPACK_ENABLE_DOWNLOAD_PROMPT: '0'
+  before_script:
+    - apt-get update -qq && apt-get install -y -qq --no-install-recommends bash ca-certificates curl git jq xz-utils $APT_EXTRA >/dev/null
+    - scripts/install-mise.sh "$MISE_VERSION" /usr/local/bin
+    - mise install $MISE_TOOLS
+    - export PATH="$HOME/.local/share/mise/shims:$PATH"
+  script:
+    - bash scripts/ci.sh --only "$AREA"
+
+ci-go:
+  extends: .ci_area
   services:
     - name: ${POSTGRES_IMAGE}
       alias: postgres
   variables:
+    AREA: go
+    MISE_TOOLS: go
+    APT_EXTRA: gcc libc6-dev
     POSTGRES_DB: ttac_test
     POSTGRES_USER: ttac
     POSTGRES_PASSWORD: ci-only-not-a-real-secret
     TEST_DATABASE_URL: 'postgres://ttac:ci-only-not-a-real-secret@127.0.0.1:5432/ttac_test?sslmode=disable'
-    COREPACK_ENABLE_DOWNLOAD_PROMPT: '0'
-  before_script: *toolchain
-  script:
-    - bash scripts/ci.sh
+
+ci-engine:
+  extends: .ci_area
+  variables:
+    AREA: engine
+    MISE_TOOLS: uv
+
+ci-web:
+  extends: .ci_area
+  variables:
+    AREA: web
+    MISE_TOOLS: node
+
+ci-checks:
+  extends: .ci_area
+  variables:
+    AREA: checks
+    MISE_TOOLS: shellcheck
 
 engine-image:
+  extends: .ci_area
   stage: build
-  tags: [amd64]
-  image: ${CI_IMAGE}
+  variables:
+    MISE_TOOLS: uv crane
   rules:
     - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH && $CI_PIPELINE_SOURCE == "push"'
       changes: [engine/**/*, scripts/engine-image.sh, mise.toml]
@@ -69,7 +95,6 @@ engine-image:
     - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
       when: manual
       allow_failure: true
-  before_script: *toolchain
   script:
     - crane auth login "$CI_REGISTRY" -u "$CI_REGISTRY_USER" -p "$CI_JOB_TOKEN"
     - ref="${CI_REGISTRY_IMAGE}/engine:sha-${CI_COMMIT_SHORT_SHA}"

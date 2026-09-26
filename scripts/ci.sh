@@ -5,6 +5,7 @@
 # Usage: scripts/ci.sh              every step
 #        scripts/ci.sh --tests-only only the tests (what scripts/test.sh runs)
 #        scripts/ci.sh --slow       also the engine's slow tests (on in CI on main)
+#        scripts/ci.sh --only <area> one area: go, engine, web or checks (one CI job each)
 set -uo pipefail
 
 cd "$(dirname "$0")/.." || exit 1
@@ -12,13 +13,23 @@ ROOT=$PWD
 
 TESTS_ONLY=0
 SLOW=0
+ONLY=""
 [ "${CI_COMMIT_BRANCH:-}" = main ] && SLOW=1
-for arg in "$@"; do
-  case $arg in
+while [ $# -gt 0 ]; do
+  case $1 in
     --tests-only) TESTS_ONLY=1 ;;
     --slow) SLOW=1 ;;
-    *) echo "unknown argument: $arg" >&2; exit 64 ;;
+    --only)
+      ONLY=${2:-}
+      shift
+      case $ONLY in
+        go|engine|web|checks) ;;
+        *) echo "--only takes go, engine, web or checks" >&2; exit 64 ;;
+      esac
+      ;;
+    *) echo "unknown argument: $1" >&2; exit 64 ;;
   esac
+  shift
 done
 
 PG_IMAGE=docker.io/library/postgres:18-alpine@sha256:77f585114c32fbca283dc835b0596f4e52b51b4c6662d7810b2f4084f60a1873
@@ -35,6 +46,7 @@ need() {
   return 1
 }
 full() { [ "$TESTS_ONLY" = 0 ]; }
+area() { [ -z "$ONLY" ] || [ "$ONLY" = "$1" ]; }
 stop_pg() { command -v podman >/dev/null 2>&1 && podman rm -f "$PG_NAME" >/dev/null 2>&1; }
 
 # start_test_db sets TEST_DATABASE_URL, starting a throwaway Postgres if CI has not.
@@ -56,6 +68,7 @@ start_test_db() {
 }
 trap stop_pg EXIT
 
+if area go; then
 step "go"
 if need go "the backend"; then
   cd "$ROOT/backend" || exit 1
@@ -83,7 +96,9 @@ if full; then
     not_covered+=("spec: no backend/api/openapi.yaml yet, so no route or TS type check")
   fi
 fi
+fi
 
+if area engine; then
 step "engine"
 if need uv "the engine"; then
   cd "$ROOT/engine" || exit 1
@@ -100,7 +115,9 @@ if need uv "the engine"; then
   fi
   cd "$ROOT" || exit 1
 fi
+fi
 
+if area web; then
 step "web"
 if need corepack "the web workspace"; then
   cd "$ROOT/web" || exit 1
@@ -130,8 +147,9 @@ if need corepack "the web workspace"; then
   fi
   cd "$ROOT" || exit 1
 fi
+fi
 
-if full; then
+if full && area checks; then
   step "checks"
   run bash checks/comment-density.sh
   run bash checks/no-raw-html.sh
@@ -153,6 +171,7 @@ if full; then
   fi
 fi
 
+[ -n "$ONLY" ] && not_covered+=("every area but '$ONLY': each runs in its own CI job")
 printf '\n\033[1mNot covered here:\033[0m\n'
 for item in "${not_covered[@]}" \
   "Cloudflare's own Pages build (check its build log after a merge to main)" \
