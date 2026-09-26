@@ -1,0 +1,60 @@
+# --- Private: planning records and AI tooling -------------------------------
+# This repo is meant to be copied to a public GitHub repo as-is. It carries code
+# and the documentation the community uses; the maintainers' planning records
+# and Claude configuration stay local.
+CLAUDE.md
+CLAUDE.local.md
+.claude/
+PLAN.md
+docs/decisions/
+docs/issues/
+docs/deferred/
+docs/user-journeys/
+docs/user-journeys.md
+graphify-out/
+
+# --- Secrets ------------------------------------------------------------------
+# Nothing here should ever hold a credential. Check with
+# `git check-ignore -v <file>` BEFORE creating a file that will hold one.
+.env
+.env.*
+!.env.example
+*.key
+*.pem
+credentials.json
+kubeconfig
+kubeconfig.*
+*.kubeconfig
+.dev.vars
+.wrangler/
+
+# --- Build output and caches --------------------------------------------------
+node_modules/
+.pnpm-store/
+dist/
+.astro/
+coverage/
+coverage.out
+coverage.html
+__pycache__/
+*.py[cod]
+.venv/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+*.egg-info/
+
+# --- Local databases and engine output ------------------------------------------
+*.db
+*.db-journal
+*.db-wal
+*.sqlite3
+engine/out/
+
+# --- Editor and OS ------------------------------------------------------------
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.swp
+tools/
