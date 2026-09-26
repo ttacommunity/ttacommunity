@@ -20,6 +20,7 @@ package = false
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 pythonpath = ["."]
+addopts = ["--import-mode=importlib"]
 markers = ["slow: convergence sweeps; CI runs them on main only"]
 
 [tool.ruff]
@@ -28,9 +29,11 @@ target-version = "py312"
 extend-exclude = [
     "src/models",
     "src/data/badges.py",
-    "tests/test_glicko2.py",
-    "tests/test_whr.py",
-    "tests/test_walk_forward.py",
-    "tests/test_retro_calibration.py",
-    "tests/test_reset_and_badges.py",
+    "tests/data/test_badges.py",
+    "tests/models/evaluation/test_walk_forward.py",
+    "tests/models/glicko2/test_adaptive_t.py",
+    "tests/models/glicko2/test_calculator.py",
+    "tests/models/glicko2/test_engine.py",
+    "tests/models/whr/test_engine.py",
+    "tests/models/whr/test_solver.py",
 ]

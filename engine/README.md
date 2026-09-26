@@ -16,8 +16,7 @@ hand, and this line is updated to the upstream commit we are at.
 | `src/data/badges.py` | same | none |
 | `src/data/pairwise.py` | `src/data/loader.py` | Reads `matches` from the database instead of a CSV, and carries `glicko_eligible` into each pair. The expansion is upstream's |
 | `src/data/db.py` | same | Only the engine's tables. The path comes from `ENGINE_DB_PATH`, with no default |
-| `tests/test_glicko2.py`, `tests/test_whr.py` | same | none |
-| `tests/test_walk_forward.py`, `test_retro_calibration.py`, `test_reset_and_badges.py` | same | Only the tests that need neither the website nor the real match data. Every test kept is unchanged |
+| `tests/` | `tests/` | Only the tests that need neither the website nor the real match data. Every test kept is unchanged, but moved into the layout below |
 
 **Not here yet:** upstream's `hall_of_fame.py`, which reads the Intermezzo and
 International results from a spreadsheet. It comes back when those results are
@@ -34,3 +33,7 @@ uv run pytest
 
 The tests build their own small databases. No match data is needed, and none is
 kept in this repository.
+
+`tests/` mirrors `src/`: the tests for `src/models/whr/engine.py` are in
+`tests/models/whr/test_engine.py`. pytest runs in `importlib` import mode, so
+two test files can share a name in different folders.
