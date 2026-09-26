@@ -1,0 +1,9 @@
+{
+  "name": "@ttac/shared",
+  "private": true,
+  "type": "module",
+  "exports": {
+    "./time": "./src/time.ts",
+    "./styles/tokens.css": "./styles/tokens.css"
+  }
+}

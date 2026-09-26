@@ -1,0 +1,4 @@
+packages:
+  - site
+  - admin
+  - shared
