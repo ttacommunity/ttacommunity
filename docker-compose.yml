@@ -4,26 +4,26 @@ name: ttacommunity
 
 services:
   ratings-db:
-    image: docker.io/library/postgres:17-alpine@sha256:b0f9560a2de083e2cc7382e75f808c7381a32852a7ec49117deedb300e552b24
+    image: docker.io/library/postgres:18-alpine@sha256:77f585114c32fbca283dc835b0596f4e52b51b4c6662d7810b2f4084f60a1873
     environment:
       POSTGRES_USER: ratings
       POSTGRES_DB: ratings
       POSTGRES_PASSWORD: ${RATINGS_DB_PASSWORD:?set RATINGS_DB_PASSWORD in .env}
     ports: ["127.0.0.1:55432:5432"]
-    volumes: [ratings-db:/var/lib/postgresql/data]
+    volumes: [ratings-db:/var/lib/postgresql]
     healthcheck:
       test: ["CMD", "pg_isready", "-U", "ratings", "-d", "ratings"]
       interval: 2s
       retries: 30
 
   app-db:
-    image: docker.io/library/postgres:17-alpine@sha256:b0f9560a2de083e2cc7382e75f808c7381a32852a7ec49117deedb300e552b24
+    image: docker.io/library/postgres:18-alpine@sha256:77f585114c32fbca283dc835b0596f4e52b51b4c6662d7810b2f4084f60a1873
     environment:
       POSTGRES_USER: app
       POSTGRES_DB: app
       POSTGRES_PASSWORD: ${APP_DB_PASSWORD:?set APP_DB_PASSWORD in .env}
     ports: ["127.0.0.1:55433:5432"]
-    volumes: [app-db:/var/lib/postgresql/data]
+    volumes: [app-db:/var/lib/postgresql]
     healthcheck:
       test: ["CMD", "pg_isready", "-U", "app", "-d", "app"]
       interval: 2s
