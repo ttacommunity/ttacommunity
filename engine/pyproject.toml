@@ -5,6 +5,7 @@ description = "The ttacommunity rating engine: DANeo's Glicko rating math, run a
 requires-python = "==3.12.*"
 dependencies = [
     "numpy>=1.26",
+    "python-dateutil>=2.9",
 ]
 
 [dependency-groups]
@@ -19,7 +20,20 @@ package = false
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 pythonpath = ["."]
+addopts = ["--import-mode=importlib"]
 markers = ["slow: convergence sweeps; CI runs them on main only"]
 
 [tool.ruff]
 target-version = "py312"
+# Upstream's code, kept as copied until it is refactored. Remove a file once it is.
+extend-exclude = [
+    "src/models",
+    "src/data/badges.py",
+    "tests/data/test_badges.py",
+    "tests/models/evaluation/test_walk_forward.py",
+    "tests/models/glicko2/test_adaptive_t.py",
+    "tests/models/glicko2/test_calculator.py",
+    "tests/models/glicko2/test_engine.py",
+    "tests/models/whr/test_engine.py",
+    "tests/models/whr/test_solver.py",
+]
