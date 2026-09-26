@@ -1,0 +1,25 @@
+[project]
+name = "ttacommunity-engine"
+version = "0.0.0"
+description = "The ttacommunity rating engine: DANeo's Glicko rating math, run against Postgres"
+requires-python = "==3.12.*"
+dependencies = [
+    "numpy>=1.26",
+]
+
+[dependency-groups]
+dev = [
+    "pytest>=8",
+    "ruff>=0.6",
+]
+
+[tool.uv]
+package = false
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
+markers = ["slow: convergence sweeps; CI runs them on main only"]
+
+[tool.ruff]
+target-version = "py312"

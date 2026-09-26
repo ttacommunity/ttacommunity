@@ -1,0 +1,79 @@
+# Everything in containers: both databases, api, worker, the engine and the
+# site's dev server. Start it with scripts/dev.sh. Ports bind to localhost only.
+name: ttacommunity
+
+services:
+  ratings-db:
+    image: docker.io/library/postgres:18-alpine@sha256:77f585114c32fbca283dc835b0596f4e52b51b4c6662d7810b2f4084f60a1873
+    environment:
+      POSTGRES_USER: ratings
+      POSTGRES_DB: ratings
+      POSTGRES_PASSWORD: ${RATINGS_DB_PASSWORD:?set RATINGS_DB_PASSWORD in .env}
+    ports: ["127.0.0.1:55432:5432"]
+    volumes: [ratings-db:/var/lib/postgresql]
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "ratings", "-d", "ratings"]
+      interval: 2s
+      retries: 30
+
+  app-db:
+    image: docker.io/library/postgres:18-alpine@sha256:77f585114c32fbca283dc835b0596f4e52b51b4c6662d7810b2f4084f60a1873
+    environment:
+      POSTGRES_USER: app
+      POSTGRES_DB: app
+      POSTGRES_PASSWORD: ${APP_DB_PASSWORD:?set APP_DB_PASSWORD in .env}
+    ports: ["127.0.0.1:55433:5432"]
+    volumes: [app-db:/var/lib/postgresql]
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "app", "-d", "app"]
+      interval: 2s
+      retries: 30
+
+  api:
+    build: { context: backend, target: api }
+    environment:
+      API_ADDR: :8080
+      RATINGS_DATABASE_URL: postgres://ratings:${RATINGS_DB_PASSWORD}@ratings-db:5432/ratings?sslmode=disable
+      APP_DATABASE_URL: postgres://app:${APP_DB_PASSWORD}@app-db:5432/app?sslmode=disable
+    ports: ["127.0.0.1:8080:8080"]
+    depends_on:
+      ratings-db: { condition: service_healthy }
+      app-db: { condition: service_healthy }
+
+  worker:
+    build: { context: backend, target: worker }
+    environment:
+      APP_DATABASE_URL: postgres://app:${APP_DB_PASSWORD}@app-db:5432/app?sslmode=disable
+    depends_on:
+      app-db: { condition: service_healthy }
+
+  # A one-shot job, like the CronJob it stands in for. scripts/dev.sh runs it once.
+  engine:
+    build: { context: engine }
+    profiles: [engine]
+    environment:
+      RATINGS_DATABASE_URL: postgres://ratings:${RATINGS_DB_PASSWORD}@ratings-db:5432/ratings?sslmode=disable
+    depends_on:
+      ratings-db: { condition: service_healthy }
+
+  site:
+    image: docker.io/library/node:24-alpine@sha256:ebfe2f90462722a7a4de65e91990e97fe0d401c70e0e762c5b53302f905ec1c1
+    working_dir: /web
+    environment:
+      COREPACK_ENABLE_DOWNLOAD_PROMPT: "0"
+      npm_config_store_dir: /pnpm-store
+    command: sh -c "corepack pnpm install --frozen-lockfile && corepack pnpm --filter @ttac/site dev --host 0.0.0.0"
+    ports: ["127.0.0.1:4321:4321"]
+    volumes:
+      - ./web:/web:z
+      # The container's own node_modules, so host and container never share native binaries.
+      - /web/node_modules
+      - /web/site/node_modules
+      - /web/admin/node_modules
+      - /web/shared/node_modules
+      - pnpm-store:/pnpm-store
+
+volumes:
+  ratings-db:
+  app-db:
+  pnpm-store:

@@ -44,6 +44,11 @@ __pycache__/
 .mypy_cache/
 *.egg-info/
 
+# --- Match data: never committed; it lives outside the repo --------------------
+# Anchored: engine/src/data/ is code, and must stay tracked.
+/data/
+/engine/data/
+
 # --- Local databases and engine output ------------------------------------------
 *.db
 *.db-journal

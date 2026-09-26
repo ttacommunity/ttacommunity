@@ -1,0 +1,15 @@
+packages:
+  - site
+  - admin
+  - shared
+
+# Only these packages may run install scripts (esbuild fetches its binary).
+allowBuilds:
+  esbuild: true
+
+
+# eslint-plugin-jsx-a11y is aliased to its fork, eslint-plugin-jsx-a11y-x, which
+# supports ESLint 10. The fork's own version numbers restart at 0.x.
+peerDependencyRules:
+  allowedVersions:
+    eslint-plugin-astro>eslint-plugin-jsx-a11y: '0.2'

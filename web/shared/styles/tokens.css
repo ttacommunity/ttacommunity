@@ -1,0 +1,21 @@
+/* Design tokens: DANeo's palette and fonts. Components use these, never raw values. */
+:root {
+  --bg-dark: #1c130d;
+  --gold: #e5a93c;
+  --crimson: #8e1e1d;
+  --text: #f3e5c8;
+  --text-muted: #a89880;
+  --border: #4a3525;
+
+  --font-display: 'Cinzel', serif;
+  --font-heading: 'Marcellus', serif;
+  --font-body: 'Source Serif 4', serif;
+  --font-ui: 'Inter', system-ui, sans-serif;
+}
+
+body {
+  margin: 0;
+  background: var(--bg-dark);
+  color: var(--text);
+  font-family: var(--font-body);
+}

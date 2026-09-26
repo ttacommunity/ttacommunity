@@ -1,0 +1,23 @@
+{
+  "name": "ttacommunity-web",
+  "private": true,
+  "type": "module",
+  "packageManager": "pnpm@12.6.0",
+  "engines": {
+    "node": ">=24 <25"
+  },
+  "scripts": {
+    "lint": "eslint .",
+    "check": "pnpm --recursive --workspace-concurrency=1 --if-present check",
+    "test": "vitest run",
+    "build": "pnpm --recursive --workspace-concurrency=1 --if-present build"
+  },
+  "devDependencies": {
+    "eslint": "^10.11.0",
+    "eslint-plugin-astro": "^3.2.1",
+    "eslint-plugin-jsx-a11y": "npm:eslint-plugin-jsx-a11y-x@^0.2.0",
+    "typescript": "~6.0.3",
+    "typescript-eslint": "^8.70.1",
+    "vitest": "^5.0.2"
+  }
+}
