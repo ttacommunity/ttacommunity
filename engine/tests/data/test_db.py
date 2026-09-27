@@ -1,6 +1,6 @@
 import pytest
 
-from src.data.db import get_connection, init_db
+from tta_ratings_engine.data.db import get_connection, init_db
 
 ENGINE_TABLES = {
     "players",

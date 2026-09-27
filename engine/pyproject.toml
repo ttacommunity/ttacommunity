@@ -1,5 +1,5 @@
 [project]
-name = "ttacommunity-engine"
+name = "tta-ratings-engine"
 version = "0.0.0"
 description = "The ttacommunity rating engine: DANeo's Glicko rating math, run against Postgres"
 requires-python = "==3.12.*"
@@ -14,12 +14,12 @@ dev = [
     "ruff>=0.6",
 ]
 
-[tool.uv]
-package = false
+[build-system]
+requires = ["uv_build>=0.12.19,<0.13"]
+build-backend = "uv_build"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-pythonpath = ["."]
 addopts = ["--import-mode=importlib"]
 markers = ["slow: convergence sweeps; CI runs them on main only"]
 
@@ -27,8 +27,8 @@ markers = ["slow: convergence sweeps; CI runs them on main only"]
 target-version = "py312"
 # Upstream's code, kept as copied until it is refactored. Remove a file once it is.
 extend-exclude = [
-    "src/models",
-    "src/data/badges.py",
+    "src/tta_ratings_engine/models",
+    "src/tta_ratings_engine/data/badges.py",
     "tests/data/test_badges.py",
     "tests/models/evaluation/test_walk_forward.py",
     "tests/models/glicko2/test_adaptive_t.py",

@@ -1,5 +1,5 @@
 import pytest
-from src.data.badges import classify_division_tier, derive_tournament_badges
+from tta_ratings_engine.data.badges import classify_division_tier, derive_tournament_badges
 
 def test_badge_classification():
     """Tests tournament division to badge tier classification."""

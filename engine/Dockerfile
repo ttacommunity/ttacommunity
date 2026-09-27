@@ -6,11 +6,11 @@ FROM docker.io/library/python:3.12-slim@sha256:f77ac9e44ae96ef2c90b8053ea08c31f8
 COPY --from=uv /uv /usr/local/bin/uv
 WORKDIR /engine
 COPY pyproject.toml uv.lock ./
-RUN uv export --frozen --no-dev --no-hashes -o /tmp/requirements.txt && \
+RUN uv export --frozen --no-dev --no-hashes --no-emit-project -o /tmp/requirements.txt && \
     pip install --no-cache-dir --only-binary=:all: --target /engine/deps -r /tmp/requirements.txt && \
     rm /usr/local/bin/uv /tmp/requirements.txt
 COPY . .
-ENV PYTHONPATH=/engine/deps:/engine PYTHONDONTWRITEBYTECODE=1
+ENV PYTHONPATH=/engine/deps:/engine/src PYTHONDONTWRITEBYTECODE=1
 USER 65532:65532
 ENTRYPOINT ["python"]
 CMD ["-c", "import numpy; print('engine image ok')"]

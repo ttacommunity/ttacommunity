@@ -7,15 +7,15 @@ import math
 from typing import Dict, List, Tuple, Optional, Any
 import numpy as np
 
-from src.data.db import get_connection
-from src.models.whr.engine import WHREngine, GLICKO2_SCALE, DEFAULT_RATING
-from src.models.glicko2.engine import Rating, update_rating, GLICKO2_SCALE as G2_SCALE, g
-from src.models.glicko2.calculator import (
+from tta_ratings_engine.data.db import get_connection
+from tta_ratings_engine.models.whr.engine import WHREngine, GLICKO2_SCALE, DEFAULT_RATING
+from tta_ratings_engine.models.glicko2.engine import Rating, update_rating, GLICKO2_SCALE as G2_SCALE, g
+from tta_ratings_engine.models.glicko2.calculator import (
     CALIBRATED_TAU, CALIBRATED_SIGMA, INACTIVITY_DRIFT_PER_MONTH, get_tier_mean,
     RESET_ALPHA_SOFTER, RESET_LAMBDA_SOFTER,
     GOLDEN_MP_WEIGHTS, compute_decoupled_scaling, compute_player_thresholds
 )
-from src.models.glicko2.adaptive_t import (
+from tta_ratings_engine.models.glicko2.adaptive_t import (
     calibrated_expectation, update_rating_adaptive
 )
 

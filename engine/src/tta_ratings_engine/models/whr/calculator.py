@@ -3,9 +3,9 @@ from datetime import datetime
 import sqlite3
 from typing import Optional, Dict
 
-from src.data.db import get_connection
-from src.models.whr.engine import WHREngine, DEFAULT_W2_PER_DAY
-from src.models.glicko2.calculator import (
+from tta_ratings_engine.data.db import get_connection
+from tta_ratings_engine.models.whr.engine import WHREngine, DEFAULT_W2_PER_DAY
+from tta_ratings_engine.models.glicko2.calculator import (
     get_tier_mean,
     RESET_ALPHA_SOFT, RESET_LAMBDA_SOFT,
     RESET_ALPHA_SOFTER, RESET_LAMBDA_SOFTER,

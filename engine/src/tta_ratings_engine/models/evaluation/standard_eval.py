@@ -13,10 +13,10 @@ from pathlib import Path
 from typing import Dict, List, Tuple, Optional, Any
 import numpy as np
 
-from src.data.db import get_connection
-from src.models.whr.engine import WHREngine, GLICKO2_SCALE, DEFAULT_RATING
-from src.models.glicko2.engine import Rating, update_rating, GLICKO2_SCALE as G2_SCALE
-from src.models.glicko2.calculator import (
+from tta_ratings_engine.data.db import get_connection
+from tta_ratings_engine.models.whr.engine import WHREngine, GLICKO2_SCALE, DEFAULT_RATING
+from tta_ratings_engine.models.glicko2.engine import Rating, update_rating, GLICKO2_SCALE as G2_SCALE
+from tta_ratings_engine.models.glicko2.calculator import (
     CALIBRATED_TAU, CALIBRATED_SIGMA, INACTIVITY_DRIFT_PER_MONTH, get_tier_mean,
     compute_decoupled_scaling, compute_player_thresholds,
     RESET_ALPHA_SOFT, RESET_LAMBDA_SOFT,
@@ -24,11 +24,11 @@ from src.models.glicko2.calculator import (
     RESET_ALPHA_HARD, RESET_LAMBDA_HARD,
     GOLDEN_MP_WEIGHTS
 )
-from src.models.glicko2.adaptive_t import (
+from tta_ratings_engine.models.glicko2.adaptive_t import (
     calibrated_expectation, update_rating_adaptive,
     ADAPTIVE_T_PARAMS
 )
-from src.models.evaluation.walk_forward import compute_metrics_from_preds, BIN_LABELS, IDEAL_POINTS
+from tta_ratings_engine.models.evaluation.walk_forward import compute_metrics_from_preds, BIN_LABELS, IDEAL_POINTS
 
 
 def evaluate_standard_glicko2(

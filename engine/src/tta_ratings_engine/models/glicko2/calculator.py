@@ -5,8 +5,8 @@ import math
 import sqlite3
 from typing import Dict, List, Tuple, Optional, Any
 
-from src.data.db import get_connection
-from src.models.glicko2.engine import Rating, update_rating, GLICKO2_SCALE
+from tta_ratings_engine.data.db import get_connection
+from tta_ratings_engine.models.glicko2.engine import Rating, update_rating, GLICKO2_SCALE
 
 # Calibrated constants matching official TTA online implementation
 CALIBRATED_TAU = 0.3
@@ -136,7 +136,7 @@ def compute_gaussian_phi_scaling(rating: float, mean_rating: float = 1500.0, sig
     return alpha_mult, lambda_mult
 
 
-from src.models.glicko2.adaptive_t import update_rating_adaptive, ADAPTIVE_T_PARAMS
+from tta_ratings_engine.models.glicko2.adaptive_t import update_rating_adaptive, ADAPTIVE_T_PARAMS
 
 
 def compute_player_thresholds(

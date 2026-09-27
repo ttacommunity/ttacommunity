@@ -1,5 +1,5 @@
 import pytest
-from src.models.glicko2.calculator import get_tier_mean
+from tta_ratings_engine.models.glicko2.calculator import get_tier_mean
 
 def test_tier_regression_rules():
     """Tests 16-tier dynamic phi-quantile hierarchy and deflation-only reset rules."""
@@ -25,7 +25,7 @@ def test_tier_regression_rules():
 
 def test_daneo_golden_ratio_weights_and_invariant():
     """Tests the Golden Ratio multiplayer information weights and dimensional invariant."""
-    from src.models.glicko2.calculator import GOLDEN_MP_WEIGHTS, PHI
+    from tta_ratings_engine.models.glicko2.calculator import GOLDEN_MP_WEIGHTS, PHI
     # Check weights
     assert abs(GOLDEN_MP_WEIGHTS[2] - 1.0) < 1e-6
     assert abs(GOLDEN_MP_WEIGHTS[3] - PHI / 2.0) < 1e-6

@@ -1,6 +1,6 @@
 import numpy as np
 import pytest
-from src.models.whr.solver import solve_tridiagonal
+from tta_ratings_engine.models.whr.solver import solve_tridiagonal
 
 def test_thomas_solver_identity():
     # 3x3 diagonal system

@@ -18,7 +18,7 @@ from typing import Dict, List, Tuple, Optional, Any
 from datetime import datetime
 from dateutil.relativedelta import relativedelta
 from pathlib import Path
-from src.data.db import get_connection
+from tta_ratings_engine.data.db import get_connection
 
 # Tournament division tier rankings (1 = Highest / GM, 2 = M, 3 = P, 4 = G, 5 = S, 6 = B, 7 = W)
 TIER_TITLE_MAP = {

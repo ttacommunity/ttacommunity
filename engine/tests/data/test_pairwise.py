@@ -1,7 +1,7 @@
 import pytest
 
-from src.data.db import get_connection, init_db
-from src.data.pairwise import expand_pairwise
+from tta_ratings_engine.data.db import get_connection, init_db
+from tta_ratings_engine.data.pairwise import expand_pairwise
 
 
 @pytest.fixture

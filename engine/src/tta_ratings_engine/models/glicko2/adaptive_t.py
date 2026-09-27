@@ -6,7 +6,7 @@ scaling function T(P, N).
 """
 import math
 from typing import Dict, List, Tuple, Optional
-from src.models.glicko2.engine import (
+from tta_ratings_engine.models.glicko2.engine import (
     Rating, GLICKO2_SCALE, DEFAULT_RATING, DEFAULT_RD, DEFAULT_SIGMA, MAX_RD, g, E, apply_inactivity
 )
 

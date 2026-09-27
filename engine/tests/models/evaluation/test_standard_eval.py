@@ -1,11 +1,13 @@
 from pathlib import Path
 
-import src
-from src.data.db import get_connection, init_db
-from src.data.pairwise import expand_pairwise
-from src.models.evaluation.standard_eval import run_standard_calibration_all
+import tta_ratings_engine
+from tta_ratings_engine.data.db import get_connection, init_db
+from tta_ratings_engine.data.pairwise import expand_pairwise
+from tta_ratings_engine.models.evaluation.standard_eval import (
+    run_standard_calibration_all,
+)
 
-ENGINE_DIR = Path(src.__file__).resolve().parents[1]
+ENGINE_DIR = Path(tta_ratings_engine.__file__).resolve().parents[2]
 
 
 def seed(db):

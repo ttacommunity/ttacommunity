@@ -3,8 +3,8 @@ import json
 import math
 import numpy as np
 import pytest
-from src.data.db import get_connection, init_db
-from src.models.evaluation.walk_forward import compute_metrics_from_preds, run_walk_forward_evaluation
+from tta_ratings_engine.data.db import get_connection, init_db
+from tta_ratings_engine.models.evaluation.walk_forward import compute_metrics_from_preds, run_walk_forward_evaluation
 
 
 def test_compute_metrics_from_preds():
