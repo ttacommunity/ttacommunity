@@ -1,22 +1,26 @@
 #!/usr/bin/env bash
 # Seed an empty ratings database from a dump, and create the api's read-only
-# login. Refuses a database that already has tables.
-#
-# Usage: scripts/seed-cluster-db.sh --host HOST [--port PORT] [--dump FILE]
-#        scripts/seed-cluster-db.sh --kubectl [--dump FILE]
-#
-#   --host, --port  connect directly (default port 5432). Needs psql and
-#                   pg_restore. PGPASSWORD is the ratings owner's password;
-#                   RATINGS_API_PASSWORD becomes ratings_api's
-#   --kubectl       go through kubectl to the ttacommunity namespace instead,
-#                   reading both passwords from its Secrets (deploy/SECRETS.md)
-#   --dump          a pg_dump -Fc file; without one, the local compose
-#                   database is dumped
+# login. Refuses a database that already has tables. Run with no arguments
+# for usage.
 set -euo pipefail
 
 cd "$(dirname "$0")/.."
 
-usage() { sed -n '5,6p' "$0" | sed 's/^# //' >&2; exit 64; }
+usage() {
+  cat >&2 <<'EOF'
+Usage: scripts/seed-cluster-db.sh --host HOST [--port PORT] [--dump FILE]
+       scripts/seed-cluster-db.sh --kubectl [--dump FILE]
+
+  --host, --port  connect directly (default port 5432). Needs psql and
+                  pg_restore. PGPASSWORD is the ratings owner's password;
+                  RATINGS_API_PASSWORD becomes ratings_api's
+  --kubectl       go through kubectl to the ttacommunity namespace instead,
+                  reading both passwords from its Secrets (deploy/SECRETS.md)
+  --dump          a pg_dump -Fc file; without one, the local compose
+                  database is dumped
+EOF
+  exit 64
+}
 
 mode="" host="" port=5432 dump=""
 while [ $# -gt 0 ]; do
