@@ -103,6 +103,22 @@ func TestCheckReadOnly(t *testing.T) {
 	if err := NewRatingsReader(pool).CheckReadOnly(ctx); !errors.Is(err, ErrCanWrite) {
 		t.Errorf("CheckReadOnly as the owner: err = %v, want ErrCanWrite", err)
 	}
+	if err := NewRatingsReader(newDB(t)).CheckReadOnly(ctx); !errors.Is(err, ErrCanWrite) {
+		t.Errorf("CheckReadOnly as the owner of an unmigrated database: err = %v, want ErrCanWrite", err)
+	}
+}
+
+func TestCheckReadOnlyCatchesAnyWritableTable(t *testing.T) {
+	pool := migrated(t)
+	ctx := context.Background()
+	if _, err := pool.Exec(ctx, "GRANT INSERT ON refused_rows TO ratings_read"); err != nil {
+		t.Fatalf("granting INSERT on refused_rows: %v", err)
+	}
+	t.Cleanup(func() { _, _ = pool.Exec(context.Background(), "REVOKE INSERT ON refused_rows FROM ratings_read") })
+
+	if err := NewRatingsReader(asReader(t, pool)).CheckReadOnly(ctx); !errors.Is(err, ErrCanWrite) {
+		t.Errorf("CheckReadOnly with INSERT on refused_rows: err = %v, want ErrCanWrite", err)
+	}
 }
 
 func TestCurrentRun(t *testing.T) {

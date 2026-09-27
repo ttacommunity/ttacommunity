@@ -50,14 +50,17 @@ func NewRatingsReader(pool *pgxpool.Pool) *RatingsReader {
 	return &RatingsReader{pool: pool}
 }
 
-// CheckReadOnly returns ErrCanWrite if the pool's role can change ratings.
+// CheckReadOnly returns ErrCanWrite if the pool's role is a superuser, can
+// create tables, or can change any table. It works before the schema exists.
 // The API calls it at start, so a misconfigured role refuses to serve.
 func (r *RatingsReader) CheckReadOnly(ctx context.Context) error {
 	var canWrite bool
 	err := r.pool.QueryRow(ctx, `
-		SELECT has_table_privilege('player_ratings', 'INSERT, UPDATE, DELETE, TRUNCATE')
-			OR has_table_privilege('current_run', 'INSERT, UPDATE, DELETE, TRUNCATE')
-			OR has_schema_privilege('public', 'CREATE')`).Scan(&canWrite)
+		SELECT (SELECT rolsuper FROM pg_roles WHERE rolname = current_user)
+			OR has_schema_privilege('public', 'CREATE')
+			OR EXISTS (SELECT 1 FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace
+				WHERE n.nspname = 'public' AND c.relkind IN ('r', 'p')
+				AND has_table_privilege(c.oid, 'INSERT, UPDATE, DELETE, TRUNCATE'))`).Scan(&canWrite)
 	if err != nil {
 		return fmt.Errorf("checking the ratings reader's privileges: %w", err)
 	}
