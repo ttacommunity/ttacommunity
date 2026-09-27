@@ -1,10 +1,16 @@
 #!/usr/bin/env bash
 # Ask each registry whether every pinned image digest in the repo exists.
 # A fabricated digest looks exactly like a real one; only the registry knows.
-# Private GitLab images use CI_REGISTRY_USER/CI_JOB_TOKEN when they are set.
+# Private GitLab images use CI_REGISTRY_USER/CI_JOB_TOKEN when they are set,
+# and otherwise the local glab login, if there is one.
 set -uo pipefail
 
 cd "$(dirname "$0")/.." || exit 1
+
+GLAB_TOKEN=""
+if [ -z "${CI_JOB_TOKEN:-}" ] && command -v glab >/dev/null 2>&1; then
+  GLAB_TOKEN=$(glab config get token --host gitlab.com 2>/dev/null) || GLAB_TOKEN=""
+fi
 
 command -v curl >/dev/null 2>&1 || { echo "verify-digests: curl is required" >&2; exit 1; }
 command -v jq >/dev/null 2>&1 || { echo "verify-digests: jq is required" >&2; exit 1; }
@@ -30,6 +36,8 @@ status() {
     service=$(printf '%s' "$headers" | tr -d '\r' | sed -n 's/^[Ww]ww-[Aa]uthenticate:.*service="\([^"]*\)".*/\1/p')
     if [ "$registry" = registry.gitlab.com ] && [ -n "${CI_JOB_TOKEN:-}" ]; then
       auth=(-u "${CI_REGISTRY_USER}:${CI_JOB_TOKEN}")
+    elif [ "$registry" = registry.gitlab.com ] && [ -n "$GLAB_TOKEN" ]; then
+      auth=(-u "oauth2:$GLAB_TOKEN")
     fi
     token=$(curl -sS --max-time 25 "${auth[@]}" "$realm?scope=repository:$repo:pull&service=$service" |
       jq -r '.token // .access_token // empty')
