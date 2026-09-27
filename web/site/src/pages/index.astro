@@ -12,6 +12,12 @@ import '@ttac/shared/styles/tokens.css';
     <main>
       <h1>ttacommunity</h1>
       <p>Ratings, tournaments and blitz games for the Through the Ages community.</p>
+      <nav aria-label="Sections">
+        <a class="card" href="/ratings/">
+          <h2>Ratings</h2>
+          <p>The community leaderboard: every rated player, by model and player count.</p>
+        </a>
+      </nav>
     </main>
   </body>
 </html>
@@ -25,5 +31,31 @@ import '@ttac/shared/styles/tokens.css';
   h1 {
     color: var(--gold);
     font-family: var(--font-display);
+  }
+  .card {
+    display: block;
+    max-width: 22rem;
+    padding: 1rem 1.25rem;
+    border: 1px solid var(--text-muted);
+    border-radius: 0.5rem;
+    color: var(--text);
+    text-decoration: none;
+  }
+  .card:hover,
+  .card:focus-visible {
+    border-color: var(--gold);
+  }
+  .card:focus-visible {
+    outline: 2px solid var(--gold);
+    outline-offset: 2px;
+  }
+  .card h2 {
+    margin: 0 0 0.25rem;
+    color: var(--gold);
+    font-family: var(--font-heading);
+  }
+  .card p {
+    margin: 0;
+    color: var(--text-muted);
   }
 </style>
