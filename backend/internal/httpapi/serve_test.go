@@ -3,6 +3,7 @@ package httpapi
 import (
 	"context"
 	"errors"
+	"log/slog"
 	"net"
 	"net/http"
 	"testing"
@@ -17,7 +18,7 @@ func TestServeAnswersThenStopsWhenContextIsCancelled(t *testing.T) {
 	}
 	ctx, cancel := context.WithCancel(context.Background())
 	done := make(chan error, 1)
-	go func() { done <- Serve(ctx, ln, NewMux()) }()
+	go func() { done <- Serve(ctx, ln, NewMux(&fakeRatings{}, slog.New(slog.DiscardHandler))) }()
 
 	resp, err := client.Get("http://" + ln.Addr().String() + "/healthz")
 	if err != nil {
@@ -50,7 +51,7 @@ func TestServeReturnsListenerError(t *testing.T) {
 	}
 	ln.Close()
 
-	err = Serve(context.Background(), ln, NewMux())
+	err = Serve(context.Background(), ln, NewMux(&fakeRatings{}, slog.New(slog.DiscardHandler)))
 	if err == nil || errors.Is(err, http.ErrServerClosed) {
 		t.Errorf("Serve on a closed listener: err = %v, want a listener error", err)
 	}

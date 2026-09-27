@@ -1,0 +1,219 @@
+openapi: 3.0.3
+info:
+  title: ttacommunity API
+  version: 0.1.0
+  description: |
+    Public ratings for Through the Ages. Ratings change only when a new run
+    is published, so each run's data sits at its own URL and never changes.
+    Ask `/v1/runs/current` which run to read, then read that run.
+    See docs/architecture.md#rating-runs.
+paths:
+  /healthz:
+    get:
+      operationId: getHealthz
+      summary: The process is up
+      responses:
+        "200":
+          description: Up
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Health"
+  /v1/runs/current:
+    get:
+      operationId: getCurrentRun
+      summary: The run the site shows now
+      description: Cached for a minute, so a newly published run shows within one.
+      responses:
+        "200":
+          description: The current run
+          headers:
+            Cache-Control:
+              $ref: "#/components/headers/CacheControl"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Run"
+        "503":
+          $ref: "#/components/responses/NoPublishedRun"
+  /v1/runs/{run}/leaderboard:
+    get:
+      operationId: getLeaderboard
+      summary: Every rated player in one model and format, in rank order
+      description: A published run never changes, so this is cached for a year.
+      parameters:
+        - $ref: "#/components/parameters/RunId"
+        - name: model
+          in: query
+          required: false
+          schema:
+            $ref: "#/components/schemas/Model"
+        - name: format
+          in: query
+          required: false
+          schema:
+            $ref: "#/components/schemas/Format"
+      responses:
+        "200":
+          description: The leaderboard
+          headers:
+            Cache-Control:
+              $ref: "#/components/headers/CacheControl"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Leaderboard"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "404":
+          $ref: "#/components/responses/NotFound"
+components:
+  parameters:
+    RunId:
+      name: run
+      in: path
+      required: true
+      description: A published run's id, from `/v1/runs/current`
+      schema:
+        type: integer
+        format: int64
+        minimum: 1
+  headers:
+    CacheControl:
+      required: true
+      schema:
+        type: string
+  responses:
+    BadRequest:
+      description: A parameter is not one the API knows
+      headers:
+        Cache-Control:
+          $ref: "#/components/headers/CacheControl"
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+    NotFound:
+      description: No published run has this id. It may be published later, so this is not cached
+      headers:
+        Cache-Control:
+          $ref: "#/components/headers/CacheControl"
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+    NoPublishedRun:
+      description: No run has been published yet
+      headers:
+        Cache-Control:
+          $ref: "#/components/headers/CacheControl"
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+  schemas:
+    Health:
+      type: object
+      required: [status]
+      properties:
+        status:
+          type: string
+    Error:
+      type: object
+      required: [error]
+      properties:
+        error:
+          type: string
+    Run:
+      type: object
+      required: [run_id, published_at]
+      properties:
+        run_id:
+          type: integer
+          format: int64
+        published_at:
+          type: string
+          format: date-time
+    Model:
+      description: |
+        The rating model. `_softer` models reset gently each season, and
+        `_retro` models start from a retrospectively calibrated prior.
+      type: string
+      default: glicko2_daneo
+      enum:
+        - glicko2_daneo
+        - glicko2_daneo_softer
+        - glicko2_std
+        - glicko2_std_softer
+        - glicko2_std_retro
+        - glicko2_std_softer_retro
+        - glicko2_mp
+        - glicko2_mp_softer
+        - glicko2_mp_retro
+        - glicko2_mp_softer_retro
+        - glicko2_adapt
+        - glicko2_adapt_softer
+        - glicko2_adapt_retro
+        - glicko2_adapt_softer_retro
+        - whr
+        - whr_softer
+    Format:
+      description: Players per game. 0 is every format together
+      type: integer
+      default: 0
+      enum: [0, 2, 3, 4]
+    Leaderboard:
+      type: object
+      required: [run_id, model, format, players]
+      properties:
+        run_id:
+          type: integer
+          format: int64
+        model:
+          $ref: "#/components/schemas/Model"
+        format:
+          $ref: "#/components/schemas/Format"
+        players:
+          type: array
+          items:
+            $ref: "#/components/schemas/LeaderboardRow"
+    LeaderboardRow:
+      type: object
+      required: [rank, rank_delta, name, rating, rd, c_rating, games, opponents, wins, losses, draws, win_rate, last_played]
+      properties:
+        rank:
+          type: integer
+          nullable: true
+        rank_delta:
+          type: integer
+        name:
+          type: string
+        rating:
+          type: number
+          format: double
+        rd:
+          description: Rating deviation
+          type: number
+          format: double
+        c_rating:
+          description: Conservative rating, which the rank is ordered by
+          type: number
+          format: double
+        games:
+          type: integer
+        opponents:
+          type: integer
+        wins:
+          type: integer
+        losses:
+          type: integer
+        draws:
+          type: integer
+        win_rate:
+          description: Percent, 0 to 100
+          type: number
+          format: double
+        last_played:
+          type: string
+          format: date
+          nullable: true
