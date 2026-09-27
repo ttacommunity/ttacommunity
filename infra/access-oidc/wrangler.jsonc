@@ -7,6 +7,7 @@
   "compatibility_date": "2026-09-27",
   "kv_namespaces": [{ "binding": "KV", "id": "db7b6bc1d3114c00bc8d3f3a6edd92f7" }],
   "vars": {
+    "CLIENT_ID": "1553758975940370573",
     "REDIRECT_URL": "https://unstableunicorn.cloudflareaccess.com/cdn-cgi/access/callback"
   },
   "workers_dev": false,
