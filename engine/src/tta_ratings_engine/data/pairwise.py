@@ -79,5 +79,7 @@ def _expand(conn, run_id):
     ) as copy:
         for pair in pairwise_to_insert:
             copy.write_row(pair)
+    # Without fresh statistics, the models' first queries get a plan for an empty table.
+    conn.execute("ANALYZE pairwise_matches")
 
     return len(pairwise_to_insert)

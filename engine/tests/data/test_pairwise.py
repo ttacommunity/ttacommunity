@@ -112,3 +112,14 @@ def test_a_finished_run_gets_no_pairs(conn, add_match, run_id):
         expand_pairwise(conn, run_id)
 
     assert pairs(conn, run_id) == []
+
+
+def test_the_planner_knows_about_the_new_pairs(conn, add_match, run_id):
+    add_match(("A", 10), ("B", 20), ("C", 30))
+
+    expand_pairwise(conn, run_id)
+
+    row = conn.execute(
+        "SELECT reltuples FROM pg_class WHERE relname = 'pairwise_matches'"
+    ).fetchone()
+    assert row["reltuples"] == 3
