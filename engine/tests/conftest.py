@@ -101,7 +101,9 @@ def add_match(conn):
                 "INSERT INTO players (name) VALUES (%s) ON CONFLICT DO NOTHING",
                 (name,),
             )
-        stmt = sql.SQL("INSERT INTO matches ({}) VALUES ({}) RETURNING match_id").format(
+        stmt = sql.SQL(
+            "INSERT INTO matches ({}) VALUES ({}) RETURNING match_id"
+        ).format(
             sql.SQL(", ").join(map(sql.Identifier, cols)),
             sql.SQL(", ").join(sql.Placeholder() * len(cols)),
         )

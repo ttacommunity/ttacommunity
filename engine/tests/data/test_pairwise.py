@@ -103,7 +103,9 @@ def test_the_pairs_are_committed(conn, db_url, add_match, run_id):
 
 def test_a_finished_run_gets_no_pairs(conn, add_match, run_id):
     add_match(("A", 10), ("B", 20))
-    conn.execute("UPDATE rating_runs SET status = 'failed' WHERE run_id = %s", (run_id,))
+    conn.execute(
+        "UPDATE rating_runs SET status = 'failed' WHERE run_id = %s", (run_id,)
+    )
     conn.commit()
 
     with pytest.raises(RunNotRunning):

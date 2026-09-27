@@ -74,7 +74,9 @@ def _expand(conn, run_id):
                 )
 
     conn.execute("DELETE FROM pairwise_matches WHERE run_id = %s", (run_id,))
-    with conn.cursor().copy(f"COPY pairwise_matches ({PAIR_COLUMNS}) FROM STDIN") as copy:
+    with conn.cursor().copy(
+        f"COPY pairwise_matches ({PAIR_COLUMNS}) FROM STDIN"
+    ) as copy:
         for pair in pairwise_to_insert:
             copy.write_row(pair)
 

@@ -13,12 +13,14 @@ Implements the official badge award rules:
 - Hover Reason: Shows the latest tournament division and season (e.g. 'Played in International Championship Grandmaster Season 6').
 """
 import re
-import sqlite3
 from typing import Dict, List, Tuple, Optional, Any
 from datetime import datetime
 from dateutil.relativedelta import relativedelta
 from pathlib import Path
-from tta_ratings_engine.data.db import get_connection
+
+import psycopg
+
+from tta_ratings_engine.data.db import require_running
 
 # Tournament division tier rankings (1 = Highest / GM, 2 = M, 3 = P, 4 = G, 5 = S, 6 = B, 7 = W)
 TIER_TITLE_MAP = {
@@ -169,23 +171,27 @@ def parse_badge_reason(tournament_name: str, tier: int) -> str:
     return f"Played in {t}"
 
 
-def derive_tournament_badges(db_path: Optional[str] = None) -> Dict[str, Any]:
-    """Derives and saves tournament badges for all active players within 6 months."""
-    conn = get_connection(db_path)
-    try:
+def derive_tournament_badges(*, conn: psycopg.Connection, run_id: int) -> Dict[str, Any]:
+    """Derives tournament badges for all active players within 6 months, and returns them.
+
+    Replaces the run's player_titles with those of known players, in one
+    committed transaction. Raises RunNotRunning unless the run is running.
+    """
+    with conn.transaction():
+        require_running(conn, run_id)
         # Determine 6-month recency cutoff based on latest match in DB
-        max_row = conn.execute("SELECT MAX(date) FROM matches").fetchone()
-        if not max_row or not max_row[0]:
+        max_row = conn.execute("SELECT to_char(MAX(date), 'YYYY-MM-DD') AS max_date FROM matches").fetchone()
+        if not max_row or not max_row['max_date']:
             return {}
-        max_date = datetime.strptime(max_row[0], "%Y-%m-%d")
+        max_date = datetime.strptime(max_row['max_date'], "%Y-%m-%d")
         cutoff_date = (max_date - relativedelta(months=6)).strftime("%Y-%m-%d")
 
         # Select matches played within last 6 months
         rows = conn.execute("""
-            SELECT tournament, date, player1, player2, player3, player4
+            SELECT tournament, to_char(date, 'YYYY-MM-DD') AS date, player1, player2, player3, player4
             FROM matches
-            WHERE date >= ? AND tournament IS NOT NULL
-            ORDER BY date DESC
+            WHERE matches.date >= %s::date AND tournament IS NOT NULL
+            ORDER BY matches.date DESC
         """, (cutoff_date,)).fetchall()
 
         player_best = {}
@@ -235,23 +241,17 @@ def derive_tournament_badges(db_path: Optional[str] = None) -> Dict[str, Any]:
                 'badge_reason': 'Reigning World Champion (World Championship 2025)'
             }
 
-        # Clear badges for all players first (inactive players lose badge)
-        conn.execute("UPDATE players SET title = NULL, title_count = 0, badge_reason = NULL")
+        # Clear the run's badges first (inactive players lose badge)
+        conn.execute("DELETE FROM player_titles WHERE run_id = %s", (run_id,))
 
-        # Update active players
-        for p, data in derived_data.items():
-            conn.execute("""
-                UPDATE players
-                SET title = ?, title_count = ?, badge_reason = ?
-                WHERE name = ?
-            """, (data['title'], data['title_count'], data['badge_reason'], p))
+        # Title active players, as upstream's UPDATE of players did: unknown names are skipped
+        with conn.cursor() as cur:
+            cur.executemany("""
+                INSERT INTO player_titles (run_id, player_name, title, title_count, badge_reason)
+                SELECT %s, name, %s, %s, %s FROM players WHERE name = %s
+            """, [
+                (run_id, data['title'], data['title_count'], data['badge_reason'], p)
+                for p, data in derived_data.items()
+            ])
 
-        conn.commit()
-        return derived_data
-    finally:
-        conn.close()
-
-
-if __name__ == '__main__':
-    res = derive_tournament_badges()
-    print(f"Derived active tournament badges for {len(res)} players.")
+    return derived_data

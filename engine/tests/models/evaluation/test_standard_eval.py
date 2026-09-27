@@ -65,7 +65,7 @@ def test_calibration_is_stored_in_the_run_and_nowhere_else(conn, add_match, run_
 def test_calibrating_again_replaces_the_runs_rows(conn, add_match, run_id):
     seed(add_match)
     expand_pairwise(conn, run_id)
-    args = dict(verbose=False, model_filter=["glicko2_std"], formats=[2])
+    args = {"verbose": False, "model_filter": ["glicko2_std"], "formats": [2]}
 
     run_standard_calibration_all(**args, conn=conn, run_id=run_id)
     run_standard_calibration_all(**args, conn=conn, run_id=run_id)
@@ -89,7 +89,9 @@ def test_evaluation_reads_only_the_runs_pairs(conn, add_match, run_id):
 def test_a_finished_run_is_never_written_to(conn, add_match, run_id):
     seed(add_match)
     expand_pairwise(conn, run_id)
-    conn.execute("UPDATE rating_runs SET status = 'failed' WHERE run_id = %s", (run_id,))
+    conn.execute(
+        "UPDATE rating_runs SET status = 'failed' WHERE run_id = %s", (run_id,)
+    )
     conn.commit()
 
     with pytest.raises(RunNotRunning):
