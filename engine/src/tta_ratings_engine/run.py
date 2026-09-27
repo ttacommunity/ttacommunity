@@ -28,11 +28,11 @@ WALK_FORWARD_START = "2022-01"
 # the ratios matter: the ETA scales them to this machine as the run goes.
 # Retune from the phase summary a run logs at the end.
 STEP_COST = {
-    ("pairs", None): 19.0,
-    ("titles", None): 1.0,
-    ("models", 0): 18.0, ("models", 2): 3.0, ("models", 3): 5.0, ("models", 4): 4.0,
-    ("calibration", 0): 7.0, ("calibration", 2): 2.5, ("calibration", 3): 4.0, ("calibration", 4): 4.0,
-    ("walk-forward", 0): 5.4, ("walk-forward", 2): 1.1, ("walk-forward", 3): 3.6, ("walk-forward", 4): 2.3,
+    ("pairs", None): 18.2,
+    ("titles", None): 0.1,
+    ("models", 0): 9.3, ("models", 2): 2.0, ("models", 3): 5.6, ("models", 4): 4.0,
+    ("calibration", 0): 8.1, ("calibration", 2): 1.2, ("calibration", 3): 3.9, ("calibration", 4): 2.9,
+    ("walk-forward", 0): 5.9, ("walk-forward", 2): 0.8, ("walk-forward", 3): 3.4, ("walk-forward", 4): 2.2,
 }  # fmt: skip
 
 _g2 = compute_glicko2_ratings
