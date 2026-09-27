@@ -45,8 +45,22 @@ role on the ratings DB, so a bug in a public endpoint cannot write ratings.
 
 `upload (now) / CGE API (later)` → **import batch** (validated, duplicates
 removed, aliases resolved, junk *refused* rather than warned) →
-**recompute request** → engine job → **new run** → admin **publishes** (a
-one-row switch) → API serves it, and Cloudflare caches until the next publish.
+**recompute request** → engine job → **new run** → **published** once its
+checks pass (a one-row switch) → API serves it, and Cloudflare caches until the next publish.
+
+### Rating runs
+
+The engine never changes the ratings people are reading. Each recompute
+writes a whole **run**, and every result table (ratings, history,
+calibration) carries its `run_id`. A single row, `current_run`, names the run
+the API serves. Publishing is changing that row in one transaction, and
+rolling back is pointing it at the previous run. Only a run whose checks
+passed (`status = 'complete'`) can be current: the schema refuses anything
+else.
+
+A run records its **cause**: the engine version and a fingerprint of the
+input matches. A few recent runs are kept, so two can be compared before
+one is published.
 
 **Tournament results** (standings, podiums, Hall of Fame) are derived by the
 engine from matches and the tournament rules. Organisers record what matches

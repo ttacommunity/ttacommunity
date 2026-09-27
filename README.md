@@ -66,7 +66,59 @@ credential:
 git config core.hooksPath .githooks
 ```
 
-## Data
+## Load ratings data
 
-No match or rating data is kept in this repo. How to load a ratings database
-from a data directory will be documented here.
+No match or rating data is kept in this repo. The ratings database is seeded
+by the load job from a directory of match CSVs that you keep elsewhere:
+
+```bash
+scripts/ratings-db.sh ~/tta-data            # in a container
+scripts/ratings-db.sh --native ~/tta-data   # with local Go
+scripts/ratings-db.sh --reset ~/tta-data    # empty the database first
+```
+
+It starts the ratings database if needed, applies the migrations, and loads
+every `*.csv` at the top of the directory (not in subdirectories), in name
+order. It refuses to load into a database that already has matches, so
+nothing is loaded twice: use `--reset` to start again. **`--reset` deletes
+every match, refused row and rating run.**
+
+In a container, the job sees only that directory, so a symlink pointing out
+of it does not resolve. Copy the files in instead.
+
+### The files
+
+Every file has this header, and one match per row:
+
+```csv
+Tournament,Date,Player1,Score1,Player2,Score2,Player3,Score3,Player4,Score4,Player_Count
+```
+
+- `Date` is `YYYY-MM-DD`
+- 2 to 4 players, filled from `Player1` on, each with a score. Scores may be
+  negative (penalties) or decimals
+- `Player_Count` is the number of players named
+- Names are matched exactly, so `ann` and `Ann` are two players
+
+A file with any other header stops the load before anything is written.
+
+### What gets refused
+
+A row that is not a real game is **refused, not loaded**. It is kept in the
+`refused_rows` table with its file, line, reason and the fields as read, and
+the job prints a count per reason:
+
+| Reason | The row |
+|---|---|
+| `standings_row` | A standings table scraped as matches: a name starting with a rank (`1.`), or containing "No finished games" |
+| `bad_name` | A name with leading or trailing whitespace, or a line break or other control character |
+| `all_scores_zero` | Every score is 0, so there is no result to rate |
+| `duplicate` | The same tournament, date, players and scores as an earlier row, in any file. The first copy is loaded |
+| `column_count`, `no_tournament`, `bad_date`, `bad_score`, `player_count`, `player_gap`, `score_without_player`, `player_without_score`, `same_player_twice` | The row is malformed |
+
+To see them:
+
+```bash
+psql postgres://ratings:local-only-ratings@127.0.0.1:55432/ratings \
+  -c "SELECT reason, source_file, source_line FROM refused_rows ORDER BY 1, 2, 3"
+```
