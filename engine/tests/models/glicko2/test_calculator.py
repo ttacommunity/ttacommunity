@@ -1,5 +1,7 @@
 import pytest
+
 from tta_ratings_engine.models.glicko2.calculator import get_tier_mean
+
 
 def test_tier_regression_rules():
     """Tests 16-tier dynamic phi-quantile hierarchy and deflation-only reset rules."""
@@ -26,13 +28,14 @@ def test_tier_regression_rules():
 def test_daneo_golden_ratio_weights_and_invariant():
     """Tests the Golden Ratio multiplayer information weights and dimensional invariant."""
     from tta_ratings_engine.models.glicko2.calculator import GOLDEN_MP_WEIGHTS, PHI
+
     # Check weights
     assert abs(GOLDEN_MP_WEIGHTS[2] - 1.0) < 1e-6
     assert abs(GOLDEN_MP_WEIGHTS[3] - PHI / 2.0) < 1e-6
-    assert abs(GOLDEN_MP_WEIGHTS[4] - (PHI ** 2) / 3.0) < 1e-6
+    assert abs(GOLDEN_MP_WEIGHTS[4] - (PHI**2) / 3.0) < 1e-6
 
     # Check redundancy invariant Delta(N) == phi^-2
-    phi_inv_sq = 1.0 / (PHI ** 2)
+    phi_inv_sq = 1.0 / (PHI**2)
     delta_3 = (3 - 1) - (GOLDEN_MP_WEIGHTS[3] * 2)  # 2 - phi
     delta_4 = (4 - 1) - (GOLDEN_MP_WEIGHTS[4] * 3)  # 3 - phi^2
     assert abs(delta_3 - phi_inv_sq) < 1e-6
@@ -72,7 +75,9 @@ def test_ratings_are_ranked_by_conservative_rating(conn, add_match, run_id):
 
     rows = ratings(conn, run_id, "glicko2_std", 0)
     assert [r["rank"] for r in rows] == [1, 2, 3, 4]
-    assert [r["c_rating"] for r in rows] == sorted((r["c_rating"] for r in rows), reverse=True)
+    assert [r["c_rating"] for r in rows] == sorted(
+        (r["c_rating"] for r in rows), reverse=True
+    )
     regulars = [r["player_name"] for r in rows if r["player_name"] != "Dave"]
     assert regulars == ["Alice", "Bob", "Carol"]
 
@@ -83,9 +88,16 @@ def test_player_stats_count_every_pair(conn, add_match, run_id):
 
     compute_glicko2_ratings(player_count=0, conn=conn, run_id=run_id)
 
-    bob = next(r for r in ratings(conn, run_id, "glicko2_std", 0) if r["player_name"] == "Bob")
+    bob = next(
+        r for r in ratings(conn, run_id, "glicko2_std", 0) if r["player_name"] == "Bob"
+    )
     # 3 losses to Alice, 3 draws with Carol, and a 3-player game: beat Alice, lost to Dave.
-    assert (bob["wins"], bob["losses"], bob["draws"], bob["opponents_count"]) == (1, 4, 3, 8)
+    assert (bob["wins"], bob["losses"], bob["draws"], bob["opponents_count"]) == (
+        1,
+        4,
+        3,
+        8,
+    )
     assert bob["last_played"] == date(2024, 3, 25)
 
 
@@ -111,17 +123,28 @@ def test_history_has_a_point_per_player_per_month(conn, add_match, run_id):
         "ORDER BY period_date",
         (run_id,),
     ).fetchall()
-    assert [r["period_date"] for r in rows] == [date(2024, 1, 19), date(2024, 2, 19), date(2024, 3, 19)]
+    assert [r["period_date"] for r in rows] == [
+        date(2024, 1, 19),
+        date(2024, 2, 19),
+        date(2024, 3, 19),
+    ]
 
 
 def test_the_model_type_names_the_engine_and_reset(conn, add_match, run_id):
     season(add_match)
     expand_pairwise(conn, run_id)
 
-    compute_glicko2_ratings(engine="glicko2_daneo", reset_mode="softer", conn=conn, run_id=run_id)
-    compute_glicko2_ratings(weighted=True, retro_calibrated=True, conn=conn, run_id=run_id)
+    compute_glicko2_ratings(
+        engine="glicko2_daneo", reset_mode="softer", conn=conn, run_id=run_id
+    )
+    compute_glicko2_ratings(
+        weighted=True, retro_calibrated=True, conn=conn, run_id=run_id
+    )
 
-    types = {r["model_type"] for r in conn.execute("SELECT DISTINCT model_type FROM player_ratings")}
+    types = {
+        r["model_type"]
+        for r in conn.execute("SELECT DISTINCT model_type FROM player_ratings")
+    }
     assert types == {"glicko2_daneo_softer", "glicko2_mp_retro"}
 
 
@@ -166,7 +189,9 @@ def test_another_runs_results_are_left_alone(conn, add_match, run_id):
 def test_a_finished_run_is_never_written_to(conn, add_match, run_id):
     season(add_match)
     expand_pairwise(conn, run_id)
-    conn.execute("UPDATE rating_runs SET status = 'complete' WHERE run_id = %s", (run_id,))
+    conn.execute(
+        "UPDATE rating_runs SET status = 'complete' WHERE run_id = %s", (run_id,)
+    )
     conn.commit()
 
     with pytest.raises(RunNotRunning):
