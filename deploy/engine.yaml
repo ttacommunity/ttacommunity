@@ -1,0 +1,70 @@
+# The rating engine: one run of every model, writing a new rating run. It never
+# publishes the run. Suspended, so it runs only when started by hand:
+#   kubectl -n ttacommunity create job --from=cronjob/engine engine-manual-1
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: engine
+  namespace: ttacommunity
+spec:
+  suspend: true
+  schedule: "0 4 * * *"
+  concurrencyPolicy: Forbid
+  jobTemplate:
+    spec:
+      backoffLimit: 0
+      # A full run takes ~20 minutes on a desktop.
+      activeDeadlineSeconds: 7200
+      ttlSecondsAfterFinished: 86400
+      template:
+        metadata:
+          labels:
+            app: engine
+        spec:
+          restartPolicy: Never
+          nodeSelector:
+            kubernetes.io/hostname: unstableserver
+          tolerations:
+            - key: workload-class
+              operator: Equal
+              value: amd64-opt-in
+              effect: NoSchedule
+          automountServiceAccountToken: false
+          imagePullSecrets:
+            - name: gitlab-registry
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 65532
+            runAsGroup: 65532
+            seccompProfile:
+              type: RuntimeDefault
+          containers:
+            - name: engine
+              image: registry.gitlab.com/unstablehomelab/ttacommunity/engine:sha-a6b0d296@sha256:b9a9fa9059f8bd10ce687d1549c8f062b48a78b12bb485ab2142e8fec58877e6
+              args: [-m, tta_ratings_engine.run]
+              env:
+                # The commit the image was built from.
+                - name: ENGINE_VERSION
+                  value: a6b0d296
+                - name: RATINGS_DATABASE_URL
+                  valueFrom:
+                    secretKeyRef:
+                      name: ratings-engine
+                      key: database-url
+              resources:
+                requests:
+                  cpu: "1"
+                  memory: 1536Mi
+                limits:
+                  memory: 3Gi
+              securityContext:
+                allowPrivilegeEscalation: false
+                readOnlyRootFilesystem: true
+                capabilities:
+                  drop: [ALL]
+              volumeMounts:
+                - name: tmp
+                  mountPath: /tmp
+          volumes:
+            - name: tmp
+              emptyDir: {}

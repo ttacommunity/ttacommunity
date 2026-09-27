@@ -1,0 +1,10 @@
+# What Flux applies from this repo. A file in deploy/ that is not listed here
+# is never applied.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+  - namespace.yaml
+  - networkpolicy.yaml
+  - ratings-db.yaml
+  - engine.yaml
