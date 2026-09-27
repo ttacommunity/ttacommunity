@@ -4,6 +4,9 @@ import os
 import sqlite3
 from pathlib import Path
 
+import psycopg
+from psycopg.rows import dict_row
+
 SCHEMA_SQL = """
 CREATE TABLE IF NOT EXISTS players (
     player_id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -136,6 +139,18 @@ CREATE TABLE IF NOT EXISTS standard_calibration (
 CREATE INDEX IF NOT EXISTS idx_std_calib_lookup ON standard_calibration(model_type, player_count, period_month);
 CREATE INDEX IF NOT EXISTS idx_std_calib_pc_month ON standard_calibration(player_count, period_month);
 """
+
+
+def connect(url=None):
+    """Opens the ratings database at url, or at RATINGS_DATABASE_URL, with rows as dicts.
+
+    Raises RuntimeError if neither is set, and psycopg.OperationalError if the
+    database cannot be reached.
+    """
+    url = url or os.environ.get("RATINGS_DATABASE_URL")
+    if not url:
+        raise RuntimeError("No database: pass a URL or set RATINGS_DATABASE_URL")
+    return psycopg.connect(url, row_factory=dict_row)
 
 
 def get_connection(db_path=None):

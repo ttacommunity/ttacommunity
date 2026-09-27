@@ -1,63 +1,42 @@
+import psycopg
 import pytest
 
-from tta_ratings_engine.data.db import get_connection, init_db
-
-ENGINE_TABLES = {
-    "players",
-    "matches",
-    "pairwise_matches",
-    "player_ratings",
-    "rating_history",
-    "walk_forward_calibration",
-    "standard_calibration",
-}
+from tta_ratings_engine.data.db import connect
 
 
-def tables(conn):
-    rows = conn.execute(
-        "SELECT name FROM sqlite_master WHERE type = 'table'"
-    ).fetchall()
-    return {r["name"] for r in rows} - {"sqlite_sequence"}
+def test_refuses_to_connect_without_a_database_url(monkeypatch):
+    monkeypatch.delenv("RATINGS_DATABASE_URL", raising=False)
+
+    with pytest.raises(RuntimeError, match="RATINGS_DATABASE_URL"):
+        connect()
 
 
-def columns(conn, table):
-    return {r["name"] for r in conn.execute(f"PRAGMA table_info({table})")}
+def test_connects_to_the_url_in_the_environment(monkeypatch, db_url):
+    monkeypatch.setenv("RATINGS_DATABASE_URL", db_url)
+
+    with connect() as c:
+        assert c.execute("SELECT current_database() AS db").fetchone()["db"] in db_url
 
 
-def test_refuses_to_connect_without_a_database_path(monkeypatch):
-    monkeypatch.delenv("ENGINE_DB_PATH", raising=False)
+def test_an_unreachable_database_is_an_error_not_a_default(monkeypatch):
+    monkeypatch.setenv(
+        "RATINGS_DATABASE_URL", "postgres://nobody@127.0.0.1:1/none?connect_timeout=2"
+    )
 
-    with pytest.raises(RuntimeError, match="ENGINE_DB_PATH"):
-        get_connection()
-
-
-def test_connects_to_the_path_in_the_environment(monkeypatch, tmp_path):
-    db = tmp_path / "from-env.db"
-    monkeypatch.setenv("ENGINE_DB_PATH", str(db))
-
-    get_connection().close()
-    assert db.exists()
+    with pytest.raises(psycopg.OperationalError):
+        connect()
 
 
-def test_creates_only_the_engine_tables(tmp_path):
-    db = str(tmp_path / "engine.db")
-    init_db(db)
-    conn = get_connection(db)
-
-    assert tables(conn) == ENGINE_TABLES
-    assert {"glicko_eligible", "replay_code"} <= columns(conn, "matches")
-    assert "glicko_eligible" in columns(conn, "pairwise_matches")
-    assert "badge_reason" in columns(conn, "players")
-    conn.close()
+def test_rows_come_back_by_column_name(conn):
+    assert conn.execute("SELECT 1 AS one").fetchone() == {"one": 1}
 
 
-def test_creating_twice_keeps_existing_rows(tmp_path):
-    db = str(tmp_path / "engine.db")
-    init_db(db)
-    conn = get_connection(db)
-    conn.execute("INSERT INTO players (name) VALUES ('Alice')")
-    conn.commit()
+def test_the_test_database_has_the_migrated_schema(conn):
+    tables = {
+        r["table_name"]
+        for r in conn.execute(
+            "SELECT table_name FROM information_schema.tables WHERE table_schema = 'public'"
+        )
+    }
 
-    init_db(db)
-    assert conn.execute("SELECT COUNT(*) FROM players").fetchone()[0] == 1
-    conn.close()
+    assert {"matches", "players", "rating_runs", "pairwise_matches"} <= tables
