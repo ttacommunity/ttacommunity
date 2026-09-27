@@ -1,9 +1,10 @@
 """WHR rating calculator and persistence for TTA-Glicko2-WHR."""
 from datetime import datetime
-import sqlite3
 from typing import Optional, Dict
 
-from tta_ratings_engine.data.db import get_connection
+import psycopg
+
+from tta_ratings_engine.data.db import save_model_results
 from tta_ratings_engine.models.whr.engine import WHREngine, DEFAULT_W2_PER_DAY
 from tta_ratings_engine.models.glicko2.calculator import (
     get_tier_mean,
@@ -18,31 +19,37 @@ def compute_whr_ratings(
     max_iter: int = 7,
     tol: float = 1e-3,
     reset_mode: str = 'continuous',
-    db_path: Optional[str] = None,
-    verbose: bool = True
+    verbose: bool = True,
+    *,
+    conn: psycopg.Connection,
+    run_id: int,
 ):
-    model_type = f"whr_{reset_mode}" if reset_mode != 'continuous' else 'whr'
-    conn = get_connection(db_path)
+    """Fits Whole-History Rating to the run's pairs and returns the fitted engine.
 
-    try:
+    Writes the model's ratings and history into the run, replacing any it
+    had, in one committed transaction.
+    """
+    model_type = f"whr_{reset_mode}" if reset_mode != 'continuous' else 'whr'
+
+    with conn.transaction():
         fmt_label = f"{player_count}p" if player_count > 0 else "All"
         if verbose:
             print(f'Loading pairwise matches for WHR ({fmt_label})...')
 
         if player_count and player_count > 0:
             rows = conn.execute("""
-                SELECT date, player_a, player_b, outcome_a, weight
+                SELECT to_char(date, 'YYYY-MM-DD') AS date, player_a, player_b, outcome_a, weight
                 FROM pairwise_matches
-                WHERE player_count = ? AND glicko_eligible = 1
-                ORDER BY date, pairwise_id
-            """, (player_count,)).fetchall()
+                WHERE run_id = %s AND player_count = %s AND glicko_eligible
+                ORDER BY pairwise_matches.date, pairwise_id
+            """, (run_id, player_count)).fetchall()
         else:
             rows = conn.execute("""
-                SELECT date, player_a, player_b, outcome_a, weight
+                SELECT to_char(date, 'YYYY-MM-DD') AS date, player_a, player_b, outcome_a, weight
                 FROM pairwise_matches
-                WHERE glicko_eligible = 1
-                ORDER BY date, pairwise_id
-            """).fetchall()
+                WHERE run_id = %s AND glicko_eligible
+                ORDER BY pairwise_matches.date, pairwise_id
+            """, (run_id,)).fetchall()
 
         whr = WHREngine(w2_per_day=w2_per_day)
         for r in rows:
@@ -66,9 +73,9 @@ def compute_whr_ratings(
                     SUM(CASE WHEN pm.outcome_a = 0.5 THEN 1 ELSE 0 END) as draws,
                     MAX(pm.date) as last_played
                 FROM players p
-                INNER JOIN pairwise_matches pm ON (p.name = pm.player_a OR p.name = pm.player_b) AND pm.player_count = ?
+                INNER JOIN pairwise_matches pm ON (p.name = pm.player_a OR p.name = pm.player_b) AND pm.player_count = %s AND pm.run_id = %s
                 GROUP BY p.name
-            """, (player_count,)).fetchall()
+            """, (player_count, run_id)).fetchall()
         else:
             stats_rows = conn.execute("""
                 SELECT 
@@ -81,9 +88,9 @@ def compute_whr_ratings(
                     SUM(CASE WHEN pm.outcome_a = 0.5 THEN 1 ELSE 0 END) as draws,
                     MAX(pm.date) as last_played
                 FROM players p
-                LEFT JOIN pairwise_matches pm ON p.name = pm.player_a OR p.name = pm.player_b
+                LEFT JOIN pairwise_matches pm ON (p.name = pm.player_a OR p.name = pm.player_b) AND pm.run_id = %s
                 GROUP BY p.name
-            """).fetchall()
+            """, (run_id,)).fetchall()
         player_stats = {r['name']: r for r in stats_rows}
 
         player_rankings = []
@@ -174,27 +181,10 @@ def compute_whr_ratings(
                 p_data['draws'], p_data['win_rate'], p_data['last_played']
             ))
 
-        with conn:
-            conn.execute('DELETE FROM player_ratings WHERE model_type = ? AND player_count = ?;', (model_type, player_count))
-            conn.execute('DELETE FROM rating_history WHERE model_type = ? AND player_count = ?;', (model_type, player_count))
-
-            conn.executemany("""
-                INSERT INTO player_ratings (
-                    model_type, player_count, player_name, rating, rd, sigma, c_rating, rank, rank_delta,
-                    games_played, opponents_count, wins, losses, draws, win_rate, last_played
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            """, rating_rows)
-
-            conn.executemany("""
-                INSERT INTO rating_history (
-                    model_type, player_count, player_name, period_date, rating, rd, c_rating
-                ) VALUES (?, ?, ?, ?, ?, ?, ?)
-            """, history_records)
+        save_model_results(conn, run_id, model_type, player_count, rating_rows, history_records)
 
         if verbose:
             fmt_label = f"{player_count}p" if player_count > 0 else "All"
             print(f"Successfully saved {len(rating_rows)} ratings and {len(history_records)} history points for WHR ({fmt_label}).")
 
         return whr
-    finally:
-        conn.close()
