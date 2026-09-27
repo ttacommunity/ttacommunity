@@ -49,8 +49,13 @@ ENGINE_VERSION=$(git rev-parse --short HEAD) uv run python -m tta_ratings_engine
 
 A run computes the 16 models upstream's site shows, for all formats together
 and for 2, 3 and 4 players, then tournament titles, then the standard and
-walk-forward calibration. It logs progress, elapsed time and an estimate of
-what is left every 30 seconds.
+walk-forward calibration: about 20 minutes and 1 GB of memory on a desktop.
+
+It logs progress, elapsed time and the time left every 30 seconds, and a
+"still on" line when one step runs longer. The time left weighs each step by
+how long that kind of step took in a measured run (`STEP_COST` in `run.py`),
+scaled to how fast this run is going. A run ends by logging each phase's
+time: if the estimates drift, update `STEP_COST` from those lines.
 
 - **A run is never published by itself.** It ends `complete` (or `failed`,
   with the error), and the site keeps showing the current run. Add

@@ -122,3 +122,18 @@ To see them:
 psql postgres://ratings:local-only-ratings@127.0.0.1:55432/ratings \
   -c "SELECT reason, source_file, source_line FROM refused_rows ORDER BY 1, 2, 3"
 ```
+
+## Compute ratings
+
+With matches loaded, the engine computes a new rating run from them:
+
+```bash
+cd engine
+set -a; . ../.env; set +a
+ENGINE_VERSION=$(git rev-parse --short HEAD) uv run python -m tta_ratings_engine.run
+```
+
+A full run of every model and format takes about 20 minutes and 1 GB of
+memory on a desktop, and logs its progress and time left as it goes. It is
+not published until you add `--make-current`. The options and
+what a run writes are in [`engine/README.md`](engine/README.md).
