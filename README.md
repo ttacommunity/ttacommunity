@@ -191,6 +191,10 @@ Build variables, set in each site Worker's build settings:
 | `NODE_VERSION` | both sites | the `node` version in `mise.toml` | The build image's default is older |
 | `PNPM_VERSION` | both sites | the pnpm version in `web/package.json` | The build image does not read `packageManager` |
 
+When importing a Worker, **turn off non-production (preview) builds**. The
+configs turn preview URLs off, so a preview build fails, and it reports that
+failure on the merge request's commit, which then cannot merge.
+
 `ttac-auth` needs one runtime secret, `DISCORD_CLIENT_SECRET`, set under the
 Worker's Variables and Secrets (not its build variables).
 
