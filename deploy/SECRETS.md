@@ -11,7 +11,8 @@ Pipe values in; never use `--from-literal`, which leaves them in shell history.
 | `ratings-db` | `password` | `ratings-db` | Password of `ratings`, the ratings database's owner |
 | `ratings-engine` | `database-url` | `engine` | The engine's connection URL, as `ratings` |
 | `ratings-api` | `password`, `database-url` | `api`, `scripts/seed-cluster-db.sh` | The read-only `ratings_api` login |
-| `gitlab-registry` | `.dockerconfigjson` | `api`, `engine` | Pulls images from the project's GitLab registry |
+| `gitlab-registry` | `.dockerconfigjson` | `api`, `engine` | Pulls images from the project's GitLab registry. Deploy token `cluster-image-pull` |
+| `ttacommunity-git-auth`, **in `flux-system`** | `username`, `password` | Flux | Reads this repo. Deploy token `flux-git-read`, `read_repository` only |
 
 ## Creating them
 
