@@ -13,13 +13,14 @@ from psycopg.rows import dict_row
 def connect(url=None):
     """Opens the ratings database at url, or at RATINGS_DATABASE_URL, with rows as dicts.
 
-    Raises RuntimeError if neither is set, and psycopg.OperationalError if the
-    database cannot be reached.
+    The connection autocommits, so each `with conn.transaction()` block is a
+    real transaction, committed when it ends. Raises RuntimeError if neither
+    is set, and psycopg.OperationalError if the database cannot be reached.
     """
     url = url or os.environ.get("RATINGS_DATABASE_URL")
     if not url:
         raise RuntimeError("No database: pass a URL or set RATINGS_DATABASE_URL")
-    return psycopg.connect(url, row_factory=dict_row)
+    return psycopg.connect(url, row_factory=dict_row, autocommit=True)
 
 
 class RunNotRunning(Exception):

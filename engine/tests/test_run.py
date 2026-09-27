@@ -3,6 +3,7 @@ from datetime import date
 import pytest
 
 from tta_ratings_engine import run as runner
+from tta_ratings_engine.data.db import connect
 from tta_ratings_engine.run import FORMATS, MODEL_TYPES, STEP_COST, main, run
 
 SIXTEEN = {
@@ -12,6 +13,10 @@ SIXTEEN = {
     "glicko2_adapt", "glicko2_adapt_retro", "glicko2_adapt_softer", "glicko2_adapt_softer_retro",
     "whr", "whr_softer",
 }  # fmt: skip
+
+
+def boom(**_):
+    raise RuntimeError("boom")
 
 
 def season(add_match):
@@ -114,10 +119,6 @@ def test_progress_counts_every_step_up_front(conn, add_match):
 
 def test_a_failure_marks_the_run_failed_and_is_raised(conn, add_match, monkeypatch):
     season(add_match)
-
-    def boom(**_):
-        raise RuntimeError("boom")
-
     monkeypatch.setattr(runner, "derive_tournament_badges", boom)
 
     with pytest.raises(RuntimeError, match="boom"):
@@ -195,3 +196,35 @@ def test_every_step_has_a_cost_for_the_eta():
         for phase in ("models", "calibration", "walk-forward"):
             assert STEP_COST[phase, fmt] > 0
     assert STEP_COST["pairs", None] > 0 and STEP_COST["titles", None] > 0
+
+
+def test_a_failed_run_keeps_the_steps_it_finished(conn, db_url, add_match, monkeypatch):
+    season(add_match)
+    monkeypatch.setattr(runner, "derive_tournament_badges", boom)
+
+    with pytest.raises(RuntimeError):
+        run(conn, "v-test", formats=[2], log=lambda _: None)
+
+    with connect(db_url) as other:
+        run_id = other.execute("SELECT run_id FROM rating_runs").fetchone()["run_id"]
+        assert count(other, "pairwise_matches", run_id) == 10
+        assert count(other, "player_ratings", run_id) > 0
+
+
+def test_a_run_records_how_long_it_took(conn, add_match, monkeypatch):
+    season(add_match)
+    real = runner.derive_tournament_badges
+
+    def slow(**kw):
+        conn.execute("SELECT pg_sleep(1.1)")
+        return real(**kw)
+
+    monkeypatch.setattr(runner, "derive_tournament_badges", slow)
+
+    run_id = run(conn, "v-test", formats=[2], log=lambda _: None)
+
+    took = conn.execute(
+        "SELECT extract(epoch FROM finished_at - started_at) AS s FROM rating_runs WHERE run_id = %s",
+        (run_id,),
+    ).fetchone()["s"]
+    assert took >= 1.1
