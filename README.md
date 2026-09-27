@@ -170,27 +170,32 @@ The cluster runs what `deploy/` lists (Flux applies it from `main`); the
 sites are built and served by Cloudflare Workers from git. Nothing here holds
 a Cloudflare credential.
 
-### The site on Cloudflare Workers
+### The sites and the sign-in worker on Cloudflare Workers
 
-The site is a Worker serving static assets, configured by
-`web/site/wrangler.jsonc`, which also declares its custom domain (so a merge
-that changes it changes what is published). Cloudflare's Workers Builds is
-connected to this repository and deploys it:
+Each is a Worker configured by a `wrangler.jsonc`, which also declares its
+custom domain (so a merge that changes it changes what is published).
+Cloudflare's Workers Builds is connected to this repository and deploys each
+from `main`:
 
-| Setting | Value |
-|---|---|
-| Branch | `main` |
-| Root directory | `/web` |
-| Build command | `pnpm --filter @ttac/site build` |
-| Deploy command | `npx wrangler@4.141.0 deploy --config site/wrangler.jsonc` |
+| Worker | Root directory | Build command | Deploy command |
+|---|---|---|---|
+| `ttacommunity` (the site) | `/web` | `pnpm --filter @ttac/site build` | `npx wrangler@4.141.0 deploy --config site/wrangler.jsonc` |
+| `ttac-admin` | `/web` | `pnpm --filter @ttac/admin build` | `npx wrangler@4.141.0 deploy --config admin/wrangler.jsonc` |
+| `ttac-auth` (Discord sign-in for Access) | `/infra/access-oidc` | none | `npx wrangler deploy` |
 
-Build variables, set in the Worker's build settings:
+Build variables, set in each site Worker's build settings:
 
-| Variable | Value | Why |
-|---|---|---|
-| `PUBLIC_API_URL` | `https://ttac-api.unstableunicorn.dev` | Where the browser reads ratings. Sent to the browser, so never a secret |
-| `NODE_VERSION` | the `node` version in `mise.toml` | The build image's default is older |
-| `PNPM_VERSION` | the pnpm version in `web/package.json` | The build image does not read `packageManager` |
+| Variable | Worker | Value | Why |
+|---|---|---|---|
+| `PUBLIC_API_URL` | `ttacommunity` | `https://ttac-api.unstableunicorn.dev` | Where the browser reads ratings. Sent to the browser, so never a secret |
+| `NODE_VERSION` | both sites | the `node` version in `mise.toml` | The build image's default is older |
+| `PNPM_VERSION` | both sites | the pnpm version in `web/package.json` | The build image does not read `packageManager` |
+
+`ttac-auth` needs one runtime secret, `DISCORD_CLIENT_SECRET`, set under the
+Worker's Variables and Secrets (not its build variables).
+
+**`ttac-admin` is only reachable through Cloudflare Access.** Its Access
+application must exist before its domain is declared.
 
 ### The API
 
