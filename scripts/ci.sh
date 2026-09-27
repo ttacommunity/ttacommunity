@@ -148,6 +148,10 @@ if need corepack "the web workspace"; then
       [ "$want" = "$have" ] || fail "$site/.node-version says '$want' but this is Node $have"
     done
   fi
+  # The Access OIDC worker has its own npm lockfile; wrangler is dev-only.
+  cd "$ROOT/infra/access-oidc" || exit 1
+  run npm ci --omit=dev --ignore-scripts --no-audit --no-fund --silent
+  run npm test
   cd "$ROOT" || exit 1
 fi
 fi

@@ -1,0 +1,15 @@
+// The Discord OIDC provider that Cloudflare Access signs admins in with.
+// Workers Builds deploys it from main. DISCORD_CLIENT_SECRET is a Worker
+// secret, never here.
+{
+  "name": "ttac-auth",
+  "main": "worker.js",
+  "compatibility_date": "2026-09-27",
+  "kv_namespaces": [{ "binding": "KV", "id": "db7b6bc1d3114c00bc8d3f3a6edd92f7" }],
+  "vars": {
+    "REDIRECT_URL": "https://unstableunicorn.cloudflareaccess.com/cdn-cgi/access/callback"
+  },
+  "workers_dev": false,
+  "preview_urls": false,
+  "routes": [{ "pattern": "ttac-auth.unstableunicorn.dev", "custom_domain": true }]
+}
