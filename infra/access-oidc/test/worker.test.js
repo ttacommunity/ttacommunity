@@ -72,6 +72,15 @@ test('token refuses a wrong client secret, by Basic auth or in the body', async 
 	assert.deepEqual(discordCalls, [])
 })
 
+test('token refuses a malformed Basic header', async () => {
+	fakeDiscord()
+	for (const header of ['Basic !!!not-base64', 'Basic ' + btoa('no-colon')]) {
+		const res = await app.request('/token', { method: 'POST', headers: { Authorization: header } }, { ...env, KV: memoryKV() })
+		assert.equal(res.status, 401, header)
+	}
+	assert.deepEqual(discordCalls, [])
+})
+
 test('token refuses when Discord returns no access token', async () => {
 	fakeDiscord({ token: { error: 'invalid_grant' } })
 	const res = await tokenRequest({ auth: '1234:discord-secret' })

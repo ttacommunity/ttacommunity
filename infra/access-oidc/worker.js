@@ -66,8 +66,35 @@ app.get('/authorize/:scopemode', async (c) => {
 	return c.redirect('https://discord.com/oauth2/authorize?' + params)
 })
 
+async function digest(text) {
+	return new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(text)))
+}
+
+// clientAuthenticated reports whether the caller sent this client's id and
+// secret, by HTTP Basic auth or in the form body (RFC 6749 section 2.3.1).
+async function clientAuthenticated(c, body) {
+	let id = body['client_id']
+	let secret = body['client_secret']
+	const header = c.req.header('Authorization') ?? ''
+	if (header.startsWith('Basic ')) {
+		try {
+			const decoded = atob(header.slice(6))
+			const colon = decoded.indexOf(':')
+			if (colon < 0) return false
+			id = decodeURIComponent(decoded.slice(0, colon))
+			secret = decodeURIComponent(decoded.slice(colon + 1))
+		} catch {
+			return false
+		}
+	}
+	if (typeof id !== 'string' || typeof secret !== 'string') return false
+	const [want, got] = await Promise.all([digest(c.env.DISCORD_CLIENT_SECRET), digest(secret)])
+	return id === c.env.CLIENT_ID && want.every((b, i) => b === got[i])
+}
+
 app.post('/token', async (c) => {
 	const body = await c.req.parseBody()
+	if (!(await clientAuthenticated(c, body))) return c.text('Unauthorized.', 401)
 	const code = body['code']
 	const params = new URLSearchParams({
 		'client_id': c.env.CLIENT_ID,
