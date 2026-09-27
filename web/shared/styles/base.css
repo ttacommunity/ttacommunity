@@ -1,0 +1,44 @@
+/* Page-wide rules from upstream's base template: reset, parchment background, links. */
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  background-color: var(--bg-dark);
+  background-image: url('./img/background.webp');
+  background-repeat: no-repeat;
+  background-position: center var(--header-height, 68px);
+  background-attachment: fixed;
+  background-size: cover;
+  color: var(--text-main);
+  font-family: var(--font-body);
+}
+
+a {
+  color: var(--accent-gold);
+  text-decoration: none;
+  transition: color 0.15s ease;
+}
+
+a:hover {
+  color: var(--accent-gold-light);
+}
+
+:focus-visible {
+  outline: 2px solid var(--accent-gold);
+  outline-offset: 2px;
+}
+
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}

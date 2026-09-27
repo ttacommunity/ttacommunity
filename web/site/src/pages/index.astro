@@ -1,87 +1,77 @@
 ---
-import '@ttac/shared/styles/tokens.css';
+import SiteLayout from '../layouts/SiteLayout.astro';
 ---
-<html lang="en">
-  <head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>ttacommunity</title>
-    <meta name="description" content="Ratings, tournaments and blitz games for the Through the Ages community." />
-  </head>
-  <body>
-    <header>
+<SiteLayout title="ttacommunity" description="Ratings, tournaments and blitz games for the Through the Ages community.">
+  <div class="home rating-card">
+    <div class="home-top">
+      <h1 class="rating-card-heading">ttacommunity</h1>
       <a class="admin" href="https://ttac-admin.unstableunicorn.dev/">Admin</a>
-    </header>
-    <main>
-      <h1>ttacommunity</h1>
-      <p>Ratings, tournaments and blitz games for the Through the Ages community.</p>
-      <nav aria-label="Sections">
-        <a class="card" href="/ratings/">
-          <h2>Ratings</h2>
-          <p>The community leaderboard: every rated player, by model and player count.</p>
-        </a>
-      </nav>
-    </main>
-  </body>
-</html>
+    </div>
+    <p class="home-intro">Ratings, tournaments and blitz games for the Through the Ages community.</p>
+    <nav aria-label="Sections">
+      <a class="card" href="/ratings/">
+        <h2>Ratings</h2>
+        <p>The community leaderboard: every rated player, by model and player count.</p>
+      </a>
+    </nav>
+  </div>
+</SiteLayout>
 
 <style>
-  header {
-    display: flex;
-    justify-content: flex-end;
-    padding: 0.75rem 1rem 0;
-  }
-  .admin {
-    padding: 0.25rem 0.75rem;
-    border: 1px solid var(--text-muted);
-    border-radius: 0.375rem;
-    color: var(--text-muted);
-    font-family: var(--font-ui);
-    font-size: 0.875rem;
-    text-decoration: none;
-  }
-  .admin:hover,
-  .admin:focus-visible {
-    border-color: var(--gold);
-    color: var(--gold);
-  }
-  .admin:focus-visible {
-    outline: 2px solid var(--gold);
-    outline-offset: 2px;
-  }
-  main {
+  .home {
     max-width: 48rem;
     margin: 0 auto;
-    padding: 2rem 1rem;
+    padding: 1.5rem 1.75rem;
   }
-  h1 {
-    color: var(--gold);
-    font-family: var(--font-display);
+
+  .home-top {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 1rem;
   }
+
+  .home-intro {
+    margin: 0.5rem 0 1.25rem;
+    color: var(--text-soft);
+  }
+
+  .admin {
+    padding: 0.25rem 0.75rem;
+    border: 1px solid var(--border-subtle);
+    border-radius: 4px;
+    color: var(--text-muted);
+    font-family: var(--font-stats);
+    font-size: 0.85rem;
+  }
+
+  .admin:hover {
+    border-color: var(--accent-gold);
+    color: var(--accent-gold);
+  }
+
   .card {
     display: block;
     max-width: 22rem;
     padding: 1rem 1.25rem;
-    border: 1px solid var(--text-muted);
-    border-radius: 0.5rem;
-    color: var(--text);
-    text-decoration: none;
+    background: var(--surface-inset);
+    border: 1px solid var(--border-subtle);
+    border-radius: 6px;
+    color: var(--text-main);
   }
-  .card:hover,
-  .card:focus-visible {
-    border-color: var(--gold);
+
+  .card:hover {
+    border-color: var(--accent-gold);
+    color: var(--text-main);
   }
-  .card:focus-visible {
-    outline: 2px solid var(--gold);
-    outline-offset: 2px;
-  }
+
   .card h2 {
-    margin: 0 0 0.25rem;
-    color: var(--gold);
+    margin-bottom: 0.25rem;
+    color: var(--accent-gold);
     font-family: var(--font-heading);
   }
+
   .card p {
-    margin: 0;
     color: var(--text-muted);
   }
 </style>

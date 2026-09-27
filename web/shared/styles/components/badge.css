@@ -1,0 +1,29 @@
+/* Small labels: upstream's .badge, and the format and mode badges beside a heading. */
+.badge {
+  display: inline-block;
+  padding: 0.15rem 0.45rem;
+  border-radius: 4px;
+  font-family: var(--font-stats);
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-align: center;
+}
+
+.badge-format,
+.badge-mode {
+  margin-left: 0.3rem;
+  padding: 0.1rem 0.4rem;
+  font-size: 0.76rem;
+}
+
+.badge-format {
+  background: rgba(229, 169, 60, 0.18);
+  border: 1px solid var(--accent-gold);
+  color: var(--accent-gold);
+}
+
+.badge-mode {
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  color: #e0d0c0;
+}

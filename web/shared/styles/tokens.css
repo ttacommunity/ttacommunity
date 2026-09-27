@@ -1,21 +1,26 @@
-/* Design tokens: DANeo's palette and fonts. Components use these, never raw values. */
+/* Design tokens, named as in upstream's styles.css. Components use these, never raw values. */
 :root {
   --bg-dark: #1c130d;
-  --gold: #e5a93c;
-  --crimson: #8e1e1d;
-  --text: #f3e5c8;
+  --surface-panel: rgba(43, 29, 20, 0.85);
+  --surface-inset: rgba(18, 12, 8, 0.85);
+  --surface-header: rgba(28, 19, 13, 0.94);
+  --surface-footer: rgba(20, 13, 8, 0.95);
+  --accent-gold: #e5a93c;
+  --accent-gold-light: #ffde8a;
+  --accent-gold-bright: #ffd700;
+  --accent-crimson: #8e1e1d;
+  --text-main: #f3e5c8;
+  --text-soft: #cfbeab;
   --text-muted: #a89880;
-  --border: #4a3525;
+  --text-on-gold: #120904;
+  --border-subtle: #4a3525;
+  --win: #66bb6a;
+  --loss: #ef5350;
+  --draw: #ffa726;
 
-  --font-display: 'Cinzel', serif;
-  --font-heading: 'Marcellus', serif;
-  --font-body: 'Source Serif 4', serif;
-  --font-ui: 'Inter', system-ui, sans-serif;
-}
-
-body {
-  margin: 0;
-  background: var(--bg-dark);
-  color: var(--text);
-  font-family: var(--font-body);
+  /* The --font-* families come from Astro's <Font />; the fallbacks cover pages without it. */
+  --font-heading: var(--font-cinzel, 'Cinzel', serif);
+  --font-subheading: var(--font-marcellus, 'Marcellus', serif);
+  --font-body: var(--font-source-serif, 'Source Serif 4', Georgia, serif);
+  --font-stats: var(--font-inter, 'Inter', system-ui, sans-serif);
 }

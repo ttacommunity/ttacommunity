@@ -1,0 +1,210 @@
+---
+/** Every token and component of the design system on sample data, to check the look by eye. */
+import SiteLayout from '../layouts/SiteLayout.astro';
+import Segmented from '../components/Segmented';
+
+const colours = [
+  'bg-dark',
+  'surface-panel',
+  'surface-inset',
+  'accent-gold',
+  'accent-gold-light',
+  'accent-gold-bright',
+  'accent-crimson',
+  'text-main',
+  'text-soft',
+  'text-muted',
+  'border-subtle',
+  'win',
+  'loss',
+  'draw',
+];
+const fonts = [
+  ['heading', 'Cinzel'],
+  ['subheading', 'Marcellus'],
+  ['body', 'Source Serif 4'],
+  ['stats', 'Inter'],
+];
+const formats = [
+  { value: 0, label: 'All Formats' },
+  { value: 2, label: '2-Player (Duel)' },
+  { value: 3, label: '3-Player' },
+  { value: 4, label: '4-Player' },
+];
+const rows = [
+  { rank: 1, name: 'Sample Player One', c: '1934.12', r: '2071.4', rd: '±45.8', opps: 212, w: 140, l: 60, d: 12, pct: '68.9%', last: '2026-09-01' },
+  { rank: 2, name: 'Sample Player Two', c: '1901.77', r: '2050.0', rd: '±49.4', opps: 180, w: 110, l: 64, d: 6, pct: '62.8%', last: '2026-08-28' },
+  { rank: 4, name: 'Sample Player Four', c: '1790.30', r: '1955.2', rd: '±55.0', opps: 95, w: 51, l: 42, d: 2, pct: '54.7%', last: '-' },
+];
+---
+<SiteLayout title="Design system | ttacommunity" description="The ratings site's colours, fonts and components.">
+  <meta slot="head" name="robots" content="noindex" />
+
+  <div class="rating-card design">
+    <h1 class="rating-card-heading">Design system</h1>
+    <p class="design-intro">Upstream's look, taken from its CSS. Sample data only.</p>
+
+    <h2>Colours</h2>
+    <ul class="swatches">
+      {colours.map((c) => (
+        <li>
+          <span class:list={['swatch', `swatch-${c}`]}></span>
+          <code>--{c}</code>
+        </li>
+      ))}
+    </ul>
+
+    <h2>Fonts</h2>
+    <ul class="fonts">
+      {fonts.map(([token, name]) => (
+        <li class={`font-${token}`}>
+          <code>--font-{token}</code> {name}: Through the Ages, 1234.56
+        </li>
+      ))}
+    </ul>
+
+    <h2>Format bar</h2>
+    <div class="format-bar">
+      <Segmented label="Format" options={formats} value={0} onChange={() => {}} />
+      <label>
+        <span class="visually-hidden">Rating engine</span>
+        <select class="input-antique">
+          <option>GlickoD</option>
+          <option>Glicko-2 Standard · Season Reset</option>
+        </select>
+      </label>
+    </div>
+
+    <h2>Badges</h2>
+    <p class="design-row">
+      <span class="badge badge-format">All Formats</span>
+      <span class="badge badge-mode">Continuous (Career)</span>
+    </p>
+
+    <h2>Tooltip</h2>
+    <p class="design-row">
+      <span data-tooltip="Upstream's hover tooltip, in a gold-edged box.">Hover over this text</span>
+    </p>
+
+    <h2>Table</h2>
+    <div class="table-scroll">
+      <table class="leaderboard-table">
+        <caption class="visually-hidden">Sample leaderboard</caption>
+        <thead>
+          <tr>
+            <th scope="col"><span data-tooltip="Current competitive ranking.">Rank</span></th>
+            <th scope="col">Player</th>
+            <th scope="col">C-Rating</th>
+            <th scope="col">Rating ± RD</th>
+            <th scope="col">Opps</th>
+            <th scope="col">W-L-D</th>
+            <th scope="col">Win %</th>
+            <th scope="col"><span data-tooltip="Date of the most recent match.">Last Played</span></th>
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((p) => (
+            <tr>
+              <td class:list={['rank-col', { 'top-3-rank': p.rank <= 3 }]}>#{p.rank}</td>
+              <th scope="row"><span class="player-name">{p.name}</span></th>
+              <td><span class="c-rating-val">{p.c}</span></td>
+              <td><span class="rating-primary">{p.r}</span> <span class="rating-rd">{p.rd}</span></td>
+              <td>{p.opps}</td>
+              <td>
+                <span class="wld-win">{p.w}</span> - <span class="wld-loss">{p.l}</span> - <span class="wld-draw">{p.d}</span>
+              </td>
+              <td><strong>{p.pct}</strong></td>
+              <td class="last-played">{p.last}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+
+    <section class="rating-card rating-card-note" aria-labelledby="note-heading">
+      <h2 id="note-heading">Note card</h2>
+      <p>A secondary panel inside a card, for guidance text under a table.</p>
+      <p>Its last paragraph is smaller and muted.</p>
+    </section>
+  </div>
+</SiteLayout>
+
+<style>
+  .design {
+    padding: 1.15rem 1.4rem;
+  }
+
+  .design > h2 {
+    margin: 1.75rem 0 0.6rem;
+    color: var(--accent-gold);
+    font-family: var(--font-subheading);
+    font-size: 1.1rem;
+  }
+
+  .design-intro {
+    margin-top: 0.25rem;
+    color: var(--text-muted);
+  }
+
+  .design-row {
+    display: flex;
+    gap: 0.75rem;
+    align-items: center;
+    padding: 1.5rem 0 0.5rem;
+    font-family: var(--font-stats);
+  }
+
+  .swatches {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(12rem, 1fr));
+    gap: 0.6rem;
+    list-style: none;
+  }
+
+  .swatches li {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    font-size: 0.85rem;
+  }
+
+  .swatch {
+    width: 2rem;
+    height: 2rem;
+    border: 1px solid rgba(255, 255, 255, 0.25);
+    border-radius: 4px;
+  }
+
+  .swatch-bg-dark { background: var(--bg-dark); }
+  .swatch-surface-panel { background: var(--surface-panel); }
+  .swatch-surface-inset { background: var(--surface-inset); }
+  .swatch-accent-gold { background: var(--accent-gold); }
+  .swatch-accent-gold-light { background: var(--accent-gold-light); }
+  .swatch-accent-gold-bright { background: var(--accent-gold-bright); }
+  .swatch-accent-crimson { background: var(--accent-crimson); }
+  .swatch-text-main { background: var(--text-main); }
+  .swatch-text-soft { background: var(--text-soft); }
+  .swatch-text-muted { background: var(--text-muted); }
+  .swatch-border-subtle { background: var(--border-subtle); }
+  .swatch-win { background: var(--win); }
+  .swatch-loss { background: var(--loss); }
+  .swatch-draw { background: var(--draw); }
+
+  .fonts {
+    display: grid;
+    gap: 0.4rem;
+    list-style: none;
+    font-size: 1.15rem;
+  }
+
+  .fonts code {
+    color: var(--text-muted);
+    font-family: var(--font-stats);
+    font-size: 0.8rem;
+  }
+
+  .font-heading { font-family: var(--font-heading); }
+  .font-subheading { font-family: var(--font-subheading); }
+  .font-body { font-family: var(--font-body); }
+  .font-stats { font-family: var(--font-stats); }
+</style>
