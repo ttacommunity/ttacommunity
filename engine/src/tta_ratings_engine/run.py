@@ -51,8 +51,36 @@ MODELS = [
 MODEL_TYPES = [name for name, _, _ in MODELS]
 
 
+RESULT_TABLES = [
+    "rating_runs",
+    "pairwise_matches",
+    "player_ratings",
+    "rating_history",
+    "player_titles",
+    "standard_calibration",
+    "walk_forward_calibration",
+]
+
+
 class NoMatches(Exception):
     """Raised when there are no matches to rate."""
+
+
+class SchemaOutOfDate(Exception):
+    """Raised when a table the run writes is missing: the migrations are behind."""
+
+
+def check_schema(conn):
+    """Raises SchemaOutOfDate naming every table in RESULT_TABLES that does not exist."""
+    missing = [
+        t
+        for t in RESULT_TABLES
+        if conn.execute("SELECT to_regclass(%s) AS t", (t,)).fetchone()["t"] is None
+    ]
+    if missing:
+        raise SchemaOutOfDate(
+            f"missing {', '.join(missing)}: apply the ratings migrations first"
+        )
 
 
 def input_fingerprint(conn):
@@ -84,8 +112,13 @@ def _label(fmt):
 
 
 def run(conn, engine_version, *, formats=FORMATS, log=print, make_current=False):
-    """Computes a whole run and returns its run_id. Raises NoMatches, or whatever failed the run."""
+    """Computes a whole run and returns its run_id.
+
+    Raises SchemaOutOfDate or NoMatches before creating a run, or whatever
+    failed the run.
+    """
     with conn.transaction():
+        check_schema(conn)
         fingerprint = input_fingerprint(conn)
         if fingerprint is None:
             raise NoMatches("no matches are loaded: nothing to rate")

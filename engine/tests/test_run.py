@@ -157,3 +157,14 @@ def test_the_command_runs_the_formats_asked_for(monkeypatch, db_url, conn, add_m
         "SELECT DISTINCT player_count FROM player_ratings WHERE run_id = %s", (run_id,)
     ).fetchall()
     assert [r["player_count"] for r in formats] == [2]
+
+
+def test_a_database_missing_a_migration_is_refused_before_a_run_starts(conn, add_match):
+    season(add_match)
+    conn.execute("DROP TABLE player_titles")
+    conn.commit()
+
+    with pytest.raises(runner.SchemaOutOfDate, match="player_titles"):
+        run(conn, "v-test", log=lambda _: None)
+
+    assert conn.execute("SELECT count(*) AS n FROM rating_runs").fetchone()["n"] == 0
