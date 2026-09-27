@@ -1,0 +1,85 @@
+# The public JSON API. It reads the ratings database as the read-only
+# ratings_api login and refuses to start if that login can write.
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: api
+  namespace: ttacommunity
+spec:
+  type: ClusterIP
+  selector:
+    app: api
+  ports:
+    - name: http
+      port: 8080
+      targetPort: http
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: api
+  namespace: ttacommunity
+spec:
+  # Two, so an unattended node reboot does not take the API down.
+  replicas: 2
+  selector:
+    matchLabels:
+      app: api
+  template:
+    metadata:
+      labels:
+        app: api
+    spec:
+      automountServiceAccountToken: false
+      imagePullSecrets:
+        - name: gitlab-registry
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 65532
+        runAsGroup: 65532
+        seccompProfile:
+          type: RuntimeDefault
+      topologySpreadConstraints:
+        - maxSkew: 1
+          topologyKey: kubernetes.io/hostname
+          whenUnsatisfiable: ScheduleAnyway
+          labelSelector:
+            matchLabels:
+              app: api
+      containers:
+        - name: api
+          image: registry.gitlab.com/unstablehomelab/ttacommunity/api:sha-8553f538@sha256:474940993b576a5a8d212540c20e63093851e1ff9d57f494ee8f28f29bdb298f
+          ports:
+            - name: http
+              containerPort: 8080
+          env:
+            - name: API_ADDR
+              value: ":8080"
+            - name: RATINGS_READ_DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: ratings-api
+                  key: database-url
+          resources:
+            requests:
+              cpu: 25m
+              memory: 32Mi
+            limits:
+              memory: 128Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: [ALL]
+          readinessProbe:
+            httpGet:
+              path: /readyz
+              port: http
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: http
+            initialDelaySeconds: 5
+            periodSeconds: 30

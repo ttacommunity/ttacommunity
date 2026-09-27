@@ -7,4 +7,5 @@ resources:
   - namespace.yaml
   - networkpolicy.yaml
   - ratings-db.yaml
+  - api.yaml
   - engine.yaml
