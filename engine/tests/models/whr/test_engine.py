@@ -2,7 +2,7 @@
 import math
 import numpy as np
 import pytest
-from src.models.whr.engine import WHREngine
+from tta_ratings_engine.models.whr.engine import WHREngine
 
 def test_whr_two_player_synthetic():
     whr = WHREngine(w2_per_day=0.01)
@@ -26,7 +26,7 @@ def test_whr_two_player_synthetic():
 
 
 def test_golden_retrospective_decay_properties():
-    from src.models.whr.engine import PHI, GOLDEN_RATIO_INV, GOLDEN_LAMBDA
+    from tta_ratings_engine.models.whr.engine import PHI, GOLDEN_RATIO_INV, GOLDEN_LAMBDA
     import math
 
     # Inverted golden ratio should equal 1/phi = phi - 1 ≈ 0.6180339887

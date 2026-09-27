@@ -67,9 +67,16 @@ ci-go:
 
 ci-engine:
   extends: .ci_area
+  services:
+    - name: ${POSTGRES_IMAGE}
+      alias: postgres
   variables:
     AREA: engine
     MISE_TOOLS: uv
+    POSTGRES_DB: ttac_test
+    POSTGRES_USER: ttac
+    POSTGRES_PASSWORD: ci-only-not-a-real-secret
+    TEST_DATABASE_URL: 'postgres://ttac:ci-only-not-a-real-secret@127.0.0.1:5432/ttac_test?sslmode=disable'
 
 ci-web:
   extends: .ci_area

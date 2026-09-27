@@ -1,7 +1,7 @@
 """Tests for Glicko-2 engine mathematical correctness."""
 import math
 import pytest
-from src.models.glicko2.engine import Rating, update_rating, DEFAULT_TAU, apply_inactivity, g, E
+from tta_ratings_engine.models.glicko2.engine import Rating, update_rating, DEFAULT_TAU, apply_inactivity, g, E
 
 def test_glickman_example_paper():
     """Verify the official example from Mark Glickman's Glicko-2 paper."""

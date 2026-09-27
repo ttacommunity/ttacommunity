@@ -1,14 +1,29 @@
 """Expands every match into the one-on-one results the rating models read."""
 
-import sqlite3
+import psycopg
+
+from tta_ratings_engine.data.db import require_running
+
+PAIR_COLUMNS = (
+    "run_id, match_id, date, tournament, player_count, "
+    "player_a, player_b, score_a, score_b, outcome_a, weight, glicko_eligible"
+)
 
 
-def expand_pairwise(conn: sqlite3.Connection) -> int:
-    """Rebuilds pairwise_matches from matches and returns how many pairs it wrote.
+def expand_pairwise(conn: psycopg.Connection, run_id: int) -> int:
+    """Rebuilds the run's pairwise_matches from matches, commits, and returns how many pairs it wrote.
 
     An N-player match becomes N*(N-1)/2 pairs, each weighted 1/(N-1). The
-    higher score wins the pair, and equal scores draw.
+    higher score wins the pair, and equal scores draw. Pairs are numbered in
+    match order, which the models rely on to order a day's games. Raises
+    RunNotRunning unless the run is running.
     """
+    with conn.transaction():
+        return _expand(conn, run_id)
+
+
+def _expand(conn, run_id):
+    require_running(conn, run_id)
     rows = conn.execute("""
         SELECT match_id, tournament, date, glicko_eligible,
                player1, score1, player2, score2, player3, score3, player4, score4
@@ -43,6 +58,7 @@ def expand_pairwise(conn: sqlite3.Connection) -> int:
 
                 pairwise_to_insert.append(
                     (
+                        run_id,
                         row["match_id"],
                         row["date"],
                         row["tournament"],
@@ -57,16 +73,13 @@ def expand_pairwise(conn: sqlite3.Connection) -> int:
                     )
                 )
 
-    with conn:
-        conn.execute("DELETE FROM pairwise_matches;")
-        conn.executemany(
-            """
-            INSERT INTO pairwise_matches (
-                match_id, date, tournament, player_count,
-                player_a, player_b, score_a, score_b, outcome_a, weight, glicko_eligible
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        """,
-            pairwise_to_insert,
-        )
+    conn.execute("DELETE FROM pairwise_matches WHERE run_id = %s", (run_id,))
+    with conn.cursor().copy(
+        f"COPY pairwise_matches ({PAIR_COLUMNS}) FROM STDIN"
+    ) as copy:
+        for pair in pairwise_to_insert:
+            copy.write_row(pair)
+    # Without fresh statistics, the models' first queries get a plan for an empty table.
+    conn.execute("ANALYZE pairwise_matches")
 
     return len(pairwise_to_insert)

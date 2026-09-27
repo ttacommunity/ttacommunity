@@ -1,8 +1,8 @@
 import pytest
-from src.models.glicko2.engine import Rating, update_rating, DEFAULT_TAU, apply_inactivity, g, E
+from tta_ratings_engine.models.glicko2.engine import Rating, update_rating, DEFAULT_TAU, apply_inactivity, g, E
 
 def test_adaptive_temperature():
-    from src.models.glicko2.adaptive_t import get_adaptive_temperature, calibrated_expectation, update_rating_adaptive
+    from tta_ratings_engine.models.glicko2.adaptive_t import get_adaptive_temperature, calibrated_expectation, update_rating_adaptive
     # Parity: P=0.5 -> T=1.0 exactly across all formats
     assert get_adaptive_temperature(0.50, 2) == 1.0
     assert get_adaptive_temperature(0.50, 3) == 1.0

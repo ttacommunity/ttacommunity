@@ -107,6 +107,8 @@ if need uv "the engine"; then
     run uv run --frozen ruff check .
     run uv run --frozen ruff format --check .
   fi
+  # No skip without a database: the tests fail on a missing TEST_DATABASE_URL.
+  start_test_db || fail "engine tests: no database"
   if [ "$SLOW" = 1 ]; then
     run uv run --frozen pytest -q
   else

@@ -6,7 +6,7 @@ import math
 from typing import Dict, List, Tuple, Optional
 import numpy as np
 
-from src.models.whr.solver import solve_tridiagonal
+from tta_ratings_engine.models.whr.solver import solve_tridiagonal
 
 GLICKO2_SCALE = 173.7178
 DEFAULT_RATING = 1500.0

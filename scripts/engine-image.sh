@@ -14,7 +14,7 @@ work=$(mktemp -d)
 trap 'rm -rf "$work"' EXIT
 mkdir -p "$work/root/engine/deps"
 
-uv export --frozen --no-dev --no-hashes --quiet -o "$work/requirements.txt"
+uv export --frozen --no-dev --no-hashes --no-emit-project --quiet -o "$work/requirements.txt"
 uv pip install --quiet --target "$work/root/engine/deps" --python-version 3.12 \
   --python-platform x86_64-manylinux_2_28 --only-binary :all: -r "$work/requirements.txt"
 git ls-files -co --exclude-standard -z . | xargs -0 -I{} cp --parents {} "$work/root/engine/"
@@ -24,6 +24,6 @@ tar -C "$work/root" --sort=name --owner=0 --group=0 --numeric-owner --mtime=@0 \
 crane append --platform linux/amd64 -b "$BASE" -f "$work/layer.tar" -t "$ref.tmp" >/dev/null
 crane mutate "$ref.tmp" -t "$ref" \
   --entrypoint python --cmd=-c,"import numpy; print('engine image ok')" \
-  --env PYTHONPATH=/engine/deps:/engine --env PYTHONDONTWRITEBYTECODE=1 \
+  --env PYTHONPATH=/engine/deps:/engine/src --env PYTHONDONTWRITEBYTECODE=1 \
   --user 65532:65532 --workdir /engine >/dev/null
 crane digest "$ref"
