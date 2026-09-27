@@ -19,6 +19,29 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Health"
+  /readyz:
+    get:
+      operationId: getReadyz
+      summary: The process can reach the ratings database
+      responses:
+        "200":
+          description: Ready
+          headers:
+            Cache-Control:
+              $ref: "#/components/headers/CacheControl"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Health"
+        "503":
+          description: Not ready
+          headers:
+            Cache-Control:
+              $ref: "#/components/headers/CacheControl"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
   /v1/runs/current:
     get:
       operationId: getCurrentRun

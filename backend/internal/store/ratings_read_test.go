@@ -108,6 +108,19 @@ func TestCheckReadOnly(t *testing.T) {
 	}
 }
 
+func TestPing(t *testing.T) {
+	reader := asReader(t, migrated(t))
+	ctx := context.Background()
+
+	if err := NewRatingsReader(reader).Ping(ctx); err != nil {
+		t.Errorf("Ping on an open pool: %v, want nil", err)
+	}
+	reader.Close()
+	if err := NewRatingsReader(reader).Ping(ctx); err == nil {
+		t.Error("Ping on a closed pool: nil, want an error")
+	}
+}
+
 func TestCheckReadOnlyCatchesAnyWritableTable(t *testing.T) {
 	pool := migrated(t)
 	ctx := context.Background()

@@ -1,0 +1,138 @@
+# The ratings database: one Postgres on unstableserver, seeded by restoring a
+# dump (README.md). The engine writes to it; the api reads it as ratings_api.
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: ratings-db
+  namespace: ttacommunity
+spec:
+  accessModes: [ReadWriteOnce]
+  # Dev only: not encrypted and not backed up. The data can be restored.
+  storageClassName: longhorn
+  resources:
+    requests:
+      storage: 20Gi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: ratings-db
+  namespace: ttacommunity
+spec:
+  type: ClusterIP
+  selector:
+    app: ratings-db
+  ports:
+    - name: postgres
+      port: 5432
+      targetPort: postgres
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ratings-db
+  namespace: ttacommunity
+spec:
+  replicas: 1
+  # The volume is ReadWriteOnce, so a rolling update would deadlock on it.
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: ratings-db
+  template:
+    metadata:
+      labels:
+        app: ratings-db
+    spec:
+      nodeSelector:
+        kubernetes.io/hostname: unstableserver
+      tolerations:
+        - key: workload-class
+          operator: Equal
+          value: amd64-opt-in
+          effect: NoSchedule
+      automountServiceAccountToken: false
+      securityContext:
+        runAsNonRoot: true
+        # 70 is postgres in the alpine image.
+        runAsUser: 70
+        runAsGroup: 70
+        fsGroup: 70
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: postgres
+          image: docker.io/library/postgres:18-alpine@sha256:77f585114c32fbca283dc835b0596f4e52b51b4c6662d7810b2f4084f60a1873
+          args:
+            - postgres
+            - -c
+            - shared_buffers=512MB
+            # Notice a client that vanished without closing in ~2 minutes, not
+            # the OS default of ~2 hours.
+            - -c
+            - tcp_keepalives_idle=60
+            - -c
+            - tcp_keepalives_interval=10
+            - -c
+            - tcp_keepalives_count=6
+          ports:
+            - name: postgres
+              containerPort: 5432
+          env:
+            - name: POSTGRES_USER
+              value: ratings
+            - name: POSTGRES_DB
+              value: ratings
+            - name: POSTGRES_PASSWORD_FILE
+              value: /etc/ratings-db/password
+          resources:
+            requests:
+              cpu: 250m
+              memory: 1Gi
+            limits:
+              memory: 3Gi
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: [ALL]
+          volumeMounts:
+            # Postgres 18 keeps its data in a versioned directory under here.
+            - name: data
+              mountPath: /var/lib/postgresql
+            - name: password
+              mountPath: /etc/ratings-db
+              readOnly: true
+            - name: run
+              mountPath: /var/run/postgresql
+            - name: tmp
+              mountPath: /tmp
+          readinessProbe:
+            exec:
+              command: [pg_isready, -h, /var/run/postgresql, -U, ratings, -d, ratings]
+            periodSeconds: 10
+            timeoutSeconds: 5
+          livenessProbe:
+            exec:
+              command: [pg_isready, -h, /var/run/postgresql, -U, ratings, -d, ratings]
+            initialDelaySeconds: 60
+            periodSeconds: 30
+            timeoutSeconds: 10
+            failureThreshold: 5
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: ratings-db
+        - name: password
+          secret:
+            secretName: ratings-db
+            items:
+              - key: password
+                path: password
+            defaultMode: 0440
+        - name: run
+          emptyDir: {}
+        - name: tmp
+          emptyDir: {}

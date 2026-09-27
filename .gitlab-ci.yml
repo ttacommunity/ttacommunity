@@ -109,6 +109,25 @@ engine-image:
     - crane config "$ref" | jq -e '.architecture == "amd64" and .config.User == "65532:65532"'
     - echo "engine image ${ref}@${digest}"
 
+# ko builds in userspace, with mise's Go: the ko image bundles an older Go.
+api-image:
+  extends: .ci_area
+  stage: build
+  variables:
+    MISE_TOOLS: go ko
+  rules:
+    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH && $CI_PIPELINE_SOURCE == "push"'
+      changes: [backend/**/*, mise.toml]
+    - if: '$CI_PIPELINE_SOURCE == "web"'
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+      when: manual
+      allow_failure: true
+  script:
+    - ko login "$CI_REGISTRY" -u "$CI_REGISTRY_USER" -p "$CI_JOB_TOKEN"
+    - cd backend
+    - ref=$(KO_DOCKER_REPO="${CI_REGISTRY_IMAGE}/api" ko build ./cmd/api --bare --tags "sha-${CI_COMMIT_SHORT_SHA}")
+    - echo "api image ${ref}"
+
 semgrep-sast:
   tags: [amd64]
   rules: *on_change

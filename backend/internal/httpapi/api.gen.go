@@ -182,6 +182,9 @@ type ServerInterface interface {
 	// GetHealthz The process is up
 	// (GET /healthz)
 	GetHealthz(w http.ResponseWriter, r *http.Request)
+	// GetReadyz The process can reach the ratings database
+	// (GET /readyz)
+	GetReadyz(w http.ResponseWriter, r *http.Request)
 	// GetCurrentRun The run the site shows now
 	// (GET /v1/runs/current)
 	GetCurrentRun(w http.ResponseWriter, r *http.Request)
@@ -204,6 +207,20 @@ func (siw *ServerInterfaceWrapper) GetHealthz(w http.ResponseWriter, r *http.Req
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.GetHealthz(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetReadyz operation middleware
+func (siw *ServerInterfaceWrapper) GetReadyz(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetReadyz(w, r)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -403,6 +420,7 @@ func HandlerWithOptions(si ServerInterface, options StdHTTPServerOptions) http.H
 	}
 
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/healthz", wrapper.GetHealthz)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/readyz", wrapper.GetReadyz)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/v1/runs/current", wrapper.GetCurrentRun)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/v1/runs/{run}/leaderboard", wrapper.GetLeaderboard)
 
@@ -453,6 +471,57 @@ func (response GetHealthz200JSONResponse) VisitGetHealthzResponse(w http.Respons
 	}
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetReadyzRequestObject struct {
+}
+
+type GetReadyzResponseObject interface {
+	VisitGetReadyzResponse(w http.ResponseWriter) error
+}
+
+type GetReadyz200ResponseHeaders struct {
+	CacheControl string
+}
+
+type GetReadyz200JSONResponse struct {
+	Body    Health
+	Headers GetReadyz200ResponseHeaders
+}
+
+func (response GetReadyz200JSONResponse) VisitGetReadyzResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetReadyz503ResponseHeaders struct {
+	CacheControl string
+}
+
+type GetReadyz503JSONResponse struct {
+	Body    Error
+	Headers GetReadyz503ResponseHeaders
+}
+
+func (response GetReadyz503JSONResponse) VisitGetReadyzResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(503)
 	_, err := buf.WriteTo(w)
 	return err
 }
@@ -567,6 +636,9 @@ type StrictServerInterface interface {
 	// GetHealthz The process is up
 	// (GET /healthz)
 	GetHealthz(ctx context.Context, request GetHealthzRequestObject) (GetHealthzResponseObject, error)
+	// GetReadyz The process can reach the ratings database
+	// (GET /readyz)
+	GetReadyz(ctx context.Context, request GetReadyzRequestObject) (GetReadyzResponseObject, error)
 	// GetCurrentRun The run the site shows now
 	// (GET /v1/runs/current)
 	GetCurrentRun(ctx context.Context, request GetCurrentRunRequestObject) (GetCurrentRunResponseObject, error)
@@ -631,6 +703,30 @@ func (sh *strictHandler) GetHealthz(w http.ResponseWriter, r *http.Request) {
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(GetHealthzResponseObject); ok {
 		if err := validResponse.VisitGetHealthzResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// GetReadyz operation middleware
+func (sh *strictHandler) GetReadyz(w http.ResponseWriter, r *http.Request) {
+	var request GetReadyzRequestObject
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.GetReadyz(ctx, request.(GetReadyzRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetReadyz")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(GetReadyzResponseObject); ok {
+		if err := validResponse.VisitGetReadyzResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {

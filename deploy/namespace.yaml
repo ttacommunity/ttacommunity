@@ -1,0 +1,12 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: ttacommunity
+  labels:
+    pod-security.kubernetes.io/enforce: restricted
+    pod-security.kubernetes.io/audit: restricted
+    pod-security.kubernetes.io/warn: restricted
+  annotations:
+    # Flux must never delete this namespace: it would take the hand-made
+    # Secrets (SECRETS.md) with it, and they are not in git.
+    kustomize.toolkit.fluxcd.io/prune: disabled

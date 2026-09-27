@@ -1,0 +1,95 @@
+# Default-deny in both directions, then only the connections that are needed.
+# Prove each rule both ways after a change: the allowed connection works and a
+# denied one fails. See deploy/README.md.
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: default-deny
+  namespace: ttacommunity
+spec:
+  podSelector: {}
+  policyTypes: [Ingress, Egress]
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-dns
+  namespace: ttacommunity
+spec:
+  podSelector: {}
+  policyTypes: [Egress]
+  egress:
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: kube-system
+          podSelector:
+            matchLabels:
+              k8s-app: kube-dns
+      ports:
+        - protocol: UDP
+          port: 53
+        - protocol: TCP
+          port: 53
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: ratings-db-from-clients
+  namespace: ttacommunity
+spec:
+  podSelector:
+    matchLabels:
+      app: ratings-db
+  policyTypes: [Ingress]
+  ingress:
+    - from:
+        - podSelector:
+            matchExpressions:
+              - key: app
+                operator: In
+                values: [api, engine]
+      ports:
+        - protocol: TCP
+          port: 5432
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: clients-to-ratings-db
+  namespace: ttacommunity
+spec:
+  podSelector:
+    matchExpressions:
+      - key: app
+        operator: In
+        values: [api, engine]
+  policyTypes: [Egress]
+  egress:
+    - to:
+        - podSelector:
+            matchLabels:
+              app: ratings-db
+      ports:
+        - protocol: TCP
+          port: 5432
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: probes-to-api
+  namespace: ttacommunity
+spec:
+  # The kubelet probes from the node's address, which no pod selector matches.
+  podSelector:
+    matchLabels:
+      app: api
+  policyTypes: [Ingress]
+  ingress:
+    - from:
+        - ipBlock:
+            cidr: 192.168.68.0/24
+      ports:
+        - protocol: TCP
+          port: 8080
