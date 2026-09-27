@@ -8,5 +8,6 @@
   },
   // Only the custom domain serves the site: no workers.dev or preview hostnames.
   "workers_dev": false,
-  "preview_urls": false
+  "preview_urls": false,
+  "routes": [{ "pattern": "ttacommunity.unstableunicorn.dev", "custom_domain": true }]
 }

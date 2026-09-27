@@ -173,8 +173,9 @@ a Cloudflare credential.
 ### The site on Cloudflare Workers
 
 The site is a Worker serving static assets, configured by
-`web/site/wrangler.jsonc`. Cloudflare's Workers Builds is connected to this
-repository and deploys it:
+`web/site/wrangler.jsonc`, which also declares its custom domain (so a merge
+that changes it changes what is published). Cloudflare's Workers Builds is
+connected to this repository and deploys it:
 
 | Setting | Value |
 |---|---|
