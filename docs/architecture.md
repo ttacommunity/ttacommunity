@@ -7,7 +7,7 @@
 ```mermaid
 flowchart LR
     subgraph cf["Cloudflare"]
-        pages["Cloudflare-built Astro sites<br/>ttacommunity.*: /ratings · /tournaments · /pulse<br/>ttac-admin.* (+ Pages Function proxy)"]
+        pages["Cloudflare-built Astro sites<br/>ttacommunity.*: /ratings · /tournaments · /pulse<br/>ttac-admin.* (+ Worker proxy)"]
         access["Access + Discord OIDC worker<br/>(ttac-admin always; the site while experimenting)"]
     end
     subgraph cluster["k3s — namespace ttacommunity (default-deny)"]
@@ -33,7 +33,7 @@ flowchart LR
 
 | Piece | Role | Writes to |
 |---|---|---|
-| **api** | Public ratings reads, Discord sign-in, Tournaments/Pulse actions, and **admin routes that accept only a valid admin-app Access JWT** (audience-pinned, fail closed), reached through the admin site's Pages Function | app DB. Ratings DB **import batches and recompute requests** (admin routes only) |
+| **api** | Public ratings reads, Discord sign-in, Tournaments/Pulse actions, and **admin routes that accept only a valid admin-app Access JWT** (audience-pinned, fail closed), reached through the admin site's Worker | app DB. Ratings DB **import batches and recompute requests** (admin routes only) |
 | **worker** | Everything that happens *at a time*. **Exactly one acts at a time** (a Postgres advisory lock), so a rollout cannot start a game twice. | app DB. Ratings DB import batches (CGE ingestion, later) |
 | **engine** | Reads matches, computes all models, and writes a **new run**. It never overwrites a published run | Ratings DB result tables only |
 | **site, admin** | Astro, built and hosted by Cloudflare from git. One public site with sections, and admin on its own host behind Access. Types generated from the OpenAPI spec | nothing |

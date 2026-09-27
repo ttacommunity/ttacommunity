@@ -167,21 +167,23 @@ what a run writes are in [`engine/README.md`](engine/README.md).
 ## Publish
 
 The cluster runs what `deploy/` lists (Flux applies it from `main`); the
-sites are built by Cloudflare Pages from git. Nothing here holds a Cloudflare
-credential.
+sites are built and served by Cloudflare Workers from git. Nothing here holds
+a Cloudflare credential.
 
-### The site on Cloudflare Pages
+### The site on Cloudflare Workers
 
-One Pages project, connected to this repository:
+The site is a Worker serving static assets, configured by
+`web/site/wrangler.jsonc`. Cloudflare's Workers Builds is connected to this
+repository and deploys it:
 
 | Setting | Value |
 |---|---|
-| Production branch | `main` |
-| Root directory | `web` |
+| Branch | `main` |
+| Root directory | `/web` |
 | Build command | `pnpm --filter @ttac/site build` |
-| Build output directory | `site/dist` |
+| Deploy command | `npx wrangler@4.141.0 deploy --config site/wrangler.jsonc` |
 
-Build variables, set in the Pages project:
+Build variables, set in the Worker's build settings:
 
 | Variable | Value | Why |
 |---|---|---|

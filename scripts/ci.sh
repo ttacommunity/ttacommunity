@@ -177,7 +177,7 @@ fi
 [ -n "$ONLY" ] && not_covered+=("every area but '$ONLY': each runs in its own CI job")
 printf '\n\033[1mNot covered here:\033[0m\n'
 for item in "${not_covered[@]}" \
-  "Cloudflare's own Pages build (check its build log after a merge to main)" \
+  "Cloudflare's own Workers build (check its build log after a merge to main)" \
   "container images: built by the CI image jobs, not by this script" \
   "secret_detection and semgrep-sast: GitLab templates, CI only"; do
   echo "  - $item"
