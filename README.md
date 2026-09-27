@@ -96,6 +96,22 @@ The API reads ratings as `ratings_api`, a login that can only `SELECT`.
 `scripts/dev.sh` creates it, and the API refuses to start if its login can
 write.
 
+### Copy a loaded database to another server
+
+To seed an empty ratings database elsewhere (a server, or the cluster) from
+the local one, or from a `pg_dump -Fc` file:
+
+```bash
+PGPASSWORD=… RATINGS_API_PASSWORD=… \
+  scripts/seed-cluster-db.sh --host db.example --port 5432 [--dump ratings.dump]
+scripts/seed-cluster-db.sh --kubectl [--dump ratings.dump]   # through kubectl
+```
+
+`PGPASSWORD` is the `ratings` owner's password on the target, and
+`RATINGS_API_PASSWORD` becomes `ratings_api`'s. `--kubectl` reads both from
+the cluster's Secrets (`deploy/SECRETS.md`). Either way it refuses a database
+that already has tables.
+
 ### The files
 
 Every file has this header, and one match per row:
