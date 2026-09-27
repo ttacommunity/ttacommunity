@@ -1,0 +1,13 @@
+// The admin site as a Worker serving static assets, behind Cloudflare Access
+// at ttac-admin.unstableunicorn.dev. Workers Builds deploys it from main.
+{
+  "name": "ttac-admin",
+  "compatibility_date": "2026-09-27",
+  "assets": {
+    "directory": "./dist"
+  },
+  // Access protects only the custom domain, so no other hostname may serve it.
+  "workers_dev": false,
+  "preview_urls": false,
+  "routes": [{ "pattern": "ttac-admin.unstableunicorn.dev", "custom_domain": true }]
+}
