@@ -1,4 +1,3 @@
-import * as config from './config.json'
 import { Hono } from 'hono'
 import * as jose from 'jose'
 
@@ -38,17 +37,26 @@ async function loadOrGenerateKeyPair(KV) {
 
 const app = new Hono()
 
+// Settings come from the Worker's environment: CLIENT_ID and REDIRECT_URL as
+// plain variables, DISCORD_CLIENT_SECRET as a secret. Missing any, refuse.
+app.use('*', async (c, next) => {
+	if (!c.env.CLIENT_ID || !c.env.REDIRECT_URL || !c.env.DISCORD_CLIENT_SECRET) {
+		return c.text('Not configured.', 500)
+	}
+	await next()
+})
+
 app.get('/authorize/:scopemode', async (c) => {
 
-	if (c.req.query('client_id') !== config.clientId
-		|| c.req.query('redirect_uri') !== config.redirectURL
+	if (c.req.query('client_id') !== c.env.CLIENT_ID
+		|| c.req.query('redirect_uri') !== c.env.REDIRECT_URL
 		|| !['guilds', 'email'].includes(c.req.param('scopemode'))) {
 		return c.text('Bad request.', 400)
 	}
 
 	const params = new URLSearchParams({
-		'client_id': config.clientId,
-		'redirect_uri': config.redirectURL,
+		'client_id': c.env.CLIENT_ID,
+		'redirect_uri': c.env.REDIRECT_URL,
 		'response_type': 'code',
 		'scope': c.req.param('scopemode') == 'guilds' ? 'identify email guilds' : 'identify email',
 		'state': c.req.query('state'),
@@ -62,9 +70,9 @@ app.post('/token', async (c) => {
 	const body = await c.req.parseBody()
 	const code = body['code']
 	const params = new URLSearchParams({
-		'client_id': config.clientId,
-		'client_secret': config.clientSecret,
-		'redirect_uri': config.redirectURL,
+		'client_id': c.env.CLIENT_ID,
+		'client_secret': c.env.DISCORD_CLIENT_SECRET,
+		'redirect_uri': c.env.REDIRECT_URL,
 		'code': code,
 		'grant_type': 'authorization_code',
 		'scope': 'identify email'
@@ -104,8 +112,8 @@ app.post('/token', async (c) => {
 
 	let roleClaims = {}
 
-	if (c.env.DISCORD_TOKEN && 'serversToCheckRolesFor' in config) {
-		await Promise.all(config.serversToCheckRolesFor.map(async guildId => {
+	if (c.env.DISCORD_TOKEN && c.env.ROLE_SERVERS) {
+		await Promise.all(c.env.ROLE_SERVERS.split(',').map(async guildId => {
 			if (servers.includes(guildId)) {
 				let memberPromise = fetch(`https://discord.com/api/v10/guilds/${guildId}/members/${userInfo['id']}`, {
 					headers: {
@@ -133,7 +141,7 @@ app.post('/token', async (c) => {
 
 	const idToken = await new jose.SignJWT({
 		iss: 'https://cloudflare.com',
-		aud: config.clientId,
+		aud: c.env.CLIENT_ID,
 		preferred_username,
 		...userInfo,
 		...roleClaims,
@@ -144,7 +152,7 @@ app.post('/token', async (c) => {
 	})
 		.setProtectedHeader({ alg: 'RS256' })
 		.setExpirationTime('1h')
-		.setAudience(config.clientId)
+		.setAudience(c.env.CLIENT_ID)
 		.sign((await loadOrGenerateKeyPair(c.env.KV)).privateKey)
 
 	return c.json({
