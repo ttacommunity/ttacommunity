@@ -12,6 +12,7 @@ Pipe values in; never use `--from-literal`, which leaves them in shell history.
 | `ratings-engine` | `database-url` | `engine` | The engine's connection URL, as `ratings` |
 | `ratings-api` | `password`, `database-url` | `api`, `scripts/seed-cluster-db.sh` | The read-only `ratings_api` login |
 | `gitlab-registry` | `.dockerconfigjson` | `api`, `engine` | Pulls images from the project's GitLab registry. Deploy token `cluster-image-pull` |
+| `ttacommunity-tunnel` | `credentials.json` | `cloudflared` | The `ttacommunity` tunnel's credentials, from `cloudflared tunnel create ttacommunity` (`~/.cloudflared/<tunnel id>.json`) |
 | `ttacommunity-git-auth`, **in `flux-system`** | `username`, `password` | Flux | Reads this repo. Deploy token `flux-git-read`, `read_repository` only |
 
 ## Creating them

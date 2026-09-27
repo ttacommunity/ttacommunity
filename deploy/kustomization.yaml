@@ -11,3 +11,4 @@ resources:
   - ratings-db-lan.yaml
   - api.yaml
   - engine.yaml
+  - cloudflare-tunnel.yaml

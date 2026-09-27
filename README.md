@@ -163,3 +163,39 @@ A full run of every model and format takes about 20 minutes and 1 GB of
 memory on a desktop, and logs its progress and time left as it goes. It is
 not published until you add `--make-current`. The options and
 what a run writes are in [`engine/README.md`](engine/README.md).
+
+## Publish
+
+The cluster runs what `deploy/` lists (Flux applies it from `main`); the
+sites are built by Cloudflare Pages from git. Nothing here holds a Cloudflare
+credential.
+
+### The site on Cloudflare Pages
+
+One Pages project, connected to this repository:
+
+| Setting | Value |
+|---|---|
+| Production branch | `main` |
+| Root directory | `web` |
+| Build command | `pnpm --filter @ttac/site build` |
+| Build output directory | `site/dist` |
+
+Build variables, set in the Pages project:
+
+| Variable | Value | Why |
+|---|---|---|
+| `PUBLIC_API_URL` | `https://ttac-api.unstableunicorn.dev` | Where the browser reads ratings. Sent to the browser, so never a secret |
+| `NODE_VERSION` | the `node` version in `mise.toml` | The build image's default is older |
+| `PNPM_VERSION` | the pnpm version in `web/package.json` | The build image does not read `packageManager` |
+
+### The API
+
+`deploy/cloudflare-tunnel.yaml` runs the tunnel's connector. The hostname goes
+live when a DNS record points at the tunnel:
+
+```bash
+cloudflared tunnel route dns ttacommunity ttac-api.unstableunicorn.dev
+```
+
+A WAF rate-limiting rule on that hostname comes first.
