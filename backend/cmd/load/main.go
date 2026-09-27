@@ -65,7 +65,7 @@ func run(reset bool, dir string) error {
 	}
 	loaded, err := store.LoadMatches(ctx, pool, res.Matches, res.Refused)
 	if err != nil {
-		return fmt.Errorf("loading: %w (to start again from empty, run with -reset)", err)
+		return fmt.Errorf("loading: %w (to start again from empty: -reset, or --reset with scripts/ratings-db.sh)", err)
 	}
 	report(os.Stdout, res, loaded)
 	return nil

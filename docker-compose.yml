@@ -47,6 +47,15 @@ services:
     depends_on:
       app-db: { condition: service_healthy }
 
+  # Seeds the ratings DB from match CSVs. scripts/ratings-db.sh mounts the directory.
+  load:
+    build: { context: backend, target: load }
+    profiles: [load]
+    environment:
+      RATINGS_DATABASE_URL: postgres://ratings:${RATINGS_DB_PASSWORD}@ratings-db:5432/ratings?sslmode=disable
+    depends_on:
+      ratings-db: { condition: service_healthy }
+
   # A one-shot job, like the CronJob it stands in for. scripts/dev.sh runs it once.
   engine:
     build: { context: engine }
