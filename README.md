@@ -86,6 +86,16 @@ every match, refused row and rating run.**
 In a container, the job sees only that directory, so a symlink pointing out
 of it does not resolve. Copy the files in instead.
 
+After pulling a new migration, apply it to a database you already loaded:
+
+```bash
+cd backend && set -a && . ../.env && set +a && go run ./cmd/load -migrate
+```
+
+The API reads ratings as `ratings_api`, a login that can only `SELECT`.
+`scripts/dev.sh` creates it, and the API refuses to start if its login can
+write.
+
 ### The files
 
 Every file has this header, and one match per row:

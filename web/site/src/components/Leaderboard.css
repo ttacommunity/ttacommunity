@@ -1,0 +1,32 @@
+/* Bare leaderboard styles, until the design system replaces them. */
+.leaderboard .pickers {
+  display: flex;
+  gap: 1rem;
+  margin-bottom: 1rem;
+  font-family: var(--font-ui);
+}
+
+.leaderboard table {
+  border-collapse: collapse;
+  font-family: var(--font-ui);
+  font-size: 0.875rem;
+}
+
+.leaderboard caption {
+  text-align: left;
+  padding-bottom: 0.5rem;
+  color: var(--text-muted);
+}
+
+.leaderboard th,
+.leaderboard td {
+  padding: 0.25rem 0.5rem;
+  border-bottom: 1px solid var(--border);
+  text-align: right;
+}
+
+.leaderboard tbody th {
+  text-align: left;
+  color: var(--gold);
+  font-weight: normal;
+}

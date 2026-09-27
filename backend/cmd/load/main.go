@@ -21,20 +21,48 @@ import (
 
 func main() {
 	reset := flag.Bool("reset", false, "delete every match, refusal and rating run first")
+	migrate := flag.Bool("migrate", false, "only apply the ratings migrations, and load nothing")
 	flag.Usage = func() {
 		fmt.Fprintln(os.Stderr, "usage: load [-reset] <directory of match CSVs>")
+		fmt.Fprintln(os.Stderr, "       load -migrate")
 		fmt.Fprintln(os.Stderr, "The database is RATINGS_DATABASE_URL.")
 		flag.PrintDefaults()
 	}
 	flag.Parse()
-	if flag.NArg() != 1 {
+	var err error
+	switch {
+	case *migrate && !*reset && flag.NArg() == 0:
+		err = migrateOnly()
+	case !*migrate && flag.NArg() == 1:
+		err = run(*reset, flag.Arg(0))
+	default:
 		flag.Usage()
 		os.Exit(64)
 	}
-	if err := run(*reset, flag.Arg(0)); err != nil {
+	if err != nil {
 		fmt.Fprintln(os.Stderr, "load:", err)
 		os.Exit(1)
 	}
+}
+
+// migrateOnly applies every ratings migration not yet applied.
+func migrateOnly() error {
+	dbURL := os.Getenv("RATINGS_DATABASE_URL")
+	if dbURL == "" {
+		return fmt.Errorf("RATINGS_DATABASE_URL is not set")
+	}
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer stop()
+	pool, err := pgxpool.New(ctx, dbURL)
+	if err != nil {
+		return fmt.Errorf("opening the ratings database: %w", err)
+	}
+	defer pool.Close()
+	if err := store.MigrateRatings(ctx, pool); err != nil {
+		return err
+	}
+	fmt.Println("ratings migrations applied")
+	return nil
 }
 
 func run(reset bool, dir string) error {

@@ -90,11 +90,11 @@ fi
 
 if full; then
   step "spec"
-  if [ -f backend/api/openapi.yaml ]; then
-    fail "backend/api/openapi.yaml exists but the spec check is not written yet"
-  else
-    not_covered+=("spec: no backend/api/openapi.yaml yet, so no route or TS type check")
-  fi
+  # Routes against the spec: TestRoutesMatchTheSpec, in the Go tests above.
+  # The generated Go must be what the committed spec produces.
+  (cd backend && go generate ./internal/httpapi) || fail "generating Go from the spec"
+  git diff --quiet -- backend/internal/httpapi/api.gen.go ||
+    fail "backend/internal/httpapi/api.gen.go differs from the spec: run go generate ./internal/httpapi and commit it"
 fi
 fi
 
@@ -129,6 +129,9 @@ if need corepack "the web workspace"; then
   corepack enable --install-directory "$shims" pnpm && export PATH="$shims:$PATH"
   run corepack pnpm install --frozen-lockfile --silent
   if full; then
+    run corepack pnpm --filter @ttac/shared gen:api
+    git diff --quiet -- shared/api ||
+      fail "web/shared/api differs from the spec: run pnpm --filter @ttac/shared gen:api and commit it"
     run corepack pnpm lint
     run corepack pnpm check
   fi
@@ -139,9 +142,7 @@ if need corepack "the web workspace"; then
       [ -f "$site/dist/index.html" ] || fail "$site: the build produced no dist/index.html"
       [ -f "$site/dist/_headers" ] || fail "$site: _headers did not reach the output root"
       grep -q '^  Content-Security-Policy:' "$site/dist/_headers" 2>/dev/null || fail "$site: _headers sets no CSP"
-      if find "$site/dist" -name '*.html' -exec grep -lE '<script>|<style>|style="' {} +; then
-        fail "$site: built HTML carries inline script or style, which the CSP blocks"
-      fi
+      run node "$ROOT/checks/csp-inline.mjs" "$site/dist"
       want=$(cat "$site/.node-version" 2>/dev/null)
       have=$(node --version | sed 's/^v\([0-9]*\).*/\1/')
       [ "$want" = "$have" ] || fail "$site/.node-version says '$want' but this is Node $have"

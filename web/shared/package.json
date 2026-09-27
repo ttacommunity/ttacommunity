@@ -2,8 +2,17 @@
   "name": "@ttac/shared",
   "private": true,
   "type": "module",
+  "scripts": {
+    "gen:api": "openapi-typescript ../../backend/api/openapi.yaml -o api/schema.ts --enum-values"
+  },
   "exports": {
     "./time": "./src/time.ts",
+    "./api": "./api/schema.ts",
+    "./ratings": "./src/ratings.ts",
     "./styles/tokens.css": "./styles/tokens.css"
+  },
+  "devDependencies": {
+    "openapi-typescript": "7.13.0",
+    "typescript": "~6.0.3"
   }
 }

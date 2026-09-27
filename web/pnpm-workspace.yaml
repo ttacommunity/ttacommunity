@@ -13,3 +13,6 @@ allowBuilds:
 peerDependencyRules:
   allowedVersions:
     eslint-plugin-astro>eslint-plugin-jsx-a11y: '0.2'
+    # openapi-typescript only prints generated types, and its output is
+    # checked by `astro check` on TypeScript 6. Its peer range predates 6.
+    openapi-typescript>typescript: '6'
