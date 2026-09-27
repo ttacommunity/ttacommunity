@@ -1,0 +1,40 @@
+# TEMPORARY, for development: the ratings database on the home LAN at
+# unstableserver:30432, so it can be queried and loaded directly. This
+# NetworkPolicy is the only gate: the host firewall does not cover NodePorts.
+# Remove this file (and its kustomization entry) when development settles.
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: ratings-db-lan
+  namespace: ttacommunity
+spec:
+  type: NodePort
+  # Keeps the client's address, so the policy below can match it. Connect to
+  # unstableserver, where the pod runs; other nodes drop the traffic.
+  externalTrafficPolicy: Local
+  selector:
+    app: ratings-db
+  ports:
+    - name: postgres
+      port: 5432
+      targetPort: postgres
+      nodePort: 30432
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: ratings-db-from-lan
+  namespace: ttacommunity
+spec:
+  podSelector:
+    matchLabels:
+      app: ratings-db
+  policyTypes: [Ingress]
+  ingress:
+    - from:
+        - ipBlock:
+            cidr: 192.168.68.0/22
+      ports:
+        - protocol: TCP
+          port: 5432
