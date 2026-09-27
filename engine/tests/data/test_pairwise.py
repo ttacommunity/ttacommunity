@@ -1,54 +1,41 @@
+from datetime import date
+
 import pytest
 
-from tta_ratings_engine.data.db import get_connection, init_db
+from tta_ratings_engine.data.db import RunNotRunning, connect
 from tta_ratings_engine.data.pairwise import expand_pairwise
 
 
-@pytest.fixture
-def conn(tmp_path):
-    db = str(tmp_path / "engine.db")
-    init_db(db)
-    c = get_connection(db)
-    yield c
-    c.close()
-
-
-def add_match(conn, match_id, *players, eligible=1):
-    cols = {"player_count": len(players)}
-    for i, (name, score) in enumerate(players, start=1):
-        cols[f"player{i}"] = name
-        cols[f"score{i}"] = score
-    cols.update(
-        match_id=match_id, tournament="T", date="2024-01-01", glicko_eligible=eligible
-    )
-    names = ", ".join(cols)
-    marks = ", ".join("?" for _ in cols)
-    conn.execute(
-        f"INSERT INTO matches ({names}) VALUES ({marks})", tuple(cols.values())
-    )
-    conn.commit()
-
-
-def pairs(conn):
+def pairs(conn, run_id):
     rows = conn.execute(
         "SELECT match_id, player_a, player_b, score_a, score_b, outcome_a, weight, glicko_eligible "
-        "FROM pairwise_matches ORDER BY pairwise_id"
+        "FROM pairwise_matches WHERE run_id = %s ORDER BY pairwise_id",
+        (run_id,),
     ).fetchall()
-    return [tuple(r) for r in rows]
+    return [tuple(r.values()) for r in rows]
 
 
-def test_two_player_match_is_one_full_weight_pair(conn):
-    add_match(conn, 1, ("Alice", 120), ("Bob", 90))
+def new_run(conn):
+    rid = conn.execute(
+        "INSERT INTO rating_runs (engine_version, input_fingerprint) "
+        "VALUES ('test', 'test') RETURNING run_id"
+    ).fetchone()["run_id"]
+    conn.commit()
+    return rid
 
-    assert expand_pairwise(conn) == 1
-    assert pairs(conn) == [(1, "Alice", "Bob", 120, 90, 1.0, 1.0, 1)]
+
+def test_two_player_match_is_one_full_weight_pair(conn, add_match, run_id):
+    m = add_match(("Alice", 120), ("Bob", 90))
+
+    assert expand_pairwise(conn, run_id) == 1
+    assert pairs(conn, run_id) == [(m, "Alice", "Bob", 120, 90, 1.0, 1.0, True)]
 
 
-def test_four_player_match_is_six_pairs_weighted_a_third(conn):
-    add_match(conn, 1, ("A", 40), ("B", 30), ("C", 30), ("D", 50))
+def test_four_player_match_is_six_pairs_weighted_a_third(conn, add_match, run_id):
+    add_match(("A", 40), ("B", 30), ("C", 30), ("D", 50))
 
-    assert expand_pairwise(conn) == 6
-    got = [(a, b, out, round(w, 9)) for _, a, b, _, _, out, w, _ in pairs(conn)]
+    assert expand_pairwise(conn, run_id) == 6
+    got = [(a, b, out, round(w, 9)) for _, a, b, _, _, out, w, _ in pairs(conn, run_id)]
     assert got == [
         ("A", "B", 1.0, 0.333333333),
         ("A", "C", 1.0, 0.333333333),
@@ -59,24 +46,67 @@ def test_four_player_match_is_six_pairs_weighted_a_third(conn):
     ]
 
 
-def test_three_player_match_pairs_are_weighted_a_half(conn):
-    add_match(conn, 1, ("A", 10), ("B", 20), ("C", 30))
+def test_three_player_match_pairs_are_weighted_a_half(conn, add_match, run_id):
+    add_match(("A", 10), ("B", 20), ("C", 30))
 
-    expand_pairwise(conn)
-    assert [w for *_, w, _ in pairs(conn)] == [0.5, 0.5, 0.5]
-
-
-def test_ineligible_match_stays_ineligible_in_its_pairs(conn):
-    add_match(conn, 1, ("A", 10), ("B", 20), eligible=0)
-
-    expand_pairwise(conn)
-    assert [e for *_, e in pairs(conn)] == [0]
+    expand_pairwise(conn, run_id)
+    assert [w for *_, w, _ in pairs(conn, run_id)] == [0.5, 0.5, 0.5]
 
 
-def test_expanding_again_replaces_the_pairs_instead_of_adding(conn):
-    add_match(conn, 1, ("A", 10), ("B", 20))
-    expand_pairwise(conn)
-    add_match(conn, 2, ("C", 10), ("D", 20))
+def test_ineligible_match_stays_ineligible_in_its_pairs(conn, add_match, run_id):
+    add_match(("A", 10), ("B", 20), eligible=False)
 
-    assert expand_pairwise(conn) == 2
-    assert [p[0] for p in pairs(conn)] == [1, 2]
+    expand_pairwise(conn, run_id)
+    assert [e for *_, e in pairs(conn, run_id)] == [False]
+
+
+def test_pairs_keep_the_match_date_and_tournament(conn, add_match, run_id):
+    add_match(("A", 10), ("B", 20), day=date(2023, 5, 17), tournament="Cup")
+
+    expand_pairwise(conn, run_id)
+    row = conn.execute(
+        "SELECT date, tournament, player_count FROM pairwise_matches WHERE run_id = %s",
+        (run_id,),
+    ).fetchone()
+    assert row == {"date": date(2023, 5, 17), "tournament": "Cup", "player_count": 2}
+
+
+def test_expanding_again_replaces_the_runs_pairs_instead_of_adding(
+    conn, add_match, run_id
+):
+    first = add_match(("A", 10), ("B", 20))
+    expand_pairwise(conn, run_id)
+    second = add_match(("C", 10), ("D", 20))
+
+    assert expand_pairwise(conn, run_id) == 2
+    assert [p[0] for p in pairs(conn, run_id)] == [first, second]
+
+
+def test_another_runs_pairs_are_left_alone(conn, add_match, run_id):
+    add_match(("A", 10), ("B", 20))
+    other = new_run(conn)
+    expand_pairwise(conn, other)
+
+    expand_pairwise(conn, run_id)
+
+    assert len(pairs(conn, other)) == 1
+    assert len(pairs(conn, run_id)) == 1
+
+
+def test_the_pairs_are_committed(conn, db_url, add_match, run_id):
+    add_match(("A", 10), ("B", 20))
+    expand_pairwise(conn, run_id)
+
+    with connect(db_url) as other:
+        assert len(pairs(other, run_id)) == 1
+
+
+def test_a_finished_run_gets_no_pairs(conn, add_match, run_id):
+    add_match(("A", 10), ("B", 20))
+    conn.execute("UPDATE rating_runs SET status = 'failed' WHERE run_id = %s", (run_id,))
+    conn.commit()
+
+    with pytest.raises(RunNotRunning):
+        expand_pairwise(conn, run_id)
+
+    assert pairs(conn, run_id) == []

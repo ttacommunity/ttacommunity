@@ -153,6 +153,53 @@ def connect(url=None):
     return psycopg.connect(url, row_factory=dict_row)
 
 
+class RunNotRunning(Exception):
+    """Raised on a write into a rating run that is missing or no longer running."""
+
+
+def require_running(conn, run_id):
+    """Raises RunNotRunning unless the run exists and is running.
+
+    Holds a share lock on the run until the transaction ends, so it cannot
+    be finished or published mid-write.
+    """
+    row = conn.execute(
+        "SELECT status FROM rating_runs WHERE run_id = %s FOR SHARE", (run_id,)
+    ).fetchone()
+    if row is None:
+        raise RunNotRunning(f"run {run_id} does not exist")
+    if row["status"] != "running":
+        raise RunNotRunning(f"run {run_id} is {row['status']}, not running")
+
+
+RATING_COLUMNS = (
+    "model_type, player_count, player_name, rating, rd, sigma, c_rating, rank, rank_delta, "
+    "games_played, opponents_count, wins, losses, draws, win_rate, last_played"
+)
+HISTORY_COLUMNS = "model_type, player_count, player_name, period_date, rating, rd, c_rating"
+
+
+def save_model_results(conn, run_id, model_type, player_count, rating_rows, history_rows):
+    """Replaces one model and format's ratings and history in a run.
+
+    Rows are tuples in RATING_COLUMNS and HISTORY_COLUMNS order, without the
+    run_id. Written with COPY; the caller commits. Raises RunNotRunning.
+    """
+    require_running(conn, run_id)
+    for table in ("player_ratings", "rating_history"):
+        conn.execute(
+            f"DELETE FROM {table} WHERE run_id = %s AND model_type = %s AND player_count = %s",
+            (run_id, model_type, player_count),
+        )
+    for table, columns, rows in (
+        ("player_ratings", RATING_COLUMNS, rating_rows),
+        ("rating_history", HISTORY_COLUMNS, history_rows),
+    ):
+        with conn.cursor().copy(f"COPY {table} (run_id, {columns}) FROM STDIN") as copy:
+            for row in rows:
+                copy.write_row((run_id, *row))
+
+
 def get_connection(db_path=None):
     """Opens the database at db_path, or at ENGINE_DB_PATH. Raises RuntimeError if neither is set."""
     path = db_path or os.environ.get("ENGINE_DB_PATH")

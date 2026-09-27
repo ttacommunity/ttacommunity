@@ -1,7 +1,7 @@
 import psycopg
 import pytest
 
-from tta_ratings_engine.data.db import connect
+from tta_ratings_engine.data.db import RunNotRunning, connect, require_running
 
 
 def test_refuses_to_connect_without_a_database_url(monkeypatch):
@@ -40,3 +40,20 @@ def test_the_test_database_has_the_migrated_schema(conn):
     }
 
     assert {"matches", "players", "rating_runs", "pairwise_matches"} <= tables
+
+
+@pytest.mark.parametrize("status", ["complete", "failed"])
+def test_a_run_that_is_not_running_is_refused(conn, run_id, status):
+    conn.execute("UPDATE rating_runs SET status = %s WHERE run_id = %s", (status, run_id))
+
+    with pytest.raises(RunNotRunning, match=f"run {run_id} is {status}"):
+        require_running(conn, run_id)
+
+
+def test_a_missing_run_is_refused(conn, run_id):
+    with pytest.raises(RunNotRunning, match="does not exist"):
+        require_running(conn, run_id + 1)
+
+
+def test_a_running_run_is_accepted(conn, run_id):
+    require_running(conn, run_id)
