@@ -29,6 +29,7 @@ class Progress:
         self._every = every
         self._start = clock()
         self._last_log = None
+        self._last_step = self._start
         self._current = "starting"
         self._lock = threading.Lock()
 
@@ -42,16 +43,19 @@ class Progress:
         with self._lock:
             self.done += 1
             now = self._clock()
+            self._last_step = now
             due = self._last_log is None or now - self._last_log >= self._every
             if due or self.done >= self.total:
                 self._emit(label, now)
 
     def beat(self):
-        """Logs the step in progress if nothing has been logged for `every` seconds."""
+        """Logs the step in progress if no step has finished, and nothing has been logged, for `every` seconds."""
         with self._lock:
             now = self._clock()
-            since = now - (self._start if self._last_log is None else self._last_log)
-            if since >= self._every:
+            since_log = now - (
+                self._start if self._last_log is None else self._last_log
+            )
+            if min(since_log, now - self._last_step) >= self._every:
                 self._emit(f"still on {self._current}", now)
 
     def _emit(self, text, now):

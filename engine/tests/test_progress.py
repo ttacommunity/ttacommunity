@@ -94,6 +94,21 @@ def test_a_heartbeat_is_quiet_while_steps_are_being_reported(clock, lines):
     assert len(lines) == 1
 
 
+def test_a_heartbeat_is_quiet_while_steps_keep_finishing(clock, lines):
+    p = progress(10, clock, lines)
+    p.advance("a")
+    clock.now = 20
+    p.advance("b")
+    clock.now = 35
+
+    p.beat()
+    clock.now = 40
+    p.advance("c")
+
+    assert lines[-1] == "[3/10] c | elapsed 0m40s | eta 1m33s"
+    assert not any("still on" in line for line in lines)
+
+
 def test_a_heartbeat_before_any_step_has_no_eta(clock, lines):
     p = progress(10, clock, lines)
     p.working_on("pairs")
