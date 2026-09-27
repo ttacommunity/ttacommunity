@@ -1,29 +1,8 @@
 ---
-import '@ttac/shared/styles/tokens.css';
 import { PUBLIC_API_URL } from 'astro:env/client';
+import SiteLayout from '../../layouts/SiteLayout.astro';
 import Leaderboard from '../../components/Leaderboard';
 ---
-<html lang="en">
-  <head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Ratings · ttacommunity</title>
-    <meta name="description" content="Community ratings for Through the Ages." />
-  </head>
-  <body>
-    <main>
-      <h1>Ratings</h1>
-      <Leaderboard client:load apiUrl={PUBLIC_API_URL} />
-    </main>
-  </body>
-</html>
-
-<style>
-  main {
-    padding: 2rem 1rem;
-  }
-  h1 {
-    color: var(--gold);
-    font-family: var(--font-display);
-  }
-</style>
+<SiteLayout title="Competitive Ratings | Through the Ages" description="Community ratings for Through the Ages.">
+  <Leaderboard client:load apiUrl={PUBLIC_API_URL} />
+</SiteLayout>
