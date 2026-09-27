@@ -113,7 +113,7 @@ app.post('/token', async (c) => {
 		}
 	}).then(res => res.json())
 
-	if (r === null) return new Response("Bad request.", { status: 400 })
+	if (r === null || typeof r['access_token'] !== 'string') return c.text('Bad request.', 400)
 	const userInfo = await fetch('https://discord.com/api/v10/users/@me', {
 		headers: {
 			'Authorization': 'Bearer ' + r['access_token']
