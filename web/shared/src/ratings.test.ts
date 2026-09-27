@@ -1,0 +1,68 @@
+import { describe, expect, it } from 'vitest';
+import { RatingsApiError, currentRun, leaderboard } from './ratings';
+
+interface Call {
+  url: string;
+  init?: RequestInit;
+}
+
+function fakeFetch(status: number, body: string): { fetch: typeof fetch; calls: Call[] } {
+  const calls: Call[] = [];
+  const fn = async (input: RequestInfo | URL, init?: RequestInit) => {
+    calls.push({ url: String(input), init });
+    return new Response(body, { status, headers: { 'Content-Type': 'application/json' } });
+  };
+  return { fetch: fn as typeof fetch, calls };
+}
+
+describe('currentRun', () => {
+  it('reads the current run without credentials', async () => {
+    const f = fakeFetch(200, '{"run_id":5,"published_at":"2026-09-27T04:52:18Z"}');
+    const run = await currentRun('https://api.example', f.fetch);
+
+    expect(run).toEqual({ run_id: 5, published_at: '2026-09-27T04:52:18Z' });
+    expect(f.calls).toHaveLength(1);
+    expect(f.calls[0]?.url).toBe('https://api.example/v1/runs/current');
+    expect(f.calls[0]?.init?.credentials).toBe('omit');
+  });
+
+  it('accepts a base URL with a trailing slash', async () => {
+    const f = fakeFetch(200, '{"run_id":5,"published_at":"2026-09-27T04:52:18Z"}');
+    await currentRun('https://api.example/', f.fetch);
+    expect(f.calls[0]?.url).toBe('https://api.example/v1/runs/current');
+  });
+
+  it("raises the API's message when nothing is published", async () => {
+    const f = fakeFetch(503, '{"error":"no rating run has been published yet"}');
+    const err = await currentRun('https://api.example', f.fetch).catch((e: unknown) => e);
+
+    expect(err).toBeInstanceOf(RatingsApiError);
+    expect(err).toMatchObject({ status: 503, message: 'no rating run has been published yet' });
+  });
+
+  it('raises a plain message when the error body is not JSON', async () => {
+    const f = fakeFetch(502, '<html>Bad gateway</html>');
+    const err = await currentRun('https://api.example', f.fetch).catch((e: unknown) => e);
+
+    expect(err).toMatchObject({ status: 502, message: 'request failed (502)' });
+  });
+});
+
+describe('leaderboard', () => {
+  it('asks for one run, model and format without credentials', async () => {
+    const body = '{"run_id":5,"model":"whr","format":2,"players":[]}';
+    const f = fakeFetch(200, body);
+    const board = await leaderboard('https://api.example', 5, 'whr', 2, f.fetch);
+
+    expect(board).toEqual(JSON.parse(body));
+    expect(f.calls[0]?.url).toBe('https://api.example/v1/runs/5/leaderboard?model=whr&format=2');
+    expect(f.calls[0]?.init?.credentials).toBe('omit');
+  });
+
+  it("raises the API's message for a run that is not published", async () => {
+    const f = fakeFetch(404, '{"error":"no published rating run has this id"}');
+    const err = await leaderboard('https://api.example', 9, 'whr', 0, f.fetch).catch((e: unknown) => e);
+
+    expect(err).toMatchObject({ status: 404, message: 'no published rating run has this id' });
+  });
+});
