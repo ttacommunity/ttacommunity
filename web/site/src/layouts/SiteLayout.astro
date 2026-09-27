@@ -1,0 +1,190 @@
+---
+/** The page shell every site page uses: upstream's header, nav and footer around the page's content. */
+import '@ttac/shared/styles/theme.css';
+import { Font } from 'astro:assets';
+import { isCurrent, sections } from '../lib/nav';
+
+interface Props {
+  title: string;
+  description: string;
+}
+
+const { title, description } = Astro.props;
+const path = Astro.url.pathname;
+---
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>{title}</title>
+    <meta name="description" content={description} />
+    <link rel="icon" type="image/png" href="/favicon.png" />
+    <Font cssVariable="--font-cinzel" preload />
+    <Font cssVariable="--font-marcellus" />
+    <Font cssVariable="--font-source-serif" />
+    <Font cssVariable="--font-inter" />
+    <slot name="head" />
+  </head>
+  <body>
+    <header class="site-header">
+      <div class="header-container">
+        <a href="/" class="brand">
+          <img src="/img/home-button.webp" alt="" width="42" height="42" />
+          <div>
+            <span class="brand-title">Through the Ages</span>
+            <span class="brand-subtitle">Competitive Community Hub</span>
+          </div>
+        </a>
+        <nav aria-label="Sections">
+          {sections.map((s) => (
+            <a href={s.href} class:list={{ active: isCurrent(path, s.href) }} aria-current={isCurrent(path, s.href) ? 'page' : undefined}>
+              {s.label}
+            </a>
+          ))}
+        </nav>
+      </div>
+    </header>
+
+    <main>
+      <slot />
+    </main>
+
+    <footer class="site-footer">
+      <div class="footer-container">
+        <p><strong>Through the Ages Rating Engine</strong> -- Powered by Glicko-2 and Coulom Whole-History Rating.</p>
+        <p class="footer-small">
+          Data from competitive online TTA tournaments (2017-2026). &bull;
+          <a href="https://ttac-admin.unstableunicorn.dev/">Webmaster</a>
+        </p>
+      </div>
+    </footer>
+
+    <script>
+      // The background starts below the header, whose height changes when it wraps.
+      const header = document.querySelector('.site-header');
+      if (header instanceof HTMLElement) {
+        const setHeight = () => document.documentElement.style.setProperty('--header-height', `${header.offsetHeight}px`);
+        new ResizeObserver(setHeight).observe(header);
+      }
+    </script>
+  </body>
+</html>
+
+<style>
+  .site-header {
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    padding: 0.75rem 2rem;
+    background: var(--surface-header);
+    border-bottom: 2px solid var(--border-subtle);
+    backdrop-filter: blur(8px);
+  }
+
+  .header-container {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    max-width: 1400px;
+    margin: 0 auto;
+  }
+
+  .brand {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    color: var(--accent-gold);
+  }
+
+  .brand:hover {
+    color: var(--accent-gold);
+  }
+
+  .brand img {
+    width: 42px;
+    height: 42px;
+    object-fit: contain;
+  }
+
+  .brand-title {
+    display: block;
+    font-family: var(--font-heading);
+    font-size: 1.4rem;
+    font-weight: 700;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    text-shadow: 0 2px 4px rgba(0, 0, 0, 0.8);
+  }
+
+  .brand-subtitle {
+    display: block;
+    color: var(--text-muted);
+    font-family: var(--font-subheading);
+    font-size: 0.75rem;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+  }
+
+  nav {
+    display: flex;
+    align-items: center;
+    gap: 1.5rem;
+  }
+
+  nav a {
+    padding: 0.25rem 0.5rem;
+    border-bottom: 2px solid transparent;
+    color: var(--text-main);
+    font-family: var(--font-subheading);
+    font-size: 1.05rem;
+    letter-spacing: 0.5px;
+    transition: color 0.2s, border-bottom 0.2s;
+  }
+
+  nav a:hover,
+  nav a.active {
+    border-bottom: 2px solid var(--accent-gold);
+    color: var(--accent-gold);
+  }
+
+  main {
+    flex: 1;
+    width: 100%;
+    max-width: 1400px;
+    margin: 2rem auto;
+    padding: 0 1.5rem;
+  }
+
+  .site-footer {
+    margin-top: auto;
+    padding: 2rem 1.5rem;
+    background: var(--surface-footer);
+    border-top: 1px solid var(--border-subtle);
+    color: var(--text-muted);
+    font-family: var(--font-stats);
+    font-size: 0.85rem;
+    text-align: center;
+  }
+
+  .footer-container {
+    max-width: 1000px;
+    margin: 0 auto;
+    line-height: 1.6;
+  }
+
+  .footer-small {
+    margin-top: 0.5rem;
+    color: #887864;
+    font-size: 0.8rem;
+  }
+
+  .footer-small a {
+    color: #887864;
+  }
+
+  .footer-small a:hover {
+    color: var(--accent-gold);
+  }
+</style>

@@ -1,0 +1,60 @@
+/* Upstream's hover tooltips: any element with data-tooltip shows its text in a gold-edged box. */
+[data-tooltip] {
+  position: relative;
+  border-bottom: 1px dotted rgba(229, 169, 60, 0.4);
+  cursor: help;
+}
+
+[data-tooltip]::after {
+  content: attr(data-tooltip);
+  position: absolute;
+  bottom: 130%;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 1000;
+  width: max-content;
+  max-width: 320px;
+  padding: 0.45rem 0.8rem;
+  background: rgba(18, 12, 8, 0.97);
+  border: 1px solid var(--accent-gold);
+  border-radius: 5px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.8);
+  color: var(--text-main);
+  font-family: var(--font-stats);
+  font-size: 0.8rem;
+  font-weight: 400;
+  letter-spacing: normal;
+  line-height: 1.4;
+  text-transform: none;
+  white-space: normal;
+  pointer-events: none;
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 0.2s ease, visibility 0.2s ease;
+}
+
+[data-tooltip]:hover::after,
+[data-tooltip]:focus-visible::after {
+  opacity: 1;
+  visibility: visible;
+}
+
+/* In table headers the box opens downwards, and hugs the edge in the outer columns. */
+th [data-tooltip]::after {
+  top: 135%;
+  bottom: auto;
+  z-index: 9999;
+}
+
+th:first-child [data-tooltip]::after,
+th:nth-child(2) [data-tooltip]::after {
+  left: 0;
+  transform: none;
+}
+
+th:last-child [data-tooltip]::after,
+th:nth-last-child(2) [data-tooltip]::after {
+  left: auto;
+  right: 0;
+  transform: none;
+}

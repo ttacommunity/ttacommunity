@@ -1,0 +1,21 @@
+/* Text fields and selects on dark panels, upstream's .input-antique. */
+.input-antique {
+  padding: 0.5rem 0.85rem;
+  background: var(--surface-inset);
+  border: 1px solid var(--border-subtle);
+  border-radius: 4px;
+  color: var(--text-main);
+  font-family: var(--font-body);
+  font-size: 0.95rem;
+  transition: border-color 0.2s;
+}
+
+.input-antique:focus {
+  outline: none;
+  border-color: var(--accent-gold);
+  box-shadow: 0 0 8px rgba(229, 169, 60, 0.3);
+}
+
+select.input-antique {
+  cursor: pointer;
+}

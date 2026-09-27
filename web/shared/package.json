@@ -9,7 +9,7 @@
     "./time": "./src/time.ts",
     "./api": "./api/schema.ts",
     "./ratings": "./src/ratings.ts",
-    "./styles/tokens.css": "./styles/tokens.css"
+    "./styles/*": "./styles/*"
   },
   "devDependencies": {
     "openapi-typescript": "7.13.0",

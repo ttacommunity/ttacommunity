@@ -1,0 +1,112 @@
+/* The striped ratings table, upstream's .leaderboard-table and its cell styles. */
+.table-scroll {
+  overflow-x: auto;
+}
+
+.leaderboard-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-family: var(--font-stats);
+  text-align: left;
+}
+
+.leaderboard-table thead th {
+  padding: 0.85rem 1rem;
+  background: rgba(30, 20, 14, 0.95);
+  border-bottom: 2px solid var(--border-subtle);
+  color: var(--accent-gold);
+  font-family: var(--font-heading);
+  font-size: 0.85rem;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+}
+
+.leaderboard-table tbody tr {
+  transition: background-color 0.15s ease;
+}
+
+.leaderboard-table tbody tr:nth-child(odd) {
+  background: rgba(16, 10, 6, 0.65);
+}
+
+.leaderboard-table tbody tr:nth-child(even) {
+  background: rgba(28, 18, 12, 0.4);
+}
+
+.leaderboard-table td,
+.leaderboard-table tbody th {
+  padding: 0.75rem 1rem;
+  border-bottom: 1px solid rgba(74, 53, 37, 0.35);
+  font-size: 0.92rem;
+  font-weight: 400;
+  text-align: left;
+}
+
+.leaderboard-table tbody tr:hover td,
+.leaderboard-table tbody tr:hover th {
+  background: rgba(229, 169, 60, 0.12);
+}
+
+.leaderboard-table .rank-col {
+  width: 85px;
+  color: var(--text-muted);
+  font-family: var(--font-heading);
+  font-weight: 700;
+}
+
+.leaderboard-table .top-3-rank {
+  color: var(--accent-gold);
+  font-size: 1.1rem;
+}
+
+.player-link,
+.player-name {
+  color: var(--text-main);
+  font-family: var(--font-body);
+  font-size: 1rem;
+  font-weight: 600;
+  transition: color 0.2s;
+}
+
+.player-link:hover {
+  color: var(--accent-gold);
+  text-decoration: underline;
+}
+
+.c-rating-val {
+  color: var(--accent-gold);
+  font-weight: 700;
+}
+
+.rating-primary {
+  color: var(--accent-gold-light);
+  font-weight: 700;
+}
+
+.rating-rd {
+  color: var(--text-muted);
+  font-size: 0.8rem;
+}
+
+.wld-win {
+  color: var(--win);
+}
+
+.wld-loss {
+  color: var(--loss);
+}
+
+.wld-draw {
+  color: var(--draw);
+}
+
+.leaderboard-table .last-played {
+  color: var(--text-muted);
+  font-size: 0.85rem;
+}
+
+.leaderboard-table .empty {
+  padding: 2rem;
+  color: var(--text-muted);
+  text-align: center;
+}
