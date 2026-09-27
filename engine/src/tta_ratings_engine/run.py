@@ -24,6 +24,17 @@ from tta_ratings_engine.progress import Heartbeat, Progress
 FORMATS = [0, 2, 3, 4]
 WALK_FORWARD_START = "2022-01"
 
+# Seconds per step, by phase and format, from a full run on 2026-09 data. Only
+# the ratios matter: the ETA scales them to this machine as the run goes.
+# Retune from the phase summary a run logs at the end.
+STEP_COST = {
+    ("pairs", None): 19.0,
+    ("titles", None): 1.0,
+    ("models", 0): 18.0, ("models", 2): 3.0, ("models", 3): 5.0, ("models", 4): 4.0,
+    ("calibration", 0): 7.0, ("calibration", 2): 2.5, ("calibration", 3): 4.0, ("calibration", 4): 4.0,
+    ("walk-forward", 0): 5.4, ("walk-forward", 2): 1.1, ("walk-forward", 3): 3.6, ("walk-forward", 4): 2.3,
+}  # fmt: skip
+
 _g2 = compute_glicko2_ratings
 _whr = functools.partial(compute_whr_ratings, max_iter=6, tol=1e-3, verbose=False)
 _softer = {"reset_mode": "softer"}
@@ -155,18 +166,31 @@ def _compute(conn, run_id, formats, log):
         expand_pairwise(conn, run_id)
         months = {fmt: eval_months(conn, run_id, fmt) for fmt in formats}
         progress.total = 1 + 2 * len(MODELS) * len(formats) + 1 + sum(months.values())
-        progress.advance("pairs")
+        progress.total_cost = (
+            STEP_COST["pairs", None]
+            + STEP_COST["titles", None]
+            + sum(
+                len(MODELS) * (STEP_COST["models", f] + STEP_COST["calibration", f])
+                + months[f] * STEP_COST["walk-forward", f]
+                for f in formats
+            )
+        )
+        progress.advance("pairs", STEP_COST["pairs", None], "pairs")
 
         on_run = {"conn": conn, "run_id": run_id}
         for fmt in formats:
             for name, compute, kwargs in MODELS:
                 progress.working_on(f"{name} {_label(fmt)}")
                 compute(player_count=fmt, **kwargs, **on_run)
-                progress.advance(f"{name} {_label(fmt)}")
+                progress.advance(
+                    f"{name} {_label(fmt)}",
+                    STEP_COST["models", fmt],
+                    f"models {_label(fmt)}",
+                )
 
         progress.working_on("titles")
         derive_tournament_badges(**on_run)
-        progress.advance("titles")
+        progress.advance("titles", STEP_COST["titles", None], "titles")
 
         for fmt in formats:
             for name in MODEL_TYPES:
@@ -174,20 +198,29 @@ def _compute(conn, run_id, formats, log):
                 run_standard_calibration_all(
                     verbose=False, model_filter=[name], formats=[fmt], **on_run
                 )
-                progress.advance(f"calibration {name} {_label(fmt)}")
+                progress.advance(
+                    f"calibration {name} {_label(fmt)}",
+                    STEP_COST["calibration", fmt],
+                    f"calibration {_label(fmt)}",
+                )
 
         for fmt in formats:
             label = f"walk-forward {_label(fmt)}"
             progress.working_on(label)
+
+            def month_done(month, label=label, fmt=fmt):
+                progress.advance(
+                    f"{label} {month}", STEP_COST["walk-forward", fmt], label
+                )
+
             run_walk_forward_evaluation(
                 player_count=fmt,
                 start_eval_month=WALK_FORWARD_START,
                 verbose=False,
-                on_month=lambda month, label=label: progress.advance(
-                    f"{label} {month}"
-                ),
+                on_month=month_done,
                 **on_run,
             )
+    progress.summary()
 
 
 def _finish(conn, run_id, status):

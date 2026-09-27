@@ -72,6 +72,9 @@ TEST_DATABASE_URL=postgres://user:password@host:port/db uv run pytest   # your o
 Each test gets a fresh database with the ratings migrations applied, and drops
 it afterwards. No match data is needed, and none is kept in this repository.
 
+**The suite stays quick: seconds, not minutes.** Tests use a few synthetic
+matches. A full run on real data is never part of CI.
+
 `tests/` mirrors the package: the tests for
 `src/tta_ratings_engine/models/whr/engine.py` are in
 `tests/models/whr/test_engine.py`. pytest runs in `importlib` import mode, so

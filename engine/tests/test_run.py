@@ -3,7 +3,7 @@ from datetime import date
 import pytest
 
 from tta_ratings_engine import run as runner
-from tta_ratings_engine.run import MODEL_TYPES, main, run
+from tta_ratings_engine.run import FORMATS, MODEL_TYPES, STEP_COST, main, run
 
 SIXTEEN = {
     "glicko2_daneo", "glicko2_daneo_softer",
@@ -168,3 +168,30 @@ def test_a_database_missing_a_migration_is_refused_before_a_run_starts(conn, add
         run(conn, "v-test", log=lambda _: None)
 
     assert conn.execute("SELECT count(*) AS n FROM rating_runs").fetchone()["n"] == 0
+
+
+def test_a_run_ends_with_the_time_each_phase_took(conn, add_match):
+    season(add_match)
+    lines = []
+
+    run(conn, "v-test", formats=[2], log=lines.append)
+
+    phases = [
+        line.split(":")[0]
+        for line in lines
+        if " steps in " in line or " step in " in line
+    ]
+    assert phases == [
+        "pairs",
+        "models 2p",
+        "titles",
+        "calibration 2p",
+        "walk-forward 2p",
+    ]
+
+
+def test_every_step_has_a_cost_for_the_eta():
+    for fmt in FORMATS:
+        for phase in ("models", "calibration", "walk-forward"):
+            assert STEP_COST[phase, fmt] > 0
+    assert STEP_COST["pairs", None] > 0 and STEP_COST["titles", None] > 0

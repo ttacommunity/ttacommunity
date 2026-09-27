@@ -129,3 +129,41 @@ def test_the_heartbeat_thread_beats_until_stopped(lines):
     with Heartbeat(Recorder(), every=0.01) as hb:
         assert beaten.wait(timeout=5)
     assert not hb.thread.is_alive()
+
+
+def test_the_eta_weighs_the_remaining_steps_by_their_cost(clock, lines):
+    p = Progress(3, total_cost=10.0, log=lines.append, clock=clock)
+    clock.now = 10
+
+    p.advance("cheap", cost=1.0)
+
+    assert lines == ["[1/3] cheap | elapsed 0m10s | eta 1m30s"]
+
+
+def test_the_eta_adapts_to_how_fast_this_machine_is(clock, lines):
+    p = Progress(3, total_cost=10.0, log=lines.append, clock=clock, every=0)
+    clock.now = 10
+    p.advance("a", cost=1.0)
+    clock.now = 40
+
+    p.advance("b", cost=5.0)
+
+    assert lines[-1] == "[2/3] b | elapsed 0m40s | eta 0m27s"
+
+
+def test_the_summary_gives_each_phases_steps_and_time(clock, lines):
+    p = progress(3, clock, lines)
+    clock.now = 5
+    p.advance("m1", phase="models")
+    clock.now = 15
+    p.advance("m2", phase="models")
+    clock.now = 20
+    p.advance("c1", phase="calibration")
+    lines.clear()
+
+    p.summary()
+
+    assert lines == [
+        "models: 2 steps in 0m15s, 7.5s each",
+        "calibration: 1 step in 0m05s, 5.0s each",
+    ]
