@@ -1,9 +1,11 @@
 """Tests for walk-forward out-of-sample calibration engine and web integration."""
-import json
 import math
-import numpy as np
+from datetime import date
+
 import pytest
-from tta_ratings_engine.data.db import get_connection, init_db
+
+from tta_ratings_engine.data.db import RunNotRunning
+from tta_ratings_engine.data.pairwise import expand_pairwise
 from tta_ratings_engine.models.evaluation.walk_forward import compute_metrics_from_preds, run_walk_forward_evaluation
 
 
@@ -22,44 +24,70 @@ def test_compute_metrics_from_preds():
     assert 'bin_data' in res
 
 
-def test_walk_forward_synthetic_leak_free(tmp_path):
-    """Verify that walk-forward evaluation strictly uses ratings prior to the evaluation month."""
-    db_file = tmp_path / "test_wf.db"
-    init_db(str(db_file))
+def seed(add_match):
+    for day in (10, 11, 12):
+        add_match(("Alice", 100), ("Bob", 50), day=date(2022, 1, day), tournament="T1")
+    add_match(("Alice", 100), ("Charlie", 50), day=date(2022, 2, 15), tournament="T2")
 
-    conn = get_connection(str(db_file))
-    with conn:
-        conn.execute("INSERT INTO players (name) VALUES ('Alice'), ('Bob'), ('Charlie')")
-        conn.execute("""
-            INSERT INTO matches (match_id, tournament, date, player_count, player1, score1, player2, score2)
-            VALUES (1, 'T1', '2022-01-10', 2, 'Alice', 100, 'Bob', 50)
-        """)
-        conn.execute("""
-            INSERT INTO matches (match_id, tournament, date, player_count, player1, score1, player2, score2)
-            VALUES (2, 'T2', '2022-02-15', 2, 'Alice', 100, 'Charlie', 50)
-        """)
-        # Month 2022-01: Alice beats Bob 3 times
-        for i in range(3):
-            conn.execute("""
-                INSERT INTO pairwise_matches 
-                (match_id, date, tournament, player_count, player_a, player_b, score_a, score_b, outcome_a, weight, glicko_eligible)
-                VALUES (1, '2022-01-10', 'T1', 2, 'Alice', 'Bob', 100, 50, 1.0, 1.0, 1)
-            """)
-        # Month 2022-02: Alice plays Charlie
-        conn.execute("""
-            INSERT INTO pairwise_matches 
-            (match_id, date, tournament, player_count, player_a, player_b, score_a, score_b, outcome_a, weight, glicko_eligible)
-            VALUES (2, '2022-02-15', 'T2', 2, 'Alice', 'Charlie', 100, 50, 1.0, 1.0, 1)
-        """)
+
+def stored(conn, run_id):
+    return conn.execute(
+        "SELECT model_type, period_month, matches_evaluated, bin_data FROM walk_forward_calibration "
+        "WHERE run_id = %s AND player_count = 2 ORDER BY model_type, period_month",
+        (run_id,),
+    ).fetchall()
+
+
+def test_walk_forward_synthetic_leak_free(conn, add_match, run_id):
+    """Verify that walk-forward evaluation strictly uses ratings prior to the evaluation month."""
+    seed(add_match)
+    expand_pairwise(conn, run_id)
 
     # Run walk-forward evaluation starting at 2022-02 (2022-01 is burn-in)
-    res = run_walk_forward_evaluation(player_count=2, start_eval_month='2022-02', db_path=str(db_file), verbose=False)
+    res = run_walk_forward_evaluation(player_count=2, start_eval_month='2022-02', verbose=False, conn=conn, run_id=run_id)
 
     assert '2022-02' in res['eval_months']
     assert res['aggregated']['glicko2_std']['matches'] == 1
     assert res['aggregated']['whr']['matches'] == 1
 
-    # Verify rows in DB
-    rows = conn.execute("SELECT * FROM walk_forward_calibration WHERE player_count = 2").fetchall()
-    assert len(rows) > 0
-    conn.close()
+
+def test_results_are_stored_in_the_run_per_model_and_month(conn, add_match, run_id):
+    seed(add_match)
+    expand_pairwise(conn, run_id)
+
+    run_walk_forward_evaluation(
+        player_count=2, start_eval_month="2022-02", verbose=False,
+        models_filter=["glicko2_std"], conn=conn, run_id=run_id,
+    )
+
+    rows = stored(conn, run_id)
+    assert [(r["model_type"], r["period_month"], r["matches_evaluated"]) for r in rows] == [
+        ("glicko2_std", "2022-02", 1),
+        ("glicko2_std", "AGGREGATED", 1),
+    ]
+    assert len(rows[0]["bin_data"]["labels"]) == 10
+
+
+def test_evaluating_again_replaces_the_runs_rows(conn, add_match, run_id):
+    seed(add_match)
+    expand_pairwise(conn, run_id)
+    args = dict(player_count=2, start_eval_month="2022-02", verbose=False, models_filter=["whr"])
+
+    run_walk_forward_evaluation(**args, conn=conn, run_id=run_id)
+    run_walk_forward_evaluation(**args, conn=conn, run_id=run_id)
+
+    assert len(stored(conn, run_id)) == 2
+
+
+def test_a_finished_run_is_never_written_to(conn, add_match, run_id):
+    seed(add_match)
+    expand_pairwise(conn, run_id)
+    conn.execute("UPDATE rating_runs SET status = 'complete' WHERE run_id = %s", (run_id,))
+    conn.commit()
+
+    with pytest.raises(RunNotRunning):
+        run_walk_forward_evaluation(
+            player_count=2, start_eval_month="2022-02", verbose=False, conn=conn, run_id=run_id
+        )
+
+    assert stored(conn, run_id) == []

@@ -4,7 +4,7 @@ from typing import Optional, Dict
 
 import psycopg
 
-from tta_ratings_engine.data.db import save_model_results
+from tta_ratings_engine.data.db import load_pairs, save_model_results
 from tta_ratings_engine.models.whr.engine import WHREngine, DEFAULT_W2_PER_DAY
 from tta_ratings_engine.models.glicko2.calculator import (
     get_tier_mean,
@@ -36,20 +36,7 @@ def compute_whr_ratings(
         if verbose:
             print(f'Loading pairwise matches for WHR ({fmt_label})...')
 
-        if player_count and player_count > 0:
-            rows = conn.execute("""
-                SELECT to_char(date, 'YYYY-MM-DD') AS date, player_a, player_b, outcome_a, weight
-                FROM pairwise_matches
-                WHERE run_id = %s AND player_count = %s AND glicko_eligible
-                ORDER BY pairwise_matches.date, pairwise_id
-            """, (run_id, player_count)).fetchall()
-        else:
-            rows = conn.execute("""
-                SELECT to_char(date, 'YYYY-MM-DD') AS date, player_a, player_b, outcome_a, weight
-                FROM pairwise_matches
-                WHERE run_id = %s AND glicko_eligible
-                ORDER BY pairwise_matches.date, pairwise_id
-            """, (run_id,)).fetchall()
+        rows = load_pairs(conn, run_id, player_count)
 
         whr = WHREngine(w2_per_day=w2_per_day)
         for r in rows:

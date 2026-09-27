@@ -1,13 +1,13 @@
 """Walk-forward (leak-free out-of-sample t+1) calibration and predictive benchmark engine."""
-import argparse
 from collections import defaultdict
 from datetime import datetime
-import json
 import math
 from typing import Dict, List, Tuple, Optional, Any
 import numpy as np
+import psycopg
+from psycopg.types.json import Jsonb
 
-from tta_ratings_engine.data.db import get_connection
+from tta_ratings_engine.data.db import load_pairs, require_running
 from tta_ratings_engine.models.whr.engine import WHREngine, GLICKO2_SCALE, DEFAULT_RATING
 from tta_ratings_engine.models.glicko2.engine import Rating, update_rating, GLICKO2_SCALE as G2_SCALE, g
 from tta_ratings_engine.models.glicko2.calculator import (
@@ -126,13 +126,20 @@ def compute_metrics_from_preds(preds: List[float], actuals: List[float]) -> Dict
 def run_walk_forward_evaluation(
     player_count: int = 0,
     start_eval_month: str = '2022-01',
-    db_path: Optional[str] = None,
     verbose: bool = True,
-    models_filter: Optional[List[str]] = None
+    models_filter: Optional[List[str]] = None,
+    *,
+    conn: psycopg.Connection,
+    run_id: int,
 ) -> Dict[str, Any]:
-    """Executes a monthly expanding-window walk-forward evaluation across all 16 models."""
-    conn = get_connection(db_path)
-    try:
+    """Executes a monthly expanding-window walk-forward evaluation across all 16 models.
+
+    Reads the run's pairs and replaces the format's results in the run, in one
+    committed transaction. Raises RunNotRunning before any work unless the
+    run is running.
+    """
+    with conn.transaction():
+        require_running(conn, run_id)
         fmt_label = f"{player_count}p" if player_count > 0 else "All Formats"
         if verbose:
             print(f"\n=======================================================")
@@ -140,20 +147,7 @@ def run_walk_forward_evaluation(
             print(f"=======================================================")
 
         # Load chronological matches
-        if player_count and player_count > 0:
-            rows = conn.execute("""
-                SELECT match_id, date, player_a, player_b, outcome_a, weight, player_count
-                FROM pairwise_matches
-                WHERE player_count = ? AND glicko_eligible = 1
-                ORDER BY date, pairwise_id
-            """, (player_count,)).fetchall()
-        else:
-            rows = conn.execute("""
-                SELECT match_id, date, player_a, player_b, outcome_a, weight, player_count
-                FROM pairwise_matches
-                WHERE glicko_eligible = 1
-                ORDER BY date, pairwise_id
-            """).fetchall()
+        rows = load_pairs(conn, run_id, player_count)
 
         if verbose:
             print(f"Loaded {len(rows)} eligible pairwise matches.")
@@ -547,60 +541,47 @@ def run_walk_forward_evaluation(
 
         # 4. Save to Database
         save_models = [m for m in models if (models_filter is None or m in models_filter)]
-        with conn:
-            # Clear previous entries for this player_count format
-            if models_filter:
-                placeholders = ','.join('?' for _ in models_filter)
-                conn.execute(f"DELETE FROM walk_forward_calibration WHERE player_count = ? AND model_type IN ({placeholders})", (player_count, *models_filter))
-            else:
-                conn.execute("DELETE FROM walk_forward_calibration WHERE player_count = ?", (player_count,))
+        # Clear previous entries for this player_count format
+        if models_filter:
+            conn.execute("DELETE FROM walk_forward_calibration WHERE run_id = %s AND player_count = %s AND model_type = ANY(%s)", (run_id, player_count, list(models_filter)))
+        else:
+            conn.execute("DELETE FROM walk_forward_calibration WHERE run_id = %s AND player_count = %s", (run_id, player_count))
 
-            # Insert aggregated summary records
-            for m in save_models:
-                agg = aggregated_results[m]
-                conn.execute("""
-                    INSERT INTO walk_forward_calibration 
-                    (model_type, player_count, period_month, matches_evaluated, brier_score, ece, log_loss, accuracy, bin_data_json)
-                    VALUES (?, ?, 'AGGREGATED', ?, ?, ?, ?, ?, ?)
-                """, (
-                    m, player_count, agg['matches'], agg['brier'], agg['ece'],
-                    agg['log_loss'], agg['accuracy'], json.dumps(agg['bin_data'])
-                ))
+        # Aggregated summary records, then individual monthly records
+        records = [(m, 'AGGREGATED', aggregated_results[m]) for m in save_models]
+        records += [(m, tm, m_data[m]) for tm, m_data in monthly_results.items() for m in save_models]
+        with conn.cursor() as cur:
+            cur.executemany("""
+                INSERT INTO walk_forward_calibration
+                (run_id, model_type, player_count, period_month, matches_evaluated, brier_score, ece, log_loss, accuracy, bin_data)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+            """, [
+                (run_id, m, player_count, tm, item['matches'], item['brier'], item['ece'],
+                 item['log_loss'], item['accuracy'], Jsonb(item['bin_data']))
+                for m, tm, item in records
+            ])
 
-            # Insert individual monthly records
-            for tm, m_data in monthly_results.items():
-                for m in save_models:
-                    item = m_data[m]
-                    conn.execute("""
-                        INSERT INTO walk_forward_calibration 
-                        (model_type, player_count, period_month, matches_evaluated, brier_score, ece, log_loss, accuracy, bin_data_json)
-                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-                    """, (
-                        m, player_count, tm, item['matches'], item['brier'], item['ece'],
-                        item['log_loss'], item['accuracy'], json.dumps(item['bin_data'])
-                    ))
+    if verbose:
+        print(f"Saved walk-forward results to database for format {fmt_label}.")
 
-        if verbose:
-            print(f"Saved walk-forward results to database for format {fmt_label}.")
-
-        return {
-            'player_count': player_count,
-            'eval_months': eval_months,
-            'aggregated': aggregated_results,
-            'monthly': monthly_results
-        }
-    finally:
-        conn.close()
+    return {
+        'player_count': player_count,
+        'eval_months': eval_months,
+        'aggregated': aggregated_results,
+        'monthly': monthly_results
+    }
 
 
 def run_walk_forward_all(
     start_eval_month: str = '2022-01',
-    db_path: Optional[str] = None,
     verbose: bool = True,
     models_filter: Optional[List[str]] = None,
-    formats: Optional[List[int]] = None
+    formats: Optional[List[int]] = None,
+    *,
+    conn: psycopg.Connection,
+    run_id: int,
 ) -> Dict[int, Any]:
-    """Runs walk-forward evaluation across formats."""
+    """Runs walk-forward evaluation across formats, committing each format's results into the run."""
     all_res = {}
     if formats is None:
         formats = [0, 2, 3, 4]
@@ -608,21 +589,9 @@ def run_walk_forward_all(
         all_res[fmt] = run_walk_forward_evaluation(
             player_count=fmt,
             start_eval_month=start_eval_month,
-            db_path=db_path,
             verbose=verbose,
-            models_filter=models_filter
+            models_filter=models_filter,
+            conn=conn,
+            run_id=run_id,
         )
     return all_res
-
-
-if __name__ == '__main__':
-    parser = argparse.ArgumentParser(description="Run walk-forward out-of-sample calibration benchmark.")
-    parser.add_argument('--format', type=int, default=0, help="Format player count (0=All, 2=2p, 3=3p, 4=4p)")
-    parser.add_argument('--all-formats', action='store_true', help="Run across all formats (0, 2, 3, 4)")
-    parser.add_argument('--start-month', type=str, default='2022-01', help="Starting month for out-of-sample evaluation (default: 2022-01)")
-    args = parser.parse_args()
-
-    if args.all_formats:
-        run_walk_forward_all(start_eval_month=args.start_month)
-    else:
-        run_walk_forward_evaluation(player_count=args.format, start_eval_month=args.start_month)

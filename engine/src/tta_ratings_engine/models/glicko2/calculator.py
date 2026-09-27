@@ -6,7 +6,7 @@ from typing import Dict, List, Tuple, Optional, Any
 
 import psycopg
 
-from tta_ratings_engine.data.db import save_model_results
+from tta_ratings_engine.data.db import load_pairs, save_model_results
 from tta_ratings_engine.models.glicko2.engine import Rating, update_rating, GLICKO2_SCALE
 
 # Calibrated constants matching official TTA online implementation
@@ -229,20 +229,7 @@ def compute_glicko2_ratings(
         model_type = f"{base_model}_retro" if retro_calibrated else base_model
         
     with conn.transaction():
-        if player_count and player_count > 0:
-            rows = conn.execute("""
-                SELECT match_id, to_char(date, 'YYYY-MM-DD') AS date, tournament, player_a, player_b, outcome_a, weight, player_count
-                FROM pairwise_matches
-                WHERE run_id = %s AND player_count = %s AND glicko_eligible
-                ORDER BY pairwise_matches.date, pairwise_id
-            """, (run_id, player_count)).fetchall()
-        else:
-            rows = conn.execute("""
-                SELECT match_id, to_char(date, 'YYYY-MM-DD') AS date, tournament, player_a, player_b, outcome_a, weight, player_count
-                FROM pairwise_matches
-                WHERE run_id = %s AND glicko_eligible
-                ORDER BY pairwise_matches.date, pairwise_id
-            """, (run_id,)).fetchall()
+        rows = load_pairs(conn, run_id, player_count)
 
         # Group matches by calendar month (YYYY-MM)
         periods = defaultdict(list)

@@ -4,16 +4,16 @@ Evaluates match-by-match predicted win probability versus actual game outcomes
 for all 9 rating engine variants (Glicko-2 Std, Glicko-2 MP, WHR across Continuous,
 Soft Reset, and Hard Reset modes) across formats (All, 2P, 3P, 4P).
 """
-import argparse
 from collections import defaultdict
 from datetime import datetime
-import json
 import math
 from pathlib import Path
 from typing import Dict, List, Tuple, Optional, Any
 import numpy as np
+import psycopg
+from psycopg.types.json import Jsonb
 
-from tta_ratings_engine.data.db import get_connection
+from tta_ratings_engine.data.db import load_pairs, require_running
 from tta_ratings_engine.models.whr.engine import WHREngine, GLICKO2_SCALE, DEFAULT_RATING
 from tta_ratings_engine.models.glicko2.engine import Rating, update_rating, GLICKO2_SCALE as G2_SCALE
 from tta_ratings_engine.models.glicko2.calculator import (
@@ -38,29 +38,17 @@ def evaluate_standard_glicko2(
     engine: Optional[str] = None,
     retro_calibrated: bool = False,
     calibration_threshold: int = 15,
-    db_path: Optional[str] = None
+    *,
+    conn: psycopg.Connection,
+    run_id: int,
 ) -> Dict[str, Any]:
-    """Runs sequential step-by-step match-time prediction evaluation for Glicko-2."""
+    """Runs sequential step-by-step match-time prediction evaluation for Glicko-2 on the run's pairs."""
     base_model = engine if engine is not None else ('glicko2_mp' if weighted else 'glicko2_std')
     if base_model == 'glicko2_daneo':
         retro_calibrated = True
 
-    conn = get_connection(db_path)
-    try:
-        if player_count and player_count > 0:
-            rows = conn.execute("""
-                SELECT match_id, date, player_a, player_b, outcome_a, weight, player_count
-                FROM pairwise_matches
-                WHERE player_count = ? AND glicko_eligible = 1
-                ORDER BY date, pairwise_id
-            """, (player_count,)).fetchall()
-        else:
-            rows = conn.execute("""
-                SELECT match_id, date, player_a, player_b, outcome_a, weight, player_count
-                FROM pairwise_matches
-                WHERE glicko_eligible = 1
-                ORDER BY date, pairwise_id
-            """).fetchall()
+    with conn.transaction():
+        rows = load_pairs(conn, run_id, player_count)
 
         periods = defaultdict(list)
         for r in rows:
@@ -314,32 +302,18 @@ def evaluate_standard_glicko2(
                     ratings[p_name] = Rating(r_cur.rating, new_rd, r_cur.sigma)
 
         return compute_metrics_from_preds(preds, actuals)
-    finally:
-        conn.close()
 
 
 def evaluate_standard_whr(
     reset_mode: str = 'continuous',
     player_count: int = 0,
-    db_path: Optional[str] = None
+    *,
+    conn: psycopg.Connection,
+    run_id: int,
 ) -> Dict[str, Any]:
-    """Runs retrospective match-time prediction evaluation for WHR."""
-    conn = get_connection(db_path)
-    try:
-        if player_count and player_count > 0:
-            rows = conn.execute("""
-                SELECT date, player_a, player_b, outcome_a, weight
-                FROM pairwise_matches
-                WHERE player_count = ? AND glicko_eligible = 1
-                ORDER BY date, pairwise_id
-            """, (player_count,)).fetchall()
-        else:
-            rows = conn.execute("""
-                SELECT date, player_a, player_b, outcome_a, weight
-                FROM pairwise_matches
-                WHERE glicko_eligible = 1
-                ORDER BY date, pairwise_id
-            """).fetchall()
+    """Runs retrospective match-time prediction evaluation for WHR on the run's pairs."""
+    with conn.transaction():
+        rows = load_pairs(conn, run_id, player_count)
 
         whr = WHREngine()
         for r in rows:
@@ -388,18 +362,21 @@ def evaluate_standard_whr(
                 actuals.append(1.0 - out_a)
 
         return compute_metrics_from_preds(preds, actuals)
-    finally:
-        conn.close()
 
 
 def run_standard_calibration_all(
-    db_path: Optional[str] = None,
     verbose: bool = True,
     model_filter: Optional[List[str]] = None,
-    formats: Optional[List[int]] = None
+    formats: Optional[List[int]] = None,
+    *,
+    conn: psycopg.Connection,
+    run_id: int,
 ) -> Dict[str, Any]:
-    """Computes and saves standard calibration metrics for all model configurations across formats."""
-    conn = get_connection(db_path)
+    """Computes and saves standard calibration metrics for all model configurations across formats.
+
+    Writes into the run in one committed transaction. Raises RunNotRunning
+    before any work unless the run is running.
+    """
     all_results = {}
 
     if formats is None:
@@ -424,60 +401,51 @@ def run_standard_calibration_all(
         ('whr_softer', None, 'softer', 'whr', False),
     ]
 
-    try:
-        with conn:
-            for fmt in formats:
-                if fmt not in all_results:
-                    all_results[fmt] = {}
-                fmt_label = f"{fmt}P" if fmt > 0 else "All"
+    with conn.transaction():
+        require_running(conn, run_id)
+        for fmt in formats:
+            if fmt not in all_results:
+                all_results[fmt] = {}
+            fmt_label = f"{fmt}P" if fmt > 0 else "All"
+            if verbose:
+                print(f"\n--- Standard Calibration: Format {fmt_label} ---")
+
+            for m_type, is_mp, reset_m, eng_base, is_retro in model_configs:
+                if model_filter and m_type not in model_filter:
+                    continue
                 if verbose:
-                    print(f"\n--- Standard Calibration: Format {fmt_label} ---")
+                    print(f"  Evaluating {m_type} ({fmt_label})...")
 
-                for m_type, is_mp, reset_m, eng_base, is_retro in model_configs:
-                    if model_filter and m_type not in model_filter:
-                        continue
-                    if verbose:
-                        print(f"  Evaluating {m_type} ({fmt_label})...")
+                on_run = dict(conn=conn, run_id=run_id)
+                if eng_base == 'whr':
+                    res = evaluate_standard_whr(reset_mode=reset_m, player_count=fmt, **on_run)
+                elif eng_base == 'glicko2_daneo':
+                    res = evaluate_standard_glicko2(engine='glicko2_daneo', reset_mode=reset_m, player_count=fmt, retro_calibrated=True, **on_run)
+                elif eng_base == 'glicko2_adapt':
+                    res = evaluate_standard_glicko2(engine='glicko2_adapt', reset_mode=reset_m, player_count=fmt, retro_calibrated=is_retro, **on_run)
+                else:
+                    res = evaluate_standard_glicko2(weighted=is_mp, reset_mode=reset_m, player_count=fmt, retro_calibrated=is_retro, **on_run)
 
-                    if eng_base == 'whr':
-                        res = evaluate_standard_whr(reset_mode=reset_m, player_count=fmt, db_path=db_path)
-                    elif eng_base == 'glicko2_daneo':
-                        res = evaluate_standard_glicko2(engine='glicko2_daneo', reset_mode=reset_m, player_count=fmt, retro_calibrated=True, db_path=db_path)
-                    elif eng_base == 'glicko2_adapt':
-                        res = evaluate_standard_glicko2(engine='glicko2_adapt', reset_mode=reset_m, player_count=fmt, retro_calibrated=is_retro, db_path=db_path)
-                    else:
-                        res = evaluate_standard_glicko2(weighted=is_mp, reset_mode=reset_m, player_count=fmt, retro_calibrated=is_retro, db_path=db_path)
+                all_results[fmt][m_type] = res
 
-                    all_results[fmt][m_type] = res
+                conn.execute("""
+                    INSERT INTO standard_calibration (
+                        run_id, model_type, player_count, period_month, matches_evaluated,
+                        brier_score, ece, log_loss, accuracy, bin_data
+                    ) VALUES (%s, %s, %s, 'AGGREGATED', %s, %s, %s, %s, %s, %s)
+                    ON CONFLICT (run_id, model_type, player_count, period_month) DO UPDATE SET
+                        matches_evaluated = excluded.matches_evaluated,
+                        brier_score = excluded.brier_score,
+                        ece = excluded.ece,
+                        log_loss = excluded.log_loss,
+                        accuracy = excluded.accuracy,
+                        bin_data = excluded.bin_data
+                """, (
+                    run_id, m_type, fmt, res['matches'], res['brier'], res['ece'],
+                    res['log_loss'], res['accuracy'], Jsonb(res['bin_data'])
+                ))
 
-                    conn.execute("""
-                        INSERT INTO standard_calibration (
-                            model_type, player_count, period_month, matches_evaluated,
-                            brier_score, ece, log_loss, accuracy, bin_data_json
-                        ) VALUES (?, ?, 'AGGREGATED', ?, ?, ?, ?, ?, ?)
-                        ON CONFLICT(model_type, player_count, period_month) DO UPDATE SET
-                            matches_evaluated = excluded.matches_evaluated,
-                            brier_score = excluded.brier_score,
-                            ece = excluded.ece,
-                            log_loss = excluded.log_loss,
-                            accuracy = excluded.accuracy,
-                            bin_data_json = excluded.bin_data_json
-                    """, (
-                        m_type, fmt, res['matches'], res['brier'], res['ece'],
-                        res['log_loss'], res['accuracy'], json.dumps(res['bin_data'])
-                    ))
+                if verbose:
+                    print(f"    -> Brier: {res['brier']:.4f}, ECE: {res['ece_pct']:.2f}%, Accuracy: {res['accuracy']:.1f}%")
 
-                    if verbose:
-                        print(f"    -> Brier: {res['brier']:.4f}, ECE: {res['ece_pct']:.2f}%, Accuracy: {res['accuracy']:.1f}%")
-
-        return all_results
-    finally:
-        conn.close()
-
-
-if __name__ == '__main__':
-    parser = argparse.ArgumentParser(description="Run standard in-sample calibration benchmark.")
-    parser.add_argument("--format", type=int, default=0, help="Player count format (0=All, 2, 3, 4)")
-    args = parser.parse_args()
-
-    run_standard_calibration_all()
+    return all_results

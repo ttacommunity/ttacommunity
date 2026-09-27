@@ -1,7 +1,10 @@
+from datetime import date
+
 import psycopg
 import pytest
 
-from tta_ratings_engine.data.db import RunNotRunning, connect, require_running
+from tta_ratings_engine.data.db import RunNotRunning, connect, load_pairs, require_running
+from tta_ratings_engine.data.pairwise import expand_pairwise
 
 
 def test_refuses_to_connect_without_a_database_url(monkeypatch):
@@ -57,3 +60,40 @@ def test_a_missing_run_is_refused(conn, run_id):
 
 def test_a_running_run_is_accepted(conn, run_id):
     require_running(conn, run_id)
+
+
+def test_pairs_are_loaded_in_date_then_match_order_with_text_dates(conn, add_match, run_id):
+    add_match(("A", 1), ("B", 2), day=date(2024, 2, 1))
+    add_match(("C", 1), ("D", 2), day=date(2024, 1, 1))
+    add_match(("E", 1), ("F", 2), ("G", 3), day=date(2024, 1, 1))
+    expand_pairwise(conn, run_id)
+
+    rows = load_pairs(conn, run_id, 0)
+
+    assert [(r["date"], r["player_a"]) for r in rows] == [
+        ("2024-01-01", "C"),
+        ("2024-01-01", "E"),
+        ("2024-01-01", "E"),
+        ("2024-01-01", "F"),
+        ("2024-02-01", "A"),
+    ]
+    assert set(rows[0]) == {
+        "match_id", "date", "tournament", "player_a", "player_b", "outcome_a", "weight", "player_count"
+    }
+
+
+def test_loading_a_format_keeps_only_its_pairs(conn, add_match, run_id):
+    add_match(("A", 1), ("B", 2))
+    add_match(("E", 1), ("F", 2), ("G", 3))
+    expand_pairwise(conn, run_id)
+
+    assert {r["player_count"] for r in load_pairs(conn, run_id, 3)} == {3}
+    assert len(load_pairs(conn, run_id, 2)) == 1
+
+
+def test_loading_leaves_out_ineligible_pairs_and_other_runs(conn, add_match, run_id):
+    add_match(("A", 1), ("B", 2), eligible=False)
+    expand_pairwise(conn, run_id)
+    add_match(("C", 1), ("D", 2))
+
+    assert load_pairs(conn, run_id, 0) == []

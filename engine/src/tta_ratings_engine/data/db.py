@@ -172,6 +172,24 @@ def require_running(conn, run_id):
         raise RunNotRunning(f"run {run_id} is {row['status']}, not running")
 
 
+def load_pairs(conn, run_id, player_count):
+    """Returns the run's eligible pairs for a format (0 for all), in date then pair order.
+
+    Dates come back as 'YYYY-MM-DD' strings, the form the models parse.
+    """
+    fmt = "AND player_count = %(fmt)s" if player_count and player_count > 0 else ""
+    return conn.execute(
+        f"""
+        SELECT match_id, to_char(date, 'YYYY-MM-DD') AS date, tournament,
+               player_a, player_b, outcome_a, weight, player_count
+        FROM pairwise_matches
+        WHERE run_id = %(run)s AND glicko_eligible {fmt}
+        ORDER BY pairwise_matches.date, pairwise_id
+        """,
+        {"run": run_id, "fmt": player_count},
+    ).fetchall()
+
+
 RATING_COLUMNS = (
     "model_type, player_count, player_name, rating, rd, sigma, c_rating, rank, rank_delta, "
     "games_played, opponents_count, wins, losses, draws, win_rate, last_played"
