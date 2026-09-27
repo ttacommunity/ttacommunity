@@ -26,6 +26,7 @@ const (
 
 // Ratings is what the public ratings routes read.
 type Ratings interface {
+	Ping(ctx context.Context) error
 	CurrentRun(ctx context.Context) (store.PublishedRun, error)
 	Leaderboard(ctx context.Context, run int64, model string, format int) ([]store.LeaderboardRow, error)
 }
@@ -38,7 +39,7 @@ func NewMux(ratings Ratings, log *slog.Logger) http.Handler {
 }
 
 func registerRoutes(router ServeMux, ratings Ratings, log *slog.Logger) {
-	strict := NewStrictHandlerWithOptions(&server{ratings: ratings}, nil, StrictHTTPServerOptions{
+	strict := NewStrictHandlerWithOptions(&server{ratings: ratings, log: log}, nil, StrictHTTPServerOptions{
 		RequestErrorHandlerFunc:  badRequest,
 		ResponseErrorHandlerFunc: internalError(log),
 	})
@@ -87,12 +88,29 @@ func writeError(w http.ResponseWriter, code int, msg string) {
 
 type server struct {
 	ratings Ratings
+	log     *slog.Logger
 }
 
 // GetHealthz reports that the process is up. It checks no dependency, so a
 // database outage does not get the pod restarted.
 func (s *server) GetHealthz(context.Context, GetHealthzRequestObject) (GetHealthzResponseObject, error) {
 	return GetHealthz200JSONResponse{Status: "ok"}, nil
+}
+
+// GetReadyz reports whether the ratings database answers, without saying why
+// it does not.
+func (s *server) GetReadyz(ctx context.Context, _ GetReadyzRequestObject) (GetReadyzResponseObject, error) {
+	if err := s.ratings.Ping(ctx); err != nil {
+		s.log.Warn("not ready", "err", err)
+		return GetReadyz503JSONResponse{
+			Body:    Error{Error: "not ready"},
+			Headers: GetReadyz503ResponseHeaders{CacheControl: cacheNone},
+		}, nil
+	}
+	return GetReadyz200JSONResponse{
+		Body:    Health{Status: "ok"},
+		Headers: GetReadyz200ResponseHeaders{CacheControl: cacheNone},
+	}, nil
 }
 
 // GetCurrentRun returns the published run the site shows now.

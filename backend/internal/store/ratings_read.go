@@ -50,6 +50,11 @@ func NewRatingsReader(pool *pgxpool.Pool) *RatingsReader {
 	return &RatingsReader{pool: pool}
 }
 
+// Ping returns an error if the database does not answer.
+func (r *RatingsReader) Ping(ctx context.Context) error {
+	return r.pool.Ping(ctx)
+}
+
 // CheckReadOnly returns ErrCanWrite if the pool's role is a superuser, can
 // create tables, or can change any table. It works before the schema exists.
 // The API calls it at start, so a misconfigured role refuses to serve.

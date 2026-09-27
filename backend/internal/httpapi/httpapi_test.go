@@ -24,11 +24,17 @@ type fakeRatings struct {
 	runErr   error
 	board    []store.LeaderboardRow
 	boardErr error
+	pingErr  error
 
 	calls  int
 	gotRun int64
 	gotMod string
 	gotFmt int
+}
+
+func (f *fakeRatings) Ping(context.Context) error {
+	f.calls++
+	return f.pingErr
 }
 
 func (f *fakeRatings) CurrentRun(context.Context) (store.PublishedRun, error) {
@@ -102,8 +108,9 @@ func TestHealthz(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			ratings := &fakeRatings{pingErr: errors.New("database down")}
 			rec := httptest.NewRecorder()
-			NewMux(&fakeRatings{}, slog.New(slog.DiscardHandler)).ServeHTTP(rec, httptest.NewRequest(tt.method, tt.path, nil))
+			NewMux(ratings, slog.New(slog.DiscardHandler)).ServeHTTP(rec, httptest.NewRequest(tt.method, tt.path, nil))
 
 			if rec.Code != tt.wantCode {
 				t.Errorf("%s %s: code = %d, want %d", tt.method, tt.path, rec.Code, tt.wantCode)
@@ -113,6 +120,42 @@ func TestHealthz(t *testing.T) {
 			}
 			if tt.wantCode == http.StatusOK && rec.Header().Get("Content-Type") != "application/json" {
 				t.Errorf("%s %s: Content-Type = %q, want %q", tt.method, tt.path, rec.Header().Get("Content-Type"), "application/json")
+			}
+			if ratings.calls != 0 {
+				t.Errorf("%s %s: touched the database %d times, want 0", tt.method, tt.path, ratings.calls)
+			}
+		})
+	}
+}
+
+func TestReadyz(t *testing.T) {
+	tests := []struct {
+		name     string
+		pingErr  error
+		wantCode int
+		wantBody string
+	}{
+		{name: "database answers", wantCode: http.StatusOK, wantBody: `{"status":"ok"}` + "\n"},
+		{name: "database down", pingErr: errors.New("dial tcp 10.0.0.1:5432: refused"), wantCode: http.StatusServiceUnavailable,
+			wantBody: `{"error":"not ready"}` + "\n"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ratings := &fakeRatings{pingErr: tt.pingErr}
+			rec := httptest.NewRecorder()
+			NewMux(ratings, slog.New(slog.DiscardHandler)).ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/readyz", nil))
+
+			if rec.Code != tt.wantCode {
+				t.Errorf("code = %d, want %d", rec.Code, tt.wantCode)
+			}
+			if rec.Body.String() != tt.wantBody {
+				t.Errorf("body = %q, want %q", rec.Body.String(), tt.wantBody)
+			}
+			if got := rec.Header().Get("Cache-Control"); got != cacheNone {
+				t.Errorf("Cache-Control = %q, want %q", got, cacheNone)
+			}
+			if ratings.calls != 1 {
+				t.Errorf("pinged the database %d times, want 1", ratings.calls)
 			}
 		})
 	}
