@@ -9,6 +9,9 @@ import '@ttac/shared/styles/tokens.css';
     <meta name="description" content="Ratings, tournaments and blitz games for the Through the Ages community." />
   </head>
   <body>
+    <header>
+      <a class="admin" href="https://ttac-admin.unstableunicorn.dev/">Admin</a>
+    </header>
     <main>
       <h1>ttacommunity</h1>
       <p>Ratings, tournaments and blitz games for the Through the Ages community.</p>
@@ -23,6 +26,29 @@ import '@ttac/shared/styles/tokens.css';
 </html>
 
 <style>
+  header {
+    display: flex;
+    justify-content: flex-end;
+    padding: 0.75rem 1rem 0;
+  }
+  .admin {
+    padding: 0.25rem 0.75rem;
+    border: 1px solid var(--text-muted);
+    border-radius: 0.375rem;
+    color: var(--text-muted);
+    font-family: var(--font-ui);
+    font-size: 0.875rem;
+    text-decoration: none;
+  }
+  .admin:hover,
+  .admin:focus-visible {
+    border-color: var(--gold);
+    color: var(--gold);
+  }
+  .admin:focus-visible {
+    outline: 2px solid var(--gold);
+    outline-offset: 2px;
+  }
   main {
     max-width: 48rem;
     margin: 0 auto;
