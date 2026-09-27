@@ -91,3 +91,17 @@ def test_a_finished_run_is_never_written_to(conn, add_match, run_id):
         )
 
     assert stored(conn, run_id) == []
+
+
+def test_each_evaluated_month_is_reported_in_order(conn, add_match, run_id):
+    seed(add_match)
+    add_match(("Bob", 100), ("Charlie", 50), day=date(2022, 3, 1), tournament="T3")
+    expand_pairwise(conn, run_id)
+    months = []
+
+    run_walk_forward_evaluation(
+        player_count=2, start_eval_month="2022-02", verbose=False,
+        conn=conn, run_id=run_id, on_month=months.append,
+    )
+
+    assert months == ["2022-02", "2022-03"]

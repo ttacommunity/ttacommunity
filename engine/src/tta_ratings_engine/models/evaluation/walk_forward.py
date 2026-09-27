@@ -2,7 +2,7 @@
 from collections import defaultdict
 from datetime import datetime
 import math
-from typing import Dict, List, Tuple, Optional, Any
+from typing import Callable, Dict, List, Tuple, Optional, Any
 import numpy as np
 import psycopg
 from psycopg.types.json import Jsonb
@@ -131,12 +131,13 @@ def run_walk_forward_evaluation(
     *,
     conn: psycopg.Connection,
     run_id: int,
+    on_month: Optional[Callable[[str], None]] = None,
 ) -> Dict[str, Any]:
     """Executes a monthly expanding-window walk-forward evaluation across all 16 models.
 
     Reads the run's pairs and replaces the format's results in the run, in one
-    committed transaction. Raises RunNotRunning before any work unless the
-    run is running.
+    committed transaction. Calls on_month with each evaluated 'YYYY-MM' when it
+    is done. Raises RunNotRunning before any work unless the run is running.
     """
     with conn.transaction():
         require_running(conn, run_id)
@@ -527,6 +528,9 @@ def run_walk_forward_evaluation(
                         r_cur = r_map[p]
                         phi_new = (r_cur.phi**2 + INACTIVITY_DRIFT_PER_MONTH**2)**0.5
                         r_map[p] = Rating(r_cur.rating, min(350.0, phi_new * G2_SCALE), r_cur.sigma)
+
+            if on_month:
+                on_month(tm)
 
         # 3. Overall Aggregate Metrics
         aggregated_results = {}
