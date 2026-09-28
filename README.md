@@ -182,6 +182,25 @@ The cluster runs what `deploy/` lists (Flux applies it from `main`); the
 sites are built and served by Cloudflare Workers from git. Nothing here holds
 a Cloudflare credential.
 
+### Shipping a change to the api or the engine
+
+The images are pinned in the same merge request as the code, so a merge
+deploys both together:
+
+1. When the code is final, run the manual `api-image` and `engine-image` jobs
+   in the merge request's pipeline. Each pushes `<image>:sha-<commit>`
+2. Resolve each digest, and pin `tag@digest` in `deploy/`:
+
+   ```bash
+   crane digest registry.gitlab.com/unstablehomelab/ttacommunity/api:sha-<commit>
+   ```
+
+3. Apply any new migration to the cluster's database **before** merging.
+   Migrations only add, so the running api is unaffected
+
+`checks/deploy-current.sh` fails if `deploy/` pins an image built from older
+code than the branch's, so a late code change needs a new image and pin.
+
 ### The sites and the sign-in worker on Cloudflare Workers
 
 Each is a Worker configured by a `wrangler.jsonc`, which also declares its

@@ -162,6 +162,7 @@ if full && area checks; then
   run bash checks/no-raw-html.sh
   run bash checks/secret-scan.sh --all
   run bash checks/verify-digests.sh
+  run bash checks/deploy-current.sh
 
   step "shell"
   if need shellcheck "the shell scripts"; then
