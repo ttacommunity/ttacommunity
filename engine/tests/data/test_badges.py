@@ -3,6 +3,7 @@ import pytest
 from tta_ratings_engine.data.badges import (
     classify_division_tier,
     derive_tournament_badges,
+    parse_badge_reason,
 )
 
 
@@ -16,17 +17,47 @@ def test_badge_classification():
     assert classify_division_tier("RL_s08 - Marquess C") == 5  # Silver
     assert classify_division_tier("RL_s08 - Count D") == 6  # Bronze
     assert classify_division_tier("RL_s08 - Viscount") == 7  # Wood
+    assert classify_division_tier("RL_s09 - Baron 2 game 19") == 7  # Wood (Baron)
 
     # International Championship
     assert classify_division_tier("International S33 - Diamond") == 1  # GM
-    assert classify_division_tier("International S33 - Platinum") == 2  # M
-    assert classify_division_tier("International S33 - Gold") == 3  # Platinum
-    assert classify_division_tier("International S33 - Silver") == 4  # Gold
-    assert classify_division_tier("International S33 - Bronze") == 5  # Silver
+    assert classify_division_tier("International S33 - Grandmaster") == 1  # GM
+    assert classify_division_tier("International S33 - Master") == 2  # M
+    assert classify_division_tier("International S33 - Master 1") == 2  # M
+    assert classify_division_tier("International S33 - Master 2") == 2  # M
+    assert classify_division_tier("International S33 - Platinum") == 3  # P
+    assert classify_division_tier("International S33 - Gold") == 4  # G
+    assert classify_division_tier("International S33 - Silver") == 5  # S
+    assert classify_division_tier("International S34 - Bronze 28") == 6  # B
+    assert classify_division_tier("International S33 - Wood 5") == 7  # W
 
     # Intermezzo
-    assert classify_division_tier("Intermezzo S30 - Master 1") == 1  # GM
-    assert classify_division_tier("Intermezzo S30 - Division 2") == 2
+    assert classify_division_tier("Intermezzo S30 - Grandmaster") == 1  # GM
+    assert classify_division_tier("Intermezzo S30 - Master 1") == 2  # M
+    assert classify_division_tier("Intermezzo S30 - Platinum 1") == 3  # P
+    assert classify_division_tier("Intermezzo S30 - Gold 2") == 4  # G
+    assert classify_division_tier("Intermezzo S30 - Silver 3") == 5  # S
+    assert classify_division_tier("Intermezzo S30 - Bronze 4") == 6  # B
+    assert classify_division_tier("Intermezzo S30 - Wood 5") == 7  # W
+
+
+def test_royal_league_reasons_name_the_lower_ranks():
+    assert (
+        parse_badge_reason("RL_s09 - Baron 2 game 19", 7)
+        == "Played in Royal League Baron Season 9"
+    )
+    assert (
+        parse_badge_reason("RL_s09 - Knight", 7)
+        == "Played in Royal League Knight Season 9"
+    )
+    assert (
+        parse_badge_reason("RL_s09 - Viscount", 7)
+        == "Played in Royal League Viscount Season 9"
+    )
+    assert (
+        parse_badge_reason("RL_s09 - Emperor", 1)
+        == "Played in Royal League Emperor Season 9"
+    )
 
 
 # End to end, on Postgres: titles derived from matches and written per run.
@@ -60,15 +91,18 @@ def test_a_player_gets_the_title_of_their_best_recent_division(conn, add_match, 
     assert got["Cat"] == ("M", 0, "Played in Royal League King Season 9")
 
 
-def test_only_the_last_six_months_count(conn, add_match, run_id):
+def test_only_the_last_year_counts(conn, add_match, run_id):
     add_match(
-        ("Old", 10), ("Bob", 5), day=date(2023, 1, 1), tournament="RL_s01 - Emperor"
+        ("Old", 10), ("Bob", 5), day=date(2023, 5, 31), tournament="RL_s01 - Emperor"
+    )
+    add_match(
+        ("Recent", 10), ("Dan", 5), day=date(2023, 7, 1), tournament="RL_s02 - Duke"
     )
     add_match(("Ann", 10), ("Cat", 5), day=date(2024, 6, 1), tournament="RL_s09 - Duke")
 
     derive_tournament_badges(conn=conn, run_id=run_id)
 
-    assert set(titles(conn, run_id)) == {"Ann", "Cat"}
+    assert set(titles(conn, run_id)) == {"Ann", "Cat", "Recent", "Dan"}
 
 
 def test_games_outside_the_championships_earn_no_title(conn, add_match, run_id):
@@ -119,3 +153,57 @@ def test_a_finished_run_gets_no_titles(conn, add_match, run_id):
 def test_no_matches_means_no_titles(conn, run_id):
     assert derive_tournament_badges(conn=conn, run_id=run_id) == {}
     assert titles(conn, run_id) == {}
+
+
+def peaks(conn, run_id):
+    return {
+        r["player_name"]: (r["peak_title"], r["peak_year"])
+        for r in conn.execute(
+            "SELECT player_name, peak_title, peak_year FROM player_peak_titles WHERE run_id = %s",
+            (run_id,),
+        )
+    }
+
+
+def test_a_player_keeps_their_career_peak_title(conn, add_match, run_id):
+    add_match(
+        ("Ann", 10), ("Bob", 5), day=date(2021, 3, 1), tournament="RL_s03 - Emperor"
+    )
+    add_match(
+        ("Ann", 10), ("Bob", 5), day=date(2022, 3, 1), tournament="RL_s04 - Emperor"
+    )
+    add_match(("Ann", 10), ("Cat", 5), day=date(2024, 6, 1), tournament="RL_s09 - King")
+
+    derive_tournament_badges(conn=conn, run_id=run_id)
+
+    assert titles(conn, run_id)["Ann"][0] == "M"
+    got = peaks(conn, run_id)
+    assert got["Ann"] == ("GM", 2022)
+    assert got["Bob"] == ("GM", 2022)
+    assert got["Cat"] == ("M", 2024)
+    assert "Bob" not in titles(conn, run_id)
+
+
+def test_world_champions_peak_at_their_title_year(conn, add_match, run_id):
+    add_match(
+        ("Weidenbaum", 10), ("Bob", 5), day=date(2024, 6, 1), tournament="RL_s09 - King"
+    )
+    add_match(("a440", 10), ("Bob", 5), day=date(2024, 6, 2), tournament="Friendly Cup")
+
+    derive_tournament_badges(conn=conn, run_id=run_id)
+
+    got = peaks(conn, run_id)
+    assert got["Weidenbaum"] == ("WC", 2023)
+    assert got["a440"] == ("WC", 2025)
+    assert titles(conn, run_id)["Weidenbaum"][0] == "M"
+
+
+def test_peaks_are_only_for_known_players_and_replaced_each_time(
+    conn, add_match, run_id
+):
+    add_match(("Ann", 10), ("Bob", 5), day=date(2024, 6, 1), tournament="RL_s09 - Duke")
+
+    derive_tournament_badges(conn=conn, run_id=run_id)
+    derive_tournament_badges(conn=conn, run_id=run_id)
+
+    assert set(peaks(conn, run_id)) == {"Ann", "Bob"}

@@ -79,7 +79,7 @@ func tables(t *testing.T, pool *pgxpool.Pool) []string {
 }
 
 var ratingsTables = []string{
-	"current_run", "import_batches", "matches", "pairwise_matches", "player_ratings", "player_titles", "players",
+	"current_run", "import_batches", "matches", "pairwise_matches", "player_peak_titles", "player_ratings", "player_titles", "players",
 	"rating_history", "rating_runs", "refused_rows", "standard_calibration", "walk_forward_calibration",
 }
 
