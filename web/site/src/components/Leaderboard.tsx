@@ -108,7 +108,7 @@ const headers: [string, string][] = [
 /** The table of the shown players, one row each, in display-rank order. */
 function Table({ board, players }: { board: Board; players: RankedRow[] }) {
   return (
-    <div className="table-scroll">
+    <div className="table-responsive">
       <table className="leaderboard-table">
         <caption className="visually-hidden">
           {show.modelLabel(board.model)}, {show.formatName(board.format)}, run {board.run_id}

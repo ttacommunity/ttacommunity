@@ -1,6 +1,19 @@
 /* The striped ratings table, upstream's .leaderboard-table and its cell styles. */
-.table-scroll {
+.table-responsive {
+  position: relative;
+  width: 100%;
+  margin-bottom: 1rem;
   overflow-x: auto;
+}
+
+.scroll-hint {
+  display: none;
+  margin-bottom: 0.35rem;
+  color: var(--accent-gold);
+  font-family: var(--font-stats);
+  font-size: 0.76rem;
+  letter-spacing: 0.3px;
+  opacity: 0.85;
 }
 
 .leaderboard-table {
@@ -109,4 +122,21 @@
   padding: 2rem;
   color: var(--text-muted);
   text-align: center;
+}
+
+@media (max-width: 768px) {
+  .scroll-hint {
+    display: flex;
+    align-items: center;
+    gap: 0.35rem;
+  }
+
+  .leaderboard-table .col-sticky-rank,
+  .leaderboard-table tbody tr:hover .col-sticky-rank {
+    position: sticky;
+    left: 0;
+    z-index: 4;
+    background: rgba(22, 14, 10, 0.98);
+    box-shadow: 1px 0 3px rgba(0, 0, 0, 0.5);
+  }
 }

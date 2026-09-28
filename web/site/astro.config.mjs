@@ -8,6 +8,8 @@ const google = fontProviders.google();
 export default defineConfig({
   integrations: [react()],
   build: { inlineStylesheets: 'never' },
+  // Our scripts are files too, so editing one never changes the CSP's hashes.
+  vite: { build: { assetsInlineLimit: (file) => (file.endsWith('.js') ? false : undefined) } },
   // Upstream's Google fonts, downloaded at build and served from this site.
   fonts: [
     { provider: google, name: 'Cinzel', cssVariable: '--font-cinzel', weights: [500, 700, 900], fallbacks: ['serif'] },

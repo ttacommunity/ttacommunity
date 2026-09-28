@@ -48,3 +48,40 @@
   font-weight: 700;
   box-shadow: 0 2px 6px rgba(229, 169, 60, 0.35);
 }
+
+.format-bar-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+@media (max-width: 768px) {
+  .format-bar {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0.65rem;
+    padding: 0.65rem;
+  }
+
+  .format-bar-group {
+    flex-wrap: nowrap;
+    padding-bottom: 2px;
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+
+  .format-bar-group::-webkit-scrollbar {
+    display: none;
+  }
+
+  .format-btn {
+    flex-shrink: 0;
+    padding: 0.45rem 0.85rem;
+    font-size: 0.82rem;
+  }
+
+  .format-bar-actions {
+    width: 100%;
+  }
+}
