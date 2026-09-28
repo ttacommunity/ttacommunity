@@ -296,3 +296,113 @@ func TestLeaderboardJoinsPlayerCountryAndTheRunsTitle(t *testing.T) {
 		t.Errorf("row without a player = %+v, want it kept with no country or title", stray)
 	}
 }
+
+func addHistory(t *testing.T, pool *pgxpool.Pool, run int64, model string, format int, name, period string, cRating float64) {
+	t.Helper()
+	_, err := pool.Exec(context.Background(), `
+		INSERT INTO rating_history (run_id, model_type, player_count, player_name, period_date, rating, rd, c_rating)
+		VALUES ($1, $2, $3, $4, $5, $6 + 90, 30, $6)`, run, model, format, name, period, cRating)
+	if err != nil {
+		t.Fatalf("adding %s's history at %s: %v", name, period, err)
+	}
+}
+
+func day(s string) time.Time {
+	d, err := time.Parse(time.DateOnly, s)
+	if err != nil {
+		panic(err)
+	}
+	return d
+}
+
+func TestHistoryGivesEachPlayersLatestRatingOnOrBeforeADate(t *testing.T) {
+	pool := migrated(t)
+	r := NewRatingsReader(asReader(t, pool))
+	ctx := context.Background()
+	run := addRun(t, pool, "complete", time.Date(2026, 9, 27, 4, 0, 0, 0, time.UTC))
+	addHistory(t, pool, run, "glicko2_daneo", 0, "ann", "2026-03-31", 1500)
+	addHistory(t, pool, run, "glicko2_daneo", 0, "ann", "2026-04-30", 1600)
+	addHistory(t, pool, run, "glicko2_daneo", 0, "ann", "2026-05-31", 1700)
+	addHistory(t, pool, run, "glicko2_daneo", 0, "bob", "2026-05-31", 1400)
+	addHistory(t, pool, run, "glicko2_daneo", 2, "ann", "2026-04-30", 9999)
+	addHistory(t, pool, run, "whr", 0, "ann", "2026-04-30", 9999)
+
+	at := day("2026-05-01")
+	gotAt, rows, err := r.History(ctx, run, "glicko2_daneo", 0, &at)
+	if err != nil {
+		t.Fatalf("History: %v", err)
+	}
+	if !gotAt.Equal(at) {
+		t.Errorf("at = %v, want %v", gotAt, at)
+	}
+	want := []HistoryRow{{Name: "ann", Rating: 1690, RD: 30, CRating: 1600}}
+	if !slices.Equal(rows, want) {
+		t.Errorf("History = %+v, want %+v (bob had no rating yet)", rows, want)
+	}
+}
+
+func TestHistoryWithoutADateUsesThePreviousPeriod(t *testing.T) {
+	pool := migrated(t)
+	r := NewRatingsReader(asReader(t, pool))
+	ctx := context.Background()
+	run := addRun(t, pool, "complete", time.Date(2026, 9, 27, 4, 0, 0, 0, time.UTC))
+	addHistory(t, pool, run, "glicko2_daneo", 0, "ann", "2026-06-30", 1500)
+	addHistory(t, pool, run, "glicko2_daneo", 0, "ann", "2026-07-31", 1600)
+	addHistory(t, pool, run, "glicko2_daneo", 0, "bob", "2026-08-31", 1700)
+
+	gotAt, rows, err := r.History(ctx, run, "glicko2_daneo", 0, nil)
+	if err != nil {
+		t.Fatalf("History: %v", err)
+	}
+	if !gotAt.Equal(day("2026-07-31")) {
+		t.Errorf("at = %v, want the previous period 2026-07-31", gotAt)
+	}
+	if len(rows) != 1 || rows[0].Name != "ann" || rows[0].CRating != 1600 {
+		t.Errorf("History = %+v, want ann at 1600", rows)
+	}
+}
+
+func TestHistoryRefusesUnpublishedRunsAndEmptyHistory(t *testing.T) {
+	pool := migrated(t)
+	r := NewRatingsReader(asReader(t, pool))
+	ctx := context.Background()
+	hidden := addRun(t, pool, "complete", time.Time{})
+	addHistory(t, pool, hidden, "glicko2_daneo", 0, "ann", "2026-07-31", 1600)
+	if _, _, err := r.History(ctx, hidden, "glicko2_daneo", 0, nil); !errors.Is(err, ErrRunNotFound) {
+		t.Errorf("History of an unpublished run: err = %v, want ErrRunNotFound", err)
+	}
+
+	empty := addRun(t, pool, "complete", time.Date(2026, 9, 27, 4, 0, 0, 0, time.UTC))
+	if _, _, err := r.History(ctx, empty, "glicko2_daneo", 0, nil); !errors.Is(err, ErrNoHistory) {
+		t.Errorf("History with no periods: err = %v, want ErrNoHistory", err)
+	}
+}
+
+func TestLeaderboardJoinsTheRunsCareerPeak(t *testing.T) {
+	pool := migrated(t)
+	r := NewRatingsReader(asReader(t, pool))
+	ctx := context.Background()
+	run := addRun(t, pool, "complete", time.Date(2026, 9, 27, 4, 0, 0, 0, time.UTC))
+	other := addRun(t, pool, "complete", time.Date(2026, 9, 27, 4, 0, 0, 0, time.UTC))
+	addRating(t, pool, run, "glicko2_daneo", 0, "ann", intp(1), 1900)
+	addRating(t, pool, run, "glicko2_daneo", 0, "bob", intp(2), 1700)
+	for _, p := range []struct {
+		run  int64
+		name string
+	}{{run, "ann"}, {other, "bob"}} {
+		if _, err := pool.Exec(ctx, "INSERT INTO player_peak_titles (run_id, player_name, peak_title, peak_year) VALUES ($1, $2, 'GM', 2024)", p.run, p.name); err != nil {
+			t.Fatalf("adding %s's peak: %v", p.name, err)
+		}
+	}
+
+	got, err := r.Leaderboard(ctx, run, "glicko2_daneo", 0)
+	if err != nil {
+		t.Fatalf("Leaderboard: %v", err)
+	}
+	if p := got[0].Peak; p == nil || p.Code != "GM" || p.Year == nil || *p.Year != 2024 {
+		t.Errorf("ann's peak = %+v, want GM in 2024", p)
+	}
+	if got[1].Peak != nil {
+		t.Errorf("bob's peak = %+v, want none (his is another run's)", got[1].Peak)
+	}
+}

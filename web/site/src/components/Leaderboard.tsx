@@ -1,7 +1,7 @@
 /** The leaderboard for the current run, with upstream's options, filters, search, sort and paging. */
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { formatValues } from '@ttac/shared/api';
-import { currentRun, leaderboard, type Leaderboard as Board } from '@ttac/shared/ratings';
+import { currentRun, history, leaderboard, type Leaderboard as Board } from '@ttac/shared/ratings';
 import Segmented from './Segmented';
 import SearchBox from './SearchBox';
 import OptionsDrawer, { type LinkTo } from './OptionsDrawer';
@@ -9,6 +9,9 @@ import { Flag, TitleBadge } from './PlayerMarks';
 import * as show from '../lib/leaderboard-display';
 import {
   DEFAULT_VIEW,
+  DELTA_DATES,
+  csvUrl,
+  deltas,
   hasFilters,
   hasOptions,
   modelOf,
@@ -20,6 +23,7 @@ import {
   sortRows,
   titleOptions,
   viewParams,
+  type Delta,
   type RankedRow,
   type SortKey,
   type View,
@@ -93,6 +97,20 @@ export default function Leaderboard({ apiUrl }: { apiUrl: string }) {
   };
 
   const players = useMemo(() => (state.kind === 'ready' ? state.board.players : []), [state]);
+  const [changes, setChanges] = useState<Map<string, Delta> | null>(null);
+
+  useEffect(() => {
+    setChanges(null);
+    if (state.kind !== 'ready' || view.delta === 'none') return;
+    let stale = false;
+    const { board } = state;
+    history(apiUrl, board.run_id, board.model, board.format, DELTA_DATES[view.delta])
+      .then((past) => !stale && setChanges(deltas(board.players, past.players)))
+      .catch(() => !stale && setChanges(new Map()));
+    return () => {
+      stale = true;
+    };
+  }, [apiUrl, state, view.delta]);
   const pool = useMemo(() => rankPool(players, view), [players, view]);
   const found = useMemo(() => search(pool, view.search), [pool, view.search]);
   const shown = useMemo(
@@ -173,6 +191,14 @@ export default function Leaderboard({ apiUrl }: { apiUrl: string }) {
                 </a>
               </span>
             )}
+            {view.delta !== DEFAULT_VIEW.delta && (
+              <span className="filter-pill">
+                &Delta;: {deltaNames[view.delta]}{' '}
+                <a {...linkTo({ ...view, delta: DEFAULT_VIEW.delta, page: 1 })} aria-label="Turn off deltas">
+                  ✕
+                </a>
+              </span>
+            )}
             {view.minOpps !== DEFAULT_VIEW.minOpps && (
               <span className="filter-pill">
                 Min Matches: &ge;{view.minOpps}{' '}
@@ -211,6 +237,7 @@ export default function Leaderboard({ apiUrl }: { apiUrl: string }) {
               view={view}
               rows={shown.rows}
               jumpTo={found.jumpTo}
+              changes={changes}
               linkTo={linkTo}
               caption={`${show.modelLabel(model)}, ${show.formatName(view.format)}, run ${state.board.run_id}`}
             />
@@ -233,12 +260,35 @@ export default function Leaderboard({ apiUrl }: { apiUrl: string }) {
 
       {optionsOpen && (
         <Sidebar onClose={() => toggleOptions(false)}>
-          <OptionsDrawer view={view} titles={titleOptions(players)} linkTo={linkTo} go={go} onClose={() => toggleOptions(false)} />
+          <OptionsDrawer
+            view={view}
+            titles={titleOptions(players)}
+            downloads={
+              state.kind === 'ready'
+                ? {
+                    shown: csvUrl(apiUrl, state.board.run_id, view, false),
+                    everyone: csvUrl(apiUrl, state.board.run_id, view, true),
+                    count: found.rows.length,
+                  }
+                : null
+            }
+            linkTo={linkTo}
+            go={go}
+            onClose={() => toggleOptions(false)}
+          />
         </Sidebar>
       )}
     </div>
   );
 }
+
+const deltaNames: Record<View['delta'], string> = {
+  none: 'None',
+  last_update: 'Last Update',
+  month: 'Month',
+  quarter: 'Quarter',
+  year: 'Year',
+};
 
 const sortNames: Record<SortKey, string> = {
   rank: 'Rank',
@@ -308,12 +358,24 @@ interface TableProps {
   view: View;
   rows: RankedRow[];
   jumpTo: string | null;
+  changes: Map<string, Delta> | null;
   linkTo: LinkTo;
   caption: string;
 }
 
+/** Change shows one rating change beside its value, as upstream's delta badge. */
+function Change({ value, what }: { value: number | undefined; what: string }) {
+  if (value === undefined) return null;
+  const d = show.delta(value);
+  return (
+    <span className={`delta-badge ${d.kind}`} data-tooltip={`${what} change in selected timeframe`}>
+      {d.text}
+    </span>
+  );
+}
+
 /** The table of one page of players, with sortable headers and the searched player highlighted. */
-function Table({ view, rows, jumpTo, linkTo, caption }: TableProps) {
+function Table({ view, rows, jumpTo, changes, linkTo, caption }: TableProps) {
   const jumped = useRef<HTMLTableRowElement>(null);
   useEffect(() => {
     const t = setTimeout(() => jumped.current?.scrollIntoView({ behavior: 'smooth', block: 'center' }), 150);
@@ -366,10 +428,12 @@ function Table({ view, rows, jumpTo, linkTo, caption }: TableProps) {
               </td>
               <td>
                 <span className="c-rating-val">{show.cRating(p.c_rating)}</span>
+                <Change value={changes?.get(p.name)?.c_rating} what="C-Rating" />
               </td>
               <td>
                 <span className="rating-primary">{show.rating(p.rating)}</span>{' '}
                 <span className="rating-rd">{show.rd(p.rd)}</span>
+                <Change value={changes?.get(p.name)?.rating} what="Rating" />
               </td>
               <td>{p.opponents}</td>
               <td>

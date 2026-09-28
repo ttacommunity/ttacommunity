@@ -97,3 +97,10 @@ export function titleName(code: TitleCode): string {
 export function flagSrc(country: string): string {
   return `/flags/${country.toLowerCase()}.svg`;
 }
+
+/** delta shows a rating change as upstream: an arrow and one decimal, or a dash within ±0.05. */
+export function delta(value: number): { text: string; kind: 'delta-pos' | 'delta-neg' | 'delta-zero' } {
+  if (value > 0.05) return { text: `↑+${value.toFixed(1)}`, kind: 'delta-pos' };
+  if (value < -0.05) return { text: `↓${value.toFixed(1)}`, kind: 'delta-neg' };
+  return { text: '—0.0', kind: 'delta-zero' };
+}

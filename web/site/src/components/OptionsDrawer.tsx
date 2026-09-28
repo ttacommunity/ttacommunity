@@ -2,7 +2,7 @@
 import { useEffect, useState } from 'react';
 import type { TitleCode } from '@ttac/shared/ratings';
 import { engineName } from '../lib/leaderboard-display';
-import { DEFAULT_VIEW, ENGINES, retroApplies, type Engine, type ResetMode, type Status, type View } from '../lib/leaderboard-view';
+import { DEFAULT_VIEW, ENGINES, retroApplies, type DeltaWindow, type Engine, type ResetMode, type Status, type View } from '../lib/leaderboard-view';
 
 /** A link to a view: a real address, followed in place. */
 export type LinkTo = (view: View) => { href: string; onClick: (e: React.MouseEvent) => void };
@@ -22,16 +22,24 @@ const resetModes: [ResetMode, string, string][] = [
 
 const titleLabels: Partial<Record<TitleCode, string>> = { GM: 'Grandmaster (GM)', M: 'Master (M)', P: 'Platinum (P)', G: 'Gold (G)' };
 
+/** The CSV downloads of the table as shown, and of every player, with how many rows the first has. */
+export interface Downloads {
+  shown: string;
+  everyone: string;
+  count: number;
+}
+
 interface Props {
   view: View;
   titles: TitleCode[];
+  downloads: Downloads | null;
   linkTo: LinkTo;
   go: (view: View) => void;
   onClose: () => void;
 }
 
 /** OptionsDrawer shows every option; choosing one goes to that view at page 1. */
-export default function OptionsDrawer({ view, titles, linkTo, go, onClose }: Props) {
+export default function OptionsDrawer({ view, titles, downloads, linkTo, go, onClose }: Props) {
   const [minOpps, setMinOpps] = useState(String(view.minOpps));
   useEffect(() => setMinOpps(String(view.minOpps)), [view.minOpps]);
   const at = (change: Partial<View>) => ({ ...view, ...change, page: 1 });
@@ -132,6 +140,24 @@ export default function OptionsDrawer({ view, titles, linkTo, go, onClose }: Pro
         </div>
 
         <div className="options-field">
+          <label className="options-group-title" htmlFor="options-delta">
+            <span>⏱️ Rating Deltas</span>
+          </label>
+          <select
+            id="options-delta"
+            className="input-antique"
+            value={view.delta}
+            onChange={(e) => go(at({ delta: e.target.value as DeltaWindow }))}
+          >
+            <option value="none">Deltas: Off</option>
+            <option value="last_update">&Delta; Last Webmaster Update</option>
+            <option value="month">&Delta; Last Month (30d)</option>
+            <option value="quarter">&Delta; Last Quarter (90d)</option>
+            <option value="year">&Delta; Last Year (365d)</option>
+          </select>
+        </div>
+
+        <div className="options-field">
           <label className="options-group-title" htmlFor="options-min">
             <span>⚔️ Minimum Matches</span>
           </label>
@@ -152,6 +178,26 @@ export default function OptionsDrawer({ view, titles, linkTo, go, onClose }: Pro
           </div>
         </div>
       </form>
+
+      {downloads && (
+        <div className="options-export">
+          <div className="options-group-title options-export-title">
+            <span>📥 Tournament Data Export</span>
+            <span className="options-export-kind">CSV FILE</span>
+          </div>
+          <a href={downloads.shown} className="btn-antique download" download title="Download current filtered rating table as a CSV file">
+            <span>📥 Download currently selected ratings</span>
+          </a>
+          <div className="options-export-note">
+            <span>Includes active filters ({downloads.count} players)</span>
+            {view.status !== 'all' && (
+              <a href={downloads.everyone} download title="Download full rating database including inactive players">
+                Download all (incl. inactive) &raquo;
+              </a>
+            )}
+          </div>
+        </div>
+      )}
 
       <div className="options-footer">
         <div className="options-footer-active">

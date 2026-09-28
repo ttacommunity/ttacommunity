@@ -59,3 +59,31 @@
 .badge-none {
   color: #665544;
 }
+
+/* Rating changes over a window, upstream's .delta-badge. */
+.delta-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  margin-left: 0.3rem;
+  padding: 0.1rem 0.35rem;
+  border-radius: 3px;
+  font-family: var(--font-stats);
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+.delta-pos {
+  background: rgba(102, 187, 106, 0.12);
+  color: var(--win);
+}
+
+.delta-neg {
+  background: rgba(239, 83, 80, 0.12);
+  color: var(--loss);
+}
+
+.delta-zero {
+  color: var(--text-muted);
+  opacity: 0.6;
+}

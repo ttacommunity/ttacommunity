@@ -26,10 +26,21 @@ type fakeRatings struct {
 	boardErr error
 	pingErr  error
 
+	hist    []store.HistoryRow
+	histAt  time.Time
+	histErr error
+
 	calls  int
 	gotRun int64
 	gotMod string
 	gotFmt int
+	gotAt  *time.Time
+}
+
+func (f *fakeRatings) History(_ context.Context, run int64, model string, format int, at *time.Time) (time.Time, []store.HistoryRow, error) {
+	f.calls++
+	f.gotRun, f.gotMod, f.gotFmt, f.gotAt = run, model, format, at
+	return f.histAt, f.hist, f.histErr
 }
 
 func (f *fakeRatings) Ping(context.Context) error {
@@ -344,5 +355,146 @@ func TestErrorsLogTheRouteNotThePath(t *testing.T) {
 	}
 	if strings.Contains(logs, "/v1/runs/7") || strings.Contains(logs, "model=whr") {
 		t.Errorf("log %q carries the request path", logs)
+	}
+}
+
+func TestHistory(t *testing.T) {
+	previous := time.Date(2026, 7, 31, 0, 0, 0, 0, time.UTC)
+	may := time.Date(2026, 5, 1, 0, 0, 0, 0, time.UTC)
+	rows := []store.HistoryRow{{Name: "ann", Rating: 1690, RD: 30.5, CRating: 1598.5}}
+	tests := []struct {
+		name      string
+		path      string
+		ratings   *fakeRatings
+		wantCode  int
+		wantCache string
+		wantAt    *time.Time
+		wantBody  string
+	}{
+		{
+			name: "a date", path: "/v1/runs/7/history?model=whr&format=2&at=2026-05-01",
+			ratings:  &fakeRatings{hist: rows, histAt: may},
+			wantCode: http.StatusOK, wantCache: "public, max-age=31536000, immutable", wantAt: &may,
+			wantBody: `{"at":"2026-05-01","format":2,"model":"whr","players":[{"c_rating":1598.5,"name":"ann","rating":1690,"rd":30.5}],"run_id":7}`,
+		},
+		{
+			name: "no date means the previous period", path: "/v1/runs/7/history",
+			ratings:  &fakeRatings{histAt: previous},
+			wantCode: http.StatusOK, wantCache: "public, max-age=31536000, immutable",
+			wantBody: `{"at":"2026-07-31","format":0,"model":"glicko2_daneo","players":[],"run_id":7}`,
+		},
+		{
+			name: "not a date", path: "/v1/runs/7/history?at=May",
+			ratings: &fakeRatings{}, wantCode: http.StatusBadRequest, wantCache: "no-store",
+			wantBody: `{"error":"bad parameter: at"}`,
+		},
+		{
+			name: "unknown model", path: "/v1/runs/7/history?model=elo",
+			ratings: &fakeRatings{}, wantCode: http.StatusBadRequest, wantCache: "no-store",
+			wantBody: `{"error":"unknown model"}`,
+		},
+		{
+			name: "run not published", path: "/v1/runs/9/history",
+			ratings: &fakeRatings{histErr: store.ErrRunNotFound}, wantCode: http.StatusNotFound, wantCache: "no-store",
+			wantBody: `{"error":"no published rating run has this id"}`,
+		},
+		{
+			name: "no history", path: "/v1/runs/9/history",
+			ratings: &fakeRatings{histErr: store.ErrNoHistory}, wantCode: http.StatusNotFound, wantCache: "no-store",
+			wantBody: `{"error":"this run has no rating history for this model and format"}`,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			rec, _ := serve(t, tt.ratings, tt.path)
+			if rec.Code != tt.wantCode {
+				t.Errorf("GET %s: code = %d, want %d", tt.path, rec.Code, tt.wantCode)
+			}
+			if got := rec.Header().Get("Cache-Control"); got != tt.wantCache {
+				t.Errorf("GET %s: Cache-Control = %q, want %q", tt.path, got, tt.wantCache)
+			}
+			if got := strings.TrimSpace(rec.Body.String()); got != tt.wantBody {
+				t.Errorf("GET %s: body = %q, want %q", tt.path, got, tt.wantBody)
+			}
+			if (tt.ratings.gotAt == nil) != (tt.wantAt == nil) || (tt.wantAt != nil && !tt.ratings.gotAt.Equal(*tt.wantAt)) {
+				t.Errorf("GET %s: store asked for at %v, want %v", tt.path, tt.ratings.gotAt, tt.wantAt)
+			}
+		})
+	}
+}
+
+func TestLeaderboardCSV(t *testing.T) {
+	played := time.Date(2026, 8, 28, 0, 0, 0, 0, time.UTC)
+	old := time.Date(2020, 1, 1, 0, 0, 0, 0, time.UTC)
+	ru, year := "RU", 2026
+	rows := []store.LeaderboardRow{
+		{Name: "Grozz", Rating: 1979.194, RD: 20.146, CRating: 1918.756, Opponents: 775, Wins: 551, Losses: 218, Draws: 6,
+			WinRate: 71.48, LastPlayed: &played, Country: &ru,
+			Title: &store.Title{Code: "GM", Count: 3, Reason: "Played in Royal League Emperor Season 9"},
+			Peak:  &store.Peak{Code: "WC", Year: &year}},
+		{Name: `-odd, "quoted"`, Rating: 1500, RD: 50, CRating: 1350, Opponents: 40, WinRate: 50, LastPlayed: &played},
+		{Name: "retired", Rating: 1900, RD: 50, CRating: 1750, Opponents: 40, WinRate: 50, LastPlayed: &old},
+	}
+	f := &fakeRatings{board: rows}
+	rec, _ := serve(t, f, "/v1/runs/7/leaderboard.csv?model=glicko2_std_softer&format=2")
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("code = %d, want 200: %s", rec.Code, rec.Body.String())
+	}
+	for header, want := range map[string]string{
+		"Content-Type":        "text/csv",
+		"Cache-Control":       "public, max-age=300",
+		"Content-Disposition": `attachment; filename="tta_ratings_glicko2_std_2p_softer_live_active.csv"`,
+	} {
+		if got := rec.Header().Get(header); got != want {
+			t.Errorf("%s = %q, want %q", header, got, want)
+		}
+	}
+	if f.gotMod != "glicko2_std_softer" || f.gotFmt != 2 {
+		t.Errorf("store asked for %s/%d, want glicko2_std_softer/2", f.gotMod, f.gotFmt)
+	}
+	want := "\ufeffRank,Player,Country,Title,Title_Name,Badge_Reason,Peak_Title,Peak_Year,Rating,RD,Conservative_Rating," +
+		"Matches,Wins,Losses,Draws,Win_Rate,Status,Last_Played,Model,Format,Reset_Mode,Season\r\n" +
+		"1,Grozz,RU,GM,Grandmaster,Played in Royal League Emperor Season 9,World Champion,2026,1979.19,20.15,1918.76," +
+		"775,551,218,6,71.5%,Active,2026-08-28,Glicko-2 Standard,2-Player (Duel),Season Reset,Live / All-Time\r\n" +
+		`2,"'-odd, ""quoted""",,,,,,,1500.00,50.00,1350.00,40,0,0,0,50.0%,Active,2026-08-28,Glicko-2 Standard,2-Player (Duel),Season Reset,Live / All-Time` + "\r\n"
+	if got := rec.Body.String(); got != want {
+		t.Errorf("body =\n%q\nwant\n%q", got, want)
+	}
+}
+
+func TestLeaderboardCSVFollowsTheFilters(t *testing.T) {
+	played := time.Date(2026, 8, 28, 0, 0, 0, 0, time.UTC)
+	rows := []store.LeaderboardRow{
+		{Name: "ann", CRating: 1900, Opponents: 5, LastPlayed: &played},
+		{Name: "bob", CRating: 1800, Opponents: 50, LastPlayed: &played},
+	}
+	rec, _ := serve(t, &fakeRatings{board: rows}, "/v1/runs/7/leaderboard.csv?status=all&min_opps=0&search=an&sort=name&order=desc")
+	lines := strings.Split(strings.TrimSpace(rec.Body.String()), "\r\n")
+	if len(lines) != 2 || !strings.HasPrefix(lines[1], "1,ann,") {
+		t.Errorf("rows = %q, want only ann, ranked 1", lines[1:])
+	}
+	if got := rec.Header().Get("Content-Disposition"); !strings.HasSuffix(got, `_all.csv"`) {
+		t.Errorf("Content-Disposition = %q, want the all-status file name", got)
+	}
+}
+
+func TestLeaderboardCSVRefusals(t *testing.T) {
+	for _, tt := range []struct{ path, want string }{
+		{"/v1/runs/7/leaderboard.csv?status=gone", `{"error":"unknown status"}`},
+		{"/v1/runs/7/leaderboard.csv?min_opps=-1", `{"error":"bad parameter: min_opps"}`},
+		{"/v1/runs/7/leaderboard.csv?min_opps=1001", `{"error":"bad parameter: min_opps"}`},
+		{"/v1/runs/7/leaderboard.csv?title=Q", `{"error":"unknown title"}`},
+		{"/v1/runs/7/leaderboard.csv?sort=luck", `{"error":"unknown sort"}`},
+		{"/v1/runs/7/leaderboard.csv?search=" + strings.Repeat("a", 201), `{"error":"bad parameter: search"}`},
+	} {
+		rec, _ := serve(t, &fakeRatings{}, tt.path)
+		if rec.Code != http.StatusBadRequest || strings.TrimSpace(rec.Body.String()) != tt.want {
+			t.Errorf("GET %s = %d %s, want 400 %s", tt.path, rec.Code, rec.Body.String(), tt.want)
+		}
+	}
+	rec, _ := serve(t, &fakeRatings{boardErr: store.ErrRunNotFound}, "/v1/runs/9/leaderboard.csv")
+	if rec.Code != http.StatusNotFound {
+		t.Errorf("unpublished run: code = %d, want 404", rec.Code)
 	}
 }

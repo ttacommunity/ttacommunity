@@ -80,6 +80,51 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/runs/{run}/leaderboard.csv": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The leaderboard as a CSV file, filtered and sorted as the site's table
+         * @description The players the site's leaderboard shows for the same choices, in its
+         *     order, with their titles, career peaks and records. Rows carry
+         *     player details as they are now, so this is cached for five minutes.
+         */
+        get: operations["getLeaderboardCsv"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/runs/{run}/history": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Each player's rating at a past date, for rating changes over time
+         * @description Each player's rating at the end of the latest rating period on or
+         *     before `at`. Without `at`, the run's previous period, the one before
+         *     its last. A player with no rating by then is left out. A run's history
+         *     never changes, so this is cached for a year.
+         */
+        get: operations["getHistory"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -148,10 +193,32 @@ export interface components {
             country: string | null;
             title: components["schemas"]["Title"];
         };
+        History: {
+            /** Format: int64 */
+            run_id: number;
+            model: components["schemas"]["Model"];
+            format: components["schemas"]["Format"];
+            /**
+             * Format: date
+             * @description The date asked for, or the previous period's when none was
+             */
+            at: string;
+            players: components["schemas"]["HistoryRow"][];
+        };
+        HistoryRow: {
+            name: string;
+            /** Format: double */
+            rating: number;
+            /** Format: double */
+            rd: number;
+            /** Format: double */
+            c_rating: number;
+        };
+        /** @enum {string} */
+        TitleCode: "WC" | "GM" | "M" | "P" | "G" | "S" | "B" | "W";
         /** @description The tournament title the run derived for the player, if any */
         Title: {
-            /** @enum {string} */
-            code: "WC" | "GM" | "M" | "P" | "G" | "S" | "B" | "W";
+            code: components["schemas"]["TitleCode"];
             /** @description How many titles the player has earned */
             count: number;
             /** @description Why the player holds it, e.g. the latest division played */
@@ -191,6 +258,8 @@ export interface components {
         };
     };
     parameters: {
+        Model: components["schemas"]["Model"];
+        Format: components["schemas"]["Format"];
         /** @description A published run's id, from `/v1/runs/current` */
         RunId: number;
     };
@@ -278,8 +347,8 @@ export interface operations {
     getLeaderboard: {
         parameters: {
             query?: {
-                model?: components["schemas"]["Model"];
-                format?: components["schemas"]["Format"];
+                model?: components["parameters"]["Model"];
+                format?: components["parameters"]["Format"];
             };
             header?: never;
             path: {
@@ -304,6 +373,75 @@ export interface operations {
             404: components["responses"]["NotFound"];
         };
     };
+    getLeaderboardCsv: {
+        parameters: {
+            query?: {
+                model?: components["parameters"]["Model"];
+                format?: components["parameters"]["Format"];
+                /** @description Active players (last played after 2025-05-31), inactive ones, or all */
+                status?: "active" | "all" | "inactive";
+                /** @description The fewest opponents a player needs */
+                min_opps?: number;
+                title?: components["schemas"]["TitleCode"];
+                /** @description Names or country codes, comma-separated; a name matches anywhere, ignoring case */
+                search?: string;
+                sort?: "rank" | "name" | "c_rating" | "rating" | "opps" | "win_rate" | "last_played";
+                order?: "asc" | "desc";
+            };
+            header?: never;
+            path: {
+                /** @description A published run's id, from `/v1/runs/current` */
+                run: components["parameters"]["RunId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The CSV file, UTF-8 with a byte-order mark */
+            200: {
+                headers: {
+                    "Cache-Control": components["headers"]["CacheControl"];
+                    "Content-Disposition": string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "text/csv": string;
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    getHistory: {
+        parameters: {
+            query?: {
+                model?: components["parameters"]["Model"];
+                format?: components["parameters"]["Format"];
+                at?: string;
+            };
+            header?: never;
+            path: {
+                /** @description A published run's id, from `/v1/runs/current` */
+                run: components["parameters"]["RunId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The ratings at that date */
+            200: {
+                headers: {
+                    "Cache-Control": components["headers"]["CacheControl"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["History"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            404: components["responses"]["NotFound"];
+        };
+    };
 }
 type FlattenedDeepRequired<T> = {
     [K in keyof T]-?: FlattenedDeepRequired<T[K] extends unknown[] | undefined | null ? Extract<T[K], unknown[]>[number] : T[K]>;
@@ -313,6 +451,9 @@ type ReadonlyArray<T> = [
 ] extends [
     unknown[]
 ] ? Readonly<Exclude<T, undefined>> : Readonly<Exclude<T, undefined>[]>;
+export const pathsV1RunsRunLeaderboardCsvGetParametersQueryStatusValues: ReadonlyArray<FlattenedDeepRequired<paths>["/v1/runs/{run}/leaderboard.csv"]["get"]["parameters"]["query"]["status"]> = ["active", "all", "inactive"];
+export const pathsV1RunsRunLeaderboardCsvGetParametersQuerySortValues: ReadonlyArray<FlattenedDeepRequired<paths>["/v1/runs/{run}/leaderboard.csv"]["get"]["parameters"]["query"]["sort"]> = ["rank", "name", "c_rating", "rating", "opps", "win_rate", "last_played"];
+export const pathsV1RunsRunLeaderboardCsvGetParametersQueryOrderValues: ReadonlyArray<FlattenedDeepRequired<paths>["/v1/runs/{run}/leaderboard.csv"]["get"]["parameters"]["query"]["order"]> = ["asc", "desc"];
 export const modelValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["Model"]> = ["glicko2_daneo", "glicko2_daneo_softer", "glicko2_std", "glicko2_std_softer", "glicko2_std_retro", "glicko2_std_softer_retro", "glicko2_mp", "glicko2_mp_softer", "glicko2_mp_retro", "glicko2_mp_softer_retro", "glicko2_adapt", "glicko2_adapt_softer", "glicko2_adapt_retro", "glicko2_adapt_softer_retro", "whr", "whr_softer"];
 export const formatValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["Format"]> = [0, 2, 3, 4];
-export const titleCodeValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["Title"]["code"]> = ["WC", "GM", "M", "P", "G", "S", "B", "W"];
+export const titleCodeValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["TitleCode"]> = ["WC", "GM", "M", "P", "G", "S", "B", "W"];

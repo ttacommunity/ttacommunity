@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { RatingsApiError, currentRun, leaderboard } from './ratings';
+import { RatingsApiError, currentRun, history, leaderboard } from './ratings';
 
 interface Call {
   url: string;
@@ -64,5 +64,20 @@ describe('leaderboard', () => {
     const err = await leaderboard('https://api.example', 9, 'whr', 0, f.fetch).catch((e: unknown) => e);
 
     expect(err).toMatchObject({ status: 404, message: 'no published rating run has this id' });
+  });
+});
+
+describe('history', () => {
+  it('asks for a date, or for the previous period without one', async () => {
+    const f = fakeFetch(200, '{"run_id":5,"model":"whr","format":2,"at":"2026-05-01","players":[]}');
+    const got = await history('https://api.example', 5, 'whr', 2, '2026-05-01', f.fetch);
+    await history('https://api.example', 5, 'glicko2_daneo', 0, null, f.fetch);
+
+    expect(got.at).toBe('2026-05-01');
+    expect(f.calls.map((c) => c.url)).toEqual([
+      'https://api.example/v1/runs/5/history?model=whr&format=2&at=2026-05-01',
+      'https://api.example/v1/runs/5/history?model=glicko2_daneo&format=0',
+    ]);
+    expect(f.calls[0]?.init?.credentials).toBe('omit');
   });
 });

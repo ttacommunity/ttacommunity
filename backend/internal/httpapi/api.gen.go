@@ -11,6 +11,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"net/http"
 	"time"
 
@@ -138,6 +139,78 @@ func (e TitleCode) Valid() bool {
 	}
 }
 
+// Defines values for GetLeaderboardCsvParamsStatus.
+const (
+	Active   GetLeaderboardCsvParamsStatus = "active"
+	All      GetLeaderboardCsvParamsStatus = "all"
+	Inactive GetLeaderboardCsvParamsStatus = "inactive"
+)
+
+// Valid indicates whether the value is a known member of the GetLeaderboardCsvParamsStatus enum.
+func (e GetLeaderboardCsvParamsStatus) Valid() bool {
+	switch e {
+	case Active:
+		return true
+	case All:
+		return true
+	case Inactive:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for GetLeaderboardCsvParamsSort.
+const (
+	CRating    GetLeaderboardCsvParamsSort = "c_rating"
+	LastPlayed GetLeaderboardCsvParamsSort = "last_played"
+	Name       GetLeaderboardCsvParamsSort = "name"
+	Opps       GetLeaderboardCsvParamsSort = "opps"
+	Rank       GetLeaderboardCsvParamsSort = "rank"
+	Rating     GetLeaderboardCsvParamsSort = "rating"
+	WinRate    GetLeaderboardCsvParamsSort = "win_rate"
+)
+
+// Valid indicates whether the value is a known member of the GetLeaderboardCsvParamsSort enum.
+func (e GetLeaderboardCsvParamsSort) Valid() bool {
+	switch e {
+	case CRating:
+		return true
+	case LastPlayed:
+		return true
+	case Name:
+		return true
+	case Opps:
+		return true
+	case Rank:
+		return true
+	case Rating:
+		return true
+	case WinRate:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for GetLeaderboardCsvParamsOrder.
+const (
+	Asc  GetLeaderboardCsvParamsOrder = "asc"
+	Desc GetLeaderboardCsvParamsOrder = "desc"
+)
+
+// Valid indicates whether the value is a known member of the GetLeaderboardCsvParamsOrder enum.
+func (e GetLeaderboardCsvParamsOrder) Valid() bool {
+	switch e {
+	case Asc:
+		return true
+	case Desc:
+		return true
+	default:
+		return false
+	}
+}
+
 // Error defines model for Error.
 type Error struct {
 	Error string `json:"error"`
@@ -149,6 +222,29 @@ type Format int
 // Health defines model for Health.
 type Health struct {
 	Status string `json:"status"`
+}
+
+// History defines model for History.
+type History struct {
+	// At The date asked for, or the previous period's when none was
+	At openapi_types.Date `json:"at"`
+
+	// Format Players per game. 0 is every format together
+	Format Format `json:"format"`
+
+	// Model The rating model. `_softer` models reset gently each season, and
+	// `_retro` models start from a retrospectively calibrated prior.
+	Model   Model        `json:"model"`
+	Players []HistoryRow `json:"players"`
+	RunId   int64        `json:"run_id"`
+}
+
+// HistoryRow defines model for HistoryRow.
+type HistoryRow struct {
+	CRating float64 `json:"c_rating"`
+	Name    string  `json:"name"`
+	Rating  float64 `json:"rating"`
+	Rd      float64 `json:"rd"`
 }
 
 // Leaderboard defines model for Leaderboard.
@@ -212,7 +308,7 @@ type Title struct {
 	Reason string `json:"reason"`
 }
 
-// TitleCode defines model for Title.Code.
+// TitleCode defines model for TitleCode.
 type TitleCode string
 
 // RunId defines model for RunId.
@@ -227,11 +323,45 @@ type NoPublishedRun = Error
 // NotFound defines model for NotFound.
 type NotFound = Error
 
+// GetHistoryParams defines parameters for GetHistory.
+type GetHistoryParams struct {
+	Model  *Model              `form:"model,omitempty" json:"model,omitempty"`
+	Format *Format             `form:"format,omitempty" json:"format,omitempty"`
+	At     *openapi_types.Date `form:"at,omitempty" json:"at,omitempty"`
+}
+
 // GetLeaderboardParams defines parameters for GetLeaderboard.
 type GetLeaderboardParams struct {
 	Model  *Model  `form:"model,omitempty" json:"model,omitempty"`
 	Format *Format `form:"format,omitempty" json:"format,omitempty"`
 }
+
+// GetLeaderboardCsvParams defines parameters for GetLeaderboardCsv.
+type GetLeaderboardCsvParams struct {
+	Model  *Model  `form:"model,omitempty" json:"model,omitempty"`
+	Format *Format `form:"format,omitempty" json:"format,omitempty"`
+
+	// Status Active players (last played after 2025-05-31), inactive ones, or all
+	Status *GetLeaderboardCsvParamsStatus `form:"status,omitempty" json:"status,omitempty"`
+
+	// MinOpps The fewest opponents a player needs
+	MinOpps *int       `form:"min_opps,omitempty" json:"min_opps,omitempty"`
+	Title   *TitleCode `form:"title,omitempty" json:"title,omitempty"`
+
+	// Search Names or country codes, comma-separated; a name matches anywhere, ignoring case
+	Search *string                       `form:"search,omitempty" json:"search,omitempty"`
+	Sort   *GetLeaderboardCsvParamsSort  `form:"sort,omitempty" json:"sort,omitempty"`
+	Order  *GetLeaderboardCsvParamsOrder `form:"order,omitempty" json:"order,omitempty"`
+}
+
+// GetLeaderboardCsvParamsStatus defines parameters for GetLeaderboardCsv.
+type GetLeaderboardCsvParamsStatus string
+
+// GetLeaderboardCsvParamsSort defines parameters for GetLeaderboardCsv.
+type GetLeaderboardCsvParamsSort string
+
+// GetLeaderboardCsvParamsOrder defines parameters for GetLeaderboardCsv.
+type GetLeaderboardCsvParamsOrder string
 
 // ServerInterface represents all server handlers.
 type ServerInterface interface {
@@ -244,9 +374,15 @@ type ServerInterface interface {
 	// GetCurrentRun The run the site shows now
 	// (GET /v1/runs/current)
 	GetCurrentRun(w http.ResponseWriter, r *http.Request)
+	// GetHistory Each player's rating at a past date, for rating changes over time
+	// (GET /v1/runs/{run}/history)
+	GetHistory(w http.ResponseWriter, r *http.Request, run RunId, params GetHistoryParams)
 	// GetLeaderboard Every rated player in one model and format, in rank order
 	// (GET /v1/runs/{run}/leaderboard)
 	GetLeaderboard(w http.ResponseWriter, r *http.Request, run RunId, params GetLeaderboardParams)
+	// GetLeaderboardCsv The leaderboard as a CSV file, filtered and sorted as the site's table
+	// (GET /v1/runs/{run}/leaderboard.csv)
+	GetLeaderboardCsv(w http.ResponseWriter, r *http.Request, run RunId, params GetLeaderboardCsvParams)
 }
 
 // ServerInterfaceWrapper converts contexts to parameters.
@@ -291,6 +427,74 @@ func (siw *ServerInterfaceWrapper) GetCurrentRun(w http.ResponseWriter, r *http.
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.GetCurrentRun(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetHistory operation middleware
+func (siw *ServerInterfaceWrapper) GetHistory(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "run" -------------
+	var run RunId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "run", r.PathValue("run"), &run, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "integer", Format: "int64", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "run", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params GetHistoryParams
+
+	// ------------- Optional query parameter "model" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "model", r.URL.Query(), &params.Model, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "model"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "model", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "format" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "format", r.URL.Query(), &params.Format, runtime.BindQueryParameterOptions{Type: "integer", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "format"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "format", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "at" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "at", r.URL.Query(), &params.At, runtime.BindQueryParameterOptions{Type: "string", Format: "date"})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "at"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "at", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetHistory(w, r, run, params)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -346,6 +550,139 @@ func (siw *ServerInterfaceWrapper) GetLeaderboard(w http.ResponseWriter, r *http
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.GetLeaderboard(w, r, run, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetLeaderboardCsv operation middleware
+func (siw *ServerInterfaceWrapper) GetLeaderboardCsv(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "run" -------------
+	var run RunId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "run", r.PathValue("run"), &run, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "integer", Format: "int64", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "run", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params GetLeaderboardCsvParams
+
+	// ------------- Optional query parameter "model" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "model", r.URL.Query(), &params.Model, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "model"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "model", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "format" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "format", r.URL.Query(), &params.Format, runtime.BindQueryParameterOptions{Type: "integer", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "format"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "format", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "status" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "status", r.URL.Query(), &params.Status, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "status"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "status", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "min_opps" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "min_opps", r.URL.Query(), &params.MinOpps, runtime.BindQueryParameterOptions{Type: "integer", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "min_opps"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "min_opps", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "title" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "title", r.URL.Query(), &params.Title, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "title"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "title", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "search" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "search", r.URL.Query(), &params.Search, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "search"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "search", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "sort" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "sort", r.URL.Query(), &params.Sort, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "sort"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "sort", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "order" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "order", r.URL.Query(), &params.Order, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "order"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "order", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetLeaderboardCsv(w, r, run, params)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -479,6 +816,8 @@ func HandlerWithOptions(si ServerInterface, options StdHTTPServerOptions) http.H
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/readyz", wrapper.GetReadyz)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/v1/runs/current", wrapper.GetCurrentRun)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/v1/runs/{run}/leaderboard", wrapper.GetLeaderboard)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/v1/runs/{run}/leaderboard.csv", wrapper.GetLeaderboardCsv)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/v1/runs/{run}/history", wrapper.GetHistory)
 
 	return m
 }
@@ -626,6 +965,67 @@ func (response GetCurrentRun503JSONResponse) VisitGetCurrentRunResponse(w http.R
 	return err
 }
 
+type GetHistoryRequestObject struct {
+	Run    RunId `json:"run"`
+	Params GetHistoryParams
+}
+
+type GetHistoryResponseObject interface {
+	VisitGetHistoryResponse(w http.ResponseWriter) error
+}
+
+type GetHistory200ResponseHeaders struct {
+	CacheControl string
+}
+
+type GetHistory200JSONResponse struct {
+	Body    History
+	Headers GetHistory200ResponseHeaders
+}
+
+func (response GetHistory200JSONResponse) VisitGetHistoryResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetHistory400JSONResponse struct{ BadRequestJSONResponse }
+
+func (response GetHistory400JSONResponse) VisitGetHistoryResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetHistory404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response GetHistory404JSONResponse) VisitGetHistoryResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
 type GetLeaderboardRequestObject struct {
 	Run    RunId `json:"run"`
 	Params GetLeaderboardParams
@@ -687,6 +1087,73 @@ func (response GetLeaderboard404JSONResponse) VisitGetLeaderboardResponse(w http
 	return err
 }
 
+type GetLeaderboardCsvRequestObject struct {
+	Run    RunId `json:"run"`
+	Params GetLeaderboardCsvParams
+}
+
+type GetLeaderboardCsvResponseObject interface {
+	VisitGetLeaderboardCsvResponse(w http.ResponseWriter) error
+}
+
+type GetLeaderboardCsv200ResponseHeaders struct {
+	CacheControl       string
+	ContentDisposition string
+}
+
+type GetLeaderboardCsv200TextcsvResponse struct {
+	Body          io.Reader
+	Headers       GetLeaderboardCsv200ResponseHeaders
+	ContentLength int64
+}
+
+func (response GetLeaderboardCsv200TextcsvResponse) VisitGetLeaderboardCsvResponse(w http.ResponseWriter) error {
+
+	w.Header().Set("Content-Type", "text/csv")
+	if response.ContentLength != 0 {
+		w.Header().Set("Content-Length", fmt.Sprint(response.ContentLength))
+	}
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.Header().Set("Content-Disposition", fmt.Sprint(response.Headers.ContentDisposition))
+	w.WriteHeader(200)
+
+	if closer, ok := response.Body.(io.ReadCloser); ok {
+		defer closer.Close()
+	}
+	_, err := io.Copy(w, response.Body)
+	return err
+}
+
+type GetLeaderboardCsv400JSONResponse struct{ BadRequestJSONResponse }
+
+func (response GetLeaderboardCsv400JSONResponse) VisitGetLeaderboardCsvResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetLeaderboardCsv404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response GetLeaderboardCsv404JSONResponse) VisitGetLeaderboardCsvResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
 // StrictServerInterface represents all server handlers.
 type StrictServerInterface interface {
 	// GetHealthz The process is up
@@ -698,9 +1165,15 @@ type StrictServerInterface interface {
 	// GetCurrentRun The run the site shows now
 	// (GET /v1/runs/current)
 	GetCurrentRun(ctx context.Context, request GetCurrentRunRequestObject) (GetCurrentRunResponseObject, error)
+	// GetHistory Each player's rating at a past date, for rating changes over time
+	// (GET /v1/runs/{run}/history)
+	GetHistory(ctx context.Context, request GetHistoryRequestObject) (GetHistoryResponseObject, error)
 	// GetLeaderboard Every rated player in one model and format, in rank order
 	// (GET /v1/runs/{run}/leaderboard)
 	GetLeaderboard(ctx context.Context, request GetLeaderboardRequestObject) (GetLeaderboardResponseObject, error)
+	// GetLeaderboardCsv The leaderboard as a CSV file, filtered and sorted as the site's table
+	// (GET /v1/runs/{run}/leaderboard.csv)
+	GetLeaderboardCsv(ctx context.Context, request GetLeaderboardCsvRequestObject) (GetLeaderboardCsvResponseObject, error)
 }
 
 type StrictHandlerFunc func(ctx context.Context, w http.ResponseWriter, r *http.Request, request any) (any, error)
@@ -814,6 +1287,33 @@ func (sh *strictHandler) GetCurrentRun(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// GetHistory operation middleware
+func (sh *strictHandler) GetHistory(w http.ResponseWriter, r *http.Request, run RunId, params GetHistoryParams) {
+	var request GetHistoryRequestObject
+
+	request.Run = run
+	request.Params = params
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.GetHistory(ctx, request.(GetHistoryRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetHistory")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(GetHistoryResponseObject); ok {
+		if err := validResponse.VisitGetHistoryResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
 // GetLeaderboard operation middleware
 func (sh *strictHandler) GetLeaderboard(w http.ResponseWriter, r *http.Request, run RunId, params GetLeaderboardParams) {
 	var request GetLeaderboardRequestObject
@@ -834,6 +1334,33 @@ func (sh *strictHandler) GetLeaderboard(w http.ResponseWriter, r *http.Request, 
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(GetLeaderboardResponseObject); ok {
 		if err := validResponse.VisitGetLeaderboardResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// GetLeaderboardCsv operation middleware
+func (sh *strictHandler) GetLeaderboardCsv(w http.ResponseWriter, r *http.Request, run RunId, params GetLeaderboardCsvParams) {
+	var request GetLeaderboardCsvRequestObject
+
+	request.Run = run
+	request.Params = params
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.GetLeaderboardCsv(ctx, request.(GetLeaderboardCsvRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetLeaderboardCsv")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(GetLeaderboardCsvResponseObject); ok {
+		if err := validResponse.VisitGetLeaderboardCsvResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {

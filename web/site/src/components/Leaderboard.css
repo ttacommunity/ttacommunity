@@ -753,3 +753,44 @@
 .status-inactive {
   color: var(--loss);
 }
+
+/* The CSV export at the foot of the drawer. */
+.options-export {
+  margin-top: 0.5rem;
+  padding-top: 0.85rem;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.options-export-title {
+  justify-content: space-between;
+}
+
+.options-export-kind {
+  color: var(--accent-gold);
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+}
+
+.btn-antique.download {
+  display: flex;
+  justify-content: center;
+  width: 100%;
+  padding: 0.6rem 0.5rem;
+  font-size: 0.82rem;
+  text-align: center;
+}
+
+.options-export-note {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 0.45rem;
+  color: var(--text-muted);
+  font-size: 0.72rem;
+}
+
+.options-export-note a {
+  color: var(--accent-gold);
+  text-decoration: underline;
+}

@@ -10,15 +10,18 @@ import (
 	"errors"
 	"log/slog"
 	"net/http"
+	"time"
 
 	openapi_types "github.com/oapi-codegen/runtime/types"
 
 	"ttacommunity/backend/internal/store"
 )
 
-// Cache lifetimes. A run's rows carry player details that can change, so they
-// are cached for five minutes; which run is current is cached for a minute.
+// Cache lifetimes. A run's history never changes, so it is cached for a year.
+// Its leaderboard carries player details that can change, so five minutes.
+// Which run is current is cached for a minute.
 const (
+	cacheForever = "public, max-age=31536000, immutable"
 	cacheRun     = "public, max-age=300"
 	cacheCurrent = "public, max-age=60"
 	cacheNone    = "no-store"
@@ -29,6 +32,7 @@ type Ratings interface {
 	Ping(ctx context.Context) error
 	CurrentRun(ctx context.Context) (store.PublishedRun, error)
 	Leaderboard(ctx context.Context, run int64, model string, format int) ([]store.LeaderboardRow, error)
+	History(ctx context.Context, run int64, model string, format int, at *time.Time) (time.Time, []store.HistoryRow, error)
 }
 
 // NewMux returns the API's handler with every route in the spec registered.
@@ -179,6 +183,55 @@ func (s *server) GetLeaderboard(ctx context.Context, req GetLeaderboardRequestOb
 	return GetLeaderboard200JSONResponse{
 		Body:    Leaderboard{RunId: req.Run, Model: model, Format: format, Players: players},
 		Headers: GetLeaderboard200ResponseHeaders{CacheControl: cacheRun},
+	}, nil
+}
+
+// GetHistory returns each player's rating at a past date, or at the run's
+// previous period when no date is given.
+func (s *server) GetHistory(ctx context.Context, req GetHistoryRequestObject) (GetHistoryResponseObject, error) {
+	model, format := Glicko2Daneo, N0
+	if req.Params.Model != nil {
+		model = *req.Params.Model
+	}
+	if req.Params.Format != nil {
+		format = *req.Params.Format
+	}
+	refused := func(msg string) GetHistoryResponseObject {
+		return GetHistory400JSONResponse{BadRequestJSONResponse{
+			Body:    Error{Error: msg},
+			Headers: BadRequestResponseHeaders{CacheControl: cacheNone},
+		}}
+	}
+	switch {
+	case req.Run < 1:
+		return refused("bad parameter: run"), nil
+	case !model.Valid():
+		return refused("unknown model"), nil
+	case !format.Valid():
+		return refused("unknown format"), nil
+	}
+	var at *time.Time
+	if req.Params.At != nil {
+		at = &req.Params.At.Time
+	}
+
+	on, rows, err := s.ratings.History(ctx, req.Run, string(model), int(format), at)
+	if errors.Is(err, store.ErrRunNotFound) || errors.Is(err, store.ErrNoHistory) {
+		return GetHistory404JSONResponse{NotFoundJSONResponse{
+			Body:    Error{Error: err.Error()},
+			Headers: NotFoundResponseHeaders{CacheControl: cacheNone},
+		}}, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	players := make([]HistoryRow, 0, len(rows))
+	for _, h := range rows {
+		players = append(players, HistoryRow{Name: h.Name, Rating: h.Rating, Rd: h.RD, CRating: h.CRating})
+	}
+	return GetHistory200JSONResponse{
+		Body:    History{RunId: req.Run, Model: model, Format: format, At: openapi_types.Date{Time: on}, Players: players},
+		Headers: GetHistory200ResponseHeaders{CacheControl: cacheForever},
 	}, nil
 }
 
