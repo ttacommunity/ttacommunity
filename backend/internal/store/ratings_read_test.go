@@ -245,3 +245,54 @@ func addRatingIfRun(t *testing.T, pool *pgxpool.Pool, run int64) {
 		addRating(t, pool, run, "glicko2_daneo", 0, "ann", intp(1), 1900)
 	}
 }
+
+func addTitle(t *testing.T, pool *pgxpool.Pool, run int64, name, title string, count int, reason string) {
+	t.Helper()
+	_, err := pool.Exec(context.Background(),
+		"INSERT INTO player_titles (run_id, player_name, title, title_count, badge_reason) VALUES ($1, $2, $3, $4, $5)",
+		run, name, title, count, reason)
+	if err != nil {
+		t.Fatalf("adding %s's title in run %d: %v", name, run, err)
+	}
+}
+
+func TestLeaderboardJoinsPlayerCountryAndTheRunsTitle(t *testing.T) {
+	pool := migrated(t)
+	r := NewRatingsReader(asReader(t, pool))
+	ctx := context.Background()
+	at := time.Date(2026, 9, 27, 4, 0, 0, 0, time.UTC)
+
+	addPlayers(t, pool, "ann", "bob")
+	if _, err := SetCountries(ctx, pool, map[string]string{"ann": "PL"}); err != nil {
+		t.Fatalf("SetCountries: %v", err)
+	}
+	run := addRun(t, pool, "complete", at)
+	other := addRun(t, pool, "complete", at)
+	addRating(t, pool, run, "glicko2_daneo", 0, "ann", intp(1), 1900)
+	addRating(t, pool, run, "glicko2_daneo", 0, "bob", intp(2), 1700)
+	addRating(t, pool, run, "glicko2_daneo", 0, "not-a-player", intp(3), 1500)
+	addTitle(t, pool, run, "ann", "GM", 3, "Played in Royal League Grandmaster Season 16")
+	addTitle(t, pool, other, "bob", "M", 1, "from another run")
+
+	got, err := r.Leaderboard(ctx, run, "glicko2_daneo", 0)
+	if err != nil {
+		t.Fatalf("Leaderboard: %v", err)
+	}
+	if len(got) != 3 {
+		t.Fatalf("Leaderboard has %d rows, want 3", len(got))
+	}
+	ann, bob, stray := got[0], got[1], got[2]
+	if ann.Country == nil || *ann.Country != "PL" {
+		t.Errorf("ann's country = %v, want PL", ann.Country)
+	}
+	want := Title{Code: "GM", Count: 3, Reason: "Played in Royal League Grandmaster Season 16"}
+	if ann.Title == nil || *ann.Title != want {
+		t.Errorf("ann's title = %+v, want %+v", ann.Title, want)
+	}
+	if bob.Country != nil || bob.Title != nil {
+		t.Errorf("bob = country %v, title %+v; want neither (his title is another run's)", bob.Country, bob.Title)
+	}
+	if stray.Name != "not-a-player" || stray.Country != nil || stray.Title != nil {
+		t.Errorf("row without a player = %+v, want it kept with no country or title", stray)
+	}
+}
