@@ -10,6 +10,7 @@ import * as show from '../lib/leaderboard-display';
 import {
   DEFAULT_VIEW,
   DELTA_DATES,
+  csvUrl,
   deltas,
   hasFilters,
   hasOptions,
@@ -259,7 +260,22 @@ export default function Leaderboard({ apiUrl }: { apiUrl: string }) {
 
       {optionsOpen && (
         <Sidebar onClose={() => toggleOptions(false)}>
-          <OptionsDrawer view={view} titles={titleOptions(players)} linkTo={linkTo} go={go} onClose={() => toggleOptions(false)} />
+          <OptionsDrawer
+            view={view}
+            titles={titleOptions(players)}
+            downloads={
+              state.kind === 'ready'
+                ? {
+                    shown: csvUrl(apiUrl, state.board.run_id, view, false),
+                    everyone: csvUrl(apiUrl, state.board.run_id, view, true),
+                    count: found.rows.length,
+                  }
+                : null
+            }
+            linkTo={linkTo}
+            go={go}
+            onClose={() => toggleOptions(false)}
+          />
         </Sidebar>
       )}
     </div>

@@ -254,3 +254,18 @@ export function deltas(rows: readonly LeaderboardRow[], past: History['players']
     }),
   );
 }
+
+/** csvUrl is the API's CSV of the table as shown, or of every player, inactive too, with the same title and search. */
+export function csvUrl(api: string, run: number, view: View, everyone: boolean): string {
+  const q = new URLSearchParams({
+    model: modelOf(view),
+    format: String(view.format),
+    status: everyone ? 'all' : view.status,
+    min_opps: String(everyone ? 0 : view.minOpps),
+  });
+  if (view.title !== null) q.set('title', view.title);
+  if (view.search !== '') q.set('search', view.search);
+  q.set('sort', view.sort);
+  q.set('order', view.order);
+  return `${api.replace(/\/+$/, '')}/v1/runs/${run}/leaderboard.csv?${q}`;
+}

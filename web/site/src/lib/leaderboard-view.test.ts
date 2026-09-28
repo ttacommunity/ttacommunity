@@ -3,6 +3,7 @@ import type { LeaderboardRow, TitleCode } from '@ttac/shared/ratings';
 import {
   DEFAULT_VIEW,
   DELTA_DATES,
+  csvUrl,
   INACTIVE_ON_OR_BEFORE,
   deltas,
   PER_PAGE,
@@ -246,5 +247,20 @@ describe('deltas', () => {
     const got = deltas([row('ann', 1600), row('bob', 1500)], [{ name: 'ann', rating: 1650, rd: 30, c_rating: 1550 }]);
     expect(got.get('ann')).toEqual({ c_rating: 50, rating: 50 });
     expect(got.get('bob')).toEqual({ c_rating: 0, rating: 0 });
+  });
+});
+
+describe('csvUrl', () => {
+  it('asks the API for the table as shown', () => {
+    const v = view({ engine: 'glicko2_std', reset: 'softer', format: 2, title: 'GM', search: 'a, b', sort: 'opps', order: 'desc', page: 3 });
+    expect(csvUrl('https://api.example/', 7, v, false)).toBe(
+      'https://api.example/v1/runs/7/leaderboard.csv?model=glicko2_std_softer&format=2&status=active&min_opps=30&title=GM&search=a%2C+b&sort=opps&order=desc',
+    );
+  });
+
+  it('asks for everyone, inactive players too, when told to', () => {
+    expect(csvUrl('https://api.example', 7, view({ minOpps: 50 }), true)).toBe(
+      'https://api.example/v1/runs/7/leaderboard.csv?model=glicko2_daneo&format=0&status=all&min_opps=0&sort=rank&order=asc',
+    );
   });
 });

@@ -41,6 +41,13 @@ type LeaderboardRow struct {
 	LastPlayed *time.Time
 	Country    *string
 	Title      *Title
+	Peak       *Peak
+}
+
+// Peak is a player's best title over their career, and the year they held it.
+type Peak struct {
+	Code string
+	Year *int
 }
 
 // Title is the tournament title the engine derived for a player in a run.
@@ -110,7 +117,7 @@ func (r *RatingsReader) CurrentRun(ctx context.Context) (PublishedRun, error) {
 
 // Leaderboard returns a published run's ratings for one model and format in
 // rank order, unranked players last, each with the player's country now and
-// the run's title. An unknown run is ErrRunNotFound.
+// the run's title and career peak. An unknown run is ErrRunNotFound.
 func (r *RatingsReader) Leaderboard(ctx context.Context, run int64, model string, format int) ([]LeaderboardRow, error) {
 	if err := r.requirePublished(ctx, run); err != nil {
 		return nil, err
@@ -118,10 +125,12 @@ func (r *RatingsReader) Leaderboard(ctx context.Context, run int64, model string
 
 	rows, err := r.pool.Query(ctx, `
 		SELECT r.rank, r.rank_delta, r.player_name, r.rating, r.rd, r.c_rating, r.games_played, r.opponents_count,
-			r.wins, r.losses, r.draws, r.win_rate, r.last_played, p.country_code, t.title, t.title_count, t.badge_reason
+			r.wins, r.losses, r.draws, r.win_rate, r.last_played, p.country_code, t.title, t.title_count, t.badge_reason,
+			k.peak_title, k.peak_year
 		FROM player_ratings r
 		LEFT JOIN players p ON p.name = r.player_name
 		LEFT JOIN player_titles t ON t.run_id = r.run_id AND t.player_name = r.player_name
+		LEFT JOIN player_peak_titles k ON k.run_id = r.run_id AND k.player_name = r.player_name
 		WHERE r.run_id = $1 AND r.model_type = $2 AND r.player_count = $3
 		ORDER BY r.rank NULLS LAST, r.player_name`, run, model, format)
 	if err != nil {
@@ -129,12 +138,15 @@ func (r *RatingsReader) Leaderboard(ctx context.Context, run int64, model string
 	}
 	board, err := pgx.CollectRows(rows, func(row pgx.CollectableRow) (LeaderboardRow, error) {
 		var p LeaderboardRow
-		var title, reason *string
-		var count *int
+		var title, reason, peak *string
+		var count, peakYear *int
 		err := row.Scan(&p.Rank, &p.RankDelta, &p.Name, &p.Rating, &p.RD, &p.CRating, &p.Games, &p.Opponents,
-			&p.Wins, &p.Losses, &p.Draws, &p.WinRate, &p.LastPlayed, &p.Country, &title, &count, &reason)
+			&p.Wins, &p.Losses, &p.Draws, &p.WinRate, &p.LastPlayed, &p.Country, &title, &count, &reason, &peak, &peakYear)
 		if title != nil {
 			p.Title = &Title{Code: *title, Count: *count, Reason: *reason}
+		}
+		if peak != nil {
+			p.Peak = &Peak{Code: *peak, Year: peakYear}
 		}
 		return p, err
 	})

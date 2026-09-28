@@ -377,3 +377,32 @@ func TestHistoryRefusesUnpublishedRunsAndEmptyHistory(t *testing.T) {
 		t.Errorf("History with no periods: err = %v, want ErrNoHistory", err)
 	}
 }
+
+func TestLeaderboardJoinsTheRunsCareerPeak(t *testing.T) {
+	pool := migrated(t)
+	r := NewRatingsReader(asReader(t, pool))
+	ctx := context.Background()
+	run := addRun(t, pool, "complete", time.Date(2026, 9, 27, 4, 0, 0, 0, time.UTC))
+	other := addRun(t, pool, "complete", time.Date(2026, 9, 27, 4, 0, 0, 0, time.UTC))
+	addRating(t, pool, run, "glicko2_daneo", 0, "ann", intp(1), 1900)
+	addRating(t, pool, run, "glicko2_daneo", 0, "bob", intp(2), 1700)
+	for _, p := range []struct {
+		run  int64
+		name string
+	}{{run, "ann"}, {other, "bob"}} {
+		if _, err := pool.Exec(ctx, "INSERT INTO player_peak_titles (run_id, player_name, peak_title, peak_year) VALUES ($1, $2, 'GM', 2024)", p.run, p.name); err != nil {
+			t.Fatalf("adding %s's peak: %v", p.name, err)
+		}
+	}
+
+	got, err := r.Leaderboard(ctx, run, "glicko2_daneo", 0)
+	if err != nil {
+		t.Fatalf("Leaderboard: %v", err)
+	}
+	if p := got[0].Peak; p == nil || p.Code != "GM" || p.Year == nil || *p.Year != 2024 {
+		t.Errorf("ann's peak = %+v, want GM in 2024", p)
+	}
+	if got[1].Peak != nil {
+		t.Errorf("bob's peak = %+v, want none (his is another run's)", got[1].Peak)
+	}
+}

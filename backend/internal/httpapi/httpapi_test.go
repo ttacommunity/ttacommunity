@@ -422,3 +422,79 @@ func TestHistory(t *testing.T) {
 		})
 	}
 }
+
+func TestLeaderboardCSV(t *testing.T) {
+	played := time.Date(2026, 8, 28, 0, 0, 0, 0, time.UTC)
+	old := time.Date(2020, 1, 1, 0, 0, 0, 0, time.UTC)
+	ru, year := "RU", 2026
+	rows := []store.LeaderboardRow{
+		{Name: "Grozz", Rating: 1979.194, RD: 20.146, CRating: 1918.756, Opponents: 775, Wins: 551, Losses: 218, Draws: 6,
+			WinRate: 71.48, LastPlayed: &played, Country: &ru,
+			Title: &store.Title{Code: "GM", Count: 3, Reason: "Played in Royal League Emperor Season 9"},
+			Peak:  &store.Peak{Code: "WC", Year: &year}},
+		{Name: `-odd, "quoted"`, Rating: 1500, RD: 50, CRating: 1350, Opponents: 40, WinRate: 50, LastPlayed: &played},
+		{Name: "retired", Rating: 1900, RD: 50, CRating: 1750, Opponents: 40, WinRate: 50, LastPlayed: &old},
+	}
+	f := &fakeRatings{board: rows}
+	rec, _ := serve(t, f, "/v1/runs/7/leaderboard.csv?model=glicko2_std_softer&format=2")
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("code = %d, want 200: %s", rec.Code, rec.Body.String())
+	}
+	for header, want := range map[string]string{
+		"Content-Type":        "text/csv",
+		"Cache-Control":       "public, max-age=300",
+		"Content-Disposition": `attachment; filename="tta_ratings_glicko2_std_2p_softer_live_active.csv"`,
+	} {
+		if got := rec.Header().Get(header); got != want {
+			t.Errorf("%s = %q, want %q", header, got, want)
+		}
+	}
+	if f.gotMod != "glicko2_std_softer" || f.gotFmt != 2 {
+		t.Errorf("store asked for %s/%d, want glicko2_std_softer/2", f.gotMod, f.gotFmt)
+	}
+	want := "\ufeffRank,Player,Country,Title,Title_Name,Badge_Reason,Peak_Title,Peak_Year,Rating,RD,Conservative_Rating," +
+		"Matches,Wins,Losses,Draws,Win_Rate,Status,Last_Played,Model,Format,Reset_Mode,Season\r\n" +
+		"1,Grozz,RU,GM,Grandmaster,Played in Royal League Emperor Season 9,World Champion,2026,1979.19,20.15,1918.76," +
+		"775,551,218,6,71.5%,Active,2026-08-28,Glicko-2 Standard,2-Player (Duel),Season Reset,Live / All-Time\r\n" +
+		`2,"'-odd, ""quoted""",,,,,,,1500.00,50.00,1350.00,40,0,0,0,50.0%,Active,2026-08-28,Glicko-2 Standard,2-Player (Duel),Season Reset,Live / All-Time` + "\r\n"
+	if got := rec.Body.String(); got != want {
+		t.Errorf("body =\n%q\nwant\n%q", got, want)
+	}
+}
+
+func TestLeaderboardCSVFollowsTheFilters(t *testing.T) {
+	played := time.Date(2026, 8, 28, 0, 0, 0, 0, time.UTC)
+	rows := []store.LeaderboardRow{
+		{Name: "ann", CRating: 1900, Opponents: 5, LastPlayed: &played},
+		{Name: "bob", CRating: 1800, Opponents: 50, LastPlayed: &played},
+	}
+	rec, _ := serve(t, &fakeRatings{board: rows}, "/v1/runs/7/leaderboard.csv?status=all&min_opps=0&search=an&sort=name&order=desc")
+	lines := strings.Split(strings.TrimSpace(rec.Body.String()), "\r\n")
+	if len(lines) != 2 || !strings.HasPrefix(lines[1], "1,ann,") {
+		t.Errorf("rows = %q, want only ann, ranked 1", lines[1:])
+	}
+	if got := rec.Header().Get("Content-Disposition"); !strings.HasSuffix(got, `_all.csv"`) {
+		t.Errorf("Content-Disposition = %q, want the all-status file name", got)
+	}
+}
+
+func TestLeaderboardCSVRefusals(t *testing.T) {
+	for _, tt := range []struct{ path, want string }{
+		{"/v1/runs/7/leaderboard.csv?status=gone", `{"error":"unknown status"}`},
+		{"/v1/runs/7/leaderboard.csv?min_opps=-1", `{"error":"bad parameter: min_opps"}`},
+		{"/v1/runs/7/leaderboard.csv?min_opps=1001", `{"error":"bad parameter: min_opps"}`},
+		{"/v1/runs/7/leaderboard.csv?title=Q", `{"error":"unknown title"}`},
+		{"/v1/runs/7/leaderboard.csv?sort=luck", `{"error":"unknown sort"}`},
+		{"/v1/runs/7/leaderboard.csv?search=" + strings.Repeat("a", 201), `{"error":"bad parameter: search"}`},
+	} {
+		rec, _ := serve(t, &fakeRatings{}, tt.path)
+		if rec.Code != http.StatusBadRequest || strings.TrimSpace(rec.Body.String()) != tt.want {
+			t.Errorf("GET %s = %d %s, want 400 %s", tt.path, rec.Code, rec.Body.String(), tt.want)
+		}
+	}
+	rec, _ := serve(t, &fakeRatings{boardErr: store.ErrRunNotFound}, "/v1/runs/9/leaderboard.csv")
+	if rec.Code != http.StatusNotFound {
+		t.Errorf("unpublished run: code = %d, want 404", rec.Code)
+	}
+}
