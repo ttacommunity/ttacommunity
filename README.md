@@ -92,6 +92,16 @@ After pulling a new migration, apply it to a database you already loaded:
 cd backend && set -a && . ../.env && set +a && go run ./cmd/load -migrate
 ```
 
+Players' countries come from CSV files with a `Player` and a `Code` column
+(an ISO 3166-1 alpha-2 code, or `-` for none), such as the original site's
+ratings export. Load them after the matches; a later file wins, and names
+that are not players are counted and skipped:
+
+```bash
+cd backend && set -a && . ../.env && set +a
+go run ./cmd/load -countries ~/tta-data/ratings_overall.csv ~/tta-data/country-overrides.csv
+```
+
 The API reads ratings as `ratings_api`, a login that can only `SELECT`.
 `scripts/dev.sh` creates it, and the API refuses to start if its login can
 write.
