@@ -26,10 +26,21 @@ type fakeRatings struct {
 	boardErr error
 	pingErr  error
 
+	hist    []store.HistoryRow
+	histAt  time.Time
+	histErr error
+
 	calls  int
 	gotRun int64
 	gotMod string
 	gotFmt int
+	gotAt  *time.Time
+}
+
+func (f *fakeRatings) History(_ context.Context, run int64, model string, format int, at *time.Time) (time.Time, []store.HistoryRow, error) {
+	f.calls++
+	f.gotRun, f.gotMod, f.gotFmt, f.gotAt = run, model, format, at
+	return f.histAt, f.hist, f.histErr
 }
 
 func (f *fakeRatings) Ping(context.Context) error {
@@ -344,5 +355,70 @@ func TestErrorsLogTheRouteNotThePath(t *testing.T) {
 	}
 	if strings.Contains(logs, "/v1/runs/7") || strings.Contains(logs, "model=whr") {
 		t.Errorf("log %q carries the request path", logs)
+	}
+}
+
+func TestHistory(t *testing.T) {
+	previous := time.Date(2026, 7, 31, 0, 0, 0, 0, time.UTC)
+	may := time.Date(2026, 5, 1, 0, 0, 0, 0, time.UTC)
+	rows := []store.HistoryRow{{Name: "ann", Rating: 1690, RD: 30.5, CRating: 1598.5}}
+	tests := []struct {
+		name      string
+		path      string
+		ratings   *fakeRatings
+		wantCode  int
+		wantCache string
+		wantAt    *time.Time
+		wantBody  string
+	}{
+		{
+			name: "a date", path: "/v1/runs/7/history?model=whr&format=2&at=2026-05-01",
+			ratings:  &fakeRatings{hist: rows, histAt: may},
+			wantCode: http.StatusOK, wantCache: "public, max-age=31536000, immutable", wantAt: &may,
+			wantBody: `{"at":"2026-05-01","format":2,"model":"whr","players":[{"c_rating":1598.5,"name":"ann","rating":1690,"rd":30.5}],"run_id":7}`,
+		},
+		{
+			name: "no date means the previous period", path: "/v1/runs/7/history",
+			ratings:  &fakeRatings{histAt: previous},
+			wantCode: http.StatusOK, wantCache: "public, max-age=31536000, immutable",
+			wantBody: `{"at":"2026-07-31","format":0,"model":"glicko2_daneo","players":[],"run_id":7}`,
+		},
+		{
+			name: "not a date", path: "/v1/runs/7/history?at=May",
+			ratings: &fakeRatings{}, wantCode: http.StatusBadRequest, wantCache: "no-store",
+			wantBody: `{"error":"bad parameter: at"}`,
+		},
+		{
+			name: "unknown model", path: "/v1/runs/7/history?model=elo",
+			ratings: &fakeRatings{}, wantCode: http.StatusBadRequest, wantCache: "no-store",
+			wantBody: `{"error":"unknown model"}`,
+		},
+		{
+			name: "run not published", path: "/v1/runs/9/history",
+			ratings: &fakeRatings{histErr: store.ErrRunNotFound}, wantCode: http.StatusNotFound, wantCache: "no-store",
+			wantBody: `{"error":"no published rating run has this id"}`,
+		},
+		{
+			name: "no history", path: "/v1/runs/9/history",
+			ratings: &fakeRatings{histErr: store.ErrNoHistory}, wantCode: http.StatusNotFound, wantCache: "no-store",
+			wantBody: `{"error":"this run has no rating history for this model and format"}`,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			rec, _ := serve(t, tt.ratings, tt.path)
+			if rec.Code != tt.wantCode {
+				t.Errorf("GET %s: code = %d, want %d", tt.path, rec.Code, tt.wantCode)
+			}
+			if got := rec.Header().Get("Cache-Control"); got != tt.wantCache {
+				t.Errorf("GET %s: Cache-Control = %q, want %q", tt.path, got, tt.wantCache)
+			}
+			if got := strings.TrimSpace(rec.Body.String()); got != tt.wantBody {
+				t.Errorf("GET %s: body = %q, want %q", tt.path, got, tt.wantBody)
+			}
+			if (tt.ratings.gotAt == nil) != (tt.wantAt == nil) || (tt.wantAt != nil && !tt.ratings.gotAt.Equal(*tt.wantAt)) {
+				t.Errorf("GET %s: store asked for at %v, want %v", tt.path, tt.ratings.gotAt, tt.wantAt)
+			}
+		})
 	}
 }

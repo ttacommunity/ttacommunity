@@ -15,6 +15,7 @@ var (
 	ErrNoPublishedRun = errors.New("no rating run has been published yet")
 	ErrRunNotFound    = errors.New("no published rating run has this id")
 	ErrCanWrite       = errors.New("the ratings reader's database role can write")
+	ErrNoHistory      = errors.New("this run has no rating history for this model and format")
 )
 
 // PublishedRun is a run visitors can read.
@@ -47,6 +48,14 @@ type Title struct {
 	Code   string
 	Count  int
 	Reason string
+}
+
+// HistoryRow is one player's rating at the end of a past rating period.
+type HistoryRow struct {
+	Name    string
+	Rating  float64
+	RD      float64
+	CRating float64
 }
 
 // RatingsReader reads published ratings through a read-only pool.
@@ -103,15 +112,8 @@ func (r *RatingsReader) CurrentRun(ctx context.Context) (PublishedRun, error) {
 // rank order, unranked players last, each with the player's country now and
 // the run's title. An unknown run is ErrRunNotFound.
 func (r *RatingsReader) Leaderboard(ctx context.Context, run int64, model string, format int) ([]LeaderboardRow, error) {
-	var published bool
-	err := r.pool.QueryRow(ctx, `
-		SELECT EXISTS (SELECT 1 FROM rating_runs
-			WHERE run_id = $1 AND status = 'complete' AND published_at IS NOT NULL)`, run).Scan(&published)
-	if err != nil {
-		return nil, fmt.Errorf("looking up run %d: %w", run, err)
-	}
-	if !published {
-		return nil, ErrRunNotFound
+	if err := r.requirePublished(ctx, run); err != nil {
+		return nil, err
 	}
 
 	rows, err := r.pool.Query(ctx, `
@@ -140,4 +142,64 @@ func (r *RatingsReader) Leaderboard(ctx context.Context, run int64, model string
 		return nil, fmt.Errorf("reading run %d's %s leaderboard: %w", run, model, err)
 	}
 	return board, nil
+}
+
+// History returns each player's rating at the end of the latest period on or
+// before at, for a published run, model and format, and the date it used.
+// Without at, it uses the run's previous period, the one before its last.
+// Players with no rating by then are left out.
+func (r *RatingsReader) History(ctx context.Context, run int64, model string, format int, at *time.Time) (time.Time, []HistoryRow, error) {
+	if err := r.requirePublished(ctx, run); err != nil {
+		return time.Time{}, nil, err
+	}
+	var on time.Time
+	if at != nil {
+		on = *at
+	} else {
+		err := r.pool.QueryRow(ctx, `
+			SELECT period_date FROM (
+				SELECT DISTINCT period_date FROM rating_history
+				WHERE run_id = $1 AND model_type = $2 AND player_count = $3
+				ORDER BY period_date DESC LIMIT 2) last
+			ORDER BY period_date LIMIT 1`, run, model, format).Scan(&on)
+		if errors.Is(err, pgx.ErrNoRows) {
+			return time.Time{}, nil, ErrNoHistory
+		}
+		if err != nil {
+			return time.Time{}, nil, fmt.Errorf("finding run %d's previous period: %w", run, err)
+		}
+	}
+
+	rows, err := r.pool.Query(ctx, `
+		SELECT DISTINCT ON (player_name) player_name, rating, rd, c_rating
+		FROM rating_history
+		WHERE run_id = $1 AND model_type = $2 AND player_count = $3 AND period_date <= $4
+		ORDER BY player_name, period_date DESC`, run, model, format, on)
+	if err != nil {
+		return time.Time{}, nil, fmt.Errorf("reading run %d's %s history: %w", run, model, err)
+	}
+	got, err := pgx.CollectRows(rows, func(row pgx.CollectableRow) (HistoryRow, error) {
+		var h HistoryRow
+		err := row.Scan(&h.Name, &h.Rating, &h.RD, &h.CRating)
+		return h, err
+	})
+	if err != nil {
+		return time.Time{}, nil, fmt.Errorf("reading run %d's %s history: %w", run, model, err)
+	}
+	return on, got, nil
+}
+
+// requirePublished returns ErrRunNotFound unless run is complete and published.
+func (r *RatingsReader) requirePublished(ctx context.Context, run int64) error {
+	var published bool
+	err := r.pool.QueryRow(ctx, `
+		SELECT EXISTS (SELECT 1 FROM rating_runs
+			WHERE run_id = $1 AND status = 'complete' AND published_at IS NOT NULL)`, run).Scan(&published)
+	if err != nil {
+		return fmt.Errorf("looking up run %d: %w", run, err)
+	}
+	if !published {
+		return ErrRunNotFound
+	}
+	return nil
 }

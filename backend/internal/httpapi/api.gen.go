@@ -151,6 +151,29 @@ type Health struct {
 	Status string `json:"status"`
 }
 
+// History defines model for History.
+type History struct {
+	// At The date asked for, or the previous period's when none was
+	At openapi_types.Date `json:"at"`
+
+	// Format Players per game. 0 is every format together
+	Format Format `json:"format"`
+
+	// Model The rating model. `_softer` models reset gently each season, and
+	// `_retro` models start from a retrospectively calibrated prior.
+	Model   Model        `json:"model"`
+	Players []HistoryRow `json:"players"`
+	RunId   int64        `json:"run_id"`
+}
+
+// HistoryRow defines model for HistoryRow.
+type HistoryRow struct {
+	CRating float64 `json:"c_rating"`
+	Name    string  `json:"name"`
+	Rating  float64 `json:"rating"`
+	Rd      float64 `json:"rd"`
+}
+
 // Leaderboard defines model for Leaderboard.
 type Leaderboard struct {
 	// Format Players per game. 0 is every format together
@@ -227,6 +250,13 @@ type NoPublishedRun = Error
 // NotFound defines model for NotFound.
 type NotFound = Error
 
+// GetHistoryParams defines parameters for GetHistory.
+type GetHistoryParams struct {
+	Model  *Model              `form:"model,omitempty" json:"model,omitempty"`
+	Format *Format             `form:"format,omitempty" json:"format,omitempty"`
+	At     *openapi_types.Date `form:"at,omitempty" json:"at,omitempty"`
+}
+
 // GetLeaderboardParams defines parameters for GetLeaderboard.
 type GetLeaderboardParams struct {
 	Model  *Model  `form:"model,omitempty" json:"model,omitempty"`
@@ -244,6 +274,9 @@ type ServerInterface interface {
 	// GetCurrentRun The run the site shows now
 	// (GET /v1/runs/current)
 	GetCurrentRun(w http.ResponseWriter, r *http.Request)
+	// GetHistory Each player's rating at a past date, for rating changes over time
+	// (GET /v1/runs/{run}/history)
+	GetHistory(w http.ResponseWriter, r *http.Request, run RunId, params GetHistoryParams)
 	// GetLeaderboard Every rated player in one model and format, in rank order
 	// (GET /v1/runs/{run}/leaderboard)
 	GetLeaderboard(w http.ResponseWriter, r *http.Request, run RunId, params GetLeaderboardParams)
@@ -291,6 +324,74 @@ func (siw *ServerInterfaceWrapper) GetCurrentRun(w http.ResponseWriter, r *http.
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.GetCurrentRun(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetHistory operation middleware
+func (siw *ServerInterfaceWrapper) GetHistory(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "run" -------------
+	var run RunId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "run", r.PathValue("run"), &run, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "integer", Format: "int64", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "run", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params GetHistoryParams
+
+	// ------------- Optional query parameter "model" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "model", r.URL.Query(), &params.Model, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "model"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "model", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "format" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "format", r.URL.Query(), &params.Format, runtime.BindQueryParameterOptions{Type: "integer", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "format"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "format", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "at" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "at", r.URL.Query(), &params.At, runtime.BindQueryParameterOptions{Type: "string", Format: "date"})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "at"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "at", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetHistory(w, r, run, params)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -479,6 +580,7 @@ func HandlerWithOptions(si ServerInterface, options StdHTTPServerOptions) http.H
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/readyz", wrapper.GetReadyz)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/v1/runs/current", wrapper.GetCurrentRun)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/v1/runs/{run}/leaderboard", wrapper.GetLeaderboard)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/v1/runs/{run}/history", wrapper.GetHistory)
 
 	return m
 }
@@ -626,6 +728,67 @@ func (response GetCurrentRun503JSONResponse) VisitGetCurrentRunResponse(w http.R
 	return err
 }
 
+type GetHistoryRequestObject struct {
+	Run    RunId `json:"run"`
+	Params GetHistoryParams
+}
+
+type GetHistoryResponseObject interface {
+	VisitGetHistoryResponse(w http.ResponseWriter) error
+}
+
+type GetHistory200ResponseHeaders struct {
+	CacheControl string
+}
+
+type GetHistory200JSONResponse struct {
+	Body    History
+	Headers GetHistory200ResponseHeaders
+}
+
+func (response GetHistory200JSONResponse) VisitGetHistoryResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetHistory400JSONResponse struct{ BadRequestJSONResponse }
+
+func (response GetHistory400JSONResponse) VisitGetHistoryResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetHistory404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response GetHistory404JSONResponse) VisitGetHistoryResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
 type GetLeaderboardRequestObject struct {
 	Run    RunId `json:"run"`
 	Params GetLeaderboardParams
@@ -698,6 +861,9 @@ type StrictServerInterface interface {
 	// GetCurrentRun The run the site shows now
 	// (GET /v1/runs/current)
 	GetCurrentRun(ctx context.Context, request GetCurrentRunRequestObject) (GetCurrentRunResponseObject, error)
+	// GetHistory Each player's rating at a past date, for rating changes over time
+	// (GET /v1/runs/{run}/history)
+	GetHistory(ctx context.Context, request GetHistoryRequestObject) (GetHistoryResponseObject, error)
 	// GetLeaderboard Every rated player in one model and format, in rank order
 	// (GET /v1/runs/{run}/leaderboard)
 	GetLeaderboard(ctx context.Context, request GetLeaderboardRequestObject) (GetLeaderboardResponseObject, error)
@@ -807,6 +973,33 @@ func (sh *strictHandler) GetCurrentRun(w http.ResponseWriter, r *http.Request) {
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(GetCurrentRunResponseObject); ok {
 		if err := validResponse.VisitGetCurrentRunResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// GetHistory operation middleware
+func (sh *strictHandler) GetHistory(w http.ResponseWriter, r *http.Request, run RunId, params GetHistoryParams) {
+	var request GetHistoryRequestObject
+
+	request.Run = run
+	request.Params = params
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.GetHistory(ctx, request.(GetHistoryRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetHistory")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(GetHistoryResponseObject); ok {
+		if err := validResponse.VisitGetHistoryResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {

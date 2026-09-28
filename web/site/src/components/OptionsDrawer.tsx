@@ -2,7 +2,7 @@
 import { useEffect, useState } from 'react';
 import type { TitleCode } from '@ttac/shared/ratings';
 import { engineName } from '../lib/leaderboard-display';
-import { DEFAULT_VIEW, ENGINES, retroApplies, type Engine, type ResetMode, type Status, type View } from '../lib/leaderboard-view';
+import { DEFAULT_VIEW, ENGINES, retroApplies, type DeltaWindow, type Engine, type ResetMode, type Status, type View } from '../lib/leaderboard-view';
 
 /** A link to a view: a real address, followed in place. */
 export type LinkTo = (view: View) => { href: string; onClick: (e: React.MouseEvent) => void };
@@ -128,6 +128,24 @@ export default function OptionsDrawer({ view, titles, linkTo, go, onClose }: Pro
                 {titleLabels[t] ?? t}
               </option>
             ))}
+          </select>
+        </div>
+
+        <div className="options-field">
+          <label className="options-group-title" htmlFor="options-delta">
+            <span>⏱️ Rating Deltas</span>
+          </label>
+          <select
+            id="options-delta"
+            className="input-antique"
+            value={view.delta}
+            onChange={(e) => go(at({ delta: e.target.value as DeltaWindow }))}
+          >
+            <option value="none">Deltas: Off</option>
+            <option value="last_update">&Delta; Last Webmaster Update</option>
+            <option value="month">&Delta; Last Month (30d)</option>
+            <option value="quarter">&Delta; Last Quarter (90d)</option>
+            <option value="year">&Delta; Last Year (365d)</option>
           </select>
         </div>
 

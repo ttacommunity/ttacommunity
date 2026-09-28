@@ -2,7 +2,9 @@ import { describe, expect, it } from 'vitest';
 import type { LeaderboardRow, TitleCode } from '@ttac/shared/ratings';
 import {
   DEFAULT_VIEW,
+  DELTA_DATES,
   INACTIVE_ON_OR_BEFORE,
+  deltas,
   PER_PAGE,
   hasOptions,
   hasFilters,
@@ -35,25 +37,26 @@ describe('defaults', () => {
     expect(PER_PAGE).toBe(50);
     expect(DEFAULT_VIEW).toEqual({
       engine: 'glicko2_daneo', reset: 'continuous', retro: false, format: 0, status: 'active', title: null,
-      minOpps: 30, search: '', sort: 'rank', order: 'asc', page: 1,
+      minOpps: 30, delta: 'none', search: '', sort: 'rank', order: 'asc', page: 1,
     });
+    expect(DELTA_DATES).toEqual({ last_update: null, month: '2026-05-01', quarter: '2026-03-01', year: '2025-05-31' });
   });
 });
 
 describe('parseView and viewParams', () => {
   it('reads upstream parameter names', () => {
     const got = parseView(
-      new URLSearchParams('model=glicko2_std&reset_mode=softer&retro=1&format=3&status=all&title=GM&min_opps=5&search=ann&sort=opps&order=desc&page=4'),
+      new URLSearchParams('model=glicko2_std&reset_mode=softer&retro=1&format=3&status=all&title=GM&min_opps=5&delta=month&search=ann&sort=opps&order=desc&page=4'),
       {},
     );
     expect(got).toEqual({
       engine: 'glicko2_std', reset: 'softer', retro: true, format: 3, status: 'all', title: 'GM',
-      minOpps: 5, search: 'ann', sort: 'opps', order: 'desc', page: 4,
+      minOpps: 5, delta: 'month', search: 'ann', sort: 'opps', order: 'desc', page: 4,
     });
   });
 
   it('falls back to remembered choices, then defaults, for missing or unknown values', () => {
-    const got = parseView(new URLSearchParams('model=elo&format=7&status=x&title=Q&min_opps=-3&sort=x&order=x&page=0'), {
+    const got = parseView(new URLSearchParams('model=elo&format=7&status=x&title=Q&min_opps=-3&delta=baseline&sort=x&order=x&page=0'), {
       engine: 'whr', reset: 'softer', retro: true, format: 2,
     });
     expect(got).toEqual({ ...DEFAULT_VIEW, engine: 'whr', reset: 'softer', retro: true, format: 2 });
@@ -68,8 +71,8 @@ describe('parseView and viewParams', () => {
 
   it('writes only what differs from the defaults, and reads back the same view', () => {
     expect(viewParams(DEFAULT_VIEW).toString()).toBe('');
-    const v = view({ engine: 'glicko2_adapt', status: 'inactive', minOpps: 0, search: 'a, b', page: 2 });
-    expect(viewParams(v).toString()).toBe('model=glicko2_adapt&status=inactive&min_opps=0&search=a%2C+b&page=2');
+    const v = view({ engine: 'glicko2_adapt', status: 'inactive', minOpps: 0, delta: 'year', search: 'a, b', page: 2 });
+    expect(viewParams(v).toString()).toBe('model=glicko2_adapt&status=inactive&min_opps=0&delta=year&search=a%2C+b&page=2');
     expect(parseView(viewParams(v), {})).toEqual(v);
   });
 
@@ -211,6 +214,8 @@ describe('hasOptions and hasFilters', () => {
     expect(hasOptions(view({ minOpps: 10 }))).toBe(true);
     expect(hasFilters(view({ engine: 'whr' }))).toBe(false);
     expect(hasFilters(view({ search: 'a' }))).toBe(true);
+    expect(hasOptions(view({ delta: 'month' }))).toBe(true);
+    expect(hasFilters(view({ delta: 'month' }))).toBe(true);
   });
 });
 
@@ -233,5 +238,13 @@ describe('titleOptions', () => {
   it('lists the titles present, GM, M, P and G first, as upstream', () => {
     const rows = [row('a', 1, 40, null, titled('M')), row('b', 1, 40, null, titled('WC')), row('c', 1), row('d', 1, 40, null, titled('GM'))];
     expect(titleOptions(rows)).toEqual(['GM', 'M', 'WC']);
+  });
+});
+
+describe('deltas', () => {
+  it('is each shown player now minus their past rating, and 0 without history', () => {
+    const got = deltas([row('ann', 1600), row('bob', 1500)], [{ name: 'ann', rating: 1650, rd: 30, c_rating: 1550 }]);
+    expect(got.get('ann')).toEqual({ c_rating: 50, rating: 50 });
+    expect(got.get('bob')).toEqual({ c_rating: 0, rating: 0 });
   });
 });

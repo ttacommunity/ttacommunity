@@ -4,8 +4,8 @@ info:
   version: 0.1.0
   description: |
     Public ratings for Through the Ages. Ratings change only when a new run
-    is published, so each run's data sits at its own URL and never changes.
-    Ask `/v1/runs/current` which run to read, then read that run.
+    is published, so each run's data sits at its own URL. Ask
+    `/v1/runs/current` which run to read, then read that run.
     See docs/architecture.md#rating-runs.
 paths:
   /healthz:
@@ -69,16 +69,8 @@ paths:
         minutes.
       parameters:
         - $ref: "#/components/parameters/RunId"
-        - name: model
-          in: query
-          required: false
-          schema:
-            $ref: "#/components/schemas/Model"
-        - name: format
-          in: query
-          required: false
-          schema:
-            $ref: "#/components/schemas/Format"
+        - $ref: "#/components/parameters/Model"
+        - $ref: "#/components/parameters/Format"
       responses:
         "200":
           description: The leaderboard
@@ -93,8 +85,53 @@ paths:
           $ref: "#/components/responses/BadRequest"
         "404":
           $ref: "#/components/responses/NotFound"
+  /v1/runs/{run}/history:
+    get:
+      operationId: getHistory
+      summary: Each player's rating at a past date, for rating changes over time
+      description: |
+        Each player's rating at the end of the latest rating period on or
+        before `at`. Without `at`, the run's previous period, the one before
+        its last. A player with no rating by then is left out. A run's history
+        never changes, so this is cached for a year.
+      parameters:
+        - $ref: "#/components/parameters/RunId"
+        - $ref: "#/components/parameters/Model"
+        - $ref: "#/components/parameters/Format"
+        - name: at
+          in: query
+          required: false
+          schema:
+            type: string
+            format: date
+      responses:
+        "200":
+          description: The ratings at that date
+          headers:
+            Cache-Control:
+              $ref: "#/components/headers/CacheControl"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/History"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "404":
+          $ref: "#/components/responses/NotFound"
 components:
   parameters:
+    Model:
+      name: model
+      in: query
+      required: false
+      schema:
+        $ref: "#/components/schemas/Model"
+    Format:
+      name: format
+      in: query
+      required: false
+      schema:
+        $ref: "#/components/schemas/Format"
     RunId:
       name: run
       in: path
@@ -250,6 +287,40 @@ components:
           nullable: true
         title:
           $ref: "#/components/schemas/Title"
+    History:
+      type: object
+      required: [run_id, model, format, at, players]
+      properties:
+        run_id:
+          type: integer
+          format: int64
+        model:
+          $ref: "#/components/schemas/Model"
+        format:
+          $ref: "#/components/schemas/Format"
+        at:
+          description: The date asked for, or the previous period's when none was
+          type: string
+          format: date
+        players:
+          type: array
+          items:
+            $ref: "#/components/schemas/HistoryRow"
+    HistoryRow:
+      type: object
+      required: [name, rating, rd, c_rating]
+      properties:
+        name:
+          type: string
+        rating:
+          type: number
+          format: double
+        rd:
+          type: number
+          format: double
+        c_rating:
+          type: number
+          format: double
     Title:
       description: The tournament title the run derived for the player, if any
       type: object

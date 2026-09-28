@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { formatName, modelLabel, rank, rating, cRating, rd, winRate, isTopThree, titleName, flagSrc, engineName, resetModeName, engineNote } from './leaderboard-display';
+import { formatName, modelLabel, rank, rating, cRating, rd, winRate, isTopThree, titleName, flagSrc, engineName, resetModeName, engineNote, delta } from './leaderboard-display';
 
 describe('formatName', () => {
   it.each([
@@ -97,5 +97,16 @@ describe('engineNote', () => {
     ['whr', 'Whole-History Rating retrospective MAP'],
   ] as const)('gives %s upstream note %j', (model, note) => {
     expect(engineNote(model)).toBe(note);
+  });
+});
+
+describe('delta', () => {
+  it.each([
+    [12.34, '↑+12.3', 'delta-pos'],
+    [-3.21, '↓-3.2', 'delta-neg'],
+    [0.05, '—0.0', 'delta-zero'],
+    [-0.05, '—0.0', 'delta-zero'],
+  ] as const)('shows %d as upstream: %s', (value, text, kind) => {
+    expect(delta(value)).toEqual({ text, kind });
   });
 });

@@ -1,5 +1,5 @@
 /** Upstream's leaderboard view: its options and filters, ranking, search, sort and paging, all in the browser. */
-import type { Format, LeaderboardRow, Model, TitleCode } from '@ttac/shared/ratings';
+import type { Format, History, LeaderboardRow, Model, TitleCode } from '@ttac/shared/ratings';
 
 /** A player whose last game is on or before this date is inactive. Upstream's fixed date, not yet a rolling rule. */
 export const INACTIVE_ON_OR_BEFORE = '2025-05-31';
@@ -17,6 +17,16 @@ export type ResetMode = 'continuous' | 'softer';
 export type Status = 'active' | 'all' | 'inactive';
 export type SortKey = 'rank' | 'name' | 'c_rating' | 'rating' | 'opps' | 'win_rate' | 'last_played';
 export type Order = 'asc' | 'desc';
+export type DeltaWindow = 'none' | 'last_update' | 'month' | 'quarter' | 'year';
+
+/** The date each delta window compares against: upstream's fixed dates, or null for the previous rating period. */
+export const DELTA_DATES: Record<Exclude<DeltaWindow, 'none'>, string | null> = {
+  last_update: null,
+  month: '2026-05-01',
+  quarter: '2026-03-01',
+  year: '2025-05-31',
+};
+const DELTAS: readonly DeltaWindow[] = ['none', 'last_update', 'month', 'quarter', 'year'];
 
 const FORMATS: readonly Format[] = [0, 2, 3, 4];
 const STATUSES: readonly Status[] = ['active', 'all', 'inactive'];
@@ -32,6 +42,7 @@ export interface View {
   status: Status;
   title: TitleCode | null;
   minOpps: number;
+  delta: DeltaWindow;
   search: string;
   sort: SortKey;
   order: Order;
@@ -49,6 +60,7 @@ export const DEFAULT_VIEW: View = {
   status: 'active',
   title: null,
   minOpps: MIN_OPPONENTS,
+  delta: 'none',
   search: '',
   sort: 'rank',
   order: 'asc',
@@ -80,6 +92,7 @@ export function parseView(params: URLSearchParams, remembered: Remembered): View
     status: oneOf(STATUSES, get('status')) ?? DEFAULT_VIEW.status,
     title: oneOf(TITLES, get('title')) ?? null,
     minOpps: whole(get('min_opps'), 0) ?? DEFAULT_VIEW.minOpps,
+    delta: oneOf(DELTAS, get('delta')) ?? DEFAULT_VIEW.delta,
     search: (get('search') ?? '').trim(),
     sort: oneOf(SORTS, get('sort')) ?? DEFAULT_VIEW.sort,
     order: order ?? DEFAULT_VIEW.order,
@@ -102,6 +115,7 @@ export function viewParams(view: View, explicit = false): URLSearchParams {
   put('status', view.status, DEFAULT_VIEW.status);
   put('title', view.title ?? '', '');
   put('min_opps', String(view.minOpps), String(DEFAULT_VIEW.minOpps));
+  put('delta', view.delta, DEFAULT_VIEW.delta);
   put('search', view.search, '');
   put('sort', view.sort, DEFAULT_VIEW.sort);
   put('order', view.order, DEFAULT_VIEW.order);
@@ -202,7 +216,13 @@ export function hasOptions(view: View): boolean {
 
 /** hasFilters reports whether a filter pill shows, and so "Clear Filters". */
 export function hasFilters(view: View): boolean {
-  return view.search !== '' || view.title !== null || view.status !== DEFAULT_VIEW.status || view.minOpps !== DEFAULT_VIEW.minOpps;
+  return (
+    view.search !== '' ||
+    view.title !== null ||
+    view.status !== DEFAULT_VIEW.status ||
+    view.minOpps !== DEFAULT_VIEW.minOpps ||
+    view.delta !== DEFAULT_VIEW.delta
+  );
 }
 
 /** suggest returns up to 12 players for the last term typed: exact, then prefix, then substring matches. */
@@ -220,4 +240,17 @@ export function suggest<T extends { name: string }>(rows: readonly T[], input: s
 export function titleOptions(rows: readonly LeaderboardRow[]): TitleCode[] {
   const held = new Set(rows.map((p) => p.title?.code));
   return TITLES.filter((t) => held.has(t));
+}
+
+export type Delta = { c_rating: number; rating: number };
+
+/** deltas returns each row's rating and C-rating now minus in the past; 0 for a player with no past rating. */
+export function deltas(rows: readonly LeaderboardRow[], past: History['players']): Map<string, Delta> {
+  const then = new Map(past.map((h) => [h.name, h]));
+  return new Map(
+    rows.map((p) => {
+      const h = then.get(p.name);
+      return [p.name, h ? { c_rating: p.c_rating - h.c_rating, rating: p.rating - h.rating } : { c_rating: 0, rating: 0 }];
+    }),
+  );
 }
