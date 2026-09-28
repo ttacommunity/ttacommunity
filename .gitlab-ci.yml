@@ -93,6 +93,8 @@ ci-checks:
 engine-image:
   extends: .ci_area
   stage: build
+  # Independent of the tests, so an image can be built to pin before the checks pass.
+  needs: []
   variables:
     MISE_TOOLS: uv crane
   rules:
@@ -113,6 +115,8 @@ engine-image:
 api-image:
   extends: .ci_area
   stage: build
+  # Independent of the tests, so an image can be built to pin before the checks pass.
+  needs: []
   variables:
     MISE_TOOLS: go ko
   rules:
