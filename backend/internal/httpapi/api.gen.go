@@ -102,6 +102,42 @@ func (e Model) Valid() bool {
 	}
 }
 
+// Defines values for TitleCode.
+const (
+	B  TitleCode = "B"
+	G  TitleCode = "G"
+	GM TitleCode = "GM"
+	M  TitleCode = "M"
+	P  TitleCode = "P"
+	S  TitleCode = "S"
+	W  TitleCode = "W"
+	WC TitleCode = "WC"
+)
+
+// Valid indicates whether the value is a known member of the TitleCode enum.
+func (e TitleCode) Valid() bool {
+	switch e {
+	case B:
+		return true
+	case G:
+		return true
+	case GM:
+		return true
+	case M:
+		return true
+	case P:
+		return true
+	case S:
+		return true
+	case W:
+		return true
+	case WC:
+		return true
+	default:
+		return false
+	}
+}
+
 // Error defines model for Error.
 type Error struct {
 	Error string `json:"error"`
@@ -130,7 +166,10 @@ type Leaderboard struct {
 // LeaderboardRow defines model for LeaderboardRow.
 type LeaderboardRow struct {
 	// CRating Conservative rating, which the rank is ordered by
-	CRating    float64             `json:"c_rating"`
+	CRating float64 `json:"c_rating"`
+
+	// Country The player's country, ISO 3166-1 alpha-2, if known
+	Country    *string             `json:"country"`
 	Draws      int                 `json:"draws"`
 	Games      int                 `json:"games"`
 	LastPlayed *openapi_types.Date `json:"last_played"`
@@ -143,6 +182,9 @@ type LeaderboardRow struct {
 
 	// Rd Rating deviation
 	Rd float64 `json:"rd"`
+
+	// Title The tournament title the run derived for the player, if any
+	Title *Title `json:"title"`
 
 	// WinRate Percent, 0 to 100
 	WinRate float64 `json:"win_rate"`
@@ -158,6 +200,20 @@ type Run struct {
 	PublishedAt time.Time `json:"published_at"`
 	RunId       int64     `json:"run_id"`
 }
+
+// Title The tournament title the run derived for the player, if any
+type Title struct {
+	Code TitleCode `json:"code"`
+
+	// Count How many titles the player has earned
+	Count int `json:"count"`
+
+	// Reason Why the player holds it, e.g. the latest division played
+	Reason string `json:"reason"`
+}
+
+// TitleCode defines model for Title.Code.
+type TitleCode string
 
 // RunId defines model for RunId.
 type RunId = int64

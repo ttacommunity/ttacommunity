@@ -79,7 +79,7 @@ func tables(t *testing.T, pool *pgxpool.Pool) []string {
 }
 
 var ratingsTables = []string{
-	"current_run", "import_batches", "matches", "pairwise_matches", "player_ratings", "player_titles", "players",
+	"current_run", "import_batches", "matches", "pairwise_matches", "player_peak_titles", "player_ratings", "player_titles", "players",
 	"rating_history", "rating_runs", "refused_rows", "standard_calibration", "walk_forward_calibration",
 }
 
@@ -178,7 +178,7 @@ func TestLoadMatchesWritesMatchesRefusalsAndPlayers(t *testing.T) {
 		match("s1.csv", 3, "bob", "Ann", "cat", "dan"),
 	}
 	refused := []matchcsv.Refusal{
-		{File: "s1.csv", Line: 4, Reason: matchcsv.AllScoresZero, Fields: []string{"Cup", "2024-01-02", "ann", "0", "bob", "0", "", "", "", "", "2"}},
+		{File: "s1.csv", Line: 4, Reason: matchcsv.Duplicate, Fields: []string{"Cup", "2024-01-02", "ann", "0", "bob", "0", "", "", "", "", "2"}},
 	}
 
 	got, err := LoadMatches(ctx, pool, matches, refused)
@@ -208,8 +208,8 @@ func TestLoadMatchesWritesMatchesRefusalsAndPlayers(t *testing.T) {
 	if err := pool.QueryRow(ctx, "SELECT reason, fields FROM refused_rows").Scan(&reason, &fields); err != nil {
 		t.Fatalf("reading back the refusal: %v", err)
 	}
-	if reason != string(matchcsv.AllScoresZero) || !slices.Equal(fields, refused[0].Fields) {
-		t.Errorf("refusal = %q %q, want %q %q", reason, fields, matchcsv.AllScoresZero, refused[0].Fields)
+	if reason != string(matchcsv.Duplicate) || !slices.Equal(fields, refused[0].Fields) {
+		t.Errorf("refusal = %q %q, want %q %q", reason, fields, matchcsv.Duplicate, refused[0].Fields)
 	}
 }
 
@@ -256,5 +256,65 @@ func TestNewDBIsolatesTests(t *testing.T) {
 	}
 	if nameA == nameB {
 		t.Errorf("two tests share database %s", fmt.Sprint(nameA))
+	}
+}
+
+func addPlayers(t *testing.T, pool *pgxpool.Pool, names ...string) {
+	t.Helper()
+	for _, n := range names {
+		if _, err := pool.Exec(context.Background(), "INSERT INTO players (name) VALUES ($1)", n); err != nil {
+			t.Fatalf("adding player %s: %v", n, err)
+		}
+	}
+}
+
+func countryOf(t *testing.T, pool *pgxpool.Pool, name string) *string {
+	t.Helper()
+	var c *string
+	if err := pool.QueryRow(context.Background(), "SELECT country_code FROM players WHERE name = $1", name).Scan(&c); err != nil {
+		t.Fatalf("reading %s's country: %v", name, err)
+	}
+	return c
+}
+
+func TestSetCountriesUpdatesKnownPlayersOnly(t *testing.T) {
+	pool := migrated(t)
+	ctx := context.Background()
+	addPlayers(t, pool, "ann", "bob", "Ann")
+
+	got, err := SetCountries(ctx, pool, map[string]string{"ann": "PL", "ghost": "DE"})
+	if err != nil {
+		t.Fatalf("SetCountries: %v", err)
+	}
+	if want := (CountriesSet{Set: 1, Unknown: 1}); got != want {
+		t.Errorf("SetCountries = %+v, want %+v", got, want)
+	}
+	if c := countryOf(t, pool, "ann"); c == nil || *c != "PL" {
+		t.Errorf("ann's country = %v, want PL", c)
+	}
+	for _, name := range []string{"bob", "Ann"} {
+		if c := countryOf(t, pool, name); c != nil {
+			t.Errorf("%s's country = %q, want none", name, *c)
+		}
+	}
+
+	if _, err := SetCountries(ctx, pool, map[string]string{"ann": "DE"}); err != nil {
+		t.Fatalf("SetCountries again: %v", err)
+	}
+	if c := countryOf(t, pool, "ann"); c == nil || *c != "DE" {
+		t.Errorf("ann's country after a second load = %v, want DE", c)
+	}
+}
+
+func TestSetCountriesIsAllOrNothing(t *testing.T) {
+	pool := migrated(t)
+	ctx := context.Background()
+	addPlayers(t, pool, "ann", "bob")
+
+	if _, err := SetCountries(ctx, pool, map[string]string{"ann": "PL", "bob": "Poland"}); err == nil {
+		t.Fatal("SetCountries with a bad code: no error, want one")
+	}
+	if c := countryOf(t, pool, "ann"); c != nil {
+		t.Errorf("ann's country after a refused load = %q, want none", *c)
 	}
 }

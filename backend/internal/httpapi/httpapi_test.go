@@ -216,6 +216,10 @@ func TestLeaderboard(t *testing.T) {
 		Rank: &rank, RankDelta: -2, Name: "ann", Rating: 2036.25, RD: 33.5, CRating: 1935.5,
 		Games: 12, Opponents: 9, Wins: 7, Losses: 4, Draws: 1, WinRate: 58.3, LastPlayed: &played,
 	}
+	pl := "PL"
+	titled := row
+	titled.Name, titled.Country = "bob", &pl
+	titled.Title = &store.Title{Code: "GM", Count: 3, Reason: "Played in Royal League Grandmaster Season 16"}
 	tests := []struct {
 		name      string
 		path      string
@@ -229,17 +233,21 @@ func TestLeaderboard(t *testing.T) {
 	}{
 		{
 			name: "defaults", path: "/v1/runs/7/leaderboard",
-			ratings:  &fakeRatings{board: []store.LeaderboardRow{row}},
-			wantCode: http.StatusOK, wantCache: "public, max-age=31536000, immutable",
+			ratings:  &fakeRatings{board: []store.LeaderboardRow{row, titled}},
+			wantCode: http.StatusOK, wantCache: "public, max-age=300",
 			wantCall: true, wantModel: "glicko2_daneo", wantFmt: 0,
-			wantBody: `{"format":0,"model":"glicko2_daneo","players":[{"c_rating":1935.5,"draws":1,"games":12,` +
+			wantBody: `{"format":0,"model":"glicko2_daneo","players":[{"c_rating":1935.5,"country":null,"draws":1,"games":12,` +
 				`"last_played":"2025-02-17","losses":4,"name":"ann","opponents":9,"rank":1,"rank_delta":-2,` +
-				`"rating":2036.25,"rd":33.5,"win_rate":58.3,"wins":7}],"run_id":7}`,
+				`"rating":2036.25,"rd":33.5,"title":null,"win_rate":58.3,"wins":7},` +
+				`{"c_rating":1935.5,"country":"PL","draws":1,"games":12,` +
+				`"last_played":"2025-02-17","losses":4,"name":"bob","opponents":9,"rank":1,"rank_delta":-2,` +
+				`"rating":2036.25,"rd":33.5,"title":{"code":"GM","count":3,"reason":"Played in Royal League Grandmaster Season 16"},` +
+				`"win_rate":58.3,"wins":7}],"run_id":7}`,
 		},
 		{
 			name: "model and format chosen", path: "/v1/runs/7/leaderboard?model=whr_softer&format=2",
 			ratings:  &fakeRatings{},
-			wantCode: http.StatusOK, wantCache: "public, max-age=31536000, immutable",
+			wantCode: http.StatusOK, wantCache: "public, max-age=300",
 			wantCall: true, wantModel: "whr_softer", wantFmt: 2,
 			wantBody: `{"format":2,"model":"whr_softer","players":[],"run_id":7}`,
 		},

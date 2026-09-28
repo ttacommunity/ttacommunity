@@ -92,6 +92,16 @@ After pulling a new migration, apply it to a database you already loaded:
 cd backend && set -a && . ../.env && set +a && go run ./cmd/load -migrate
 ```
 
+Players' countries come from CSV files with a `Player` and a `Code` column
+(an ISO 3166-1 alpha-2 code, or `-` for none), such as the original site's
+ratings export. Load them after the matches; a later file wins, and names
+that are not players are counted and skipped:
+
+```bash
+cd backend && set -a && . ../.env && set +a
+go run ./cmd/load -countries ~/tta-data/ratings_overall.csv ~/tta-data/country-overrides.csv
+```
+
 The API reads ratings as `ratings_api`, a login that can only `SELECT`.
 `scripts/dev.sh` creates it, and the API refuses to start if its login can
 write.
@@ -138,9 +148,11 @@ the job prints a count per reason:
 |---|---|
 | `standings_row` | A standings table scraped as matches: a name starting with a rank (`1.`), or containing "No finished games" |
 | `bad_name` | A name with leading or trailing whitespace, or a line break or other control character |
-| `all_scores_zero` | Every score is 0, so there is no result to rate |
 | `duplicate` | The same tournament, date, players and scores as an earlier row, in any file. The first copy is loaded |
 | `column_count`, `no_tournament`, `bad_date`, `bad_score`, `player_count`, `player_gap`, `score_without_player`, `player_without_score`, `same_player_twice` | The row is malformed |
+
+A match where every score is 0 is **loaded**, and rated as a draw between
+its players, as the original site rates it.
 
 To see them:
 
@@ -169,6 +181,25 @@ what a run writes are in [`engine/README.md`](engine/README.md).
 The cluster runs what `deploy/` lists (Flux applies it from `main`); the
 sites are built and served by Cloudflare Workers from git. Nothing here holds
 a Cloudflare credential.
+
+### Shipping a change to the api or the engine
+
+The images are pinned in the same merge request as the code, so a merge
+deploys both together:
+
+1. When the code is final, run the manual `api-image` and `engine-image` jobs
+   in the merge request's pipeline. Each pushes `<image>:sha-<commit>`
+2. Resolve each digest, and pin `tag@digest` in `deploy/`:
+
+   ```bash
+   crane digest registry.gitlab.com/unstablehomelab/ttacommunity/api:sha-<commit>
+   ```
+
+3. Apply any new migration to the cluster's database **before** merging.
+   Migrations only add, so the running api is unaffected
+
+`checks/deploy-current.sh` fails if `deploy/` pins an image built from older
+code than the branch's, so a late code change needs a new image and pin.
 
 ### The sites and the sign-in worker on Cloudflare Workers
 

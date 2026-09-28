@@ -6,6 +6,7 @@ export type Model = components['schemas']['Model'];
 export type Format = components['schemas']['Format'];
 export type Leaderboard = components['schemas']['Leaderboard'];
 export type LeaderboardRow = components['schemas']['LeaderboardRow'];
+export type TitleCode = NonNullable<components['schemas']['Title']>['code'];
 
 /** An error response from the API, carrying its status and message. */
 export class RatingsApiError extends Error {

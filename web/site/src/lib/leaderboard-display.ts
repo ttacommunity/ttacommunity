@@ -1,5 +1,5 @@
 /** How the leaderboard shows models, formats and numbers, in upstream's wording and precision. */
-import type { Format, Model } from '@ttac/shared/ratings';
+import type { Format, Model, TitleCode } from '@ttac/shared/ratings';
 
 const formatNames: Record<Format, string> = { 0: 'All Formats', 2: '2-Player (Duel)', 3: '3-Player', 4: '4-Player' };
 
@@ -16,10 +16,20 @@ export function formatName(format: Format): string {
   return formatNames[format];
 }
 
+/** engineName returns upstream's name for a model's engine, without its reset mode or prior. */
+export function engineName(model: Model): string {
+  const engine = model.replace(/(_softer)?(_retro)?$/, '');
+  return engineNames[engine] ?? engine;
+}
+
+/** resetModeName returns upstream's name for a model's season reset mode. */
+export function resetModeName(model: Model): string {
+  return model.includes('_softer') ? 'Season Reset' : 'Continuous (Career)';
+}
+
 /** modelLabel names a model by its engine, then its reset mode and prior when they are not the defaults. */
 export function modelLabel(model: Model): string {
-  const engine = model.replace(/(_softer)?(_retro)?$/, '');
-  const parts = [engineNames[engine] ?? engine];
+  const parts = [engineName(model)];
   if (model.includes('_softer')) parts.push('Season Reset');
   if (model.endsWith('_retro')) parts.push('15G Retro');
   return parts.join(' · ');
@@ -53,4 +63,25 @@ export function rd(value: number): string {
 /** winRate shows a percentage to one place. */
 export function winRate(value: number): string {
   return `${value.toFixed(1)}%`;
+}
+
+const titleNames: Record<TitleCode, string> = {
+  WC: 'World Champion',
+  GM: 'Grandmaster',
+  M: 'Master',
+  P: 'Platinum',
+  G: 'Gold',
+  S: 'Silver',
+  B: 'Bronze',
+  W: 'Wood',
+};
+
+/** titleName returns a title's full name, shown when the run gave no reason. */
+export function titleName(code: TitleCode): string {
+  return titleNames[code];
+}
+
+/** flagSrc returns the path of a country's flag image. */
+export function flagSrc(country: string): string {
+  return `/flags/${country.toLowerCase()}.svg`;
 }

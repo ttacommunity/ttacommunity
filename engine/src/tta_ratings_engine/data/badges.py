@@ -1,7 +1,7 @@
 """Tournament Badge Derivation Engine for Through the Ages.
 
 Implements the official badge award rules:
-- Recency Rule: Badges are displayed only for players active within the last 6 months in tournament play.
+- Recency Rule: Badges are displayed only for players active within the last 1 year (12 months) in tournament play.
 - Highest league in Intermezzo (3P), International Championship (4P), Royal League (2P), or World Championship -> GM (Grandmaster)
 - 2nd highest league -> M (Master)
 - 3rd highest league -> P (Platinum)
@@ -39,6 +39,12 @@ TITLE_ORDER = {"WC": 0, "GM": 1, "M": 2, "P": 3, "G": 4, "S": 5, "B": 6, "W": 7}
 
 # Reigning World Champion holding active 'WC' title
 REIGNING_WC_PLAYERS = {"a440"}
+
+HISTORICAL_WC_INFO = {
+    "a440": (2025, "WC"),
+    "Martin_Pecheur": (2024, "WC"),
+    "Weidenbaum": (2023, "WC"),
+}
 
 
 def classify_division_tier(tournament_name: str) -> int | None:
@@ -84,117 +90,69 @@ def classify_division_tier(tournament_name: str) -> int | None:
         return None
 
     # 2. International Championship (4P)
-    # Tier 1: Diamond / Master 1 / Premier / Grandmaster
-    # Tier 2: Platinum / Div 2 / Master 2
-    # Tier 3: Gold / Div 3
-    # Tier 4: Silver / Div 4
-    # Tier 5: Bronze / Div 5
-    # Tier 6: Div 6
-    # Tier 7: Wood / Div 7
+    # Tier 1: Grandmaster (GM) / Diamond / Tier 1
+    # Tier 2: Master (M) / Master 1 / Master 2 / Div 2 / Division 2 / Tier 2
+    # Tier 3: Platinum (P) / Div 3 / Division 3 / Tier 3
+    # Tier 4: Gold (G) / Div 4 / Division 4 / Tier 4
+    # Tier 5: Silver (S) / Div 5 / Division 5 / Tier 5
+    # Tier 6: Bronze (B) / Div 6 / Division 6 / Tier 6
+    # Tier 7: Wood (W) / Div 7 / Division 7 / Tier 7
     if "international" in t_lower:
-        if (
-            "diamond" in t_lower
-            or "grandmaster" in t_lower
-            or "master 1" in t_lower
-            or "tier 1" in t_lower
-        ):
-            return 1
-        elif (
-            "platinum" in t_lower
-            or "master 2" in t_lower
-            or "div 2" in t_lower
-            or "division 2" in t_lower
-            or "tier 2" in t_lower
-        ):
-            return 2
-        elif (
-            "gold" in t_lower
-            or "div 3" in t_lower
-            or "division 3" in t_lower
-            or "tier 3" in t_lower
-        ):
-            return 3
-        elif (
-            "silver" in t_lower
-            or "div 4" in t_lower
-            or "division 4" in t_lower
-            or "tier 4" in t_lower
-        ):
-            return 4
-        elif (
-            "bronze" in t_lower
-            or "div 5" in t_lower
-            or "division 5" in t_lower
-            or "tier 5" in t_lower
-        ):
-            return 5
-        elif "div 6" in t_lower or "division 6" in t_lower or "tier 6" in t_lower:
-            return 6
-        elif (
-            "wood" in t_lower
-            or "div 7" in t_lower
-            or "division 7" in t_lower
-            or "tier 7" in t_lower
-        ):
-            return 7
-        return None
+        return _championship_tier(t_lower)
 
-    # 3. Intermezzo Championship (3P)
-    # Tier 1: Diamond / Master 1 / Grandmaster / Master (when top tier)
-    # Tier 2: Platinum / Master 2 / Div 2
-    # Tier 3: Gold / Div 3
-    # Tier 4: Silver / Div 4
-    # Tier 5: Bronze / Div 5
-    # Tier 6: Div 6
-    # Tier 7: Wood / Div 7
+    # 3. Intermezzo Championship (3P), with the same divisions
     if "intermezzo" in t_lower:
-        if (
-            "diamond" in t_lower
-            or "grandmaster" in t_lower
-            or "master 1" in t_lower
-            or "tier 1" in t_lower
-        ):
-            return 1
-        elif (
-            "platinum" in t_lower
-            or "master 2" in t_lower
-            or "div 2" in t_lower
-            or "division 2" in t_lower
-            or "tier 2" in t_lower
-        ):
-            return 2
-        elif (
-            "gold" in t_lower
-            or "div 3" in t_lower
-            or "division 3" in t_lower
-            or "tier 3" in t_lower
-        ):
-            return 3
-        elif (
-            "silver" in t_lower
-            or "div 4" in t_lower
-            or "division 4" in t_lower
-            or "tier 4" in t_lower
-        ):
-            return 4
-        elif (
-            "bronze" in t_lower
-            or "div 5" in t_lower
-            or "division 5" in t_lower
-            or "tier 5" in t_lower
-        ):
-            return 5
-        elif "div 6" in t_lower or "division 6" in t_lower or "tier 6" in t_lower:
-            return 6
-        elif (
-            "wood" in t_lower
-            or "div 7" in t_lower
-            or "division 7" in t_lower
-            or "tier 7" in t_lower
-        ):
-            return 7
-        return None
+        return _championship_tier(t_lower)
 
+    return None
+
+
+def _championship_tier(t_lower: str) -> int | None:
+    """Returns the tier of an International or Intermezzo division, or None."""
+    if "grandmaster" in t_lower or "diamond" in t_lower or "tier 1" in t_lower:
+        return 1
+    elif (
+        "master" in t_lower
+        or "tier 2" in t_lower
+        or "div 2" in t_lower
+        or "division 2" in t_lower
+    ):
+        return 2
+    elif (
+        "platinum" in t_lower
+        or "tier 3" in t_lower
+        or "div 3" in t_lower
+        or "division 3" in t_lower
+    ):
+        return 3
+    elif (
+        "gold" in t_lower
+        or "tier 4" in t_lower
+        or "div 4" in t_lower
+        or "division 4" in t_lower
+    ):
+        return 4
+    elif (
+        "silver" in t_lower
+        or "tier 5" in t_lower
+        or "div 5" in t_lower
+        or "division 5" in t_lower
+    ):
+        return 5
+    elif (
+        "bronze" in t_lower
+        or "tier 6" in t_lower
+        or "div 6" in t_lower
+        or "division 6" in t_lower
+    ):
+        return 6
+    elif (
+        "wood" in t_lower
+        or "tier 7" in t_lower
+        or "div 7" in t_lower
+        or "division 7" in t_lower
+    ):
+        return 7
     return None
 
 
@@ -210,27 +168,21 @@ def parse_badge_reason(tournament_name: str, tier: int) -> str:
     tier_name = TIER_NAMES.get(tier, "Wood")
 
     if "rl_" in t_lower or "royal league" in t_lower:
-        rl_title = (
-            "Emperor"
-            if tier == 1
-            else (
-                "King"
-                if tier == 2
-                else (
-                    "Prince"
-                    if tier == 3
-                    else (
-                        "Duke"
-                        if tier == 4
-                        else (
-                            "Marquess"
-                            if tier == 5
-                            else ("Count" if tier == 6 else "Viscount")
-                        )
-                    )
-                )
-            )
-        )
+        if "baron" in t_lower:
+            rl_title = "Baron"
+        elif "knight" in t_lower:
+            rl_title = "Knight"
+        elif "viscount" in t_lower:
+            rl_title = "Viscount"
+        else:
+            rl_title = {
+                1: "Emperor",
+                2: "King",
+                3: "Prince",
+                4: "Duke",
+                5: "Marquess",
+                6: "Count",
+            }.get(tier, "Viscount")
         s_part = f"Season {season_num}" if season_num else ""
         return f"Played in Royal League {rl_title} {s_part}".strip()
 
@@ -248,34 +200,35 @@ def parse_badge_reason(tournament_name: str, tier: int) -> str:
 def derive_tournament_badges(
     *, conn: psycopg.Connection, run_id: int
 ) -> dict[str, Any]:
-    """Derives tournament badges for all active players within 6 months, and returns them.
+    """Derives tournament badges for players active within the last year, and returns them.
 
-    Replaces the run's player_titles with those of known players, in one
+    Replaces the run's player_titles (active titles) and player_peak_titles
+    (career peaks, inactive players too) with those of known players, in one
     committed transaction. Raises RunNotRunning unless the run is running.
     """
     with conn.transaction():
         require_running(conn, run_id)
-        # Determine 6-month recency cutoff based on latest match in DB
+        # Determine 1-year (12-month) recency cutoff based on latest match in DB
         max_row = conn.execute(
             "SELECT to_char(MAX(date), 'YYYY-MM-DD') AS max_date FROM matches"
         ).fetchone()
         if not max_row or not max_row["max_date"]:
             return {}
         max_date = date.fromisoformat(max_row["max_date"])
-        cutoff_date = (max_date - relativedelta(months=6)).strftime("%Y-%m-%d")
+        cutoff_date = (max_date - relativedelta(years=1)).strftime("%Y-%m-%d")
 
-        # Select matches played within last 6 months
+        # All tournament matches: active badges (last year) and career peaks (all-time)
         rows = conn.execute(
             """
             SELECT tournament, to_char(date, 'YYYY-MM-DD') AS date, player1, player2, player3, player4
             FROM matches
-            WHERE matches.date >= %s::date AND tournament IS NOT NULL
+            WHERE tournament IS NOT NULL
             ORDER BY matches.date DESC
-        """,
-            (cutoff_date,),
+        """
         ).fetchall()
 
         player_best = {}
+        player_career_best = {}
         player_tier_counts = {}
 
         for r in rows:
@@ -283,6 +236,9 @@ def derive_tournament_badges(
             tier = classify_division_tier(tourney)
             if tier is None:
                 continue
+
+            d_str = r["date"]
+            yr = int(d_str[:4])
 
             participants = [r["player1"], r["player2"]]
             if r["player3"]:
@@ -293,32 +249,47 @@ def derive_tournament_badges(
             for p in participants:
                 if not p:
                     continue
+
+                if d_str >= cutoff_date:
+                    if (
+                        p not in player_best
+                        or tier < player_best[p]["tier"]
+                        or (
+                            tier == player_best[p]["tier"]
+                            and d_str > player_best[p]["date"]
+                        )
+                    ):
+                        player_best[p] = {
+                            "tier": tier,
+                            "tournament": tourney,
+                            "date": d_str,
+                            "reason": parse_badge_reason(tourney, tier),
+                        }
+
+                    if tier == 1:
+                        player_tier_counts[p] = player_tier_counts.get(p, 0) + 1
+
                 if (
-                    p not in player_best
-                    or tier < player_best[p]["tier"]
+                    p not in player_career_best
+                    or tier < player_career_best[p]["tier"]
                     or (
-                        tier == player_best[p]["tier"]
-                        and r["date"] > player_best[p]["date"]
+                        tier == player_career_best[p]["tier"]
+                        and d_str > player_career_best[p]["date"]
                     )
                 ):
-                    player_best[p] = {
-                        "tier": tier,
-                        "tournament": tourney,
-                        "date": r["date"],
-                        "reason": parse_badge_reason(tourney, tier),
-                    }
+                    player_career_best[p] = {"tier": tier, "year": yr, "date": d_str}
 
-                if tier == 1:
-                    player_tier_counts[p] = player_tier_counts.get(p, 0) + 1
+        # Historical World Champions hold the exclusive tier 0 ('WC') career peak
+        for p, (yr, _title) in HISTORICAL_WC_INFO.items():
+            player_career_best[p] = {"tier": 0, "year": yr, "date": f"{yr}-12-15"}
 
         derived_data = {}
         for p, info in player_best.items():
             title = TIER_TITLE_MAP.get(info["tier"], "W")
-            reason = info["reason"]
             derived_data[p] = {
                 "title": title,
                 "title_count": player_tier_counts.get(p, 1 if title == "GM" else 0),
-                "badge_reason": reason,
+                "badge_reason": info["reason"],
             }
 
         # Reigning World Champion holds exclusive active WC badge
@@ -329,10 +300,16 @@ def derive_tournament_badges(
                 "badge_reason": "Reigning World Champion (World Championship 2025)",
             }
 
-        # Clear the run's badges first (inactive players lose badge)
-        conn.execute("DELETE FROM player_titles WHERE run_id = %s", (run_id,))
+        peaks = {}
+        for p, c_info in player_career_best.items():
+            peak = (
+                "WC" if c_info["tier"] == 0 else TIER_TITLE_MAP.get(c_info["tier"], "W")
+            )
+            peaks[p] = (peak, c_info["year"])
 
-        # Title active players, as upstream's UPDATE of players did: unknown names are skipped
+        # Replace the run's titles and peaks; unknown names are skipped, as upstream's UPDATE did
+        conn.execute("DELETE FROM player_titles WHERE run_id = %s", (run_id,))
+        conn.execute("DELETE FROM player_peak_titles WHERE run_id = %s", (run_id,))
         with conn.cursor() as cur:
             cur.executemany(
                 """
@@ -349,6 +326,13 @@ def derive_tournament_badges(
                     )
                     for p, data in derived_data.items()
                 ],
+            )
+            cur.executemany(
+                """
+                INSERT INTO player_peak_titles (run_id, player_name, peak_title, peak_year)
+                SELECT %s, name, %s, %s FROM players WHERE name = %s
+            """,
+                [(run_id, peak, yr, p) for p, (peak, yr) in peaks.items()],
             )
 
     return derived_data

@@ -50,3 +50,11 @@
   font-family: var(--font-stats);
   text-align: center;
 }
+
+.status-active {
+  color: var(--win);
+}
+
+.status-min {
+  color: var(--accent-gold);
+}

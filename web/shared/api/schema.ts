@@ -67,7 +67,9 @@ export interface paths {
         };
         /**
          * Every rated player in one model and format, in rank order
-         * @description A published run never changes, so this is cached for a year.
+         * @description A published run's ratings never change, but each row also carries the
+         *     player's details as they are now (country), so this is cached for five
+         *     minutes.
          */
         get: operations["getLeaderboard"];
         put?: never;
@@ -142,7 +144,19 @@ export interface components {
             win_rate: number;
             /** Format: date */
             last_played: string | null;
+            /** @description The player's country, ISO 3166-1 alpha-2, if known */
+            country: string | null;
+            title: components["schemas"]["Title"];
         };
+        /** @description The tournament title the run derived for the player, if any */
+        Title: {
+            /** @enum {string} */
+            code: "WC" | "GM" | "M" | "P" | "G" | "S" | "B" | "W";
+            /** @description How many titles the player has earned */
+            count: number;
+            /** @description Why the player holds it, e.g. the latest division played */
+            reason: string;
+        } | null;
     };
     responses: {
         /** @description A parameter is not one the API knows */
@@ -301,3 +315,4 @@ type ReadonlyArray<T> = [
 ] ? Readonly<Exclude<T, undefined>> : Readonly<Exclude<T, undefined>[]>;
 export const modelValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["Model"]> = ["glicko2_daneo", "glicko2_daneo_softer", "glicko2_std", "glicko2_std_softer", "glicko2_std_retro", "glicko2_std_softer_retro", "glicko2_mp", "glicko2_mp_softer", "glicko2_mp_retro", "glicko2_mp_softer_retro", "glicko2_adapt", "glicko2_adapt_softer", "glicko2_adapt_retro", "glicko2_adapt_softer_retro", "whr", "whr_softer"];
 export const formatValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["Format"]> = [0, 2, 3, 4];
+export const titleCodeValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["Title"]["code"]> = ["WC", "GM", "M", "P", "G", "S", "B", "W"];

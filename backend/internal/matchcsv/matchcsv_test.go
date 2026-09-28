@@ -122,7 +122,7 @@ func TestCheckRefuses(t *testing.T) {
 		{name: "name with a line break", fields: []string{"Cup", "2024-01-02", "ann", "1", "0 \n 0", "2", "", "", "", "", "2"}, want: BadName},
 		{name: "name with a non-breaking space at the end", fields: []string{"Cup", "2024-01-02", "ann ", "1", "bob", "2", "", "", "", "", "2"}, want: BadName},
 		{name: "name with a leading space", fields: []string{"Cup", "2024-01-02", " ann", "1", "bob", "2", "", "", "", "", "2"}, want: BadName},
-		{name: "every score zero", fields: []string{"Cup", "2024-01-02", "ann", "0", "bob", "0.0", "cat", "0", "", "", "3"}, want: AllScoresZero},
+		{name: "every score zero is a draw, as upstream rates it", fields: []string{"Cup", "2024-01-02", "ann", "0", "bob", "0.0", "cat", "0", "", "", "3"}, want: ""},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

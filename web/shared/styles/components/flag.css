@@ -1,0 +1,22 @@
+/* A player's country flag, or a faint globe when it is not known. */
+.flag-icon {
+  display: inline-flex;
+  align-items: center;
+  margin-right: 0.35rem;
+  vertical-align: middle;
+}
+
+.flag-icon-img {
+  display: inline-block;
+  width: 22px;
+  height: 15px;
+  object-fit: cover;
+  vertical-align: middle;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: 2px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.7);
+}
+
+.flag-none {
+  opacity: 0.5;
+}

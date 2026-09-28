@@ -63,7 +63,10 @@ paths:
     get:
       operationId: getLeaderboard
       summary: Every rated player in one model and format, in rank order
-      description: A published run never changes, so this is cached for a year.
+      description: |
+        A published run's ratings never change, but each row also carries the
+        player's details as they are now (country), so this is cached for five
+        minutes.
       parameters:
         - $ref: "#/components/parameters/RunId"
         - name: model
@@ -202,7 +205,7 @@ components:
             $ref: "#/components/schemas/LeaderboardRow"
     LeaderboardRow:
       type: object
-      required: [rank, rank_delta, name, rating, rd, c_rating, games, opponents, wins, losses, draws, win_rate, last_played]
+      required: [rank, rank_delta, name, rating, rd, c_rating, games, opponents, wins, losses, draws, win_rate, last_played, country, title]
       properties:
         rank:
           type: integer
@@ -240,3 +243,25 @@ components:
           type: string
           format: date
           nullable: true
+        country:
+          description: The player's country, ISO 3166-1 alpha-2, if known
+          type: string
+          pattern: "^[A-Z]{2}$"
+          nullable: true
+        title:
+          $ref: "#/components/schemas/Title"
+    Title:
+      description: The tournament title the run derived for the player, if any
+      type: object
+      nullable: true
+      required: [code, count, reason]
+      properties:
+        code:
+          type: string
+          enum: [WC, GM, M, P, G, S, B, W]
+        count:
+          description: How many titles the player has earned
+          type: integer
+        reason:
+          description: Why the player holds it, e.g. the latest division played
+          type: string

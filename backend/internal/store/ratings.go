@@ -71,6 +71,33 @@ func ResetRatings(ctx context.Context, pool *pgxpool.Pool) error {
 	return MigrateRatings(ctx, pool)
 }
 
+// CountriesSet counts what SetCountries did: players given a country, and
+// names that are not players.
+type CountriesSet struct {
+	Set     int
+	Unknown int
+}
+
+// SetCountries sets each named player's country, in one transaction. A name
+// that is not a player is counted, not added.
+func SetCountries(ctx context.Context, pool *pgxpool.Pool, countries map[string]string) (CountriesSet, error) {
+	names := make([]string, 0, len(countries))
+	codes := make([]string, 0, len(countries))
+	for n, c := range countries {
+		names = append(names, n)
+		codes = append(codes, c)
+	}
+	tag, err := pool.Exec(ctx, `
+		UPDATE players p SET country_code = c.code
+		FROM unnest($1::text[], $2::text[]) AS c(name, code)
+		WHERE p.name = c.name`, names, codes)
+	if err != nil {
+		return CountriesSet{}, fmt.Errorf("setting countries: %w", err)
+	}
+	set := int(tag.RowsAffected())
+	return CountriesSet{Set: set, Unknown: len(countries) - set}, nil
+}
+
 // LoadMatches writes one load's matches and refusals, and adds their players,
 // in one transaction. It returns ErrNotEmpty if matches are already loaded.
 func LoadMatches(ctx context.Context, pool *pgxpool.Pool, matches []matchcsv.Match, refused []matchcsv.Refusal) (Loaded, error) {

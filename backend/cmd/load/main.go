@@ -1,5 +1,6 @@
-// Command load seeds the ratings database from a directory of match CSVs.
-// It checks every row first, and writes nothing if the database has matches.
+// Command load seeds the ratings database from a directory of match CSVs,
+// or sets players' countries from CSVs with Player and Code columns.
+// It checks every row first, and writes no matches if the database has some.
 package main
 
 import (
@@ -9,12 +10,14 @@ import (
 	"io"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"slices"
 	"strings"
 	"syscall"
 
 	"github.com/jackc/pgx/v5/pgxpool"
 
+	"ttacommunity/backend/internal/countrycsv"
 	"ttacommunity/backend/internal/matchcsv"
 	"ttacommunity/backend/internal/store"
 )
@@ -22,18 +25,22 @@ import (
 func main() {
 	reset := flag.Bool("reset", false, "delete every match, refusal and rating run first")
 	migrate := flag.Bool("migrate", false, "only apply the ratings migrations, and load nothing")
+	countries := flag.Bool("countries", false, "set players' countries from the CSV files named, a later file winning")
 	flag.Usage = func() {
 		fmt.Fprintln(os.Stderr, "usage: load [-reset] <directory of match CSVs>")
 		fmt.Fprintln(os.Stderr, "       load -migrate")
+		fmt.Fprintln(os.Stderr, "       load -countries <CSV file>...")
 		fmt.Fprintln(os.Stderr, "The database is RATINGS_DATABASE_URL.")
 		flag.PrintDefaults()
 	}
 	flag.Parse()
 	var err error
 	switch {
-	case *migrate && !*reset && flag.NArg() == 0:
+	case *migrate && !*reset && !*countries && flag.NArg() == 0:
 		err = migrateOnly()
-	case !*migrate && flag.NArg() == 1:
+	case *countries && !*reset && !*migrate && flag.NArg() > 0:
+		err = setCountries(flag.Args())
+	case !*migrate && !*countries && flag.NArg() == 1:
 		err = run(*reset, flag.Arg(0))
 	default:
 		flag.Usage()
@@ -63,6 +70,63 @@ func migrateOnly() error {
 	}
 	fmt.Println("ratings migrations applied")
 	return nil
+}
+
+// setCountries reads every file first, then sets the countries of known
+// players in one statement, after applying any pending migration.
+func setCountries(files []string) error {
+	dbURL := os.Getenv("RATINGS_DATABASE_URL")
+	if dbURL == "" {
+		return fmt.Errorf("RATINGS_DATABASE_URL is not set")
+	}
+	res, err := countrycsv.ReadFiles(os.DirFS("/"), absolute(files))
+	if err != nil {
+		return err
+	}
+
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer stop()
+	pool, err := pgxpool.New(ctx, dbURL)
+	if err != nil {
+		return fmt.Errorf("opening the ratings database: %w", err)
+	}
+	defer pool.Close()
+	if err := store.MigrateRatings(ctx, pool); err != nil {
+		return err
+	}
+	set, err := store.SetCountries(ctx, pool, res.Countries)
+	if err != nil {
+		return err
+	}
+	reportCountries(os.Stdout, files, res, set)
+	return nil
+}
+
+// absolute turns each path into one os.DirFS("/") can open.
+func absolute(files []string) []string {
+	out := make([]string, len(files))
+	for i, f := range files {
+		abs, err := filepath.Abs(f)
+		if err != nil {
+			abs = f
+		}
+		out[i] = strings.TrimPrefix(abs, "/")
+	}
+	return out
+}
+
+// reportCountries writes what was read and set. It names files, lines and
+// reasons, never a player.
+func reportCountries(w io.Writer, files []string, res countrycsv.Result, set store.CountriesSet) {
+	fmt.Fprintf(w, "files: %s\n", strings.Join(files, ", "))
+	fmt.Fprintf(w, "rows read: %d\n", res.Rows)
+	fmt.Fprintf(w, "countries set: %d\n", set.Set)
+	fmt.Fprintf(w, "not a player: %d\n", set.Unknown)
+	fmt.Fprintf(w, "no country: %d\n", res.None)
+	fmt.Fprintf(w, "refused: %d\n", len(res.Refused))
+	for _, r := range res.Refused {
+		fmt.Fprintf(w, "  %s:%d %s\n", r.File, r.Line, r.Reason)
+	}
 }
 
 func run(reset bool, dir string) error {

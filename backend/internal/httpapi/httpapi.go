@@ -16,10 +16,10 @@ import (
 	"ttacommunity/backend/internal/store"
 )
 
-// Cache lifetimes. A published run never changes, so its data is cached for
-// a year; which run is current is cached for a minute.
+// Cache lifetimes. A run's rows carry player details that can change, so they
+// are cached for five minutes; which run is current is cached for a minute.
 const (
-	cacheRun     = "public, max-age=31536000, immutable"
+	cacheRun     = "public, max-age=300"
 	cacheCurrent = "public, max-age=60"
 	cacheNone    = "no-store"
 )
@@ -166,6 +166,10 @@ func (s *server) GetLeaderboard(ctx context.Context, req GetLeaderboardRequestOb
 		row := LeaderboardRow{
 			Rank: p.Rank, RankDelta: p.RankDelta, Name: p.Name, Rating: p.Rating, Rd: p.RD, CRating: p.CRating,
 			Games: p.Games, Opponents: p.Opponents, Wins: p.Wins, Losses: p.Losses, Draws: p.Draws, WinRate: p.WinRate,
+			Country: p.Country,
+		}
+		if p.Title != nil {
+			row.Title = &Title{Code: TitleCode(p.Title.Code), Count: p.Title.Count, Reason: p.Title.Reason}
 		}
 		if p.LastPlayed != nil {
 			row.LastPlayed = &openapi_types.Date{Time: *p.LastPlayed}

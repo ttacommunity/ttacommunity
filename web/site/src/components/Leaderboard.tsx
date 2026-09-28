@@ -1,9 +1,11 @@
 /** The leaderboard for one model and format, read from the current run, in upstream's layout. */
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { formatValues, modelValues } from '@ttac/shared/api';
 import { currentRun, leaderboard, type Format, type Leaderboard as Board, type Model } from '@ttac/shared/ratings';
 import Segmented from './Segmented';
+import { Flag, TitleBadge } from './PlayerMarks';
 import * as show from '../lib/leaderboard-display';
+import { defaultView, MIN_OPPONENTS, type RankedRow } from '../lib/leaderboard-view';
 import './Leaderboard.css';
 
 type State = { kind: 'loading' } | { kind: 'error'; message: string } | { kind: 'ready'; board: Board };
@@ -15,6 +17,7 @@ export default function Leaderboard({ apiUrl }: { apiUrl: string }) {
   const [model, setModel] = useState<Model>('glicko2_daneo');
   const [format, setFormat] = useState<Format>(0);
   const [state, setState] = useState<State>({ kind: 'loading' });
+  const shown = useMemo(() => (state.kind === 'ready' ? defaultView(state.board.players) : []), [state]);
 
   useEffect(() => {
     let stale = false;
@@ -48,14 +51,16 @@ export default function Leaderboard({ apiUrl }: { apiUrl: string }) {
         <div>
           <h1 className="rating-card-heading">Competitive Leaderboard</h1>
           <p className="leaderboard-engine">
-            Engine: <strong>{show.modelLabel(model)}</strong>
+            Engine: <strong>{show.engineName(model)}</strong>
             <span className="badge badge-format">{show.formatName(format)}</span>
+            <span className="badge badge-mode">{show.resetModeName(model)}</span>
           </p>
         </div>
         {state.kind === 'ready' && (
           <p className="leaderboard-count">
-            Players: <strong>{state.board.players.length.toLocaleString('en')}</strong>{' '}
-            <span className="leaderboard-status">(All Recorded)</span>
+            Players: <strong>{shown.length.toLocaleString('en')}</strong>{' '}
+            <span className="leaderboard-status status-active">(Active Only)</span>{' '}
+            <span className="leaderboard-status status-min">(&ge; {MIN_OPPONENTS} matches)</span>
           </p>
         )}
       </div>
@@ -70,7 +75,7 @@ export default function Leaderboard({ apiUrl }: { apiUrl: string }) {
           Could not load the leaderboard: {state.message}
         </p>
       )}
-      {state.kind === 'ready' && <Table board={state.board} />}
+      {state.kind === 'ready' && <Table board={state.board} players={shown} />}
 
       <section className="rating-card rating-card-note" aria-labelledby="leaderboard-guide">
         <h2 id="leaderboard-guide">Leaderboard Mechanics &amp; Rating Principles</h2>
@@ -89,7 +94,9 @@ export default function Leaderboard({ apiUrl }: { apiUrl: string }) {
 
 const headers: [string, string][] = [
   ['Rank', 'Current competitive ranking based on Conservative Rating (C = μ - 3σ).'],
+  ['Flag', "Player's registered national flag."],
   ['Player', 'Player username.'],
+  ['Title', 'Official TTA Titles: WC (World Champion), GM (Grandmaster), M (Master), P (Platinum), G (Gold), S (Silver), B (Bronze), W (Wood).'],
   ['C-Rating', 'Conservative Rating: C = Rating - 3 × RD (99.7% confidence lower bound). Prevents unearned top spots with high uncertainty.'],
   ['Rating ± RD', 'Glicko-2 / WHR Skill Rating (mean μ) and Rating Deviation (RD / σ). Default starting rating is 1500 ± 350.'],
   ['Opps', 'Total competitive opponents faced across all recorded tournament games in this format.'],
@@ -98,8 +105,8 @@ const headers: [string, string][] = [
   ['Last Played', "Date of player's most recent competitive match."],
 ];
 
-/** The table of players, one row each, in rank order. */
-function Table({ board }: { board: Board }) {
+/** The table of the shown players, one row each, in display-rank order. */
+function Table({ board, players }: { board: Board; players: RankedRow[] }) {
   return (
     <div className="table-scroll">
       <table className="leaderboard-table">
@@ -116,12 +123,20 @@ function Table({ board }: { board: Board }) {
           </tr>
         </thead>
         <tbody>
-          {board.players.map((p) => (
+          {players.map((p) => (
             <tr key={p.name}>
-              <td className={show.isTopThree(p.rank) ? 'rank-col top-3-rank' : 'rank-col'}>{show.rank(p.rank)}</td>
+              <td className={show.isTopThree(p.displayRank) ? 'rank-col top-3-rank' : 'rank-col'}>
+                {show.rank(p.displayRank)}
+              </td>
+              <td>
+                <Flag country={p.country} />
+              </td>
               <th scope="row">
                 <span className="player-name">{p.name}</span>
               </th>
+              <td>
+                <TitleBadge title={p.title} />
+              </td>
               <td>
                 <span className="c-rating-val">{show.cRating(p.c_rating)}</span>
               </td>
@@ -140,7 +155,7 @@ function Table({ board }: { board: Board }) {
               <td className="last-played">{p.last_played ?? '-'}</td>
             </tr>
           ))}
-          {board.players.length === 0 && (
+          {players.length === 0 && (
             <tr>
               <td colSpan={headers.length} className="empty">
                 No players found matching your criteria.
