@@ -2,6 +2,9 @@
 /** Every token and component of the design system on sample data, to check the look by eye. */
 import SiteLayout from '../layouts/SiteLayout.astro';
 import Segmented from '../components/Segmented';
+import { Flag, TitleBadge } from '../components/PlayerMarks';
+import { titleCodeValues } from '@ttac/shared/api';
+import type { TitleCode } from '@ttac/shared/ratings';
 
 const colours = [
   'bg-dark',
@@ -32,10 +35,10 @@ const formats = [
   { value: 4, label: '4-Player' },
 ];
 const rows = [
-  { rank: 1, name: 'Sample Player One', c: '1934.12', r: '2071.4', rd: '±45.8', opps: 212, w: 140, l: 60, d: 12, pct: '68.9%', last: '2026-09-01' },
-  { rank: 2, name: 'Sample Player Two', c: '1901.77', r: '2050.0', rd: '±49.4', opps: 180, w: 110, l: 64, d: 6, pct: '62.8%', last: '2026-08-28' },
-  { rank: 4, name: 'Sample Player Four', c: '1790.30', r: '1955.2', rd: '±55.0', opps: 95, w: 51, l: 42, d: 2, pct: '54.7%', last: '-' },
-];
+  { rank: 1, country: 'DE', title: 'WC', name: 'Sample Player One', c: '1934.12', r: '2071.4', rd: '±45.8', opps: 212, w: 140, l: 60, d: 12, pct: '68.9%', last: '2026-09-01' },
+  { rank: 2, country: null, title: 'GM', name: 'Sample Player Two', c: '1901.77', r: '2050.0', rd: '±49.4', opps: 180, w: 110, l: 64, d: 6, pct: '62.8%', last: '2026-08-28' },
+  { rank: 4, country: 'CA', title: null, name: 'Sample Player Four', c: '1790.30', r: '1955.2', rd: '±55.0', opps: 95, w: 51, l: 42, d: 2, pct: '54.7%', last: '-' },
+] as const;
 ---
 <SiteLayout title="Design system | ttacommunity" description="The ratings site's colours, fonts and components.">
   <meta slot="head" name="robots" content="noindex" />
@@ -80,6 +83,18 @@ const rows = [
       <span class="badge badge-format">All Formats</span>
       <span class="badge badge-mode">Continuous (Career)</span>
     </p>
+    <p class="design-row">
+      {titleCodeValues.map((code: TitleCode) => <TitleBadge title={{ code, count: 1, reason: `Sample ${code} reason` }} />)}
+      <TitleBadge title={null} />
+    </p>
+
+    <h2>Flags</h2>
+    <p class="design-row">
+      <Flag country="PL" />
+      <Flag country="US" />
+      <Flag country="ES" />
+      <Flag country={null} />
+    </p>
 
     <h2>Tooltip</h2>
     <p class="design-row">
@@ -93,7 +108,9 @@ const rows = [
         <thead>
           <tr>
             <th scope="col"><span data-tooltip="Current competitive ranking.">Rank</span></th>
+            <th scope="col">Flag</th>
             <th scope="col">Player</th>
+            <th scope="col">Title</th>
             <th scope="col">C-Rating</th>
             <th scope="col">Rating ± RD</th>
             <th scope="col">Opps</th>
@@ -106,7 +123,9 @@ const rows = [
           {rows.map((p) => (
             <tr>
               <td class:list={['rank-col', { 'top-3-rank': p.rank <= 3 }]}>#{p.rank}</td>
+              <td><Flag country={p.country} /></td>
               <th scope="row"><span class="player-name">{p.name}</span></th>
+              <td><TitleBadge title={p.title === null ? null : { code: p.title, count: 1, reason: 'Sample reason' }} /></td>
               <td><span class="c-rating-val">{p.c}</span></td>
               <td><span class="rating-primary">{p.r}</span> <span class="rating-rd">{p.rd}</span></td>
               <td>{p.opps}</td>

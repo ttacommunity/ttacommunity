@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react';
 import { formatValues, modelValues } from '@ttac/shared/api';
 import { currentRun, leaderboard, type Format, type Leaderboard as Board, type Model } from '@ttac/shared/ratings';
 import Segmented from './Segmented';
+import { Flag, TitleBadge } from './PlayerMarks';
 import * as show from '../lib/leaderboard-display';
 import './Leaderboard.css';
 
@@ -89,7 +90,9 @@ export default function Leaderboard({ apiUrl }: { apiUrl: string }) {
 
 const headers: [string, string][] = [
   ['Rank', 'Current competitive ranking based on Conservative Rating (C = μ - 3σ).'],
+  ['Flag', "Player's registered national flag."],
   ['Player', 'Player username.'],
+  ['Title', 'Official TTA Titles: WC (World Champion), GM (Grandmaster), M (Master), P (Platinum), G (Gold), S (Silver), B (Bronze), W (Wood).'],
   ['C-Rating', 'Conservative Rating: C = Rating - 3 × RD (99.7% confidence lower bound). Prevents unearned top spots with high uncertainty.'],
   ['Rating ± RD', 'Glicko-2 / WHR Skill Rating (mean μ) and Rating Deviation (RD / σ). Default starting rating is 1500 ± 350.'],
   ['Opps', 'Total competitive opponents faced across all recorded tournament games in this format.'],
@@ -119,9 +122,15 @@ function Table({ board }: { board: Board }) {
           {board.players.map((p) => (
             <tr key={p.name}>
               <td className={show.isTopThree(p.rank) ? 'rank-col top-3-rank' : 'rank-col'}>{show.rank(p.rank)}</td>
+              <td>
+                <Flag country={p.country} />
+              </td>
               <th scope="row">
                 <span className="player-name">{p.name}</span>
               </th>
+              <td>
+                <TitleBadge title={p.title} />
+              </td>
               <td>
                 <span className="c-rating-val">{show.cRating(p.c_rating)}</span>
               </td>
