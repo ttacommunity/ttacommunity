@@ -4,5 +4,5 @@ import SiteLayout from '../../layouts/SiteLayout.astro';
 import Leaderboard from '../../components/Leaderboard';
 ---
 <SiteLayout title="Competitive Ratings | Through the Ages" description="Community ratings for Through the Ages.">
-  <Leaderboard client:load apiUrl={PUBLIC_API_URL} />
+  <Leaderboard client:only="react" apiUrl={PUBLIC_API_URL} />
 </SiteLayout>
