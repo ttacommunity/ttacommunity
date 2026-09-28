@@ -4,6 +4,7 @@ import (
 	"strings"
 	"testing"
 
+	"ttacommunity/backend/internal/countrycsv"
 	"ttacommunity/backend/internal/matchcsv"
 	"ttacommunity/backend/internal/store"
 )
@@ -30,6 +31,41 @@ func TestReportCountsByReasonAndNamesNoPlayer(t *testing.T) {
 		"loaded: 3 matches, 4 players (batch 7)",
 		"refused: 3",
 		"  all_scores_zero  1\n  standings_row    2\n",
+	} {
+		if !strings.Contains(got, want) {
+			t.Errorf("report is missing %q:\n%s", want, got)
+		}
+	}
+	if strings.Contains(got, "secretname") {
+		t.Errorf("report names a player:\n%s", got)
+	}
+}
+
+func TestReportCountriesCountsAndNamesNoPlayer(t *testing.T) {
+	res := countrycsv.Result{
+		Rows:      9,
+		Countries: map[string]string{"secretname": "PL", "other": "DE"},
+		None:      4,
+		Refused: []countrycsv.Refusal{
+			{File: "r.csv", Line: 3, Reason: countrycsv.BadCode},
+			{File: "o.csv", Line: 2, Reason: countrycsv.BadPlayer},
+			{File: "r.csv", Line: 7, Reason: countrycsv.BadCode},
+		},
+	}
+	set := store.CountriesSet{Set: 1, Unknown: 1}
+
+	var b strings.Builder
+	reportCountries(&b, []string{"r.csv", "o.csv"}, res, set)
+	got := b.String()
+
+	for _, want := range []string{
+		"files: r.csv, o.csv",
+		"rows read: 9",
+		"countries set: 1",
+		"not a player: 1",
+		"no country: 4",
+		"refused: 3",
+		"  r.csv:3 bad_code\n  o.csv:2 bad_player\n  r.csv:7 bad_code\n",
 	} {
 		if !strings.Contains(got, want) {
 			t.Errorf("report is missing %q:\n%s", want, got)
