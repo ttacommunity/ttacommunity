@@ -22,6 +22,18 @@ export function engineName(model: Model): string {
   return engineNames[engine] ?? engine;
 }
 
+const engineNotes: Record<string, string> = {
+  glicko2_std: 'Standard 1v1 naive baseline',
+  glicko2_mp: 'Multiplayer fractional weighting — variance-calibrated',
+  glicko2_adapt: 'Adaptive temperature scaling',
+  whr: 'Whole-History Rating retrospective MAP',
+};
+
+/** engineNote returns upstream's short description of a model's engine, or '' for GlickoD. */
+export function engineNote(model: Model): string {
+  return engineNotes[model.replace(/(_softer)?(_retro)?$/, '')] ?? '';
+}
+
 /** resetModeName returns upstream's name for a model's season reset mode. */
 export function resetModeName(model: Model): string {
   return model.includes('_softer') ? 'Season Reset' : 'Continuous (Career)';

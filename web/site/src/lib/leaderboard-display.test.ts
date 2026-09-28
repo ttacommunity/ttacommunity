@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { formatName, modelLabel, rank, rating, cRating, rd, winRate, isTopThree, titleName, flagSrc, engineName, resetModeName } from './leaderboard-display';
+import { formatName, modelLabel, rank, rating, cRating, rd, winRate, isTopThree, titleName, flagSrc, engineName, resetModeName, engineNote } from './leaderboard-display';
 
 describe('formatName', () => {
   it.each([
@@ -85,5 +85,17 @@ describe('engineName and resetModeName', () => {
   ] as const)('splits %s into upstream engine and reset mode names', (model, engine, mode) => {
     expect(engineName(model)).toBe(engine);
     expect(resetModeName(model)).toBe(mode);
+  });
+});
+
+describe('engineNote', () => {
+  it.each([
+    ['glicko2_daneo', ''],
+    ['glicko2_std_softer', 'Standard 1v1 naive baseline'],
+    ['glicko2_mp', 'Multiplayer fractional weighting — variance-calibrated'],
+    ['glicko2_adapt_retro', 'Adaptive temperature scaling'],
+    ['whr', 'Whole-History Rating retrospective MAP'],
+  ] as const)('gives %s upstream note %j', (model, note) => {
+    expect(engineNote(model)).toBe(note);
   });
 });
