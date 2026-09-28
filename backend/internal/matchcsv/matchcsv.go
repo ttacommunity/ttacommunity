@@ -38,7 +38,6 @@ const (
 	SamePlayerTwice    Reason = "same_player_twice"
 	StandingsRow       Reason = "standings_row"
 	BadName            Reason = "bad_name"
-	AllScoresZero      Reason = "all_scores_zero"
 	Duplicate          Reason = "duplicate"
 )
 
@@ -151,9 +150,6 @@ func Check(row Row) (Match, Reason) {
 		if slices.ContainsFunc(players[:i], func(q Player) bool { return q.Name == p.Name }) {
 			return Match{}, SamePlayerTwice
 		}
-	}
-	if !slices.ContainsFunc(players, func(p Player) bool { return p.Score != 0 }) {
-		return Match{}, AllScoresZero
 	}
 	return Match{File: row.File, Line: row.Line, Tournament: f[0], Date: date, Players: players, Fields: f}, ""
 }

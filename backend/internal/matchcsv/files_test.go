@@ -27,10 +27,10 @@ func TestCheckFilesReadsEveryCSVInNameOrder(t *testing.T) {
 	if got.Rows != 4 {
 		t.Errorf("rows = %d, want 4", got.Rows)
 	}
-	if len(got.Matches) != 2 || got.Matches[0].File != "a.csv" || got.Matches[1].Line != 2 {
-		t.Errorf("matches = %+v, want a.csv:2 and b.csv:2", got.Matches)
+	if len(got.Matches) != 3 || got.Matches[0].File != "a.csv" || got.Matches[1].Line != 3 || got.Matches[2].File != "b.csv" {
+		t.Errorf("matches = %+v, want a.csv:2, a.csv:3 and b.csv:2", got.Matches)
 	}
-	wantRefused := map[string]Reason{"a.csv:3": AllScoresZero, "b.csv:3": Duplicate}
+	wantRefused := map[string]Reason{"b.csv:3": Duplicate}
 	if len(got.Refused) != len(wantRefused) {
 		t.Fatalf("refused = %+v, want %v", got.Refused, wantRefused)
 	}

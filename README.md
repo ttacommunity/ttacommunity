@@ -138,9 +138,11 @@ the job prints a count per reason:
 |---|---|
 | `standings_row` | A standings table scraped as matches: a name starting with a rank (`1.`), or containing "No finished games" |
 | `bad_name` | A name with leading or trailing whitespace, or a line break or other control character |
-| `all_scores_zero` | Every score is 0, so there is no result to rate |
 | `duplicate` | The same tournament, date, players and scores as an earlier row, in any file. The first copy is loaded |
 | `column_count`, `no_tournament`, `bad_date`, `bad_score`, `player_count`, `player_gap`, `score_without_player`, `player_without_score`, `same_player_twice` | The row is malformed |
+
+A match where every score is 0 is **loaded**, and rated as a draw between
+its players, as the original site rates it.
 
 To see them:
 

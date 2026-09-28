@@ -15,7 +15,7 @@ func TestReportCountsByReasonAndNamesNoPlayer(t *testing.T) {
 		Rows:  6,
 		Refused: []matchcsv.Refusal{
 			{File: "a.csv", Line: 3, Reason: matchcsv.StandingsRow, Fields: []string{"Cup", "2024-01-02", "1.45secretname"}},
-			{File: "a.csv", Line: 4, Reason: matchcsv.AllScoresZero, Fields: []string{"Cup", "2024-01-02", "secretname"}},
+			{File: "a.csv", Line: 4, Reason: matchcsv.Duplicate, Fields: []string{"Cup", "2024-01-02", "secretname"}},
 			{File: "b.csv", Line: 2, Reason: matchcsv.StandingsRow, Fields: []string{"Cup", "2024-01-02", "2.46secretname"}},
 		},
 	}
@@ -30,7 +30,7 @@ func TestReportCountsByReasonAndNamesNoPlayer(t *testing.T) {
 		"rows read: 6",
 		"loaded: 3 matches, 4 players (batch 7)",
 		"refused: 3",
-		"  all_scores_zero  1\n  standings_row    2\n",
+		"  duplicate        1\n  standings_row    2\n",
 	} {
 		if !strings.Contains(got, want) {
 			t.Errorf("report is missing %q:\n%s", want, got)

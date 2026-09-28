@@ -178,7 +178,7 @@ func TestLoadMatchesWritesMatchesRefusalsAndPlayers(t *testing.T) {
 		match("s1.csv", 3, "bob", "Ann", "cat", "dan"),
 	}
 	refused := []matchcsv.Refusal{
-		{File: "s1.csv", Line: 4, Reason: matchcsv.AllScoresZero, Fields: []string{"Cup", "2024-01-02", "ann", "0", "bob", "0", "", "", "", "", "2"}},
+		{File: "s1.csv", Line: 4, Reason: matchcsv.Duplicate, Fields: []string{"Cup", "2024-01-02", "ann", "0", "bob", "0", "", "", "", "", "2"}},
 	}
 
 	got, err := LoadMatches(ctx, pool, matches, refused)
@@ -208,8 +208,8 @@ func TestLoadMatchesWritesMatchesRefusalsAndPlayers(t *testing.T) {
 	if err := pool.QueryRow(ctx, "SELECT reason, fields FROM refused_rows").Scan(&reason, &fields); err != nil {
 		t.Fatalf("reading back the refusal: %v", err)
 	}
-	if reason != string(matchcsv.AllScoresZero) || !slices.Equal(fields, refused[0].Fields) {
-		t.Errorf("refusal = %q %q, want %q %q", reason, fields, matchcsv.AllScoresZero, refused[0].Fields)
+	if reason != string(matchcsv.Duplicate) || !slices.Equal(fields, refused[0].Fields) {
+		t.Errorf("refusal = %q %q, want %q %q", reason, fields, matchcsv.Duplicate, refused[0].Fields)
 	}
 }
 
