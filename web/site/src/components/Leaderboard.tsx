@@ -51,8 +51,9 @@ export default function Leaderboard({ apiUrl }: { apiUrl: string }) {
         <div>
           <h1 className="rating-card-heading">Competitive Leaderboard</h1>
           <p className="leaderboard-engine">
-            Engine: <strong>{show.modelLabel(model)}</strong>
+            Engine: <strong>{show.engineName(model)}</strong>
             <span className="badge badge-format">{show.formatName(format)}</span>
+            <span className="badge badge-mode">{show.resetModeName(model)}</span>
           </p>
         </div>
         {state.kind === 'ready' && (

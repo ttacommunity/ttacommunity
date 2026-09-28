@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { formatName, modelLabel, rank, rating, cRating, rd, winRate, isTopThree, titleName, flagSrc } from './leaderboard-display';
+import { formatName, modelLabel, rank, rating, cRating, rd, winRate, isTopThree, titleName, flagSrc, engineName, resetModeName } from './leaderboard-display';
 
 describe('formatName', () => {
   it.each([
@@ -73,5 +73,17 @@ describe('titleName', () => {
 describe('flagSrc', () => {
   it('points at the lower-case SVG for a country code', () => {
     expect(flagSrc('PL')).toBe('/flags/pl.svg');
+  });
+});
+
+describe('engineName and resetModeName', () => {
+  it.each([
+    ['glicko2_daneo', 'GlickoD', 'Continuous (Career)'],
+    ['glicko2_daneo_softer', 'GlickoD', 'Season Reset'],
+    ['glicko2_std_softer_retro', 'Glicko-2 Standard', 'Season Reset'],
+    ['whr', 'Whole-History Rating', 'Continuous (Career)'],
+  ] as const)('splits %s into upstream engine and reset mode names', (model, engine, mode) => {
+    expect(engineName(model)).toBe(engine);
+    expect(resetModeName(model)).toBe(mode);
   });
 });

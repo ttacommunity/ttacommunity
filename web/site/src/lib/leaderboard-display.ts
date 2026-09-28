@@ -16,10 +16,20 @@ export function formatName(format: Format): string {
   return formatNames[format];
 }
 
+/** engineName returns upstream's name for a model's engine, without its reset mode or prior. */
+export function engineName(model: Model): string {
+  const engine = model.replace(/(_softer)?(_retro)?$/, '');
+  return engineNames[engine] ?? engine;
+}
+
+/** resetModeName returns upstream's name for a model's season reset mode. */
+export function resetModeName(model: Model): string {
+  return model.includes('_softer') ? 'Season Reset' : 'Continuous (Career)';
+}
+
 /** modelLabel names a model by its engine, then its reset mode and prior when they are not the defaults. */
 export function modelLabel(model: Model): string {
-  const engine = model.replace(/(_softer)?(_retro)?$/, '');
-  const parts = [engineNames[engine] ?? engine];
+  const parts = [engineName(model)];
   if (model.includes('_softer')) parts.push('Season Reset');
   if (model.endsWith('_retro')) parts.push('15G Retro');
   return parts.join(' · ');
