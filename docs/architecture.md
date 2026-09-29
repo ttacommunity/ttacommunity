@@ -100,6 +100,13 @@ TTA community server and email via `mail-relay`.
   internet, and RFC1918 ranges are excluded.
 - **Personal data** (Discord id and handle, optional email, TTA username,
   timezone) is **never logged at any level**.
+- **Analytics:** the public site allows the beacon Cloudflare injects for
+  its Web Analytics (`https://static.cloudflareinsights.com/beacon.min.js/`
+  in the CSP's `script-src`, trailing slash included, since the beacon's
+  path continues past it); it reports to the site's own origin. Cloudflare
+  states that Web Analytics "does not collect or use your visitors'
+  personal data" ([Cloudflare Web
+  Analytics](https://developers.cloudflare.com/web-analytics/about/))
 
 ## What it sits on
 
