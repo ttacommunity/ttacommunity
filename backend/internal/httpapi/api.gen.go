@@ -211,6 +211,24 @@ func (e GetLeaderboardCsvParamsOrder) Valid() bool {
 	}
 }
 
+// CareerYear defines model for CareerYear.
+type CareerYear struct {
+	Draws     int `json:"draws"`
+	Losses    int `json:"losses"`
+	Opponents int `json:"opponents"`
+
+	// PeakRating The year's highest rating in any model's history, to 0.1
+	PeakRating *float64 `json:"peak_rating"`
+
+	// Title The best title the run derived for the player that year
+	Title *TitleCode `json:"title"`
+
+	// WinRate Percent, 0 to 100, a draw counting half
+	WinRate float64 `json:"win_rate"`
+	Wins    int     `json:"wins"`
+	Year    int     `json:"year"`
+}
+
 // Error defines model for Error.
 type Error struct {
 	Error string `json:"error"`
@@ -315,6 +333,21 @@ type LeaderboardRow struct {
 // `_retro` models start from a retrospectively calibrated prior.
 type Model string
 
+// ModelPeak defines model for ModelPeak.
+type ModelPeak struct {
+	Date openapi_types.Date `json:"date"`
+
+	// Model The rating model. `_softer` models reset gently each season, and
+	// `_retro` models start from a retrospectively calibrated prior.
+	Model Model `json:"model"`
+
+	// Rank 1 + how many ratings that period were higher
+	Rank int `json:"rank"`
+
+	// Rating The highest rating, to 0.1
+	Rating float64 `json:"rating"`
+}
+
 // Peak The player's best title over their career, if any
 type Peak struct {
 	Code TitleCode `json:"code"`
@@ -342,6 +375,20 @@ type Player struct {
 
 	// Title The tournament title the run derived for the player, if any
 	Title *Title `json:"title"`
+}
+
+// PlayerCareer defines model for PlayerCareer.
+type PlayerCareer struct {
+	// Format Players per game. 0 is every format together
+	Format Format `json:"format"`
+	Name   string `json:"name"`
+
+	// Peaks GlickoD, Standard, MP-Weighted, Adaptive-T, WHR, for those with history
+	Peaks []ModelPeak `json:"peaks"`
+	RunId int64       `json:"run_id"`
+
+	// Years Oldest first
+	Years []CareerYear `json:"years"`
 }
 
 // PlayerHistory defines model for PlayerHistory.
@@ -419,6 +466,14 @@ type PlayerRivals struct {
 	RunId  int64   `json:"run_id"`
 }
 
+// PlayerVersus defines model for PlayerVersus.
+type PlayerVersus struct {
+	Matches []VersusMatch `json:"matches"`
+	Name    string        `json:"name"`
+	Other   string        `json:"other"`
+	RunId   int64         `json:"run_id"`
+}
+
 // Rival defines model for Rival.
 type Rival struct {
 	Draws  int    `json:"draws"`
@@ -456,6 +511,19 @@ type Title struct {
 
 // TitleCode defines model for TitleCode.
 type TitleCode string
+
+// VersusMatch defines model for VersusMatch.
+type VersusMatch struct {
+	Date        openapi_types.Date `json:"date"`
+	MatchId     int64              `json:"match_id"`
+	NamePlace   int                `json:"name_place"`
+	OtherPlace  int                `json:"other_place"`
+	PlayerCount int                `json:"player_count"`
+
+	// Seats Highest score first
+	Seats      []Seat `json:"seats"`
+	Tournament string `json:"tournament"`
+}
 
 // PlayerName defines model for PlayerName.
 type PlayerName = string
@@ -512,6 +580,11 @@ type GetLeaderboardCsvParamsSort string
 // GetLeaderboardCsvParamsOrder defines parameters for GetLeaderboardCsv.
 type GetLeaderboardCsvParamsOrder string
 
+// GetPlayerCareerParams defines parameters for GetPlayerCareer.
+type GetPlayerCareerParams struct {
+	Format *Format `form:"format,omitempty" json:"format,omitempty"`
+}
+
 // GetPlayerHistoryParams defines parameters for GetPlayerHistory.
 type GetPlayerHistoryParams struct {
 	Format *Format `form:"format,omitempty" json:"format,omitempty"`
@@ -552,6 +625,9 @@ type ServerInterface interface {
 	// GetPlayer One player's ratings in every model and format, for the player page
 	// (GET /v1/runs/{run}/players/{name})
 	GetPlayer(w http.ResponseWriter, r *http.Request, run RunId, name PlayerName)
+	// GetPlayerCareer One player's record each year and each model's peak, for the career box
+	// (GET /v1/runs/{run}/players/{name}/career)
+	GetPlayerCareer(w http.ResponseWriter, r *http.Request, run RunId, name PlayerName, params GetPlayerCareerParams)
 	// GetPlayerHistory One player's rating at the end of every period, for the chart
 	// (GET /v1/runs/{run}/players/{name}/history)
 	GetPlayerHistory(w http.ResponseWriter, r *http.Request, run RunId, name PlayerName, params GetPlayerHistoryParams)
@@ -561,6 +637,9 @@ type ServerInterface interface {
 	// GetPlayerRivals The player's record against each opponent
 	// (GET /v1/runs/{run}/players/{name}/rivals)
 	GetPlayerRivals(w http.ResponseWriter, r *http.Request, run RunId, name PlayerName, params GetPlayerRivalsParams)
+	// GetPlayerVersus The latest games two players played together
+	// (GET /v1/runs/{run}/players/{name}/versus/{other})
+	GetPlayerVersus(w http.ResponseWriter, r *http.Request, run RunId, name PlayerName, other string)
 }
 
 // ServerInterfaceWrapper converts contexts to parameters.
@@ -905,6 +984,57 @@ func (siw *ServerInterfaceWrapper) GetPlayer(w http.ResponseWriter, r *http.Requ
 	handler.ServeHTTP(w, r)
 }
 
+// GetPlayerCareer operation middleware
+func (siw *ServerInterfaceWrapper) GetPlayerCareer(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "run" -------------
+	var run RunId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "run", r.PathValue("run"), &run, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "integer", Format: "int64", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "run", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "name" -------------
+	var name PlayerName
+
+	err = runtime.BindStyledParameterWithOptions("simple", "name", r.PathValue("name"), &name, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "name", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params GetPlayerCareerParams
+
+	// ------------- Optional query parameter "format" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "format", r.URL.Query(), &params.Format, runtime.BindQueryParameterOptions{Type: "integer", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "format"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "format", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetPlayerCareer(w, r, run, name, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // GetPlayerHistory operation middleware
 func (siw *ServerInterfaceWrapper) GetPlayerHistory(w http.ResponseWriter, r *http.Request) {
 
@@ -1084,6 +1214,50 @@ func (siw *ServerInterfaceWrapper) GetPlayerRivals(w http.ResponseWriter, r *htt
 	handler.ServeHTTP(w, r)
 }
 
+// GetPlayerVersus operation middleware
+func (siw *ServerInterfaceWrapper) GetPlayerVersus(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "run" -------------
+	var run RunId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "run", r.PathValue("run"), &run, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "integer", Format: "int64", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "run", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "name" -------------
+	var name PlayerName
+
+	err = runtime.BindStyledParameterWithOptions("simple", "name", r.PathValue("name"), &name, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "name", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "other" -------------
+	var other string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "other", r.PathValue("other"), &other, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "other", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetPlayerVersus(w, r, run, name, other)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 type UnescapedCookieParamError struct {
 	ParamName string
 	Err       error
@@ -1214,6 +1388,8 @@ func HandlerWithOptions(si ServerInterface, options StdHTTPServerOptions) http.H
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/v1/runs/{run}/players/{name}/history", wrapper.GetPlayerHistory)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/v1/runs/{run}/players/{name}/matches", wrapper.GetPlayerMatches)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/v1/runs/{run}/players/{name}/rivals", wrapper.GetPlayerRivals)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/v1/runs/{run}/players/{name}/career", wrapper.GetPlayerCareer)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/v1/runs/{run}/players/{name}/versus/{other}", wrapper.GetPlayerVersus)
 
 	return m
 }
@@ -1611,6 +1787,68 @@ func (response GetPlayer404JSONResponse) VisitGetPlayerResponse(w http.ResponseW
 	return err
 }
 
+type GetPlayerCareerRequestObject struct {
+	Run    RunId      `json:"run"`
+	Name   PlayerName `json:"name"`
+	Params GetPlayerCareerParams
+}
+
+type GetPlayerCareerResponseObject interface {
+	VisitGetPlayerCareerResponse(w http.ResponseWriter) error
+}
+
+type GetPlayerCareer200ResponseHeaders struct {
+	CacheControl string
+}
+
+type GetPlayerCareer200JSONResponse struct {
+	Body    PlayerCareer
+	Headers GetPlayerCareer200ResponseHeaders
+}
+
+func (response GetPlayerCareer200JSONResponse) VisitGetPlayerCareerResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetPlayerCareer400JSONResponse struct{ BadRequestJSONResponse }
+
+func (response GetPlayerCareer400JSONResponse) VisitGetPlayerCareerResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetPlayerCareer404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response GetPlayerCareer404JSONResponse) VisitGetPlayerCareerResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
 type GetPlayerHistoryRequestObject struct {
 	Run    RunId      `json:"run"`
 	Name   PlayerName `json:"name"`
@@ -1797,6 +2035,68 @@ func (response GetPlayerRivals404JSONResponse) VisitGetPlayerRivalsResponse(w ht
 	return err
 }
 
+type GetPlayerVersusRequestObject struct {
+	Run   RunId      `json:"run"`
+	Name  PlayerName `json:"name"`
+	Other string     `json:"other"`
+}
+
+type GetPlayerVersusResponseObject interface {
+	VisitGetPlayerVersusResponse(w http.ResponseWriter) error
+}
+
+type GetPlayerVersus200ResponseHeaders struct {
+	CacheControl string
+}
+
+type GetPlayerVersus200JSONResponse struct {
+	Body    PlayerVersus
+	Headers GetPlayerVersus200ResponseHeaders
+}
+
+func (response GetPlayerVersus200JSONResponse) VisitGetPlayerVersusResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetPlayerVersus400JSONResponse struct{ BadRequestJSONResponse }
+
+func (response GetPlayerVersus400JSONResponse) VisitGetPlayerVersusResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetPlayerVersus404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response GetPlayerVersus404JSONResponse) VisitGetPlayerVersusResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
 // StrictServerInterface represents all server handlers.
 type StrictServerInterface interface {
 	// GetHealthz The process is up
@@ -1820,6 +2120,9 @@ type StrictServerInterface interface {
 	// GetPlayer One player's ratings in every model and format, for the player page
 	// (GET /v1/runs/{run}/players/{name})
 	GetPlayer(ctx context.Context, request GetPlayerRequestObject) (GetPlayerResponseObject, error)
+	// GetPlayerCareer One player's record each year and each model's peak, for the career box
+	// (GET /v1/runs/{run}/players/{name}/career)
+	GetPlayerCareer(ctx context.Context, request GetPlayerCareerRequestObject) (GetPlayerCareerResponseObject, error)
 	// GetPlayerHistory One player's rating at the end of every period, for the chart
 	// (GET /v1/runs/{run}/players/{name}/history)
 	GetPlayerHistory(ctx context.Context, request GetPlayerHistoryRequestObject) (GetPlayerHistoryResponseObject, error)
@@ -1829,6 +2132,9 @@ type StrictServerInterface interface {
 	// GetPlayerRivals The player's record against each opponent
 	// (GET /v1/runs/{run}/players/{name}/rivals)
 	GetPlayerRivals(ctx context.Context, request GetPlayerRivalsRequestObject) (GetPlayerRivalsResponseObject, error)
+	// GetPlayerVersus The latest games two players played together
+	// (GET /v1/runs/{run}/players/{name}/versus/{other})
+	GetPlayerVersus(ctx context.Context, request GetPlayerVersusRequestObject) (GetPlayerVersusResponseObject, error)
 }
 
 type StrictHandlerFunc func(ctx context.Context, w http.ResponseWriter, r *http.Request, request any) (any, error)
@@ -2050,6 +2356,34 @@ func (sh *strictHandler) GetPlayer(w http.ResponseWriter, r *http.Request, run R
 	}
 }
 
+// GetPlayerCareer operation middleware
+func (sh *strictHandler) GetPlayerCareer(w http.ResponseWriter, r *http.Request, run RunId, name PlayerName, params GetPlayerCareerParams) {
+	var request GetPlayerCareerRequestObject
+
+	request.Run = run
+	request.Name = name
+	request.Params = params
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.GetPlayerCareer(ctx, request.(GetPlayerCareerRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetPlayerCareer")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(GetPlayerCareerResponseObject); ok {
+		if err := validResponse.VisitGetPlayerCareerResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
 // GetPlayerHistory operation middleware
 func (sh *strictHandler) GetPlayerHistory(w http.ResponseWriter, r *http.Request, run RunId, name PlayerName, params GetPlayerHistoryParams) {
 	var request GetPlayerHistoryRequestObject
@@ -2127,6 +2461,34 @@ func (sh *strictHandler) GetPlayerRivals(w http.ResponseWriter, r *http.Request,
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(GetPlayerRivalsResponseObject); ok {
 		if err := validResponse.VisitGetPlayerRivalsResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// GetPlayerVersus operation middleware
+func (sh *strictHandler) GetPlayerVersus(w http.ResponseWriter, r *http.Request, run RunId, name PlayerName, other string) {
+	var request GetPlayerVersusRequestObject
+
+	request.Run = run
+	request.Name = name
+	request.Other = other
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.GetPlayerVersus(ctx, request.(GetPlayerVersusRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetPlayerVersus")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(GetPlayerVersusResponseObject); ok {
+		if err := validResponse.VisitGetPlayerVersusResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {

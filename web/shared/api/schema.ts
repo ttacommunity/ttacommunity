@@ -216,6 +216,52 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/runs/{run}/players/{name}/career": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * One player's record each year and each model's peak, for the career box
+         * @description The player's record in each calendar year of one format (every
+         *     format together when that format has none), with the year's highest
+         *     rating in any model and the title the run derived for that year; and
+         *     each continuous model's peak rating, when it was, and the player's
+         *     rank among that month's ratings. Cached for a year.
+         */
+        get: operations["getPlayerCareer"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/runs/{run}/players/{name}/versus/{other}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The latest games two players played together
+         * @description The 100 latest games the run rated with both players at the table,
+         *     in every format, newest first, with where each finished. Cached for a
+         *     year.
+         */
+        get: operations["getPlayerVersus"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -434,6 +480,66 @@ export interface components {
              * @description Percent, 0 to 100, a draw counting half
              */
             win_rate: number;
+        };
+        PlayerCareer: {
+            /** Format: int64 */
+            run_id: number;
+            name: string;
+            format: components["schemas"]["Format"];
+            /** @description Oldest first */
+            years: components["schemas"]["CareerYear"][];
+            /** @description GlickoD, Standard, MP-Weighted, Adaptive-T, WHR, for those with history */
+            peaks: components["schemas"]["ModelPeak"][];
+        };
+        CareerYear: {
+            year: number;
+            opponents: number;
+            wins: number;
+            losses: number;
+            draws: number;
+            /**
+             * Format: double
+             * @description Percent, 0 to 100, a draw counting half
+             */
+            win_rate: number;
+            /**
+             * Format: double
+             * @description The year's highest rating in any model's history, to 0.1
+             */
+            peak_rating: number | null;
+            /** @description The best title the run derived for the player that year */
+            title: components["schemas"]["TitleCode"] | null;
+        };
+        ModelPeak: {
+            model: components["schemas"]["Model"];
+            /**
+             * Format: double
+             * @description The highest rating, to 0.1
+             */
+            rating: number;
+            /** @description 1 + how many ratings that period were higher */
+            rank: number;
+            /** Format: date */
+            date: string;
+        };
+        PlayerVersus: {
+            /** Format: int64 */
+            run_id: number;
+            name: string;
+            other: string;
+            matches: components["schemas"]["VersusMatch"][];
+        };
+        VersusMatch: {
+            /** Format: int64 */
+            match_id: number;
+            tournament: string;
+            /** Format: date */
+            date: string;
+            player_count: number;
+            name_place: number;
+            other_place: number;
+            /** @description Highest score first */
+            seats: components["schemas"]["Seat"][];
         };
     };
     responses: {
@@ -769,6 +875,66 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["PlayerRivals"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    getPlayerCareer: {
+        parameters: {
+            query?: {
+                format?: components["parameters"]["Format"];
+            };
+            header?: never;
+            path: {
+                /** @description A published run's id, from `/v1/runs/current` */
+                run: components["parameters"]["RunId"];
+                /** @description The player's name, as the leaderboard gives it */
+                name: components["parameters"]["PlayerName"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The player's career */
+            200: {
+                headers: {
+                    "Cache-Control": components["headers"]["CacheControl"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PlayerCareer"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    getPlayerVersus: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A published run's id, from `/v1/runs/current` */
+                run: components["parameters"]["RunId"];
+                /** @description The player's name, as the leaderboard gives it */
+                name: components["parameters"]["PlayerName"];
+                /** @description The other player's name */
+                other: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Their shared games */
+            200: {
+                headers: {
+                    "Cache-Control": components["headers"]["CacheControl"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PlayerVersus"];
                 };
             };
             400: components["responses"]["BadRequest"];

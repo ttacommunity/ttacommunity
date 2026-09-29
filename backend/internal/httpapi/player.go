@@ -226,6 +226,82 @@ func (s *server) GetPlayerRivals(ctx context.Context, req GetPlayerRivalsRequest
 	}, nil
 }
 
+// GetPlayerCareer returns a player's record each year and each model's peak.
+func (s *server) GetPlayerCareer(ctx context.Context, req GetPlayerCareerRequestObject) (GetPlayerCareerResponseObject, error) {
+	format := formatOr(req.Params.Format)
+	if msg := playerRefusal(req.Run, req.Name, format); msg != "" {
+		return GetPlayerCareer400JSONResponse{badRequestBody(msg)}, nil
+	}
+	name, years, peaks, err := s.ratings.PlayerCareer(ctx, req.Run, req.Name, int(format))
+	if nf, ok := notFound(err); ok {
+		return GetPlayerCareer404JSONResponse{nf}, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+
+	body := PlayerCareer{RunId: req.Run, Name: name, Format: format, Years: []CareerYear{}, Peaks: []ModelPeak{}}
+	for _, y := range years {
+		// Upstream stores the yearly win rate rounded by SQLite.
+		rate := (float64(y.Wins) + 0.5*float64(y.Draws)) / float64(max(1, y.Opponents)) * 100
+		cy := CareerYear{
+			Year: y.Year, Opponents: y.Opponents, Wins: y.Wins, Losses: y.Losses, Draws: y.Draws,
+			WinRate: round.TenthAway(rate), PeakRating: y.PeakRating,
+		}
+		if y.Title != nil {
+			code := TitleCode(*y.Title)
+			cy.Title = &code
+		}
+		body.Years = append(body.Years, cy)
+	}
+	for _, p := range peaks {
+		body.Peaks = append(body.Peaks, ModelPeak{Model: Model(p.Model), Rating: p.Rating, Rank: p.Rank, Date: openapi_types.Date{Time: p.Date}})
+	}
+	return GetPlayerCareer200JSONResponse{Body: body, Headers: GetPlayerCareer200ResponseHeaders{CacheControl: cacheForever}}, nil
+}
+
+// GetPlayerVersus returns two players' latest shared games, with where each finished.
+func (s *server) GetPlayerVersus(ctx context.Context, req GetPlayerVersusRequestObject) (GetPlayerVersusResponseObject, error) {
+	msg := playerRefusal(req.Run, req.Name, N0)
+	if msg == "" && len(req.Other) > maxNameLength {
+		msg = "bad parameter: other"
+	}
+	if msg != "" {
+		return GetPlayerVersus400JSONResponse{badRequestBody(msg)}, nil
+	}
+	name, other, shared, err := s.ratings.Versus(ctx, req.Run, req.Name, req.Other)
+	if nf, ok := notFound(err); ok {
+		return GetPlayerVersus404JSONResponse{nf}, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+
+	matches := make([]VersusMatch, 0, len(shared))
+	for _, m := range shared {
+		seats := slices.Clone(m.Seats)
+		slices.SortStableFunc(seats, func(a, b store.Seat) int { return compareDesc(a.Score, b.Score) })
+		vm := VersusMatch{
+			MatchId: m.ID, Tournament: m.Tournament, Date: openapi_types.Date{Time: m.Date},
+			PlayerCount: m.PlayerCount, Seats: make([]Seat, 0, len(seats)),
+		}
+		for i, seat := range seats {
+			switch seat.Name {
+			case name:
+				vm.NamePlace = i + 1
+			case other:
+				vm.OtherPlace = i + 1
+			}
+			vm.Seats = append(vm.Seats, Seat{Name: seat.Name, Score: seat.Score})
+		}
+		matches = append(matches, vm)
+	}
+	return GetPlayerVersus200JSONResponse{
+		Body:    PlayerVersus{RunId: req.Run, Name: name, Other: other, Matches: matches},
+		Headers: GetPlayerVersus200ResponseHeaders{CacheControl: cacheForever},
+	}, nil
+}
+
 func compareDesc(a, b float64) int {
 	switch {
 	case a > b:

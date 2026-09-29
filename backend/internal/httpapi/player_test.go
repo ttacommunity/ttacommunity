@@ -216,3 +216,85 @@ func TestPlayerRivalsGivesWinRates(t *testing.T) {
 }
 
 func intp(n int) *int { return &n }
+
+type fakeCareer struct {
+	fakePlayers
+	years  []store.CareerYear
+	peaks  []store.ModelPeak
+	shared []store.PlayerMatch
+	other  string
+}
+
+func (f *fakeCareer) PlayerCareer(_ context.Context, run int64, name string, format int) (string, []store.CareerYear, []store.ModelPeak, error) {
+	f.calls++
+	f.gotRun, f.asked, f.format = run, name, format
+	return "Ann", f.years, f.peaks, f.err
+}
+
+func (f *fakeCareer) Versus(_ context.Context, run int64, name, other string) (string, string, []store.PlayerMatch, error) {
+	f.calls++
+	f.gotRun, f.asked, f.other = run, name, other
+	return "Ann", "Bob", f.shared, f.err
+}
+
+func TestPlayerCareer(t *testing.T) {
+	peak := 1990.5
+	gm := "GM"
+	f := &fakeCareer{
+		years: []store.CareerYear{
+			{Year: 2024, Opponents: 3, Wins: 1, Losses: 1, Draws: 1, PeakRating: &peak, Title: &gm},
+			{Year: 2025, Opponents: 3, Wins: 2, Losses: 1},
+		},
+		peaks: []store.ModelPeak{{Model: "whr", Rating: 2060.8, Rank: 2, Date: time.Date(2026, 8, 22, 0, 0, 0, 0, time.UTC)}},
+	}
+	rec, _ := serve(t, f, "/v1/runs/7/players/ann/career?format=3")
+	want := `{"format":3,"name":"Ann","peaks":[{"date":"2026-08-22","model":"whr","rank":2,"rating":2060.8}],"run_id":7,"years":[` +
+		`{"draws":1,"losses":1,"opponents":3,"peak_rating":1990.5,"title":"GM","win_rate":50,"wins":1,"year":2024},` +
+		`{"draws":0,"losses":1,"opponents":3,"peak_rating":null,"title":null,"win_rate":66.7,"wins":2,"year":2025}]}`
+	if got := strings.TrimSpace(rec.Body.String()); rec.Code != http.StatusOK || got != want {
+		t.Errorf("GET career: %d %s\nwant 200 %s", rec.Code, got, want)
+	}
+	if rec.Header().Get("Cache-Control") != cacheForever || f.format != 3 || f.asked != "ann" {
+		t.Errorf("GET career: Cache-Control %q, asked %q format %d; want a year, ann, 3", rec.Header().Get("Cache-Control"), f.asked, f.format)
+	}
+}
+
+func TestPlayerVersusPlacesBothPlayers(t *testing.T) {
+	day := time.Date(2026, 8, 26, 0, 0, 0, 0, time.UTC)
+	f := &fakeCareer{shared: []store.PlayerMatch{{
+		ID: 9, Tournament: "Worlds", Date: day, PlayerCount: 3,
+		Seats: []store.Seat{{Name: "Ann", Score: 113}, {Name: "cy", Score: 96}, {Name: "Bob", Score: 112}},
+	}}}
+	rec, _ := serve(t, f, "/v1/runs/7/players/ann/versus/bob")
+	want := `{"matches":[{"date":"2026-08-26","match_id":9,"name_place":1,"other_place":2,"player_count":3,` +
+		`"seats":[{"name":"Ann","score":113},{"name":"Bob","score":112},{"name":"cy","score":96}],"tournament":"Worlds"}],` +
+		`"name":"Ann","other":"Bob","run_id":7}`
+	if got := strings.TrimSpace(rec.Body.String()); rec.Code != http.StatusOK || got != want {
+		t.Errorf("GET versus: %d %s\nwant 200 %s", rec.Code, got, want)
+	}
+	if rec.Header().Get("Cache-Control") != cacheForever || f.asked != "ann" || f.other != "bob" {
+		t.Errorf("GET versus: Cache-Control %q, asked %q and %q", rec.Header().Get("Cache-Control"), f.asked, f.other)
+	}
+}
+
+func TestCareerAndVersusRefuseAndAnswerNotFound(t *testing.T) {
+	long := strings.Repeat("b", 201)
+	for path, want := range map[string]string{
+		"/v1/runs/7/players/ann/career?format=5":   "unknown format",
+		"/v1/runs/0/players/ann/career":            "bad parameter: run",
+		"/v1/runs/7/players/ann/versus/" + long:    "bad parameter: other",
+		"/v1/runs/7/players/" + long + "/versus/b": "bad parameter: name",
+	} {
+		f := &fakeCareer{}
+		rec, _ := serve(t, f, path)
+		if got := strings.TrimSpace(rec.Body.String()); rec.Code != http.StatusBadRequest || got != `{"error":"`+want+`"}` || f.calls != 0 {
+			t.Errorf("GET %s: %d %s (store calls %d); want 400 %q before the store", path, rec.Code, got, f.calls, want)
+		}
+	}
+	for _, path := range []string{"/v1/runs/7/players/zed/career", "/v1/runs/7/players/ann/versus/zed"} {
+		rec, _ := serve(t, &fakeCareer{fakePlayers: fakePlayers{err: store.ErrPlayerNotFound}}, path)
+		if rec.Code != http.StatusNotFound || rec.Header().Get("Cache-Control") != "no-store" {
+			t.Errorf("GET %s: %d %q; want 404 no-store", path, rec.Code, rec.Header().Get("Cache-Control"))
+		}
+	}
+}

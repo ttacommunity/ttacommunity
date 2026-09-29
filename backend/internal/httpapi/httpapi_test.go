@@ -75,6 +75,14 @@ func (f *fakeRatings) RatingsOf(context.Context, int64, string, int, []string) (
 	return nil, nil
 }
 
+func (f *fakeRatings) PlayerCareer(context.Context, int64, string, int) (string, []store.CareerYear, []store.ModelPeak, error) {
+	return "", nil, nil, nil
+}
+
+func (f *fakeRatings) Versus(context.Context, int64, string, string) (string, string, []store.PlayerMatch, error) {
+	return "", "", nil, nil
+}
+
 func (f *fakeRatings) PlayerRivals(context.Context, int64, string, int) (string, []store.Rival, error) {
 	return "", nil, nil
 }
