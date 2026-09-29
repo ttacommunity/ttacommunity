@@ -1,0 +1,45 @@
+/* Upstream's year pills (its leaderboard's .year-pill), and the small WC and current-season marks on them. */
+.year-pill {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.35rem 0.75rem;
+  background: rgba(28, 19, 13, 0.7);
+  border: 1px solid var(--border-subtle);
+  border-radius: 4px;
+  font-family: var(--font-stats);
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-decoration: none;
+  transition: all 0.2s;
+}
+
+.year-pill:hover {
+  background: rgba(229, 169, 60, 0.15);
+  border-color: var(--accent-gold);
+  color: var(--text-main);
+}
+
+.year-pill.active {
+  background: var(--accent-gold);
+  border-color: var(--accent-gold);
+  box-shadow: 0 2px 6px rgba(229, 169, 60, 0.35);
+  color: #1c130d;
+  font-weight: 700;
+}
+
+.year-pill-wc {
+  margin-left: 0.25rem;
+  padding: 0.1rem 0.3rem;
+  background: #ffd700;
+  border-radius: 3px;
+  color: #1c130d;
+  font-size: 0.68rem;
+  font-weight: 800;
+  line-height: 1;
+}
+
+.year-pill.active .year-pill-wc {
+  background: #1c130d;
+  color: #ffd700;
+}

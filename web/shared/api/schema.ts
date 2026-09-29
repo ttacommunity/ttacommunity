@@ -287,6 +287,48 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/runs/{run}/years": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The years a run's ratings cover, newest first, for the season archive */
+        get: operations["getYears"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/runs/{run}/years/{year}/leaderboard": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The ratings at the end of a year, for the season archive
+         * @description The ratings on the model's last rating period of the year (another
+         *     model's when this one has none that year), for the players rated
+         *     on it, best conservative rating first, as upstream's archive shows
+         *     them. Each carries the player's record that year and up to it, and
+         *     their rating on the previous year's last period. Cached for five
+         *     minutes.
+         */
+        get: operations["getYearLeaderboard"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -600,6 +642,82 @@ export interface components {
             c_rating: number;
             rank: number | null;
         };
+        Years: {
+            /** Format: int64 */
+            run_id: number;
+            /** @description Newest first */
+            years: components["schemas"]["YearEntry"][];
+        };
+        YearEntry: {
+            year: number;
+            /** @description True if the run derived a World Champion for the year */
+            champion: boolean;
+        };
+        YearLeaderboard: {
+            /** Format: int64 */
+            run_id: number;
+            year: number;
+            model: components["schemas"]["Model"];
+            format: components["schemas"]["Format"];
+            /**
+             * Format: date
+             * @description The rating period the board is taken from
+             */
+            snapshot: string;
+            /**
+             * Format: date
+             * @description The previous year's last period, which the changes compare with
+             */
+            previous: string | null;
+            /** @description Games the run rated that year, in every format */
+            games: number;
+            champions: components["schemas"]["Champion"][];
+            players: components["schemas"]["YearRow"][];
+        };
+        Champion: {
+            name: string;
+            /** @description True for the current champion, in the run's latest year */
+            reigning: boolean;
+        };
+        YearRow: {
+            name: string;
+            /** Format: double */
+            rating: number;
+            /** Format: double */
+            rd: number;
+            /** Format: double */
+            c_rating: number;
+            country: string | null;
+            title: components["schemas"]["Title"];
+            season: components["schemas"]["YearRecord"];
+            career: components["schemas"]["YearRecord"];
+            /**
+             * Format: date
+             * @description The player's last game that year
+             */
+            last_played: string | null;
+            previous: components["schemas"]["PreviousRating"];
+        };
+        YearRecord: {
+            opponents: number;
+            wins: number;
+            losses: number;
+            draws: number;
+            /**
+             * Format: double
+             * @description Percent, 0 to 100, a draw counting half
+             */
+            win_rate: number;
+        };
+        /** @description The player's rating on the previous year's last period, if they had one */
+        PreviousRating: {
+            /** Format: double */
+            rating: number;
+            /** Format: double */
+            rd: number;
+            /** Format: double */
+            c_rating: number;
+        } | null;
     };
     responses: {
         /** @description A parameter is not one the API knows */
@@ -1025,6 +1143,62 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["PlayerMatrix"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    getYears: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A published run's id, from `/v1/runs/current` */
+                run: components["parameters"]["RunId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The years */
+            200: {
+                headers: {
+                    "Cache-Control": components["headers"]["CacheControl"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Years"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    getYearLeaderboard: {
+        parameters: {
+            query?: {
+                model?: components["parameters"]["Model"];
+                format?: components["parameters"]["Format"];
+            };
+            header?: never;
+            path: {
+                /** @description A published run's id, from `/v1/runs/current` */
+                run: components["parameters"]["RunId"];
+                year: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The year's board */
+            200: {
+                headers: {
+                    "Cache-Control": components["headers"]["CacheControl"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["YearLeaderboard"];
                 };
             };
             400: components["responses"]["BadRequest"];

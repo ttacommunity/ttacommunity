@@ -22,6 +22,10 @@ export type PlayerVersus = components['schemas']['PlayerVersus'];
 export type VersusMatch = components['schemas']['VersusMatch'];
 export type PlayerMatrix = components['schemas']['PlayerMatrix'];
 export type MatrixCell = components['schemas']['MatrixCell'];
+export type Years = components['schemas']['Years'];
+export type YearEntry = components['schemas']['YearEntry'];
+export type YearLeaderboard = components['schemas']['YearLeaderboard'];
+export type YearRow = components['schemas']['YearRow'];
 
 /** An error response from the API, carrying its status and message. */
 export class RatingsApiError extends Error {
@@ -144,6 +148,24 @@ export async function playerMatrix(
   const query = new URLSearchParams({ format: String(format) });
   if (year !== null) query.set('year', String(year));
   return get<PlayerMatrix>(fetchFn, base, playerPath(run, name, `/matrix?${query}`));
+}
+
+/** Returns the years a run's ratings cover, newest first, and which have a World Champion. */
+export async function years(base: string, run: number, fetchFn: typeof fetch = fetch): Promise<Years> {
+  return get<Years>(fetchFn, base, `/v1/runs/${run}/years`);
+}
+
+/** Returns a run's ratings at the end of a year for a model and format, as upstream's season archive. */
+export async function yearLeaderboard(
+  base: string,
+  run: number,
+  year: number,
+  model: Model,
+  format: Format,
+  fetchFn: typeof fetch = fetch,
+): Promise<YearLeaderboard> {
+  const query = new URLSearchParams({ model, format: String(format) });
+  return get<YearLeaderboard>(fetchFn, base, `/v1/runs/${run}/years/${year}/leaderboard?${query}`);
 }
 
 // Public routes take no credentials, so none are ever sent.

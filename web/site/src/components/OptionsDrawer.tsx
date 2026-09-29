@@ -1,8 +1,8 @@
 /** Upstream's Options & Filters drawer: engine, reset mode, prior, and the status, title and opponent filters. */
 import { useEffect, useState } from 'react';
-import type { TitleCode } from '@ttac/shared/ratings';
+import type { TitleCode, YearEntry } from '@ttac/shared/ratings';
 import { engineName } from '../lib/leaderboard-display';
-import { DEFAULT_VIEW, ENGINES, retroApplies, type DeltaWindow, type Engine, type ResetMode, type Status, type View } from '../lib/leaderboard-view';
+import { DEFAULT_VIEW, ENGINES, defaultMinOpps, retroApplies, type DeltaWindow, type Engine, type ResetMode, type Status, type View } from '../lib/leaderboard-view';
 
 /** A link to a view: a real address, followed in place. */
 export type LinkTo = (view: View) => { href: string; onClick: (e: React.MouseEvent) => void };
@@ -32,14 +32,20 @@ export interface Downloads {
 interface Props {
   view: View;
   titles: TitleCode[];
+  years: YearEntry[] | null;
   downloads: Downloads | null;
   linkTo: LinkTo;
   go: (view: View) => void;
   onClose: () => void;
 }
 
+/** archiveView is where upstream's archive pills go: the year, keeping the model, prior and format, other filters reset. */
+function archiveView(view: View, year: number | null): View {
+  return { ...DEFAULT_VIEW, engine: view.engine, reset: view.reset, retro: view.retro, format: view.format, year, minOpps: defaultMinOpps(year) };
+}
+
 /** OptionsDrawer shows every option; choosing one goes to that view at page 1. */
-export default function OptionsDrawer({ view, titles, downloads, linkTo, go, onClose }: Props) {
+export default function OptionsDrawer({ view, titles, years, downloads, linkTo, go, onClose }: Props) {
   const [minOpps, setMinOpps] = useState(String(view.minOpps));
   useEffect(() => setMinOpps(String(view.minOpps)), [view.minOpps]);
   const at = (change: Partial<View>) => ({ ...view, ...change, page: 1 });
@@ -52,6 +58,36 @@ export default function OptionsDrawer({ view, titles, downloads, linkTo, go, onC
         <button type="button" className="btn-options-close" title="Close options panel" onClick={onClose}>
           ✕ Close
         </button>
+      </div>
+
+      <div>
+        <div className="options-group-title">
+          <span>📅 Season Archive</span>
+        </div>
+        <div className="archive-pills">
+          <a
+            {...linkTo(view.year === null ? { ...view, page: 1 } : archiveView(view, null))}
+            className={view.year === null ? 'year-pill archive-live active' : 'year-pill archive-live'}
+            title="Current live ratings across all competitive tournament history"
+          >
+            Live / All-Time
+          </a>
+          {(years ?? []).map((y, i) => (
+            <a
+              key={y.year}
+              {...linkTo(archiveView(view, y.year))}
+              className={view.year === y.year ? 'year-pill archive-year active' : 'year-pill archive-year'}
+              title={`Historical standings at end of Season ${y.year}`}
+            >
+              {y.year}
+              {i === 0 ? (
+                <span className="year-pill-wc year-pill-current">{String(y.year).slice(-2)}</span>
+              ) : (
+                y.champion && <span className="year-pill-wc">WC</span>
+              )}
+            </a>
+          ))}
+        </div>
       </div>
 
       <div>

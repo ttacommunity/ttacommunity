@@ -11,6 +11,8 @@ import {
   playerMatrix,
   playerRivals,
   playerVersus,
+  yearLeaderboard,
+  years,
 } from './ratings';
 
 interface Call {
@@ -123,5 +125,18 @@ describe('player routes', () => {
     const f = fakeFetch(404, '{"error":"no player has this name"}');
     const err = await player('https://api.example', 5, 'zed', f.fetch).catch((e: unknown) => e);
     expect(err).toMatchObject({ status: 404, message: 'no player has this name' });
+  });
+});
+
+describe('year routes', () => {
+  it('ask for the years and one year\'s board without credentials', async () => {
+    const f = fakeFetch(200, '{}');
+    await years('https://api.example', 5, f.fetch);
+    await yearLeaderboard('https://api.example', 5, 2024, 'whr_softer', 3, f.fetch);
+    expect(f.calls.map((c) => c.url)).toEqual([
+      'https://api.example/v1/runs/5/years',
+      'https://api.example/v1/runs/5/years/2024/leaderboard?model=whr_softer&format=3',
+    ]);
+    expect(f.calls.every((c) => c.init?.credentials === 'omit')).toBe(true);
   });
 });

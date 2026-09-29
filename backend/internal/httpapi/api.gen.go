@@ -241,6 +241,14 @@ type CareerYear struct {
 	YearEndRating *float64 `json:"year_end_rating"`
 }
 
+// Champion defines model for Champion.
+type Champion struct {
+	Name string `json:"name"`
+
+	// Reigning True for the current champion, in the run's latest year
+	Reigning bool `json:"reigning"`
+}
+
 // Error defines model for Error.
 type Error struct {
 	Error string `json:"error"`
@@ -511,6 +519,13 @@ type PlayerVersus struct {
 	RunId   int64         `json:"run_id"`
 }
 
+// PreviousRating The player's rating on the previous year's last period, if they had one
+type PreviousRating struct {
+	CRating float64 `json:"c_rating"`
+	Rating  float64 `json:"rating"`
+	Rd      float64 `json:"rd"`
+}
+
 // Rival defines model for Rival.
 type Rival struct {
 	Draws  int    `json:"draws"`
@@ -560,6 +575,76 @@ type VersusMatch struct {
 	// Seats Highest score first
 	Seats      []Seat `json:"seats"`
 	Tournament string `json:"tournament"`
+}
+
+// YearEntry defines model for YearEntry.
+type YearEntry struct {
+	// Champion True if the run derived a World Champion for the year
+	Champion bool `json:"champion"`
+	Year     int  `json:"year"`
+}
+
+// YearLeaderboard defines model for YearLeaderboard.
+type YearLeaderboard struct {
+	Champions []Champion `json:"champions"`
+
+	// Format Players per game. 0 is every format together
+	Format Format `json:"format"`
+
+	// Games Games the run rated that year, in every format
+	Games int `json:"games"`
+
+	// Model The rating model. `_softer` models reset gently each season, and
+	// `_retro` models start from a retrospectively calibrated prior.
+	Model   Model     `json:"model"`
+	Players []YearRow `json:"players"`
+
+	// Previous The previous year's last period, which the changes compare with
+	Previous *openapi_types.Date `json:"previous"`
+	RunId    int64               `json:"run_id"`
+
+	// Snapshot The rating period the board is taken from
+	Snapshot openapi_types.Date `json:"snapshot"`
+	Year     int                `json:"year"`
+}
+
+// YearRecord defines model for YearRecord.
+type YearRecord struct {
+	Draws     int `json:"draws"`
+	Losses    int `json:"losses"`
+	Opponents int `json:"opponents"`
+
+	// WinRate Percent, 0 to 100, a draw counting half
+	WinRate float64 `json:"win_rate"`
+	Wins    int     `json:"wins"`
+}
+
+// YearRow defines model for YearRow.
+type YearRow struct {
+	CRating float64    `json:"c_rating"`
+	Career  YearRecord `json:"career"`
+	Country *string    `json:"country"`
+
+	// LastPlayed The player's last game that year
+	LastPlayed *openapi_types.Date `json:"last_played"`
+	Name       string              `json:"name"`
+
+	// Previous The player's rating on the previous year's last period, if they had one
+	Previous *PreviousRating `json:"previous"`
+	Rating   float64         `json:"rating"`
+	Rd       float64         `json:"rd"`
+	Season   YearRecord      `json:"season"`
+
+	// Title The tournament title the run derived for the player, if any
+	Title *Title `json:"title"`
+}
+
+// Years defines model for Years.
+type Years struct {
+	RunId int64 `json:"run_id"`
+
+	// Years Newest first
+	Years []YearEntry `json:"years"`
 }
 
 // PlayerName defines model for PlayerName.
@@ -645,6 +730,12 @@ type GetPlayerRivalsParams struct {
 	Format *Format `form:"format,omitempty" json:"format,omitempty"`
 }
 
+// GetYearLeaderboardParams defines parameters for GetYearLeaderboard.
+type GetYearLeaderboardParams struct {
+	Model  *Model  `form:"model,omitempty" json:"model,omitempty"`
+	Format *Format `form:"format,omitempty" json:"format,omitempty"`
+}
+
 // ServerInterface represents all server handlers.
 type ServerInterface interface {
 	// GetHealthz The process is up
@@ -686,6 +777,12 @@ type ServerInterface interface {
 	// GetPlayerVersus The latest games two players played together
 	// (GET /v1/runs/{run}/players/{name}/versus/{other})
 	GetPlayerVersus(w http.ResponseWriter, r *http.Request, run RunId, name PlayerName, other string)
+	// GetYears The years a run's ratings cover, newest first, for the season archive
+	// (GET /v1/runs/{run}/years)
+	GetYears(w http.ResponseWriter, r *http.Request, run RunId)
+	// GetYearLeaderboard The ratings at the end of a year, for the season archive
+	// (GET /v1/runs/{run}/years/{year}/leaderboard)
+	GetYearLeaderboard(w http.ResponseWriter, r *http.Request, run RunId, year int, params GetYearLeaderboardParams)
 }
 
 // ServerInterfaceWrapper converts contexts to parameters.
@@ -1368,6 +1465,96 @@ func (siw *ServerInterfaceWrapper) GetPlayerVersus(w http.ResponseWriter, r *htt
 	handler.ServeHTTP(w, r)
 }
 
+// GetYears operation middleware
+func (siw *ServerInterfaceWrapper) GetYears(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "run" -------------
+	var run RunId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "run", r.PathValue("run"), &run, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "integer", Format: "int64", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "run", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetYears(w, r, run)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetYearLeaderboard operation middleware
+func (siw *ServerInterfaceWrapper) GetYearLeaderboard(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "run" -------------
+	var run RunId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "run", r.PathValue("run"), &run, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "integer", Format: "int64", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "run", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "year" -------------
+	var year int
+
+	err = runtime.BindStyledParameterWithOptions("simple", "year", r.PathValue("year"), &year, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "integer", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "year", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params GetYearLeaderboardParams
+
+	// ------------- Optional query parameter "model" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "model", r.URL.Query(), &params.Model, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "model"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "model", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "format" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "format", r.URL.Query(), &params.Format, runtime.BindQueryParameterOptions{Type: "integer", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "format"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "format", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetYearLeaderboard(w, r, run, year, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 type UnescapedCookieParamError struct {
 	ParamName string
 	Err       error
@@ -1501,6 +1688,8 @@ func HandlerWithOptions(si ServerInterface, options StdHTTPServerOptions) http.H
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/v1/runs/{run}/players/{name}/career", wrapper.GetPlayerCareer)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/v1/runs/{run}/players/{name}/versus/{other}", wrapper.GetPlayerVersus)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/v1/runs/{run}/players/{name}/matrix", wrapper.GetPlayerMatrix)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/v1/runs/{run}/years", wrapper.GetYears)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/v1/runs/{run}/years/{year}/leaderboard", wrapper.GetYearLeaderboard)
 
 	return m
 }
@@ -2270,6 +2459,128 @@ func (response GetPlayerVersus404JSONResponse) VisitGetPlayerVersusResponse(w ht
 	return err
 }
 
+type GetYearsRequestObject struct {
+	Run RunId `json:"run"`
+}
+
+type GetYearsResponseObject interface {
+	VisitGetYearsResponse(w http.ResponseWriter) error
+}
+
+type GetYears200ResponseHeaders struct {
+	CacheControl string
+}
+
+type GetYears200JSONResponse struct {
+	Body    Years
+	Headers GetYears200ResponseHeaders
+}
+
+func (response GetYears200JSONResponse) VisitGetYearsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetYears400JSONResponse struct{ BadRequestJSONResponse }
+
+func (response GetYears400JSONResponse) VisitGetYearsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetYears404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response GetYears404JSONResponse) VisitGetYearsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetYearLeaderboardRequestObject struct {
+	Run    RunId `json:"run"`
+	Year   int   `json:"year"`
+	Params GetYearLeaderboardParams
+}
+
+type GetYearLeaderboardResponseObject interface {
+	VisitGetYearLeaderboardResponse(w http.ResponseWriter) error
+}
+
+type GetYearLeaderboard200ResponseHeaders struct {
+	CacheControl string
+}
+
+type GetYearLeaderboard200JSONResponse struct {
+	Body    YearLeaderboard
+	Headers GetYearLeaderboard200ResponseHeaders
+}
+
+func (response GetYearLeaderboard200JSONResponse) VisitGetYearLeaderboardResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetYearLeaderboard400JSONResponse struct{ BadRequestJSONResponse }
+
+func (response GetYearLeaderboard400JSONResponse) VisitGetYearLeaderboardResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetYearLeaderboard404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response GetYearLeaderboard404JSONResponse) VisitGetYearLeaderboardResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
 // StrictServerInterface represents all server handlers.
 type StrictServerInterface interface {
 	// GetHealthz The process is up
@@ -2311,6 +2622,12 @@ type StrictServerInterface interface {
 	// GetPlayerVersus The latest games two players played together
 	// (GET /v1/runs/{run}/players/{name}/versus/{other})
 	GetPlayerVersus(ctx context.Context, request GetPlayerVersusRequestObject) (GetPlayerVersusResponseObject, error)
+	// GetYears The years a run's ratings cover, newest first, for the season archive
+	// (GET /v1/runs/{run}/years)
+	GetYears(ctx context.Context, request GetYearsRequestObject) (GetYearsResponseObject, error)
+	// GetYearLeaderboard The ratings at the end of a year, for the season archive
+	// (GET /v1/runs/{run}/years/{year}/leaderboard)
+	GetYearLeaderboard(ctx context.Context, request GetYearLeaderboardRequestObject) (GetYearLeaderboardResponseObject, error)
 }
 
 type StrictHandlerFunc func(ctx context.Context, w http.ResponseWriter, r *http.Request, request any) (any, error)
@@ -2693,6 +3010,60 @@ func (sh *strictHandler) GetPlayerVersus(w http.ResponseWriter, r *http.Request,
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(GetPlayerVersusResponseObject); ok {
 		if err := validResponse.VisitGetPlayerVersusResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// GetYears operation middleware
+func (sh *strictHandler) GetYears(w http.ResponseWriter, r *http.Request, run RunId) {
+	var request GetYearsRequestObject
+
+	request.Run = run
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.GetYears(ctx, request.(GetYearsRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetYears")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(GetYearsResponseObject); ok {
+		if err := validResponse.VisitGetYearsResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// GetYearLeaderboard operation middleware
+func (sh *strictHandler) GetYearLeaderboard(w http.ResponseWriter, r *http.Request, run RunId, year int, params GetYearLeaderboardParams) {
+	var request GetYearLeaderboardRequestObject
+
+	request.Run = run
+	request.Year = year
+	request.Params = params
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.GetYearLeaderboard(ctx, request.(GetYearLeaderboardRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetYearLeaderboard")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(GetYearLeaderboardResponseObject); ok {
+		if err := validResponse.VisitGetYearLeaderboardResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {
