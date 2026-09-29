@@ -42,6 +42,8 @@ type Ratings interface {
 	PlayerMatrix(ctx context.Context, run int64, name string, format int, year *int) (string, []store.MatrixCell, error)
 	YearBoard(ctx context.Context, run int64, year int, model string, format int) (store.YearBoard, error)
 	Years(ctx context.Context, run int64) ([]store.Year, error)
+	Calibration(ctx context.Context, run int64) ([]store.CalibrationRow, error)
+	AnalysisRatings(ctx context.Context, run int64, format int) ([]store.ModelRating, map[string]bool, error)
 }
 
 // NewMux returns the API's handler with every route in the spec registered.

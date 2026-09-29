@@ -477,6 +477,84 @@ paths:
           $ref: "#/components/responses/BadRequest"
         "404":
           $ref: "#/components/responses/NotFound"
+  /v1/runs/{run}/analysis/calibration:
+    get:
+      operationId: getCalibration
+      summary: How well each model predicted games
+      description: |
+        Each model's calibration over the whole run, standard (in sample)
+        and walk-forward (out of sample), in every format: Brier score,
+        expected calibration error, log loss, accuracy, and the predicted
+        against actual win rate in ten probability bins. Cached for five
+        minutes.
+      parameters:
+        - $ref: "#/components/parameters/RunId"
+      responses:
+        "200":
+          description: How well each model predicted games
+          headers:
+            Cache-Control:
+              $ref: "#/components/headers/CacheControl"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Calibration"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /v1/runs/{run}/analysis/distribution:
+    get:
+      operationId: getDistribution
+      summary: How ratings spread in each engine
+      description: |
+        Each continuous engine's ratings counted into 100-point bins from
+        1000 to 2100, with their mean for every player and for active ones
+        (more than 10 games in the year up to the run's newest game), in one
+        format. Cached for five minutes.
+      parameters:
+        - $ref: "#/components/parameters/RunId"
+        - $ref: "#/components/parameters/Format"
+      responses:
+        "200":
+          description: How ratings spread in each engine
+          headers:
+            Cache-Control:
+              $ref: "#/components/headers/CacheControl"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Distribution"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /v1/runs/{run}/analysis/agreement:
+    get:
+      operationId: getAgreement
+      summary: How far the models agree
+      description: |
+        The four closest and four furthest pairs of the ten continuous and
+        season-reset models: Pearson on ratings and Spearman on the run's
+        ranks, over the players rated in all of them with 15 or more
+        opponents, in one format. Cached for five minutes.
+      parameters:
+        - $ref: "#/components/parameters/RunId"
+        - $ref: "#/components/parameters/Format"
+      responses:
+        "200":
+          description: How far the models agree
+          headers:
+            Cache-Control:
+              $ref: "#/components/headers/CacheControl"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Agreement"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "404":
+          $ref: "#/components/responses/NotFound"
 components:
   parameters:
     Model:
@@ -1205,5 +1283,143 @@ components:
           type: number
           format: double
         c_rating:
+          type: number
+          format: double
+    Calibration:
+      type: object
+      required: [run_id, rows]
+      properties:
+        run_id:
+          type: integer
+          format: int64
+        rows:
+          type: array
+          items:
+            $ref: "#/components/schemas/CalibrationRow"
+    CalibrationRow:
+      type: object
+      required: [mode, model, format, matches, brier, ece, log_loss, accuracy, bins]
+      properties:
+        mode:
+          type: string
+          enum: [standard, walk_forward]
+        model:
+          $ref: "#/components/schemas/Model"
+        format:
+          $ref: "#/components/schemas/Format"
+        matches:
+          description: Games evaluated
+          type: integer
+        brier:
+          type: number
+          format: double
+        ece:
+          description: Expected calibration error, 0 to 1
+          type: number
+          format: double
+        log_loss:
+          type: number
+          format: double
+          nullable: true
+        accuracy:
+          description: Percent
+          type: number
+          format: double
+          nullable: true
+        bins:
+          $ref: "#/components/schemas/CalibrationBins"
+    CalibrationBins:
+      description: Predicted against actual win rate, bin by bin
+      type: object
+      required: [labels, ideal, preds, actuals, counts]
+      properties:
+        labels:
+          type: array
+          items:
+            type: string
+        ideal:
+          type: array
+          items:
+            type: number
+            format: double
+        preds:
+          type: array
+          items:
+            type: number
+            format: double
+        actuals:
+          type: array
+          items:
+            type: number
+            format: double
+        counts:
+          type: array
+          items:
+            type: integer
+    Distribution:
+      type: object
+      required: [run_id, format, labels, engines]
+      properties:
+        run_id:
+          type: integer
+          format: int64
+        format:
+          $ref: "#/components/schemas/Format"
+        labels:
+          type: array
+          items:
+            type: string
+        engines:
+          type: array
+          items:
+            $ref: "#/components/schemas/EngineDistribution"
+    EngineDistribution:
+      type: object
+      required: [model, counts, mean, active_mean]
+      properties:
+        model:
+          $ref: "#/components/schemas/Model"
+        counts:
+          type: array
+          items:
+            type: integer
+        mean:
+          type: number
+          format: double
+        active_mean:
+          type: number
+          format: double
+    Agreement:
+      type: object
+      required: [run_id, format, sample, top, weakest]
+      properties:
+        run_id:
+          type: integer
+          format: int64
+        format:
+          $ref: "#/components/schemas/Format"
+        sample:
+          description: Players rated in all ten models with 15 or more opponents
+          type: integer
+        top:
+          type: array
+          items:
+            $ref: "#/components/schemas/ModelPair"
+        weakest:
+          type: array
+          items:
+            $ref: "#/components/schemas/ModelPair"
+    ModelPair:
+      type: object
+      required: [a, b, pearson, spearman]
+      properties:
+        a:
+          $ref: "#/components/schemas/Model"
+        b:
+          $ref: "#/components/schemas/Model"
+        pearson:
+          type: number
+          format: double
+        spearman:
           type: number
           format: double

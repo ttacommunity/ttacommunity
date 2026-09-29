@@ -333,6 +333,76 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/runs/{run}/analysis/calibration": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * How well each model predicted games
+         * @description Each model's calibration over the whole run, standard (in sample)
+         *     and walk-forward (out of sample), in every format: Brier score,
+         *     expected calibration error, log loss, accuracy, and the predicted
+         *     against actual win rate in ten probability bins. Cached for five
+         *     minutes.
+         */
+        get: operations["getCalibration"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/runs/{run}/analysis/distribution": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * How ratings spread in each engine
+         * @description Each continuous engine's ratings counted into 100-point bins from
+         *     1000 to 2100, with their mean for every player and for active ones
+         *     (more than 10 games in the year up to the run's newest game), in one
+         *     format. Cached for five minutes.
+         */
+        get: operations["getDistribution"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/runs/{run}/analysis/agreement": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * How far the models agree
+         * @description The four closest and four furthest pairs of the ten continuous and
+         *     season-reset models: Pearson on ratings and Spearman on the run's
+         *     ranks, over the players rated in all of them with 15 or more
+         *     opponents, in one format. Cached for five minutes.
+         */
+        get: operations["getAgreement"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -722,6 +792,74 @@ export interface components {
             /** Format: double */
             c_rating: number;
         } | null;
+        Calibration: {
+            /** Format: int64 */
+            run_id: number;
+            rows: components["schemas"]["CalibrationRow"][];
+        };
+        CalibrationRow: {
+            /** @enum {string} */
+            mode: "standard" | "walk_forward";
+            model: components["schemas"]["Model"];
+            format: components["schemas"]["Format"];
+            /** @description Games evaluated */
+            matches: number;
+            /** Format: double */
+            brier: number;
+            /**
+             * Format: double
+             * @description Expected calibration error, 0 to 1
+             */
+            ece: number;
+            /** Format: double */
+            log_loss: number | null;
+            /**
+             * Format: double
+             * @description Percent
+             */
+            accuracy: number | null;
+            bins: components["schemas"]["CalibrationBins"];
+        };
+        /** @description Predicted against actual win rate, bin by bin */
+        CalibrationBins: {
+            labels: string[];
+            ideal: number[];
+            preds: number[];
+            actuals: number[];
+            counts: number[];
+        };
+        Distribution: {
+            /** Format: int64 */
+            run_id: number;
+            format: components["schemas"]["Format"];
+            labels: string[];
+            engines: components["schemas"]["EngineDistribution"][];
+        };
+        EngineDistribution: {
+            model: components["schemas"]["Model"];
+            counts: number[];
+            /** Format: double */
+            mean: number;
+            /** Format: double */
+            active_mean: number;
+        };
+        Agreement: {
+            /** Format: int64 */
+            run_id: number;
+            format: components["schemas"]["Format"];
+            /** @description Players rated in all ten models with 15 or more opponents */
+            sample: number;
+            top: components["schemas"]["ModelPair"][];
+            weakest: components["schemas"]["ModelPair"][];
+        };
+        ModelPair: {
+            a: components["schemas"]["Model"];
+            b: components["schemas"]["Model"];
+            /** Format: double */
+            pearson: number;
+            /** Format: double */
+            spearman: number;
+        };
     };
     responses: {
         /** @description A parameter is not one the API knows */
@@ -1213,6 +1351,88 @@ export interface operations {
             404: components["responses"]["NotFound"];
         };
     };
+    getCalibration: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A published run's id, from `/v1/runs/current` */
+                run: components["parameters"]["RunId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description How well each model predicted games */
+            200: {
+                headers: {
+                    "Cache-Control": components["headers"]["CacheControl"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Calibration"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    getDistribution: {
+        parameters: {
+            query?: {
+                format?: components["parameters"]["Format"];
+            };
+            header?: never;
+            path: {
+                /** @description A published run's id, from `/v1/runs/current` */
+                run: components["parameters"]["RunId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description How ratings spread in each engine */
+            200: {
+                headers: {
+                    "Cache-Control": components["headers"]["CacheControl"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Distribution"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    getAgreement: {
+        parameters: {
+            query?: {
+                format?: components["parameters"]["Format"];
+            };
+            header?: never;
+            path: {
+                /** @description A published run's id, from `/v1/runs/current` */
+                run: components["parameters"]["RunId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description How far the models agree */
+            200: {
+                headers: {
+                    "Cache-Control": components["headers"]["CacheControl"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Agreement"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            404: components["responses"]["NotFound"];
+        };
+    };
 }
 type FlattenedDeepRequired<T> = {
     [K in keyof T]-?: FlattenedDeepRequired<T[K] extends unknown[] | undefined | null ? Extract<T[K], unknown[]>[number] : T[K]>;
@@ -1229,3 +1449,4 @@ export const pathsV1RunsRunLeaderboardCsvGetParametersQueryStats_viewValues: Rea
 export const modelValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["Model"]> = ["glicko2_daneo", "glicko2_daneo_softer", "glicko2_std", "glicko2_std_softer", "glicko2_std_retro", "glicko2_std_softer_retro", "glicko2_mp", "glicko2_mp_softer", "glicko2_mp_retro", "glicko2_mp_softer_retro", "glicko2_adapt", "glicko2_adapt_softer", "glicko2_adapt_retro", "glicko2_adapt_softer_retro", "whr", "whr_softer"];
 export const formatValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["Format"]> = [0, 2, 3, 4];
 export const titleCodeValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["TitleCode"]> = ["WC", "GM", "M", "P", "G", "S", "B", "W"];
+export const calibrationRowModeValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["CalibrationRow"]["mode"]> = ["standard", "walk_forward"];
