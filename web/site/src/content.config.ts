@@ -1,10 +1,10 @@
-/** The site's Markdown content: text pages and cards, edited by MR. */
+/** The site's content: text pages and cards in MDX (Markdown with maths and components), edited by MR. */
 import { defineCollection } from 'astro:content';
 import { glob } from 'astro/loaders';
 import { z } from 'astro/zod';
 
 const pages = defineCollection({
-  loader: glob({ pattern: '*.md', base: './src/content' }),
+  loader: glob({ pattern: '*.mdx', base: './src/content' }),
   schema: z.object({
     title: z.string(),
     /** Shown as "Last edited", as written. */
