@@ -49,6 +49,53 @@ The toolchain versions are pinned in [`mise.toml`](mise.toml): Go, Node, uv
 and CI uses the same file. pnpm comes through Node's corepack, at the version
 `web/package.json` pins. On Windows, use WSL2 or the containers.
 
+### Show a local build to someone: Cloudflare quick tunnels
+
+To check the site on a phone, or show it to someone, before it is merged:
+serve a production build locally and put it and the API behind
+`cloudflared` quick tunnels. Quick tunnels need no Cloudflare account, and
+**their URLs are public until you stop them**.
+
+1. Run the API against your local ratings database:
+
+   ```bash
+   cd backend && set -a && . ../.env && set +a && go run ./cmd/api
+   ```
+
+2. Open a tunnel to it, and note the `https://….trycloudflare.com` URL it
+   prints:
+
+   ```bash
+   cloudflared tunnel --no-autoupdate --url http://127.0.0.1:8080
+   ```
+
+3. Build the site against that URL (the browser calls the API directly, so
+   the default `http://127.0.0.1:8080` only works on this machine), then
+   serve the build and open a second tunnel to it:
+
+   ```bash
+   cd web
+   PUBLIC_API_URL=https://<api-tunnel>.trycloudflare.com pnpm --filter @ttac/site build
+   cd site && pnpm exec astro preview --port 4321 --host 127.0.0.1 --allowed-hosts <site-tunnel>.trycloudflare.com
+   cloudflared tunnel --no-autoupdate --url http://127.0.0.1:4321
+   ```
+
+   `astro preview` refuses a host it was not told about, so start the site's
+   tunnel first if you need its URL for `--allowed-hosts`, then start the
+   preview.
+
+**Any other site build overwrites the one being served**, including the one
+`scripts/ci.sh` runs, with the default API URL: the page then loads, but
+every request fails with a network error. Rebuild as in step 3 afterwards,
+and check the page carries the tunnel's URL:
+
+```bash
+curl -s "https://<site-tunnel>.trycloudflare.com/ratings/" | grep -o 'props="[^"]*"'
+```
+
+The preview sends none of `public/_headers`, so the real CSP is only
+checked on the deployed site.
+
 ## Test it
 
 ```bash
@@ -189,17 +236,81 @@ deploys both together:
 
 1. When the code is final, run the manual `api-image` and `engine-image` jobs
    in the merge request's pipeline. Each pushes `<image>:sha-<commit>`
-2. Resolve each digest, and pin `tag@digest` in `deploy/`:
+2. Resolve each digest, and pin `tag@digest` in `deploy/`. Set the engine's
+   `ENGINE_VERSION` in `deploy/engine.yaml` to the same commit: every run
+   records it:
 
    ```bash
    crane digest registry.gitlab.com/unstablehomelab/ttacommunity/api:sha-<commit>
    ```
 
-3. Apply any new migration to the cluster's database **before** merging.
+   The registry is private: without a `crane auth login`, read the digest
+   through the GitLab API instead, and check it against the job's log line
+   `…:sha-<commit>: digest: sha256:…`:
+
+   ```bash
+   glab api "projects/:id/registry/repositories?per_page=50" | jq -r '.[] | "\(.id) \(.name)"'
+   glab api "projects/:id/registry/repositories/<id>/tags/sha-<commit>" | jq -r .digest
+   ```
+
+3. Apply any new migration to the cluster's database **before** merging
+   (see [the cluster's database](#the-clusters-ratings-database)).
    Migrations only add, so the running api is unaffected
 
 `checks/deploy-current.sh` fails if `deploy/` pins an image built from older
 code than the branch's, so a late code change needs a new image and pin.
+
+### The cluster's ratings database
+
+The database is reached through `kubectl port-forward`, as its owner
+`ratings`, with the password read from its Secret into the environment only
+(never onto disk or into shell history):
+
+```bash
+kubectl -n ttacommunity port-forward svc/ratings-db 55499:5432 &
+export PGPASSWORD=$(kubectl -n ttacommunity get secret ratings-db -o jsonpath='{.data.password}' | base64 -d)
+export RATINGS_DATABASE_URL="postgres://ratings@127.0.0.1:55499/ratings?sslmode=disable"
+```
+
+**Apply new migrations** (before merging the change that needs them), and
+check the version moved:
+
+```bash
+psql "$RATINGS_DATABASE_URL" -Atc "SELECT max(version_id) FROM goose_db_version"
+cd backend && go run ./cmd/load -migrate
+psql "$RATINGS_DATABASE_URL" -Atc "SELECT max(version_id) FROM goose_db_version"
+```
+
+**Compute a rating run** with the image `deploy/engine.yaml` pins. The
+CronJob is suspended, so a run is started by hand as a Job from it. It takes
+about 25 minutes, and ends `complete` or `failed` but **never published**:
+the site keeps showing the current run.
+
+```bash
+kubectl -n ttacommunity create job --from=cronjob/engine engine-manual-<n>
+kubectl -n ttacommunity logs -f job/engine-manual-<n>
+psql "$RATINGS_DATABASE_URL" -c "SELECT run_id, status, engine_version, finished_at FROM rating_runs ORDER BY run_id"
+```
+
+**Publish a complete run** when you have checked it. This is what the
+engine's `--make-current` does, and the site shows the run within a minute
+(the API's `/v1/runs/current` is cached for 60 seconds):
+
+```bash
+psql "$RATINGS_DATABASE_URL" -v run=<run_id> <<'SQL'
+BEGIN;
+INSERT INTO current_run (run_id) VALUES (:run)
+  ON CONFLICT (only_row) DO UPDATE SET run_id = excluded.run_id;
+UPDATE rating_runs SET published_at = now() WHERE run_id = :run;
+COMMIT;
+SQL
+```
+
+Only a `complete` run can be made current: the database refuses any other.
+Going back is the same statement with the earlier run's id.
+
+When done, stop the port-forward (`kill %1` in the same shell) and
+`unset PGPASSWORD`.
 
 ### The sites and the sign-in worker on Cloudflare Workers
 

@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # Fail when deploy/ pins one of our images built from older code than HEAD's.
 # Each pin's tag names the commit it was built from (sha-<commit>); the code
-# that image is built from must be the same at that commit and at HEAD.
+# that image is built from must be the same at that commit and at HEAD, and
+# the engine's ENGINE_VERSION must name its image's commit.
 set -uo pipefail
 
 cd "$(dirname "$0")/.." || exit 1
@@ -45,8 +46,16 @@ for pin in "${pins[@]}"; do
   fi
 done
 
+# The engine records ENGINE_VERSION on every run, so it must name the pinned image's commit.
+engine_pin=$(grep -oE "$registry/engine:sha-[0-9a-f]+" deploy/engine.yaml | head -1)
+engine_version=$(grep -A1 -E 'name: ENGINE_VERSION' deploy/engine.yaml | grep -oE 'value: *[0-9a-f]+' | awk '{print $2}')
+if [ -z "$engine_pin" ] || [ -z "$engine_version" ] || [ "${engine_pin##*:sha-}" != "$engine_version" ]; then
+  echo "  deploy/engine.yaml: ENGINE_VERSION '$engine_version' is not the engine image's commit '${engine_pin##*:sha-}'" >&2
+  failed=1
+fi
+
 if [ "$failed" -ne 0 ]; then
-  echo "deploy-current: deploy/ pins an image older than its code" >&2
+  echo "deploy-current: deploy/ is out of step with its code" >&2
   exit 1
 fi
 echo "deploy-current: ${#pins[@]} pinned image(s) built from HEAD's code"
