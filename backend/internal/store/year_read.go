@@ -150,3 +150,22 @@ func (r *RatingsReader) YearBoard(ctx context.Context, run int64, year int, mode
 	}
 	return b, nil
 }
+
+// Years returns the years a published run's GlickoD history covers, newest first.
+func (r *RatingsReader) Years(ctx context.Context, run int64) ([]int, error) {
+	if err := r.requirePublished(ctx, run); err != nil {
+		return nil, err
+	}
+	rows, err := r.pool.Query(ctx, `
+		SELECT DISTINCT extract(year FROM period_date)::int FROM rating_history
+		WHERE run_id = $1 AND model_type = 'glicko2_daneo' AND player_count = 0
+		ORDER BY 1 DESC`, run)
+	if err != nil {
+		return nil, fmt.Errorf("reading run %d's years: %w", run, err)
+	}
+	years, err := pgx.CollectRows(rows, pgx.RowTo[int])
+	if err != nil {
+		return nil, fmt.Errorf("reading run %d's years: %w", run, err)
+	}
+	return years, nil
+}

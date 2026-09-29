@@ -79,6 +79,14 @@ func (f *fakeRatings) PlayerCareer(context.Context, int64, string, int) (string,
 	return "", nil, nil, nil
 }
 
+func (f *fakeRatings) YearBoard(context.Context, int64, int, string, int) (store.YearBoard, error) {
+	return store.YearBoard{}, nil
+}
+
+func (f *fakeRatings) Years(context.Context, int64) ([]int, error) {
+	return nil, nil
+}
+
 func (f *fakeRatings) PlayerMatrix(context.Context, int64, string, int, *int) (string, []store.MatrixCell, error) {
 	return "", nil, nil
 }

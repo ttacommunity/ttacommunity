@@ -608,3 +608,19 @@ func TestYearBoardNamesTheReigningChampionInTheRunsLatestYear(t *testing.T) {
 		}
 	}
 }
+
+func TestYearsListsTheRunsYearsNewestFirst(t *testing.T) {
+	pool := migrated(t)
+	r := NewRatingsReader(asReader(t, pool))
+	run := publishedRun(t, pool)
+	other := publishedRun(t, pool)
+	addHistory(t, pool, run, "glicko2_daneo", 0, "ann", "2019-03-31", 1600)
+	addHistory(t, pool, run, "glicko2_daneo", 0, "ann", "2021-01-31", 1600)
+	addHistory(t, pool, run, "glicko2_daneo", 0, "bob", "2021-02-28", 1600)
+	addHistory(t, pool, other, "glicko2_daneo", 0, "ann", "2023-01-31", 1600)
+
+	got, err := r.Years(context.Background(), run)
+	if err != nil || fmt.Sprint(got) != "[2021 2019]" {
+		t.Errorf("Years = %v, %v; want [2021 2019]", got, err)
+	}
+}

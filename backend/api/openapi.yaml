@@ -402,6 +402,62 @@ paths:
           $ref: "#/components/responses/BadRequest"
         "404":
           $ref: "#/components/responses/NotFound"
+  /v1/runs/{run}/years:
+    get:
+      operationId: getYears
+      summary: The years a run's ratings cover, newest first, for the season archive
+      parameters:
+        - $ref: "#/components/parameters/RunId"
+      responses:
+        "200":
+          description: The years
+          headers:
+            Cache-Control:
+              $ref: "#/components/headers/CacheControl"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Years"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /v1/runs/{run}/years/{year}/leaderboard:
+    get:
+      operationId: getYearLeaderboard
+      summary: The ratings at the end of a year, for the season archive
+      description: |
+        The ratings on the model's last rating period of the year (another
+        model's when this one has none that year), for the players rated
+        on it, best conservative rating first, as upstream's archive shows
+        them. Each carries the player's record that year and up to it, and
+        their rating on the previous year's last period. Cached for five
+        minutes.
+      parameters:
+        - $ref: "#/components/parameters/RunId"
+        - name: year
+          in: path
+          required: true
+          schema:
+            type: integer
+            minimum: 2000
+            maximum: 2100
+        - $ref: "#/components/parameters/Model"
+        - $ref: "#/components/parameters/Format"
+      responses:
+        "200":
+          description: The year's board
+          headers:
+            Cache-Control:
+              $ref: "#/components/headers/CacheControl"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/YearLeaderboard"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "404":
+          $ref: "#/components/responses/NotFound"
 components:
   parameters:
     Model:
@@ -1006,3 +1062,119 @@ components:
         rank:
           type: integer
           nullable: true
+    Years:
+      type: object
+      required: [run_id, years]
+      properties:
+        run_id:
+          type: integer
+          format: int64
+        years:
+          type: array
+          items:
+            type: integer
+    YearLeaderboard:
+      type: object
+      required: [run_id, year, model, format, snapshot, previous, games, champions, players]
+      properties:
+        run_id:
+          type: integer
+          format: int64
+        year:
+          type: integer
+        model:
+          $ref: "#/components/schemas/Model"
+        format:
+          $ref: "#/components/schemas/Format"
+        snapshot:
+          description: The rating period the board is taken from
+          type: string
+          format: date
+        previous:
+          description: The previous year's last period, which the changes compare with
+          type: string
+          format: date
+          nullable: true
+        games:
+          description: Games the run rated that year, in every format
+          type: integer
+        champions:
+          type: array
+          items:
+            $ref: "#/components/schemas/Champion"
+        players:
+          type: array
+          items:
+            $ref: "#/components/schemas/YearRow"
+    Champion:
+      type: object
+      required: [name, reigning]
+      properties:
+        name:
+          type: string
+        reigning:
+          description: True for the current champion, in the run's latest year
+          type: boolean
+    YearRow:
+      type: object
+      required: [name, rating, rd, c_rating, country, title, season, career, last_played, previous]
+      properties:
+        name:
+          type: string
+        rating:
+          type: number
+          format: double
+        rd:
+          type: number
+          format: double
+        c_rating:
+          type: number
+          format: double
+        country:
+          type: string
+          pattern: "^[A-Z]{2}$"
+          nullable: true
+        title:
+          $ref: "#/components/schemas/Title"
+        season:
+          $ref: "#/components/schemas/YearRecord"
+        career:
+          $ref: "#/components/schemas/YearRecord"
+        last_played:
+          description: The player's last game that year
+          type: string
+          format: date
+          nullable: true
+        previous:
+          $ref: "#/components/schemas/PreviousRating"
+    YearRecord:
+      type: object
+      required: [opponents, wins, losses, draws, win_rate]
+      properties:
+        opponents:
+          type: integer
+        wins:
+          type: integer
+        losses:
+          type: integer
+        draws:
+          type: integer
+        win_rate:
+          description: Percent, 0 to 100, a draw counting half
+          type: number
+          format: double
+    PreviousRating:
+      description: The player's rating on the previous year's last period, if they had one
+      type: object
+      nullable: true
+      required: [rating, rd, c_rating]
+      properties:
+        rating:
+          type: number
+          format: double
+        rd:
+          type: number
+          format: double
+        c_rating:
+          type: number
+          format: double
