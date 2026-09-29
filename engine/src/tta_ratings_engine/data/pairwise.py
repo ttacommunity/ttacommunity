@@ -3,6 +3,7 @@
 import psycopg
 
 from tta_ratings_engine.data.db import require_running
+from tta_ratings_engine.data.match_order import assembled_order
 
 PAIR_COLUMNS = (
     "run_id, match_id, date, tournament, player_count, "
@@ -15,8 +16,8 @@ def expand_pairwise(conn: psycopg.Connection, run_id: int) -> int:
 
     An N-player match becomes N*(N-1)/2 pairs, each weighted 1/(N-1). The
     higher score wins the pair, and equal scores draw. Pairs are numbered in
-    match order, which the models rely on to order a day's games. Raises
-    RunNotRunning unless the run is running.
+    upstream's assembled match order (match_order), which the models rely on
+    to order a day's games. Raises RunNotRunning unless the run is running.
     """
     with conn.transaction():
         return _expand(conn, run_id)
@@ -30,6 +31,7 @@ def _expand(conn, run_id):
         FROM matches
         ORDER BY match_id
     """).fetchall()
+    rows = assembled_order(rows)
 
     pairwise_to_insert = []
     for row in rows:
