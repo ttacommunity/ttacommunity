@@ -59,7 +59,7 @@ func Select(rows []store.LeaderboardRow, q Query) []Row {
 		pool[i].DisplayRank = i + 1
 	}
 
-	if terms := searchTerms(q.Search); len(terms) > 0 {
+	if terms := SearchTerms(q.Search); len(terms) > 0 {
 		pool = slices.DeleteFunc(pool, func(p Row) bool { return !slices.ContainsFunc(terms, p.matches) })
 	}
 	dir := 1
@@ -72,7 +72,8 @@ func Select(rows []store.LeaderboardRow, q Query) []Row {
 	return pool
 }
 
-func searchTerms(search string) []string {
+// SearchTerms splits a search into its comma-separated terms, trimmed and lower-cased, dropping empty ones.
+func SearchTerms(search string) []string {
 	var terms []string
 	for _, t := range strings.Split(search, ",") {
 		if t = strings.TrimSpace(t); t != "" {

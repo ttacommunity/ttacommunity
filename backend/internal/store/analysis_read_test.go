@@ -81,3 +81,131 @@ func TestAnalysisRatingsGivesThePageModelsAndWhoIsActive(t *testing.T) {
 		t.Errorf("active = %v, want ann and cy (more than 10 games from 2024-09-11 to 2025-09-11)", active)
 	}
 }
+
+func TestComparedPlayersFindsNamesOrCountriesStrongestFirst(t *testing.T) {
+	pool := migrated(t)
+	r := NewRatingsReader(asReader(t, pool))
+	ctx := context.Background()
+	run := publishedRun(t, pool)
+	addPlayers(t, pool, "Annika", "hannah", "bob", "Zed")
+	if _, err := pool.Exec(ctx, "UPDATE players SET country_code = 'PL' WHERE name IN ('bob', 'Zed')"); err != nil {
+		t.Fatalf("setting countries: %v", err)
+	}
+	for name, c := range map[string]float64{"Annika": 1700, "hannah": 1800, "bob": 1600, "Zed": 1900} {
+		addRating(t, pool, run, "glicko2_daneo", 0, name, intp(1), c)
+	}
+	addTitle(t, pool, run, "hannah", "GM", 2, "WC 2024")
+
+	got, err := r.ComparedPlayers(ctx, run, 0, []string{"ann", "pl"})
+	if err != nil {
+		t.Fatalf("ComparedPlayers: %v", err)
+	}
+	var names []string
+	for _, p := range got {
+		names = append(names, p.Name)
+	}
+	if fmt.Sprint(names) != "[Zed hannah Annika bob]" {
+		t.Errorf("names = %v, want every name containing ann and every PL player, by GlickoD C rating", names)
+	}
+	if got[1].Title == nil || *got[1].Title != "GM" || got[0].Country == nil || *got[0].Country != "PL" {
+		t.Errorf("hannah's title = %v, Zed's country = %v, want GM and PL", got[1].Title, got[0].Country)
+	}
+
+	got, err = r.ComparedPlayers(ctx, run, 0, []string{"a_n"})
+	if err != nil || len(got) != 0 {
+		t.Errorf("ComparedPlayers(a_n) = %v, %v, want no players: _ is a character, not a wildcard", got, err)
+	}
+}
+
+func TestComparedPlayersDefaultsToUpstreamsSixInItsOrderWithTheirRatings(t *testing.T) {
+	pool := migrated(t)
+	r := NewRatingsReader(asReader(t, pool))
+	ctx := context.Background()
+	run := publishedRun(t, pool)
+	addPlayers(t, pool, "saru", "a440", "Genghisip", "someone")
+	addRating(t, pool, run, "whr", 3, "a440", intp(4), 1800)
+	addRating(t, pool, run, "glicko2_daneo", 3, "a440", nil, 1900)
+	addRating(t, pool, run, "glicko2_std_retro", 3, "a440", intp(1), 1950)
+	addRating(t, pool, run, "glicko2_daneo", 0, "a440", intp(1), 1850)
+
+	got, err := r.ComparedPlayers(ctx, run, 3, nil)
+	if err != nil {
+		t.Fatalf("ComparedPlayers: %v", err)
+	}
+	var names []string
+	for _, p := range got {
+		names = append(names, p.Name)
+	}
+	if fmt.Sprint(names) != "[Genghisip a440 saru]" {
+		t.Errorf("names = %v, want the default players present, in upstream's order", names)
+	}
+	a := got[1].Ratings
+	if len(a) != 2 || a[0].Model != "glicko2_daneo" || a[0].Rank != nil || a[1].Model != "whr" || *a[1].Rank != 4 ||
+		a[1].Rating != 1900 || a[1].RD != 50 || a[1].CRating != 1800 || a[1].Opponents != 9 || a[1].WinRate != 58.3 {
+		t.Errorf("a440's ratings = %+v, want GlickoD then WHR in format 3, no retro model", a)
+	}
+}
+
+func TestActivityCountsPlayersGamesTitlesAndCountries(t *testing.T) {
+	pool := migrated(t)
+	r := NewRatingsReader(asReader(t, pool))
+	ctx := context.Background()
+	run := publishedRun(t, pool)
+	other := publishedRun(t, pool)
+	addPlayers(t, pool, "gm1", "gm2", "m1", "p1", "s1", "fr1", "unrated")
+	_, err := pool.Exec(ctx, `UPDATE players SET country_code = CASE WHEN name = 'fr1' THEN 'FR' WHEN name = 'unrated' THEN 'DE' ELSE 'PL' END`)
+	if err != nil {
+		t.Fatalf("setting countries: %v", err)
+	}
+	for name, rating := range map[string]float64{"gm1": 1900, "gm2": 1951, "m1": 1800, "p1": 1700, "s1": 1500, "fr1": 1600} {
+		addRating(t, pool, run, "glicko2_std", 0, name, intp(1), rating-100)
+	}
+	addRating(t, pool, run, "glicko2_std", 2, "s1", intp(1), 2400)
+	addRating(t, pool, other, "glicko2_std", 0, "unrated", intp(1), 1500)
+	// Active means a last game after the cutoff, in any model or format.
+	_, err = pool.Exec(ctx, `UPDATE player_ratings SET last_played = CASE WHEN player_count = 2 THEN '2025-06-01'::date
+		ELSE '2025-05-31'::date END WHERE run_id = $1 AND player_name IN ('gm1', 's1')`, run)
+	if err != nil {
+		t.Fatalf("setting last played: %v", err)
+	}
+	for name, title := range map[string]string{"gm1": "GM", "gm2": "GM", "m1": "M", "p1": "P", "s1": "S"} {
+		addTitle(t, pool, run, name, title, 1, "x")
+	}
+	addTitle(t, pool, other, "fr1", "GM", 1, "x")
+	addGame(t, pool, run, "2025-01-01", "Cup", Seat{"gm1", 1}, Seat{"m1", 0})
+	addGame(t, pool, run, "2025-01-02", "Cup", Seat{"gm1", 1}, Seat{"m1", 0}, Seat{"p1", 0})
+	addGame(t, pool, run, "2025-01-03", "Cup", Seat{"gm1", 1}, Seat{"m1", 0}, Seat{"p1", 0})
+	addGame(t, pool, other, "2025-01-04", "Cup", Seat{"gm1", 1}, Seat{"m1", 0})
+
+	got, err := r.Activity(ctx, run, day("2025-05-31"))
+	if err != nil {
+		t.Fatalf("Activity: %v", err)
+	}
+	if got.Active != 1 || got.Inactive != 6 {
+		t.Errorf("active, inactive = %d, %d, want 1 (s1, by their 2-player game), 6 (gm1 on the cutoff, the rest before or unrated)", got.Active, got.Inactive)
+	}
+	if fmt.Sprint(got.Formats) != "[{2 1} {3 2}]" {
+		t.Errorf("formats = %v, want the run's games only: [{2 1} {3 2}]", got.Formats)
+	}
+	if fmt.Sprint(got.Titles) != "[{GM 2} {M 1} {P 1} {S 1}]" {
+		t.Errorf("titles = %v, want this run's, most first then by code", got.Titles)
+	}
+	want := "[{PL 5 1925.5 1883.667 1837.75 1770.2} {FR 1 <nil> <nil> <nil> 1600}]"
+	if s := countryText(got.Countries); s != want {
+		t.Errorf("countries = %s\nwant %s (Standard, all formats; titles from this run; unrated players left out)", s, want)
+	}
+}
+
+func countryText(cs []CountryRatings) string {
+	f := func(x *float64) string {
+		if x == nil {
+			return "<nil>"
+		}
+		return fmt.Sprint(float64(int(*x*1000+0.5)) / 1000)
+	}
+	var out []string
+	for _, c := range cs {
+		out = append(out, fmt.Sprintf("{%s %d %s %s %s %v}", c.Country, c.Players, f(c.GM), f(c.MPlus), f(c.PPlus), c.All))
+	}
+	return fmt.Sprint(out)
+}

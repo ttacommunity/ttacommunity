@@ -247,6 +247,21 @@ func (e GetLeaderboardCsvParamsStatsView) Valid() bool {
 	}
 }
 
+// Activity defines model for Activity.
+type Activity struct {
+	// Active Players whose last game is after the site's inactive cutoff
+	Active    int              `json:"active"`
+	Countries []CountryRatings `json:"countries"`
+
+	// Formats Games per format, 2 to 4 players
+	Formats  []FormatGames `json:"formats"`
+	Inactive int           `json:"inactive"`
+	RunId    int64         `json:"run_id"`
+
+	// Titles Players per title, most first
+	Titles []TitlePlayers `json:"titles"`
+}
+
 // Agreement defines model for Agreement.
 type Agreement struct {
 	// Format Players per game. 0 is every format together
@@ -338,6 +353,55 @@ type Champion struct {
 
 	// Reigning True for the current champion, in the run's latest year
 	Reigning bool `json:"reigning"`
+}
+
+// ComparedPlayer defines model for ComparedPlayer.
+type ComparedPlayer struct {
+	// Country The player's country, ISO 3166-1 alpha-2, if known
+	Country *string `json:"country"`
+	Name    string  `json:"name"`
+
+	// Ratings One per model the player is rated in, in upstream's order
+	Ratings []ComparedRating `json:"ratings"`
+	Title   *TitleCode       `json:"title"`
+}
+
+// ComparedPlayers defines model for ComparedPlayers.
+type ComparedPlayers struct {
+	// Format Players per game. 0 is every format together
+	Format  Format           `json:"format"`
+	Players []ComparedPlayer `json:"players"`
+	RunId   int64            `json:"run_id"`
+}
+
+// ComparedRating defines model for ComparedRating.
+type ComparedRating struct {
+	CRating float64 `json:"c_rating"`
+
+	// Model The rating model. `_softer` models reset gently each season, and
+	// `_retro` models start from a retrospectively calibrated prior.
+	Model     Model   `json:"model"`
+	Opponents int     `json:"opponents"`
+	Rank      *int    `json:"rank"`
+	Rating    float64 `json:"rating"`
+	Rd        float64 `json:"rd"`
+
+	// WinRate Percent
+	WinRate float64 `json:"win_rate"`
+}
+
+// CountryRatings A country's rated players and their average Glicko-2 Standard rating, overall and by title
+type CountryRatings struct {
+	All     float64  `json:"all"`
+	Country string   `json:"country"`
+	Gm      *float64 `json:"gm"`
+
+	// MPlus Grandmasters and Masters
+	MPlus *float64 `json:"m_plus"`
+
+	// PPlus Grandmasters, Masters and Platinum
+	PPlus   *float64 `json:"p_plus"`
+	Players int      `json:"players"`
 }
 
 // Distribution defines model for Distribution.
@@ -689,6 +753,12 @@ type Title struct {
 // TitleCode defines model for TitleCode.
 type TitleCode string
 
+// TitlePlayers defines model for TitlePlayers.
+type TitlePlayers struct {
+	Code    TitleCode `json:"code"`
+	Players int       `json:"players"`
+}
+
 // VersusMatch defines model for VersusMatch.
 type VersusMatch struct {
 	Date        openapi_types.Date `json:"date"`
@@ -797,6 +867,14 @@ type GetDistributionParams struct {
 	Format *Format `form:"format,omitempty" json:"format,omitempty"`
 }
 
+// GetComparedPlayersParams defines parameters for GetComparedPlayers.
+type GetComparedPlayersParams struct {
+	Format *Format `form:"format,omitempty" json:"format,omitempty"`
+
+	// Search Names or country codes, comma-separated; a name matches anywhere, ignoring case
+	Search *string `form:"search,omitempty" json:"search,omitempty"`
+}
+
 // GetHistoryParams defines parameters for GetHistory.
 type GetHistoryParams struct {
 	Model  *Model              `form:"model,omitempty" json:"model,omitempty"`
@@ -891,6 +969,9 @@ type ServerInterface interface {
 	// GetCurrentRun The run the site shows now
 	// (GET /v1/runs/current)
 	GetCurrentRun(w http.ResponseWriter, r *http.Request)
+	// GetActivity Who plays, and where
+	// (GET /v1/runs/{run}/analysis/activity)
+	GetActivity(w http.ResponseWriter, r *http.Request, run RunId)
 	// GetAgreement How far the models agree
 	// (GET /v1/runs/{run}/analysis/agreement)
 	GetAgreement(w http.ResponseWriter, r *http.Request, run RunId, params GetAgreementParams)
@@ -900,6 +981,9 @@ type ServerInterface interface {
 	// GetDistribution How ratings spread in each engine
 	// (GET /v1/runs/{run}/analysis/distribution)
 	GetDistribution(w http.ResponseWriter, r *http.Request, run RunId, params GetDistributionParams)
+	// GetComparedPlayers Players across every model
+	// (GET /v1/runs/{run}/analysis/players)
+	GetComparedPlayers(w http.ResponseWriter, r *http.Request, run RunId, params GetComparedPlayersParams)
 	// GetHistory Each player's rating at a past date, for rating changes over time
 	// (GET /v1/runs/{run}/history)
 	GetHistory(w http.ResponseWriter, r *http.Request, run RunId, params GetHistoryParams)
@@ -980,6 +1064,32 @@ func (siw *ServerInterfaceWrapper) GetCurrentRun(w http.ResponseWriter, r *http.
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.GetCurrentRun(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetActivity operation middleware
+func (siw *ServerInterfaceWrapper) GetActivity(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "run" -------------
+	var run RunId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "run", r.PathValue("run"), &run, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "integer", Format: "int64", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "run", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetActivity(w, r, run)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -1090,6 +1200,61 @@ func (siw *ServerInterfaceWrapper) GetDistribution(w http.ResponseWriter, r *htt
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.GetDistribution(w, r, run, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetComparedPlayers operation middleware
+func (siw *ServerInterfaceWrapper) GetComparedPlayers(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "run" -------------
+	var run RunId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "run", r.PathValue("run"), &run, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "integer", Format: "int64", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "run", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params GetComparedPlayersParams
+
+	// ------------- Optional query parameter "format" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "format", r.URL.Query(), &params.Format, runtime.BindQueryParameterOptions{Type: "integer", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "format"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "format", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "search" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "search", r.URL.Query(), &params.Search, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "search"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "search", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetComparedPlayers(w, r, run, params)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -1982,6 +2147,8 @@ func HandlerWithOptions(si ServerInterface, options StdHTTPServerOptions) http.H
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/v1/runs/{run}/analysis/calibration", wrapper.GetCalibration)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/v1/runs/{run}/analysis/distribution", wrapper.GetDistribution)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/v1/runs/{run}/analysis/agreement", wrapper.GetAgreement)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/v1/runs/{run}/analysis/players", wrapper.GetComparedPlayers)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/v1/runs/{run}/analysis/activity", wrapper.GetActivity)
 
 	return m
 }
@@ -2125,6 +2292,66 @@ func (response GetCurrentRun503JSONResponse) VisitGetCurrentRunResponse(w http.R
 	w.Header().Set("Content-Type", "application/json")
 	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
 	w.WriteHeader(503)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetActivityRequestObject struct {
+	Run RunId `json:"run"`
+}
+
+type GetActivityResponseObject interface {
+	VisitGetActivityResponse(w http.ResponseWriter) error
+}
+
+type GetActivity200ResponseHeaders struct {
+	CacheControl string
+}
+
+type GetActivity200JSONResponse struct {
+	Body    Activity
+	Headers GetActivity200ResponseHeaders
+}
+
+func (response GetActivity200JSONResponse) VisitGetActivityResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetActivity400JSONResponse struct{ BadRequestJSONResponse }
+
+func (response GetActivity400JSONResponse) VisitGetActivityResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetActivity404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response GetActivity404JSONResponse) VisitGetActivityResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(404)
 	_, err := buf.WriteTo(w)
 	return err
 }
@@ -2299,6 +2526,67 @@ func (response GetDistribution400JSONResponse) VisitGetDistributionResponse(w ht
 type GetDistribution404JSONResponse struct{ NotFoundJSONResponse }
 
 func (response GetDistribution404JSONResponse) VisitGetDistributionResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetComparedPlayersRequestObject struct {
+	Run    RunId `json:"run"`
+	Params GetComparedPlayersParams
+}
+
+type GetComparedPlayersResponseObject interface {
+	VisitGetComparedPlayersResponse(w http.ResponseWriter) error
+}
+
+type GetComparedPlayers200ResponseHeaders struct {
+	CacheControl string
+}
+
+type GetComparedPlayers200JSONResponse struct {
+	Body    ComparedPlayers
+	Headers GetComparedPlayers200ResponseHeaders
+}
+
+func (response GetComparedPlayers200JSONResponse) VisitGetComparedPlayersResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetComparedPlayers400JSONResponse struct{ BadRequestJSONResponse }
+
+func (response GetComparedPlayers400JSONResponse) VisitGetComparedPlayersResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetComparedPlayers404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response GetComparedPlayers404JSONResponse) VisitGetComparedPlayersResponse(w http.ResponseWriter) error {
 
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
@@ -3066,6 +3354,9 @@ type StrictServerInterface interface {
 	// GetCurrentRun The run the site shows now
 	// (GET /v1/runs/current)
 	GetCurrentRun(ctx context.Context, request GetCurrentRunRequestObject) (GetCurrentRunResponseObject, error)
+	// GetActivity Who plays, and where
+	// (GET /v1/runs/{run}/analysis/activity)
+	GetActivity(ctx context.Context, request GetActivityRequestObject) (GetActivityResponseObject, error)
 	// GetAgreement How far the models agree
 	// (GET /v1/runs/{run}/analysis/agreement)
 	GetAgreement(ctx context.Context, request GetAgreementRequestObject) (GetAgreementResponseObject, error)
@@ -3075,6 +3366,9 @@ type StrictServerInterface interface {
 	// GetDistribution How ratings spread in each engine
 	// (GET /v1/runs/{run}/analysis/distribution)
 	GetDistribution(ctx context.Context, request GetDistributionRequestObject) (GetDistributionResponseObject, error)
+	// GetComparedPlayers Players across every model
+	// (GET /v1/runs/{run}/analysis/players)
+	GetComparedPlayers(ctx context.Context, request GetComparedPlayersRequestObject) (GetComparedPlayersResponseObject, error)
 	// GetHistory Each player's rating at a past date, for rating changes over time
 	// (GET /v1/runs/{run}/history)
 	GetHistory(ctx context.Context, request GetHistoryRequestObject) (GetHistoryResponseObject, error)
@@ -3224,6 +3518,32 @@ func (sh *strictHandler) GetCurrentRun(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// GetActivity operation middleware
+func (sh *strictHandler) GetActivity(w http.ResponseWriter, r *http.Request, run RunId) {
+	var request GetActivityRequestObject
+
+	request.Run = run
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.GetActivity(ctx, request.(GetActivityRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetActivity")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(GetActivityResponseObject); ok {
+		if err := validResponse.VisitGetActivityResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
 // GetAgreement operation middleware
 func (sh *strictHandler) GetAgreement(w http.ResponseWriter, r *http.Request, run RunId, params GetAgreementParams) {
 	var request GetAgreementRequestObject
@@ -3297,6 +3617,33 @@ func (sh *strictHandler) GetDistribution(w http.ResponseWriter, r *http.Request,
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(GetDistributionResponseObject); ok {
 		if err := validResponse.VisitGetDistributionResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// GetComparedPlayers operation middleware
+func (sh *strictHandler) GetComparedPlayers(w http.ResponseWriter, r *http.Request, run RunId, params GetComparedPlayersParams) {
+	var request GetComparedPlayersRequestObject
+
+	request.Run = run
+	request.Params = params
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.GetComparedPlayers(ctx, request.(GetComparedPlayersRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetComparedPlayers")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(GetComparedPlayersResponseObject); ok {
+		if err := validResponse.VisitGetComparedPlayersResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {

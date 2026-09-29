@@ -403,6 +403,52 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/runs/{run}/analysis/players": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Players across every model
+         * @description Up to 15 players matching a search, strongest first by GlickoD's
+         *     conservative rating, or upstream's six default players in its order
+         *     when there is no search, each with their rating in every continuous
+         *     and season-reset model for one format. Cached for five minutes.
+         */
+        get: operations["getComparedPlayers"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/runs/{run}/analysis/activity": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Who plays, and where
+         * @description Active and inactive players (the site's fixed cutoff), games per
+         *     format, players per title, and the 15 countries with most rated
+         *     players with their average Glicko-2 Standard rating by title.
+         *     Cached for five minutes.
+         */
+        get: operations["getActivity"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -851,6 +897,71 @@ export interface components {
             sample: number;
             top: components["schemas"]["ModelPair"][];
             weakest: components["schemas"]["ModelPair"][];
+        };
+        ComparedPlayers: {
+            /** Format: int64 */
+            run_id: number;
+            format: components["schemas"]["Format"];
+            players: components["schemas"]["ComparedPlayer"][];
+        };
+        ComparedPlayer: {
+            name: string;
+            /** @description The player's country, ISO 3166-1 alpha-2, if known */
+            country: string | null;
+            title: components["schemas"]["TitleCode"] | null;
+            /** @description One per model the player is rated in, in upstream's order */
+            ratings: components["schemas"]["ComparedRating"][];
+        };
+        ComparedRating: {
+            model: components["schemas"]["Model"];
+            rank: number | null;
+            /** Format: double */
+            rating: number;
+            /** Format: double */
+            rd: number;
+            /** Format: double */
+            c_rating: number;
+            opponents: number;
+            /**
+             * Format: double
+             * @description Percent
+             */
+            win_rate: number;
+        };
+        Activity: {
+            /** Format: int64 */
+            run_id: number;
+            /** @description Players whose last game is after the site's inactive cutoff */
+            active: number;
+            inactive: number;
+            /** @description Games per format, 2 to 4 players */
+            formats: components["schemas"]["FormatGames"][];
+            /** @description Players per title, most first */
+            titles: components["schemas"]["TitlePlayers"][];
+            countries: components["schemas"]["CountryRatings"][];
+        };
+        TitlePlayers: {
+            code: components["schemas"]["TitleCode"];
+            players: number;
+        };
+        /** @description A country's rated players and their average Glicko-2 Standard rating, overall and by title */
+        CountryRatings: {
+            country: string;
+            players: number;
+            /** Format: double */
+            gm: number | null;
+            /**
+             * Format: double
+             * @description Grandmasters and Masters
+             */
+            m_plus: number | null;
+            /**
+             * Format: double
+             * @description Grandmasters, Masters and Platinum
+             */
+            p_plus: number | null;
+            /** Format: double */
+            all: number;
         };
         ModelPair: {
             a: components["schemas"]["Model"];
@@ -1430,6 +1541,61 @@ export interface operations {
                 };
             };
             400: components["responses"]["BadRequest"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    getComparedPlayers: {
+        parameters: {
+            query?: {
+                format?: components["parameters"]["Format"];
+                /** @description Names or country codes, comma-separated; a name matches anywhere, ignoring case */
+                search?: string;
+            };
+            header?: never;
+            path: {
+                /** @description A published run's id, from `/v1/runs/current` */
+                run: components["parameters"]["RunId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The players and their ratings */
+            200: {
+                headers: {
+                    "Cache-Control": components["headers"]["CacheControl"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ComparedPlayers"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    getActivity: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A published run's id, from `/v1/runs/current` */
+                run: components["parameters"]["RunId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The run's activity and demographics */
+            200: {
+                headers: {
+                    "Cache-Control": components["headers"]["CacheControl"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Activity"];
+                };
+            };
             404: components["responses"]["NotFound"];
         };
     };

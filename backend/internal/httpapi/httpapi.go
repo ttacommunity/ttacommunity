@@ -44,6 +44,8 @@ type Ratings interface {
 	Years(ctx context.Context, run int64) ([]store.Year, error)
 	Calibration(ctx context.Context, run int64) ([]store.CalibrationRow, error)
 	AnalysisRatings(ctx context.Context, run int64, format int) ([]store.ModelRating, map[string]bool, error)
+	ComparedPlayers(ctx context.Context, run int64, format int, terms []string) ([]store.ComparedPlayer, error)
+	Activity(ctx context.Context, run int64, inactiveOnOrBefore time.Time) (store.Activity, error)
 }
 
 // NewMux returns the API's handler with every route in the spec registered.
