@@ -8,6 +8,13 @@ export type Leaderboard = components['schemas']['Leaderboard'];
 export type LeaderboardRow = components['schemas']['LeaderboardRow'];
 export type History = components['schemas']['History'];
 export type TitleCode = NonNullable<components['schemas']['Title']>['code'];
+export type Player = components['schemas']['Player'];
+export type PlayerRating = components['schemas']['PlayerRating'];
+export type PlayerHistory = components['schemas']['PlayerHistory'];
+export type PlayerMatches = components['schemas']['PlayerMatches'];
+export type PlayerMatch = components['schemas']['PlayerMatch'];
+export type Rival = components['schemas']['Rival'];
+export type PlayerRivals = components['schemas']['PlayerRivals'];
 
 /** An error response from the API, carrying its status and message. */
 export class RatingsApiError extends Error {
@@ -49,6 +56,51 @@ export async function history(
   const query = new URLSearchParams({ model, format: String(format) });
   if (date !== null) query.set('at', date);
   return get<History>(fetchFn, base, `/v1/runs/${run}/history?${query}`);
+}
+
+function playerPath(run: number, name: string, rest = ''): string {
+  return `/v1/runs/${run}/players/${encodeURIComponent(name)}${rest}`;
+}
+
+/** Returns one player's details and ratings in every page model and format. */
+export async function player(base: string, run: number, name: string, fetchFn: typeof fetch = fetch): Promise<Player> {
+  return get<Player>(fetchFn, base, playerPath(run, name));
+}
+
+/** Returns one player's rating after every period, by model, in one format. */
+export async function playerHistory(
+  base: string,
+  run: number,
+  name: string,
+  format: Format,
+  fetchFn: typeof fetch = fetch,
+): Promise<PlayerHistory> {
+  return get<PlayerHistory>(fetchFn, base, playerPath(run, name, `/history?format=${format}`));
+}
+
+/** Returns one page of a player's games in a format, with each game's estimated rating change in model. */
+export async function playerMatches(
+  base: string,
+  run: number,
+  name: string,
+  format: Format,
+  model: Model,
+  page: number,
+  fetchFn: typeof fetch = fetch,
+): Promise<PlayerMatches> {
+  const query = new URLSearchParams({ format: String(format), model, page: String(page) });
+  return get<PlayerMatches>(fetchFn, base, playerPath(run, name, `/matches?${query}`));
+}
+
+/** Returns a player's record against the opponents they met most, in one format. */
+export async function playerRivals(
+  base: string,
+  run: number,
+  name: string,
+  format: Format,
+  fetchFn: typeof fetch = fetch,
+): Promise<PlayerRivals> {
+  return get<PlayerRivals>(fetchFn, base, playerPath(run, name, `/rivals?format=${format}`));
 }
 
 // Public routes take no credentials, so none are ever sent.

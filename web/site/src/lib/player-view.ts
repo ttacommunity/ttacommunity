@@ -1,0 +1,134 @@
+/** Upstream's player page in the browser: its address, options, chart series and rivals table. */
+import type { Format, Model, Player, PlayerHistory, PlayerRating, Rival } from '@ttac/shared/ratings';
+import { ENGINES, parseView, type Engine, type Remembered, type ResetMode } from './leaderboard-view';
+
+/** Below this many games in a format an active player is provisional. */
+const PROVISIONAL_BELOW = 15;
+
+/** Rivals shown before "Show all". */
+export const RIVALS_SHOWN = 30;
+
+/** What the reader has chosen on a player's page, as upstream's query parameters carry it. */
+export interface PlayerView {
+  name: string;
+  engine: Engine;
+  reset: ResetMode;
+  format: Format;
+  matchPage: number;
+}
+
+/** playerHref returns the address of a player's page. */
+export function playerHref(name: string): string {
+  return `/ratings/player/?${new URLSearchParams({ name })}`;
+}
+
+/** parsePlayerView reads the page's choices from its address, then remembered choices, then the defaults. */
+export function parsePlayerView(params: URLSearchParams, remembered: Remembered): PlayerView {
+  const { engine, reset, format } = parseView(params, remembered);
+  const page = params.get('match_page') ?? '';
+  return {
+    name: params.get('name') ?? '',
+    engine,
+    reset,
+    format,
+    matchPage: /^\d+$/.test(page) && Number(page) >= 1 ? Number(page) : 1,
+  };
+}
+
+/** playerParams writes the page's choices as upstream's links do, always naming the options. */
+export function playerParams(view: PlayerView): URLSearchParams {
+  const p = new URLSearchParams({ name: view.name, model: view.engine, format: String(view.format), reset_mode: view.reset });
+  if (view.matchPage > 1) p.set('match_page', String(view.matchPage));
+  return p;
+}
+
+/** pageModel returns the stored model for an engine and reset mode. The player page has no retro prior. */
+export function pageModel(engine: Engine, reset: ResetMode): Model {
+  return `${engine}${reset === 'softer' ? '_softer' : ''}` as Model;
+}
+
+/** ratingIn returns the player's rating in a model and format, if they have one. */
+export function ratingIn(player: Player, model: Model, format: Format): PlayerRating | undefined {
+  return player.ratings.find((r) => r.model === model && r.format === format);
+}
+
+const DAY = 86_400_000;
+const day = (d: string | null) => Date.parse(`${d ?? '1900-01-01'}T00:00:00Z`);
+
+/**
+ * isProvisional applies upstream's rule: fewer than 15 games in the format, unless the player's last game is more
+ * than a year before the newest game anyone played. A missing date counts as 1900, as upstream's does.
+ */
+export function isProvisional(player: Player, format: Format): boolean {
+  const games = player.games.find((g) => g.format === format)?.games ?? 0;
+  const idle = (day(player.newest_game) - day(player.last_played)) / DAY > 365;
+  return games < PROVISIONAL_BELOW && !idle;
+}
+
+/** The chart's lines: one value per label and engine, null where the engine has none. */
+export interface ChartData {
+  labels: string[];
+  series: Record<Engine, (number | null)[]>;
+}
+
+const tenth = (x: number) => Math.round(x * 10) / 10;
+
+/**
+ * chartData lines each engine's history up on every date any model has, as upstream's chart does, in the continuous
+ * or season-reset models and on the expected or conservative curve.
+ */
+export function chartData(history: PlayerHistory, mode: ResetMode, curve: 'expected' | 'conservative'): ChartData {
+  const labels = [...new Set(history.series.flatMap((s) => s.points.map((p) => p.date)))].sort();
+  const suffix = mode === 'softer' ? '_softer' : '';
+  const series = {} as ChartData['series'];
+  for (const engine of ENGINES) {
+    const points = history.series.find((s) => s.model === `${engine}${suffix}`)?.points ?? [];
+    const at = new Map(points.map((p) => [p.date, tenth(curve === 'expected' ? p.rating : p.c_rating)]));
+    series[engine] = labels.map((d) => at.get(d) ?? null);
+  }
+  return { labels, series };
+}
+
+/** signedDelta writes a game's rating change as upstream does: a sign when not zero, one decimal, a dash for none. */
+export function signedDelta(delta: number | null): string {
+  if (delta === null) return '—';
+  if (delta > 0) return `+${delta.toFixed(1)}`;
+  if (delta < 0) return delta.toFixed(1);
+  return '0.0';
+}
+
+/** score writes a game score, without decimals when it is whole. */
+export function score(value: number): string {
+  return String(value);
+}
+
+export type RivalKey = 'name' | 'games' | 'wins' | 'losses' | 'draws' | 'win_rate';
+
+/** The rivals table's filter, minimum, expansion and sort. */
+export interface RivalsView {
+  filter: string;
+  minGames: number;
+  expanded: boolean;
+  sort: { key: RivalKey; asc: boolean } | null;
+}
+
+/**
+ * visibleRivals applies upstream's rivals table: sorted by the chosen column, the first 30 unless expanded; a name
+ * filter or a minimum shows every match.
+ */
+export function visibleRivals(rivals: readonly Rival[], view: RivalsView): Rival[] {
+  const sorted = [...rivals];
+  if (view.sort !== null) {
+    const { key, asc } = view.sort;
+    const dir = asc ? 1 : -1;
+    sorted.sort((a, b) => dir * (key === 'name' ? a.name.toLowerCase().localeCompare(b.name.toLowerCase()) : a[key] - b[key]));
+  }
+  const filter = view.filter.trim().toLowerCase();
+  if (filter === '' && view.minGames <= 1) return view.expanded ? sorted : sorted.slice(0, RIVALS_SHOWN);
+  return sorted.filter((r) => r.games >= view.minGames && r.name.toLowerCase().includes(filter));
+}
+
+/** firstSort is the direction a column starts in: names ascending, numbers descending. */
+export function firstSort(key: RivalKey): boolean {
+  return key === 'name';
+}

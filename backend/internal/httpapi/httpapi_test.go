@@ -59,6 +59,26 @@ func (f *fakeRatings) Leaderboard(_ context.Context, run int64, model string, fo
 	return f.board, f.boardErr
 }
 
+func (f *fakeRatings) Player(context.Context, int64, string) (store.Player, error) {
+	return store.Player{}, nil
+}
+
+func (f *fakeRatings) PlayerHistory(context.Context, int64, string, int) (string, []store.HistoryPoint, error) {
+	return "", nil, nil
+}
+
+func (f *fakeRatings) PlayerMatches(context.Context, int64, string, int, int) (string, store.MatchPage, error) {
+	return "", store.MatchPage{}, nil
+}
+
+func (f *fakeRatings) RatingsOf(context.Context, int64, string, int, []string) (map[string]store.Rated, error) {
+	return nil, nil
+}
+
+func (f *fakeRatings) PlayerRivals(context.Context, int64, string, int) (string, []store.Rival, error) {
+	return "", nil, nil
+}
+
 func serve(t *testing.T, ratings Ratings, path string) (*httptest.ResponseRecorder, string) {
 	t.Helper()
 	var logs bytes.Buffer

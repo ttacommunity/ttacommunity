@@ -1,5 +1,14 @@
 import { describe, expect, it } from 'vitest';
-import { RatingsApiError, currentRun, history, leaderboard } from './ratings';
+import {
+  RatingsApiError,
+  currentRun,
+  history,
+  leaderboard,
+  player,
+  playerHistory,
+  playerMatches,
+  playerRivals,
+} from './ratings';
 
 interface Call {
   url: string;
@@ -79,5 +88,29 @@ describe('history', () => {
       'https://api.example/v1/runs/5/history?model=glicko2_daneo&format=0',
     ]);
     expect(f.calls[0]?.init?.credentials).toBe('omit');
+  });
+});
+
+describe('player routes', () => {
+  it('encode the name as one path segment and send no credentials', async () => {
+    const f = fakeFetch(200, '{}');
+    await player('https://api.example', 5, 'a/b c?', f.fetch);
+    await playerHistory('https://api.example', 5, 'Ann', 3, f.fetch);
+    await playerMatches('https://api.example', 5, 'Ann', 0, 'whr_softer', 2, f.fetch);
+    await playerRivals('https://api.example', 5, 'Ann', 4, f.fetch);
+
+    expect(f.calls.map((c) => c.url)).toEqual([
+      'https://api.example/v1/runs/5/players/a%2Fb%20c%3F',
+      'https://api.example/v1/runs/5/players/Ann/history?format=3',
+      'https://api.example/v1/runs/5/players/Ann/matches?format=0&model=whr_softer&page=2',
+      'https://api.example/v1/runs/5/players/Ann/rivals?format=4',
+    ]);
+    expect(f.calls.every((c) => c.init?.credentials === 'omit')).toBe(true);
+  });
+
+  it("raise the API's message for an unknown player", async () => {
+    const f = fakeFetch(404, '{"error":"no player has this name"}');
+    const err = await player('https://api.example', 5, 'zed', f.fetch).catch((e: unknown) => e);
+    expect(err).toMatchObject({ status: 404, message: 'no player has this name' });
   });
 });

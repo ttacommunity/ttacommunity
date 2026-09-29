@@ -33,6 +33,11 @@ type Ratings interface {
 	CurrentRun(ctx context.Context) (store.PublishedRun, error)
 	Leaderboard(ctx context.Context, run int64, model string, format int) ([]store.LeaderboardRow, error)
 	History(ctx context.Context, run int64, model string, format int, at *time.Time) (time.Time, []store.HistoryRow, error)
+	Player(ctx context.Context, run int64, name string) (store.Player, error)
+	PlayerHistory(ctx context.Context, run int64, name string, format int) (string, []store.HistoryPoint, error)
+	PlayerMatches(ctx context.Context, run int64, name string, format, page int) (string, store.MatchPage, error)
+	RatingsOf(ctx context.Context, run int64, model string, format int, names []string) (map[string]store.Rated, error)
+	PlayerRivals(ctx context.Context, run int64, name string, format int) (string, []store.Rival, error)
 }
 
 // NewMux returns the API's handler with every route in the spec registered.
