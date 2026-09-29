@@ -19,6 +19,24 @@ import (
 	openapi_types "github.com/oapi-codegen/runtime/types"
 )
 
+// Defines values for CalibrationRowMode.
+const (
+	Standard    CalibrationRowMode = "standard"
+	WalkForward CalibrationRowMode = "walk_forward"
+)
+
+// Valid indicates whether the value is a known member of the CalibrationRowMode enum.
+func (e CalibrationRowMode) Valid() bool {
+	switch e {
+	case Standard:
+		return true
+	case WalkForward:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for Format.
 const (
 	N0 Format = 0
@@ -229,6 +247,61 @@ func (e GetLeaderboardCsvParamsStatsView) Valid() bool {
 	}
 }
 
+// Agreement defines model for Agreement.
+type Agreement struct {
+	// Format Players per game. 0 is every format together
+	Format Format `json:"format"`
+	RunId  int64  `json:"run_id"`
+
+	// Sample Players rated in all ten models with 15 or more opponents
+	Sample  int         `json:"sample"`
+	Top     []ModelPair `json:"top"`
+	Weakest []ModelPair `json:"weakest"`
+}
+
+// Calibration defines model for Calibration.
+type Calibration struct {
+	Rows  []CalibrationRow `json:"rows"`
+	RunId int64            `json:"run_id"`
+}
+
+// CalibrationBins Predicted against actual win rate, bin by bin
+type CalibrationBins struct {
+	Actuals []float64 `json:"actuals"`
+	Counts  []int     `json:"counts"`
+	Ideal   []float64 `json:"ideal"`
+	Labels  []string  `json:"labels"`
+	Preds   []float64 `json:"preds"`
+}
+
+// CalibrationRow defines model for CalibrationRow.
+type CalibrationRow struct {
+	// Accuracy Percent
+	Accuracy *float64 `json:"accuracy"`
+
+	// Bins Predicted against actual win rate, bin by bin
+	Bins  CalibrationBins `json:"bins"`
+	Brier float64         `json:"brier"`
+
+	// Ece Expected calibration error, 0 to 1
+	Ece float64 `json:"ece"`
+
+	// Format Players per game. 0 is every format together
+	Format  Format   `json:"format"`
+	LogLoss *float64 `json:"log_loss"`
+
+	// Matches Games evaluated
+	Matches int                `json:"matches"`
+	Mode    CalibrationRowMode `json:"mode"`
+
+	// Model The rating model. `_softer` models reset gently each season, and
+	// `_retro` models start from a retrospectively calibrated prior.
+	Model Model `json:"model"`
+}
+
+// CalibrationRowMode defines model for CalibrationRow.Mode.
+type CalibrationRowMode string
+
 // CareerYear defines model for CareerYear.
 type CareerYear struct {
 	CareerDraws  int `json:"career_draws"`
@@ -265,6 +338,27 @@ type Champion struct {
 
 	// Reigning True for the current champion, in the run's latest year
 	Reigning bool `json:"reigning"`
+}
+
+// Distribution defines model for Distribution.
+type Distribution struct {
+	Engines []EngineDistribution `json:"engines"`
+
+	// Format Players per game. 0 is every format together
+	Format Format   `json:"format"`
+	Labels []string `json:"labels"`
+	RunId  int64    `json:"run_id"`
+}
+
+// EngineDistribution defines model for EngineDistribution.
+type EngineDistribution struct {
+	ActiveMean float64 `json:"active_mean"`
+	Counts     []int   `json:"counts"`
+	Mean       float64 `json:"mean"`
+
+	// Model The rating model. `_softer` models reset gently each season, and
+	// `_retro` models start from a retrospectively calibrated prior.
+	Model Model `json:"model"`
 }
 
 // Error defines model for Error.
@@ -382,6 +476,19 @@ type MatrixCell struct {
 // Model The rating model. `_softer` models reset gently each season, and
 // `_retro` models start from a retrospectively calibrated prior.
 type Model string
+
+// ModelPair defines model for ModelPair.
+type ModelPair struct {
+	// A The rating model. `_softer` models reset gently each season, and
+	// `_retro` models start from a retrospectively calibrated prior.
+	A Model `json:"a"`
+
+	// B The rating model. `_softer` models reset gently each season, and
+	// `_retro` models start from a retrospectively calibrated prior.
+	B        Model   `json:"b"`
+	Pearson  float64 `json:"pearson"`
+	Spearman float64 `json:"spearman"`
+}
 
 // ModelPeak defines model for ModelPeak.
 type ModelPeak struct {
@@ -680,6 +787,16 @@ type NoPublishedRun = Error
 // NotFound defines model for NotFound.
 type NotFound = Error
 
+// GetAgreementParams defines parameters for GetAgreement.
+type GetAgreementParams struct {
+	Format *Format `form:"format,omitempty" json:"format,omitempty"`
+}
+
+// GetDistributionParams defines parameters for GetDistribution.
+type GetDistributionParams struct {
+	Format *Format `form:"format,omitempty" json:"format,omitempty"`
+}
+
 // GetHistoryParams defines parameters for GetHistory.
 type GetHistoryParams struct {
 	Model  *Model              `form:"model,omitempty" json:"model,omitempty"`
@@ -774,6 +891,15 @@ type ServerInterface interface {
 	// GetCurrentRun The run the site shows now
 	// (GET /v1/runs/current)
 	GetCurrentRun(w http.ResponseWriter, r *http.Request)
+	// GetAgreement How far the models agree
+	// (GET /v1/runs/{run}/analysis/agreement)
+	GetAgreement(w http.ResponseWriter, r *http.Request, run RunId, params GetAgreementParams)
+	// GetCalibration How well each model predicted games
+	// (GET /v1/runs/{run}/analysis/calibration)
+	GetCalibration(w http.ResponseWriter, r *http.Request, run RunId)
+	// GetDistribution How ratings spread in each engine
+	// (GET /v1/runs/{run}/analysis/distribution)
+	GetDistribution(w http.ResponseWriter, r *http.Request, run RunId, params GetDistributionParams)
 	// GetHistory Each player's rating at a past date, for rating changes over time
 	// (GET /v1/runs/{run}/history)
 	GetHistory(w http.ResponseWriter, r *http.Request, run RunId, params GetHistoryParams)
@@ -854,6 +980,116 @@ func (siw *ServerInterfaceWrapper) GetCurrentRun(w http.ResponseWriter, r *http.
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.GetCurrentRun(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetAgreement operation middleware
+func (siw *ServerInterfaceWrapper) GetAgreement(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "run" -------------
+	var run RunId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "run", r.PathValue("run"), &run, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "integer", Format: "int64", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "run", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params GetAgreementParams
+
+	// ------------- Optional query parameter "format" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "format", r.URL.Query(), &params.Format, runtime.BindQueryParameterOptions{Type: "integer", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "format"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "format", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetAgreement(w, r, run, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetCalibration operation middleware
+func (siw *ServerInterfaceWrapper) GetCalibration(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "run" -------------
+	var run RunId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "run", r.PathValue("run"), &run, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "integer", Format: "int64", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "run", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetCalibration(w, r, run)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetDistribution operation middleware
+func (siw *ServerInterfaceWrapper) GetDistribution(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "run" -------------
+	var run RunId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "run", r.PathValue("run"), &run, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "integer", Format: "int64", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "run", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params GetDistributionParams
+
+	// ------------- Optional query parameter "format" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "format", r.URL.Query(), &params.Format, runtime.BindQueryParameterOptions{Type: "integer", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "format"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "format", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetDistribution(w, r, run, params)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -1743,6 +1979,9 @@ func HandlerWithOptions(si ServerInterface, options StdHTTPServerOptions) http.H
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/v1/runs/{run}/players/{name}/matrix", wrapper.GetPlayerMatrix)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/v1/runs/{run}/years", wrapper.GetYears)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/v1/runs/{run}/years/{year}/leaderboard", wrapper.GetYearLeaderboard)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/v1/runs/{run}/analysis/calibration", wrapper.GetCalibration)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/v1/runs/{run}/analysis/distribution", wrapper.GetDistribution)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/v1/runs/{run}/analysis/agreement", wrapper.GetAgreement)
 
 	return m
 }
@@ -1886,6 +2125,188 @@ func (response GetCurrentRun503JSONResponse) VisitGetCurrentRunResponse(w http.R
 	w.Header().Set("Content-Type", "application/json")
 	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
 	w.WriteHeader(503)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetAgreementRequestObject struct {
+	Run    RunId `json:"run"`
+	Params GetAgreementParams
+}
+
+type GetAgreementResponseObject interface {
+	VisitGetAgreementResponse(w http.ResponseWriter) error
+}
+
+type GetAgreement200ResponseHeaders struct {
+	CacheControl string
+}
+
+type GetAgreement200JSONResponse struct {
+	Body    Agreement
+	Headers GetAgreement200ResponseHeaders
+}
+
+func (response GetAgreement200JSONResponse) VisitGetAgreementResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetAgreement400JSONResponse struct{ BadRequestJSONResponse }
+
+func (response GetAgreement400JSONResponse) VisitGetAgreementResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetAgreement404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response GetAgreement404JSONResponse) VisitGetAgreementResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetCalibrationRequestObject struct {
+	Run RunId `json:"run"`
+}
+
+type GetCalibrationResponseObject interface {
+	VisitGetCalibrationResponse(w http.ResponseWriter) error
+}
+
+type GetCalibration200ResponseHeaders struct {
+	CacheControl string
+}
+
+type GetCalibration200JSONResponse struct {
+	Body    Calibration
+	Headers GetCalibration200ResponseHeaders
+}
+
+func (response GetCalibration200JSONResponse) VisitGetCalibrationResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetCalibration400JSONResponse struct{ BadRequestJSONResponse }
+
+func (response GetCalibration400JSONResponse) VisitGetCalibrationResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetCalibration404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response GetCalibration404JSONResponse) VisitGetCalibrationResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetDistributionRequestObject struct {
+	Run    RunId `json:"run"`
+	Params GetDistributionParams
+}
+
+type GetDistributionResponseObject interface {
+	VisitGetDistributionResponse(w http.ResponseWriter) error
+}
+
+type GetDistribution200ResponseHeaders struct {
+	CacheControl string
+}
+
+type GetDistribution200JSONResponse struct {
+	Body    Distribution
+	Headers GetDistribution200ResponseHeaders
+}
+
+func (response GetDistribution200JSONResponse) VisitGetDistributionResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetDistribution400JSONResponse struct{ BadRequestJSONResponse }
+
+func (response GetDistribution400JSONResponse) VisitGetDistributionResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetDistribution404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response GetDistribution404JSONResponse) VisitGetDistributionResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(404)
 	_, err := buf.WriteTo(w)
 	return err
 }
@@ -2645,6 +3066,15 @@ type StrictServerInterface interface {
 	// GetCurrentRun The run the site shows now
 	// (GET /v1/runs/current)
 	GetCurrentRun(ctx context.Context, request GetCurrentRunRequestObject) (GetCurrentRunResponseObject, error)
+	// GetAgreement How far the models agree
+	// (GET /v1/runs/{run}/analysis/agreement)
+	GetAgreement(ctx context.Context, request GetAgreementRequestObject) (GetAgreementResponseObject, error)
+	// GetCalibration How well each model predicted games
+	// (GET /v1/runs/{run}/analysis/calibration)
+	GetCalibration(ctx context.Context, request GetCalibrationRequestObject) (GetCalibrationResponseObject, error)
+	// GetDistribution How ratings spread in each engine
+	// (GET /v1/runs/{run}/analysis/distribution)
+	GetDistribution(ctx context.Context, request GetDistributionRequestObject) (GetDistributionResponseObject, error)
 	// GetHistory Each player's rating at a past date, for rating changes over time
 	// (GET /v1/runs/{run}/history)
 	GetHistory(ctx context.Context, request GetHistoryRequestObject) (GetHistoryResponseObject, error)
@@ -2787,6 +3217,86 @@ func (sh *strictHandler) GetCurrentRun(w http.ResponseWriter, r *http.Request) {
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(GetCurrentRunResponseObject); ok {
 		if err := validResponse.VisitGetCurrentRunResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// GetAgreement operation middleware
+func (sh *strictHandler) GetAgreement(w http.ResponseWriter, r *http.Request, run RunId, params GetAgreementParams) {
+	var request GetAgreementRequestObject
+
+	request.Run = run
+	request.Params = params
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.GetAgreement(ctx, request.(GetAgreementRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetAgreement")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(GetAgreementResponseObject); ok {
+		if err := validResponse.VisitGetAgreementResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// GetCalibration operation middleware
+func (sh *strictHandler) GetCalibration(w http.ResponseWriter, r *http.Request, run RunId) {
+	var request GetCalibrationRequestObject
+
+	request.Run = run
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.GetCalibration(ctx, request.(GetCalibrationRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetCalibration")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(GetCalibrationResponseObject); ok {
+		if err := validResponse.VisitGetCalibrationResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// GetDistribution operation middleware
+func (sh *strictHandler) GetDistribution(w http.ResponseWriter, r *http.Request, run RunId, params GetDistributionParams) {
+	var request GetDistributionRequestObject
+
+	request.Run = run
+	request.Params = params
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.GetDistribution(ctx, request.(GetDistributionRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetDistribution")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(GetDistributionResponseObject); ok {
+		if err := validResponse.VisitGetDistributionResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {

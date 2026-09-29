@@ -2,7 +2,7 @@
 /** The page shell every site page uses: upstream's header, nav and footer around the page's content. */
 import '@ttac/shared/styles/theme.css';
 import { Font } from 'astro:assets';
-import { isCurrent, sections } from '../lib/nav';
+import { currentSection, sections } from '../lib/nav';
 
 interface Props {
   title: string;
@@ -10,7 +10,7 @@ interface Props {
 }
 
 const { title, description } = Astro.props;
-const path = Astro.url.pathname;
+const current = currentSection(Astro.url.pathname);
 ---
 <html lang="en">
   <head>
@@ -47,7 +47,7 @@ const path = Astro.url.pathname;
             <button type="button" class="nav-close-btn" aria-label="Close navigation">✕</button>
           </div>
           {sections.map((s) => (
-            <a href={s.href} class:list={{ active: isCurrent(path, s.href) }} aria-current={isCurrent(path, s.href) ? 'page' : undefined}>
+            <a href={s.href} class:list={{ active: current === s.href }} aria-current={current === s.href ? 'page' : undefined}>
               {s.label}
             </a>
           ))}

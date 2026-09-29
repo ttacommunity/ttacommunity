@@ -1,0 +1,40 @@
+---
+import { PUBLIC_API_URL } from 'astro:env/client';
+import { getEntry, render } from 'astro:content';
+import SiteLayout from '../../../layouts/SiteLayout.astro';
+import CalibrationPanel from '../../../components/CalibrationPanel';
+import EngineSpread from '../../../components/EngineSpread';
+import '../../../components/AnalysisPage.css';
+
+const commentary = await getEntry('pages', 'analysis-commentary');
+if (commentary === undefined) throw new Error('src/content/analysis-commentary.md is missing');
+const { Content } = await render(commentary);
+---
+<SiteLayout title="Model Analysis & Diagnostics | Through the Ages" description="How well each Through the Ages rating model predicts games: calibration, rankings, rating spread and agreement.">
+  <nav class="subpage-nav" aria-label="Model analysis pages">
+    <a href="/ratings/analysis/" class="subpage-btn active" aria-current="page">📈 Overview &amp; Calibration</a>
+  </nav>
+
+  <div class="analysis-hero-card">
+    <div>
+      <h1 class="analysis-hero-title">Model Calibration &amp; Predictive Diagnostics</h1>
+      <p class="analysis-hero-desc">
+        Empirical statistical validation across <strong>Glicko-2 MP-Weighted</strong>, <strong>Glicko-2 Standard</strong>, and <strong>Whole-History Rating (WHR)</strong> comparing in-sample match calibration against leak-free out-of-sample forward predictability.
+      </p>
+    </div>
+  </div>
+
+  <CalibrationPanel client:only="react" apiUrl={PUBLIC_API_URL} />
+
+  <section class="commentary-card" aria-labelledby="commentary-title">
+    <div class="card-head">
+      <h3 id="commentary-title">{commentary.data.title}</h3>
+      <span class="commentary-edited">Last edited: {commentary.data.updated}</span>
+    </div>
+    <div class="commentary-body">
+      <Content />
+    </div>
+  </section>
+
+  <EngineSpread client:only="react" apiUrl={PUBLIC_API_URL} />
+</SiteLayout>

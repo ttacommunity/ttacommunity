@@ -1,7 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import {
   RatingsApiError,
+  agreement,
+  calibration,
   currentRun,
+  distribution,
   history,
   leaderboard,
   player,
@@ -136,6 +139,21 @@ describe('year routes', () => {
     expect(f.calls.map((c) => c.url)).toEqual([
       'https://api.example/v1/runs/5/years',
       'https://api.example/v1/runs/5/years/2024/leaderboard?model=whr_softer&format=3',
+    ]);
+    expect(f.calls.every((c) => c.init?.credentials === 'omit')).toBe(true);
+  });
+});
+
+describe('analysis routes', () => {
+  it('ask for the calibration, distribution and agreement without credentials', async () => {
+    const f = fakeFetch(200, '{}');
+    await calibration('https://api.example', 5, f.fetch);
+    await distribution('https://api.example', 5, 3, f.fetch);
+    await agreement('https://api.example', 5, 0, f.fetch);
+    expect(f.calls.map((c) => c.url)).toEqual([
+      'https://api.example/v1/runs/5/analysis/calibration',
+      'https://api.example/v1/runs/5/analysis/distribution?format=3',
+      'https://api.example/v1/runs/5/analysis/agreement?format=0',
     ]);
     expect(f.calls.every((c) => c.init?.credentials === 'omit')).toBe(true);
   });

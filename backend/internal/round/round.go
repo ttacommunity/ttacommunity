@@ -10,7 +10,12 @@ import (
 // Tenth rounds x to one decimal as Python's round(x, 1) does: from the exact
 // binary value, ties to even.
 func Tenth(x float64) float64 {
-	r, _ := strconv.ParseFloat(strconv.FormatFloat(x, 'f', 1, 64), 64)
+	return To(x, 1)
+}
+
+// To rounds x to places decimals as Python's round(x, places) does.
+func To(x float64, places int) float64 {
+	r, _ := strconv.ParseFloat(strconv.FormatFloat(x, 'f', places, 64), 64)
 	return r
 }
 
