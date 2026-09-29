@@ -366,6 +366,41 @@ paths:
           $ref: "#/components/responses/BadRequest"
         "404":
           $ref: "#/components/responses/NotFound"
+  /v1/runs/{run}/players/{name}/matrix:
+    get:
+      operationId: getPlayerMatrix
+      summary: One player's rating in each engine and reset mode, now or at a year's end
+      description: |
+        The player's rating, deviation, conservative rating and rank in the
+        ten continuous and season-reset models for one format. Without
+        `year`, the run's ratings and ranks. With it, each model's last
+        rating period that year, ranked by conservative rating in it; a
+        model the player has no row in then is left out. Cached for a year.
+      parameters:
+        - $ref: "#/components/parameters/RunId"
+        - $ref: "#/components/parameters/PlayerName"
+        - $ref: "#/components/parameters/Format"
+        - name: year
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 2000
+            maximum: 2100
+      responses:
+        "200":
+          description: The player's ratings by model
+          headers:
+            Cache-Control:
+              $ref: "#/components/headers/CacheControl"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PlayerMatrix"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "404":
+          $ref: "#/components/responses/NotFound"
 components:
   parameters:
     Model:
@@ -835,7 +870,7 @@ components:
             $ref: "#/components/schemas/ModelPeak"
     CareerYear:
       type: object
-      required: [year, opponents, wins, losses, draws, win_rate, peak_rating, title]
+      required: [year, opponents, wins, losses, draws, win_rate, peak_rating, title, year_end_rating, career_opponents, career_wins, career_losses, career_draws, career_win_rate]
       properties:
         year:
           type: integer
@@ -856,6 +891,24 @@ components:
           type: number
           format: double
           nullable: true
+        year_end_rating:
+          description: Glicko-2 Standard's last rating that year, to 0.1, as upstream shows it
+          type: number
+          format: double
+          nullable: true
+        career_opponents:
+          description: Opponents from the first year to the end of this one
+          type: integer
+        career_wins:
+          type: integer
+        career_losses:
+          type: integer
+        career_draws:
+          type: integer
+        career_win_rate:
+          description: Percent, 0 to 100, a draw counting half
+          type: number
+          format: double
         title:
           description: The best title the run derived for the player that year
           nullable: true
@@ -915,3 +968,40 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/Seat"
+    PlayerMatrix:
+      type: object
+      required: [run_id, name, format, year, cells]
+      properties:
+        run_id:
+          type: integer
+          format: int64
+        name:
+          type: string
+        format:
+          $ref: "#/components/schemas/Format"
+        year:
+          description: The year asked for, or null for the run's ratings
+          type: integer
+          nullable: true
+        cells:
+          type: array
+          items:
+            $ref: "#/components/schemas/MatrixCell"
+    MatrixCell:
+      type: object
+      required: [model, rating, rd, c_rating, rank]
+      properties:
+        model:
+          $ref: "#/components/schemas/Model"
+        rating:
+          type: number
+          format: double
+        rd:
+          type: number
+          format: double
+        c_rating:
+          type: number
+          format: double
+        rank:
+          type: integer
+          nullable: true

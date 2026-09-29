@@ -262,6 +262,30 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/runs/{run}/players/{name}/matrix": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * One player's rating in each engine and reset mode, now or at a year's end
+         * @description The player's rating, deviation, conservative rating and rank in the
+         *     ten continuous and season-reset models for one format. Without
+         *     `year`, the run's ratings and ranks. With it, each model's last
+         *     rating period that year, ranked by conservative rating in it; a
+         *     model the player has no row in then is left out. Cached for a year.
+         */
+        get: operations["getPlayerMatrix"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -507,6 +531,21 @@ export interface components {
              * @description The year's highest rating in any model's history, to 0.1
              */
             peak_rating: number | null;
+            /**
+             * Format: double
+             * @description Glicko-2 Standard's last rating that year, to 0.1, as upstream shows it
+             */
+            year_end_rating: number | null;
+            /** @description Opponents from the first year to the end of this one */
+            career_opponents: number;
+            career_wins: number;
+            career_losses: number;
+            career_draws: number;
+            /**
+             * Format: double
+             * @description Percent, 0 to 100, a draw counting half
+             */
+            career_win_rate: number;
             /** @description The best title the run derived for the player that year */
             title: components["schemas"]["TitleCode"] | null;
         };
@@ -540,6 +579,25 @@ export interface components {
             other_place: number;
             /** @description Highest score first */
             seats: components["schemas"]["Seat"][];
+        };
+        PlayerMatrix: {
+            /** Format: int64 */
+            run_id: number;
+            name: string;
+            format: components["schemas"]["Format"];
+            /** @description The year asked for, or null for the run's ratings */
+            year: number | null;
+            cells: components["schemas"]["MatrixCell"][];
+        };
+        MatrixCell: {
+            model: components["schemas"]["Model"];
+            /** Format: double */
+            rating: number;
+            /** Format: double */
+            rd: number;
+            /** Format: double */
+            c_rating: number;
+            rank: number | null;
         };
     };
     responses: {
@@ -935,6 +993,37 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["PlayerVersus"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    getPlayerMatrix: {
+        parameters: {
+            query?: {
+                format?: components["parameters"]["Format"];
+                year?: number;
+            };
+            header?: never;
+            path: {
+                /** @description A published run's id, from `/v1/runs/current` */
+                run: components["parameters"]["RunId"];
+                /** @description The player's name, as the leaderboard gives it */
+                name: components["parameters"]["PlayerName"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The player's ratings by model */
+            200: {
+                headers: {
+                    "Cache-Control": components["headers"]["CacheControl"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PlayerMatrix"];
                 };
             };
             400: components["responses"]["BadRequest"];
