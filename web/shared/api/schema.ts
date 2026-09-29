@@ -125,6 +125,97 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/runs/{run}/players/{name}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * One player's ratings in every model and format, for the player page
+         * @description The player's ratings in the ten continuous and season-reset models,
+         *     each format, with their title, career peak, country and game counts.
+         *     A name that matches no player exactly is looked up ignoring case,
+         *     if only one player matches. Country and titles can change without a
+         *     new run, so this is cached for five minutes.
+         */
+        get: operations["getPlayer"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/runs/{run}/players/{name}/history": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * One player's rating at the end of every period, for the chart
+         * @description The player's rating and conservative rating after each rating period
+         *     in the ten continuous and season-reset models, for one format. A
+         *     run's history never changes, so this is cached for a year.
+         */
+        get: operations["getPlayerHistory"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/runs/{run}/players/{name}/matches": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * One player's games, newest first, 30 to a page
+         * @description The games the run rated for the player, in one format (0 is all).
+         *     Each carries an estimate of what it is worth to the player's rating
+         *     today: one rating update from the run's final ratings in `model`
+         *     (WHR is estimated with GlickoD's update). A page past the last gives
+         *     the last. Cached for a year.
+         */
+        get: operations["getPlayerMatches"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/runs/{run}/players/{name}/rivals": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The player's record against each opponent
+         * @description Wins, losses and draws against the 200 opponents the player has met
+         *     most, in one format (0 is all). Cached for a year.
+         */
+        get: operations["getPlayerRivals"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -224,6 +315,126 @@ export interface components {
             /** @description Why the player holds it, e.g. the latest division played */
             reason: string;
         } | null;
+        Player: {
+            /** Format: int64 */
+            run_id: number;
+            /** @description The player's name as stored, whatever case was asked for */
+            name: string;
+            country: string | null;
+            title: components["schemas"]["Title"];
+            peak: components["schemas"]["Peak"];
+            /** Format: date */
+            last_played: string | null;
+            /**
+             * Format: date
+             * @description The date of the newest game in the run, by anyone
+             */
+            newest_game: string | null;
+            /** @description How many games the player has in the run, by format (0 is all) */
+            games: components["schemas"]["FormatGames"][];
+            ratings: components["schemas"]["PlayerRating"][];
+        };
+        /** @description The player's best title over their career, if any */
+        Peak: {
+            code: components["schemas"]["TitleCode"];
+            year: number | null;
+        } | null;
+        FormatGames: {
+            format: components["schemas"]["Format"];
+            games: number;
+        };
+        PlayerRating: {
+            model: components["schemas"]["Model"];
+            format: components["schemas"]["Format"];
+            rank: number | null;
+            /** Format: double */
+            rating: number;
+            /** Format: double */
+            rd: number;
+            /** Format: double */
+            c_rating: number;
+            opponents: number;
+            /**
+             * Format: double
+             * @description Percent, 0 to 100
+             */
+            win_rate: number;
+        };
+        PlayerHistory: {
+            /** Format: int64 */
+            run_id: number;
+            name: string;
+            format: components["schemas"]["Format"];
+            series: components["schemas"]["HistorySeries"][];
+        };
+        HistorySeries: {
+            model: components["schemas"]["Model"];
+            /** @description Oldest first */
+            points: components["schemas"]["HistoryPoint"][];
+        };
+        HistoryPoint: {
+            /** Format: date */
+            date: string;
+            /** Format: double */
+            rating: number;
+            /** Format: double */
+            c_rating: number;
+        };
+        PlayerMatches: {
+            /** Format: int64 */
+            run_id: number;
+            name: string;
+            format: components["schemas"]["Format"];
+            model: components["schemas"]["Model"];
+            page: number;
+            pages: number;
+            /** @description The player's games in this format */
+            total: number;
+            matches: components["schemas"]["PlayerMatch"][];
+        };
+        PlayerMatch: {
+            /** Format: int64 */
+            match_id: number;
+            tournament: string;
+            /** Format: date */
+            date: string;
+            player_count: number;
+            /** @description The player's place, 1 for the highest score */
+            placement: number;
+            replay_code: string | null;
+            /**
+             * Format: double
+             * @description What the game is worth to the player's rating today, to 0.1
+             */
+            rating_delta: number | null;
+            /** @description Highest score first */
+            seats: components["schemas"]["Seat"][];
+        };
+        Seat: {
+            name: string;
+            /** Format: double */
+            score: number;
+        };
+        PlayerRivals: {
+            /** Format: int64 */
+            run_id: number;
+            name: string;
+            format: components["schemas"]["Format"];
+            /** @description Most games first */
+            rivals: components["schemas"]["Rival"][];
+        };
+        Rival: {
+            name: string;
+            games: number;
+            wins: number;
+            losses: number;
+            draws: number;
+            /**
+             * Format: double
+             * @description Percent, 0 to 100, a draw counting half
+             */
+            win_rate: number;
+        };
     };
     responses: {
         /** @description A parameter is not one the API knows */
@@ -260,6 +471,8 @@ export interface components {
     parameters: {
         Model: components["schemas"]["Model"];
         Format: components["schemas"]["Format"];
+        /** @description The player's name, as the leaderboard gives it */
+        PlayerName: string;
         /** @description A published run's id, from `/v1/runs/current` */
         RunId: number;
     };
@@ -436,6 +649,126 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["History"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    getPlayer: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A published run's id, from `/v1/runs/current` */
+                run: components["parameters"]["RunId"];
+                /** @description The player's name, as the leaderboard gives it */
+                name: components["parameters"]["PlayerName"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The player */
+            200: {
+                headers: {
+                    "Cache-Control": components["headers"]["CacheControl"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Player"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    getPlayerHistory: {
+        parameters: {
+            query?: {
+                format?: components["parameters"]["Format"];
+            };
+            header?: never;
+            path: {
+                /** @description A published run's id, from `/v1/runs/current` */
+                run: components["parameters"]["RunId"];
+                /** @description The player's name, as the leaderboard gives it */
+                name: components["parameters"]["PlayerName"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The player's history */
+            200: {
+                headers: {
+                    "Cache-Control": components["headers"]["CacheControl"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PlayerHistory"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    getPlayerMatches: {
+        parameters: {
+            query?: {
+                format?: components["parameters"]["Format"];
+                model?: components["parameters"]["Model"];
+                page?: number;
+            };
+            header?: never;
+            path: {
+                /** @description A published run's id, from `/v1/runs/current` */
+                run: components["parameters"]["RunId"];
+                /** @description The player's name, as the leaderboard gives it */
+                name: components["parameters"]["PlayerName"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description One page of games */
+            200: {
+                headers: {
+                    "Cache-Control": components["headers"]["CacheControl"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PlayerMatches"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    getPlayerRivals: {
+        parameters: {
+            query?: {
+                format?: components["parameters"]["Format"];
+            };
+            header?: never;
+            path: {
+                /** @description A published run's id, from `/v1/runs/current` */
+                run: components["parameters"]["RunId"];
+                /** @description The player's name, as the leaderboard gives it */
+                name: components["parameters"]["PlayerName"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The player's rivals */
+            200: {
+                headers: {
+                    "Cache-Control": components["headers"]["CacheControl"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PlayerRivals"];
                 };
             };
             400: components["responses"]["BadRequest"];
