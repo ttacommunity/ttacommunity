@@ -1,0 +1,5 @@
+/* Small inline maths in interactive parts, where KaTeX (build time only) cannot reach. */
+.math {
+  font-family: 'Times New Roman', Times, serif;
+  font-size: 1.1em;
+}

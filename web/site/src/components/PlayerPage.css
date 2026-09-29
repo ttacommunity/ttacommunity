@@ -228,11 +228,6 @@
   color: #887864;
 }
 
-.math {
-  font-family: 'Times New Roman', Times, serif;
-  font-size: 1.1em;
-}
-
 /* GlickoD's card: upstream's gold gradient. */
 .model-card.card-daneo {
   border: 1.5px solid #b8860b;

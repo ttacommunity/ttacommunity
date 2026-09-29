@@ -26,6 +26,11 @@ export type Years = components['schemas']['Years'];
 export type YearEntry = components['schemas']['YearEntry'];
 export type YearLeaderboard = components['schemas']['YearLeaderboard'];
 export type YearRow = components['schemas']['YearRow'];
+export type Calibration = components['schemas']['Calibration'];
+export type CalibrationRow = components['schemas']['CalibrationRow'];
+export type Distribution = components['schemas']['Distribution'];
+export type Agreement = components['schemas']['Agreement'];
+export type ModelPair = components['schemas']['ModelPair'];
 
 /** An error response from the API, carrying its status and message. */
 export class RatingsApiError extends Error {
@@ -166,6 +171,21 @@ export async function yearLeaderboard(
 ): Promise<YearLeaderboard> {
   const query = new URLSearchParams({ model, format: String(format) });
   return get<YearLeaderboard>(fetchFn, base, `/v1/runs/${run}/years/${year}/leaderboard?${query}`);
+}
+
+/** Returns every model's calibration in a run, for both evaluation modes and all formats. */
+export async function calibration(base: string, run: number, fetchFn: typeof fetch = fetch): Promise<Calibration> {
+  return get<Calibration>(fetchFn, base, `/v1/runs/${run}/analysis/calibration`);
+}
+
+/** Returns how a run's players spread over rating bins in each engine, for a format. */
+export async function distribution(base: string, run: number, format: Format, fetchFn: typeof fetch = fetch): Promise<Distribution> {
+  return get<Distribution>(fetchFn, base, `/v1/runs/${run}/analysis/distribution?format=${format}`);
+}
+
+/** Returns the model pairs whose player rankings agree most and least, for a format. */
+export async function agreement(base: string, run: number, format: Format, fetchFn: typeof fetch = fetch): Promise<Agreement> {
+  return get<Agreement>(fetchFn, base, `/v1/runs/${run}/analysis/agreement?format=${format}`);
 }
 
 // Public routes take no credentials, so none are ever sent.

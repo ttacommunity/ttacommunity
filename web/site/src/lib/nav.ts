@@ -5,10 +5,16 @@ export interface Section {
   href: string;
 }
 
-export const sections: Section[] = [{ label: 'Ratings', href: '/ratings/' }];
+export const sections: Section[] = [
+  { label: 'Ratings', href: '/ratings/' },
+  { label: 'Model Analysis', href: '/ratings/analysis/' },
+];
 
-/** isCurrent reports whether a path is the section at href or a page under it. */
-export function isCurrent(path: string, href: string): boolean {
+/** currentSection returns the href of the most specific section a path is in, or undefined. */
+export function currentSection(path: string): string | undefined {
   const withSlash = path.endsWith('/') ? path : `${path}/`;
-  return withSlash.startsWith(href);
+  return sections
+    .map((s) => s.href)
+    .filter((href) => withSlash.startsWith(href))
+    .sort((a, b) => b.length - a.length)[0];
 }
