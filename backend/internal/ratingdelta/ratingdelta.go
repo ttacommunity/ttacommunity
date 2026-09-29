@@ -5,7 +5,8 @@ package ratingdelta
 
 import (
 	"math"
-	"strconv"
+
+	"ttacommunity/backend/internal/round"
 )
 
 const (
@@ -213,12 +214,5 @@ func Delta(engine, me string, playerCount int, seats []Seat, rating func(name st
 	default:
 		after = Update(before, games, pageTau, engine != "glicko2_std")
 	}
-	return round1(after.Rating - before.Rating), true
-}
-
-// round1 rounds to one decimal as Python's round(x, 1) does: from the exact
-// binary value, ties to even.
-func round1(x float64) float64 {
-	r, _ := strconv.ParseFloat(strconv.FormatFloat(x, 'f', 1, 64), 64)
-	return r
+	return round.Tenth(after.Rating - before.Rating), true
 }

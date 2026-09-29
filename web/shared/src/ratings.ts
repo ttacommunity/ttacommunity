@@ -15,6 +15,11 @@ export type PlayerMatches = components['schemas']['PlayerMatches'];
 export type PlayerMatch = components['schemas']['PlayerMatch'];
 export type Rival = components['schemas']['Rival'];
 export type PlayerRivals = components['schemas']['PlayerRivals'];
+export type PlayerCareer = components['schemas']['PlayerCareer'];
+export type CareerYear = components['schemas']['CareerYear'];
+export type ModelPeak = components['schemas']['ModelPeak'];
+export type PlayerVersus = components['schemas']['PlayerVersus'];
+export type VersusMatch = components['schemas']['VersusMatch'];
 
 /** An error response from the API, carrying its status and message. */
 export class RatingsApiError extends Error {
@@ -101,6 +106,28 @@ export async function playerRivals(
   fetchFn: typeof fetch = fetch,
 ): Promise<PlayerRivals> {
   return get<PlayerRivals>(fetchFn, base, playerPath(run, name, `/rivals?format=${format}`));
+}
+
+/** Returns a player's record each year and each continuous model's peak, in one format. */
+export async function playerCareer(
+  base: string,
+  run: number,
+  name: string,
+  format: Format,
+  fetchFn: typeof fetch = fetch,
+): Promise<PlayerCareer> {
+  return get<PlayerCareer>(fetchFn, base, playerPath(run, name, `/career?format=${format}`));
+}
+
+/** Returns the latest games two players played together, with where each finished. */
+export async function playerVersus(
+  base: string,
+  run: number,
+  name: string,
+  other: string,
+  fetchFn: typeof fetch = fetch,
+): Promise<PlayerVersus> {
+  return get<PlayerVersus>(fetchFn, base, playerPath(run, name, `/versus/${encodeURIComponent(other)}`));
 }
 
 // Public routes take no credentials, so none are ever sent.

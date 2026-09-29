@@ -301,7 +301,7 @@ func addHistory(t *testing.T, pool *pgxpool.Pool, run int64, model string, forma
 	t.Helper()
 	_, err := pool.Exec(context.Background(), `
 		INSERT INTO rating_history (run_id, model_type, player_count, player_name, period_date, rating, rd, c_rating)
-		VALUES ($1, $2, $3, $4, $5, $6 + 90, 30, $6)`, run, model, format, name, period, cRating)
+		VALUES ($1, $2, $3, $4, $5, $6::float8 + 90, 30, $6::float8)`, run, model, format, name, period, cRating)
 	if err != nil {
 		t.Fatalf("adding %s's history at %s: %v", name, period, err)
 	}

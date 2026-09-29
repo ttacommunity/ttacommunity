@@ -295,3 +295,129 @@ func TestPlayerRivalsCountsEachOpponentsRecord(t *testing.T) {
 		t.Errorf("PlayerRivals(ann, 2) = %v, %v; want bob only", duels, err)
 	}
 }
+
+func addYearlyTitle(t *testing.T, pool *pgxpool.Pool, run int64, name string, year int, title string) {
+	t.Helper()
+	_, err := pool.Exec(context.Background(),
+		"INSERT INTO player_yearly_titles (run_id, player_name, year, title) VALUES ($1, $2, $3, $4)", run, name, year, title)
+	if err != nil {
+		t.Fatalf("adding %s's %d title: %v", name, year, err)
+	}
+}
+
+func TestPlayerCareerGivesEachYearsRecordPeakAndTitle(t *testing.T) {
+	pool := migrated(t)
+	r := NewRatingsReader(asReader(t, pool))
+	ctx := context.Background()
+	run := publishedRun(t, pool)
+	other := publishedRun(t, pool)
+	addPlayers(t, pool, "ann", "bob", "cy")
+	addGame(t, pool, run, "2024-03-01", "Cup", Seat{"ann", 9}, Seat{"bob", 5})
+	addGame(t, pool, run, "2024-04-01", "Cup", Seat{"ann", 5}, Seat{"bob", 5}, Seat{"cy", 7})
+	addGame(t, pool, run, "2025-02-01", "Cup", Seat{"bob", 9}, Seat{"ann", 5})
+	addGame(t, pool, other, "2025-03-01", "Cup", Seat{"ann", 9}, Seat{"bob", 5})
+	addYearlyTitle(t, pool, run, "ann", 2024, "GM")
+	addYearlyTitle(t, pool, other, "ann", 2025, "M")
+	addHistory(t, pool, run, "glicko2_daneo", 0, "ann", "2024-03-31", 1600)
+	addHistory(t, pool, run, "whr_softer", 0, "ann", "2024-04-30", 1700)
+	addHistory(t, pool, run, "glicko2_std", 2, "ann", "2024-04-30", 1900)
+
+	name, years, _, err := r.PlayerCareer(ctx, run, "ANN", 0)
+	if err != nil {
+		t.Fatalf("PlayerCareer: %v", err)
+	}
+	peak2024 := 1790.0
+	want := []CareerYear{
+		{Year: 2024, Opponents: 3, Wins: 1, Losses: 1, Draws: 1, PeakRating: &peak2024, Title: strp("GM")},
+		{Year: 2025, Opponents: 1, Losses: 1},
+	}
+	if name != "ann" || fmt.Sprint(deref(years)) != fmt.Sprint(deref(want)) {
+		t.Errorf("PlayerCareer(ANN, 0) = %q, %v; want ann, %v", name, deref(years), deref(want))
+	}
+
+	_, duels, _, err := r.PlayerCareer(ctx, run, "ann", 2)
+	if err != nil || len(duels) != 2 || duels[0].Opponents != 1 || duels[0].PeakRating == nil || *duels[0].PeakRating != 1990 {
+		t.Errorf("PlayerCareer(ann, 2) = %v, %v; want 2P years, peak from 2P history", deref(duels), err)
+	}
+	_, fours, _, err := r.PlayerCareer(ctx, run, "ann", 4)
+	if err != nil || len(fours) != 2 || fours[0].Opponents != 3 || fours[0].PeakRating != nil {
+		t.Errorf("PlayerCareer(ann, 4) = %v, %v; want all formats' years, no 4P peak", deref(fours), err)
+	}
+}
+
+func TestPlayerCareerGivesEachEnginesPeakAndItsRankThatMonth(t *testing.T) {
+	pool := migrated(t)
+	r := NewRatingsReader(asReader(t, pool))
+	ctx := context.Background()
+	run := publishedRun(t, pool)
+	addPlayers(t, pool, "ann")
+	addHistory(t, pool, run, "glicko2_std", 0, "ann", "2024-01-31", 1700)
+	addHistory(t, pool, run, "glicko2_std", 0, "ann", "2024-02-29", 1800.04)
+	addHistory(t, pool, run, "glicko2_std", 0, "ann", "2024-03-31", 1800)
+	addHistory(t, pool, run, "glicko2_std", 0, "bob", "2024-02-29", 1850)
+	addHistory(t, pool, run, "glicko2_std", 0, "cy", "2024-02-29", 1500)
+	addHistory(t, pool, run, "glicko2_std", 0, "dee", "2024-03-31", 2000)
+	addHistory(t, pool, run, "whr", 0, "ann", "2024-01-31", 1600)
+	addHistory(t, pool, run, "glicko2_std_softer", 0, "ann", "2024-01-31", 2500)
+
+	_, _, peaks, err := r.PlayerCareer(ctx, run, "ann", 0)
+	if err != nil {
+		t.Fatalf("PlayerCareer: %v", err)
+	}
+	// Ratings are the history's c_rating + 90; the peak is compared rounded, as upstream does, so ann outranks herself.
+	want := []ModelPeak{
+		{Model: "glicko2_std", Rating: 1890, Rank: 3, Date: day("2024-02-29")},
+		{Model: "whr", Rating: 1690, Rank: 1, Date: day("2024-01-31")},
+	}
+	if fmt.Sprint(peaks) != fmt.Sprint(want) {
+		t.Errorf("peaks = %v, want %v", peaks, want)
+	}
+}
+
+func TestVersusGivesTwoPlayersSharedGamesNewestFirst(t *testing.T) {
+	pool := migrated(t)
+	r := NewRatingsReader(asReader(t, pool))
+	ctx := context.Background()
+	run := publishedRun(t, pool)
+	other := publishedRun(t, pool)
+	addPlayers(t, pool, "ann", "bob", "cy")
+	first := addGame(t, pool, run, "2024-01-01", "Cup", Seat{"ann", 9}, Seat{"bob", 5})
+	trio := addGame(t, pool, run, "2024-02-01", "Cup", Seat{"cy", 9}, Seat{"bob", 7}, Seat{"ann", 5})
+	addGame(t, pool, run, "2024-03-01", "Cup", Seat{"ann", 9}, Seat{"cy", 5})
+	addGame(t, pool, other, "2024-04-01", "Cup", Seat{"ann", 9}, Seat{"bob", 5})
+	for i := range 101 {
+		addGame(t, pool, run, day("2020-01-01").AddDate(0, 0, i).Format(time.DateOnly), "Old", Seat{"bob", 1}, Seat{"ann", 2})
+	}
+
+	a, b, got, err := r.Versus(ctx, run, "ANN", "Bob")
+	if err != nil {
+		t.Fatalf("Versus: %v", err)
+	}
+	if a != "ann" || b != "bob" || len(got) != 100 || got[0].ID != trio || got[1].ID != first {
+		t.Fatalf("Versus(ANN, Bob) = %q, %q, %d games starting %v; want ann, bob, 100 starting the trio then the duel", a, b, len(got), got[:2])
+	}
+	if !slices.Equal(got[0].Seats, []Seat{{"cy", 9}, {"bob", 7}, {"ann", 5}}) {
+		t.Errorf("trio seats = %v, want seat order", got[0].Seats)
+	}
+	if _, _, _, err := r.Versus(ctx, run, "ann", "zed"); !errors.Is(err, ErrPlayerNotFound) {
+		t.Errorf("Versus(ann, zed): err = %v, want ErrPlayerNotFound", err)
+	}
+}
+
+func strp(s string) *string { return &s }
+
+// deref prints a career's optional fields by value, so two careers compare by content.
+func deref(years []CareerYear) []string {
+	out := make([]string, 0, len(years))
+	for _, y := range years {
+		peak, title := "-", "-"
+		if y.PeakRating != nil {
+			peak = fmt.Sprint(*y.PeakRating)
+		}
+		if y.Title != nil {
+			title = *y.Title
+		}
+		out = append(out, fmt.Sprintf("%d %d/%d/%d/%d peak %s title %s", y.Year, y.Opponents, y.Wins, y.Losses, y.Draws, peak, title))
+	}
+	return out
+}

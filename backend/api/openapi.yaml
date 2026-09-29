@@ -305,6 +305,67 @@ paths:
           $ref: "#/components/responses/BadRequest"
         "404":
           $ref: "#/components/responses/NotFound"
+  /v1/runs/{run}/players/{name}/career:
+    get:
+      operationId: getPlayerCareer
+      summary: One player's record each year and each model's peak, for the career box
+      description: |
+        The player's record in each calendar year of one format (every
+        format together when that format has none), with the year's highest
+        rating in any model and the title the run derived for that year; and
+        each continuous model's peak rating, when it was, and the player's
+        rank among that month's ratings. Cached for a year.
+      parameters:
+        - $ref: "#/components/parameters/RunId"
+        - $ref: "#/components/parameters/PlayerName"
+        - $ref: "#/components/parameters/Format"
+      responses:
+        "200":
+          description: The player's career
+          headers:
+            Cache-Control:
+              $ref: "#/components/headers/CacheControl"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PlayerCareer"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /v1/runs/{run}/players/{name}/versus/{other}:
+    get:
+      operationId: getPlayerVersus
+      summary: The latest games two players played together
+      description: |
+        The 100 latest games the run rated with both players at the table,
+        in every format, newest first, with where each finished. Cached for a
+        year.
+      parameters:
+        - $ref: "#/components/parameters/RunId"
+        - $ref: "#/components/parameters/PlayerName"
+        - name: other
+          in: path
+          required: true
+          description: The other player's name
+          schema:
+            type: string
+            minLength: 1
+            maxLength: 200
+      responses:
+        "200":
+          description: Their shared games
+          headers:
+            Cache-Control:
+              $ref: "#/components/headers/CacheControl"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PlayerVersus"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "404":
+          $ref: "#/components/responses/NotFound"
 components:
   parameters:
     Model:
@@ -751,3 +812,106 @@ components:
           description: Percent, 0 to 100, a draw counting half
           type: number
           format: double
+    PlayerCareer:
+      type: object
+      required: [run_id, name, format, years, peaks]
+      properties:
+        run_id:
+          type: integer
+          format: int64
+        name:
+          type: string
+        format:
+          $ref: "#/components/schemas/Format"
+        years:
+          description: Oldest first
+          type: array
+          items:
+            $ref: "#/components/schemas/CareerYear"
+        peaks:
+          description: GlickoD, Standard, MP-Weighted, Adaptive-T, WHR, for those with history
+          type: array
+          items:
+            $ref: "#/components/schemas/ModelPeak"
+    CareerYear:
+      type: object
+      required: [year, opponents, wins, losses, draws, win_rate, peak_rating, title]
+      properties:
+        year:
+          type: integer
+        opponents:
+          type: integer
+        wins:
+          type: integer
+        losses:
+          type: integer
+        draws:
+          type: integer
+        win_rate:
+          description: Percent, 0 to 100, a draw counting half
+          type: number
+          format: double
+        peak_rating:
+          description: The year's highest rating in any model's history, to 0.1
+          type: number
+          format: double
+          nullable: true
+        title:
+          description: The best title the run derived for the player that year
+          nullable: true
+          allOf:
+            - $ref: "#/components/schemas/TitleCode"
+    ModelPeak:
+      type: object
+      required: [model, rating, rank, date]
+      properties:
+        model:
+          $ref: "#/components/schemas/Model"
+        rating:
+          description: The highest rating, to 0.1
+          type: number
+          format: double
+        rank:
+          description: 1 + how many ratings that period were higher
+          type: integer
+        date:
+          type: string
+          format: date
+    PlayerVersus:
+      type: object
+      required: [run_id, name, other, matches]
+      properties:
+        run_id:
+          type: integer
+          format: int64
+        name:
+          type: string
+        other:
+          type: string
+        matches:
+          type: array
+          items:
+            $ref: "#/components/schemas/VersusMatch"
+    VersusMatch:
+      type: object
+      required: [match_id, tournament, date, player_count, name_place, other_place, seats]
+      properties:
+        match_id:
+          type: integer
+          format: int64
+        tournament:
+          type: string
+        date:
+          type: string
+          format: date
+        player_count:
+          type: integer
+        name_place:
+          type: integer
+        other_place:
+          type: integer
+        seats:
+          description: Highest score first
+          type: array
+          items:
+            $ref: "#/components/schemas/Seat"

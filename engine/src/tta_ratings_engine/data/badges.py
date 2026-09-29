@@ -202,9 +202,9 @@ def derive_tournament_badges(
 ) -> dict[str, Any]:
     """Derives tournament badges for players active within the last year, and returns them.
 
-    Replaces the run's player_titles (active titles) and player_peak_titles
-    (career peaks, inactive players too) with those of known players, in one
-    committed transaction. Raises RunNotRunning unless the run is running.
+    Replaces the run's player_titles (active titles), player_peak_titles
+    (career peaks, inactive players too) and player_yearly_titles (best title
+    each year) with those of known players, in one committed transaction. Raises RunNotRunning unless the run is running.
     """
     with conn.transaction():
         require_running(conn, run_id)
@@ -230,6 +230,7 @@ def derive_tournament_badges(
         player_best = {}
         player_career_best = {}
         player_tier_counts = {}
+        player_year_best = {}
 
         for r in rows:
             tourney = r["tournament"]
@@ -249,6 +250,9 @@ def derive_tournament_badges(
             for p in participants:
                 if not p:
                     continue
+
+                if tier < player_year_best.get((p, yr), 8):
+                    player_year_best[(p, yr)] = tier
 
                 if d_str >= cutoff_date:
                     if (
@@ -310,6 +314,7 @@ def derive_tournament_badges(
         # Replace the run's titles and peaks; unknown names are skipped, as upstream's UPDATE did
         conn.execute("DELETE FROM player_titles WHERE run_id = %s", (run_id,))
         conn.execute("DELETE FROM player_peak_titles WHERE run_id = %s", (run_id,))
+        conn.execute("DELETE FROM player_yearly_titles WHERE run_id = %s", (run_id,))
         with conn.cursor() as cur:
             cur.executemany(
                 """
@@ -333,6 +338,25 @@ def derive_tournament_badges(
                 SELECT %s, name, %s, %s FROM players WHERE name = %s
             """,
                 [(run_id, peak, yr, p) for p, (peak, yr) in peaks.items()],
+            )
+            cur.executemany(
+                """
+                INSERT INTO player_yearly_titles (run_id, player_name, year, title)
+                SELECT %s, name, %s, %s FROM players WHERE name = %s
+            """,
+                [
+                    (run_id, yr, TIER_TITLE_MAP.get(tier, "W"), p)
+                    for (p, yr), tier in player_year_best.items()
+                ],
+            )
+            # A World Champion holds WC in their title year, matched ignoring case as upstream's page does
+            cur.executemany(
+                """
+                INSERT INTO player_yearly_titles (run_id, player_name, year, title)
+                SELECT %s, name, %s, 'WC' FROM players WHERE lower(name) = lower(%s)
+                ON CONFLICT (run_id, player_name, year) DO UPDATE SET title = 'WC'
+            """,
+                [(run_id, yr, p) for p, (yr, _title) in HISTORICAL_WC_INFO.items()],
             )
 
     return derived_data

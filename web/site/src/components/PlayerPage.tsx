@@ -3,17 +3,21 @@ import { useCallback, useEffect, useState, type MouseEvent, type ReactNode } fro
 import {
   currentRun,
   player as fetchPlayer,
+  playerCareer,
   playerHistory,
   playerMatches,
   playerRivals,
   type Format,
   type Player,
+  type PlayerCareer,
   type PlayerHistory,
   type PlayerMatches,
   type PlayerRivals,
 } from '@ttac/shared/ratings';
+import CareerBox from './CareerBox';
 import { Flag } from './PlayerMarks';
 import RatingChart from './RatingChart';
+import VersusDialog from './VersusDialog';
 import * as show from '../lib/leaderboard-display';
 import { DEFAULT_VIEW, type Engine, type ResetMode } from '../lib/leaderboard-view';
 import {
@@ -116,6 +120,10 @@ export default function PlayerPage({ apiUrl }: { apiUrl: string }) {
     `${runId}|${name}|${format}`,
     runId === null ? null : () => playerRivals(apiUrl, runId, name, format),
   );
+  const career = useLoad<PlayerCareer>(
+    `${runId}|${name}|${format}`,
+    runId === null ? null : () => playerCareer(apiUrl, runId, name, format),
+  );
 
   useEffect(() => {
     document.title = `${view.name || 'Player'} - Player Profile | Through the Ages`;
@@ -165,13 +173,15 @@ export default function PlayerPage({ apiUrl }: { apiUrl: string }) {
         </div>
       </div>
 
+      <CareerBox player={p} career={career.kind === 'ready' ? career.data : null} reset={view.reset} format={view.format} />
+
       <ModelCards player={p} view={view} />
 
       <RatingChart history={history.kind === 'ready' ? history.data : null} />
 
       <div className="tables-grid">
         <Games state={games} view={view} provisional={provisional} gamesInFormat={gamesInFormat} linkTo={linkTo} go={go} />
-        <Rivals state={rivals} />
+        <Rivals state={rivals} compare={runId === null ? null : { apiUrl, runId, format: view.format }} />
       </div>
     </>
   );
@@ -502,8 +512,11 @@ function Pages({
 
 const MIN_GAMES = [1, 2, 3, 5, 10, 20];
 
-function Rivals({ state }: { state: Load<PlayerRivals> }) {
+type Compare = { apiUrl: string; runId: number; format: Format };
+
+function Rivals({ state, compare }: { state: Load<PlayerRivals>; compare: Compare | null }) {
   const [rv, setRv] = useState<RivalsView>({ filter: '', minGames: 1, expanded: false, sort: null });
+  const [versus, setVersus] = useState<string | null>(null);
   const all = state.kind === 'ready' ? state.data.rivals : [];
   const rows = visibleRivals(all, rv);
   const filtering = rv.filter.trim() !== '' || rv.minGames > 1;
@@ -560,19 +573,20 @@ function Rivals({ state }: { state: Load<PlayerRivals> }) {
                 {head('draws', 'D', 'Click to sort by Draws', ' draw')}
               </th>
               <th>{head('win_rate', 'Win %', 'Sort by Win %')}</th>
+              <th>Head-to-Head</th>
             </tr>
           </thead>
           <tbody>
             {state.kind !== 'ready' && (
               <tr>
-                <td colSpan={4} className="cell-empty">
+                <td colSpan={5} className="cell-empty">
                   {state.kind === 'loading' ? 'Loading rivals…' : state.message}
                 </td>
               </tr>
             )}
             {state.kind === 'ready' && all.length === 0 && (
               <tr>
-                <td colSpan={4} className="cell-empty">
+                <td colSpan={5} className="cell-empty">
                   No head-to-head records found.
                 </td>
               </tr>
@@ -594,11 +608,26 @@ function Rivals({ state }: { state: Load<PlayerRivals> }) {
                 <td>
                   <strong className={r.win_rate >= 50 ? 'rival-rate good' : 'rival-rate bad'}>{r.win_rate.toFixed(1)}%</strong>
                 </td>
+                <td>
+                  <button type="button" className="btn-h2h-compare" onClick={() => setVersus(r.name)}>
+                    <span aria-hidden="true">⚔️</span> Compare
+                  </button>
+                </td>
               </tr>
             ))}
           </tbody>
         </table>
       </div>
+      {versus !== null && compare !== null && state.kind === 'ready' && (
+        <VersusDialog
+          apiUrl={compare.apiUrl}
+          runId={compare.runId}
+          name={state.data.name}
+          other={versus}
+          format={compare.format}
+          onClose={() => setVersus(null)}
+        />
+      )}
       {all.length > RIVALS_SHOWN && !filtering && (
         <div className="rivals-expand">
           <button type="button" className="btn-antique" onClick={() => setRv({ ...rv, expanded: !rv.expanded })}>

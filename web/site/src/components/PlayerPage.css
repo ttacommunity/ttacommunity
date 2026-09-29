@@ -772,3 +772,292 @@
     gap: 1rem;
   }
 }
+
+/* The career box. */
+.rating-card.career-box {
+  margin-bottom: 2rem;
+  padding: 1.25rem 1.5rem;
+  border-left: 4px solid var(--accent-gold);
+}
+
+.career-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin-bottom: 0.6rem;
+}
+
+.career-head h3 {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin: 0;
+  font-family: var(--font-heading);
+  font-size: 1.15rem;
+  color: var(--accent-gold);
+}
+
+.career-body {
+  font-family: var(--font-body);
+  font-size: 0.95rem;
+  line-height: 1.6;
+  color: var(--text-main);
+}
+
+.career-summary {
+  margin-bottom: 0.5rem;
+}
+
+.career-peak-note {
+  font-weight: 600;
+  color: var(--accent-gold);
+}
+
+.career-season {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin: 0.8rem 0;
+  padding: 0.75rem 1rem;
+  background: linear-gradient(135deg, rgba(229, 169, 60, 0.15) 0%, rgba(30, 20, 14, 0.8) 100%);
+  border: 1.5px solid var(--accent-gold);
+  border-radius: 6px;
+}
+
+.career-season-main {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.career-season-icon {
+  font-size: 1.8rem;
+}
+
+.career-season-title {
+  font-family: var(--font-heading);
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: var(--accent-gold);
+}
+
+.badge.badge-season {
+  margin-left: 0.4rem;
+}
+
+.career-season-stats {
+  font-family: var(--font-stats);
+  font-size: 0.85rem;
+  color: #f3e5c8;
+}
+
+.career-season-peak {
+  color: #ffd700;
+}
+
+.career-peaks {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1.25rem;
+  margin: 0.6rem 0;
+  padding: 0.6rem 0.85rem;
+  background: rgba(18, 12, 8, 0.7);
+  border: 1px solid var(--border-subtle);
+  border-radius: 4px;
+  font-family: var(--font-stats);
+  font-size: 0.85rem;
+}
+
+.career-peak-label,
+.career-peak-date {
+  color: var(--text-muted);
+}
+
+.career-peak-date {
+  font-size: 0.8rem;
+}
+
+.career-peak-rating {
+  color: #ffd54f;
+}
+
+.career-peak-rank {
+  margin-left: 0.2rem;
+  font-weight: 700;
+  color: var(--accent-gold);
+}
+
+.career-notes {
+  margin-top: 0.4rem;
+  margin-left: 1.25rem;
+  font-size: 0.9rem;
+  color: #d0c0b0;
+}
+
+.career-notes li {
+  margin-bottom: 0.25rem;
+}
+
+/* The Compare button and head-to-head popup. */
+.btn-h2h-compare {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.3rem 0.65rem;
+  background: rgba(142, 30, 29, 0.25);
+  border: 1px solid #8e1e1d;
+  border-radius: 4px;
+  color: #ffb4a2;
+  font-family: var(--font-stats);
+  font-size: 0.78rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.btn-h2h-compare:hover {
+  background: #8e1e1d;
+  border-color: var(--accent-gold);
+  box-shadow: 0 2px 8px rgba(142, 30, 29, 0.6);
+  color: #fff;
+  transform: translateY(-1px);
+}
+
+.h2h-modal {
+  width: calc(100% - 3rem);
+  max-width: 900px;
+  max-height: 85vh;
+  margin: auto;
+  padding: 0;
+  background: rgba(28, 19, 13, 0.98);
+  border: 2px solid var(--accent-gold);
+  border-radius: 8px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.9);
+  color: var(--text-main);
+}
+
+.h2h-modal[open] {
+  display: flex;
+  flex-direction: column;
+}
+
+.h2h-modal::backdrop {
+  background: rgba(0, 0, 0, 0.85);
+  backdrop-filter: blur(6px);
+}
+
+.h2h-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 1.25rem 1.5rem;
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.h2h-head h3 {
+  margin: 0;
+  font-family: var(--font-heading);
+  font-size: 1.3rem;
+  color: var(--accent-gold);
+}
+
+.h2h-close {
+  background: transparent;
+  border: none;
+  font-size: 1.8rem;
+  line-height: 1;
+  color: var(--accent-gold);
+  cursor: pointer;
+}
+
+.h2h-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.6rem 1.5rem;
+  background: rgba(22, 14, 10, 0.9);
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.h2h-toolbar-label {
+  font-family: var(--font-heading);
+  font-size: 0.78rem;
+  color: var(--accent-gold);
+  text-transform: uppercase;
+}
+
+.format-bar.h2h-formats {
+  gap: 0.3rem;
+  width: fit-content;
+  margin: 0;
+}
+
+.h2h-stats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1.5rem;
+  padding: 0.75rem 1.5rem;
+  background: rgba(18, 12, 8, 0.7);
+  border-bottom: 1px solid var(--border-subtle);
+  font-family: var(--font-stats);
+  font-size: 0.9rem;
+}
+
+.h2h-total {
+  color: #ffd54f;
+}
+
+.h2h-win {
+  color: #66bb6a;
+}
+
+.h2h-loss {
+  color: #ef5350;
+}
+
+.h2h-draw {
+  color: #ffa726;
+}
+
+.h2h-body {
+  flex: 1;
+  padding: 1rem 1.5rem;
+  overflow-y: auto;
+}
+
+.h2h-message,
+.h2h-muted {
+  color: var(--text-muted);
+}
+
+.h2h-message {
+  padding: 2rem;
+  text-align: center;
+}
+
+.h2h-message.h2h-error {
+  color: #ef5350;
+}
+
+.h2h-tournament {
+  font-weight: 600;
+  color: var(--accent-gold);
+}
+
+.h2h-scores {
+  font-size: 0.82rem;
+}
+
+.h2h-target {
+  font-weight: 700;
+  color: #ffd54f;
+}
+
+.h2h-other {
+  color: var(--text-muted);
+}
