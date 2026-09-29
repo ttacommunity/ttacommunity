@@ -1,0 +1,733 @@
+/* Upstream's FAQ page (faq.html): its own styles, then its inline styles as classes. */
+
+.faq-container {
+  max-width: 1120px;
+  margin: 0 auto;
+}
+
+.faq-nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+  margin-bottom: 2rem;
+  padding: 0.55rem 0.65rem;
+  background: rgba(16, 10, 6, 0.95);
+  border: 1px solid var(--border-subtle);
+  border-radius: 8px;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.5);
+}
+
+.faq-tab-btn {
+  padding: 0.45rem 0.85rem;
+  background: rgba(43, 29, 20, 0.85);
+  border: 1px solid rgba(74, 53, 37, 0.85);
+  border-radius: 6px;
+  color: #cfbeab;
+  font-family: var(--font-subheading);
+  font-size: 0.88rem;
+  font-weight: 600;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.faq-tab-btn.tab-gold {
+  background: rgba(229, 169, 60, 0.12);
+  border: 1px solid #c59b27;
+  color: #ffd54f;
+}
+
+.faq-tab-btn.tab-bronze {
+  background: rgba(229, 169, 60, 0.08);
+  border: 1px solid #b8860b;
+  color: #ffde8a;
+}
+
+.faq-tab-btn:hover {
+  background: rgba(229, 169, 60, 0.22);
+  border-color: var(--accent-gold);
+  color: #fff;
+}
+
+.faq-tab-btn.active {
+  background: linear-gradient(135deg, #e5a93c 0%, #b87c1c 100%);
+  border-color: #ffd700;
+  color: #120904;
+  font-weight: 700;
+  box-shadow: 0 2px 8px rgba(229, 169, 60, 0.4);
+}
+
+.faq-section {
+  display: none;
+  animation: faq-fade-in 0.25s ease-in-out;
+}
+
+.faq-section.active {
+  display: block;
+}
+
+@keyframes faq-fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.faq-card {
+  position: relative;
+  margin-bottom: 1.5rem;
+  padding: 1.75rem;
+  background: rgba(26, 17, 12, 0.95);
+  border: 1.5px solid var(--border-subtle);
+  border-radius: 8px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(8px);
+}
+
+.faq-card h3 {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  margin-bottom: 0.85rem;
+  color: #f7d377;
+  font-family: var(--font-heading);
+  font-size: 1.35rem;
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.9);
+}
+
+.faq-card p {
+  margin-bottom: 0.75rem;
+  color: #f1e4d0;
+  font-family: var(--font-body);
+  font-size: 1.05rem;
+  line-height: 1.75;
+}
+
+.faq-card p:last-child {
+  margin-bottom: 0;
+}
+
+.faq-formula {
+  margin: 1rem 0;
+  padding: 0.95rem 1.35rem;
+  overflow-x: auto;
+  background: rgba(12, 8, 5, 0.92);
+  border: 1px solid rgba(229, 169, 60, 0.4);
+  border-left: 4px solid var(--accent-gold);
+  border-radius: 4px;
+  box-shadow: inset 0 0 10px rgba(0, 0, 0, 0.8);
+  color: #ffe6a3;
+  font-family: var(--font-stats);
+  font-size: 1rem;
+}
+
+.faq-list {
+  margin-bottom: 0.75rem;
+  margin-left: 1.5rem;
+  color: #f1e4d0;
+  line-height: 1.75;
+}
+
+.faq-list li {
+  margin-bottom: 0.5rem;
+}
+
+.faq-link {
+  color: #f7d377;
+  font-weight: 600;
+  text-decoration: underline;
+  text-decoration-color: rgba(229, 169, 60, 0.5);
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.faq-link:hover {
+  color: #fff;
+  text-decoration-color: var(--accent-gold);
+  text-shadow: 0 0 8px rgba(229, 169, 60, 0.6);
+}
+
+
+/* Upstream's inline styles as classes. Inline styles beat every rule, so these are prefixed to outrank the
+   page's own rules above (such as .faq-card p) and keep upstream's result. Boxes, headings and rows by name: */
+
+.faq-container .faq-section .faq-subhead {
+  color: var(--accent-gold);
+  font-family: var(--font-subheading);
+  font-size: 1.15rem;
+  margin: 1.25rem 0 0.5rem 0;
+}
+
+.faq-container .faq-section .faq-subhead-amber {
+  color: #ffd54f;
+  font-family: var(--font-subheading);
+  font-size: 1.1rem;
+  margin: 1.25rem 0 0.5rem 0;
+}
+
+.faq-container .faq-section .faq-subhead-rule {
+  color: var(--accent-gold);
+  font-family: var(--font-subheading);
+  font-size: 1.2rem;
+  margin: 1.5rem 0 0.75rem 0;
+  border-bottom: 1px solid rgba(229, 169, 60, 0.3);
+  padding-bottom: 0.35rem;
+}
+
+.faq-container .faq-section .faq-card-bronze {
+  border-left: 4px solid #b8860b;
+  background: linear-gradient(135deg, rgba(46, 31, 20, 0.95), rgba(22, 14, 9, 0.98));
+}
+
+.faq-container .faq-section .faq-card-gold {
+  border-left: 4px solid var(--accent-gold);
+  background: linear-gradient(135deg, rgba(35, 20, 10, 0.95), rgba(20, 12, 6, 0.95));
+}
+
+.faq-container .faq-section .faq-card-edge {
+  border-left: 4px solid var(--accent-gold);
+}
+
+.faq-container .faq-section .faq-card-green {
+  border-left: 4px solid #22c55e;
+}
+
+.faq-container .faq-section .faq-box {
+  background: rgba(14, 9, 6, 0.85);
+  border: 1px solid var(--border-subtle);
+  border-radius: 6px;
+  padding: 1rem 1.25rem;
+}
+
+.faq-container .faq-section .faq-box-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-bottom: 0.5rem;
+}
+
+.faq-container .faq-section .faq-box-text {
+  margin: 0.25rem 0 0.5rem 0;
+  font-size: 0.92rem;
+  color: #cfbeab;
+}
+
+.faq-container .faq-section .faq-list-small {
+  font-size: 0.9rem;
+  margin-bottom: 0;
+}
+
+.faq-container .faq-section .faq-table-wrap {
+  overflow-x: auto;
+  margin: 1rem 0;
+}
+
+.faq-container .faq-section .faq-table-wrap-tight {
+  overflow-x: auto;
+  margin: 0.75rem 0;
+}
+
+.faq-container .faq-section .faq-table-wrap-loose {
+  overflow-x: auto;
+  margin: 1.25rem 0;
+}
+
+.faq-container .faq-section .faq-chip {
+  font-size: 0.82rem;
+  background: rgba(0,0,0,0.3);
+  padding: 0.15rem 0.45rem;
+  border-radius: 4px;
+  border: 1px solid var(--border-subtle);
+}
+
+.faq-container .faq-section .faq-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-family: var(--font-stats);
+  font-size: 0.92rem;
+  background: rgba(14, 9, 6, 0.85);
+  border-radius: 6px;
+  overflow: hidden;
+  border: 1px solid var(--border-subtle);
+}
+
+.faq-container .faq-section .faq-table-small {
+  width: 100%;
+  border-collapse: collapse;
+  font-family: var(--font-stats);
+  font-size: 0.9rem;
+  background: rgba(14, 9, 6, 0.85);
+  border: 1px solid var(--border-subtle);
+  border-radius: 4px;
+}
+
+.faq-container .faq-section .faq-table-framed {
+  background: rgba(14, 9, 6, 0.95);
+  border: 1px solid rgba(229, 169, 60, 0.3);
+}
+
+.faq-container .faq-section .faq-table-framed-bright {
+  background: rgba(14, 9, 6, 0.95);
+  border: 1px solid rgba(229, 169, 60, 0.35);
+}
+
+.faq-container .faq-section .faq-thead {
+  background: rgba(30, 20, 14, 0.95);
+  color: var(--accent-gold);
+  border-bottom: 2px solid var(--border-subtle);
+  text-align: left;
+}
+
+.faq-container .faq-section .faq-thead-plain {
+  background: rgba(30, 20, 14, 0.95);
+  color: var(--accent-gold);
+  text-align: left;
+}
+
+.faq-container .faq-section .row-line {
+  border-bottom: 1px solid rgba(74, 53, 37, 0.3);
+}
+
+.faq-container .faq-section .row-gold-strong {
+  background: rgba(229, 169, 60, 0.15);
+  color: var(--accent-gold);
+}
+
+.faq-container .faq-section .row-green {
+  background: rgba(74, 222, 128, 0.08);
+}
+
+.faq-container .faq-section .row-green-faint {
+  background: rgba(74, 222, 128, 0.04);
+}
+
+.faq-container .faq-section .row-green-strong {
+  background: rgba(34, 197, 94, 0.15);
+}
+
+.faq-container .faq-section .row-green-soft {
+  background: rgba(34, 197, 94, 0.06);
+}
+
+.faq-container .faq-section .row-gold-bright {
+  background: rgba(229, 169, 60, 0.18);
+}
+
+.faq-container .faq-section .row-gold-mid {
+  background: rgba(229, 169, 60, 0.10);
+}
+
+.faq-container .faq-section .faq-lead {
+  margin: 0.5rem 0;
+  font-size: 0.98rem;
+  line-height: 1.7;
+  color: #f1e4d0;
+}
+
+.faq-container .faq-section .faq-steps {
+  margin-left: 1.5rem;
+  color: #f1e4d0;
+  line-height: 1.75;
+}
+
+.faq-container .faq-section .faq-aside {
+  background: rgba(14, 9, 6, 0.7);
+  border: 1px solid var(--border-subtle);
+  border-left: 3px solid var(--accent-gold);
+  padding: 0.75rem 1rem;
+  border-radius: 4px;
+  margin: 1rem 0;
+  font-size: 0.88rem;
+}
+
+.faq-container .faq-section .faq-aside-green {
+  background: rgba(14, 9, 6, 0.85);
+  border: 1px solid rgba(34, 197, 94, 0.35);
+  border-left: 3px solid #22c55e;
+  padding: 0.75rem 1rem;
+  border-radius: 4px;
+  margin-bottom: 1.25rem;
+}
+
+.faq-container .faq-section .faq-aside-green-title {
+  color: #86efac;
+  font-family: var(--font-subheading);
+  font-size: 0.95rem;
+  display: block;
+  margin-bottom: 0.25rem;
+}
+
+.faq-container .faq-section .faq-aside-text {
+  margin: 0;
+  font-size: 0.94rem;
+  color: #cfbeab;
+  line-height: 1.65;
+}
+
+.faq-container .faq-section .faq-quote {
+  background: rgba(229, 169, 60, 0.08);
+  border-left: 3px solid var(--accent-gold);
+  padding: 0.75rem 1rem;
+  border-radius: 4px;
+  margin: 0.75rem 0;
+  font-style: italic;
+  color: #f5eedb;
+}
+
+.faq-container .faq-section .faq-verdict {
+  background: rgba(14, 9, 6, 0.9);
+  border: 1px solid rgba(229, 169, 60, 0.35);
+  border-left: 4px solid var(--accent-gold);
+  padding: 1rem 1.25rem;
+  border-radius: 6px;
+  margin: 1rem 0;
+}
+
+.faq-container .faq-section .faq-takeaway {
+  background: rgba(45, 26, 12, 0.45);
+  border-left: 3px solid var(--accent-gold);
+  padding: 0.85rem 1.15rem;
+  margin-top: 1rem;
+  border-radius: 4px;
+}
+
+.faq-container .faq-section .faq-takeaway-title {
+  color: #ffde8a;
+  font-family: var(--font-subheading);
+  font-size: 1.05rem;
+}
+
+.faq-container .faq-section .faq-takeaway-text {
+  margin: 0.4rem 0 0.5rem 0;
+  font-size: 0.95rem;
+  color: #cfbeab;
+}
+
+.faq-container .faq-section .faq-callout {
+  background: rgba(229, 169, 60, 0.08);
+  border-left: 3px solid var(--accent-gold);
+  padding: 0.85rem 1.15rem;
+  border-radius: 4px;
+  margin: 1rem 0 1.5rem 0;
+}
+
+.faq-container .faq-section .faq-callout-title {
+  color: var(--accent-gold);
+  font-size: 0.95rem;
+  display: block;
+  margin-bottom: 0.35rem;
+}
+
+.faq-container .faq-section .faq-callout-text {
+  margin: 0;
+  font-size: 0.88rem;
+  color: #cfbeab;
+  line-height: 1.55;
+}
+
+.faq-container .faq-section .faq-stack {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+}
+
+.faq-container .faq-section .faq-eyebrow {
+  font-size: 0.85rem;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: #ffd54f;
+  margin-bottom: 0.5rem;
+  font-weight: 700;
+}
+
+.faq-container .faq-section .faq-inline {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+}
+
+.faq-container .faq-section .mb-175 {
+  margin-bottom: 1.75rem;
+}
+
+
+/* Upstream's inline styles: single declarations combined on cells, spans and text. */
+
+.faq-container .faq-section .cell {
+  padding: 0.5rem 1rem;
+}
+
+.faq-container .faq-section .cell-lg {
+  padding: 0.75rem 1rem;
+}
+
+.faq-container .faq-section .cell-md {
+  padding: 0.6rem 1rem;
+}
+
+.faq-container .faq-section .stat {
+  font-family: var(--font-stats);
+}
+
+.faq-container .faq-section .bold {
+  font-weight: 700;
+}
+
+.faq-container .faq-section .heavy {
+  font-weight: 800;
+}
+
+.faq-container .faq-section .semibold {
+  font-weight: 600;
+}
+
+.faq-container .faq-section .left {
+  text-align: left;
+}
+
+.faq-container .faq-section .fs-84 {
+  font-size: 0.84rem;
+}
+
+.faq-container .faq-section .fs-82 {
+  font-size: 0.82rem;
+}
+
+.faq-container .faq-section .fs-85 {
+  font-size: 0.85rem;
+}
+
+.faq-container .faq-section .fs-80 {
+  font-size: 0.8rem;
+}
+
+.faq-container .faq-section .fs-75 {
+  font-size: 0.75rem;
+}
+
+.faq-container .faq-section .fs-92 {
+  font-size: 0.92rem;
+}
+
+.faq-container .faq-section .fs-100 {
+  font-size: 1rem;
+}
+
+.faq-container .faq-section .fs-105 {
+  font-size: 1.05rem;
+}
+
+.faq-container .faq-section .pad-chip {
+  padding: 0.15rem 0.45rem;
+}
+
+.faq-container .faq-section .no-underline {
+  text-decoration: none;
+}
+
+.faq-container .faq-section .underline {
+  text-decoration: underline;
+}
+
+.faq-container .faq-section .my-50 {
+  margin: 0.5rem 0;
+}
+
+.faq-container .faq-section .my-75 {
+  margin: 0.75rem 0;
+}
+
+.faq-container .faq-section .m-0 {
+  margin: 0;
+}
+
+.faq-container .faq-section .mt-85 {
+  margin-top: 0.85rem;
+}
+
+.faq-container .faq-section .mt-100 {
+  margin-top: 1rem;
+}
+
+.faq-container .faq-section .mt-35 {
+  margin-top: 0.35rem;
+}
+
+.faq-container .faq-section .ml-125 {
+  margin-left: 1.25rem;
+}
+
+.faq-container .faq-section .c-red {
+  color: #ef5350;
+}
+
+.faq-container .faq-section .c-red-light {
+  color: #f87171;
+}
+
+.faq-container .faq-section .c-pink {
+  color: #fca5a5;
+}
+
+.faq-container .faq-section .c-rose {
+  color: #ff80ab;
+}
+
+.faq-container .faq-section .c-green {
+  color: #4ade80;
+}
+
+.faq-container .faq-section .c-mint {
+  color: #86efac;
+}
+
+.faq-container .faq-section .c-green-deep {
+  color: #22c55e;
+}
+
+.faq-container .faq-section .c-leaf {
+  color: #66bb6a;
+}
+
+.faq-container .faq-section .c-sage {
+  color: #81c784;
+}
+
+.faq-container .faq-section .c-amber {
+  color: #ffd54f;
+}
+
+.faq-container .faq-section .c-cream {
+  color: #ffde8a;
+}
+
+.faq-container .faq-section .c-wheat {
+  color: #f7dfa5;
+}
+
+.faq-container .faq-section .c-yellow {
+  color: #ffd700;
+}
+
+.faq-container .faq-section .c-gold {
+  color: var(--accent-gold);
+}
+
+.faq-container .faq-section .c-mustard {
+  color: #eab308;
+}
+
+.faq-container .faq-section .c-orange {
+  color: #f59e0b;
+}
+
+.faq-container .faq-section .c-sand {
+  color: #cfbeab;
+}
+
+.faq-container .faq-section .c-muted {
+  color: var(--text-muted);
+}
+
+.faq-container .faq-section .c-white {
+  color: #fff;
+}
+
+.faq-container .faq-section .c-sky {
+  color: #38bdf8;
+}
+
+.faq-container .faq-section .c-blue {
+  color: #60a5fa;
+}
+
+.faq-container .faq-section .c-blue-light {
+  color: #93c5fd;
+}
+
+.faq-container .faq-section .c-slate {
+  color: #94a3b8;
+}
+
+.faq-container .faq-section .c-bronze {
+  color: #b45309;
+}
+
+.faq-container .faq-section .c-brown {
+  color: #78350f;
+}
+
+.faq-container .faq-section .c-parchment {
+  color: #f1e4d0;
+}
+
+/* Variants that override a named box above. */
+.faq-container .faq-section .faq-chip-green {
+  border: 1px solid #22c55e;
+  color: #86efac;
+  font-weight: 700;
+}
+
+.faq-container .faq-section .faq-lead-end {
+  margin: 0.5rem 0 0;
+}
+
+.faq-container .faq-section .faq-stack-tight {
+  margin-bottom: 0.5rem;
+}
+
+.faq-container .faq-section .row-gold {
+  background: rgba(229, 169, 60, 0.08);
+}
+
+.faq-container .faq-section .row-total {
+  border-top: 2px solid var(--accent-gold);
+}
+
+@media (max-width: 768px) {
+  .faq-nav {
+    flex-wrap: nowrap;
+    gap: 0.35rem;
+    margin-bottom: 1.25rem;
+    padding: 0.5rem;
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+
+  .faq-nav::-webkit-scrollbar {
+    display: none;
+  }
+
+  .faq-tab-btn {
+    flex-shrink: 0;
+    padding: 0.4rem 0.75rem;
+    font-size: 0.82rem;
+  }
+
+  .faq-card {
+    margin-bottom: 1.15rem;
+    padding: 1.15rem 1rem;
+  }
+
+  .faq-card h3 {
+    font-size: 1.15rem;
+  }
+
+  .faq-formula {
+    padding: 0.75rem 0.85rem;
+    font-size: 0.9rem;
+  }
+}
+
+/* Upstream sets 1.75rem under the FAQ's hero. */
+.analysis-hero-card.faq-hero {
+  margin-bottom: 1.75rem;
+}

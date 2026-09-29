@@ -1,0 +1,127 @@
+---
+tab: recalibration-15
+label: '🔬 15-Game Recalibration'
+order: 3
+---
+
+{/* Written by DANeo for the original ratings site. */}
+
+<div class="faq-card faq-card-bronze">
+  <h3 class="c-amber">
+    <span>🔬</span> Eliminating Newcomer Bleed: The 1471 vs. 1521 Population Mismatch
+  </h3>
+  <p>
+    In competitive board game matchmaking, few problems are more damaging than <strong>uncalibrated newcomer noise</strong>. In standard Glicko-2, every newcomer enters the rating network with a generic placeholder rating ($\mu = 1500$) and maximum rating deviation ($\mathrm{RD} = 350$).
+  </p>
+  <p>
+    Across our empirical dataset of 388,493 pairwise matches, an important demographic asymmetry emerged:
+  </p>
+  <ul class="faq-list">
+    <li><strong>Nominal Pool Mean:</strong> $\mu_{\text{pool}} \approx 1471.0$ (when including casual players, dropouts, and one-off participants).</li>
+    <li><strong>Active Veteran Mean:</strong> $\mu_{\text{veteran}} \approx 1521.0$ (the true baseline skill of sustained competitors with $\gt  20$ tournament games).</li>
+  </ul>
+  <p>
+    Because active tournament competitors are systematically stronger than newcomers, a nominal contest between a $1521$ veteran and a $1500$ newcomer appears in standard Glicko as an almost perfectly even $53\%$ match. If that newcomer is actually an inexperienced novice with a latent skill of $1200$, the veteran's true probability of winning was $\gt  85\%$.
+  </p>
+  <p>
+    This mismatch triggers an acute systemic flaw: whenever the veteran wins, they gain virtually no rating (since the newcomer's RD is $350$, dampening their impact). However, if the veteran loses or finishes behind them in a volatile 4-player table, standard Glicko penalizes the veteran as if they lost an even coin-flip, artificially destroying their rating. This created both the infamous <strong>50% underconfidence droop</strong> on calibration curves and widespread leaderboard deflation.
+  </p>
+  <p>
+    <strong>Why 15 Games?</strong> After 15 games, Bayesian Glicko-2 narrows a newcomer's uncertainty from $\mathrm{RD} = 350$ down to $\mathrm{RD} \approx 65–80$. At this point, the player's true latent skill $R_{15}$ is reliably unveiled, transforming them from a noisy statistical variable into an authentic competitive participant.
+  </p>
+</div>
+
+    <div class="faq-card faq-card-bronze">
+  <h3 class="c-amber">
+    <span>⚖️</span> The Transition Month Split: Preventing Newcomer Double-Counting
+  </h3>
+  <p>
+    Online tournaments are compiled and rated in chronological monthly batches. This creates a challenging edge case: <strong>what occurs when a newcomer completes their 15th game halfway through a month?</strong>
+  </p>
+  <ul class="faq-list">
+    <li><strong>Flaw 1 (Freezing the entire month):</strong> If we freeze the newcomer's rating for the entire month they reach 15 games, matches 16 through 30 played during that same month are discarded or uncredited, denying the player their rightful rank gains.</li>
+    <li><strong>Flaw 2 (Updating the whole month normally):</strong> If the month is updated normally, matches 1 through 15 are counted <em>twice</em>: once to discover their 15-game starting anchor $R_{15}$, and a second time in that month's dynamic rating update, causing severe artificial rating inflation.</li>
+  </ul>
+  <p>
+    To achieve mathematical purity without discarding legitimate gameplay, GlickoD executes an exact <strong>transition split at match 15</strong>:
+  </p>
+  <div class="faq-formula">
+
+$$
+\text{Matches } 1 \dots 15 \implies \text{Dynamic UI display (⏳); opponents calculate updates against emergent prior } R_{15}
+$$
+
+$$
+\text{Matches } 16+ \implies \text{Player rating updates dynamically, starting smoothly from } R_{15}
+$$
+
+</div>
+  <p>
+    <strong>Empirical Case Study (Tianren):</strong><br />
+    In diagnostic benchmarking on top competitor <em>Tianren</em>, updating the transition month normally caused an artificial $+20.5$ point jump (leaping from $1972$ to $2025$) because his first 15 games were double-counted. Splitting the month cleanly at match 15 eliminated the artifact entirely, producing an authentic $+4.2$ point progression ($1976.78$, $\mathrm{RD} = 34.44$).
+  </p>
+</div>
+
+    <div class="faq-card faq-card-bronze">
+  <h3 class="c-amber">
+    <span>📐</span> Bayesian DAG Invariance: Why Opponent Updates Require a Calibrated Prior
+  </h3>
+  <p>
+    A frequent question is: <em>"Why do opponents calculate rating changes against a stabilized prior rather than a fluctuating provisional rating?"</em>
+  </p>
+  <p>
+    In a Bayesian rating network, competitive history forms a <strong>Directed Acyclic Graph (DAG)</strong> across time. If a newcomer's rating dynamically fluctuates during matches 1 through 15 while opponents also adjust their ratings simultaneously, it triggers <strong>recursive feedback loops</strong>:
+  </p>
+  <ul class="faq-list">
+    <li>Opponent A's rating update would depend on the newcomer's provisional rating after Game 3.</li>
+    <li>The newcomer's provisional rating after Game 3 would depend on Opponent B from Game 2.</li>
+    <li>Opponent B's rating would later shift after playing Opponent C, which retroactively invalidates Opponent A's update.</li>
+  </ul>
+  <p>
+    By discovering the newcomer's true emergent prior $R_{15}$ in Pass 1 and calculating opponents' outcomes against that stabilized baseline in Pass 2, the initial 15 games function as a pure, objective measurement probe. Opponents face an accurate skill estimate without cyclical feedback, preserving mathematical tractability and tournament integrity.
+  </p>
+</div>
+
+    <div class="faq-card faq-card-bronze">
+  <h3 class="c-amber">
+    <span>⏳</span> The Second Calibration Criterion: Historical Inactive Accounts (&lt; 15 Games, &gt; 1 Year Inactive)
+  </h3>
+  <p>
+    What happens to players who enter the competitive scene, play 5 or 8 games, and then permanently retire?
+  </p>
+  <p>
+    In our historical archive of over 3,500 competitors, exactly <strong>778 historical players</strong> completed between 1 and 14 matches before leaving competitive play. Under a strict, naive 15-game rule, these 778 accounts would <em>never</em> reach 15 games. Consequently, they would remain permanently anchored to the uninformative generic prior ($\mu = 1500, \mathrm{RD} = 350$) for eternity, continuing to inject demographic bleed into every opponent they ever faced.
+  </p>
+  <p>
+    To solve this, GlickoD implements an empirical <strong>Dual-Criterion Recalibration Architecture</strong>:
+  </p>
+  <ul class="faq-list">
+    <li>
+      <strong>Criterion 1 (Standard Active Threshold):</strong> Any player reaching 15 career games has their emergent prior $R_{15}$ established at match 15.
+    </li>
+    <li>
+      <strong>Criterion 2 (Inactive Retirement at $K$ Games):</strong> Any player with $K \lt  15$ career games who remains inactive for <strong>&gt; 1 year (365 days)</strong> after their final recorded match is also recalibrated. Their recalibration threshold is set dynamically to their individual career maximum $K \in [1, 14]$.
+    </li>
+  </ul>
+  <p>
+    Their emergent skill at game $K$ becomes their fixed prior, purging decades of historical ghost noise from active players' records. When this second criterion was activated across the database, out-of-sample Brier error dropped from <strong>0.2081</strong> to an all-time record <strong>0.2050</strong>, and Expected Calibration Error compressed to an astonishing <strong>0.34%</strong>.
+  </p>
+</div>
+
+    <div class="faq-card faq-card-bronze">
+  <h3 class="c-amber">
+    <span>🔍</span> Frontend Display &amp; The Provisional Calibration Indicator (⏳)
+  </h3>
+  <p>
+    While the backend computational engine separates measurement from forward updates to maintain Bayesian DAG independence, the <strong>user-facing frontend operates with complete transparency</strong>:
+  </p>
+  <ul class="faq-list">
+    <li>
+      <strong>No Artificial Rating Freeze in UI:</strong> Every match played during a newcomer's provisional calibration phase displays its authentic rating change ($\Delta R$, e.g., <code>+12.4</code>, <code>-8.1</code>) directly in the match history table. Players always see continuous, responsive feedback after every tournament round.
+    </li>
+    <li><strong>The Provisional Calibration Symbol (⏳):</strong> Players who are actively within their provisional phase (&lt; 15 matches and active within the past year) are clearly distinguished by a golden hourglass badge: <ul class="mt-35"> <li>On the <strong>Player Profile</strong>, an hourglass <span class="c-orange bold">⏳</span> appears next to the player's name and is accompanied by a status badge: <code>⏳ Prior Calibration (X/15)</code>.</li> <li>On the <strong>Competitive Leaderboard</strong>, the <span class="c-orange bold">⏳</span> badge is rendered next to the player's name with an explanatory tooltip indicating their progress toward full calibration.</li> </ul></li>
+    <li>
+      <strong>Automatic Graduation:</strong> Once the 15th game is logged, the provisional indicator seamlessly disappears, reflecting the transition to full established status.
+    </li>
+  </ul>
+</div>

@@ -48,6 +48,26 @@
   filter: drop-shadow(0 0 4px rgba(255, 215, 0, 0.95));
 }
 
+.badge-sgm {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  background: linear-gradient(135deg, #78350f 0%, #b45309 30%, #d97706 60%, #f59e0b 100%);
+  border: 1.5px solid #fde047;
+  border-radius: 4px;
+  box-shadow: 0 0 10px rgba(245, 158, 11, 0.5), inset 0 1px 2px rgba(254, 240, 138, 0.5), 0 2px 5px rgba(0, 0, 0, 0.6);
+  color: #fffbeb;
+  font-weight: 800;
+  letter-spacing: 0.5px;
+  text-shadow: 0 0 4px rgba(253, 224, 71, 0.5), 0 1px 2px rgba(0, 0, 0, 0.8);
+}
+
+.badge-sgm::before {
+  content: '👑';
+  font-size: 0.85em;
+  filter: drop-shadow(0 0 3px rgba(253, 224, 71, 0.9));
+}
+
 .badge-gm { background: #e5a93c; border: 1px solid #ffcc66; color: #1c130d; }
 .badge-m { background: #94a3b8; border: 1px solid #cbd5e1; color: #0f172a; }
 .badge-p { background: #38bdf8; border: 1px solid #7dd3fc; color: #082f49; }

@@ -17,6 +17,7 @@ import {
   type Reset,
 } from '../lib/analysis';
 import { recall } from '../lib/remembered';
+import Tex from './Tex';
 
 Chart.register(LineController, LineElement, PointElement, LinearScale, CategoryScale, Legend, Tooltip);
 
@@ -208,11 +209,7 @@ export default function CalibrationPanel({ apiUrl }: { apiUrl: string }) {
             <div>
               <h3>Overall Predictive Model Rankings (4-Metric Evaluation)</h3>
               <div className="card-sub">
-                Models ranked from best to worst by Composite Predictive Score (
-                <span className="math">
-                  <i>S</i> ∈ [0, 100]
-                </span>
-                ) under active evaluation mode
+                Models ranked from best to worst by Composite Predictive Score (<Tex tex="S \in [0, 100]" />) under active evaluation mode
               </div>
             </div>
           </div>

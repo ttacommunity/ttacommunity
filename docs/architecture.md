@@ -67,6 +67,17 @@ engine from matches and the tournament rules. Organisers record what matches
 cannot show, such as seeding and official rulings, in the admin site, scoped
 to the series they run.
 
+## Site content
+
+Text pages and cards (the FAQ, the methodology, the analysis commentary)
+are MDX files in `web/site/src/content/`, changed by merge request. MDX is
+used across the whole site so there is one way to write content: Markdown
+for prose, maths in `$…$` rendered to MathML by KaTeX at build (no maths
+script in the browser), and HTML with classes or small components where a
+page needs styled boxes or tables. A new page is a new file.
+Interactive parts write maths the same way, as TeX, through a small
+`<Tex>` component that runs the same KaTeX in the browser.
+
 ## The community's data outlives the site
 
 The worker exports the community's data (matches, tournaments, results,

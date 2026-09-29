@@ -1,6 +1,7 @@
 // @ts-check
 import { defineConfig, envField, fontProviders } from 'astro/config';
 import react from '@astrojs/react';
+import mdx from '@astrojs/mdx';
 import { unified } from '@astrojs/markdown-remark';
 import remarkMath from 'remark-math';
 import rehypeKatex from 'rehype-katex';
@@ -9,10 +10,11 @@ const google = fontProviders.google();
 
 // Stylesheets are files, never inlined, so the CSP needs no 'unsafe-inline'.
 export default defineConfig({
-  integrations: [react()],
+  integrations: [react(), mdx()],
   // Maths in Markdown is rendered at build, as MathML: no script, no inline styles for the CSP to allow.
-  // Straight quotes, as upstream's Markdown renderer leaves them.
+  // Straight quotes, as upstream's Markdown renderer leaves them. No code highlighting: it colours with inline styles.
   markdown: {
+    syntaxHighlight: false,
     processor: unified({
       smartypants: false,
       remarkPlugins: [remarkMath],

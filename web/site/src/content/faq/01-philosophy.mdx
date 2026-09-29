@@ -1,0 +1,106 @@
+---
+tab: philosophy
+label: 'Philosophy & Purpose'
+order: 1
+---
+
+{/* Written by DANeo for the original ratings site. */}
+
+<div class="faq-card faq-card-gold">
+  <h3 class="c-yellow">What is a Rating Engine and What Does It Try to Achieve?</h3>
+  <div>
+
+      <p>A rating engines main purpose is to answer one central question: &quot;When two opponents meet in a match, given the results we have seen these opponents achieve in the past, what is the expected outcome of the match?&quot;</p>
+<div class="faq-formula">$P(\text{Player A defeats Player B}) = \frac{1}{1 + 10^{-(r_A - r_B)/400}}$</div>
+<p>A rating engine does <strong>not provide information which reflects tournament achievements</strong>. Using it as a community leaderboard is, at least in some sense, missing its point.
+A player going 40 - 2 within his first 42 ranked games will earn a spot in the top 20 (or higher - depending on the engine). In no way has this player already proven that he can, over an extended period of time, consistently beat top lvl opponents.
+But his place there is also not &quot;unearned&quot; - it is the engines current best guess about predicting matches involving that player given the current data. </p>
+<p>This sites engine &#39;leaderboards&#39; provide a minimum game count filter (among several other filters) which is set to 30 per default. Feel free to provide feedback if another number might be more fitting.</p>
+<p>A player&#39;s rating ($\mu$ or $r$) and rating deviation ($\mathrm{RD}$ or $\sigma$) have no independent physical existence outside of this formula. They are latent parameters chosen to maximize the likelihood of observed game outcomes. The number $1850$ is not a &quot;badge of honor&quot;; it is a statistical claim that against a $1750$ opponent, the player has an expected probability of victory of exactly $64.0\%$.</p>
+          </div>
+
+</div>
+
+    <div class="faq-card" id="faq-accuracy-goal">
+  <h3>Attempts at evalution of an engines predictive capabilities (Brier Score &amp; ECE)</h3>
+  <div>
+
+      <p>Since rating systems exist to predict match outcomes, the question <em>&quot;Which rating model is best?&quot;</em> is not a matter of aesthetic taste or community politics. It is a strictly empirical question answered by evaluating how accurately the model predicts unseen future matches:</p>
+<ul>
+<li><strong>Brier Score (Mean Squared Error ↓):</strong>
+Measures the mean squared difference between predicted win probabilities $P_k$ and actual binary match outcomes $s_k \in \{0, 1\}$:</li>
+</ul>
+<div class="faq-formula">$\mathrm{Brier} = \frac{1}{M} \sum_{k=1}^{M} (P_k - s_k)^2$</div>
+<ul>
+<li><p><strong>What do the numbers actually mean?</strong>: Well, i think it is somewhat impossible to compare the number to out of context brier scores. We can first of all observe: The coin flip engine baseline is $0.2500$; Meaning: If we were to allways just guess the winner by coinflip, it would achieve a score of $0.2500$. Evaluating the quality of our engines should be done in a comperative matter: If model A yields Brier of $0.2138$ and model B $0.2314$, that is one indicator for model A performing better at fulfilling its purpose.</p></li>
+<li><p><strong>Expected Calibration Error (ECE ↓):</strong> Tests whether the model&#39;s confidence corresponds to physical reality. If we aggregate all matches where the model predicted a $75\%$ win chance, did the favorites actually win $75\%$ of those games? If they only won $68\%$, the model is systematically overconfident. ECE integrates this calibration gap across all probability bins.</p></li>
+<li><p><strong>Walk-Forward Out-of-Sample Validation:</strong> Evaluating a model on matches it already saw during parameter fitting produces a false illusion of precision. True predictive validity requires a strict <strong>expanding-window walk-forward test</strong>: ratings are frozen at month $M-1$ to forecast month $M$ matches before any results were observed, spanning over 308,000 out-of-sample predictions across 2022–2026.</p></li>
+</ul>
+          </div>
+
+</div>
+
+    <div class="faq-card">
+  <h3>The Rating Engines Implemented on This Portal</h3>
+  <div>
+
+      <p>
+    To provide complete analytical transparency, this portal computes five distinct mathematical rating engines on the exact same competitive dataset of over 131,000 matches:
+  </p>
+  <div class="faq-table-wrap">
+    <table class="faq-table">
+      <thead>
+        <tr class="faq-thead">
+          <th class="cell-lg">Rating Engine</th>
+          <th class="cell-lg">Paradigm</th>
+          <th class="cell-lg">Multiplayer Handling</th>
+          <th class="cell-lg">Key Distinction</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr class="row-line row-gold">
+          <td class="cell-lg bold c-yellow">
+            <a class="faq-link c-yellow" href="#gold-standard">GlickoD</a>
+          </td>
+          <td class="cell-lg c-yellow">Bayesian Recalibrated Forward</td>
+          <td class="cell-lg c-yellow">Golden Ratio ($w = \frac{\phi^{N-2}}{N-1}$)</td>
+          <td class="cell-lg c-wheat"><strong>Flagship Model</strong> &bull; Combines self-similar multiplayer evidence scaling with 15-game emergent prior recalibration.</td>
+        </tr>
+        <tr class="row-line">
+          <td class="cell-lg bold c-wheat">
+            <a class="faq-link" href="#glicko-std">Glicko-2 Standard</a>
+          </td>
+          <td class="cell-lg c-sand">Sequential Forward (Odometer)</td>
+          <td class="cell-lg c-red">Unweighted ($w = 1.0$)</td>
+          <td class="cell-lg c-sand">The official online benchmark (naive 1v1 pairwise decomposition).</td>
+        </tr>
+        <tr class="row-line">
+          <td class="cell-lg bold c-green">
+            <a class="faq-link" href="#glicko-mp">Glicko-2 MP-Weighted</a>
+          </td>
+          <td class="cell-lg c-sand">Sequential Forward (Odometer)</td>
+          <td class="cell-lg c-green">Coulom Fractional ($w = \frac{1}{N-1}$)</td>
+          <td class="cell-lg c-green">Prevents multiplayer certainty explosion; solid baseline calibration.</td>
+        </tr>
+        <tr class="row-line">
+          <td class="cell-lg bold c-green-deep">
+            <a class="faq-link" href="#glicko-adapt">Glicko-2 Adaptive-T</a>
+          </td>
+          <td class="cell-lg c-sand">Thermal Experimental Forward</td>
+          <td class="cell-lg c-green">Fractional + $T(P, N)$</td>
+          <td class="cell-lg c-mint">Research benchmark evaluating thermal probability scaling.</td>
+        </tr>
+        <tr>
+          <td class="cell-lg bold c-blue">
+            <a class="faq-link c-blue" href="#whr">Whole-History Rating (WHR)</a>
+          </td>
+          <td class="cell-lg c-leaf">Retrospective MAP (Biographer)</td>
+          <td class="cell-lg c-green">Multinomial Bradley-Terry</td>
+          <td class="cell-lg c-blue-light">Optimal career retrospective; smooths noise via Brownian motion.</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+          </div>
+
+</div>

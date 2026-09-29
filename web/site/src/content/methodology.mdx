@@ -1,0 +1,350 @@
+---
+title: 'Mathematical Foundations & Rating Formulations'
+updated: '2026-09-25'
+---
+
+{/* From docs/mathematics.md in DANeo's repository (a02bb58), written for the original ratings site. */}
+This document provides the formal mathematical derivations for the three rating models implemented in **Through the Ages (TTA) Rating Engine**:
+1. **Glicko-2 Standard** (Naive Pairwise 1v1)
+2. **Glicko-2 MP-Weighted** (Coulom-Weighted Fractional Pairwise)
+3. **Whole-History Rating (WHR)** (Continuous Brownian Motion MAP)
+
+---
+
+## 1. Glicko-2 Standard Formulation
+
+The standard Glicko-2 system (Glickman, 2012) models each player by three parameters:
+- Rating $\mu$ (scaled such that $\mu = (r - 1500) / 173.7178$)
+- Rating Deviation $\phi$ (scaled such that $\phi = RD / 173.7178$)
+- Rating Volatility $\sigma$ (degree of expected rating fluctuations)
+
+### 1.1 Match Likelihood & Expected Outcome
+Against an opponent with rating $\mu_j$ and rating deviation $\phi_j$, the expected outcome $E$ is given by:
+
+$$
+g(\phi_j) = \frac{1}{\sqrt{1 + 3\phi_j^2 / \pi^2}}
+$$
+
+$$
+E(\mu, \mu_j, \phi_j) = \frac{1}{1 + \exp(-g(\phi_j)(\mu - \mu_j))}
+$$
+
+### 1.2 Step Equations (Sequential Update)
+For $m$ match encounters in a rating period with observed scores $s_j \in \{1.0, 0.5, 0.0\}$:
+
+1. **Estimated Variance ($v$)**:
+
+   $$
+   v = \left[ \sum_{j=1}^{m} g(\phi_j)^2 E_j (1 - E_j) \right]^{-1}
+   $$
+
+2. **Estimated Improvement ($\Delta$)**:
+
+   $$
+   \Delta = v \sum_{j=1}^{m} g(\phi_j) (s_j - E_j)
+   $$
+
+3. **Volatility Update ($\sigma'$)**:
+   Using the Illinois bracket root-finding algorithm, find $x = \ln(\sigma'^2)$ such that $f(x) = 0$, where $a = \ln(\sigma^2)$:
+
+   $$
+   f(x) = \frac{e^x (\Delta^2 - \phi^2 - v - e^x)}{2 (\phi^2 + v + e^x)^2} - \frac{x - a}{\tau^2}
+   $$
+
+4. **New Rating Deviation ($\phi'$) and Mean ($\mu'$)**:
+
+   $$
+   \phi^* = \sqrt{\phi^2 + \sigma'^2}
+   $$
+
+   $$
+   \phi' = \frac{1}{\sqrt{\frac{1}{(\phi^*)^2} + \frac{1}{v}}}
+   $$
+
+   $$
+   \mu' = \mu + (\phi')^2 \sum_{j=1}^{m} g(\phi_j)(s_j - E_j)
+   $$
+
+5. **Conservative Rating**:
+
+   $$
+   C = r - 3 \times RD
+   $$
+
+   This represents the lower 99.7% confidence bound of a player's true skill.
+
+---
+
+## 2. The Multiplayer Flaw & Glicko-2 MP-Weighted Formulation
+
+### 2.1 The Problem with Naive Pairwise Decomposition
+In an $N$-player game (e.g. 4-player TTA), a player simultaneously plays against 3 opponents. Naive decomposition treats this single match as $(N - 1) = 3$ independent 1v1 duels.
+
+Because Fisher information $v^{-1} = \sum g^2 E(1-E)$ sums over all opponents, a 4-player match yields **$3\times$ the information of a 2-player match**. 
+
+In the variance equation:
+
+$$
+\frac{1}{(\phi')^2} = \frac{1}{(\phi^*)^2} + \frac{1}{v}
+$$
+
+$\frac{1}{v}$ is 3 times larger, meaning the rating deviation $\phi$ shrinks up to $\sqrt{3} \approx 1.73$ times faster than warranted by real game entropy. This causes premature confidence, rating crystallization, and ranking instability when players participate predominantly in 4-player lobbies.
+
+### 2.2 The Coulom Fractional Match Weight Solution
+To preserve correct evidence accumulation, each pairwise encounter derived from an $N$-player match is assigned a fractional weight:
+
+$$
+w_j = \frac{1}{N - 1}
+$$
+
+- 2-player duel: $N=2 \implies w_j = 1.0$ (Standard Glicko-2)
+- 3-player match: $N=3 \implies w_j = 0.5$ (2 opponents $\times 0.5 = 1.0$ effective match)
+- 4-player match: $N=4 \implies w_j = \frac{1}{3}$ (3 opponents $\times \frac{1}{3} = 1.0$ effective match)
+
+### 2.3 Mathematical Integration
+1. **Weighted Inverted Variance ($v_w^{-1}$)**:
+
+   $$
+   v_w = \left[ \sum_{j=1}^{m} w_j \cdot g(\phi_j)^2 E_j (1 - E_j) \right]^{-1}
+   $$
+
+2. **Weighted Improvement ($\Delta_w$)**:
+
+   $$
+   \Delta_w = v_w \sum_{j=1}^{m} w_j \cdot g(\phi_j) (s_j - E_j)
+   $$
+
+3. **Invariance of Volatility Search**:
+   Because $v_w$ scales by $(N - 1)$ and $\sum w_j \dots$ scales by $\frac{1}{N - 1}$, $\Delta_w$ maintains the exact physical magnitude of a standard 2-player duel. Thus, $f(x)$ remains strictly bounded, and Illinois root-finding converges with standard tolerances.
+
+4. **Updated Parameters**:
+
+   $$
+   \frac{1}{(\phi')^2} = \frac{1}{(\phi^*)^2} + \frac{1}{v_w}
+   $$
+
+   $$
+   \mu' = \mu + (\phi')^2 \sum_{j=1}^{m} w_j \cdot g(\phi_j)(s_j - E_j)
+   $$
+
+
+**Conclusion**: The effective sample size per match event is strictly 1.0. Ratings remain on the standard 1500 scale while rating deviation ($RD$) reliably reflects true information entropy.
+
+---
+
+## 3. Whole-History Rating (WHR)
+
+Whole-History Rating (Coulom, 2008) is a global Bayesian model that simultaneously fits a player's entire career trajectory across time.
+
+### 3.1 Prior: Wiener Process (Brownian Motion)
+A player's skill $r(t)$ on day $t$ evolves as a continuous random walk:
+
+$$
+r(t_2) \sim \mathcal{N}(r(t_1), \; w^2 |t_2 - t_1|)
+$$
+
+where $w^2$ is the skill variance drift rate per day ($w^2 = 0.002$ in our calibrated implementation).
+
+### 3.2 Likelihood & Objective Function
+Under the Bradley-Terry model, the probability of player $i$ beating opponent $j$ on day $t$ is:
+
+$$
+P(i > j) = \frac{\exp(r_i(t))}{1 + \exp(r_i(t) - r_j(t))}
+$$
+
+The joint posterior log-density is the sum of game log-likelihoods and Brownian prior transition log-densities:
+
+$$
+\ln P(R \mid \text{Games}) = \sum_{\text{games}} \ln P(\text{outcome}) - \sum_{\text{players}} \sum_{k} \frac{(r(t_{k+1}) - r(t_k))^2}{2 w^2 (t_{k+1} - t_k)} + \text{const}
+$$
+
+### 3.3 Optimization via Thomas Algorithm
+Maximization with respect to $r_i = [r_i(t_1), \dots, r_i(t_K)]^T$ yields a symmetric positive-definite **tridiagonal system**:
+
+$$
+A_i \Delta r_i = \mathrm{rhs}_i
+$$
+
+where:
+- $A_i = H_{\text{lik}} + \Sigma_{\text{prior}}^{-1}$
+- $\mathrm{rhs}_i = g_{\text{lik}} - \Sigma_{\text{prior}}^{-1} r_i$
+
+This system is solved in linear time $\mathcal{O}(K)$ per player using the **Thomas algorithm** (forward elimination and back substitution). By cycling through all players iteratively, the system converges in 5--7 Newton-Raphson iterations across all 9 years of history.
+
+---
+
+## 4. Seasonal Reset Mechanisms & Empirical Parameter Formulations
+
+To address **career legacy inertia**—where veterans with hundreds of matches accumulate narrow rating deviation ($\mathrm{RD} \approx 30-50$) that resists seasonal performance—the rating engine provides seasonal reset transformations applied across calendar year boundaries.
+
+### 4.1 Mathematical Transformation
+Each annual reset operates on a 2D parameter vector $(\alpha, \lambda) \in [1.0, 3.0] \times [0.0, 1.0]$:
+
+1. **Uncertainty / RD Expansion ($\alpha$)**:
+   Increases rating deviation to account for off-season rust, balance shifts, and meta turnover:
+
+   $$
+   \mathrm{RD}_{\mathrm{new}} = \min(350.0, \; \mathrm{RD} \cdot \alpha)
+   $$
+
+2. **Mean Reversion / Tier Compression ($\lambda$)**:
+   Gently pulls ratings toward the anchor of their 16-tier division bracket ($\mu_{\mathrm{target}}$):
+
+   $$
+   \mu_{\mathrm{new}} = (1 - \lambda)\,\mu + \lambda\,\mu_{\mathrm{target}}
+   $$
+
+### 4.2 Derivation of Reset Tiers
+
+The rating engine supports four distinct reset configurations:
+
+1. **Continuous (Standard Lifetime Baseline)**:
+   - $(\alpha = 1.000, \; \lambda = 0.000)$
+   - Retains unbroken lifetime Bayesian trajectory across all tournament matches.
+
+2. **Softer Season Reset (Geometric / Arithmetic Midpoint)**:
+   - Derived as a gentler intermediate tier:
+     
+     $$
+     \alpha_{\mathrm{softer}} = \frac{\phi + \sqrt{\phi}}{2} \approx 1.445027
+     $$
+     
+     $$
+     \lambda_{\mathrm{softer}} = \frac{\phi^{-3}}{2} = \frac{1}{2}\left(1 - \frac{1}{\phi}\right)\left(\frac{1}{\phi}\right) \approx 0.118034
+     $$
+
+   - Halves the tier pull ($\lambda \approx 11.8\%$) while taking the arithmetic mean of $\phi$ and $\sqrt{\phi}$ for uncertainty inflation ($\alpha \approx 1.445$). This preserves earned skill differentials between top competitors while expanding uncertainty to stimulate seasonal activity.
+
+3. **Soft Season Reset (Canonical Golden Ratio Powers)**:
+   - Formulated using integer powers of the Golden Ratio ($\phi = \frac{1 + \sqrt{5}}{2} \approx 1.618034$):
+     
+     $$
+     \alpha_{\mathrm{soft}} = \phi \approx 1.618034, \quad \lambda_{\mathrm{soft}} = \phi^{-3} \approx 0.236068
+     $$
+
+   - Provides harmonic seasonal decay: $\mathrm{RD}$ expands by $+61.8\%$ and ratings regress $23.6\%$ toward the 16-tier anchor.
+
+4. **Hard Season Reset (&ldquo;Amplified&rdquo; &mdash; Illustrative Comparison)**:
+   - Formulated with higher powers of $\phi$:
+     
+     $$
+     \alpha_{\mathrm{hard}} = \phi^2 \approx 2.618034, \quad \lambda_{\mathrm{hard}} = \phi^{-1} \approx 0.618034
+     $$
+
+   - *Kept strictly for illustrative and diagnostic purposes* to demonstrate the hazards of excessive seasonal compression.
+
+### 4.3 Empirical Walk-Forward Out-of-Sample Benchmark (308,000+ Matches)
+
+Across 57 out-of-sample walk-forward monthly evaluation windows (2022–2026), evaluating predictions on unseen subsequent matches yielded the following empirical measurements:
+
+```
+Engine & Reset Configuration        Brier (MSE ↓)   ECE (↓)   Accuracy (↑)
+--------------------------------------------------------------------------
+Glicko-2 Adaptive-T:
+  - Softer Reset (1.45, 0.118)      0.2134          0.49%     64.77%  <-- Global Lowest ECE & Highest Acc
+  - Continuous Baseline             0.2138          0.65%     64.68%
+  - Canonical Soft (1.62, 0.236)    0.2139          0.55%     64.64%
+  - Hard Reset (2.62, 0.618)        0.2167          0.73%     64.09%  (Illustrative)
+
+Glicko-2 MP-Weighted:
+  - Continuous Baseline             0.2141          1.15%     64.74%
+  - Softer Reset (1.45, 0.118)      0.2141          1.04%     64.71%  <-- Best MP Calibration Balance
+  - Canonical Soft (1.62, 0.236)    0.2147          0.93%     64.61%
+  - Hard Reset (2.62, 0.618)        0.2182          1.81%     63.90%  (Illustrative)
+```
+
+### 4.4 Key Insights
+1. **The Softer Reset delivers optimal predictive balance**:
+   Softer Reset achieves the lowest overall calibration error ($0.34\%$), beating Continuous while prioritizing recent form alongside career skill.
+2. **Excessive Tier Compression degrades skill separation**:
+   Aggressive tier pull ($\lambda = 0.618$) forces top competitors artificially closer to tier boundaries, causing Brier error to surge.
+3. **Status of the Hard Reset Mode**:
+   The **Hard Season Reset** is retained in the engine and web portal **strictly for illustrative and diagnostic purposes** to give researchers and players a clear visual contrast against calibrated seasonal models.
+
+---
+
+## 5. Gold Standard Glicko-2 by DANeo (GlickoD) & Dual-Criterion Recalibration
+
+### 5.1 Architecture of GlickoD
+**GlickoD** represents the premier predictive flagship model for *Through the Ages*, uniting three mathematically grounded principles:
+1. **Golden Ratio ($\phi$) Multiplayer Information Decomposition**: Replaces naive duplication and uniform penalization with self-similar information scaling.
+2. **Dual-Criterion Emergent Prior Recalibration**: Eliminates newcomer demographic bleed at the root by discovering true latent skill across active and inactive accounts.
+3. **Decoupled Season Reset Dynamics**: Balances career achievement with seasonal form via decoupled variance expansion and dynamic $\phi$-tier regression.
+
+---
+
+### 5.2 Golden Ratio ($\phi$) Information Decomposition
+
+In multiplayer board games ($N \in \{2, 3, 4\}$), pairwise decomposition yields $\binom{N}{2}$ match comparisons. Naive decomposition treats each comparison as a full-evidence duel, tripling evidence in 4-player games ($N-1 = 3$). Conversely, Coulom uniform weighting ($w = 1/(N-1)$) overly dilutes multiplayer information.
+
+DANeo establishes that information decomposition across competing entities naturally follows the Golden Ratio ($\phi = \frac{1 + \sqrt{5}}{2} \approx 1.618034$):
+
+$$
+W(N) = \phi^{N-2} \quad \text{(Effective 1v1 Match Equivalents)}
+$$
+
+Distributing total information $W(N)$ equally across the $N - 1$ opponents faced by each player produces the exact pairwise weighting factor $w_N$:
+
+$$
+w_N = \frac{\phi^{N-2}}{N - 1} \implies
+\begin{cases}
+w_2 = \frac{\phi^0}{1} = 1.0000 & \text{(2-Player: Pure Glicko-2)} \\[6pt]
+w_3 = \frac{\phi^1}{2} = \frac{\phi}{2} \approx 0.8090 & \text{(3-Player)} \\[6pt]
+w_4 = \frac{\phi^2}{3} = \frac{\phi + 1}{3} \approx 0.8727 & \text{(4-Player)}
+\end{cases}
+$$
+
+This guarantees that transitive redundancies $\Delta(3) = \Delta(4) = \phi^{-2} \approx 0.381966$ remain invariant across table sizes.
+
+---
+
+### 5.3 Dual-Criterion Prior Recalibration
+
+#### The Problem: Demographic Asymmetry (1471 vs. 1521)
+The nominal mean of the overall player pool is $\mu_{\mathrm{pool}} \approx 1471$, whereas the mean of established tournament veterans is $\mu_{\mathrm{veteran}} \approx 1521$. Newcomers entering with generic $1500$ priors and maximum uncertainty ($\mathrm{RD} = 350$) distort the rating network:
+- A novice who will settle at $1200$ appears as an even $53\%$ match against a $1521$ veteran.
+- When the veteran wins, minimal rating is awarded ($\mathrm{RD}=350$ dampening). When the veteran loses, standard Glicko penalizes them severely as if they lost an even coin-flip.
+- This creates the 50% underconfidence droop and tail overconfidence.
+
+#### Dual-Criterion Recalibration Rules
+To resolve this without discarding historical matches, GlickoD operates a two-pass architecture:
+- **Criterion 1 (Standard Active Threshold)**: When a player reaches 15 career games, their emergent rating $R_{15}$ is discovered in Pass 1. In Pass 2, matches 1..15 are calculated with the player anchored at $R_{15}$, giving opponents fair, non-cyclical updates.
+- **Criterion 2 (Inactive Accounts at $K$ Games)**: Exactly 778 historical players completed between 1 and 14 matches before permanently retiring. Under Criterion 2, any player with $K < 15$ games who is inactive for $> 1$ year (365 days) is recalibrated at their individual career maximum $K \in [1, 14]$.
+
+#### Transition Month Splitting
+When a player reaches their threshold ($K$ games) mid-month:
+- Matches $1 \dots K$ are processed to establish the prior.
+- Matches $K+1 \dots$ in that same month update dynamically from $R_K$, preventing double-counting.
+
+---
+
+### 5.4 The Empirical Investigation & Retirement of Temperature Scaling
+
+#### The Initial Hypothesis
+Standard Glicko exhibited consistent overconfidence in high probability bins: games predicted at $\ge 90\%$ were won in only $\approx 89\%$ of cases. We initially hypothesized an entropic ceiling on skill expression in *Through the Ages* and formulated Adaptive Temperature Scaling $T(P, N) > 1.0$ to compress probabilities toward $50\%$.
+
+#### Diagnostic Ablation on Elite Players (Top 3%)
+A targeted audit of games played by top-3% elite competitors ($\ge 1850$ rating) disproved the entropy hypothesis:
+1. **Skill Expression Is Profound**: In matches between established elite players and lower-tier opponents, top players genuinely win $\ge 95\%$ and up to $98\%$ of games. The 99% certainty does exist when rating disparity is authentic.
+2. **Root Cause Identified**: The apparent overconfidence was caused by uncalibrated newcomers (future masters playing their first 5 games) competing against veterans under uninformative 1500 priors.
+3. **Retirement of Temperature Scaling**: Once the 15-Game Recalibration Breakthrough resolved newcomer noise at the root, overconfidence vanished entirely. Adding temperature scaling on top of calibrated priors caused artificial underconfidence (+2% to +3% error). Consequently, **temperature scaling was retired from GlickoD** ($T \equiv 1.0$).
+
+---
+
+### 5.5 Current Out-of-Sample Empirical Benchmarks
+
+Evaluating predictions out-of-sample across 56 walk-forward monthly evaluation windows (2022–2026, 308,000+ predictions):
+
+```
+Model Configuration                   Brier (MSE ↓)   ECE (↓)   Accuracy (↑)
+----------------------------------------------------------------------------
+glicko2_daneo_softer (Flagship)       0.2050          0.34%     66.8%  <-- Best Calibration
+glicko2_daneo (Continuous)            0.2051          0.36%     66.8%
+glicko2_std_softer_retro              0.2050          0.27%     66.8%
+glicko2_std_retro                     0.2052          0.34%     66.8%
+glicko2_mp_softer_retro               0.2053          0.79%     66.8%
+glicko2_std (Uncalibrated Baseline)   0.2178          1.67%     63.8%
+whr (Whole-History Rating)            0.2192          2.98%     63.6%
+```
+
+

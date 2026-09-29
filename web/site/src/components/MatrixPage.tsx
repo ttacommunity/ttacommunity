@@ -20,6 +20,7 @@ import { matrixParams, parseMatrixView, playerHref, type MatrixView } from '../l
 import { recall, remember } from '../lib/remembered';
 import './PlayerPage.css';
 import './MatrixPage.css';
+import Tex from './Tex';
 
 type Load<T> = { kind: 'loading' } | { kind: 'error'; message: string } | { kind: 'ready'; data: T };
 
@@ -34,10 +35,7 @@ const ROWS: { engine: Engine; name: string; note: ReactNode; className: string }
     name: 'Glicko-2 Adaptive-T',
     note: (
       <>
-        Format-specific temperature{' '}
-        <span className="math">
-          <i>T</i>(<i>P</i>, <i>N</i>)
-        </span>
+        Format-specific temperature <Tex tex="T(P, N)" />
       </>
     ),
     className: 'row-adapt',

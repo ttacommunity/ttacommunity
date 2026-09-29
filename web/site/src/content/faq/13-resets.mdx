@@ -1,0 +1,256 @@
+---
+tab: resets
+label: 'Season Resets'
+order: 13
+---
+
+{/* Written by DANeo for the original ratings site. */}
+
+<div class="faq-card">
+  <h3>Why Introduce Season Resets? Career Inertia vs. Seasonal Stakes</h3>
+  <div>
+
+      <p>
+    In traditional continuous rating systems, a player who has competed in over 1,000 matches accumulates a very narrow Rating Deviation ($\mathrm{RD} \approx 20–30$). While this provides exceptional historical precision, it introduces <strong>career legacy inertia</strong>: recent performance during a stellar calendar year only shifts their rating by a few points, while newer active contenders struggle to displace inactive veterans who established high ratings years ago.
+  </p>
+  <p>
+    To preserve historical depth while rewarding active seasonal form, the portal provides two clear perspectives:
+  </p>
+  <ul class="faq-list">
+    <li><strong>Continuous (Career):</strong> Uninterrupted lifetime ratings (the traditional Bayesian baseline that tracks all historical games).</li>
+    <li><strong>Season Reset:</strong> Our mathematically optimal annual reset balancing career achievement with current season dynamics. It uses decoupled uncertainty inflation and dynamic $\phi$-quantile division tiers to stimulate seasonal turnover without damaging predictive calibration.</li>
+  </ul>
+          </div>
+
+</div>
+
+    <div class="faq-card">
+  <h3>Season Reset: Decoupled Parameter Scaling &amp; Dynamic phi-Quantile Division Tiers</h3>
+  <div>
+
+  <h4 class="faq-subhead">1. Why We Retired Experimental Hard and Soft Resets</h4>
+  <p>
+    Across 388,493 tournament encounters, we tested continuous career play alongside different reset intensities. The gentler Golden reset achieved both the highest forecast accuracy (Brier $0.2082$) and lowest calibration error (ECE $0.30\%$). Aggressive resets proved too disruptive, compressing authentic skill differences without improving predictive validity.
+  </p>
+  <p>
+    We have therefore retired the experimental &ldquo;Hard&rdquo; and &ldquo;Soft&rdquo; variants across the entire portal in favor of this single, mathematically verified <strong>Season Reset</strong>.
+  </p>
+
+  <h4 class="faq-subhead">2. How the Season Reset Works in Simple Terms</h4>
+  <p>
+    Rather than applying a crude flat adjustment to everyone, the Season Reset evaluates players through two decoupled, physical dimensions:
+  </p>
+  <ul class="faq-list">
+    <li>
+      <strong>The Uncertainty ($\mathrm{RD}$) Boost &mdash; Governed by Certainty:</strong><br />
+      If you have played hundreds of games and your rating deviation has narrowed to $\mathrm{RD} \approx 30–40$, your rating is practically locked in stone and barely reacts to new matches. The Season Reset gives you a healthy boost in uncertainty ($\alpha \approx 1.445\times$) so you have meaningful mobility in the new season.<br />
+      <em>However</em>, if your uncertainty is already average or high ($\mathrm{RD} \ge 75$, as is typical for newer or less active competitors), you receive <strong>virtually no inflation</strong> ($\alpha \approx 1.0\times$). We do not add uncertainty to players whose ratings are already uncertain!
+    </li>
+    <li>
+      <strong>The Rating Pull &mdash; Deflation-Only &amp; Governed by Skill Deviation ($\mu$):</strong><br />
+      If your rating is at or below the population average ($\mu \le 1500$), your rating is <strong>strictly preserved</strong> ($\lambda = 0$). We never pull below-average players upward, as that would award inactive accounts &ldquo;free phantom points&rdquo; and distort competitive matchmaking.<br />
+      If you sit in the upper elite bracket ($1900+$), you receive a modest deflationary pull toward your division's lower anchor ($\lambda \approx 11.8\%$). This prevents inactive &ldquo;graveyard champions&rdquo; from camping at the top of the leaderboard without competing in current season tournaments.
+    </li>
+  </ul>
+
+  <h4 class="faq-subhead">3. Dynamic $\phi$-Quantile Division Tiers</h4>
+  <p>
+    Division tiers are not arbitrary hardcoded rating numbers. Instead, they are calculated dynamically from the active tournament player pool using powers of the Golden Ratio $\phi = \frac{1+\sqrt{5}}{2} \approx 1.618$ relative to the active population standard deviation ($\sigma \approx 175$ points, mean $\mu_0 \approx 1500$):
+  </p>
+  <div class="faq-formula">
+
+$$
+z = \frac{\mu - \mu_{\text{active}}}{\sigma_{\text{active}}} \in \left\{ 0,\; \pm\phi^{-2},\; \pm\phi^{-1},\; \pm 1.0,\; \pm\phi,\; \pm 2.0,\; \pm\phi^2,\; \pm 3.0 \right\}
+$$
+
+</div>
+
+  <div class="faq-table-wrap-tight">
+    <table class="faq-table-small">
+      <thead>
+        <tr class="faq-thead-plain">
+          <th class="cell-md">Skill Tier</th>
+          <th class="cell-md">Standard Score ($z$)</th>
+          <th class="cell-md">Active Pool Percentile</th>
+          <th class="cell-md">Seasonal Reset Anchor ($\mu_{\text{target}}$)</th>
+          <th class="cell-md">Direction</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr class="row-line"><td class="cell c-rose bold">SuperGM 2</td><td class="cell">$z \ge +3.0$</td><td class="cell">Top 0.13%</td><td class="cell bold c-cream">SuperGM 1 Lower Bound</td><td class="cell c-red">&darr; Deflates</td></tr>
+        <tr class="row-line"><td class="cell c-rose bold">SuperGM 1</td><td class="cell">$+\phi^2 \le z \lt  +3.0$</td><td class="cell">Top 0.44%</td><td class="cell bold c-cream">GM 2 Lower Bound</td><td class="cell c-red">&darr; Deflates</td></tr>
+        <tr class="row-line"><td class="cell c-yellow bold">GM 2</td><td class="cell">$+2.0 \le z \lt  +\phi^2$</td><td class="cell">Top 2.28%</td><td class="cell bold c-cream">GM 1 Lower Bound</td><td class="cell c-red">&darr; Deflates</td></tr>
+        <tr class="row-line"><td class="cell c-yellow bold">GM 1</td><td class="cell">$+\phi \le z \lt  +2.0$</td><td class="cell">Top 5.28%</td><td class="cell bold c-cream">Master 2 Lower Bound</td><td class="cell c-red">&darr; Deflates</td></tr>
+        <tr class="row-line"><td class="cell c-sand bold">Master 2</td><td class="cell">$+1.0 \le z \lt  +\phi$</td><td class="cell">Top 15.87%</td><td class="cell bold c-cream">Master 1 Lower Bound</td><td class="cell c-red">&darr; Deflates</td></tr>
+        <tr class="row-line"><td class="cell c-sand bold">Master 1</td><td class="cell">$+\phi^{-1} \le z \lt  +1.0$</td><td class="cell">Top 26.83%</td><td class="cell bold c-cream">Platinum 2 Lower Bound</td><td class="cell c-red">&darr; Deflates</td></tr>
+        <tr class="row-line"><td class="cell c-sky bold">Platinum 2</td><td class="cell">$+\phi^{-2} \le z \lt  +\phi^{-1}$</td><td class="cell">Top 35.12%</td><td class="cell bold c-cream">Platinum 1 Lower Bound</td><td class="cell c-red">&darr; Deflates</td></tr>
+        <tr class="row-line"><td class="cell c-sky bold">Platinum 1</td><td class="cell">$0.0 \le z \lt  +\phi^{-2}$</td><td class="cell">Top 50.00%</td><td class="cell bold c-cream">Active Pool Mean</td><td class="cell c-red">&darr; Deflates</td></tr>
+        <tr class="row-line"><td class="cell c-mustard bold">Gold 2</td><td class="cell">$-\phi^{-2} \le z \lt  0.0$</td><td class="cell">Bottom 50.00%</td><td class="cell c-sand">Earned Rating ($\lambda = 0$)</td><td class="cell c-sand">&mdash; Preserved</td></tr>
+        <tr class="row-line"><td class="cell c-mustard bold">Gold 1</td><td class="cell">$-\phi^{-1} \le z \lt  -\phi^{-2}$</td><td class="cell">Bottom 35.12%</td><td class="cell c-sand">Earned Rating ($\lambda = 0$)</td><td class="cell c-sand">&mdash; Preserved</td></tr>
+        <tr class="row-line"><td class="cell c-slate bold">Silver 2</td><td class="cell">$-1.0 \le z \lt  -\phi^{-1}$</td><td class="cell">Bottom 26.83%</td><td class="cell c-sand">Earned Rating ($\lambda = 0$)</td><td class="cell c-sand">&mdash; Preserved</td></tr>
+        <tr class="row-line"><td class="cell c-slate bold">Silver 1</td><td class="cell">$-\phi \le z \lt  -1.0$</td><td class="cell">Bottom 15.87%</td><td class="cell c-sand">Earned Rating ($\lambda = 0$)</td><td class="cell c-sand">&mdash; Preserved</td></tr>
+        <tr class="row-line"><td class="cell c-bronze bold">Bronze 2</td><td class="cell">$-2.0 \le z \lt  -\phi$</td><td class="cell">Bottom 5.28%</td><td class="cell c-sand">Earned Rating ($\lambda = 0$)</td><td class="cell c-sand">&mdash; Preserved</td></tr>
+        <tr class="row-line"><td class="cell c-bronze bold">Bronze 1</td><td class="cell">$-\phi^2 \le z \lt  -2.0$</td><td class="cell">Bottom 2.28%</td><td class="cell c-sand">Earned Rating ($\lambda = 0$)</td><td class="cell c-sand">&mdash; Preserved</td></tr>
+        <tr class="row-line"><td class="cell c-brown bold">Wood 2</td><td class="cell">$-3.0 \le z \lt  -\phi^2$</td><td class="cell">Bottom 0.44%</td><td class="cell c-sand">Earned Rating ($\lambda = 0$)</td><td class="cell c-sand">&mdash; Preserved</td></tr>
+        <tr><td class="cell c-brown bold">Wood 1</td><td class="cell">$z \lt  -3.0$</td><td class="cell">Bottom 0.13%</td><td class="cell c-sand">Earned Rating ($\lambda = 0$)</td><td class="cell c-sand">&mdash; Preserved</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+          </div>
+
+</div>
+
+    <div class="faq-card faq-card-bronze" id="calibration-bins">
+  <h3 class="c-amber">
+    <span>📊</span> Derivation of Calibration Bins: Normal Distribution Density &amp; Probability Reliability Bins
+  </h3>
+  <p>
+    Calibration in GlickoD operates on two mathematical levels: <strong>Probability Prediction Bins</strong> (verifying that a $70\%$ forecast realizes as a $70\%$ win rate) and <strong>Competitive Tier Bins</strong> (reshaping seasonal resets to respect the natural Gaussian skill distribution).
+  </p>
+
+  <h4 class="faq-subhead-amber">
+    1\. Probability Calibration Bins: The Reliability Curve (Soll vs. Ist)
+  </h4>
+  <p>
+    To evaluate whether a rating model is well-calibrated, historical pairwise predictions $P \in [0.50, 1.00]$ are partitioned into $K = 10$ confidence intervals $B_1, \dots, B_{10}$ of width $5\%$:
+  </p>
+  <div class="faq-formula">
+
+$$
+B_k = [p_k, \; p_{k+1}) = [0.50 + 0.05(k-1), \; 0.50 + 0.05k), \quad k \in \{1, \dots, 10\}
+$$
+
+</div>
+  <p>
+    Within each bin $B_k$, two values are evaluated against all $|B_k|$ matches falling into that confidence window:
+  </p>
+  <ul class="faq-list">
+    <li><strong>Expected Forecast (Soll):</strong> The average predicted probability $\bar{P}_k = \frac{1}{|B_k|} \sum_{i \in B_k} P_i$.</li>
+    <li><strong>Observed Win Rate (Ist):</strong> The actual empirical fraction of victories $\bar{y}_k = \frac{1}{|B_k|} \sum_{i \in B_k} y_i$.</li>
+    <li>
+<span><strong>Expected Calibration Error (ECE):</strong> The match-weighted discrepancy across all bins:</span>
+<div class="faq-formula">
+
+$$
+\mathrm{ECE} = \sum_{k=1}^{10} \frac{|B_k|}{N} \left|\bar{y}_k - \bar{P}_k\right|
+$$
+
+</div>
+</li>
+  </ul>
+  <p>
+    <strong>The Flaw in Standard Glicko:</strong> In naive Glicko-2, extreme bins (e.g. $B_{10} = [95\%, 100\%]$) suffer from apparent tail drooping: the model expects $\bar{P}_{10} \approx 97.5\%$, but in uncalibrated tournament reality, the favorite only won $\approx 88.5\%$ of the time (a massive $-9.0\%$ gap). As discovered through our ablation study, this was an artifact of uncalibrated newcomers entering at 1500 and facing Grandmasters. GlickoD resolves this at the root through 15-game emergent prior recalibration and bilateral composite variance $g(c)$, aligning match forecasts directly with true player skill and reducing ECE from $3.8\%$ down to an unprecedented <strong>$0.24\%$</strong> without requiring any artificial temperature damping.
+  </p>
+
+  <h4 class="faq-subhead-amber">
+    2\. Competitive Tier Bins: Normal Distribution Gaussian Tail Scaling
+  </h4>
+  <p>
+    Why do seasonal calibration tier bins follow the 16-tier competitive hierarchy rather than uniform 100-point brackets?
+  </p>
+  <p>
+    In active tournament play, skill is not uniformly distributed across the rating line—it follows a bell curve (Gaussian normal distribution) centered near $\mu_0 = 1500.0$ with population standard deviation $\sigma_{\mathrm{pop}} \approx 175.0$:
+  </p>
+  <ul class="faq-list">
+    <li><strong>The Median Density Region ($1425 – 1575$):</strong> Over $70\%$ of all competitive matches occur between $1350$ and $1650$. If a seasonal reset arbitrarily deflates or compresses players near the middle, it destabilizes matchmaking for the vast majority of active competitors.</li>
+    <li><strong>The Extreme Tails ($\mu \ge 1900$ or $\mu \le 1100$):</strong> At the extremes ($|z| \ge 2.5$), player density drops below $1\%$. Here, unearned historical inertia allows inactive veterans to "camp" at top ranks for years unless an active variance expansion releases ratings back into competition.</li>
+  </ul>
+  <p>
+    To solve this, GlickoD establishes <strong>Gaussian Tail Scaling with Golden Ratio ($\phi$) Powers</strong>:
+  </p>
+  <div class="faq-formula">
+
+$$
+z = \frac{\mu - \mu_0}{\sigma_{\mathrm{pop}}} = \frac{\mu - 1500.0}{175.0}
+$$
+
+$$
+\tau(z) = 1.0 - \exp\left(-\frac{z^2}{2\phi}\right) \in [0.0, 1.0]
+$$
+
+$$
+\alpha(z) = 1.0 + (\phi - 1) \cdot \tau(z) \cdot 0.5
+$$
+
+$$
+\lambda(z) = 1.0 + \phi^{-1} \cdot \tau(z) \cdot 0.5
+$$
+
+</div>
+  <p>
+    <strong>Mathematical Properties of the Gaussian $\phi$-Curve:</strong>
+  </p>
+  <ul class="faq-list">
+    <li><strong>Near the Median ($z \approx 0 \implies \mu \approx 1500$):</strong> $\tau(0) = 0 \implies \alpha(0) = 1.0$ and $\lambda(0) = 1.0$. Active players in Gold and Platinum experience minimal artificial dislocation, maintaining flawless day-to-day matchmaking stability.</li>
+    <li><strong>In the Elite Tails ($|z| \ge 2.5 \implies \mu \ge 1950$):</strong> $\tau(z) \to 1.0 \implies \alpha$ expands by $(\phi - 1)/2 \approx +30.9\%$ while regression $\lambda$ increases by $\phi^{-1}/2 \approx +30.9\%$. This gently taxes legacy camping, ensuring that active form and current tournament campaigns contest the highest podiums.</li>
+  </ul>
+</div>
+
+        <div class="faq-card">
+  <h3>Empirical Proof: Walk-Forward Validation Across 308,000+ Matches</h3>
+  <div>
+
+      <p>
+        In an out-of-sample walk-forward evaluation across 56 monthly evaluation windows (2022&ndash;2026, 308,000+ predictions), <strong>GlickoD with Softer Reset achieved both the lowest Brier score (0.2050) and the lowest Expected Calibration Error (0.34%) across all tested configurations</strong>:
+      </p>
+
+      <div class="faq-table-wrap-loose">
+        <table>
+          <thead>
+            <tr>
+              <th class="left">Rating System</th>
+              <th>Reset Mode</th>
+              <th>ECE (&darr;)</th>
+              <th>Brier Score (MSE &darr;)</th>
+              <th>Accuracy (&uarr;)</th>
+              <th class="left">Diagnostic Profile</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr class="row-green-strong">
+              <td class="left bold c-green-deep">GlickoD</td>
+              <td><span class="faq-chip faq-chip-green">Softer Reset</span></td>
+              <td class="heavy stat c-mint">0.34%</td>
+              <td class="heavy stat c-mint">0.2050</td>
+              <td class="heavy stat c-mint">66.8%</td>
+              <td class="left fs-84 c-mint"><strong>Flagship Benchmark</strong> &bull; Lowest Brier score and calibration error across all seasons.</td>
+            </tr>
+            <tr class="row-green-soft">
+              <td class="left bold c-green-deep">GlickoD</td>
+              <td><span class="faq-chip c-mint">Continuous</span></td>
+              <td class="heavy stat c-mint">0.36%</td>
+              <td class="heavy stat c-mint">0.2051</td>
+              <td class="heavy stat c-mint">66.8%</td>
+              <td class="left fs-84 c-mint">Unbroken career progression with calibrated priors and &phi;-evidence scaling.</td>
+            </tr>
+            <tr>
+              <td class="left bold c-green">Glicko-2 MP-Weighted</td>
+              <td><span class="faq-chip">Softer Reset</span></td>
+              <td class="heavy stat c-green">1.04%</td>
+              <td class="heavy stat">0.2141</td>
+              <td class="heavy stat">64.5%</td>
+              <td class="left fs-84 c-muted">Coulom uniform fractional evidence weighting ($w = \frac{1}{N-1}$) with gentle regression.</td>
+            </tr>
+            <tr>
+              <td class="left bold c-green">Glicko-2 MP-Weighted</td>
+              <td><span class="faq-chip">Continuous</span></td>
+              <td class="heavy stat">1.15%</td>
+              <td class="stat">0.2141</td>
+              <td class="stat">64.5%</td>
+              <td class="left fs-84 c-muted">Baseline multiplayer model retaining career memory without newcomer prior recalibration.</td>
+            </tr>
+            <tr>
+              <td class="left bold c-gold">Glicko-2 Standard</td>
+              <td><span class="faq-chip">Continuous</span></td>
+              <td class="heavy stat">1.47%</td>
+              <td class="stat">0.2143</td>
+              <td class="stat">64.0%</td>
+              <td class="left fs-84 c-muted">Official online baseline (naive 1v1 pairwise decomposition without multiplayer weighting).</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+          </div>
+
+</div>

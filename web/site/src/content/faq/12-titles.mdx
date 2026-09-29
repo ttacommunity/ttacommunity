@@ -1,0 +1,89 @@
+---
+tab: titles
+label: 'Titles & Badges'
+order: 12
+---
+
+{/* Written by DANeo for the original ratings site. */}
+
+<div class="faq-card">
+  <h3 class="m-0" >Titles &amp; Badges: Official Tournament Divisions (WC, SGM, GM, M, P, G, S, B, W)</h3>
+  <div>
+
+      <div id="faq_titles_content">
+    <p>
+      Player profile badges are derived programmatically from a competitor's highest division reached in the three major competitive leagues (<strong>Intermezzo Championship (3P)</strong>, <strong>International Championship (4P)</strong>, and <strong>Royal League (2P)</strong>):
+    </p>
+    <ul class="faq-list">
+      <li><span class="badge badge-wc faq-inline"><span class="fs-85">👑</span> WC</span> <strong>World Champion:</strong> Awarded exclusively to the reigning Through the Ages World Champion (currently held by <strong>a440</strong>, Champion of World Championship 2025). Styled in royal Dark Red-Gold with a Crown crest.</li>
+      <li><span class="badge badge-sgm faq-inline"><span class="fs-85">👑</span> GM</span> <strong>Super GM:</strong> Conferred upon competitors who have <strong>won</strong> the premier / highest division of a major accredited tournament (<strong>International Championship Grandmaster</strong>, <strong>Intermezzo Championship Grandmaster</strong>, or <strong>Royal League Emperor</strong>) within the active 12-month window. Styled in a brilliant gold-bronze royal crest with crown.</li>
+      <li><span class="badge badge-gm">GM</span> <strong>Grandmaster:</strong> Awarded to competitors who have participated in the <strong>highest / premier division</strong> of a major league (Grandmaster / Diamond in International, Grandmaster in Intermezzo, or Emperor Division in Royal League).</li>
+      <li><span class="badge badge-m">M</span> <strong>Master:</strong> Awarded for reaching the <strong>2nd highest division</strong> (Master in International and Intermezzo, or King Division in Royal League).</li>
+      <li><span class="badge badge-p">P</span> <strong>Platinum:</strong> Awarded for reaching the <strong>3rd highest division</strong> (Platinum in International and Intermezzo, or Prince Division in Royal League).</li>
+      <li><span class="badge badge-g">G</span> <strong>Gold:</strong> Awarded for reaching the <strong>4th highest division</strong> (Gold in International and Intermezzo, or Duke Division in Royal League).</li>
+      <li><span class="badge badge-s">S</span> <strong>Silver:</strong> Awarded for reaching the <strong>5th highest division</strong> (Silver in International and Intermezzo, or Marquess Division in Royal League).</li>
+      <li><span class="badge badge-b">B</span> <strong>Bronze:</strong> Awarded for reaching the <strong>6th highest division</strong> (Bronze in International and Intermezzo, or Count Division in Royal League).</li>
+      <li><span class="badge badge-w">W</span> <strong>Wood:</strong> Awarded for reaching the <strong>7th highest division</strong> (Wood in International and Intermezzo, or Viscount / Baron / Knight in Royal League).</li>
+    </ul>
+    <p class="mt-85">
+      <strong class="c-gold">&#9201; 1-Year Tournament Recency Rule:</strong> A competitor displays their verified tournament tier badge based exclusively on competitive play within the <strong>past 12 months (1 year)</strong>. A player's badge reflects the highest tournament division they actively competed in during this rolling 1-year window. If a player remains inactive in competitive tournament circuits for over a year, their badge is retired from the public leaderboard. When returning to competition, their new badge is evaluated strictly based on the division they join and play in during that active window&mdash;past expired titles from previous years are not grandfathered back.
+    </p>
+    <p>
+      <strong class="c-gold">&#128172; Dynamic Hover Explanations:</strong> Hovering over any player's badge displays the exact tournament, division tier, and season in which the badge was achieved (e.g. <em>&ldquo;Played in International Championship Grandmaster Season 6&rdquo;</em>).
+    </p>
+  </div>
+          </div>
+
+</div>
+
+    <div class="faq-card">
+  <h3>How is the Peak Rank and Peak Title Badge calculated?</h3>
+  <div>
+
+      <p>
+        Alongside a player's all-time <strong>Peak Rating</strong>, the portal calculates their historical <strong>Peak Rank</strong> and verifies their <strong>Peak Career Title</strong>. Rather than displaying their current rank, the engine queries the historical snapshot on the exact date their peak rating was recorded, evaluating their true leaderboard rank relative to all competitors active on that day.
+      </p>
+      <p>
+        <strong>Peak Title Badge on Player Profiles:</strong> A player's peak tournament rank and year of achievement are prominently displayed as a dedicated styled badge on their profile dossier (e.g. <span class="badge badge-sgm fs-75 pad-chip">👑 GM</span> <em>(2026)</em> or <span class="badge badge-p fs-75 pad-chip">Platinum</span> <em>(2023)</em>). This peak badge replaces legacy textual indicators and is featured in both the profile header and the <strong>🌟 Peak Career Season</strong> benchmark card.
+      </p>
+      <p>
+        <strong>Leaderboard Integrity:</strong> The public leaderboard displays strictly <strong>active</strong> tournament badges under the 1-Year Tournament Recency Rule. Historical peak badges remain exclusive to player profile dossiers to preserve a strictly contemporary, inflation-free competitive leaderboard.
+      </p>
+          </div>
+
+</div>
+
+    <div class="faq-card">
+  <h3>Where do the Tournament Achievements and Records come from?</h3>
+  <div>
+
+      <p>
+    The portal integrates structured records from official TTA competitive events, including:
+  </p>
+  <ul class="faq-list">
+    <li><strong>International Championships:</strong> Multi-season world-class divisions (Diamond, Platinum, Gold, Silver).</li>
+    <li><strong>Intermezzo Championships:</strong> Prestigious mid-season cups.</li>
+    <li><strong>Continental &amp; Regional Leagues:</strong> European, Americas, Czech, and Asia-Pacific competitive tiers.</li>
+  </ul>
+  <p>
+    Players can inspect their full chronological tournament breakdown on their dedicated <em>Tournament Achievements</em> subpage.
+  </p>
+          </div>
+
+</div>
+
+    <div class="faq-card">
+  <h3>Tournament Rating Eligibility Policy (Glicko-Eligible Tournaments)</h3>
+  <div>
+
+      <p>
+    Some community tournaments (such as fast-paced Swiss <em>Quick &amp; Dirty</em> cups or exhibition events) have unorthodox tiebreakers or differing turn clocks that the community prefers not to factor into official ratings.
+  </p>
+  <ul class="faq-list">
+    <li>Every completed tournament match is preserved in the comprehensive match ledger.</li>
+    <li>Tournaments marked as <strong>non-Glicko eligible</strong> remain fully visible on player match histories and are included in the rolling <em>Community Leaderboard</em>.</li>
+    <li>The Glicko-2 and WHR rating engines strictly filter on <code>WHERE glicko_eligible = 1</code>, ensuring exhibition matches never distort official competitive skill ratings.</li>
+  </ul>
+          </div>
+
+</div>

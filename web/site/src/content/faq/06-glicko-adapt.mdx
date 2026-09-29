@@ -1,0 +1,122 @@
+---
+tab: glicko-adapt
+label: 'Glicko-2 Adaptive-T'
+order: 6
+---
+
+{/* Written by DANeo for the original ratings site. */}
+
+<div class="faq-card faq-card-green">
+  <h3>Glicko-2 Adaptive-T: Dynamic Probability Temperature Scaling</h3>
+  <div>
+
+      <div class="faq-aside-green">
+    <strong class="faq-aside-green-title">
+      💡 Conceptual Origin &amp; Attribution
+    </strong>
+    <p class="faq-aside-text">
+      The <strong>Adaptive-T</strong> mathematical engine was conceptualized and derived by <strong>DANeo</strong> to solve the systemic overconfidence observed in classical logistic rating curves. It builds directly upon the foundation of our best-performing baseline, the <strong>Glicko-2 MP-Weighted</strong> engine, adding a calibrated temperature scaling layer $T(P, N)$.
+    </p>
+  </div>
+
+  <h4 class="faq-subhead">
+    1\. How We Arrived at the Model: The Discovery of Tail Overconfidence
+  </h4>
+  <p>
+    During our calibration analysis of Glicko-2 MP-Weighted across our match database, a glaring statistical pattern emerged: <strong>classical logistic curves systematically overestimate favorite win probabilities in high-confidence matchups</strong>.
+  </p>
+  <p>
+    When the standard model predicted that a favorite had an $85\%$ chance of winning, empirical match records revealed that favorites actually won only $\approx 78\%$ of the time. When it predicted $92\%$, reality yielded $\approx 83\%$.
+  </p>
+  <p>
+    This was not an error in estimating players' skill levels ($\mu$). It was a failure of the <strong>logistic mapping function itself</strong>: classical Elo/Glicko assumes that as the rating gap $\Delta r$ grows, win probability approaches $100\%$ asymptotically ($P \to 1.0$). But Through the Ages is an entropic, multi-stage game where random distributions (card row reveals, military events, turn order) guarantee that <em>even a world champion cannot eliminate downside variance against a competent opponent</em>. Deterministic skill expression is physically bounded.
+  </p>
+
+  <h4 class="faq-subhead">
+    2\. The Design Intuition: Bending the Calibration Slope Back to 1.0
+  </h4>
+  <p>
+    The core concept behind Adaptive-T came from a simple, geometric question when inspecting our empirical calibration curves:
+  </p>
+
+  <div class="faq-quote">
+    &ldquo;On a calibration chart, perfect prediction is an exact 45&deg; diagonal line where the slope is always 1.0. When our empirical curve droops in the tails, why not dynamically bend the slope back to 1.0 across the curve, squeezing the area difference between reality and the diagonal to zero?&rdquo;
+  </div>
+
+  <p>
+    In statistics, that &ldquo;area difference&rdquo; is precisely what <strong>Expected Calibration Error (ECE)</strong> measures. In standard Glicko-2, the curve matches reality very well near 50/50, but as ratings diverge, the slope flattens out (&Delta;Actual / &Delta;Predicted &lt; 1.0). The engine might predict an 88% chance of victory, but the favorite only wins 81% because Through the Ages has unavoidable card-draw and event variance.
+  </p>
+  <p>
+    To pull the curve back onto the ideal diagonal without distorting close matches, Adaptive-T introduces a dynamic mathematical &ldquo;spring&rdquo;:
+  </p>
+  <ul class="faq-list">
+    <li>
+      <strong>Leave Even Contests Untouched:</strong> When opponents are evenly matched ($P = 0.50$), the slope is already 1.0. The temperature modifier stays strictly at $1.0$ (zero distortion).
+    </li>
+    <li>
+<span><strong>Measure the Drift from Parity:</strong> We measure how far a matchup drifts from an even coin flip via normalized deviation:</span>
+<div class="faq-formula">
+
+$$
+\delta = 2 \cdot (P_{\text{fav}} - 0.5) \in [0.0, 1.0]
+$$
+
+</div>
+</li>
+    <li>
+<span><strong>Dynamically Bend the Tail:</strong> As confidence rises, the model gently scales the match logit by an adaptive thermal factor:</span>
+<div class="faq-formula">
+
+$$
+T(P_{\text{fav}}, N) = 1.0 + \alpha_N \cdot \delta^{\gamma_N}
+$$
+
+</div>
+<span>The calibrated expectation $E^*(x)$ divides the standard Glicko logit $x = g(\mathrm{RD}_j) \cdot (\mu_i - \mu_j)$ by this factor:</span>
+<div class="faq-formula">
+
+$$
+E^*(x) = \frac{1}{1 + \exp\left(-\frac{x}{T(P_{\text{fav}}, N)}\right)}
+$$
+
+</div>
+<span>This softens extreme predictions just enough to eliminate the droop, restoring the calibration slope to $m \approx 1.0$ and cutting the calibration gap down to under 1%.</span>
+</li>
+  </ul>
+  <p>
+    Parameters $(\alpha_N, \gamma_N)$ were optimized separately for 2P, 3P, and 4P matches to account for how bilateral duels vs. multiplayer kingmaking dynamics alter game variance.
+  </p>
+
+  <h4 class="faq-subhead">
+    3\. Mathematical Invariants &amp; Parameter Optimization
+  </h4>
+  <ul class="faq-list">
+    <li>
+      <strong>Exact Invariance at Parity ($P = 0.50$):</strong> When opponents are equally matched ($x = 0$), $T(0.5, N) = 1.0$ exactly. Parity contests experience zero distortion.
+    </li>
+    <li>
+      <strong>Progressive Tail Compression ($P \to 1.0$):</strong> As skill disparity expands, $T(P, N) \gt  1.0$ softly compresses extreme predictions toward $50\%$, replacing overconfident $95\%$ predictions with realistic empirical expectations ($\approx 88\%$).
+    </li>
+    <li><strong>Format-Specific Fitting:</strong> Parameters $(\alpha_N, \gamma_N)$ were rigorously fitted via convex optimization to minimize derivative slope error to the ideal $m=1.0$ line and minimize Expected Calibration Error (ECE): <ul class="mt-35 ml-125"> <li><strong>2-Player Duels ($N=2, \alpha_2 = 0.45, \gamma_2 = 0.80$):</strong> Zero-sum bilateral runaway variance requires the strongest thermal scaling ($\alpha = 0.45$), reducing ECE from <strong>5.44%</strong> down to <strong>3.09%</strong>.</li> <li><strong>3-Player Matches ($N=3, \alpha_3 = 0.18, \gamma_3 = 0.85$):</strong> Tri-player self-balancing negative feedback naturally constrains leaders, requiring mild scaling ($\alpha = 0.18$) and achieving near-perfect calibration (ECE <strong>0.76%</strong>).</li> <li><strong>4-Player Matches ($N=4, \alpha_4 = 0.29, \gamma_4 = 0.75$):</strong> Simplex combinatorial dispersion requires moderate scaling ($\alpha = 0.29$, ECE drops from <strong>1.96%</strong> to <strong>0.86%</strong>).</li> <li><strong>Unified Formats (Strategy A):</strong> In the All Formats pool, each match dynamically applies the exact thermal function of its true player count.</li> </ul></li>
+  </ul>
+
+  <h4 class="faq-subhead">
+    4\. What This Means for Rating Updates and the Leaderboard
+  </h4>
+  <p>
+    Because rating updates are driven by discrepancy $(s - E)$, probability compression changes how rating points are allocated:
+  </p>
+  <ul class="faq-list">
+    <li>
+      <strong>Favorites Who Win Are Fairly Rewarded:</strong> Under Standard Glicko, an extreme favorite predicted at $85\%$ receives almost no rating gain ($+1.53$) when winning. Adaptive-T recognizes the non-zero stochastic challenge, assigning a calibrated expectation of $78.8\%$, properly awarding $+2.20$ (+44% larger gain).
+    </li>
+    <li>
+      <strong>Calibrated Upset Penalties:</strong> When an underdog wins, Adaptive-T recognizes that the upset was slightly less mathematically impossible than standard logistic curves assumed, softening extreme penalty spikes.
+    </li>
+    <li>
+      <strong>Steady-State Leaderboard Spread:</strong> Because the probability curve is flatter ($T \gt  1$), top players need a larger rating gap to reach any given win probability in equilibrium ($\Delta r^* = 400 \cdot T \cdot \log_{10}\frac{p}{1-p}$). This expands the top-50 rating spread by $\approx 9.3\%$ (+42.5 points average gain), providing greater visual distinction between elite tiers.
+    </li>
+  </ul>
+          </div>
+
+</div>

@@ -4,6 +4,7 @@ import { BarController, BarElement, CategoryScale, Chart, Legend, LinearScale, T
 import { agreement, currentRun, distribution, type Agreement, type Distribution, type Model, type ModelPair } from '@ttac/shared/ratings';
 import { FORMAT_NAMES, agreementName, parseAnalysisParams } from '../lib/analysis';
 import { recall } from '../lib/remembered';
+import Tex from './Tex';
 
 Chart.register(BarController, BarElement, CategoryScale, LinearScale, Legend, Tooltip);
 
@@ -157,19 +158,8 @@ export default function EngineSpread({ apiUrl }: { apiUrl: string }) {
           <div>
             <h3>Engine Agreement &amp; Ranking Correlation Insights</h3>
             <div className="card-sub">
-              Spearman Rank (<span className="math">
-                <i>r</i>
-                <sub>
-                  <i>s</i>
-                </sub>
-              </span>
-              ) &amp; Pearson (<span className="math">
-                <i>r</i>
-              </span>
-              ) Correlation Benchmark across All 9 Model Configurations (<span className="math">
-                <i>N</i> = {sample ?? '…'}
-              </span>{' '}
-              active players)
+              Spearman Rank (<Tex tex="r_s" />) &amp; Pearson (<Tex tex="r" />) Correlation Benchmark across All 9 Model Configurations (
+              <Tex tex={`N = ${sample ?? '\\dots'}`} /> active players)
             </div>
           </div>
         </div>
@@ -184,15 +174,7 @@ export default function EngineSpread({ apiUrl }: { apiUrl: string }) {
         <div className="corr-note">
           <strong>💡 What do these correlation metrics tell us?</strong>
           <br />
-          High Spearman rank correlation (
-          <span className="math">
-            <i>r</i>
-            <sub>
-              <i>s</i>
-            </sub>{' '}
-            &gt; 0.95
-          </span>
-          ) demonstrates that different engines independently converge on the same relative skill hierarchy at the top of the leaderboard. Lower
+          High Spearman rank correlation (<Tex tex="r_s > 0.95" />) demonstrates that different engines independently converge on the same relative skill hierarchy at the top of the leaderboard. Lower
           correlation values between <em>Continuous (Career)</em> and <em>Hard Reset</em> models reflect the deliberate annual mobility of seasonal
           ladders, where active title contenders can ascend past inactive veterans.
         </div>
