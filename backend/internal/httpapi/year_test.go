@@ -104,3 +104,52 @@ func TestYears(t *testing.T) {
 		t.Errorf("GET years of an unknown run: %d, want 404", rec.Code)
 	}
 }
+
+func yearCSVBoard() store.YearBoard {
+	last := time.Date(2024, 12, 20, 0, 0, 0, 0, time.UTC)
+	return store.YearBoard{Year: 2024, Snapshot: time.Date(2024, 12, 31, 0, 0, 0, 0, time.UTC), Rows: []store.YearRow{
+		{Name: "bob", Rating: 1740, RD: 30, CRating: 1650, Career: store.Record{Opponents: 4, Wins: 1, Losses: 3}},
+		{Name: "ann", Rating: 1690, RD: 30, CRating: 1600, LastPlayed: &last,
+			Season: store.Record{Opponents: 3, Losses: 2, Draws: 1}, Career: store.Record{Opponents: 6, Wins: 3, Losses: 2, Draws: 1}},
+	}}
+}
+
+func TestLeaderboardCSVForAYear(t *testing.T) {
+	f := &fakeYears{board: yearCSVBoard()}
+	rec, _ := serve(t, f, "/v1/runs/7/leaderboard.csv?year=2024&model=whr&format=2")
+	if rec.Code != http.StatusOK || f.year != 2024 || f.gotMod != "whr" || f.gotFmt != 2 {
+		t.Fatalf("GET year CSV: %d; asked %d %s %d", rec.Code, f.year, f.gotMod, f.gotFmt)
+	}
+	lines := strings.Split(strings.TrimSpace(strings.TrimPrefix(rec.Body.String(), "\xef\xbb\xbf")), "\r\n")
+	want := "1,ann,,,,,,,1690.00,30.00,1600.00,3,0,2,1,16.7%,Active,2024-12-20,Whole-History Rating,2-Player (Duel),Continuous (Career),2024"
+	if len(lines) != 2 || lines[1] != want {
+		t.Errorf("year CSV rows = %q\nwant the header and %q (bob did not play in 2024)", lines, want)
+	}
+	if got := rec.Header().Get("Content-Disposition"); got != `attachment; filename="tta_ratings_whr_2p_continuous_2024_active.csv"` {
+		t.Errorf("Content-Disposition = %q", got)
+	}
+
+	rec, _ = serve(t, &fakeYears{board: yearCSVBoard()}, "/v1/runs/7/leaderboard.csv?year=2024&stats_view=career&status=all")
+	lines = strings.Split(strings.TrimSpace(strings.TrimPrefix(rec.Body.String(), "\xef\xbb\xbf")), "\r\n")
+	if len(lines) != 3 || !strings.HasPrefix(lines[1], "1,bob,,,,,,,1740.00,30.00,1650.00,4,1,3,0,25.0%,Inactive,") ||
+		!strings.HasPrefix(lines[2], "2,ann,,,,,,,1690.00,30.00,1600.00,6,3,2,1,58.3%,Active,") {
+		t.Errorf("career CSV of everyone = %q", lines)
+	}
+}
+
+func TestLeaderboardCSVRefusesABadYear(t *testing.T) {
+	for path, msg := range map[string]string{
+		"/v1/runs/7/leaderboard.csv?year=1999":                  "bad parameter: year",
+		"/v1/runs/7/leaderboard.csv?year=2024&stats_view=total": "bad parameter: stats_view",
+	} {
+		f := &fakeYears{}
+		rec, _ := serve(t, f, path)
+		if got := strings.TrimSpace(rec.Body.String()); rec.Code != http.StatusBadRequest || got != `{"error":"`+msg+`"}` || f.calls != 0 {
+			t.Errorf("GET %s: %d %s; want 400 %q before the store", path, rec.Code, got, msg)
+		}
+	}
+	rec, _ := serve(t, &fakeYears{err: store.ErrNoHistory}, "/v1/runs/7/leaderboard.csv?year=2019")
+	if rec.Code != http.StatusNotFound {
+		t.Errorf("GET year CSV without history: %d, want 404", rec.Code)
+	}
+}

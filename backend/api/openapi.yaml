@@ -91,8 +91,12 @@ paths:
       summary: The leaderboard as a CSV file, filtered and sorted as the site's table
       description: |
         The players the site's leaderboard shows for the same choices, in its
-        order, with their titles, career peaks and records. Rows carry
-        player details as they are now, so this is cached for five minutes.
+        order, with their titles, career peaks and records. With `year`,
+        the season archive's board instead: the ratings at the end of that
+        year, with that year's record or the career up to it (`stats_view`),
+        "active" meaning played that year, and no minimum opponents by
+        default. Rows carry player details as they are now, so this is
+        cached for five minutes.
       parameters:
         - $ref: "#/components/parameters/RunId"
         - $ref: "#/components/parameters/Model"
@@ -108,12 +112,11 @@ paths:
         - name: min_opps
           in: query
           required: false
-          description: The fewest opponents a player needs
+          description: The fewest opponents a player needs (30 by default, 0 in a year's archive)
           schema:
             type: integer
             minimum: 0
             maximum: 1000
-            default: 30
         - name: title
           in: query
           required: false
@@ -140,6 +143,22 @@ paths:
             type: string
             enum: [asc, desc]
             default: asc
+        - name: year
+          in: query
+          required: false
+          description: A year's archive instead of the live board
+          schema:
+            type: integer
+            minimum: 2000
+            maximum: 2100
+        - name: stats_view
+          in: query
+          required: false
+          description: In a year's archive, that year's record or the career up to it
+          schema:
+            type: string
+            enum: [season, career]
+            default: season
       responses:
         "200":
           description: The CSV file, UTF-8 with a byte-order mark

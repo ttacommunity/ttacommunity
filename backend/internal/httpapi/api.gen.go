@@ -211,6 +211,24 @@ func (e GetLeaderboardCsvParamsOrder) Valid() bool {
 	}
 }
 
+// Defines values for GetLeaderboardCsvParamsStatsView.
+const (
+	Career GetLeaderboardCsvParamsStatsView = "career"
+	Season GetLeaderboardCsvParamsStatsView = "season"
+)
+
+// Valid indicates whether the value is a known member of the GetLeaderboardCsvParamsStatsView enum.
+func (e GetLeaderboardCsvParamsStatsView) Valid() bool {
+	switch e {
+	case Career:
+		return true
+	case Season:
+		return true
+	default:
+		return false
+	}
+}
+
 // CareerYear defines model for CareerYear.
 type CareerYear struct {
 	CareerDraws  int `json:"career_draws"`
@@ -683,7 +701,7 @@ type GetLeaderboardCsvParams struct {
 	// Status Active players (last played after 2025-05-31), inactive ones, or all
 	Status *GetLeaderboardCsvParamsStatus `form:"status,omitempty" json:"status,omitempty"`
 
-	// MinOpps The fewest opponents a player needs
+	// MinOpps The fewest opponents a player needs (30 by default, 0 in a year's archive)
 	MinOpps *int       `form:"min_opps,omitempty" json:"min_opps,omitempty"`
 	Title   *TitleCode `form:"title,omitempty" json:"title,omitempty"`
 
@@ -691,6 +709,12 @@ type GetLeaderboardCsvParams struct {
 	Search *string                       `form:"search,omitempty" json:"search,omitempty"`
 	Sort   *GetLeaderboardCsvParamsSort  `form:"sort,omitempty" json:"sort,omitempty"`
 	Order  *GetLeaderboardCsvParamsOrder `form:"order,omitempty" json:"order,omitempty"`
+
+	// Year A year's archive instead of the live board
+	Year *int `form:"year,omitempty" json:"year,omitempty"`
+
+	// StatsView In a year's archive, that year's record or the career up to it
+	StatsView *GetLeaderboardCsvParamsStatsView `form:"stats_view,omitempty" json:"stats_view,omitempty"`
 }
 
 // GetLeaderboardCsvParamsStatus defines parameters for GetLeaderboardCsv.
@@ -701,6 +725,9 @@ type GetLeaderboardCsvParamsSort string
 
 // GetLeaderboardCsvParamsOrder defines parameters for GetLeaderboardCsv.
 type GetLeaderboardCsvParamsOrder string
+
+// GetLeaderboardCsvParamsStatsView defines parameters for GetLeaderboardCsv.
+type GetLeaderboardCsvParamsStatsView string
 
 // GetPlayerCareerParams defines parameters for GetPlayerCareer.
 type GetPlayerCareerParams struct {
@@ -1077,6 +1104,32 @@ func (siw *ServerInterfaceWrapper) GetLeaderboardCsv(w http.ResponseWriter, r *h
 			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "order"})
 		} else {
 			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "order", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "year" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "year", r.URL.Query(), &params.Year, runtime.BindQueryParameterOptions{Type: "integer", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "year"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "year", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "stats_view" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "stats_view", r.URL.Query(), &params.StatsView, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "stats_view"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "stats_view", Err: err})
 		}
 		return
 	}

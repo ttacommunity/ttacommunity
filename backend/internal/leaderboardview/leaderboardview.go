@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 
+	"ttacommunity/backend/internal/round"
 	"ttacommunity/backend/internal/store"
 )
 
@@ -23,6 +24,8 @@ type Query struct {
 	Search  string // names or country codes, comma-separated
 	Sort    string // rank, name, c_rating, rating, opps, win_rate or last_played
 	Order   string // asc or desc
+	// Played, for a year's archive, names who played that year: they are its active players.
+	Played map[string]bool
 }
 
 // Row is one shown player, with their rank among the filtered players.
@@ -37,6 +40,9 @@ func Select(rows []store.LeaderboardRow, q Query) []Row {
 	var pool []Row
 	for _, p := range rows {
 		active := p.LastPlayed != nil && p.LastPlayed.After(InactiveOnOrBefore)
+		if q.Played != nil {
+			active = q.Played[p.Name]
+		}
 		switch {
 		case p.Opponents < q.MinOpps,
 			q.Status == "active" && !active,
@@ -104,4 +110,28 @@ func dateKey(p Row) string {
 		return ""
 	}
 	return p.LastPlayed.Format(time.DateOnly)
+}
+
+// FromYear turns a year's board into leaderboard rows carrying the season or
+// career record (stats "career"), and names who played that year, as the
+// site's archive does.
+func FromYear(b store.YearBoard, stats string) ([]store.LeaderboardRow, map[string]bool) {
+	rows := make([]store.LeaderboardRow, 0, len(b.Rows))
+	played := map[string]bool{}
+	for _, y := range b.Rows {
+		r := y.Season
+		if stats == "career" {
+			r = y.Career
+		}
+		rate := (float64(r.Wins) + 0.5*float64(r.Draws)) / float64(max(1, r.Opponents)) * 100
+		rows = append(rows, store.LeaderboardRow{
+			Name: y.Name, Rating: y.Rating, RD: y.RD, CRating: y.CRating, Games: r.Opponents, Opponents: r.Opponents,
+			Wins: r.Wins, Losses: r.Losses, Draws: r.Draws, WinRate: round.TenthAway(rate), LastPlayed: y.LastPlayed,
+			Country: y.Country, Title: y.Title, Peak: y.Peak,
+		})
+		if y.Season.Opponents > 0 {
+			played[y.Name] = true
+		}
+	}
+	return rows, played
 }
