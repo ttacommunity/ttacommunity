@@ -23,3 +23,18 @@ func TestTenthAwayMatchesSQLite(t *testing.T) {
 		}
 	}
 }
+
+func TestToMatchesPython(t *testing.T) {
+	tests := []struct {
+		in     float64
+		places int
+		want   float64
+	}{
+		{0.98765, 4, 0.9877}, {0.12345, 4, 0.1235}, {1.00005, 4, 1.0001}, {-0.33333, 4, -0.3333},
+	}
+	for _, tt := range tests {
+		if got := To(tt.in, tt.places); got != tt.want {
+			t.Errorf("To(%v, %d) = %v, want %v", tt.in, tt.places, got, tt.want)
+		}
+	}
+}
