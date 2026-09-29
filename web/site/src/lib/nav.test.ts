@@ -3,7 +3,7 @@ import { currentSection, sections } from './nav';
 
 describe('sections', () => {
   it("lists only the sections that exist, in upstream's menu order", () => {
-    expect(sections.map((s) => s.href)).toEqual(['/ratings/', '/ratings/analysis/', '/ratings/faq/']);
+    expect(sections.map((s) => s.href)).toEqual(['/ratings/', '/ratings/analysis/', '/ratings/faq/', '/ratings/methodology/']);
   });
 });
 
