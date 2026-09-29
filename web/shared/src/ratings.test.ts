@@ -8,6 +8,7 @@ import {
   playerHistory,
   playerMatches,
   playerCareer,
+  playerMatrix,
   playerRivals,
   playerVersus,
 } from './ratings';
@@ -102,6 +103,8 @@ describe('player routes', () => {
     await playerRivals('https://api.example', 5, 'Ann', 4, f.fetch);
     await playerCareer('https://api.example', 5, 'Ann', 2, f.fetch);
     await playerVersus('https://api.example', 5, 'Ann', 'b/c', f.fetch);
+    await playerMatrix('https://api.example', 5, 'Ann', 3, null, f.fetch);
+    await playerMatrix('https://api.example', 5, 'Ann', 0, 2024, f.fetch);
 
     expect(f.calls.map((c) => c.url)).toEqual([
       'https://api.example/v1/runs/5/players/a%2Fb%20c%3F',
@@ -110,6 +113,8 @@ describe('player routes', () => {
       'https://api.example/v1/runs/5/players/Ann/rivals?format=4',
       'https://api.example/v1/runs/5/players/Ann/career?format=2',
       'https://api.example/v1/runs/5/players/Ann/versus/b%2Fc',
+      'https://api.example/v1/runs/5/players/Ann/matrix?format=3',
+      'https://api.example/v1/runs/5/players/Ann/matrix?format=0&year=2024',
     ]);
     expect(f.calls.every((c) => c.init?.credentials === 'omit')).toBe(true);
   });

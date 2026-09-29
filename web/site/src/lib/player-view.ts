@@ -132,3 +132,30 @@ export function visibleRivals(rivals: readonly Rival[], view: RivalsView): Rival
 export function firstSort(key: RivalKey): boolean {
   return key === 'name';
 }
+
+/** What the reader has chosen on a player's matrix page. */
+export interface MatrixView {
+  name: string;
+  format: Format;
+  year: number | null;
+}
+
+/** parseMatrixView reads the matrix page's choices, the format falling back to the remembered one. */
+export function parseMatrixView(params: URLSearchParams, remembered: Remembered): MatrixView {
+  const { format } = parseView(params, remembered);
+  const y = params.get('year') ?? '';
+  const year = /^\d{4}$/.test(y) && Number(y) >= 2000 && Number(y) <= 2100 ? Number(y) : null;
+  return { name: params.get('name') ?? '', format, year };
+}
+
+/** matrixParams writes the matrix page's choices, the year only when one is chosen. */
+export function matrixParams(view: MatrixView): URLSearchParams {
+  const p = new URLSearchParams({ name: view.name, format: String(view.format) });
+  if (view.year !== null) p.set('year', String(view.year));
+  return p;
+}
+
+/** matrixHref returns the address of a player's matrix page in a format. */
+export function matrixHref(name: string, format: Format): string {
+  return `/ratings/player/matrix/?${matrixParams({ name, format, year: null })}`;
+}

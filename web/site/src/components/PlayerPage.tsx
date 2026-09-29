@@ -23,6 +23,7 @@ import { DEFAULT_VIEW, type Engine, type ResetMode } from '../lib/leaderboard-vi
 import {
   firstSort,
   isProvisional,
+  matrixHref,
   pageModel,
   parsePlayerView,
   playerHref,
@@ -247,6 +248,9 @@ function Header({
         </div>
       </div>
       <div className="profile-links">
+        <a href={matrixHref(player.name, view.format)} className="btn-tournament-achievements btn-matrix">
+          <span aria-hidden="true">📊</span> Comparison Matrix &amp; Career Years »
+        </a>
         <a href={`/ratings/?${board}`} className="home-circle-btn" data-tooltip="Return to Competitive Leaderboard">
           <img src="/img/home-button-circle.webp" alt="Leaderboard" className="home-btn-img" width={58} height={58} />
         </a>

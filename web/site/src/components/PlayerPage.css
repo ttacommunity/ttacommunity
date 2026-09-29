@@ -1061,3 +1061,41 @@
 .h2h-other {
   color: var(--text-muted);
 }
+
+/* The profile's links to its sub-pages, upstream's .btn-tournament-achievements. */
+.btn-tournament-achievements {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.55rem 1.1rem;
+  background: linear-gradient(135deg, rgba(74, 18, 22, 0.92) 0%, rgba(43, 29, 20, 0.95) 100%);
+  border: 1.5px solid #d49438;
+  border-radius: 5px;
+  box-shadow: 0 3px 10px rgba(0, 0, 0, 0.5);
+  color: #ffd54f;
+  font-family: var(--font-subheading);
+  font-size: 0.92rem;
+  font-weight: 700;
+  text-decoration: none;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.9);
+  transition: all 0.2s ease;
+}
+
+.btn-tournament-achievements:hover {
+  background: linear-gradient(135deg, rgba(100, 24, 30, 0.98) 0%, rgba(65, 40, 25, 0.98) 100%);
+  border-color: #ffd54f;
+  box-shadow: 0 4px 14px rgba(229, 169, 60, 0.4);
+  color: #fff;
+  transform: translateY(-1px);
+}
+
+.btn-tournament-achievements.btn-matrix {
+  border-color: var(--accent-gold);
+}
+
+.career-matrix-link {
+  font-family: var(--font-heading);
+  font-size: 0.82rem;
+  color: var(--accent-gold);
+  text-decoration: underline;
+}

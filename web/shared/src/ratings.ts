@@ -20,6 +20,8 @@ export type CareerYear = components['schemas']['CareerYear'];
 export type ModelPeak = components['schemas']['ModelPeak'];
 export type PlayerVersus = components['schemas']['PlayerVersus'];
 export type VersusMatch = components['schemas']['VersusMatch'];
+export type PlayerMatrix = components['schemas']['PlayerMatrix'];
+export type MatrixCell = components['schemas']['MatrixCell'];
 
 /** An error response from the API, carrying its status and message. */
 export class RatingsApiError extends Error {
@@ -128,6 +130,20 @@ export async function playerVersus(
   fetchFn: typeof fetch = fetch,
 ): Promise<PlayerVersus> {
   return get<PlayerVersus>(fetchFn, base, playerPath(run, name, `/versus/${encodeURIComponent(other)}`));
+}
+
+/** Returns a player's rating in each page model for a format: the run's, or at the end of year. */
+export async function playerMatrix(
+  base: string,
+  run: number,
+  name: string,
+  format: Format,
+  year: number | null,
+  fetchFn: typeof fetch = fetch,
+): Promise<PlayerMatrix> {
+  const query = new URLSearchParams({ format: String(format) });
+  if (year !== null) query.set('year', String(year));
+  return get<PlayerMatrix>(fetchFn, base, playerPath(run, name, `/matrix?${query}`));
 }
 
 // Public routes take no credentials, so none are ever sent.
