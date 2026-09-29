@@ -518,3 +518,93 @@ func cellText(cells []MatrixCell) []string {
 	}
 	return out
 }
+
+func TestYearBoardTakesTheModelsLastPeriodOfTheYear(t *testing.T) {
+	pool := migrated(t)
+	r := NewRatingsReader(asReader(t, pool))
+	ctx := context.Background()
+	run := publishedRun(t, pool)
+	addPlayers(t, pool, "ann", "bob", "cy")
+	if _, err := SetCountries(ctx, pool, map[string]string{"ann": "PL"}); err != nil {
+		t.Fatalf("SetCountries: %v", err)
+	}
+	addTitle(t, pool, run, "ann", "GM", 1, "Royal League")
+	addGame(t, pool, run, "2023-05-01", "Cup", Seat{"ann", 9}, Seat{"bob", 5})
+	addGame(t, pool, run, "2024-03-01", "Cup", Seat{"ann", 5}, Seat{"bob", 5}, Seat{"cy", 7})
+	addGame(t, pool, run, "2024-12-20", "Cup", Seat{"bob", 9}, Seat{"ann", 5})
+	addGame(t, pool, run, "2025-01-10", "Cup", Seat{"ann", 9}, Seat{"cy", 5})
+	addHistory(t, pool, run, "glicko2_std", 0, "ann", "2023-12-31", 1500)
+	addHistory(t, pool, run, "glicko2_std", 0, "ann", "2024-11-30", 1550)
+	addHistory(t, pool, run, "glicko2_std", 0, "ann", "2024-12-31", 1600)
+	addHistory(t, pool, run, "glicko2_std", 0, "bob", "2024-12-31", 1650)
+	addHistory(t, pool, run, "glicko2_std", 0, "cy", "2024-03-31", 1700)
+	addHistory(t, pool, run, "glicko2_std", 0, "cy", "2025-01-31", 1800)
+	addHistory(t, pool, run, "whr", 0, "cy", "2024-12-31", 1900)
+	addYearlyTitle(t, pool, run, "bob", 2024, "WC")
+
+	got, err := r.YearBoard(ctx, run, 2024, "glicko2_std", 0)
+	if err != nil {
+		t.Fatalf("YearBoard: %v", err)
+	}
+	if !got.Snapshot.Equal(day("2024-12-31")) || got.Previous == nil || !got.Previous.Equal(day("2023-12-31")) {
+		t.Errorf("snapshot %v, previous %v; want 2024-12-31 and 2023-12-31", got.Snapshot, got.Previous)
+	}
+	if got.Games != 2 || fmt.Sprint(got.Champions) != "[{bob false}]" {
+		t.Errorf("games %d, champions %v; want 2 games in 2024, bob", got.Games, got.Champions)
+	}
+	// cy has no row on the last period, so is not on the board; ann's previous is her 2023 year end.
+	if len(got.Rows) != 2 {
+		t.Fatalf("%d rows, want ann and bob: %+v", len(got.Rows), got.Rows)
+	}
+	if got.Rows[0].Name != "bob" {
+		t.Errorf("first row = %s, want bob (highest conservative rating)", got.Rows[0].Name)
+	}
+	ann := got.Rows[1]
+	if ann.Name != "ann" || ann.Rating != 1690 || ann.CRating != 1600 || ann.Country == nil || *ann.Country != "PL" ||
+		ann.Title == nil || ann.Title.Code != "GM" {
+		t.Errorf("ann = %+v", ann)
+	}
+	if ann.Season != (Record{Opponents: 3, Wins: 0, Losses: 2, Draws: 1}) || ann.Career != (Record{Opponents: 4, Wins: 1, Losses: 2, Draws: 1}) {
+		t.Errorf("ann's season %+v, career %+v; want 3/0/2/1 and 4/1/2/1", ann.Season, ann.Career)
+	}
+	if ann.LastPlayed == nil || !ann.LastPlayed.Equal(day("2024-12-20")) {
+		t.Errorf("ann's last game of 2024 = %v, want 2024-12-20", ann.LastPlayed)
+	}
+	if ann.PreviousCRating == nil || *ann.PreviousCRating != 1500 {
+		t.Errorf("ann's previous C = %v, want 1500", ann.PreviousCRating)
+	}
+	if bob := got.Rows[0]; bob.PreviousCRating != nil {
+		t.Errorf("bob = %+v, want no previous rating", bob)
+	}
+}
+
+func TestYearBoardRefusesAYearWithoutHistory(t *testing.T) {
+	pool := migrated(t)
+	r := NewRatingsReader(asReader(t, pool))
+	run := publishedRun(t, pool)
+	addHistory(t, pool, run, "glicko2_std", 0, "ann", "2024-12-31", 1600)
+	if _, err := r.YearBoard(context.Background(), run, 2019, "glicko2_std", 0); !errors.Is(err, ErrNoHistory) {
+		t.Errorf("YearBoard(2019): err = %v, want ErrNoHistory", err)
+	}
+}
+
+func TestYearBoardNamesTheReigningChampionInTheRunsLatestYear(t *testing.T) {
+	pool := migrated(t)
+	r := NewRatingsReader(asReader(t, pool))
+	ctx := context.Background()
+	run := publishedRun(t, pool)
+	addPlayers(t, pool, "ann", "bob")
+	addGame(t, pool, run, "2025-06-01", "Cup", Seat{"ann", 9}, Seat{"bob", 5})
+	addGame(t, pool, run, "2026-03-01", "Cup", Seat{"ann", 9}, Seat{"bob", 5})
+	addHistory(t, pool, run, "glicko2_std", 0, "ann", "2025-06-30", 1600)
+	addHistory(t, pool, run, "glicko2_std", 0, "ann", "2026-03-31", 1650)
+	addTitle(t, pool, run, "ann", "WC", 1, "Reigning World Champion")
+	addYearlyTitle(t, pool, run, "ann", 2025, "WC")
+
+	for year, want := range map[int]string{2026: "[{ann true}]", 2025: "[{ann false}]"} {
+		got, err := r.YearBoard(ctx, run, year, "glicko2_std", 0)
+		if err != nil || fmt.Sprint(got.Champions) != want {
+			t.Errorf("YearBoard(%d) champions = %v, %v; want %s", year, got.Champions, err, want)
+		}
+	}
+}
