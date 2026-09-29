@@ -421,3 +421,100 @@ func deref(years []CareerYear) []string {
 	}
 	return out
 }
+
+func TestPlayerCareerAddsTheRunningRecordAndStandardsYearEnd(t *testing.T) {
+	pool := migrated(t)
+	r := NewRatingsReader(asReader(t, pool))
+	ctx := context.Background()
+	run := publishedRun(t, pool)
+	addPlayers(t, pool, "ann", "bob", "cy")
+	addGame(t, pool, run, "2024-03-01", "Cup", Seat{"ann", 9}, Seat{"bob", 5})
+	addGame(t, pool, run, "2024-04-01", "Cup", Seat{"ann", 5}, Seat{"bob", 5}, Seat{"cy", 7})
+	addGame(t, pool, run, "2025-02-01", "Cup", Seat{"bob", 9}, Seat{"ann", 5})
+	addHistory(t, pool, run, "glicko2_std", 0, "ann", "2024-04-30", 1600)
+	addHistory(t, pool, run, "glicko2_std", 0, "ann", "2024-12-31", 1610.04)
+	addHistory(t, pool, run, "whr", 0, "ann", "2025-12-31", 1700)
+
+	_, years, _, err := r.PlayerCareer(ctx, run, "ann", 0)
+	if err != nil {
+		t.Fatalf("PlayerCareer: %v", err)
+	}
+	if len(years) != 2 {
+		t.Fatalf("PlayerCareer = %d years, want 2", len(years))
+	}
+	y24, y25 := years[0], years[1]
+	if y24.CareerOpponents != 3 || y24.CareerWins != 1 || y24.CareerLosses != 1 || y24.CareerDraws != 1 {
+		t.Errorf("2024 career = %d/%d/%d/%d, want 3/1/1/1", y24.CareerOpponents, y24.CareerWins, y24.CareerLosses, y24.CareerDraws)
+	}
+	if y25.CareerOpponents != 4 || y25.CareerWins != 1 || y25.CareerLosses != 2 || y25.CareerDraws != 1 {
+		t.Errorf("2025 career = %d/%d/%d/%d, want 4/1/2/1", y25.CareerOpponents, y25.CareerWins, y25.CareerLosses, y25.CareerDraws)
+	}
+	if y24.YearEnd == nil || *y24.YearEnd != 1700 {
+		t.Errorf("2024 year end = %v, want Standard's last rating that year, 1700", y24.YearEnd)
+	}
+	if y25.YearEnd != nil {
+		t.Errorf("2025 year end = %v, want none (only WHR has 2025)", *y25.YearEnd)
+	}
+}
+
+func TestPlayerMatrixGivesTheLiveRatings(t *testing.T) {
+	pool := migrated(t)
+	r := NewRatingsReader(asReader(t, pool))
+	ctx := context.Background()
+	run := publishedRun(t, pool)
+	addPlayers(t, pool, "ann")
+	addRating(t, pool, run, "glicko2_daneo", 0, "ann", intp(4), 1800.04)
+	addRating(t, pool, run, "whr_softer", 0, "ann", nil, 1700)
+	addRating(t, pool, run, "glicko2_std_retro", 0, "ann", intp(1), 1900)
+	addRating(t, pool, run, "glicko2_daneo", 2, "ann", intp(2), 1500)
+
+	name, cells, err := r.PlayerMatrix(ctx, run, "ANN", 0, nil)
+	if err != nil {
+		t.Fatalf("PlayerMatrix: %v", err)
+	}
+	// addRating stores rating = c + 100 and RD 50.
+	want := []MatrixCell{
+		{Model: "glicko2_daneo", Rating: 1900, RD: 50, CRating: 1800, Rank: intp(4)},
+		{Model: "whr_softer", Rating: 1800, RD: 50, CRating: 1700},
+	}
+	if name != "ann" || fmt.Sprint(cellText(cells)) != fmt.Sprint(cellText(want)) {
+		t.Errorf("PlayerMatrix(ANN, 0) = %q, %v; want ann, %v", name, cellText(cells), cellText(want))
+	}
+}
+
+func TestPlayerMatrixTakesEachModelsLastPeriodOfTheYear(t *testing.T) {
+	pool := migrated(t)
+	r := NewRatingsReader(asReader(t, pool))
+	ctx := context.Background()
+	run := publishedRun(t, pool)
+	addPlayers(t, pool, "ann", "bob")
+	addHistory(t, pool, run, "glicko2_std", 0, "ann", "2024-11-30", 1500)
+	addHistory(t, pool, run, "glicko2_std", 0, "ann", "2024-12-31", 1600)
+	addHistory(t, pool, run, "glicko2_std", 0, "bob", "2024-12-31", 1650)
+	addHistory(t, pool, run, "glicko2_std", 0, "bob", "2025-01-31", 1700)
+	addHistory(t, pool, run, "whr", 0, "ann", "2024-06-30", 1400)
+	addHistory(t, pool, run, "whr", 0, "bob", "2024-12-31", 1450)
+
+	year := 2024
+	_, cells, err := r.PlayerMatrix(ctx, run, "ann", 0, &year)
+	if err != nil {
+		t.Fatalf("PlayerMatrix: %v", err)
+	}
+	// ann is second by conservative rating on Standard's last 2024 period; she has no WHR row on WHR's.
+	want := []MatrixCell{{Model: "glicko2_std", Rating: 1690, RD: 30, CRating: 1600, Rank: intp(2)}}
+	if fmt.Sprint(cellText(cells)) != fmt.Sprint(cellText(want)) {
+		t.Errorf("PlayerMatrix(ann, 2024) = %v, want %v", cellText(cells), cellText(want))
+	}
+}
+
+func cellText(cells []MatrixCell) []string {
+	out := []string{}
+	for _, c := range cells {
+		rank := "-"
+		if c.Rank != nil {
+			rank = fmt.Sprint(*c.Rank)
+		}
+		out = append(out, fmt.Sprintf("%s %v±%v C%v #%s", c.Model, c.Rating, c.RD, c.CRating, rank))
+	}
+	return out
+}

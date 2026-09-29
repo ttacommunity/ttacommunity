@@ -61,7 +61,7 @@ func addRating(t *testing.T, pool *pgxpool.Pool, run int64, model string, format
 	_, err := pool.Exec(context.Background(), `
 		INSERT INTO player_ratings (run_id, model_type, player_count, player_name, rating, rd, sigma, c_rating, rank,
 			rank_delta, games_played, opponents_count, wins, losses, draws, win_rate, last_played)
-		VALUES ($1, $2, $3, $4, $5 + 100, 50, 0.06, $5, $6, -2, 12, 9, 7, 4, 1, 58.3, '2025-02-17')`,
+		VALUES ($1, $2, $3, $4, $5::float8 + 100, 50, 0.06, $5::float8, $6, -2, 12, 9, 7, 4, 1, 58.3, '2025-02-17')`,
 		run, model, format, name, cRating, rank)
 	if err != nil {
 		t.Fatalf("inserting %s's rating in run %d: %v", name, run, err)

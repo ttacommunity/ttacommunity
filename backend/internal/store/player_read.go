@@ -333,12 +333,21 @@ var peakEngines = []string{"glicko2_daneo", "glicko2_std", "glicko2_mp", "glicko
 // sharedGames is how many of two players' shared games Versus returns.
 const sharedGames = 100
 
-// CareerYear is a player's record in one calendar year.
+// CareerYear is a player's record in one calendar year and up to its end.
 type CareerYear struct {
-	Year                           int
-	Opponents, Wins, Losses, Draws int
-	PeakRating                     *float64
-	Title                          *string
+	Year                                                   int
+	Opponents, Wins, Losses, Draws                         int
+	CareerOpponents, CareerWins, CareerLosses, CareerDraws int
+	PeakRating                                             *float64
+	YearEnd                                                *float64
+	Title                                                  *string
+}
+
+// MatrixCell is a player's rating in one page model, and their rank.
+type MatrixCell struct {
+	Model               string
+	Rating, RD, CRating float64
+	Rank                *int
 }
 
 // ModelPeak is a model's highest rating for a player, when it was, and the
@@ -391,6 +400,41 @@ func (r *RatingsReader) PlayerCareer(ctx context.Context, run int64, asked strin
 	for i := range years {
 		if p, ok := yearPeak[years[i].Year]; ok {
 			years[i].PeakRating = &p
+		}
+		prev := CareerYear{}
+		if i > 0 {
+			prev = years[i-1]
+		}
+		years[i].CareerOpponents = prev.CareerOpponents + years[i].Opponents
+		years[i].CareerWins = prev.CareerWins + years[i].Wins
+		years[i].CareerLosses = prev.CareerLosses + years[i].Losses
+		years[i].CareerDraws = prev.CareerDraws + years[i].Draws
+	}
+
+	// Upstream's year-end rating is Glicko-2 Standard's, whichever model is chosen.
+	rows, err = r.pool.Query(ctx, `
+		SELECT DISTINCT ON (extract(year FROM period_date)) extract(year FROM period_date)::int, rating
+		FROM rating_history
+		WHERE run_id = $1 AND player_name = $2 AND player_count = $3 AND model_type = 'glicko2_std'
+		ORDER BY extract(year FROM period_date), period_date DESC`, run, name, format)
+	if err != nil {
+		return "", nil, nil, fmt.Errorf("reading a player's year-end ratings in run %d: %w", run, err)
+	}
+	yearEnd := map[int]float64{}
+	for rows.Next() {
+		var y int
+		var rating float64
+		if err := rows.Scan(&y, &rating); err != nil {
+			return "", nil, nil, fmt.Errorf("reading a player's year-end ratings in run %d: %w", run, err)
+		}
+		yearEnd[y] = round.Tenth(rating)
+	}
+	if err := rows.Err(); err != nil {
+		return "", nil, nil, fmt.Errorf("reading a player's year-end ratings in run %d: %w", run, err)
+	}
+	for i := range years {
+		if e, ok := yearEnd[years[i].Year]; ok {
+			years[i].YearEnd = &e
 		}
 	}
 
@@ -502,4 +546,50 @@ func (r *RatingsReader) Versus(ctx context.Context, run int64, asked, other stri
 		return "", "", nil, fmt.Errorf("reading shared games in run %d: %w", run, err)
 	}
 	return a, b, games, nil
+}
+
+// PlayerMatrix returns the stored name and the player's rating in each page
+// model for a format, to 0.1: live, with the run's ranks, or at the end of
+// year, as upstream's matrix takes it: each model's last period that year,
+// ranked by conservative rating that period. A model the player has no
+// rating in, or no row in on that period, is left out.
+func (r *RatingsReader) PlayerMatrix(ctx context.Context, run int64, asked string, format int, year *int) (string, []MatrixCell, error) {
+	name, err := r.resolve(ctx, run, asked)
+	if err != nil {
+		return "", nil, err
+	}
+	var rows pgx.Rows
+	if year == nil {
+		rows, err = r.pool.Query(ctx, `
+			SELECT model_type, rating, rd, c_rating, rank FROM player_ratings
+			WHERE run_id = $1 AND player_name = $2 AND player_count = $3 AND model_type = ANY($4)
+			ORDER BY model_type`, run, name, format, PlayerPageModels)
+	} else {
+		rows, err = r.pool.Query(ctx, `
+			WITH last AS (
+				SELECT model_type, max(period_date) AS period_date FROM rating_history
+				WHERE run_id = $1 AND player_count = $3 AND model_type = ANY($4)
+					AND extract(year FROM period_date) = $5
+				GROUP BY model_type)
+			SELECT h.model_type, h.rating, h.rd, h.c_rating,
+				(SELECT count(*) + 1 FROM rating_history o
+				 WHERE o.run_id = $1 AND o.model_type = h.model_type AND o.player_count = $3
+					AND o.period_date = h.period_date AND o.c_rating > h.c_rating)::int
+			FROM rating_history h JOIN last USING (model_type, period_date)
+			WHERE h.run_id = $1 AND h.player_name = $2 AND h.player_count = $3
+			ORDER BY h.model_type`, run, name, format, PlayerPageModels, *year)
+	}
+	if err != nil {
+		return "", nil, fmt.Errorf("reading a player's matrix in run %d: %w", run, err)
+	}
+	cells, err := pgx.CollectRows(rows, func(row pgx.CollectableRow) (MatrixCell, error) {
+		var c MatrixCell
+		err := row.Scan(&c.Model, &c.Rating, &c.RD, &c.CRating, &c.Rank)
+		c.Rating, c.RD, c.CRating = round.Tenth(c.Rating), round.Tenth(c.RD), round.Tenth(c.CRating)
+		return c, err
+	})
+	if err != nil {
+		return "", nil, fmt.Errorf("reading a player's matrix in run %d: %w", run, err)
+	}
+	return name, cells, nil
 }
