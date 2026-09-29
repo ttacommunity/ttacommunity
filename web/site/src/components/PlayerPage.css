@@ -347,6 +347,13 @@
   font-size: 0.78rem;
 }
 
+@media (max-width: 768px) {
+  /* The curve switch's long buttons wrap inside it rather than widen the page. */
+  .chart-toggle {
+    flex-wrap: wrap;
+  }
+}
+
 .chart-container-inner {
   position: relative;
   width: 100%;
