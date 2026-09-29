@@ -1,0 +1,218 @@
+package httpapi
+
+import (
+	"context"
+	"encoding/json"
+	"net/http"
+	"slices"
+	"strings"
+	"testing"
+	"time"
+
+	"ttacommunity/backend/internal/ratingdelta"
+	"ttacommunity/backend/internal/store"
+)
+
+type fakePlayers struct {
+	fakeRatings
+	player  store.Player
+	hist    []store.HistoryPoint
+	page    store.MatchPage
+	rivals  []store.Rival
+	rated   map[string]store.Rated
+	err     error
+	asked   string
+	format  int
+	pageNo  int
+	ratedAs string
+}
+
+func (f *fakePlayers) Player(_ context.Context, run int64, name string) (store.Player, error) {
+	f.calls++
+	f.gotRun, f.asked = run, name
+	return f.player, f.err
+}
+
+func (f *fakePlayers) PlayerHistory(_ context.Context, run int64, name string, format int) (string, []store.HistoryPoint, error) {
+	f.calls++
+	f.gotRun, f.asked, f.format = run, name, format
+	return "Ann", f.hist, f.err
+}
+
+func (f *fakePlayers) PlayerMatches(_ context.Context, run int64, name string, format, page int) (string, store.MatchPage, error) {
+	f.calls++
+	f.gotRun, f.asked, f.format, f.pageNo = run, name, format, page
+	return "Ann", f.page, f.err
+}
+
+func (f *fakePlayers) RatingsOf(_ context.Context, _ int64, model string, format int, _ []string) (map[string]store.Rated, error) {
+	f.ratedAs = model
+	f.format = format
+	return f.rated, nil
+}
+
+func (f *fakePlayers) PlayerRivals(_ context.Context, run int64, name string, format int) (string, []store.Rival, error) {
+	f.calls++
+	f.gotRun, f.asked, f.format = run, name, format
+	return "Ann", f.rivals, f.err
+}
+
+func TestPlayer(t *testing.T) {
+	last := time.Date(2026, 8, 31, 0, 0, 0, 0, time.UTC)
+	pl := "PL"
+	f := &fakePlayers{player: store.Player{
+		Name: "Ann", Country: &pl, LastPlayed: &last, NewestGame: &last,
+		Title: &store.Title{Code: "GM", Count: 2, Reason: "Royal League"},
+		Peak:  &store.Peak{Code: "WC"},
+		Games: map[int]int{0: 5, 3: 5},
+		Ratings: []store.PlayerRating{
+			{Model: "whr_softer", Format: 3, Rank: intp(4), Rating: 1800, RD: 40, CRating: 1680, Opponents: 12, WinRate: 55.5},
+		},
+	}}
+	rec, _ := serve(t, f, "/v1/runs/7/players/ann")
+	if rec.Code != http.StatusOK || rec.Header().Get("Cache-Control") != "public, max-age=300" {
+		t.Errorf("GET player: %d, %q; want 200, five minutes", rec.Code, rec.Header().Get("Cache-Control"))
+	}
+	want := `{"country":"PL","games":[{"format":0,"games":5},{"format":2,"games":0},{"format":3,"games":5},{"format":4,"games":0}],` +
+		`"last_played":"2026-08-31","name":"Ann","newest_game":"2026-08-31","peak":{"code":"WC","year":null},` +
+		`"ratings":[{"c_rating":1680,"format":3,"model":"whr_softer","opponents":12,"rank":4,"rating":1800,"rd":40,"win_rate":55.5}],` +
+		`"run_id":7,"title":{"code":"GM","count":2,"reason":"Royal League"}}`
+	if got := strings.TrimSpace(rec.Body.String()); got != want {
+		t.Errorf("GET player: body = %s\nwant %s", got, want)
+	}
+	if f.gotRun != 7 || f.asked != "ann" {
+		t.Errorf("store asked for run %d, %q; want 7, ann", f.gotRun, f.asked)
+	}
+}
+
+func TestPlayerRoutesRefuseBeforeTheStore(t *testing.T) {
+	long := strings.Repeat("a", 201)
+	tests := []struct{ name, path, want string }{
+		{"bad run", "/v1/runs/0/players/ann", "bad parameter: run"},
+		{"long name", "/v1/runs/7/players/" + long, "bad parameter: name"},
+		{"history format", "/v1/runs/7/players/ann/history?format=5", "unknown format"},
+		{"matches format", "/v1/runs/7/players/ann/matches?format=1", "unknown format"},
+		{"matches retro model", "/v1/runs/7/players/ann/matches?model=glicko2_std_retro", "unknown model"},
+		{"matches page", "/v1/runs/7/players/ann/matches?page=0", "bad parameter: page"},
+		{"rivals format", "/v1/runs/7/players/ann/rivals?format=9", "unknown format"},
+		{"rivals long name", "/v1/runs/7/players/" + long + "/rivals", "bad parameter: name"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			f := &fakePlayers{}
+			rec, _ := serve(t, f, tt.path)
+			if rec.Code != http.StatusBadRequest || rec.Header().Get("Cache-Control") != "no-store" {
+				t.Errorf("GET %s: %d, %q; want 400, no-store", tt.path, rec.Code, rec.Header().Get("Cache-Control"))
+			}
+			if got := strings.TrimSpace(rec.Body.String()); got != `{"error":"`+tt.want+`"}` {
+				t.Errorf("GET %s: body = %s, want %q", tt.path, got, tt.want)
+			}
+			if f.calls != 0 {
+				t.Errorf("GET %s reached the store", tt.path)
+			}
+		})
+	}
+}
+
+func TestPlayerRoutesAnswerNotFound(t *testing.T) {
+	for _, suffix := range []string{"", "/history", "/matches", "/rivals"} {
+		for _, err := range []error{store.ErrPlayerNotFound, store.ErrRunNotFound} {
+			path := "/v1/runs/7/players/zed" + suffix
+			rec, _ := serve(t, &fakePlayers{err: err}, path)
+			if rec.Code != http.StatusNotFound || rec.Header().Get("Cache-Control") != "no-store" {
+				t.Errorf("GET %s with %v: %d, %q; want 404, no-store", path, err, rec.Code, rec.Header().Get("Cache-Control"))
+			}
+			if got := strings.TrimSpace(rec.Body.String()); got != `{"error":"`+err.Error()+`"}` {
+				t.Errorf("GET %s: body = %s, want %q", path, got, err.Error())
+			}
+		}
+	}
+}
+
+func TestPlayerHistoryGroupsPointsByModel(t *testing.T) {
+	jan, feb := time.Date(2025, 1, 31, 0, 0, 0, 0, time.UTC), time.Date(2025, 2, 28, 0, 0, 0, 0, time.UTC)
+	f := &fakePlayers{hist: []store.HistoryPoint{
+		{Model: "glicko2_daneo", Date: jan, Rating: 1800, CRating: 1700},
+		{Model: "glicko2_daneo", Date: feb, Rating: 1810, CRating: 1715},
+		{Model: "whr", Date: jan, Rating: 1900, CRating: 1850},
+	}}
+	rec, _ := serve(t, f, "/v1/runs/7/players/ann/history?format=2")
+	want := `{"format":2,"name":"Ann","run_id":7,"series":[` +
+		`{"model":"glicko2_daneo","points":[{"c_rating":1700,"date":"2025-01-31","rating":1800},{"c_rating":1715,"date":"2025-02-28","rating":1810}]},` +
+		`{"model":"whr","points":[{"c_rating":1850,"date":"2025-01-31","rating":1900}]}]}`
+	if got := strings.TrimSpace(rec.Body.String()); rec.Code != http.StatusOK || got != want {
+		t.Errorf("GET history: %d %s\nwant 200 %s", rec.Code, got, want)
+	}
+	if rec.Header().Get("Cache-Control") != cacheForever || f.format != 2 {
+		t.Errorf("GET history: Cache-Control %q, format %d; want a year, 2", rec.Header().Get("Cache-Control"), f.format)
+	}
+}
+
+func TestPlayerMatchesPlacesAndEstimates(t *testing.T) {
+	day := time.Date(2026, 8, 31, 0, 0, 0, 0, time.UTC)
+	code := "ABC123"
+	f := &fakePlayers{
+		page: store.MatchPage{Page: 2, Pages: 3, Total: 61, Matches: []store.PlayerMatch{
+			{ID: 9, Tournament: "Cup", Date: day, PlayerCount: 3, ReplayCode: &code,
+				Seats: []store.Seat{{Name: "cy", Score: 50}, {Name: "Ann", Score: 70}, {Name: "bob", Score: 90}}},
+		}},
+		rated: map[string]store.Rated{"Ann": {Rating: 1800, RD: 45}, "bob": {Rating: 1900, RD: 35}},
+	}
+	rec, _ := serve(t, f, "/v1/runs/7/players/ann/matches?format=3&model=whr_softer&page=2")
+	if rec.Code != http.StatusOK || rec.Header().Get("Cache-Control") != cacheForever {
+		t.Fatalf("GET matches: %d, %q; want 200, a year", rec.Code, rec.Header().Get("Cache-Control"))
+	}
+	if f.ratedAs != "glicko2_daneo_softer" || f.format != 3 || f.pageNo != 2 || f.asked != "ann" {
+		t.Errorf("store asked for %s ratings, format %d, page %d, %q; want glicko2_daneo_softer, 3, 2, ann",
+			f.ratedAs, f.format, f.pageNo, f.asked)
+	}
+	var got PlayerMatches
+	if err := json.Unmarshal(rec.Body.Bytes(), &got); err != nil {
+		t.Fatalf("decoding: %v", err)
+	}
+	if got.Name != "Ann" || got.Model != WhrSofter || got.Page != 2 || got.Pages != 3 || got.Total != 61 || len(got.Matches) != 1 {
+		t.Fatalf("GET matches = %+v", got)
+	}
+	m := got.Matches[0]
+	wantSeats := []Seat{{Name: "bob", Score: 90}, {Name: "Ann", Score: 70}, {Name: "cy", Score: 50}}
+	if m.Placement != 2 || !slices.Equal(m.Seats, wantSeats) || m.ReplayCode == nil || *m.ReplayCode != code {
+		t.Errorf("game = place %d, seats %v, replay %v; want 2, %v, %s", m.Placement, m.Seats, m.ReplayCode, wantSeats, code)
+	}
+	lookup := func(n string) (ratingdelta.Rating, bool) {
+		r, ok := f.rated[n]
+		return ratingdelta.Rating{Rating: r.Rating, RD: r.RD}, ok
+	}
+	want, _ := ratingdelta.Delta("glicko2_daneo", "Ann", 3,
+		[]ratingdelta.Seat{{Name: "bob", Score: 90}, {Name: "Ann", Score: 70}, {Name: "cy", Score: 50}}, lookup)
+	if m.RatingDelta == nil || *m.RatingDelta != want {
+		t.Errorf("rating delta = %v, want %v (GlickoD's update for WHR)", m.RatingDelta, want)
+	}
+}
+
+func TestPlayerMatchesDefaultsToGlickoDAllFormatsPageOne(t *testing.T) {
+	f := &fakePlayers{page: store.MatchPage{Page: 1, Pages: 1}}
+	rec, _ := serve(t, f, "/v1/runs/7/players/ann/matches")
+	want := `{"format":0,"matches":[],"model":"glicko2_daneo","name":"Ann","page":1,"pages":1,"run_id":7,"total":0}`
+	if got := strings.TrimSpace(rec.Body.String()); got != want || f.pageNo != 1 {
+		t.Errorf("GET matches = %s (page %d asked); want %s", got, f.pageNo, want)
+	}
+}
+
+func TestPlayerRivalsGivesWinRates(t *testing.T) {
+	f := &fakePlayers{rivals: []store.Rival{
+		{Name: "bob", Games: 7, Wins: 3, Losses: 3, Draws: 1},
+		{Name: "cy", Games: 3, Wins: 2, Losses: 1},
+	}}
+	rec, _ := serve(t, f, "/v1/runs/7/players/ann/rivals?format=4")
+	want := `{"format":4,"name":"Ann","rivals":[` +
+		`{"draws":1,"games":7,"losses":3,"name":"bob","win_rate":50,"wins":3},` +
+		`{"draws":0,"games":3,"losses":1,"name":"cy","win_rate":66.7,"wins":2}],"run_id":7}`
+	if got := strings.TrimSpace(rec.Body.String()); got != want || f.format != 4 {
+		t.Errorf("GET rivals = %s (format %d); want %s", got, f.format, want)
+	}
+	if rec.Header().Get("Cache-Control") != cacheForever {
+		t.Errorf("GET rivals: Cache-Control = %q, want a year", rec.Header().Get("Cache-Control"))
+	}
+}
+
+func intp(n int) *int { return &n }

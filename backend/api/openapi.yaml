@@ -191,6 +191,120 @@ paths:
           $ref: "#/components/responses/BadRequest"
         "404":
           $ref: "#/components/responses/NotFound"
+  /v1/runs/{run}/players/{name}:
+    get:
+      operationId: getPlayer
+      summary: One player's ratings in every model and format, for the player page
+      description: |
+        The player's ratings in the ten continuous and season-reset models,
+        each format, with their title, career peak, country and game counts.
+        A name that matches no player exactly is looked up ignoring case,
+        if only one player matches. Country and titles can change without a
+        new run, so this is cached for five minutes.
+      parameters:
+        - $ref: "#/components/parameters/RunId"
+        - $ref: "#/components/parameters/PlayerName"
+      responses:
+        "200":
+          description: The player
+          headers:
+            Cache-Control:
+              $ref: "#/components/headers/CacheControl"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Player"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /v1/runs/{run}/players/{name}/history:
+    get:
+      operationId: getPlayerHistory
+      summary: One player's rating at the end of every period, for the chart
+      description: |
+        The player's rating and conservative rating after each rating period
+        in the ten continuous and season-reset models, for one format. A
+        run's history never changes, so this is cached for a year.
+      parameters:
+        - $ref: "#/components/parameters/RunId"
+        - $ref: "#/components/parameters/PlayerName"
+        - $ref: "#/components/parameters/Format"
+      responses:
+        "200":
+          description: The player's history
+          headers:
+            Cache-Control:
+              $ref: "#/components/headers/CacheControl"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PlayerHistory"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /v1/runs/{run}/players/{name}/matches:
+    get:
+      operationId: getPlayerMatches
+      summary: One player's games, newest first, 30 to a page
+      description: |
+        The games the run rated for the player, in one format (0 is all).
+        Each carries an estimate of what it is worth to the player's rating
+        today: one rating update from the run's final ratings in `model`
+        (WHR is estimated with GlickoD's update). A page past the last gives
+        the last. Cached for a year.
+      parameters:
+        - $ref: "#/components/parameters/RunId"
+        - $ref: "#/components/parameters/PlayerName"
+        - $ref: "#/components/parameters/Format"
+        - $ref: "#/components/parameters/Model"
+        - name: page
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+      responses:
+        "200":
+          description: One page of games
+          headers:
+            Cache-Control:
+              $ref: "#/components/headers/CacheControl"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PlayerMatches"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /v1/runs/{run}/players/{name}/rivals:
+    get:
+      operationId: getPlayerRivals
+      summary: The player's record against each opponent
+      description: |
+        Wins, losses and draws against the 200 opponents the player has met
+        most, in one format (0 is all). Cached for a year.
+      parameters:
+        - $ref: "#/components/parameters/RunId"
+        - $ref: "#/components/parameters/PlayerName"
+        - $ref: "#/components/parameters/Format"
+      responses:
+        "200":
+          description: The player's rivals
+          headers:
+            Cache-Control:
+              $ref: "#/components/headers/CacheControl"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PlayerRivals"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "404":
+          $ref: "#/components/responses/NotFound"
 components:
   parameters:
     Model:
@@ -205,6 +319,15 @@ components:
       required: false
       schema:
         $ref: "#/components/schemas/Format"
+    PlayerName:
+      name: name
+      in: path
+      required: true
+      description: The player's name, as the leaderboard gives it
+      schema:
+        type: string
+        minLength: 1
+        maxLength: 200
     RunId:
       name: run
       in: path
@@ -411,3 +534,220 @@ components:
         reason:
           description: Why the player holds it, e.g. the latest division played
           type: string
+    Player:
+      type: object
+      required: [run_id, name, country, title, peak, last_played, newest_game, games, ratings]
+      properties:
+        run_id:
+          type: integer
+          format: int64
+        name:
+          description: The player's name as stored, whatever case was asked for
+          type: string
+        country:
+          type: string
+          pattern: "^[A-Z]{2}$"
+          nullable: true
+        title:
+          $ref: "#/components/schemas/Title"
+        peak:
+          $ref: "#/components/schemas/Peak"
+        last_played:
+          type: string
+          format: date
+          nullable: true
+        newest_game:
+          description: The date of the newest game in the run, by anyone
+          type: string
+          format: date
+          nullable: true
+        games:
+          description: How many games the player has in the run, by format (0 is all)
+          type: array
+          items:
+            $ref: "#/components/schemas/FormatGames"
+        ratings:
+          type: array
+          items:
+            $ref: "#/components/schemas/PlayerRating"
+    Peak:
+      description: The player's best title over their career, if any
+      type: object
+      nullable: true
+      required: [code, year]
+      properties:
+        code:
+          $ref: "#/components/schemas/TitleCode"
+        year:
+          type: integer
+          nullable: true
+    FormatGames:
+      type: object
+      required: [format, games]
+      properties:
+        format:
+          $ref: "#/components/schemas/Format"
+        games:
+          type: integer
+    PlayerRating:
+      type: object
+      required: [model, format, rank, rating, rd, c_rating, opponents, win_rate]
+      properties:
+        model:
+          $ref: "#/components/schemas/Model"
+        format:
+          $ref: "#/components/schemas/Format"
+        rank:
+          type: integer
+          nullable: true
+        rating:
+          type: number
+          format: double
+        rd:
+          type: number
+          format: double
+        c_rating:
+          type: number
+          format: double
+        opponents:
+          type: integer
+        win_rate:
+          description: Percent, 0 to 100
+          type: number
+          format: double
+    PlayerHistory:
+      type: object
+      required: [run_id, name, format, series]
+      properties:
+        run_id:
+          type: integer
+          format: int64
+        name:
+          type: string
+        format:
+          $ref: "#/components/schemas/Format"
+        series:
+          type: array
+          items:
+            $ref: "#/components/schemas/HistorySeries"
+    HistorySeries:
+      type: object
+      required: [model, points]
+      properties:
+        model:
+          $ref: "#/components/schemas/Model"
+        points:
+          description: Oldest first
+          type: array
+          items:
+            $ref: "#/components/schemas/HistoryPoint"
+    HistoryPoint:
+      type: object
+      required: [date, rating, c_rating]
+      properties:
+        date:
+          type: string
+          format: date
+        rating:
+          type: number
+          format: double
+        c_rating:
+          type: number
+          format: double
+    PlayerMatches:
+      type: object
+      required: [run_id, name, format, model, page, pages, total, matches]
+      properties:
+        run_id:
+          type: integer
+          format: int64
+        name:
+          type: string
+        format:
+          $ref: "#/components/schemas/Format"
+        model:
+          $ref: "#/components/schemas/Model"
+        page:
+          type: integer
+        pages:
+          type: integer
+        total:
+          description: The player's games in this format
+          type: integer
+        matches:
+          type: array
+          items:
+            $ref: "#/components/schemas/PlayerMatch"
+    PlayerMatch:
+      type: object
+      required: [match_id, tournament, date, player_count, placement, replay_code, rating_delta, seats]
+      properties:
+        match_id:
+          type: integer
+          format: int64
+        tournament:
+          type: string
+        date:
+          type: string
+          format: date
+        player_count:
+          type: integer
+        placement:
+          description: The player's place, 1 for the highest score
+          type: integer
+        replay_code:
+          type: string
+          nullable: true
+        rating_delta:
+          description: What the game is worth to the player's rating today, to 0.1
+          type: number
+          format: double
+          nullable: true
+        seats:
+          description: Highest score first
+          type: array
+          items:
+            $ref: "#/components/schemas/Seat"
+    Seat:
+      type: object
+      required: [name, score]
+      properties:
+        name:
+          type: string
+        score:
+          type: number
+          format: double
+    PlayerRivals:
+      type: object
+      required: [run_id, name, format, rivals]
+      properties:
+        run_id:
+          type: integer
+          format: int64
+        name:
+          type: string
+        format:
+          $ref: "#/components/schemas/Format"
+        rivals:
+          description: Most games first
+          type: array
+          items:
+            $ref: "#/components/schemas/Rival"
+    Rival:
+      type: object
+      required: [name, games, wins, losses, draws, win_rate]
+      properties:
+        name:
+          type: string
+        games:
+          type: integer
+        wins:
+          type: integer
+        losses:
+          type: integer
+        draws:
+          type: integer
+        win_rate:
+          description: Percent, 0 to 100, a draw counting half
+          type: number
+          format: double
