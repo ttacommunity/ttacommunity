@@ -79,8 +79,8 @@ func tables(t *testing.T, pool *pgxpool.Pool) []string {
 }
 
 var ratingsTables = []string{
-	"current_run", "import_batches", "matches", "pairwise_matches", "player_peak_titles", "player_ratings", "player_titles", "players",
-	"rating_history", "rating_runs", "refused_rows", "standard_calibration", "walk_forward_calibration",
+	"current_run", "import_batches", "matches", "pairwise_matches", "player_peak_titles", "player_ratings", "player_titles",
+	"player_yearly_titles", "players", "rating_history", "rating_runs", "refused_rows", "standard_calibration", "walk_forward_calibration",
 }
 
 func TestMigrationsGoDownAndUpAgain(t *testing.T) {

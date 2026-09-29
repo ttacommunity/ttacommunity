@@ -207,3 +207,55 @@ def test_peaks_are_only_for_known_players_and_replaced_each_time(
     derive_tournament_badges(conn=conn, run_id=run_id)
 
     assert set(peaks(conn, run_id)) == {"Ann", "Bob"}
+
+
+def yearly(conn, run_id):
+    return {
+        (r["player_name"], r["year"]): r["title"]
+        for r in conn.execute(
+            "SELECT player_name, year, title FROM player_yearly_titles WHERE run_id = %s",
+            (run_id,),
+        )
+    }
+
+
+def test_each_year_keeps_the_best_division_played(conn, add_match, run_id):
+    add_match(("Ann", 10), ("Bob", 5), day=date(2021, 3, 1), tournament="RL_s03 - Duke")
+    add_match(
+        ("Ann", 10), ("Cat", 5), day=date(2021, 9, 1), tournament="RL_s04 - Emperor"
+    )
+    add_match(("Ann", 10), ("Bob", 5), day=date(2022, 3, 1), tournament="RL_s05 - King")
+    add_match(("Ann", 10), ("Dan", 5), day=date(2023, 3, 1), tournament="Friendly Cup")
+
+    derive_tournament_badges(conn=conn, run_id=run_id)
+
+    got = yearly(conn, run_id)
+    assert {k: v for k, v in got.items() if k[0] == "Ann"} == {
+        ("Ann", 2021): "GM",
+        ("Ann", 2022): "M",
+    }
+    assert got[("Bob", 2021)] == "G"
+    assert ("Dan", 2023) not in got
+
+
+def test_world_champions_hold_wc_in_their_title_year(conn, add_match, run_id):
+    add_match(
+        ("Weidenbaum", 10), ("Bob", 5), day=date(2023, 6, 1), tournament="RL_s09 - King"
+    )
+    add_match(("A440", 10), ("Bob", 5), day=date(2024, 6, 2), tournament="Friendly Cup")
+
+    derive_tournament_badges(conn=conn, run_id=run_id)
+
+    got = yearly(conn, run_id)
+    assert got[("Weidenbaum", 2023)] == "WC"
+    assert got[("A440", 2025)] == "WC"
+    assert ("Martin_Pecheur", 2024) not in got
+
+
+def test_yearly_titles_are_replaced_each_time(conn, add_match, run_id):
+    add_match(("Ann", 10), ("Bob", 5), day=date(2024, 6, 1), tournament="RL_s09 - Duke")
+
+    derive_tournament_badges(conn=conn, run_id=run_id)
+    derive_tournament_badges(conn=conn, run_id=run_id)
+
+    assert yearly(conn, run_id) == {("Ann", 2024): "G", ("Bob", 2024): "G"}
