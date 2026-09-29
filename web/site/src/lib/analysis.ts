@@ -1,5 +1,7 @@
 /** Upstream's model analysis in the browser: its model list, composite score, ranking and curve filters. */
-import type { CalibrationRow, Format } from '@ttac/shared/ratings';
+import type { CalibrationRow, CountryRatings, Format, TitleCode } from '@ttac/shared/ratings';
+
+export type { CountryRatings };
 
 export type Family = 'glicko2_daneo' | 'glicko2_adapt' | 'glicko2_mp' | 'glicko2_std' | 'whr';
 export type Reset = 'continuous' | 'softer';
@@ -165,4 +167,26 @@ export function agreementName(key: ModelInfo['key']): string {
   const family = AGREEMENT_FAMILY[info.family];
   if (info.reset === 'softer') return `${family} (Season Reset)`;
   return info.family === 'glicko2_daneo' ? family : `${family} (Career)`;
+}
+
+/** parseMoversParams reads the comparison's search and format; upstream ignores its min_games. */
+export function parseMoversParams(params: URLSearchParams): { search: string; format: Format } {
+  const f = Number(params.get('format') ?? NaN);
+  return { search: (params.get('search') ?? '').trim(), format: ([0, 2, 3, 4] as const).find((x) => x === f) ?? 0 };
+}
+
+/** titleLabel is a title's name on upstream's activity page, which calls every title but GM and M "Platinum". */
+export function titleLabel(code: TitleCode): string {
+  return code === 'GM' ? 'Grandmaster' : code === 'M' ? 'Master' : 'Platinum';
+}
+
+export type CountryColumn = 'rank' | 'country' | 'players' | 'gm' | 'm_plus' | 'p_plus' | 'all';
+
+/** sortCountries sorts the countries table as upstream's script: numbers with none as 0, and rank and country as text. */
+export function sortCountries<T extends CountryRatings & { rank: number }>(rows: readonly T[], col: CountryColumn, asc: boolean): T[] {
+  const dir = asc ? 1 : -1;
+  if (col === 'rank' || col === 'country') {
+    return [...rows].sort((a, b) => dir * String(a[col]).localeCompare(String(b[col])));
+  }
+  return [...rows].sort((a, b) => dir * ((a[col] ?? 0) - (b[col] ?? 0)));
 }

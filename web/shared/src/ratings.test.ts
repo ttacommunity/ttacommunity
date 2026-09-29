@@ -1,8 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import {
   RatingsApiError,
+  activity,
   agreement,
   calibration,
+  comparedPlayers,
   currentRun,
   distribution,
   history,
@@ -154,6 +156,21 @@ describe('analysis routes', () => {
       'https://api.example/v1/runs/5/analysis/calibration',
       'https://api.example/v1/runs/5/analysis/distribution?format=3',
       'https://api.example/v1/runs/5/analysis/agreement?format=0',
+    ]);
+    expect(f.calls.every((c) => c.init?.credentials === 'omit')).toBe(true);
+  });
+});
+
+describe('analysis pages', () => {
+  it('ask for compared players and the activity without credentials', async () => {
+    const f = fakeFetch(200, '{}');
+    await comparedPlayers('https://api.example', 5, 'a440, IT', 3, f.fetch);
+    await comparedPlayers('https://api.example', 5, '', 0, f.fetch);
+    await activity('https://api.example', 5, f.fetch);
+    expect(f.calls.map((c) => c.url)).toEqual([
+      'https://api.example/v1/runs/5/analysis/players?format=3&search=a440%2C+IT',
+      'https://api.example/v1/runs/5/analysis/players?format=0',
+      'https://api.example/v1/runs/5/analysis/activity',
     ]);
     expect(f.calls.every((c) => c.init?.credentials === 'omit')).toBe(true);
   });

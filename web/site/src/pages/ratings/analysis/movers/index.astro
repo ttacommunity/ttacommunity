@@ -1,0 +1,21 @@
+---
+import { PUBLIC_API_URL } from 'astro:env/client';
+import SiteLayout from '../../../../layouts/SiteLayout.astro';
+import AnalysisNav from '../../../../components/AnalysisNav.astro';
+import MoversPage from '../../../../components/MoversPage';
+import '../../../../components/AnalysisPage.css';
+---
+<SiteLayout title="Multi-Engine Player Comparison | Through the Ages" description="Compare Through the Ages players across every rating engine and reset mode.">
+  <AnalysisNav page="movers" />
+
+  <div class="analysis-hero-card">
+    <div>
+      <h1 class="analysis-hero-title">Multi-Engine Player Comparison Tool</h1>
+      <p class="analysis-hero-desc">
+        Inspect and compare individual player rating trajectories across the rating engines (👑 <strong>GlickoD</strong>, Glicko-2 Standard, Glicko-2 MP-Weighted, Adaptive-T, and WHR) across Continuous, Season Reset, and Soft Reset configurations.
+      </p>
+    </div>
+  </div>
+
+  <MoversPage client:only="react" apiUrl={PUBLIC_API_URL} />
+</SiteLayout>

@@ -87,3 +87,10 @@
   color: var(--text-muted);
   opacity: 0.6;
 }
+
+/* A plain gold badge, as upstream's .badge-rank. */
+.badge-rank {
+  background: rgba(229, 169, 60, 0.15);
+  color: var(--accent-gold);
+  border: 1px solid rgba(229, 169, 60, 0.4);
+}
