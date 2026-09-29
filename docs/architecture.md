@@ -75,6 +75,8 @@ used across the whole site so there is one way to write content: Markdown
 for prose, maths in `$…$` rendered to MathML by KaTeX at build (no maths
 script in the browser), and HTML with classes or small components where a
 page needs styled boxes or tables. A new page is a new file.
+Interactive parts write maths the same way, as TeX, through a small
+`<Tex>` component that runs the same KaTeX in the browser.
 
 ## The community's data outlives the site
 

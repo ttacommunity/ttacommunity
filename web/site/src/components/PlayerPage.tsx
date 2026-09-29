@@ -39,6 +39,7 @@ import {
 } from '../lib/player-view';
 import { recall, remember } from '../lib/remembered';
 import './PlayerPage.css';
+import Tex from './Tex';
 
 type Load<T> = { kind: 'loading' } | { kind: 'error'; message: string } | { kind: 'ready'; data: T };
 
@@ -278,10 +279,7 @@ function caption(engine: Engine, opponents: number, winRate: number): ReactNode 
     case 'glicko2_adapt':
       return (
         <>
-          Adaptive format temperature{' '}
-          <span className="math">
-            <i>T</i>(<i>P</i>, <i>N</i>)
-          </span>
+          Adaptive format temperature <Tex tex="T(P, N)" />
         </>
       );
     case 'whr':

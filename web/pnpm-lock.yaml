@@ -245,6 +245,9 @@ importers:
       chart.js:
         specifier: ^4.5.1
         version: 4.5.1
+      katex:
+        specifier: 0.16.47
+        version: 0.16.47
       react:
         specifier: ^19.3.0
         version: 19.3.0
