@@ -1,5 +1,5 @@
 /** Upstream's leaderboard view: its options and filters, ranking, search, sort and paging, all in the browser. */
-import type { Format, History, LeaderboardRow, Model, TitleCode } from '@ttac/shared/ratings';
+import type { Format, History, LeaderboardRow, Model, TitleCode, YearLeaderboard } from '@ttac/shared/ratings';
 
 /** A player whose last game is on or before this date is inactive. Upstream's fixed date, not yet a rolling rule. */
 export const INACTIVE_ON_OR_BEFORE = '2025-05-31';
@@ -18,6 +18,7 @@ export type Status = 'active' | 'all' | 'inactive';
 export type SortKey = 'rank' | 'name' | 'c_rating' | 'rating' | 'opps' | 'win_rate' | 'last_played';
 export type Order = 'asc' | 'desc';
 export type DeltaWindow = 'none' | 'last_update' | 'month' | 'quarter' | 'year';
+export type StatsView = 'season' | 'career';
 
 /** The date each delta window compares against: upstream's fixed dates, or null for the previous rating period. */
 export const DELTA_DATES: Record<Exclude<DeltaWindow, 'none'>, string | null> = {
@@ -47,6 +48,10 @@ export interface View {
   sort: SortKey;
   order: Order;
   page: number;
+  /** A year's archive, or null for the live board. */
+  year: number | null;
+  /** In a year's archive, the record shown: that year's, or the career up to it. */
+  stats: StatsView;
 }
 
 /** The choices remembered between visits, as upstream's session remembers them. */
@@ -65,7 +70,14 @@ export const DEFAULT_VIEW: View = {
   sort: 'rank',
   order: 'asc',
   page: 1,
+  year: null,
+  stats: 'season',
 };
+
+/** defaultMinOpps is upstream's default minimum opponents: 30 live, none in a year's archive. */
+export function defaultMinOpps(year: number | null): number {
+  return year === null ? MIN_OPPONENTS : 0;
+}
 
 export type RankedRow = LeaderboardRow & { displayRank: number; active: boolean; provisional: boolean };
 
@@ -84,6 +96,8 @@ export function parseView(params: URLSearchParams, remembered: Remembered): View
   const get = (k: string) => params.get(k);
   const retro = get('retro');
   const order = oneOf<Order>(['asc', 'desc'], get('order'));
+  const y = get('year') ?? '';
+  const year = /^\d{4}$/.test(y) && Number(y) >= 2000 && Number(y) <= 2100 ? Number(y) : null;
   return {
     engine: oneOf(ENGINES, get('model')) ?? remembered.engine ?? DEFAULT_VIEW.engine,
     reset: oneOf<ResetMode>(['continuous', 'softer'], get('reset_mode')) ?? remembered.reset ?? DEFAULT_VIEW.reset,
@@ -91,12 +105,14 @@ export function parseView(params: URLSearchParams, remembered: Remembered): View
     format: oneOf(FORMATS, get('format')) ?? remembered.format ?? DEFAULT_VIEW.format,
     status: oneOf(STATUSES, get('status')) ?? DEFAULT_VIEW.status,
     title: oneOf(TITLES, get('title')) ?? null,
-    minOpps: whole(get('min_opps'), 0) ?? DEFAULT_VIEW.minOpps,
+    minOpps: whole(get('min_opps'), 0) ?? defaultMinOpps(year),
     delta: oneOf(DELTAS, get('delta')) ?? DEFAULT_VIEW.delta,
     search: (get('search') ?? '').trim(),
     sort: oneOf(SORTS, get('sort')) ?? DEFAULT_VIEW.sort,
     order: order ?? DEFAULT_VIEW.order,
     page: whole(get('page'), 1) ?? DEFAULT_VIEW.page,
+    year,
+    stats: oneOf<StatsView>(['season', 'career'], get('stats_view')) ?? DEFAULT_VIEW.stats,
   };
 }
 
@@ -114,12 +130,14 @@ export function viewParams(view: View, explicit = false): URLSearchParams {
   put('format', String(view.format), String(DEFAULT_VIEW.format));
   put('status', view.status, DEFAULT_VIEW.status);
   put('title', view.title ?? '', '');
-  put('min_opps', String(view.minOpps), String(DEFAULT_VIEW.minOpps));
+  put('min_opps', String(view.minOpps), String(defaultMinOpps(view.year)));
   put('delta', view.delta, DEFAULT_VIEW.delta);
   put('search', view.search, '');
   put('sort', view.sort, DEFAULT_VIEW.sort);
   put('order', view.order, DEFAULT_VIEW.order);
   put('page', String(view.page), '1');
+  put('year', view.year === null ? '' : String(view.year), '');
+  put('stats_view', view.stats, DEFAULT_VIEW.stats);
   return p;
 }
 
@@ -137,11 +155,17 @@ export function modelOf(view: View): Model {
 
 const byName = (a: { name: string }, b: { name: string }) => (a.name < b.name ? -1 : a.name > b.name ? 1 : 0);
 
-/** rankPool keeps the players the status, opponent and title filters allow, ranked 1… by conservative rating. */
-export function rankPool(rows: readonly LeaderboardRow[], view: View): RankedRow[] {
+/**
+ * rankPool keeps the players the status, opponent and title filters allow, ranked 1… by conservative rating. Active
+ * means playing since upstream's cutoff, or in a year's archive, being among those who played that year.
+ */
+export function rankPool(rows: readonly LeaderboardRow[], view: View, playedInYear?: ReadonlySet<string>): RankedRow[] {
   return rows
     .map((p) => {
-      const active = p.last_played !== null && p.last_played > INACTIVE_ON_OR_BEFORE;
+      const active =
+        view.year !== null && playedInYear
+          ? playedInYear.has(p.name)
+          : p.last_played !== null && p.last_played > INACTIVE_ON_OR_BEFORE;
       return { ...p, displayRank: 0, active, provisional: active && p.opponents < PROVISIONAL_BELOW };
     })
     .filter(
@@ -220,7 +244,7 @@ export function hasFilters(view: View): boolean {
     view.search !== '' ||
     view.title !== null ||
     view.status !== DEFAULT_VIEW.status ||
-    view.minOpps !== DEFAULT_VIEW.minOpps ||
+    view.minOpps !== defaultMinOpps(view.year) ||
     view.delta !== DEFAULT_VIEW.delta
   );
 }
@@ -268,4 +292,42 @@ export function csvUrl(api: string, run: number, view: View, everyone: boolean):
   q.set('sort', view.sort);
   q.set('order', view.order);
   return `${api.replace(/\/+$/, '')}/v1/runs/${run}/leaderboard.csv?${q}`;
+}
+
+/**
+ * yearRows turns a year's board into leaderboard rows carrying the season or career record, and names the players
+ * who played that year (the archive's "active").
+ */
+export function yearRows(board: YearLeaderboard, stats: StatsView): { rows: LeaderboardRow[]; played: Set<string> } {
+  const rows = board.players.map((p): LeaderboardRow => {
+    const r = stats === 'career' ? p.career : p.season;
+    return {
+      rank: null,
+      rank_delta: 0,
+      name: p.name,
+      rating: p.rating,
+      rd: p.rd,
+      c_rating: p.c_rating,
+      games: r.opponents,
+      opponents: r.opponents,
+      wins: r.wins,
+      losses: r.losses,
+      draws: r.draws,
+      win_rate: r.win_rate,
+      last_played: p.last_played,
+      country: p.country,
+      title: p.title,
+    };
+  });
+  return { rows, played: new Set(board.players.filter((p) => p.season.opponents > 0).map((p) => p.name)) };
+}
+
+/** yearDeltas returns each player's change since the previous year's end; 0 for a player without a rating then. */
+export function yearDeltas(board: YearLeaderboard): Map<string, Delta> {
+  return new Map(
+    board.players.map((p) => [
+      p.name,
+      p.previous ? { c_rating: p.c_rating - p.previous.c_rating, rating: p.rating - p.previous.rating } : { c_rating: 0, rating: 0 },
+    ]),
+  );
 }

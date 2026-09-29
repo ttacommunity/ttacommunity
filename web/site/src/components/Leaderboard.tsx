@@ -1,16 +1,27 @@
 /** The leaderboard for the current run, with upstream's options, filters, search, sort and paging. */
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { formatValues } from '@ttac/shared/api';
-import { currentRun, history, leaderboard, type Leaderboard as Board } from '@ttac/shared/ratings';
+import {
+  currentRun,
+  history,
+  leaderboard,
+  yearLeaderboard,
+  years as fetchYears,
+  type Leaderboard as Board,
+  type YearEntry,
+  type YearLeaderboard,
+} from '@ttac/shared/ratings';
 import Segmented from './Segmented';
 import SearchBox from './SearchBox';
 import OptionsDrawer, { type LinkTo } from './OptionsDrawer';
+import YearBanner from './YearBanner';
 import { Flag, TitleBadge } from './PlayerMarks';
 import * as show from '../lib/leaderboard-display';
 import {
   DEFAULT_VIEW,
   DELTA_DATES,
   csvUrl,
+  defaultMinOpps,
   deltas,
   hasFilters,
   hasOptions,
@@ -23,6 +34,8 @@ import {
   sortRows,
   titleOptions,
   viewParams,
+  yearDeltas,
+  yearRows,
   type Delta,
   type RankedRow,
   type SortKey,
@@ -32,7 +45,10 @@ import { playerHref } from '../lib/player-view';
 import { recall, remember } from '../lib/remembered';
 import './Leaderboard.css';
 
-type State = { kind: 'loading' } | { kind: 'error'; message: string } | { kind: 'ready'; board: Board };
+type State =
+  | { kind: 'loading' }
+  | { kind: 'error'; message: string }
+  | { kind: 'ready'; board: Board; year: YearLeaderboard | null };
 
 const formatOptions = formatValues.map((f) => ({ value: f, label: show.formatName(f) }));
 const OPTIONS_OPEN = 'ttac.leaderboard.options';
@@ -79,13 +95,29 @@ export default function Leaderboard({ apiUrl }: { apiUrl: string }) {
     let stale = false;
     setState({ kind: 'loading' });
     currentRun(apiUrl)
-      .then((run) => leaderboard(apiUrl, run.run_id, model, view.format))
-      .then((board) => !stale && setState({ kind: 'ready', board }))
+      .then(async (run): Promise<State> => {
+        if (view.year === null) return { kind: 'ready', board: await leaderboard(apiUrl, run.run_id, model, view.format), year: null };
+        const year = await yearLeaderboard(apiUrl, run.run_id, view.year, model, view.format);
+        return { kind: 'ready', board: { run_id: year.run_id, model, format: view.format, players: [] }, year };
+      })
+      .then((next) => !stale && setState(next))
       .catch((e: unknown) => !stale && setState({ kind: 'error', message: e instanceof Error ? e.message : String(e) }));
     return () => {
       stale = true;
     };
-  }, [apiUrl, model, view.format]);
+  }, [apiUrl, model, view.format, view.year]);
+
+  const [archive, setArchive] = useState<YearEntry[] | null>(null);
+  useEffect(() => {
+    let stale = false;
+    currentRun(apiUrl)
+      .then((run) => fetchYears(apiUrl, run.run_id))
+      .then((y) => !stale && setArchive(y.years))
+      .catch(() => !stale && setArchive([]));
+    return () => {
+      stale = true;
+    };
+  }, [apiUrl]);
 
   const toggleOptions = (open: boolean) => {
     setOptionsOpen(open);
@@ -97,12 +129,18 @@ export default function Leaderboard({ apiUrl }: { apiUrl: string }) {
     document.body.style.overflow = open && narrow() ? 'hidden' : '';
   };
 
-  const players = useMemo(() => (state.kind === 'ready' ? state.board.players : []), [state]);
+  const yearBoard = state.kind === 'ready' ? state.year : null;
+  const fromYear = useMemo(() => (yearBoard === null ? null : yearRows(yearBoard, view.stats)), [yearBoard, view.stats]);
+  const players = useMemo(() => fromYear?.rows ?? (state.kind === 'ready' ? state.board.players : []), [fromYear, state]);
   const [changes, setChanges] = useState<Map<string, Delta> | null>(null);
 
   useEffect(() => {
     setChanges(null);
     if (state.kind !== 'ready' || view.delta === 'none') return;
+    if (state.year !== null) {
+      setChanges(yearDeltas(state.year));
+      return;
+    }
     let stale = false;
     const { board } = state;
     history(apiUrl, board.run_id, board.model, board.format, DELTA_DATES[view.delta])
@@ -112,7 +150,7 @@ export default function Leaderboard({ apiUrl }: { apiUrl: string }) {
       stale = true;
     };
   }, [apiUrl, state, view.delta]);
-  const pool = useMemo(() => rankPool(players, view), [players, view]);
+  const pool = useMemo(() => rankPool(players, view, fromYear?.played), [players, view, fromYear]);
   const found = useMemo(() => search(pool, view.search), [pool, view.search]);
   const shown = useMemo(
     () => page(sortRows(found.rows, view.sort, view.order), view.page, found.jumpTo),
@@ -139,6 +177,10 @@ export default function Leaderboard({ apiUrl }: { apiUrl: string }) {
             </button>
           </div>
         </div>
+
+        {yearBoard !== null && (
+          <YearBanner board={yearBoard} latest={archive?.[0]?.year === yearBoard.year} ranked={found.rows.length} view={view} linkTo={linkTo} />
+        )}
 
         <div className="leaderboard-heading">
           <div>
@@ -200,16 +242,28 @@ export default function Leaderboard({ apiUrl }: { apiUrl: string }) {
                 </a>
               </span>
             )}
-            {view.minOpps !== DEFAULT_VIEW.minOpps && (
+            {view.minOpps !== defaultMinOpps(view.year) && (
               <span className="filter-pill">
                 Min Matches: &ge;{view.minOpps}{' '}
-                <a {...linkTo({ ...view, minOpps: DEFAULT_VIEW.minOpps, page: 1 })} aria-label="Clear minimum matches">
+                <a {...linkTo({ ...view, minOpps: defaultMinOpps(view.year), page: 1 })} aria-label="Clear minimum matches">
                   ✕
                 </a>
               </span>
             )}
             {hasFilters(view) && (
-              <a {...linkTo({ ...DEFAULT_VIEW, engine: view.engine, reset: view.reset, retro: view.retro, format: view.format })} className="btn-reset">
+              <a
+                {...linkTo({
+                  ...DEFAULT_VIEW,
+                  engine: view.engine,
+                  reset: view.reset,
+                  retro: view.retro,
+                  format: view.format,
+                  year: view.year,
+                  stats: view.stats,
+                  minOpps: defaultMinOpps(view.year),
+                })}
+                className="btn-reset"
+              >
                 Clear Filters
               </a>
             )}
@@ -264,8 +318,9 @@ export default function Leaderboard({ apiUrl }: { apiUrl: string }) {
           <OptionsDrawer
             view={view}
             titles={titleOptions(players)}
+            years={archive}
             downloads={
-              state.kind === 'ready'
+              state.kind === 'ready' && view.year === null
                 ? {
                     shown: csvUrl(apiUrl, state.board.run_id, view, false),
                     everyone: csvUrl(apiUrl, state.board.run_id, view, true),
@@ -355,6 +410,20 @@ const headers: [SortKey | null, string, string][] = [
   ['last_played', 'Last Played', "Date of player's most recent competitive match. Players without games in > 12 months are retired."],
 ];
 
+/** wldName is the W-L-D heading: in a year's archive it names the year, or the career. */
+function wldName(view: View): string {
+  if (view.year === null) return 'W-L-D';
+  return view.stats === 'career' ? 'W-L-D (Career)' : `W-L-D (${view.year})`;
+}
+
+function wldTip(view: View): string {
+  if (view.year === null) return 'Total Wins, Losses, and Draws accumulated across competitive tournament matches.';
+  const how = '(Glicko-2 & WHR ratings are calculated based on the chosen reset mode).';
+  return view.stats === 'career'
+    ? `Cumulative career match record through Season ${view.year}. ${how}`
+    : `Match record for Season ${view.year} only. ${how}`;
+}
+
 interface TableProps {
   view: View;
   rows: RankedRow[];
@@ -392,7 +461,7 @@ function Table({ view, rows, jumpTo, changes, linkTo, caption }: TableProps) {
             {headers.map(([key, name, tip], i) => (
               <th key={name} scope="col" className={i === 0 ? 'col-sticky-rank' : undefined}>
                 {key === null ? (
-                  <span data-tooltip={tip}>{name}</span>
+                  <span data-tooltip={name === 'W-L-D' ? wldTip(view) : tip}>{name === 'W-L-D' ? wldName(view) : name}</span>
                 ) : (
                   <a {...linkTo({ ...view, ...nextSort(view, key), page: 1 })} data-tooltip={tip}>
                     {name}

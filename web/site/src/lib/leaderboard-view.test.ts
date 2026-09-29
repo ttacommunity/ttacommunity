@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import type { LeaderboardRow, TitleCode } from '@ttac/shared/ratings';
+import type { LeaderboardRow, TitleCode, YearLeaderboard } from '@ttac/shared/ratings';
 import {
   DEFAULT_VIEW,
   DELTA_DATES,
@@ -19,6 +19,8 @@ import {
   suggest,
   titleOptions,
   viewParams,
+  yearDeltas,
+  yearRows,
   type View,
 } from './leaderboard-view';
 
@@ -38,7 +40,7 @@ describe('defaults', () => {
     expect(PER_PAGE).toBe(50);
     expect(DEFAULT_VIEW).toEqual({
       engine: 'glicko2_daneo', reset: 'continuous', retro: false, format: 0, status: 'active', title: null,
-      minOpps: 30, delta: 'none', search: '', sort: 'rank', order: 'asc', page: 1,
+      minOpps: 30, delta: 'none', search: '', sort: 'rank', order: 'asc', page: 1, year: null, stats: 'season',
     });
     expect(DELTA_DATES).toEqual({ last_update: null, month: '2026-05-01', quarter: '2026-03-01', year: '2025-05-31' });
   });
@@ -52,7 +54,7 @@ describe('parseView and viewParams', () => {
     );
     expect(got).toEqual({
       engine: 'glicko2_std', reset: 'softer', retro: true, format: 3, status: 'all', title: 'GM',
-      minOpps: 5, delta: 'month', search: 'ann', sort: 'opps', order: 'desc', page: 4,
+      minOpps: 5, delta: 'month', search: 'ann', sort: 'opps', order: 'desc', page: 4, year: null, stats: 'season',
     });
   });
 
@@ -262,5 +264,73 @@ describe('csvUrl', () => {
     expect(csvUrl('https://api.example', 7, view({ minOpps: 50 }), true)).toBe(
       'https://api.example/v1/runs/7/leaderboard.csv?model=glicko2_daneo&format=0&status=all&min_opps=0&sort=rank&order=asc',
     );
+  });
+});
+
+describe('year view', () => {
+  it('reads the year and stats view, with 0 minimum opponents by default', () => {
+    const got = parseView(new URLSearchParams('year=2024&stats_view=career'), {});
+    expect(got).toMatchObject({ year: 2024, stats: 'career', minOpps: 0 });
+    expect(parseView(new URLSearchParams('year=2024&min_opps=5'), {}).minOpps).toBe(5);
+    for (const bad of ['1999', '2101', 'x']) expect(parseView(new URLSearchParams(`year=${bad}`), {}).year).toBeNull();
+    expect(parseView(new URLSearchParams('year=2024&stats_view=x'), {}).stats).toBe('season');
+  });
+
+  it("writes the year, the career view, and a minimum other than the year view's 0", () => {
+    const v = view({ year: 2024, minOpps: 0 });
+    expect(viewParams(v).toString()).toBe('year=2024');
+    expect(viewParams({ ...v, stats: 'career', minOpps: 30 }).toString()).toBe('min_opps=30&year=2024&stats_view=career');
+  });
+
+  it("counts the year view's own default as no filter", () => {
+    expect(hasFilters(view({ year: 2024, minOpps: 0 }))).toBe(false);
+    expect(hasFilters(view({ year: 2024, minOpps: 30 }))).toBe(true);
+    expect(hasOptions(view({ year: 2024, minOpps: 0 }))).toBe(false);
+  });
+
+  const board: YearLeaderboard = {
+    run_id: 2, year: 2024, model: 'glicko2_daneo', format: 0, snapshot: '2024-12-31', previous: '2023-12-31', games: 9,
+    champions: [],
+    players: [
+      {
+        name: 'ann', rating: 1690, rd: 30, c_rating: 1600, country: 'PL', title: null, last_played: '2024-12-20',
+        season: { opponents: 3, wins: 0, losses: 2, draws: 1, win_rate: 16.7 },
+        career: { opponents: 6, wins: 3, losses: 2, draws: 1, win_rate: 58.3 },
+        previous: { rating: 1590, rd: 30, c_rating: 1500 },
+      },
+      {
+        name: 'bob', rating: 1740, rd: 30, c_rating: 1650, country: null, title: null, last_played: null,
+        season: { opponents: 0, wins: 0, losses: 0, draws: 0, win_rate: 0 },
+        career: { opponents: 4, wins: 1, losses: 3, draws: 0, win_rate: 25 },
+        previous: null,
+      },
+    ],
+  };
+
+  it('turns the board into rows with the season or career record, and marks who played that year', () => {
+    const season = yearRows(board, 'season');
+    expect(season.rows.map((r) => [r.name, r.opponents, r.wins, r.losses, r.draws, r.win_rate])).toEqual([
+      ['ann', 3, 0, 2, 1, 16.7],
+      ['bob', 0, 0, 0, 0, 0],
+    ]);
+    expect(yearRows(board, 'career').rows[0]).toMatchObject({ opponents: 6, wins: 3, win_rate: 58.3, last_played: '2024-12-20' });
+    expect([...season.played]).toEqual(['ann']);
+  });
+
+  it('ranks the year view by who played that year, not by the live cutoff date', () => {
+    const { rows, played } = yearRows(board, 'career');
+    const active = rankPool(rows, view({ year: 2024, minOpps: 0 }), played);
+    expect(active.map((p) => [p.name, p.displayRank, p.active, p.provisional])).toEqual([['ann', 1, true, true]]);
+    const all = rankPool(rows, view({ year: 2024, minOpps: 0, status: 'all' }), played);
+    expect(all.map((p) => [p.name, p.active])).toEqual([
+      ['bob', false],
+      ['ann', true],
+    ]);
+  });
+
+  it("compares with the previous year's end, 0 for a player without one", () => {
+    const got = yearDeltas(board);
+    expect(got.get('ann')).toEqual({ c_rating: 100, rating: 100 });
+    expect(got.get('bob')).toEqual({ c_rating: 0, rating: 0 });
   });
 });
