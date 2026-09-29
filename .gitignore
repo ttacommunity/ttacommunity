@@ -63,3 +63,6 @@ Thumbs.db
 .vscode/
 *.swp
 tools/
+
+# Local state of the Cloudflare CLI (cf), e.g. its account cache
+.cloudflare/
