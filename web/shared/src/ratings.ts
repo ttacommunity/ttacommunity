@@ -31,6 +31,10 @@ export type CalibrationRow = components['schemas']['CalibrationRow'];
 export type Distribution = components['schemas']['Distribution'];
 export type Agreement = components['schemas']['Agreement'];
 export type ModelPair = components['schemas']['ModelPair'];
+export type ComparedPlayers = components['schemas']['ComparedPlayers'];
+export type ComparedPlayer = components['schemas']['ComparedPlayer'];
+export type Activity = components['schemas']['Activity'];
+export type CountryRatings = components['schemas']['CountryRatings'];
 
 /** An error response from the API, carrying its status and message. */
 export class RatingsApiError extends Error {
@@ -186,6 +190,18 @@ export async function distribution(base: string, run: number, format: Format, fe
 /** Returns the model pairs whose player rankings agree most and least, for a format. */
 export async function agreement(base: string, run: number, format: Format, fetchFn: typeof fetch = fetch): Promise<Agreement> {
   return get<Agreement>(fetchFn, base, `/v1/runs/${run}/analysis/agreement?format=${format}`);
+}
+
+/** Returns players matching a search (names or country codes, comma-separated), or upstream's defaults, across every model. */
+export async function comparedPlayers(base: string, run: number, search: string, format: Format, fetchFn: typeof fetch = fetch): Promise<ComparedPlayers> {
+  const query = new URLSearchParams({ format: String(format) });
+  if (search !== '') query.set('search', search);
+  return get<ComparedPlayers>(fetchFn, base, `/v1/runs/${run}/analysis/players?${query}`);
+}
+
+/** Returns a run's active players, games per format, titles and leading countries. */
+export async function activity(base: string, run: number, fetchFn: typeof fetch = fetch): Promise<Activity> {
+  return get<Activity>(fetchFn, base, `/v1/runs/${run}/analysis/activity`);
 }
 
 // Public routes take no credentials, so none are ever sent.

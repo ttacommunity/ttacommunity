@@ -1,0 +1,30 @@
+/* Upstream's antique button, used across its pages. */
+.btn-antique {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.55rem 1.15rem;
+  background: linear-gradient(180deg, #2e1d13 0%, #170d08 100%);
+  border: 1.5px solid var(--accent-gold);
+  border-radius: 6px;
+  box-shadow:
+    0 3px 8px rgba(0, 0, 0, 0.75),
+    inset 0 1px 0 rgba(229, 169, 60, 0.35);
+  color: #fff4dc;
+  font-family: var(--font-subheading);
+  font-size: 0.95rem;
+  font-weight: 700;
+  text-decoration: none;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.btn-antique:hover {
+  background: linear-gradient(180deg, #422919 0%, #26150d 100%);
+  border-color: #ffd700;
+  box-shadow:
+    0 4px 14px rgba(229, 169, 60, 0.45),
+    inset 0 1px 0 rgba(255, 215, 0, 0.5);
+  color: #ffd700;
+  transform: translateY(-1px);
+}

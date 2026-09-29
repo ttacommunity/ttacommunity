@@ -87,6 +87,14 @@ func (f *fakeRatings) AnalysisRatings(context.Context, int64, int) ([]store.Mode
 	return nil, nil, nil
 }
 
+func (f *fakeRatings) ComparedPlayers(context.Context, int64, int, []string) ([]store.ComparedPlayer, error) {
+	return nil, nil
+}
+
+func (f *fakeRatings) Activity(context.Context, int64, time.Time) (store.Activity, error) {
+	return store.Activity{}, nil
+}
+
 func (f *fakeRatings) YearBoard(context.Context, int64, int, string, int) (store.YearBoard, error) {
 	return store.YearBoard{}, nil
 }

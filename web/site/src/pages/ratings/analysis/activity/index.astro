@@ -1,0 +1,19 @@
+---
+import { PUBLIC_API_URL } from 'astro:env/client';
+import SiteLayout from '../../../../layouts/SiteLayout.astro';
+import AnalysisNav from '../../../../components/AnalysisNav.astro';
+import ActivityPage from '../../../../components/ActivityPage';
+import '../../../../components/AnalysisPage.css';
+---
+<SiteLayout title="Activity & Demographics | Through the Ages" description="Active and retired Through the Ages players, games per format, titles and countries.">
+  <AnalysisNav page="activity" />
+
+  <div class="analysis-hero-card">
+    <div>
+      <h1 class="analysis-hero-title">Player Activity &amp; Community Demographics</h1>
+      <p class="analysis-hero-desc">Insights into active vs retired competitors, global distribution, match formats, and master title holders.</p>
+    </div>
+  </div>
+
+  <ActivityPage client:only="react" apiUrl={PUBLIC_API_URL} />
+</SiteLayout>

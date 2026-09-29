@@ -6,6 +6,8 @@ import (
 	"fmt"
 
 	"ttacommunity/backend/internal/analysis"
+	"ttacommunity/backend/internal/leaderboardview"
+	"ttacommunity/backend/internal/round"
 )
 
 // GetCalibration returns how well each model predicted games, in every mode and format.
@@ -90,4 +92,81 @@ func analysisRefusal(run int64, format Format) string {
 		return "unknown format"
 	}
 	return ""
+}
+
+// GetComparedPlayers returns players matching a search, or upstream's defaults, across every model in one format.
+func (s *server) GetComparedPlayers(ctx context.Context, req GetComparedPlayersRequestObject) (GetComparedPlayersResponseObject, error) {
+	format := formatOr(req.Params.Format)
+	search := ""
+	if req.Params.Search != nil {
+		search = *req.Params.Search
+	}
+	msg := analysisRefusal(req.Run, format)
+	if msg == "" && len(search) > 200 {
+		msg = "bad parameter: search"
+	}
+	if msg != "" {
+		return GetComparedPlayers400JSONResponse{badRequestBody(msg)}, nil
+	}
+	players, err := s.ratings.ComparedPlayers(ctx, req.Run, int(format), leaderboardview.SearchTerms(search))
+	if nf, ok := notFound(err); ok {
+		return GetComparedPlayers404JSONResponse{nf}, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	body := ComparedPlayers{RunId: req.Run, Format: format, Players: make([]ComparedPlayer, 0, len(players))}
+	for _, p := range players {
+		out := ComparedPlayer{Name: p.Name, Country: p.Country, Ratings: make([]ComparedRating, 0, len(p.Ratings))}
+		if p.Title != nil {
+			out.Title = (*TitleCode)(p.Title)
+		}
+		for _, r := range p.Ratings {
+			out.Ratings = append(out.Ratings, ComparedRating{
+				Model: Model(r.Model), Rank: r.Rank, Rating: round.Tenth(r.Rating), Rd: round.Tenth(r.RD),
+				CRating: round.Tenth(r.CRating), Opponents: r.Opponents, WinRate: r.WinRate,
+			})
+		}
+		body.Players = append(body.Players, out)
+	}
+	return GetComparedPlayers200JSONResponse{Body: body, Headers: GetComparedPlayers200ResponseHeaders{CacheControl: cacheRun}}, nil
+}
+
+// GetActivity returns a run's active players, games per format, titles and leading countries.
+func (s *server) GetActivity(ctx context.Context, req GetActivityRequestObject) (GetActivityResponseObject, error) {
+	if req.Run < 1 {
+		return GetActivity400JSONResponse{badRequestBody("bad parameter: run")}, nil
+	}
+	a, err := s.ratings.Activity(ctx, req.Run, leaderboardview.InactiveOnOrBefore)
+	if nf, ok := notFound(err); ok {
+		return GetActivity404JSONResponse{nf}, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	body := Activity{
+		RunId: req.Run, Active: a.Active, Inactive: a.Inactive,
+		Formats: make([]FormatGames, 0, len(a.Formats)), Titles: make([]TitlePlayers, 0, len(a.Titles)),
+		Countries: make([]CountryRatings, 0, len(a.Countries)),
+	}
+	for _, f := range a.Formats {
+		body.Formats = append(body.Formats, FormatGames{Format: Format(f.Format), Games: f.Games})
+	}
+	for _, t := range a.Titles {
+		body.Titles = append(body.Titles, TitlePlayers{Code: TitleCode(t.Title), Players: t.Players})
+	}
+	// Upstream averages in SQLite, whose ROUND rounds halves away from zero.
+	tenth := func(x *float64) *float64 {
+		if x == nil {
+			return nil
+		}
+		v := round.TenthAway(*x)
+		return &v
+	}
+	for _, c := range a.Countries {
+		body.Countries = append(body.Countries, CountryRatings{
+			Country: c.Country, Players: c.Players, Gm: tenth(c.GM), MPlus: tenth(c.MPlus), PPlus: tenth(c.PPlus), All: round.TenthAway(c.All),
+		})
+	}
+	return GetActivity200JSONResponse{Body: body, Headers: GetActivity200ResponseHeaders{CacheControl: cacheRun}}, nil
 }

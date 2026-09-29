@@ -7,6 +7,10 @@ import {
   compositeScore,
   eceClass,
   parseAnalysisParams,
+  parseMoversParams,
+  sortCountries,
+  titleLabel,
+  type CountryRatings,
   rankModels,
   shownInTable,
   type AnalysisFilters,
@@ -106,5 +110,35 @@ describe('agreementName', () => {
     expect(agreementName('glicko2_daneo_softer')).toBe('GlickoD (Season Reset)');
     expect(agreementName('glicko2_adapt')).toBe('G2 Adapt (Career)');
     expect(agreementName('whr_softer')).toBe('WHR (Season Reset)');
+  });
+});
+
+describe('parseMoversParams', () => {
+  it('reads the search and format, as upstream: any other format is all formats', () => {
+    expect(parseMoversParams(new URLSearchParams('search=%20a440,IT%20&format=3'))).toEqual({ search: 'a440,IT', format: 3 });
+    expect(parseMoversParams(new URLSearchParams('format=x'))).toEqual({ search: '', format: 0 });
+    expect(parseMoversParams(new URLSearchParams('format=5&min_games=3'))).toEqual({ search: '', format: 0 });
+  });
+});
+
+describe('titleLabel', () => {
+  it("names titles as upstream's activity page: Grandmaster, Master, and Platinum for every other", () => {
+    expect(['GM', 'M', 'P', 'WC', 'B'].map((t) => titleLabel(t as never))).toEqual(['Grandmaster', 'Master', 'Platinum', 'Platinum', 'Platinum']);
+  });
+});
+
+describe('sortCountries', () => {
+  const c = (country: string, players: number, gm: number | null): CountryRatings => ({ country, players, gm, m_plus: null, p_plus: null, all: 1500 });
+  const rows = [c('US', 131, 1885.6), c('CZ', 33, null), c('FR', 27, 1953.6)].map((r, i) => ({ ...r, rank: i + 1 }));
+
+  it('sorts numbers with a missing average as 0, and codes as text', () => {
+    expect(sortCountries(rows, 'gm', true).map((r) => r.country)).toEqual(['CZ', 'US', 'FR']);
+    expect(sortCountries(rows, 'gm', false).map((r) => r.country)).toEqual(['FR', 'US', 'CZ']);
+    expect(sortCountries(rows, 'country', true).map((r) => r.country)).toEqual(['CZ', 'FR', 'US']);
+  });
+
+  it('sorts the rank column as text, as upstream does', () => {
+    const many = Array.from({ length: 11 }, (_, i) => ({ ...c(`C${i}`, 1, null), rank: i + 1 }));
+    expect(sortCountries(many, 'rank', true).map((r) => r.rank).slice(0, 4)).toEqual([1, 10, 11, 2]);
   });
 });

@@ -555,6 +555,64 @@ paths:
           $ref: "#/components/responses/BadRequest"
         "404":
           $ref: "#/components/responses/NotFound"
+  /v1/runs/{run}/analysis/players:
+    get:
+      operationId: getComparedPlayers
+      summary: Players across every model
+      description: |
+        Up to 15 players matching a search, strongest first by GlickoD's
+        conservative rating, or upstream's six default players in its order
+        when there is no search, each with their rating in every continuous
+        and season-reset model for one format. Cached for five minutes.
+      parameters:
+        - $ref: "#/components/parameters/RunId"
+        - $ref: "#/components/parameters/Format"
+        - name: search
+          in: query
+          required: false
+          description: Names or country codes, comma-separated; a name matches anywhere, ignoring case
+          schema:
+            type: string
+            maxLength: 200
+      responses:
+        "200":
+          description: The players and their ratings
+          headers:
+            Cache-Control:
+              $ref: "#/components/headers/CacheControl"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ComparedPlayers"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /v1/runs/{run}/analysis/activity:
+    get:
+      operationId: getActivity
+      summary: Who plays, and where
+      description: |
+        Active and inactive players (the site's fixed cutoff), games per
+        format, players per title, and the 15 countries with most rated
+        players with their average Glicko-2 Standard rating by title.
+        Cached for five minutes.
+      parameters:
+        - $ref: "#/components/parameters/RunId"
+      responses:
+        "200":
+          description: The run's activity and demographics
+          headers:
+            Cache-Control:
+              $ref: "#/components/headers/CacheControl"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Activity"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "404":
+          $ref: "#/components/responses/NotFound"
 components:
   parameters:
     Model:
@@ -1409,6 +1467,124 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/ModelPair"
+    ComparedPlayers:
+      type: object
+      required: [run_id, format, players]
+      properties:
+        run_id:
+          type: integer
+          format: int64
+        format:
+          $ref: "#/components/schemas/Format"
+        players:
+          type: array
+          items:
+            $ref: "#/components/schemas/ComparedPlayer"
+    ComparedPlayer:
+      type: object
+      required: [name, country, title, ratings]
+      properties:
+        name:
+          type: string
+        country:
+          description: The player's country, ISO 3166-1 alpha-2, if known
+          type: string
+          pattern: "^[A-Z]{2}$"
+          nullable: true
+        title:
+          allOf:
+            - $ref: "#/components/schemas/TitleCode"
+          nullable: true
+        ratings:
+          description: One per model the player is rated in, in upstream's order
+          type: array
+          items:
+            $ref: "#/components/schemas/ComparedRating"
+    ComparedRating:
+      type: object
+      required: [model, rank, rating, rd, c_rating, opponents, win_rate]
+      properties:
+        model:
+          $ref: "#/components/schemas/Model"
+        rank:
+          type: integer
+          nullable: true
+        rating:
+          type: number
+          format: double
+        rd:
+          type: number
+          format: double
+        c_rating:
+          type: number
+          format: double
+        opponents:
+          type: integer
+        win_rate:
+          description: Percent
+          type: number
+          format: double
+    Activity:
+      type: object
+      required: [run_id, active, inactive, formats, titles, countries]
+      properties:
+        run_id:
+          type: integer
+          format: int64
+        active:
+          description: Players whose last game is after the site's inactive cutoff
+          type: integer
+        inactive:
+          type: integer
+        formats:
+          description: Games per format, 2 to 4 players
+          type: array
+          items:
+            $ref: "#/components/schemas/FormatGames"
+        titles:
+          description: Players per title, most first
+          type: array
+          items:
+            $ref: "#/components/schemas/TitlePlayers"
+        countries:
+          type: array
+          items:
+            $ref: "#/components/schemas/CountryRatings"
+    TitlePlayers:
+      type: object
+      required: [code, players]
+      properties:
+        code:
+          $ref: "#/components/schemas/TitleCode"
+        players:
+          type: integer
+    CountryRatings:
+      description: A country's rated players and their average Glicko-2 Standard rating, overall and by title
+      type: object
+      required: [country, players, gm, m_plus, p_plus, all]
+      properties:
+        country:
+          type: string
+          pattern: "^[A-Z]{2}$"
+        players:
+          type: integer
+        gm:
+          type: number
+          format: double
+          nullable: true
+        m_plus:
+          description: Grandmasters and Masters
+          type: number
+          format: double
+          nullable: true
+        p_plus:
+          description: Grandmasters, Masters and Platinum
+          type: number
+          format: double
+          nullable: true
+        all:
+          type: number
+          format: double
     ModelPair:
       type: object
       required: [a, b, pearson, spearman]

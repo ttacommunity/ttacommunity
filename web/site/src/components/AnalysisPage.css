@@ -598,3 +598,407 @@
     font-size: 0.82rem;
   }
 }
+
+/* The multi-engine comparison (analysis_movers.html). */
+.movers-search-card {
+  margin-bottom: 2rem;
+  padding: 1.25rem;
+  background: var(--surface-panel);
+  border: 1.5px solid var(--border-subtle);
+  border-radius: 8px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
+}
+
+.movers-form {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+  align-items: center;
+}
+
+.movers-search-field {
+  flex: 1;
+  min-width: 280px;
+}
+
+.movers-form label {
+  display: block;
+  margin-bottom: 0.35rem;
+  color: var(--text-muted);
+  font-family: var(--font-subheading);
+  font-size: 0.82rem;
+  text-transform: uppercase;
+}
+
+.movers-form input,
+.movers-form select {
+  padding: 0.55rem 0.85rem;
+  background: rgba(10, 7, 5, 0.85);
+  border: 1px solid var(--border-subtle);
+  border-radius: 5px;
+  font-family: var(--font-stats);
+  font-size: 0.9rem;
+}
+
+.movers-form input {
+  width: 100%;
+  color: #fff;
+}
+
+.movers-form select {
+  color: #ffd700;
+}
+
+.movers-submit {
+  align-self: flex-end;
+}
+
+/* Upstream's inline gold background wins, but base.html's !important keeps the light text. */
+.btn-antique.movers-compare,
+.btn-antique.movers-compare:hover {
+  padding: 0.55rem 1.4rem;
+  background: var(--accent-gold);
+  font-size: 0.9rem;
+  font-weight: 700;
+}
+
+.player-comp-card {
+  margin-bottom: 2rem;
+  padding: 1.5rem;
+  background: var(--surface-panel);
+  border: 1.5px solid var(--border-subtle);
+  border-radius: 8px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
+}
+
+.player-comp-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+  padding-bottom: 0.75rem;
+  border-bottom: 1px solid rgba(74, 53, 37, 0.5);
+}
+
+.player-comp-name {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+.player-comp-name a {
+  color: var(--accent-gold);
+  font-family: var(--font-heading);
+  font-size: 1.35rem;
+  text-decoration: none;
+}
+
+.player-comp-format {
+  color: var(--text-muted);
+  font-size: 0.85rem;
+}
+
+.player-comp-format strong {
+  color: #ffd700;
+}
+
+.comp-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-family: var(--font-stats);
+  font-size: 0.9rem;
+}
+
+.comp-table th {
+  padding: 0.65rem 0.6rem;
+  background: rgba(30, 20, 14, 0.95);
+  border-bottom: 2px solid var(--border-subtle);
+  color: var(--accent-gold);
+  font-family: var(--font-subheading);
+  font-size: 0.82rem;
+  text-align: right;
+  text-transform: uppercase;
+}
+
+.comp-table th:first-child {
+  text-align: left;
+}
+
+.comp-table td {
+  padding: 0.65rem 0.6rem;
+  border-bottom: 1px solid rgba(74, 53, 37, 0.3);
+  color: var(--text-muted);
+  text-align: right;
+}
+
+.comp-table td:first-child {
+  color: #f5eedb;
+  font-weight: 600;
+  text-align: left;
+}
+
+.comp-table .comp-daneo {
+  background: rgba(139, 92, 246, 0.16);
+  border-left: 3px solid #8b5cf6;
+}
+
+.comp-table .comp-daneo-reset {
+  background: rgba(139, 92, 246, 0.07);
+  border-left: 3px solid rgba(139, 92, 246, 0.5);
+}
+
+.comp-table .comp-reset {
+  background: rgba(229, 169, 60, 0.04);
+}
+
+.comp-engine {
+  color: #f5eedb;
+  font-weight: 600;
+}
+
+.comp-reset-badge {
+  margin-left: 0.4rem;
+  padding: 2px 6px;
+  font-size: 0.72rem;
+}
+
+.comp-table .comp-rank {
+  color: #ffd700;
+  font-weight: 700;
+}
+
+.comp-table .comp-c {
+  color: #81c784;
+  font-weight: 700;
+}
+
+.comp-table .comp-e {
+  color: #f5eedb;
+}
+
+.movers-empty {
+  padding: 2rem;
+  background: var(--surface-panel);
+  border: 1px solid var(--border-subtle);
+  border-radius: 8px;
+  color: var(--text-muted);
+  text-align: center;
+}
+
+/* Activity and demographics (analysis_activity.html). */
+.stats-grid-4 {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 1.25rem;
+  margin-bottom: 2rem;
+}
+
+.metric-card {
+  padding: 1.5rem;
+  background: var(--surface-panel);
+  border: 1px solid var(--border-subtle);
+  border-radius: 6px;
+  text-align: center;
+}
+
+.metric-label {
+  color: var(--text-muted);
+  font-size: 0.85rem;
+  text-transform: uppercase;
+}
+
+.metric-number {
+  margin: 0.4rem 0;
+  font-family: var(--font-heading);
+  font-size: 2.3rem;
+  font-weight: 700;
+}
+
+.metric-active { color: #66bb6a; }
+.metric-inactive { color: #a89880; }
+.metric-matches { color: var(--accent-gold); }
+.metric-players { color: #4fc3f7; }
+
+.metric-note {
+  color: var(--text-muted);
+  font-size: 0.8rem;
+}
+
+.activity-columns {
+  display: grid;
+  /* Upstream's 450px minimum, but never wider than the screen. */
+  grid-template-columns: repeat(auto-fit, minmax(min(450px, 100%), 1fr));
+  gap: 1.5rem;
+  margin-bottom: 2rem;
+}
+
+.activity-card {
+  padding: 1.5rem;
+}
+
+.activity-card h3 {
+  margin-bottom: 0.75rem;
+  color: var(--accent-gold);
+  font-family: var(--font-heading);
+  font-size: 1.3rem;
+}
+
+.activity-sub {
+  margin-bottom: 1rem;
+  color: var(--text-muted);
+  font-size: 0.88rem;
+}
+
+.activity-countries {
+  margin-bottom: 2rem;
+}
+
+.activity-countries h3 {
+  margin-bottom: 0;
+}
+
+.activity-countries .activity-sub {
+  margin-top: 0.2rem;
+  margin-bottom: 0.75rem;
+}
+
+.activity-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.activity-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.75rem 1rem;
+  background: rgba(18, 12, 8, 0.7);
+  border: 1px solid var(--border-subtle);
+  border-radius: 6px;
+}
+
+.activity-item strong {
+  color: var(--text-main);
+}
+
+.activity-item > div > strong {
+  font-size: 1.05rem;
+}
+
+.activity-item-note {
+  color: var(--text-muted);
+  font-size: 0.8rem;
+}
+
+.activity-item-value {
+  color: #ffde8a;
+  font-family: var(--font-heading);
+  font-size: 1.4rem;
+  font-weight: 700;
+}
+
+.activity-title {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.activity-title strong {
+  font-size: 1rem;
+}
+
+.activity-badge {
+  padding: 0.25rem 0.6rem;
+  font-size: 0.95rem;
+}
+
+.activity-item-value.activity-title-count {
+  color: var(--accent-gold);
+}
+
+.activity-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-family: var(--font-stats);
+  text-align: left;
+}
+
+.activity-table th {
+  padding: 0.75rem 1rem;
+  background: rgba(30, 20, 14, 0.95);
+  border-bottom: 2px solid var(--border-subtle);
+  color: var(--accent-gold);
+  font-family: var(--font-heading);
+  font-size: 0.85rem;
+  text-align: center;
+  text-transform: uppercase;
+}
+
+.activity-table td {
+  padding: 0.65rem 1rem;
+  border-bottom: 1px solid rgba(74, 53, 37, 0.4);
+  font-size: 0.92rem;
+  text-align: center;
+}
+
+.activity-table .col-country {
+  text-align: left;
+}
+
+.sort-header {
+  padding: 0;
+  background: none;
+  border: none;
+  color: inherit;
+  font: inherit;
+  letter-spacing: inherit;
+  text-transform: inherit;
+  cursor: pointer;
+}
+
+.activity-table .country-rank {
+  color: var(--text-muted);
+  font-weight: 700;
+}
+
+.activity-table .col-country {
+  font-weight: 600;
+}
+
+.country-flag {
+  margin-right: 0.4rem;
+  font-size: 1.4rem;
+  vertical-align: middle;
+}
+
+.activity-table .country-players {
+  color: var(--text-main);
+  font-weight: 700;
+}
+
+.activity-table .avg-gm { color: #ffd54f; font-weight: 700; }
+.activity-table .avg-m { color: #ffde8a; font-weight: 600; }
+.activity-table .avg-p { color: #e5a93c; font-weight: 600; }
+.activity-table .avg-all { color: var(--text-main); }
+
+@media (max-width: 768px) {
+  .player-comp-card {
+    padding: 1.15rem 0.85rem;
+  }
+
+  .stats-grid-4 {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 0.75rem;
+  }
+
+  .metric-card {
+    padding: 1rem 0.75rem;
+  }
+
+  .metric-number {
+    font-size: 1.6rem;
+  }
+}
