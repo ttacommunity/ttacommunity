@@ -152,12 +152,13 @@ func TestActivityCountsPlayersGamesTitlesAndCountries(t *testing.T) {
 	ctx := context.Background()
 	run := publishedRun(t, pool)
 	other := publishedRun(t, pool)
-	addPlayers(t, pool, "gm1", "gm2", "m1", "p1", "s1", "fr1", "unrated")
-	_, err := pool.Exec(ctx, `UPDATE players SET country_code = CASE WHEN name = 'fr1' THEN 'FR' WHEN name = 'unrated' THEN 'DE' ELSE 'PL' END`)
+	addPlayers(t, pool, "gm1", "gm2", "m1", "p1", "s1", "fr1", "cz1", "unrated")
+	_, err := pool.Exec(ctx, `UPDATE players SET country_code = CASE WHEN name = 'fr1' THEN 'FR' WHEN name = 'cz1' THEN 'CZ'
+		WHEN name = 'unrated' THEN 'DE' ELSE 'PL' END`)
 	if err != nil {
 		t.Fatalf("setting countries: %v", err)
 	}
-	for name, rating := range map[string]float64{"gm1": 1900, "gm2": 1951, "m1": 1800, "p1": 1700, "s1": 1500, "fr1": 1600} {
+	for name, rating := range map[string]float64{"gm1": 1900, "gm2": 1951, "m1": 1800, "p1": 1700, "s1": 1500, "fr1": 1600, "cz1": 1550} {
 		addRating(t, pool, run, "glicko2_std", 0, name, intp(1), rating-100)
 	}
 	addRating(t, pool, run, "glicko2_std", 2, "s1", intp(1), 2400)
@@ -181,18 +182,18 @@ func TestActivityCountsPlayersGamesTitlesAndCountries(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Activity: %v", err)
 	}
-	if got.Active != 1 || got.Inactive != 6 {
-		t.Errorf("active, inactive = %d, %d, want 1 (s1, by their 2-player game), 6 (gm1 on the cutoff, the rest before or unrated)", got.Active, got.Inactive)
+	if got.Active != 1 || got.Inactive != 7 {
+		t.Errorf("active, inactive = %d, %d, want 1 (s1, by their 2-player game), 7 (gm1 on the cutoff, the rest before or unrated)", got.Active, got.Inactive)
 	}
 	if fmt.Sprint(got.Formats) != "[{2 1} {3 2}]" {
 		t.Errorf("formats = %v, want the run's games only: [{2 1} {3 2}]", got.Formats)
 	}
-	if fmt.Sprint(got.Titles) != "[{GM 2} {M 1} {P 1} {S 1}]" {
-		t.Errorf("titles = %v, want this run's, most first then by code", got.Titles)
+	if fmt.Sprint(got.Titles) != "[{GM 2} {S 1} {P 1} {M 1}]" {
+		t.Errorf("titles = %v, want this run's, most first, ties in reverse code order as upstream's SQLite", got.Titles)
 	}
-	want := "[{PL 5 1925.5 1883.667 1837.75 1770.2} {FR 1 <nil> <nil> <nil> 1600}]"
+	want := "[{PL 5 1925.5 1883.667 1837.75 1770.2} {FR 1 <nil> <nil> <nil> 1600} {CZ 1 <nil> <nil> <nil> 1550}]"
 	if s := countryText(got.Countries); s != want {
-		t.Errorf("countries = %s\nwant %s (Standard, all formats; titles from this run; unrated players left out)", s, want)
+		t.Errorf("countries = %s\nwant %s (Standard, all formats; titles from this run; unrated players left out; ties in reverse code order)", s, want)
 	}
 }
 

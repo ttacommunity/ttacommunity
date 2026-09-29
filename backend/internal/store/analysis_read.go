@@ -223,6 +223,7 @@ type CountryRatings struct {
 // Activity returns a published run's active and inactive players (active: a
 // last game after inactiveOnOrBefore, in any model or format), its games per
 // format, players per title, and the 15 countries with most rated players.
+// Ties are in reverse code order, as upstream's SQLite returns them.
 func (r *RatingsReader) Activity(ctx context.Context, run int64, inactiveOnOrBefore time.Time) (Activity, error) {
 	var a Activity
 	if err := r.requirePublished(ctx, run); err != nil {
@@ -248,7 +249,7 @@ func (r *RatingsReader) Activity(ctx context.Context, run int64, inactiveOnOrBef
 	}
 
 	rows, err = r.pool.Query(ctx, `
-		SELECT title, count(*) FROM player_titles WHERE run_id = $1 GROUP BY title ORDER BY 2 DESC, title`, run)
+		SELECT title, count(*) FROM player_titles WHERE run_id = $1 GROUP BY title ORDER BY 2 DESC, title DESC`, run)
 	if err == nil {
 		a.Titles, err = pgx.CollectRows(rows, pgx.RowToStructByPos[TitleCount])
 	}
@@ -266,7 +267,7 @@ func (r *RatingsReader) Activity(ctx context.Context, run int64, inactiveOnOrBef
 		JOIN player_ratings s ON s.run_id = $1 AND s.player_name = p.name AND s.model_type = 'glicko2_std' AND s.player_count = 0
 		LEFT JOIN player_titles t ON t.run_id = $1 AND t.player_name = p.name
 		WHERE p.country_code IS NOT NULL
-		GROUP BY p.country_code ORDER BY 2 DESC, 1 LIMIT 15`, run)
+		GROUP BY p.country_code ORDER BY 2 DESC, 1 DESC LIMIT 15`, run)
 	if err == nil {
 		a.Countries, err = pgx.CollectRows(rows, pgx.RowToStructByPos[CountryRatings])
 	}
