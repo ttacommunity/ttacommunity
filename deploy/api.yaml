@@ -49,7 +49,7 @@ spec:
               app: api
       containers:
         - name: api
-          image: registry.gitlab.com/unstablehomelab/ttacommunity/api:sha-98406eb7@sha256:893a3e44411bc10768ce7c4dddac6ae903e7742dd0c73aab3f47eaa655338841
+          image: registry.gitlab.com/unstablehomelab/ttacommunity/api:sha-ae037d8e@sha256:257cc91813ef77ea2c43561d4ca00ed37399c18fbe7a7b160c530de7f2ce2bd7
           ports:
             - name: http
               containerPort: 8080
