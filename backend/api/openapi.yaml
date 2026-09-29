@@ -1070,9 +1070,19 @@ components:
           type: integer
           format: int64
         years:
+          description: Newest first
           type: array
           items:
-            type: integer
+            $ref: "#/components/schemas/YearEntry"
+    YearEntry:
+      type: object
+      required: [year, champion]
+      properties:
+        year:
+          type: integer
+        champion:
+          description: True if the run derived a World Champion for the year
+          type: boolean
     YearLeaderboard:
       type: object
       required: [run_id, year, model, format, snapshot, previous, games, champions, players]

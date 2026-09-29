@@ -618,9 +618,11 @@ func TestYearsListsTheRunsYearsNewestFirst(t *testing.T) {
 	addHistory(t, pool, run, "glicko2_daneo", 0, "ann", "2021-01-31", 1600)
 	addHistory(t, pool, run, "glicko2_daneo", 0, "bob", "2021-02-28", 1600)
 	addHistory(t, pool, other, "glicko2_daneo", 0, "ann", "2023-01-31", 1600)
+	addYearlyTitle(t, pool, run, "ann", 2019, "WC")
+	addYearlyTitle(t, pool, other, "ann", 2021, "WC")
 
 	got, err := r.Years(context.Background(), run)
-	if err != nil || fmt.Sprint(got) != "[2021 2019]" {
-		t.Errorf("Years = %v, %v; want [2021 2019]", got, err)
+	if err != nil || fmt.Sprint(got) != "[{2021 false} {2019 true}]" {
+		t.Errorf("Years = %v, %v; want 2021 without a champion, 2019 with one", got, err)
 	}
 }

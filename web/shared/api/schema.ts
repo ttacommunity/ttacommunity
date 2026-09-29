@@ -645,7 +645,13 @@ export interface components {
         Years: {
             /** Format: int64 */
             run_id: number;
-            years: number[];
+            /** @description Newest first */
+            years: components["schemas"]["YearEntry"][];
+        };
+        YearEntry: {
+            year: number;
+            /** @description True if the run derived a World Champion for the year */
+            champion: boolean;
         };
         YearLeaderboard: {
             /** Format: int64 */

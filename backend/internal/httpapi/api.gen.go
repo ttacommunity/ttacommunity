@@ -577,6 +577,13 @@ type VersusMatch struct {
 	Tournament string `json:"tournament"`
 }
 
+// YearEntry defines model for YearEntry.
+type YearEntry struct {
+	// Champion True if the run derived a World Champion for the year
+	Champion bool `json:"champion"`
+	Year     int  `json:"year"`
+}
+
 // YearLeaderboard defines model for YearLeaderboard.
 type YearLeaderboard struct {
 	Champions []Champion `json:"champions"`
@@ -635,7 +642,9 @@ type YearRow struct {
 // Years defines model for Years.
 type Years struct {
 	RunId int64 `json:"run_id"`
-	Years []int `json:"years"`
+
+	// Years Newest first
+	Years []YearEntry `json:"years"`
 }
 
 // PlayerName defines model for PlayerName.

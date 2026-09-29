@@ -22,10 +22,11 @@ func (s *server) GetYears(ctx context.Context, req GetYearsRequestObject) (GetYe
 	if err != nil {
 		return nil, err
 	}
-	if years == nil {
-		years = []int{}
+	body := Years{RunId: req.Run, Years: make([]YearEntry, 0, len(years))}
+	for _, y := range years {
+		body.Years = append(body.Years, YearEntry{Year: y.Year, Champion: y.Champion})
 	}
-	return GetYears200JSONResponse{Body: Years{RunId: req.Run, Years: years}, Headers: GetYears200ResponseHeaders{CacheControl: cacheRun}}, nil
+	return GetYears200JSONResponse{Body: body, Headers: GetYears200ResponseHeaders{CacheControl: cacheRun}}, nil
 }
 
 // GetYearLeaderboard returns the ratings at the end of a year, for the season archive.

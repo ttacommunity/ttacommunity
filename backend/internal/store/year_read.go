@@ -151,19 +151,31 @@ func (r *RatingsReader) YearBoard(ctx context.Context, run int64, year int, mode
 	return b, nil
 }
 
-// Years returns the years a published run's GlickoD history covers, newest first.
-func (r *RatingsReader) Years(ctx context.Context, run int64) ([]int, error) {
+// Year is a year a run's ratings cover, and whether it has a World Champion.
+type Year struct {
+	Year     int
+	Champion bool
+}
+
+// Years returns the years a published run's GlickoD history covers, newest
+// first, each marked if the run derived a World Champion for it.
+func (r *RatingsReader) Years(ctx context.Context, run int64) ([]Year, error) {
 	if err := r.requirePublished(ctx, run); err != nil {
 		return nil, err
 	}
 	rows, err := r.pool.Query(ctx, `
-		SELECT DISTINCT extract(year FROM period_date)::int FROM rating_history
-		WHERE run_id = $1 AND model_type = 'glicko2_daneo' AND player_count = 0
+		SELECT y.year, EXISTS (SELECT 1 FROM player_yearly_titles t WHERE t.run_id = $1 AND t.year = y.year AND t.title = 'WC')
+		FROM (SELECT DISTINCT extract(year FROM period_date)::int AS year FROM rating_history
+			WHERE run_id = $1 AND model_type = 'glicko2_daneo' AND player_count = 0) y
 		ORDER BY 1 DESC`, run)
 	if err != nil {
 		return nil, fmt.Errorf("reading run %d's years: %w", run, err)
 	}
-	years, err := pgx.CollectRows(rows, pgx.RowTo[int])
+	years, err := pgx.CollectRows(rows, func(row pgx.CollectableRow) (Year, error) {
+		var y Year
+		err := row.Scan(&y.Year, &y.Champion)
+		return y, err
+	})
 	if err != nil {
 		return nil, fmt.Errorf("reading run %d's years: %w", run, err)
 	}

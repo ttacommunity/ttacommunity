@@ -13,7 +13,7 @@ import (
 type fakeYears struct {
 	fakeRatings
 	board store.YearBoard
-	years []int
+	years []store.Year
 	err   error
 	year  int
 }
@@ -24,7 +24,7 @@ func (f *fakeYears) YearBoard(_ context.Context, run int64, year int, model stri
 	return f.board, f.err
 }
 
-func (f *fakeYears) Years(_ context.Context, run int64) ([]int, error) {
+func (f *fakeYears) Years(_ context.Context, run int64) ([]store.Year, error) {
 	f.calls++
 	f.gotRun = run
 	return f.years, f.err
@@ -90,9 +90,10 @@ func TestYearLeaderboardDefaultsAndRefusals(t *testing.T) {
 }
 
 func TestYears(t *testing.T) {
-	f := &fakeYears{years: []int{2026, 2025}}
+	f := &fakeYears{years: []store.Year{{Year: 2026}, {Year: 2025, Champion: true}}}
 	rec, _ := serve(t, f, "/v1/runs/7/years")
-	if got := strings.TrimSpace(rec.Body.String()); rec.Code != http.StatusOK || got != `{"run_id":7,"years":[2026,2025]}` {
+	want := `{"run_id":7,"years":[{"champion":false,"year":2026},{"champion":true,"year":2025}]}`
+	if got := strings.TrimSpace(rec.Body.String()); rec.Code != http.StatusOK || got != want {
 		t.Errorf("GET years: %d %s", rec.Code, got)
 	}
 	if rec.Header().Get("Cache-Control") != "public, max-age=300" {

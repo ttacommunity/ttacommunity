@@ -83,7 +83,7 @@ func (f *fakeRatings) YearBoard(context.Context, int64, int, string, int) (store
 	return store.YearBoard{}, nil
 }
 
-func (f *fakeRatings) Years(context.Context, int64) ([]int, error) {
+func (f *fakeRatings) Years(context.Context, int64) ([]store.Year, error) {
 	return nil, nil
 }
 
