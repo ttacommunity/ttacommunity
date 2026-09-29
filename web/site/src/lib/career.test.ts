@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { CareerYear, PlayerRating, VersusMatch } from '@ttac/shared/ratings';
-import { careerPeakYear, divergenceNotes, isPeakHigher, versusTally } from './career';
+import { careerPeakYear, divergenceNotes, isPeakHigher, scoreYears, versusTally, wcLabel } from './career';
 
 const year = (y: number, wins: number, winRate: number, peak: number | null, title: CareerYear['title'] = null): CareerYear => ({
   year: y,
@@ -11,6 +11,12 @@ const year = (y: number, wins: number, winRate: number, peak: number | null, tit
   win_rate: winRate,
   peak_rating: peak,
   title,
+  year_end_rating: null,
+  career_opponents: wins * 2,
+  career_wins: wins,
+  career_losses: wins,
+  career_draws: 0,
+  career_win_rate: winRate,
 });
 
 describe('careerPeakYear', () => {
@@ -102,5 +108,34 @@ describe('versusTally', () => {
     expect(versusTally(games, 0)).toMatchObject({ games: 4, nameWins: 2, otherWins: 1, draws: 1 });
     expect(versusTally(games, 3)).toMatchObject({ games: 2, nameWins: 0, otherWins: 1, draws: 1 });
     expect(versusTally(games, 3).rows.map((m) => m.player_count)).toEqual([3, 3]);
+  });
+});
+
+describe('scoreYears', () => {
+  it("scores every year, keeping each year's own title", () => {
+    const got = scoreYears([year(2023, 10, 50, 1600, 'GM'), year(2024, 20, 40, 1550)], { code: 'WC', year: 2024 });
+    expect(got.map((y) => [y.year, y.score, y.title])).toEqual([
+      [2023, 215, 'GM'],
+      [2024, 160, null],
+    ]);
+  });
+});
+
+describe('wcLabel', () => {
+  it("names the reigning champion, then a past champion's year, as upstream's header", () => {
+    expect(wcLabel({ code: 'WC', count: 1, reason: '' }, { code: 'WC', year: 2025 })).toBe('Reigning WC');
+    expect(wcLabel({ code: 'GM', count: 1, reason: '' }, { code: 'WC', year: 2024 })).toBe('2024 WC');
+    expect(wcLabel(null, { code: 'WC', year: 2023 })).toBe('2023 WC');
+    expect(wcLabel({ code: 'GM', count: 1, reason: '' }, { code: 'GM', year: 2022 })).toBeNull();
+    expect(wcLabel(null, null)).toBeNull();
+  });
+});
+
+describe('careerPeakYear ties', () => {
+  it('compares the unrounded scores, as upstream', () => {
+    // 2023 scores 100.04 and 2024 100.01: both round to 100.0, and 2023 is higher.
+    const a = { ...year(2023, 0, 50.02, null) };
+    const b = { ...year(2024, 0, 50.005, null) };
+    expect(careerPeakYear([b, a], null)?.year).toBe(2023);
   });
 });

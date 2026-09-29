@@ -244,9 +244,12 @@ func (s *server) GetPlayerCareer(ctx context.Context, req GetPlayerCareerRequest
 	for _, y := range years {
 		// Upstream stores the yearly win rate rounded by SQLite.
 		rate := (float64(y.Wins) + 0.5*float64(y.Draws)) / float64(max(1, y.Opponents)) * 100
+		careerRate := (float64(y.CareerWins) + 0.5*float64(y.CareerDraws)) / float64(max(1, y.CareerOpponents)) * 100
 		cy := CareerYear{
 			Year: y.Year, Opponents: y.Opponents, Wins: y.Wins, Losses: y.Losses, Draws: y.Draws,
-			WinRate: round.TenthAway(rate), PeakRating: y.PeakRating,
+			WinRate: round.TenthAway(rate), PeakRating: y.PeakRating, YearEndRating: y.YearEnd,
+			CareerOpponents: y.CareerOpponents, CareerWins: y.CareerWins, CareerLosses: y.CareerLosses,
+			CareerDraws: y.CareerDraws, CareerWinRate: round.TenthAway(careerRate),
 		}
 		if y.Title != nil {
 			code := TitleCode(*y.Title)
@@ -258,6 +261,30 @@ func (s *server) GetPlayerCareer(ctx context.Context, req GetPlayerCareerRequest
 		body.Peaks = append(body.Peaks, ModelPeak{Model: Model(p.Model), Rating: p.Rating, Rank: p.Rank, Date: openapi_types.Date{Time: p.Date}})
 	}
 	return GetPlayerCareer200JSONResponse{Body: body, Headers: GetPlayerCareer200ResponseHeaders{CacheControl: cacheForever}}, nil
+}
+
+// GetPlayerMatrix returns a player's rating in each page model, now or at a year's end.
+func (s *server) GetPlayerMatrix(ctx context.Context, req GetPlayerMatrixRequestObject) (GetPlayerMatrixResponseObject, error) {
+	format := formatOr(req.Params.Format)
+	msg := playerRefusal(req.Run, req.Name, format)
+	if y := req.Params.Year; msg == "" && y != nil && (*y < 2000 || *y > 2100) {
+		msg = "bad parameter: year"
+	}
+	if msg != "" {
+		return GetPlayerMatrix400JSONResponse{badRequestBody(msg)}, nil
+	}
+	name, cells, err := s.ratings.PlayerMatrix(ctx, req.Run, req.Name, int(format), req.Params.Year)
+	if nf, ok := notFound(err); ok {
+		return GetPlayerMatrix404JSONResponse{nf}, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	body := PlayerMatrix{RunId: req.Run, Name: name, Format: format, Year: req.Params.Year, Cells: []MatrixCell{}}
+	for _, c := range cells {
+		body.Cells = append(body.Cells, MatrixCell{Model: Model(c.Model), Rating: c.Rating, Rd: c.RD, CRating: c.CRating, Rank: c.Rank})
+	}
+	return GetPlayerMatrix200JSONResponse{Body: body, Headers: GetPlayerMatrix200ResponseHeaders{CacheControl: cacheForever}}, nil
 }
 
 // GetPlayerVersus returns two players' latest shared games, with where each finished.

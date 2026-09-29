@@ -1,0 +1,461 @@
+/* Upstream's comparison matrix page: player_matrix.html's styles, the leaderboard's year pills, and its inline styles as classes. */
+.matrix-header-card {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1.25rem;
+  margin-bottom: 1.5rem;
+  padding: 1.75rem 2rem;
+  background: linear-gradient(135deg, rgba(28, 19, 13, 0.95), rgba(45, 30, 20, 0.9));
+  border: 1px solid var(--border-subtle);
+  border-radius: 8px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
+}
+
+.matrix-identity {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.6rem;
+  margin-bottom: 0.4rem;
+}
+
+.matrix-identity h1 {
+  margin: 0;
+  font-family: var(--font-heading);
+  font-size: 2rem;
+  color: #fff;
+}
+
+.matrix-subtitle {
+  font-size: 0.9rem;
+  color: var(--text-muted);
+}
+
+.matrix-subtitle strong {
+  color: var(--accent-gold);
+}
+
+.matrix-header-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}
+
+.matrix-header-links .btn-antique {
+  font-size: 0.85rem;
+}
+
+.format-bar.matrix-formats {
+  margin-bottom: 1rem;
+}
+
+.year-filter-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.4rem;
+  margin-bottom: 1.5rem;
+  padding: 0.4rem 0.75rem;
+  background: rgba(18, 12, 8, 0.85);
+  border: 1px solid var(--border-subtle);
+  border-radius: 6px;
+}
+
+.year-filter-label {
+  margin-right: 0.35rem;
+  font-family: var(--font-heading);
+  font-size: 0.8rem;
+  color: var(--accent-gold);
+  text-transform: uppercase;
+}
+
+.year-pill {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.35rem 0.75rem;
+  background: rgba(28, 19, 13, 0.7);
+  border: 1px solid var(--border-subtle);
+  border-radius: 4px;
+  font-family: var(--font-stats);
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-decoration: none;
+  transition: all 0.2s;
+}
+
+.year-pill:hover {
+  background: rgba(229, 169, 60, 0.15);
+  border-color: var(--accent-gold);
+  color: var(--text-main);
+}
+
+.year-pill.active {
+  background: var(--accent-gold);
+  border-color: var(--accent-gold);
+  box-shadow: 0 2px 6px rgba(229, 169, 60, 0.35);
+  color: #1c130d;
+  font-weight: 700;
+}
+
+.peak-year-card {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 1.5rem;
+  margin-bottom: 2rem;
+  padding: 1.5rem;
+  background: linear-gradient(135deg, rgba(35, 25, 12, 0.95), rgba(20, 14, 8, 0.95));
+  border: 1px solid rgba(229, 169, 60, 0.45);
+  border-left: 5px solid var(--accent-gold);
+  border-radius: 8px;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.4);
+}
+
+.peak-year-badge {
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  padding: 0.75rem;
+  background: rgba(229, 169, 60, 0.15);
+  border: 1px solid rgba(229, 169, 60, 0.3);
+  border-radius: 12px;
+  font-size: 2.8rem;
+  line-height: 1;
+}
+
+.peak-year-body {
+  flex-grow: 1;
+}
+
+.peak-year-kicker {
+  font-family: var(--font-heading);
+  font-size: 0.82rem;
+  color: var(--accent-gold);
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+}
+
+.peak-year-title {
+  margin: 0.2rem 0;
+  font-size: 1.5rem;
+  font-weight: 800;
+  color: #fff;
+}
+
+.peak-year-year,
+.peak-year-score {
+  color: var(--accent-gold);
+}
+
+.peak-year-title .badge-small {
+  margin-left: 0.5rem;
+  font-size: 0.75rem;
+}
+
+.peak-year-text {
+  font-size: 0.92rem;
+  line-height: 1.5;
+  color: var(--text-muted);
+}
+
+.peak-year-rating {
+  color: #ffd54f;
+}
+
+.rating-card.matrix-card {
+  margin-bottom: 2rem;
+  padding: 1.5rem;
+}
+
+.matrix-card-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin-bottom: 0.75rem;
+}
+
+.matrix-card-head h2,
+.matrix-card-head h3 {
+  margin: 0 0 0.25rem;
+  font-family: var(--font-heading);
+  color: var(--accent-gold);
+}
+
+.matrix-card-head h2 {
+  font-size: 1.35rem;
+}
+
+.matrix-card-head h3 {
+  font-size: 1.25rem;
+}
+
+.matrix-card-head p {
+  margin: 0;
+  font-size: 0.85rem;
+  color: var(--text-muted);
+}
+
+.matrix-card-head p strong,
+.matrix-card-note strong {
+  color: var(--accent-gold);
+}
+
+.matrix-card-sub {
+  font-family: var(--font-stats);
+  font-size: 0.85rem;
+  color: var(--text-muted);
+}
+
+.matrix-card-note {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+}
+
+.matrix-snapshot {
+  padding: 0.3rem 0.75rem;
+  background: rgba(0, 0, 0, 0.4);
+  border: 1px solid var(--border-subtle);
+  border-radius: 4px;
+  font-family: var(--font-stats);
+  font-size: 0.85rem;
+  color: #ffde8a;
+}
+
+.matrix-table {
+  width: 100%;
+  margin-bottom: 0;
+  overflow: hidden;
+  background: var(--surface-panel);
+  border: 1px solid var(--border-subtle);
+  border-collapse: collapse;
+  border-radius: 8px;
+  font-family: var(--font-stats);
+}
+
+.matrix-table thead th {
+  padding: 1rem;
+  background: rgba(30, 20, 14, 0.98);
+  border-bottom: 2px solid var(--border-subtle);
+  font-family: var(--font-heading);
+  font-size: 0.88rem;
+  color: var(--accent-gold);
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  width: 32%;
+}
+
+.matrix-table thead th.matrix-engine-col {
+  width: 36%;
+  text-align: left;
+}
+
+.matrix-table tbody th,
+.matrix-table td {
+  padding: 1.1rem 1rem;
+  border-bottom: 1px solid rgba(74, 53, 37, 0.3);
+  font-weight: normal;
+  text-align: left;
+  vertical-align: top;
+}
+
+.matrix-table tr:hover td,
+.matrix-table tr:hover th {
+  background: rgba(229, 169, 60, 0.05);
+}
+
+.matrix-engine-name {
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: #fff;
+}
+
+.matrix-engine-note {
+  margin-top: 0.2rem;
+  font-size: 0.8rem;
+  color: var(--text-muted);
+}
+
+.matrix-cell-box {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+
+.matrix-val-primary {
+  font-size: 1.25rem;
+  font-weight: 800;
+  color: #fff;
+}
+
+.matrix-val-rd {
+  font-size: 0.85rem;
+  font-weight: 500;
+  color: var(--text-muted);
+}
+
+.matrix-val-c {
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: var(--accent-gold);
+}
+
+.matrix-val-meta {
+  font-size: 0.82rem;
+  color: var(--text-muted);
+}
+
+.matrix-val-meta strong {
+  color: #fff;
+}
+
+.matrix-unranked,
+.career-none {
+  color: #665544;
+}
+
+/* GlickoD's row: upstream's gold. */
+.matrix-table tr.row-daneo th,
+.matrix-table tr.row-daneo td {
+  background: rgba(229, 169, 60, 0.08);
+}
+
+.matrix-table tr.row-daneo th {
+  border-left: 3px solid #b8860b;
+}
+
+.row-daneo .matrix-engine-name,
+.row-daneo .matrix-val-c,
+.row-daneo .matrix-val-meta strong {
+  color: #ffd54f;
+}
+
+.row-daneo .matrix-engine-note,
+.row-daneo .matrix-val-rd {
+  color: #c7a76d;
+}
+
+.row-daneo .matrix-val-primary {
+  color: #ffde8a;
+}
+
+/* Adaptive-T's row: upstream's green. */
+.row-adapt .matrix-engine-name,
+.row-adapt .matrix-val-primary,
+.row-adapt .matrix-val-meta strong {
+  color: #4ade80;
+}
+
+.row-adapt .matrix-val-c {
+  color: #22c55e;
+}
+
+.career-history-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-family: var(--font-stats);
+  font-size: 0.92rem;
+}
+
+.career-history-table th {
+  padding: 0.75rem 0.85rem;
+  background: rgba(24, 16, 10, 0.95);
+  border-bottom: 1px solid rgba(229, 169, 60, 0.2);
+  font-family: var(--font-heading);
+  font-size: 0.8rem;
+  color: var(--accent-gold);
+  letter-spacing: 0.5px;
+  text-align: left;
+  text-transform: uppercase;
+}
+
+.career-history-table td {
+  padding: 0.7rem 0.85rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  color: var(--text-main);
+}
+
+.career-history-table tr.peak-row td {
+  background: rgba(229, 169, 60, 0.12);
+  font-weight: 600;
+}
+
+.career-year {
+  color: #fff;
+}
+
+.badge.badge-small,
+.badge-wc.badge-small {
+  padding: 0.15rem 0.45rem;
+  font-size: 0.72rem;
+}
+
+.badge-wc.badge-tiny {
+  margin-left: 0.3rem;
+  padding: 0.1rem 0.3rem;
+  font-size: 0.65rem;
+}
+
+.career-peak {
+  color: #ffd54f;
+}
+
+.career-score {
+  font-weight: 700;
+  color: var(--accent-gold);
+}
+
+.badge.badge-peak-year {
+  background: rgba(229, 169, 60, 0.25);
+  border: 1px solid #ffd700;
+  color: #ffd700;
+  font-size: 0.75rem;
+}
+
+.career-active {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+}
+
+.score-info {
+  margin-left: 0.25rem;
+  color: var(--accent-gold);
+  cursor: help;
+}
+
+@media (max-width: 768px) {
+  .matrix-header-card {
+    padding: 1.25rem 1rem;
+  }
+
+  .peak-year-card {
+    gap: 1rem;
+    padding: 1rem;
+  }
+
+  .peak-year-badge {
+    padding: 0.5rem;
+    font-size: 2rem;
+  }
+
+  .year-filter-bar {
+    flex-wrap: nowrap;
+    padding: 0.5rem;
+    overflow-x: auto;
+    scrollbar-width: none;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .year-filter-bar::-webkit-scrollbar {
+    display: none;
+  }
+
+  .year-filter-bar > * {
+    flex-shrink: 0;
+  }
+}

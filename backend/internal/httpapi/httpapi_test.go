@@ -79,6 +79,10 @@ func (f *fakeRatings) PlayerCareer(context.Context, int64, string, int) (string,
 	return "", nil, nil, nil
 }
 
+func (f *fakeRatings) PlayerMatrix(context.Context, int64, string, int, *int) (string, []store.MatrixCell, error) {
+	return "", nil, nil
+}
+
 func (f *fakeRatings) Versus(context.Context, int64, string, string) (string, string, []store.PlayerMatch, error) {
 	return "", "", nil, nil
 }

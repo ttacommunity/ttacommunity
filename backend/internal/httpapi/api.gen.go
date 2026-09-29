@@ -213,9 +213,18 @@ func (e GetLeaderboardCsvParamsOrder) Valid() bool {
 
 // CareerYear defines model for CareerYear.
 type CareerYear struct {
-	Draws     int `json:"draws"`
-	Losses    int `json:"losses"`
-	Opponents int `json:"opponents"`
+	CareerDraws  int `json:"career_draws"`
+	CareerLosses int `json:"career_losses"`
+
+	// CareerOpponents Opponents from the first year to the end of this one
+	CareerOpponents int `json:"career_opponents"`
+
+	// CareerWinRate Percent, 0 to 100, a draw counting half
+	CareerWinRate float64 `json:"career_win_rate"`
+	CareerWins    int     `json:"career_wins"`
+	Draws         int     `json:"draws"`
+	Losses        int     `json:"losses"`
+	Opponents     int     `json:"opponents"`
 
 	// PeakRating The year's highest rating in any model's history, to 0.1
 	PeakRating *float64 `json:"peak_rating"`
@@ -227,6 +236,9 @@ type CareerYear struct {
 	WinRate float64 `json:"win_rate"`
 	Wins    int     `json:"wins"`
 	Year    int     `json:"year"`
+
+	// YearEndRating Glicko-2 Standard's last rating that year, to 0.1, as upstream shows it
+	YearEndRating *float64 `json:"year_end_rating"`
 }
 
 // Error defines model for Error.
@@ -327,6 +339,18 @@ type LeaderboardRow struct {
 	// WinRate Percent, 0 to 100
 	WinRate float64 `json:"win_rate"`
 	Wins    int     `json:"wins"`
+}
+
+// MatrixCell defines model for MatrixCell.
+type MatrixCell struct {
+	CRating float64 `json:"c_rating"`
+
+	// Model The rating model. `_softer` models reset gently each season, and
+	// `_retro` models start from a retrospectively calibrated prior.
+	Model  Model   `json:"model"`
+	Rank   *int    `json:"rank"`
+	Rating float64 `json:"rating"`
+	Rd     float64 `json:"rd"`
 }
 
 // Model The rating model. `_softer` models reset gently each season, and
@@ -434,6 +458,19 @@ type PlayerMatches struct {
 
 	// Total The player's games in this format
 	Total int `json:"total"`
+}
+
+// PlayerMatrix defines model for PlayerMatrix.
+type PlayerMatrix struct {
+	Cells []MatrixCell `json:"cells"`
+
+	// Format Players per game. 0 is every format together
+	Format Format `json:"format"`
+	Name   string `json:"name"`
+	RunId  int64  `json:"run_id"`
+
+	// Year The year asked for, or null for the run's ratings
+	Year *int `json:"year"`
 }
 
 // PlayerRating defines model for PlayerRating.
@@ -597,6 +634,12 @@ type GetPlayerMatchesParams struct {
 	Page   *int    `form:"page,omitempty" json:"page,omitempty"`
 }
 
+// GetPlayerMatrixParams defines parameters for GetPlayerMatrix.
+type GetPlayerMatrixParams struct {
+	Format *Format `form:"format,omitempty" json:"format,omitempty"`
+	Year   *int    `form:"year,omitempty" json:"year,omitempty"`
+}
+
 // GetPlayerRivalsParams defines parameters for GetPlayerRivals.
 type GetPlayerRivalsParams struct {
 	Format *Format `form:"format,omitempty" json:"format,omitempty"`
@@ -634,6 +677,9 @@ type ServerInterface interface {
 	// GetPlayerMatches One player's games, newest first, 30 to a page
 	// (GET /v1/runs/{run}/players/{name}/matches)
 	GetPlayerMatches(w http.ResponseWriter, r *http.Request, run RunId, name PlayerName, params GetPlayerMatchesParams)
+	// GetPlayerMatrix One player's rating in each engine and reset mode, now or at a year's end
+	// (GET /v1/runs/{run}/players/{name}/matrix)
+	GetPlayerMatrix(w http.ResponseWriter, r *http.Request, run RunId, name PlayerName, params GetPlayerMatrixParams)
 	// GetPlayerRivals The player's record against each opponent
 	// (GET /v1/runs/{run}/players/{name}/rivals)
 	GetPlayerRivals(w http.ResponseWriter, r *http.Request, run RunId, name PlayerName, params GetPlayerRivalsParams)
@@ -1163,6 +1209,70 @@ func (siw *ServerInterfaceWrapper) GetPlayerMatches(w http.ResponseWriter, r *ht
 	handler.ServeHTTP(w, r)
 }
 
+// GetPlayerMatrix operation middleware
+func (siw *ServerInterfaceWrapper) GetPlayerMatrix(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "run" -------------
+	var run RunId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "run", r.PathValue("run"), &run, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "integer", Format: "int64", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "run", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "name" -------------
+	var name PlayerName
+
+	err = runtime.BindStyledParameterWithOptions("simple", "name", r.PathValue("name"), &name, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "name", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params GetPlayerMatrixParams
+
+	// ------------- Optional query parameter "format" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "format", r.URL.Query(), &params.Format, runtime.BindQueryParameterOptions{Type: "integer", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "format"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "format", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "year" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "year", r.URL.Query(), &params.Year, runtime.BindQueryParameterOptions{Type: "integer", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "year"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "year", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetPlayerMatrix(w, r, run, name, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // GetPlayerRivals operation middleware
 func (siw *ServerInterfaceWrapper) GetPlayerRivals(w http.ResponseWriter, r *http.Request) {
 
@@ -1390,6 +1500,7 @@ func HandlerWithOptions(si ServerInterface, options StdHTTPServerOptions) http.H
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/v1/runs/{run}/players/{name}/rivals", wrapper.GetPlayerRivals)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/v1/runs/{run}/players/{name}/career", wrapper.GetPlayerCareer)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/v1/runs/{run}/players/{name}/versus/{other}", wrapper.GetPlayerVersus)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/v1/runs/{run}/players/{name}/matrix", wrapper.GetPlayerMatrix)
 
 	return m
 }
@@ -1973,6 +2084,68 @@ func (response GetPlayerMatches404JSONResponse) VisitGetPlayerMatchesResponse(w 
 	return err
 }
 
+type GetPlayerMatrixRequestObject struct {
+	Run    RunId      `json:"run"`
+	Name   PlayerName `json:"name"`
+	Params GetPlayerMatrixParams
+}
+
+type GetPlayerMatrixResponseObject interface {
+	VisitGetPlayerMatrixResponse(w http.ResponseWriter) error
+}
+
+type GetPlayerMatrix200ResponseHeaders struct {
+	CacheControl string
+}
+
+type GetPlayerMatrix200JSONResponse struct {
+	Body    PlayerMatrix
+	Headers GetPlayerMatrix200ResponseHeaders
+}
+
+func (response GetPlayerMatrix200JSONResponse) VisitGetPlayerMatrixResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetPlayerMatrix400JSONResponse struct{ BadRequestJSONResponse }
+
+func (response GetPlayerMatrix400JSONResponse) VisitGetPlayerMatrixResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetPlayerMatrix404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response GetPlayerMatrix404JSONResponse) VisitGetPlayerMatrixResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
 type GetPlayerRivalsRequestObject struct {
 	Run    RunId      `json:"run"`
 	Name   PlayerName `json:"name"`
@@ -2129,6 +2302,9 @@ type StrictServerInterface interface {
 	// GetPlayerMatches One player's games, newest first, 30 to a page
 	// (GET /v1/runs/{run}/players/{name}/matches)
 	GetPlayerMatches(ctx context.Context, request GetPlayerMatchesRequestObject) (GetPlayerMatchesResponseObject, error)
+	// GetPlayerMatrix One player's rating in each engine and reset mode, now or at a year's end
+	// (GET /v1/runs/{run}/players/{name}/matrix)
+	GetPlayerMatrix(ctx context.Context, request GetPlayerMatrixRequestObject) (GetPlayerMatrixResponseObject, error)
 	// GetPlayerRivals The player's record against each opponent
 	// (GET /v1/runs/{run}/players/{name}/rivals)
 	GetPlayerRivals(ctx context.Context, request GetPlayerRivalsRequestObject) (GetPlayerRivalsResponseObject, error)
@@ -2433,6 +2609,34 @@ func (sh *strictHandler) GetPlayerMatches(w http.ResponseWriter, r *http.Request
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(GetPlayerMatchesResponseObject); ok {
 		if err := validResponse.VisitGetPlayerMatchesResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// GetPlayerMatrix operation middleware
+func (sh *strictHandler) GetPlayerMatrix(w http.ResponseWriter, r *http.Request, run RunId, name PlayerName, params GetPlayerMatrixParams) {
+	var request GetPlayerMatrixRequestObject
+
+	request.Run = run
+	request.Name = name
+	request.Params = params
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.GetPlayerMatrix(ctx, request.(GetPlayerMatrixRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetPlayerMatrix")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(GetPlayerMatrixResponseObject); ok {
+		if err := validResponse.VisitGetPlayerMatrixResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {

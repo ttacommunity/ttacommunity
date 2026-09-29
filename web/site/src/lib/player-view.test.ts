@@ -3,6 +3,9 @@ import type { Player, PlayerHistory, Rival } from '@ttac/shared/ratings';
 import {
   chartData,
   isProvisional,
+  matrixHref,
+  matrixParams,
+  parseMatrixView,
   pageModel,
   parsePlayerView,
   playerHref,
@@ -200,5 +203,24 @@ describe('visibleRivals', () => {
       sort: { key: 'name', asc: true },
     });
     expect(byName.map((r) => r.name)).toEqual(['a', 'b']);
+  });
+});
+
+describe('matrix page address', () => {
+  it('reads the name, format and year, falling back to the remembered format', () => {
+    expect(parseMatrixView(new URLSearchParams('name=Ann&format=3&year=2024'), {})).toEqual({ name: 'Ann', format: 3, year: 2024 });
+    expect(parseMatrixView(new URLSearchParams('name=Ann'), { format: 2 })).toEqual({ name: 'Ann', format: 2, year: null });
+  });
+
+  it('ignores a year that is not a whole number from 2000 to 2100', () => {
+    for (const bad of ['1999', '2101', 'x', '2024.5']) {
+      expect(parseMatrixView(new URLSearchParams(`name=a&year=${bad}`), {}).year).toBeNull();
+    }
+  });
+
+  it('writes the format always and the year when chosen', () => {
+    expect(matrixParams({ name: 'Ann B', format: 0, year: null }).toString()).toBe('name=Ann+B&format=0');
+    expect(matrixParams({ name: 'Ann', format: 4, year: 2019 }).toString()).toBe('name=Ann&format=4&year=2019');
+    expect(matrixHref('Ann', 2)).toBe('/ratings/player/matrix/?name=Ann&format=2');
   });
 });

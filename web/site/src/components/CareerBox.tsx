@@ -2,7 +2,7 @@
 import type { Format, Player, PlayerCareer, TitleCode } from '@ttac/shared/ratings';
 import * as show from '../lib/leaderboard-display';
 import { careerPeakYear, divergenceNotes, isPeakHigher } from '../lib/career';
-import { pageModel, ratingIn } from '../lib/player-view';
+import { matrixHref, pageModel, ratingIn } from '../lib/player-view';
 import type { ResetMode } from '../lib/leaderboard-view';
 
 function SeasonBadge({ code }: { code: TitleCode }) {
@@ -82,6 +82,9 @@ export default function CareerBox({
                 </div>
               </div>
             </div>
+            <a href={matrixHref(player.name, format)} className="career-matrix-link">
+              View Year-by-Year Matrix »
+            </a>
           </div>
         )}
 

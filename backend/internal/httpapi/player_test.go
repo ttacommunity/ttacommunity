@@ -223,12 +223,20 @@ type fakeCareer struct {
 	peaks  []store.ModelPeak
 	shared []store.PlayerMatch
 	other  string
+	cells  []store.MatrixCell
+	year   *int
 }
 
 func (f *fakeCareer) PlayerCareer(_ context.Context, run int64, name string, format int) (string, []store.CareerYear, []store.ModelPeak, error) {
 	f.calls++
 	f.gotRun, f.asked, f.format = run, name, format
 	return "Ann", f.years, f.peaks, f.err
+}
+
+func (f *fakeCareer) PlayerMatrix(_ context.Context, run int64, name string, format int, year *int) (string, []store.MatrixCell, error) {
+	f.calls++
+	f.gotRun, f.asked, f.format, f.year = run, name, format, year
+	return "Ann", f.cells, f.err
 }
 
 func (f *fakeCareer) Versus(_ context.Context, run int64, name, other string) (string, string, []store.PlayerMatch, error) {
@@ -238,19 +246,22 @@ func (f *fakeCareer) Versus(_ context.Context, run int64, name, other string) (s
 }
 
 func TestPlayerCareer(t *testing.T) {
-	peak := 1990.5
+	peak, yearEnd := 1990.5, 1901.5
 	gm := "GM"
 	f := &fakeCareer{
 		years: []store.CareerYear{
-			{Year: 2024, Opponents: 3, Wins: 1, Losses: 1, Draws: 1, PeakRating: &peak, Title: &gm},
-			{Year: 2025, Opponents: 3, Wins: 2, Losses: 1},
+			{Year: 2024, Opponents: 3, Wins: 1, Losses: 1, Draws: 1, PeakRating: &peak, Title: &gm, YearEnd: &yearEnd,
+				CareerOpponents: 3, CareerWins: 1, CareerLosses: 1, CareerDraws: 1},
+			{Year: 2025, Opponents: 3, Wins: 2, Losses: 1, CareerOpponents: 6, CareerWins: 3, CareerLosses: 2, CareerDraws: 1},
 		},
 		peaks: []store.ModelPeak{{Model: "whr", Rating: 2060.8, Rank: 2, Date: time.Date(2026, 8, 22, 0, 0, 0, 0, time.UTC)}},
 	}
 	rec, _ := serve(t, f, "/v1/runs/7/players/ann/career?format=3")
 	want := `{"format":3,"name":"Ann","peaks":[{"date":"2026-08-22","model":"whr","rank":2,"rating":2060.8}],"run_id":7,"years":[` +
-		`{"draws":1,"losses":1,"opponents":3,"peak_rating":1990.5,"title":"GM","win_rate":50,"wins":1,"year":2024},` +
-		`{"draws":0,"losses":1,"opponents":3,"peak_rating":null,"title":null,"win_rate":66.7,"wins":2,"year":2025}]}`
+		`{"career_draws":1,"career_losses":1,"career_opponents":3,"career_win_rate":50,"career_wins":1,` +
+		`"draws":1,"losses":1,"opponents":3,"peak_rating":1990.5,"title":"GM","win_rate":50,"wins":1,"year":2024,"year_end_rating":1901.5},` +
+		`{"career_draws":1,"career_losses":2,"career_opponents":6,"career_win_rate":58.3,"career_wins":3,` +
+		`"draws":0,"losses":1,"opponents":3,"peak_rating":null,"title":null,"win_rate":66.7,"wins":2,"year":2025,"year_end_rating":null}]}`
 	if got := strings.TrimSpace(rec.Body.String()); rec.Code != http.StatusOK || got != want {
 		t.Errorf("GET career: %d %s\nwant 200 %s", rec.Code, got, want)
 	}
@@ -296,5 +307,43 @@ func TestCareerAndVersusRefuseAndAnswerNotFound(t *testing.T) {
 		if rec.Code != http.StatusNotFound || rec.Header().Get("Cache-Control") != "no-store" {
 			t.Errorf("GET %s: %d %q; want 404 no-store", path, rec.Code, rec.Header().Get("Cache-Control"))
 		}
+	}
+}
+
+func TestPlayerMatrix(t *testing.T) {
+	f := &fakeCareer{cells: []store.MatrixCell{
+		{Model: "glicko2_daneo", Rating: 2000, RD: 27.2, CRating: 1918.5, Rank: intp(3)},
+		{Model: "whr_softer", Rating: 2050.1, RD: 12, CRating: 2014.1},
+	}}
+	rec, _ := serve(t, f, "/v1/runs/7/players/ann/matrix?format=2&year=2024")
+	want := `{"cells":[{"c_rating":1918.5,"model":"glicko2_daneo","rank":3,"rating":2000,"rd":27.2},` +
+		`{"c_rating":2014.1,"model":"whr_softer","rank":null,"rating":2050.1,"rd":12}],"format":2,"name":"Ann","run_id":7,"year":2024}`
+	if got := strings.TrimSpace(rec.Body.String()); rec.Code != http.StatusOK || got != want {
+		t.Errorf("GET matrix: %d %s\nwant 200 %s", rec.Code, got, want)
+	}
+	if rec.Header().Get("Cache-Control") != cacheForever || f.year == nil || *f.year != 2024 || f.format != 2 {
+		t.Errorf("GET matrix: Cache-Control %q, year %v, format %d", rec.Header().Get("Cache-Control"), f.year, f.format)
+	}
+
+	live := &fakeCareer{}
+	rec, _ = serve(t, live, "/v1/runs/7/players/ann/matrix")
+	if got := strings.TrimSpace(rec.Body.String()); got != `{"cells":[],"format":0,"name":"Ann","run_id":7,"year":null}` || live.year != nil {
+		t.Errorf("GET matrix without a year = %s (year asked %v); want the live cells", got, live.year)
+	}
+
+	for path, msg := range map[string]string{
+		"/v1/runs/7/players/ann/matrix?year=1999": "bad parameter: year",
+		"/v1/runs/7/players/ann/matrix?year=x":    "bad parameter: year",
+		"/v1/runs/7/players/ann/matrix?format=5":  "unknown format",
+	} {
+		f := &fakeCareer{}
+		rec, _ := serve(t, f, path)
+		if got := strings.TrimSpace(rec.Body.String()); rec.Code != http.StatusBadRequest || got != `{"error":"`+msg+`"}` || f.calls != 0 {
+			t.Errorf("GET %s: %d %s; want 400 %q before the store", path, rec.Code, got, msg)
+		}
+	}
+	rec, _ = serve(t, &fakeCareer{fakePlayers: fakePlayers{err: store.ErrPlayerNotFound}}, "/v1/runs/7/players/zed/matrix")
+	if rec.Code != http.StatusNotFound {
+		t.Errorf("GET matrix of an unknown player: %d, want 404", rec.Code)
 	}
 }
