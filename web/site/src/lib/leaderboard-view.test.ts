@@ -265,6 +265,12 @@ describe('csvUrl', () => {
       'https://api.example/v1/runs/7/leaderboard.csv?model=glicko2_daneo&format=0&status=all&min_opps=0&sort=rank&order=asc',
     );
   });
+
+  it("asks for a year's archive in the record view shown", () => {
+    expect(csvUrl('https://api.example', 7, view({ year: 2024, stats: 'career', minOpps: 0 }), false)).toBe(
+      'https://api.example/v1/runs/7/leaderboard.csv?model=glicko2_daneo&format=0&status=active&min_opps=0&sort=rank&order=asc&year=2024&stats_view=career',
+    );
+  });
 });
 
 describe('year view', () => {

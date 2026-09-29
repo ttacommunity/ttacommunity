@@ -279,7 +279,10 @@ export function deltas(rows: readonly LeaderboardRow[], past: History['players']
   );
 }
 
-/** csvUrl is the API's CSV of the table as shown, or of every player, inactive too, with the same title and search. */
+/**
+ * csvUrl is the API's CSV of the table as shown, or of every player, inactive too, with the same title and search; in
+ * a year's archive, that year's board in the record view shown.
+ */
 export function csvUrl(api: string, run: number, view: View, everyone: boolean): string {
   const q = new URLSearchParams({
     model: modelOf(view),
@@ -291,6 +294,10 @@ export function csvUrl(api: string, run: number, view: View, everyone: boolean):
   if (view.search !== '') q.set('search', view.search);
   q.set('sort', view.sort);
   q.set('order', view.order);
+  if (view.year !== null) {
+    q.set('year', String(view.year));
+    q.set('stats_view', view.stats);
+  }
   return `${api.replace(/\/+$/, '')}/v1/runs/${run}/leaderboard.csv?${q}`;
 }
 
