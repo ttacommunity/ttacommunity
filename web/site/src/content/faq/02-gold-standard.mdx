@@ -1,0 +1,350 @@
+---
+tab: gold-standard
+label: 'GlickoD'
+order: 2
+---
+
+{/* Written by DANeo for the original ratings site. */}
+
+<div class="faq-card faq-card-bronze">
+  <div class="faq-eyebrow">GlickoD Engine</div>
+  <h3 class="c-amber">
+    <span>👑</span> The Full-Circle Journey: From Naive Glicko to WHR to GlickoD
+  </h3>
+  <p>
+    The journey to the current GlickoD rating engine iteration involved several discoveries: Our starting observation was that standard Glicko-2, while effective overall, showed a <strong>steady overconfidence in high-probability predictions</strong>: when predicting a win chance of $X \ge 90\%$, the actual observed win rate in tournament play was closer to $\approx 89\%$.
+  </p>
+  <p>
+    We initially hypothesized an entropic ceiling on skill expression in <em>Through the Ages</em>—the idea that random card draws and multiplayer dynamics prevented true 99% certainty between experienced players. To compensate, we introduced <strong>Adaptive Temperature Scaling</strong> $T(P, N)$ to pull extreme probabilities inward toward 50%.
+  </p>
+  <p>
+    However, a targeted ablation study focused on <strong>top-3% tournament players</strong> revealed the real cause:
+  </p>
+  <ul class="faq-list faq-steps">
+    <li>
+      <strong>The "Overconfidence" Came from Uncalibrated Newcomers:</strong> When skilled new players enter tournaments with default $1500$ priors and face Grandmasters ($1950+$), standard Glicko projects a $93\%+$ victory chance for the veteran. If the veteran wins only $75\%$ against this hidden expert, aggregate statistics falsely flag this as "favorite overconfidence."
+    </li>
+    <li>
+      <strong>Elite Skill Expression Is Real:</strong> Once players are calibrated, top competitors facing lower-tier opponents genuinely achieve $\mathbf{\ge 95\%}$ and up to $\mathbf{98\%}$ win rates. Extreme certainty is well-founded when the rating gap is accurately measured.
+    </li>
+    <li>
+      <strong>Retiring Temperature Scaling:</strong> When the <strong>15-Game Recalibration</strong> addresses newcomer uncertainty directly, the apparent overconfidence vanishes. Applying temperature scaling on top of calibrated ratings actually hurt accuracy by artificially suppressing legitimate elite win rates. Temperature scaling was therefore retired ($T \equiv 1.0$), yielding tail calibration within $\pm 0.17\%$ of reality across 70–95% thresholds and an ECE of <strong>0.24%</strong>.
+    </li>
+  </ul>
+  <p>
+    Returning to sequential Glicko-2 with these empirical insights, GlickoD is built upon <strong>two core pillars</strong>:
+  </p>
+  <ol class="faq-list faq-steps">
+    <li>
+      <strong>15-Game Emergent Prior Recalibration:</strong> When new players enter with generic ratings ($1500, \mathrm{RD}=350$), early matches distort veteran ratings. Active veterans average $\approx 1521$, while the pool mean is $\approx 1471$. Establishing emergent ratings at 15 games (or upon retirement after 1 year for inactive accounts with $K \lt  15$ games) and recalculating history against the calibrated prior removes newcomer distortion from the rating network. Newcomers see their ratings update dynamically after every match alongside a provisional ⏳ badge.
+    </li>
+    <li>
+      <strong>Golden Ratio ($\phi$) Multiplayer Information Decomposition:</strong> Winning a 4-player game is neither 3 independent duels (naive Glicko) nor 1 duel (Coulom fractional scaling). GlickoD deploys Golden Ratio information scaling $W(N) = \phi^{N-2}$ ($w_N = \frac{\phi^{N-2}}{N-1}$), giving $\approx 1.618$ effective match equivalents for 3-player and $\approx 2.618$ for 4-player games, accurately capturing table evidence without inflating certainty.
+    </li>
+  </ol>
+  <p>
+    Additionally, applying a <strong>gentle annual soft season reset</strong> (expanding RD by $\alpha \approx 1.45$ and regressing ratings toward tier anchors by $\lambda \approx 0.12$) improves forward predictive accuracy, counteracting inactive rating inflation and ensuring recent form is balanced with career skill.
+  </p>
+</div>
+
+    <div class="faq-card faq-card-bronze">
+  <h3 class="c-amber">
+    <span>📐</span> Golden Ratio Multiplayer Information Decomposition
+  </h3>
+  <p>
+    In board games with $N \in \{2, 3, 4\}$ players, a single table is conventionally decomposed into $\binom{N}{2}$ pairwise matchups:
+  </p>
+  <div class="faq-formula">
+
+$$
+\binom{2}{2} = 1 \text{ pair (2P)}, \quad \binom{3}{2} = 3 \text{ pairs (3P)}, \quad \binom{4}{2} = 6 \text{ pairs (4P)}
+$$
+
+</div>
+  <p>
+    However, treating all pairwise comparisons as independent full-weighted matches artificially duplicates information. In a 3-player game, if Player A defeats B, and B defeats C, the outcome of A defeating C is partially transitively redundant. Conversely, scaling by a naive uniform factor $w = \frac{1}{N-1}$ (the Coulom MP-Weighted approach) overly penalizes multiplayer games, stripping away valid statistical signal.
+  </p>
+  <p>
+    DANeo establishes that information decomposition across competing entities naturally follows the <strong>Golden Ratio ($\phi \approx 1.61803398875$)</strong>, the fundamental mathematical constant governing self-similar recursive partitioning:
+  </p>
+  <div class="faq-formula">
+
+$$
+W(N) = \phi^{N-2} \quad \text{(Total Effective 1v1 Match Equivalents)}
+$$
+
+</div>
+  <p>
+    Dividing the total effective information $W(N)$ equally across the $N - 1$ pairwise comparisons faced by each player yields the exact pairwise weighting factor $w_N$:
+  </p>
+  <div class="faq-formula">
+
+$$
+w_N = \frac{\phi^{N-2}}{N - 1} \implies \begin{cases} w_2 = \dfrac{\phi^0}{1} = 1.0000 & \text{(2-Player: Pure Glicko-2)} \\[8pt] w_3 = \dfrac{\phi^1}{2} = \dfrac{\phi}{2} \approx 0.8090 & \text{(3-Player)} \\[8pt] w_4 = \dfrac{\phi^2}{3} = \dfrac{\phi + 1}{3} \approx 0.8727 & \text{(4-Player)} \end{cases}
+$$
+
+</div>
+
+  <h4 class="faq-subhead-amber">
+    Impact on 1-on-1 Match Equivalents: Comparing Decompositions
+  </h4>
+  <p>
+    How does Golden Ratio weighting compare to alternative approaches in terms of effective 1-on-1 match evidence awarded to each competitor?
+  </p>
+  <ul class="faq-list">
+    <li><strong>Naive Pairwise Decomposition ($w = 1.0$):</strong> Yields $(N-1) \times 1.0 = N - 1$ match equivalents per player. In 3P, a player gains $2.0$ full 1v1 match equivalents; in 4P, $3.0$ match equivalents. This triggers an artificial information explosion: rating deviation ($\mathrm{RD}$) collapses twice or three times too quickly, exaggerating multiplayer noise.</li>
+    <li><strong>Coulom Fractional Weighting ($w = \frac{1}{N-1}$):</strong> Yields $(N-1) \times \frac{1}{N-1} \equiv 1.0$ match equivalent per player across all formats. While mathematically clean, this under-rewards multiplayer play: dominating three opponents simultaneously in a 4-player game provides strictly richer statistical evidence than winning a 1v1 duel, yet Coulom values them identically.</li>
+    <li>
+<span><strong>Golden Ratio Decomposition ($w_N = \frac{\phi^{N-2}}{N-1}$):</strong> Yields $W(N) = \phi^{N-2}$ effective 1v1 match equivalents per player:</span>
+<div class="faq-formula">
+
+$$
+W(2) = 1.000 \text{ eq.}, \quad W(3) = \phi \approx 1.618 \text{ eq.}, \quad W(4) = \phi^2 = \phi + 1 \approx 2.618 \text{ eq.}
+$$
+
+</div>
+<span>Each format awards certainty proportional to its combinatorial challenge, establishing the ideal bridge between 2-player duels and multiplayer tables.</span>
+</li>
+  </ul>
+
+  <h4 class="faq-subhead-amber">
+    Mathematical Intuition: Why the Golden Ratio ($\phi$)?
+  </h4>
+  <p>
+    Why does $\phi$ serve as the optimal scaling constant? In any multi-entity ranking, each additional participant introduces diminishing new independent evidence because transitive constraints already link the table. The Golden Ratio is defined by the fundamental self-similar equation $\phi^2 = \phi + 1$ (or $\phi = 1 + 1/\phi$).
+  </p>
+  <p>
+    When subtracting effective evidence $W(N) = \phi^{N-2}$ from the nominal pairwise comparisons faced by each player $(N - 1)$, we discover an invariant information-balancing property:
+  </p>
+  <div class="faq-formula">
+
+$$
+\Delta(N) = (N - 1) - \phi^{N-2} \equiv \phi^{-2} = 2 - \phi \approx 0.381966 \quad \forall N \in \{3, 4\}
+$$
+
+</div>
+
+  <p>
+    <strong>Step-by-Step Algebraic Derivation:</strong>
+  </p>
+  <ol class="faq-list ml-125">
+    <li>
+<span><strong>The Golden Ratio Identity ($\phi^{-2} = 2 - \phi$):</strong><br /> By definition, $\phi^2 = \phi + 1$. Dividing both sides by $\phi^2$ gives $1 = \phi^{-1} + \phi^{-2}$, which implies $\phi^{-2} = 1 - \phi^{-1}$.<br /> Dividing $\phi^2 = \phi + 1$ by $\phi$ gives $\phi = 1 + \phi^{-1} \implies \phi^{-1} = \phi - 1$.<br /> Substituting $\phi^{-1}$ into $\phi^{-2}$:</span>
+<div class="faq-formula my-50">
+
+$$
+\phi^{-2} = 1 - (\phi - 1) = 2 - \phi \approx 2 - 1.618034 = 0.381966
+$$
+
+</div>
+</li>
+    <li>
+<span><strong>For 3-Player Games ($N = 3$):</strong><br /> With $N = 3$, nominal faced comparisons are $3 - 1 = 2$, and effective evidence is $\phi^{3-2} = \phi^1 = \phi$.</span>
+<div class="faq-formula my-50">
+
+$$
+\Delta(3) = (3 - 1) - \phi^1 = 2 - \phi = \phi^{-2} \approx 0.381966
+$$
+
+</div>
+</li>
+    <li>
+<span><strong>For 4-Player Games ($N = 4$):</strong><br /> With $N = 4$, nominal faced comparisons are $4 - 1 = 3$, and effective evidence is $\phi^{4-2} = \phi^2 = \phi + 1$.</span>
+<div class="faq-formula my-50">
+
+$$
+\Delta(4) = (4 - 1) - \phi^2 = 3 - (\phi + 1) = 2 - \phi = \phi^{-2} \approx 0.381966
+$$
+
+</div>
+</li>
+  </ol>
+
+  <p>
+    <strong>Does this hold for any $N \gt  2$?</strong><br />
+    <strong>No — it holds uniquely and exclusively for $N \in \{3, 4\}$!</strong><br />
+    In general, powers of $\phi$ expand using Fibonacci numbers: $\phi^k = F_k \cdot \phi + F_{k-1}$ (where $F_1 = 1, F_2 = 1, F_3 = 2, F_4 = 3, \dots$).<br />
+    Therefore, $\Delta(N) = (N - 1) - (F_{N-2} \cdot \phi + F_{N-3}) = (N - 1 - F_{N-3}) - F_{N-2} \cdot \phi$.<br />
+    For the coefficient of $\phi$ to remain strictly $1$ (yielding $2 - \phi$), we require $F_{N-2} = 1$. The only positive Fibonacci indices where $F_k = 1$ are $k = 1$ ($N = 3$) and $k = 2$ ($N = 4$). For $N = 5$, $\phi^3 = 2\phi + 1$, giving $\Delta(5) = 4 - (2\phi + 1) = 3 - 2\phi \approx -0.236 \neq 0.382$.
+  </p>
+  <p>
+    Because Through the Ages (and modern competitive board games) caps multiplayer formats strictly at 3-player and 4-player ($N \in \{3, 4\}$), the information discarded due to transitive table overlap is <em>perfectly invariant</em> across every multiplayer format in the game.
+  </p>
+</div>
+
+    <div class="faq-card faq-card-bronze">
+  <h3 class="c-amber">
+    <span>🔬</span> Lever 1: 15-Game Re-Calibration (Eliminating Newcomer Bleed)
+  </h3>
+  <p>
+    When players enter the tournament pool, they begin with a nominal 1500 rating and high uncertainty ($\mathrm{RD} = 350$). Because active veterans average $\approx 1521$ while the overall pool mean is $\approx 1471$, games involving uncalibrated newcomers generate severe network noise, false upsets, and the notorious "50% underconfidence droop" in standard Glicko.
+  </p>
+  <p>
+    Under <strong>15-Game Re-Calibration</strong>, a player's first 15 games establish their emergent prior $R_{15}$ (players with under 15 career games who have been inactive for over a year are also finalized at their career total). In the UI, newcomers see their ratings update dynamically after every match accompanied by a provisional ⏳ indicator, while in the rating engine, opponent updates are computed against the calibrated prior to eliminate newcomer distortion.
+  </p>
+  <div class="mt-100">
+    <a class="btn-antique fs-92 no-underline" href="#recalibration-15">
+      <span>🔬</span> View Dedicated 15-Game Recalibration Tab &amp; Mathematical Derivation &raquo;
+    </a>
+  </div>
+</div>
+
+    <div class="faq-card faq-card-bronze">
+  <h3 class="c-amber">
+    <span>🎯</span> The Temperature Scaling Journey: Why GlickoD Retired Logit Compression
+  </h3>
+  <p>
+    One of the most instructive chapters in the development of GlickoD was the rise and subsequent retirement of <strong>Adaptive Temperature Scaling</strong> $T(P, N)$.
+  </p>
+  <p>
+    In naive Glicko-2, extreme probability forecasts ($\gt 90\%$) appear to suffer from persistent overconfidence: when the model predicts $93\%$, actual tournament win rates hovered around $\approx 89\%$. We initially formulated the hypothesis that <em>Through the Ages</em> possessed an entropic ceiling on skill expression—that initial card rows, military tactics reveals, and multiplayer friction physically prevented a true 99% win probability from existing once players cross baseline competence. To bend predictions back toward the diagonal, we introduced thermal logit damping $T(P, N) = 1.0 + \alpha_N \cdot \delta^{\gamma_N}$.
+  </p>
+
+  <h4 class="faq-subhead-amber">
+    The Diagnostic Breakthrough: Uncalibrated Newcomers vs. Real Elite Skill
+  </h4>
+  <p>
+    When we performed a targeted ablation study isolating the <strong>top 3% of tournament competitors</strong> ($C \ge 1773$, Grandmasters and World Champions), the entropic ceiling hypothesis collapsed:
+  </p>
+  <ul class="faq-list">
+    <li>
+      <strong>The Subpopulation Asymmetry:</strong> In open tournaments (like the World Championship Series or Grand Slams), newcomers enter with default $1500$ priors. While below-average newcomers drag down the 50–65% bins (producing underconfidence), <em>strong newcomers</em> (future 1750+ masters) face Grandmasters ($1950+$) in early rounds. Standard Glicko calculates a naive $93\%+$ win chance for the GM against a "1500." When the GM only wins $75\%$ against this hidden shark, the aggregate data falsely records "favorite overconfidence."
+    </li>
+    <li>
+      <strong>Elite Skill Expression Is Genuine:</strong> Once ratings are calibrated via 15-Game Recalibration (Option A), top-3% players facing lower-tier opponents genuinely win $\mathbf{95.7\%}$ of matches at $\gt 90\%$ confidence, $\mathbf{98.2\%}$ at $\gt 95\%$, and $\mathbf{100\%}$ at $\gt 99\%$! For instance, a 2000 GM facing an established 1475 average player has an expected $\Delta R \approx 525$, which yields a true, observed $\ge 95\%$ victory rate.
+    </li>
+    <li>
+      <strong>Temperature Scaling Was Compressing Too Far:</strong> Because the retro prior already eliminated newcomer noise at the root, applying temperature scaling on top forced predictions <em>too low</em>, causing artificial underconfidence in elite matches (+2% to +3% prediction deficit).
+    </li>
+  </ul>
+
+  <h4 class="faq-subhead-amber">
+    Empirical Ablation: T-Enabled vs. T-Disabled (Across 388,493 Encounters)
+  </h4>
+  <p>
+    Comparing GlickoD with temperature scaling enabled versus completely disabled ($T \equiv 1.0$) demonstrates that removing temperature scaling achieves superior calibration across every metric:
+  </p>
+  <div class="faq-table-wrap">
+    <table class="faq-table-framed">
+      <thead>
+        <tr class="row-gold-strong">
+          <th>Confidence Threshold</th>
+          <th>Scope</th>
+          <th>T-Enabled Pred vs Actual (Gap)</th>
+          <th>T-Disabled (T=1.0) Pred vs Actual (Gap)</th>
+          <th>Verdict</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td class="bold c-white">&gt; 70% Confidence</td>
+          <td class="c-muted">All Players</td>
+          <td class="stat">79.59% vs 80.21% (<span class="c-mint">+0.62%</span>)</td>
+          <td class="stat bold c-amber">79.93% vs 80.08% (<span class="c-mint">+0.15%</span>)</td>
+          <td class="fs-84 c-mint">Near-perfect alignment</td>
+        </tr>
+        <tr>
+          <td class="bold c-white">&gt; 80% Confidence</td>
+          <td class="c-muted">All Players</td>
+          <td class="stat">86.48% vs 87.47% (<span class="c-mint">+0.99%</span>)</td>
+          <td class="stat bold c-amber">86.74% vs 87.05% (<span class="c-mint">+0.31%</span>)</td>
+          <td class="fs-84 c-mint">Error cut by 69%</td>
+        </tr>
+        <tr>
+          <td class="bold c-white">&gt; 90% Confidence</td>
+          <td class="c-muted">All Players</td>
+          <td class="stat">93.06% vs 93.76% (<span class="c-mint">+0.69%</span>)</td>
+          <td class="stat bold c-amber">93.23% vs 93.40% (<span class="c-mint">+0.17%</span>)</td>
+          <td class="fs-84 c-mint">Within 0.17% of reality</td>
+        </tr>
+        <tr>
+          <td class="bold c-white">&gt; 90% Confidence</td>
+          <td class="c-amber semibold">Top 3% Elite</td>
+          <td class="stat">93.40% vs 96.50% (<span class="c-pink">+3.10%</span>)</td>
+          <td class="stat bold c-amber">93.61% vs 96.27% (<span class="c-mint">+2.66%</span>)</td>
+          <td class="fs-84 c-mint">Underconfidence reduced</td>
+        </tr>
+        <tr>
+          <td class="bold c-white">&gt; 95% Confidence</td>
+          <td class="c-muted">All Players</td>
+          <td class="stat">96.40% vs 96.90% (<span class="c-mint">+0.50%</span>)</td>
+          <td class="stat bold c-amber">96.50% vs 96.56% (<span class="c-mint">+0.06%</span>)</td>
+          <td class="fs-84 c-mint">Virtually 0 error</td>
+        </tr>
+        <tr class="row-gold row-total">
+          <td class="bold c-amber" colspan="2">Overall Full-History ECE (Season Reset)</td>
+          <td class="stat c-pink">0.41%</td>
+          <td class="stat bold c-mint">0.24%</td>
+          <td class="fs-84 bold c-mint">All-Time Record ECE</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h4 class="faq-subhead-amber">
+    The Final Architectural Verdict
+  </h4>
+  <p>
+    Temperature scaling was a well-intentioned bandage for a problem caused by uncalibrated cold-start priors. Once 15-Game Recalibration solved the newcomer problem at the root, temperature scaling became superfluous that actively degraded elite match predictions.
+  </p>
+  <p>
+    <strong>GlickoD operates with $T \equiv 1.0$ across all formats.</strong> Its calibration is anchored by its two core enhancements: Golden Ratio ($\phi$) multiplayer weighting and 15-game emergent prior recalibration.
+  </p>
+</div>
+
+    <div class="faq-card faq-card-bronze">
+  <h3 class="c-amber">
+    <span>🏆</span> Empirical Benchmark Scoreboard Across Formats
+  </h3>
+  <p>
+    The table below documents the final match-time calibration metrics for <strong>GlickoD</strong> (<em>Custom Glicko2 implementation for Multiplayer Boardgaming by DANeo</em>) across all season reset modes on the full historical dataset (388,493 pairwise encounters):
+  </p>
+  <div class="faq-table-wrap">
+    <table class="faq-table-framed-bright">
+      <thead>
+        <tr class="row-gold-strong">
+          <th class="left">Model Configuration</th>
+          <th>Brier Score (&darr;)</th>
+          <th>Log Loss (&darr;)</th>
+          <th>ECE (&darr;)</th>
+          <th>Accuracy (&uarr;)</th>
+          <th class="left">Diagnostic Verdict</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr class="row-gold-bright">
+          <td class="left bold c-amber">👑 GlickoD (Continuous)</td>
+          <td class="heavy stat c-cream">0.2081</td>
+          <td class="heavy stat c-cream">0.6066</td>
+          <td class="heavy stat c-cream">0.34%</td>
+          <td class="heavy stat c-cream">66.12%</td>
+          <td class="left fs-84 c-wheat"><strong>All-Time Forecast Leader</strong> &bull; Lowest career forecast error ($0.2081$) with sub-0.35% ECE.</td>
+        </tr>
+        <tr class="row-gold-mid">
+          <td class="left bold c-cream">👑 GlickoD (Season Reset)</td>
+          <td class="heavy stat c-amber">0.2081</td>
+          <td class="heavy stat c-amber">0.6065</td>
+          <td class="heavy stat c-mint">0.24%</td>
+          <td class="heavy stat c-amber">66.13%</td>
+          <td class="left fs-84 c-wheat"><strong>Peak Calibration Harmony</strong> &bull; All-time record lowest ECE ($0.24\%$) with annual season reset.</td>
+        </tr>
+        <tr>
+          <td class="left semibold c-muted">G2 Adapt (Softer Standard)</td>
+          <td class="stat">0.2151</td>
+          <td class="stat">0.6200</td>
+          <td class="stat">0.49%</td>
+          <td class="stat">64.50%</td>
+          <td class="left fs-84 c-muted">Uncalibrated newcomer baseline without 15-game re-calibration.</td>
+        </tr>
+        <tr>
+          <td class="left semibold c-muted">G2 Standard (Continuous)</td>
+          <td class="stat">0.2185</td>
+          <td class="stat">0.6288</td>
+          <td class="stat">2.01%</td>
+          <td class="stat">63.85%</td>
+          <td class="left fs-84 c-muted">Classical naive Glicko-2 without multiplayer weighting or prior calibration.</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</div>

@@ -1,0 +1,74 @@
+---
+tab: glicko-std
+label: 'Glicko-2 Standard'
+order: 4
+---
+
+{/* Written by DANeo for the original ratings site. */}
+
+<div class="faq-card">
+  <h3>Glicko-2 Standard: Classical Sequential Bayesian Estimation</h3>
+  <div>
+
+      <p>
+    The <strong>Glicko-2</strong> rating system was developed by Harvard biostatistician <a class="faq-link" href="http://www.glicko.net/glicko/glicko2.pdf" target="_blank" rel="noopener noreferrer">Mark Glickman</a> as a modern Bayesian extension to Arpad Elo's classical 1960s chess rating.
+  </p>
+  <p>
+    Think of Glicko-2 as an <strong>odometer</strong> moving forward trip-by-trip: each match immediately updates your rating, but past results are locked in stone forever.
+  </p>
+
+  <h4 class="faq-subhead">
+    The Three Fundamental Parameters
+  </h4>
+  <ul class="faq-list">
+    <li>
+      <strong class="c-gold">Rating ($\mu$ or $r$):</strong>
+      The player's estimated skill center (default: $1500.0$).
+    </li>
+    <li>
+      <strong class="c-gold">Rating Deviation ($\phi$ or $\mathrm{RD}$):</strong>
+      The standard deviation of uncertainty around the skill estimate. A new player begins at $\mathrm{RD} = 350.0$ (virtually unmeasured). As matches are logged against established opponents, $\mathrm{RD}$ shrinks towards a floor of $20.0–30.0$, indicating statistical certainty in the skill estimate.
+    </li>
+    <li>
+      <strong class="c-gold">Rating Volatility ($\sigma$):</strong>
+      Measures the degree of expected erratic performance. Consistent players have low volatility ($\sigma \approx 0.03$), while highly erratic competitors possess larger $\sigma$.
+    </li>
+  </ul>
+
+  <h4 class="faq-subhead">
+    The Mathematical Update Step
+  </h4>
+  <p>
+    In Glicko-2, opponents' uncertainties are factored directly into expected win probability through the shrinkage factor $g(\phi)$:
+  </p>
+
+  <div class="faq-formula">
+
+$$
+g(\phi_j) = \frac{1}{\sqrt{1 + 3q^2 \phi_j^2 / \pi^2}}, \quad q = \frac{\ln(10)}{400}
+$$
+
+</div>
+
+  <p>
+    The variance $v$ and rating adjustment $\Delta \mu$ are then computed from match outcomes $s_j \in \{1.0, 0.5, 0.0\}$:
+  </p>
+
+  <div class="faq-formula">
+
+$$
+v = \left[ \sum_{j} g(\phi_j)^2 E(\mu, \mu_j, \phi_j) \left(1 - E(\mu, \mu_j, \phi_j)\right) \right]^{-1}
+$$
+
+$$
+\Delta \mu = \frac{q}{1/\phi^2 + 1/v} \sum_{j} g(\phi_j) \left(s_j - E(\mu, \mu_j, \phi_j)\right)
+$$
+
+</div>
+
+  <p>
+    <strong>Limitation in Multiplayer Environments:</strong> Standard Glicko-2 was formulated strictly for 1v1 zero-sum games. When applied to 3-player and 4-player games, standard implementations break the game into pairwise duels and give each pair full weight ($w = 1.0$), creating severe overconfidence and rating inflation.
+  </p>
+          </div>
+
+</div>

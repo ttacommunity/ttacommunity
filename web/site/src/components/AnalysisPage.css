@@ -1,5 +1,11 @@
 /* Upstream's model analysis page (analysis.html), with its inline styles as classes. */
 
+/* Upstream's overview and comparison pages set 1.5rem under the hero. */
+.analysis-hero-card.hero-snug {
+  margin-bottom: 1.5rem;
+}
+
+
 .subpage-nav {
   display: flex;
   flex-wrap: wrap;
@@ -34,43 +40,6 @@
   color: #1c130d;
   font-weight: 700;
   box-shadow: 0 2px 6px rgba(229, 169, 60, 0.35);
-}
-
-.analysis-hero-card {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: space-between;
-  gap: 1.5rem;
-  margin-bottom: 1.5rem;
-  padding: 1.5rem 1.75rem;
-  background: rgba(26, 17, 12, 0.95);
-  border: 1.5px solid var(--border-subtle);
-  border-radius: 8px;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.7);
-  backdrop-filter: blur(8px);
-}
-
-.analysis-hero-title {
-  margin-bottom: 0.4rem;
-  color: #f7d377;
-  font-family: var(--font-heading);
-  font-size: 2.1rem;
-  letter-spacing: 1px;
-  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.95);
-}
-
-.analysis-hero-desc {
-  max-width: 880px;
-  color: #f1e4d0;
-  font-family: var(--font-body);
-  font-size: 1.05rem;
-  line-height: 1.6;
-}
-
-.analysis-hero-desc strong {
-  color: #ffde8a;
-  font-weight: 700;
 }
 
 /* Graph and ranked table on the left, the sticky selector on the right. */
@@ -568,11 +537,11 @@
 @media (max-width: 768px) {
   .graph-main-card,
   .eval-table-card,
-  .analysis-hero-card {
+  .analysis-hero-card.hero-overview {
     padding: 1.1rem 0.85rem;
   }
 
-  .analysis-hero-title {
+  .hero-overview .analysis-hero-title {
     font-size: 1.45rem;
   }
 

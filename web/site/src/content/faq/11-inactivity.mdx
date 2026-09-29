@@ -1,0 +1,25 @@
+---
+tab: inactivity
+label: 'Inactivity & Retirement'
+order: 11
+---
+
+{/* Written by DANeo for the original ratings site. */}
+
+import FaqFigure from '../../components/FaqFigure.astro';
+
+<div class="faq-card">
+  <h3>What is the official Inactivity Rule?</h3>
+  <div>
+
+      <p>
+    In accordance with official TTA tournament conventions, players who have not completed a competitive tournament match in over <strong>12 months (365 days)</strong> are classified as <em>Inactive / Retired</em>.
+  </p>
+  <ul class="faq-list">
+    <li><strong>Leaderboard Display:</strong> The standard view shows only active players (<FaqFigure name="players" fallback="1507" /> players). You can select <em>"Include Inactive"</em> or <em>"Inactive Only"</em> from the status selector to view all recorded competitors.</li>
+    <li><strong>Unretired Status:</strong> When a retired player participates in a tournament match after absence, their status immediately changes back to active with an <em>"unretired"</em> badge.</li>
+    <li><strong>Inactivity Drift:</strong> For every month a player is inactive, their Rating Deviation ($\mathrm{RD}$) gently drifts upwards by approximately $1.7$ RD, reflecting growing uncertainty in their current sharpness.</li>
+  </ul>
+          </div>
+
+</div>

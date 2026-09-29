@@ -3,7 +3,7 @@ import { currentSection, sections } from './nav';
 
 describe('sections', () => {
   it("lists only the sections that exist, in upstream's menu order", () => {
-    expect(sections.map((s) => s.href)).toEqual(['/ratings/', '/ratings/analysis/']);
+    expect(sections.map((s) => s.href)).toEqual(['/ratings/', '/ratings/analysis/', '/ratings/faq/']);
   });
 });
 
@@ -17,6 +17,7 @@ describe('currentSection', () => {
   it('prefers the most specific section', () => {
     expect(currentSection('/ratings/analysis/')).toBe('/ratings/analysis/');
     expect(currentSection('/ratings/analysis/movers/')).toBe('/ratings/analysis/');
+    expect(currentSection('/ratings/faq/')).toBe('/ratings/faq/');
   });
 
   it('matches nothing outside the sections or on a shared prefix', () => {

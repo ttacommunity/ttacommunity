@@ -12,4 +12,14 @@ const pages = defineCollection({
   }),
 });
 
-export const collections = { pages };
+const faq = defineCollection({
+  loader: glob({ pattern: '*.mdx', base: './src/content/faq' }),
+  schema: z.object({
+    /** The tab's id in the address, e.g. /ratings/faq/#glicko-mp. */
+    tab: z.string(),
+    label: z.string(),
+    order: z.number(),
+  }),
+});
+
+export const collections = { pages, faq };

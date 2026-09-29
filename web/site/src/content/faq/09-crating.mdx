@@ -1,0 +1,44 @@
+---
+tab: crating
+label: 'Conservative Rating (C)'
+order: 9
+---
+
+{/* Written by DANeo for the original ratings site. */}
+
+<div class="faq-card">
+  <h3>What is the Conservative Rating (C-Rating)?</h3>
+  <div>
+
+      <p>
+    The public leaderboard ranks players strictly by their <strong>Conservative Rating</strong> ($C$) rather than raw rating ($\mu$ or $r$). It represents the lower bound of a 99.7% statistical confidence interval:
+  </p>
+
+  <div class="faq-formula">
+
+$$
+C = \text{Rating} - 3 \times \mathrm{RD}
+$$
+
+</div>
+
+  <p>
+    For example, an established Grandmaster with Rating $1950$ and $\mathrm{RD} = 25.0$ has $C = 1950 - 75 = 1875.00$. A newcomer who wins two matches and reaches Rating $1800$ with $\mathrm{RD} = 300.0$ has $C = 1800 - 900 = 900.00$.
+  </p>
+          </div>
+
+</div>
+
+    <div class="faq-card">
+  <h3>Why rank by C-Rating instead of raw Rating?</h3>
+  <div>
+
+      <p>
+    Ranking by raw rating rewards &ldquo;volatility camping&rdquo;&mdash;a player could join, win a couple of fortunate early games, reach 1750, and sit at the top of the leaderboard without facing tough opponents.
+  </p>
+  <p>
+    By penalizing uncertainty ($3 \times \mathrm{RD}$), C-Rating requires competitors to play consistently to narrow their RD before they can earn high ranks. As you play more games against established opponents, your RD decreases and your C-Rating climbs towards your actual skill rating.
+  </p>
+          </div>
+
+</div>

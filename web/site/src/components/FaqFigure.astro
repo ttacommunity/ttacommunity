@@ -1,0 +1,10 @@
+---
+/** A figure the FAQ fills from the current run, showing upstream's fallback until the page script replaces it. */
+interface Props {
+  name: string;
+  fallback: string;
+}
+
+const { name, fallback } = Astro.props;
+---
+<span data-faq-figure={name}>{fallback}</span>

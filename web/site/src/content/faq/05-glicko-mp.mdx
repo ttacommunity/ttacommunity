@@ -1,0 +1,161 @@
+---
+tab: glicko-mp
+label: 'Glicko-2 MP-Weighted'
+order: 5
+---
+
+{/* Written by DANeo for the original ratings site. */}
+
+import FaqFigure from '../../components/FaqFigure.astro';
+
+<div class="faq-card">
+  <h3>Glicko-2 MP-Weighted: Multiplayer Weighting &amp; Fractional Game Variance</h3>
+  <div>
+
+      <p>
+    In competitive Through the Ages, matches are routinely contested with 2, 3, or 4 players. When a 4-player game finishes, decomposing it into pairwise outcomes generates $\binom{4}{2} = 6$ pairwise comparisons ($A\gt B, A\gt C, A\gt D, B\gt C, B\gt D, C\gt D$).
+  </p>
+  <p>
+    In naive pairwise rating systems (like Standard Glicko), each of these 6 pairs is treated as an <strong>independent 1v1 duel with full weight $w = 1.0$</strong>. This creates an artificial <strong>information explosion</strong>: each player receives $N-1$ updates per match ($3$ full games' worth of statistical evidence for a 4-player game, and $2$ for a 3-player game). But given the TTA context, a four player game is clearly not the same as 6 independant 1vs1 games. The result of A vs B and A vs C are correlated events. Thus we implement:
+  </p>
+
+  <h4 class="faq-subhead">
+    The Fractional Weighting Rule: $w = \frac{1}{N-1}$
+  </h4>
+  <p>
+    To restore statistical honesty, <a class="faq-link" href="https://www.remi-coulom.fr/WHR/" target="_blank" rel="noopener noreferrer">Coulom's fractional variance weighting</a> scales the match weight according to participant count:
+  </p>
+
+  <div class="faq-formula">
+
+$$
+w = \frac{1}{N - 1} \implies w_{2\text{p}} = 1.000, \quad w_{3\text{p}} = 0.500, \quad w_{4\text{p}} = 0.333
+$$
+
+</div>
+
+  <p>
+    This fractional weight scales <strong>both</strong> the rating step discrepancy ($\Delta \mu$) and the variance accumulation ($v^{-1}$):
+  </p>
+
+  <div class="faq-formula">
+
+$$
+v^{-1} = \sum_{j} w \cdot g(\phi_j)^2 E_j (1 - E_j), \quad \Delta \text{sum} = \sum_{j} w \cdot g(\phi_j) (s_j - E_j)
+$$
+
+</div>
+          </div>
+
+</div>
+
+        <div class="faq-card faq-card-edge">
+  <h3 class="c-yellow" >Does fractional weighting effectively devalue multiplayer matches in the leaderboard?</h3>
+  <div>
+
+      <p>
+    This is a common intuitive concern among multiplayer competitors: <em>&ldquo;If my 4-player win only counts at weight 0.333, does the system value 4-player games as one-third of a duel? Am I being penalized for playing multiplayer?&rdquo;</em>
+  </p>
+  <p>
+    <strong>My answer is - maybe?</strong> The distinction lies between <strong>individual player evidence</strong> versus <strong>total table information</strong>:
+  </p>
+
+  <ul class="faq-list">
+    <li>
+<span><strong>For an Individual Competitor:</strong> In a 4-player game, you play against $3$ opponents ($N-1$). Multiplying each pairwise comparison by $\frac{1}{3}$ yields:</span>
+<div class="faq-formula">
+
+$$
+(N - 1) \times \frac{1}{N - 1} = 3 \times \frac{1}{3} = 1.0 \text{ unit of evidence per player}
+$$
+
+</div>
+<span>You gain <strong>exactly 1.0 match worth of statistical certainty</strong> from finishing a 4-player game—the exact same amount of certainty as completing a 1v1 duel! A 4-player victory awards the winner full credit for winning one complete contest.</span>
+</li>
+    <li>
+      <strong>The Alternative Is Unfair Inflation:</strong> If we did <em>not</em> scale by $\frac{1}{N-1}$, a competitor who played 100 4-player games would receive $300$ matches of certainty reduction, artificially collapsing their $\mathrm{RD}$ three times faster than a duel player who played 100 1v1s.
+    </li>
+    <li>
+<span><strong>Table-Level Information Conservation:</strong> Across all 4 participants, a 4-player game generates $\binom{4}{2} = 6$ pairs. At weight $1/3$, the total information generated across the entire table is:</span>
+<div class="faq-formula">
+
+$$
+I_{\text{table}} = \binom{N}{2} \times \frac{1}{N-1} = \frac{N(N-1)}{2} \times \frac{1}{N-1} = \frac{N}{2} = 2.0 \text{ units}
+$$
+
+</div>
+<span>A 4-player game generates <strong>twice as much total evidence</strong> as a 1v1 duel ($2.0$ vs $1.0$), partitioned evenly across the 4 competitors.</span>
+</li>
+  </ul>
+
+  <h4 class="faq-subhead">
+    Empirical Proof: Comparing Glicko-2 Standard vs. MP-Weighted Models
+  </h4>
+  <p>
+    Evaluating strictly on out-of-sample unseen games across <FaqFigure name="mp.0.matches" fallback="308,863" />+ walk-forward tournament matches (matching the live metrics on our <a class="c-gold underline" href="/ratings/analysis/">Model Analysis page</a>), we compare Standard unweighted Glicko-2 against MP-Weighted Glicko-2:
+  </p>
+
+  <div class="faq-table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th class="left">Rating Model</th>
+          <th>Season Mode</th>
+          <th>3P Weight ($w_{3\text{p}}$)</th>
+          <th>4P Weight ($w_{4\text{p}}$)</th>
+          <th>Brier Score (MSE &darr;)</th>
+          <th>ECE (&darr;)</th>
+          <th class="left">Empirical Verdict</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr class="row-green">
+          <td class="left bold c-green">Glicko-2 MP-Weighted</td>
+          <td><span class="faq-chip c-mint">Continuous</span></td>
+          <td class="stat bold">$0.500$</td>
+          <td class="stat bold">$0.333$</td>
+          <td class="stat heavy c-green"><FaqFigure name="mp.0.brier" fallback="0.2141" /></td>
+          <td class="stat heavy c-green"><FaqFigure name="mp.0.ece" fallback="1.15" />%</td>
+          <td class="left fs-84 c-green"><strong>Statistically Optimal</strong> &bull; Lowest forecast error and cleanest calibration without multiplayer inflation.</td>
+        </tr>
+        <tr>
+          <td class="left bold c-gold">Glicko-2 Standard</td>
+          <td><span class="faq-chip">Continuous</span></td>
+          <td class="stat">$1.000$</td>
+          <td class="stat">$1.000$</td>
+          <td class="stat heavy c-amber"><FaqFigure name="std.0.brier" fallback="0.2143" /></td>
+          <td class="stat heavy c-amber"><FaqFigure name="std.0.ece" fallback="1.47" />%</td>
+          <td class="left fs-84 c-muted">Higher calibration error (+28% ECE) due to unscaled certainty inflation in 3p/4p games.</td>
+        </tr>
+        <tr class="row-green-faint">
+          <td class="left bold c-green">Glicko-2 MP-Weighted</td>
+          <td><span class="faq-chip c-mint">Soft Reset</span></td>
+          <td class="stat bold">$0.500$</td>
+          <td class="stat bold">$0.333$</td>
+          <td class="stat heavy c-green">0.2147</td>
+          <td class="stat heavy c-green">0.93%</td>
+          <td class="left fs-84 c-green"><strong>Sub-1% Calibration</strong> &bull; Seasonal Golden Ratio reset paired with fractional MP evidence.</td>
+        </tr>
+        <tr>
+          <td class="left bold c-gold">Glicko-2 Standard</td>
+          <td><span class="faq-chip">Soft Reset</span></td>
+          <td class="stat">$1.000$</td>
+          <td class="stat">$1.000$</td>
+          <td class="stat heavy c-amber">0.2150</td>
+          <td class="stat heavy c-amber">1.05%</td>
+          <td class="left fs-84 c-muted">Calibrated seasonal mobility, but trailing MP-weighted accuracy.</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="faq-aside">
+    <strong class="c-gold">4-Player Match Impact (Strict Walk-Forward):</strong>
+    In 4-player games, where an unweighted engine credits each win with 3 full matches of evidence, Standard Glicko-2 exhibits an ECE of <strong><FaqFigure name="std.4.ece" fallback="3.24" />%</strong> (Brier <FaqFigure name="std.4.brier" fallback="0.2240" />). Glicko-2 MP-Weighted ($w = 1/3$) reduces this calibration error to <strong><FaqFigure name="mp.4.ece" fallback="1.96" />%</strong> (Brier <FaqFigure name="mp.4.brier" fallback="0.2224" />).
+  </div>
+  <p>
+    The data is definitive: scaling by $\frac{1}{N-1}$ protects multiplayer players from artificial rating inflation and ensures that 2P, 3P, and 4P records compete on a completely fair statistical playing field. The analysis also clearly shows: The MP-Weighted model not only performs better on overall predictions, but also considerably better on the 3p and 4p exclusive pipe predictions as well. (See Model Analysis page for more details)
+  </p>
+          </div>
+
+</div>

@@ -8,6 +8,7 @@ export interface Section {
 export const sections: Section[] = [
   { label: 'Ratings', href: '/ratings/' },
   { label: 'Model Analysis', href: '/ratings/analysis/' },
+  { label: 'FAQ & Guide', href: '/ratings/faq/' },
 ];
 
 /** currentSection returns the href of the most specific section a path is in, or undefined. */

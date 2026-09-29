@@ -1,0 +1,93 @@
+---
+import { PUBLIC_API_URL } from 'astro:env/client';
+import { getCollection, render } from 'astro:content';
+import SiteLayout from '../../../layouts/SiteLayout.astro';
+import '../../../components/FaqPage.css';
+
+const tabs = (await getCollection('faq')).sort((a, b) => a.data.order - b.data.order);
+if (tabs.length === 0) throw new Error('src/content/faq/ has no tabs');
+const sections = await Promise.all(tabs.map(async (t) => ({ ...t.data, Content: (await render(t)).Content })));
+// Upstream picks out its two GlickoD tabs in gold.
+const tabClass: Record<string, string> = { 'gold-standard': 'tab-gold', 'recalibration-15': 'tab-bronze' };
+---
+<SiteLayout title="FAQ & Model Guide - Through the Ages Rating Engine" description="How the Through the Ages rating engines work: GlickoD, Glicko-2, WHR, conservative ratings, formats, titles and season resets.">
+  <div class="faq-container" data-api-url={PUBLIC_API_URL}>
+    <div class="analysis-hero-card faq-hero">
+      <div>
+        <h1 class="analysis-hero-title">Frequently Asked Questions &amp; Model Guide</h1>
+        <p class="analysis-hero-desc">
+          Complete mathematical documentation of the Rating Models, multiplayer adjustments, and leaderboard mechanics.
+        </p>
+      </div>
+    </div>
+
+    <div class="faq-nav" role="tablist" aria-label="FAQ topics">
+      {sections.map((s, i) => (
+        <button
+          type="button"
+          role="tab"
+          id={`faq-tab-${s.tab}`}
+          class:list={['faq-tab-btn', tabClass[s.tab], { active: i === 0 }]}
+          data-tab={s.tab}
+          aria-controls={`faq-${s.tab}`}
+          aria-selected={i === 0 ? 'true' : 'false'}
+        >
+          {s.label}
+        </button>
+      ))}
+    </div>
+
+    {sections.map(({ tab, Content }, i) => (
+      <div id={`faq-${tab}`} class:list={['faq-section', { active: i === 0 }]} role="tabpanel" aria-labelledby={`faq-tab-${tab}`}>
+        <Content />
+      </div>
+    ))}
+  </div>
+</SiteLayout>
+
+<script>
+  import { agreement, calibration, currentRun } from '@ttac/shared/ratings';
+  import { faqFigures, resolveTab } from '../../../lib/faq';
+
+  const buttons = [...document.querySelectorAll<HTMLButtonElement>('.faq-tab-btn')];
+  const tabs = buttons.map((b) => b.dataset.tab ?? '');
+
+  /** show opens a tab; from a link inside the page it also scrolls to the tabs, as upstream does. */
+  const show = (name: string, fromLink: boolean) => {
+    const tab = resolveTab(name, tabs);
+    if (tab === null) return;
+    document.querySelectorAll('.faq-section').forEach((s) => s.classList.toggle('active', s.id === `faq-${tab}`));
+    for (const b of buttons) {
+      b.classList.toggle('active', b.dataset.tab === tab);
+      b.setAttribute('aria-selected', String(b.dataset.tab === tab));
+    }
+    if (window.location.hash !== `#${tab}`) history.pushState(null, '', `#${tab}`);
+    if (fromLink) document.querySelector('.faq-nav')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  };
+
+  for (const b of buttons) b.addEventListener('click', () => show(b.dataset.tab ?? '', false));
+  // Links such as href="#glicko-mp" inside a tab open that tab.
+  document.querySelector('.faq-container')?.addEventListener('click', (e) => {
+    const link = e.target instanceof Element ? e.target.closest<HTMLAnchorElement>('a[href^="#"]') : null;
+    const tab = link ? resolveTab(link.hash.slice(1), tabs) : null;
+    if (tab === null) return;
+    e.preventDefault();
+    show(tab, true);
+  });
+  window.addEventListener('hashchange', () => show(window.location.hash.slice(1), true));
+  if (window.location.hash) show(window.location.hash.slice(1), false);
+
+  const api = document.querySelector<HTMLElement>('.faq-container')?.dataset.apiUrl ?? '';
+  currentRun(api)
+    .then((r) => Promise.all([calibration(api, r.run_id), agreement(api, r.run_id, 0).catch(() => null)]))
+    .then(([c, a]) => {
+      const figures = faqFigures(c.rows, a);
+      document.querySelectorAll<HTMLElement>('[data-faq-figure]').forEach((el) => {
+        const value = figures[el.dataset.faqFigure ?? ''];
+        if (value !== undefined) el.textContent = value;
+      });
+    })
+    .catch(() => {
+      // Without the API the figures keep upstream's fallbacks, as upstream's page does without data.
+    });
+</script>
