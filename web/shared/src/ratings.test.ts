@@ -7,7 +7,9 @@ import {
   player,
   playerHistory,
   playerMatches,
+  playerCareer,
   playerRivals,
+  playerVersus,
 } from './ratings';
 
 interface Call {
@@ -98,12 +100,16 @@ describe('player routes', () => {
     await playerHistory('https://api.example', 5, 'Ann', 3, f.fetch);
     await playerMatches('https://api.example', 5, 'Ann', 0, 'whr_softer', 2, f.fetch);
     await playerRivals('https://api.example', 5, 'Ann', 4, f.fetch);
+    await playerCareer('https://api.example', 5, 'Ann', 2, f.fetch);
+    await playerVersus('https://api.example', 5, 'Ann', 'b/c', f.fetch);
 
     expect(f.calls.map((c) => c.url)).toEqual([
       'https://api.example/v1/runs/5/players/a%2Fb%20c%3F',
       'https://api.example/v1/runs/5/players/Ann/history?format=3',
       'https://api.example/v1/runs/5/players/Ann/matches?format=0&model=whr_softer&page=2',
       'https://api.example/v1/runs/5/players/Ann/rivals?format=4',
+      'https://api.example/v1/runs/5/players/Ann/career?format=2',
+      'https://api.example/v1/runs/5/players/Ann/versus/b%2Fc',
     ]);
     expect(f.calls.every((c) => c.init?.credentials === 'omit')).toBe(true);
   });
