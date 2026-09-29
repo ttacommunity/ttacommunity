@@ -5,6 +5,8 @@ import (
 	"math"
 	"os"
 	"testing"
+
+	"ttacommunity/backend/internal/round"
 )
 
 type engineCase struct {
@@ -120,7 +122,7 @@ func TestDelta(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			got, ok := Delta(tt.engine, tt.me, len(tt.seats), tt.seats, lookup)
-			want := round1(tt.want.Rating - at(tt.me).Rating)
+			want := round.Tenth(tt.want.Rating - at(tt.me).Rating)
 			if !ok || got != want {
 				t.Errorf("Delta(%q) = %v, %v; want %v, true", tt.engine, got, ok, want)
 			}
@@ -141,19 +143,8 @@ func TestDeltaWeighsByTheMatchsPlayerCount(t *testing.T) {
 	none := func(string) (Rating, bool) { return Rating{}, false }
 	seats := []Seat{{"me", 10}, {"alice", 5}}
 	fresh := Rating{Rating: 1500, RD: 350, Sigma: 0.03}
-	want := round1(Update(fresh, []Game{{fresh, 1, math.Phi / 2, 3}}, 0.3, true).Rating - 1500)
+	want := round.Tenth(Update(fresh, []Game{{fresh, 1, math.Phi / 2, 3}}, 0.3, true).Rating - 1500)
 	if got, ok := Delta("glicko2_daneo", "me", 3, seats, none); !ok || got != want {
 		t.Errorf("Delta(3 players, 2 seats) = %v, %v; want %v, true", got, ok, want)
-	}
-}
-
-func TestRound1MatchesPython(t *testing.T) {
-	tests := []struct{ in, want float64 }{
-		{2.14, 2.1}, {2.15000001, 2.2}, {0.25, 0.2}, {0.35, 0.3}, {-0.04, 0}, {-1.26, -1.3},
-	}
-	for _, tt := range tests {
-		if got := round1(tt.in); got != tt.want {
-			t.Errorf("round1(%v) = %v, want %v", tt.in, got, tt.want)
-		}
 	}
 }

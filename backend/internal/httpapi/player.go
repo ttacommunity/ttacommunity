@@ -4,12 +4,12 @@ import (
 	"context"
 	"errors"
 	"slices"
-	"strconv"
 	"strings"
 
 	openapi_types "github.com/oapi-codegen/runtime/types"
 
 	"ttacommunity/backend/internal/ratingdelta"
+	"ttacommunity/backend/internal/round"
 	"ttacommunity/backend/internal/store"
 )
 
@@ -217,7 +217,7 @@ func (s *server) GetPlayerRivals(ctx context.Context, req GetPlayerRivalsRequest
 	for _, v := range got {
 		rate := (float64(v.Wins) + 0.5*float64(v.Draws)) / float64(max(1, v.Games)) * 100
 		rivals = append(rivals, Rival{
-			Name: v.Name, Games: v.Games, Wins: v.Wins, Losses: v.Losses, Draws: v.Draws, WinRate: round1(rate),
+			Name: v.Name, Games: v.Games, Wins: v.Wins, Losses: v.Losses, Draws: v.Draws, WinRate: round.Tenth(rate),
 		})
 	}
 	return GetPlayerRivals200JSONResponse{
@@ -234,10 +234,4 @@ func compareDesc(a, b float64) int {
 		return 1
 	}
 	return 0
-}
-
-// round1 rounds to one decimal from the exact binary value, as Python's round does.
-func round1(x float64) float64 {
-	r, _ := strconv.ParseFloat(strconv.FormatFloat(x, 'f', 1, 64), 64)
-	return r
 }
