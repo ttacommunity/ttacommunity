@@ -143,3 +143,34 @@ func day(s string) time.Time {
 	}
 	return d
 }
+
+func TestSelectUsesWhoPlayedInAYearsArchive(t *testing.T) {
+	rows := []store.LeaderboardRow{row("ann", 1600, 0, "", "", ""), row("bob", 1700, 3, "", "", "")}
+	played := map[string]bool{"bob": true}
+	if got := names(Select(rows, Query{Status: "active", Played: played})); !slices.Equal(got, []string{"bob"}) {
+		t.Errorf("active = %q, want bob, who played that year", got)
+	}
+	if got := names(Select(rows, Query{Status: "inactive", Played: played})); !slices.Equal(got, []string{"ann"}) {
+		t.Errorf("inactive = %q, want ann", got)
+	}
+}
+
+func TestFromYearTakesTheSeasonOrCareerRecord(t *testing.T) {
+	last := time.Date(2024, 12, 20, 0, 0, 0, 0, time.UTC)
+	board := store.YearBoard{Rows: []store.YearRow{
+		{Name: "ann", Rating: 1690, RD: 30, CRating: 1600, LastPlayed: &last,
+			Season: store.Record{Opponents: 3, Losses: 2, Draws: 1}, Career: store.Record{Opponents: 6, Wins: 3, Losses: 2, Draws: 1}},
+		{Name: "bob", Rating: 1740, RD: 30, CRating: 1650, Career: store.Record{Opponents: 4, Wins: 1, Losses: 3}},
+	}}
+	season, played := FromYear(board, "season")
+	if !played["ann"] || played["bob"] || len(played) != 1 {
+		t.Errorf("played = %v, want ann only", played)
+	}
+	if a := season[0]; a.Opponents != 3 || a.Wins != 0 || a.Losses != 2 || a.Draws != 1 || a.WinRate != 16.7 || a.LastPlayed != &last {
+		t.Errorf("ann's season row = %+v", a)
+	}
+	career, _ := FromYear(board, "career")
+	if a := career[0]; a.Opponents != 6 || a.Wins != 3 || a.WinRate != 58.3 {
+		t.Errorf("ann's career row = %+v", a)
+	}
+}

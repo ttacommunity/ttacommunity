@@ -320,7 +320,7 @@ export default function Leaderboard({ apiUrl }: { apiUrl: string }) {
             titles={titleOptions(players)}
             years={archive}
             downloads={
-              state.kind === 'ready' && view.year === null
+              state.kind === 'ready'
                 ? {
                     shown: csvUrl(apiUrl, state.board.run_id, view, false),
                     everyone: csvUrl(apiUrl, state.board.run_id, view, true),

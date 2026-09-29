@@ -90,8 +90,12 @@ export interface paths {
         /**
          * The leaderboard as a CSV file, filtered and sorted as the site's table
          * @description The players the site's leaderboard shows for the same choices, in its
-         *     order, with their titles, career peaks and records. Rows carry
-         *     player details as they are now, so this is cached for five minutes.
+         *     order, with their titles, career peaks and records. With `year`,
+         *     the season archive's board instead: the ratings at the end of that
+         *     year, with that year's record or the career up to it (`stats_view`),
+         *     "active" meaning played that year, and no minimum opponents by
+         *     default. Rows carry player details as they are now, so this is
+         *     cached for five minutes.
          */
         get: operations["getLeaderboardCsv"];
         put?: never;
@@ -876,13 +880,17 @@ export interface operations {
                 format?: components["parameters"]["Format"];
                 /** @description Active players (last played after 2025-05-31), inactive ones, or all */
                 status?: "active" | "all" | "inactive";
-                /** @description The fewest opponents a player needs */
+                /** @description The fewest opponents a player needs (30 by default, 0 in a year's archive) */
                 min_opps?: number;
                 title?: components["schemas"]["TitleCode"];
                 /** @description Names or country codes, comma-separated; a name matches anywhere, ignoring case */
                 search?: string;
                 sort?: "rank" | "name" | "c_rating" | "rating" | "opps" | "win_rate" | "last_played";
                 order?: "asc" | "desc";
+                /** @description A year's archive instead of the live board */
+                year?: number;
+                /** @description In a year's archive, that year's record or the career up to it */
+                stats_view?: "season" | "career";
             };
             header?: never;
             path: {
@@ -1217,6 +1225,7 @@ type ReadonlyArray<T> = [
 export const pathsV1RunsRunLeaderboardCsvGetParametersQueryStatusValues: ReadonlyArray<FlattenedDeepRequired<paths>["/v1/runs/{run}/leaderboard.csv"]["get"]["parameters"]["query"]["status"]> = ["active", "all", "inactive"];
 export const pathsV1RunsRunLeaderboardCsvGetParametersQuerySortValues: ReadonlyArray<FlattenedDeepRequired<paths>["/v1/runs/{run}/leaderboard.csv"]["get"]["parameters"]["query"]["sort"]> = ["rank", "name", "c_rating", "rating", "opps", "win_rate", "last_played"];
 export const pathsV1RunsRunLeaderboardCsvGetParametersQueryOrderValues: ReadonlyArray<FlattenedDeepRequired<paths>["/v1/runs/{run}/leaderboard.csv"]["get"]["parameters"]["query"]["order"]> = ["asc", "desc"];
+export const pathsV1RunsRunLeaderboardCsvGetParametersQueryStats_viewValues: ReadonlyArray<FlattenedDeepRequired<paths>["/v1/runs/{run}/leaderboard.csv"]["get"]["parameters"]["query"]["stats_view"]> = ["season", "career"];
 export const modelValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["Model"]> = ["glicko2_daneo", "glicko2_daneo_softer", "glicko2_std", "glicko2_std_softer", "glicko2_std_retro", "glicko2_std_softer_retro", "glicko2_mp", "glicko2_mp_softer", "glicko2_mp_retro", "glicko2_mp_softer_retro", "glicko2_adapt", "glicko2_adapt_softer", "glicko2_adapt_retro", "glicko2_adapt_softer_retro", "whr", "whr_softer"];
 export const formatValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["Format"]> = [0, 2, 3, 4];
 export const titleCodeValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["TitleCode"]> = ["WC", "GM", "M", "P", "G", "S", "B", "W"];

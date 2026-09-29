@@ -45,6 +45,13 @@ func (s *server) GetLeaderboardCsv(ctx context.Context, req GetLeaderboardCsvReq
 		format = *p.Format
 	}
 	q := leaderboardview.Query{Status: "active", MinOpps: 30, Sort: "rank", Order: "asc"}
+	if p.Year != nil {
+		q.MinOpps = 0 // upstream's archive has no minimum by default
+	}
+	stats := Season
+	if p.StatsView != nil {
+		stats = *p.StatsView
+	}
 	if p.Status != nil {
 		q.Status = string(*p.Status)
 	}
@@ -88,10 +95,24 @@ func (s *server) GetLeaderboardCsv(ctx context.Context, req GetLeaderboardCsvReq
 		return refused("unknown sort"), nil
 	case p.Order != nil && !p.Order.Valid():
 		return refused("unknown order"), nil
+	case p.Year != nil && (*p.Year < 2000 || *p.Year > 2100):
+		return refused("bad parameter: year"), nil
+	case !stats.Valid():
+		return refused("bad parameter: stats_view"), nil
 	}
 
-	rows, err := s.ratings.Leaderboard(ctx, req.Run, string(model), int(format))
-	if errors.Is(err, store.ErrRunNotFound) {
+	var rows []store.LeaderboardRow
+	var err error
+	season, yearSlug := "Live / All-Time", "live"
+	if p.Year != nil {
+		var board store.YearBoard
+		board, err = s.ratings.YearBoard(ctx, req.Run, *p.Year, string(model), int(format))
+		rows, q.Played = leaderboardview.FromYear(board, string(stats))
+		season, yearSlug = strconv.Itoa(*p.Year), strconv.Itoa(*p.Year)
+	} else {
+		rows, err = s.ratings.Leaderboard(ctx, req.Run, string(model), int(format))
+	}
+	if errors.Is(err, store.ErrRunNotFound) || errors.Is(err, store.ErrNoHistory) {
 		return GetLeaderboardCsv404JSONResponse{NotFoundJSONResponse{
 			Body:    Error{Error: err.Error()},
 			Headers: NotFoundResponseHeaders{CacheControl: cacheNone},
@@ -110,7 +131,7 @@ func (s *server) GetLeaderboardCsv(ctx context.Context, req GetLeaderboardCsvReq
 		return nil, err
 	}
 	for _, r := range leaderboardview.Select(rows, q) {
-		if err := w.Write(csvRow(r, engineNames[engine], formatNames[format], resetNames[reset])); err != nil {
+		if err := w.Write(csvRow(r, engineNames[engine], formatNames[format], resetNames[reset], season)); err != nil {
 			return nil, err
 		}
 	}
@@ -123,7 +144,7 @@ func (s *server) GetLeaderboardCsv(ctx context.Context, req GetLeaderboardCsvReq
 	if format != N0 {
 		slug = fmt.Sprintf("%dp", format)
 	}
-	name := fmt.Sprintf("tta_ratings_%s_%s_%s_live_%s.csv", engine, slug, reset, q.Status)
+	name := fmt.Sprintf("tta_ratings_%s_%s_%s_%s_%s.csv", engine, slug, reset, yearSlug, q.Status)
 	return GetLeaderboardCsv200TextcsvResponse{
 		Body:          &body,
 		ContentLength: int64(body.Len()),
@@ -145,7 +166,7 @@ func splitModel(model string) (engine, reset string) {
 	return engine, reset
 }
 
-func csvRow(r leaderboardview.Row, model, format, reset string) []string {
+func csvRow(r leaderboardview.Row, model, format, reset, season string) []string {
 	var country, title, titleName, reason, peak, peakYear, lastPlayed string
 	if r.Country != nil {
 		country = *r.Country
@@ -170,7 +191,7 @@ func csvRow(r leaderboardview.Row, model, format, reset string) []string {
 		strconv.Itoa(r.DisplayRank), text(r.Name), country, title, titleName, text(reason), peak, peakYear,
 		fmt.Sprintf("%.2f", r.Rating), fmt.Sprintf("%.2f", r.RD), fmt.Sprintf("%.2f", r.CRating),
 		strconv.Itoa(r.Opponents), strconv.Itoa(r.Wins), strconv.Itoa(r.Losses), strconv.Itoa(r.Draws),
-		fmt.Sprintf("%.1f%%", r.WinRate), status, lastPlayed, model, format, reset, "Live / All-Time",
+		fmt.Sprintf("%.1f%%", r.WinRate), status, lastPlayed, model, format, reset, season,
 	}
 }
 
