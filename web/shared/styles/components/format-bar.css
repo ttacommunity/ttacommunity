@@ -59,6 +59,8 @@
 @media (max-width: 768px) {
   .format-bar {
     flex-direction: column;
+    /* One line, so the button group is as wide as the bar, not as its buttons. */
+    flex-wrap: nowrap;
     align-items: stretch;
     gap: 0.65rem;
     padding: 0.65rem;

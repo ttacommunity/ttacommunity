@@ -86,6 +86,13 @@ const current = currentSection(Astro.url.pathname);
       const toggle = document.querySelector('.nav-toggle');
       const backdrop = document.querySelector('.nav-backdrop');
       const setNav = (open: boolean) => {
+        // A closed menu is not displayed, so it adds no width on phones; closing plays its slide first.
+        if (nav && !open && nav.classList.contains('open')) {
+          nav.classList.add('closing');
+          if (getComputedStyle(nav).animationName === 'none') nav.classList.remove('closing');
+          else nav.addEventListener('animationend', () => nav.classList.remove('closing'), { once: true });
+        }
+        if (open) nav?.classList.remove('closing');
         nav?.classList.toggle('open', open);
         backdrop?.classList.toggle('open', open);
         toggle?.classList.toggle('open', open);
@@ -138,6 +145,18 @@ const current = currentSection(Astro.url.pathname);
 </html>
 
 <style>
+  @keyframes nav-in {
+    from {
+      transform: translateX(320px);
+    }
+  }
+
+  @keyframes nav-out {
+    to {
+      transform: translateX(320px);
+    }
+  }
+
   .site-header {
     position: sticky;
     top: 0;
@@ -342,7 +361,8 @@ const current = currentSection(Astro.url.pathname);
     nav {
       position: fixed;
       top: 0;
-      right: -320px;
+      right: 0;
+      display: none;
       z-index: 999;
       flex-direction: column;
       align-items: stretch;
@@ -356,11 +376,19 @@ const current = currentSection(Astro.url.pathname);
       border-left: 2px solid var(--accent-gold);
       box-shadow: -8px 0 30px rgba(0, 0, 0, 0.9);
       backdrop-filter: blur(12px);
-      transition: right 0.28s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+
+    nav.open,
+    nav.closing {
+      display: flex;
     }
 
     nav.open {
-      right: 0;
+      animation: nav-in 0.28s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+
+    nav.closing {
+      animation: nav-out 0.28s cubic-bezier(0.16, 1, 0.3, 1) forwards;
     }
 
     .nav-mobile-header {
