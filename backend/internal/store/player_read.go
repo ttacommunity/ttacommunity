@@ -7,6 +7,8 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5"
+
+	"ttacommunity/backend/internal/round"
 )
 
 // ErrPlayerNotFound is a name no player has, or one only a case-insensitive
@@ -243,23 +245,26 @@ func (r *RatingsReader) PlayerMatches(ctx context.Context, run int64, asked stri
 	if err != nil {
 		return "", MatchPage{}, fmt.Errorf("reading a player's games in run %d: %w", run, err)
 	}
-	mp.Matches, err = pgx.CollectRows(rows, func(row pgx.CollectableRow) (PlayerMatch, error) {
-		var m PlayerMatch
-		var names [4]*string
-		var scores [4]*float64
-		err := row.Scan(&m.ID, &m.Tournament, &m.Date, &m.PlayerCount, &m.ReplayCode,
-			&names[0], &scores[0], &names[1], &scores[1], &names[2], &scores[2], &names[3], &scores[3])
-		for i := range names {
-			if names[i] != nil && scores[i] != nil {
-				m.Seats = append(m.Seats, Seat{Name: *names[i], Score: *scores[i]})
-			}
-		}
-		return m, err
-	})
+	mp.Matches, err = pgx.CollectRows(rows, scanMatch)
 	if err != nil {
 		return "", MatchPage{}, fmt.Errorf("reading a player's games in run %d: %w", run, err)
 	}
 	return name, mp, nil
+}
+
+// scanMatch reads a game and its seats, in the order they were recorded.
+func scanMatch(row pgx.CollectableRow) (PlayerMatch, error) {
+	var m PlayerMatch
+	var names [4]*string
+	var scores [4]*float64
+	err := row.Scan(&m.ID, &m.Tournament, &m.Date, &m.PlayerCount, &m.ReplayCode,
+		&names[0], &scores[0], &names[1], &scores[1], &names[2], &scores[2], &names[3], &scores[3])
+	for i := range names {
+		if names[i] != nil && scores[i] != nil {
+			m.Seats = append(m.Seats, Seat{Name: *names[i], Score: *scores[i]})
+		}
+	}
+	return m, err
 }
 
 // RatingsOf returns the ratings of the named players who have one in a run's
@@ -320,4 +325,181 @@ func (r *RatingsReader) PlayerRivals(ctx context.Context, run int64, asked strin
 		return "", nil, fmt.Errorf("reading a player's rivals in run %d: %w", run, err)
 	}
 	return name, rivals, nil
+}
+
+// peakEngines are the continuous models whose peaks the career box shows, in its order.
+var peakEngines = []string{"glicko2_daneo", "glicko2_std", "glicko2_mp", "glicko2_adapt", "whr"}
+
+// sharedGames is how many of two players' shared games Versus returns.
+const sharedGames = 100
+
+// CareerYear is a player's record in one calendar year.
+type CareerYear struct {
+	Year                           int
+	Opponents, Wins, Losses, Draws int
+	PeakRating                     *float64
+	Title                          *string
+}
+
+// ModelPeak is a model's highest rating for a player, when it was, and the
+// player's rank that month.
+type ModelPeak struct {
+	Model  string
+	Rating float64
+	Rank   int
+	Date   time.Time
+}
+
+// PlayerCareer returns the stored name, a player's record in each year of a
+// format (all formats when the format has none), and each continuous model's
+// peak, as upstream's career box computes them: a year's peak rating is the
+// highest in any model's history that year; a model's peak is its highest
+// rating rounded to 0.1, ranked by raw rating among that month's history.
+func (r *RatingsReader) PlayerCareer(ctx context.Context, run int64, asked string, format int) (string, []CareerYear, []ModelPeak, error) {
+	name, err := r.resolve(ctx, run, asked)
+	if err != nil {
+		return "", nil, nil, err
+	}
+	years, err := r.careerYears(ctx, run, name, format)
+	if err == nil && len(years) == 0 && format != 0 {
+		years, err = r.careerYears(ctx, run, name, 0)
+	}
+	if err != nil {
+		return "", nil, nil, err
+	}
+
+	rows, err := r.pool.Query(ctx, `
+		SELECT extract(year FROM period_date)::int, max(rating)
+		FROM rating_history
+		WHERE run_id = $1 AND player_name = $2 AND player_count = $3
+		GROUP BY 1`, run, name, format)
+	if err != nil {
+		return "", nil, nil, fmt.Errorf("reading a player's yearly peaks in run %d: %w", run, err)
+	}
+	yearPeak := map[int]float64{}
+	for rows.Next() {
+		var y int
+		var peak float64
+		if err := rows.Scan(&y, &peak); err != nil {
+			return "", nil, nil, fmt.Errorf("reading a player's yearly peaks in run %d: %w", run, err)
+		}
+		yearPeak[y] = round.Tenth(peak)
+	}
+	if err := rows.Err(); err != nil {
+		return "", nil, nil, fmt.Errorf("reading a player's yearly peaks in run %d: %w", run, err)
+	}
+	for i := range years {
+		if p, ok := yearPeak[years[i].Year]; ok {
+			years[i].PeakRating = &p
+		}
+	}
+
+	peaks, err := r.modelPeaks(ctx, run, name, format)
+	if err != nil {
+		return "", nil, nil, err
+	}
+	return name, years, peaks, nil
+}
+
+func (r *RatingsReader) careerYears(ctx context.Context, run int64, name string, format int) ([]CareerYear, error) {
+	rows, err := r.pool.Query(ctx, `
+		WITH mine AS (
+			SELECT date, outcome_a AS outcome FROM pairwise_matches
+			WHERE run_id = $1 AND player_a = $2 AND ($3 = 0 OR player_count = $3)
+			UNION ALL
+			SELECT date, 1 - outcome_a FROM pairwise_matches
+			WHERE run_id = $1 AND player_b = $2 AND ($3 = 0 OR player_count = $3))
+		SELECT y.year, y.opponents, y.wins, y.losses, y.draws, t.title
+		FROM (
+			SELECT extract(year FROM date)::int AS year, count(*) AS opponents,
+				count(*) FILTER (WHERE outcome = 1) AS wins, count(*) FILTER (WHERE outcome = 0) AS losses,
+				count(*) FILTER (WHERE outcome = 0.5) AS draws
+			FROM mine GROUP BY 1) y
+		LEFT JOIN player_yearly_titles t ON t.run_id = $1 AND t.player_name = $2 AND t.year = y.year
+		ORDER BY y.year`, run, name, format)
+	if err != nil {
+		return nil, fmt.Errorf("reading a player's years in run %d: %w", run, err)
+	}
+	years, err := pgx.CollectRows(rows, func(row pgx.CollectableRow) (CareerYear, error) {
+		var y CareerYear
+		err := row.Scan(&y.Year, &y.Opponents, &y.Wins, &y.Losses, &y.Draws, &y.Title)
+		return y, err
+	})
+	if err != nil {
+		return nil, fmt.Errorf("reading a player's years in run %d: %w", run, err)
+	}
+	return years, nil
+}
+
+// modelPeaks finds each continuous model's peak: the first period with the
+// highest rating rounded to 0.1, and 1 + how many ratings that period beat it.
+func (r *RatingsReader) modelPeaks(ctx context.Context, run int64, name string, format int) ([]ModelPeak, error) {
+	rows, err := r.pool.Query(ctx, `
+		SELECT model_type, period_date, rating FROM rating_history
+		WHERE run_id = $1 AND player_name = $2 AND player_count = $3 AND model_type = ANY($4)
+		ORDER BY period_date`, run, name, format, peakEngines)
+	if err != nil {
+		return nil, fmt.Errorf("reading a player's peaks in run %d: %w", run, err)
+	}
+	best := map[string]ModelPeak{}
+	for rows.Next() {
+		var p ModelPeak
+		if err := rows.Scan(&p.Model, &p.Date, &p.Rating); err != nil {
+			return nil, fmt.Errorf("reading a player's peaks in run %d: %w", run, err)
+		}
+		p.Rating = round.Tenth(p.Rating)
+		if b, ok := best[p.Model]; !ok || p.Rating > b.Rating {
+			best[p.Model] = p
+		}
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("reading a player's peaks in run %d: %w", run, err)
+	}
+
+	peaks := []ModelPeak{}
+	for _, model := range peakEngines {
+		p, ok := best[model]
+		if !ok {
+			continue
+		}
+		err := r.pool.QueryRow(ctx, `
+			SELECT count(*) + 1 FROM rating_history
+			WHERE run_id = $1 AND model_type = $2 AND player_count = $3 AND period_date = $4 AND rating > $5`,
+			run, model, format, p.Date, p.Rating).Scan(&p.Rank)
+		if err != nil {
+			return nil, fmt.Errorf("ranking a player's %s peak in run %d: %w", model, run, err)
+		}
+		peaks = append(peaks, p)
+	}
+	return peaks, nil
+}
+
+// Versus returns both stored names and the latest 100 games run rated with
+// both players, newest first.
+func (r *RatingsReader) Versus(ctx context.Context, run int64, asked, other string) (string, string, []PlayerMatch, error) {
+	a, err := r.resolve(ctx, run, asked)
+	if err != nil {
+		return "", "", nil, err
+	}
+	b, err := r.resolve(ctx, run, other)
+	if err != nil {
+		return "", "", nil, err
+	}
+	rows, err := r.pool.Query(ctx, `
+		SELECT m.match_id, m.tournament, m.date, m.player_count, m.replay_code,
+			m.player1, m.score1, m.player2, m.score2, m.player3, m.score3, m.player4, m.score4
+		FROM matches m JOIN (
+			SELECT match_id FROM pairwise_matches WHERE run_id = $1 AND player_a = $2 AND player_b = $3
+			UNION
+			SELECT match_id FROM pairwise_matches WHERE run_id = $1 AND player_a = $3 AND player_b = $2) shared USING (match_id)
+		ORDER BY m.date DESC, m.match_id DESC
+		LIMIT $4`, run, a, b, sharedGames)
+	if err != nil {
+		return "", "", nil, fmt.Errorf("reading shared games in run %d: %w", run, err)
+	}
+	games, err := pgx.CollectRows(rows, scanMatch)
+	if err != nil {
+		return "", "", nil, fmt.Errorf("reading shared games in run %d: %w", run, err)
+	}
+	return a, b, games, nil
 }
