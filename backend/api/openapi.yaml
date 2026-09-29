@@ -165,8 +165,8 @@ paths:
       description: |
         Each player's rating at the end of the latest rating period on or
         before `at`. Without `at`, the run's previous period, the one before
-        its last. A player with no rating by then is left out. A run's history
-        never changes, so this is cached for a year.
+        its last. A player with no rating by then is left out. Cached for five
+        minutes.
       parameters:
         - $ref: "#/components/parameters/RunId"
         - $ref: "#/components/parameters/Model"
@@ -224,8 +224,8 @@ paths:
       summary: One player's rating at the end of every period, for the chart
       description: |
         The player's rating and conservative rating after each rating period
-        in the ten continuous and season-reset models, for one format. A
-        run's history never changes, so this is cached for a year.
+        in the ten continuous and season-reset models, for one format. Cached
+        for five minutes.
       parameters:
         - $ref: "#/components/parameters/RunId"
         - $ref: "#/components/parameters/PlayerName"
@@ -253,7 +253,7 @@ paths:
         Each carries an estimate of what it is worth to the player's rating
         today: one rating update from the run's final ratings in `model`
         (WHR is estimated with GlickoD's update). A page past the last gives
-        the last. Cached for a year.
+        the last. Cached for five minutes.
       parameters:
         - $ref: "#/components/parameters/RunId"
         - $ref: "#/components/parameters/PlayerName"
@@ -286,7 +286,7 @@ paths:
       summary: The player's record against each opponent
       description: |
         Wins, losses and draws against the 200 opponents the player has met
-        most, in one format (0 is all). Cached for a year.
+        most, in one format (0 is all). Cached for five minutes.
       parameters:
         - $ref: "#/components/parameters/RunId"
         - $ref: "#/components/parameters/PlayerName"
@@ -314,7 +314,7 @@ paths:
         format together when that format has none), with the year's highest
         rating in any model and the title the run derived for that year; and
         each continuous model's peak rating, when it was, and the player's
-        rank among that month's ratings. Cached for a year.
+        rank among that month's ratings. Cached for five minutes.
       parameters:
         - $ref: "#/components/parameters/RunId"
         - $ref: "#/components/parameters/PlayerName"
@@ -339,8 +339,8 @@ paths:
       summary: The latest games two players played together
       description: |
         The 100 latest games the run rated with both players at the table,
-        in every format, newest first, with where each finished. Cached for a
-        year.
+        in every format, newest first, with where each finished. Cached for
+        five minutes.
       parameters:
         - $ref: "#/components/parameters/RunId"
         - $ref: "#/components/parameters/PlayerName"
@@ -375,7 +375,8 @@ paths:
         ten continuous and season-reset models for one format. Without
         `year`, the run's ratings and ranks. With it, each model's last
         rating period that year, ranked by conservative rating in it; a
-        model the player has no row in then is left out. Cached for a year.
+        model the player has no row in then is left out. Cached for five
+        minutes.
       parameters:
         - $ref: "#/components/parameters/RunId"
         - $ref: "#/components/parameters/PlayerName"

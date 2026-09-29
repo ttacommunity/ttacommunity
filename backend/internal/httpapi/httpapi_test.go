@@ -406,13 +406,13 @@ func TestHistory(t *testing.T) {
 		{
 			name: "a date", path: "/v1/runs/7/history?model=whr&format=2&at=2026-05-01",
 			ratings:  &fakeRatings{hist: rows, histAt: may},
-			wantCode: http.StatusOK, wantCache: "public, max-age=31536000, immutable", wantAt: &may,
+			wantCode: http.StatusOK, wantCache: "public, max-age=300", wantAt: &may,
 			wantBody: `{"at":"2026-05-01","format":2,"model":"whr","players":[{"c_rating":1598.5,"name":"ann","rating":1690,"rd":30.5}],"run_id":7}`,
 		},
 		{
 			name: "no date means the previous period", path: "/v1/runs/7/history",
 			ratings:  &fakeRatings{histAt: previous},
-			wantCode: http.StatusOK, wantCache: "public, max-age=31536000, immutable",
+			wantCode: http.StatusOK, wantCache: "public, max-age=300",
 			wantBody: `{"at":"2026-07-31","format":0,"model":"glicko2_daneo","players":[],"run_id":7}`,
 		},
 		{

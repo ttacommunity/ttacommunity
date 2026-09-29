@@ -143,8 +143,8 @@ func TestPlayerHistoryGroupsPointsByModel(t *testing.T) {
 	if got := strings.TrimSpace(rec.Body.String()); rec.Code != http.StatusOK || got != want {
 		t.Errorf("GET history: %d %s\nwant 200 %s", rec.Code, got, want)
 	}
-	if rec.Header().Get("Cache-Control") != cacheForever || f.format != 2 {
-		t.Errorf("GET history: Cache-Control %q, format %d; want a year, 2", rec.Header().Get("Cache-Control"), f.format)
+	if rec.Header().Get("Cache-Control") != "public, max-age=300" || f.format != 2 {
+		t.Errorf("GET history: Cache-Control %q, format %d; want five minutes, 2", rec.Header().Get("Cache-Control"), f.format)
 	}
 }
 
@@ -159,8 +159,8 @@ func TestPlayerMatchesPlacesAndEstimates(t *testing.T) {
 		rated: map[string]store.Rated{"Ann": {Rating: 1800, RD: 45}, "bob": {Rating: 1900, RD: 35}},
 	}
 	rec, _ := serve(t, f, "/v1/runs/7/players/ann/matches?format=3&model=whr_softer&page=2")
-	if rec.Code != http.StatusOK || rec.Header().Get("Cache-Control") != cacheForever {
-		t.Fatalf("GET matches: %d, %q; want 200, a year", rec.Code, rec.Header().Get("Cache-Control"))
+	if rec.Code != http.StatusOK || rec.Header().Get("Cache-Control") != "public, max-age=300" {
+		t.Fatalf("GET matches: %d, %q; want 200, five minutes", rec.Code, rec.Header().Get("Cache-Control"))
 	}
 	if f.ratedAs != "glicko2_daneo_softer" || f.format != 3 || f.pageNo != 2 || f.asked != "ann" {
 		t.Errorf("store asked for %s ratings, format %d, page %d, %q; want glicko2_daneo_softer, 3, 2, ann",
@@ -210,8 +210,8 @@ func TestPlayerRivalsGivesWinRates(t *testing.T) {
 	if got := strings.TrimSpace(rec.Body.String()); got != want || f.format != 4 {
 		t.Errorf("GET rivals = %s (format %d); want %s", got, f.format, want)
 	}
-	if rec.Header().Get("Cache-Control") != cacheForever {
-		t.Errorf("GET rivals: Cache-Control = %q, want a year", rec.Header().Get("Cache-Control"))
+	if rec.Header().Get("Cache-Control") != "public, max-age=300" {
+		t.Errorf("GET rivals: Cache-Control = %q, want five minutes", rec.Header().Get("Cache-Control"))
 	}
 }
 
@@ -265,8 +265,8 @@ func TestPlayerCareer(t *testing.T) {
 	if got := strings.TrimSpace(rec.Body.String()); rec.Code != http.StatusOK || got != want {
 		t.Errorf("GET career: %d %s\nwant 200 %s", rec.Code, got, want)
 	}
-	if rec.Header().Get("Cache-Control") != cacheForever || f.format != 3 || f.asked != "ann" {
-		t.Errorf("GET career: Cache-Control %q, asked %q format %d; want a year, ann, 3", rec.Header().Get("Cache-Control"), f.asked, f.format)
+	if rec.Header().Get("Cache-Control") != "public, max-age=300" || f.format != 3 || f.asked != "ann" {
+		t.Errorf("GET career: Cache-Control %q, asked %q format %d; want five minutes, ann, 3", rec.Header().Get("Cache-Control"), f.asked, f.format)
 	}
 }
 
@@ -283,7 +283,7 @@ func TestPlayerVersusPlacesBothPlayers(t *testing.T) {
 	if got := strings.TrimSpace(rec.Body.String()); rec.Code != http.StatusOK || got != want {
 		t.Errorf("GET versus: %d %s\nwant 200 %s", rec.Code, got, want)
 	}
-	if rec.Header().Get("Cache-Control") != cacheForever || f.asked != "ann" || f.other != "bob" {
+	if rec.Header().Get("Cache-Control") != "public, max-age=300" || f.asked != "ann" || f.other != "bob" {
 		t.Errorf("GET versus: Cache-Control %q, asked %q and %q", rec.Header().Get("Cache-Control"), f.asked, f.other)
 	}
 }
@@ -321,7 +321,7 @@ func TestPlayerMatrix(t *testing.T) {
 	if got := strings.TrimSpace(rec.Body.String()); rec.Code != http.StatusOK || got != want {
 		t.Errorf("GET matrix: %d %s\nwant 200 %s", rec.Code, got, want)
 	}
-	if rec.Header().Get("Cache-Control") != cacheForever || f.year == nil || *f.year != 2024 || f.format != 2 {
+	if rec.Header().Get("Cache-Control") != "public, max-age=300" || f.year == nil || *f.year != 2024 || f.format != 2 {
 		t.Errorf("GET matrix: Cache-Control %q, year %v, format %d", rec.Header().Get("Cache-Control"), f.year, f.format)
 	}
 

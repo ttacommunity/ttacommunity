@@ -17,11 +17,10 @@ import (
 	"ttacommunity/backend/internal/store"
 )
 
-// Cache lifetimes. A run's history never changes, so it is cached for a year.
-// Its leaderboard carries player details that can change, so five minutes.
-// Which run is current is cached for a minute.
+// Cache lifetimes. A run's answers are cached for five minutes while the site
+// is in testing, so an answer whose shape changes never outlives a deploy by
+// long. Which run is current is cached for a minute.
 const (
-	cacheForever = "public, max-age=31536000, immutable"
 	cacheRun     = "public, max-age=300"
 	cacheCurrent = "public, max-age=60"
 	cacheNone    = "no-store"
@@ -239,7 +238,7 @@ func (s *server) GetHistory(ctx context.Context, req GetHistoryRequestObject) (G
 	}
 	return GetHistory200JSONResponse{
 		Body:    History{RunId: req.Run, Model: model, Format: format, At: openapi_types.Date{Time: on}, Players: players},
-		Headers: GetHistory200ResponseHeaders{CacheControl: cacheForever},
+		Headers: GetHistory200ResponseHeaders{CacheControl: cacheRun},
 	}, nil
 }
 

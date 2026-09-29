@@ -111,7 +111,7 @@ func (s *server) GetPlayerHistory(ctx context.Context, req GetPlayerHistoryReque
 	}
 	return GetPlayerHistory200JSONResponse{
 		Body:    PlayerHistory{RunId: req.Run, Name: name, Format: format, Series: series},
-		Headers: GetPlayerHistory200ResponseHeaders{CacheControl: cacheForever},
+		Headers: GetPlayerHistory200ResponseHeaders{CacheControl: cacheRun},
 	}, nil
 }
 
@@ -196,7 +196,7 @@ func (s *server) GetPlayerMatches(ctx context.Context, req GetPlayerMatchesReque
 			RunId: req.Run, Name: name, Format: format, Model: model,
 			Page: mp.Page, Pages: mp.Pages, Total: mp.Total, Matches: matches,
 		},
-		Headers: GetPlayerMatches200ResponseHeaders{CacheControl: cacheForever},
+		Headers: GetPlayerMatches200ResponseHeaders{CacheControl: cacheRun},
 	}, nil
 }
 
@@ -222,7 +222,7 @@ func (s *server) GetPlayerRivals(ctx context.Context, req GetPlayerRivalsRequest
 	}
 	return GetPlayerRivals200JSONResponse{
 		Body:    PlayerRivals{RunId: req.Run, Name: name, Format: format, Rivals: rivals},
-		Headers: GetPlayerRivals200ResponseHeaders{CacheControl: cacheForever},
+		Headers: GetPlayerRivals200ResponseHeaders{CacheControl: cacheRun},
 	}, nil
 }
 
@@ -260,7 +260,7 @@ func (s *server) GetPlayerCareer(ctx context.Context, req GetPlayerCareerRequest
 	for _, p := range peaks {
 		body.Peaks = append(body.Peaks, ModelPeak{Model: Model(p.Model), Rating: p.Rating, Rank: p.Rank, Date: openapi_types.Date{Time: p.Date}})
 	}
-	return GetPlayerCareer200JSONResponse{Body: body, Headers: GetPlayerCareer200ResponseHeaders{CacheControl: cacheForever}}, nil
+	return GetPlayerCareer200JSONResponse{Body: body, Headers: GetPlayerCareer200ResponseHeaders{CacheControl: cacheRun}}, nil
 }
 
 // GetPlayerMatrix returns a player's rating in each page model, now or at a year's end.
@@ -284,7 +284,7 @@ func (s *server) GetPlayerMatrix(ctx context.Context, req GetPlayerMatrixRequest
 	for _, c := range cells {
 		body.Cells = append(body.Cells, MatrixCell{Model: Model(c.Model), Rating: c.Rating, Rd: c.RD, CRating: c.CRating, Rank: c.Rank})
 	}
-	return GetPlayerMatrix200JSONResponse{Body: body, Headers: GetPlayerMatrix200ResponseHeaders{CacheControl: cacheForever}}, nil
+	return GetPlayerMatrix200JSONResponse{Body: body, Headers: GetPlayerMatrix200ResponseHeaders{CacheControl: cacheRun}}, nil
 }
 
 // GetPlayerVersus returns two players' latest shared games, with where each finished.
@@ -325,7 +325,7 @@ func (s *server) GetPlayerVersus(ctx context.Context, req GetPlayerVersusRequest
 	}
 	return GetPlayerVersus200JSONResponse{
 		Body:    PlayerVersus{RunId: req.Run, Name: name, Other: other, Matches: matches},
-		Headers: GetPlayerVersus200ResponseHeaders{CacheControl: cacheForever},
+		Headers: GetPlayerVersus200ResponseHeaders{CacheControl: cacheRun},
 	}, nil
 }
 
