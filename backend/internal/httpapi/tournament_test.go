@@ -92,3 +92,46 @@ func TestTournamentSeriesRefusals(t *testing.T) {
 		t.Errorf("GET series of an unknown run: %d %q, want 404 no-store", rec.Code, rec.Header().Get("Cache-Control"))
 	}
 }
+
+type fakeHallOfFame struct {
+	fakeRatings
+	hof store.HallOfFame
+	err error
+}
+
+func (f *fakeHallOfFame) HallOfFame(_ context.Context, run int64) (store.HallOfFame, error) {
+	f.calls++
+	f.gotRun = run
+	return f.hof, f.err
+}
+
+func TestHallOfFame(t *testing.T) {
+	one, cup := 1, "2025 Wimbledon TTA Champion"
+	f := &fakeHallOfFame{hof: store.HallOfFame{
+		Series:     []store.SeriesCount{{Series: "worlds", Games: 31121, Seasons: 5}},
+		Legends:    []store.Legend{{Name: "ann", WorldChampion: true, WorldTitles: 1, InternationalTitles: 6, Gold: 7, Silver: 2}},
+		GrandSlams: []store.TrophyRow{{Name: "bob", Gold: &one, Silver: &one, Bronze: &one, Details: &cup}},
+	}}
+	rec, _ := serve(t, f, "/v1/runs/7/tournaments")
+	want := `{"grand_slams":[{"bronze":1,"details":"2025 Wimbledon TTA Champion","games":null,"gold":1,"name":"bob","silver":1,"title":null,"win_rate":null,"wins":null,"world_champion":false}],` +
+		`"ladders":[],"legends":[{"bronze":0,"gold":7,"intermezzo_titles":0,"international_titles":6,"name":"ann","royal_league_titles":0,"silver":2,"world_champion":true,"world_titles":1}],` +
+		`"run_id":7,"series":[{"games":31121,"seasons":5,"series":"worlds"}]}`
+	if got := strings.TrimSpace(rec.Body.String()); rec.Code != http.StatusOK || got != want {
+		t.Errorf("GET Hall of Fame: %d %s\nwant 200 %s", rec.Code, got, want)
+	}
+	if rec.Header().Get("Cache-Control") != "public, max-age=300" || f.gotRun != 7 {
+		t.Errorf("GET Hall of Fame: Cache-Control %q, asked run %d", rec.Header().Get("Cache-Control"), f.gotRun)
+	}
+}
+
+func TestHallOfFameRefusals(t *testing.T) {
+	f := &fakeHallOfFame{}
+	rec, _ := serve(t, f, "/v1/runs/0/tournaments")
+	if got := strings.TrimSpace(rec.Body.String()); rec.Code != http.StatusBadRequest || got != `{"error":"bad parameter: run"}` || f.calls != 0 {
+		t.Errorf("GET run 0: %d %s", rec.Code, got)
+	}
+	rec, _ = serve(t, &fakeHallOfFame{err: store.ErrRunNotFound}, "/v1/runs/9/tournaments")
+	if rec.Code != http.StatusNotFound || rec.Header().Get("Cache-Control") != "no-store" {
+		t.Errorf("GET an unknown run: %d %q, want 404 no-store", rec.Code, rec.Header().Get("Cache-Control"))
+	}
+}

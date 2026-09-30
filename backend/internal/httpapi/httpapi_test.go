@@ -119,6 +119,10 @@ func (f *fakeRatings) TournamentSeries(context.Context, int64, string) (store.To
 	panic("not faked")
 }
 
+func (f *fakeRatings) HallOfFame(context.Context, int64) (store.HallOfFame, error) {
+	panic("not faked")
+}
+
 func serve(t *testing.T, ratings Ratings, path string) (*httptest.ResponseRecorder, string) {
 	t.Helper()
 	var logs bytes.Buffer

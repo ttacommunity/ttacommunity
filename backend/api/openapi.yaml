@@ -613,6 +613,32 @@ paths:
           $ref: "#/components/responses/BadRequest"
         "404":
           $ref: "#/components/responses/NotFound"
+  /v1/runs/{run}/tournaments:
+    get:
+      operationId: getHallOfFame
+      summary: The Hall of Fame overview
+      description: |
+        Every series' game and edition counts, the all-time table of titles
+        and medals across the four major circuits (World Championship,
+        International, Intermezzo, Royal League), and the first ten rows of
+        the Grand Slams and Ladders boards, as the original site's overview
+        shows them. Cached for five minutes.
+      parameters:
+        - $ref: "#/components/parameters/RunId"
+      responses:
+        "200":
+          description: The overview
+          headers:
+            Cache-Control:
+              $ref: "#/components/headers/CacheControl"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HallOfFame"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "404":
+          $ref: "#/components/responses/NotFound"
   /v1/runs/{run}/tournaments/{series}:
     get:
       operationId: getTournamentSeries
@@ -1759,3 +1785,63 @@ components:
         date:
           type: string
           format: date
+    HallOfFame:
+      type: object
+      required: [run_id, series, legends, grand_slams, ladders]
+      properties:
+        run_id:
+          type: integer
+          format: int64
+        series:
+          type: array
+          items:
+            $ref: "#/components/schemas/SeriesCount"
+        legends:
+          description: Up to 25 players, most titles first
+          type: array
+          items:
+            $ref: "#/components/schemas/Legend"
+        grand_slams:
+          description: The first ten rows of the Grand Slams board
+          type: array
+          items:
+            $ref: "#/components/schemas/TrophyRow"
+        ladders:
+          description: The first ten rows of the Ladders board
+          type: array
+          items:
+            $ref: "#/components/schemas/TrophyRow"
+    SeriesCount:
+      type: object
+      required: [series, games, seasons]
+      properties:
+        series:
+          $ref: "#/components/schemas/Series"
+        games:
+          type: integer
+        seasons:
+          description: The editions the series page states (see TournamentSeries)
+          type: integer
+    Legend:
+      type: object
+      required: [name, world_champion, world_titles, international_titles, intermezzo_titles, royal_league_titles, gold, silver, bronze]
+      properties:
+        name:
+          type: string
+        world_champion:
+          type: boolean
+        world_titles:
+          type: integer
+        international_titles:
+          type: integer
+        intermezzo_titles:
+          type: integer
+        royal_league_titles:
+          type: integer
+        gold:
+          description: Podium medals across the four circuits
+          type: integer
+        silver:
+          type: integer
+        bronze:
+          type: integer

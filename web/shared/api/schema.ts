@@ -449,6 +449,30 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/runs/{run}/tournaments": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The Hall of Fame overview
+         * @description Every series' game and edition counts, the all-time table of titles
+         *     and medals across the four major circuits (World Championship,
+         *     International, Intermezzo, Royal League), and the first ten rows of
+         *     the Grand Slams and Ladders boards, as the original site's overview
+         *     shows them. Cached for five minutes.
+         */
+        get: operations["getHallOfFame"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/runs/{run}/tournaments/{series}": {
         parameters: {
             query?: never;
@@ -1075,6 +1099,35 @@ export interface components {
             /** Format: date */
             date: string;
         };
+        HallOfFame: {
+            /** Format: int64 */
+            run_id: number;
+            series: components["schemas"]["SeriesCount"][];
+            /** @description Up to 25 players, most titles first */
+            legends: components["schemas"]["Legend"][];
+            /** @description The first ten rows of the Grand Slams board */
+            grand_slams: components["schemas"]["TrophyRow"][];
+            /** @description The first ten rows of the Ladders board */
+            ladders: components["schemas"]["TrophyRow"][];
+        };
+        SeriesCount: {
+            series: components["schemas"]["Series"];
+            games: number;
+            /** @description The editions the series page states (see TournamentSeries) */
+            seasons: number;
+        };
+        Legend: {
+            name: string;
+            world_champion: boolean;
+            world_titles: number;
+            international_titles: number;
+            intermezzo_titles: number;
+            royal_league_titles: number;
+            /** @description Podium medals across the four circuits */
+            gold: number;
+            silver: number;
+            bronze: number;
+        };
     };
     responses: {
         /** @description A parameter is not one the API knows */
@@ -1698,6 +1751,32 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Activity"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    getHallOfFame: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A published run's id, from `/v1/runs/current` */
+                run: components["parameters"]["RunId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The overview */
+            200: {
+                headers: {
+                    "Cache-Control": components["headers"]["CacheControl"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HallOfFame"];
                 };
             };
             400: components["responses"]["BadRequest"];

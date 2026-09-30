@@ -218,3 +218,57 @@ func TestTournamentSeriesNeedsAPublishedRun(t *testing.T) {
 		t.Errorf("TournamentSeries of an unpublished run: %v, want ErrRunNotFound", err)
 	}
 }
+
+func TestHallOfFameGivesCountsLegendsAndTheTopOfTwoBoards(t *testing.T) {
+	pool := migrated(t)
+	ctx := context.Background()
+	run := publishedRun(t, pool)
+	for _, q := range []string{
+		"INSERT INTO tournament_series VALUES ($1, 'worlds', 31121, 5), ($1, 'international', 31674, 34)",
+		"INSERT INTO player_peak_titles VALUES ($1, 'wc', 'WC', 2025)",
+		"INSERT INTO tournament_legends VALUES ($1, 2, 'ann', 0, 2, 0, 0, 2, 1, 0), ($1, 1, 'wc', 1, 1, 0, 0, 2, 0, 1)",
+	} {
+		if _, err := pool.Exec(ctx, q, run); err != nil {
+			t.Fatalf("%s: %v", q, err)
+		}
+	}
+	for i := range 12 {
+		_, err := pool.Exec(ctx, `INSERT INTO tournament_boards (run_id, series, player_name, gold, silver, bronze, points, position, details)
+			VALUES ($1, 'grand_slams', $2, 1, 0, 0, 0, $3, 'cup')`, run, fmt.Sprintf("g%02d", i), i+1)
+		if err != nil {
+			t.Fatalf("adding a cup row: %v", err)
+		}
+	}
+	if _, err := pool.Exec(ctx, `INSERT INTO tournament_boards (run_id, series, player_name, points, position, games, wins, win_rate)
+		VALUES ($1, 'ladders', 'lad', 0, 1, 91, 54, 59.3)`, run); err != nil {
+		t.Fatalf("adding a ladder row: %v", err)
+	}
+
+	got, err := NewRatingsReader(asReader(t, pool)).HallOfFame(ctx, run)
+	if err != nil {
+		t.Fatalf("HallOfFame: %v", err)
+	}
+	if want := []SeriesCount{{Series: "international", Games: 31674, Seasons: 34}, {Series: "worlds", Games: 31121, Seasons: 5}}; !slices.Equal(got.Series, want) {
+		t.Errorf("series = %v, want %v", got.Series, want)
+	}
+	if want := []Legend{
+		{Name: "wc", WorldChampion: true, WorldTitles: 1, InternationalTitles: 1, Gold: 2, Bronze: 1},
+		{Name: "ann", InternationalTitles: 2, Gold: 2, Silver: 1},
+	}; !slices.Equal(got.Legends, want) {
+		t.Errorf("legends = %+v, want %+v", got.Legends, want)
+	}
+	if len(got.GrandSlams) != 10 || got.GrandSlams[0].Name != "g00" || got.GrandSlams[9].Name != "g09" {
+		t.Errorf("grand slams = %d rows from %v, want the first 10 by position", len(got.GrandSlams), got.GrandSlams)
+	}
+	if len(got.Ladders) != 1 || *got.Ladders[0].Wins != 54 {
+		t.Errorf("ladders = %+v, want the one ladder row", got.Ladders)
+	}
+}
+
+func TestHallOfFameNeedsAPublishedRun(t *testing.T) {
+	pool := migrated(t)
+	run := addRun(t, pool, "complete", time.Time{})
+	if _, err := NewRatingsReader(asReader(t, pool)).HallOfFame(context.Background(), run); !errors.Is(err, ErrRunNotFound) {
+		t.Errorf("HallOfFame of an unpublished run: %v, want ErrRunNotFound", err)
+	}
+}
