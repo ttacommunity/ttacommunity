@@ -27,6 +27,7 @@ run.
 | `data/badges.py` | same | Titles go into the run's `player_titles`, not onto `players` |
 | `data/pairwise.py` | `data/loader.py` | Reads `matches` from the database instead of a CSV, and carries `glicko_eligible` into each pair. The expansion is upstream's |
 | `data/tournaments.py` | `data/hall_of_fame.py`, `data/parse_tournaments.py` | Reads the matches and the recorded facts instead of spreadsheets: each game's series, season and division, group standings by each league's rules, the league trophyboards and upstream's seasonal records |
+| `data/achievements.py` | `data/hall_of_fame.py`, `data/parse_tournaments.py` | Each player's medal summary from the four major circuits' boards, and the records their achievements page lists, by upstream's rules, from the standings, the matches and the recorded facts |
 | `data/series_pages.py` | `data/hall_of_fame.py` | The series counts, the World Championship, Grand Slams and Ladders boards, and the Hall of Fame's all-time table, as upstream derives them |
 | `data/db.py` | same | Connections, and the reads and writes the models share. The schema is the migrations in `backend/migrations/ratings` |
 | `run.py`, `progress.py` | `run_pipeline.py` | One run of every model: see below |
@@ -36,8 +37,9 @@ run.
 is a recorded fact the load job loads from our own CSVs, each row naming its
 source: a division where the name gives none (International S3 to S27 are
 named `International S20`), an official placement (a season with no games,
-or a podium the original site hard-codes), or a season correction. No
-spreadsheet is read.
+or a podium the original site hard-codes), a season correction, a season's
+finish date, or a player's career honours from an organisers' Hall of Fame.
+No spreadsheet is read.
 
 The four files upstream's math lives in, and their tests, are exempt from
 `ruff` until they are refactored (`pyproject.toml` lists them).
@@ -55,8 +57,8 @@ ENGINE_VERSION=$(git rev-parse --short HEAD) uv run python -m tta_ratings_engine
 A run computes the 16 models upstream's site shows, for all formats together
 and for 2, 3 and 4 players, then tournament results and titles, then the
 standard and walk-forward calibration: about 20 minutes and 1 GB of memory on
-a desktop. The run's input fingerprint covers the matches and any recorded
-divisions.
+a desktop. The run's input fingerprint covers the matches and every recorded
+tournament fact.
 
 It logs progress, elapsed time and the time left every 30 seconds, and a
 "still on" line when one step runs longer. The time left weighs each step by

@@ -15,8 +15,10 @@ from typing import NamedTuple
 
 import psycopg
 
+from tta_ratings_engine.data.achievements import player_achievements, player_records
 from tta_ratings_engine.data.badges import HISTORICAL_WC_INFO
 from tta_ratings_engine.data.db import require_running
+from tta_ratings_engine.data.match_order import assembled_order
 from tta_ratings_engine.data.series_pages import (
     grand_slams_board,
     ladders_board,
@@ -456,7 +458,8 @@ def _board_rows(run_id, boards):
 
 
 def derive_tournaments(*, conn: psycopg.Connection, run_id: int) -> None:
-    """Replaces the run's tournament games, standings, boards and seasonal records.
+    """Replaces the run's tournament games, standings, boards, seasonal records
+    and each player's achievements and records.
 
     In one committed transaction. Raises RunNotRunning unless the run is running.
     """
@@ -484,6 +487,16 @@ def derive_tournaments(*, conn: psycopg.Connection, run_id: int) -> None:
             "FROM tournament_official_placements ORDER BY place, player_name"
         ).fetchall():
             official[(r["series"], r["season"], r["division"])].append(r)
+        dates = {
+            (r["series"], r["season"]): r["finish_date"].isoformat()
+            for r in conn.execute(
+                "SELECT series, season, finish_date FROM tournament_finish_dates"
+            ).fetchall()
+        }
+        honours = conn.execute(
+            "SELECT series, player_name, gold, silver, bronze, points "
+            "FROM tournament_career_honours ORDER BY series, player_name"
+        ).fetchall()
         classified = classify(rows, recorded, corrections)
         by_id = {r["match_id"]: r for r in rows}
 
@@ -528,6 +541,30 @@ def derive_tournaments(*, conn: psycopg.Connection, run_id: int) -> None:
             for series, (games, editions) in series_metrics(rows).items()
         ]
 
+        worlds = {
+            (season, p["player_name"]): p["place"]
+            for (series, season, _), placed in official.items()
+            if series == "worlds"
+            for p in placed
+        }
+        achievement_rows = [
+            (run_id, a["player_name"], a["world_titles"], a["international_titles"],
+             a["intermezzo_titles"], a["royal_league_titles"], a["gold"], a["silver"],
+             a["bronze"], a["accolades"])
+            for a in player_achievements(boards, worlds)
+        ]  # fmt: skip
+        player_record_rows = player_records(
+            rows=assembled_order(rows),
+            top_divisions={
+                s: SERIES[s].top_divisions for s in ("international", "intermezzo")
+            },
+            standings=derived,
+            official=official,
+            boards=boards,
+            honours=honours,
+            dates=dates,
+        )
+
         record_rows = [
             (run_id, series, season, rec["division"], p, rec["points"], rec["games"],
              rec["placings"], rec["last_date"], rec["first_match_id"])
@@ -536,6 +573,8 @@ def derive_tournaments(*, conn: psycopg.Connection, run_id: int) -> None:
         ]  # fmt: skip
 
         for table in (
+            "tournament_records",
+            "tournament_achievements",
             "tournament_series",
             "tournament_legends",
             "tournament_season_records",
@@ -552,6 +591,16 @@ def derive_tournaments(*, conn: psycopg.Connection, run_id: int) -> None:
                 copy.write_row(
                     (run_id, g["match_id"], g["series"], g["season"], g["name_season"],
                      g["division"], g["group"], g["source"], g["tiebreak"], g["in_records"])
+                )  # fmt: skip
+        with conn.cursor().copy(
+            "COPY tournament_records (run_id, player_name, position, tournament, season, "
+            "division, placement, points, medal, details, finish_date, career) FROM STDIN"
+        ) as copy:
+            for r in player_record_rows:
+                copy.write_row(
+                    (run_id, r["player_name"], r["position"], r["tournament"], r["season"],
+                     r["division"], r["placement"], r["points"], r["medal"], r["details"],
+                     r["finish_date"], r["career"])
                 )  # fmt: skip
         with conn.cursor() as cur:
             cur.executemany(
@@ -570,6 +619,10 @@ def derive_tournaments(*, conn: psycopg.Connection, run_id: int) -> None:
             cur.executemany(
                 "INSERT INTO tournament_legends VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)",
                 legend_rows,
+            )
+            cur.executemany(
+                "INSERT INTO tournament_achievements VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)",
+                achievement_rows,
             )
             cur.executemany(
                 "INSERT INTO tournament_season_records VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)",

@@ -1,0 +1,285 @@
+from datetime import date
+
+import pytest
+
+from tta_ratings_engine.data.achievements import (
+    campaign,
+    finish_date,
+    player_achievements,
+    player_records,
+)
+
+
+def match(tournament, *players, day, match_id):
+    """A matches row as derive_tournaments reads it."""
+    row = {
+        "match_id": match_id,
+        "tournament": tournament,
+        "date": day,
+        "player_count": len(players),
+    }
+    for i in range(1, 5):
+        name, score = players[i - 1] if i <= len(players) else (None, None)
+        row[f"player{i}"], row[f"score{i}"] = name, score
+    return row
+
+
+TOP = {"international": {"Grandmaster"}, "intermezzo": {"Grandmaster"}}
+
+
+def placed(player, place, points=None):
+    return {"player_name": player, "place": place, "points": points}
+
+
+def medals(player, gold=0, silver=0, bronze=0):
+    return {"player_name": player, "gold": gold, "silver": silver, "bronze": bronze}
+
+
+@pytest.mark.parametrize(
+    ("name", "want"),
+    [
+        (
+            "International S30 - Grandmaster - game 3",
+            ("International Championship", "Season 30", "Grandmaster"),
+        ),
+        (
+            "International S20 g4",
+            ("International Championship", "Season 20", "Grandmaster"),
+        ),
+        (
+            "Intermezzo S24 - Platinum 1 game 2",
+            ("Intermezzo Championship", "Season 24", "Platinum 1"),
+        ),
+        ("RL_s01 - game 2", ("Royal League", "Season 1", "Division")),
+        ("RL_s09 - Emperor game 1", ("Royal League", "Season 9", "Emperor")),
+        (
+            "Worlds 2025 - Final game 3",
+            ("World Championship 2025", "Championship", "Championship"),
+        ),
+        (
+            "Worlds 2026 - Stage 2 - Group A",
+            ("World Championship 2026", "Stage 2", "Group A"),
+        ),
+        ("Sodium Season 16 - Xenon 2", ("Sodium Ladder", "Season 16", "Xenon 2")),
+        ("TCL Round 31", ("TCL Round 31", "Tournament", "Main")),
+        ("French Open 2026 - Final", ("French Open 2026", "Final", "Main")),
+        ("", ("Unknown Tournament", "Season", "Main")),
+    ],
+)
+def test_campaign_reads_a_match_name_as_upstream(name, want):
+    assert campaign(name) == want
+
+
+def test_finish_date_takes_a_recorded_date_or_the_fallback():
+    dates = {("international", 30): "2025-08-14", ("royal_league", 8): "2026-05-27"}
+    assert (
+        finish_date("International Championship", "Season 30", "2025-08-01", dates)
+        == "2025-08-14"
+    )
+    assert finish_date("Royal League", "Season 8", "2026-05-01", dates) == "2026-05-27"
+    assert (
+        finish_date("International Championship", "Season 31", "2025-11-01", dates)
+        == "2025-11-01"
+    )
+    assert (
+        finish_date("TCL Round 31", "Tournament", "2024-01-02", dates) == "2024-01-02"
+    )
+    assert finish_date("TCL Round 31", "Tournament", None, dates) == "2026-01-01"
+
+
+def test_player_achievements_sum_the_four_circuits_boards():
+    boards = {
+        "worlds": [medals("ann", gold=1), medals("bob", silver=1)],
+        "international": [medals("bob", gold=2, bronze=1), medals("cat", silver=1)],
+        "intermezzo": [medals("ann", gold=1, silver=1)],
+        "royal_league": [medals("ann", gold=1)],
+        "grand_slams": [medals("dan", gold=3)],
+    }
+    worlds = {(2024, "ann"): 1, (2025, "bob"): 2}
+
+    got = player_achievements(boards, worlds)
+
+    assert got == [
+        {"player_name": "ann", "world_titles": 1, "international_titles": 0, "intermezzo_titles": 1,
+         "royal_league_titles": 1, "gold": 3, "silver": 1, "bronze": 0,
+         "accolades": ["2024 World Champion", "1x Intermezzo Champion", "1x Royal League Emperor Champion"]},
+        {"player_name": "bob", "world_titles": 0, "international_titles": 2, "intermezzo_titles": 0,
+         "royal_league_titles": 0, "gold": 2, "silver": 1, "bronze": 1,
+         "accolades": ["2025 Vice-Champion", "2x International Champion"]},
+        {"player_name": "cat", "world_titles": 0, "international_titles": 0, "intermezzo_titles": 0,
+         "royal_league_titles": 0, "gold": 0, "silver": 1, "bronze": 0, "accolades": []},
+    ]  # fmt: skip
+
+
+def test_player_achievements_feature_six_accolades_at_most():
+    boards = {"international": [medals("ann", gold=1)], "intermezzo": [medals("ann", gold=1)],
+              "royal_league": [medals("ann", gold=1)]}  # fmt: skip
+    worlds = {(y, "ann"): 1 for y in (2021, 2022, 2023, 2024)}
+    got = player_achievements({**boards, "worlds": [medals("ann", gold=4)]}, worlds)
+    assert got[0]["accolades"] == [
+        "2024 World Champion", "2023 World Champion", "2022 World Champion", "2021 World Champion",
+        "1x International Champion", "1x Intermezzo Champion",
+    ]  # fmt: skip
+
+
+def record(
+    position,
+    tournament,
+    season,
+    division,
+    placement,
+    points,
+    medal,
+    details,
+    finish,
+    career=False,
+):
+    return {"position": position, "tournament": tournament, "season": season, "division": division,
+            "placement": placement, "points": points, "medal": medal, "details": details,
+            "finish_date": finish, "career": career}  # fmt: skip
+
+
+@pytest.fixture
+def records():
+    rows = [
+        match("TCL Round 31", ("ann", 80), ("dan", 60), day=date(2024, 1, 2), match_id=1),
+        match("International S30 - Grandmaster game 1", ("ann", 60), ("bob", 50), ("cat", 40),
+              day=date(2025, 8, 1), match_id=2),
+        match("International S30 - Grandmaster game 2", ("bob", 70), ("ann", 30), ("cat", 20),
+              day=date(2025, 8, 10), match_id=3),
+        match("International S30 - Master 1 game 1", ("dan", 50), ("eve", 40), ("fay", 30), ("gil", 20),
+              day=date(2025, 8, 2), match_id=4),
+        match("International S30 - Master 1 game 2", ("dan", 45), ("fay", 44), ("eve", 10), ("gil", 5),
+              day=date(2025, 8, 9), match_id=5),
+    ]  # fmt: skip
+    standings = {
+        ("international", 29, "Grandmaster"): [placed("ann", 1, 25.0), placed("bob", 2, 10.0), placed("cat", 3, 5.0)],
+        # bob won the tie on 20 points by the tiebreak; upstream's rows rank by the sheet's order instead
+        ("international", 30, "Grandmaster"): [placed("bob", 1, 20.0), placed("ann", 2, 20.0), placed("cat", 3, 10.0)],
+        ("international", 30, "Master"): [placed("dan", 1, 12.0)],
+    }  # fmt: skip
+    official = {
+        ("worlds", 2024, "Final"): [placed("ann", 1)],
+        ("worlds", 2025, "Final"): [placed("bob", 2)],
+        ("royal_league", 1, "Emperor"): [placed("cat", 1), placed("dan", 2)],
+    }
+    boards = {"international": [medals("ann", gold=1, silver=1), medals("bob", gold=1, silver=1),
+                                medals("cat", bronze=2)]}  # fmt: skip
+    honours = [
+        {
+            "series": "q_and_d",
+            "player_name": "ann",
+            "gold": 2,
+            "silver": 0,
+            "bronze": 1,
+            "points": None,
+        }
+    ]
+    dates = {
+        ("international", 30): "2025-08-14",
+        ("royal_league", 1): "2024-08-11",
+        ("worlds", 2024): "2024-12-15",
+    }
+    got = player_records(rows=rows, top_divisions=TOP, standings=standings, official=official, boards=boards,
+                         honours=honours, dates=dates)  # fmt: skip
+    by_player = {}
+    for r in got:
+        by_player.setdefault(r.pop("player_name"), []).append(r)
+    return by_player
+
+
+def test_player_records_list_a_champions_seasons_as_upstream(records):
+    assert records["ann"] == [
+        record(1, "World Championship", "2024", "Championship Final", "1 / 4", "Gold Medal & World Title", "gold",
+               "Through the Ages World Championship 2024 Winner & Reigning World Champion", "2024-12-15"),
+        record(2, "International Championship", "Career (2 seasons)", "Grandmaster / Hall of Fame",
+               "1x 1st, 1x 2nd, 0x 3rd", "45 pts", "gold", "Participated in 2 seasons, total score: 45 pts",
+               "Career / All-Time", career=True),
+        record(3, "International Championship", "Season 29", "Grandmaster", "1 / 3", "25 pts", "gold",
+               "Season 29 International Championship Standing (1 of 3)", "2026-01-01"),
+        record(4, "International Championship", "Season 30", "Grandmaster", "1 / 3", "20 pts", "gold",
+               "Season 30 International Championship Standing (1 of 3) &bull; Record: 1W - 1L (50.0% win rate)",
+               "2025-08-14"),
+        record(13, "Quick and Dirty (Q&D)", "Career Trophy Hall of Fame", "Championship",
+               "2 Gold, 0 Silver, 1 Bronze", "3 Medals", "gold",
+               "Q&D Hall of Fame Medalist: 2x Gold, 0x Silver, 1x Bronze", "Career / All-Time", career=True),
+        record(14, "TCL Round 31", "Tournament", "Main", "1 / 2", "80 pts", None,
+               "Competed in Main: 1 matches played, 1 victories (100.0% win rate)", "2024-01-02"),
+    ]  # fmt: skip
+
+
+def test_player_records_break_a_season_tie_by_the_sheets_order(records):
+    s30 = [r for r in records["bob"] if r["season"] == "Season 30"]
+    assert s30 == [
+        record(7, "International Championship", "Season 30", "Grandmaster", "2 / 3", "20 pts", "silver",
+               "Season 30 International Championship Standing (2 of 3) &bull; Record: 1W - 1L (50.0% win rate)",
+               "2025-08-14"),
+    ]  # fmt: skip
+
+
+def test_player_records_rank_other_groups_by_wins_as_upstream(records):
+    assert records["dan"] == [
+        record(12, "Royal League", "Season 1", "Emperor", "2 / 8", "Silver Medal", "silver",
+               "Royal League Emperor Division Runner-up (Season 1)", "2024-08-11"),
+        record(15, "TCL Round 31", "Tournament", "Main", "2 / 2", "60 pts", None,
+               "Competed in Main: 1 matches played, 0 victories (0.0% win rate)", "2024-01-02"),
+        record(16, "International Championship", "Season 30", "Master 1", "1 / 4", "2W - 0L (100.0%)", "gold",
+               "Competed in Master 1: 2 matches played, 2 victories (100.0% win rate)", "2025-08-14"),
+    ]  # fmt: skip
+    assert [(r["position"], r["placement"], r["medal"]) for r in records["fay"]] == [
+        (18, "2 / 4", None)
+    ]
+    assert (
+        records["cat"][-1]["details"]
+        == "Royal League Emperor Division Winner (Season 1)"
+    )
+
+
+def test_player_records_write_each_honour_series_in_upstreams_order():
+    honours = [
+        {
+            "series": "mercurial_ladder",
+            "player_name": "ann",
+            "gold": 0,
+            "silver": 0,
+            "bronze": 0,
+            "points": None,
+        },
+        {
+            "series": "sodium_ladder",
+            "player_name": "ann",
+            "gold": 5,
+            "silver": 2,
+            "bronze": 0,
+            "points": "8,5",
+        },
+        {
+            "series": "sodium_ladder",
+            "player_name": "bob",
+            "gold": 0,
+            "silver": 1,
+            "bronze": 0,
+            "points": None,
+        },
+    ]
+    got = player_records(
+        rows=[],
+        top_divisions=TOP,
+        standings={},
+        official={},
+        boards={},
+        honours=honours,
+        dates={},
+    )
+    assert [(r["player_name"], r["tournament"], r["division"], r["placement"], r["points"], r["medal"], r["details"])
+            for r in got] == [
+        ("ann", "Sodium Ladder", "Tier 1", "5 Titles, 2 Runner-ups", "8,5 income tax pts", "gold",
+         "Sodium Ladder Career Standings: 5 T1 wins, 2 2nd places"),
+        ("bob", "Sodium Ladder", "Tier 1", "0 Titles, 1 Runner-ups", "", "silver",
+         "Sodium Ladder Career Standings: 0 T1 wins, 1 2nd places"),
+        ("ann", "Mercurial Ladder", "Premium Tier 1", "0 Championships", "0 Titles", None,
+         "Mercurial Ladder Career: 0 Premium Tier 1 wins"),
+    ]  # fmt: skip
+    assert {(r["season"], r["finish_date"], r["career"]) for r in got} == {
+        ("Career Hall of Fame", "Career / All-Time", True)
+    }

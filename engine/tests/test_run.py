@@ -100,6 +100,33 @@ def test_a_run_writes_tournament_results(conn, add_match):
     assert (
         count(conn, "tournament_games", run_id) == 3
     )  # and season()'s two Royal League games
+    ann = conn.execute(
+        "SELECT details FROM tournament_records WHERE run_id = %s AND player_name = 'Ann' "
+        "AND tournament = 'International Championship' ORDER BY position",
+        (run_id,),
+    ).fetchall()
+    assert [r["details"] for r in ann] == [
+        "Participated in 1 seasons, total score: 5 pts",
+        "Season 30 International Championship Standing (1 of 3) &bull; Record: 1W - 0L (100.0% win rate)",
+    ]
+    medals = conn.execute(
+        "SELECT player_name, international_titles, gold, silver, bronze, accolades "
+        "FROM tournament_achievements WHERE run_id = %s ORDER BY player_name",
+        (run_id,),
+    ).fetchall()
+    # season()'s Royal League games give Ann a title and Bob a silver too
+    assert [tuple(r.values()) for r in medals] == [
+        (
+            "Ann",
+            1,
+            2,
+            0,
+            0,
+            ["1x International Champion", "1x Royal League Emperor Champion"],
+        ),
+        ("Bob", 0, 0, 2, 0, []),
+        ("Cat", 0, 0, 0, 1, []),
+    ]
 
 
 @pytest.mark.parametrize(
@@ -116,6 +143,11 @@ def test_a_run_writes_tournament_results(conn, add_match):
         (
             "INSERT INTO tournament_season_corrections "
             "VALUES ('intermezzo', 8, 7, 'r', 's')"
+        ),
+        "INSERT INTO tournament_finish_dates VALUES ('intermezzo', 8, '2020-08-31', 's')",
+        (
+            "INSERT INTO tournament_career_honours "
+            "VALUES ('q_and_d', 'Ann', 1, 0, 0, NULL, 's')"
         ),
     ],
 )
