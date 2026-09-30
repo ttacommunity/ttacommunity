@@ -121,36 +121,72 @@ func (e Model) Valid() bool {
 	}
 }
 
+// Defines values for Series.
+const (
+	International Series = "international"
+)
+
+// Valid indicates whether the value is a known member of the Series enum.
+func (e Series) Valid() bool {
+	switch e {
+	case International:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for TitleCode.
 const (
-	B  TitleCode = "B"
-	G  TitleCode = "G"
-	GM TitleCode = "GM"
-	M  TitleCode = "M"
-	P  TitleCode = "P"
-	S  TitleCode = "S"
-	W  TitleCode = "W"
-	WC TitleCode = "WC"
+	TitleCodeB  TitleCode = "B"
+	TitleCodeG  TitleCode = "G"
+	TitleCodeGM TitleCode = "GM"
+	TitleCodeM  TitleCode = "M"
+	TitleCodeP  TitleCode = "P"
+	TitleCodeS  TitleCode = "S"
+	TitleCodeW  TitleCode = "W"
+	TitleCodeWC TitleCode = "WC"
 )
 
 // Valid indicates whether the value is a known member of the TitleCode enum.
 func (e TitleCode) Valid() bool {
 	switch e {
-	case B:
+	case TitleCodeB:
 		return true
-	case G:
+	case TitleCodeG:
 		return true
-	case GM:
+	case TitleCodeGM:
 		return true
-	case M:
+	case TitleCodeM:
 		return true
-	case P:
+	case TitleCodeP:
 		return true
-	case S:
+	case TitleCodeS:
 		return true
-	case W:
+	case TitleCodeW:
 		return true
-	case WC:
+	case TitleCodeWC:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for TrophyRowTitle.
+const (
+	TrophyRowTitleGM TrophyRowTitle = "GM"
+	TrophyRowTitleM  TrophyRowTitle = "M"
+	TrophyRowTitleWC TrophyRowTitle = "WC"
+)
+
+// Valid indicates whether the value is a known member of the TrophyRowTitle enum.
+func (e TrophyRowTitle) Valid() bool {
+	switch e {
+	case TrophyRowTitleGM:
+		return true
+	case TrophyRowTitleM:
+		return true
+	case TrophyRowTitleWC:
 		return true
 	default:
 		return false
@@ -438,6 +474,20 @@ type FormatGames struct {
 	// Format Players per game. 0 is every format together
 	Format Format `json:"format"`
 	Games  int    `json:"games"`
+}
+
+// GameRecord defines model for GameRecord.
+type GameRecord struct {
+	Date openapi_types.Date `json:"date"`
+
+	// Name The game's winner
+	Name string `json:"name"`
+
+	// Opponents The other players, highest score first
+	Opponents     []Seat  `json:"opponents"`
+	Score         float64 `json:"score"`
+	Tournament    string  `json:"tournament"`
+	WorldChampion bool    `json:"world_champion"`
 }
 
 // Health defines model for Health.
@@ -733,11 +783,28 @@ type Run struct {
 	RunId       int64     `json:"run_id"`
 }
 
+// SeasonRecord defines model for SeasonRecord.
+type SeasonRecord struct {
+	Division   string             `json:"division"`
+	Games      int                `json:"games"`
+	LastPlayed openapi_types.Date `json:"last_played"`
+	Name       string             `json:"name"`
+
+	// Placings How often the player finished 1st, 2nd, 3rd and 4th
+	Placings      []int   `json:"placings"`
+	Points        float64 `json:"points"`
+	Season        int     `json:"season"`
+	WorldChampion bool    `json:"world_champion"`
+}
+
 // Seat defines model for Seat.
 type Seat struct {
 	Name  string  `json:"name"`
 	Score float64 `json:"score"`
 }
+
+// Series A tournament series. Only the International Championship so far
+type Series string
 
 // Title The tournament title the run derived for the player, if any
 type Title struct {
@@ -758,6 +825,42 @@ type TitlePlayers struct {
 	Code    TitleCode `json:"code"`
 	Players int       `json:"players"`
 }
+
+// TournamentSeries defines model for TournamentSeries.
+type TournamentSeries struct {
+	// Board The top division's medallists, most golds first, then silvers, bronzes and career points
+	Board []TrophyRow `json:"board"`
+
+	// GameRecords The ten highest winning scores in top-division games
+	GameRecords []GameRecord `json:"game_records"`
+
+	// Games Every game of the series in the run's matches
+	Games int   `json:"games"`
+	RunId int64 `json:"run_id"`
+
+	// SeasonRecords The ten best top-division seasons by points, then wins
+	SeasonRecords []SeasonRecord `json:"season_records"`
+
+	// Seasons The latest season's number
+	Seasons int `json:"seasons"`
+
+	// Series A tournament series. Only the International Championship so far
+	Series Series `json:"series"`
+}
+
+// TrophyRow defines model for TrophyRow.
+type TrophyRow struct {
+	Bronze int    `json:"bronze"`
+	Gold   int    `json:"gold"`
+	Name   string `json:"name"`
+	Silver int    `json:"silver"`
+
+	// Title WC for a World Champion, GM for a top-division winner, else M
+	Title TrophyRowTitle `json:"title"`
+}
+
+// TrophyRowTitle WC for a World Champion, GM for a top-division winner, else M
+type TrophyRowTitle string
 
 // VersusMatch defines model for VersusMatch.
 type VersusMatch struct {
@@ -1014,6 +1117,9 @@ type ServerInterface interface {
 	// GetPlayerVersus The latest games two players played together
 	// (GET /v1/runs/{run}/players/{name}/versus/{other})
 	GetPlayerVersus(w http.ResponseWriter, r *http.Request, run RunId, name PlayerName, other string)
+	// GetTournamentSeries A tournament series' Hall of Fame page
+	// (GET /v1/runs/{run}/tournaments/{series})
+	GetTournamentSeries(w http.ResponseWriter, r *http.Request, run RunId, series Series)
 	// GetYears The years a run's ratings cover, newest first, for the season archive
 	// (GET /v1/runs/{run}/years)
 	GetYears(w http.ResponseWriter, r *http.Request, run RunId)
@@ -1919,6 +2025,41 @@ func (siw *ServerInterfaceWrapper) GetPlayerVersus(w http.ResponseWriter, r *htt
 	handler.ServeHTTP(w, r)
 }
 
+// GetTournamentSeries operation middleware
+func (siw *ServerInterfaceWrapper) GetTournamentSeries(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "run" -------------
+	var run RunId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "run", r.PathValue("run"), &run, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "integer", Format: "int64", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "run", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "series" -------------
+	var series Series
+
+	err = runtime.BindStyledParameterWithOptions("simple", "series", r.PathValue("series"), &series, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "series", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetTournamentSeries(w, r, run, series)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // GetYears operation middleware
 func (siw *ServerInterfaceWrapper) GetYears(w http.ResponseWriter, r *http.Request) {
 
@@ -2149,6 +2290,7 @@ func HandlerWithOptions(si ServerInterface, options StdHTTPServerOptions) http.H
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/v1/runs/{run}/analysis/agreement", wrapper.GetAgreement)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/v1/runs/{run}/analysis/players", wrapper.GetComparedPlayers)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/v1/runs/{run}/analysis/activity", wrapper.GetActivity)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/v1/runs/{run}/tournaments/{series}", wrapper.GetTournamentSeries)
 
 	return m
 }
@@ -3221,6 +3363,67 @@ func (response GetPlayerVersus404JSONResponse) VisitGetPlayerVersusResponse(w ht
 	return err
 }
 
+type GetTournamentSeriesRequestObject struct {
+	Run    RunId  `json:"run"`
+	Series Series `json:"series"`
+}
+
+type GetTournamentSeriesResponseObject interface {
+	VisitGetTournamentSeriesResponse(w http.ResponseWriter) error
+}
+
+type GetTournamentSeries200ResponseHeaders struct {
+	CacheControl string
+}
+
+type GetTournamentSeries200JSONResponse struct {
+	Body    TournamentSeries
+	Headers GetTournamentSeries200ResponseHeaders
+}
+
+func (response GetTournamentSeries200JSONResponse) VisitGetTournamentSeriesResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetTournamentSeries400JSONResponse struct{ BadRequestJSONResponse }
+
+func (response GetTournamentSeries400JSONResponse) VisitGetTournamentSeriesResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetTournamentSeries404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response GetTournamentSeries404JSONResponse) VisitGetTournamentSeriesResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
 type GetYearsRequestObject struct {
 	Run RunId `json:"run"`
 }
@@ -3399,6 +3602,9 @@ type StrictServerInterface interface {
 	// GetPlayerVersus The latest games two players played together
 	// (GET /v1/runs/{run}/players/{name}/versus/{other})
 	GetPlayerVersus(ctx context.Context, request GetPlayerVersusRequestObject) (GetPlayerVersusResponseObject, error)
+	// GetTournamentSeries A tournament series' Hall of Fame page
+	// (GET /v1/runs/{run}/tournaments/{series})
+	GetTournamentSeries(ctx context.Context, request GetTournamentSeriesRequestObject) (GetTournamentSeriesResponseObject, error)
 	// GetYears The years a run's ratings cover, newest first, for the season archive
 	// (GET /v1/runs/{run}/years)
 	GetYears(ctx context.Context, request GetYearsRequestObject) (GetYearsResponseObject, error)
@@ -3920,6 +4126,33 @@ func (sh *strictHandler) GetPlayerVersus(w http.ResponseWriter, r *http.Request,
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(GetPlayerVersusResponseObject); ok {
 		if err := validResponse.VisitGetPlayerVersusResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// GetTournamentSeries operation middleware
+func (sh *strictHandler) GetTournamentSeries(w http.ResponseWriter, r *http.Request, run RunId, series Series) {
+	var request GetTournamentSeriesRequestObject
+
+	request.Run = run
+	request.Series = series
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.GetTournamentSeries(ctx, request.(GetTournamentSeriesRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetTournamentSeries")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(GetTournamentSeriesResponseObject); ok {
+		if err := validResponse.VisitGetTournamentSeriesResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {

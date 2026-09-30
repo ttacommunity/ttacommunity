@@ -613,6 +613,36 @@ paths:
           $ref: "#/components/responses/BadRequest"
         "404":
           $ref: "#/components/responses/NotFound"
+  /v1/runs/{run}/tournaments/{series}:
+    get:
+      operationId: getTournamentSeries
+      summary: A tournament series' Hall of Fame page
+      description: |
+        The series' game and season counts, its top division's trophyboard
+        (each medallist's podiums, most golds first, then silvers, bronzes
+        and career points), and the ten best top-division seasons and games
+        as upstream's page ranks them. Cached for five minutes.
+      parameters:
+        - $ref: "#/components/parameters/RunId"
+        - name: series
+          in: path
+          required: true
+          schema:
+            $ref: "#/components/schemas/Series"
+      responses:
+        "200":
+          description: The series
+          headers:
+            Cache-Control:
+              $ref: "#/components/headers/CacheControl"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TournamentSeries"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "404":
+          $ref: "#/components/responses/NotFound"
 components:
   parameters:
     Model:
@@ -1599,3 +1629,100 @@ components:
         spearman:
           type: number
           format: double
+    Series:
+      description: A tournament series. Only the International Championship so far
+      type: string
+      enum: [international]
+    TournamentSeries:
+      type: object
+      required: [run_id, series, games, seasons, board, season_records, game_records]
+      properties:
+        run_id:
+          type: integer
+          format: int64
+        series:
+          $ref: "#/components/schemas/Series"
+        games:
+          description: Every game of the series in the run's matches
+          type: integer
+        seasons:
+          description: The latest season's number
+          type: integer
+        board:
+          description: The top division's medallists, most golds first, then silvers, bronzes and career points
+          type: array
+          items:
+            $ref: "#/components/schemas/TrophyRow"
+        season_records:
+          description: The ten best top-division seasons by points, then wins
+          type: array
+          items:
+            $ref: "#/components/schemas/SeasonRecord"
+        game_records:
+          description: The ten highest winning scores in top-division games
+          type: array
+          items:
+            $ref: "#/components/schemas/GameRecord"
+    TrophyRow:
+      type: object
+      required: [name, title, gold, silver, bronze]
+      properties:
+        name:
+          type: string
+        title:
+          description: WC for a World Champion, GM for a top-division winner, else M
+          type: string
+          enum: [WC, GM, M]
+        gold:
+          type: integer
+        silver:
+          type: integer
+        bronze:
+          type: integer
+    SeasonRecord:
+      type: object
+      required: [name, world_champion, points, games, placings, season, division, last_played]
+      properties:
+        name:
+          type: string
+        world_champion:
+          type: boolean
+        points:
+          type: number
+          format: double
+        games:
+          type: integer
+        placings:
+          description: How often the player finished 1st, 2nd, 3rd and 4th
+          type: array
+          items:
+            type: integer
+        season:
+          type: integer
+        division:
+          type: string
+        last_played:
+          type: string
+          format: date
+    GameRecord:
+      type: object
+      required: [name, world_champion, score, opponents, tournament, date]
+      properties:
+        name:
+          description: The game's winner
+          type: string
+        world_champion:
+          type: boolean
+        score:
+          type: number
+          format: double
+        opponents:
+          description: The other players, highest score first
+          type: array
+          items:
+            $ref: "#/components/schemas/Seat"
+        tournament:
+          type: string
+        date:
+          type: string
+          format: date
