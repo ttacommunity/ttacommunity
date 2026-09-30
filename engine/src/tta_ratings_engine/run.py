@@ -73,6 +73,8 @@ RESULT_TABLES = [
     "standard_calibration",
     "walk_forward_calibration",
     "tournament_group_divisions",
+    "tournament_official_placements",
+    "tournament_season_corrections",
     "tournament_games",
     "tournament_standings",
     "tournament_boards",
@@ -105,8 +107,8 @@ def input_fingerprint(conn):
     """Returns an md5 of the run's input, or None with no matches.
 
     That is every match's content in load order, and with any recorded
-    tournament divisions, those too. Without them it is the matches' md5
-    alone, as before divisions were recorded.
+    tournament facts, those too. Without them it is the matches' md5 alone,
+    as before facts were recorded.
     """
     return conn.execute("""
         WITH m AS (
@@ -115,15 +117,16 @@ def input_fingerprint(conn):
                  player3, score3, player4, score4, glicko_eligible)::text,
                 E'\\n' ORDER BY match_id)) AS md5
             FROM matches
-        ), d AS (
-            SELECT md5(string_agg(
-                (series, season, division, player_name, source)::text,
-                E'\\n' ORDER BY series, season, player_name)) AS md5
-            FROM tournament_group_divisions
+        ), f AS (
+            SELECT string_agg(r, E'\\n' ORDER BY r) AS facts FROM (
+                SELECT 'd' || t::text AS r FROM tournament_group_divisions t
+                UNION ALL SELECT 'p' || t::text FROM tournament_official_placements t
+                UNION ALL SELECT 'c' || t::text FROM tournament_season_corrections t
+            ) x
         )
-        SELECT CASE WHEN d.md5 IS NULL THEN m.md5 ELSE md5(m.md5 || d.md5) END
+        SELECT CASE WHEN f.facts IS NULL THEN m.md5 ELSE md5(m.md5 || md5(f.facts)) END
                AS fingerprint
-        FROM m, d
+        FROM m, f
     """).fetchone()["fingerprint"]
 
 

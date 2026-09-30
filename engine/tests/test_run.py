@@ -88,18 +88,41 @@ def test_a_run_writes_tournament_results(conn, add_match):
 
     run_id = run(conn, "v-test", formats=[2], log=lambda _: None)
 
-    assert count(conn, "tournament_games", run_id) == 1
-    assert count(conn, "tournament_standings", run_id) == 3
-    assert count(conn, "tournament_boards", run_id) == 3
+    def international(table):
+        return conn.execute(
+            f"SELECT count(*) AS n FROM {table} WHERE run_id = %s AND series = 'international'",
+            (run_id,),
+        ).fetchone()["n"]
+
+    assert international("tournament_games") == 1
+    assert international("tournament_standings") == 3
+    assert international("tournament_boards") == 3
+    assert (
+        count(conn, "tournament_games", run_id) == 3
+    )  # and season()'s two Royal League games
 
 
-def test_a_recorded_division_changes_the_input_fingerprint(conn, add_match):
+@pytest.mark.parametrize(
+    "fact",
+    [
+        (
+            "INSERT INTO tournament_group_divisions "
+            "VALUES ('international', 3, 'Grandmaster', 'Ann', 'sheet')"
+        ),
+        (
+            "INSERT INTO tournament_official_placements "
+            "VALUES ('royal_league', 1, 'Emperor', 'Ann', 1, NULL, 'r', 's')"
+        ),
+        (
+            "INSERT INTO tournament_season_corrections "
+            "VALUES ('intermezzo', 8, 7, 'r', 's')"
+        ),
+    ],
+)
+def test_a_recorded_fact_changes_the_input_fingerprint(conn, add_match, fact):
     season(add_match)
     first = run(conn, "v1", formats=[2], log=lambda _: None)
-    conn.execute(
-        "INSERT INTO tournament_group_divisions "
-        "VALUES ('international', 3, 'Grandmaster', 'Ann', 'sheet')"
-    )
+    conn.execute(fact)
     conn.commit()
     second = run(conn, "v1", formats=[2], log=lambda _: None)
 

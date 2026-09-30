@@ -41,7 +41,8 @@ CREATE TABLE tournament_season_corrections (
 -- Each tournament game's series, season (corrected), the season its name
 -- gives, division and group. The division is null where neither the name nor
 -- a recorded fact says; division_source says which gave it. A tiebreak game
--- decides a tie and is not part of its group's standings.
+-- decides a tie and is not part of its group's standings. in_records marks
+-- the games a series page's top-division records are drawn from.
 CREATE TABLE tournament_games (
     run_id bigint NOT NULL REFERENCES rating_runs ON DELETE CASCADE,
     match_id bigint NOT NULL REFERENCES matches,
@@ -52,6 +53,7 @@ CREATE TABLE tournament_games (
     group_label text,
     division_source text CHECK (division_source IN ('name', 'recorded')),
     tiebreak boolean NOT NULL DEFAULT false,
+    in_records boolean NOT NULL DEFAULT false,
     PRIMARY KEY (run_id, match_id),
     CHECK ((division IS NULL) = (division_source IS NULL))
 );
