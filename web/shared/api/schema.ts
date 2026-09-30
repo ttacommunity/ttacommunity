@@ -244,6 +244,31 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/runs/{run}/players/{name}/achievements": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * One player's tournament achievements, for their achievements page
+         * @description The player's titles and medals across the four major circuits
+         *     (World Championship, International, Intermezzo, Royal League) and
+         *     the accolades their page features, and every tournament record the
+         *     original site lists for them: seasons, campaigns and career totals,
+         *     latest finish first. Records are matched to the name ignoring case,
+         *     as the original site does. Cached for five minutes.
+         */
+        get: operations["getPlayerAchievements"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/runs/{run}/players/{name}/versus/{other}": {
         parameters: {
             query?: never;
@@ -1018,6 +1043,39 @@ export interface components {
             /** Format: double */
             spearman: number;
         };
+        PlayerAchievements: {
+            /** Format: int64 */
+            run_id: number;
+            name: string;
+            summary: components["schemas"]["AchievementSummary"];
+            /** @description Latest finish first; a career total's finish_date is a label, not a date */
+            records: components["schemas"]["TournamentRecord"][];
+        };
+        /** @description Null for a player with no medal in the four major circuits */
+        AchievementSummary: {
+            world_titles: number;
+            international_titles: number;
+            intermezzo_titles: number;
+            royal_league_titles: number;
+            gold: number;
+            silver: number;
+            bronze: number;
+            /** @description At most six, in the order the page features them */
+            accolades: string[];
+        } | null;
+        TournamentRecord: {
+            tournament: string;
+            season: string;
+            division: string;
+            placement: string;
+            points: string;
+            /** @enum {string|null} */
+            medal: "gold" | "silver" | "bronze" | null;
+            details: string;
+            finish_date: string;
+            /** @description A career total, not one season or tournament */
+            career: boolean;
+        };
         /**
          * @description A tournament series
          * @enum {string}
@@ -1502,6 +1560,34 @@ export interface operations {
             404: components["responses"]["NotFound"];
         };
     };
+    getPlayerAchievements: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A published run's id, from `/v1/runs/current` */
+                run: components["parameters"]["RunId"];
+                /** @description The player's name, as the leaderboard gives it */
+                name: components["parameters"]["PlayerName"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The player's achievements */
+            200: {
+                headers: {
+                    "Cache-Control": components["headers"]["CacheControl"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PlayerAchievements"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            404: components["responses"]["NotFound"];
+        };
+    };
     getPlayerVersus: {
         parameters: {
             query?: never;
@@ -1827,5 +1913,6 @@ export const modelValues: ReadonlyArray<FlattenedDeepRequired<components>["schem
 export const formatValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["Format"]> = [0, 2, 3, 4];
 export const titleCodeValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["TitleCode"]> = ["WC", "GM", "M", "P", "G", "S", "B", "W"];
 export const calibrationRowModeValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["CalibrationRow"]["mode"]> = ["standard", "walk_forward"];
+export const tournamentRecordMedalValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["TournamentRecord"]["medal"]> = ["gold", "silver", "bronze"];
 export const seriesValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["Series"]> = ["international", "intermezzo", "royal_league", "worlds", "grand_slams", "ladders"];
 export const trophyRowTitleValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["TrophyRow"]["title"]> = ["WC", "GM", "M"];

@@ -69,8 +69,9 @@ grouped by tournament (Royal League, Worlds, Mercurial…, by name prefix), each
 group by date, and the groups by their first date. With it, the ratings
 match the original site's engine on the same games.
 
-**Tournament results** (standings, podiums, Hall of Fame) are derived by the
-engine from matches and the tournament rules. Organisers record what matches
+**Tournament results** (standings, podiums, Hall of Fame, each player's
+achievements) are derived by the engine from matches and the tournament
+rules. Organisers record what matches
 cannot show, such as seeding and official rulings, in the admin site, scoped
 to the series they run.
 

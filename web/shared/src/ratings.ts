@@ -43,6 +43,9 @@ export type GameRecord = components['schemas']['GameRecord'];
 export type HallOfFame = components['schemas']['HallOfFame'];
 export type SeriesCount = components['schemas']['SeriesCount'];
 export type Legend = components['schemas']['Legend'];
+export type PlayerAchievements = components['schemas']['PlayerAchievements'];
+export type AchievementSummary = NonNullable<components['schemas']['AchievementSummary']>;
+export type TournamentRecord = components['schemas']['TournamentRecord'];
 
 /** An error response from the API, carrying its status and message. */
 export class RatingsApiError extends Error {
@@ -234,4 +237,14 @@ async function get<T>(fetchFn: typeof fetch, base: string, path: string): Promis
     throw new RatingsApiError(res.status, message);
   }
   return (await res.json()) as T;
+}
+
+/** Returns a player's tournament medal summary and every record their achievements page lists. */
+export async function playerAchievements(
+  base: string,
+  run: number,
+  name: string,
+  fetchFn: typeof fetch = fetch,
+): Promise<PlayerAchievements> {
+  return get<PlayerAchievements>(fetchFn, base, playerPath(run, name, '/achievements'));
 }
