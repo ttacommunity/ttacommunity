@@ -51,7 +51,8 @@ type TournamentSeries struct {
 const recordsShown = 10
 
 // TournamentSeries returns a published run's results for a series: its game
-// and season counts, the top division's board by medals then career points,
+// and season counts, the top division's board by medals, career points, then
+// the season of the first medal,
 // and the ten best top-division seasons (points, then wins, then first seen)
 // and games named as the top division (winner's score, then load order).
 func (r *RatingsReader) TournamentSeries(ctx context.Context, run int64, series string) (TournamentSeries, error) {
@@ -73,7 +74,7 @@ func (r *RatingsReader) TournamentSeries(ctx context.Context, run int64, series 
 	rows, err := r.pool.Query(ctx, `
 		SELECT player_name, title, gold, silver, bronze FROM tournament_boards
 		WHERE run_id = $1 AND series = $2
-		ORDER BY gold DESC, silver DESC, bronze DESC, points DESC, player_name`, run, series)
+		ORDER BY gold DESC, silver DESC, bronze DESC, points DESC, first_season, player_name`, run, series)
 	if err != nil {
 		return fail("board", err)
 	}

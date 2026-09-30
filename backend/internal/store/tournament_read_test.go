@@ -16,8 +16,8 @@ import (
 func classifyGame(t *testing.T, pool *pgxpool.Pool, run, match int64, season int, division, source *string) {
 	t.Helper()
 	_, err := pool.Exec(context.Background(), `
-		INSERT INTO tournament_games (run_id, match_id, series, season, division, group_label, division_source)
-		VALUES ($1, $2, 'international', $3, $4, $4, $5)`, run, match, season, division, source)
+		INSERT INTO tournament_games (run_id, match_id, series, season, name_season, division, group_label, division_source)
+		VALUES ($1, $2, 'international', $3, $3, $4, $4, $5)`, run, match, season, division, source)
 	if err != nil {
 		t.Fatalf("classifying game %d: %v", match, err)
 	}
@@ -49,7 +49,7 @@ func TestTournamentSeriesCountsGamesAndSeasons(t *testing.T) {
 	}
 }
 
-func TestTournamentSeriesOrdersTheBoardByMedalsThenPoints(t *testing.T) {
+func TestTournamentSeriesOrdersTheBoardByMedalsPointsThenFirstMedal(t *testing.T) {
 	pool := migrated(t)
 	ctx := context.Background()
 	run := publishedRun(t, pool)
@@ -58,11 +58,13 @@ func TestTournamentSeriesOrdersTheBoardByMedalsThenPoints(t *testing.T) {
 		gold, silver, bronze int
 		points               float64
 		title                string
+		first                int
 	}{
-		{"cat", 1, 0, 0, 40, "GM"}, {"ann", 2, 0, 0, 10, "WC"}, {"bob", 1, 0, 0, 50, "GM"}, {"dan", 0, 3, 1, 90, "M"},
+		{"cat", 1, 0, 0, 40, "GM", 1}, {"ann", 2, 0, 0, 10, "WC", 1}, {"bob", 1, 0, 0, 50, "GM", 1},
+		{"dan", 0, 3, 1, 90, "M", 5}, {"eve", 0, 3, 1, 90, "M", 2},
 	} {
-		_, err := pool.Exec(ctx, "INSERT INTO tournament_boards VALUES ($1, 'international', $2, $3, $4, $5, $6, $7)",
-			run, b.name, b.gold, b.silver, b.bronze, b.points, b.title)
+		_, err := pool.Exec(ctx, "INSERT INTO tournament_boards VALUES ($1, 'international', $2, $3, $4, $5, $6, $7, $8)",
+			run, b.name, b.gold, b.silver, b.bronze, b.points, b.title, b.first)
 		if err != nil {
 			t.Fatalf("adding %s to the board: %v", b.name, err)
 		}
@@ -74,7 +76,7 @@ func TestTournamentSeriesOrdersTheBoardByMedalsThenPoints(t *testing.T) {
 	}
 	want := []TrophyRow{
 		{Name: "ann", Title: "WC", Gold: 2}, {Name: "bob", Title: "GM", Gold: 1}, {Name: "cat", Title: "GM", Gold: 1},
-		{Name: "dan", Title: "M", Silver: 3, Bronze: 1},
+		{Name: "eve", Title: "M", Silver: 3, Bronze: 1}, {Name: "dan", Title: "M", Silver: 3, Bronze: 1},
 	}
 	if !slices.Equal(got.Board, want) {
 		t.Errorf("board = %v, want %v", got.Board, want)

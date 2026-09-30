@@ -1,6 +1,6 @@
 // Command load seeds the ratings database from a directory of match CSVs,
 // sets players' countries from CSVs with Player and Code columns, or
-// replaces the recorded tournament divisions from one CSV.
+// replaces one kind of recorded tournament fact from one CSV.
 // It checks every row first, and writes no matches if the database has some.
 package main
 
@@ -19,35 +19,35 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"ttacommunity/backend/internal/countrycsv"
-	"ttacommunity/backend/internal/divisioncsv"
 	"ttacommunity/backend/internal/matchcsv"
 	"ttacommunity/backend/internal/store"
+	"ttacommunity/backend/internal/tournamentcsv"
 )
 
 func main() {
 	reset := flag.Bool("reset", false, "delete every match, refusal and rating run first")
 	migrate := flag.Bool("migrate", false, "only apply the ratings migrations, and load nothing")
 	countries := flag.Bool("countries", false, "set players' countries from the CSV files named, a later file winning")
-	divisions := flag.Bool("divisions", false, "replace the recorded tournament divisions with the CSV file named")
+	facts := flag.String("facts", "", "replace every recorded tournament fact of one kind (divisions, placements or corrections) with the CSV file named")
 	flag.Usage = func() {
 		fmt.Fprintln(os.Stderr, "usage: load [-reset] <directory of match CSVs>")
 		fmt.Fprintln(os.Stderr, "       load -migrate")
 		fmt.Fprintln(os.Stderr, "       load -countries <CSV file>...")
-		fmt.Fprintln(os.Stderr, "       load -divisions <CSV file>")
+		fmt.Fprintln(os.Stderr, "       load -facts divisions|placements|corrections <CSV file>")
 		fmt.Fprintln(os.Stderr, "The database is RATINGS_DATABASE_URL.")
 		flag.PrintDefaults()
 	}
 	flag.Parse()
-	one := !*reset && btoi(*migrate)+btoi(*countries)+btoi(*divisions) == 1
+	one := !*reset && btoi(*migrate)+btoi(*countries)+btoi(*facts != "") == 1
 	var err error
 	switch {
 	case *migrate && one && flag.NArg() == 0:
 		err = migrateOnly()
 	case *countries && one && flag.NArg() > 0:
 		err = setCountries(flag.Args())
-	case *divisions && one && flag.NArg() == 1:
-		err = replaceDivisions(flag.Arg(0))
-	case !*migrate && !*countries && !*divisions && flag.NArg() == 1:
+	case *facts != "" && one && flag.NArg() == 1:
+		err = replaceFacts(*facts, flag.Arg(0))
+	case !*migrate && !*countries && *facts == "" && flag.NArg() == 1:
 		err = run(*reset, flag.Arg(0))
 	default:
 		flag.Usage()
@@ -116,9 +116,25 @@ func btoi(b bool) int {
 	return 0
 }
 
-// replaceDivisions reads the file first, then replaces every recorded
-// division in one transaction, after applying any pending migration.
-func replaceDivisions(file string) error {
+// replaceFacts reads the file first, then replaces every recorded fact of
+// one kind in one transaction, after applying any pending migration.
+func replaceFacts(kind, file string) error {
+	switch kind {
+	case "divisions":
+		return loadFacts(kind, file, tournamentcsv.ReadDivisions, store.ReplaceDivisions)
+	case "placements":
+		return loadFacts(kind, file, tournamentcsv.ReadPlacements, store.ReplacePlacements)
+	case "corrections":
+		return loadFacts(kind, file, tournamentcsv.ReadCorrections, store.ReplaceCorrections)
+	}
+	return fmt.Errorf("unknown kind of fact %q: want divisions, placements or corrections", kind)
+}
+
+func loadFacts[T any](
+	kind, file string,
+	read func(string, io.Reader) (tournamentcsv.Result[T], error),
+	replace func(context.Context, *pgxpool.Pool, []T) (store.FactsReplaced, error),
+) error {
 	dbURL := os.Getenv("RATINGS_DATABASE_URL")
 	if dbURL == "" {
 		return fmt.Errorf("RATINGS_DATABASE_URL is not set")
@@ -127,7 +143,7 @@ func replaceDivisions(file string) error {
 	if err != nil {
 		return fmt.Errorf("opening %s: %w", file, err)
 	}
-	res, err := divisioncsv.Read(file, f)
+	res, err := read(file, f)
 	f.Close()
 	if err != nil {
 		return err
@@ -143,23 +159,23 @@ func replaceDivisions(file string) error {
 	if err := store.MigrateRatings(ctx, pool); err != nil {
 		return err
 	}
-	replaced, err := store.ReplaceDivisions(ctx, pool, res.Divisions)
+	replaced, err := replace(ctx, pool, res.Facts)
 	if err != nil {
 		return err
 	}
-	reportDivisions(os.Stdout, file, res, replaced)
+	reportFacts(os.Stdout, kind, file, res.Rows, res.Refused, replaced)
 	return nil
 }
 
-// reportDivisions writes what was read and written. It names the file,
-// lines and reasons, never a player.
-func reportDivisions(w io.Writer, file string, res divisioncsv.Result, replaced store.DivisionsReplaced) {
+// reportFacts writes what was read and written. It names the file, lines
+// and reasons, never a player.
+func reportFacts(w io.Writer, kind, file string, rows int, refused []tournamentcsv.Refusal, replaced store.FactsReplaced) {
 	fmt.Fprintf(w, "file: %s\n", file)
-	fmt.Fprintf(w, "rows read: %d\n", res.Rows)
-	fmt.Fprintf(w, "divisions written: %d\n", replaced.Written)
+	fmt.Fprintf(w, "rows read: %d\n", rows)
+	fmt.Fprintf(w, "%s written: %d\n", kind, replaced.Written)
 	fmt.Fprintf(w, "not a player: %d\n", replaced.Unknown)
-	fmt.Fprintf(w, "refused: %d\n", len(res.Refused))
-	for _, r := range res.Refused {
+	fmt.Fprintf(w, "refused: %d\n", len(refused))
+	for _, r := range refused {
 		fmt.Fprintf(w, "  %s:%d %s\n", r.File, r.Line, r.Reason)
 	}
 }

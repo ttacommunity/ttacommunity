@@ -4,52 +4,97 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	"ttacommunity/backend/internal/divisioncsv"
+	"ttacommunity/backend/internal/tournamentcsv"
 )
 
-// DivisionsReplaced counts what ReplaceDivisions did: rows written, and rows
-// naming someone who is not a player.
-type DivisionsReplaced struct {
+// FactsReplaced counts what a replace did: rows written, and rows naming
+// someone who is not a player.
+type FactsReplaced struct {
 	Written int
 	Unknown int
 }
 
-// ReplaceDivisions replaces every recorded tournament division with divs, in
-// one transaction. A row naming someone who is not a player is counted, not
-// written.
-func ReplaceDivisions(ctx context.Context, pool *pgxpool.Pool, divs []divisioncsv.Division) (DivisionsReplaced, error) {
-	series := make([]string, len(divs))
-	seasons := make([]int32, len(divs))
-	names := make([]string, len(divs))
-	players := make([]string, len(divs))
-	sources := make([]string, len(divs))
-	for i, d := range divs {
-		series[i], seasons[i], names[i], players[i], sources[i] = d.Series, int32(d.Season), d.Division, d.Player, d.Source
-	}
-
+// replaceAll empties table and runs insert with args in one transaction,
+// returning how many rows the insert wrote.
+func replaceAll(ctx context.Context, pool *pgxpool.Pool, table, insert string, args ...any) (int, error) {
 	tx, err := pool.Begin(ctx)
 	if err != nil {
-		return DivisionsReplaced{}, fmt.Errorf("starting the divisions load: %w", err)
+		return 0, fmt.Errorf("starting the %s load: %w", table, err)
 	}
 	defer tx.Rollback(ctx)
-	if _, err := tx.Exec(ctx, "DELETE FROM tournament_group_divisions"); err != nil {
-		return DivisionsReplaced{}, fmt.Errorf("clearing recorded divisions: %w", err)
+	if _, err := tx.Exec(ctx, "DELETE FROM "+pgx.Identifier{table}.Sanitize()); err != nil {
+		return 0, fmt.Errorf("clearing %s: %w", table, err)
 	}
-	tag, err := tx.Exec(ctx, `
+	tag, err := tx.Exec(ctx, insert, args...)
+	if err != nil {
+		return 0, fmt.Errorf("writing %s: %w", table, err)
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return 0, fmt.Errorf("committing %s: %w", table, err)
+	}
+	return int(tag.RowsAffected()), nil
+}
+
+// ReplaceDivisions replaces every recorded tournament division, in one
+// transaction. A row naming someone who is not a player is counted, not written.
+func ReplaceDivisions(ctx context.Context, pool *pgxpool.Pool, divs []tournamentcsv.Division) (FactsReplaced, error) {
+	var series, names, players, sources []string
+	var seasons []int32
+	for _, d := range divs {
+		series, seasons, names = append(series, d.Series), append(seasons, int32(d.Season)), append(names, d.Division)
+		players, sources = append(players, d.Player), append(sources, d.Source)
+	}
+	n, err := replaceAll(ctx, pool, "tournament_group_divisions", `
 		INSERT INTO tournament_group_divisions (series, season, division, player_name, source)
 		SELECT d.series, d.season, d.division, p.name, d.source
 		FROM unnest($1::text[], $2::int[], $3::text[], $4::text[], $5::text[])
 		     AS d(series, season, division, player, source)
 		JOIN players p ON p.name = d.player`,
 		series, seasons, names, players, sources)
-	if err != nil {
-		return DivisionsReplaced{}, fmt.Errorf("writing recorded divisions: %w", err)
+	return FactsReplaced{Written: n, Unknown: len(divs) - n}, err
+}
+
+// ReplacePlacements replaces every official placement, in one transaction. A
+// row naming someone who is not a player is counted, not written.
+func ReplacePlacements(ctx context.Context, pool *pgxpool.Pool, places []tournamentcsv.Placement) (FactsReplaced, error) {
+	var series, divisions, players, reasons, sources []string
+	var seasons, placeNos []int32
+	var points []*float64
+	for _, p := range places {
+		series, seasons, divisions = append(series, p.Series), append(seasons, int32(p.Season)), append(divisions, p.Division)
+		players, placeNos, points = append(players, p.Player), append(placeNos, int32(p.Place)), append(points, p.Points)
+		reasons, sources = append(reasons, p.Reason), append(sources, p.Source)
 	}
-	if err := tx.Commit(ctx); err != nil {
-		return DivisionsReplaced{}, fmt.Errorf("committing recorded divisions: %w", err)
+	n, err := replaceAll(ctx, pool, "tournament_official_placements", `
+		INSERT INTO tournament_official_placements (series, season, division, player_name, place, points, reason, source)
+		SELECT o.series, o.season, o.division, p.name, o.place, o.points, o.reason, o.source
+		FROM unnest($1::text[], $2::int[], $3::text[], $4::text[], $5::int[], $6::float8[], $7::text[], $8::text[])
+		     AS o(series, season, division, player, place, points, reason, source)
+		JOIN players p ON p.name = o.player`,
+		series, seasons, divisions, players, placeNos, points, reasons, sources)
+	return FactsReplaced{Written: n, Unknown: len(places) - n}, err
+}
+
+// ReplaceCorrections replaces every season correction, in one transaction.
+func ReplaceCorrections(ctx context.Context, pool *pgxpool.Pool, fixes []tournamentcsv.Correction) (FactsReplaced, error) {
+	var series, reasons, sources []string
+	var named []int32
+	var seasons []*int32
+	for _, c := range fixes {
+		var season *int32
+		if c.Season != nil {
+			s := int32(*c.Season)
+			season = &s
+		}
+		series, named, seasons = append(series, c.Series), append(named, int32(c.NameSeason)), append(seasons, season)
+		reasons, sources = append(reasons, c.Reason), append(sources, c.Source)
 	}
-	written := int(tag.RowsAffected())
-	return DivisionsReplaced{Written: written, Unknown: len(divs) - written}, nil
+	n, err := replaceAll(ctx, pool, "tournament_season_corrections", `
+		INSERT INTO tournament_season_corrections (series, name_season, season, reason, source)
+		SELECT * FROM unnest($1::text[], $2::int[], $3::int[], $4::text[], $5::text[])`,
+		series, named, seasons, reasons, sources)
+	return FactsReplaced{Written: n}, err
 }

@@ -150,17 +150,23 @@ go run ./cmd/load -countries ~/tta-data/ratings_overall.csv ~/tta-data/country-o
 ```
 
 What match names cannot say about a tournament is a recorded fact, kept
-with the data outside the repo. The first is which division a player played
-in a season whose match names give none: a CSV with the header
-`series,season,division,player,source`, where `series` is `international`,
-`intermezzo` or `royal_league` and `source` says where the row comes from.
-Loading one replaces every recorded division, in one transaction; names that
-are not players are counted and skipped, and bad rows are refused with their
-line and reason. The next rating run uses them:
+with the data outside the repo, one CSV per kind. `series` is
+`international`, `intermezzo` or `royal_league`, and `source` says where the
+row comes from:
+
+| Kind | Header | What it records |
+|---|---|---|
+| `divisions` | `series,season,division,player,source` | The division a player played in a season whose match names give none |
+| `placements` | `series,season,division,player,place,points,reason,source` | A place the organisers recorded, applied over the derived one: a season with no games, or a ruling. `points` may be empty |
+| `corrections` | `series,name_season,season,reason,source` | The real season of games whose name gives the wrong one; an empty `season` leaves them out of tournament results (never out of the ratings) |
+
+Loading a file replaces every fact of its kind, in one transaction; names
+that are not players are counted and skipped, and bad rows are refused with
+their line and reason. The next rating run uses them:
 
 ```bash
 cd backend && set -a && . ../.env && set +a
-go run ./cmd/load -divisions ~/tta-data/tournaments/group_divisions.csv
+go run ./cmd/load -facts divisions ~/tta-data/tournaments/group_divisions.csv
 ```
 
 The API reads ratings as `ratings_api`, a login that can only `SELECT`.

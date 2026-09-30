@@ -5,9 +5,9 @@ import (
 	"testing"
 
 	"ttacommunity/backend/internal/countrycsv"
-	"ttacommunity/backend/internal/divisioncsv"
 	"ttacommunity/backend/internal/matchcsv"
 	"ttacommunity/backend/internal/store"
+	"ttacommunity/backend/internal/tournamentcsv"
 )
 
 func TestReportCountsByReasonAndNamesNoPlayer(t *testing.T) {
@@ -42,25 +42,21 @@ func TestReportCountsByReasonAndNamesNoPlayer(t *testing.T) {
 	}
 }
 
-func TestReportDivisionsCountsAndNamesNoPlayer(t *testing.T) {
-	res := divisioncsv.Result{
-		Rows:      5,
-		Divisions: []divisioncsv.Division{{Series: "international", Season: 3, Division: "Grandmaster", Player: "secretname", Source: "s"}},
-		Refused: []divisioncsv.Refusal{
-			{File: "d.csv", Line: 3, Reason: divisioncsv.BadSeason},
-			{File: "d.csv", Line: 5, Reason: divisioncsv.Duplicate},
-		},
+func TestReportFactsCountsAndNamesNoPlayer(t *testing.T) {
+	refused := []tournamentcsv.Refusal{
+		{File: "d.csv", Line: 3, Reason: tournamentcsv.BadSeason},
+		{File: "d.csv", Line: 5, Reason: tournamentcsv.Duplicate},
 	}
-	replaced := store.DivisionsReplaced{Written: 2, Unknown: 1}
+	replaced := store.FactsReplaced{Written: 2, Unknown: 1}
 
 	var b strings.Builder
-	reportDivisions(&b, "d.csv", res, replaced)
+	reportFacts(&b, "placements", "d.csv", 5, refused, replaced)
 	got := b.String()
 
 	for _, want := range []string{
 		"file: d.csv",
 		"rows read: 5",
-		"divisions written: 2",
+		"placements written: 2",
 		"not a player: 1",
 		"refused: 2",
 		"  d.csv:3 bad_season\n  d.csv:5 duplicate\n",
