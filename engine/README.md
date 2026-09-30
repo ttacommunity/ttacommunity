@@ -71,6 +71,11 @@ time: if the estimates drift, update `STEP_COST` from those lines.
   `--make-current` to publish it when it completes
 - `--formats 2` rates only 2-player games, which is much quicker for trying
   a change
+- `--tournaments-only` copies the current run's ratings and calibration and
+  recomputes only tournament results and titles: 2m28s against ~22 min, for trying
+  a tournament change. It refuses if the matches changed since that run
+  (its pairs must be identical), and the run records which run it copied
+  (`copied_from`)
 - It refuses to start with `ENGINE_VERSION` unset, or with no matches loaded
 
 ## Running the tests

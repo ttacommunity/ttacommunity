@@ -88,8 +88,30 @@ RESULT_TABLES = [
 ]
 
 
+# A tournaments-only run copies these from the current run, and recomputes the rest.
+COPIED_TABLES = [
+    "player_ratings",
+    "rating_history",
+    "standard_calibration",
+    "walk_forward_calibration",
+]
+RECOMPUTED_TABLES = [
+    "pairwise_matches", "player_titles", "player_peak_titles", "player_yearly_titles",
+    "tournament_games", "tournament_standings", "tournament_boards", "tournament_season_records",
+    "tournament_series", "tournament_legends", "tournament_achievements", "tournament_records",
+]  # fmt: skip
+
+
 class NoMatches(Exception):
     """Raised when there are no matches to rate."""
+
+
+class NoCurrentRun(Exception):
+    """Raised when a tournaments-only run has no current run to copy."""
+
+
+class MatchesChanged(Exception):
+    """Raised when the matches changed since the run a tournaments-only run would copy."""
 
 
 class SchemaOutOfDate(Exception):
@@ -155,28 +177,47 @@ def _label(fmt):
     return f"{fmt}p" if fmt else "all"
 
 
-def run(conn, engine_version, *, formats=FORMATS, log=print, make_current=False):
-    """Computes a whole run and returns its run_id.
+def run(
+    conn, engine_version, *, formats=FORMATS, log=print, make_current=False, tournaments_only=False
+):  # fmt: skip
+    """Computes a run and returns its run_id.
 
-    Raises SchemaOutOfDate or NoMatches before creating a run, or whatever
-    failed the run.
+    With tournaments_only, it copies the current run's ratings and
+    calibration and recomputes only tournament results and titles, for
+    trying a change to those quickly. Raises SchemaOutOfDate, NoMatches or
+    NoCurrentRun before creating a run, or whatever failed the run
+    (MatchesChanged if the matches differ from the copied run's).
     """
     with conn.transaction():
         check_schema(conn)
         fingerprint = input_fingerprint(conn)
         if fingerprint is None:
             raise NoMatches("no matches are loaded: nothing to rate")
+        source = None
+        if tournaments_only:
+            row = conn.execute("SELECT run_id FROM current_run").fetchone()
+            if row is None:
+                raise NoCurrentRun("no current run to copy the ratings from")
+            source = row["run_id"]
         run_id = conn.execute(
-            "INSERT INTO rating_runs (engine_version, input_fingerprint) "
-            "VALUES (%s, %s) RETURNING run_id",
-            (engine_version, fingerprint),
+            "INSERT INTO rating_runs (engine_version, input_fingerprint, copied_from) "
+            "VALUES (%s, %s, %s) RETURNING run_id",
+            (engine_version, fingerprint, source),
         ).fetchone()["run_id"]
-    log(
-        f"run {run_id}: engine {engine_version}, input {fingerprint}, formats {formats}"
-    )
+    if source is None:
+        log(
+            f"run {run_id}: engine {engine_version}, input {fingerprint}, formats {formats}"
+        )
+    else:
+        log(
+            f"run {run_id}: engine {engine_version}, input {fingerprint}, tournaments only, ratings copied from run {source}"
+        )
 
     try:
-        _compute(conn, run_id, formats, log)
+        if source is None:
+            _compute(conn, run_id, formats, log)
+        else:
+            _recompute_tournaments(conn, run_id, source, log)
     except BaseException:
         conn.rollback()
         with conn.transaction():
@@ -261,6 +302,60 @@ def _compute(conn, run_id, formats, log):
     progress.summary()
 
 
+def _columns(conn, table, leave_out=("run_id",)):
+    return [
+        r["column_name"]
+        for r in conn.execute(
+            "SELECT column_name FROM information_schema.columns "
+            "WHERE table_schema = 'public' AND table_name = %s ORDER BY ordinal_position",
+            (table,),
+        ).fetchall()
+        if r["column_name"] not in leave_out
+    ]
+
+
+def _pairs_md5(conn, run_id, columns):
+    cols = ", ".join(columns)
+    return conn.execute(
+        f"SELECT md5(string_agg(row({cols})::text, E'\\n' ORDER BY pairwise_id)) AS md5 "
+        "FROM pairwise_matches WHERE run_id = %s",
+        (run_id,),
+    ).fetchone()["md5"]
+
+
+def _recompute_tournaments(conn, run_id, source, log):
+    """Copies the source run's ratings and calibration into the run, then
+    derives its tournament results and titles. The run's pairs must equal the
+    source's, or the copied ratings would not be the matches' ratings.
+    """
+    progress = Progress(4, log=log)
+    progress.working_on("pairs")
+    expand_pairwise(conn, run_id)
+    pair_columns = _columns(conn, "pairwise_matches", ("run_id", "pairwise_id"))
+    if _pairs_md5(conn, run_id, pair_columns) != _pairs_md5(conn, source, pair_columns):
+        raise MatchesChanged(f"the matches changed since run {source}: make a full run")
+    progress.advance("pairs", 1, "pairs")
+
+    progress.working_on("copy")
+    with conn.transaction():
+        for table in COPIED_TABLES:
+            cols = ", ".join(_columns(conn, table))
+            conn.execute(
+                f"INSERT INTO {table} (run_id, {cols}) SELECT %s, {cols} FROM {table} WHERE run_id = %s",
+                (run_id, source),
+            )
+    progress.advance("copy", 1, "copy")
+
+    on_run = {"conn": conn, "run_id": run_id}
+    progress.working_on("tournaments")
+    derive_tournaments(**on_run)
+    progress.advance("tournaments", 1, "tournaments")
+    progress.working_on("titles")
+    derive_tournament_badges(**on_run)
+    progress.advance("titles", 1, "titles")
+    progress.summary()
+
+
 def _finish(conn, run_id, status):
     conn.execute(
         "UPDATE rating_runs SET status = %s, finished_at = now() WHERE run_id = %s",
@@ -290,6 +385,10 @@ def main(argv=None):
         "--make-current", action="store_true",
         help="publish the run when it completes",
     )  # fmt: skip
+    parser.add_argument(
+        "--tournaments-only", action="store_true",
+        help="copy the current run's ratings and recompute only tournament results and titles",
+    )  # fmt: skip
     args = parser.parse_args(argv)
     version = os.environ.get("ENGINE_VERSION")
     if not version:
@@ -303,6 +402,7 @@ def main(argv=None):
             formats=args.formats,
             log=functools.partial(print, flush=True),
             make_current=args.make_current,
+            tournaments_only=args.tournaments_only,
         )
 
 
