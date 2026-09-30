@@ -11,6 +11,7 @@ import os
 from tta_ratings_engine.data.badges import derive_tournament_badges
 from tta_ratings_engine.data.db import connect
 from tta_ratings_engine.data.pairwise import expand_pairwise
+from tta_ratings_engine.data.tournaments import derive_tournaments
 from tta_ratings_engine.models.evaluation.standard_eval import (
     run_standard_calibration_all,
 )
@@ -29,6 +30,7 @@ WALK_FORWARD_START = "2022-01"
 # Retune from the phase summary a run logs at the end.
 STEP_COST = {
     ("pairs", None): 18.2,
+    ("tournaments", None): 2.5,
     ("titles", None): 0.1,
     ("models", 0): 9.3, ("models", 2): 2.0, ("models", 3): 5.6, ("models", 4): 4.0,
     ("calibration", 0): 8.1, ("calibration", 2): 1.2, ("calibration", 3): 3.9, ("calibration", 4): 2.9,
@@ -70,6 +72,13 @@ RESULT_TABLES = [
     "player_titles",
     "standard_calibration",
     "walk_forward_calibration",
+    "tournament_group_divisions",
+    "tournament_official_placements",
+    "tournament_season_corrections",
+    "tournament_games",
+    "tournament_standings",
+    "tournament_boards",
+    "tournament_season_records",
 ]
 
 
@@ -95,13 +104,29 @@ def check_schema(conn):
 
 
 def input_fingerprint(conn):
-    """Returns an md5 of every match's content in load order, or None with no matches."""
+    """Returns an md5 of the run's input, or None with no matches.
+
+    That is every match's content in load order, and with any recorded
+    tournament facts, those too. Without them it is the matches' md5 alone,
+    as before facts were recorded.
+    """
     return conn.execute("""
-        SELECT md5(string_agg(
-            (tournament, date, player1, score1, player2, score2,
-             player3, score3, player4, score4, glicko_eligible)::text,
-            E'\\n' ORDER BY match_id)) AS fingerprint
-        FROM matches
+        WITH m AS (
+            SELECT md5(string_agg(
+                (tournament, date, player1, score1, player2, score2,
+                 player3, score3, player4, score4, glicko_eligible)::text,
+                E'\\n' ORDER BY match_id)) AS md5
+            FROM matches
+        ), f AS (
+            SELECT string_agg(r, E'\\n' ORDER BY r) AS facts FROM (
+                SELECT 'd' || t::text AS r FROM tournament_group_divisions t
+                UNION ALL SELECT 'p' || t::text FROM tournament_official_placements t
+                UNION ALL SELECT 'c' || t::text FROM tournament_season_corrections t
+            ) x
+        )
+        SELECT CASE WHEN f.facts IS NULL THEN m.md5 ELSE md5(m.md5 || md5(f.facts)) END
+               AS fingerprint
+        FROM m, f
     """).fetchone()["fingerprint"]
 
 
@@ -165,9 +190,10 @@ def _compute(conn, run_id, formats, log):
     with Heartbeat(progress):
         expand_pairwise(conn, run_id)
         months = {fmt: eval_months(conn, run_id, fmt) for fmt in formats}
-        progress.total = 1 + 2 * len(MODELS) * len(formats) + 1 + sum(months.values())
+        progress.total = 1 + 2 * len(MODELS) * len(formats) + 2 + sum(months.values())
         progress.total_cost = (
             STEP_COST["pairs", None]
+            + STEP_COST["tournaments", None]
             + STEP_COST["titles", None]
             + sum(
                 len(MODELS) * (STEP_COST["models", f] + STEP_COST["calibration", f])
@@ -187,6 +213,10 @@ def _compute(conn, run_id, formats, log):
                     STEP_COST["models", fmt],
                     f"models {_label(fmt)}",
                 )
+
+        progress.working_on("tournaments")
+        derive_tournaments(**on_run)
+        progress.advance("tournaments", STEP_COST["tournaments", None], "tournaments")
 
         progress.working_on("titles")
         derive_tournament_badges(**on_run)

@@ -1,0 +1,23 @@
+---
+/** The Hall of Fame's series tabs, as upstream's series bar; a series without a page yet shows without a link. */
+import { BUILT, SERIES_NAV, seriesHref, type SeriesTab } from '../lib/tournament-series';
+
+interface Props {
+  current: SeriesTab['slug'];
+}
+
+const { current } = Astro.props;
+---
+<nav class="series-nav-bar" aria-label="Hall of Fame series">
+  {SERIES_NAV.map((s) =>
+    BUILT.has(s.slug) ? (
+      <a href={seriesHref(s.slug)} class:list={['series-nav-btn', { active: s.slug === current }]} aria-current={s.slug === current ? 'page' : undefined}>
+        <span>{s.icon}</span> {s.label}
+      </a>
+    ) : (
+      <span class="series-nav-btn unbuilt">
+        <span>{s.icon}</span> {s.label}
+      </span>
+    ),
+  )}
+</nav>

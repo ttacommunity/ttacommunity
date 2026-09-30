@@ -449,6 +449,29 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/runs/{run}/tournaments/{series}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * A tournament series' Hall of Fame page
+         * @description The series' game and season counts, its top division's trophyboard
+         *     (each medallist's podiums, most golds first, then silvers, bronzes
+         *     and career points), and the ten best top-division seasons and games
+         *     as upstream's page ranks them. Cached for five minutes.
+         */
+        get: operations["getTournamentSeries"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -970,6 +993,66 @@ export interface components {
             pearson: number;
             /** Format: double */
             spearman: number;
+        };
+        /**
+         * @description A tournament series
+         * @enum {string}
+         */
+        Series: "international" | "intermezzo" | "royal_league";
+        TournamentSeries: {
+            /** Format: int64 */
+            run_id: number;
+            series: components["schemas"]["Series"];
+            /** @description Every game of the series in the run's matches */
+            games: number;
+            /** @description The latest season a game's name gives */
+            seasons: number;
+            /** @description The top division's medallists, most golds first, then silvers, bronzes and career points */
+            board: components["schemas"]["TrophyRow"][];
+            /** @description The ten best top-division seasons by points, then wins */
+            season_records: components["schemas"]["SeasonRecord"][];
+            /** @description The ten highest winning scores in top-division games */
+            game_records: components["schemas"]["GameRecord"][];
+        };
+        TrophyRow: {
+            name: string;
+            /**
+             * @description WC for a World Champion, GM for a top-division winner, else M
+             * @enum {string}
+             */
+            title: "WC" | "GM" | "M";
+            gold: number;
+            silver: number;
+            bronze: number;
+        };
+        SeasonRecord: {
+            name: string;
+            world_champion: boolean;
+            /** Format: double */
+            points: number;
+            games: number;
+            /**
+             * @description How often the player finished 1st, 2nd, 3rd (and 4th in the
+             *     International Championship); in the Royal League, wins, draws
+             *     and losses
+             */
+            placings: number[];
+            season: number;
+            division: string;
+            /** Format: date */
+            last_played: string;
+        };
+        GameRecord: {
+            /** @description The game's winner */
+            name: string;
+            world_champion: boolean;
+            /** Format: double */
+            score: number;
+            /** @description The other players, highest score first */
+            opponents: components["schemas"]["Seat"][];
+            tournament: string;
+            /** Format: date */
+            date: string;
         };
     };
     responses: {
@@ -1600,6 +1683,33 @@ export interface operations {
             404: components["responses"]["NotFound"];
         };
     };
+    getTournamentSeries: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A published run's id, from `/v1/runs/current` */
+                run: components["parameters"]["RunId"];
+                series: components["schemas"]["Series"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The series */
+            200: {
+                headers: {
+                    "Cache-Control": components["headers"]["CacheControl"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TournamentSeries"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            404: components["responses"]["NotFound"];
+        };
+    };
 }
 type FlattenedDeepRequired<T> = {
     [K in keyof T]-?: FlattenedDeepRequired<T[K] extends unknown[] | undefined | null ? Extract<T[K], unknown[]>[number] : T[K]>;
@@ -1617,3 +1727,5 @@ export const modelValues: ReadonlyArray<FlattenedDeepRequired<components>["schem
 export const formatValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["Format"]> = [0, 2, 3, 4];
 export const titleCodeValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["TitleCode"]> = ["WC", "GM", "M", "P", "G", "S", "B", "W"];
 export const calibrationRowModeValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["CalibrationRow"]["mode"]> = ["standard", "walk_forward"];
+export const seriesValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["Series"]> = ["international", "intermezzo", "royal_league"];
+export const trophyRowTitleValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["TrophyRow"]["title"]> = ["WC", "GM", "M"];

@@ -1,0 +1,504 @@
+/* Upstream's Hall of Fame series page (tournaments/detail.html): its <style> block as it is, then its inline styles as classes. */
+
+.series-nav-bar {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  margin-bottom: 1.5rem;
+  background: rgba(18, 12, 8, 0.85);
+  padding: 0.5rem;
+  border-radius: 6px;
+  border: 1px solid var(--border-subtle);
+}
+.series-nav-btn {
+  padding: 0.4rem 0.9rem;
+  border-radius: 4px;
+  font-family: var(--font-stats);
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-decoration: none;
+  transition: all 0.2s;
+  border: 1px solid transparent;
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+.series-nav-btn:hover {
+  color: var(--text-main);
+  background: rgba(229, 169, 60, 0.12);
+}
+.series-nav-btn.active {
+  background: var(--accent-gold);
+  color: #1c130d;
+  font-weight: 700;
+  box-shadow: 0 2px 6px rgba(229, 169, 60, 0.35);
+}
+
+.detail-hero {
+  background: linear-gradient(135deg, rgba(28, 19, 13, 0.95), rgba(45, 30, 20, 0.9));
+  border: 1px solid var(--border-subtle);
+  border-radius: 8px;
+  padding: 2rem;
+  margin-bottom: 2rem;
+  position: relative;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
+}
+.detail-hero-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+.detail-hero-left {
+  display: flex;
+  align-items: center;
+  gap: 1.25rem;
+}
+.detail-hero-icon {
+  font-size: 3.2rem;
+  line-height: 1;
+  background: rgba(0, 0, 0, 0.3);
+  padding: 0.75rem;
+  border-radius: 12px;
+  border: 1px solid rgba(229, 169, 60, 0.25);
+}
+.detail-hero-title {
+  font-size: 2rem;
+  font-weight: 800;
+  color: #fff;
+  margin-bottom: 0.3rem;
+}
+.detail-hero-badge {
+  background: rgba(229, 169, 60, 0.15);
+  border: 1px solid rgba(229, 169, 60, 0.3);
+  color: var(--accent-gold);
+  padding: 0.3rem 0.75rem;
+  border-radius: 4px;
+  font-size: 0.85rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  align-self: flex-start;
+}
+.detail-hero-desc {
+  color: var(--text-muted);
+  font-size: 1rem;
+  line-height: 1.6;
+  margin-top: 1rem;
+  max-width: 900px;
+}
+.detail-meta-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 1rem;
+  margin-top: 1.5rem;
+  padding-top: 1.25rem;
+  border-top: 1px solid rgba(229, 169, 60, 0.15);
+}
+.meta-box {
+  background: rgba(0, 0, 0, 0.3);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  padding: 0.75rem 1rem;
+  border-radius: 6px;
+}
+.meta-box-label {
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--text-muted);
+  margin-bottom: 0.25rem;
+}
+.meta-box-val {
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: var(--accent-gold);
+}
+
+.content-two-col {
+  display: grid;
+  grid-template-columns: 1.1fr 1.9fr;
+  gap: 2rem;
+  margin-bottom: 2.5rem;
+}
+@media (max-width: 960px) {
+  .content-two-col {
+    grid-template-columns: 1fr;
+  }
+}
+@media (max-width: 768px) {
+  .tournament-hero {
+    padding: 1.25rem 1rem;
+  }
+  .tournament-hero-title {
+    font-size: 1.45rem;
+  }
+  .tournament-hero-meta {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.5rem;
+  }
+  .stories-grid {
+    grid-template-columns: 1fr;
+  }
+  .panel-card {
+    padding: 1rem;
+  }
+}
+
+.panel-card {
+  background: linear-gradient(145deg, rgba(28, 18, 12, 0.95), rgba(20, 13, 9, 0.98));
+  border: 1.5px solid rgba(229, 169, 60, 0.25);
+  border-radius: 8px;
+  padding: 1.5rem;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.5);
+}
+.panel-header {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: var(--accent-gold);
+  margin-bottom: 1.25rem;
+  padding-bottom: 0.75rem;
+  border-bottom: 1px solid rgba(229, 169, 60, 0.15);
+}
+
+/* Rules list */
+.rules-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+}
+.rules-list li {
+  position: relative;
+  padding-left: 1.5rem;
+  font-size: 0.92rem;
+  line-height: 1.55;
+  color: var(--text-main);
+}
+.rules-list li::before {
+  content: '▶';
+  position: absolute;
+  left: 0;
+  color: var(--accent-gold);
+  font-size: 0.7rem;
+  top: 0.25rem;
+}
+
+/* Scrollable Trophyboard */
+.trophy-table-container {
+  max-height: 480px;
+  overflow-y: auto;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  border-radius: 6px;
+  border: 1px solid rgba(229, 169, 60, 0.2);
+  background: rgba(0, 0, 0, 0.25);
+  scrollbar-width: thin;
+  scrollbar-color: var(--accent-gold) rgba(0, 0, 0, 0.4);
+}
+.trophy-table thead th {
+  position: sticky;
+  top: 0;
+  z-index: 5;
+  background: rgba(30, 20, 14, 0.98);
+  box-shadow: 0 1px 0 rgba(229, 169, 60, 0.25);
+}
+.trophy-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.92rem;
+  font-family: var(--font-stats);
+}
+.trophy-table th {
+  color: var(--accent-gold);
+  font-weight: 700;
+  text-align: left;
+  padding: 0.75rem 1rem;
+  border-bottom: 2px solid var(--border-subtle);
+  font-size: 0.82rem;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  font-family: var(--font-heading);
+}
+.trophy-table tbody tr {
+  transition: background-color 0.15s ease;
+}
+.trophy-table tbody tr:nth-child(odd) {
+  background: rgba(16, 10, 6, 0.65);
+}
+.trophy-table tbody tr:nth-child(even) {
+  background: rgba(28, 18, 12, 0.40);
+}
+.trophy-table td {
+  padding: 0.75rem 1rem;
+  border-bottom: 1px solid rgba(74, 53, 37, 0.35);
+  color: var(--text-main);
+}
+.trophy-table tbody tr:hover td {
+  background: rgba(229, 169, 60, 0.12) !important;
+}
+.medal-count {
+  font-weight: 700;
+  font-family: var(--font-stats);
+}
+.medal-gold { color: #f59e0b; }
+.medal-silver { color: #cbd5e1; }
+.medal-bronze { color: #d97706; }
+.medal-total { color: #fff; }
+
+/* Success stories */
+.stories-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(340px, 1fr));
+  gap: 1.25rem;
+}
+.story-card {
+  background: rgba(18, 12, 8, 0.75);
+  border: 1px solid rgba(229, 169, 60, 0.2);
+  border-radius: 6px;
+  padding: 1.25rem;
+  position: relative;
+  border-left: 4px solid var(--accent-gold);
+  transition: transform 0.2s ease, border-color 0.2s ease;
+}
+.story-card:hover {
+  transform: translateY(-2px);
+  border-color: var(--accent-gold);
+}
+.story-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.75rem;
+}
+.story-author {
+  font-weight: 700;
+  font-size: 1.05rem;
+  color: #fff;
+  text-decoration: none;
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+.story-author:hover {
+  color: var(--accent-gold);
+}
+.story-badge {
+  background: rgba(229, 169, 60, 0.15);
+  border: 1px solid rgba(229, 169, 60, 0.3);
+  color: var(--accent-gold);
+  font-size: 0.75rem;
+  padding: 0.2rem 0.5rem;
+  border-radius: 3px;
+  font-weight: 600;
+}
+.story-title {
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: var(--accent-gold);
+  margin-bottom: 0.5rem;
+  line-height: 1.4;
+}
+.story-text {
+  font-size: 0.9rem;
+  line-height: 1.6;
+  color: var(--text-muted);
+}
+
+/* Lets a column shrink below its table's width, which scrolls in its own box, so phones fit (changed from upstream). */
+.content-two-col > .panel-card {
+  min-width: 0;
+}
+
+/* Upstream's inline styles, as classes. */
+.series-nav-btn.unbuilt {
+  cursor: default;
+}
+
+.detail-hero-title {
+  margin: 0 0 0.3rem;
+}
+
+.detail-hero-subtitle {
+  color: var(--accent-gold);
+  font-size: 0.95rem;
+  font-weight: 600;
+}
+
+.meta-box-val.meta-box-text {
+  font-size: 0.95rem;
+}
+
+h2.panel-header {
+  margin-top: 0;
+}
+
+.panel-header-split {
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.panel-header-title {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+.panel-tag {
+  padding: 0.15rem 0.5rem;
+  border: 1px solid rgba(229, 169, 60, 0.25);
+  border-radius: 4px;
+  background: rgba(229, 169, 60, 0.12);
+  color: var(--accent-gold);
+  font-size: 0.78rem;
+  font-weight: 600;
+}
+
+.panel-tag-wide {
+  padding: 0.2rem 0.6rem;
+  font-size: 0.8rem;
+}
+
+.rules-note {
+  margin-top: 1.5rem;
+  padding-top: 1rem;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+  color: var(--text-muted);
+  font-size: 0.85rem;
+}
+
+.rules-note strong {
+  color: var(--accent-gold);
+}
+
+.trophy-sub {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.75rem;
+  color: var(--text-muted);
+  font-size: 0.82rem;
+}
+
+.trophy-sub-hint {
+  color: var(--accent-gold);
+  font-weight: 600;
+}
+
+.trophy-table .col-num {
+  width: 40px;
+}
+
+.trophy-table .col-rank {
+  width: 45px;
+  text-align: center;
+}
+
+.trophy-table .col-center {
+  text-align: center;
+}
+
+.trophy-table .col-right {
+  text-align: right;
+}
+
+.trophy-table .cell-num {
+  color: var(--text-muted);
+  font-family: var(--font-stats);
+  font-weight: 600;
+}
+
+.trophy-table .cell-rank {
+  color: var(--text-muted);
+  font-family: var(--font-stats);
+  font-weight: 700;
+  text-align: center;
+}
+
+.trophy-player {
+  color: #fff;
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.trophy-mark {
+  padding: 0.1rem 0.35rem;
+  font-size: 0.65rem;
+}
+
+.badge-wc.trophy-mark {
+  border-radius: 4px;
+}
+
+.panel-card.panel-stories {
+  margin-bottom: 2.5rem;
+}
+
+.panel-card.panel-records {
+  margin-bottom: 2rem;
+}
+
+.records-intro {
+  margin-bottom: 1.25rem;
+  color: var(--text-muted);
+  font-size: 0.9rem;
+  line-height: 1.5;
+}
+
+.trophy-table-container.records-table {
+  max-height: 420px;
+}
+
+.trophy-table .cell-points {
+  color: var(--accent-gold);
+  font-family: var(--font-stats);
+  font-size: 1.05rem;
+  font-weight: 800;
+  text-align: right;
+}
+
+.trophy-table .cell-record {
+  color: var(--text-muted);
+  font-family: var(--font-stats);
+  font-size: 0.88rem;
+  text-align: center;
+}
+
+.cell-record-value {
+  color: var(--accent-gold);
+  font-size: 0.95rem;
+  font-weight: 700;
+}
+
+.trophy-table .cell-muted {
+  color: var(--text-muted);
+  font-size: 0.88rem;
+}
+
+.trophy-table .cell-opponents {
+  color: var(--text-muted);
+  font-size: 0.85rem;
+}
+
+.cell-opponents-list {
+  color: #cbd5e1;
+}
+
+.trophy-table .cell-date {
+  color: var(--text-muted);
+  font-family: var(--font-stats);
+  font-size: 0.85rem;
+  text-align: right;
+}
+
+.series-message {
+  color: var(--text-muted);
+}

@@ -1,5 +1,6 @@
 // Command load seeds the ratings database from a directory of match CSVs,
-// or sets players' countries from CSVs with Player and Code columns.
+// sets players' countries from CSVs with Player and Code columns, or
+// replaces one kind of recorded tournament fact from one CSV.
 // It checks every row first, and writes no matches if the database has some.
 package main
 
@@ -20,27 +21,33 @@ import (
 	"ttacommunity/backend/internal/countrycsv"
 	"ttacommunity/backend/internal/matchcsv"
 	"ttacommunity/backend/internal/store"
+	"ttacommunity/backend/internal/tournamentcsv"
 )
 
 func main() {
 	reset := flag.Bool("reset", false, "delete every match, refusal and rating run first")
 	migrate := flag.Bool("migrate", false, "only apply the ratings migrations, and load nothing")
 	countries := flag.Bool("countries", false, "set players' countries from the CSV files named, a later file winning")
+	facts := flag.String("facts", "", "replace every recorded tournament fact of one kind (divisions, placements or corrections) with the CSV file named")
 	flag.Usage = func() {
 		fmt.Fprintln(os.Stderr, "usage: load [-reset] <directory of match CSVs>")
 		fmt.Fprintln(os.Stderr, "       load -migrate")
 		fmt.Fprintln(os.Stderr, "       load -countries <CSV file>...")
+		fmt.Fprintln(os.Stderr, "       load -facts divisions|placements|corrections <CSV file>")
 		fmt.Fprintln(os.Stderr, "The database is RATINGS_DATABASE_URL.")
 		flag.PrintDefaults()
 	}
 	flag.Parse()
+	one := !*reset && btoi(*migrate)+btoi(*countries)+btoi(*facts != "") == 1
 	var err error
 	switch {
-	case *migrate && !*reset && !*countries && flag.NArg() == 0:
+	case *migrate && one && flag.NArg() == 0:
 		err = migrateOnly()
-	case *countries && !*reset && !*migrate && flag.NArg() > 0:
+	case *countries && one && flag.NArg() > 0:
 		err = setCountries(flag.Args())
-	case !*migrate && !*countries && flag.NArg() == 1:
+	case *facts != "" && one && flag.NArg() == 1:
+		err = replaceFacts(*facts, flag.Arg(0))
+	case !*migrate && !*countries && *facts == "" && flag.NArg() == 1:
 		err = run(*reset, flag.Arg(0))
 	default:
 		flag.Usage()
@@ -100,6 +107,77 @@ func setCountries(files []string) error {
 	}
 	reportCountries(os.Stdout, files, res, set)
 	return nil
+}
+
+func btoi(b bool) int {
+	if b {
+		return 1
+	}
+	return 0
+}
+
+// replaceFacts reads the file first, then replaces every recorded fact of
+// one kind in one transaction, after applying any pending migration.
+func replaceFacts(kind, file string) error {
+	switch kind {
+	case "divisions":
+		return loadFacts(kind, file, tournamentcsv.ReadDivisions, store.ReplaceDivisions)
+	case "placements":
+		return loadFacts(kind, file, tournamentcsv.ReadPlacements, store.ReplacePlacements)
+	case "corrections":
+		return loadFacts(kind, file, tournamentcsv.ReadCorrections, store.ReplaceCorrections)
+	}
+	return fmt.Errorf("unknown kind of fact %q: want divisions, placements or corrections", kind)
+}
+
+func loadFacts[T any](
+	kind, file string,
+	read func(string, io.Reader) (tournamentcsv.Result[T], error),
+	replace func(context.Context, *pgxpool.Pool, []T) (store.FactsReplaced, error),
+) error {
+	dbURL := os.Getenv("RATINGS_DATABASE_URL")
+	if dbURL == "" {
+		return fmt.Errorf("RATINGS_DATABASE_URL is not set")
+	}
+	f, err := os.Open(file)
+	if err != nil {
+		return fmt.Errorf("opening %s: %w", file, err)
+	}
+	res, err := read(file, f)
+	f.Close()
+	if err != nil {
+		return err
+	}
+
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer stop()
+	pool, err := pgxpool.New(ctx, dbURL)
+	if err != nil {
+		return fmt.Errorf("opening the ratings database: %w", err)
+	}
+	defer pool.Close()
+	if err := store.MigrateRatings(ctx, pool); err != nil {
+		return err
+	}
+	replaced, err := replace(ctx, pool, res.Facts)
+	if err != nil {
+		return err
+	}
+	reportFacts(os.Stdout, kind, file, res.Rows, res.Refused, replaced)
+	return nil
+}
+
+// reportFacts writes what was read and written. It names the file, lines
+// and reasons, never a player.
+func reportFacts(w io.Writer, kind, file string, rows int, refused []tournamentcsv.Refusal, replaced store.FactsReplaced) {
+	fmt.Fprintf(w, "file: %s\n", file)
+	fmt.Fprintf(w, "rows read: %d\n", rows)
+	fmt.Fprintf(w, "%s written: %d\n", kind, replaced.Written)
+	fmt.Fprintf(w, "not a player: %d\n", replaced.Unknown)
+	fmt.Fprintf(w, "refused: %d\n", len(refused))
+	for _, r := range refused {
+		fmt.Fprintf(w, "  %s:%d %s\n", r.File, r.Line, r.Reason)
+	}
 }
 
 // absolute turns each path into one os.DirFS("/") can open.

@@ -1,0 +1,19 @@
+---
+/** A Hall of Fame series page, one built for each series in SERIES_CONTENT. */
+import { PUBLIC_API_URL } from 'astro:env/client';
+import SiteLayout from '../../../../layouts/SiteLayout.astro';
+import SeriesNav from '../../../../components/SeriesNav.astro';
+import TournamentSeriesPage from '../../../../components/TournamentSeriesPage';
+import { SERIES_CONTENT, type SeriesContent } from '../../../../lib/tournament-series';
+import '../../../../components/TournamentSeries.css';
+
+export function getStaticPaths() {
+  return SERIES_CONTENT.map((content) => ({ params: { series: content.slug }, props: { content } }));
+}
+
+const { content } = Astro.props as { content: SeriesContent };
+---
+<SiteLayout title={`${content.name} | Tournaments Circuit`} description={`${content.name} Hall of Fame: format and rules, the trophyboard, and the best seasons and games.`}>
+  <SeriesNav current={content.slug} />
+  <TournamentSeriesPage client:only="react" apiUrl={PUBLIC_API_URL} content={content} />
+</SiteLayout>

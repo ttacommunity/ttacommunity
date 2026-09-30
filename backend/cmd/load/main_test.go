@@ -7,6 +7,7 @@ import (
 	"ttacommunity/backend/internal/countrycsv"
 	"ttacommunity/backend/internal/matchcsv"
 	"ttacommunity/backend/internal/store"
+	"ttacommunity/backend/internal/tournamentcsv"
 )
 
 func TestReportCountsByReasonAndNamesNoPlayer(t *testing.T) {
@@ -31,6 +32,34 @@ func TestReportCountsByReasonAndNamesNoPlayer(t *testing.T) {
 		"loaded: 3 matches, 4 players (batch 7)",
 		"refused: 3",
 		"  duplicate        1\n  standings_row    2\n",
+	} {
+		if !strings.Contains(got, want) {
+			t.Errorf("report is missing %q:\n%s", want, got)
+		}
+	}
+	if strings.Contains(got, "secretname") {
+		t.Errorf("report names a player:\n%s", got)
+	}
+}
+
+func TestReportFactsCountsAndNamesNoPlayer(t *testing.T) {
+	refused := []tournamentcsv.Refusal{
+		{File: "d.csv", Line: 3, Reason: tournamentcsv.BadSeason},
+		{File: "d.csv", Line: 5, Reason: tournamentcsv.Duplicate},
+	}
+	replaced := store.FactsReplaced{Written: 2, Unknown: 1}
+
+	var b strings.Builder
+	reportFacts(&b, "placements", "d.csv", 5, refused, replaced)
+	got := b.String()
+
+	for _, want := range []string{
+		"file: d.csv",
+		"rows read: 5",
+		"placements written: 2",
+		"not a player: 1",
+		"refused: 2",
+		"  d.csv:3 bad_season\n  d.csv:5 duplicate\n",
 	} {
 		if !strings.Contains(got, want) {
 			t.Errorf("report is missing %q:\n%s", want, got)
