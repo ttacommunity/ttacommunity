@@ -312,6 +312,11 @@
   color: var(--text-muted);
 }
 
+/* Lets a column shrink below its table's width, which scrolls in its own box, so phones fit (changed from upstream). */
+.content-two-col > .panel-card {
+  min-width: 0;
+}
+
 /* Upstream's inline styles, as classes. */
 .series-nav-btn.unbuilt {
   cursor: default;
