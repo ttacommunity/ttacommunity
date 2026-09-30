@@ -35,6 +35,7 @@ const (
 	BadEdition  Reason = "bad_edition"
 	BadEvent    Reason = "bad_event"
 	BadEvents   Reason = "bad_events"
+	BadRow      Reason = "bad_row"
 	Duplicate   Reason = "duplicate"
 )
 

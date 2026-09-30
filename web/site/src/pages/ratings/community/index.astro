@@ -1,0 +1,8 @@
+---
+import { PUBLIC_API_URL } from 'astro:env/client';
+import SiteLayout from '../../../layouts/SiteLayout.astro';
+import CommunityPage from '../../../components/CommunityPage';
+---
+<SiteLayout title="Community Standard Leaderboard (Q2 2026) | Through the Ages" description="The Through the Ages community leaderboard: every edition's standings under the Best-8 system.">
+  <CommunityPage client:only="react" apiUrl={PUBLIC_API_URL} />
+</SiteLayout>

@@ -7,19 +7,19 @@ import (
 )
 
 const (
-	standingsHeader = "edition,rank,player,points,events,source\n"
+	standingsHeader = "edition,sheet_row,rank,player,points,events,source\n"
 	scoresHeader    = "edition,player,event,score,source\n"
 )
 
 func TestReadCommunityStandingsTakesEveryColumn(t *testing.T) {
-	in := standingsHeader + "2024,1,Weidenbaum,7657,11,TTA_Leaderboard_2024.csv\nrace26,2,wolvs,3970,11,s\n"
+	in := standingsHeader + "2024,1,1,Weidenbaum,7657,11,TTA_Leaderboard_2024.csv\nrace26,3,2,wolvs,3970,11,s\n"
 	got, err := ReadCommunityStandings("c.csv", strings.NewReader(in))
 	if err != nil {
 		t.Fatalf("ReadCommunityStandings: %v", err)
 	}
 	want := []Standing{
-		{Edition: "2024", Rank: 1, Player: "Weidenbaum", Points: 7657, Events: 11, Source: "TTA_Leaderboard_2024.csv"},
-		{Edition: "race26", Rank: 2, Player: "wolvs", Points: 3970, Events: 11, Source: "s"},
+		{Edition: "2024", SheetRow: 1, Rank: 1, Player: "Weidenbaum", Points: 7657, Events: 11, Source: "TTA_Leaderboard_2024.csv"},
+		{Edition: "race26", SheetRow: 3, Rank: 2, Player: "wolvs", Points: 3970, Events: 11, Source: "s"},
 	}
 	if !slices.Equal(got.Facts, want) || len(got.Refused) != 0 {
 		t.Errorf("standings = %+v, refused %v; want %+v", got.Facts, got.Refused, want)
@@ -32,13 +32,14 @@ func TestReadCommunityStandingsRefusesBadRows(t *testing.T) {
 		row  string
 		want Reason
 	}{
-		{"unknown edition", "2019,1,ann,10,1,s", BadEdition},
-		{"rank zero", "2024,0,ann,10,1,s", BadPlace},
-		{"no player", "2024,1,,10,1,s", BadPlayer},
-		{"points not a number", "2024,1,ann,7 657,1,s", BadPoints},
-		{"negative events", "2024,1,ann,10,-1,s", BadEvents},
-		{"no source", "2024,1,ann,10,1,", BadSource},
-		{"a player twice in an edition", "2024,1,ann,10,1,s\n2024,2,ann,9,1,s", Duplicate},
+		{"unknown edition", "2019,1,1,ann,10,1,s", BadEdition},
+		{"rank zero", "2024,1,0,ann,10,1,s", BadPlace},
+		{"sheet row zero", "2024,0,1,ann,10,1,s", BadRow},
+		{"no player", "2024,1,1,,10,1,s", BadPlayer},
+		{"points not a number", "2024,1,1,ann,7 657,1,s", BadPoints},
+		{"negative events", "2024,1,1,ann,10,-1,s", BadEvents},
+		{"no source", "2024,1,1,ann,10,1,", BadSource},
+		{"a player twice in an edition", "2024,1,1,ann,10,1,s\n2024,2,2,ann,9,1,s", Duplicate},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

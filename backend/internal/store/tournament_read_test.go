@@ -378,8 +378,8 @@ func TestCommunityLeaderboardGivesAnEditionWithPlayersCountriesAndTitles(t *test
 		"UPDATE players SET country_code = 'PL' WHERE name = 'ann'",
 		"UPDATE players SET country_code = 'FR' WHERE name = 'RobertdeSable'",
 		"INSERT INTO player_titles (run_id, player_name, title, title_count, badge_reason) VALUES ($1, 'ann', 'SGM', 1, 'r')",
-		`INSERT INTO community_standings VALUES ('2024', 2, 'Martin Pecheur', 6687, 13, 's'), ('2024', 1, 'ANN', 7657, 11, 's'),
-		  ('2024', 3, 'RobertdeSable', 10, 1, 's'), ('2025', 1, 'ann', 6600, 17, 's')`,
+		`INSERT INTO community_standings VALUES ('2024', 2, 2, 'Martin Pecheur', 6687, 13, 's'), ('2024', 1, 1, 'ANN', 7657, 11, 's'),
+		  ('2024', 4, 3, 'RobertdeSable', 10, 1, 's'), ('2024', 3, 3, 'zed', 10, 1, 's'), ('2025', 1, 1, 'ann', 6600, 17, 's')`,
 		"INSERT INTO community_scores VALUES ('2024', 'ANN', 'wrld', 1600, 's'), ('2024', 'ANN', 'ic_24', 1000, 's'), ('2025', 'ann', 'wrld', 5, 's')",
 	} {
 		args := []any{}
@@ -402,6 +402,7 @@ func TestCommunityLeaderboardGivesAnEditionWithPlayersCountriesAndTitles(t *test
 	want := []string{
 		"1 ANN PL SGM 7657 11 map[ic_24:1000 wrld:1600]",
 		"2 Martin Pecheur - - 6687 13 map[]",
+		"3 zed - - 10 1 map[]", // equal ranks and points in the sheet's order
 		"3 RobertdeSable FR - 10 1 map[]",
 	}
 	if !slices.Equal(lines, want) {

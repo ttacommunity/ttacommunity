@@ -141,16 +141,17 @@ func ReplaceHonours(ctx context.Context, pool *pgxpool.Pool, honours []tournamen
 // one transaction. Names are kept as written, players or not.
 func ReplaceCommunityStandings(ctx context.Context, pool *pgxpool.Pool, rows []tournamentcsv.Standing) (FactsReplaced, error) {
 	var editions, players, sources []string
-	var ranks, events []int32
+	var sheetRows, ranks, events []int32
 	var points []float64
 	for _, r := range rows {
-		editions, ranks, players = append(editions, r.Edition), append(ranks, int32(r.Rank)), append(players, r.Player)
-		points, events, sources = append(points, r.Points), append(events, int32(r.Events)), append(sources, r.Source)
+		editions, sheetRows, ranks = append(editions, r.Edition), append(sheetRows, int32(r.SheetRow)), append(ranks, int32(r.Rank))
+		players, points, events = append(players, r.Player), append(points, r.Points), append(events, int32(r.Events))
+		sources = append(sources, r.Source)
 	}
 	n, err := replaceAll(ctx, pool, "community_standings", `
-		INSERT INTO community_standings (edition, rank, player_name, points, events, source)
-		SELECT * FROM unnest($1::text[], $2::int[], $3::text[], $4::float8[], $5::int[], $6::text[])`,
-		editions, ranks, players, points, events, sources)
+		INSERT INTO community_standings (edition, sheet_row, rank, player_name, points, events, source)
+		SELECT * FROM unnest($1::text[], $2::int[], $3::int[], $4::text[], $5::float8[], $6::int[], $7::text[])`,
+		editions, sheetRows, ranks, players, points, events, sources)
 	return FactsReplaced{Written: n}, err
 }
 

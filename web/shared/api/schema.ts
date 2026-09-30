@@ -521,6 +521,30 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/runs/{run}/community/{edition}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * An edition of the community leaderboard
+         * @description The community leaderboard's standings as its maintainer publishes
+         *     them (rank, total points, events played, and each event's points),
+         *     with each player's country and the run's title where the name is a
+         *     player here, matched ignoring case. Best rank first. Cached for five
+         *     minutes.
+         */
+        get: operations["getCommunityLeaderboard"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -1075,6 +1099,35 @@ export interface components {
             finish_date: string;
             /** @description A career total, not one season or tournament */
             career: boolean;
+        };
+        /**
+         * @description An edition of the community leaderboard (race26 is the 2026 race)
+         * @enum {string}
+         */
+        CommunityEdition: "2026" | "2025" | "2024" | "race26";
+        CommunityLeaderboard: {
+            /** Format: int64 */
+            run_id: number;
+            edition: components["schemas"]["CommunityEdition"];
+            rows: components["schemas"]["CommunityRow"][];
+        };
+        CommunityRow: {
+            rank: number;
+            /** @description As the leaderboard writes it */
+            name: string;
+            country: string | null;
+            /**
+             * @description The run's title for the player, null when none or not a player here
+             * @enum {string|null}
+             */
+            title: "WC" | "SGM" | "GM" | "M" | "P" | "G" | "S" | "B" | "W" | null;
+            /** Format: double */
+            points: number;
+            events: number;
+            /** @description Points in each event the player has, by the leaderboard's column name */
+            scores: {
+                [key: string]: number;
+            };
         };
         /**
          * @description A tournament series
@@ -1896,6 +1949,33 @@ export interface operations {
             404: components["responses"]["NotFound"];
         };
     };
+    getCommunityLeaderboard: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A published run's id, from `/v1/runs/current` */
+                run: components["parameters"]["RunId"];
+                edition: components["schemas"]["CommunityEdition"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The edition */
+            200: {
+                headers: {
+                    "Cache-Control": components["headers"]["CacheControl"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CommunityLeaderboard"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            404: components["responses"]["NotFound"];
+        };
+    };
 }
 type FlattenedDeepRequired<T> = {
     [K in keyof T]-?: FlattenedDeepRequired<T[K] extends unknown[] | undefined | null ? Extract<T[K], unknown[]>[number] : T[K]>;
@@ -1914,5 +1994,7 @@ export const formatValues: ReadonlyArray<FlattenedDeepRequired<components>["sche
 export const titleCodeValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["TitleCode"]> = ["WC", "SGM", "GM", "M", "P", "G", "S", "B", "W"];
 export const calibrationRowModeValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["CalibrationRow"]["mode"]> = ["standard", "walk_forward"];
 export const tournamentRecordMedalValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["TournamentRecord"]["medal"]> = ["gold", "silver", "bronze"];
+export const communityEditionValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["CommunityEdition"]> = ["2026", "2025", "2024", "race26"];
+export const communityRowTitleValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["CommunityRow"]["title"]> = ["WC", "SGM", "GM", "M", "P", "G", "S", "B", "W"];
 export const seriesValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["Series"]> = ["international", "intermezzo", "royal_league", "worlds", "grand_slams", "ladders"];
 export const trophyRowTitleValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["TrophyRow"]["title"]> = ["WC", "GM", "M"];

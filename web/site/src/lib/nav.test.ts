@@ -6,11 +6,13 @@ describe('sections', () => {
     expect(sections.map((s) => s.href)).toEqual([
       '/ratings/',
       '/ratings/hall_of_fame/',
+      '/ratings/community/',
       '/ratings/analysis/',
       '/ratings/faq/',
       '/ratings/methodology/',
     ]);
     expect(sections[1]?.label).toBe('Hall of Fame');
+    expect(sections[2]?.label).toBe('Community Leaderboard');
   });
 });
 

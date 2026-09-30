@@ -46,6 +46,9 @@ export type Legend = components['schemas']['Legend'];
 export type PlayerAchievements = components['schemas']['PlayerAchievements'];
 export type AchievementSummary = NonNullable<components['schemas']['AchievementSummary']>;
 export type TournamentRecord = components['schemas']['TournamentRecord'];
+export type CommunityEdition = components['schemas']['CommunityEdition'];
+export type CommunityLeaderboard = components['schemas']['CommunityLeaderboard'];
+export type CommunityRow = components['schemas']['CommunityRow'];
 
 /** An error response from the API, carrying its status and message. */
 export class RatingsApiError extends Error {
@@ -247,4 +250,14 @@ export async function playerAchievements(
   fetchFn: typeof fetch = fetch,
 ): Promise<PlayerAchievements> {
   return get<PlayerAchievements>(fetchFn, base, playerPath(run, name, '/achievements'));
+}
+
+/** Returns an edition of the community leaderboard, best rank first. */
+export async function communityLeaderboard(
+  base: string,
+  run: number,
+  edition: CommunityEdition,
+  fetchFn: typeof fetch = fetch,
+): Promise<CommunityLeaderboard> {
+  return get<CommunityLeaderboard>(fetchFn, base, `/v1/runs/${run}/community/${edition}`);
 }

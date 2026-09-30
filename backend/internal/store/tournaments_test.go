@@ -202,12 +202,12 @@ func TestReplaceCommunityKeepsNamesThatAreNotPlayers(t *testing.T) {
 	pool := migrated(t)
 	ctx := context.Background()
 	addPlayers(t, pool, "ann")
-	if _, err := ReplaceCommunityStandings(ctx, pool, []tournamentcsv.Standing{{Edition: "2024", Rank: 9, Player: "old", Points: 1, Events: 1, Source: "s"}}); err != nil {
+	if _, err := ReplaceCommunityStandings(ctx, pool, []tournamentcsv.Standing{{Edition: "2024", SheetRow: 9, Rank: 9, Player: "old", Points: 1, Events: 1, Source: "s"}}); err != nil {
 		t.Fatalf("first ReplaceCommunityStandings: %v", err)
 	}
 	standings := []tournamentcsv.Standing{
-		{Edition: "2024", Rank: 1, Player: "ann", Points: 7657, Events: 11, Source: "s"},
-		{Edition: "2024", Rank: 2, Player: "Martin Pecheur", Points: 6687, Events: 13, Source: "s"},
+		{Edition: "2024", SheetRow: 1, Rank: 1, Player: "ann", Points: 7657, Events: 11, Source: "s"},
+		{Edition: "2024", SheetRow: 2, Rank: 2, Player: "Martin Pecheur", Points: 6687, Events: 13, Source: "s"},
 	}
 	got, err := ReplaceCommunityStandings(ctx, pool, standings)
 	if err != nil {
@@ -216,8 +216,8 @@ func TestReplaceCommunityKeepsNamesThatAreNotPlayers(t *testing.T) {
 	if want := (FactsReplaced{Written: 2}); got != want {
 		t.Errorf("ReplaceCommunityStandings = %+v, want %+v", got, want)
 	}
-	const standingRows = "SELECT concat_ws('|', edition, rank, player_name, points, events, source) FROM community_standings ORDER BY rank"
-	if rows, want := rowsOf(t, pool, standingRows), []string{"2024|1|ann|7657|11|s", "2024|2|Martin Pecheur|6687|13|s"}; !slices.Equal(rows, want) {
+	const standingRows = "SELECT concat_ws('|', edition, sheet_row, rank, player_name, points, events, source) FROM community_standings ORDER BY rank"
+	if rows, want := rowsOf(t, pool, standingRows), []string{"2024|1|1|ann|7657|11|s", "2024|2|2|Martin Pecheur|6687|13|s"}; !slices.Equal(rows, want) {
 		t.Errorf("standings = %q, want %q", rows, want)
 	}
 

@@ -328,7 +328,7 @@ type CommunityRow struct {
 
 // CommunityLeaderboard returns an edition of the community leaderboard in a
 // published run, best rank first. A name is matched to a player ignoring
-// case, the exact spelling first.
+// case, the exact spelling first. Equal ranks keep the sheet's order.
 func (r *RatingsReader) CommunityLeaderboard(ctx context.Context, run int64, edition string) ([]CommunityRow, error) {
 	if err := r.requirePublished(ctx, run); err != nil {
 		return nil, err
@@ -344,7 +344,7 @@ func (r *RatingsReader) CommunityLeaderboard(ctx context.Context, run int64, edi
 		) p ON true
 		LEFT JOIN player_titles t ON t.run_id = $1 AND t.player_name = p.name
 		WHERE s.edition = $2
-		ORDER BY s.rank, s.points DESC, s.player_name`, run, edition)
+		ORDER BY s.rank, s.points DESC, s.sheet_row`, run, edition)
 	if err != nil {
 		return nil, fmt.Errorf("reading the community leaderboard %s: %w", edition, err)
 	}

@@ -12,20 +12,21 @@ var CommunityEditions = []string{"2026", "2025", "2024", "race26"}
 
 // StandingsHeader and ScoresHeader are the community files' first lines, exactly.
 var (
-	StandingsHeader = []string{"edition", "rank", "player", "points", "events", "source"}
+	StandingsHeader = []string{"edition", "sheet_row", "rank", "player", "points", "events", "source"}
 	ScoresHeader    = []string{"edition", "player", "event", "score", "source"}
 )
 
 // Standing is a player's place in an edition of the community leaderboard:
 // rank, total points and how many events they played, as its maintainer
-// published them.
+// published them, and the row's place in the sheet, which orders equal ranks.
 type Standing struct {
-	Edition string
-	Rank    int
-	Player  string
-	Points  float64
-	Events  int
-	Source  string
+	Edition  string
+	SheetRow int
+	Rank     int
+	Player   string
+	Points   float64
+	Events   int
+	Source   string
 }
 
 // Score is a player's points in one event of an edition, named by the
@@ -55,13 +56,16 @@ func ReadCommunityScores(file string, r io.Reader) (Result[Score], error) {
 }
 
 func parseStanding(f func(int) string) (Standing, Reason) {
-	rank, okRank := positive(f(1))
-	points, errPoints := strconv.ParseFloat(f(3), 64)
-	events, errEvents := strconv.Atoi(f(4))
-	s := Standing{Edition: f(0), Rank: rank, Player: f(2), Points: points, Events: events, Source: f(5)}
+	row, okRow := positive(f(1))
+	rank, okRank := positive(f(2))
+	points, errPoints := strconv.ParseFloat(f(4), 64)
+	events, errEvents := strconv.Atoi(f(5))
+	s := Standing{Edition: f(0), SheetRow: row, Rank: rank, Player: f(3), Points: points, Events: events, Source: f(6)}
 	switch {
 	case !slices.Contains(CommunityEditions, s.Edition):
 		return s, BadEdition
+	case !okRow:
+		return s, BadRow
 	case !okRank:
 		return s, BadPlace
 	case !trimmed(s.Player):
