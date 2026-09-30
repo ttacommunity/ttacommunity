@@ -292,6 +292,15 @@ kubectl -n ttacommunity logs -f job/engine-manual-<n>
 psql "$RATINGS_DATABASE_URL" -c "SELECT run_id, status, engine_version, finished_at FROM rating_runs ORDER BY run_id"
 ```
 
+**Check it against a local run** of the same code and data before
+publishing: the two must print the same lines (a count and checksum per
+table the run writes; ids that differ between databases are left out):
+
+```bash
+diff <(scripts/run-checksums.sh "$RATINGS_DATABASE_URL" <cluster_run_id>) \
+     <(scripts/run-checksums.sh "<local ratings url>" <local_run_id>)
+```
+
 **Publish a complete run** when you have checked it. This is what the
 engine's `--make-current` does, and the site shows the run within a minute
 (the API's `/v1/runs/current` is cached for 60 seconds):

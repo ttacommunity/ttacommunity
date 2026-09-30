@@ -62,6 +62,13 @@ A run records its **cause**: the engine version and a fingerprint of the
 input matches. A few recent runs are kept, so two can be compared before
 one is published.
 
+**Games on the same day are processed in a fixed order**, because dates carry
+no time and GlickoD sets a newcomer's starting rating from their first 15
+games. The engine uses the order of the original site's match file: games
+grouped by tournament (Royal League, Worlds, Mercurial…, by name prefix), each
+group by date, and the groups by their first date. With it, the ratings
+match the original site's engine on the same games.
+
 **Tournament results** (standings, podiums, Hall of Fame) are derived by the
 engine from matches and the tournament rules. Organisers record what matches
 cannot show, such as seeding and official rulings, in the admin site, scoped
