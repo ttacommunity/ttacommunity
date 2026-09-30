@@ -3,7 +3,7 @@ import type { Series } from '@ttac/shared/ratings';
 
 /** A tab in the series bar: the Hall of Fame overview or one series. */
 export interface SeriesTab {
-  slug: 'overview' | Series | 'intermezzo' | 'royal_league' | 'worlds' | 'grand_slams' | 'ladders';
+  slug: 'overview' | Series | 'worlds' | 'grand_slams' | 'ladders';
   icon: string;
   label: string;
 }
@@ -20,7 +20,7 @@ export const SERIES_NAV: SeriesTab[] = [
 ];
 
 /** The tabs whose page exists yet; the others show without a link. */
-export const BUILT: ReadonlySet<SeriesTab['slug']> = new Set(['international']);
+export const BUILT: ReadonlySet<SeriesTab['slug']> = new Set(['international', 'intermezzo', 'royal_league']);
 
 /** seriesHref returns the address of a series' page, or of the Hall of Fame for the overview. */
 export function seriesHref(slug: SeriesTab['slug']): string {
@@ -88,6 +88,79 @@ export const INTERNATIONAL: SeriesContent = {
   ],
 };
 
+export const INTERMEZZO: SeriesContent = {
+  slug: 'intermezzo',
+  icon: '⚔️',
+  name: 'Intermezzo Championship',
+  subtitle: '3-Player Competitive Format',
+  formatBadge: '3-Player League',
+  summary: 'The premier 3-player competitive league.',
+  frequency: 'Quarterly (4 seasons / year)',
+  since: '2018',
+  rules: [
+    '5 players per division in a round-robin schedule totaling 10 matches per division.',
+    'Each player competes in exactly 6 games per season (3-player tables paired with every pair of division rivals).',
+    'Scoring System: 1st Place = 5 pts, 2nd Place = 2 pts, 3rd Place = 0 pts (ties split points equally).',
+    'Theoretical Seasonal Maximum: 6 games x 5.0 pts = 30.0 points.',
+    'Multi-divisional ladder structure with Master 1 / Diamond as the highest tier.',
+  ],
+  stories: [
+    {
+      player: 'Weidenbaum',
+      badge: 'All-Time Dynasty',
+      title: 'Eight-Time Champion • 15 Premier Podiums',
+      text: 'Weidenbaum stands as the most decorated champion in Intermezzo history, claiming 8 Gold medals, 3 Silver medals, and 4 Bronze medals across 17 seasons, totaling an unmatched 314 Hall of Fame points.',
+    },
+    {
+      player: 'Martin_Pecheur',
+      badge: 'Triple Champion',
+      title: 'World Champion Pedigree • 3 Titles & 8 Podiums',
+      text: 'Martin_Pecheur captured 3 Intermezzo Championships, 3 runner-up finishes, and 2 bronze medals across 10 seasons (172 Hall of Fame points).',
+    },
+  ],
+};
+
+export const ROYAL_LEAGUE: SeriesContent = {
+  slug: 'royal_league',
+  icon: '👑',
+  name: 'Royal League',
+  subtitle: '2-Player Competitive Format',
+  formatBadge: '2-Player Duel',
+  summary: 'The premier 2-player recurrent championship.',
+  frequency: 'Quarterly (4 seasons / year)',
+  since: '2024',
+  rules: [
+    '2-player head-to-head matches exclusively under medium async with 48h reserve per Age.',
+    '8 players per division playing 7 weekly match rounds against all group opponents (28 matches total; max 14.0 pts).',
+    'Points: 2 for win, 1 for draw, 0 for loss.',
+    'Tiebreaker Protocol: 1st tiebreaker is Head-to-Head (H2H) match results between tied players. If unresolved for critical promotion, relegation, or podium finishes, official staged playoff tiebreaker tournaments are run.',
+    'Fibonacci-pyramidal divisional hierarchy: Emperor, King, Prince, Duke, Marquess, Count, Viscount, Baron.',
+  ],
+  stories: [
+    {
+      player: 'DANeo',
+      badge: 'Reigning Emperor Champion',
+      title: 'Season 9 Emperor Gold & Multi-Podium Legend',
+      text: 'DANeo captured the Season 9 Royal League Emperor Division Championship with a 6W-1L (12.0 pts) performance, alongside two Silver Medals in Season 4 and Season 7.',
+    },
+    {
+      player: 'saru',
+      badge: 'Two-Time Emperor Champion',
+      title: 'Back-to-Back Titles & Season 9 Silver',
+      text: 'saru captured back-to-back Royal League Premier Emperor Division titles in Season 7 and Season 8, followed by a Silver finish in Season 9 (clinching on H2H tiebreaker).',
+    },
+    {
+      player: 'vanishadow',
+      badge: 'Inaugural Dynasty',
+      title: 'Inaugural Back-to-Back Champion (Season 1 & 2)',
+      text: 'vanishadow claimed the first two Royal League championships in history, capturing Gold in Season 1 and Season 2, followed by a Silver finish in Season 3.',
+    },
+  ],
+};
+
+/** Every series with a page, in the series bar's order. */
+export const SERIES_CONTENT: SeriesContent[] = [INTERNATIONAL, INTERMEZZO, ROYAL_LEAGUE];
+
 /** era returns upstream's "Historical Era" for a series running since a year, at its latest season. */
 export function era(since: string, season: number): string {
   return `${since} – Present (Current: Season ${season})`;
@@ -109,7 +182,11 @@ export function opponentsLine(opponents: { name: string; score: number }[]): str
   return `vs ${opponents.map((o) => `${o.name} (${o.score} pts)`).join(', ')}`;
 }
 
-/** seriesRecord writes an International season's 1st, 2nd, 3rd and 4th places. */
-export function seriesRecord(placings: number[]): string {
+/** seriesRecord writes a season's places, or a Royal League season's wins/losses (wins/draws/losses with draws), as upstream. */
+export function seriesRecord(series: Series, placings: number[]): string {
+  if (series === 'royal_league') {
+    const [wins = 0, draws = 0, losses = 0] = placings;
+    return draws === 0 ? `${wins}/${losses}` : `${wins}/${draws}/${losses}`;
+  }
   return placings.join('/');
 }

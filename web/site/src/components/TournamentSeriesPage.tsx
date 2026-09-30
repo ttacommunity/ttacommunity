@@ -223,7 +223,7 @@ export default function TournamentSeriesPage({ apiUrl, content }: { apiUrl: stri
                       </td>
                       <td className="cell-points">{leaguePoints(s.points)}</td>
                       <td className="cell-record">
-                        <span className="cell-record-value">{seriesRecord(s.placings)}</span>
+                        <span className="cell-record-value">{seriesRecord(content.slug, s.placings)}</span>
                       </td>
                       <td className="cell-muted">
                         Season {s.season} ({s.division})

@@ -1,5 +1,15 @@
 import { describe, expect, it } from 'vitest';
-import { cultureScore, era, leaguePoints, opponentsLine, SERIES_NAV, seriesHref, seriesRecord } from './tournament-series';
+import {
+  BUILT,
+  cultureScore,
+  era,
+  leaguePoints,
+  opponentsLine,
+  SERIES_CONTENT,
+  SERIES_NAV,
+  seriesHref,
+  seriesRecord,
+} from './tournament-series';
 
 describe('the series nav', () => {
   it('lists upstream’s tabs in its order', () => {
@@ -42,7 +52,15 @@ describe('the series figures', () => {
     expect(opponentsLine([])).toBe('');
   });
 
-  it('shows an International season as 1st/2nd/3rd/4th places', () => {
-    expect(seriesRecord([6, 1, 0, 0])).toBe('6/1/0/0');
+  it('shows a league season as its places, and a Royal League season as wins, draws and losses', () => {
+    expect(seriesRecord('international', [6, 1, 0, 0])).toBe('6/1/0/0');
+    expect(seriesRecord('intermezzo', [6, 0, 0])).toBe('6/0/0');
+    expect(seriesRecord('royal_league', [6, 0, 1])).toBe('6/1');
+    expect(seriesRecord('royal_league', [5, 1, 1])).toBe('5/1/1');
+  });
+
+  it('has a page for each series built so far', () => {
+    expect([...BUILT].sort()).toEqual(['intermezzo', 'international', 'royal_league']);
+    expect(SERIES_CONTENT.map((c) => c.slug)).toEqual(['international', 'intermezzo', 'royal_league']);
   });
 });
