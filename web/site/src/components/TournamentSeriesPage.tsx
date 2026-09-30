@@ -2,7 +2,15 @@
 import { useEffect, useState } from 'react';
 import { currentRun, tournamentSeries, type TournamentSeries, type TrophyRow } from '@ttac/shared/ratings';
 import { playerHref } from '../lib/player-view';
-import { cultureScore, era, leaguePoints, opponentsLine, seriesRecord, type SeriesContent } from '../lib/tournament-series';
+import {
+  cultureScore,
+  leaguePoints,
+  medalCells,
+  opponentsLine,
+  seriesEra,
+  seriesRecord,
+  type SeriesContent,
+} from '../lib/tournament-series';
 
 type Load = { kind: 'loading' } | { kind: 'error'; message: string } | { kind: 'ready'; data: TournamentSeries };
 
@@ -20,8 +28,10 @@ function WorldChampion() {
   return <span className="badge-wc trophy-mark">💎 WC</span>;
 }
 
-function TitleMark({ title }: { title: TrophyRow['title'] }) {
-  return title === 'WC' ? <WorldChampion /> : <span className="trophy-mark">{title}</span>;
+/** TitleMark shows WC for a World Champion, else the board's title, as upstream's template. */
+function TitleMark({ row }: { row: TrophyRow }) {
+  if (row.title === 'WC' || row.world_champion) return <WorldChampion />;
+  return row.title ? <span className="trophy-mark">{row.title}</span> : null;
 }
 
 /** TournamentSeriesPage loads the current run's results for a series and shows them as upstream's page does. */
@@ -37,6 +47,7 @@ export default function TournamentSeriesPage({ apiUrl, content }: { apiUrl: stri
 
   const data = load.kind === 'ready' ? load.data : null;
   const waiting = load.kind === 'error' ? load.message : 'Loading…';
+  const honours = content.slug === 'grand_slams';
 
   return (
     <>
@@ -69,7 +80,7 @@ export default function TournamentSeriesPage({ apiUrl, content }: { apiUrl: stri
           </div>
           <div className="meta-box">
             <div className="meta-box-label">Historical Era</div>
-            <div className="meta-box-val meta-box-text">{data ? era(content.since, data.seasons) : '…'}</div>
+            <div className="meta-box-val meta-box-text">{content.era ?? (data ? seriesEra(content, data.seasons) : '…')}</div>
           </div>
         </div>
       </div>
@@ -122,28 +133,33 @@ export default function TournamentSeriesPage({ apiUrl, content }: { apiUrl: stri
                   <th scope="col" className="col-center">
                     Total
                   </th>
+                  {honours && <th scope="col">Honors &amp; Titles</th>}
                 </tr>
               </thead>
               <tbody>
                 {data === null ? (
                   <tr>
-                    <td colSpan={6} className="series-message">
+                    <td colSpan={honours ? 7 : 6} className="series-message">
                       {waiting}
                     </td>
                   </tr>
                 ) : (
-                  data.board.map((b, i) => (
-                    <tr key={b.name}>
-                      <td className="cell-num">{i + 1}</td>
-                      <td>
-                        <Player name={b.name} /> <TitleMark title={b.title} />
-                      </td>
-                      <td className="col-center medal-count medal-gold">{b.gold}</td>
-                      <td className="col-center medal-count medal-silver">{b.silver}</td>
-                      <td className="col-center medal-count medal-bronze">{b.bronze}</td>
-                      <td className="col-center medal-count medal-total">{b.gold + b.silver + b.bronze}</td>
-                    </tr>
-                  ))
+                  data.board.map((b, i) => {
+                    const [gold, silver, bronze, total] = medalCells(b);
+                    return (
+                      <tr key={b.name}>
+                        <td className="cell-num">{i + 1}</td>
+                        <td>
+                          <Player name={b.name} /> <TitleMark row={b} />
+                        </td>
+                        <td className="col-center medal-count medal-gold">{gold}</td>
+                        <td className="col-center medal-count medal-silver">{silver}</td>
+                        <td className="col-center medal-count medal-bronze">{bronze}</td>
+                        <td className="col-center medal-count medal-total">{total}</td>
+                        {honours && <td className="cell-honours">{b.details}</td>}
+                      </tr>
+                    );
+                  })
                 )}
               </tbody>
             </table>

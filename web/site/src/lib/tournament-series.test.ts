@@ -3,8 +3,12 @@ import {
   BUILT,
   cultureScore,
   era,
+  INTERNATIONAL,
+  WORLDS,
   leaguePoints,
+  medalCells,
   opponentsLine,
+  seriesEra,
   SERIES_CONTENT,
   SERIES_NAV,
   seriesHref,
@@ -60,7 +64,18 @@ describe('the series figures', () => {
   });
 
   it('has a page for each series built so far', () => {
-    expect([...BUILT].sort()).toEqual(['intermezzo', 'international', 'royal_league']);
-    expect(SERIES_CONTENT.map((c) => c.slug)).toEqual(['international', 'intermezzo', 'royal_league']);
+    const series = ['international', 'intermezzo', 'royal_league', 'worlds', 'grand_slams', 'ladders'];
+    expect(SERIES_CONTENT.map((c) => c.slug)).toEqual(series);
+    expect([...BUILT].sort()).toEqual([...series].sort());
+  });
+
+  it('states a static era where upstream does, else the latest season', () => {
+    expect(seriesEra(INTERNATIONAL, 34)).toBe('2016 – Present (Current: Season 34)');
+    expect(seriesEra(WORLDS, 5)).toBe('2023 – Present (Next: 2027)');
+  });
+
+  it('leaves a board’s medal cells empty where the board has no medals, as upstream', () => {
+    expect(medalCells({ gold: 2, silver: 1, bronze: 0 })).toEqual(['2', '1', '0', '3']);
+    expect(medalCells({ gold: null, silver: null, bronze: null })).toEqual(['', '', '', '']);
   });
 });
