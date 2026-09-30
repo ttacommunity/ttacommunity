@@ -96,3 +96,40 @@ func (s *server) GetHallOfFame(ctx context.Context, req GetHallOfFameRequestObje
 	}
 	return GetHallOfFame200JSONResponse{Body: body, Headers: GetHallOfFame200ResponseHeaders{CacheControl: cacheRun}}, nil
 }
+
+// GetPlayerAchievements returns what a player's achievements page shows.
+func (s *server) GetPlayerAchievements(ctx context.Context, req GetPlayerAchievementsRequestObject) (GetPlayerAchievementsResponseObject, error) {
+	if msg := playerRefusal(req.Run, req.Name, 0); msg != "" {
+		return GetPlayerAchievements400JSONResponse{badRequestBody(msg)}, nil
+	}
+	name, summary, records, err := s.ratings.PlayerAchievements(ctx, req.Run, req.Name)
+	if nf, ok := notFound(err); ok {
+		return GetPlayerAchievements404JSONResponse{nf}, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+
+	body := PlayerAchievements{RunId: req.Run, Name: name, Records: make([]TournamentRecord, 0, len(records))}
+	if summary != nil {
+		body.Summary = &AchievementSummary{
+			WorldTitles: summary.WorldTitles, InternationalTitles: summary.InternationalTitles,
+			IntermezzoTitles: summary.IntermezzoTitles, RoyalLeagueTitles: summary.RoyalLeagueTitles,
+			Gold: summary.Gold, Silver: summary.Silver, Bronze: summary.Bronze, Accolades: summary.Accolades,
+		}
+	}
+	for _, r := range records {
+		rec := TournamentRecord{
+			Tournament: r.Tournament, Season: r.Season, Division: r.Division, Placement: r.Placement,
+			Points: r.Points, Details: r.Details, FinishDate: r.FinishDate, Career: r.Career,
+		}
+		if r.Medal != nil {
+			medal := TournamentRecordMedal(*r.Medal)
+			rec.Medal = &medal
+		}
+		body.Records = append(body.Records, rec)
+	}
+	return GetPlayerAchievements200JSONResponse{
+		Body: body, Headers: GetPlayerAchievements200ResponseHeaders{CacheControl: cacheRun},
+	}, nil
+}

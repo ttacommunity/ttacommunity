@@ -135,3 +135,67 @@ func TestHallOfFameRefusals(t *testing.T) {
 		t.Errorf("GET an unknown run: %d %q, want 404 no-store", rec.Code, rec.Header().Get("Cache-Control"))
 	}
 }
+
+type fakeAchievements struct {
+	fakeRatings
+	summary *store.AchievementSummary
+	records []store.TournamentRecord
+	err     error
+	asked   string
+}
+
+func (f *fakeAchievements) PlayerAchievements(_ context.Context, run int64, name string) (string, *store.AchievementSummary, []store.TournamentRecord, error) {
+	f.calls++
+	f.gotRun, f.asked = run, name
+	return "Ann", f.summary, f.records, f.err
+}
+
+func TestPlayerAchievements(t *testing.T) {
+	gold := "gold"
+	f := &fakeAchievements{
+		summary: &store.AchievementSummary{WorldTitles: 1, Gold: 2, Silver: 1, Accolades: []string{"2024 World Champion"}},
+		records: []store.TournamentRecord{
+			{Tournament: "Quick and Dirty (Q&D)", Season: "Career Trophy Hall of Fame", Division: "Championship",
+				Placement: "2 Gold, 0 Silver, 1 Bronze", Points: "3 Medals", Medal: &gold,
+				Details: "Q&D Hall of Fame Medalist", FinishDate: "Career / All-Time", Career: true},
+			{Tournament: "TCL Round 31", Season: "Tournament", Division: "Main", Placement: "1 / 2", Points: "80 pts",
+				Details: "Competed in Main &bull; Record", FinishDate: "2024-01-02"},
+		},
+	}
+	rec, _ := serve(t, f, "/v1/runs/7/players/ann/achievements")
+	want := `{"name":"Ann","records":[` +
+		`{"career":true,"details":"Q\u0026D Hall of Fame Medalist","division":"Championship","finish_date":"Career / All-Time","medal":"gold","placement":"2 Gold, 0 Silver, 1 Bronze","points":"3 Medals","season":"Career Trophy Hall of Fame","tournament":"Quick and Dirty (Q\u0026D)"},` +
+		`{"career":false,"details":"Competed in Main \u0026bull; Record","division":"Main","finish_date":"2024-01-02","medal":null,"placement":"1 / 2","points":"80 pts","season":"Tournament","tournament":"TCL Round 31"}],` +
+		`"run_id":7,"summary":{"accolades":["2024 World Champion"],"bronze":0,"gold":2,"intermezzo_titles":0,"international_titles":0,"royal_league_titles":0,"silver":1,"world_titles":1}}`
+	if got := strings.TrimSpace(rec.Body.String()); rec.Code != http.StatusOK || got != want {
+		t.Errorf("GET achievements: %d %s\nwant 200 %s", rec.Code, got, want)
+	}
+	if rec.Header().Get("Cache-Control") != "public, max-age=300" || f.gotRun != 7 || f.asked != "ann" {
+		t.Errorf("GET achievements: Cache-Control %q, asked run %d for %q", rec.Header().Get("Cache-Control"), f.gotRun, f.asked)
+	}
+}
+
+func TestPlayerAchievementsWithoutMedalsOrRecords(t *testing.T) {
+	rec, _ := serve(t, &fakeAchievements{}, "/v1/runs/7/players/ann/achievements")
+	if got, want := strings.TrimSpace(rec.Body.String()), `{"name":"Ann","records":[],"run_id":7,"summary":null}`; rec.Code != http.StatusOK || got != want {
+		t.Errorf("GET achievements of a player with none: %d %s, want 200 %s", rec.Code, got, want)
+	}
+}
+
+func TestPlayerAchievementsRefusals(t *testing.T) {
+	f := &fakeAchievements{}
+	rec, _ := serve(t, f, "/v1/runs/0/players/ann/achievements")
+	if got := strings.TrimSpace(rec.Body.String()); rec.Code != http.StatusBadRequest || got != `{"error":"bad parameter: run"}` || f.calls != 0 {
+		t.Errorf("GET run 0: %d %s", rec.Code, got)
+	}
+	rec, _ = serve(t, f, "/v1/runs/7/players/"+strings.Repeat("a", 201)+"/achievements")
+	if rec.Code != http.StatusBadRequest || f.calls != 0 {
+		t.Errorf("GET a long name: %d, want 400 and no read", rec.Code)
+	}
+	for _, err := range []error{store.ErrRunNotFound, store.ErrPlayerNotFound} {
+		rec, _ = serve(t, &fakeAchievements{err: err}, "/v1/runs/7/players/zed/achievements")
+		if rec.Code != http.StatusNotFound || rec.Header().Get("Cache-Control") != "no-store" {
+			t.Errorf("GET with %v: %d %q, want 404 no-store", err, rec.Code, rec.Header().Get("Cache-Control"))
+		}
+	}
+}

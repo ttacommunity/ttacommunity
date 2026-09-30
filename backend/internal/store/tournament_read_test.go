@@ -272,3 +272,97 @@ func TestHallOfFameNeedsAPublishedRun(t *testing.T) {
 		t.Errorf("HallOfFame of an unpublished run: %v, want ErrRunNotFound", err)
 	}
 }
+
+func addRecord(t *testing.T, pool *pgxpool.Pool, run int64, player string, position int, finish string, career bool) {
+	t.Helper()
+	_, err := pool.Exec(context.Background(), `
+		INSERT INTO tournament_records VALUES ($1, $2, $3, 'International Championship', 'Season 30', 'Grandmaster',
+		  '1 / 7', '20 pts', CASE WHEN $3 = 1 THEN 'gold' END, $4, $5, $6)`,
+		run, player, position, fmt.Sprintf("%s #%d", player, position), finish, career)
+	if err != nil {
+		t.Fatalf("adding record %d: %v", position, err)
+	}
+}
+
+func recordIDs(recs []TournamentRecord) []string {
+	var got []string
+	for _, r := range recs {
+		got = append(got, r.Details)
+	}
+	return got
+}
+
+func TestPlayerAchievementsGiveTheSummaryAndRecordsLatestFirst(t *testing.T) {
+	pool := migrated(t)
+	r := NewRatingsReader(asReader(t, pool))
+	ctx := context.Background()
+	run := publishedRun(t, pool)
+	addPlayers(t, pool, "Ann", "Bob")
+	if _, err := pool.Exec(ctx, `INSERT INTO tournament_achievements VALUES ($1, 'Ann', 1, 2, 0, 0, 3, 1, 0,
+		ARRAY['2024 World Champion', '2x International Champion'])`, run); err != nil {
+		t.Fatal(err)
+	}
+	addRecord(t, pool, run, "Ann", 1, "2024-12-15", false)
+	addRecord(t, pool, run, "Ann", 2, "Career / All-Time", true)
+	addRecord(t, pool, run, "Ann", 3, "2025-08-14", false)
+	addRecord(t, pool, run, "Ann", 4, "2025-08-14", false)
+	addRecord(t, pool, run, "Bob", 5, "2025-08-14", false)
+
+	name, summary, recs, err := r.PlayerAchievements(ctx, run, "ann")
+	if err != nil {
+		t.Fatalf("PlayerAchievements: %v", err)
+	}
+	want := AchievementSummary{WorldTitles: 1, InternationalTitles: 2, Gold: 3, Silver: 1,
+		Accolades: []string{"2024 World Champion", "2x International Champion"}}
+	if name != "Ann" || summary == nil || fmt.Sprint(*summary) != fmt.Sprint(want) {
+		t.Errorf("PlayerAchievements = %q, %+v; want Ann, %+v", name, summary, want)
+	}
+	// A career total's label sorts after every date, as on the original site.
+	if got, want := recordIDs(recs), []string{"Ann #2", "Ann #4", "Ann #3", "Ann #1"}; !slices.Equal(got, want) {
+		t.Errorf("records = %q, want %q", got, want)
+	}
+	first := recs[3]
+	if first.Medal == nil || *first.Medal != "gold" || first.Tournament != "International Championship" ||
+		first.Season != "Season 30" || first.Placement != "1 / 7" || first.Points != "20 pts" ||
+		first.FinishDate != "2024-12-15" || first.Career || !recs[0].Career || recs[1].Medal != nil {
+		t.Errorf("records = %+v, want each column as written", recs)
+	}
+}
+
+func TestPlayerAchievementsMatchRecordsIgnoringCase(t *testing.T) {
+	pool := migrated(t)
+	r := NewRatingsReader(asReader(t, pool))
+	ctx := context.Background()
+	run := publishedRun(t, pool)
+	addPlayers(t, pool, "RobertdeSable", "RobertDeSable")
+	addRecord(t, pool, run, "RobertdeSable", 1, "2020-07-26", false)
+	addRecord(t, pool, run, "RobertDeSable", 2, "2023-09-25", false)
+
+	name, summary, recs, err := r.PlayerAchievements(ctx, run, "RobertdeSable")
+	if err != nil {
+		t.Fatalf("PlayerAchievements: %v", err)
+	}
+	if got, want := recordIDs(recs), []string{"RobertDeSable #2", "RobertdeSable #1"}; name != "RobertdeSable" || summary != nil || !slices.Equal(got, want) {
+		t.Errorf("PlayerAchievements = %q, %+v, %q; want RobertdeSable, no summary, %q", name, summary, got, want)
+	}
+}
+
+func TestPlayerAchievementsRefuseAnUnknownPlayerOrUnpublishedRun(t *testing.T) {
+	pool := migrated(t)
+	r := NewRatingsReader(asReader(t, pool))
+	ctx := context.Background()
+	run := publishedRun(t, pool)
+	unpublished := addRun(t, pool, "complete", time.Time{})
+	addPlayers(t, pool, "Ann")
+
+	if _, _, _, err := r.PlayerAchievements(ctx, run, "Nobody"); !errors.Is(err, ErrPlayerNotFound) {
+		t.Errorf("PlayerAchievements of an unknown player: %v, want ErrPlayerNotFound", err)
+	}
+	if _, _, _, err := r.PlayerAchievements(ctx, unpublished, "Ann"); !errors.Is(err, ErrRunNotFound) {
+		t.Errorf("PlayerAchievements of an unpublished run: %v, want ErrRunNotFound", err)
+	}
+	_, summary, recs, err := r.PlayerAchievements(ctx, run, "Ann")
+	if err != nil || summary != nil || len(recs) != 0 {
+		t.Errorf("PlayerAchievements of a player with none = %+v, %v, %v; want nothing, no error", summary, recs, err)
+	}
+}

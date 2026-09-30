@@ -352,6 +352,34 @@ paths:
           $ref: "#/components/responses/BadRequest"
         "404":
           $ref: "#/components/responses/NotFound"
+  /v1/runs/{run}/players/{name}/achievements:
+    get:
+      operationId: getPlayerAchievements
+      summary: One player's tournament achievements, for their achievements page
+      description: |
+        The player's titles and medals across the four major circuits
+        (World Championship, International, Intermezzo, Royal League) and
+        the accolades their page features, and every tournament record the
+        original site lists for them: seasons, campaigns and career totals,
+        latest finish first. Records are matched to the name ignoring case,
+        as the original site does. Cached for five minutes.
+      parameters:
+        - $ref: "#/components/parameters/RunId"
+        - $ref: "#/components/parameters/PlayerName"
+      responses:
+        "200":
+          description: The player's achievements
+          headers:
+            Cache-Control:
+              $ref: "#/components/headers/CacheControl"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PlayerAchievements"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "404":
+          $ref: "#/components/responses/NotFound"
   /v1/runs/{run}/players/{name}/versus/{other}:
     get:
       operationId: getPlayerVersus
@@ -1655,6 +1683,72 @@ components:
         spearman:
           type: number
           format: double
+    PlayerAchievements:
+      type: object
+      required: [run_id, name, summary, records]
+      properties:
+        run_id:
+          type: integer
+          format: int64
+        name:
+          type: string
+        summary:
+          $ref: "#/components/schemas/AchievementSummary"
+        records:
+          description: Latest finish first; a career total's finish_date is a label, not a date
+          type: array
+          items:
+            $ref: "#/components/schemas/TournamentRecord"
+    AchievementSummary:
+      description: Null for a player with no medal in the four major circuits
+      type: object
+      nullable: true
+      required: [world_titles, international_titles, intermezzo_titles, royal_league_titles, gold, silver, bronze, accolades]
+      properties:
+        world_titles:
+          type: integer
+        international_titles:
+          type: integer
+        intermezzo_titles:
+          type: integer
+        royal_league_titles:
+          type: integer
+        gold:
+          type: integer
+        silver:
+          type: integer
+        bronze:
+          type: integer
+        accolades:
+          description: At most six, in the order the page features them
+          type: array
+          items:
+            type: string
+    TournamentRecord:
+      type: object
+      required: [tournament, season, division, placement, points, medal, details, finish_date, career]
+      properties:
+        tournament:
+          type: string
+        season:
+          type: string
+        division:
+          type: string
+        placement:
+          type: string
+        points:
+          type: string
+        medal:
+          type: string
+          enum: [gold, silver, bronze]
+          nullable: true
+        details:
+          type: string
+        finish_date:
+          type: string
+        career:
+          description: A career total, not one season or tournament
+          type: boolean
     Series:
       description: A tournament series
       type: string

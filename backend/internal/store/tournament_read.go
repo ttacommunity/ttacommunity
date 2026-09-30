@@ -3,6 +3,7 @@ package store
 import (
 	"cmp"
 	"context"
+	"errors"
 	"fmt"
 	"slices"
 	"time"
@@ -243,4 +244,72 @@ func (r *RatingsReader) HallOfFame(ctx context.Context, run int64) (HallOfFame, 
 		return fail("ladders", err)
 	}
 	return got, nil
+}
+
+// AchievementSummary is a player's titles and medals across the four major
+// circuits, and the accolades their page features.
+type AchievementSummary struct {
+	WorldTitles         int
+	InternationalTitles int
+	IntermezzoTitles    int
+	RoyalLeagueTitles   int
+	Gold                int
+	Silver              int
+	Bronze              int
+	Accolades           []string
+}
+
+// TournamentRecord is one row of a player's tournament records: a season, a
+// campaign or a career total, as the engine wrote it for the page.
+type TournamentRecord struct {
+	Tournament string
+	Season     string
+	Division   string
+	Placement  string
+	Points     string
+	Medal      *string
+	Details    string
+	FinishDate string
+	Career     bool
+}
+
+// PlayerAchievements returns the stored name, a player's achievement summary
+// (nil without a medal) and their records in a published run. Records match
+// the name ignoring case, as upstream's page does; latest finish first, by
+// byte order, so a career total's label sorts after every date.
+func (r *RatingsReader) PlayerAchievements(ctx context.Context, run int64, asked string) (string, *AchievementSummary, []TournamentRecord, error) {
+	name, err := r.resolve(ctx, run, asked)
+	if err != nil {
+		return "", nil, nil, err
+	}
+	fail := func(what string, err error) (string, *AchievementSummary, []TournamentRecord, error) {
+		return "", nil, nil, fmt.Errorf("reading run %d's %s: %w", run, what, err)
+	}
+	var s AchievementSummary
+	err = r.pool.QueryRow(ctx, `
+		SELECT world_titles, international_titles, intermezzo_titles, royal_league_titles, gold, silver, bronze, accolades
+		FROM tournament_achievements WHERE run_id = $1 AND lower(player_name) = lower($2)
+		ORDER BY player_name = $2 DESC LIMIT 1`, run, name).
+		Scan(&s.WorldTitles, &s.InternationalTitles, &s.IntermezzoTitles, &s.RoyalLeagueTitles, &s.Gold, &s.Silver, &s.Bronze, &s.Accolades)
+	summary := &s
+	if errors.Is(err, pgx.ErrNoRows) {
+		summary = nil
+	} else if err != nil {
+		return fail("achievements", err)
+	}
+	rows, err := r.pool.Query(ctx, `
+		SELECT tournament, season, division, placement, points, medal, details, finish_date, career
+		FROM tournament_records WHERE run_id = $1 AND lower(player_name) = lower($2)
+		ORDER BY finish_date COLLATE "C" DESC, position DESC`, run, name)
+	if err != nil {
+		return fail("tournament records", err)
+	}
+	recs, err := pgx.CollectRows(rows, func(row pgx.CollectableRow) (TournamentRecord, error) {
+		var t TournamentRecord
+		return t, row.Scan(&t.Tournament, &t.Season, &t.Division, &t.Placement, &t.Points, &t.Medal, &t.Details, &t.FinishDate, &t.Career)
+	})
+	if err != nil {
+		return fail("tournament records", err)
+	}
+	return name, summary, recs, nil
 }
