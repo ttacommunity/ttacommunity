@@ -33,6 +33,11 @@ include:
   - if: '$CI_PIPELINE_SOURCE == "push"'
   - if: '$CI_PIPELINE_SOURCE == "web"'
 
+# main, schedules and manual runs test every area; branches only the areas
+# their changes reach, listed per job.
+.every_area: &every_area
+  if: '$CI_PIPELINE_SOURCE == "schedule" || $CI_PIPELINE_SOURCE == "web" || ($CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH && $CI_PIPELINE_SOURCE == "push")'
+
 # Each area of scripts/ci.sh is its own job, installing only the tools that
 # area needs from mise.toml, so each fits the runners' 1 GiB job limit.
 .ci_area:
@@ -57,6 +62,16 @@ ci-go:
     - name: ${POSTGRES_IMAGE}
       alias: postgres
   variables:
+  rules:
+    - *every_area
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event" || $CI_PIPELINE_SOURCE == "push"'
+      changes:
+        - backend/**/*
+        - mise.toml
+        - scripts/ci.sh
+        - scripts/install-mise.sh
+        - .gitlab-ci.yml
+  variables:
     AREA: go
     MISE_TOOLS: go
     APT_EXTRA: gcc libc6-dev
@@ -71,6 +86,19 @@ ci-engine:
     - name: ${POSTGRES_IMAGE}
       alias: postgres
   variables:
+  rules:
+    - *every_area
+    # The engine's tests apply the migrations and share cases with the Go port.
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event" || $CI_PIPELINE_SOURCE == "push"'
+      changes:
+        - engine/**/*
+        - backend/migrations/**/*
+        - backend/internal/ratingdelta/testdata/**/*
+        - mise.toml
+        - scripts/ci.sh
+        - scripts/install-mise.sh
+        - .gitlab-ci.yml
+  variables:
     AREA: engine
     MISE_TOOLS: uv
     POSTGRES_DB: ttac_test
@@ -80,6 +108,19 @@ ci-engine:
 
 ci-web:
   extends: .ci_area
+  rules:
+    - *every_area
+    # The TS types are generated from the spec; the Access worker's tests run here too.
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event" || $CI_PIPELINE_SOURCE == "push"'
+      changes:
+        - web/**/*
+        - backend/api/openapi.yaml
+        - checks/csp-inline.mjs
+        - infra/access-oidc/**/*
+        - mise.toml
+        - scripts/ci.sh
+        - scripts/install-mise.sh
+        - .gitlab-ci.yml
   variables:
     AREA: web
     MISE_TOOLS: node
