@@ -1,0 +1,83 @@
+# The dev site's tunnel, ttacommunity-dev, publishing ttac-api-dev.unstableunicorn.dev.
+# Its own tunnel: the parity tunnel's routes are in deploy/cloudflare-tunnel.yaml.
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: ttacommunity-dev-tunnel
+  namespace: ttacommunity
+data:
+  config.yaml: |
+    tunnel: 028e1949-476b-4be3-93fc-50230899884e
+    credentials-file: /etc/cloudflared/creds/credentials.json
+    ingress:
+      - hostname: ttac-api-dev.unstableunicorn.dev
+        service: http://api-dev.ttacommunity.svc.cluster.local:8080
+      - service: http_status:404
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: cloudflared-dev
+  namespace: ttacommunity
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: cloudflared-dev
+  template:
+    metadata:
+      labels:
+        app: cloudflared-dev
+    spec:
+      automountServiceAccountToken: false
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 65532
+        runAsGroup: 65532
+        seccompProfile:
+          type: RuntimeDefault
+      topologySpreadConstraints:
+        - maxSkew: 1
+          topologyKey: kubernetes.io/hostname
+          whenUnsatisfiable: ScheduleAnyway
+          labelSelector:
+            matchLabels:
+              app: cloudflared-dev
+      containers:
+        - name: cloudflared-dev
+          image: docker.io/cloudflare/cloudflared:2026.9.3@sha256:072c067d25ccbe61d46e18f0d0723255f2bb5304f7317caa95b27031520ff92c
+          # A fixed metrics port, or the liveness probe finds nothing.
+          args: [tunnel, --metrics, "0.0.0.0:2000", --config, /etc/cloudflared/config.yaml, run]
+          resources:
+            requests:
+              cpu: 25m
+              memory: 32Mi
+            limits:
+              memory: 128Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: [ALL]
+          # /ready answers 200 only while an edge connection is up.
+          livenessProbe:
+            httpGet:
+              path: /ready
+              port: 2000
+            initialDelaySeconds: 10
+            periodSeconds: 30
+          volumeMounts:
+            - name: config
+              mountPath: /etc/cloudflared
+              readOnly: true
+            - name: creds
+              mountPath: /etc/cloudflared/creds
+              readOnly: true
+      volumes:
+        - name: config
+          configMap:
+            name: ttacommunity-dev-tunnel
+        - name: creds
+          secret:
+            secretName: ttacommunity-dev-tunnel
