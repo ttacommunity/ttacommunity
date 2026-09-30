@@ -6,6 +6,7 @@ import (
 	"context"
 	"slices"
 	"testing"
+	"time"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -140,5 +141,59 @@ func TestReplaceCorrectionsReplacesEveryEarlierRow(t *testing.T) {
 	}
 	if rows, want := rowsOf(t, pool, correctionRows), []string{"intermezzo|7|-|r|s", "intermezzo|8|7|r|s"}; !slices.Equal(rows, want) {
 		t.Errorf("corrections = %q, want %q", rows, want)
+	}
+}
+
+const finishDateRows = "SELECT concat_ws('|', series, season, finish_date, source) FROM tournament_finish_dates ORDER BY series, season"
+
+func TestReplaceFinishDatesReplacesEveryEarlierRow(t *testing.T) {
+	pool := migrated(t)
+	ctx := context.Background()
+	date := func(series string, season int, day string) tournamentcsv.FinishDate {
+		d, err := time.Parse(time.DateOnly, day)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return tournamentcsv.FinishDate{Series: series, Season: season, Date: d, Source: "s"}
+	}
+	if _, err := ReplaceFinishDates(ctx, pool, []tournamentcsv.FinishDate{date("intermezzo", 1, "2019-03-24")}); err != nil {
+		t.Fatalf("first ReplaceFinishDates: %v", err)
+	}
+
+	got, err := ReplaceFinishDates(ctx, pool, []tournamentcsv.FinishDate{date("international", 34, "2026-08-14"), date("worlds", 2025, "2025-12-15")})
+	if err != nil {
+		t.Fatalf("ReplaceFinishDates: %v", err)
+	}
+	if want := (FactsReplaced{Written: 2}); got != want {
+		t.Errorf("ReplaceFinishDates = %+v, want %+v", got, want)
+	}
+	if rows, want := rowsOf(t, pool, finishDateRows), []string{"international|34|2026-08-14|s", "worlds|2025|2025-12-15|s"}; !slices.Equal(rows, want) {
+		t.Errorf("finish dates = %q, want %q", rows, want)
+	}
+}
+
+const honourRows = "SELECT concat_ws('|', series, player_name, gold, silver, bronze, coalesce(points, '-'), source) " +
+	"FROM tournament_career_honours ORDER BY series, player_name"
+
+func TestReplaceHonoursWritesKnownPlayersOnly(t *testing.T) {
+	pool := migrated(t)
+	ctx := context.Background()
+	addPlayers(t, pool, "ann", "bob")
+	points := "8,5"
+	honours := []tournamentcsv.Honour{
+		{Series: "sodium_ladder", Player: "ann", Gold: 5, Silver: 2, Points: &points, Source: "s"},
+		{Series: "q_and_d", Player: "Martin Pecheur", Gold: 3, Source: "q"},
+		{Series: "q_and_d", Player: "bob", Gold: 2, Silver: 2, Bronze: 1, Source: "q"},
+	}
+
+	got, err := ReplaceHonours(ctx, pool, honours)
+	if err != nil {
+		t.Fatalf("ReplaceHonours: %v", err)
+	}
+	if want := (FactsReplaced{Written: 2, Unknown: 1}); got != want {
+		t.Errorf("ReplaceHonours = %+v, want %+v", got, want)
+	}
+	if rows, want := rowsOf(t, pool, honourRows), []string{"q_and_d|bob|2|2|1|-|q", "sodium_ladder|ann|5|2|0|8,5|s"}; !slices.Equal(rows, want) {
+		t.Errorf("honours = %q, want %q", rows, want)
 	}
 }

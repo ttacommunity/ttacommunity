@@ -28,12 +28,12 @@ func main() {
 	reset := flag.Bool("reset", false, "delete every match, refusal and rating run first")
 	migrate := flag.Bool("migrate", false, "only apply the ratings migrations, and load nothing")
 	countries := flag.Bool("countries", false, "set players' countries from the CSV files named, a later file winning")
-	facts := flag.String("facts", "", "replace every recorded tournament fact of one kind (divisions, placements or corrections) with the CSV file named")
+	facts := flag.String("facts", "", "replace every recorded tournament fact of one kind (divisions, placements, corrections, dates or honours) with the CSV file named")
 	flag.Usage = func() {
 		fmt.Fprintln(os.Stderr, "usage: load [-reset] <directory of match CSVs>")
 		fmt.Fprintln(os.Stderr, "       load -migrate")
 		fmt.Fprintln(os.Stderr, "       load -countries <CSV file>...")
-		fmt.Fprintln(os.Stderr, "       load -facts divisions|placements|corrections <CSV file>")
+		fmt.Fprintln(os.Stderr, "       load -facts divisions|placements|corrections|dates|honours <CSV file>")
 		fmt.Fprintln(os.Stderr, "The database is RATINGS_DATABASE_URL.")
 		flag.PrintDefaults()
 	}
@@ -126,8 +126,12 @@ func replaceFacts(kind, file string) error {
 		return loadFacts(kind, file, tournamentcsv.ReadPlacements, store.ReplacePlacements)
 	case "corrections":
 		return loadFacts(kind, file, tournamentcsv.ReadCorrections, store.ReplaceCorrections)
+	case "dates":
+		return loadFacts(kind, file, tournamentcsv.ReadFinishDates, store.ReplaceFinishDates)
+	case "honours":
+		return loadFacts(kind, file, tournamentcsv.ReadHonours, store.ReplaceHonours)
 	}
-	return fmt.Errorf("unknown kind of fact %q: want divisions, placements or corrections", kind)
+	return fmt.Errorf("unknown kind of fact %q: want divisions, placements, corrections, dates or honours", kind)
 }
 
 func loadFacts[T any](

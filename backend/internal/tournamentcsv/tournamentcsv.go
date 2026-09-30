@@ -1,5 +1,6 @@
 // Package tournamentcsv reads recorded tournament facts, the things match
-// names cannot say: divisions, official placements and season corrections.
+// names cannot say: divisions, official placements, season corrections,
+// finish dates and career honours.
 // Each is one CSV with a fixed header and a source column.
 package tournamentcsv
 
@@ -29,6 +30,8 @@ const (
 	BadPoints   Reason = "bad_points"
 	BadReason   Reason = "bad_reason"
 	BadSource   Reason = "bad_source"
+	BadDate     Reason = "bad_date"
+	BadMedals   Reason = "bad_medals"
 	Duplicate   Reason = "duplicate"
 )
 
