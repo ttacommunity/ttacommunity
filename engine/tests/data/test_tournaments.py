@@ -535,3 +535,35 @@ def test_royal_league_season_records_are_wins_draws_losses(conn, add_match, run_
     got = {r[0]: r for r in season_records(conn, run_id)}
     assert got["ann"][:5] == ("ann", 9, 9.0, 5, [4, 1, 0])
     assert got["bob"][:5] == ("bob", 9, 1.0, 5, [0, 1, 4])
+
+
+def test_a_league_game_short_of_players_scores_as_upstream(conn, add_match, run_id):
+    # A 2-player game in a 3-player league: 5 and 2, the top of the 3-player table.
+    add_match(("ann", 90), ("bob", 80), tournament=im(1, 23, "Platinum 1"))
+
+    derive_tournaments(conn=conn, run_id=run_id)
+
+    assert standings(conn, run_id, 23) == [("ann", 1, 5.0), ("bob", 2, 2.0)]
+
+
+def test_season_records_keep_a_left_out_seasons_games_as_upstream(
+    conn, add_match, run_id, correct
+):
+    correct("intermezzo", 7, None)
+    for n in range(1, 7):
+        add_match(
+            ("ann", 90),
+            ("bob", 80),
+            ("cat", 70),
+            tournament=im(n, 7),
+            day=date(2020, 5, n),
+        )
+
+    derive_tournaments(conn=conn, run_id=run_id)
+
+    row = conn.execute(
+        "SELECT season, division, points FROM tournament_season_records "
+        "WHERE run_id = %s AND player_name = 'ann'",
+        (run_id,),
+    ).fetchone()
+    assert (row["season"], row["division"], row["points"]) == (7, "Grandmaster", 30.0)

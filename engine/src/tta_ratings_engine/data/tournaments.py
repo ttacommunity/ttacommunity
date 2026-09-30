@@ -108,6 +108,7 @@ class Series:
     duel: bool
     in_records: Callable[[str], bool]
     record_min_games: int
+    record_division: str
 
 
 SERIES = {
@@ -122,6 +123,7 @@ SERIES = {
             and not _like(n, "Master 1", "Master 2")
         ),
         record_min_games=6,
+        record_division="Grandmaster",
     ),
     "intermezzo": Series(
         parse=parse_intermezzo,
@@ -134,6 +136,7 @@ SERIES = {
             and not _like(n, "Master 1", "Master 2")
         ),
         record_min_games=6,
+        record_division="Grandmaster",
     ),
     "royal_league": Series(
         parse=parse_royal_league,
@@ -145,6 +148,7 @@ SERIES = {
             and _like(n, "Emperor")
         ),
         record_min_games=5,
+        record_division="Emperor",
     ),
 }
 
@@ -167,6 +171,15 @@ def game_points(
     return got
 
 
+def points_table(points: dict[int, list[float]], players: int) -> list[float]:
+    """Returns the points for each place in a game of that many players.
+
+    A game with fewer players than any table (one left a league game) takes
+    the top places of the smallest, as upstream's records score it.
+    """
+    return points.get(players) or min(points.values(), key=len)[:players]
+
+
 def _places(scores):
     """Returns each player's place in one game, tied players sharing the better one."""
     return {p: 1 + sum(1 for _, s in scores if s > score) for p, score in scores}
@@ -185,7 +198,7 @@ def _tally(games, table):
         "score": defaultdict(float),
     }
     for scores in games:
-        got = game_points(scores, table[len(scores)])
+        got = game_points(scores, points_table(table, len(scores)))
         best = max(s for _, s in scores)
         for p, place in _places(scores).items():
             t["points"][p] += got[p]
@@ -343,7 +356,7 @@ def season_records(rows, rules: Series):
         for place, (p, score) in enumerate(order, start=1):
             rec = got.setdefault(
                 (r["name_season"], p),
-                {"division": r["division"], "points": 0.0, "games": 0,
+                {"division": rules.record_division, "points": 0.0, "games": 0,
                  "placings": [0, 0, 0] if len(rules.points) == 1 else [0, 0, 0, 0],
                  "first_match_id": r["match_id"]},
             )  # fmt: skip
@@ -355,7 +368,7 @@ def season_records(rows, rules: Series):
                 rec["points"] += (2.0, 1.0, 0.0)[result]
                 rec["placings"][result] += 1
             else:
-                rec["points"] += rules.points[len(order)][place - 1]
+                rec["points"] += points_table(rules.points, len(order))[place - 1]
                 rec["placings"][place - 1] += 1
     return {k: v for k, v in got.items() if v["games"] >= rules.record_min_games}
 
