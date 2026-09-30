@@ -1,13 +1,18 @@
 // The public site as a Worker serving static assets: Astro's build output,
-// including public/_headers. Cloudflare's Workers Builds deploys it from main.
+// including public/_headers. Workers Builds deploys it from main, and branch
+// dev as a Preview at dev.ttacommunity.unstableunicorn.dev.
 {
   "name": "ttacommunity",
   "compatibility_date": "2026-09-27",
   "assets": {
     "directory": "./dist"
   },
-  // Only the custom domain serves the site: no workers.dev or preview hostnames.
+  // No workers.dev hostnames: production and Previews are served only on the custom domain.
   "workers_dev": false,
   "preview_urls": false,
-  "routes": [{ "pattern": "ttacommunity.unstableunicorn.dev", "custom_domain": true }]
+  "routes": [
+    { "pattern": "ttacommunity.unstableunicorn.dev", "custom_domain": true, "previews_enabled": true }
+  ],
+  // Previews take no settings from production; the site has none to give them.
+  "previews": {}
 }
