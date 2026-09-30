@@ -242,6 +242,7 @@ describe('titleOptions', () => {
     const rows = [row('a', 1, 40, null, titled('M')), row('b', 1, 40, null, titled('WC')), row('c', 1), row('d', 1, 40, null, titled('GM'))];
     expect(titleOptions(rows)).toEqual(['GM', 'M', 'WC']);
     expect(titleOptions([...rows, row('e', 1, 40, null, titled('SGM'))])).toEqual(['GM', 'M', 'SGM', 'WC']);
+    expect(titleOptions([row('f', 1, 40, null, titled('B')), row('g', 1, 40, null, titled('W'))])).toEqual(['W', 'B']);
   });
 });
 
