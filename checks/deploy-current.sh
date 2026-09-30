@@ -46,11 +46,12 @@ for pin in "${pins[@]}"; do
   fi
 done
 
-# The engine records ENGINE_VERSION on every run, so it must name the pinned image's commit.
+# The engine records ENGINE_VERSION on every run, so it must name the pinned image's commit,
+# quoted: YAML reads an all-digit commit as a number, which Kubernetes refuses.
 engine_pin=$(grep -oE "$registry/engine:sha-[0-9a-f]+" deploy/engine.yaml | head -1)
-engine_version=$(grep -A1 -E 'name: ENGINE_VERSION' deploy/engine.yaml | grep -oE 'value: *[0-9a-f]+' | awk '{print $2}')
+engine_version=$(grep -A1 -E 'name: ENGINE_VERSION' deploy/engine.yaml | grep -oE 'value: *"[0-9a-f]+"' | grep -oE '[0-9a-f]{7,}')
 if [ -z "$engine_pin" ] || [ -z "$engine_version" ] || [ "${engine_pin##*:sha-}" != "$engine_version" ]; then
-  echo "  deploy/engine.yaml: ENGINE_VERSION '$engine_version' is not the engine image's commit '${engine_pin##*:sha-}'" >&2
+  echo "  deploy/engine.yaml: ENGINE_VERSION '$engine_version' is not the engine image's commit '${engine_pin##*:sha-}', quoted" >&2
   failed=1
 fi
 
