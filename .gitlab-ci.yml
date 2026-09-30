@@ -33,10 +33,10 @@ include:
   - if: '$CI_PIPELINE_SOURCE == "push"'
   - if: '$CI_PIPELINE_SOURCE == "web"'
 
-# main, schedules and manual runs test every area; branches only the areas
-# their changes reach, listed per job.
+# main, dev, schedules and manual runs test every area; other branches only
+# the areas their changes reach, listed per job.
 .every_area: &every_area
-  if: '$CI_PIPELINE_SOURCE == "schedule" || $CI_PIPELINE_SOURCE == "web" || ($CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH && $CI_PIPELINE_SOURCE == "push")'
+  if: '$CI_PIPELINE_SOURCE == "schedule" || $CI_PIPELINE_SOURCE == "web" || ($CI_PIPELINE_SOURCE == "push" && ($CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH || $CI_COMMIT_BRANCH == "dev"))'
 
 # Each area of scripts/ci.sh is its own job, installing only the tools that
 # area needs from mise.toml, so each fits the runners' 1 GiB job limit.
