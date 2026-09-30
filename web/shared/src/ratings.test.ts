@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   RatingsApiError,
   activity,
+  tournamentSeries,
   agreement,
   calibration,
   comparedPlayers,
@@ -173,5 +174,14 @@ describe('analysis pages', () => {
       'https://api.example/v1/runs/5/analysis/activity',
     ]);
     expect(f.calls.every((c) => c.init?.credentials === 'omit')).toBe(true);
+  });
+});
+
+describe('tournament pages', () => {
+  it('ask for a series without credentials', async () => {
+    const f = fakeFetch(200, '{}');
+    await tournamentSeries('https://api.example', 5, 'international', f.fetch);
+    expect(f.calls.map((c) => c.url)).toEqual(['https://api.example/v1/runs/5/tournaments/international']);
+    expect(f.calls[0]?.init?.credentials).toBe('omit');
   });
 });

@@ -35,6 +35,11 @@ export type ComparedPlayers = components['schemas']['ComparedPlayers'];
 export type ComparedPlayer = components['schemas']['ComparedPlayer'];
 export type Activity = components['schemas']['Activity'];
 export type CountryRatings = components['schemas']['CountryRatings'];
+export type Series = components['schemas']['Series'];
+export type TournamentSeries = components['schemas']['TournamentSeries'];
+export type TrophyRow = components['schemas']['TrophyRow'];
+export type SeasonRecord = components['schemas']['SeasonRecord'];
+export type GameRecord = components['schemas']['GameRecord'];
 
 /** An error response from the API, carrying its status and message. */
 export class RatingsApiError extends Error {
@@ -202,6 +207,11 @@ export async function comparedPlayers(base: string, run: number, search: string,
 /** Returns a run's active players, games per format, titles and leading countries. */
 export async function activity(base: string, run: number, fetchFn: typeof fetch = fetch): Promise<Activity> {
   return get<Activity>(fetchFn, base, `/v1/runs/${run}/analysis/activity`);
+}
+
+/** Returns what a tournament series' Hall of Fame page shows: counts, trophyboard, best seasons and games. */
+export async function tournamentSeries(base: string, run: number, series: Series, fetchFn: typeof fetch = fetch): Promise<TournamentSeries> {
+  return get<TournamentSeries>(fetchFn, base, `/v1/runs/${run}/tournaments/${series}`);
 }
 
 // Public routes take no credentials, so none are ever sent.
