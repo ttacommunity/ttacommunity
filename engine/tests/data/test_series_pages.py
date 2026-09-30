@@ -3,6 +3,7 @@ from datetime import date
 from tta_ratings_engine.data.series_pages import (
     grand_slams_board,
     ladders_board,
+    legends,
     series_metrics,
     worlds_board,
 )
@@ -140,4 +141,43 @@ def test_ladders_board_counts_ladder_wins_for_players_of_30_games():
     assert [(b["player_name"], b["games"], b["wins"], b["win_rate"]) for b in got] == [
         ("ann", 30, 20, 66.7),
         ("bob", 30, 10, 33.3),
+    ]
+
+
+def medal(player, gold=0, silver=0, bronze=0):
+    return {"player_name": player, "gold": gold, "silver": silver, "bronze": bronze}
+
+
+def test_legends_sum_the_four_major_circuits_as_upstream():
+    boards = {
+        "worlds": [medal("wc", gold=1), medal("vice", silver=1)],
+        "international": [
+            medal("ann", gold=2),
+            medal("wc", gold=1, bronze=1),
+            medal("one", bronze=1),
+        ],
+        "intermezzo": [medal("bob", gold=2), medal("ann", silver=1)],
+        "royal_league": [medal("cat", silver=1, bronze=1)],
+        "grand_slams": [medal("cup", gold=9)],
+    }
+    got = legends(boards)
+    # Titles first (golds), World titles break ties, then medals; a player
+    # with no title needs two medals; ties keep the order first seen.
+    assert [
+        (
+            r["player_name"],
+            r["world_titles"],
+            r["international_titles"],
+            r["intermezzo_titles"],
+            r["royal_league_titles"],
+            r["gold"],
+            r["silver"],
+            r["bronze"],
+        )
+        for r in got
+    ] == [
+        ("wc", 1, 1, 0, 0, 2, 0, 1),
+        ("ann", 0, 2, 0, 0, 2, 1, 0),
+        ("bob", 0, 0, 2, 0, 2, 0, 0),
+        ("cat", 0, 0, 0, 0, 0, 1, 1),
     ]

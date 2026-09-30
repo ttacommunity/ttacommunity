@@ -80,6 +80,7 @@ RESULT_TABLES = [
     "tournament_boards",
     "tournament_season_records",
     "tournament_series",
+    "tournament_legends",
 ]
 
 

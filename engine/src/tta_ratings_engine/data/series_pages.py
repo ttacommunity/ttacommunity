@@ -238,3 +238,46 @@ def ladders_board(rows) -> list[dict]:
         if s["games"] >= 30
     ]  # fmt: skip
     return sorted(board, key=lambda b: (b["wins"], b["win_rate"]), reverse=True)[:15]
+
+
+# The circuits whose titles make the Hall of Fame's all-time table, in the
+# order upstream reads their boards.
+MAJOR_CIRCUITS = {
+    "worlds": "world_titles",
+    "international": "international_titles",
+    "intermezzo": "intermezzo_titles",
+    "royal_league": "royal_league_titles",
+}
+
+
+def legends(boards: dict[str, list[dict]], shown: int = 25) -> list[dict]:
+    """Returns upstream's all-time major circuits table from the four circuits' boards.
+
+    Each player's titles are their golds in each circuit; medals are summed
+    across them. A player needs a title or two medals. Ordered by titles,
+    World titles, golds, silvers, bronzes and medals, ties first seen first.
+    """
+    got = {}
+    for series, titles in MAJOR_CIRCUITS.items():
+        for b in boards.get(series, []):
+            row = got.setdefault(
+                b["player_name"],
+                {"player_name": b["player_name"], **dict.fromkeys(MAJOR_CIRCUITS.values(), 0),
+                 "gold": 0, "silver": 0, "bronze": 0},
+            )  # fmt: skip
+            row[titles] += b["gold"]
+            for m in PLACES:
+                row[m] += b[m]
+
+    def titles(r):
+        return sum(r[t] for t in MAJOR_CIRCUITS.values())
+
+    def medals(r):
+        return r["gold"] + r["silver"] + r["bronze"]
+
+    kept = [r for r in got.values() if titles(r) > 0 or medals(r) >= 2]
+    kept.sort(
+        key=lambda r: (titles(r), r["world_titles"], r["gold"], r["silver"], r["bronze"], medals(r)),
+        reverse=True,
+    )  # fmt: skip
+    return kept[:shown]

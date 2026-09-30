@@ -20,6 +20,7 @@ from tta_ratings_engine.data.db import require_running
 from tta_ratings_engine.data.series_pages import (
     grand_slams_board,
     ladders_board,
+    legends,
     series_metrics,
     worlds_board,
 )
@@ -516,6 +517,11 @@ def derive_tournaments(*, conn: psycopg.Connection, run_id: int) -> None:
         )  # fmt: skip
         boards["grand_slams"] = grand_slams_board(rows)
         boards["ladders"] = ladders_board(rows)
+        legend_rows = [
+            (run_id, position, r["player_name"], r["world_titles"], r["international_titles"],
+             r["intermezzo_titles"], r["royal_league_titles"], r["gold"], r["silver"], r["bronze"])
+            for position, r in enumerate(legends(boards), start=1)
+        ]  # fmt: skip
         board_rows = _board_rows(run_id, boards)
         series_rows = [
             (run_id, series, games, editions)
@@ -531,6 +537,7 @@ def derive_tournaments(*, conn: psycopg.Connection, run_id: int) -> None:
 
         for table in (
             "tournament_series",
+            "tournament_legends",
             "tournament_season_records",
             "tournament_boards",
             "tournament_standings",
@@ -559,6 +566,10 @@ def derive_tournaments(*, conn: psycopg.Connection, run_id: int) -> None:
             )
             cur.executemany(
                 "INSERT INTO tournament_series VALUES (%s, %s, %s, %s)", series_rows
+            )
+            cur.executemany(
+                "INSERT INTO tournament_legends VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)",
+                legend_rows,
             )
             cur.executemany(
                 "INSERT INTO tournament_season_records VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)",

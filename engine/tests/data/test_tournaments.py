@@ -639,3 +639,21 @@ def test_world_championship_games_make_records_but_no_seasons(conn, add_match, r
     got = {r["match_id"]: r["in_records"] for r in games(conn, run_id)}
     assert {i: got[i] for i in ids} == ids
     assert season_records(conn, run_id) == []
+
+
+def test_derive_writes_the_all_time_table(conn, add_match, run_id, place):
+    add_match(("bob", 90), ("ann", 80), ("cat", 70), tournament=gm(1))
+    place("worlds", 2025, "Final", "ann")
+
+    derive_tournaments(conn=conn, run_id=run_id)
+
+    rows = conn.execute(
+        "SELECT position, player_name, world_titles, international_titles, gold, silver, bronze "
+        "FROM tournament_legends WHERE run_id = %s ORDER BY position",
+        (run_id,),
+    ).fetchall()
+    # ann: World title and an International silver; bob: an International title.
+    assert [tuple(r.values()) for r in rows] == [
+        (1, "ann", 1, 0, 1, 1, 0),
+        (2, "bob", 0, 1, 1, 0, 0),
+    ]
