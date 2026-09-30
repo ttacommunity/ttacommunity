@@ -1,5 +1,6 @@
 /** Upstream's career box: a summary sentence, the peak career season, each model's peak and the model notes. */
-import type { Format, Player, PlayerCareer, TitleCode } from '@ttac/shared/ratings';
+import type { AchievementSummary, Format, Player, PlayerCareer, TitleCode } from '@ttac/shared/ratings';
+import { honorRoll, totalTitles } from '../lib/achievements';
 import * as show from '../lib/leaderboard-display';
 import { careerPeakYear, divergenceNotes, isPeakHigher } from '../lib/career';
 import { matrixHref, pageModel, ratingIn } from '../lib/player-view';
@@ -10,15 +11,17 @@ function SeasonBadge({ code }: { code: TitleCode }) {
   return <span className={`badge badge-inline badge-season badge-${code.toLowerCase()}`}>{show.titleName(code)}</span>;
 }
 
-/** CareerBox shows what upstream's does without tournament records: they arrive with organisers' results. */
+/** CareerBox shows upstream's career box: medal counts, the honour roll (or a summary sentence) and accolades first. */
 export default function CareerBox({
   player,
   career,
+  summary,
   reset,
   format,
 }: {
   player: Player;
   career: PlayerCareer | null;
+  summary: AchievementSummary | null;
   reset: ResetMode;
   format: Format;
 }) {
@@ -34,32 +37,71 @@ export default function CareerBox({
         <h3>
           <span>📜 Career Profile &amp; Tournament Accolades</span>
         </h3>
+        {summary !== null && (
+          <div className="career-medals">
+            {totalTitles(summary) > 0 && (
+              <span className="career-medal-gold">
+                🏆 <strong>{totalTitles(summary)}</strong> Titles
+              </span>
+            )}
+            {summary.gold > 0 && (
+              <span className="career-medal-gold">
+                🥇 <strong>{summary.gold}</strong>
+              </span>
+            )}
+            {summary.silver > 0 && (
+              <span className="career-medal-silver">
+                🥈 <strong>{summary.silver}</strong>
+              </span>
+            )}
+            {summary.bronze > 0 && (
+              <span className="career-medal-bronze">
+                🥉 <strong>{summary.bronze}</strong>
+              </span>
+            )}
+          </div>
+        )}
       </div>
       <div className="career-body">
-        <p className="career-summary">
-          <strong>{player.name}</strong> has competed in <strong>{games}</strong> competitive matches across TTA tournament
-          divisions{' '}
-          {title !== null ? (
-            <>
-              and holds the official title of <strong>{show.titleName(title.code)}</strong>
-              {peak !== null && isPeakHigher(title.code, peak) && (
-                <>
-                  {' '}
-                  <span className="career-peak-note">
-                    (Peak: {show.titleName(peak.code)} in {peak.year})
-                  </span>
-                </>
-              )}
-              .
-            </>
-          ) : peak !== null ? (
-            <>
-              and held the peak career title of <strong>{show.titleName(peak.code)}</strong> in <strong>{peak.year}</strong>.
-            </>
-          ) : (
-            '.'
-          )}
-        </p>
+        {summary !== null ? (
+          <p className="career-honor-roll">🏅 {honorRoll(player.name, summary)}</p>
+        ) : (
+          <p className="career-summary">
+            <strong>{player.name}</strong> has competed in <strong>{games}</strong> competitive matches across TTA tournament
+            divisions{' '}
+            {title !== null ? (
+              <>
+                and holds the official title of <strong>{show.titleName(title.code)}</strong>
+                {peak !== null && isPeakHigher(title.code, peak) && (
+                  <>
+                    {' '}
+                    <span className="career-peak-note">
+                      (Peak: {show.titleName(peak.code)} in {peak.year})
+                    </span>
+                  </>
+                )}
+                .
+              </>
+            ) : peak !== null ? (
+              <>
+                and held the peak career title of <strong>{show.titleName(peak.code)}</strong> in <strong>{peak.year}</strong>.
+              </>
+            ) : (
+              '.'
+            )}
+          </p>
+        )}
+
+        {summary !== null && summary.accolades.length > 0 && (
+          <div className="career-honors-grid">
+            {summary.accolades.map((a) => (
+              <div className="career-honor-badge" key={a}>
+                <span className="honor-star">★</span>
+                <span className="honor-text">{a}</span>
+              </div>
+            ))}
+          </div>
+        )}
 
         {season !== null && (
           <div className="career-season">

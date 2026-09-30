@@ -3,12 +3,14 @@ import { useCallback, useEffect, useState, type MouseEvent, type ReactNode } fro
 import {
   currentRun,
   player as fetchPlayer,
+  playerAchievements,
   playerCareer,
   playerHistory,
   playerMatches,
   playerRivals,
   type Format,
   type Player,
+  type PlayerAchievements,
   type PlayerCareer,
   type PlayerHistory,
   type PlayerMatches,
@@ -37,6 +39,7 @@ import {
   type RivalKey,
   type RivalsView,
 } from '../lib/player-view';
+import { achievementsHref } from '../lib/achievements';
 import { recall, remember } from '../lib/remembered';
 import './PlayerPage.css';
 import Tex from './Tex';
@@ -126,6 +129,10 @@ export default function PlayerPage({ apiUrl }: { apiUrl: string }) {
     `${runId}|${name}|${format}`,
     runId === null ? null : () => playerCareer(apiUrl, runId, name, format),
   );
+  const achievements = useLoad<PlayerAchievements>(
+    `${runId}|${name}`,
+    runId === null ? null : () => playerAchievements(apiUrl, runId, name),
+  );
 
   useEffect(() => {
     document.title = `${view.name || 'Player'} - Player Profile | Through the Ages`;
@@ -175,7 +182,13 @@ export default function PlayerPage({ apiUrl }: { apiUrl: string }) {
         </div>
       </div>
 
-      <CareerBox player={p} career={career.kind === 'ready' ? career.data : null} reset={view.reset} format={view.format} />
+      <CareerBox
+        player={p}
+        career={career.kind === 'ready' ? career.data : null}
+        summary={achievements.kind === 'ready' ? achievements.data.summary : null}
+        reset={view.reset}
+        format={view.format}
+      />
 
       <ModelCards player={p} view={view} />
 
@@ -249,6 +262,9 @@ function Header({
         </div>
       </div>
       <div className="profile-links">
+        <a href={achievementsHref(player.name)} className="btn-tournament-achievements">
+          <span aria-hidden="true">🏆</span> Tournament Achievements »
+        </a>
         <a href={matrixHref(player.name, view.format)} className="btn-tournament-achievements btn-matrix">
           <span aria-hidden="true">📊</span> Comparison Matrix &amp; Career Years »
         </a>

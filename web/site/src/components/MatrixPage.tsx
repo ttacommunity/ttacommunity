@@ -17,6 +17,7 @@ import * as show from '../lib/leaderboard-display';
 import { DEFAULT_VIEW, type Engine } from '../lib/leaderboard-view';
 import { careerPeakYear, scoreYears, wcLabel } from '../lib/career';
 import { matrixParams, parseMatrixView, playerHref, type MatrixView } from '../lib/player-view';
+import { achievementsHref } from '../lib/achievements';
 import { recall, remember } from '../lib/remembered';
 import './PlayerPage.css';
 import './MatrixPage.css';
@@ -357,6 +358,9 @@ function Header({ player, format }: { player: Player; format: Format }) {
       <div className="matrix-header-links">
         <a href={back} className="btn-antique">
           « Return to Profile
+        </a>
+        <a href={achievementsHref(player.name)} className="btn-antique">
+          🏆 Achievements »
         </a>
       </div>
     </div>

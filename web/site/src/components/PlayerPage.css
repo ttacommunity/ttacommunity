@@ -776,6 +776,56 @@
   margin-bottom: 0.5rem;
 }
 
+.career-medals {
+  display: flex;
+  gap: 0.75rem;
+  font-family: var(--font-stats);
+  font-size: 0.85rem;
+  color: var(--text-muted);
+}
+.career-medal-gold { color: #ffd700; }
+.career-medal-silver { color: #cfd8dc; }
+.career-medal-bronze { color: #cd7f32; }
+
+.career-honor-roll {
+  margin-bottom: 0.6rem;
+  font-size: 1.05rem;
+  font-weight: 500;
+  color: #fff3db;
+}
+
+/* Featured accolades, on the career box and the achievements page, as upstream's base.html. */
+.career-honors-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 0.6rem;
+  margin: 0.8rem 0 1rem 0;
+}
+.career-honor-badge {
+  background: rgba(18, 12, 8, 0.92);
+  border: 1px solid #c59b27;
+  border-left: 3px solid #ffd54f;
+  padding: 0.45rem 0.85rem;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.6);
+}
+.honor-star {
+  color: #ffd54f;
+  font-size: 1rem;
+  line-height: 1;
+  flex-shrink: 0;
+}
+.honor-text {
+  font-family: var(--font-subheading);
+  font-size: 0.92rem;
+  font-weight: 700;
+  color: #f7dfa5;
+  white-space: normal;
+}
+
 .career-peak-note {
   font-weight: 600;
   color: var(--accent-gold);
