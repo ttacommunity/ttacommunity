@@ -149,6 +149,20 @@ cd backend && set -a && . ../.env && set +a
 go run ./cmd/load -countries ~/tta-data/ratings_overall.csv ~/tta-data/country-overrides.csv
 ```
 
+What match names cannot say about a tournament is a recorded fact, kept
+with the data outside the repo. The first is which division a player played
+in a season whose match names give none: a CSV with the header
+`series,season,division,player,source`, where `series` is `international`,
+`intermezzo` or `royal_league` and `source` says where the row comes from.
+Loading one replaces every recorded division, in one transaction; names that
+are not players are counted and skipped, and bad rows are refused with their
+line and reason. The next rating run uses them:
+
+```bash
+cd backend && set -a && . ../.env && set +a
+go run ./cmd/load -divisions ~/tta-data/tournaments/group_divisions.csv
+```
+
 The API reads ratings as `ratings_api`, a login that can only `SELECT`.
 `scripts/dev.sh` creates it, and the API refuses to start if its login can
 write.
