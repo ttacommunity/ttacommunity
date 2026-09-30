@@ -111,20 +111,21 @@ function Records({ records }: { records: TournamentRecord[] }) {
   const [careerSort, setCareerSort] = useState<Sort>(null);
   const [careerDirs, setCareerDirs] = useState<Record<number, Direction>>({});
 
-  const seasons = records.filter((r) => !r.career);
-  const careers = records.filter((r) => r.career);
-  const shownSeasons = seasonSort ? sortSeasons(seasons, seasonSort.col, seasonSort.dir) : seasons;
-  const shownCareers = careerSort ? sortCareer(careers, careerSort.col, careerSort.dir) : careers;
+  // Each sort starts from the order shown, so ties keep the previous sort, as upstream's script sorts the table in place.
+  const [shownSeasons, setShownSeasons] = useState(() => records.filter((r) => !r.career));
+  const [shownCareers, setShownCareers] = useState(() => records.filter((r) => r.career));
 
   const sortSeasonsBy = (col: number) => {
     const dir = next(seasonDirs, col);
     setSeasonDirs({ ...seasonDirs, [col]: dir });
     setSeasonSort({ col, dir });
+    setShownSeasons(sortSeasons(shownSeasons, col, dir));
   };
   const sortCareerBy = (col: number) => {
     const dir = next(careerDirs, col);
     setCareerDirs({ ...careerDirs, [col]: dir });
     setCareerSort({ col, dir });
+    setShownCareers(sortCareer(shownCareers, col, dir));
   };
   const seasonArrow = (col: number) =>
     seasonSort ? (seasonSort.col === col ? (seasonSort.dir === 'asc' ? '▲' : '▼') : '') : col === 0 ? '▼' : '';
@@ -138,10 +139,10 @@ function Records({ records }: { records: TournamentRecord[] }) {
           <h2 className="ach-records-title">Historical Tournament Records</h2>
           <div className="ach-tabs">
             <button type="button" className={`records-tab-btn${tab === 'seasons' ? ' active' : ''}`} onClick={() => setTab('seasons')}>
-              🏆 Individual Seasons &amp; Tournaments ({seasons.length})
+              🏆 Individual Seasons &amp; Tournaments ({shownSeasons.length})
             </button>
             <button type="button" className={`records-tab-btn${tab === 'career' ? ' active' : ''}`} onClick={() => setTab('career')}>
-              🎖️ Career Totals &amp; Hall of Fame ({careers.length})
+              🎖️ Career Totals &amp; Hall of Fame ({shownCareers.length})
             </button>
           </div>
         </div>
