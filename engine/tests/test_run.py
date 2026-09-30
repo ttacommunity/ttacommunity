@@ -217,7 +217,9 @@ def test_the_command_runs_the_formats_asked_for(monkeypatch, db_url, conn, add_m
     assert [r["player_count"] for r in formats] == [2]
 
 
-@pytest.mark.parametrize("table", ["player_titles", "tournament_group_divisions"])
+@pytest.mark.parametrize(
+    "table", ["player_titles", "tournament_group_divisions", "tournament_series"]
+)
 def test_a_database_missing_a_migration_is_refused_before_a_run_starts(
     conn, add_match, table
 ):

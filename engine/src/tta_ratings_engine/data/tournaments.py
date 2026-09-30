@@ -17,6 +17,12 @@ import psycopg
 
 from tta_ratings_engine.data.badges import HISTORICAL_WC_INFO
 from tta_ratings_engine.data.db import require_running
+from tta_ratings_engine.data.series_pages import (
+    grand_slams_board,
+    ladders_board,
+    series_metrics,
+    worlds_board,
+)
 
 # A share of the winner's score counts at least this much (the rulebooks'
 # relative performance score).
@@ -98,6 +104,17 @@ def _like(name: str, *words: str) -> bool:
     return any(w.lower() in name.lower() for w in words)
 
 
+def parse_worlds(name: str) -> Parsed | None:
+    """Returns a World Championship game's edition number ("Worlds 2025", "Worlds 2"), or None.
+
+    Its stages are not divisions, so division and group are None.
+    """
+    if not _like(name, "World"):
+        return None
+    m = re.search(r"Worlds?\s*(\d+)", name, re.IGNORECASE)
+    return Parsed(int(m.group(1)) if m else 0, None, None)
+
+
 @dataclass(frozen=True)
 class Series:
     """How one series is named, scored, ranked and shown, as upstream does it."""
@@ -109,6 +126,7 @@ class Series:
     in_records: Callable[[str], bool]
     record_min_games: int
     record_division: str
+    season_records: bool = True
 
 
 SERIES = {
@@ -149,6 +167,18 @@ SERIES = {
         ),
         record_min_games=5,
         record_division="Emperor",
+    ),
+    # Its board comes from recorded placements (series_pages.worlds_board);
+    # only its best games are listed.
+    "worlds": Series(
+        parse=parse_worlds,
+        points={},
+        top_divisions=frozenset(),
+        duel=False,
+        in_records=lambda n: _like(n, "Stage 4", "Final", "Upper", "Lower"),
+        record_min_games=0,
+        record_division="",
+        season_records=False,
     ),
 }
 
@@ -373,12 +403,14 @@ def season_records(rows, rules: Series):
     return {k: v for k, v in got.items() if v["games"] >= rules.record_min_games}
 
 
-def _boards(run_id, standings, official):
-    """Returns each series' trophyboard rows: medals in the top division, official placements over derived ones.
+def _league_boards(standings, official):
+    """Returns each league's trophyboard in upstream's order: medals in the top
+    division, official placements over derived ones.
 
     standings and official map (series, season, division) to rows of
-    player_name, place and points. Career points are league points, or in
-    Royal League upstream's medal points.
+    player_name, place and points. Ordered by golds, silvers, bronzes, career
+    points (league points, or in Royal League upstream's medal points), then
+    the season of the first medal and name.
     """
     medals = defaultdict(
         lambda: {"gold": 0, "silver": 0, "bronze": 0, "points": 0.0, "first": None}
@@ -397,11 +429,28 @@ def _boards(run_id, standings, official):
                 m["first"] = season if m["first"] is None else m["first"]
                 if rules.duel:
                     m["points"] += MEDAL_POINTS[s["place"] - 1]
+    boards = defaultdict(list)
+    for (series, p), m in medals.items():
+        if m["first"] is not None:
+            title = "WC" if p in HISTORICAL_WC_INFO else ("GM" if m["gold"] else "M")
+            boards[series].append(
+                {"player_name": p, **m, "first_season": m["first"], "title": title}
+            )
+    for board in boards.values():
+        board.sort(
+            key=lambda b: (-b["gold"], -b["silver"], -b["bronze"], -b["points"], b["first_season"], b["player_name"])
+        )  # fmt: skip
+    return boards
+
+
+def _board_rows(run_id, boards):
+    """Returns board rows to insert, each board numbered in its given order."""
     return [
-        (run_id, series, p, m["gold"], m["silver"], m["bronze"], m["points"],
-         "WC" if p in HISTORICAL_WC_INFO else ("GM" if m["gold"] else "M"), m["first"])
-        for (series, p), m in medals.items()
-        if m["first"] is not None
+        (run_id, series, b["player_name"], b.get("gold"), b.get("silver"), b.get("bronze"),
+         b.get("points", 0.0), b.get("title"), b.get("first_season"), position,
+         b.get("details"), b.get("games"), b.get("wins"), b.get("win_rate"))
+        for series, board in boards.items()
+        for position, b in enumerate(board, start=1)
     ]  # fmt: skip
 
 
@@ -441,7 +490,11 @@ def derive_tournaments(*, conn: psycopg.Connection, run_id: int) -> None:
         records = defaultdict(list)
         for g in classified:
             r = by_id[g["match_id"]]
-            if g["in_records"] and not g["tiebreak"]:
+            if (
+                g["in_records"]
+                and not g["tiebreak"]
+                and SERIES[g["series"]].season_records
+            ):
                 records[g["series"]].append({**r, **g})
             if g["division"] is not None and not g["tiebreak"]:
                 key = (g["series"], g["season"], g["division"], g["group"])
@@ -456,7 +509,18 @@ def derive_tournaments(*, conn: psycopg.Connection, run_id: int) -> None:
                      s["place"], s["points"], s["games"], s["placings"])
                 )  # fmt: skip
                 derived[(series, season, division)].append(s)
-        board_rows = _boards(run_id, derived, official)
+        boards = _league_boards(derived, official)
+        boards["worlds"] = worlds_board(
+            [{**p, "season": season} for (series, season, _), placed in official.items()
+             if series == "worlds" for p in placed]
+        )  # fmt: skip
+        boards["grand_slams"] = grand_slams_board(rows)
+        boards["ladders"] = ladders_board(rows)
+        board_rows = _board_rows(run_id, boards)
+        series_rows = [
+            (run_id, series, games, editions)
+            for series, (games, editions) in series_metrics(rows).items()
+        ]
 
         record_rows = [
             (run_id, series, season, rec["division"], p, rec["points"], rec["games"],
@@ -466,6 +530,7 @@ def derive_tournaments(*, conn: psycopg.Connection, run_id: int) -> None:
         ]  # fmt: skip
 
         for table in (
+            "tournament_series",
             "tournament_season_records",
             "tournament_boards",
             "tournament_standings",
@@ -487,8 +552,13 @@ def derive_tournaments(*, conn: psycopg.Connection, run_id: int) -> None:
                 standing_rows,
             )
             cur.executemany(
-                "INSERT INTO tournament_boards VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)",
+                "INSERT INTO tournament_boards (run_id, series, player_name, gold, silver, "
+                "bronze, points, title, first_season, position, details, games, wins, "
+                "win_rate) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)",
                 board_rows,
+            )
+            cur.executemany(
+                "INSERT INTO tournament_series VALUES (%s, %s, %s, %s)", series_rows
             )
             cur.executemany(
                 "INSERT INTO tournament_season_records VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)",
