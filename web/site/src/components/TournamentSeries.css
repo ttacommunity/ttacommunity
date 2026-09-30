@@ -317,6 +317,25 @@
   min-width: 0;
 }
 
+/* Upstream's phone sizes for the hero name .tournament-hero, which the page does not use; applied to the hero it does, so a long series name fits (changed from upstream). */
+.detail-hero-left {
+  min-width: 0;
+}
+
+.detail-hero-title {
+  overflow-wrap: anywhere;
+}
+
+@media (max-width: 768px) {
+  .detail-hero {
+    padding: 1.25rem 1rem;
+  }
+
+  .detail-hero-title {
+    font-size: 1.45rem;
+  }
+}
+
 /* Upstream's inline styles, as classes. */
 .series-nav-btn.unbuilt {
   cursor: default;
