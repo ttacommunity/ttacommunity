@@ -37,13 +37,23 @@ func TestReadPlacementsTakesEveryColumn(t *testing.T) {
 	}
 }
 
+func TestReadPlacementsTakesTheWorldChampionship(t *testing.T) {
+	got, err := ReadPlacements("p.csv", strings.NewReader(placementsHeader+"worlds,2025,Final,ann,1,,r,s\n"))
+	if err != nil {
+		t.Fatalf("ReadPlacements: %v", err)
+	}
+	if len(got.Facts) != 1 || got.Facts[0].Series != "worlds" || got.Facts[0].Season != 2025 {
+		t.Errorf("placements = %+v, refused %v; want the 2025 World Championship", got.Facts, got.Refused)
+	}
+}
+
 func TestReadPlacementsRefusesBadRows(t *testing.T) {
 	tests := []struct {
 		name string
 		row  string
 		want Reason
 	}{
-		{"unknown series", "worlds,1,Final,ann,1,,r,s", BadSeries},
+		{"unknown series", "snail_cup,1,Final,ann,1,,r,s", BadSeries},
 		{"no series", ",1,Final,ann,1,,r,s", BadSeries},
 		{"season zero", "intermezzo,0,Grandmaster,ann,1,,r,s", BadSeason},
 		{"no division", "intermezzo,1,,ann,1,,r,s", BadDivision},

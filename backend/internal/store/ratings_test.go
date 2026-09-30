@@ -82,7 +82,7 @@ var ratingsTables = []string{
 	"current_run", "import_batches", "matches", "pairwise_matches", "player_peak_titles", "player_ratings", "player_titles",
 	"player_yearly_titles", "players", "rating_history", "rating_runs", "refused_rows", "standard_calibration",
 	"tournament_boards", "tournament_games", "tournament_group_divisions", "tournament_official_placements",
-	"tournament_season_corrections", "tournament_season_records", "tournament_standings",
+	"tournament_season_corrections", "tournament_season_records", "tournament_series", "tournament_standings",
 	"walk_forward_calibration",
 }
 

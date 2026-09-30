@@ -151,8 +151,9 @@ go run ./cmd/load -countries ~/tta-data/ratings_overall.csv ~/tta-data/country-o
 
 What match names cannot say about a tournament is a recorded fact, kept
 with the data outside the repo, one CSV per kind. `series` is
-`international`, `intermezzo` or `royal_league`, and `source` says where the
-row comes from:
+`international`, `intermezzo`, `royal_league` or `worlds` (the World
+Championship, whose season is the year), and `source` says where the row
+comes from:
 
 | Kind | Header | What it records |
 |---|---|---|

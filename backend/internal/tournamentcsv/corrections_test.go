@@ -36,7 +36,7 @@ func TestReadCorrectionsRefusesBadRows(t *testing.T) {
 		row  string
 		want Reason
 	}{
-		{"unknown series", "worlds,1,2,r,s", BadSeries},
+		{"unknown series", "snail_cup,1,2,r,s", BadSeries},
 		{"name season zero", "intermezzo,0,2,r,s", BadSeason},
 		{"season not a number", "intermezzo,8,seven,r,s", BadSeason},
 		{"season zero", "intermezzo,8,0,r,s", BadSeason},
