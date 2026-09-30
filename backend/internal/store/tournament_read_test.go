@@ -13,11 +13,18 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
-func classifyGame(t *testing.T, pool *pgxpool.Pool, run, match int64, season int, division, source *string) {
+// classified is a game as the engine classifies it.
+type classified struct {
+	season, nameSeason int
+	division, source   *string
+	inRecords          bool
+}
+
+func classifyGame(t *testing.T, pool *pgxpool.Pool, run, match int64, c classified) {
 	t.Helper()
 	_, err := pool.Exec(context.Background(), `
-		INSERT INTO tournament_games (run_id, match_id, series, season, name_season, division, group_label, division_source)
-		VALUES ($1, $2, 'international', $3, $3, $4, $4, $5)`, run, match, season, division, source)
+		INSERT INTO tournament_games (run_id, match_id, series, season, name_season, division, group_label, division_source, in_records)
+		VALUES ($1, $2, 'international', $3, $4, $5, $5, $6, $7)`, run, match, c.season, c.nameSeason, c.division, c.source, c.inRecords)
 	if err != nil {
 		t.Fatalf("classifying game %d: %v", match, err)
 	}
@@ -25,16 +32,15 @@ func classifyGame(t *testing.T, pool *pgxpool.Pool, run, match int64, season int
 
 func ptr(s string) *string { return &s }
 
-func TestTournamentSeriesCountsGamesAndSeasons(t *testing.T) {
+func TestTournamentSeriesCountsGamesAndTheSeasonsNamesGive(t *testing.T) {
 	pool := migrated(t)
 	run := publishedRun(t, pool)
-	for season, division := range map[int]*string{20: nil, 34: ptr("Silver")} {
-		id := addGame(t, pool, 0, "2025-01-02", fmt.Sprintf("International S%d", season), Seat{"ann", 9}, Seat{"bob", 5})
-		var source *string
-		if division != nil {
-			source = ptr("name")
-		}
-		classifyGame(t, pool, run, id, season, division, source)
+	for _, c := range []classified{
+		{season: 20, nameSeason: 20},
+		{season: 33, nameSeason: 34, division: ptr("Silver"), source: ptr("name")},
+	} {
+		id := addGame(t, pool, 0, "2025-01-02", fmt.Sprintf("International S%d", c.nameSeason), Seat{"ann", 9}, Seat{"bob", 5})
+		classifyGame(t, pool, run, id, c)
 	}
 
 	got, err := NewRatingsReader(asReader(t, pool)).TournamentSeries(context.Background(), run, "international")
@@ -42,7 +48,7 @@ func TestTournamentSeriesCountsGamesAndSeasons(t *testing.T) {
 		t.Fatalf("TournamentSeries: %v", err)
 	}
 	if got.Games != 2 || got.Seasons != 34 {
-		t.Errorf("games %d, seasons %d; want 2 and 34", got.Games, got.Seasons)
+		t.Errorf("games %d, seasons %d; want 2 and 34 (the latest name's season)", got.Games, got.Seasons)
 	}
 	if got.Board == nil || got.SeasonRecords == nil || got.GameRecords == nil {
 		t.Errorf("empty lists = %v %v %v, want empty slices", got.Board, got.SeasonRecords, got.GameRecords)
@@ -127,14 +133,15 @@ func TestTournamentSeriesGivesTheTenBestSeasons(t *testing.T) {
 	}
 }
 
-func TestTournamentSeriesGivesTheTopDivisionsBestGamesByName(t *testing.T) {
+func TestTournamentSeriesGivesTheBestGamesMarkedForRecords(t *testing.T) {
 	pool := migrated(t)
 	ctx := context.Background()
 	run := publishedRun(t, pool)
 	gm := ptr("Grandmaster")
+	record := classified{season: 30, nameSeason: 30, division: gm, source: ptr("name"), inRecords: true}
 	named := func(score float64, date string, seats ...Seat) int64 {
 		id := addGame(t, pool, 0, date, "International S30 - Grandmaster game 1", append([]Seat{{"win", score}}, seats...)...)
-		classifyGame(t, pool, run, id, 30, gm, ptr("name"))
+		classifyGame(t, pool, run, id, record)
 		return id
 	}
 	for i := range 11 {
@@ -142,9 +149,12 @@ func TestTournamentSeriesGivesTheTopDivisionsBestGamesByName(t *testing.T) {
 	}
 	tied := named(210, "2025-08-01", Seat{"tie", 210}, Seat{"z", 5})
 	recorded := addGame(t, pool, 0, "2020-01-01", "International S20", Seat{"old", 999}, Seat{"x", 1})
-	classifyGame(t, pool, run, recorded, 20, gm, ptr("recorded"))
+	classifyGame(t, pool, run, recorded, classified{season: 20, nameSeason: 20, division: gm, source: ptr("recorded")})
 	silver := addGame(t, pool, 0, "2025-07-01", "International S30 - Silver 1 game 1", Seat{"low", 998}, Seat{"x", 1})
-	classifyGame(t, pool, run, silver, 30, ptr("Silver"), ptr("name"))
+	classifyGame(t, pool, run, silver, classified{season: 30, nameSeason: 30, division: ptr("Silver"), source: ptr("name")})
+	// A named top-division game the engine leaves out of the records, as upstream's "Grandmaster 1".
+	unmarked := addGame(t, pool, 0, "2025-07-02", "International S30 - Grandmaster 1 game 1", Seat{"skip", 997}, Seat{"x", 1})
+	classifyGame(t, pool, run, unmarked, classified{season: 30, nameSeason: 30, division: gm, source: ptr("name")})
 
 	got, err := NewRatingsReader(asReader(t, pool)).TournamentSeries(ctx, run, "international")
 	if err != nil {

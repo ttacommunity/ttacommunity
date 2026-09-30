@@ -50,6 +50,16 @@ func TestTournamentSeries(t *testing.T) {
 	}
 }
 
+func TestTournamentSeriesKnowsEachSeries(t *testing.T) {
+	for _, series := range []string{"international", "intermezzo", "royal_league"} {
+		f := &fakeTournaments{}
+		rec, _ := serve(t, f, "/v1/runs/7/tournaments/"+series)
+		if rec.Code != http.StatusOK || f.gotSeries != series {
+			t.Errorf("GET %s: %d, asked for %q", series, rec.Code, f.gotSeries)
+		}
+	}
+}
+
 func TestTournamentSeriesEmptyListsAreArrays(t *testing.T) {
 	rec, _ := serve(t, &fakeTournaments{}, "/v1/runs/7/tournaments/international")
 	for _, want := range []string{`"board":[]`, `"season_records":[]`, `"game_records":[]`} {

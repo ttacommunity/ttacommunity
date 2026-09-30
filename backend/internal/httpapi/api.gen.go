@@ -123,13 +123,19 @@ func (e Model) Valid() bool {
 
 // Defines values for Series.
 const (
+	Intermezzo    Series = "intermezzo"
 	International Series = "international"
+	RoyalLeague   Series = "royal_league"
 )
 
 // Valid indicates whether the value is a known member of the Series enum.
 func (e Series) Valid() bool {
 	switch e {
+	case Intermezzo:
+		return true
 	case International:
+		return true
+	case RoyalLeague:
 		return true
 	default:
 		return false
@@ -790,7 +796,9 @@ type SeasonRecord struct {
 	LastPlayed openapi_types.Date `json:"last_played"`
 	Name       string             `json:"name"`
 
-	// Placings How often the player finished 1st, 2nd, 3rd and 4th
+	// Placings How often the player finished 1st, 2nd, 3rd (and 4th in the
+	// International Championship); in the Royal League, wins, draws
+	// and losses
 	Placings      []int   `json:"placings"`
 	Points        float64 `json:"points"`
 	Season        int     `json:"season"`
@@ -803,7 +811,7 @@ type Seat struct {
 	Score float64 `json:"score"`
 }
 
-// Series A tournament series. Only the International Championship so far
+// Series A tournament series
 type Series string
 
 // Title The tournament title the run derived for the player, if any
@@ -841,10 +849,10 @@ type TournamentSeries struct {
 	// SeasonRecords The ten best top-division seasons by points, then wins
 	SeasonRecords []SeasonRecord `json:"season_records"`
 
-	// Seasons The latest season's number
+	// Seasons The latest season a game's name gives
 	Seasons int `json:"seasons"`
 
-	// Series A tournament series. Only the International Championship so far
+	// Series A tournament series
 	Series Series `json:"series"`
 }
 

@@ -51,10 +51,10 @@ type TournamentSeries struct {
 const recordsShown = 10
 
 // TournamentSeries returns a published run's results for a series: its game
-// and season counts, the top division's board by medals, career points, then
-// the season of the first medal,
-// and the ten best top-division seasons (points, then wins, then first seen)
-// and games named as the top division (winner's score, then load order).
+// count and latest named season, the top division's board by medals, career
+// points, then the season of the first medal, and the ten best top-division
+// seasons (points, then wins, then first seen) and games the engine marked
+// for records (winner's score, then load order).
 func (r *RatingsReader) TournamentSeries(ctx context.Context, run int64, series string) (TournamentSeries, error) {
 	if err := r.requirePublished(ctx, run); err != nil {
 		return TournamentSeries{}, err
@@ -65,7 +65,7 @@ func (r *RatingsReader) TournamentSeries(ctx context.Context, run int64, series 
 	}
 
 	err := r.pool.QueryRow(ctx, `
-		SELECT count(*), coalesce(max(season), 0) FROM tournament_games WHERE run_id = $1 AND series = $2`,
+		SELECT count(*), coalesce(max(name_season), 0) FROM tournament_games WHERE run_id = $1 AND series = $2`,
 		run, series).Scan(&got.Games, &got.Seasons)
 	if err != nil {
 		return fail("games", err)
@@ -108,8 +108,7 @@ func (r *RatingsReader) TournamentSeries(ctx context.Context, run int64, series 
 		SELECT m.tournament, m.date, m.player1, m.score1, m.player2, m.score2,
 		       m.player3, m.score3, m.player4, m.score4
 		FROM tournament_games g JOIN matches m USING (match_id)
-		WHERE g.run_id = $1 AND g.series = $2 AND g.division_source = 'name'
-		  AND g.division IN ('Grandmaster', 'Diamond')
+		WHERE g.run_id = $1 AND g.series = $2 AND g.in_records
 		ORDER BY greatest(m.score1, m.score2, m.score3, m.score4) DESC, m.match_id
 		LIMIT $3`, run, series, recordsShown)
 	if err != nil {

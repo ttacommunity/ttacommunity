@@ -995,17 +995,17 @@ export interface components {
             spearman: number;
         };
         /**
-         * @description A tournament series. Only the International Championship so far
+         * @description A tournament series
          * @enum {string}
          */
-        Series: "international";
+        Series: "international" | "intermezzo" | "royal_league";
         TournamentSeries: {
             /** Format: int64 */
             run_id: number;
             series: components["schemas"]["Series"];
             /** @description Every game of the series in the run's matches */
             games: number;
-            /** @description The latest season's number */
+            /** @description The latest season a game's name gives */
             seasons: number;
             /** @description The top division's medallists, most golds first, then silvers, bronzes and career points */
             board: components["schemas"]["TrophyRow"][];
@@ -1031,7 +1031,11 @@ export interface components {
             /** Format: double */
             points: number;
             games: number;
-            /** @description How often the player finished 1st, 2nd, 3rd and 4th */
+            /**
+             * @description How often the player finished 1st, 2nd, 3rd (and 4th in the
+             *     International Championship); in the Royal League, wins, draws
+             *     and losses
+             */
             placings: number[];
             season: number;
             division: string;
@@ -1723,5 +1727,5 @@ export const modelValues: ReadonlyArray<FlattenedDeepRequired<components>["schem
 export const formatValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["Format"]> = [0, 2, 3, 4];
 export const titleCodeValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["TitleCode"]> = ["WC", "GM", "M", "P", "G", "S", "B", "W"];
 export const calibrationRowModeValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["CalibrationRow"]["mode"]> = ["standard", "walk_forward"];
-export const seriesValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["Series"]> = ["international"];
+export const seriesValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["Series"]> = ["international", "intermezzo", "royal_league"];
 export const trophyRowTitleValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["TrophyRow"]["title"]> = ["WC", "GM", "M"];
