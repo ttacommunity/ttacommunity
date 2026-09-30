@@ -2,12 +2,12 @@
 import type { LeaderboardRow } from '@ttac/shared/ratings';
 import { flagSrc, titleName } from '../lib/leaderboard-display';
 
-/** TitleBadge shows the run's title in its colour, or a dash for none. */
+/** TitleBadge shows the run's title in its colour (a Super GM as GM, as upstream's table), or a dash for none. */
 export function TitleBadge({ title }: { title: LeaderboardRow['title'] }) {
   if (title === null) return <span className="badge-none">-</span>;
   return (
     <span className={`badge badge-${title.code.toLowerCase()}`} title={title.reason || titleName(title.code)}>
-      {title.code}
+      {title.code === 'SGM' ? 'GM' : title.code}
     </span>
   );
 }

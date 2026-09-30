@@ -6,6 +6,7 @@ import { matrixHref, pageModel, ratingIn } from '../lib/player-view';
 import type { ResetMode } from '../lib/leaderboard-view';
 
 function SeasonBadge({ code }: { code: TitleCode }) {
+  if (code === 'SGM') return <span className="badge badge-inline badge-season badge-sgm">👑 GM</span>;
   return <span className={`badge badge-inline badge-season badge-${code.toLowerCase()}`}>{show.titleName(code)}</span>;
 }
 

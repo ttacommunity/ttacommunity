@@ -153,14 +153,15 @@ func (e Series) Valid() bool {
 
 // Defines values for TitleCode.
 const (
-	TitleCodeB  TitleCode = "B"
-	TitleCodeG  TitleCode = "G"
-	TitleCodeGM TitleCode = "GM"
-	TitleCodeM  TitleCode = "M"
-	TitleCodeP  TitleCode = "P"
-	TitleCodeS  TitleCode = "S"
-	TitleCodeW  TitleCode = "W"
-	TitleCodeWC TitleCode = "WC"
+	TitleCodeB   TitleCode = "B"
+	TitleCodeG   TitleCode = "G"
+	TitleCodeGM  TitleCode = "GM"
+	TitleCodeM   TitleCode = "M"
+	TitleCodeP   TitleCode = "P"
+	TitleCodeS   TitleCode = "S"
+	TitleCodeSGM TitleCode = "SGM"
+	TitleCodeW   TitleCode = "W"
+	TitleCodeWC  TitleCode = "WC"
 )
 
 // Valid indicates whether the value is a known member of the TitleCode enum.
@@ -177,6 +178,8 @@ func (e TitleCode) Valid() bool {
 	case TitleCodeP:
 		return true
 	case TitleCodeS:
+		return true
+	case TitleCodeSGM:
 		return true
 	case TitleCodeW:
 		return true

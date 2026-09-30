@@ -13,6 +13,11 @@ describe('TitleBadge', () => {
     expect(html).toBe('<span class="badge badge-wc" title="World Champion">WC</span>');
   });
 
+  it('shows a Super GM as GM in its own colour, as upstream', () => {
+    const html = renderToStaticMarkup(<TitleBadge title={{ code: 'SGM', count: 2, reason: 'Champion of Royal League Emperor (Season 8)' }} />);
+    expect(html).toBe('<span class="badge badge-sgm" title="Champion of Royal League Emperor (Season 8)">GM</span>');
+  });
+
   it('shows a dash for a player without a title', () => {
     expect(renderToStaticMarkup(<TitleBadge title={null} />)).toBe('<span class="badge-none">-</span>');
   });

@@ -241,6 +241,7 @@ describe('titleOptions', () => {
   it('lists the titles present, GM, M, P and G first, as upstream', () => {
     const rows = [row('a', 1, 40, null, titled('M')), row('b', 1, 40, null, titled('WC')), row('c', 1), row('d', 1, 40, null, titled('GM'))];
     expect(titleOptions(rows)).toEqual(['GM', 'M', 'WC']);
+    expect(titleOptions([...rows, row('e', 1, 40, null, titled('SGM'))])).toEqual(['GM', 'M', 'SGM', 'WC']);
   });
 });
 

@@ -611,7 +611,7 @@ export interface components {
             c_rating: number;
         };
         /** @enum {string} */
-        TitleCode: "WC" | "GM" | "M" | "P" | "G" | "S" | "B" | "W";
+        TitleCode: "WC" | "SGM" | "GM" | "M" | "P" | "G" | "S" | "B" | "W";
         /** @description The tournament title the run derived for the player, if any */
         Title: {
             code: components["schemas"]["TitleCode"];
@@ -1911,7 +1911,7 @@ export const pathsV1RunsRunLeaderboardCsvGetParametersQueryOrderValues: Readonly
 export const pathsV1RunsRunLeaderboardCsvGetParametersQueryStats_viewValues: ReadonlyArray<FlattenedDeepRequired<paths>["/v1/runs/{run}/leaderboard.csv"]["get"]["parameters"]["query"]["stats_view"]> = ["season", "career"];
 export const modelValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["Model"]> = ["glicko2_daneo", "glicko2_daneo_softer", "glicko2_std", "glicko2_std_softer", "glicko2_std_retro", "glicko2_std_softer_retro", "glicko2_mp", "glicko2_mp_softer", "glicko2_mp_retro", "glicko2_mp_softer_retro", "glicko2_adapt", "glicko2_adapt_softer", "glicko2_adapt_retro", "glicko2_adapt_softer_retro", "whr", "whr_softer"];
 export const formatValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["Format"]> = [0, 2, 3, 4];
-export const titleCodeValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["TitleCode"]> = ["WC", "GM", "M", "P", "G", "S", "B", "W"];
+export const titleCodeValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["TitleCode"]> = ["WC", "SGM", "GM", "M", "P", "G", "S", "B", "W"];
 export const calibrationRowModeValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["CalibrationRow"]["mode"]> = ["standard", "walk_forward"];
 export const tournamentRecordMedalValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["TournamentRecord"]["medal"]> = ["gold", "silver", "bronze"];
 export const seriesValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["Series"]> = ["international", "intermezzo", "royal_league", "worlds", "grand_slams", "ladders"];

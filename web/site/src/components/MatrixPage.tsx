@@ -71,6 +71,7 @@ function useLoad<T>(key: string, load: (() => Promise<T>) | null): Load<T> {
 /** TitleBadge is a year's title as upstream shows it: in the peak card World Champion gets the 💎 badge. */
 function TitleBadge({ code, card }: { code: TitleCode; card?: boolean }) {
   if (code === 'WC' && card) return <span className="badge-wc badge-small">💎 World Champion</span>;
+  if (code === 'SGM') return <span className="badge badge-small badge-sgm">👑 GM</span>;
   return <span className={`badge badge-small badge-${code.toLowerCase()}`}>{show.titleName(code)}</span>;
 }
 

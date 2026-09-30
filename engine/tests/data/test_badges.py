@@ -259,3 +259,164 @@ def test_yearly_titles_are_replaced_each_time(conn, add_match, run_id):
     derive_tournament_badges(conn=conn, run_id=run_id)
 
     assert yearly(conn, run_id) == {("Ann", 2024): "G", ("Bob", 2024): "G"}
+
+
+def add_record(
+    conn, run_id, player, tournament, season, division, placement, medal, finish
+):
+    """A tournament_records row, as the tournaments step writes it before titles."""
+    position = conn.execute(
+        "SELECT count(*) + 1 AS n FROM tournament_records WHERE run_id = %s", (run_id,)
+    ).fetchone()["n"]
+    conn.execute(
+        "INSERT INTO tournament_records VALUES (%s, %s, %s, %s, %s, %s, %s, '', %s, '', %s, false)",
+        (
+            run_id,
+            player,
+            position,
+            tournament,
+            season,
+            division,
+            placement,
+            medal,
+            finish,
+        ),
+    )
+
+
+def test_a_recent_top_division_win_is_super_gm(conn, add_match, run_id):
+    add_match(
+        ("Ann", 10), ("Bob", 5), day=date(2024, 6, 1), tournament="RL_s09 - Emperor"
+    )
+    add_record(
+        conn,
+        run_id,
+        "Ann",
+        "Royal League",
+        "Season 9",
+        "Emperor",
+        "1 / 8",
+        "gold",
+        "2024-05-27",
+    )
+    add_record(
+        conn,
+        run_id,
+        "Bob",
+        "Royal League",
+        "Season 9",
+        "Emperor",
+        "2 / 8",
+        "silver",
+        "2024-05-27",
+    )
+
+    derive_tournament_badges(conn=conn, run_id=run_id)
+
+    got = titles(conn, run_id)
+    assert got["Ann"] == ("SGM", 1, "Champion of Royal League Emperor (Season 9)")
+    assert got["Bob"] == ("GM", 1, "Played in Royal League Emperor Season 9")
+    assert peaks(conn, run_id) == {"Ann": ("SGM", 2024), "Bob": ("GM", 2024)}
+
+
+def test_an_older_top_division_win_is_a_super_gm_peak(conn, add_match, run_id):
+    for p in ("Cat", "Dan", "Eve", "Fay"):
+        add_match((p, 10), ("Bob", 5), day=date(2024, 6, 1), tournament="Friendly Cup")
+    add_record(
+        conn,
+        run_id,
+        "Cat",
+        "International Championship",
+        "Season 20",
+        "Grandmaster",
+        "1 / 7",
+        "gold",
+        "2022-12-04",
+    )
+    # upstream counts a campaign row too, whatever group it ranked first in
+    add_record(
+        conn,
+        run_id,
+        "Dan",
+        "International Championship",
+        "Season 14",
+        "Grandmaster",
+        "1 / 735",
+        "gold",
+        "2021-03-02",
+    )
+    add_record(
+        conn,
+        run_id,
+        "Eve",
+        "International Championship",
+        "Season 20",
+        "Grandmaster",
+        "3 / 7",
+        "bronze",
+        "2022-12-04",
+    )
+    add_record(
+        conn,
+        run_id,
+        "Fay",
+        "International Championship",
+        "Season 30",
+        "Master 1",
+        "1 / 4",
+        "gold",
+        "2025-08-14",
+    )
+
+    derive_tournament_badges(conn=conn, run_id=run_id)
+
+    assert titles(conn, run_id) == {}
+    assert peaks(conn, run_id) == {"Cat": ("SGM", 2022), "Dan": ("SGM", 2021)}
+
+
+def test_records_add_super_gm_years_and_untitled_seasons(conn, add_match, run_id):
+    add_match(("Ann", 10), ("Cat", 5), day=date(2024, 6, 1), tournament="RL_s09 - King")
+    add_match(("Bob", 10), ("Cat", 5), day=date(2021, 3, 1), tournament="RL_s03 - Duke")
+    # a season named without its division: the record gives the year's title
+    add_record(
+        conn,
+        run_id,
+        "Ann",
+        "International Championship",
+        "Season 20",
+        "Grandmaster",
+        "5 / 7",
+        None,
+        "2020-12-06",
+    )
+    add_record(
+        conn,
+        run_id,
+        "Ann",
+        "Royal League",
+        "Season 9",
+        "Emperor",
+        "2 / 8",
+        "silver",
+        "2024-05-27",
+    )
+    add_record(
+        conn,
+        run_id,
+        "Bob",
+        "Intermezzo Championship",
+        "Season 13",
+        "Grandmaster",
+        "1 / 5",
+        "gold",
+        "2021-11-30",
+    )
+
+    derive_tournament_badges(conn=conn, run_id=run_id)
+
+    got = yearly(conn, run_id)
+    assert {k: v for k, v in got.items() if k[0] in ("Ann", "Bob")} == {
+        ("Ann", 2020): "GM",
+        ("Ann", 2024): "M",
+        ("Bob", 2021): "SGM",
+    }

@@ -911,7 +911,7 @@ components:
           format: double
     TitleCode:
       type: string
-      enum: [WC, GM, M, P, G, S, B, W]
+      enum: [WC, SGM, GM, M, P, G, S, B, W]
     Title:
       description: The tournament title the run derived for the player, if any
       type: object

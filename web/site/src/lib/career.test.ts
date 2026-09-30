@@ -119,6 +119,10 @@ describe('scoreYears', () => {
       [2024, 160, null],
     ]);
   });
+
+  it('gives a Super GM year its bonus of 100', () => {
+    expect(scoreYears([year(2023, 10, 50, 1600, 'SGM')], null).map((y) => y.score)).toEqual([255]);
+  });
 });
 
 describe('wcLabel', () => {

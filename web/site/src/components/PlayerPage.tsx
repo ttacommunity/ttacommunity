@@ -212,7 +212,7 @@ function Header({
         <div className="player-identity-name">
           {t !== null && (
             <span
-              className={`badge badge-${t.code.toLowerCase()}${t.code === 'WC' ? ' badge-profile-lg' : ''}`}
+              className={`badge badge-${t.code.toLowerCase()}${t.code === 'WC' || t.code === 'SGM' ? ' badge-profile-lg' : ''}`}
               data-tooltip={t.reason || show.titleName(t.code)}
             >
               {show.titleName(t.code)}
