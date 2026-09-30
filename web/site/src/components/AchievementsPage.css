@@ -1,0 +1,322 @@
+/* The achievements page: upstream's player_achievements.html styles, its inline styles as classes, and the base.html and styles.css rules it uses. */
+.achievements-header {
+  background: rgba(26, 17, 12, 0.95);
+  border: 1.5px solid var(--border-subtle);
+  border-radius: 8px;
+  padding: 1.5rem 2rem;
+  margin: 0.5rem auto 2rem auto;
+  max-width: 920px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.7);
+  backdrop-filter: blur(8px);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  gap: 1.25rem;
+}
+.achievements-header .player-identity {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  gap: 0.6rem;
+}
+.ach-identity-name {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
+}
+.ach-name {
+  margin: 0.2rem 0;
+}
+.badge.ach-wc {
+  font-size: 0.95rem;
+  padding: 0.25rem 0.85rem;
+}
+.badge.ach-wc-reigning {
+  box-shadow: 0 0 16px rgba(176, 38, 255, 0.8);
+}
+.badge.ach-peak-badge {
+  font-size: 0.75rem;
+  padding: 0.15rem 0.5rem;
+  vertical-align: middle;
+}
+.ach-links {
+  display: flex;
+  gap: 0.85rem;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  margin-top: 0.25rem;
+}
+.btn-back-profile {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  background: linear-gradient(180deg, #2e1d13 0%, #170d08 100%);
+  border: 1.5px solid var(--accent-gold);
+  color: #fff4dc;
+  font-family: var(--font-subheading);
+  font-size: 0.95rem;
+  font-weight: 700;
+  padding: 0.55rem 1.15rem;
+  border-radius: 6px;
+  cursor: pointer;
+  text-decoration: none;
+  box-shadow: 0 3px 8px rgba(0, 0, 0, 0.75), inset 0 1px 0 rgba(229, 169, 60, 0.35);
+  transition: all 0.2s ease;
+}
+.btn-back-profile:hover {
+  background: linear-gradient(180deg, #422919 0%, #26150d 100%);
+  border-color: #ffd700;
+  color: #ffd700;
+  box-shadow: 0 4px 14px rgba(229, 169, 60, 0.45), inset 0 1px 0 rgba(255, 215, 0, 0.5);
+  transform: translateY(-1px);
+}
+
+.medals-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 1.25rem;
+  margin-bottom: 2rem;
+}
+.medal-card {
+  background: linear-gradient(145deg, rgba(28, 18, 12, 0.95), rgba(20, 13, 9, 0.98));
+  border: 1.5px solid var(--border-subtle);
+  border-radius: 6px;
+  padding: 1.25rem 1.5rem;
+  text-align: center;
+  backdrop-filter: blur(4px);
+  transition: transform 0.2s, border-color 0.2s, box-shadow 0.2s;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.4);
+}
+.medal-card:hover {
+  transform: translateY(-2px);
+  border-color: var(--accent-gold);
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.6), 0 0 10px rgba(229, 169, 60, 0.2);
+}
+.medal-icon {
+  font-size: 2.2rem;
+  margin-bottom: 0.35rem;
+}
+.medal-count {
+  font-family: var(--font-stats);
+  font-size: 2rem;
+  font-weight: 700;
+}
+.medal-label {
+  font-family: var(--font-subheading);
+  font-size: 0.85rem;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-top: 0.2rem;
+}
+.gold-accent { color: #ffd700; }
+.silver-accent { color: #cfd8dc; }
+.bronze-accent { color: #cd7f32; }
+.trophy-accent { color: #f0ba54; }
+
+.rating-card.ach-card {
+  padding: 1.25rem 1.5rem;
+  margin-bottom: 2rem;
+  border-left: 4px solid var(--accent-gold);
+}
+.ach-card-title {
+  font-family: var(--font-heading);
+  color: var(--accent-gold);
+  font-size: 1.15rem;
+  margin-bottom: 0.4rem;
+}
+.ach-card-title.ach-accolades-title {
+  margin-bottom: 0.75rem;
+}
+.ach-honor-roll {
+  font-family: var(--font-body);
+  font-size: 1.05rem;
+  line-height: 1.6;
+  color: var(--text-main);
+}
+.rating-card.ach-records {
+  padding: 1.5rem;
+}
+.ach-records-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  flex-wrap: wrap;
+  gap: 1rem;
+  margin-bottom: 1.25rem;
+}
+.ach-records-title {
+  font-family: var(--font-heading);
+  color: var(--accent-gold);
+  font-size: 1.35rem;
+  margin: 0 0 0.75rem 0;
+}
+.ach-tabs {
+  display: flex;
+  gap: 0.65rem;
+  flex-wrap: wrap;
+}
+.input-antique.ach-filter {
+  width: 260px;
+  font-size: 0.85rem;
+  padding: 0.4rem 0.8rem;
+  background: rgba(14, 9, 6, 0.95);
+  color: #f3e5c8;
+}
+.records-tab-btn {
+  background: rgba(35, 23, 16, 0.9);
+  border: 1px solid rgba(138, 98, 51, 0.6);
+  color: #dfcfbc;
+  font-family: var(--font-subheading);
+  font-size: 0.92rem;
+  font-weight: 600;
+  padding: 0.55rem 1.15rem;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.4);
+}
+.records-tab-btn:hover {
+  color: #fff;
+  border-color: var(--accent-gold);
+  background: rgba(229, 169, 60, 0.22);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.6);
+}
+.records-tab-btn.active {
+  background: linear-gradient(135deg, #e5a93c 0%, #b87c1c 100%);
+  color: #120904;
+  font-weight: 700;
+  border-color: #ffd700;
+  box-shadow: 0 3px 12px rgba(229, 169, 60, 0.45);
+}
+
+.table-responsive {
+  width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  position: relative;
+  margin-bottom: 1rem;
+}
+.scroll-hint {
+  display: none;
+  font-size: 0.76rem;
+  color: var(--accent-gold);
+  opacity: 0.85;
+  margin-bottom: 0.35rem;
+  font-family: var(--font-stats);
+  letter-spacing: 0.3px;
+}
+.records-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-family: var(--font-stats);
+  font-size: 0.92rem;
+}
+.records-table th {
+  background: rgba(30, 20, 14, 0.95);
+  color: var(--accent-gold);
+  padding: 0.75rem 1rem;
+  font-family: var(--font-heading);
+  font-size: 0.82rem;
+  text-transform: uppercase;
+  border-bottom: 2px solid var(--border-subtle);
+  text-align: left;
+  letter-spacing: 0.5px;
+}
+.records-table th.ach-sortable {
+  cursor: pointer;
+}
+.records-table tbody tr {
+  transition: background-color 0.15s ease;
+}
+.records-table tbody tr:nth-child(odd) {
+  background: rgba(16, 10, 6, 0.65);
+}
+.records-table tbody tr:nth-child(even) {
+  background: rgba(28, 18, 12, 0.4);
+}
+.records-table td {
+  padding: 0.75rem 1rem;
+  border-bottom: 1px solid rgba(74, 53, 37, 0.35);
+}
+.records-table tbody tr:hover td {
+  background: rgba(229, 169, 60, 0.12);
+}
+.records-table .ach-date {
+  font-family: var(--font-stats);
+  color: var(--accent-gold);
+  white-space: nowrap;
+  font-weight: 700;
+}
+.records-table .ach-tournament {
+  font-weight: 700;
+  color: #fff3db;
+}
+.records-table .ach-strong {
+  font-weight: 600;
+}
+.records-table .ach-career-tournament {
+  font-weight: 700;
+  color: var(--accent-gold);
+}
+.records-table .ach-career-scope {
+  font-weight: 600;
+  color: #ffd54f;
+}
+.records-table .ach-details {
+  color: var(--text-muted);
+  font-size: 0.88rem;
+}
+.records-table .ach-empty {
+  text-align: center;
+  color: var(--text-muted);
+  padding: 2rem;
+}
+.ach-muted {
+  color: var(--text-muted);
+}
+.medal-badge-inline {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.15rem 0.5rem;
+  border-radius: 4px;
+  font-size: 0.8rem;
+  font-weight: 700;
+}
+.ach-status {
+  text-align: center;
+  color: var(--text-muted);
+  padding: 2rem;
+}
+
+@media (max-width: 768px) {
+  .achievements-header {
+    padding: 1.25rem 1rem;
+    margin-bottom: 1.25rem;
+  }
+  .medals-grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 0.75rem;
+  }
+  .records-tab-btn {
+    padding: 0.5rem 0.85rem;
+    font-size: 0.82rem;
+  }
+  .scroll-hint {
+    display: flex;
+    align-items: center;
+    gap: 0.35rem;
+  }
+}

@@ -1,5 +1,6 @@
 // Package tournamentcsv reads recorded tournament facts, the things match
-// names cannot say: divisions, official placements and season corrections.
+// names cannot say: divisions, official placements, season corrections,
+// finish dates, career honours and the community leaderboard.
 // Each is one CSV with a fixed header and a source column.
 package tournamentcsv
 
@@ -14,7 +15,7 @@ import (
 )
 
 // Series are the series a fact may be recorded for.
-var Series = []string{"international", "intermezzo", "royal_league"}
+var Series = []string{"international", "intermezzo", "royal_league", "worlds"}
 
 // Reason says why a row was refused.
 type Reason string
@@ -29,6 +30,12 @@ const (
 	BadPoints   Reason = "bad_points"
 	BadReason   Reason = "bad_reason"
 	BadSource   Reason = "bad_source"
+	BadDate     Reason = "bad_date"
+	BadMedals   Reason = "bad_medals"
+	BadEdition  Reason = "bad_edition"
+	BadEvent    Reason = "bad_event"
+	BadEvents   Reason = "bad_events"
+	BadRow      Reason = "bad_row"
 	Duplicate   Reason = "duplicate"
 )
 

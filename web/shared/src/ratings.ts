@@ -40,6 +40,15 @@ export type TournamentSeries = components['schemas']['TournamentSeries'];
 export type TrophyRow = components['schemas']['TrophyRow'];
 export type SeasonRecord = components['schemas']['SeasonRecord'];
 export type GameRecord = components['schemas']['GameRecord'];
+export type HallOfFame = components['schemas']['HallOfFame'];
+export type SeriesCount = components['schemas']['SeriesCount'];
+export type Legend = components['schemas']['Legend'];
+export type PlayerAchievements = components['schemas']['PlayerAchievements'];
+export type AchievementSummary = NonNullable<components['schemas']['AchievementSummary']>;
+export type TournamentRecord = components['schemas']['TournamentRecord'];
+export type CommunityEdition = components['schemas']['CommunityEdition'];
+export type CommunityLeaderboard = components['schemas']['CommunityLeaderboard'];
+export type CommunityRow = components['schemas']['CommunityRow'];
 
 /** An error response from the API, carrying its status and message. */
 export class RatingsApiError extends Error {
@@ -214,6 +223,11 @@ export async function tournamentSeries(base: string, run: number, series: Series
   return get<TournamentSeries>(fetchFn, base, `/v1/runs/${run}/tournaments/${series}`);
 }
 
+/** Returns the Hall of Fame overview: every series' counts, the all-time table, and the tops of the cups and ladders boards. */
+export async function hallOfFame(base: string, run: number, fetchFn: typeof fetch = fetch): Promise<HallOfFame> {
+  return get<HallOfFame>(fetchFn, base, `/v1/runs/${run}/tournaments`);
+}
+
 // Public routes take no credentials, so none are ever sent.
 async function get<T>(fetchFn: typeof fetch, base: string, path: string): Promise<T> {
   const res = await fetchFn(base.replace(/\/+$/, '') + path, { credentials: 'omit' });
@@ -226,4 +240,24 @@ async function get<T>(fetchFn: typeof fetch, base: string, path: string): Promis
     throw new RatingsApiError(res.status, message);
   }
   return (await res.json()) as T;
+}
+
+/** Returns a player's tournament medal summary and every record their achievements page lists. */
+export async function playerAchievements(
+  base: string,
+  run: number,
+  name: string,
+  fetchFn: typeof fetch = fetch,
+): Promise<PlayerAchievements> {
+  return get<PlayerAchievements>(fetchFn, base, playerPath(run, name, '/achievements'));
+}
+
+/** Returns an edition of the community leaderboard, best rank first. */
+export async function communityLeaderboard(
+  base: string,
+  run: number,
+  edition: CommunityEdition,
+  fetchFn: typeof fetch = fetch,
+): Promise<CommunityLeaderboard> {
+  return get<CommunityLeaderboard>(fetchFn, base, `/v1/runs/${run}/community/${edition}`);
 }

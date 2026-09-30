@@ -9,6 +9,8 @@ Implements the official badge award rules:
 - 5th highest league -> S (Silver)
 - 6th highest league -> B (Bronze)
 - 7th highest league -> W (Wood)
+- A win in the top division of the International, Intermezzo or Royal League
+  (a first place or gold in the run's tournament records) -> SGM (Super GM)
 - The Reigning World Champion retains the exclusive 'WC' title.
 - Hover Reason: Shows the latest tournament division and season (e.g. 'Played in International Championship Grandmaster Season 6').
 """
@@ -35,7 +37,25 @@ TIER_NAMES = {
     7: "Wood",
 }
 
-TITLE_ORDER = {"WC": 0, "GM": 1, "M": 2, "P": 3, "G": 4, "S": 5, "B": 6, "W": 7}
+TITLE_ORDER = {
+    "WC": 0,
+    "SGM": 1,
+    "GM": 2,
+    "M": 3,
+    "P": 4,
+    "G": 5,
+    "S": 6,
+    "B": 7,
+    "W": 8,
+}
+
+# The leagues and divisions whose win makes a Super GM, as the records name them
+SGM_TOURNAMENTS = (
+    "International Championship",
+    "Intermezzo Championship",
+    "Royal League",
+)
+SGM_DIVISIONS = ("Grandmaster", "Diamond", "Emperor")
 
 # Reigning World Champion holding active 'WC' title
 REIGNING_WC_PLAYERS = {"a440"}
@@ -287,13 +307,27 @@ def derive_tournament_badges(
         for p, (yr, _title) in HISTORICAL_WC_INFO.items():
             player_career_best[p] = {"tier": 0, "year": yr, "date": f"{yr}-12-15"}
 
+        records = conn.execute(
+            """
+            SELECT player_name, tournament, season, division, placement, medal, finish_date
+            FROM tournament_records WHERE run_id = %s AND NOT career ORDER BY position
+        """,
+            (run_id,),
+        ).fetchall()
+        active_sgm, career_sgm = _super_gm(records, cutoff_date)
+
         derived_data = {}
         for p, info in player_best.items():
-            title = TIER_TITLE_MAP.get(info["tier"], "W")
+            if p in active_sgm:
+                title, reason = "SGM", active_sgm[p]["reason"]
+            else:
+                title, reason = TIER_TITLE_MAP.get(info["tier"], "W"), info["reason"]
             derived_data[p] = {
                 "title": title,
-                "title_count": player_tier_counts.get(p, 1 if title == "GM" else 0),
-                "badge_reason": info["reason"],
+                "title_count": player_tier_counts.get(
+                    p, 1 if title in ("GM", "SGM") else 0
+                ),
+                "badge_reason": reason,
             }
 
         # Reigning World Champion holds exclusive active WC badge
@@ -306,10 +340,27 @@ def derive_tournament_badges(
 
         peaks = {}
         for p, c_info in player_career_best.items():
-            peak = (
-                "WC" if c_info["tier"] == 0 else TIER_TITLE_MAP.get(c_info["tier"], "W")
-            )
-            peaks[p] = (peak, c_info["year"])
+            if c_info["tier"] == 0:
+                peaks[p] = ("WC", c_info["year"])
+            elif p in career_sgm:
+                peaks[p] = ("SGM", career_sgm[p]["year"] or c_info["year"])
+            else:
+                peaks[p] = (TIER_TITLE_MAP.get(c_info["tier"], "W"), c_info["year"])
+        # A premier win with no titled game at all still makes a Super GM peak
+        for p, s_info in career_sgm.items():
+            peaks.setdefault(p, ("SGM", s_info["year"]))
+
+        # Each year's title: the best division played, then the records, then the career peak
+        yearly = {k: TIER_TITLE_MAP.get(t, "W") for k, t in player_year_best.items()}
+        for key, code in _record_years(records).items():
+            if code == "SGM" or key not in yearly:
+                yearly[key] = code
+        for p, (peak, yr) in peaks.items():
+            best = yearly.get((p, yr))
+            if yr is not None and (
+                best is None or TITLE_ORDER[peak] < TITLE_ORDER[best]
+            ):
+                yearly[(p, yr)] = peak
 
         # Replace the run's titles and peaks; unknown names are skipped, as upstream's UPDATE did
         conn.execute("DELETE FROM player_titles WHERE run_id = %s", (run_id,))
@@ -344,10 +395,7 @@ def derive_tournament_badges(
                 INSERT INTO player_yearly_titles (run_id, player_name, year, title)
                 SELECT %s, name, %s, %s FROM players WHERE name = %s
             """,
-                [
-                    (run_id, yr, TIER_TITLE_MAP.get(tier, "W"), p)
-                    for (p, yr), tier in player_year_best.items()
-                ],
+                [(run_id, yr, code, p) for (p, yr), code in yearly.items()],
             )
             # A World Champion holds WC in their title year, matched ignoring case as upstream's page does
             cur.executemany(
@@ -360,3 +408,55 @@ def derive_tournament_badges(
             )
 
     return derived_data
+
+
+def _super_gm(records, cutoff_date):
+    """Returns the Super GM wins in the records: each player's latest within the
+    active window, and their latest ever, with its year and badge reason.
+    """
+    active, career = {}, {}
+    for r in records:
+        won = r["placement"].startswith("1 /") or r["medal"] == "gold"
+        if not (
+            won
+            and r["tournament"] in SGM_TOURNAMENTS
+            and r["division"] in SGM_DIVISIONS
+        ):
+            continue
+        p, finish = r["player_name"], r["finish_date"]
+        year = int(finish[:4]) if finish[:4].isdigit() else None
+        reason = f"Champion of {r['tournament']} {r['division']} ({r['season']})"
+        if finish >= cutoff_date and (p not in active or finish > active[p]["date"]):
+            active[p] = {"date": finish, "reason": reason}
+        if p not in career or finish > career[p]["date"]:
+            career[p] = {"date": finish, "year": year, "reason": reason}
+    return active, career
+
+
+def _record_years(records):
+    """Returns the titles the records give each (player, year), as upstream's
+    player page reads them: SGM for a top-division win, else the division's
+    tier for a year no match titled (the caller keeps a match's title).
+    """
+    got = {}
+    for r in records:
+        finish = r["finish_date"]
+        if not finish[:4].isdigit():
+            continue
+        key = (r["player_name"], int(finish[:4]))
+        won = (
+            r["placement"].startswith("1 /")
+            or r["placement"] == "1"
+            or r["medal"] == "gold"
+        )
+        if (
+            r["tournament"] in SGM_TOURNAMENTS
+            and r["division"] in SGM_DIVISIONS
+            and won
+        ):
+            got[key] = "SGM"
+        elif key not in got:
+            tier = classify_division_tier(f"{r['tournament']} {r['division']}")
+            if tier is not None:
+                got[key] = TIER_TITLE_MAP.get(tier, "W")
+    return got

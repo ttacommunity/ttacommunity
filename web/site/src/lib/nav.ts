@@ -7,6 +7,8 @@ export interface Section {
 
 export const sections: Section[] = [
   { label: 'Ratings', href: '/ratings/' },
+  { label: 'Hall of Fame', href: '/ratings/hall_of_fame/' },
+  { label: 'Community Leaderboard', href: '/ratings/community/' },
   { label: 'Model Analysis', href: '/ratings/analysis/' },
   { label: 'FAQ & Guide', href: '/ratings/faq/' },
   { label: 'Methodology', href: '/ratings/methodology/' },

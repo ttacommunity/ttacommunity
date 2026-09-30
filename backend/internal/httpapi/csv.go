@@ -23,7 +23,7 @@ var csvHeader = []string{
 }
 
 var titleNames = map[string]string{
-	"WC": "World Champion", "GM": "Grandmaster", "M": "Master", "P": "Platinum", "G": "Gold", "S": "Silver", "B": "Bronze", "W": "Wood",
+	"WC": "World Champion", "SGM": "Super GM", "GM": "Grandmaster", "M": "Master", "P": "Platinum", "G": "Gold", "S": "Silver", "B": "Bronze", "W": "Wood",
 }
 
 var engineNames = map[string]string{

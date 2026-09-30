@@ -37,6 +37,69 @@ func (e CalibrationRowMode) Valid() bool {
 	}
 }
 
+// Defines values for CommunityEdition.
+const (
+	N2024  CommunityEdition = "2024"
+	N2025  CommunityEdition = "2025"
+	N2026  CommunityEdition = "2026"
+	Race26 CommunityEdition = "race26"
+)
+
+// Valid indicates whether the value is a known member of the CommunityEdition enum.
+func (e CommunityEdition) Valid() bool {
+	switch e {
+	case N2024:
+		return true
+	case N2025:
+		return true
+	case N2026:
+		return true
+	case Race26:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for CommunityRowTitle.
+const (
+	CommunityRowTitleB   CommunityRowTitle = "B"
+	CommunityRowTitleG   CommunityRowTitle = "G"
+	CommunityRowTitleGM  CommunityRowTitle = "GM"
+	CommunityRowTitleM   CommunityRowTitle = "M"
+	CommunityRowTitleP   CommunityRowTitle = "P"
+	CommunityRowTitleS   CommunityRowTitle = "S"
+	CommunityRowTitleSGM CommunityRowTitle = "SGM"
+	CommunityRowTitleW   CommunityRowTitle = "W"
+	CommunityRowTitleWC  CommunityRowTitle = "WC"
+)
+
+// Valid indicates whether the value is a known member of the CommunityRowTitle enum.
+func (e CommunityRowTitle) Valid() bool {
+	switch e {
+	case CommunityRowTitleB:
+		return true
+	case CommunityRowTitleG:
+		return true
+	case CommunityRowTitleGM:
+		return true
+	case CommunityRowTitleM:
+		return true
+	case CommunityRowTitleP:
+		return true
+	case CommunityRowTitleS:
+		return true
+	case CommunityRowTitleSGM:
+		return true
+	case CommunityRowTitleW:
+		return true
+	case CommunityRowTitleWC:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for Format.
 const (
 	N0 Format = 0
@@ -123,19 +186,28 @@ func (e Model) Valid() bool {
 
 // Defines values for Series.
 const (
+	GrandSlams    Series = "grand_slams"
 	Intermezzo    Series = "intermezzo"
 	International Series = "international"
+	Ladders       Series = "ladders"
 	RoyalLeague   Series = "royal_league"
+	Worlds        Series = "worlds"
 )
 
 // Valid indicates whether the value is a known member of the Series enum.
 func (e Series) Valid() bool {
 	switch e {
+	case GrandSlams:
+		return true
 	case Intermezzo:
 		return true
 	case International:
 		return true
+	case Ladders:
+		return true
 	case RoyalLeague:
+		return true
+	case Worlds:
 		return true
 	default:
 		return false
@@ -144,14 +216,15 @@ func (e Series) Valid() bool {
 
 // Defines values for TitleCode.
 const (
-	TitleCodeB  TitleCode = "B"
-	TitleCodeG  TitleCode = "G"
-	TitleCodeGM TitleCode = "GM"
-	TitleCodeM  TitleCode = "M"
-	TitleCodeP  TitleCode = "P"
-	TitleCodeS  TitleCode = "S"
-	TitleCodeW  TitleCode = "W"
-	TitleCodeWC TitleCode = "WC"
+	TitleCodeB   TitleCode = "B"
+	TitleCodeG   TitleCode = "G"
+	TitleCodeGM  TitleCode = "GM"
+	TitleCodeM   TitleCode = "M"
+	TitleCodeP   TitleCode = "P"
+	TitleCodeS   TitleCode = "S"
+	TitleCodeSGM TitleCode = "SGM"
+	TitleCodeW   TitleCode = "W"
+	TitleCodeWC  TitleCode = "WC"
 )
 
 // Valid indicates whether the value is a known member of the TitleCode enum.
@@ -169,9 +242,32 @@ func (e TitleCode) Valid() bool {
 		return true
 	case TitleCodeS:
 		return true
+	case TitleCodeSGM:
+		return true
 	case TitleCodeW:
 		return true
 	case TitleCodeWC:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for TournamentRecordMedal.
+const (
+	Bronze TournamentRecordMedal = "bronze"
+	Gold   TournamentRecordMedal = "gold"
+	Silver TournamentRecordMedal = "silver"
+)
+
+// Valid indicates whether the value is a known member of the TournamentRecordMedal enum.
+func (e TournamentRecordMedal) Valid() bool {
+	switch e {
+	case Bronze:
+		return true
+	case Gold:
+		return true
+	case Silver:
 		return true
 	default:
 		return false
@@ -289,6 +385,19 @@ func (e GetLeaderboardCsvParamsStatsView) Valid() bool {
 	}
 }
 
+// AchievementSummary Null for a player with no medal in the four major circuits
+type AchievementSummary struct {
+	// Accolades At most six, in the order the page features them
+	Accolades           []string `json:"accolades"`
+	Bronze              int      `json:"bronze"`
+	Gold                int      `json:"gold"`
+	IntermezzoTitles    int      `json:"intermezzo_titles"`
+	InternationalTitles int      `json:"international_titles"`
+	RoyalLeagueTitles   int      `json:"royal_league_titles"`
+	Silver              int      `json:"silver"`
+	WorldTitles         int      `json:"world_titles"`
+}
+
 // Activity defines model for Activity.
 type Activity struct {
 	// Active Players whose last game is after the site's inactive cutoff
@@ -397,6 +506,37 @@ type Champion struct {
 	Reigning bool `json:"reigning"`
 }
 
+// CommunityEdition An edition of the community leaderboard (race26 is the 2026 race)
+type CommunityEdition string
+
+// CommunityLeaderboard defines model for CommunityLeaderboard.
+type CommunityLeaderboard struct {
+	// Edition An edition of the community leaderboard (race26 is the 2026 race)
+	Edition CommunityEdition `json:"edition"`
+	Rows    []CommunityRow   `json:"rows"`
+	RunId   int64            `json:"run_id"`
+}
+
+// CommunityRow defines model for CommunityRow.
+type CommunityRow struct {
+	Country *string `json:"country"`
+	Events  int     `json:"events"`
+
+	// Name As the leaderboard writes it
+	Name   string  `json:"name"`
+	Points float64 `json:"points"`
+	Rank   int     `json:"rank"`
+
+	// Scores Points in each event the player has, by the leaderboard's column name
+	Scores map[string]float64 `json:"scores"`
+
+	// Title The run's title for the player, null when none or not a player here
+	Title *CommunityRowTitle `json:"title"`
+}
+
+// CommunityRowTitle The run's title for the player, null when none or not a player here
+type CommunityRowTitle string
+
 // ComparedPlayer defines model for ComparedPlayer.
 type ComparedPlayer struct {
 	// Country The player's country, ISO 3166-1 alpha-2, if known
@@ -496,6 +636,20 @@ type GameRecord struct {
 	WorldChampion bool    `json:"world_champion"`
 }
 
+// HallOfFame defines model for HallOfFame.
+type HallOfFame struct {
+	// GrandSlams The first ten rows of the Grand Slams board
+	GrandSlams []TrophyRow `json:"grand_slams"`
+
+	// Ladders The first ten rows of the Ladders board
+	Ladders []TrophyRow `json:"ladders"`
+
+	// Legends Up to 25 players, most titles first
+	Legends []Legend      `json:"legends"`
+	RunId   int64         `json:"run_id"`
+	Series  []SeriesCount `json:"series"`
+}
+
 // Health defines model for Health.
 type Health struct {
 	Status string `json:"status"`
@@ -581,6 +735,21 @@ type LeaderboardRow struct {
 	Wins    int     `json:"wins"`
 }
 
+// Legend defines model for Legend.
+type Legend struct {
+	Bronze int `json:"bronze"`
+
+	// Gold Podium medals across the four circuits
+	Gold                int    `json:"gold"`
+	IntermezzoTitles    int    `json:"intermezzo_titles"`
+	InternationalTitles int    `json:"international_titles"`
+	Name                string `json:"name"`
+	RoyalLeagueTitles   int    `json:"royal_league_titles"`
+	Silver              int    `json:"silver"`
+	WorldChampion       bool   `json:"world_champion"`
+	WorldTitles         int    `json:"world_titles"`
+}
+
 // MatrixCell defines model for MatrixCell.
 type MatrixCell struct {
 	CRating float64 `json:"c_rating"`
@@ -652,6 +821,18 @@ type Player struct {
 
 	// Title The tournament title the run derived for the player, if any
 	Title *Title `json:"title"`
+}
+
+// PlayerAchievements defines model for PlayerAchievements.
+type PlayerAchievements struct {
+	Name string `json:"name"`
+
+	// Records Latest finish first; a career total's finish_date is a label, not a date
+	Records []TournamentRecord `json:"records"`
+	RunId   int64              `json:"run_id"`
+
+	// Summary Null for a player with no medal in the four major circuits
+	Summary *AchievementSummary `json:"summary"`
 }
 
 // PlayerCareer defines model for PlayerCareer.
@@ -814,6 +995,17 @@ type Seat struct {
 // Series A tournament series
 type Series string
 
+// SeriesCount defines model for SeriesCount.
+type SeriesCount struct {
+	Games int `json:"games"`
+
+	// Seasons The editions the series page states (see TournamentSeries)
+	Seasons int `json:"seasons"`
+
+	// Series A tournament series
+	Series Series `json:"series"`
+}
+
 // Title The tournament title the run derived for the player, if any
 type Title struct {
 	Code TitleCode `json:"code"`
@@ -834,40 +1026,73 @@ type TitlePlayers struct {
 	Players int       `json:"players"`
 }
 
+// TournamentRecord defines model for TournamentRecord.
+type TournamentRecord struct {
+	// Career A career total, not one season or tournament
+	Career     bool                   `json:"career"`
+	Details    string                 `json:"details"`
+	Division   string                 `json:"division"`
+	FinishDate string                 `json:"finish_date"`
+	Medal      *TournamentRecordMedal `json:"medal"`
+	Placement  string                 `json:"placement"`
+	Points     string                 `json:"points"`
+	Season     string                 `json:"season"`
+	Tournament string                 `json:"tournament"`
+}
+
+// TournamentRecordMedal defines model for TournamentRecord.Medal.
+type TournamentRecordMedal string
+
 // TournamentSeries defines model for TournamentSeries.
 type TournamentSeries struct {
-	// Board The top division's medallists, most golds first, then silvers, bronzes and career points
+	// Board The series' board in the original site's order (for leagues, most golds first, then silvers, bronzes and career points)
 	Board []TrophyRow `json:"board"`
 
-	// GameRecords The ten highest winning scores in top-division games
+	// GameRecords The ten highest winning scores in the games a series page lists (top-division or World Championship playoff games)
 	GameRecords []GameRecord `json:"game_records"`
 
-	// Games Every game of the series in the run's matches
+	// Games The games the original site counts for the series, by its name patterns
 	Games int   `json:"games"`
 	RunId int64 `json:"run_id"`
 
 	// SeasonRecords The ten best top-division seasons by points, then wins
 	SeasonRecords []SeasonRecord `json:"season_records"`
 
-	// Seasons The latest season a game's name gives
+	// Seasons The editions the original site counts: the latest season a
+	// league game's name gives, the World Championship's distinct
+	// editions, the cups' distinct names before "Stage", or the
+	// ladders' fixed 16
 	Seasons int `json:"seasons"`
 
 	// Series A tournament series
 	Series Series `json:"series"`
 }
 
-// TrophyRow defines model for TrophyRow.
+// TrophyRow One player on a series' board: medals and a title for the leagues
+// and the World Championship, medals and honours for the cups, or
+// ladder games, wins and win rate. What a board does not show is null
 type TrophyRow struct {
-	Bronze int    `json:"bronze"`
-	Gold   int    `json:"gold"`
-	Name   string `json:"name"`
-	Silver int    `json:"silver"`
+	Bronze *int `json:"bronze"`
 
-	// Title WC for a World Champion, GM for a top-division winner, else M
-	Title TrophyRowTitle `json:"title"`
+	// Details A cup medallist's first two honours
+	Details *string `json:"details"`
+
+	// Games Ladder games played
+	Games  *int   `json:"games"`
+	Gold   *int   `json:"gold"`
+	Name   string `json:"name"`
+	Silver *int   `json:"silver"`
+
+	// Title WC for a World Champion, GM for a top-division winner or World Championship medallist, else M
+	Title *TrophyRowTitle `json:"title"`
+
+	// WinRate Ladder wins as a percentage of games, to one decimal
+	WinRate       *float64 `json:"win_rate"`
+	Wins          *int     `json:"wins"`
+	WorldChampion bool     `json:"world_champion"`
 }
 
-// TrophyRowTitle WC for a World Champion, GM for a top-division winner, else M
+// TrophyRowTitle WC for a World Champion, GM for a top-division winner or World Championship medallist, else M
 type TrophyRowTitle string
 
 // VersusMatch defines model for VersusMatch.
@@ -1095,6 +1320,9 @@ type ServerInterface interface {
 	// GetComparedPlayers Players across every model
 	// (GET /v1/runs/{run}/analysis/players)
 	GetComparedPlayers(w http.ResponseWriter, r *http.Request, run RunId, params GetComparedPlayersParams)
+	// GetCommunityLeaderboard An edition of the community leaderboard
+	// (GET /v1/runs/{run}/community/{edition})
+	GetCommunityLeaderboard(w http.ResponseWriter, r *http.Request, run RunId, edition CommunityEdition)
 	// GetHistory Each player's rating at a past date, for rating changes over time
 	// (GET /v1/runs/{run}/history)
 	GetHistory(w http.ResponseWriter, r *http.Request, run RunId, params GetHistoryParams)
@@ -1107,6 +1335,9 @@ type ServerInterface interface {
 	// GetPlayer One player's ratings in every model and format, for the player page
 	// (GET /v1/runs/{run}/players/{name})
 	GetPlayer(w http.ResponseWriter, r *http.Request, run RunId, name PlayerName)
+	// GetPlayerAchievements One player's tournament achievements, for their achievements page
+	// (GET /v1/runs/{run}/players/{name}/achievements)
+	GetPlayerAchievements(w http.ResponseWriter, r *http.Request, run RunId, name PlayerName)
 	// GetPlayerCareer One player's record each year and each model's peak, for the career box
 	// (GET /v1/runs/{run}/players/{name}/career)
 	GetPlayerCareer(w http.ResponseWriter, r *http.Request, run RunId, name PlayerName, params GetPlayerCareerParams)
@@ -1125,6 +1356,9 @@ type ServerInterface interface {
 	// GetPlayerVersus The latest games two players played together
 	// (GET /v1/runs/{run}/players/{name}/versus/{other})
 	GetPlayerVersus(w http.ResponseWriter, r *http.Request, run RunId, name PlayerName, other string)
+	// GetHallOfFame The Hall of Fame overview
+	// (GET /v1/runs/{run}/tournaments)
+	GetHallOfFame(w http.ResponseWriter, r *http.Request, run RunId)
 	// GetTournamentSeries A tournament series' Hall of Fame page
 	// (GET /v1/runs/{run}/tournaments/{series})
 	GetTournamentSeries(w http.ResponseWriter, r *http.Request, run RunId, series Series)
@@ -1369,6 +1603,41 @@ func (siw *ServerInterfaceWrapper) GetComparedPlayers(w http.ResponseWriter, r *
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.GetComparedPlayers(w, r, run, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetCommunityLeaderboard operation middleware
+func (siw *ServerInterfaceWrapper) GetCommunityLeaderboard(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "run" -------------
+	var run RunId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "run", r.PathValue("run"), &run, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "integer", Format: "int64", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "run", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "edition" -------------
+	var edition CommunityEdition
+
+	err = runtime.BindStyledParameterWithOptions("simple", "edition", r.PathValue("edition"), &edition, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "edition", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetCommunityLeaderboard(w, r, run, edition)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -1686,6 +1955,41 @@ func (siw *ServerInterfaceWrapper) GetPlayer(w http.ResponseWriter, r *http.Requ
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.GetPlayer(w, r, run, name)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetPlayerAchievements operation middleware
+func (siw *ServerInterfaceWrapper) GetPlayerAchievements(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "run" -------------
+	var run RunId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "run", r.PathValue("run"), &run, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "integer", Format: "int64", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "run", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "name" -------------
+	var name PlayerName
+
+	err = runtime.BindStyledParameterWithOptions("simple", "name", r.PathValue("name"), &name, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "name", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetPlayerAchievements(w, r, run, name)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -2033,6 +2337,32 @@ func (siw *ServerInterfaceWrapper) GetPlayerVersus(w http.ResponseWriter, r *htt
 	handler.ServeHTTP(w, r)
 }
 
+// GetHallOfFame operation middleware
+func (siw *ServerInterfaceWrapper) GetHallOfFame(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "run" -------------
+	var run RunId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "run", r.PathValue("run"), &run, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "integer", Format: "int64", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "run", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetHallOfFame(w, r, run)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // GetTournamentSeries operation middleware
 func (siw *ServerInterfaceWrapper) GetTournamentSeries(w http.ResponseWriter, r *http.Request) {
 
@@ -2289,6 +2619,7 @@ func HandlerWithOptions(si ServerInterface, options StdHTTPServerOptions) http.H
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/v1/runs/{run}/players/{name}/matches", wrapper.GetPlayerMatches)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/v1/runs/{run}/players/{name}/rivals", wrapper.GetPlayerRivals)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/v1/runs/{run}/players/{name}/career", wrapper.GetPlayerCareer)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/v1/runs/{run}/players/{name}/achievements", wrapper.GetPlayerAchievements)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/v1/runs/{run}/players/{name}/versus/{other}", wrapper.GetPlayerVersus)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/v1/runs/{run}/players/{name}/matrix", wrapper.GetPlayerMatrix)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/v1/runs/{run}/years", wrapper.GetYears)
@@ -2298,7 +2629,9 @@ func HandlerWithOptions(si ServerInterface, options StdHTTPServerOptions) http.H
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/v1/runs/{run}/analysis/agreement", wrapper.GetAgreement)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/v1/runs/{run}/analysis/players", wrapper.GetComparedPlayers)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/v1/runs/{run}/analysis/activity", wrapper.GetActivity)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/v1/runs/{run}/tournaments", wrapper.GetHallOfFame)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/v1/runs/{run}/tournaments/{series}", wrapper.GetTournamentSeries)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/v1/runs/{run}/community/{edition}", wrapper.GetCommunityLeaderboard)
 
 	return m
 }
@@ -2749,6 +3082,67 @@ func (response GetComparedPlayers404JSONResponse) VisitGetComparedPlayersRespons
 	return err
 }
 
+type GetCommunityLeaderboardRequestObject struct {
+	Run     RunId            `json:"run"`
+	Edition CommunityEdition `json:"edition"`
+}
+
+type GetCommunityLeaderboardResponseObject interface {
+	VisitGetCommunityLeaderboardResponse(w http.ResponseWriter) error
+}
+
+type GetCommunityLeaderboard200ResponseHeaders struct {
+	CacheControl string
+}
+
+type GetCommunityLeaderboard200JSONResponse struct {
+	Body    CommunityLeaderboard
+	Headers GetCommunityLeaderboard200ResponseHeaders
+}
+
+func (response GetCommunityLeaderboard200JSONResponse) VisitGetCommunityLeaderboardResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetCommunityLeaderboard400JSONResponse struct{ BadRequestJSONResponse }
+
+func (response GetCommunityLeaderboard400JSONResponse) VisitGetCommunityLeaderboardResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetCommunityLeaderboard404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response GetCommunityLeaderboard404JSONResponse) VisitGetCommunityLeaderboardResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
 type GetHistoryRequestObject struct {
 	Run    RunId `json:"run"`
 	Params GetHistoryParams
@@ -2987,6 +3381,67 @@ func (response GetPlayer400JSONResponse) VisitGetPlayerResponse(w http.ResponseW
 type GetPlayer404JSONResponse struct{ NotFoundJSONResponse }
 
 func (response GetPlayer404JSONResponse) VisitGetPlayerResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetPlayerAchievementsRequestObject struct {
+	Run  RunId      `json:"run"`
+	Name PlayerName `json:"name"`
+}
+
+type GetPlayerAchievementsResponseObject interface {
+	VisitGetPlayerAchievementsResponse(w http.ResponseWriter) error
+}
+
+type GetPlayerAchievements200ResponseHeaders struct {
+	CacheControl string
+}
+
+type GetPlayerAchievements200JSONResponse struct {
+	Body    PlayerAchievements
+	Headers GetPlayerAchievements200ResponseHeaders
+}
+
+func (response GetPlayerAchievements200JSONResponse) VisitGetPlayerAchievementsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetPlayerAchievements400JSONResponse struct{ BadRequestJSONResponse }
+
+func (response GetPlayerAchievements400JSONResponse) VisitGetPlayerAchievementsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetPlayerAchievements404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response GetPlayerAchievements404JSONResponse) VisitGetPlayerAchievementsResponse(w http.ResponseWriter) error {
 
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
@@ -3371,6 +3826,66 @@ func (response GetPlayerVersus404JSONResponse) VisitGetPlayerVersusResponse(w ht
 	return err
 }
 
+type GetHallOfFameRequestObject struct {
+	Run RunId `json:"run"`
+}
+
+type GetHallOfFameResponseObject interface {
+	VisitGetHallOfFameResponse(w http.ResponseWriter) error
+}
+
+type GetHallOfFame200ResponseHeaders struct {
+	CacheControl string
+}
+
+type GetHallOfFame200JSONResponse struct {
+	Body    HallOfFame
+	Headers GetHallOfFame200ResponseHeaders
+}
+
+func (response GetHallOfFame200JSONResponse) VisitGetHallOfFameResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetHallOfFame400JSONResponse struct{ BadRequestJSONResponse }
+
+func (response GetHallOfFame400JSONResponse) VisitGetHallOfFameResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetHallOfFame404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response GetHallOfFame404JSONResponse) VisitGetHallOfFameResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
 type GetTournamentSeriesRequestObject struct {
 	Run    RunId  `json:"run"`
 	Series Series `json:"series"`
@@ -3580,6 +4095,9 @@ type StrictServerInterface interface {
 	// GetComparedPlayers Players across every model
 	// (GET /v1/runs/{run}/analysis/players)
 	GetComparedPlayers(ctx context.Context, request GetComparedPlayersRequestObject) (GetComparedPlayersResponseObject, error)
+	// GetCommunityLeaderboard An edition of the community leaderboard
+	// (GET /v1/runs/{run}/community/{edition})
+	GetCommunityLeaderboard(ctx context.Context, request GetCommunityLeaderboardRequestObject) (GetCommunityLeaderboardResponseObject, error)
 	// GetHistory Each player's rating at a past date, for rating changes over time
 	// (GET /v1/runs/{run}/history)
 	GetHistory(ctx context.Context, request GetHistoryRequestObject) (GetHistoryResponseObject, error)
@@ -3592,6 +4110,9 @@ type StrictServerInterface interface {
 	// GetPlayer One player's ratings in every model and format, for the player page
 	// (GET /v1/runs/{run}/players/{name})
 	GetPlayer(ctx context.Context, request GetPlayerRequestObject) (GetPlayerResponseObject, error)
+	// GetPlayerAchievements One player's tournament achievements, for their achievements page
+	// (GET /v1/runs/{run}/players/{name}/achievements)
+	GetPlayerAchievements(ctx context.Context, request GetPlayerAchievementsRequestObject) (GetPlayerAchievementsResponseObject, error)
 	// GetPlayerCareer One player's record each year and each model's peak, for the career box
 	// (GET /v1/runs/{run}/players/{name}/career)
 	GetPlayerCareer(ctx context.Context, request GetPlayerCareerRequestObject) (GetPlayerCareerResponseObject, error)
@@ -3610,6 +4131,9 @@ type StrictServerInterface interface {
 	// GetPlayerVersus The latest games two players played together
 	// (GET /v1/runs/{run}/players/{name}/versus/{other})
 	GetPlayerVersus(ctx context.Context, request GetPlayerVersusRequestObject) (GetPlayerVersusResponseObject, error)
+	// GetHallOfFame The Hall of Fame overview
+	// (GET /v1/runs/{run}/tournaments)
+	GetHallOfFame(ctx context.Context, request GetHallOfFameRequestObject) (GetHallOfFameResponseObject, error)
 	// GetTournamentSeries A tournament series' Hall of Fame page
 	// (GET /v1/runs/{run}/tournaments/{series})
 	GetTournamentSeries(ctx context.Context, request GetTournamentSeriesRequestObject) (GetTournamentSeriesResponseObject, error)
@@ -3865,6 +4389,33 @@ func (sh *strictHandler) GetComparedPlayers(w http.ResponseWriter, r *http.Reque
 	}
 }
 
+// GetCommunityLeaderboard operation middleware
+func (sh *strictHandler) GetCommunityLeaderboard(w http.ResponseWriter, r *http.Request, run RunId, edition CommunityEdition) {
+	var request GetCommunityLeaderboardRequestObject
+
+	request.Run = run
+	request.Edition = edition
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.GetCommunityLeaderboard(ctx, request.(GetCommunityLeaderboardRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetCommunityLeaderboard")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(GetCommunityLeaderboardResponseObject); ok {
+		if err := validResponse.VisitGetCommunityLeaderboardResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
 // GetHistory operation middleware
 func (sh *strictHandler) GetHistory(w http.ResponseWriter, r *http.Request, run RunId, params GetHistoryParams) {
 	var request GetHistoryRequestObject
@@ -3966,6 +4517,33 @@ func (sh *strictHandler) GetPlayer(w http.ResponseWriter, r *http.Request, run R
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(GetPlayerResponseObject); ok {
 		if err := validResponse.VisitGetPlayerResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// GetPlayerAchievements operation middleware
+func (sh *strictHandler) GetPlayerAchievements(w http.ResponseWriter, r *http.Request, run RunId, name PlayerName) {
+	var request GetPlayerAchievementsRequestObject
+
+	request.Run = run
+	request.Name = name
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.GetPlayerAchievements(ctx, request.(GetPlayerAchievementsRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetPlayerAchievements")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(GetPlayerAchievementsResponseObject); ok {
+		if err := validResponse.VisitGetPlayerAchievementsResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {
@@ -4134,6 +4712,32 @@ func (sh *strictHandler) GetPlayerVersus(w http.ResponseWriter, r *http.Request,
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(GetPlayerVersusResponseObject); ok {
 		if err := validResponse.VisitGetPlayerVersusResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// GetHallOfFame operation middleware
+func (sh *strictHandler) GetHallOfFame(w http.ResponseWriter, r *http.Request, run RunId) {
+	var request GetHallOfFameRequestObject
+
+	request.Run = run
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.GetHallOfFame(ctx, request.(GetHallOfFameRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetHallOfFame")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(GetHallOfFameResponseObject); ok {
+		if err := validResponse.VisitGetHallOfFameResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {

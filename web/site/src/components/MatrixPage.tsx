@@ -17,6 +17,7 @@ import * as show from '../lib/leaderboard-display';
 import { DEFAULT_VIEW, type Engine } from '../lib/leaderboard-view';
 import { careerPeakYear, scoreYears, wcLabel } from '../lib/career';
 import { matrixParams, parseMatrixView, playerHref, type MatrixView } from '../lib/player-view';
+import { achievementsHref } from '../lib/achievements';
 import { recall, remember } from '../lib/remembered';
 import './PlayerPage.css';
 import './MatrixPage.css';
@@ -71,6 +72,7 @@ function useLoad<T>(key: string, load: (() => Promise<T>) | null): Load<T> {
 /** TitleBadge is a year's title as upstream shows it: in the peak card World Champion gets the 💎 badge. */
 function TitleBadge({ code, card }: { code: TitleCode; card?: boolean }) {
   if (code === 'WC' && card) return <span className="badge-wc badge-small">💎 World Champion</span>;
+  if (code === 'SGM') return <span className="badge badge-small badge-sgm">👑 GM</span>;
   return <span className={`badge badge-small badge-${code.toLowerCase()}`}>{show.titleName(code)}</span>;
 }
 
@@ -356,6 +358,9 @@ function Header({ player, format }: { player: Player; format: Format }) {
       <div className="matrix-header-links">
         <a href={back} className="btn-antique">
           « Return to Profile
+        </a>
+        <a href={achievementsHref(player.name)} className="btn-antique">
+          🏆 Achievements »
         </a>
       </div>
     </div>

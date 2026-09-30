@@ -100,6 +100,33 @@ def test_a_run_writes_tournament_results(conn, add_match):
     assert (
         count(conn, "tournament_games", run_id) == 3
     )  # and season()'s two Royal League games
+    ann = conn.execute(
+        "SELECT details FROM tournament_records WHERE run_id = %s AND player_name = 'Ann' "
+        "AND tournament = 'International Championship' ORDER BY position",
+        (run_id,),
+    ).fetchall()
+    assert [r["details"] for r in ann] == [
+        "Participated in 1 seasons, total score: 5 pts",
+        "Season 30 International Championship Standing (1 of 3) &bull; Record: 1W - 0L (100.0% win rate)",
+    ]
+    medals = conn.execute(
+        "SELECT player_name, international_titles, gold, silver, bronze, accolades "
+        "FROM tournament_achievements WHERE run_id = %s ORDER BY player_name",
+        (run_id,),
+    ).fetchall()
+    # season()'s Royal League games give Ann a title and Bob a silver too
+    assert [tuple(r.values()) for r in medals] == [
+        (
+            "Ann",
+            1,
+            2,
+            0,
+            0,
+            ["1x International Champion", "1x Royal League Emperor Champion"],
+        ),
+        ("Bob", 0, 0, 2, 0, []),
+        ("Cat", 0, 0, 0, 1, []),
+    ]
 
 
 @pytest.mark.parametrize(
@@ -116,6 +143,11 @@ def test_a_run_writes_tournament_results(conn, add_match):
         (
             "INSERT INTO tournament_season_corrections "
             "VALUES ('intermezzo', 8, 7, 'r', 's')"
+        ),
+        "INSERT INTO tournament_finish_dates VALUES ('intermezzo', 8, '2020-08-31', 's')",
+        (
+            "INSERT INTO tournament_career_honours "
+            "VALUES ('q_and_d', 'Ann', 1, 0, 0, NULL, 's')"
         ),
     ],
 )
@@ -217,7 +249,9 @@ def test_the_command_runs_the_formats_asked_for(monkeypatch, db_url, conn, add_m
     assert [r["player_count"] for r in formats] == [2]
 
 
-@pytest.mark.parametrize("table", ["player_titles", "tournament_group_divisions"])
+@pytest.mark.parametrize(
+    "table", ["player_titles", "tournament_group_divisions", "tournament_series"]
+)
 def test_a_database_missing_a_migration_is_refused_before_a_run_starts(
     conn, add_match, table
 ):
@@ -290,3 +324,76 @@ def test_a_run_records_how_long_it_took(conn, add_match, monkeypatch):
         (run_id,),
     ).fetchone()["s"]
     assert took >= 1.1
+
+
+def rows_of(conn, table, run_id):
+    """Every row of a run in a table, without its run and pair ids, in a stable order."""
+    rows = conn.execute(
+        f"SELECT * FROM {table} WHERE run_id = %s", (run_id,)
+    ).fetchall()
+    ids = ("run_id", "pairwise_id")
+    return sorted(str({k: v for k, v in r.items() if k not in ids}) for r in rows)
+
+
+def test_a_tournaments_only_run_copies_the_ratings_and_recomputes_tournaments(
+    conn, add_match
+):
+    season(add_match)
+    full = run(conn, "v1", formats=[0, 2], log=lambda _: None, make_current=True)
+    conn.execute(
+        "INSERT INTO tournament_official_placements VALUES ('royal_league', 1, 'Emperor', 'Bob', 1, NULL, 'r', 's')"
+    )
+    conn.commit()
+
+    fast = run(conn, "v2", tournaments_only=True, log=lambda _: None, make_current=True)
+
+    assert the_run(conn, fast)["status"] == "complete"
+    assert the_run(conn, fast)["copied_from"] == full
+    assert current(conn) == fast
+    for table in runner.COPIED_TABLES + ["pairwise_matches"]:
+        assert rows_of(conn, table, fast) == rows_of(conn, table, full), table
+    boards = conn.execute(
+        "SELECT player_name, gold FROM tournament_boards WHERE run_id = %s AND series = 'royal_league' ORDER BY player_name",
+        (fast,),
+    ).fetchall()
+    assert [(r["player_name"], r["gold"]) for r in boards] == [
+        ("Bob", 1)
+    ]  # the recorded place replaces the derived one
+    assert count(conn, "player_titles", fast) == count(conn, "player_titles", full)
+
+
+def test_a_tournaments_only_run_refuses_changed_matches(conn, add_match):
+    season(add_match)
+    full = run(conn, "v1", formats=[2], log=lambda _: None, make_current=True)
+    add_match(("Ann", 10), ("Cat", 5), day=date(2022, 3, 1), tournament="Cup")
+
+    with pytest.raises(runner.MatchesChanged):
+        run(conn, "v2", tournaments_only=True, log=lambda _: None, make_current=True)
+
+    failed = conn.execute(
+        "SELECT run_id, status FROM rating_runs WHERE run_id > %s", (full,)
+    ).fetchall()
+    assert [r["status"] for r in failed] == ["failed"]
+    assert count(conn, "player_ratings", failed[0]["run_id"]) == 0
+    assert current(conn) == full
+
+
+def test_a_tournaments_only_run_needs_a_current_run(conn, add_match):
+    season(add_match)
+    with pytest.raises(runner.NoCurrentRun):
+        run(conn, "v1", tournaments_only=True, log=lambda _: None)
+    assert conn.execute("SELECT count(*) AS n FROM rating_runs").fetchone()["n"] == 0
+
+
+def test_every_run_table_is_copied_or_recomputed(conn):
+    tables = {
+        r["table_name"]
+        for r in conn.execute(
+            "SELECT table_name FROM information_schema.columns "
+            "WHERE table_schema = 'public' AND column_name = 'run_id'"
+        ).fetchall()
+    }
+    assert tables == set(runner.COPIED_TABLES) | set(runner.RECOMPUTED_TABLES) | {
+        "rating_runs",
+        "current_run",
+    }

@@ -244,6 +244,31 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/runs/{run}/players/{name}/achievements": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * One player's tournament achievements, for their achievements page
+         * @description The player's titles and medals across the four major circuits
+         *     (World Championship, International, Intermezzo, Royal League) and
+         *     the accolades their page features, and every tournament record the
+         *     original site lists for them: seasons, campaigns and career totals,
+         *     latest finish first. Records are matched to the name ignoring case,
+         *     as the original site does. Cached for five minutes.
+         */
+        get: operations["getPlayerAchievements"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/runs/{run}/players/{name}/versus/{other}": {
         parameters: {
             query?: never;
@@ -449,6 +474,30 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/runs/{run}/tournaments": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The Hall of Fame overview
+         * @description Every series' game and edition counts, the all-time table of titles
+         *     and medals across the four major circuits (World Championship,
+         *     International, Intermezzo, Royal League), and the first ten rows of
+         *     the Grand Slams and Ladders boards, as the original site's overview
+         *     shows them. Cached for five minutes.
+         */
+        get: operations["getHallOfFame"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/runs/{run}/tournaments/{series}": {
         parameters: {
             query?: never;
@@ -464,6 +513,30 @@ export interface paths {
          *     as upstream's page ranks them. Cached for five minutes.
          */
         get: operations["getTournamentSeries"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/runs/{run}/community/{edition}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * An edition of the community leaderboard
+         * @description The community leaderboard's standings as its maintainer publishes
+         *     them (rank, total points, events played, and each event's points),
+         *     with each player's country and the run's title where the name is a
+         *     player here, matched ignoring case. Best rank first. Cached for five
+         *     minutes.
+         */
+        get: operations["getCommunityLeaderboard"];
         put?: never;
         post?: never;
         delete?: never;
@@ -562,7 +635,7 @@ export interface components {
             c_rating: number;
         };
         /** @enum {string} */
-        TitleCode: "WC" | "GM" | "M" | "P" | "G" | "S" | "B" | "W";
+        TitleCode: "WC" | "SGM" | "GM" | "M" | "P" | "G" | "S" | "B" | "W";
         /** @description The tournament title the run derived for the player, if any */
         Title: {
             code: components["schemas"]["TitleCode"];
@@ -994,36 +1067,119 @@ export interface components {
             /** Format: double */
             spearman: number;
         };
+        PlayerAchievements: {
+            /** Format: int64 */
+            run_id: number;
+            name: string;
+            summary: components["schemas"]["AchievementSummary"];
+            /** @description Latest finish first; a career total's finish_date is a label, not a date */
+            records: components["schemas"]["TournamentRecord"][];
+        };
+        /** @description Null for a player with no medal in the four major circuits */
+        AchievementSummary: {
+            world_titles: number;
+            international_titles: number;
+            intermezzo_titles: number;
+            royal_league_titles: number;
+            gold: number;
+            silver: number;
+            bronze: number;
+            /** @description At most six, in the order the page features them */
+            accolades: string[];
+        } | null;
+        TournamentRecord: {
+            tournament: string;
+            season: string;
+            division: string;
+            placement: string;
+            points: string;
+            /** @enum {string|null} */
+            medal: "gold" | "silver" | "bronze" | null;
+            details: string;
+            finish_date: string;
+            /** @description A career total, not one season or tournament */
+            career: boolean;
+        };
+        /**
+         * @description An edition of the community leaderboard (race26 is the 2026 race)
+         * @enum {string}
+         */
+        CommunityEdition: "2026" | "2025" | "2024" | "race26";
+        CommunityLeaderboard: {
+            /** Format: int64 */
+            run_id: number;
+            edition: components["schemas"]["CommunityEdition"];
+            rows: components["schemas"]["CommunityRow"][];
+        };
+        CommunityRow: {
+            rank: number;
+            /** @description As the leaderboard writes it */
+            name: string;
+            country: string | null;
+            /**
+             * @description The run's title for the player, null when none or not a player here
+             * @enum {string|null}
+             */
+            title: "WC" | "SGM" | "GM" | "M" | "P" | "G" | "S" | "B" | "W" | null;
+            /** Format: double */
+            points: number;
+            events: number;
+            /** @description Points in each event the player has, by the leaderboard's column name */
+            scores: {
+                [key: string]: number;
+            };
+        };
         /**
          * @description A tournament series
          * @enum {string}
          */
-        Series: "international" | "intermezzo" | "royal_league";
+        Series: "international" | "intermezzo" | "royal_league" | "worlds" | "grand_slams" | "ladders";
         TournamentSeries: {
             /** Format: int64 */
             run_id: number;
             series: components["schemas"]["Series"];
-            /** @description Every game of the series in the run's matches */
+            /** @description The games the original site counts for the series, by its name patterns */
             games: number;
-            /** @description The latest season a game's name gives */
+            /**
+             * @description The editions the original site counts: the latest season a
+             *     league game's name gives, the World Championship's distinct
+             *     editions, the cups' distinct names before "Stage", or the
+             *     ladders' fixed 16
+             */
             seasons: number;
-            /** @description The top division's medallists, most golds first, then silvers, bronzes and career points */
+            /** @description The series' board in the original site's order (for leagues, most golds first, then silvers, bronzes and career points) */
             board: components["schemas"]["TrophyRow"][];
             /** @description The ten best top-division seasons by points, then wins */
             season_records: components["schemas"]["SeasonRecord"][];
-            /** @description The ten highest winning scores in top-division games */
+            /** @description The ten highest winning scores in the games a series page lists (top-division or World Championship playoff games) */
             game_records: components["schemas"]["GameRecord"][];
         };
+        /**
+         * @description One player on a series' board: medals and a title for the leagues
+         *     and the World Championship, medals and honours for the cups, or
+         *     ladder games, wins and win rate. What a board does not show is null
+         */
         TrophyRow: {
             name: string;
+            world_champion: boolean;
             /**
-             * @description WC for a World Champion, GM for a top-division winner, else M
-             * @enum {string}
+             * @description WC for a World Champion, GM for a top-division winner or World Championship medallist, else M
+             * @enum {string|null}
              */
-            title: "WC" | "GM" | "M";
-            gold: number;
-            silver: number;
-            bronze: number;
+            title: "WC" | "GM" | "M" | null;
+            gold: number | null;
+            silver: number | null;
+            bronze: number | null;
+            /** @description A cup medallist's first two honours */
+            details: string | null;
+            /** @description Ladder games played */
+            games: number | null;
+            wins: number | null;
+            /**
+             * Format: double
+             * @description Ladder wins as a percentage of games, to one decimal
+             */
+            win_rate: number | null;
         };
         SeasonRecord: {
             name: string;
@@ -1053,6 +1209,35 @@ export interface components {
             tournament: string;
             /** Format: date */
             date: string;
+        };
+        HallOfFame: {
+            /** Format: int64 */
+            run_id: number;
+            series: components["schemas"]["SeriesCount"][];
+            /** @description Up to 25 players, most titles first */
+            legends: components["schemas"]["Legend"][];
+            /** @description The first ten rows of the Grand Slams board */
+            grand_slams: components["schemas"]["TrophyRow"][];
+            /** @description The first ten rows of the Ladders board */
+            ladders: components["schemas"]["TrophyRow"][];
+        };
+        SeriesCount: {
+            series: components["schemas"]["Series"];
+            games: number;
+            /** @description The editions the series page states (see TournamentSeries) */
+            seasons: number;
+        };
+        Legend: {
+            name: string;
+            world_champion: boolean;
+            world_titles: number;
+            international_titles: number;
+            intermezzo_titles: number;
+            royal_league_titles: number;
+            /** @description Podium medals across the four circuits */
+            gold: number;
+            silver: number;
+            bronze: number;
         };
     };
     responses: {
@@ -1428,6 +1613,34 @@ export interface operations {
             404: components["responses"]["NotFound"];
         };
     };
+    getPlayerAchievements: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A published run's id, from `/v1/runs/current` */
+                run: components["parameters"]["RunId"];
+                /** @description The player's name, as the leaderboard gives it */
+                name: components["parameters"]["PlayerName"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The player's achievements */
+            200: {
+                headers: {
+                    "Cache-Control": components["headers"]["CacheControl"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PlayerAchievements"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            404: components["responses"]["NotFound"];
+        };
+    };
     getPlayerVersus: {
         parameters: {
             query?: never;
@@ -1683,6 +1896,32 @@ export interface operations {
             404: components["responses"]["NotFound"];
         };
     };
+    getHallOfFame: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A published run's id, from `/v1/runs/current` */
+                run: components["parameters"]["RunId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The overview */
+            200: {
+                headers: {
+                    "Cache-Control": components["headers"]["CacheControl"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HallOfFame"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            404: components["responses"]["NotFound"];
+        };
+    };
     getTournamentSeries: {
         parameters: {
             query?: never;
@@ -1710,6 +1949,33 @@ export interface operations {
             404: components["responses"]["NotFound"];
         };
     };
+    getCommunityLeaderboard: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A published run's id, from `/v1/runs/current` */
+                run: components["parameters"]["RunId"];
+                edition: components["schemas"]["CommunityEdition"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The edition */
+            200: {
+                headers: {
+                    "Cache-Control": components["headers"]["CacheControl"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CommunityLeaderboard"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            404: components["responses"]["NotFound"];
+        };
+    };
 }
 type FlattenedDeepRequired<T> = {
     [K in keyof T]-?: FlattenedDeepRequired<T[K] extends unknown[] | undefined | null ? Extract<T[K], unknown[]>[number] : T[K]>;
@@ -1725,7 +1991,10 @@ export const pathsV1RunsRunLeaderboardCsvGetParametersQueryOrderValues: Readonly
 export const pathsV1RunsRunLeaderboardCsvGetParametersQueryStats_viewValues: ReadonlyArray<FlattenedDeepRequired<paths>["/v1/runs/{run}/leaderboard.csv"]["get"]["parameters"]["query"]["stats_view"]> = ["season", "career"];
 export const modelValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["Model"]> = ["glicko2_daneo", "glicko2_daneo_softer", "glicko2_std", "glicko2_std_softer", "glicko2_std_retro", "glicko2_std_softer_retro", "glicko2_mp", "glicko2_mp_softer", "glicko2_mp_retro", "glicko2_mp_softer_retro", "glicko2_adapt", "glicko2_adapt_softer", "glicko2_adapt_retro", "glicko2_adapt_softer_retro", "whr", "whr_softer"];
 export const formatValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["Format"]> = [0, 2, 3, 4];
-export const titleCodeValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["TitleCode"]> = ["WC", "GM", "M", "P", "G", "S", "B", "W"];
+export const titleCodeValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["TitleCode"]> = ["WC", "SGM", "GM", "M", "P", "G", "S", "B", "W"];
 export const calibrationRowModeValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["CalibrationRow"]["mode"]> = ["standard", "walk_forward"];
-export const seriesValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["Series"]> = ["international", "intermezzo", "royal_league"];
+export const tournamentRecordMedalValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["TournamentRecord"]["medal"]> = ["gold", "silver", "bronze"];
+export const communityEditionValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["CommunityEdition"]> = ["2026", "2025", "2024", "race26"];
+export const communityRowTitleValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["CommunityRow"]["title"]> = ["WC", "SGM", "GM", "M", "P", "G", "S", "B", "W"];
+export const seriesValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["Series"]> = ["international", "intermezzo", "royal_league", "worlds", "grand_slams", "ladders"];
 export const trophyRowTitleValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["TrophyRow"]["title"]> = ["WC", "GM", "M"];

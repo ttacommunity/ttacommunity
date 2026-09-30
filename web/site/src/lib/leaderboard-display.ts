@@ -79,6 +79,7 @@ export function winRate(value: number): string {
 
 const titleNames: Record<TitleCode, string> = {
   WC: 'World Champion',
+  SGM: 'Super GM',
   GM: 'Grandmaster',
   M: 'Master',
   P: 'Platinum',

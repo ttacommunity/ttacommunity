@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"slices"
+	"strings"
 	"testing"
 	"time"
 
@@ -32,61 +33,92 @@ func classifyGame(t *testing.T, pool *pgxpool.Pool, run, match int64, c classifi
 
 func ptr(s string) *string { return &s }
 
-func TestTournamentSeriesCountsGamesAndTheSeasonsNamesGive(t *testing.T) {
+func TestTournamentSeriesGivesTheSeriesCounts(t *testing.T) {
 	pool := migrated(t)
+	ctx := context.Background()
 	run := publishedRun(t, pool)
-	for _, c := range []classified{
-		{season: 20, nameSeason: 20},
-		{season: 33, nameSeason: 34, division: ptr("Silver"), source: ptr("name")},
-	} {
-		id := addGame(t, pool, 0, "2025-01-02", fmt.Sprintf("International S%d", c.nameSeason), Seat{"ann", 9}, Seat{"bob", 5})
-		classifyGame(t, pool, run, id, c)
+	if _, err := pool.Exec(ctx, "INSERT INTO tournament_series VALUES ($1, 'grand_slams', 12868, 5222)", run); err != nil {
+		t.Fatalf("adding series counts: %v", err)
 	}
 
-	got, err := NewRatingsReader(asReader(t, pool)).TournamentSeries(context.Background(), run, "international")
+	got, err := NewRatingsReader(asReader(t, pool)).TournamentSeries(ctx, run, "grand_slams")
 	if err != nil {
 		t.Fatalf("TournamentSeries: %v", err)
 	}
-	if got.Games != 2 || got.Seasons != 34 {
-		t.Errorf("games %d, seasons %d; want 2 and 34 (the latest name's season)", got.Games, got.Seasons)
+	if got.Games != 12868 || got.Seasons != 5222 {
+		t.Errorf("games %d, seasons %d; want the run's counts 12868 and 5222", got.Games, got.Seasons)
 	}
 	if got.Board == nil || got.SeasonRecords == nil || got.GameRecords == nil {
 		t.Errorf("empty lists = %v %v %v, want empty slices", got.Board, got.SeasonRecords, got.GameRecords)
 	}
 }
 
-func TestTournamentSeriesOrdersTheBoardByMedalsPointsThenFirstMedal(t *testing.T) {
+func TestTournamentSeriesGivesTheBoardInTheEnginesOrder(t *testing.T) {
 	pool := migrated(t)
 	ctx := context.Background()
 	run := publishedRun(t, pool)
+	if _, err := pool.Exec(ctx, "INSERT INTO player_peak_titles VALUES ($1, 'cat', 'WC', 2023)", run); err != nil {
+		t.Fatalf("adding a World Champion: %v", err)
+	}
+	insert := `INSERT INTO tournament_boards (run_id, series, player_name, gold, silver, bronze, points, title,
+		first_season, position, details, games, wins, win_rate) VALUES ($1, 'x', $2, $3, $4, $5, 0, $6, NULL, $7, $8, $9, $10, $11)`
+	one, two := 1, 2
+	three, rate := 30, 66.7
 	for _, b := range []struct {
 		name                 string
-		gold, silver, bronze int
-		points               float64
-		title                string
-		first                int
+		gold, silver, bronze *int
+		title, details       *string
+		position             int
+		games, wins          *int
+		rate                 *float64
 	}{
-		{"cat", 1, 0, 0, 40, "GM", 1}, {"ann", 2, 0, 0, 10, "WC", 1}, {"bob", 1, 0, 0, 50, "GM", 1},
-		{"dan", 0, 3, 1, 90, "M", 5}, {"eve", 0, 3, 1, 90, "M", 2},
+		{name: "cat", gold: &one, silver: &one, bronze: &two, title: ptr("GM"), position: 2},
+		{name: "bob", gold: &two, silver: &one, bronze: &one, details: ptr("2025 Wimbledon TTA Champion"), position: 1},
+		{name: "ann", games: &three, wins: &two, rate: &rate, position: 3},
 	} {
-		_, err := pool.Exec(ctx, "INSERT INTO tournament_boards VALUES ($1, 'international', $2, $3, $4, $5, $6, $7, $8)",
-			run, b.name, b.gold, b.silver, b.bronze, b.points, b.title, b.first)
-		if err != nil {
+		if _, err := pool.Exec(ctx, insert, run, b.name, b.gold, b.silver, b.bronze, b.title, b.position, b.details, b.games, b.wins, b.rate); err != nil {
 			t.Fatalf("adding %s to the board: %v", b.name, err)
 		}
 	}
 
-	got, err := NewRatingsReader(asReader(t, pool)).TournamentSeries(ctx, run, "international")
+	got, err := NewRatingsReader(asReader(t, pool)).TournamentSeries(ctx, run, "x")
 	if err != nil {
 		t.Fatalf("TournamentSeries: %v", err)
 	}
-	want := []TrophyRow{
-		{Name: "ann", Title: "WC", Gold: 2}, {Name: "bob", Title: "GM", Gold: 1}, {Name: "cat", Title: "GM", Gold: 1},
-		{Name: "eve", Title: "M", Silver: 3, Bronze: 1}, {Name: "dan", Title: "M", Silver: 3, Bronze: 1},
+	var lines []string
+	for _, b := range got.Board {
+		lines = append(lines, fmt.Sprintf("%s wc=%t title=%s medals=%s details=%s ladder=%s",
+			b.Name, b.WorldChampion, orDash(b.Title), medals(b), orDash(b.Details), ladder(b)))
 	}
-	if !slices.Equal(got.Board, want) {
-		t.Errorf("board = %v, want %v", got.Board, want)
+	want := []string{
+		"bob wc=false title=- medals=2/1/1 details=2025 Wimbledon TTA Champion ladder=-",
+		"cat wc=true title=GM medals=1/1/2 details=- ladder=-",
+		"ann wc=false title=- medals=- details=- ladder=2/30 66.7",
 	}
+	if !slices.Equal(lines, want) {
+		t.Errorf("board =\n%q\nwant\n%q", lines, want)
+	}
+}
+
+func orDash(s *string) string {
+	if s == nil {
+		return "-"
+	}
+	return *s
+}
+
+func medals(b TrophyRow) string {
+	if b.Gold == nil {
+		return "-"
+	}
+	return fmt.Sprintf("%d/%d/%d", *b.Gold, *b.Silver, *b.Bronze)
+}
+
+func ladder(b TrophyRow) string {
+	if b.Games == nil {
+		return "-"
+	}
+	return fmt.Sprintf("%d/%d %.1f", *b.Wins, *b.Games, *b.WinRate)
 }
 
 func TestTournamentSeriesGivesTheTenBestSeasons(t *testing.T) {
@@ -185,5 +217,200 @@ func TestTournamentSeriesNeedsAPublishedRun(t *testing.T) {
 	_, err := NewRatingsReader(asReader(t, pool)).TournamentSeries(context.Background(), run, "international")
 	if !errors.Is(err, ErrRunNotFound) {
 		t.Errorf("TournamentSeries of an unpublished run: %v, want ErrRunNotFound", err)
+	}
+}
+
+func TestHallOfFameGivesCountsLegendsAndTheTopOfTwoBoards(t *testing.T) {
+	pool := migrated(t)
+	ctx := context.Background()
+	run := publishedRun(t, pool)
+	for _, q := range []string{
+		"INSERT INTO tournament_series VALUES ($1, 'worlds', 31121, 5), ($1, 'international', 31674, 34)",
+		"INSERT INTO player_peak_titles VALUES ($1, 'wc', 'WC', 2025)",
+		"INSERT INTO tournament_legends VALUES ($1, 2, 'ann', 0, 2, 0, 0, 2, 1, 0), ($1, 1, 'wc', 1, 1, 0, 0, 2, 0, 1)",
+	} {
+		if _, err := pool.Exec(ctx, q, run); err != nil {
+			t.Fatalf("%s: %v", q, err)
+		}
+	}
+	for i := range 12 {
+		_, err := pool.Exec(ctx, `INSERT INTO tournament_boards (run_id, series, player_name, gold, silver, bronze, points, position, details)
+			VALUES ($1, 'grand_slams', $2, 1, 0, 0, 0, $3, 'cup')`, run, fmt.Sprintf("g%02d", i), i+1)
+		if err != nil {
+			t.Fatalf("adding a cup row: %v", err)
+		}
+	}
+	if _, err := pool.Exec(ctx, `INSERT INTO tournament_boards (run_id, series, player_name, points, position, games, wins, win_rate)
+		VALUES ($1, 'ladders', 'lad', 0, 1, 91, 54, 59.3)`, run); err != nil {
+		t.Fatalf("adding a ladder row: %v", err)
+	}
+
+	got, err := NewRatingsReader(asReader(t, pool)).HallOfFame(ctx, run)
+	if err != nil {
+		t.Fatalf("HallOfFame: %v", err)
+	}
+	if want := []SeriesCount{{Series: "international", Games: 31674, Seasons: 34}, {Series: "worlds", Games: 31121, Seasons: 5}}; !slices.Equal(got.Series, want) {
+		t.Errorf("series = %v, want %v", got.Series, want)
+	}
+	if want := []Legend{
+		{Name: "wc", WorldChampion: true, WorldTitles: 1, InternationalTitles: 1, Gold: 2, Bronze: 1},
+		{Name: "ann", InternationalTitles: 2, Gold: 2, Silver: 1},
+	}; !slices.Equal(got.Legends, want) {
+		t.Errorf("legends = %+v, want %+v", got.Legends, want)
+	}
+	if len(got.GrandSlams) != 10 || got.GrandSlams[0].Name != "g00" || got.GrandSlams[9].Name != "g09" {
+		t.Errorf("grand slams = %d rows from %v, want the first 10 by position", len(got.GrandSlams), got.GrandSlams)
+	}
+	if len(got.Ladders) != 1 || *got.Ladders[0].Wins != 54 {
+		t.Errorf("ladders = %+v, want the one ladder row", got.Ladders)
+	}
+}
+
+func TestHallOfFameNeedsAPublishedRun(t *testing.T) {
+	pool := migrated(t)
+	run := addRun(t, pool, "complete", time.Time{})
+	if _, err := NewRatingsReader(asReader(t, pool)).HallOfFame(context.Background(), run); !errors.Is(err, ErrRunNotFound) {
+		t.Errorf("HallOfFame of an unpublished run: %v, want ErrRunNotFound", err)
+	}
+}
+
+func addRecord(t *testing.T, pool *pgxpool.Pool, run int64, player string, position int, finish string, career bool) {
+	t.Helper()
+	_, err := pool.Exec(context.Background(), `
+		INSERT INTO tournament_records VALUES ($1, $2, $3, 'International Championship', 'Season 30', 'Grandmaster',
+		  '1 / 7', '20 pts', CASE WHEN $3 = 1 THEN 'gold' END, $4, $5, $6)`,
+		run, player, position, fmt.Sprintf("%s #%d", player, position), finish, career)
+	if err != nil {
+		t.Fatalf("adding record %d: %v", position, err)
+	}
+}
+
+func recordIDs(recs []TournamentRecord) []string {
+	var got []string
+	for _, r := range recs {
+		got = append(got, r.Details)
+	}
+	return got
+}
+
+func TestPlayerAchievementsGiveTheSummaryAndRecordsLatestFirst(t *testing.T) {
+	pool := migrated(t)
+	r := NewRatingsReader(asReader(t, pool))
+	ctx := context.Background()
+	run := publishedRun(t, pool)
+	addPlayers(t, pool, "Ann", "Bob")
+	if _, err := pool.Exec(ctx, `INSERT INTO tournament_achievements VALUES ($1, 'Ann', 1, 2, 0, 0, 3, 1, 0,
+		ARRAY['2024 World Champion', '2x International Champion'])`, run); err != nil {
+		t.Fatal(err)
+	}
+	addRecord(t, pool, run, "Ann", 1, "2024-12-15", false)
+	addRecord(t, pool, run, "Ann", 2, "Career / All-Time", true)
+	addRecord(t, pool, run, "Ann", 3, "2025-08-14", false)
+	addRecord(t, pool, run, "Ann", 4, "2025-08-14", false)
+	addRecord(t, pool, run, "Bob", 5, "2025-08-14", false)
+
+	name, summary, recs, err := r.PlayerAchievements(ctx, run, "ann")
+	if err != nil {
+		t.Fatalf("PlayerAchievements: %v", err)
+	}
+	want := AchievementSummary{WorldTitles: 1, InternationalTitles: 2, Gold: 3, Silver: 1,
+		Accolades: []string{"2024 World Champion", "2x International Champion"}}
+	if name != "Ann" || summary == nil || fmt.Sprint(*summary) != fmt.Sprint(want) {
+		t.Errorf("PlayerAchievements = %q, %+v; want Ann, %+v", name, summary, want)
+	}
+	// A career total's label sorts after every date, as on the original site.
+	if got, want := recordIDs(recs), []string{"Ann #2", "Ann #4", "Ann #3", "Ann #1"}; !slices.Equal(got, want) {
+		t.Errorf("records = %q, want %q", got, want)
+	}
+	first := recs[3]
+	if first.Medal == nil || *first.Medal != "gold" || first.Tournament != "International Championship" ||
+		first.Season != "Season 30" || first.Placement != "1 / 7" || first.Points != "20 pts" ||
+		first.FinishDate != "2024-12-15" || first.Career || !recs[0].Career || recs[1].Medal != nil {
+		t.Errorf("records = %+v, want each column as written", recs)
+	}
+}
+
+func TestPlayerAchievementsMatchRecordsIgnoringCase(t *testing.T) {
+	pool := migrated(t)
+	r := NewRatingsReader(asReader(t, pool))
+	ctx := context.Background()
+	run := publishedRun(t, pool)
+	addPlayers(t, pool, "RobertdeSable", "RobertDeSable")
+	addRecord(t, pool, run, "RobertdeSable", 1, "2020-07-26", false)
+	addRecord(t, pool, run, "RobertDeSable", 2, "2023-09-25", false)
+
+	name, summary, recs, err := r.PlayerAchievements(ctx, run, "RobertdeSable")
+	if err != nil {
+		t.Fatalf("PlayerAchievements: %v", err)
+	}
+	if got, want := recordIDs(recs), []string{"RobertDeSable #2", "RobertdeSable #1"}; name != "RobertdeSable" || summary != nil || !slices.Equal(got, want) {
+		t.Errorf("PlayerAchievements = %q, %+v, %q; want RobertdeSable, no summary, %q", name, summary, got, want)
+	}
+}
+
+func TestPlayerAchievementsRefuseAnUnknownPlayerOrUnpublishedRun(t *testing.T) {
+	pool := migrated(t)
+	r := NewRatingsReader(asReader(t, pool))
+	ctx := context.Background()
+	run := publishedRun(t, pool)
+	unpublished := addRun(t, pool, "complete", time.Time{})
+	addPlayers(t, pool, "Ann")
+
+	if _, _, _, err := r.PlayerAchievements(ctx, run, "Nobody"); !errors.Is(err, ErrPlayerNotFound) {
+		t.Errorf("PlayerAchievements of an unknown player: %v, want ErrPlayerNotFound", err)
+	}
+	if _, _, _, err := r.PlayerAchievements(ctx, unpublished, "Ann"); !errors.Is(err, ErrRunNotFound) {
+		t.Errorf("PlayerAchievements of an unpublished run: %v, want ErrRunNotFound", err)
+	}
+	_, summary, recs, err := r.PlayerAchievements(ctx, run, "Ann")
+	if err != nil || summary != nil || len(recs) != 0 {
+		t.Errorf("PlayerAchievements of a player with none = %+v, %v, %v; want nothing, no error", summary, recs, err)
+	}
+}
+
+func TestCommunityLeaderboardGivesAnEditionWithPlayersCountriesAndTitles(t *testing.T) {
+	pool := migrated(t)
+	r := NewRatingsReader(asReader(t, pool))
+	ctx := context.Background()
+	run := publishedRun(t, pool)
+	addPlayers(t, pool, "ann", "RobertdeSable", "RobertDeSable")
+	for _, q := range []string{
+		"UPDATE players SET country_code = 'PL' WHERE name = 'ann'",
+		"UPDATE players SET country_code = 'FR' WHERE name = 'RobertdeSable'",
+		"INSERT INTO player_titles (run_id, player_name, title, title_count, badge_reason) VALUES ($1, 'ann', 'SGM', 1, 'r')",
+		`INSERT INTO community_standings VALUES ('2024', 2, 2, 'Martin Pecheur', 6687, 13, 's'), ('2024', 1, 1, 'ANN', 7657, 11, 's'),
+		  ('2024', 4, 3, 'RobertdeSable', 10, 1, 's'), ('2024', 3, 3, 'zed', 10, 1, 's'), ('2025', 1, 1, 'ann', 6600, 17, 's')`,
+		"INSERT INTO community_scores VALUES ('2024', 'ANN', 'wrld', 1600, 's'), ('2024', 'ANN', 'ic_24', 1000, 's'), ('2025', 'ann', 'wrld', 5, 's')",
+	} {
+		args := []any{}
+		if strings.Contains(q, "$1") {
+			args = append(args, run)
+		}
+		if _, err := pool.Exec(ctx, q, args...); err != nil {
+			t.Fatalf("%s: %v", q, err)
+		}
+	}
+
+	got, err := r.CommunityLeaderboard(ctx, run, "2024")
+	if err != nil {
+		t.Fatalf("CommunityLeaderboard: %v", err)
+	}
+	var lines []string
+	for _, row := range got {
+		lines = append(lines, fmt.Sprintf("%d %s %s %s %g %d %v", row.Rank, row.Name, orDash(row.Country), orDash(row.Title), row.Points, row.Events, row.Scores))
+	}
+	want := []string{
+		"1 ANN PL SGM 7657 11 map[ic_24:1000 wrld:1600]",
+		"2 Martin Pecheur - - 6687 13 map[]",
+		"3 zed - - 10 1 map[]", // equal ranks and points in the sheet's order
+		"3 RobertdeSable FR - 10 1 map[]",
+	}
+	if !slices.Equal(lines, want) {
+		t.Errorf("CommunityLeaderboard(2024) =\n%s\nwant\n%s", strings.Join(lines, "\n"), strings.Join(want, "\n"))
+	}
+
+	unpublished := addRun(t, pool, "complete", time.Time{})
+	if _, err := r.CommunityLeaderboard(ctx, unpublished, "2024"); !errors.Is(err, ErrRunNotFound) {
+		t.Errorf("CommunityLeaderboard of an unpublished run: %v, want ErrRunNotFound", err)
 	}
 }

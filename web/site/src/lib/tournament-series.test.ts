@@ -1,10 +1,20 @@
 import { describe, expect, it } from 'vitest';
+import type { Legend, SeriesCount } from '@ttac/shared/ratings';
 import {
   BUILT,
   cultureScore,
+  derivedMatches,
+  legendMark,
+  majorMedals,
+  seriesGames,
+  titleCell,
   era,
+  INTERNATIONAL,
+  WORLDS,
   leaguePoints,
+  medalCells,
   opponentsLine,
+  seriesEra,
   SERIES_CONTENT,
   SERIES_NAV,
   seriesHref,
@@ -60,7 +70,62 @@ describe('the series figures', () => {
   });
 
   it('has a page for each series built so far', () => {
-    expect([...BUILT].sort()).toEqual(['intermezzo', 'international', 'royal_league']);
-    expect(SERIES_CONTENT.map((c) => c.slug)).toEqual(['international', 'intermezzo', 'royal_league']);
+    const series = ['international', 'intermezzo', 'royal_league', 'worlds', 'grand_slams', 'ladders'];
+    expect(SERIES_CONTENT.map((c) => c.slug)).toEqual(series);
+    expect([...BUILT].sort()).toEqual(['overview', ...series].sort());
+  });
+
+  it('states a static era where upstream does, else the latest season', () => {
+    expect(seriesEra(INTERNATIONAL, 34)).toBe('2016 – Present (Current: Season 34)');
+    expect(seriesEra(WORLDS, 5)).toBe('2023 – Present (Next: 2027)');
+  });
+
+  it('leaves a board’s medal cells empty where the board has no medals, as upstream', () => {
+    expect(medalCells({ gold: 2, silver: 1, bronze: 0 })).toEqual(['2', '1', '0', '3']);
+    expect(medalCells({ gold: null, silver: null, bronze: null })).toEqual(['', '', '', '']);
+  });
+});
+
+describe('the Hall of Fame overview', () => {
+  const legend = (over: Partial<Legend>): Legend => ({
+    name: 'ann',
+    world_champion: false,
+    world_titles: 0,
+    international_titles: 0,
+    intermezzo_titles: 0,
+    royal_league_titles: 0,
+    gold: 0,
+    silver: 0,
+    bronze: 0,
+    ...over,
+  });
+
+  it('writes a title cell as a count, a crown for World titles, or a dash', () => {
+    expect(titleCell(6)).toBe('6');
+    expect(titleCell(1, true)).toBe('1 👑');
+    expect(titleCell(0, true)).toBe('-');
+  });
+
+  it('marks a World Champion, or GM from three titles', () => {
+    expect(legendMark(legend({ world_champion: true }))).toBe('WC');
+    expect(legendMark(legend({ world_titles: 1 }))).toBe('WC');
+    expect(legendMark(legend({ international_titles: 2, intermezzo_titles: 1 }))).toBe('GM');
+    expect(legendMark(legend({ international_titles: 2 }))).toBeNull();
+  });
+
+  it('writes the medals and their total as upstream', () => {
+    expect(majorMedals(legend({ gold: 15, silver: 6, bronze: 6 }))).toBe('🥇15  🥈6  🥉6 (27)');
+  });
+
+  it('sums the four major circuits’ games for the stat bar, as upstream', () => {
+    const counts: SeriesCount[] = [
+      { series: 'international', games: 31674, seasons: 34 },
+      { series: 'intermezzo', games: 24872, seasons: 30 },
+      { series: 'royal_league', games: 14740, seasons: 9 },
+      { series: 'worlds', games: 31121, seasons: 5 },
+      { series: 'grand_slams', games: 12868, seasons: 5222 },
+    ];
+    expect(derivedMatches(counts)).toBe('102,407+ Matches');
+    expect(seriesGames({ series: 'grand_slams', games: 12868, seasons: 5222 })).toBe('12,868 games (5222 editions)');
   });
 });

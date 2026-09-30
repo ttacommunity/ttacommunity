@@ -151,14 +151,19 @@ go run ./cmd/load -countries ~/tta-data/ratings_overall.csv ~/tta-data/country-o
 
 What match names cannot say about a tournament is a recorded fact, kept
 with the data outside the repo, one CSV per kind. `series` is
-`international`, `intermezzo` or `royal_league`, and `source` says where the
-row comes from:
+`international`, `intermezzo`, `royal_league` or `worlds` (the World
+Championship, whose season is the year), and `source` says where the row
+comes from:
 
 | Kind | Header | What it records |
 |---|---|---|
 | `divisions` | `series,season,division,player,source` | The division a player played in a season whose match names give none |
 | `placements` | `series,season,division,player,place,points,reason,source` | A place the organisers recorded, applied over the derived one: a season with no games, or a ruling. `points` may be empty |
 | `corrections` | `series,name_season,season,reason,source` | The real season of games whose name gives the wrong one; an empty `season` leaves them out of tournament results (never out of the ratings) |
+| `dates` | `series,season,finish_date,source` | The day a season officially finished (`YYYY-MM-DD`) |
+| `honours` | `series,player,gold,silver,bronze,points,source` | A player's career medals from an organisers' Hall of Fame the matches cannot rank; `series` is `sodium_ladder`, `mercurial_ladder` or `q_and_d`, and `points` (as written there) may be empty |
+| `community` | `edition,sheet_row,rank,player,points,events,source` | The community leaderboard's standings as its maintainer publishes them; `edition` is `2026`, `2025`, `2024` or `race26`, `sheet_row` is the row's place in the sheet (it orders equal ranks), and names are kept even when they are not players |
+| `community_scores` | `edition,player,event,score,source` | Each player's points in each event column of an edition (`wrld`, `ic_30`, `aus`…) |
 
 Loading a file replaces every fact of its kind, in one transaction; names
 that are not players are counted and skipped, and bad rows are refused with
@@ -310,6 +315,10 @@ cd backend
 go run ./cmd/load -facts divisions ~/tta-data/tournaments/group_divisions.csv
 go run ./cmd/load -facts placements ~/tta-data/tournaments/official_placements.csv
 go run ./cmd/load -facts corrections ~/tta-data/tournaments/season_corrections.csv
+go run ./cmd/load -facts dates ~/tta-data/tournaments/finish_dates.csv
+go run ./cmd/load -facts honours ~/tta-data/tournaments/career_honours.csv
+go run ./cmd/load -facts community ~/tta-data/tournaments/community_standings.csv
+go run ./cmd/load -facts community_scores ~/tta-data/tournaments/community_scores.csv
 ```
 
 **Compute a rating run** with the image `deploy/engine.yaml` pins. The

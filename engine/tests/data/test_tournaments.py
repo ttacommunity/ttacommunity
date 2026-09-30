@@ -567,3 +567,93 @@ def test_season_records_keep_a_left_out_seasons_games_as_upstream(
         (run_id,),
     ).fetchone()
     assert (row["season"], row["division"], row["points"]) == (7, "Grandmaster", 30.0)
+
+
+def test_derive_writes_every_series_counts(conn, add_match, run_id):
+    add_match(("ann", 90), ("bob", 80), ("cat", 70), tournament=gm(1))
+    add_match(("ann", 90), ("bob", 80), tournament="Worlds 2025 Stage 8 - game 1")
+
+    derive_tournaments(conn=conn, run_id=run_id)
+
+    rows = conn.execute(
+        "SELECT series, games, editions FROM tournament_series WHERE run_id = %s ORDER BY series",
+        (run_id,),
+    ).fetchall()
+    assert [tuple(r.values()) for r in rows] == [
+        ("grand_slams", 0, 0),
+        ("intermezzo", 0, 0),
+        ("international", 1, 30),
+        ("ladders", 0, 16),
+        ("royal_league", 0, 0),
+        ("worlds", 1, 1),
+    ]
+
+
+def positions(conn, run_id, series):
+    rows = conn.execute(
+        "SELECT player_name, position, title FROM tournament_boards "
+        "WHERE run_id = %s AND series = %s ORDER BY position",
+        (run_id, series),
+    ).fetchall()
+    return [(r["player_name"], r["position"], r["title"]) for r in rows]
+
+
+def test_boards_are_numbered_in_upstream_order(conn, add_match, run_id, place):
+    add_match(("bob", 90), ("ann", 80), ("cat", 70), tournament=gm(1))
+    place("worlds", 2024, "Final", "Martin_Pecheur", "frotes")
+    place("worlds", 2025, "Final", "a440", "Grozz")
+
+    derive_tournaments(conn=conn, run_id=run_id)
+
+    assert positions(conn, run_id, "international") == [
+        ("bob", 1, "GM"),
+        ("ann", 2, "M"),
+        ("cat", 3, "M"),
+    ]
+    assert positions(conn, run_id, "worlds") == [
+        ("a440", 1, "WC"),
+        ("Martin_Pecheur", 2, "WC"),
+        ("Grozz", 3, "GM"),
+        ("frotes", 4, "GM"),
+    ]
+
+
+def test_world_championship_games_make_records_but_no_seasons(conn, add_match, run_id):
+    # Upstream's records take names with Stage 4, Final, Upper or Lower.
+    names = {
+        "Worlds 2024 Stage 4": True,
+        "Worlds 2025 Stage 6 - Lower 1 game 3": True,
+        "Worlds 2 - finals game 1": True,
+        "Worlds 2025 Stage 1 - game 1": False,
+        "Worlds 2025 Stage 8 - game 1": False,
+    }
+    ids = {
+        add_match(
+            ("ann", 300), ("bob", 80), tournament=name, day=date(2025, 1, n)
+        ): want
+        for n, (name, want) in enumerate(names.items(), start=1)
+    }
+
+    derive_tournaments(conn=conn, run_id=run_id)
+
+    got = {r["match_id"]: r["in_records"] for r in games(conn, run_id)}
+    assert {i: got[i] for i in ids} == ids
+    assert season_records(conn, run_id) == []
+
+
+def test_derive_writes_the_all_time_table(conn, add_match, run_id, place):
+    add_match(("bob", 90), ("ann", 80), ("cat", 70), tournament=gm(1))
+    place("worlds", 2025, "Final", "ann")
+
+    derive_tournaments(conn=conn, run_id=run_id)
+
+    rows = conn.execute(
+        "SELECT position, player_name, world_titles, international_titles, gold, silver, bronze "
+        "FROM tournament_legends WHERE run_id = %s ORDER BY position",
+        (run_id,),
+    ).fetchall()
+    # ann: World title and an International silver; bob: an International title.
+    assert [tuple(r.values()) for r in rows] == [
+        (1, "ann", 1, 0, 1, 1, 0),
+        (2, "bob", 0, 1, 1, 0, 0),
+    ]

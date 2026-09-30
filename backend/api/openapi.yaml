@@ -352,6 +352,34 @@ paths:
           $ref: "#/components/responses/BadRequest"
         "404":
           $ref: "#/components/responses/NotFound"
+  /v1/runs/{run}/players/{name}/achievements:
+    get:
+      operationId: getPlayerAchievements
+      summary: One player's tournament achievements, for their achievements page
+      description: |
+        The player's titles and medals across the four major circuits
+        (World Championship, International, Intermezzo, Royal League) and
+        the accolades their page features, and every tournament record the
+        original site lists for them: seasons, campaigns and career totals,
+        latest finish first. Records are matched to the name ignoring case,
+        as the original site does. Cached for five minutes.
+      parameters:
+        - $ref: "#/components/parameters/RunId"
+        - $ref: "#/components/parameters/PlayerName"
+      responses:
+        "200":
+          description: The player's achievements
+          headers:
+            Cache-Control:
+              $ref: "#/components/headers/CacheControl"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PlayerAchievements"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "404":
+          $ref: "#/components/responses/NotFound"
   /v1/runs/{run}/players/{name}/versus/{other}:
     get:
       operationId: getPlayerVersus
@@ -613,6 +641,32 @@ paths:
           $ref: "#/components/responses/BadRequest"
         "404":
           $ref: "#/components/responses/NotFound"
+  /v1/runs/{run}/tournaments:
+    get:
+      operationId: getHallOfFame
+      summary: The Hall of Fame overview
+      description: |
+        Every series' game and edition counts, the all-time table of titles
+        and medals across the four major circuits (World Championship,
+        International, Intermezzo, Royal League), and the first ten rows of
+        the Grand Slams and Ladders boards, as the original site's overview
+        shows them. Cached for five minutes.
+      parameters:
+        - $ref: "#/components/parameters/RunId"
+      responses:
+        "200":
+          description: The overview
+          headers:
+            Cache-Control:
+              $ref: "#/components/headers/CacheControl"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HallOfFame"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "404":
+          $ref: "#/components/responses/NotFound"
   /v1/runs/{run}/tournaments/{series}:
     get:
       operationId: getTournamentSeries
@@ -639,6 +693,37 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/TournamentSeries"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /v1/runs/{run}/community/{edition}:
+    get:
+      operationId: getCommunityLeaderboard
+      summary: An edition of the community leaderboard
+      description: |
+        The community leaderboard's standings as its maintainer publishes
+        them (rank, total points, events played, and each event's points),
+        with each player's country and the run's title where the name is a
+        player here, matched ignoring case. Best rank first. Cached for five
+        minutes.
+      parameters:
+        - $ref: "#/components/parameters/RunId"
+        - name: edition
+          in: path
+          required: true
+          schema:
+            $ref: "#/components/schemas/CommunityEdition"
+      responses:
+        "200":
+          description: The edition
+          headers:
+            Cache-Control:
+              $ref: "#/components/headers/CacheControl"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CommunityLeaderboard"
         "400":
           $ref: "#/components/responses/BadRequest"
         "404":
@@ -857,7 +942,7 @@ components:
           format: double
     TitleCode:
       type: string
-      enum: [WC, GM, M, P, G, S, B, W]
+      enum: [WC, SGM, GM, M, P, G, S, B, W]
     Title:
       description: The tournament title the run derived for the player, if any
       type: object
@@ -1629,10 +1714,121 @@ components:
         spearman:
           type: number
           format: double
+    PlayerAchievements:
+      type: object
+      required: [run_id, name, summary, records]
+      properties:
+        run_id:
+          type: integer
+          format: int64
+        name:
+          type: string
+        summary:
+          $ref: "#/components/schemas/AchievementSummary"
+        records:
+          description: Latest finish first; a career total's finish_date is a label, not a date
+          type: array
+          items:
+            $ref: "#/components/schemas/TournamentRecord"
+    AchievementSummary:
+      description: Null for a player with no medal in the four major circuits
+      type: object
+      nullable: true
+      required: [world_titles, international_titles, intermezzo_titles, royal_league_titles, gold, silver, bronze, accolades]
+      properties:
+        world_titles:
+          type: integer
+        international_titles:
+          type: integer
+        intermezzo_titles:
+          type: integer
+        royal_league_titles:
+          type: integer
+        gold:
+          type: integer
+        silver:
+          type: integer
+        bronze:
+          type: integer
+        accolades:
+          description: At most six, in the order the page features them
+          type: array
+          items:
+            type: string
+    TournamentRecord:
+      type: object
+      required: [tournament, season, division, placement, points, medal, details, finish_date, career]
+      properties:
+        tournament:
+          type: string
+        season:
+          type: string
+        division:
+          type: string
+        placement:
+          type: string
+        points:
+          type: string
+        medal:
+          type: string
+          enum: [gold, silver, bronze]
+          nullable: true
+        details:
+          type: string
+        finish_date:
+          type: string
+        career:
+          description: A career total, not one season or tournament
+          type: boolean
+    CommunityEdition:
+      description: An edition of the community leaderboard (race26 is the 2026 race)
+      type: string
+      enum: ["2026", "2025", "2024", race26]
+    CommunityLeaderboard:
+      type: object
+      required: [run_id, edition, rows]
+      properties:
+        run_id:
+          type: integer
+          format: int64
+        edition:
+          $ref: "#/components/schemas/CommunityEdition"
+        rows:
+          type: array
+          items:
+            $ref: "#/components/schemas/CommunityRow"
+    CommunityRow:
+      type: object
+      required: [rank, name, country, title, points, events, scores]
+      properties:
+        rank:
+          type: integer
+        name:
+          description: As the leaderboard writes it
+          type: string
+        country:
+          type: string
+          nullable: true
+        title:
+          description: The run's title for the player, null when none or not a player here
+          type: string
+          enum: [WC, SGM, GM, M, P, G, S, B, W]
+          nullable: true
+        points:
+          type: number
+          format: double
+        events:
+          type: integer
+        scores:
+          description: Points in each event the player has, by the leaderboard's column name
+          type: object
+          additionalProperties:
+            type: number
+            format: double
     Series:
       description: A tournament series
       type: string
-      enum: [international, intermezzo, royal_league]
+      enum: [international, intermezzo, royal_league, worlds, grand_slams, ladders]
     TournamentSeries:
       type: object
       required: [run_id, series, games, seasons, board, season_records, game_records]
@@ -1643,13 +1839,17 @@ components:
         series:
           $ref: "#/components/schemas/Series"
         games:
-          description: Every game of the series in the run's matches
+          description: The games the original site counts for the series, by its name patterns
           type: integer
         seasons:
-          description: The latest season a game's name gives
+          description: |
+            The editions the original site counts: the latest season a
+            league game's name gives, the World Championship's distinct
+            editions, the cups' distinct names before "Stage", or the
+            ladders' fixed 16
           type: integer
         board:
-          description: The top division's medallists, most golds first, then silvers, bronzes and career points
+          description: The series' board in the original site's order (for leagues, most golds first, then silvers, bronzes and career points)
           type: array
           items:
             $ref: "#/components/schemas/TrophyRow"
@@ -1659,26 +1859,52 @@ components:
           items:
             $ref: "#/components/schemas/SeasonRecord"
         game_records:
-          description: The ten highest winning scores in top-division games
+          description: The ten highest winning scores in the games a series page lists (top-division or World Championship playoff games)
           type: array
           items:
             $ref: "#/components/schemas/GameRecord"
     TrophyRow:
+      description: |
+        One player on a series' board: medals and a title for the leagues
+        and the World Championship, medals and honours for the cups, or
+        ladder games, wins and win rate. What a board does not show is null
       type: object
-      required: [name, title, gold, silver, bronze]
+      required: [name, world_champion, title, gold, silver, bronze, details, games, wins, win_rate]
       properties:
         name:
           type: string
+        world_champion:
+          type: boolean
         title:
-          description: WC for a World Champion, GM for a top-division winner, else M
+          description: WC for a World Champion, GM for a top-division winner or World Championship medallist, else M
           type: string
           enum: [WC, GM, M]
+          nullable: true
         gold:
           type: integer
+          nullable: true
         silver:
           type: integer
+          nullable: true
         bronze:
           type: integer
+          nullable: true
+        details:
+          description: A cup medallist's first two honours
+          type: string
+          nullable: true
+        games:
+          description: Ladder games played
+          type: integer
+          nullable: true
+        wins:
+          type: integer
+          nullable: true
+        win_rate:
+          description: Ladder wins as a percentage of games, to one decimal
+          type: number
+          format: double
+          nullable: true
     SeasonRecord:
       type: object
       required: [name, world_champion, points, games, placings, season, division, last_played]
@@ -1729,3 +1955,63 @@ components:
         date:
           type: string
           format: date
+    HallOfFame:
+      type: object
+      required: [run_id, series, legends, grand_slams, ladders]
+      properties:
+        run_id:
+          type: integer
+          format: int64
+        series:
+          type: array
+          items:
+            $ref: "#/components/schemas/SeriesCount"
+        legends:
+          description: Up to 25 players, most titles first
+          type: array
+          items:
+            $ref: "#/components/schemas/Legend"
+        grand_slams:
+          description: The first ten rows of the Grand Slams board
+          type: array
+          items:
+            $ref: "#/components/schemas/TrophyRow"
+        ladders:
+          description: The first ten rows of the Ladders board
+          type: array
+          items:
+            $ref: "#/components/schemas/TrophyRow"
+    SeriesCount:
+      type: object
+      required: [series, games, seasons]
+      properties:
+        series:
+          $ref: "#/components/schemas/Series"
+        games:
+          type: integer
+        seasons:
+          description: The editions the series page states (see TournamentSeries)
+          type: integer
+    Legend:
+      type: object
+      required: [name, world_champion, world_titles, international_titles, intermezzo_titles, royal_league_titles, gold, silver, bronze]
+      properties:
+        name:
+          type: string
+        world_champion:
+          type: boolean
+        world_titles:
+          type: integer
+        international_titles:
+          type: integer
+        intermezzo_titles:
+          type: integer
+        royal_league_titles:
+          type: integer
+        gold:
+          description: Podium medals across the four circuits
+          type: integer
+        silver:
+          type: integer
+        bronze:
+          type: integer

@@ -32,7 +32,8 @@ const DELTAS: readonly DeltaWindow[] = ['none', 'last_update', 'month', 'quarter
 const FORMATS: readonly Format[] = [0, 2, 3, 4];
 const STATUSES: readonly Status[] = ['active', 'all', 'inactive'];
 const SORTS: readonly SortKey[] = ['rank', 'name', 'c_rating', 'rating', 'opps', 'win_rate', 'last_played'];
-const TITLES: readonly TitleCode[] = ['GM', 'M', 'P', 'G', 'WC', 'S', 'B', 'W'];
+// Upstream orders GM, M, P and G; the rest come in its database's order, which both its sites show as this.
+const TITLES: readonly TitleCode[] = ['GM', 'M', 'P', 'G', 'SGM', 'WC', 'S', 'W', 'B'];
 
 /** Everything the reader has chosen, as upstream's query parameters carry it. */
 export interface View {

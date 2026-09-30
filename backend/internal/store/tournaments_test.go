@@ -6,6 +6,7 @@ import (
 	"context"
 	"slices"
 	"testing"
+	"time"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -140,5 +141,95 @@ func TestReplaceCorrectionsReplacesEveryEarlierRow(t *testing.T) {
 	}
 	if rows, want := rowsOf(t, pool, correctionRows), []string{"intermezzo|7|-|r|s", "intermezzo|8|7|r|s"}; !slices.Equal(rows, want) {
 		t.Errorf("corrections = %q, want %q", rows, want)
+	}
+}
+
+const finishDateRows = "SELECT concat_ws('|', series, season, finish_date, source) FROM tournament_finish_dates ORDER BY series, season"
+
+func TestReplaceFinishDatesReplacesEveryEarlierRow(t *testing.T) {
+	pool := migrated(t)
+	ctx := context.Background()
+	date := func(series string, season int, day string) tournamentcsv.FinishDate {
+		d, err := time.Parse(time.DateOnly, day)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return tournamentcsv.FinishDate{Series: series, Season: season, Date: d, Source: "s"}
+	}
+	if _, err := ReplaceFinishDates(ctx, pool, []tournamentcsv.FinishDate{date("intermezzo", 1, "2019-03-24")}); err != nil {
+		t.Fatalf("first ReplaceFinishDates: %v", err)
+	}
+
+	got, err := ReplaceFinishDates(ctx, pool, []tournamentcsv.FinishDate{date("international", 34, "2026-08-14"), date("worlds", 2025, "2025-12-15")})
+	if err != nil {
+		t.Fatalf("ReplaceFinishDates: %v", err)
+	}
+	if want := (FactsReplaced{Written: 2}); got != want {
+		t.Errorf("ReplaceFinishDates = %+v, want %+v", got, want)
+	}
+	if rows, want := rowsOf(t, pool, finishDateRows), []string{"international|34|2026-08-14|s", "worlds|2025|2025-12-15|s"}; !slices.Equal(rows, want) {
+		t.Errorf("finish dates = %q, want %q", rows, want)
+	}
+}
+
+const honourRows = "SELECT concat_ws('|', series, player_name, gold, silver, bronze, coalesce(points, '-'), source) " +
+	"FROM tournament_career_honours ORDER BY series, player_name"
+
+func TestReplaceHonoursWritesKnownPlayersOnly(t *testing.T) {
+	pool := migrated(t)
+	ctx := context.Background()
+	addPlayers(t, pool, "ann", "bob")
+	points := "8,5"
+	honours := []tournamentcsv.Honour{
+		{Series: "sodium_ladder", Player: "ann", Gold: 5, Silver: 2, Points: &points, Source: "s"},
+		{Series: "q_and_d", Player: "Martin Pecheur", Gold: 3, Source: "q"},
+		{Series: "q_and_d", Player: "bob", Gold: 2, Silver: 2, Bronze: 1, Source: "q"},
+	}
+
+	got, err := ReplaceHonours(ctx, pool, honours)
+	if err != nil {
+		t.Fatalf("ReplaceHonours: %v", err)
+	}
+	if want := (FactsReplaced{Written: 2, Unknown: 1}); got != want {
+		t.Errorf("ReplaceHonours = %+v, want %+v", got, want)
+	}
+	if rows, want := rowsOf(t, pool, honourRows), []string{"q_and_d|bob|2|2|1|-|q", "sodium_ladder|ann|5|2|0|8,5|s"}; !slices.Equal(rows, want) {
+		t.Errorf("honours = %q, want %q", rows, want)
+	}
+}
+
+func TestReplaceCommunityKeepsNamesThatAreNotPlayers(t *testing.T) {
+	pool := migrated(t)
+	ctx := context.Background()
+	addPlayers(t, pool, "ann")
+	if _, err := ReplaceCommunityStandings(ctx, pool, []tournamentcsv.Standing{{Edition: "2024", SheetRow: 9, Rank: 9, Player: "old", Points: 1, Events: 1, Source: "s"}}); err != nil {
+		t.Fatalf("first ReplaceCommunityStandings: %v", err)
+	}
+	standings := []tournamentcsv.Standing{
+		{Edition: "2024", SheetRow: 1, Rank: 1, Player: "ann", Points: 7657, Events: 11, Source: "s"},
+		{Edition: "2024", SheetRow: 2, Rank: 2, Player: "Martin Pecheur", Points: 6687, Events: 13, Source: "s"},
+	}
+	got, err := ReplaceCommunityStandings(ctx, pool, standings)
+	if err != nil {
+		t.Fatalf("ReplaceCommunityStandings: %v", err)
+	}
+	if want := (FactsReplaced{Written: 2}); got != want {
+		t.Errorf("ReplaceCommunityStandings = %+v, want %+v", got, want)
+	}
+	const standingRows = "SELECT concat_ws('|', edition, sheet_row, rank, player_name, points, events, source) FROM community_standings ORDER BY rank"
+	if rows, want := rowsOf(t, pool, standingRows), []string{"2024|1|1|ann|7657|11|s", "2024|2|2|Martin Pecheur|6687|13|s"}; !slices.Equal(rows, want) {
+		t.Errorf("standings = %q, want %q", rows, want)
+	}
+
+	scores := []tournamentcsv.Score{
+		{Edition: "2024", Player: "ann", Event: "wrld", Score: 1600, Source: "s"},
+		{Edition: "2024", Player: "Martin Pecheur", Event: "qd", Score: 450, Source: "s"},
+	}
+	if got, err := ReplaceCommunityScores(ctx, pool, scores); err != nil || got != (FactsReplaced{Written: 2}) {
+		t.Fatalf("ReplaceCommunityScores = %+v, %v; want 2 written", got, err)
+	}
+	const scoreRows = "SELECT concat_ws('|', edition, player_name, event, score, source) FROM community_scores ORDER BY score"
+	if rows, want := rowsOf(t, pool, scoreRows), []string{"2024|Martin Pecheur|qd|450|s", "2024|ann|wrld|1600|s"}; !slices.Equal(rows, want) {
+		t.Errorf("scores = %q, want %q", rows, want)
 	}
 }

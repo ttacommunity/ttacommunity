@@ -3,6 +3,7 @@ package store
 import (
 	"cmp"
 	"context"
+	"errors"
 	"fmt"
 	"slices"
 	"time"
@@ -10,11 +11,17 @@ import (
 	"github.com/jackc/pgx/v5"
 )
 
-// TrophyRow is one medallist of a series' top division.
+// TrophyRow is one player on a series' board: medals and a title for leagues
+// and the World Championship, medals and honours for the cups, or ladder
+// games, wins and win rate. Fields a board does not show are nil.
 type TrophyRow struct {
 	Name                 string
-	Title                string
-	Gold, Silver, Bronze int
+	WorldChampion        bool
+	Title                *string
+	Gold, Silver, Bronze *int
+	Details              *string
+	Games, Wins          *int
+	WinRate              *float64
 }
 
 // SeasonRecord is one player's season in a series' top division.
@@ -51,10 +58,9 @@ type TournamentSeries struct {
 const recordsShown = 10
 
 // TournamentSeries returns a published run's results for a series: its game
-// count and latest named season, the top division's board by medals, career
-// points, then the season of the first medal, and the ten best top-division
-// seasons (points, then wins, then first seen) and games the engine marked
-// for records (winner's score, then load order).
+// and edition counts, its board in the engine's order, and the ten best
+// top-division seasons (points, then wins, then first seen) and games the
+// engine marked for records (winner's score, then load order).
 func (r *RatingsReader) TournamentSeries(ctx context.Context, run int64, series string) (TournamentSeries, error) {
 	if err := r.requirePublished(ctx, run); err != nil {
 		return TournamentSeries{}, err
@@ -65,28 +71,18 @@ func (r *RatingsReader) TournamentSeries(ctx context.Context, run int64, series 
 	}
 
 	err := r.pool.QueryRow(ctx, `
-		SELECT count(*), coalesce(max(name_season), 0) FROM tournament_games WHERE run_id = $1 AND series = $2`,
+		SELECT coalesce(max(games), 0), coalesce(max(editions), 0) FROM tournament_series WHERE run_id = $1 AND series = $2`,
 		run, series).Scan(&got.Games, &got.Seasons)
 	if err != nil {
-		return fail("games", err)
+		return fail("counts", err)
+	}
+
+	got.Board, err = r.board(ctx, run, series, nil)
+	if err != nil {
+		return fail("board", err)
 	}
 
 	rows, err := r.pool.Query(ctx, `
-		SELECT player_name, title, gold, silver, bronze FROM tournament_boards
-		WHERE run_id = $1 AND series = $2
-		ORDER BY gold DESC, silver DESC, bronze DESC, points DESC, first_season, player_name`, run, series)
-	if err != nil {
-		return fail("board", err)
-	}
-	got.Board, err = pgx.CollectRows(rows, func(row pgx.CollectableRow) (TrophyRow, error) {
-		var b TrophyRow
-		return b, row.Scan(&b.Name, &b.Title, &b.Gold, &b.Silver, &b.Bronze)
-	})
-	if err != nil {
-		return fail("board", err)
-	}
-
-	rows, err = r.pool.Query(ctx, `
 		SELECT s.player_name, p.player_name IS NOT NULL, s.points, s.games, s.placings, s.season, s.division, s.last_date
 		FROM tournament_season_records s
 		LEFT JOIN player_peak_titles p ON p.run_id = s.run_id AND p.player_name = s.player_name AND p.peak_title = 'WC'
@@ -154,4 +150,210 @@ func (r *RatingsReader) markWorldChampions(ctx context.Context, run int64, games
 		games[i].WorldChampion = slices.Contains(champions, games[i].Name)
 	}
 	return nil
+}
+
+// board returns a series' board in the engine's order, its first limit rows
+// if limit is not nil.
+func (r *RatingsReader) board(ctx context.Context, run int64, series string, limit *int) ([]TrophyRow, error) {
+	rows, err := r.pool.Query(ctx, `
+		SELECT b.player_name, p.player_name IS NOT NULL, b.title, b.gold, b.silver, b.bronze,
+		       b.details, b.games, b.wins, b.win_rate
+		FROM tournament_boards b
+		LEFT JOIN player_peak_titles p ON p.run_id = b.run_id AND p.player_name = b.player_name AND p.peak_title = 'WC'
+		WHERE b.run_id = $1 AND b.series = $2
+		ORDER BY b.position
+		LIMIT $3`, run, series, limit)
+	if err != nil {
+		return nil, err
+	}
+	return pgx.CollectRows(rows, func(row pgx.CollectableRow) (TrophyRow, error) {
+		var b TrophyRow
+		return b, row.Scan(&b.Name, &b.WorldChampion, &b.Title, &b.Gold, &b.Silver, &b.Bronze,
+			&b.Details, &b.Games, &b.Wins, &b.WinRate)
+	})
+}
+
+// SeriesCount is a series' game and edition counts, as its page states them.
+type SeriesCount struct {
+	Series         string
+	Games, Seasons int
+}
+
+// Legend is one player in the Hall of Fame's all-time major circuits table.
+type Legend struct {
+	Name                                                                  string
+	WorldChampion                                                         bool
+	WorldTitles, InternationalTitles, IntermezzoTitles, RoyalLeagueTitles int
+	Gold, Silver, Bronze                                                  int
+}
+
+// HallOfFame is what the Hall of Fame overview shows.
+type HallOfFame struct {
+	Series              []SeriesCount
+	Legends             []Legend
+	GrandSlams, Ladders []TrophyRow
+}
+
+// hubBoardRows is how many rows of the cups and ladders boards the overview lists, as upstream's.
+const hubBoardRows = 10
+
+// HallOfFame returns a published run's Hall of Fame overview: every series'
+// counts, the all-time major circuits table in the engine's order, and the
+// first ten rows of the Grand Slams and Ladders boards.
+func (r *RatingsReader) HallOfFame(ctx context.Context, run int64) (HallOfFame, error) {
+	if err := r.requirePublished(ctx, run); err != nil {
+		return HallOfFame{}, err
+	}
+	fail := func(what string, err error) (HallOfFame, error) {
+		return HallOfFame{}, fmt.Errorf("reading run %d's Hall of Fame %s: %w", run, what, err)
+	}
+	rows, err := r.pool.Query(ctx, "SELECT series, games, editions FROM tournament_series WHERE run_id = $1 ORDER BY series", run)
+	if err != nil {
+		return fail("counts", err)
+	}
+	got := HallOfFame{}
+	got.Series, err = pgx.CollectRows(rows, func(row pgx.CollectableRow) (SeriesCount, error) {
+		var s SeriesCount
+		return s, row.Scan(&s.Series, &s.Games, &s.Seasons)
+	})
+	if err != nil {
+		return fail("counts", err)
+	}
+	rows, err = r.pool.Query(ctx, `
+		SELECT l.player_name, p.player_name IS NOT NULL, l.world_titles, l.international_titles,
+		       l.intermezzo_titles, l.royal_league_titles, l.gold, l.silver, l.bronze
+		FROM tournament_legends l
+		LEFT JOIN player_peak_titles p ON p.run_id = l.run_id AND p.player_name = l.player_name AND p.peak_title = 'WC'
+		WHERE l.run_id = $1 ORDER BY l.position`, run)
+	if err != nil {
+		return fail("legends", err)
+	}
+	got.Legends, err = pgx.CollectRows(rows, func(row pgx.CollectableRow) (Legend, error) {
+		var l Legend
+		return l, row.Scan(&l.Name, &l.WorldChampion, &l.WorldTitles, &l.InternationalTitles,
+			&l.IntermezzoTitles, &l.RoyalLeagueTitles, &l.Gold, &l.Silver, &l.Bronze)
+	})
+	if err != nil {
+		return fail("legends", err)
+	}
+	shown := hubBoardRows
+	if got.GrandSlams, err = r.board(ctx, run, "grand_slams", &shown); err != nil {
+		return fail("grand slams", err)
+	}
+	if got.Ladders, err = r.board(ctx, run, "ladders", &shown); err != nil {
+		return fail("ladders", err)
+	}
+	return got, nil
+}
+
+// AchievementSummary is a player's titles and medals across the four major
+// circuits, and the accolades their page features.
+type AchievementSummary struct {
+	WorldTitles         int
+	InternationalTitles int
+	IntermezzoTitles    int
+	RoyalLeagueTitles   int
+	Gold                int
+	Silver              int
+	Bronze              int
+	Accolades           []string
+}
+
+// TournamentRecord is one row of a player's tournament records: a season, a
+// campaign or a career total, as the engine wrote it for the page.
+type TournamentRecord struct {
+	Tournament string
+	Season     string
+	Division   string
+	Placement  string
+	Points     string
+	Medal      *string
+	Details    string
+	FinishDate string
+	Career     bool
+}
+
+// PlayerAchievements returns the stored name, a player's achievement summary
+// (nil without a medal) and their records in a published run. Records match
+// the name ignoring case, as upstream's page does; latest finish first, by
+// byte order, so a career total's label sorts after every date.
+func (r *RatingsReader) PlayerAchievements(ctx context.Context, run int64, asked string) (string, *AchievementSummary, []TournamentRecord, error) {
+	name, err := r.resolve(ctx, run, asked)
+	if err != nil {
+		return "", nil, nil, err
+	}
+	fail := func(what string, err error) (string, *AchievementSummary, []TournamentRecord, error) {
+		return "", nil, nil, fmt.Errorf("reading run %d's %s: %w", run, what, err)
+	}
+	var s AchievementSummary
+	err = r.pool.QueryRow(ctx, `
+		SELECT world_titles, international_titles, intermezzo_titles, royal_league_titles, gold, silver, bronze, accolades
+		FROM tournament_achievements WHERE run_id = $1 AND lower(player_name) = lower($2)
+		ORDER BY player_name = $2 DESC LIMIT 1`, run, name).
+		Scan(&s.WorldTitles, &s.InternationalTitles, &s.IntermezzoTitles, &s.RoyalLeagueTitles, &s.Gold, &s.Silver, &s.Bronze, &s.Accolades)
+	summary := &s
+	if errors.Is(err, pgx.ErrNoRows) {
+		summary = nil
+	} else if err != nil {
+		return fail("achievements", err)
+	}
+	rows, err := r.pool.Query(ctx, `
+		SELECT tournament, season, division, placement, points, medal, details, finish_date, career
+		FROM tournament_records WHERE run_id = $1 AND lower(player_name) = lower($2)
+		ORDER BY finish_date COLLATE "C" DESC, position DESC`, run, name)
+	if err != nil {
+		return fail("tournament records", err)
+	}
+	recs, err := pgx.CollectRows(rows, func(row pgx.CollectableRow) (TournamentRecord, error) {
+		var t TournamentRecord
+		return t, row.Scan(&t.Tournament, &t.Season, &t.Division, &t.Placement, &t.Points, &t.Medal, &t.Details, &t.FinishDate, &t.Career)
+	})
+	if err != nil {
+		return fail("tournament records", err)
+	}
+	return name, summary, recs, nil
+}
+
+// CommunityRow is one player in an edition of the community leaderboard, with
+// their country and the run's title when the name is a player here.
+type CommunityRow struct {
+	Rank    int
+	Name    string
+	Country *string
+	Title   *string
+	Points  float64
+	Events  int
+	Scores  map[string]float64
+}
+
+// CommunityLeaderboard returns an edition of the community leaderboard in a
+// published run, best rank first. A name is matched to a player ignoring
+// case, the exact spelling first. Equal ranks keep the sheet's order.
+func (r *RatingsReader) CommunityLeaderboard(ctx context.Context, run int64, edition string) ([]CommunityRow, error) {
+	if err := r.requirePublished(ctx, run); err != nil {
+		return nil, err
+	}
+	rows, err := r.pool.Query(ctx, `
+		SELECT s.rank, s.player_name, p.country_code, t.title, s.points, s.events,
+		       coalesce((SELECT jsonb_object_agg(c.event, c.score) FROM community_scores c
+		                 WHERE c.edition = s.edition AND c.player_name = s.player_name), '{}')
+		FROM community_standings s
+		LEFT JOIN LATERAL (
+		    SELECT name, country_code FROM players WHERE lower(name) = lower(s.player_name)
+		    ORDER BY name = s.player_name DESC, name LIMIT 1
+		) p ON true
+		LEFT JOIN player_titles t ON t.run_id = $1 AND t.player_name = p.name
+		WHERE s.edition = $2
+		ORDER BY s.rank, s.points DESC, s.sheet_row`, run, edition)
+	if err != nil {
+		return nil, fmt.Errorf("reading the community leaderboard %s: %w", edition, err)
+	}
+	got, err := pgx.CollectRows(rows, func(row pgx.CollectableRow) (CommunityRow, error) {
+		var c CommunityRow
+		return c, row.Scan(&c.Rank, &c.Name, &c.Country, &c.Title, &c.Points, &c.Events, &c.Scores)
+	})
+	if err != nil {
+		return nil, fmt.Errorf("reading the community leaderboard %s: %w", edition, err)
+	}
+	return got, nil
 }
