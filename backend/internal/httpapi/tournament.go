@@ -133,3 +133,35 @@ func (s *server) GetPlayerAchievements(ctx context.Context, req GetPlayerAchieve
 		Body: body, Headers: GetPlayerAchievements200ResponseHeaders{CacheControl: cacheRun},
 	}, nil
 }
+
+// GetCommunityLeaderboard returns an edition of the community leaderboard.
+func (s *server) GetCommunityLeaderboard(ctx context.Context, req GetCommunityLeaderboardRequestObject) (GetCommunityLeaderboardResponseObject, error) {
+	switch {
+	case req.Run < 1:
+		return GetCommunityLeaderboard400JSONResponse{badRequestBody("bad parameter: run")}, nil
+	case !req.Edition.Valid():
+		return GetCommunityLeaderboard400JSONResponse{badRequestBody("unknown edition")}, nil
+	}
+	rows, err := s.ratings.CommunityLeaderboard(ctx, req.Run, string(req.Edition))
+	if nf, ok := notFound(err); ok {
+		return GetCommunityLeaderboard404JSONResponse{nf}, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	body := CommunityLeaderboard{RunId: req.Run, Edition: req.Edition, Rows: make([]CommunityRow, 0, len(rows))}
+	for _, r := range rows {
+		row := CommunityRow{Rank: r.Rank, Name: r.Name, Country: r.Country, Points: r.Points, Events: r.Events, Scores: r.Scores}
+		if row.Scores == nil {
+			row.Scores = map[string]float64{}
+		}
+		if r.Title != nil {
+			title := CommunityRowTitle(*r.Title)
+			row.Title = &title
+		}
+		body.Rows = append(body.Rows, row)
+	}
+	return GetCommunityLeaderboard200JSONResponse{
+		Body: body, Headers: GetCommunityLeaderboard200ResponseHeaders{CacheControl: cacheRun},
+	}, nil
+}

@@ -199,3 +199,54 @@ func TestPlayerAchievementsRefusals(t *testing.T) {
 		}
 	}
 }
+
+type fakeCommunity struct {
+	fakeRatings
+	rows    []store.CommunityRow
+	err     error
+	edition string
+}
+
+func (f *fakeCommunity) CommunityLeaderboard(_ context.Context, run int64, edition string) ([]store.CommunityRow, error) {
+	f.calls++
+	f.gotRun, f.edition = run, edition
+	return f.rows, f.err
+}
+
+func TestCommunityLeaderboard(t *testing.T) {
+	pl, gm := "PL", "SGM"
+	f := &fakeCommunity{rows: []store.CommunityRow{
+		{Rank: 1, Name: "ann", Country: &pl, Title: &gm, Points: 7657, Events: 11, Scores: map[string]float64{"wrld": 1600, "ic_24": 1000}},
+		{Rank: 2, Name: "Martin Pecheur", Points: 6687.5, Events: 13, Scores: map[string]float64{}},
+	}}
+	rec, _ := serve(t, f, "/v1/runs/7/community/race26")
+	want := `{"edition":"race26","rows":[` +
+		`{"country":"PL","events":11,"name":"ann","points":7657,"rank":1,"scores":{"ic_24":1000,"wrld":1600},"title":"SGM"},` +
+		`{"country":null,"events":13,"name":"Martin Pecheur","points":6687.5,"rank":2,"scores":{},"title":null}],"run_id":7}`
+	if got := strings.TrimSpace(rec.Body.String()); rec.Code != http.StatusOK || got != want {
+		t.Errorf("GET community: %d %s\nwant 200 %s", rec.Code, got, want)
+	}
+	if rec.Header().Get("Cache-Control") != "public, max-age=300" || f.gotRun != 7 || f.edition != "race26" {
+		t.Errorf("GET community: Cache-Control %q, asked run %d edition %q", rec.Header().Get("Cache-Control"), f.gotRun, f.edition)
+	}
+}
+
+func TestCommunityLeaderboardRefusals(t *testing.T) {
+	f := &fakeCommunity{}
+	for path, msg := range map[string]string{
+		"/v1/runs/0/community/2024": "bad parameter: run",
+		"/v1/runs/7/community/2019": "unknown edition",
+	} {
+		rec, _ := serve(t, f, path)
+		if got := strings.TrimSpace(rec.Body.String()); rec.Code != http.StatusBadRequest || !strings.Contains(got, msg) {
+			t.Errorf("GET %s: %d %s, want 400 %q", path, rec.Code, got, msg)
+		}
+	}
+	if f.calls != 0 {
+		t.Errorf("refused requests read the leaderboard %d times", f.calls)
+	}
+	rec, _ := serve(t, &fakeCommunity{err: store.ErrRunNotFound}, "/v1/runs/9/community/2024")
+	if rec.Code != http.StatusNotFound || rec.Header().Get("Cache-Control") != "no-store" {
+		t.Errorf("GET an unknown run: %d %q, want 404 no-store", rec.Code, rec.Header().Get("Cache-Control"))
+	}
+}

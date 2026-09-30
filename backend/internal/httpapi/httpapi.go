@@ -49,6 +49,7 @@ type Ratings interface {
 	TournamentSeries(ctx context.Context, run int64, series string) (store.TournamentSeries, error)
 	HallOfFame(ctx context.Context, run int64) (store.HallOfFame, error)
 	PlayerAchievements(ctx context.Context, run int64, name string) (string, *store.AchievementSummary, []store.TournamentRecord, error)
+	CommunityLeaderboard(ctx context.Context, run int64, edition string) ([]store.CommunityRow, error)
 }
 
 // NewMux returns the API's handler with every route in the spec registered.

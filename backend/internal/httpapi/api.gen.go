@@ -37,6 +37,69 @@ func (e CalibrationRowMode) Valid() bool {
 	}
 }
 
+// Defines values for CommunityEdition.
+const (
+	N2024  CommunityEdition = "2024"
+	N2025  CommunityEdition = "2025"
+	N2026  CommunityEdition = "2026"
+	Race26 CommunityEdition = "race26"
+)
+
+// Valid indicates whether the value is a known member of the CommunityEdition enum.
+func (e CommunityEdition) Valid() bool {
+	switch e {
+	case N2024:
+		return true
+	case N2025:
+		return true
+	case N2026:
+		return true
+	case Race26:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for CommunityRowTitle.
+const (
+	CommunityRowTitleB   CommunityRowTitle = "B"
+	CommunityRowTitleG   CommunityRowTitle = "G"
+	CommunityRowTitleGM  CommunityRowTitle = "GM"
+	CommunityRowTitleM   CommunityRowTitle = "M"
+	CommunityRowTitleP   CommunityRowTitle = "P"
+	CommunityRowTitleS   CommunityRowTitle = "S"
+	CommunityRowTitleSGM CommunityRowTitle = "SGM"
+	CommunityRowTitleW   CommunityRowTitle = "W"
+	CommunityRowTitleWC  CommunityRowTitle = "WC"
+)
+
+// Valid indicates whether the value is a known member of the CommunityRowTitle enum.
+func (e CommunityRowTitle) Valid() bool {
+	switch e {
+	case CommunityRowTitleB:
+		return true
+	case CommunityRowTitleG:
+		return true
+	case CommunityRowTitleGM:
+		return true
+	case CommunityRowTitleM:
+		return true
+	case CommunityRowTitleP:
+		return true
+	case CommunityRowTitleS:
+		return true
+	case CommunityRowTitleSGM:
+		return true
+	case CommunityRowTitleW:
+		return true
+	case CommunityRowTitleWC:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for Format.
 const (
 	N0 Format = 0
@@ -442,6 +505,37 @@ type Champion struct {
 	// Reigning True for the current champion, in the run's latest year
 	Reigning bool `json:"reigning"`
 }
+
+// CommunityEdition An edition of the community leaderboard (race26 is the 2026 race)
+type CommunityEdition string
+
+// CommunityLeaderboard defines model for CommunityLeaderboard.
+type CommunityLeaderboard struct {
+	// Edition An edition of the community leaderboard (race26 is the 2026 race)
+	Edition CommunityEdition `json:"edition"`
+	Rows    []CommunityRow   `json:"rows"`
+	RunId   int64            `json:"run_id"`
+}
+
+// CommunityRow defines model for CommunityRow.
+type CommunityRow struct {
+	Country *string `json:"country"`
+	Events  int     `json:"events"`
+
+	// Name As the leaderboard writes it
+	Name   string  `json:"name"`
+	Points float64 `json:"points"`
+	Rank   int     `json:"rank"`
+
+	// Scores Points in each event the player has, by the leaderboard's column name
+	Scores map[string]float64 `json:"scores"`
+
+	// Title The run's title for the player, null when none or not a player here
+	Title *CommunityRowTitle `json:"title"`
+}
+
+// CommunityRowTitle The run's title for the player, null when none or not a player here
+type CommunityRowTitle string
 
 // ComparedPlayer defines model for ComparedPlayer.
 type ComparedPlayer struct {
@@ -1226,6 +1320,9 @@ type ServerInterface interface {
 	// GetComparedPlayers Players across every model
 	// (GET /v1/runs/{run}/analysis/players)
 	GetComparedPlayers(w http.ResponseWriter, r *http.Request, run RunId, params GetComparedPlayersParams)
+	// GetCommunityLeaderboard An edition of the community leaderboard
+	// (GET /v1/runs/{run}/community/{edition})
+	GetCommunityLeaderboard(w http.ResponseWriter, r *http.Request, run RunId, edition CommunityEdition)
 	// GetHistory Each player's rating at a past date, for rating changes over time
 	// (GET /v1/runs/{run}/history)
 	GetHistory(w http.ResponseWriter, r *http.Request, run RunId, params GetHistoryParams)
@@ -1506,6 +1603,41 @@ func (siw *ServerInterfaceWrapper) GetComparedPlayers(w http.ResponseWriter, r *
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.GetComparedPlayers(w, r, run, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetCommunityLeaderboard operation middleware
+func (siw *ServerInterfaceWrapper) GetCommunityLeaderboard(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "run" -------------
+	var run RunId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "run", r.PathValue("run"), &run, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "integer", Format: "int64", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "run", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "edition" -------------
+	var edition CommunityEdition
+
+	err = runtime.BindStyledParameterWithOptions("simple", "edition", r.PathValue("edition"), &edition, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "edition", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetCommunityLeaderboard(w, r, run, edition)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -2499,6 +2631,7 @@ func HandlerWithOptions(si ServerInterface, options StdHTTPServerOptions) http.H
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/v1/runs/{run}/analysis/activity", wrapper.GetActivity)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/v1/runs/{run}/tournaments", wrapper.GetHallOfFame)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/v1/runs/{run}/tournaments/{series}", wrapper.GetTournamentSeries)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/v1/runs/{run}/community/{edition}", wrapper.GetCommunityLeaderboard)
 
 	return m
 }
@@ -2937,6 +3070,67 @@ func (response GetComparedPlayers400JSONResponse) VisitGetComparedPlayersRespons
 type GetComparedPlayers404JSONResponse struct{ NotFoundJSONResponse }
 
 func (response GetComparedPlayers404JSONResponse) VisitGetComparedPlayersResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetCommunityLeaderboardRequestObject struct {
+	Run     RunId            `json:"run"`
+	Edition CommunityEdition `json:"edition"`
+}
+
+type GetCommunityLeaderboardResponseObject interface {
+	VisitGetCommunityLeaderboardResponse(w http.ResponseWriter) error
+}
+
+type GetCommunityLeaderboard200ResponseHeaders struct {
+	CacheControl string
+}
+
+type GetCommunityLeaderboard200JSONResponse struct {
+	Body    CommunityLeaderboard
+	Headers GetCommunityLeaderboard200ResponseHeaders
+}
+
+func (response GetCommunityLeaderboard200JSONResponse) VisitGetCommunityLeaderboardResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetCommunityLeaderboard400JSONResponse struct{ BadRequestJSONResponse }
+
+func (response GetCommunityLeaderboard400JSONResponse) VisitGetCommunityLeaderboardResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetCommunityLeaderboard404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response GetCommunityLeaderboard404JSONResponse) VisitGetCommunityLeaderboardResponse(w http.ResponseWriter) error {
 
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
@@ -3901,6 +4095,9 @@ type StrictServerInterface interface {
 	// GetComparedPlayers Players across every model
 	// (GET /v1/runs/{run}/analysis/players)
 	GetComparedPlayers(ctx context.Context, request GetComparedPlayersRequestObject) (GetComparedPlayersResponseObject, error)
+	// GetCommunityLeaderboard An edition of the community leaderboard
+	// (GET /v1/runs/{run}/community/{edition})
+	GetCommunityLeaderboard(ctx context.Context, request GetCommunityLeaderboardRequestObject) (GetCommunityLeaderboardResponseObject, error)
 	// GetHistory Each player's rating at a past date, for rating changes over time
 	// (GET /v1/runs/{run}/history)
 	GetHistory(ctx context.Context, request GetHistoryRequestObject) (GetHistoryResponseObject, error)
@@ -4185,6 +4382,33 @@ func (sh *strictHandler) GetComparedPlayers(w http.ResponseWriter, r *http.Reque
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(GetComparedPlayersResponseObject); ok {
 		if err := validResponse.VisitGetComparedPlayersResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// GetCommunityLeaderboard operation middleware
+func (sh *strictHandler) GetCommunityLeaderboard(w http.ResponseWriter, r *http.Request, run RunId, edition CommunityEdition) {
+	var request GetCommunityLeaderboardRequestObject
+
+	request.Run = run
+	request.Edition = edition
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.GetCommunityLeaderboard(ctx, request.(GetCommunityLeaderboardRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetCommunityLeaderboard")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(GetCommunityLeaderboardResponseObject); ok {
+		if err := validResponse.VisitGetCommunityLeaderboardResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {

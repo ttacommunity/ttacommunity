@@ -313,3 +313,47 @@ func (r *RatingsReader) PlayerAchievements(ctx context.Context, run int64, asked
 	}
 	return name, summary, recs, nil
 }
+
+// CommunityRow is one player in an edition of the community leaderboard, with
+// their country and the run's title when the name is a player here.
+type CommunityRow struct {
+	Rank    int
+	Name    string
+	Country *string
+	Title   *string
+	Points  float64
+	Events  int
+	Scores  map[string]float64
+}
+
+// CommunityLeaderboard returns an edition of the community leaderboard in a
+// published run, best rank first. A name is matched to a player ignoring
+// case, the exact spelling first.
+func (r *RatingsReader) CommunityLeaderboard(ctx context.Context, run int64, edition string) ([]CommunityRow, error) {
+	if err := r.requirePublished(ctx, run); err != nil {
+		return nil, err
+	}
+	rows, err := r.pool.Query(ctx, `
+		SELECT s.rank, s.player_name, p.country_code, t.title, s.points, s.events,
+		       coalesce((SELECT jsonb_object_agg(c.event, c.score) FROM community_scores c
+		                 WHERE c.edition = s.edition AND c.player_name = s.player_name), '{}')
+		FROM community_standings s
+		LEFT JOIN LATERAL (
+		    SELECT name, country_code FROM players WHERE lower(name) = lower(s.player_name)
+		    ORDER BY name = s.player_name DESC, name LIMIT 1
+		) p ON true
+		LEFT JOIN player_titles t ON t.run_id = $1 AND t.player_name = p.name
+		WHERE s.edition = $2
+		ORDER BY s.rank, s.points DESC, s.player_name`, run, edition)
+	if err != nil {
+		return nil, fmt.Errorf("reading the community leaderboard %s: %w", edition, err)
+	}
+	got, err := pgx.CollectRows(rows, func(row pgx.CollectableRow) (CommunityRow, error) {
+		var c CommunityRow
+		return c, row.Scan(&c.Rank, &c.Name, &c.Country, &c.Title, &c.Points, &c.Events, &c.Scores)
+	})
+	if err != nil {
+		return nil, fmt.Errorf("reading the community leaderboard %s: %w", edition, err)
+	}
+	return got, nil
+}

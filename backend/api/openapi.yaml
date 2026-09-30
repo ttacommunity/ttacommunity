@@ -697,6 +697,37 @@ paths:
           $ref: "#/components/responses/BadRequest"
         "404":
           $ref: "#/components/responses/NotFound"
+  /v1/runs/{run}/community/{edition}:
+    get:
+      operationId: getCommunityLeaderboard
+      summary: An edition of the community leaderboard
+      description: |
+        The community leaderboard's standings as its maintainer publishes
+        them (rank, total points, events played, and each event's points),
+        with each player's country and the run's title where the name is a
+        player here, matched ignoring case. Best rank first. Cached for five
+        minutes.
+      parameters:
+        - $ref: "#/components/parameters/RunId"
+        - name: edition
+          in: path
+          required: true
+          schema:
+            $ref: "#/components/schemas/CommunityEdition"
+      responses:
+        "200":
+          description: The edition
+          headers:
+            Cache-Control:
+              $ref: "#/components/headers/CacheControl"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CommunityLeaderboard"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "404":
+          $ref: "#/components/responses/NotFound"
 components:
   parameters:
     Model:
@@ -1749,6 +1780,51 @@ components:
         career:
           description: A career total, not one season or tournament
           type: boolean
+    CommunityEdition:
+      description: An edition of the community leaderboard (race26 is the 2026 race)
+      type: string
+      enum: ["2026", "2025", "2024", race26]
+    CommunityLeaderboard:
+      type: object
+      required: [run_id, edition, rows]
+      properties:
+        run_id:
+          type: integer
+          format: int64
+        edition:
+          $ref: "#/components/schemas/CommunityEdition"
+        rows:
+          type: array
+          items:
+            $ref: "#/components/schemas/CommunityRow"
+    CommunityRow:
+      type: object
+      required: [rank, name, country, title, points, events, scores]
+      properties:
+        rank:
+          type: integer
+        name:
+          description: As the leaderboard writes it
+          type: string
+        country:
+          type: string
+          nullable: true
+        title:
+          description: The run's title for the player, null when none or not a player here
+          type: string
+          enum: [WC, SGM, GM, M, P, G, S, B, W]
+          nullable: true
+        points:
+          type: number
+          format: double
+        events:
+          type: integer
+        scores:
+          description: Points in each event the player has, by the leaderboard's column name
+          type: object
+          additionalProperties:
+            type: number
+            format: double
     Series:
       description: A tournament series
       type: string

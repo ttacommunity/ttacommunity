@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"slices"
+	"strings"
 	"testing"
 	"time"
 
@@ -364,5 +365,51 @@ func TestPlayerAchievementsRefuseAnUnknownPlayerOrUnpublishedRun(t *testing.T) {
 	_, summary, recs, err := r.PlayerAchievements(ctx, run, "Ann")
 	if err != nil || summary != nil || len(recs) != 0 {
 		t.Errorf("PlayerAchievements of a player with none = %+v, %v, %v; want nothing, no error", summary, recs, err)
+	}
+}
+
+func TestCommunityLeaderboardGivesAnEditionWithPlayersCountriesAndTitles(t *testing.T) {
+	pool := migrated(t)
+	r := NewRatingsReader(asReader(t, pool))
+	ctx := context.Background()
+	run := publishedRun(t, pool)
+	addPlayers(t, pool, "ann", "RobertdeSable", "RobertDeSable")
+	for _, q := range []string{
+		"UPDATE players SET country_code = 'PL' WHERE name = 'ann'",
+		"UPDATE players SET country_code = 'FR' WHERE name = 'RobertdeSable'",
+		"INSERT INTO player_titles (run_id, player_name, title, title_count, badge_reason) VALUES ($1, 'ann', 'SGM', 1, 'r')",
+		`INSERT INTO community_standings VALUES ('2024', 2, 'Martin Pecheur', 6687, 13, 's'), ('2024', 1, 'ANN', 7657, 11, 's'),
+		  ('2024', 3, 'RobertdeSable', 10, 1, 's'), ('2025', 1, 'ann', 6600, 17, 's')`,
+		"INSERT INTO community_scores VALUES ('2024', 'ANN', 'wrld', 1600, 's'), ('2024', 'ANN', 'ic_24', 1000, 's'), ('2025', 'ann', 'wrld', 5, 's')",
+	} {
+		args := []any{}
+		if strings.Contains(q, "$1") {
+			args = append(args, run)
+		}
+		if _, err := pool.Exec(ctx, q, args...); err != nil {
+			t.Fatalf("%s: %v", q, err)
+		}
+	}
+
+	got, err := r.CommunityLeaderboard(ctx, run, "2024")
+	if err != nil {
+		t.Fatalf("CommunityLeaderboard: %v", err)
+	}
+	var lines []string
+	for _, row := range got {
+		lines = append(lines, fmt.Sprintf("%d %s %s %s %g %d %v", row.Rank, row.Name, orDash(row.Country), orDash(row.Title), row.Points, row.Events, row.Scores))
+	}
+	want := []string{
+		"1 ANN PL SGM 7657 11 map[ic_24:1000 wrld:1600]",
+		"2 Martin Pecheur - - 6687 13 map[]",
+		"3 RobertdeSable FR - 10 1 map[]",
+	}
+	if !slices.Equal(lines, want) {
+		t.Errorf("CommunityLeaderboard(2024) =\n%s\nwant\n%s", strings.Join(lines, "\n"), strings.Join(want, "\n"))
+	}
+
+	unpublished := addRun(t, pool, "complete", time.Time{})
+	if _, err := r.CommunityLeaderboard(ctx, unpublished, "2024"); !errors.Is(err, ErrRunNotFound) {
+		t.Errorf("CommunityLeaderboard of an unpublished run: %v, want ErrRunNotFound", err)
 	}
 }
