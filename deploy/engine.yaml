@@ -45,7 +45,7 @@ spec:
               env:
                 # The commit the image was built from.
                 - name: ENGINE_VERSION
-                  value: 96821994
+                  value: "96821994"
                 - name: RATINGS_DATABASE_URL
                   valueFrom:
                     secretKeyRef:
