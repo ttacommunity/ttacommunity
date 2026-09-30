@@ -136,3 +136,36 @@ func ReplaceHonours(ctx context.Context, pool *pgxpool.Pool, honours []tournamen
 		series, players, golds, silvers, bronzes, points, sources)
 	return FactsReplaced{Written: n, Unknown: len(honours) - n}, err
 }
+
+// ReplaceCommunityStandings replaces every community leaderboard standing, in
+// one transaction. Names are kept as written, players or not.
+func ReplaceCommunityStandings(ctx context.Context, pool *pgxpool.Pool, rows []tournamentcsv.Standing) (FactsReplaced, error) {
+	var editions, players, sources []string
+	var ranks, events []int32
+	var points []float64
+	for _, r := range rows {
+		editions, ranks, players = append(editions, r.Edition), append(ranks, int32(r.Rank)), append(players, r.Player)
+		points, events, sources = append(points, r.Points), append(events, int32(r.Events)), append(sources, r.Source)
+	}
+	n, err := replaceAll(ctx, pool, "community_standings", `
+		INSERT INTO community_standings (edition, rank, player_name, points, events, source)
+		SELECT * FROM unnest($1::text[], $2::int[], $3::text[], $4::float8[], $5::int[], $6::text[])`,
+		editions, ranks, players, points, events, sources)
+	return FactsReplaced{Written: n}, err
+}
+
+// ReplaceCommunityScores replaces every community leaderboard event score, in
+// one transaction. Names are kept as written, players or not.
+func ReplaceCommunityScores(ctx context.Context, pool *pgxpool.Pool, rows []tournamentcsv.Score) (FactsReplaced, error) {
+	var editions, players, events, sources []string
+	var scores []float64
+	for _, r := range rows {
+		editions, players, events = append(editions, r.Edition), append(players, r.Player), append(events, r.Event)
+		scores, sources = append(scores, r.Score), append(sources, r.Source)
+	}
+	n, err := replaceAll(ctx, pool, "community_scores", `
+		INSERT INTO community_scores (edition, player_name, event, score, source)
+		SELECT * FROM unnest($1::text[], $2::text[], $3::text[], $4::float8[], $5::text[])`,
+		editions, players, events, scores, sources)
+	return FactsReplaced{Written: n}, err
+}

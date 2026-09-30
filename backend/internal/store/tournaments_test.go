@@ -197,3 +197,39 @@ func TestReplaceHonoursWritesKnownPlayersOnly(t *testing.T) {
 		t.Errorf("honours = %q, want %q", rows, want)
 	}
 }
+
+func TestReplaceCommunityKeepsNamesThatAreNotPlayers(t *testing.T) {
+	pool := migrated(t)
+	ctx := context.Background()
+	addPlayers(t, pool, "ann")
+	if _, err := ReplaceCommunityStandings(ctx, pool, []tournamentcsv.Standing{{Edition: "2024", Rank: 9, Player: "old", Points: 1, Events: 1, Source: "s"}}); err != nil {
+		t.Fatalf("first ReplaceCommunityStandings: %v", err)
+	}
+	standings := []tournamentcsv.Standing{
+		{Edition: "2024", Rank: 1, Player: "ann", Points: 7657, Events: 11, Source: "s"},
+		{Edition: "2024", Rank: 2, Player: "Martin Pecheur", Points: 6687, Events: 13, Source: "s"},
+	}
+	got, err := ReplaceCommunityStandings(ctx, pool, standings)
+	if err != nil {
+		t.Fatalf("ReplaceCommunityStandings: %v", err)
+	}
+	if want := (FactsReplaced{Written: 2}); got != want {
+		t.Errorf("ReplaceCommunityStandings = %+v, want %+v", got, want)
+	}
+	const standingRows = "SELECT concat_ws('|', edition, rank, player_name, points, events, source) FROM community_standings ORDER BY rank"
+	if rows, want := rowsOf(t, pool, standingRows), []string{"2024|1|ann|7657|11|s", "2024|2|Martin Pecheur|6687|13|s"}; !slices.Equal(rows, want) {
+		t.Errorf("standings = %q, want %q", rows, want)
+	}
+
+	scores := []tournamentcsv.Score{
+		{Edition: "2024", Player: "ann", Event: "wrld", Score: 1600, Source: "s"},
+		{Edition: "2024", Player: "Martin Pecheur", Event: "qd", Score: 450, Source: "s"},
+	}
+	if got, err := ReplaceCommunityScores(ctx, pool, scores); err != nil || got != (FactsReplaced{Written: 2}) {
+		t.Fatalf("ReplaceCommunityScores = %+v, %v; want 2 written", got, err)
+	}
+	const scoreRows = "SELECT concat_ws('|', edition, player_name, event, score, source) FROM community_scores ORDER BY score"
+	if rows, want := rowsOf(t, pool, scoreRows), []string{"2024|Martin Pecheur|qd|450|s", "2024|ann|wrld|1600|s"}; !slices.Equal(rows, want) {
+		t.Errorf("scores = %q, want %q", rows, want)
+	}
+}
