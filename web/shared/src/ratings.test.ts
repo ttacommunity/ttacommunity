@@ -3,6 +3,7 @@ import {
   RatingsApiError,
   activity,
   tournamentSeries,
+  hallOfFame,
   agreement,
   calibration,
   comparedPlayers,
@@ -181,7 +182,11 @@ describe('tournament pages', () => {
   it('ask for a series without credentials', async () => {
     const f = fakeFetch(200, '{}');
     await tournamentSeries('https://api.example', 5, 'international', f.fetch);
-    expect(f.calls.map((c) => c.url)).toEqual(['https://api.example/v1/runs/5/tournaments/international']);
-    expect(f.calls[0]?.init?.credentials).toBe('omit');
+    await hallOfFame('https://api.example', 5, f.fetch);
+    expect(f.calls.map((c) => c.url)).toEqual([
+      'https://api.example/v1/runs/5/tournaments/international',
+      'https://api.example/v1/runs/5/tournaments',
+    ]);
+    expect(f.calls.every((c) => c.init?.credentials === 'omit')).toBe(true);
   });
 });

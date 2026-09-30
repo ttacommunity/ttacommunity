@@ -1,5 +1,5 @@
 /** Upstream's Hall of Fame series pages: the series tabs, each series' text, and how its figures are written. */
-import type { Series } from '@ttac/shared/ratings';
+import type { Legend, Series, SeriesCount } from '@ttac/shared/ratings';
 
 /** A tab in the series bar: the Hall of Fame overview or one series. */
 export interface SeriesTab {
@@ -21,6 +21,7 @@ export const SERIES_NAV: SeriesTab[] = [
 
 /** The tabs whose page exists yet; the others show without a link. */
 export const BUILT: ReadonlySet<SeriesTab['slug']> = new Set([
+  'overview',
   'international',
   'intermezzo',
   'royal_league',
@@ -308,4 +309,38 @@ export function seriesRecord(series: Series, placings: number[]): string {
     return draws === 0 ? `${wins}/${losses}` : `${wins}/${draws}/${losses}`;
   }
   return placings.join('/');
+}
+
+/** titleCell writes a legend's titles in one circuit: the count (with a crown for World titles), or a dash for none. */
+export function titleCell(titles: number, crown = false): string {
+  if (titles <= 0) return '-';
+  return crown ? `${titles} 👑` : String(titles);
+}
+
+/** legendMark returns WC for a World Champion, GM for three or more major titles, else null, as upstream's overview. */
+export function legendMark(l: Legend): 'WC' | 'GM' | null {
+  if (l.world_champion || l.world_titles > 0) return 'WC';
+  return majorTitles(l) >= 3 ? 'GM' : null;
+}
+
+/** majorTitles returns a legend's titles across the four circuits. */
+export function majorTitles(l: Legend): number {
+  return l.world_titles + l.international_titles + l.intermezzo_titles + l.royal_league_titles;
+}
+
+/** majorMedals writes a legend's medals and their total as upstream's overview. */
+export function majorMedals(l: Legend): string {
+  return `🥇${l.gold}  🥈${l.silver}  🥉${l.bronze} (${l.gold + l.silver + l.bronze})`;
+}
+
+/** derivedMatches writes the overview's match count: the four major circuits' games, as upstream sums them. */
+export function derivedMatches(counts: SeriesCount[]): string {
+  const major = new Set(['international', 'intermezzo', 'royal_league', 'worlds']);
+  const total = counts.filter((c) => major.has(c.series)).reduce((n, c) => n + c.games, 0);
+  return `${total.toLocaleString('en-US')}+ Matches`;
+}
+
+/** seriesGames writes a series card's games and editions. */
+export function seriesGames(c: SeriesCount): string {
+  return `${c.games.toLocaleString('en-US')} games (${c.seasons} editions)`;
 }

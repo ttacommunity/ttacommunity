@@ -40,6 +40,9 @@ export type TournamentSeries = components['schemas']['TournamentSeries'];
 export type TrophyRow = components['schemas']['TrophyRow'];
 export type SeasonRecord = components['schemas']['SeasonRecord'];
 export type GameRecord = components['schemas']['GameRecord'];
+export type HallOfFame = components['schemas']['HallOfFame'];
+export type SeriesCount = components['schemas']['SeriesCount'];
+export type Legend = components['schemas']['Legend'];
 
 /** An error response from the API, carrying its status and message. */
 export class RatingsApiError extends Error {
@@ -212,6 +215,11 @@ export async function activity(base: string, run: number, fetchFn: typeof fetch 
 /** Returns what a tournament series' Hall of Fame page shows: counts, trophyboard, best seasons and games. */
 export async function tournamentSeries(base: string, run: number, series: Series, fetchFn: typeof fetch = fetch): Promise<TournamentSeries> {
   return get<TournamentSeries>(fetchFn, base, `/v1/runs/${run}/tournaments/${series}`);
+}
+
+/** Returns the Hall of Fame overview: every series' counts, the all-time table, and the tops of the cups and ladders boards. */
+export async function hallOfFame(base: string, run: number, fetchFn: typeof fetch = fetch): Promise<HallOfFame> {
+  return get<HallOfFame>(fetchFn, base, `/v1/runs/${run}/tournaments`);
 }
 
 // Public routes take no credentials, so none are ever sent.
