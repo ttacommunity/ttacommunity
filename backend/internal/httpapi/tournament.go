@@ -29,9 +29,15 @@ func (s *server) GetTournamentSeries(ctx context.Context, req GetTournamentSerie
 		GameRecords:   make([]GameRecord, 0, len(t.GameRecords)),
 	}
 	for _, b := range t.Board {
-		body.Board = append(body.Board, TrophyRow{
-			Name: b.Name, Title: TrophyRowTitle(b.Title), Gold: b.Gold, Silver: b.Silver, Bronze: b.Bronze,
-		})
+		row := TrophyRow{
+			Name: b.Name, WorldChampion: b.WorldChampion, Gold: b.Gold, Silver: b.Silver, Bronze: b.Bronze,
+			Details: b.Details, Games: b.Games, Wins: b.Wins, WinRate: b.WinRate,
+		}
+		if b.Title != nil {
+			title := TrophyRowTitle(*b.Title)
+			row.Title = &title
+		}
+		body.Board = append(body.Board, row)
 	}
 	for _, r := range t.SeasonRecords {
 		body.SeasonRecords = append(body.SeasonRecords, SeasonRecord{

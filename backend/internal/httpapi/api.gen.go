@@ -123,19 +123,28 @@ func (e Model) Valid() bool {
 
 // Defines values for Series.
 const (
+	GrandSlams    Series = "grand_slams"
 	Intermezzo    Series = "intermezzo"
 	International Series = "international"
+	Ladders       Series = "ladders"
 	RoyalLeague   Series = "royal_league"
+	Worlds        Series = "worlds"
 )
 
 // Valid indicates whether the value is a known member of the Series enum.
 func (e Series) Valid() bool {
 	switch e {
+	case GrandSlams:
+		return true
 	case Intermezzo:
 		return true
 	case International:
 		return true
+	case Ladders:
+		return true
 	case RoyalLeague:
+		return true
+	case Worlds:
 		return true
 	default:
 		return false
@@ -836,38 +845,54 @@ type TitlePlayers struct {
 
 // TournamentSeries defines model for TournamentSeries.
 type TournamentSeries struct {
-	// Board The top division's medallists, most golds first, then silvers, bronzes and career points
+	// Board The series' board in the original site's order (for leagues, most golds first, then silvers, bronzes and career points)
 	Board []TrophyRow `json:"board"`
 
-	// GameRecords The ten highest winning scores in top-division games
+	// GameRecords The ten highest winning scores in the games a series page lists (top-division or World Championship playoff games)
 	GameRecords []GameRecord `json:"game_records"`
 
-	// Games Every game of the series in the run's matches
+	// Games The games the original site counts for the series, by its name patterns
 	Games int   `json:"games"`
 	RunId int64 `json:"run_id"`
 
 	// SeasonRecords The ten best top-division seasons by points, then wins
 	SeasonRecords []SeasonRecord `json:"season_records"`
 
-	// Seasons The latest season a game's name gives
+	// Seasons The editions the original site counts: the latest season a
+	// league game's name gives, the World Championship's distinct
+	// editions, the cups' distinct names before "Stage", or the
+	// ladders' fixed 16
 	Seasons int `json:"seasons"`
 
 	// Series A tournament series
 	Series Series `json:"series"`
 }
 
-// TrophyRow defines model for TrophyRow.
+// TrophyRow One player on a series' board: medals and a title for the leagues
+// and the World Championship, medals and honours for the cups, or
+// ladder games, wins and win rate. What a board does not show is null
 type TrophyRow struct {
-	Bronze int    `json:"bronze"`
-	Gold   int    `json:"gold"`
-	Name   string `json:"name"`
-	Silver int    `json:"silver"`
+	Bronze *int `json:"bronze"`
 
-	// Title WC for a World Champion, GM for a top-division winner, else M
-	Title TrophyRowTitle `json:"title"`
+	// Details A cup medallist's first two honours
+	Details *string `json:"details"`
+
+	// Games Ladder games played
+	Games  *int   `json:"games"`
+	Gold   *int   `json:"gold"`
+	Name   string `json:"name"`
+	Silver *int   `json:"silver"`
+
+	// Title WC for a World Champion, GM for a top-division winner or World Championship medallist, else M
+	Title *TrophyRowTitle `json:"title"`
+
+	// WinRate Ladder wins as a percentage of games, to one decimal
+	WinRate       *float64 `json:"win_rate"`
+	Wins          *int     `json:"wins"`
+	WorldChampion bool     `json:"world_champion"`
 }
 
-// TrophyRowTitle WC for a World Champion, GM for a top-division winner, else M
+// TrophyRowTitle WC for a World Champion, GM for a top-division winner or World Championship medallist, else M
 type TrophyRowTitle string
 
 // VersusMatch defines model for VersusMatch.

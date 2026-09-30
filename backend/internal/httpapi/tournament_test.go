@@ -25,9 +25,14 @@ func (f *fakeTournaments) TournamentSeries(_ context.Context, run int64, series 
 
 func TestTournamentSeries(t *testing.T) {
 	day := time.Date(2025, 10, 20, 0, 0, 0, 0, time.UTC)
+	wc, six, two, one := "WC", 6, 2, 1
+	games, wins, rate := 90, 54, 59.3
 	f := &fakeTournaments{series: store.TournamentSeries{
 		Games: 31674, Seasons: 34,
-		Board: []store.TrophyRow{{Name: "ann", Title: "WC", Gold: 6, Silver: 2, Bronze: 1}},
+		Board: []store.TrophyRow{
+			{Name: "ann", WorldChampion: true, Title: &wc, Gold: &six, Silver: &two, Bronze: &one},
+			{Name: "eve", Games: &games, Wins: &wins, WinRate: &rate},
+		},
 		SeasonRecords: []store.SeasonRecord{{
 			Name: "bob", Points: 36, Games: 7, Placings: []int{6, 1, 0, 0}, Season: 31, Division: "Grandmaster", LastPlayed: day,
 		}},
@@ -37,7 +42,8 @@ func TestTournamentSeries(t *testing.T) {
 		}},
 	}}
 	rec, _ := serve(t, f, "/v1/runs/7/tournaments/international")
-	want := `{"board":[{"bronze":1,"gold":6,"name":"ann","silver":2,"title":"WC"}],` +
+	want := `{"board":[{"bronze":1,"details":null,"games":null,"gold":6,"name":"ann","silver":2,"title":"WC","win_rate":null,"wins":null,"world_champion":true},` +
+		`{"bronze":null,"details":null,"games":90,"gold":null,"name":"eve","silver":null,"title":null,"win_rate":59.3,"wins":54,"world_champion":false}],` +
 		`"game_records":[{"date":"2025-10-20","name":"cat","opponents":[{"name":"dan","score":334}],"score":388,` +
 		`"tournament":"International S29 - Grandmaster game 2","world_champion":true}],"games":31674,"run_id":7,` +
 		`"season_records":[{"division":"Grandmaster","games":7,"last_played":"2025-10-20","name":"bob","placings":[6,1,0,0],` +
@@ -51,7 +57,7 @@ func TestTournamentSeries(t *testing.T) {
 }
 
 func TestTournamentSeriesKnowsEachSeries(t *testing.T) {
-	for _, series := range []string{"international", "intermezzo", "royal_league"} {
+	for _, series := range []string{"international", "intermezzo", "royal_league", "worlds", "grand_slams", "ladders"} {
 		f := &fakeTournaments{}
 		rec, _ := serve(t, f, "/v1/runs/7/tournaments/"+series)
 		if rec.Code != http.StatusOK || f.gotSeries != series {
@@ -71,7 +77,7 @@ func TestTournamentSeriesEmptyListsAreArrays(t *testing.T) {
 
 func TestTournamentSeriesRefusals(t *testing.T) {
 	for path, msg := range map[string]string{
-		"/v1/runs/7/tournaments/worlds":        "unknown series",
+		"/v1/runs/7/tournaments/snail_cup":     "unknown series",
 		"/v1/runs/7/tournaments/International": "unknown series",
 		"/v1/runs/0/tournaments/international": "bad parameter: run",
 	} {

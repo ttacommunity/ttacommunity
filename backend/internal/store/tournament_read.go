@@ -10,11 +10,17 @@ import (
 	"github.com/jackc/pgx/v5"
 )
 
-// TrophyRow is one medallist of a series' top division.
+// TrophyRow is one player on a series' board: medals and a title for leagues
+// and the World Championship, medals and honours for the cups, or ladder
+// games, wins and win rate. Fields a board does not show are nil.
 type TrophyRow struct {
 	Name                 string
-	Title                string
-	Gold, Silver, Bronze int
+	WorldChampion        bool
+	Title                *string
+	Gold, Silver, Bronze *int
+	Details              *string
+	Games, Wins          *int
+	WinRate              *float64
 }
 
 // SeasonRecord is one player's season in a series' top division.
@@ -51,10 +57,9 @@ type TournamentSeries struct {
 const recordsShown = 10
 
 // TournamentSeries returns a published run's results for a series: its game
-// count and latest named season, the top division's board by medals, career
-// points, then the season of the first medal, and the ten best top-division
-// seasons (points, then wins, then first seen) and games the engine marked
-// for records (winner's score, then load order).
+// and edition counts, its board in the engine's order, and the ten best
+// top-division seasons (points, then wins, then first seen) and games the
+// engine marked for records (winner's score, then load order).
 func (r *RatingsReader) TournamentSeries(ctx context.Context, run int64, series string) (TournamentSeries, error) {
 	if err := r.requirePublished(ctx, run); err != nil {
 		return TournamentSeries{}, err
@@ -65,22 +70,26 @@ func (r *RatingsReader) TournamentSeries(ctx context.Context, run int64, series 
 	}
 
 	err := r.pool.QueryRow(ctx, `
-		SELECT count(*), coalesce(max(name_season), 0) FROM tournament_games WHERE run_id = $1 AND series = $2`,
+		SELECT coalesce(max(games), 0), coalesce(max(editions), 0) FROM tournament_series WHERE run_id = $1 AND series = $2`,
 		run, series).Scan(&got.Games, &got.Seasons)
 	if err != nil {
-		return fail("games", err)
+		return fail("counts", err)
 	}
 
 	rows, err := r.pool.Query(ctx, `
-		SELECT player_name, title, gold, silver, bronze FROM tournament_boards
-		WHERE run_id = $1 AND series = $2
-		ORDER BY gold DESC, silver DESC, bronze DESC, points DESC, first_season, player_name`, run, series)
+		SELECT b.player_name, p.player_name IS NOT NULL, b.title, b.gold, b.silver, b.bronze,
+		       b.details, b.games, b.wins, b.win_rate
+		FROM tournament_boards b
+		LEFT JOIN player_peak_titles p ON p.run_id = b.run_id AND p.player_name = b.player_name AND p.peak_title = 'WC'
+		WHERE b.run_id = $1 AND b.series = $2
+		ORDER BY b.position`, run, series)
 	if err != nil {
 		return fail("board", err)
 	}
 	got.Board, err = pgx.CollectRows(rows, func(row pgx.CollectableRow) (TrophyRow, error) {
 		var b TrophyRow
-		return b, row.Scan(&b.Name, &b.Title, &b.Gold, &b.Silver, &b.Bronze)
+		return b, row.Scan(&b.Name, &b.WorldChampion, &b.Title, &b.Gold, &b.Silver, &b.Bronze,
+			&b.Details, &b.Games, &b.Wins, &b.WinRate)
 	})
 	if err != nil {
 		return fail("board", err)

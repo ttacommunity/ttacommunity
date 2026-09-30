@@ -998,32 +998,53 @@ export interface components {
          * @description A tournament series
          * @enum {string}
          */
-        Series: "international" | "intermezzo" | "royal_league";
+        Series: "international" | "intermezzo" | "royal_league" | "worlds" | "grand_slams" | "ladders";
         TournamentSeries: {
             /** Format: int64 */
             run_id: number;
             series: components["schemas"]["Series"];
-            /** @description Every game of the series in the run's matches */
+            /** @description The games the original site counts for the series, by its name patterns */
             games: number;
-            /** @description The latest season a game's name gives */
+            /**
+             * @description The editions the original site counts: the latest season a
+             *     league game's name gives, the World Championship's distinct
+             *     editions, the cups' distinct names before "Stage", or the
+             *     ladders' fixed 16
+             */
             seasons: number;
-            /** @description The top division's medallists, most golds first, then silvers, bronzes and career points */
+            /** @description The series' board in the original site's order (for leagues, most golds first, then silvers, bronzes and career points) */
             board: components["schemas"]["TrophyRow"][];
             /** @description The ten best top-division seasons by points, then wins */
             season_records: components["schemas"]["SeasonRecord"][];
-            /** @description The ten highest winning scores in top-division games */
+            /** @description The ten highest winning scores in the games a series page lists (top-division or World Championship playoff games) */
             game_records: components["schemas"]["GameRecord"][];
         };
+        /**
+         * @description One player on a series' board: medals and a title for the leagues
+         *     and the World Championship, medals and honours for the cups, or
+         *     ladder games, wins and win rate. What a board does not show is null
+         */
         TrophyRow: {
             name: string;
+            world_champion: boolean;
             /**
-             * @description WC for a World Champion, GM for a top-division winner, else M
-             * @enum {string}
+             * @description WC for a World Champion, GM for a top-division winner or World Championship medallist, else M
+             * @enum {string|null}
              */
-            title: "WC" | "GM" | "M";
-            gold: number;
-            silver: number;
-            bronze: number;
+            title: "WC" | "GM" | "M" | null;
+            gold: number | null;
+            silver: number | null;
+            bronze: number | null;
+            /** @description A cup medallist's first two honours */
+            details: string | null;
+            /** @description Ladder games played */
+            games: number | null;
+            wins: number | null;
+            /**
+             * Format: double
+             * @description Ladder wins as a percentage of games, to one decimal
+             */
+            win_rate: number | null;
         };
         SeasonRecord: {
             name: string;
@@ -1727,5 +1748,5 @@ export const modelValues: ReadonlyArray<FlattenedDeepRequired<components>["schem
 export const formatValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["Format"]> = [0, 2, 3, 4];
 export const titleCodeValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["TitleCode"]> = ["WC", "GM", "M", "P", "G", "S", "B", "W"];
 export const calibrationRowModeValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["CalibrationRow"]["mode"]> = ["standard", "walk_forward"];
-export const seriesValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["Series"]> = ["international", "intermezzo", "royal_league"];
+export const seriesValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["Series"]> = ["international", "intermezzo", "royal_league", "worlds", "grand_slams", "ladders"];
 export const trophyRowTitleValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["TrophyRow"]["title"]> = ["WC", "GM", "M"];

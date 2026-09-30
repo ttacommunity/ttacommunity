@@ -1632,7 +1632,7 @@ components:
     Series:
       description: A tournament series
       type: string
-      enum: [international, intermezzo, royal_league]
+      enum: [international, intermezzo, royal_league, worlds, grand_slams, ladders]
     TournamentSeries:
       type: object
       required: [run_id, series, games, seasons, board, season_records, game_records]
@@ -1643,13 +1643,17 @@ components:
         series:
           $ref: "#/components/schemas/Series"
         games:
-          description: Every game of the series in the run's matches
+          description: The games the original site counts for the series, by its name patterns
           type: integer
         seasons:
-          description: The latest season a game's name gives
+          description: |
+            The editions the original site counts: the latest season a
+            league game's name gives, the World Championship's distinct
+            editions, the cups' distinct names before "Stage", or the
+            ladders' fixed 16
           type: integer
         board:
-          description: The top division's medallists, most golds first, then silvers, bronzes and career points
+          description: The series' board in the original site's order (for leagues, most golds first, then silvers, bronzes and career points)
           type: array
           items:
             $ref: "#/components/schemas/TrophyRow"
@@ -1659,26 +1663,52 @@ components:
           items:
             $ref: "#/components/schemas/SeasonRecord"
         game_records:
-          description: The ten highest winning scores in top-division games
+          description: The ten highest winning scores in the games a series page lists (top-division or World Championship playoff games)
           type: array
           items:
             $ref: "#/components/schemas/GameRecord"
     TrophyRow:
+      description: |
+        One player on a series' board: medals and a title for the leagues
+        and the World Championship, medals and honours for the cups, or
+        ladder games, wins and win rate. What a board does not show is null
       type: object
-      required: [name, title, gold, silver, bronze]
+      required: [name, world_champion, title, gold, silver, bronze, details, games, wins, win_rate]
       properties:
         name:
           type: string
+        world_champion:
+          type: boolean
         title:
-          description: WC for a World Champion, GM for a top-division winner, else M
+          description: WC for a World Champion, GM for a top-division winner or World Championship medallist, else M
           type: string
           enum: [WC, GM, M]
+          nullable: true
         gold:
           type: integer
+          nullable: true
         silver:
           type: integer
+          nullable: true
         bronze:
           type: integer
+          nullable: true
+        details:
+          description: A cup medallist's first two honours
+          type: string
+          nullable: true
+        games:
+          description: Ladder games played
+          type: integer
+          nullable: true
+        wins:
+          type: integer
+          nullable: true
+        win_rate:
+          description: Ladder wins as a percentage of games, to one decimal
+          type: number
+          format: double
+          nullable: true
     SeasonRecord:
       type: object
       required: [name, world_champion, points, games, placings, season, division, last_played]

@@ -32,61 +32,92 @@ func classifyGame(t *testing.T, pool *pgxpool.Pool, run, match int64, c classifi
 
 func ptr(s string) *string { return &s }
 
-func TestTournamentSeriesCountsGamesAndTheSeasonsNamesGive(t *testing.T) {
+func TestTournamentSeriesGivesTheSeriesCounts(t *testing.T) {
 	pool := migrated(t)
+	ctx := context.Background()
 	run := publishedRun(t, pool)
-	for _, c := range []classified{
-		{season: 20, nameSeason: 20},
-		{season: 33, nameSeason: 34, division: ptr("Silver"), source: ptr("name")},
-	} {
-		id := addGame(t, pool, 0, "2025-01-02", fmt.Sprintf("International S%d", c.nameSeason), Seat{"ann", 9}, Seat{"bob", 5})
-		classifyGame(t, pool, run, id, c)
+	if _, err := pool.Exec(ctx, "INSERT INTO tournament_series VALUES ($1, 'grand_slams', 12868, 5222)", run); err != nil {
+		t.Fatalf("adding series counts: %v", err)
 	}
 
-	got, err := NewRatingsReader(asReader(t, pool)).TournamentSeries(context.Background(), run, "international")
+	got, err := NewRatingsReader(asReader(t, pool)).TournamentSeries(ctx, run, "grand_slams")
 	if err != nil {
 		t.Fatalf("TournamentSeries: %v", err)
 	}
-	if got.Games != 2 || got.Seasons != 34 {
-		t.Errorf("games %d, seasons %d; want 2 and 34 (the latest name's season)", got.Games, got.Seasons)
+	if got.Games != 12868 || got.Seasons != 5222 {
+		t.Errorf("games %d, seasons %d; want the run's counts 12868 and 5222", got.Games, got.Seasons)
 	}
 	if got.Board == nil || got.SeasonRecords == nil || got.GameRecords == nil {
 		t.Errorf("empty lists = %v %v %v, want empty slices", got.Board, got.SeasonRecords, got.GameRecords)
 	}
 }
 
-func TestTournamentSeriesOrdersTheBoardByMedalsPointsThenFirstMedal(t *testing.T) {
+func TestTournamentSeriesGivesTheBoardInTheEnginesOrder(t *testing.T) {
 	pool := migrated(t)
 	ctx := context.Background()
 	run := publishedRun(t, pool)
+	if _, err := pool.Exec(ctx, "INSERT INTO player_peak_titles VALUES ($1, 'cat', 'WC', 2023)", run); err != nil {
+		t.Fatalf("adding a World Champion: %v", err)
+	}
+	insert := `INSERT INTO tournament_boards (run_id, series, player_name, gold, silver, bronze, points, title,
+		first_season, position, details, games, wins, win_rate) VALUES ($1, 'x', $2, $3, $4, $5, 0, $6, NULL, $7, $8, $9, $10, $11)`
+	one, two := 1, 2
+	three, rate := 30, 66.7
 	for _, b := range []struct {
 		name                 string
-		gold, silver, bronze int
-		points               float64
-		title                string
-		first                int
+		gold, silver, bronze *int
+		title, details       *string
+		position             int
+		games, wins          *int
+		rate                 *float64
 	}{
-		{"cat", 1, 0, 0, 40, "GM", 1}, {"ann", 2, 0, 0, 10, "WC", 1}, {"bob", 1, 0, 0, 50, "GM", 1},
-		{"dan", 0, 3, 1, 90, "M", 5}, {"eve", 0, 3, 1, 90, "M", 2},
+		{name: "cat", gold: &one, silver: &one, bronze: &two, title: ptr("GM"), position: 2},
+		{name: "bob", gold: &two, silver: &one, bronze: &one, details: ptr("2025 Wimbledon TTA Champion"), position: 1},
+		{name: "ann", games: &three, wins: &two, rate: &rate, position: 3},
 	} {
-		_, err := pool.Exec(ctx, "INSERT INTO tournament_boards VALUES ($1, 'international', $2, $3, $4, $5, $6, $7, $8)",
-			run, b.name, b.gold, b.silver, b.bronze, b.points, b.title, b.first)
-		if err != nil {
+		if _, err := pool.Exec(ctx, insert, run, b.name, b.gold, b.silver, b.bronze, b.title, b.position, b.details, b.games, b.wins, b.rate); err != nil {
 			t.Fatalf("adding %s to the board: %v", b.name, err)
 		}
 	}
 
-	got, err := NewRatingsReader(asReader(t, pool)).TournamentSeries(ctx, run, "international")
+	got, err := NewRatingsReader(asReader(t, pool)).TournamentSeries(ctx, run, "x")
 	if err != nil {
 		t.Fatalf("TournamentSeries: %v", err)
 	}
-	want := []TrophyRow{
-		{Name: "ann", Title: "WC", Gold: 2}, {Name: "bob", Title: "GM", Gold: 1}, {Name: "cat", Title: "GM", Gold: 1},
-		{Name: "eve", Title: "M", Silver: 3, Bronze: 1}, {Name: "dan", Title: "M", Silver: 3, Bronze: 1},
+	var lines []string
+	for _, b := range got.Board {
+		lines = append(lines, fmt.Sprintf("%s wc=%t title=%s medals=%s details=%s ladder=%s",
+			b.Name, b.WorldChampion, orDash(b.Title), medals(b), orDash(b.Details), ladder(b)))
 	}
-	if !slices.Equal(got.Board, want) {
-		t.Errorf("board = %v, want %v", got.Board, want)
+	want := []string{
+		"bob wc=false title=- medals=2/1/1 details=2025 Wimbledon TTA Champion ladder=-",
+		"cat wc=true title=GM medals=1/1/2 details=- ladder=-",
+		"ann wc=false title=- medals=- details=- ladder=2/30 66.7",
 	}
+	if !slices.Equal(lines, want) {
+		t.Errorf("board =\n%q\nwant\n%q", lines, want)
+	}
+}
+
+func orDash(s *string) string {
+	if s == nil {
+		return "-"
+	}
+	return *s
+}
+
+func medals(b TrophyRow) string {
+	if b.Gold == nil {
+		return "-"
+	}
+	return fmt.Sprintf("%d/%d/%d", *b.Gold, *b.Silver, *b.Bronze)
+}
+
+func ladder(b TrophyRow) string {
+	if b.Games == nil {
+		return "-"
+	}
+	return fmt.Sprintf("%d/%d %.1f", *b.Wins, *b.Games, *b.WinRate)
 }
 
 func TestTournamentSeriesGivesTheTenBestSeasons(t *testing.T) {
