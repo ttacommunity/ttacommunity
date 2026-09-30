@@ -1,0 +1,69 @@
+# The dev site's engine, built from branch dev, writing runs to ratings_dev as
+# its owner, ratings_dev, which cannot write the parity database. Suspended:
+#   kubectl -n ttacommunity create job --from=cronjob/engine-dev engine-dev-manual-1
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: engine-dev
+  namespace: ttacommunity
+spec:
+  suspend: true
+  schedule: "0 4 * * *"
+  concurrencyPolicy: Forbid
+  jobTemplate:
+    spec:
+      backoffLimit: 0
+      activeDeadlineSeconds: 7200
+      ttlSecondsAfterFinished: 86400
+      template:
+        metadata:
+          labels:
+            app: engine-dev
+        spec:
+          restartPolicy: Never
+          nodeSelector:
+            kubernetes.io/hostname: unstableserver
+          tolerations:
+            - key: workload-class
+              operator: Equal
+              value: amd64-opt-in
+              effect: NoSchedule
+          automountServiceAccountToken: false
+          imagePullSecrets:
+            - name: gitlab-registry
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 65532
+            runAsGroup: 65532
+            seccompProfile:
+              type: RuntimeDefault
+          containers:
+            - name: engine
+              image: registry.gitlab.com/unstablehomelab/ttacommunity/engine:sha-96821994@sha256:5195bb38659dde48e75040ece35cb438ebc16413990ad46a637c3d35ffbff0d0
+              args: [-m, tta_ratings_engine.run]
+              env:
+                # The commit the image was built from.
+                - name: ENGINE_VERSION
+                  value: "96821994"
+                - name: RATINGS_DATABASE_URL
+                  valueFrom:
+                    secretKeyRef:
+                      name: ratings-dev-engine
+                      key: database-url
+              resources:
+                requests:
+                  cpu: "1"
+                  memory: 1536Mi
+                limits:
+                  memory: 3Gi
+              securityContext:
+                allowPrivilegeEscalation: false
+                readOnlyRootFilesystem: true
+                capabilities:
+                  drop: [ALL]
+              volumeMounts:
+                - name: tmp
+                  mountPath: /tmp
+          volumes:
+            - name: tmp
+              emptyDir: {}

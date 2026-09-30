@@ -162,7 +162,13 @@ if full && area checks; then
   run bash checks/no-raw-html.sh
   run bash checks/secret-scan.sh --all
   run bash checks/verify-digests.sh
-  run bash checks/deploy-current.sh
+  # Work bound for branch dev is deployed from deploy/dev; main's pins stay as main built them.
+  target=${CI_MERGE_REQUEST_TARGET_BRANCH_NAME:-${CI_COMMIT_BRANCH:-$(git rev-parse --abbrev-ref HEAD)}}
+  if [ "$target" = dev ]; then
+    run bash checks/deploy-current.sh deploy/dev
+  else
+    run bash checks/deploy-current.sh
+  fi
 
   step "shell"
   if need shellcheck "the shell scripts"; then

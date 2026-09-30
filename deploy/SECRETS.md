@@ -13,6 +13,9 @@ Pipe values in; never use `--from-literal`, which leaves them in shell history.
 | `ratings-api` | `password`, `database-url` | `api`, `scripts/seed-cluster-db.sh` | The read-only `ratings_api` login |
 | `gitlab-registry` | `.dockerconfigjson` | `api`, `engine` | Pulls images from the project's GitLab registry. Deploy token `cluster-image-pull` |
 | `ttacommunity-tunnel` | `credentials.json` | `cloudflared` | The `ttacommunity` tunnel's credentials, from `cloudflared tunnel create ttacommunity` (`~/.cloudflared/<tunnel id>.json`) |
+| `ratings-dev-engine` | `database-url` | `engine-dev` | The dev engine's connection URL, as `ratings_dev`, owner of `ratings_dev` only |
+| `ratings-dev-api` | `password`, `database-url` | `api-dev`, `scripts/seed-dev-db.sh` | The dev api's read-only `ratings_dev_api` login |
+| `ttacommunity-dev-tunnel` | `credentials.json` | `cloudflared-dev` | The `ttacommunity-dev` tunnel's credentials, from `cloudflared tunnel create ttacommunity-dev` |
 | `ttacommunity-git-auth`, **in `flux-system`** | `username`, `password` | Flux | Reads this repo. Deploy token `flux-git-read`, `read_repository` only |
 
 ## Creating them
@@ -37,6 +40,23 @@ unset pw
 ```
 
 `scripts/seed-cluster-db.sh` gives `ratings_api` the password in `ratings-api`.
+
+The dev site's (`deploy/dev/`). `scripts/seed-dev-db.sh` then creates both
+logins with these passwords, and `ratings_dev` as a copy of `ratings`:
+
+```sh
+ns=(-n ttacommunity)
+pw=$(openssl rand -hex 24)
+printf 'postgres://ratings_dev:%s@ratings-db:5432/ratings_dev?sslmode=disable' "$pw" |
+  kubectl "${ns[@]}" create secret generic ratings-dev-engine --from-file=database-url=/dev/stdin
+
+pw=$(openssl rand -hex 24)
+printf 'postgres://ratings_dev_api:%s@ratings-db:5432/ratings_dev?sslmode=disable' "$pw" > /dev/shm/url
+printf %s "$pw" | kubectl "${ns[@]}" create secret generic ratings-dev-api \
+  --from-file=password=/dev/stdin --from-file=database-url=/dev/shm/url
+rm /dev/shm/url
+unset pw
+```
 
 `gitlab-registry` holds a **project deploy token with `read_registry` only**
 (GitLab → Settings → Repository → Deploy tokens):
