@@ -301,6 +301,17 @@ cd backend && go run ./cmd/load -migrate
 psql "$RATINGS_DATABASE_URL" -Atc "SELECT max(version_id) FROM goose_db_version"
 ```
 
+**Load the recorded tournament facts** (see [Load ratings data](#load-ratings-data))
+when they change, before the run that should use them. Each file replaces
+its kind:
+
+```bash
+cd backend
+go run ./cmd/load -facts divisions ~/tta-data/tournaments/group_divisions.csv
+go run ./cmd/load -facts placements ~/tta-data/tournaments/official_placements.csv
+go run ./cmd/load -facts corrections ~/tta-data/tournaments/season_corrections.csv
+```
+
 **Compute a rating run** with the image `deploy/engine.yaml` pins. The
 CronJob is suspended, so a run is started by hand as a Job from it. It takes
 about 25 minutes, and ends `complete` or `failed` but **never published**:
