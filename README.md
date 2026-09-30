@@ -371,6 +371,7 @@ from `main`:
 | Worker | Root directory | Build command | Deploy command |
 |---|---|---|---|
 | `ttacommunity` (the site) | `/web` | `pnpm --filter @ttac/site build` | `npx wrangler@4.141.0 deploy --config site/wrangler.jsonc` |
+| `ttacommunity`, branch `dev` only (a Preview) | `/web` | `pnpm --filter @ttac/site build` | `npx wrangler@4.141.0 preview --config site/wrangler.jsonc` |
 | `ttac-admin` | `/web` | `pnpm --filter @ttac/admin build` | `npx wrangler@4.141.0 deploy --config admin/wrangler.jsonc` |
 | `ttac-auth` (Discord sign-in for Access) | `/infra/access-oidc` | none | `npx wrangler deploy` |
 
@@ -378,13 +379,17 @@ Build variables, set in each site Worker's build settings:
 
 | Variable | Worker | Value | Why |
 |---|---|---|---|
-| `PUBLIC_API_URL` | `ttacommunity` | `https://ttac-api.unstableunicorn.dev` | Where the browser reads ratings. Sent to the browser, so never a secret |
+| `PUBLIC_API_URL` | `ttacommunity` | `https://ttac-api.unstableunicorn.dev`; on `dev`, `https://ttac-api-dev.unstableunicorn.dev` | Where the browser reads ratings, and the CSP's `connect-src`. Sent to the browser, so never a secret |
+| `SITE_NOINDEX` | `ttacommunity`, `dev` only | `1` | Adds `X-Robots-Tag: noindex`: Cloudflare adds none to a Preview on a custom domain |
 | `NODE_VERSION` | both sites | the `node` version in `mise.toml` | The build image's default is older |
 | `PNPM_VERSION` | both sites | the pnpm version in `web/package.json` | The build image does not read `packageManager` |
 
-When importing a Worker, **turn off non-production (preview) builds**. The
-configs turn preview URLs off, so a preview build fails, and it reports that
-failure on the merge request's commit, which then cannot merge.
+When importing a Worker, **turn off non-production (preview) builds**, and
+on `ttacommunity` limit them to branch `dev`. A preview build on any other
+branch reports on the merge request's commit, and a failure there blocks
+the merge. `dev` is served at `dev.ttacommunity.unstableunicorn.dev`: a
+Preview on a custom domain is `<branch>.<route host>`, and the route sets
+`previews_enabled`.
 
 `ttac-auth` needs one runtime secret, `DISCORD_CLIENT_SECRET`, set under the
 Worker's Variables and Secrets (not its build variables).

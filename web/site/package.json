@@ -4,7 +4,7 @@
   "type": "module",
   "scripts": {
     "dev": "astro dev",
-    "build": "astro build && node ../../checks/csp-inline.mjs dist",
+    "build": "astro build && node scripts/site-headers.mjs dist && node ../../checks/csp-inline.mjs dist",
     "check": "astro check"
   },
   "dependencies": {
