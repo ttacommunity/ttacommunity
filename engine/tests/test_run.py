@@ -76,6 +76,39 @@ def test_a_run_writes_every_result_and_completes(conn, add_match):
     assert count(conn, "pairwise_matches", run_id) == 10
 
 
+def test_a_run_writes_tournament_results(conn, add_match):
+    season(add_match)
+    add_match(
+        ("Ann", 90),
+        ("Bob", 80),
+        ("Cat", 70),
+        day=date(2022, 2, 12),
+        tournament="International S30 - Grandmaster game 1",
+    )
+
+    run_id = run(conn, "v-test", formats=[2], log=lambda _: None)
+
+    assert count(conn, "tournament_games", run_id) == 1
+    assert count(conn, "tournament_standings", run_id) == 3
+    assert count(conn, "tournament_boards", run_id) == 3
+
+
+def test_a_recorded_division_changes_the_input_fingerprint(conn, add_match):
+    season(add_match)
+    first = run(conn, "v1", formats=[2], log=lambda _: None)
+    conn.execute(
+        "INSERT INTO tournament_group_divisions "
+        "VALUES ('international', 3, 'Grandmaster', 'Ann', 'sheet')"
+    )
+    conn.commit()
+    second = run(conn, "v1", formats=[2], log=lambda _: None)
+
+    assert (
+        the_run(conn, second)["input_fingerprint"]
+        != the_run(conn, first)["input_fingerprint"]
+    )
+
+
 def test_a_run_is_not_published_unless_asked(conn, add_match):
     season(add_match)
 
@@ -113,8 +146,9 @@ def test_progress_counts_every_step_up_front(conn, add_match):
     run(conn, "v-test", formats=[0, 2], log=lines.append)
 
     progress = [line for line in lines if line.startswith("[")]
-    # pairs + 16 models x 2 formats + titles + 16 calibrations x 2 + walk-forward months (2 + 2)
-    assert progress[-1].startswith("[70/70] ")
+    # pairs + 16 models x 2 formats + tournaments + titles + 16 calibrations x 2
+    # + walk-forward months (2 + 2)
+    assert progress[-1].startswith("[71/71] ")
 
 
 def test_a_failure_marks_the_run_failed_and_is_raised(conn, add_match, monkeypatch):
@@ -160,12 +194,15 @@ def test_the_command_runs_the_formats_asked_for(monkeypatch, db_url, conn, add_m
     assert [r["player_count"] for r in formats] == [2]
 
 
-def test_a_database_missing_a_migration_is_refused_before_a_run_starts(conn, add_match):
+@pytest.mark.parametrize("table", ["player_titles", "tournament_group_divisions"])
+def test_a_database_missing_a_migration_is_refused_before_a_run_starts(
+    conn, add_match, table
+):
     season(add_match)
-    conn.execute("DROP TABLE player_titles")
+    conn.execute(f"DROP TABLE {table} CASCADE")
     conn.commit()
 
-    with pytest.raises(runner.SchemaOutOfDate, match="player_titles"):
+    with pytest.raises(runner.SchemaOutOfDate, match=table):
         run(conn, "v-test", log=lambda _: None)
 
     assert conn.execute("SELECT count(*) AS n FROM rating_runs").fetchone()["n"] == 0
@@ -185,6 +222,7 @@ def test_a_run_ends_with_the_time_each_phase_took(conn, add_match):
     assert phases == [
         "pairs",
         "models 2p",
+        "tournaments",
         "titles",
         "calibration 2p",
         "walk-forward 2p",
@@ -195,7 +233,8 @@ def test_every_step_has_a_cost_for_the_eta():
     for fmt in FORMATS:
         for phase in ("models", "calibration", "walk-forward"):
             assert STEP_COST[phase, fmt] > 0
-    assert STEP_COST["pairs", None] > 0 and STEP_COST["titles", None] > 0
+    for phase in ("pairs", "tournaments", "titles"):
+        assert STEP_COST[phase, None] > 0
 
 
 def test_a_failed_run_keeps_the_steps_it_finished(conn, db_url, add_match, monkeypatch):
