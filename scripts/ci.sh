@@ -162,11 +162,13 @@ if full && area checks; then
   run bash checks/no-raw-html.sh
   run bash checks/secret-scan.sh --all
   run bash checks/verify-digests.sh
-  # Work bound for branch dev is deployed from deploy/dev; main's pins stay as main built them.
+  # dev deploys from deploy/dev. main's pins are checked too, but not while dev's MR to main is a draft.
   target=${CI_MERGE_REQUEST_TARGET_BRANCH_NAME:-${CI_COMMIT_BRANCH:-$(git rev-parse --abbrev-ref HEAD)}}
-  if [ "$target" = dev ]; then
+  source=${CI_MERGE_REQUEST_SOURCE_BRANCH_NAME:-$target}
+  if [ "$source" = dev ] || [ "$target" = dev ]; then
     run bash checks/deploy-current.sh deploy/dev
-  else
+  fi
+  if [ "$target" != dev ] && ! { [ "$source" = dev ] && [ "${CI_MERGE_REQUEST_DRAFT:-}" = true ]; }; then
     run bash checks/deploy-current.sh
   fi
 
