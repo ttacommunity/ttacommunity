@@ -167,3 +167,19 @@ def test_the_summary_gives_each_phases_steps_and_time(clock, lines):
         "models: 2 steps in 0m15s, 7.5s each",
         "calibration: 1 step in 0m05s, 5.0s each",
     ]
+
+
+def test_a_step_timed_elsewhere_counts_its_own_seconds_to_its_phase(clock, lines):
+    p = progress(3, clock, lines)
+    clock.now = 100
+
+    p.advance("whr 2p", phase="models 2p", seconds=12.5)
+    p.advance("whr 3p", phase="models 3p", seconds=40.0)
+    p.advance("glicko2_std 2p", phase="models 2p", seconds=7.5)
+    lines.clear()
+    p.summary()
+
+    assert lines == [
+        "models 2p: 2 steps in 0m20s, 10.0s each",
+        "models 3p: 1 step in 0m40s, 40.0s each",
+    ]

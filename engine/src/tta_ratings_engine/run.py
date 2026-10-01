@@ -6,7 +6,10 @@ A run is created as 'running', filled step by step, then marked 'complete', or
 
 import argparse
 import functools
+import multiprocessing
 import os
+import time
+from concurrent.futures import FIRST_EXCEPTION, ProcessPoolExecutor, wait
 
 from tta_ratings_engine.data.badges import derive_tournament_badges
 from tta_ratings_engine.data.db import connect
@@ -178,16 +181,24 @@ def _label(fmt):
 
 
 def run(
-    conn, engine_version, *, formats=FORMATS, log=print, make_current=False, tournaments_only=False
+    conn, engine_version, *, formats=FORMATS, log=print, make_current=False, tournaments_only=False,
+    workers=1, url=None,
 ):  # fmt: skip
     """Computes a run and returns its run_id.
 
     With tournaments_only, it copies the current run's ratings and
     calibration and recomputes only tournament results and titles, for
-    trying a change to those quickly. Raises SchemaOutOfDate, NoMatches or
-    NoCurrentRun before creating a run, or whatever failed the run
-    (MatchesChanged if the matches differ from the copied run's).
+    trying a change to those quickly. With workers > 1, the steps after the
+    pairs run in that many processes, each connecting to url; the results
+    are the same. Raises ValueError for workers without a url, and
+    SchemaOutOfDate, NoMatches or NoCurrentRun before creating a run, or
+    whatever failed the run (MatchesChanged if the matches differ from the
+    copied run's).
     """
+    if workers < 1 or (workers > 1 and not url):
+        raise ValueError(
+            "a parallel run needs one or more workers and the database url"
+        )
     with conn.transaction():
         check_schema(conn)
         fingerprint = input_fingerprint(conn)
@@ -207,6 +218,7 @@ def run(
     if source is None:
         log(
             f"run {run_id}: engine {engine_version}, input {fingerprint}, formats {formats}"
+            + (f", {workers} workers" if workers > 1 else "")
         )
     else:
         log(
@@ -214,7 +226,9 @@ def run(
         )
 
     try:
-        if source is None:
+        if source is None and workers > 1:
+            _compute_parallel(conn, run_id, formats, log, workers, url)
+        elif source is None:
             _compute(conn, run_id, formats, log)
         else:
             _recompute_tournaments(conn, run_id, source, log)
@@ -302,6 +316,103 @@ def _compute(conn, run_id, formats, log):
     progress.summary()
 
 
+def _tasks(formats):
+    """Returns the steps after the pairs as (kind, format, model), longest first.
+
+    Each reads only the run's pairs and the loaded data, never another
+    step's results, so they can run in any order.
+    """
+    tasks = [("walk-forward", fmt, None) for fmt in formats]
+    tasks += [("calibration", fmt, name) for fmt in formats for name in MODEL_TYPES]
+    tasks += [("models", fmt, name) for fmt in formats for name in MODEL_TYPES]
+    return tasks + [("tournaments", None, None)]
+
+
+def _run_task(url, run_id, kind, fmt, name):
+    """Runs one task from _tasks on its own connection to url, in a worker process.
+
+    Returns the seconds it took.
+    """
+    start = time.monotonic()
+    with connect(url) as conn:
+        on_run = {"conn": conn, "run_id": run_id}
+        if kind == "models":
+            _, compute, kwargs = next(m for m in MODELS if m[0] == name)
+            compute(player_count=fmt, **kwargs, **on_run)
+        elif kind == "calibration":
+            run_standard_calibration_all(
+                verbose=False, model_filter=[name], formats=[fmt], **on_run
+            )
+        elif kind == "walk-forward":
+            run_walk_forward_evaluation(
+                player_count=fmt, start_eval_month=WALK_FORWARD_START, verbose=False, **on_run
+            )  # fmt: skip
+        elif kind == "tournaments":
+            derive_tournaments(**on_run)
+            derive_tournament_badges(**on_run)
+        else:
+            raise ValueError(f"unknown engine task: {kind}")
+    return time.monotonic() - start
+
+
+def _compute_parallel(conn, run_id, formats, log, workers, url):
+    """As _compute, but the steps after the pairs run in worker processes."""
+    progress = Progress(1, log=log)
+    progress.working_on("pairs")
+    with Heartbeat(progress):
+        expand_pairwise(conn, run_id)
+        months = {fmt: eval_months(conn, run_id, fmt) for fmt in formats}
+        tasks = _tasks(formats)
+        progress.total = 1 + len(tasks) + 1  # tournaments and titles are reported apart
+        progress.total_cost = (
+            STEP_COST["pairs", None]
+            + STEP_COST["tournaments", None]
+            + STEP_COST["titles", None]
+            + sum(
+                len(MODELS) * (STEP_COST["models", f] + STEP_COST["calibration", f])
+                + months[f] * STEP_COST["walk-forward", f]
+                for f in formats
+            )
+        )
+        progress.advance("pairs", STEP_COST["pairs", None], "pairs")
+        progress.working_on(f"{len(tasks)} steps in {workers} workers")
+
+        # spawn, not fork: a forked child would share the parent's database socket.
+        pool = ProcessPoolExecutor(
+            workers, mp_context=multiprocessing.get_context("spawn")
+        )
+        try:
+            pending = {pool.submit(_run_task, url, run_id, *t): t for t in tasks}
+            while pending:
+                done, _ = wait(pending, return_when=FIRST_EXCEPTION)
+                for future in done:
+                    kind, fmt, name = pending.pop(future)
+                    _report(progress, months, kind, fmt, name, future.result())
+        finally:
+            pool.shutdown(cancel_futures=True)
+    progress.summary()
+
+
+def _report(progress, months, kind, fmt, name, seconds):
+    """Advances progress for one finished task from _tasks that took seconds."""
+    if kind == "tournaments":
+        cost = STEP_COST["tournaments", None]
+        progress.advance("tournaments", cost, "tournaments", seconds=seconds)
+        progress.advance("titles", STEP_COST["titles", None], "titles", seconds=0.0)
+    elif kind == "walk-forward":
+        label = f"walk-forward {_label(fmt)}"
+        cost = months[fmt] * STEP_COST["walk-forward", fmt]
+        progress.advance(label, cost, label, seconds=seconds)
+    else:
+        label = name if kind == "models" else f"calibration {name}"
+        progress.advance(
+            f"{label} {_label(fmt)}",
+            STEP_COST[kind, fmt],
+            f"{kind} {_label(fmt)}",
+            seconds=seconds,
+        )
+
+
 def _columns(conn, table, leave_out=("run_id",)):
     return [
         r["column_name"]
@@ -386,6 +497,10 @@ def main(argv=None):
         help="publish the run when it completes",
     )  # fmt: skip
     parser.add_argument(
+        "--workers", type=int, default=1,
+        help="processes for the steps after the pairs (default: 1, one after another)",
+    )  # fmt: skip
+    parser.add_argument(
         "--tournaments-only", action="store_true",
         help="copy the current run's ratings and recompute only tournament results and titles",
     )  # fmt: skip
@@ -403,6 +518,8 @@ def main(argv=None):
             log=functools.partial(print, flush=True),
             make_current=args.make_current,
             tournaments_only=args.tournaments_only,
+            workers=args.workers,
+            url=os.environ.get("RATINGS_DATABASE_URL"),
         )
 
 

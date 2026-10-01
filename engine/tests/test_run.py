@@ -397,3 +397,66 @@ def test_every_run_table_is_copied_or_recomputed(conn):
         "rating_runs",
         "current_run",
     }
+
+
+def test_a_parallel_run_writes_what_a_sequential_run_writes(conn, db_url, add_match):
+    season(add_match)
+    sequential = run(conn, "v1", formats=[0, 2], log=lambda _: None)
+
+    parallel = run(
+        conn, "v1", formats=[0, 2], log=lambda _: None, workers=3, url=db_url
+    )
+
+    assert the_run(conn, parallel)["status"] == "complete"
+    for table in runner.COPIED_TABLES + runner.RECOMPUTED_TABLES:
+        assert rows_of(conn, table, parallel) == rows_of(conn, table, sequential), table
+    assert count(conn, "walk_forward_calibration", parallel) > 0
+
+
+def test_a_parallel_run_counts_every_task_up_front(conn, db_url, add_match):
+    season(add_match)
+    lines = []
+
+    run(conn, "v-test", formats=[0, 2], log=lines.append, workers=2, url=db_url)
+
+    progress = [line for line in lines if line.startswith("[")]
+    # pairs + 16 models x 2 formats + tournaments + titles + 16 calibrations x 2
+    # + one walk-forward per format
+    assert progress[-1].startswith("[69/69] ")
+
+
+def test_a_parallel_run_needs_the_database_url(conn, add_match):
+    season(add_match)
+    with pytest.raises(ValueError, match="url"):
+        run(conn, "v-test", formats=[2], log=lambda _: None, workers=2)
+    assert conn.execute("SELECT count(*) AS n FROM rating_runs").fetchone()["n"] == 0
+
+
+def test_a_failed_task_fails_a_parallel_run(conn, db_url, add_match, monkeypatch):
+    season(add_match)
+    real = runner._tasks
+    monkeypatch.setattr(
+        runner, "_tasks", lambda formats: real(formats) + [("no-such-task", 2, None)]
+    )
+
+    with pytest.raises(ValueError, match="no-such-task"):
+        run(conn, "v-test", formats=[2], log=lambda _: None, workers=2, url=db_url)
+
+    assert (
+        conn.execute("SELECT status FROM rating_runs").fetchone()["status"] == "failed"
+    )
+
+
+def test_the_command_runs_in_parallel_when_asked(monkeypatch, db_url, conn, add_match):
+    season(add_match)
+    monkeypatch.setenv("RATINGS_DATABASE_URL", db_url)
+    monkeypatch.setenv("ENGINE_VERSION", "v-cli")
+    lines = []
+    monkeypatch.setattr(
+        "builtins.print", lambda *a, **_: lines.append(" ".join(map(str, a)))
+    )
+
+    main(["--formats", "2", "--workers", "2", "--make-current"])
+
+    assert the_run(conn, current(conn))["status"] == "complete"
+    assert any("2 workers" in line for line in lines)
