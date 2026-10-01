@@ -708,6 +708,12 @@
   text-align: left;
 }
 
+.comp-table td.comp-empty {
+  text-align: center;
+  color: var(--text-muted);
+  font-style: italic;
+}
+
 .comp-table .comp-daneo {
   background: rgba(139, 92, 246, 0.16);
   border-left: 3px solid #8b5cf6;

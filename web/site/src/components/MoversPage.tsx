@@ -55,6 +55,13 @@ function PlayerCard({ player, format }: { player: ComparedPlayer; format: Format
             </tr>
           </thead>
           <tbody>
+            {player.ratings.length === 0 && (
+              <tr>
+                <td colSpan={7} className="comp-empty">
+                  {player.name} has no rating in {FORMAT_NAMES[format]}: no rated games in this format.
+                </td>
+              </tr>
+            )}
             {player.ratings.map((r) => {
               const row = ROWS[r.model] ?? { engine: r.model, reset: '', className: '' };
               return (
