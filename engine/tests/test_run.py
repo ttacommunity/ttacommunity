@@ -460,3 +460,42 @@ def test_the_command_runs_in_parallel_when_asked(monkeypatch, db_url, conn, add_
 
     assert the_run(conn, current(conn))["status"] == "complete"
     assert any("2 workers" in line for line in lines)
+
+
+def run_stats(conn, run_id):
+    return conn.execute(
+        "SELECT games, players, pairs, first_game::text, last_game::text FROM rating_runs WHERE run_id = %s",
+        (run_id,),
+    ).fetchone()
+
+
+def test_a_run_records_its_games_players_and_dates(conn, add_match):
+    season(add_match)
+
+    run_id = run(conn, "v-test", formats=[2], log=lambda _: None)
+
+    assert run_stats(conn, run_id) == {
+        "games": 6,
+        "players": 3,
+        "pairs": 10,
+        "first_game": "2021-11-03",
+        "last_game": "2022-02-09",
+    }
+
+
+def test_a_tournaments_only_run_records_its_stats_too(conn, add_match):
+    season(add_match)
+    full = run(conn, "v1", formats=[2], log=lambda _: None, make_current=True)
+
+    fast = run(conn, "v2", tournaments_only=True, log=lambda _: None)
+
+    assert run_stats(conn, fast) == run_stats(conn, full)
+
+
+def test_a_database_without_the_run_stats_migration_is_refused(conn, add_match):
+    season(add_match)
+    conn.execute("ALTER TABLE rating_runs DROP COLUMN games")
+    conn.commit()
+
+    with pytest.raises(runner.SchemaOutOfDate, match="rating_runs.games"):
+        run(conn, "v-test", log=lambda _: None)

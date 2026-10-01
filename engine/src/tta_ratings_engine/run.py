@@ -91,6 +91,9 @@ RESULT_TABLES = [
 ]
 
 
+# What a completed run records about its input, for the site's header and footer.
+RUN_STATS = ["games", "players", "pairs", "first_game", "last_game"]
+
 # A tournaments-only run copies these from the current run, and recomputes the rest.
 COPIED_TABLES = [
     "player_ratings",
@@ -122,12 +125,15 @@ class SchemaOutOfDate(Exception):
 
 
 def check_schema(conn):
-    """Raises SchemaOutOfDate naming every table in RESULT_TABLES that does not exist."""
+    """Raises SchemaOutOfDate naming every table in RESULT_TABLES, and every RUN_STATS column, that does not exist."""
     missing = [
         t
         for t in RESULT_TABLES
         if conn.execute("SELECT to_regclass(%s) AS t", (t,)).fetchone()["t"] is None
     ]
+    if not missing:
+        have = set(_columns(conn, "rating_runs"))
+        missing = [f"rating_runs.{c}" for c in RUN_STATS if c not in have]
     if missing:
         raise SchemaOutOfDate(
             f"missing {', '.join(missing)}: apply the ratings migrations first"
@@ -240,6 +246,7 @@ def run(
         raise
 
     with conn.transaction():
+        _record_stats(conn, run_id)
         _finish(conn, run_id, "complete")
         if make_current:
             _publish(conn, run_id)
@@ -465,6 +472,23 @@ def _recompute_tournaments(conn, run_id, source, log):
     derive_tournament_badges(**on_run)
     progress.advance("titles", 1, "titles")
     progress.summary()
+
+
+def _record_stats(conn, run_id):
+    """Records the run's games, players and pairs, and its first and last games' dates, from its pairs."""
+    conn.execute(
+        """
+        UPDATE rating_runs SET (games, players, pairs, first_game, last_game) = (
+            SELECT count(DISTINCT match_id), (
+                SELECT count(*) FROM (
+                    SELECT player_a FROM pairwise_matches WHERE run_id = %(run)s
+                    UNION SELECT player_b FROM pairwise_matches WHERE run_id = %(run)s) n),
+                count(*), min(date), max(date)
+            FROM pairwise_matches WHERE run_id = %(run)s)
+        WHERE run_id = %(run)s
+        """,
+        {"run": run_id},
+    )
 
 
 def _finish(conn, run_id, status):
