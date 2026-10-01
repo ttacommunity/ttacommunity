@@ -808,7 +808,7 @@ components:
           type: string
     Run:
       type: object
-      required: [run_id, published_at, first_game, last_game]
+      required: [run_id, published_at, engine_version, finished_at, games, players, first_game, last_game]
       properties:
         run_id:
           type: integer
@@ -816,13 +816,29 @@ components:
         published_at:
           type: string
           format: date-time
+        engine_version:
+          description: The commit the engine that computed the run was built from
+          type: string
+        finished_at:
+          description: When the run was computed
+          type: string
+          format: date-time
+          nullable: true
+        games:
+          description: The games the run rated; null for a run computed before runs recorded it
+          type: integer
+          nullable: true
+        players:
+          description: The players the run rated; null for a run computed before runs recorded it
+          type: integer
+          nullable: true
         first_game:
-          description: The date of the run's first game
+          description: The date of the run's first game; null for a run computed before runs recorded it
           type: string
           format: date
           nullable: true
         last_game:
-          description: The date of the run's last game
+          description: The date of the run's last game; null for a run computed before runs recorded it
           type: string
           format: date
           nullable: true

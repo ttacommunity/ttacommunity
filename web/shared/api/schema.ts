@@ -560,14 +560,25 @@ export interface components {
             run_id: number;
             /** Format: date-time */
             published_at: string;
+            /** @description The commit the engine that computed the run was built from */
+            engine_version: string;
+            /**
+             * Format: date-time
+             * @description When the run was computed
+             */
+            finished_at: string | null;
+            /** @description The games the run rated; null for a run computed before runs recorded it */
+            games: number | null;
+            /** @description The players the run rated; null for a run computed before runs recorded it */
+            players: number | null;
             /**
              * Format: date
-             * @description The date of the run's first game
+             * @description The date of the run's first game; null for a run computed before runs recorded it
              */
             first_game: string | null;
             /**
              * Format: date
-             * @description The date of the run's last game
+             * @description The date of the run's last game; null for a run computed before runs recorded it
              */
             last_game: string | null;
         };

@@ -976,13 +976,25 @@ type Rival struct {
 
 // Run defines model for Run.
 type Run struct {
-	// FirstGame The date of the run's first game
+	// EngineVersion The commit the engine that computed the run was built from
+	EngineVersion string `json:"engine_version"`
+
+	// FinishedAt When the run was computed
+	FinishedAt *time.Time `json:"finished_at"`
+
+	// FirstGame The date of the run's first game; null for a run computed before runs recorded it
 	FirstGame *openapi_types.Date `json:"first_game"`
 
-	// LastGame The date of the run's last game
-	LastGame    *openapi_types.Date `json:"last_game"`
-	PublishedAt time.Time           `json:"published_at"`
-	RunId       int64               `json:"run_id"`
+	// Games The games the run rated; null for a run computed before runs recorded it
+	Games *int `json:"games"`
+
+	// LastGame The date of the run's last game; null for a run computed before runs recorded it
+	LastGame *openapi_types.Date `json:"last_game"`
+
+	// Players The players the run rated; null for a run computed before runs recorded it
+	Players     *int      `json:"players"`
+	PublishedAt time.Time `json:"published_at"`
+	RunId       int64     `json:"run_id"`
 }
 
 // SeasonRecord defines model for SeasonRecord.

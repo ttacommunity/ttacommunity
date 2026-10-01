@@ -148,9 +148,11 @@ func TestCurrentRun(t *testing.T) {
 	now := addRun(t, pool, "complete", at)
 	makeCurrent(t, pool, old)
 	makeCurrent(t, pool, now)
-	addGame(t, pool, old, "2016-01-01", "Cup", Seat{"ann", 1}, Seat{"bob", 0})
-	addGame(t, pool, now, "2017-03-04", "Cup", Seat{"ann", 1}, Seat{"bob", 0})
-	addGame(t, pool, now, "2026-08-31", "Cup", Seat{"ann", 1}, Seat{"bob", 0}, Seat{"cat", 0})
+	_, err := pool.Exec(ctx, `UPDATE rating_runs SET engine_version = 'abc1234', finished_at = $2, games = 135393,
+		players = 3526, pairs = 388431, first_game = '2017-03-04', last_game = '2026-08-31' WHERE run_id = $1`, now, at.Add(-time.Minute))
+	if err != nil {
+		t.Fatalf("recording run stats: %v", err)
+	}
 
 	got, err := r.CurrentRun(ctx)
 	if err != nil {
@@ -162,6 +164,10 @@ func TestCurrentRun(t *testing.T) {
 	if got.FirstGame == nil || got.LastGame == nil ||
 		got.FirstGame.Format(time.DateOnly) != "2017-03-04" || got.LastGame.Format(time.DateOnly) != "2026-08-31" {
 		t.Errorf("CurrentRun games = %v to %v, want this run's: 2017-03-04 to 2026-08-31", got.FirstGame, got.LastGame)
+	}
+	if got.Games == nil || *got.Games != 135393 || got.Players == nil || *got.Players != 3526 ||
+		got.EngineVersion != "abc1234" || got.FinishedAt == nil || !got.FinishedAt.Equal(at.Add(-time.Minute)) {
+		t.Errorf("CurrentRun = %+v, want the run's recorded stats: 135393 games, 3526 players, engine abc1234, finished a minute before", got)
 	}
 }
 

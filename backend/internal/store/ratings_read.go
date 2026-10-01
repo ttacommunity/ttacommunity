@@ -20,9 +20,12 @@ var (
 
 // PublishedRun is a run visitors can read.
 type PublishedRun struct {
-	ID          int64
-	PublishedAt time.Time
-	// FirstGame and LastGame are the dates of the run's first and last games, nil for a run without games.
+	ID            int64
+	PublishedAt   time.Time
+	EngineVersion string
+	FinishedAt    *time.Time
+	// What the engine recorded about the run's input; nil for a run completed before it did.
+	Games, Players      *int
 	FirstGame, LastGame *time.Time
 }
 
@@ -102,15 +105,14 @@ func (r *RatingsReader) CheckReadOnly(ctx context.Context) error {
 	return nil
 }
 
-// CurrentRun returns the run the site shows now, with its first and last
-// games' dates, or ErrNoPublishedRun.
+// CurrentRun returns the run the site shows now, with what the engine
+// recorded about it, or ErrNoPublishedRun.
 func (r *RatingsReader) CurrentRun(ctx context.Context) (PublishedRun, error) {
 	var run PublishedRun
 	err := r.pool.QueryRow(ctx, `
-		SELECT c.run_id, r.published_at,
-			(SELECT min(date) FROM pairwise_matches WHERE run_id = c.run_id),
-			(SELECT max(date) FROM pairwise_matches WHERE run_id = c.run_id)
-		FROM current_run c JOIN rating_runs r USING (run_id)`).Scan(&run.ID, &run.PublishedAt, &run.FirstGame, &run.LastGame)
+		SELECT c.run_id, r.published_at, r.engine_version, r.finished_at, r.games, r.players, r.first_game, r.last_game
+		FROM current_run c JOIN rating_runs r USING (run_id)`).Scan(&run.ID, &run.PublishedAt, &run.EngineVersion, &run.FinishedAt,
+		&run.Games, &run.Players, &run.FirstGame, &run.LastGame)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return PublishedRun{}, ErrNoPublishedRun
 	}
