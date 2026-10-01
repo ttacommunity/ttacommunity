@@ -269,20 +269,26 @@ def test_season_records_score_tied_places_in_seat_order(conn, add_match, run_id)
     ]
 
 
-def test_season_records_leave_out_recorded_divisions(conn, add_match, run_id, record):
+def test_season_records_take_a_recorded_top_division(conn, add_match, run_id, record):
     record(20, "Grandmaster", "ann", "bob", "cat")
+    record(20, "Platinum", "dan", "eve", "fay")
     for n in range(1, 7):
         add_match(
-            ("ann", 90),
-            ("bob", 80),
-            ("cat", 70),
-            tournament="International S20",
-            day=date(2021, 1, n),
-        )
+            ("ann", 90), ("bob", 80), ("cat", 70),
+            tournament="International S20", day=date(2021, 1, n),
+        )  # fmt: skip
+        add_match(
+            ("dan", 90), ("eve", 80), ("fay", 70),
+            tournament="International S20", day=date(2021, 1, n),
+        )  # fmt: skip
 
     derive_tournaments(conn=conn, run_id=run_id)
 
-    assert season_records(conn, run_id) == []
+    assert [r[:4] for r in season_records(conn, run_id)] == [
+        ("ann", 20, 30.0, 6),
+        ("bob", 20, 12.0, 6),
+        ("cat", 20, 0.0, 6),
+    ]
 
 
 def test_derive_needs_a_running_run(conn, run_id):
