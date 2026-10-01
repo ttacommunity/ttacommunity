@@ -123,8 +123,10 @@ describe('parseMoversParams', () => {
 });
 
 describe('titleLabel', () => {
-  it("names titles as upstream's activity page: Grandmaster, Master, and Platinum for every other", () => {
-    expect(['GM', 'M', 'P', 'WC', 'B'].map((t) => titleLabel(t as never))).toEqual(['Grandmaster', 'Master', 'Platinum', 'Platinum', 'Platinum']);
+  it('names every title by its own name, not "Platinum" for all but GM and M', () => {
+    expect(['GM', 'M', 'P', 'G', 'S', 'B', 'W', 'WC', 'SGM'].map((t) => titleLabel(t as never))).toEqual([
+      'Grandmaster', 'Master', 'Platinum', 'Gold', 'Silver', 'Bronze', 'Wood', 'World Champion', 'Super GM',
+    ]);
   });
 });
 

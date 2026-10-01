@@ -1,4 +1,5 @@
 /** Upstream's model analysis in the browser: its model list, composite score, ranking and curve filters. */
+import { titleName } from './leaderboard-display';
 import type { Activity, CalibrationRow, CountryRatings, Format, TitleCode } from '@ttac/shared/ratings';
 
 export type { CountryRatings };
@@ -196,9 +197,9 @@ export function formatCards(formats: Activity['formats']) {
   };
 }
 
-/** titleLabel is a title's name on upstream's activity page, which calls every title but GM and M "Platinum". */
+/** titleLabel is a title's name on the activity page. */
 export function titleLabel(code: TitleCode): string {
-  return code === 'GM' ? 'Grandmaster' : code === 'M' ? 'Master' : 'Platinum';
+  return titleName(code);
 }
 
 export type CountryColumn = 'rank' | 'country' | 'players' | 'gm' | 'm_plus' | 'p_plus' | 'all';
