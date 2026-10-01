@@ -158,7 +158,7 @@ export default function EngineSpread({ apiUrl }: { apiUrl: string }) {
           <div>
             <h3>Engine Agreement &amp; Ranking Correlation Insights</h3>
             <div className="card-sub">
-              Spearman Rank (<Tex tex="r_s" />) &amp; Pearson (<Tex tex="r" />) Correlation Benchmark across All 9 Model Configurations (
+              Spearman Rank (<Tex tex="r_s" />) &amp; Pearson (<Tex tex="r" />) Correlation Benchmark across All 10 Model Configurations (
               <Tex tex={`N = ${sample ?? '\\dots'}`} /> active players)
             </div>
           </div>
