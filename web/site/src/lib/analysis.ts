@@ -197,6 +197,20 @@ export function formatCards(formats: Activity['formats']) {
   };
 }
 
+const FORMAT_EVENT = 'analysis-format';
+
+/** announceFormat tells the analysis page's other parts that the reader chose format. */
+export function announceFormat(target: EventTarget, format: Format): void {
+  target.dispatchEvent(new CustomEvent<Format>(FORMAT_EVENT, { detail: format }));
+}
+
+/** onFormat calls listen with each format announced on target, and returns a function that stops it. */
+export function onFormat(target: EventTarget, listen: (format: Format) => void): () => void {
+  const handler = (e: Event) => listen((e as CustomEvent<Format>).detail);
+  target.addEventListener(FORMAT_EVENT, handler);
+  return () => target.removeEventListener(FORMAT_EVENT, handler);
+}
+
 /** titleLabel is a title's name on the activity page. */
 export function titleLabel(code: TitleCode): string {
   return titleName(code);

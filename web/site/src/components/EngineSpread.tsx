@@ -1,8 +1,8 @@
-/** Upstream's rating distribution chart and engine agreement cards, for the format the page was opened with. */
+/** Upstream's rating distribution chart and engine agreement cards, for the format chosen on the page. */
 import { useEffect, useRef, useState } from 'react';
 import { BarController, BarElement, CategoryScale, Chart, Legend, LinearScale, Tooltip } from 'chart.js';
 import { agreement, currentRun, distribution, type Agreement, type Distribution, type Model, type ModelPair } from '@ttac/shared/ratings';
-import { FORMAT_NAMES, agreementName, parseAnalysisParams } from '../lib/analysis';
+import { FORMAT_NAMES, agreementName, onFormat, parseAnalysisParams } from '../lib/analysis';
 import { recall } from '../lib/remembered';
 import Tex from './Tex';
 
@@ -46,15 +46,23 @@ function PairCard({ title, className, pairs }: { title: string; className: strin
 
 /** EngineSpread loads the current run's distribution and agreement for the format in the address, or the remembered one. */
 export default function EngineSpread({ apiUrl }: { apiUrl: string }) {
-  const [format] = useState(() => parseAnalysisParams(new URLSearchParams(window.location.search), recall(window.localStorage)).format);
+  const [format, setFormat] = useState(() => parseAnalysisParams(new URLSearchParams(window.location.search), recall(window.localStorage)).format);
   const [load, setLoad] = useState<Load>({ kind: 'loading' });
   const canvas = useRef<HTMLCanvasElement>(null);
 
+  useEffect(() => onFormat(window, setFormat), []);
+
   useEffect(() => {
+    // A slower answer for a format the reader has since left must not replace the new one.
+    let current = true;
+    setLoad({ kind: 'loading' });
     currentRun(apiUrl)
       .then((r) => Promise.all([distribution(apiUrl, r.run_id, format), agreement(apiUrl, r.run_id, format)]))
-      .then(([dist, agree]) => setLoad({ kind: 'ready', dist, agree }))
-      .catch((e: unknown) => setLoad({ kind: 'error', message: e instanceof Error ? e.message : String(e) }));
+      .then(([dist, agree]) => current && setLoad({ kind: 'ready', dist, agree }))
+      .catch((e: unknown) => current && setLoad({ kind: 'error', message: e instanceof Error ? e.message : String(e) }));
+    return () => {
+      current = false;
+    };
   }, [apiUrl, format]);
 
   const dist = load.kind === 'ready' ? load.dist : null;

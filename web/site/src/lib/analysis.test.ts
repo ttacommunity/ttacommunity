@@ -7,6 +7,8 @@ import {
   compositeScore,
   eceClass,
   formatCards,
+  announceFormat,
+  onFormat,
   parseAnalysisParams,
   parseMoversParams,
   sortCountries,
@@ -170,5 +172,30 @@ describe('formatCards', () => {
     const { total, cards } = formatCards([{ format: 2, games: 5, pairs: 5 }]);
     expect(total).toBe(5);
     expect(cards[0]).toMatchObject({ format: 3, games: 0, note: 'Most popular tournament format (0 pairwise duels)' });
+  });
+});
+
+describe('announceFormat and onFormat', () => {
+  it('tells every listener the format chosen', () => {
+    const target = new EventTarget();
+    const heard: number[] = [];
+    onFormat(target, (f) => heard.push(f));
+    onFormat(target, (f) => heard.push(f * 10));
+
+    announceFormat(target, 3);
+
+    expect(heard).toEqual([3, 30]);
+  });
+
+  it('stops telling a listener once it unsubscribes', () => {
+    const target = new EventTarget();
+    const heard: number[] = [];
+    const stop = onFormat(target, (f) => heard.push(f));
+
+    announceFormat(target, 2);
+    stop();
+    announceFormat(target, 4);
+
+    expect(heard).toEqual([2]);
   });
 });

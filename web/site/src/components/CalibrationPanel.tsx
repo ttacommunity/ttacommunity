@@ -7,6 +7,7 @@ import {
   MODELS,
   MODE_NAMES,
   activeModels,
+  announceFormat,
   eceClass,
   parseAnalysisParams,
   rankModels,
@@ -95,6 +96,8 @@ export default function CalibrationPanel({ apiUrl }: { apiUrl: string }) {
     params.set('format', String(format));
     window.history.replaceState(null, '', `?${params}`);
   }, [mode, format]);
+
+  useEffect(() => announceFormat(window, format), [format]);
 
   useEffect(() => {
     if (canvas.current === null || !ready) return;
