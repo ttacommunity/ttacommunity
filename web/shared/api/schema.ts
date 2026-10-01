@@ -672,6 +672,12 @@ export interface components {
             format: components["schemas"]["Format"];
             games: number;
         };
+        FormatGamesAndPairs: {
+            format: components["schemas"]["Format"];
+            games: number;
+            /** @description The one-to-one pairs the engine rated from those games */
+            pairs: number;
+        };
         PlayerRating: {
             model: components["schemas"]["Model"];
             format: components["schemas"]["Format"];
@@ -1031,7 +1037,7 @@ export interface components {
             active: number;
             inactive: number;
             /** @description Games per format, 2 to 4 players */
-            formats: components["schemas"]["FormatGames"][];
+            formats: components["schemas"]["FormatGamesAndPairs"][];
             /** @description Players per title, most first */
             titles: components["schemas"]["TitlePlayers"][];
             countries: components["schemas"]["CountryRatings"][];

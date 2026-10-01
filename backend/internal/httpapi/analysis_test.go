@@ -137,13 +137,13 @@ func TestActivityUsesTheSiteCutoffAndRoundsAsUpstreamsSQL(t *testing.T) {
 	gm, m := 1925.25, 1883.6666
 	f := &fakeAnalysis{activity: store.Activity{
 		Active: 3, Inactive: 4,
-		Formats:   []store.FormatCount{{Format: 2, Games: 10}, {Format: 3, Games: 20}},
+		Formats:   []store.FormatCount{{Format: 2, Games: 10, Pairs: 10}, {Format: 3, Games: 20, Pairs: 60}},
 		Titles:    []store.TitleCount{{Title: "GM", Players: 2}},
 		Countries: []store.CountryRatings{{Country: "PL", Players: 5, GM: &gm, MPlus: &m, All: 1770.25}},
 	}}
 	rec, _ := serve(t, f, "/v1/runs/7/analysis/activity")
 	want := `{"active":3,"countries":[{"all":1770.3,"country":"PL","gm":1925.3,"m_plus":1883.7,"p_plus":null,"players":5}],` +
-		`"formats":[{"format":2,"games":10},{"format":3,"games":20}],"inactive":4,"run_id":7,"titles":[{"code":"GM","players":2}]}`
+		`"formats":[{"format":2,"games":10,"pairs":10},{"format":3,"games":20,"pairs":60}],"inactive":4,"run_id":7,"titles":[{"code":"GM","players":2}]}`
 	if got := strings.TrimSpace(rec.Body.String()); rec.Code != http.StatusOK || got != want {
 		t.Errorf("GET activity: %d %s\nwant 200 %s", rec.Code, got, want)
 	}

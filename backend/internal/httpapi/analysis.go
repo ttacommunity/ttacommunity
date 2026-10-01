@@ -146,11 +146,11 @@ func (s *server) GetActivity(ctx context.Context, req GetActivityRequestObject) 
 	}
 	body := Activity{
 		RunId: req.Run, Active: a.Active, Inactive: a.Inactive,
-		Formats: make([]FormatGames, 0, len(a.Formats)), Titles: make([]TitlePlayers, 0, len(a.Titles)),
+		Formats: make([]FormatGamesAndPairs, 0, len(a.Formats)), Titles: make([]TitlePlayers, 0, len(a.Titles)),
 		Countries: make([]CountryRatings, 0, len(a.Countries)),
 	}
 	for _, f := range a.Formats {
-		body.Formats = append(body.Formats, FormatGames{Format: Format(f.Format), Games: f.Games})
+		body.Formats = append(body.Formats, FormatGamesAndPairs{Format: Format(f.Format), Games: f.Games, Pairs: f.Pairs})
 	}
 	for _, t := range a.Titles {
 		body.Titles = append(body.Titles, TitlePlayers{Code: TitleCode(t.Title), Players: t.Players})

@@ -185,8 +185,8 @@ func TestActivityCountsPlayersGamesTitlesAndCountries(t *testing.T) {
 	if got.Active != 1 || got.Inactive != 7 {
 		t.Errorf("active, inactive = %d, %d, want 1 (s1, by their 2-player game), 7 (gm1 on the cutoff, the rest before or unrated)", got.Active, got.Inactive)
 	}
-	if fmt.Sprint(got.Formats) != "[{2 1} {3 2}]" {
-		t.Errorf("formats = %v, want the run's games only: [{2 1} {3 2}]", got.Formats)
+	if fmt.Sprint(got.Formats) != "[{2 1 1} {3 2 6}]" {
+		t.Errorf("formats = %v, want the run's games and their pairs only: [{2 1 1} {3 2 6}]", got.Formats)
 	}
 	if fmt.Sprint(got.Titles) != "[{GM 2} {S 1} {P 1} {M 1}]" {
 		t.Errorf("titles = %v, want this run's, most first, ties in reverse code order as upstream's SQLite", got.Titles)

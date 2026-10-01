@@ -405,9 +405,9 @@ type Activity struct {
 	Countries []CountryRatings `json:"countries"`
 
 	// Formats Games per format, 2 to 4 players
-	Formats  []FormatGames `json:"formats"`
-	Inactive int           `json:"inactive"`
-	RunId    int64         `json:"run_id"`
+	Formats  []FormatGamesAndPairs `json:"formats"`
+	Inactive int                   `json:"inactive"`
+	RunId    int64                 `json:"run_id"`
 
 	// Titles Players per title, most first
 	Titles []TitlePlayers `json:"titles"`
@@ -620,6 +620,16 @@ type FormatGames struct {
 	// Format Players per game. 0 is every format together
 	Format Format `json:"format"`
 	Games  int    `json:"games"`
+}
+
+// FormatGamesAndPairs defines model for FormatGamesAndPairs.
+type FormatGamesAndPairs struct {
+	// Format Players per game. 0 is every format together
+	Format Format `json:"format"`
+	Games  int    `json:"games"`
+
+	// Pairs The one-to-one pairs the engine rated from those games
+	Pairs int `json:"pairs"`
 }
 
 // GameRecord defines model for GameRecord.

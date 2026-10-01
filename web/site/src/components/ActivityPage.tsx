@@ -1,17 +1,10 @@
 /** Upstream's activity and demographics page: players, games per format, titles and the leading countries. */
 import { useEffect, useMemo, useState } from 'react';
 import { activity, currentRun, type Activity } from '@ttac/shared/ratings';
-import { sortCountries, titleLabel, type CountryColumn } from '../lib/analysis';
+import { formatCards, sortCountries, titleLabel, type CountryColumn } from '../lib/analysis';
 import { Flag } from './PlayerMarks';
 
 type Load = { kind: 'loading' } | { kind: 'error'; message: string } | { kind: 'ready'; data: Activity };
-
-// Upstream's page states these figures in its template, not from the data.
-const FORMAT_CARDS = [
-  { format: 3, name: '3-Player Games', note: 'Most popular tournament format (185,199 pairwise duels)' },
-  { format: 2, name: '2-Player (Duels)', note: 'Pure 1v1 heads-up duels (45,384 pairwise games)' },
-  { format: 4, name: '4-Player Games', note: 'Full table political strategy (145,842 pairwise duels)' },
-] as const;
 
 const COLUMNS: { col: CountryColumn; label: string; tip?: string }[] = [
   { col: 'rank', label: 'Rank' },
@@ -48,7 +41,7 @@ export default function ActivityPage({ apiUrl }: { apiUrl: string }) {
   const a = load.data;
   const total = a.active + a.inactive;
   const pct = (n: number) => (total > 0 ? ((n / total) * 100).toFixed(1) : '0.0');
-  const games = (f: number) => a.formats.find((x) => x.format === f)?.games ?? 0;
+  const formats = formatCards(a.formats);
   // Each header flips its own direction, starting ascending, as upstream's script does.
   const sortBy = (col: CountryColumn) => {
     const asc = !directions[col];
@@ -71,7 +64,7 @@ export default function ActivityPage({ apiUrl }: { apiUrl: string }) {
         </div>
         <div className="metric-card">
           <div className="metric-label">Total Matches Recorded</div>
-          <div className="metric-number metric-matches">131,424</div>
+          <div className="metric-number metric-matches">{count(formats.total)}</div>
           <div className="metric-note">Across 2017–2026 seasons</div>
         </div>
         <div className="metric-card">
@@ -86,13 +79,13 @@ export default function ActivityPage({ apiUrl }: { apiUrl: string }) {
           <h3>Matches by Game Format</h3>
           <p className="activity-sub">Distribution of competitive tournaments across player counts.</p>
           <div className="activity-list">
-            {FORMAT_CARDS.map((f) => (
+            {formats.cards.map((f) => (
               <div key={f.format} className="activity-item">
                 <div>
                   <strong>{f.name}</strong>
                   <div className="activity-item-note">{f.note}</div>
                 </div>
-                <div className="activity-item-value">{count(games(f.format))}</div>
+                <div className="activity-item-value">{count(f.games)}</div>
               </div>
             ))}
           </div>

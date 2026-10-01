@@ -6,6 +6,7 @@ import {
   agreementName,
   compositeScore,
   eceClass,
+  formatCards,
   parseAnalysisParams,
   parseMoversParams,
   sortCountries,
@@ -140,5 +141,31 @@ describe('sortCountries', () => {
   it('sorts the rank column as text, as upstream does', () => {
     const many = Array.from({ length: 11 }, (_, i) => ({ ...c(`C${i}`, 1, null), rank: i + 1 }));
     expect(sortCountries(many, 'rank', true).map((r) => r.rank).slice(0, 4)).toEqual([1, 10, 11, 2]);
+  });
+});
+
+describe('formatCards', () => {
+  const formats = [
+    { format: 2 as const, games: 47157, pairs: 47157 },
+    { format: 3 as const, games: 62714, pairs: 188142 },
+    { format: 4 as const, games: 25522, pairs: 153132 },
+  ];
+
+  it('totals the games of every format', () => {
+    expect(formatCards(formats).total).toBe(135393);
+  });
+
+  it('notes each format with its own pair count, in upstream order', () => {
+    expect(formatCards(formats).cards).toEqual([
+      { format: 3, name: '3-Player Games', note: 'Most popular tournament format (188,142 pairwise duels)', games: 62714 },
+      { format: 2, name: '2-Player (Duels)', note: 'Pure 1v1 heads-up duels (47,157 pairwise games)', games: 47157 },
+      { format: 4, name: '4-Player Games', note: 'Full table political strategy (153,132 pairwise duels)', games: 25522 },
+    ]);
+  });
+
+  it('counts a format with no games as zero', () => {
+    const { total, cards } = formatCards([{ format: 2, games: 5, pairs: 5 }]);
+    expect(total).toBe(5);
+    expect(cards[0]).toMatchObject({ format: 3, games: 0, note: 'Most popular tournament format (0 pairwise duels)' });
   });
 });

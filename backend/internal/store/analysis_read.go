@@ -202,8 +202,9 @@ type Activity struct {
 	Countries        []CountryRatings
 }
 
-// FormatCount is how many of a run's games had Format players.
-type FormatCount struct{ Format, Games int }
+// FormatCount is how many of a run's games had Format players, and the
+// one-to-one pairs the engine rated from them.
+type FormatCount struct{ Format, Games, Pairs int }
 
 // TitleCount is how many players hold Title.
 type TitleCount struct {
@@ -222,7 +223,7 @@ type CountryRatings struct {
 
 // Activity returns a published run's active and inactive players (active: a
 // last game after inactiveOnOrBefore, in any model or format), its games per
-// format, players per title, and the 15 countries with most rated players.
+// format and their pairs, players per title, and the 15 countries with most rated players.
 // Ties are in reverse code order, as upstream's SQLite returns them.
 func (r *RatingsReader) Activity(ctx context.Context, run int64, inactiveOnOrBefore time.Time) (Activity, error) {
 	var a Activity
@@ -238,9 +239,9 @@ func (r *RatingsReader) Activity(ctx context.Context, run int64, inactiveOnOrBef
 	}
 
 	rows, err := r.pool.Query(ctx, `
-		SELECT player_count, count(*) FROM matches
-		WHERE match_id IN (SELECT match_id FROM pairwise_matches WHERE run_id = $1)
-		GROUP BY player_count ORDER BY player_count`, run)
+		SELECT m.player_count, count(DISTINCT m.match_id), count(*) FROM pairwise_matches pw
+		JOIN matches m USING (match_id) WHERE pw.run_id = $1
+		GROUP BY m.player_count ORDER BY m.player_count`, run)
 	if err == nil {
 		a.Formats, err = pgx.CollectRows(rows, pgx.RowToStructByPos[FormatCount])
 	}

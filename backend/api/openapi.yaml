@@ -1012,6 +1012,17 @@ components:
           $ref: "#/components/schemas/Format"
         games:
           type: integer
+    FormatGamesAndPairs:
+      type: object
+      required: [format, games, pairs]
+      properties:
+        format:
+          $ref: "#/components/schemas/Format"
+        games:
+          type: integer
+        pairs:
+          description: The one-to-one pairs the engine rated from those games
+          type: integer
     PlayerRating:
       type: object
       required: [model, format, rank, rating, rd, c_rating, opponents, win_rate]
@@ -1655,7 +1666,7 @@ components:
           description: Games per format, 2 to 4 players
           type: array
           items:
-            $ref: "#/components/schemas/FormatGames"
+            $ref: "#/components/schemas/FormatGamesAndPairs"
         titles:
           description: Players per title, most first
           type: array

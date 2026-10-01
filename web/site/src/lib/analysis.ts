@@ -1,5 +1,5 @@
 /** Upstream's model analysis in the browser: its model list, composite score, ranking and curve filters. */
-import type { CalibrationRow, CountryRatings, Format, TitleCode } from '@ttac/shared/ratings';
+import type { Activity, CalibrationRow, CountryRatings, Format, TitleCode } from '@ttac/shared/ratings';
 
 export type { CountryRatings };
 
@@ -173,6 +173,27 @@ export function agreementName(key: ModelInfo['key']): string {
 export function parseMoversParams(params: URLSearchParams): { search: string; format: Format } {
   const f = Number(params.get('format') ?? NaN);
   return { search: (params.get('search') ?? '').trim(), format: ([0, 2, 3, 4] as const).find((x) => x === f) ?? 0 };
+}
+
+const count = (n: number) => n.toLocaleString('en-US');
+
+/** formatCards returns the activity page's total games and its cards for 3-, 2- and 4-player games, from the run's counts. */
+export function formatCards(formats: Activity['formats']) {
+  const of = (f: Format) => formats.find((x) => x.format === f) ?? { games: 0, pairs: 0 };
+  const card = (format: Format, name: string, note: (pairs: string) => string) => ({
+    format,
+    name,
+    note: note(count(of(format).pairs)),
+    games: of(format).games,
+  });
+  return {
+    total: formats.reduce((sum, f) => sum + f.games, 0),
+    cards: [
+      card(3, '3-Player Games', (p) => `Most popular tournament format (${p} pairwise duels)`),
+      card(2, '2-Player (Duels)', (p) => `Pure 1v1 heads-up duels (${p} pairwise games)`),
+      card(4, '4-Player Games', (p) => `Full table political strategy (${p} pairwise duels)`),
+    ],
+  };
 }
 
 /** titleLabel is a title's name on upstream's activity page, which calls every title but GM and M "Platinum". */
