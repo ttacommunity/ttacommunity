@@ -519,8 +519,9 @@
     font-size: 0.9rem;
     margin-bottom: 1rem;
   }
+  /* Columns may shrink below a long name, which then wraps inside its tile. */
   .comm-stats-grid {
-    grid-template-columns: repeat(2, 1fr);
+    grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 0.6rem;
   }
   .stat-tile {
@@ -528,6 +529,7 @@
   }
   .stat-tile-num {
     font-size: 1.4rem;
+    overflow-wrap: anywhere;
   }
   .comm-controls {
     padding: 0.85rem;
