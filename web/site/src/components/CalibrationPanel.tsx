@@ -176,6 +176,7 @@ export default function CalibrationPanel({ apiUrl }: { apiUrl: string }) {
   const resetAll = () => {
     setEngines(new Set(ALL_ENGINES));
     setResets(new Set<Reset>(['continuous']));
+    setPrior('standard');
     setMode('standard');
     setFormat(0);
   };
