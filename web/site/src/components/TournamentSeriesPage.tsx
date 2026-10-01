@@ -5,7 +5,7 @@ import { playerHref } from '../lib/player-view';
 import {
   cultureScore,
   leaguePoints,
-  medalCells,
+  boardCells,
   opponentsLine,
   seriesEra,
   seriesRecord,
@@ -46,6 +46,7 @@ export default function TournamentSeriesPage({ apiUrl, content }: { apiUrl: stri
   }, [apiUrl, content.slug]);
 
   const data = load.kind === 'ready' ? load.data : null;
+  const board = boardCells(data?.board ?? []);
   const waiting = load.kind === 'error' ? load.message : 'Loading…';
   const honours = content.slug === 'grand_slams';
 
@@ -121,41 +122,34 @@ export default function TournamentSeriesPage({ apiUrl, content }: { apiUrl: stri
                     #
                   </th>
                   <th scope="col">Competitor</th>
-                  <th scope="col" className="col-center">
-                    🥇 Gold
-                  </th>
-                  <th scope="col" className="col-center">
-                    🥈 Silver
-                  </th>
-                  <th scope="col" className="col-center">
-                    🥉 Bronze
-                  </th>
-                  <th scope="col" className="col-center">
-                    Total
-                  </th>
+                  {board.headings.map((h) => (
+                    <th key={h} scope="col" className="col-center">
+                      {h}
+                    </th>
+                  ))}
                   {honours && <th scope="col">Honors &amp; Titles</th>}
                 </tr>
               </thead>
               <tbody>
                 {data === null ? (
                   <tr>
-                    <td colSpan={honours ? 7 : 6} className="series-message">
+                    <td colSpan={2 + board.headings.length + (honours ? 1 : 0)} className="series-message">
                       {waiting}
                     </td>
                   </tr>
                 ) : (
                   data.board.map((b, i) => {
-                    const [gold, silver, bronze, total] = medalCells(b);
                     return (
                       <tr key={b.name}>
                         <td className="cell-num">{i + 1}</td>
                         <td>
                           <Player name={b.name} /> <TitleMark row={b} />
                         </td>
-                        <td className="col-center medal-count medal-gold">{gold}</td>
-                        <td className="col-center medal-count medal-silver">{silver}</td>
-                        <td className="col-center medal-count medal-bronze">{bronze}</td>
-                        <td className="col-center medal-count medal-total">{total}</td>
+                        {board.rows[i]?.map((cell, j) => (
+                          <td key={board.headings[j]} className={`col-center medal-count ${board.classes[j] ?? ''}`}>
+                            {cell}
+                          </td>
+                        ))}
                         {honours && <td className="cell-honours">{b.details}</td>}
                       </tr>
                     );

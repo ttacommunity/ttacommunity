@@ -281,6 +281,25 @@ export function medalCells(row: { gold: number | null; silver: number | null; br
   return [gold, silver, bronze, gold + silver + bronze].map(String);
 }
 
+type BoardRow = { gold: number | null; silver: number | null; bronze: number | null; games: number | null; wins: number | null; win_rate: number | null };
+
+/** boardCells returns a trophyboard's column headings, their classes and cells: medals, or a ladder's games, wins and win rate. */
+export function boardCells(rows: readonly BoardRow[]): { headings: string[]; classes: string[]; rows: string[][] } {
+  if (rows.some((r) => r.gold === null && r.wins !== null)) {
+    const n = (x: number | null) => (x === null ? '' : x.toLocaleString('en-US'));
+    return {
+      headings: ['Games', 'Wins', 'Win %'],
+      classes: ['', '', ''],
+      rows: rows.map((r) => [n(r.games), n(r.wins), r.win_rate === null ? '' : `${r.win_rate.toFixed(1)}%`]),
+    };
+  }
+  return {
+    headings: ['🥇 Gold', '🥈 Silver', '🥉 Bronze', 'Total'],
+    classes: ['medal-gold', 'medal-silver', 'medal-bronze', 'medal-total'],
+    rows: rows.map(medalCells),
+  };
+}
+
 /** era returns upstream's "Historical Era" for a series running since a year, at its latest season. */
 export function era(since: string, season: number): string {
   return `${since} – Present (Current: Season ${season})`;

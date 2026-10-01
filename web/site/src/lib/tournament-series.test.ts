@@ -11,6 +11,7 @@ import {
   era,
   INTERNATIONAL,
   WORLDS,
+  boardCells,
   leaguePoints,
   medalCells,
   opponentsLine,
@@ -127,5 +128,22 @@ describe('the Hall of Fame overview', () => {
     ];
     expect(derivedMatches(counts)).toBe('102,407+ Matches');
     expect(seriesGames({ series: 'grand_slams', games: 12868, seasons: 5222 })).toBe('12,868 games (5222 editions)');
+  });
+});
+
+describe('boardCells', () => {
+  const medals = { gold: 2, silver: 1, bronze: 0, games: null, wins: null, win_rate: null };
+  const ladder = { gold: null, silver: null, bronze: null, games: 120, wins: 45, win_rate: 37.5 };
+
+  it('gives a medal board its medal columns and counts', () => {
+    expect(boardCells([medals])).toMatchObject({ headings: ['🥇 Gold', '🥈 Silver', '🥉 Bronze', 'Total'], rows: [['2', '1', '0', '3']] });
+  });
+
+  it('gives a ladder board its games, wins and win rate, not empty medal cells', () => {
+    expect(boardCells([ladder])).toMatchObject({ headings: ['Games', 'Wins', 'Win %'], rows: [['120', '45', '37.5%']] });
+  });
+
+  it('writes thousands with separators', () => {
+    expect(boardCells([{ ...ladder, games: 1234, wins: 1001 }]).rows[0]).toEqual(['1,234', '1,001', '37.5%']);
   });
 });
