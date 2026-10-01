@@ -494,18 +494,22 @@ def test_tiebreak_games_stay_out_of_standings_but_in_records(conn, add_match, ru
     assert standings(conn, run_id, 9) == [("ann", 1, 2.0), ("bob", 2, 0.0)]
 
 
-def test_intermezzo_records_leave_out_grandmaster_1_as_upstream_does(
-    conn, add_match, run_id
-):
-    kept = add_match(("ann", 90), ("bob", 80), ("cat", 70), tournament=im(1))
-    left = add_match(
+def test_records_keep_grandmaster_1_and_leave_out_master_1(conn, add_match, run_id):
+    plain = add_match(("ann", 90), ("bob", 80), ("cat", 70), tournament=im(1))
+    numbered = add_match(
         ("ann", 90), ("bob", 80), ("cat", 70), tournament=im(1, 12, "Grandmaster 1")
+    )
+    master = add_match(
+        ("ann", 90),
+        ("bob", 80),
+        ("cat", 70),
+        tournament=im(1, 12, "Master 1 - Grandmaster"),
     )
 
     derive_tournaments(conn=conn, run_id=run_id)
 
     got = {r["match_id"]: r["in_records"] for r in games(conn, run_id)}
-    assert (got[kept], got[left]) == (True, False)
+    assert (got[plain], got[numbered], got[master]) == (True, True, False)
 
 
 def test_season_records_count_the_seasons_names_give(conn, add_match, run_id, correct):

@@ -107,6 +107,11 @@ def _like(name: str, *words: str) -> bool:
     return any(w.lower() in name.lower() for w in words)
 
 
+def _master_division(name: str) -> bool:
+    """Reports whether name is a game of the Master 1 or 2 division; "Grandmaster 1" is not."""
+    return re.search(r"\bMaster [12]\b", name, re.IGNORECASE) is not None
+
+
 def parse_worlds(name: str) -> Parsed | None:
     """Returns a World Championship game's edition number ("Worlds 2025", "Worlds 2"), or None.
 
@@ -141,7 +146,7 @@ SERIES = {
         in_records=lambda n: (
             n.lower().startswith("international")
             and _like(n, "Grandmaster", "Diamond")
-            and not _like(n, "Master 1", "Master 2")
+            and not _master_division(n)
         ),
         record_min_games=6,
         record_division="Grandmaster",
@@ -154,7 +159,7 @@ SERIES = {
         in_records=lambda n: (
             n.lower().startswith("intermezzo")
             and _like(n, "Grandmaster", "GM", "Diamond", "Premier")
-            and not _like(n, "Master 1", "Master 2")
+            and not _master_division(n)
         ),
         record_min_games=6,
         record_division="Grandmaster",
