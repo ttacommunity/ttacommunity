@@ -159,3 +159,9 @@ export function matrixParams(view: MatrixView): URLSearchParams {
 export function matrixHref(name: string, format: Format): string {
   return `/ratings/player/matrix/?${matrixParams({ name, format, year: null })}`;
 }
+
+/** runYears returns the years of a run's first and last games, or null when either is missing. */
+export function runYears(first: string | null, last: string | null): [number, number] | null {
+  if (first === null || last === null) return null;
+  return [Number(first.slice(0, 4)), Number(last.slice(0, 4))];
+}

@@ -246,6 +246,7 @@ func TestReadyz(t *testing.T) {
 
 func TestCurrentRun(t *testing.T) {
 	at := time.Date(2026, 9, 27, 4, 0, 0, 0, time.UTC)
+	first, last := time.Date(2017, 3, 4, 0, 0, 0, 0, time.UTC), time.Date(2026, 8, 31, 0, 0, 0, 0, time.UTC)
 	tests := []struct {
 		name      string
 		ratings   *fakeRatings
@@ -255,10 +256,10 @@ func TestCurrentRun(t *testing.T) {
 	}{
 		{
 			name:      "published",
-			ratings:   &fakeRatings{run: store.PublishedRun{ID: 5, PublishedAt: at}},
+			ratings:   &fakeRatings{run: store.PublishedRun{ID: 5, PublishedAt: at, FirstGame: &first, LastGame: &last}},
 			wantCode:  http.StatusOK,
 			wantCache: "public, max-age=60",
-			wantBody:  `{"published_at":"2026-09-27T04:00:00Z","run_id":5}`,
+			wantBody:  `{"first_game":"2017-03-04","last_game":"2026-08-31","published_at":"2026-09-27T04:00:00Z","run_id":5}`,
 		},
 		{
 			name:      "nothing published",

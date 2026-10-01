@@ -2,9 +2,10 @@
 import { useEffect, useMemo, useState } from 'react';
 import { activity, currentRun, type Activity } from '@ttac/shared/ratings';
 import { formatCards, sortCountries, titleLabel, type CountryColumn } from '../lib/analysis';
+import { runYears } from '../lib/player-view';
 import { Flag } from './PlayerMarks';
 
-type Load = { kind: 'loading' } | { kind: 'error'; message: string } | { kind: 'ready'; data: Activity };
+type Load = { kind: 'loading' } | { kind: 'error'; message: string } | { kind: 'ready'; data: Activity; years: [number, number] | null };
 
 const COLUMNS: { col: CountryColumn; label: string; tip?: string }[] = [
   { col: 'rank', label: 'Rank' },
@@ -27,8 +28,7 @@ export default function ActivityPage({ apiUrl }: { apiUrl: string }) {
 
   useEffect(() => {
     currentRun(apiUrl)
-      .then((r) => activity(apiUrl, r.run_id))
-      .then((data) => setLoad({ kind: 'ready', data }))
+      .then((r) => activity(apiUrl, r.run_id).then((data) => setLoad({ kind: 'ready', data, years: runYears(r.first_game, r.last_game) })))
       .catch((e: unknown) => setLoad({ kind: 'error', message: e instanceof Error ? e.message : String(e) }));
   }, [apiUrl]);
 
@@ -65,7 +65,7 @@ export default function ActivityPage({ apiUrl }: { apiUrl: string }) {
         <div className="metric-card">
           <div className="metric-label">Total Matches Recorded</div>
           <div className="metric-number metric-matches">{count(formats.total)}</div>
-          <div className="metric-note">Across 2017–2026 seasons</div>
+          <div className="metric-note">{load.years ? `Across ${load.years[0]}–${load.years[1]} seasons` : 'Across every season'}</div>
         </div>
         <div className="metric-card">
           <div className="metric-label">All Recorded Competitors</div>

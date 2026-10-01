@@ -560,6 +560,16 @@ export interface components {
             run_id: number;
             /** Format: date-time */
             published_at: string;
+            /**
+             * Format: date
+             * @description The date of the run's first game
+             */
+            first_game: string | null;
+            /**
+             * Format: date
+             * @description The date of the run's last game
+             */
+            last_game: string | null;
         };
         /**
          * @description The rating model. `_softer` models reset gently each season, and

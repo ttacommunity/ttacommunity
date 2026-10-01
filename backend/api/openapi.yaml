@@ -808,7 +808,7 @@ components:
           type: string
     Run:
       type: object
-      required: [run_id, published_at]
+      required: [run_id, published_at, first_game, last_game]
       properties:
         run_id:
           type: integer
@@ -816,6 +816,16 @@ components:
         published_at:
           type: string
           format: date-time
+        first_game:
+          description: The date of the run's first game
+          type: string
+          format: date
+          nullable: true
+        last_game:
+          description: The date of the run's last game
+          type: string
+          format: date
+          nullable: true
     Model:
       description: |
         The rating model. `_softer` models reset gently each season, and

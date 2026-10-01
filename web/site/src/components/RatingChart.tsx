@@ -12,7 +12,7 @@ import {
 } from 'chart.js';
 import type { PlayerHistory } from '@ttac/shared/ratings';
 import { ENGINES, type Engine, type ResetMode } from '../lib/leaderboard-view';
-import { chartData, type ChartData } from '../lib/player-view';
+import { chartData, runYears, type ChartData } from '../lib/player-view';
 
 Chart.register(LineController, LineElement, PointElement, LinearScale, CategoryScale, Legend, Tooltip);
 
@@ -76,6 +76,7 @@ export default function RatingChart({ history }: { history: PlayerHistory | null
   const [curve, setCurve] = useState<Curve>('expected');
   const data = useMemo(() => (history === null ? null : chartData(history, mode, curve)), [history, mode, curve]);
   const empty = data !== null && data.labels.length === 0;
+  const years = data === null || empty ? null : runYears(data.labels[0] ?? null, data.labels.at(-1) ?? null);
 
   useEffect(() => {
     if (canvas.current === null || data === null || empty) return;
@@ -137,7 +138,7 @@ export default function RatingChart({ history }: { history: PlayerHistory | null
     <div className="chart-container">
       <div className="chart-head">
         <div>
-          <h3>Historical Rating Trajectory (2017 - 2026)</h3>
+          <h3>Historical Rating Trajectory{years ? ` (${years[0]} - ${years[1]})` : ''}</h3>
           <span className="chart-hint">Click legend items to toggle individual models</span>
         </div>
         <div className="chart-toggles">

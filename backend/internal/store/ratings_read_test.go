@@ -148,6 +148,9 @@ func TestCurrentRun(t *testing.T) {
 	now := addRun(t, pool, "complete", at)
 	makeCurrent(t, pool, old)
 	makeCurrent(t, pool, now)
+	addGame(t, pool, old, "2016-01-01", "Cup", Seat{"ann", 1}, Seat{"bob", 0})
+	addGame(t, pool, now, "2017-03-04", "Cup", Seat{"ann", 1}, Seat{"bob", 0})
+	addGame(t, pool, now, "2026-08-31", "Cup", Seat{"ann", 1}, Seat{"bob", 0}, Seat{"cat", 0})
 
 	got, err := r.CurrentRun(ctx)
 	if err != nil {
@@ -155,6 +158,10 @@ func TestCurrentRun(t *testing.T) {
 	}
 	if got.ID != now || !got.PublishedAt.Equal(at) {
 		t.Errorf("CurrentRun = %+v, want run %d published %s", got, now, at)
+	}
+	if got.FirstGame == nil || got.LastGame == nil ||
+		got.FirstGame.Format(time.DateOnly) != "2017-03-04" || got.LastGame.Format(time.DateOnly) != "2026-08-31" {
+		t.Errorf("CurrentRun games = %v to %v, want this run's: 2017-03-04 to 2026-08-31", got.FirstGame, got.LastGame)
 	}
 }
 

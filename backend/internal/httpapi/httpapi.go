@@ -146,8 +146,14 @@ func (s *server) GetCurrentRun(ctx context.Context, _ GetCurrentRunRequestObject
 	if err != nil {
 		return nil, err
 	}
+	date := func(t *time.Time) *openapi_types.Date {
+		if t == nil {
+			return nil
+		}
+		return &openapi_types.Date{Time: *t}
+	}
 	return GetCurrentRun200JSONResponse{
-		Body:    Run{RunId: run.ID, PublishedAt: run.PublishedAt.UTC()},
+		Body:    Run{RunId: run.ID, PublishedAt: run.PublishedAt.UTC(), FirstGame: date(run.FirstGame), LastGame: date(run.LastGame)},
 		Headers: GetCurrentRun200ResponseHeaders{CacheControl: cacheCurrent},
 	}, nil
 }

@@ -976,8 +976,13 @@ type Rival struct {
 
 // Run defines model for Run.
 type Run struct {
-	PublishedAt time.Time `json:"published_at"`
-	RunId       int64     `json:"run_id"`
+	// FirstGame The date of the run's first game
+	FirstGame *openapi_types.Date `json:"first_game"`
+
+	// LastGame The date of the run's last game
+	LastGame    *openapi_types.Date `json:"last_game"`
+	PublishedAt time.Time           `json:"published_at"`
+	RunId       int64               `json:"run_id"`
 }
 
 // SeasonRecord defines model for SeasonRecord.

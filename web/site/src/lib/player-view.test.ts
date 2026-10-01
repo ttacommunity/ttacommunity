@@ -13,6 +13,7 @@ import {
   ratingIn,
   score,
   signedDelta,
+  runYears,
   visibleRivals,
 } from './player-view';
 
@@ -222,5 +223,16 @@ describe('matrix page address', () => {
     expect(matrixParams({ name: 'Ann B', format: 0, year: null }).toString()).toBe('name=Ann+B&format=0');
     expect(matrixParams({ name: 'Ann', format: 4, year: 2019 }).toString()).toBe('name=Ann&format=4&year=2019');
     expect(matrixHref('Ann', 2)).toBe('/ratings/player/matrix/?name=Ann&format=2');
+  });
+});
+
+describe('runYears', () => {
+  it('gives the years of the first and last games', () => {
+    expect(runYears('2017-03-04', '2026-08-31')).toEqual([2017, 2026]);
+  });
+
+  it('gives nothing when a date is missing', () => {
+    expect(runYears(null, '2026-08-31')).toBeNull();
+    expect(runYears('2017-03-04', null)).toBeNull();
   });
 });

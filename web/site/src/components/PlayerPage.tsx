@@ -31,6 +31,7 @@ import {
   playerHref,
   playerParams,
   ratingIn,
+  runYears,
   score,
   signedDelta,
   visibleRivals,
@@ -85,6 +86,7 @@ function useLoad<T>(key: string, load: (() => Promise<T>) | null): Load<T> {
 export default function PlayerPage({ apiUrl }: { apiUrl: string }) {
   const [view, setView] = useState<PlayerView>(readView);
   const [run, setRun] = useState<Load<number>>({ kind: 'loading' });
+  const [years, setYears] = useState<[number, number] | null>(null);
 
   const go = useCallback((next: PlayerView) => {
     window.history.pushState(null, '', `?${playerParams(next)}`);
@@ -104,7 +106,10 @@ export default function PlayerPage({ apiUrl }: { apiUrl: string }) {
     const onPop = () => setView(readView());
     window.addEventListener('popstate', onPop);
     currentRun(apiUrl)
-      .then((r) => setRun({ kind: 'ready', data: r.run_id }))
+      .then((r) => {
+        setRun({ kind: 'ready', data: r.run_id });
+        setYears(runYears(r.first_game, r.last_game));
+      })
       .catch((e: unknown) => setRun({ kind: 'error', message: errorText(e) }));
     return () => window.removeEventListener('popstate', onPop);
   }, [apiUrl]);
@@ -190,7 +195,7 @@ export default function PlayerPage({ apiUrl }: { apiUrl: string }) {
         format={view.format}
       />
 
-      <ModelCards player={p} view={view} />
+      <ModelCards player={p} view={view} years={years} />
 
       <RatingChart history={history.kind === 'ready' ? history.data : null} />
 
@@ -284,7 +289,7 @@ const CARDS: { engine: Engine; className: string; heading: string }[] = [
   { engine: 'whr', className: '', heading: 'Whole-History Rating' },
 ];
 
-function caption(engine: Engine, opponents: number, winRate: number): ReactNode {
+function caption(engine: Engine, opponents: number, winRate: number, years: [number, number] | null): ReactNode {
   switch (engine) {
     case 'glicko2_daneo':
       return 'Custom Glicko2 implementation for Multiplayer Boardgaming by DANeo';
@@ -299,12 +304,12 @@ function caption(engine: Engine, opponents: number, winRate: number): ReactNode 
         </>
       );
     case 'whr':
-      return 'Full 2017-2026 retrospective Brownian walk';
+      return years ? `Full ${years[0]}-${years[1]} retrospective Brownian walk` : 'Full retrospective Brownian walk';
   }
 }
 
 /** ModelCards shows the player's rating in each engine for the chosen reset mode and format, upstream's defaults where none. */
-function ModelCards({ player, view }: { player: Player; view: PlayerView }) {
+function ModelCards({ player, view, years }: { player: Player; view: PlayerView; years: [number, number] | null }) {
   return (
     <div className="cards-grid">
       {CARDS.map((c) => {
@@ -323,7 +328,7 @@ function ModelCards({ player, view }: { player: Player; view: PlayerView }) {
               <span>Conservative (C = μ - 3σ):</span>
               <strong>{(r?.c_rating ?? 450).toFixed(2)}</strong>
             </div>
-            <div className="model-card-caption">{caption(c.engine, r?.opponents ?? 0, r?.win_rate ?? 0)}</div>
+            <div className="model-card-caption">{caption(c.engine, r?.opponents ?? 0, r?.win_rate ?? 0, years)}</div>
           </div>
         );
       })}
