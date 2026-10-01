@@ -1,6 +1,7 @@
-// Command load seeds the ratings database from a directory of match CSVs,
-// sets players' countries from CSVs with Player and Code columns, or
-// replaces one kind of recorded tournament fact from one CSV.
+// Command load seeds the ratings database from a directory of match CSVs and
+// places each game in the tournament catalogue, sets players' countries from
+// CSVs with Player and Code columns, or replaces one kind of recorded
+// tournament fact from one CSV.
 // It checks every row first, and writes no matches if the database has some.
 package main
 
@@ -28,26 +29,30 @@ func main() {
 	reset := flag.Bool("reset", false, "delete every match, refusal and rating run first")
 	migrate := flag.Bool("migrate", false, "only apply the ratings migrations, and load nothing")
 	countries := flag.Bool("countries", false, "set players' countries from the CSV files named, a later file winning")
+	classify := flag.Bool("classify", false, "only place unplaced games in the tournament catalogue, by their names")
 	facts := flag.String("facts", "", "replace every recorded tournament fact of one kind (divisions, placements, corrections, dates, honours, rules, community or community_scores) with the CSV file named")
 	flag.Usage = func() {
 		fmt.Fprintln(os.Stderr, "usage: load [-reset] <directory of match CSVs>")
 		fmt.Fprintln(os.Stderr, "       load -migrate")
+		fmt.Fprintln(os.Stderr, "       load -classify")
 		fmt.Fprintln(os.Stderr, "       load -countries <CSV file>...")
-		fmt.Fprintln(os.Stderr, "       load -facts divisions|placements|corrections|dates|honours|community|community_scores <CSV file>")
+		fmt.Fprintln(os.Stderr, "       load -facts divisions|placements|corrections|dates|honours|rules|community|community_scores <CSV file>")
 		fmt.Fprintln(os.Stderr, "The database is RATINGS_DATABASE_URL.")
 		flag.PrintDefaults()
 	}
 	flag.Parse()
-	one := !*reset && btoi(*migrate)+btoi(*countries)+btoi(*facts != "") == 1
+	one := !*reset && btoi(*migrate)+btoi(*classify)+btoi(*countries)+btoi(*facts != "") == 1
 	var err error
 	switch {
 	case *migrate && one && flag.NArg() == 0:
 		err = migrateOnly()
+	case *classify && one && flag.NArg() == 0:
+		err = classifyOnly()
 	case *countries && one && flag.NArg() > 0:
 		err = setCountries(flag.Args())
 	case *facts != "" && one && flag.NArg() == 1:
 		err = replaceFacts(*facts, flag.Arg(0))
-	case !*migrate && !*countries && *facts == "" && flag.NArg() == 1:
+	case !*migrate && !*classify && !*countries && *facts == "" && flag.NArg() == 1:
 		err = run(*reset, flag.Arg(0))
 	default:
 		flag.Usage()
@@ -77,6 +82,44 @@ func migrateOnly() error {
 	}
 	fmt.Println("ratings migrations applied")
 	return nil
+}
+
+// classifyOnly places every unplaced game in the tournament catalogue, after
+// applying any pending migration.
+func classifyOnly() error {
+	dbURL := os.Getenv("RATINGS_DATABASE_URL")
+	if dbURL == "" {
+		return fmt.Errorf("RATINGS_DATABASE_URL is not set")
+	}
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer stop()
+	pool, err := pgxpool.New(ctx, dbURL)
+	if err != nil {
+		return fmt.Errorf("opening the ratings database: %w", err)
+	}
+	defer pool.Close()
+	if err := store.MigrateRatings(ctx, pool); err != nil {
+		return err
+	}
+	placed, err := store.ClassifyMatches(ctx, pool)
+	if err != nil {
+		return err
+	}
+	reportClassified(os.Stdout, placed)
+	return nil
+}
+
+// reportClassified writes how many games were placed and each tournament
+// name no rule reads. It names tournaments, never a player.
+func reportClassified(w io.Writer, c store.Classified) {
+	fmt.Fprintf(w, "placed in the catalogue: %d\n", c.Placed)
+	if len(c.Unplaced) == 0 {
+		return
+	}
+	fmt.Fprintf(w, "names no rule reads: %d (their games stay unplaced)\n", len(c.Unplaced))
+	for _, n := range c.Unplaced {
+		fmt.Fprintf(w, "  %s\n", n)
+	}
 }
 
 // setCountries reads every file first, then sets the countries of known
@@ -248,6 +291,11 @@ func run(reset bool, dir string) error {
 		return fmt.Errorf("loading: %w (to start again from empty: -reset, or --reset with scripts/ratings-db.sh)", err)
 	}
 	report(os.Stdout, res, loaded)
+	placed, err := store.ClassifyMatches(ctx, pool)
+	if err != nil {
+		return fmt.Errorf("placing the loaded games: %w", err)
+	}
+	reportClassified(os.Stdout, placed)
 	return nil
 }
 

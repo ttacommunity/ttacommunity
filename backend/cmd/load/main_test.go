@@ -104,3 +104,27 @@ func TestReportCountriesCountsAndNamesNoPlayer(t *testing.T) {
 		t.Errorf("report names a player:\n%s", got)
 	}
 }
+
+func TestReportClassifiedCountsAndNamesUnreadTournaments(t *testing.T) {
+	var b strings.Builder
+	reportClassified(&b, store.Classified{Placed: 5, Unplaced: []string{"Friendly game", "Odd Cup"}})
+	got := b.String()
+
+	for _, want := range []string{
+		"placed in the catalogue: 5",
+		"names no rule reads: 2 (their games stay unplaced)",
+		"  Friendly game\n  Odd Cup\n",
+	} {
+		if !strings.Contains(got, want) {
+			t.Errorf("report is missing %q:\n%s", want, got)
+		}
+	}
+}
+
+func TestReportClassifiedSaysNothingIsUnplaced(t *testing.T) {
+	var b strings.Builder
+	reportClassified(&b, store.Classified{Placed: 3})
+	if got := b.String(); strings.Contains(got, "no rule reads") {
+		t.Errorf("report lists unread names when there are none:\n%s", got)
+	}
+}
