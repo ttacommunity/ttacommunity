@@ -112,20 +112,36 @@ def test_ladders_count_each_ladder_season_once():
     assert series_metrics(rows)["ladders"] == (7, 4)
 
 
-def podium(cup, season, *players, final=""):
+def podium(cup, season, finished, *players, final=""):
     return [
-        {"cup": cup, "season": season, "final": final, "place": place, "player_name": p}
+        {
+            "cup": cup,
+            "season": season,
+            "final": final,
+            "finished": finished,
+            "place": place,
+            "player_name": p,
+        }
         for place, p in enumerate(players, start=1)
     ]
 
 
 def test_grand_slams_board_counts_every_recorded_cup_year():
     podiums = [
-        *podium("wimbledon", "2023", "fay", "gus"),
-        *podium("wimbledon", "2024", "fay", "ann"),
-        *podium("slow_burn", "2024", "bob", "ann", "cat"),
-        *podium("french_open", "2025", "ann", "bob", "cat", final="odd games"),
-        *podium("eiffel_tower", "3", "cat", "dan", "bob"),
+        *podium("wimbledon", "2023", date(2024, 4, 6), "fay", "gus"),
+        *podium("wimbledon", "2024", date(2025, 2, 24), "fay", "ann"),
+        # Slow Burn "2024" started that year and finished in 2026.
+        *podium("slow_burn", "2024", date(2026, 8, 31), "bob", "ann", "cat"),
+        *podium(
+            "french_open",
+            "2025",
+            date(2026, 5, 19),
+            "ann",
+            "bob",
+            "cat",
+            final="odd games",
+        ),
+        *podium("eiffel_tower", "3", date(2025, 11, 30), "cat", "dan", "bob"),
     ]
     names = {
         "wimbledon": "Wimbledon",
@@ -141,20 +157,26 @@ def test_grand_slams_board_counts_every_recorded_cup_year():
         for b in got
     ] == [
         ("fay", 2, 0, 0, "Wimbledon 2023 Champion, Wimbledon 2024 Champion"),
-        ("ann", 1, 2, 0, "Slow Burn 2024 Runner-Up, Wimbledon 2024 Runner-Up"),
+        (
+            "ann",
+            1,
+            2,
+            0,
+            "Wimbledon 2024 Runner-Up, French Open 2025 (odd games) Champion",
+        ),
         (
             "bob",
             1,
             1,
             1,
-            "Slow Burn 2024 Champion, French Open 2025 (odd games) Runner-Up",
+            "Eiffel Tower S3 3rd Place, French Open 2025 (odd games) Runner-Up",
         ),
         (
             "cat",
             1,
             0,
             2,
-            "Slow Burn 2024 3rd Place, French Open 2025 (odd games) 3rd Place",
+            "Eiffel Tower S3 Champion, French Open 2025 (odd games) 3rd Place",
         ),
         ("dan", 0, 1, 0, "Eiffel Tower S3 Runner-Up"),
         ("gus", 0, 1, 0, "Wimbledon 2023 Runner-Up"),
@@ -170,7 +192,7 @@ def test_grand_slams_board_leaves_out_cups_that_are_not_grand_slams():
 
 
 def test_grand_slams_board_names_a_cup_by_its_slug_when_the_catalogue_has_no_name():
-    got = grand_slams_board(podium("wimbledon", "2024", "fay"), {})
+    got = grand_slams_board(podium("wimbledon", "2024", date(2025, 2, 24), "fay"), {})
 
     assert got[0]["details"] == "wimbledon 2024 Champion"
 

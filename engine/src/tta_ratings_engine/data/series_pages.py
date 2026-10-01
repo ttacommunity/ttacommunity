@@ -160,13 +160,13 @@ GRAND_SLAMS = frozenset(
 def grand_slams_board(podiums, names) -> list[dict]:
     """Returns the Grand Slams & Cups board from every recorded cup year's podium.
 
-    podiums are rows of cup, season, final, place and player_name; names map a
+    podiums are rows of cup, season, final, finished, place and player_name; names map a
     cup's slug to its name. Ordered by golds, silvers, bronzes, then name. Each
-    player's details are their first two honours, by season then cup.
+    player's details are their first two honours, by the day each final finished.
     """
     trophies = {}
     for p in sorted(
-        podiums, key=lambda p: (p["season"], p["cup"], p["final"], p["place"])
+        podiums, key=lambda p: (p["finished"], p["cup"], p["final"], p["place"])
     ):
         if p["cup"] not in GRAND_SLAMS:
             continue

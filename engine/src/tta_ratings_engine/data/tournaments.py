@@ -566,7 +566,7 @@ def derive_tournaments(*, conn: psycopg.Connection, run_id: int) -> None:
         )  # fmt: skip
         boards["grand_slams"] = grand_slams_board(
             conn.execute(
-                "SELECT cup, season, final, place, player_name FROM tournament_cup_podiums"
+                "SELECT cup, season, final, finished, place, player_name FROM tournament_cup_podiums"
             ).fetchall(),
             {
                 r["slug"]: r["name"]

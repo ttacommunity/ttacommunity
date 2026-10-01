@@ -150,7 +150,7 @@ def test_a_run_writes_tournament_results(conn, add_match):
             "VALUES ('q_and_d', 'Ann', 1, 0, 0, NULL, 's')"
         ),
         "INSERT INTO tournament_season_rules (series, season, timeout_penalty, source) VALUES ('intermezzo', 6, -1, 's')",
-        "INSERT INTO tournament_cup_podiums VALUES ('wimbledon', '2024', '', 1, 'Ann', 's')",
+        "INSERT INTO tournament_cup_podiums VALUES ('wimbledon', '2024', '', 1, 'Ann', 's', '2025-02-24')",
     ],
 )
 def test_a_recorded_fact_changes_the_input_fingerprint(conn, add_match, fact):

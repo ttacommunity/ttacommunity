@@ -9,6 +9,7 @@ CREATE TABLE tournament_cup_podiums (
     place integer NOT NULL CHECK (place BETWEEN 1 AND 3),
     player_name text NOT NULL,
     source text NOT NULL,
+    finished date NOT NULL,
     PRIMARY KEY (cup, season, final, place)
 );
 

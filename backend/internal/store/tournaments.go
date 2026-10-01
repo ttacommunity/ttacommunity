@@ -121,17 +121,18 @@ func ReplaceRules(ctx context.Context, pool *pgxpool.Pool, rules []tournamentcsv
 func ReplacePodiums(ctx context.Context, pool *pgxpool.Pool, podiums []tournamentcsv.Podium) (FactsReplaced, error) {
 	var cups, seasons, finals, players, sources []string
 	var places []int32
+	var finished []time.Time
 	for _, p := range podiums {
 		cups, seasons, finals, places = append(cups, p.Cup), append(seasons, p.Season), append(finals, p.Final), append(places, int32(p.Place))
-		players, sources = append(players, p.Player), append(sources, p.Source)
+		players, sources, finished = append(players, p.Player), append(sources, p.Source), append(finished, p.Finished)
 	}
 	n, err := replaceAll(ctx, pool, "tournament_cup_podiums", `
-		INSERT INTO tournament_cup_podiums (cup, season, final, place, player_name, source)
-		SELECT x.cup, x.season, x.final, x.place, p.name, x.source
-		FROM unnest($1::text[], $2::text[], $3::text[], $4::int[], $5::text[], $6::text[])
-		     AS x(cup, season, final, place, player, source)
+		INSERT INTO tournament_cup_podiums (cup, season, final, place, player_name, source, finished)
+		SELECT x.cup, x.season, x.final, x.place, p.name, x.source, x.finished
+		FROM unnest($1::text[], $2::text[], $3::text[], $4::int[], $5::text[], $6::text[], $7::date[])
+		     AS x(cup, season, final, place, player, source, finished)
 		JOIN players p ON p.name = x.player`,
-		cups, seasons, finals, places, players, sources)
+		cups, seasons, finals, places, players, sources, finished)
 	return FactsReplaced{Written: n, Unknown: len(podiums) - n}, err
 }
 
