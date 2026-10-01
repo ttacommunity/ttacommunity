@@ -243,9 +243,9 @@ def season_records(conn, run_id):
     return [tuple(r.values()) for r in rows]
 
 
-def test_season_records_score_tied_places_in_seat_order(conn, add_match, run_id):
-    # Upstream's seasonal records give a tied place the points of its seat
-    # order, and count only seasons of at least 6 games.
+def test_season_records_split_a_tied_places_points(conn, add_match, run_id):
+    # Tied players share their places' points and the better place; only
+    # seasons of at least 6 games count.
     for n in range(1, 7):
         add_match(
             ("ann", 90),
@@ -262,8 +262,8 @@ def test_season_records_score_tied_places_in_seat_order(conn, add_match, run_id)
     derive_tournaments(conn=conn, run_id=run_id)
 
     assert season_records(conn, run_id) == [
-        ("ann", 30, 41.0, 7, [7, 0, 0, 0], date(2025, 7, 9)),
-        ("bob", 30, 18.0, 6, [0, 6, 0, 0], date(2025, 7, 6)),
+        ("ann", 30, 32.0, 7, [7, 0, 0, 0], date(2025, 7, 9)),
+        ("bob", 30, 27.0, 6, [6, 0, 0, 0], date(2025, 7, 6)),
         ("cat", 30, 6.0, 6, [0, 0, 6, 0], date(2025, 7, 6)),
         ("dan", 30, 0.0, 6, [0, 0, 0, 6], date(2025, 7, 6)),
     ]

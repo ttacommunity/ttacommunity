@@ -381,16 +381,19 @@ def _scores(r):
 
 
 def season_records(rows, rules: Series):
-    """Returns upstream's premier seasonal records: one per player and named season.
+    """Returns the premier seasonal records: one per player and named season.
 
-    As upstream's get_premier_seasonal_records: its records games only, the
-    season the name gives, a tied place scored by seat order, and seasons of
-    at least record_min_games games. placings are the 1st, 2nd, 3rd and 4th
-    places; in Royal League, wins, draws and losses. rows are in match_id order.
+    From upstream's get_premier_seasonal_records: its records games only, the
+    season the name gives, and seasons of at least record_min_games games; but
+    tied players share their places' points and the better place, as the
+    series' rules say. placings are the 1st, 2nd, 3rd and 4th places; in
+    Royal League, wins, draws and losses. rows are in match_id order.
     """
     got = {}
     for r in rows:
         order = sorted(_scores(r), key=lambda ps: -ps[1])
+        shared = game_points(order, points_table(rules.points, len(order)))
+        places = _places(order)
         for place, (p, score) in enumerate(order, start=1):
             rec = got.setdefault(
                 (r["name_season"], p),
@@ -406,8 +409,8 @@ def season_records(rows, rules: Series):
                 rec["points"] += (2.0, 1.0, 0.0)[result]
                 rec["placings"][result] += 1
             else:
-                rec["points"] += points_table(rules.points, len(order))[place - 1]
-                rec["placings"][place - 1] += 1
+                rec["points"] += shared[p]
+                rec["placings"][places[p] - 1] += 1
     return {k: v for k, v in got.items() if v["games"] >= rules.record_min_games}
 
 
