@@ -25,13 +25,13 @@ function Player({ name }: { name: string }) {
 }
 
 function WorldChampion() {
-  return <span className="badge-wc trophy-mark">💎 WC</span>;
+  return <span className="badge badge-wc trophy-mark">WC</span>;
 }
 
-/** TitleMark shows WC for a World Champion, else the board's title, as upstream's template. */
+/** TitleMark shows WC for a World Champion, else the board's title, in the site's title badges. */
 function TitleMark({ row }: { row: TrophyRow }) {
   if (row.title === 'WC' || row.world_champion) return <WorldChampion />;
-  return row.title ? <span className="trophy-mark">{row.title}</span> : null;
+  return row.title ? <span className={`badge badge-${row.title.toLowerCase()} trophy-mark`}>{row.title}</span> : null;
 }
 
 /** TournamentSeriesPage loads the current run's results for a series and shows them as upstream's page does. */
