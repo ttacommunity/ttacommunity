@@ -329,9 +329,7 @@ def _campaign_rows(rows, keys, dates):
             if official is not None:
                 if division and division != "Main":
                     official["division"] = division
-                official["details"] += (
-                    f" &bull; Record: {w}W - {n - w}L ({pct}% win rate)"
-                )
+                official["details"] += f" • Record: {w}W - {n - w}L ({pct}% win rate)"
                 if official["finish_date"] in (FALLBACK_DATE, ""):
                     official["finish_date"] = finish
                 continue

@@ -107,7 +107,7 @@ def test_a_run_writes_tournament_results(conn, add_match):
     ).fetchall()
     assert [r["details"] for r in ann] == [
         "Participated in 1 seasons, total score: 5 pts",
-        "Season 30 International Championship Standing (1 of 3) &bull; Record: 1W - 0L (100.0% win rate)",
+        "Season 30 International Championship Standing (1 of 3) • Record: 1W - 0L (100.0% win rate)",
     ]
     medals = conn.execute(
         "SELECT player_name, international_titles, gold, silver, bronze, accolades "

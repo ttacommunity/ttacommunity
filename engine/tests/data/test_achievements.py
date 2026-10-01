@@ -198,7 +198,7 @@ def test_player_records_list_a_champions_seasons_as_upstream(records):
         record(3, "International Championship", "Season 29", "Grandmaster", "1 / 3", "25 pts", "gold",
                "Season 29 International Championship Standing (1 of 3)", "2026-01-01"),
         record(4, "International Championship", "Season 30", "Grandmaster", "1 / 3", "20 pts", "gold",
-               "Season 30 International Championship Standing (1 of 3) &bull; Record: 1W - 1L (50.0% win rate)",
+               "Season 30 International Championship Standing (1 of 3) • Record: 1W - 1L (50.0% win rate)",
                "2025-08-14"),
         record(13, "Quick and Dirty (Q&D)", "Career Trophy Hall of Fame", "Championship",
                "2 Gold, 0 Silver, 1 Bronze", "3 Medals", "gold",
@@ -212,7 +212,7 @@ def test_player_records_break_a_season_tie_by_the_sheets_order(records):
     s30 = [r for r in records["bob"] if r["season"] == "Season 30"]
     assert s30 == [
         record(7, "International Championship", "Season 30", "Grandmaster", "2 / 3", "20 pts", "silver",
-               "Season 30 International Championship Standing (2 of 3) &bull; Record: 1W - 1L (50.0% win rate)",
+               "Season 30 International Championship Standing (2 of 3) • Record: 1W - 1L (50.0% win rate)",
                "2025-08-14"),
     ]  # fmt: skip
 
