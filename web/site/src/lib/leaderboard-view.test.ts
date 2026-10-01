@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import type { LeaderboardRow, TitleCode, YearLeaderboard } from '@ttac/shared/ratings';
 import {
   DEFAULT_VIEW,
-  DELTA_DATES,
+  deltaDates,
   csvUrl,
   inactiveCutoff,
   deltas,
@@ -41,7 +41,6 @@ describe('defaults', () => {
       engine: 'glicko2_daneo', reset: 'continuous', retro: false, format: 0, status: 'active', title: null,
       minOpps: 30, delta: 'none', search: '', sort: 'rank', order: 'asc', page: 1, year: null, stats: 'season',
     });
-    expect(DELTA_DATES).toEqual({ last_update: null, month: '2026-05-01', quarter: '2026-03-01', year: '2025-05-31' });
   });
 });
 
@@ -356,5 +355,15 @@ describe('inactiveCutoff', () => {
     const rows = [row('summer', 1500, 40, '2025-07-01')];
     expect(rankPool(rows, view(), undefined, '2025-05-31').map((p) => p.name)).toEqual(['summer']);
     expect(rankPool(rows, view(), undefined, '2025-08-31')).toEqual([]);
+  });
+});
+
+describe('deltaDates', () => {
+  it("compares with 30, 90 and 365 days before the run's last game", () => {
+    expect(deltaDates('2026-08-31')).toEqual({ last_update: null, month: '2026-08-01', quarter: '2026-06-02', year: '2025-08-31' });
+  });
+
+  it("uses upstream's fixed dates for a run that recorded no last game", () => {
+    expect(deltaDates(null)).toEqual({ last_update: null, month: '2026-05-01', quarter: '2026-03-01', year: '2025-05-31' });
   });
 });

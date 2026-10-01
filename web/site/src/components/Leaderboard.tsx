@@ -19,7 +19,7 @@ import { Flag, TitleBadge } from './PlayerMarks';
 import * as show from '../lib/leaderboard-display';
 import {
   DEFAULT_VIEW,
-  DELTA_DATES,
+  deltaDates,
   inactiveCutoff,
   csvUrl,
   defaultMinOpps,
@@ -145,7 +145,7 @@ export default function Leaderboard({ apiUrl }: { apiUrl: string }) {
     }
     let stale = false;
     const { board } = state;
-    history(apiUrl, board.run_id, board.model, board.format, DELTA_DATES[view.delta])
+    history(apiUrl, board.run_id, board.model, board.format, deltaDates(state.lastGame)[view.delta])
       .then((past) => !stale && setChanges(deltas(board.players, past.players)))
       .catch(() => !stale && setChanges(new Map()));
     return () => {

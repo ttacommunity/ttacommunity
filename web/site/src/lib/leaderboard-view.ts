@@ -28,13 +28,18 @@ export type Order = 'asc' | 'desc';
 export type DeltaWindow = 'none' | 'last_update' | 'month' | 'quarter' | 'year';
 export type StatsView = 'season' | 'career';
 
-/** The date each delta window compares against: upstream's fixed dates, or null for the previous rating period. */
-export const DELTA_DATES: Record<Exclude<DeltaWindow, 'none'>, string | null> = {
-  last_update: null,
-  month: '2026-05-01',
-  quarter: '2026-03-01',
-  year: '2025-05-31',
-};
+/** Upstream's fixed delta dates, kept for a run that recorded no last game. */
+const UPSTREAM_DELTA_DATES = { last_update: null, month: '2026-05-01', quarter: '2026-03-01', year: '2025-05-31' } as const;
+
+/**
+ * deltaDates returns the date each delta window compares against: 30, 90 and 365 days before the run's last game, or
+ * null for the previous rating period.
+ */
+export function deltaDates(lastGame: string | null): Record<Exclude<DeltaWindow, 'none'>, string | null> {
+  if (lastGame === null) return { ...UPSTREAM_DELTA_DATES };
+  const before = (days: number) => new Date(Date.parse(`${lastGame}T00:00:00Z`) - days * 86_400_000).toISOString().slice(0, 10);
+  return { last_update: null, month: before(30), quarter: before(90), year: before(365) };
+}
 const DELTAS: readonly DeltaWindow[] = ['none', 'last_update', 'month', 'quarter', 'year'];
 
 const FORMATS: readonly Format[] = [0, 2, 3, 4];
