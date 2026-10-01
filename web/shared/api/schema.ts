@@ -1422,7 +1422,7 @@ export interface operations {
             query?: {
                 model?: components["parameters"]["Model"];
                 format?: components["parameters"]["Format"];
-                /** @description Active players (last played after 2025-05-31), inactive ones, or all */
+                /** @description Active players (played in the 12 months before the run's last game), inactive ones, or all */
                 status?: "active" | "all" | "inactive";
                 /** @description The fewest opponents a player needs (30 by default, 0 in a year's archive) */
                 min_opps?: number;

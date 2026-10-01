@@ -31,7 +31,9 @@ func names(rows []Row) []string {
 	return got
 }
 
-var defaults = Query{Status: "active", MinOpps: 30, Sort: "rank", Order: "asc"}
+var cutoff = day("2025-05-31")
+
+var defaults = Query{Status: "active", MinOpps: 30, Sort: "rank", Order: "asc", InactiveOnOrBefore: cutoff}
 
 func TestSelectKeepsTheSamePoolAsTheSite(t *testing.T) {
 	rows := []store.LeaderboardRow{
@@ -48,9 +50,9 @@ func TestSelectKeepsTheSamePoolAsTheSite(t *testing.T) {
 		ranks []int
 	}{
 		{name: "defaults", query: defaults, want: []string{"active", "gm"}, ranks: []int{1, 2}},
-		{name: "inactive", query: Query{Status: "inactive", MinOpps: 30, Sort: "rank", Order: "asc"}, want: []string{"never", "retired"}},
-		{name: "all", query: Query{Status: "all", Sort: "rank", Order: "asc"}, want: []string{"few", "never", "retired", "active", "gm"}},
-		{name: "title", query: Query{Status: "active", MinOpps: 30, Title: "GM", Sort: "rank", Order: "asc"}, want: []string{"gm"}, ranks: []int{1}},
+		{name: "inactive", query: Query{Status: "inactive", MinOpps: 30, Sort: "rank", Order: "asc", InactiveOnOrBefore: cutoff}, want: []string{"never", "retired"}},
+		{name: "all", query: Query{Status: "all", Sort: "rank", Order: "asc", InactiveOnOrBefore: cutoff}, want: []string{"few", "never", "retired", "active", "gm"}},
+		{name: "title", query: Query{Status: "active", MinOpps: 30, Title: "GM", Sort: "rank", Order: "asc", InactiveOnOrBefore: cutoff}, want: []string{"gm"}, ranks: []int{1}},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -69,7 +71,7 @@ func TestSelectKeepsTheSamePoolAsTheSite(t *testing.T) {
 
 func TestSelectMarksActivePlayers(t *testing.T) {
 	got := Select([]store.LeaderboardRow{row("new", 1500, 5, "2026-01-01", "", ""), row("old", 1400, 5, "2020-01-01", "", "")},
-		Query{Status: "all", Sort: "rank", Order: "asc"})
+		Query{Status: "all", Sort: "rank", Order: "asc", InactiveOnOrBefore: cutoff})
 	if !got[0].Active || got[1].Active {
 		t.Errorf("active = %t, %t; want true, false", got[0].Active, got[1].Active)
 	}
@@ -172,5 +174,24 @@ func TestFromYearTakesTheSeasonOrCareerRecord(t *testing.T) {
 	career, _ := FromYear(board, "career")
 	if a := career[0]; a.Opponents != 6 || a.Wins != 3 || a.WinRate != 58.3 {
 		t.Errorf("ann's career row = %+v", a)
+	}
+}
+
+func TestInactiveCutoffIsTwelveMonthsBeforeTheRunsLastGame(t *testing.T) {
+	last := day("2026-08-31")
+	if got := InactiveCutoff(&last); !got.Equal(day("2025-08-31")) {
+		t.Errorf("InactiveCutoff(2026-08-31) = %s, want 2025-08-31", got.Format(time.DateOnly))
+	}
+	if got := InactiveCutoff(nil); !got.Equal(day("2025-05-31")) {
+		t.Errorf("InactiveCutoff(none) = %s, want upstream's 2025-05-31 for a run that recorded no last game", got.Format(time.DateOnly))
+	}
+}
+
+func TestSelectUsesTheQuerysCutoff(t *testing.T) {
+	rows := []store.LeaderboardRow{row("summer", 1500, 40, "2025-07-01", "", "")}
+	early := Select(rows, Query{Status: "active", Sort: "rank", Order: "asc", InactiveOnOrBefore: day("2025-05-31")})
+	late := Select(rows, Query{Status: "active", Sort: "rank", Order: "asc", InactiveOnOrBefore: day("2025-08-31")})
+	if len(early) != 1 || len(late) != 0 {
+		t.Errorf("a player last seen 2025-07-01: active by 2025-05-31's cutoff = %d rows, by 2025-08-31's = %d; want 1, 0", len(early), len(late))
 	}
 }

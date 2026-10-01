@@ -419,3 +419,25 @@ func TestLeaderboardJoinsTheRunsCareerPeak(t *testing.T) {
 		t.Errorf("bob's peak = %+v, want none (his is another run's)", got[1].Peak)
 	}
 }
+
+func TestRunLastGame(t *testing.T) {
+	pool := migrated(t)
+	r := NewRatingsReader(asReader(t, pool))
+	ctx := context.Background()
+	recorded := addRun(t, pool, "complete", time.Now())
+	unrecorded := addRun(t, pool, "complete", time.Now())
+	if _, err := pool.Exec(ctx, "UPDATE rating_runs SET last_game = '2026-08-31' WHERE run_id = $1", recorded); err != nil {
+		t.Fatalf("recording the last game: %v", err)
+	}
+
+	got, err := r.RunLastGame(ctx, recorded)
+	if err != nil || got == nil || got.Format(time.DateOnly) != "2026-08-31" {
+		t.Errorf("RunLastGame(recorded) = %v, %v; want 2026-08-31", got, err)
+	}
+	if got, err := r.RunLastGame(ctx, unrecorded); err != nil || got != nil {
+		t.Errorf("RunLastGame(unrecorded) = %v, %v; want nil, nil", got, err)
+	}
+	if _, err := r.RunLastGame(ctx, 999999); !errors.Is(err, ErrRunNotFound) {
+		t.Errorf("RunLastGame(unknown) err = %v, want ErrRunNotFound", err)
+	}
+}

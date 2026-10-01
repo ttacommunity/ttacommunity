@@ -22,6 +22,7 @@ import (
 type fakeRatings struct {
 	run      store.PublishedRun
 	runErr   error
+	lastGame *time.Time
 	board    []store.LeaderboardRow
 	boardErr error
 	pingErr  error
@@ -46,6 +47,10 @@ func (f *fakeRatings) History(_ context.Context, run int64, model string, format
 func (f *fakeRatings) Ping(context.Context) error {
 	f.calls++
 	return f.pingErr
+}
+
+func (f *fakeRatings) RunLastGame(context.Context, int64) (*time.Time, error) {
+	return f.lastGame, nil
 }
 
 func (f *fakeRatings) CurrentRun(context.Context) (store.PublishedRun, error) {

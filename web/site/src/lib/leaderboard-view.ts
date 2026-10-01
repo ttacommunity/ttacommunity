@@ -1,8 +1,16 @@
 /** Upstream's leaderboard view: its options and filters, ranking, search, sort and paging, all in the browser. */
 import type { Format, History, LeaderboardRow, Model, TitleCode, YearLeaderboard } from '@ttac/shared/ratings';
 
-/** A player whose last game is on or before this date is inactive. Upstream's fixed date, not yet a rolling rule. */
-export const INACTIVE_ON_OR_BEFORE = '2025-05-31';
+/** Upstream's fixed cutoff, kept for a run that recorded no last game. */
+const UPSTREAM_CUTOFF = '2025-05-31';
+
+/** inactiveCutoff returns the date on or before which a last game makes a player inactive: 12 months before the run's last game. */
+export function inactiveCutoff(lastGame: string | null): string {
+  if (lastGame === null) return UPSTREAM_CUTOFF;
+  const d = new Date(`${lastGame}T00:00:00Z`);
+  d.setUTCFullYear(d.getUTCFullYear() - 1);
+  return d.toISOString().slice(0, 10);
+}
 
 /** Rows a page, and the fewest opponents a player needs to appear by default. */
 export const PER_PAGE = 50;
@@ -158,15 +166,20 @@ const byName = (a: { name: string }, b: { name: string }) => (a.name < b.name ? 
 
 /**
  * rankPool keeps the players the status, opponent and title filters allow, ranked 1… by conservative rating. Active
- * means playing since upstream's cutoff, or in a year's archive, being among those who played that year.
+ * means a last game after cutoff (inactiveCutoff), or in a year's archive, being among those who played that year.
  */
-export function rankPool(rows: readonly LeaderboardRow[], view: View, playedInYear?: ReadonlySet<string>): RankedRow[] {
+export function rankPool(
+  rows: readonly LeaderboardRow[],
+  view: View,
+  playedInYear?: ReadonlySet<string>,
+  cutoff: string = UPSTREAM_CUTOFF,
+): RankedRow[] {
   return rows
     .map((p) => {
       const active =
         view.year !== null && playedInYear
           ? playedInYear.has(p.name)
-          : p.last_played !== null && p.last_played > INACTIVE_ON_OR_BEFORE;
+          : p.last_played !== null && p.last_played > cutoff;
       return { ...p, displayRank: 0, active, provisional: active && p.opponents < PROVISIONAL_BELOW };
     })
     .filter(

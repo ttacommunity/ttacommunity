@@ -137,7 +137,14 @@ func (s *server) GetActivity(ctx context.Context, req GetActivityRequestObject) 
 	if req.Run < 1 {
 		return GetActivity400JSONResponse{badRequestBody("bad parameter: run")}, nil
 	}
-	a, err := s.ratings.Activity(ctx, req.Run, leaderboardview.InactiveOnOrBefore)
+	last, err := s.ratings.RunLastGame(ctx, req.Run)
+	if nf, ok := notFound(err); ok {
+		return GetActivity404JSONResponse{nf}, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	a, err := s.ratings.Activity(ctx, req.Run, leaderboardview.InactiveCutoff(last))
 	if nf, ok := notFound(err); ok {
 		return GetActivity404JSONResponse{nf}, nil
 	}

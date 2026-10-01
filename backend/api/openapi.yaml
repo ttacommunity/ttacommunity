@@ -104,7 +104,7 @@ paths:
         - name: status
           in: query
           required: false
-          description: Active players (last played after 2025-05-31), inactive ones, or all
+          description: Active players (played in the 12 months before the run's last game), inactive ones, or all
           schema:
             type: string
             enum: [active, all, inactive]

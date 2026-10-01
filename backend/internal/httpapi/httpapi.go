@@ -46,6 +46,7 @@ type Ratings interface {
 	AnalysisRatings(ctx context.Context, run int64, format int) ([]store.ModelRating, map[string]bool, error)
 	ComparedPlayers(ctx context.Context, run int64, format int, terms []string) ([]store.ComparedPlayer, error)
 	Activity(ctx context.Context, run int64, inactiveOnOrBefore time.Time) (store.Activity, error)
+	RunLastGame(ctx context.Context, run int64) (*time.Time, error)
 	TournamentSeries(ctx context.Context, run int64, series string) (store.TournamentSeries, error)
 	HallOfFame(ctx context.Context, run int64) (store.HallOfFame, error)
 	PlayerAchievements(ctx context.Context, run int64, name string) (string, *store.AchievementSummary, []store.TournamentRecord, error)

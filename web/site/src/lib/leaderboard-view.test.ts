@@ -4,7 +4,7 @@ import {
   DEFAULT_VIEW,
   DELTA_DATES,
   csvUrl,
-  INACTIVE_ON_OR_BEFORE,
+  inactiveCutoff,
   deltas,
   PER_PAGE,
   hasOptions,
@@ -36,7 +36,6 @@ const view = (v: Partial<View> = {}): View => ({ ...DEFAULT_VIEW, ...v });
 
 describe('defaults', () => {
   it('are upstream defaults', () => {
-    expect(INACTIVE_ON_OR_BEFORE).toBe('2025-05-31');
     expect(PER_PAGE).toBe(50);
     expect(DEFAULT_VIEW).toEqual({
       engine: 'glicko2_daneo', reset: 'continuous', retro: false, format: 0, status: 'active', title: null,
@@ -340,5 +339,22 @@ describe('year view', () => {
     const got = yearDeltas(board);
     expect(got.get('ann')).toEqual({ c_rating: 100, rating: 100 });
     expect(got.get('bob')).toEqual({ c_rating: 0, rating: 0 });
+  });
+});
+
+describe('inactiveCutoff', () => {
+  it("is 12 months before the run's last game, as the API computes it", () => {
+    expect(inactiveCutoff('2026-08-31')).toBe('2025-08-31');
+    expect(inactiveCutoff('2024-02-29')).toBe('2023-03-01');
+  });
+
+  it("is upstream's fixed date for a run that recorded no last game", () => {
+    expect(inactiveCutoff(null)).toBe('2025-05-31');
+  });
+
+  it('decides who rankPool counts as active', () => {
+    const rows = [row('summer', 1500, 40, '2025-07-01')];
+    expect(rankPool(rows, view(), undefined, '2025-05-31').map((p) => p.name)).toEqual(['summer']);
+    expect(rankPool(rows, view(), undefined, '2025-08-31')).toEqual([]);
   });
 });

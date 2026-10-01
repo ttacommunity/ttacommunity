@@ -1256,7 +1256,7 @@ type GetLeaderboardCsvParams struct {
 	Model  *Model  `form:"model,omitempty" json:"model,omitempty"`
 	Format *Format `form:"format,omitempty" json:"format,omitempty"`
 
-	// Status Active players (last played after 2025-05-31), inactive ones, or all
+	// Status Active players (played in the 12 months before the run's last game), inactive ones, or all
 	Status *GetLeaderboardCsvParamsStatus `form:"status,omitempty" json:"status,omitempty"`
 
 	// MinOpps The fewest opponents a player needs (30 by default, 0 in a year's archive)

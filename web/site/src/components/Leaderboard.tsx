@@ -20,6 +20,7 @@ import * as show from '../lib/leaderboard-display';
 import {
   DEFAULT_VIEW,
   DELTA_DATES,
+  inactiveCutoff,
   csvUrl,
   defaultMinOpps,
   deltas,
@@ -48,7 +49,7 @@ import './Leaderboard.css';
 type State =
   | { kind: 'loading' }
   | { kind: 'error'; message: string }
-  | { kind: 'ready'; board: Board; year: YearLeaderboard | null };
+  | { kind: 'ready'; board: Board; year: YearLeaderboard | null; lastGame: string | null };
 
 const formatOptions = formatValues.map((f) => ({ value: f, label: show.formatName(f) }));
 const OPTIONS_OPEN = 'ttac.leaderboard.options';
@@ -96,9 +97,10 @@ export default function Leaderboard({ apiUrl }: { apiUrl: string }) {
     setState({ kind: 'loading' });
     currentRun(apiUrl)
       .then(async (run): Promise<State> => {
-        if (view.year === null) return { kind: 'ready', board: await leaderboard(apiUrl, run.run_id, model, view.format), year: null };
+        if (view.year === null)
+          return { kind: 'ready', board: await leaderboard(apiUrl, run.run_id, model, view.format), year: null, lastGame: run.last_game };
         const year = await yearLeaderboard(apiUrl, run.run_id, view.year, model, view.format);
-        return { kind: 'ready', board: { run_id: year.run_id, model, format: view.format, players: [] }, year };
+        return { kind: 'ready', board: { run_id: year.run_id, model, format: view.format, players: [] }, year, lastGame: run.last_game };
       })
       .then((next) => !stale && setState(next))
       .catch((e: unknown) => !stale && setState({ kind: 'error', message: e instanceof Error ? e.message : String(e) }));
@@ -150,7 +152,8 @@ export default function Leaderboard({ apiUrl }: { apiUrl: string }) {
       stale = true;
     };
   }, [apiUrl, state, view.delta]);
-  const pool = useMemo(() => rankPool(players, view, fromYear?.played), [players, view, fromYear]);
+  const cutoff = inactiveCutoff(state.kind === 'ready' ? state.lastGame : null);
+  const pool = useMemo(() => rankPool(players, view, fromYear?.played, cutoff), [players, view, fromYear, cutoff]);
   const found = useMemo(() => search(pool, view.search), [pool, view.search]);
   const shown = useMemo(
     () => page(sortRows(found.rows, view.sort, view.order), view.page, found.jumpTo),

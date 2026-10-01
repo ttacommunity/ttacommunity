@@ -122,6 +122,20 @@ func (r *RatingsReader) CurrentRun(ctx context.Context) (PublishedRun, error) {
 	return run, nil
 }
 
+// RunLastGame returns the date of a run's last game, or nil for a run that
+// recorded none. An unknown run is ErrRunNotFound.
+func (r *RatingsReader) RunLastGame(ctx context.Context, run int64) (*time.Time, error) {
+	var last *time.Time
+	err := r.pool.QueryRow(ctx, "SELECT last_game FROM rating_runs WHERE run_id = $1", run).Scan(&last)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return nil, ErrRunNotFound
+	}
+	if err != nil {
+		return nil, fmt.Errorf("reading run %d's last game: %w", run, err)
+	}
+	return last, nil
+}
+
 // Leaderboard returns a published run's ratings for one model and format in
 // rank order, unranked players last, each with the player's country now and
 // the run's title and career peak. An unknown run is ErrRunNotFound.
