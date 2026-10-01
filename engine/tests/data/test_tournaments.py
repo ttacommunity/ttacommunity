@@ -518,7 +518,7 @@ def test_records_keep_grandmaster_1_and_leave_out_master_1(conn, add_match, run_
     assert (got[plain], got[numbered], got[master]) == (True, True, False)
 
 
-def test_season_records_count_the_seasons_names_give(conn, add_match, run_id, correct):
+def test_season_records_count_the_corrected_season(conn, add_match, run_id, correct):
     correct("intermezzo", 8, 7)
     for n in range(1, 7):
         add_match(
@@ -532,7 +532,7 @@ def test_season_records_count_the_seasons_names_give(conn, add_match, run_id, co
     derive_tournaments(conn=conn, run_id=run_id)
 
     got = season_records(conn, run_id)
-    assert got[0][:5] == ("ann", 8, 30.0, 6, [6, 0, 0])
+    assert got[0][:5] == ("ann", 7, 30.0, 6, [6, 0, 0])
 
 
 def test_royal_league_season_records_are_wins_draws_losses(conn, add_match, run_id):
@@ -556,7 +556,7 @@ def test_a_league_game_short_of_players_scores_as_upstream(conn, add_match, run_
     assert standings(conn, run_id, 23) == [("ann", 1, 5.0), ("bob", 2, 2.0)]
 
 
-def test_season_records_keep_a_left_out_seasons_games_as_upstream(
+def test_season_records_leave_out_a_left_out_seasons_games(
     conn, add_match, run_id, correct
 ):
     correct("intermezzo", 7, None)
@@ -571,12 +571,7 @@ def test_season_records_keep_a_left_out_seasons_games_as_upstream(
 
     derive_tournaments(conn=conn, run_id=run_id)
 
-    row = conn.execute(
-        "SELECT season, division, points FROM tournament_season_records "
-        "WHERE run_id = %s AND player_name = 'ann'",
-        (run_id,),
-    ).fetchone()
-    assert (row["season"], row["division"], row["points"]) == (7, "Grandmaster", 30.0)
+    assert season_records(conn, run_id) == []
 
 
 def test_derive_writes_every_series_counts(conn, add_match, run_id):

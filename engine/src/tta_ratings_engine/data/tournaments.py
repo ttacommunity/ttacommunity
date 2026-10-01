@@ -381,12 +381,12 @@ def _scores(r):
 
 
 def season_records(rows, rules: Series):
-    """Returns the premier seasonal records: one per player and named season.
+    """Returns the premier seasonal records: one per player and season.
 
-    From upstream's get_premier_seasonal_records: its records games only, the
-    season the name gives, and seasons of at least record_min_games games; but
-    tied players share their places' points and the better place, as the
-    series' rules say. placings are the 1st, 2nd, 3rd and 4th places; in
+    From upstream's get_premier_seasonal_records: its records games only, and
+    seasons of at least record_min_games games; but by the corrected season
+    (a season left out has none), and tied players share their places' points
+    and the better place, as the series' rules say. placings are the 1st, 2nd, 3rd and 4th places; in
     Royal League, wins, draws and losses. rows are in match_id order.
     """
     got = {}
@@ -396,7 +396,7 @@ def season_records(rows, rules: Series):
         places = _places(order)
         for place, (p, score) in enumerate(order, start=1):
             rec = got.setdefault(
-                (r["name_season"], p),
+                (r["season"], p),
                 {"division": rules.record_division, "points": 0.0, "games": 0,
                  "placings": [0, 0, 0] if len(rules.points) == 1 else [0, 0, 0, 0],
                  "first_match_id": r["match_id"]},
@@ -520,6 +520,7 @@ def derive_tournaments(*, conn: psycopg.Connection, run_id: int) -> None:
                 g["in_records"] = True
             if (
                 g["in_records"]
+                and g["season"] is not None
                 and not g["tiebreak"]
                 and SERIES[g["series"]].season_records
             ):
