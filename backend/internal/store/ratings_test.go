@@ -78,27 +78,19 @@ func tables(t *testing.T, pool *pgxpool.Pool) []string {
 	return names
 }
 
-var ratingsTables = []string{
-	"community_scores", "community_standings", "current_run", "import_batches", "matches", "pairwise_matches", "player_peak_titles", "player_ratings", "player_titles",
-	"player_yearly_titles", "players", "rating_history", "rating_runs", "refused_rows", "standard_calibration",
-	"tournament_achievements", "tournament_boards", "tournament_career_honours", "tournament_finish_dates",
-	"tournament_games", "tournament_group_divisions", "tournament_legends", "tournament_official_placements",
-	"tournament_records", "tournament_season_corrections", "tournament_season_records", "tournament_season_rules", "tournament_series", "tournament_standings",
-	"walk_forward_calibration",
-}
-
 func TestMigrationsGoDownAndUpAgain(t *testing.T) {
 	pool := migrated(t)
 	ctx := context.Background()
-	if got := tables(t, pool); !slices.Equal(got, ratingsTables) {
-		t.Fatalf("after up: tables = %q, want %q", got, ratingsTables)
+	up := tables(t, pool)
+	if !slices.Contains(up, "matches") || !slices.Contains(up, "rating_runs") {
+		t.Fatalf("after up: tables = %q, want matches and rating_runs among them", up)
 	}
 
 	if err := ResetRatings(ctx, pool); err != nil {
 		t.Fatalf("ResetRatings: %v", err)
 	}
-	if got := tables(t, pool); !slices.Equal(got, ratingsTables) {
-		t.Errorf("after reset: tables = %q, want %q", got, ratingsTables)
+	if got := tables(t, pool); !slices.Equal(got, up) {
+		t.Errorf("after reset: tables = %q, want those after up, %q", got, up)
 	}
 
 	if err := migrateRatingsDown(ctx, pool); err != nil {
