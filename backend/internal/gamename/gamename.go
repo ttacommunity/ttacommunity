@@ -96,7 +96,11 @@ var rules = []rule{
 	rp(`^Australian Open (\d{4}) Stage (\d+)`, "australian_open", yearAndStage),
 	rp(`^Survivors Cup (\d{4}) Stage (\d+)`, "survivors_cup", yearAndStage),
 	rp(`^Leaderboard Trophy (\d{4}) Stage (\d+)`, "leaderboard_trophy", yearAndStage),
-	r(`^Slow Burn S?(\d+)`, "slow_burn", ""),
+	// Slow Burn is one cup, started in 2024; its "S" numbers are stages.
+	rp(`^Slow Burn S?(\d+)`, "slow_burn", func(m []string) (string, string, bool) {
+		st, ok := number(m[1])
+		return "2024", "Stage " + st, ok
+	}),
 	r(`^Eiffel Tower S(\d+)`, "eiffel_tower", ""),
 	r(`^ML_[sr](\d+)`, "mercurial_ladder", ""),
 	r(`^Mercurial Season (\d+)`, "mercurial_ladder", ""),
