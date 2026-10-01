@@ -519,7 +519,7 @@ func cellText(cells []MatrixCell) []string {
 	return out
 }
 
-func TestYearBoardTakesTheModelsLastPeriodOfTheYear(t *testing.T) {
+func TestYearBoardTakesEveryPlayersLastRatingOfTheYear(t *testing.T) {
 	pool := migrated(t)
 	r := NewRatingsReader(asReader(t, pool))
 	ctx := context.Background()
@@ -552,14 +552,17 @@ func TestYearBoardTakesTheModelsLastPeriodOfTheYear(t *testing.T) {
 	if got.Games != 2 || fmt.Sprint(got.Champions) != "[{bob false}]" {
 		t.Errorf("games %d, champions %v; want 2 games in 2024, bob", got.Games, got.Champions)
 	}
-	// cy has no row on the last period, so is not on the board; ann's previous is her 2023 year end.
-	if len(got.Rows) != 2 {
-		t.Fatalf("%d rows, want ann and bob: %+v", len(got.Rows), got.Rows)
+	// cy played in 2024 only in March: on the board with that rating, not 2025's; ann's previous is her 2023 year end.
+	if len(got.Rows) != 3 {
+		t.Fatalf("%d rows, want cy, bob and ann: %+v", len(got.Rows), got.Rows)
 	}
-	if got.Rows[0].Name != "bob" {
-		t.Errorf("first row = %s, want bob (highest conservative rating)", got.Rows[0].Name)
+	if cy := got.Rows[0]; cy.Name != "cy" || cy.CRating != 1700 {
+		t.Errorf("first row = %s at %v, want cy at 1700 (his last 2024 rating, the highest)", cy.Name, cy.CRating)
 	}
-	ann := got.Rows[1]
+	if got.Rows[1].Name != "bob" {
+		t.Errorf("second row = %s, want bob", got.Rows[1].Name)
+	}
+	ann := got.Rows[2]
 	if ann.Name != "ann" || ann.Rating != 1690 || ann.CRating != 1600 || ann.Country == nil || *ann.Country != "PL" ||
 		ann.Title == nil || ann.Title.Code != "GM" {
 		t.Errorf("ann = %+v", ann)
@@ -573,7 +576,7 @@ func TestYearBoardTakesTheModelsLastPeriodOfTheYear(t *testing.T) {
 	if ann.PreviousCRating == nil || *ann.PreviousCRating != 1500 {
 		t.Errorf("ann's previous C = %v, want 1500", ann.PreviousCRating)
 	}
-	if bob := got.Rows[0]; bob.PreviousCRating != nil {
+	if bob := got.Rows[1]; bob.PreviousCRating != nil {
 		t.Errorf("bob = %+v, want no previous rating", bob)
 	}
 }

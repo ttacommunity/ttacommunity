@@ -44,11 +44,11 @@ type YearBoard struct {
 }
 
 // YearBoard returns a published run's board for a year in a model and format:
-// the ratings on the model's last period that year (another model's period if
-// this one has none that year), only for players with a rating on it, best
+// everyone who played that year, at their last rating of the year, best
 // conservative rating first, with each player's record that year and up to
-// it, and their rating on the previous year's last period. A year with no
-// history is ErrNoHistory.
+// it, and their last rating up to the previous year's last period. Snapshot is
+// the model's last period that year (another model's period if this one has
+// none that year). A year with no history is ErrNoHistory.
 func (r *RatingsReader) YearBoard(ctx context.Context, run int64, year int, model string, format int) (YearBoard, error) {
 	if err := r.requirePublished(ctx, run); err != nil {
 		return YearBoard{}, err
@@ -117,14 +117,16 @@ func (r *RatingsReader) YearBoard(ctx context.Context, run int64, year int, mode
 			rec.last_played,
 			coalesce(rec.c_opps, 0), coalesce(rec.c_wins, 0), coalesce(rec.c_losses, 0), coalesce(rec.c_draws, 0),
 			prev.rating, prev.rd, prev.c_rating
-		FROM rating_history h
+		FROM (SELECT DISTINCT ON (player_name) * FROM rating_history
+			WHERE run_id = $1 AND model_type = $2 AND player_count = $3 AND period_date <= $4 AND extract(year FROM period_date) = $5
+			ORDER BY player_name, period_date DESC) h
 		LEFT JOIN players p ON p.name = h.player_name
 		LEFT JOIN player_titles t ON t.run_id = $1 AND t.player_name = h.player_name
 		LEFT JOIN player_peak_titles k ON k.run_id = $1 AND k.player_name = h.player_name
 		LEFT JOIN rec ON rec.name = h.player_name
-		LEFT JOIN rating_history prev ON prev.run_id = $1 AND prev.model_type = $2 AND prev.player_count = $3
-			AND prev.period_date = $6 AND prev.player_name = h.player_name
-		WHERE h.run_id = $1 AND h.model_type = $2 AND h.player_count = $3 AND h.period_date = $4
+		LEFT JOIN LATERAL (SELECT rating, rd, c_rating FROM rating_history
+			WHERE run_id = $1 AND model_type = $2 AND player_count = $3 AND player_name = h.player_name AND period_date <= $6
+			ORDER BY period_date DESC LIMIT 1) prev ON true
 		ORDER BY h.c_rating DESC, h.player_name`, run, model, format, b.Snapshot, year, b.Previous)
 	if err != nil {
 		return YearBoard{}, fmt.Errorf("reading run %d's %d board: %w", run, year, err)
