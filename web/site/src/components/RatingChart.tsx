@@ -155,7 +155,7 @@ export default function RatingChart({ history }: { history: PlayerHistory | null
             muted
             options={[
               { value: 'expected', label: 'Expected Mean (E = R)' },
-              { value: 'conservative', label: 'Conservative (C = R − 2σ)' },
+              { value: 'conservative', label: 'Conservative (C = μ − 3σ)' },
             ]}
             value={curve}
             onChange={setCurve}
