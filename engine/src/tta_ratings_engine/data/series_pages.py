@@ -46,7 +46,8 @@ def series_metrics(rows) -> dict[str, tuple[int, int]]:
     Games are matches whose name fits the series' patterns. Editions are the
     latest season number for leagues, the distinct "Worlds <n>" names for the
     World Championship, each cup's distinct numbers (Wimbledon 2025, Slow
-    Burn S15) for the cups, and a fixed 16 for the ladders.
+    Burn S15) for the cups, and each ladder's seasons (Mercurial Season 19,
+    Sodium Season 1) for the ladders.
     """
     names = [r["tournament"] for r in rows]
     series = {
@@ -87,7 +88,13 @@ def series_metrics(rows) -> dict[str, tuple[int, int]]:
         elif s == "grand_slams":
             editions = len({_cup_edition(n) for n in distinct} - {None})
         else:
-            editions = 16
+            seasons = (
+                re.match(
+                    r"(mercurial|sodium)(?: ladder)? season (\d+)", n, re.IGNORECASE
+                )
+                for n in distinct
+            )
+            editions = len({(m[1].lower(), int(m[2])) for m in seasons if m})
         got[s] = (len(mine), editions)
     return got
 

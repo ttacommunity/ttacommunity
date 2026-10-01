@@ -49,7 +49,7 @@ def test_series_metrics_count_as_upstream():
         "royal_league": (2, 10),
         "worlds": (2, 2),
         "grand_slams": (3, 2),
-        "ladders": (2, 16),
+        "ladders": (2, 0),
     }
 
 
@@ -92,6 +92,24 @@ def test_grand_slams_count_each_cup_edition_once():
     )
     # Wimbledon 2023 and 2025, Survivors 2026, French Open 2025, Slow Burn 1 and 15, Eiffel Tower 3
     assert series_metrics(rows)["grand_slams"] == (12, 7)
+
+
+def test_ladders_count_each_ladder_season_once():
+    rows = numbered(
+        match("Mercurial Season 19 - 11-Sodium 1 - game 1", ("a", 1), ("b", 2)),
+        match("Mercurial Season 19 - 17-Chlorine 2 game 1", ("a", 1), ("b", 2)),
+        match("Mercurial Season 36 - 3-Lithium 1 game 1", ("a", 1), ("b", 2)),
+        match("Sodium Season 1 - game 1", ("a", 1), ("b", 2)),
+        match(
+            "Sodium Ladder Season 16 - Sodium Ladder Sodium Tier game 1",
+            ("a", 1),
+            ("b", 2),
+        ),
+        match("TCL Round 31", ("a", 1), ("b", 2)),
+        match("ML_r11 game 1", ("a", 1), ("b", 2)),
+    )
+    # Mercurial 19 and 36, Sodium 1 and 16; TCL and ML_ rounds are not seasons
+    assert series_metrics(rows)["ladders"] == (7, 4)
 
 
 def test_grand_slams_board_takes_each_cup_as_upstream():

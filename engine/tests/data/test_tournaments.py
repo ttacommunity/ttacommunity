@@ -583,7 +583,7 @@ def test_derive_writes_every_series_counts(conn, add_match, run_id):
         ("grand_slams", 0, 0),
         ("intermezzo", 0, 0),
         ("international", 1, 30),
-        ("ladders", 0, 16),
+        ("ladders", 0, 0),
         ("royal_league", 0, 0),
         ("worlds", 1, 1),
     ]
