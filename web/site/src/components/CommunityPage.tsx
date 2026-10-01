@@ -4,6 +4,7 @@ import { communityLeaderboard, currentRun, type CommunityEdition, type Community
 import { Flag } from './PlayerMarks';
 import {
   countingColumns,
+  editionFacts,
   matchesSearch,
   pageWindow,
   parseCommunityView,
@@ -14,6 +15,7 @@ import {
 } from '../lib/community';
 import { EDITIONS, type Edition } from '../lib/community-editions';
 import { playerHref } from '../lib/player-view';
+import { titleName } from '../lib/leaderboard-display';
 import './CommunityPage.css';
 
 type Load = { kind: 'loading' } | { kind: 'error'; message: string } | { kind: 'ready'; rows: CommunityRow[] };
@@ -24,7 +26,6 @@ const PILLS: { edition: CommunityEdition; text: string; tip: string }[] = [
   { edition: '2024', text: '📜 2024 Final Archive', tip: 'Official final standings for Season 2024' },
   { edition: 'race26', text: '🏁 2026 Race Tracker', tip: 'Live seasonal points race for calendar year 2026' },
 ];
-const TITLE_TIPS = { WC: 'Reigning World Champion (2025)', GM: 'Grandmaster', M: 'Master', P: 'Platinum', G: 'Gold' } as const;
 
 /** href is the page's address for a view, as upstream's links carry edition, view, search and page. */
 function href(view: CommunityView, change: Partial<CommunityView>): string {
@@ -88,7 +89,7 @@ function Hero({ edition, view, rows }: { edition: Edition; view: CommunityView; 
         </div>
         <div className="stat-tile">
           <div className="stat-tile-num">{events}</div>
-          <div className="stat-tile-label">Tracked Events (7 Tiers)</div>
+          <div className="stat-tile-label">Tracked Events ({editionFacts(edition).tiers} Tiers)</div>
         </div>
         <div className="stat-tile">
           <div className="stat-tile-num">
@@ -111,7 +112,8 @@ function Hero({ edition, view, rows }: { edition: Edition; view: CommunityView; 
   );
 }
 
-function Explainers() {
+function Explainers({ edition }: { edition: Edition }) {
+  const facts = editionFacts(edition);
   return (
     <div className="explainer-cards">
       <div className="explainer-card">
@@ -125,7 +127,7 @@ function Explainers() {
         <ul>
           <li>
             <strong>Top 8 Scores Count</strong>: A player&apos;s total is the sum of their 8 highest-scoring tournament finishes
-            across all 19 active event slots.
+            across all {facts.slots} active event slots.
           </li>
           <li>
             <strong>Participation Protected</strong>: If a competitor has played in 8 or fewer events, all scores sum normally.
@@ -141,43 +143,23 @@ function Explainers() {
         <h3>
           <span>🏆</span> Tracked Event Slots &amp; Point Tiers
         </h3>
-        <p>The leaderboard covers 19 major tournaments over a rolling 1-to-2 year seasonal window:</p>
+        <p>This edition covers {facts.slots} event slots in {facts.tiers} tiers:</p>
         <ul>
-          <li>
-            <strong>
-              World Championship (<code>wrld</code>)
-            </strong>
-            : 2,500 pts max • The premier global biennial championship (won by <strong>a440</strong> in 2025).
-          </li>
-          <li>
-            <strong>
-              International Championship (<code>ic_30</code>–<code>33</code>)
-            </strong>
-            : 1,000 pts max per season • 4 rolling seasons of the classic 4-player league.
-          </li>
-          <li>
-            <strong>
-              Intermezzo Championship (<code>im_27</code>–<code>30</code>)
-            </strong>
-            : 1,000 pts max per season • 4 rolling seasons of the 3-player championship.
-          </li>
-          <li>
-            <strong>
-              Royal League (<code>rl_05</code>–<code>08</code>)
-            </strong>
-            : 1,000 pts max per season • 4 rolling seasons of elite divisional play.
-          </li>
-          <li>
-            <strong>Grand Slams &amp; Ladders</strong>: Wimbledon, Australian Open, Sodium Ladder, Mercurial Ladder (1,000 pts
-            max each), Eiffel Cup &amp; Quick &amp; Dirty (600 pts).
-          </li>
+          {facts.lines.map((t) => (
+            <li key={t.name}>
+              <strong>
+                {t.name} (<code>{t.codes}</code>)
+              </strong>
+              : {t.maxPts} pts max{t.each ? ' each' : ''}
+            </li>
+          ))}
         </ul>
       </div>
     </div>
   );
 }
 
-function Controls({ view }: { view: CommunityView }) {
+function Controls({ view, slots }: { view: CommunityView; slots: number }) {
   return (
     <div className="comm-controls">
       <form method="get" action="/ratings/community/" className="comm-search-form">
@@ -217,7 +199,7 @@ function Controls({ view }: { view: CommunityView }) {
         <a
           href={href(view, { view: 'expanded' })}
           className={`view-btn${view.view === 'expanded' ? ' active' : ''}`}
-          title="Expanded View: Expands to the sides showing all 19 individual periods"
+          title={`Expanded View: Expands to the sides showing all ${slots} individual periods`}
         >
           📑 Expanded View (All Periods)
         </a>
@@ -293,7 +275,7 @@ function Table({ edition, view, rows }: { edition: Edition; view: CommunityView;
                     {mark === null ? (
                       <span className="comm-dash">-</span>
                     ) : (
-                      <span className={`badge badge-${mark.toLowerCase()}`} title={TITLE_TIPS[mark]}>
+                      <span className={`badge badge-${mark.toLowerCase()}`} title={titleName(mark)}>
                         {mark}
                       </span>
                     )}
@@ -402,8 +384,8 @@ export default function CommunityPage({ apiUrl }: { apiUrl: string }) {
   return (
     <div className="community-page">
       <Hero edition={edition} view={onPage} rows={state.rows} />
-      <Explainers />
-      <Controls view={onPage} />
+      <Explainers edition={edition} />
+      <Controls view={onPage} slots={editionFacts(edition).slots} />
       <div className="results-counter-card">
         <div>
           Showing <strong className="comm-count-shown">{shown.length}</strong> of{' '}
@@ -413,7 +395,9 @@ export default function CommunityPage({ apiUrl }: { apiUrl: string }) {
         <div>
           Mode:{' '}
           <strong className="comm-mode">
-            {view.view === 'standard' ? 'Tournament Sums (10 Tournaments)' : 'All 19 Period Columns'}
+            {view.view === 'standard'
+              ? `Tournament Sums (${editionFacts(edition).tournaments} Tournaments)`
+              : `All ${editionFacts(edition).slots} Period Columns`}
           </strong>
         </div>
       </div>
