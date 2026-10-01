@@ -680,3 +680,49 @@ def test_a_recorded_top_division_game_is_a_single_game_record(
 
     got = {r["match_id"]: r["in_records"] for r in games(conn, run_id)}
     assert (got[top], got[lower]) == (True, False)
+
+
+def test_a_seasons_timeout_penalty_costs_points(conn, add_match, run_id):
+    conn.execute(
+        "INSERT INTO tournament_season_rules (series, season, timeout_penalty, source) VALUES ('intermezzo', 8, -1, 's')"
+    )
+    conn.commit()
+    for n in range(1, 7):
+        cat = (
+            -5 if n <= 2 else 70
+        )  # a timeout scores -5, as upstream's scraper writes it
+        add_match(
+            ("ann", 90),
+            ("bob", 80),
+            ("cat", cat),
+            tournament=im(n),
+            day=date(2020, 8, n),
+        )
+
+    derive_tournaments(conn=conn, run_id=run_id)
+
+    assert standings(conn, run_id, 8) == [
+        ("ann", 1, 30.0),
+        ("bob", 2, 12.0),
+        ("cat", 3, -2.0),
+    ]
+    assert [r[:3] for r in season_records(conn, run_id)] == [
+        ("ann", 8, 30.0),
+        ("bob", 8, 12.0),
+        ("cat", 8, -2.0),
+    ]
+
+
+def test_a_season_without_a_rule_has_no_timeout_penalty(conn, add_match, run_id):
+    for n in range(1, 7):
+        add_match(
+            ("ann", 90),
+            ("bob", 80),
+            ("cat", -5),
+            tournament=im(n),
+            day=date(2020, 8, n),
+        )
+
+    derive_tournaments(conn=conn, run_id=run_id)
+
+    assert standings(conn, run_id, 8)[2] == ("cat", 3, 0.0)
