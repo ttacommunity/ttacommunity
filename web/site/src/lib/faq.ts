@@ -1,5 +1,6 @@
 /** The FAQ page's logic: upstream's tab aliases, and the figures it fills from the current run. */
-import type { Agreement, CalibrationRow } from '@ttac/shared/ratings';
+import type { Agreement, CalibrationRow, Run } from '@ttac/shared/ratings';
+import { runYears } from './player-view';
 
 /** FAQ_ALIASES are the other names upstream's FAQ accepts in the address for a tab. */
 export const FAQ_ALIASES: Record<string, string> = {
@@ -27,9 +28,10 @@ const FIGURE_MODELS = { mp: 'glicko2_mp', std: 'glicko2_std' } as const;
 /**
  * faqFigures formats upstream's live FAQ figures from a run's calibration and all-format agreement: walk-forward
  * Brier (4 places) and ECE (percent, 2 places) for MP and Standard in all formats and 4-player, MP's games
- * evaluated, and the players with 15 or more opponents. A figure without data is left out.
+ * evaluated, the players with 15 or more opponents, and the run's games, players and years. A figure without data
+ * is left out.
  */
-export function faqFigures(rows: readonly CalibrationRow[], agreement: Agreement | null): Record<string, string> {
+export function faqFigures(rows: readonly CalibrationRow[], agreement: Agreement | null, run?: Run): Record<string, string> {
   const out: Record<string, string> = {};
   for (const [short, model] of Object.entries(FIGURE_MODELS)) {
     for (const format of [0, 4] as const) {
@@ -41,5 +43,9 @@ export function faqFigures(rows: readonly CalibrationRow[], agreement: Agreement
     }
   }
   if (agreement !== null) out.players = String(agreement.sample);
+  if (run?.games != null) out['run.games'] = run.games.toLocaleString('en-US');
+  if (run?.players != null) out['run.players'] = run.players.toLocaleString('en-US');
+  const years = run ? runYears(run.first_game, run.last_game) : null;
+  if (years) out['run.years'] = `${years[0]}–${years[1]}`;
   return out;
 }

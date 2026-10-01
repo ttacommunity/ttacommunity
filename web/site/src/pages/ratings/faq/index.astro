@@ -79,9 +79,9 @@ const tabClass: Record<string, string> = { 'gold-standard': 'tab-gold', 'recalib
 
   const api = document.querySelector<HTMLElement>('.faq-container')?.dataset.apiUrl ?? '';
   currentRun(api)
-    .then((r) => Promise.all([calibration(api, r.run_id), agreement(api, r.run_id, 0).catch(() => null)]))
-    .then(([c, a]) => {
-      const figures = faqFigures(c.rows, a);
+    .then((r) => Promise.all([calibration(api, r.run_id), agreement(api, r.run_id, 0).catch(() => null), r]))
+    .then(([c, a, r]) => {
+      const figures = faqFigures(c.rows, a, r);
       document.querySelectorAll<HTMLElement>('[data-faq-figure]').forEach((el) => {
         const value = figures[el.dataset.faqFigure ?? ''];
         if (value !== undefined) el.textContent = value;
