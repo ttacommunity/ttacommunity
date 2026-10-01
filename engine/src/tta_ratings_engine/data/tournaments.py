@@ -513,12 +513,13 @@ def derive_tournaments(*, conn: psycopg.Connection, run_id: int) -> None:
         for g in classified:
             r = by_id[g["match_id"]]
             # A season without division names has its top division recorded from the organisers' sheet.
-            recorded_top = (
+            if (
                 g["source"] == "recorded"
                 and g["division"] in SERIES[g["series"]].top_divisions
-            )
+            ):
+                g["in_records"] = True
             if (
-                (g["in_records"] or recorded_top)
+                g["in_records"]
                 and not g["tiebreak"]
                 and SERIES[g["series"]].season_records
             ):

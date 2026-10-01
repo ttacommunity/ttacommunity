@@ -667,3 +667,21 @@ def test_derive_writes_the_all_time_table(conn, add_match, run_id, place):
         (1, "ann", 1, 0, 1, 1, 0),
         (2, "bob", 0, 1, 1, 0, 0),
     ]
+
+
+def test_a_recorded_top_division_game_is_a_single_game_record(
+    conn, add_match, run_id, record
+):
+    record(20, "Grandmaster", "ann", "bob", "cat")
+    record(20, "Platinum", "dan", "eve", "fay")
+    top = add_match(
+        ("ann", 90), ("bob", 80), ("cat", 70), tournament="International S20"
+    )
+    lower = add_match(
+        ("dan", 90), ("eve", 80), ("fay", 70), tournament="International S20"
+    )
+
+    derive_tournaments(conn=conn, run_id=run_id)
+
+    got = {r["match_id"]: r["in_records"] for r in games(conn, run_id)}
+    assert (got[top], got[lower]) == (True, False)
