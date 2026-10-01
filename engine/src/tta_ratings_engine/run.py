@@ -81,6 +81,8 @@ RESULT_TABLES = [
     "tournament_finish_dates",
     "tournament_career_honours",
     "tournament_season_rules",
+    "tournament_cup_podiums",
+    "tournaments",
     "tournament_games",
     "tournament_standings",
     "tournament_boards",
@@ -163,6 +165,7 @@ def input_fingerprint(conn):
                 UNION ALL SELECT 'f' || t::text FROM tournament_finish_dates t
                 UNION ALL SELECT 'h' || t::text FROM tournament_career_honours t
                 UNION ALL SELECT 'r' || t::text FROM tournament_season_rules t
+                UNION ALL SELECT 'u' || t::text FROM tournament_cup_podiums t
             ) x
         )
         SELECT CASE WHEN f.facts IS NULL THEN m.md5 ELSE md5(m.md5 || md5(f.facts)) END

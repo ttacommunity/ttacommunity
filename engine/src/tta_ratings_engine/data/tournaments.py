@@ -564,7 +564,15 @@ def derive_tournaments(*, conn: psycopg.Connection, run_id: int) -> None:
             [{**p, "season": season} for (series, season, _), placed in official.items()
              if series == "worlds" for p in placed]
         )  # fmt: skip
-        boards["grand_slams"] = grand_slams_board(rows)
+        boards["grand_slams"] = grand_slams_board(
+            conn.execute(
+                "SELECT cup, season, final, place, player_name FROM tournament_cup_podiums"
+            ).fetchall(),
+            {
+                r["slug"]: r["name"]
+                for r in conn.execute("SELECT slug, name FROM tournaments").fetchall()
+            },
+        )
         boards["ladders"] = ladders_board(rows)
         legend_rows = [
             (run_id, position, r["player_name"], r["world_titles"], r["international_titles"],

@@ -3,7 +3,9 @@ edition counts, and the World Championship, Grand Slams and Ladders boards.
 
 Ported from upstream's hall_of_fame.py (derive_series_live_metrics,
 derive_world_championship_trophyboard, derive_grand_slams_trophyboard,
-derive_ladders_trophyboard), reading matches and recorded placements.
+derive_ladders_trophyboard), reading matches, recorded placements and cup
+podiums. The Grand Slams board counts every recorded cup year, not upstream's
+selection.
 """
 
 import re
@@ -142,90 +144,52 @@ def _players(r):
     )
 
 
-def grand_slams_board(rows) -> list[dict]:
-    """Returns upstream's Grand Slams & Cups board, cup by cup as upstream derives each.
+# The cups on the Grand Slams board, by catalogue slug.
+GRAND_SLAMS = frozenset(
+    {
+        "wimbledon",
+        "french_open",
+        "australian_open",
+        "survivors_cup",
+        "slow_burn",
+        "eiffel_tower",
+    }
+)
 
-    rows are matches in match_id order. Each player's details are their first
-    two honours.
+
+def grand_slams_board(podiums, names) -> list[dict]:
+    """Returns the Grand Slams & Cups board from every recorded cup year's podium.
+
+    podiums are rows of cup, season, final, place and player_name; names map a
+    cup's slug to its name. Ordered by golds, silvers, bronzes, then name. Each
+    player's details are their first two honours, by season then cup.
     """
     trophies = {}
-
-    def award(player, place, honour):
+    for p in sorted(
+        podiums, key=lambda p: (p["season"], p["cup"], p["final"], p["place"])
+    ):
+        if p["cup"] not in GRAND_SLAMS:
+            continue
+        season = (
+            f"S{p['season']}"
+            if p["season"].isdigit() and len(p["season"]) < 4
+            else p["season"]
+        )
+        final = f" ({p['final']})" if p["final"] else ""
         t = trophies.setdefault(
-            player, {"gold": 0, "silver": 0, "bronze": 0, "cups": []}
+            p["player_name"], {"gold": 0, "silver": 0, "bronze": 0, "cups": []}
         )
-        t[PLACES[place]] += 1
-        t["cups"].append(honour)
-
-    def matching(pattern):
-        return [r for r in rows if _like(r["tournament"], pattern)]
-
-    finals = matching("%Survivors Cup%Final%")
-    if finals:
-        latest = max(finals, key=lambda r: r["date"])
-        for place, (p, _) in enumerate(_players(latest)[:3]):
-            award(p, place, f"2026 Survivors Cup {LABELS[place]}")
-
-    wins, scores = defaultdict(int), {}
-    for r in matching("%Slow Burn%Final%"):
-        players = _players(r)
-        wins[players[0][0]] += 1
-        for p, s in players:
-            scores[p] = scores.get(p, 0.0) + s
-    for place, p in enumerate(
-        sorted(scores, key=lambda p: (wins[p], scores[p]), reverse=True)[:3]
-    ):
-        award(p, place, f"Slow Burn S15 {LABELS[place]}")
-
-    wins = {}
-    for r in matching("Wimbledon 2023 stage 7%"):
-        (a, sa), (b, sb) = (
-            (r["player1"], r["score1"] or 0),
-            (r["player2"], r["score2"] or 0),
+        t[PLACES[p["place"] - 1]] += 1
+        t["cups"].append(
+            f"{names.get(p['cup'], p['cup'])} {season}{final} {LABELS[p['place'] - 1]}"
         )
-        if sa != sb:
-            winner = a if sa > sb else b
-            wins[winner] = wins.get(winner, 0) + 1
-    for place, (p, _) in enumerate(
-        sorted(wins.items(), key=lambda kv: kv[1], reverse=True)[:2]
-    ):
-        award(p, place, f"2023 Wimbledon TTA {LABELS[place]}")
-
-    wins, points = {}, defaultdict(float)
-    for r in matching("Wimbledon 2025 Stage 10%"):
-        (a, sa), (b, sb) = (
-            (r["player1"], r["score1"] or 0),
-            (r["player2"], r["score2"] or 0),
-        )
-        points[a] += sa
-        points[b] += sb
-        if sa != sb:
-            winner = a if sa > sb else b
-            wins[winner] = wins.get(winner, 0) + 1
-    for place, p in enumerate(
-        sorted(wins, key=lambda p: (wins[p], points[p]), reverse=True)[:3]
-    ):
-        award(p, place, f"2025 Wimbledon TTA {LABELS[place]}")
-
-    top = {}
-    for r in matching("%Eiffel Tower%The Top%"):
-        seats = [
-            (r[f"player{i}"], r[f"score{i}"]) for i in range(1, r["player_count"] + 1)
-        ]
-        players = sorted(
-            ((p, float(s)) for p, s in seats if p and s is not None),
-            key=lambda ps: -ps[1],
-        )
-        if players:
-            top[players[0][0]] = top.get(players[0][0], 0) + 1
-    for p, n in sorted(top.items(), key=lambda kv: kv[1], reverse=True)[:3]:
-        award(p, 0, f"Eiffel Tower Pinnacle Champion ({n} Top Victories)")
-
     board = [
         _board_row(p, {k: t[k] for k in PLACES}, details=", ".join(t["cups"][:2]))
         for p, t in trophies.items()
     ]
-    return sorted(board, key=lambda b: (b["gold"], b["silver"], b["bronze"], b["gold"] + b["silver"] + b["bronze"]), reverse=True)  # fmt: skip
+    return sorted(
+        board, key=lambda b: (-b["gold"], -b["silver"], -b["bronze"], b["player_name"])
+    )
 
 
 def ladders_board(rows) -> list[dict]:
