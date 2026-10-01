@@ -204,10 +204,11 @@ export function titleLabel(code: TitleCode): string {
 
 export type CountryColumn = 'rank' | 'country' | 'players' | 'gm' | 'm_plus' | 'p_plus' | 'all';
 
-/** sortCountries sorts the countries table as upstream's script: numbers with none as 0, and rank and country as text. */
+/** sortCountries sorts the countries table: numbers with none as 0, and the country code as text. */
 export function sortCountries<T extends CountryRatings & { rank: number }>(rows: readonly T[], col: CountryColumn, asc: boolean): T[] {
   const dir = asc ? 1 : -1;
-  if (col === 'rank' || col === 'country') {
+  if (col === 'rank') return [...rows].sort((a, b) => dir * (a.rank - b.rank));
+  if (col === 'country') {
     return [...rows].sort((a, b) => dir * String(a[col]).localeCompare(String(b[col])));
   }
   return [...rows].sort((a, b) => dir * ((a[col] ?? 0) - (b[col] ?? 0)));

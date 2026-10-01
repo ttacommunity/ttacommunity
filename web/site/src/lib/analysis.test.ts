@@ -140,9 +140,10 @@ describe('sortCountries', () => {
     expect(sortCountries(rows, 'country', true).map((r) => r.country)).toEqual(['CZ', 'FR', 'US']);
   });
 
-  it('sorts the rank column as text, as upstream does', () => {
+  it('sorts the rank column as numbers, not as text (1, 2, 3, not 1, 10, 11)', () => {
     const many = Array.from({ length: 11 }, (_, i) => ({ ...c(`C${i}`, 1, null), rank: i + 1 }));
-    expect(sortCountries(many, 'rank', true).map((r) => r.rank).slice(0, 4)).toEqual([1, 10, 11, 2]);
+    expect(sortCountries(many, 'rank', true).map((r) => r.rank).slice(0, 4)).toEqual([1, 2, 3, 4]);
+    expect(sortCountries(many, 'rank', false).map((r) => r.rank).slice(0, 3)).toEqual([11, 10, 9]);
   });
 });
 
