@@ -34,13 +34,19 @@ def _numbers(names, pattern):
     ]
 
 
+def _cup_edition(name):
+    """Returns a cup game's (cup, edition number): "Slow Burn S1 - game 2" is ("slow burn", 1)."""
+    m = re.match(r"(.*?)\s+S?(\d+)\b", name, re.IGNORECASE)
+    return (m.group(1).strip().lower(), int(m.group(2))) if m else None
+
+
 def series_metrics(rows) -> dict[str, tuple[int, int]]:
     """Returns each series' (games, editions) as upstream's series pages count them.
 
     Games are matches whose name fits the series' patterns. Editions are the
     latest season number for leagues, the distinct "Worlds <n>" names for the
-    World Championship, the distinct names before "Stage" for the cups, and a
-    fixed 16 for the ladders.
+    World Championship, each cup's distinct numbers (Wimbledon 2025, Slow
+    Burn S15) for the cups, and a fixed 16 for the ladders.
     """
     names = [r["tournament"] for r in rows]
     series = {
@@ -79,7 +85,7 @@ def series_metrics(rows) -> dict[str, tuple[int, int]]:
             }
             editions = len(found)
         elif s == "grand_slams":
-            editions = len({n.split("Stage")[0].strip() for n in distinct})
+            editions = len({_cup_edition(n) for n in distinct} - {None})
         else:
             editions = 16
         got[s] = (len(mine), editions)

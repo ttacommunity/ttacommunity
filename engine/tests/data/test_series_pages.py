@@ -48,7 +48,6 @@ def test_series_metrics_count_as_upstream():
         "intermezzo": (1, 12),
         "royal_league": (2, 10),
         "worlds": (2, 2),
-        # Upstream counts each name before "Stage" as an edition.
         "grand_slams": (3, 2),
         "ladders": (2, 16),
     }
@@ -74,6 +73,25 @@ def test_the_world_championship_board_lists_recent_champions_first():
         ("frotes", "GM", 0, 1, 0),
         ("silent_x111", "GM", 0, 0, 1),
     ]
+
+
+def test_grand_slams_count_each_cup_edition_once():
+    rows = numbered(
+        match("Wimbledon 2023 stage 1 game 1", ("a", 1), ("b", 2)),
+        match("Wimbledon 2023 stage 7 game 1", ("a", 1), ("b", 2)),
+        match("Wimbledon 2025 Stage 9 game 1", ("a", 1), ("b", 2)),
+        match("Survivors Cup 2026 Final game 1", ("a", 1), ("b", 2)),
+        match("Survivors Cup 2026 Final game 2", ("a", 1), ("b", 2)),
+        match("French Open 2025 (Odd Games) - R1 game 1", ("a", 1), ("b", 2)),
+        match("French Open 2025 (Even Games) - R1 game 1", ("a", 1), ("b", 2)),
+        match("Slow Burn 1", ("a", 1), ("b", 2)),
+        match("Slow Burn S1 - game 2", ("a", 1), ("b", 2)),
+        match("Slow Burn S15 - final", ("a", 1), ("b", 2)),
+        match("Eiffel Tower S3 - Group A game 4", ("a", 1), ("b", 2)),
+        match("Eiffel Tower S3 - Group B game 1", ("a", 1), ("b", 2)),
+    )
+    # Wimbledon 2023 and 2025, Survivors 2026, French Open 2025, Slow Burn 1 and 15, Eiffel Tower 3
+    assert series_metrics(rows)["grand_slams"] == (12, 7)
 
 
 def test_grand_slams_board_takes_each_cup_as_upstream():
