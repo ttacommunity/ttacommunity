@@ -233,3 +233,27 @@ func TestReplaceCommunityKeepsNamesThatAreNotPlayers(t *testing.T) {
 		t.Errorf("scores = %q, want %q", rows, want)
 	}
 }
+
+const ruleRows = "SELECT concat_ws('|', series, season, timeout_penalty, scoring_3p, scoring_4p, tiebreaks, source) FROM tournament_season_rules ORDER BY series, season"
+
+func TestReplaceRulesReplacesEveryEarlierRow(t *testing.T) {
+	pool := migrated(t)
+	ctx := context.Background()
+	rule := func(season int, penalty float64) tournamentcsv.Rule {
+		return tournamentcsv.Rule{Series: "intermezzo", Season: season, TimeoutPenalty: penalty, Scoring3p: "5-2-0", Source: "s"}
+	}
+	if _, err := ReplaceRules(ctx, pool, []tournamentcsv.Rule{rule(9, 0)}); err != nil {
+		t.Fatalf("first ReplaceRules: %v", err)
+	}
+
+	got, err := ReplaceRules(ctx, pool, []tournamentcsv.Rule{rule(6, -1), rule(7, 0)})
+	if err != nil {
+		t.Fatalf("ReplaceRules: %v", err)
+	}
+	if want := (FactsReplaced{Written: 2}); got != want {
+		t.Errorf("ReplaceRules = %+v, want %+v", got, want)
+	}
+	if rows, want := rowsOf(t, pool, ruleRows), []string{"intermezzo|6|-1|5-2-0|||s", "intermezzo|7|0|5-2-0|||s"}; !slices.Equal(rows, want) {
+		t.Errorf("rules = %q, want %q", rows, want)
+	}
+}

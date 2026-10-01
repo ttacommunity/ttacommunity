@@ -100,6 +100,22 @@ func ReplaceCorrections(ctx context.Context, pool *pgxpool.Pool, fixes []tournam
 	return FactsReplaced{Written: n}, err
 }
 
+// ReplaceRules replaces every season's recorded rules, in one transaction.
+func ReplaceRules(ctx context.Context, pool *pgxpool.Pool, rules []tournamentcsv.Rule) (FactsReplaced, error) {
+	var series, s3, s4, tiebreaks, sources []string
+	var seasons []int32
+	var penalties []float64
+	for _, r := range rules {
+		series, seasons, penalties = append(series, r.Series), append(seasons, int32(r.Season)), append(penalties, r.TimeoutPenalty)
+		s3, s4, tiebreaks, sources = append(s3, r.Scoring3p), append(s4, r.Scoring4p), append(tiebreaks, r.Tiebreaks), append(sources, r.Source)
+	}
+	n, err := replaceAll(ctx, pool, "tournament_season_rules", `
+		INSERT INTO tournament_season_rules (series, season, timeout_penalty, scoring_3p, scoring_4p, tiebreaks, source)
+		SELECT * FROM unnest($1::text[], $2::int[], $3::float8[], $4::text[], $5::text[], $6::text[], $7::text[])`,
+		series, seasons, penalties, s3, s4, tiebreaks, sources)
+	return FactsReplaced{Written: n}, err
+}
+
 // ReplaceFinishDates replaces every season's recorded finish date, in one
 // transaction.
 func ReplaceFinishDates(ctx context.Context, pool *pgxpool.Pool, dates []tournamentcsv.FinishDate) (FactsReplaced, error) {

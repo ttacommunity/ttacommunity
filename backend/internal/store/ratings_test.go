@@ -83,7 +83,7 @@ var ratingsTables = []string{
 	"player_yearly_titles", "players", "rating_history", "rating_runs", "refused_rows", "standard_calibration",
 	"tournament_achievements", "tournament_boards", "tournament_career_honours", "tournament_finish_dates",
 	"tournament_games", "tournament_group_divisions", "tournament_legends", "tournament_official_placements",
-	"tournament_records", "tournament_season_corrections", "tournament_season_records", "tournament_series", "tournament_standings",
+	"tournament_records", "tournament_season_corrections", "tournament_season_records", "tournament_season_rules", "tournament_series", "tournament_standings",
 	"walk_forward_calibration",
 }
 
