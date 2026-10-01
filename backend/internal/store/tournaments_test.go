@@ -257,3 +257,32 @@ func TestReplaceRulesReplacesEveryEarlierRow(t *testing.T) {
 		t.Errorf("rules = %q, want %q", rows, want)
 	}
 }
+
+const podiumRows = "SELECT concat_ws('|', cup, season, final, place, player_name, source) FROM tournament_cup_podiums ORDER BY cup, season, final, place"
+
+func TestReplacePodiumsWritesKnownPlayersOnly(t *testing.T) {
+	pool := migrated(t)
+	ctx := context.Background()
+	addPlayers(t, pool, "saru", "whsvin")
+	podium := func(cup, season string, place int, player string) tournamentcsv.Podium {
+		return tournamentcsv.Podium{Cup: cup, Season: season, Place: place, Player: player, Source: "s"}
+	}
+	if _, err := ReplacePodiums(ctx, pool, []tournamentcsv.Podium{podium("wimbledon", "2023", 1, "saru")}); err != nil {
+		t.Fatalf("first ReplacePodiums: %v", err)
+	}
+
+	got, err := ReplacePodiums(ctx, pool, []tournamentcsv.Podium{
+		podium("wimbledon", "2024", 1, "saru"),
+		podium("wimbledon", "2024", 2, "whsvin"),
+		podium("wimbledon", "2024", 3, "nobody"),
+	})
+	if err != nil {
+		t.Fatalf("ReplacePodiums: %v", err)
+	}
+	if want := (FactsReplaced{Written: 2, Unknown: 1}); got != want {
+		t.Errorf("ReplacePodiums = %+v, want %+v", got, want)
+	}
+	if rows, want := rowsOf(t, pool, podiumRows), []string{"wimbledon|2024||1|saru|s", "wimbledon|2024||2|whsvin|s"}; !slices.Equal(rows, want) {
+		t.Errorf("podiums = %q, want %q", rows, want)
+	}
+}

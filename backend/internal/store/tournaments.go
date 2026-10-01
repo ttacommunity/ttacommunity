@@ -116,6 +116,25 @@ func ReplaceRules(ctx context.Context, pool *pgxpool.Pool, rules []tournamentcsv
 	return FactsReplaced{Written: n}, err
 }
 
+// ReplacePodiums replaces every cup year's recorded podium, in one transaction.
+// A row naming someone who is not a player is counted, not written.
+func ReplacePodiums(ctx context.Context, pool *pgxpool.Pool, podiums []tournamentcsv.Podium) (FactsReplaced, error) {
+	var cups, seasons, finals, players, sources []string
+	var places []int32
+	for _, p := range podiums {
+		cups, seasons, finals, places = append(cups, p.Cup), append(seasons, p.Season), append(finals, p.Final), append(places, int32(p.Place))
+		players, sources = append(players, p.Player), append(sources, p.Source)
+	}
+	n, err := replaceAll(ctx, pool, "tournament_cup_podiums", `
+		INSERT INTO tournament_cup_podiums (cup, season, final, place, player_name, source)
+		SELECT x.cup, x.season, x.final, x.place, p.name, x.source
+		FROM unnest($1::text[], $2::text[], $3::text[], $4::int[], $5::text[], $6::text[])
+		     AS x(cup, season, final, place, player, source)
+		JOIN players p ON p.name = x.player`,
+		cups, seasons, finals, places, players, sources)
+	return FactsReplaced{Written: n, Unknown: len(podiums) - n}, err
+}
+
 // ReplaceFinishDates replaces every season's recorded finish date, in one
 // transaction.
 func ReplaceFinishDates(ctx context.Context, pool *pgxpool.Pool, dates []tournamentcsv.FinishDate) (FactsReplaced, error) {
