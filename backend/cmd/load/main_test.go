@@ -166,3 +166,26 @@ func TestReportAttachedCountsAndNamesNoPlayer(t *testing.T) {
 		t.Errorf("report names a player:\n%s", got)
 	}
 }
+
+func TestReadConfirmedTakesReplayCodes(t *testing.T) {
+	got, err := readConfirmed("new.csv", strings.NewReader("replay_code,reason\nTEPIBOTA,checked on CGE\nROSOBOBU,\n"))
+	if err != nil {
+		t.Fatalf("readConfirmed: %v", err)
+	}
+	if len(got) != 2 || !got["TEPIBOTA"] || !got["ROSOBOBU"] {
+		t.Errorf("readConfirmed = %v, want TEPIBOTA and ROSOBOBU", got)
+	}
+}
+
+func TestReadConfirmedRefusesAnythingElse(t *testing.T) {
+	for name, in := range map[string]string{
+		"no header":     "TEPIBOTA\n",
+		"another first": "code,replay_code\nTEPIBOTA,x\n",
+		"a bad code":    "replay_code\ntepibota\n",
+		"an empty code": "replay_code\n\n,why\n",
+	} {
+		if _, err := readConfirmed("new.csv", strings.NewReader(in)); err == nil {
+			t.Errorf("readConfirmed(%s) accepted it, want an error", name)
+		}
+	}
+}

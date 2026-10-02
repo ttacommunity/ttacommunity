@@ -7,12 +7,15 @@ package main
 
 import (
 	"context"
+	"encoding/csv"
+	"errors"
 	"flag"
 	"fmt"
 	"io"
 	"os"
 	"os/signal"
 	"path/filepath"
+	"regexp"
 	"slices"
 	"strings"
 	"syscall"
@@ -32,12 +35,13 @@ func main() {
 	countries := flag.Bool("countries", false, "set players' countries from the CSV files named, a later file winning")
 	classify := flag.Bool("classify", false, "only place unplaced games in the tournament catalogue, by their names")
 	cgeGames := flag.String("cge-games", "", "attach CGE's facts (seats, CGE users, finish dates) from the CSV named to the games already loaded")
+	cgeNew := flag.String("cge-new", "", "with -cge-games: a CSV of replay codes (replay_code column first) checked by hand as new games, added even where they may look like copies")
 	facts := flag.String("facts", "", "replace every recorded tournament fact of one kind (divisions, placements, corrections, dates, honours, rules, podiums, cge_tournaments, community or community_scores) with the CSV file named")
 	flag.Usage = func() {
 		fmt.Fprintln(os.Stderr, "usage: load [-reset] <directory of match CSVs>")
 		fmt.Fprintln(os.Stderr, "       load -migrate")
 		fmt.Fprintln(os.Stderr, "       load -classify")
-		fmt.Fprintln(os.Stderr, "       load -cge-games <CSV file>")
+		fmt.Fprintln(os.Stderr, "       load -cge-games <CSV file> [-cge-new <CSV file>]")
 		fmt.Fprintln(os.Stderr, "       load -countries <CSV file>...")
 		fmt.Fprintln(os.Stderr, "       load -facts divisions|placements|corrections|dates|honours|rules|podiums|cge_tournaments|community|community_scores <CSV file>")
 		fmt.Fprintln(os.Stderr, "The database is RATINGS_DATABASE_URL.")
@@ -51,8 +55,11 @@ func main() {
 		err = migrateOnly()
 	case *classify && one && flag.NArg() == 0:
 		err = classifyOnly()
+	case *cgeNew != "" && *cgeGames == "":
+		flag.Usage()
+		os.Exit(64)
 	case *cgeGames != "" && one && flag.NArg() == 0:
-		err = attachCGEGames(*cgeGames)
+		err = attachCGEGames(*cgeGames, *cgeNew)
 	case *countries && one && flag.NArg() > 0:
 		err = setCountries(flag.Args())
 	case *facts != "" && one && flag.NArg() == 1:
@@ -127,10 +134,11 @@ func reportClassified(w io.Writer, c store.Classified) {
 	}
 }
 
-// attachCGEGames reads the file first, then records CGE's facts on the games
-// already loaded and adds the games we lack (store.AddCGEGames), after
-// applying any pending migration.
-func attachCGEGames(file string) error {
+// attachCGEGames reads the files first, then records CGE's facts on the games
+// already loaded and adds the games we lack (store.AddCGEGames, with the
+// replay codes in newFile, if named, confirmed new), after applying any
+// pending migration.
+func attachCGEGames(file, newFile string) error {
 	dbURL := os.Getenv("RATINGS_DATABASE_URL")
 	if dbURL == "" {
 		return fmt.Errorf("RATINGS_DATABASE_URL is not set")
@@ -143,6 +151,18 @@ func attachCGEGames(file string) error {
 	f.Close()
 	if err != nil {
 		return err
+	}
+	confirmed := map[string]bool{}
+	if newFile != "" {
+		nf, err := os.Open(newFile)
+		if err != nil {
+			return fmt.Errorf("opening %s: %w", newFile, err)
+		}
+		confirmed, err = readConfirmed(newFile, nf)
+		nf.Close()
+		if err != nil {
+			return err
+		}
 	}
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
@@ -158,12 +178,43 @@ func attachCGEGames(file string) error {
 	if err != nil {
 		return err
 	}
-	added, err := store.AddCGEGames(ctx, pool, res.Games)
+	added, err := store.AddCGEGames(ctx, pool, res.Games, confirmed)
 	if err != nil {
 		return err
 	}
 	reportAttached(os.Stdout, file, res, added, got)
 	return nil
+}
+
+// replayCode is the shape of a CGE replay code.
+var replayCode = regexp.MustCompile(`^[A-Z0-9]{4,16}$`)
+
+// readConfirmed reads a CSV whose first column is replay_code: games checked
+// by hand as new. It refuses a missing header or a code of the wrong shape.
+func readConfirmed(file string, r io.Reader) (map[string]bool, error) {
+	cr := csv.NewReader(r)
+	cr.FieldsPerRecord = -1
+	head, err := cr.Read()
+	if err != nil {
+		return nil, fmt.Errorf("%s: %w", file, err)
+	}
+	if head[0] != "replay_code" {
+		return nil, fmt.Errorf("%s: want replay_code as the first column", file)
+	}
+	got := map[string]bool{}
+	for line := 2; ; line++ {
+		rec, err := cr.Read()
+		if errors.Is(err, io.EOF) {
+			return got, nil
+		}
+		if err != nil {
+			return nil, fmt.Errorf("%s: %w", file, err)
+		}
+		if !replayCode.MatchString(rec[0]) {
+			return nil, fmt.Errorf("%s:%d: not a replay code", file, line)
+		}
+		got[rec[0]] = true
+	}
 }
 
 // reportAttached writes how many CGE games matched ours, which did not (by

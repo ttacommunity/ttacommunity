@@ -64,12 +64,12 @@ func (h heldSeason) mayBeOurs(g cgegames.Game) bool {
 // AddCGEGames adds the CGE games we do not hold (by replay code or CGE
 // identity), in one transaction, placed and named as our match files would,
 // with CGE's scores and seats. A played game is added only when it cannot be
-// a copy of ours: its season holds none of our games, or it finished after
-// our last one there and none of ours has its players, or its scores and all
-// its players but one (a renamed player); else it is a conflict.
-// A never-played game is added as such, dated by its group's last game. A game
-// without a settled placing (no Name) is never added.
-func AddCGEGames(ctx context.Context, pool *pgxpool.Pool, games []cgegames.Game) (Added, error) {
+// a copy of ours (its season holds none of ours, or it finished after our last
+// one there and none of ours has its players, or its scores and all its
+// players but one), or its code is in confirmed; else it is a conflict. A
+// never-played game is added dated by its group's last game; one without a
+// settled placing (no Name) never is.
+func AddCGEGames(ctx context.Context, pool *pgxpool.Pool, games []cgegames.Game, confirmed map[string]bool) (Added, error) {
 	codes, idents, err := heldCGEGames(ctx, pool)
 	if err != nil {
 		return Added{}, err
@@ -107,7 +107,7 @@ func AddCGEGames(ctx context.Context, pool *pgxpool.Pool, games []cgegames.Game)
 				continue
 			}
 			day = &last
-		} else if h, ok := seasons[seasonKey{g.Tournament, g.Season}]; ok && (!day.After(h.last) || h.players[playersKey(seatNames(g))] || h.mayBeOurs(g)) {
+		} else if h, ok := seasons[seasonKey{g.Tournament, g.Season}]; ok && !confirmed[g.Code] && (!day.After(h.last) || h.players[playersKey(seatNames(g))] || h.mayBeOurs(g)) {
 			got.Conflicts = append(got.Conflicts, g)
 			continue
 		}

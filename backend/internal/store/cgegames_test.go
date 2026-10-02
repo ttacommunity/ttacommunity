@@ -248,7 +248,7 @@ func TestAddCGEGamesAddsAGameOfASeasonWeHoldNoneOf(t *testing.T) {
 	ctx := context.Background()
 	ourGame(t, pool, 2, "International S34", "2026-08-13", matchcsv.Player{Name: "ann", Score: 1}, matchcsv.Player{Name: "bob", Score: 0})
 
-	got, err := AddCGEGames(ctx, pool, []cgegames.Game{newCGE("Gold 1", 3, "2026-09-20", played("cat", 200, 3), played("ann", 150, 1))})
+	got, err := AddCGEGames(ctx, pool, []cgegames.Game{newCGE("Gold 1", 3, "2026-09-20", played("cat", 200, 3), played("ann", 150, 1))}, nil)
 	if err != nil {
 		t.Fatalf("AddCGEGames: %v", err)
 	}
@@ -285,7 +285,7 @@ func TestAddCGEGamesAddsANeverPlayedGameDatedByItsGroup(t *testing.T) {
 		newCGE("Gold 1", 1, "2026-09-10", played("ann", 100, 1), played("bob", 90, 2)),
 		never,
 		newCGE("Gold 1", 3, "2026-09-25", played("bob", 100, 2), played("ann", 90, 1)),
-	})
+	}, nil)
 	if err != nil {
 		t.Fatalf("AddCGEGames: %v", err)
 	}
@@ -307,7 +307,7 @@ func TestAddCGEGamesReportsAGameThatMayBeACopyOfOurs(t *testing.T) {
 	same := cgeGame("2022-01-10", played("ann", 101, 1), played("bob", 90, 2))
 	same.Season, same.Name, same.Code, same.Number = "16", "International S16 - Bronze 1 game 3", "SAME", 3
 
-	got, err := AddCGEGames(ctx, pool, []cgegames.Game{early, same})
+	got, err := AddCGEGames(ctx, pool, []cgegames.Game{early, same}, nil)
 	if err != nil {
 		t.Fatalf("AddCGEGames: %v", err)
 	}
@@ -317,13 +317,31 @@ func TestAddCGEGamesReportsAGameThatMayBeACopyOfOurs(t *testing.T) {
 	}
 }
 
+func TestAddCGEGamesAddsAPossibleCopyConfirmedNew(t *testing.T) {
+	pool := migrated(t)
+	ctx := context.Background()
+	ourGame(t, pool, 2, "International S16", "2021-12-20", matchcsv.Player{Name: "ann", Score: 100}, matchcsv.Player{Name: "bob", Score: 90})
+	early := cgeGame("2021-12-01", played("cat", 100, 3), played("dan", 90, 4))
+	early.Season, early.Name, early.Code = "16", "International S16 - Bronze 1 game 2", "EARLY"
+	same := cgeGame("2022-01-10", played("ann", 101, 1), played("bob", 90, 2))
+	same.Season, same.Name, same.Code, same.Number = "16", "International S16 - Bronze 1 game 3", "SAME", 3
+
+	got, err := AddCGEGames(ctx, pool, []cgegames.Game{early, same}, map[string]bool{"SAME": true})
+	if err != nil {
+		t.Fatalf("AddCGEGames: %v", err)
+	}
+	if got.Added != 1 || len(got.Conflicts) != 1 || got.Conflicts[0].Code != "EARLY" {
+		t.Errorf("AddCGEGames = %+v, want SAME added as confirmed new, EARLY still reported", got)
+	}
+}
+
 func TestAddCGEGamesAddsALaterGameOfASeasonWeHold(t *testing.T) {
 	pool := migrated(t)
 	ourGame(t, pool, 2, "International S16", "2021-12-20", matchcsv.Player{Name: "ann", Score: 100}, matchcsv.Player{Name: "bob", Score: 90})
 	later := cgeGame("2022-01-10", played("cat", 100, 3), played("dan", 90, 4))
 	later.Season, later.Name = "16", "International S16 - Bronze 1 game 2"
 
-	got, err := AddCGEGames(context.Background(), pool, []cgegames.Game{later})
+	got, err := AddCGEGames(context.Background(), pool, []cgegames.Game{later}, nil)
 	if err != nil {
 		t.Fatalf("AddCGEGames: %v", err)
 	}
@@ -340,7 +358,7 @@ func TestAddCGEGamesAgainAddsNothingMore(t *testing.T) {
 	never.Unplayed, never.Finished = true, nil
 	games := []cgegames.Game{newCGE("Gold 1", 1, "2026-09-10", played("ann", 100, 1), played("bob", 90, 2)), never}
 	for range 2 {
-		if _, err := AddCGEGames(ctx, pool, games); err != nil {
+		if _, err := AddCGEGames(ctx, pool, games, nil); err != nil {
 			t.Fatalf("AddCGEGames: %v", err)
 		}
 	}
@@ -354,7 +372,7 @@ func TestAddCGEGamesNeverAddsAGameWithoutASettledPlace(t *testing.T) {
 	g := newCGE("Gold 1", 1, "2026-09-10", played("ann", 100, 1), played("bob", 90, 2))
 	g.Name, g.Season = "", ""
 
-	got, err := AddCGEGames(context.Background(), pool, []cgegames.Game{g})
+	got, err := AddCGEGames(context.Background(), pool, []cgegames.Game{g}, nil)
 	if err != nil {
 		t.Fatalf("AddCGEGames: %v", err)
 	}
@@ -368,7 +386,7 @@ func TestAddCGEGamesRefusesATournamentTheCatalogueLacks(t *testing.T) {
 	g := newCGE("Gold 1", 1, "2026-09-10", played("ann", 100, 1), played("bob", 90, 2))
 	g.Tournament = "snail_cup"
 
-	if _, err := AddCGEGames(context.Background(), pool, []cgegames.Game{g}); err == nil || !strings.Contains(err.Error(), "snail_cup") {
+	if _, err := AddCGEGames(context.Background(), pool, []cgegames.Game{g}, nil); err == nil || !strings.Contains(err.Error(), "snail_cup") {
 		t.Errorf("AddCGEGames(unknown tournament) = %v, want an error naming snail_cup", err)
 	}
 }
@@ -414,7 +432,7 @@ func TestAddCGEGamesReportsAGameOfOursWithARenamedPlayer(t *testing.T) {
 	later := cgeGame("2022-01-10", played("gigi lamoroso", 244, 7), played("peracottari", 185, 8), played("fraction", 123, 9))
 	later.Season, later.Name = "16", "International S16 - Bronze 1 game 2"
 
-	got, err := AddCGEGames(context.Background(), pool, []cgegames.Game{later})
+	got, err := AddCGEGames(context.Background(), pool, []cgegames.Game{later}, nil)
 	if err != nil {
 		t.Fatalf("AddCGEGames: %v", err)
 	}
@@ -448,7 +466,7 @@ func TestAddCGEGamesReportsAGameOursRecordsWithoutATimedOutPlayer(t *testing.T) 
 	later := cgeGame("2022-06-27", played("Benni", 240, 1), played("Jans", 229, 2), played("Lammoth", 208, 3), timedOut("gigi lamoroso", 4))
 	later.Season, later.Name = "18", "International S18 - Silver 11 game 9"
 
-	got, err := AddCGEGames(context.Background(), pool, []cgegames.Game{later})
+	got, err := AddCGEGames(context.Background(), pool, []cgegames.Game{later}, nil)
 	if err != nil {
 		t.Fatalf("AddCGEGames: %v", err)
 	}
