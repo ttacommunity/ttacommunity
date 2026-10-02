@@ -4,6 +4,7 @@ import (
 	"strings"
 	"testing"
 
+	"ttacommunity/backend/internal/cgegames"
 	"ttacommunity/backend/internal/countrycsv"
 	"ttacommunity/backend/internal/matchcsv"
 	"ttacommunity/backend/internal/store"
@@ -126,5 +127,33 @@ func TestReportClassifiedSaysNothingIsUnplaced(t *testing.T) {
 	reportClassified(&b, store.Classified{Placed: 3})
 	if got := b.String(); strings.Contains(got, "no rule reads") {
 		t.Errorf("report lists unread names when there are none:\n%s", got)
+	}
+}
+
+func TestReportAttachedCountsAndNamesNoPlayer(t *testing.T) {
+	var b strings.Builder
+	reportAttached(&b, "g.csv", cgegames.Result{Refused: []cgegames.Refusal{{Line: 4, Reason: cgegames.BadSeat}}}, store.Attached{
+		Matched:     3,
+		NeverPlayed: 1,
+		Unmatched: []cgegames.Game{
+			{CGETournament: 21, CGESeason: 7, Seats: []cgegames.Seat{{Name: "secretname"}}},
+			{CGETournament: 21, CGESeason: 7}, {CGETournament: 19, CGESeason: 2},
+		},
+		Seasons: []store.SeasonLink{{CGETournament: 21, CGESeason: 7, Season: "16", Games: 3}},
+	})
+	got := b.String()
+	for _, want := range []string{
+		"matched to our games: 3",
+		"never played, set apart: 1",
+		"no game of ours: 3 (CGE 19/2: 1, 21/7: 2)",
+		"  CGE 21/7 -> season 16: 3 games\n",
+		"refused: 1\n  g.csv:4 bad_seat\n",
+	} {
+		if !strings.Contains(got, want) {
+			t.Errorf("report is missing %q:\n%s", want, got)
+		}
+	}
+	if strings.Contains(got, "secretname") {
+		t.Errorf("report names a player:\n%s", got)
 	}
 }

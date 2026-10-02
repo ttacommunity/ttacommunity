@@ -19,6 +19,7 @@ import (
 
 	"github.com/jackc/pgx/v5/pgxpool"
 
+	"ttacommunity/backend/internal/cgegames"
 	"ttacommunity/backend/internal/countrycsv"
 	"ttacommunity/backend/internal/matchcsv"
 	"ttacommunity/backend/internal/store"
@@ -30,29 +31,33 @@ func main() {
 	migrate := flag.Bool("migrate", false, "only apply the ratings migrations, and load nothing")
 	countries := flag.Bool("countries", false, "set players' countries from the CSV files named, a later file winning")
 	classify := flag.Bool("classify", false, "only place unplaced games in the tournament catalogue, by their names")
+	cgeGames := flag.String("cge-games", "", "attach CGE's facts (seats, CGE users, finish dates) from the CSV named to the games already loaded")
 	facts := flag.String("facts", "", "replace every recorded tournament fact of one kind (divisions, placements, corrections, dates, honours, rules, podiums, cge_tournaments, community or community_scores) with the CSV file named")
 	flag.Usage = func() {
 		fmt.Fprintln(os.Stderr, "usage: load [-reset] <directory of match CSVs>")
 		fmt.Fprintln(os.Stderr, "       load -migrate")
 		fmt.Fprintln(os.Stderr, "       load -classify")
+		fmt.Fprintln(os.Stderr, "       load -cge-games <CSV file>")
 		fmt.Fprintln(os.Stderr, "       load -countries <CSV file>...")
 		fmt.Fprintln(os.Stderr, "       load -facts divisions|placements|corrections|dates|honours|rules|podiums|cge_tournaments|community|community_scores <CSV file>")
 		fmt.Fprintln(os.Stderr, "The database is RATINGS_DATABASE_URL.")
 		flag.PrintDefaults()
 	}
 	flag.Parse()
-	one := !*reset && btoi(*migrate)+btoi(*classify)+btoi(*countries)+btoi(*facts != "") == 1
+	one := !*reset && btoi(*migrate)+btoi(*classify)+btoi(*cgeGames != "")+btoi(*countries)+btoi(*facts != "") == 1
 	var err error
 	switch {
 	case *migrate && one && flag.NArg() == 0:
 		err = migrateOnly()
 	case *classify && one && flag.NArg() == 0:
 		err = classifyOnly()
+	case *cgeGames != "" && one && flag.NArg() == 0:
+		err = attachCGEGames(*cgeGames)
 	case *countries && one && flag.NArg() > 0:
 		err = setCountries(flag.Args())
 	case *facts != "" && one && flag.NArg() == 1:
 		err = replaceFacts(*facts, flag.Arg(0))
-	case !*migrate && !*classify && !*countries && *facts == "" && flag.NArg() == 1:
+	case !*migrate && !*classify && *cgeGames == "" && !*countries && *facts == "" && flag.NArg() == 1:
 		err = run(*reset, flag.Arg(0))
 	default:
 		flag.Usage()
@@ -119,6 +124,70 @@ func reportClassified(w io.Writer, c store.Classified) {
 	fmt.Fprintf(w, "names no rule reads: %d (their games stay unplaced)\n", len(c.Unplaced))
 	for _, n := range c.Unplaced {
 		fmt.Fprintf(w, "  %s\n", n)
+	}
+}
+
+// attachCGEGames reads the file first, then records CGE's facts on the games
+// already loaded, in one transaction, after applying any pending migration.
+func attachCGEGames(file string) error {
+	dbURL := os.Getenv("RATINGS_DATABASE_URL")
+	if dbURL == "" {
+		return fmt.Errorf("RATINGS_DATABASE_URL is not set")
+	}
+	f, err := os.Open(file)
+	if err != nil {
+		return fmt.Errorf("opening %s: %w", file, err)
+	}
+	res, err := cgegames.Read(file, f)
+	f.Close()
+	if err != nil {
+		return err
+	}
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer stop()
+	pool, err := pgxpool.New(ctx, dbURL)
+	if err != nil {
+		return fmt.Errorf("opening the ratings database: %w", err)
+	}
+	defer pool.Close()
+	if err := store.MigrateRatings(ctx, pool); err != nil {
+		return err
+	}
+	got, err := store.AttachCGEGames(ctx, pool, res.Games)
+	if err != nil {
+		return err
+	}
+	reportAttached(os.Stdout, file, res, got)
+	return nil
+}
+
+// reportAttached writes how many CGE games matched ours, which did not (by
+// CGE tournament and stage), and which of our seasons each stage matched.
+// It names tournaments and seasons, never a player.
+func reportAttached(w io.Writer, file string, res cgegames.Result, got store.Attached) {
+	fmt.Fprintf(w, "matched to our games: %d\n", got.Matched)
+	fmt.Fprintf(w, "never played, set apart: %d\n", got.NeverPlayed)
+	missing := map[string]int{}
+	for _, g := range got.Unmatched {
+		missing[fmt.Sprintf("%d/%d", g.CGETournament, g.CGESeason)]++
+	}
+	keys := make([]string, 0, len(missing))
+	for k := range missing {
+		keys = append(keys, k)
+	}
+	slices.Sort(keys)
+	parts := make([]string, len(keys))
+	for i, k := range keys {
+		parts[i] = fmt.Sprintf("%s: %d", k, missing[k])
+	}
+	fmt.Fprintf(w, "no game of ours: %d (CGE %s)\n", len(got.Unmatched), strings.Join(parts, ", "))
+	fmt.Fprintln(w, "where each CGE stage matched:")
+	for _, l := range got.Seasons {
+		fmt.Fprintf(w, "  CGE %d/%d -> season %s: %d games\n", l.CGETournament, l.CGESeason, l.Season, l.Games)
+	}
+	fmt.Fprintf(w, "refused: %d\n", len(res.Refused))
+	for _, r := range res.Refused {
+		fmt.Fprintf(w, "  %s:%d %s\n", file, r.Line, r.Reason)
 	}
 }
 
