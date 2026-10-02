@@ -18,9 +18,9 @@
   --loss: #ef5350;
   --draw: #ffa726;
 
-  /* The --font-* families come from Astro's <Font />; the fallbacks cover pages without it. */
-  --font-heading: var(--font-cinzel, 'Cinzel', serif);
-  --font-subheading: var(--font-marcellus, 'Marcellus', serif);
-  --font-body: var(--font-source-serif, 'Source Serif 4', Georgia, serif);
-  --font-stats: var(--font-inter, 'Inter', system-ui, sans-serif);
+  /* The site serves these families from public/fonts/fonts.css (scripts/fonts.mjs). */
+  --font-heading: 'Cinzel', serif;
+  --font-subheading: 'Marcellus', serif;
+  --font-body: 'Source Serif 4', Georgia, serif;
+  --font-stats: 'Inter', system-ui, sans-serif;
 }
