@@ -49,6 +49,12 @@ export type TournamentRecord = components['schemas']['TournamentRecord'];
 export type CommunityEdition = components['schemas']['CommunityEdition'];
 export type CommunityLeaderboard = components['schemas']['CommunityLeaderboard'];
 export type CommunityRow = components['schemas']['CommunityRow'];
+export type Catalogue = components['schemas']['Catalogue'];
+export type CatalogueEntry = components['schemas']['CatalogueEntry'];
+export type CatalogueTournament = components['schemas']['CatalogueTournament'];
+export type CatalogueSeason = components['schemas']['CatalogueSeason'];
+export type CatalogueStage = components['schemas']['CatalogueStage'];
+export type PodiumPlace = components['schemas']['PodiumPlace'];
 
 /** An error response from the API, carrying its status and message. */
 export class RatingsApiError extends Error {
@@ -226,6 +232,16 @@ export async function tournamentSeries(base: string, run: number, series: Series
 /** Returns the Hall of Fame overview: every series' counts, the all-time table, and the tops of the cups and ladders boards. */
 export async function hallOfFame(base: string, run: number, fetchFn: typeof fetch = fetch): Promise<HallOfFame> {
   return get<HallOfFame>(fetchFn, base, `/v1/runs/${run}/tournaments`);
+}
+
+/** Returns every tournament with games: its seasons, games, players and first and last game. */
+export async function catalogue(base: string, run: number, fetchFn: typeof fetch = fetch): Promise<Catalogue> {
+  return get<Catalogue>(fetchFn, base, `/v1/runs/${run}/catalogue`);
+}
+
+/** Returns one tournament's seasons in order, each with its stages and recorded podium. */
+export async function catalogueTournament(base: string, run: number, slug: string, fetchFn: typeof fetch = fetch): Promise<CatalogueTournament> {
+  return get<CatalogueTournament>(fetchFn, base, `/v1/runs/${run}/catalogue/${encodeURIComponent(slug)}`);
 }
 
 // Public routes take no credentials, so none are ever sent.

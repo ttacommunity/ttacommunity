@@ -2,6 +2,7 @@
 import { useEffect, useState } from 'react';
 import { currentRun, hallOfFame, type HallOfFame } from '@ttac/shared/ratings';
 import { playerHref } from '../lib/player-view';
+import { catalogueHref } from '../lib/catalogue-view';
 import {
   derivedMatches,
   legendMark,
@@ -135,6 +136,21 @@ export default function HallOfFamePage({ apiUrl }: { apiUrl: string }) {
             </a>
           );
         })}
+        <a href={catalogueHref()} className="series-card">
+          <div>
+            <div className="series-card-top">
+              <div className="series-icon">📜</div>
+            </div>
+            <div className="series-name">Every Tournament</div>
+            <div className="series-summary">
+              Every tournament in the record, beyond the six circuits: its seasons, stages, games, players and podiums.
+            </div>
+          </div>
+          <div className="series-cta">
+            <span>View Every Tournament</span>
+            <span className="arrow">&rarr;</span>
+          </div>
+        </a>
       </div>
 
       <div className="wcs-analytics-card">
