@@ -14,7 +14,7 @@ const header = "tournament,season,stage,name,cge_tournament,cge_season,group,gam
 func TestReadTakesEachGameWithItsSeats(t *testing.T) {
 	in := header +
 		"international,16,,International S16 - Bronze 1 game 2,21,7,Bronze 1,2,2021-12-02,TAPEZONA,,rap2,215.0,finished,152158,,elracha,-2.0,resigned,124851,yes,snowcrush,-5.0,timeout,21731,,,,,,\n" +
-		"worlds,Age I,Stage 2,Worlds 2 Stage 2 - group 3 game 1,4149,2,group 3,1,,NENICINO,yes,ann,-5.0,timeout,1,,bob,-5.0,timeout,2,,,,,,,,,,\n"
+		"worlds,2023,Stage 2,Worlds 2 Stage 2 - group 3 game 1,4149,2,group 3,1,,NENICINO,yes,ann,-5.0,timeout,1,,bob,-5.0,timeout,2,,,,,,,,,,\n"
 
 	got, err := Read("g.csv", strings.NewReader(in))
 	if err != nil {

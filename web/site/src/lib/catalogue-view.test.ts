@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { catalogueHref, cgeYears, placeLabel, shownName, spanYears, stageName, tournamentParam } from './catalogue-view';
+import { catalogueHref, cgeYears, placeLabel, seasonName, shownName, spanYears, stageName, tournamentParam } from './catalogue-view';
 
 describe('tournamentParam', () => {
   it('takes a slug from the address', () => {
@@ -30,6 +30,18 @@ describe('stageName', () => {
   it('names a season\'s only stage', () => {
     expect(stageName('')).toBe('Main stage');
     expect(stageName('Stage 4')).toBe('Stage 4');
+  });
+});
+
+describe('seasonName', () => {
+  it('calls a numbered or dated season a season', () => {
+    expect(seasonName('24')).toBe('Season 24');
+    expect(seasonName('2022 (Age A)')).toBe('Season 2022 (Age A)');
+    expect(seasonName('1 (2024)')).toBe('Season 1 (2024)');
+  });
+  it('writes a named season as it is', () => {
+    expect(seasonName('First Edition (2023)')).toBe('First Edition (2023)');
+    expect(seasonName('Grand Prix 2023')).toBe('Grand Prix 2023');
   });
 });
 

@@ -10,7 +10,7 @@ import {
   type CatalogueTournament,
 } from '@ttac/shared/ratings';
 import { playerHref } from '../lib/player-view';
-import { catalogueHref, cgeYears, placeLabel, shownName, spanYears, stageName, tournamentParam } from '../lib/catalogue-view';
+import { catalogueHref, cgeYears, placeLabel, seasonName, shownName, spanYears, stageName, tournamentParam } from '../lib/catalogue-view';
 
 type Load<T> = { kind: 'loading' } | { kind: 'missing' } | { kind: 'error'; message: string } | { kind: 'ready'; data: T };
 
@@ -199,7 +199,7 @@ function Season({ season: s }: { season: CatalogueSeason }) {
   return (
     <div className="panel-card">
       <div className="panel-header panel-header-split">
-        <h2 className="panel-header-title">Season {s.label}</h2>
+        <h2 className="panel-header-title">{seasonName(s.label)}</h2>
         <span className="panel-tag">
           {s.first_game} – {s.last_game} · {count(s.games)} games · {count(s.players)} players
         </span>
@@ -217,7 +217,7 @@ function Season({ season: s }: { season: CatalogueSeason }) {
       {staged && (
         <div className="trophy-table-container">
           <table className="trophy-table">
-            <caption className="records-intro">Stages of season {s.label}</caption>
+            <caption className="records-intro">Stages of {seasonName(s.label)}</caption>
             <thead>
               <tr>
                 <th>Stage</th>

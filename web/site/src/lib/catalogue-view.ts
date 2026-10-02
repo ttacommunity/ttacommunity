@@ -25,6 +25,11 @@ export function stageName(label: string): string {
   return label === '' ? 'Main stage' : label;
 }
 
+/** seasonName names a season: "Season 24" or "Season 2022 (Age A)", or a named one such as "Grand Prix 2023" as it is. */
+export function seasonName(label: string): string {
+  return /^\d/.test(label) ? `Season ${label}` : label;
+}
+
 /** placeLabel names a podium place as the Hall of Fame's cup honours do. */
 export function placeLabel(place: number): string {
   return ['🥇 Champion', '🥈 Runner-Up', '🥉 3rd Place'][place - 1] ?? `${place}th`;

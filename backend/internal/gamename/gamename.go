@@ -96,20 +96,31 @@ var rules = []rule{
 	rp(`^Australian Open (\d{4}) Stage (\d+)`, "australian_open", yearAndStage),
 	rp(`^Survivors Cup (\d{4}) Stage (\d+)`, "survivors_cup", yearAndStage),
 	rp(`^Leaderboard Trophy (\d{4}) Stage (\d+)`, "leaderboard_trophy", yearAndStage),
-	// Slow Burn is one cup, started in 2024; its "S" numbers are stages.
+	rp(`^Slow Burn Season (\d+) Stage (\d+)`, "slow_burn", func(m []string) (string, string, bool) {
+		year, ok := slowBurnYears[m[1]]
+		st, stOK := number(m[2])
+		return m[1] + " (" + year + ")", "Stage " + st, ok && stOK
+	}),
+	// Slow Burn's first season names only its stages, as "S" numbers.
 	rp(`^Slow Burn S?(\d+)`, "slow_burn", func(m []string) (string, string, bool) {
 		st, ok := number(m[1])
-		return "2024", "Stage " + st, ok
+		return "1 (2024)", "Stage " + st, ok
 	}),
 	r(`^Eiffel Tower S(\d+)`, "eiffel_tower", ""),
 	r(`^ML_[sr](\d+)`, "mercurial_ladder", ""),
 	r(`^Mercurial Season (\d+)`, "mercurial_ladder", ""),
 	r(`^Sodium (?:Ladder )?Season (\d+)`, "sodium_ladder", ""),
 	r(`^TCL Round (\d+)`, "transcontinental_ladder", ""),
+	rp(`^Premier League First Edition`, "premier_league", func([]string) (string, string, bool) {
+		return "First Edition (2023)", "", true
+	}),
 	r(`^Premier League (\d+)`, "premier_league", ""),
 	rp(`^PL_s(\d+)`, "premier_league", func(m []string) (string, string, bool) {
 		s, ok := number(m[1])
 		return s, m[0], ok
+	}),
+	rp(`^DC Grand Prix (\d{4})`, "duel_curve", func(m []string) (string, string, bool) {
+		return "Grand Prix " + m[1], "", true
 	}),
 	r(`^DC_s(\d+)`, "duel_curve", ""),
 	r(`^NL_s(\d+)`, "nations_league", ""),
@@ -173,14 +184,16 @@ func number(s string) (string, bool) {
 	return strconv.Itoa(n), true
 }
 
-// worldsSeason names a World Championship: the first two by Age (A, then I),
-// later ones by year.
+// slowBurnYears gives the year each Slow Burn season started, as CGE shows it.
+var slowBurnYears = map[string]string{"1": "2024", "2": "2026"}
+
+// worldsSeason names a World Championship by its year; the first also by its Age.
 func worldsSeason(s string) (string, bool) {
 	switch {
 	case s == "1":
-		return "Age A", true
+		return "2022 (Age A)", true
 	case s == "2":
-		return "Age I", true
+		return "2023", true
 	case len(s) == 4 && s >= "2024":
 		return s, true
 	}
