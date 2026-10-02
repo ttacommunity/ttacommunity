@@ -372,3 +372,102 @@ func TestAddCGEGamesRefusesATournamentTheCatalogueLacks(t *testing.T) {
 		t.Errorf("AddCGEGames(unknown tournament) = %v, want an error naming snail_cup", err)
 	}
 }
+
+func TestAttachCGEGamesKnowsAGameWhosePlayerWasRenamed(t *testing.T) {
+	pool := migrated(t)
+	id := ourGame(t, pool, 2, "International S16", "2021-12-05",
+		matchcsv.Player{Name: "gigilamoroso", Score: 244}, matchcsv.Player{Name: "peracottari", Score: 185})
+
+	got, err := AttachCGEGames(context.Background(), pool, []cgegames.Game{cgeGame("2021-12-02",
+		played("gigi lamoroso", 244, 7), played("peracottari", 185, 8))})
+	if err != nil {
+		t.Fatalf("AttachCGEGames: %v", err)
+	}
+	if got.Matched != 1 || got.Renamed != 1 {
+		t.Errorf("AttachCGEGames = %+v, want 1 matched, 1 renamed", got)
+	}
+	want := []string{joinf(id, 1, "gigilamoroso|gigi lamoroso|7"), joinf(id, 2, "peracottari|peracottari|8")}
+	if rows := rowsOf(t, pool, `SELECT concat_ws('|', match_id, seat, player_name, cge_name, cge_user) FROM match_seats ORDER BY seat`); !slices.Equal(rows, want) {
+		t.Errorf("seats = %q, want %q (our name, then CGE's)", rows, want)
+	}
+}
+
+func TestAttachCGEGamesNeedsAllButOnePlayer(t *testing.T) {
+	pool := migrated(t)
+	ourGame(t, pool, 2, "International S16", "2021-12-05",
+		matchcsv.Player{Name: "ann", Score: 244}, matchcsv.Player{Name: "bob", Score: 185}, matchcsv.Player{Name: "cat", Score: 100})
+
+	got, err := AttachCGEGames(context.Background(), pool, []cgegames.Game{cgeGame("2021-12-02",
+		played("ann2", 244, 1), played("bob2", 185, 2), played("cat", 100, 3))})
+	if err != nil {
+		t.Fatalf("AttachCGEGames: %v", err)
+	}
+	if got.Matched != 0 {
+		t.Errorf("AttachCGEGames = %+v: two names differ, want no match", got)
+	}
+}
+
+func TestAddCGEGamesReportsAGameOfOursWithARenamedPlayer(t *testing.T) {
+	pool := migrated(t)
+	ourGame(t, pool, 2, "International S16", "2021-12-05",
+		matchcsv.Player{Name: "gigilamoroso", Score: 244}, matchcsv.Player{Name: "peracottari", Score: 185}, matchcsv.Player{Name: "fraction", Score: 123})
+	later := cgeGame("2022-01-10", played("gigi lamoroso", 244, 7), played("peracottari", 185, 8), played("fraction", 123, 9))
+	later.Season, later.Name = "16", "International S16 - Bronze 1 game 2"
+
+	got, err := AddCGEGames(context.Background(), pool, []cgegames.Game{later})
+	if err != nil {
+		t.Fatalf("AddCGEGames: %v", err)
+	}
+	if got.Added != 0 || len(got.Conflicts) != 1 {
+		t.Errorf("AddCGEGames = %+v, want it reported, not added", got)
+	}
+}
+
+func TestAttachCGEGamesKnowsAGameOursRecordsWithoutATimedOutPlayer(t *testing.T) {
+	pool := migrated(t)
+	id := ourGame(t, pool, 2, "International S18", "2022-06-05",
+		matchcsv.Player{Name: "Benni", Score: 240}, matchcsv.Player{Name: "Jans", Score: 229}, matchcsv.Player{Name: "Lammoth", Score: 208})
+
+	got, err := AttachCGEGames(context.Background(), pool, []cgegames.Game{cgeGame("2022-06-27",
+		played("Benni", 240, 1), played("Jans", 229, 2), played("Lammoth", 208, 3), timedOut("gigi lamoroso", 4))})
+	if err != nil {
+		t.Fatalf("AttachCGEGames: %v", err)
+	}
+	if got.Matched != 1 || got.LacksTimedOut != 1 {
+		t.Errorf("AttachCGEGames = %+v, want 1 matched, lacking a timed-out seat", got)
+	}
+	if rows := rowsOf(t, pool, `SELECT concat_ws('|', match_id, seat, player_name) FROM match_seats ORDER BY seat`); len(rows) != 3 || rows[0] != joinf(id, 1, "Benni") {
+		t.Errorf("seats = %q, want our three", rows)
+	}
+}
+
+func TestAddCGEGamesReportsAGameOursRecordsWithoutATimedOutPlayer(t *testing.T) {
+	pool := migrated(t)
+	ourGame(t, pool, 2, "International S18", "2022-06-05",
+		matchcsv.Player{Name: "Benni", Score: 240}, matchcsv.Player{Name: "Jans", Score: 229}, matchcsv.Player{Name: "Lammoth", Score: 208})
+	later := cgeGame("2022-06-27", played("Benni", 240, 1), played("Jans", 229, 2), played("Lammoth", 208, 3), timedOut("gigi lamoroso", 4))
+	later.Season, later.Name = "18", "International S18 - Silver 11 game 9"
+
+	got, err := AddCGEGames(context.Background(), pool, []cgegames.Game{later})
+	if err != nil {
+		t.Fatalf("AddCGEGames: %v", err)
+	}
+	if got.Added != 0 || len(got.Conflicts) != 1 {
+		t.Errorf("AddCGEGames = %+v, want it reported, not added", got)
+	}
+}
+
+func TestAttachCGEGamesKnowsARenamedPlayerWhoTimedOutUnderTheOlderScore(t *testing.T) {
+	pool := migrated(t)
+	ourGame(t, pool, 2, "International S19", "2022-09-04",
+		matchcsv.Player{Name: "jcc", Score: 267}, matchcsv.Player{Name: "Cleveman", Score: 256}, matchcsv.Player{Name: "gigilamoroso", Score: -1})
+
+	got, err := AttachCGEGames(context.Background(), pool, []cgegames.Game{cgeGame("2022-10-23",
+		played("jcc", 267, 1), played("Cleveman", 256, 2), timedOut("gigi lamoroso", 4))})
+	if err != nil {
+		t.Fatalf("AttachCGEGames: %v", err)
+	}
+	if got.Matched != 1 || got.Renamed != 1 {
+		t.Errorf("AttachCGEGames = %+v, want 1 matched, renamed", got)
+	}
+}

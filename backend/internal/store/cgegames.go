@@ -22,10 +22,12 @@ type SeasonLink struct {
 // Attached counts what AttachCGEGames did: games matched, never-played games
 // set apart, the CGE games no game of ours matched, and where matched ones landed.
 type Attached struct {
-	Matched     int
-	NeverPlayed int
-	Unmatched   []cgegames.Game
-	Seasons     []SeasonLink
+	Matched       int
+	Renamed       int
+	LacksTimedOut int
+	NeverPlayed   int
+	Unmatched     []cgegames.Game
+	Seasons       []SeasonLink
 }
 
 // ours is one of our games as AttachCGEGames compares it.
@@ -38,6 +40,67 @@ type ours struct {
 	used    bool
 }
 
+// scoresKey is a game's seat count and its positive (finished) scores, in any order.
+func scoresKey(scores []float64) string {
+	parts := []string{fmt.Sprint(len(scores))}
+	for _, s := range scores {
+		if s > 0 {
+			parts = append(parts, fmt.Sprintf("%g", s))
+		}
+	}
+	slices.Sort(parts[1:])
+	return strings.Join(parts, "|")
+}
+
+// seatFits reports whether our score is CGE seat s's: the same for a finished
+// seat, and any score not above 0 for a resigned or timed-out one (older match
+// files score those -1 and 0 where CGE's convention is -5 and minus the place).
+func seatFits(ours float64, s cgegames.Seat) bool {
+	if s.Outcome == cgegames.Finished {
+		return ours == s.Score
+	}
+	return ours <= 0
+}
+
+// cgeScores returns a CGE game's seat scores.
+func cgeScores(g cgegames.Game) []float64 {
+	scores := make([]float64, len(g.Seats))
+	for i, s := range g.Seats {
+		scores[i] = s.Score
+	}
+	return scores
+}
+
+// renamedSeat returns, when our game has CGE game g's scores seat for seat
+// and all its players but one, the CGE seat whose name differs and our seat
+// it is; ok is false otherwise.
+func (o *ours) renamedSeat(g cgegames.Game) (cgeSeat, ourSeat int, ok bool) {
+	if o.used || len(o.players) != len(g.Seats) {
+		return 0, 0, false
+	}
+	cgeSeat, ourSeat = -1, -1
+	for i, s := range g.Seats {
+		j := slices.Index(o.players, s.Name)
+		if j < 0 {
+			if cgeSeat >= 0 {
+				return 0, 0, false
+			}
+			cgeSeat = i
+		} else if !seatFits(o.scores[j], s) {
+			return 0, 0, false
+		}
+	}
+	for j, p := range o.players {
+		if !slices.ContainsFunc(g.Seats, func(s cgegames.Seat) bool { return s.Name == p }) {
+			ourSeat = j
+		}
+	}
+	if cgeSeat < 0 || ourSeat < 0 || !seatFits(o.scores[ourSeat], g.Seats[cgeSeat]) {
+		return 0, 0, false
+	}
+	return cgeSeat, ourSeat, true
+}
+
 // playersKey is a game's players, in any order.
 func playersKey(names []string) string {
 	sorted := slices.Clone(names)
@@ -45,14 +108,11 @@ func playersKey(names []string) string {
 	return strings.Join(sorted, "\x01")
 }
 
-// fits reports whether our game has CGE game g's seats: a finished seat's
-// score exactly, and a resigned or timed-out one at any score not above 0,
-// since older match files score those -1 and 0 where CGE's convention is -5
-// and minus the place.
+// fits reports whether our game has CGE game g's players, each seat fitting (seatFits).
 func (o *ours) fits(g cgegames.Game) bool {
 	for _, s := range g.Seats {
 		i := slices.Index(o.players, s.Name)
-		if i < 0 || (s.Outcome == cgegames.Finished && o.scores[i] != s.Score) || (s.Outcome != cgegames.Finished && o.scores[i] > 0) {
+		if i < 0 || !seatFits(o.scores[i], s) {
 			return false
 		}
 	}
@@ -63,7 +123,9 @@ func (o *ours) fits(g cgegames.Game) bool {
 // transaction: each seat's CGE user and how it ended, and the game's CGE
 // tournament, stage, finish date and replay code, and its group and number
 // where ours lacks them. A CGE game matches a game of the same tournament with
-// the same players whose seats fit (ours.fits), the nearest by day if several do. Scores and
+// the same players whose seats fit (ours.fits), the nearest by day if several do,
+// or failing that, its scores and all its players but one (one renamed since),
+// or failing that, its players without the timed-out ones (our match file left them out). Scores and
 // dates the ratings use are not changed. Never-played games are counted apart.
 func AttachCGEGames(ctx context.Context, pool *pgxpool.Pool, games []cgegames.Game) (Attached, error) {
 	var slugs []string
@@ -85,7 +147,7 @@ func AttachCGEGames(ctx context.Context, pool *pgxpool.Pool, games []cgegames.Ga
 	if err != nil {
 		return Attached{}, fmt.Errorf("reading our games: %w", err)
 	}
-	byKey := map[string][]*ours{}
+	byKey, byScores := map[string][]*ours{}, map[string][]*ours{}
 	for rows.Next() {
 		var o ours
 		var slug string
@@ -94,6 +156,7 @@ func AttachCGEGames(ctx context.Context, pool *pgxpool.Pool, games []cgegames.Ga
 		}
 		k := slug + "\x02" + playersKey(o.players)
 		byKey[k] = append(byKey[k], &o)
+		byScores[slug+"\x02"+scoresKey(o.scores)] = append(byScores[slug+"\x02"+scoresKey(o.scores)], &o)
 	}
 	if err := rows.Err(); err != nil {
 		return Attached{}, fmt.Errorf("reading our games: %w", err)
@@ -107,7 +170,7 @@ func AttachCGEGames(ctx context.Context, pool *pgxpool.Pool, games []cgegames.Ga
 	var codes, groups []string
 	var seatMatch []int64
 	var seatNo, seatUser []int32
-	var seatName, seatOutcome []string
+	var seatName, seatCGEName, seatOutcome []string
 	var seatBanned []bool
 	for _, g := range games {
 		if g.Unplayed {
@@ -119,19 +182,45 @@ func AttachCGEGames(ctx context.Context, pool *pgxpool.Pool, games []cgegames.Ga
 			names[i] = s.Name
 		}
 		o := nearest(byKey[g.Tournament+"\x02"+playersKey(names)], g)
+		renamed, ourSeat := -1, -1
 		if o == nil {
-			got.Unmatched = append(got.Unmatched, g)
-			continue
+			// One player renamed (or the account deleted) since: the same game under all but one name, and every score.
+			for _, c := range byScores[g.Tournament+"\x02"+scoresKey(cgeScores(g))] {
+				if cs, os, ok := c.renamedSeat(g); ok && (o == nil || g.Finished != nil && c.date.Sub(*g.Finished).Abs() < o.date.Sub(*g.Finished).Abs()) {
+					o, renamed, ourSeat = c, cs, os
+				}
+			}
+			if o == nil {
+				// Our match file may have left out a player who timed out: the game without its timed-out seats.
+				if short := slices.DeleteFunc(slices.Clone(g.Seats), func(s cgegames.Seat) bool { return s.Outcome == cgegames.TimedOut }); len(short) >= 2 && len(short) < len(g.Seats) {
+					trimmed := g
+					trimmed.Seats = short
+					if o = nearest(byKey[g.Tournament+"\x02"+playersKey(seatNames(trimmed))], trimmed); o != nil {
+						g = trimmed
+						got.LacksTimedOut++
+					}
+				}
+			} else {
+				got.Renamed++
+			}
+			if o == nil {
+				got.Unmatched = append(got.Unmatched, g)
+				continue
+			}
 		}
 		o.used = true
 		got.Matched++
 		links[SeasonLink{CGETournament: g.CGETournament, CGESeason: g.CGESeason, Season: o.season}]++
 		ids, cgeT, cgeS, nums = append(ids, o.id), append(cgeT, int32(g.CGETournament)), append(cgeS, int32(g.CGESeason)), append(nums, int32(g.Number))
 		finished, codes, groups = append(finished, g.Finished), append(codes, g.Code), append(groups, g.Group)
-		for _, s := range g.Seats {
-			seatMatch, seatNo = append(seatMatch, o.id), append(seatNo, int32(slices.Index(o.players, s.Name)+1))
-			seatName, seatOutcome, seatBanned = append(seatName, s.Name), append(seatOutcome, string(s.Outcome)), append(seatBanned, s.Banned)
-			seatUser = append(seatUser, int32(s.CGEUser))
+		for i, s := range g.Seats {
+			j := slices.Index(o.players, s.Name)
+			if i == renamed {
+				j = ourSeat
+			}
+			seatMatch, seatNo = append(seatMatch, o.id), append(seatNo, int32(j+1))
+			seatName, seatCGEName = append(seatName, o.players[j]), append(seatCGEName, s.Name)
+			seatOutcome, seatBanned, seatUser = append(seatOutcome, string(s.Outcome)), append(seatBanned, s.Banned), append(seatUser, int32(s.CGEUser))
 		}
 	}
 	for l, n := range links {
@@ -151,10 +240,10 @@ func AttachCGEGames(ctx context.Context, pool *pgxpool.Pool, games []cgegames.Ga
 		return Attached{}, fmt.Errorf("clearing earlier seats: %w", err)
 	}
 	if _, err := tx.Exec(ctx, `
-		INSERT INTO match_seats (match_id, seat, player_name, outcome, cge_user, banned)
-		SELECT x.m, x.n, x.name, x.outcome, nullif(x.u, 0), x.banned
-		FROM unnest($1::bigint[], $2::int[], $3::text[], $4::text[], $5::int[], $6::bool[]) AS x(m, n, name, outcome, u, banned)`,
-		seatMatch, seatNo, seatName, seatOutcome, seatUser, seatBanned); err != nil {
+		INSERT INTO match_seats (match_id, seat, player_name, cge_name, outcome, cge_user, banned)
+		SELECT x.m, x.n, x.name, x.cge, x.outcome, nullif(x.u, 0), x.banned
+		FROM unnest($1::bigint[], $2::int[], $3::text[], $4::text[], $5::text[], $6::int[], $7::bool[]) AS x(m, n, name, cge, outcome, u, banned)`,
+		seatMatch, seatNo, seatName, seatCGEName, seatOutcome, seatUser, seatBanned); err != nil {
 		return Attached{}, fmt.Errorf("writing seats: %w", err)
 	}
 	if _, err := tx.Exec(ctx, `

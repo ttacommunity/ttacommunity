@@ -136,8 +136,10 @@ func TestReportAttachedCountsAndNamesNoPlayer(t *testing.T) {
 		Added: 5, NeverPlayed: 2, AlreadyHeld: 7, Unsettled: 1,
 		Conflicts: []cgegames.Game{{CGETournament: 21, CGESeason: 9, Seats: []cgegames.Seat{{Name: "secretname"}}}},
 	}, store.Attached{
-		Matched:     3,
-		NeverPlayed: 1,
+		Matched:       3,
+		Renamed:       2,
+		LacksTimedOut: 4,
+		NeverPlayed:   1,
 		Unmatched: []cgegames.Game{
 			{CGETournament: 21, CGESeason: 7, Seats: []cgegames.Seat{{Name: "secretname"}}},
 			{CGETournament: 21, CGESeason: 7}, {CGETournament: 19, CGESeason: 2},
@@ -146,7 +148,7 @@ func TestReportAttachedCountsAndNamesNoPlayer(t *testing.T) {
 	})
 	got := b.String()
 	for _, want := range []string{
-		"matched to our games: 3",
+		"matched to our games: 3 (2 with a player renamed since, 4 our file records without a timed-out player)",
 		"never played, set apart: 1",
 		"no game of ours: 3 (CGE 19/2: 1, 21/7: 2)",
 		"  CGE 21/7 -> season 16: 3 games\n",

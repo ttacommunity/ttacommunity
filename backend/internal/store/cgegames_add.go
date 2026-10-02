@@ -26,17 +26,47 @@ type Added struct {
 // seasonKey names one of our seasons.
 type seasonKey struct{ tournament, season string }
 
-// heldSeason is what we hold of a season: its last game's day and each game's players.
+// heldSeason is what we hold of a season: its last game's day, each game's
+// players, and each game's players by its scores.
 type heldSeason struct {
-	last    time.Time
-	players map[string]bool
+	last     time.Time
+	players  map[string]bool
+	byScores map[string][][]string
+}
+
+// mayBeOurs reports whether one of the season's games has g's scores and all
+// its players but one, or g's players without the ones who timed out.
+func (h heldSeason) mayBeOurs(g cgegames.Game) bool {
+	var present []string
+	for _, s := range g.Seats {
+		if s.Outcome != cgegames.TimedOut {
+			present = append(present, s.Name)
+		}
+	}
+	if len(present) >= 2 && h.players[playersKey(present)] {
+		return true
+	}
+	names := seatNames(g)
+	for _, ours := range h.byScores[scoresKey(cgeScores(g))] {
+		shared := 0
+		for _, n := range names {
+			if slices.Contains(ours, n) {
+				shared++
+			}
+		}
+		if shared >= len(names)-1 {
+			return true
+		}
+	}
+	return false
 }
 
 // AddCGEGames adds the CGE games we do not hold (by replay code or CGE
 // identity), in one transaction, placed and named as our match files would,
 // with CGE's scores and seats. A played game is added only when it cannot be
 // a copy of ours: its season holds none of our games, or it finished after
-// our last one there and none of ours has its players; else it is a conflict.
+// our last one there and none of ours has its players, or its scores and all
+// its players but one (a renamed player); else it is a conflict.
 // A never-played game is added as such, dated by its group's last game. A game
 // without a settled placing (no Name) is never added.
 func AddCGEGames(ctx context.Context, pool *pgxpool.Pool, games []cgegames.Game) (Added, error) {
@@ -77,7 +107,7 @@ func AddCGEGames(ctx context.Context, pool *pgxpool.Pool, games []cgegames.Game)
 				continue
 			}
 			day = &last
-		} else if h, ok := seasons[seasonKey{g.Tournament, g.Season}]; ok && (!day.After(h.last) || h.players[playersKey(seatNames(g))]) {
+		} else if h, ok := seasons[seasonKey{g.Tournament, g.Season}]; ok && (!day.After(h.last) || h.players[playersKey(seatNames(g))] || h.mayBeOurs(g)) {
 			got.Conflicts = append(got.Conflicts, g)
 			continue
 		}
@@ -139,7 +169,8 @@ func heldSeasons(ctx context.Context, pool *pgxpool.Pool, games []cgegames.Game)
 		slugs, labels = append(slugs, g.Tournament), append(labels, g.Season)
 	}
 	rows, err := pool.Query(ctx, `
-		SELECT t.slug, s.label, m.date, array_remove(ARRAY[m.player1, m.player2, m.player3, m.player4], NULL)
+		SELECT t.slug, s.label, m.date, array_remove(ARRAY[m.player1, m.player2, m.player3, m.player4], NULL),
+		       array_remove(ARRAY[m.score1, m.score2, m.score3, m.score4], NULL)
 		FROM matches m
 		JOIN tournament_stages st USING (stage_id)
 		JOIN tournament_seasons s USING (season_id)
@@ -154,13 +185,15 @@ func heldSeasons(ctx context.Context, pool *pgxpool.Pool, games []cgegames.Game)
 		var k seasonKey
 		var day time.Time
 		var players []string
-		if err := rows.Scan(&k.tournament, &k.season, &day, &players); err != nil {
+		var scores []float64
+		if err := rows.Scan(&k.tournament, &k.season, &day, &players, &scores); err != nil {
 			return nil, fmt.Errorf("reading the seasons we hold: %w", err)
 		}
 		h, ok := got[k]
 		if !ok {
-			h = heldSeason{players: map[string]bool{}}
+			h = heldSeason{players: map[string]bool{}, byScores: map[string][][]string{}}
 		}
+		h.byScores[scoresKey(scores)] = append(h.byScores[scoresKey(scores)], players)
 		if day.After(h.last) {
 			h.last = day
 		}
@@ -276,8 +309,8 @@ func insertCGEGames(ctx context.Context, pool *pgxpool.Pool, games []cgegames.Ga
 		}
 	}
 	if _, err := tx.Exec(ctx, `
-		INSERT INTO match_seats (match_id, seat, player_name, outcome, cge_user, banned)
-		SELECT x.m, x.n, x.name, x.outcome, nullif(x.u, 0), x.banned
+		INSERT INTO match_seats (match_id, seat, player_name, cge_name, outcome, cge_user, banned)
+		SELECT x.m, x.n, x.name, x.name, x.outcome, nullif(x.u, 0), x.banned
 		FROM unnest($1::bigint[], $2::int[], $3::text[], $4::text[], $5::int[], $6::bool[]) AS x(m, n, name, outcome, u, banned)`,
 		seatMatch, seatNo, seatName, seatOutcome, seatUser, seatBanned); err != nil {
 		return 0, 0, fmt.Errorf("writing the added games' seats: %w", err)

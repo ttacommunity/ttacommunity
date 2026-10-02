@@ -170,7 +170,8 @@ func attachCGEGames(file string) error {
 // CGE tournament and stage), which of our seasons each stage matched, and
 // what was added. It names tournaments and seasons, never a player.
 func reportAttached(w io.Writer, file string, res cgegames.Result, added store.Added, got store.Attached) {
-	fmt.Fprintf(w, "matched to our games: %d\n", got.Matched)
+	fmt.Fprintf(w, "matched to our games: %d (%d with a player renamed since, %d our file records without a timed-out player)\n",
+		got.Matched, got.Renamed, got.LacksTimedOut)
 	fmt.Fprintf(w, "never played, set apart: %d\n", got.NeverPlayed)
 	fmt.Fprintf(w, "no game of ours: %d (CGE %s)\n", len(got.Unmatched), byStage(got.Unmatched))
 	fmt.Fprintln(w, "where each CGE stage matched:")
