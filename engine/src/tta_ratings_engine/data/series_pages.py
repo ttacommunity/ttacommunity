@@ -193,14 +193,15 @@ def grand_slams_board(podiums, names) -> list[dict]:
 
 
 def ladders_board(rows) -> list[dict]:
-    """Returns upstream's ladders board: the 15 players with most ladder game wins.
+    """Returns the ladders board: the 15 players with most ladder game wins.
 
-    Mercurial, Sodium and Transcontinental games only; players of 30 games
-    or more; most wins first, then win rate. rows are in match_id order.
+    Mercurial (with its early ML_ rounds, which upstream leaves out), Sodium
+    and Transcontinental games only; players of 30 games or more; most wins
+    first, then win rate. rows are in match_id order.
     """
     stats = {}
     for r in rows:
-        if not _any(r["tournament"], "%Mercurial%", "%Sodium%", "%TCL%"):
+        if not _any(r["tournament"], "%Mercurial%", "ML_%", "%Sodium%", "%TCL%"):
             continue
         players = _players(r)
         if not players:

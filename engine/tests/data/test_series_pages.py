@@ -207,11 +207,26 @@ def test_ladders_board_counts_ladder_wins_for_players_of_30_games():
         rows.append(
             match(f"Mercurial Season 30 - 0-Tier {n} game 1", winner, loser, *third)
         )
-    rows.append(match("ML_s01 game 1", ("bob", 90), ("ann", 80)))
     got = ladders_board(numbered(*rows))
     assert [(b["player_name"], b["games"], b["wins"], b["win_rate"]) for b in got] == [
         ("ann", 30, 20, 66.7),
         ("bob", 30, 10, 33.3),
+    ]
+
+
+def test_ladders_board_counts_mercurials_early_rounds():
+    rows = [
+        match(f"Mercurial Season 19 - 0-Tier 1 game {n}", ("ann", 90), ("bob", 80))
+        for n in range(28)
+    ]
+    rows.append(match("ML_s01", ("bob", 90), ("ann", 80)))
+    rows.append(match("ML_r11", ("bob", 90), ("ann", 80)))
+
+    got = ladders_board(numbered(*rows))
+
+    assert [(b["player_name"], b["games"], b["wins"]) for b in got] == [
+        ("ann", 30, 28),
+        ("bob", 30, 2),
     ]
 
 
