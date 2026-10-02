@@ -12,7 +12,7 @@ PAIR_COLUMNS = (
 
 
 def expand_pairwise(conn: psycopg.Connection, run_id: int) -> int:
-    """Rebuilds the run's pairwise_matches from matches, commits, and returns how many pairs it wrote.
+    """Rebuilds the run's pairwise_matches from the matches of its ranking's tournaments, commits, and returns how many pairs it wrote.
 
     An N-player match becomes N*(N-1)/2 pairs, each weighted 1/(N-1). The
     higher score wins the pair, and equal scores draw. Pairs are numbered in
@@ -25,12 +25,20 @@ def expand_pairwise(conn: psycopg.Connection, run_id: int) -> int:
 
 def _expand(conn, run_id):
     require_running(conn, run_id)
-    rows = conn.execute("""
-        SELECT match_id, tournament, date, glicko_eligible,
-               player1, score1, player2, score2, player3, score3, player4, score4
-        FROM matches
-        ORDER BY match_id
-    """).fetchall()
+    # Only games whose tournament is in the run's ranking.
+    rows = conn.execute(
+        """
+        SELECT m.match_id, m.tournament, m.date, m.glicko_eligible,
+               m.player1, m.score1, m.player2, m.score2, m.player3, m.score3, m.player4, m.score4
+        FROM matches m
+        JOIN tournament_stages st USING (stage_id)
+        JOIN tournament_seasons s USING (season_id)
+        JOIN ranking_tournaments rt ON rt.tournament_id = s.tournament_id
+        JOIN rating_runs r ON r.ranking_id = rt.ranking_id AND r.run_id = %s
+        ORDER BY m.match_id
+        """,
+        (run_id,),
+    ).fetchall()
     rows = assembled_order(rows)
 
     pairwise_to_insert = []

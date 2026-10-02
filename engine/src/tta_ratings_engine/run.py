@@ -123,6 +123,14 @@ class MatchesChanged(Exception):
     """Raised when the matches changed since the run a tournaments-only run would copy."""
 
 
+class UnknownRanking(Exception):
+    """Raised when a run names a ranking that does not exist."""
+
+
+class GamesUnplaced(Exception):
+    """Raised when games are placed in no tournament, so no ranking would rate them."""
+
+
 class SchemaOutOfDate(Exception):
     """Raised when a table the run writes is missing: the migrations are behind."""
 
@@ -143,18 +151,18 @@ def check_schema(conn):
         )
 
 
-def input_fingerprint(conn):
-    """Returns an md5 of the run's input, or None with no matches.
+def input_fingerprint(conn, ranking_id):
+    """Returns an md5 of a run's input, or None with no matches.
 
-    That is every match's content in load order, and with any recorded
-    tournament facts, those too. Without them it is the matches' md5 alone,
-    as before facts were recorded.
+    That is every match's content and placement in load order, the ranking's
+    tournaments, and any recorded tournament facts.
     """
-    return conn.execute("""
+    return conn.execute(
+        """
         WITH m AS (
             SELECT md5(string_agg(
                 (tournament, date, player1, score1, player2, score2,
-                 player3, score3, player4, score4, glicko_eligible)::text,
+                 player3, score3, player4, score4, glicko_eligible, stage_id)::text,
                 E'\\n' ORDER BY match_id)) AS md5
             FROM matches
         ), f AS (
@@ -166,12 +174,16 @@ def input_fingerprint(conn):
                 UNION ALL SELECT 'h' || t::text FROM tournament_career_honours t
                 UNION ALL SELECT 'r' || t::text FROM tournament_season_rules t
                 UNION ALL SELECT 'u' || t::text FROM tournament_cup_podiums t
+                UNION ALL SELECT 'k' || t.slug FROM ranking_tournaments rt
+                    JOIN tournaments t USING (tournament_id) WHERE rt.ranking_id = %s
             ) x
         )
         SELECT CASE WHEN f.facts IS NULL THEN m.md5 ELSE md5(m.md5 || md5(f.facts)) END
                AS fingerprint
         FROM m, f
-    """).fetchone()["fingerprint"]
+        """,
+        (ranking_id,),
+    ).fetchone()["fingerprint"]
 
 
 def eval_months(conn, run_id, player_count):
@@ -193,16 +205,17 @@ def _label(fmt):
 
 def run(
     conn, engine_version, *, formats=FORMATS, log=print, make_current=False, tournaments_only=False,
-    workers=1, url=None,
+    workers=1, url=None, ranking="community",
 ):  # fmt: skip
-    """Computes a run and returns its run_id.
+    """Computes a run of a ranking (its tournaments' games) and returns its run_id.
 
     With tournaments_only, it copies the current run's ratings and
     calibration and recomputes only tournament results and titles, for
     trying a change to those quickly. With workers > 1, the steps after the
     pairs run in that many processes, each connecting to url; the results
     are the same. Raises ValueError for workers without a url, and
-    SchemaOutOfDate, NoMatches or NoCurrentRun before creating a run, or
+    SchemaOutOfDate, UnknownRanking, GamesUnplaced (no game may go unrated
+    unnoticed), NoMatches or NoCurrentRun before creating a run, or
     whatever failed the run (MatchesChanged if the matches differ from the
     copied run's).
     """
@@ -212,25 +225,40 @@ def run(
         )
     with conn.transaction():
         check_schema(conn)
-        fingerprint = input_fingerprint(conn)
+        row = conn.execute(
+            "SELECT ranking_id FROM rankings WHERE slug = %s", (ranking,)
+        ).fetchone()
+        if row is None:
+            raise UnknownRanking(f"no ranking is called {ranking!r}")
+        ranking_id = row["ranking_id"]
+        unplaced = conn.execute(
+            "SELECT count(*) AS n FROM matches WHERE stage_id IS NULL"
+        ).fetchone()["n"]
+        if unplaced:
+            raise GamesUnplaced(
+                f"{unplaced} game{'s' if unplaced != 1 else ''} placed in no tournament: run the load job's -classify"
+            )
+        fingerprint = input_fingerprint(conn, ranking_id)
         if fingerprint is None:
             raise NoMatches("no matches are loaded: nothing to rate")
         source = None
         if tournaments_only:
             row = conn.execute(
-                "SELECT run_id FROM current_run WHERE ranking_id = community_ranking()"
+                "SELECT run_id FROM current_run WHERE ranking_id = %s", (ranking_id,)
             ).fetchone()
             if row is None:
-                raise NoCurrentRun("no current run to copy the ratings from")
+                raise NoCurrentRun(
+                    f"{ranking} has no current run to copy the ratings from"
+                )
             source = row["run_id"]
         run_id = conn.execute(
-            "INSERT INTO rating_runs (engine_version, input_fingerprint, copied_from) "
-            "VALUES (%s, %s, %s) RETURNING run_id",
-            (engine_version, fingerprint, source),
+            "INSERT INTO rating_runs (engine_version, input_fingerprint, copied_from, ranking_id) "
+            "VALUES (%s, %s, %s, %s) RETURNING run_id",
+            (engine_version, fingerprint, source, ranking_id),
         ).fetchone()["run_id"]
     if source is None:
         log(
-            f"run {run_id}: engine {engine_version}, input {fingerprint}, formats {formats}"
+            f"run {run_id}: {ranking}, engine {engine_version}, input {fingerprint}, formats {formats}"
             + (f", {workers} workers" if workers > 1 else "")
         )
     else:
@@ -507,7 +535,8 @@ def _finish(conn, run_id, status):
 
 def _publish(conn, run_id):
     conn.execute(
-        "INSERT INTO current_run (run_id) VALUES (%s) "
+        "INSERT INTO current_run (ranking_id, run_id) "
+        "SELECT ranking_id, run_id FROM rating_runs WHERE run_id = %s "
         "ON CONFLICT (ranking_id) DO UPDATE SET run_id = excluded.run_id",
         (run_id,),
     )
@@ -532,6 +561,10 @@ def main(argv=None):
         help="processes for the steps after the pairs (default: 1, one after another)",
     )  # fmt: skip
     parser.add_argument(
+        "--ranking", default="community",
+        help="the ranking to rate: its tournaments' games (default: community)",
+    )  # fmt: skip
+    parser.add_argument(
         "--tournaments-only", action="store_true",
         help="copy the current run's ratings and recompute only tournament results and titles",
     )  # fmt: skip
@@ -551,6 +584,7 @@ def main(argv=None):
             tournaments_only=args.tournaments_only,
             workers=args.workers,
             url=os.environ.get("RATINGS_DATABASE_URL"),
+            ranking=args.ranking,
         )
 
 

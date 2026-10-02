@@ -76,15 +76,43 @@ def conn(db_url):
     c.close()
 
 
+def stage_in(conn, slug):
+    """Returns the stage of test tournament slug, creating it; "rated" is in the community ranking."""
+    t = conn.execute(
+        "INSERT INTO tournaments (slug, name) VALUES (%s, %s) ON CONFLICT (slug) DO UPDATE SET slug = excluded.slug "
+        "RETURNING tournament_id",
+        (slug, slug),
+    ).fetchone()["tournament_id"]
+    if slug == "rated":
+        conn.execute(
+            "INSERT INTO ranking_tournaments (ranking_id, tournament_id) VALUES (community_ranking(), %s) "
+            "ON CONFLICT DO NOTHING",
+            (t,),
+        )
+    s = conn.execute(
+        "INSERT INTO tournament_seasons (tournament_id, label) VALUES (%s, '1') "
+        "ON CONFLICT (tournament_id, label) DO UPDATE SET label = excluded.label RETURNING season_id",
+        (t,),
+    ).fetchone()["season_id"]
+    return conn.execute(
+        "INSERT INTO tournament_stages (season_id, label) VALUES (%s, '') "
+        "ON CONFLICT (season_id, label) DO UPDATE SET label = excluded.label RETURNING stage_id",
+        (s,),
+    ).fetchone()["stage_id"]
+
+
 @pytest.fixture
 def add_match(conn):
-    """Returns a function that loads one match, as the load job would."""
+    """Returns a function that loads one match, as the load job would, placed
+    in test tournament `placed` ("rated" by default; None for no tournament)."""
     batch = conn.execute(
         "INSERT INTO import_batches (source) VALUES ('load') RETURNING batch_id"
     ).fetchone()["batch_id"]
     line = iter(range(2, 1_000_000))
 
-    def add(*players, day=date(2024, 1, 1), tournament="T", eligible=True):
+    def add(
+        *players, day=date(2024, 1, 1), tournament="T", eligible=True, placed="rated"
+    ):
         cols = {
             "batch_id": batch,
             "source_file": "test.csv",
@@ -93,6 +121,7 @@ def add_match(conn):
             "date": day,
             "player_count": len(players),
             "glicko_eligible": eligible,
+            "stage_id": stage_in(conn, placed) if placed else None,
         }
         for i, (name, score) in enumerate(players, start=1):
             cols[f"player{i}"] = name

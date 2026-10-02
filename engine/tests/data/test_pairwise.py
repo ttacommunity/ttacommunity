@@ -148,3 +148,11 @@ def test_a_days_games_are_numbered_in_upstreams_assembled_order(
     expand_pairwise(conn, run_id)
     same_day = [p[0] for p in pairs(conn, run_id) if p[0] in (rl, worlds)]
     assert same_day == [worlds, rl]
+
+
+def test_pairs_come_only_from_the_runs_ranking(conn, add_match, run_id):
+    rated = add_match(("Alice", 120), ("Bob", 90))
+    add_match(("Cat", 120), ("Dan", 90), placed="unrated")
+
+    assert expand_pairwise(conn, run_id) == 1
+    assert [p[0] for p in pairs(conn, run_id)] == [rated]

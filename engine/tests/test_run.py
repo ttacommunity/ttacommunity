@@ -501,3 +501,77 @@ def test_a_database_without_the_run_stats_migration_is_refused(conn, add_match):
 
     with pytest.raises(runner.SchemaOutOfDate, match="rating_runs.games"):
         run(conn, "v-test", log=lambda _: None)
+
+
+def add_ranking(conn, slug, *tournaments):
+    """Adds ranking slug holding test tournaments already made by add_match."""
+    rid = conn.execute(
+        "INSERT INTO rankings (slug, name) VALUES (%s, %s) RETURNING ranking_id",
+        (slug, slug),
+    ).fetchone()["ranking_id"]
+    for t in tournaments:
+        conn.execute(
+            "INSERT INTO ranking_tournaments (ranking_id, tournament_id) "
+            "SELECT %s, tournament_id FROM tournaments WHERE slug = %s",
+            (rid, t),
+        )
+    conn.commit()
+
+
+def test_a_run_refuses_while_a_game_is_placed_in_no_tournament(conn, add_match):
+    season(add_match)
+    add_match(("Ann", 10), ("Bob", 5), placed=None)
+
+    with pytest.raises(runner.GamesUnplaced, match="1 game"):
+        run(conn, "v1", formats=[2], log=lambda _: None)
+    assert conn.execute("SELECT count(*) AS n FROM rating_runs").fetchone()["n"] == 0
+
+
+def test_a_run_rates_the_ranking_it_names_and_publishes_it_alone(conn, add_match):
+    season(add_match)
+    community = run(conn, "v1", formats=[2], log=lambda _: None, make_current=True)
+    for month in (3, 4):
+        add_match(("Eve", 10), ("Fay", 5), day=date(2022, month, 1), placed="blitz_cup")
+    add_ranking(conn, "blitz", "blitz_cup")
+
+    blitz = run(
+        conn, "v1", formats=[2], log=lambda _: None, make_current=True, ranking="blitz"
+    )
+
+    players = conn.execute(
+        "SELECT DISTINCT player_name FROM player_ratings WHERE run_id = %s ORDER BY 1",
+        (blitz,),
+    ).fetchall()
+    assert [p["player_name"] for p in players] == ["Eve", "Fay"]
+    currents = conn.execute(
+        "SELECT k.slug, c.run_id FROM current_run c JOIN rankings k USING (ranking_id) ORDER BY 1"
+    ).fetchall()
+    assert [(c["slug"], c["run_id"]) for c in currents] == [
+        ("blitz", blitz),
+        ("community", community),
+    ]
+
+
+def test_a_run_refuses_a_ranking_that_does_not_exist(conn, add_match):
+    season(add_match)
+
+    with pytest.raises(runner.UnknownRanking, match="snail"):
+        run(conn, "v1", formats=[2], log=lambda _: None, ranking="snail")
+
+
+def test_a_rankings_tournaments_are_part_of_its_input(conn, add_match):
+    season(add_match)
+    add_match(("Eve", 10), ("Fay", 5), placed="other")
+    first = run(conn, "v1", formats=[2], log=lambda _: None)
+    conn.execute(
+        "INSERT INTO ranking_tournaments (ranking_id, tournament_id) "
+        "SELECT community_ranking(), tournament_id FROM tournaments WHERE slug = 'other'"
+    )
+    conn.commit()
+
+    second = run(conn, "v1", formats=[2], log=lambda _: None)
+
+    assert (
+        the_run(conn, first)["input_fingerprint"]
+        != the_run(conn, second)["input_fingerprint"]
+    )
