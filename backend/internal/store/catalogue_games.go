@@ -1,0 +1,160 @@
+package store
+
+import (
+	"cmp"
+	"context"
+	"fmt"
+	"regexp"
+	"slices"
+	"strconv"
+	"time"
+
+	"github.com/jackc/pgx/v5"
+)
+
+// catalogueGamesPage is how many games one page of a tournament's games holds.
+const catalogueGamesPage = 50
+
+// CatalogueGamesFilter narrows a tournament's games. Empty fields do not
+// narrow; Coded keeps games with a replay code. Page counts from 1.
+type CatalogueGamesFilter struct {
+	Season, Stage, Group string
+	Coded                bool
+	Page                 int
+}
+
+// GameSeat is one player of a game. Outcome is CGE's (finished, resigned,
+// timed_out), or "" where the game's seats are not known.
+type GameSeat struct {
+	Name    string
+	Score   float64
+	Outcome string
+}
+
+// CatalogueGame is one game of a tournament, where it sits and how it went.
+// Game is 0 and Group "" when the game's name does not say.
+type CatalogueGame struct {
+	ID                   int64
+	Date                 time.Time
+	Season, Stage, Group string
+	Game                 int
+	State                string
+	Code                 string
+	Seats                []GameSeat
+}
+
+// CatalogueGames is one page of a tournament's games. Total counts every game
+// the filter keeps, and Coded those of them with a replay code, the Coded
+// filter aside. Groups lists the groups of the chosen season (and stage), or
+// is nil when no season is chosen.
+type CatalogueGames struct {
+	Total, Coded, Page, Pages int
+	Groups                    []string
+	Games                     []CatalogueGame
+}
+
+// shownGames is every placed game of a shown tournament (rated or made
+// visible), never-played ones included, with its season and stage.
+const shownGames = `
+	SELECT m.match_id, m.date, s.label AS season, st.label AS stage, m.group_label, coalesce(m.game_number, 0) AS game,
+	       m.state, coalesce(m.replay_code, '') AS code
+	FROM matches m
+	JOIN tournament_stages st USING (stage_id)
+	JOIN tournament_seasons s USING (season_id)
+	JOIN tournaments t USING (tournament_id)
+	WHERE t.slug = $1
+	  AND (t.visible OR EXISTS (SELECT 1 FROM ranking_tournaments rt WHERE rt.tournament_id = t.tournament_id))
+	  AND ($2 = '' OR s.label = $2) AND ($3 = '' OR st.label = $3)`
+
+// CatalogueGames returns one page of a shown tournament's games, newest
+// first, for a published run. A page past the last gives the last. A
+// tournament without placed games, or hidden, is ErrTournamentNotFound.
+func (r *RatingsReader) CatalogueGames(ctx context.Context, run int64, slug string, f CatalogueGamesFilter) (CatalogueGames, error) {
+	if err := r.requirePublished(ctx, run); err != nil {
+		return CatalogueGames{}, err
+	}
+	fail := func(what string, err error) (CatalogueGames, error) {
+		return CatalogueGames{}, fmt.Errorf("reading %s's %s: %w", slug, what, err)
+	}
+	var shown bool
+	if err := r.pool.QueryRow(ctx, `SELECT EXISTS (`+shownGames+`)`, slug, "", "").Scan(&shown); err != nil {
+		return fail("games", err)
+	}
+	if !shown {
+		return CatalogueGames{}, ErrTournamentNotFound
+	}
+
+	got := CatalogueGames{Games: []CatalogueGame{}}
+	if f.Season != "" {
+		rows, err := r.pool.Query(ctx, `SELECT DISTINCT group_label FROM (`+shownGames+`) g WHERE group_label <> ''`, slug, f.Season, f.Stage)
+		if err != nil {
+			return fail("groups", err)
+		}
+		if got.Groups, err = pgx.CollectRows(rows, pgx.RowTo[string]); err != nil {
+			return fail("groups", err)
+		}
+		slices.SortFunc(got.Groups, naturally)
+	}
+
+	if err := r.pool.QueryRow(ctx, `
+		SELECT count(*) FILTER (WHERE NOT $5 OR code <> ''), count(*) FILTER (WHERE code <> '')
+		FROM (`+shownGames+`) g WHERE ($4 = '' OR group_label = $4)`,
+		slug, f.Season, f.Stage, f.Group, f.Coded).Scan(&got.Total, &got.Coded); err != nil {
+		return fail("game count", err)
+	}
+	got.Pages = max(1, (got.Total+catalogueGamesPage-1)/catalogueGamesPage)
+	got.Page = min(max(f.Page, 1), got.Pages)
+
+	rows, err := r.pool.Query(ctx, `
+		SELECT g.match_id, g.date, g.season, g.stage, g.group_label, g.game, g.state, g.code,
+		       m.player1, m.score1, m.player2, m.score2, m.player3, m.score3, m.player4, m.score4,
+		       coalesce((SELECT jsonb_object_agg(player_name, outcome) FROM match_seats WHERE match_id = g.match_id), '{}')
+		FROM (`+shownGames+`) g JOIN matches m USING (match_id)
+		WHERE ($4 = '' OR g.group_label = $4) AND (NOT $5 OR g.code <> '')
+		ORDER BY g.date DESC, g.season, g.stage, g.group_label, g.game DESC, g.match_id
+		LIMIT $6 OFFSET $7`,
+		slug, f.Season, f.Stage, f.Group, f.Coded, catalogueGamesPage, (got.Page-1)*catalogueGamesPage)
+	if err != nil {
+		return fail("games", err)
+	}
+	got.Games, err = pgx.CollectRows(rows, func(row pgx.CollectableRow) (CatalogueGame, error) {
+		var g CatalogueGame
+		var names [4]*string
+		var scores [4]*float64
+		var outcomes map[string]string
+		err := row.Scan(&g.ID, &g.Date, &g.Season, &g.Stage, &g.Group, &g.Game, &g.State, &g.Code,
+			&names[0], &scores[0], &names[1], &scores[1], &names[2], &scores[2], &names[3], &scores[3], &outcomes)
+		for i := range names {
+			if names[i] != nil && scores[i] != nil {
+				g.Seats = append(g.Seats, GameSeat{Name: *names[i], Score: *scores[i], Outcome: outcomes[*names[i]]})
+			}
+		}
+		slices.SortStableFunc(g.Seats, func(a, b GameSeat) int { return cmp.Compare(b.Score, a.Score) })
+		return g, err
+	})
+	if err != nil {
+		return fail("games", err)
+	}
+	return got, nil
+}
+
+var digits = regexp.MustCompile(`\d+|\D+`)
+
+// naturally orders labels with their numbers as numbers: "Bronze 2" before "Bronze 10".
+func naturally(a, b string) int {
+	pa, pb := digits.FindAllString(a, -1), digits.FindAllString(b, -1)
+	for i := 0; i < len(pa) && i < len(pb); i++ {
+		na, errA := strconv.Atoi(pa[i])
+		nb, errB := strconv.Atoi(pb[i])
+		if errA == nil && errB == nil {
+			if c := cmp.Compare(na, nb); c != 0 {
+				return c
+			}
+			continue
+		}
+		if c := cmp.Compare(pa[i], pb[i]); c != 0 {
+			return c
+		}
+	}
+	return cmp.Compare(len(pa), len(pb))
+}

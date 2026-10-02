@@ -54,6 +54,9 @@ export type CatalogueEntry = components['schemas']['CatalogueEntry'];
 export type CatalogueTournament = components['schemas']['CatalogueTournament'];
 export type CatalogueSeason = components['schemas']['CatalogueSeason'];
 export type CatalogueStage = components['schemas']['CatalogueStage'];
+export type CatalogueGames = components['schemas']['CatalogueGames'];
+export type CatalogueGame = components['schemas']['CatalogueGame'];
+export type GameSeat = components['schemas']['GameSeat'];
 export type PodiumPlace = components['schemas']['PodiumPlace'];
 export type CGETournament = components['schemas']['CGETournament'];
 
@@ -243,6 +246,26 @@ export async function catalogue(base: string, run: number, fetchFn: typeof fetch
 /** Returns one tournament's seasons in order, each with its stages and recorded podium. */
 export async function catalogueTournament(base: string, run: number, slug: string, fetchFn: typeof fetch = fetch): Promise<CatalogueTournament> {
   return get<CatalogueTournament>(fetchFn, base, `/v1/runs/${run}/catalogue/${encodeURIComponent(slug)}`);
+}
+
+/** Which of a tournament's games to ask for: empty filters do not narrow, and coded keeps games with a replay code. */
+export interface GamesFilter {
+  season?: string;
+  stage?: string;
+  group?: string;
+  coded?: boolean;
+  page: number;
+}
+
+/** Returns one page of a tournament's games, newest first, narrowed by the filter. */
+export async function catalogueGames(base: string, run: number, slug: string, filter: GamesFilter, fetchFn: typeof fetch = fetch): Promise<CatalogueGames> {
+  const query = new URLSearchParams({ page: String(filter.page) });
+  for (const key of ['season', 'stage', 'group'] as const) {
+    const value = filter[key];
+    if (value !== undefined && value !== '') query.set(key, value);
+  }
+  if (filter.coded === true) query.set('coded', 'true');
+  return get<CatalogueGames>(fetchFn, base, `/v1/runs/${run}/catalogue/${encodeURIComponent(slug)}/games?${query}`);
 }
 
 // Public routes take no credentials, so none are ever sent.

@@ -753,6 +753,70 @@ paths:
           $ref: "#/components/responses/BadRequest"
         "404":
           $ref: "#/components/responses/NotFound"
+  /v1/runs/{run}/catalogue/{tournament}/games:
+    get:
+      operationId: getCatalogueGames
+      summary: One page of a tournament's games
+      description: |
+        The tournament's games, newest first, 50 to a page, never-played ones
+        included and marked. Narrowed by season, stage and group (as the
+        catalogue labels them; an empty value does not narrow), and to games
+        with a replay code. A page past the last gives the last. A hidden
+        tournament is not found. Cached for five minutes.
+      parameters:
+        - $ref: "#/components/parameters/RunId"
+        - name: tournament
+          in: path
+          required: true
+          schema:
+            type: string
+            pattern: "^[a-z][a-z0-9_]{0,63}$"
+        - name: season
+          in: query
+          required: false
+          schema:
+            type: string
+            maxLength: 64
+        - name: stage
+          in: query
+          required: false
+          schema:
+            type: string
+            maxLength: 64
+        - name: group
+          in: query
+          required: false
+          schema:
+            type: string
+            maxLength: 64
+        - name: coded
+          in: query
+          required: false
+          description: Only games with a replay code
+          schema:
+            type: boolean
+            default: false
+        - name: page
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+      responses:
+        "200":
+          description: One page of games
+          headers:
+            Cache-Control:
+              $ref: "#/components/headers/CacheControl"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CatalogueGames"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "404":
+          $ref: "#/components/responses/NotFound"
   /v1/runs/{run}/community/{edition}:
     get:
       operationId: getCommunityLeaderboard
@@ -2056,6 +2120,81 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/CatalogueSeason"
+    CatalogueGames:
+      type: object
+      required: [run_id, slug, page, pages, total, coded, groups, games]
+      properties:
+        run_id:
+          type: integer
+          format: int64
+        slug:
+          type: string
+        page:
+          type: integer
+        pages:
+          type: integer
+        total:
+          description: The games the filters keep
+          type: integer
+        coded:
+          description: How many of the games the season, stage and group keep have a replay code
+          type: integer
+        groups:
+          description: The chosen season's groups (in its chosen stage), in order; empty when no season is chosen
+          type: array
+          items:
+            type: string
+        games:
+          type: array
+          items:
+            $ref: "#/components/schemas/CatalogueGame"
+    CatalogueGame:
+      type: object
+      required: [match_id, date, season, stage, group, game, state, replay_code, seats]
+      properties:
+        match_id:
+          type: integer
+          format: int64
+        date:
+          type: string
+          format: date
+        season:
+          type: string
+        stage:
+          description: "\"\" for a season's only or main stage"
+          type: string
+        group:
+          description: "\"\" when the game's name gives none"
+          type: string
+        game:
+          description: The game's number in its group, or null when its name gives none
+          type: integer
+          nullable: true
+        state:
+          type: string
+          enum: [played, never_played]
+        replay_code:
+          type: string
+          nullable: true
+        seats:
+          description: Highest score first
+          type: array
+          items:
+            $ref: "#/components/schemas/GameSeat"
+    GameSeat:
+      type: object
+      required: [name, score, outcome]
+      properties:
+        name:
+          type: string
+        score:
+          type: number
+          format: double
+        outcome:
+          description: How the seat ended, as CGE records it; null where CGE's seats are not known
+          type: string
+          enum: [finished, resigned, timed_out]
+          nullable: true
     Series:
       description: A tournament series
       type: string

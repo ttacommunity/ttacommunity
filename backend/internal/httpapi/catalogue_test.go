@@ -14,8 +14,16 @@ type fakeCatalogue struct {
 	fakeRatings
 	view       store.CatalogueView
 	tournament store.CatalogueTournament
+	games      store.CatalogueGames
 	err        error
 	gotSlug    string
+	gotFilter  store.CatalogueGamesFilter
+}
+
+func (f *fakeCatalogue) CatalogueGames(_ context.Context, run int64, slug string, filter store.CatalogueGamesFilter) (store.CatalogueGames, error) {
+	f.calls++
+	f.gotRun, f.gotSlug, f.gotFilter = run, slug, filter
+	return f.games, f.err
 }
 
 func (f *fakeCatalogue) Catalogue(_ context.Context, run int64) (store.CatalogueView, error) {
@@ -83,12 +91,50 @@ func TestCatalogueTournament(t *testing.T) {
 	}
 }
 
+func TestCatalogueGames(t *testing.T) {
+	d, _ := time.Parse(time.DateOnly, "2025-02-24")
+	f := &fakeCatalogue{games: store.CatalogueGames{Total: 2, Coded: 1, Page: 1, Pages: 1, Groups: []string{"Final"}, Games: []store.CatalogueGame{
+		{ID: 9, Date: d, Season: "2024", Stage: "Stage 7", Group: "Final", Game: 1, State: "played", Code: "HEKANUJIMA",
+			Seats: []store.GameSeat{{Name: "a440", Score: 112, Outcome: "finished"}, {Name: "kyshantry", Score: -5, Outcome: "timed_out"}}},
+		{ID: 8, Date: d, Season: "2024", Stage: "Stage 7", State: "never_played", Seats: []store.GameSeat{{Name: "ann", Score: 0}}},
+	}}}
+	rec, _ := serve(t, f, "/v1/runs/7/catalogue/wimbledon/games?season=2024&stage=Stage+7&group=Final&coded=true&page=2")
+	want := `{"coded":1,"games":[` +
+		`{"date":"2025-02-24","game":1,"group":"Final","match_id":9,"replay_code":"HEKANUJIMA","season":"2024",` +
+		`"seats":[{"name":"a440","outcome":"finished","score":112},{"name":"kyshantry","outcome":"timed_out","score":-5}],"stage":"Stage 7","state":"played"},` +
+		`{"date":"2025-02-24","game":null,"group":"","match_id":8,"replay_code":null,"season":"2024",` +
+		`"seats":[{"name":"ann","outcome":null,"score":0}],"stage":"Stage 7","state":"never_played"}],` +
+		`"groups":["Final"],"page":1,"pages":1,"run_id":7,"slug":"wimbledon","total":2}`
+	if got := strings.TrimSpace(rec.Body.String()); rec.Code != http.StatusOK || got != want {
+		t.Errorf("GET games: %d %s\nwant 200 %s", rec.Code, got, want)
+	}
+	wantFilter := store.CatalogueGamesFilter{Season: "2024", Stage: "Stage 7", Group: "Final", Coded: true, Page: 2}
+	if rec.Header().Get("Cache-Control") != "public, max-age=300" || f.gotRun != 7 || f.gotSlug != "wimbledon" || f.gotFilter != wantFilter {
+		t.Errorf("GET games: Cache-Control %q; asked run %d, %q, %+v", rec.Header().Get("Cache-Control"), f.gotRun, f.gotSlug, f.gotFilter)
+	}
+}
+
+func TestCatalogueGamesDefaultsAndEmpty(t *testing.T) {
+	f := &fakeCatalogue{games: store.CatalogueGames{Page: 1, Pages: 1}}
+	rec, _ := serve(t, f, "/v1/runs/7/catalogue/wimbledon/games")
+	if f.gotFilter != (store.CatalogueGamesFilter{Page: 1}) {
+		t.Errorf("GET games with no filters asked %+v, want page 1 only", f.gotFilter)
+	}
+	if body := rec.Body.String(); !strings.Contains(body, `"games":[]`) || !strings.Contains(body, `"groups":[]`) {
+		t.Errorf("GET no games: %s, want empty arrays", body)
+	}
+}
+
 func TestCatalogueRefusals(t *testing.T) {
 	for path, msg := range map[string]string{
-		"/v1/runs/0/catalogue":           "bad parameter: run",
-		"/v1/runs/0/catalogue/wimbledon": "bad parameter: run",
-		"/v1/runs/7/catalogue/Wimbledon": "bad parameter: tournament",
-		"/v1/runs/7/catalogue/9cup":      "bad parameter: tournament",
+		"/v1/runs/0/catalogue":                                                   "bad parameter: run",
+		"/v1/runs/0/catalogue/wimbledon":                                         "bad parameter: run",
+		"/v1/runs/7/catalogue/Wimbledon":                                         "bad parameter: tournament",
+		"/v1/runs/7/catalogue/9cup":                                              "bad parameter: tournament",
+		"/v1/runs/0/catalogue/wimbledon/games":                                   "bad parameter: run",
+		"/v1/runs/7/catalogue/Wimbledon/games":                                   "bad parameter: tournament",
+		"/v1/runs/7/catalogue/wimbledon/games?page=0":                            "bad parameter: page",
+		"/v1/runs/7/catalogue/wimbledon/games?season=" + strings.Repeat("x", 65): "bad parameter: season",
 	} {
 		f := &fakeCatalogue{}
 		rec, _ := serve(t, f, path)
@@ -97,9 +143,10 @@ func TestCatalogueRefusals(t *testing.T) {
 		}
 	}
 	for path, err := range map[string]error{
-		"/v1/runs/9/catalogue":           store.ErrRunNotFound,
-		"/v1/runs/9/catalogue/wimbledon": store.ErrRunNotFound,
-		"/v1/runs/7/catalogue/snail_cup": store.ErrTournamentNotFound,
+		"/v1/runs/9/catalogue":                 store.ErrRunNotFound,
+		"/v1/runs/9/catalogue/wimbledon":       store.ErrRunNotFound,
+		"/v1/runs/7/catalogue/snail_cup":       store.ErrTournamentNotFound,
+		"/v1/runs/7/catalogue/snail_cup/games": store.ErrTournamentNotFound,
 	} {
 		rec, _ := serve(t, &fakeCatalogue{err: err}, path)
 		if rec.Code != http.StatusNotFound || rec.Header().Get("Cache-Control") != "no-store" {

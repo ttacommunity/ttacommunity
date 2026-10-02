@@ -567,6 +567,30 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/runs/{run}/catalogue/{tournament}/games": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * One page of a tournament's games
+         * @description The tournament's games, newest first, 50 to a page, never-played ones
+         *     included and marked. Narrowed by season, stage and group (as the
+         *     catalogue labels them; an empty value does not narrow), and to games
+         *     with a replay code. A page past the last gives the last. A hidden
+         *     tournament is not found. Cached for five minutes.
+         */
+        get: operations["getCatalogueGames"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/runs/{run}/community/{edition}": {
         parameters: {
             query?: never;
@@ -1272,6 +1296,48 @@ export interface components {
             name: string;
             /** @description In order of their first game */
             seasons: components["schemas"]["CatalogueSeason"][];
+        };
+        CatalogueGames: {
+            /** Format: int64 */
+            run_id: number;
+            slug: string;
+            page: number;
+            pages: number;
+            /** @description The games the filters keep */
+            total: number;
+            /** @description How many of the games the season, stage and group keep have a replay code */
+            coded: number;
+            /** @description The chosen season's groups (in its chosen stage), in order; empty when no season is chosen */
+            groups: string[];
+            games: components["schemas"]["CatalogueGame"][];
+        };
+        CatalogueGame: {
+            /** Format: int64 */
+            match_id: number;
+            /** Format: date */
+            date: string;
+            season: string;
+            /** @description "" for a season's only or main stage */
+            stage: string;
+            /** @description "" when the game's name gives none */
+            group: string;
+            /** @description The game's number in its group, or null when its name gives none */
+            game: number | null;
+            /** @enum {string} */
+            state: "played" | "never_played";
+            replay_code: string | null;
+            /** @description Highest score first */
+            seats: components["schemas"]["GameSeat"][];
+        };
+        GameSeat: {
+            name: string;
+            /** Format: double */
+            score: number;
+            /**
+             * @description How the seat ended, as CGE records it; null where CGE's seats are not known
+             * @enum {string|null}
+             */
+            outcome: "finished" | "resigned" | "timed_out" | null;
         };
         /**
          * @description A tournament series
@@ -2146,6 +2212,40 @@ export interface operations {
             404: components["responses"]["NotFound"];
         };
     };
+    getCatalogueGames: {
+        parameters: {
+            query?: {
+                season?: string;
+                stage?: string;
+                group?: string;
+                /** @description Only games with a replay code */
+                coded?: boolean;
+                page?: number;
+            };
+            header?: never;
+            path: {
+                /** @description A published run's id, from `/v1/runs/current` */
+                run: components["parameters"]["RunId"];
+                tournament: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description One page of games */
+            200: {
+                headers: {
+                    "Cache-Control": components["headers"]["CacheControl"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CatalogueGames"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            404: components["responses"]["NotFound"];
+        };
+    };
     getCommunityLeaderboard: {
         parameters: {
             query?: never;
@@ -2193,5 +2293,7 @@ export const calibrationRowModeValues: ReadonlyArray<FlattenedDeepRequired<compo
 export const tournamentRecordMedalValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["TournamentRecord"]["medal"]> = ["gold", "silver", "bronze"];
 export const communityEditionValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["CommunityEdition"]> = ["2026", "2025", "2024", "race26"];
 export const communityRowTitleValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["CommunityRow"]["title"]> = ["WC", "SGM", "GM", "M", "P", "G", "S", "B", "W"];
+export const catalogueGameStateValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["CatalogueGame"]["state"]> = ["played", "never_played"];
+export const gameSeatOutcomeValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["GameSeat"]["outcome"]> = ["finished", "resigned", "timed_out"];
 export const seriesValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["Series"]> = ["international", "intermezzo", "royal_league", "worlds", "grand_slams", "ladders"];
 export const trophyRowTitleValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["TrophyRow"]["title"]> = ["WC", "GM", "M"];

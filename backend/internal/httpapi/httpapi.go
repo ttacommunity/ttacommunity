@@ -53,6 +53,7 @@ type Ratings interface {
 	CommunityLeaderboard(ctx context.Context, run int64, edition string) ([]store.CommunityRow, error)
 	Catalogue(ctx context.Context, run int64) (store.CatalogueView, error)
 	CatalogueTournament(ctx context.Context, run int64, slug string) (store.CatalogueTournament, error)
+	CatalogueGames(ctx context.Context, run int64, slug string, f store.CatalogueGamesFilter) (store.CatalogueGames, error)
 }
 
 // NewMux returns the API's handler with every route in the spec registered.

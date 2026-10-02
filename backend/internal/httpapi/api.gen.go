@@ -37,6 +37,24 @@ func (e CalibrationRowMode) Valid() bool {
 	}
 }
 
+// Defines values for CatalogueGameState.
+const (
+	NeverPlayed CatalogueGameState = "never_played"
+	Played      CatalogueGameState = "played"
+)
+
+// Valid indicates whether the value is a known member of the CatalogueGameState enum.
+func (e CatalogueGameState) Valid() bool {
+	switch e {
+	case NeverPlayed:
+		return true
+	case Played:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for CommunityEdition.
 const (
 	N2024  CommunityEdition = "2024"
@@ -118,6 +136,27 @@ func (e Format) Valid() bool {
 	case N3:
 		return true
 	case N4:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for GameSeatOutcome.
+const (
+	Finished GameSeatOutcome = "finished"
+	Resigned GameSeatOutcome = "resigned"
+	TimedOut GameSeatOutcome = "timed_out"
+)
+
+// Valid indicates whether the value is a known member of the GameSeatOutcome enum.
+func (e GameSeatOutcome) Valid() bool {
+	switch e {
+	case Finished:
+		return true
+	case Resigned:
+		return true
+	case TimedOut:
 		return true
 	default:
 		return false
@@ -539,6 +578,47 @@ type CatalogueEntry struct {
 	Slug     string   `json:"slug"`
 }
 
+// CatalogueGame defines model for CatalogueGame.
+type CatalogueGame struct {
+	Date openapi_types.Date `json:"date"`
+
+	// Game The game's number in its group, or null when its name gives none
+	Game *int `json:"game"`
+
+	// Group "" when the game's name gives none
+	Group      string  `json:"group"`
+	MatchId    int64   `json:"match_id"`
+	ReplayCode *string `json:"replay_code"`
+	Season     string  `json:"season"`
+
+	// Seats Highest score first
+	Seats []GameSeat `json:"seats"`
+
+	// Stage "" for a season's only or main stage
+	Stage string             `json:"stage"`
+	State CatalogueGameState `json:"state"`
+}
+
+// CatalogueGameState defines model for CatalogueGame.State.
+type CatalogueGameState string
+
+// CatalogueGames defines model for CatalogueGames.
+type CatalogueGames struct {
+	// Coded How many of the games the season, stage and group keep have a replay code
+	Coded int             `json:"coded"`
+	Games []CatalogueGame `json:"games"`
+
+	// Groups The chosen season's groups (in its chosen stage), in order; empty when no season is chosen
+	Groups []string `json:"groups"`
+	Page   int      `json:"page"`
+	Pages  int      `json:"pages"`
+	RunId  int64    `json:"run_id"`
+	Slug   string   `json:"slug"`
+
+	// Total The games the filters keep
+	Total int `json:"total"`
+}
+
 // CatalogueSeason defines model for CatalogueSeason.
 type CatalogueSeason struct {
 	FirstGame openapi_types.Date `json:"first_game"`
@@ -716,6 +796,18 @@ type GameRecord struct {
 	Tournament    string  `json:"tournament"`
 	WorldChampion bool    `json:"world_champion"`
 }
+
+// GameSeat defines model for GameSeat.
+type GameSeat struct {
+	Name string `json:"name"`
+
+	// Outcome How the seat ended, as CGE records it; null where CGE's seats are not known
+	Outcome *GameSeatOutcome `json:"outcome"`
+	Score   float64          `json:"score"`
+}
+
+// GameSeatOutcome How the seat ended, as CGE records it; null where CGE's seats are not known
+type GameSeatOutcome string
 
 // GameSpan How many games and players a tournament, season or stage has, and when its first and last game were played
 type GameSpan struct {
@@ -1329,6 +1421,17 @@ type GetComparedPlayersParams struct {
 	Search *string `form:"search,omitempty" json:"search,omitempty"`
 }
 
+// GetCatalogueGamesParams defines parameters for GetCatalogueGames.
+type GetCatalogueGamesParams struct {
+	Season *string `form:"season,omitempty" json:"season,omitempty"`
+	Stage  *string `form:"stage,omitempty" json:"stage,omitempty"`
+	Group  *string `form:"group,omitempty" json:"group,omitempty"`
+
+	// Coded Only games with a replay code
+	Coded *bool `form:"coded,omitempty" json:"coded,omitempty"`
+	Page  *int  `form:"page,omitempty" json:"page,omitempty"`
+}
+
 // GetHistoryParams defines parameters for GetHistory.
 type GetHistoryParams struct {
 	Model  *Model              `form:"model,omitempty" json:"model,omitempty"`
@@ -1444,6 +1547,9 @@ type ServerInterface interface {
 	// GetCatalogueTournament One tournament's seasons, stages and podiums
 	// (GET /v1/runs/{run}/catalogue/{tournament})
 	GetCatalogueTournament(w http.ResponseWriter, r *http.Request, run RunId, tournament string)
+	// GetCatalogueGames One page of a tournament's games
+	// (GET /v1/runs/{run}/catalogue/{tournament}/games)
+	GetCatalogueGames(w http.ResponseWriter, r *http.Request, run RunId, tournament string, params GetCatalogueGamesParams)
 	// GetCommunityLeaderboard An edition of the community leaderboard
 	// (GET /v1/runs/{run}/community/{edition})
 	GetCommunityLeaderboard(w http.ResponseWriter, r *http.Request, run RunId, edition CommunityEdition)
@@ -1788,6 +1894,109 @@ func (siw *ServerInterfaceWrapper) GetCatalogueTournament(w http.ResponseWriter,
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.GetCatalogueTournament(w, r, run, tournament)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetCatalogueGames operation middleware
+func (siw *ServerInterfaceWrapper) GetCatalogueGames(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "run" -------------
+	var run RunId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "run", r.PathValue("run"), &run, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "integer", Format: "int64", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "run", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "tournament" -------------
+	var tournament string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "tournament", r.PathValue("tournament"), &tournament, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "tournament", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params GetCatalogueGamesParams
+
+	// ------------- Optional query parameter "season" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "season", r.URL.Query(), &params.Season, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "season"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "season", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "stage" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "stage", r.URL.Query(), &params.Stage, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "stage"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "stage", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "group" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "group", r.URL.Query(), &params.Group, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "group"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "group", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "coded" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "coded", r.URL.Query(), &params.Coded, runtime.BindQueryParameterOptions{Type: "boolean", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "coded"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "coded", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "page" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "page", r.URL.Query(), &params.Page, runtime.BindQueryParameterOptions{Type: "integer", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "page"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "page", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetCatalogueGames(w, r, run, tournament, params)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -2818,6 +3027,7 @@ func HandlerWithOptions(si ServerInterface, options StdHTTPServerOptions) http.H
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/v1/runs/{run}/tournaments/{series}", wrapper.GetTournamentSeries)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/v1/runs/{run}/catalogue", wrapper.GetCatalogue)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/v1/runs/{run}/catalogue/{tournament}", wrapper.GetCatalogueTournament)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/v1/runs/{run}/catalogue/{tournament}/games", wrapper.GetCatalogueGames)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/v1/runs/{run}/community/{edition}", wrapper.GetCommunityLeaderboard)
 
 	return m
@@ -3378,6 +3588,68 @@ func (response GetCatalogueTournament400JSONResponse) VisitGetCatalogueTournamen
 type GetCatalogueTournament404JSONResponse struct{ NotFoundJSONResponse }
 
 func (response GetCatalogueTournament404JSONResponse) VisitGetCatalogueTournamentResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetCatalogueGamesRequestObject struct {
+	Run        RunId  `json:"run"`
+	Tournament string `json:"tournament"`
+	Params     GetCatalogueGamesParams
+}
+
+type GetCatalogueGamesResponseObject interface {
+	VisitGetCatalogueGamesResponse(w http.ResponseWriter) error
+}
+
+type GetCatalogueGames200ResponseHeaders struct {
+	CacheControl string
+}
+
+type GetCatalogueGames200JSONResponse struct {
+	Body    CatalogueGames
+	Headers GetCatalogueGames200ResponseHeaders
+}
+
+func (response GetCatalogueGames200JSONResponse) VisitGetCatalogueGamesResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetCatalogueGames400JSONResponse struct{ BadRequestJSONResponse }
+
+func (response GetCatalogueGames400JSONResponse) VisitGetCatalogueGamesResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetCatalogueGames404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response GetCatalogueGames404JSONResponse) VisitGetCatalogueGamesResponse(w http.ResponseWriter) error {
 
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
@@ -4409,6 +4681,9 @@ type StrictServerInterface interface {
 	// GetCatalogueTournament One tournament's seasons, stages and podiums
 	// (GET /v1/runs/{run}/catalogue/{tournament})
 	GetCatalogueTournament(ctx context.Context, request GetCatalogueTournamentRequestObject) (GetCatalogueTournamentResponseObject, error)
+	// GetCatalogueGames One page of a tournament's games
+	// (GET /v1/runs/{run}/catalogue/{tournament}/games)
+	GetCatalogueGames(ctx context.Context, request GetCatalogueGamesRequestObject) (GetCatalogueGamesResponseObject, error)
 	// GetCommunityLeaderboard An edition of the community leaderboard
 	// (GET /v1/runs/{run}/community/{edition})
 	GetCommunityLeaderboard(ctx context.Context, request GetCommunityLeaderboardRequestObject) (GetCommunityLeaderboardResponseObject, error)
@@ -4749,6 +5024,34 @@ func (sh *strictHandler) GetCatalogueTournament(w http.ResponseWriter, r *http.R
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(GetCatalogueTournamentResponseObject); ok {
 		if err := validResponse.VisitGetCatalogueTournamentResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// GetCatalogueGames operation middleware
+func (sh *strictHandler) GetCatalogueGames(w http.ResponseWriter, r *http.Request, run RunId, tournament string, params GetCatalogueGamesParams) {
+	var request GetCatalogueGamesRequestObject
+
+	request.Run = run
+	request.Tournament = tournament
+	request.Params = params
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.GetCatalogueGames(ctx, request.(GetCatalogueGamesRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetCatalogueGames")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(GetCatalogueGamesResponseObject); ok {
+		if err := validResponse.VisitGetCatalogueGamesResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {

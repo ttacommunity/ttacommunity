@@ -46,3 +46,13 @@ export function cgeYears(started: string | null, finished: string | null): strin
 export function shownName(name: string, rated: boolean): string {
   return rated ? name : `${name} (Not Rated)`;
 }
+
+/** gameWhere writes where a game sits in its season: "Stage 2 · Lower 17 · game 5", leaving out what the game's name lacks. */
+export function gameWhere(g: { stage: string; group: string; game: number | null }): string {
+  return [g.stage, g.group, g.game === null ? '' : `game ${g.game}`].filter((part) => part !== '').join(' · ');
+}
+
+/** outcomeNote marks a seat that did not finish: "resigned" or "timed out"; "" otherwise. */
+export function outcomeNote(outcome: string | null): string {
+  return outcome === 'resigned' ? 'resigned' : outcome === 'timed_out' ? 'timed out' : '';
+}

@@ -7,6 +7,8 @@ import (
 	"time"
 
 	openapi_types "github.com/oapi-codegen/runtime/types"
+
+	"ttacommunity/backend/internal/store"
 )
 
 // cgeSite is where CGE's tournament pages are.
@@ -86,6 +88,77 @@ func (s *server) GetCatalogueTournament(ctx context.Context, req GetCatalogueTou
 	}
 	return GetCatalogueTournament200JSONResponse{
 		Body: body, Headers: GetCatalogueTournament200ResponseHeaders{CacheControl: cacheRun},
+	}, nil
+}
+
+// GetCatalogueGames returns one page of a tournament's games, narrowed as asked.
+func (s *server) GetCatalogueGames(ctx context.Context, req GetCatalogueGamesRequestObject) (GetCatalogueGamesResponseObject, error) {
+	f := store.CatalogueGamesFilter{Page: 1}
+	text := func(p *string) string {
+		if p == nil {
+			return ""
+		}
+		return *p
+	}
+	f.Season, f.Stage, f.Group = text(req.Params.Season), text(req.Params.Stage), text(req.Params.Group)
+	if req.Params.Coded != nil {
+		f.Coded = *req.Params.Coded
+	}
+	if req.Params.Page != nil {
+		f.Page = *req.Params.Page
+	}
+	var msg string
+	switch {
+	case req.Run < 1:
+		msg = "bad parameter: run"
+	case !tournamentSlug.MatchString(req.Tournament):
+		msg = "bad parameter: tournament"
+	case len(f.Season) > 64:
+		msg = "bad parameter: season"
+	case len(f.Stage) > 64:
+		msg = "bad parameter: stage"
+	case len(f.Group) > 64:
+		msg = "bad parameter: group"
+	case f.Page < 1:
+		msg = "bad parameter: page"
+	}
+	if msg != "" {
+		return GetCatalogueGames400JSONResponse{badRequestBody(msg)}, nil
+	}
+	got, err := s.ratings.CatalogueGames(ctx, req.Run, req.Tournament, f)
+	if nf, ok := notFound(err); ok {
+		return GetCatalogueGames404JSONResponse{nf}, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	body := CatalogueGames{
+		RunId: req.Run, Slug: req.Tournament, Page: got.Page, Pages: got.Pages, Total: got.Total, Coded: got.Coded,
+		Groups: append([]string{}, got.Groups...), Games: make([]CatalogueGame, 0, len(got.Games)),
+	}
+	for _, g := range got.Games {
+		out := CatalogueGame{
+			MatchId: g.ID, Date: openapi_types.Date{Time: g.Date}, Season: g.Season, Stage: g.Stage, Group: g.Group,
+			State: CatalogueGameState(g.State), Seats: make([]GameSeat, 0, len(g.Seats)),
+		}
+		if g.Game > 0 {
+			out.Game = &g.Game
+		}
+		if g.Code != "" {
+			out.ReplayCode = &g.Code
+		}
+		for _, seat := range g.Seats {
+			gs := GameSeat{Name: seat.Name, Score: seat.Score}
+			if seat.Outcome != "" {
+				o := GameSeatOutcome(seat.Outcome)
+				gs.Outcome = &o
+			}
+			out.Seats = append(out.Seats, gs)
+		}
+		body.Games = append(body.Games, out)
+	}
+	return GetCatalogueGames200JSONResponse{
+		Body: body, Headers: GetCatalogueGames200ResponseHeaders{CacheControl: cacheRun},
 	}, nil
 }
 

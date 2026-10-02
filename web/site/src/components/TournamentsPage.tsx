@@ -10,6 +10,7 @@ import {
   type CatalogueTournament,
 } from '@ttac/shared/ratings';
 import { playerHref } from '../lib/player-view';
+import TournamentGames from './TournamentGames';
 import { catalogueHref, cgeYears, placeLabel, seasonName, shownName, spanYears, stageName, tournamentParam } from '../lib/catalogue-view';
 
 type Load<T> = { kind: 'loading' } | { kind: 'missing' } | { kind: 'error'; message: string } | { kind: 'ready'; data: T };
@@ -148,15 +149,15 @@ function CgeList({ data }: { data: Catalogue }) {
 }
 
 function TournamentDetail({ apiUrl, slug }: { apiUrl: string; slug: string }) {
-  const [load, setLoad] = useState<Load<CatalogueTournament>>({ kind: 'loading' });
+  const [load, setLoad] = useState<Load<{ run: number; t: CatalogueTournament }>>({ kind: 'loading' });
   useEffect(() => {
     currentRun(apiUrl)
-      .then((r) => catalogueTournament(apiUrl, r.run_id, slug))
+      .then((r) => catalogueTournament(apiUrl, r.run_id, slug).then((t) => ({ run: r.run_id, t })))
       .then((data) => setLoad({ kind: 'ready', data }))
       .catch((e: unknown) => setLoad(failed(e)));
   }, [apiUrl, slug]);
   if (load.kind !== 'ready') return <Waiting load={load} />;
-  const t = load.data;
+  const { run, t } = load.data;
   const games = t.seasons.reduce((n, s) => n + s.games, 0);
   return (
     <>
@@ -190,6 +191,7 @@ function TournamentDetail({ apiUrl, slug }: { apiUrl: string; slug: string }) {
       {t.seasons.map((s) => (
         <Season key={s.label} season={s} />
       ))}
+      <TournamentGames apiUrl={apiUrl} run={run} slug={t.slug} seasons={t.seasons} />
     </>
   );
 }
