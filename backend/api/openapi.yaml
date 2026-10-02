@@ -697,6 +697,60 @@ paths:
           $ref: "#/components/responses/BadRequest"
         "404":
           $ref: "#/components/responses/NotFound"
+  /v1/runs/{run}/catalogue:
+    get:
+      operationId: getCatalogue
+      summary: Every tournament with games
+      description: |
+        Each tournament in the catalogue that has placed games: its seasons,
+        games, players and first and last game. Games come from the
+        tournament catalogue, which can grow without a new run, so this is
+        cached for five minutes.
+      parameters:
+        - $ref: "#/components/parameters/RunId"
+      responses:
+        "200":
+          description: The tournaments, by name
+          headers:
+            Cache-Control:
+              $ref: "#/components/headers/CacheControl"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Catalogue"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /v1/runs/{run}/catalogue/{tournament}:
+    get:
+      operationId: getCatalogueTournament
+      summary: One tournament's seasons, stages and podiums
+      description: |
+        The tournament's seasons in order of their first game, each with its
+        stages and its recorded podium. Cached for five minutes.
+      parameters:
+        - $ref: "#/components/parameters/RunId"
+        - name: tournament
+          in: path
+          required: true
+          schema:
+            type: string
+            pattern: "^[a-z][a-z0-9_]{0,63}$"
+      responses:
+        "200":
+          description: The tournament
+          headers:
+            Cache-Control:
+              $ref: "#/components/headers/CacheControl"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CatalogueTournament"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "404":
+          $ref: "#/components/responses/NotFound"
   /v1/runs/{run}/community/{edition}:
     get:
       operationId: getCommunityLeaderboard
@@ -1862,6 +1916,104 @@ components:
           additionalProperties:
             type: number
             format: double
+    GameSpan:
+      description: How many games and players a tournament, season or stage has, and when its first and last game were played
+      type: object
+      required: [games, players, first_game, last_game]
+      properties:
+        games:
+          type: integer
+        players:
+          type: integer
+        first_game:
+          type: string
+          format: date
+        last_game:
+          type: string
+          format: date
+    CatalogueEntry:
+      description: A tournament as the catalogue names it, with its seasons and games
+      allOf:
+        - $ref: "#/components/schemas/GameSpan"
+        - type: object
+          required: [slug, name, seasons]
+          properties:
+            slug:
+              type: string
+            name:
+              type: string
+            seasons:
+              type: integer
+    Catalogue:
+      type: object
+      required: [run_id, tournaments]
+      properties:
+        run_id:
+          type: integer
+          format: int64
+        tournaments:
+          type: array
+          items:
+            $ref: "#/components/schemas/CatalogueEntry"
+    CatalogueStage:
+      description: A stage of a season; label "" is the season's only or main stage
+      allOf:
+        - $ref: "#/components/schemas/GameSpan"
+        - type: object
+          required: [label]
+          properties:
+            label:
+              type: string
+    PodiumPlace:
+      description: A place on a cup year's recorded podium
+      type: object
+      required: [place, name, final, finished, source]
+      properties:
+        place:
+          type: integer
+        name:
+          type: string
+        final:
+          description: Which final, when a year has several; "" otherwise
+          type: string
+        finished:
+          type: string
+          format: date
+        source:
+          description: Where the podium was recorded from
+          type: string
+    CatalogueSeason:
+      allOf:
+        - $ref: "#/components/schemas/GameSpan"
+        - type: object
+          required: [label, stages, podium]
+          properties:
+            label:
+              type: string
+            stages:
+              type: array
+              items:
+                $ref: "#/components/schemas/CatalogueStage"
+            podium:
+              type: array
+              items:
+                $ref: "#/components/schemas/PodiumPlace"
+    CatalogueTournament:
+      type: object
+      required: [run_id, slug, name, seasons]
+      properties:
+        run_id:
+          type: integer
+          format: int64
+        slug:
+          type: string
+        name:
+          type: string
+        seasons:
+          description: In order of their first game
+          type: array
+          items:
+            $ref: "#/components/schemas/CatalogueSeason"
     Series:
       description: A tournament series
       type: string

@@ -132,6 +132,14 @@ func (f *fakeRatings) CommunityLeaderboard(context.Context, int64, string) ([]st
 	panic("not faked")
 }
 
+func (f *fakeRatings) Catalogue(context.Context, int64) ([]store.CatalogueEntry, error) {
+	panic("not faked")
+}
+
+func (f *fakeRatings) CatalogueTournament(context.Context, int64, string) (store.CatalogueTournament, error) {
+	panic("not faked")
+}
+
 func (f *fakeRatings) PlayerAchievements(context.Context, int64, string) (string, *store.AchievementSummary, []store.TournamentRecord, error) {
 	panic("not faked")
 }

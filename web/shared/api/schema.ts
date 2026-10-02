@@ -521,6 +521,50 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/runs/{run}/catalogue": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Every tournament with games
+         * @description Each tournament in the catalogue that has placed games: its seasons,
+         *     games, players and first and last game. Games come from the
+         *     tournament catalogue, which can grow without a new run, so this is
+         *     cached for five minutes.
+         */
+        get: operations["getCatalogue"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/runs/{run}/catalogue/{tournament}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * One tournament's seasons, stages and podiums
+         * @description The tournament's seasons in order of their first game, each with its
+         *     stages and its recorded podium. Cached for five minutes.
+         */
+        get: operations["getCatalogueTournament"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/runs/{run}/community/{edition}": {
         parameters: {
             query?: never;
@@ -1155,6 +1199,54 @@ export interface components {
             scores: {
                 [key: string]: number;
             };
+        };
+        /** @description How many games and players a tournament, season or stage has, and when its first and last game were played */
+        GameSpan: {
+            games: number;
+            players: number;
+            /** Format: date */
+            first_game: string;
+            /** Format: date */
+            last_game: string;
+        };
+        /** @description A tournament as the catalogue names it, with its seasons and games */
+        CatalogueEntry: components["schemas"]["GameSpan"] & {
+            slug: string;
+            name: string;
+            seasons: number;
+        };
+        Catalogue: {
+            /** Format: int64 */
+            run_id: number;
+            tournaments: components["schemas"]["CatalogueEntry"][];
+        };
+        /** @description A stage of a season; label "" is the season's only or main stage */
+        CatalogueStage: components["schemas"]["GameSpan"] & {
+            label: string;
+        };
+        /** @description A place on a cup year's recorded podium */
+        PodiumPlace: {
+            place: number;
+            name: string;
+            /** @description Which final, when a year has several; "" otherwise */
+            final: string;
+            /** Format: date */
+            finished: string;
+            /** @description Where the podium was recorded from */
+            source: string;
+        };
+        CatalogueSeason: components["schemas"]["GameSpan"] & {
+            label: string;
+            stages: components["schemas"]["CatalogueStage"][];
+            podium: components["schemas"]["PodiumPlace"][];
+        };
+        CatalogueTournament: {
+            /** Format: int64 */
+            run_id: number;
+            slug: string;
+            name: string;
+            /** @description In order of their first game */
+            seasons: components["schemas"]["CatalogueSeason"][];
         };
         /**
          * @description A tournament series
@@ -1970,6 +2062,59 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["TournamentSeries"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    getCatalogue: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A published run's id, from `/v1/runs/current` */
+                run: components["parameters"]["RunId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The tournaments, by name */
+            200: {
+                headers: {
+                    "Cache-Control": components["headers"]["CacheControl"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Catalogue"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    getCatalogueTournament: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A published run's id, from `/v1/runs/current` */
+                run: components["parameters"]["RunId"];
+                tournament: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The tournament */
+            200: {
+                headers: {
+                    "Cache-Control": components["headers"]["CacheControl"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CatalogueTournament"];
                 };
             };
             400: components["responses"]["BadRequest"];

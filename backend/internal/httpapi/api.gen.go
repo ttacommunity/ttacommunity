@@ -498,6 +498,53 @@ type CareerYear struct {
 	YearEndRating *float64 `json:"year_end_rating"`
 }
 
+// Catalogue defines model for Catalogue.
+type Catalogue struct {
+	RunId       int64            `json:"run_id"`
+	Tournaments []CatalogueEntry `json:"tournaments"`
+}
+
+// CatalogueEntry A tournament as the catalogue names it, with its seasons and games
+type CatalogueEntry struct {
+	FirstGame openapi_types.Date `json:"first_game"`
+	Games     int                `json:"games"`
+	LastGame  openapi_types.Date `json:"last_game"`
+	Name      string             `json:"name"`
+	Players   int                `json:"players"`
+	Seasons   int                `json:"seasons"`
+	Slug      string             `json:"slug"`
+}
+
+// CatalogueSeason defines model for CatalogueSeason.
+type CatalogueSeason struct {
+	FirstGame openapi_types.Date `json:"first_game"`
+	Games     int                `json:"games"`
+	Label     string             `json:"label"`
+	LastGame  openapi_types.Date `json:"last_game"`
+	Players   int                `json:"players"`
+	Podium    []PodiumPlace      `json:"podium"`
+	Stages    []CatalogueStage   `json:"stages"`
+}
+
+// CatalogueStage A stage of a season; label "" is the season's only or main stage
+type CatalogueStage struct {
+	FirstGame openapi_types.Date `json:"first_game"`
+	Games     int                `json:"games"`
+	Label     string             `json:"label"`
+	LastGame  openapi_types.Date `json:"last_game"`
+	Players   int                `json:"players"`
+}
+
+// CatalogueTournament defines model for CatalogueTournament.
+type CatalogueTournament struct {
+	Name  string `json:"name"`
+	RunId int64  `json:"run_id"`
+
+	// Seasons In order of their first game
+	Seasons []CatalogueSeason `json:"seasons"`
+	Slug    string            `json:"slug"`
+}
+
 // Champion defines model for Champion.
 type Champion struct {
 	Name string `json:"name"`
@@ -644,6 +691,14 @@ type GameRecord struct {
 	Score         float64 `json:"score"`
 	Tournament    string  `json:"tournament"`
 	WorldChampion bool    `json:"world_champion"`
+}
+
+// GameSpan How many games and players a tournament, season or stage has, and when its first and last game were played
+type GameSpan struct {
+	FirstGame openapi_types.Date `json:"first_game"`
+	Games     int                `json:"games"`
+	LastGame  openapi_types.Date `json:"last_game"`
+	Players   int                `json:"players"`
 }
 
 // HallOfFame defines model for HallOfFame.
@@ -953,6 +1008,18 @@ type PlayerVersus struct {
 	Name    string        `json:"name"`
 	Other   string        `json:"other"`
 	RunId   int64         `json:"run_id"`
+}
+
+// PodiumPlace A place on a cup year's recorded podium
+type PodiumPlace struct {
+	// Final Which final, when a year has several; "" otherwise
+	Final    string             `json:"final"`
+	Finished openapi_types.Date `json:"finished"`
+	Name     string             `json:"name"`
+	Place    int                `json:"place"`
+
+	// Source Where the podium was recorded from
+	Source string `json:"source"`
 }
 
 // PreviousRating The player's rating on the previous year's last period, if they had one
@@ -1347,6 +1414,12 @@ type ServerInterface interface {
 	// GetComparedPlayers Players across every model
 	// (GET /v1/runs/{run}/analysis/players)
 	GetComparedPlayers(w http.ResponseWriter, r *http.Request, run RunId, params GetComparedPlayersParams)
+	// GetCatalogue Every tournament with games
+	// (GET /v1/runs/{run}/catalogue)
+	GetCatalogue(w http.ResponseWriter, r *http.Request, run RunId)
+	// GetCatalogueTournament One tournament's seasons, stages and podiums
+	// (GET /v1/runs/{run}/catalogue/{tournament})
+	GetCatalogueTournament(w http.ResponseWriter, r *http.Request, run RunId, tournament string)
 	// GetCommunityLeaderboard An edition of the community leaderboard
 	// (GET /v1/runs/{run}/community/{edition})
 	GetCommunityLeaderboard(w http.ResponseWriter, r *http.Request, run RunId, edition CommunityEdition)
@@ -1630,6 +1703,67 @@ func (siw *ServerInterfaceWrapper) GetComparedPlayers(w http.ResponseWriter, r *
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.GetComparedPlayers(w, r, run, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetCatalogue operation middleware
+func (siw *ServerInterfaceWrapper) GetCatalogue(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "run" -------------
+	var run RunId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "run", r.PathValue("run"), &run, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "integer", Format: "int64", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "run", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetCatalogue(w, r, run)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetCatalogueTournament operation middleware
+func (siw *ServerInterfaceWrapper) GetCatalogueTournament(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "run" -------------
+	var run RunId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "run", r.PathValue("run"), &run, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "integer", Format: "int64", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "run", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "tournament" -------------
+	var tournament string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "tournament", r.PathValue("tournament"), &tournament, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "tournament", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetCatalogueTournament(w, r, run, tournament)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -2658,6 +2792,8 @@ func HandlerWithOptions(si ServerInterface, options StdHTTPServerOptions) http.H
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/v1/runs/{run}/analysis/activity", wrapper.GetActivity)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/v1/runs/{run}/tournaments", wrapper.GetHallOfFame)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/v1/runs/{run}/tournaments/{series}", wrapper.GetTournamentSeries)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/v1/runs/{run}/catalogue", wrapper.GetCatalogue)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/v1/runs/{run}/catalogue/{tournament}", wrapper.GetCatalogueTournament)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/v1/runs/{run}/community/{edition}", wrapper.GetCommunityLeaderboard)
 
 	return m
@@ -3097,6 +3233,127 @@ func (response GetComparedPlayers400JSONResponse) VisitGetComparedPlayersRespons
 type GetComparedPlayers404JSONResponse struct{ NotFoundJSONResponse }
 
 func (response GetComparedPlayers404JSONResponse) VisitGetComparedPlayersResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetCatalogueRequestObject struct {
+	Run RunId `json:"run"`
+}
+
+type GetCatalogueResponseObject interface {
+	VisitGetCatalogueResponse(w http.ResponseWriter) error
+}
+
+type GetCatalogue200ResponseHeaders struct {
+	CacheControl string
+}
+
+type GetCatalogue200JSONResponse struct {
+	Body    Catalogue
+	Headers GetCatalogue200ResponseHeaders
+}
+
+func (response GetCatalogue200JSONResponse) VisitGetCatalogueResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetCatalogue400JSONResponse struct{ BadRequestJSONResponse }
+
+func (response GetCatalogue400JSONResponse) VisitGetCatalogueResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetCatalogue404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response GetCatalogue404JSONResponse) VisitGetCatalogueResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetCatalogueTournamentRequestObject struct {
+	Run        RunId  `json:"run"`
+	Tournament string `json:"tournament"`
+}
+
+type GetCatalogueTournamentResponseObject interface {
+	VisitGetCatalogueTournamentResponse(w http.ResponseWriter) error
+}
+
+type GetCatalogueTournament200ResponseHeaders struct {
+	CacheControl string
+}
+
+type GetCatalogueTournament200JSONResponse struct {
+	Body    CatalogueTournament
+	Headers GetCatalogueTournament200ResponseHeaders
+}
+
+func (response GetCatalogueTournament200JSONResponse) VisitGetCatalogueTournamentResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetCatalogueTournament400JSONResponse struct{ BadRequestJSONResponse }
+
+func (response GetCatalogueTournament400JSONResponse) VisitGetCatalogueTournamentResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetCatalogueTournament404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response GetCatalogueTournament404JSONResponse) VisitGetCatalogueTournamentResponse(w http.ResponseWriter) error {
 
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
@@ -4122,6 +4379,12 @@ type StrictServerInterface interface {
 	// GetComparedPlayers Players across every model
 	// (GET /v1/runs/{run}/analysis/players)
 	GetComparedPlayers(ctx context.Context, request GetComparedPlayersRequestObject) (GetComparedPlayersResponseObject, error)
+	// GetCatalogue Every tournament with games
+	// (GET /v1/runs/{run}/catalogue)
+	GetCatalogue(ctx context.Context, request GetCatalogueRequestObject) (GetCatalogueResponseObject, error)
+	// GetCatalogueTournament One tournament's seasons, stages and podiums
+	// (GET /v1/runs/{run}/catalogue/{tournament})
+	GetCatalogueTournament(ctx context.Context, request GetCatalogueTournamentRequestObject) (GetCatalogueTournamentResponseObject, error)
 	// GetCommunityLeaderboard An edition of the community leaderboard
 	// (GET /v1/runs/{run}/community/{edition})
 	GetCommunityLeaderboard(ctx context.Context, request GetCommunityLeaderboardRequestObject) (GetCommunityLeaderboardResponseObject, error)
@@ -4409,6 +4672,59 @@ func (sh *strictHandler) GetComparedPlayers(w http.ResponseWriter, r *http.Reque
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(GetComparedPlayersResponseObject); ok {
 		if err := validResponse.VisitGetComparedPlayersResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// GetCatalogue operation middleware
+func (sh *strictHandler) GetCatalogue(w http.ResponseWriter, r *http.Request, run RunId) {
+	var request GetCatalogueRequestObject
+
+	request.Run = run
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.GetCatalogue(ctx, request.(GetCatalogueRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetCatalogue")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(GetCatalogueResponseObject); ok {
+		if err := validResponse.VisitGetCatalogueResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// GetCatalogueTournament operation middleware
+func (sh *strictHandler) GetCatalogueTournament(w http.ResponseWriter, r *http.Request, run RunId, tournament string) {
+	var request GetCatalogueTournamentRequestObject
+
+	request.Run = run
+	request.Tournament = tournament
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.GetCatalogueTournament(ctx, request.(GetCatalogueTournamentRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetCatalogueTournament")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(GetCatalogueTournamentResponseObject); ok {
+		if err := validResponse.VisitGetCatalogueTournamentResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {
