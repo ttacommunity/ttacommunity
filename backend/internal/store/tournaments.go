@@ -3,11 +3,13 @@ package store
 import (
 	"context"
 	"fmt"
+	"slices"
 	"time"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
+	"ttacommunity/backend/internal/gamename"
 	"ttacommunity/backend/internal/tournamentcsv"
 )
 
@@ -134,6 +136,66 @@ func ReplacePodiums(ctx context.Context, pool *pgxpool.Pool, podiums []tournamen
 		JOIN players p ON p.name = x.player`,
 		cups, seasons, finals, places, players, sources, finished)
 	return FactsReplaced{Written: n, Unknown: len(podiums) - n}, err
+}
+
+// ReplaceCGETournaments replaces CGE's catalogue, in one transaction, linking
+// each row to the tournament it names. A tournament named that the catalogue
+// lacks is added under its CGE name, in no ranking: admin decides its rating.
+func ReplaceCGETournaments(ctx context.Context, pool *pgxpool.Pool, rows []tournamentcsv.CGETournament) (FactsReplaced, error) {
+	var ids []int32
+	var names, statuses, organisers, descriptions, glicko, links, slugs, seasons []string
+	var created, started, finished []*time.Time
+	for _, c := range rows {
+		ids, names, statuses, organisers = append(ids, int32(c.ID)), append(names, c.Name), append(statuses, c.Status), append(organisers, c.Organiser)
+		created, started, finished = append(created, c.Created), append(started, c.Started), append(finished, c.Finished)
+		descriptions, glicko, links = append(descriptions, c.Description), append(glicko, c.MentionsGlicko), append(links, c.Links)
+		slugs, seasons = append(slugs, c.Tournament), append(seasons, c.Season)
+	}
+	known := map[string]string{}
+	for _, t := range gamename.Tournaments {
+		known[t.Slug] = t.Name
+	}
+	var addSlugs, addNames []string
+	for _, c := range rows {
+		if c.Tournament != "" && !slices.Contains(addSlugs, c.Tournament) {
+			name := known[c.Tournament]
+			if name == "" {
+				name = c.Name
+			}
+			addSlugs, addNames = append(addSlugs, c.Tournament), append(addNames, name)
+		}
+	}
+
+	tx, err := pool.Begin(ctx)
+	if err != nil {
+		return FactsReplaced{}, fmt.Errorf("starting the CGE catalogue load: %w", err)
+	}
+	defer tx.Rollback(ctx)
+	if _, err := tx.Exec(ctx, `
+		INSERT INTO tournaments (slug, name) SELECT * FROM unnest($1::text[], $2::text[])
+		ON CONFLICT (slug) DO NOTHING`, addSlugs, addNames); err != nil {
+		return FactsReplaced{}, fmt.Errorf("adding the tournaments CGE's catalogue names: %w", err)
+	}
+	if _, err := tx.Exec(ctx, "DELETE FROM cge_tournaments"); err != nil {
+		return FactsReplaced{}, fmt.Errorf("clearing cge_tournaments: %w", err)
+	}
+	tag, err := tx.Exec(ctx, `
+		INSERT INTO cge_tournaments (cge_tournament, name, status, organiser, created, started, finished,
+		                             description, mentions_glicko, links, tournament_id, season)
+		SELECT x.id, x.name, x.status, x.organiser, x.created, x.started, x.finished,
+		       x.description, x.glicko, x.links, t.tournament_id, x.season
+		FROM unnest($1::int[], $2::text[], $3::text[], $4::text[], $5::date[], $6::date[], $7::date[],
+		            $8::text[], $9::text[], $10::text[], $11::text[], $12::text[])
+		     AS x(id, name, status, organiser, created, started, finished, description, glicko, links, slug, season)
+		LEFT JOIN tournaments t ON t.slug = x.slug`,
+		ids, names, statuses, organisers, created, started, finished, descriptions, glicko, links, slugs, seasons)
+	if err != nil {
+		return FactsReplaced{}, fmt.Errorf("writing cge_tournaments: %w", err)
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return FactsReplaced{}, fmt.Errorf("committing cge_tournaments: %w", err)
+	}
+	return FactsReplaced{Written: int(tag.RowsAffected())}, nil
 }
 
 // ReplaceFinishDates replaces every season's recorded finish date, in one

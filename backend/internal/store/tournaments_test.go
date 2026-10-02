@@ -286,3 +286,43 @@ func TestReplacePodiumsWritesKnownPlayersOnly(t *testing.T) {
 		t.Errorf("podiums = %q, want %q", rows, want)
 	}
 }
+
+func TestReplaceCGETournamentsLinksOursAndRatesNoNewOne(t *testing.T) {
+	pool := migrated(t)
+	ctx := context.Background()
+	loadNamed(t, pool, "Survivors Cup 2026 Stage 1 - group 1 game 1")
+	if _, err := ClassifyMatches(ctx, pool); err != nil {
+		t.Fatalf("ClassifyMatches: %v", err)
+	}
+	finished := time.Date(2026, 9, 3, 0, 0, 0, 0, time.UTC)
+	cge := func(id int, name, tournament, season string) tournamentcsv.CGETournament {
+		return tournamentcsv.CGETournament{ID: id, Name: name, Status: "finished", Finished: &finished, Tournament: tournament, Season: season}
+	}
+	if _, err := ReplaceCGETournaments(ctx, pool, []tournamentcsv.CGETournament{cge(1, "Old", "", "")}); err != nil {
+		t.Fatalf("first ReplaceCGETournaments: %v", err)
+	}
+
+	got, err := ReplaceCGETournaments(ctx, pool, []tournamentcsv.CGETournament{
+		cge(5731, "Survivors Cup 2026", "survivors_cup", "2026"),
+		cge(5373, "Nations Cup", "nations_cup", "2025"),
+		cge(4335, "The banana tournament", "", ""),
+	})
+	if err != nil {
+		t.Fatalf("ReplaceCGETournaments: %v", err)
+	}
+	if got != (FactsReplaced{Written: 3}) {
+		t.Errorf("ReplaceCGETournaments = %+v, want 3 written", got)
+	}
+	rows := rowsOf(t, pool, `SELECT concat_ws('|', c.cge_tournament, c.name, coalesce(t.slug, '-'), c.season, c.finished)
+		FROM cge_tournaments c LEFT JOIN tournaments t USING (tournament_id) ORDER BY c.cge_tournament`)
+	want := []string{"4335|The banana tournament|-||2026-09-03", "5373|Nations Cup|nations_cup|2025|2026-09-03", "5731|Survivors Cup 2026|survivors_cup|2026|2026-09-03"}
+	if !slices.Equal(rows, want) {
+		t.Errorf("cge_tournaments = %q, want %q", rows, want)
+	}
+	if name := rowsOf(t, pool, "SELECT name FROM tournaments WHERE slug = 'nations_cup'"); !slices.Equal(name, []string{"Nations Cup"}) {
+		t.Errorf("nations_cup is named %q, want its CGE name", name)
+	}
+	if rated := rowsOf(t, pool, communityRows); slices.Contains(rated, "nations_cup") || !slices.Contains(rated, "survivors_cup") {
+		t.Errorf("community ranking = %q: want survivors_cup, and nations_cup left for admin", rated)
+	}
+}

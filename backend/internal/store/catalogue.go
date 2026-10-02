@@ -32,10 +32,16 @@ func ClassifyMatches(ctx context.Context, pool *pgxpool.Pool) (Classified, error
 	for _, t := range gamename.Tournaments {
 		slugs, names = append(slugs, t.Slug), append(names, t.Name)
 	}
+	// A tournament first seen here is rated in the community ranking, as all were on the original site.
 	if _, err := tx.Exec(ctx, `
-		INSERT INTO tournaments (slug, name)
-		SELECT * FROM unnest($1::text[], $2::text[])
-		ON CONFLICT (slug) DO NOTHING`, slugs, names); err != nil {
+		WITH added AS (
+			INSERT INTO tournaments (slug, name)
+			SELECT * FROM unnest($1::text[], $2::text[])
+			ON CONFLICT (slug) DO NOTHING
+			RETURNING tournament_id
+		)
+		INSERT INTO ranking_tournaments (ranking_id, tournament_id)
+		SELECT r.ranking_id, a.tournament_id FROM rankings r CROSS JOIN added a WHERE r.slug = 'community'`, slugs, names); err != nil {
 		return Classified{}, fmt.Errorf("adding tournaments: %w", err)
 	}
 

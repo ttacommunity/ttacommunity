@@ -10,6 +10,7 @@ import (
 
 	"github.com/jackc/pgx/v5/pgxpool"
 
+	"ttacommunity/backend/internal/gamename"
 	"ttacommunity/backend/internal/matchcsv"
 )
 
@@ -129,5 +130,40 @@ func TestClassifyMatchesKeepsATournamentRenamedInAdmin(t *testing.T) {
 	}
 	if name := rowsOf(t, pool, "SELECT name FROM tournaments WHERE slug = 'duel_curve'"); !slices.Equal(name, []string{"Duel Curve League"}) {
 		t.Errorf("name = %q, want the admin's", name)
+	}
+}
+
+const communityRows = `
+	SELECT t.slug FROM ranking_tournaments rt
+	JOIN rankings r USING (ranking_id) JOIN tournaments t USING (tournament_id)
+	WHERE r.slug = 'community' ORDER BY t.slug`
+
+func TestClassifyMatchesRatesANewTournamentInTheCommunityRanking(t *testing.T) {
+	pool := migrated(t)
+	loadNamed(t, pool, "International S10")
+	if _, err := ClassifyMatches(context.Background(), pool); err != nil {
+		t.Fatalf("ClassifyMatches: %v", err)
+	}
+	got := rowsOf(t, pool, communityRows)
+	if !slices.Contains(got, "international") || len(got) != len(gamename.Tournaments) {
+		t.Errorf("community ranking = %q, want every catalogue tournament", got)
+	}
+}
+
+func TestClassifyMatchesKeepsATournamentTakenOutOfARanking(t *testing.T) {
+	pool := migrated(t)
+	ctx := context.Background()
+	loadNamed(t, pool, "International S10")
+	if _, err := ClassifyMatches(ctx, pool); err != nil {
+		t.Fatalf("first ClassifyMatches: %v", err)
+	}
+	if _, err := pool.Exec(ctx, `DELETE FROM ranking_tournaments WHERE tournament_id = (SELECT tournament_id FROM tournaments WHERE slug = 'duel_curve')`); err != nil {
+		t.Fatalf("taking duel_curve out: %v", err)
+	}
+	if _, err := ClassifyMatches(ctx, pool); err != nil {
+		t.Fatalf("second ClassifyMatches: %v", err)
+	}
+	if got := rowsOf(t, pool, communityRows); slices.Contains(got, "duel_curve") {
+		t.Errorf("community ranking = %q: placing games again put duel_curve back", got)
 	}
 }
