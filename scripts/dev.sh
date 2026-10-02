@@ -53,6 +53,16 @@ wait_for() {
   return 1
 }
 
+# fonts_notice says, without holding up the start, when Google Fonts has newer
+# fonts than the committed ones. Offline, it says nothing.
+fonts_notice() {
+  command -v node >/dev/null 2>&1 || return 0
+  {
+    out=$(cd web/site && timeout 20 node scripts/fonts.mjs check 2>/dev/null) || [ -z "$out" ] || echo "dev.sh: ${out%%$'\n'*}"
+  } &
+}
+[ "${1:-}" = down ] || fonts_notice
+
 case "${1:-}" in
   down)
     "${compose[@]}" --profile engine down
