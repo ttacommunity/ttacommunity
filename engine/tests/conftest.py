@@ -111,7 +111,12 @@ def add_match(conn):
     line = iter(range(2, 1_000_000))
 
     def add(
-        *players, day=date(2024, 1, 1), tournament="T", eligible=True, placed="rated"
+        *players,
+        day=date(2024, 1, 1),
+        tournament="T",
+        eligible=True,
+        placed="rated",
+        state="played",
     ):
         cols = {
             "batch_id": batch,
@@ -122,6 +127,7 @@ def add_match(conn):
             "player_count": len(players),
             "glicko_eligible": eligible,
             "stage_id": stage_in(conn, placed) if placed else None,
+            "state": state,
         }
         for i, (name, score) in enumerate(players, start=1):
             cols[f"player{i}"] = name

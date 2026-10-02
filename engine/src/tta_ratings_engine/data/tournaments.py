@@ -488,7 +488,7 @@ def derive_tournaments(*, conn: psycopg.Connection, run_id: int) -> None:
         require_running(conn, run_id)
         rows = conn.execute(
             "SELECT match_id, tournament, date, player_count, player1, score1, player2, score2, "
-            "player3, score3, player4, score4 FROM matches ORDER BY match_id"
+            "player3, score3, player4, score4 FROM matches WHERE state = 'played' ORDER BY match_id"
         ).fetchall()
         recorded = {
             (r["series"], r["season"], r["player_name"]): r["division"]

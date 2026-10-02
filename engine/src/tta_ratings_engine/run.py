@@ -162,7 +162,7 @@ def input_fingerprint(conn, ranking_id):
         WITH m AS (
             SELECT md5(string_agg(
                 (tournament, date, player1, score1, player2, score2,
-                 player3, score3, player4, score4, glicko_eligible, stage_id)::text,
+                 player3, score3, player4, score4, glicko_eligible, stage_id, state)::text,
                 E'\\n' ORDER BY match_id)) AS md5
             FROM matches
         ), f AS (

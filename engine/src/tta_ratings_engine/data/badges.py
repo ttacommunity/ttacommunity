@@ -230,7 +230,7 @@ def derive_tournament_badges(
         require_running(conn, run_id)
         # Determine 1-year (12-month) recency cutoff based on latest match in DB
         max_row = conn.execute(
-            "SELECT to_char(MAX(date), 'YYYY-MM-DD') AS max_date FROM matches"
+            "SELECT to_char(MAX(date), 'YYYY-MM-DD') AS max_date FROM matches WHERE state = 'played'"
         ).fetchone()
         if not max_row or not max_row["max_date"]:
             return {}
@@ -242,7 +242,7 @@ def derive_tournament_badges(
             """
             SELECT tournament, to_char(date, 'YYYY-MM-DD') AS date, player1, player2, player3, player4
             FROM matches
-            WHERE tournament IS NOT NULL
+            WHERE tournament IS NOT NULL AND state = 'played'
             ORDER BY matches.date DESC
         """
         ).fetchall()

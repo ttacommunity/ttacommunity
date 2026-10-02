@@ -575,3 +575,29 @@ def test_a_rankings_tournaments_are_part_of_its_input(conn, add_match):
         the_run(conn, first)["input_fingerprint"]
         != the_run(conn, second)["input_fingerprint"]
     )
+
+
+def test_a_game_never_played_is_not_counted_as_a_game(conn, add_match):
+    season(add_match)
+    add_match(("Ann", -5), ("Zed", -5), day=date(2022, 3, 1), state="never_played")
+
+    run_id = run(conn, "v1", formats=[2], log=lambda _: None)
+
+    stats = the_run(conn, run_id)
+    assert stats["games"] == 6
+    assert stats["last_game"] == date(2022, 2, 9)
+
+
+def test_a_games_state_is_part_of_the_input(conn, add_match):
+    season(add_match)
+    m = add_match(("Ann", -5), ("Bob", -5), day=date(2022, 3, 1))
+    first = run(conn, "v1", formats=[2], log=lambda _: None)
+    conn.execute("UPDATE matches SET state = 'never_played' WHERE match_id = %s", (m,))
+    conn.commit()
+
+    second = run(conn, "v1", formats=[2], log=lambda _: None)
+
+    assert (
+        the_run(conn, first)["input_fingerprint"]
+        != the_run(conn, second)["input_fingerprint"]
+    )

@@ -726,3 +726,23 @@ def test_a_season_without_a_rule_has_no_timeout_penalty(conn, add_match, run_id)
     derive_tournaments(conn=conn, run_id=run_id)
 
     assert standings(conn, run_id, 8)[2] == ("cat", 3, 0.0)
+
+
+def test_a_game_never_played_gives_no_points_place_or_game(conn, add_match, run_id):
+    add_match(("ann", 90), ("bob", 80), ("cat", 70), tournament=gm(1))
+    add_match(
+        ("ann", -5), ("bob", -5), ("cat", -5), tournament=gm(2), state="never_played"
+    )
+
+    derive_tournaments(conn=conn, run_id=run_id)
+
+    rows = conn.execute(
+        "SELECT player_name, place, points, games FROM tournament_standings WHERE run_id = %s ORDER BY place",
+        (run_id,),
+    ).fetchall()
+    # International's 3-player points are 5-2-0; the never-played game adds no points, place or game.
+    assert [tuple(r.values()) for r in rows] == [
+        ("ann", 1, 5.0, 1),
+        ("bob", 2, 2.0, 1),
+        ("cat", 3, 0.0, 1),
+    ]

@@ -25,7 +25,7 @@ def expand_pairwise(conn: psycopg.Connection, run_id: int) -> int:
 
 def _expand(conn, run_id):
     require_running(conn, run_id)
-    # Only games whose tournament is in the run's ranking.
+    # Only played games whose tournament is in the run's ranking.
     rows = conn.execute(
         """
         SELECT m.match_id, m.tournament, m.date, m.glicko_eligible,
@@ -35,6 +35,7 @@ def _expand(conn, run_id):
         JOIN tournament_seasons s USING (season_id)
         JOIN ranking_tournaments rt ON rt.tournament_id = s.tournament_id
         JOIN rating_runs r ON r.ranking_id = rt.ranking_id AND r.run_id = %s
+        WHERE m.state = 'played'
         ORDER BY m.match_id
         """,
         (run_id,),
