@@ -530,8 +530,9 @@ export interface paths {
         };
         /**
          * Every tournament with games
-         * @description Each tournament in the catalogue that has placed games: its seasons,
-         *     games, players and first and last game. Games come from the
+         * @description Each tournament the site shows (rated, or made visible though not
+         *     rated) that has placed games: its seasons, games, players and first
+         *     and last game; and CGE's tournaments the site shows. Games come from the
          *     tournament catalogue, which can grow without a new run, so this is
          *     cached for five minutes.
          */
@@ -554,7 +555,8 @@ export interface paths {
         /**
          * One tournament's seasons, stages and podiums
          * @description The tournament's seasons in order of their first game, each with its
-         *     stages and its recorded podium. Cached for five minutes.
+         *     stages and its recorded podium. A hidden tournament (not rated, not
+         *     made visible) is not found. Cached for five minutes.
          */
         get: operations["getCatalogueTournament"];
         put?: never;
@@ -1240,7 +1242,7 @@ export interface components {
             /** Format: int64 */
             run_id: number;
             tournaments: components["schemas"]["CatalogueEntry"][];
-            /** @description Every tournament on CGE's site that the catalogue lists, newest first */
+            /** @description The tournaments on CGE's site the site shows (rated, or made visible), newest first */
             cge_tournaments: components["schemas"]["CGETournament"][];
         };
         /** @description A stage of a season; label "" is the season's only or main stage */

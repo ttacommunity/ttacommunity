@@ -73,7 +73,8 @@ type CatalogueTournament struct {
 }
 
 // placedSeats is every placed game's seats, one row per player, with its
-// tournament, season and stage.
+// tournament, season and stage, for tournaments the site shows: rated (in a
+// ranking) or made visible.
 const placedSeats = `
 	SELECT t.slug, t.name, s.season_id, s.label AS season, st.stage_id, st.label AS stage,
 	       m.match_id, m.date, p.name AS player
@@ -82,11 +83,12 @@ const placedSeats = `
 	JOIN tournament_seasons s USING (season_id)
 	JOIN tournaments t USING (tournament_id)
 	CROSS JOIN LATERAL unnest(ARRAY[m.player1, m.player2, m.player3, m.player4]) AS p(name)
-	WHERE p.name IS NOT NULL`
+	WHERE p.name IS NOT NULL
+	  AND (t.visible OR EXISTS (SELECT 1 FROM ranking_tournaments rt WHERE rt.tournament_id = t.tournament_id))`
 
-// Catalogue returns every tournament with placed games, by name, with the
-// rankings it is in, and CGE's catalogue, newest first, for a published run.
-// Unplaced games count nowhere.
+// Catalogue returns every shown tournament with placed games, by name, with
+// the rankings it is in, and CGE's shown tournaments, newest first, for a
+// published run. Shown is rated or made visible; unplaced games count nowhere.
 func (r *RatingsReader) Catalogue(ctx context.Context, run int64) (CatalogueView, error) {
 	if err := r.requirePublished(ctx, run); err != nil {
 		return CatalogueView{}, err
@@ -113,6 +115,7 @@ func (r *RatingsReader) Catalogue(ctx context.Context, run int64) (CatalogueView
 		SELECT c.cge_tournament, c.name, c.status, c.organiser, coalesce(c.started, c.created), c.finished,
 		       coalesce(t.slug, ''), EXISTS (SELECT 1 FROM ranking_tournaments rt WHERE rt.tournament_id = c.tournament_id)
 		FROM cge_tournaments c LEFT JOIN tournaments t USING (tournament_id)
+		WHERE c.visible OR EXISTS (SELECT 1 FROM ranking_tournaments rt WHERE rt.tournament_id = c.tournament_id)
 		ORDER BY c.finished DESC NULLS FIRST, coalesce(c.started, c.created) DESC NULLS LAST, c.cge_tournament DESC`)
 	if err != nil {
 		return CatalogueView{}, fmt.Errorf("reading CGE's catalogue: %w", err)
@@ -129,7 +132,7 @@ func (r *RatingsReader) Catalogue(ctx context.Context, run int64) (CatalogueView
 
 // CatalogueTournament returns a tournament's seasons in order of their first
 // game, each with its stages (in the same order) and its recorded podium,
-// for a published run. A tournament without placed games is ErrTournamentNotFound.
+// for a published run. A tournament without placed games, or hidden, is ErrTournamentNotFound.
 func (r *RatingsReader) CatalogueTournament(ctx context.Context, run int64, slug string) (CatalogueTournament, error) {
 	if err := r.requirePublished(ctx, run); err != nil {
 		return CatalogueTournament{}, err

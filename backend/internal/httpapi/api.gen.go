@@ -519,7 +519,7 @@ type CareerYear struct {
 
 // Catalogue defines model for Catalogue.
 type Catalogue struct {
-	// CgeTournaments Every tournament on CGE's site that the catalogue lists, newest first
+	// CgeTournaments The tournaments on CGE's site the site shows (rated, or made visible), newest first
 	CgeTournaments []CGETournament  `json:"cge_tournaments"`
 	RunId          int64            `json:"run_id"`
 	Tournaments    []CatalogueEntry `json:"tournaments"`

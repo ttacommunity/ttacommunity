@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { catalogueHref, cgeYears, placeLabel, spanYears, stageName, tournamentParam } from './catalogue-view';
+import { catalogueHref, cgeYears, placeLabel, shownName, spanYears, stageName, tournamentParam } from './catalogue-view';
 
 describe('tournamentParam', () => {
   it('takes a slug from the address', () => {
@@ -45,5 +45,12 @@ describe('cgeYears', () => {
     expect(cgeYears(null, '2023-05-23')).toBe('2023');
     expect(cgeYears('2026-09-29', null)).toBe('2026 –');
     expect(cgeYears(null, null)).toBe('');
+  });
+});
+
+describe('shownName', () => {
+  it('marks a tournament shown though not rated', () => {
+    expect(shownName('Nations Cup', false)).toBe('Nations Cup (Not Rated)');
+    expect(shownName('Wimbledon 2024', true)).toBe('Wimbledon 2024');
   });
 });

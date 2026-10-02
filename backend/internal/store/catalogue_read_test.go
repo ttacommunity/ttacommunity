@@ -5,7 +5,9 @@ package store
 import (
 	"context"
 	"errors"
+	"fmt"
 	"reflect"
+	"slices"
 	"testing"
 	"time"
 
@@ -112,7 +114,7 @@ func TestCatalogueTournamentRefusesATournamentWithoutGames(t *testing.T) {
 	}
 }
 
-func TestCatalogueListsCGEsTournamentsNewestFirst(t *testing.T) {
+func TestCatalogueListsOnlyRatedCGETournaments(t *testing.T) {
 	pool := migrated(t)
 	ctx := context.Background()
 	run := publishedRun(t, pool)
@@ -134,12 +136,64 @@ func TestCatalogueListsCGEsTournamentsNewestFirst(t *testing.T) {
 		t.Fatalf("Catalogue: %v", err)
 	}
 	ptr := func(s string) *time.Time { d := day(s); return &d }
+	// The friendly tournament is neither rated nor visible, so it is not listed.
 	want := []CGEEntry{
-		{ID: 5373, Name: "Nations Cup", Status: "finished", Finished: ptr("2025-11-19"), Tournament: "nations_cup", Rated: false},
 		{ID: 4991, Name: "Wimbledon 2024", Status: "finished", Organiser: "an organiser", Started: ptr("2024-06-01"), Finished: ptr("2025-02-24"), Tournament: "wimbledon", Rated: true},
-		{ID: 56, Name: "Totally Friendly Tournament for six", Status: "finished", Started: ptr("2020-04-14"), Finished: ptr("2020-06-27")},
 	}
 	if !reflect.DeepEqual(view.CGE, want) {
 		t.Errorf("CGE = %+v\nwant %+v", view.CGE, want)
+	}
+}
+
+func TestCatalogueShowsAnUnratedTournamentOnlyWhenMadeVisible(t *testing.T) {
+	pool := migrated(t)
+	ctx := context.Background()
+	run := publishedRun(t, pool)
+	placedOn(t, pool, map[string]time.Time{
+		"Intermezzo S24 - Bronze 1 game 1":        day("2024-01-02"),
+		"Wimbledon 2024 Stage 1 - group 1 game 1": day("2024-07-01"),
+	})
+	for _, q := range []string{
+		`DELETE FROM ranking_tournaments WHERE tournament_id = (SELECT tournament_id FROM tournaments WHERE slug = 'wimbledon')`,
+		`INSERT INTO cge_tournaments (cge_tournament, name, status, finished, visible) VALUES
+			(56, 'Totally Friendly Tournament for six', 'finished', '2020-06-27', false),
+			(57, '4 players, 3 opponents', 'finished', '2020-04-23', true)`,
+	} {
+		if _, err := pool.Exec(ctx, q); err != nil {
+			t.Fatalf("%s: %v", q, err)
+		}
+	}
+	r := NewRatingsReader(asReader(t, pool))
+	slugs := func() []string {
+		t.Helper()
+		view, err := r.Catalogue(ctx, run)
+		if err != nil {
+			t.Fatalf("Catalogue: %v", err)
+		}
+		var got []string
+		for _, e := range view.Tournaments {
+			got = append(got, e.Slug)
+		}
+		for _, c := range view.CGE {
+			got = append(got, fmt.Sprint(c.ID))
+		}
+		return got
+	}
+
+	if got := slugs(); !slices.Equal(got, []string{"intermezzo", "57"}) {
+		t.Errorf("listed = %q, want intermezzo (rated) and CGE 57 (visible), not unrated wimbledon or CGE 56", got)
+	}
+	if _, err := r.CatalogueTournament(ctx, run, "wimbledon"); !errors.Is(err, ErrTournamentNotFound) {
+		t.Errorf("CatalogueTournament(unrated, hidden wimbledon): %v, want ErrTournamentNotFound", err)
+	}
+
+	if _, err := pool.Exec(ctx, "UPDATE tournaments SET visible = true WHERE slug = 'wimbledon'"); err != nil {
+		t.Fatalf("making wimbledon visible: %v", err)
+	}
+	if got := slugs(); !slices.Equal(got, []string{"intermezzo", "wimbledon", "57"}) {
+		t.Errorf("listed = %q, want wimbledon too once visible", got)
+	}
+	if _, err := r.CatalogueTournament(ctx, run, "wimbledon"); err != nil {
+		t.Errorf("CatalogueTournament(visible wimbledon): %v", err)
 	}
 }

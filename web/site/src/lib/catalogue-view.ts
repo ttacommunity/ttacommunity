@@ -36,3 +36,8 @@ export function cgeYears(started: string | null, finished: string | null): strin
   if (finished !== null) return finished.slice(0, 4);
   return started === null ? '' : `${started.slice(0, 4)} –`;
 }
+
+/** shownName writes a tournament's name, marked "(Not Rated)" when it is shown without being rated. */
+export function shownName(name: string, rated: boolean): string {
+  return rated ? name : `${name} (Not Rated)`;
+}
