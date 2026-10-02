@@ -1936,7 +1936,7 @@ components:
       allOf:
         - $ref: "#/components/schemas/GameSpan"
         - type: object
-          required: [slug, name, seasons]
+          required: [slug, name, seasons, rankings]
           properties:
             slug:
               type: string
@@ -1944,9 +1944,44 @@ components:
               type: string
             seasons:
               type: integer
+            rankings:
+              description: The rankings it is rated in, by slug; none for a tournament not rated
+              type: array
+              items:
+                type: string
+    CGETournament:
+      description: A tournament on CGE's site, as its page shows it
+      type: object
+      required: [cge_tournament, name, status, organiser, started, finished, url, tournament, rated]
+      properties:
+        cge_tournament:
+          type: integer
+        name:
+          type: string
+        status:
+          type: string
+        organiser:
+          type: string
+        started:
+          description: When it started, or was created when it shows no start
+          type: string
+          format: date
+          nullable: true
+        finished:
+          type: string
+          format: date
+          nullable: true
+        url:
+          type: string
+        tournament:
+          description: Which of the catalogue's tournaments it is, by slug; "" for none
+          type: string
+        rated:
+          description: Whether that tournament is in a ranking
+          type: boolean
     Catalogue:
       type: object
-      required: [run_id, tournaments]
+      required: [run_id, tournaments, cge_tournaments]
       properties:
         run_id:
           type: integer
@@ -1955,6 +1990,11 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/CatalogueEntry"
+        cge_tournaments:
+          description: Every tournament on CGE's site that the catalogue lists, newest first
+          type: array
+          items:
+            $ref: "#/components/schemas/CGETournament"
     CatalogueStage:
       description: A stage of a season; label "" is the season's only or main stage
       allOf:

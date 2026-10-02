@@ -19,11 +19,29 @@ type GameSpan struct {
 	First, Last    time.Time
 }
 
-// CatalogueEntry is one tournament with placed games.
+// CatalogueEntry is one tournament with placed games, and the rankings it is rated in.
 type CatalogueEntry struct {
 	Slug, Name string
 	Seasons    int
+	Rankings   []string
 	Span       GameSpan
+}
+
+// CGEEntry is a tournament on CGE's site, with which of ours it is (Tournament,
+// "" for none) and whether that one is rated. Started falls back to when it was created.
+type CGEEntry struct {
+	ID                      int
+	Name, Status, Organiser string
+	Started, Finished       *time.Time
+	Tournament              string
+	Rated                   bool
+}
+
+// CatalogueView is what the Tournaments page lists: our tournaments with games,
+// and CGE's catalogue, newest first.
+type CatalogueView struct {
+	Tournaments []CatalogueEntry
+	CGE         []CGEEntry
 }
 
 // CatalogueStage is one stage of a season; Label "" is its only or main stage.
@@ -66,25 +84,45 @@ const placedSeats = `
 	CROSS JOIN LATERAL unnest(ARRAY[m.player1, m.player2, m.player3, m.player4]) AS p(name)
 	WHERE p.name IS NOT NULL`
 
-// Catalogue returns every tournament with placed games, by name, for a
-// published run. Unplaced games count nowhere.
-func (r *RatingsReader) Catalogue(ctx context.Context, run int64) ([]CatalogueEntry, error) {
+// Catalogue returns every tournament with placed games, by name, with the
+// rankings it is in, and CGE's catalogue, newest first, for a published run.
+// Unplaced games count nowhere.
+func (r *RatingsReader) Catalogue(ctx context.Context, run int64) (CatalogueView, error) {
 	if err := r.requirePublished(ctx, run); err != nil {
-		return nil, err
+		return CatalogueView{}, err
 	}
 	rows, err := r.pool.Query(ctx, `
 		WITH g AS (`+placedSeats+`)
-		SELECT slug, name, count(DISTINCT season_id), count(DISTINCT match_id), count(DISTINCT player), min(date), max(date)
+		SELECT slug, name, count(DISTINCT season_id), count(DISTINCT match_id), count(DISTINCT player), min(date), max(date),
+		       array(SELECT k.slug FROM ranking_tournaments rt JOIN rankings k USING (ranking_id)
+		             JOIN tournaments t USING (tournament_id) WHERE t.slug = g.slug ORDER BY k.slug)
 		FROM g GROUP BY slug, name ORDER BY name, slug`)
 	if err != nil {
-		return nil, fmt.Errorf("reading the catalogue: %w", err)
+		return CatalogueView{}, fmt.Errorf("reading the catalogue: %w", err)
 	}
-	got, err := pgx.CollectRows(rows, func(row pgx.CollectableRow) (CatalogueEntry, error) {
+	var got CatalogueView
+	got.Tournaments, err = pgx.CollectRows(rows, func(row pgx.CollectableRow) (CatalogueEntry, error) {
 		var e CatalogueEntry
-		return e, row.Scan(&e.Slug, &e.Name, &e.Seasons, &e.Span.Games, &e.Span.Players, &e.Span.First, &e.Span.Last)
+		return e, row.Scan(&e.Slug, &e.Name, &e.Seasons, &e.Span.Games, &e.Span.Players, &e.Span.First, &e.Span.Last, &e.Rankings)
 	})
 	if err != nil {
-		return nil, fmt.Errorf("reading the catalogue: %w", err)
+		return CatalogueView{}, fmt.Errorf("reading the catalogue: %w", err)
+	}
+
+	rows, err = r.pool.Query(ctx, `
+		SELECT c.cge_tournament, c.name, c.status, c.organiser, coalesce(c.started, c.created), c.finished,
+		       coalesce(t.slug, ''), EXISTS (SELECT 1 FROM ranking_tournaments rt WHERE rt.tournament_id = c.tournament_id)
+		FROM cge_tournaments c LEFT JOIN tournaments t USING (tournament_id)
+		ORDER BY c.finished DESC NULLS FIRST, coalesce(c.started, c.created) DESC NULLS LAST, c.cge_tournament DESC`)
+	if err != nil {
+		return CatalogueView{}, fmt.Errorf("reading CGE's catalogue: %w", err)
+	}
+	got.CGE, err = pgx.CollectRows(rows, func(row pgx.CollectableRow) (CGEEntry, error) {
+		var c CGEEntry
+		return c, row.Scan(&c.ID, &c.Name, &c.Status, &c.Organiser, &c.Started, &c.Finished, &c.Tournament, &c.Rated)
+	})
+	if err != nil {
+		return CatalogueView{}, fmt.Errorf("reading CGE's catalogue: %w", err)
 	}
 	return got, nil
 }

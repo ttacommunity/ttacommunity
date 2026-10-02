@@ -425,6 +425,25 @@ type Agreement struct {
 	Weakest []ModelPair `json:"weakest"`
 }
 
+// CGETournament A tournament on CGE's site, as its page shows it
+type CGETournament struct {
+	CgeTournament int                 `json:"cge_tournament"`
+	Finished      *openapi_types.Date `json:"finished"`
+	Name          string              `json:"name"`
+	Organiser     string              `json:"organiser"`
+
+	// Rated Whether that tournament is in a ranking
+	Rated bool `json:"rated"`
+
+	// Started When it started, or was created when it shows no start
+	Started *openapi_types.Date `json:"started"`
+	Status  string              `json:"status"`
+
+	// Tournament Which of the catalogue's tournaments it is, by slug; "" for none
+	Tournament string `json:"tournament"`
+	Url        string `json:"url"`
+}
+
 // Calibration defines model for Calibration.
 type Calibration struct {
 	Rows  []CalibrationRow `json:"rows"`
@@ -500,8 +519,10 @@ type CareerYear struct {
 
 // Catalogue defines model for Catalogue.
 type Catalogue struct {
-	RunId       int64            `json:"run_id"`
-	Tournaments []CatalogueEntry `json:"tournaments"`
+	// CgeTournaments Every tournament on CGE's site that the catalogue lists, newest first
+	CgeTournaments []CGETournament  `json:"cge_tournaments"`
+	RunId          int64            `json:"run_id"`
+	Tournaments    []CatalogueEntry `json:"tournaments"`
 }
 
 // CatalogueEntry A tournament as the catalogue names it, with its seasons and games
@@ -511,8 +532,11 @@ type CatalogueEntry struct {
 	LastGame  openapi_types.Date `json:"last_game"`
 	Name      string             `json:"name"`
 	Players   int                `json:"players"`
-	Seasons   int                `json:"seasons"`
-	Slug      string             `json:"slug"`
+
+	// Rankings The rankings it is rated in, by slug; none for a tournament not rated
+	Rankings []string `json:"rankings"`
+	Seasons  int      `json:"seasons"`
+	Slug     string   `json:"slug"`
 }
 
 // CatalogueSeason defines model for CatalogueSeason.

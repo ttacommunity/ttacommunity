@@ -2,10 +2,15 @@ package httpapi
 
 import (
 	"context"
+	"fmt"
 	"regexp"
+	"time"
 
 	openapi_types "github.com/oapi-codegen/runtime/types"
 )
+
+// cgeSite is where CGE's tournament pages are.
+const cgeSite = "https://account.czechgames.com"
 
 // tournamentSlug is the spec's pattern for a tournament in a path.
 var tournamentSlug = regexp.MustCompile(`^[a-z][a-z0-9_]{0,63}$`)
@@ -15,18 +20,30 @@ func (s *server) GetCatalogue(ctx context.Context, req GetCatalogueRequestObject
 	if req.Run < 1 {
 		return GetCatalogue400JSONResponse{badRequestBody("bad parameter: run")}, nil
 	}
-	entries, err := s.ratings.Catalogue(ctx, req.Run)
+	view, err := s.ratings.Catalogue(ctx, req.Run)
 	if nf, ok := notFound(err); ok {
 		return GetCatalogue404JSONResponse{nf}, nil
 	}
 	if err != nil {
 		return nil, err
 	}
-	body := Catalogue{RunId: req.Run, Tournaments: make([]CatalogueEntry, 0, len(entries))}
-	for _, e := range entries {
+	body := Catalogue{
+		RunId:          req.Run,
+		Tournaments:    make([]CatalogueEntry, 0, len(view.Tournaments)),
+		CgeTournaments: make([]CGETournament, 0, len(view.CGE)),
+	}
+	for _, e := range view.Tournaments {
 		body.Tournaments = append(body.Tournaments, CatalogueEntry{
-			Slug: e.Slug, Name: e.Name, Seasons: e.Seasons, Games: e.Span.Games, Players: e.Span.Players,
+			Slug: e.Slug, Name: e.Name, Seasons: e.Seasons, Rankings: append([]string{}, e.Rankings...),
+			Games: e.Span.Games, Players: e.Span.Players,
 			FirstGame: openapi_types.Date{Time: e.Span.First}, LastGame: openapi_types.Date{Time: e.Span.Last},
+		})
+	}
+	for _, c := range view.CGE {
+		body.CgeTournaments = append(body.CgeTournaments, CGETournament{
+			CgeTournament: c.ID, Name: c.Name, Status: c.Status, Organiser: c.Organiser,
+			Started: optionalDate(c.Started), Finished: optionalDate(c.Finished),
+			Url: fmt.Sprintf("%s/tournaments/detail/%d", cgeSite, c.ID), Tournament: c.Tournament, Rated: c.Rated,
 		})
 	}
 	return GetCatalogue200JSONResponse{Body: body, Headers: GetCatalogue200ResponseHeaders{CacheControl: cacheRun}}, nil
@@ -70,4 +87,12 @@ func (s *server) GetCatalogueTournament(ctx context.Context, req GetCatalogueTou
 	return GetCatalogueTournament200JSONResponse{
 		Body: body, Headers: GetCatalogueTournament200ResponseHeaders{CacheControl: cacheRun},
 	}, nil
+}
+
+// optionalDate returns t as an API date, or nil for none.
+func optionalDate(t *time.Time) *openapi_types.Date {
+	if t == nil {
+		return nil
+	}
+	return &openapi_types.Date{Time: *t}
 }

@@ -1214,11 +1214,34 @@ export interface components {
             slug: string;
             name: string;
             seasons: number;
+            /** @description The rankings it is rated in, by slug; none for a tournament not rated */
+            rankings: string[];
+        };
+        /** @description A tournament on CGE's site, as its page shows it */
+        CGETournament: {
+            cge_tournament: number;
+            name: string;
+            status: string;
+            organiser: string;
+            /**
+             * Format: date
+             * @description When it started, or was created when it shows no start
+             */
+            started: string | null;
+            /** Format: date */
+            finished: string | null;
+            url: string;
+            /** @description Which of the catalogue's tournaments it is, by slug; "" for none */
+            tournament: string;
+            /** @description Whether that tournament is in a ranking */
+            rated: boolean;
         };
         Catalogue: {
             /** Format: int64 */
             run_id: number;
             tournaments: components["schemas"]["CatalogueEntry"][];
+            /** @description Every tournament on CGE's site that the catalogue lists, newest first */
+            cge_tournaments: components["schemas"]["CGETournament"][];
         };
         /** @description A stage of a season; label "" is the season's only or main stage */
         CatalogueStage: components["schemas"]["GameSpan"] & {

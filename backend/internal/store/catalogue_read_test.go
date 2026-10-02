@@ -42,14 +42,15 @@ func TestCatalogueListsEachTournamentWithGames(t *testing.T) {
 		"Friendly game":                           day("2024-08-01"),
 	})
 
-	got, err := NewRatingsReader(asReader(t, pool)).Catalogue(context.Background(), run)
+	view, err := NewRatingsReader(asReader(t, pool)).Catalogue(context.Background(), run)
 	if err != nil {
 		t.Fatalf("Catalogue: %v", err)
 	}
+	got := view.Tournaments
 	// Each game here has ann and one other player of its own; the friendly game is placed nowhere.
 	want := []CatalogueEntry{
-		{Slug: "intermezzo", Name: "Intermezzo", Seasons: 2, Span: GameSpan{Games: 3, Players: 4, First: day("2024-01-02"), Last: day("2024-05-01")}},
-		{Slug: "wimbledon", Name: "Wimbledon", Seasons: 1, Span: GameSpan{Games: 1, Players: 2, First: day("2024-07-01"), Last: day("2024-07-01")}},
+		{Slug: "intermezzo", Name: "Intermezzo", Seasons: 2, Rankings: []string{"community"}, Span: GameSpan{Games: 3, Players: 4, First: day("2024-01-02"), Last: day("2024-05-01")}},
+		{Slug: "wimbledon", Name: "Wimbledon", Seasons: 1, Rankings: []string{"community"}, Span: GameSpan{Games: 1, Players: 2, First: day("2024-07-01"), Last: day("2024-07-01")}},
 	}
 	if !reflect.DeepEqual(got, want) {
 		t.Errorf("Catalogue = %+v, want %+v", got, want)
@@ -108,5 +109,37 @@ func TestCatalogueTournamentRefusesATournamentWithoutGames(t *testing.T) {
 		if _, err := r.CatalogueTournament(ctx, run, slug); !errors.Is(err, ErrTournamentNotFound) {
 			t.Errorf("CatalogueTournament(%q): %v, want ErrTournamentNotFound", slug, err)
 		}
+	}
+}
+
+func TestCatalogueListsCGEsTournamentsNewestFirst(t *testing.T) {
+	pool := migrated(t)
+	ctx := context.Background()
+	run := publishedRun(t, pool)
+	placedOn(t, pool, map[string]time.Time{"Wimbledon 2024 Stage 1 - group 1 game 1": day("2024-07-01")})
+	for _, q := range []string{
+		`INSERT INTO tournaments (slug, name) VALUES ('nations_cup', 'Nations Cup')`,
+		`INSERT INTO cge_tournaments (cge_tournament, name, status, organiser, created, started, finished, tournament_id, season) VALUES
+			(4991, 'Wimbledon 2024', 'finished', 'an organiser', '2024-06-01', NULL, '2025-02-24', (SELECT tournament_id FROM tournaments WHERE slug = 'wimbledon'), '2024'),
+			(5373, 'Nations Cup', 'finished', '', NULL, NULL, '2025-11-19', (SELECT tournament_id FROM tournaments WHERE slug = 'nations_cup'), '2025'),
+			(56, 'Totally Friendly Tournament for six', 'finished', '', NULL, '2020-04-14', '2020-06-27', NULL, '')`,
+	} {
+		if _, err := pool.Exec(ctx, q); err != nil {
+			t.Fatalf("%s: %v", q, err)
+		}
+	}
+
+	view, err := NewRatingsReader(asReader(t, pool)).Catalogue(ctx, run)
+	if err != nil {
+		t.Fatalf("Catalogue: %v", err)
+	}
+	ptr := func(s string) *time.Time { d := day(s); return &d }
+	want := []CGEEntry{
+		{ID: 5373, Name: "Nations Cup", Status: "finished", Finished: ptr("2025-11-19"), Tournament: "nations_cup", Rated: false},
+		{ID: 4991, Name: "Wimbledon 2024", Status: "finished", Organiser: "an organiser", Started: ptr("2024-06-01"), Finished: ptr("2025-02-24"), Tournament: "wimbledon", Rated: true},
+		{ID: 56, Name: "Totally Friendly Tournament for six", Status: "finished", Started: ptr("2020-04-14"), Finished: ptr("2020-06-27")},
+	}
+	if !reflect.DeepEqual(view.CGE, want) {
+		t.Errorf("CGE = %+v\nwant %+v", view.CGE, want)
 	}
 }

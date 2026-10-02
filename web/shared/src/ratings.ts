@@ -55,6 +55,7 @@ export type CatalogueTournament = components['schemas']['CatalogueTournament'];
 export type CatalogueSeason = components['schemas']['CatalogueSeason'];
 export type CatalogueStage = components['schemas']['CatalogueStage'];
 export type PodiumPlace = components['schemas']['PodiumPlace'];
+export type CGETournament = components['schemas']['CGETournament'];
 
 /** An error response from the API, carrying its status and message. */
 export class RatingsApiError extends Error {

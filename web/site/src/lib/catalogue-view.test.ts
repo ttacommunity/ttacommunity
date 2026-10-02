@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { catalogueHref, placeLabel, spanYears, stageName, tournamentParam } from './catalogue-view';
+import { catalogueHref, cgeYears, placeLabel, spanYears, stageName, tournamentParam } from './catalogue-view';
 
 describe('tournamentParam', () => {
   it('takes a slug from the address', () => {
@@ -36,5 +36,14 @@ describe('stageName', () => {
 describe('placeLabel', () => {
   it('names the podium places as the Hall of Fame does', () => {
     expect([1, 2, 3].map(placeLabel)).toEqual(['🥇 Champion', '🥈 Runner-Up', '🥉 3rd Place']);
+  });
+});
+
+describe('cgeYears', () => {
+  it('gives the years a CGE tournament ran, or when it began if it has not finished', () => {
+    expect(cgeYears('2024-06-01', '2025-02-24')).toBe('2024 – 2025');
+    expect(cgeYears(null, '2023-05-23')).toBe('2023');
+    expect(cgeYears('2026-09-29', null)).toBe('2026 –');
+    expect(cgeYears(null, null)).toBe('');
   });
 });

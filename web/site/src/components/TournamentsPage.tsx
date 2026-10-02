@@ -10,7 +10,7 @@ import {
   type CatalogueTournament,
 } from '@ttac/shared/ratings';
 import { playerHref } from '../lib/player-view';
-import { catalogueHref, placeLabel, spanYears, stageName, tournamentParam } from '../lib/catalogue-view';
+import { catalogueHref, cgeYears, placeLabel, spanYears, stageName, tournamentParam } from '../lib/catalogue-view';
 
 type Load<T> = { kind: 'loading' } | { kind: 'missing' } | { kind: 'error'; message: string } | { kind: 'ready'; data: T };
 
@@ -83,6 +83,7 @@ function TournamentList({ apiUrl }: { apiUrl: string }) {
                   <span>Players</span>
                   <span>{count(t.players)}</span>
                 </div>
+                {t.rankings.length === 0 && <div className="series-summary">Not rated</div>}
               </div>
               <div className="series-cta">
                 <span>View Seasons &amp; Podiums</span>
@@ -92,7 +93,62 @@ function TournamentList({ apiUrl }: { apiUrl: string }) {
           ))}
         </div>
       )}
+      {load.kind === 'ready' && <CgeList data={load.data} />}
     </>
+  );
+}
+
+/** CgeList lists every tournament on CGE's site, marking which are ours and rated. */
+function CgeList({ data }: { data: Catalogue }) {
+  const withGames = new Set(data.tournaments.map((t) => t.slug));
+  return (
+    <div className="panel-card">
+      <div className="panel-header panel-header-split">
+        <h2 className="panel-header-title">Every Tournament on CGE</h2>
+        <span className="panel-tag">
+          {count(data.cge_tournaments.length)} tournaments · {count(data.cge_tournaments.filter((c) => c.rated).length)} rated
+        </span>
+      </div>
+      <p className="records-intro">
+        Every tournament on CGE&apos;s site that the record lists. Rated tournaments count towards the ratings; the
+        others are kept here so they can be added to a ranking later.
+      </p>
+      <div className="trophy-table-container">
+        <table className="trophy-table">
+          <caption className="records-intro">Tournaments on CGE, newest first</caption>
+          <thead>
+            <tr>
+              <th>Tournament</th>
+              <th>Organiser</th>
+              <th className="col-center">Years</th>
+              <th className="col-center">Status</th>
+              <th className="col-center">Rated</th>
+            </tr>
+          </thead>
+          <tbody>
+            {data.cge_tournaments.map((c) => (
+              <tr key={c.cge_tournament}>
+                <td>
+                  <a href={c.url} rel="noopener noreferrer">
+                    {c.name}
+                  </a>
+                  {withGames.has(c.tournament) && (
+                    <>
+                      {' · '}
+                      <a href={catalogueHref(c.tournament)}>its seasons</a>
+                    </>
+                  )}
+                </td>
+                <td>{c.organiser}</td>
+                <td className="cell-date">{cgeYears(c.started, c.finished)}</td>
+                <td className="cell-muted">{c.status}</td>
+                <td className="col-center">{c.rated ? 'Rated' : 'Not rated'}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
   );
 }
 

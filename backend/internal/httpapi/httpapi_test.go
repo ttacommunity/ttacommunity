@@ -132,7 +132,7 @@ func (f *fakeRatings) CommunityLeaderboard(context.Context, int64, string) ([]st
 	panic("not faked")
 }
 
-func (f *fakeRatings) Catalogue(context.Context, int64) ([]store.CatalogueEntry, error) {
+func (f *fakeRatings) Catalogue(context.Context, int64) (store.CatalogueView, error) {
 	panic("not faked")
 }
 

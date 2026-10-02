@@ -12,16 +12,16 @@ import (
 
 type fakeCatalogue struct {
 	fakeRatings
-	entries    []store.CatalogueEntry
+	view       store.CatalogueView
 	tournament store.CatalogueTournament
 	err        error
 	gotSlug    string
 }
 
-func (f *fakeCatalogue) Catalogue(_ context.Context, run int64) ([]store.CatalogueEntry, error) {
+func (f *fakeCatalogue) Catalogue(_ context.Context, run int64) (store.CatalogueView, error) {
 	f.calls++
 	f.gotRun = run
-	return f.entries, f.err
+	return f.view, f.err
 }
 
 func (f *fakeCatalogue) CatalogueTournament(_ context.Context, run int64, slug string) (store.CatalogueTournament, error) {
@@ -36,11 +36,19 @@ func span(games, players int, first, last string) store.GameSpan {
 }
 
 func TestCatalogue(t *testing.T) {
-	f := &fakeCatalogue{entries: []store.CatalogueEntry{
-		{Slug: "intermezzo", Name: "Intermezzo", Seasons: 30, Span: span(25342, 1900, "2019-03-10", "2026-05-31")},
+	finished, _ := time.Parse(time.DateOnly, "2025-11-19")
+	f := &fakeCatalogue{view: store.CatalogueView{
+		Tournaments: []store.CatalogueEntry{
+			{Slug: "intermezzo", Name: "Intermezzo", Seasons: 30, Rankings: []string{"community"}, Span: span(25342, 1900, "2019-03-10", "2026-05-31")},
+		},
+		CGE: []store.CGEEntry{
+			{ID: 5373, Name: "Nations Cup", Status: "finished", Finished: &finished, Tournament: "nations_cup"},
+		},
 	}}
 	rec, _ := serve(t, f, "/v1/runs/7/catalogue")
-	want := `{"run_id":7,"tournaments":[{"first_game":"2019-03-10","games":25342,"last_game":"2026-05-31","name":"Intermezzo","players":1900,"seasons":30,"slug":"intermezzo"}]}`
+	want := `{"cge_tournaments":[{"cge_tournament":5373,"finished":"2025-11-19","name":"Nations Cup","organiser":"","rated":false,"started":null,` +
+		`"status":"finished","tournament":"nations_cup","url":"https://account.czechgames.com/tournaments/detail/5373"}],"run_id":7,` +
+		`"tournaments":[{"first_game":"2019-03-10","games":25342,"last_game":"2026-05-31","name":"Intermezzo","players":1900,"rankings":["community"],"seasons":30,"slug":"intermezzo"}]}`
 	if got := strings.TrimSpace(rec.Body.String()); rec.Code != http.StatusOK || got != want {
 		t.Errorf("GET catalogue: %d %s\nwant 200 %s", rec.Code, got, want)
 	}
@@ -51,7 +59,7 @@ func TestCatalogue(t *testing.T) {
 
 func TestCatalogueEmptyIsAnArray(t *testing.T) {
 	rec, _ := serve(t, &fakeCatalogue{}, "/v1/runs/7/catalogue")
-	if !strings.Contains(rec.Body.String(), `"tournaments":[]`) {
+	if !strings.Contains(rec.Body.String(), `"tournaments":[]`) || !strings.Contains(rec.Body.String(), `"cge_tournaments":[]`) {
 		t.Errorf("GET an empty catalogue: %s, want an empty array", rec.Body.String())
 	}
 }

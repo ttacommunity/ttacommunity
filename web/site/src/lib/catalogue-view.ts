@@ -29,3 +29,10 @@ export function stageName(label: string): string {
 export function placeLabel(place: number): string {
   return ['🥇 Champion', '🥈 Runner-Up', '🥉 3rd Place'][place - 1] ?? `${place}th`;
 }
+
+/** cgeYears writes the years a CGE tournament ran: "2024 – 2025", "2023", "2026 –" while running, or "". */
+export function cgeYears(started: string | null, finished: string | null): string {
+  if (started !== null && finished !== null) return spanYears(started, finished);
+  if (finished !== null) return finished.slice(0, 4);
+  return started === null ? '' : `${started.slice(0, 4)} –`;
+}

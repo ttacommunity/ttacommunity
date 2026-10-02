@@ -51,7 +51,7 @@ type Ratings interface {
 	HallOfFame(ctx context.Context, run int64) (store.HallOfFame, error)
 	PlayerAchievements(ctx context.Context, run int64, name string) (string, *store.AchievementSummary, []store.TournamentRecord, error)
 	CommunityLeaderboard(ctx context.Context, run int64, edition string) ([]store.CommunityRow, error)
-	Catalogue(ctx context.Context, run int64) ([]store.CatalogueEntry, error)
+	Catalogue(ctx context.Context, run int64) (store.CatalogueView, error)
 	CatalogueTournament(ctx context.Context, run int64, slug string) (store.CatalogueTournament, error)
 }
 
