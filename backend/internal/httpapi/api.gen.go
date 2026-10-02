@@ -621,13 +621,19 @@ type CatalogueGames struct {
 
 // CatalogueSeason defines model for CatalogueSeason.
 type CatalogueSeason struct {
+	// CgePages The CGE pages the season's games come from, if any
+	CgePages  []string           `json:"cge_pages"`
 	FirstGame openapi_types.Date `json:"first_game"`
 	Games     int                `json:"games"`
 	Label     string             `json:"label"`
 	LastGame  openapi_types.Date `json:"last_game"`
 	Players   int                `json:"players"`
-	Podium    []PodiumPlace      `json:"podium"`
-	Stages    []CatalogueStage   `json:"stages"`
+
+	// Podium The season's top three: a cup's recorded podium, or a league's
+	// recorded placements or else its top division's standings in
+	// this run. Empty when neither is known.
+	Podium []PodiumPlace    `json:"podium"`
+	Stages []CatalogueStage `json:"stages"`
 }
 
 // CatalogueStage A stage of a season; label "" is the season's only or main stage

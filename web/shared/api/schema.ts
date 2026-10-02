@@ -1287,7 +1287,14 @@ export interface components {
         CatalogueSeason: components["schemas"]["GameSpan"] & {
             label: string;
             stages: components["schemas"]["CatalogueStage"][];
+            /**
+             * @description The season's top three: a cup's recorded podium, or a league's
+             *     recorded placements or else its top division's standings in
+             *     this run. Empty when neither is known.
+             */
             podium: components["schemas"]["PodiumPlace"][];
+            /** @description The CGE pages the season's games come from, if any */
+            cge_pages: string[];
         };
         CatalogueTournament: {
             /** Format: int64 */

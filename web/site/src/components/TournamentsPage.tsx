@@ -1,4 +1,4 @@
-/** The Tournaments page: every tournament with games, or one tournament's seasons, stages and podiums. */
+/** The Tournaments page: every tournament with games, or one tournament's champions, stages and games. */
 import { useEffect, useState } from 'react';
 import {
   RatingsApiError,
@@ -11,7 +11,7 @@ import {
 } from '@ttac/shared/ratings';
 import { playerHref } from '../lib/player-view';
 import TournamentGames from './TournamentGames';
-import { catalogueHref, cgeYears, placeLabel, seasonName, shownName, spanYears, stageName, tournamentParam } from '../lib/catalogue-view';
+import { catalogueHref, cgeYears, placeLabel, placeNames, seasonName, shownName, spanYears, stageName, tournamentParam } from '../lib/catalogue-view';
 
 type Load<T> = { kind: 'loading' } | { kind: 'missing' } | { kind: 'error'; message: string } | { kind: 'ready'; data: T };
 
@@ -150,6 +150,7 @@ function CgeList({ data }: { data: Catalogue }) {
 
 function TournamentDetail({ apiUrl, slug }: { apiUrl: string; slug: string }) {
   const [load, setLoad] = useState<Load<{ run: number; t: CatalogueTournament }>>({ kind: 'loading' });
+  const [pick, setPick] = useState<{ season: string; n: number }>({ season: '', n: 0 });
   useEffect(() => {
     currentRun(apiUrl)
       .then((r) => catalogueTournament(apiUrl, r.run_id, slug).then((t) => ({ run: r.run_id, t })))
@@ -159,6 +160,7 @@ function TournamentDetail({ apiUrl, slug }: { apiUrl: string; slug: string }) {
   if (load.kind !== 'ready') return <Waiting load={load} />;
   const { run, t } = load.data;
   const games = t.seasons.reduce((n, s) => n + s.games, 0);
+  const staged = t.seasons.filter((s) => s.stages.length > 1 || s.stages[0]?.label !== '');
   return (
     <>
       <div className="detail-hero">
@@ -188,61 +190,123 @@ function TournamentDetail({ apiUrl, slug }: { apiUrl: string; slug: string }) {
           </div>
         </div>
       </div>
-      {t.seasons.map((s) => (
-        <Season key={s.label} season={s} />
+      <Champions seasons={t.seasons} onPick={(season) => setPick((p) => ({ season, n: p.n + 1 }))} />
+      {staged.map((s) => (
+        <Stages key={s.label} season={s} />
       ))}
-      <TournamentGames apiUrl={apiUrl} run={run} slug={t.slug} seasons={t.seasons} />
+      <TournamentGames apiUrl={apiUrl} run={run} slug={t.slug} seasons={t.seasons} pick={pick} />
     </>
   );
 }
 
-function Season({ season: s }: { season: CatalogueSeason }) {
-  const staged = s.stages.length > 1 || s.stages[0]?.label !== '';
+/** Champions lists every season, newest first, with its podium, figures and CGE pages; a season's name opens its games. */
+function Champions({ seasons, onPick }: { seasons: CatalogueSeason[]; onPick: (season: string) => void }) {
+  const place = (s: CatalogueSeason, n: number) => {
+    const got = placeNames(s.podium, n);
+    if (got.length === 0) return <span className="cell-muted">—</span>;
+    return got.map((p, i) => (
+      <span key={`${p.name}-${p.final}`} className="champion-name">
+        {i > 0 && ' · '}
+        <a href={playerHref(p.name)}>{p.name}</a>
+        {p.final !== '' && <span className="cell-muted"> ({p.final})</span>}
+      </span>
+    ));
+  };
   return (
-    <div className="panel-card">
+    <div className="panel-card champions-panel">
       <div className="panel-header panel-header-split">
-        <h2 className="panel-header-title">{seasonName(s.label)}</h2>
+        <h2 className="panel-header-title">Champions</h2>
+        <span className="panel-tag">{count(seasons.length)} seasons</span>
+      </div>
+      <div className="trophy-table-container champions-table">
+        <table className="trophy-table">
+          <caption className="records-intro">Each season's top three, newest first; choose a season to see its games</caption>
+          <thead>
+            <tr>
+              <th>Season</th>
+              <th>{placeLabel(1)}</th>
+              <th>{placeLabel(2)}</th>
+              <th>{placeLabel(3)}</th>
+              <th className="col-center">Played</th>
+              <th className="col-num">Games</th>
+              <th className="col-num">Players</th>
+              <th>CGE</th>
+            </tr>
+          </thead>
+          <tbody>
+            {[...seasons].reverse().map((s) => (
+              <tr key={s.label}>
+                <td>
+                  <button type="button" className="season-pick" onClick={() => onPick(s.label)} title={`Show the games of ${seasonName(s.label)}`}>
+                    {seasonName(s.label)}
+                  </button>
+                </td>
+                <td className="champion-cell">{place(s, 1)}</td>
+                <td>{place(s, 2)}</td>
+                <td>{place(s, 3)}</td>
+                <td className="cell-date">
+                  {s.first_game} – {s.last_game}
+                </td>
+                <td className="cell-num">{count(s.games)}</td>
+                <td className="cell-num">{count(s.players)}</td>
+                <td>
+                  {s.cge_pages.length === 0 ? (
+                    <span className="cell-muted">—</span>
+                  ) : (
+                    s.cge_pages.map((url, i) => (
+                      <a key={url} href={url} target="_blank" rel="noopener noreferrer" className="cge-link">
+                        {s.cge_pages.length > 1 ? `CGE ${i + 1}` : 'CGE'} ↗
+                      </a>
+                    ))
+                  )}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      <p className="records-intro champions-note">
+        A league's podium is its top division; a cup's is its final. A dash means we have not recorded it yet.
+      </p>
+    </div>
+  );
+}
+
+/** Stages lists one season's stages, for a season played in several. */
+function Stages({ season: s }: { season: CatalogueSeason }) {
+  return (
+    <div className="panel-card stages-panel">
+      <div className="panel-header panel-header-split">
+        <h2 className="panel-header-title">{seasonName(s.label)}: stages</h2>
         <span className="panel-tag">
           {s.first_game} – {s.last_game} · {count(s.games)} games · {count(s.players)} players
         </span>
       </div>
-      {s.podium.length > 0 && (
-        <ul className="rules-list">
-          {s.podium.map((p) => (
-            <li key={`${p.final}|${p.place}`}>
-              {placeLabel(p.place)}: <a href={playerHref(p.name)}>{p.name}</a>
-              {p.final !== '' && ` (${p.final})`}
-            </li>
-          ))}
-        </ul>
-      )}
-      {staged && (
-        <div className="trophy-table-container">
-          <table className="trophy-table">
-            <caption className="records-intro">Stages of {seasonName(s.label)}</caption>
-            <thead>
-              <tr>
-                <th>Stage</th>
-                <th className="col-center">First game</th>
-                <th className="col-center">Last game</th>
-                <th className="col-num">Games</th>
-                <th className="col-num">Players</th>
+      <div className="trophy-table-container">
+        <table className="trophy-table">
+          <caption className="records-intro">Stages of {seasonName(s.label)}</caption>
+          <thead>
+            <tr>
+              <th>Stage</th>
+              <th className="col-center">First game</th>
+              <th className="col-center">Last game</th>
+              <th className="col-num">Games</th>
+              <th className="col-num">Players</th>
+            </tr>
+          </thead>
+          <tbody>
+            {s.stages.map((st) => (
+              <tr key={st.label}>
+                <td>{stageName(st.label)}</td>
+                <td className="cell-date">{st.first_game}</td>
+                <td className="cell-date">{st.last_game}</td>
+                <td className="cell-num">{count(st.games)}</td>
+                <td className="cell-num">{count(st.players)}</td>
               </tr>
-            </thead>
-            <tbody>
-              {s.stages.map((st) => (
-                <tr key={st.label}>
-                  <td>{stageName(st.label)}</td>
-                  <td className="cell-date">{st.first_game}</td>
-                  <td className="cell-date">{st.last_game}</td>
-                  <td className="cell-num">{count(st.games)}</td>
-                  <td className="cell-num">{count(st.players)}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
+            ))}
+          </tbody>
+        </table>
+      </div>
     </div>
   );
 }

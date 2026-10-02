@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { catalogueHref, cgeYears, gameWhere, outcomeNote, placeLabel, seasonName, shownName, spanYears, stageName, tournamentParam } from './catalogue-view';
+import { catalogueHref, cgeYears, gameWhere, outcomeNote, placeLabel, placeNames, seasonName, shownName, spanYears, stageName, tournamentParam } from './catalogue-view';
 
 describe('tournamentParam', () => {
   it('takes a slug from the address', () => {
@@ -82,5 +82,20 @@ describe('outcomeNote', () => {
     expect(outcomeNote('timed_out')).toBe('timed out');
     expect(outcomeNote('finished')).toBe('');
     expect(outcomeNote(null)).toBe('');
+  });
+});
+
+describe('placeNames', () => {
+  const at = (place: number, name: string, final = '') => ({ place, name, final, finished: '2025-01-01', source: '' });
+  it('gives who took a place, naming the final when a season has several', () => {
+    const podium = [at(1, 'ann', 'Odd Games'), at(2, 'bob', 'Odd Games'), at(1, 'cat', 'Even Games')];
+    expect(placeNames(podium, 1)).toEqual([
+      { name: 'ann', final: 'Odd Games' },
+      { name: 'cat', final: 'Even Games' },
+    ]);
+    expect(placeNames(podium, 3)).toEqual([]);
+  });
+  it('leaves the final out when there is only one', () => {
+    expect(placeNames([at(1, 'ann', 'Final')], 1)).toEqual([{ name: 'ann', final: '' }]);
   });
 });

@@ -72,6 +72,14 @@ func (s *server) GetCatalogueTournament(ctx context.Context, req GetCatalogueTou
 			Label: season.Label, Games: season.Span.Games, Players: season.Span.Players,
 			FirstGame: openapi_types.Date{Time: season.Span.First}, LastGame: openapi_types.Date{Time: season.Span.Last},
 			Stages: make([]CatalogueStage, 0, len(season.Stages)), Podium: make([]PodiumPlace, 0, len(season.Podium)),
+			CgePages: make([]string, 0, len(season.CGE)),
+		}
+		for _, l := range season.CGE {
+			page := fmt.Sprintf("%s/tournaments/detail/%d", cgeSite, l.Tournament)
+			if l.Season > 0 {
+				page += fmt.Sprintf("/%d", l.Season)
+			}
+			out.CgePages = append(out.CgePages, page)
 		}
 		for _, st := range season.Stages {
 			out.Stages = append(out.Stages, CatalogueStage{

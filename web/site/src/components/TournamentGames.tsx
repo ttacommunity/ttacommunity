@@ -1,5 +1,5 @@
 /** A tournament's games, newest first, narrowed by season, stage and group, with one-click replay codes. */
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { catalogueGames, type CatalogueGames, type CatalogueSeason, type GamesFilter } from '@ttac/shared/ratings';
 import { playerHref } from '../lib/player-view';
 import { gameWhere, outcomeNote, seasonName, stageName } from '../lib/catalogue-view';
@@ -9,9 +9,27 @@ type Load = { kind: 'loading' } | { kind: 'error'; message: string } | { kind: '
 const count = (n: number) => n.toLocaleString('en-US');
 const score = (n: number) => (Number.isInteger(n) ? String(n) : n.toFixed(1));
 
-/** TournamentGames lists one tournament's games for a run, with filters that follow its seasons and stages. */
-export default function TournamentGames({ apiUrl, run, slug, seasons }: { apiUrl: string; run: number; slug: string; seasons: CatalogueSeason[] }) {
+/** TournamentGames lists one tournament's games for a run, with filters that follow its seasons and stages; pick chooses a season from outside. */
+export default function TournamentGames({
+  apiUrl,
+  run,
+  slug,
+  seasons,
+  pick,
+}: {
+  apiUrl: string;
+  run: number;
+  slug: string;
+  seasons: CatalogueSeason[];
+  pick: { season: string; n: number };
+}) {
   const [filter, setFilter] = useState<GamesFilter>({ page: 1 });
+  const panel = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (pick.n === 0) return;
+    setFilter({ season: pick.season, page: 1 });
+    panel.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }, [pick]);
   const [load, setLoad] = useState<Load>({ kind: 'loading' });
   useEffect(() => {
     let live = true;
@@ -30,7 +48,7 @@ export default function TournamentGames({ apiUrl, run, slug, seasons }: { apiUrl
   const narrow = (next: Partial<GamesFilter>) => setFilter((f) => ({ ...f, ...next, page: next.page ?? 1 }));
 
   return (
-    <div className="panel-card games-panel">
+    <div className="panel-card games-panel" ref={panel}>
       <div className="panel-header panel-header-split">
         <h2 className="panel-header-title">Games</h2>
         {data !== null && (
@@ -88,6 +106,7 @@ export default function TournamentGames({ apiUrl, run, slug, seasons }: { apiUrl
       </p>
       <div className="trophy-table-container games-table">
         <table className="trophy-table">
+          <caption className="records-intro">The games these filters keep, newest first</caption>
           <thead>
             <tr>
               <th className="col-center">Date</th>

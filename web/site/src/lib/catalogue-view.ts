@@ -56,3 +56,9 @@ export function gameWhere(g: { stage: string; group: string; game: number | null
 export function outcomeNote(outcome: string | null): string {
   return outcome === 'resigned' ? 'resigned' : outcome === 'timed_out' ? 'timed out' : '';
 }
+
+/** placeNames gives who took a podium place, each with its final named only when the season has several finals. */
+export function placeNames(podium: { place: number; name: string; final: string }[], place: number): { name: string; final: string }[] {
+  const several = new Set(podium.map((p) => p.final)).size > 1;
+  return podium.filter((p) => p.place === place).map((p) => ({ name: p.name, final: several ? p.final : '' }));
+}

@@ -2092,7 +2092,7 @@ components:
       allOf:
         - $ref: "#/components/schemas/GameSpan"
         - type: object
-          required: [label, stages, podium]
+          required: [label, stages, podium, cge_pages]
           properties:
             label:
               type: string
@@ -2101,9 +2101,18 @@ components:
               items:
                 $ref: "#/components/schemas/CatalogueStage"
             podium:
+              description: |
+                The season's top three: a cup's recorded podium, or a league's
+                recorded placements or else its top division's standings in
+                this run. Empty when neither is known.
               type: array
               items:
                 $ref: "#/components/schemas/PodiumPlace"
+            cge_pages:
+              description: The CGE pages the season's games come from, if any
+              type: array
+              items:
+                type: string
     CatalogueTournament:
       type: object
       required: [run_id, slug, name, seasons]

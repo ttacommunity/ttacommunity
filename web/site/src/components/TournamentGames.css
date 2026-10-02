@@ -128,3 +128,53 @@
   opacity: 0.4;
   cursor: default;
 }
+
+.champions-panel,
+.stages-panel {
+  margin-top: 2rem;
+}
+
+.champions-table {
+  max-height: 640px;
+}
+
+.season-pick {
+  padding: 0;
+  border: none;
+  background: none;
+  color: var(--accent-gold);
+  font: inherit;
+  font-weight: 700;
+  text-align: left;
+  cursor: pointer;
+}
+
+.season-pick:hover,
+.season-pick:focus-visible {
+  text-decoration: underline;
+}
+
+.champion-name a {
+  color: #f7dfa5;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.champion-cell .champion-name a {
+  color: #ffd54f;
+  font-weight: 700;
+}
+
+.champion-name a:hover {
+  color: var(--accent-gold);
+}
+
+.cge-link {
+  margin-right: 0.5rem;
+  color: var(--accent-gold);
+  white-space: nowrap;
+}
+
+.champions-note {
+  margin: 0.75rem 0 0;
+}

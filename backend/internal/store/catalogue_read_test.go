@@ -90,10 +90,10 @@ func TestCatalogueTournamentGivesSeasonsInOrderWithStagesAndPodium(t *testing.T)
 	}
 	want := CatalogueTournament{Slug: "wimbledon", Name: "Wimbledon", Seasons: []CatalogueSeason{
 		{Label: "2023", Span: GameSpan{Games: 1, Players: 2, First: day("2023-07-15"), Last: day("2023-07-15")},
-			Stages: []CatalogueStage{stage("Stage 1", day("2023-07-15"))}, Podium: []PodiumPlace{}},
+			Stages: []CatalogueStage{stage("Stage 1", day("2023-07-15"))}, Podium: []PodiumPlace{}, CGE: []CGELink{}},
 		{Label: "2024", Span: GameSpan{Games: 2, Players: 3, First: day("2024-07-01"), Last: day("2025-02-24")},
 			Stages: []CatalogueStage{stage("Stage 1", day("2024-07-01")), stage("Stage 7", day("2025-02-24"))},
-			Podium: []PodiumPlace{{Place: 1, Name: "ann", Final: "", Finished: day("2025-02-24"), Source: "CGE"}}},
+			Podium: []PodiumPlace{{Place: 1, Name: "ann", Final: "", Finished: day("2025-02-24"), Source: "CGE"}}, CGE: []CGELink{}},
 	}}
 	if !reflect.DeepEqual(got, want) {
 		t.Errorf("CatalogueTournament = %+v, want %+v", got, want)
@@ -216,5 +216,74 @@ func TestCatalogueCountsOnlyPlayedGames(t *testing.T) {
 	}
 	if got := view.Tournaments[0].Span; got.Games != 1 || got.Players != 2 || !got.Last.Equal(day("2024-01-02")) {
 		t.Errorf("intermezzo = %+v, want 1 game (the never-played one not counted), last on 2024-01-02", got)
+	}
+}
+
+func TestCatalogueTournamentGivesLeagueChampions(t *testing.T) {
+	pool := migrated(t)
+	ctx := context.Background()
+	run := publishedRun(t, pool)
+	placedOn(t, pool, map[string]time.Time{
+		"Intermezzo S24 - Grandmaster game 1": day("2024-01-02"),
+		"Intermezzo S25 - Grandmaster game 1": day("2024-05-01"),
+	})
+	if _, err := pool.Exec(ctx, `INSERT INTO tournament_standings (run_id, series, season, division, group_label, player_name, place, points, games, placings)
+		VALUES ($1, 'intermezzo', 24, 'Grandmaster', 'Grandmaster', 'ann', 1, 20, 6, '{}'), ($1, 'intermezzo', 24, 'Grandmaster', 'Grandmaster', 'bob', 2, 12, 6, '{}'),
+		       ($1, 'intermezzo', 24, 'Gold', 'Gold 1', 'cat', 1, 25, 6, '{}'), ($1, 'intermezzo', 25, 'Grandmaster', 'Grandmaster', 'ann', 1, 18, 6, '{}')`, run); err != nil {
+		t.Fatalf("adding standings: %v", err)
+	}
+	if _, err := pool.Exec(ctx, `INSERT INTO tournament_official_placements (series, season, division, player_name, place, points, reason, source)
+		VALUES ('intermezzo', 25, 'Grandmaster', 'dan', 1, 21, 'the sheet differs', 'the organisers'' sheet')`); err != nil {
+		t.Fatalf("adding a placement: %v", err)
+	}
+
+	got, err := NewRatingsReader(asReader(t, pool)).CatalogueTournament(ctx, run, "intermezzo")
+	if err != nil {
+		t.Fatalf("CatalogueTournament: %v", err)
+	}
+	// The top division's standings give the podium; a recorded placement replaces a season's derived one.
+	want := [][]PodiumPlace{
+		{{Place: 1, Name: "ann", Finished: day("2024-01-02"), Source: "Grandmaster standings"}, {Place: 2, Name: "bob", Finished: day("2024-01-02"), Source: "Grandmaster standings"}},
+		{{Place: 1, Name: "dan", Finished: day("2024-05-01"), Source: "the organisers' sheet"}},
+	}
+	for i, s := range got.Seasons {
+		if !reflect.DeepEqual(s.Podium, want[i]) {
+			t.Errorf("season %s podium = %+v, want %+v", s.Label, s.Podium, want[i])
+		}
+	}
+}
+
+func TestCatalogueTournamentLinksEachSeasonToCGE(t *testing.T) {
+	pool := migrated(t)
+	ctx := context.Background()
+	run := publishedRun(t, pool)
+	placedOn(t, pool, map[string]time.Time{
+		"Intermezzo S24 - Bronze 1 game 1":        day("2024-01-02"),
+		"Intermezzo S25 - Bronze 1 game 1":        day("2024-05-01"),
+		"Intermezzo S26 - Bronze 1 game 1":        day("2024-09-01"),
+		"Wimbledon 2024 Stage 1 - group 1 game 1": day("2024-07-01"),
+		"Wimbledon 2024 Stage 7 - Final game 1":   day("2025-02-24"),
+	})
+	if _, err := pool.Exec(ctx, `UPDATE matches SET cge_tournament = 19, cge_season = substr(tournament, 13, 2)::int - 5 WHERE tournament LIKE 'Intermezzo S2_ -%' AND tournament NOT LIKE 'Intermezzo S26%';
+		UPDATE matches SET cge_tournament = 4991, cge_season = 1 WHERE tournament LIKE 'Wimbledon%Stage 1%';
+		UPDATE matches SET cge_tournament = 4991, cge_season = 7 WHERE tournament LIKE 'Wimbledon%Stage 7%'`); err != nil {
+		t.Fatalf("linking games to CGE: %v", err)
+	}
+	r := NewRatingsReader(asReader(t, pool))
+
+	// A CGE tournament that holds several of our seasons links each to its own CGE season; one that holds one season links whole.
+	for slug, want := range map[string][][]CGELink{
+		"intermezzo": {{{Tournament: 19, Season: 19}}, {{Tournament: 19, Season: 20}}, {}},
+		"wimbledon":  {{{Tournament: 4991}}},
+	} {
+		got, err := r.CatalogueTournament(ctx, run, slug)
+		if err != nil {
+			t.Fatalf("CatalogueTournament(%s): %v", slug, err)
+		}
+		for i, s := range got.Seasons {
+			if !reflect.DeepEqual(s.CGE, want[i]) {
+				t.Errorf("%s season %s CGE = %+v, want %+v", slug, s.Label, s.CGE, want[i])
+			}
+		}
 	}
 }

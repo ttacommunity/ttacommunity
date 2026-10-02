@@ -7,6 +7,7 @@ import (
 	"regexp"
 	"slices"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/jackc/pgx/v5"
@@ -93,7 +94,7 @@ func (r *RatingsReader) CatalogueGames(ctx context.Context, run int64, slug stri
 		if got.Groups, err = pgx.CollectRows(rows, pgx.RowTo[string]); err != nil {
 			return fail("groups", err)
 		}
-		slices.SortFunc(got.Groups, naturally)
+		slices.SortFunc(got.Groups, groupOrder)
 	}
 
 	if err := r.pool.QueryRow(ctx, `
@@ -136,6 +137,34 @@ func (r *RatingsReader) CatalogueGames(ctx context.Context, run int64, slug stri
 		return fail("games", err)
 	}
 	return got, nil
+}
+
+// groupRanks orders divisions as CGE lists them: leagues' tiers, Royal
+// League's ranks, then a bracket's upper half before its lower.
+var groupRanks = []string{
+	"Grandmaster", "Master", "Diamond", "Platinum", "Gold", "Silver", "Bronze", "Wood",
+	"Emperor", "King", "Prince", "Duke", "Marquess", "Count", "Viscount", "Baron", "Knight",
+	"Upper", "Lower",
+}
+
+var bestOf = regexp.MustCompile(`^Best (?:of )?`)
+
+// groupOrder orders group labels by division rank, a rank's tiebreak group
+// ("Best Duke") after its groups, then naturally; unranked labels come last.
+func groupOrder(a, b string) int {
+	key := func(s string) (rank, best int, rest string) {
+		rest = bestOf.ReplaceAllString(s, "")
+		best = len(s) - len(rest)
+		first, _, _ := strings.Cut(rest, " ")
+		rank = slices.Index(groupRanks, first)
+		if rank < 0 {
+			rank = len(groupRanks)
+		}
+		return rank, min(best, 1), rest
+	}
+	ra, ba, sa := key(a)
+	rb, bb, sb := key(b)
+	return cmp.Or(cmp.Compare(ra, rb), cmp.Compare(ba, bb), naturally(sa, sb))
 }
 
 var digits = regexp.MustCompile(`\d+|\D+`)

@@ -58,12 +58,27 @@ type PodiumPlace struct {
 	Source      string
 }
 
-// CatalogueSeason is one season with its stages and recorded podium.
+// CGELink is a CGE tournament page for a season: the whole tournament
+// (Season 0), or one of its seasons when it holds several of ours.
+type CGELink struct {
+	Tournament, Season int
+}
+
+// CatalogueSeason is one season with its stages, podium and CGE pages.
 type CatalogueSeason struct {
 	Label  string
 	Span   GameSpan
 	Stages []CatalogueStage
 	Podium []PodiumPlace
+	CGE    []CGELink
+}
+
+// leagueTops names the division whose standings give a league season's podium.
+var leagueTops = map[string][]string{
+	"intermezzo":    {"Grandmaster", "Diamond"},
+	"international": {"Grandmaster", "Diamond"},
+	"royal_league":  {"Emperor"},
+	"worlds":        {"Final"},
 }
 
 // CatalogueTournament is one tournament's seasons, in order of their first game.
@@ -150,7 +165,7 @@ func (r *RatingsReader) CatalogueTournament(ctx context.Context, run int64, slug
 	}
 	var ids []int64
 	got.Seasons, err = pgx.CollectRows(rows, func(row pgx.CollectableRow) (CatalogueSeason, error) {
-		s := CatalogueSeason{Stages: []CatalogueStage{}, Podium: []PodiumPlace{}}
+		s := CatalogueSeason{Stages: []CatalogueStage{}, Podium: []PodiumPlace{}, CGE: []CGELink{}}
 		var id int64
 		err := row.Scan(&got.Name, &id, &s.Label, &s.Span.Games, &s.Span.Players, &s.Span.First, &s.Span.Last)
 		ids = append(ids, id)
@@ -194,14 +209,66 @@ func (r *RatingsReader) CatalogueTournament(ctx context.Context, run int64, slug
 	}
 	var label string
 	var p PodiumPlace
+	cupPodium := map[int]bool{}
 	_, err = pgx.ForEachRow(rows, []any{&label, &p.Place, &p.Name, &p.Final, &p.Finished, &p.Source}, func() error {
 		if i, ok := byLabel[label]; ok {
 			got.Seasons[i].Podium = append(got.Seasons[i].Podium, p)
+			cupPodium[i] = true
 		}
 		return nil
 	})
 	if err != nil {
 		return fail("podiums", err)
+	}
+
+	// A league's podium: its recorded placements, else the run's top-division standings.
+	rows, err = r.pool.Query(ctx, `
+		WITH official AS (
+			SELECT season, place, player_name, source FROM tournament_official_placements
+			WHERE series = $1 AND division = ANY($3) AND place <= 3),
+		derived AS (
+			SELECT season, place, player_name, division || ' standings' AS source FROM tournament_standings
+			WHERE run_id = $2 AND series = $1 AND division = ANY($3) AND place <= 3
+			  AND season NOT IN (SELECT season FROM official))
+		SELECT season::text, place, player_name, source FROM (SELECT * FROM official UNION ALL SELECT * FROM derived) p
+		ORDER BY season, place, player_name`, slug, run, leagueTops[slug])
+	if err != nil {
+		return fail("league podiums", err)
+	}
+	_, err = pgx.ForEachRow(rows, []any{&label, &p.Place, &p.Name, &p.Source}, func() error {
+		if i, ok := byLabel[label]; ok && !cupPodium[i] {
+			p.Final, p.Finished = "", got.Seasons[i].Span.Last
+			got.Seasons[i].Podium = append(got.Seasons[i].Podium, p)
+		}
+		return nil
+	})
+	if err != nil {
+		return fail("league podiums", err)
+	}
+
+	rows, err = r.pool.Query(ctx, `
+		WITH g AS (
+			SELECT DISTINCT s.label, m.cge_tournament AS ct, m.cge_season AS cs
+			FROM matches m
+			JOIN tournament_stages st USING (stage_id)
+			JOIN tournament_seasons s USING (season_id)
+			JOIN tournaments t USING (tournament_id)
+			WHERE t.slug = $1 AND m.cge_tournament IS NOT NULL),
+		spans AS (SELECT ct, count(DISTINCT label) AS seasons FROM g GROUP BY ct)
+		SELECT DISTINCT g.label, g.ct, CASE WHEN spans.seasons > 1 THEN g.cs ELSE 0 END AS cs
+		FROM g JOIN spans USING (ct) ORDER BY 2, 3`, slug)
+	if err != nil {
+		return fail("CGE pages", err)
+	}
+	var link CGELink
+	_, err = pgx.ForEachRow(rows, []any{&label, &link.Tournament, &link.Season}, func() error {
+		if i, ok := byLabel[label]; ok {
+			got.Seasons[i].CGE = append(got.Seasons[i].CGE, link)
+		}
+		return nil
+	})
+	if err != nil {
+		return fail("CGE pages", err)
 	}
 	return got, nil
 }
