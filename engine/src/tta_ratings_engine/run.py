@@ -217,7 +217,9 @@ def run(
             raise NoMatches("no matches are loaded: nothing to rate")
         source = None
         if tournaments_only:
-            row = conn.execute("SELECT run_id FROM current_run").fetchone()
+            row = conn.execute(
+                "SELECT run_id FROM current_run WHERE ranking_id = community_ranking()"
+            ).fetchone()
             if row is None:
                 raise NoCurrentRun("no current run to copy the ratings from")
             source = row["run_id"]
@@ -506,7 +508,7 @@ def _finish(conn, run_id, status):
 def _publish(conn, run_id):
     conn.execute(
         "INSERT INTO current_run (run_id) VALUES (%s) "
-        "ON CONFLICT (only_row) DO UPDATE SET run_id = excluded.run_id",
+        "ON CONFLICT (ranking_id) DO UPDATE SET run_id = excluded.run_id",
         (run_id,),
     )
     conn.execute(

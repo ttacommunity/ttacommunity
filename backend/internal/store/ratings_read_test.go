@@ -50,7 +50,7 @@ func addRun(t *testing.T, pool *pgxpool.Pool, status string, publishedAt time.Ti
 func makeCurrent(t *testing.T, pool *pgxpool.Pool, run int64) {
 	t.Helper()
 	_, err := pool.Exec(context.Background(),
-		"INSERT INTO current_run (run_id) VALUES ($1) ON CONFLICT (only_row) DO UPDATE SET run_id = excluded.run_id", run)
+		"INSERT INTO current_run (run_id) VALUES ($1) ON CONFLICT (ranking_id) DO UPDATE SET run_id = excluded.run_id", run)
 	if err != nil {
 		t.Fatalf("making run %d current: %v", run, err)
 	}
@@ -439,5 +439,46 @@ func TestRunLastGame(t *testing.T) {
 	}
 	if _, err := r.RunLastGame(ctx, 999999); !errors.Is(err, ErrRunNotFound) {
 		t.Errorf("RunLastGame(unknown) err = %v, want ErrRunNotFound", err)
+	}
+}
+
+func addRanking(t *testing.T, pool *pgxpool.Pool, slug string) {
+	t.Helper()
+	if _, err := pool.Exec(context.Background(), "INSERT INTO rankings (slug, name) VALUES ($1, $1)", slug); err != nil {
+		t.Fatalf("adding ranking %s: %v", slug, err)
+	}
+}
+
+func TestCurrentRunIsTheCommunityRankings(t *testing.T) {
+	pool := migrated(t)
+	ctx := context.Background()
+	community := publishedRun(t, pool)
+	addRanking(t, pool, "blitz")
+	var blitz int64
+	if err := pool.QueryRow(ctx, `INSERT INTO rating_runs (engine_version, input_fingerprint, status, published_at, ranking_id)
+		VALUES ('v1', 'f1', 'complete', now(), (SELECT ranking_id FROM rankings WHERE slug = 'blitz')) RETURNING run_id`).Scan(&blitz); err != nil {
+		t.Fatalf("adding a blitz run: %v", err)
+	}
+	if _, err := pool.Exec(ctx, `INSERT INTO current_run (ranking_id, run_id) VALUES ((SELECT ranking_id FROM rankings WHERE slug = 'blitz'), $1)`, blitz); err != nil {
+		t.Fatalf("making the blitz run current: %v", err)
+	}
+	makeCurrent(t, pool, community)
+
+	got, err := NewRatingsReader(asReader(t, pool)).CurrentRun(ctx)
+	if err != nil {
+		t.Fatalf("CurrentRun: %v", err)
+	}
+	if got.ID != community {
+		t.Errorf("CurrentRun = run %d, want the community ranking's run %d (blitz's is %d)", got.ID, community, blitz)
+	}
+}
+
+func TestARankingsCurrentRunMustBeItsOwn(t *testing.T) {
+	pool := migrated(t)
+	community := publishedRun(t, pool)
+	addRanking(t, pool, "blitz")
+	_, err := pool.Exec(context.Background(), `INSERT INTO current_run (ranking_id, run_id) VALUES ((SELECT ranking_id FROM rankings WHERE slug = 'blitz'), $1)`, community)
+	if err == nil {
+		t.Errorf("a community run was made the blitz ranking's current run")
 	}
 }
