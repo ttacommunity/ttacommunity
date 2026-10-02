@@ -132,7 +132,10 @@ func TestReportClassifiedSaysNothingIsUnplaced(t *testing.T) {
 
 func TestReportAttachedCountsAndNamesNoPlayer(t *testing.T) {
 	var b strings.Builder
-	reportAttached(&b, "g.csv", cgegames.Result{Refused: []cgegames.Refusal{{Line: 4, Reason: cgegames.BadSeat}}}, store.Attached{
+	reportAttached(&b, "g.csv", cgegames.Result{Refused: []cgegames.Refusal{{Line: 4, Reason: cgegames.BadSeat}}}, store.Added{
+		Added: 5, NeverPlayed: 2, AlreadyHeld: 7, Unsettled: 1,
+		Conflicts: []cgegames.Game{{CGETournament: 21, CGESeason: 9, Seats: []cgegames.Seat{{Name: "secretname"}}}},
+	}, store.Attached{
 		Matched:     3,
 		NeverPlayed: 1,
 		Unmatched: []cgegames.Game{
@@ -148,6 +151,10 @@ func TestReportAttachedCountsAndNamesNoPlayer(t *testing.T) {
 		"no game of ours: 3 (CGE 19/2: 1, 21/7: 2)",
 		"  CGE 21/7 -> season 16: 3 games\n",
 		"refused: 1\n  g.csv:4 bad_seat\n",
+		"added: 5 (2 of them never played)",
+		"already held: 7",
+		"placing not settled, not added: 1",
+		"may be a copy of ours, not added: 1 (CGE 21/9: 1)",
 	} {
 		if !strings.Contains(got, want) {
 			t.Errorf("report is missing %q:\n%s", want, got)

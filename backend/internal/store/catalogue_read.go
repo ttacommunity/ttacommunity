@@ -74,7 +74,7 @@ type CatalogueTournament struct {
 
 // placedSeats is every placed game's seats, one row per player, with its
 // tournament, season and stage, for tournaments the site shows: rated (in a
-// ranking) or made visible.
+// ranking) or made visible. Never-played games are not counted.
 const placedSeats = `
 	SELECT t.slug, t.name, s.season_id, s.label AS season, st.stage_id, st.label AS stage,
 	       m.match_id, m.date, p.name AS player
@@ -83,7 +83,7 @@ const placedSeats = `
 	JOIN tournament_seasons s USING (season_id)
 	JOIN tournaments t USING (tournament_id)
 	CROSS JOIN LATERAL unnest(ARRAY[m.player1, m.player2, m.player3, m.player4]) AS p(name)
-	WHERE p.name IS NOT NULL
+	WHERE p.name IS NOT NULL AND m.state = 'played'
 	  AND (t.visible OR EXISTS (SELECT 1 FROM ranking_tournaments rt WHERE rt.tournament_id = t.tournament_id))`
 
 // Catalogue returns every shown tournament with placed games, by name, with

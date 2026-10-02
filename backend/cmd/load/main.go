@@ -128,7 +128,8 @@ func reportClassified(w io.Writer, c store.Classified) {
 }
 
 // attachCGEGames reads the file first, then records CGE's facts on the games
-// already loaded, in one transaction, after applying any pending migration.
+// already loaded and adds the games we lack (store.AddCGEGames), after
+// applying any pending migration.
 func attachCGEGames(file string) error {
 	dbURL := os.Getenv("RATINGS_DATABASE_URL")
 	if dbURL == "" {
@@ -157,30 +158,21 @@ func attachCGEGames(file string) error {
 	if err != nil {
 		return err
 	}
-	reportAttached(os.Stdout, file, res, got)
+	added, err := store.AddCGEGames(ctx, pool, res.Games)
+	if err != nil {
+		return err
+	}
+	reportAttached(os.Stdout, file, res, added, got)
 	return nil
 }
 
 // reportAttached writes how many CGE games matched ours, which did not (by
-// CGE tournament and stage), and which of our seasons each stage matched.
-// It names tournaments and seasons, never a player.
-func reportAttached(w io.Writer, file string, res cgegames.Result, got store.Attached) {
+// CGE tournament and stage), which of our seasons each stage matched, and
+// what was added. It names tournaments and seasons, never a player.
+func reportAttached(w io.Writer, file string, res cgegames.Result, added store.Added, got store.Attached) {
 	fmt.Fprintf(w, "matched to our games: %d\n", got.Matched)
 	fmt.Fprintf(w, "never played, set apart: %d\n", got.NeverPlayed)
-	missing := map[string]int{}
-	for _, g := range got.Unmatched {
-		missing[fmt.Sprintf("%d/%d", g.CGETournament, g.CGESeason)]++
-	}
-	keys := make([]string, 0, len(missing))
-	for k := range missing {
-		keys = append(keys, k)
-	}
-	slices.Sort(keys)
-	parts := make([]string, len(keys))
-	for i, k := range keys {
-		parts[i] = fmt.Sprintf("%s: %d", k, missing[k])
-	}
-	fmt.Fprintf(w, "no game of ours: %d (CGE %s)\n", len(got.Unmatched), strings.Join(parts, ", "))
+	fmt.Fprintf(w, "no game of ours: %d (CGE %s)\n", len(got.Unmatched), byStage(got.Unmatched))
 	fmt.Fprintln(w, "where each CGE stage matched:")
 	for _, l := range got.Seasons {
 		fmt.Fprintf(w, "  CGE %d/%d -> season %s: %d games\n", l.CGETournament, l.CGESeason, l.Season, l.Games)
@@ -189,6 +181,28 @@ func reportAttached(w io.Writer, file string, res cgegames.Result, got store.Att
 	for _, r := range res.Refused {
 		fmt.Fprintf(w, "  %s:%d %s\n", file, r.Line, r.Reason)
 	}
+	fmt.Fprintf(w, "added: %d (%d of them never played)\n", added.Added, added.NeverPlayed)
+	fmt.Fprintf(w, "already held: %d\n", added.AlreadyHeld)
+	fmt.Fprintf(w, "placing not settled, not added: %d\n", added.Unsettled)
+	fmt.Fprintf(w, "may be a copy of ours, not added: %d (CGE %s)\n", len(added.Conflicts), byStage(added.Conflicts))
+}
+
+// byStage counts games by CGE tournament and stage: "19/2: 1, 21/7: 2".
+func byStage(games []cgegames.Game) string {
+	counts := map[string]int{}
+	for _, g := range games {
+		counts[fmt.Sprintf("%d/%d", g.CGETournament, g.CGESeason)]++
+	}
+	keys := make([]string, 0, len(counts))
+	for k := range counts {
+		keys = append(keys, k)
+	}
+	slices.Sort(keys)
+	parts := make([]string, len(keys))
+	for i, k := range keys {
+		parts[i] = fmt.Sprintf("%s: %d", k, counts[k])
+	}
+	return strings.Join(parts, ", ")
 }
 
 // setCountries reads every file first, then sets the countries of known

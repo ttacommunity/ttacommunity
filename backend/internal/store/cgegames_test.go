@@ -220,3 +220,155 @@ func TestAttachCGEGamesStillNeedsAFinishedSeatsScore(t *testing.T) {
 		t.Errorf("AttachCGEGames = %+v: a timed-out seat matched a positive score", got)
 	}
 }
+
+// newCGE is a CGE game placed in our international season "35", which holds no games yet.
+func newCGE(group string, number int, finished string, seats ...cgegames.Seat) cgegames.Game {
+	g := cgeGame(finished, seats...)
+	g.CGESeason, g.Group, g.Number, g.Season, g.Code = 26, group, number, "35", fmt.Sprintf("NEW%s%d", group, number)
+	g.Name = fmt.Sprintf("International S35 - %s game %d", group, number)
+	return g
+}
+
+func played(name string, score float64, user int) cgegames.Seat {
+	return cgegames.Seat{Name: name, Score: score, Outcome: cgegames.Finished, CGEUser: user}
+}
+
+func timedOut(name string, user int) cgegames.Seat {
+	return cgegames.Seat{Name: name, Score: -5, Outcome: cgegames.TimedOut, CGEUser: user}
+}
+
+const addedRows = `
+	SELECT concat_ws('|', m.tournament, m.date, m.state, s.label, m.group_label, m.game_number, m.cge_season,
+	                 m.player1, m.score1, m.player2, m.score2)
+	FROM matches m JOIN tournament_stages st USING (stage_id) JOIN tournament_seasons s USING (season_id)
+	WHERE m.cge_tournament IS NOT NULL ORDER BY m.date, m.game_number`
+
+func TestAddCGEGamesAddsAGameOfASeasonWeHoldNoneOf(t *testing.T) {
+	pool := migrated(t)
+	ctx := context.Background()
+	ourGame(t, pool, 2, "International S34", "2026-08-13", matchcsv.Player{Name: "ann", Score: 1}, matchcsv.Player{Name: "bob", Score: 0})
+
+	got, err := AddCGEGames(ctx, pool, []cgegames.Game{newCGE("Gold 1", 3, "2026-09-20", played("cat", 200, 3), played("ann", 150, 1))})
+	if err != nil {
+		t.Fatalf("AddCGEGames: %v", err)
+	}
+	if got.Added != 1 {
+		t.Errorf("AddCGEGames = %+v, want 1 added", got)
+	}
+	if rows := rowsOf(t, pool, addedRows); !slices.Equal(rows, []string{"International S35 - Gold 1 game 3|2026-09-20|played|35|Gold 1|3|26|cat|200|ann|150"}) {
+		t.Errorf("added = %q", rows)
+	}
+	if n := count(t, pool, "match_seats"); n != 2 {
+		t.Errorf("seats = %d, want 2", n)
+	}
+	if p := rowsOf(t, pool, "SELECT name FROM players WHERE name = 'cat'"); len(p) != 1 {
+		t.Errorf("the new player cat was not added: %q", p)
+	}
+}
+
+// catalogued fills the tournament catalogue, as the load does before any game is added.
+func catalogued(t *testing.T, pool *pgxpool.Pool) {
+	t.Helper()
+	if _, err := ClassifyMatches(context.Background(), pool); err != nil {
+		t.Fatalf("ClassifyMatches: %v", err)
+	}
+}
+
+func TestAddCGEGamesAddsANeverPlayedGameDatedByItsGroup(t *testing.T) {
+	pool := migrated(t)
+	ctx := context.Background()
+	catalogued(t, pool)
+	never := newCGE("Gold 1", 2, "2026-01-01", timedOut("ann", 1), timedOut("bob", 2))
+	never.Unplayed, never.Finished = true, nil
+
+	got, err := AddCGEGames(ctx, pool, []cgegames.Game{
+		newCGE("Gold 1", 1, "2026-09-10", played("ann", 100, 1), played("bob", 90, 2)),
+		never,
+		newCGE("Gold 1", 3, "2026-09-25", played("bob", 100, 2), played("ann", 90, 1)),
+	})
+	if err != nil {
+		t.Fatalf("AddCGEGames: %v", err)
+	}
+	if got.Added != 3 || got.NeverPlayed != 1 {
+		t.Errorf("AddCGEGames = %+v, want 3 added, 1 of them never played", got)
+	}
+	rows := rowsOf(t, pool, `SELECT concat_ws('|', game_number, state, date) FROM matches WHERE game_number = 2`)
+	if !slices.Equal(rows, []string{"2|never_played|2026-09-25"}) {
+		t.Errorf("never-played game = %q, want state never_played dated by its group's last game", rows)
+	}
+}
+
+func TestAddCGEGamesReportsAGameThatMayBeACopyOfOurs(t *testing.T) {
+	pool := migrated(t)
+	ctx := context.Background()
+	ourGame(t, pool, 2, "International S16", "2021-12-20", matchcsv.Player{Name: "ann", Score: 100}, matchcsv.Player{Name: "bob", Score: 90})
+	early := cgeGame("2021-12-01", played("cat", 100, 3), played("dan", 90, 4))
+	early.Season, early.Name, early.Code = "16", "International S16 - Bronze 1 game 2", "EARLY"
+	same := cgeGame("2022-01-10", played("ann", 101, 1), played("bob", 90, 2))
+	same.Season, same.Name, same.Code, same.Number = "16", "International S16 - Bronze 1 game 3", "SAME", 3
+
+	got, err := AddCGEGames(ctx, pool, []cgegames.Game{early, same})
+	if err != nil {
+		t.Fatalf("AddCGEGames: %v", err)
+	}
+	// Before our last game of the season, or with the same players as one of ours: either may be ours under other scores.
+	if got.Added != 0 || len(got.Conflicts) != 2 {
+		t.Errorf("AddCGEGames = %+v, want both reported, none added", got)
+	}
+}
+
+func TestAddCGEGamesAddsALaterGameOfASeasonWeHold(t *testing.T) {
+	pool := migrated(t)
+	ourGame(t, pool, 2, "International S16", "2021-12-20", matchcsv.Player{Name: "ann", Score: 100}, matchcsv.Player{Name: "bob", Score: 90})
+	later := cgeGame("2022-01-10", played("cat", 100, 3), played("dan", 90, 4))
+	later.Season, later.Name = "16", "International S16 - Bronze 1 game 2"
+
+	got, err := AddCGEGames(context.Background(), pool, []cgegames.Game{later})
+	if err != nil {
+		t.Fatalf("AddCGEGames: %v", err)
+	}
+	if got.Added != 1 {
+		t.Errorf("AddCGEGames = %+v, want the later game added", got)
+	}
+}
+
+func TestAddCGEGamesAgainAddsNothingMore(t *testing.T) {
+	pool := migrated(t)
+	ctx := context.Background()
+	catalogued(t, pool)
+	never := newCGE("Gold 1", 2, "", timedOut("ann", 1), timedOut("bob", 2))
+	never.Unplayed, never.Finished = true, nil
+	games := []cgegames.Game{newCGE("Gold 1", 1, "2026-09-10", played("ann", 100, 1), played("bob", 90, 2)), never}
+	for range 2 {
+		if _, err := AddCGEGames(ctx, pool, games); err != nil {
+			t.Fatalf("AddCGEGames: %v", err)
+		}
+	}
+	if n := count(t, pool, "matches"); n != 2 {
+		t.Errorf("matches after adding twice = %d, want 2", n)
+	}
+}
+
+func TestAddCGEGamesNeverAddsAGameWithoutASettledPlace(t *testing.T) {
+	pool := migrated(t)
+	g := newCGE("Gold 1", 1, "2026-09-10", played("ann", 100, 1), played("bob", 90, 2))
+	g.Name, g.Season = "", ""
+
+	got, err := AddCGEGames(context.Background(), pool, []cgegames.Game{g})
+	if err != nil {
+		t.Fatalf("AddCGEGames: %v", err)
+	}
+	if got.Added != 0 || got.Unsettled != 1 || count(t, pool, "matches") != 0 {
+		t.Errorf("AddCGEGames = %+v, want it counted unsettled and not added", got)
+	}
+}
+
+func TestAddCGEGamesRefusesATournamentTheCatalogueLacks(t *testing.T) {
+	pool := migrated(t)
+	g := newCGE("Gold 1", 1, "2026-09-10", played("ann", 100, 1), played("bob", 90, 2))
+	g.Tournament = "snail_cup"
+
+	if _, err := AddCGEGames(context.Background(), pool, []cgegames.Game{g}); err == nil || !strings.Contains(err.Error(), "snail_cup") {
+		t.Errorf("AddCGEGames(unknown tournament) = %v, want an error naming snail_cup", err)
+	}
+}

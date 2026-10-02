@@ -197,3 +197,24 @@ func TestCatalogueShowsAnUnratedTournamentOnlyWhenMadeVisible(t *testing.T) {
 		t.Errorf("CatalogueTournament(visible wimbledon): %v", err)
 	}
 }
+
+func TestCatalogueCountsOnlyPlayedGames(t *testing.T) {
+	pool := migrated(t)
+	ctx := context.Background()
+	run := publishedRun(t, pool)
+	placedOn(t, pool, map[string]time.Time{
+		"Intermezzo S24 - Bronze 1 game 1": day("2024-01-02"),
+		"Intermezzo S24 - Bronze 1 game 2": day("2024-01-09"),
+	})
+	if _, err := pool.Exec(ctx, "UPDATE matches SET state = 'never_played' WHERE tournament = 'Intermezzo S24 - Bronze 1 game 2'"); err != nil {
+		t.Fatalf("marking a game never played: %v", err)
+	}
+
+	view, err := NewRatingsReader(asReader(t, pool)).Catalogue(ctx, run)
+	if err != nil {
+		t.Fatalf("Catalogue: %v", err)
+	}
+	if got := view.Tournaments[0].Span; got.Games != 1 || got.Players != 2 || !got.Last.Equal(day("2024-01-02")) {
+		t.Errorf("intermezzo = %+v, want 1 game (the never-played one not counted), last on 2024-01-02", got)
+	}
+}
