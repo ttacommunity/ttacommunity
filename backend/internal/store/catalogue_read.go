@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"regexp"
 	"time"
 
 	"github.com/jackc/pgx/v5"
@@ -72,6 +73,9 @@ type CatalogueSeason struct {
 	Podium []PodiumPlace
 	CGE    []CGELink
 }
+
+// leadingNumber is the number a season label starts with.
+var leadingNumber = regexp.MustCompile(`^\d+`)
 
 // leagueTops names the division whose standings give a league season's podium.
 var leagueTops = map[string][]string{
@@ -235,8 +239,15 @@ func (r *RatingsReader) CatalogueTournament(ctx context.Context, run int64, slug
 	if err != nil {
 		return fail("league podiums", err)
 	}
+	// A league's seasons are numbered; a labelled one ("2022 (Age A)") is found by its number.
+	byNumber := make(map[string]int, len(got.Seasons))
+	for i, s := range got.Seasons {
+		if n := leadingNumber.FindString(s.Label); n != "" {
+			byNumber[n] = i
+		}
+	}
 	_, err = pgx.ForEachRow(rows, []any{&label, &p.Place, &p.Name, &p.Source}, func() error {
-		if i, ok := byLabel[label]; ok && !cupPodium[i] {
+		if i, ok := byNumber[label]; ok && !cupPodium[i] {
 			p.Final, p.Finished = "", got.Seasons[i].Span.Last
 			got.Seasons[i].Podium = append(got.Seasons[i].Podium, p)
 		}

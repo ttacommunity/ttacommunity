@@ -287,3 +287,23 @@ func TestCatalogueTournamentLinksEachSeasonToCGE(t *testing.T) {
 		}
 	}
 }
+
+func TestCatalogueTournamentFindsAPlacementForALabelledSeason(t *testing.T) {
+	pool := migrated(t)
+	ctx := context.Background()
+	run := publishedRun(t, pool)
+	placedOn(t, pool, map[string]time.Time{"Worlds 1 stage 8": day("2022-07-28")})
+	if _, err := pool.Exec(ctx, `INSERT INTO tournament_official_placements (series, season, division, player_name, place, points, reason, source)
+		VALUES ('worlds', 2022, 'Final', 'Ender_Wiggin', 1, NULL, 'CGE final standings', 'CGE /tournaments/detail/3391/8')`); err != nil {
+		t.Fatalf("adding a placement: %v", err)
+	}
+
+	got, err := NewRatingsReader(asReader(t, pool)).CatalogueTournament(ctx, run, "worlds")
+	if err != nil {
+		t.Fatalf("CatalogueTournament: %v", err)
+	}
+	want := []PodiumPlace{{Place: 1, Name: "Ender_Wiggin", Finished: day("2022-07-28"), Source: "CGE /tournaments/detail/3391/8"}}
+	if s := got.Seasons[0]; s.Label != "2022 (Age A)" || !reflect.DeepEqual(s.Podium, want) {
+		t.Errorf("season %q podium = %+v, want %+v", s.Label, s.Podium, want)
+	}
+}
