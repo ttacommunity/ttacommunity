@@ -115,10 +115,11 @@ export interface paths {
         };
         /**
          * Each player's rating at a past date, for rating changes over time
-         * @description Each player's rating at the end of the latest rating period on or
-         *     before `at`. Without `at`, the run's previous period, the one before
-         *     its last. A player with no rating by then is left out. Cached for five
-         *     minutes.
+         * @description The snapshot of the latest rating period on or before `at` (the first
+         *     period when `at` is earlier), as the original site compares against:
+         *     the players in that snapshot, each with their rating then. Without
+         *     `at`, the run's previous period, the one before its last. The answer's
+         *     date is the snapshot's. Cached for five minutes.
          */
         get: operations["getHistory"];
         put?: never;

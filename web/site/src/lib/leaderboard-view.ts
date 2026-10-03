@@ -285,17 +285,33 @@ export function titleOptions(rows: readonly LeaderboardRow[]): TitleCode[] {
   return TITLES.filter((t) => held.has(t));
 }
 
-export type Delta = { c_rating: number; rating: number };
+/** Delta is a player's change over the chosen window, and their rank then (null without a past rating). */
+export type Delta = { c_rating: number; rating: number; pastRank: number | null };
 
-/** deltas returns each row's rating and C-rating now minus in the past; 0 for a player with no past rating. */
+/**
+ * deltas returns each row's rating and C-rating now minus in the past (0 for a player with no past rating), and their
+ * past rank among everyone then by C-rating, as upstream ranks its history (ties by name).
+ */
 export function deltas(rows: readonly LeaderboardRow[], past: History['players']): Map<string, Delta> {
   const then = new Map(past.map((h) => [h.name, h]));
+  const ranked = [...past].sort((a, b) => b.c_rating - a.c_rating || a.name.localeCompare(b.name));
+  const pastRank = new Map(ranked.map((h, i) => [h.name, i + 1]));
   return new Map(
     rows.map((p) => {
       const h = then.get(p.name);
-      return [p.name, h ? { c_rating: p.c_rating - h.c_rating, rating: p.rating - h.rating } : { c_rating: 0, rating: 0 }];
+      return [
+        p.name,
+        h
+          ? { c_rating: p.c_rating - h.c_rating, rating: p.rating - h.rating, pastRank: pastRank.get(p.name) ?? null }
+          : { c_rating: 0, rating: 0, pastRank: null },
+      ];
     }),
   );
+}
+
+/** rankChange is how many places a player rose since the window's start (past rank minus the rank shown), or 0. */
+export function rankChange(d: Delta | undefined, shownRank: number | null): number {
+  return d?.pastRank == null || shownRank === null ? 0 : d.pastRank - shownRank;
 }
 
 /**
@@ -348,12 +364,17 @@ export function yearRows(board: YearLeaderboard, stats: StatsView): { rows: Lead
   return { rows, played: new Set(board.players.filter((p) => p.season.opponents > 0).map((p) => p.name)) };
 }
 
-/** yearDeltas returns each player's change since the previous year's end; 0 for a player without a rating then. */
+/** yearDeltas returns each player's change since the previous year's end, and their rank then among the board's players; 0 without a rating then. */
 export function yearDeltas(board: YearLeaderboard): Map<string, Delta> {
+  const before = board.players.flatMap((p) => (p.previous ? [{ name: p.name, c_rating: p.previous.c_rating }] : []));
+  before.sort((a, b) => b.c_rating - a.c_rating || a.name.localeCompare(b.name));
+  const pastRank = new Map(before.map((h, i) => [h.name, i + 1]));
   return new Map(
     board.players.map((p) => [
       p.name,
-      p.previous ? { c_rating: p.c_rating - p.previous.c_rating, rating: p.rating - p.previous.rating } : { c_rating: 0, rating: 0 },
+      p.previous
+        ? { c_rating: p.c_rating - p.previous.c_rating, rating: p.rating - p.previous.rating, pastRank: pastRank.get(p.name) ?? null }
+        : { c_rating: 0, rating: 0, pastRank: null },
     ]),
   );
 }

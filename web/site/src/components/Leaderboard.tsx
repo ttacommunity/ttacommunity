@@ -24,6 +24,7 @@ import {
   csvUrl,
   defaultMinOpps,
   deltas,
+  rankChange,
   hasFilters,
   hasOptions,
   modelOf,
@@ -447,6 +448,17 @@ function Change({ value, what }: { value: number | undefined; what: string }) {
   );
 }
 
+/** RankChange shows how many places a player moved over the chosen window beside their rank, as upstream's badge. */
+function RankChange({ delta, rank }: { delta: Delta | undefined; rank: number | null }) {
+  const n = rankChange(delta, rank);
+  if (n === 0) return null;
+  return (
+    <span className={`delta-badge ${n > 0 ? 'delta-pos' : 'delta-neg'}`} data-tooltip="Rank change over selected timeframe">
+      {n > 0 ? `↑+${n}` : `↓${n}`}
+    </span>
+  );
+}
+
 /** The table of one page of players, with sortable headers and the searched player highlighted. */
 function Table({ view, rows, jumpTo, changes, linkTo, caption }: TableProps) {
   const jumped = useRef<HTMLTableRowElement>(null);
@@ -479,6 +491,7 @@ function Table({ view, rows, jumpTo, changes, linkTo, caption }: TableProps) {
             <tr key={p.name} ref={p.name === jumpTo ? jumped : undefined} className={p.name === jumpTo ? 'jump-highlight' : undefined}>
               <td className={show.isTopThree(p.displayRank) ? 'col-sticky-rank rank-col top-3-rank' : 'col-sticky-rank rank-col'}>
                 {show.rank(p.displayRank)}
+                {changes !== null && <RankChange delta={changes.get(p.name)} rank={p.displayRank} />}
               </td>
               <td>
                 <Flag country={p.country} />

@@ -21,8 +21,7 @@ import {
   viewParams,
   yearDeltas,
   yearRows,
-  type View,
-} from './leaderboard-view';
+  type View, rankChange } from './leaderboard-view';
 
 function row(name: string, c_rating: number, opponents = 40, last_played: string | null = '2026-01-01', extra: Partial<LeaderboardRow> = {}): LeaderboardRow {
   return {
@@ -247,8 +246,29 @@ describe('titleOptions', () => {
 describe('deltas', () => {
   it('is each shown player now minus their past rating, and 0 without history', () => {
     const got = deltas([row('ann', 1600), row('bob', 1500)], [{ name: 'ann', rating: 1650, rd: 30, c_rating: 1550 }]);
-    expect(got.get('ann')).toEqual({ c_rating: 50, rating: 50 });
-    expect(got.get('bob')).toEqual({ c_rating: 0, rating: 0 });
+    expect(got.get('ann')).toEqual({ c_rating: 50, rating: 50, pastRank: 1 });
+    expect(got.get('bob')).toEqual({ c_rating: 0, rating: 0, pastRank: null });
+  });
+
+  it("gives each player's past rank among everyone then, by conservative rating, as upstream", () => {
+    const past = [
+      { name: 'cat', rating: 1900, rd: 30, c_rating: 1800 },
+      { name: 'ann', rating: 1700, rd: 30, c_rating: 1600 },
+      { name: 'zed', rating: 1700, rd: 30, c_rating: 1600 },
+      { name: 'bob', rating: 1800, rd: 30, c_rating: 1700 },
+    ];
+    const got = deltas([row('ann', 1600), row('bob', 1500), row('zed', 1400)], past);
+    expect([got.get('bob')?.pastRank, got.get('ann')?.pastRank, got.get('zed')?.pastRank]).toEqual([2, 3, 4]);
+  });
+});
+
+describe('rankChange', () => {
+  it('is the past rank minus the rank shown, or 0 when either is missing', () => {
+    expect(rankChange({ c_rating: 0, rating: 0, pastRank: 9 }, 4)).toBe(5);
+    expect(rankChange({ c_rating: 0, rating: 0, pastRank: 2 }, 6)).toBe(-4);
+    expect(rankChange({ c_rating: 0, rating: 0, pastRank: null }, 6)).toBe(0);
+    expect(rankChange(undefined, 6)).toBe(0);
+    expect(rankChange({ c_rating: 0, rating: 0, pastRank: 3 }, null)).toBe(0);
   });
 });
 
@@ -336,8 +356,8 @@ describe('year view', () => {
 
   it("compares with the previous year's end, 0 for a player without one", () => {
     const got = yearDeltas(board);
-    expect(got.get('ann')).toEqual({ c_rating: 100, rating: 100 });
-    expect(got.get('bob')).toEqual({ c_rating: 0, rating: 0 });
+    expect(got.get('ann')).toEqual({ c_rating: 100, rating: 100, pastRank: 1 });
+    expect(got.get('bob')).toEqual({ c_rating: 0, rating: 0, pastRank: null });
   });
 });
 

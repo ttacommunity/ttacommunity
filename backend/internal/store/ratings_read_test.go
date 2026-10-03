@@ -328,12 +328,13 @@ func day(s string) time.Time {
 	return d
 }
 
-func TestHistoryGivesEachPlayersLatestRatingOnOrBeforeADate(t *testing.T) {
+func TestHistoryGivesTheSnapshotOnOrBeforeADateAsUpstream(t *testing.T) {
 	pool := migrated(t)
 	r := NewRatingsReader(asReader(t, pool))
 	ctx := context.Background()
 	run := addRun(t, pool, "complete", time.Date(2026, 9, 27, 4, 0, 0, 0, time.UTC))
 	addHistory(t, pool, run, "glicko2_daneo", 0, "ann", "2026-03-31", 1500)
+	addHistory(t, pool, run, "glicko2_daneo", 0, "cat", "2026-03-31", 1450)
 	addHistory(t, pool, run, "glicko2_daneo", 0, "ann", "2026-04-30", 1600)
 	addHistory(t, pool, run, "glicko2_daneo", 0, "ann", "2026-05-31", 1700)
 	addHistory(t, pool, run, "glicko2_daneo", 0, "bob", "2026-05-31", 1400)
@@ -345,12 +346,15 @@ func TestHistoryGivesEachPlayersLatestRatingOnOrBeforeADate(t *testing.T) {
 	if err != nil {
 		t.Fatalf("History: %v", err)
 	}
-	if !gotAt.Equal(at) {
-		t.Errorf("at = %v, want %v", gotAt, at)
-	}
 	want := []HistoryRow{{Name: "ann", Rating: 1690, RD: 30, CRating: 1600}}
-	if !slices.Equal(rows, want) {
-		t.Errorf("History = %+v, want %+v (bob had no rating yet)", rows, want)
+	if !gotAt.Equal(day("2026-04-30")) || !slices.Equal(rows, want) {
+		t.Errorf("History = %v %+v, want the 2026-04-30 snapshot %+v (cat is not in it, bob had no rating yet)", gotAt, rows, want)
+	}
+
+	early := day("2025-01-01")
+	gotAt, rows, err = r.History(ctx, run, "glicko2_daneo", 0, &early)
+	if err != nil || !gotAt.Equal(day("2026-03-31")) || len(rows) != 2 {
+		t.Errorf("History before any snapshot = %v %+v %v, want the first, 2026-03-31, with ann and cat", gotAt, rows, err)
 	}
 }
 

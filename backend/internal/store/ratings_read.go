@@ -178,17 +178,26 @@ func (r *RatingsReader) Leaderboard(ctx context.Context, run int64, model string
 	return board, nil
 }
 
-// History returns each player's rating at the end of the latest period on or
-// before at, for a published run, model and format, and the date it used.
-// Without at, it uses the run's previous period, the one before its last.
-// Players with no rating by then are left out.
+// History returns the snapshot of the latest period on or before at (the first
+// period when at is earlier), for a published run, model and format, and its date.
+// Without at, it uses the run's previous period, the one before its last. Only the
+// players in that snapshot are in it.
 func (r *RatingsReader) History(ctx context.Context, run int64, model string, format int, at *time.Time) (time.Time, []HistoryRow, error) {
 	if err := r.requirePublished(ctx, run); err != nil {
 		return time.Time{}, nil, err
 	}
 	var on time.Time
 	if at != nil {
-		on = *at
+		// The snapshot on or before the date, else the first one, as upstream picks it (7cd7220).
+		err := r.pool.QueryRow(ctx, `
+			SELECT coalesce(max(period_date) FILTER (WHERE period_date <= $4), min(period_date))
+			FROM rating_history WHERE run_id = $1 AND model_type = $2 AND player_count = $3`, run, model, format, *at).Scan(&on)
+		if errors.Is(err, pgx.ErrNoRows) || (err == nil && on.IsZero()) {
+			return time.Time{}, nil, ErrNoHistory
+		}
+		if err != nil {
+			return time.Time{}, nil, fmt.Errorf("finding run %d's snapshot for %s: %w", run, at.Format(time.DateOnly), err)
+		}
 	} else {
 		err := r.pool.QueryRow(ctx, `
 			SELECT period_date FROM (
@@ -205,10 +214,10 @@ func (r *RatingsReader) History(ctx context.Context, run int64, model string, fo
 	}
 
 	rows, err := r.pool.Query(ctx, `
-		SELECT DISTINCT ON (player_name) player_name, rating, rd, c_rating
+		SELECT player_name, rating, rd, c_rating
 		FROM rating_history
-		WHERE run_id = $1 AND model_type = $2 AND player_count = $3 AND period_date <= $4
-		ORDER BY player_name, period_date DESC`, run, model, format, on)
+		WHERE run_id = $1 AND model_type = $2 AND player_count = $3 AND period_date = $4
+		ORDER BY player_name`, run, model, format, on)
 	if err != nil {
 		return time.Time{}, nil, fmt.Errorf("reading run %d's %s history: %w", run, model, err)
 	}
