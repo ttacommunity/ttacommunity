@@ -9,6 +9,7 @@ import {
   type Catalogue,
   type CatalogueSeason,
   type CatalogueTournament,
+  type EditionRules,
   type LadderWin,
   type TournamentSeries,
 } from '@ttac/shared/ratings';
@@ -205,6 +206,7 @@ function TournamentDetail({ apiUrl, slug }: { apiUrl: string; slug: string }) {
       {t.ladder && <LadderWinners wins={t.top_tier_wins} />}
       <Champions seasons={t.seasons} podium={!t.ladder} onPick={(season) => setPick((p) => ({ season, n: p.n + 1 }))} />
       {content !== undefined && <SeriesSections content={content} data={series.data} waiting={series.waiting || 'Loading…'} />}
+      {content === undefined && t.rules.length > 0 && <Rules editions={t.rules} />}
       {staged.map((s) => (
         <Stages key={s.label} season={s} />
       ))}
@@ -320,6 +322,34 @@ function Champions({ seasons, podium, onPick }: { seasons: CatalogueSeason[]; po
       {podium && (
         <p className="records-intro champions-note">A league's podium is its top division; a cup's is its final. A dash means we have not recorded it yet.</p>
       )}
+    </div>
+  );
+}
+
+/** Rules shows the newest edition's description from CGE, usually its organiser's format and rules, and the earlier ones folded. */
+function Rules({ editions }: { editions: EditionRules[] }) {
+  const [latest, ...earlier] = editions;
+  return (
+    <div className="panel-card rules-panel">
+      <h2 className="panel-header panel-header-split">
+        <span className="panel-header-title">
+          <span>📜</span> Format &amp; Regulations
+        </span>
+        <a href={latest.url} target="_blank" rel="noopener noreferrer" className="cge-link">
+          {latest.name} on CGE ↗
+        </a>
+      </h2>
+      <p className="rules-text">{latest.description}</p>
+      {earlier.map((e) => (
+        <details key={e.cge_tournament} className="rules-earlier">
+          <summary>{e.name}</summary>
+          <p className="rules-text">{e.description}</p>
+          <a href={e.url} target="_blank" rel="noopener noreferrer" className="cge-link">
+            {e.name} on CGE ↗
+          </a>
+        </details>
+      ))}
+      <p className="records-intro champions-note">As each edition's page on CGE describes it.</p>
     </div>
   );
 }

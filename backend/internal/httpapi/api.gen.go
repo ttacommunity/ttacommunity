@@ -661,7 +661,10 @@ type CatalogueTournament struct {
 
 	// Players Everyone who played a shown game of the tournament, by name, for a search box
 	Players []string `json:"players"`
-	RunId   int64    `json:"run_id"`
+
+	// Rules Each CGE edition's description, usually its organiser's format and rules, newest first; plain text
+	Rules []EditionRules `json:"rules"`
+	RunId int64          `json:"run_id"`
 
 	// Seasons In order of their first game
 	Seasons []CatalogueSeason `json:"seasons"`
@@ -767,6 +770,14 @@ type Distribution struct {
 	Format Format   `json:"format"`
 	Labels []string `json:"labels"`
 	RunId  int64    `json:"run_id"`
+}
+
+// EditionRules defines model for EditionRules.
+type EditionRules struct {
+	CgeTournament int    `json:"cge_tournament"`
+	Description   string `json:"description"`
+	Name          string `json:"name"`
+	Url           string `json:"url"`
 }
 
 // EngineDistribution defines model for EngineDistribution.

@@ -70,6 +70,13 @@ func (s *server) GetCatalogueTournament(ctx context.Context, req GetCatalogueTou
 		RunId: req.Run, Slug: t.Slug, Name: t.Name, Seasons: make([]CatalogueSeason, 0, len(t.Seasons)),
 		Ladder: t.Ladder, TopTierWins: make([]LadderWin, 0, len(t.TopTierWins)), Players: append([]string{}, t.Players...),
 	}
+	body.Rules = make([]EditionRules, 0, len(t.Rules))
+	for _, e := range t.Rules {
+		body.Rules = append(body.Rules, EditionRules{
+			CgeTournament: e.CGETournament, Name: e.Name, Description: e.Description,
+			Url: fmt.Sprintf("%s/tournaments/detail/%d", cgeSite, e.CGETournament),
+		})
+	}
 	for _, w := range t.TopTierWins {
 		body.TopTierWins = append(body.TopTierWins, LadderWin{Name: w.Name, Wins: w.Wins, Source: w.Source})
 	}

@@ -105,6 +105,15 @@ type CatalogueTournament struct {
 	Ladder      bool
 	TopTierWins []LadderWin
 	Players     []string
+	Rules       []EditionRules
+}
+
+// EditionRules is one CGE tournament's description of a tournament edition
+// (or a league's whole run): usually its organiser's format and rules.
+type EditionRules struct {
+	CGETournament int
+	Name          string
+	Description   string
 }
 
 // placedSeats is every placed game's seats, one row per player, with its
@@ -327,6 +336,17 @@ func (r *RatingsReader) CatalogueTournament(ctx context.Context, run int64, slug
 	}
 	if got.TopTierWins, err = pgx.CollectRows(rows, pgx.RowToStructByPos[LadderWin]); err != nil {
 		return fail("top-tier wins", err)
+	}
+
+	rows, err = r.pool.Query(ctx, `
+		SELECT c.cge_tournament, c.name, c.description FROM cge_tournaments c JOIN tournaments t USING (tournament_id)
+		WHERE t.slug = $1 AND c.description <> ''
+		ORDER BY coalesce(c.started, c.created, c.finished) DESC NULLS LAST, c.cge_tournament DESC`, slug)
+	if err != nil {
+		return fail("rules", err)
+	}
+	if got.Rules, err = pgx.CollectRows(rows, pgx.RowToStructByPos[EditionRules]); err != nil {
+		return fail("rules", err)
 	}
 
 	// Every player of the shown tournament, for a search box's suggestions.

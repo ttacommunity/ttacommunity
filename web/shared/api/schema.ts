@@ -1301,6 +1301,8 @@ export interface components {
         CatalogueTournament: {
             /** @description A ladder's champions are counted as top-tier wins, not season podiums */
             ladder: boolean;
+            /** @description Each CGE edition's description, usually its organiser's format and rules, newest first; plain text */
+            rules: components["schemas"]["EditionRules"][];
             /** @description Everyone who played a shown game of the tournament, by name, for a search box */
             players: string[];
             /** @description A ladder's players by their wins in its top tier, most first, as its organisers count them (half a win for a tie) */
@@ -1311,6 +1313,12 @@ export interface components {
             name: string;
             /** @description In order of their first game */
             seasons: components["schemas"]["CatalogueSeason"][];
+        };
+        EditionRules: {
+            cge_tournament: number;
+            name: string;
+            url: string;
+            description: string;
         };
         LadderWin: {
             name: string;

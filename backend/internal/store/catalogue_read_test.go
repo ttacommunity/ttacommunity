@@ -96,7 +96,7 @@ func TestCatalogueTournamentGivesSeasonsInOrderWithStagesAndPodium(t *testing.T)
 		{Label: "2024", Span: GameSpan{Games: 2, Players: 3, First: day("2024-07-01"), Last: day("2025-02-24")},
 			Stages: []CatalogueStage{stage("Stage 1", day("2024-07-01")), stage("Stage 7", day("2025-02-24"))},
 			Podium: []PodiumPlace{{Place: 1, Name: "ann", Final: "", Finished: day("2025-02-24"), Source: "CGE"}}, CGE: []CGELink{}},
-	}, TopTierWins: []LadderWin{}, Players: []string{"ann", "bob2", "bob3", "bob4"}}
+	}, TopTierWins: []LadderWin{}, Players: []string{"ann", "bob2", "bob3", "bob4"}, Rules: []EditionRules{}}
 	if !reflect.DeepEqual(got, want) {
 		t.Errorf("CatalogueTournament = %+v, want %+v", got, want)
 	}
@@ -441,5 +441,32 @@ func TestCatalogueTournamentKeepsAPlayOffApartFromItsYear(t *testing.T) {
 	}
 	if got.Seasons[1].Note != notes[0].Note || got.Seasons[0].Note != "" {
 		t.Errorf("notes = %q and %q, want the play-off's only", got.Seasons[0].Note, got.Seasons[1].Note)
+	}
+}
+
+func TestCatalogueTournamentGivesEachEditionsRulesFromCGE(t *testing.T) {
+	pool := migrated(t)
+	ctx := context.Background()
+	run := publishedRun(t, pool)
+	placedOn(t, pool, map[string]time.Time{"Wimbledon 2024 Stage 1 - group 1 game 1": day("2024-07-01")})
+	started := func(s string) *time.Time { d := day(s); return &d }
+	if _, err := ReplaceCGETournaments(ctx, pool, []tournamentcsv.CGETournament{
+		{ID: 4369, Name: "Wimbledon 2023", Status: "finished", Started: started("2023-07-01"), Description: "The first Wimbledon.", Tournament: "wimbledon", Season: "2023"},
+		{ID: 4991, Name: "Wimbledon 2024", Status: "finished", Started: started("2024-07-01"), Description: "The second edition.", Tournament: "wimbledon", Season: "2024"},
+		{ID: 9999, Name: "Wimbledon 2027", Status: "upcoming", Description: "", Tournament: "wimbledon", Season: "2027"},
+	}); err != nil {
+		t.Fatalf("ReplaceCGETournaments: %v", err)
+	}
+	got, err := NewRatingsReader(asReader(t, pool)).CatalogueTournament(ctx, run, "wimbledon")
+	if err != nil {
+		t.Fatalf("CatalogueTournament: %v", err)
+	}
+	// Newest edition first; one without a description has no rules to show.
+	want := []EditionRules{
+		{CGETournament: 4991, Name: "Wimbledon 2024", Description: "The second edition."},
+		{CGETournament: 4369, Name: "Wimbledon 2023", Description: "The first Wimbledon."},
+	}
+	if !reflect.DeepEqual(got.Rules, want) {
+		t.Errorf("rules = %+v, want %+v", got.Rules, want)
 	}
 }
