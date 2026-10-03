@@ -42,7 +42,7 @@ spec:
           type: RuntimeDefault
       containers:
         - name: api
-          image: registry.gitlab.com/unstablehomelab/ttacommunity/api:sha-ba4ea5cd@sha256:04c66c1330294b898fdee2883a0341ca1a2f6391d7475ae086d1ad94a083064a
+          image: registry.gitlab.com/unstablehomelab/ttacommunity/api:sha-6796858c@sha256:1c6802b9cd11e9679388d60c9ec178f2b20186ba5d650f63a04e27eb0337de41
           ports:
             - name: http
               containerPort: 8080
