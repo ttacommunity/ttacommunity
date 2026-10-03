@@ -41,6 +41,7 @@ func (e CalibrationRowMode) Valid() bool {
 const (
 	NeverPlayed CatalogueGameState = "never_played"
 	Played      CatalogueGameState = "played"
+	Unconfirmed CatalogueGameState = "unconfirmed"
 )
 
 // Valid indicates whether the value is a known member of the CatalogueGameState enum.
@@ -49,6 +50,8 @@ func (e CatalogueGameState) Valid() bool {
 	case NeverPlayed:
 		return true
 	case Played:
+		return true
+	case Unconfirmed:
 		return true
 	default:
 		return false
@@ -595,11 +598,13 @@ type CatalogueGame struct {
 	Seats []GameSeat `json:"seats"`
 
 	// Stage "" for a season's only or main stage
-	Stage string             `json:"stage"`
+	Stage string `json:"stage"`
+
+	// State A never-played game had no player; an unconfirmed one has a result in doubt. Neither is rated
 	State CatalogueGameState `json:"state"`
 }
 
-// CatalogueGameState defines model for CatalogueGame.State.
+// CatalogueGameState A never-played game had no player; an unconfirmed one has a result in doubt. Neither is rated
 type CatalogueGameState string
 
 // CatalogueGames defines model for CatalogueGames.

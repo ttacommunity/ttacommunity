@@ -222,3 +222,32 @@ func TestCatalogueGamesNarrowsToAPlayer(t *testing.T) {
 		}
 	}
 }
+
+func TestAnUnconfirmedGameIsListedButNotCounted(t *testing.T) {
+	pool := migrated(t)
+	ctx := context.Background()
+	run := publishedRun(t, pool)
+	placedOn(t, pool, map[string]time.Time{
+		"Intermezzo S24 - Bronze 1 game 1": day("2024-01-02"),
+		"Intermezzo S24 - Bronze 1 game 2": day("2024-01-09"),
+	})
+	if _, err := pool.Exec(ctx, "UPDATE matches SET state = 'unconfirmed' WHERE tournament = 'Intermezzo S24 - Bronze 1 game 2'"); err != nil {
+		t.Fatalf("marking a game unconfirmed: %v", err)
+	}
+	r := NewRatingsReader(asReader(t, pool))
+
+	games, err := r.CatalogueGames(ctx, run, "intermezzo", CatalogueGamesFilter{})
+	if err != nil {
+		t.Fatalf("CatalogueGames: %v", err)
+	}
+	if len(games.Games) != 2 || games.Games[0].State != "unconfirmed" {
+		t.Errorf("games = %+v, want both, the newest unconfirmed", games.Games)
+	}
+	view, err := r.Catalogue(ctx, run)
+	if err != nil {
+		t.Fatalf("Catalogue: %v", err)
+	}
+	if got := view.Tournaments[0].Span.Games; got != 1 {
+		t.Errorf("intermezzo counts %d games, want 1: an unconfirmed game is not counted", got)
+	}
+}

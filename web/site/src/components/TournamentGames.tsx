@@ -2,7 +2,7 @@
 import { useEffect, useId, useRef, useState } from 'react';
 import { catalogueGames, type CatalogueGames, type CatalogueSeason, type GamesFilter } from '@ttac/shared/ratings';
 import { playerHref } from '../lib/player-view';
-import { gameWhere, outcomeNote, seasonName, stageName } from '../lib/catalogue-view';
+import { gameStateLabel, gameWhere, outcomeNote, seasonName, stageName } from '../lib/catalogue-view';
 import { suggest } from '../lib/leaderboard-view';
 
 type Load = { kind: 'loading' } | { kind: 'error'; message: string } | { kind: 'ready'; data: CatalogueGames };
@@ -143,12 +143,12 @@ export default function TournamentGames({
               </tr>
             )}
             {data?.games.map((g) => (
-              <tr key={g.match_id} className={g.state === 'never_played' ? 'game-never-played' : undefined}>
+              <tr key={g.match_id} className={g.state !== 'played' ? 'game-never-played' : undefined}>
                 <td className="cell-date">{g.date}</td>
                 <td className="cell-muted">{seasonName(g.season)}</td>
                 <td>
                   {gameWhere(g)}
-                  {g.state === 'never_played' && <span className="panel-tag game-state">Never played</span>}
+                  {gameStateLabel(g.state) !== '' && <span className="panel-tag game-state">{gameStateLabel(g.state)}</span>}
                 </td>
                 <td>
                   <div className="game-seats">

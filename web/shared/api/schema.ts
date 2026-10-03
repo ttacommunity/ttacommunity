@@ -1342,8 +1342,11 @@ export interface components {
             group: string;
             /** @description The game's number in its group, or null when its name gives none */
             game: number | null;
-            /** @enum {string} */
-            state: "played" | "never_played";
+            /**
+             * @description A never-played game had no player; an unconfirmed one has a result in doubt. Neither is rated
+             * @enum {string}
+             */
+            state: "played" | "never_played" | "unconfirmed";
             replay_code: string | null;
             /** @description Highest score first */
             seats: components["schemas"]["GameSeat"][];
@@ -2314,7 +2317,7 @@ export const calibrationRowModeValues: ReadonlyArray<FlattenedDeepRequired<compo
 export const tournamentRecordMedalValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["TournamentRecord"]["medal"]> = ["gold", "silver", "bronze"];
 export const communityEditionValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["CommunityEdition"]> = ["2026", "2025", "2024", "race26"];
 export const communityRowTitleValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["CommunityRow"]["title"]> = ["WC", "SGM", "GM", "M", "P", "G", "S", "B", "W"];
-export const catalogueGameStateValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["CatalogueGame"]["state"]> = ["played", "never_played"];
+export const catalogueGameStateValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["CatalogueGame"]["state"]> = ["played", "never_played", "unconfirmed"];
 export const gameSeatOutcomeValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["GameSeat"]["outcome"]> = ["finished", "resigned", "timed_out"];
 export const seriesValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["Series"]> = ["international", "intermezzo", "royal_league", "worlds", "grand_slams", "ladders"];
 export const trophyRowTitleValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["TrophyRow"]["title"]> = ["WC", "GM", "M"];

@@ -78,3 +78,8 @@ export function entryRows(t: { first_game: string; last_game: string; seasons: n
     ['Players', n(t.players)],
   ];
 }
+
+/** gameStateLabel marks a game left out of the ratings: never played, or an unconfirmed result; "" for a played game. */
+export function gameStateLabel(state: string): string {
+  return state === 'never_played' ? 'Never played' : state === 'unconfirmed' ? 'Unconfirmed result, not rated' : '';
+}

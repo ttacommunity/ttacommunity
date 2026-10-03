@@ -2212,7 +2212,8 @@ components:
           nullable: true
         state:
           type: string
-          enum: [played, never_played]
+          description: A never-played game had no player; an unconfirmed one has a result in doubt. Neither is rated
+          enum: [played, never_played, unconfirmed]
         replay_code:
           type: string
           nullable: true

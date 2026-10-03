@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { catalogueHref, cgeYears, entryRows, gameWhere, outcomeNote, placeLabel, placeNames, seasonName, winsLabel, shownName, spanYears, stageName, tournamentParam } from './catalogue-view';
+import { catalogueHref, cgeYears, entryRows, gameStateLabel, gameWhere, outcomeNote, placeLabel, placeNames, seasonName, winsLabel, shownName, spanYears, stageName, tournamentParam } from './catalogue-view';
 
 describe('tournamentParam', () => {
   it('takes a slug from the address', () => {
@@ -117,5 +117,13 @@ describe('entryRows', () => {
       ['Recorded Database Matches', '26,352'],
       ['Players', '1,900'],
     ]);
+  });
+});
+
+describe('gameStateLabel', () => {
+  it('marks a game left out of the ratings', () => {
+    expect(gameStateLabel('played')).toBe('');
+    expect(gameStateLabel('never_played')).toBe('Never played');
+    expect(gameStateLabel('unconfirmed')).toBe('Unconfirmed result, not rated');
   });
 });
