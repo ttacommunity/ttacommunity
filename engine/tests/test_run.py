@@ -398,6 +398,7 @@ def test_every_run_table_is_copied_or_recomputed(conn):
     assert tables == set(runner.COPIED_TABLES) | set(runner.RECOMPUTED_TABLES) | {
         "rating_runs",
         "current_run",
+        "run_progress",
     }
 
 
@@ -601,3 +602,16 @@ def test_a_games_state_is_part_of_the_input(conn, add_match):
         the_run(conn, first)["input_fingerprint"]
         != the_run(conn, second)["input_fingerprint"]
     )
+
+
+def test_a_run_records_its_latest_progress_line_for_admin(conn, db_url, add_match):
+    season(add_match)
+    lines = []
+
+    run_id = run(conn, "v-test", formats=[2], log=lines.append, workers=2, url=db_url)
+
+    got = conn.execute(
+        "SELECT line FROM run_progress WHERE run_id = %s", (run_id,)
+    ).fetchone()["line"]
+    progress = [line for line in lines if line.startswith("[")]
+    assert got == progress[-1]

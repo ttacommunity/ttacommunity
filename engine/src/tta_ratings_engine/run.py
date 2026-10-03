@@ -11,6 +11,8 @@ import os
 import time
 from concurrent.futures import FIRST_EXCEPTION, ProcessPoolExecutor, wait
 
+import psycopg
+
 from tta_ratings_engine.data.badges import derive_tournament_badges
 from tta_ratings_engine.data.db import connect
 from tta_ratings_engine.data.pairwise import expand_pairwise
@@ -136,7 +138,7 @@ class SchemaOutOfDate(Exception):
 
 
 def check_schema(conn):
-    """Raises SchemaOutOfDate naming every table in RESULT_TABLES, and every RUN_STATS column, that does not exist."""
+    """Raises SchemaOutOfDate naming every table in RESULT_TABLES, and every RUN_STATS column, and run_progress, that does not exist."""
     missing = [
         t
         for t in RESULT_TABLES
@@ -145,6 +147,11 @@ def check_schema(conn):
     if not missing:
         have = set(_columns(conn, "rating_runs"))
         missing = [f"rating_runs.{c}" for c in RUN_STATS if c not in have]
+        if (
+            conn.execute("SELECT to_regclass('run_progress') AS t").fetchone()["t"]
+            is None
+        ):
+            missing.append("run_progress")
     if missing:
         raise SchemaOutOfDate(
             f"missing {', '.join(missing)}: apply the ratings migrations first"
@@ -266,6 +273,7 @@ def run(
             f"run {run_id}: engine {engine_version}, input {fingerprint}, tournaments only, ratings copied from run {source}"
         )
 
+    log, close_progress = _progress_to_run(log, run_id, url)
     try:
         if source is None and workers > 1:
             _compute_parallel(conn, run_id, formats, log, workers, url)
@@ -274,6 +282,7 @@ def run(
         else:
             _recompute_tournaments(conn, run_id, source, log)
     except BaseException:
+        close_progress()
         conn.rollback()
         with conn.transaction():
             _finish(conn, run_id, "failed")
@@ -285,8 +294,39 @@ def run(
         _finish(conn, run_id, "complete")
         if make_current:
             _publish(conn, run_id)
+    close_progress()
     log(f"run {run_id}: complete" + (", and now current" if make_current else ""))
     return run_id
+
+
+def _progress_to_run(log, run_id, url):
+    """Returns a log that also writes each progress line ("[done/total] ...") to run_progress, for admin to
+    show, on its own connection, and a function that closes it. Without a url it is log unchanged. A failed
+    write (a lock held over 2s, say) is logged once and the run goes on: the log still has every line.
+    """
+    if not url:
+        return log, lambda: None
+    progress_conn = connect(url)
+    progress_conn.execute("SET lock_timeout = '2s'")
+    failed = []
+
+    def record(line):
+        log(line)
+        if not line.startswith("[") or failed:
+            return
+        try:
+            progress_conn.execute(
+                "INSERT INTO run_progress (run_id, line) VALUES (%s, %s) "
+                "ON CONFLICT (run_id) DO UPDATE SET line = excluded.line, updated_at = now()",
+                (run_id, line),
+            )
+        except psycopg.Error as e:
+            failed.append(e)
+            log(
+                f"run {run_id}: progress is no longer recorded for admin ({type(e).__name__})"
+            )
+
+    return record, progress_conn.close
 
 
 def _compute(conn, run_id, formats, log):
