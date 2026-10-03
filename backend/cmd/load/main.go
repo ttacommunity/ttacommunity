@@ -37,8 +37,12 @@ func main() {
 	cgeGames := flag.String("cge-games", "", "attach CGE's facts (seats, CGE users, finish dates) from the CSV named to the games already loaded")
 	cgeNew := flag.String("cge-new", "", "with -cge-games: a CSV of replay codes (replay_code column first) checked by hand as new games, added even where they may look like copies")
 	facts := flag.String("facts", "", "replace every recorded tournament fact of one kind (divisions, placements, corrections, dates, honours, rules, podiums, cge_tournaments, cge_stages, ladder_wins, season_notes, community or community_scores) with the CSV file named")
+	export := flag.String("export", "", "write every input table to the directory named (new or empty), one CSV each, with a manifest")
+	restore := flag.String("restore", "", "load an export from the directory named into a new database, after applying the migrations")
 	flag.Usage = func() {
 		fmt.Fprintln(os.Stderr, "usage: load [-reset] <directory of match CSVs>")
+		fmt.Fprintln(os.Stderr, "       load -export <directory>")
+		fmt.Fprintln(os.Stderr, "       load -restore <directory>")
 		fmt.Fprintln(os.Stderr, "       load -migrate")
 		fmt.Fprintln(os.Stderr, "       load -classify")
 		fmt.Fprintln(os.Stderr, "       load -cge-games <CSV file> [-cge-new <CSV file>]")
@@ -48,7 +52,7 @@ func main() {
 		flag.PrintDefaults()
 	}
 	flag.Parse()
-	one := !*reset && btoi(*migrate)+btoi(*classify)+btoi(*cgeGames != "")+btoi(*countries)+btoi(*facts != "") == 1
+	one := !*reset && btoi(*migrate)+btoi(*classify)+btoi(*cgeGames != "")+btoi(*countries)+btoi(*facts != "")+btoi(*export != "")+btoi(*restore != "") == 1
 	var err error
 	switch {
 	case *migrate && one && flag.NArg() == 0:
@@ -64,7 +68,11 @@ func main() {
 		err = setCountries(flag.Args())
 	case *facts != "" && one && flag.NArg() == 1:
 		err = replaceFacts(*facts, flag.Arg(0))
-	case !*migrate && !*classify && *cgeGames == "" && !*countries && *facts == "" && flag.NArg() == 1:
+	case *export != "" && one && flag.NArg() == 0:
+		err = exportTo(*export)
+	case *restore != "" && one && flag.NArg() == 0:
+		err = restoreFrom(*restore)
+	case !*migrate && !*classify && *cgeGames == "" && !*countries && *facts == "" && *export == "" && *restore == "" && flag.NArg() == 1:
 		err = run(*reset, flag.Arg(0))
 	default:
 		flag.Usage()
@@ -94,6 +102,52 @@ func migrateOnly() error {
 	}
 	fmt.Println("ratings migrations applied")
 	return nil
+}
+
+// exportTo writes an export of the ratings database's inputs to dir and reports each table's rows.
+func exportTo(dir string) error {
+	return withPool(func(ctx context.Context, pool *pgxpool.Pool) error {
+		m, err := store.Export(ctx, pool, dir)
+		if err != nil {
+			return err
+		}
+		fmt.Printf("exported at schema version %d to %s:\n", m.SchemaVersion, dir)
+		for _, t := range m.Tables {
+			fmt.Printf("  %s: %d\n", t.Table, t.Rows)
+		}
+		return nil
+	})
+}
+
+// restoreFrom applies the migrations, then loads the export in dir into the
+// database, which must hold no inputs and no runs. Run the engine after it.
+func restoreFrom(dir string) error {
+	return withPool(func(ctx context.Context, pool *pgxpool.Pool) error {
+		if err := store.MigrateRatings(ctx, pool); err != nil {
+			return err
+		}
+		if err := store.Restore(ctx, pool, dir); err != nil {
+			return err
+		}
+		fmt.Println("restored from", dir, "- run the engine to compute ratings")
+		return nil
+	})
+}
+
+// withPool opens RATINGS_DATABASE_URL and calls f with it, stopping on an interrupt.
+func withPool(f func(context.Context, *pgxpool.Pool) error) error {
+	dbURL := os.Getenv("RATINGS_DATABASE_URL")
+	if dbURL == "" {
+		return fmt.Errorf("RATINGS_DATABASE_URL is not set")
+	}
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer stop()
+	pool, err := pgxpool.New(ctx, dbURL)
+	if err != nil {
+		return fmt.Errorf("opening the ratings database: %w", err)
+	}
+	defer pool.Close()
+	return f(ctx, pool)
 }
 
 // classifyOnly places every unplaced game in the tournament catalogue, after
