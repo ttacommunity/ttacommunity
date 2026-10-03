@@ -199,6 +199,31 @@ def test_a_named_division_is_never_replaced_by_a_record(
     assert (row["division"], row["division_source"]) == ("Grandmaster", "name")
 
 
+def test_a_game_named_without_a_division_takes_cges_group(
+    conn, add_match, run_id, record
+):
+    record(16, "Grandmaster", "ann", "bob", "cat")
+    add_match(
+        ("ann", 90),
+        ("bob", 80),
+        ("cat", 70),
+        tournament="International S16",
+        group="Gold 2",
+    )
+
+    derive_tournaments(conn=conn, run_id=run_id)
+
+    row = conn.execute(
+        "SELECT division, group_label, division_source FROM tournament_games WHERE run_id = %s",
+        (run_id,),
+    ).fetchone()
+    assert (row["division"], row["group_label"], row["division_source"]) == (
+        "Gold",
+        "Gold 2",
+        "cge",
+    )
+
+
 def board(conn, run_id):
     rows = conn.execute(
         "SELECT player_name, gold, silver, bronze, points, title "

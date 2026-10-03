@@ -117,6 +117,7 @@ def add_match(conn):
         eligible=True,
         placed="rated",
         state="played",
+        group="",
     ):
         cols = {
             "batch_id": batch,
@@ -128,6 +129,7 @@ def add_match(conn):
             "glicko_eligible": eligible,
             "stage_id": stage_in(conn, placed) if placed else None,
             "state": state,
+            "group_label": group,
         }
         for i, (name, score) in enumerate(players, start=1):
             cols[f"player{i}"] = name

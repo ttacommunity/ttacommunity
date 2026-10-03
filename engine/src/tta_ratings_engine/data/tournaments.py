@@ -347,8 +347,9 @@ def classify(rows, recorded, corrections):
     rows are matches in match_id order; recorded maps (series, season,
     player) to a recorded division; corrections map (series, name season) to
     the real season, or None to leave the games out. A game without a named
-    division takes a recorded one only when every player in it has the same
-    one; recorded games of one division that never meet form numbered groups.
+    division takes the group CGE recorded for it, else a recorded one only when
+    every player in it has the same one; recorded games of one division that
+    never meet form numbered groups.
     """
     out = []
     pending = defaultdict(list)
@@ -369,6 +370,12 @@ def classify(rows, recorded, corrections):
                 break
             if parsed.division:
                 g.update(division=parsed.division, group=parsed.group, source="name")
+                break
+            # A name without its division: the group CGE recorded for the game, when it has one.
+            cge_group = (r.get("group_label") or "").strip()
+            if cge_group and not parsed.tiebreak:
+                division = re.sub(r"\s+\d+$", "", cge_group)
+                g.update(division=division, group=cge_group, source="cge")
                 break
             players = [r[f"player{i}"] for i in range(1, r["player_count"] + 1)]
             divs = {recorded.get((series, season, p)) for p in players}
@@ -487,7 +494,7 @@ def derive_tournaments(*, conn: psycopg.Connection, run_id: int) -> None:
         require_running(conn, run_id)
         rows = conn.execute(
             "SELECT match_id, tournament, date, player_count, player1, score1, player2, score2, "
-            "player3, score3, player4, score4 FROM matches WHERE state = 'played' ORDER BY match_id"
+            "player3, score3, player4, score4, group_label FROM matches WHERE state = 'played' ORDER BY match_id"
         ).fetchall()
         recorded = {
             (r["series"], r["season"], r["player_name"]): r["division"]
