@@ -7,10 +7,11 @@ comes from recorded facts (divisions, official placements, season corrections).
 """
 
 import functools
+import itertools
 import re
 from collections import defaultdict
 from collections.abc import Callable
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from typing import NamedTuple
 
 import psycopg
@@ -188,6 +189,52 @@ SERIES = {
         season_records=False,
     ),
 }
+
+
+# A World Championship final, scored as CGE's rules say: points by place, ties split.
+WORLDS_FINAL = replace(
+    SERIES["worlds"], points={2: [4, 0], 3: [5, 2, 0], 4: [6, 3, 1, 0]}
+)
+
+
+def worlds_finals(conn) -> dict[int, list[list[tuple[str, float]]]]:
+    """Returns each finished World Championship's final, as its played games' scores, by season.
+
+    The final is the last stage of a season whose CGE tournament is finished, when its games are one group.
+    """
+    rows = conn.execute(
+        """
+        SELECT se.label::int AS season, m.group_label, m.player_count,
+               m.player1, m.score1, m.player2, m.score2, m.player3, m.score3, m.player4, m.score4
+        FROM tournaments t
+        JOIN tournament_seasons se USING (tournament_id)
+        JOIN tournament_stages st USING (season_id)
+        JOIN cge_tournaments c ON c.cge_tournament = st.cge_tournament
+        JOIN matches m ON m.stage_id = st.stage_id
+        WHERE t.slug = 'worlds' AND c.status = 'finished' AND se.label ~ '^[0-9]+$'
+          AND coalesce(m.state, 'played') = 'played'
+          AND st.cge_season = (SELECT max(s2.cge_season) FROM tournament_stages s2 WHERE s2.season_id = se.season_id)
+        ORDER BY m.date, m.match_id
+        """
+    ).fetchall()
+    games, groups = defaultdict(list), defaultdict(set)
+    for r in rows:
+        games[r["season"]].append(_scores(r))
+        groups[r["season"]].add(r["group_label"] or "")
+    return {season: g for season, g in games.items() if len(groups[season]) == 1}
+
+
+def final_podium(games):
+    """Returns a final's standings, or None when the rules cannot split a tie for a podium place."""
+    t = _tally(games, WORLDS_FINAL.points)
+    order = _league_order(t)
+    points, above, performance = t["points"], t["above"], t["performance"]
+    for a, b in itertools.pairwise(order[:4]):
+        tied = [p for p in order if points[p] == points[a]]
+        level = points[a] == points[b] and performance[a] == performance[b]
+        if level and (len(tied) != 2 or above[a][b] == above[b][a]):
+            return None
+    return rank_group(games, WORLDS_FINAL)
 
 
 def game_points(
@@ -473,6 +520,41 @@ def _league_boards(standings, official):
     return boards
 
 
+def _worlds_podiums(conn, run_id, official, standing_rows):
+    """Puts each World Championship season's podium into official, by precedence: admin's, recorded, derived.
+
+    A derived final's standings are added to standing_rows.
+    """
+    recorded = {season for series, season, _ in official if series == "worlds"}
+    for season, games in sorted(worlds_finals(conn).items()):
+        if season in recorded:
+            continue
+        standings = final_podium(games)
+        if standings is None:
+            continue
+        for s in standings:
+            standing_rows.append(
+                (run_id, "worlds", season, "Final", "Final", s["player_name"],
+                 s["place"], s["points"], s["games"], s["placings"])
+            )  # fmt: skip
+        official[("worlds", season, "Final")] = [
+            {"series": "worlds", "season": season, "division": "Final", **s}
+            for s in standings[:3]
+        ]
+    overrides = defaultdict(list)
+    for r in conn.execute(
+        "SELECT season::int AS season, place, player_name FROM tournament_podium_overrides "
+        "WHERE tournament = 'worlds' AND season ~ '^[0-9]+$' ORDER BY place"
+    ).fetchall():
+        overrides[r["season"]].append(
+            {"series": "worlds", "division": "Final", "points": None, **r}
+        )
+    for season, placed in overrides.items():
+        for key in [k for k in official if k[0] == "worlds" and k[1] == season]:
+            del official[key]
+        official[("worlds", season, "Final")] = placed
+
+
 def _board_rows(run_id, boards):
     """Returns board rows to insert, each board numbered in its given order."""
     return [
@@ -567,6 +649,7 @@ def derive_tournaments(*, conn: psycopg.Connection, run_id: int) -> None:
                      s["place"], s["points"], s["games"], s["placings"])
                 )  # fmt: skip
                 derived[(series, season, division)].append(s)
+        _worlds_podiums(conn, run_id, official, standing_rows)
         boards = _league_boards(derived, official)
         boards["worlds"] = worlds_board(
             [{**p, "season": season} for (series, season, _), placed in official.items()

@@ -790,3 +790,131 @@ def test_a_game_never_played_gives_no_points_place_or_game(conn, add_match, run_
         ("bob", 2, 2.0, 1),
         ("cat", 3, 0.0, 1),
     ]
+
+
+@pytest.fixture
+def worlds_game(conn, add_match):
+    """Returns a function that adds a game to a World Championship season's stage, its CGE tournament in status."""
+
+    def add(season, stage, cge_season, status, *players):
+        cge = 9000 + season
+        conn.execute(
+            "INSERT INTO cge_tournaments (cge_tournament, name, status) VALUES (%s, %s, %s) "
+            "ON CONFLICT (cge_tournament) DO UPDATE SET status = excluded.status",
+            (cge, f"World Championship {season}", status),
+        )
+        t = conn.execute(
+            "INSERT INTO tournaments (slug, name) VALUES ('worlds', 'World Championship') "
+            "ON CONFLICT (slug) DO UPDATE SET slug = excluded.slug RETURNING tournament_id"
+        ).fetchone()["tournament_id"]
+        se = conn.execute(
+            "INSERT INTO tournament_seasons (tournament_id, label) VALUES (%s, %s) "
+            "ON CONFLICT (tournament_id, label) DO UPDATE SET label = excluded.label RETURNING season_id",
+            (t, str(season)),
+        ).fetchone()["season_id"]
+        st = conn.execute(
+            "INSERT INTO tournament_stages (season_id, label, cge_tournament, cge_season) VALUES (%s, %s, %s, %s) "
+            "ON CONFLICT (season_id, label) DO UPDATE SET label = excluded.label RETURNING stage_id",
+            (se, stage, cge, cge_season),
+        ).fetchone()["stage_id"]
+        match = add_match(
+            *players, tournament=f"Worlds {season} {stage} - Final", placed=None
+        )
+        conn.execute(
+            "UPDATE matches SET stage_id = %s WHERE match_id = %s", (st, match)
+        )
+        conn.commit()
+
+    return add
+
+
+def worlds_podium(conn, run_id, season):
+    rows = conn.execute(
+        "SELECT player_name, place, points FROM tournament_standings "
+        "WHERE run_id = %s AND series = 'worlds' AND season = %s AND division = 'Final' ORDER BY place",
+        (run_id, season),
+    ).fetchall()
+    return [(r["player_name"], r["place"], r["points"]) for r in rows]
+
+
+def world_titles(conn, run_id):
+    return {
+        r["player_name"]: r["world_titles"]
+        for r in conn.execute(
+            "SELECT player_name, world_titles FROM tournament_achievements WHERE run_id = %s AND world_titles > 0",
+            (run_id,),
+        ).fetchall()
+    }
+
+
+def a_final(worlds_game, season=2025, status="finished"):
+    worlds_game(
+        season, "Stage 7", 7, status, ("ann", 90), ("bob", 80), ("cat", 70), ("dan", 60)
+    )
+    # The final, by CGE's points: 4p 6/3/1/0, 3p 5/2/0, 2p 4/0.
+    worlds_game(
+        season, "Stage 8", 8, status, ("bob", 90), ("ann", 80), ("cat", 70), ("dan", 60)
+    )
+    worlds_game(season, "Stage 8", 8, status, ("cat", 90), ("bob", 80), ("ann", 70))
+    worlds_game(season, "Stage 8", 8, status, ("bob", 90), ("dan", 80))
+
+
+def test_a_finished_world_championship_takes_its_podium_from_the_final(
+    conn, worlds_game, run_id
+):
+    a_final(worlds_game)
+
+    derive_tournaments(conn=conn, run_id=run_id)
+
+    assert worlds_podium(conn, run_id, 2025) == [
+        ("bob", 1, 12.0),
+        ("cat", 2, 6.0),
+        ("ann", 3, 3.0),
+        ("dan", 4, 0.0),
+    ]
+    assert world_titles(conn, run_id) == {"bob": 1}
+
+
+def test_a_world_championship_still_running_has_no_podium(conn, worlds_game, run_id):
+    a_final(worlds_game, status="running")
+
+    derive_tournaments(conn=conn, run_id=run_id)
+
+    assert worlds_podium(conn, run_id, 2025) == []
+    assert world_titles(conn, run_id) == {}
+
+
+def test_a_recorded_podium_beats_the_derived_one(conn, worlds_game, run_id, place):
+    a_final(worlds_game)
+    place("worlds", 2025, "Final", "dan", "ann", "cat")
+
+    derive_tournaments(conn=conn, run_id=run_id)
+
+    assert worlds_podium(conn, run_id, 2025) == []
+    assert world_titles(conn, run_id) == {"dan": 1}
+
+
+def test_an_admin_podium_beats_a_recorded_one(conn, worlds_game, run_id, place):
+    a_final(worlds_game)
+    place("worlds", 2025, "Final", "dan", "ann", "cat")
+    for p, name in enumerate(("ann", "dan", "bob"), start=1):
+        conn.execute(
+            "INSERT INTO tournament_podium_overrides (tournament, season, place, player_name) VALUES ('worlds', '2025', %s, %s)",
+            (p, name),
+        )
+    conn.commit()
+
+    derive_tournaments(conn=conn, run_id=run_id)
+
+    assert world_titles(conn, run_id) == {"ann": 1}
+
+
+def test_a_final_tie_the_rules_cannot_split_gives_no_podium(conn, worlds_game, run_id):
+    # ann and bob share both games' points and winning shares; head-to-head is level.
+    worlds_game(2025, "Stage 8", 8, "finished", ("ann", 90), ("bob", 90))
+    worlds_game(2025, "Stage 8", 8, "finished", ("bob", 80), ("ann", 80))
+
+    derive_tournaments(conn=conn, run_id=run_id)
+
+    assert worlds_podium(conn, run_id, 2025) == []
+    assert world_titles(conn, run_id) == {}

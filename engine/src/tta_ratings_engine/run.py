@@ -86,6 +86,7 @@ RESULT_TABLES = [
     "tournament_career_honours",
     "tournament_season_rules",
     "tournament_cup_podiums",
+    "tournament_podium_overrides",
     "tournaments",
     "tournament_games",
     "tournament_standings",
@@ -164,7 +165,9 @@ def input_fingerprint(conn, ranking_id):
     """Returns an md5 of a run's input, or None with no matches.
 
     That is every match's content and placement in load order, the ranking's
-    tournaments, and any recorded tournament facts.
+    tournaments, any recorded tournament facts and admin's podiums, and whether
+    CGE has finished each tournament (a finished World Championship's final is
+    derived).
     """
     return conn.execute(
         """
@@ -183,6 +186,8 @@ def input_fingerprint(conn, ranking_id):
                 UNION ALL SELECT 'h' || t::text FROM tournament_career_honours t
                 UNION ALL SELECT 'r' || t::text FROM tournament_season_rules t
                 UNION ALL SELECT 'u' || t::text FROM tournament_cup_podiums t
+                UNION ALL SELECT 'o' || t::text FROM tournament_podium_overrides t
+                UNION ALL SELECT 's' || cge_tournament || status FROM cge_tournaments
                 UNION ALL SELECT 'k' || t.slug FROM ranking_tournaments rt
                     JOIN tournaments t USING (tournament_id) WHERE rt.ranking_id = %s
             ) x

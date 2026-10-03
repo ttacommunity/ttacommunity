@@ -35,6 +35,7 @@ var ExportTables = []string{
 	"tournament_career_honours", "tournament_cup_podiums", "tournament_finish_dates",
 	"tournament_group_divisions", "tournament_ladder_wins", "tournament_official_placements",
 	"tournament_season_corrections", "tournament_season_notes", "tournament_season_rules",
+	"tournament_podium_overrides",
 	"admins", "admin_audit",
 }
 

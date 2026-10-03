@@ -154,6 +154,8 @@ def test_a_run_writes_tournament_results(conn, add_match):
         ),
         "INSERT INTO tournament_season_rules (series, season, timeout_penalty, source) VALUES ('intermezzo', 6, -1, 's')",
         "INSERT INTO tournament_cup_podiums VALUES ('wimbledon', '2024', '', 1, 'Ann', 's', '2025-02-24')",
+        "INSERT INTO tournament_podium_overrides (tournament, season, place, player_name) VALUES ('worlds', '2025', 1, 'Ann')",
+        "INSERT INTO cge_tournaments (cge_tournament, name, status) VALUES (5204, 'World Championship 2025', 'finished')",
     ],
 )
 def test_a_recorded_fact_changes_the_input_fingerprint(conn, add_match, fact):

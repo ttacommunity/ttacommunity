@@ -456,3 +456,33 @@ def test_records_add_super_gm_years_and_untitled_seasons(conn, add_match, run_id
         ("Ann", 2024): "M",
         ("Bob", 2021): "SGM",
     }
+
+
+def test_the_reigning_champion_comes_from_admin_then_recorded_then_the_runs_final(
+    conn, add_match, run_id, place
+):
+    place("worlds", 2024, "Final", "Martin_Pecheur")
+    conn.execute(
+        "INSERT INTO tournament_standings VALUES (%s, 'worlds', 2025, 'Final', 'Final', 'a440', 1, 16, 4, %s)",
+        (run_id, [3, 1, 0, 0]),
+    )
+    conn.commit()
+    add_match(
+        ("a440", 10),
+        ("Martin_Pecheur", 5),
+        ("pv4", 1),
+        day=date(2024, 6, 2),
+        tournament="Friendly Cup",
+    )
+
+    derive_tournament_badges(conn=conn, run_id=run_id)
+    assert titles(conn, run_id)["a440"][0] == "WC"
+
+    conn.execute(
+        "INSERT INTO tournament_podium_overrides (tournament, season, place, player_name) VALUES ('worlds', '2025', 1, 'pv4')"
+    )
+    conn.commit()
+    derive_tournament_badges(conn=conn, run_id=run_id)
+    got = titles(conn, run_id)
+    assert got["pv4"][0] == "WC"
+    assert got.get("a440", ("",))[0] != "WC"

@@ -65,11 +65,28 @@ SERIES_NAMES = {
 }
 
 
-def world_champions(conn) -> list[tuple[str, int]]:
-    """Returns each World Championship season's winner, as recorded, oldest first: (player, season)."""
+def world_champions(conn, run_id) -> list[tuple[str, int]]:
+    """Returns each World Championship season's winner, oldest first: (player, season).
+
+    Admin's podium beats a recorded one, which beats the run's derived final.
+    """
     rows = conn.execute(
-        "SELECT player_name, season FROM tournament_official_placements "
-        "WHERE series = 'worlds' AND place = 1 ORDER BY season, player_name"
+        """
+        WITH admin AS (
+            SELECT season::int AS season, player_name FROM tournament_podium_overrides
+            WHERE tournament = 'worlds' AND place = 1 AND season ~ '^[0-9]+$'),
+        recorded AS (
+            SELECT season, player_name FROM tournament_official_placements
+            WHERE series = 'worlds' AND place = 1 AND season NOT IN (SELECT season FROM admin)),
+        derived AS (
+            SELECT season, player_name FROM tournament_standings
+            WHERE run_id = %s AND series = 'worlds' AND division = 'Final' AND place = 1
+              AND season NOT IN (SELECT season FROM admin)
+              AND season NOT IN (SELECT season FROM tournament_official_placements WHERE series = 'worlds'))
+        SELECT * FROM admin UNION ALL SELECT * FROM recorded UNION ALL SELECT * FROM derived
+        ORDER BY season, player_name
+        """,
+        (run_id,),
     ).fetchall()
     return [(r["player_name"], r["season"]) for r in rows]
 
@@ -318,7 +335,7 @@ def derive_tournament_badges(
                     player_career_best[p] = {"tier": tier, "year": yr, "date": d_str}
 
         # World Champions hold the exclusive tier 0 ('WC') career peak, at their latest title
-        champions = world_champions(conn)
+        champions = world_champions(conn, run_id)
         for p, yr in champions:
             player_career_best[p] = {"tier": 0, "year": yr, "date": f"{yr}-12-15"}
 
