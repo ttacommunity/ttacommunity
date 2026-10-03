@@ -650,7 +650,10 @@ type CatalogueStage struct {
 	Games     int                `json:"games"`
 	Label     string             `json:"label"`
 	LastGame  openapi_types.Date `json:"last_game"`
-	Players   int                `json:"players"`
+
+	// Note A note shown beside the stage, or null
+	Note    *string `json:"note"`
+	Players int     `json:"players"`
 }
 
 // CatalogueTournament defines model for CatalogueTournament.

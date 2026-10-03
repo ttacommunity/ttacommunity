@@ -138,16 +138,17 @@ func ReplacePodiums(ctx context.Context, pool *pgxpool.Pool, podiums []tournamen
 	return FactsReplaced{Written: n, Unknown: len(podiums) - n}, err
 }
 
-// ReplaceSeasonNotes replaces every season's note, in one transaction.
+// ReplaceSeasonNotes replaces every season's and stage's note, in one transaction.
 func ReplaceSeasonNotes(ctx context.Context, pool *pgxpool.Pool, notes []tournamentcsv.SeasonNote) (FactsReplaced, error) {
-	var slugs, seasons, texts, sources []string
+	var slugs, seasons, stages, texts, sources []string
 	for _, n := range notes {
-		slugs, seasons, texts, sources = append(slugs, n.Tournament), append(seasons, n.Season), append(texts, n.Note), append(sources, n.Source)
+		slugs, seasons, stages = append(slugs, n.Tournament), append(seasons, n.Season), append(stages, n.Stage)
+		texts, sources = append(texts, n.Note), append(sources, n.Source)
 	}
 	n, err := replaceAll(ctx, pool, "tournament_season_notes", `
-		INSERT INTO tournament_season_notes (tournament, season, note, source)
-		SELECT * FROM unnest($1::text[], $2::text[], $3::text[], $4::text[])`,
-		slugs, seasons, texts, sources)
+		INSERT INTO tournament_season_notes (tournament, season, stage, note, source)
+		SELECT * FROM unnest($1::text[], $2::text[], $3::text[], $4::text[], $5::text[])`,
+		slugs, seasons, stages, texts, sources)
 	return FactsReplaced{Written: n, Unknown: len(notes) - n}, err
 }
 

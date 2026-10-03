@@ -98,10 +98,14 @@ func (s *server) GetCatalogueTournament(ctx context.Context, req GetCatalogueTou
 			out.CgePages = append(out.CgePages, page)
 		}
 		for _, st := range season.Stages {
-			out.Stages = append(out.Stages, CatalogueStage{
+			stage := CatalogueStage{
 				Label: st.Label, Games: st.Span.Games, Players: st.Span.Players,
 				FirstGame: openapi_types.Date{Time: st.Span.First}, LastGame: openapi_types.Date{Time: st.Span.Last},
-			})
+			}
+			if st.Note != "" {
+				stage.Note = &st.Note
+			}
+			out.Stages = append(out.Stages, stage)
 		}
 		for _, p := range season.Podium {
 			out.Podium = append(out.Podium, PodiumPlace{

@@ -329,9 +329,9 @@ function Champions({ seasons, podium, title, onPick }: { seasons: CatalogueSeaso
   );
 }
 
-/** Rules shows the newest edition's description from CGE, usually its organiser's format and rules, and the earlier ones folded. */
+/** Rules shows the tournament's format and regulations: the newest edition's description on CGE, usually its organiser's rules. */
 function Rules({ editions }: { editions: EditionRules[] }) {
-  const [latest, ...earlier] = editions;
+  const latest = editions[0];
   return (
     <div className="panel-card rules-panel">
       <h2 className="panel-header panel-header-split">
@@ -343,16 +343,6 @@ function Rules({ editions }: { editions: EditionRules[] }) {
         </a>
       </h2>
       <p className="rules-text">{latest.description}</p>
-      {earlier.map((e) => (
-        <details key={e.cge_tournament} className="rules-earlier">
-          <summary>{e.name}</summary>
-          <p className="rules-text">{e.description}</p>
-          <a href={e.url} target="_blank" rel="noopener noreferrer" className="cge-link">
-            {e.name} on CGE ↗
-          </a>
-        </details>
-      ))}
-      <p className="records-intro champions-note">As each edition's page on CGE describes it.</p>
     </div>
   );
 }
@@ -383,7 +373,10 @@ function Stages({ season: s }: { season: CatalogueSeason }) {
           <tbody>
             {s.stages.map((st) => (
               <tr key={st.label}>
-                <td>{stageName(st.label)}</td>
+                <td>
+                  {stageName(st.label)}
+                  {st.note !== null && <div className="season-note">{st.note}</div>}
+                </td>
                 <td className="cell-date">{st.first_game}</td>
                 <td className="cell-date">{st.last_game}</td>
                 <td className="cell-num">{count(st.games)}</td>

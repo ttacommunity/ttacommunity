@@ -424,9 +424,12 @@ func TestCatalogueTournamentKeepsAPlayOffApartFromItsYear(t *testing.T) {
 		VALUES ('worlds', 2023, 'Final', 'ann', 1, NULL, 'r', 's')`); err != nil {
 		t.Fatalf("adding a placement: %v", err)
 	}
-	notes := []tournamentcsv.SeasonNote{{Tournament: "worlds", Season: "2023 Play Off", Note: "A second chance for the 2023 entrants.", Source: "CGE"}}
-	if got, err := ReplaceSeasonNotes(ctx, pool, notes); err != nil || got.Written != 1 {
-		t.Fatalf("ReplaceSeasonNotes = %+v, %v; want 1 written", got, err)
+	notes := []tournamentcsv.SeasonNote{
+		{Tournament: "worlds", Season: "2023 Play Off", Note: "A second chance for the 2023 entrants.", Source: "CGE"},
+		{Tournament: "worlds", Season: "2023 Play Off", Stage: "Stage 1", Note: "The play-off's first round.", Source: "CGE"},
+	}
+	if got, err := ReplaceSeasonNotes(ctx, pool, notes); err != nil || got.Written != 2 {
+		t.Fatalf("ReplaceSeasonNotes = %+v, %v; want 2 written", got, err)
 	}
 
 	got, err := NewRatingsReader(asReader(t, pool)).CatalogueTournament(ctx, run, "worlds")
@@ -441,6 +444,9 @@ func TestCatalogueTournamentKeepsAPlayOffApartFromItsYear(t *testing.T) {
 	}
 	if got.Seasons[1].Note != notes[0].Note || got.Seasons[0].Note != "" {
 		t.Errorf("notes = %q and %q, want the play-off's only", got.Seasons[0].Note, got.Seasons[1].Note)
+	}
+	if st := got.Seasons[1].Stages; len(st) != 1 || st[0].Note != notes[1].Note {
+		t.Errorf("play-off stages = %+v, want stage 1 with its note", st)
 	}
 }
 

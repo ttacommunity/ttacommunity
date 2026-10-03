@@ -1272,6 +1272,8 @@ export interface components {
         /** @description A stage of a season; label "" is the season's only or main stage */
         CatalogueStage: components["schemas"]["GameSpan"] & {
             label: string;
+            /** @description A note shown beside the stage, or null */
+            note: string | null;
         };
         /** @description A place on a cup year's recorded podium */
         PodiumPlace: {

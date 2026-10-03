@@ -76,7 +76,7 @@ func TestCatalogueTournament(t *testing.T) {
 	finished, _ := time.Parse(time.DateOnly, "2025-02-24")
 	f := &fakeCatalogue{tournament: store.CatalogueTournament{Slug: "wimbledon", Name: "Wimbledon", Seasons: []store.CatalogueSeason{{
 		Label: "2024", Span: span(632, 128, "2024-07-01", "2025-02-24"),
-		Stages: []store.CatalogueStage{{Label: "Stage 7", Span: span(5, 2, "2025-02-03", "2025-02-24")}},
+		Stages: []store.CatalogueStage{{Label: "Stage 7", Span: span(5, 2, "2025-02-03", "2025-02-24"), Note: "Played at the club."}},
 		Podium: []store.PodiumPlace{{Place: 1, Name: "saru", Finished: finished, Source: "CGE /tournaments/detail/4991/7"}},
 		CGE:    []store.CGELink{{Tournament: 4991}, {Tournament: 19, Season: 20}},
 		Note:   "The first held in two halves.",
@@ -87,7 +87,7 @@ func TestCatalogueTournament(t *testing.T) {
 		`"rules":[{"cge_tournament":4991,"description":"2p knock-out.","name":"Wimbledon 2024","url":"https://account.czechgames.com/tournaments/detail/4991"}],"run_id":7,"seasons":[{"cge_pages":["https://account.czechgames.com/tournaments/detail/4991","https://account.czechgames.com/tournaments/detail/19/20"],` +
 		`"first_game":"2024-07-01","games":632,"label":"2024","last_game":"2025-02-24","note":"The first held in two halves.","players":128,` +
 		`"podium":[{"final":"","finished":"2025-02-24","name":"saru","place":1,"source":"CGE /tournaments/detail/4991/7"}],` +
-		`"stages":[{"first_game":"2025-02-03","games":5,"label":"Stage 7","last_game":"2025-02-24","players":2}]}],"slug":"wimbledon",` +
+		`"stages":[{"first_game":"2025-02-03","games":5,"label":"Stage 7","last_game":"2025-02-24","note":"Played at the club.","players":2}]}],"slug":"wimbledon",` +
 		`"top_tier_wins":[{"name":"wolvs","source":"Hall of Fame","wins":10},{"name":"Grozz","source":"Hall of Fame","wins":3.5}]}`
 	if got := strings.TrimSpace(rec.Body.String()); rec.Code != http.StatusOK || got != want {
 		t.Errorf("GET a tournament: %d %s\nwant 200 %s", rec.Code, got, want)

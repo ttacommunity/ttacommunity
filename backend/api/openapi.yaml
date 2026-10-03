@@ -2073,10 +2073,14 @@ components:
       allOf:
         - $ref: "#/components/schemas/GameSpan"
         - type: object
-          required: [label]
+          required: [label, note]
           properties:
             label:
               type: string
+            note:
+              description: A note shown beside the stage, or null
+              type: string
+              nullable: true
     PodiumPlace:
       description: A place on a cup year's recorded podium
       type: object

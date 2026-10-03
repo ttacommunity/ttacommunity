@@ -53,6 +53,7 @@ type CatalogueView struct {
 type CatalogueStage struct {
 	Label string
 	Span  GameSpan
+	Note  string
 }
 
 // PodiumPlace is one place on a cup year's recorded podium.
@@ -313,14 +314,24 @@ func (r *RatingsReader) CatalogueTournament(ctx context.Context, run int64, slug
 		return fail("CGE pages", err)
 	}
 
-	rows, err = r.pool.Query(ctx, "SELECT season, note FROM tournament_season_notes WHERE tournament = $1", slug)
+	rows, err = r.pool.Query(ctx, "SELECT season, stage, note FROM tournament_season_notes WHERE tournament = $1", slug)
 	if err != nil {
 		return fail("season notes", err)
 	}
-	var note string
-	_, err = pgx.ForEachRow(rows, []any{&label, &note}, func() error {
-		if i, ok := byLabel[label]; ok {
+	var stage, note string
+	_, err = pgx.ForEachRow(rows, []any{&label, &stage, &note}, func() error {
+		i, ok := byLabel[label]
+		if !ok {
+			return nil
+		}
+		if stage == "" {
 			got.Seasons[i].Note = note
+			return nil
+		}
+		for j := range got.Seasons[i].Stages {
+			if got.Seasons[i].Stages[j].Label == stage {
+				got.Seasons[i].Stages[j].Note = note
+			}
 		}
 		return nil
 	})
