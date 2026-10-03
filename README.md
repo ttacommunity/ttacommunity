@@ -450,7 +450,15 @@ Admin is the `ttac-admin` site and the API's `/v1/admin/` routes:
   every change is written to `admin_audit`
 - **The API refuses to start** without `ACCESS_TEAM`, `ACCESS_AUD`,
   `ADMIN_ORIGIN` and `RATINGS_ADMIN_DATABASE_URL`, or when the admin login
-  could change games, players or runs
+  could change games, players or a run's ratings
+
+**Rating runs.** Admins start a run, watch it, compare it with the published
+run, and publish it (or publish an older one to roll back). The engine writes
+its latest progress line to `run_progress` as it goes. To start a run, the API
+creates a Job from the CronJob named by `ENGINE_CRONJOB`, in its own namespace,
+using its service account (`deploy/dev/api-rbac.yaml`: read that CronJob, list
+and create Jobs). Without `ENGINE_CRONJOB`, as when run locally, starting a run
+answers 503; the rest of admin works.
 
 The admin login is a member of `ratings_admin`, which the migrations grant
 only what admin edits. A database owner without `CREATEROLE` needs the role

@@ -85,7 +85,7 @@ func TestStartCreatesAJobFromTheCronJobsTemplate(t *testing.T) {
 	for _, want := range []string{
 		`"generateName":"engine-dev-admin-"`, `"cronjob.kubernetes.io/instantiate":"manual"`,
 		`"app":"engine-dev"`, `"args":["-m","tta_ratings_engine.run"]`, `"backoffLimit":0`,
-		`"ownerReferences":[{"apiVersion":"batch/v1","blockOwnerDeletion":true,"controller":true,"kind":"CronJob","name":"engine-dev","uid":"cj-uid-1"}]`,
+		`"ownerReferences":[{"apiVersion":"batch/v1","controller":true,"kind":"CronJob","name":"engine-dev","uid":"cj-uid-1"}]`,
 	} {
 		if !strings.Contains(string(job), want) {
 			t.Errorf("job = %s, want it to contain %s", job, want)

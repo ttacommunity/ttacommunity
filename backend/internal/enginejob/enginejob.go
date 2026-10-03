@@ -129,8 +129,7 @@ func (s *Starter) Start(ctx context.Context) (string, error) {
 		"metadata": map[string]any{
 			"generateName": s.CronJob + "-admin-", "labels": cj.Spec.JobTemplate.Metadata.Labels, "annotations": annotations,
 			"ownerReferences": []map[string]any{{
-				"apiVersion": "batch/v1", "kind": "CronJob", "name": cj.Metadata.Name, "uid": cj.Metadata.UID,
-				"controller": true, "blockOwnerDeletion": true,
+				"apiVersion": "batch/v1", "kind": "CronJob", "name": cj.Metadata.Name, "uid": cj.Metadata.UID, "controller": true,
 			}},
 		},
 		"spec": cj.Spec.JobTemplate.Spec,

@@ -115,3 +115,29 @@ spec:
       ports:
         - protocol: TCP
           port: 443
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: api-dev-to-kube-api
+  namespace: ttacommunity
+spec:
+  # Admin starts a rating run through the Kubernetes API: its service address,
+  # and the control plane it forwards to.
+  podSelector:
+    matchLabels:
+      app: api-dev
+  policyTypes: [Egress]
+  egress:
+    - to:
+        - ipBlock:
+            cidr: 10.43.0.1/32
+      ports:
+        - protocol: TCP
+          port: 443
+    - to:
+        - ipBlock:
+            cidr: 192.168.68.101/32
+      ports:
+        - protocol: TCP
+          port: 6443

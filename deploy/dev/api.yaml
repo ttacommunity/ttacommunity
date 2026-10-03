@@ -30,7 +30,8 @@ spec:
       labels:
         app: api-dev
     spec:
-      automountServiceAccountToken: false
+      serviceAccountName: api-dev
+      automountServiceAccountToken: true
       imagePullSecrets:
         - name: gitlab-registry
       securityContext:
@@ -61,6 +62,8 @@ spec:
                   key: database-url
             - name: ACCESS_TEAM
               value: https://unstableunicorn.cloudflareaccess.com
+            - name: ENGINE_CRONJOB
+              value: engine-dev
             - name: ACCESS_AUD
               value: f0bc8c99210a231edb4adc754229a5798e98f41ca67515da419535a251031136
             - name: ADMIN_ORIGIN

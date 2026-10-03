@@ -6,6 +6,7 @@ kind: Kustomization
 
 resources:
   - networkpolicy.yaml
+  - api-rbac.yaml
   - api.yaml
   - engine.yaml
   - cloudflare-tunnel.yaml
