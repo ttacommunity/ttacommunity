@@ -1,7 +1,8 @@
-/** The admin page: who is signed in, and every tournament's settings and notes. */
+/** The admin page: who is signed in, rating runs and the admin list for admins, and every tournament's settings and notes. */
 import { useEffect, useState, type FormEvent } from 'react';
 import { adminRequest, type AdminMe, type AdminTournament, type TournamentSettings } from '../lib/admin-api';
 import AdminList from './AdminList';
+import RunsPanel from './RunsPanel';
 import './AdminApp.css';
 
 type Load<T> = { kind: 'loading' } | { kind: 'error'; message: string } | { kind: 'ready'; data: T };
@@ -174,6 +175,7 @@ export default function AdminApp() {
       <p className="signed-in">
         Signed in as <strong>{me.data.name}</strong> ({me.data.role})
       </p>
+      {me.data.role === 'admin' && <RunsPanel />}
       {me.data.role === 'admin' && <AdminList myName={me.data.name} />}
       <section className="rating-card admin-card" aria-labelledby="tournaments-heading">
         <h2 id="tournaments-heading" className="rating-card-heading">

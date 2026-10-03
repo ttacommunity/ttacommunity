@@ -6,6 +6,9 @@ export type AdminTournament = components['schemas']['AdminTournament'];
 export type TournamentSettings = components['schemas']['TournamentSettings'];
 export type SeasonNote = components['schemas']['SeasonNote'];
 export type AdminPerson = components['schemas']['AdminPerson'];
+export type AdminRun = components['schemas']['AdminRun'];
+export type RunChanges = components['schemas']['RunChanges'];
+export type StartedRun = components['schemas']['StartedRun'];
 
 /** AdminResult is an answer's data, or why the request was refused. */
 export type AdminResult<T> = { ok: true; data: T } | { ok: false; status: number; message: string };
@@ -14,7 +17,7 @@ type Fetch = (input: string, init: RequestInit) => Promise<Response>;
 
 function refusal(status: number, error: string | undefined): string {
   if (status === 401) return 'Your sign-in has ended. Reload the page to sign in again.';
-  if (status === 403 || status === 404 || status === 400) return `Refused: ${error ?? 'not allowed'}.`;
+  if ([400, 403, 404, 409, 503].includes(status)) return `Refused: ${error ?? 'not allowed'}.`;
   return `The API failed (${status}). Try again, or tell an admin.`;
 }
 

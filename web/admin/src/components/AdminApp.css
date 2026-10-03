@@ -139,3 +139,71 @@
   align-items: center;
   margin-bottom: 0.25rem;
 }
+.runs-actions {
+  margin-bottom: 0.75rem;
+}
+.run-state {
+  display: inline-block;
+  padding: 0.1rem 0.5rem;
+  border: 1px solid var(--border-subtle);
+  border-radius: 999px;
+  font-size: 0.8rem;
+  white-space: nowrap;
+}
+.run-shown {
+  border-color: var(--accent-gold);
+  color: var(--accent-gold-bright);
+}
+.run-running {
+  border-color: var(--draw);
+  color: var(--draw);
+}
+.run-complete {
+  color: var(--win);
+}
+.run-failed {
+  border-color: var(--loss);
+  color: var(--loss);
+}
+.run-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+.run-progress {
+  display: grid;
+  gap: 0.25rem;
+}
+.run-progress progress {
+  width: 100%;
+  accent-color: var(--accent-gold);
+}
+.run-changes p {
+  margin: 0 0 0.5rem;
+}
+.run-changes caption {
+  text-align: left;
+  color: var(--text-soft);
+  font-size: 0.85rem;
+}
+.run-buttons button {
+  white-space: nowrap;
+}
+@media (max-width: 640px) {
+  .runs-table .run-wide {
+    display: none;
+  }
+  .runs-table th,
+  .runs-table td {
+    padding-inline: 0.4rem;
+  }
+}
+.run-block {
+  margin-block: 1rem;
+}
+.run-block h3 {
+  margin: 0 0 0.5rem;
+  font-family: var(--font-heading);
+  font-size: 1rem;
+  color: var(--accent-gold);
+}

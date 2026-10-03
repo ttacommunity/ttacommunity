@@ -25,6 +25,11 @@ describe('adminRequest', () => {
       status: 403,
       message: 'Refused: not an admin or organiser.',
     });
+    expect(await adminRequest('/api/runs', { method: 'POST' }, answer(409, { error: 'a rating run is already going' }))).toEqual({
+      ok: false,
+      status: 409,
+      message: 'Refused: a rating run is already going.',
+    });
     expect(await adminRequest('/api/x', {}, answer(500, 'not json'))).toEqual({
       ok: false,
       status: 500,
