@@ -6,13 +6,17 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"fmt"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
+
+	"ttacommunity/backend/internal/matchcsv"
 )
 
 // filled returns a migrated database holding a little of every kind of input.
@@ -182,5 +186,51 @@ func TestExportRefusesAnInputTableItDoesNotKnow(t *testing.T) {
 	_, err := Export(context.Background(), pool, filepath.Join(t.TempDir(), "x"))
 	if err == nil || !strings.Contains(err.Error(), "player_aliases") {
 		t.Errorf("Export with an unlisted table: err = %v, want a refusal naming player_aliases", err)
+	}
+}
+
+func TestExportForUpstreamWritesEveryPlayedGameInItsMatchFormat(t *testing.T) {
+	pool := migrated(t)
+	ctx := context.Background()
+	ms := []matchcsv.Match{
+		named(2, "Intermezzo S24 - Bronze 1 game 1"),
+		named(3, "Intermezzo S24 - Bronze 1 game 2"),
+		named(4, "Intermezzo S24 - Bronze 1 game 3"),
+		named(5, "RL_s09 - Duke game 1"),
+	}
+	ms[0].Players = append(ms[0].Players, matchcsv.Player{Name: "cat", Score: 70.5})
+	if _, err := LoadMatches(ctx, pool, ms, nil); err != nil {
+		t.Fatalf("LoadMatches: %v", err)
+	}
+	if _, err := pool.Exec(ctx, `UPDATE matches SET state = CASE tournament
+		WHEN 'Intermezzo S24 - Bronze 1 game 2' THEN 'never_played'
+		WHEN 'Intermezzo S24 - Bronze 1 game 3' THEN 'unconfirmed' ELSE 'played' END`); err != nil {
+		t.Fatalf("setting states: %v", err)
+	}
+
+	var buf bytes.Buffer
+	n, err := ExportForUpstream(ctx, pool, &buf)
+	if err != nil {
+		t.Fatalf("ExportForUpstream: %v", err)
+	}
+
+	rows, err := matchcsv.Read("all_matches.csv", &buf)
+	if err != nil {
+		t.Fatalf("reading the export back: %v", err)
+	}
+	var got []string
+	for _, r := range rows {
+		m, reason := matchcsv.Check(r)
+		if reason != "" {
+			t.Fatalf("row %v refused: %s", r.Fields, reason)
+		}
+		got = append(got, fmt.Sprintf("%s|%s|%v", m.Tournament, m.Date.Format("2006-01-02"), m.Players))
+	}
+	want := []string{
+		fmt.Sprintf("%s|%s|%v", ms[0].Tournament, ms[0].Date.Format("2006-01-02"), ms[0].Players),
+		fmt.Sprintf("%s|%s|%v", ms[3].Tournament, ms[3].Date.Format("2006-01-02"), ms[3].Players),
+	}
+	if n != 2 || !slices.Equal(got, want) {
+		t.Errorf("export = %d rows %q, want the two played games %q", n, got, want)
 	}
 }

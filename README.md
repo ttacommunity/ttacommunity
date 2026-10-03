@@ -217,6 +217,17 @@ changed since the export, and an export taken at another schema version
 (restore with the `load` of that version, then migrate). Then run the engine
 ([Compute ratings](#compute-ratings)).
 
+For the original site (upstream), write the games as the one match CSV its
+loader reads, `data/raw/all_matches.csv`:
+
+```bash
+go run ./cmd/load -export-upstream ~/tta-data/exports/all_matches.csv   # a new file
+```
+
+It holds every played game, oldest first. Games never played or unconfirmed
+are left out: they are not rated here, and upstream would rate them. Replay
+codes, CGE seats and the recorded tournament facts are not in that format.
+
 ### The files
 
 Every file has this header, and one match per row:

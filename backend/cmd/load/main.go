@@ -39,10 +39,12 @@ func main() {
 	facts := flag.String("facts", "", "replace every recorded tournament fact of one kind (divisions, placements, corrections, dates, honours, rules, podiums, cge_tournaments, cge_stages, ladder_wins, season_notes, community or community_scores) with the CSV file named")
 	export := flag.String("export", "", "write every input table to the directory named (new or empty), one CSV each, with a manifest")
 	restore := flag.String("restore", "", "load an export from the directory named into a new database, after applying the migrations")
+	upstream := flag.String("export-upstream", "", "write every played game to the new file named, as the match CSV upstream's site loads")
 	flag.Usage = func() {
 		fmt.Fprintln(os.Stderr, "usage: load [-reset] <directory of match CSVs>")
 		fmt.Fprintln(os.Stderr, "       load -export <directory>")
 		fmt.Fprintln(os.Stderr, "       load -restore <directory>")
+		fmt.Fprintln(os.Stderr, "       load -export-upstream <file>")
 		fmt.Fprintln(os.Stderr, "       load -migrate")
 		fmt.Fprintln(os.Stderr, "       load -classify")
 		fmt.Fprintln(os.Stderr, "       load -cge-games <CSV file> [-cge-new <CSV file>]")
@@ -52,7 +54,7 @@ func main() {
 		flag.PrintDefaults()
 	}
 	flag.Parse()
-	one := !*reset && btoi(*migrate)+btoi(*classify)+btoi(*cgeGames != "")+btoi(*countries)+btoi(*facts != "")+btoi(*export != "")+btoi(*restore != "") == 1
+	one := !*reset && btoi(*migrate)+btoi(*classify)+btoi(*cgeGames != "")+btoi(*countries)+btoi(*facts != "")+btoi(*export != "")+btoi(*restore != "")+btoi(*upstream != "") == 1
 	var err error
 	switch {
 	case *migrate && one && flag.NArg() == 0:
@@ -72,7 +74,9 @@ func main() {
 		err = exportTo(*export)
 	case *restore != "" && one && flag.NArg() == 0:
 		err = restoreFrom(*restore)
-	case !*migrate && !*classify && *cgeGames == "" && !*countries && *facts == "" && *export == "" && *restore == "" && flag.NArg() == 1:
+	case *upstream != "" && one && flag.NArg() == 0:
+		err = exportForUpstream(*upstream)
+	case !*migrate && !*classify && *cgeGames == "" && !*countries && *facts == "" && *export == "" && *restore == "" && *upstream == "" && flag.NArg() == 1:
 		err = run(*reset, flag.Arg(0))
 	default:
 		flag.Usage()
@@ -130,6 +134,25 @@ func restoreFrom(dir string) error {
 			return err
 		}
 		fmt.Println("restored from", dir, "- run the engine to compute ratings")
+		return nil
+	})
+}
+
+// exportForUpstream writes every played game to file, which must not exist yet, as upstream's match CSV.
+func exportForUpstream(file string) error {
+	return withPool(func(ctx context.Context, pool *pgxpool.Pool) error {
+		f, err := os.OpenFile(file, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0o600)
+		if err != nil {
+			return err
+		}
+		n, err := store.ExportForUpstream(ctx, pool, f)
+		if cerr := f.Close(); err == nil {
+			err = cerr
+		}
+		if err != nil {
+			return err
+		}
+		fmt.Printf("wrote %d played games to %s\n", n, file)
 		return nil
 	})
 }

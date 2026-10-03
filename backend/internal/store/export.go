@@ -6,6 +6,7 @@ package store
 import (
 	"context"
 	"crypto/sha256"
+	"encoding/csv"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
@@ -14,9 +15,12 @@ import (
 	"os"
 	"path/filepath"
 	"slices"
+	"strconv"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
+
+	"ttacommunity/backend/internal/matchcsv"
 )
 
 // ExportTables are the tables that hold inputs, in an order a restore can
@@ -286,4 +290,51 @@ func schemaVersion(ctx context.Context, tx pgx.Tx) (int64, error) {
 		return 0, fmt.Errorf("reading the schema version: %w", err)
 	}
 	return v, nil
+}
+
+// ExportForUpstream writes every played game as one match CSV in the format
+// upstream's loader reads (matchcsv.Header), oldest first, and returns how
+// many it wrote. Games never played or unconfirmed are left out: they are not
+// rated here, and upstream would rate them.
+func ExportForUpstream(ctx context.Context, pool *pgxpool.Pool, w io.Writer) (int, error) {
+	rows, err := pool.Query(ctx, `
+		SELECT tournament, to_char(date, 'YYYY-MM-DD'), player_count,
+		       player1, score1, player2, score2, player3, score3, player4, score4
+		FROM matches WHERE state = 'played' ORDER BY date, match_id`)
+	if err != nil {
+		return 0, fmt.Errorf("exporting for upstream: %w", err)
+	}
+	defer rows.Close()
+	cw := csv.NewWriter(w)
+	if err := cw.Write(matchcsv.Header); err != nil {
+		return 0, fmt.Errorf("exporting for upstream: %w", err)
+	}
+	n := 0
+	for rows.Next() {
+		var tournament, date string
+		var count int
+		var names [4]*string
+		var scores [4]*float64
+		if err := rows.Scan(&tournament, &date, &count,
+			&names[0], &scores[0], &names[1], &scores[1], &names[2], &scores[2], &names[3], &scores[3]); err != nil {
+			return n, fmt.Errorf("exporting for upstream: %w", err)
+		}
+		record := []string{tournament, date}
+		for i := range names {
+			name, score := "", ""
+			if names[i] != nil && scores[i] != nil {
+				name, score = *names[i], strconv.FormatFloat(*scores[i], 'f', -1, 64)
+			}
+			record = append(record, name, score)
+		}
+		if err := cw.Write(append(record, strconv.Itoa(count))); err != nil {
+			return n, fmt.Errorf("exporting for upstream: %w", err)
+		}
+		n++
+	}
+	if err := rows.Err(); err != nil {
+		return n, fmt.Errorf("exporting for upstream: %w", err)
+	}
+	cw.Flush()
+	return n, cw.Error()
 }
