@@ -855,6 +855,30 @@ paths:
           $ref: "#/components/responses/BadRequest"
         "404":
           $ref: "#/components/responses/NotFound"
+  /v1/admin/me:
+    get:
+      operationId: getAdminMe
+      tags: [admin]
+      summary: Who is signed in to admin, and in which role
+      description: |
+        Admin routes are reached through the admin site's Worker, behind
+        Cloudflare Access. Each request's Access token (Cf-Access-Jwt-Assertion)
+        is verified, and the Discord id in it must be an admin or organiser.
+        Never cached.
+      responses:
+        "200":
+          description: The signed-in admin
+          headers:
+            Cache-Control:
+              $ref: "#/components/headers/CacheControl"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminMe"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
 components:
   parameters:
     Model:
@@ -893,6 +917,24 @@ components:
       schema:
         type: string
   responses:
+    Unauthorized:
+      description: No Access token, or one that does not verify
+      headers:
+        Cache-Control:
+          $ref: "#/components/headers/CacheControl"
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+    Forbidden:
+      description: The token is valid, but its Discord id is not an admin or organiser
+      headers:
+        Cache-Control:
+          $ref: "#/components/headers/CacheControl"
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
     BadRequest:
       description: A parameter is not one the API knows
       headers:
@@ -921,6 +963,15 @@ components:
           schema:
             $ref: "#/components/schemas/Error"
   schemas:
+    AdminMe:
+      type: object
+      required: [name, role]
+      properties:
+        name:
+          type: string
+        role:
+          type: string
+          enum: [admin, organiser]
     Health:
       type: object
       required: [status]

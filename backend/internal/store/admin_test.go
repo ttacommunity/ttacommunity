@@ -91,3 +91,13 @@ func TestTheAdminLoginCannotChangeGamesOrRuns(t *testing.T) {
 		}
 	}
 }
+
+func TestCheckLimitsAcceptsTheAdminLoginAndRefusesTheOwner(t *testing.T) {
+	pool := migrated(t)
+	if err := NewAdminStore(asAdminLogin(t, pool)).CheckLimits(context.Background()); err != nil {
+		t.Errorf("CheckLimits as ratings_admin: %v, want nil", err)
+	}
+	if err := NewAdminStore(pool).CheckLimits(context.Background()); !errors.Is(err, ErrAdminTooStrong) {
+		t.Errorf("CheckLimits as the owner = %v, want ErrAdminTooStrong", err)
+	}
+}

@@ -153,7 +153,7 @@ func serve(t *testing.T, ratings Ratings, path string) (*httptest.ResponseRecord
 	var logs bytes.Buffer
 	log := slog.New(slog.NewJSONHandler(&logs, nil))
 	rec := httptest.NewRecorder()
-	NewMux(ratings, log).ServeHTTP(rec, httptest.NewRequest(http.MethodGet, path, nil))
+	NewMux(ratings, nil, log).ServeHTTP(rec, httptest.NewRequest(http.MethodGet, path, nil))
 	return rec, logs.String()
 }
 
@@ -210,7 +210,7 @@ func TestHealthz(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			ratings := &fakeRatings{pingErr: errors.New("database down")}
 			rec := httptest.NewRecorder()
-			NewMux(ratings, slog.New(slog.DiscardHandler)).ServeHTTP(rec, httptest.NewRequest(tt.method, tt.path, nil))
+			NewMux(ratings, nil, slog.New(slog.DiscardHandler)).ServeHTTP(rec, httptest.NewRequest(tt.method, tt.path, nil))
 
 			if rec.Code != tt.wantCode {
 				t.Errorf("%s %s: code = %d, want %d", tt.method, tt.path, rec.Code, tt.wantCode)
@@ -243,7 +243,7 @@ func TestReadyz(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			ratings := &fakeRatings{pingErr: tt.pingErr}
 			rec := httptest.NewRecorder()
-			NewMux(ratings, slog.New(slog.DiscardHandler)).ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/readyz", nil))
+			NewMux(ratings, nil, slog.New(slog.DiscardHandler)).ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/readyz", nil))
 
 			if rec.Code != tt.wantCode {
 				t.Errorf("code = %d, want %d", rec.Code, tt.wantCode)

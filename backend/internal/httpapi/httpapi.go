@@ -56,11 +56,12 @@ type Ratings interface {
 	CatalogueGames(ctx context.Context, run int64, slug string, f store.CatalogueGamesFilter) (store.CatalogueGames, error)
 }
 
-// NewMux returns the API's handler with every route in the spec registered.
-func NewMux(ratings Ratings, log *slog.Logger) http.Handler {
+// NewMux returns the API's handler with every route in the spec registered. Admin routes go through
+// the admin gate, without CORS; with admins nil they refuse every request.
+func NewMux(ratings Ratings, admins Admins, log *slog.Logger) http.Handler {
 	mux := http.NewServeMux()
 	registerRoutes(mux, ratings, log)
-	return publicCORS(mux)
+	return routeAdmin(publicCORS(mux), adminGate(mux, admins, log))
 }
 
 func registerRoutes(router ServeMux, ratings Ratings, log *slog.Logger) {

@@ -19,6 +19,24 @@ import (
 	openapi_types "github.com/oapi-codegen/runtime/types"
 )
 
+// Defines values for AdminMeRole.
+const (
+	Admin     AdminMeRole = "admin"
+	Organiser AdminMeRole = "organiser"
+)
+
+// Valid indicates whether the value is a known member of the AdminMeRole enum.
+func (e AdminMeRole) Valid() bool {
+	switch e {
+	case Admin:
+		return true
+	case Organiser:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for CalibrationRowMode.
 const (
 	Standard    CalibrationRowMode = "standard"
@@ -454,6 +472,15 @@ type Activity struct {
 	// Titles Players per title, most first
 	Titles []TitlePlayers `json:"titles"`
 }
+
+// AdminMe defines model for AdminMe.
+type AdminMe struct {
+	Name string      `json:"name"`
+	Role AdminMeRole `json:"role"`
+}
+
+// AdminMeRole defines model for AdminMe.Role.
+type AdminMeRole string
 
 // Agreement defines model for Agreement.
 type Agreement struct {
@@ -1440,11 +1467,17 @@ type RunId = int64
 // BadRequest defines model for BadRequest.
 type BadRequest = Error
 
+// Forbidden defines model for Forbidden.
+type Forbidden = Error
+
 // NoPublishedRun defines model for NoPublishedRun.
 type NoPublishedRun = Error
 
 // NotFound defines model for NotFound.
 type NotFound = Error
+
+// Unauthorized defines model for Unauthorized.
+type Unauthorized = Error
 
 // GetAgreementParams defines parameters for GetAgreement.
 type GetAgreementParams struct {
@@ -1569,6 +1602,9 @@ type ServerInterface interface {
 	// GetReadyz The process can reach the ratings database
 	// (GET /readyz)
 	GetReadyz(w http.ResponseWriter, r *http.Request)
+	// GetAdminMe Who is signed in to admin, and in which role
+	// (GET /v1/admin/me)
+	GetAdminMe(w http.ResponseWriter, r *http.Request)
 	// GetCurrentRun The run the site shows now
 	// (GET /v1/runs/current)
 	GetCurrentRun(w http.ResponseWriter, r *http.Request)
@@ -1674,6 +1710,20 @@ func (siw *ServerInterfaceWrapper) GetReadyz(w http.ResponseWriter, r *http.Requ
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.GetReadyz(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetAdminMe operation middleware
+func (siw *ServerInterfaceWrapper) GetAdminMe(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetAdminMe(w, r)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -3088,6 +3138,7 @@ func HandlerWithOptions(si ServerInterface, options StdHTTPServerOptions) http.H
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/v1/runs/{run}/catalogue/{tournament}", wrapper.GetCatalogueTournament)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/v1/runs/{run}/catalogue/{tournament}/games", wrapper.GetCatalogueGames)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/v1/runs/{run}/community/{edition}", wrapper.GetCommunityLeaderboard)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/v1/admin/me", wrapper.GetAdminMe)
 
 	return m
 }
@@ -3099,6 +3150,15 @@ type BadRequestJSONResponse struct {
 	Body Error
 
 	Headers BadRequestResponseHeaders
+}
+
+type ForbiddenResponseHeaders struct {
+	CacheControl string
+}
+type ForbiddenJSONResponse struct {
+	Body Error
+
+	Headers ForbiddenResponseHeaders
 }
 
 type NoPublishedRunResponseHeaders struct {
@@ -3117,6 +3177,15 @@ type NotFoundJSONResponse struct {
 	Body Error
 
 	Headers NotFoundResponseHeaders
+}
+
+type UnauthorizedResponseHeaders struct {
+	CacheControl string
+}
+type UnauthorizedJSONResponse struct {
+	Body Error
+
+	Headers UnauthorizedResponseHeaders
 }
 
 type GetHealthzRequestObject struct {
@@ -3187,6 +3256,65 @@ func (response GetReadyz503JSONResponse) VisitGetReadyzResponse(w http.ResponseW
 	w.Header().Set("Content-Type", "application/json")
 	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
 	w.WriteHeader(503)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetAdminMeRequestObject struct {
+}
+
+type GetAdminMeResponseObject interface {
+	VisitGetAdminMeResponse(w http.ResponseWriter) error
+}
+
+type GetAdminMe200ResponseHeaders struct {
+	CacheControl string
+}
+
+type GetAdminMe200JSONResponse struct {
+	Body    AdminMe
+	Headers GetAdminMe200ResponseHeaders
+}
+
+func (response GetAdminMe200JSONResponse) VisitGetAdminMeResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetAdminMe401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response GetAdminMe401JSONResponse) VisitGetAdminMeResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetAdminMe403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response GetAdminMe403JSONResponse) VisitGetAdminMeResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(403)
 	_, err := buf.WriteTo(w)
 	return err
 }
@@ -4716,6 +4844,9 @@ type StrictServerInterface interface {
 	// GetReadyz The process can reach the ratings database
 	// (GET /readyz)
 	GetReadyz(ctx context.Context, request GetReadyzRequestObject) (GetReadyzResponseObject, error)
+	// GetAdminMe Who is signed in to admin, and in which role
+	// (GET /v1/admin/me)
+	GetAdminMe(ctx context.Context, request GetAdminMeRequestObject) (GetAdminMeResponseObject, error)
 	// GetCurrentRun The run the site shows now
 	// (GET /v1/runs/current)
 	GetCurrentRun(ctx context.Context, request GetCurrentRunRequestObject) (GetCurrentRunResponseObject, error)
@@ -4873,6 +5004,30 @@ func (sh *strictHandler) GetReadyz(w http.ResponseWriter, r *http.Request) {
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(GetReadyzResponseObject); ok {
 		if err := validResponse.VisitGetReadyzResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// GetAdminMe operation middleware
+func (sh *strictHandler) GetAdminMe(w http.ResponseWriter, r *http.Request) {
+	var request GetAdminMeRequestObject
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.GetAdminMe(ctx, request.(GetAdminMeRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetAdminMe")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(GetAdminMeResponseObject); ok {
+		if err := validResponse.VisitGetAdminMeResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {

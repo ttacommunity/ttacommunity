@@ -39,12 +39,16 @@ func main() {
 	facts := flag.String("facts", "", "replace every recorded tournament fact of one kind (divisions, placements, corrections, dates, honours, rules, podiums, cge_tournaments, cge_stages, ladder_wins, season_notes, community or community_scores) with the CSV file named")
 	export := flag.String("export", "", "write every input table to the directory named (new or empty), one CSV each, with a manifest")
 	restore := flag.String("restore", "", "load an export from the directory named into a new database, after applying the migrations")
+	addAdmin := flag.String("add-admin", "", "add or update the admin with the Discord id named, with -name and -role")
+	adminName := flag.String("name", "", "with -add-admin: the admin's name as admin shows it")
+	adminRole := flag.String("role", "", "with -add-admin: admin or organiser")
 	upstream := flag.String("export-upstream", "", "write every played game to the new file named, as the match CSV upstream's site loads")
 	flag.Usage = func() {
 		fmt.Fprintln(os.Stderr, "usage: load [-reset] <directory of match CSVs>")
 		fmt.Fprintln(os.Stderr, "       load -export <directory>")
 		fmt.Fprintln(os.Stderr, "       load -restore <directory>")
 		fmt.Fprintln(os.Stderr, "       load -export-upstream <file>")
+		fmt.Fprintln(os.Stderr, "       load -add-admin <Discord id> -name <name> -role admin|organiser")
 		fmt.Fprintln(os.Stderr, "       load -migrate")
 		fmt.Fprintln(os.Stderr, "       load -classify")
 		fmt.Fprintln(os.Stderr, "       load -cge-games <CSV file> [-cge-new <CSV file>]")
@@ -54,7 +58,7 @@ func main() {
 		flag.PrintDefaults()
 	}
 	flag.Parse()
-	one := !*reset && btoi(*migrate)+btoi(*classify)+btoi(*cgeGames != "")+btoi(*countries)+btoi(*facts != "")+btoi(*export != "")+btoi(*restore != "")+btoi(*upstream != "") == 1
+	one := !*reset && btoi(*migrate)+btoi(*classify)+btoi(*cgeGames != "")+btoi(*countries)+btoi(*facts != "")+btoi(*export != "")+btoi(*restore != "")+btoi(*upstream != "")+btoi(*addAdmin != "") == 1
 	var err error
 	switch {
 	case *migrate && one && flag.NArg() == 0:
@@ -74,9 +78,20 @@ func main() {
 		err = exportTo(*export)
 	case *restore != "" && one && flag.NArg() == 0:
 		err = restoreFrom(*restore)
+	case *addAdmin != "" && one && flag.NArg() == 0:
+		err = withPool(func(ctx context.Context, pool *pgxpool.Pool) error {
+			if err := store.MigrateRatings(ctx, pool); err != nil {
+				return err
+			}
+			if err := store.AddAdmin(ctx, pool, store.Admin{DiscordID: *addAdmin, Name: *adminName, Role: *adminRole}); err != nil {
+				return err
+			}
+			fmt.Printf("%s is now %s\n", *adminName, *adminRole)
+			return nil
+		})
 	case *upstream != "" && one && flag.NArg() == 0:
 		err = exportForUpstream(*upstream)
-	case !*migrate && !*classify && *cgeGames == "" && !*countries && *facts == "" && *export == "" && *restore == "" && *upstream == "" && flag.NArg() == 1:
+	case !*migrate && !*classify && *cgeGames == "" && !*countries && *facts == "" && *export == "" && *restore == "" && *upstream == "" && *addAdmin == "" && flag.NArg() == 1:
 		err = run(*reset, flag.Arg(0))
 	default:
 		flag.Usage()

@@ -74,3 +74,25 @@ func AddAdmin(ctx context.Context, pool *pgxpool.Pool, a Admin) error {
 	}
 	return nil
 }
+
+// ErrAdminTooStrong means the admin login could change games, players or runs, or create tables.
+var ErrAdminTooStrong = errors.New("the admin login can change more than admin edits")
+
+// CheckLimits returns ErrAdminTooStrong if the pool's role is a superuser, can create tables, or can
+// delete games, players or runs. The API calls it at start, so a misconfigured login refuses to serve.
+func (a *AdminStore) CheckLimits(ctx context.Context) error {
+	var tooStrong bool
+	err := a.pool.QueryRow(ctx, `
+		SELECT (SELECT rolsuper FROM pg_roles WHERE rolname = current_user)
+			OR has_schema_privilege('public', 'CREATE')
+			OR has_table_privilege('matches', 'INSERT, DELETE, TRUNCATE')
+			OR has_table_privilege('players', 'UPDATE, DELETE, TRUNCATE')
+			OR has_table_privilege('rating_runs', 'DELETE, TRUNCATE')`).Scan(&tooStrong)
+	if err != nil {
+		return fmt.Errorf("checking the admin login's privileges: %w", err)
+	}
+	if tooStrong {
+		return ErrAdminTooStrong
+	}
+	return nil
+}
