@@ -5,9 +5,12 @@ import (
 	"errors"
 	"fmt"
 	"regexp"
+	"slices"
 	"time"
 
 	"github.com/jackc/pgx/v5"
+
+	"ttacommunity/backend/internal/tournamentcsv"
 )
 
 // ErrTournamentNotFound is returned for a tournament with no placed games.
@@ -85,10 +88,20 @@ var leagueTops = map[string][]string{
 	"worlds":        {"Final"},
 }
 
-// CatalogueTournament is one tournament's seasons, in order of their first game.
+// LadderWin is one player's top-tier wins in a ladder, as its organisers count them.
+type LadderWin struct {
+	Name   string
+	Wins   float64
+	Source string
+}
+
+// CatalogueTournament is one tournament's seasons, in order of their first
+// game. A ladder's champions are its players' top-tier wins, most first.
 type CatalogueTournament struct {
-	Slug, Name string
-	Seasons    []CatalogueSeason
+	Slug, Name  string
+	Seasons     []CatalogueSeason
+	Ladder      bool
+	TopTierWins []LadderWin
 }
 
 // placedSeats is every placed game's seats, one row per player, with its
@@ -159,7 +172,7 @@ func (r *RatingsReader) CatalogueTournament(ctx context.Context, run int64, slug
 	fail := func(what string, err error) (CatalogueTournament, error) {
 		return CatalogueTournament{}, fmt.Errorf("reading %s's %s: %w", slug, what, err)
 	}
-	got := CatalogueTournament{Slug: slug, Seasons: []CatalogueSeason{}}
+	got := CatalogueTournament{Slug: slug, Seasons: []CatalogueSeason{}, Ladder: slices.Contains(tournamentcsv.Ladders, slug), TopTierWins: []LadderWin{}}
 	rows, err := r.pool.Query(ctx, `
 		WITH g AS (`+placedSeats+` AND t.slug = $1)
 		SELECT name, season_id, season, count(DISTINCT match_id), count(DISTINCT player), min(date), max(date)
@@ -286,6 +299,16 @@ func (r *RatingsReader) CatalogueTournament(ctx context.Context, run int64, slug
 	})
 	if err != nil {
 		return fail("CGE pages", err)
+	}
+
+	rows, err = r.pool.Query(ctx, `
+		SELECT player_name, wins::float8, source FROM tournament_ladder_wins
+		WHERE ladder = $1 ORDER BY wins DESC, player_name`, slug)
+	if err != nil {
+		return fail("top-tier wins", err)
+	}
+	if got.TopTierWins, err = pgx.CollectRows(rows, pgx.RowToStructByPos[LadderWin]); err != nil {
+		return fail("top-tier wins", err)
 	}
 	return got, nil
 }

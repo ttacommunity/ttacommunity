@@ -1297,12 +1297,22 @@ export interface components {
             cge_pages: string[];
         };
         CatalogueTournament: {
+            /** @description A ladder's champions are counted as top-tier wins, not season podiums */
+            ladder: boolean;
+            /** @description A ladder's players by their wins in its top tier, most first, as its organisers count them (half a win for a tie) */
+            top_tier_wins: components["schemas"]["LadderWin"][];
             /** Format: int64 */
             run_id: number;
             slug: string;
             name: string;
             /** @description In order of their first game */
             seasons: components["schemas"]["CatalogueSeason"][];
+        };
+        LadderWin: {
+            name: string;
+            /** Format: double */
+            wins: number;
+            source: string;
         };
         CatalogueGames: {
             /** Format: int64 */

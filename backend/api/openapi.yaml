@@ -2115,8 +2115,16 @@ components:
                 type: string
     CatalogueTournament:
       type: object
-      required: [run_id, slug, name, seasons]
+      required: [run_id, slug, name, seasons, ladder, top_tier_wins]
       properties:
+        ladder:
+          description: A ladder's champions are counted as top-tier wins, not season podiums
+          type: boolean
+        top_tier_wins:
+          description: A ladder's players by their wins in its top tier, most first, as its organisers count them (half a win for a tie)
+          type: array
+          items:
+            $ref: "#/components/schemas/LadderWin"
         run_id:
           type: integer
           format: int64
@@ -2129,6 +2137,17 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/CatalogueSeason"
+    LadderWin:
+      type: object
+      required: [name, wins, source]
+      properties:
+        name:
+          type: string
+        wins:
+          type: number
+          format: double
+        source:
+          type: string
     CatalogueGames:
       type: object
       required: [run_id, slug, page, pages, total, coded, groups, games]

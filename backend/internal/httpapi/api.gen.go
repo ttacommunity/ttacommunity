@@ -647,12 +647,17 @@ type CatalogueStage struct {
 
 // CatalogueTournament defines model for CatalogueTournament.
 type CatalogueTournament struct {
-	Name  string `json:"name"`
-	RunId int64  `json:"run_id"`
+	// Ladder A ladder's champions are counted as top-tier wins, not season podiums
+	Ladder bool   `json:"ladder"`
+	Name   string `json:"name"`
+	RunId  int64  `json:"run_id"`
 
 	// Seasons In order of their first game
 	Seasons []CatalogueSeason `json:"seasons"`
 	Slug    string            `json:"slug"`
+
+	// TopTierWins A ladder's players by their wins in its top tier, most first, as its organisers count them (half a win for a tie)
+	TopTierWins []LadderWin `json:"top_tier_wins"`
 }
 
 // Champion defines model for Champion.
@@ -880,6 +885,13 @@ type HistorySeries struct {
 
 	// Points Oldest first
 	Points []HistoryPoint `json:"points"`
+}
+
+// LadderWin defines model for LadderWin.
+type LadderWin struct {
+	Name   string  `json:"name"`
+	Source string  `json:"source"`
+	Wins   float64 `json:"wins"`
 }
 
 // Leaderboard defines model for Leaderboard.

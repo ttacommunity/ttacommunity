@@ -66,7 +66,13 @@ func (s *server) GetCatalogueTournament(ctx context.Context, req GetCatalogueTou
 	if err != nil {
 		return nil, err
 	}
-	body := CatalogueTournament{RunId: req.Run, Slug: t.Slug, Name: t.Name, Seasons: make([]CatalogueSeason, 0, len(t.Seasons))}
+	body := CatalogueTournament{
+		RunId: req.Run, Slug: t.Slug, Name: t.Name, Seasons: make([]CatalogueSeason, 0, len(t.Seasons)),
+		Ladder: t.Ladder, TopTierWins: make([]LadderWin, 0, len(t.TopTierWins)),
+	}
+	for _, w := range t.TopTierWins {
+		body.TopTierWins = append(body.TopTierWins, LadderWin{Name: w.Name, Wins: w.Wins, Source: w.Source})
+	}
 	for _, season := range t.Seasons {
 		out := CatalogueSeason{
 			Label: season.Label, Games: season.Span.Games, Players: season.Span.Players,

@@ -62,3 +62,8 @@ export function placeNames(podium: { place: number; name: string; final: string 
   const several = new Set(podium.map((p) => p.final)).size > 1;
   return podium.filter((p) => p.place === place).map((p) => ({ name: p.name, final: several ? p.final : '' }));
 }
+
+/** winsLabel counts a ladder winner's top-tier wins ("3.5 wins"), or "" for a single win. */
+export function winsLabel(wins: number): string {
+  return wins > 1 ? `${wins.toLocaleString('en-US')} wins` : '';
+}

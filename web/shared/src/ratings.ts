@@ -55,6 +55,7 @@ export type CatalogueTournament = components['schemas']['CatalogueTournament'];
 export type CatalogueSeason = components['schemas']['CatalogueSeason'];
 export type CatalogueStage = components['schemas']['CatalogueStage'];
 export type CatalogueGames = components['schemas']['CatalogueGames'];
+export type LadderWin = components['schemas']['LadderWin'];
 export type CatalogueGame = components['schemas']['CatalogueGame'];
 export type GameSeat = components['schemas']['GameSeat'];
 export type PodiumPlace = components['schemas']['PodiumPlace'];

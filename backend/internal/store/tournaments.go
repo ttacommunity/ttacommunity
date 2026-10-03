@@ -138,6 +138,23 @@ func ReplacePodiums(ctx context.Context, pool *pgxpool.Pool, podiums []tournamen
 	return FactsReplaced{Written: n, Unknown: len(podiums) - n}, err
 }
 
+// ReplaceLadderWins replaces every ladder's top-tier wins, in one
+// transaction. A row naming someone who is not a player is counted, not written.
+func ReplaceLadderWins(ctx context.Context, pool *pgxpool.Pool, wins []tournamentcsv.LadderWins) (FactsReplaced, error) {
+	var ladders, players, sources []string
+	var counts []float64
+	for _, w := range wins {
+		ladders, players, counts, sources = append(ladders, w.Ladder), append(players, w.Player), append(counts, w.Wins), append(sources, w.Source)
+	}
+	n, err := replaceAll(ctx, pool, "tournament_ladder_wins", `
+		INSERT INTO tournament_ladder_wins (ladder, player_name, wins, source)
+		SELECT x.ladder, p.name, x.wins, x.source
+		FROM unnest($1::text[], $2::text[], $3::numeric[], $4::text[]) AS x(ladder, player, wins, source)
+		JOIN players p ON p.name = x.player`,
+		ladders, players, counts, sources)
+	return FactsReplaced{Written: n, Unknown: len(wins) - n}, err
+}
+
 // ReplaceCGEStages replaces every stage's link to the CGE tournament season
 // it was played as, in one transaction. A row naming a stage the catalogue
 // lacks is counted, not written.

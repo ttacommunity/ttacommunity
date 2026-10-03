@@ -8,10 +8,11 @@ import {
   type Catalogue,
   type CatalogueSeason,
   type CatalogueTournament,
+  type LadderWin,
 } from '@ttac/shared/ratings';
 import { playerHref } from '../lib/player-view';
 import TournamentGames from './TournamentGames';
-import { catalogueHref, cgeYears, placeLabel, placeNames, seasonName, shownName, spanYears, stageName, tournamentParam } from '../lib/catalogue-view';
+import { catalogueHref, cgeYears, placeLabel, placeNames, seasonName, shownName, spanYears, stageName, tournamentParam, winsLabel } from '../lib/catalogue-view';
 
 type Load<T> = { kind: 'loading' } | { kind: 'missing' } | { kind: 'error'; message: string } | { kind: 'ready'; data: T };
 
@@ -190,7 +191,8 @@ function TournamentDetail({ apiUrl, slug }: { apiUrl: string; slug: string }) {
           </div>
         </div>
       </div>
-      <Champions seasons={t.seasons} onPick={(season) => setPick((p) => ({ season, n: p.n + 1 }))} />
+      {t.ladder && <LadderWinners wins={t.top_tier_wins} />}
+      <Champions seasons={t.seasons} podium={!t.ladder} onPick={(season) => setPick((p) => ({ season, n: p.n + 1 }))} />
       {staged.map((s) => (
         <Stages key={s.label} season={s} />
       ))}
@@ -199,8 +201,35 @@ function TournamentDetail({ apiUrl, slug }: { apiUrl: string; slug: string }) {
   );
 }
 
-/** Champions lists every season, newest first, with its podium, figures and CGE pages; a season's name opens its games. */
-function Champions({ seasons, onPick }: { seasons: CatalogueSeason[]; onPick: (season: string) => void }) {
+/** LadderWinners lists a ladder's top-tier winners, most wins first, as its organisers count them. */
+function LadderWinners({ wins }: { wins: LadderWin[] }) {
+  return (
+    <div className="panel-card champions-panel">
+      <div className="panel-header panel-header-split">
+        <h2 className="panel-header-title">Top-tier wins</h2>
+        <span className="panel-tag">{count(wins.length)} winners</span>
+      </div>
+      {wins.length === 0 ? (
+        <p className="records-intro">The organisers' count of top-tier wins is not recorded yet.</p>
+      ) : (
+        <>
+          <ul className="ladder-winners">
+            {wins.map((w) => (
+              <li key={w.name}>
+                <a href={playerHref(w.name)}>{w.name}</a>
+                {winsLabel(w.wins) !== '' && <span className="cell-muted"> · {winsLabel(w.wins)}</span>}
+              </li>
+            ))}
+          </ul>
+          <p className="records-intro champions-note">A ladder's champion wins its top tier; a tie counts half. Source: {wins[0].source}.</p>
+        </>
+      )}
+    </div>
+  );
+}
+
+/** Champions lists every season, newest first, with its podium (unless a ladder's), figures and CGE pages; a season's name opens its games. */
+function Champions({ seasons, podium, onPick }: { seasons: CatalogueSeason[]; podium: boolean; onPick: (season: string) => void }) {
   const place = (s: CatalogueSeason, n: number) => {
     const got = placeNames(s.podium, n);
     if (got.length === 0) return <span className="cell-muted">—</span>;
@@ -215,18 +244,24 @@ function Champions({ seasons, onPick }: { seasons: CatalogueSeason[]; onPick: (s
   return (
     <div className="panel-card champions-panel">
       <div className="panel-header panel-header-split">
-        <h2 className="panel-header-title">Champions</h2>
+        <h2 className="panel-header-title">{podium ? 'Champions' : 'Seasons'}</h2>
         <span className="panel-tag">{count(seasons.length)} seasons</span>
       </div>
       <div className="trophy-table-container champions-table">
         <table className="trophy-table">
-          <caption className="records-intro">Each season's top three, newest first; choose a season to see its games</caption>
+          <caption className="records-intro">
+            {podium ? "Each season's top three, newest first; choose a season to see its games" : 'Newest first; choose a season to see its games'}
+          </caption>
           <thead>
             <tr>
               <th>Season</th>
-              <th>{placeLabel(1)}</th>
-              <th>{placeLabel(2)}</th>
-              <th>{placeLabel(3)}</th>
+              {podium && (
+                <>
+                  <th>{placeLabel(1)}</th>
+                  <th>{placeLabel(2)}</th>
+                  <th>{placeLabel(3)}</th>
+                </>
+              )}
               <th className="col-center">Played</th>
               <th className="col-num">Games</th>
               <th className="col-num">Players</th>
@@ -241,9 +276,13 @@ function Champions({ seasons, onPick }: { seasons: CatalogueSeason[]; onPick: (s
                     {seasonName(s.label)}
                   </button>
                 </td>
-                <td className="champion-cell">{place(s, 1)}</td>
-                <td>{place(s, 2)}</td>
-                <td>{place(s, 3)}</td>
+                {podium && (
+                  <>
+                    <td className="champion-cell">{place(s, 1)}</td>
+                    <td>{place(s, 2)}</td>
+                    <td>{place(s, 3)}</td>
+                  </>
+                )}
                 <td className="cell-date">
                   {s.first_game} – {s.last_game}
                 </td>
@@ -265,9 +304,9 @@ function Champions({ seasons, onPick }: { seasons: CatalogueSeason[]; onPick: (s
           </tbody>
         </table>
       </div>
-      <p className="records-intro champions-note">
-        A league's podium is its top division; a cup's is its final. A dash means we have not recorded it yet.
-      </p>
+      {podium && (
+        <p className="records-intro champions-note">A league's podium is its top division; a cup's is its final. A dash means we have not recorded it yet.</p>
+      )}
     </div>
   );
 }

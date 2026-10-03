@@ -96,7 +96,7 @@ func TestCatalogueTournamentGivesSeasonsInOrderWithStagesAndPodium(t *testing.T)
 		{Label: "2024", Span: GameSpan{Games: 2, Players: 3, First: day("2024-07-01"), Last: day("2025-02-24")},
 			Stages: []CatalogueStage{stage("Stage 1", day("2024-07-01")), stage("Stage 7", day("2025-02-24"))},
 			Podium: []PodiumPlace{{Place: 1, Name: "ann", Final: "", Finished: day("2025-02-24"), Source: "CGE"}}, CGE: []CGELink{}},
-	}}
+	}, TopTierWins: []LadderWin{}}
 	if !reflect.DeepEqual(got, want) {
 		t.Errorf("CatalogueTournament = %+v, want %+v", got, want)
 	}
@@ -351,5 +351,45 @@ func TestReplaceCGEStagesLinksSeasonsWithoutMatchedGames(t *testing.T) {
 				t.Errorf("%s season %s CGE = %+v, want %+v", slug, s.Label, s.CGE, want[i])
 			}
 		}
+	}
+}
+
+func TestCatalogueTournamentGivesALaddersTopTierWins(t *testing.T) {
+	pool := migrated(t)
+	ctx := context.Background()
+	run := publishedRun(t, pool)
+	placedOn(t, pool, map[string]time.Time{
+		"Mercurial Season 20 - 3-Neon 2 game 4":    day("2024-03-01"),
+		"Intermezzo S24 - Grandmaster game 1":      day("2024-01-02"),
+		"Mercurial Season 21 - 4-Beryllium game 1": day("2024-04-01"),
+	})
+	addPlayers(t, pool, "cat")
+	src := "the organisers' Hall of Fame"
+	got, err := ReplaceLadderWins(ctx, pool, []tournamentcsv.LadderWins{
+		{Ladder: "mercurial_ladder", Player: "ann", Wins: 1, Source: src},
+		{Ladder: "mercurial_ladder", Player: "cat", Wins: 3.5, Source: src},
+		{Ladder: "mercurial_ladder", Player: "nobody", Wins: 2, Source: src},
+	})
+	if err != nil {
+		t.Fatalf("ReplaceLadderWins: %v", err)
+	}
+	if got.Written != 2 || got.Unknown != 1 {
+		t.Errorf("ReplaceLadderWins = %+v, want 2 written and 1 not a player", got)
+	}
+	r := NewRatingsReader(asReader(t, pool))
+	ladder, err := r.CatalogueTournament(ctx, run, "mercurial_ladder")
+	if err != nil {
+		t.Fatalf("CatalogueTournament(mercurial_ladder): %v", err)
+	}
+	want := []LadderWin{{Name: "cat", Wins: 3.5, Source: src}, {Name: "ann", Wins: 1, Source: src}}
+	if !ladder.Ladder || !reflect.DeepEqual(ladder.TopTierWins, want) {
+		t.Errorf("mercurial_ladder: ladder %v, wins %+v; want a ladder with %+v", ladder.Ladder, ladder.TopTierWins, want)
+	}
+	league, err := r.CatalogueTournament(ctx, run, "intermezzo")
+	if err != nil {
+		t.Fatalf("CatalogueTournament(intermezzo): %v", err)
+	}
+	if league.Ladder || len(league.TopTierWins) != 0 {
+		t.Errorf("intermezzo: ladder %v, wins %+v; want neither", league.Ladder, league.TopTierWins)
 	}
 }
