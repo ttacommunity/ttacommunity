@@ -215,10 +215,10 @@ describe('tournament pages', () => {
   it('ask for a page of games with only the filters chosen', async () => {
     const f = fakeFetch(200, '{}');
     await catalogueGames('https://api.example', 5, 'worlds', { page: 1 }, f.fetch);
-    await catalogueGames('https://api.example', 5, 'worlds', { season: '2022 (Age A)', stage: 'Stage 1', group: 'Group 3', coded: true, page: 2 }, f.fetch);
+    await catalogueGames('https://api.example', 5, 'worlds', { season: '2022 (Age A)', stage: 'Stage 1', group: 'Group 3', player: 'Ender_Wiggin', coded: true, page: 2 }, f.fetch);
     expect(f.calls.map((c) => c.url)).toEqual([
       'https://api.example/v1/runs/5/catalogue/worlds/games?page=1',
-      'https://api.example/v1/runs/5/catalogue/worlds/games?page=2&season=2022+%28Age+A%29&stage=Stage+1&group=Group+3&coded=true',
+      'https://api.example/v1/runs/5/catalogue/worlds/games?page=2&season=2022+%28Age+A%29&stage=Stage+1&group=Group+3&player=Ender_Wiggin&coded=true',
     ]);
     expect(f.calls.every((c) => c.init?.credentials === 'omit')).toBe(true);
   });

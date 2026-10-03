@@ -96,7 +96,7 @@ func TestCatalogueTournamentGivesSeasonsInOrderWithStagesAndPodium(t *testing.T)
 		{Label: "2024", Span: GameSpan{Games: 2, Players: 3, First: day("2024-07-01"), Last: day("2025-02-24")},
 			Stages: []CatalogueStage{stage("Stage 1", day("2024-07-01")), stage("Stage 7", day("2025-02-24"))},
 			Podium: []PodiumPlace{{Place: 1, Name: "ann", Final: "", Finished: day("2025-02-24"), Source: "CGE"}}, CGE: []CGELink{}},
-	}, TopTierWins: []LadderWin{}}
+	}, TopTierWins: []LadderWin{}, Players: []string{"ann", "bob2", "bob3", "bob4"}}
 	if !reflect.DeepEqual(got, want) {
 		t.Errorf("CatalogueTournament = %+v, want %+v", got, want)
 	}
@@ -391,5 +391,23 @@ func TestCatalogueTournamentGivesALaddersTopTierWins(t *testing.T) {
 	}
 	if league.Ladder || len(league.TopTierWins) != 0 {
 		t.Errorf("intermezzo: ladder %v, wins %+v; want neither", league.Ladder, league.TopTierWins)
+	}
+}
+
+func TestCatalogueTournamentListsItsPlayers(t *testing.T) {
+	pool := migrated(t)
+	ctx := context.Background()
+	run := publishedRun(t, pool)
+	placedOn(t, pool, map[string]time.Time{
+		"Intermezzo S24 - Bronze 1 game 1": day("2024-01-02"),
+		"Intermezzo S25 - Bronze 2 game 1": day("2024-05-01"),
+	})
+	got, err := NewRatingsReader(asReader(t, pool)).CatalogueTournament(ctx, run, "intermezzo")
+	if err != nil {
+		t.Fatalf("CatalogueTournament: %v", err)
+	}
+	// ann plays both games, each bob one: three players, each once, in order.
+	if len(got.Players) != 3 || got.Players[0] != "ann" || !slices.IsSorted(got.Players) {
+		t.Errorf("players = %q, want ann and two bobs, each once, in order", got.Players)
 	}
 }

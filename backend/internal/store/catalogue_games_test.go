@@ -186,3 +186,39 @@ func TestCatalogueGamesRefusesAHiddenTournamentAndAnUnpublishedRun(t *testing.T)
 		t.Errorf("CatalogueGames of an unpublished run: %v, want ErrRunNotFound", err)
 	}
 }
+
+func TestCatalogueGamesNarrowsToAPlayer(t *testing.T) {
+	pool := migrated(t)
+	ctx := context.Background()
+	run := publishedRun(t, pool)
+	placedOn(t, pool, map[string]time.Time{
+		"Intermezzo S24 - Bronze 1 game 1": day("2024-01-02"),
+		"Intermezzo S24 - Bronze 1 game 2": day("2024-01-09"),
+		"Intermezzo S25 - Bronze 2 game 1": day("2024-05-01"),
+	})
+	var bob string
+	if err := pool.QueryRow(ctx, "SELECT player2 FROM matches WHERE tournament = 'Intermezzo S24 - Bronze 1 game 2'").Scan(&bob); err != nil {
+		t.Fatalf("reading a player: %v", err)
+	}
+	r := NewRatingsReader(asReader(t, pool))
+
+	// Every game has ann; each bob plays one. A name matches whatever its case.
+	for _, tt := range []struct {
+		player string
+		filter CatalogueGamesFilter
+		want   []string
+	}{
+		{"ANN", CatalogueGamesFilter{Player: "ANN"}, []string{"25||Bronze 2|1", "24||Bronze 1|2", "24||Bronze 1|1"}},
+		{bob, CatalogueGamesFilter{Player: bob}, []string{"24||Bronze 1|2"}},
+		{"ann in S25", CatalogueGamesFilter{Player: "ann", Season: "25"}, []string{"25||Bronze 2|1"}},
+		{"nobody", CatalogueGamesFilter{Player: "nobody"}, nil},
+	} {
+		got, err := r.CatalogueGames(ctx, run, "intermezzo", tt.filter)
+		if err != nil {
+			t.Fatalf("CatalogueGames(%s): %v", tt.player, err)
+		}
+		if keys := gameKeys(got.Games); !reflect.DeepEqual(keys, tt.want) || got.Total != len(tt.want) {
+			t.Errorf("CatalogueGames(%s) = %q (total %d), want %q", tt.player, keys, got.Total, tt.want)
+		}
+	}
+}

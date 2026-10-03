@@ -249,11 +249,12 @@ export async function catalogueTournament(base: string, run: number, slug: strin
   return get<CatalogueTournament>(fetchFn, base, `/v1/runs/${run}/catalogue/${encodeURIComponent(slug)}`);
 }
 
-/** Which of a tournament's games to ask for: empty filters do not narrow, and coded keeps games with a replay code. */
+/** Which of a tournament's games to ask for: empty filters do not narrow; player keeps one player's games, coded those with a replay code. */
 export interface GamesFilter {
   season?: string;
   stage?: string;
   group?: string;
+  player?: string;
   coded?: boolean;
   page: number;
 }
@@ -261,7 +262,7 @@ export interface GamesFilter {
 /** Returns one page of a tournament's games, newest first, narrowed by the filter. */
 export async function catalogueGames(base: string, run: number, slug: string, filter: GamesFilter, fetchFn: typeof fetch = fetch): Promise<CatalogueGames> {
   const query = new URLSearchParams({ page: String(filter.page) });
-  for (const key of ['season', 'stage', 'group'] as const) {
+  for (const key of ['season', 'stage', 'group', 'player'] as const) {
     const value = filter[key];
     if (value !== undefined && value !== '') query.set(key, value);
   }

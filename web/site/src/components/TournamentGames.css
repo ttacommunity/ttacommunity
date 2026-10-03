@@ -197,3 +197,31 @@
 .ladder-winners a:hover {
   color: var(--accent-gold);
 }
+
+.games-player-field {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.games-player input {
+  width: 14rem;
+  max-width: 100%;
+  padding: 0.35rem 0.6rem;
+  border: 1px solid var(--border-subtle);
+  border-radius: 4px;
+  background: #0e0906f2;
+  color: #f3e5c8;
+  font-size: 0.9rem;
+  text-transform: none;
+  letter-spacing: 0;
+}
+
+.games-player-clear {
+  padding: 0.2rem 0.45rem;
+  border: 1px solid var(--border-subtle);
+  border-radius: 4px;
+  background: none;
+  color: var(--accent-gold);
+  cursor: pointer;
+}

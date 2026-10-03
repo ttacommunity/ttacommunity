@@ -17,9 +17,11 @@ import (
 const catalogueGamesPage = 50
 
 // CatalogueGamesFilter narrows a tournament's games. Empty fields do not
-// narrow; Coded keeps games with a replay code. Page counts from 1.
+// narrow; Player keeps games with that player (any case), Coded games with a
+// replay code. Page counts from 1.
 type CatalogueGamesFilter struct {
 	Season, Stage, Group string
+	Player               string
 	Coded                bool
 	Page                 int
 }
@@ -65,7 +67,8 @@ const shownGames = `
 	JOIN tournaments t USING (tournament_id)
 	WHERE t.slug = $1
 	  AND (t.visible OR EXISTS (SELECT 1 FROM ranking_tournaments rt WHERE rt.tournament_id = t.tournament_id))
-	  AND ($2 = '' OR s.label = $2) AND ($3 = '' OR st.label = $3)`
+	  AND ($2 = '' OR s.label = $2) AND ($3 = '' OR st.label = $3)
+	  AND ($4 = '' OR lower($4) IN (lower(m.player1), lower(m.player2), lower(m.player3), lower(m.player4)))`
 
 // CatalogueGames returns one page of a shown tournament's games, newest
 // first, for a published run. A page past the last gives the last. A
@@ -78,7 +81,7 @@ func (r *RatingsReader) CatalogueGames(ctx context.Context, run int64, slug stri
 		return CatalogueGames{}, fmt.Errorf("reading %s's %s: %w", slug, what, err)
 	}
 	var shown bool
-	if err := r.pool.QueryRow(ctx, `SELECT EXISTS (`+shownGames+`)`, slug, "", "").Scan(&shown); err != nil {
+	if err := r.pool.QueryRow(ctx, `SELECT EXISTS (`+shownGames+`)`, slug, "", "", "").Scan(&shown); err != nil {
 		return fail("games", err)
 	}
 	if !shown {
@@ -87,7 +90,7 @@ func (r *RatingsReader) CatalogueGames(ctx context.Context, run int64, slug stri
 
 	got := CatalogueGames{Games: []CatalogueGame{}}
 	if f.Season != "" {
-		rows, err := r.pool.Query(ctx, `SELECT DISTINCT group_label FROM (`+shownGames+`) g WHERE group_label <> ''`, slug, f.Season, f.Stage)
+		rows, err := r.pool.Query(ctx, `SELECT DISTINCT group_label FROM (`+shownGames+`) g WHERE group_label <> ''`, slug, f.Season, f.Stage, f.Player)
 		if err != nil {
 			return fail("groups", err)
 		}
@@ -98,9 +101,9 @@ func (r *RatingsReader) CatalogueGames(ctx context.Context, run int64, slug stri
 	}
 
 	if err := r.pool.QueryRow(ctx, `
-		SELECT count(*) FILTER (WHERE NOT $5 OR code <> ''), count(*) FILTER (WHERE code <> '')
-		FROM (`+shownGames+`) g WHERE ($4 = '' OR group_label = $4)`,
-		slug, f.Season, f.Stage, f.Group, f.Coded).Scan(&got.Total, &got.Coded); err != nil {
+		SELECT count(*) FILTER (WHERE NOT $6 OR code <> ''), count(*) FILTER (WHERE code <> '')
+		FROM (`+shownGames+`) g WHERE ($5 = '' OR group_label = $5)`,
+		slug, f.Season, f.Stage, f.Player, f.Group, f.Coded).Scan(&got.Total, &got.Coded); err != nil {
 		return fail("game count", err)
 	}
 	got.Pages = max(1, (got.Total+catalogueGamesPage-1)/catalogueGamesPage)
@@ -111,10 +114,10 @@ func (r *RatingsReader) CatalogueGames(ctx context.Context, run int64, slug stri
 		       m.player1, m.score1, m.player2, m.score2, m.player3, m.score3, m.player4, m.score4,
 		       coalesce((SELECT jsonb_object_agg(player_name, outcome) FROM match_seats WHERE match_id = g.match_id), '{}')
 		FROM (`+shownGames+`) g JOIN matches m USING (match_id)
-		WHERE ($4 = '' OR g.group_label = $4) AND (NOT $5 OR g.code <> '')
+		WHERE ($5 = '' OR g.group_label = $5) AND (NOT $6 OR g.code <> '')
 		ORDER BY g.date DESC, g.season, g.stage, g.group_label, g.game DESC, g.match_id
-		LIMIT $6 OFFSET $7`,
-		slug, f.Season, f.Stage, f.Group, f.Coded, catalogueGamesPage, (got.Page-1)*catalogueGamesPage)
+		LIMIT $7 OFFSET $8`,
+		slug, f.Season, f.Stage, f.Player, f.Group, f.Coded, catalogueGamesPage, (got.Page-1)*catalogueGamesPage)
 	if err != nil {
 		return fail("games", err)
 	}

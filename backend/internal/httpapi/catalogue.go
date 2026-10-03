@@ -68,7 +68,7 @@ func (s *server) GetCatalogueTournament(ctx context.Context, req GetCatalogueTou
 	}
 	body := CatalogueTournament{
 		RunId: req.Run, Slug: t.Slug, Name: t.Name, Seasons: make([]CatalogueSeason, 0, len(t.Seasons)),
-		Ladder: t.Ladder, TopTierWins: make([]LadderWin, 0, len(t.TopTierWins)),
+		Ladder: t.Ladder, TopTierWins: make([]LadderWin, 0, len(t.TopTierWins)), Players: append([]string{}, t.Players...),
 	}
 	for _, w := range t.TopTierWins {
 		body.TopTierWins = append(body.TopTierWins, LadderWin{Name: w.Name, Wins: w.Wins, Source: w.Source})
@@ -114,7 +114,7 @@ func (s *server) GetCatalogueGames(ctx context.Context, req GetCatalogueGamesReq
 		}
 		return *p
 	}
-	f.Season, f.Stage, f.Group = text(req.Params.Season), text(req.Params.Stage), text(req.Params.Group)
+	f.Season, f.Stage, f.Group, f.Player = text(req.Params.Season), text(req.Params.Stage), text(req.Params.Group), text(req.Params.Player)
 	if req.Params.Coded != nil {
 		f.Coded = *req.Params.Coded
 	}
@@ -133,6 +133,8 @@ func (s *server) GetCatalogueGames(ctx context.Context, req GetCatalogueGamesReq
 		msg = "bad parameter: stage"
 	case len(f.Group) > 64:
 		msg = "bad parameter: group"
+	case len(f.Player) > 64:
+		msg = "bad parameter: player"
 	case f.Page < 1:
 		msg = "bad parameter: page"
 	}

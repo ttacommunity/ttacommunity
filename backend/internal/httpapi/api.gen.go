@@ -650,7 +650,10 @@ type CatalogueTournament struct {
 	// Ladder A ladder's champions are counted as top-tier wins, not season podiums
 	Ladder bool   `json:"ladder"`
 	Name   string `json:"name"`
-	RunId  int64  `json:"run_id"`
+
+	// Players Everyone who played a shown game of the tournament, by name, for a search box
+	Players []string `json:"players"`
+	RunId   int64    `json:"run_id"`
 
 	// Seasons In order of their first game
 	Seasons []CatalogueSeason `json:"seasons"`
@@ -1445,6 +1448,9 @@ type GetCatalogueGamesParams struct {
 	Stage  *string `form:"stage,omitempty" json:"stage,omitempty"`
 	Group  *string `form:"group,omitempty" json:"group,omitempty"`
 
+	// Player Only games this player sat in, by name in any case
+	Player *string `form:"player,omitempty" json:"player,omitempty"`
+
 	// Coded Only games with a replay code
 	Coded *bool `form:"coded,omitempty" json:"coded,omitempty"`
 	Page  *int  `form:"page,omitempty" json:"page,omitempty"`
@@ -1983,6 +1989,19 @@ func (siw *ServerInterfaceWrapper) GetCatalogueGames(w http.ResponseWriter, r *h
 			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "group"})
 		} else {
 			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "group", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "player" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "player", r.URL.Query(), &params.Player, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "player"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "player", Err: err})
 		}
 		return
 	}

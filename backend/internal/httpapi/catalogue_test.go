@@ -79,9 +79,10 @@ func TestCatalogueTournament(t *testing.T) {
 		Stages: []store.CatalogueStage{{Label: "Stage 7", Span: span(5, 2, "2025-02-03", "2025-02-24")}},
 		Podium: []store.PodiumPlace{{Place: 1, Name: "saru", Finished: finished, Source: "CGE /tournaments/detail/4991/7"}},
 		CGE:    []store.CGELink{{Tournament: 4991}, {Tournament: 19, Season: 20}},
-	}}, Ladder: true, TopTierWins: []store.LadderWin{{Name: "wolvs", Wins: 10, Source: "Hall of Fame"}, {Name: "Grozz", Wins: 3.5, Source: "Hall of Fame"}}}}
+	}}, Ladder: true, TopTierWins: []store.LadderWin{{Name: "wolvs", Wins: 10, Source: "Hall of Fame"}, {Name: "Grozz", Wins: 3.5, Source: "Hall of Fame"}},
+		Players: []string{"Grozz", "saru"}}}
 	rec, _ := serve(t, f, "/v1/runs/7/catalogue/wimbledon")
-	want := `{"ladder":true,"name":"Wimbledon","run_id":7,"seasons":[{"cge_pages":["https://account.czechgames.com/tournaments/detail/4991","https://account.czechgames.com/tournaments/detail/19/20"],` +
+	want := `{"ladder":true,"name":"Wimbledon","players":["Grozz","saru"],"run_id":7,"seasons":[{"cge_pages":["https://account.czechgames.com/tournaments/detail/4991","https://account.czechgames.com/tournaments/detail/19/20"],` +
 		`"first_game":"2024-07-01","games":632,"label":"2024","last_game":"2025-02-24","players":128,` +
 		`"podium":[{"final":"","finished":"2025-02-24","name":"saru","place":1,"source":"CGE /tournaments/detail/4991/7"}],` +
 		`"stages":[{"first_game":"2025-02-03","games":5,"label":"Stage 7","last_game":"2025-02-24","players":2}]}],"slug":"wimbledon",` +
@@ -101,7 +102,7 @@ func TestCatalogueGames(t *testing.T) {
 			Seats: []store.GameSeat{{Name: "a440", Score: 112, Outcome: "finished"}, {Name: "kyshantry", Score: -5, Outcome: "timed_out"}}},
 		{ID: 8, Date: d, Season: "2024", Stage: "Stage 7", State: "never_played", Seats: []store.GameSeat{{Name: "ann", Score: 0}}},
 	}}}
-	rec, _ := serve(t, f, "/v1/runs/7/catalogue/wimbledon/games?season=2024&stage=Stage+7&group=Final&coded=true&page=2")
+	rec, _ := serve(t, f, "/v1/runs/7/catalogue/wimbledon/games?season=2024&stage=Stage+7&group=Final&player=a440&coded=true&page=2")
 	want := `{"coded":1,"games":[` +
 		`{"date":"2025-02-24","game":1,"group":"Final","match_id":9,"replay_code":"HEKANUJIMA","season":"2024",` +
 		`"seats":[{"name":"a440","outcome":"finished","score":112},{"name":"kyshantry","outcome":"timed_out","score":-5}],"stage":"Stage 7","state":"played"},` +
@@ -111,7 +112,7 @@ func TestCatalogueGames(t *testing.T) {
 	if got := strings.TrimSpace(rec.Body.String()); rec.Code != http.StatusOK || got != want {
 		t.Errorf("GET games: %d %s\nwant 200 %s", rec.Code, got, want)
 	}
-	wantFilter := store.CatalogueGamesFilter{Season: "2024", Stage: "Stage 7", Group: "Final", Coded: true, Page: 2}
+	wantFilter := store.CatalogueGamesFilter{Season: "2024", Stage: "Stage 7", Group: "Final", Player: "a440", Coded: true, Page: 2}
 	if rec.Header().Get("Cache-Control") != "public, max-age=300" || f.gotRun != 7 || f.gotSlug != "wimbledon" || f.gotFilter != wantFilter {
 		t.Errorf("GET games: Cache-Control %q; asked run %d, %q, %+v", rec.Header().Get("Cache-Control"), f.gotRun, f.gotSlug, f.gotFilter)
 	}
@@ -138,6 +139,7 @@ func TestCatalogueRefusals(t *testing.T) {
 		"/v1/runs/7/catalogue/Wimbledon/games":                                   "bad parameter: tournament",
 		"/v1/runs/7/catalogue/wimbledon/games?page=0":                            "bad parameter: page",
 		"/v1/runs/7/catalogue/wimbledon/games?season=" + strings.Repeat("x", 65): "bad parameter: season",
+		"/v1/runs/7/catalogue/wimbledon/games?player=" + strings.Repeat("x", 65): "bad parameter: player",
 	} {
 		f := &fakeCatalogue{}
 		rec, _ := serve(t, f, path)

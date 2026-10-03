@@ -196,7 +196,7 @@ function TournamentDetail({ apiUrl, slug }: { apiUrl: string; slug: string }) {
       {staged.map((s) => (
         <Stages key={s.label} season={s} />
       ))}
-      <TournamentGames apiUrl={apiUrl} run={run} slug={t.slug} seasons={t.seasons} pick={pick} />
+      <TournamentGames apiUrl={apiUrl} run={run} slug={t.slug} seasons={t.seasons} players={t.players} pick={pick} />
     </>
   );
 }

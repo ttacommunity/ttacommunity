@@ -102,6 +102,7 @@ type CatalogueTournament struct {
 	Seasons     []CatalogueSeason
 	Ladder      bool
 	TopTierWins []LadderWin
+	Players     []string
 }
 
 // placedSeats is every placed game's seats, one row per player, with its
@@ -309,6 +310,18 @@ func (r *RatingsReader) CatalogueTournament(ctx context.Context, run int64, slug
 	}
 	if got.TopTierWins, err = pgx.CollectRows(rows, pgx.RowToStructByPos[LadderWin]); err != nil {
 		return fail("top-tier wins", err)
+	}
+
+	// Every player of the shown tournament, for a search box's suggestions.
+	rows, err = r.pool.Query(ctx, `
+		SELECT DISTINCT p.name FROM (`+shownGames+`) g JOIN matches m USING (match_id)
+		CROSS JOIN LATERAL unnest(ARRAY[m.player1, m.player2, m.player3, m.player4]) AS p(name)
+		WHERE p.name IS NOT NULL ORDER BY p.name`, slug, "", "", "")
+	if err != nil {
+		return fail("players", err)
+	}
+	if got.Players, err = pgx.CollectRows(rows, pgx.RowTo[string]); err != nil {
+		return fail("players", err)
 	}
 	return got, nil
 }

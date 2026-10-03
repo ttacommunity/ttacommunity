@@ -1299,6 +1299,8 @@ export interface components {
         CatalogueTournament: {
             /** @description A ladder's champions are counted as top-tier wins, not season podiums */
             ladder: boolean;
+            /** @description Everyone who played a shown game of the tournament, by name, for a search box */
+            players: string[];
             /** @description A ladder's players by their wins in its top tier, most first, as its organisers count them (half a win for a tie) */
             top_tier_wins: components["schemas"]["LadderWin"][];
             /** Format: int64 */
@@ -2235,6 +2237,8 @@ export interface operations {
                 season?: string;
                 stage?: string;
                 group?: string;
+                /** @description Only games this player sat in, by name in any case */
+                player?: string;
                 /** @description Only games with a replay code */
                 coded?: boolean;
                 page?: number;

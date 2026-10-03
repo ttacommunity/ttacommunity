@@ -789,6 +789,13 @@ paths:
           schema:
             type: string
             maxLength: 64
+        - name: player
+          in: query
+          required: false
+          description: Only games this player sat in, by name in any case
+          schema:
+            type: string
+            maxLength: 64
         - name: coded
           in: query
           required: false
@@ -2115,11 +2122,16 @@ components:
                 type: string
     CatalogueTournament:
       type: object
-      required: [run_id, slug, name, seasons, ladder, top_tier_wins]
+      required: [run_id, slug, name, seasons, ladder, top_tier_wins, players]
       properties:
         ladder:
           description: A ladder's champions are counted as top-tier wins, not season podiums
           type: boolean
+        players:
+          description: Everyone who played a shown game of the tournament, by name, for a search box
+          type: array
+          items:
+            type: string
         top_tier_wins:
           description: A ladder's players by their wins in its top tier, most first, as its organisers count them (half a win for a tie)
           type: array
