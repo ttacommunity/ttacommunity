@@ -12,6 +12,8 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
+
+	"ttacommunity/backend/internal/tournamentcsv"
 )
 
 // placedOn loads games by name, each played on its date, and places them in the catalogue.
@@ -305,5 +307,49 @@ func TestCatalogueTournamentFindsAPlacementForALabelledSeason(t *testing.T) {
 	want := []PodiumPlace{{Place: 1, Name: "Ender_Wiggin", Finished: day("2022-07-28"), Source: "CGE /tournaments/detail/3391/8"}}
 	if s := got.Seasons[0]; s.Label != "2022 (Age A)" || !reflect.DeepEqual(s.Podium, want) {
 		t.Errorf("season %q podium = %+v, want %+v", s.Label, s.Podium, want)
+	}
+}
+
+func TestReplaceCGEStagesLinksSeasonsWithoutMatchedGames(t *testing.T) {
+	pool := migrated(t)
+	ctx := context.Background()
+	run := publishedRun(t, pool)
+	placedOn(t, pool, map[string]time.Time{
+		"Intermezzo S24 - Bronze 1 game 1":        day("2024-01-02"),
+		"Intermezzo S25 - Bronze 1 game 1":        day("2024-05-01"),
+		"Wimbledon 2024 Stage 7 - Final game 1":   day("2025-02-24"),
+		"Wimbledon 2024 Stage 1 - group 1 game 1": day("2024-07-01"),
+	})
+	old := []tournamentcsv.CGEStage{{Tournament: "intermezzo", Season: "25", CGETournament: 19, CGESeason: 99}}
+	if _, err := ReplaceCGEStages(ctx, pool, old); err != nil {
+		t.Fatalf("ReplaceCGEStages(old): %v", err)
+	}
+	got, err := ReplaceCGEStages(ctx, pool, []tournamentcsv.CGEStage{
+		{Tournament: "intermezzo", Season: "24", CGETournament: 19, CGESeason: 19},
+		{Tournament: "intermezzo", Season: "25", CGETournament: 19, CGESeason: 20},
+		{Tournament: "wimbledon", Season: "2024", Stage: "Stage 1", CGETournament: 4991, CGESeason: 1},
+		{Tournament: "wimbledon", Season: "2024", Stage: "Stage 7", CGETournament: 4991, CGESeason: 7},
+		{Tournament: "intermezzo", Season: "26", CGETournament: 19, CGESeason: 21},
+	})
+	if err != nil {
+		t.Fatalf("ReplaceCGEStages: %v", err)
+	}
+	if got.Written != 4 || got.Unknown != 1 {
+		t.Errorf("ReplaceCGEStages = %+v, want 4 written, 1 for a stage we lack", got)
+	}
+	r := NewRatingsReader(asReader(t, pool))
+	for slug, want := range map[string][][]CGELink{
+		"intermezzo": {{{Tournament: 19, Season: 19}}, {{Tournament: 19, Season: 20}}},
+		"wimbledon":  {{{Tournament: 4991}}},
+	} {
+		cat, err := r.CatalogueTournament(ctx, run, slug)
+		if err != nil {
+			t.Fatalf("CatalogueTournament(%s): %v", slug, err)
+		}
+		for i, s := range cat.Seasons {
+			if !reflect.DeepEqual(s.CGE, want[i]) {
+				t.Errorf("%s season %s CGE = %+v, want %+v", slug, s.Label, s.CGE, want[i])
+			}
+		}
 	}
 }

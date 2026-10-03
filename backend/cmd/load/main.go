@@ -36,14 +36,14 @@ func main() {
 	classify := flag.Bool("classify", false, "only place unplaced games in the tournament catalogue, by their names")
 	cgeGames := flag.String("cge-games", "", "attach CGE's facts (seats, CGE users, finish dates) from the CSV named to the games already loaded")
 	cgeNew := flag.String("cge-new", "", "with -cge-games: a CSV of replay codes (replay_code column first) checked by hand as new games, added even where they may look like copies")
-	facts := flag.String("facts", "", "replace every recorded tournament fact of one kind (divisions, placements, corrections, dates, honours, rules, podiums, cge_tournaments, community or community_scores) with the CSV file named")
+	facts := flag.String("facts", "", "replace every recorded tournament fact of one kind (divisions, placements, corrections, dates, honours, rules, podiums, cge_tournaments, cge_stages, community or community_scores) with the CSV file named")
 	flag.Usage = func() {
 		fmt.Fprintln(os.Stderr, "usage: load [-reset] <directory of match CSVs>")
 		fmt.Fprintln(os.Stderr, "       load -migrate")
 		fmt.Fprintln(os.Stderr, "       load -classify")
 		fmt.Fprintln(os.Stderr, "       load -cge-games <CSV file> [-cge-new <CSV file>]")
 		fmt.Fprintln(os.Stderr, "       load -countries <CSV file>...")
-		fmt.Fprintln(os.Stderr, "       load -facts divisions|placements|corrections|dates|honours|rules|podiums|cge_tournaments|community|community_scores <CSV file>")
+		fmt.Fprintln(os.Stderr, "       load -facts divisions|placements|corrections|dates|honours|rules|podiums|cge_tournaments|cge_stages|community|community_scores <CSV file>")
 		fmt.Fprintln(os.Stderr, "The database is RATINGS_DATABASE_URL.")
 		flag.PrintDefaults()
 	}
@@ -314,12 +314,14 @@ func replaceFacts(kind, file string) error {
 		return loadFacts(kind, file, tournamentcsv.ReadPodiums, store.ReplacePodiums)
 	case "cge_tournaments":
 		return loadFacts(kind, file, tournamentcsv.ReadCGETournaments, store.ReplaceCGETournaments)
+	case "cge_stages":
+		return loadFacts(kind, file, tournamentcsv.ReadCGEStages, store.ReplaceCGEStages)
 	case "community":
 		return loadFacts(kind, file, tournamentcsv.ReadCommunityStandings, store.ReplaceCommunityStandings)
 	case "community_scores":
 		return loadFacts(kind, file, tournamentcsv.ReadCommunityScores, store.ReplaceCommunityScores)
 	}
-	return fmt.Errorf("unknown kind of fact %q: want divisions, placements, corrections, dates, honours, rules, podiums, cge_tournaments, community or community_scores", kind)
+	return fmt.Errorf("unknown kind of fact %q: want divisions, placements, corrections, dates, honours, rules, podiums, cge_tournaments, cge_stages, community or community_scores", kind)
 }
 
 func loadFacts[T any](

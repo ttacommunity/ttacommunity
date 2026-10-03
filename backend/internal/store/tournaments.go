@@ -138,6 +138,40 @@ func ReplacePodiums(ctx context.Context, pool *pgxpool.Pool, podiums []tournamen
 	return FactsReplaced{Written: n, Unknown: len(podiums) - n}, err
 }
 
+// ReplaceCGEStages replaces every stage's link to the CGE tournament season
+// it was played as, in one transaction. A row naming a stage the catalogue
+// lacks is counted, not written.
+func ReplaceCGEStages(ctx context.Context, pool *pgxpool.Pool, links []tournamentcsv.CGEStage) (FactsReplaced, error) {
+	var slugs, seasons, stages []string
+	var cgeT, cgeS []int32
+	for _, l := range links {
+		slugs, seasons, stages = append(slugs, l.Tournament), append(seasons, l.Season), append(stages, l.Stage)
+		cgeT, cgeS = append(cgeT, int32(l.CGETournament)), append(cgeS, int32(l.CGESeason))
+	}
+	tx, err := pool.Begin(ctx)
+	if err != nil {
+		return FactsReplaced{}, fmt.Errorf("starting the CGE stages load: %w", err)
+	}
+	defer tx.Rollback(ctx)
+	if _, err := tx.Exec(ctx, "UPDATE tournament_stages SET cge_tournament = NULL, cge_season = NULL WHERE cge_tournament IS NOT NULL"); err != nil {
+		return FactsReplaced{}, fmt.Errorf("clearing CGE stages: %w", err)
+	}
+	tag, err := tx.Exec(ctx, `
+		UPDATE tournament_stages st SET cge_tournament = x.ct, cge_season = x.cs
+		FROM unnest($1::text[], $2::text[], $3::text[], $4::int[], $5::int[]) AS x(slug, season, stage, ct, cs)
+		JOIN tournaments t ON t.slug = x.slug
+		JOIN tournament_seasons s ON s.tournament_id = t.tournament_id AND s.label = x.season
+		WHERE st.season_id = s.season_id AND st.label = x.stage`, slugs, seasons, stages, cgeT, cgeS)
+	if err != nil {
+		return FactsReplaced{}, fmt.Errorf("writing CGE stages: %w", err)
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return FactsReplaced{}, fmt.Errorf("committing CGE stages: %w", err)
+	}
+	n := int(tag.RowsAffected())
+	return FactsReplaced{Written: n, Unknown: len(links) - n}, nil
+}
+
 // ReplaceCGETournaments replaces CGE's catalogue, in one transaction, linking
 // each row to the tournament it names. A tournament named that the catalogue
 // lacks is added under its CGE name, in no ranking: admin decides its rating.

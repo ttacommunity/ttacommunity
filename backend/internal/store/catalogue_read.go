@@ -259,12 +259,18 @@ func (r *RatingsReader) CatalogueTournament(ctx context.Context, run int64, slug
 
 	rows, err = r.pool.Query(ctx, `
 		WITH g AS (
-			SELECT DISTINCT s.label, m.cge_tournament AS ct, m.cge_season AS cs
+			SELECT s.label, m.cge_tournament AS ct, m.cge_season AS cs
 			FROM matches m
 			JOIN tournament_stages st USING (stage_id)
 			JOIN tournament_seasons s USING (season_id)
 			JOIN tournaments t USING (tournament_id)
-			WHERE t.slug = $1 AND m.cge_tournament IS NOT NULL),
+			WHERE t.slug = $1 AND m.cge_tournament IS NOT NULL
+			UNION
+			SELECT s.label, st.cge_tournament, st.cge_season
+			FROM tournament_stages st
+			JOIN tournament_seasons s USING (season_id)
+			JOIN tournaments t USING (tournament_id)
+			WHERE t.slug = $1 AND st.cge_tournament IS NOT NULL),
 		spans AS (SELECT ct, count(DISTINCT label) AS seasons FROM g GROUP BY ct)
 		SELECT DISTINCT g.label, g.ct, CASE WHEN spans.seasons > 1 THEN g.cs ELSE 0 END AS cs
 		FROM g JOIN spans USING (ct) ORDER BY 2, 3`, slug)
