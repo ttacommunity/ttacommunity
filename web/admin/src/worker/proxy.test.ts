@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { adminApiPath, verifyAccessToken, type Jwk } from './proxy';
+import { adminApiPath, apiOriginFor, verifyAccessToken, type Jwk } from './proxy';
 
 const TEAM = 'https://team.cloudflareaccess.com';
 const AUD = 'aud-of-the-admin-app';
@@ -82,5 +82,18 @@ describe('verifyAccessToken', () => {
     const t = await token(pair, good);
     expect(await verifyAccessToken(t, TEAM, '', NOW, async () => [jwk])).toBe(false);
     expect(await verifyAccessToken(t, '', AUD, NOW, async () => [jwk])).toBe(false);
+  });
+});
+
+describe('apiOriginFor', () => {
+  it("sends the admin site to the main API and its dev preview to the dev API", () => {
+    expect(apiOriginFor('ttac-admin.unstableunicorn.dev')).toBe('https://ttac-api.unstableunicorn.dev');
+    expect(apiOriginFor('dev.ttac-admin.unstableunicorn.dev')).toBe('https://ttac-api-dev.unstableunicorn.dev');
+  });
+
+  it('gives no API to any other host, such as a deployment preview', () => {
+    for (const host of ['3f2a9c1b.ttac-admin.unstableunicorn.dev', 'evil.example', 'ttac-admin.unstableunicorn.dev.evil.example', '']) {
+      expect(apiOriginFor(host), host).toBeNull();
+    }
   });
 });

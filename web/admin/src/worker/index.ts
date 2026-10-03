@@ -1,9 +1,8 @@
 /** The admin site's Worker: static pages, and /api/* proxied to the API's admin routes for a verified Access session. */
-import { adminApiPath, verifyAccessToken, type Jwk } from './proxy';
+import { adminApiPath, apiOriginFor, verifyAccessToken, type Jwk } from './proxy';
 
 interface Env {
   ASSETS: { fetch(request: Request): Promise<Response> };
-  API_ORIGIN?: string;
   ACCESS_TEAM?: string;
   ACCESS_AUD?: string;
 }
@@ -28,7 +27,8 @@ export default {
   async fetch(request: Request, env: Env): Promise<Response> {
     const url = new URL(request.url);
     if (!url.pathname.startsWith('/api/')) return env.ASSETS.fetch(request);
-    if (!env.API_ORIGIN || !env.ACCESS_TEAM || !env.ACCESS_AUD) return refuse(503, 'admin is not configured');
+    const api = apiOriginFor(url.hostname);
+    if (api === null || !env.ACCESS_TEAM || !env.ACCESS_AUD) return refuse(503, 'admin is not configured');
     const path = adminApiPath(url);
     if (path === null) return refuse(404, 'no such admin route');
     const token = request.headers.get('Cf-Access-Jwt-Assertion') ?? '';
@@ -42,7 +42,7 @@ export default {
     const origin = request.headers.get('Origin');
     if (origin) headers.set('Origin', origin);
     const body = request.method === 'GET' || request.method === 'HEAD' ? undefined : await request.arrayBuffer();
-    const res = await fetch(`${env.API_ORIGIN}${path}`, { method: request.method, headers, body });
+    const res = await fetch(`${api}${path}`, { method: request.method, headers, body });
     return new Response(res.body, {
       status: res.status,
       headers: { 'Content-Type': res.headers.get('Content-Type') ?? 'application/json', 'Cache-Control': 'no-store' },
