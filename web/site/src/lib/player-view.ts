@@ -52,6 +52,28 @@ export function ratingIn(player: Player, model: Model, format: Format): PlayerRa
   return player.ratings.find((r) => r.model === model && r.format === format);
 }
 
+/** FormatCard is one of upstream's GlickoD cards on a player's page: a format, how it is labelled, and the rating if any. */
+export interface FormatCard {
+  format: Format;
+  label: string;
+  icon: string;
+  description: string;
+  rating: PlayerRating | undefined;
+}
+
+const FORMAT_CARDS: Omit<FormatCard, 'rating'>[] = [
+  { format: 0, label: 'Overall (All Formats)', icon: '👑', description: 'Combined competitive rating across all multiplayer and duel tables' },
+  { format: 2, label: '2-Player (Duels)', icon: '⚔️', description: 'Direct head-to-head duel mastery and tactical tempo' },
+  { format: 3, label: '3-Player Tables', icon: '👥', description: '3-player dynamic pacing and opportunistic scoring' },
+  { format: 4, label: '4-Player Tables', icon: '🏰', description: 'Full 4-player diplomatic resilience and multi-threat navigation' },
+];
+
+/** formatCards returns the player's GlickoD rating in each format for the reset mode, as upstream's four cards show them. */
+export function formatCards(player: Player, reset: ResetMode): FormatCard[] {
+  const model = pageModel('glicko2_daneo', reset);
+  return FORMAT_CARDS.map((c) => ({ ...c, rating: ratingIn(player, model, c.format) }));
+}
+
 const DAY = 86_400_000;
 const day = (d: string | null) => Date.parse(`${d ?? '1900-01-01'}T00:00:00Z`);
 

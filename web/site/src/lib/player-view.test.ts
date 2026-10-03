@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import type { Player, PlayerHistory, Rival } from '@ttac/shared/ratings';
 import {
   chartData,
+  formatCards,
   isProvisional,
   matrixHref,
   matrixParams,
@@ -113,6 +114,27 @@ describe('ratingIn', () => {
     const p = player(3, null, null);
     expect(ratingIn(p, 'glicko2_std_softer', 2)?.rank).toBe(5);
     expect(ratingIn(p, 'glicko2_std', 2)).toBeUndefined();
+  });
+});
+
+describe('formatCards', () => {
+  it("gives GlickoD's rating in every format, in upstream's order, for the reset mode chosen", () => {
+    const p = player(3, null, null);
+    p.ratings.push(
+      { model: 'glicko2_daneo', format: 0, rank: 9, rating: 1800, rd: 50, c_rating: 1650, opponents: 40, win_rate: 55 },
+      { model: 'glicko2_daneo_softer', format: 0, rank: 7, rating: 1810, rd: 51, c_rating: 1657, opponents: 40, win_rate: 55 },
+      { model: 'glicko2_daneo', format: 3, rank: 2, rating: 1900, rd: 70, c_rating: 1690, opponents: 12, win_rate: 60 },
+    );
+
+    const cards = formatCards(p, 'continuous');
+
+    expect(cards.map((c) => [c.format, c.label, c.rating?.rank ?? null])).toEqual([
+      [0, 'Overall (All Formats)', 9],
+      [2, '2-Player (Duels)', null],
+      [3, '3-Player Tables', 2],
+      [4, '4-Player Tables', null],
+    ]);
+    expect(formatCards(p, 'softer')[0].rating?.rank).toBe(7);
   });
 });
 

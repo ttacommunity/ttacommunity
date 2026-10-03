@@ -222,6 +222,23 @@
   color: #887864;
 }
 
+/* A format card is a link to that format. */
+.model-card.format-card {
+  display: block;
+  color: inherit;
+  text-decoration: none;
+  cursor: pointer;
+  transition:
+    transform 0.15s ease,
+    box-shadow 0.15s ease;
+}
+
+.format-card-none {
+  font-size: 1.05rem;
+  font-weight: normal;
+  color: var(--text-muted);
+}
+
 /* GlickoD's card: upstream's gold gradient. */
 .model-card.card-daneo {
   border: 1.5px solid #b8860b;
@@ -265,21 +282,6 @@
 
 .card-daneo .model-card-caption {
   color: #a89880;
-}
-
-/* Adaptive-T's card: upstream's green. */
-.card-adapt .badge-rank {
-  background: rgba(34, 197, 94, 0.2);
-  color: #22c55e;
-  border: 1px solid rgba(34, 197, 94, 0.4);
-}
-
-.card-adapt .rating-number {
-  color: #4ade80;
-}
-
-.card-adapt .c-rating-box strong {
-  color: #22c55e;
 }
 
 .chart-container {
@@ -544,12 +546,6 @@
   color: var(--text-muted);
 }
 
-.seats {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.4rem;
-}
-
 .seat {
   color: var(--text-muted);
 }
@@ -557,6 +553,25 @@
 .seat.seat-self {
   font-weight: bold;
   color: var(--accent-gold);
+}
+
+.seat-score {
+  color: var(--text-muted);
+}
+
+.seat .player-link,
+.h2h-scores .player-link {
+  color: #ffd54f;
+  text-decoration: none;
+}
+
+.seat .player-link:hover,
+.h2h-scores .player-link:hover {
+  text-decoration: underline;
+}
+
+.h2h-other .player-link {
+  color: inherit;
 }
 
 .pagination-container {

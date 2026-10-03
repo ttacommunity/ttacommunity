@@ -21,7 +21,7 @@ import { Flag } from './PlayerMarks';
 import RatingChart from './RatingChart';
 import VersusDialog from './VersusDialog';
 import * as show from '../lib/leaderboard-display';
-import { DEFAULT_VIEW, type Engine, type ResetMode } from '../lib/leaderboard-view';
+import { DEFAULT_VIEW, type ResetMode } from '../lib/leaderboard-view';
 import {
   firstSort,
   isProvisional,
@@ -30,8 +30,7 @@ import {
   parsePlayerView,
   playerHref,
   playerParams,
-  ratingIn,
-  runYears,
+  formatCards,
   score,
   signedDelta,
   visibleRivals,
@@ -43,7 +42,6 @@ import {
 import { achievementsHref } from '../lib/achievements';
 import { recall, remember } from '../lib/remembered';
 import './PlayerPage.css';
-import Tex from './Tex';
 
 type Load<T> = { kind: 'loading' } | { kind: 'error'; message: string } | { kind: 'ready'; data: T };
 
@@ -86,7 +84,6 @@ function useLoad<T>(key: string, load: (() => Promise<T>) | null): Load<T> {
 export default function PlayerPage({ apiUrl }: { apiUrl: string }) {
   const [view, setView] = useState<PlayerView>(readView);
   const [run, setRun] = useState<Load<number>>({ kind: 'loading' });
-  const [years, setYears] = useState<[number, number] | null>(null);
 
   const go = useCallback((next: PlayerView) => {
     window.history.pushState(null, '', `?${playerParams(next)}`);
@@ -106,10 +103,7 @@ export default function PlayerPage({ apiUrl }: { apiUrl: string }) {
     const onPop = () => setView(readView());
     window.addEventListener('popstate', onPop);
     currentRun(apiUrl)
-      .then((r) => {
-        setRun({ kind: 'ready', data: r.run_id });
-        setYears(runYears(r.first_game, r.last_game));
-      })
+      .then((r) => setRun({ kind: 'ready', data: r.run_id }))
       .catch((e: unknown) => setRun({ kind: 'error', message: errorText(e) }));
     return () => window.removeEventListener('popstate', onPop);
   }, [apiUrl]);
@@ -191,11 +185,10 @@ export default function PlayerPage({ apiUrl }: { apiUrl: string }) {
         player={p}
         career={career.kind === 'ready' ? career.data : null}
         summary={achievements.kind === 'ready' ? achievements.data.summary : null}
-        reset={view.reset}
         format={view.format}
       />
 
-      <ModelCards player={p} view={view} years={years} />
+      <FormatCards player={p} view={view} linkTo={linkTo} />
 
       <RatingChart history={history.kind === 'ready' ? history.data : null} />
 
@@ -281,55 +274,39 @@ function Header({
   );
 }
 
-const CARDS: { engine: Engine; className: string; heading: string }[] = [
-  { engine: 'glicko2_daneo', className: 'card-daneo', heading: '👑 GlickoD' },
-  { engine: 'glicko2_std', className: '', heading: 'Glicko-2 Standard' },
-  { engine: 'glicko2_mp', className: '', heading: 'Glicko-2 MP-Weighted' },
-  { engine: 'glicko2_adapt', className: 'card-adapt', heading: 'Glicko-2 Adaptive-T' },
-  { engine: 'whr', className: '', heading: 'Whole-History Rating' },
-];
-
-function caption(engine: Engine, opponents: number, winRate: number, years: [number, number] | null): ReactNode {
-  switch (engine) {
-    case 'glicko2_daneo':
-      return 'Custom Glicko2 implementation for Multiplayer Boardgaming by DANeo';
-    case 'glicko2_std':
-      return `Matches: ${opponents} | Win%: ${winRate.toFixed(1)}%`;
-    case 'glicko2_mp':
-      return 'Multiplayer fractional variance calibration';
-    case 'glicko2_adapt':
-      return (
-        <>
-          Adaptive format temperature <Tex tex="T(P, N)" />
-        </>
-      );
-    case 'whr':
-      return years ? `Full ${years[0]}-${years[1]} retrospective Brownian walk` : 'Full retrospective Brownian walk';
-  }
-}
-
-/** ModelCards shows the player's rating in each engine for the chosen reset mode and format, upstream's defaults where none. */
-function ModelCards({ player, view, years }: { player: Player; view: PlayerView; years: [number, number] | null }) {
+/** FormatCards shows upstream's four GlickoD cards, one per format, each a link to that format; the chosen one is gold. */
+function FormatCards({ player, view, linkTo }: { player: Player; view: PlayerView; linkTo: LinkTo }) {
   return (
     <div className="cards-grid">
-      {CARDS.map((c) => {
-        const r = ratingIn(player, pageModel(c.engine, view.reset), view.format);
-        const classes = ['model-card', c.className, c.engine === view.engine && 'active-card'].filter(Boolean).join(' ');
+      {formatCards(player, view.reset).map((c) => {
+        const active = c.format === view.format;
+        const r = c.rating;
+        const classes = ['model-card', 'format-card', active && 'active-card card-daneo'].filter(Boolean).join(' ');
         return (
-          <div key={c.engine} className={classes}>
+          <a key={c.format} className={classes} {...linkTo({ ...view, engine: 'glicko2_daneo', format: c.format, matchPage: 1 })}>
             <h3>
-              <span>{c.heading}</span>
-              <span className="badge badge-rank">#{r?.rank ?? '-'}</span>
+              <span>
+                {c.icon} {c.label}
+              </span>
+              <span className="badge badge-rank">{r ? `#${r.rank}` : 'Unranked'}</span>
             </h3>
             <div className="rating-number">
-              {(r?.rating ?? 1500).toFixed(1)} <span className="rd-tag">±{(r?.rd ?? 350).toFixed(1)}</span>
+              {r ? (
+                <>
+                  {r.rating.toFixed(1)} <span className="rd-tag">±{r.rd.toFixed(1)}</span>
+                </>
+              ) : (
+                <span className="format-card-none">No matches</span>
+              )}
             </div>
             <div className="c-rating-box">
               <span>Conservative (C = μ - 3σ):</span>
-              <strong>{(r?.c_rating ?? 450).toFixed(2)}</strong>
+              <strong>{r ? r.c_rating.toFixed(2) : '—'}</strong>
             </div>
-            <div className="model-card-caption">{caption(c.engine, r?.opponents ?? 0, r?.win_rate ?? 0, years)}</div>
-          </div>
+            <div className="model-card-caption">
+              {r && r.opponents > 0 ? `Matches: ${r.opponents} | Win%: ${r.win_rate.toFixed(1)}%` : c.description}
+            </div>
+          </a>
         );
       })}
     </div>
@@ -431,7 +408,15 @@ function Games({
                   <div className="seats">
                     {m.seats.map((s, i) => (
                       <span key={`${s.name}-${i}`} className={s.name === data.name ? 'seat seat-self' : 'seat'}>
-                        {s.name} ({score(s.score)}){i < m.seats.length - 1 ? ',' : ''}
+                        {s.name === data.name ? (
+                          s.name
+                        ) : (
+                          <a href={playerHref(s.name)} className="player-link">
+                            {s.name}
+                          </a>
+                        )}{' '}
+                        <span className="seat-score">({score(s.score)})</span>
+                        {i < m.seats.length - 1 ? <span className="seat-score">,</span> : ''}
                       </span>
                     ))}
                   </div>
