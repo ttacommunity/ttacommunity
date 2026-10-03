@@ -21,16 +21,52 @@ import (
 
 // Defines values for AdminMeRole.
 const (
-	Admin     AdminMeRole = "admin"
-	Organiser AdminMeRole = "organiser"
+	AdminMeRoleAdmin     AdminMeRole = "admin"
+	AdminMeRoleOrganiser AdminMeRole = "organiser"
 )
 
 // Valid indicates whether the value is a known member of the AdminMeRole enum.
 func (e AdminMeRole) Valid() bool {
 	switch e {
-	case Admin:
+	case AdminMeRoleAdmin:
 		return true
-	case Organiser:
+	case AdminMeRoleOrganiser:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for AdminPersonRole.
+const (
+	AdminPersonRoleAdmin     AdminPersonRole = "admin"
+	AdminPersonRoleOrganiser AdminPersonRole = "organiser"
+)
+
+// Valid indicates whether the value is a known member of the AdminPersonRole enum.
+func (e AdminPersonRole) Valid() bool {
+	switch e {
+	case AdminPersonRoleAdmin:
+		return true
+	case AdminPersonRoleOrganiser:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for AdminRoleRole.
+const (
+	AdminRoleRoleAdmin     AdminRoleRole = "admin"
+	AdminRoleRoleOrganiser AdminRoleRole = "organiser"
+)
+
+// Valid indicates whether the value is a known member of the AdminRoleRole enum.
+func (e AdminRoleRole) Valid() bool {
+	switch e {
+	case AdminRoleRoleAdmin:
+		return true
+	case AdminRoleRoleOrganiser:
 		return true
 	default:
 		return false
@@ -481,6 +517,25 @@ type AdminMe struct {
 
 // AdminMeRole defines model for AdminMe.Role.
 type AdminMeRole string
+
+// AdminPerson defines model for AdminPerson.
+type AdminPerson struct {
+	DiscordId string          `json:"discord_id"`
+	Name      string          `json:"name"`
+	Role      AdminPersonRole `json:"role"`
+}
+
+// AdminPersonRole defines model for AdminPerson.Role.
+type AdminPersonRole string
+
+// AdminRole defines model for AdminRole.
+type AdminRole struct {
+	Name string        `json:"name"`
+	Role AdminRoleRole `json:"role"`
+}
+
+// AdminRoleRole defines model for AdminRole.Role.
+type AdminRoleRole string
 
 // AdminSeason defines model for AdminSeason.
 type AdminSeason struct {
@@ -1505,6 +1560,9 @@ type Years struct {
 // AdminTournamentSlug defines model for AdminTournamentSlug.
 type AdminTournamentSlug = string
 
+// DiscordID defines model for DiscordID.
+type DiscordID = string
+
 // PlayerName defines model for PlayerName.
 type PlayerName = string
 
@@ -1641,6 +1699,9 @@ type GetYearLeaderboardParams struct {
 	Format *Format `form:"format,omitempty" json:"format,omitempty"`
 }
 
+// PutAdminAdminJSONRequestBody defines body for PutAdminAdmin for application/json ContentType.
+type PutAdminAdminJSONRequestBody = AdminRole
+
 // PatchAdminTournamentJSONRequestBody defines body for PatchAdminTournament for application/json ContentType.
 type PatchAdminTournamentJSONRequestBody = TournamentSettings
 
@@ -1655,6 +1716,15 @@ type ServerInterface interface {
 	// GetReadyz The process can reach the ratings database
 	// (GET /readyz)
 	GetReadyz(w http.ResponseWriter, r *http.Request)
+	// GetAdminAdmins Everyone in admin, with their role (admins only)
+	// (GET /v1/admin/admins)
+	GetAdminAdmins(w http.ResponseWriter, r *http.Request)
+	// DeleteAdminAdmin Take someone out of admin (admins only; admin always keeps one admin)
+	// (DELETE /v1/admin/admins/{discord_id})
+	DeleteAdminAdmin(w http.ResponseWriter, r *http.Request, discordId DiscordID)
+	// PutAdminAdmin Add someone to admin, or change their name or role (admins only; admin always keeps one admin)
+	// (PUT /v1/admin/admins/{discord_id})
+	PutAdminAdmin(w http.ResponseWriter, r *http.Request, discordId DiscordID)
 	// GetAdminMe Who is signed in to admin, and in which role
 	// (GET /v1/admin/me)
 	GetAdminMe(w http.ResponseWriter, r *http.Request)
@@ -1772,6 +1842,72 @@ func (siw *ServerInterfaceWrapper) GetReadyz(w http.ResponseWriter, r *http.Requ
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.GetReadyz(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetAdminAdmins operation middleware
+func (siw *ServerInterfaceWrapper) GetAdminAdmins(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetAdminAdmins(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// DeleteAdminAdmin operation middleware
+func (siw *ServerInterfaceWrapper) DeleteAdminAdmin(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "discord_id" -------------
+	var discordId DiscordID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "discord_id", r.PathValue("discord_id"), &discordId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "discord_id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.DeleteAdminAdmin(w, r, discordId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// PutAdminAdmin operation middleware
+func (siw *ServerInterfaceWrapper) PutAdminAdmin(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "discord_id" -------------
+	var discordId DiscordID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "discord_id", r.PathValue("discord_id"), &discordId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "discord_id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.PutAdminAdmin(w, r, discordId)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -3270,6 +3406,9 @@ func HandlerWithOptions(si ServerInterface, options StdHTTPServerOptions) http.H
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/v1/admin/tournaments", wrapper.GetAdminTournaments)
 	m.HandleFunc(http.MethodPatch+" "+options.BaseURL+"/v1/admin/tournaments/{tournament}", wrapper.PatchAdminTournament)
 	m.HandleFunc(http.MethodPut+" "+options.BaseURL+"/v1/admin/tournaments/{tournament}/notes", wrapper.PutAdminNote)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/v1/admin/admins", wrapper.GetAdminAdmins)
+	m.HandleFunc(http.MethodDelete+" "+options.BaseURL+"/v1/admin/admins/{discord_id}", wrapper.DeleteAdminAdmin)
+	m.HandleFunc(http.MethodPut+" "+options.BaseURL+"/v1/admin/admins/{discord_id}", wrapper.PutAdminAdmin)
 
 	return m
 }
@@ -3387,6 +3526,188 @@ func (response GetReadyz503JSONResponse) VisitGetReadyzResponse(w http.ResponseW
 	w.Header().Set("Content-Type", "application/json")
 	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
 	w.WriteHeader(503)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetAdminAdminsRequestObject struct {
+}
+
+type GetAdminAdminsResponseObject interface {
+	VisitGetAdminAdminsResponse(w http.ResponseWriter) error
+}
+
+type GetAdminAdmins200ResponseHeaders struct {
+	CacheControl string
+}
+
+type GetAdminAdmins200JSONResponse struct {
+	Body    []AdminPerson
+	Headers GetAdminAdmins200ResponseHeaders
+}
+
+func (response GetAdminAdmins200JSONResponse) VisitGetAdminAdminsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetAdminAdmins401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response GetAdminAdmins401JSONResponse) VisitGetAdminAdminsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetAdminAdmins403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response GetAdminAdmins403JSONResponse) VisitGetAdminAdminsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DeleteAdminAdminRequestObject struct {
+	DiscordId DiscordID `json:"discord_id"`
+}
+
+type DeleteAdminAdminResponseObject interface {
+	VisitDeleteAdminAdminResponse(w http.ResponseWriter) error
+}
+
+type DeleteAdminAdmin204Response struct {
+}
+
+func (response DeleteAdminAdmin204Response) VisitDeleteAdminAdminResponse(w http.ResponseWriter) error {
+	w.WriteHeader(204)
+	return nil
+}
+
+type DeleteAdminAdmin401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response DeleteAdminAdmin401JSONResponse) VisitDeleteAdminAdminResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DeleteAdminAdmin403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response DeleteAdminAdmin403JSONResponse) VisitDeleteAdminAdminResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DeleteAdminAdmin404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response DeleteAdminAdmin404JSONResponse) VisitDeleteAdminAdminResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PutAdminAdminRequestObject struct {
+	DiscordId DiscordID `json:"discord_id"`
+	Body      *PutAdminAdminJSONRequestBody
+}
+
+type PutAdminAdminResponseObject interface {
+	VisitPutAdminAdminResponse(w http.ResponseWriter) error
+}
+
+type PutAdminAdmin204Response struct {
+}
+
+func (response PutAdminAdmin204Response) VisitPutAdminAdminResponse(w http.ResponseWriter) error {
+	w.WriteHeader(204)
+	return nil
+}
+
+type PutAdminAdmin400JSONResponse struct{ BadRequestJSONResponse }
+
+func (response PutAdminAdmin400JSONResponse) VisitPutAdminAdminResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PutAdminAdmin401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response PutAdminAdmin401JSONResponse) VisitPutAdminAdminResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PutAdminAdmin403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response PutAdminAdmin403JSONResponse) VisitPutAdminAdminResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(403)
 	_, err := buf.WriteTo(w)
 	return err
 }
@@ -5188,6 +5509,15 @@ type StrictServerInterface interface {
 	// GetReadyz The process can reach the ratings database
 	// (GET /readyz)
 	GetReadyz(ctx context.Context, request GetReadyzRequestObject) (GetReadyzResponseObject, error)
+	// GetAdminAdmins Everyone in admin, with their role (admins only)
+	// (GET /v1/admin/admins)
+	GetAdminAdmins(ctx context.Context, request GetAdminAdminsRequestObject) (GetAdminAdminsResponseObject, error)
+	// DeleteAdminAdmin Take someone out of admin (admins only; admin always keeps one admin)
+	// (DELETE /v1/admin/admins/{discord_id})
+	DeleteAdminAdmin(ctx context.Context, request DeleteAdminAdminRequestObject) (DeleteAdminAdminResponseObject, error)
+	// PutAdminAdmin Add someone to admin, or change their name or role (admins only; admin always keeps one admin)
+	// (PUT /v1/admin/admins/{discord_id})
+	PutAdminAdmin(ctx context.Context, request PutAdminAdminRequestObject) (PutAdminAdminResponseObject, error)
 	// GetAdminMe Who is signed in to admin, and in which role
 	// (GET /v1/admin/me)
 	GetAdminMe(ctx context.Context, request GetAdminMeRequestObject) (GetAdminMeResponseObject, error)
@@ -5357,6 +5687,89 @@ func (sh *strictHandler) GetReadyz(w http.ResponseWriter, r *http.Request) {
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(GetReadyzResponseObject); ok {
 		if err := validResponse.VisitGetReadyzResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// GetAdminAdmins operation middleware
+func (sh *strictHandler) GetAdminAdmins(w http.ResponseWriter, r *http.Request) {
+	var request GetAdminAdminsRequestObject
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.GetAdminAdmins(ctx, request.(GetAdminAdminsRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetAdminAdmins")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(GetAdminAdminsResponseObject); ok {
+		if err := validResponse.VisitGetAdminAdminsResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// DeleteAdminAdmin operation middleware
+func (sh *strictHandler) DeleteAdminAdmin(w http.ResponseWriter, r *http.Request, discordId DiscordID) {
+	var request DeleteAdminAdminRequestObject
+
+	request.DiscordId = discordId
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.DeleteAdminAdmin(ctx, request.(DeleteAdminAdminRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "DeleteAdminAdmin")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(DeleteAdminAdminResponseObject); ok {
+		if err := validResponse.VisitDeleteAdminAdminResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// PutAdminAdmin operation middleware
+func (sh *strictHandler) PutAdminAdmin(w http.ResponseWriter, r *http.Request, discordId DiscordID) {
+	var request PutAdminAdminRequestObject
+
+	request.DiscordId = discordId
+
+	var body PutAdminAdminJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.PutAdminAdmin(ctx, request.(PutAdminAdminRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "PutAdminAdmin")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(PutAdminAdminResponseObject); ok {
+		if err := validResponse.VisitPutAdminAdminResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {

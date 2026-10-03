@@ -5,6 +5,7 @@ package store
 import (
 	"context"
 	"errors"
+	"reflect"
 	"testing"
 
 	"github.com/jackc/pgx/v5"
@@ -99,5 +100,72 @@ func TestCheckLimitsAcceptsTheAdminLoginAndRefusesTheOwner(t *testing.T) {
 	}
 	if err := NewAdminStore(pool).CheckLimits(context.Background()); !errors.Is(err, ErrAdminTooStrong) {
 		t.Errorf("CheckLimits as the owner = %v, want ErrAdminTooStrong", err)
+	}
+}
+
+func TestAdminsListsSetsAndRemovesAsTheAdminLogin(t *testing.T) {
+	pool := migrated(t)
+	ctx := context.Background()
+	a := NewAdminStore(asAdminLogin(t, pool))
+
+	for _, x := range []Admin{
+		{DiscordID: "222222222222222222", Name: "Org", Role: RoleOrganiser},
+		{DiscordID: "111111111111111111", Name: "Owner", Role: RoleAdmin},
+	} {
+		if err := a.SetAdmin(ctx, x); err != nil {
+			t.Fatalf("SetAdmin(%+v): %v", x, err)
+		}
+	}
+	if err := a.SetAdmin(ctx, Admin{DiscordID: "222222222222222222", Name: "Organiser", Role: RoleAdmin}); err != nil {
+		t.Fatalf("SetAdmin(promote): %v", err)
+	}
+	if err := a.SetAdmin(ctx, Admin{DiscordID: "x", Name: "Bad", Role: RoleAdmin}); err == nil {
+		t.Error("SetAdmin with a bad Discord id: nil error, want a refusal")
+	}
+
+	got, err := a.Admins(ctx)
+	want := []Admin{{DiscordID: "222222222222222222", Name: "Organiser", Role: RoleAdmin}, {DiscordID: "111111111111111111", Name: "Owner", Role: RoleAdmin}}
+	if err != nil || !reflect.DeepEqual(got, want) {
+		t.Errorf("Admins = %+v, %v; want %+v (by name)", got, err, want)
+	}
+
+	if err := a.RemoveAdmin(ctx, "222222222222222222"); err != nil {
+		t.Fatalf("RemoveAdmin: %v", err)
+	}
+	if err := a.RemoveAdmin(ctx, "222222222222222222"); !errors.Is(err, ErrNotAdmin) {
+		t.Errorf("RemoveAdmin twice = %v, want ErrNotAdmin", err)
+	}
+	if got, _ := a.Admins(ctx); len(got) != 1 {
+		t.Errorf("Admins after a removal = %+v, want the owner only", got)
+	}
+}
+
+func TestAdminAlwaysKeepsOneAdmin(t *testing.T) {
+	pool := migrated(t)
+	ctx := context.Background()
+	a := NewAdminStore(asAdminLogin(t, pool))
+	owner := Admin{DiscordID: "111111111111111111", Name: "Owner", Role: RoleAdmin}
+	if err := a.SetAdmin(ctx, owner); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := a.SetAdmin(ctx, Admin{DiscordID: owner.DiscordID, Name: "Owner", Role: RoleOrganiser}); !errors.Is(err, ErrLastAdmin) {
+		t.Errorf("demoting the only admin = %v, want ErrLastAdmin", err)
+	}
+	if err := a.RemoveAdmin(ctx, owner.DiscordID); !errors.Is(err, ErrLastAdmin) {
+		t.Errorf("removing the only admin = %v, want ErrLastAdmin", err)
+	}
+	if err := a.SetAdmin(ctx, Admin{DiscordID: owner.DiscordID, Name: "Owner renamed", Role: RoleAdmin}); err != nil {
+		t.Errorf("renaming the only admin: %v, want nil", err)
+	}
+
+	if err := a.SetAdmin(ctx, Admin{DiscordID: "222222222222222222", Name: "Second", Role: RoleAdmin}); err != nil {
+		t.Fatal(err)
+	}
+	if err := a.RemoveAdmin(ctx, owner.DiscordID); err != nil {
+		t.Errorf("removing one of two admins: %v, want nil", err)
+	}
+	if got, _ := a.Admins(ctx); len(got) != 1 || got[0].Name != "Second" {
+		t.Errorf("admins = %+v, want Second only", got)
 	}
 }

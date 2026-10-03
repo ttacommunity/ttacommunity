@@ -27,6 +27,9 @@ type Admins interface {
 	Tournaments(ctx context.Context) ([]store.AdminTournament, error)
 	SetTournament(ctx context.Context, slug string, s store.TournamentSettings) error
 	SetNote(ctx context.Context, slug, season, stage, note string) error
+	Admins(ctx context.Context) ([]store.Admin, error)
+	SetAdmin(ctx context.Context, a store.Admin) error
+	RemoveAdmin(ctx context.Context, discordID string) error
 }
 
 type adminKey struct{}
@@ -157,4 +160,75 @@ func (s *server) PutAdminNote(ctx context.Context, req PutAdminNoteRequestObject
 		return nil, err
 	}
 	return PutAdminNote204Response{}, nil
+}
+
+func forbidden(msg string) ForbiddenJSONResponse {
+	return ForbiddenJSONResponse{Body: Error{Error: msg}, Headers: ForbiddenResponseHeaders{CacheControl: cacheNone}}
+}
+
+// adminOnly returns the signed-in admin, or ok false when they are an organiser.
+func adminOnly(ctx context.Context) (store.Admin, bool, error) {
+	a, ok := adminFrom(ctx)
+	if !ok {
+		return store.Admin{}, false, errors.New("admin route reached without the gate")
+	}
+	return a, a.Role == store.RoleAdmin, nil
+}
+
+func (s *server) GetAdminAdmins(ctx context.Context, _ GetAdminAdminsRequestObject) (GetAdminAdminsResponseObject, error) {
+	if _, ok, err := adminOnly(ctx); err != nil || !ok {
+		return GetAdminAdmins403JSONResponse{forbidden("only admins manage admin")}, err
+	}
+	list, err := s.admins.Admins(ctx)
+	if err != nil {
+		return nil, err
+	}
+	out := make([]AdminPerson, len(list))
+	for i, a := range list {
+		out[i] = AdminPerson{DiscordId: a.DiscordID, Name: a.Name, Role: AdminPersonRole(a.Role)}
+	}
+	return GetAdminAdmins200JSONResponse{Body: out, Headers: GetAdminAdmins200ResponseHeaders{CacheControl: cacheNone}}, nil
+}
+
+func (s *server) PutAdminAdmin(ctx context.Context, req PutAdminAdminRequestObject) (PutAdminAdminResponseObject, error) {
+	me, ok, err := adminOnly(ctx)
+	if err != nil || !ok {
+		return PutAdminAdmin403JSONResponse{forbidden("only admins manage admin")}, err
+	}
+	b := req.Body
+	if b == nil || b.Name == "" || len(b.Name) > 64 || !b.Role.Valid() {
+		return PutAdminAdmin400JSONResponse{BadRequestJSONResponse{Body: Error{Error: "a name and a role (admin or organiser)"}, Headers: BadRequestResponseHeaders{CacheControl: cacheNone}}}, nil
+	}
+	err = s.admins.SetAdmin(ctx, store.Admin{DiscordID: req.DiscordId, Name: b.Name, Role: string(b.Role)})
+	if errors.Is(err, store.ErrLastAdmin) {
+		return PutAdminAdmin403JSONResponse{forbidden("admin must keep at least one admin; make someone else admin first")}, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	if err := s.admins.Audit(ctx, me.DiscordID, "admin.set", req.DiscordId, b); err != nil {
+		return nil, err
+	}
+	return PutAdminAdmin204Response{}, nil
+}
+
+func (s *server) DeleteAdminAdmin(ctx context.Context, req DeleteAdminAdminRequestObject) (DeleteAdminAdminResponseObject, error) {
+	me, ok, err := adminOnly(ctx)
+	if err != nil || !ok {
+		return DeleteAdminAdmin403JSONResponse{forbidden("only admins manage admin")}, err
+	}
+	err = s.admins.RemoveAdmin(ctx, req.DiscordId)
+	if errors.Is(err, store.ErrLastAdmin) {
+		return DeleteAdminAdmin403JSONResponse{forbidden("admin must keep at least one admin; make someone else admin first")}, nil
+	}
+	if errors.Is(err, store.ErrNotAdmin) {
+		return DeleteAdminAdmin404JSONResponse{NotFoundJSONResponse{Body: Error{Error: "not in admin"}, Headers: NotFoundResponseHeaders{CacheControl: cacheNone}}}, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	if err := s.admins.Audit(ctx, me.DiscordID, "admin.remove", req.DiscordId, map[string]any{}); err != nil {
+		return nil, err
+	}
+	return DeleteAdminAdmin204Response{}, nil
 }

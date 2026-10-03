@@ -37,6 +37,29 @@ func (f *fakeAdmins) SetTournament(_ context.Context, slug string, s store.Tourn
 	return nil
 }
 
+func (f *fakeAdmins) Admins(context.Context) ([]store.Admin, error) {
+	return []store.Admin{{DiscordID: "111111111111111111", Name: "Owner", Role: store.RoleAdmin}}, nil
+}
+
+func (f *fakeAdmins) SetAdmin(_ context.Context, a store.Admin) error {
+	if a.DiscordID == "111111111111111111" && a.Role != store.RoleAdmin {
+		return store.ErrLastAdmin
+	}
+	f.notes = append(f.notes, "set "+a.DiscordID+" "+a.Name+" "+a.Role)
+	return nil
+}
+
+func (f *fakeAdmins) RemoveAdmin(_ context.Context, id string) error {
+	if id == "999999999999999999" {
+		return store.ErrNotAdmin
+	}
+	if id == "111111111111111111" {
+		return store.ErrLastAdmin
+	}
+	f.notes = append(f.notes, "remove "+id)
+	return nil
+}
+
 func (f *fakeAdmins) SetNote(_ context.Context, slug, season, stage, note string) error {
 	if slug != "worlds" {
 		return store.ErrNoTournament
@@ -135,8 +158,13 @@ func TestNoPathReachesAnAdminRouteAroundTheGate(t *testing.T) {
 
 func adminDo(t *testing.T, admins Admins, method, path, origin, body string) *httptest.ResponseRecorder {
 	t.Helper()
+	return adminDoAs(t, admins, "222222222222222222", method, path, origin, body)
+}
+
+func adminDoAs(t *testing.T, admins Admins, who, method, path, origin, body string) *httptest.ResponseRecorder {
+	t.Helper()
 	req := httptest.NewRequest(method, path, strings.NewReader(body))
-	req.Header.Set("Cf-Access-Jwt-Assertion", "good-222222222222222222")
+	req.Header.Set("Cf-Access-Jwt-Assertion", "good-"+who)
 	req.Header.Set("Content-Type", "application/json")
 	if origin != "" {
 		req.Header.Set("Origin", origin)
@@ -199,5 +227,62 @@ func TestAdminChangesRefuseAnotherOriginOrABadRequest(t *testing.T) {
 				t.Errorf("a refused change still changed something: %+v %q %q", f.settings, f.notes, f.audits)
 			}
 		})
+	}
+}
+
+func TestAnAdminManagesOthersInAdmin(t *testing.T) {
+	const site, owner = "https://ttac-admin.example", "111111111111111111"
+	f := &fakeAdmins{}
+	rec := adminDoAs(t, f, owner, http.MethodGet, "/v1/admin/admins", "", "")
+	var got []AdminPerson
+	if err := json.Unmarshal(rec.Body.Bytes(), &got); err != nil || rec.Code != http.StatusOK || len(got) != 1 || got[0].Name != "Owner" {
+		t.Fatalf("GET admins = %d %s", rec.Code, rec.Body)
+	}
+	if rec := adminDoAs(t, f, owner, http.MethodPut, "/v1/admin/admins/100000000000000002", site, `{"name": "DANeo", "role": "organiser"}`); rec.Code != http.StatusNoContent {
+		t.Errorf("PUT another = %d %s, want 204", rec.Code, rec.Body)
+	}
+	if rec := adminDoAs(t, f, owner, http.MethodDelete, "/v1/admin/admins/100000000000000002", site, ""); rec.Code != http.StatusNoContent {
+		t.Errorf("DELETE another = %d %s, want 204", rec.Code, rec.Body)
+	}
+	if want := []string{"set 100000000000000002 DANeo organiser", "remove 100000000000000002"}; strings.Join(f.notes, "|") != strings.Join(want, "|") || len(f.audits) != 2 {
+		t.Errorf("changes = %q, audits %q", f.notes, f.audits)
+	}
+}
+
+func TestAdminListChangesAreRefusedWhenTheyShouldBe(t *testing.T) {
+	const site, owner, org = "https://ttac-admin.example", "111111111111111111", "222222222222222222"
+	tests := []struct {
+		name, who, method, path, body string
+		want                          int
+	}{
+		{"an organiser lists", org, http.MethodGet, "/v1/admin/admins", "", http.StatusForbidden},
+		{"an organiser promotes themselves", org, http.MethodPut, "/v1/admin/admins/" + org, `{"name": "Org", "role": "admin"}`, http.StatusForbidden},
+		{"an organiser adds", org, http.MethodPut, "/v1/admin/admins/333333333333333333", `{"name": "X", "role": "admin"}`, http.StatusForbidden},
+		{"the last admin demotes themselves", owner, http.MethodPut, "/v1/admin/admins/" + owner, `{"name": "Owner", "role": "organiser"}`, http.StatusForbidden},
+		{"the last admin removes themselves", owner, http.MethodDelete, "/v1/admin/admins/" + owner, "", http.StatusForbidden},
+		{"no name", owner, http.MethodPut, "/v1/admin/admins/333333333333333333", `{"name": "", "role": "admin"}`, http.StatusBadRequest},
+		{"an unknown role", owner, http.MethodPut, "/v1/admin/admins/333333333333333333", `{"name": "X", "role": "root"}`, http.StatusBadRequest},
+		{"someone not in admin", owner, http.MethodDelete, "/v1/admin/admins/999999999999999999", "", http.StatusNotFound},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			f := &fakeAdmins{}
+			rec := adminDoAs(t, f, tt.who, tt.method, tt.path, site, tt.body)
+			if rec.Code != tt.want {
+				t.Errorf("%s %s = %d %s, want %d", tt.method, tt.path, rec.Code, rec.Body, tt.want)
+			}
+			if len(f.audits) != 0 || (tt.want != http.StatusNotFound && len(f.notes) != 0) {
+				t.Errorf("a refused change still changed something: %q %q", f.notes, f.audits)
+			}
+		})
+	}
+}
+
+func TestAnAdminRenamesThemselves(t *testing.T) {
+	f := &fakeAdmins{}
+	rec := adminDoAs(t, f, "111111111111111111", http.MethodPut, "/v1/admin/admins/111111111111111111", "https://ttac-admin.example",
+		`{"name": "Owner, renamed", "role": "admin"}`)
+	if rec.Code != http.StatusNoContent || len(f.audits) != 1 {
+		t.Errorf("PUT self = %d %s, audits %q; want 204 and audited", rec.Code, rec.Body, f.audits)
 	}
 }

@@ -697,10 +697,62 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/admin/admins": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Everyone in admin, with their role (admins only) */
+        get: operations["getAdminAdmins"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/admins/{discord_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Add someone to admin, or change their name or role (admins only; admin always keeps one admin)
+         * @description Audited. The Origin must be the admin site.
+         */
+        put: operations["putAdminAdmin"];
+        post?: never;
+        /**
+         * Take someone out of admin (admins only; admin always keeps one admin)
+         * @description Audited. The Origin must be the admin site. Their Access session still lasts until it ends or is revoked in Cloudflare.
+         */
+        delete: operations["deleteAdminAdmin"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        AdminPerson: {
+            discord_id: string;
+            name: string;
+            /** @enum {string} */
+            role: "admin" | "organiser";
+        };
+        AdminRole: {
+            name: string;
+            /** @enum {string} */
+            role: "admin" | "organiser";
+        };
         AdminTournament: {
             slug: string;
             name: string;
@@ -1655,6 +1707,8 @@ export interface components {
         };
     };
     parameters: {
+        /** @description A Discord user id */
+        DiscordID: string;
         /** @description The tournament's slug */
         AdminTournamentSlug: string;
         Model: components["schemas"]["Model"];
@@ -2553,6 +2607,81 @@ export interface operations {
             404: components["responses"]["NotFound"];
         };
     };
+    getAdminAdmins: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The admins and organisers, by name */
+            200: {
+                headers: {
+                    "Cache-Control": components["headers"]["CacheControl"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminPerson"][];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    putAdminAdmin: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A Discord user id */
+                discord_id: components["parameters"]["DiscordID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AdminRole"];
+            };
+        };
+        responses: {
+            /** @description Saved */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    deleteAdminAdmin: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A Discord user id */
+                discord_id: components["parameters"]["DiscordID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Removed */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
 }
 type FlattenedDeepRequired<T> = {
     [K in keyof T]-?: FlattenedDeepRequired<T[K] extends unknown[] | undefined | null ? Extract<T[K], unknown[]>[number] : T[K]>;
@@ -2566,6 +2695,8 @@ export const pathsV1RunsRunLeaderboardCsvGetParametersQueryStatusValues: Readonl
 export const pathsV1RunsRunLeaderboardCsvGetParametersQuerySortValues: ReadonlyArray<FlattenedDeepRequired<paths>["/v1/runs/{run}/leaderboard.csv"]["get"]["parameters"]["query"]["sort"]> = ["rank", "name", "c_rating", "rating", "opps", "win_rate", "last_played"];
 export const pathsV1RunsRunLeaderboardCsvGetParametersQueryOrderValues: ReadonlyArray<FlattenedDeepRequired<paths>["/v1/runs/{run}/leaderboard.csv"]["get"]["parameters"]["query"]["order"]> = ["asc", "desc"];
 export const pathsV1RunsRunLeaderboardCsvGetParametersQueryStats_viewValues: ReadonlyArray<FlattenedDeepRequired<paths>["/v1/runs/{run}/leaderboard.csv"]["get"]["parameters"]["query"]["stats_view"]> = ["season", "career"];
+export const adminPersonRoleValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["AdminPerson"]["role"]> = ["admin", "organiser"];
+export const adminRoleRoleValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["AdminRole"]["role"]> = ["admin", "organiser"];
 export const adminMeRoleValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["AdminMe"]["role"]> = ["admin", "organiser"];
 export const modelValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["Model"]> = ["glicko2_daneo", "glicko2_daneo_softer", "glicko2_std", "glicko2_std_softer", "glicko2_std_retro", "glicko2_std_softer_retro", "glicko2_mp", "glicko2_mp_softer", "glicko2_mp_retro", "glicko2_mp_softer_retro", "glicko2_adapt", "glicko2_adapt_softer", "glicko2_adapt_retro", "glicko2_adapt_softer_retro", "whr", "whr_softer"];
 export const formatValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["Format"]> = [0, 2, 3, 4];

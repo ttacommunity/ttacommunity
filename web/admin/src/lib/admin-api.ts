@@ -5,6 +5,7 @@ export type AdminMe = components['schemas']['AdminMe'];
 export type AdminTournament = components['schemas']['AdminTournament'];
 export type TournamentSettings = components['schemas']['TournamentSettings'];
 export type SeasonNote = components['schemas']['SeasonNote'];
+export type AdminPerson = components['schemas']['AdminPerson'];
 
 /** AdminResult is an answer's data, or why the request was refused. */
 export type AdminResult<T> = { ok: true; data: T } | { ok: false; status: number; message: string };

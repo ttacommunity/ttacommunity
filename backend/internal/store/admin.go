@@ -96,3 +96,74 @@ func (a *AdminStore) CheckLimits(ctx context.Context) error {
 	}
 	return nil
 }
+
+// Admins returns everyone in admin, by name.
+func (a *AdminStore) Admins(ctx context.Context) ([]Admin, error) {
+	rows, err := a.pool.Query(ctx, "SELECT discord_id, name, role FROM admins ORDER BY name, discord_id")
+	if err != nil {
+		return nil, fmt.Errorf("listing admins: %w", err)
+	}
+	got, err := pgx.CollectRows(rows, pgx.RowToStructByPos[Admin])
+	if err != nil {
+		return nil, fmt.Errorf("listing admins: %w", err)
+	}
+	return got, nil
+}
+
+// ErrLastAdmin means the change would leave admin without anyone in the admin role.
+var ErrLastAdmin = errors.New("admin must keep at least one admin")
+
+// keepingAnAdmin runs change in a transaction that holds the admin rows, and undoes it with ErrLastAdmin
+// if it would take admin from at least one admin to none.
+func (a *AdminStore) keepingAnAdmin(ctx context.Context, change func(pgx.Tx) error) error {
+	return pgx.BeginFunc(ctx, a.pool, func(tx pgx.Tx) error {
+		rows, err := tx.Query(ctx, "SELECT discord_id FROM admins WHERE role = 'admin' FOR UPDATE")
+		if err != nil {
+			return fmt.Errorf("holding the admins: %w", err)
+		}
+		held, err := pgx.CollectRows(rows, pgx.RowTo[string])
+		if err != nil {
+			return fmt.Errorf("holding the admins: %w", err)
+		}
+		if err := change(tx); err != nil {
+			return err
+		}
+		var left int
+		if err := tx.QueryRow(ctx, "SELECT count(*) FROM admins WHERE role = 'admin'").Scan(&left); err != nil {
+			return fmt.Errorf("counting admins: %w", err)
+		}
+		if len(held) > 0 && left == 0 {
+			return ErrLastAdmin
+		}
+		return nil
+	})
+}
+
+// SetAdmin adds a person to admin or changes their name and role, as the admin login. The table's checks refuse
+// a bad row; demoting the last admin is ErrLastAdmin.
+func (a *AdminStore) SetAdmin(ctx context.Context, x Admin) error {
+	return a.keepingAnAdmin(ctx, func(tx pgx.Tx) error {
+		if _, err := tx.Exec(ctx, `
+			INSERT INTO admins (discord_id, name, role) VALUES ($1, $2, $3)
+			ON CONFLICT (discord_id) DO UPDATE SET name = excluded.name, role = excluded.role`,
+			x.DiscordID, x.Name, x.Role); err != nil {
+			return fmt.Errorf("setting an admin: %w", err)
+		}
+		return nil
+	})
+}
+
+// RemoveAdmin takes a person out of admin. It returns ErrNotAdmin if they were not in it, and ErrLastAdmin
+// for the last admin.
+func (a *AdminStore) RemoveAdmin(ctx context.Context, discordID string) error {
+	return a.keepingAnAdmin(ctx, func(tx pgx.Tx) error {
+		tag, err := tx.Exec(ctx, "DELETE FROM admins WHERE discord_id = $1", discordID)
+		if err != nil {
+			return fmt.Errorf("removing an admin: %w", err)
+		}
+		if tag.RowsAffected() == 0 {
+			return ErrNotAdmin
+		}
+		return nil
+	})
+}

@@ -953,8 +953,76 @@ paths:
           $ref: "#/components/responses/Forbidden"
         "404":
           $ref: "#/components/responses/NotFound"
+  /v1/admin/admins:
+    get:
+      operationId: getAdminAdmins
+      tags: [admin]
+      summary: Everyone in admin, with their role (admins only)
+      responses:
+        "200":
+          description: The admins and organisers, by name
+          headers:
+            Cache-Control:
+              $ref: "#/components/headers/CacheControl"
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/AdminPerson"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+  /v1/admin/admins/{discord_id}:
+    put:
+      operationId: putAdminAdmin
+      tags: [admin]
+      summary: Add someone to admin, or change their name or role (admins only; admin always keeps one admin)
+      description: Audited. The Origin must be the admin site.
+      parameters:
+        - $ref: "#/components/parameters/DiscordID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AdminRole"
+      responses:
+        "204":
+          description: Saved
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+    delete:
+      operationId: deleteAdminAdmin
+      tags: [admin]
+      summary: Take someone out of admin (admins only; admin always keeps one admin)
+      description: Audited. The Origin must be the admin site. Their Access session still lasts until it ends or is revoked in Cloudflare.
+      parameters:
+        - $ref: "#/components/parameters/DiscordID"
+      responses:
+        "204":
+          description: Removed
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
 components:
   parameters:
+    DiscordID:
+      name: discord_id
+      in: path
+      required: true
+      description: A Discord user id
+      schema:
+        type: string
+        pattern: "^[0-9]{5,25}$"
     AdminTournamentSlug:
       name: tournament
       in: path
@@ -1046,6 +1114,29 @@ components:
           schema:
             $ref: "#/components/schemas/Error"
   schemas:
+    AdminPerson:
+      type: object
+      required: [discord_id, name, role]
+      properties:
+        discord_id:
+          type: string
+        name:
+          type: string
+        role:
+          type: string
+          enum: [admin, organiser]
+    AdminRole:
+      type: object
+      additionalProperties: false
+      required: [name, role]
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 64
+        role:
+          type: string
+          enum: [admin, organiser]
     AdminTournament:
       type: object
       required: [slug, name, visible, rated, community, seasons]
