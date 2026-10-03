@@ -1,0 +1,83 @@
+.signed-in {
+  margin-bottom: 1.5rem;
+  color: var(--text-soft);
+}
+.muted {
+  color: var(--text-muted);
+}
+.row-error {
+  color: var(--loss);
+}
+.table-wrap {
+  overflow-x: auto;
+}
+.admin-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-family: var(--font-stats);
+  font-size: 0.9rem;
+}
+.admin-table th,
+.admin-table td {
+  padding: 0.5rem 0.6rem;
+  border-bottom: 1px solid var(--border-subtle);
+  text-align: left;
+}
+.admin-table thead th {
+  color: var(--accent-gold);
+  font-weight: 600;
+}
+.admin-table tbody th {
+  font-weight: 600;
+  color: var(--text-main);
+}
+.admin-table input[type='checkbox'] {
+  width: 1.1rem;
+  height: 1.1rem;
+  accent-color: var(--accent-gold);
+}
+.btn-notes,
+.note-actions button {
+  padding: 0.25rem 0.6rem;
+  border: 1px solid var(--border-subtle);
+  border-radius: 4px;
+  background: var(--surface-inset);
+  color: var(--text-main);
+  cursor: pointer;
+}
+.note-actions button:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+.notes-cell {
+  background: var(--surface-inset);
+}
+.season-notes {
+  display: grid;
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+}
+.note-box {
+  display: grid;
+  gap: 0.3rem;
+}
+.note-box label {
+  color: var(--accent-gold-light);
+}
+.note-box textarea {
+  width: 100%;
+  padding: 0.4rem;
+  border: 1px solid var(--border-subtle);
+  border-radius: 4px;
+  background: var(--bg-dark);
+  color: var(--text-main);
+  font-family: var(--font-body);
+}
+.note-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+.note-status {
+  color: var(--text-muted);
+}
