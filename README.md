@@ -407,6 +407,7 @@ from `main`:
 | `ttacommunity` (the site) | `/web` | `pnpm --filter @ttac/site build` | `npx wrangler@4.141.0 deploy --config site/wrangler.jsonc` |
 | `ttacommunity` Previews (Settings → Builds → Previews Base) | `/web` | `pnpm --filter @ttac/site build` | `if [ "$WORKERS_CI_BRANCH" = dev ]; then npx wrangler@4.141.0 preview --config site/wrangler.jsonc; else echo "Previews are built for branch dev only"; fi` |
 | `ttac-admin` | `/web` | `pnpm --filter @ttac/admin build` | `npx wrangler@4.141.0 deploy --config admin/wrangler.jsonc` |
+| `ttac-admin` Previews | `/web` | `pnpm --filter @ttac/admin build` | `if [ "$WORKERS_CI_BRANCH" = dev ]; then npx wrangler@4.141.0 preview --config admin/wrangler.jsonc; else echo "Previews are built for branch dev only"; fi` |
 | `ttac-auth` (Discord sign-in for Access) | `/infra/access-oidc` | none | `npx wrangler deploy` |
 
 Build variables, set in each site Worker's build settings:
@@ -431,7 +432,33 @@ Preview on a custom domain is `<branch>.<route host>`, and the route sets
 Worker's Variables and Secrets (not its build variables).
 
 **`ttac-admin` is only reachable through Cloudflare Access.** Its Access
-application must exist before its domain is declared.
+application must exist before its domain is declared, and it covers
+`*.ttac-admin.unstableunicorn.dev` before previews are turned on: `dev`'s
+preview is `dev.ttac-admin.unstableunicorn.dev`.
+
+### Admin
+
+Admin is the `ttac-admin` site and the API's `/v1/admin/` routes:
+
+- **The site's Worker** serves the pages, and proxies `/api/*` to
+  `/v1/admin/*` on the API for its host (`ttac-admin` to `ttac-api`,
+  `dev.ttac-admin` to `ttac-api-dev`; any other host is refused) after
+  verifying the Access token itself
+- **The API verifies the token again** (signature, issuer, the admin app's
+  audience, expiry, a Discord id), then looks the Discord id up in `admins`:
+  role `admin` or `organiser`. A change must come from `ADMIN_ORIGIN`, and
+  every change is written to `admin_audit`
+- **The API refuses to start** without `ACCESS_TEAM`, `ACCESS_AUD`,
+  `ADMIN_ORIGIN` and `RATINGS_ADMIN_DATABASE_URL`, or when the admin login
+  could change games, players or runs
+
+The admin login is a member of `ratings_admin`, which the migrations grant
+only what admin edits. A database owner without `CREATEROLE` needs the role
+made first (`scripts/seed-cluster-db.sh` does). Add someone to admin:
+
+```bash
+go run ./cmd/load -add-admin <Discord id> -name <name> -role admin   # or organiser
+```
 
 ### The API
 
