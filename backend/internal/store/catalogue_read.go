@@ -288,6 +288,30 @@ func (r *RatingsReader) CatalogueTournament(ctx context.Context, run int64, slug
 		return fail("league podiums", err)
 	}
 
+	// A podium set in admin replaces the season's recorded or derived one.
+	rows, err = r.pool.Query(ctx, `
+		SELECT season, place, player_name, CASE WHEN note = '' THEN 'Set in admin' ELSE 'Set in admin: ' || note END
+		FROM tournament_podium_overrides WHERE tournament = $1 ORDER BY season, place`, slug)
+	if err != nil {
+		return fail("admin podiums", err)
+	}
+	set := map[int]bool{}
+	_, err = pgx.ForEachRow(rows, []any{&label, &p.Place, &p.Name, &p.Source}, func() error {
+		i, ok := byLabel[label]
+		if !ok {
+			return nil
+		}
+		if !set[i] {
+			got.Seasons[i].Podium, set[i] = nil, true
+		}
+		p.Final, p.Finished = "", got.Seasons[i].Span.Last
+		got.Seasons[i].Podium = append(got.Seasons[i].Podium, p)
+		return nil
+	})
+	if err != nil {
+		return fail("admin podiums", err)
+	}
+
 	rows, err = r.pool.Query(ctx, `
 		WITH g AS (
 			SELECT s.label, m.cge_tournament AS ct, m.cge_season AS cs

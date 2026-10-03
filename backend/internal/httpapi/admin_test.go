@@ -101,7 +101,8 @@ func (*fakeAdmins) AllowedOrigin() string { return "https://ttac-admin.example" 
 
 func (*fakeAdmins) Tournaments(context.Context) ([]store.AdminTournament, error) {
 	return []store.AdminTournament{{Slug: "worlds", Name: "World Championship", Rated: true,
-		Seasons: []store.AdminSeason{{Label: "2025", Stages: []store.AdminStage{{Label: "Stage 1", Note: "n"}}}}}}, nil
+		Seasons: []store.AdminSeason{{Label: "2025", Stages: []store.AdminStage{{Label: "Stage 1", Note: "n"}},
+			Podium: []store.PodiumEntry{{Place: 1, Name: "a440"}}, PodiumNote: "CGE"}}}}, nil
 }
 
 func (f *fakeAdmins) SetTournament(_ context.Context, slug string, s store.TournamentSettings) error {
@@ -154,6 +155,25 @@ func (f *fakeAdmins) RemoveSeason(_ context.Context, slug, label string) error {
 		return store.ErrSeasonHasGames
 	}
 	f.notes = append(f.notes, "remove season "+label)
+	return nil
+}
+
+func (f *fakeAdmins) SetPodium(_ context.Context, slug, season string, podium []store.PodiumEntry, note string) error {
+	switch {
+	case slug != "worlds" || season == "1999":
+		return store.ErrNoTournament
+	case len(podium) > 0 && podium[0].Name == "twice":
+		return store.ErrBadPodium
+	}
+	f.notes = append(f.notes, fmt.Sprintf("podium %s %v %s", season, podium, note))
+	return nil
+}
+
+func (f *fakeAdmins) ClearPodium(_ context.Context, slug, season string) error {
+	if slug != "worlds" || season == "1999" {
+		return store.ErrNoTournament
+	}
+	f.notes = append(f.notes, "clear podium "+season)
 	return nil
 }
 
@@ -546,5 +566,62 @@ func TestARunWhoseEngineEndedIsShownFailed(t *testing.T) {
 				t.Errorf("runs = %+v, want run 9 %s with %q", got, tt.status, tt.progress)
 			}
 		})
+	}
+}
+
+func TestAnOrganiserSetsAndClearsASeasonsPodium(t *testing.T) {
+	const site, org = "https://ttac-admin.example", "222222222222222222"
+	f := &fakeAdmins{}
+	rec := adminDo(t, f, http.MethodPut, "/v1/admin/tournaments/worlds/podium", site,
+		`{"season": "2025", "podium": [{"place": 1, "name": "a440"}, {"place": 2, "name": "kyshantry"}], "note": "CGE final"}`)
+	if rec.Code != http.StatusNoContent {
+		t.Fatalf("PUT podium = %d %s, want 204", rec.Code, rec.Body)
+	}
+	if rec := adminDo(t, f, http.MethodDelete, "/v1/admin/tournaments/worlds/podium?season=2025", site, ""); rec.Code != http.StatusNoContent {
+		t.Errorf("DELETE podium = %d %s, want 204", rec.Code, rec.Body)
+	}
+	if want := "podium 2025 [{1 a440} {2 kyshantry}] CGE final|clear podium 2025"; strings.Join(f.notes, "|") != want {
+		t.Errorf("changes = %q, want %q", f.notes, want)
+	}
+	if want := org + " tournament.podium worlds|" + org + " tournament.podium.clear worlds"; strings.Join(f.audits, "|") != want {
+		t.Errorf("audits = %q, want %q", f.audits, want)
+	}
+}
+
+func TestPodiumChangesAreRefusedWhenTheyShouldBe(t *testing.T) {
+	const site = "https://ttac-admin.example"
+	tests := []struct {
+		name, method, path, origin, body string
+		want                             int
+	}{
+		{"another site", http.MethodPut, "/v1/admin/tournaments/worlds/podium", "https://evil.example", `{"season": "2025", "podium": [{"place": 1, "name": "a"}], "note": ""}`, http.StatusForbidden},
+		{"no such season", http.MethodPut, "/v1/admin/tournaments/worlds/podium", site, `{"season": "1999", "podium": [{"place": 1, "name": "a"}], "note": ""}`, http.StatusNotFound},
+		{"not a podium", http.MethodPut, "/v1/admin/tournaments/worlds/podium", site, `{"season": "2025", "podium": [{"place": 1, "name": "twice"}], "note": ""}`, http.StatusBadRequest},
+		{"nobody on it", http.MethodPut, "/v1/admin/tournaments/worlds/podium", site, `{"season": "2025", "podium": [], "note": ""}`, http.StatusBadRequest},
+		{"a long note", http.MethodPut, "/v1/admin/tournaments/worlds/podium", site, `{"season": "2025", "podium": [{"place": 1, "name": "a"}], "note": "` + strings.Repeat("x", 501) + `"}`, http.StatusBadRequest},
+		{"clearing no such season", http.MethodDelete, "/v1/admin/tournaments/worlds/podium?season=1999", site, "", http.StatusNotFound},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			f := &fakeAdmins{}
+			rec := adminDo(t, f, tt.method, tt.path, tt.origin, tt.body)
+			if rec.Code != tt.want {
+				t.Errorf("%s %s = %d %s, want %d", tt.method, tt.path, rec.Code, rec.Body, tt.want)
+			}
+			if len(f.notes)+len(f.audits) != 0 {
+				t.Errorf("a refused change still changed something: %q %q", f.notes, f.audits)
+			}
+		})
+	}
+}
+
+func TestAdminTournamentsShowASeasonsPodium(t *testing.T) {
+	rec := adminDo(t, &fakeAdmins{}, http.MethodGet, "/v1/admin/tournaments", "", "")
+	var got []AdminTournament
+	if err := json.Unmarshal(rec.Body.Bytes(), &got); err != nil || rec.Code != http.StatusOK {
+		t.Fatalf("GET = %d %s", rec.Code, rec.Body)
+	}
+	if se := got[0].Seasons[0]; len(se.Podium) != 1 || se.Podium[0].Name != "a440" || se.PodiumNote != "CGE" {
+		t.Errorf("season = %+v", se)
 	}
 }

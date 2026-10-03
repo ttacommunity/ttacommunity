@@ -158,3 +158,65 @@ func TestAdminTournamentsListSeasonsLatestFirst(t *testing.T) {
 		t.Errorf("seasons = %v, want 10, 3, 2, 1", labels)
 	}
 }
+
+func TestSetPodiumReplacesASeasonsPodiumAndClearPodiumRemovesIt(t *testing.T) {
+	pool := migrated(t)
+	ctx := context.Background()
+	placedOn(t, pool, map[string]time.Time{"Worlds 2025 Stage 1 - Upper 1 game 1": day("2025-03-01")})
+	a := NewAdminStore(asAdminLogin(t, pool))
+
+	first := []PodiumEntry{{Place: 1, Name: "a440"}, {Place: 2, Name: "kyshantry"}, {Place: 3, Name: "Eepogi"}}
+	if err := a.SetPodium(ctx, "worlds", "2025", first, "From CGE's final"); err != nil {
+		t.Fatalf("SetPodium: %v", err)
+	}
+	if err := a.SetPodium(ctx, "worlds", "2025", []PodiumEntry{{Place: 1, Name: "kyshantry"}}, ""); err != nil {
+		t.Fatalf("SetPodium again: %v", err)
+	}
+	got, err := a.Tournaments(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	se := adminTournament(t, got, "worlds").Seasons[0]
+	if !reflect.DeepEqual(se.Podium, []PodiumEntry{{Place: 1, Name: "kyshantry"}}) || se.PodiumNote != "" {
+		t.Errorf("podium = %+v %q, want only the second one", se.Podium, se.PodiumNote)
+	}
+
+	if err := a.ClearPodium(ctx, "worlds", "2025"); err != nil {
+		t.Fatalf("ClearPodium: %v", err)
+	}
+	got, _ = a.Tournaments(ctx)
+	if p := adminTournament(t, got, "worlds").Seasons[0].Podium; len(p) != 0 {
+		t.Errorf("podium after clearing = %+v", p)
+	}
+}
+
+func TestSetPodiumRefusesWhatIsNotAPodium(t *testing.T) {
+	pool := migrated(t)
+	ctx := context.Background()
+	placedOn(t, pool, map[string]time.Time{"Worlds 2025 Stage 1 - Upper 1 game 1": day("2025-03-01")})
+	a := NewAdminStore(asAdminLogin(t, pool))
+	for _, tt := range []struct {
+		name, slug, season string
+		podium             []PodiumEntry
+		want               error
+	}{
+		{"no such season", "worlds", "1999", []PodiumEntry{{Place: 1, Name: "a"}}, ErrNoTournament},
+		{"no such tournament", "nope", "2025", []PodiumEntry{{Place: 1, Name: "a"}}, ErrNoTournament},
+		{"nobody", "worlds", "2025", nil, ErrBadPodium},
+		{"a place twice", "worlds", "2025", []PodiumEntry{{Place: 1, Name: "a"}, {Place: 1, Name: "b"}}, ErrBadPodium},
+		{"a player twice", "worlds", "2025", []PodiumEntry{{Place: 1, Name: "a"}, {Place: 2, Name: "a"}}, ErrBadPodium},
+		{"fourth place", "worlds", "2025", []PodiumEntry{{Place: 4, Name: "a"}}, ErrBadPodium},
+		{"no name", "worlds", "2025", []PodiumEntry{{Place: 1, Name: " "}}, ErrBadPodium},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			if err := a.SetPodium(ctx, tt.slug, tt.season, tt.podium, ""); !errors.Is(err, tt.want) {
+				t.Errorf("SetPodium = %v, want %v", err, tt.want)
+			}
+		})
+	}
+	var n int
+	_ = pool.QueryRow(ctx, "SELECT count(*) FROM tournament_podium_overrides").Scan(&n)
+	if n != 0 {
+		t.Errorf("%d podium rows after only refusals", n)
+	}
+}

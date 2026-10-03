@@ -1014,6 +1014,56 @@ paths:
           $ref: "#/components/responses/Forbidden"
         "404":
           $ref: "#/components/responses/NotFound"
+  /v1/admin/tournaments/{tournament}/podium:
+    put:
+      operationId: putAdminPodium
+      tags: [admin]
+      summary: Set a season's podium by hand, over a recorded or derived one
+      description: >
+        The tournament page shows it at once; titles and achievements follow
+        at the next rating run. Audited. The Origin must be the admin site.
+      parameters:
+        - $ref: "#/components/parameters/AdminTournamentSlug"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SeasonPodium"
+      responses:
+        "204":
+          description: Saved
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    delete:
+      operationId: deleteAdminPodium
+      tags: [admin]
+      summary: Remove a season's podium set by hand, so the recorded or derived one shows again
+      description: Audited. The Origin must be the admin site.
+      parameters:
+        - $ref: "#/components/parameters/AdminTournamentSlug"
+        - name: season
+          in: query
+          required: true
+          schema:
+            type: string
+            minLength: 1
+            maxLength: 64
+      responses:
+        "204":
+          description: Removed
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
   /v1/admin/tournaments/{tournament}/seasons:
     post:
       operationId: postAdminSeason
@@ -1405,6 +1455,38 @@ components:
         change:
           type: number
           format: double
+    PodiumEntry:
+      type: object
+      additionalProperties: false
+      required: [place, name]
+      properties:
+        place:
+          type: integer
+          minimum: 1
+          maximum: 3
+        name:
+          type: string
+          minLength: 1
+          maxLength: 64
+    SeasonPodium:
+      type: object
+      additionalProperties: false
+      required: [season, podium, note]
+      properties:
+        season:
+          type: string
+          minLength: 1
+          maxLength: 64
+        podium:
+          type: array
+          minItems: 1
+          maxItems: 3
+          items:
+            $ref: "#/components/schemas/PodiumEntry"
+        note:
+          description: Why, or where the placing comes from
+          type: string
+          maxLength: 500
     NewSeason:
       type: object
       additionalProperties: false
@@ -1461,8 +1543,15 @@ components:
             $ref: "#/components/schemas/AdminSeason"
     AdminSeason:
       type: object
-      required: [label, note, has_games, stages]
+      required: [label, note, has_games, stages, podium, podium_note]
       properties:
+        podium:
+          description: The podium set in admin, empty when the recorded or derived one shows
+          type: array
+          items:
+            $ref: "#/components/schemas/PodiumEntry"
+        podium_note:
+          type: string
         label:
           type: string
         has_games:

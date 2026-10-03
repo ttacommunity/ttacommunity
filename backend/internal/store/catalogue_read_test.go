@@ -534,3 +534,30 @@ func TestCatalogueTournamentListsASeasonWithoutGamesInNumberOrder(t *testing.T) 
 		t.Errorf("season 1 = %+v, want no games and its note", s1)
 	}
 }
+
+func TestCatalogueTournamentShowsAnAdminPodiumOverAnyOther(t *testing.T) {
+	pool := migrated(t)
+	ctx := context.Background()
+	run := publishedRun(t, pool)
+	placedOn(t, pool, map[string]time.Time{"Worlds 1 stage 8": day("2022-07-28")})
+	if _, err := pool.Exec(ctx, `INSERT INTO tournament_official_placements (series, season, division, player_name, place, points, reason, source)
+		VALUES ('worlds', 2022, 'Final', 'Ender_Wiggin', 1, NULL, 'CGE final standings', 'CGE /tournaments/detail/3391/8')`); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := pool.Exec(ctx, `INSERT INTO tournament_podium_overrides (tournament, season, place, player_name, note)
+		VALUES ('worlds', '2022 (Age A)', 1, 'LaoHuang', 'The organiser''s ruling'), ('worlds', '2022 (Age A)', 2, 'Ender_Wiggin', '')`); err != nil {
+		t.Fatal(err)
+	}
+
+	got, err := NewRatingsReader(asReader(t, pool)).CatalogueTournament(ctx, run, "worlds")
+	if err != nil {
+		t.Fatalf("CatalogueTournament: %v", err)
+	}
+	want := []PodiumPlace{
+		{Place: 1, Name: "LaoHuang", Finished: day("2022-07-28"), Source: "Set in admin: The organiser's ruling"},
+		{Place: 2, Name: "Ender_Wiggin", Finished: day("2022-07-28"), Source: "Set in admin"},
+	}
+	if s := got.Seasons[0]; !reflect.DeepEqual(s.Podium, want) {
+		t.Errorf("season %q podium = %+v, want %+v", s.Label, s.Podium, want)
+	}
+}

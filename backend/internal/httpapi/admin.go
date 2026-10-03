@@ -29,6 +29,8 @@ type Admins interface {
 	Tournaments(ctx context.Context) ([]store.AdminTournament, error)
 	SetTournament(ctx context.Context, slug string, s store.TournamentSettings) error
 	SetNote(ctx context.Context, slug, season, stage, note string) error
+	SetPodium(ctx context.Context, slug, season string, podium []store.PodiumEntry, note string) error
+	ClearPodium(ctx context.Context, slug, season string) error
 	AddSeason(ctx context.Context, slug, label string) error
 	RemoveSeason(ctx context.Context, slug, label string) error
 	Admins(ctx context.Context) ([]store.Admin, error)
@@ -124,7 +126,11 @@ func (s *server) GetAdminTournaments(ctx context.Context, _ GetAdminTournamentsR
 			for k, st := range se.Stages {
 				stages[k] = AdminStage{Label: st.Label, Note: st.Note}
 			}
-			seasons[j] = AdminSeason{Label: se.Label, Note: se.Note, HasGames: se.HasGames, Stages: stages}
+			podium := make([]PodiumEntry, len(se.Podium))
+			for k, e := range se.Podium {
+				podium[k] = PodiumEntry{Place: e.Place, Name: e.Name}
+			}
+			seasons[j] = AdminSeason{Label: se.Label, Note: se.Note, HasGames: se.HasGames, Stages: stages, Podium: podium, PodiumNote: se.PodiumNote}
 		}
 		out[i] = AdminTournament{Slug: t.Slug, Name: t.Name, Visible: t.Visible, Rated: t.Rated, Community: t.Community, Seasons: seasons}
 	}
@@ -447,4 +453,51 @@ func defaultAgainst(runs []store.AdminRun, run int64) int64 {
 		return 0
 	}
 	return before.ID
+}
+
+func (s *server) PutAdminPodium(ctx context.Context, req PutAdminPodiumRequestObject) (PutAdminPodiumResponseObject, error) {
+	a, ok := adminFrom(ctx)
+	if !ok {
+		return nil, errors.New("admin route reached without the gate")
+	}
+	b := req.Body
+	if b == nil || b.Season == "" || len(b.Season) > 64 || len(b.Note) > 500 || len(b.Podium) == 0 || len(b.Podium) > 3 {
+		return PutAdminPodium400JSONResponse{badRequest400("a podium needs a season, 1st to 3rd, and a note under 500 characters")}, nil
+	}
+	podium := make([]store.PodiumEntry, len(b.Podium))
+	for i, e := range b.Podium {
+		if len(e.Name) > 64 {
+			return PutAdminPodium400JSONResponse{badRequest400("a player's name is at most 64 characters")}, nil
+		}
+		podium[i] = store.PodiumEntry{Place: e.Place, Name: e.Name}
+	}
+	switch err := s.admins.SetPodium(ctx, req.Tournament, b.Season, podium, strings.TrimSpace(b.Note)); {
+	case errors.Is(err, store.ErrNoTournament):
+		return PutAdminPodium404JSONResponse{notFound404("no such tournament or season")}, nil
+	case errors.Is(err, store.ErrBadPodium):
+		return PutAdminPodium400JSONResponse{badRequest400("a podium is 1st to 3rd, each place and player once")}, nil
+	case err != nil:
+		return nil, err
+	}
+	if err := s.admins.Audit(ctx, a.DiscordID, "tournament.podium", req.Tournament, b); err != nil {
+		return nil, err
+	}
+	return PutAdminPodium204Response{}, nil
+}
+
+func (s *server) DeleteAdminPodium(ctx context.Context, req DeleteAdminPodiumRequestObject) (DeleteAdminPodiumResponseObject, error) {
+	a, ok := adminFrom(ctx)
+	if !ok {
+		return nil, errors.New("admin route reached without the gate")
+	}
+	switch err := s.admins.ClearPodium(ctx, req.Tournament, req.Params.Season); {
+	case errors.Is(err, store.ErrNoTournament):
+		return DeleteAdminPodium404JSONResponse{notFound404("no such tournament or season")}, nil
+	case err != nil:
+		return nil, err
+	}
+	if err := s.admins.Audit(ctx, a.DiscordID, "tournament.podium.clear", req.Tournament, map[string]string{"season": req.Params.Season}); err != nil {
+		return nil, err
+	}
+	return DeleteAdminPodium204Response{}, nil
 }

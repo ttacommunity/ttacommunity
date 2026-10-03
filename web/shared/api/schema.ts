@@ -739,6 +739,30 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/admin/tournaments/{tournament}/podium": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Set a season's podium by hand, over a recorded or derived one
+         * @description The tournament page shows it at once; titles and achievements follow at the next rating run. Audited. The Origin must be the admin site.
+         */
+        put: operations["putAdminPodium"];
+        post?: never;
+        /**
+         * Remove a season's podium set by hand, so the recorded or derived one shows again
+         * @description Audited. The Origin must be the admin site.
+         */
+        delete: operations["deleteAdminPodium"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/admin/tournaments/{tournament}/seasons": {
         parameters: {
             query?: never;
@@ -906,6 +930,16 @@ export interface components {
             /** Format: double */
             change: number;
         };
+        PodiumEntry: {
+            place: number;
+            name: string;
+        };
+        SeasonPodium: {
+            season: string;
+            podium: components["schemas"]["PodiumEntry"][];
+            /** @description Why, or where the placing comes from */
+            note: string;
+        };
         NewSeason: {
             /** @description As the site shows it, e.g. "1" or "2023 Play Off" */
             label: string;
@@ -933,6 +967,9 @@ export interface components {
             seasons: components["schemas"]["AdminSeason"][];
         };
         AdminSeason: {
+            /** @description The podium set in admin, empty when the recorded or derived one shows */
+            podium: components["schemas"]["PodiumEntry"][];
+            podium_note: string;
             label: string;
             /** @description False for a season admin added, which can be removed */
             has_games: boolean;
@@ -2866,6 +2903,61 @@ export interface operations {
             path: {
                 /** @description A Discord user id */
                 discord_id: components["parameters"]["DiscordID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Removed */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    putAdminPodium: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The tournament's slug */
+                tournament: components["parameters"]["AdminTournamentSlug"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SeasonPodium"];
+            };
+        };
+        responses: {
+            /** @description Saved */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    deleteAdminPodium: {
+        parameters: {
+            query: {
+                season: string;
+            };
+            header?: never;
+            path: {
+                /** @description The tournament's slug */
+                tournament: components["parameters"]["AdminTournamentSlug"];
             };
             cookie?: never;
         };

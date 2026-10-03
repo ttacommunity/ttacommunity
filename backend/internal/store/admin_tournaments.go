@@ -24,12 +24,20 @@ type AdminTournament struct {
 	Seasons    []AdminSeason
 }
 
-// AdminSeason is a season with its own note and its stages.
+// AdminSeason is a season with its own note, its stages, and the podium admin set for it, if any.
 type AdminSeason struct {
-	Label    string
-	Note     string
-	HasGames bool
-	Stages   []AdminStage
+	Label      string
+	Note       string
+	HasGames   bool
+	Stages     []AdminStage
+	Podium     []PodiumEntry
+	PodiumNote string
+}
+
+// PodiumEntry is one place on a podium set in admin.
+type PodiumEntry struct {
+	Place int
+	Name  string
 }
 
 // AdminStage is a stage of a season (an empty label is a season without stages) with its note.
@@ -88,7 +96,105 @@ func (a *AdminStore) Tournaments(ctx context.Context) ([]AdminTournament, error)
 	if err != nil {
 		return nil, fmt.Errorf("reading tournaments for admin: %w", err)
 	}
+	if err := a.addPodiums(ctx, out); err != nil {
+		return nil, err
+	}
 	return out, nil
+}
+
+// addPodiums puts each podium set in admin on its season.
+func (a *AdminStore) addPodiums(ctx context.Context, ts []AdminTournament) error {
+	rows, err := a.pool.Query(ctx, "SELECT tournament, season, place, player_name, note FROM tournament_podium_overrides ORDER BY place")
+	if err != nil {
+		return fmt.Errorf("reading podiums for admin: %w", err)
+	}
+	seasons := map[[2]string]*AdminSeason{}
+	for i := range ts {
+		for j := range ts[i].Seasons {
+			seasons[[2]string{ts[i].Slug, ts[i].Seasons[j].Label}] = &ts[i].Seasons[j]
+		}
+	}
+	var slug, season, name, note string
+	var place int
+	_, err = pgx.ForEachRow(rows, []any{&slug, &season, &place, &name, &note}, func() error {
+		if se, ok := seasons[[2]string{slug, season}]; ok {
+			se.Podium = append(se.Podium, PodiumEntry{Place: place, Name: name})
+			if note != "" {
+				se.PodiumNote = note
+			}
+		}
+		return nil
+	})
+	if err != nil {
+		return fmt.Errorf("reading podiums for admin: %w", err)
+	}
+	return nil
+}
+
+// ErrBadPodium means a podium has nobody, a place outside 1-3 or twice, a player twice, or a blank name.
+var ErrBadPodium = errors.New("a podium is 1st to 3rd, each place and player once")
+
+// SetPodium replaces a season's podium with the one given, which the site shows over a recorded or derived
+// one, with the note on its first place. It returns ErrNoTournament or ErrBadPodium.
+func (a *AdminStore) SetPodium(ctx context.Context, slug, season string, podium []PodiumEntry, note string) error {
+	places, names := map[int]bool{}, map[string]bool{}
+	for _, e := range podium {
+		name := strings.TrimSpace(e.Name)
+		if e.Place < 1 || e.Place > 3 || places[e.Place] || name == "" || names[name] {
+			return ErrBadPodium
+		}
+		places[e.Place], names[name] = true, true
+	}
+	if len(podium) == 0 {
+		return ErrBadPodium
+	}
+	return pgx.BeginFunc(ctx, a.pool, func(tx pgx.Tx) error {
+		if err := seasonExists(ctx, tx, slug, season); err != nil {
+			return err
+		}
+		if _, err := tx.Exec(ctx, "DELETE FROM tournament_podium_overrides WHERE tournament = $1 AND season = $2", slug, season); err != nil {
+			return fmt.Errorf("setting the podium of %s %s: %w", slug, season, err)
+		}
+		for _, e := range podium {
+			n := ""
+			if e.Place == podium[0].Place {
+				n = note
+			}
+			if _, err := tx.Exec(ctx, `INSERT INTO tournament_podium_overrides (tournament, season, place, player_name, note)
+				VALUES ($1, $2, $3, $4, $5)`, slug, season, e.Place, strings.TrimSpace(e.Name), n); err != nil {
+				return fmt.Errorf("setting the podium of %s %s: %w", slug, season, err)
+			}
+		}
+		return nil
+	})
+}
+
+// ClearPodium removes the podium admin set for a season, so the recorded or derived one shows again.
+// It returns ErrNoTournament for a season that does not exist.
+func (a *AdminStore) ClearPodium(ctx context.Context, slug, season string) error {
+	return pgx.BeginFunc(ctx, a.pool, func(tx pgx.Tx) error {
+		if err := seasonExists(ctx, tx, slug, season); err != nil {
+			return err
+		}
+		if _, err := tx.Exec(ctx, "DELETE FROM tournament_podium_overrides WHERE tournament = $1 AND season = $2", slug, season); err != nil {
+			return fmt.Errorf("clearing the podium of %s %s: %w", slug, season, err)
+		}
+		return nil
+	})
+}
+
+// seasonExists returns ErrNoTournament unless the tournament has that season.
+func seasonExists(ctx context.Context, tx pgx.Tx, slug, season string) error {
+	var exists bool
+	err := tx.QueryRow(ctx, `SELECT EXISTS (SELECT 1 FROM tournaments t JOIN tournament_seasons se USING (tournament_id)
+		WHERE t.slug = $1 AND se.label = $2)`, slug, season).Scan(&exists)
+	if err != nil {
+		return fmt.Errorf("finding %s %s: %w", slug, season, err)
+	}
+	if !exists {
+		return ErrNoTournament
+	}
+	return nil
 }
 
 // SetTournament changes a tournament's settings in one transaction, or returns ErrNoTournament.
