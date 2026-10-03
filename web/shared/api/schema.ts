@@ -615,10 +615,38 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/admin/me": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Who is signed in to admin, and in which role
+         * @description Admin routes are reached through the admin site's Worker, behind
+         *     Cloudflare Access. Each request's Access token (Cf-Access-Jwt-Assertion)
+         *     is verified, and the Discord id in it must be an admin or organiser.
+         *     Never cached.
+         */
+        get: operations["getAdminMe"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        AdminMe: {
+            name: string;
+            /** @enum {string} */
+            role: "admin" | "organiser";
+        };
         Health: {
             status: string;
         };
@@ -1485,6 +1513,26 @@ export interface components {
         };
     };
     responses: {
+        /** @description No Access token, or one that does not verify */
+        Unauthorized: {
+            headers: {
+                "Cache-Control": components["headers"]["CacheControl"];
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["Error"];
+            };
+        };
+        /** @description The token is valid, but its Discord id is not an admin or organiser */
+        Forbidden: {
+            headers: {
+                "Cache-Control": components["headers"]["CacheControl"];
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["Error"];
+            };
+        };
         /** @description A parameter is not one the API knows */
         BadRequest: {
             headers: {
@@ -2309,6 +2357,29 @@ export interface operations {
             404: components["responses"]["NotFound"];
         };
     };
+    getAdminMe: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The signed-in admin */
+            200: {
+                headers: {
+                    "Cache-Control": components["headers"]["CacheControl"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminMe"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
 }
 type FlattenedDeepRequired<T> = {
     [K in keyof T]-?: FlattenedDeepRequired<T[K] extends unknown[] | undefined | null ? Extract<T[K], unknown[]>[number] : T[K]>;
@@ -2322,6 +2393,7 @@ export const pathsV1RunsRunLeaderboardCsvGetParametersQueryStatusValues: Readonl
 export const pathsV1RunsRunLeaderboardCsvGetParametersQuerySortValues: ReadonlyArray<FlattenedDeepRequired<paths>["/v1/runs/{run}/leaderboard.csv"]["get"]["parameters"]["query"]["sort"]> = ["rank", "name", "c_rating", "rating", "opps", "win_rate", "last_played"];
 export const pathsV1RunsRunLeaderboardCsvGetParametersQueryOrderValues: ReadonlyArray<FlattenedDeepRequired<paths>["/v1/runs/{run}/leaderboard.csv"]["get"]["parameters"]["query"]["order"]> = ["asc", "desc"];
 export const pathsV1RunsRunLeaderboardCsvGetParametersQueryStats_viewValues: ReadonlyArray<FlattenedDeepRequired<paths>["/v1/runs/{run}/leaderboard.csv"]["get"]["parameters"]["query"]["stats_view"]> = ["season", "career"];
+export const adminMeRoleValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["AdminMe"]["role"]> = ["admin", "organiser"];
 export const modelValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["Model"]> = ["glicko2_daneo", "glicko2_daneo_softer", "glicko2_std", "glicko2_std_softer", "glicko2_std_retro", "glicko2_std_softer_retro", "glicko2_mp", "glicko2_mp_softer", "glicko2_mp_retro", "glicko2_mp_softer_retro", "glicko2_adapt", "glicko2_adapt_softer", "glicko2_adapt_retro", "glicko2_adapt_softer_retro", "whr", "whr_softer"];
 export const formatValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["Format"]> = [0, 2, 3, 4];
 export const titleCodeValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["TitleCode"]> = ["WC", "SGM", "GM", "M", "P", "G", "S", "B", "W"];
