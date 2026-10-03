@@ -37,6 +37,7 @@ services:
       RATINGS_ADMIN_DATABASE_URL: postgres://ratings_admin_api:${RATINGS_ADMIN_DB_PASSWORD:?set RATINGS_ADMIN_DB_PASSWORD in .env}@ratings-db:5432/ratings?sslmode=disable
       ACCESS_TEAM: ${ACCESS_TEAM:?set ACCESS_TEAM in .env}
       ACCESS_AUD: ${ACCESS_AUD:?set ACCESS_AUD in .env}
+      ADMIN_ORIGIN: ${ADMIN_ORIGIN:?set ADMIN_ORIGIN in .env}
       APP_DATABASE_URL: postgres://app:${APP_DB_PASSWORD}@app-db:5432/app?sslmode=disable
     ports: ["127.0.0.1:8080:8080"]
     depends_on:

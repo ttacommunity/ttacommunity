@@ -879,8 +879,91 @@ paths:
           $ref: "#/components/responses/Unauthorized"
         "403":
           $ref: "#/components/responses/Forbidden"
+  /v1/admin/tournaments:
+    get:
+      operationId: getAdminTournaments
+      tags: [admin]
+      summary: Every tournament with its settings, seasons, stages and notes
+      responses:
+        "200":
+          description: The tournaments, by name
+          headers:
+            Cache-Control:
+              $ref: "#/components/headers/CacheControl"
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/AdminTournament"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+  /v1/admin/tournaments/{tournament}:
+    patch:
+      operationId: patchAdminTournament
+      tags: [admin]
+      summary: Change whether a tournament is shown, rated, or counted in the community leaderboard
+      description: |
+        Only the settings given change. Admins and organisers may change them;
+        each change is audited. The Origin must be the admin site. Rating
+        takes effect on the next engine run.
+      parameters:
+        - $ref: "#/components/parameters/AdminTournamentSlug"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TournamentSettings"
+      responses:
+        "204":
+          description: Changed
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /v1/admin/tournaments/{tournament}/notes:
+    put:
+      operationId: putAdminNote
+      tags: [admin]
+      summary: Set the note shown beside a season or one of its stages; an empty note removes it
+      description: Audited. The Origin must be the admin site.
+      parameters:
+        - $ref: "#/components/parameters/AdminTournamentSlug"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SeasonNote"
+      responses:
+        "204":
+          description: Saved
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
 components:
   parameters:
+    AdminTournamentSlug:
+      name: tournament
+      in: path
+      required: true
+      description: The tournament's slug
+      schema:
+        type: string
+        pattern: "^[a-z][a-z0-9_]*$"
+        maxLength: 64
     Model:
       name: model
       in: query
@@ -963,6 +1046,73 @@ components:
           schema:
             $ref: "#/components/schemas/Error"
   schemas:
+    AdminTournament:
+      type: object
+      required: [slug, name, visible, rated, community, seasons]
+      properties:
+        slug:
+          type: string
+        name:
+          type: string
+        visible:
+          description: Shown on the site though not rated
+          type: boolean
+        rated:
+          description: In the community ratings
+          type: boolean
+        community:
+          description: Counted in the overall community leaderboard
+          type: boolean
+        seasons:
+          type: array
+          items:
+            $ref: "#/components/schemas/AdminSeason"
+    AdminSeason:
+      type: object
+      required: [label, note, stages]
+      properties:
+        label:
+          type: string
+        note:
+          type: string
+        stages:
+          type: array
+          items:
+            $ref: "#/components/schemas/AdminStage"
+    AdminStage:
+      type: object
+      required: [label, note]
+      properties:
+        label:
+          type: string
+        note:
+          type: string
+    TournamentSettings:
+      type: object
+      additionalProperties: false
+      properties:
+        visible:
+          type: boolean
+        rated:
+          type: boolean
+        community:
+          type: boolean
+    SeasonNote:
+      type: object
+      additionalProperties: false
+      required: [season, stage, note]
+      properties:
+        season:
+          type: string
+          minLength: 1
+          maxLength: 64
+        stage:
+          description: Empty for the season's own note
+          type: string
+          maxLength: 64
+        note:
+          type: string
+          maxLength: 2000
     AdminMe:
       type: object
       required: [name, role]

@@ -60,12 +60,12 @@ type Ratings interface {
 // the admin gate, without CORS; with admins nil they refuse every request.
 func NewMux(ratings Ratings, admins Admins, log *slog.Logger) http.Handler {
 	mux := http.NewServeMux()
-	registerRoutes(mux, ratings, log)
+	registerRoutes(mux, ratings, admins, log)
 	return routeAdmin(publicCORS(mux), adminGate(mux, admins, log))
 }
 
-func registerRoutes(router ServeMux, ratings Ratings, log *slog.Logger) {
-	strict := NewStrictHandlerWithOptions(&server{ratings: ratings, log: log}, nil, StrictHTTPServerOptions{
+func registerRoutes(router ServeMux, ratings Ratings, admins Admins, log *slog.Logger) {
+	strict := NewStrictHandlerWithOptions(&server{ratings: ratings, admins: admins, log: log}, nil, StrictHTTPServerOptions{
 		RequestErrorHandlerFunc:  badRequest,
 		ResponseErrorHandlerFunc: internalError(log),
 	})
@@ -114,6 +114,7 @@ func writeError(w http.ResponseWriter, code int, msg string) {
 
 type server struct {
 	ratings Ratings
+	admins  Admins
 	log     *slog.Logger
 }
 

@@ -638,10 +638,100 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/admin/tournaments": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Every tournament with its settings, seasons, stages and notes */
+        get: operations["getAdminTournaments"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/tournaments/{tournament}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Change whether a tournament is shown, rated, or counted in the community leaderboard
+         * @description Only the settings given change. Admins and organisers may change them;
+         *     each change is audited. The Origin must be the admin site. Rating
+         *     takes effect on the next engine run.
+         */
+        patch: operations["patchAdminTournament"];
+        trace?: never;
+    };
+    "/v1/admin/tournaments/{tournament}/notes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Set the note shown beside a season or one of its stages; an empty note removes it
+         * @description Audited. The Origin must be the admin site.
+         */
+        put: operations["putAdminNote"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        AdminTournament: {
+            slug: string;
+            name: string;
+            /** @description Shown on the site though not rated */
+            visible: boolean;
+            /** @description In the community ratings */
+            rated: boolean;
+            /** @description Counted in the overall community leaderboard */
+            community: boolean;
+            seasons: components["schemas"]["AdminSeason"][];
+        };
+        AdminSeason: {
+            label: string;
+            note: string;
+            stages: components["schemas"]["AdminStage"][];
+        };
+        AdminStage: {
+            label: string;
+            note: string;
+        };
+        TournamentSettings: {
+            visible?: boolean;
+            rated?: boolean;
+            community?: boolean;
+        };
+        SeasonNote: {
+            season: string;
+            /** @description Empty for the season's own note */
+            stage: string;
+            note: string;
+        };
         AdminMe: {
             name: string;
             /** @enum {string} */
@@ -1565,6 +1655,8 @@ export interface components {
         };
     };
     parameters: {
+        /** @description The tournament's slug */
+        AdminTournamentSlug: string;
         Model: components["schemas"]["Model"];
         Format: components["schemas"]["Format"];
         /** @description The player's name, as the leaderboard gives it */
@@ -2378,6 +2470,87 @@ export interface operations {
             };
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["Forbidden"];
+        };
+    };
+    getAdminTournaments: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The tournaments, by name */
+            200: {
+                headers: {
+                    "Cache-Control": components["headers"]["CacheControl"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminTournament"][];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    patchAdminTournament: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The tournament's slug */
+                tournament: components["parameters"]["AdminTournamentSlug"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TournamentSettings"];
+            };
+        };
+        responses: {
+            /** @description Changed */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    putAdminNote: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The tournament's slug */
+                tournament: components["parameters"]["AdminTournamentSlug"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SeasonNote"];
+            };
+        };
+        responses: {
+            /** @description Saved */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
         };
     };
 }

@@ -482,6 +482,34 @@ type AdminMe struct {
 // AdminMeRole defines model for AdminMe.Role.
 type AdminMeRole string
 
+// AdminSeason defines model for AdminSeason.
+type AdminSeason struct {
+	Label  string       `json:"label"`
+	Note   string       `json:"note"`
+	Stages []AdminStage `json:"stages"`
+}
+
+// AdminStage defines model for AdminStage.
+type AdminStage struct {
+	Label string `json:"label"`
+	Note  string `json:"note"`
+}
+
+// AdminTournament defines model for AdminTournament.
+type AdminTournament struct {
+	// Community Counted in the overall community leaderboard
+	Community bool   `json:"community"`
+	Name      string `json:"name"`
+
+	// Rated In the community ratings
+	Rated   bool          `json:"rated"`
+	Seasons []AdminSeason `json:"seasons"`
+	Slug    string        `json:"slug"`
+
+	// Visible Shown on the site though not rated
+	Visible bool `json:"visible"`
+}
+
 // Agreement defines model for Agreement.
 type Agreement struct {
 	// Format Players per game. 0 is every format together
@@ -1250,6 +1278,15 @@ type Run struct {
 	RunId       int64     `json:"run_id"`
 }
 
+// SeasonNote defines model for SeasonNote.
+type SeasonNote struct {
+	Note   string `json:"note"`
+	Season string `json:"season"`
+
+	// Stage Empty for the season's own note
+	Stage string `json:"stage"`
+}
+
 // SeasonRecord defines model for SeasonRecord.
 type SeasonRecord struct {
 	Division   string             `json:"division"`
@@ -1346,6 +1383,13 @@ type TournamentSeries struct {
 
 	// Series A tournament series
 	Series Series `json:"series"`
+}
+
+// TournamentSettings defines model for TournamentSettings.
+type TournamentSettings struct {
+	Community *bool `json:"community,omitempty"`
+	Rated     *bool `json:"rated,omitempty"`
+	Visible   *bool `json:"visible,omitempty"`
 }
 
 // TrophyRow One player on a series' board: medals and a title for the leagues
@@ -1457,6 +1501,9 @@ type Years struct {
 	// Years Newest first
 	Years []YearEntry `json:"years"`
 }
+
+// AdminTournamentSlug defines model for AdminTournamentSlug.
+type AdminTournamentSlug = string
 
 // PlayerName defines model for PlayerName.
 type PlayerName = string
@@ -1594,6 +1641,12 @@ type GetYearLeaderboardParams struct {
 	Format *Format `form:"format,omitempty" json:"format,omitempty"`
 }
 
+// PatchAdminTournamentJSONRequestBody defines body for PatchAdminTournament for application/json ContentType.
+type PatchAdminTournamentJSONRequestBody = TournamentSettings
+
+// PutAdminNoteJSONRequestBody defines body for PutAdminNote for application/json ContentType.
+type PutAdminNoteJSONRequestBody = SeasonNote
+
 // ServerInterface represents all server handlers.
 type ServerInterface interface {
 	// GetHealthz The process is up
@@ -1605,6 +1658,15 @@ type ServerInterface interface {
 	// GetAdminMe Who is signed in to admin, and in which role
 	// (GET /v1/admin/me)
 	GetAdminMe(w http.ResponseWriter, r *http.Request)
+	// GetAdminTournaments Every tournament with its settings, seasons, stages and notes
+	// (GET /v1/admin/tournaments)
+	GetAdminTournaments(w http.ResponseWriter, r *http.Request)
+	// PatchAdminTournament Change whether a tournament is shown, rated, or counted in the community leaderboard
+	// (PATCH /v1/admin/tournaments/{tournament})
+	PatchAdminTournament(w http.ResponseWriter, r *http.Request, tournament AdminTournamentSlug)
+	// PutAdminNote Set the note shown beside a season or one of its stages; an empty note removes it
+	// (PUT /v1/admin/tournaments/{tournament}/notes)
+	PutAdminNote(w http.ResponseWriter, r *http.Request, tournament AdminTournamentSlug)
 	// GetCurrentRun The run the site shows now
 	// (GET /v1/runs/current)
 	GetCurrentRun(w http.ResponseWriter, r *http.Request)
@@ -1724,6 +1786,72 @@ func (siw *ServerInterfaceWrapper) GetAdminMe(w http.ResponseWriter, r *http.Req
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.GetAdminMe(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetAdminTournaments operation middleware
+func (siw *ServerInterfaceWrapper) GetAdminTournaments(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetAdminTournaments(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// PatchAdminTournament operation middleware
+func (siw *ServerInterfaceWrapper) PatchAdminTournament(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "tournament" -------------
+	var tournament AdminTournamentSlug
+
+	err = runtime.BindStyledParameterWithOptions("simple", "tournament", r.PathValue("tournament"), &tournament, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "tournament", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.PatchAdminTournament(w, r, tournament)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// PutAdminNote operation middleware
+func (siw *ServerInterfaceWrapper) PutAdminNote(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "tournament" -------------
+	var tournament AdminTournamentSlug
+
+	err = runtime.BindStyledParameterWithOptions("simple", "tournament", r.PathValue("tournament"), &tournament, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "tournament", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.PutAdminNote(w, r, tournament)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -3139,6 +3267,9 @@ func HandlerWithOptions(si ServerInterface, options StdHTTPServerOptions) http.H
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/v1/runs/{run}/catalogue/{tournament}/games", wrapper.GetCatalogueGames)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/v1/runs/{run}/community/{edition}", wrapper.GetCommunityLeaderboard)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/v1/admin/me", wrapper.GetAdminMe)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/v1/admin/tournaments", wrapper.GetAdminTournaments)
+	m.HandleFunc(http.MethodPatch+" "+options.BaseURL+"/v1/admin/tournaments/{tournament}", wrapper.PatchAdminTournament)
+	m.HandleFunc(http.MethodPut+" "+options.BaseURL+"/v1/admin/tournaments/{tournament}/notes", wrapper.PutAdminNote)
 
 	return m
 }
@@ -3315,6 +3446,219 @@ func (response GetAdminMe403JSONResponse) VisitGetAdminMeResponse(w http.Respons
 	w.Header().Set("Content-Type", "application/json")
 	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
 	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetAdminTournamentsRequestObject struct {
+}
+
+type GetAdminTournamentsResponseObject interface {
+	VisitGetAdminTournamentsResponse(w http.ResponseWriter) error
+}
+
+type GetAdminTournaments200ResponseHeaders struct {
+	CacheControl string
+}
+
+type GetAdminTournaments200JSONResponse struct {
+	Body    []AdminTournament
+	Headers GetAdminTournaments200ResponseHeaders
+}
+
+func (response GetAdminTournaments200JSONResponse) VisitGetAdminTournamentsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetAdminTournaments401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response GetAdminTournaments401JSONResponse) VisitGetAdminTournamentsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetAdminTournaments403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response GetAdminTournaments403JSONResponse) VisitGetAdminTournamentsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PatchAdminTournamentRequestObject struct {
+	Tournament AdminTournamentSlug `json:"tournament"`
+	Body       *PatchAdminTournamentJSONRequestBody
+}
+
+type PatchAdminTournamentResponseObject interface {
+	VisitPatchAdminTournamentResponse(w http.ResponseWriter) error
+}
+
+type PatchAdminTournament204Response struct {
+}
+
+func (response PatchAdminTournament204Response) VisitPatchAdminTournamentResponse(w http.ResponseWriter) error {
+	w.WriteHeader(204)
+	return nil
+}
+
+type PatchAdminTournament400JSONResponse struct{ BadRequestJSONResponse }
+
+func (response PatchAdminTournament400JSONResponse) VisitPatchAdminTournamentResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PatchAdminTournament401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response PatchAdminTournament401JSONResponse) VisitPatchAdminTournamentResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PatchAdminTournament403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response PatchAdminTournament403JSONResponse) VisitPatchAdminTournamentResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PatchAdminTournament404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response PatchAdminTournament404JSONResponse) VisitPatchAdminTournamentResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PutAdminNoteRequestObject struct {
+	Tournament AdminTournamentSlug `json:"tournament"`
+	Body       *PutAdminNoteJSONRequestBody
+}
+
+type PutAdminNoteResponseObject interface {
+	VisitPutAdminNoteResponse(w http.ResponseWriter) error
+}
+
+type PutAdminNote204Response struct {
+}
+
+func (response PutAdminNote204Response) VisitPutAdminNoteResponse(w http.ResponseWriter) error {
+	w.WriteHeader(204)
+	return nil
+}
+
+type PutAdminNote400JSONResponse struct{ BadRequestJSONResponse }
+
+func (response PutAdminNote400JSONResponse) VisitPutAdminNoteResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PutAdminNote401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response PutAdminNote401JSONResponse) VisitPutAdminNoteResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PutAdminNote403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response PutAdminNote403JSONResponse) VisitPutAdminNoteResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PutAdminNote404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response PutAdminNote404JSONResponse) VisitPutAdminNoteResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(404)
 	_, err := buf.WriteTo(w)
 	return err
 }
@@ -4847,6 +5191,15 @@ type StrictServerInterface interface {
 	// GetAdminMe Who is signed in to admin, and in which role
 	// (GET /v1/admin/me)
 	GetAdminMe(ctx context.Context, request GetAdminMeRequestObject) (GetAdminMeResponseObject, error)
+	// GetAdminTournaments Every tournament with its settings, seasons, stages and notes
+	// (GET /v1/admin/tournaments)
+	GetAdminTournaments(ctx context.Context, request GetAdminTournamentsRequestObject) (GetAdminTournamentsResponseObject, error)
+	// PatchAdminTournament Change whether a tournament is shown, rated, or counted in the community leaderboard
+	// (PATCH /v1/admin/tournaments/{tournament})
+	PatchAdminTournament(ctx context.Context, request PatchAdminTournamentRequestObject) (PatchAdminTournamentResponseObject, error)
+	// PutAdminNote Set the note shown beside a season or one of its stages; an empty note removes it
+	// (PUT /v1/admin/tournaments/{tournament}/notes)
+	PutAdminNote(ctx context.Context, request PutAdminNoteRequestObject) (PutAdminNoteResponseObject, error)
 	// GetCurrentRun The run the site shows now
 	// (GET /v1/runs/current)
 	GetCurrentRun(ctx context.Context, request GetCurrentRunRequestObject) (GetCurrentRunResponseObject, error)
@@ -5028,6 +5381,96 @@ func (sh *strictHandler) GetAdminMe(w http.ResponseWriter, r *http.Request) {
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(GetAdminMeResponseObject); ok {
 		if err := validResponse.VisitGetAdminMeResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// GetAdminTournaments operation middleware
+func (sh *strictHandler) GetAdminTournaments(w http.ResponseWriter, r *http.Request) {
+	var request GetAdminTournamentsRequestObject
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.GetAdminTournaments(ctx, request.(GetAdminTournamentsRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetAdminTournaments")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(GetAdminTournamentsResponseObject); ok {
+		if err := validResponse.VisitGetAdminTournamentsResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// PatchAdminTournament operation middleware
+func (sh *strictHandler) PatchAdminTournament(w http.ResponseWriter, r *http.Request, tournament AdminTournamentSlug) {
+	var request PatchAdminTournamentRequestObject
+
+	request.Tournament = tournament
+
+	var body PatchAdminTournamentJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.PatchAdminTournament(ctx, request.(PatchAdminTournamentRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "PatchAdminTournament")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(PatchAdminTournamentResponseObject); ok {
+		if err := validResponse.VisitPatchAdminTournamentResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// PutAdminNote operation middleware
+func (sh *strictHandler) PutAdminNote(w http.ResponseWriter, r *http.Request, tournament AdminTournamentSlug) {
+	var request PutAdminNoteRequestObject
+
+	request.Tournament = tournament
+
+	var body PutAdminNoteJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.PutAdminNote(ctx, request.(PutAdminNoteRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "PutAdminNote")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(PutAdminNoteResponseObject); ok {
+		if err := validResponse.VisitPutAdminNoteResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {

@@ -185,7 +185,7 @@ func TestRoutesMatchTheSpec(t *testing.T) {
 		}
 	}
 	router := &recordingRouter{ServeMux: http.NewServeMux()}
-	registerRoutes(router, &fakeRatings{}, slog.New(slog.DiscardHandler))
+	registerRoutes(router, &fakeRatings{}, nil, slog.New(slog.DiscardHandler))
 
 	slices.Sort(want)
 	slices.Sort(router.patterns)

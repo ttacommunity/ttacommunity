@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 	"time"
 
@@ -70,14 +71,22 @@ func main() {
 type adminDeps struct {
 	*access.Verifier
 	*store.AdminStore
+	origin string
 }
 
-// openAdmin builds admin from ACCESS_TEAM, ACCESS_AUD and RATINGS_ADMIN_DATABASE_URL. Any of them
+// AllowedOrigin is the admin site's origin, the only one a change may come from.
+func (d adminDeps) AllowedOrigin() string { return d.origin }
+
+// openAdmin builds admin from ACCESS_TEAM, ACCESS_AUD, ADMIN_ORIGIN and RATINGS_ADMIN_DATABASE_URL. Any of them
 // unset, or an admin login that can change more than admin edits, is an error: admin never starts open.
 func openAdmin(ctx context.Context) (adminDeps, func(), error) {
 	team, aud, url := os.Getenv("ACCESS_TEAM"), os.Getenv("ACCESS_AUD"), os.Getenv("RATINGS_ADMIN_DATABASE_URL")
 	if url == "" {
 		return adminDeps{}, nil, errors.New("RATINGS_ADMIN_DATABASE_URL is not set")
+	}
+	origin := os.Getenv("ADMIN_ORIGIN")
+	if !strings.HasPrefix(origin, "https://") && !strings.HasPrefix(origin, "http://127.0.0.1:") {
+		return adminDeps{}, nil, errors.New("ADMIN_ORIGIN must be the admin site's https origin")
 	}
 	v, err := access.NewVerifier(access.Config{Team: team, AUD: aud}, &http.Client{Timeout: 10 * time.Second}, time.Now)
 	if err != nil {
@@ -92,5 +101,5 @@ func openAdmin(ctx context.Context) (adminDeps, func(), error) {
 		pool.Close()
 		return adminDeps{}, nil, err
 	}
-	return adminDeps{v, a}, pool.Close, nil
+	return adminDeps{v, a, origin}, pool.Close, nil
 }
