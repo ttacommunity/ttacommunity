@@ -39,6 +39,10 @@ type Admins interface {
 	RunChanges(ctx context.Context, run, before int64) (store.RunChanges, error)
 	// StartRun starts the engine now and returns its Job's name, or enginejob.ErrRunning or ErrNotSetUp.
 	StartRun(ctx context.Context) (string, error)
+	// StopRun stops the engine's unfinished Jobs and returns their names, or enginejob.ErrNotRunning or ErrNotSetUp.
+	StopRun(ctx context.Context) ([]string, error)
+	// EngineGoing reports whether an engine Job has not finished, or returns enginejob.ErrNotSetUp.
+	EngineGoing(ctx context.Context) (bool, error)
 }
 
 type adminKey struct{}
@@ -306,8 +310,18 @@ func (s *server) GetAdminRuns(ctx context.Context, _ GetAdminRunsRequestObject) 
 	if err != nil {
 		return nil, err
 	}
+	going, err := s.admins.EngineGoing(ctx)
+	if err != nil {
+		if !errors.Is(err, enginejob.ErrNotSetUp) {
+			s.log.Error("asking the cluster whether the engine is going failed; runs are shown as recorded", "err", err)
+		}
+		going = true
+	}
 	out := make([]AdminRun, len(runs))
 	for i, r := range runs {
+		if r.Status == "running" && !going {
+			r.Status, r.Progress = "failed", "the engine ended without finishing this run"
+		}
 		out[i] = AdminRun{
 			Id: r.ID, Status: AdminRunStatus(r.Status), StartedAt: r.StartedAt, FinishedAt: r.FinishedAt, PublishedAt: r.PublishedAt,
 			Current: r.Current, Games: r.Games, Players: r.Players, EngineVersion: r.EngineVersion, Progress: r.Progress, ProgressAt: r.ProgressAt,
@@ -388,4 +402,24 @@ func (s *server) GetAdminRunChanges(ctx context.Context, req GetAdminRunChangesR
 		Run: req.Run, Against: against, Ratings: c.Ratings, RatingsBefore: c.RatingsBefore, New: c.New, Gone: c.Gone,
 		Moved1: c.Moved1, Moved10: c.Moved10, Moved50: c.Moved50, Moved100: c.Moved100, Biggest: biggest,
 	}, Headers: GetAdminRunChanges200ResponseHeaders{CacheControl: cacheNone}}, nil
+}
+
+func (s *server) PostAdminRunStop(ctx context.Context, _ PostAdminRunStopRequestObject) (PostAdminRunStopResponseObject, error) {
+	me, ok, err := adminOnly(ctx)
+	if err != nil || !ok {
+		return PostAdminRunStop403JSONResponse{forbidden(onlyAdminsRun)}, err
+	}
+	jobs, err := s.admins.StopRun(ctx)
+	switch {
+	case errors.Is(err, enginejob.ErrNotRunning):
+		return PostAdminRunStop409JSONResponse{conflict409("no rating run is going")}, nil
+	case errors.Is(err, enginejob.ErrNotSetUp):
+		return PostAdminRunStop503JSONResponse{NotSetUpJSONResponse{Body: Error{Error: "stopping runs is not set up here"}, Headers: NotSetUpResponseHeaders{CacheControl: cacheNone}}}, nil
+	case err != nil:
+		return nil, err
+	}
+	if err := s.admins.Audit(ctx, me.DiscordID, "run.stop", strings.Join(jobs, ","), map[string]any{}); err != nil {
+		return nil, err
+	}
+	return PostAdminRunStop204Response{}, nil
 }

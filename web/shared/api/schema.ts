@@ -770,7 +770,10 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Rating runs, newest first, with a running one's progress (admins only) */
+        /**
+         * Rating runs, newest first, with a running one's progress (admins only)
+         * @description Where the API can see the engine's Jobs, a run still marked running with no engine Job going is shown as failed: its engine ended without marking it.
+         */
         get: operations["getAdminRuns"];
         put?: never;
         /**
@@ -778,6 +781,26 @@ export interface paths {
          * @description Starts the engine as a Job. The run is not published: publish it once it is complete. Audited. The Origin must be the admin site.
          */
         post: operations["postAdminRun"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/runs/stop": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Stop the rating run that is going (admins only)
+         * @description Deletes the engine's Job. The engine marks its run failed, with the progress line "stopped", as it ends. Audited. The Origin must be the admin site.
+         */
+        post: operations["postAdminRunStop"];
         delete?: never;
         options?: never;
         head?: never;
@@ -2957,6 +2980,28 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["StartedRun"];
                 };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            409: components["responses"]["Conflict"];
+            503: components["responses"]["NotSetUp"];
+        };
+    };
+    postAdminRunStop: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Stopping */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["Forbidden"];

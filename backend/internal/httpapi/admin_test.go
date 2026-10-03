@@ -23,6 +23,10 @@ type fakeAdmins struct {
 	notes    []string
 	audits   []string
 	startErr error
+	stopErr  error
+	// engine is what EngineGoing answers: "" for a run going, "ended" for none, "unset" for not set up,
+	// "unreachable" for an error.
+	engine string
 }
 
 // fakeRuns are run 7 (complete, current), 8 (complete) and 9 (running).
@@ -50,6 +54,26 @@ func (*fakeAdmins) RunChanges(_ context.Context, run, before int64) (store.RunCh
 		return store.RunChanges{}, store.ErrRunNotFound
 	}
 	return store.RunChanges{Ratings: int(run), RatingsBefore: int(before), Biggest: []store.RunMove{{Name: "dan", Before: 1500, After: 1380, Change: -120}}}, nil
+}
+
+func (f *fakeAdmins) StopRun(context.Context) ([]string, error) {
+	if f.stopErr != nil {
+		return nil, f.stopErr
+	}
+	f.notes = append(f.notes, "stop")
+	return []string{"engine-dev-admin-x7k2p"}, nil
+}
+
+func (f *fakeAdmins) EngineGoing(context.Context) (bool, error) {
+	switch f.engine {
+	case "ended":
+		return false, nil
+	case "unset":
+		return false, enginejob.ErrNotSetUp
+	case "unreachable":
+		return false, errors.New("GET /apis/batch/v1/namespaces/ttac/jobs: dial tcp: i/o timeout")
+	}
+	return true, nil
 }
 
 func (f *fakeAdmins) StartRun(context.Context) (string, error) {
@@ -411,7 +435,7 @@ func TestRunChangesAreRefusedWhenTheyShouldBe(t *testing.T) {
 	const site, owner, org = "https://ttac-admin.example", "111111111111111111", "222222222222222222"
 	tests := []struct {
 		name, who, method, path, origin string
-		startErr                        error
+		startErr                        error // also what a stop returns
 		want                            int
 	}{
 		{"an organiser lists runs", org, http.MethodGet, "/v1/admin/runs", "", nil, http.StatusForbidden},
@@ -424,10 +448,14 @@ func TestRunChangesAreRefusedWhenTheyShouldBe(t *testing.T) {
 		{"publishing a running run", owner, http.MethodPost, "/v1/admin/runs/9/publish", site, nil, http.StatusConflict},
 		{"publishing no run", owner, http.MethodPost, "/v1/admin/runs/99/publish", site, nil, http.StatusNotFound},
 		{"publishing from another site", owner, http.MethodPost, "/v1/admin/runs/8/publish", "https://evil.example", nil, http.StatusForbidden},
+		{"an organiser stops a run", org, http.MethodPost, "/v1/admin/runs/stop", site, nil, http.StatusForbidden},
+		{"a stop from another site", owner, http.MethodPost, "/v1/admin/runs/stop", "https://evil.example", nil, http.StatusForbidden},
+		{"a stop with nothing going", owner, http.MethodPost, "/v1/admin/runs/stop", site, enginejob.ErrNotRunning, http.StatusConflict},
+		{"a stop where runs are not set up", owner, http.MethodPost, "/v1/admin/runs/stop", site, enginejob.ErrNotSetUp, http.StatusServiceUnavailable},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			f := &fakeAdmins{startErr: tt.startErr}
+			f := &fakeAdmins{startErr: tt.startErr, stopErr: tt.startErr}
 			rec := adminDoAs(t, f, tt.who, tt.method, tt.path, tt.origin, "")
 			if rec.Code != tt.want {
 				t.Errorf("%s %s = %d %s, want %d", tt.method, tt.path, rec.Code, rec.Body, tt.want)
@@ -466,6 +494,39 @@ func TestRunChangesCompareWithThePublishedRunUnlessAsked(t *testing.T) {
 			}
 			if got.Run != tt.run || got.Against != tt.against || got.Ratings != int(tt.run) || got.RatingsBefore != int(tt.against) || got.Biggest[0].Change != -120 {
 				t.Errorf("changes = %+v, want run %d against %d", got, tt.run, tt.against)
+			}
+		})
+	}
+}
+
+func TestAnAdminStopsTheRunThatIsGoing(t *testing.T) {
+	const owner = "111111111111111111"
+	f := &fakeAdmins{}
+	if rec := adminDoAs(t, f, owner, http.MethodPost, "/v1/admin/runs/stop", "https://ttac-admin.example", ""); rec.Code != http.StatusNoContent {
+		t.Fatalf("POST stop = %d %s, want 204", rec.Code, rec.Body)
+	}
+	if strings.Join(f.notes, "|") != "stop" || strings.Join(f.audits, "|") != owner+" run.stop engine-dev-admin-x7k2p" {
+		t.Errorf("changes %q, audits %q", f.notes, f.audits)
+	}
+}
+
+func TestARunWhoseEngineEndedIsShownFailed(t *testing.T) {
+	for _, tt := range []struct {
+		engine, status, progress string
+	}{
+		{"", "running", "[3/10] models 2p"},
+		{"ended", "failed", "the engine ended without finishing this run"},
+		{"unset", "running", "[3/10] models 2p"},
+		{"unreachable", "running", "[3/10] models 2p"},
+	} {
+		t.Run("engine "+tt.engine, func(t *testing.T) {
+			rec := adminDoAs(t, &fakeAdmins{engine: tt.engine}, "111111111111111111", http.MethodGet, "/v1/admin/runs", "", "")
+			var got []AdminRun
+			if err := json.Unmarshal(rec.Body.Bytes(), &got); err != nil || rec.Code != http.StatusOK {
+				t.Fatalf("GET runs = %d %s", rec.Code, rec.Body)
+			}
+			if string(got[0].Status) != tt.status || got[0].Progress != tt.progress || got[1].Status != "complete" {
+				t.Errorf("runs = %+v, want run 9 %s with %q", got, tt.status, tt.progress)
 			}
 		})
 	}

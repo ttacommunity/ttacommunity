@@ -1069,6 +1069,10 @@ paths:
       operationId: getAdminRuns
       tags: [admin]
       summary: Rating runs, newest first, with a running one's progress (admins only)
+      description: >
+        Where the API can see the engine's Jobs, a run still marked running
+        with no engine Job going is shown as failed: its engine ended without
+        marking it.
       responses:
         "200":
           description: The runs
@@ -1102,6 +1106,26 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/StartedRun"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "503":
+          $ref: "#/components/responses/NotSetUp"
+  /v1/admin/runs/stop:
+    post:
+      operationId: postAdminRunStop
+      tags: [admin]
+      summary: Stop the rating run that is going (admins only)
+      description: >
+        Deletes the engine's Job. The engine marks its run failed, with the
+        progress line "stopped", as it ends. Audited. The Origin must be the
+        admin site.
+      responses:
+        "204":
+          description: Stopping
         "401":
           $ref: "#/components/responses/Unauthorized"
         "403":

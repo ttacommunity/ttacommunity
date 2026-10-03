@@ -87,6 +87,22 @@ func (d adminDeps) StartRun(ctx context.Context) (string, error) {
 	return d.starter.Start(ctx)
 }
 
+// StopRun stops the engine's unfinished Jobs, or returns enginejob.ErrNotSetUp when ENGINE_CRONJOB is not set.
+func (d adminDeps) StopRun(ctx context.Context) ([]string, error) {
+	if d.starter == nil {
+		return nil, enginejob.ErrNotSetUp
+	}
+	return d.starter.Stop(ctx)
+}
+
+// EngineGoing reports whether an engine Job is unfinished, or returns enginejob.ErrNotSetUp when ENGINE_CRONJOB is not set.
+func (d adminDeps) EngineGoing(ctx context.Context) (bool, error) {
+	if d.starter == nil {
+		return false, enginejob.ErrNotSetUp
+	}
+	return d.starter.Going(ctx)
+}
+
 // openAdmin builds admin from ACCESS_TEAM, ACCESS_AUD, ADMIN_ORIGIN and RATINGS_ADMIN_DATABASE_URL. Any of them
 // unset, or an admin login that can change more than admin edits, is an error: admin never starts open.
 // ENGINE_CRONJOB, when set, names the CronJob admin starts runs from, in the pod's namespace.

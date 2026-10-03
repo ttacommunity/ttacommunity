@@ -1851,6 +1851,9 @@ type ServerInterface interface {
 	// PostAdminRun Start a rating run now (admins only)
 	// (POST /v1/admin/runs)
 	PostAdminRun(w http.ResponseWriter, r *http.Request)
+	// PostAdminRunStop Stop the rating run that is going (admins only)
+	// (POST /v1/admin/runs/stop)
+	PostAdminRunStop(w http.ResponseWriter, r *http.Request)
 	// GetAdminRunChanges How far ratings moved from another run, by default the published one (admins only)
 	// (GET /v1/admin/runs/{run}/changes)
 	GetAdminRunChanges(w http.ResponseWriter, r *http.Request, run AdminRunId, params GetAdminRunChangesParams)
@@ -2085,6 +2088,20 @@ func (siw *ServerInterfaceWrapper) PostAdminRun(w http.ResponseWriter, r *http.R
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.PostAdminRun(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// PostAdminRunStop operation middleware
+func (siw *ServerInterfaceWrapper) PostAdminRunStop(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.PostAdminRunStop(w, r)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -3712,6 +3729,7 @@ func HandlerWithOptions(si ServerInterface, options StdHTTPServerOptions) http.H
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/v1/admin/tournaments/{tournament}/seasons", wrapper.PostAdminSeason)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/v1/admin/runs", wrapper.GetAdminRuns)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/v1/admin/runs", wrapper.PostAdminRun)
+	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/v1/admin/runs/stop", wrapper.PostAdminRunStop)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/v1/admin/runs/{run}/publish", wrapper.PostAdminRunPublish)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/v1/admin/runs/{run}/changes", wrapper.GetAdminRunChanges)
 
@@ -4230,6 +4248,81 @@ func (response PostAdminRun409JSONResponse) VisitPostAdminRunResponse(w http.Res
 type PostAdminRun503JSONResponse struct{ NotSetUpJSONResponse }
 
 func (response PostAdminRun503JSONResponse) VisitPostAdminRunResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(503)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PostAdminRunStopRequestObject struct {
+}
+
+type PostAdminRunStopResponseObject interface {
+	VisitPostAdminRunStopResponse(w http.ResponseWriter) error
+}
+
+type PostAdminRunStop204Response struct {
+}
+
+func (response PostAdminRunStop204Response) VisitPostAdminRunStopResponse(w http.ResponseWriter) error {
+	w.WriteHeader(204)
+	return nil
+}
+
+type PostAdminRunStop401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response PostAdminRunStop401JSONResponse) VisitPostAdminRunStopResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PostAdminRunStop403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response PostAdminRunStop403JSONResponse) VisitPostAdminRunStopResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PostAdminRunStop409JSONResponse struct{ ConflictJSONResponse }
+
+func (response PostAdminRunStop409JSONResponse) VisitPostAdminRunStopResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(409)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PostAdminRunStop503JSONResponse struct{ NotSetUpJSONResponse }
+
+func (response PostAdminRunStop503JSONResponse) VisitPostAdminRunStopResponse(w http.ResponseWriter) error {
 
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
@@ -6304,6 +6397,9 @@ type StrictServerInterface interface {
 	// PostAdminRun Start a rating run now (admins only)
 	// (POST /v1/admin/runs)
 	PostAdminRun(ctx context.Context, request PostAdminRunRequestObject) (PostAdminRunResponseObject, error)
+	// PostAdminRunStop Stop the rating run that is going (admins only)
+	// (POST /v1/admin/runs/stop)
+	PostAdminRunStop(ctx context.Context, request PostAdminRunStopRequestObject) (PostAdminRunStopResponseObject, error)
 	// GetAdminRunChanges How far ratings moved from another run, by default the published one (admins only)
 	// (GET /v1/admin/runs/{run}/changes)
 	GetAdminRunChanges(ctx context.Context, request GetAdminRunChangesRequestObject) (GetAdminRunChangesResponseObject, error)
@@ -6637,6 +6733,30 @@ func (sh *strictHandler) PostAdminRun(w http.ResponseWriter, r *http.Request) {
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(PostAdminRunResponseObject); ok {
 		if err := validResponse.VisitPostAdminRunResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// PostAdminRunStop operation middleware
+func (sh *strictHandler) PostAdminRunStop(w http.ResponseWriter, r *http.Request) {
+	var request PostAdminRunStopRequestObject
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.PostAdminRunStop(ctx, request.(PostAdminRunStopRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "PostAdminRunStop")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(PostAdminRunStopResponseObject); ok {
+		if err := validResponse.VisitPostAdminRunStopResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {
