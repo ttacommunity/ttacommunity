@@ -1,5 +1,5 @@
 /** The admin page: who is signed in, and every tournament's settings and notes. */
-import { useEffect, useState } from 'react';
+import { useEffect, useState, type FormEvent } from 'react';
 import { adminRequest, type AdminMe, type AdminTournament, type TournamentSettings } from '../lib/admin-api';
 import AdminList from './AdminList';
 import './AdminApp.css';
@@ -44,9 +44,34 @@ function NoteBox({ slug, season, stage, initial }: { slug: string; season: strin
   );
 }
 
-function TournamentRow({ t, onChange }: { t: AdminTournament; onChange: (t: AdminTournament) => void }) {
+function TournamentRow({
+  t,
+  onChange,
+  onReload,
+}: {
+  t: AdminTournament;
+  onChange: (t: AdminTournament) => void;
+  onReload: () => Promise<void>;
+}) {
   const [error, setError] = useState('');
   const [open, setOpen] = useState(false);
+  const [newSeason, setNewSeason] = useState('');
+  const addSeason = async (e: FormEvent) => {
+    e.preventDefault();
+    setError('');
+    const r = await adminRequest(`/api/tournaments/${t.slug}/seasons`, { method: 'POST', json: { label: newSeason.trim() } });
+    if (r.ok) {
+      setNewSeason('');
+      await onReload();
+    } else setError(r.message);
+  };
+  const removeSeason = async (label: string) => {
+    if (!window.confirm(`Remove ${t.name} season ${label} and its notes?`)) return;
+    setError('');
+    const r = await adminRequest(`/api/tournaments/${t.slug}/seasons?label=${encodeURIComponent(label)}`, { method: 'DELETE' });
+    if (r.ok) await onReload();
+    else setError(r.message);
+  };
   const set = async (key: Setting, value: boolean) => {
     setError('');
     onChange({ ...t, [key]: value });
@@ -87,9 +112,26 @@ function TournamentRow({ t, onChange }: { t: AdminTournament; onChange: (t: Admi
       {open && (
         <tr>
           <td colSpan={5} className="notes-cell">
+            <form className="season-add" onSubmit={(e) => void addSeason(e)}>
+              <label>
+                Add a season with no games yet
+                <input value={newSeason} maxLength={64} placeholder="e.g. 1" onChange={(e) => setNewSeason(e.target.value)} />
+              </label>
+              <button type="submit" className="btn-antique" disabled={newSeason.trim() === ''}>
+                Add season
+              </button>
+            </form>
             {t.seasons.length === 0 && <p className="muted">No seasons yet.</p>}
             {t.seasons.map((se) => (
               <div key={se.label} className="season-notes">
+                {!se.has_games && (
+                  <div className="season-empty">
+                    <span className="muted">Season {se.label}: no games recorded.</span>
+                    <button type="button" className="btn-antique" onClick={() => void removeSeason(se.label)}>
+                      Remove season
+                    </button>
+                  </div>
+                )}
                 <NoteBox slug={t.slug} season={se.label} stage="" initial={se.note} />
                 {se.stages.map((st) => (
                   <NoteBox key={st.label} slug={t.slug} season={se.label} stage={st.label} initial={st.note} />
@@ -108,13 +150,15 @@ export default function AdminApp() {
   const [me, setMe] = useState<Load<AdminMe>>({ kind: 'loading' });
   const [tournaments, setTournaments] = useState<Load<AdminTournament[]>>({ kind: 'loading' });
 
+  const loadTournaments = async () => {
+    const r = await adminRequest<AdminTournament[]>('/api/tournaments', {});
+    setTournaments(r.ok ? { kind: 'ready', data: r.data } : { kind: 'error', message: r.message });
+  };
   useEffect(() => {
     void adminRequest<AdminMe>('/api/me', {}).then((r) =>
       setMe(r.ok ? { kind: 'ready', data: r.data } : { kind: 'error', message: r.message }),
     );
-    void adminRequest<AdminTournament[]>('/api/tournaments', {}).then((r) =>
-      setTournaments(r.ok ? { kind: 'ready', data: r.data } : { kind: 'error', message: r.message }),
-    );
+    void loadTournaments();
   }, []);
 
   if (me.kind === 'loading') return <p className="muted">Loading…</p>;
@@ -155,7 +199,7 @@ export default function AdminApp() {
               </thead>
               <tbody>
                 {tournaments.data.map((t) => (
-                  <TournamentRow key={t.slug} t={t} onChange={replace} />
+                  <TournamentRow key={t.slug} t={t} onChange={replace} onReload={loadTournaments} />
                 ))}
               </tbody>
             </table>

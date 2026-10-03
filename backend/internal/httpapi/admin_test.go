@@ -60,6 +60,28 @@ func (f *fakeAdmins) RemoveAdmin(_ context.Context, id string) error {
 	return nil
 }
 
+func (f *fakeAdmins) AddSeason(_ context.Context, slug, label string) error {
+	switch {
+	case slug != "worlds":
+		return store.ErrNoTournament
+	case label == "2025":
+		return store.ErrSeasonExists
+	}
+	f.notes = append(f.notes, "add season "+label)
+	return nil
+}
+
+func (f *fakeAdmins) RemoveSeason(_ context.Context, slug, label string) error {
+	switch {
+	case slug != "worlds" || label == "1999":
+		return store.ErrNoTournament
+	case label == "2025":
+		return store.ErrSeasonHasGames
+	}
+	f.notes = append(f.notes, "remove season "+label)
+	return nil
+}
+
 func (f *fakeAdmins) SetNote(_ context.Context, slug, season, stage, note string) error {
 	if slug != "worlds" {
 		return store.ErrNoTournament
@@ -284,5 +306,35 @@ func TestAnAdminRenamesThemselves(t *testing.T) {
 		`{"name": "Owner, renamed", "role": "admin"}`)
 	if rec.Code != http.StatusNoContent || len(f.audits) != 1 {
 		t.Errorf("PUT self = %d %s, audits %q; want 204 and audited", rec.Code, rec.Body, f.audits)
+	}
+}
+
+func TestAdminAddsAndRemovesASeasonWithoutGames(t *testing.T) {
+	const site = "https://ttac-admin.example"
+	tests := []struct {
+		name, method, path, body string
+		want                     int
+		change                   string
+	}{
+		{"add", http.MethodPost, "/v1/admin/tournaments/worlds/seasons", `{"label": "2021"}`, http.StatusNoContent, "add season 2021"},
+		{"add one that exists", http.MethodPost, "/v1/admin/tournaments/worlds/seasons", `{"label": "2025"}`, http.StatusBadRequest, ""},
+		{"add an empty label", http.MethodPost, "/v1/admin/tournaments/worlds/seasons", `{"label": " "}`, http.StatusBadRequest, ""},
+		{"add to no tournament", http.MethodPost, "/v1/admin/tournaments/nope/seasons", `{"label": "1"}`, http.StatusNotFound, ""},
+		{"remove", http.MethodDelete, "/v1/admin/tournaments/worlds/seasons?label=2023+Play+Off", "", http.StatusNoContent, "remove season 2023 Play Off"},
+		{"remove one with games", http.MethodDelete, "/v1/admin/tournaments/worlds/seasons?label=2025", "", http.StatusBadRequest, ""},
+		{"remove one that does not exist", http.MethodDelete, "/v1/admin/tournaments/worlds/seasons?label=1999", "", http.StatusNotFound, ""},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			f := &fakeAdmins{}
+			rec := adminDo(t, f, tt.method, tt.path, site, tt.body)
+			if rec.Code != tt.want {
+				t.Fatalf("%s %s = %d %s, want %d", tt.method, tt.path, rec.Code, rec.Body, tt.want)
+			}
+			changed := strings.Join(f.notes, "|")
+			if changed != tt.change || (tt.change != "") != (len(f.audits) == 1) {
+				t.Errorf("changes %q, audits %q; want %q, audited when changed", changed, f.audits, tt.change)
+			}
+		})
 	}
 }

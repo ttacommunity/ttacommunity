@@ -738,10 +738,38 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/admin/tournaments/{tournament}/seasons": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Add a season with no games yet, so a note can be shown for it
+         * @description Audited. The Origin must be the admin site.
+         */
+        post: operations["postAdminSeason"];
+        /**
+         * Remove a season that has no games, with its notes
+         * @description Audited. The Origin must be the admin site.
+         */
+        delete: operations["deleteAdminSeason"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        NewSeason: {
+            /** @description As the site shows it, e.g. "1" or "2023 Play Off" */
+            label: string;
+        };
         AdminPerson: {
             discord_id: string;
             name: string;
@@ -766,6 +794,8 @@ export interface components {
         };
         AdminSeason: {
             label: string;
+            /** @description False for a season admin added, which can be removed */
+            has_games: boolean;
             note: string;
             stages: components["schemas"]["AdminStage"][];
         };
@@ -1405,6 +1435,15 @@ export interface components {
             /** Format: date */
             last_game: string;
         };
+        /** @description A season's games and players, and its first and last game; a season admin added before it has games has none */
+        SeasonSpan: {
+            games: number;
+            players: number;
+            /** Format: date */
+            first_game: string | null;
+            /** Format: date */
+            last_game: string | null;
+        };
         /** @description A tournament as the catalogue names it, with its seasons and games */
         CatalogueEntry: components["schemas"]["GameSpan"] & {
             slug: string;
@@ -1456,7 +1495,7 @@ export interface components {
             /** @description Where the podium was recorded from */
             source: string;
         };
-        CatalogueSeason: components["schemas"]["GameSpan"] & {
+        CatalogueSeason: components["schemas"]["SeasonSpan"] & {
             label: string;
             /** @description A note shown beside the season, such as what a special season was, or null */
             note: string | null;
@@ -2677,6 +2716,62 @@ export interface operations {
                 };
                 content?: never;
             };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    postAdminSeason: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The tournament's slug */
+                tournament: components["parameters"]["AdminTournamentSlug"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["NewSeason"];
+            };
+        };
+        responses: {
+            /** @description Added */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    deleteAdminSeason: {
+        parameters: {
+            query: {
+                label: string;
+            };
+            header?: never;
+            path: {
+                /** @description The tournament's slug */
+                tournament: components["parameters"]["AdminTournamentSlug"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Removed */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            400: components["responses"]["BadRequest"];
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];

@@ -42,7 +42,7 @@ func TestAdminTournamentsListSettingsSeasonsAndNotes(t *testing.T) {
 	if !worlds.Rated || worlds.Visible || worlds.Community {
 		t.Errorf("worlds settings = %+v, want rated, hidden, and not yet in the community leaderboard (no migration row)", worlds)
 	}
-	want := []AdminSeason{{Label: "2025", Stages: []AdminStage{{Label: "Stage 1"}, {Label: "Stage 2", Note: "The upper bracket."}}}}
+	want := []AdminSeason{{Label: "2025", HasGames: true, Stages: []AdminStage{{Label: "Stage 1"}, {Label: "Stage 2", Note: "The upper bracket."}}}}
 	if !reflect.DeepEqual(worlds.Seasons, want) {
 		t.Errorf("worlds seasons = %+v, want %+v", worlds.Seasons, want)
 	}
@@ -102,5 +102,59 @@ func TestSetNoteReplacesAndAnEmptyNoteRemoves(t *testing.T) {
 	}
 	if err := a.SetNote(ctx, "nations_league", "99", "", "x"); !errors.Is(err, ErrNoTournament) {
 		t.Errorf("SetNote on a season that does not exist = %v, want ErrNoTournament", err)
+	}
+}
+
+func TestAddSeasonAddsAnEmptySeasonAndRemoveSeasonOnlyAnEmptyOne(t *testing.T) {
+	pool := migrated(t)
+	ctx := context.Background()
+	placedOn(t, pool, map[string]time.Time{"International S2 g1": day("2017-10-06")})
+	a := NewAdminStore(asAdminLogin(t, pool))
+
+	if err := a.AddSeason(ctx, "international", "1"); err != nil {
+		t.Fatalf("AddSeason: %v", err)
+	}
+	if err := a.AddSeason(ctx, "international", "1"); !errors.Is(err, ErrSeasonExists) {
+		t.Errorf("AddSeason twice = %v, want ErrSeasonExists", err)
+	}
+	if err := a.AddSeason(ctx, "no_such", "1"); !errors.Is(err, ErrNoTournament) {
+		t.Errorf("AddSeason(no_such) = %v, want ErrNoTournament", err)
+	}
+	if err := a.SetNote(ctx, "international", "1", "", "Before the app."); err != nil {
+		t.Errorf("a note on the new season: %v", err)
+	}
+	if err := a.RemoveSeason(ctx, "international", "2"); !errors.Is(err, ErrSeasonHasGames) {
+		t.Errorf("RemoveSeason(2, with games) = %v, want ErrSeasonHasGames", err)
+	}
+	if err := a.RemoveSeason(ctx, "international", "1"); err != nil {
+		t.Errorf("RemoveSeason(1): %v", err)
+	}
+	if err := a.RemoveSeason(ctx, "international", "1"); !errors.Is(err, ErrNoTournament) {
+		t.Errorf("RemoveSeason(1) twice = %v, want ErrNoTournament", err)
+	}
+}
+
+func TestAdminTournamentsListSeasonsLatestFirst(t *testing.T) {
+	pool := migrated(t)
+	ctx := context.Background()
+	placedOn(t, pool, map[string]time.Time{
+		"International S3 g1":  day("2018-01-06"),
+		"International S2 g1":  day("2017-10-06"),
+		"International S10 g1": day("2020-01-06"),
+	})
+	a := NewAdminStore(asAdminLogin(t, pool))
+	if err := a.AddSeason(ctx, "international", "1"); err != nil {
+		t.Fatal(err)
+	}
+	got, err := a.Tournaments(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var labels []string
+	for _, s := range adminTournament(t, got, "international").Seasons {
+		labels = append(labels, s.Label)
+	}
+	if !reflect.DeepEqual(labels, []string{"10", "3", "2", "1"}) {
+		t.Errorf("seasons = %v, want 10, 3, 2, 1", labels)
 	}
 }

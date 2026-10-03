@@ -27,6 +27,8 @@ type Admins interface {
 	Tournaments(ctx context.Context) ([]store.AdminTournament, error)
 	SetTournament(ctx context.Context, slug string, s store.TournamentSettings) error
 	SetNote(ctx context.Context, slug, season, stage, note string) error
+	AddSeason(ctx context.Context, slug, label string) error
+	RemoveSeason(ctx context.Context, slug, label string) error
 	Admins(ctx context.Context) ([]store.Admin, error)
 	SetAdmin(ctx context.Context, a store.Admin) error
 	RemoveAdmin(ctx context.Context, discordID string) error
@@ -111,7 +113,7 @@ func (s *server) GetAdminTournaments(ctx context.Context, _ GetAdminTournamentsR
 			for k, st := range se.Stages {
 				stages[k] = AdminStage{Label: st.Label, Note: st.Note}
 			}
-			seasons[j] = AdminSeason{Label: se.Label, Note: se.Note, Stages: stages}
+			seasons[j] = AdminSeason{Label: se.Label, Note: se.Note, HasGames: se.HasGames, Stages: stages}
 		}
 		out[i] = AdminTournament{Slug: t.Slug, Name: t.Name, Visible: t.Visible, Rated: t.Rated, Community: t.Community, Seasons: seasons}
 	}
@@ -231,4 +233,54 @@ func (s *server) DeleteAdminAdmin(ctx context.Context, req DeleteAdminAdminReque
 		return nil, err
 	}
 	return DeleteAdminAdmin204Response{}, nil
+}
+
+func badRequest400(msg string) BadRequestJSONResponse {
+	return BadRequestJSONResponse{Body: Error{Error: msg}, Headers: BadRequestResponseHeaders{CacheControl: cacheNone}}
+}
+
+func notFound404(msg string) NotFoundJSONResponse {
+	return NotFoundJSONResponse{Body: Error{Error: msg}, Headers: NotFoundResponseHeaders{CacheControl: cacheNone}}
+}
+
+func (s *server) PostAdminSeason(ctx context.Context, req PostAdminSeasonRequestObject) (PostAdminSeasonResponseObject, error) {
+	a, ok := adminFrom(ctx)
+	if !ok {
+		return nil, errors.New("admin route reached without the gate")
+	}
+	if req.Body == nil || strings.TrimSpace(req.Body.Label) == "" || len(req.Body.Label) > 64 {
+		return PostAdminSeason400JSONResponse{badRequest400("a season needs a label")}, nil
+	}
+	label := strings.TrimSpace(req.Body.Label)
+	switch err := s.admins.AddSeason(ctx, req.Tournament, label); {
+	case errors.Is(err, store.ErrNoTournament):
+		return PostAdminSeason404JSONResponse{notFound404("no such tournament")}, nil
+	case errors.Is(err, store.ErrSeasonExists):
+		return PostAdminSeason400JSONResponse{badRequest400("the tournament already has that season")}, nil
+	case err != nil:
+		return nil, err
+	}
+	if err := s.admins.Audit(ctx, a.DiscordID, "tournament.season.add", req.Tournament, map[string]string{"label": label}); err != nil {
+		return nil, err
+	}
+	return PostAdminSeason204Response{}, nil
+}
+
+func (s *server) DeleteAdminSeason(ctx context.Context, req DeleteAdminSeasonRequestObject) (DeleteAdminSeasonResponseObject, error) {
+	a, ok := adminFrom(ctx)
+	if !ok {
+		return nil, errors.New("admin route reached without the gate")
+	}
+	switch err := s.admins.RemoveSeason(ctx, req.Tournament, req.Params.Label); {
+	case errors.Is(err, store.ErrNoTournament):
+		return DeleteAdminSeason404JSONResponse{notFound404("no such season")}, nil
+	case errors.Is(err, store.ErrSeasonHasGames):
+		return DeleteAdminSeason400JSONResponse{badRequest400("the season has games, so it stays")}, nil
+	case err != nil:
+		return nil, err
+	}
+	if err := s.admins.Audit(ctx, a.DiscordID, "tournament.season.remove", req.Tournament, map[string]string{"label": req.Params.Label}); err != nil {
+		return nil, err
+	}
+	return DeleteAdminSeason204Response{}, nil
 }

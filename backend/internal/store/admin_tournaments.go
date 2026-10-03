@@ -24,9 +24,10 @@ type AdminTournament struct {
 
 // AdminSeason is a season with its own note and its stages.
 type AdminSeason struct {
-	Label  string
-	Note   string
-	Stages []AdminStage
+	Label    string
+	Note     string
+	HasGames bool
+	Stages   []AdminStage
 }
 
 // AdminStage is a stage of a season (an empty label is a season without stages) with its note.
@@ -40,7 +41,7 @@ type TournamentSettings struct {
 	Visible, Rated, Community *bool
 }
 
-// Tournaments returns every tournament with its settings, seasons, stages and notes, in name order.
+// Tournaments returns every tournament with its settings, seasons (latest first), stages and notes, in name order.
 func (a *AdminStore) Tournaments(ctx context.Context) ([]AdminTournament, error) {
 	rows, err := a.pool.Query(ctx, `
 		SELECT t.slug, t.name, t.visible, t.in_community_leaderboard,
@@ -48,11 +49,15 @@ func (a *AdminStore) Tournaments(ctx context.Context) ([]AdminTournament, error)
 		               WHERE r.slug = 'community' AND rt.tournament_id = t.tournament_id),
 		       se.label, coalesce(st.label, ''),
 		       coalesce((SELECT note FROM tournament_season_notes n WHERE n.tournament = t.slug AND n.season = se.label AND n.stage = ''), ''),
-		       coalesce((SELECT note FROM tournament_season_notes n WHERE n.tournament = t.slug AND n.season = se.label AND n.stage = st.label AND st.label <> ''), '')
+		       coalesce((SELECT note FROM tournament_season_notes n WHERE n.tournament = t.slug AND n.season = se.label AND n.stage = st.label AND st.label <> ''), ''),
+		       d.last IS NOT NULL
 		FROM tournaments t
 		LEFT JOIN tournament_seasons se USING (tournament_id)
 		LEFT JOIN tournament_stages st USING (season_id)
-		ORDER BY t.name, se.season_id, st.stage_id`)
+		LEFT JOIN LATERAL (SELECT max(m.date) AS last FROM tournament_stages s2 JOIN matches m ON m.stage_id = s2.stage_id
+		                   WHERE s2.season_id = se.season_id) d ON true
+		ORDER BY t.name, coalesce(substring(se.label FROM '^[0-9]+')::int, -1) DESC, d.last DESC NULLS LAST,
+		         se.label DESC, st.stage_id`)
 	if err != nil {
 		return nil, fmt.Errorf("reading tournaments for admin: %w", err)
 	}
@@ -60,7 +65,8 @@ func (a *AdminStore) Tournaments(ctx context.Context) ([]AdminTournament, error)
 	var slug, name string
 	var visible, community, rated bool
 	var season, stage, seasonNote, stageNote *string
-	_, err = pgx.ForEachRow(rows, []any{&slug, &name, &visible, &community, &rated, &season, &stage, &seasonNote, &stageNote}, func() error {
+	var hasGames bool
+	_, err = pgx.ForEachRow(rows, []any{&slug, &name, &visible, &community, &rated, &season, &stage, &seasonNote, &stageNote, &hasGames}, func() error {
 		if len(out) == 0 || out[len(out)-1].Slug != slug {
 			out = append(out, AdminTournament{Slug: slug, Name: name, Visible: visible, Rated: rated, Community: community, Seasons: []AdminSeason{}})
 		}
@@ -69,7 +75,7 @@ func (a *AdminStore) Tournaments(ctx context.Context) ([]AdminTournament, error)
 			return nil
 		}
 		if len(t.Seasons) == 0 || t.Seasons[len(t.Seasons)-1].Label != *season {
-			t.Seasons = append(t.Seasons, AdminSeason{Label: *season, Note: *seasonNote, Stages: []AdminStage{}})
+			t.Seasons = append(t.Seasons, AdminSeason{Label: *season, Note: *seasonNote, HasGames: hasGames, Stages: []AdminStage{}})
 		}
 		s := &t.Seasons[len(t.Seasons)-1]
 		if *stage != "" {
@@ -139,4 +145,61 @@ func (a *AdminStore) SetNote(ctx context.Context, slug, season, stage, note stri
 		return fmt.Errorf("noting %s %s: %w", slug, season, err)
 	}
 	return nil
+}
+
+// ErrSeasonExists means the tournament already has a season with that label.
+var ErrSeasonExists = errors.New("the tournament already has that season")
+
+// ErrSeasonHasGames means the season has stages (and so games), and cannot be removed in admin.
+var ErrSeasonHasGames = errors.New("the season has games")
+
+// AddSeason adds a season with no games yet to a tournament, so a note can be shown for it.
+func (a *AdminStore) AddSeason(ctx context.Context, slug, label string) error {
+	tag, err := a.pool.Exec(ctx, `
+		INSERT INTO tournament_seasons (tournament_id, label)
+		SELECT tournament_id, $2 FROM tournaments WHERE slug = $1
+		ON CONFLICT (tournament_id, label) DO NOTHING`, slug, label)
+	if err != nil {
+		return fmt.Errorf("adding season %s of %s: %w", label, slug, err)
+	}
+	if tag.RowsAffected() == 1 {
+		return nil
+	}
+	var exists bool
+	if err := a.pool.QueryRow(ctx, "SELECT EXISTS (SELECT 1 FROM tournaments WHERE slug = $1)", slug).Scan(&exists); err != nil {
+		return fmt.Errorf("adding season %s of %s: %w", label, slug, err)
+	}
+	if !exists {
+		return ErrNoTournament
+	}
+	return ErrSeasonExists
+}
+
+// RemoveSeason removes a season that has no stages (no games), and its notes. It returns ErrNoTournament for a
+// season that does not exist and ErrSeasonHasGames for one with stages.
+func (a *AdminStore) RemoveSeason(ctx context.Context, slug, label string) error {
+	return pgx.BeginFunc(ctx, a.pool, func(tx pgx.Tx) error {
+		var id int64
+		var stages bool
+		err := tx.QueryRow(ctx, `
+			SELECT se.season_id, EXISTS (SELECT 1 FROM tournament_stages st WHERE st.season_id = se.season_id)
+			FROM tournaments t JOIN tournament_seasons se USING (tournament_id) WHERE t.slug = $1 AND se.label = $2`,
+			slug, label).Scan(&id, &stages)
+		if errors.Is(err, pgx.ErrNoRows) {
+			return ErrNoTournament
+		}
+		if err != nil {
+			return fmt.Errorf("removing season %s of %s: %w", label, slug, err)
+		}
+		if stages {
+			return ErrSeasonHasGames
+		}
+		if _, err := tx.Exec(ctx, "DELETE FROM tournament_season_notes WHERE tournament = $1 AND season = $2", slug, label); err != nil {
+			return fmt.Errorf("removing season %s of %s: %w", label, slug, err)
+		}
+		if _, err := tx.Exec(ctx, "DELETE FROM tournament_seasons WHERE season_id = $1", id); err != nil {
+			return fmt.Errorf("removing season %s of %s: %w", label, slug, err)
+		}
+		return nil
+	})
 }

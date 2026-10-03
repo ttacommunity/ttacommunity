@@ -500,3 +500,37 @@ func TestCatalogueTournamentGivesEachEditionsRulesFromCGE(t *testing.T) {
 		t.Errorf("rules = %+v, want %+v", got.Rules, want)
 	}
 }
+
+func TestCatalogueTournamentListsASeasonWithoutGamesInNumberOrder(t *testing.T) {
+	pool := migrated(t)
+	ctx := context.Background()
+	run := publishedRun(t, pool)
+	placedOn(t, pool, map[string]time.Time{
+		"International S2 g1": day("2017-10-06"),
+		"International S3 g1": day("2018-01-06"),
+	})
+	if _, err := pool.Exec(ctx, `INSERT INTO tournament_seasons (tournament_id, label)
+		SELECT tournament_id, '1' FROM tournaments WHERE slug = 'international'`); err != nil {
+		t.Fatalf("adding season 1: %v", err)
+	}
+	if _, err := pool.Exec(ctx, `INSERT INTO tournament_season_notes (tournament, season, stage, note, source)
+		VALUES ('international', '1', '', 'Played before the app.', 's')`); err != nil {
+		t.Fatal(err)
+	}
+
+	got, err := NewRatingsReader(asReader(t, pool)).CatalogueTournament(ctx, run, "international")
+	if err != nil {
+		t.Fatalf("CatalogueTournament: %v", err)
+	}
+	var labels []string
+	for _, s := range got.Seasons {
+		labels = append(labels, s.Label)
+	}
+	if !slices.Equal(labels, []string{"1", "2", "3"}) {
+		t.Fatalf("seasons = %v, want 1, 2, 3", labels)
+	}
+	s1 := got.Seasons[0]
+	if s1.Span.Games != 0 || !s1.Span.First.IsZero() || s1.Note != "Played before the app." {
+		t.Errorf("season 1 = %+v, want no games and its note", s1)
+	}
+}

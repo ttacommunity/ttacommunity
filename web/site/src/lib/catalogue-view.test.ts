@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { catalogueHref, cgeYears, championsFromFinals, entryRows, gameStateLabel, gameWhere, outcomeNote, placeLabel, placeNames, seasonName, winsLabel, shownName, spanYears, stageName, tournamentParam } from './catalogue-view';
+import { catalogueHref, cgeYears, championsFromFinals, entryRows, gameStateLabel, gameWhere, outcomeNote, placeLabel, placeNames, seasonName, winsLabel, shownName, spanYears, stageName, tournamentParam, seasonDates, activeYears } from './catalogue-view';
 
 describe('tournamentParam', () => {
   it('takes a slug from the address', () => {
@@ -136,5 +136,16 @@ describe('championsFromFinals', () => {
   });
   it('leaves other tournaments to their seasons', () => {
     expect(championsFromFinals('intermezzo', [season('24', 'pv4')])).toBeNull();
+  });
+});
+
+describe('seasonDates and activeYears', () => {
+  const season = (first_game: string | null, last_game: string | null) => ({ first_game, last_game });
+
+  it('show a season with no games as having none, and leave it out of the years', () => {
+    expect(seasonDates(season('2024-07-01', '2025-02-24'))).toBe('2024-07-01 – 2025-02-24');
+    expect(seasonDates(season(null, null))).toBe('No games recorded');
+    expect(activeYears([season(null, null), season('2017-10-06', '2017-12-01'), season('2018-01-06', '2019-02-01')])).toBe('2017 – 2019');
+    expect(activeYears([season(null, null)])).toBe('—');
   });
 });

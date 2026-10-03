@@ -18,7 +18,7 @@ import { SeriesSections } from './TournamentSeriesPage';
 import { playerHref } from '../lib/player-view';
 import TournamentCard from './TournamentCard';
 import TournamentGames from './TournamentGames';
-import { catalogueHref, cgeYears, championsFromFinals, entryRows, placeLabel, placeNames, seasonName, shownName, spanYears, stageName, tournamentParam, winsLabel } from '../lib/catalogue-view';
+import { activeYears, catalogueHref, cgeYears, championsFromFinals, entryRows, placeLabel, placeNames, seasonDates, seasonName, shownName, stageName, tournamentParam, winsLabel } from '../lib/catalogue-view';
 
 type Load<T> = { kind: 'loading' } | { kind: 'missing' } | { kind: 'error'; message: string } | { kind: 'ready'; data: T };
 
@@ -187,7 +187,7 @@ function TournamentDetail({ apiUrl, slug }: { apiUrl: string; slug: string }) {
         <div className="detail-meta-grid">
           <div className="meta-box">
             <div className="meta-box-label">Active History</div>
-            <div className="meta-box-val">{spanYears(t.seasons[0].first_game, t.seasons[t.seasons.length - 1].last_game)}</div>
+            <div className="meta-box-val">{activeYears(t.seasons)}</div>
           </div>
           <div className="meta-box">
             <div className="meta-box-label">Seasons</div>
@@ -301,9 +301,7 @@ function Champions({ seasons, podium, title, onPick }: { seasons: CatalogueSeaso
                     <td>{place(s, 3)}</td>
                   </>
                 )}
-                <td className="cell-date">
-                  {s.first_game} – {s.last_game}
-                </td>
+                <td className="cell-date">{seasonDates(s)}</td>
                 <td className="cell-num">{count(s.games)}</td>
                 <td className="cell-num">{count(s.players)}</td>
                 <td>
@@ -354,7 +352,7 @@ function Stages({ season: s }: { season: CatalogueSeason }) {
       <div className="panel-header panel-header-split">
         <h2 className="panel-header-title">{seasonName(s.label)}: stages</h2>
         <span className="panel-tag">
-          {s.first_game} – {s.last_game} · {count(s.games)} games · {count(s.players)} players
+          {seasonDates(s)} · {count(s.games)} games · {count(s.players)} players
         </span>
       </div>
       {s.note !== null && <p className="records-intro">{s.note}</p>}

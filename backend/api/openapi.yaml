@@ -1013,6 +1013,56 @@ paths:
           $ref: "#/components/responses/Forbidden"
         "404":
           $ref: "#/components/responses/NotFound"
+  /v1/admin/tournaments/{tournament}/seasons:
+    post:
+      operationId: postAdminSeason
+      tags: [admin]
+      summary: Add a season with no games yet, so a note can be shown for it
+      description: Audited. The Origin must be the admin site.
+      parameters:
+        - $ref: "#/components/parameters/AdminTournamentSlug"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/NewSeason"
+      responses:
+        "204":
+          description: Added
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    delete:
+      operationId: deleteAdminSeason
+      tags: [admin]
+      summary: Remove a season that has no games, with its notes
+      description: Audited. The Origin must be the admin site.
+      parameters:
+        - $ref: "#/components/parameters/AdminTournamentSlug"
+        - name: label
+          in: query
+          required: true
+          schema:
+            type: string
+            minLength: 1
+            maxLength: 64
+      responses:
+        "204":
+          description: Removed
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
 components:
   parameters:
     DiscordID:
@@ -1114,6 +1164,16 @@ components:
           schema:
             $ref: "#/components/schemas/Error"
   schemas:
+    NewSeason:
+      type: object
+      additionalProperties: false
+      required: [label]
+      properties:
+        label:
+          description: As the site shows it, e.g. "1" or "2023 Play Off"
+          type: string
+          minLength: 1
+          maxLength: 64
     AdminPerson:
       type: object
       required: [discord_id, name, role]
@@ -1160,10 +1220,13 @@ components:
             $ref: "#/components/schemas/AdminSeason"
     AdminSeason:
       type: object
-      required: [label, note, stages]
+      required: [label, note, has_games, stages]
       properties:
         label:
           type: string
+        has_games:
+          description: False for a season admin added, which can be removed
+          type: boolean
         note:
           type: string
         stages:
@@ -2296,6 +2359,23 @@ components:
         last_game:
           type: string
           format: date
+    SeasonSpan:
+      description: A season's games and players, and its first and last game; a season admin added before it has games has none
+      type: object
+      required: [games, players, first_game, last_game]
+      properties:
+        games:
+          type: integer
+        players:
+          type: integer
+        first_game:
+          type: string
+          format: date
+          nullable: true
+        last_game:
+          type: string
+          format: date
+          nullable: true
     CatalogueEntry:
       description: A tournament as the catalogue names it, with its seasons and games
       allOf:
@@ -2393,7 +2473,7 @@ components:
           type: string
     CatalogueSeason:
       allOf:
-        - $ref: "#/components/schemas/GameSpan"
+        - $ref: "#/components/schemas/SeasonSpan"
         - type: object
           required: [label, stages, podium, cge_pages, note]
           properties:

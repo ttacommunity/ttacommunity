@@ -20,6 +20,22 @@ export function spanYears(first: string, last: string): string {
   return a === b ? a : `${a} – ${b}`;
 }
 
+type Dated = { first_game: string | null; last_game: string | null };
+
+/** seasonDates shows a season's first and last game, or that it has none (a season added for its note). */
+export function seasonDates(s: Dated): string {
+  return s.first_game === null || s.last_game === null ? 'No games recorded' : `${s.first_game} – ${s.last_game}`;
+}
+
+/** activeYears gives the years from the first to the last game of the seasons that have games, or a dash. */
+export function activeYears(seasons: readonly Dated[]): string {
+  const firsts = seasons.flatMap((s) => (s.first_game === null ? [] : [s.first_game])).sort();
+  const lasts = seasons.flatMap((s) => (s.last_game === null ? [] : [s.last_game])).sort();
+  const first = firsts[0];
+  const last = lasts[lasts.length - 1];
+  return first === undefined || last === undefined ? '—' : spanYears(first, last);
+}
+
 /** stageName names a stage; "" is a season's only or main stage. */
 export function stageName(label: string): string {
   return label === '' ? 'Main stage' : label;

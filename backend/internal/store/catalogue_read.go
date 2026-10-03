@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"regexp"
 	"slices"
+	"strconv"
 	"strings"
 	"time"
 
@@ -205,6 +206,9 @@ func (r *RatingsReader) CatalogueTournament(ctx context.Context, run int64, slug
 	if err != nil {
 		return fail("seasons", err)
 	}
+	if err := r.addSeasonsWithoutGames(ctx, slug, &got, &ids); err != nil {
+		return fail("seasons without games", err)
+	}
 	if len(got.Seasons) == 0 {
 		return CatalogueTournament{}, ErrTournamentNotFound
 	}
@@ -373,4 +377,36 @@ func (r *RatingsReader) CatalogueTournament(ctx context.Context, run int64, slug
 		return fail("players", err)
 	}
 	return got, nil
+}
+
+// addSeasonsWithoutGames adds the tournament's seasons that have no games yet (admin can add one, to carry
+// its note), each before the first season with a higher leading number, or last.
+func (r *RatingsReader) addSeasonsWithoutGames(ctx context.Context, slug string, got *CatalogueTournament, ids *[]int64) error {
+	rows, err := r.pool.Query(ctx, `
+		SELECT t.name, se.season_id, se.label FROM tournaments t JOIN tournament_seasons se USING (tournament_id)
+		WHERE t.slug = $1 AND NOT EXISTS (
+			SELECT 1 FROM tournament_stages st JOIN matches m ON m.stage_id = st.stage_id WHERE st.season_id = se.season_id)
+		ORDER BY se.season_id`, slug)
+	if err != nil {
+		return err
+	}
+	var name, label string
+	var id int64
+	_, err = pgx.ForEachRow(rows, []any{&name, &id, &label}, func() error {
+		got.Name = name
+		at := len(got.Seasons)
+		if n, err := strconv.Atoi(leadingNumber.FindString(label)); err == nil {
+			for i, s := range got.Seasons {
+				if m, err := strconv.Atoi(leadingNumber.FindString(s.Label)); err == nil && m > n {
+					at = i
+					break
+				}
+			}
+		}
+		s := CatalogueSeason{Label: label, Stages: []CatalogueStage{}, Podium: []PodiumPlace{}, CGE: []CGELink{}}
+		got.Seasons = slices.Insert(got.Seasons, at, s)
+		*ids = slices.Insert(*ids, at, id)
+		return nil
+	})
+	return err
 }

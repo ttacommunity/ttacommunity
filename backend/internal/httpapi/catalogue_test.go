@@ -161,3 +161,13 @@ func TestCatalogueRefusals(t *testing.T) {
 		}
 	}
 }
+
+func TestCatalogueTournamentSendsNoDatesForASeasonWithoutGames(t *testing.T) {
+	f := &fakeCatalogue{tournament: store.CatalogueTournament{Slug: "international", Name: "International", Seasons: []store.CatalogueSeason{{
+		Label: "1", Stages: []store.CatalogueStage{}, Podium: []store.PodiumPlace{}, CGE: []store.CGELink{}, Note: "Before the app.",
+	}}}}
+	rec, _ := serve(t, f, "/v1/runs/7/catalogue/international")
+	if !strings.Contains(rec.Body.String(), `"first_game":null,"games":0,"label":"1","last_game":null,"note":"Before the app."`) {
+		t.Errorf("a season without games = %s, want null dates and its note", rec.Body)
+	}
+}
