@@ -2,6 +2,7 @@
 import { useEffect, useState } from 'react';
 import { currentRun, tournamentSeries, type TournamentSeries, type TrophyRow } from '@ttac/shared/ratings';
 import { playerHref } from '../lib/player-view';
+import { catalogueHref } from '../lib/catalogue-view';
 import {
   cultureScore,
   leaguePoints,
@@ -46,9 +47,7 @@ export default function TournamentSeriesPage({ apiUrl, content }: { apiUrl: stri
   }, [apiUrl, content.slug]);
 
   const data = load.kind === 'ready' ? load.data : null;
-  const board = boardCells(data?.board ?? []);
   const waiting = load.kind === 'error' ? load.message : 'Loading…';
-  const honours = content.slug === 'grand_slams';
 
   return (
     <>
@@ -86,6 +85,31 @@ export default function TournamentSeriesPage({ apiUrl, content }: { apiUrl: stri
         </div>
       </div>
 
+      {content.members !== undefined && (
+        <div className="panel-card series-members">
+          <h2 className="panel-header">
+            <span>{content.icon}</span> Tournaments in the {content.name}
+          </h2>
+          <div className="series-members-list">
+            {content.members.map((m) => (
+              <a key={m.slug} href={catalogueHref(m.slug)} className="btn-antique">
+                {m.name} &rarr;
+              </a>
+            ))}
+          </div>
+        </div>
+      )}
+      <SeriesSections content={content} data={data} waiting={waiting} />
+    </>
+  );
+}
+
+/** SeriesSections shows a series' rules, trophyboard, stories and best seasons and games, as upstream's series page does; data null is loading, with waiting shown. */
+export function SeriesSections({ content, data, waiting }: { content: SeriesContent; data: TournamentSeries | null; waiting: string }) {
+  const board = boardCells(data?.board ?? []);
+  const honours = content.slug === 'grand_slams';
+  return (
+    <>
       <div className="content-two-col">
         <div className="panel-card">
           <h2 className="panel-header">

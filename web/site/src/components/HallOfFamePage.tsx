@@ -1,14 +1,16 @@
 /** Upstream's Hall of Fame overview: the World Champions, each series' card, and the all-time, cups and ladders tables. */
 import { useEffect, useState } from 'react';
-import { currentRun, hallOfFame, type HallOfFame } from '@ttac/shared/ratings';
+import { catalogue, currentRun, hallOfFame, type CatalogueEntry, type HallOfFame } from '@ttac/shared/ratings';
+import TournamentCard from './TournamentCard';
 import { playerHref } from '../lib/player-view';
-import { catalogueHref } from '../lib/catalogue-view';
+import { catalogueHref, entryRows } from '../lib/catalogue-view';
 import {
   derivedMatches,
   legendMark,
   majorMedals,
   majorTitles,
   SERIES_CONTENT,
+  SINGLE_TOURNAMENTS,
   seriesEra,
   seriesGames,
   seriesHref,
@@ -43,9 +45,16 @@ const CHAMPIONS = [
 export default function HallOfFamePage({ apiUrl }: { apiUrl: string }) {
   const [load, setLoad] = useState<Load>({ kind: 'loading' });
 
+  const [tournaments, setTournaments] = useState<CatalogueEntry[]>([]);
+
   useEffect(() => {
     currentRun(apiUrl)
-      .then((r) => hallOfFame(apiUrl, r.run_id))
+      .then((r) => {
+        catalogue(apiUrl, r.run_id)
+          .then((c) => setTournaments(c.tournaments))
+          .catch(() => setTournaments([]));
+        return hallOfFame(apiUrl, r.run_id);
+      })
       .then((data) => setLoad({ kind: 'ready', data }))
       .catch((e: unknown) => setLoad({ kind: 'error', message: e instanceof Error ? e.message : String(e) }));
   }, [apiUrl]);
@@ -106,51 +115,38 @@ export default function HallOfFamePage({ apiUrl }: { apiUrl: string }) {
 
       <div className="series-grid">
         {SERIES_CONTENT.map((s) => {
+          const entry = SINGLE_TOURNAMENTS.has(s.slug) ? tournaments.find((t) => t.slug === s.slug) : undefined;
           const c = count(s.slug);
+          const rows: [string, string][] = SINGLE_TOURNAMENTS.has(s.slug)
+            ? entry !== undefined
+              ? entryRows(entry)
+              : [['Recorded Database Matches', '…']]
+            : [
+                ['Structure & Cadence', s.frequency],
+                ['Active History', s.era ?? (c ? seriesEra(s, c.seasons) : '…')],
+                ['Recorded Database Matches', c ? seriesGames(c) : '…'],
+              ];
           return (
-            <a key={s.slug} href={seriesHref(s.slug)} className="series-card">
-              <div>
-                <div className="series-card-top">
-                  <div className="series-icon">{s.icon}</div>
-                  <div className="series-badge">{s.formatBadge}</div>
-                </div>
-                <div className="series-name">{s.name}</div>
-                <div className="series-summary">{s.summary}</div>
-                <div className="series-meta-row">
-                  <span>Structure &amp; Cadence</span>
-                  <span>{s.frequency}</span>
-                </div>
-                <div className="series-meta-row">
-                  <span>Active History</span>
-                  <span>{s.era ?? (c ? seriesEra(s, c.seasons) : '…')}</span>
-                </div>
-                <div className="series-meta-row">
-                  <span>Recorded Database Matches</span>
-                  <span>{c ? seriesGames(c) : '…'}</span>
-                </div>
-              </div>
-              <div className="series-cta">
-                <span>View Rules, Trophyboard &amp; Records</span>
-                <span className="arrow">&rarr;</span>
-              </div>
-            </a>
+            <TournamentCard
+              key={s.slug}
+              href={seriesHref(s.slug)}
+              name={s.name}
+              icon={s.icon}
+              badge={s.formatBadge}
+              summary={s.summary}
+              rows={rows}
+              cta={SINGLE_TOURNAMENTS.has(s.slug) ? 'View Champions, Rules & Games' : 'View Board & Tournaments'}
+            />
           );
         })}
-        <a href={catalogueHref()} className="series-card">
-          <div>
-            <div className="series-card-top">
-              <div className="series-icon">📜</div>
-            </div>
-            <div className="series-name">Every Tournament</div>
-            <div className="series-summary">
-              Every tournament in the record, beyond the six circuits: its seasons, stages, games, players and podiums.
-            </div>
-          </div>
-          <div className="series-cta">
-            <span>View Every Tournament</span>
-            <span className="arrow">&rarr;</span>
-          </div>
-        </a>
+        <TournamentCard
+          href={catalogueHref()}
+          name="Every Tournament"
+          icon="📜"
+          summary="Every tournament in the record, beyond the six circuits: its champions, seasons, stages and games."
+          rows={[]}
+          cta="View Every Tournament"
+        />
       </div>
 
       <div className="wcs-analytics-card">

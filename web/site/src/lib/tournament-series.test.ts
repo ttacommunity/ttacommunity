@@ -36,7 +36,9 @@ describe('the series nav', () => {
   });
 
   it('links a series to its page and the overview to the hub', () => {
-    expect(seriesHref('international')).toBe('/ratings/hall_of_fame/international/');
+    expect(seriesHref('international')).toBe('/ratings/tournaments/?t=international');
+    expect(seriesHref('worlds')).toBe('/ratings/tournaments/?t=worlds');
+    expect(seriesHref('grand_slams')).toBe('/ratings/hall_of_fame/grand_slams/');
     expect(seriesHref('overview')).toBe('/ratings/hall_of_fame/');
   });
 });

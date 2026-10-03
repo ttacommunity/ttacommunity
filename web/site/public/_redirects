@@ -1,0 +1,9 @@
+# The four single-tournament series pages moved to their tournament page.
+/ratings/hall_of_fame/international/ /ratings/tournaments/?t=international 301
+/ratings/hall_of_fame/international /ratings/tournaments/?t=international 301
+/ratings/hall_of_fame/intermezzo/ /ratings/tournaments/?t=intermezzo 301
+/ratings/hall_of_fame/intermezzo /ratings/tournaments/?t=intermezzo 301
+/ratings/hall_of_fame/royal_league/ /ratings/tournaments/?t=royal_league 301
+/ratings/hall_of_fame/royal_league /ratings/tournaments/?t=royal_league 301
+/ratings/hall_of_fame/worlds/ /ratings/tournaments/?t=worlds 301
+/ratings/hall_of_fame/worlds /ratings/tournaments/?t=worlds 301

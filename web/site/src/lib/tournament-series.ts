@@ -30,9 +30,13 @@ export const BUILT: ReadonlySet<SeriesTab['slug']> = new Set([
   'ladders',
 ]);
 
-/** seriesHref returns the address of a series' page, or of the Hall of Fame for the overview. */
+/** The series that are one tournament each: their page is that tournament's. */
+export const SINGLE_TOURNAMENTS: ReadonlySet<SeriesTab['slug']> = new Set(['international', 'intermezzo', 'royal_league', 'worlds']);
+
+/** seriesHref returns the address of a series' page (a single tournament's own page), or of the Hall of Fame for the overview. */
 export function seriesHref(slug: SeriesTab['slug']): string {
-  return slug === 'overview' ? '/ratings/hall_of_fame/' : `/ratings/hall_of_fame/${slug}/`;
+  if (slug === 'overview') return '/ratings/hall_of_fame/';
+  return SINGLE_TOURNAMENTS.has(slug) ? `/ratings/tournaments/?t=${slug}` : `/ratings/hall_of_fame/${slug}/`;
 }
 
 /** A player story on a series page, as upstream's template states it. */
@@ -57,6 +61,8 @@ export interface SeriesContent {
   era?: string;
   rules: string[];
   stories: Story[];
+  /** A circuit of several tournaments: each, by its catalogue slug and name. */
+  members?: { slug: string; name: string }[];
 }
 
 export const INTERNATIONAL: SeriesContent = {
@@ -238,6 +244,14 @@ export const GRAND_SLAMS: SeriesContent = {
       text: 'wolvs swept all 3 games in the Season 15 Slow Burn Finals (218, 281, 168 pts) to claim the championship over saru and DiddleySquat.',
     },
   ],
+  members: [
+    { slug: 'wimbledon', name: 'Wimbledon' },
+    { slug: 'french_open', name: 'French Open' },
+    { slug: 'australian_open', name: 'Australian Open' },
+    { slug: 'survivors_cup', name: 'Survivors Cup' },
+    { slug: 'slow_burn', name: 'Slow Burn' },
+    { slug: 'eiffel_tower', name: 'Eiffel Tower' },
+  ],
 };
 
 export const LADDERS: SeriesContent = {
@@ -263,6 +277,11 @@ export const LADDERS: SeriesContent = {
       title: 'All-Time Ladder Match Leader',
       text: 'wolvs has compiled the highest match volume and victory counts across the competitive ladder circuits.',
     },
+  ],
+  members: [
+    { slug: 'mercurial_ladder', name: 'Mercurial Ladder' },
+    { slug: 'sodium_ladder', name: 'Sodium Ladder' },
+    { slug: 'transcontinental_ladder', name: 'Transcontinental Ladder' },
   ],
 };
 

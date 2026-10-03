@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { catalogueHref, cgeYears, gameWhere, outcomeNote, placeLabel, placeNames, seasonName, winsLabel, shownName, spanYears, stageName, tournamentParam } from './catalogue-view';
+import { catalogueHref, cgeYears, entryRows, gameWhere, outcomeNote, placeLabel, placeNames, seasonName, winsLabel, shownName, spanYears, stageName, tournamentParam } from './catalogue-view';
 
 describe('tournamentParam', () => {
   it('takes a slug from the address', () => {
@@ -106,5 +106,16 @@ describe('winsLabel', () => {
     expect(winsLabel(3.5)).toBe('3.5 wins');
     expect(winsLabel(1.5)).toBe('1.5 wins');
     expect(winsLabel(1)).toBe('');
+  });
+});
+
+describe('entryRows', () => {
+  it("gives a tournament card's years, seasons, games and players", () => {
+    expect(entryRows({ first_game: '2019-03-10', last_game: '2026-09-16', seasons: 31, games: 26352, players: 1900 })).toEqual([
+      ['Active History', '2019 – 2026'],
+      ['Seasons', '31'],
+      ['Recorded Database Matches', '26,352'],
+      ['Players', '1,900'],
+    ]);
   });
 });

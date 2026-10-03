@@ -5,14 +5,19 @@ import {
   catalogue,
   catalogueTournament,
   currentRun,
+  tournamentSeries,
   type Catalogue,
   type CatalogueSeason,
   type CatalogueTournament,
   type LadderWin,
+  type TournamentSeries,
 } from '@ttac/shared/ratings';
+import { SERIES_CONTENT, SINGLE_TOURNAMENTS } from '../lib/tournament-series';
+import { SeriesSections } from './TournamentSeriesPage';
 import { playerHref } from '../lib/player-view';
+import TournamentCard from './TournamentCard';
 import TournamentGames from './TournamentGames';
-import { catalogueHref, cgeYears, placeLabel, placeNames, seasonName, shownName, spanYears, stageName, tournamentParam, winsLabel } from '../lib/catalogue-view';
+import { catalogueHref, cgeYears, entryRows, placeLabel, placeNames, seasonName, shownName, spanYears, stageName, tournamentParam, winsLabel } from '../lib/catalogue-view';
 
 type Load<T> = { kind: 'loading' } | { kind: 'missing' } | { kind: 'error'; message: string } | { kind: 'ready'; data: T };
 
@@ -65,33 +70,21 @@ function TournamentList({ apiUrl }: { apiUrl: string }) {
         <Waiting load={load} />
       ) : (
         <div className="series-grid">
-          {load.data.tournaments.map((t) => (
-            <a key={t.slug} href={catalogueHref(t.slug)} className="series-card">
-              <div>
-                <div className="series-name">{shownName(t.name, t.rankings.length > 0)}</div>
-                <div className="series-meta-row">
-                  <span>Active History</span>
-                  <span>{spanYears(t.first_game, t.last_game)}</span>
-                </div>
-                <div className="series-meta-row">
-                  <span>Seasons</span>
-                  <span>{count(t.seasons)}</span>
-                </div>
-                <div className="series-meta-row">
-                  <span>Recorded Database Matches</span>
-                  <span>{count(t.games)}</span>
-                </div>
-                <div className="series-meta-row">
-                  <span>Players</span>
-                  <span>{count(t.players)}</span>
-                </div>
-              </div>
-              <div className="series-cta">
-                <span>View Seasons &amp; Podiums</span>
-                <span className="arrow">&rarr;</span>
-              </div>
-            </a>
-          ))}
+          {load.data.tournaments.map((t) => {
+            const c = SINGLE_TOURNAMENTS.has(t.slug as never) ? SERIES_CONTENT.find((x) => x.slug === t.slug) : undefined;
+            return (
+              <TournamentCard
+                key={t.slug}
+                href={catalogueHref(t.slug)}
+                name={shownName(c?.name ?? t.name, t.rankings.length > 0)}
+                icon={c?.icon ?? '📜'}
+                badge={c?.formatBadge}
+                summary={c?.summary}
+                rows={entryRows(t)}
+                cta={c !== undefined ? 'View Champions, Rules & Games' : 'View Champions & Games'}
+              />
+            );
+          })}
         </div>
       )}
       {load.kind === 'ready' && <CgeList data={load.data} />}
@@ -152,12 +145,21 @@ function CgeList({ data }: { data: Catalogue }) {
 function TournamentDetail({ apiUrl, slug }: { apiUrl: string; slug: string }) {
   const [load, setLoad] = useState<Load<{ run: number; t: CatalogueTournament }>>({ kind: 'loading' });
   const [pick, setPick] = useState<{ season: string; n: number }>({ season: '', n: 0 });
+  const content = SINGLE_TOURNAMENTS.has(slug as never) ? SERIES_CONTENT.find((c) => c.slug === slug) : undefined;
+  const [series, setSeries] = useState<{ data: TournamentSeries | null; waiting: string }>({ data: null, waiting: 'Loading…' });
   useEffect(() => {
     currentRun(apiUrl)
-      .then((r) => catalogueTournament(apiUrl, r.run_id, slug).then((t) => ({ run: r.run_id, t })))
+      .then((r) => {
+        if (content !== undefined) {
+          tournamentSeries(apiUrl, r.run_id, content.slug)
+            .then((data) => setSeries({ data, waiting: '' }))
+            .catch((e: unknown) => setSeries({ data: null, waiting: e instanceof Error ? e.message : 'The records could not be loaded.' }));
+        }
+        return catalogueTournament(apiUrl, r.run_id, slug).then((t) => ({ run: r.run_id, t }));
+      })
       .then((data) => setLoad({ kind: 'ready', data }))
       .catch((e: unknown) => setLoad(failed(e)));
-  }, [apiUrl, slug]);
+  }, [apiUrl, slug, content]);
   if (load.kind !== 'ready') return <Waiting load={load} />;
   const { run, t } = load.data;
   const games = t.seasons.reduce((n, s) => n + s.games, 0);
@@ -167,15 +169,18 @@ function TournamentDetail({ apiUrl, slug }: { apiUrl: string; slug: string }) {
       <div className="detail-hero">
         <div className="detail-hero-top">
           <div className="detail-hero-left">
-            <div className="detail-hero-icon">📜</div>
+            <div className="detail-hero-icon">{content?.icon ?? '📜'}</div>
             <div>
-              <h1 className="detail-hero-title">{t.name}</h1>
+              <h1 className="detail-hero-title">{content?.name ?? t.name}</h1>
               <div className="detail-hero-subtitle">
-                <a href={catalogueHref()}>Every tournament</a>
+                {content !== undefined && <>{content.subtitle} · </>}
+                <a href={catalogueHref()}>Every tournament</a> · <a href="/ratings/hall_of_fame/">Hall of Fame</a>
               </div>
             </div>
           </div>
+          {content !== undefined && <div className="detail-hero-badge">{content.formatBadge}</div>}
         </div>
+        {content !== undefined && <div className="detail-hero-desc">{content.summary}</div>}
         <div className="detail-meta-grid">
           <div className="meta-box">
             <div className="meta-box-label">Active History</div>
@@ -189,10 +194,17 @@ function TournamentDetail({ apiUrl, slug }: { apiUrl: string; slug: string }) {
             <div className="meta-box-label">Recorded Database Matches</div>
             <div className="meta-box-val">{count(games)}</div>
           </div>
+          {content !== undefined && (
+            <div className="meta-box">
+              <div className="meta-box-label">Cadence &amp; Schedule</div>
+              <div className="meta-box-val meta-box-text">{content.frequency}</div>
+            </div>
+          )}
         </div>
       </div>
       {t.ladder && <LadderWinners wins={t.top_tier_wins} />}
       <Champions seasons={t.seasons} podium={!t.ladder} onPick={(season) => setPick((p) => ({ season, n: p.n + 1 }))} />
+      {content !== undefined && <SeriesSections content={content} data={series.data} waiting={series.waiting || 'Loading…'} />}
       {staged.map((s) => (
         <Stages key={s.label} season={s} />
       ))}
