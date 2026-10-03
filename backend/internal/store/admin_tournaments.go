@@ -6,6 +6,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"regexp"
+	"strings"
 
 	"github.com/jackc/pgx/v5"
 )
@@ -153,8 +155,13 @@ var ErrSeasonExists = errors.New("the tournament already has that season")
 // ErrSeasonHasGames means the season has stages (and so games), and cannot be removed in admin.
 var ErrSeasonHasGames = errors.New("the season has games")
 
-// AddSeason adds a season with no games yet to a tournament, so a note can be shown for it.
+// seasonPrefix is a leading "Season", which the site adds to a label itself.
+var seasonPrefix = regexp.MustCompile(`(?i)^season\s+`)
+
+// AddSeason adds a season with no games yet to a tournament, so a note can be shown for it. A leading
+// "Season" is dropped from the label ("Season 1" is season "1"), as the site adds it.
 func (a *AdminStore) AddSeason(ctx context.Context, slug, label string) error {
+	label = seasonPrefix.ReplaceAllString(strings.TrimSpace(label), "")
 	tag, err := a.pool.Exec(ctx, `
 		INSERT INTO tournament_seasons (tournament_id, label)
 		SELECT tournament_id, $2 FROM tournaments WHERE slug = $1

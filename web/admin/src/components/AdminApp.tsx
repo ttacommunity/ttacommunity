@@ -114,8 +114,8 @@ function TournamentRow({
           <td colSpan={5} className="notes-cell">
             <form className="season-add" onSubmit={(e) => void addSeason(e)}>
               <label>
-                Add a season with no games yet
-                <input value={newSeason} maxLength={64} placeholder="e.g. 1" onChange={(e) => setNewSeason(e.target.value)} />
+                Add a season with no games yet (its label as the site shows it, without "Season")
+                <input value={newSeason} maxLength={64} placeholder="e.g. 1 or 2023" onChange={(e) => setNewSeason(e.target.value)} />
               </label>
               <button type="submit" className="btn-antique" disabled={newSeason.trim() === ''}>
                 Add season

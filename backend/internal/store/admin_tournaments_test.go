@@ -114,8 +114,8 @@ func TestAddSeasonAddsAnEmptySeasonAndRemoveSeasonOnlyAnEmptyOne(t *testing.T) {
 	if err := a.AddSeason(ctx, "international", "1"); err != nil {
 		t.Fatalf("AddSeason: %v", err)
 	}
-	if err := a.AddSeason(ctx, "international", "1"); !errors.Is(err, ErrSeasonExists) {
-		t.Errorf("AddSeason twice = %v, want ErrSeasonExists", err)
+	if err := a.AddSeason(ctx, "international", "Season 1"); !errors.Is(err, ErrSeasonExists) {
+		t.Errorf(`AddSeason("Season 1") after "1" = %v, want ErrSeasonExists: the site adds "Season" itself`, err)
 	}
 	if err := a.AddSeason(ctx, "no_such", "1"); !errors.Is(err, ErrNoTournament) {
 		t.Errorf("AddSeason(no_such) = %v, want ErrNoTournament", err)
