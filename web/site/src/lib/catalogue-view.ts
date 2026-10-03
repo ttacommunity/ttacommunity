@@ -83,3 +83,11 @@ export function entryRows(t: { first_game: string; last_game: string; seasons: n
 export function gameStateLabel(state: string): string {
   return state === 'never_played' ? 'Never played' : state === 'unconfirmed' ? 'Unconfirmed result, not rated' : '';
 }
+
+/** The tournaments crowned by a final event rather than by each season: Duel Curve by its Grand Prix. */
+const CROWNED_BY_FINALS: ReadonlySet<string> = new Set(['duel_curve']);
+
+/** championsFromFinals gives the seasons that crown such a tournament's champions (those with a podium), or null for any other tournament. */
+export function championsFromFinals<T extends { podium: readonly unknown[] }>(slug: string, seasons: readonly T[]): T[] | null {
+  return CROWNED_BY_FINALS.has(slug) ? seasons.filter((s) => s.podium.length > 0) : null;
+}

@@ -18,7 +18,7 @@ import { SeriesSections } from './TournamentSeriesPage';
 import { playerHref } from '../lib/player-view';
 import TournamentCard from './TournamentCard';
 import TournamentGames from './TournamentGames';
-import { catalogueHref, cgeYears, entryRows, placeLabel, placeNames, seasonName, shownName, spanYears, stageName, tournamentParam, winsLabel } from '../lib/catalogue-view';
+import { catalogueHref, cgeYears, championsFromFinals, entryRows, placeLabel, placeNames, seasonName, shownName, spanYears, stageName, tournamentParam, winsLabel } from '../lib/catalogue-view';
 
 type Load<T> = { kind: 'loading' } | { kind: 'missing' } | { kind: 'error'; message: string } | { kind: 'ready'; data: T };
 
@@ -165,6 +165,8 @@ function TournamentDetail({ apiUrl, slug }: { apiUrl: string; slug: string }) {
   const { run, t } = load.data;
   const games = t.seasons.reduce((n, s) => n + s.games, 0);
   const staged = t.seasons.filter((s) => s.stages.length > 1 || s.stages[0]?.label !== '');
+  const finals = championsFromFinals(t.slug, t.seasons);
+  const pickSeason = (season: string) => setPick((p) => ({ season, n: p.n + 1 }));
   return (
     <>
       <div className="detail-hero">
@@ -204,7 +206,8 @@ function TournamentDetail({ apiUrl, slug }: { apiUrl: string; slug: string }) {
         </div>
       </div>
       {t.ladder && <LadderWinners wins={t.top_tier_wins} />}
-      <Champions seasons={t.seasons} podium={!t.ladder} onPick={(season) => setPick((p) => ({ season, n: p.n + 1 }))} />
+      {finals !== null && <Champions seasons={finals} podium title="Grand Prix champions" onPick={pickSeason} />}
+      <Champions seasons={t.seasons} podium={!t.ladder && finals === null} title={t.ladder || finals !== null ? 'Seasons' : 'Champions'} onPick={pickSeason} />
       {content !== undefined && <SeriesSections content={content} data={series.data} waiting={series.waiting || 'Loading…'} />}
       {content === undefined && t.rules.length > 0 && <Rules editions={t.rules} />}
       {staged.map((s) => (
@@ -242,8 +245,8 @@ function LadderWinners({ wins }: { wins: LadderWin[] }) {
   );
 }
 
-/** Champions lists every season, newest first, with its podium (unless a ladder's), figures and CGE pages; a season's name opens its games. */
-function Champions({ seasons, podium, onPick }: { seasons: CatalogueSeason[]; podium: boolean; onPick: (season: string) => void }) {
+/** Champions lists seasons, newest first, with their podiums (when podium), figures and CGE pages; a season's name opens its games. */
+function Champions({ seasons, podium, title, onPick }: { seasons: CatalogueSeason[]; podium: boolean; title: string; onPick: (season: string) => void }) {
   const place = (s: CatalogueSeason, n: number) => {
     const got = placeNames(s.podium, n);
     if (got.length === 0) return <span className="cell-muted">—</span>;
@@ -258,7 +261,7 @@ function Champions({ seasons, podium, onPick }: { seasons: CatalogueSeason[]; po
   return (
     <div className="panel-card champions-panel">
       <div className="panel-header panel-header-split">
-        <h2 className="panel-header-title">{podium ? 'Champions' : 'Seasons'}</h2>
+        <h2 className="panel-header-title">{title}</h2>
         <span className="panel-tag">{count(seasons.length)} seasons</span>
       </div>
       <div className="trophy-table-container champions-table">

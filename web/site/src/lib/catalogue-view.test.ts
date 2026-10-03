@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { catalogueHref, cgeYears, entryRows, gameStateLabel, gameWhere, outcomeNote, placeLabel, placeNames, seasonName, winsLabel, shownName, spanYears, stageName, tournamentParam } from './catalogue-view';
+import { catalogueHref, cgeYears, championsFromFinals, entryRows, gameStateLabel, gameWhere, outcomeNote, placeLabel, placeNames, seasonName, winsLabel, shownName, spanYears, stageName, tournamentParam } from './catalogue-view';
 
 describe('tournamentParam', () => {
   it('takes a slug from the address', () => {
@@ -125,5 +125,16 @@ describe('gameStateLabel', () => {
     expect(gameStateLabel('played')).toBe('');
     expect(gameStateLabel('never_played')).toBe('Never played');
     expect(gameStateLabel('unconfirmed')).toBe('Unconfirmed result, not rated');
+  });
+});
+
+describe('championsFromFinals', () => {
+  const season = (label: string, champion: string | null) => ({ label, podium: champion === null ? [] : [{ place: 1, name: champion }] });
+  it("gives a tournament crowned by its finals only the seasons that had one", () => {
+    const seasons = [season('2', null), season('Grand Prix 2023', 'FirstOfDao'), season('3', null)];
+    expect(championsFromFinals('duel_curve', seasons)?.map((s) => s.label)).toEqual(['Grand Prix 2023']);
+  });
+  it('leaves other tournaments to their seasons', () => {
+    expect(championsFromFinals('intermezzo', [season('24', 'pv4')])).toBeNull();
   });
 });
