@@ -314,3 +314,38 @@
 .admin-add .title-reason input {
   width: 100%;
 }
+.badge-row {
+  padding-block: 0.75rem;
+  border-bottom: 1px solid var(--border-subtle);
+}
+.badge-row .admin-add {
+  margin-top: 0.5rem;
+}
+.badge-holders {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  margin: 0.5rem 0 0;
+}
+.badge-holder {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.1rem 0.25rem 0.1rem 0.5rem;
+  border: 1px solid var(--border-subtle);
+  border-radius: 999px;
+  color: var(--text-main);
+}
+.badge-take {
+  min-width: 1.5rem;
+  min-height: 1.5rem;
+  border: none;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--text-soft);
+  cursor: pointer;
+}
+.badge-take:hover,
+.badge-take:focus-visible {
+  color: var(--loss);
+}

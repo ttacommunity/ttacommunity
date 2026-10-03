@@ -5,6 +5,7 @@ import { SETTINGS, settingsHref } from '../lib/tournament-page';
 import AdminList from './AdminList';
 import RunsPanel from './RunsPanel';
 import TitlesPanel from './TitlesPanel';
+import BadgesPanel from './BadgesPanel';
 import './AdminApp.css';
 
 type Load<T> = { kind: 'loading' } | { kind: 'error'; message: string } | { kind: 'ready'; data: T };
@@ -45,6 +46,7 @@ export default function AdminApp() {
       {me.data.role === 'admin' && <RunsPanel />}
       {me.data.role === 'admin' && <AdminList myName={me.data.name} />}
       {me.data.role === 'admin' && <TitlesPanel />}
+      {me.data.role === 'admin' && <BadgesPanel />}
       <section className="rating-card admin-card" aria-labelledby="tournaments-heading">
         <h2 id="tournaments-heading" className="rating-card-heading">
           Tournaments
