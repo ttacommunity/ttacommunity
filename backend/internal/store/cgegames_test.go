@@ -396,8 +396,9 @@ func TestAttachCGEGamesKnowsAGameWhosePlayerWasRenamed(t *testing.T) {
 	id := ourGame(t, pool, 2, "International S16", "2021-12-05",
 		matchcsv.Player{Name: "gigilamoroso", Score: 244}, matchcsv.Player{Name: "peracottari", Score: 185})
 
-	got, err := AttachCGEGames(context.Background(), pool, []cgegames.Game{cgeGame("2021-12-02",
-		played("gigi lamoroso", 244, 7), played("peracottari", 185, 8))})
+	g := cgeGame("2021-12-02", played("gigi lamoroso", 244, 7), played("peracottari", 185, 8))
+	g.Season = "16"
+	got, err := AttachCGEGames(context.Background(), pool, []cgegames.Game{g})
 	if err != nil {
 		t.Fatalf("AttachCGEGames: %v", err)
 	}
@@ -407,6 +408,85 @@ func TestAttachCGEGamesKnowsAGameWhosePlayerWasRenamed(t *testing.T) {
 	want := []string{joinf(id, 1, "gigilamoroso|gigi lamoroso|7"), joinf(id, 2, "peracottari|peracottari|8")}
 	if rows := rowsOf(t, pool, `SELECT concat_ws('|', match_id, seat, player_name, cge_name, cge_user) FROM match_seats ORDER BY seat`); !slices.Equal(rows, want) {
 		t.Errorf("seats = %q, want %q (our name, then CGE's)", rows, want)
+	}
+}
+
+func TestAttachCGEGamesKnowsARenameOnlyInTheSameSeason(t *testing.T) {
+	for _, season := range []string{"17", ""} {
+		pool := migrated(t)
+		ourGame(t, pool, 2, "International S16", "2021-12-05",
+			matchcsv.Player{Name: "Voidray", Score: 55}, matchcsv.Player{Name: "LittleBob", Score: 0})
+		g := cgeGame("2021-12-05", played("FreddyCrugerKiller", 55, 7), cgegames.Seat{Name: "LittleBob", Score: -2, Outcome: cgegames.Resigned, CGEUser: 8})
+		g.Season = season
+
+		got, err := AttachCGEGames(context.Background(), pool, []cgegames.Game{g})
+		if err != nil {
+			t.Fatalf("AttachCGEGames: %v", err)
+		}
+		if got.Matched != 0 || got.Renamed != 0 {
+			t.Errorf("CGE game placed in season %q: %+v, want no match with our S16 game", season, got)
+		}
+	}
+}
+
+func TestAttachCGEGamesMatchesExactlyBeforeByRename(t *testing.T) {
+	pool := migrated(t)
+	id := ourGame(t, pool, 2, "International S16", "2021-12-05",
+		matchcsv.Player{Name: "Magesolo", Score: 0}, matchcsv.Player{Name: "luckrider", Score: -1})
+	// The first CGE game fits ours under a rename; the second is ours exactly, and must win it.
+	rename := cgeGame("2021-12-04", played("Magesolo", 0, 1), cgegames.Seat{Name: "Ritocito", Score: -2, Outcome: cgegames.Resigned, CGEUser: 2})
+	rename.Season, rename.Code = "16", "COJAZABE"
+	exact := cgeGame("2021-12-05", cgegames.Seat{Name: "Magesolo", Score: -1, Outcome: cgegames.Resigned, CGEUser: 1}, timedOut("luckrider", 3))
+	exact.Season, exact.Code, exact.Number = "16", "KITINAGE", 3
+
+	got, err := AttachCGEGames(context.Background(), pool, []cgegames.Game{rename, exact})
+	if err != nil {
+		t.Fatalf("AttachCGEGames: %v", err)
+	}
+	var code string
+	if err := pool.QueryRow(context.Background(), "SELECT replay_code FROM matches WHERE match_id = $1", id).Scan(&code); err != nil {
+		t.Fatalf("reading the game: %v", err)
+	}
+	if got.Matched != 1 || got.Renamed != 0 || code != "KITINAGE" {
+		t.Errorf("AttachCGEGames = %+v, code %q; want ours matched exactly to KITINAGE", got, code)
+	}
+}
+
+func TestAttachCGEGamesMatchesAPlacedGameOnlyInItsSeason(t *testing.T) {
+	pool := migrated(t)
+	ourGame(t, pool, 2, "International S16", "2021-12-05", matchcsv.Player{Name: "ann", Score: 100}, matchcsv.Player{Name: "bob", Score: 90})
+	g := cgeGame("2021-12-05", played("ann", 100, 1), played("bob", 90, 2))
+	g.Season = "17"
+	got, err := AttachCGEGames(context.Background(), pool, []cgegames.Game{g})
+	if err != nil {
+		t.Fatalf("AttachCGEGames: %v", err)
+	}
+	if got.Matched != 0 {
+		t.Errorf("AttachCGEGames = %+v, want a game placed in S17 not matched to our S16 game", got)
+	}
+}
+
+func TestAttachCGEGamesClearsAGameThatNoLongerMatches(t *testing.T) {
+	pool := migrated(t)
+	ctx := context.Background()
+	id := ourGame(t, pool, 2, "International S16", "2021-12-05",
+		matchcsv.Player{Name: "ann", Score: 100}, matchcsv.Player{Name: "bob", Score: 90})
+	first := cgeGame("2021-12-05", played("ann", 100, 1), played("bob", 90, 2))
+	if _, err := AttachCGEGames(ctx, pool, []cgegames.Game{first}); err != nil {
+		t.Fatalf("AttachCGEGames(first): %v", err)
+	}
+	// The same CGE game, read again, turns out to be other players': ours keeps no trace of it.
+	again := cgeGame("2021-12-05", played("cat", 100, 3), played("dan", 90, 4))
+	if _, err := AttachCGEGames(ctx, pool, []cgegames.Game{again}); err != nil {
+		t.Fatalf("AttachCGEGames(again): %v", err)
+	}
+	var cge *int32
+	var code *string
+	if err := pool.QueryRow(ctx, "SELECT cge_tournament, replay_code FROM matches WHERE match_id = $1", id).Scan(&cge, &code); err != nil {
+		t.Fatalf("reading the game: %v", err)
+	}
+	if cge != nil || code != nil || count(t, pool, "match_seats") != 0 {
+		t.Errorf("game after a match that no longer holds: CGE tournament %v, code %v, %d seats; want none", cge, code, count(t, pool, "match_seats"))
 	}
 }
 
@@ -480,8 +560,9 @@ func TestAttachCGEGamesKnowsARenamedPlayerWhoTimedOutUnderTheOlderScore(t *testi
 	ourGame(t, pool, 2, "International S19", "2022-09-04",
 		matchcsv.Player{Name: "jcc", Score: 267}, matchcsv.Player{Name: "Cleveman", Score: 256}, matchcsv.Player{Name: "gigilamoroso", Score: -1})
 
-	got, err := AttachCGEGames(context.Background(), pool, []cgegames.Game{cgeGame("2022-10-23",
-		played("jcc", 267, 1), played("Cleveman", 256, 2), timedOut("gigi lamoroso", 4))})
+	g := cgeGame("2022-10-23", played("jcc", 267, 1), played("Cleveman", 256, 2), timedOut("gigi lamoroso", 4))
+	g.Season = "19"
+	got, err := AttachCGEGames(context.Background(), pool, []cgegames.Game{g})
 	if err != nil {
 		t.Fatalf("AttachCGEGames: %v", err)
 	}

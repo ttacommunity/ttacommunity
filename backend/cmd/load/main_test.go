@@ -140,6 +140,7 @@ func TestReportAttachedCountsAndNamesNoPlayer(t *testing.T) {
 		Renamed:       2,
 		LacksTimedOut: 4,
 		NeverPlayed:   1,
+		Cleared:       6,
 		Unmatched: []cgegames.Game{
 			{CGETournament: 21, CGESeason: 7, Seats: []cgegames.Seat{{Name: "secretname"}}},
 			{CGETournament: 21, CGESeason: 7}, {CGETournament: 19, CGESeason: 2},
@@ -150,6 +151,7 @@ func TestReportAttachedCountsAndNamesNoPlayer(t *testing.T) {
 	for _, want := range []string{
 		"matched to our games: 3 (2 with a player renamed since, 4 our file records without a timed-out player)",
 		"never played, set apart: 1",
+		"matched before but no longer, cleared: 6",
 		"no game of ours: 3 (CGE 19/2: 1, 21/7: 2)",
 		"  CGE 21/7 -> season 16: 3 games\n",
 		"refused: 1\n  g.csv:4 bad_seat\n",

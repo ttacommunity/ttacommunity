@@ -224,6 +224,7 @@ func reportAttached(w io.Writer, file string, res cgegames.Result, added store.A
 	fmt.Fprintf(w, "matched to our games: %d (%d with a player renamed since, %d our file records without a timed-out player)\n",
 		got.Matched, got.Renamed, got.LacksTimedOut)
 	fmt.Fprintf(w, "never played, set apart: %d\n", got.NeverPlayed)
+	fmt.Fprintf(w, "matched before but no longer, cleared: %d\n", got.Cleared)
 	fmt.Fprintf(w, "no game of ours: %d (CGE %s)\n", len(got.Unmatched), byStage(got.Unmatched))
 	fmt.Fprintln(w, "where each CGE stage matched:")
 	for _, l := range got.Seasons {
