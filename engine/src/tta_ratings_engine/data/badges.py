@@ -57,6 +57,13 @@ SGM_TOURNAMENTS = (
 )
 SGM_DIVISIONS = ("Grandmaster", "Diamond", "Emperor")
 
+# The league series whose recorded divisions give a badge, as classify_division_tier names them
+SERIES_NAMES = {
+    "international": "International Championship",
+    "intermezzo": "Intermezzo Championship",
+    "royal_league": "Royal League",
+}
+
 
 def world_champions(conn) -> list[tuple[str, int]]:
     """Returns each World Championship season's winner, as recorded, oldest first: (player, season)."""
@@ -237,14 +244,17 @@ def derive_tournament_badges(
         max_date = date.fromisoformat(max_row["max_date"])
         cutoff_date = (max_date - relativedelta(years=1)).strftime("%Y-%m-%d")
 
-        # All tournament matches: active badges (last year) and career peaks (all-time)
+        # All tournament matches, with the division the run recorded for a name that has none
         rows = conn.execute(
             """
-            SELECT tournament, to_char(date, 'YYYY-MM-DD') AS date, player1, player2, player3, player4
-            FROM matches
-            WHERE tournament IS NOT NULL AND state = 'played'
-            ORDER BY matches.date DESC
-        """
+            SELECT m.tournament, to_char(m.date, 'YYYY-MM-DD') AS date,
+                   m.player1, m.player2, m.player3, m.player4, tg.series, tg.division
+            FROM matches m
+            LEFT JOIN tournament_games tg ON tg.match_id = m.match_id AND tg.run_id = %s
+            WHERE m.tournament IS NOT NULL AND m.state = 'played'
+            ORDER BY m.date DESC
+        """,
+            (run_id,),
         ).fetchall()
 
         player_best = {}
@@ -255,6 +265,10 @@ def derive_tournament_badges(
         for r in rows:
             tourney = r["tournament"]
             tier = classify_division_tier(tourney)
+            if tier is None and r["division"] and r["series"] in SERIES_NAMES:
+                tier = classify_division_tier(
+                    f"{SERIES_NAMES[r['series']]} {r['division']}"
+                )
             if tier is None:
                 continue
 

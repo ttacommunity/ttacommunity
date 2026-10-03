@@ -104,6 +104,26 @@ def test_only_the_last_year_counts(conn, add_match, run_id):
     assert set(titles(conn, run_id)) == {"Ann", "Cat", "Recent", "Dan"}
 
 
+def test_a_division_the_run_recorded_gives_a_title(conn, add_match, run_id):
+    match_id = add_match(
+        ("Ann", 10), ("Bob", 5), day=date(2024, 6, 1), tournament="International S27"
+    )
+    conn.execute(
+        "INSERT INTO tournament_games (run_id, match_id, series, season, name_season, "
+        "division, group_label, division_source) "
+        "VALUES (%s, %s, 'international', 27, 27, 'Grandmaster', 'Grandmaster', 'recorded')",
+        (run_id, match_id),
+    )
+
+    derive_tournament_badges(conn=conn, run_id=run_id)
+
+    assert titles(conn, run_id)["Ann"] == (
+        "GM",
+        1,
+        "Played in International Championship Grandmaster Season 27",
+    )
+
+
 def test_games_outside_the_championships_earn_no_title(conn, add_match, run_id):
     add_match(("Ann", 10), ("Bob", 5), day=date(2024, 6, 1), tournament="Friendly Cup")
 
