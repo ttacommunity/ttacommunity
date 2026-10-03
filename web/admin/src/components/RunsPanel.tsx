@@ -105,6 +105,13 @@ export default function RunsPanel() {
     setMessage(`Started ${r.data.job}. Its run appears here once the engine connects.`);
     setWaitingUntil(Date.now() + 3 * 60 * 1000);
   };
+  const stop = async (run: AdminRun) => {
+    if (!window.confirm(`Stop run ${run.id}? It is marked failed, and its work so far is not kept.`)) return;
+    setMessage('');
+    const r = await adminRequest('/api/runs/stop', { method: 'POST' });
+    setMessage(r.ok ? `Stopping run ${run.id}. It shows as failed once the engine has ended.` : r.message);
+    await load();
+  };
   const publish = async (run: AdminRun) => {
     const current = runs?.find((r) => r.current);
     const verb = current !== undefined && current.id > run.id ? 'Roll back to' : 'Publish';
@@ -141,6 +148,9 @@ export default function RunsPanel() {
           <div key={r.id} className="run-block">
             <h3>Run {r.id} is going</h3>
             <ProgressCell run={r} />
+            <button type="button" className="btn-antique run-stop" onClick={() => void stop(r)}>
+              Stop this run
+            </button>
           </div>
         ))}
       {runs !== null && (

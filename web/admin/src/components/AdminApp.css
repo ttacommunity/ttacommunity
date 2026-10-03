@@ -207,3 +207,6 @@
   font-size: 1rem;
   color: var(--accent-gold);
 }
+.run-stop {
+  margin-top: 0.5rem;
+}
