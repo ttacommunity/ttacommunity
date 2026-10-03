@@ -38,8 +38,11 @@ function Changes({ run }: { run: number }) {
   if (c === null) return <p className="muted">Comparing…</p>;
   return (
     <div className="run-changes">
+      <h3>
+        Run {c.run} against run {c.against}
+      </h3>
       <p>
-        Run {c.against}: {c.ratings} ratings (was {c.ratings_before}), {c.new} new, {c.gone} gone. Moved more than
+        {c.ratings} ratings (was {c.ratings_before}), {c.new} new, {c.gone} gone. Moved more than
         1 point: {c.moved_1}; 10: {c.moved_10}; 50: {c.moved_50}; 100: {c.moved_100}.
       </p>
       {c.biggest.length > 0 && (
@@ -183,7 +186,6 @@ export default function RunsPanel() {
       )}
       {comparing !== null && (
         <div className="run-block">
-          <h3>Run {comparing} against the published run</h3>
           <Changes run={comparing} />
         </div>
       )}
@@ -218,14 +220,16 @@ function RunRow({
       <td className="run-wide">{run.games > 0 ? run.games.toLocaleString() : ''}</td>
       <td className="run-wide">{run.players > 0 ? run.players.toLocaleString() : ''}</td>
       <td>
-        {run.status === 'complete' && !run.current && (
+        {run.status === 'complete' && (
           <div className="run-buttons">
             <button type="button" className="btn-antique" aria-expanded={comparing} onClick={onCompare}>
               Changes {comparing ? '▾' : '▸'}
             </button>
-            <button type="button" className="btn-antique" onClick={onPublish}>
-              Publish
-            </button>
+            {!run.current && (
+              <button type="button" className="btn-antique" onClick={onPublish}>
+                Publish
+              </button>
+            )}
           </div>
         )}
       </td>

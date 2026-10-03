@@ -1157,7 +1157,7 @@ paths:
     get:
       operationId: getAdminRunChanges
       tags: [admin]
-      summary: How far ratings moved from another run, by default the published one (admins only)
+      summary: How far ratings moved from another run, by default the published one, or for the published run the complete run before it (admins only)
       description: Conservative ratings of the default model, in every format.
       parameters:
         - $ref: "#/components/parameters/AdminRunId"

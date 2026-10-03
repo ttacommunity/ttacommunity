@@ -835,7 +835,7 @@ export interface paths {
             cookie?: never;
         };
         /**
-         * How far ratings moved from another run, by default the published one (admins only)
+         * How far ratings moved from another run, by default the published one, or for the published run the complete run before it (admins only)
          * @description Conservative ratings of the default model, in every format.
          */
         get: operations["getAdminRunChanges"];

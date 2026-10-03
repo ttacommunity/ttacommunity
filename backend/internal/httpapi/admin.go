@@ -381,11 +381,7 @@ func (s *server) GetAdminRunChanges(ctx context.Context, req GetAdminRunChangesR
 		if err != nil {
 			return nil, err
 		}
-		for _, r := range runs {
-			if r.Current {
-				against = r.ID
-			}
-		}
+		against = defaultAgainst(runs, req.Run)
 	}
 	c, err := s.admins.RunChanges(ctx, req.Run, against)
 	if errors.Is(err, store.ErrRunNotFound) {
@@ -422,4 +418,24 @@ func (s *server) PostAdminRunStop(ctx context.Context, _ PostAdminRunStopRequest
 		return nil, err
 	}
 	return PostAdminRunStop204Response{}, nil
+}
+
+// defaultAgainst is the run another is compared with when none is asked for: the published run, or for the
+// published run itself the newest complete run before it. It is 0 when there is none.
+func defaultAgainst(runs []store.AdminRun, run int64) int64 {
+	var current int64
+	for _, r := range runs {
+		if r.Current {
+			current = r.ID
+		}
+	}
+	if current != run {
+		return current
+	}
+	for _, r := range runs { // newest first
+		if r.ID < run && r.Status == "complete" {
+			return r.ID
+		}
+	}
+	return 0
 }

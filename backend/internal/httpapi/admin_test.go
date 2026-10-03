@@ -29,11 +29,13 @@ type fakeAdmins struct {
 	engine string
 }
 
-// fakeRuns are run 7 (complete, current), 8 (complete) and 9 (running).
+// fakeRuns are runs 5 (complete), 6 (failed), 7 (complete, current), 8 (complete) and 9 (running).
 var fakeRuns = []store.AdminRun{
 	{ID: 9, Status: "running", Progress: "[3/10] models 2p"},
 	{ID: 8, Status: "complete", Games: 100},
 	{ID: 7, Status: "complete", Games: 90, Current: true},
+	{ID: 6, Status: "failed"},
+	{ID: 5, Status: "complete"},
 }
 
 func (*fakeAdmins) Runs(context.Context) ([]store.AdminRun, error) { return fakeRuns, nil }
@@ -50,7 +52,7 @@ func (f *fakeAdmins) Publish(_ context.Context, run int64) error {
 }
 
 func (*fakeAdmins) RunChanges(_ context.Context, run, before int64) (store.RunChanges, error) {
-	if run < 7 || run > 9 || before < 7 || before > 9 {
+	if run < 5 || run > 9 || before < 5 || before > 9 {
 		return store.RunChanges{}, store.ErrRunNotFound
 	}
 	return store.RunChanges{Ratings: int(run), RatingsBefore: int(before), Biggest: []store.RunMove{{Name: "dan", Before: 1500, After: 1380, Change: -120}}}, nil
@@ -407,7 +409,7 @@ func TestAnAdminListsRuns(t *testing.T) {
 	if err := json.Unmarshal(rec.Body.Bytes(), &got); err != nil || rec.Code != http.StatusOK {
 		t.Fatalf("GET runs = %d %s", rec.Code, rec.Body)
 	}
-	if len(got) != 3 || got[0].Id != 9 || got[0].Progress != "[3/10] models 2p" || !got[2].Current || got[2].PublishedAt != nil {
+	if len(got) != 5 || got[0].Id != 9 || got[0].Progress != "[3/10] models 2p" || !got[2].Current || got[2].PublishedAt != nil {
 		t.Errorf("runs = %+v", got)
 	}
 }
@@ -475,6 +477,7 @@ func TestRunChangesCompareWithThePublishedRunUnlessAsked(t *testing.T) {
 		run, against int64
 	}{
 		{"against the published run", "/v1/admin/runs/9/changes", http.StatusOK, 9, 7},
+		{"the published run against the complete run before it", "/v1/admin/runs/7/changes", http.StatusOK, 7, 5},
 		{"against a run asked for", "/v1/admin/runs/9/changes?against=8", http.StatusOK, 9, 8},
 		{"a run that does not exist", "/v1/admin/runs/99/changes", http.StatusNotFound, 0, 0},
 		{"against a run that does not exist", "/v1/admin/runs/9/changes?against=99", http.StatusNotFound, 0, 0},
