@@ -95,7 +95,7 @@ export default function RunsPanel() {
   }, [going, waitingUntil]);
 
   const start = async () => {
-    if (!window.confirm('Start a rating run now? It takes about two hours, and is not shown on the site until you publish it.')) return;
+    if (!window.confirm('Start a rating run now? It usually takes 20 to 40 minutes, and is not shown on the site until you publish it.')) return;
     setMessage('');
     const r = await adminRequest<StartedRun>('/api/runs', { method: 'POST' });
     if (!r.ok) {
