@@ -8,7 +8,6 @@ import { SERIES_CONTENT, SINGLE_TOURNAMENTS, type SeriesContent } from '../../..
 import '../../../../components/TournamentSeries.css';
 
 export function getStaticPaths() {
-  // A single tournament's series page is its tournament page (public/_redirects).
   return SERIES_CONTENT.filter((c) => !SINGLE_TOURNAMENTS.has(c.slug)).map((content) => ({ params: { series: content.slug }, props: { content } }));
 }
 
