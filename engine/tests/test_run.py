@@ -1,3 +1,6 @@
+import multiprocessing
+import os
+import signal
 from datetime import date
 
 import pytest
@@ -615,3 +618,53 @@ def test_a_run_records_its_latest_progress_line_for_admin(conn, db_url, add_matc
     ).fetchone()["line"]
     progress = [line for line in lines if line.startswith("[")]
     assert got == progress[-1]
+
+
+def progress_line(conn, run_id):
+    row = conn.execute(
+        "SELECT line FROM run_progress WHERE run_id = %s", (run_id,)
+    ).fetchone()
+    return row and row["line"]
+
+
+def test_a_stopped_run_is_marked_failed_and_says_so(conn, db_url, add_match):
+    season(add_match)
+    previous = signal.getsignal(signal.SIGTERM)
+    runner.stop_on_sigterm()
+
+    def stop_after_a_task(line):
+        if (
+            line.startswith("[")
+            and not line.startswith("[0/")
+            and not line.startswith("[1/")
+        ):
+            os.kill(os.getpid(), signal.SIGTERM)
+
+    try:
+        with pytest.raises(runner.Stopped):
+            run(
+                conn,
+                "v-test",
+                formats=[2],
+                log=stop_after_a_task,
+                workers=2,
+                url=db_url,
+            )
+    finally:
+        signal.signal(signal.SIGTERM, previous)
+
+    run_id = conn.execute("SELECT run_id FROM rating_runs").fetchone()["run_id"]
+    assert the_run(conn, run_id)["status"] == "failed"
+    assert progress_line(conn, run_id) == "stopped"
+    assert multiprocessing.active_children() == []
+
+
+def test_a_failed_run_tells_admin_what_failed(conn, db_url, add_match, monkeypatch):
+    season(add_match)
+    monkeypatch.setattr(runner, "derive_tournament_badges", boom)
+
+    with pytest.raises(RuntimeError):
+        run(conn, "v-test", formats=[2], log=lambda _: None, url=db_url)
+
+    run_id = conn.execute("SELECT run_id FROM rating_runs").fetchone()["run_id"]
+    assert progress_line(conn, run_id) == "failed: RuntimeError"

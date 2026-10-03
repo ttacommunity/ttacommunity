@@ -1,13 +1,15 @@
 """Computes one whole rating run from the loaded matches: python -m tta_ratings_engine.run.
 
 A run is created as 'running', filled step by step, then marked 'complete', or
-'failed' if any step raises. It is published only with --make-current.
+'failed' if any step raises or the engine is stopped (SIGTERM). It is published
+only with --make-current.
 """
 
 import argparse
 import functools
 import multiprocessing
 import os
+import signal
 import time
 from concurrent.futures import FIRST_EXCEPTION, ProcessPoolExecutor, wait
 
@@ -210,6 +212,21 @@ def _label(fmt):
     return f"{fmt}p" if fmt else "all"
 
 
+class Stopped(Exception):
+    """Raised in a run when the engine is asked to stop, as Kubernetes does when its Job is deleted."""
+
+
+def stop_on_sigterm():
+    """Makes SIGTERM raise Stopped, so a stopped run is marked failed before the process ends. A second
+    SIGTERM ends it at once."""
+
+    def stop(signum, frame):
+        signal.signal(signal.SIGTERM, signal.SIG_DFL)
+        raise Stopped("the engine was asked to stop")
+
+    signal.signal(signal.SIGTERM, stop)
+
+
 def run(
     conn, engine_version, *, formats=FORMATS, log=print, make_current=False, tournaments_only=False,
     workers=1, url=None, ranking="community",
@@ -281,8 +298,10 @@ def run(
             _compute(conn, run_id, formats, log)
         else:
             _recompute_tournaments(conn, run_id, source, log)
-    except BaseException:
-        close_progress()
+    except BaseException as e:
+        close_progress(
+            "stopped" if isinstance(e, Stopped) else f"failed: {type(e).__name__}"
+        )
         conn.rollback()
         with conn.transaction():
             _finish(conn, run_id, "failed")
@@ -301,18 +320,23 @@ def run(
 
 def _progress_to_run(log, run_id, url):
     """Returns a log that also writes each progress line ("[done/total] ...") to run_progress, for admin to
-    show, on its own connection, and a function that closes it. Without a url it is log unchanged. A failed
-    write (a lock held over 2s, say) is logged once and the run goes on: the log still has every line.
+    show, on its own connection, and a function that closes it, writing a last line first when given one.
+    Without a url it is log unchanged. A failed write (a lock held over 2s, say) is logged once and the run
+    goes on: the log still has every line.
     """
     if not url:
-        return log, lambda: None
+        return log, lambda last=None: None
     progress_conn = connect(url)
     progress_conn.execute("SET lock_timeout = '2s'")
     failed = []
 
     def record(line):
         log(line)
-        if not line.startswith("[") or failed:
+        if line.startswith("["):
+            write(line)
+
+    def write(line):
+        if failed:
             return
         try:
             progress_conn.execute(
@@ -326,7 +350,12 @@ def _progress_to_run(log, run_id, url):
                 f"run {run_id}: progress is no longer recorded for admin ({type(e).__name__})"
             )
 
-    return record, progress_conn.close
+    def close(last=None):
+        if last is not None:
+            write(last)
+        progress_conn.close()
+
+    return record, close
 
 
 def _compute(conn, run_id, formats, log):
@@ -470,9 +499,23 @@ def _compute_parallel(conn, run_id, formats, log, workers, url):
                 for future in done:
                     kind, fmt, name = pending.pop(future)
                     _report(progress, months, kind, fmt, name, future.result())
+        except BaseException:
+            _terminate_workers(pool)
+            raise
         finally:
             pool.shutdown(cancel_futures=True)
     progress.summary()
+
+
+def _terminate_workers(pool):
+    """Ends the pool's worker processes now, so their database locks on the run go with them."""
+    if hasattr(pool, "terminate_workers"):  # Python 3.14+
+        pool.terminate_workers()
+        return
+    for process in list((pool._processes or {}).values()):
+        process.terminate()
+    for process in list((pool._processes or {}).values()):
+        process.join(5)
 
 
 def _report(progress, months, kind, fmt, name, seconds):
@@ -614,6 +657,7 @@ def main(argv=None):
         raise SystemExit(
             "ENGINE_VERSION is not set: say which engine this run comes from"
         )
+    stop_on_sigterm()
     with connect() as conn:
         run(
             conn,
