@@ -668,3 +668,22 @@ def test_a_failed_run_tells_admin_what_failed(conn, db_url, add_match, monkeypat
 
     run_id = conn.execute("SELECT run_id FROM rating_runs").fetchone()["run_id"]
     assert progress_line(conn, run_id) == "failed: RuntimeError"
+
+
+def test_a_parallel_run_counts_each_step_as_it_finishes(
+    conn, db_url, add_match, monkeypatch
+):
+    season(add_match)
+    real_wait = runner.wait
+    finished_together = []
+
+    def counting_wait(futures, **kwargs):
+        done, not_done = real_wait(futures, **kwargs)
+        finished_together.append(len(done))
+        return done, not_done
+
+    monkeypatch.setattr(runner, "wait", counting_wait)
+
+    run(conn, "v-test", formats=[2], log=lambda _: None, workers=2, url=db_url)
+
+    assert len(finished_together) > 1, "every step was counted at once, at the end"

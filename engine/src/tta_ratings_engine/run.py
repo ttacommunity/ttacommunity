@@ -11,7 +11,7 @@ import multiprocessing
 import os
 import signal
 import time
-from concurrent.futures import FIRST_EXCEPTION, ProcessPoolExecutor, wait
+from concurrent.futures import FIRST_COMPLETED, ProcessPoolExecutor, wait
 
 import psycopg
 
@@ -495,7 +495,7 @@ def _compute_parallel(conn, run_id, formats, log, workers, url):
         try:
             pending = {pool.submit(_run_task, url, run_id, *t): t for t in tasks}
             while pending:
-                done, _ = wait(pending, return_when=FIRST_EXCEPTION)
+                done, _ = wait(pending, return_when=FIRST_COMPLETED)
                 for future in done:
                     kind, fmt, name = pending.pop(future)
                     _report(progress, months, kind, fmt, name, future.result())
