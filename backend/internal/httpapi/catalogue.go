@@ -70,6 +70,9 @@ func (s *server) GetCatalogueTournament(ctx context.Context, req GetCatalogueTou
 		RunId: req.Run, Slug: t.Slug, Name: t.Name, Seasons: make([]CatalogueSeason, 0, len(t.Seasons)),
 		Ladder: t.Ladder, TopTierWins: make([]LadderWin, 0, len(t.TopTierWins)), Players: append([]string{}, t.Players...),
 	}
+	if t.Regulations != "" {
+		body.Regulations = &t.Regulations
+	}
 	body.Rules = make([]EditionRules, 0, len(t.Rules))
 	for _, e := range t.Rules {
 		body.Rules = append(body.Rules, EditionRules{

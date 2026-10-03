@@ -29,6 +29,7 @@ type Admins interface {
 	Tournaments(ctx context.Context) ([]store.AdminTournament, error)
 	SetTournament(ctx context.Context, slug string, s store.TournamentSettings) error
 	SetNote(ctx context.Context, slug, season, stage, note string) error
+	SetRegulations(ctx context.Context, slug, text string) error
 	SetPodium(ctx context.Context, slug, season string, podium []store.PodiumEntry, note string) error
 	ClearPodium(ctx context.Context, slug, season string) error
 	AddSeason(ctx context.Context, slug, label string) error
@@ -132,7 +133,8 @@ func (s *server) GetAdminTournaments(ctx context.Context, _ GetAdminTournamentsR
 			}
 			seasons[j] = AdminSeason{Label: se.Label, Note: se.Note, HasGames: se.HasGames, Stages: stages, Podium: podium, PodiumNote: se.PodiumNote}
 		}
-		out[i] = AdminTournament{Slug: t.Slug, Name: t.Name, Visible: t.Visible, Rated: t.Rated, Community: t.Community, Seasons: seasons}
+		out[i] = AdminTournament{Slug: t.Slug, Name: t.Name, Visible: t.Visible, Rated: t.Rated, Community: t.Community,
+			Regulations: t.Regulations, CgeRegulations: t.CGERegulations, Seasons: seasons}
 	}
 	return GetAdminTournaments200JSONResponse{Body: out, Headers: GetAdminTournaments200ResponseHeaders{CacheControl: cacheNone}}, nil
 }
@@ -500,4 +502,24 @@ func (s *server) DeleteAdminPodium(ctx context.Context, req DeleteAdminPodiumReq
 		return nil, err
 	}
 	return DeleteAdminPodium204Response{}, nil
+}
+
+func (s *server) PutAdminRegulations(ctx context.Context, req PutAdminRegulationsRequestObject) (PutAdminRegulationsResponseObject, error) {
+	a, ok := adminFrom(ctx)
+	if !ok {
+		return nil, errors.New("admin route reached without the gate")
+	}
+	if req.Body == nil || len(req.Body.Text) > 10000 {
+		return PutAdminRegulations400JSONResponse{badRequest400("regulations are at most 10,000 characters")}, nil
+	}
+	switch err := s.admins.SetRegulations(ctx, req.Tournament, req.Body.Text); {
+	case errors.Is(err, store.ErrNoTournament):
+		return PutAdminRegulations404JSONResponse{notFound404("no such tournament")}, nil
+	case err != nil:
+		return nil, err
+	}
+	if err := s.admins.Audit(ctx, a.DiscordID, "tournament.regulations", req.Tournament, req.Body); err != nil {
+		return nil, err
+	}
+	return PutAdminRegulations204Response{}, nil
 }

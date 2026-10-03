@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { catalogueHref, cgeYears, championsFromFinals, entryRows, gameStateLabel, gameWhere, outcomeNote, placeLabel, placeNames, seasonName, winsLabel, shownName, spanYears, stageName, tournamentParam, seasonDates, activeYears } from './catalogue-view';
+import { catalogueHref, cgeYears, championsFromFinals, entryRows, gameStateLabel, gameWhere, outcomeNote, placeLabel, placeNames, seasonName, winsLabel, shownName, spanYears, stageName, tournamentParam, seasonDates, activeYears, regulationsBox } from './catalogue-view';
 
 describe('tournamentParam', () => {
   it('takes a slug from the address', () => {
@@ -147,5 +147,25 @@ describe('seasonDates and activeYears', () => {
     expect(seasonDates(season(null, null))).toBe('No games recorded');
     expect(activeYears([season(null, null), season('2017-10-06', '2017-12-01'), season('2018-01-06', '2019-02-01')])).toBe('2017 – 2019');
     expect(activeYears([season(null, null)])).toBe('—');
+  });
+});
+
+describe('regulationsBox', () => {
+  const editions = [
+    { cge_tournament: 4991, name: 'Wimbledon 2024', description: 'CGE 2024.', url: 'https://cge/4991' },
+    { cge_tournament: 4369, name: 'Wimbledon 2023', description: 'CGE 2023.', url: 'https://cge/4369' },
+  ];
+  it("shows admin's text over CGE's, still linking the latest edition", () => {
+    expect(regulationsBox({ rules: editions, regulations: 'Best of three.' })).toEqual({
+      text: 'Best of three.',
+      link: { name: 'Wimbledon 2024', url: 'https://cge/4991' },
+    });
+  });
+  it("shows the latest edition's CGE text when admin has written none", () => {
+    expect(regulationsBox({ rules: editions })).toEqual({ text: 'CGE 2024.', link: { name: 'Wimbledon 2024', url: 'https://cge/4991' } });
+  });
+  it("shows admin's text with no link when CGE has none, and nothing when neither has", () => {
+    expect(regulationsBox({ rules: [], regulations: 'Ours.' })).toEqual({ text: 'Ours.', link: null });
+    expect(regulationsBox({ rules: [] })).toBeNull();
   });
 });

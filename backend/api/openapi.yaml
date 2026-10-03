@@ -1014,6 +1014,31 @@ paths:
           $ref: "#/components/responses/Forbidden"
         "404":
           $ref: "#/components/responses/NotFound"
+  /v1/admin/tournaments/{tournament}/regulations:
+    put:
+      operationId: putAdminRegulations
+      tags: [admin]
+      summary: Write a tournament's format and regulations, shown instead of its latest CGE description
+      description: An empty text removes it, so CGE's shows again. Audited. The Origin must be the admin site.
+      parameters:
+        - $ref: "#/components/parameters/AdminTournamentSlug"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/Regulations"
+      responses:
+        "204":
+          description: Saved
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
   /v1/admin/tournaments/{tournament}/podium:
     put:
       operationId: putAdminPodium
@@ -1455,6 +1480,15 @@ components:
         change:
           type: number
           format: double
+    Regulations:
+      type: object
+      additionalProperties: false
+      required: [text]
+      properties:
+        text:
+          description: Plain text; empty removes it
+          type: string
+          maxLength: 10000
     PodiumEntry:
       type: object
       additionalProperties: false
@@ -1522,8 +1556,14 @@ components:
           enum: [admin, organiser]
     AdminTournament:
       type: object
-      required: [slug, name, visible, rated, community, seasons]
+      required: [slug, name, visible, rated, community, regulations, cge_regulations, seasons]
       properties:
+        regulations:
+          description: The format and regulations written in admin, empty for none
+          type: string
+        cge_regulations:
+          description: The latest edition's description on CGE, shown when admin has written none; empty for none
+          type: string
         slug:
           type: string
         name:
@@ -2842,6 +2882,9 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/EditionRules"
+        regulations:
+          description: The format and regulations written in admin, shown instead of the rules; plain text, absent for none
+          type: string
         players:
           description: Everyone who played a shown game of the tournament, by name, for a search box
           type: array

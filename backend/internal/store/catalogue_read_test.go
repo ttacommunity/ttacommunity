@@ -561,3 +561,22 @@ func TestCatalogueTournamentShowsAnAdminPodiumOverAnyOther(t *testing.T) {
 		t.Errorf("season %q podium = %+v, want %+v", s.Label, s.Podium, want)
 	}
 }
+
+func TestCatalogueTournamentGivesTheRegulationsWrittenInAdmin(t *testing.T) {
+	pool := migrated(t)
+	ctx := context.Background()
+	run := publishedRun(t, pool)
+	placedOn(t, pool, map[string]time.Time{"Wimbledon 2024 Stage 1 - group 1 game 1": day("2024-07-01")})
+	r := NewRatingsReader(asReader(t, pool))
+
+	got, err := r.CatalogueTournament(ctx, run, "wimbledon")
+	if err != nil || got.Regulations != "" {
+		t.Fatalf("regulations before any = %q, %v; want none", got.Regulations, err)
+	}
+	if _, err := pool.Exec(ctx, "INSERT INTO tournament_regulations VALUES ('wimbledon', 'Best of three.')"); err != nil {
+		t.Fatal(err)
+	}
+	if got, _ = r.CatalogueTournament(ctx, run, "wimbledon"); got.Regulations != "Best of three." {
+		t.Errorf("regulations = %q, want admin's", got.Regulations)
+	}
+}

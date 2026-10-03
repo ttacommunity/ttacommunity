@@ -100,7 +100,7 @@ func (f *fakeAdmins) StartRun(context.Context) (string, error) {
 func (*fakeAdmins) AllowedOrigin() string { return "https://ttac-admin.example" }
 
 func (*fakeAdmins) Tournaments(context.Context) ([]store.AdminTournament, error) {
-	return []store.AdminTournament{{Slug: "worlds", Name: "World Championship", Rated: true,
+	return []store.AdminTournament{{Slug: "worlds", Name: "World Championship", Rated: true, Regulations: "Mine.", CGERegulations: "CGE's.",
 		Seasons: []store.AdminSeason{{Label: "2025", Stages: []store.AdminStage{{Label: "Stage 1", Note: "n"}},
 			Podium: []store.PodiumEntry{{Place: 1, Name: "a440"}}, PodiumNote: "CGE"}}}}, nil
 }
@@ -166,6 +166,14 @@ func (f *fakeAdmins) SetPodium(_ context.Context, slug, season string, podium []
 		return store.ErrBadPodium
 	}
 	f.notes = append(f.notes, fmt.Sprintf("podium %s %v %s", season, podium, note))
+	return nil
+}
+
+func (f *fakeAdmins) SetRegulations(_ context.Context, slug, text string) error {
+	if slug != "worlds" {
+		return store.ErrNoTournament
+	}
+	f.notes = append(f.notes, "regulations "+text)
 	return nil
 }
 
@@ -623,5 +631,39 @@ func TestAdminTournamentsShowASeasonsPodium(t *testing.T) {
 	}
 	if se := got[0].Seasons[0]; len(se.Podium) != 1 || se.Podium[0].Name != "a440" || se.PodiumNote != "CGE" {
 		t.Errorf("season = %+v", se)
+	}
+}
+
+func TestAnOrganiserWritesATournamentsRegulations(t *testing.T) {
+	const site = "https://ttac-admin.example"
+	f := &fakeAdmins{}
+	if rec := adminDo(t, f, http.MethodPut, "/v1/admin/tournaments/worlds/regulations", site, `{"text": "Best of three."}`); rec.Code != http.StatusNoContent {
+		t.Fatalf("PUT = %d %s, want 204", rec.Code, rec.Body)
+	}
+	if strings.Join(f.notes, "|") != "regulations Best of three." || strings.Join(f.audits, "|") != "222222222222222222 tournament.regulations worlds" {
+		t.Errorf("changes %q, audits %q", f.notes, f.audits)
+	}
+	for _, tt := range []struct {
+		name, path, origin, body string
+		want                     int
+	}{
+		{"another site", "/v1/admin/tournaments/worlds/regulations", "https://evil.example", `{"text": "x"}`, http.StatusForbidden},
+		{"no such tournament", "/v1/admin/tournaments/nope/regulations", site, `{"text": "x"}`, http.StatusNotFound},
+		{"too long", "/v1/admin/tournaments/worlds/regulations", site, `{"text": "` + strings.Repeat("x", 10001) + `"}`, http.StatusBadRequest},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			f := &fakeAdmins{}
+			if rec := adminDo(t, f, http.MethodPut, tt.path, tt.origin, tt.body); rec.Code != tt.want {
+				t.Errorf("PUT = %d %s, want %d", rec.Code, rec.Body, tt.want)
+			}
+			if len(f.notes)+len(f.audits) != 0 {
+				t.Errorf("a refused change still changed something: %q %q", f.notes, f.audits)
+			}
+		})
+	}
+	rec := adminDo(t, &fakeAdmins{}, http.MethodGet, "/v1/admin/tournaments", "", "")
+	var got []AdminTournament
+	if err := json.Unmarshal(rec.Body.Bytes(), &got); err != nil || got[0].Regulations != "Mine." || got[0].CgeRegulations != "CGE's." {
+		t.Errorf("GET = %s, want both regulations", rec.Body)
 	}
 }

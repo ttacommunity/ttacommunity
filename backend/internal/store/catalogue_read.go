@@ -109,6 +109,8 @@ type CatalogueTournament struct {
 	TopTierWins []LadderWin
 	Players     []string
 	Rules       []EditionRules
+	// Regulations is the format and regulations written in admin, shown instead of the rules; empty for none.
+	Regulations string
 }
 
 // EditionRules is one CGE tournament's description of a tournament edition
@@ -387,6 +389,10 @@ func (r *RatingsReader) CatalogueTournament(ctx context.Context, run int64, slug
 	}
 	if got.Rules, err = pgx.CollectRows(rows, pgx.RowToStructByPos[EditionRules]); err != nil {
 		return fail("rules", err)
+	}
+	err = r.pool.QueryRow(ctx, "SELECT coalesce((SELECT text FROM tournament_regulations WHERE tournament = $1), '')", slug).Scan(&got.Regulations)
+	if err != nil {
+		return fail("regulations", err)
 	}
 
 	// Every player of the shown tournament, for a search box's suggestions.

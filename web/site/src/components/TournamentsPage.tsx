@@ -18,7 +18,7 @@ import { SeriesSections } from './TournamentSeriesPage';
 import { playerHref } from '../lib/player-view';
 import TournamentCard from './TournamentCard';
 import TournamentGames from './TournamentGames';
-import { activeYears, catalogueHref, cgeYears, championsFromFinals, entryRows, placeLabel, placeNames, seasonDates, seasonName, shownName, stageName, tournamentParam, winsLabel } from '../lib/catalogue-view';
+import { activeYears, catalogueHref, cgeYears, championsFromFinals, entryRows, placeLabel, placeNames, regulationsBox, seasonDates, seasonName, shownName, stageName, tournamentParam, winsLabel } from '../lib/catalogue-view';
 
 type Load<T> = { kind: 'loading' } | { kind: 'missing' } | { kind: 'error'; message: string } | { kind: 'ready'; data: T };
 
@@ -209,7 +209,7 @@ function TournamentDetail({ apiUrl, slug }: { apiUrl: string; slug: string }) {
       {finals !== null && <Champions seasons={finals} podium title="Grand Prix champions" onPick={pickSeason} />}
       <Champions seasons={t.seasons} podium={!t.ladder && finals === null} title={t.ladder || finals !== null ? 'Seasons' : 'Champions'} onPick={pickSeason} />
       {content !== undefined && <SeriesSections content={content} data={series.data} waiting={series.waiting || 'Loading…'} />}
-      {content === undefined && t.rules.length > 0 && <Rules editions={t.rules} />}
+      {content === undefined && <Rules t={t} />}
       {staged.map((s) => (
         <Stages key={s.label} season={s} />
       ))}
@@ -327,20 +327,23 @@ function Champions({ seasons, podium, title, onPick }: { seasons: CatalogueSeaso
   );
 }
 
-/** Rules shows the tournament's format and regulations: the newest edition's description on CGE, usually its organiser's rules. */
-function Rules({ editions }: { editions: EditionRules[] }) {
-  const latest = editions[0];
+/** Rules shows the tournament's format and regulations: admin's text, else the newest edition's description on CGE. */
+function Rules({ t }: { t: { rules: EditionRules[]; regulations?: string } }) {
+  const box = regulationsBox(t);
+  if (box === null) return null;
   return (
     <div className="panel-card rules-panel">
       <h2 className="panel-header panel-header-split">
         <span className="panel-header-title">
           <span>📜</span> Format &amp; Regulations
         </span>
-        <a href={latest.url} target="_blank" rel="noopener noreferrer" className="cge-link">
-          {latest.name} on CGE ↗
-        </a>
+        {box.link !== null && (
+          <a href={box.link.url} target="_blank" rel="noopener noreferrer" className="cge-link">
+            {box.link.name} on CGE ↗
+          </a>
+        )}
       </h2>
-      <p className="rules-text">{latest.description}</p>
+      <p className="rules-text">{box.text}</p>
     </div>
   );
 }

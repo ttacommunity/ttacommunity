@@ -15,13 +15,16 @@ import (
 // ErrNoTournament means no tournament, or no season of it, has that name.
 var ErrNoTournament = errors.New("no such tournament or season")
 
-// AdminTournament is one tournament as admin edits it.
+// AdminTournament is one tournament as admin edits it: Regulations is admin's format and regulations text,
+// shown instead of CGERegulations, the latest edition's CGE description; either is empty for none.
 type AdminTournament struct {
-	Slug, Name string
-	Visible    bool
-	Rated      bool
-	Community  bool
-	Seasons    []AdminSeason
+	Slug, Name     string
+	Visible        bool
+	Rated          bool
+	Community      bool
+	Regulations    string
+	CGERegulations string
+	Seasons        []AdminSeason
 }
 
 // AdminSeason is a season with its own note, its stages, and the podium admin set for it, if any.
@@ -57,6 +60,9 @@ func (a *AdminStore) Tournaments(ctx context.Context) ([]AdminTournament, error)
 		SELECT t.slug, t.name, t.visible, t.in_community_leaderboard,
 		       EXISTS (SELECT 1 FROM ranking_tournaments rt JOIN rankings r USING (ranking_id)
 		               WHERE r.slug = 'community' AND rt.tournament_id = t.tournament_id),
+		       coalesce((SELECT text FROM tournament_regulations g WHERE g.tournament = t.slug), ''),
+		       coalesce((SELECT c.description FROM cge_tournaments c WHERE c.tournament_id = t.tournament_id AND c.description <> ''
+		                 ORDER BY coalesce(c.started, c.created, c.finished) DESC NULLS LAST, c.cge_tournament DESC LIMIT 1), ''),
 		       se.label, coalesce(st.label, ''),
 		       coalesce((SELECT note FROM tournament_season_notes n WHERE n.tournament = t.slug AND n.season = se.label AND n.stage = ''), ''),
 		       coalesce((SELECT note FROM tournament_season_notes n WHERE n.tournament = t.slug AND n.season = se.label AND n.stage = st.label AND st.label <> ''), ''),
@@ -74,11 +80,14 @@ func (a *AdminStore) Tournaments(ctx context.Context) ([]AdminTournament, error)
 	var out []AdminTournament
 	var slug, name string
 	var visible, community, rated bool
+	var regulations, cgeRegulations string
 	var season, stage, seasonNote, stageNote *string
 	var hasGames bool
-	_, err = pgx.ForEachRow(rows, []any{&slug, &name, &visible, &community, &rated, &season, &stage, &seasonNote, &stageNote, &hasGames}, func() error {
+	_, err = pgx.ForEachRow(rows, []any{&slug, &name, &visible, &community, &rated, &regulations, &cgeRegulations,
+		&season, &stage, &seasonNote, &stageNote, &hasGames}, func() error {
 		if len(out) == 0 || out[len(out)-1].Slug != slug {
-			out = append(out, AdminTournament{Slug: slug, Name: name, Visible: visible, Rated: rated, Community: community, Seasons: []AdminSeason{}})
+			out = append(out, AdminTournament{Slug: slug, Name: name, Visible: visible, Rated: rated, Community: community,
+				Regulations: regulations, CGERegulations: cgeRegulations, Seasons: []AdminSeason{}})
 		}
 		t := &out[len(out)-1]
 		if season == nil {
@@ -312,6 +321,31 @@ func (a *AdminStore) RemoveSeason(ctx context.Context, slug, label string) error
 		}
 		if _, err := tx.Exec(ctx, "DELETE FROM tournament_seasons WHERE season_id = $1", id); err != nil {
 			return fmt.Errorf("removing season %s of %s: %w", label, slug, err)
+		}
+		return nil
+	})
+}
+
+// SetRegulations saves a tournament's format and regulations text, shown instead of CGE's; an empty text
+// removes it. It returns ErrNoTournament for a tournament that does not exist.
+func (a *AdminStore) SetRegulations(ctx context.Context, slug, text string) error {
+	text = strings.TrimSpace(text)
+	return pgx.BeginFunc(ctx, a.pool, func(tx pgx.Tx) error {
+		var exists bool
+		if err := tx.QueryRow(ctx, "SELECT EXISTS (SELECT 1 FROM tournaments WHERE slug = $1)", slug).Scan(&exists); err != nil {
+			return fmt.Errorf("setting the regulations of %s: %w", slug, err)
+		}
+		if !exists {
+			return ErrNoTournament
+		}
+		q := `INSERT INTO tournament_regulations (tournament, text) VALUES ($1, $2)
+			ON CONFLICT (tournament) DO UPDATE SET text = excluded.text`
+		args := []any{slug, text}
+		if text == "" {
+			q, args = "DELETE FROM tournament_regulations WHERE tournament = $1", []any{slug}
+		}
+		if _, err := tx.Exec(ctx, q, args...); err != nil {
+			return fmt.Errorf("setting the regulations of %s: %w", slug, err)
 		}
 		return nil
 	})

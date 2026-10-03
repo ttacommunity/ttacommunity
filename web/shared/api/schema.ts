@@ -739,6 +739,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/admin/tournaments/{tournament}/regulations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Write a tournament's format and regulations, shown instead of its latest CGE description
+         * @description An empty text removes it, so CGE's shows again. Audited. The Origin must be the admin site.
+         */
+        put: operations["putAdminRegulations"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/admin/tournaments/{tournament}/podium": {
         parameters: {
             query?: never;
@@ -930,6 +950,10 @@ export interface components {
             /** Format: double */
             change: number;
         };
+        Regulations: {
+            /** @description Plain text; empty removes it */
+            text: string;
+        };
         PodiumEntry: {
             place: number;
             name: string;
@@ -956,6 +980,10 @@ export interface components {
             role: "admin" | "organiser";
         };
         AdminTournament: {
+            /** @description The format and regulations written in admin, empty for none */
+            regulations: string;
+            /** @description The latest edition's description on CGE, shown when admin has written none; empty for none */
+            cge_regulations: string;
             slug: string;
             name: string;
             /** @description Shown on the site though not rated */
@@ -1691,6 +1719,8 @@ export interface components {
             ladder: boolean;
             /** @description Each CGE edition's description, usually its organiser's format and rules, newest first; plain text */
             rules: components["schemas"]["EditionRules"][];
+            /** @description The format and regulations written in admin, shown instead of the rules; plain text, absent for none */
+            regulations?: string;
             /** @description Everyone who played a shown game of the tournament, by name, for a search box */
             players: string[];
             /** @description A ladder's players by their wins in its top tier, most first, as its organisers count them (half a win for a tie) */
@@ -2915,6 +2945,35 @@ export interface operations {
                 };
                 content?: never;
             };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    putAdminRegulations: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The tournament's slug */
+                tournament: components["parameters"]["AdminTournamentSlug"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["Regulations"];
+            };
+        };
+        responses: {
+            /** @description Saved */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            400: components["responses"]["BadRequest"];
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];

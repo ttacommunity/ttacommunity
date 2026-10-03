@@ -1,5 +1,7 @@
 -- A season's podium as admin sets it, by hand: it beats a recorded placing and
--- one derived from the games. Who set it is in admin_audit.
+-- one derived from the games. And a tournament's format and regulations as
+-- admin writes them, shown instead of its latest CGE description. Who set
+-- either is in admin_audit.
 
 -- +goose Up
 CREATE TABLE tournament_podium_overrides (
@@ -11,7 +13,14 @@ CREATE TABLE tournament_podium_overrides (
     PRIMARY KEY (tournament, season, place)
 );
 GRANT SELECT, INSERT, UPDATE, DELETE ON tournament_podium_overrides TO ratings_admin;
+CREATE TABLE tournament_regulations (
+    tournament text PRIMARY KEY,
+    text       text NOT NULL CHECK (text <> '')
+);
+GRANT SELECT, INSERT, UPDATE, DELETE ON tournament_regulations TO ratings_admin;
 
 -- +goose Down
+REVOKE SELECT, INSERT, UPDATE, DELETE ON tournament_regulations FROM ratings_admin;
+DROP TABLE tournament_regulations;
 REVOKE SELECT, INSERT, UPDATE, DELETE ON tournament_podium_overrides FROM ratings_admin;
 DROP TABLE tournament_podium_overrides;

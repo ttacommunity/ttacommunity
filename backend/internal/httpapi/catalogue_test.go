@@ -171,3 +171,16 @@ func TestCatalogueTournamentSendsNoDatesForASeasonWithoutGames(t *testing.T) {
 		t.Errorf("a season without games = %s, want null dates and its note", rec.Body)
 	}
 }
+
+func TestCatalogueTournamentSendsAdminsRegulationsOnlyWhenWritten(t *testing.T) {
+	for _, tt := range []struct{ regulations, want string }{
+		{"Best of three.", `"regulations":"Best of three."`},
+		{"", `"regulations"`},
+	} {
+		f := &fakeCatalogue{tournament: store.CatalogueTournament{Slug: "wimbledon", Name: "Wimbledon", Regulations: tt.regulations}}
+		rec, _ := serve(t, f, "/v1/runs/7/catalogue/wimbledon")
+		if got := strings.Contains(rec.Body.String(), tt.want); got != (tt.regulations != "") {
+			t.Errorf("regulations %q: body = %s", tt.regulations, rec.Body)
+		}
+	}
+}

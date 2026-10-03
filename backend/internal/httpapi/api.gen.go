@@ -602,14 +602,20 @@ type AdminStage struct {
 
 // AdminTournament defines model for AdminTournament.
 type AdminTournament struct {
+	// CgeRegulations The latest edition's description on CGE, shown when admin has written none; empty for none
+	CgeRegulations string `json:"cge_regulations"`
+
 	// Community Counted in the overall community leaderboard
 	Community bool   `json:"community"`
 	Name      string `json:"name"`
 
 	// Rated In the community ratings
-	Rated   bool          `json:"rated"`
-	Seasons []AdminSeason `json:"seasons"`
-	Slug    string        `json:"slug"`
+	Rated bool `json:"rated"`
+
+	// Regulations The format and regulations written in admin, empty for none
+	Regulations string        `json:"regulations"`
+	Seasons     []AdminSeason `json:"seasons"`
+	Slug        string        `json:"slug"`
 
 	// Visible Shown on the site though not rated
 	Visible bool `json:"visible"`
@@ -824,6 +830,9 @@ type CatalogueTournament struct {
 
 	// Players Everyone who played a shown game of the tournament, by name, for a search box
 	Players []string `json:"players"`
+
+	// Regulations The format and regulations written in admin, shown instead of the rules; plain text, absent for none
+	Regulations *string `json:"regulations,omitempty"`
 
 	// Rules Each CGE edition's description, usually its organiser's format and rules, newest first; plain text
 	Rules []EditionRules `json:"rules"`
@@ -1360,6 +1369,12 @@ type PreviousRating struct {
 	Rd      float64 `json:"rd"`
 }
 
+// Regulations defines model for Regulations.
+type Regulations struct {
+	// Text Plain text; empty removes it
+	Text string `json:"text"`
+}
+
 // Rival defines model for Rival.
 type Rival struct {
 	Draws  int    `json:"draws"`
@@ -1848,6 +1863,9 @@ type PutAdminNoteJSONRequestBody = SeasonNote
 // PutAdminPodiumJSONRequestBody defines body for PutAdminPodium for application/json ContentType.
 type PutAdminPodiumJSONRequestBody = SeasonPodium
 
+// PutAdminRegulationsJSONRequestBody defines body for PutAdminRegulations for application/json ContentType.
+type PutAdminRegulationsJSONRequestBody = Regulations
+
 // PostAdminSeasonJSONRequestBody defines body for PostAdminSeason for application/json ContentType.
 type PostAdminSeasonJSONRequestBody = NewSeason
 
@@ -1901,6 +1919,9 @@ type ServerInterface interface {
 	// PutAdminPodium Set a season's podium by hand, over a recorded or derived one
 	// (PUT /v1/admin/tournaments/{tournament}/podium)
 	PutAdminPodium(w http.ResponseWriter, r *http.Request, tournament AdminTournamentSlug)
+	// PutAdminRegulations Write a tournament's format and regulations, shown instead of its latest CGE description
+	// (PUT /v1/admin/tournaments/{tournament}/regulations)
+	PutAdminRegulations(w http.ResponseWriter, r *http.Request, tournament AdminTournamentSlug)
 	// DeleteAdminSeason Remove a season that has no games, with its notes
 	// (DELETE /v1/admin/tournaments/{tournament}/seasons)
 	DeleteAdminSeason(w http.ResponseWriter, r *http.Request, tournament AdminTournamentSlug, params DeleteAdminSeasonParams)
@@ -2336,6 +2357,32 @@ func (siw *ServerInterfaceWrapper) PutAdminPodium(w http.ResponseWriter, r *http
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.PutAdminPodium(w, r, tournament)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// PutAdminRegulations operation middleware
+func (siw *ServerInterfaceWrapper) PutAdminRegulations(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "tournament" -------------
+	var tournament AdminTournamentSlug
+
+	err = runtime.BindStyledParameterWithOptions("simple", "tournament", r.PathValue("tournament"), &tournament, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "tournament", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.PutAdminRegulations(w, r, tournament)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -3825,6 +3872,7 @@ func HandlerWithOptions(si ServerInterface, options StdHTTPServerOptions) http.H
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/v1/admin/admins", wrapper.GetAdminAdmins)
 	m.HandleFunc(http.MethodDelete+" "+options.BaseURL+"/v1/admin/admins/{discord_id}", wrapper.DeleteAdminAdmin)
 	m.HandleFunc(http.MethodPut+" "+options.BaseURL+"/v1/admin/admins/{discord_id}", wrapper.PutAdminAdmin)
+	m.HandleFunc(http.MethodPut+" "+options.BaseURL+"/v1/admin/tournaments/{tournament}/regulations", wrapper.PutAdminRegulations)
 	m.HandleFunc(http.MethodDelete+" "+options.BaseURL+"/v1/admin/tournaments/{tournament}/podium", wrapper.DeleteAdminPodium)
 	m.HandleFunc(http.MethodPut+" "+options.BaseURL+"/v1/admin/tournaments/{tournament}/podium", wrapper.PutAdminPodium)
 	m.HandleFunc(http.MethodDelete+" "+options.BaseURL+"/v1/admin/tournaments/{tournament}/seasons", wrapper.DeleteAdminSeason)
@@ -4929,6 +4977,83 @@ func (response PutAdminPodium403JSONResponse) VisitPutAdminPodiumResponse(w http
 type PutAdminPodium404JSONResponse struct{ NotFoundJSONResponse }
 
 func (response PutAdminPodium404JSONResponse) VisitPutAdminPodiumResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PutAdminRegulationsRequestObject struct {
+	Tournament AdminTournamentSlug `json:"tournament"`
+	Body       *PutAdminRegulationsJSONRequestBody
+}
+
+type PutAdminRegulationsResponseObject interface {
+	VisitPutAdminRegulationsResponse(w http.ResponseWriter) error
+}
+
+type PutAdminRegulations204Response struct {
+}
+
+func (response PutAdminRegulations204Response) VisitPutAdminRegulationsResponse(w http.ResponseWriter) error {
+	w.WriteHeader(204)
+	return nil
+}
+
+type PutAdminRegulations400JSONResponse struct{ BadRequestJSONResponse }
+
+func (response PutAdminRegulations400JSONResponse) VisitPutAdminRegulationsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PutAdminRegulations401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response PutAdminRegulations401JSONResponse) VisitPutAdminRegulationsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PutAdminRegulations403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response PutAdminRegulations403JSONResponse) VisitPutAdminRegulationsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PutAdminRegulations404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response PutAdminRegulations404JSONResponse) VisitPutAdminRegulationsResponse(w http.ResponseWriter) error {
 
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
@@ -6662,6 +6787,9 @@ type StrictServerInterface interface {
 	// PutAdminPodium Set a season's podium by hand, over a recorded or derived one
 	// (PUT /v1/admin/tournaments/{tournament}/podium)
 	PutAdminPodium(ctx context.Context, request PutAdminPodiumRequestObject) (PutAdminPodiumResponseObject, error)
+	// PutAdminRegulations Write a tournament's format and regulations, shown instead of its latest CGE description
+	// (PUT /v1/admin/tournaments/{tournament}/regulations)
+	PutAdminRegulations(ctx context.Context, request PutAdminRegulationsRequestObject) (PutAdminRegulationsResponseObject, error)
 	// DeleteAdminSeason Remove a season that has no games, with its notes
 	// (DELETE /v1/admin/tournaments/{tournament}/seasons)
 	DeleteAdminSeason(ctx context.Context, request DeleteAdminSeasonRequestObject) (DeleteAdminSeasonResponseObject, error)
@@ -7207,6 +7335,39 @@ func (sh *strictHandler) PutAdminPodium(w http.ResponseWriter, r *http.Request, 
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(PutAdminPodiumResponseObject); ok {
 		if err := validResponse.VisitPutAdminPodiumResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// PutAdminRegulations operation middleware
+func (sh *strictHandler) PutAdminRegulations(w http.ResponseWriter, r *http.Request, tournament AdminTournamentSlug) {
+	var request PutAdminRegulationsRequestObject
+
+	request.Tournament = tournament
+
+	var body PutAdminRegulationsJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.PutAdminRegulations(ctx, request.(PutAdminRegulationsRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "PutAdminRegulations")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(PutAdminRegulationsResponseObject); ok {
+		if err := validResponse.VisitPutAdminRegulationsResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {

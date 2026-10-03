@@ -107,3 +107,17 @@ const CROWNED_BY_FINALS: ReadonlySet<string> = new Set(['duel_curve']);
 export function championsFromFinals<T extends { podium: readonly unknown[] }>(slug: string, seasons: readonly T[]): T[] | null {
   return CROWNED_BY_FINALS.has(slug) ? seasons.filter((s) => s.podium.length > 0) : null;
 }
+
+/** A tournament's Format & Regulations box: its text and the CGE edition it links to. */
+export type RegulationsBox = { text: string; link: { name: string; url: string } | null };
+
+/** regulationsBox gives the text admin wrote, else the latest CGE edition's description, linking that edition; null for neither. */
+export function regulationsBox(t: {
+  rules: readonly { name: string; description: string; url: string }[];
+  regulations?: string;
+}): RegulationsBox | null {
+  const latest = t.rules[0];
+  const text = t.regulations ?? latest?.description;
+  if (text === undefined || text === '') return null;
+  return { text, link: latest === undefined ? null : { name: latest.name, url: latest.url } };
+}

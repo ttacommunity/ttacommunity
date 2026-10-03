@@ -8,6 +8,8 @@ import (
 	"reflect"
 	"testing"
 	"time"
+
+	"ttacommunity/backend/internal/tournamentcsv"
 )
 
 func adminTournament(t *testing.T, ts []AdminTournament, slug string) AdminTournament {
@@ -218,5 +220,47 @@ func TestSetPodiumRefusesWhatIsNotAPodium(t *testing.T) {
 	_ = pool.QueryRow(ctx, "SELECT count(*) FROM tournament_podium_overrides").Scan(&n)
 	if n != 0 {
 		t.Errorf("%d podium rows after only refusals", n)
+	}
+}
+
+func TestSetRegulationsReplacesAndAnEmptyTextRemoves(t *testing.T) {
+	pool := migrated(t)
+	ctx := context.Background()
+	placedOn(t, pool, map[string]time.Time{"Wimbledon 2024 Stage 1 - group 1 game 1": day("2024-07-01")})
+	started := day("2024-07-01")
+	if _, err := ReplaceCGETournaments(ctx, pool, []tournamentcsv.CGETournament{
+		{ID: 4991, Name: "Wimbledon 2024", Status: "finished", Started: &started, Description: "CGE's rules.", Tournament: "wimbledon", Season: "2024"},
+	}); err != nil {
+		t.Fatal(err)
+	}
+	a := NewAdminStore(asAdminLogin(t, pool))
+	regs := func() (string, string) {
+		ts, err := a.Tournaments(ctx)
+		if err != nil {
+			t.Fatal(err)
+		}
+		w := adminTournament(t, ts, "wimbledon")
+		return w.Regulations, w.CGERegulations
+	}
+
+	if mine, cge := regs(); mine != "" || cge != "CGE's rules." {
+		t.Errorf("before = %q, %q; want none written and CGE's latest", mine, cge)
+	}
+	for _, text := range []string{"First.", "  Second.  "} {
+		if err := a.SetRegulations(ctx, "wimbledon", text); err != nil {
+			t.Fatalf("SetRegulations(%q): %v", text, err)
+		}
+	}
+	if mine, _ := regs(); mine != "Second." {
+		t.Errorf("regulations = %q, want the second, trimmed", mine)
+	}
+	if err := a.SetRegulations(ctx, "wimbledon", " "); err != nil {
+		t.Fatalf("SetRegulations(empty): %v", err)
+	}
+	if mine, _ := regs(); mine != "" {
+		t.Errorf("regulations after an empty text = %q, want none", mine)
+	}
+	if err := a.SetRegulations(ctx, "nope", "x"); !errors.Is(err, ErrNoTournament) {
+		t.Errorf("SetRegulations(nope) = %v, want ErrNoTournament", err)
 	}
 }
