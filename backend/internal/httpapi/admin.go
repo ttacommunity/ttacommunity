@@ -420,22 +420,31 @@ func (s *server) PostAdminRunStop(ctx context.Context, _ PostAdminRunStopRequest
 	return PostAdminRunStop204Response{}, nil
 }
 
-// defaultAgainst is the run another is compared with when none is asked for: the published run, or for the
-// published run itself the newest complete run before it. It is 0 when there is none.
+// defaultAgainst is the run another is compared with when none is asked for: the run the site showed before
+// it. For a run never published that is the published run; for a published one, the run first published
+// most recently before it. It is 0 when there is none.
 func defaultAgainst(runs []store.AdminRun, run int64) int64 {
+	var this *store.AdminRun
 	var current int64
-	for _, r := range runs {
+	for i, r := range runs {
+		if r.ID == run {
+			this = &runs[i]
+		}
 		if r.Current {
 			current = r.ID
 		}
 	}
-	if current != run {
+	if this == nil || this.PublishedAt == nil {
 		return current
 	}
-	for _, r := range runs { // newest first
-		if r.ID < run && r.Status == "complete" {
-			return r.ID
+	var before *store.AdminRun
+	for i, r := range runs {
+		if r.PublishedAt != nil && r.PublishedAt.Before(*this.PublishedAt) && (before == nil || r.PublishedAt.After(*before.PublishedAt)) {
+			before = &runs[i]
 		}
 	}
-	return 0
+	if before == nil {
+		return 0
+	}
+	return before.ID
 }

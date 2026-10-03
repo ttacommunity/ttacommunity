@@ -835,8 +835,8 @@ export interface paths {
             cookie?: never;
         };
         /**
-         * How far ratings moved from another run, by default the published one, or for the published run the complete run before it (admins only)
-         * @description Conservative ratings of the default model, in every format.
+         * How far ratings moved from another run, by default the one the site showed before it (admins only)
+         * @description For a run never published, that is the published run; for a published run, the run first published most recently before it. Compares conservative ratings of the default model, in every format.
          */
         get: operations["getAdminRunChanges"];
         put?: never;
