@@ -73,6 +73,27 @@ func (e AdminRoleRole) Valid() bool {
 	}
 }
 
+// Defines values for AdminRunStatus.
+const (
+	Complete AdminRunStatus = "complete"
+	Failed   AdminRunStatus = "failed"
+	Running  AdminRunStatus = "running"
+)
+
+// Valid indicates whether the value is a known member of the AdminRunStatus enum.
+func (e AdminRunStatus) Valid() bool {
+	switch e {
+	case Complete:
+		return true
+	case Failed:
+		return true
+	case Running:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for CalibrationRowMode.
 const (
 	Standard    CalibrationRowMode = "standard"
@@ -536,6 +557,29 @@ type AdminRole struct {
 
 // AdminRoleRole defines model for AdminRole.Role.
 type AdminRoleRole string
+
+// AdminRun defines model for AdminRun.
+type AdminRun struct {
+	// Current The run the site shows
+	Current       bool       `json:"current"`
+	EngineVersion string     `json:"engine_version"`
+	FinishedAt    *time.Time `json:"finished_at,omitempty"`
+	Games         int        `json:"games"`
+	Id            int64      `json:"id"`
+	Players       int        `json:"players"`
+
+	// Progress The engine's latest progress line, empty before its first
+	Progress   string     `json:"progress"`
+	ProgressAt *time.Time `json:"progress_at,omitempty"`
+
+	// PublishedAt When it was first published
+	PublishedAt *time.Time     `json:"published_at,omitempty"`
+	StartedAt   time.Time      `json:"started_at"`
+	Status      AdminRunStatus `json:"status"`
+}
+
+// AdminRunStatus defines model for AdminRun.Status.
+type AdminRunStatus string
 
 // AdminSeason defines model for AdminSeason.
 type AdminSeason struct {
@@ -1341,6 +1385,35 @@ type Run struct {
 	RunId       int64     `json:"run_id"`
 }
 
+// RunChanges defines model for RunChanges.
+type RunChanges struct {
+	Against int64 `json:"against"`
+
+	// Biggest The 20 biggest moves in the overall format
+	Biggest []RunMove `json:"biggest"`
+
+	// Gone Ratings in the other run but not this one
+	Gone     int `json:"gone"`
+	Moved1   int `json:"moved_1"`
+	Moved10  int `json:"moved_10"`
+	Moved100 int `json:"moved_100"`
+	Moved50  int `json:"moved_50"`
+
+	// New Ratings in this run but not the other
+	New           int   `json:"new"`
+	Ratings       int   `json:"ratings"`
+	RatingsBefore int   `json:"ratings_before"`
+	Run           int64 `json:"run"`
+}
+
+// RunMove defines model for RunMove.
+type RunMove struct {
+	After  float64 `json:"after"`
+	Before float64 `json:"before"`
+	Change float64 `json:"change"`
+	Name   string  `json:"name"`
+}
+
 // SeasonNote defines model for SeasonNote.
 type SeasonNote struct {
 	Note   string `json:"note"`
@@ -1392,6 +1465,12 @@ type SeriesCount struct {
 
 	// Series A tournament series
 	Series Series `json:"series"`
+}
+
+// StartedRun defines model for StartedRun.
+type StartedRun struct {
+	// Job The engine Job's name
+	Job string `json:"job"`
 }
 
 // Title The tournament title the run derived for the player, if any
@@ -1573,6 +1652,9 @@ type Years struct {
 	Years []YearEntry `json:"years"`
 }
 
+// AdminRunId defines model for AdminRunId.
+type AdminRunId = int64
+
 // AdminTournamentSlug defines model for AdminTournamentSlug.
 type AdminTournamentSlug = string
 
@@ -1588,6 +1670,9 @@ type RunId = int64
 // BadRequest defines model for BadRequest.
 type BadRequest = Error
 
+// Conflict defines model for Conflict.
+type Conflict = Error
+
 // Forbidden defines model for Forbidden.
 type Forbidden = Error
 
@@ -1597,8 +1682,16 @@ type NoPublishedRun = Error
 // NotFound defines model for NotFound.
 type NotFound = Error
 
+// NotSetUp defines model for NotSetUp.
+type NotSetUp = Error
+
 // Unauthorized defines model for Unauthorized.
 type Unauthorized = Error
+
+// GetAdminRunChangesParams defines parameters for GetAdminRunChanges.
+type GetAdminRunChangesParams struct {
+	Against *int64 `form:"against,omitempty" json:"against,omitempty"`
+}
 
 // DeleteAdminSeasonParams defines parameters for DeleteAdminSeason.
 type DeleteAdminSeasonParams struct {
@@ -1752,6 +1845,18 @@ type ServerInterface interface {
 	// GetAdminMe Who is signed in to admin, and in which role
 	// (GET /v1/admin/me)
 	GetAdminMe(w http.ResponseWriter, r *http.Request)
+	// GetAdminRuns Rating runs, newest first, with a running one's progress (admins only)
+	// (GET /v1/admin/runs)
+	GetAdminRuns(w http.ResponseWriter, r *http.Request)
+	// PostAdminRun Start a rating run now (admins only)
+	// (POST /v1/admin/runs)
+	PostAdminRun(w http.ResponseWriter, r *http.Request)
+	// GetAdminRunChanges How far ratings moved from another run, by default the published one (admins only)
+	// (GET /v1/admin/runs/{run}/changes)
+	GetAdminRunChanges(w http.ResponseWriter, r *http.Request, run AdminRunId, params GetAdminRunChangesParams)
+	// PostAdminRunPublish Make a complete run the one the site shows, or roll back to an older one (admins only)
+	// (POST /v1/admin/runs/{run}/publish)
+	PostAdminRunPublish(w http.ResponseWriter, r *http.Request, run AdminRunId)
 	// GetAdminTournaments Every tournament with its settings, seasons, stages and notes
 	// (GET /v1/admin/tournaments)
 	GetAdminTournaments(w http.ResponseWriter, r *http.Request)
@@ -1952,6 +2057,102 @@ func (siw *ServerInterfaceWrapper) GetAdminMe(w http.ResponseWriter, r *http.Req
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.GetAdminMe(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetAdminRuns operation middleware
+func (siw *ServerInterfaceWrapper) GetAdminRuns(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetAdminRuns(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// PostAdminRun operation middleware
+func (siw *ServerInterfaceWrapper) PostAdminRun(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.PostAdminRun(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetAdminRunChanges operation middleware
+func (siw *ServerInterfaceWrapper) GetAdminRunChanges(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "run" -------------
+	var run AdminRunId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "run", r.PathValue("run"), &run, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "integer", Format: "int64", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "run", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params GetAdminRunChangesParams
+
+	// ------------- Optional query parameter "against" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "against", r.URL.Query(), &params.Against, runtime.BindQueryParameterOptions{Type: "integer", Format: "int64"})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "against"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "against", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetAdminRunChanges(w, r, run, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// PostAdminRunPublish operation middleware
+func (siw *ServerInterfaceWrapper) PostAdminRunPublish(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "run" -------------
+	var run AdminRunId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "run", r.PathValue("run"), &run, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "integer", Format: "int64", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "run", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.PostAdminRunPublish(w, r, run)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -3509,6 +3710,10 @@ func HandlerWithOptions(si ServerInterface, options StdHTTPServerOptions) http.H
 	m.HandleFunc(http.MethodPut+" "+options.BaseURL+"/v1/admin/admins/{discord_id}", wrapper.PutAdminAdmin)
 	m.HandleFunc(http.MethodDelete+" "+options.BaseURL+"/v1/admin/tournaments/{tournament}/seasons", wrapper.DeleteAdminSeason)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/v1/admin/tournaments/{tournament}/seasons", wrapper.PostAdminSeason)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/v1/admin/runs", wrapper.GetAdminRuns)
+	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/v1/admin/runs", wrapper.PostAdminRun)
+	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/v1/admin/runs/{run}/publish", wrapper.PostAdminRunPublish)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/v1/admin/runs/{run}/changes", wrapper.GetAdminRunChanges)
 
 	return m
 }
@@ -3520,6 +3725,15 @@ type BadRequestJSONResponse struct {
 	Body Error
 
 	Headers BadRequestResponseHeaders
+}
+
+type ConflictResponseHeaders struct {
+	CacheControl string
+}
+type ConflictJSONResponse struct {
+	Body Error
+
+	Headers ConflictResponseHeaders
 }
 
 type ForbiddenResponseHeaders struct {
@@ -3547,6 +3761,15 @@ type NotFoundJSONResponse struct {
 	Body Error
 
 	Headers NotFoundResponseHeaders
+}
+
+type NotSetUpResponseHeaders struct {
+	CacheControl string
+}
+type NotSetUpJSONResponse struct {
+	Body Error
+
+	Headers NotSetUpResponseHeaders
 }
 
 type UnauthorizedResponseHeaders struct {
@@ -3867,6 +4090,306 @@ func (response GetAdminMe403JSONResponse) VisitGetAdminMeResponse(w http.Respons
 	w.Header().Set("Content-Type", "application/json")
 	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
 	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetAdminRunsRequestObject struct {
+}
+
+type GetAdminRunsResponseObject interface {
+	VisitGetAdminRunsResponse(w http.ResponseWriter) error
+}
+
+type GetAdminRuns200ResponseHeaders struct {
+	CacheControl string
+}
+
+type GetAdminRuns200JSONResponse struct {
+	Body    []AdminRun
+	Headers GetAdminRuns200ResponseHeaders
+}
+
+func (response GetAdminRuns200JSONResponse) VisitGetAdminRunsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetAdminRuns401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response GetAdminRuns401JSONResponse) VisitGetAdminRunsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetAdminRuns403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response GetAdminRuns403JSONResponse) VisitGetAdminRunsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PostAdminRunRequestObject struct {
+}
+
+type PostAdminRunResponseObject interface {
+	VisitPostAdminRunResponse(w http.ResponseWriter) error
+}
+
+type PostAdminRun202ResponseHeaders struct {
+	CacheControl string
+}
+
+type PostAdminRun202JSONResponse struct {
+	Body    StartedRun
+	Headers PostAdminRun202ResponseHeaders
+}
+
+func (response PostAdminRun202JSONResponse) VisitPostAdminRunResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(202)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PostAdminRun401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response PostAdminRun401JSONResponse) VisitPostAdminRunResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PostAdminRun403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response PostAdminRun403JSONResponse) VisitPostAdminRunResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PostAdminRun409JSONResponse struct{ ConflictJSONResponse }
+
+func (response PostAdminRun409JSONResponse) VisitPostAdminRunResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(409)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PostAdminRun503JSONResponse struct{ NotSetUpJSONResponse }
+
+func (response PostAdminRun503JSONResponse) VisitPostAdminRunResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(503)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetAdminRunChangesRequestObject struct {
+	Run    AdminRunId `json:"run"`
+	Params GetAdminRunChangesParams
+}
+
+type GetAdminRunChangesResponseObject interface {
+	VisitGetAdminRunChangesResponse(w http.ResponseWriter) error
+}
+
+type GetAdminRunChanges200ResponseHeaders struct {
+	CacheControl string
+}
+
+type GetAdminRunChanges200JSONResponse struct {
+	Body    RunChanges
+	Headers GetAdminRunChanges200ResponseHeaders
+}
+
+func (response GetAdminRunChanges200JSONResponse) VisitGetAdminRunChangesResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetAdminRunChanges401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response GetAdminRunChanges401JSONResponse) VisitGetAdminRunChangesResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetAdminRunChanges403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response GetAdminRunChanges403JSONResponse) VisitGetAdminRunChangesResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetAdminRunChanges404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response GetAdminRunChanges404JSONResponse) VisitGetAdminRunChangesResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PostAdminRunPublishRequestObject struct {
+	Run AdminRunId `json:"run"`
+}
+
+type PostAdminRunPublishResponseObject interface {
+	VisitPostAdminRunPublishResponse(w http.ResponseWriter) error
+}
+
+type PostAdminRunPublish204Response struct {
+}
+
+func (response PostAdminRunPublish204Response) VisitPostAdminRunPublishResponse(w http.ResponseWriter) error {
+	w.WriteHeader(204)
+	return nil
+}
+
+type PostAdminRunPublish401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response PostAdminRunPublish401JSONResponse) VisitPostAdminRunPublishResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PostAdminRunPublish403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response PostAdminRunPublish403JSONResponse) VisitPostAdminRunPublishResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PostAdminRunPublish404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response PostAdminRunPublish404JSONResponse) VisitPostAdminRunPublishResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PostAdminRunPublish409JSONResponse struct{ ConflictJSONResponse }
+
+func (response PostAdminRunPublish409JSONResponse) VisitPostAdminRunPublishResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(409)
 	_, err := buf.WriteTo(w)
 	return err
 }
@@ -5775,6 +6298,18 @@ type StrictServerInterface interface {
 	// GetAdminMe Who is signed in to admin, and in which role
 	// (GET /v1/admin/me)
 	GetAdminMe(ctx context.Context, request GetAdminMeRequestObject) (GetAdminMeResponseObject, error)
+	// GetAdminRuns Rating runs, newest first, with a running one's progress (admins only)
+	// (GET /v1/admin/runs)
+	GetAdminRuns(ctx context.Context, request GetAdminRunsRequestObject) (GetAdminRunsResponseObject, error)
+	// PostAdminRun Start a rating run now (admins only)
+	// (POST /v1/admin/runs)
+	PostAdminRun(ctx context.Context, request PostAdminRunRequestObject) (PostAdminRunResponseObject, error)
+	// GetAdminRunChanges How far ratings moved from another run, by default the published one (admins only)
+	// (GET /v1/admin/runs/{run}/changes)
+	GetAdminRunChanges(ctx context.Context, request GetAdminRunChangesRequestObject) (GetAdminRunChangesResponseObject, error)
+	// PostAdminRunPublish Make a complete run the one the site shows, or roll back to an older one (admins only)
+	// (POST /v1/admin/runs/{run}/publish)
+	PostAdminRunPublish(ctx context.Context, request PostAdminRunPublishRequestObject) (PostAdminRunPublishResponseObject, error)
 	// GetAdminTournaments Every tournament with its settings, seasons, stages and notes
 	// (GET /v1/admin/tournaments)
 	GetAdminTournaments(ctx context.Context, request GetAdminTournamentsRequestObject) (GetAdminTournamentsResponseObject, error)
@@ -6054,6 +6589,107 @@ func (sh *strictHandler) GetAdminMe(w http.ResponseWriter, r *http.Request) {
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(GetAdminMeResponseObject); ok {
 		if err := validResponse.VisitGetAdminMeResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// GetAdminRuns operation middleware
+func (sh *strictHandler) GetAdminRuns(w http.ResponseWriter, r *http.Request) {
+	var request GetAdminRunsRequestObject
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.GetAdminRuns(ctx, request.(GetAdminRunsRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetAdminRuns")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(GetAdminRunsResponseObject); ok {
+		if err := validResponse.VisitGetAdminRunsResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// PostAdminRun operation middleware
+func (sh *strictHandler) PostAdminRun(w http.ResponseWriter, r *http.Request) {
+	var request PostAdminRunRequestObject
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.PostAdminRun(ctx, request.(PostAdminRunRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "PostAdminRun")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(PostAdminRunResponseObject); ok {
+		if err := validResponse.VisitPostAdminRunResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// GetAdminRunChanges operation middleware
+func (sh *strictHandler) GetAdminRunChanges(w http.ResponseWriter, r *http.Request, run AdminRunId, params GetAdminRunChangesParams) {
+	var request GetAdminRunChangesRequestObject
+
+	request.Run = run
+	request.Params = params
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.GetAdminRunChanges(ctx, request.(GetAdminRunChangesRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetAdminRunChanges")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(GetAdminRunChangesResponseObject); ok {
+		if err := validResponse.VisitGetAdminRunChangesResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// PostAdminRunPublish operation middleware
+func (sh *strictHandler) PostAdminRunPublish(w http.ResponseWriter, r *http.Request, run AdminRunId) {
+	var request PostAdminRunPublishRequestObject
+
+	request.Run = run
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.PostAdminRunPublish(ctx, request.(PostAdminRunPublishRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "PostAdminRunPublish")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(PostAdminRunPublishResponseObject); ok {
+		if err := validResponse.VisitPostAdminRunPublishResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {

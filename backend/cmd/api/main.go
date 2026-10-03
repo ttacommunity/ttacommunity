@@ -16,6 +16,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"ttacommunity/backend/internal/access"
+	"ttacommunity/backend/internal/enginejob"
 	"ttacommunity/backend/internal/httpapi"
 	"ttacommunity/backend/internal/store"
 )
@@ -67,18 +68,28 @@ func main() {
 	log.Info("api stopped cleanly")
 }
 
-// adminDeps verifies admin requests' Access tokens and reads admins through the admin login.
+// adminDeps verifies admin requests' Access tokens, reads admins through the admin login, and starts runs.
 type adminDeps struct {
 	*access.Verifier
 	*store.AdminStore
-	origin string
+	origin  string
+	starter *enginejob.Starter
 }
 
 // AllowedOrigin is the admin site's origin, the only one a change may come from.
 func (d adminDeps) AllowedOrigin() string { return d.origin }
 
+// StartRun starts the engine now, or returns enginejob.ErrNotSetUp when ENGINE_CRONJOB is not set.
+func (d adminDeps) StartRun(ctx context.Context) (string, error) {
+	if d.starter == nil {
+		return "", enginejob.ErrNotSetUp
+	}
+	return d.starter.Start(ctx)
+}
+
 // openAdmin builds admin from ACCESS_TEAM, ACCESS_AUD, ADMIN_ORIGIN and RATINGS_ADMIN_DATABASE_URL. Any of them
 // unset, or an admin login that can change more than admin edits, is an error: admin never starts open.
+// ENGINE_CRONJOB, when set, names the CronJob admin starts runs from, in the pod's namespace.
 func openAdmin(ctx context.Context) (adminDeps, func(), error) {
 	team, aud, url := os.Getenv("ACCESS_TEAM"), os.Getenv("ACCESS_AUD"), os.Getenv("RATINGS_ADMIN_DATABASE_URL")
 	if url == "" {
@@ -101,5 +112,12 @@ func openAdmin(ctx context.Context) (adminDeps, func(), error) {
 		pool.Close()
 		return adminDeps{}, nil, err
 	}
-	return adminDeps{v, a, origin}, pool.Close, nil
+	var starter *enginejob.Starter
+	if cj := os.Getenv("ENGINE_CRONJOB"); cj != "" {
+		if starter, err = enginejob.InCluster(cj); err != nil {
+			pool.Close()
+			return adminDeps{}, nil, err
+		}
+	}
+	return adminDeps{v, a, origin, starter}, pool.Close, nil
 }

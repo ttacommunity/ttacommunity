@@ -6,11 +6,13 @@ package httpapi
 import (
 	"context"
 	"errors"
+	"fmt"
 	"log/slog"
 	"net/http"
 	"strings"
 
 	"ttacommunity/backend/internal/access"
+	"ttacommunity/backend/internal/enginejob"
 	"ttacommunity/backend/internal/store"
 )
 
@@ -32,6 +34,11 @@ type Admins interface {
 	Admins(ctx context.Context) ([]store.Admin, error)
 	SetAdmin(ctx context.Context, a store.Admin) error
 	RemoveAdmin(ctx context.Context, discordID string) error
+	Runs(ctx context.Context) ([]store.AdminRun, error)
+	Publish(ctx context.Context, run int64) error
+	RunChanges(ctx context.Context, run, before int64) (store.RunChanges, error)
+	// StartRun starts the engine now and returns its Job's name, or enginejob.ErrRunning or ErrNotSetUp.
+	StartRun(ctx context.Context) (string, error)
 }
 
 type adminKey struct{}
@@ -283,4 +290,102 @@ func (s *server) DeleteAdminSeason(ctx context.Context, req DeleteAdminSeasonReq
 		return nil, err
 	}
 	return DeleteAdminSeason204Response{}, nil
+}
+
+const onlyAdminsRun = "only admins run the engine"
+
+func conflict409(msg string) ConflictJSONResponse {
+	return ConflictJSONResponse{Body: Error{Error: msg}, Headers: ConflictResponseHeaders{CacheControl: cacheNone}}
+}
+
+func (s *server) GetAdminRuns(ctx context.Context, _ GetAdminRunsRequestObject) (GetAdminRunsResponseObject, error) {
+	if _, ok, err := adminOnly(ctx); err != nil || !ok {
+		return GetAdminRuns403JSONResponse{forbidden(onlyAdminsRun)}, err
+	}
+	runs, err := s.admins.Runs(ctx)
+	if err != nil {
+		return nil, err
+	}
+	out := make([]AdminRun, len(runs))
+	for i, r := range runs {
+		out[i] = AdminRun{
+			Id: r.ID, Status: AdminRunStatus(r.Status), StartedAt: r.StartedAt, FinishedAt: r.FinishedAt, PublishedAt: r.PublishedAt,
+			Current: r.Current, Games: r.Games, Players: r.Players, EngineVersion: r.EngineVersion, Progress: r.Progress, ProgressAt: r.ProgressAt,
+		}
+	}
+	return GetAdminRuns200JSONResponse{Body: out, Headers: GetAdminRuns200ResponseHeaders{CacheControl: cacheNone}}, nil
+}
+
+func (s *server) PostAdminRun(ctx context.Context, _ PostAdminRunRequestObject) (PostAdminRunResponseObject, error) {
+	me, ok, err := adminOnly(ctx)
+	if err != nil || !ok {
+		return PostAdminRun403JSONResponse{forbidden(onlyAdminsRun)}, err
+	}
+	job, err := s.admins.StartRun(ctx)
+	switch {
+	case errors.Is(err, enginejob.ErrRunning):
+		return PostAdminRun409JSONResponse{conflict409("a rating run is already going")}, nil
+	case errors.Is(err, enginejob.ErrNotSetUp):
+		return PostAdminRun503JSONResponse{NotSetUpJSONResponse{Body: Error{Error: "starting runs is not set up here"}, Headers: NotSetUpResponseHeaders{CacheControl: cacheNone}}}, nil
+	case err != nil:
+		return nil, err
+	}
+	if err := s.admins.Audit(ctx, me.DiscordID, "run.start", job, map[string]any{}); err != nil {
+		return nil, err
+	}
+	return PostAdminRun202JSONResponse{Body: StartedRun{Job: job}, Headers: PostAdminRun202ResponseHeaders{CacheControl: cacheNone}}, nil
+}
+
+func (s *server) PostAdminRunPublish(ctx context.Context, req PostAdminRunPublishRequestObject) (PostAdminRunPublishResponseObject, error) {
+	me, ok, err := adminOnly(ctx)
+	if err != nil || !ok {
+		return PostAdminRunPublish403JSONResponse{forbidden(onlyAdminsRun)}, err
+	}
+	switch err := s.admins.Publish(ctx, req.Run); {
+	case errors.Is(err, store.ErrRunNotFound):
+		return PostAdminRunPublish404JSONResponse{notFound404("no such run")}, nil
+	case errors.Is(err, store.ErrRunNotComplete):
+		return PostAdminRunPublish409JSONResponse{conflict409("only a complete run can be published")}, nil
+	case err != nil:
+		return nil, err
+	}
+	if err := s.admins.Audit(ctx, me.DiscordID, "run.publish", fmt.Sprint(req.Run), map[string]any{}); err != nil {
+		return nil, err
+	}
+	return PostAdminRunPublish204Response{}, nil
+}
+
+func (s *server) GetAdminRunChanges(ctx context.Context, req GetAdminRunChangesRequestObject) (GetAdminRunChangesResponseObject, error) {
+	if _, ok, err := adminOnly(ctx); err != nil || !ok {
+		return GetAdminRunChanges403JSONResponse{forbidden(onlyAdminsRun)}, err
+	}
+	var against int64
+	if req.Params.Against != nil {
+		against = *req.Params.Against
+	} else {
+		runs, err := s.admins.Runs(ctx)
+		if err != nil {
+			return nil, err
+		}
+		for _, r := range runs {
+			if r.Current {
+				against = r.ID
+			}
+		}
+	}
+	c, err := s.admins.RunChanges(ctx, req.Run, against)
+	if errors.Is(err, store.ErrRunNotFound) {
+		return GetAdminRunChanges404JSONResponse{notFound404("no such run, or none published to compare with")}, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	biggest := make([]RunMove, len(c.Biggest))
+	for i, m := range c.Biggest {
+		biggest[i] = RunMove{Name: m.Name, Before: m.Before, After: m.After, Change: m.Change}
+	}
+	return GetAdminRunChanges200JSONResponse{Body: RunChanges{
+		Run: req.Run, Against: against, Ratings: c.Ratings, RatingsBefore: c.RatingsBefore, New: c.New, Gone: c.Gone,
+		Moved1: c.Moved1, Moved10: c.Moved10, Moved50: c.Moved50, Moved100: c.Moved100, Biggest: biggest,
+	}, Headers: GetAdminRunChanges200ResponseHeaders{CacheControl: cacheNone}}, nil
 }

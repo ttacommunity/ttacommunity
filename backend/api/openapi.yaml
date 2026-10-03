@@ -1064,8 +1064,113 @@ paths:
           $ref: "#/components/responses/Forbidden"
         "404":
           $ref: "#/components/responses/NotFound"
+  /v1/admin/runs:
+    get:
+      operationId: getAdminRuns
+      tags: [admin]
+      summary: Rating runs, newest first, with a running one's progress (admins only)
+      responses:
+        "200":
+          description: The runs
+          headers:
+            Cache-Control:
+              $ref: "#/components/headers/CacheControl"
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/AdminRun"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+    post:
+      operationId: postAdminRun
+      tags: [admin]
+      summary: Start a rating run now (admins only)
+      description: >
+        Starts the engine as a Job. The run is not published: publish it once
+        it is complete. Audited. The Origin must be the admin site.
+      responses:
+        "202":
+          description: The engine Job was created
+          headers:
+            Cache-Control:
+              $ref: "#/components/headers/CacheControl"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StartedRun"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "503":
+          $ref: "#/components/responses/NotSetUp"
+  /v1/admin/runs/{run}/publish:
+    post:
+      operationId: postAdminRunPublish
+      tags: [admin]
+      summary: Make a complete run the one the site shows, or roll back to an older one (admins only)
+      description: Audited. The Origin must be the admin site.
+      parameters:
+        - $ref: "#/components/parameters/AdminRunId"
+      responses:
+        "204":
+          description: Published
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+  /v1/admin/runs/{run}/changes:
+    get:
+      operationId: getAdminRunChanges
+      tags: [admin]
+      summary: How far ratings moved from another run, by default the published one (admins only)
+      description: Conservative ratings of the default model, in every format.
+      parameters:
+        - $ref: "#/components/parameters/AdminRunId"
+        - name: against
+          in: query
+          required: false
+          schema:
+            type: integer
+            format: int64
+            minimum: 1
+      responses:
+        "200":
+          description: The changes
+          headers:
+            Cache-Control:
+              $ref: "#/components/headers/CacheControl"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RunChanges"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
 components:
   parameters:
+    AdminRunId:
+      name: run
+      in: path
+      required: true
+      description: Any run's id, published or not
+      schema:
+        type: integer
+        format: int64
+        minimum: 1
     DiscordID:
       name: discord_id
       in: path
@@ -1119,6 +1224,24 @@ components:
       schema:
         type: string
   responses:
+    Conflict:
+      description: The change cannot be made in the current state, such as a run already going
+      headers:
+        Cache-Control:
+          $ref: "#/components/headers/CacheControl"
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+    NotSetUp:
+      description: This API is not set up to do that here
+      headers:
+        Cache-Control:
+          $ref: "#/components/headers/CacheControl"
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
     Unauthorized:
       description: No Access token, or one that does not verify
       headers:
@@ -1165,6 +1288,96 @@ components:
           schema:
             $ref: "#/components/schemas/Error"
   schemas:
+    AdminRun:
+      type: object
+      required: [id, status, started_at, current, games, players, engine_version, progress]
+      properties:
+        id:
+          type: integer
+          format: int64
+        status:
+          type: string
+          enum: [running, complete, failed]
+        started_at:
+          type: string
+          format: date-time
+        finished_at:
+          type: string
+          format: date-time
+        published_at:
+          description: When it was first published
+          type: string
+          format: date-time
+        current:
+          description: The run the site shows
+          type: boolean
+        games:
+          type: integer
+        players:
+          type: integer
+        engine_version:
+          type: string
+        progress:
+          description: The engine's latest progress line, empty before its first
+          type: string
+        progress_at:
+          type: string
+          format: date-time
+    StartedRun:
+      type: object
+      required: [job]
+      properties:
+        job:
+          description: The engine Job's name
+          type: string
+    RunChanges:
+      type: object
+      required: [run, against, ratings, ratings_before, new, gone, moved_1, moved_10, moved_50, moved_100, biggest]
+      properties:
+        run:
+          type: integer
+          format: int64
+        against:
+          type: integer
+          format: int64
+        ratings:
+          type: integer
+        ratings_before:
+          type: integer
+        new:
+          description: Ratings in this run but not the other
+          type: integer
+        gone:
+          description: Ratings in the other run but not this one
+          type: integer
+        moved_1:
+          type: integer
+        moved_10:
+          type: integer
+        moved_50:
+          type: integer
+        moved_100:
+          type: integer
+        biggest:
+          description: The 20 biggest moves in the overall format
+          type: array
+          items:
+            $ref: "#/components/schemas/RunMove"
+    RunMove:
+      type: object
+      required: [name, before, after, change]
+      properties:
+        name:
+          type: string
+        before:
+          type: number
+          format: double
+        after:
+          type: number
+          format: double
+        change:
+          type: number
+          format: double
     NewSeason:
       type: object
       additionalProperties: false

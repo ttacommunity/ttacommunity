@@ -763,10 +763,126 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/admin/runs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Rating runs, newest first, with a running one's progress (admins only) */
+        get: operations["getAdminRuns"];
+        put?: never;
+        /**
+         * Start a rating run now (admins only)
+         * @description Starts the engine as a Job. The run is not published: publish it once it is complete. Audited. The Origin must be the admin site.
+         */
+        post: operations["postAdminRun"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/runs/{run}/publish": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Make a complete run the one the site shows, or roll back to an older one (admins only)
+         * @description Audited. The Origin must be the admin site.
+         */
+        post: operations["postAdminRunPublish"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/runs/{run}/changes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * How far ratings moved from another run, by default the published one (admins only)
+         * @description Conservative ratings of the default model, in every format.
+         */
+        get: operations["getAdminRunChanges"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        AdminRun: {
+            /** Format: int64 */
+            id: number;
+            /** @enum {string} */
+            status: "running" | "complete" | "failed";
+            /** Format: date-time */
+            started_at: string;
+            /** Format: date-time */
+            finished_at?: string;
+            /**
+             * Format: date-time
+             * @description When it was first published
+             */
+            published_at?: string;
+            /** @description The run the site shows */
+            current: boolean;
+            games: number;
+            players: number;
+            engine_version: string;
+            /** @description The engine's latest progress line, empty before its first */
+            progress: string;
+            /** Format: date-time */
+            progress_at?: string;
+        };
+        StartedRun: {
+            /** @description The engine Job's name */
+            job: string;
+        };
+        RunChanges: {
+            /** Format: int64 */
+            run: number;
+            /** Format: int64 */
+            against: number;
+            ratings: number;
+            ratings_before: number;
+            /** @description Ratings in this run but not the other */
+            new: number;
+            /** @description Ratings in the other run but not this one */
+            gone: number;
+            moved_1: number;
+            moved_10: number;
+            moved_50: number;
+            moved_100: number;
+            /** @description The 20 biggest moves in the overall format */
+            biggest: components["schemas"]["RunMove"][];
+        };
+        RunMove: {
+            name: string;
+            /** Format: double */
+            before: number;
+            /** Format: double */
+            after: number;
+            /** Format: double */
+            change: number;
+        };
         NewSeason: {
             /** @description As the site shows it, e.g. "1" or "2023 Play Off" */
             label: string;
@@ -1695,6 +1811,26 @@ export interface components {
         };
     };
     responses: {
+        /** @description The change cannot be made in the current state, such as a run already going */
+        Conflict: {
+            headers: {
+                "Cache-Control": components["headers"]["CacheControl"];
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["Error"];
+            };
+        };
+        /** @description This API is not set up to do that here */
+        NotSetUp: {
+            headers: {
+                "Cache-Control": components["headers"]["CacheControl"];
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["Error"];
+            };
+        };
         /** @description No Access token, or one that does not verify */
         Unauthorized: {
             headers: {
@@ -1747,6 +1883,8 @@ export interface components {
         };
     };
     parameters: {
+        /** @description Any run's id, published or not */
+        AdminRunId: number;
         /** @description A Discord user id */
         DiscordID: string;
         /** @description The tournament's slug */
@@ -2778,6 +2916,108 @@ export interface operations {
             404: components["responses"]["NotFound"];
         };
     };
+    getAdminRuns: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The runs */
+            200: {
+                headers: {
+                    "Cache-Control": components["headers"]["CacheControl"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminRun"][];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    postAdminRun: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The engine Job was created */
+            202: {
+                headers: {
+                    "Cache-Control": components["headers"]["CacheControl"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StartedRun"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            409: components["responses"]["Conflict"];
+            503: components["responses"]["NotSetUp"];
+        };
+    };
+    postAdminRunPublish: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Any run's id, published or not */
+                run: components["parameters"]["AdminRunId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Published */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+        };
+    };
+    getAdminRunChanges: {
+        parameters: {
+            query?: {
+                against?: number;
+            };
+            header?: never;
+            path: {
+                /** @description Any run's id, published or not */
+                run: components["parameters"]["AdminRunId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The changes */
+            200: {
+                headers: {
+                    "Cache-Control": components["headers"]["CacheControl"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RunChanges"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
 }
 type FlattenedDeepRequired<T> = {
     [K in keyof T]-?: FlattenedDeepRequired<T[K] extends unknown[] | undefined | null ? Extract<T[K], unknown[]>[number] : T[K]>;
@@ -2791,6 +3031,7 @@ export const pathsV1RunsRunLeaderboardCsvGetParametersQueryStatusValues: Readonl
 export const pathsV1RunsRunLeaderboardCsvGetParametersQuerySortValues: ReadonlyArray<FlattenedDeepRequired<paths>["/v1/runs/{run}/leaderboard.csv"]["get"]["parameters"]["query"]["sort"]> = ["rank", "name", "c_rating", "rating", "opps", "win_rate", "last_played"];
 export const pathsV1RunsRunLeaderboardCsvGetParametersQueryOrderValues: ReadonlyArray<FlattenedDeepRequired<paths>["/v1/runs/{run}/leaderboard.csv"]["get"]["parameters"]["query"]["order"]> = ["asc", "desc"];
 export const pathsV1RunsRunLeaderboardCsvGetParametersQueryStats_viewValues: ReadonlyArray<FlattenedDeepRequired<paths>["/v1/runs/{run}/leaderboard.csv"]["get"]["parameters"]["query"]["stats_view"]> = ["season", "career"];
+export const adminRunStatusValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["AdminRun"]["status"]> = ["running", "complete", "failed"];
 export const adminPersonRoleValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["AdminPerson"]["role"]> = ["admin", "organiser"];
 export const adminRoleRoleValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["AdminRole"]["role"]> = ["admin", "organiser"];
 export const adminMeRoleValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["AdminMe"]["role"]> = ["admin", "organiser"];

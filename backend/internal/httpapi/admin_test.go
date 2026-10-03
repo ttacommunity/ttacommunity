@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
@@ -11,6 +12,7 @@ import (
 	"testing"
 
 	"ttacommunity/backend/internal/access"
+	"ttacommunity/backend/internal/enginejob"
 	"ttacommunity/backend/internal/store"
 )
 
@@ -20,6 +22,42 @@ type fakeAdmins struct {
 	settings []store.TournamentSettings
 	notes    []string
 	audits   []string
+	startErr error
+}
+
+// fakeRuns are run 7 (complete, current), 8 (complete) and 9 (running).
+var fakeRuns = []store.AdminRun{
+	{ID: 9, Status: "running", Progress: "[3/10] models 2p"},
+	{ID: 8, Status: "complete", Games: 100},
+	{ID: 7, Status: "complete", Games: 90, Current: true},
+}
+
+func (*fakeAdmins) Runs(context.Context) ([]store.AdminRun, error) { return fakeRuns, nil }
+
+func (f *fakeAdmins) Publish(_ context.Context, run int64) error {
+	switch run {
+	case 7, 8:
+		f.notes = append(f.notes, fmt.Sprintf("publish %d", run))
+		return nil
+	case 9:
+		return store.ErrRunNotComplete
+	}
+	return store.ErrRunNotFound
+}
+
+func (*fakeAdmins) RunChanges(_ context.Context, run, before int64) (store.RunChanges, error) {
+	if run < 7 || run > 9 || before < 7 || before > 9 {
+		return store.RunChanges{}, store.ErrRunNotFound
+	}
+	return store.RunChanges{Ratings: int(run), RatingsBefore: int(before), Biggest: []store.RunMove{{Name: "dan", Before: 1500, After: 1380, Change: -120}}}, nil
+}
+
+func (f *fakeAdmins) StartRun(context.Context) (string, error) {
+	if f.startErr != nil {
+		return "", f.startErr
+	}
+	f.notes = append(f.notes, "start")
+	return "engine-dev-admin-x7k2p", nil
 }
 
 func (*fakeAdmins) AllowedOrigin() string { return "https://ttac-admin.example" }
@@ -334,6 +372,100 @@ func TestAdminAddsAndRemovesASeasonWithoutGames(t *testing.T) {
 			changed := strings.Join(f.notes, "|")
 			if changed != tt.change || (tt.change != "") != (len(f.audits) == 1) {
 				t.Errorf("changes %q, audits %q; want %q, audited when changed", changed, f.audits, tt.change)
+			}
+		})
+	}
+}
+
+func TestAnAdminListsRuns(t *testing.T) {
+	rec := adminDoAs(t, &fakeAdmins{}, "111111111111111111", http.MethodGet, "/v1/admin/runs", "", "")
+	var got []AdminRun
+	if err := json.Unmarshal(rec.Body.Bytes(), &got); err != nil || rec.Code != http.StatusOK {
+		t.Fatalf("GET runs = %d %s", rec.Code, rec.Body)
+	}
+	if len(got) != 3 || got[0].Id != 9 || got[0].Progress != "[3/10] models 2p" || !got[2].Current || got[2].PublishedAt != nil {
+		t.Errorf("runs = %+v", got)
+	}
+}
+
+func TestAnAdminStartsAndPublishesRunsAndEachIsAudited(t *testing.T) {
+	const site, owner = "https://ttac-admin.example", "111111111111111111"
+	f := &fakeAdmins{}
+	rec := adminDoAs(t, f, owner, http.MethodPost, "/v1/admin/runs", site, "")
+	var started StartedRun
+	if err := json.Unmarshal(rec.Body.Bytes(), &started); err != nil || rec.Code != http.StatusAccepted || started.Job != "engine-dev-admin-x7k2p" {
+		t.Fatalf("POST runs = %d %s, want 202 with the job", rec.Code, rec.Body)
+	}
+	if rec := adminDoAs(t, f, owner, http.MethodPost, "/v1/admin/runs/8/publish", site, ""); rec.Code != http.StatusNoContent {
+		t.Errorf("publish 8 = %d %s, want 204", rec.Code, rec.Body)
+	}
+	if want := "start|publish 8"; strings.Join(f.notes, "|") != want {
+		t.Errorf("changes = %q, want %q", f.notes, want)
+	}
+	if want := owner + " run.start engine-dev-admin-x7k2p|" + owner + " run.publish 8"; strings.Join(f.audits, "|") != want {
+		t.Errorf("audits = %q, want %q", f.audits, want)
+	}
+}
+
+func TestRunChangesAreRefusedWhenTheyShouldBe(t *testing.T) {
+	const site, owner, org = "https://ttac-admin.example", "111111111111111111", "222222222222222222"
+	tests := []struct {
+		name, who, method, path, origin string
+		startErr                        error
+		want                            int
+	}{
+		{"an organiser lists runs", org, http.MethodGet, "/v1/admin/runs", "", nil, http.StatusForbidden},
+		{"an organiser starts a run", org, http.MethodPost, "/v1/admin/runs", site, nil, http.StatusForbidden},
+		{"an organiser publishes", org, http.MethodPost, "/v1/admin/runs/8/publish", site, nil, http.StatusForbidden},
+		{"an organiser compares", org, http.MethodGet, "/v1/admin/runs/8/changes", "", nil, http.StatusForbidden},
+		{"a start from another site", owner, http.MethodPost, "/v1/admin/runs", "https://evil.example", nil, http.StatusForbidden},
+		{"a start while a run is going", owner, http.MethodPost, "/v1/admin/runs", site, enginejob.ErrRunning, http.StatusConflict},
+		{"a start where runs are not set up", owner, http.MethodPost, "/v1/admin/runs", site, enginejob.ErrNotSetUp, http.StatusServiceUnavailable},
+		{"publishing a running run", owner, http.MethodPost, "/v1/admin/runs/9/publish", site, nil, http.StatusConflict},
+		{"publishing no run", owner, http.MethodPost, "/v1/admin/runs/99/publish", site, nil, http.StatusNotFound},
+		{"publishing from another site", owner, http.MethodPost, "/v1/admin/runs/8/publish", "https://evil.example", nil, http.StatusForbidden},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			f := &fakeAdmins{startErr: tt.startErr}
+			rec := adminDoAs(t, f, tt.who, tt.method, tt.path, tt.origin, "")
+			if rec.Code != tt.want {
+				t.Errorf("%s %s = %d %s, want %d", tt.method, tt.path, rec.Code, rec.Body, tt.want)
+			}
+			if len(f.notes)+len(f.audits) != 0 {
+				t.Errorf("a refused change still changed something: %q %q", f.notes, f.audits)
+			}
+		})
+	}
+}
+
+func TestRunChangesCompareWithThePublishedRunUnlessAsked(t *testing.T) {
+	const owner = "111111111111111111"
+	tests := []struct {
+		name, path   string
+		want         int
+		run, against int64
+	}{
+		{"against the published run", "/v1/admin/runs/9/changes", http.StatusOK, 9, 7},
+		{"against a run asked for", "/v1/admin/runs/9/changes?against=8", http.StatusOK, 9, 8},
+		{"a run that does not exist", "/v1/admin/runs/99/changes", http.StatusNotFound, 0, 0},
+		{"against a run that does not exist", "/v1/admin/runs/9/changes?against=99", http.StatusNotFound, 0, 0},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			rec := adminDoAs(t, &fakeAdmins{}, owner, http.MethodGet, tt.path, "", "")
+			if rec.Code != tt.want {
+				t.Fatalf("GET %s = %d %s, want %d", tt.path, rec.Code, rec.Body, tt.want)
+			}
+			if tt.want != http.StatusOK {
+				return
+			}
+			var got RunChanges
+			if err := json.Unmarshal(rec.Body.Bytes(), &got); err != nil {
+				t.Fatal(err)
+			}
+			if got.Run != tt.run || got.Against != tt.against || got.Ratings != int(tt.run) || got.RatingsBefore != int(tt.against) || got.Biggest[0].Change != -120 {
+				t.Errorf("changes = %+v, want run %d against %d", got, tt.run, tt.against)
 			}
 		})
 	}

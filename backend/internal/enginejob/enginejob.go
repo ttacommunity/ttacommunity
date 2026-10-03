@@ -21,6 +21,9 @@ import (
 // ErrRunning means a Job of the engine's CronJob has not finished yet.
 var ErrRunning = errors.New("a rating run is already going")
 
+// ErrNotSetUp means this API has no engine CronJob to start runs from.
+var ErrNotSetUp = errors.New("starting runs is not set up here")
+
 // Starter creates engine Jobs in one namespace from one CronJob.
 type Starter struct {
 	API       string // the API server's base URL
@@ -35,12 +38,18 @@ type Starter struct {
 // serviceAccount is where Kubernetes mounts a pod's token and the cluster's CA.
 const serviceAccount = "/var/run/secrets/kubernetes.io/serviceaccount/"
 
-// InCluster returns a Starter that uses the pod's service account, or an error outside a cluster.
-func InCluster(namespace, cronJob string) (*Starter, error) {
+// InCluster returns a Starter for a CronJob in the pod's own namespace that uses the pod's service account,
+// or an error outside a cluster.
+func InCluster(cronJob string) (*Starter, error) {
 	host, port := os.Getenv("KUBERNETES_SERVICE_HOST"), os.Getenv("KUBERNETES_SERVICE_PORT")
 	if host == "" || port == "" {
 		return nil, errors.New("not running in a cluster: KUBERNETES_SERVICE_HOST is not set")
 	}
+	ns, err := os.ReadFile(serviceAccount + "namespace")
+	if err != nil {
+		return nil, fmt.Errorf("reading the pod's namespace: %w", err)
+	}
+	namespace := string(bytes.TrimSpace(ns))
 	ca, err := os.ReadFile(serviceAccount + "ca.crt")
 	if err != nil {
 		return nil, fmt.Errorf("reading the cluster CA: %w", err)
