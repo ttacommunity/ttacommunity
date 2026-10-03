@@ -57,14 +57,14 @@ SGM_TOURNAMENTS = (
 )
 SGM_DIVISIONS = ("Grandmaster", "Diamond", "Emperor")
 
-# Reigning World Champion holding active 'WC' title
-REIGNING_WC_PLAYERS = {"a440"}
 
-HISTORICAL_WC_INFO = {
-    "a440": (2025, "WC"),
-    "Martin_Pecheur": (2024, "WC"),
-    "Weidenbaum": (2023, "WC"),
-}
+def world_champions(conn) -> list[tuple[str, int]]:
+    """Returns each World Championship season's winner, as recorded, oldest first: (player, season)."""
+    rows = conn.execute(
+        "SELECT player_name, season FROM tournament_official_placements "
+        "WHERE series = 'worlds' AND place = 1 ORDER BY season, player_name"
+    ).fetchall()
+    return [(r["player_name"], r["season"]) for r in rows]
 
 
 def classify_division_tier(tournament_name: str) -> int | None:
@@ -303,8 +303,9 @@ def derive_tournament_badges(
                 ):
                     player_career_best[p] = {"tier": tier, "year": yr, "date": d_str}
 
-        # Historical World Champions hold the exclusive tier 0 ('WC') career peak
-        for p, (yr, _title) in HISTORICAL_WC_INFO.items():
+        # World Champions hold the exclusive tier 0 ('WC') career peak, at their latest title
+        champions = world_champions(conn)
+        for p, yr in champions:
             player_career_best[p] = {"tier": 0, "year": yr, "date": f"{yr}-12-15"}
 
         records = conn.execute(
@@ -330,13 +331,16 @@ def derive_tournament_badges(
                 "badge_reason": reason,
             }
 
-        # Reigning World Champion holds exclusive active WC badge
-        for p in REIGNING_WC_PLAYERS:
-            derived_data[p] = {
-                "title": "WC",
-                "title_count": 1,
-                "badge_reason": "Reigning World Champion (World Championship 2025)",
-            }
+        # The latest season's World Champion holds the exclusive active WC badge
+        if champions:
+            latest = max(yr for _, yr in champions)
+            for p, yr in champions:
+                if yr == latest:
+                    derived_data[p] = {
+                        "title": "WC",
+                        "title_count": 1,
+                        "badge_reason": f"Reigning World Champion (World Championship {yr})",
+                    }
 
         peaks = {}
         for p, c_info in player_career_best.items():
@@ -404,7 +408,7 @@ def derive_tournament_badges(
                 SELECT %s, name, %s, 'WC' FROM players WHERE lower(name) = lower(%s)
                 ON CONFLICT (run_id, player_name, year) DO UPDATE SET title = 'WC'
             """,
-                [(run_id, yr, p) for p, (yr, _title) in HISTORICAL_WC_INFO.items()],
+                [(run_id, yr, p) for p, yr in champions],
             )
 
     return derived_data

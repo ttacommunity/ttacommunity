@@ -61,6 +61,7 @@ def test_the_world_championship_board_lists_recent_champions_first():
         {"season": 2024, "player_name": "Martin_Pecheur", "place": 1},
         {"season": 2024, "player_name": "frotes", "place": 2},
         {"season": 2025, "player_name": "silent_x111", "place": 3},
+        {"season": 2022, "player_name": "Ender_Wiggin", "place": 1},
     ]
     got = worlds_board(placements)
     assert [
@@ -69,6 +70,7 @@ def test_the_world_championship_board_lists_recent_champions_first():
         ("a440", "WC", 1, 0, 0),
         ("Martin_Pecheur", "WC", 1, 0, 0),
         ("Weidenbaum", "WC", 1, 0, 0),
+        ("Ender_Wiggin", "WC", 1, 0, 0),
         ("Grozz", "GM", 0, 1, 0),
         ("frotes", "GM", 0, 1, 0),
         ("silent_x111", "GM", 0, 0, 1),

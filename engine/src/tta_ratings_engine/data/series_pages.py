@@ -11,8 +11,6 @@ selection.
 import re
 from collections import defaultdict
 
-from tta_ratings_engine.data.badges import HISTORICAL_WC_INFO
-
 PLACES = ("gold", "silver", "bronze")
 LABELS = ("Champion", "Runner-Up", "3rd Place")
 
@@ -126,7 +124,7 @@ def worlds_board(placements) -> list[dict]:
         _board_row(
             p,
             {k: m[k] for k in PLACES},
-            title="WC" if p in HISTORICAL_WC_INFO else "GM",
+            title="WC" if m["gold"] else "GM",
             points=100.0 * m["gold"] + 50.0 * m["silver"] + 25.0 * m["bronze"],
         )
         for p, m in order

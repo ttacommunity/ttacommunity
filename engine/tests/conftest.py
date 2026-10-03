@@ -158,3 +158,19 @@ def run_id(conn):
     ).fetchone()["run_id"]
     conn.commit()
     return rid
+
+
+@pytest.fixture
+def place(conn):
+    """Returns a function that records official placements for a season's division."""
+
+    def add(series, season, division, *players, points=None):
+        for i, p in enumerate(players, start=1):
+            conn.execute(
+                "INSERT INTO tournament_official_placements "
+                "VALUES (%s, %s, %s, %s, %s, %s, 'test', 'sheet')",
+                (series, season, division, p, i, points[i - 1] if points else None),
+            )
+        conn.commit()
+
+    return add

@@ -64,7 +64,6 @@ def test_royal_league_reasons_name_the_lower_ranks():
 
 from datetime import date
 
-from tta_ratings_engine.data.badges import REIGNING_WC_PLAYERS
 from tta_ratings_engine.data.db import RunNotRunning
 
 
@@ -113,19 +112,25 @@ def test_games_outside_the_championships_earn_no_title(conn, add_match, run_id):
     assert titles(conn, run_id) == {}
 
 
-def test_the_reigning_champion_is_titled_only_if_a_known_player(
-    conn, add_match, run_id
+def test_the_reigning_champion_is_the_latest_seasons_winner(
+    conn, add_match, run_id, place
 ):
-    champion = next(iter(REIGNING_WC_PLAYERS))
+    place("worlds", 2024, "Final", "Martin_Pecheur", "pv4")
+    place("worlds", 2025, "Final", "a440", "kyshantry")
     add_match(("Ann", 10), ("Bob", 5), day=date(2024, 6, 1), tournament="RL_s09 - Duke")
     derive_tournament_badges(conn=conn, run_id=run_id)
-    assert champion not in titles(conn, run_id)
+    assert "a440" not in titles(conn, run_id)
 
     add_match(
-        (champion, 10), ("Bob", 5), day=date(2024, 6, 2), tournament="Friendly Cup"
+        ("a440", 10),
+        ("Martin_Pecheur", 5),
+        day=date(2024, 6, 2),
+        tournament="Friendly Cup",
     )
     derive_tournament_badges(conn=conn, run_id=run_id)
-    assert titles(conn, run_id)[champion][0] == "WC"
+    got = titles(conn, run_id)
+    assert got["a440"][0] == "WC"
+    assert got.get("Martin_Pecheur", ("",))[0] != "WC"
 
 
 def test_deriving_again_replaces_the_runs_titles(conn, add_match, run_id):
@@ -184,17 +189,26 @@ def test_a_player_keeps_their_career_peak_title(conn, add_match, run_id):
     assert "Bob" not in titles(conn, run_id)
 
 
-def test_world_champions_peak_at_their_title_year(conn, add_match, run_id):
+def test_world_champions_peak_at_their_title_year(conn, add_match, run_id, place):
+    place("worlds", 2022, "Final", "Ender_Wiggin", "LaoHuang")
+    place("worlds", 2023, "Final", "Weidenbaum")
+    place("worlds", 2025, "Final", "a440")
     add_match(
         ("Weidenbaum", 10), ("Bob", 5), day=date(2024, 6, 1), tournament="RL_s09 - King"
     )
-    add_match(("a440", 10), ("Bob", 5), day=date(2024, 6, 2), tournament="Friendly Cup")
+    add_match(
+        ("a440", 10),
+        ("Ender_Wiggin", 5),
+        day=date(2024, 6, 2),
+        tournament="Friendly Cup",
+    )
 
     derive_tournament_badges(conn=conn, run_id=run_id)
 
     got = peaks(conn, run_id)
     assert got["Weidenbaum"] == ("WC", 2023)
     assert got["a440"] == ("WC", 2025)
+    assert got["Ender_Wiggin"] == ("WC", 2022)
     assert titles(conn, run_id)["Weidenbaum"][0] == "M"
 
 
@@ -238,7 +252,9 @@ def test_each_year_keeps_the_best_division_played(conn, add_match, run_id):
     assert ("Dan", 2023) not in got
 
 
-def test_world_champions_hold_wc_in_their_title_year(conn, add_match, run_id):
+def test_world_champions_hold_wc_in_their_title_year(conn, add_match, run_id, place):
+    place("worlds", 2023, "Final", "Weidenbaum")
+    place("worlds", 2025, "Final", "a440")
     add_match(
         ("Weidenbaum", 10), ("Bob", 5), day=date(2023, 6, 1), tournament="RL_s09 - King"
     )

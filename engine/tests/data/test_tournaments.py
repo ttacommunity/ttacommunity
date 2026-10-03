@@ -209,7 +209,8 @@ def board(conn, run_id):
     return {r["player_name"]: tuple(list(r.values())[1:]) for r in rows}
 
 
-def test_the_board_counts_top_division_podiums(conn, add_match, run_id):
+def test_the_board_counts_top_division_podiums(conn, add_match, run_id, place):
+    place("worlds", 2023, "Final", "Weidenbaum")
     for season in (30, 31):
         add_match(
             ("Weidenbaum", 90),
@@ -310,22 +311,6 @@ def test_derive_replaces_the_runs_rows(conn, add_match, run_id):
         ("bob", 2, 2.0),
         ("cat", 3, 0.0),
     ]
-
-
-@pytest.fixture
-def place(conn):
-    """Returns a function that records official placements for a season's division."""
-
-    def add(series, season, division, *players, points=None):
-        for i, p in enumerate(players, start=1):
-            conn.execute(
-                "INSERT INTO tournament_official_placements "
-                "VALUES (%s, %s, %s, %s, %s, %s, 'test', 'sheet')",
-                (series, season, division, p, i, points[i - 1] if points else None),
-            )
-        conn.commit()
-
-    return add
 
 
 @pytest.fixture
