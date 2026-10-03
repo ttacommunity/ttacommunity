@@ -183,9 +183,13 @@ func TestExportRefusesAnInputTableItDoesNotKnow(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	_, err := Export(context.Background(), pool, filepath.Join(t.TempDir(), "x"))
+	dir := filepath.Join(t.TempDir(), "x")
+	_, err := Export(context.Background(), pool, dir)
 	if err == nil || !strings.Contains(err.Error(), "player_aliases") {
 		t.Errorf("Export with an unlisted table: err = %v, want a refusal naming player_aliases", err)
+	}
+	if _, err := os.Stat(dir); !os.IsNotExist(err) {
+		t.Errorf("a refused export left %s behind (stat: %v)", dir, err)
 	}
 }
 

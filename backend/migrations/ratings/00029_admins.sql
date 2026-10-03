@@ -23,11 +23,12 @@ CREATE TABLE admin_audit (
 REVOKE SELECT ON admins, admin_audit FROM ratings_read;
 
 -- +goose StatementBegin
+-- Roles are per server: a database owner without CREATEROLE needs it made first (README, cluster database).
 DO $$
 BEGIN
-    CREATE ROLE ratings_admin NOLOGIN;
-EXCEPTION WHEN duplicate_object THEN
-    NULL; -- roles are per server, and another database may have made it
+    IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'ratings_admin') THEN
+        CREATE ROLE ratings_admin NOLOGIN;
+    END IF;
 END
 $$;
 -- +goose StatementEnd

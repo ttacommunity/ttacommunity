@@ -61,9 +61,6 @@ func Export(ctx context.Context, pool *pgxpool.Pool, dir string) (Manifest, erro
 	if entries, err := os.ReadDir(dir); err == nil && len(entries) > 0 {
 		return Manifest{}, fmt.Errorf("exporting: %s is not empty", dir)
 	}
-	if err := os.MkdirAll(dir, 0o700); err != nil {
-		return Manifest{}, fmt.Errorf("exporting: %w", err)
-	}
 	tx, err := pool.BeginTx(ctx, pgx.TxOptions{IsoLevel: pgx.RepeatableRead, AccessMode: pgx.ReadOnly})
 	if err != nil {
 		return Manifest{}, fmt.Errorf("exporting: %w", err)
@@ -71,6 +68,9 @@ func Export(ctx context.Context, pool *pgxpool.Pool, dir string) (Manifest, erro
 	defer tx.Rollback(ctx)
 	if err := checkInputTables(ctx, tx); err != nil {
 		return Manifest{}, err
+	}
+	if err := os.MkdirAll(dir, 0o700); err != nil {
+		return Manifest{}, fmt.Errorf("exporting: %w", err)
 	}
 	m := Manifest{}
 	if m.SchemaVersion, err = schemaVersion(ctx, tx); err != nil {
