@@ -3,8 +3,18 @@
 {
   "name": "ttac-admin",
   "compatibility_date": "2026-09-27",
+  // The script runs only for /api/*: it verifies the Access token and proxies to the API's admin routes.
+  "main": "./src/worker/index.ts",
   "assets": {
-    "directory": "./dist"
+    "directory": "./dist",
+    "binding": "ASSETS",
+    "run_worker_first": ["/api/*"]
+  },
+  // Access app "ttacommunity admin": team and AUD read with cf (2026-10-03). The API verifies the token again.
+  "vars": {
+    "API_ORIGIN": "https://ttac-api.unstableunicorn.dev",
+    "ACCESS_TEAM": "https://unstableunicorn.cloudflareaccess.com",
+    "ACCESS_AUD": "f0bc8c99210a231edb4adc754229a5798e98f41ca67515da419535a251031136"
   },
   // Access protects only the custom domain, so no other hostname may serve it.
   "workers_dev": false,

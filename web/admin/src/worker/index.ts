@@ -1,0 +1,51 @@
+/** The admin site's Worker: static pages, and /api/* proxied to the API's admin routes for a verified Access session. */
+import { adminApiPath, verifyAccessToken, type Jwk } from './proxy';
+
+interface Env {
+  ASSETS: { fetch(request: Request): Promise<Response> };
+  API_ORIGIN?: string;
+  ACCESS_TEAM?: string;
+  ACCESS_AUD?: string;
+}
+
+const KEYS_FOR_MS = 5 * 60 * 1000;
+let cached: { keys: Jwk[]; at: number } | null = null;
+
+async function teamKeys(team: string): Promise<Jwk[]> {
+  if (cached !== null && Date.now() - cached.at < KEYS_FOR_MS) return cached.keys;
+  const res = await fetch(`${team}/cdn-cgi/access/certs`);
+  if (!res.ok) throw new Error(`certs: ${res.status}`);
+  const body = (await res.json()) as { keys?: Jwk[] };
+  cached = { keys: body.keys ?? [], at: Date.now() };
+  return cached.keys;
+}
+
+function refuse(status: number, error: string): Response {
+  return Response.json({ error }, { status, headers: { 'Cache-Control': 'no-store' } });
+}
+
+export default {
+  async fetch(request: Request, env: Env): Promise<Response> {
+    const url = new URL(request.url);
+    if (!url.pathname.startsWith('/api/')) return env.ASSETS.fetch(request);
+    if (!env.API_ORIGIN || !env.ACCESS_TEAM || !env.ACCESS_AUD) return refuse(503, 'admin is not configured');
+    const path = adminApiPath(url);
+    if (path === null) return refuse(404, 'no such admin route');
+    const token = request.headers.get('Cf-Access-Jwt-Assertion') ?? '';
+    const team = env.ACCESS_TEAM;
+    if (!(await verifyAccessToken(token, team, env.ACCESS_AUD, Date.now() / 1000, () => teamKeys(team)))) {
+      return refuse(401, 'sign in again');
+    }
+    const headers = new Headers({ 'Cf-Access-Jwt-Assertion': token, Accept: 'application/json' });
+    const type = request.headers.get('Content-Type');
+    if (type) headers.set('Content-Type', type);
+    const origin = request.headers.get('Origin');
+    if (origin) headers.set('Origin', origin);
+    const body = request.method === 'GET' || request.method === 'HEAD' ? undefined : await request.arrayBuffer();
+    const res = await fetch(`${env.API_ORIGIN}${path}`, { method: request.method, headers, body });
+    return new Response(res.body, {
+      status: res.status,
+      headers: { 'Content-Type': res.headers.get('Content-Type') ?? 'application/json', 'Cache-Control': 'no-store' },
+    });
+  },
+};
