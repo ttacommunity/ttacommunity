@@ -308,3 +308,9 @@
 .podium-places .podium-note input {
   width: 100%;
 }
+.admin-add .title-reason {
+  flex: 1 1 16rem;
+}
+.admin-add .title-reason input {
+  width: 100%;
+}
