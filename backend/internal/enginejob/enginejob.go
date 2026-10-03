@@ -13,6 +13,7 @@ import (
 	"io"
 	"net"
 	"net/http"
+	"net/url"
 	"os"
 	"sync"
 	"time"
@@ -20,6 +21,9 @@ import (
 
 // ErrRunning means a Job of the engine's CronJob has not finished yet.
 var ErrRunning = errors.New("a rating run is already going")
+
+// ErrNotRunning means none of the engine's Jobs is going, so there is nothing to stop.
+var ErrNotRunning = errors.New("no rating run is going")
 
 // ErrNotSetUp means this API has no engine CronJob to start runs from.
 var ErrNotSetUp = errors.New("starting runs is not set up here")
@@ -89,6 +93,7 @@ type cronJob struct {
 type jobList struct {
 	Items []struct {
 		Metadata struct {
+			Name            string     `json:"name"`
 			OwnerReferences []ownerRef `json:"ownerReferences"`
 		} `json:"metadata"`
 		Status struct {
@@ -111,14 +116,12 @@ func (s *Starter) Start(ctx context.Context) (string, error) {
 	if err := s.call(ctx, token, http.MethodGet, base+"/cronjobs/"+s.CronJob, nil, &cj); err != nil {
 		return "", err
 	}
-	var jobs jobList
-	if err := s.call(ctx, token, http.MethodGet, base+"/jobs", nil, &jobs); err != nil {
+	going, err := s.unfinished(ctx, token)
+	if err != nil {
 		return "", err
 	}
-	for _, j := range jobs.Items {
-		if ownedBy(j.Metadata.OwnerReferences, s.CronJob) && !finished(j.Status.Conditions) {
-			return "", ErrRunning
-		}
+	if len(going) > 0 {
+		return "", ErrRunning
 	}
 	annotations := map[string]string{"cronjob.kubernetes.io/instantiate": "manual"}
 	for k, v := range cj.Spec.JobTemplate.Metadata.Annotations {
@@ -149,9 +152,60 @@ func (s *Starter) Start(ctx context.Context) (string, error) {
 	return created.Metadata.Name, nil
 }
 
+// Going reports whether one of the CronJob's Jobs has not finished.
+func (s *Starter) Going(ctx context.Context) (bool, error) {
+	token, err := s.Token()
+	if err != nil {
+		return false, fmt.Errorf("reading the service account token: %w", err)
+	}
+	going, err := s.unfinished(ctx, token)
+	return len(going) > 0, err
+}
+
+// Stop deletes each of the CronJob's unfinished Jobs with its pods, which stops the engine (it marks its
+// run failed on the way out), and returns their names, or ErrNotRunning when none is going.
+func (s *Starter) Stop(ctx context.Context) ([]string, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	token, err := s.Token()
+	if err != nil {
+		return nil, fmt.Errorf("reading the service account token: %w", err)
+	}
+	going, err := s.unfinished(ctx, token)
+	if err != nil {
+		return nil, err
+	}
+	if len(going) == 0 {
+		return nil, ErrNotRunning
+	}
+	for _, name := range going {
+		u := s.API + "/apis/batch/v1/namespaces/" + s.Namespace + "/jobs/" + url.PathEscape(name) + "?propagationPolicy=Background"
+		var status map[string]any
+		if err := s.call(ctx, token, http.MethodDelete, u, nil, &status); err != nil {
+			return nil, err
+		}
+	}
+	return going, nil
+}
+
+// unfinished returns the names of the CronJob's Jobs that have not finished.
+func (s *Starter) unfinished(ctx context.Context, token string) ([]string, error) {
+	var jobs jobList
+	if err := s.call(ctx, token, http.MethodGet, s.API+"/apis/batch/v1/namespaces/"+s.Namespace+"/jobs", nil, &jobs); err != nil {
+		return nil, err
+	}
+	var names []string
+	for _, j := range jobs.Items {
+		if ownedBy(j.Metadata.OwnerReferences, s.CronJob) && !finished(j.Status.Conditions) {
+			names = append(names, j.Metadata.Name)
+		}
+	}
+	return names, nil
+}
+
 // call sends one request to the API server and decodes a 2xx answer into out.
-func (s *Starter) call(ctx context.Context, token, method, url string, body []byte, out any) error {
-	req, err := http.NewRequestWithContext(ctx, method, url, bytes.NewReader(body))
+func (s *Starter) call(ctx context.Context, token, method, target string, body []byte, out any) error {
+	req, err := http.NewRequestWithContext(ctx, method, target, bytes.NewReader(body))
 	if err != nil {
 		return fmt.Errorf("building a cluster request: %w", err)
 	}

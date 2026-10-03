@@ -23,6 +23,7 @@ const cronJobJSON = `{
 type fakeAPI struct {
 	jobs    string
 	created []map[string]any
+	deleted []string
 	auths   []string
 	status  int
 }
@@ -49,6 +50,9 @@ func (f *fakeAPI) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		meta["name"] = meta["generateName"].(string) + "x7k2p"
 		w.WriteHeader(http.StatusCreated)
 		_ = json.NewEncoder(w).Encode(job)
+	case r.Method == http.MethodDelete && strings.HasPrefix(r.URL.Path, "/apis/batch/v1/namespaces/ttac/jobs/"):
+		f.deleted = append(f.deleted, strings.TrimPrefix(r.URL.Path, "/apis/batch/v1/namespaces/ttac/jobs/")+"?"+r.URL.RawQuery)
+		_, _ = io.WriteString(w, `{}`)
 	default:
 		w.WriteHeader(http.StatusNotFound)
 	}
@@ -148,5 +152,52 @@ func TestStartFailsWithoutAToken(t *testing.T) {
 	}
 	if len(f.auths) != 0 {
 		t.Errorf("made %d requests without a token", len(f.auths))
+	}
+}
+
+func TestGoingSaysWhetherAnEngineJobHasNotFinished(t *testing.T) {
+	for _, tt := range []struct {
+		name, jobs string
+		want       bool
+	}{
+		{"one running", ownedJob("engine-dev-29", ""), true},
+		{"all finished", ownedJob("engine-dev-28", `{"type": "Complete", "status": "True"}`), false},
+		{"only another CronJob's", `{"metadata": {"name": "other", "ownerReferences": [{"kind": "CronJob", "name": "backup"}]}, "status": {}}`, false},
+		{"none", "", false},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := starter(t, &fakeAPI{jobs: tt.jobs}).Going(context.Background())
+			if err != nil || got != tt.want {
+				t.Errorf("Going = %v, %v; want %v", got, err, tt.want)
+			}
+		})
+	}
+}
+
+func TestStopDeletesOnlyTheEngineJobsThatHaveNotFinished(t *testing.T) {
+	f := &fakeAPI{jobs: strings.Join([]string{
+		ownedJob("engine-dev-28", `{"type": "Complete", "status": "True"}`),
+		ownedJob("engine-dev-admin-x7k2p", ""),
+		`{"metadata": {"name": "load-1"}, "status": {}}`,
+	}, ",")}
+	stopped, err := starter(t, f).Stop(context.Background())
+	if err != nil {
+		t.Fatalf("Stop: %v", err)
+	}
+	if strings.Join(stopped, ",") != "engine-dev-admin-x7k2p" {
+		t.Errorf("stopped = %q, want the unfinished engine job", stopped)
+	}
+	if strings.Join(f.deleted, ",") != "engine-dev-admin-x7k2p?propagationPolicy=Background" {
+		t.Errorf("deleted = %q, want that job with its pods", f.deleted)
+	}
+}
+
+func TestStopRefusesWhenNothingIsGoing(t *testing.T) {
+	f := &fakeAPI{jobs: ownedJob("engine-dev-28", `{"type": "Failed", "status": "True"}`)}
+	if _, err := starter(t, f).Stop(context.Background()); !errors.Is(err, ErrNotRunning) {
+		t.Errorf("Stop = %v, want ErrNotRunning", err)
+	}
+	if len(f.deleted) != 0 {
+		t.Errorf("deleted %q", f.deleted)
 	}
 }
