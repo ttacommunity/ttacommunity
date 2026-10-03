@@ -439,10 +439,6 @@ def _league_boards(standings, official):
         lambda: {"gold": 0, "silver": 0, "bronze": 0, "points": 0.0, "first": None}
     )
     seasons = {**standings, **official}
-    world_champions = {
-        r["player_name"] for (series, _, _), rows in official.items() if series == "worlds"
-        for r in rows if r["place"] == 1
-    }  # fmt: skip
     for (series, season, division), rows in sorted(seasons.items()):
         rules = SERIES[series]
         if division not in rules.top_divisions:
@@ -459,7 +455,7 @@ def _league_boards(standings, official):
     boards = defaultdict(list)
     for (series, p), m in medals.items():
         if m["first"] is not None:
-            title = "WC" if p in world_champions else ("GM" if m["gold"] else "M")
+            title = "GM" if m["gold"] else "M"
             boards[series].append(
                 {"player_name": p, **m, "first_season": m["first"], "title": title}
             )

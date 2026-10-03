@@ -210,6 +210,7 @@ def board(conn, run_id):
 
 
 def test_the_board_counts_top_division_podiums(conn, add_match, run_id, place):
+    # A World Champion is WC only on the World Championship's board.
     place("worlds", 2023, "Final", "Weidenbaum")
     for season in (30, 31):
         add_match(
@@ -229,7 +230,7 @@ def test_the_board_counts_top_division_podiums(conn, add_match, run_id, place):
     derive_tournaments(conn=conn, run_id=run_id)
 
     assert board(conn, run_id) == {
-        "Weidenbaum": (2, 0, 0, 12.0, "WC"),
+        "Weidenbaum": (2, 0, 0, 12.0, "GM"),
         "ann": (0, 2, 0, 6.0, "M"),
         "bob": (0, 0, 2, 2.0, "M"),
     }
