@@ -76,6 +76,9 @@
 .badge-b { background: #b45309; border: 1px solid #d97706; color: #fffbeb; }
 .badge-w { background: #78350f; border: 1px solid #92400e; color: #fef3c7; }
 
+/* A badge admin gave: a title's shape, in a neutral colour so it is not read as a rank. */
+.badge-extra { margin-left: 0.25rem; background: transparent; border: 1px solid #a8a29e; color: #e7e5e4; font-weight: 600; }
+
 .badge-none {
   color: #665544;
 }

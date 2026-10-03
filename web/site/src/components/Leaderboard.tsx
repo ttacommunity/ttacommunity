@@ -15,7 +15,7 @@ import Segmented from './Segmented';
 import SearchBox from './SearchBox';
 import OptionsDrawer, { type LinkTo } from './OptionsDrawer';
 import YearBanner from './YearBanner';
-import { Flag, TitleBadge } from './PlayerMarks';
+import { ExtraBadges, Flag, TitleBadge } from './PlayerMarks';
 import * as show from '../lib/leaderboard-display';
 import {
   DEFAULT_VIEW,
@@ -513,6 +513,7 @@ function Table({ view, rows, jumpTo, changes, linkTo, caption }: TableProps) {
               </th>
               <td>
                 <TitleBadge title={p.title} />
+                <ExtraBadges badges={p.badges} />
               </td>
               <td>
                 <span className="c-rating-val">{show.cRating(p.c_rating)}</span>

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { renderToStaticMarkup } from 'react-dom/server';
-import { Flag, TitleBadge } from './PlayerMarks';
+import { ExtraBadges, Flag, TitleBadge } from './PlayerMarks';
 
 describe('TitleBadge', () => {
   it('shows the code in its colour, with the reason on hover', () => {
@@ -34,5 +34,28 @@ describe('Flag', () => {
     expect(renderToStaticMarkup(<Flag country={null} />)).toBe(
       '<span class="flag-icon flag-none" title="Country: Unknown" role="img" aria-label="Country unknown">🌐</span>',
     );
+  });
+});
+
+describe('ExtraBadges', () => {
+  it('shows each badge admin gave, with its description on hover, or its label when it has none', () => {
+    const html = renderToStaticMarkup(
+      <ExtraBadges
+        badges={[
+          { label: 'Organiser', description: 'Runs a league' },
+          { label: 'TD', description: '' },
+        ]}
+      />,
+    );
+    expect(html).toBe(
+      '<span class="badge badge-extra" title="Runs a league">Organiser</span><span class="badge badge-extra" title="TD">TD</span>',
+    );
+  });
+
+  it('uses the page tooltip on the profile, and shows nothing for no badges', () => {
+    expect(renderToStaticMarkup(<ExtraBadges badges={[{ label: 'TD', description: 'Director' }]} tooltip />)).toBe(
+      '<span class="badge badge-extra" data-tooltip="Director">TD</span>',
+    );
+    expect(renderToStaticMarkup(<ExtraBadges badges={undefined} />)).toBe('');
   });
 });

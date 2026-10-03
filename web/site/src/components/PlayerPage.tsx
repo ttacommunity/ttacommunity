@@ -17,7 +17,7 @@ import {
   type PlayerRivals,
 } from '@ttac/shared/ratings';
 import CareerBox from './CareerBox';
-import { Flag } from './PlayerMarks';
+import { ExtraBadges, Flag } from './PlayerMarks';
 import RatingChart from './RatingChart';
 import VersusDialog from './VersusDialog';
 import * as show from '../lib/leaderboard-display';
@@ -229,6 +229,7 @@ function Header({
               {show.titleName(t.code)}
             </span>
           )}
+          <ExtraBadges badges={player.badges} tooltip />
           <h1 className="player-profile-name">
             {player.name}
             {provisional && (

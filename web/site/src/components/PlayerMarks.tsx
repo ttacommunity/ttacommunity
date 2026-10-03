@@ -12,6 +12,22 @@ export function TitleBadge({ title }: { title: LeaderboardRow['title'] }) {
   );
 }
 
+/** ExtraBadges shows the badges admin gave a player, each with its description on hover (the page's tooltip when tooltip). */
+export function ExtraBadges({ badges, tooltip = false }: { badges: LeaderboardRow['badges']; tooltip?: boolean }) {
+  return (
+    <>
+      {(badges ?? []).map((b) => {
+        const hover = b.description || b.label;
+        return (
+          <span key={b.label} className="badge badge-extra" {...(tooltip ? { 'data-tooltip': hover } : { title: hover })}>
+            {b.label}
+          </span>
+        );
+      })}
+    </>
+  );
+}
+
 /** Flag shows the player's country flag, or a faint globe when it is not known. */
 export function Flag({ country }: { country: string | null }) {
   if (country === null) {
