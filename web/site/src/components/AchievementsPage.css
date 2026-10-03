@@ -289,11 +289,128 @@
 .medal-badge-inline {
   display: inline-flex;
   align-items: center;
-  gap: 0.3rem;
-  padding: 0.15rem 0.5rem;
+  gap: 0.35rem;
+  padding: 0.2rem 0.6rem;
   border-radius: 4px;
-  font-size: 0.8rem;
+  font-size: 0.82rem;
   font-weight: 700;
+  white-space: nowrap;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.3);
+}
+.ach-result {
+  font-weight: 600;
+  color: #dfcfbc;
+}
+
+/* Upstream's medal styles by tournament category. World Championship: cosmic crown gold. */
+.medal-wcs-gold {
+  background: linear-gradient(135deg, rgba(142, 45, 226, 0.45) 0%, rgba(255, 215, 0, 0.35) 100%);
+  border: 1px solid #ffd700;
+  color: #fff275;
+  box-shadow: 0 0 10px rgba(255, 215, 0, 0.55);
+}
+.medal-wcs-silver {
+  background: linear-gradient(135deg, rgba(142, 45, 226, 0.35) 0%, rgba(220, 220, 220, 0.3) 100%);
+  border: 1px solid #e0e0e0;
+  color: #f5f5f5;
+}
+.medal-wcs-bronze {
+  background: linear-gradient(135deg, rgba(142, 45, 226, 0.35) 0%, rgba(205, 127, 50, 0.3) 100%);
+  border: 1px solid #cd7f32;
+  color: #ffb885;
+}
+
+/* Major leagues: International, Intermezzo, Royal League. */
+.medal-major-gold {
+  background: linear-gradient(135deg, rgba(218, 165, 32, 0.3) 0%, rgba(184, 134, 11, 0.4) 100%);
+  border: 1px solid rgba(255, 215, 0, 0.7);
+  color: #ffe066;
+  box-shadow: 0 0 8px rgba(229, 169, 60, 0.45);
+}
+.medal-major-silver {
+  background: linear-gradient(135deg, rgba(192, 192, 192, 0.25) 0%, rgba(128, 128, 128, 0.35) 100%);
+  border: 1px solid rgba(207, 216, 220, 0.7);
+  color: #e2e8f0;
+}
+.medal-major-bronze {
+  background: linear-gradient(135deg, rgba(205, 127, 50, 0.25) 0%, rgba(139, 69, 19, 0.35) 100%);
+  border: 1px solid rgba(205, 127, 50, 0.7);
+  color: #fbd38d;
+}
+
+/* Ladders: Sodium, Mercurial, TCL. */
+.medal-ladder-gold {
+  background: linear-gradient(135deg, rgba(0, 180, 219, 0.25) 0%, rgba(0, 131, 176, 0.35) 100%);
+  border: 1px solid rgba(0, 210, 255, 0.65);
+  color: #67e8f9;
+  box-shadow: 0 0 8px rgba(0, 210, 255, 0.35);
+}
+.medal-ladder-silver {
+  background: linear-gradient(135deg, rgba(0, 180, 219, 0.18) 0%, rgba(150, 160, 170, 0.25) 100%);
+  border: 1px solid rgba(148, 163, 184, 0.6);
+  color: #cbd5e1;
+}
+.medal-ladder-bronze {
+  background: linear-gradient(135deg, rgba(0, 180, 219, 0.18) 0%, rgba(180, 100, 50, 0.25) 100%);
+  border: 1px solid rgba(217, 119, 6, 0.6);
+  color: #fdba74;
+}
+
+/* Grand Slams: French Open, Wimbledon, Australian Open. */
+.medal-slam-gold {
+  background: linear-gradient(135deg, rgba(46, 125, 50, 0.3) 0%, rgba(27, 94, 32, 0.4) 100%);
+  border: 1px solid rgba(129, 199, 132, 0.7);
+  color: #a7f3d0;
+  box-shadow: 0 0 8px rgba(76, 175, 80, 0.4);
+}
+.medal-slam-silver {
+  background: linear-gradient(135deg, rgba(46, 125, 50, 0.2) 0%, rgba(150, 160, 170, 0.3) 100%);
+  border: 1px solid rgba(167, 243, 208, 0.5);
+  color: #e2e8f0;
+}
+.medal-slam-bronze {
+  background: linear-gradient(135deg, rgba(46, 125, 50, 0.2) 0%, rgba(180, 100, 50, 0.3) 100%);
+  border: 1px solid rgba(217, 119, 6, 0.6);
+  color: #fdba74;
+}
+
+/* Other tournaments: Survivors Cup, Leaderboard Trophy and the rest. */
+.medal-other-gold {
+  background: linear-gradient(135deg, rgba(230, 81, 0, 0.25) 0%, rgba(191, 54, 12, 0.35) 100%);
+  border: 1px solid rgba(255, 138, 101, 0.65);
+  color: #ffcc80;
+  box-shadow: 0 0 8px rgba(255, 112, 67, 0.35);
+}
+.medal-other-silver {
+  background: linear-gradient(135deg, rgba(100, 100, 100, 0.25) 0%, rgba(70, 70, 70, 0.35) 100%);
+  border: 1px solid rgba(189, 189, 189, 0.6);
+  color: #e0e0e0;
+}
+.medal-other-bronze {
+  background: linear-gradient(135deg, rgba(140, 70, 20, 0.25) 0%, rgba(100, 50, 10, 0.35) 100%);
+  border: 1px solid rgba(161, 136, 127, 0.6);
+  color: #d7ccc8;
+}
+
+.tournament-cge-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  font-weight: 700;
+  color: #fff3db;
+  text-decoration: none;
+  transition: color 0.15s ease;
+}
+.ach-career-tournament .tournament-cge-link {
+  color: var(--accent-gold);
+}
+.tournament-cge-link:hover {
+  color: var(--accent-gold);
+  text-decoration: underline;
+}
+.external-link-icon {
+  font-size: 0.78rem;
+  opacity: 0.75;
 }
 .ach-status {
   text-align: center;

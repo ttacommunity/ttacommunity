@@ -9,6 +9,8 @@ import {
   sortCareer,
   sortSeasons,
   titleBadge,
+  recordCategory,
+  cgeTournamentUrl,
   totalTitles,
 } from './achievements';
 
@@ -93,11 +95,10 @@ describe('cells', () => {
       'TCL Round 31',
       'Tournament',
       'Main',
-      '1 / 2',
-      '-',
-      '🥇 Gold',
+      '⚡🥇 1 / 2',
       'Competed in Main',
     ]);
+    expect(seasonCells(rec({ medal: null }))[4]).toBe('1 / 2');
     expect(careerCells(rec({ career: true, season: 'Career (2 seasons)', medal: null }))).toEqual([
       'TCL Round 31',
       'Career (2 seasons)',
@@ -113,7 +114,7 @@ describe('cells', () => {
 describe('matchesFilter', () => {
   it("matches a row's text ignoring case, but not across two cells", () => {
     const r = seasonCells(rec({ medal: 'silver' }));
-    expect(matchesFilter(r, 'SILVER')).toBe(true);
+    expect(matchesFilter(r, 'COMPETED IN')).toBe(true);
     expect(matchesFilter(r, 'round 31')).toBe(true);
     expect(matchesFilter(r, '31 tournament')).toBe(false);
     expect(matchesFilter(r, '')).toBe(true);
@@ -153,5 +154,36 @@ describe('sortCareer', () => {
 describe('achievementsHref', () => {
   it("links to a player's achievements page", () => {
     expect(achievementsHref('a b/c')).toBe('/ratings/player/achievements/?name=a+b%2Fc');
+  });
+});
+
+describe('recordCategory', () => {
+  it("files a tournament under upstream's medal styles", () => {
+    expect(recordCategory('World Championship 2025')).toBe('wcs');
+    expect(recordCategory('Intermezzo Championship')).toBe('major');
+    expect(recordCategory('Royal League')).toBe('major');
+    expect(recordCategory('Sodium Ladder')).toBe('ladder');
+    expect(recordCategory('TCL Round 31')).toBe('ladder');
+    expect(recordCategory('French Open 2026 (Odd Games) Stage 1')).toBe('slam');
+    expect(recordCategory('Wimbledon 2025')).toBe('slam');
+    expect(recordCategory('Survivors Cup')).toBe('other');
+  });
+});
+
+describe('cgeTournamentUrl', () => {
+  const page = (id: number) => `https://account.czechgames.com/tournaments/detail/${id}`;
+
+  it("links a league to its CGE tournament, and a yearly event to that year's", () => {
+    expect(cgeTournamentUrl('International Championship', 'Season 30')).toBe(page(21));
+    expect(cgeTournamentUrl('World Championship', '2024')).toBe(page(4760));
+    expect(cgeTournamentUrl('World Championship 2025', 'Championship')).toBe(page(5204));
+    expect(cgeTournamentUrl('Wimbledon 2023', 'Stage 2')).toBe(page(4369));
+    expect(cgeTournamentUrl('Leaderboard Trophy', '2025')).toBe(page(5695));
+    expect(cgeTournamentUrl('Nations League', 'Season 7')).toBe(page(4127));
+  });
+
+  it('gives none where CGE has no page for it', () => {
+    expect(cgeTournamentUrl('World Championship', '2021')).toBeNull();
+    expect(cgeTournamentUrl('Quick and Dirty (Q&D)', 'Career Trophy Hall of Fame')).toBeNull();
   });
 });
