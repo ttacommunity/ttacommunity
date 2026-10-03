@@ -371,9 +371,9 @@ def classify(rows, recorded, corrections):
             if parsed.division:
                 g.update(division=parsed.division, group=parsed.group, source="name")
                 break
-            # A name without its division: the group CGE recorded for the game, when it has one.
+            # A league game named without its division: the group CGE recorded for it, when it has one.
             cge_group = (r.get("group_label") or "").strip()
-            if cge_group and not parsed.tiebreak:
+            if cge_group and not parsed.tiebreak and rules.points:
                 division = re.sub(r"\s+\d+$", "", cge_group)
                 g.update(division=division, group=cge_group, source="cge")
                 break

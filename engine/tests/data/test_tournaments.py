@@ -224,6 +224,24 @@ def test_a_game_named_without_a_division_takes_cges_group(
     )
 
 
+def test_a_world_championship_group_is_not_a_division(conn, add_match, run_id):
+    add_match(
+        ("ann", 90),
+        ("bob", 80),
+        ("cat", 70),
+        tournament="Worlds 2025 Stage 2 - Upper 107",
+        group="Upper 107",
+    )
+
+    derive_tournaments(conn=conn, run_id=run_id)
+
+    row = conn.execute(
+        "SELECT division, division_source FROM tournament_games WHERE run_id = %s",
+        (run_id,),
+    ).fetchone()
+    assert (row["division"], row["division_source"]) == (None, None)
+
+
 def board(conn, run_id):
     rows = conn.execute(
         "SELECT player_name, gold, silver, bronze, points, title "
