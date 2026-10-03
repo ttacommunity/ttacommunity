@@ -85,10 +85,11 @@ var leadingNumber = regexp.MustCompile(`^\d+`)
 
 // leagueTops names the division whose standings give a league season's podium.
 var leagueTops = map[string][]string{
-	"intermezzo":    {"Grandmaster", "Diamond"},
-	"international": {"Grandmaster", "Diamond"},
-	"royal_league":  {"Emperor"},
-	"worlds":        {"Final"},
+	"intermezzo":     {"Grandmaster", "Diamond"},
+	"international":  {"Grandmaster", "Diamond"},
+	"royal_league":   {"Emperor"},
+	"worlds":         {"Final"},
+	"nations_league": {"Apple"},
 }
 
 // LadderWin is one player's top-tier wins in a ladder, as its organisers count them.

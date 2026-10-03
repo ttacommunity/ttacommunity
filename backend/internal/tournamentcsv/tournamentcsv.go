@@ -15,7 +15,7 @@ import (
 )
 
 // Series are the series a fact may be recorded for.
-var Series = []string{"international", "intermezzo", "royal_league", "worlds"}
+var Series = []string{"international", "intermezzo", "royal_league", "worlds", "nations_league"}
 
 // Reason says why a row was refused.
 type Reason string

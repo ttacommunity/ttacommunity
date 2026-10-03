@@ -47,6 +47,17 @@ func TestReadPlacementsTakesTheWorldChampionship(t *testing.T) {
 	}
 }
 
+func TestReadPlacementsTakesATeamOfTheNationsLeague(t *testing.T) {
+	got, err := ReadPlacements("p.csv", strings.NewReader(placementsHeader+
+		"nations_league,10,Apple,DANeo,1,36,r,s\nnations_league,10,Apple,DrRerNate,1,36,r,s\n"))
+	if err != nil {
+		t.Fatalf("ReadPlacements: %v", err)
+	}
+	if len(got.Facts) != 2 || len(got.Refused) != 0 {
+		t.Errorf("placements = %+v, refused %v; want both players of the champion team", got.Facts, got.Refused)
+	}
+}
+
 func TestReadPlacementsRefusesBadRows(t *testing.T) {
 	tests := []struct {
 		name string

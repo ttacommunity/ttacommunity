@@ -310,6 +310,30 @@ func TestCatalogueTournamentFindsAPlacementForALabelledSeason(t *testing.T) {
 	}
 }
 
+func TestCatalogueTournamentGivesATeamPodiumFromItsTopDivision(t *testing.T) {
+	pool := migrated(t)
+	ctx := context.Background()
+	run := publishedRun(t, pool)
+	placedOn(t, pool, map[string]time.Time{"NL_s10": day("2024-09-15")})
+	if _, err := pool.Exec(ctx, `INSERT INTO tournament_official_placements (series, season, division, player_name, place, points, reason, source)
+		VALUES ('nations_league', 10, 'Apple', 'DANeo', 1, 36, 'r', 's'), ('nations_league', 10, 'Apple', 'DrRerNate', 1, 36, 'r', 's'),
+		       ('nations_league', 10, 'Banana', 'ann', 1, 40, 'r', 's')`); err != nil {
+		t.Fatalf("adding placements: %v", err)
+	}
+
+	got, err := NewRatingsReader(asReader(t, pool)).CatalogueTournament(ctx, run, "nations_league")
+	if err != nil {
+		t.Fatalf("CatalogueTournament: %v", err)
+	}
+	want := []PodiumPlace{
+		{Place: 1, Name: "DANeo", Finished: day("2024-09-15"), Source: "s"},
+		{Place: 1, Name: "DrRerNate", Finished: day("2024-09-15"), Source: "s"},
+	}
+	if s := got.Seasons[0]; s.Label != "10" || !reflect.DeepEqual(s.Podium, want) {
+		t.Errorf("season %q podium = %+v, want %+v", s.Label, s.Podium, want)
+	}
+}
+
 func TestReplaceCGEStagesLinksSeasonsWithoutMatchedGames(t *testing.T) {
 	pool := migrated(t)
 	ctx := context.Background()
