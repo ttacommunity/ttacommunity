@@ -3,8 +3,8 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "astro dev",
-    "build": "astro build && node ../../checks/csp-inline.mjs dist",
+    "dev": "node scripts/fonts.mjs && astro dev",
+    "build": "node scripts/fonts.mjs && astro build && node ../../checks/csp-inline.mjs dist",
     "check": "astro check"
   },
   "dependencies": {

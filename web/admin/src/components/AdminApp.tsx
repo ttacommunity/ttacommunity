@@ -32,7 +32,7 @@ function NoteBox({ slug, season, stage, initial }: { slug: string; season: strin
       <label htmlFor={id}>{stage === '' ? `Season ${season}` : `${season} · ${stage}`}</label>
       <textarea id={id} value={text} maxLength={2000} rows={2} onChange={(e) => setText(e.target.value)} />
       <div className="note-actions">
-        <button type="button" onClick={save} disabled={text.trim() === saved}>
+        <button type="button" className="btn-antique" onClick={save} disabled={text.trim() === saved}>
           Save note
         </button>
         <span className="note-status" role="status">
@@ -71,7 +71,7 @@ function TournamentRow({ t, onChange }: { t: AdminTournament; onChange: (t: Admi
           </td>
         ))}
         <td>
-          <button type="button" className="btn-notes" aria-expanded={open} onClick={() => setOpen(!open)}>
+          <button type="button" className="btn-antique btn-notes" aria-expanded={open} onClick={() => setOpen(!open)}>
             Notes {open ? '▾' : '▸'}
           </button>
         </td>
@@ -129,14 +129,16 @@ export default function AdminApp() {
       <p className="signed-in">
         Signed in as <strong>{me.data.name}</strong> ({me.data.role})
       </p>
-      <section aria-labelledby="tournaments-heading">
-        <h2 id="tournaments-heading">Tournaments</h2>
+      <section className="rating-card admin-card" aria-labelledby="tournaments-heading">
+        <h2 id="tournaments-heading" className="rating-card-heading">
+          Tournaments
+        </h2>
         <p className="muted">Changes save at once and are recorded with your name. Rating changes apply from the next engine run.</p>
         {tournaments.kind === 'loading' && <p className="muted">Loading tournaments…</p>}
         {tournaments.kind === 'error' && <p className="row-error" role="alert">{tournaments.message}</p>}
         {tournaments.kind === 'ready' && (
-          <div className="table-wrap">
-            <table className="admin-table">
+          <div className="table-responsive">
+            <table className="leaderboard-table admin-table">
               <caption className="visually-hidden">Each tournament's settings</caption>
               <thead>
                 <tr>

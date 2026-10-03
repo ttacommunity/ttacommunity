@@ -1,6 +1,27 @@
+/* Admin's own rules; panels, the table and buttons are the shared theme's (rating-card, leaderboard-table, btn-antique). */
 .signed-in {
+  display: inline-block;
   margin-bottom: 1.5rem;
+  padding: 0.5rem 1rem;
+  border: 1px solid var(--border-subtle);
+  border-radius: 6px;
+  background: var(--surface-panel);
   color: var(--text-soft);
+}
+.rating-card.admin-card {
+  min-width: 0;
+  padding: 1.25rem 1.5rem;
+}
+.admin-card .rating-card-heading {
+  margin-bottom: 0.4rem;
+}
+.admin-card > .muted {
+  margin-bottom: 1rem;
+}
+@media (max-width: 600px) {
+  .rating-card.admin-card {
+    padding: 1rem 0.75rem;
+  }
 }
 .muted {
   color: var(--text-muted);
@@ -8,48 +29,17 @@
 .row-error {
   color: var(--loss);
 }
-.table-wrap {
-  overflow-x: auto;
-}
-.admin-table {
-  width: 100%;
-  border-collapse: collapse;
-  font-family: var(--font-stats);
-  font-size: 0.9rem;
-}
-.admin-table th,
-.admin-table td {
-  padding: 0.5rem 0.6rem;
-  border-bottom: 1px solid var(--border-subtle);
-  text-align: left;
-}
-.admin-table thead th {
-  color: var(--accent-gold);
-  font-weight: 600;
-}
-.admin-table tbody th {
-  font-weight: 600;
-  color: var(--text-main);
-}
 .admin-table input[type='checkbox'] {
   width: 1.1rem;
   height: 1.1rem;
   accent-color: var(--accent-gold);
 }
-.btn-notes,
-.note-actions button {
+.admin-table .btn-notes {
   padding: 0.25rem 0.6rem;
-  border: 1px solid var(--border-subtle);
-  border-radius: 4px;
-  background: var(--surface-inset);
-  color: var(--text-main);
-  cursor: pointer;
+  font-size: 0.8rem;
+  white-space: nowrap;
 }
-.note-actions button:disabled {
-  opacity: 0.5;
-  cursor: default;
-}
-.notes-cell {
+.admin-table td.notes-cell {
   background: var(--surface-inset);
 }
 .season-notes {
@@ -65,6 +55,7 @@
   color: var(--accent-gold-light);
 }
 .note-box textarea {
+  box-sizing: border-box;
   width: 100%;
   padding: 0.4rem;
   border: 1px solid var(--border-subtle);
@@ -77,6 +68,10 @@
   display: flex;
   align-items: center;
   gap: 0.75rem;
+}
+.note-actions button:disabled {
+  opacity: 0.5;
+  cursor: default;
 }
 .note-status {
   color: var(--text-muted);
