@@ -511,7 +511,9 @@ def derive_tournaments(*, conn: psycopg.Connection, run_id: int) -> None:
         official = defaultdict(list)
         for r in conn.execute(
             "SELECT series, season, division, player_name, place, points "
-            "FROM tournament_official_placements ORDER BY place, player_name"
+            "FROM tournament_official_placements WHERE series = ANY(%s) "
+            "ORDER BY place, player_name",
+            (list(SERIES),),
         ).fetchall():
             official[(r["series"], r["season"], r["division"])].append(r)
         dates = {

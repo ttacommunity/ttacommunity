@@ -242,6 +242,21 @@ def test_a_world_championship_group_is_not_a_division(conn, add_match, run_id):
     assert (row["division"], row["division_source"]) == (None, None)
 
 
+def test_placements_of_a_series_the_engine_does_not_derive_are_left_alone(
+    conn, run_id, place
+):
+    place("nations_league", 10, "Apple", "DANeo")
+
+    derive_tournaments(conn=conn, run_id=run_id)
+
+    assert (
+        conn.execute(
+            "SELECT count(*) AS n FROM tournament_boards WHERE run_id = %s", (run_id,)
+        ).fetchone()["n"]
+        == 0
+    )
+
+
 def board(conn, run_id):
     rows = conn.execute(
         "SELECT player_name, gold, silver, bronze, points, title "
