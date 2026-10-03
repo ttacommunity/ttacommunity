@@ -194,6 +194,29 @@ scripts/seed-cluster-db.sh --kubectl [--dump ratings.dump]   # through kubectl
 the cluster's Secrets (`deploy/SECRETS.md`). Either way it refuses a database
 that already has tables.
 
+### Export the data, and rebuild from it
+
+An export is every table that holds inputs (games, CGE seats, players, the
+tournament catalogue and every recorded fact) as one CSV each, with a
+`manifest.json` of the schema version, row counts and SHA-256s. Ratings are
+not in it: the engine computes them again. Keep exports outside the repo.
+
+```bash
+go run ./cmd/load -export ~/tta-data/exports/2026-10-03    # a new or empty folder
+```
+
+To rebuild a lost database, restore into a new, empty one, then compute:
+
+```bash
+go run ./cmd/load -restore ~/tta-data/exports/2026-10-03
+```
+
+The restore applies the migrations, then loads everything in one
+transaction. It refuses a database that already holds games or runs, a file
+changed since the export, and an export taken at another schema version
+(restore with the `load` of that version, then migrate). Then run the engine
+([Compute ratings](#compute-ratings)).
+
 ### The files
 
 Every file has this header, and one match per row:
