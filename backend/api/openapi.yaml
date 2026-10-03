@@ -2099,10 +2099,14 @@ components:
       allOf:
         - $ref: "#/components/schemas/GameSpan"
         - type: object
-          required: [label, stages, podium, cge_pages]
+          required: [label, stages, podium, cge_pages, note]
           properties:
             label:
               type: string
+            note:
+              description: A note shown beside the season, such as what a special season was, or null
+              type: string
+              nullable: true
             stages:
               type: array
               items:

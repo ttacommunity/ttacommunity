@@ -73,6 +73,10 @@ var rules = []rule{
 	}),
 	r(`^RL_tb_s?(\d+)`, "royal_league", "Tiebreak"),
 	r(`^RL_s(\d+)`, "royal_league", ""),
+	rp(`^Worlds (\d{4}) Play Off Stage (\d+)`, "worlds", func(m []string) (string, string, bool) {
+		st, ok := number(m[2])
+		return m[1] + " Play Off", "Stage " + st, ok
+	}),
 	rp(`^Worlds (\d+)(?: -)? (?:[Ss]tage (\d+)|(finals))`, "worlds", func(m []string) (string, string, bool) {
 		s, ok := worldsSeason(m[1])
 		if m[3] != "" {

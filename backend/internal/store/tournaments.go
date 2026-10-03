@@ -138,6 +138,19 @@ func ReplacePodiums(ctx context.Context, pool *pgxpool.Pool, podiums []tournamen
 	return FactsReplaced{Written: n, Unknown: len(podiums) - n}, err
 }
 
+// ReplaceSeasonNotes replaces every season's note, in one transaction.
+func ReplaceSeasonNotes(ctx context.Context, pool *pgxpool.Pool, notes []tournamentcsv.SeasonNote) (FactsReplaced, error) {
+	var slugs, seasons, texts, sources []string
+	for _, n := range notes {
+		slugs, seasons, texts, sources = append(slugs, n.Tournament), append(seasons, n.Season), append(texts, n.Note), append(sources, n.Source)
+	}
+	n, err := replaceAll(ctx, pool, "tournament_season_notes", `
+		INSERT INTO tournament_season_notes (tournament, season, note, source)
+		SELECT * FROM unnest($1::text[], $2::text[], $3::text[], $4::text[])`,
+		slugs, seasons, texts, sources)
+	return FactsReplaced{Written: n, Unknown: len(notes) - n}, err
+}
+
 // ReplaceLadderWins replaces every ladder's top-tier wins, in one
 // transaction. A row naming someone who is not a player is counted, not written.
 func ReplaceLadderWins(ctx context.Context, pool *pgxpool.Pool, wins []tournamentcsv.LadderWins) (FactsReplaced, error) {

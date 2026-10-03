@@ -411,3 +411,35 @@ func TestCatalogueTournamentListsItsPlayers(t *testing.T) {
 		t.Errorf("players = %q, want ann and two bobs, each once, in order", got.Players)
 	}
 }
+
+func TestCatalogueTournamentKeepsAPlayOffApartFromItsYear(t *testing.T) {
+	pool := migrated(t)
+	ctx := context.Background()
+	run := publishedRun(t, pool)
+	placedOn(t, pool, map[string]time.Time{
+		"Worlds 2 - stage 2":                            day("2023-03-01"),
+		"Worlds 2023 Play Off Stage 1 - group 1 game 1": day("2023-12-01"),
+	})
+	if _, err := pool.Exec(ctx, `INSERT INTO tournament_official_placements (series, season, division, player_name, place, points, reason, source)
+		VALUES ('worlds', 2023, 'Final', 'ann', 1, NULL, 'r', 's')`); err != nil {
+		t.Fatalf("adding a placement: %v", err)
+	}
+	notes := []tournamentcsv.SeasonNote{{Tournament: "worlds", Season: "2023 Play Off", Note: "A second chance for the 2023 entrants.", Source: "CGE"}}
+	if got, err := ReplaceSeasonNotes(ctx, pool, notes); err != nil || got.Written != 1 {
+		t.Fatalf("ReplaceSeasonNotes = %+v, %v; want 1 written", got, err)
+	}
+
+	got, err := NewRatingsReader(asReader(t, pool)).CatalogueTournament(ctx, run, "worlds")
+	if err != nil {
+		t.Fatalf("CatalogueTournament: %v", err)
+	}
+	if len(got.Seasons) != 2 || got.Seasons[0].Label != "2023" || got.Seasons[1].Label != "2023 Play Off" {
+		t.Fatalf("seasons = %+v, want 2023 then its play-off", got.Seasons)
+	}
+	if len(got.Seasons[0].Podium) != 1 || len(got.Seasons[1].Podium) != 0 {
+		t.Errorf("podiums = %+v and %+v, want the 2023 placement on 2023 only", got.Seasons[0].Podium, got.Seasons[1].Podium)
+	}
+	if got.Seasons[1].Note != notes[0].Note || got.Seasons[0].Note != "" {
+		t.Errorf("notes = %q and %q, want the play-off's only", got.Seasons[0].Note, got.Seasons[1].Note)
+	}
+}

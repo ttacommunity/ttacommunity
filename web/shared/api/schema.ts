@@ -1286,6 +1286,8 @@ export interface components {
         };
         CatalogueSeason: components["schemas"]["GameSpan"] & {
             label: string;
+            /** @description A note shown beside the season, such as what a special season was, or null */
+            note: string | null;
             stages: components["schemas"]["CatalogueStage"][];
             /**
              * @description The season's top three: a cup's recorded podium, or a league's

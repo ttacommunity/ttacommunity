@@ -79,11 +79,12 @@ func TestCatalogueTournament(t *testing.T) {
 		Stages: []store.CatalogueStage{{Label: "Stage 7", Span: span(5, 2, "2025-02-03", "2025-02-24")}},
 		Podium: []store.PodiumPlace{{Place: 1, Name: "saru", Finished: finished, Source: "CGE /tournaments/detail/4991/7"}},
 		CGE:    []store.CGELink{{Tournament: 4991}, {Tournament: 19, Season: 20}},
+		Note:   "The first held in two halves.",
 	}}, Ladder: true, TopTierWins: []store.LadderWin{{Name: "wolvs", Wins: 10, Source: "Hall of Fame"}, {Name: "Grozz", Wins: 3.5, Source: "Hall of Fame"}},
 		Players: []string{"Grozz", "saru"}}}
 	rec, _ := serve(t, f, "/v1/runs/7/catalogue/wimbledon")
 	want := `{"ladder":true,"name":"Wimbledon","players":["Grozz","saru"],"run_id":7,"seasons":[{"cge_pages":["https://account.czechgames.com/tournaments/detail/4991","https://account.czechgames.com/tournaments/detail/19/20"],` +
-		`"first_game":"2024-07-01","games":632,"label":"2024","last_game":"2025-02-24","players":128,` +
+		`"first_game":"2024-07-01","games":632,"label":"2024","last_game":"2025-02-24","note":"The first held in two halves.","players":128,` +
 		`"podium":[{"final":"","finished":"2025-02-24","name":"saru","place":1,"source":"CGE /tournaments/detail/4991/7"}],` +
 		`"stages":[{"first_game":"2025-02-03","games":5,"label":"Stage 7","last_game":"2025-02-24","players":2}]}],"slug":"wimbledon",` +
 		`"top_tier_wins":[{"name":"wolvs","source":"Hall of Fame","wins":10},{"name":"Grozz","source":"Hall of Fame","wins":3.5}]}`

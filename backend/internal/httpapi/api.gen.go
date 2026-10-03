@@ -632,7 +632,10 @@ type CatalogueSeason struct {
 	Games     int                `json:"games"`
 	Label     string             `json:"label"`
 	LastGame  openapi_types.Date `json:"last_game"`
-	Players   int                `json:"players"`
+
+	// Note A note shown beside the season, such as what a special season was, or null
+	Note    *string `json:"note"`
+	Players int     `json:"players"`
 
 	// Podium The season's top three: a cup's recorded podium, or a league's
 	// recorded placements or else its top division's standings in

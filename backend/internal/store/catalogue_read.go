@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"regexp"
 	"slices"
+	"strings"
 	"time"
 
 	"github.com/jackc/pgx/v5"
@@ -75,6 +76,7 @@ type CatalogueSeason struct {
 	Stages []CatalogueStage
 	Podium []PodiumPlace
 	CGE    []CGELink
+	Note   string
 }
 
 // leadingNumber is the number a season label starts with.
@@ -253,10 +255,10 @@ func (r *RatingsReader) CatalogueTournament(ctx context.Context, run int64, slug
 	if err != nil {
 		return fail("league podiums", err)
 	}
-	// A league's seasons are numbered; a labelled one ("2022 (Age A)") is found by its number.
+	// A league's seasons are numbered; one labelled "2022 (Age A)" is found by its number, a "2023 Play Off" is not.
 	byNumber := make(map[string]int, len(got.Seasons))
 	for i, s := range got.Seasons {
-		if n := leadingNumber.FindString(s.Label); n != "" {
+		if n := leadingNumber.FindString(s.Label); n != "" && (s.Label == n || strings.HasPrefix(s.Label, n+" (")) {
 			byNumber[n] = i
 		}
 	}
@@ -300,6 +302,21 @@ func (r *RatingsReader) CatalogueTournament(ctx context.Context, run int64, slug
 	})
 	if err != nil {
 		return fail("CGE pages", err)
+	}
+
+	rows, err = r.pool.Query(ctx, "SELECT season, note FROM tournament_season_notes WHERE tournament = $1", slug)
+	if err != nil {
+		return fail("season notes", err)
+	}
+	var note string
+	_, err = pgx.ForEachRow(rows, []any{&label, &note}, func() error {
+		if i, ok := byLabel[label]; ok {
+			got.Seasons[i].Note = note
+		}
+		return nil
+	})
+	if err != nil {
+		return fail("season notes", err)
 	}
 
 	rows, err = r.pool.Query(ctx, `

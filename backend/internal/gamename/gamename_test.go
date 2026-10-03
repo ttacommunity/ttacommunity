@@ -24,6 +24,7 @@ func TestParseReadsEachNameShape(t *testing.T) {
 		{"World Championship 2, a stage", "Worlds 2 - stage 2", Placement{"worlds", "2023", "Stage 2", "", 0}},
 		{"World Championship 2, finals", "Worlds 2 - finals", Placement{"worlds", "2023", "Finals", "", 0}},
 		{"World Championship by year", "Worlds 2024 Stage 4 - Lower 12 game 3", Placement{"worlds", "2024", "Stage 4", "Lower 12", 3}},
+		{"World Championship play-off", "Worlds 2023 Play Off Stage 6 - Finals game 2", Placement{"worlds", "2023 Play Off", "Stage 6", "Finals", 2}},
 		{"World Championship, a group with a dash", "Worlds 2025 Stage 1 - Group 7 - game 2", Placement{"worlds", "2025", "Stage 1", "Group 7", 2}},
 		{"Wimbledon, lower-case stage", "Wimbledon 2023 stage 2", Placement{"wimbledon", "2023", "Stage 2", "", 0}},
 		{"Wimbledon", "Wimbledon 2024 Stage 7 - Final game 5", Placement{"wimbledon", "2024", "Stage 7", "Final", 5}},
