@@ -31,6 +31,7 @@ type Player struct {
 	Country    *string
 	Title      *Title
 	Peak       *Peak
+	Badges     []ExtraBadge
 	LastPlayed *time.Time
 	NewestGame *time.Time
 	Games      map[int]int
@@ -148,6 +149,11 @@ func (r *RatingsReader) Player(ctx context.Context, run int64, asked string) (Pl
 	if peak != nil {
 		p.Peak = &Peak{Code: *peak, Year: peakYear}
 	}
+	badges, err := r.badgesByPlayer(ctx, []string{name})
+	if err != nil {
+		return Player{}, err
+	}
+	p.Badges = badges[name]
 
 	rows, err := r.pool.Query(ctx, `
 		SELECT m.player_count, count(*), max(m.date)

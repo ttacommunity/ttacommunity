@@ -5,6 +5,7 @@ package store
 import (
 	"context"
 	"errors"
+	"reflect"
 	"slices"
 	"testing"
 	"time"
@@ -484,5 +485,36 @@ func TestARankingsCurrentRunMustBeItsOwn(t *testing.T) {
 	_, err := pool.Exec(context.Background(), `INSERT INTO current_run (ranking_id, run_id) VALUES ((SELECT ranking_id FROM rankings WHERE slug = 'blitz'), $1)`, community)
 	if err == nil {
 		t.Errorf("a community run was made the blitz ranking's current run")
+	}
+}
+
+func giveBadges(t *testing.T, pool *pgxpool.Pool, name string, labels ...string) {
+	t.Helper()
+	for _, l := range labels {
+		if _, err := pool.Exec(context.Background(), `
+			WITH b AS (INSERT INTO badges (label, description) VALUES ($1, $1 || ' description')
+			           ON CONFLICT (label) DO UPDATE SET label = excluded.label RETURNING badge_id)
+			INSERT INTO player_badges (player_name, badge_id) SELECT $2, badge_id FROM b`, l, name); err != nil {
+			t.Fatalf("giving %s the %s badge: %v", name, l, err)
+		}
+	}
+}
+
+func TestLeaderboardGivesEachPlayersBadgesAtOnce(t *testing.T) {
+	pool := migrated(t)
+	r := NewRatingsReader(asReader(t, pool))
+	ctx := context.Background()
+	run := addRun(t, pool, "complete", time.Date(2026, 9, 27, 4, 0, 0, 0, time.UTC))
+	addRating(t, pool, run, "glicko2_daneo", 0, "ann", intp(1), 1900)
+	addRating(t, pool, run, "glicko2_daneo", 0, "bob", intp(2), 1700)
+	giveBadges(t, pool, "ann", "TD", "Organiser")
+
+	got, err := r.Leaderboard(ctx, run, "glicko2_daneo", 0)
+	if err != nil {
+		t.Fatalf("Leaderboard: %v", err)
+	}
+	want := []ExtraBadge{{Label: "Organiser", Description: "Organiser description"}, {Label: "TD", Description: "TD description"}}
+	if !reflect.DeepEqual(got[0].Badges, want) || len(got[1].Badges) != 0 {
+		t.Errorf("badges = %+v and %+v, want ann's two by label and none for bob", got[0].Badges, got[1].Badges)
 	}
 }

@@ -591,3 +591,19 @@ func TestLeaderboardCSVRefusals(t *testing.T) {
 		t.Errorf("unpublished run: code = %d, want 404", rec.Code)
 	}
 }
+
+func TestLeaderboardSendsEachPlayersBadgesOnlyWhenTheyHaveSome(t *testing.T) {
+	rank := 1
+	f := &fakeRatings{run: store.PublishedRun{ID: 7}, board: []store.LeaderboardRow{
+		{Rank: &rank, Name: "ann", Badges: []store.ExtraBadge{{Label: "Organiser", Description: "Runs a league"}}},
+		{Name: "bob"},
+	}}
+	rec, _ := serve(t, f, "/v1/runs/7/leaderboard?model=glicko2_daneo&format=0")
+	body := rec.Body.String()
+	if rec.Code != http.StatusOK {
+		t.Fatalf("GET leaderboard = %d %s", rec.Code, body)
+	}
+	if !strings.Contains(body, `"badges":[{"description":"Runs a league","label":"Organiser"}]`) || strings.Count(body, `"badges"`) != 1 {
+		t.Errorf("leaderboard = %s, want ann's badge and no badges field for bob", body)
+	}
+}

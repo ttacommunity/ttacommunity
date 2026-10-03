@@ -69,6 +69,7 @@ func (s *server) GetPlayer(ctx context.Context, req GetPlayerRequestObject) (Get
 	if p.Peak != nil {
 		body.Peak = &Peak{Code: TitleCode(p.Peak.Code), Year: p.Peak.Year}
 	}
+	body.Badges = extraBadges(p.Badges)
 	if p.LastPlayed != nil {
 		body.LastPlayed = &openapi_types.Date{Time: *p.LastPlayed}
 	}

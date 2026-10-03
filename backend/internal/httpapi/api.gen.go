@@ -569,6 +569,16 @@ type Activity struct {
 	Titles []TitlePlayers `json:"titles"`
 }
 
+// AdminBadge defines model for AdminBadge.
+type AdminBadge struct {
+	Description string `json:"description"`
+	Id          int64  `json:"id"`
+	Label       string `json:"label"`
+
+	// Players Who holds it, by name
+	Players []string `json:"players"`
+}
+
 // AdminMe defines model for AdminMe.
 type AdminMe struct {
 	Name string      `json:"name"`
@@ -673,6 +683,12 @@ type Agreement struct {
 	Sample  int         `json:"sample"`
 	Top     []ModelPair `json:"top"`
 	Weakest []ModelPair `json:"weakest"`
+}
+
+// BadgeSetting defines model for BadgeSetting.
+type BadgeSetting struct {
+	Description string `json:"description"`
+	Label       string `json:"label"`
 }
 
 // CGETournament A tournament on CGE's site, as its page shows it
@@ -1010,6 +1026,13 @@ type Error struct {
 	Error string `json:"error"`
 }
 
+// ExtraBadge defines model for ExtraBadge.
+type ExtraBadge struct {
+	// Description Shown on hover; may be empty
+	Description string `json:"description"`
+	Label       string `json:"label"`
+}
+
 // Format Players per game. 0 is every format together
 type Format int
 
@@ -1144,6 +1167,9 @@ type Leaderboard struct {
 
 // LeaderboardRow defines model for LeaderboardRow.
 type LeaderboardRow struct {
+	// Badges Badges admin gave the player, by label, shown beside the title
+	Badges *[]ExtraBadge `json:"badges,omitempty"`
+
 	// CRating Conservative rating, which the rank is ordered by
 	CRating float64 `json:"c_rating"`
 
@@ -1243,7 +1269,9 @@ type Peak struct {
 
 // Player defines model for Player.
 type Player struct {
-	Country *string `json:"country"`
+	// Badges Badges admin gave the player, by label, shown beside the title
+	Badges  *[]ExtraBadge `json:"badges,omitempty"`
+	Country *string       `json:"country"`
 
 	// Games How many games the player has in the run, by format (0 is all)
 	Games      []FormatGames       `json:"games"`
@@ -1745,6 +1773,9 @@ type Years struct {
 	Years []YearEntry `json:"years"`
 }
 
+// AdminBadgeId defines model for AdminBadgeId.
+type AdminBadgeId = int64
+
 // AdminPlayer defines model for AdminPlayer.
 type AdminPlayer = string
 
@@ -1917,6 +1948,12 @@ type GetYearLeaderboardParams struct {
 // PutAdminAdminJSONRequestBody defines body for PutAdminAdmin for application/json ContentType.
 type PutAdminAdminJSONRequestBody = AdminRole
 
+// PostAdminBadgeJSONRequestBody defines body for PostAdminBadge for application/json ContentType.
+type PostAdminBadgeJSONRequestBody = BadgeSetting
+
+// PutAdminBadgeJSONRequestBody defines body for PutAdminBadge for application/json ContentType.
+type PutAdminBadgeJSONRequestBody = BadgeSetting
+
 // PutAdminTitleJSONRequestBody defines body for PutAdminTitle for application/json ContentType.
 type PutAdminTitleJSONRequestBody = TitleSetting
 
@@ -1952,6 +1989,24 @@ type ServerInterface interface {
 	// PutAdminAdmin Add someone to admin, or change their name or role (admins only; admin always keeps one admin)
 	// (PUT /v1/admin/admins/{discord_id})
 	PutAdminAdmin(w http.ResponseWriter, r *http.Request, discordId DiscordID)
+	// GetAdminBadges Every badge admin made, with who holds it (admins only)
+	// (GET /v1/admin/badges)
+	GetAdminBadges(w http.ResponseWriter, r *http.Request)
+	// PostAdminBadge Make a badge (admins only)
+	// (POST /v1/admin/badges)
+	PostAdminBadge(w http.ResponseWriter, r *http.Request)
+	// DeleteAdminBadge Remove a badge, from everyone who holds it (admins only)
+	// (DELETE /v1/admin/badges/{badge})
+	DeleteAdminBadge(w http.ResponseWriter, r *http.Request, badge AdminBadgeId)
+	// PutAdminBadge Change a badge's label and description (admins only)
+	// (PUT /v1/admin/badges/{badge})
+	PutAdminBadge(w http.ResponseWriter, r *http.Request, badge AdminBadgeId)
+	// DeleteAdminBadgePlayer Take a badge from a player (admins only)
+	// (DELETE /v1/admin/badges/{badge}/players/{player})
+	DeleteAdminBadgePlayer(w http.ResponseWriter, r *http.Request, badge AdminBadgeId, player AdminPlayer)
+	// PutAdminBadgePlayer Give a player a badge, shown at once (admins only)
+	// (PUT /v1/admin/badges/{badge}/players/{player})
+	PutAdminBadgePlayer(w http.ResponseWriter, r *http.Request, badge AdminBadgeId, player AdminPlayer)
 	// GetAdminMe Who is signed in to admin, and in which role
 	// (GET /v1/admin/me)
 	GetAdminMe(w http.ResponseWriter, r *http.Request)
@@ -2174,6 +2229,156 @@ func (siw *ServerInterfaceWrapper) PutAdminAdmin(w http.ResponseWriter, r *http.
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.PutAdminAdmin(w, r, discordId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetAdminBadges operation middleware
+func (siw *ServerInterfaceWrapper) GetAdminBadges(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetAdminBadges(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// PostAdminBadge operation middleware
+func (siw *ServerInterfaceWrapper) PostAdminBadge(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.PostAdminBadge(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// DeleteAdminBadge operation middleware
+func (siw *ServerInterfaceWrapper) DeleteAdminBadge(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "badge" -------------
+	var badge AdminBadgeId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "badge", r.PathValue("badge"), &badge, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "integer", Format: "int64", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "badge", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.DeleteAdminBadge(w, r, badge)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// PutAdminBadge operation middleware
+func (siw *ServerInterfaceWrapper) PutAdminBadge(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "badge" -------------
+	var badge AdminBadgeId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "badge", r.PathValue("badge"), &badge, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "integer", Format: "int64", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "badge", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.PutAdminBadge(w, r, badge)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// DeleteAdminBadgePlayer operation middleware
+func (siw *ServerInterfaceWrapper) DeleteAdminBadgePlayer(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "badge" -------------
+	var badge AdminBadgeId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "badge", r.PathValue("badge"), &badge, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "integer", Format: "int64", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "badge", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "player" -------------
+	var player AdminPlayer
+
+	err = runtime.BindStyledParameterWithOptions("simple", "player", r.PathValue("player"), &player, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "player", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.DeleteAdminBadgePlayer(w, r, badge, player)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// PutAdminBadgePlayer operation middleware
+func (siw *ServerInterfaceWrapper) PutAdminBadgePlayer(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "badge" -------------
+	var badge AdminBadgeId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "badge", r.PathValue("badge"), &badge, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "integer", Format: "int64", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "badge", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "player" -------------
+	var player AdminPlayer
+
+	err = runtime.BindStyledParameterWithOptions("simple", "player", r.PathValue("player"), &player, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "player", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.PutAdminBadgePlayer(w, r, badge, player)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -4013,6 +4218,12 @@ func HandlerWithOptions(si ServerInterface, options StdHTTPServerOptions) http.H
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/v1/admin/admins", wrapper.GetAdminAdmins)
 	m.HandleFunc(http.MethodDelete+" "+options.BaseURL+"/v1/admin/admins/{discord_id}", wrapper.DeleteAdminAdmin)
 	m.HandleFunc(http.MethodPut+" "+options.BaseURL+"/v1/admin/admins/{discord_id}", wrapper.PutAdminAdmin)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/v1/admin/badges", wrapper.GetAdminBadges)
+	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/v1/admin/badges", wrapper.PostAdminBadge)
+	m.HandleFunc(http.MethodDelete+" "+options.BaseURL+"/v1/admin/badges/{badge}", wrapper.DeleteAdminBadge)
+	m.HandleFunc(http.MethodPut+" "+options.BaseURL+"/v1/admin/badges/{badge}", wrapper.PutAdminBadge)
+	m.HandleFunc(http.MethodDelete+" "+options.BaseURL+"/v1/admin/badges/{badge}/players/{player}", wrapper.DeleteAdminBadgePlayer)
+	m.HandleFunc(http.MethodPut+" "+options.BaseURL+"/v1/admin/badges/{badge}/players/{player}", wrapper.PutAdminBadgePlayer)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/v1/admin/titles", wrapper.GetAdminTitles)
 	m.HandleFunc(http.MethodDelete+" "+options.BaseURL+"/v1/admin/titles/{player}", wrapper.DeleteAdminTitle)
 	m.HandleFunc(http.MethodPut+" "+options.BaseURL+"/v1/admin/titles/{player}", wrapper.PutAdminTitle)
@@ -4343,6 +4554,432 @@ func (response PutAdminAdmin403JSONResponse) VisitPutAdminAdminResponse(w http.R
 	w.Header().Set("Content-Type", "application/json")
 	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
 	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetAdminBadgesRequestObject struct {
+}
+
+type GetAdminBadgesResponseObject interface {
+	VisitGetAdminBadgesResponse(w http.ResponseWriter) error
+}
+
+type GetAdminBadges200ResponseHeaders struct {
+	CacheControl string
+}
+
+type GetAdminBadges200JSONResponse struct {
+	Body    []AdminBadge
+	Headers GetAdminBadges200ResponseHeaders
+}
+
+func (response GetAdminBadges200JSONResponse) VisitGetAdminBadgesResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetAdminBadges401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response GetAdminBadges401JSONResponse) VisitGetAdminBadgesResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetAdminBadges403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response GetAdminBadges403JSONResponse) VisitGetAdminBadgesResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PostAdminBadgeRequestObject struct {
+	Body *PostAdminBadgeJSONRequestBody
+}
+
+type PostAdminBadgeResponseObject interface {
+	VisitPostAdminBadgeResponse(w http.ResponseWriter) error
+}
+
+type PostAdminBadge201ResponseHeaders struct {
+	CacheControl string
+}
+
+type PostAdminBadge201JSONResponse struct {
+	Body    AdminBadge
+	Headers PostAdminBadge201ResponseHeaders
+}
+
+func (response PostAdminBadge201JSONResponse) VisitPostAdminBadgeResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(201)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PostAdminBadge400JSONResponse struct{ BadRequestJSONResponse }
+
+func (response PostAdminBadge400JSONResponse) VisitPostAdminBadgeResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PostAdminBadge401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response PostAdminBadge401JSONResponse) VisitPostAdminBadgeResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PostAdminBadge403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response PostAdminBadge403JSONResponse) VisitPostAdminBadgeResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PostAdminBadge409JSONResponse struct{ ConflictJSONResponse }
+
+func (response PostAdminBadge409JSONResponse) VisitPostAdminBadgeResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(409)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DeleteAdminBadgeRequestObject struct {
+	Badge AdminBadgeId `json:"badge"`
+}
+
+type DeleteAdminBadgeResponseObject interface {
+	VisitDeleteAdminBadgeResponse(w http.ResponseWriter) error
+}
+
+type DeleteAdminBadge204Response struct {
+}
+
+func (response DeleteAdminBadge204Response) VisitDeleteAdminBadgeResponse(w http.ResponseWriter) error {
+	w.WriteHeader(204)
+	return nil
+}
+
+type DeleteAdminBadge401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response DeleteAdminBadge401JSONResponse) VisitDeleteAdminBadgeResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DeleteAdminBadge403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response DeleteAdminBadge403JSONResponse) VisitDeleteAdminBadgeResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DeleteAdminBadge404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response DeleteAdminBadge404JSONResponse) VisitDeleteAdminBadgeResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PutAdminBadgeRequestObject struct {
+	Badge AdminBadgeId `json:"badge"`
+	Body  *PutAdminBadgeJSONRequestBody
+}
+
+type PutAdminBadgeResponseObject interface {
+	VisitPutAdminBadgeResponse(w http.ResponseWriter) error
+}
+
+type PutAdminBadge204Response struct {
+}
+
+func (response PutAdminBadge204Response) VisitPutAdminBadgeResponse(w http.ResponseWriter) error {
+	w.WriteHeader(204)
+	return nil
+}
+
+type PutAdminBadge400JSONResponse struct{ BadRequestJSONResponse }
+
+func (response PutAdminBadge400JSONResponse) VisitPutAdminBadgeResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PutAdminBadge401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response PutAdminBadge401JSONResponse) VisitPutAdminBadgeResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PutAdminBadge403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response PutAdminBadge403JSONResponse) VisitPutAdminBadgeResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PutAdminBadge404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response PutAdminBadge404JSONResponse) VisitPutAdminBadgeResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PutAdminBadge409JSONResponse struct{ ConflictJSONResponse }
+
+func (response PutAdminBadge409JSONResponse) VisitPutAdminBadgeResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(409)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DeleteAdminBadgePlayerRequestObject struct {
+	Badge  AdminBadgeId `json:"badge"`
+	Player AdminPlayer  `json:"player"`
+}
+
+type DeleteAdminBadgePlayerResponseObject interface {
+	VisitDeleteAdminBadgePlayerResponse(w http.ResponseWriter) error
+}
+
+type DeleteAdminBadgePlayer204Response struct {
+}
+
+func (response DeleteAdminBadgePlayer204Response) VisitDeleteAdminBadgePlayerResponse(w http.ResponseWriter) error {
+	w.WriteHeader(204)
+	return nil
+}
+
+type DeleteAdminBadgePlayer401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response DeleteAdminBadgePlayer401JSONResponse) VisitDeleteAdminBadgePlayerResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DeleteAdminBadgePlayer403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response DeleteAdminBadgePlayer403JSONResponse) VisitDeleteAdminBadgePlayerResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DeleteAdminBadgePlayer404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response DeleteAdminBadgePlayer404JSONResponse) VisitDeleteAdminBadgePlayerResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PutAdminBadgePlayerRequestObject struct {
+	Badge  AdminBadgeId `json:"badge"`
+	Player AdminPlayer  `json:"player"`
+}
+
+type PutAdminBadgePlayerResponseObject interface {
+	VisitPutAdminBadgePlayerResponse(w http.ResponseWriter) error
+}
+
+type PutAdminBadgePlayer204Response struct {
+}
+
+func (response PutAdminBadgePlayer204Response) VisitPutAdminBadgePlayerResponse(w http.ResponseWriter) error {
+	w.WriteHeader(204)
+	return nil
+}
+
+type PutAdminBadgePlayer401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response PutAdminBadgePlayer401JSONResponse) VisitPutAdminBadgePlayerResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PutAdminBadgePlayer403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response PutAdminBadgePlayer403JSONResponse) VisitPutAdminBadgePlayerResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PutAdminBadgePlayer404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response PutAdminBadgePlayer404JSONResponse) VisitPutAdminBadgePlayerResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(404)
 	_, err := buf.WriteTo(w)
 	return err
 }
@@ -7095,6 +7732,24 @@ type StrictServerInterface interface {
 	// PutAdminAdmin Add someone to admin, or change their name or role (admins only; admin always keeps one admin)
 	// (PUT /v1/admin/admins/{discord_id})
 	PutAdminAdmin(ctx context.Context, request PutAdminAdminRequestObject) (PutAdminAdminResponseObject, error)
+	// GetAdminBadges Every badge admin made, with who holds it (admins only)
+	// (GET /v1/admin/badges)
+	GetAdminBadges(ctx context.Context, request GetAdminBadgesRequestObject) (GetAdminBadgesResponseObject, error)
+	// PostAdminBadge Make a badge (admins only)
+	// (POST /v1/admin/badges)
+	PostAdminBadge(ctx context.Context, request PostAdminBadgeRequestObject) (PostAdminBadgeResponseObject, error)
+	// DeleteAdminBadge Remove a badge, from everyone who holds it (admins only)
+	// (DELETE /v1/admin/badges/{badge})
+	DeleteAdminBadge(ctx context.Context, request DeleteAdminBadgeRequestObject) (DeleteAdminBadgeResponseObject, error)
+	// PutAdminBadge Change a badge's label and description (admins only)
+	// (PUT /v1/admin/badges/{badge})
+	PutAdminBadge(ctx context.Context, request PutAdminBadgeRequestObject) (PutAdminBadgeResponseObject, error)
+	// DeleteAdminBadgePlayer Take a badge from a player (admins only)
+	// (DELETE /v1/admin/badges/{badge}/players/{player})
+	DeleteAdminBadgePlayer(ctx context.Context, request DeleteAdminBadgePlayerRequestObject) (DeleteAdminBadgePlayerResponseObject, error)
+	// PutAdminBadgePlayer Give a player a badge, shown at once (admins only)
+	// (PUT /v1/admin/badges/{badge}/players/{player})
+	PutAdminBadgePlayer(ctx context.Context, request PutAdminBadgePlayerRequestObject) (PutAdminBadgePlayerResponseObject, error)
 	// GetAdminMe Who is signed in to admin, and in which role
 	// (GET /v1/admin/me)
 	GetAdminMe(ctx context.Context, request GetAdminMeRequestObject) (GetAdminMeResponseObject, error)
@@ -7386,6 +8041,174 @@ func (sh *strictHandler) PutAdminAdmin(w http.ResponseWriter, r *http.Request, d
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(PutAdminAdminResponseObject); ok {
 		if err := validResponse.VisitPutAdminAdminResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// GetAdminBadges operation middleware
+func (sh *strictHandler) GetAdminBadges(w http.ResponseWriter, r *http.Request) {
+	var request GetAdminBadgesRequestObject
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.GetAdminBadges(ctx, request.(GetAdminBadgesRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetAdminBadges")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(GetAdminBadgesResponseObject); ok {
+		if err := validResponse.VisitGetAdminBadgesResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// PostAdminBadge operation middleware
+func (sh *strictHandler) PostAdminBadge(w http.ResponseWriter, r *http.Request) {
+	var request PostAdminBadgeRequestObject
+
+	var body PostAdminBadgeJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.PostAdminBadge(ctx, request.(PostAdminBadgeRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "PostAdminBadge")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(PostAdminBadgeResponseObject); ok {
+		if err := validResponse.VisitPostAdminBadgeResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// DeleteAdminBadge operation middleware
+func (sh *strictHandler) DeleteAdminBadge(w http.ResponseWriter, r *http.Request, badge AdminBadgeId) {
+	var request DeleteAdminBadgeRequestObject
+
+	request.Badge = badge
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.DeleteAdminBadge(ctx, request.(DeleteAdminBadgeRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "DeleteAdminBadge")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(DeleteAdminBadgeResponseObject); ok {
+		if err := validResponse.VisitDeleteAdminBadgeResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// PutAdminBadge operation middleware
+func (sh *strictHandler) PutAdminBadge(w http.ResponseWriter, r *http.Request, badge AdminBadgeId) {
+	var request PutAdminBadgeRequestObject
+
+	request.Badge = badge
+
+	var body PutAdminBadgeJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.PutAdminBadge(ctx, request.(PutAdminBadgeRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "PutAdminBadge")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(PutAdminBadgeResponseObject); ok {
+		if err := validResponse.VisitPutAdminBadgeResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// DeleteAdminBadgePlayer operation middleware
+func (sh *strictHandler) DeleteAdminBadgePlayer(w http.ResponseWriter, r *http.Request, badge AdminBadgeId, player AdminPlayer) {
+	var request DeleteAdminBadgePlayerRequestObject
+
+	request.Badge = badge
+	request.Player = player
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.DeleteAdminBadgePlayer(ctx, request.(DeleteAdminBadgePlayerRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "DeleteAdminBadgePlayer")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(DeleteAdminBadgePlayerResponseObject); ok {
+		if err := validResponse.VisitDeleteAdminBadgePlayerResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// PutAdminBadgePlayer operation middleware
+func (sh *strictHandler) PutAdminBadgePlayer(w http.ResponseWriter, r *http.Request, badge AdminBadgeId, player AdminPlayer) {
+	var request PutAdminBadgePlayerRequestObject
+
+	request.Badge = badge
+	request.Player = player
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.PutAdminBadgePlayer(ctx, request.(PutAdminBadgePlayerRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "PutAdminBadgePlayer")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(PutAdminBadgePlayerResponseObject); ok {
+		if err := validResponse.VisitPutAdminBadgePlayerResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {

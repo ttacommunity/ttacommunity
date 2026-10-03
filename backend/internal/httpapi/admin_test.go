@@ -169,6 +169,53 @@ func (f *fakeAdmins) SetPodium(_ context.Context, slug, season string, podium []
 	return nil
 }
 
+func (*fakeAdmins) Badges(context.Context) ([]store.Badge, error) {
+	return []store.Badge{{ID: 3, Label: "Organiser", Description: "Runs a league", Players: []string{"Ann"}}}, nil
+}
+
+func (f *fakeAdmins) AddBadge(_ context.Context, b store.Badge) (int64, error) {
+	if b.Label == "Organiser" {
+		return 0, store.ErrBadgeExists
+	}
+	f.notes = append(f.notes, "add badge "+b.Label)
+	return 4, nil
+}
+
+func (f *fakeAdmins) SetBadge(_ context.Context, b store.Badge) error {
+	if b.ID != 3 {
+		return store.ErrNoBadge
+	}
+	f.notes = append(f.notes, fmt.Sprintf("set badge %d %s", b.ID, b.Label))
+	return nil
+}
+
+func (f *fakeAdmins) RemoveBadge(_ context.Context, id int64) error {
+	if id != 3 {
+		return store.ErrNoBadge
+	}
+	f.notes = append(f.notes, fmt.Sprintf("remove badge %d", id))
+	return nil
+}
+
+func (f *fakeAdmins) GiveBadge(_ context.Context, id int64, name string) error {
+	switch {
+	case id != 3:
+		return store.ErrNoBadge
+	case name == "Nobody":
+		return store.ErrNoPlayer
+	}
+	f.notes = append(f.notes, fmt.Sprintf("give %d %s", id, name))
+	return nil
+}
+
+func (f *fakeAdmins) TakeBadge(_ context.Context, id int64, name string) error {
+	if id != 3 || name != "Ann" {
+		return store.ErrNoBadge
+	}
+	f.notes = append(f.notes, fmt.Sprintf("take %d %s", id, name))
+	return nil
+}
+
 func (*fakeAdmins) TitleOverrides(context.Context) ([]store.TitleOverride, error) {
 	return []store.TitleOverride{{Name: "Ann", Title: "SGM", Reason: "won 2019"}}, nil
 }
@@ -729,6 +776,77 @@ func TestTitleChangesAreRefusedWhenTheyShouldBe(t *testing.T) {
 		{"a long reason", owner, http.MethodPut, "/v1/admin/titles/Ann", site, `{"title": "GM", "reason": "` + strings.Repeat("x", 301) + `"}`, http.StatusBadRequest},
 		{"no such player", owner, http.MethodPut, "/v1/admin/titles/Nobody", site, `{"title": "GM", "reason": "r"}`, http.StatusNotFound},
 		{"clearing a title never set", owner, http.MethodDelete, "/v1/admin/titles/Bob", site, "", http.StatusNotFound},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			f := &fakeAdmins{}
+			rec := adminDoAs(t, f, tt.who, tt.method, tt.path, tt.origin, tt.body)
+			if rec.Code != tt.want {
+				t.Errorf("%s %s = %d %s, want %d", tt.method, tt.path, rec.Code, rec.Body, tt.want)
+			}
+			if len(f.notes)+len(f.audits) != 0 {
+				t.Errorf("a refused change still changed something: %q %q", f.notes, f.audits)
+			}
+		})
+	}
+}
+
+func TestAnAdminMakesGivesTakesAndRemovesBadges(t *testing.T) {
+	const site, owner = "https://ttac-admin.example", "111111111111111111"
+	f := &fakeAdmins{}
+	rec := adminDoAs(t, f, owner, http.MethodGet, "/v1/admin/badges", "", "")
+	var list []AdminBadge
+	if err := json.Unmarshal(rec.Body.Bytes(), &list); err != nil || len(list) != 1 || list[0].Players[0] != "Ann" {
+		t.Fatalf("GET badges = %d %s", rec.Code, rec.Body)
+	}
+	rec = adminDoAs(t, f, owner, http.MethodPost, "/v1/admin/badges", site, `{"label": "TD", "description": "Tournament director"}`)
+	var made AdminBadge
+	if err := json.Unmarshal(rec.Body.Bytes(), &made); err != nil || rec.Code != http.StatusCreated || made.Id != 4 || made.Label != "TD" {
+		t.Fatalf("POST badge = %d %s, want 201 with id 4", rec.Code, rec.Body)
+	}
+	for _, step := range []struct{ method, path, body string }{
+		{http.MethodPut, "/v1/admin/badges/3", `{"label": "Org", "description": ""}`},
+		{http.MethodPut, "/v1/admin/badges/3/players/Bob", ""},
+		{http.MethodDelete, "/v1/admin/badges/3/players/Ann", ""},
+		{http.MethodDelete, "/v1/admin/badges/3", ""},
+	} {
+		if rec := adminDoAs(t, f, owner, step.method, step.path, site, step.body); rec.Code != http.StatusNoContent {
+			t.Errorf("%s %s = %d %s, want 204", step.method, step.path, rec.Code, rec.Body)
+		}
+	}
+	if want := "add badge TD|set badge 3 Org|give 3 Bob|take 3 Ann|remove badge 3"; strings.Join(f.notes, "|") != want {
+		t.Errorf("changes = %q, want %q", f.notes, want)
+	}
+	if want := []string{"badge.add TD", "badge.set 3", "badge.give 3", "badge.take 3", "badge.remove 3"}; len(f.audits) != len(want) {
+		t.Errorf("audits = %q, want %d", f.audits, len(want))
+	} else {
+		for i, w := range want {
+			if f.audits[i] != owner+" "+w {
+				t.Errorf("audit %d = %q, want %q", i, f.audits[i], owner+" "+w)
+			}
+		}
+	}
+}
+
+func TestBadgeChangesAreRefusedWhenTheyShouldBe(t *testing.T) {
+	const site, owner, org = "https://ttac-admin.example", "111111111111111111", "222222222222222222"
+	tests := []struct {
+		name, who, method, path, origin, body string
+		want                                  int
+	}{
+		{"an organiser lists", org, http.MethodGet, "/v1/admin/badges", "", "", http.StatusForbidden},
+		{"an organiser makes", org, http.MethodPost, "/v1/admin/badges", site, `{"label": "X", "description": ""}`, http.StatusForbidden},
+		{"an organiser gives", org, http.MethodPut, "/v1/admin/badges/3/players/Ann", site, "", http.StatusForbidden},
+		{"another site", owner, http.MethodPost, "/v1/admin/badges", "https://evil.example", `{"label": "X", "description": ""}`, http.StatusForbidden},
+		{"no label", owner, http.MethodPost, "/v1/admin/badges", site, `{"label": " ", "description": ""}`, http.StatusBadRequest},
+		{"a long label", owner, http.MethodPost, "/v1/admin/badges", site, `{"label": "Seventeen letters", "description": ""}`, http.StatusBadRequest},
+		{"a long description", owner, http.MethodPost, "/v1/admin/badges", site, `{"label": "X", "description": "` + strings.Repeat("x", 301) + `"}`, http.StatusBadRequest},
+		{"a label taken", owner, http.MethodPost, "/v1/admin/badges", site, `{"label": "Organiser", "description": ""}`, http.StatusConflict},
+		{"changing no badge", owner, http.MethodPut, "/v1/admin/badges/9", site, `{"label": "X", "description": ""}`, http.StatusNotFound},
+		{"giving no badge", owner, http.MethodPut, "/v1/admin/badges/9/players/Ann", site, "", http.StatusNotFound},
+		{"giving to nobody", owner, http.MethodPut, "/v1/admin/badges/3/players/Nobody", site, "", http.StatusNotFound},
+		{"taking one not held", owner, http.MethodDelete, "/v1/admin/badges/3/players/Bob", site, "", http.StatusNotFound},
+		{"removing no badge", owner, http.MethodDelete, "/v1/admin/badges/9", site, "", http.StatusNotFound},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

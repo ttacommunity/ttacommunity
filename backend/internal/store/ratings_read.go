@@ -47,6 +47,34 @@ type LeaderboardRow struct {
 	Country    *string
 	Title      *Title
 	Peak       *Peak
+	Badges     []ExtraBadge
+}
+
+// ExtraBadge is a badge admin gave a player, shown beside their title.
+type ExtraBadge struct {
+	Label       string
+	Description string
+}
+
+// badgesByPlayer returns every player's badges, by label: they show at once, whatever the run.
+func (r *RatingsReader) badgesByPlayer(ctx context.Context, names []string) (map[string][]ExtraBadge, error) {
+	rows, err := r.pool.Query(ctx, `
+		SELECT pb.player_name, b.label, b.description FROM player_badges pb JOIN badges b USING (badge_id)
+		WHERE pb.player_name = ANY($1) ORDER BY lower(b.label)`, names)
+	if err != nil {
+		return nil, fmt.Errorf("reading badges: %w", err)
+	}
+	got := map[string][]ExtraBadge{}
+	var name string
+	var b ExtraBadge
+	_, err = pgx.ForEachRow(rows, []any{&name, &b.Label, &b.Description}, func() error {
+		got[name] = append(got[name], b)
+		return nil
+	})
+	if err != nil {
+		return nil, fmt.Errorf("reading badges: %w", err)
+	}
+	return got, nil
 }
 
 // Peak is a player's best title over their career, and the year they held it.
@@ -174,6 +202,17 @@ func (r *RatingsReader) Leaderboard(ctx context.Context, run int64, model string
 	})
 	if err != nil {
 		return nil, fmt.Errorf("reading run %d's %s leaderboard: %w", run, model, err)
+	}
+	names := make([]string, len(board))
+	for i, p := range board {
+		names[i] = p.Name
+	}
+	badges, err := r.badgesByPlayer(ctx, names)
+	if err != nil {
+		return nil, err
+	}
+	for i := range board {
+		board[i].Badges = badges[board[i].Name]
 	}
 	return board, nil
 }

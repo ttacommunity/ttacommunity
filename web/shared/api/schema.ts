@@ -739,6 +739,75 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/admin/badges": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Every badge admin made, with who holds it (admins only) */
+        get: operations["getAdminBadges"];
+        put?: never;
+        /**
+         * Make a badge (admins only)
+         * @description Audited. The Origin must be the admin site.
+         */
+        post: operations["postAdminBadge"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/badges/{badge}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Change a badge's label and description (admins only)
+         * @description Audited. The Origin must be the admin site.
+         */
+        put: operations["putAdminBadge"];
+        post?: never;
+        /**
+         * Remove a badge, from everyone who holds it (admins only)
+         * @description Audited. The Origin must be the admin site.
+         */
+        delete: operations["deleteAdminBadge"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/badges/{badge}/players/{player}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Give a player a badge, shown at once (admins only)
+         * @description Audited. The Origin must be the admin site.
+         */
+        put: operations["putAdminBadgePlayer"];
+        post?: never;
+        /**
+         * Take a badge from a player (admins only)
+         * @description Audited. The Origin must be the admin site.
+         */
+        delete: operations["deleteAdminBadgePlayer"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/admin/titles": {
         parameters: {
             query?: never;
@@ -991,6 +1060,23 @@ export interface components {
             /** Format: double */
             change: number;
         };
+        ExtraBadge: {
+            label: string;
+            /** @description Shown on hover; may be empty */
+            description: string;
+        };
+        AdminBadge: {
+            /** Format: int64 */
+            id: number;
+            label: string;
+            description: string;
+            /** @description Who holds it, by name */
+            players: string[];
+        };
+        BadgeSetting: {
+            label: string;
+            description: string;
+        };
         TitleOverride: {
             name: string;
             title: components["schemas"]["AdminTitle"];
@@ -1164,6 +1250,8 @@ export interface components {
             /** @description The player's country, ISO 3166-1 alpha-2, if known */
             country: string | null;
             title: components["schemas"]["Title"];
+            /** @description Badges admin gave the player, by label, shown beside the title */
+            badges?: components["schemas"]["ExtraBadge"][];
         };
         History: {
             /** Format: int64 */
@@ -1203,6 +1291,8 @@ export interface components {
             name: string;
             country: string | null;
             title: components["schemas"]["Title"];
+            /** @description Badges admin gave the player, by label, shown beside the title */
+            badges?: components["schemas"]["ExtraBadge"][];
             peak: components["schemas"]["Peak"];
             /** Format: date */
             last_played: string | null;
@@ -2029,6 +2119,7 @@ export interface components {
         };
     };
     parameters: {
+        AdminBadgeId: number;
         /** @description The player's name, as the leaderboard gives it */
         AdminPlayer: string;
         /** @description Any run's id, published or not */
@@ -2997,6 +3088,160 @@ export interface operations {
         requestBody?: never;
         responses: {
             /** @description Removed */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    getAdminBadges: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The badges, by label */
+            200: {
+                headers: {
+                    "Cache-Control": components["headers"]["CacheControl"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminBadge"][];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    postAdminBadge: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BadgeSetting"];
+            };
+        };
+        responses: {
+            /** @description Made */
+            201: {
+                headers: {
+                    "Cache-Control": components["headers"]["CacheControl"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminBadge"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            409: components["responses"]["Conflict"];
+        };
+    };
+    putAdminBadge: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                badge: components["parameters"]["AdminBadgeId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BadgeSetting"];
+            };
+        };
+        responses: {
+            /** @description Saved */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+        };
+    };
+    deleteAdminBadge: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                badge: components["parameters"]["AdminBadgeId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Removed */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    putAdminBadgePlayer: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                badge: components["parameters"]["AdminBadgeId"];
+                /** @description The player's name, as the leaderboard gives it */
+                player: components["parameters"]["AdminPlayer"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Given */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    deleteAdminBadgePlayer: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                badge: components["parameters"]["AdminBadgeId"];
+                /** @description The player's name, as the leaderboard gives it */
+                player: components["parameters"]["AdminPlayer"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Taken */
             204: {
                 headers: {
                     [name: string]: unknown;

@@ -215,6 +215,7 @@ func (s *server) GetLeaderboard(ctx context.Context, req GetLeaderboardRequestOb
 		if p.LastPlayed != nil {
 			row.LastPlayed = &openapi_types.Date{Time: *p.LastPlayed}
 		}
+		row.Badges = extraBadges(p.Badges)
 		players = append(players, row)
 	}
 	return GetLeaderboard200JSONResponse{
@@ -277,4 +278,16 @@ func leaderboardRefused(msg string) GetLeaderboardResponseObject {
 		Body:    Error{Error: msg},
 		Headers: BadRequestResponseHeaders{CacheControl: cacheNone},
 	}}
+}
+
+// extraBadges turns a player's badges into the API's, or nil for none, so the field is left out.
+func extraBadges(bs []store.ExtraBadge) *[]ExtraBadge {
+	if len(bs) == 0 {
+		return nil
+	}
+	out := make([]ExtraBadge, len(bs))
+	for i, b := range bs {
+		out[i] = ExtraBadge{Label: b.Label, Description: b.Description}
+	}
+	return &out
 }

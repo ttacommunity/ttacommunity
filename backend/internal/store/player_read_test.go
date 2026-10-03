@@ -6,6 +6,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"reflect"
 	"slices"
 	"testing"
 	"time"
@@ -627,5 +628,23 @@ func TestYearsListsTheRunsYearsNewestFirst(t *testing.T) {
 	got, err := r.Years(context.Background(), run)
 	if err != nil || fmt.Sprint(got) != "[{2021 false} {2019 true}]" {
 		t.Errorf("Years = %v, %v; want 2021 without a champion, 2019 with one", got, err)
+	}
+}
+
+func TestPlayerGivesTheirBadges(t *testing.T) {
+	pool := migrated(t)
+	r := NewRatingsReader(asReader(t, pool))
+	ctx := context.Background()
+	run := publishedRun(t, pool)
+	addPlayers(t, pool, "ann")
+	addRating(t, pool, run, "glicko2_daneo", 0, "ann", intp(1), 1900)
+	giveBadges(t, pool, "ann", "Organiser")
+
+	got, err := r.Player(ctx, run, "ann")
+	if err != nil {
+		t.Fatalf("Player: %v", err)
+	}
+	if want := []ExtraBadge{{Label: "Organiser", Description: "Organiser description"}}; !reflect.DeepEqual(got.Badges, want) {
+		t.Errorf("badges = %+v, want %+v", got.Badges, want)
 	}
 }

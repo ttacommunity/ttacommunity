@@ -1014,6 +1014,134 @@ paths:
           $ref: "#/components/responses/Forbidden"
         "404":
           $ref: "#/components/responses/NotFound"
+  /v1/admin/badges:
+    get:
+      operationId: getAdminBadges
+      tags: [admin]
+      summary: Every badge admin made, with who holds it (admins only)
+      responses:
+        "200":
+          description: The badges, by label
+          headers:
+            Cache-Control:
+              $ref: "#/components/headers/CacheControl"
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/AdminBadge"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+    post:
+      operationId: postAdminBadge
+      tags: [admin]
+      summary: Make a badge (admins only)
+      description: Audited. The Origin must be the admin site.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/BadgeSetting"
+      responses:
+        "201":
+          description: Made
+          headers:
+            Cache-Control:
+              $ref: "#/components/headers/CacheControl"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminBadge"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "409":
+          $ref: "#/components/responses/Conflict"
+  /v1/admin/badges/{badge}:
+    put:
+      operationId: putAdminBadge
+      tags: [admin]
+      summary: Change a badge's label and description (admins only)
+      description: Audited. The Origin must be the admin site.
+      parameters:
+        - $ref: "#/components/parameters/AdminBadgeId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/BadgeSetting"
+      responses:
+        "204":
+          description: Saved
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+    delete:
+      operationId: deleteAdminBadge
+      tags: [admin]
+      summary: Remove a badge, from everyone who holds it (admins only)
+      description: Audited. The Origin must be the admin site.
+      parameters:
+        - $ref: "#/components/parameters/AdminBadgeId"
+      responses:
+        "204":
+          description: Removed
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /v1/admin/badges/{badge}/players/{player}:
+    put:
+      operationId: putAdminBadgePlayer
+      tags: [admin]
+      summary: Give a player a badge, shown at once (admins only)
+      description: Audited. The Origin must be the admin site.
+      parameters:
+        - $ref: "#/components/parameters/AdminBadgeId"
+        - $ref: "#/components/parameters/AdminPlayer"
+      responses:
+        "204":
+          description: Given
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    delete:
+      operationId: deleteAdminBadgePlayer
+      tags: [admin]
+      summary: Take a badge from a player (admins only)
+      description: Audited. The Origin must be the admin site.
+      parameters:
+        - $ref: "#/components/parameters/AdminBadgeId"
+        - $ref: "#/components/parameters/AdminPlayer"
+      responses:
+        "204":
+          description: Taken
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
   /v1/admin/titles:
     get:
       operationId: getAdminTitles
@@ -1329,6 +1457,14 @@ paths:
           $ref: "#/components/responses/NotFound"
 components:
   parameters:
+    AdminBadgeId:
+      name: badge
+      in: path
+      required: true
+      schema:
+        type: integer
+        format: int64
+        minimum: 1
     AdminPlayer:
       name: player
       in: path
@@ -1554,6 +1690,43 @@ components:
         change:
           type: number
           format: double
+    ExtraBadge:
+      type: object
+      required: [label, description]
+      properties:
+        label:
+          type: string
+        description:
+          description: Shown on hover; may be empty
+          type: string
+    AdminBadge:
+      type: object
+      required: [id, label, description, players]
+      properties:
+        id:
+          type: integer
+          format: int64
+        label:
+          type: string
+        description:
+          type: string
+        players:
+          description: Who holds it, by name
+          type: array
+          items:
+            type: string
+    BadgeSetting:
+      type: object
+      additionalProperties: false
+      required: [label, description]
+      properties:
+        label:
+          type: string
+          minLength: 1
+          maxLength: 16
+        description:
+          type: string
+          maxLength: 300
     TitleOverride:
       type: object
       required: [name, title, reason]
@@ -1884,6 +2057,11 @@ components:
           nullable: true
         title:
           $ref: "#/components/schemas/Title"
+        badges:
+          description: Badges admin gave the player, by label, shown beside the title
+          type: array
+          items:
+            $ref: "#/components/schemas/ExtraBadge"
     History:
       type: object
       required: [run_id, model, format, at, players]
@@ -1951,6 +2129,11 @@ components:
           nullable: true
         title:
           $ref: "#/components/schemas/Title"
+        badges:
+          description: Badges admin gave the player, by label, shown beside the title
+          type: array
+          items:
+            $ref: "#/components/schemas/ExtraBadge"
         peak:
           $ref: "#/components/schemas/Peak"
         last_played:
