@@ -94,6 +94,45 @@ func (e AdminRunStatus) Valid() bool {
 	}
 }
 
+// Defines values for AdminTitle.
+const (
+	AdminTitleB     AdminTitle = "B"
+	AdminTitleEmpty AdminTitle = ""
+	AdminTitleG     AdminTitle = "G"
+	AdminTitleGM    AdminTitle = "GM"
+	AdminTitleM     AdminTitle = "M"
+	AdminTitleP     AdminTitle = "P"
+	AdminTitleS     AdminTitle = "S"
+	AdminTitleSGM   AdminTitle = "SGM"
+	AdminTitleW     AdminTitle = "W"
+)
+
+// Valid indicates whether the value is a known member of the AdminTitle enum.
+func (e AdminTitle) Valid() bool {
+	switch e {
+	case AdminTitleB:
+		return true
+	case AdminTitleEmpty:
+		return true
+	case AdminTitleG:
+		return true
+	case AdminTitleGM:
+		return true
+	case AdminTitleM:
+		return true
+	case AdminTitleP:
+		return true
+	case AdminTitleS:
+		return true
+	case AdminTitleSGM:
+		return true
+	case AdminTitleW:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for CalibrationRowMode.
 const (
 	Standard    CalibrationRowMode = "standard"
@@ -599,6 +638,9 @@ type AdminStage struct {
 	Label string `json:"label"`
 	Note  string `json:"note"`
 }
+
+// AdminTitle A title the engine gives, but WC; "" for none
+type AdminTitle string
 
 // AdminTournament defines model for AdminTournament.
 type AdminTournament struct {
@@ -1520,10 +1562,28 @@ type Title struct {
 // TitleCode defines model for TitleCode.
 type TitleCode string
 
+// TitleOverride defines model for TitleOverride.
+type TitleOverride struct {
+	Name   string `json:"name"`
+	Reason string `json:"reason"`
+
+	// Title A title the engine gives, but WC; "" for none
+	Title AdminTitle `json:"title"`
+}
+
 // TitlePlayers defines model for TitlePlayers.
 type TitlePlayers struct {
 	Code    TitleCode `json:"code"`
 	Players int       `json:"players"`
+}
+
+// TitleSetting defines model for TitleSetting.
+type TitleSetting struct {
+	// Reason Why; shown when hovering the badge
+	Reason string `json:"reason"`
+
+	// Title A title the engine gives, but WC; "" for none
+	Title AdminTitle `json:"title"`
 }
 
 // TournamentRecord defines model for TournamentRecord.
@@ -1684,6 +1744,9 @@ type Years struct {
 	// Years Newest first
 	Years []YearEntry `json:"years"`
 }
+
+// AdminPlayer defines model for AdminPlayer.
+type AdminPlayer = string
 
 // AdminRunId defines model for AdminRunId.
 type AdminRunId = int64
@@ -1854,6 +1917,9 @@ type GetYearLeaderboardParams struct {
 // PutAdminAdminJSONRequestBody defines body for PutAdminAdmin for application/json ContentType.
 type PutAdminAdminJSONRequestBody = AdminRole
 
+// PutAdminTitleJSONRequestBody defines body for PutAdminTitle for application/json ContentType.
+type PutAdminTitleJSONRequestBody = TitleSetting
+
 // PatchAdminTournamentJSONRequestBody defines body for PatchAdminTournament for application/json ContentType.
 type PatchAdminTournamentJSONRequestBody = TournamentSettings
 
@@ -1904,6 +1970,15 @@ type ServerInterface interface {
 	// PostAdminRunPublish Make a complete run the one the site shows, or roll back to an older one (admins only)
 	// (POST /v1/admin/runs/{run}/publish)
 	PostAdminRunPublish(w http.ResponseWriter, r *http.Request, run AdminRunId)
+	// GetAdminTitles Titles set in admin, by player (admins only)
+	// (GET /v1/admin/titles)
+	GetAdminTitles(w http.ResponseWriter, r *http.Request)
+	// DeleteAdminTitle Remove a player's title set in admin, so the next run derives it again (admins only)
+	// (DELETE /v1/admin/titles/{player})
+	DeleteAdminTitle(w http.ResponseWriter, r *http.Request, player AdminPlayer)
+	// PutAdminTitle Set a player's title, replacing the derived one from the next rating run (admins only)
+	// (PUT /v1/admin/titles/{player})
+	PutAdminTitle(w http.ResponseWriter, r *http.Request, player AdminPlayer)
 	// GetAdminTournaments Every tournament with its settings, seasons, stages and notes
 	// (GET /v1/admin/tournaments)
 	GetAdminTournaments(w http.ResponseWriter, r *http.Request)
@@ -2223,6 +2298,72 @@ func (siw *ServerInterfaceWrapper) PostAdminRunPublish(w http.ResponseWriter, r 
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.PostAdminRunPublish(w, r, run)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetAdminTitles operation middleware
+func (siw *ServerInterfaceWrapper) GetAdminTitles(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetAdminTitles(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// DeleteAdminTitle operation middleware
+func (siw *ServerInterfaceWrapper) DeleteAdminTitle(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "player" -------------
+	var player AdminPlayer
+
+	err = runtime.BindStyledParameterWithOptions("simple", "player", r.PathValue("player"), &player, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "player", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.DeleteAdminTitle(w, r, player)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// PutAdminTitle operation middleware
+func (siw *ServerInterfaceWrapper) PutAdminTitle(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "player" -------------
+	var player AdminPlayer
+
+	err = runtime.BindStyledParameterWithOptions("simple", "player", r.PathValue("player"), &player, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "player", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.PutAdminTitle(w, r, player)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -3872,6 +4013,9 @@ func HandlerWithOptions(si ServerInterface, options StdHTTPServerOptions) http.H
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/v1/admin/admins", wrapper.GetAdminAdmins)
 	m.HandleFunc(http.MethodDelete+" "+options.BaseURL+"/v1/admin/admins/{discord_id}", wrapper.DeleteAdminAdmin)
 	m.HandleFunc(http.MethodPut+" "+options.BaseURL+"/v1/admin/admins/{discord_id}", wrapper.PutAdminAdmin)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/v1/admin/titles", wrapper.GetAdminTitles)
+	m.HandleFunc(http.MethodDelete+" "+options.BaseURL+"/v1/admin/titles/{player}", wrapper.DeleteAdminTitle)
+	m.HandleFunc(http.MethodPut+" "+options.BaseURL+"/v1/admin/titles/{player}", wrapper.PutAdminTitle)
 	m.HandleFunc(http.MethodPut+" "+options.BaseURL+"/v1/admin/tournaments/{tournament}/regulations", wrapper.PutAdminRegulations)
 	m.HandleFunc(http.MethodDelete+" "+options.BaseURL+"/v1/admin/tournaments/{tournament}/podium", wrapper.DeleteAdminPodium)
 	m.HandleFunc(http.MethodPut+" "+options.BaseURL+"/v1/admin/tournaments/{tournament}/podium", wrapper.PutAdminPodium)
@@ -4633,6 +4777,203 @@ func (response PostAdminRunPublish409JSONResponse) VisitPostAdminRunPublishRespo
 	w.Header().Set("Content-Type", "application/json")
 	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
 	w.WriteHeader(409)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetAdminTitlesRequestObject struct {
+}
+
+type GetAdminTitlesResponseObject interface {
+	VisitGetAdminTitlesResponse(w http.ResponseWriter) error
+}
+
+type GetAdminTitles200ResponseHeaders struct {
+	CacheControl string
+}
+
+type GetAdminTitles200JSONResponse struct {
+	Body    []TitleOverride
+	Headers GetAdminTitles200ResponseHeaders
+}
+
+func (response GetAdminTitles200JSONResponse) VisitGetAdminTitlesResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetAdminTitles401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response GetAdminTitles401JSONResponse) VisitGetAdminTitlesResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetAdminTitles403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response GetAdminTitles403JSONResponse) VisitGetAdminTitlesResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DeleteAdminTitleRequestObject struct {
+	Player AdminPlayer `json:"player"`
+}
+
+type DeleteAdminTitleResponseObject interface {
+	VisitDeleteAdminTitleResponse(w http.ResponseWriter) error
+}
+
+type DeleteAdminTitle204Response struct {
+}
+
+func (response DeleteAdminTitle204Response) VisitDeleteAdminTitleResponse(w http.ResponseWriter) error {
+	w.WriteHeader(204)
+	return nil
+}
+
+type DeleteAdminTitle401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response DeleteAdminTitle401JSONResponse) VisitDeleteAdminTitleResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DeleteAdminTitle403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response DeleteAdminTitle403JSONResponse) VisitDeleteAdminTitleResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DeleteAdminTitle404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response DeleteAdminTitle404JSONResponse) VisitDeleteAdminTitleResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PutAdminTitleRequestObject struct {
+	Player AdminPlayer `json:"player"`
+	Body   *PutAdminTitleJSONRequestBody
+}
+
+type PutAdminTitleResponseObject interface {
+	VisitPutAdminTitleResponse(w http.ResponseWriter) error
+}
+
+type PutAdminTitle204Response struct {
+}
+
+func (response PutAdminTitle204Response) VisitPutAdminTitleResponse(w http.ResponseWriter) error {
+	w.WriteHeader(204)
+	return nil
+}
+
+type PutAdminTitle400JSONResponse struct{ BadRequestJSONResponse }
+
+func (response PutAdminTitle400JSONResponse) VisitPutAdminTitleResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PutAdminTitle401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response PutAdminTitle401JSONResponse) VisitPutAdminTitleResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PutAdminTitle403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response PutAdminTitle403JSONResponse) VisitPutAdminTitleResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PutAdminTitle404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response PutAdminTitle404JSONResponse) VisitPutAdminTitleResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(404)
 	_, err := buf.WriteTo(w)
 	return err
 }
@@ -6772,6 +7113,15 @@ type StrictServerInterface interface {
 	// PostAdminRunPublish Make a complete run the one the site shows, or roll back to an older one (admins only)
 	// (POST /v1/admin/runs/{run}/publish)
 	PostAdminRunPublish(ctx context.Context, request PostAdminRunPublishRequestObject) (PostAdminRunPublishResponseObject, error)
+	// GetAdminTitles Titles set in admin, by player (admins only)
+	// (GET /v1/admin/titles)
+	GetAdminTitles(ctx context.Context, request GetAdminTitlesRequestObject) (GetAdminTitlesResponseObject, error)
+	// DeleteAdminTitle Remove a player's title set in admin, so the next run derives it again (admins only)
+	// (DELETE /v1/admin/titles/{player})
+	DeleteAdminTitle(ctx context.Context, request DeleteAdminTitleRequestObject) (DeleteAdminTitleResponseObject, error)
+	// PutAdminTitle Set a player's title, replacing the derived one from the next rating run (admins only)
+	// (PUT /v1/admin/titles/{player})
+	PutAdminTitle(ctx context.Context, request PutAdminTitleRequestObject) (PutAdminTitleResponseObject, error)
 	// GetAdminTournaments Every tournament with its settings, seasons, stages and notes
 	// (GET /v1/admin/tournaments)
 	GetAdminTournaments(ctx context.Context, request GetAdminTournamentsRequestObject) (GetAdminTournamentsResponseObject, error)
@@ -7185,6 +7535,89 @@ func (sh *strictHandler) PostAdminRunPublish(w http.ResponseWriter, r *http.Requ
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(PostAdminRunPublishResponseObject); ok {
 		if err := validResponse.VisitPostAdminRunPublishResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// GetAdminTitles operation middleware
+func (sh *strictHandler) GetAdminTitles(w http.ResponseWriter, r *http.Request) {
+	var request GetAdminTitlesRequestObject
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.GetAdminTitles(ctx, request.(GetAdminTitlesRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetAdminTitles")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(GetAdminTitlesResponseObject); ok {
+		if err := validResponse.VisitGetAdminTitlesResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// DeleteAdminTitle operation middleware
+func (sh *strictHandler) DeleteAdminTitle(w http.ResponseWriter, r *http.Request, player AdminPlayer) {
+	var request DeleteAdminTitleRequestObject
+
+	request.Player = player
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.DeleteAdminTitle(ctx, request.(DeleteAdminTitleRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "DeleteAdminTitle")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(DeleteAdminTitleResponseObject); ok {
+		if err := validResponse.VisitDeleteAdminTitleResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// PutAdminTitle operation middleware
+func (sh *strictHandler) PutAdminTitle(w http.ResponseWriter, r *http.Request, player AdminPlayer) {
+	var request PutAdminTitleRequestObject
+
+	request.Player = player
+
+	var body PutAdminTitleJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.PutAdminTitle(ctx, request.(PutAdminTitleRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "PutAdminTitle")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(PutAdminTitleResponseObject); ok {
+		if err := validResponse.VisitPutAdminTitleResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {

@@ -739,6 +739,47 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/admin/titles": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Titles set in admin, by player (admins only) */
+        get: operations["getAdminTitles"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/titles/{player}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Set a player's title, replacing the derived one from the next rating run (admins only)
+         * @description A title the engine gives, but not WC (it comes from the World Championship's podium), or "" to take the title away. The 12-month activity rule still applies. Audited. The Origin must be the admin site.
+         */
+        put: operations["putAdminTitle"];
+        post?: never;
+        /**
+         * Remove a player's title set in admin, so the next run derives it again (admins only)
+         * @description Audited. The Origin must be the admin site.
+         */
+        delete: operations["deleteAdminTitle"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/admin/tournaments/{tournament}/regulations": {
         parameters: {
             query?: never;
@@ -950,6 +991,21 @@ export interface components {
             /** Format: double */
             change: number;
         };
+        TitleOverride: {
+            name: string;
+            title: components["schemas"]["AdminTitle"];
+            reason: string;
+        };
+        TitleSetting: {
+            title: components["schemas"]["AdminTitle"];
+            /** @description Why; shown when hovering the badge */
+            reason: string;
+        };
+        /**
+         * @description A title the engine gives, but WC; "" for none
+         * @enum {string}
+         */
+        AdminTitle: "SGM" | "GM" | "M" | "P" | "G" | "S" | "B" | "W" | "";
         Regulations: {
             /** @description Plain text; empty removes it */
             text: string;
@@ -1973,6 +2029,8 @@ export interface components {
         };
     };
     parameters: {
+        /** @description The player's name, as the leaderboard gives it */
+        AdminPlayer: string;
         /** @description Any run's id, published or not */
         AdminRunId: number;
         /** @description A Discord user id */
@@ -2950,6 +3008,82 @@ export interface operations {
             404: components["responses"]["NotFound"];
         };
     };
+    getAdminTitles: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Each player's title set in admin */
+            200: {
+                headers: {
+                    "Cache-Control": components["headers"]["CacheControl"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TitleOverride"][];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    putAdminTitle: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The player's name, as the leaderboard gives it */
+                player: components["parameters"]["AdminPlayer"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TitleSetting"];
+            };
+        };
+        responses: {
+            /** @description Saved */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    deleteAdminTitle: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The player's name, as the leaderboard gives it */
+                player: components["parameters"]["AdminPlayer"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Removed */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
     putAdminRegulations: {
         parameters: {
             query?: never;
@@ -3228,6 +3362,7 @@ export const pathsV1RunsRunLeaderboardCsvGetParametersQuerySortValues: ReadonlyA
 export const pathsV1RunsRunLeaderboardCsvGetParametersQueryOrderValues: ReadonlyArray<FlattenedDeepRequired<paths>["/v1/runs/{run}/leaderboard.csv"]["get"]["parameters"]["query"]["order"]> = ["asc", "desc"];
 export const pathsV1RunsRunLeaderboardCsvGetParametersQueryStats_viewValues: ReadonlyArray<FlattenedDeepRequired<paths>["/v1/runs/{run}/leaderboard.csv"]["get"]["parameters"]["query"]["stats_view"]> = ["season", "career"];
 export const adminRunStatusValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["AdminRun"]["status"]> = ["running", "complete", "failed"];
+export const adminTitleValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["AdminTitle"]> = ["SGM", "GM", "M", "P", "G", "S", "B", "W", ""];
 export const adminPersonRoleValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["AdminPerson"]["role"]> = ["admin", "organiser"];
 export const adminRoleRoleValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["AdminRole"]["role"]> = ["admin", "organiser"];
 export const adminMeRoleValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["AdminMe"]["role"]> = ["admin", "organiser"];

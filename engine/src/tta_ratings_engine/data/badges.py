@@ -12,6 +12,7 @@ Implements the official badge award rules:
 - A win in the top division of the International, Intermezzo or Royal League
   (a first place or gold in the run's tournament records) -> SGM (Super GM)
 - The Reigning World Champion retains the exclusive 'WC' title.
+- A title set in admin replaces the derived one (an active player's), or takes it away.
 - Hover Reason: Shows the latest tournament division and season (e.g. 'Played in International Championship Grandmaster Season 6').
 """
 
@@ -372,6 +373,22 @@ def derive_tournament_badges(
                         "title_count": 1,
                         "badge_reason": f"Reigning World Champion (World Championship {yr})",
                     }
+
+        # A title set in admin replaces the derived one for a recently active player; '' takes it away
+        for r in conn.execute(
+            "SELECT player_name, title, reason FROM player_title_overrides"
+        ).fetchall():
+            p = r["player_name"]
+            if p not in derived_data:
+                continue
+            if r["title"] == "":
+                del derived_data[p]
+            else:
+                derived_data[p] = {
+                    "title": r["title"],
+                    "title_count": 1,
+                    "badge_reason": f"Set in admin: {r['reason']}",
+                }
 
         peaks = {}
         for p, c_info in player_career_best.items():

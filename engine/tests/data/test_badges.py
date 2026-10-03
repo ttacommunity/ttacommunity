@@ -486,3 +486,47 @@ def test_the_reigning_champion_comes_from_admin_then_recorded_then_the_runs_fina
     got = titles(conn, run_id)
     assert got["pv4"][0] == "WC"
     assert got.get("a440", ("",))[0] != "WC"
+
+
+def override_title(conn, name, title, reason="the organisers' ruling"):
+    conn.execute(
+        "INSERT INTO player_title_overrides VALUES (%s, %s, %s)", (name, title, reason)
+    )
+    conn.commit()
+
+
+def test_a_title_set_in_admin_replaces_the_derived_one(conn, add_match, run_id):
+    add_match(("Ann", 10), ("Bob", 5), day=date(2024, 6, 1), tournament="RL_s09 - Duke")
+    derive_tournament_badges(conn=conn, run_id=run_id)
+    derived = titles(conn, run_id)
+    assert "Ann" in derived and derived["Ann"][0] != "SGM"
+
+    override_title(conn, "Ann", "SGM")
+    override_title(conn, "Bob", "")
+    derive_tournament_badges(conn=conn, run_id=run_id)
+
+    got = titles(conn, run_id)
+    assert got["Ann"][0] == "SGM"
+    assert "Bob" not in got
+
+
+def test_a_title_set_in_admin_gives_its_reason(conn, add_match, run_id):
+    add_match(("Ann", 10), ("Bob", 5), day=date(2024, 6, 1), tournament="RL_s09 - Duke")
+    override_title(conn, "Ann", "GM", "won the 2019 final, recorded nowhere")
+
+    derive_tournament_badges(conn=conn, run_id=run_id)
+
+    reason = conn.execute(
+        "SELECT badge_reason FROM player_titles WHERE run_id = %s AND player_name = 'Ann'",
+        (run_id,),
+    ).fetchone()["badge_reason"]
+    assert reason == "Set in admin: won the 2019 final, recorded nowhere"
+
+
+def test_a_title_set_in_admin_still_needs_a_recent_game(conn, add_match, run_id):
+    add_match(("Ann", 10), ("Bob", 5), day=date(2024, 6, 1), tournament="RL_s09 - Duke")
+    override_title(conn, "Cat", "GM")
+
+    derive_tournament_badges(conn=conn, run_id=run_id)
+
+    assert "Cat" not in titles(conn, run_id)

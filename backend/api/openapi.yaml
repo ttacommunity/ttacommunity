@@ -1014,6 +1014,71 @@ paths:
           $ref: "#/components/responses/Forbidden"
         "404":
           $ref: "#/components/responses/NotFound"
+  /v1/admin/titles:
+    get:
+      operationId: getAdminTitles
+      tags: [admin]
+      summary: Titles set in admin, by player (admins only)
+      responses:
+        "200":
+          description: Each player's title set in admin
+          headers:
+            Cache-Control:
+              $ref: "#/components/headers/CacheControl"
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/TitleOverride"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+  /v1/admin/titles/{player}:
+    put:
+      operationId: putAdminTitle
+      tags: [admin]
+      summary: Set a player's title, replacing the derived one from the next rating run (admins only)
+      description: >
+        A title the engine gives, but not WC (it comes from the World
+        Championship's podium), or "" to take the title away. The 12-month
+        activity rule still applies. Audited. The Origin must be the admin site.
+      parameters:
+        - $ref: "#/components/parameters/AdminPlayer"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TitleSetting"
+      responses:
+        "204":
+          description: Saved
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    delete:
+      operationId: deleteAdminTitle
+      tags: [admin]
+      summary: Remove a player's title set in admin, so the next run derives it again (admins only)
+      description: Audited. The Origin must be the admin site.
+      parameters:
+        - $ref: "#/components/parameters/AdminPlayer"
+      responses:
+        "204":
+          description: Removed
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
   /v1/admin/tournaments/{tournament}/regulations:
     put:
       operationId: putAdminRegulations
@@ -1264,6 +1329,15 @@ paths:
           $ref: "#/components/responses/NotFound"
 components:
   parameters:
+    AdminPlayer:
+      name: player
+      in: path
+      required: true
+      description: The player's name, as the leaderboard gives it
+      schema:
+        type: string
+        minLength: 1
+        maxLength: 200
     AdminRunId:
       name: run
       in: path
@@ -1480,6 +1554,32 @@ components:
         change:
           type: number
           format: double
+    TitleOverride:
+      type: object
+      required: [name, title, reason]
+      properties:
+        name:
+          type: string
+        title:
+          $ref: "#/components/schemas/AdminTitle"
+        reason:
+          type: string
+    TitleSetting:
+      type: object
+      additionalProperties: false
+      required: [title, reason]
+      properties:
+        title:
+          $ref: "#/components/schemas/AdminTitle"
+        reason:
+          description: Why; shown when hovering the badge
+          type: string
+          minLength: 1
+          maxLength: 300
+    AdminTitle:
+      description: A title the engine gives, but WC; "" for none
+      type: string
+      enum: [SGM, GM, M, P, G, S, B, W, ""]
     Regulations:
       type: object
       additionalProperties: false
