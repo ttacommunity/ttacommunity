@@ -10,6 +10,7 @@ import {
   opponentsLine,
   seriesEra,
   seriesRecord,
+  showsWorldChampion,
   type SeriesContent,
 } from '../lib/tournament-series';
 
@@ -29,9 +30,10 @@ function WorldChampion() {
   return <span className="badge badge-wc trophy-mark">WC</span>;
 }
 
-/** TitleMark shows WC for a World Champion, else the board's title, in the site's title badges. */
-function TitleMark({ row }: { row: TrophyRow }) {
-  if (row.title === 'WC' || row.world_champion) return <WorldChampion />;
+/** TitleMark shows the board's title in the site's title badges; WC only on the World Championship's board. */
+function TitleMark({ row, series }: { row: TrophyRow; series: string }) {
+  if (series === 'worlds' && (row.title === 'WC' || row.world_champion)) return <WorldChampion />;
+  if (row.title === 'WC') return null;
   return row.title ? <span className={`badge badge-${row.title.toLowerCase()} trophy-mark`}>{row.title}</span> : null;
 }
 
@@ -167,7 +169,7 @@ export function SeriesSections({ content, data, waiting }: { content: SeriesCont
                       <tr key={b.name}>
                         <td className="cell-num">{i + 1}</td>
                         <td>
-                          <Player name={b.name} /> <TitleMark row={b} />
+                          <Player name={b.name} /> <TitleMark row={b} series={content.slug} />
                         </td>
                         {board.rows[i]?.map((cell, j) => (
                           <td key={board.headings[j]} className={`col-center medal-count ${board.classes[j] ?? ''}`}>
@@ -253,7 +255,7 @@ export function SeriesSections({ content, data, waiting }: { content: SeriesCont
                     <tr key={`${s.season} ${s.name}`}>
                       <td className="cell-rank">#{i + 1}</td>
                       <td>
-                        <Player name={s.name} /> {s.world_champion && <WorldChampion />}
+                        <Player name={s.name} /> {showsWorldChampion(content.slug, s.world_champion) && <WorldChampion />}
                       </td>
                       <td className="cell-points">{leaguePoints(s.points)}</td>
                       <td className="cell-record">
@@ -315,7 +317,7 @@ export function SeriesSections({ content, data, waiting }: { content: SeriesCont
                     <tr key={`${g.tournament} ${g.date} ${g.name}`}>
                       <td className="cell-rank">#{i + 1}</td>
                       <td>
-                        <Player name={g.name} /> {g.world_champion && <WorldChampion />}
+                        <Player name={g.name} /> {showsWorldChampion(content.slug, g.world_champion) && <WorldChampion />}
                       </td>
                       <td className="cell-points">{cultureScore(g.score)}</td>
                       <td className="cell-opponents">

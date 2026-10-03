@@ -382,3 +382,8 @@ export function derivedMatches(counts: SeriesCount[]): string {
 export function seriesGames(c: SeriesCount): string {
   return `${c.games.toLocaleString('en-US')} games (${c.seasons} editions)`;
 }
+
+/** showsWorldChampion says whether a World Champion's WC mark shows: only on the World Championship's own page. */
+export function showsWorldChampion(series: string, champion: boolean): boolean {
+  return series === 'worlds' && champion;
+}

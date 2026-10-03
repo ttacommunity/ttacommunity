@@ -20,6 +20,7 @@ import {
   SERIES_NAV,
   seriesHref,
   seriesRecord,
+  showsWorldChampion,
 } from './tournament-series';
 
 describe('the series nav', () => {
@@ -147,5 +148,14 @@ describe('boardCells', () => {
 
   it('writes thousands with separators', () => {
     expect(boardCells([{ ...ladder, games: 1234, wins: 1001 }]).rows[0]).toEqual(['1,234', '1,001', '37.5%']);
+  });
+});
+
+describe('showsWorldChampion', () => {
+  it('marks a World Champion only on the World Championship', () => {
+    expect(showsWorldChampion('worlds', true)).toBe(true);
+    expect(showsWorldChampion('worlds', false)).toBe(false);
+    expect(showsWorldChampion('international', true)).toBe(false);
+    expect(showsWorldChampion('royal_league', true)).toBe(false);
   });
 });
