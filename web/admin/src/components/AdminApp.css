@@ -211,3 +211,46 @@
 .run-stop {
   margin-top: 0.5rem;
 }
+.podium-box {
+  min-width: 0;
+  margin: 0.5rem 0 1rem;
+  padding: 0.5rem 0.75rem;
+  border: 1px solid var(--border-subtle);
+  border-radius: 4px;
+}
+.podium-box legend {
+  color: var(--text-soft);
+  font-size: 0.85rem;
+}
+.podium-places {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem 0.75rem;
+}
+.podium-places label {
+  display: grid;
+  gap: 0.25rem;
+  color: var(--text-soft);
+  font-size: 0.85rem;
+}
+.podium-places input {
+  width: 10rem;
+  max-width: 100%;
+  padding: 0.3rem 0.5rem;
+  border: 1px solid var(--border-subtle);
+  border-radius: 4px;
+  background: var(--bg-dark);
+  color: var(--text-main);
+}
+.podium-places .podium-note {
+  flex: 1 1 14rem;
+}
+.podium-places .podium-note input {
+  width: 100%;
+}
+/* The table scrolls sideways on a phone; its notes stay in view, as wide as the screen. */
+.notes-panel {
+  position: sticky;
+  left: 0;
+  max-width: calc(100vw - 4.5rem);
+}

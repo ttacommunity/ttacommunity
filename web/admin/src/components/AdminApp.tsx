@@ -1,6 +1,7 @@
 /** The admin page: who is signed in, rating runs and the admin list for admins, and every tournament's settings and notes. */
 import { useEffect, useState, type FormEvent } from 'react';
 import { adminRequest, type AdminMe, type AdminTournament, type TournamentSettings } from '../lib/admin-api';
+import { podiumNames, podiumRequest, type PodiumEntry } from '../lib/podium';
 import AdminList from './AdminList';
 import RunsPanel from './RunsPanel';
 import './AdminApp.css';
@@ -42,6 +43,77 @@ function NoteBox({ slug, season, stage, initial }: { slug: string; season: strin
         </span>
       </div>
     </div>
+  );
+}
+
+const PLACES = ['1st', '2nd', '3rd'];
+
+/** PodiumBox sets a season's podium by hand, over the recorded or derived one, or removes it. */
+function PodiumBox({
+  slug,
+  season,
+  saved,
+  savedNote,
+  onReload,
+}: {
+  slug: string;
+  season: string;
+  saved: PodiumEntry[];
+  savedNote: string;
+  onReload: () => Promise<void>;
+}) {
+  const [names, setNames] = useState(podiumNames(saved));
+  const [note, setNote] = useState(savedNote);
+  const [status, setStatus] = useState('');
+  const id = `podium-${slug}-${season}`.replace(/[^A-Za-z0-9-]/g, '_');
+  const save = async () => {
+    const body = podiumRequest(season, names, note);
+    if (body === null) return;
+    setStatus('Saving…');
+    const r = await adminRequest(`/api/tournaments/${slug}/podium`, { method: 'PUT', json: body });
+    setStatus(r.ok ? 'Saved. Titles follow at the next run.' : r.message);
+    if (r.ok) await onReload();
+  };
+  const clear = async () => {
+    setStatus('Removing…');
+    const r = await adminRequest(`/api/tournaments/${slug}/podium?season=${encodeURIComponent(season)}`, { method: 'DELETE' });
+    setStatus(r.ok ? 'Removed. The recorded or derived podium shows again.' : r.message);
+    if (r.ok) await onReload();
+  };
+  return (
+    <fieldset className="podium-box">
+      <legend>Season {season} podium {saved.length > 0 ? '(set by hand)' : '(from the results)'}</legend>
+      <div className="podium-places">
+        {PLACES.map((label, i) => (
+          <label key={label}>
+            {label}
+            <input
+              id={`${id}-${i + 1}`}
+              value={names[i]}
+              maxLength={64}
+              onChange={(e) => setNames(names.map((n, j) => (j === i ? e.target.value : n)))}
+            />
+          </label>
+        ))}
+        <label className="podium-note">
+          Why, or where it comes from
+          <input id={`${id}-note`} value={note} maxLength={500} onChange={(e) => setNote(e.target.value)} />
+        </label>
+      </div>
+      <div className="note-actions">
+        <button type="button" className="btn-antique" onClick={() => void save()} disabled={podiumRequest(season, names, note) === null}>
+          Set podium
+        </button>
+        {saved.length > 0 && (
+          <button type="button" className="btn-antique" onClick={() => void clear()}>
+            Use the results again
+          </button>
+        )}
+        <span className="note-status" role="status">
+          {status}
+        </span>
+      </div>
+    </fieldset>
   );
 }
 
@@ -113,6 +185,7 @@ function TournamentRow({
       {open && (
         <tr>
           <td colSpan={5} className="notes-cell">
+            <div className="notes-panel">
             <form className="season-add" onSubmit={(e) => void addSeason(e)}>
               <label>
                 Add a season with no games yet (its label as the site shows it, without "Season")
@@ -134,11 +207,13 @@ function TournamentRow({
                   </div>
                 )}
                 <NoteBox slug={t.slug} season={se.label} stage="" initial={se.note} />
+                <PodiumBox slug={t.slug} season={se.label} saved={se.podium} savedNote={se.podium_note} onReload={onReload} />
                 {se.stages.map((st) => (
                   <NoteBox key={st.label} slug={t.slug} season={se.label} stage={st.label} initial={st.note} />
                 ))}
               </div>
             ))}
+            </div>
           </td>
         </tr>
       )}
