@@ -34,13 +34,73 @@
   height: 1.1rem;
   accent-color: var(--accent-gold);
 }
-.admin-table .btn-notes {
+.admin-table .btn-settings {
+  display: inline-block;
   padding: 0.25rem 0.6rem;
   font-size: 0.8rem;
   white-space: nowrap;
+  text-decoration: none;
 }
-.admin-table td.notes-cell {
-  background: var(--surface-inset);
+.tournaments-table .col-setting,
+.tournaments-table .col-seasons {
+  text-align: center;
+}
+.tournaments-table .yes {
+  color: var(--win);
+}
+.tournaments-table .no {
+  color: var(--text-muted);
+}
+@media (max-width: 640px) {
+  .tournaments-table .col-seasons {
+    display: none;
+  }
+  .tournaments-table th,
+  .tournaments-table td {
+    padding-inline: 0.4rem;
+  }
+}
+.tournament-title {
+  margin: 0 0 1rem;
+  color: var(--accent-gold-bright);
+  font-family: var(--font-heading);
+}
+.settings-list {
+  display: grid;
+  gap: 0.6rem;
+}
+.setting {
+  display: flex;
+  gap: 0.6rem;
+  align-items: flex-start;
+}
+.setting input[type='checkbox'] {
+  flex: none;
+  width: 1.1rem;
+  height: 1.1rem;
+  margin-top: 0.2rem;
+  accent-color: var(--accent-gold);
+}
+.regulations-text {
+  box-sizing: border-box;
+  width: 100%;
+  padding: 0.5rem;
+  border: 1px solid var(--border-subtle);
+  border-radius: 4px;
+  background: var(--bg-dark);
+  color: var(--text-main);
+  font: inherit;
+  line-height: 1.4;
+}
+.season-notes h3 {
+  margin: 0;
+  font-family: var(--font-heading);
+  font-size: 1rem;
+  color: var(--accent-gold);
+}
+.season-notes + .season-notes {
+  padding-top: 1rem;
+  border-top: 1px solid var(--border-subtle);
 }
 .season-notes {
   display: grid;
@@ -247,10 +307,4 @@
 }
 .podium-places .podium-note input {
   width: 100%;
-}
-/* The table scrolls sideways on a phone; its notes stay in view, as wide as the screen. */
-.notes-panel {
-  position: sticky;
-  left: 0;
-  max-width: calc(100vw - 4.5rem);
 }
