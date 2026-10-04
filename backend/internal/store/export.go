@@ -249,8 +249,9 @@ func checkInputTables(ctx context.Context, tx pgx.Tx) error {
 }
 
 // checkEmpty refuses a database holding any run or input, other than the rankings the migrations seed.
-// seededTables are the input tables the migrations fill: the community ranking, and the first tournament cards.
-var seededTables = []string{"rankings", "tournament_cards"}
+// seededTables are the input tables the migrations fill: the community ranking, and the first tournament cards
+// and regulations.
+var seededTables = []string{"rankings", "tournament_cards", "tournament_regulations"}
 
 func checkEmpty(ctx context.Context, tx pgx.Tx) error {
 	for _, t := range append([]string{"rating_runs"}, ExportTables...) {

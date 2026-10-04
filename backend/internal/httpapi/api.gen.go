@@ -897,6 +897,9 @@ type CatalogueTournament struct {
 	// Players Everyone who played a shown game of the tournament, by name, for a search box
 	Players []string `json:"players"`
 
+	// Rated In a ranking, so its games move ratings
+	Rated bool `json:"rated"`
+
 	// Regulations The format and regulations written in admin, shown instead of the rules; plain text, absent for none
 	Regulations *string `json:"regulations,omitempty"`
 

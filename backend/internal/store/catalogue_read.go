@@ -119,6 +119,8 @@ type CatalogueTournament struct {
 	// Regulations is the format and regulations written in admin, shown instead of the rules; empty for none.
 	Regulations string
 	Card        Card
+	// Rated is whether the tournament is in a ranking, so its games move ratings.
+	Rated bool
 }
 
 // EditionRules is one CGE tournament's description of a tournament edition
@@ -409,6 +411,11 @@ func (r *RatingsReader) CatalogueTournament(ctx context.Context, run int64, slug
 		FROM tournament_cards WHERE tournament = $1`, slug).Scan(&got.Card.Icon, &got.Card.Tagline, &got.Card.Summary)
 	if err != nil {
 		return fail("card", err)
+	}
+	err = r.pool.QueryRow(ctx, `SELECT EXISTS (SELECT 1 FROM ranking_tournaments rt JOIN tournaments t USING (tournament_id)
+		WHERE t.slug = $1)`, slug).Scan(&got.Rated)
+	if err != nil {
+		return fail("rated", err)
 	}
 
 	// Every player of the shown tournament, for a search box's suggestions.

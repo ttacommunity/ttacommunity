@@ -93,7 +93,7 @@ func TestCatalogueTournamentGivesSeasonsInOrderWithStagesAndPodium(t *testing.T)
 	stage := func(label string, d time.Time) CatalogueStage {
 		return CatalogueStage{Label: label, Span: GameSpan{Games: 1, Players: 2, First: d, Last: d}}
 	}
-	want := CatalogueTournament{Slug: "wimbledon", Name: "Wimbledon", Seasons: []CatalogueSeason{
+	want := CatalogueTournament{Slug: "wimbledon", Name: "Wimbledon", Rated: true, Seasons: []CatalogueSeason{
 		{Label: "2023", Span: GameSpan{Games: 1, Players: 2, First: day("2023-07-15"), Last: day("2023-07-15")},
 			Stages: []CatalogueStage{stage("Stage 1", day("2023-07-15"))}, Podium: []PodiumPlace{}, CGE: []CGELink{}},
 		{Label: "2024", Span: GameSpan{Games: 2, Players: 3, First: day("2024-07-01"), Last: day("2025-02-24")},
@@ -618,5 +618,25 @@ func TestCatalogueGivesEachTournamentsCard(t *testing.T) {
 	want := Card{Icon: "🎾", Tagline: "Grass-court slam", Summary: "Played each July."}
 	if inList, onPage := card(); inList != want || onPage != want {
 		t.Errorf("cards = %+v, %+v; want %+v on both", inList, onPage, want)
+	}
+}
+
+func TestCatalogueTournamentSaysWhetherItIsRated(t *testing.T) {
+	pool := migrated(t)
+	ctx := context.Background()
+	run := publishedRun(t, pool)
+	placedOn(t, pool, map[string]time.Time{"Wimbledon 2024 Stage 1 - group 1 game 1": day("2024-07-01")})
+	r := NewRatingsReader(asReader(t, pool))
+	if got, err := r.CatalogueTournament(ctx, run, "wimbledon"); err != nil || !got.Rated {
+		t.Fatalf("rated = %v, %v; want rated", got.Rated, err)
+	}
+	if _, err := pool.Exec(ctx, "DELETE FROM ranking_tournaments"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := pool.Exec(ctx, "UPDATE tournaments SET visible = true WHERE slug = 'wimbledon'"); err != nil {
+		t.Fatal(err)
+	}
+	if got, err := r.CatalogueTournament(ctx, run, "wimbledon"); err != nil || got.Rated {
+		t.Errorf("rated after leaving every ranking = %v, %v; want not rated", got.Rated, err)
 	}
 }

@@ -1930,6 +1930,8 @@ export interface components {
             cge_pages: string[];
         };
         CatalogueTournament: {
+            /** @description In a ranking, so its games move ratings */
+            rated: boolean;
             card: components["schemas"]["TournamentCard"];
             /** @description A ladder's champions are counted as top-tier wins, not season podiums */
             ladder: boolean;

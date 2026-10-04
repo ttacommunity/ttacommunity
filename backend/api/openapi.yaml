@@ -3249,8 +3249,11 @@ components:
                 type: string
     CatalogueTournament:
       type: object
-      required: [run_id, slug, name, card, seasons, ladder, top_tier_wins, players, rules]
+      required: [run_id, slug, name, card, rated, seasons, ladder, top_tier_wins, players, rules]
       properties:
+        rated:
+          description: In a ranking, so its games move ratings
+          type: boolean
         card:
           $ref: "#/components/schemas/TournamentCard"
         ladder:
