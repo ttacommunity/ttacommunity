@@ -1,6 +1,7 @@
 /** Upstream's Hall of Fame series page: the series' text, figures, trophyboard, and best seasons and games. */
 import { useEffect, useState, type ReactNode } from 'react';
 import RegulationsPanel from './RegulationsPanel';
+import TrophyboardPanel from './TrophyboardPanel';
 import { currentRun, tournamentSeries, type TournamentSeries, type TrophyRow } from '@ttac/shared/ratings';
 import { playerHref } from '../lib/player-view';
 import { catalogueHref } from '../lib/catalogue-view';
@@ -9,7 +10,6 @@ import TournamentHero from './TournamentHero';
 import {
   cultureScore,
   leaguePoints,
-  boardCells,
   opponentsLine,
   seriesEra,
   seriesRecord,
@@ -104,70 +104,18 @@ export function SeriesSections({
   waiting: string;
   regulations: ReactNode;
 }) {
-  const board = boardCells(data?.board ?? []);
   const honours = content.slug === 'grand_slams';
   return (
     <>
       <div className="content-two-col">
         {regulations}
 
-        <div className="panel-card">
-          <h2 className="panel-header panel-header-split">
-            <span className="panel-header-title">
-              <span>🏅</span> Official Trophyboard &amp; Hall of Fame
-            </span>
-            <span className="panel-tag">{data ? `${data.board.length} Competitors` : '…'}</span>
-          </h2>
-          <div className="trophy-sub">
-            <span>Verified podium &amp; title records</span>
-            <span className="trophy-sub-hint">Scroll table ↕</span>
-          </div>
-          <div className="trophy-table-container">
-            <table className="trophy-table">
-              <caption className="visually-hidden">Each medallist's podiums in the top division</caption>
-              <thead>
-                <tr>
-                  <th scope="col" className="col-num">
-                    #
-                  </th>
-                  <th scope="col">Competitor</th>
-                  {board.headings.map((h) => (
-                    <th key={h} scope="col" className="col-center">
-                      {h}
-                    </th>
-                  ))}
-                  {honours && <th scope="col">Honors &amp; Titles</th>}
-                </tr>
-              </thead>
-              <tbody>
-                {data === null ? (
-                  <tr>
-                    <td colSpan={2 + board.headings.length + (honours ? 1 : 0)} className="series-message">
-                      {waiting}
-                    </td>
-                  </tr>
-                ) : (
-                  data.board.map((b, i) => {
-                    return (
-                      <tr key={b.name}>
-                        <td className="cell-num">{i + 1}</td>
-                        <td>
-                          <Player name={b.name} /> <TitleMark row={b} series={content.slug} />
-                        </td>
-                        {board.rows[i]?.map((cell, j) => (
-                          <td key={board.headings[j]} className={`col-center medal-count ${board.classes[j] ?? ''}`}>
-                            {cell}
-                          </td>
-                        ))}
-                        {honours && <td className="cell-honours">{b.details}</td>}
-                      </tr>
-                    );
-                  })
-                )}
-              </tbody>
-            </table>
-          </div>
-        </div>
+        <TrophyboardPanel
+          rows={data?.board ?? null}
+          waiting={waiting}
+          mark={(b) => <TitleMark row={b} series={content.slug} />}
+          honours={honours}
+        />
       </div>
 
       {content.stories.length > 0 && (

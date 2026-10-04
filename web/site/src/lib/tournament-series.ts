@@ -263,8 +263,11 @@ export function medalCells(row: { gold: number | null; silver: number | null; br
 
 type BoardRow = { gold: number | null; silver: number | null; bronze: number | null; games: number | null; wins: number | null; win_rate: number | null };
 
-/** boardCells returns a trophyboard's column headings, their classes and cells: medals, or a ladder's games, wins and win rate. */
+/** boardCells returns a trophyboard's column headings, their classes and cells: medals, a ladder's games, wins and win rate, or its top-tier wins alone. */
 export function boardCells(rows: readonly BoardRow[]): { headings: string[]; classes: string[]; rows: string[][] } {
+  if (rows.length > 0 && rows.every((r) => r.gold === null && r.games === null && r.wins !== null)) {
+    return { headings: ['🏆 Top-tier wins'], classes: ['medal-gold'], rows: rows.map((r) => [String(r.wins)]) };
+  }
   if (rows.some((r) => r.gold === null && r.wins !== null)) {
     const n = (x: number | null) => (x === null ? '' : x.toLocaleString('en-US'));
     return {

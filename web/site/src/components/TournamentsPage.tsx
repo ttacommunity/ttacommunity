@@ -9,7 +9,6 @@ import {
   type Catalogue,
   type CatalogueSeason,
   type CatalogueTournament,
-  type LadderWin,
   type TournamentSeries,
 } from '@ttac/shared/ratings';
 import { SERIES_CONTENT, SINGLE_TOURNAMENTS } from '../lib/tournament-series';
@@ -18,9 +17,11 @@ import { playerHref } from '../lib/player-view';
 import TournamentCard from './TournamentCard';
 import TournamentHero from './TournamentHero';
 import RegulationsPanel from './RegulationsPanel';
+import TrophyboardPanel from './TrophyboardPanel';
+import { ladderBoard, podiumBoard } from '../lib/trophyboard';
 import { cardView } from '../lib/tournament-card';
 import TournamentGames from './TournamentGames';
-import { activeYears, catalogueHref, cgeYears, championsFromFinals, entryRows, placeLabel, placeNames, regulationsBox, seasonDates, seasonName, shownName, stageName, tournamentParam, winsLabel } from '../lib/catalogue-view';
+import { activeYears, catalogueHref, cgeYears, championsFromFinals, entryRows, placeLabel, placeNames, regulationsBox, seasonDates, seasonName, shownName, stageName, tournamentParam } from '../lib/catalogue-view';
 
 type Load<T> = { kind: 'loading' } | { kind: 'missing' } | { kind: 'error'; message: string } | { kind: 'ready'; data: T };
 
@@ -187,45 +188,22 @@ function TournamentDetail({ apiUrl, slug }: { apiUrl: string; slug: string }) {
           ...(content !== undefined ? [{ label: 'Cadence & Schedule', value: content.frequency, words: true }] : []),
         ]}
       />
-      {t.ladder && <LadderWinners wins={t.top_tier_wins} />}
       {finals !== null && <Champions seasons={finals} podium title="Grand Prix champions" onPick={pickSeason} />}
       <Champions seasons={t.seasons} podium={!t.ladder && finals === null} title={t.ladder || finals !== null ? 'Seasons' : 'Champions'} onPick={pickSeason} />
       {content !== undefined && (
         <SeriesSections content={content} data={series.data} waiting={series.waiting || 'Loading…'} regulations={regulations} />
       )}
-      {content === undefined && regulations}
+      {content === undefined && (
+        <div className="content-two-col">
+          {regulations}
+          <TrophyboardPanel rows={t.ladder ? ladderBoard(t.top_tier_wins) : podiumBoard(finals ?? t.seasons)} waiting="Loading…" />
+        </div>
+      )}
       {staged.map((s) => (
         <Stages key={s.label} season={s} />
       ))}
       <TournamentGames apiUrl={apiUrl} run={run} slug={t.slug} seasons={t.seasons} players={t.players} pick={pick} />
     </>
-  );
-}
-
-/** LadderWinners lists a ladder's top-tier winners, most wins first, as its organisers count them. */
-function LadderWinners({ wins }: { wins: LadderWin[] }) {
-  return (
-    <div className="panel-card champions-panel">
-      <div className="panel-header panel-header-split">
-        <h2 className="panel-header-title">Top-tier wins</h2>
-        <span className="panel-tag">{count(wins.length)} winners</span>
-      </div>
-      {wins.length === 0 ? (
-        <p className="records-intro">The organisers' count of top-tier wins is not recorded yet.</p>
-      ) : (
-        <>
-          <ul className="ladder-winners">
-            {wins.map((w) => (
-              <li key={w.name}>
-                <a href={playerHref(w.name)}>{w.name}</a>
-                {winsLabel(w.wins) !== '' && <span className="cell-muted"> · {winsLabel(w.wins)}</span>}
-              </li>
-            ))}
-          </ul>
-          <p className="records-intro champions-note">A ladder's champion wins its top tier; a tie counts half. Source: {wins[0].source}.</p>
-        </>
-      )}
-    </div>
   );
 }
 

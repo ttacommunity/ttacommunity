@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { catalogueHref, cgeYears, championsFromFinals, entryRows, gameStateLabel, gameWhere, outcomeNote, placeLabel, placeNames, seasonName, winsLabel, shownName, spanYears, stageName, tournamentParam, seasonDates, activeYears, regulationsBox } from './catalogue-view';
+import { catalogueHref, cgeYears, championsFromFinals, entryRows, gameStateLabel, gameWhere, outcomeNote, placeLabel, placeNames, seasonName, shownName, spanYears, stageName, tournamentParam, seasonDates, activeYears, regulationsBox } from './catalogue-view';
 
 describe('tournamentParam', () => {
   it('takes a slug from the address', () => {
@@ -97,15 +97,6 @@ describe('placeNames', () => {
   });
   it('leaves the final out when there is only one', () => {
     expect(placeNames([at(1, 'ann', 'Final')], 1)).toEqual([{ name: 'ann', final: '' }]);
-  });
-});
-
-describe('winsLabel', () => {
-  it('counts a ladder winner\'s top-tier wins only when there is more than one', () => {
-    expect(winsLabel(10)).toBe('10 wins');
-    expect(winsLabel(3.5)).toBe('3.5 wins');
-    expect(winsLabel(1.5)).toBe('1.5 wins');
-    expect(winsLabel(1)).toBe('');
   });
 });
 
