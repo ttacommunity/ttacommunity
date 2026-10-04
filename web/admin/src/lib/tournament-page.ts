@@ -1,7 +1,6 @@
 /** A tournament's settings page in admin: its address, and the settings it edits. */
-import type { TournamentSettings } from './admin-api';
 
-export type Setting = keyof Required<TournamentSettings>;
+export type Setting = 'visible' | 'rated' | 'community';
 
 /** SETTINGS are a tournament's on/off settings, in the order admin shows them. */
 export const SETTINGS: { key: Setting; label: string; short: string; hint: string }[] = [
@@ -22,4 +21,10 @@ export function settingsHref(slug: string): string {
 export function slugParam(search: URLSearchParams): string | null {
   const t = search.get('t');
   return t !== null && SLUG.test(t) ? t : null;
+}
+
+/** toggledCounts turns a player count's rating on or off, or gives null where that would leave none rated. */
+export function toggledCounts(counts: readonly number[], n: number, on: boolean): number[] | null {
+  const next = on ? [...new Set([...counts, n])] : counts.filter((c) => c !== n);
+  return next.length === 0 ? null : next.sort((a, b) => a - b);
 }

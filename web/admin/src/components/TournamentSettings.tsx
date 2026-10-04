@@ -2,7 +2,7 @@
 import { useEffect, useState, type FormEvent } from 'react';
 import { adminRequest, type AdminMe, type AdminTournament } from '../lib/admin-api';
 import { podiumNames, podiumRequest, type PodiumEntry } from '../lib/podium';
-import { SETTINGS, slugParam, type Setting } from '../lib/tournament-page';
+import { SETTINGS, slugParam, toggledCounts, type Setting } from '../lib/tournament-page';
 import './AdminApp.css';
 
 type Load<T> = { kind: 'loading' } | { kind: 'error'; message: string } | { kind: 'ready'; data: T };
@@ -122,6 +122,21 @@ function SettingsCard({ t, onChange }: { t: AdminTournament; onChange: (t: Admin
       setError(r.message);
     }
   };
+  const setCount = async (n: number, on: boolean) => {
+    const next = toggledCounts(t.rated_player_counts, n, on);
+    if (next === null) {
+      setError('At least one player count stays rated; to rate none, untick Rated above.');
+      return;
+    }
+    setError('');
+    const before = t.rated_player_counts;
+    onChange({ ...t, rated_player_counts: next });
+    const r = await adminRequest(`/api/tournaments/${t.slug}`, { method: 'PATCH', json: { rated_player_counts: next } });
+    if (!r.ok) {
+      onChange({ ...t, rated_player_counts: before });
+      setError(r.message);
+    }
+  };
   return (
     <section className="rating-card admin-card" aria-labelledby="settings-heading">
       <h2 id="settings-heading" className="rating-card-heading">
@@ -143,6 +158,23 @@ function SettingsCard({ t, onChange }: { t: AdminTournament; onChange: (t: Admin
             </label>
           </div>
         ))}
+        <fieldset className="setting-counts">
+          <legend>
+            <strong>Rated player counts</strong>
+            <span className="muted"> · Only these games count towards ratings, from the next engine run</span>
+          </legend>
+          {[2, 3, 4].map((n) => (
+            <label key={n}>
+              <input
+                id={`rated-count-${n}`}
+                type="checkbox"
+                checked={t.rated_player_counts.includes(n)}
+                onChange={(e) => void setCount(n, e.target.checked)}
+              />{' '}
+              {n}-player
+            </label>
+          ))}
+        </fieldset>
       </div>
       {error !== '' && (
         <p className="row-error" role="alert">
@@ -373,6 +405,12 @@ function SeasonsCard({ t, onReload }: { t: AdminTournament; onReload: () => Prom
       await onReload();
     } else setError(r.message);
   };
+  const setRated = async (label: string, rated: boolean) => {
+    setError('');
+    const r = await adminRequest(`/api/tournaments/${t.slug}/season-rating`, { method: 'PUT', json: { season: label, rated } });
+    if (r.ok) await onReload();
+    else setError(r.message);
+  };
   const removeSeason = async (label: string) => {
     if (!window.confirm(`Remove ${t.name} season ${label} and its notes?`)) return;
     setError('');
@@ -403,6 +441,15 @@ function SeasonsCard({ t, onReload }: { t: AdminTournament; onReload: () => Prom
       {t.seasons.map((se) => (
         <div key={se.label} className="season-notes">
           <h3>Season {se.label}</h3>
+          <label className="season-rated">
+            <input
+              id={`season-rated-${se.label}`.replace(/[^A-Za-z0-9-]/g, '_')}
+              type="checkbox"
+              checked={se.rated}
+              onChange={(e) => void setRated(se.label, e.target.checked)}
+            />{' '}
+            Counts towards ratings <span className="muted">(from the next engine run; its games still show, marked not rated)</span>
+          </label>
           {!se.has_games && (
             <div className="season-empty">
               <span className="muted">No games recorded.</span>

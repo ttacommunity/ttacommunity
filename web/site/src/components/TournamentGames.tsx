@@ -148,7 +148,7 @@ export default function TournamentGames({
                 <td className="cell-muted">{seasonName(g.season)}</td>
                 <td>
                   {gameWhere(g)}
-                  {gameStateLabel(g.state) !== '' && <span className="panel-tag game-state">{gameStateLabel(g.state)}</span>}
+                  {gameStateLabel(g.state, g.rated) !== '' && <span className="panel-tag game-state">{gameStateLabel(g.state, g.rated)}</span>}
                 </td>
                 <td>
                   <div className="game-seats">

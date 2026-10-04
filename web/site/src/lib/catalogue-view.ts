@@ -90,9 +90,12 @@ export function entryRows(t: { first_game: string; last_game: string; seasons: n
   ];
 }
 
-/** gameStateLabel marks a game left out of the ratings: never played, or an unconfirmed result; "" for a played game. */
-export function gameStateLabel(state: string): string {
-  return state === 'never_played' ? 'Never played' : state === 'unconfirmed' ? 'Unconfirmed result, not rated' : '';
+/** gameStateLabel marks a game left out of the ratings: never played, an unconfirmed result, or a played game its
+ * tournament, season or player count leaves out (not rated); "" for a rated game. */
+export function gameStateLabel(state: string, rated: boolean): string {
+  if (state === 'never_played') return 'Never played';
+  if (state === 'unconfirmed') return 'Unconfirmed result, not rated';
+  return rated ? '' : 'Not rated';
 }
 
 /** hasPodiums says whether any season has a podium, so the champions table shows its 1st–3rd columns. */

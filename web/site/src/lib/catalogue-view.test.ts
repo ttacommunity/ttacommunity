@@ -113,9 +113,13 @@ describe('entryRows', () => {
 
 describe('gameStateLabel', () => {
   it('marks a game left out of the ratings', () => {
-    expect(gameStateLabel('played')).toBe('');
-    expect(gameStateLabel('never_played')).toBe('Never played');
-    expect(gameStateLabel('unconfirmed')).toBe('Unconfirmed result, not rated');
+    expect(gameStateLabel('played', true)).toBe('');
+    expect(gameStateLabel('never_played', false)).toBe('Never played');
+    expect(gameStateLabel('unconfirmed', false)).toBe('Unconfirmed result, not rated');
+  });
+
+  it('marks a played game not rated when its tournament, season or player count is not rated', () => {
+    expect(gameStateLabel('played', false)).toBe('Not rated');
   });
 });
 

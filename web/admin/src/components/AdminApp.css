@@ -405,3 +405,22 @@
   color: var(--text-soft);
   font-size: 0.85rem;
 }
+.setting-counts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem 1.25rem;
+  margin: 0.25rem 0 0;
+  padding: 0;
+  border: none;
+}
+.setting-counts legend {
+  margin-bottom: 0.4rem;
+}
+.setting-counts input,
+.season-rated input {
+  accent-color: var(--accent-gold);
+}
+.season-rated {
+  color: var(--text-soft);
+  font-size: 0.9rem;
+}
