@@ -86,6 +86,40 @@ page needs styled boxes or tables. A new page is a new file.
 Interactive parts write maths the same way, as TeX, through a small
 `<Tex>` component that runs the same KaTeX in the browser.
 
+### Tournaments: data, not code
+
+Everything that differs between tournaments is a row that admin edits, so
+a new or renamed tournament needs no code change:
+
+- **What it is**: `tournaments.kind` (league, cup or ladder) and, for a
+  league, `top_divisions`, whose final standings make its podium
+- **How it presents itself**: its card (icon, short description,
+  information box, page subtitle, cadence), Format & Regulations, and
+  stories
+- **What counts towards ratings**: the tournament, each season, and the
+  player counts rated
+- **Where it came from**: tournaments, seasons and stages keep an
+  `original_name`, the name they were imported with, so renamed data can
+  still be matched against new imports
+
+Every tournament page is the same components in the same order: the
+header (`TournamentHero`), Format & Regulations beside the Trophyboard,
+stories, highest scores, one Stages panel and one "Champions & Seasons"
+table. The cards on the Hall of Fame and Every Tournament are one
+`TournamentCard`. A panel with nothing to show is left out rather than
+switched off per tournament.
+
+Hard-coded content is limited to what is not one tournament's: the Hall of
+Fame's own text and its circuits (Grand Slams, Ladders), which group
+several tournaments.
+
+### Web tests
+
+Tests cover what the page does, not how it looks. A component stays thin:
+its decisions (what to show, in what order, which fallback) live in a
+function in `lib/` with a Vitest test. There are no render or DOM tests,
+so a change to markup, styling or wording changes no test.
+
 ## The community's data outlives the site
 
 The worker exports the community's data (matches, tournaments, results,
