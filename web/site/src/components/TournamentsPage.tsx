@@ -217,9 +217,7 @@ function TournamentDetail({ apiUrl, slug }: { apiUrl: string; slug: string }) {
           slug={t.slug}
         />
       )}
-      {staged.map((s) => (
-        <Stages key={s.label} season={s} />
-      ))}
+      <Stages seasons={staged} />
       <TournamentGames apiUrl={apiUrl} run={run} slug={t.slug} seasons={t.seasons} players={t.players} pick={pick} />
     </>
   );
@@ -307,16 +305,33 @@ function Champions({ seasons, podium, title, onPick }: { seasons: CatalogueSeaso
   );
 }
 
-/** Stages lists one season's stages, for a season played in several. */
-function Stages({ season: s }: { season: CatalogueSeason }) {
+/** Stages lists the stages of the seasons played in several, one season at a time, the latest first shown. */
+function Stages({ seasons }: { seasons: CatalogueSeason[] }) {
+  const [label, setLabel] = useState(seasons[seasons.length - 1]?.label ?? '');
+  const s = seasons.find((x) => x.label === label) ?? seasons[seasons.length - 1];
+  if (s === undefined) return null;
   return (
     <div className="panel-card stages-panel">
       <div className="panel-header panel-header-split">
-        <h2 className="panel-header-title">{seasonName(s.label)}: stages</h2>
-        <span className="panel-tag">
-          {seasonDates(s)} · {count(s.games)} games · {count(s.players)} players
-        </span>
+        <h2 className="panel-header-title">Stages</h2>
+        {seasons.length > 1 ? (
+          <label className="stages-pick">
+            <span className="visually-hidden">Season</span>
+            <select id="stages-season" value={s.label} onChange={(e) => setLabel(e.target.value)}>
+              {[...seasons].reverse().map((x) => (
+                <option key={x.label} value={x.label}>
+                  {seasonName(x.label)}
+                </option>
+              ))}
+            </select>
+          </label>
+        ) : (
+          <span className="panel-tag">{seasonName(s.label)}</span>
+        )}
       </div>
+      <p className="records-intro">
+        {seasonName(s.label)}: {seasonDates(s)} · {count(s.games)} games · {count(s.players)} players
+      </p>
       {s.note !== null && <p className="records-intro">{s.note}</p>}
       <div className="trophy-table-container">
         <table className="trophy-table">

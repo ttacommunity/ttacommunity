@@ -236,3 +236,13 @@
 }
 
 
+
+/* The season picker in the Stages panel's header. */
+.stages-pick select {
+  padding: 0.3rem 0.5rem;
+  border: 1px solid var(--border-subtle);
+  border-radius: 4px;
+  background: var(--bg-dark);
+  color: var(--text-main);
+  font: inherit;
+}
