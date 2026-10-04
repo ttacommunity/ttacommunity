@@ -19,6 +19,7 @@ import TournamentHero from './TournamentHero';
 import RegulationsPanel from './RegulationsPanel';
 import TrophyboardPanel from './TrophyboardPanel';
 import GameRecordsPanel from './GameRecordsPanel';
+import StoriesPanel from './StoriesPanel';
 import { ladderBoard, podiumBoard } from '../lib/trophyboard';
 import { cardView } from '../lib/tournament-card';
 import TournamentGames from './TournamentGames';
@@ -192,7 +193,13 @@ function TournamentDetail({ apiUrl, slug }: { apiUrl: string; slug: string }) {
       {finals !== null && <Champions seasons={finals} podium title="Grand Prix champions" onPick={pickSeason} />}
       <Champions seasons={t.seasons} podium={!t.ladder && finals === null} title={t.ladder || finals !== null ? 'Seasons' : 'Champions'} onPick={pickSeason} />
       {content !== undefined && (
-        <SeriesSections content={content} data={series.data} waiting={series.waiting || 'Loading…'} regulations={regulations} />
+        <SeriesSections
+          content={content}
+          data={series.data}
+          waiting={series.waiting || 'Loading…'}
+          regulations={regulations}
+          stories={t.stories}
+        />
       )}
       {content === undefined && (
         <div className="content-two-col">
@@ -200,6 +207,7 @@ function TournamentDetail({ apiUrl, slug }: { apiUrl: string; slug: string }) {
           <TrophyboardPanel rows={t.ladder ? ladderBoard(t.top_tier_wins) : podiumBoard(finals ?? t.seasons)} waiting="Loading…" />
         </div>
       )}
+      {content === undefined && <StoriesPanel stories={t.stories} />}
       {content === undefined && (
         <GameRecordsPanel
           records={t.game_records}

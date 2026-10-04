@@ -3,6 +3,7 @@ import { useEffect, useState, type ReactNode } from 'react';
 import RegulationsPanel from './RegulationsPanel';
 import TrophyboardPanel from './TrophyboardPanel';
 import GameRecordsPanel from './GameRecordsPanel';
+import StoriesPanel, { type StoryView } from './StoriesPanel';
 import { currentRun, tournamentSeries, type TournamentSeries, type TrophyRow } from '@ttac/shared/ratings';
 import { playerHref } from '../lib/player-view';
 import { catalogueHref } from '../lib/catalogue-view';
@@ -86,6 +87,7 @@ export default function TournamentSeriesPage({ apiUrl, content }: { apiUrl: stri
         data={data}
         waiting={waiting}
         regulations={<RegulationsPanel box={{ lines: content.rules ?? [], source: null }} rated />}
+        stories={content.stories ?? []}
       />
     </>
   );
@@ -97,11 +99,13 @@ export function SeriesSections({
   data,
   waiting,
   regulations,
+  stories,
 }: {
   content: SeriesContent;
   data: TournamentSeries | null;
   waiting: string;
   regulations: ReactNode;
+  stories: readonly StoryView[];
 }) {
   const honours = content.slug === 'grand_slams';
   return (
@@ -117,27 +121,7 @@ export function SeriesSections({
         />
       </div>
 
-      {content.stories.length > 0 && (
-        <div className="panel-card panel-stories">
-          <h2 className="panel-header">
-            <span>⚡</span> Master+ Dynastic Milestones &amp; Champion Chronicles
-          </h2>
-          <div className="stories-grid">
-            {content.stories.map((s) => (
-              <div key={s.player} className="story-card">
-                <div className="story-header">
-                  <a href={playerHref(s.player)} className="story-author">
-                    <span>👤</span> {s.player}
-                  </a>
-                  <div className="story-badge">{s.badge}</div>
-                </div>
-                <div className="story-title">{s.title}</div>
-                <div className="story-text">{s.text}</div>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
+      <StoriesPanel stories={stories} />
 
       {(data === null || data.season_records.length > 0) && (
         <div className="panel-card panel-records">

@@ -62,7 +62,8 @@ export interface SeriesContent {
   era?: string;
   /** A circuit's Format & Regulations; a tournament's are written in admin and come from the API. */
   rules?: string[];
-  stories: Story[];
+  /** A circuit's stories; a tournament's are written in admin and come from the API. */
+  stories?: Story[];
   /** A circuit of several tournaments: each, by its catalogue slug and name. */
   members?: { slug: string; name: string }[];
 }
@@ -73,26 +74,6 @@ export const INTERNATIONAL: SeriesContent = {
   subtitle: '3/4-Player Competitive Format',
   frequency: 'Quarterly (4 seasons / year)',
   since: '2016',
-  stories: [
-    {
-      player: 'Weidenbaum',
-      badge: 'Dynastic Record',
-      title: 'The Golden Hexa-Crown • 6 International Titles & 9 Podiums',
-      text: 'Grandmaster Weidenbaum holds the all-time championship record in the International Championship with 6 GM Division titles, 2 runner-up finishes, and 1 bronze across 14 competitive seasons.',
-    },
-    {
-      player: 'Genghisip',
-      badge: 'Podium Benchmark',
-      title: 'All-Time Medal Leader • 11 Top-3 Finishes & 4 Titles',
-      text: 'Holding the all-time record for total podium finishes in the International Championship, Genghisip captured 4 Gold medals, 2 Silvers, and 5 Bronzes across 15 recorded seasons.',
-    },
-    {
-      player: 'DANeo',
-      badge: 'Record Campaign',
-      title: 'All-Time Scoring Season • 36.0 / 39.0 Points & Premier Title',
-      text: 'DANeo authored one of the most dominant seasonal campaigns in premier 4-player history during Season 31, scoring 36.0 out of a maximum 39.0 points in the Grandmaster Division to claim the Gold crown.',
-    },
-  ],
 };
 
 export const INTERMEZZO: SeriesContent = {
@@ -101,20 +82,6 @@ export const INTERMEZZO: SeriesContent = {
   subtitle: '3-Player Competitive Format',
   frequency: 'Quarterly (4 seasons / year)',
   since: '2018',
-  stories: [
-    {
-      player: 'Weidenbaum',
-      badge: 'All-Time Dynasty',
-      title: 'Eight-Time Champion • 15 Premier Podiums',
-      text: 'Weidenbaum stands as the most decorated champion in Intermezzo history, claiming 8 Gold medals, 3 Silver medals, and 4 Bronze medals across 17 seasons, totaling an unmatched 314 Hall of Fame points.',
-    },
-    {
-      player: 'Martin_Pecheur',
-      badge: 'Triple Champion',
-      title: 'World Champion Pedigree • 3 Titles & 8 Podiums',
-      text: 'Martin_Pecheur captured 3 Intermezzo Championships, 3 runner-up finishes, and 2 bronze medals across 10 seasons (172 Hall of Fame points).',
-    },
-  ],
 };
 
 export const ROYAL_LEAGUE: SeriesContent = {
@@ -123,26 +90,6 @@ export const ROYAL_LEAGUE: SeriesContent = {
   subtitle: '2-Player Competitive Format',
   frequency: 'Quarterly (4 seasons / year)',
   since: '2024',
-  stories: [
-    {
-      player: 'DANeo',
-      badge: 'Reigning Emperor Champion',
-      title: 'Season 9 Emperor Gold & Multi-Podium Legend',
-      text: 'DANeo captured the Season 9 Royal League Emperor Division Championship with a 6W-1L (12.0 pts) performance, alongside two Silver Medals in Season 4 and Season 7.',
-    },
-    {
-      player: 'saru',
-      badge: 'Two-Time Emperor Champion',
-      title: 'Back-to-Back Titles & Season 9 Silver',
-      text: 'saru captured back-to-back Royal League Premier Emperor Division titles in Season 7 and Season 8, followed by a Silver finish in Season 9 (clinching on H2H tiebreaker).',
-    },
-    {
-      player: 'vanishadow',
-      badge: 'Inaugural Dynasty',
-      title: 'Inaugural Back-to-Back Champion (Season 1 & 2)',
-      text: 'vanishadow claimed the first two Royal League championships in history, capturing Gold in Season 1 and Season 2, followed by a Silver finish in Season 3.',
-    },
-  ],
 };
 
 export const WORLDS: SeriesContent = {
@@ -152,26 +99,6 @@ export const WORLDS: SeriesContent = {
   frequency: 'Annual (Every Year)',
   since: '2023',
   era: '2023 – Present (Next: 2027)',
-  stories: [
-    {
-      player: 'a440',
-      badge: 'Reigning World Champion',
-      title: 'The 2025 World Championship Title',
-      text: 'a440 captured the 2025 Through the Ages World Championship, surviving the grueling multi-stage qualification and navigating the Stage 4 Upper playoff bracket to claim the world crown.',
-    },
-    {
-      player: 'Martin_Pecheur',
-      badge: '2024 World Champion',
-      title: 'Playoff Sweep & World Championship Crown',
-      text: 'Martin_Pecheur swept the 2024 World Championship playoff brackets, defeating top grandmasters in the championship finals.',
-    },
-    {
-      player: 'Weidenbaum',
-      badge: 'Inaugural World Champion',
-      title: 'The Inaugural 2023 World Championship',
-      text: 'Weidenbaum was crowned the inaugural Through the Ages World Champion in 2023, adding the definitive global title to his record 6 International and 8 Intermezzo league championships.',
-    },
-  ],
 };
 
 export const GRAND_SLAMS: SeriesContent = {
