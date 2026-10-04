@@ -1014,6 +1014,25 @@ paths:
           $ref: "#/components/responses/Forbidden"
         "404":
           $ref: "#/components/responses/NotFound"
+  /v1/admin/data:
+    get:
+      operationId: getAdminData
+      tags: [admin]
+      summary: The loaded data at a glance
+      responses:
+        "200":
+          description: Counts and dates
+          headers:
+            Cache-Control:
+              $ref: "#/components/headers/CacheControl"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DataSummary"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
   /v1/admin/badges:
     get:
       operationId: getAdminBadges
@@ -1690,6 +1709,34 @@ components:
         change:
           type: number
           format: double
+    DataSummary:
+      type: object
+      required: [games, never_played, unplaced, players, latest_game, last_load, last_load_refused]
+      properties:
+        games:
+          description: Played games
+          type: integer
+        never_played:
+          description: Games recorded but never played, kept and not rated
+          type: integer
+        unplaced:
+          description: Games in no tournament; a rating run refuses to start while any are
+          type: integer
+        players:
+          type: integer
+        latest_game:
+          description: The latest played game's date
+          type: string
+          format: date
+          nullable: true
+        last_load:
+          description: When data was last loaded
+          type: string
+          format: date-time
+          nullable: true
+        last_load_refused:
+          description: Rows the last load refused
+          type: integer
     ExtraBadge:
       type: object
       required: [label, description]

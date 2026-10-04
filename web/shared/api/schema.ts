@@ -739,6 +739,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/admin/data": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The loaded data at a glance */
+        get: operations["getAdminData"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/admin/badges": {
         parameters: {
             query?: never;
@@ -1059,6 +1076,27 @@ export interface components {
             after: number;
             /** Format: double */
             change: number;
+        };
+        DataSummary: {
+            /** @description Played games */
+            games: number;
+            /** @description Games recorded but never played, kept and not rated */
+            never_played: number;
+            /** @description Games in no tournament; a rating run refuses to start while any are */
+            unplaced: number;
+            players: number;
+            /**
+             * Format: date
+             * @description The latest played game's date
+             */
+            latest_game: string | null;
+            /**
+             * Format: date-time
+             * @description When data was last loaded
+             */
+            last_load: string | null;
+            /** @description Rows the last load refused */
+            last_load_refused: number;
         };
         ExtraBadge: {
             label: string;
@@ -3097,6 +3135,29 @@ export interface operations {
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
+        };
+    };
+    getAdminData: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Counts and dates */
+            200: {
+                headers: {
+                    "Cache-Control": components["headers"]["CacheControl"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DataSummary"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
         };
     };
     getAdminBadges: {

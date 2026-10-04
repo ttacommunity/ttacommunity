@@ -12,6 +12,8 @@ import (
 	"strings"
 	"unicode/utf8"
 
+	openapi_types "github.com/oapi-codegen/runtime/types"
+
 	"ttacommunity/backend/internal/access"
 	"ttacommunity/backend/internal/enginejob"
 	"ttacommunity/backend/internal/store"
@@ -30,6 +32,7 @@ type Admins interface {
 	Tournaments(ctx context.Context) ([]store.AdminTournament, error)
 	SetTournament(ctx context.Context, slug string, s store.TournamentSettings) error
 	SetNote(ctx context.Context, slug, season, stage, note string) error
+	DataSummary(ctx context.Context) (store.DataSummary, error)
 	Badges(ctx context.Context) ([]store.Badge, error)
 	AddBadge(ctx context.Context, b store.Badge) (int64, error)
 	SetBadge(ctx context.Context, b store.Badge) error
@@ -728,4 +731,19 @@ func (s *server) DeleteAdminBadgePlayer(ctx context.Context, req DeleteAdminBadg
 		return nil, err
 	}
 	return DeleteAdminBadgePlayer204Response{}, nil
+}
+
+func (s *server) GetAdminData(ctx context.Context, _ GetAdminDataRequestObject) (GetAdminDataResponseObject, error) {
+	d, err := s.admins.DataSummary(ctx)
+	if err != nil {
+		return nil, err
+	}
+	body := DataSummary{
+		Games: d.Games, NeverPlayed: d.NeverPlayed, Unplaced: d.Unplaced, Players: d.Players,
+		LastLoad: d.LastLoad, LastLoadRefused: d.LastLoadRefused,
+	}
+	if d.LatestGame != nil {
+		body.LatestGame = &openapi_types.Date{Time: *d.LatestGame}
+	}
+	return GetAdminData200JSONResponse{Body: body, Headers: GetAdminData200ResponseHeaders{CacheControl: cacheNone}}, nil
 }

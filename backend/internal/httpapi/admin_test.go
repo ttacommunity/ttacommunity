@@ -169,6 +169,11 @@ func (f *fakeAdmins) SetPodium(_ context.Context, slug, season string, podium []
 	return nil
 }
 
+func (*fakeAdmins) DataSummary(context.Context) (store.DataSummary, error) {
+	latest := time.Date(2026, 10, 2, 0, 0, 0, 0, time.UTC)
+	return store.DataSummary{Games: 144691, NeverPlayed: 36, Unplaced: 0, Players: 5210, LatestGame: &latest}, nil
+}
+
 func (*fakeAdmins) Badges(context.Context) ([]store.Badge, error) {
 	return []store.Badge{{ID: 3, Label: "Organiser", Description: "Runs a league", Players: []string{"Ann"}}}, nil
 }
@@ -859,5 +864,18 @@ func TestBadgeChangesAreRefusedWhenTheyShouldBe(t *testing.T) {
 				t.Errorf("a refused change still changed something: %q %q", f.notes, f.audits)
 			}
 		})
+	}
+}
+
+func TestAdminDataSummaryIsForAdminsAndOrganisers(t *testing.T) {
+	for _, who := range []string{"111111111111111111", "222222222222222222"} {
+		rec := adminDoAs(t, &fakeAdmins{}, who, http.MethodGet, "/v1/admin/data", "", "")
+		var got DataSummary
+		if err := json.Unmarshal(rec.Body.Bytes(), &got); err != nil || rec.Code != http.StatusOK {
+			t.Fatalf("GET data as %s = %d %s", who, rec.Code, rec.Body)
+		}
+		if got.Games != 144691 || got.NeverPlayed != 36 || got.LatestGame == nil || got.LastLoad != nil {
+			t.Errorf("data = %+v", got)
+		}
 	}
 }

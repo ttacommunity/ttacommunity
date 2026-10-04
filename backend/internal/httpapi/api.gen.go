@@ -992,6 +992,28 @@ type CountryRatings struct {
 	Players int      `json:"players"`
 }
 
+// DataSummary defines model for DataSummary.
+type DataSummary struct {
+	// Games Played games
+	Games int `json:"games"`
+
+	// LastLoad When data was last loaded
+	LastLoad *time.Time `json:"last_load"`
+
+	// LastLoadRefused Rows the last load refused
+	LastLoadRefused int `json:"last_load_refused"`
+
+	// LatestGame The latest played game's date
+	LatestGame *openapi_types.Date `json:"latest_game"`
+
+	// NeverPlayed Games recorded but never played, kept and not rated
+	NeverPlayed int `json:"never_played"`
+	Players     int `json:"players"`
+
+	// Unplaced Games in no tournament; a rating run refuses to start while any are
+	Unplaced int `json:"unplaced"`
+}
+
 // Distribution defines model for Distribution.
 type Distribution struct {
 	Engines []EngineDistribution `json:"engines"`
@@ -2007,6 +2029,9 @@ type ServerInterface interface {
 	// PutAdminBadgePlayer Give a player a badge, shown at once (admins only)
 	// (PUT /v1/admin/badges/{badge}/players/{player})
 	PutAdminBadgePlayer(w http.ResponseWriter, r *http.Request, badge AdminBadgeId, player AdminPlayer)
+	// GetAdminData The loaded data at a glance
+	// (GET /v1/admin/data)
+	GetAdminData(w http.ResponseWriter, r *http.Request)
 	// GetAdminMe Who is signed in to admin, and in which role
 	// (GET /v1/admin/me)
 	GetAdminMe(w http.ResponseWriter, r *http.Request)
@@ -2379,6 +2404,20 @@ func (siw *ServerInterfaceWrapper) PutAdminBadgePlayer(w http.ResponseWriter, r 
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.PutAdminBadgePlayer(w, r, badge, player)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetAdminData operation middleware
+func (siw *ServerInterfaceWrapper) GetAdminData(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetAdminData(w, r)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -4218,6 +4257,7 @@ func HandlerWithOptions(si ServerInterface, options StdHTTPServerOptions) http.H
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/v1/admin/admins", wrapper.GetAdminAdmins)
 	m.HandleFunc(http.MethodDelete+" "+options.BaseURL+"/v1/admin/admins/{discord_id}", wrapper.DeleteAdminAdmin)
 	m.HandleFunc(http.MethodPut+" "+options.BaseURL+"/v1/admin/admins/{discord_id}", wrapper.PutAdminAdmin)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/v1/admin/data", wrapper.GetAdminData)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/v1/admin/badges", wrapper.GetAdminBadges)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/v1/admin/badges", wrapper.PostAdminBadge)
 	m.HandleFunc(http.MethodDelete+" "+options.BaseURL+"/v1/admin/badges/{badge}", wrapper.DeleteAdminBadge)
@@ -4980,6 +5020,65 @@ func (response PutAdminBadgePlayer404JSONResponse) VisitPutAdminBadgePlayerRespo
 	w.Header().Set("Content-Type", "application/json")
 	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
 	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetAdminDataRequestObject struct {
+}
+
+type GetAdminDataResponseObject interface {
+	VisitGetAdminDataResponse(w http.ResponseWriter) error
+}
+
+type GetAdminData200ResponseHeaders struct {
+	CacheControl string
+}
+
+type GetAdminData200JSONResponse struct {
+	Body    DataSummary
+	Headers GetAdminData200ResponseHeaders
+}
+
+func (response GetAdminData200JSONResponse) VisitGetAdminDataResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetAdminData401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response GetAdminData401JSONResponse) VisitGetAdminDataResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetAdminData403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response GetAdminData403JSONResponse) VisitGetAdminDataResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(403)
 	_, err := buf.WriteTo(w)
 	return err
 }
@@ -7750,6 +7849,9 @@ type StrictServerInterface interface {
 	// PutAdminBadgePlayer Give a player a badge, shown at once (admins only)
 	// (PUT /v1/admin/badges/{badge}/players/{player})
 	PutAdminBadgePlayer(ctx context.Context, request PutAdminBadgePlayerRequestObject) (PutAdminBadgePlayerResponseObject, error)
+	// GetAdminData The loaded data at a glance
+	// (GET /v1/admin/data)
+	GetAdminData(ctx context.Context, request GetAdminDataRequestObject) (GetAdminDataResponseObject, error)
 	// GetAdminMe Who is signed in to admin, and in which role
 	// (GET /v1/admin/me)
 	GetAdminMe(ctx context.Context, request GetAdminMeRequestObject) (GetAdminMeResponseObject, error)
@@ -8209,6 +8311,30 @@ func (sh *strictHandler) PutAdminBadgePlayer(w http.ResponseWriter, r *http.Requ
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(PutAdminBadgePlayerResponseObject); ok {
 		if err := validResponse.VisitPutAdminBadgePlayerResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// GetAdminData operation middleware
+func (sh *strictHandler) GetAdminData(w http.ResponseWriter, r *http.Request) {
+	var request GetAdminDataRequestObject
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.GetAdminData(ctx, request.(GetAdminDataRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetAdminData")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(GetAdminDataResponseObject); ok {
+		if err := validResponse.VisitGetAdminDataResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {
