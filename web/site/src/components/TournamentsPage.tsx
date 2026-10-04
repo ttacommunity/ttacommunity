@@ -18,6 +18,7 @@ import TournamentCard from './TournamentCard';
 import TournamentHero from './TournamentHero';
 import RegulationsPanel from './RegulationsPanel';
 import TrophyboardPanel from './TrophyboardPanel';
+import GameRecordsPanel from './GameRecordsPanel';
 import { ladderBoard, podiumBoard } from '../lib/trophyboard';
 import { cardView } from '../lib/tournament-card';
 import TournamentGames from './TournamentGames';
@@ -198,6 +199,15 @@ function TournamentDetail({ apiUrl, slug }: { apiUrl: string; slug: string }) {
           {regulations}
           <TrophyboardPanel rows={t.ladder ? ladderBoard(t.top_tier_wins) : podiumBoard(finals ?? t.seasons)} waiting="Loading…" />
         </div>
+      )}
+      {content === undefined && (
+        <GameRecordsPanel
+          records={t.game_records}
+          waiting="Loading…"
+          title={`Highest Single-Match Scores (${t.name})`}
+          intro="Historic single-match cultural scoring peaks achieved in this tournament, from its official match logs with full opponent matchups."
+          slug={t.slug}
+        />
       )}
       {staged.map((s) => (
         <Stages key={s.label} season={s} />

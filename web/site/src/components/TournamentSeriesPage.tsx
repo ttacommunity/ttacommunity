@@ -2,15 +2,14 @@
 import { useEffect, useState, type ReactNode } from 'react';
 import RegulationsPanel from './RegulationsPanel';
 import TrophyboardPanel from './TrophyboardPanel';
+import GameRecordsPanel from './GameRecordsPanel';
 import { currentRun, tournamentSeries, type TournamentSeries, type TrophyRow } from '@ttac/shared/ratings';
 import { playerHref } from '../lib/player-view';
 import { catalogueHref } from '../lib/catalogue-view';
 import { circuitCard } from '../lib/tournament-card';
 import TournamentHero from './TournamentHero';
 import {
-  cultureScore,
   leaguePoints,
-  opponentsLine,
   seriesEra,
   seriesRecord,
   showsWorldChampion,
@@ -205,65 +204,13 @@ export function SeriesSections({
         </div>
       )}
 
-      {(data === null || data.game_records.length > 0) && (
-        <div className="panel-card panel-records">
-          <h2 className="panel-header panel-header-split">
-            <span className="panel-header-title">
-              <span>📈</span> Premier Division Highest Single-Match Scores ({content.name})
-            </span>
-            <span className="panel-tag panel-tag-wide">Top Single-Game Scores</span>
-          </h2>
-          <p className="records-intro">
-            Historic single-match cultural scoring peaks achieved in premier division competition (e.g. Master 1, Emperor,
-            Championship Playoff Brackets) from official tournament match logs with full opponent matchups.
-          </p>
-          <div className="trophy-table-container records-table">
-            <table className="trophy-table">
-              <caption className="visually-hidden">The ten highest winning scores in top-division games</caption>
-              <thead>
-                <tr>
-                  <th scope="col" className="col-rank">
-                    Rank
-                  </th>
-                  <th scope="col">Competitor</th>
-                  <th scope="col" className="col-right">
-                    Culture Score
-                  </th>
-                  <th scope="col">Opponents &amp; Match Scores</th>
-                  <th scope="col">Division &amp; Match ID</th>
-                  <th scope="col" className="col-right">
-                    Match Date
-                  </th>
-                </tr>
-              </thead>
-              <tbody>
-                {data === null ? (
-                  <tr>
-                    <td colSpan={6} className="series-message">
-                      {waiting}
-                    </td>
-                  </tr>
-                ) : (
-                  data.game_records.map((g, i) => (
-                    <tr key={`${g.tournament} ${g.date} ${g.name}`}>
-                      <td className="cell-rank">#{i + 1}</td>
-                      <td>
-                        <Player name={g.name} /> {showsWorldChampion(content.slug, g.world_champion) && <WorldChampion />}
-                      </td>
-                      <td className="cell-points">{cultureScore(g.score)}</td>
-                      <td className="cell-opponents">
-                        {g.opponents.length > 0 ? <span className="cell-opponents-list">{opponentsLine(g.opponents)}</span> : '-'}
-                      </td>
-                      <td className="cell-muted">{g.tournament}</td>
-                      <td className="cell-date">{g.date}</td>
-                    </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      )}
+      <GameRecordsPanel
+        records={data?.game_records ?? null}
+        waiting={waiting}
+        title={`Premier Division Highest Single-Match Scores (${content.name})`}
+        intro="Historic single-match cultural scoring peaks achieved in premier division competition (e.g. Master 1, Emperor, Championship Playoff Brackets) from official tournament match logs with full opponent matchups."
+        slug={content.slug}
+      />
     </>
   );
 }
