@@ -236,21 +236,23 @@ export function legendMark(l: Legend): 'WC' | 'GM' | null {
 /** A World Champion as the Hall of Fame overview shows them. */
 export type WorldChampion = { name: string; season: string; icon: string; text: string };
 
-/** worldChampions lists each final's winner whom the legends table credits with a World title, latest first, with their titles in the other majors. */
-export function worldChampions(seasons: { label: string; podium: { place: number; name: string }[] }[], legends: Legend[]): WorldChampion[] {
-  const crowned = new Map(legends.filter((l) => l.world_titles > 0).map((l) => [l.name, l]));
-  const winners = seasons.flatMap((s) =>
-    s.podium.flatMap((p) => {
-      const l = p.place === 1 ? crowned.get(p.name) : undefined;
-      return l === undefined ? [] : [{ name: p.name, season: s.label, l }];
-    }),
-  );
-  return winners.reverse().map(({ l, ...w }, i) => {
-    const titles: [number, string][] = [
-      [l.international_titles, 'International Champion'],
-      [l.intermezzo_titles, 'Intermezzo Champion'],
-      [l.royal_league_titles, 'Royal League Champion'],
-    ];
+/** worldChampions lists the winner of each final admin keeps among the champions, latest first, with the titles the legends table credits them in the other majors. */
+export function worldChampions(
+  seasons: { label: string; in_champions: boolean; podium: { place: number; name: string }[] }[],
+  legends: Legend[],
+): WorldChampion[] {
+  const winners = seasons
+    .filter((s) => s.in_champions)
+    .flatMap((s) => s.podium.filter((p) => p.place === 1).map((p) => ({ name: p.name, season: s.label })));
+  return winners.reverse().map((w, i) => {
+    const l = legends.find((x) => x.name === w.name);
+    const titles: [number, string][] = l
+      ? [
+          [l.international_titles, 'International Champion'],
+          [l.intermezzo_titles, 'Intermezzo Champion'],
+          [l.royal_league_titles, 'Royal League Champion'],
+        ]
+      : [];
     const honours = titles.filter(([n]) => n > 0).map(([n, t]) => (n === 1 ? t : `${n}x ${t}`));
     const crown = `${w.season} ${i === 0 ? 'Reigning ' : ''}World Champion`;
     return { ...w, icon: i === 0 ? '👑' : '🏆', text: [crown, ...honours].join(' • ') };

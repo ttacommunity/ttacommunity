@@ -46,7 +46,7 @@ func TestAdminTournamentsListSettingsSeasonsAndNotes(t *testing.T) {
 	if !worlds.Rated || worlds.Visible || worlds.Community {
 		t.Errorf("worlds settings = %+v, want rated, hidden, and not yet in the community leaderboard (no migration row)", worlds)
 	}
-	want := []AdminSeason{{Label: "2025", OriginalName: "2025", HasGames: true, Rated: true, Stages: []AdminStage{
+	want := []AdminSeason{{Label: "2025", OriginalName: "2025", HasGames: true, Rated: true, InChampions: true, Stages: []AdminStage{
 		{Label: "Stage 1", OriginalName: "Stage 1"}, {Label: "Stage 2", OriginalName: "Stage 2", Note: "The upper bracket."}}}}
 	if !reflect.DeepEqual(worlds.Seasons, want) {
 		t.Errorf("worlds seasons = %+v, want %+v", worlds.Seasons, want)
@@ -476,5 +476,40 @@ func TestARenamedSeasonAndStageKeepTheirOriginalNames(t *testing.T) {
 	if se.Label != "Season 2024" || se.OriginalName != "2024" || len(se.Stages) != 1 ||
 		se.Stages[0].Label != "Groups" || se.Stages[0].OriginalName != "Stage 1" {
 		t.Errorf("season = %+v", se)
+	}
+}
+
+func TestASeasonCanBeLeftOutOfTheChampions(t *testing.T) {
+	pool := migrated(t)
+	ctx := context.Background()
+	run := publishedRun(t, pool)
+	placedOn(t, pool, map[string]time.Time{
+		"Wimbledon 2024 Stage 1 - group 1 game 1": day("2024-07-01"),
+		"Wimbledon 2025 Stage 1 - group 1 game 1": day("2025-07-01"),
+	})
+	a := NewAdminStore(asAdminLogin(t, pool))
+	if err := a.SetSeasonInChampions(ctx, "wimbledon", "2024", false); err != nil {
+		t.Fatalf("SetSeasonInChampions: %v", err)
+	}
+	page, err := NewRatingsReader(asReader(t, pool)).CatalogueTournament(ctx, run, "wimbledon")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, se := range page.Seasons {
+		if se.InChampions != (se.Label != "2024") {
+			t.Errorf("season %s in champions = %v", se.Label, se.InChampions)
+		}
+	}
+	ts, err := a.Tournaments(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, se := range adminTournament(t, ts, "wimbledon").Seasons {
+		if se.InChampions != (se.Label != "2024") {
+			t.Errorf("admin season %s in champions = %v", se.Label, se.InChampions)
+		}
+	}
+	if err := a.SetSeasonInChampions(ctx, "wimbledon", "1999", false); !errors.Is(err, ErrNoTournament) {
+		t.Errorf("no such season = %v, want ErrNoTournament", err)
 	}
 }

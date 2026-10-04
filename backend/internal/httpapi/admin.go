@@ -33,6 +33,7 @@ type Admins interface {
 	Tournaments(ctx context.Context) ([]store.AdminTournament, error)
 	SetTournament(ctx context.Context, slug string, s store.TournamentSettings) error
 	SetSeasonRated(ctx context.Context, slug, season string, rated bool) error
+	SetSeasonInChampions(ctx context.Context, slug, season string, in bool) error
 	SetNote(ctx context.Context, slug, season, stage, note string) error
 	DataSummary(ctx context.Context) (store.DataSummary, error)
 	// ExportZip writes every input table, as the load job's export, as a zip to w.
@@ -150,7 +151,7 @@ func (s *server) GetAdminTournaments(ctx context.Context, _ GetAdminTournamentsR
 			for k, e := range se.Podium {
 				podium[k] = PodiumEntry{Place: e.Place, Name: e.Name}
 			}
-			seasons[j] = AdminSeason{Label: se.Label, OriginalName: se.OriginalName, Note: se.Note, HasGames: se.HasGames, Rated: se.Rated, Stages: stages, Podium: podium, PodiumNote: se.PodiumNote}
+			seasons[j] = AdminSeason{Label: se.Label, OriginalName: se.OriginalName, Note: se.Note, HasGames: se.HasGames, Rated: se.Rated, InChampions: se.InChampions, Stages: stages, Podium: podium, PodiumNote: se.PodiumNote}
 		}
 		out[i] = AdminTournament{Slug: t.Slug, Name: t.Name, OriginalName: t.OriginalName, Kind: TournamentKind(t.Kind),
 			TopDivisions: append([]string{}, t.TopDivisions...), Visible: t.Visible, Rated: t.Rated, Community: t.Community,
@@ -856,6 +857,27 @@ func (s *server) PutAdminSeasonRating(ctx context.Context, req PutAdminSeasonRat
 		return nil, err
 	}
 	return PutAdminSeasonRating204Response{}, nil
+}
+
+func (s *server) PutAdminSeasonChampions(ctx context.Context, req PutAdminSeasonChampionsRequestObject) (PutAdminSeasonChampionsResponseObject, error) {
+	a, ok := adminFrom(ctx)
+	if !ok {
+		return nil, errors.New("admin route reached without the gate")
+	}
+	b := req.Body
+	if b == nil || b.Season == "" || len(b.Season) > 64 {
+		return PutAdminSeasonChampions400JSONResponse{badRequest400("a season, and whether its winner is among the champions")}, nil
+	}
+	switch err := s.admins.SetSeasonInChampions(ctx, req.Tournament, b.Season, b.InChampions); {
+	case errors.Is(err, store.ErrNoTournament):
+		return PutAdminSeasonChampions404JSONResponse{notFound404("no such tournament or season")}, nil
+	case err != nil:
+		return nil, err
+	}
+	if err := s.admins.Audit(ctx, a.DiscordID, "tournament.season.champions", req.Tournament, b); err != nil {
+		return nil, err
+	}
+	return PutAdminSeasonChampions204Response{}, nil
 }
 
 func (s *server) GetAdminExport(ctx context.Context, _ GetAdminExportRequestObject) (GetAdminExportResponseObject, error) {

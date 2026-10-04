@@ -107,9 +107,9 @@ describe('the Hall of Fame overview', () => {
 
   it('lists the World Champions from each final, latest first, with their other titles', () => {
     const seasons = [
-      { label: '2023', podium: [{ place: 2, name: 'bo' }, { place: 1, name: 'ann' }] },
-      { label: '2024', podium: [] },
-      { label: '2025', podium: [{ place: 1, name: 'cy' }] },
+      { label: '2023', in_champions: true, podium: [{ place: 2, name: 'bo' }, { place: 1, name: 'ann' }] },
+      { label: '2024', in_champions: true, podium: [] },
+      { label: '2025', in_champions: true, podium: [{ place: 1, name: 'cy' }] },
     ];
     const legends = [
       legend({ name: 'ann', world_titles: 1, international_titles: 6, intermezzo_titles: 1 }),
@@ -121,16 +121,16 @@ describe('the Hall of Fame overview', () => {
     ]);
   });
 
-  it('leaves out a winner the titles table does not credit with a World title, such as a play-off', () => {
+  it('leaves out a season admin keeps out of the champions, such as a play-off', () => {
     const seasons = [
-      { label: '2023', podium: [{ place: 1, name: 'ann' }] },
-      { label: '2023 Play Off', podium: [{ place: 1, name: 'dee' }] },
+      { label: '2023', in_champions: true, podium: [{ place: 1, name: 'ann' }] },
+      { label: '2023 Play Off', in_champions: false, podium: [{ place: 1, name: 'dee' }] },
     ];
-    expect(worldChampions(seasons, [legend({ name: 'ann', world_titles: 1 }), legend({ name: 'dee' })]).map((c) => c.name)).toEqual(['ann']);
+    expect(worldChampions(seasons, []).map((c) => c.name)).toEqual(['ann']);
   });
 
   it('lists no World Champions before any final has a winner', () => {
-    expect(worldChampions([{ label: '2026', podium: [] }], [])).toEqual([]);
+    expect(worldChampions([{ label: '2026', in_champions: true, podium: [] }], [])).toEqual([]);
   });
 
   it('writes a title cell as a count, a crown for World titles, or a dash', () => {

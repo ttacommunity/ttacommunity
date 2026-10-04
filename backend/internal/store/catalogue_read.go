@@ -80,12 +80,14 @@ type CGELink struct {
 
 // CatalogueSeason is one season with its stages, podium and CGE pages.
 type CatalogueSeason struct {
-	Label  string
-	Span   GameSpan
-	Stages []CatalogueStage
-	Podium []PodiumPlace
-	CGE    []CGELink
-	Note   string
+	Label string
+	// InChampions is false for a season whose winner admin leaves out of the champions, such as a play-off.
+	InChampions bool
+	Span        GameSpan
+	Stages      []CatalogueStage
+	Podium      []PodiumPlace
+	CGE         []CGELink
+	Note        string
 }
 
 // leadingNumber is the number a season label starts with.
@@ -229,7 +231,7 @@ func (r *RatingsReader) CatalogueTournament(ctx context.Context, run int64, slug
 	}
 	var ids []int64
 	got.Seasons, err = pgx.CollectRows(rows, func(row pgx.CollectableRow) (CatalogueSeason, error) {
-		s := CatalogueSeason{Stages: []CatalogueStage{}, Podium: []PodiumPlace{}, CGE: []CGELink{}}
+		s := CatalogueSeason{InChampions: true, Stages: []CatalogueStage{}, Podium: []PodiumPlace{}, CGE: []CGELink{}}
 		var id int64
 		err := row.Scan(&got.Name, &id, &s.Label, &s.Span.Games, &s.Span.Players, &s.Span.First, &s.Span.Last)
 		ids = append(ids, id)
@@ -248,6 +250,22 @@ func (r *RatingsReader) CatalogueTournament(ctx context.Context, run int64, slug
 	byLabel := make(map[string]int, len(ids))
 	for i, id := range ids {
 		bySeason[id], byLabel[got.Seasons[i].Label] = i, i
+	}
+
+	rows, err = r.pool.Query(ctx, `SELECT se.label FROM tournament_seasons se JOIN tournaments t USING (tournament_id)
+		WHERE t.slug = $1 AND NOT se.in_champions`, slug)
+	if err != nil {
+		return fail("champion seasons", err)
+	}
+	var left string
+	_, err = pgx.ForEachRow(rows, []any{&left}, func() error {
+		if i, ok := byLabel[left]; ok {
+			got.Seasons[i].InChampions = false
+		}
+		return nil
+	})
+	if err != nil {
+		return fail("champion seasons", err)
 	}
 
 	rows, err = r.pool.Query(ctx, `
@@ -494,7 +512,7 @@ func (r *RatingsReader) addSeasonsWithoutGames(ctx context.Context, slug string,
 				}
 			}
 		}
-		s := CatalogueSeason{Label: label, Stages: []CatalogueStage{}, Podium: []PodiumPlace{}, CGE: []CGELink{}}
+		s := CatalogueSeason{Label: label, InChampions: true, Stages: []CatalogueStage{}, Podium: []PodiumPlace{}, CGE: []CGELink{}}
 		got.Seasons = slices.Insert(got.Seasons, at, s)
 		*ids = slices.Insert(*ids, at, id)
 		return nil

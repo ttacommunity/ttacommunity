@@ -1279,6 +1279,31 @@ paths:
           $ref: "#/components/responses/Forbidden"
         "404":
           $ref: "#/components/responses/NotFound"
+  /v1/admin/tournaments/{tournament}/season-champions:
+    put:
+      operationId: putAdminSeasonChampions
+      tags: [admin]
+      summary: Set whether a season's winner is listed among the tournament's champions
+      description: Such as the Hall of Fame's World Champions; a play-off can be left out. Audited. The Origin must be the admin site.
+      parameters:
+        - $ref: "#/components/parameters/AdminTournamentSlug"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SeasonInChampions"
+      responses:
+        "204":
+          description: Saved
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
   /v1/admin/tournaments/{tournament}/stories:
     put:
       operationId: putAdminStories
@@ -1823,6 +1848,17 @@ components:
           maxLength: 64
         rated:
           type: boolean
+    SeasonInChampions:
+      type: object
+      additionalProperties: false
+      required: [season, in_champions]
+      properties:
+        season:
+          type: string
+          minLength: 1
+          maxLength: 64
+        in_champions:
+          type: boolean
     Story:
       description: One of a tournament's stories, as DANeo's series pages tell them
       type: object
@@ -2093,8 +2129,11 @@ components:
             $ref: "#/components/schemas/AdminSeason"
     AdminSeason:
       type: object
-      required: [label, original_name, note, has_games, rated, stages, podium, podium_note]
+      required: [label, original_name, note, has_games, rated, in_champions, stages, podium, podium_note]
       properties:
+        in_champions:
+          description: Its winner is listed among the tournament's champions
+          type: boolean
         original_name:
           description: The label it came in with, kept when it is renamed
           type: string
@@ -3398,10 +3437,13 @@ components:
       allOf:
         - $ref: "#/components/schemas/SeasonSpan"
         - type: object
-          required: [label, stages, podium, cge_pages, note]
+          required: [label, in_champions, stages, podium, cge_pages, note]
           properties:
             label:
               type: string
+            in_champions:
+              description: Its winner is listed among the tournament's champions; false for one admin leaves out, such as a play-off
+              type: boolean
             note:
               description: A note shown beside the season, such as what a special season was, or null
               type: string

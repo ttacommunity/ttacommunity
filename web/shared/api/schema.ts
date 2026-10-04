@@ -906,6 +906,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/admin/tournaments/{tournament}/season-champions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Set whether a season's winner is listed among the tournament's champions
+         * @description Such as the Hall of Fame's World Champions; a play-off can be left out. Audited. The Origin must be the admin site.
+         */
+        put: operations["putAdminSeasonChampions"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/admin/tournaments/{tournament}/stories": {
         parameters: {
             query?: never;
@@ -1161,6 +1181,10 @@ export interface components {
             season: string;
             rated: boolean;
         };
+        SeasonInChampions: {
+            season: string;
+            in_champions: boolean;
+        };
         /** @description One of a tournament's stories, as DANeo's series pages tell them */
         Story: {
             player: string;
@@ -1292,6 +1316,8 @@ export interface components {
             seasons: components["schemas"]["AdminSeason"][];
         };
         AdminSeason: {
+            /** @description Its winner is listed among the tournament's champions */
+            in_champions: boolean;
             /** @description The label it came in with, kept when it is renamed */
             original_name: string;
             /** @description Its games count towards ratings, from the next run */
@@ -2020,6 +2046,8 @@ export interface components {
         };
         CatalogueSeason: components["schemas"]["SeasonSpan"] & {
             label: string;
+            /** @description Its winner is listed among the tournament's champions; false for one admin leaves out, such as a play-off */
+            in_champions: boolean;
             /** @description A note shown beside the season, such as what a special season was, or null */
             note: string | null;
             stages: components["schemas"]["CatalogueStage"][];
@@ -3570,6 +3598,35 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": components["schemas"]["SeasonRating"];
+            };
+        };
+        responses: {
+            /** @description Saved */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    putAdminSeasonChampions: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The tournament's slug */
+                tournament: components["parameters"]["AdminTournamentSlug"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SeasonInChampions"];
             };
         };
         responses: {

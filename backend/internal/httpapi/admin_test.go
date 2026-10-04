@@ -107,7 +107,7 @@ func (*fakeAdmins) Tournaments(context.Context) ([]store.AdminTournament, error)
 		Kind: "cup", OriginalName: "World Championships",
 		Stories:           []store.Story{{Player: "a440", Badge: "Reigning World Champion", Title: "2025", Text: "Won."}},
 		RatedPlayerCounts: []int{3, 4},
-		Seasons: []store.AdminSeason{{Label: "2025", OriginalName: "2025 Edition", Rated: true, Stages: []store.AdminStage{{Label: "Stage 1", OriginalName: "Groups", Note: "n"}},
+		Seasons: []store.AdminSeason{{Label: "2025", OriginalName: "2025 Edition", Rated: true, InChampions: true, Stages: []store.AdminStage{{Label: "Stage 1", OriginalName: "Groups", Note: "n"}},
 			Podium: []store.PodiumEntry{{Place: 1, Name: "a440"}}, PodiumNote: "CGE"}}}}, nil
 }
 
@@ -130,6 +130,14 @@ func (f *fakeAdmins) SetSeasonRated(_ context.Context, slug, season string, rate
 		return store.ErrNoTournament
 	}
 	f.notes = append(f.notes, fmt.Sprintf("season %s rated %v", season, rated))
+	return nil
+}
+
+func (f *fakeAdmins) SetSeasonInChampions(_ context.Context, slug, season string, in bool) error {
+	if slug != "worlds" || season == "1999" {
+		return store.ErrNoTournament
+	}
+	f.notes = append(f.notes, fmt.Sprintf("season %s champions %v", season, in))
 	return nil
 }
 
@@ -1072,5 +1080,39 @@ func TestAdminsAndOrganisersDownloadTheData(t *testing.T) {
 	}
 	if rec := adminDoAs(t, &fakeAdmins{}, "111111111111111111", http.MethodGet, "/v1/admin/export", "", ""); rec.Code != http.StatusOK {
 		t.Errorf("an admin's export = %d, want 200", rec.Code)
+	}
+}
+
+func TestAnOrganiserLeavesASeasonOutOfTheChampions(t *testing.T) {
+	const site = "https://ttac-admin.example"
+	f := &fakeAdmins{}
+	if rec := adminDo(t, f, http.MethodPut, "/v1/admin/tournaments/worlds/season-champions", site, `{"season": "2023 Play Off", "in_champions": false}`); rec.Code != http.StatusNoContent {
+		t.Fatalf("PUT = %d %s, want 204", rec.Code, rec.Body)
+	}
+	if strings.Join(f.notes, "|") != "season 2023 Play Off champions false" || strings.Join(f.audits, "|") != "222222222222222222 tournament.season.champions worlds" {
+		t.Errorf("changes %q, audits %q", f.notes, f.audits)
+	}
+	for _, tt := range []struct {
+		name, origin, body string
+		want               int
+	}{
+		{"a season that does not exist", site, `{"season": "1999", "in_champions": false}`, http.StatusNotFound},
+		{"no season", site, `{"season": "", "in_champions": false}`, http.StatusBadRequest},
+		{"another site", "https://evil.example", `{"season": "2023", "in_champions": false}`, http.StatusForbidden},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			f := &fakeAdmins{}
+			if rec := adminDo(t, f, http.MethodPut, "/v1/admin/tournaments/worlds/season-champions", tt.origin, tt.body); rec.Code != tt.want {
+				t.Errorf("PUT = %d %s, want %d", rec.Code, rec.Body, tt.want)
+			}
+			if len(f.notes)+len(f.audits) != 0 {
+				t.Errorf("a refused change still changed something: %q %q", f.notes, f.audits)
+			}
+		})
+	}
+	rec := adminDo(t, &fakeAdmins{}, http.MethodGet, "/v1/admin/tournaments", "", "")
+	var got []AdminTournament
+	if err := json.Unmarshal(rec.Body.Bytes(), &got); err != nil || !got[0].Seasons[0].InChampions {
+		t.Errorf("GET = %s, want the season in the champions", rec.Body)
 	}
 }

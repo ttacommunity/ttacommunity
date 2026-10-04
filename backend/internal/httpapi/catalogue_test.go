@@ -75,7 +75,7 @@ func TestCatalogueEmptyIsAnArray(t *testing.T) {
 func TestCatalogueTournament(t *testing.T) {
 	finished, _ := time.Parse(time.DateOnly, "2025-02-24")
 	f := &fakeCatalogue{tournament: store.CatalogueTournament{Slug: "wimbledon", Name: "Wimbledon", Seasons: []store.CatalogueSeason{{
-		Label: "2024", Span: span(632, 128, "2024-07-01", "2025-02-24"),
+		Label: "2024", InChampions: true, Span: span(632, 128, "2024-07-01", "2025-02-24"),
 		Stages: []store.CatalogueStage{{Label: "Stage 7", Span: span(5, 2, "2025-02-03", "2025-02-24"), Note: "Played at the club."}},
 		Podium: []store.PodiumPlace{{Place: 1, Name: "saru", Finished: finished, Source: "CGE /tournaments/detail/4991/7"}},
 		CGE:    []store.CGELink{{Tournament: 4991}, {Tournament: 19, Season: 20}},
@@ -85,7 +85,7 @@ func TestCatalogueTournament(t *testing.T) {
 	rec, _ := serve(t, f, "/v1/runs/7/catalogue/wimbledon")
 	want := `{"card":{"cadence":"","icon":"","subtitle":"","summary":"","tagline":""},"game_records":[],"ladder":true,"name":"Wimbledon","players":["Grozz","saru"],"rated":false,` +
 		`"rules":[{"cge_tournament":4991,"description":"2p knock-out.","name":"Wimbledon 2024","url":"https://account.czechgames.com/tournaments/detail/4991"}],"run_id":7,"seasons":[{"cge_pages":["https://account.czechgames.com/tournaments/detail/4991","https://account.czechgames.com/tournaments/detail/19/20"],` +
-		`"first_game":"2024-07-01","games":632,"label":"2024","last_game":"2025-02-24","note":"The first held in two halves.","players":128,` +
+		`"first_game":"2024-07-01","games":632,"in_champions":true,"label":"2024","last_game":"2025-02-24","note":"The first held in two halves.","players":128,` +
 		`"podium":[{"final":"","finished":"2025-02-24","name":"saru","place":1,"source":"CGE /tournaments/detail/4991/7"}],` +
 		`"stages":[{"first_game":"2025-02-03","games":5,"label":"Stage 7","last_game":"2025-02-24","note":"Played at the club.","players":2}]}],"slug":"wimbledon",` +
 		`"stories":[],"top_tier_wins":[{"name":"wolvs","source":"Hall of Fame","wins":10},{"name":"Grozz","source":"Hall of Fame","wins":3.5}]}`
@@ -167,7 +167,7 @@ func TestCatalogueTournamentSendsNoDatesForASeasonWithoutGames(t *testing.T) {
 		Label: "1", Stages: []store.CatalogueStage{}, Podium: []store.PodiumPlace{}, CGE: []store.CGELink{}, Note: "Before the app.",
 	}}}}
 	rec, _ := serve(t, f, "/v1/runs/7/catalogue/international")
-	if !strings.Contains(rec.Body.String(), `"first_game":null,"games":0,"label":"1","last_game":null,"note":"Before the app."`) {
+	if !strings.Contains(rec.Body.String(), `"first_game":null,"games":0,"in_champions":false,"label":"1","last_game":null,"note":"Before the app."`) {
 		t.Errorf("a season without games = %s, want null dates and its note", rec.Body)
 	}
 }

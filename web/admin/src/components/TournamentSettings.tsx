@@ -492,6 +492,12 @@ function SeasonsCard({ t, onReload }: { t: AdminTournament; onReload: () => Prom
     if (r.ok) await onReload();
     else setError(r.message);
   };
+  const setInChampions = async (label: string, in_champions: boolean) => {
+    setError('');
+    const r = await adminRequest(`/api/tournaments/${t.slug}/season-champions`, { method: 'PUT', json: { season: label, in_champions } });
+    if (r.ok) await onReload();
+    else setError(r.message);
+  };
   const removeSeason = async (label: string) => {
     if (!window.confirm(`Remove ${t.name} season ${label} and its notes?`)) return;
     setError('');
@@ -535,6 +541,15 @@ function SeasonsCard({ t, onReload }: { t: AdminTournament; onReload: () => Prom
               onChange={(e) => void setRated(se.label, e.target.checked)}
             />{' '}
             Counts towards ratings <span className="muted">(from the next engine run; its games still show, marked not rated)</span>
+          </label>
+          <label className="season-rated">
+            <input
+              id={`season-champions-${se.label}`.replace(/[^A-Za-z0-9-]/g, '_')}
+              type="checkbox"
+              checked={se.in_champions}
+              onChange={(e) => void setInChampions(se.label, e.target.checked)}
+            />{' '}
+            Winner listed among the champions <span className="muted">(such as the Hall of Fame's World Champions; untick a play-off)</span>
           </label>
           {!se.has_games && (
             <div className="season-empty">

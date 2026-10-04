@@ -42,9 +42,11 @@ type AdminSeason struct {
 	Note                string
 	HasGames            bool
 	Rated               bool
-	Stages              []AdminStage
-	Podium              []PodiumEntry
-	PodiumNote          string
+	// InChampions is whether its winner is listed among the tournament's champions.
+	InChampions bool
+	Stages      []AdminStage
+	Podium      []PodiumEntry
+	PodiumNote  string
 }
 
 // PodiumEntry is one place on a podium set in admin.
@@ -88,7 +90,7 @@ func (a *AdminStore) Tournaments(ctx context.Context) ([]AdminTournament, error)
 		       se.label, coalesce(st.label, ''), coalesce(se.original_name, ''), coalesce(st.original_name, ''),
 		       coalesce((SELECT note FROM tournament_season_notes n WHERE n.tournament = t.slug AND n.season = se.label AND n.stage = ''), ''),
 		       coalesce((SELECT note FROM tournament_season_notes n WHERE n.tournament = t.slug AND n.season = se.label AND n.stage = st.label AND st.label <> ''), ''),
-		       d.last IS NOT NULL, coalesce(se.rated, true), t.rated_player_counts, t.kind, t.top_divisions, t.original_name
+		       d.last IS NOT NULL, coalesce(se.rated, true), coalesce(se.in_champions, true), t.rated_player_counts, t.kind, t.top_divisions, t.original_name
 		FROM tournaments t
 		LEFT JOIN tournament_cards k ON k.tournament = t.slug
 		LEFT JOIN tournament_seasons se USING (tournament_id)
@@ -107,13 +109,13 @@ func (a *AdminStore) Tournaments(ctx context.Context) ([]AdminTournament, error)
 	var card Card
 	var season, stage, seasonNote, stageNote *string
 	var seasonOriginal, stageOriginal string
-	var hasGames, seasonRated bool
+	var hasGames, seasonRated, inChampions bool
 	var counts []int
 	var kind, original string
 	var top []string
 	_, err = pgx.ForEachRow(rows, []any{&slug, &name, &visible, &community, &rated, &regulations,
 		&card.Icon, &card.Tagline, &card.Summary, &card.Subtitle, &card.Cadence, &cgeRegulations, &season, &stage, &seasonOriginal, &stageOriginal, &seasonNote, &stageNote, &hasGames,
-		&seasonRated, &counts, &kind, &top, &original}, func() error {
+		&seasonRated, &inChampions, &counts, &kind, &top, &original}, func() error {
 		if len(out) == 0 || out[len(out)-1].Slug != slug {
 			out = append(out, AdminTournament{Slug: slug, Name: name, Visible: visible, Rated: rated, Community: community,
 				Regulations: regulations, CGERegulations: cgeRegulations, Card: card, RatedPlayerCounts: counts,
@@ -124,7 +126,7 @@ func (a *AdminStore) Tournaments(ctx context.Context) ([]AdminTournament, error)
 			return nil
 		}
 		if len(t.Seasons) == 0 || t.Seasons[len(t.Seasons)-1].Label != *season {
-			t.Seasons = append(t.Seasons, AdminSeason{Label: *season, OriginalName: seasonOriginal, Note: *seasonNote, HasGames: hasGames, Rated: seasonRated, Stages: []AdminStage{}})
+			t.Seasons = append(t.Seasons, AdminSeason{Label: *season, OriginalName: seasonOriginal, Note: *seasonNote, HasGames: hasGames, Rated: seasonRated, InChampions: inChampions, Stages: []AdminStage{}})
 		}
 		s := &t.Seasons[len(t.Seasons)-1]
 		if *stage != "" {
@@ -491,6 +493,20 @@ func (a *AdminStore) SetStories(ctx context.Context, slug string, list []Story) 
 		}
 		return nil
 	})
+}
+
+// SetSeasonInChampions sets whether a season's winner is listed among the tournament's champions, or returns
+// ErrNoTournament for a season that does not exist.
+func (a *AdminStore) SetSeasonInChampions(ctx context.Context, slug, season string, in bool) error {
+	tag, err := a.pool.Exec(ctx, `UPDATE tournament_seasons se SET in_champions = $3 FROM tournaments t
+		WHERE t.tournament_id = se.tournament_id AND t.slug = $1 AND se.label = $2`, slug, season, in)
+	if err != nil {
+		return fmt.Errorf("setting whether %s %s is among the champions: %w", slug, season, err)
+	}
+	if tag.RowsAffected() == 0 {
+		return ErrNoTournament
+	}
+	return nil
 }
 
 // SetSeasonRated sets whether a season's games count towards ratings, from the next run, or returns
