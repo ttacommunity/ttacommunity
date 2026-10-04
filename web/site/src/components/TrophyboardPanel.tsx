@@ -1,8 +1,8 @@
 /** DANeo's Official Trophyboard & Hall of Fame panel, for any tournament: each medallist's podiums, or a ladder's wins. */
 import type { ReactNode } from 'react';
-import { playerHref } from '../lib/player-view';
 import { boardCells } from '../lib/tournament-series';
 import type { BoardEntry } from '../lib/trophyboard';
+import PlayerLink from './PlayerLink';
 
 /** TrophyboardPanel shows the board, or waiting while rows is null; mark adds a player's title, honours their titles column. */
 export default function TrophyboardPanel<R extends BoardEntry & { details?: string | null }>({
@@ -59,9 +59,7 @@ export default function TrophyboardPanel<R extends BoardEntry & { details?: stri
                 <tr key={b.name}>
                   <td className="cell-num">{i + 1}</td>
                   <td>
-                    <a href={playerHref(b.name)} className="trophy-player">
-                      {b.name}
-                    </a>{' '}
+                    <PlayerLink name={b.name} className="trophy-player" />{' '}
                     {mark?.(b)}
                   </td>
                   {board.rows[i]?.map((cell, j) => (

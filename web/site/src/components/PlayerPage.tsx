@@ -28,7 +28,6 @@ import {
   matrixHref,
   pageModel,
   parsePlayerView,
-  playerHref,
   playerParams,
   formatCards,
   score,
@@ -44,6 +43,7 @@ import { recall, remember } from '../lib/remembered';
 import './PlayerPage.css';
 import Segmented from './Segmented';
 import FilterInput from './FilterInput';
+import PlayerLink from './PlayerLink';
 
 type Load<T> = { kind: 'loading' } | { kind: 'error'; message: string } | { kind: 'ready'; data: T };
 
@@ -404,9 +404,7 @@ function Games({
                         {s.name === data.name ? (
                           s.name
                         ) : (
-                          <a href={playerHref(s.name)} className="player-link">
-                            {s.name}
-                          </a>
+                          <PlayerLink name={s.name} className="player-link" />
                         )}{' '}
                         <span className="seat-score">({score(s.score)})</span>
                         {i < m.seats.length - 1 ? <span className="seat-score">,</span> : ''}
@@ -595,9 +593,7 @@ function Rivals({ state, compare }: { state: Load<PlayerRivals>; compare: Compar
             {rows.map((r) => (
               <tr key={r.name}>
                 <td>
-                  <a href={playerHref(r.name)} className="player-link rival-name">
-                    {r.name}
-                  </a>
+                  <PlayerLink name={r.name} className="player-link rival-name" />
                 </td>
                 <td>
                   <strong>{r.games}</strong>

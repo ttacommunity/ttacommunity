@@ -1,10 +1,10 @@
 /** A tournament's games, newest first, narrowed by season, stage and group, with one-click replay codes. */
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { catalogueGames, type CatalogueGames, type CatalogueSeason, type GamesFilter } from '@ttac/shared/ratings';
-import { playerHref } from '../lib/player-view';
 import { gameStateLabel, gameWhere, outcomeNote, seasonName, stageName } from '../lib/catalogue-view';
 import { pickPlayer } from '../lib/leaderboard-view';
 import SearchBox from './SearchBox';
+import PlayerLink from './PlayerLink';
 
 type Load = { kind: 'loading' } | { kind: 'error'; message: string } | { kind: 'ready'; data: CatalogueGames };
 
@@ -155,7 +155,7 @@ export default function TournamentGames({
                   <div className="game-seats">
                     {g.seats.map((s, i) => (
                       <span key={`${s.name}-${i}`} className="game-seat">
-                        <a href={playerHref(s.name)}>{s.name}</a> {score(s.score)}
+                        <PlayerLink name={s.name} /> {score(s.score)}
                         {outcomeNote(s.outcome) !== '' && <span className="game-outcome"> ({outcomeNote(s.outcome)})</span>}
                       </span>
                     ))}

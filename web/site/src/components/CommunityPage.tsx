@@ -14,11 +14,11 @@ import {
   type CommunityView,
 } from '../lib/community';
 import { EDITIONS, type Edition } from '../lib/community-editions';
-import { playerHref } from '../lib/player-view';
 import { titleName } from '../lib/leaderboard-display';
 import './CommunityPage.css';
 import Segmented from './Segmented';
 import SearchBox, { type SearchPlayer } from './SearchBox';
+import PlayerLink from './PlayerLink';
 
 type Load = { kind: 'loading' } | { kind: 'error'; message: string } | { kind: 'ready'; rows: CommunityRow[] };
 
@@ -64,7 +64,7 @@ function Hero({ edition, view, rows }: { edition: Edition; view: CommunityView; 
         <div className="maintainer-desc">
           This official leaderboard is curated and maintained by{' '}
           <strong>
-            <a href={playerHref('wolvs')}>Wolvs</a>
+            <PlayerLink name="wolvs">Wolvs</PlayerLink>
           </strong>{' '}
           • Tracking tournament finishes under the official Best-8 system.
         </div>
@@ -95,17 +95,15 @@ function Hero({ edition, view, rows }: { edition: Edition; view: CommunityView; 
         </div>
         <div className="stat-tile">
           <div className="stat-tile-num">
-            <a href={playerHref(top?.name ?? 'wolvs')} className="comm-top-link">
-              {top?.name ?? 'wolvs'}
-            </a>
+            <PlayerLink name={top?.name ?? 'wolvs'} className="comm-top-link" />
           </div>
           <div className="stat-tile-label">#1 Rank ({whole(top?.points ?? 6320)} pts)</div>
         </div>
         <div className="stat-tile">
           <div className="stat-tile-num">
-            <a href={playerHref(edition.info.wc)} className="comm-wc-link">
+            <PlayerLink name={edition.info.wc} className="comm-wc-link">
               <span className="badge badge-wc comm-wc-badge">WC</span> {edition.info.wc}
-            </a>
+            </PlayerLink>
           </div>
           <div className="stat-tile-label">Reigning World Champion</div>
         </div>
@@ -256,9 +254,7 @@ function Table({ edition, view, rows }: { edition: Edition; view: CommunityView;
                   </td>
                   <td className="sticky-col-player text-left">
                     <Flag country={r.country} />{' '}
-                    <a href={playerHref(r.name)} className="player-link comm-player">
-                      {r.name}
-                    </a>
+                    <PlayerLink name={r.name} className="player-link comm-player" />
                   </td>
                   <td>
                     {mark === null ? (

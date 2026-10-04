@@ -1,9 +1,9 @@
 /** Upstream's season archive banner: the year, its snapshot, game count, record view and World Champion. */
 import type { YearLeaderboard } from '@ttac/shared/ratings';
 import type { View } from '../lib/leaderboard-view';
-import { playerHref } from '../lib/player-view';
 import type { LinkTo } from './OptionsDrawer';
 import Segmented from './Segmented';
+import PlayerLink from './PlayerLink';
 
 interface Props {
   board: YearLeaderboard;
@@ -62,7 +62,7 @@ export default function YearBanner({ board, latest, ranked, view, linkTo }: Prop
         <div className="archive-champion">
           <div className="archive-champion-title">🏆 {champion.reigning ? 'Reigning World Champion' : 'World Champion'}</div>
           <div className="archive-champion-name">
-            <a href={playerHref(champion.name)}>{champion.name}</a>
+            <PlayerLink name={champion.name} />
           </div>
         </div>
       )}

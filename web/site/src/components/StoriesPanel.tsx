@@ -1,5 +1,5 @@
 /** DANeo's Dynastic Milestones & Champion Chronicles panel, for any tournament: its stories, as admin writes them. */
-import { playerHref } from '../lib/player-view';
+import PlayerLink from './PlayerLink';
 
 /** A story: a player, the badge beside them (may be empty), a title and the story. */
 export type StoryView = { player: string; badge: string; title: string; text: string };
@@ -16,9 +16,9 @@ export default function StoriesPanel({ stories }: { stories: readonly StoryView[
         {stories.map((s, i) => (
           <div key={`${i} ${s.player}`} className="story-card">
             <div className="story-header">
-              <a href={playerHref(s.player)} className="story-author">
+              <PlayerLink name={s.player} className="story-author">
                 <span>👤</span> {s.player}
-              </a>
+              </PlayerLink>
               {s.badge !== '' && <div className="story-badge">{s.badge}</div>}
             </div>
             <div className="story-title">{s.title}</div>

@@ -2,8 +2,8 @@
 import { useEffect, useRef, useState } from 'react';
 import { playerVersus, type Format, type PlayerVersus } from '@ttac/shared/ratings';
 import { versusTally } from '../lib/career';
-import { playerHref } from '../lib/player-view';
 import Segmented from './Segmented';
+import PlayerLink from './PlayerLink';
 
 type Load = { kind: 'loading' } | { kind: 'error'; message: string } | { kind: 'ready'; data: PlayerVersus };
 
@@ -135,9 +135,7 @@ export default function VersusDialog({
                     {m.seats.map((s, i) => (
                       <span key={`${s.name}-${i}`}>
                         <span className={s.name === a || s.name === b ? 'h2h-target' : 'h2h-other'}>
-                          <a href={playerHref(s.name)} className="player-link">
-                            {s.name}
-                          </a>
+                          <PlayerLink name={s.name} className="player-link" />
                           : {s.score}
                         </span>
                         {i < m.seats.length - 1 ? ', ' : ''}

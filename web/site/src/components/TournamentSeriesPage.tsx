@@ -5,10 +5,10 @@ import TrophyboardPanel from './TrophyboardPanel';
 import GameRecordsPanel from './GameRecordsPanel';
 import StoriesPanel, { type StoryView } from './StoriesPanel';
 import { currentRun, tournamentSeries, type TournamentSeries, type TrophyRow } from '@ttac/shared/ratings';
-import { playerHref } from '../lib/player-view';
 import { catalogueHref } from '../lib/catalogue-view';
 import { circuitCard } from '../lib/tournament-card';
 import TournamentHero from './TournamentHero';
+import PlayerLink from './PlayerLink';
 import {
   leaguePoints,
   seriesEra,
@@ -22,13 +22,6 @@ type Load = { kind: 'loading' } | { kind: 'error'; message: string } | { kind: '
 
 const count = (n: number) => n.toLocaleString('en-US');
 
-function Player({ name }: { name: string }) {
-  return (
-    <a href={playerHref(name)} className="trophy-player">
-      {name}
-    </a>
-  );
-}
 
 function WorldChampion() {
   return <span className="badge badge-wc trophy-mark">WC</span>;
@@ -170,7 +163,7 @@ export function SeriesSections({
                     <tr key={`${s.season} ${s.name}`}>
                       <td className="cell-rank">#{i + 1}</td>
                       <td>
-                        <Player name={s.name} /> {showsWorldChampion(content.slug, s.world_champion) && <WorldChampion />}
+                        <PlayerLink name={s.name} className="trophy-player" /> {showsWorldChampion(content.slug, s.world_champion) && <WorldChampion />}
                       </td>
                       <td className="cell-points">{leaguePoints(s.points)}</td>
                       <td className="cell-record">

@@ -3,8 +3,8 @@ import { useEffect, useState } from 'react';
 import { catalogue, catalogueTournament, currentRun, hallOfFame, type CatalogueEntry, type CatalogueSeason, type HallOfFame } from '@ttac/shared/ratings';
 import TournamentCard from './TournamentCard';
 import { cardView, circuitCard } from '../lib/tournament-card';
-import { playerHref } from '../lib/player-view';
 import { catalogueHref, entryRows } from '../lib/catalogue-view';
+import PlayerLink from './PlayerLink';
 import {
   derivedMatches,
   legendMark,
@@ -88,9 +88,9 @@ export default function HallOfFamePage({ apiUrl }: { apiUrl: string }) {
             <div key={c.season} className="champ-highlight-box">
               <div className="champ-highlight-avatar">{c.icon}</div>
               <div className="champ-highlight-info">
-                <a href={playerHref(c.name)} className="champ-highlight-name">
+                <PlayerLink name={c.name} className="champ-highlight-name">
                   {c.name} <span className="badge-wc">👑 {c.season} World Champion</span>
-                </a>
+                </PlayerLink>
                 <div className="champ-highlight-desc">{c.text}</div>
               </div>
             </div>
@@ -195,9 +195,7 @@ export default function HallOfFamePage({ apiUrl }: { apiUrl: string }) {
                     <tr key={l.name}>
                       <td className="cell-rank">#{i + 1}</td>
                       <td>
-                        <a href={playerHref(l.name)} className="legend-player">
-                          {l.name}
-                        </a>{' '}
+                        <PlayerLink name={l.name} className="legend-player" />{' '}
                         {mark === 'WC' && <span className="badge-wc legend-mark">👑 WC</span>}
                         {mark === 'GM' && <span className="legend-mark">GM</span>}
                       </td>
@@ -259,9 +257,7 @@ export default function HallOfFamePage({ apiUrl }: { apiUrl: string }) {
                     <tr key={g.name}>
                       <td className="cell-rank">#{i + 1}</td>
                       <td>
-                        <a href={playerHref(g.name)} className="board-player">
-                          {g.name}
-                        </a>
+                        <PlayerLink name={g.name} className="board-player" />
                       </td>
                       <td className="cell-gold">{g.gold}</td>
                       <td className="cell-silver">{g.silver}</td>
@@ -320,9 +316,7 @@ export default function HallOfFamePage({ apiUrl }: { apiUrl: string }) {
                     <tr key={l.name}>
                       <td className="cell-rank">#{i + 1}</td>
                       <td>
-                        <a href={playerHref(l.name)} className="board-player">
-                          {l.name}
-                        </a>
+                        <PlayerLink name={l.name} className="board-player" />
                       </td>
                       <td className="cell-wins">{l.wins} W</td>
                       <td className="cell-games">{l.games}</td>

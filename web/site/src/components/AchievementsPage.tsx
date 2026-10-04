@@ -24,10 +24,10 @@ import {
   totalTitles,
   type Direction,
 } from '../lib/achievements';
-import { playerHref } from '../lib/player-view';
 import './PlayerPage.css';
 import './AchievementsPage.css';
 import FilterInput from './FilterInput';
+import PlayerLink from './PlayerLink';
 
 type Load = { kind: 'loading' } | { kind: 'error'; message: string } | { kind: 'ready'; player: Player; ach: PlayerAchievements };
 type Sort = { col: number; dir: Direction } | null;
@@ -115,9 +115,9 @@ function Header({ player }: { player: Player }) {
         </div>
       </div>
       <div className="ach-links">
-        <a href={playerHref(player.name)} className="btn-back-profile">
+        <PlayerLink name={player.name} className="btn-back-profile">
           « Back to Player Profile
-        </a>
+        </PlayerLink>
         <a href="/ratings/" className="home-circle-btn" title="Return to Competitive Leaderboard">
           <img src="/img/home-button-circle.webp" alt="Leaderboard" className="home-btn-img" width={58} height={58} />
         </a>

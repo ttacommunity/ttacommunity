@@ -1,7 +1,7 @@
 /** DANeo's Highest Single-Match Scores panel, for any tournament: its ten highest winning scores, with the opponents. */
 import type { GameRecord } from '@ttac/shared/ratings';
-import { playerHref } from '../lib/player-view';
 import { cultureScore, opponentsLine, showsWorldChampion } from '../lib/tournament-series';
+import PlayerLink from './PlayerLink';
 
 /** GameRecordsPanel shows the games, or waiting while records is null, and nothing for a tournament with none. */
 export default function GameRecordsPanel({
@@ -58,9 +58,7 @@ export default function GameRecordsPanel({
                 <tr key={`${g.tournament} ${g.date} ${g.name}`}>
                   <td className="cell-rank">#{i + 1}</td>
                   <td>
-                    <a href={playerHref(g.name)} className="trophy-player">
-                      {g.name}
-                    </a>{' '}
+                    <PlayerLink name={g.name} className="trophy-player" />{' '}
                     {showsWorldChampion(slug, g.world_champion) && <span className="badge badge-wc trophy-mark">WC</span>}
                   </td>
                   <td className="cell-points">{cultureScore(g.score)}</td>

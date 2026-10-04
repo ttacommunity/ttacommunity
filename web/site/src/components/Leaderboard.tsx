@@ -43,9 +43,9 @@ import {
   type SortKey,
   type View,
 } from '../lib/leaderboard-view';
-import { playerHref } from '../lib/player-view';
 import { recall, remember } from '../lib/remembered';
 import './Leaderboard.css';
+import PlayerLink from './PlayerLink';
 
 type State =
   | { kind: 'loading' }
@@ -497,9 +497,7 @@ function Table({ view, rows, jumpTo, changes, linkTo, caption }: TableProps) {
                 <Flag country={p.country} />
               </td>
               <th scope="row">
-                <a className="player-link" href={playerHref(p.name)}>
-                  {p.name}
-                </a>
+                <PlayerLink name={p.name} className="player-link" />
                 {p.provisional && (
                   <span className="calibrating-badge" data-tooltip={`Provisional / Prior Calibration (${p.opponents}/15 matches completed)`}>
                     ⏳

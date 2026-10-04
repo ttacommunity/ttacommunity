@@ -13,7 +13,6 @@ import {
 } from '@ttac/shared/ratings';
 import { MAJORS, majorName } from '../lib/tournament-series';
 import { SeriesSections } from './TournamentSeriesPage';
-import { playerHref } from '../lib/player-view';
 import TournamentCard from './TournamentCard';
 import TournamentHero from './TournamentHero';
 import RegulationsPanel from './RegulationsPanel';
@@ -24,6 +23,7 @@ import { ladderBoard, podiumBoard } from '../lib/trophyboard';
 import { cardView } from '../lib/tournament-card';
 import TournamentGames from './TournamentGames';
 import { activeYears, catalogueHref, cgeYears, entryRows, hasPodiums, placeLabel, placeNames, regulationsBox, seasonDates, seasonName, shownName, stageName, tournamentParam } from '../lib/catalogue-view';
+import PlayerLink from './PlayerLink';
 
 type Load<T> = { kind: 'loading' } | { kind: 'missing' } | { kind: 'error'; message: string } | { kind: 'ready'; data: T };
 
@@ -230,7 +230,7 @@ function Champions({ seasons, podium, onPick }: { seasons: CatalogueSeason[]; po
     return got.map((p, i) => (
       <span key={`${p.name}-${p.final}`} className="champion-name">
         {i > 0 && ' · '}
-        <a href={playerHref(p.name)}>{p.name}</a>
+        <PlayerLink name={p.name} />
         {p.final !== '' && <span className="cell-muted"> ({p.final})</span>}
       </span>
     ));
