@@ -3,10 +3,12 @@
 package store
 
 import (
+	"archive/zip"
 	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"slices"
@@ -236,5 +238,52 @@ func TestExportForUpstreamWritesEveryPlayedGameInItsMatchFormat(t *testing.T) {
 	}
 	if n != 2 || !slices.Equal(got, want) {
 		t.Errorf("export = %d rows %q, want the two played games %q", n, got, want)
+	}
+}
+
+func TestExportZipHoldsTheSameExportAndTheAdminLoginCanTakeIt(t *testing.T) {
+	ctx := context.Background()
+	pool := filled(t)
+	dir := filepath.Join(t.TempDir(), "dir")
+	if _, err := Export(ctx, pool, dir); err != nil {
+		t.Fatalf("Export: %v", err)
+	}
+	var buf bytes.Buffer
+	if _, err := ExportZip(ctx, asAdminLogin(t, pool), &buf); err != nil {
+		t.Fatalf("ExportZip as the admin login: %v", err)
+	}
+
+	zr, err := zip.NewReader(bytes.NewReader(buf.Bytes()), int64(buf.Len()))
+	if err != nil {
+		t.Fatalf("reading the zip: %v", err)
+	}
+	unzipped := filepath.Join(t.TempDir(), "unzipped")
+	if err := os.MkdirAll(unzipped, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	for _, f := range zr.File {
+		r, err := f.Open()
+		if err != nil {
+			t.Fatal(err)
+		}
+		b, err := io.ReadAll(r)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(filepath.Join(unzipped, f.Name), b, 0o600); err != nil {
+			t.Fatal(err)
+		}
+	}
+	a, b := readDir(t, dir), readDir(t, unzipped)
+	if len(b) != len(a) {
+		t.Fatalf("the zip holds %d files, the export %d", len(b), len(a))
+	}
+	for name, want := range a {
+		if !bytes.Equal(b[name], want) {
+			t.Errorf("%s differs between the zip and the export", name)
+		}
+	}
+	if err := Restore(ctx, migrated(t), unzipped); err != nil {
+		t.Errorf("restoring the unzipped export: %v", err)
 	}
 }

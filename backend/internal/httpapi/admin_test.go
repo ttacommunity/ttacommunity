@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
@@ -182,6 +183,11 @@ func (f *fakeAdmins) SetPodium(_ context.Context, slug, season string, podium []
 	}
 	f.notes = append(f.notes, fmt.Sprintf("podium %s %v %s", season, podium, note))
 	return nil
+}
+
+func (*fakeAdmins) ExportZip(_ context.Context, w io.Writer) error {
+	_, err := io.WriteString(w, "PK zip bytes")
+	return err
 }
 
 func (*fakeAdmins) DataSummary(context.Context) (store.DataSummary, error) {
@@ -1028,5 +1034,26 @@ func TestAnOrganiserSetsWhatOfATournamentIsRated(t *testing.T) {
 	var got []AdminTournament
 	if err := json.Unmarshal(rec.Body.Bytes(), &got); err != nil || !slices.Equal(got[0].RatedPlayerCounts, []int{3, 4}) || !got[0].Seasons[0].Rated {
 		t.Errorf("GET = %s, want the rated player counts and the season rated", rec.Body)
+	}
+}
+
+func TestAdminsAndOrganisersDownloadTheData(t *testing.T) {
+	const org = "222222222222222222"
+	f := &fakeAdmins{}
+	rec := adminDoAs(t, f, org, http.MethodGet, "/v1/admin/export", "", "")
+	if rec.Code != http.StatusOK || rec.Body.String() != "PK zip bytes" {
+		t.Fatalf("GET export = %d %q, want 200 and the zip", rec.Code, rec.Body)
+	}
+	if got := rec.Header().Get("Content-Type"); got != "application/zip" {
+		t.Errorf("Content-Type = %q", got)
+	}
+	if got := rec.Header().Get("Content-Disposition"); got != `attachment; filename="ttacommunity-data.zip"` {
+		t.Errorf("Content-Disposition = %q", got)
+	}
+	if rec.Header().Get("Cache-Control") != "no-store" || strings.Join(f.audits, "|") != org+" data.export all" {
+		t.Errorf("Cache-Control %q, audits %q", rec.Header().Get("Cache-Control"), f.audits)
+	}
+	if rec := adminDoAs(t, &fakeAdmins{}, "111111111111111111", http.MethodGet, "/v1/admin/export", "", ""); rec.Code != http.StatusOK {
+		t.Errorf("an admin's export = %d, want 200", rec.Code)
 	}
 }

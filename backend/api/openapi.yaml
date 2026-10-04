@@ -1014,6 +1014,34 @@ paths:
           $ref: "#/components/responses/Forbidden"
         "404":
           $ref: "#/components/responses/NotFound"
+  /v1/admin/export:
+    get:
+      operationId: getAdminExport
+      tags: [admin]
+      summary: Download every input table as a zip (admins and organisers)
+      description: >
+        The same export the load job writes (one CSV per table and a manifest
+        with each file's row count and SHA-256), from one snapshot; the load
+        job's -restore reads it back. Audited.
+      responses:
+        "200":
+          description: The export
+          headers:
+            Cache-Control:
+              $ref: "#/components/headers/CacheControl"
+            Content-Disposition:
+              required: true
+              schema:
+                type: string
+          content:
+            application/zip:
+              schema:
+                type: string
+                format: binary
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
   /v1/admin/data:
     get:
       operationId: getAdminData

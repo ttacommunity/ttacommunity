@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { adminRequest } from './admin-api';
+import { adminDownload, adminRequest, exportFileName } from './admin-api';
 
 function answer(status: number, body: unknown) {
   return vi.fn(async () => new Response(body === null ? null : JSON.stringify(body), { status }));
@@ -46,5 +46,30 @@ describe('adminRequest', () => {
       headers: { 'Content-Type': 'application/json' },
       body: '{"community":true}',
     });
+  });
+});
+
+describe('adminDownload', () => {
+  it('gives the file of a good answer', async () => {
+    const f = vi.fn(async () => new Response('PK zip', { status: 200, headers: { 'Content-Type': 'application/zip' } }));
+    const r = await adminDownload('/api/export', f);
+    expect(r.ok).toBe(true);
+    expect(r.ok && (await r.data.text())).toBe('PK zip');
+    expect(f).toHaveBeenCalledWith('/api/export', { method: 'GET', credentials: 'same-origin' });
+  });
+
+  it('says plainly why a download was refused', async () => {
+    expect(await adminDownload('/api/export', answer(401, { error: 'x' }))).toMatchObject({ ok: false, status: 401 });
+    expect(await adminDownload('/api/export', answer(403, { error: 'not allowed here' }))).toEqual({
+      ok: false,
+      status: 403,
+      message: 'Refused: not allowed here.',
+    });
+  });
+});
+
+describe('exportFileName', () => {
+  it("names a download by the day it was taken, so several don't overwrite each other", () => {
+    expect(exportFileName(new Date(2026, 9, 4, 22, 5))).toBe('ttacommunity-data-2026-10-04.zip');
   });
 });

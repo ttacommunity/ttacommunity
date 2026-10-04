@@ -41,6 +41,11 @@ function network() {
     vi.fn(async (url: string, init?: RequestInit) => {
       calls.push({ url, init });
       if (url === `${TEAM}/cdn-cgi/access/certs`) return Response.json({ keys: [jwk] });
+      if (url.endsWith('/v1/admin/export')) {
+        return new Response('PK zip', {
+          headers: { 'Content-Type': 'application/zip', 'Content-Disposition': 'attachment; filename="ttacommunity-data.zip"' },
+        });
+      }
       return Response.json({ ok: true }, { status: 200 });
     }),
   );
@@ -111,6 +116,14 @@ describe('the admin Worker', () => {
     const headers = new Headers(sent?.init?.headers);
     expect([headers.get('Origin'), headers.get('Content-Type'), headers.get('Cf-Access-Jwt-Assertion')]).toEqual([SITE, 'application/json', good]);
     expect(new TextDecoder().decode(sent?.init?.body as ArrayBuffer)).toBe('{"icon":"🏆"}');
+  });
+
+  it('passes a download through with its type and file name', async () => {
+    network();
+    const res = await worker.fetch(new Request(`${SITE}/api/export`, { headers: { 'Cf-Access-Jwt-Assertion': good } }), env().env);
+    expect(await res.text()).toBe('PK zip');
+    expect(res.headers.get('Content-Type')).toBe('application/zip');
+    expect(res.headers.get('Content-Disposition')).toBe('attachment; filename="ttacommunity-data.zip"');
   });
 
   it("keeps Access's signing keys for a while rather than fetching them on every request", async () => {

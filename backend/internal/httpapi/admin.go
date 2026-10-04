@@ -7,6 +7,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"log/slog"
 	"net/http"
 	"strings"
@@ -34,6 +35,8 @@ type Admins interface {
 	SetSeasonRated(ctx context.Context, slug, season string, rated bool) error
 	SetNote(ctx context.Context, slug, season, stage, note string) error
 	DataSummary(ctx context.Context) (store.DataSummary, error)
+	// ExportZip writes every input table, as the load job's export, as a zip to w.
+	ExportZip(ctx context.Context, w io.Writer) error
 	Badges(ctx context.Context) ([]store.Badge, error)
 	AddBadge(ctx context.Context, b store.Badge) (int64, error)
 	SetBadge(ctx context.Context, b store.Badge) error
@@ -842,4 +845,33 @@ func (s *server) PutAdminSeasonRating(ctx context.Context, req PutAdminSeasonRat
 		return nil, err
 	}
 	return PutAdminSeasonRating204Response{}, nil
+}
+
+func (s *server) GetAdminExport(ctx context.Context, _ GetAdminExportRequestObject) (GetAdminExportResponseObject, error) {
+	me, ok := adminFrom(ctx)
+	if !ok {
+		return nil, errors.New("admin route reached without the gate")
+	}
+	if err := s.admins.Audit(ctx, me.DiscordID, "data.export", "all", map[string]any{}); err != nil {
+		return nil, err
+	}
+	r, w := io.Pipe()
+	go func() {
+		<-ctx.Done() // a download given up stops the export: its next write fails
+		r.CloseWithError(ctx.Err())
+	}()
+	go func() {
+		if err := s.admins.ExportZip(ctx, w); err != nil {
+			s.log.Error("exporting the data failed", "err", err)
+			w.CloseWithError(err)
+			return
+		}
+		w.Close()
+	}()
+	return GetAdminExport200ApplicationzipResponse{
+		Body: r,
+		Headers: GetAdminExport200ResponseHeaders{
+			CacheControl: cacheNone, ContentDisposition: `attachment; filename="ttacommunity-data.zip"`,
+		},
+	}, nil
 }

@@ -49,3 +49,28 @@ export async function adminRequest<T>(
   const error = typeof body === 'object' && body !== null && 'error' in body ? String(body.error) : undefined;
   return { ok: false, status: res.status, message: refusal(res.status, error) };
 }
+
+/** adminDownload fetches a file from an admin path on this site, or why it was refused. */
+export async function adminDownload(path: string, fetcher: Fetch = fetch): Promise<AdminResult<Blob>> {
+  let res: Response;
+  try {
+    res = await fetcher(path, { method: 'GET', credentials: 'same-origin' });
+  } catch {
+    return { ok: false, status: 0, message: 'The admin site could not be reached. Check your connection.' };
+  }
+  if (res.ok) return { ok: true, data: await res.blob() };
+  let error: string | undefined;
+  try {
+    const body: unknown = await res.json();
+    error = typeof body === 'object' && body !== null && 'error' in body ? String(body.error) : undefined;
+  } catch {
+    error = undefined;
+  }
+  return { ok: false, status: res.status, message: refusal(res.status, error) };
+}
+
+/** exportFileName names a data download by the local day it was taken. */
+export function exportFileName(at: Date): string {
+  const pad = (n: number) => String(n).padStart(2, '0');
+  return `ttacommunity-data-${at.getFullYear()}-${pad(at.getMonth() + 1)}-${pad(at.getDate())}.zip`;
+}

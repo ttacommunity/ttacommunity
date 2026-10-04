@@ -1,7 +1,7 @@
 /** The loaded data at a glance: games, players, and when they were last loaded. */
 import { useEffect, useState } from 'react';
 import type { components } from '@ttac/shared/api';
-import { adminRequest } from '../lib/admin-api';
+import { adminDownload, adminRequest, exportFileName } from '../lib/admin-api';
 
 type DataSummary = components['schemas']['DataSummary'];
 
@@ -11,6 +11,22 @@ const count = (n: number) => n.toLocaleString();
 export default function DataCard() {
   const [d, setD] = useState<DataSummary | null>(null);
   const [message, setMessage] = useState('');
+  const [download, setDownload] = useState('');
+  const takeExport = async () => {
+    setDownload('Preparing the download…');
+    const r = await adminDownload('/api/export');
+    if (!r.ok) {
+      setDownload(r.message);
+      return;
+    }
+    const url = URL.createObjectURL(r.data);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = exportFileName(new Date());
+    a.click();
+    URL.revokeObjectURL(url);
+    setDownload('Downloaded. The load job restores it: load -restore <folder> (unzipped).');
+  };
   useEffect(() => {
     void adminRequest<DataSummary>('/api/data', {}).then((r) => (r.ok ? setD(r.data) : setMessage(r.message)));
   }, []);
@@ -55,6 +71,14 @@ export default function DataCard() {
               </dd>
             </div>
           </dl>
+          <div className="note-actions">
+            <button type="button" className="btn-antique" onClick={() => void takeExport()}>
+              Download all data (.zip)
+            </button>
+            <span className="note-status" role="status">
+              {download}
+            </span>
+          </div>
           {d.unplaced > 0 && (
             <p className="row-error" role="alert">
               {count(d.unplaced)} {d.unplaced === 1 ? 'game is' : 'games are'} in no tournament. A rating run will not start

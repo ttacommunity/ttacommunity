@@ -43,9 +43,9 @@ export default {
     if (origin) headers.set('Origin', origin);
     const body = request.method === 'GET' || request.method === 'HEAD' ? undefined : await request.arrayBuffer();
     const res = await fetch(`${api}${path}`, { method: request.method, headers, body });
-    return new Response(res.body, {
-      status: res.status,
-      headers: { 'Content-Type': res.headers.get('Content-Type') ?? 'application/json', 'Cache-Control': 'no-store' },
-    });
+    const out = new Headers({ 'Content-Type': res.headers.get('Content-Type') ?? 'application/json', 'Cache-Control': 'no-store' });
+    const disposition = res.headers.get('Content-Disposition');
+    if (disposition) out.set('Content-Disposition', disposition);
+    return new Response(res.body, { status: res.status, headers: out });
   },
 };

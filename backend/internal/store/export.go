@@ -4,6 +4,7 @@
 package store
 
 import (
+	"archive/zip"
 	"context"
 	"crypto/sha256"
 	"encoding/csv"
@@ -63,6 +64,36 @@ func Export(ctx context.Context, pool *pgxpool.Pool, dir string) (Manifest, erro
 	if entries, err := os.ReadDir(dir); err == nil && len(entries) > 0 {
 		return Manifest{}, fmt.Errorf("exporting: %s is not empty", dir)
 	}
+	return export(ctx, pool, func(name string) (io.WriteCloser, error) {
+		if err := os.MkdirAll(dir, 0o700); err != nil {
+			return nil, err
+		}
+		return os.OpenFile(filepath.Join(dir, name), os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0o600)
+	})
+}
+
+// ExportZip writes the same export as Export, as one zip of its files, to w: for a download.
+func ExportZip(ctx context.Context, pool *pgxpool.Pool, w io.Writer) (Manifest, error) {
+	zw := zip.NewWriter(w)
+	m, err := export(ctx, pool, func(name string) (io.WriteCloser, error) {
+		f, err := zw.Create(name)
+		return nopCloser{f}, err
+	})
+	if err != nil {
+		return Manifest{}, err
+	}
+	if err := zw.Close(); err != nil {
+		return Manifest{}, fmt.Errorf("exporting: %w", err)
+	}
+	return m, nil
+}
+
+type nopCloser struct{ io.Writer }
+
+func (nopCloser) Close() error { return nil }
+
+// export writes each input table, then the manifest, through create, from one read-only snapshot.
+func export(ctx context.Context, pool *pgxpool.Pool, create func(name string) (io.WriteCloser, error)) (Manifest, error) {
 	tx, err := pool.BeginTx(ctx, pgx.TxOptions{IsoLevel: pgx.RepeatableRead, AccessMode: pgx.ReadOnly})
 	if err != nil {
 		return Manifest{}, fmt.Errorf("exporting: %w", err)
@@ -71,15 +102,12 @@ func Export(ctx context.Context, pool *pgxpool.Pool, dir string) (Manifest, erro
 	if err := checkInputTables(ctx, tx); err != nil {
 		return Manifest{}, err
 	}
-	if err := os.MkdirAll(dir, 0o700); err != nil {
-		return Manifest{}, fmt.Errorf("exporting: %w", err)
-	}
 	m := Manifest{}
 	if m.SchemaVersion, err = schemaVersion(ctx, tx); err != nil {
 		return Manifest{}, err
 	}
 	for _, table := range ExportTables {
-		t, err := exportTable(ctx, tx, dir, table)
+		t, err := exportTable(ctx, tx, create, table)
 		if err != nil {
 			return Manifest{}, err
 		}
@@ -89,15 +117,23 @@ func Export(ctx context.Context, pool *pgxpool.Pool, dir string) (Manifest, erro
 	if err != nil {
 		return Manifest{}, fmt.Errorf("exporting: %w", err)
 	}
-	if err := os.WriteFile(filepath.Join(dir, manifestFile), append(b, '\n'), 0o600); err != nil {
+	f, err := create(manifestFile)
+	if err != nil {
+		return Manifest{}, fmt.Errorf("exporting: %w", err)
+	}
+	if _, err := f.Write(append(b, '\n')); err != nil {
+		f.Close()
+		return Manifest{}, fmt.Errorf("exporting: %w", err)
+	}
+	if err := f.Close(); err != nil {
 		return Manifest{}, fmt.Errorf("exporting: %w", err)
 	}
 	return m, nil
 }
 
-func exportTable(ctx context.Context, tx pgx.Tx, dir, table string) (ExportedTable, error) {
+func exportTable(ctx context.Context, tx pgx.Tx, create func(name string) (io.WriteCloser, error), table string) (ExportedTable, error) {
 	t := ExportedTable{Table: table, File: table + ".csv"}
-	f, err := os.OpenFile(filepath.Join(dir, t.File), os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0o600)
+	f, err := create(t.File)
 	if err != nil {
 		return t, fmt.Errorf("exporting %s: %w", table, err)
 	}

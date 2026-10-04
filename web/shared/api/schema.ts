@@ -739,6 +739,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/admin/export": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Download every input table as a zip (admins and organisers)
+         * @description The same export the load job writes (one CSV per table and a manifest with each file's row count and SHA-256), from one snapshot; the load job's -restore reads it back. Audited.
+         */
+        get: operations["getAdminExport"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/admin/data": {
         parameters: {
             query?: never;
@@ -3237,6 +3257,30 @@ export interface operations {
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
+        };
+    };
+    getAdminExport: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The export */
+            200: {
+                headers: {
+                    "Cache-Control": components["headers"]["CacheControl"];
+                    "Content-Disposition": string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/zip": string;
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
         };
     };
     getAdminData: {

@@ -5,6 +5,7 @@ package store
 import (
 	"context"
 	"fmt"
+	"io"
 	"time"
 )
 
@@ -34,4 +35,10 @@ func (a *AdminStore) DataSummary(ctx context.Context) (DataSummary, error) {
 		return DataSummary{}, fmt.Errorf("summarising the data: %w", err)
 	}
 	return d, nil
+}
+
+// ExportZip writes every input table, as the load job's export, as a zip to w, through the admin login.
+func (a *AdminStore) ExportZip(ctx context.Context, w io.Writer) error {
+	_, err := ExportZip(ctx, a.pool, w)
+	return err
 }
