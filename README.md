@@ -115,29 +115,62 @@ git config core.hooksPath .githooks
 
 ## Load ratings data
 
-No match or rating data is kept in this repo. The ratings database is seeded
-by the load job from a directory of match CSVs that you keep elsewhere:
+No match or rating data is kept in this repo. The data lives outside it, and
+a database starts from a **baseline**: an export of every input table (games,
+CGE seats, players, the tournament catalogue, every recorded fact and admin's
+settings) with every correction already applied. Restore one into an empty
+database, then compute ratings:
 
 ```bash
-scripts/ratings-db.sh ~/tta-data            # in a container
-scripts/ratings-db.sh --native ~/tta-data   # with local Go
-scripts/ratings-db.sh --reset ~/tta-data    # empty the database first
+scripts/ratings-db.sh ~/tta-data/baseline/2026-10-04            # in a container
+scripts/ratings-db.sh --native ~/tta-data/baseline/2026-10-04   # with local Go
 ```
 
-It starts the ratings database if needed, applies the migrations, and loads
-every `*.csv` at the top of the directory (not in subdirectories), in name
-order. It refuses to load into a database that already has matches, so
-nothing is loaded twice: use `--reset` to start again. **`--reset` deletes
-every match, refused row and rating run.**
+The script starts the ratings database if needed and restores the export
+whole. It refuses a database that already holds data: to start again,
+remove the database's volume. Then [compute ratings](#compute-ratings).
 
-In a container, the job sees only that directory, so a symlink pointing out
-of it does not resolve. Copy the files in instead.
+A new baseline is any export: **Download all data** on admin's home page
+(admins and organisers; a zip of the same files), or `go run ./cmd/load
+-export <new folder>` (see [Export the data, and rebuild from
+it](#export-the-data-and-rebuild-from-it)).
 
 After pulling a new migration, apply it to a database you already loaded:
 
 ```bash
 cd backend && set -a && . ../.env && set +a && go run ./cmd/load -migrate
 ```
+
+### Add new data
+
+New games and facts are loaded on top of a restored baseline, and the next
+export is the next baseline.
+
+**New games from CGE.** The collector (kept with the data) writes each
+collected season's games, and its fact scripts turn them into one load file.
+Loading it records CGE's facts on the games already held (each seat's CGE
+user and how it ended, the finish date, replay code and stage) and adds the
+games we lack. A game that looks like a copy of one we hold is held back
+unless its replay code is in the `-cge-new` file, checked by hand:
+
+```bash
+cd backend && set -a && . ../.env && set +a
+go run ./cmd/load -cge-games ~/tta-data/new/cge_games.csv [-cge-new ~/tta-data/new/confirmed-new.csv]
+```
+
+**A first database from match CSVs.** A directory without a
+`manifest.json` is loaded as match CSVs, every `*.csv` at its top level in
+name order (the format is under [The files](#the-files)). This seeds an
+empty database only: it refuses one that already has matches, so nothing is
+loaded twice, and `--reset` deletes every match, refused row and rating run
+first. It is how the first baseline was built:
+
+```bash
+scripts/ratings-db.sh ~/tta-data/first-games
+```
+
+In a container, the job sees only that directory, so a symlink pointing out
+of it does not resolve. Copy the files in instead.
 
 Players' countries come from CSV files with a `Player` and a `Code` column
 (an ISO 3166-1 alpha-2 code, or `-` for none), such as the original site's
@@ -171,7 +204,7 @@ their line and reason. The next rating run uses them:
 
 ```bash
 cd backend && set -a && . ../.env && set +a
-go run ./cmd/load -facts divisions ~/tta-data/tournaments/group_divisions.csv
+go run ./cmd/load -facts divisions ~/tta-data/new/group_divisions.csv
 ```
 
 The API reads ratings as `ratings_api`, a login that can only `SELECT`.
@@ -202,13 +235,13 @@ tournament catalogue and every recorded fact) as one CSV each, with a
 not in it: the engine computes them again. Keep exports outside the repo.
 
 ```bash
-go run ./cmd/load -export ~/tta-data/exports/2026-10-03    # a new or empty folder
+go run ./cmd/load -export ~/tta-data/baseline/2026-10-05    # a new or empty folder
 ```
 
 To rebuild a lost database, restore into a new, empty one, then compute:
 
 ```bash
-go run ./cmd/load -restore ~/tta-data/exports/2026-10-03
+go run ./cmd/load -restore ~/tta-data/baseline/2026-10-04
 ```
 
 The restore applies the migrations, then loads everything in one
@@ -340,19 +373,14 @@ cd backend && go run ./cmd/load -migrate
 psql "$RATINGS_DATABASE_URL" -Atc "SELECT max(version_id) FROM goose_db_version"
 ```
 
-**Load the recorded tournament facts** (see [Load ratings data](#load-ratings-data))
-when they change, before the run that should use them. Each file replaces
+**Recorded tournament facts** are in the baseline. To change one kind, write
+its whole CSV in the format under [Load ratings data](#load-ratings-data) and
+load it before the run that should use it; the file replaces every fact of
 its kind:
 
 ```bash
 cd backend
-go run ./cmd/load -facts divisions ~/tta-data/tournaments/group_divisions.csv
-go run ./cmd/load -facts placements ~/tta-data/tournaments/official_placements.csv
-go run ./cmd/load -facts corrections ~/tta-data/tournaments/season_corrections.csv
-go run ./cmd/load -facts dates ~/tta-data/tournaments/finish_dates.csv
-go run ./cmd/load -facts honours ~/tta-data/tournaments/career_honours.csv
-go run ./cmd/load -facts community ~/tta-data/tournaments/community_standings.csv
-go run ./cmd/load -facts community_scores ~/tta-data/tournaments/community_scores.csv
+go run ./cmd/load -facts placements ~/tta-data/new/official_placements.csv
 ```
 
 **Compute a rating run** with the image `deploy/engine.yaml` pins. The

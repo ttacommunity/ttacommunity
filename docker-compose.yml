@@ -51,7 +51,7 @@ services:
     depends_on:
       app-db: { condition: service_healthy }
 
-  # Seeds the ratings DB from match CSVs. scripts/ratings-db.sh mounts the directory.
+  # Seeds the ratings DB: restores a baseline export, or loads match CSVs. scripts/ratings-db.sh mounts the directory.
   load:
     build: { context: backend, target: load }
     profiles: [load]
