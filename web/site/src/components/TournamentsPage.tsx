@@ -9,7 +9,6 @@ import {
   type Catalogue,
   type CatalogueSeason,
   type CatalogueTournament,
-  type EditionRules,
   type LadderWin,
   type TournamentSeries,
 } from '@ttac/shared/ratings';
@@ -18,6 +17,7 @@ import { SeriesSections } from './TournamentSeriesPage';
 import { playerHref } from '../lib/player-view';
 import TournamentCard from './TournamentCard';
 import TournamentHero from './TournamentHero';
+import RegulationsPanel from './RegulationsPanel';
 import { cardView } from '../lib/tournament-card';
 import TournamentGames from './TournamentGames';
 import { activeYears, catalogueHref, cgeYears, championsFromFinals, entryRows, placeLabel, placeNames, regulationsBox, seasonDates, seasonName, shownName, stageName, tournamentParam, winsLabel } from '../lib/catalogue-view';
@@ -167,6 +167,8 @@ function TournamentDetail({ apiUrl, slug }: { apiUrl: string; slug: string }) {
   const staged = t.seasons.filter((s) => s.stages.length > 1 || s.stages[0]?.label !== '');
   const finals = championsFromFinals(t.slug, t.seasons);
   const pickSeason = (season: string) => setPick((p) => ({ season, n: p.n + 1 }));
+  const box = regulationsBox(t);
+  const regulations = box === null ? null : <RegulationsPanel box={box} rated={t.rated} />;
   return (
     <>
       <TournamentHero
@@ -188,8 +190,10 @@ function TournamentDetail({ apiUrl, slug }: { apiUrl: string; slug: string }) {
       {t.ladder && <LadderWinners wins={t.top_tier_wins} />}
       {finals !== null && <Champions seasons={finals} podium title="Grand Prix champions" onPick={pickSeason} />}
       <Champions seasons={t.seasons} podium={!t.ladder && finals === null} title={t.ladder || finals !== null ? 'Seasons' : 'Champions'} onPick={pickSeason} />
-      {content !== undefined && <SeriesSections content={content} data={series.data} waiting={series.waiting || 'Loading…'} />}
-      {content === undefined && <Rules t={t} />}
+      {content !== undefined && (
+        <SeriesSections content={content} data={series.data} waiting={series.waiting || 'Loading…'} regulations={regulations} />
+      )}
+      {content === undefined && regulations}
       {staged.map((s) => (
         <Stages key={s.label} season={s} />
       ))}
@@ -303,27 +307,6 @@ function Champions({ seasons, podium, title, onPick }: { seasons: CatalogueSeaso
       {podium && (
         <p className="records-intro champions-note">A league's podium is its top division; a cup's is its final. A dash means we have not recorded it yet.</p>
       )}
-    </div>
-  );
-}
-
-/** Rules shows the tournament's format and regulations: admin's text, else the newest edition's description on CGE. */
-function Rules({ t }: { t: { rules: EditionRules[]; regulations?: string } }) {
-  const box = regulationsBox(t);
-  if (box === null) return null;
-  return (
-    <div className="panel-card rules-panel">
-      <h2 className="panel-header panel-header-split">
-        <span className="panel-header-title">
-          <span>📜</span> Format &amp; Regulations
-        </span>
-        {box.link !== null && (
-          <a href={box.link.url} target="_blank" rel="noopener noreferrer" className="cge-link">
-            {box.link.name} on CGE ↗
-          </a>
-        )}
-      </h2>
-      <p className="rules-text">{box.text}</p>
     </div>
   );
 }

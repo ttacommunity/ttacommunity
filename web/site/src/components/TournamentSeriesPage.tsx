@@ -1,5 +1,6 @@
 /** Upstream's Hall of Fame series page: the series' text, figures, trophyboard, and best seasons and games. */
-import { useEffect, useState } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
+import RegulationsPanel from './RegulationsPanel';
 import { currentRun, tournamentSeries, type TournamentSeries, type TrophyRow } from '@ttac/shared/ratings';
 import { playerHref } from '../lib/player-view';
 import { catalogueHref } from '../lib/catalogue-view';
@@ -81,32 +82,34 @@ export default function TournamentSeriesPage({ apiUrl, content }: { apiUrl: stri
           </div>
         </div>
       )}
-      <SeriesSections content={content} data={data} waiting={waiting} />
+      <SeriesSections
+        content={content}
+        data={data}
+        waiting={waiting}
+        regulations={<RegulationsPanel box={{ lines: content.rules ?? [], source: null }} rated />}
+      />
     </>
   );
 }
 
 /** SeriesSections shows a series' rules, trophyboard, stories and best seasons and games, as upstream's series page does; data null is loading, with waiting shown. */
-export function SeriesSections({ content, data, waiting }: { content: SeriesContent; data: TournamentSeries | null; waiting: string }) {
+export function SeriesSections({
+  content,
+  data,
+  waiting,
+  regulations,
+}: {
+  content: SeriesContent;
+  data: TournamentSeries | null;
+  waiting: string;
+  regulations: ReactNode;
+}) {
   const board = boardCells(data?.board ?? []);
   const honours = content.slug === 'grand_slams';
   return (
     <>
       <div className="content-two-col">
-        <div className="panel-card">
-          <h2 className="panel-header">
-            <span>📜</span> Format &amp; Regulations
-          </h2>
-          <ul className="rules-list">
-            {content.rules.map((rule) => (
-              <li key={rule}>{rule}</li>
-            ))}
-          </ul>
-          <div className="rules-note">
-            <strong>Rating Integration:</strong> Matches played in this circuit are parsed with match integrity validation and
-            automatically update player Glicko-2 and WHR parameters according to their multiplayer weighting rules.
-          </div>
-        </div>
+        {regulations}
 
         <div className="panel-card">
           <h2 className="panel-header panel-header-split">

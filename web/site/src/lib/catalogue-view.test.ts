@@ -152,20 +152,24 @@ describe('seasonDates and activeYears', () => {
 
 describe('regulationsBox', () => {
   const editions = [
-    { cge_tournament: 4991, name: 'Wimbledon 2024', description: 'CGE 2024.', url: 'https://cge/4991' },
+    { cge_tournament: 4991, name: 'Wimbledon 2024', description: 'Best of three.\n\n  Finals live.  ', url: 'https://cge/4991' },
     { cge_tournament: 4369, name: 'Wimbledon 2023', description: 'CGE 2023.', url: 'https://cge/4369' },
   ];
-  it("shows admin's text over CGE's, still linking the latest edition", () => {
-    expect(regulationsBox({ rules: editions, regulations: 'Best of three.' })).toEqual({
-      text: 'Best of three.',
-      link: { name: 'Wimbledon 2024', url: 'https://cge/4991' },
+  it("shows admin's text as bullets, one a line, with no CGE link, as DANeo's box", () => {
+    expect(regulationsBox({ rules: editions, regulations: 'Groups of four.\nThe best 16 go on.\n' })).toEqual({
+      lines: ['Groups of four.', 'The best 16 go on.'],
+      source: null,
     });
   });
-  it("shows the latest edition's CGE text when admin has written none", () => {
-    expect(regulationsBox({ rules: editions })).toEqual({ text: 'CGE 2024.', link: { name: 'Wimbledon 2024', url: 'https://cge/4991' } });
+  it("shows the latest edition's CGE text as bullets when admin has written none, naming where it is from", () => {
+    expect(regulationsBox({ rules: editions, regulations: null })).toEqual({
+      lines: ['Best of three.', 'Finals live.'],
+      source: { name: 'Wimbledon 2024', url: 'https://cge/4991' },
+    });
   });
-  it("shows admin's text with no link when CGE has none, and nothing when neither has", () => {
-    expect(regulationsBox({ rules: [], regulations: 'Ours.' })).toEqual({ text: 'Ours.', link: null });
+  it('shows nothing when neither has any', () => {
     expect(regulationsBox({ rules: [] })).toBeNull();
+    expect(regulationsBox({ rules: [], regulations: ' \n ' })).toBeNull();
   });
 });
+
