@@ -17,6 +17,8 @@ import { SERIES_CONTENT, SINGLE_TOURNAMENTS } from '../lib/tournament-series';
 import { SeriesSections } from './TournamentSeriesPage';
 import { playerHref } from '../lib/player-view';
 import TournamentCard from './TournamentCard';
+import TournamentHero from './TournamentHero';
+import { cardView } from '../lib/tournament-card';
 import TournamentGames from './TournamentGames';
 import { activeYears, catalogueHref, cgeYears, championsFromFinals, entryRows, placeLabel, placeNames, regulationsBox, seasonDates, seasonName, shownName, stageName, tournamentParam, winsLabel } from '../lib/catalogue-view';
 
@@ -78,9 +80,7 @@ function TournamentList({ apiUrl }: { apiUrl: string }) {
                 key={t.slug}
                 href={catalogueHref(t.slug)}
                 name={shownName(c?.name ?? t.name, t.rankings.length > 0)}
-                icon={c?.icon ?? '📜'}
-                badge={c?.formatBadge}
-                summary={c?.summary}
+                card={cardView(t.card)}
                 rows={entryRows(t)}
                 cta={c !== undefined ? 'View Champions, Rules & Games' : 'View Champions & Games'}
               />
@@ -169,42 +169,22 @@ function TournamentDetail({ apiUrl, slug }: { apiUrl: string; slug: string }) {
   const pickSeason = (season: string) => setPick((p) => ({ season, n: p.n + 1 }));
   return (
     <>
-      <div className="detail-hero">
-        <div className="detail-hero-top">
-          <div className="detail-hero-left">
-            <div className="detail-hero-icon">{content?.icon ?? '📜'}</div>
-            <div>
-              <h1 className="detail-hero-title">{content?.name ?? t.name}</h1>
-              <div className="detail-hero-subtitle">
-                {content !== undefined && <>{content.subtitle} · </>}
-                <a href={catalogueHref()}>Every tournament</a> · <a href="/ratings/hall_of_fame/">Hall of Fame</a>
-              </div>
-            </div>
-          </div>
-          {content !== undefined && <div className="detail-hero-badge">{content.formatBadge}</div>}
-        </div>
-        {content !== undefined && <div className="detail-hero-desc">{content.summary}</div>}
-        <div className="detail-meta-grid">
-          <div className="meta-box">
-            <div className="meta-box-label">Active History</div>
-            <div className="meta-box-val">{activeYears(t.seasons)}</div>
-          </div>
-          <div className="meta-box">
-            <div className="meta-box-label">Seasons</div>
-            <div className="meta-box-val">{count(t.seasons.length)}</div>
-          </div>
-          <div className="meta-box">
-            <div className="meta-box-label">Recorded Database Matches</div>
-            <div className="meta-box-val">{count(games)}</div>
-          </div>
-          {content !== undefined && (
-            <div className="meta-box">
-              <div className="meta-box-label">Cadence &amp; Schedule</div>
-              <div className="meta-box-val meta-box-text">{content.frequency}</div>
-            </div>
-          )}
-        </div>
-      </div>
+      <TournamentHero
+        card={cardView(t.card)}
+        title={content?.name ?? t.name}
+        subtitle={
+          <>
+            {content !== undefined && <>{content.subtitle} · </>}
+            <a href={catalogueHref()}>Every tournament</a> · <a href="/ratings/hall_of_fame/">Hall of Fame</a>
+          </>
+        }
+        facts={[
+          { label: 'Active History', value: activeYears(t.seasons) },
+          { label: 'Seasons', value: count(t.seasons.length) },
+          { label: 'Recorded Database Matches', value: count(games) },
+          ...(content !== undefined ? [{ label: 'Cadence & Schedule', value: content.frequency, words: true }] : []),
+        ]}
+      />
       {t.ladder && <LadderWinners wins={t.top_tier_wins} />}
       {finals !== null && <Champions seasons={finals} podium title="Grand Prix champions" onPick={pickSeason} />}
       <Champions seasons={t.seasons} podium={!t.ladder && finals === null} title={t.ladder || finals !== null ? 'Seasons' : 'Champions'} onPick={pickSeason} />

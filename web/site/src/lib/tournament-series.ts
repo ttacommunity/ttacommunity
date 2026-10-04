@@ -50,11 +50,12 @@ export interface Story {
 /** What a series page says about its series, copied from upstream's routes/hall_of_fame.py. */
 export interface SeriesContent {
   slug: Series;
-  icon: string;
   name: string;
   subtitle: string;
-  formatBadge: string;
-  summary: string;
+  /** A circuit's card; a tournament's own card is written in admin and comes from the API. */
+  icon?: string;
+  formatBadge?: string;
+  summary?: string;
   frequency: string;
   since: string;
   /** The "Historical Era" as upstream states it, where it is not computed from the latest season. */
@@ -67,12 +68,8 @@ export interface SeriesContent {
 
 export const INTERNATIONAL: SeriesContent = {
   slug: 'international',
-  icon: '🌐',
   name: 'International Championship',
   subtitle: '3/4-Player Competitive Format',
-  formatBadge: '3/4-Player League',
-  summary:
-    'The premier 3/4-player competitive league in Through the Ages. Structured across hierarchical skill divisions (Grandmaster, Platinum, Gold, Silver, Bronze, Wood) with quarterly promotion and relegation.',
   frequency: 'Quarterly (4 seasons / year)',
   since: '2016',
   rules: [
@@ -106,11 +103,8 @@ export const INTERNATIONAL: SeriesContent = {
 
 export const INTERMEZZO: SeriesContent = {
   slug: 'intermezzo',
-  icon: '⚔️',
   name: 'Intermezzo Championship',
   subtitle: '3-Player Competitive Format',
-  formatBadge: '3-Player League',
-  summary: 'The premier 3-player competitive league.',
   frequency: 'Quarterly (4 seasons / year)',
   since: '2018',
   rules: [
@@ -138,11 +132,8 @@ export const INTERMEZZO: SeriesContent = {
 
 export const ROYAL_LEAGUE: SeriesContent = {
   slug: 'royal_league',
-  icon: '👑',
   name: 'Royal League',
   subtitle: '2-Player Competitive Format',
-  formatBadge: '2-Player Duel',
-  summary: 'The premier 2-player recurrent championship.',
   frequency: 'Quarterly (4 seasons / year)',
   since: '2024',
   rules: [
@@ -176,12 +167,8 @@ export const ROYAL_LEAGUE: SeriesContent = {
 
 export const WORLDS: SeriesContent = {
   slug: 'worlds',
-  icon: '🏆',
   name: 'Through the Ages World Championship',
   subtitle: '4-Player Competitive Format',
-  formatBadge: 'Annual World Championship',
-  summary:
-    'The pinnacle of competitive Through the Ages. An annual championship bringing together the top qualified competitors worldwide across multi-stage preliminary groups, playoff brackets, and championship finals. (Note: historical format regulations have evolved across editions, and future editions may introduce new architectures).',
   frequency: 'Annual (Every Year)',
   since: '2023',
   era: '2023 – Present (Next: 2027)',

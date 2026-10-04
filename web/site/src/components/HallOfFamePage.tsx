@@ -2,6 +2,7 @@
 import { useEffect, useState } from 'react';
 import { catalogue, currentRun, hallOfFame, type CatalogueEntry, type HallOfFame } from '@ttac/shared/ratings';
 import TournamentCard from './TournamentCard';
+import { cardView, circuitCard } from '../lib/tournament-card';
 import { playerHref } from '../lib/player-view';
 import { catalogueHref, entryRows } from '../lib/catalogue-view';
 import {
@@ -131,9 +132,7 @@ export default function HallOfFamePage({ apiUrl }: { apiUrl: string }) {
               key={s.slug}
               href={seriesHref(s.slug)}
               name={s.name}
-              icon={s.icon}
-              badge={s.formatBadge}
-              summary={s.summary}
+              card={SINGLE_TOURNAMENTS.has(s.slug) ? cardView(entry?.card) : circuitCard(s)}
               rows={rows}
               cta={SINGLE_TOURNAMENTS.has(s.slug) ? 'View Champions, Rules & Games' : 'View Board & Tournaments'}
             />
@@ -142,8 +141,7 @@ export default function HallOfFamePage({ apiUrl }: { apiUrl: string }) {
         <TournamentCard
           href={catalogueHref()}
           name="Every Tournament"
-          icon="📜"
-          summary="Every tournament in the record, beyond the six circuits: its champions, seasons, stages and games."
+          card={cardView({ icon: '📜', tagline: '', summary: 'Every tournament in the record, beyond the six circuits: its champions, seasons, stages and games.' })}
           rows={[]}
           cta="View Every Tournament"
         />

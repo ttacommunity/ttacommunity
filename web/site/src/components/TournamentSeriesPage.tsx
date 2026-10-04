@@ -3,6 +3,8 @@ import { useEffect, useState } from 'react';
 import { currentRun, tournamentSeries, type TournamentSeries, type TrophyRow } from '@ttac/shared/ratings';
 import { playerHref } from '../lib/player-view';
 import { catalogueHref } from '../lib/catalogue-view';
+import { circuitCard } from '../lib/tournament-card';
+import TournamentHero from './TournamentHero';
 import {
   cultureScore,
   leaguePoints,
@@ -53,39 +55,17 @@ export default function TournamentSeriesPage({ apiUrl, content }: { apiUrl: stri
 
   return (
     <>
-      <div className="detail-hero">
-        <div className="detail-hero-top">
-          <div className="detail-hero-left">
-            <div className="detail-hero-icon">{content.icon}</div>
-            <div>
-              <h1 className="detail-hero-title">{content.name}</h1>
-              <div className="detail-hero-subtitle">{content.subtitle}</div>
-            </div>
-          </div>
-          <div className="detail-hero-badge">{content.formatBadge}</div>
-        </div>
-
-        <div className="detail-hero-desc">{content.summary}</div>
-
-        <div className="detail-meta-grid">
-          <div className="meta-box">
-            <div className="meta-box-label">Recorded Matches</div>
-            <div className="meta-box-val">{data ? count(data.games) : '…'}</div>
-          </div>
-          <div className="meta-box">
-            <div className="meta-box-label">Seasons / Editions</div>
-            <div className="meta-box-val">{data ? `${data.seasons} Editions` : '…'}</div>
-          </div>
-          <div className="meta-box">
-            <div className="meta-box-label">Cadence &amp; Schedule</div>
-            <div className="meta-box-val meta-box-text">{content.frequency}</div>
-          </div>
-          <div className="meta-box">
-            <div className="meta-box-label">Historical Era</div>
-            <div className="meta-box-val meta-box-text">{content.era ?? (data ? seriesEra(content, data.seasons) : '…')}</div>
-          </div>
-        </div>
-      </div>
+      <TournamentHero
+        card={circuitCard(content)}
+        title={content.name}
+        subtitle={content.subtitle}
+        facts={[
+          { label: 'Recorded Matches', value: data ? count(data.games) : '…' },
+          { label: 'Seasons / Editions', value: data ? `${data.seasons} Editions` : '…' },
+          { label: 'Cadence & Schedule', value: content.frequency, words: true },
+          { label: 'Historical Era', value: content.era ?? (data ? seriesEra(content, data.seasons) : '…'), words: true },
+        ]}
+      />
 
       {content.members !== undefined && (
         <div className="panel-card series-members">

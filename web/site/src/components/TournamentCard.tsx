@@ -1,34 +1,29 @@
 /** One tournament (or circuit) card, as the Hall of Fame and Every Tournament both show them. */
+import type { CardView } from '../lib/tournament-card';
 
-/** TournamentCard links to a tournament's page, with its icon, badge and summary where known, and its figures. */
+/** TournamentCard links to a tournament's page, with its icon, short description and information box, and its figures. */
 export default function TournamentCard({
   href,
   name,
-  icon,
-  badge,
-  summary,
+  card,
   rows,
   cta,
 }: {
   href: string;
   name: string;
-  icon?: string;
-  badge?: string;
-  summary?: string;
+  card: CardView;
   rows: [string, string][];
   cta: string;
 }) {
   return (
     <a href={href} className="series-card">
       <div>
-        {(icon !== undefined || badge !== undefined) && (
-          <div className="series-card-top">
-            <div className="series-icon">{icon ?? '📜'}</div>
-            {badge !== undefined && <div className="series-badge">{badge}</div>}
-          </div>
-        )}
+        <div className="series-card-top">
+          <div className="series-icon">{card.icon}</div>
+          {card.tagline !== null && <div className="series-badge">{card.tagline}</div>}
+        </div>
         <div className="series-name">{name}</div>
-        {summary !== undefined && <div className="series-summary">{summary}</div>}
+        {card.summary !== null && <div className="series-summary">{card.summary}</div>}
         {rows.map(([label, value]) => (
           <div key={label} className="series-meta-row">
             <span>{label}</span>
