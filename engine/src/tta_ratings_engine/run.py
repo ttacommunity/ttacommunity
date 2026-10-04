@@ -142,7 +142,8 @@ class SchemaOutOfDate(Exception):
 
 
 def check_schema(conn):
-    """Raises SchemaOutOfDate naming every table in RESULT_TABLES, and every RUN_STATS column, and run_progress, that does not exist."""
+    """Raises SchemaOutOfDate naming every table in RESULT_TABLES, every RUN_STATS column, run_progress and the
+    seasons' rated column, that does not exist."""
     missing = [
         t
         for t in RESULT_TABLES
@@ -156,6 +157,8 @@ def check_schema(conn):
             is None
         ):
             missing.append("run_progress")
+        if "rated" not in _columns(conn, "tournament_seasons", leave_out=()):
+            missing.append("tournament_seasons.rated")
     if missing:
         raise SchemaOutOfDate(
             f"missing {', '.join(missing)}: apply the ratings migrations first"
@@ -166,7 +169,8 @@ def input_fingerprint(conn, ranking_id):
     """Returns an md5 of a run's input, or None with no matches.
 
     That is every match's content and placement in load order, the ranking's
-    tournaments, any recorded tournament facts, admin's podiums and titles, and whether
+    tournaments with their rated player counts and unrated seasons, any recorded tournament facts, admin's
+    podiums and titles, and whether
     CGE has finished each tournament (a finished World Championship's final is
     derived).
     """
@@ -190,8 +194,9 @@ def input_fingerprint(conn, ranking_id):
                 UNION ALL SELECT 'o' || t::text FROM tournament_podium_overrides t
                 UNION ALL SELECT 't' || t::text FROM player_title_overrides t
                 UNION ALL SELECT 's' || cge_tournament || status FROM cge_tournaments
-                UNION ALL SELECT 'k' || t.slug FROM ranking_tournaments rt
+                UNION ALL SELECT 'k' || t.slug || t.rated_player_counts::text FROM ranking_tournaments rt
                     JOIN tournaments t USING (tournament_id) WHERE rt.ranking_id = %s
+                UNION ALL SELECT 'n' || season_id FROM tournament_seasons WHERE NOT rated
             ) x
         )
         SELECT CASE WHEN f.facts IS NULL THEN m.md5 ELSE md5(m.md5 || md5(f.facts)) END

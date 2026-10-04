@@ -157,6 +157,8 @@ def test_a_run_writes_tournament_results(conn, add_match):
         "INSERT INTO tournament_podium_overrides (tournament, season, place, player_name) VALUES ('worlds', '2025', 1, 'Ann')",
         "INSERT INTO cge_tournaments (cge_tournament, name, status) VALUES (5204, 'World Championship 2025', 'finished')",
         "INSERT INTO player_title_overrides VALUES ('Ann', 'GM', 'r')",
+        "UPDATE tournament_seasons SET rated = false",
+        "UPDATE tournaments SET rated_player_counts = '{2,3}'",
     ],
 )
 def test_a_recorded_fact_changes_the_input_fingerprint(conn, add_match, fact):

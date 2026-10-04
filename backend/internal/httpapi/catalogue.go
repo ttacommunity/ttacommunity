@@ -175,7 +175,7 @@ func (s *server) GetCatalogueGames(ctx context.Context, req GetCatalogueGamesReq
 	for _, g := range got.Games {
 		out := CatalogueGame{
 			MatchId: g.ID, Date: openapi_types.Date{Time: g.Date}, Season: g.Season, Stage: g.Stage, Group: g.Group,
-			State: CatalogueGameState(g.State), Seats: make([]GameSeat, 0, len(g.Seats)),
+			State: CatalogueGameState(g.State), Seats: make([]GameSeat, 0, len(g.Seats)), Rated: g.Rated,
 		}
 		if g.Game > 0 {
 			out.Game = &g.Game

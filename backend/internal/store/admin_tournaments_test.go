@@ -45,7 +45,7 @@ func TestAdminTournamentsListSettingsSeasonsAndNotes(t *testing.T) {
 	if !worlds.Rated || worlds.Visible || worlds.Community {
 		t.Errorf("worlds settings = %+v, want rated, hidden, and not yet in the community leaderboard (no migration row)", worlds)
 	}
-	want := []AdminSeason{{Label: "2025", HasGames: true, Stages: []AdminStage{{Label: "Stage 1"}, {Label: "Stage 2", Note: "The upper bracket."}}}}
+	want := []AdminSeason{{Label: "2025", HasGames: true, Rated: true, Stages: []AdminStage{{Label: "Stage 1"}, {Label: "Stage 2", Note: "The upper bracket."}}}}
 	if !reflect.DeepEqual(worlds.Seasons, want) {
 		t.Errorf("worlds seasons = %+v, want %+v", worlds.Seasons, want)
 	}
@@ -369,5 +369,47 @@ func TestSetStoriesReplacesATournamentsStoriesInOrder(t *testing.T) {
 				t.Errorf("SetStories = %v, want %v", err, tt.want)
 			}
 		})
+	}
+}
+
+func TestAdminSetsWhichSeasonsAndPlayerCountsAreRated(t *testing.T) {
+	pool := migrated(t)
+	ctx := context.Background()
+	placedOn(t, pool, map[string]time.Time{
+		"Wimbledon 2023 stage 1":                  day("2023-07-15"),
+		"Wimbledon 2024 Stage 1 - group 1 game 1": day("2024-07-01"),
+	})
+	a := NewAdminStore(asAdminLogin(t, pool))
+	if err := a.SetTournament(ctx, "wimbledon", TournamentSettings{RatedPlayerCounts: []int{4, 2}}); err != nil {
+		t.Fatalf("SetTournament(player counts): %v", err)
+	}
+	if err := a.SetSeasonRated(ctx, "wimbledon", "2023", false); err != nil {
+		t.Fatalf("SetSeasonRated: %v", err)
+	}
+	ts, err := a.Tournaments(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	w := adminTournament(t, ts, "wimbledon")
+	if !reflect.DeepEqual(w.RatedPlayerCounts, []int{2, 4}) {
+		t.Errorf("rated player counts = %v, want 2 and 4, in order", w.RatedPlayerCounts)
+	}
+	for _, se := range w.Seasons {
+		if se.Rated != (se.Label != "2023") {
+			t.Errorf("season %s rated = %v", se.Label, se.Rated)
+		}
+	}
+	for _, tt := range []struct {
+		name string
+		err  error
+		want error
+	}{
+		{"no player count", a.SetTournament(ctx, "wimbledon", TournamentSettings{RatedPlayerCounts: []int{}}), ErrBadPlayerCounts},
+		{"a 5-player count", a.SetTournament(ctx, "wimbledon", TournamentSettings{RatedPlayerCounts: []int{2, 5}}), ErrBadPlayerCounts},
+		{"no such season", a.SetSeasonRated(ctx, "wimbledon", "1999", false), ErrNoTournament},
+	} {
+		if !errors.Is(tt.err, tt.want) {
+			t.Errorf("%s: %v, want %v", tt.name, tt.err, tt.want)
+		}
 	}
 }

@@ -106,9 +106,9 @@ func TestCatalogueGames(t *testing.T) {
 	}}}
 	rec, _ := serve(t, f, "/v1/runs/7/catalogue/wimbledon/games?season=2024&stage=Stage+7&group=Final&player=a440&coded=true&page=2")
 	want := `{"coded":1,"games":[` +
-		`{"date":"2025-02-24","game":1,"group":"Final","match_id":9,"replay_code":"HEKANUJIMA","season":"2024",` +
+		`{"date":"2025-02-24","game":1,"group":"Final","match_id":9,"rated":false,"replay_code":"HEKANUJIMA","season":"2024",` +
 		`"seats":[{"name":"a440","outcome":"finished","score":112},{"name":"kyshantry","outcome":"timed_out","score":-5}],"stage":"Stage 7","state":"played"},` +
-		`{"date":"2025-02-24","game":null,"group":"","match_id":8,"replay_code":null,"season":"2024",` +
+		`{"date":"2025-02-24","game":null,"group":"","match_id":8,"rated":false,"replay_code":null,"season":"2024",` +
 		`"seats":[{"name":"ann","outcome":null,"score":0}],"stage":"Stage 7","state":"never_played"}],` +
 		`"groups":["Final"],"page":1,"pages":1,"run_id":7,"slug":"wimbledon","total":2}`
 	if got := strings.TrimSpace(rec.Body.String()); rec.Code != http.StatusOK || got != want {

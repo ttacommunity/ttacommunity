@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"regexp"
+	"slices"
 	"strings"
 	"unicode/utf8"
 
@@ -19,15 +20,16 @@ var ErrNoTournament = errors.New("no such tournament or season")
 // AdminTournament is one tournament as admin edits it: Regulations is admin's format and regulations text,
 // shown instead of CGERegulations, the latest edition's CGE description; either is empty for none.
 type AdminTournament struct {
-	Slug, Name     string
-	Visible        bool
-	Rated          bool
-	Community      bool
-	Regulations    string
-	CGERegulations string
-	Card           Card
-	Stories        []Story
-	Seasons        []AdminSeason
+	Slug, Name        string
+	Visible           bool
+	Rated             bool
+	Community         bool
+	Regulations       string
+	CGERegulations    string
+	Card              Card
+	Stories           []Story
+	RatedPlayerCounts []int
+	Seasons           []AdminSeason
 }
 
 // AdminSeason is a season with its own note, its stages, and the podium admin set for it, if any.
@@ -35,6 +37,7 @@ type AdminSeason struct {
 	Label      string
 	Note       string
 	HasGames   bool
+	Rated      bool
 	Stages     []AdminStage
 	Podium     []PodiumEntry
 	PodiumNote string
@@ -52,10 +55,15 @@ type AdminStage struct {
 	Note  string
 }
 
-// TournamentSettings are the settings to change; a nil field is left as it is.
+// TournamentSettings are the settings to change; a nil field is left as it is. RatedPlayerCounts are the player
+// counts whose games count towards ratings (2, 3, 4).
 type TournamentSettings struct {
 	Visible, Rated, Community *bool
+	RatedPlayerCounts         []int
 }
+
+// ErrBadPlayerCounts means rated player counts that are empty or not among 2, 3 and 4.
+var ErrBadPlayerCounts = errors.New("rated player counts are one or more of 2, 3 and 4")
 
 // Tournaments returns every tournament with its settings, seasons (latest first), stages and notes, in name order.
 func (a *AdminStore) Tournaments(ctx context.Context) ([]AdminTournament, error) {
@@ -70,7 +78,7 @@ func (a *AdminStore) Tournaments(ctx context.Context) ([]AdminTournament, error)
 		       se.label, coalesce(st.label, ''),
 		       coalesce((SELECT note FROM tournament_season_notes n WHERE n.tournament = t.slug AND n.season = se.label AND n.stage = ''), ''),
 		       coalesce((SELECT note FROM tournament_season_notes n WHERE n.tournament = t.slug AND n.season = se.label AND n.stage = st.label AND st.label <> ''), ''),
-		       d.last IS NOT NULL
+		       d.last IS NOT NULL, coalesce(se.rated, true), t.rated_player_counts
 		FROM tournaments t
 		LEFT JOIN tournament_cards k ON k.tournament = t.slug
 		LEFT JOIN tournament_seasons se USING (tournament_id)
@@ -88,19 +96,21 @@ func (a *AdminStore) Tournaments(ctx context.Context) ([]AdminTournament, error)
 	var regulations, cgeRegulations string
 	var card Card
 	var season, stage, seasonNote, stageNote *string
-	var hasGames bool
+	var hasGames, seasonRated bool
+	var counts []int
 	_, err = pgx.ForEachRow(rows, []any{&slug, &name, &visible, &community, &rated, &regulations,
-		&card.Icon, &card.Tagline, &card.Summary, &cgeRegulations, &season, &stage, &seasonNote, &stageNote, &hasGames}, func() error {
+		&card.Icon, &card.Tagline, &card.Summary, &cgeRegulations, &season, &stage, &seasonNote, &stageNote, &hasGames,
+		&seasonRated, &counts}, func() error {
 		if len(out) == 0 || out[len(out)-1].Slug != slug {
 			out = append(out, AdminTournament{Slug: slug, Name: name, Visible: visible, Rated: rated, Community: community,
-				Regulations: regulations, CGERegulations: cgeRegulations, Card: card, Seasons: []AdminSeason{}})
+				Regulations: regulations, CGERegulations: cgeRegulations, Card: card, RatedPlayerCounts: counts, Seasons: []AdminSeason{}})
 		}
 		t := &out[len(out)-1]
 		if season == nil {
 			return nil
 		}
 		if len(t.Seasons) == 0 || t.Seasons[len(t.Seasons)-1].Label != *season {
-			t.Seasons = append(t.Seasons, AdminSeason{Label: *season, Note: *seasonNote, HasGames: hasGames, Stages: []AdminStage{}})
+			t.Seasons = append(t.Seasons, AdminSeason{Label: *season, Note: *seasonNote, HasGames: hasGames, Rated: seasonRated, Stages: []AdminStage{}})
 		}
 		s := &t.Seasons[len(t.Seasons)-1]
 		if *stage != "" {
@@ -219,6 +229,14 @@ func seasonExists(ctx context.Context, tx pgx.Tx, slug, season string) error {
 
 // SetTournament changes a tournament's settings in one transaction, or returns ErrNoTournament.
 func (a *AdminStore) SetTournament(ctx context.Context, slug string, s TournamentSettings) error {
+	if s.RatedPlayerCounts != nil {
+		counts := slices.Sorted(slices.Values(s.RatedPlayerCounts))
+		counts = slices.Compact(counts)
+		if len(counts) == 0 || counts[0] < 2 || counts[len(counts)-1] > 4 {
+			return ErrBadPlayerCounts
+		}
+		s.RatedPlayerCounts = counts
+	}
 	return pgx.BeginFunc(ctx, a.pool, func(tx pgx.Tx) error {
 		var id int64
 		if err := tx.QueryRow(ctx, "SELECT tournament_id FROM tournaments WHERE slug = $1", slug).Scan(&id); errors.Is(err, pgx.ErrNoRows) {
@@ -228,6 +246,11 @@ func (a *AdminStore) SetTournament(ctx context.Context, slug string, s Tournamen
 		}
 		if s.Visible != nil {
 			if _, err := tx.Exec(ctx, "UPDATE tournaments SET visible = $2 WHERE tournament_id = $1", id, *s.Visible); err != nil {
+				return fmt.Errorf("setting %s: %w", slug, err)
+			}
+		}
+		if s.RatedPlayerCounts != nil {
+			if _, err := tx.Exec(ctx, "UPDATE tournaments SET rated_player_counts = $2 WHERE tournament_id = $1", id, s.RatedPlayerCounts); err != nil {
 				return fmt.Errorf("setting %s: %w", slug, err)
 			}
 		}
@@ -428,4 +451,18 @@ func (a *AdminStore) SetStories(ctx context.Context, slug string, list []Story) 
 		}
 		return nil
 	})
+}
+
+// SetSeasonRated sets whether a season's games count towards ratings, from the next run, or returns
+// ErrNoTournament for a season that does not exist.
+func (a *AdminStore) SetSeasonRated(ctx context.Context, slug, season string, rated bool) error {
+	tag, err := a.pool.Exec(ctx, `UPDATE tournament_seasons se SET rated = $3 FROM tournaments t
+		WHERE t.tournament_id = se.tournament_id AND t.slug = $1 AND se.label = $2`, slug, season, rated)
+	if err != nil {
+		return fmt.Errorf("setting whether %s %s is rated: %w", slug, season, err)
+	}
+	if tag.RowsAffected() == 0 {
+		return ErrNoTournament
+	}
+	return nil
 }

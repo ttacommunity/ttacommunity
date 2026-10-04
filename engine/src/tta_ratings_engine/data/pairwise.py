@@ -12,7 +12,8 @@ PAIR_COLUMNS = (
 
 
 def expand_pairwise(conn: psycopg.Connection, run_id: int) -> int:
-    """Rebuilds the run's pairwise_matches from the matches of its ranking's tournaments, commits, and returns how many pairs it wrote.
+    """Rebuilds the run's pairwise_matches from the played matches of its ranking's tournaments, in rated seasons
+    and rated player counts, commits, and returns how many pairs it wrote.
 
     An N-player match becomes N*(N-1)/2 pairs, each weighted 1/(N-1). The
     higher score wins the pair, and equal scores draw. Pairs are numbered in
@@ -33,9 +34,10 @@ def _expand(conn, run_id):
         FROM matches m
         JOIN tournament_stages st USING (stage_id)
         JOIN tournament_seasons s USING (season_id)
+        JOIN tournaments t ON t.tournament_id = s.tournament_id
         JOIN ranking_tournaments rt ON rt.tournament_id = s.tournament_id
         JOIN rating_runs r ON r.ranking_id = rt.ranking_id AND r.run_id = %s
-        WHERE m.state = 'played'
+        WHERE m.state = 'played' AND s.rated AND m.player_count = ANY(t.rated_player_counts)
         ORDER BY m.match_id
         """,
         (run_id,),

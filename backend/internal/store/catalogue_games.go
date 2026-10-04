@@ -44,6 +44,8 @@ type CatalogueGame struct {
 	State                string
 	Code                 string
 	Seats                []GameSeat
+	// Rated is whether the game counts towards ratings: played, in a rated tournament, season and player count.
+	Rated bool
 }
 
 // CatalogueGames is one page of a tournament's games. Total counts every game
@@ -60,7 +62,9 @@ type CatalogueGames struct {
 // visible), never-played ones included, with its season and stage.
 const shownGames = `
 	SELECT m.match_id, m.date, s.label AS season, st.label AS stage, m.group_label, coalesce(m.game_number, 0) AS game,
-	       m.state, coalesce(m.replay_code, '') AS code
+	       m.state, coalesce(m.replay_code, '') AS code,
+	       m.state = 'played' AND s.rated AND m.player_count = ANY(t.rated_player_counts)
+	         AND EXISTS (SELECT 1 FROM ranking_tournaments rt WHERE rt.tournament_id = t.tournament_id) AS rated
 	FROM matches m
 	JOIN tournament_stages st USING (stage_id)
 	JOIN tournament_seasons s USING (season_id)
@@ -110,7 +114,7 @@ func (r *RatingsReader) CatalogueGames(ctx context.Context, run int64, slug stri
 	got.Page = min(max(f.Page, 1), got.Pages)
 
 	rows, err := r.pool.Query(ctx, `
-		SELECT g.match_id, g.date, g.season, g.stage, g.group_label, g.game, g.state, g.code,
+		SELECT g.match_id, g.date, g.season, g.stage, g.group_label, g.game, g.state, g.code, g.rated,
 		       m.player1, m.score1, m.player2, m.score2, m.player3, m.score3, m.player4, m.score4,
 		       coalesce((SELECT jsonb_object_agg(player_name, outcome) FROM match_seats WHERE match_id = g.match_id), '{}')
 		FROM (`+shownGames+`) g JOIN matches m USING (match_id)
@@ -126,7 +130,7 @@ func (r *RatingsReader) CatalogueGames(ctx context.Context, run int64, slug stri
 		var names [4]*string
 		var scores [4]*float64
 		var outcomes map[string]string
-		err := row.Scan(&g.ID, &g.Date, &g.Season, &g.Stage, &g.Group, &g.Game, &g.State, &g.Code,
+		err := row.Scan(&g.ID, &g.Date, &g.Season, &g.Stage, &g.Group, &g.Game, &g.State, &g.Code, &g.Rated,
 			&names[0], &scores[0], &names[1], &scores[1], &names[2], &scores[2], &names[3], &scores[3], &outcomes)
 		for i := range names {
 			if names[i] != nil && scores[i] != nil {

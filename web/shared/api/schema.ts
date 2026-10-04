@@ -866,6 +866,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/admin/tournaments/{tournament}/season-rating": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Set whether a season's games count towards ratings, from the next run
+         * @description Its games still show on the tournament page, marked not rated. Audited. The Origin must be the admin site.
+         */
+        put: operations["putAdminSeasonRating"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/admin/tournaments/{tournament}/stories": {
         parameters: {
             query?: never;
@@ -1117,6 +1137,10 @@ export interface components {
             /** Format: double */
             change: number;
         };
+        SeasonRating: {
+            season: string;
+            rated: boolean;
+        };
         /** @description One of a tournament's stories, as DANeo's series pages tell them */
         Story: {
             player: string;
@@ -1220,6 +1244,8 @@ export interface components {
             role: "admin" | "organiser";
         };
         AdminTournament: {
+            /** @description The player counts whose games count towards ratings */
+            rated_player_counts: number[];
             stories: components["schemas"]["Story"][];
             card: components["schemas"]["TournamentCard"];
             /** @description The format and regulations written in admin, empty for none */
@@ -1237,6 +1263,8 @@ export interface components {
             seasons: components["schemas"]["AdminSeason"][];
         };
         AdminSeason: {
+            /** @description Its games count towards ratings, from the next run */
+            rated: boolean;
             /** @description The podium set in admin, empty when the recorded or derived one shows */
             podium: components["schemas"]["PodiumEntry"][];
             podium_note: string;
@@ -1251,6 +1279,8 @@ export interface components {
             note: string;
         };
         TournamentSettings: {
+            /** @description The player counts whose games count towards ratings, from the next run */
+            rated_player_counts?: number[];
             visible?: boolean;
             rated?: boolean;
             community?: boolean;
@@ -2013,6 +2043,8 @@ export interface components {
             games: components["schemas"]["CatalogueGame"][];
         };
         CatalogueGame: {
+            /** @description Counts towards ratings - played, and its tournament, season and player count rated */
+            rated: boolean;
             /** Format: int64 */
             match_id: number;
             /** Format: date */
@@ -3455,6 +3487,35 @@ export interface operations {
                 };
                 content?: never;
             };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    putAdminSeasonRating: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The tournament's slug */
+                tournament: components["parameters"]["AdminTournamentSlug"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SeasonRating"];
+            };
+        };
+        responses: {
+            /** @description Saved */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            400: components["responses"]["BadRequest"];
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];

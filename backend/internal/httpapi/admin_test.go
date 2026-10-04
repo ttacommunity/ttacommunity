@@ -8,6 +8,7 @@ import (
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -101,9 +102,10 @@ func (*fakeAdmins) AllowedOrigin() string { return "https://ttac-admin.example" 
 
 func (*fakeAdmins) Tournaments(context.Context) ([]store.AdminTournament, error) {
 	return []store.AdminTournament{{Slug: "worlds", Name: "World Championship", Rated: true, Regulations: "Mine.", CGERegulations: "CGE's.",
-		Card:    store.Card{Icon: "🏆", Tagline: "Annual World Championship", Summary: "The pinnacle."},
-		Stories: []store.Story{{Player: "a440", Badge: "Reigning World Champion", Title: "2025", Text: "Won."}},
-		Seasons: []store.AdminSeason{{Label: "2025", Stages: []store.AdminStage{{Label: "Stage 1", Note: "n"}},
+		Card:              store.Card{Icon: "🏆", Tagline: "Annual World Championship", Summary: "The pinnacle."},
+		Stories:           []store.Story{{Player: "a440", Badge: "Reigning World Champion", Title: "2025", Text: "Won."}},
+		RatedPlayerCounts: []int{3, 4},
+		Seasons: []store.AdminSeason{{Label: "2025", Rated: true, Stages: []store.AdminStage{{Label: "Stage 1", Note: "n"}},
 			Podium: []store.PodiumEntry{{Place: 1, Name: "a440"}}, PodiumNote: "CGE"}}}}, nil
 }
 
@@ -111,7 +113,18 @@ func (f *fakeAdmins) SetTournament(_ context.Context, slug string, s store.Tourn
 	if slug != "worlds" {
 		return store.ErrNoTournament
 	}
+	if slices.Contains(s.RatedPlayerCounts, 5) {
+		return store.ErrBadPlayerCounts
+	}
 	f.settings = append(f.settings, s)
+	return nil
+}
+
+func (f *fakeAdmins) SetSeasonRated(_ context.Context, slug, season string, rated bool) error {
+	if slug != "worlds" || season == "1999" {
+		return store.ErrNoTournament
+	}
+	f.notes = append(f.notes, fmt.Sprintf("season %s rated %v", season, rated))
 	return nil
 }
 
@@ -974,5 +987,46 @@ func TestAnOrganiserReplacesATournamentsStories(t *testing.T) {
 	var got []AdminTournament
 	if err := json.Unmarshal(rec.Body.Bytes(), &got); err != nil || len(got[0].Stories) != 1 || got[0].Stories[0].Player != "a440" {
 		t.Errorf("GET = %s, want the stories", rec.Body)
+	}
+}
+
+func TestAnOrganiserSetsWhatOfATournamentIsRated(t *testing.T) {
+	const site, org = "https://ttac-admin.example", "222222222222222222"
+	f := &fakeAdmins{}
+	if rec := adminDo(t, f, http.MethodPatch, "/v1/admin/tournaments/worlds", site, `{"rated_player_counts": [2, 4]}`); rec.Code != http.StatusNoContent {
+		t.Fatalf("PATCH player counts = %d %s, want 204", rec.Code, rec.Body)
+	}
+	if len(f.settings) != 1 || !slices.Equal(f.settings[0].RatedPlayerCounts, []int{2, 4}) {
+		t.Errorf("settings = %+v, want player counts 2 and 4", f.settings)
+	}
+	if rec := adminDo(t, f, http.MethodPut, "/v1/admin/tournaments/worlds/season-rating", site, `{"season": "2023", "rated": false}`); rec.Code != http.StatusNoContent {
+		t.Fatalf("PUT season rating = %d %s, want 204", rec.Code, rec.Body)
+	}
+	if strings.Join(f.notes, "|") != "season 2023 rated false" || strings.Join(f.audits, "|") != org+" tournament.settings worlds|"+org+" tournament.season.rated worlds" {
+		t.Errorf("changes %q, audits %q", f.notes, f.audits)
+	}
+	for _, tt := range []struct {
+		name, method, path, origin, body string
+		want                             int
+	}{
+		{"a 5-player count", http.MethodPatch, "/v1/admin/tournaments/worlds", site, `{"rated_player_counts": [2, 5]}`, http.StatusBadRequest},
+		{"a season that does not exist", http.MethodPut, "/v1/admin/tournaments/worlds/season-rating", site, `{"season": "1999", "rated": false}`, http.StatusNotFound},
+		{"no season", http.MethodPut, "/v1/admin/tournaments/worlds/season-rating", site, `{"season": "", "rated": false}`, http.StatusBadRequest},
+		{"another site", http.MethodPut, "/v1/admin/tournaments/worlds/season-rating", "https://evil.example", `{"season": "2023", "rated": false}`, http.StatusForbidden},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			f := &fakeAdmins{}
+			if rec := adminDo(t, f, tt.method, tt.path, tt.origin, tt.body); rec.Code != tt.want {
+				t.Errorf("%s = %d %s, want %d", tt.path, rec.Code, rec.Body, tt.want)
+			}
+			if len(f.settings)+len(f.notes)+len(f.audits) != 0 {
+				t.Errorf("a refused change still changed something: %+v %q %q", f.settings, f.notes, f.audits)
+			}
+		})
+	}
+	rec := adminDo(t, &fakeAdmins{}, http.MethodGet, "/v1/admin/tournaments", "", "")
+	var got []AdminTournament
+	if err := json.Unmarshal(rec.Body.Bytes(), &got); err != nil || !slices.Equal(got[0].RatedPlayerCounts, []int{3, 4}) || !got[0].Seasons[0].Rated {
+		t.Errorf("GET = %s, want the rated player counts and the season rated", rec.Body)
 	}
 }

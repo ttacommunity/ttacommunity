@@ -251,3 +251,56 @@ func TestAnUnconfirmedGameIsListedButNotCounted(t *testing.T) {
 		t.Errorf("intermezzo counts %d games, want 1: an unconfirmed game is not counted", got)
 	}
 }
+
+func TestCatalogueGamesMarksWhichGamesAreRated(t *testing.T) {
+	pool := migrated(t)
+	ctx := context.Background()
+	run := publishedRun(t, pool)
+	placedOn(t, pool, map[string]time.Time{
+		"Wimbledon 2023 stage 1":                  day("2023-07-15"),
+		"Wimbledon 2024 Stage 1 - group 1 game 1": day("2024-07-01"),
+		"Wimbledon 2024 Stage 1 - group 2 game 1": day("2024-07-03"),
+		"Wimbledon 2024 Stage 7 - Final game 1":   day("2025-02-24"),
+	})
+	for _, q := range []string{
+		"UPDATE tournament_seasons SET rated = false WHERE label = '2023'",
+		"UPDATE matches SET player3 = 'cat', score3 = 1, player_count = 3 WHERE tournament LIKE '%group 2 game 1'",
+		"UPDATE tournaments SET rated_player_counts = '{2}' WHERE slug = 'wimbledon'",
+		"UPDATE matches SET state = 'never_played' WHERE tournament LIKE '%Final game 1'",
+	} {
+		if _, err := pool.Exec(ctx, q); err != nil {
+			t.Fatalf("%s: %v", q, err)
+		}
+	}
+	r := NewRatingsReader(asReader(t, pool))
+	rated := func() map[string]bool {
+		t.Helper()
+		got, err := r.CatalogueGames(ctx, run, "wimbledon", CatalogueGamesFilter{})
+		if err != nil {
+			t.Fatal(err)
+		}
+		out := map[string]bool{}
+		for _, g := range got.Games {
+			out[fmt.Sprintf("%s|%s|%s", g.Season, g.Stage, g.Group)] = g.Rated
+		}
+		return out
+	}
+
+	want := map[string]bool{
+		"2023|Stage 1|":        false,
+		"2024|Stage 1|group 1": true,
+		"2024|Stage 1|group 2": false,
+		"2024|Stage 7|Final":   false,
+	}
+	if got := rated(); !reflect.DeepEqual(got, want) {
+		t.Errorf("rated = %v, want %v", got, want)
+	}
+	for _, q := range []string{"DELETE FROM ranking_tournaments", "UPDATE tournaments SET visible = true"} {
+		if _, err := pool.Exec(ctx, q); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if got := rated(); got["2024|Stage 1|group 1"] {
+		t.Errorf("a game of a tournament in no ranking is rated: %v", got)
+	}
+}
