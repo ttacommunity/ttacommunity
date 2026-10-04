@@ -23,7 +23,7 @@ import StoriesPanel from './StoriesPanel';
 import { ladderBoard, podiumBoard } from '../lib/trophyboard';
 import { cardView } from '../lib/tournament-card';
 import TournamentGames from './TournamentGames';
-import { activeYears, catalogueHref, cgeYears, championsFromFinals, entryRows, placeLabel, placeNames, regulationsBox, seasonDates, seasonName, shownName, stageName, tournamentParam } from '../lib/catalogue-view';
+import { activeYears, catalogueHref, cgeYears, entryRows, hasPodiums, placeLabel, placeNames, regulationsBox, seasonDates, seasonName, shownName, stageName, tournamentParam } from '../lib/catalogue-view';
 
 type Load<T> = { kind: 'loading' } | { kind: 'missing' } | { kind: 'error'; message: string } | { kind: 'ready'; data: T };
 
@@ -168,7 +168,6 @@ function TournamentDetail({ apiUrl, slug }: { apiUrl: string; slug: string }) {
   const { run, t } = load.data;
   const games = t.seasons.reduce((n, s) => n + s.games, 0);
   const staged = t.seasons.filter((s) => s.stages.length > 1 || s.stages[0]?.label !== '');
-  const finals = championsFromFinals(t.slug, t.seasons);
   const pickSeason = (season: string) => setPick((p) => ({ season, n: p.n + 1 }));
   const box = regulationsBox(t);
   const regulations = box === null ? null : <RegulationsPanel box={box} rated={t.rated} />;
@@ -190,8 +189,7 @@ function TournamentDetail({ apiUrl, slug }: { apiUrl: string; slug: string }) {
           ...(content !== undefined ? [{ label: 'Cadence & Schedule', value: content.frequency, words: true }] : []),
         ]}
       />
-      {finals !== null && <Champions seasons={finals} podium title="Grand Prix champions" onPick={pickSeason} />}
-      <Champions seasons={t.seasons} podium={!t.ladder && finals === null} title={t.ladder || finals !== null ? 'Seasons' : 'Champions'} onPick={pickSeason} />
+      <Champions seasons={t.seasons} podium={hasPodiums(t.seasons)} onPick={pickSeason} />
       {content !== undefined && (
         <SeriesSections
           content={content}
@@ -204,7 +202,7 @@ function TournamentDetail({ apiUrl, slug }: { apiUrl: string; slug: string }) {
       {content === undefined && (
         <div className="content-two-col">
           {regulations}
-          <TrophyboardPanel rows={t.ladder ? ladderBoard(t.top_tier_wins) : podiumBoard(finals ?? t.seasons)} waiting="Loading…" />
+          <TrophyboardPanel rows={t.ladder ? ladderBoard(t.top_tier_wins) : podiumBoard(t.seasons)} waiting="Loading…" />
         </div>
       )}
       {content === undefined && <StoriesPanel stories={t.stories} />}
@@ -224,7 +222,7 @@ function TournamentDetail({ apiUrl, slug }: { apiUrl: string; slug: string }) {
 }
 
 /** Champions lists seasons, newest first, with their podiums (when podium), figures and CGE pages; a season's name opens its games. */
-function Champions({ seasons, podium, title, onPick }: { seasons: CatalogueSeason[]; podium: boolean; title: string; onPick: (season: string) => void }) {
+function Champions({ seasons, podium, onPick }: { seasons: CatalogueSeason[]; podium: boolean; onPick: (season: string) => void }) {
   const place = (s: CatalogueSeason, n: number) => {
     const got = placeNames(s.podium, n);
     if (got.length === 0) return <span className="cell-muted">—</span>;
@@ -239,7 +237,7 @@ function Champions({ seasons, podium, title, onPick }: { seasons: CatalogueSeaso
   return (
     <div className="panel-card champions-panel">
       <div className="panel-header panel-header-split">
-        <h2 className="panel-header-title">{title}</h2>
+        <h2 className="panel-header-title">Champions &amp; Seasons</h2>
         <span className="panel-tag">{count(seasons.length)} seasons</span>
       </div>
       <div className="trophy-table-container champions-table">

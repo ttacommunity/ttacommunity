@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { catalogueHref, cgeYears, championsFromFinals, entryRows, gameStateLabel, gameWhere, outcomeNote, placeLabel, placeNames, seasonName, shownName, spanYears, stageName, tournamentParam, seasonDates, activeYears, regulationsBox } from './catalogue-view';
+import { catalogueHref, cgeYears, entryRows, hasPodiums, gameStateLabel, gameWhere, outcomeNote, placeLabel, placeNames, seasonName, shownName, spanYears, stageName, tournamentParam, seasonDates, activeYears, regulationsBox } from './catalogue-view';
 
 describe('tournamentParam', () => {
   it('takes a slug from the address', () => {
@@ -119,14 +119,13 @@ describe('gameStateLabel', () => {
   });
 });
 
-describe('championsFromFinals', () => {
-  const season = (label: string, champion: string | null) => ({ label, podium: champion === null ? [] : [{ place: 1, name: champion }] });
-  it("gives a tournament crowned by its finals only the seasons that had one", () => {
-    const seasons = [season('2', null), season('Grand Prix 2023', 'FirstOfDao'), season('3', null)];
-    expect(championsFromFinals('duel_curve', seasons)?.map((s) => s.label)).toEqual(['Grand Prix 2023']);
+describe('hasPodiums', () => {
+  it('shows the podium columns when any season has a podium, a Grand Prix final among league seasons included', () => {
+    expect(hasPodiums([{ podium: [] }, { podium: [{ place: 1 }] }])).toBe(true);
   });
-  it('leaves other tournaments to their seasons', () => {
-    expect(championsFromFinals('intermezzo', [season('24', 'pv4')])).toBeNull();
+  it("leaves them out when no season has one, as a ladder's seasons", () => {
+    expect(hasPodiums([{ podium: [] }, { podium: [] }])).toBe(false);
+    expect(hasPodiums([])).toBe(false);
   });
 });
 
