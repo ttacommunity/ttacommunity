@@ -1930,6 +1930,8 @@ export interface components {
             cge_pages: string[];
         };
         CatalogueTournament: {
+            /** @description The ten highest winning scores in its played games */
+            game_records: components["schemas"]["GameRecord"][];
             /** @description In a ranking, so its games move ratings */
             rated: boolean;
             card: components["schemas"]["TournamentCard"];

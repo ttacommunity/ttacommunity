@@ -890,6 +890,9 @@ type CatalogueTournament struct {
 	// Card How a tournament presents itself on its card and its page's header; an empty field is unset
 	Card TournamentCard `json:"card"`
 
+	// GameRecords The ten highest winning scores in its played games
+	GameRecords []GameRecord `json:"game_records"`
+
 	// Ladder A ladder's champions are counted as top-tier wins, not season podiums
 	Ladder bool   `json:"ladder"`
 	Name   string `json:"name"`

@@ -121,6 +121,8 @@ type CatalogueTournament struct {
 	Card        Card
 	// Rated is whether the tournament is in a ranking, so its games move ratings.
 	Rated bool
+	// GameRecords are its ten highest winning scores in played games.
+	GameRecords []GameRecord
 }
 
 // EditionRules is one CGE tournament's description of a tournament edition
@@ -416,6 +418,22 @@ func (r *RatingsReader) CatalogueTournament(ctx context.Context, run int64, slug
 		WHERE t.slug = $1)`, slug).Scan(&got.Rated)
 	if err != nil {
 		return fail("rated", err)
+	}
+	rows, err = r.pool.Query(ctx, `
+		SELECT m.tournament, m.date, m.player1, m.score1, m.player2, m.score2, m.player3, m.score3, m.player4, m.score4
+		FROM matches m JOIN tournament_stages st USING (stage_id) JOIN tournament_seasons se USING (season_id)
+		JOIN tournaments t USING (tournament_id)
+		WHERE t.slug = $1 AND m.state = 'played'
+		ORDER BY greatest(m.score1, m.score2, m.score3, m.score4) DESC, m.match_id
+		LIMIT $2`, slug, recordsShown)
+	if err != nil {
+		return fail("game records", err)
+	}
+	if got.GameRecords, err = pgx.CollectRows(rows, scanGameRecord); err != nil {
+		return fail("game records", err)
+	}
+	if err := r.markWorldChampions(ctx, run, got.GameRecords); err != nil {
+		return fail("game records", err)
 	}
 
 	// Every player of the shown tournament, for a search box's suggestions.

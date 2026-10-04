@@ -3249,8 +3249,13 @@ components:
                 type: string
     CatalogueTournament:
       type: object
-      required: [run_id, slug, name, card, rated, seasons, ladder, top_tier_wins, players, rules]
+      required: [run_id, slug, name, card, rated, seasons, ladder, top_tier_wins, players, rules, game_records]
       properties:
+        game_records:
+          description: The ten highest winning scores in its played games
+          type: array
+          items:
+            $ref: "#/components/schemas/GameRecord"
         rated:
           description: In a ranking, so its games move ratings
           type: boolean

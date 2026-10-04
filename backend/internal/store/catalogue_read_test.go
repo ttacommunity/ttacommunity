@@ -100,6 +100,7 @@ func TestCatalogueTournamentGivesSeasonsInOrderWithStagesAndPodium(t *testing.T)
 			Stages: []CatalogueStage{stage("Stage 1", day("2024-07-01")), stage("Stage 7", day("2025-02-24"))},
 			Podium: []PodiumPlace{{Place: 1, Name: "ann", Final: "", Finished: day("2025-02-24"), Source: "CGE"}}, CGE: []CGELink{}},
 	}, TopTierWins: []LadderWin{}, Players: []string{"ann", "bob2", "bob3", "bob4"}, Rules: []EditionRules{}}
+	got.GameRecords = nil // its highest scores have their own test
 	if !reflect.DeepEqual(got, want) {
 		t.Errorf("CatalogueTournament = %+v, want %+v", got, want)
 	}
@@ -638,5 +639,37 @@ func TestCatalogueTournamentSaysWhetherItIsRated(t *testing.T) {
 	}
 	if got, err := r.CatalogueTournament(ctx, run, "wimbledon"); err != nil || got.Rated {
 		t.Errorf("rated after leaving every ranking = %v, %v; want not rated", got.Rated, err)
+	}
+}
+
+func TestCatalogueTournamentGivesItsHighestWinningScores(t *testing.T) {
+	pool := migrated(t)
+	ctx := context.Background()
+	run := publishedRun(t, pool)
+	placedOn(t, pool, map[string]time.Time{
+		"Wimbledon 2024 Stage 1 - group 1 game 1": day("2024-07-01"),
+		"Wimbledon 2024 Stage 1 - group 1 game 2": day("2024-07-02"),
+		"Wimbledon 2024 Stage 1 - group 1 game 3": day("2024-07-03"),
+	})
+	for _, q := range []string{
+		"UPDATE matches SET player1 = 'ann', score1 = 120, player2 = 'bob', score2 = 80 WHERE tournament LIKE '%game 1'",
+		"UPDATE matches SET player1 = 'ann', score1 = 90, player2 = 'cat', score2 = 150 WHERE tournament LIKE '%game 2'",
+		"UPDATE matches SET player1 = 'dan', score1 = 999, player2 = 'eve', score2 = 0, state = 'never_played' WHERE tournament LIKE '%game 3'",
+	} {
+		if _, err := pool.Exec(ctx, q); err != nil {
+			t.Fatalf("%s: %v", q, err)
+		}
+	}
+
+	got, err := NewRatingsReader(asReader(t, pool)).CatalogueTournament(ctx, run, "wimbledon")
+	if err != nil {
+		t.Fatalf("CatalogueTournament: %v", err)
+	}
+	want := []GameRecord{
+		{Name: "cat", Score: 150, Opponents: []Seat{{Name: "ann", Score: 90}}, Tournament: "Wimbledon 2024 Stage 1 - group 1 game 2", Date: day("2024-07-02")},
+		{Name: "ann", Score: 120, Opponents: []Seat{{Name: "bob", Score: 80}}, Tournament: "Wimbledon 2024 Stage 1 - group 1 game 1", Date: day("2024-07-01")},
+	}
+	if !reflect.DeepEqual(got.GameRecords, want) {
+		t.Errorf("game records = %+v, want %+v (a game never played left out)", got.GameRecords, want)
 	}
 }

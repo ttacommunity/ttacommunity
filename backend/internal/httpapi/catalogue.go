@@ -67,7 +67,7 @@ func (s *server) GetCatalogueTournament(ctx context.Context, req GetCatalogueTou
 		return nil, err
 	}
 	body := CatalogueTournament{
-		RunId: req.Run, Slug: t.Slug, Name: t.Name, Card: tournamentCard(t.Card), Rated: t.Rated, Seasons: make([]CatalogueSeason, 0, len(t.Seasons)),
+		RunId: req.Run, Slug: t.Slug, Name: t.Name, Card: tournamentCard(t.Card), Rated: t.Rated, GameRecords: gameRecords(t.GameRecords), Seasons: make([]CatalogueSeason, 0, len(t.Seasons)),
 		Ladder: t.Ladder, TopTierWins: make([]LadderWin, 0, len(t.TopTierWins)), Players: append([]string{}, t.Players...),
 	}
 	if t.Regulations != "" {
