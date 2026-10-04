@@ -2,16 +2,20 @@
 import { useEffect, useId, useState } from 'react';
 import type { LeaderboardRow } from '@ttac/shared/ratings';
 import { suggest } from '../lib/leaderboard-view';
+import './SearchBox.css';
+
+/** A player the box can suggest: their name, and the flag and title shown beside it where known. */
+export type SearchPlayer = { name: string; country?: string | null; title?: LeaderboardRow['title'] };
 
 interface Props {
-  players: readonly LeaderboardRow[];
+  players: readonly SearchPlayer[];
   value: string;
   onSearch: (term: string) => void;
 }
 
 /** flagEmoji turns a country code into its flag emoji, as upstream's suggestions show it. */
-function flagEmoji(code: string | null): string {
-  if (code === null || !/^[A-Z]{2}$/.test(code)) return '';
+function flagEmoji(code: string | null | undefined): string {
+  if (code == null || !/^[A-Z]{2}$/.test(code)) return '';
   return String.fromCodePoint(...[...code].map((c) => 127397 + c.charCodeAt(0)));
 }
 
@@ -81,6 +85,7 @@ export default function SearchBox({ players, value, onSearch }: Props) {
           title="Separate multiple names with commas."
           aria-label="Search player"
           autoComplete="off"
+          enterKeyHint="search"
           role="combobox"
           aria-expanded={found.length > 0}
           aria-controls={listId}
@@ -134,7 +139,7 @@ export default function SearchBox({ players, value, onSearch }: Props) {
         )}
       </div>
       {value !== '' && (
-        <button type="button" className="btn-reset search-clear" title="Clear search" onClick={() => onSearch('')}>
+        <button type="button" className="search-clear" title="Clear search" onClick={() => onSearch('')}>
           ✕
         </button>
       )}

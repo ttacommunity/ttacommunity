@@ -17,6 +17,7 @@ import {
   search,
   sortRows,
   suggest,
+  pickPlayer,
   titleOptions,
   viewParams,
   yearDeltas,
@@ -216,6 +217,25 @@ describe('hasOptions and hasFilters', () => {
     expect(hasFilters(view({ search: 'a' }))).toBe(true);
     expect(hasOptions(view({ delta: 'month' }))).toBe(true);
     expect(hasFilters(view({ delta: 'month' }))).toBe(true);
+  });
+});
+
+describe('pickPlayer', () => {
+  const names = ['Ender_Wiggin', 'LavenderQueen', 'exender', 'theblender'];
+
+  it('picks a name typed in full, in any case', () => {
+    expect(pickPlayer(names, ' ender_wiggin ')).toBe('Ender_Wiggin');
+  });
+
+  it('picks the top suggestion for part of a name', () => {
+    expect(pickPlayer(names, 'ender')).toBe('Ender_Wiggin');
+    expect(pickPlayer(names, 'LAVEN')).toBe('LavenderQueen');
+  });
+
+  it('picks nobody when nothing matches or too little is typed', () => {
+    expect(pickPlayer(names, 'Ender_Wiggen')).toBeNull();
+    expect(pickPlayer(names, 'e')).toBeNull();
+    expect(pickPlayer(names, '')).toBeNull();
   });
 });
 

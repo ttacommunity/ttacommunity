@@ -1,9 +1,10 @@
 /** A tournament's games, newest first, narrowed by season, stage and group, with one-click replay codes. */
-import { useEffect, useId, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { catalogueGames, type CatalogueGames, type CatalogueSeason, type GamesFilter } from '@ttac/shared/ratings';
 import { playerHref } from '../lib/player-view';
 import { gameStateLabel, gameWhere, outcomeNote, seasonName, stageName } from '../lib/catalogue-view';
-import { suggest } from '../lib/leaderboard-view';
+import { pickPlayer } from '../lib/leaderboard-view';
+import SearchBox from './SearchBox';
 
 type Load = { kind: 'loading' } | { kind: 'error'; message: string } | { kind: 'ready'; data: CatalogueGames };
 
@@ -183,57 +184,25 @@ export default function TournamentGames({
   );
 }
 
-/** PlayerPicker narrows the games to one player, suggesting the tournament's players as you type; an exact name or a suggestion picks. */
+/** PlayerPicker narrows the games to one player: a name typed in full, the top suggestion for part of one, or a suggestion picked. */
 function PlayerPicker({ players, value, onPick }: { players: string[]; value: string; onPick: (player: string) => void }) {
-  const [text, setText] = useState(value);
-  const listId = useId();
-  useEffect(() => setText(value), [value]);
-  const found = suggest(
-    players.map((name) => ({ name })),
-    text,
-  );
-  const choose = (typed: string) => {
-    const exact = players.find((p) => p.toLowerCase() === typed.trim().toLowerCase());
-    if (exact !== undefined) {
-      setText(exact);
-      onPick(exact);
-    }
+  const [missed, setMissed] = useState(false);
+  const names = useMemo(() => players.map((name) => ({ name })), [players]);
+  const search = (term: string) => {
+    const name = term === '' ? '' : pickPlayer(players, term);
+    setMissed(name === null);
+    if (name !== null) onPick(name);
   };
   return (
-    <label className="games-player">
+    <div className="games-player">
       <span>Player</span>
-      <span className="games-player-field">
-        <input
-          id="games-player"
-          type="search"
-          list={listId}
-          value={text}
-          placeholder="Search a name"
-          autoComplete="off"
-          onChange={(e) => {
-            setText(e.target.value);
-            if (players.some((p) => p === e.target.value)) choose(e.target.value);
-            if (e.target.value === '' && value !== '') onPick('');
-          }}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter') {
-              e.preventDefault();
-              choose(text);
-            }
-          }}
-        />
-        {value !== '' && (
-          <button type="button" className="games-player-clear" onClick={() => onPick('')} aria-label="Show every player's games">
-            ✕
-          </button>
-        )}
-      </span>
-      <datalist id={listId}>
-        {found.map((p) => (
-          <option key={p.name} value={p.name} />
-        ))}
-      </datalist>
-    </label>
+      <SearchBox players={names} value={value} onSearch={search} />
+      {missed && (
+        <span className="games-player-missed" role="status">
+          No player matches
+        </span>
+      )}
+    </div>
   );
 }
 

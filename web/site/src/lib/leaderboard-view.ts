@@ -279,6 +279,14 @@ export function suggest<T extends { name: string }>(rows: readonly T[], input: s
     .slice(0, 12);
 }
 
+/** pickPlayer returns the name typed in full (any case), else the top suggestion for it, else null. */
+export function pickPlayer(names: readonly string[], typed: string): string | null {
+  const t = typed.trim().toLowerCase();
+  const exact = names.find((n) => n.toLowerCase() === t);
+  if (exact !== undefined) return exact;
+  return suggest(names.map((name) => ({ name })), t)[0]?.name ?? null;
+}
+
 /** titleOptions lists the titles some row holds: GM, M, P and G first, as upstream orders them. */
 export function titleOptions(rows: readonly LeaderboardRow[]): TitleCode[] {
   const held = new Set(rows.map((p) => p.title?.code));
