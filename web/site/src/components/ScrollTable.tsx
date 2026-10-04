@@ -6,7 +6,7 @@ export default function ScrollTable({ hint, children }: { hint: string; children
   return (
     <>
       <div className="scroll-hint">
-        <span>Swipe table horizontally for {hint} ➔</span>
+        <span>{`Swipe table horizontally for ${hint} ➔`}</span>
       </div>
       <div className="table-responsive">{children}</div>
     </>
