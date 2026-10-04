@@ -153,6 +153,64 @@ function SettingsCard({ t, onChange }: { t: AdminTournament; onChange: (t: Admin
   );
 }
 
+/** CardSettings edits how the tournament presents itself on its card and its page's header. */
+function CardSettings({ t, onReload }: { t: AdminTournament; onReload: () => Promise<void> }) {
+  const [card, setCard] = useState(t.card);
+  const [status, setStatus] = useState('');
+  const changed = card.icon !== t.card.icon || card.tagline !== t.card.tagline || card.summary !== t.card.summary;
+  const save = async () => {
+    setStatus('Saving…');
+    const r = await adminRequest(`/api/tournaments/${t.slug}/card`, { method: 'PUT', json: card });
+    setStatus(r.ok ? 'Saved. The cards and the tournament page show it at once.' : r.message);
+    if (r.ok) await onReload();
+  };
+  return (
+    <section className="rating-card admin-card" aria-labelledby="card-heading">
+      <h2 id="card-heading" className="rating-card-heading">
+        Card
+      </h2>
+      <p className="muted">
+        How the tournament shows on the Hall of Fame and Every Tournament, and at the top of its own page. Leave a box empty
+        to leave it out; with no icon it shows 📜.
+      </p>
+      <div className="card-fields">
+        <label>
+          Icon
+          <input id="card-icon" value={card.icon} maxLength={8} placeholder="📜" onChange={(e) => setCard({ ...card, icon: e.target.value })} />
+        </label>
+        <label className="card-tagline">
+          Short description
+          <input
+            id="card-tagline"
+            value={card.tagline}
+            maxLength={60}
+            placeholder="e.g. Annual World Championship"
+            onChange={(e) => setCard({ ...card, tagline: e.target.value })}
+          />
+        </label>
+        <label className="card-summary">
+          Information box
+          <textarea
+            id="card-summary"
+            value={card.summary}
+            maxLength={1000}
+            rows={4}
+            onChange={(e) => setCard({ ...card, summary: e.target.value })}
+          />
+        </label>
+      </div>
+      <div className="note-actions">
+        <button type="button" className="btn-antique" onClick={() => void save()} disabled={!changed}>
+          Save card
+        </button>
+        <span className="note-status" role="status">
+          {status}
+        </span>
+      </div>
+    </section>
+  );
+}
+
 /** RegulationsCard edits the format and regulations the site shows, starting from CGE's text when none is written. */
 function RegulationsCard({ t, onReload }: { t: AdminTournament; onReload: () => Promise<void> }) {
   const [text, setText] = useState(t.regulations === '' ? t.cge_regulations : t.regulations);
@@ -316,6 +374,7 @@ export default function TournamentSettings() {
         <>
           <h2 className="tournament-title">{t.data.name}</h2>
           <SettingsCard t={t.data} onChange={(next) => setT({ kind: 'ready', data: next })} />
+          <CardSettings t={t.data} onReload={load} />
           <RegulationsCard t={t.data} onReload={load} />
           <SeasonsCard t={t.data} onReload={load} />
         </>
