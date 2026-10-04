@@ -598,8 +598,7 @@
 }
 
 .pagination-jump input,
-.rivals-controls select,
-.rivals-controls input {
+.rivals-controls select {
   background: rgba(14, 9, 6, 0.95);
   border: 1px solid var(--border-subtle);
   border-radius: 4px;
@@ -630,10 +629,8 @@
   font-size: 0.85rem;
 }
 
-.rivals-controls input {
+.rival-filter {
   width: 180px;
-  padding: 0.35rem 0.85rem;
-  font-size: 0.85rem;
 }
 
 .sort-head {

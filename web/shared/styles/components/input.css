@@ -19,3 +19,11 @@
 select.input-antique {
   cursor: pointer;
 }
+
+/* A box that narrows a table as you type, upstream's filters on the player and achievements pages. */
+.input-antique.filter-input {
+  padding: 0.4rem 0.8rem;
+  background: rgba(14, 9, 6, 0.95);
+  color: #f3e5c8;
+  font-size: 0.85rem;
+}

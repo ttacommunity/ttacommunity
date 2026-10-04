@@ -27,6 +27,7 @@ import {
 import { playerHref } from '../lib/player-view';
 import './PlayerPage.css';
 import './AchievementsPage.css';
+import FilterInput from './FilterInput';
 
 type Load = { kind: 'loading' } | { kind: 'error'; message: string } | { kind: 'ready'; player: Player; ach: PlayerAchievements };
 type Sort = { col: number; dir: Direction } | null;
@@ -168,13 +169,12 @@ function Records({ records }: { records: TournamentRecord[] }) {
             </button>
           </div>
         </div>
-        <input
-          type="text"
-          value={filter}
-          onChange={(e) => setFilter(e.target.value)}
+        <FilterInput
+          label="Filter tournaments, seasons"
           placeholder="🔍 Filter tournaments, seasons..."
-          aria-label="Filter tournaments, seasons"
-          className="input-antique ach-filter"
+          className="ach-filter"
+          value={filter}
+          onChange={setFilter}
         />
       </div>
 

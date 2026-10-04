@@ -43,6 +43,7 @@ import { achievementsHref } from '../lib/achievements';
 import { recall, remember } from '../lib/remembered';
 import './PlayerPage.css';
 import Segmented from './Segmented';
+import FilterInput from './FilterInput';
 
 type Load<T> = { kind: 'loading' } | { kind: 'error'; message: string } | { kind: 'ready'; data: T };
 
@@ -549,12 +550,12 @@ function Rivals({ state, compare }: { state: Load<PlayerRivals>; compare: Compar
               </option>
             ))}
           </select>
-          <input
-            type="text"
-            aria-label="Filter rivals by name"
+          <FilterInput
+            label="Filter rivals by name"
             placeholder="🔍 Filter rival by name..."
+            className="rival-filter"
             value={rv.filter}
-            onChange={(e) => setRv({ ...rv, filter: e.target.value })}
+            onChange={(filter) => setRv({ ...rv, filter })}
           />
         </div>
       </div>
