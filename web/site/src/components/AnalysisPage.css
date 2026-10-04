@@ -612,6 +612,7 @@
 .movers-form input {
   width: 100%;
   color: #fff;
+  font-family: var(--font-body);
 }
 
 .movers-form select {

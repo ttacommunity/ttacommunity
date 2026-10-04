@@ -18,6 +18,7 @@ import { playerHref } from '../lib/player-view';
 import { titleName } from '../lib/leaderboard-display';
 import './CommunityPage.css';
 import Segmented from './Segmented';
+import SearchBox, { type SearchPlayer } from './SearchBox';
 
 type Load = { kind: 'loading' } | { kind: 'error'; message: string } | { kind: 'ready'; rows: CommunityRow[] };
 
@@ -160,20 +161,13 @@ function Explainers({ edition }: { edition: Edition }) {
   );
 }
 
-function Controls({ view, slots }: { view: CommunityView; slots: number }) {
+function Controls({ view, slots, names }: { view: CommunityView; slots: number; names: SearchPlayer[] }) {
   return (
     <div className="comm-controls">
       <form method="get" action="/ratings/community/" className="comm-search-form">
         <input type="hidden" name="view" value={view.view} />
         <input type="hidden" name="edition" value={view.edition} />
-        <input
-          type="text"
-          name="q"
-          defaultValue={view.search}
-          placeholder="Search competitor by name..."
-          aria-label="Search competitor by name"
-          className="comm-search-input"
-        />
+        <SearchBox players={names} value={view.search} name="q" inputClassName="comm-search-input" placeholder="Search competitor by name..." />
         <button type="submit" className="btn-search-gold">
           Search
         </button>
@@ -380,7 +374,7 @@ export default function CommunityPage({ apiUrl }: { apiUrl: string }) {
     <div className="community-page">
       <Hero edition={edition} view={onPage} rows={state.rows} />
       <Explainers edition={edition} />
-      <Controls view={onPage} slots={editionFacts(edition).slots} />
+      <Controls view={onPage} slots={editionFacts(edition).slots} names={state.rows.map((r) => ({ name: r.name, country: r.country }))} />
       <div className="results-counter-card">
         <div>
           Showing <strong className="comm-count-shown">{shown.length}</strong> of{' '}

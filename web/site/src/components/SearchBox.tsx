@@ -1,5 +1,5 @@
 /** Upstream's player search: a text field with suggestions as you type, for one name or a comma list. */
-import { useEffect, useId, useState } from 'react';
+import { useEffect, useId, useRef, useState } from 'react';
 import type { LeaderboardRow } from '@ttac/shared/ratings';
 import { suggest } from '../lib/leaderboard-view';
 import './SearchBox.css';
@@ -10,7 +10,14 @@ export type SearchPlayer = { name: string; country?: string | null; title?: Lead
 interface Props {
   players: readonly SearchPlayer[];
   value: string;
-  onSearch: (term: string) => void;
+  /** Called with the term searched; in field mode the page's own form searches instead. */
+  onSearch?: (term: string) => void;
+  /** Field mode: the box is one field of the page's own form, sent under this name. */
+  name?: string;
+  inputClassName?: string;
+  placeholder?: string;
+  /** Fills the width it is given, for long names. */
+  wide?: boolean;
 }
 
 /** flagEmoji turns a country code into its flag emoji, as upstream's suggestions show it. */
@@ -32,8 +39,18 @@ function Highlighted({ name, query }: { name: string; query: string }) {
   );
 }
 
-/** SearchBox searches on Enter or 🔍, and fills in a suggestion when one is picked. */
-export default function SearchBox({ players, value, onSearch }: Props) {
+/** SearchBox searches on Enter or 🔍, and fills in a suggestion when one is picked; in field mode, the page's form submits. */
+export default function SearchBox({
+  players,
+  value,
+  onSearch,
+  name,
+  inputClassName = 'input-antique',
+  placeholder = 'Search player ...',
+  wide = false,
+}: Props) {
+  const field = name !== undefined;
+  const input = useRef<HTMLInputElement>(null);
   const [text, setText] = useState(value);
   const [open, setOpen] = useState(false);
   const [active, setActive] = useState(-1);
@@ -49,7 +66,10 @@ export default function SearchBox({ players, value, onSearch }: Props) {
     const term = parts.join(',').trim();
     setText(term);
     setOpen(false);
-    onSearch(term);
+    if (field && input.current !== null) {
+      input.current.value = term;
+      input.current.form?.requestSubmit();
+    } else onSearch?.(term);
   };
 
   const onKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
@@ -67,6 +87,74 @@ export default function SearchBox({ players, value, onSearch }: Props) {
     }
   };
 
+  const box = (
+    <div className={wide ? 'search-input-wrapper wide' : 'search-input-wrapper'}>
+      <input
+        type="text"
+        ref={input}
+        name={name}
+        className={inputClassName}
+        placeholder={placeholder}
+        title="Separate multiple names with commas."
+        aria-label="Search player"
+        autoComplete="off"
+        enterKeyHint="search"
+        role="combobox"
+        aria-expanded={found.length > 0}
+        aria-controls={listId}
+        aria-activedescendant={active >= 0 && found.length > 0 ? `${listId}-${active}` : undefined}
+        value={text}
+        onChange={(e) => {
+          setText(e.target.value);
+          setOpen(true);
+          setActive(-1);
+        }}
+        onFocus={() => setOpen(true)}
+        onBlur={() => setOpen(false)}
+        onKeyDown={onKeyDown}
+      />
+      {!field && (
+        <button type="submit" className="search-submit" title="Search" aria-label="Search">
+          🔍
+        </button>
+      )}
+      {found.length > 0 && (
+        <div className="search-suggestions">
+          <div id={listId} role="listbox" aria-label="Players">
+          {found.map((p, i) => (
+            <div
+              key={p.name}
+              id={`${listId}-${i}`}
+              role="option"
+              tabIndex={-1}
+              aria-selected={i === active}
+              className={i === active ? 'search-suggestion active' : 'search-suggestion'}
+              onMouseEnter={() => setActive(i)}
+              onMouseDown={(e) => {
+                e.preventDefault();
+                pick(p.name);
+              }}
+            >
+              <span className="search-suggestion-left">
+                {flagEmoji(p.country) && <span className="flag-icon">{flagEmoji(p.country)}</span>}
+                <span className="search-suggestion-name">
+                  <Highlighted name={p.name} query={query} />
+                </span>
+              </span>
+              {p.title && <span className={`badge badge-${p.title.code.toLowerCase()}`}>{p.title.code}</span>}
+            </div>
+          ))}
+          </div>
+          <div className="search-suggestions-hint" aria-hidden="true">
+            <span>&uarr;&darr; navigate</span>
+            <span>&crarr; select</span>
+            <span>ESC close</span>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+  if (field) return box;
   return (
     <form
       className="search-form"
@@ -74,72 +162,12 @@ export default function SearchBox({ players, value, onSearch }: Props) {
       onSubmit={(e) => {
         e.preventDefault();
         setOpen(false);
-        onSearch(text.trim());
+        onSearch?.(text.trim());
       }}
     >
-      <div className="search-input-wrapper">
-        <input
-          type="text"
-          className="input-antique"
-          placeholder="Search player ..."
-          title="Separate multiple names with commas."
-          aria-label="Search player"
-          autoComplete="off"
-          enterKeyHint="search"
-          role="combobox"
-          aria-expanded={found.length > 0}
-          aria-controls={listId}
-          aria-activedescendant={active >= 0 && found.length > 0 ? `${listId}-${active}` : undefined}
-          value={text}
-          onChange={(e) => {
-            setText(e.target.value);
-            setOpen(true);
-            setActive(-1);
-          }}
-          onFocus={() => setOpen(true)}
-          onBlur={() => setOpen(false)}
-          onKeyDown={onKeyDown}
-        />
-        <button type="submit" className="search-submit" title="Search" aria-label="Search">
-          🔍
-        </button>
-        {found.length > 0 && (
-          <div className="search-suggestions">
-            <div id={listId} role="listbox" aria-label="Players">
-            {found.map((p, i) => (
-              <div
-                key={p.name}
-                id={`${listId}-${i}`}
-                role="option"
-                tabIndex={-1}
-                aria-selected={i === active}
-                className={i === active ? 'search-suggestion active' : 'search-suggestion'}
-                onMouseEnter={() => setActive(i)}
-                onMouseDown={(e) => {
-                  e.preventDefault();
-                  pick(p.name);
-                }}
-              >
-                <span className="search-suggestion-left">
-                  {flagEmoji(p.country) && <span className="flag-icon">{flagEmoji(p.country)}</span>}
-                  <span className="search-suggestion-name">
-                    <Highlighted name={p.name} query={query} />
-                  </span>
-                </span>
-                {p.title && <span className={`badge badge-${p.title.code.toLowerCase()}`}>{p.title.code}</span>}
-              </div>
-            ))}
-            </div>
-            <div className="search-suggestions-hint" aria-hidden="true">
-              <span>&uarr;&darr; navigate</span>
-              <span>&crarr; select</span>
-              <span>ESC close</span>
-            </div>
-          </div>
-        )}
-      </div>
+      {box}
       {value !== '' && (
-        <button type="button" className="search-clear" title="Clear search" onClick={() => onSearch('')}>
+        <button type="button" className="search-clear" title="Clear search" onClick={() => onSearch?.('')}>
           ✕
         </button>
       )}

@@ -140,3 +140,8 @@
     min-height: 40px;
   }
 }
+
+.search-input-wrapper.wide,
+.search-input-wrapper.wide input {
+  width: 100%;
+}

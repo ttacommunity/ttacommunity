@@ -1,8 +1,9 @@
 /** Upstream's multi-engine player comparison: a search, and each player's standing in every model. */
 import { useEffect, useState } from 'react';
-import { comparedPlayers, currentRun, type ComparedPlayer, type Format } from '@ttac/shared/ratings';
+import { comparedPlayers, currentRun, leaderboard, type ComparedPlayer, type Format } from '@ttac/shared/ratings';
 import { FORMAT_NAMES, parseMoversParams } from '../lib/analysis';
 import { Flag } from './PlayerMarks';
+import SearchBox, { type SearchPlayer } from './SearchBox';
 
 type Load = { kind: 'loading' } | { kind: 'error'; message: string } | { kind: 'ready'; players: ComparedPlayer[] };
 
@@ -90,10 +91,16 @@ function PlayerCard({ player, format }: { player: ComparedPlayer; format: Format
 export default function MoversPage({ apiUrl }: { apiUrl: string }) {
   const [{ search, format }] = useState(() => parseMoversParams(new URLSearchParams(window.location.search)));
   const [load, setLoad] = useState<Load>({ kind: 'loading' });
+  const [names, setNames] = useState<SearchPlayer[]>([]);
 
   useEffect(() => {
     currentRun(apiUrl)
-      .then((r) => comparedPlayers(apiUrl, r.run_id, search, format))
+      .then((r) => {
+        leaderboard(apiUrl, r.run_id, 'glicko2_daneo', 0)
+          .then((b) => setNames(b.players))
+          .catch(() => setNames([]));
+        return comparedPlayers(apiUrl, r.run_id, search, format);
+      })
       .then((d) => setLoad({ kind: 'ready', players: d.players }))
       .catch((e: unknown) => setLoad({ kind: 'error', message: e instanceof Error ? e.message : String(e) }));
   }, [apiUrl, search, format]);
@@ -104,7 +111,7 @@ export default function MoversPage({ apiUrl }: { apiUrl: string }) {
         <form method="get" action="/ratings/analysis/movers/" className="movers-form">
           <div className="movers-search-field">
             <label htmlFor="movers-search">Search Player Name(s) (comma-separated):</label>
-            <input id="movers-search" type="text" name="search" defaultValue={search} placeholder="e.g. Weidenbaum, a440, Martin_Pecheur" />
+            <SearchBox players={names} value={search} name="search" inputClassName="" placeholder="e.g. Weidenbaum, a440, Martin_Pecheur" wide />
           </div>
           <div>
             <label htmlFor="movers-format">Tournament Format:</label>
