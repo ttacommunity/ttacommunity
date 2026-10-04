@@ -29,7 +29,7 @@
   border-bottom: 2px solid var(--border-subtle);
   color: var(--accent-gold);
   font-family: var(--font-heading);
-  font-size: 0.85rem;
+  font-size: var(--size-table-header);
   letter-spacing: 1px;
   text-transform: uppercase;
 }
@@ -50,7 +50,7 @@
 .leaderboard-table tbody th {
   padding: 0.75rem 1rem;
   border-bottom: 1px solid rgba(74, 53, 37, 0.35);
-  font-size: 0.92rem;
+  font-size: var(--size-table-cell);
   font-weight: 400;
   text-align: left;
 }
@@ -114,7 +114,7 @@
 
 .leaderboard-table .last-played {
   color: var(--text-muted);
-  font-size: 0.85rem;
+  font-size: var(--size-table-compact);
 }
 
 .leaderboard-table .empty {

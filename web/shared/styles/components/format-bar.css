@@ -39,8 +39,8 @@
 .format-btn.raised {
   padding: 0.4rem 0.9rem;
   border: 1px solid rgba(74, 53, 37, 0.8);
-  background: rgba(43, 29, 20, 0.85);
-  color: #cfbeab;
+  background: var(--surface-panel);
+  color: var(--text-soft);
   font-size: 0.85rem;
   transition: all 0.2s ease;
 }
@@ -48,21 +48,21 @@
 .format-btn.raised:hover {
   border-color: var(--accent-gold);
   background: rgba(229, 169, 60, 0.25);
-  color: #fff;
+  color: var(--text-bright);
 }
 
 .format-btn.raised.active {
-  border-color: #ffd700;
-  background: linear-gradient(135deg, #e5a93c 0%, #b87c1c 100%);
+  border-color: var(--accent-gold-bright);
+  background: var(--gradient-gold);
   box-shadow: 0 2px 8px rgba(229, 169, 60, 0.4);
-  color: #120904;
+  color: var(--text-on-gold);
   font-weight: 700;
 }
 
 .format-btn:hover {
   border-color: var(--accent-gold);
   background: rgba(229, 169, 60, 0.12);
-  color: #fff;
+  color: var(--text-bright);
 }
 
 .format-btn.active {

@@ -24,6 +24,6 @@ select.input-antique {
 .input-antique.filter-input {
   padding: 0.4rem 0.8rem;
   background: rgba(14, 9, 6, 0.95);
-  color: #f3e5c8;
+  color: var(--text-main);
   font-size: 0.85rem;
 }

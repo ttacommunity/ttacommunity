@@ -8,11 +8,15 @@
   --accent-gold: #e5a93c;
   --accent-gold-light: #ffde8a;
   --accent-gold-bright: #ffd700;
+  --accent-gold-soft: #ffd54f;
+  --accent-gold-deep: #b87c1c;
+  --gradient-gold: linear-gradient(135deg, #e5a93c 0%, #b87c1c 100%);
   --accent-crimson: #8e1e1d;
   --text-main: #f3e5c8;
   --text-soft: #cfbeab;
   --text-muted: #a89880;
   --text-on-gold: #120904;
+  --text-bright: #fff;
   --border-subtle: #4a3525;
   --win: #66bb6a;
   --loss: #ef5350;
@@ -23,4 +27,15 @@
   --font-subheading: 'Marcellus', serif;
   --font-body: 'Source Serif 4', Georgia, serif;
   --font-stats: 'Inter', system-ui, sans-serif;
+
+  /* Text sizes by role, as upstream's pages set them (its leaderboard's where they differ). */
+  --size-page-title: 2.1rem;
+  --size-card-title: 1.35rem;
+  --size-subheading: 1.15rem;
+  --size-body: 1.05rem;
+  --size-body-short: 0.92rem;
+  --size-table-header: 0.85rem;
+  --size-table-cell: 0.92rem;
+  --size-table-compact: 0.85rem;
+  --size-label: 0.75rem;
 }

@@ -19,10 +19,10 @@
 
 .faq-tab-btn {
   padding: 0.45rem 0.85rem;
-  background: rgba(43, 29, 20, 0.85);
+  background: var(--surface-panel);
   border: 1px solid rgba(74, 53, 37, 0.85);
   border-radius: 6px;
-  color: #cfbeab;
+  color: var(--text-soft);
   font-family: var(--font-subheading);
   font-size: 0.88rem;
   font-weight: 600;
@@ -34,25 +34,25 @@
 .faq-tab-btn.tab-gold {
   background: rgba(229, 169, 60, 0.12);
   border: 1px solid #c59b27;
-  color: #ffd54f;
+  color: var(--accent-gold-soft);
 }
 
 .faq-tab-btn.tab-bronze {
   background: rgba(229, 169, 60, 0.08);
   border: 1px solid #b8860b;
-  color: #ffde8a;
+  color: var(--accent-gold-light);
 }
 
 .faq-tab-btn:hover {
   background: rgba(229, 169, 60, 0.22);
   border-color: var(--accent-gold);
-  color: #fff;
+  color: var(--text-bright);
 }
 
 .faq-tab-btn.active {
-  background: linear-gradient(135deg, #e5a93c 0%, #b87c1c 100%);
-  border-color: #ffd700;
-  color: #120904;
+  background: var(--gradient-gold);
+  border-color: var(--accent-gold-bright);
+  color: var(--text-on-gold);
   font-weight: 700;
   box-shadow: 0 2px 8px rgba(229, 169, 60, 0.4);
 }
@@ -147,7 +147,7 @@
 }
 
 .faq-link:hover {
-  color: #fff;
+  color: var(--text-bright);
   text-decoration-color: var(--accent-gold);
   text-shadow: 0 0 8px rgba(229, 169, 60, 0.6);
 }
@@ -164,7 +164,7 @@
 }
 
 .faq-container .faq-section .faq-subhead-amber {
-  color: #ffd54f;
+  color: var(--accent-gold-soft);
   font-family: var(--font-subheading);
   font-size: 1.1rem;
   margin: 1.25rem 0 0.5rem 0;
@@ -216,7 +216,7 @@
 .faq-container .faq-section .faq-box-text {
   margin: 0.25rem 0 0.5rem 0;
   font-size: 0.92rem;
-  color: #cfbeab;
+  color: var(--text-soft);
 }
 
 .faq-container .faq-section .faq-list-small {
@@ -367,7 +367,7 @@
 .faq-container .faq-section .faq-aside-text {
   margin: 0;
   font-size: 0.94rem;
-  color: #cfbeab;
+  color: var(--text-soft);
   line-height: 1.65;
 }
 
@@ -399,7 +399,7 @@
 }
 
 .faq-container .faq-section .faq-takeaway-title {
-  color: #ffde8a;
+  color: var(--accent-gold-light);
   font-family: var(--font-subheading);
   font-size: 1.05rem;
 }
@@ -407,7 +407,7 @@
 .faq-container .faq-section .faq-takeaway-text {
   margin: 0.4rem 0 0.5rem 0;
   font-size: 0.95rem;
-  color: #cfbeab;
+  color: var(--text-soft);
 }
 
 .faq-container .faq-section .faq-callout {
@@ -428,7 +428,7 @@
 .faq-container .faq-section .faq-callout-text {
   margin: 0;
   font-size: 0.88rem;
-  color: #cfbeab;
+  color: var(--text-soft);
   line-height: 1.55;
 }
 
@@ -443,7 +443,7 @@
   font-size: 0.85rem;
   text-transform: uppercase;
   letter-spacing: 0.1em;
-  color: #ffd54f;
+  color: var(--accent-gold-soft);
   margin-bottom: 0.5rem;
   font-weight: 700;
 }
@@ -566,7 +566,7 @@
 }
 
 .faq-container .faq-section .c-red {
-  color: #ef5350;
+  color: var(--loss);
 }
 
 .faq-container .faq-section .c-red-light {
@@ -594,7 +594,7 @@
 }
 
 .faq-container .faq-section .c-leaf {
-  color: #66bb6a;
+  color: var(--win);
 }
 
 .faq-container .faq-section .c-sage {
@@ -602,11 +602,11 @@
 }
 
 .faq-container .faq-section .c-amber {
-  color: #ffd54f;
+  color: var(--accent-gold-soft);
 }
 
 .faq-container .faq-section .c-cream {
-  color: #ffde8a;
+  color: var(--accent-gold-light);
 }
 
 .faq-container .faq-section .c-wheat {
@@ -614,7 +614,7 @@
 }
 
 .faq-container .faq-section .c-yellow {
-  color: #ffd700;
+  color: var(--accent-gold-bright);
 }
 
 .faq-container .faq-section .c-gold {
@@ -630,7 +630,7 @@
 }
 
 .faq-container .faq-section .c-sand {
-  color: #cfbeab;
+  color: var(--text-soft);
 }
 
 .faq-container .faq-section .c-muted {
@@ -638,7 +638,7 @@
 }
 
 .faq-container .faq-section .c-white {
-  color: #fff;
+  color: var(--text-bright);
 }
 
 .faq-container .faq-section .c-sky {

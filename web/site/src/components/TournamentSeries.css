@@ -5,7 +5,7 @@
   gap: 0.5rem;
   flex-wrap: wrap;
   margin-bottom: 1.5rem;
-  background: rgba(18, 12, 8, 0.85);
+  background: var(--surface-inset);
   padding: 0.5rem;
   border-radius: 6px;
   border: 1px solid var(--border-subtle);
@@ -30,7 +30,7 @@
 }
 .series-nav-btn.active {
   background: var(--accent-gold);
-  color: #1c130d;
+  color: var(--bg-dark);
   font-weight: 700;
   box-shadow: 0 2px 6px rgba(229, 169, 60, 0.35);
 }
@@ -67,7 +67,7 @@
 .detail-hero-title {
   font-size: 2rem;
   font-weight: 800;
-  color: #fff;
+  color: var(--text-bright);
   margin-bottom: 0.3rem;
 }
 .detail-hero-badge {
@@ -251,7 +251,7 @@
 .medal-gold { color: #f59e0b; }
 .medal-silver { color: #cbd5e1; }
 .medal-bronze { color: #d97706; }
-.medal-total { color: #fff; }
+.medal-total { color: var(--text-bright); }
 
 /* Success stories */
 .stories-grid {
@@ -281,7 +281,7 @@
 .story-author {
   font-weight: 700;
   font-size: 1.05rem;
-  color: #fff;
+  color: var(--text-bright);
   text-decoration: none;
   display: flex;
   align-items: center;
@@ -459,7 +459,7 @@ h2.panel-header {
 }
 
 .trophy-player {
-  color: #fff;
+  color: var(--text-bright);
   font-weight: 700;
   text-decoration: none;
 }

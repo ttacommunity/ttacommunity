@@ -25,7 +25,7 @@
   margin: 0;
   font-family: var(--font-heading);
   font-size: 2rem;
-  color: #fff;
+  color: var(--text-bright);
 }
 
 .matrix-subtitle {
@@ -58,7 +58,7 @@
   gap: 0.4rem;
   margin-bottom: 1.5rem;
   padding: 0.4rem 0.75rem;
-  background: rgba(18, 12, 8, 0.85);
+  background: var(--surface-inset);
   border: 1px solid var(--border-subtle);
   border-radius: 6px;
 }
@@ -114,7 +114,7 @@
   margin: 0.2rem 0;
   font-size: 1.5rem;
   font-weight: 800;
-  color: #fff;
+  color: var(--text-bright);
 }
 
 .peak-year-year,
@@ -134,7 +134,7 @@
 }
 
 .peak-year-rating {
-  color: #ffd54f;
+  color: var(--accent-gold-soft);
 }
 
 .rating-card.matrix-card {
@@ -195,7 +195,7 @@
   border-radius: 4px;
   font-family: var(--font-stats);
   font-size: 0.85rem;
-  color: #ffde8a;
+  color: var(--accent-gold-light);
 }
 
 .matrix-table {
@@ -243,7 +243,7 @@
 .matrix-engine-name {
   font-size: 1.05rem;
   font-weight: 700;
-  color: #fff;
+  color: var(--text-bright);
 }
 
 .matrix-engine-note {
@@ -261,7 +261,7 @@
 .matrix-val-primary {
   font-size: 1.25rem;
   font-weight: 800;
-  color: #fff;
+  color: var(--text-bright);
 }
 
 .matrix-val-rd {
@@ -282,7 +282,7 @@
 }
 
 .matrix-val-meta strong {
-  color: #fff;
+  color: var(--text-bright);
 }
 
 .matrix-unranked,
@@ -303,7 +303,7 @@
 .row-daneo .matrix-engine-name,
 .row-daneo .matrix-val-c,
 .row-daneo .matrix-val-meta strong {
-  color: #ffd54f;
+  color: var(--accent-gold-soft);
 }
 
 .row-daneo .matrix-engine-note,
@@ -312,7 +312,7 @@
 }
 
 .row-daneo .matrix-val-primary {
-  color: #ffde8a;
+  color: var(--accent-gold-light);
 }
 
 /* Adaptive-T's row: upstream's green. */
@@ -357,7 +357,7 @@
 }
 
 .career-year {
-  color: #fff;
+  color: var(--text-bright);
 }
 
 .badge.badge-small,
@@ -373,7 +373,7 @@
 }
 
 .career-peak {
-  color: #ffd54f;
+  color: var(--accent-gold-soft);
 }
 
 .career-score {
@@ -383,8 +383,8 @@
 
 .badge.badge-peak-year {
   background: rgba(229, 169, 60, 0.25);
-  border: 1px solid #ffd700;
-  color: #ffd700;
+  border: 1px solid var(--accent-gold-bright);
+  color: var(--accent-gold-bright);
   font-size: 0.75rem;
 }
 

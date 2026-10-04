@@ -62,7 +62,7 @@
 
 .search-suggestion.active {
   background: rgba(212, 160, 23, 0.25);
-  color: #fff;
+  color: var(--text-bright);
 }
 
 .search-suggestion-left {
@@ -80,12 +80,12 @@
 }
 
 .search-suggestion.active .search-suggestion-name {
-  color: #fff;
+  color: var(--text-bright);
   text-shadow: 0 0 8px rgba(255, 215, 0, 0.6);
 }
 
 .search-match {
-  color: #fff;
+  color: var(--text-bright);
   font-weight: 700;
   text-decoration: underline;
   text-decoration-color: var(--accent-gold);

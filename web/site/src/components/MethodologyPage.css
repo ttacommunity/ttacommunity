@@ -38,7 +38,7 @@
 
 .methodology-body h4 {
   margin: 1.25rem 0 0.5rem;
-  color: #ffd54f;
+  color: var(--accent-gold-soft);
   font-family: var(--font-subheading);
   font-size: 1.05rem;
 }
@@ -59,7 +59,7 @@
 }
 
 .methodology-body strong {
-  color: #ffde8a;
+  color: var(--accent-gold-light);
 }
 
 .methodology-body hr {

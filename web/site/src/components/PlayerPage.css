@@ -51,7 +51,7 @@
   font-size: 2.35rem;
   font-weight: 700;
   line-height: 1.2;
-  color: #ffd54f;
+  color: var(--accent-gold-soft);
   letter-spacing: 1px;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
@@ -76,7 +76,7 @@
   border: 1px solid #7a5420;
   border-radius: 4px;
   box-shadow: 0 2px 6px rgba(0, 0, 0, 0.5);
-  color: #120904;
+  color: var(--text-on-gold);
   font-family: var(--font-stats);
   font-size: 0.88rem;
   font-weight: 700;
@@ -249,18 +249,18 @@
 }
 
 .card-daneo h3 {
-  color: #ffd54f;
+  color: var(--accent-gold-soft);
 }
 
 .card-daneo .badge-rank {
   background: #332211;
-  color: #ffd54f;
+  color: var(--accent-gold-soft);
   border: 1.5px solid #b8860b;
   font-weight: 700;
 }
 
 .card-daneo .rating-number {
-  color: #ffde8a;
+  color: var(--accent-gold-light);
   font-weight: 800;
 }
 
@@ -277,11 +277,11 @@
 }
 
 .card-daneo .c-rating-box strong {
-  color: #ffd54f;
+  color: var(--accent-gold-soft);
 }
 
 .card-daneo .model-card-caption {
-  color: #a89880;
+  color: var(--text-muted);
 }
 
 .chart-container {
@@ -381,7 +381,7 @@
 
 .chart-empty-title {
   font-size: 1rem;
-  color: #ffd54f;
+  color: var(--accent-gold-soft);
 }
 
 .chart-empty-text {
@@ -481,8 +481,8 @@
 }
 
 .place-1 {
-  background: #e5a93c;
-  color: #1c130d;
+  background: var(--accent-gold);
+  color: var(--bg-dark);
 }
 
 .place-2 {
@@ -492,11 +492,11 @@
 
 .place-3 {
   background: #b87333;
-  color: #fff;
+  color: var(--text-bright);
 }
 
 .place-4 {
-  background: #4a3525;
+  background: var(--border-subtle);
   color: #aaa;
 }
 
@@ -528,7 +528,7 @@
   border-radius: 3px;
   font-family: monospace;
   font-size: 0.82rem;
-  color: #ffd54f;
+  color: var(--accent-gold-soft);
   letter-spacing: 0.5px;
 }
 
@@ -561,7 +561,7 @@
 
 .seat .player-link,
 .h2h-scores .player-link {
-  color: #ffd54f;
+  color: var(--accent-gold-soft);
   text-decoration: none;
 }
 
@@ -602,7 +602,7 @@
   background: rgba(14, 9, 6, 0.95);
   border: 1px solid var(--border-subtle);
   border-radius: 4px;
-  color: #f3e5c8;
+  color: var(--text-main);
 }
 
 .pagination-jump input {
@@ -652,17 +652,17 @@
 
 .sort-head.win,
 .wld-num.win {
-  color: #66bb6a;
+  color: var(--win);
 }
 
 .sort-head.loss,
 .wld-num.loss {
-  color: #ef5350;
+  color: var(--loss);
 }
 
 .sort-head.draw,
 .wld-num.draw {
-  color: #ffa726;
+  color: var(--draw);
 }
 
 .wld-num {
@@ -685,11 +685,11 @@
 }
 
 .rival-rate.good {
-  color: #66bb6a;
+  color: var(--win);
 }
 
 .rival-rate.bad {
-  color: #ef5350;
+  color: var(--loss);
 }
 
 .rivals-expand {
@@ -790,7 +790,7 @@
   font-size: 0.85rem;
   color: var(--text-muted);
 }
-.career-medal-gold { color: #ffd700; }
+.career-medal-gold { color: var(--accent-gold-bright); }
 .career-medal-silver { color: #cfd8dc; }
 .career-medal-bronze { color: #cd7f32; }
 
@@ -811,7 +811,7 @@
 .career-honor-badge {
   background: rgba(18, 12, 8, 0.92);
   border: 1px solid #c59b27;
-  border-left: 3px solid #ffd54f;
+  border-left: 3px solid var(--accent-gold-soft);
   padding: 0.45rem 0.85rem;
   border-radius: 4px;
   display: flex;
@@ -820,7 +820,7 @@
   box-shadow: 0 2px 6px rgba(0, 0, 0, 0.6);
 }
 .honor-star {
-  color: #ffd54f;
+  color: var(--accent-gold-soft);
   font-size: 1rem;
   line-height: 1;
   flex-shrink: 0;
@@ -875,11 +875,11 @@
 .career-season-stats {
   font-family: var(--font-stats);
   font-size: 0.85rem;
-  color: #f3e5c8;
+  color: var(--text-main);
 }
 
 .career-season-peak {
-  color: #ffd700;
+  color: var(--accent-gold-bright);
 }
 
 .career-peaks {
@@ -905,7 +905,7 @@
 }
 
 .career-peak-rating {
-  color: #ffd54f;
+  color: var(--accent-gold-soft);
 }
 
 .career-peak-rank {
@@ -932,7 +932,7 @@
   gap: 0.35rem;
   padding: 0.3rem 0.65rem;
   background: rgba(142, 30, 29, 0.25);
-  border: 1px solid #8e1e1d;
+  border: 1px solid var(--accent-crimson);
   border-radius: 4px;
   color: #ffb4a2;
   font-family: var(--font-stats);
@@ -943,10 +943,10 @@
 }
 
 .btn-h2h-compare:hover {
-  background: #8e1e1d;
+  background: var(--accent-crimson);
   border-color: var(--accent-gold);
   box-shadow: 0 2px 8px rgba(142, 30, 29, 0.6);
-  color: #fff;
+  color: var(--text-bright);
   transform: translateY(-1px);
 }
 
@@ -1032,19 +1032,19 @@
 }
 
 .h2h-total {
-  color: #ffd54f;
+  color: var(--accent-gold-soft);
 }
 
 .h2h-win {
-  color: #66bb6a;
+  color: var(--win);
 }
 
 .h2h-loss {
-  color: #ef5350;
+  color: var(--loss);
 }
 
 .h2h-draw {
-  color: #ffa726;
+  color: var(--draw);
 }
 
 .h2h-body {
@@ -1074,7 +1074,7 @@
 
 .h2h-target {
   font-weight: 700;
-  color: #ffd54f;
+  color: var(--accent-gold-soft);
 }
 
 .h2h-other {
@@ -1091,7 +1091,7 @@
   border: 1.5px solid #d49438;
   border-radius: 5px;
   box-shadow: 0 3px 10px rgba(0, 0, 0, 0.5);
-  color: #ffd54f;
+  color: var(--accent-gold-soft);
   font-family: var(--font-subheading);
   font-size: 0.92rem;
   font-weight: 700;
@@ -1102,9 +1102,9 @@
 
 .btn-tournament-achievements:hover {
   background: linear-gradient(135deg, rgba(100, 24, 30, 0.98) 0%, rgba(65, 40, 25, 0.98) 100%);
-  border-color: #ffd54f;
+  border-color: var(--accent-gold-soft);
   box-shadow: 0 4px 14px rgba(229, 169, 60, 0.4);
-  color: #fff;
+  color: var(--text-bright);
   transform: translateY(-1px);
 }
 

@@ -72,8 +72,8 @@
 }
 .btn-back-profile:hover {
   background: linear-gradient(180deg, #422919 0%, #26150d 100%);
-  border-color: #ffd700;
-  color: #ffd700;
+  border-color: var(--accent-gold-bright);
+  color: var(--accent-gold-bright);
   box-shadow: 0 4px 14px rgba(229, 169, 60, 0.45), inset 0 1px 0 rgba(255, 215, 0, 0.5);
   transform: translateY(-1px);
 }
@@ -116,7 +116,7 @@
   letter-spacing: 0.5px;
   margin-top: 0.2rem;
 }
-.gold-accent { color: #ffd700; }
+.gold-accent { color: var(--accent-gold-bright); }
 .silver-accent { color: #cfd8dc; }
 .bronze-accent { color: #cd7f32; }
 .trophy-accent { color: #f0ba54; }
@@ -183,17 +183,17 @@
   box-shadow: 0 2px 6px rgba(0, 0, 0, 0.4);
 }
 .records-tab-btn:hover {
-  color: #fff;
+  color: var(--text-bright);
   border-color: var(--accent-gold);
   background: rgba(229, 169, 60, 0.22);
   transform: translateY(-1px);
   box-shadow: 0 4px 10px rgba(0, 0, 0, 0.6);
 }
 .records-tab-btn.active {
-  background: linear-gradient(135deg, #e5a93c 0%, #b87c1c 100%);
-  color: #120904;
+  background: var(--gradient-gold);
+  color: var(--text-on-gold);
   font-weight: 700;
-  border-color: #ffd700;
+  border-color: var(--accent-gold-bright);
   box-shadow: 0 3px 12px rgba(229, 169, 60, 0.45);
 }
 
@@ -268,7 +268,7 @@
 }
 .records-table .ach-career-scope {
   font-weight: 600;
-  color: #ffd54f;
+  color: var(--accent-gold-soft);
 }
 .records-table .ach-details {
   color: var(--text-muted);
@@ -301,7 +301,7 @@
 /* Upstream's medal styles by tournament category. World Championship: cosmic crown gold. */
 .medal-wcs-gold {
   background: linear-gradient(135deg, rgba(142, 45, 226, 0.45) 0%, rgba(255, 215, 0, 0.35) 100%);
-  border: 1px solid #ffd700;
+  border: 1px solid var(--accent-gold-bright);
   color: #fff275;
   box-shadow: 0 0 10px rgba(255, 215, 0, 0.55);
 }

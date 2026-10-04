@@ -159,7 +159,7 @@
 }
 
 .options-footer-active strong + strong {
-  color: #fff;
+  color: var(--text-bright);
 }
 
 .options-footer-actions {
@@ -292,11 +292,11 @@
 
 .reset-btn:hover {
   background: rgba(229, 169, 60, 0.15);
-  color: #fff;
+  color: var(--text-bright);
 }
 
 .reset-btn.active {
-  background: linear-gradient(135deg, #e5a93c 0%, #b87c1c 100%);
+  background: var(--gradient-gold);
   box-shadow: 0 1px 4px rgba(0, 0, 0, 0.5);
   color: var(--text-on-gold);
   font-weight: 700;
@@ -471,7 +471,7 @@
 
 .pagination a {
   padding: 0.4rem 0.9rem;
-  background: rgba(43, 29, 20, 0.85);
+  background: var(--surface-panel);
   border: 1px solid var(--border-subtle);
   border-radius: 4px;
   color: var(--text-main);
@@ -720,7 +720,7 @@
 }
 
 .archive-games {
-  color: #ffde8a;
+  color: var(--accent-gold-light);
 }
 
 .archive-ranked {
@@ -745,7 +745,7 @@
 .archive-champion {
   padding: 0.6rem 1rem;
   background: rgba(0, 0, 0, 0.35);
-  border-left: 3px solid #ffd700;
+  border-left: 3px solid var(--accent-gold-bright);
   border-radius: 6px;
   text-align: right;
 }
@@ -766,7 +766,7 @@
 }
 
 .archive-champion-name a {
-  color: #ffd700;
+  color: var(--accent-gold-bright);
   text-decoration: none;
 }
 
@@ -800,5 +800,5 @@
 
 .archive-pills .year-pill-current {
   background: #2e7d32;
-  color: #fff;
+  color: var(--text-bright);
 }

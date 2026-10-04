@@ -18,7 +18,7 @@
   margin-bottom: 0.4rem;
   color: #f7d377;
   font-family: var(--font-heading);
-  font-size: 2.1rem;
+  font-size: var(--size-page-title);
   letter-spacing: 1px;
   text-shadow: 0 2px 4px rgba(0, 0, 0, 0.95);
 }
@@ -27,11 +27,11 @@
   max-width: 880px;
   color: #f1e4d0;
   font-family: var(--font-body);
-  font-size: 1.05rem;
+  font-size: var(--size-body);
   line-height: 1.6;
 }
 
 .analysis-hero-desc strong {
-  color: #ffde8a;
+  color: var(--accent-gold-light);
   font-weight: 700;
 }

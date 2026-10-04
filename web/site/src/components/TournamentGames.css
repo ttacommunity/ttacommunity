@@ -29,7 +29,7 @@
   border: 1px solid var(--border-subtle);
   border-radius: 4px;
   background: #0e0906f2;
-  color: #f3e5c8;
+  color: var(--text-main);
   font-size: 0.9rem;
   text-transform: none;
   letter-spacing: 0;
@@ -93,7 +93,7 @@
   border: 1px solid var(--border-subtle);
   border-radius: 3px;
   background: #120c08cc;
-  color: #ffd54f;
+  color: var(--accent-gold-soft);
   font-family: monospace;
   font-size: 0.85rem;
   letter-spacing: 0.5px;
@@ -162,7 +162,7 @@
 }
 
 .champion-cell .champion-name a {
-  color: #ffd54f;
+  color: var(--accent-gold-soft);
   font-weight: 700;
 }
 
@@ -190,7 +190,7 @@
 }
 
 .ladder-winners a {
-  color: #ffd54f;
+  color: var(--accent-gold-soft);
   font-weight: 700;
   text-decoration: none;
 }
