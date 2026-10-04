@@ -866,6 +866,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/admin/tournaments/{tournament}/card": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Set how a tournament presents itself on its card and its page's header
+         * @description All fields empty removes it. Audited. The Origin must be the admin site.
+         */
+        put: operations["putAdminCard"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/admin/tournaments/{tournament}/regulations": {
         parameters: {
             query?: never;
@@ -1077,6 +1097,15 @@ export interface components {
             /** Format: double */
             change: number;
         };
+        /** @description How a tournament presents itself on its card and its page's header; an empty field is unset */
+        TournamentCard: {
+            /** @description An emoji or a few characters */
+            icon: string;
+            /** @description The short description, such as "Annual World Championship" */
+            tagline: string;
+            /** @description The information box; plain text */
+            summary: string;
+        };
         DataSummary: {
             /** @description Played games */
             games: number;
@@ -1160,6 +1189,7 @@ export interface components {
             role: "admin" | "organiser";
         };
         AdminTournament: {
+            card: components["schemas"]["TournamentCard"];
             /** @description The format and regulations written in admin, empty for none */
             regulations: string;
             /** @description The latest edition's description on CGE, shown when admin has written none; empty for none */
@@ -1837,6 +1867,7 @@ export interface components {
         CatalogueEntry: components["schemas"]["GameSpan"] & {
             slug: string;
             name: string;
+            card: components["schemas"]["TournamentCard"];
             seasons: number;
             /** @description The rankings it is rated in, by slug; none for a tournament not rated */
             rankings: string[];
@@ -1899,6 +1930,7 @@ export interface components {
             cge_pages: string[];
         };
         CatalogueTournament: {
+            card: components["schemas"]["TournamentCard"];
             /** @description A ladder's champions are counted as top-tier wins, not season podiums */
             ladder: boolean;
             /** @description Each CGE edition's description, usually its organiser's format and rules, newest first; plain text */
@@ -3385,6 +3417,35 @@ export interface operations {
                 };
                 content?: never;
             };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    putAdminCard: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The tournament's slug */
+                tournament: components["parameters"]["AdminTournamentSlug"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TournamentCard"];
+            };
+        };
+        responses: {
+            /** @description Saved */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            400: components["responses"]["BadRequest"];
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];

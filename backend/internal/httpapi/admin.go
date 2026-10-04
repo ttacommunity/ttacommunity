@@ -42,6 +42,7 @@ type Admins interface {
 	TitleOverrides(ctx context.Context) ([]store.TitleOverride, error)
 	SetTitle(ctx context.Context, o store.TitleOverride) error
 	ClearTitle(ctx context.Context, name string) error
+	SetCard(ctx context.Context, slug string, c store.Card) error
 	SetRegulations(ctx context.Context, slug, text string) error
 	SetPodium(ctx context.Context, slug, season string, podium []store.PodiumEntry, note string) error
 	ClearPodium(ctx context.Context, slug, season string) error
@@ -147,7 +148,7 @@ func (s *server) GetAdminTournaments(ctx context.Context, _ GetAdminTournamentsR
 			seasons[j] = AdminSeason{Label: se.Label, Note: se.Note, HasGames: se.HasGames, Stages: stages, Podium: podium, PodiumNote: se.PodiumNote}
 		}
 		out[i] = AdminTournament{Slug: t.Slug, Name: t.Name, Visible: t.Visible, Rated: t.Rated, Community: t.Community,
-			Regulations: t.Regulations, CgeRegulations: t.CGERegulations, Seasons: seasons}
+			Card: tournamentCard(t.Card), Regulations: t.Regulations, CgeRegulations: t.CGERegulations, Seasons: seasons}
 	}
 	return GetAdminTournaments200JSONResponse{Body: out, Headers: GetAdminTournaments200ResponseHeaders{CacheControl: cacheNone}}, nil
 }
@@ -746,4 +747,33 @@ func (s *server) GetAdminData(ctx context.Context, _ GetAdminDataRequestObject) 
 		body.LatestGame = &openapi_types.Date{Time: *d.LatestGame}
 	}
 	return GetAdminData200JSONResponse{Body: body, Headers: GetAdminData200ResponseHeaders{CacheControl: cacheNone}}, nil
+}
+
+// tournamentCard turns a tournament's card into the API's.
+func tournamentCard(c store.Card) TournamentCard {
+	return TournamentCard{Icon: c.Icon, Tagline: c.Tagline, Summary: c.Summary}
+}
+
+func (s *server) PutAdminCard(ctx context.Context, req PutAdminCardRequestObject) (PutAdminCardResponseObject, error) {
+	a, ok := adminFrom(ctx)
+	if !ok {
+		return nil, errors.New("admin route reached without the gate")
+	}
+	const tooLong = "a card's icon is at most 8 characters, its description 60 and its information box 1,000"
+	b := req.Body
+	if b == nil {
+		return PutAdminCard400JSONResponse{badRequest400(tooLong)}, nil
+	}
+	switch err := s.admins.SetCard(ctx, req.Tournament, store.Card{Icon: b.Icon, Tagline: b.Tagline, Summary: b.Summary}); {
+	case errors.Is(err, store.ErrNoTournament):
+		return PutAdminCard404JSONResponse{notFound404("no such tournament")}, nil
+	case errors.Is(err, store.ErrBadCard):
+		return PutAdminCard400JSONResponse{badRequest400(tooLong)}, nil
+	case err != nil:
+		return nil, err
+	}
+	if err := s.admins.Audit(ctx, a.DiscordID, "tournament.card", req.Tournament, b); err != nil {
+		return nil, err
+	}
+	return PutAdminCard204Response{}, nil
 }

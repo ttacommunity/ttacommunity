@@ -56,7 +56,7 @@ func TestCatalogue(t *testing.T) {
 	rec, _ := serve(t, f, "/v1/runs/7/catalogue")
 	want := `{"cge_tournaments":[{"cge_tournament":5373,"finished":"2025-11-19","name":"Nations Cup","organiser":"","rated":false,"started":null,` +
 		`"status":"finished","tournament":"nations_cup","url":"https://account.czechgames.com/tournaments/detail/5373"}],"run_id":7,` +
-		`"tournaments":[{"first_game":"2019-03-10","games":25342,"last_game":"2026-05-31","name":"Intermezzo","players":1900,"rankings":["community"],"seasons":30,"slug":"intermezzo"}]}`
+		`"tournaments":[{"card":{"icon":"","summary":"","tagline":""},"first_game":"2019-03-10","games":25342,"last_game":"2026-05-31","name":"Intermezzo","players":1900,"rankings":["community"],"seasons":30,"slug":"intermezzo"}]}`
 	if got := strings.TrimSpace(rec.Body.String()); rec.Code != http.StatusOK || got != want {
 		t.Errorf("GET catalogue: %d %s\nwant 200 %s", rec.Code, got, want)
 	}
@@ -83,7 +83,7 @@ func TestCatalogueTournament(t *testing.T) {
 	}}, Ladder: true, TopTierWins: []store.LadderWin{{Name: "wolvs", Wins: 10, Source: "Hall of Fame"}, {Name: "Grozz", Wins: 3.5, Source: "Hall of Fame"}},
 		Players: []string{"Grozz", "saru"}, Rules: []store.EditionRules{{CGETournament: 4991, Name: "Wimbledon 2024", Description: "2p knock-out."}}}}
 	rec, _ := serve(t, f, "/v1/runs/7/catalogue/wimbledon")
-	want := `{"ladder":true,"name":"Wimbledon","players":["Grozz","saru"],` +
+	want := `{"card":{"icon":"","summary":"","tagline":""},"ladder":true,"name":"Wimbledon","players":["Grozz","saru"],` +
 		`"rules":[{"cge_tournament":4991,"description":"2p knock-out.","name":"Wimbledon 2024","url":"https://account.czechgames.com/tournaments/detail/4991"}],"run_id":7,"seasons":[{"cge_pages":["https://account.czechgames.com/tournaments/detail/4991","https://account.czechgames.com/tournaments/detail/19/20"],` +
 		`"first_game":"2024-07-01","games":632,"label":"2024","last_game":"2025-02-24","note":"The first held in two halves.","players":128,` +
 		`"podium":[{"final":"","finished":"2025-02-24","name":"saru","place":1,"source":"CGE /tournaments/detail/4991/7"}],` +
@@ -181,6 +181,21 @@ func TestCatalogueTournamentSendsAdminsRegulationsOnlyWhenWritten(t *testing.T) 
 		rec, _ := serve(t, f, "/v1/runs/7/catalogue/wimbledon")
 		if got := strings.Contains(rec.Body.String(), tt.want); got != (tt.regulations != "") {
 			t.Errorf("regulations %q: body = %s", tt.regulations, rec.Body)
+		}
+	}
+}
+
+func TestCatalogueSendsEachTournamentsCard(t *testing.T) {
+	card := store.Card{Icon: "🎾", Tagline: "Grass-court slam", Summary: "Played each July."}
+	f := &fakeCatalogue{
+		view:       store.CatalogueView{Tournaments: []store.CatalogueEntry{{Slug: "wimbledon", Name: "Wimbledon", Rankings: []string{}, Card: card}}},
+		tournament: store.CatalogueTournament{Slug: "wimbledon", Name: "Wimbledon", Card: card},
+	}
+	want := `"card":{"icon":"🎾","summary":"Played each July.","tagline":"Grass-court slam"}`
+	for _, path := range []string{"/v1/runs/7/catalogue", "/v1/runs/7/catalogue/wimbledon"} {
+		rec, _ := serve(t, f, path)
+		if !strings.Contains(rec.Body.String(), want) {
+			t.Errorf("GET %s = %s, want the card", path, rec.Body)
 		}
 	}
 }

@@ -654,6 +654,9 @@ type AdminTitle string
 
 // AdminTournament defines model for AdminTournament.
 type AdminTournament struct {
+	// Card How a tournament presents itself on its card and its page's header; an empty field is unset
+	Card TournamentCard `json:"card"`
+
 	// CgeRegulations The latest edition's description on CGE, shown when admin has written none; empty for none
 	CgeRegulations string `json:"cge_regulations"`
 
@@ -793,6 +796,8 @@ type Catalogue struct {
 
 // CatalogueEntry A tournament as the catalogue names it, with its seasons and games
 type CatalogueEntry struct {
+	// Card How a tournament presents itself on its card and its page's header; an empty field is unset
+	Card      TournamentCard     `json:"card"`
 	FirstGame openapi_types.Date `json:"first_game"`
 	Games     int                `json:"games"`
 	LastGame  openapi_types.Date `json:"last_game"`
@@ -882,6 +887,9 @@ type CatalogueStage struct {
 
 // CatalogueTournament defines model for CatalogueTournament.
 type CatalogueTournament struct {
+	// Card How a tournament presents itself on its card and its page's header; an empty field is unset
+	Card TournamentCard `json:"card"`
+
 	// Ladder A ladder's champions are counted as top-tier wins, not season podiums
 	Ladder bool   `json:"ladder"`
 	Name   string `json:"name"`
@@ -1636,6 +1644,18 @@ type TitleSetting struct {
 	Title AdminTitle `json:"title"`
 }
 
+// TournamentCard How a tournament presents itself on its card and its page's header; an empty field is unset
+type TournamentCard struct {
+	// Icon An emoji or a few characters
+	Icon string `json:"icon"`
+
+	// Summary The information box; plain text
+	Summary string `json:"summary"`
+
+	// Tagline The short description, such as "Annual World Championship"
+	Tagline string `json:"tagline"`
+}
+
 // TournamentRecord defines model for TournamentRecord.
 type TournamentRecord struct {
 	// Career A career total, not one season or tournament
@@ -1982,6 +2002,9 @@ type PutAdminTitleJSONRequestBody = TitleSetting
 // PatchAdminTournamentJSONRequestBody defines body for PatchAdminTournament for application/json ContentType.
 type PatchAdminTournamentJSONRequestBody = TournamentSettings
 
+// PutAdminCardJSONRequestBody defines body for PutAdminCard for application/json ContentType.
+type PutAdminCardJSONRequestBody = TournamentCard
+
 // PutAdminNoteJSONRequestBody defines body for PutAdminNote for application/json ContentType.
 type PutAdminNoteJSONRequestBody = SeasonNote
 
@@ -2065,6 +2088,9 @@ type ServerInterface interface {
 	// PatchAdminTournament Change whether a tournament is shown, rated, or counted in the community leaderboard
 	// (PATCH /v1/admin/tournaments/{tournament})
 	PatchAdminTournament(w http.ResponseWriter, r *http.Request, tournament AdminTournamentSlug)
+	// PutAdminCard Set how a tournament presents itself on its card and its page's header
+	// (PUT /v1/admin/tournaments/{tournament}/card)
+	PutAdminCard(w http.ResponseWriter, r *http.Request, tournament AdminTournamentSlug)
 	// PutAdminNote Set the note shown beside a season or one of its stages; an empty note removes it
 	// (PUT /v1/admin/tournaments/{tournament}/notes)
 	PutAdminNote(w http.ResponseWriter, r *http.Request, tournament AdminTournamentSlug)
@@ -2648,6 +2674,32 @@ func (siw *ServerInterfaceWrapper) PatchAdminTournament(w http.ResponseWriter, r
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.PatchAdminTournament(w, r, tournament)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// PutAdminCard operation middleware
+func (siw *ServerInterfaceWrapper) PutAdminCard(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "tournament" -------------
+	var tournament AdminTournamentSlug
+
+	err = runtime.BindStyledParameterWithOptions("simple", "tournament", r.PathValue("tournament"), &tournament, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "tournament", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.PutAdminCard(w, r, tournament)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -4267,6 +4319,7 @@ func HandlerWithOptions(si ServerInterface, options StdHTTPServerOptions) http.H
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/v1/admin/titles", wrapper.GetAdminTitles)
 	m.HandleFunc(http.MethodDelete+" "+options.BaseURL+"/v1/admin/titles/{player}", wrapper.DeleteAdminTitle)
 	m.HandleFunc(http.MethodPut+" "+options.BaseURL+"/v1/admin/titles/{player}", wrapper.PutAdminTitle)
+	m.HandleFunc(http.MethodPut+" "+options.BaseURL+"/v1/admin/tournaments/{tournament}/card", wrapper.PutAdminCard)
 	m.HandleFunc(http.MethodPut+" "+options.BaseURL+"/v1/admin/tournaments/{tournament}/regulations", wrapper.PutAdminRegulations)
 	m.HandleFunc(http.MethodDelete+" "+options.BaseURL+"/v1/admin/tournaments/{tournament}/podium", wrapper.DeleteAdminPodium)
 	m.HandleFunc(http.MethodPut+" "+options.BaseURL+"/v1/admin/tournaments/{tournament}/podium", wrapper.PutAdminPodium)
@@ -5838,6 +5891,83 @@ func (response PatchAdminTournament403JSONResponse) VisitPatchAdminTournamentRes
 type PatchAdminTournament404JSONResponse struct{ NotFoundJSONResponse }
 
 func (response PatchAdminTournament404JSONResponse) VisitPatchAdminTournamentResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PutAdminCardRequestObject struct {
+	Tournament AdminTournamentSlug `json:"tournament"`
+	Body       *PutAdminCardJSONRequestBody
+}
+
+type PutAdminCardResponseObject interface {
+	VisitPutAdminCardResponse(w http.ResponseWriter) error
+}
+
+type PutAdminCard204Response struct {
+}
+
+func (response PutAdminCard204Response) VisitPutAdminCardResponse(w http.ResponseWriter) error {
+	w.WriteHeader(204)
+	return nil
+}
+
+type PutAdminCard400JSONResponse struct{ BadRequestJSONResponse }
+
+func (response PutAdminCard400JSONResponse) VisitPutAdminCardResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PutAdminCard401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response PutAdminCard401JSONResponse) VisitPutAdminCardResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PutAdminCard403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response PutAdminCard403JSONResponse) VisitPutAdminCardResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PutAdminCard404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response PutAdminCard404JSONResponse) VisitPutAdminCardResponse(w http.ResponseWriter) error {
 
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
@@ -7885,6 +8015,9 @@ type StrictServerInterface interface {
 	// PatchAdminTournament Change whether a tournament is shown, rated, or counted in the community leaderboard
 	// (PATCH /v1/admin/tournaments/{tournament})
 	PatchAdminTournament(ctx context.Context, request PatchAdminTournamentRequestObject) (PatchAdminTournamentResponseObject, error)
+	// PutAdminCard Set how a tournament presents itself on its card and its page's header
+	// (PUT /v1/admin/tournaments/{tournament}/card)
+	PutAdminCard(ctx context.Context, request PutAdminCardRequestObject) (PutAdminCardResponseObject, error)
 	// PutAdminNote Set the note shown beside a season or one of its stages; an empty note removes it
 	// (PUT /v1/admin/tournaments/{tournament}/notes)
 	PutAdminNote(ctx context.Context, request PutAdminNoteRequestObject) (PutAdminNoteResponseObject, error)
@@ -8624,6 +8757,39 @@ func (sh *strictHandler) PatchAdminTournament(w http.ResponseWriter, r *http.Req
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(PatchAdminTournamentResponseObject); ok {
 		if err := validResponse.VisitPatchAdminTournamentResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// PutAdminCard operation middleware
+func (sh *strictHandler) PutAdminCard(w http.ResponseWriter, r *http.Request, tournament AdminTournamentSlug) {
+	var request PutAdminCardRequestObject
+
+	request.Tournament = tournament
+
+	var body PutAdminCardJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.PutAdminCard(ctx, request.(PutAdminCardRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "PutAdminCard")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(PutAdminCardResponseObject); ok {
+		if err := validResponse.VisitPutAdminCardResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {

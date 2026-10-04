@@ -1226,6 +1226,31 @@ paths:
           $ref: "#/components/responses/Forbidden"
         "404":
           $ref: "#/components/responses/NotFound"
+  /v1/admin/tournaments/{tournament}/card:
+    put:
+      operationId: putAdminCard
+      tags: [admin]
+      summary: Set how a tournament presents itself on its card and its page's header
+      description: All fields empty removes it. Audited. The Origin must be the admin site.
+      parameters:
+        - $ref: "#/components/parameters/AdminTournamentSlug"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TournamentCard"
+      responses:
+        "204":
+          description: Saved
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
   /v1/admin/tournaments/{tournament}/regulations:
     put:
       operationId: putAdminRegulations
@@ -1709,6 +1734,24 @@ components:
         change:
           type: number
           format: double
+    TournamentCard:
+      description: How a tournament presents itself on its card and its page's header; an empty field is unset
+      type: object
+      additionalProperties: false
+      required: [icon, tagline, summary]
+      properties:
+        icon:
+          description: An emoji or a few characters
+          type: string
+          maxLength: 8
+        tagline:
+          description: The short description, such as "Annual World Championship"
+          type: string
+          maxLength: 60
+        summary:
+          description: The information box; plain text
+          type: string
+          maxLength: 1000
     DataSummary:
       type: object
       required: [games, never_played, unplaced, players, latest_game, last_load, last_load_refused]
@@ -1876,8 +1919,10 @@ components:
           enum: [admin, organiser]
     AdminTournament:
       type: object
-      required: [slug, name, visible, rated, community, regulations, cge_regulations, seasons]
+      required: [slug, name, visible, rated, community, card, regulations, cge_regulations, seasons]
       properties:
+        card:
+          $ref: "#/components/schemas/TournamentCard"
         regulations:
           description: The format and regulations written in admin, empty for none
           type: string
@@ -3081,12 +3126,14 @@ components:
       allOf:
         - $ref: "#/components/schemas/GameSpan"
         - type: object
-          required: [slug, name, seasons, rankings]
+          required: [slug, name, seasons, rankings, card]
           properties:
             slug:
               type: string
             name:
               type: string
+            card:
+              $ref: "#/components/schemas/TournamentCard"
             seasons:
               type: integer
             rankings:
@@ -3202,8 +3249,10 @@ components:
                 type: string
     CatalogueTournament:
       type: object
-      required: [run_id, slug, name, seasons, ladder, top_tier_wins, players, rules]
+      required: [run_id, slug, name, card, seasons, ladder, top_tier_wins, players, rules]
       properties:
+        card:
+          $ref: "#/components/schemas/TournamentCard"
         ladder:
           description: A ladder's champions are counted as top-tier wins, not season podiums
           type: boolean

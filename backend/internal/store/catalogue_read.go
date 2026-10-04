@@ -31,6 +31,13 @@ type CatalogueEntry struct {
 	Seasons    int
 	Rankings   []string
 	Span       GameSpan
+	Card       Card
+}
+
+// Card is how a tournament presents itself on its card and its page's header, as admin writes it; empty fields
+// are unset.
+type Card struct {
+	Icon, Tagline, Summary string
 }
 
 // CGEEntry is a tournament on CGE's site, with which of ours it is (Tournament,
@@ -111,6 +118,7 @@ type CatalogueTournament struct {
 	Rules       []EditionRules
 	// Regulations is the format and regulations written in admin, shown instead of the rules; empty for none.
 	Regulations string
+	Card        Card
 }
 
 // EditionRules is one CGE tournament's description of a tournament edition
@@ -146,15 +154,18 @@ func (r *RatingsReader) Catalogue(ctx context.Context, run int64) (CatalogueView
 		WITH g AS (`+placedSeats+`)
 		SELECT slug, name, count(DISTINCT season_id), count(DISTINCT match_id), count(DISTINCT player), min(date), max(date),
 		       array(SELECT k.slug FROM ranking_tournaments rt JOIN rankings k USING (ranking_id)
-		             JOIN tournaments t USING (tournament_id) WHERE t.slug = g.slug ORDER BY k.slug)
-		FROM g GROUP BY slug, name ORDER BY name, slug`)
+		             JOIN tournaments t USING (tournament_id) WHERE t.slug = g.slug ORDER BY k.slug),
+		       coalesce(c.icon, ''), coalesce(c.tagline, ''), coalesce(c.summary, '')
+		FROM g LEFT JOIN tournament_cards c ON c.tournament = g.slug
+		GROUP BY slug, name, c.icon, c.tagline, c.summary ORDER BY name, slug`)
 	if err != nil {
 		return CatalogueView{}, fmt.Errorf("reading the catalogue: %w", err)
 	}
 	var got CatalogueView
 	got.Tournaments, err = pgx.CollectRows(rows, func(row pgx.CollectableRow) (CatalogueEntry, error) {
 		var e CatalogueEntry
-		return e, row.Scan(&e.Slug, &e.Name, &e.Seasons, &e.Span.Games, &e.Span.Players, &e.Span.First, &e.Span.Last, &e.Rankings)
+		return e, row.Scan(&e.Slug, &e.Name, &e.Seasons, &e.Span.Games, &e.Span.Players, &e.Span.First, &e.Span.Last, &e.Rankings,
+			&e.Card.Icon, &e.Card.Tagline, &e.Card.Summary)
 	})
 	if err != nil {
 		return CatalogueView{}, fmt.Errorf("reading the catalogue: %w", err)
@@ -393,6 +404,11 @@ func (r *RatingsReader) CatalogueTournament(ctx context.Context, run int64, slug
 	err = r.pool.QueryRow(ctx, "SELECT coalesce((SELECT text FROM tournament_regulations WHERE tournament = $1), '')", slug).Scan(&got.Regulations)
 	if err != nil {
 		return fail("regulations", err)
+	}
+	err = r.pool.QueryRow(ctx, `SELECT coalesce(max(icon), ''), coalesce(max(tagline), ''), coalesce(max(summary), '')
+		FROM tournament_cards WHERE tournament = $1`, slug).Scan(&got.Card.Icon, &got.Card.Tagline, &got.Card.Summary)
+	if err != nil {
+		return fail("card", err)
 	}
 
 	// Every player of the shown tournament, for a search box's suggestions.

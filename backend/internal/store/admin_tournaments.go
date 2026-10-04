@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"regexp"
 	"strings"
+	"unicode/utf8"
 
 	"github.com/jackc/pgx/v5"
 )
@@ -24,6 +25,7 @@ type AdminTournament struct {
 	Community      bool
 	Regulations    string
 	CGERegulations string
+	Card           Card
 	Seasons        []AdminSeason
 }
 
@@ -61,6 +63,7 @@ func (a *AdminStore) Tournaments(ctx context.Context) ([]AdminTournament, error)
 		       EXISTS (SELECT 1 FROM ranking_tournaments rt JOIN rankings r USING (ranking_id)
 		               WHERE r.slug = 'community' AND rt.tournament_id = t.tournament_id),
 		       coalesce((SELECT text FROM tournament_regulations g WHERE g.tournament = t.slug), ''),
+		       coalesce(k.icon, ''), coalesce(k.tagline, ''), coalesce(k.summary, ''),
 		       coalesce((SELECT c.description FROM cge_tournaments c WHERE c.tournament_id = t.tournament_id AND c.description <> ''
 		                 ORDER BY coalesce(c.started, c.created, c.finished) DESC NULLS LAST, c.cge_tournament DESC LIMIT 1), ''),
 		       se.label, coalesce(st.label, ''),
@@ -68,6 +71,7 @@ func (a *AdminStore) Tournaments(ctx context.Context) ([]AdminTournament, error)
 		       coalesce((SELECT note FROM tournament_season_notes n WHERE n.tournament = t.slug AND n.season = se.label AND n.stage = st.label AND st.label <> ''), ''),
 		       d.last IS NOT NULL
 		FROM tournaments t
+		LEFT JOIN tournament_cards k ON k.tournament = t.slug
 		LEFT JOIN tournament_seasons se USING (tournament_id)
 		LEFT JOIN tournament_stages st USING (season_id)
 		LEFT JOIN LATERAL (SELECT max(m.date) AS last FROM tournament_stages s2 JOIN matches m ON m.stage_id = s2.stage_id
@@ -81,13 +85,14 @@ func (a *AdminStore) Tournaments(ctx context.Context) ([]AdminTournament, error)
 	var slug, name string
 	var visible, community, rated bool
 	var regulations, cgeRegulations string
+	var card Card
 	var season, stage, seasonNote, stageNote *string
 	var hasGames bool
-	_, err = pgx.ForEachRow(rows, []any{&slug, &name, &visible, &community, &rated, &regulations, &cgeRegulations,
-		&season, &stage, &seasonNote, &stageNote, &hasGames}, func() error {
+	_, err = pgx.ForEachRow(rows, []any{&slug, &name, &visible, &community, &rated, &regulations,
+		&card.Icon, &card.Tagline, &card.Summary, &cgeRegulations, &season, &stage, &seasonNote, &stageNote, &hasGames}, func() error {
 		if len(out) == 0 || out[len(out)-1].Slug != slug {
 			out = append(out, AdminTournament{Slug: slug, Name: name, Visible: visible, Rated: rated, Community: community,
-				Regulations: regulations, CGERegulations: cgeRegulations, Seasons: []AdminSeason{}})
+				Regulations: regulations, CGERegulations: cgeRegulations, Card: card, Seasons: []AdminSeason{}})
 		}
 		t := &out[len(out)-1]
 		if season == nil {
@@ -346,6 +351,36 @@ func (a *AdminStore) SetRegulations(ctx context.Context, slug, text string) erro
 		}
 		if _, err := tx.Exec(ctx, q, args...); err != nil {
 			return fmt.Errorf("setting the regulations of %s: %w", slug, err)
+		}
+		return nil
+	})
+}
+
+// ErrBadCard means a card's icon is over 8 characters, its description over 60 or its information box over 1,000.
+var ErrBadCard = errors.New("a card's icon is at most 8 characters, its description 60 and its information box 1,000")
+
+// SetCard saves a tournament's card, trimmed; an empty card removes it. It returns ErrNoTournament or ErrBadCard.
+func (a *AdminStore) SetCard(ctx context.Context, slug string, c Card) error {
+	c = Card{Icon: strings.TrimSpace(c.Icon), Tagline: strings.TrimSpace(c.Tagline), Summary: strings.TrimSpace(c.Summary)}
+	if utf8.RuneCountInString(c.Icon) > 8 || utf8.RuneCountInString(c.Tagline) > 60 || utf8.RuneCountInString(c.Summary) > 1000 {
+		return ErrBadCard
+	}
+	return pgx.BeginFunc(ctx, a.pool, func(tx pgx.Tx) error {
+		var exists bool
+		if err := tx.QueryRow(ctx, "SELECT EXISTS (SELECT 1 FROM tournaments WHERE slug = $1)", slug).Scan(&exists); err != nil {
+			return fmt.Errorf("setting the card of %s: %w", slug, err)
+		}
+		if !exists {
+			return ErrNoTournament
+		}
+		q := `INSERT INTO tournament_cards (tournament, icon, tagline, summary) VALUES ($1, $2, $3, $4)
+			ON CONFLICT (tournament) DO UPDATE SET icon = excluded.icon, tagline = excluded.tagline, summary = excluded.summary`
+		args := []any{slug, c.Icon, c.Tagline, c.Summary}
+		if c == (Card{}) {
+			q, args = "DELETE FROM tournament_cards WHERE tournament = $1", []any{slug}
+		}
+		if _, err := tx.Exec(ctx, q, args...); err != nil {
+			return fmt.Errorf("setting the card of %s: %w", slug, err)
 		}
 		return nil
 	})

@@ -36,7 +36,7 @@ var ExportTables = []string{
 	"tournament_group_divisions", "tournament_ladder_wins", "tournament_official_placements",
 	"tournament_season_corrections", "tournament_season_notes", "tournament_season_rules",
 	"tournament_podium_overrides", "tournament_regulations", "player_title_overrides",
-	"badges", "player_badges",
+	"badges", "player_badges", "tournament_cards",
 	"admins", "admin_audit",
 }
 
@@ -152,9 +152,11 @@ func Restore(ctx context.Context, pool *pgxpool.Pool, dir string) error {
 	if err := checkEmpty(ctx, tx); err != nil {
 		return err
 	}
-	// The migrations seed the community ranking; the export holds it too.
-	if _, err := tx.Exec(ctx, "DELETE FROM rankings"); err != nil {
-		return fmt.Errorf("restoring: %w", err)
+	// The migrations seed these; the export holds them too.
+	for _, t := range seededTables {
+		if _, err := tx.Exec(ctx, "DELETE FROM "+pgx.Identifier{t}.Sanitize()); err != nil {
+			return fmt.Errorf("restoring: %w", err)
+		}
 	}
 	for _, t := range m.Tables {
 		if err := restoreTable(ctx, tx, dir, t); err != nil {
@@ -247,9 +249,12 @@ func checkInputTables(ctx context.Context, tx pgx.Tx) error {
 }
 
 // checkEmpty refuses a database holding any run or input, other than the rankings the migrations seed.
+// seededTables are the input tables the migrations fill: the community ranking, and the first tournament cards.
+var seededTables = []string{"rankings", "tournament_cards"}
+
 func checkEmpty(ctx context.Context, tx pgx.Tx) error {
 	for _, t := range append([]string{"rating_runs"}, ExportTables...) {
-		if t == "rankings" {
+		if slices.Contains(seededTables, t) {
 			continue
 		}
 		var any bool

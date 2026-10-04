@@ -38,6 +38,9 @@ func placedOn(t *testing.T, pool *pgxpool.Pool, games map[string]time.Time) {
 func TestCatalogueListsEachTournamentWithGames(t *testing.T) {
 	pool := migrated(t)
 	run := publishedRun(t, pool)
+	if _, err := pool.Exec(context.Background(), "DELETE FROM tournament_cards"); err != nil {
+		t.Fatal(err)
+	}
 	placedOn(t, pool, map[string]time.Time{
 		"Intermezzo S24 - Bronze 1 game 1":        day("2024-01-02"),
 		"Intermezzo S24 - Bronze 1 game 2":        day("2024-02-03"),
@@ -578,5 +581,42 @@ func TestCatalogueTournamentGivesTheRegulationsWrittenInAdmin(t *testing.T) {
 	}
 	if got, _ = r.CatalogueTournament(ctx, run, "wimbledon"); got.Regulations != "Best of three." {
 		t.Errorf("regulations = %q, want admin's", got.Regulations)
+	}
+}
+
+func TestCatalogueGivesEachTournamentsCard(t *testing.T) {
+	pool := migrated(t)
+	ctx := context.Background()
+	run := publishedRun(t, pool)
+	placedOn(t, pool, map[string]time.Time{"Wimbledon 2024 Stage 1 - group 1 game 1": day("2024-07-01")})
+	r := NewRatingsReader(asReader(t, pool))
+	card := func() (Card, Card) {
+		t.Helper()
+		view, err := r.Catalogue(ctx, run)
+		if err != nil {
+			t.Fatalf("Catalogue: %v", err)
+		}
+		one, err := r.CatalogueTournament(ctx, run, "wimbledon")
+		if err != nil {
+			t.Fatalf("CatalogueTournament: %v", err)
+		}
+		for _, e := range view.Tournaments {
+			if e.Slug == "wimbledon" {
+				return e.Card, one.Card
+			}
+		}
+		t.Fatalf("no wimbledon in %+v", view.Tournaments)
+		return Card{}, Card{}
+	}
+
+	if inList, onPage := card(); inList != (Card{}) || onPage != (Card{}) {
+		t.Errorf("cards before any = %+v, %+v; want empty", inList, onPage)
+	}
+	if _, err := pool.Exec(ctx, "INSERT INTO tournament_cards VALUES ('wimbledon', '🎾', 'Grass-court slam', 'Played each July.')"); err != nil {
+		t.Fatal(err)
+	}
+	want := Card{Icon: "🎾", Tagline: "Grass-court slam", Summary: "Played each July."}
+	if inList, onPage := card(); inList != want || onPage != want {
+		t.Errorf("cards = %+v, %+v; want %+v on both", inList, onPage, want)
 	}
 }

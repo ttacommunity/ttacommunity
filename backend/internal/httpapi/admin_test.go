@@ -101,6 +101,7 @@ func (*fakeAdmins) AllowedOrigin() string { return "https://ttac-admin.example" 
 
 func (*fakeAdmins) Tournaments(context.Context) ([]store.AdminTournament, error) {
 	return []store.AdminTournament{{Slug: "worlds", Name: "World Championship", Rated: true, Regulations: "Mine.", CGERegulations: "CGE's.",
+		Card: store.Card{Icon: "🏆", Tagline: "Annual World Championship", Summary: "The pinnacle."},
 		Seasons: []store.AdminSeason{{Label: "2025", Stages: []store.AdminStage{{Label: "Stage 1", Note: "n"}},
 			Podium: []store.PodiumEntry{{Place: 1, Name: "a440"}}, PodiumNote: "CGE"}}}}, nil
 }
@@ -241,6 +242,17 @@ func (f *fakeAdmins) ClearTitle(_ context.Context, name string) error {
 		return store.ErrNoTitle
 	}
 	f.notes = append(f.notes, "clear title "+name)
+	return nil
+}
+
+func (f *fakeAdmins) SetCard(_ context.Context, slug string, c store.Card) error {
+	if slug != "worlds" {
+		return store.ErrNoTournament
+	}
+	if c.Icon == "toolong" {
+		return store.ErrBadCard
+	}
+	f.notes = append(f.notes, "card "+c.Icon+"|"+c.Tagline+"|"+c.Summary)
 	return nil
 }
 
@@ -877,5 +889,40 @@ func TestAdminDataSummaryIsForAdminsAndOrganisers(t *testing.T) {
 		if got.Games != 144691 || got.NeverPlayed != 36 || got.LatestGame == nil || got.LastLoad != nil {
 			t.Errorf("data = %+v", got)
 		}
+	}
+}
+
+func TestAnOrganiserSetsATournamentsCard(t *testing.T) {
+	const site = "https://ttac-admin.example"
+	f := &fakeAdmins{}
+	rec := adminDo(t, f, http.MethodPut, "/v1/admin/tournaments/worlds/card", site, `{"icon": "🏆", "tagline": "Annual", "summary": "The pinnacle."}`)
+	if rec.Code != http.StatusNoContent {
+		t.Fatalf("PUT card = %d %s, want 204", rec.Code, rec.Body)
+	}
+	if strings.Join(f.notes, "|") != "card 🏆|Annual|The pinnacle." || strings.Join(f.audits, "|") != "222222222222222222 tournament.card worlds" {
+		t.Errorf("changes %q, audits %q", f.notes, f.audits)
+	}
+	for _, tt := range []struct {
+		name, path, origin, body string
+		want                     int
+	}{
+		{"another site", "/v1/admin/tournaments/worlds/card", "https://evil.example", `{"icon": "", "tagline": "", "summary": ""}`, http.StatusForbidden},
+		{"no such tournament", "/v1/admin/tournaments/nope/card", site, `{"icon": "", "tagline": "", "summary": ""}`, http.StatusNotFound},
+		{"too long for the store", "/v1/admin/tournaments/worlds/card", site, `{"icon": "toolong", "tagline": "", "summary": ""}`, http.StatusBadRequest},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			f := &fakeAdmins{}
+			if rec := adminDo(t, f, http.MethodPut, tt.path, tt.origin, tt.body); rec.Code != tt.want {
+				t.Errorf("PUT = %d %s, want %d", rec.Code, rec.Body, tt.want)
+			}
+			if len(f.notes)+len(f.audits) != 0 {
+				t.Errorf("a refused change still changed something: %q %q", f.notes, f.audits)
+			}
+		})
+	}
+	rec = adminDo(t, &fakeAdmins{}, http.MethodGet, "/v1/admin/tournaments", "", "")
+	var got []AdminTournament
+	if err := json.Unmarshal(rec.Body.Bytes(), &got); err != nil || got[0].Card.Tagline != "Annual World Championship" {
+		t.Errorf("GET = %s, want the card", rec.Body)
 	}
 }

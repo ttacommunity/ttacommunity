@@ -6,6 +6,7 @@ import (
 	"context"
 	"errors"
 	"reflect"
+	"strings"
 	"testing"
 	"time"
 
@@ -262,5 +263,52 @@ func TestSetRegulationsReplacesAndAnEmptyTextRemoves(t *testing.T) {
 	}
 	if err := a.SetRegulations(ctx, "nope", "x"); !errors.Is(err, ErrNoTournament) {
 		t.Errorf("SetRegulations(nope) = %v, want ErrNoTournament", err)
+	}
+}
+
+func TestSetCardReplacesAndAnEmptyCardRemoves(t *testing.T) {
+	pool := migrated(t)
+	ctx := context.Background()
+	placedOn(t, pool, map[string]time.Time{"Wimbledon 2024 Stage 1 - group 1 game 1": day("2024-07-01")})
+	a := NewAdminStore(asAdminLogin(t, pool))
+	card := func() Card {
+		t.Helper()
+		ts, err := a.Tournaments(ctx)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return adminTournament(t, ts, "wimbledon").Card
+	}
+
+	if got := card(); got != (Card{}) {
+		t.Errorf("card before any = %+v, want empty", got)
+	}
+	if err := a.SetCard(ctx, "wimbledon", Card{Icon: " 🎾 ", Tagline: " Grass-court slam ", Summary: " Played each July. "}); err != nil {
+		t.Fatalf("SetCard: %v", err)
+	}
+	if got, want := card(), (Card{Icon: "🎾", Tagline: "Grass-court slam", Summary: "Played each July."}); got != want {
+		t.Errorf("card = %+v, want %+v, trimmed", got, want)
+	}
+	if err := a.SetCard(ctx, "wimbledon", Card{}); err != nil {
+		t.Fatalf("SetCard(empty): %v", err)
+	}
+	if got := card(); got != (Card{}) {
+		t.Errorf("card after an empty one = %+v, want none", got)
+	}
+	for _, tt := range []struct {
+		name, slug string
+		c          Card
+		want       error
+	}{
+		{"no such tournament", "nope", Card{Icon: "x"}, ErrNoTournament},
+		{"a long icon", "wimbledon", Card{Icon: "🎾🎾🎾🎾🎾🎾🎾🎾🎾"}, ErrBadCard},
+		{"a long description", "wimbledon", Card{Tagline: strings.Repeat("x", 61)}, ErrBadCard},
+		{"a long information box", "wimbledon", Card{Summary: strings.Repeat("x", 1001)}, ErrBadCard},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			if err := a.SetCard(ctx, tt.slug, tt.c); !errors.Is(err, tt.want) {
+				t.Errorf("SetCard = %v, want %v", err, tt.want)
+			}
+		})
 	}
 }

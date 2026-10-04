@@ -36,7 +36,7 @@ func (s *server) GetCatalogue(ctx context.Context, req GetCatalogueRequestObject
 	}
 	for _, e := range view.Tournaments {
 		body.Tournaments = append(body.Tournaments, CatalogueEntry{
-			Slug: e.Slug, Name: e.Name, Seasons: e.Seasons, Rankings: append([]string{}, e.Rankings...),
+			Slug: e.Slug, Name: e.Name, Card: tournamentCard(e.Card), Seasons: e.Seasons, Rankings: append([]string{}, e.Rankings...),
 			Games: e.Span.Games, Players: e.Span.Players,
 			FirstGame: openapi_types.Date{Time: e.Span.First}, LastGame: openapi_types.Date{Time: e.Span.Last},
 		})
@@ -67,7 +67,7 @@ func (s *server) GetCatalogueTournament(ctx context.Context, req GetCatalogueTou
 		return nil, err
 	}
 	body := CatalogueTournament{
-		RunId: req.Run, Slug: t.Slug, Name: t.Name, Seasons: make([]CatalogueSeason, 0, len(t.Seasons)),
+		RunId: req.Run, Slug: t.Slug, Name: t.Name, Card: tournamentCard(t.Card), Seasons: make([]CatalogueSeason, 0, len(t.Seasons)),
 		Ladder: t.Ladder, TopTierWins: make([]LadderWin, 0, len(t.TopTierWins)), Players: append([]string{}, t.Players...),
 	}
 	if t.Regulations != "" {
