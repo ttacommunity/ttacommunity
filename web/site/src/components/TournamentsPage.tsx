@@ -11,7 +11,7 @@ import {
   type CatalogueTournament,
   type TournamentSeries,
 } from '@ttac/shared/ratings';
-import { SERIES_CONTENT, SINGLE_TOURNAMENTS } from '../lib/tournament-series';
+import { MAJORS, majorName } from '../lib/tournament-series';
 import { SeriesSections } from './TournamentSeriesPage';
 import { playerHref } from '../lib/player-view';
 import TournamentCard from './TournamentCard';
@@ -77,15 +77,15 @@ function TournamentList({ apiUrl }: { apiUrl: string }) {
       ) : (
         <div className="series-grid">
           {load.data.tournaments.map((t) => {
-            const c = SINGLE_TOURNAMENTS.has(t.slug as never) ? SERIES_CONTENT.find((x) => x.slug === t.slug) : undefined;
+            const major = majorName(t.slug);
             return (
               <TournamentCard
                 key={t.slug}
                 href={catalogueHref(t.slug)}
-                name={shownName(c?.name ?? t.name, t.rankings.length > 0)}
+                name={shownName(major ?? t.name, t.rankings.length > 0)}
                 card={cardView(t.card)}
                 rows={entryRows(t)}
-                cta={c !== undefined ? 'View Champions, Rules & Games' : 'View Champions & Games'}
+                cta={major !== undefined ? 'View Champions, Rules & Games' : 'View Champions & Games'}
               />
             );
           })}
@@ -149,7 +149,7 @@ function CgeList({ data }: { data: Catalogue }) {
 function TournamentDetail({ apiUrl, slug }: { apiUrl: string; slug: string }) {
   const [load, setLoad] = useState<Load<{ run: number; t: CatalogueTournament }>>({ kind: 'loading' });
   const [pick, setPick] = useState<{ season: string; n: number }>({ season: '', n: 0 });
-  const content = SINGLE_TOURNAMENTS.has(slug as never) ? SERIES_CONTENT.find((c) => c.slug === slug) : undefined;
+  const content = MAJORS.find((m) => m.slug === slug);
   const [series, setSeries] = useState<{ data: TournamentSeries | null; waiting: string }>({ data: null, waiting: 'Loading…' });
   useEffect(() => {
     currentRun(apiUrl)
@@ -171,14 +171,15 @@ function TournamentDetail({ apiUrl, slug }: { apiUrl: string; slug: string }) {
   const pickSeason = (season: string) => setPick((p) => ({ season, n: p.n + 1 }));
   const box = regulationsBox(t);
   const regulations = box === null ? null : <RegulationsPanel box={box} rated={t.rated} />;
+  const card = cardView(t.card);
   return (
     <>
       <TournamentHero
-        card={cardView(t.card)}
+        card={card}
         title={content?.name ?? t.name}
         subtitle={
           <>
-            {content !== undefined && <>{content.subtitle} · </>}
+            {card.subtitle !== null && <>{card.subtitle} · </>}
             <a href={catalogueHref()}>Every tournament</a> · <a href="/ratings/hall_of_fame/">Hall of Fame</a>
           </>
         }
@@ -186,7 +187,7 @@ function TournamentDetail({ apiUrl, slug }: { apiUrl: string; slug: string }) {
           { label: 'Active History', value: activeYears(t.seasons) },
           { label: 'Seasons', value: count(t.seasons.length) },
           { label: 'Recorded Database Matches', value: count(games) },
-          ...(content !== undefined ? [{ label: 'Cadence & Schedule', value: content.frequency, words: true }] : []),
+          ...(card.cadence !== null ? [{ label: 'Cadence & Schedule', value: card.cadence, words: true }] : []),
         ]}
       />
       <Champions seasons={t.seasons} podium={hasPodiums(t.seasons)} onPick={pickSeason} />

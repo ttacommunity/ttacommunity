@@ -1793,7 +1793,7 @@ type TournamentSettings struct {
 	// RatedPlayerCounts The player counts whose games count towards ratings, from the next run
 	RatedPlayerCounts *[]int `json:"rated_player_counts,omitempty"`
 
-	// TopDivisions A league's divisions whose final standings make its podium, from the next run; empty for none
+	// TopDivisions A league's divisions whose final standings make its podium on the site; empty for none
 	TopDivisions *[]string `json:"top_divisions,omitempty"`
 	Visible      *bool     `json:"visible,omitempty"`
 }

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { settingsHref, slugParam, toggledCounts } from './tournament-page';
+import { divisionList, divisionText, renamedFrom, settingsHref, slugParam, toggledCounts } from './tournament-page';
 
 describe('settingsHref and slugParam', () => {
   it('link to a tournament settings page and read it back', () => {
@@ -22,5 +22,24 @@ describe('toggledCounts', () => {
 
   it('refuses to leave no player count rated (turn the tournament off instead)', () => {
     expect(toggledCounts([3], 3, false)).toBeNull();
+  });
+});
+
+describe('divisionList and divisionText', () => {
+  it('read top divisions from a comma-separated box, dropping blanks', () => {
+    expect(divisionList(' Grandmaster, Diamond ,,')).toEqual(['Grandmaster', 'Diamond']);
+    expect(divisionList('  ')).toEqual([]);
+  });
+
+  it('write them back for the box', () => {
+    expect(divisionText(['Grandmaster', 'Diamond'])).toBe('Grandmaster, Diamond');
+  });
+});
+
+describe('renamedFrom', () => {
+  it('gives the original name only when it was renamed', () => {
+    expect(renamedFrom('Season 2024', '2024')).toBe('2024');
+    expect(renamedFrom('2024', '2024')).toBeNull();
+    expect(renamedFrom('2024', '')).toBeNull();
   });
 });

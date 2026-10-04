@@ -1174,6 +1174,10 @@ export interface components {
         };
         /** @description How a tournament presents itself on its card and its page's header; an empty field is unset */
         TournamentCard: {
+            /** @description The line under the name on the tournament's page, such as "4-Player Competitive Format" */
+            subtitle: string;
+            /** @description How often it is played, such as "Annual (Every Year)" */
+            cadence: string;
             /** @description An emoji or a few characters */
             icon: string;
             /** @description The short description, such as "Annual World Championship" */
@@ -1264,6 +1268,11 @@ export interface components {
             role: "admin" | "organiser";
         };
         AdminTournament: {
+            /** @description The name it came in with, kept when it is renamed */
+            original_name: string;
+            kind: components["schemas"]["TournamentKind"];
+            /** @description A league's divisions whose final standings make its podium; empty for none */
+            top_divisions: string[];
             /** @description The player counts whose games count towards ratings */
             rated_player_counts: number[];
             stories: components["schemas"]["Story"][];
@@ -1283,6 +1292,8 @@ export interface components {
             seasons: components["schemas"]["AdminSeason"][];
         };
         AdminSeason: {
+            /** @description The label it came in with, kept when it is renamed */
+            original_name: string;
             /** @description Its games count towards ratings, from the next run */
             rated: boolean;
             /** @description The podium set in admin, empty when the recorded or derived one shows */
@@ -1295,10 +1306,20 @@ export interface components {
             stages: components["schemas"]["AdminStage"][];
         };
         AdminStage: {
+            /** @description The label it came in with, kept when it is renamed */
+            original_name: string;
             label: string;
             note: string;
         };
+        /**
+         * @description A league ranks divisions over a season, a cup plays stages to a final, a ladder has no podium
+         * @enum {string}
+         */
+        TournamentKind: "league" | "cup" | "ladder";
         TournamentSettings: {
+            kind?: components["schemas"]["TournamentKind"];
+            /** @description A league's divisions whose final standings make its podium on the site; empty for none */
+            top_divisions?: string[];
             /** @description The player counts whose games count towards ratings, from the next run */
             rated_player_counts?: number[];
             visible?: boolean;
@@ -3904,6 +3925,7 @@ export const adminRunStatusValues: ReadonlyArray<FlattenedDeepRequired<component
 export const adminTitleValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["AdminTitle"]> = ["SGM", "GM", "M", "P", "G", "S", "B", "W", ""];
 export const adminPersonRoleValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["AdminPerson"]["role"]> = ["admin", "organiser"];
 export const adminRoleRoleValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["AdminRole"]["role"]> = ["admin", "organiser"];
+export const tournamentKindValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["TournamentKind"]> = ["league", "cup", "ladder"];
 export const adminMeRoleValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["AdminMe"]["role"]> = ["admin", "organiser"];
 export const modelValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["Model"]> = ["glicko2_daneo", "glicko2_daneo_softer", "glicko2_std", "glicko2_std_softer", "glicko2_std_retro", "glicko2_std_softer_retro", "glicko2_mp", "glicko2_mp_softer", "glicko2_mp_retro", "glicko2_mp_softer_retro", "glicko2_adapt", "glicko2_adapt_softer", "glicko2_adapt_retro", "glicko2_adapt_softer_retro", "whr", "whr_softer"];
 export const formatValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["Format"]> = [0, 2, 3, 4];

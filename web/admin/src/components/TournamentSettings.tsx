@@ -2,13 +2,25 @@
 import { useEffect, useState, type FormEvent } from 'react';
 import { adminRequest, type AdminMe, type AdminTournament } from '../lib/admin-api';
 import { podiumNames, podiumRequest, type PodiumEntry } from '../lib/podium';
-import { SETTINGS, slugParam, toggledCounts, type Setting } from '../lib/tournament-page';
+import { divisionList, divisionText, renamedFrom, SETTINGS, slugParam, toggledCounts, type Setting } from '../lib/tournament-page';
 import './AdminApp.css';
 
 type Load<T> = { kind: 'loading' } | { kind: 'error'; message: string } | { kind: 'ready'; data: T };
 
 /** NoteBox edits the note shown beside a season (stage '') or one of its stages. */
-function NoteBox({ slug, season, stage, initial }: { slug: string; season: string; stage: string; initial: string }) {
+function NoteBox({
+  slug,
+  season,
+  stage,
+  initial,
+  original = null,
+}: {
+  slug: string;
+  season: string;
+  stage: string;
+  initial: string;
+  original?: string | null;
+}) {
   const [text, setText] = useState(initial);
   const [saved, setSaved] = useState(initial);
   const [status, setStatus] = useState('');
@@ -25,7 +37,10 @@ function NoteBox({ slug, season, stage, initial }: { slug: string; season: strin
   };
   return (
     <div className="note-box">
-      <label htmlFor={id}>{stage === '' ? 'Season note' : `${stage} note`}</label>
+      <label htmlFor={id}>
+        {stage === '' ? 'Season note' : `${stage} note`}
+        {original !== null && <span className="muted"> · imported as {original}</span>}
+      </label>
       <textarea id={id} value={text} maxLength={2000} rows={2} onChange={(e) => setText(e.target.value)} />
       <div className="note-actions">
         <button type="button" className="btn-antique" onClick={save} disabled={text.trim() === saved}>
@@ -137,6 +152,24 @@ function SettingsCard({ t, onChange }: { t: AdminTournament; onChange: (t: Admin
       setError(r.message);
     }
   };
+  const [divisions, setDivisions] = useState(divisionText(t.top_divisions));
+  const patch = async (json: object, undo: AdminTournament) => {
+    setError('');
+    const r = await adminRequest(`/api/tournaments/${t.slug}`, { method: 'PATCH', json });
+    if (!r.ok) {
+      onChange(undo);
+      setError(r.message);
+    }
+  };
+  const setKind = (kind: AdminTournament['kind']) => {
+    onChange({ ...t, kind });
+    void patch({ kind }, t);
+  };
+  const saveDivisions = () => {
+    const top = divisionList(divisions);
+    onChange({ ...t, top_divisions: top });
+    void patch({ top_divisions: top }, t);
+  };
   return (
     <section className="rating-card admin-card" aria-labelledby="settings-heading">
       <h2 id="settings-heading" className="rating-card-heading">
@@ -175,6 +208,34 @@ function SettingsCard({ t, onChange }: { t: AdminTournament; onChange: (t: Admin
             </label>
           ))}
         </fieldset>
+        <div className="setting">
+          <label htmlFor="setting-kind">
+            <strong>Kind</strong>
+            <span className="muted"> · A league's podium is its top divisions' standings; a ladder has none</span>
+          </label>{' '}
+          <select id="setting-kind" value={t.kind} onChange={(e) => setKind(e.target.value as AdminTournament['kind'])}>
+            <option value="league">League</option>
+            <option value="cup">Cup</option>
+            <option value="ladder">Ladder</option>
+          </select>
+        </div>
+        {t.kind === 'league' && (
+          <div className="setting">
+            <label htmlFor="setting-top">
+              <strong>Top divisions</strong>
+              <span className="muted"> · Comma-separated; the champions table follows at once</span>
+            </label>{' '}
+            <input id="setting-top" value={divisions} maxLength={300} onChange={(e) => setDivisions(e.target.value)} />{' '}
+            <button
+              type="button"
+              className="btn-antique"
+              onClick={saveDivisions}
+              disabled={divisionText(divisionList(divisions)) === divisionText(t.top_divisions)}
+            >
+              Save
+            </button>
+          </div>
+        )}
       </div>
       {error !== '' && (
         <p className="row-error" role="alert">
@@ -189,7 +250,7 @@ function SettingsCard({ t, onChange }: { t: AdminTournament; onChange: (t: Admin
 function CardSettings({ t, onReload }: { t: AdminTournament; onReload: () => Promise<void> }) {
   const [card, setCard] = useState(t.card);
   const [status, setStatus] = useState('');
-  const changed = card.icon !== t.card.icon || card.tagline !== t.card.tagline || card.summary !== t.card.summary;
+  const changed = (Object.keys(card) as (keyof typeof card)[]).some((k) => card[k] !== t.card[k]);
   const save = async () => {
     setStatus('Saving…');
     const r = await adminRequest(`/api/tournaments/${t.slug}/card`, { method: 'PUT', json: card });
@@ -218,6 +279,26 @@ function CardSettings({ t, onReload }: { t: AdminTournament; onReload: () => Pro
             maxLength={60}
             placeholder="e.g. Annual World Championship"
             onChange={(e) => setCard({ ...card, tagline: e.target.value })}
+          />
+        </label>
+        <label className="card-tagline">
+          Page subtitle
+          <input
+            id="card-subtitle"
+            value={card.subtitle}
+            maxLength={60}
+            placeholder="e.g. 4-Player Competitive Format"
+            onChange={(e) => setCard({ ...card, subtitle: e.target.value })}
+          />
+        </label>
+        <label className="card-tagline">
+          Cadence
+          <input
+            id="card-cadence"
+            value={card.cadence}
+            maxLength={60}
+            placeholder="e.g. Annual (Every Year)"
+            onChange={(e) => setCard({ ...card, cadence: e.target.value })}
           />
         </label>
         <label className="card-summary">
@@ -440,7 +521,12 @@ function SeasonsCard({ t, onReload }: { t: AdminTournament; onReload: () => Prom
       {t.seasons.length === 0 && <p className="muted">No seasons yet.</p>}
       {t.seasons.map((se) => (
         <div key={se.label} className="season-notes">
-          <h3>Season {se.label}</h3>
+          <h3>
+            Season {se.label}
+            {renamedFrom(se.label, se.original_name) !== null && (
+              <span className="muted"> · imported as {renamedFrom(se.label, se.original_name)}</span>
+            )}
+          </h3>
           <label className="season-rated">
             <input
               id={`season-rated-${se.label}`.replace(/[^A-Za-z0-9-]/g, '_')}
@@ -460,7 +546,14 @@ function SeasonsCard({ t, onReload }: { t: AdminTournament; onReload: () => Prom
           )}
           <NoteBox slug={t.slug} season={se.label} stage="" initial={se.note} />
           {se.stages.map((st) => (
-            <NoteBox key={st.label} slug={t.slug} season={se.label} stage={st.label} initial={st.note} />
+            <NoteBox
+              key={st.label}
+              slug={t.slug}
+              season={se.label}
+              stage={st.label}
+              initial={st.note}
+              original={renamedFrom(st.label, st.original_name)}
+            />
           ))}
           <PodiumBox slug={t.slug} season={se.label} saved={se.podium} savedNote={se.podium_note} onReload={onReload} />
         </div>
@@ -511,6 +604,9 @@ export default function TournamentSettings() {
       {t.kind === 'ready' && (
         <>
           <h2 className="tournament-title">{t.data.name}</h2>
+          {renamedFrom(t.data.name, t.data.original_name) !== null && (
+            <p className="muted">Imported as {renamedFrom(t.data.name, t.data.original_name)}</p>
+          )}
           <SettingsCard t={t.data} onChange={(next) => setT({ kind: 'ready', data: next })} />
           <CardSettings t={t.data} onReload={load} />
           <RegulationsCard t={t.data} onReload={load} />

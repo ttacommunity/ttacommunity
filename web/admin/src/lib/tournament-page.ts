@@ -28,3 +28,21 @@ export function toggledCounts(counts: readonly number[], n: number, on: boolean)
   const next = on ? [...new Set([...counts, n])] : counts.filter((c) => c !== n);
   return next.length === 0 ? null : next.sort((a, b) => a - b);
 }
+
+/** divisionList reads a league's top divisions from a comma-separated box, dropping blanks. */
+export function divisionList(text: string): string[] {
+  return text
+    .split(',')
+    .map((d) => d.trim())
+    .filter((d) => d !== '');
+}
+
+/** divisionText writes top divisions for the box divisionList reads. */
+export function divisionText(divisions: readonly string[]): string {
+  return divisions.join(', ');
+}
+
+/** renamedFrom returns the name something came in with, or null when it has not been renamed. */
+export function renamedFrom(name: string, original: string): string | null {
+  return original !== '' && original !== name ? original : null;
+}

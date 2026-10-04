@@ -9,18 +9,19 @@ import {
   seriesGames,
   titleCell,
   era,
-  INTERNATIONAL,
-  WORLDS,
+  CIRCUITS,
+  GRAND_SLAMS,
+  MAJORS,
   boardCells,
   leaguePoints,
   medalCells,
   opponentsLine,
   seriesEra,
-  SERIES_CONTENT,
   SERIES_NAV,
   seriesHref,
   seriesRecord,
   showsWorldChampion,
+  worldChampions,
 } from './tournament-series';
 
 describe('the series nav', () => {
@@ -75,13 +76,13 @@ describe('the series figures', () => {
 
   it('has a page for each series built so far', () => {
     const series = ['international', 'intermezzo', 'royal_league', 'worlds', 'grand_slams', 'ladders'];
-    expect(SERIES_CONTENT.map((c) => c.slug)).toEqual(series);
+    expect([...MAJORS, ...CIRCUITS].map((c) => c.slug)).toEqual(series);
     expect([...BUILT].sort()).toEqual(['overview', ...series].sort());
   });
 
   it('states a static era where upstream does, else the latest season', () => {
-    expect(seriesEra(INTERNATIONAL, 34)).toBe('2016 – Present (Current: Season 34)');
-    expect(seriesEra(WORLDS, 5)).toBe('2023 – Present (Next: 2027)');
+    expect(seriesEra({ ...GRAND_SLAMS, era: undefined }, 34)).toBe('2023 – Present (Current: Season 34)');
+    expect(seriesEra(GRAND_SLAMS, 5)).toBe('2023 – Present');
   });
 
   it('leaves a board’s medal cells empty where the board has no medals, as upstream', () => {
@@ -102,6 +103,23 @@ describe('the Hall of Fame overview', () => {
     silver: 0,
     bronze: 0,
     ...over,
+  });
+
+  it('lists the World Champions from each final, latest first, with their other titles', () => {
+    const seasons = [
+      { label: '2023', podium: [{ place: 2, name: 'bo' }, { place: 1, name: 'ann' }] },
+      { label: '2024', podium: [] },
+      { label: '2025', podium: [{ place: 1, name: 'cy' }] },
+    ];
+    const legends = [legend({ name: 'ann', international_titles: 6, intermezzo_titles: 1 }), legend({ name: 'cy', royal_league_titles: 2 })];
+    expect(worldChampions(seasons, legends)).toEqual([
+      { name: 'cy', season: '2025', icon: '👑', text: '2025 Reigning World Champion • 2x Royal League Champion' },
+      { name: 'ann', season: '2023', icon: '🏆', text: '2023 World Champion • 6x International Champion • Intermezzo Champion' },
+    ]);
+  });
+
+  it('lists no World Champions before any final has a winner', () => {
+    expect(worldChampions([{ label: '2026', podium: [] }], [])).toEqual([]);
   });
 
   it('writes a title cell as a count, a crown for World titles, or a dash', () => {

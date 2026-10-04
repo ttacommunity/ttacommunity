@@ -14,6 +14,7 @@ import {
   seriesEra,
   seriesRecord,
   showsWorldChampion,
+  type Major,
   type SeriesContent,
 } from '../lib/tournament-series';
 
@@ -68,7 +69,7 @@ export default function TournamentSeriesPage({ apiUrl, content }: { apiUrl: stri
         ]}
       />
 
-      {content.members !== undefined && (
+      {content.members.length > 0 && (
         <div className="panel-card series-members">
           <h2 className="panel-header">
             <span>{content.icon}</span> Tournaments in the {content.name}
@@ -86,8 +87,8 @@ export default function TournamentSeriesPage({ apiUrl, content }: { apiUrl: stri
         content={content}
         data={data}
         waiting={waiting}
-        regulations={<RegulationsPanel box={{ lines: content.rules ?? [], source: null }} rated />}
-        stories={content.stories ?? []}
+        regulations={<RegulationsPanel box={{ lines: content.rules, source: null }} rated />}
+        stories={content.stories}
       />
     </>
   );
@@ -101,7 +102,7 @@ export function SeriesSections({
   regulations,
   stories,
 }: {
-  content: SeriesContent;
+  content: Major;
   data: TournamentSeries | null;
   waiting: string;
   regulations: ReactNode;

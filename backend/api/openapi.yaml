@@ -2141,7 +2141,7 @@ components:
         kind:
           $ref: "#/components/schemas/TournamentKind"
         top_divisions:
-          description: A league's divisions whose final standings make its podium, from the next run; empty for none
+          description: A league's divisions whose final standings make its podium on the site; empty for none
           type: array
           maxItems: 10
           items:

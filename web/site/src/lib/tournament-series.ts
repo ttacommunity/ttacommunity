@@ -30,13 +30,10 @@ export const BUILT: ReadonlySet<SeriesTab['slug']> = new Set([
   'ladders',
 ]);
 
-/** The series that are one tournament each: their page is that tournament's. */
-export const SINGLE_TOURNAMENTS: ReadonlySet<SeriesTab['slug']> = new Set(['international', 'intermezzo', 'royal_league', 'worlds']);
-
-/** seriesHref returns the address of a series' page (a single tournament's own page), or of the Hall of Fame for the overview. */
+/** seriesHref returns the address of a series' page (a major's own tournament page), or of the Hall of Fame for the overview. */
 export function seriesHref(slug: SeriesTab['slug']): string {
   if (slug === 'overview') return '/ratings/hall_of_fame/';
-  return SINGLE_TOURNAMENTS.has(slug) ? `/ratings/tournaments/?t=${slug}` : `/ratings/hall_of_fame/${slug}/`;
+  return CIRCUITS.some((c) => c.slug === slug) ? `/ratings/hall_of_fame/${slug}/` : `/ratings/tournaments/?t=${slug}`;
 }
 
 /** A player story on a series page, as upstream's template states it. */
@@ -47,59 +44,43 @@ export interface Story {
   text: string;
 }
 
-/** What a series page says about its series, copied from upstream's routes/hall_of_fame.py. */
+/** A major: one tournament, whose page is its own; its card, header, rules and stories are written in admin. */
+export interface Major {
+  slug: Series;
+  /** The name the Hall of Fame gives it, as upstream's. */
+  name: string;
+}
+
+/** The four majors, in the series bar's order. */
+export const MAJORS: Major[] = [
+  { slug: 'international', name: 'International Championship' },
+  { slug: 'intermezzo', name: 'Intermezzo Championship' },
+  { slug: 'royal_league', name: 'Royal League' },
+  { slug: 'worlds', name: 'Through the Ages World Championship' },
+];
+
+/** majorName returns the Hall of Fame's name for a major, or undefined for any other tournament. */
+export function majorName(slug: string): string | undefined {
+  return MAJORS.find((m) => m.slug === slug)?.name;
+}
+
+/** What a circuit page (several tournaments, so not edited in admin) says about itself, copied from upstream's routes/hall_of_fame.py. */
 export interface SeriesContent {
   slug: Series;
   name: string;
   subtitle: string;
-  /** A circuit's card; a tournament's own card is written in admin and comes from the API. */
-  icon?: string;
-  formatBadge?: string;
-  summary?: string;
+  icon: string;
+  formatBadge: string;
+  summary: string;
   frequency: string;
   since: string;
   /** The "Historical Era" as upstream states it, where it is not computed from the latest season. */
   era?: string;
-  /** A circuit's Format & Regulations; a tournament's are written in admin and come from the API. */
-  rules?: string[];
-  /** A circuit's stories; a tournament's are written in admin and come from the API. */
-  stories?: Story[];
-  /** A circuit of several tournaments: each, by its catalogue slug and name. */
-  members?: { slug: string; name: string }[];
+  rules: string[];
+  stories: Story[];
+  /** Each tournament in the circuit, by its catalogue slug and name. */
+  members: { slug: string; name: string }[];
 }
-
-export const INTERNATIONAL: SeriesContent = {
-  slug: 'international',
-  name: 'International Championship',
-  subtitle: '3/4-Player Competitive Format',
-  frequency: 'Quarterly (4 seasons / year)',
-  since: '2016',
-};
-
-export const INTERMEZZO: SeriesContent = {
-  slug: 'intermezzo',
-  name: 'Intermezzo Championship',
-  subtitle: '3-Player Competitive Format',
-  frequency: 'Quarterly (4 seasons / year)',
-  since: '2018',
-};
-
-export const ROYAL_LEAGUE: SeriesContent = {
-  slug: 'royal_league',
-  name: 'Royal League',
-  subtitle: '2-Player Competitive Format',
-  frequency: 'Quarterly (4 seasons / year)',
-  since: '2024',
-};
-
-export const WORLDS: SeriesContent = {
-  slug: 'worlds',
-  name: 'Through the Ages World Championship',
-  subtitle: '4-Player Competitive Format',
-  frequency: 'Annual (Every Year)',
-  since: '2023',
-  era: '2023 – Present (Next: 2027)',
-};
 
 export const GRAND_SLAMS: SeriesContent = {
   slug: 'grand_slams',
@@ -173,8 +154,8 @@ export const LADDERS: SeriesContent = {
   ],
 };
 
-/** Every series with a page, in the series bar's order. */
-export const SERIES_CONTENT: SeriesContent[] = [INTERNATIONAL, INTERMEZZO, ROYAL_LEAGUE, WORLDS, GRAND_SLAMS, LADDERS];
+/** The circuits, in the series bar's order. */
+export const CIRCUITS: SeriesContent[] = [GRAND_SLAMS, LADDERS];
 
 /** seriesEra returns a series' "Historical Era": its static text, or computed from the latest season. */
 export function seriesEra(content: SeriesContent, season: number): string {
@@ -250,6 +231,27 @@ export function titleCell(titles: number, crown = false): string {
 export function legendMark(l: Legend): 'WC' | 'GM' | null {
   if (l.world_champion || l.world_titles > 0) return 'WC';
   return majorTitles(l) >= 3 ? 'GM' : null;
+}
+
+/** A World Champion as the Hall of Fame overview shows them. */
+export type WorldChampion = { name: string; season: string; icon: string; text: string };
+
+/** worldChampions lists each final's winner, latest first, with the titles the legends table credits them in the other majors. */
+export function worldChampions(seasons: { label: string; podium: { place: number; name: string }[] }[], legends: Legend[]): WorldChampion[] {
+  const winners = seasons.flatMap((s) => s.podium.filter((p) => p.place === 1).map((p) => ({ name: p.name, season: s.label })));
+  return winners.reverse().map((w, i) => {
+    const l = legends.find((x) => x.name === w.name);
+    const titles: [number, string][] = l
+      ? [
+          [l.international_titles, 'International Champion'],
+          [l.intermezzo_titles, 'Intermezzo Champion'],
+          [l.royal_league_titles, 'Royal League Champion'],
+        ]
+      : [];
+    const honours = titles.filter(([n]) => n > 0).map(([n, t]) => (n === 1 ? t : `${n}x ${t}`));
+    const crown = `${w.season} ${i === 0 ? 'Reigning ' : ''}World Champion`;
+    return { ...w, icon: i === 0 ? '👑' : '🏆', text: [crown, ...honours].join(' • ') };
+  });
 }
 
 /** majorTitles returns a legend's titles across the four circuits. */
