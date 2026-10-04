@@ -682,6 +682,7 @@
 
 .rival-name.player-link {
   font-family: var(--font-body);
+  font-size: 0.9rem;
   font-weight: 600;
   color: #f7dfa5;
 }
