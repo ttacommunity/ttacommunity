@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { formatName, modelLabel, rank, rating, cRating, rd, winRate, isTopThree, titleName, flagSrc, engineName, resetModeName, engineNote, delta } from './leaderboard-display';
+import { formatName, modelLabel, rank, rating, cRating, rd, winRate, isTopThree, titleName, titleBadge, badgeHover, flagSrc, engineName, resetModeName, engineNote, delta } from './leaderboard-display';
 
 describe('formatName', () => {
   it.each([
@@ -108,5 +108,34 @@ describe('delta', () => {
     [-0.05, '—0.0', 'delta-zero'],
   ] as const)('shows %d as upstream: %s', (value, text, kind) => {
     expect(delta(value)).toEqual({ text, kind });
+  });
+});
+
+describe('titleBadge', () => {
+  it("shows a title's code, with the run's reason on hover", () => {
+    expect(titleBadge({ code: 'GM', reason: 'Played in Royal League' })).toEqual({
+      code: 'GM',
+      text: 'GM',
+      hover: 'Played in Royal League',
+    });
+  });
+
+  it("falls back to the title's full name on hover when the run gave no reason", () => {
+    expect(titleBadge({ code: 'WC', reason: '' })?.hover).toBe('World Champion');
+  });
+
+  it('shows a Super GM as GM, in its own colour, as upstream', () => {
+    expect(titleBadge({ code: 'SGM', reason: 'r' })).toMatchObject({ code: 'SGM', text: 'GM' });
+  });
+
+  it('gives nothing for a player without a title', () => {
+    expect(titleBadge(null)).toBeNull();
+  });
+});
+
+describe('badgeHover', () => {
+  it("shows an admin badge's description on hover, or its label when it has none", () => {
+    expect(badgeHover({ label: 'Organiser', description: 'Runs a league' })).toBe('Runs a league');
+    expect(badgeHover({ label: 'TD', description: '' })).toBe('TD');
   });
 });

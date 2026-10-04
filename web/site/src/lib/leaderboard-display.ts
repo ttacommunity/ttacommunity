@@ -94,6 +94,20 @@ export function titleName(code: TitleCode): string {
   return titleNames[code];
 }
 
+/** A title badge as shown: its code (its colour), the text on it and the hover text. */
+export type TitleBadgeView = { code: TitleCode; text: string; hover: string };
+
+/** titleBadge shows a run's title: a Super GM as GM in its own colour (as upstream), the reason or else the title's name on hover; null for none. */
+export function titleBadge(title: { code: TitleCode; reason: string } | null): TitleBadgeView | null {
+  if (title === null) return null;
+  return { code: title.code, text: title.code === 'SGM' ? 'GM' : title.code, hover: title.reason || titleName(title.code) };
+}
+
+/** badgeHover is an admin badge's hover text: its description, or its label when it has none. */
+export function badgeHover(badge: { label: string; description: string }): string {
+  return badge.description || badge.label;
+}
+
 /** flagSrc returns the path of a country's flag image. */
 export function flagSrc(country: string): string {
   return `/flags/${country.toLowerCase()}.svg`;
