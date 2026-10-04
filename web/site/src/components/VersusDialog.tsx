@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from 'react';
 import { playerVersus, type Format, type PlayerVersus } from '@ttac/shared/ratings';
 import { versusTally } from '../lib/career';
 import { playerHref } from '../lib/player-view';
+import Segmented from './Segmented';
 
 type Load = { kind: 'loading' } | { kind: 'error'; message: string } | { kind: 'ready'; data: PlayerVersus };
 
@@ -71,19 +72,7 @@ export default function VersusDialog({
       </div>
       <div className="h2h-toolbar">
         <span className="h2h-toolbar-label">Match Format:</span>
-        <div className="format-bar h2h-formats" role="group" aria-label="Match format">
-          {FORMATS.map((f) => (
-            <button
-              key={f.value}
-              type="button"
-              className={f.value === format ? 'format-btn active' : 'format-btn'}
-              aria-pressed={f.value === format}
-              onClick={() => setFormat(f.value)}
-            >
-              {f.label}
-            </button>
-          ))}
-        </div>
+        <Segmented label="Match format" look="raised" groupClass="format-bar h2h-formats" options={FORMATS} value={format} onChange={setFormat} />
       </div>
       <div className="h2h-stats">
         {tally === null ? (

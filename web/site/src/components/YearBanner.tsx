@@ -3,6 +3,7 @@ import type { YearLeaderboard } from '@ttac/shared/ratings';
 import type { View } from '../lib/leaderboard-view';
 import { playerHref } from '../lib/player-view';
 import type { LinkTo } from './OptionsDrawer';
+import Segmented from './Segmented';
 
 interface Props {
   board: YearLeaderboard;
@@ -37,24 +38,24 @@ export default function YearBanner({ board, latest, ranked, view, linkTo }: Prop
         </p>
         <div className="archive-stats">
           <span className="archive-stats-label">📊 Match Stats Mode:</span>
-          <div className="reset-btn-group" role="group" aria-label="Match stats mode">
-            <a
-              {...linkTo({ ...view, stats: 'season', page: 1 })}
-              className={view.stats === 'season' ? 'reset-btn active' : 'reset-btn'}
-              aria-current={view.stats === 'season' ? 'true' : undefined}
-              data-tooltip={`Display wins, losses, and draws for Season ${y} only. Ratings are derived according to the selected engine and reset mode.`}
-            >
-              📅 Season {y} Only
-            </a>
-            <a
-              {...linkTo({ ...view, stats: 'career', page: 1 })}
-              className={view.stats === 'career' ? 'reset-btn active' : 'reset-btn'}
-              aria-current={view.stats === 'career' ? 'true' : undefined}
-              data-tooltip={`Display cumulative career wins, losses, and draws up through Season ${y}. Ratings are derived according to the selected engine and reset mode.`}
-            >
-              📈 Career to Date
-            </a>
-          </div>
+          <Segmented
+            label="Match stats mode"
+            look="banner"
+            options={[
+              {
+                value: 'season',
+                label: `📅 Season ${y} Only`,
+                tooltip: `Display wins, losses, and draws for Season ${y} only. Ratings are derived according to the selected engine and reset mode.`,
+              },
+              {
+                value: 'career',
+                label: '📈 Career to Date',
+                tooltip: `Display cumulative career wins, losses, and draws up through Season ${y}. Ratings are derived according to the selected engine and reset mode.`,
+              },
+            ]}
+            value={view.stats}
+            link={(stats) => linkTo({ ...view, stats, page: 1 })}
+          />
         </div>
       </div>
       {champion !== undefined && (

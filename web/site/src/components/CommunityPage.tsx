@@ -17,6 +17,7 @@ import { EDITIONS, type Edition } from '../lib/community-editions';
 import { playerHref } from '../lib/player-view';
 import { titleName } from '../lib/leaderboard-display';
 import './CommunityPage.css';
+import Segmented from './Segmented';
 
 type Load = { kind: 'loading' } | { kind: 'error'; message: string } | { kind: 'ready'; rows: CommunityRow[] };
 
@@ -188,22 +189,16 @@ function Controls({ view, slots }: { view: CommunityView; slots: number }) {
       >
         <span>🖱️</span> Scroll table with <strong>CMB</strong>
       </div>
-      <div className="view-toggle-bar">
-        <a
-          href={href(view, { view: 'standard' })}
-          className={`view-btn${view.view === 'standard' ? ' active' : ''}`}
-          title="Standard View: Shows the sum of each tournament for optimal visibility"
-        >
-          📊 Standard View (Tournament Summary)
-        </a>
-        <a
-          href={href(view, { view: 'expanded' })}
-          className={`view-btn${view.view === 'expanded' ? ' active' : ''}`}
-          title={`Expanded View: Expands to the sides showing all ${slots} individual periods`}
-        >
-          📑 Expanded View (All Periods)
-        </a>
-      </div>
+      <Segmented
+        label="View"
+        look="view"
+        options={[
+          { value: 'standard', label: '📊 Standard View (Tournament Summary)', title: 'Standard View: Shows the sum of each tournament for optimal visibility' },
+          { value: 'expanded', label: '📑 Expanded View (All Periods)', title: `Expanded View: Expands to the sides showing all ${slots} individual periods` },
+        ]}
+        value={view.view}
+        link={(v) => ({ href: href(view, { view: v }) })}
+      />
     </div>
   );
 }

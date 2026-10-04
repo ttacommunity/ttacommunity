@@ -42,6 +42,7 @@ import {
 import { achievementsHref } from '../lib/achievements';
 import { recall, remember } from '../lib/remembered';
 import './PlayerPage.css';
+import Segmented from './Segmented';
 
 type Load<T> = { kind: 'loading' } | { kind: 'error'; message: string } | { kind: 'ready'; data: T };
 
@@ -151,34 +152,24 @@ export default function PlayerPage({ apiUrl }: { apiUrl: string }) {
       <Header player={p} view={view} provisional={provisional} gamesInFormat={gamesInFormat} />
 
       <div className="profile-selectors">
-        <div className="format-bar profile-bar" role="group" aria-label="Reset mode">
-          <span className="profile-bar-label">Reset Mode:</span>
-          {RESET_MODES.map((m) => (
-            <a
-              key={m.value}
-              {...linkTo({ ...view, reset: m.value, matchPage: 1 })}
-              className={m.value === view.reset ? 'format-btn active' : 'format-btn'}
-              aria-current={m.value === view.reset ? 'true' : undefined}
-              data-tooltip={m.desc}
-            >
-              {m.name}
-            </a>
-          ))}
-        </div>
-        <div className="format-bar profile-bar" role="group" aria-label="Format">
-          <span className="profile-bar-label">Format:</span>
-          {FORMATS.map((f) => (
-            <a
-              key={f}
-              {...linkTo({ ...view, format: f, matchPage: 1 })}
-              className={f === view.format ? 'format-btn active' : 'format-btn'}
-              aria-current={f === view.format ? 'true' : undefined}
-              data-tooltip={`View rating and history for ${show.formatName(f)}`}
-            >
-              {show.formatName(f)}
-            </a>
-          ))}
-        </div>
+        <Segmented
+          label="Reset mode"
+          look="raised"
+          groupClass="format-bar profile-bar"
+          prefix={<span className="profile-bar-label">Reset Mode:</span>}
+          options={RESET_MODES.map((m) => ({ value: m.value, label: m.name, tooltip: m.desc }))}
+          value={view.reset}
+          link={(reset) => linkTo({ ...view, reset, matchPage: 1 })}
+        />
+        <Segmented
+          label="Format"
+          look="raised"
+          groupClass="format-bar profile-bar"
+          prefix={<span className="profile-bar-label">Format:</span>}
+          options={FORMATS.map((f) => ({ value: f, label: show.formatName(f), tooltip: `View rating and history for ${show.formatName(f)}` }))}
+          value={view.format}
+          link={(format) => linkTo({ ...view, format, matchPage: 1 })}
+        />
       </div>
 
       <CareerBox

@@ -22,6 +22,7 @@ import { recall, remember } from '../lib/remembered';
 import './PlayerPage.css';
 import './MatrixPage.css';
 import Tex from './Tex';
+import Segmented from './Segmented';
 
 type Load<T> = { kind: 'loading' } | { kind: 'error'; message: string } | { kind: 'ready'; data: T };
 
@@ -135,18 +136,13 @@ export default function MatrixPage({ apiUrl }: { apiUrl: string }) {
       <Header player={p} format={format} />
 
       <div className="format-bar matrix-formats">
-        <div className="format-bar-group">
-          {FORMATS.map((f) => (
-            <a
-              key={f}
-              {...linkTo({ ...view, format: f })}
-              className={f === format ? 'format-btn active' : 'format-btn'}
-              aria-current={f === format ? 'true' : undefined}
-            >
-              {show.formatName(f)}
-            </a>
-          ))}
-        </div>
+        <Segmented
+          label="Format"
+          look="raised"
+          options={FORMATS.map((f) => ({ value: f, label: show.formatName(f) }))}
+          value={format}
+          link={(f) => linkTo({ ...view, format: f })}
+        />
       </div>
 
       <nav className="year-filter-bar" aria-label="Snapshot year">

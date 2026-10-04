@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react';
 import type { TitleCode, YearEntry } from '@ttac/shared/ratings';
 import { engineName } from '../lib/leaderboard-display';
 import { DEFAULT_VIEW, ENGINES, defaultMinOpps, retroApplies, type DeltaWindow, type Engine, type ResetMode, type Status, type View } from '../lib/leaderboard-view';
+import Segmented from './Segmented';
 
 /** A link to a view: a real address, followed in place. */
 export type LinkTo = (view: View) => { href: string; onClick: (e: React.MouseEvent) => void };
@@ -94,27 +95,36 @@ export default function OptionsDrawer({ view, titles, years, downloads, linkTo, 
         <div className="options-group-title">
           <span>⚡ Rating Engine</span>
         </div>
-        <div className="reset-btn-group stacked">
-          {ENGINES.map((e) => (
-            <a key={e} {...linkTo(at({ engine: e }))} className={view.engine === e ? 'reset-btn active' : 'reset-btn'} data-tooltip={engineTips[e]}>
-              <span>{engineName(e)}</span>
-              {e === DEFAULT_VIEW.engine && <span className="default-tag">DEFAULT</span>}
-            </a>
-          ))}
-        </div>
+        <Segmented
+          label="Rating engine"
+          look="banner"
+          groupClass="reset-btn-group stacked"
+          options={ENGINES.map((e) => ({
+            value: e,
+            label: (
+              <>
+                <span>{engineName(e)}</span>
+                {e === DEFAULT_VIEW.engine && <span className="default-tag">DEFAULT</span>}
+              </>
+            ),
+            tooltip: engineTips[e],
+          }))}
+          value={view.engine}
+          link={(engine) => linkTo(at({ engine }))}
+        />
       </div>
 
       <div>
         <div className="options-group-title">
           <span>⚙️ Season Reset Mode</span>
         </div>
-        <div className="reset-btn-group">
-          {resetModes.map(([id, name, tip]) => (
-            <a key={id} {...linkTo(at({ reset: id }))} className={view.reset === id ? 'reset-btn active' : 'reset-btn'} data-tooltip={tip}>
-              {name}
-            </a>
-          ))}
-        </div>
+        <Segmented
+          label="Season reset mode"
+          look="banner"
+          options={resetModes.map(([id, name, tip]) => ({ value: id, label: name, tooltip: tip }))}
+          value={view.reset}
+          link={(reset) => linkTo(at({ reset }))}
+        />
       </div>
 
       {retroApplies(view.engine) && (
@@ -122,14 +132,17 @@ export default function OptionsDrawer({ view, titles, years, downloads, linkTo, 
           <div className="options-group-title">
             <span>🎯 Prior Calibration Lever</span>
           </div>
-          <div className="reset-btn-group prior">
-            <a {...linkTo(at({ retro: false }))} className={view.retro ? 'reset-btn' : 'reset-btn active'}>
-              Standard (1500)
-            </a>
-            <a {...linkTo(at({ retro: true }))} className={view.retro ? 'reset-btn active' : 'reset-btn'}>
-              15G Retro (★)
-            </a>
-          </div>
+          <Segmented
+            label="Prior calibration"
+            look="banner"
+            groupClass="reset-btn-group prior"
+            options={[
+              { value: 'standard', label: 'Standard (1500)' },
+              { value: 'retro', label: '15G Retro (★)' },
+            ]}
+            value={view.retro ? 'retro' : 'standard'}
+            link={(v) => linkTo(at({ retro: v === 'retro' }))}
+          />
         </div>
       )}
 

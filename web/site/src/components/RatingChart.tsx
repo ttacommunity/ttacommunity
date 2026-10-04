@@ -13,6 +13,7 @@ import {
 import type { PlayerHistory } from '@ttac/shared/ratings';
 import { ENGINES, type Engine, type ResetMode } from '../lib/leaderboard-view';
 import { chartData, runYears, type ChartData } from '../lib/player-view';
+import Segmented from './Segmented';
 
 Chart.register(LineController, LineElement, PointElement, LinearScale, CategoryScale, Legend, Tooltip);
 
@@ -40,20 +41,15 @@ function Toggle<T extends string>({
   onChange: (v: T) => void;
 }) {
   return (
-    <div className="chart-toggle" role="group" aria-label={label}>
-      <span className={muted ? 'chart-toggle-label muted' : 'chart-toggle-label'}>{label}:</span>
-      {options.map((o) => (
-        <button
-          key={o.value}
-          type="button"
-          className={o.value === value ? 'format-btn active' : 'format-btn'}
-          aria-pressed={o.value === value}
-          onClick={() => onChange(o.value)}
-        >
-          {o.label}
-        </button>
-      ))}
-    </div>
+    <Segmented
+      label={label}
+      look="raised"
+      groupClass="chart-toggle"
+      prefix={<span className={muted ? 'chart-toggle-label muted' : 'chart-toggle-label'}>{label}:</span>}
+      options={options}
+      value={value}
+      onChange={onChange}
+    />
   );
 }
 
