@@ -113,6 +113,23 @@ Hard-coded content is limited to what is not one tournament's: the Hall of
 Fame's own text and its circuits (Grand Slams, Ladders), which group
 several tournaments.
 
+### Look and type
+
+The ratings site keeps DANeo's design. What is shared lives in two places:
+
+- **Tokens** in `web/shared/styles/tokens.css`: the four font families (Cinzel
+  for titles and table headers, Marcellus for buttons and labels, Source Serif
+  for reading, Inter for numbers), the colours, the gold gradient, and a text
+  size for each role (page title, card title, subheading, body, table header,
+  table cell, label). Use a token before writing a new value
+- **Components** for anything that appears on more than one page:
+  `Segmented` (a row of buttons choosing one value, in each page's look),
+  `SearchBox`, `FilterInput`, `PlayerLink`, `ScrollTable`, `Waiting` (loading
+  and could-not-load messages), `TournamentCard` and `TournamentHero`
+
+A page's own decoration (a hero, a banner, a badge's colours) stays in that
+page's stylesheet.
+
 ### Web tests
 
 Tests cover what the page does, not how it looks. A component stays thin:
