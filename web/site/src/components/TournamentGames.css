@@ -17,7 +17,7 @@
   flex-direction: column;
   gap: 0.25rem;
   min-width: 0;
-  font-size: 0.8rem;
+  font-size: var(--size-label);
   color: var(--text-muted);
   text-transform: uppercase;
   letter-spacing: 0.5px;
@@ -41,7 +41,7 @@
   gap: 0.4rem;
   text-transform: none;
   letter-spacing: 0;
-  font-size: 0.9rem;
+  font-size: var(--size-label);
   color: var(--text-main);
 }
 
@@ -86,6 +86,7 @@
   border: none;
   background: none;
   cursor: pointer;
+  font-family: var(--font-stats);
 }
 
 .game-code code {

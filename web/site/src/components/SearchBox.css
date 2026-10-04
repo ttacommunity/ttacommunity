@@ -39,7 +39,7 @@
   max-height: 360px;
   padding: 4px 0;
   overflow-y: auto;
-  background: rgba(22, 14, 9, 0.98);
+  background: var(--surface-well);
   border: 1.5px solid var(--accent-gold);
   border-radius: 6px;
   box-shadow: 0 10px 30px rgba(0, 0, 0, 0.85), 0 0 15px rgba(212, 160, 23, 0.3);

@@ -7,10 +7,10 @@
   gap: 1.5rem;
   margin-bottom: 2rem;
   padding: 1.5rem 1.75rem;
-  background: rgba(26, 17, 12, 0.95);
+  background: var(--surface-card);
   border: 1.5px solid var(--border-subtle);
   border-radius: 8px;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.7);
+  box-shadow: 0 4px 20px var(--shadow);
   backdrop-filter: blur(8px);
 }
 
@@ -20,12 +20,12 @@
   font-family: var(--font-heading);
   font-size: var(--size-page-title);
   letter-spacing: 1px;
-  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.95);
+  text-shadow: 0 2px 4px var(--shadow-deep);
 }
 
 .analysis-hero-desc {
   max-width: 880px;
-  color: #f1e4d0;
+  color: var(--text-main);
   font-family: var(--font-body);
   font-size: var(--size-body);
   line-height: 1.6;

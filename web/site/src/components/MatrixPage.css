@@ -10,7 +10,7 @@
   background: linear-gradient(135deg, rgba(28, 19, 13, 0.95), rgba(45, 30, 20, 0.9));
   border: 1px solid var(--border-subtle);
   border-radius: 8px;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
+  box-shadow: 0 4px 20px var(--shadow-light);
 }
 
 .matrix-identity {
@@ -24,7 +24,7 @@
 .matrix-identity h1 {
   margin: 0;
   font-family: var(--font-heading);
-  font-size: 2rem;
+  font-size: var(--size-page-title);
   color: var(--text-bright);
 }
 
@@ -44,7 +44,7 @@
 }
 
 .matrix-header-links .btn-antique {
-  font-size: 0.85rem;
+  font-size: var(--size-button);
 }
 
 .format-bar.matrix-formats {
@@ -79,10 +79,10 @@
   margin-bottom: 2rem;
   padding: 1.5rem;
   background: linear-gradient(135deg, rgba(35, 25, 12, 0.95), rgba(20, 14, 8, 0.95));
-  border: 1px solid rgba(229, 169, 60, 0.45);
+  border: 1px solid var(--gold-wash-strong);
   border-left: 5px solid var(--accent-gold);
   border-radius: 8px;
-  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.4);
+  box-shadow: 0 4px 15px var(--shadow-light);
 }
 
 .peak-year-badge {
@@ -91,8 +91,8 @@
   align-items: center;
   justify-content: center;
   padding: 0.75rem;
-  background: rgba(229, 169, 60, 0.15);
-  border: 1px solid rgba(229, 169, 60, 0.3);
+  background: var(--gold-wash-faint);
+  border: 1px solid var(--gold-wash);
   border-radius: 12px;
   font-size: 2.8rem;
   line-height: 1;
@@ -163,12 +163,12 @@
 }
 
 .matrix-card-head h3 {
-  font-size: 1.25rem;
+  font-size: var(--size-subheading);
 }
 
 .matrix-card-head p {
   margin: 0;
-  font-size: 0.85rem;
+  font-size: var(--size-body-short);
   color: var(--text-muted);
 }
 
@@ -190,7 +190,7 @@
 
 .matrix-snapshot {
   padding: 0.3rem 0.75rem;
-  background: rgba(0, 0, 0, 0.4);
+  background: var(--shadow-light);
   border: 1px solid var(--border-subtle);
   border-radius: 4px;
   font-family: var(--font-stats);
@@ -214,7 +214,7 @@
   background: rgba(30, 20, 14, 0.98);
   border-bottom: 2px solid var(--border-subtle);
   font-family: var(--font-heading);
-  font-size: 0.88rem;
+  font-size: var(--size-table-header);
   color: var(--accent-gold);
   letter-spacing: 0.5px;
   text-transform: uppercase;
@@ -229,7 +229,7 @@
 .matrix-table tbody th,
 .matrix-table td {
   padding: 1.1rem 1rem;
-  border-bottom: 1px solid rgba(74, 53, 37, 0.3);
+  border-bottom: 1px solid var(--border-faint);
   font-weight: normal;
   text-align: left;
   vertical-align: top;
@@ -293,7 +293,7 @@
 /* GlickoD's row: upstream's gold. */
 .matrix-table tr.row-daneo th,
 .matrix-table tr.row-daneo td {
-  background: rgba(229, 169, 60, 0.08);
+  background: var(--gold-wash-faint);
 }
 
 .matrix-table tr.row-daneo th {
@@ -336,9 +336,9 @@
 .career-history-table th {
   padding: 0.75rem 0.85rem;
   background: rgba(24, 16, 10, 0.95);
-  border-bottom: 1px solid rgba(229, 169, 60, 0.2);
+  border-bottom: 1px solid var(--gold-wash);
   font-family: var(--font-heading);
-  font-size: 0.8rem;
+  font-size: var(--size-table-header);
   color: var(--accent-gold);
   letter-spacing: 0.5px;
   text-align: left;
@@ -352,7 +352,7 @@
 }
 
 .career-history-table tr.peak-row td {
-  background: rgba(229, 169, 60, 0.12);
+  background: var(--gold-wash-faint);
   font-weight: 600;
 }
 
@@ -382,7 +382,7 @@
 }
 
 .badge.badge-peak-year {
-  background: rgba(229, 169, 60, 0.25);
+  background: var(--gold-wash);
   border: 1px solid var(--accent-gold-bright);
   color: var(--accent-gold-bright);
   font-size: 0.75rem;

@@ -15,7 +15,7 @@
 }
 
 .year-pill:hover {
-  background: rgba(229, 169, 60, 0.15);
+  background: var(--gold-wash-faint);
   border-color: var(--accent-gold);
   color: var(--text-main);
 }
@@ -23,7 +23,7 @@
 .year-pill.active {
   background: var(--accent-gold);
   border-color: var(--accent-gold);
-  box-shadow: 0 2px 6px rgba(229, 169, 60, 0.35);
+  box-shadow: 0 2px 6px var(--gold-wash-strong);
   color: var(--bg-dark);
   font-weight: 700;
 }

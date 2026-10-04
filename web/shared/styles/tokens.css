@@ -38,4 +38,17 @@
   --size-table-cell: 0.92rem;
   --size-table-compact: 0.85rem;
   --size-label: 0.75rem;
+  --size-button: 0.9rem;
+
+  /* The few strengths of gold wash, shadow and border, and the darker surfaces. */
+  --gold-wash-faint: rgba(229, 169, 60, 0.15);
+  --gold-wash: rgba(229, 169, 60, 0.25);
+  --gold-wash-strong: rgba(229, 169, 60, 0.4);
+  --shadow-light: rgba(0, 0, 0, 0.3);
+  --shadow: rgba(0, 0, 0, 0.6);
+  --shadow-deep: rgba(0, 0, 0, 0.9);
+  --border-faint: rgba(74, 53, 37, 0.3);
+  --surface-card: rgba(28, 18, 12, 0.95);
+  --surface-well: rgba(20, 13, 9, 0.98);
+  --surface-field: rgba(14, 9, 6, 0.95);
 }

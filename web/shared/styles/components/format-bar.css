@@ -47,21 +47,21 @@
 
 .format-btn.raised:hover {
   border-color: var(--accent-gold);
-  background: rgba(229, 169, 60, 0.25);
+  background: var(--gold-wash);
   color: var(--text-bright);
 }
 
 .format-btn.raised.active {
   border-color: var(--accent-gold-bright);
   background: var(--gradient-gold);
-  box-shadow: 0 2px 8px rgba(229, 169, 60, 0.4);
+  box-shadow: 0 2px 8px var(--gold-wash-strong);
   color: var(--text-on-gold);
   font-weight: 700;
 }
 
 .format-btn:hover {
   border-color: var(--accent-gold);
-  background: rgba(229, 169, 60, 0.12);
+  background: var(--gold-wash-faint);
   color: var(--text-bright);
 }
 
@@ -70,7 +70,7 @@
   background: var(--accent-gold);
   color: var(--text-on-gold);
   font-weight: 700;
-  box-shadow: 0 2px 6px rgba(229, 169, 60, 0.35);
+  box-shadow: 0 2px 6px var(--gold-wash-strong);
 }
 
 .format-bar-actions {

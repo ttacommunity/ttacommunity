@@ -4,7 +4,7 @@
 }
 
 span[data-tooltip] {
-  border-bottom: 1px dotted rgba(229, 169, 60, 0.4);
+  border-bottom: 1px dotted var(--gold-wash-strong);
   cursor: help;
 }
 
@@ -17,7 +17,7 @@ span[data-tooltip] {
   background: rgba(18, 12, 8, 0.98);
   border: 1px solid var(--accent-gold);
   border-radius: 5px;
-  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.9);
+  box-shadow: 0 6px 24px var(--shadow-deep);
   color: var(--text-main);
   font-family: var(--font-stats);
   font-size: 0.8rem;

@@ -26,13 +26,13 @@
 }
 .series-nav-btn:hover {
   color: var(--text-main);
-  background: rgba(229, 169, 60, 0.12);
+  background: var(--gold-wash-faint);
 }
 .series-nav-btn.active {
   background: var(--accent-gold);
   color: var(--bg-dark);
   font-weight: 700;
-  box-shadow: 0 2px 6px rgba(229, 169, 60, 0.35);
+  box-shadow: 0 2px 6px var(--gold-wash-strong);
 }
 
 .detail-hero {
@@ -42,7 +42,7 @@
   padding: 2rem;
   margin-bottom: 2rem;
   position: relative;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
+  box-shadow: 0 4px 20px var(--shadow-light);
 }
 .detail-hero-top {
   display: flex;
@@ -59,20 +59,20 @@
 .detail-hero-icon {
   font-size: 3.2rem;
   line-height: 1;
-  background: rgba(0, 0, 0, 0.3);
+  background: var(--shadow-light);
   padding: 0.75rem;
   border-radius: 12px;
-  border: 1px solid rgba(229, 169, 60, 0.25);
+  border: 1px solid var(--gold-wash);
 }
 .detail-hero-title {
-  font-size: 2rem;
+  font-size: var(--size-page-title);
   font-weight: 800;
   color: var(--text-bright);
   margin-bottom: 0.3rem;
 }
 .detail-hero-badge {
-  background: rgba(229, 169, 60, 0.15);
-  border: 1px solid rgba(229, 169, 60, 0.3);
+  background: var(--gold-wash-faint);
+  border: 1px solid var(--gold-wash);
   color: var(--accent-gold);
   padding: 0.3rem 0.75rem;
   border-radius: 4px;
@@ -95,16 +95,16 @@
   gap: 1rem;
   margin-top: 1.5rem;
   padding-top: 1.25rem;
-  border-top: 1px solid rgba(229, 169, 60, 0.15);
+  border-top: 1px solid var(--gold-wash-faint);
 }
 .meta-box {
-  background: rgba(0, 0, 0, 0.3);
+  background: var(--shadow-light);
   border: 1px solid rgba(255, 255, 255, 0.05);
   padding: 0.75rem 1rem;
   border-radius: 6px;
 }
 .meta-box-label {
-  font-size: 0.75rem;
+  font-size: var(--size-label);
   text-transform: uppercase;
   letter-spacing: 0.5px;
   color: var(--text-muted);
@@ -148,22 +148,22 @@
 }
 
 .panel-card {
-  background: linear-gradient(145deg, rgba(28, 18, 12, 0.95), rgba(20, 13, 9, 0.98));
-  border: 1.5px solid rgba(229, 169, 60, 0.25);
+  background: linear-gradient(145deg, var(--surface-card), var(--surface-well));
+  border: 1.5px solid var(--gold-wash);
   border-radius: 8px;
   padding: 1.5rem;
-  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.5);
+  box-shadow: 0 6px 20px var(--shadow);
 }
 .panel-header {
   display: flex;
   align-items: center;
   gap: 0.6rem;
-  font-size: 1.25rem;
+  font-size: var(--size-card-title);
   font-weight: 700;
   color: var(--accent-gold);
   margin-bottom: 1.25rem;
   padding-bottom: 0.75rem;
-  border-bottom: 1px solid rgba(229, 169, 60, 0.15);
+  border-bottom: 1px solid var(--gold-wash-faint);
 }
 
 /* Rules list */
@@ -198,17 +198,17 @@
   overflow-x: auto;
   -webkit-overflow-scrolling: touch;
   border-radius: 6px;
-  border: 1px solid rgba(229, 169, 60, 0.2);
+  border: 1px solid var(--gold-wash);
   background: rgba(0, 0, 0, 0.25);
   scrollbar-width: thin;
-  scrollbar-color: var(--accent-gold) rgba(0, 0, 0, 0.4);
+  scrollbar-color: var(--accent-gold) var(--shadow-light);
 }
 .trophy-table thead th {
   position: sticky;
   top: 0;
   z-index: 5;
   background: rgba(30, 20, 14, 0.98);
-  box-shadow: 0 1px 0 rgba(229, 169, 60, 0.25);
+  box-shadow: 0 1px 0 var(--gold-wash);
 }
 .trophy-table {
   width: 100%;
@@ -222,7 +222,7 @@
   text-align: left;
   padding: 0.75rem 1rem;
   border-bottom: 2px solid var(--border-subtle);
-  font-size: 0.82rem;
+  font-size: var(--size-table-header);
   text-transform: uppercase;
   letter-spacing: 0.5px;
   font-family: var(--font-heading);
@@ -238,11 +238,11 @@
 }
 .trophy-table td {
   padding: 0.75rem 1rem;
-  border-bottom: 1px solid rgba(74, 53, 37, 0.35);
+  border-bottom: 1px solid var(--border-faint);
   color: var(--text-main);
 }
 .trophy-table tbody tr:hover td {
-  background: rgba(229, 169, 60, 0.12) !important;
+  background: var(--gold-wash-faint) !important;
 }
 .medal-count {
   font-weight: 700;
@@ -261,7 +261,7 @@
 }
 .story-card {
   background: rgba(18, 12, 8, 0.75);
-  border: 1px solid rgba(229, 169, 60, 0.2);
+  border: 1px solid var(--gold-wash);
   border-radius: 6px;
   padding: 1.25rem;
   position: relative;
@@ -291,8 +291,8 @@
   color: var(--accent-gold);
 }
 .story-badge {
-  background: rgba(229, 169, 60, 0.15);
-  border: 1px solid rgba(229, 169, 60, 0.3);
+  background: var(--gold-wash-faint);
+  border: 1px solid var(--gold-wash);
   color: var(--accent-gold);
   font-size: 0.75rem;
   padding: 0.2rem 0.5rem;
@@ -330,7 +330,7 @@
   overflow-y: auto;
   padding-right: 0.5rem;
   scrollbar-width: thin;
-  scrollbar-color: var(--accent-gold) rgba(0, 0, 0, 0.4);
+  scrollbar-color: var(--accent-gold) var(--shadow-light);
 }
 
 /* Upstream's phone sizes for the hero name .tournament-hero, which the page does not use; applied to the hero it does, so a long series name fits (changed from upstream). */
@@ -385,13 +385,14 @@ h2.panel-header {
   display: flex;
   align-items: center;
   gap: 0.6rem;
+  font-size: inherit;
 }
 
 .panel-tag {
   padding: 0.15rem 0.5rem;
-  border: 1px solid rgba(229, 169, 60, 0.25);
+  border: 1px solid var(--gold-wash);
   border-radius: 4px;
-  background: rgba(229, 169, 60, 0.12);
+  background: var(--gold-wash-faint);
   color: var(--accent-gold);
   font-size: 0.78rem;
   font-weight: 600;
@@ -484,7 +485,7 @@ h2.panel-header {
 .records-intro {
   margin-bottom: 1.25rem;
   color: var(--text-muted);
-  font-size: 0.9rem;
+  font-size: var(--size-body-short);
   line-height: 1.5;
 }
 
@@ -515,7 +516,7 @@ h2.panel-header {
 
 .trophy-table .cell-muted {
   color: var(--text-muted);
-  font-size: 0.88rem;
+  font-size: var(--size-table-cell);
 }
 
 .trophy-table .cell-opponents,
@@ -531,7 +532,7 @@ h2.panel-header {
 .trophy-table .cell-date {
   color: var(--text-muted);
   font-family: var(--font-stats);
-  font-size: 0.85rem;
+  font-size: var(--size-table-compact);
   text-align: right;
 }
 
