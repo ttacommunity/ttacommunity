@@ -11,8 +11,6 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5"
-
-	"ttacommunity/backend/internal/tournamentcsv"
 )
 
 // ErrTournamentNotFound is returned for a tournament with no placed games.
@@ -38,6 +36,8 @@ type CatalogueEntry struct {
 // are unset.
 type Card struct {
 	Icon, Tagline, Summary string
+	// Subtitle and Cadence are the page header's line under the name and its cadence figure.
+	Subtitle, Cadence string
 }
 
 // CGEEntry is a tournament on CGE's site, with which of ours it is (Tournament,
@@ -90,15 +90,6 @@ type CatalogueSeason struct {
 
 // leadingNumber is the number a season label starts with.
 var leadingNumber = regexp.MustCompile(`^\d+`)
-
-// leagueTops names the division whose standings give a league season's podium.
-var leagueTops = map[string][]string{
-	"intermezzo":     {"Grandmaster", "Diamond"},
-	"international":  {"Grandmaster", "Diamond"},
-	"royal_league":   {"Emperor"},
-	"worlds":         {"Final"},
-	"nations_league": {"Apple"},
-}
 
 // LadderWin is one player's top-tier wins in a ladder, as its organisers count them.
 type LadderWin struct {
@@ -177,9 +168,10 @@ func (r *RatingsReader) Catalogue(ctx context.Context, run int64) (CatalogueView
 		SELECT slug, name, count(DISTINCT season_id), count(DISTINCT match_id), count(DISTINCT player), min(date), max(date),
 		       array(SELECT k.slug FROM ranking_tournaments rt JOIN rankings k USING (ranking_id)
 		             JOIN tournaments t USING (tournament_id) WHERE t.slug = g.slug ORDER BY k.slug),
-		       coalesce(c.icon, ''), coalesce(c.tagline, ''), coalesce(c.summary, '')
+		       coalesce(c.icon, ''), coalesce(c.tagline, ''), coalesce(c.summary, ''),
+		       coalesce(c.subtitle, ''), coalesce(c.cadence, '')
 		FROM g LEFT JOIN tournament_cards c ON c.tournament = g.slug
-		GROUP BY slug, name, c.icon, c.tagline, c.summary ORDER BY name, slug`)
+		GROUP BY slug, name, c.icon, c.tagline, c.summary, c.subtitle, c.cadence ORDER BY name, slug`)
 	if err != nil {
 		return CatalogueView{}, fmt.Errorf("reading the catalogue: %w", err)
 	}
@@ -187,7 +179,7 @@ func (r *RatingsReader) Catalogue(ctx context.Context, run int64) (CatalogueView
 	got.Tournaments, err = pgx.CollectRows(rows, func(row pgx.CollectableRow) (CatalogueEntry, error) {
 		var e CatalogueEntry
 		return e, row.Scan(&e.Slug, &e.Name, &e.Seasons, &e.Span.Games, &e.Span.Players, &e.Span.First, &e.Span.Last, &e.Rankings,
-			&e.Card.Icon, &e.Card.Tagline, &e.Card.Summary)
+			&e.Card.Icon, &e.Card.Tagline, &e.Card.Summary, &e.Card.Subtitle, &e.Card.Cadence)
 	})
 	if err != nil {
 		return CatalogueView{}, fmt.Errorf("reading the catalogue: %w", err)
@@ -222,7 +214,12 @@ func (r *RatingsReader) CatalogueTournament(ctx context.Context, run int64, slug
 	fail := func(what string, err error) (CatalogueTournament, error) {
 		return CatalogueTournament{}, fmt.Errorf("reading %s's %s: %w", slug, what, err)
 	}
-	got := CatalogueTournament{Slug: slug, Seasons: []CatalogueSeason{}, Ladder: slices.Contains(tournamentcsv.Ladders, slug), TopTierWins: []LadderWin{}}
+	got := CatalogueTournament{Slug: slug, Seasons: []CatalogueSeason{}, TopTierWins: []LadderWin{}}
+	var top []string
+	err := r.pool.QueryRow(ctx, "SELECT kind = 'ladder', top_divisions FROM tournaments WHERE slug = $1", slug).Scan(&got.Ladder, &top)
+	if err != nil && !errors.Is(err, pgx.ErrNoRows) {
+		return fail("kind", err)
+	}
 	rows, err := r.pool.Query(ctx, `
 		WITH g AS (`+placedSeats+` AND t.slug = $1)
 		SELECT name, season_id, season, count(DISTINCT match_id), count(DISTINCT player), min(date), max(date)
@@ -301,7 +298,7 @@ func (r *RatingsReader) CatalogueTournament(ctx context.Context, run int64, slug
 			WHERE run_id = $2 AND series = $1 AND division = ANY($3) AND place <= 3
 			  AND season NOT IN (SELECT season FROM official))
 		SELECT season::text, place, player_name, source FROM (SELECT * FROM official UNION ALL SELECT * FROM derived) p
-		ORDER BY season, place, player_name`, slug, run, leagueTops[slug])
+		ORDER BY season, place, player_name`, slug, run, top)
 	if err != nil {
 		return fail("league podiums", err)
 	}
@@ -427,8 +424,10 @@ func (r *RatingsReader) CatalogueTournament(ctx context.Context, run int64, slug
 	if err != nil {
 		return fail("regulations", err)
 	}
-	err = r.pool.QueryRow(ctx, `SELECT coalesce(max(icon), ''), coalesce(max(tagline), ''), coalesce(max(summary), '')
-		FROM tournament_cards WHERE tournament = $1`, slug).Scan(&got.Card.Icon, &got.Card.Tagline, &got.Card.Summary)
+	err = r.pool.QueryRow(ctx, `SELECT coalesce(max(icon), ''), coalesce(max(tagline), ''), coalesce(max(summary), ''),
+		coalesce(max(subtitle), ''), coalesce(max(cadence), '')
+		FROM tournament_cards WHERE tournament = $1`, slug).Scan(&got.Card.Icon, &got.Card.Tagline, &got.Card.Summary,
+		&got.Card.Subtitle, &got.Card.Cadence)
 	if err != nil {
 		return fail("card", err)
 	}

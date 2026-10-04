@@ -397,12 +397,14 @@ func TestCatalogueTournamentGivesALaddersTopTierWins(t *testing.T) {
 		{Ladder: "mercurial_ladder", Player: "ann", Wins: 1, Source: src},
 		{Ladder: "mercurial_ladder", Player: "cat", Wins: 3.5, Source: src},
 		{Ladder: "mercurial_ladder", Player: "nobody", Wins: 2, Source: src},
+		{Ladder: "intermezzo", Player: "cat", Wins: 1, Source: src},
+		{Ladder: "snail_ladder", Player: "cat", Wins: 1, Source: src},
 	})
 	if err != nil {
 		t.Fatalf("ReplaceLadderWins: %v", err)
 	}
-	if got.Written != 2 || got.Unknown != 1 {
-		t.Errorf("ReplaceLadderWins = %+v, want 2 written and 1 not a player", got)
+	if got.Written != 2 || got.Unknown != 3 {
+		t.Errorf("ReplaceLadderWins = %+v, want 2 written, and 3 not a player or not a ladder", got)
 	}
 	r := NewRatingsReader(asReader(t, pool))
 	ladder, err := r.CatalogueTournament(ctx, run, "mercurial_ladder")
@@ -671,5 +673,22 @@ func TestCatalogueTournamentGivesItsHighestWinningScores(t *testing.T) {
 	}
 	if !reflect.DeepEqual(got.GameRecords, want) {
 		t.Errorf("game records = %+v, want %+v (a game never played left out)", got.GameRecords, want)
+	}
+}
+
+func TestCatalogueTournamentTakesItsKindAndTopDivisionsFromTheDatabase(t *testing.T) {
+	pool := migrated(t)
+	ctx := context.Background()
+	run := publishedRun(t, pool)
+	placedOn(t, pool, map[string]time.Time{"Wimbledon 2024 Stage 1 - group 1 game 1": day("2024-07-01")})
+	r := NewRatingsReader(asReader(t, pool))
+	if got, err := r.CatalogueTournament(ctx, run, "wimbledon"); err != nil || got.Ladder {
+		t.Fatalf("wimbledon as a cup: ladder = %v, %v", got.Ladder, err)
+	}
+	if _, err := pool.Exec(ctx, "UPDATE tournaments SET kind = 'ladder' WHERE slug = 'wimbledon'"); err != nil {
+		t.Fatal(err)
+	}
+	if got, err := r.CatalogueTournament(ctx, run, "wimbledon"); err != nil || !got.Ladder {
+		t.Errorf("wimbledon made a ladder in the database: ladder = %v, %v", got.Ladder, err)
 	}
 }

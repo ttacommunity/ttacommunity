@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"slices"
+	"strings"
 
 	"github.com/jackc/pgx/v5/pgxpool"
 
@@ -28,20 +29,22 @@ func ClassifyMatches(ctx context.Context, pool *pgxpool.Pool) (Classified, error
 	}
 	defer tx.Rollback(ctx)
 
-	var slugs, names []string
+	var slugs, names, kinds, tops []string
 	for _, t := range gamename.Tournaments {
-		slugs, names = append(slugs, t.Slug), append(names, t.Name)
+		slugs, names, kinds = append(slugs, t.Slug), append(names, t.Name), append(kinds, t.Kind)
+		tops = append(tops, strings.Join(t.TopDivisions, "|"))
 	}
 	// A tournament first seen here is rated in the community ranking, as all were on the original site.
 	if _, err := tx.Exec(ctx, `
 		WITH added AS (
-			INSERT INTO tournaments (slug, name)
-			SELECT * FROM unnest($1::text[], $2::text[])
+			INSERT INTO tournaments (slug, name, original_name, kind, top_divisions)
+			SELECT slug, name, name, kind, coalesce(string_to_array(nullif(tops, ''), '|'), '{}')
+			FROM unnest($1::text[], $2::text[], $3::text[], $4::text[]) AS x(slug, name, kind, tops)
 			ON CONFLICT (slug) DO NOTHING
 			RETURNING tournament_id
 		)
 		INSERT INTO ranking_tournaments (ranking_id, tournament_id)
-		SELECT r.ranking_id, a.tournament_id FROM rankings r CROSS JOIN added a WHERE r.slug = 'community'`, slugs, names); err != nil {
+		SELECT r.ranking_id, a.tournament_id FROM rankings r CROSS JOIN added a WHERE r.slug = 'community'`, slugs, names, kinds, tops); err != nil {
 		return Classified{}, fmt.Errorf("adding tournaments: %w", err)
 	}
 
@@ -75,16 +78,16 @@ func ClassifyMatches(ctx context.Context, pool *pgxpool.Pool) (Classified, error
 	}
 
 	if _, err := tx.Exec(ctx, `
-		INSERT INTO tournament_seasons (tournament_id, label)
-		SELECT DISTINCT t.tournament_id, p.season
+		INSERT INTO tournament_seasons (tournament_id, label, original_name)
+		SELECT DISTINCT t.tournament_id, p.season, p.season
 		FROM unnest($1::text[], $2::text[]) AS p(slug, season)
 		JOIN tournaments t USING (slug)
 		ON CONFLICT (tournament_id, label) DO NOTHING`, tournaments, seasons); err != nil {
 		return Classified{}, fmt.Errorf("adding seasons: %w", err)
 	}
 	if _, err := tx.Exec(ctx, `
-		INSERT INTO tournament_stages (season_id, label)
-		SELECT DISTINCT s.season_id, p.stage
+		INSERT INTO tournament_stages (season_id, label, original_name)
+		SELECT DISTINCT s.season_id, p.stage, p.stage
 		FROM unnest($1::text[], $2::text[], $3::text[]) AS p(slug, season, stage)
 		JOIN tournaments t USING (slug)
 		JOIN tournament_seasons s ON s.tournament_id = t.tournament_id AND s.label = p.season

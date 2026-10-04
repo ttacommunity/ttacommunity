@@ -153,7 +153,8 @@ func ReplaceSeasonNotes(ctx context.Context, pool *pgxpool.Pool, notes []tournam
 }
 
 // ReplaceLadderWins replaces every ladder's top-tier wins, in one
-// transaction. A row naming someone who is not a player is counted, not written.
+// transaction. A row naming someone who is not a player, or a tournament that
+// is not a ladder, is counted, not written.
 func ReplaceLadderWins(ctx context.Context, pool *pgxpool.Pool, wins []tournamentcsv.LadderWins) (FactsReplaced, error) {
 	var ladders, players, sources []string
 	var counts []float64
@@ -164,7 +165,8 @@ func ReplaceLadderWins(ctx context.Context, pool *pgxpool.Pool, wins []tournamen
 		INSERT INTO tournament_ladder_wins (ladder, player_name, wins, source)
 		SELECT x.ladder, p.name, x.wins, x.source
 		FROM unnest($1::text[], $2::text[], $3::numeric[], $4::text[]) AS x(ladder, player, wins, source)
-		JOIN players p ON p.name = x.player`,
+		JOIN players p ON p.name = x.player
+		JOIN tournaments t ON t.slug = x.ladder AND t.kind = 'ladder'`,
 		ladders, players, counts, sources)
 	return FactsReplaced{Written: n, Unknown: len(wins) - n}, err
 }
@@ -237,7 +239,7 @@ func ReplaceCGETournaments(ctx context.Context, pool *pgxpool.Pool, rows []tourn
 	}
 	defer tx.Rollback(ctx)
 	if _, err := tx.Exec(ctx, `
-		INSERT INTO tournaments (slug, name) SELECT * FROM unnest($1::text[], $2::text[])
+		INSERT INTO tournaments (slug, name, original_name) SELECT slug, name, name FROM unnest($1::text[], $2::text[]) AS x(slug, name)
 		ON CONFLICT (slug) DO NOTHING`, addSlugs, addNames); err != nil {
 		return FactsReplaced{}, fmt.Errorf("adding the tournaments CGE's catalogue names: %w", err)
 	}

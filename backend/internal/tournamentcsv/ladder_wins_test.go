@@ -25,13 +25,12 @@ func TestReadLadderWinsTakesEachPlayer(t *testing.T) {
 
 func TestReadLadderWinsRefusesBadRows(t *testing.T) {
 	for name, row := range map[string]string{
-		"unknown ladder":   "snail_ladder,wolvs,10,s",
-		"not a ladder":     "intermezzo,wolvs,10,s",
-		"no player":        "mercurial_ladder,,10,s",
-		"no wins":          "mercurial_ladder,wolvs,0,s",
-		"not a number":     "mercurial_ladder,wolvs,ten,s",
-		"a third of a win": "mercurial_ladder,wolvs,1.33,s",
-		"no source":        "mercurial_ladder,wolvs,10,",
+		"not a tournament name": "Mercurial Ladder,wolvs,10,s",
+		"no player":             "mercurial_ladder,,10,s",
+		"no wins":               "mercurial_ladder,wolvs,0,s",
+		"not a number":          "mercurial_ladder,wolvs,ten,s",
+		"a third of a win":      "mercurial_ladder,wolvs,1.33,s",
+		"no source":             "mercurial_ladder,wolvs,10,",
 	} {
 		got, err := ReadLadderWins("w.csv", strings.NewReader(ladderWinsHeader+row+"\n"))
 		if err != nil {

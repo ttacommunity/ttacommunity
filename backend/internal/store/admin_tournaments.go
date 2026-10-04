@@ -29,7 +29,11 @@ type AdminTournament struct {
 	Card              Card
 	Stories           []Story
 	RatedPlayerCounts []int
-	Seasons           []AdminSeason
+	Kind              string
+	TopDivisions      []string
+	// OriginalName is the name the tournament came in with, kept when it is renamed.
+	OriginalName string
+	Seasons      []AdminSeason
 }
 
 // AdminSeason is a season with its own note, its stages, and the podium admin set for it, if any.
@@ -60,7 +64,13 @@ type AdminStage struct {
 type TournamentSettings struct {
 	Visible, Rated, Community *bool
 	RatedPlayerCounts         []int
+	// Kind is league, cup or ladder ("" unchanged); TopDivisions give a league's podium (nil unchanged).
+	Kind         string
+	TopDivisions []string
 }
+
+// ErrBadKind means a kind other than league, cup or ladder.
+var ErrBadKind = errors.New("a tournament is a league, a cup or a ladder")
 
 // ErrBadPlayerCounts means rated player counts that are empty or not among 2, 3 and 4.
 var ErrBadPlayerCounts = errors.New("rated player counts are one or more of 2, 3 and 4")
@@ -72,13 +82,13 @@ func (a *AdminStore) Tournaments(ctx context.Context) ([]AdminTournament, error)
 		       EXISTS (SELECT 1 FROM ranking_tournaments rt JOIN rankings r USING (ranking_id)
 		               WHERE r.slug = 'community' AND rt.tournament_id = t.tournament_id),
 		       coalesce((SELECT text FROM tournament_regulations g WHERE g.tournament = t.slug), ''),
-		       coalesce(k.icon, ''), coalesce(k.tagline, ''), coalesce(k.summary, ''),
+		       coalesce(k.icon, ''), coalesce(k.tagline, ''), coalesce(k.summary, ''), coalesce(k.subtitle, ''), coalesce(k.cadence, ''),
 		       coalesce((SELECT c.description FROM cge_tournaments c WHERE c.tournament_id = t.tournament_id AND c.description <> ''
 		                 ORDER BY coalesce(c.started, c.created, c.finished) DESC NULLS LAST, c.cge_tournament DESC LIMIT 1), ''),
 		       se.label, coalesce(st.label, ''),
 		       coalesce((SELECT note FROM tournament_season_notes n WHERE n.tournament = t.slug AND n.season = se.label AND n.stage = ''), ''),
 		       coalesce((SELECT note FROM tournament_season_notes n WHERE n.tournament = t.slug AND n.season = se.label AND n.stage = st.label AND st.label <> ''), ''),
-		       d.last IS NOT NULL, coalesce(se.rated, true), t.rated_player_counts
+		       d.last IS NOT NULL, coalesce(se.rated, true), t.rated_player_counts, t.kind, t.top_divisions, t.original_name
 		FROM tournaments t
 		LEFT JOIN tournament_cards k ON k.tournament = t.slug
 		LEFT JOIN tournament_seasons se USING (tournament_id)
@@ -98,12 +108,15 @@ func (a *AdminStore) Tournaments(ctx context.Context) ([]AdminTournament, error)
 	var season, stage, seasonNote, stageNote *string
 	var hasGames, seasonRated bool
 	var counts []int
+	var kind, original string
+	var top []string
 	_, err = pgx.ForEachRow(rows, []any{&slug, &name, &visible, &community, &rated, &regulations,
-		&card.Icon, &card.Tagline, &card.Summary, &cgeRegulations, &season, &stage, &seasonNote, &stageNote, &hasGames,
-		&seasonRated, &counts}, func() error {
+		&card.Icon, &card.Tagline, &card.Summary, &card.Subtitle, &card.Cadence, &cgeRegulations, &season, &stage, &seasonNote, &stageNote, &hasGames,
+		&seasonRated, &counts, &kind, &top, &original}, func() error {
 		if len(out) == 0 || out[len(out)-1].Slug != slug {
 			out = append(out, AdminTournament{Slug: slug, Name: name, Visible: visible, Rated: rated, Community: community,
-				Regulations: regulations, CGERegulations: cgeRegulations, Card: card, RatedPlayerCounts: counts, Seasons: []AdminSeason{}})
+				Regulations: regulations, CGERegulations: cgeRegulations, Card: card, RatedPlayerCounts: counts,
+				Kind: kind, TopDivisions: top, OriginalName: original, Seasons: []AdminSeason{}})
 		}
 		t := &out[len(out)-1]
 		if season == nil {
@@ -229,6 +242,18 @@ func seasonExists(ctx context.Context, tx pgx.Tx, slug, season string) error {
 
 // SetTournament changes a tournament's settings in one transaction, or returns ErrNoTournament.
 func (a *AdminStore) SetTournament(ctx context.Context, slug string, s TournamentSettings) error {
+	if s.Kind != "" && s.Kind != "league" && s.Kind != "cup" && s.Kind != "ladder" {
+		return ErrBadKind
+	}
+	if s.TopDivisions != nil {
+		top := make([]string, 0, len(s.TopDivisions))
+		for _, d := range s.TopDivisions {
+			if d = strings.TrimSpace(d); d != "" && !slices.Contains(top, d) {
+				top = append(top, d)
+			}
+		}
+		s.TopDivisions = top
+	}
 	if s.RatedPlayerCounts != nil {
 		counts := slices.Sorted(slices.Values(s.RatedPlayerCounts))
 		counts = slices.Compact(counts)
@@ -246,6 +271,16 @@ func (a *AdminStore) SetTournament(ctx context.Context, slug string, s Tournamen
 		}
 		if s.Visible != nil {
 			if _, err := tx.Exec(ctx, "UPDATE tournaments SET visible = $2 WHERE tournament_id = $1", id, *s.Visible); err != nil {
+				return fmt.Errorf("setting %s: %w", slug, err)
+			}
+		}
+		if s.Kind != "" {
+			if _, err := tx.Exec(ctx, "UPDATE tournaments SET kind = $2 WHERE tournament_id = $1", id, s.Kind); err != nil {
+				return fmt.Errorf("setting %s: %w", slug, err)
+			}
+		}
+		if s.TopDivisions != nil {
+			if _, err := tx.Exec(ctx, "UPDATE tournaments SET top_divisions = $2 WHERE tournament_id = $1", id, s.TopDivisions); err != nil {
 				return fmt.Errorf("setting %s: %w", slug, err)
 			}
 		}
@@ -310,11 +345,12 @@ var seasonPrefix = regexp.MustCompile(`(?i)^season\s+`)
 // AddSeason adds a season with no games yet to a tournament, so a note can be shown for it. A leading
 // "Season" is dropped from the label ("Season 1" is season "1"), as the site adds it.
 func (a *AdminStore) AddSeason(ctx context.Context, slug, label string) error {
-	label = seasonPrefix.ReplaceAllString(strings.TrimSpace(label), "")
+	typed := strings.TrimSpace(label)
+	label = seasonPrefix.ReplaceAllString(typed, "")
 	tag, err := a.pool.Exec(ctx, `
-		INSERT INTO tournament_seasons (tournament_id, label)
-		SELECT tournament_id, $2 FROM tournaments WHERE slug = $1
-		ON CONFLICT (tournament_id, label) DO NOTHING`, slug, label)
+		INSERT INTO tournament_seasons (tournament_id, label, original_name)
+		SELECT tournament_id, $2, $3 FROM tournaments WHERE slug = $1
+		ON CONFLICT (tournament_id, label) DO NOTHING`, slug, label, typed)
 	if err != nil {
 		return fmt.Errorf("adding season %s of %s: %w", label, slug, err)
 	}
@@ -386,12 +422,14 @@ func (a *AdminStore) SetRegulations(ctx context.Context, slug, text string) erro
 }
 
 // ErrBadCard means a card's icon is over 8 characters, its description over 60 or its information box over 1,000.
-var ErrBadCard = errors.New("a card's icon is at most 8 characters, its description 60 and its information box 1,000")
+var ErrBadCard = errors.New("a card's icon is at most 8 characters, its description, subtitle and cadence 60 and its information box 1,000")
 
 // SetCard saves a tournament's card, trimmed; an empty card removes it. It returns ErrNoTournament or ErrBadCard.
 func (a *AdminStore) SetCard(ctx context.Context, slug string, c Card) error {
-	c = Card{Icon: strings.TrimSpace(c.Icon), Tagline: strings.TrimSpace(c.Tagline), Summary: strings.TrimSpace(c.Summary)}
-	if utf8.RuneCountInString(c.Icon) > 8 || utf8.RuneCountInString(c.Tagline) > 60 || utf8.RuneCountInString(c.Summary) > 1000 {
+	c = Card{Icon: strings.TrimSpace(c.Icon), Tagline: strings.TrimSpace(c.Tagline), Summary: strings.TrimSpace(c.Summary),
+		Subtitle: strings.TrimSpace(c.Subtitle), Cadence: strings.TrimSpace(c.Cadence)}
+	if utf8.RuneCountInString(c.Icon) > 8 || utf8.RuneCountInString(c.Tagline) > 60 || utf8.RuneCountInString(c.Summary) > 1000 ||
+		utf8.RuneCountInString(c.Subtitle) > 60 || utf8.RuneCountInString(c.Cadence) > 60 {
 		return ErrBadCard
 	}
 	return pgx.BeginFunc(ctx, a.pool, func(tx pgx.Tx) error {
@@ -402,9 +440,10 @@ func (a *AdminStore) SetCard(ctx context.Context, slug string, c Card) error {
 		if !exists {
 			return ErrNoTournament
 		}
-		q := `INSERT INTO tournament_cards (tournament, icon, tagline, summary) VALUES ($1, $2, $3, $4)
-			ON CONFLICT (tournament) DO UPDATE SET icon = excluded.icon, tagline = excluded.tagline, summary = excluded.summary`
-		args := []any{slug, c.Icon, c.Tagline, c.Summary}
+		q := `INSERT INTO tournament_cards (tournament, icon, tagline, summary, subtitle, cadence) VALUES ($1, $2, $3, $4, $5, $6)
+			ON CONFLICT (tournament) DO UPDATE SET icon = excluded.icon, tagline = excluded.tagline, summary = excluded.summary,
+				subtitle = excluded.subtitle, cadence = excluded.cadence`
+		args := []any{slug, c.Icon, c.Tagline, c.Summary, c.Subtitle, c.Cadence}
 		if c == (Card{}) {
 			q, args = "DELETE FROM tournament_cards WHERE tournament = $1", []any{slug}
 		}

@@ -6,6 +6,7 @@ import (
 	"context"
 	"errors"
 	"reflect"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -411,5 +412,45 @@ func TestAdminSetsWhichSeasonsAndPlayerCountsAreRated(t *testing.T) {
 		if !errors.Is(tt.err, tt.want) {
 			t.Errorf("%s: %v, want %v", tt.name, tt.err, tt.want)
 		}
+	}
+}
+
+func TestAdminSetsATournamentsKindAndTopDivisions(t *testing.T) {
+	pool := migrated(t)
+	ctx := context.Background()
+	placedOn(t, pool, map[string]time.Time{"Wimbledon 2024 Stage 1 - group 1 game 1": day("2024-07-01")})
+	a := NewAdminStore(asAdminLogin(t, pool))
+	if err := a.SetTournament(ctx, "wimbledon", TournamentSettings{Kind: "league", TopDivisions: []string{" Gold ", "Silver"}}); err != nil {
+		t.Fatalf("SetTournament: %v", err)
+	}
+	ts, err := a.Tournaments(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	w := adminTournament(t, ts, "wimbledon")
+	if w.Kind != "league" || !slices.Equal(w.TopDivisions, []string{"Gold", "Silver"}) || w.OriginalName != "Wimbledon" {
+		t.Errorf("wimbledon = kind %q, top %v, original %q", w.Kind, w.TopDivisions, w.OriginalName)
+	}
+	if err := a.SetTournament(ctx, "wimbledon", TournamentSettings{Kind: "tour"}); !errors.Is(err, ErrBadKind) {
+		t.Errorf("an unknown kind = %v, want ErrBadKind", err)
+	}
+}
+
+func TestACardKeepsItsSubtitleAndCadence(t *testing.T) {
+	pool := migrated(t)
+	ctx := context.Background()
+	run := publishedRun(t, pool)
+	placedOn(t, pool, map[string]time.Time{"Wimbledon 2024 Stage 1 - group 1 game 1": day("2024-07-01")})
+	a := NewAdminStore(asAdminLogin(t, pool))
+	want := Card{Icon: "🎾", Tagline: "Annual 2-Player Knock-Out", Summary: "Grass.", Subtitle: "2-Player Knock-Out Format", Cadence: "Annual (Every July)"}
+	if err := a.SetCard(ctx, "wimbledon", want); err != nil {
+		t.Fatalf("SetCard: %v", err)
+	}
+	page, err := NewRatingsReader(asReader(t, pool)).CatalogueTournament(ctx, run, "wimbledon")
+	if err != nil || page.Card != want {
+		t.Errorf("card on the page = %+v, %v; want %+v", page.Card, err, want)
+	}
+	if err := a.SetCard(ctx, "wimbledon", Card{Cadence: strings.Repeat("x", 61)}); !errors.Is(err, ErrBadCard) {
+		t.Errorf("a long cadence = %v, want ErrBadCard", err)
 	}
 }

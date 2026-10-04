@@ -167,3 +167,48 @@ func TestClassifyMatchesKeepsATournamentTakenOutOfARanking(t *testing.T) {
 		t.Errorf("community ranking = %q: placing games again put duel_curve back", got)
 	}
 }
+
+func TestClassifyMatchesGivesNewTournamentsTheirKindAndKeepsOriginalNames(t *testing.T) {
+	pool := migrated(t)
+	ctx := context.Background()
+	loadNamed(t, pool, "Wimbledon 2024 Stage 1 - group 1 game 1", "International S30 - Grandmaster game 1", "ML_s12")
+	if _, err := ClassifyMatches(ctx, pool); err != nil {
+		t.Fatalf("ClassifyMatches: %v", err)
+	}
+	kinds := map[string]string{}
+	tops := map[string][]string{}
+	rows, err := pool.Query(ctx, "SELECT slug, kind, top_divisions, original_name = name FROM tournaments")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for rows.Next() {
+		var slug, kind string
+		var top []string
+		var kept bool
+		if err := rows.Scan(&slug, &kind, &top, &kept); err != nil {
+			t.Fatal(err)
+		}
+		kinds[slug], tops[slug] = kind, top
+		if !kept {
+			t.Errorf("%s's original name differs from its name when first added", slug)
+		}
+	}
+	if kinds["wimbledon"] != "cup" || kinds["international"] != "league" || kinds["mercurial_ladder"] != "ladder" {
+		t.Errorf("kinds = %v", kinds)
+	}
+	if !slices.Equal(tops["international"], []string{"Grandmaster", "Diamond"}) || len(tops["wimbledon"]) != 0 {
+		t.Errorf("top divisions = %v", tops)
+	}
+
+	if _, err := pool.Exec(ctx, "UPDATE tournament_seasons SET label = 'Renamed' WHERE label = '2024'"); err != nil {
+		t.Fatal(err)
+	}
+	var original string
+	if err := pool.QueryRow(ctx, "SELECT original_name FROM tournament_seasons WHERE label = 'Renamed'").Scan(&original); err != nil || original != "2024" {
+		t.Errorf("a renamed season's original name = %q, %v; want 2024", original, err)
+	}
+	var stages int
+	if err := pool.QueryRow(ctx, "SELECT count(*) FROM tournament_stages WHERE original_name <> label OR original_name = '' AND label <> ''").Scan(&stages); err != nil || stages != 0 {
+		t.Errorf("%d stages without their original name (%v)", stages, err)
+	}
+}

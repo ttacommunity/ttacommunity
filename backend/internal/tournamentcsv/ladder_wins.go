@@ -3,15 +3,11 @@ package tournamentcsv
 import (
 	"io"
 	"math"
-	"slices"
 	"strconv"
 )
 
 // LadderWinsHeader is a ladder wins file's first line, exactly.
 var LadderWinsHeader = []string{"ladder", "player", "wins", "source"}
-
-// Ladders are the tournaments whose champions are counted as top-tier wins.
-var Ladders = []string{"mercurial_ladder", "sodium_ladder", "transcontinental_ladder"}
 
 // LadderWins is one player's wins in a ladder's top tier, in halves for a tie.
 type LadderWins struct {
@@ -30,7 +26,7 @@ func parseLadderWins(f func(int) string) (LadderWins, Reason) {
 	wins, err := strconv.ParseFloat(f(2), 64)
 	x := LadderWins{Ladder: f(0), Player: f(1), Wins: wins, Source: f(3)}
 	switch {
-	case !slices.Contains(Ladders, x.Ladder):
+	case !slugShape.MatchString(x.Ladder): // which tournaments are ladders is the database's to say
 		return x, BadSeries
 	case !trimmed(x.Player):
 		return x, BadPlayer

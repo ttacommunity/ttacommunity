@@ -242,15 +242,15 @@ func insertCGEGames(ctx context.Context, pool *pgxpool.Pool, games []cgegames.Ga
 		}
 	}
 	if _, err := tx.Exec(ctx, `
-		INSERT INTO tournament_seasons (tournament_id, label)
-		SELECT DISTINCT t.tournament_id, x.season FROM unnest($1::text[], $2::text[]) AS x(slug, season)
+		INSERT INTO tournament_seasons (tournament_id, label, original_name)
+		SELECT DISTINCT t.tournament_id, x.season, x.season FROM unnest($1::text[], $2::text[]) AS x(slug, season)
 		JOIN tournaments t USING (slug)
 		ON CONFLICT (tournament_id, label) DO NOTHING`, slugs, seasons); err != nil {
 		return 0, 0, fmt.Errorf("adding seasons: %w", err)
 	}
 	if _, err := tx.Exec(ctx, `
-		INSERT INTO tournament_stages (season_id, label)
-		SELECT DISTINCT s.season_id, x.stage FROM unnest($1::text[], $2::text[], $3::text[]) AS x(slug, season, stage)
+		INSERT INTO tournament_stages (season_id, label, original_name)
+		SELECT DISTINCT s.season_id, x.stage, x.stage FROM unnest($1::text[], $2::text[], $3::text[]) AS x(slug, season, stage)
 		JOIN tournaments t USING (slug)
 		JOIN tournament_seasons s ON s.tournament_id = t.tournament_id AND s.label = x.season
 		ON CONFLICT (season_id, label) DO NOTHING`, slugs, seasons, stages); err != nil {

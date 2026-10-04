@@ -23,27 +23,30 @@ type Placement struct {
 type Tournament struct {
 	Slug string
 	Name string
+	// Kind and TopDivisions are what a tournament starts with when first added; admin changes them after.
+	Kind         string
+	TopDivisions []string
 }
 
 // Tournaments lists every tournament a name rule can return.
 var Tournaments = []Tournament{
-	{"international", "International"},
-	{"intermezzo", "Intermezzo"},
-	{"royal_league", "Royal League"},
-	{"worlds", "World Championship"},
-	{"wimbledon", "Wimbledon"},
-	{"french_open", "French Open"},
-	{"australian_open", "Australian Open"},
-	{"survivors_cup", "Survivors Cup"},
-	{"leaderboard_trophy", "Leaderboard Trophy"},
-	{"slow_burn", "Slow Burn"},
-	{"eiffel_tower", "Eiffel Tower"},
-	{"mercurial_ladder", "Mercurial Ladder"},
-	{"sodium_ladder", "Sodium Ladder"},
-	{"transcontinental_ladder", "Transcontinental Ladder"},
-	{"premier_league", "Premier League"},
-	{"duel_curve", "Duel Curve"},
-	{"nations_league", "Nations League"},
+	{"international", "International", "league", []string{"Grandmaster", "Diamond"}},
+	{"intermezzo", "Intermezzo", "league", []string{"Grandmaster", "Diamond"}},
+	{"royal_league", "Royal League", "league", []string{"Emperor"}},
+	{"worlds", "World Championship", "cup", []string{"Final"}},
+	{"wimbledon", "Wimbledon", "cup", nil},
+	{"french_open", "French Open", "cup", nil},
+	{"australian_open", "Australian Open", "cup", nil},
+	{"survivors_cup", "Survivors Cup", "cup", nil},
+	{"leaderboard_trophy", "Leaderboard Trophy", "cup", nil},
+	{"slow_burn", "Slow Burn", "cup", nil},
+	{"eiffel_tower", "Eiffel Tower", "league", nil},
+	{"mercurial_ladder", "Mercurial Ladder", "ladder", nil},
+	{"sodium_ladder", "Sodium Ladder", "ladder", nil},
+	{"transcontinental_ladder", "Transcontinental Ladder", "ladder", nil},
+	{"premier_league", "Premier League", "league", nil},
+	{"duel_curve", "Duel Curve", "league", nil},
+	{"nations_league", "Nations League", "league", []string{"Apple"}},
 }
 
 // rule reads one name shape. Its pattern's first group is the season; place,
