@@ -44,6 +44,7 @@ import './PlayerPage.css';
 import Segmented from './Segmented';
 import FilterInput from './FilterInput';
 import PlayerLink from './PlayerLink';
+import ScrollTable from './ScrollTable';
 
 type Load<T> = { kind: 'loading' } | { kind: 'error'; message: string } | { kind: 'ready'; data: T };
 
@@ -340,10 +341,7 @@ function Games({
           </span>
         )}
       </div>
-      <div className="scroll-hint">
-        <span>Swipe table horizontally for full match details ➔</span>
-      </div>
-      <div className="table-responsive">
+      <ScrollTable hint="full match details">
         <table className="data-table">
           <caption className="visually-hidden">
             Games of {view.name}, {show.formatName(view.format)}, page {data?.page ?? view.matchPage}
@@ -416,7 +414,7 @@ function Games({
             ))}
           </tbody>
         </table>
-      </div>
+      </ScrollTable>
       {data !== null && data.pages > 1 && <Pages page={data.page} pages={data.pages} view={view} linkTo={linkTo} go={go} />}
     </div>
   );
@@ -557,10 +555,7 @@ function Rivals({ state, compare }: { state: Load<PlayerRivals>; compare: Compar
           />
         </div>
       </div>
-      <div className="scroll-hint">
-        <span>Swipe table horizontally for full opponent stats ➔</span>
-      </div>
-      <div className="table-responsive">
+      <ScrollTable hint="full opponent stats">
         <table className="data-table">
           <caption className="visually-hidden">Record against each opponent</caption>
           <thead>
@@ -614,7 +609,7 @@ function Rivals({ state, compare }: { state: Load<PlayerRivals>; compare: Compar
             ))}
           </tbody>
         </table>
-      </div>
+      </ScrollTable>
       {versus !== null && compare !== null && state.kind === 'ready' && (
         <VersusDialog
           apiUrl={compare.apiUrl}

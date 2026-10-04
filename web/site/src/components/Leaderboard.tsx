@@ -46,6 +46,7 @@ import {
 import { recall, remember } from '../lib/remembered';
 import './Leaderboard.css';
 import PlayerLink from './PlayerLink';
+import ScrollTable from './ScrollTable';
 
 type State =
   | { kind: 'loading' }
@@ -289,9 +290,6 @@ export default function Leaderboard({ apiUrl }: { apiUrl: string }) {
         )}
         {state.kind === 'ready' && (
           <>
-            <div className="scroll-hint">
-              <span>Swipe table horizontally for full stats ➔</span>
-            </div>
             <Table
               view={view}
               rows={shown.rows}
@@ -468,7 +466,7 @@ function Table({ view, rows, jumpTo, changes, linkTo, caption }: TableProps) {
   }, [jumpTo]);
 
   return (
-    <div className="table-responsive">
+    <ScrollTable hint="full stats">
       <table className="leaderboard-table">
         <caption className="visually-hidden">{caption}</caption>
         <thead>
@@ -542,7 +540,7 @@ function Table({ view, rows, jumpTo, changes, linkTo, caption }: TableProps) {
           )}
         </tbody>
       </table>
-    </div>
+    </ScrollTable>
   );
 }
 

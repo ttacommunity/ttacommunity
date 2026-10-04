@@ -4,6 +4,7 @@ import { activity, currentRun, type Activity } from '@ttac/shared/ratings';
 import { formatCards, sortCountries, titleLabel, type CountryColumn } from '../lib/analysis';
 import { runYears } from '../lib/player-view';
 import { Flag } from './PlayerMarks';
+import ScrollTable from './ScrollTable';
 
 type Load = { kind: 'loading' } | { kind: 'error'; message: string } | { kind: 'ready'; data: Activity; years: [number, number] | null };
 
@@ -113,10 +114,7 @@ export default function ActivityPage({ apiUrl }: { apiUrl: string }) {
         <p className="activity-sub">
           Comparative average Glicko-2 ratings by official title status across the top 15 participating nations. Click headers to sort.
         </p>
-        <div className="scroll-hint">
-          <span>Swipe table horizontally for country demographics ➔</span>
-        </div>
-        <div className="table-responsive">
+        <ScrollTable hint="country demographics">
           <table className="activity-table">
             <caption className="visually-hidden">The 15 countries with most rated players, and their average Glicko-2 Standard rating by title</caption>
             <thead>
@@ -153,7 +151,7 @@ export default function ActivityPage({ apiUrl }: { apiUrl: string }) {
               ))}
             </tbody>
           </table>
-        </div>
+        </ScrollTable>
       </div>
     </>
   );

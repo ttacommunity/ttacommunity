@@ -19,6 +19,7 @@ import {
 } from '../lib/analysis';
 import { recall } from '../lib/remembered';
 import Tex from './Tex';
+import ScrollTable from './ScrollTable';
 
 Chart.register(LineController, LineElement, PointElement, LinearScale, CategoryScale, Legend, Tooltip);
 
@@ -217,10 +218,7 @@ export default function CalibrationPanel({ apiUrl }: { apiUrl: string }) {
               </div>
             </div>
           </div>
-          <div className="scroll-hint">
-            <span>Swipe table horizontally for all 4 metrics ➔</span>
-          </div>
-          <div className="table-responsive">
+          <ScrollTable hint="all 4 metrics">
             <table className="ranked-table">
               <thead>
                 <tr>
@@ -271,7 +269,7 @@ export default function CalibrationPanel({ apiUrl }: { apiUrl: string }) {
               </tbody>
             </table>
             {load.kind === 'loading' && <p className="analysis-message">Loading calibration…</p>}
-          </div>
+          </ScrollTable>
         </div>
       </div>
 

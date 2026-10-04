@@ -28,6 +28,7 @@ import './PlayerPage.css';
 import './AchievementsPage.css';
 import FilterInput from './FilterInput';
 import PlayerLink from './PlayerLink';
+import ScrollTable from './ScrollTable';
 
 type Load = { kind: 'loading' } | { kind: 'error'; message: string } | { kind: 'ready'; player: Player; ach: PlayerAchievements };
 type Sort = { col: number; dir: Direction } | null;
@@ -180,10 +181,7 @@ function Records({ records }: { records: TournamentRecord[] }) {
 
       {tab === 'seasons' ? (
         <div>
-          <div className="scroll-hint">
-            <span>Swipe table horizontally for full achievement details ➔</span>
-          </div>
-          <div className="table-responsive">
+          <ScrollTable hint="full achievement details">
             <table className="records-table">
               <thead>
                 <tr>
@@ -223,14 +221,11 @@ function Records({ records }: { records: TournamentRecord[] }) {
                 )}
               </tbody>
             </table>
-          </div>
+          </ScrollTable>
         </div>
       ) : (
         <div>
-          <div className="scroll-hint">
-            <span>Swipe table horizontally for full career details ➔</span>
-          </div>
-          <div className="table-responsive">
+          <ScrollTable hint="full career details">
             <table className="records-table">
               <thead>
                 <tr>
@@ -268,7 +263,7 @@ function Records({ records }: { records: TournamentRecord[] }) {
                 )}
               </tbody>
             </table>
-          </div>
+          </ScrollTable>
         </div>
       )}
     </div>

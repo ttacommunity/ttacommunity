@@ -23,6 +23,7 @@ import './PlayerPage.css';
 import './MatrixPage.css';
 import Tex from './Tex';
 import Segmented from './Segmented';
+import ScrollTable from './ScrollTable';
 
 type Load<T> = { kind: 'loading' } | { kind: 'error'; message: string } | { kind: 'ready'; data: T };
 
@@ -199,10 +200,7 @@ export default function MatrixPage({ apiUrl }: { apiUrl: string }) {
           </div>
           <span className="matrix-snapshot">{year !== null ? `Snapshot: End of Season ${year}` : 'Current Live Ratings'}</span>
         </div>
-        <div className="scroll-hint">
-          <span>Swipe table horizontally for full matrix data ➔</span>
-        </div>
-        <div className="table-responsive">
+        <ScrollTable hint="full matrix data">
           <table className="matrix-table">
             <caption className="visually-hidden">
               Ratings by engine and reset mode, {formatName}
@@ -231,7 +229,7 @@ export default function MatrixPage({ apiUrl }: { apiUrl: string }) {
               ))}
             </tbody>
           </table>
-        </div>
+        </ScrollTable>
       </div>
 
       <div className="rating-card matrix-card">
@@ -246,10 +244,7 @@ export default function MatrixPage({ apiUrl }: { apiUrl: string }) {
             Hover on <strong>ℹ️ Score Index</strong> for composite formula details
           </span>
         </div>
-        <div className="scroll-hint">
-          <span>Swipe table horizontally for full career history ➔</span>
-        </div>
-        <div className="table-responsive">
+        <ScrollTable hint="full career history">
           <table className="career-history-table">
             <caption className="visually-hidden">Career by year, {formatName}</caption>
             <thead>
@@ -315,7 +310,7 @@ export default function MatrixPage({ apiUrl }: { apiUrl: string }) {
               })}
             </tbody>
           </table>
-        </div>
+        </ScrollTable>
       </div>
     </>
   );

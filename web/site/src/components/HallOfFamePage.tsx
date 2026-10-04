@@ -18,6 +18,7 @@ import {
   titleCell,
   worldChampions,
 } from '../lib/tournament-series';
+import ScrollTable from './ScrollTable';
 
 type Load = { kind: 'loading' } | { kind: 'error'; message: string } | { kind: 'ready'; data: HallOfFame };
 
@@ -149,10 +150,7 @@ export default function HallOfFamePage({ apiUrl }: { apiUrl: string }) {
           </div>
           <span className="hof-tag">Major League Titles Only</span>
         </div>
-        <div className="scroll-hint">
-          <span>Swipe table horizontally for full records ➔</span>
-        </div>
-        <div className="table-responsive">
+        <ScrollTable hint="full records">
           <table className="wcs-table">
             <caption className="visually-hidden">Titles and podium medals across the four major circuits</caption>
             <thead>
@@ -211,7 +209,7 @@ export default function HallOfFamePage({ apiUrl }: { apiUrl: string }) {
               )}
             </tbody>
           </table>
-        </div>
+        </ScrollTable>
       </div>
 
       <div className="hof-two-col">
@@ -224,10 +222,7 @@ export default function HallOfFamePage({ apiUrl }: { apiUrl: string }) {
               <div className="hof-card-sub">Survivors Cup, Wimbledon TTA, Eiffel Tower, Slow Burn &amp; Major Opens</div>
             </div>
           </div>
-          <div className="scroll-hint">
-            <span>Swipe table horizontally for full records ➔</span>
-          </div>
-          <div className="table-responsive">
+          <ScrollTable hint="full records">
             <table className="wcs-table">
               <caption className="visually-hidden">The cups&apos; leading medallists</caption>
               <thead>
@@ -267,7 +262,7 @@ export default function HallOfFamePage({ apiUrl }: { apiUrl: string }) {
                 )}
               </tbody>
             </table>
-          </div>
+          </ScrollTable>
         </div>
 
         <div className="wcs-analytics-card">
@@ -281,10 +276,7 @@ export default function HallOfFamePage({ apiUrl }: { apiUrl: string }) {
               </div>
             </div>
           </div>
-          <div className="scroll-hint">
-            <span>Swipe table horizontally for full records ➔</span>
-          </div>
-          <div className="table-responsive">
+          <ScrollTable hint="full records">
             <table className="wcs-table">
               <caption className="visually-hidden">The ladders&apos; most winning players</caption>
               <thead>
@@ -326,7 +318,7 @@ export default function HallOfFamePage({ apiUrl }: { apiUrl: string }) {
                 )}
               </tbody>
             </table>
-          </div>
+          </ScrollTable>
         </div>
       </div>
     </>

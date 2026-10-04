@@ -4,6 +4,7 @@ import { comparedPlayers, currentRun, leaderboard, type ComparedPlayer, type For
 import { FORMAT_NAMES, parseMoversParams } from '../lib/analysis';
 import { Flag } from './PlayerMarks';
 import SearchBox, { type SearchPlayer } from './SearchBox';
+import ScrollTable from './ScrollTable';
 
 type Load = { kind: 'loading' } | { kind: 'error'; message: string } | { kind: 'ready'; players: ComparedPlayer[] };
 
@@ -38,10 +39,7 @@ function PlayerCard({ player, format }: { player: ComparedPlayer; format: Format
         </div>
       </div>
 
-      <div className="scroll-hint">
-        <span>Swipe table horizontally for all engine comparisons ➔</span>
-      </div>
-      <div className="table-responsive">
+      <ScrollTable hint="all engine comparisons">
         <table className="comp-table">
           <caption className="visually-hidden">{player.name}'s ratings in every engine and reset mode</caption>
           <thead>
@@ -82,7 +80,7 @@ function PlayerCard({ player, format }: { player: ComparedPlayer; format: Format
             })}
           </tbody>
         </table>
-      </div>
+      </ScrollTable>
     </div>
   );
 }
