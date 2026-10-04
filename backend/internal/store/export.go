@@ -36,7 +36,7 @@ var ExportTables = []string{
 	"tournament_group_divisions", "tournament_ladder_wins", "tournament_official_placements",
 	"tournament_season_corrections", "tournament_season_notes", "tournament_season_rules",
 	"tournament_podium_overrides", "tournament_regulations", "player_title_overrides",
-	"badges", "player_badges", "tournament_cards",
+	"badges", "player_badges", "tournament_cards", "tournament_stories",
 	"admins", "admin_audit",
 }
 
@@ -249,9 +249,9 @@ func checkInputTables(ctx context.Context, tx pgx.Tx) error {
 }
 
 // checkEmpty refuses a database holding any run or input, other than the rankings the migrations seed.
-// seededTables are the input tables the migrations fill: the community ranking, and the first tournament cards
-// and regulations.
-var seededTables = []string{"rankings", "tournament_cards", "tournament_regulations"}
+// seededTables are the input tables the migrations fill: the community ranking, and the first tournament cards,
+// regulations and stories.
+var seededTables = []string{"rankings", "tournament_cards", "tournament_regulations", "tournament_stories"}
 
 func checkEmpty(ctx context.Context, tx pgx.Tx) error {
 	for _, t := range append([]string{"rating_runs"}, ExportTables...) {

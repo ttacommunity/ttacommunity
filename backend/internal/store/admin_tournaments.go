@@ -26,6 +26,7 @@ type AdminTournament struct {
 	Regulations    string
 	CGERegulations string
 	Card           Card
+	Stories        []Story
 	Seasons        []AdminSeason
 }
 
@@ -112,6 +113,11 @@ func (a *AdminStore) Tournaments(ctx context.Context) ([]AdminTournament, error)
 	}
 	if err := a.addPodiums(ctx, out); err != nil {
 		return nil, err
+	}
+	for i := range out {
+		if out[i].Stories, err = stories(ctx, a.pool, out[i].Slug); err != nil {
+			return nil, fmt.Errorf("reading %s's stories for admin: %w", out[i].Slug, err)
+		}
 	}
 	return out, nil
 }
@@ -381,6 +387,44 @@ func (a *AdminStore) SetCard(ctx context.Context, slug string, c Card) error {
 		}
 		if _, err := tx.Exec(ctx, q, args...); err != nil {
 			return fmt.Errorf("setting the card of %s: %w", slug, err)
+		}
+		return nil
+	})
+}
+
+// ErrBadStory means more than 12 stories, or one without a player, title or story, or over its lengths.
+var ErrBadStory = errors.New("at most 12 stories, each with a player, a title (120) and the story (1,000), a badge of up to 60")
+
+// SetStories replaces a tournament's stories with these, in this order. It returns ErrNoTournament or ErrBadStory.
+func (a *AdminStore) SetStories(ctx context.Context, slug string, list []Story) error {
+	if len(list) > 12 {
+		return ErrBadStory
+	}
+	clean := make([]Story, len(list))
+	for i, s := range list {
+		s = Story{Player: strings.TrimSpace(s.Player), Badge: strings.TrimSpace(s.Badge), Title: strings.TrimSpace(s.Title), Text: strings.TrimSpace(s.Text)}
+		if s.Player == "" || s.Title == "" || s.Text == "" || utf8.RuneCountInString(s.Player) > 200 ||
+			utf8.RuneCountInString(s.Badge) > 60 || utf8.RuneCountInString(s.Title) > 120 || utf8.RuneCountInString(s.Text) > 1000 {
+			return ErrBadStory
+		}
+		clean[i] = s
+	}
+	return pgx.BeginFunc(ctx, a.pool, func(tx pgx.Tx) error {
+		var exists bool
+		if err := tx.QueryRow(ctx, "SELECT EXISTS (SELECT 1 FROM tournaments WHERE slug = $1)", slug).Scan(&exists); err != nil {
+			return fmt.Errorf("setting the stories of %s: %w", slug, err)
+		}
+		if !exists {
+			return ErrNoTournament
+		}
+		if _, err := tx.Exec(ctx, "DELETE FROM tournament_stories WHERE tournament = $1", slug); err != nil {
+			return fmt.Errorf("setting the stories of %s: %w", slug, err)
+		}
+		for i, s := range clean {
+			if _, err := tx.Exec(ctx, `INSERT INTO tournament_stories (tournament, position, player_name, badge, title, text)
+				VALUES ($1, $2, $3, $4, $5, $6)`, slug, i+1, s.Player, s.Badge, s.Title, s.Text); err != nil {
+				return fmt.Errorf("setting the stories of %s: %w", slug, err)
+			}
 		}
 		return nil
 	})

@@ -100,7 +100,7 @@ func TestCatalogueTournamentGivesSeasonsInOrderWithStagesAndPodium(t *testing.T)
 			Stages: []CatalogueStage{stage("Stage 1", day("2024-07-01")), stage("Stage 7", day("2025-02-24"))},
 			Podium: []PodiumPlace{{Place: 1, Name: "ann", Final: "", Finished: day("2025-02-24"), Source: "CGE"}}, CGE: []CGELink{}},
 	}, TopTierWins: []LadderWin{}, Players: []string{"ann", "bob2", "bob3", "bob4"}, Rules: []EditionRules{}}
-	got.GameRecords = nil // its highest scores have their own test
+	got.GameRecords, got.Stories = nil, nil // its highest scores and stories have their own tests
 	if !reflect.DeepEqual(got, want) {
 		t.Errorf("CatalogueTournament = %+v, want %+v", got, want)
 	}

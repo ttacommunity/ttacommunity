@@ -123,6 +123,24 @@ type CatalogueTournament struct {
 	Rated bool
 	// GameRecords are its ten highest winning scores in played games.
 	GameRecords []GameRecord
+	Stories     []Story
+}
+
+// Story is one of a tournament's stories, as DANeo's series pages tell them: a player, a badge, a title and the
+// story itself, all as admin writes them.
+type Story struct {
+	Player, Badge, Title, Text string
+}
+
+// stories returns a tournament's stories in their order.
+func stories(ctx context.Context, q interface {
+	Query(context.Context, string, ...any) (pgx.Rows, error)
+}, slug string) ([]Story, error) {
+	rows, err := q.Query(ctx, "SELECT player_name, badge, title, text FROM tournament_stories WHERE tournament = $1 ORDER BY position", slug)
+	if err != nil {
+		return nil, err
+	}
+	return pgx.CollectRows(rows, pgx.RowToStructByPos[Story])
 }
 
 // EditionRules is one CGE tournament's description of a tournament edition
@@ -434,6 +452,9 @@ func (r *RatingsReader) CatalogueTournament(ctx context.Context, run int64, slug
 	}
 	if err := r.markWorldChampions(ctx, run, got.GameRecords); err != nil {
 		return fail("game records", err)
+	}
+	if got.Stories, err = stories(ctx, r.pool, slug); err != nil {
+		return fail("stories", err)
 	}
 
 	// Every player of the shown tournament, for a search box's suggestions.

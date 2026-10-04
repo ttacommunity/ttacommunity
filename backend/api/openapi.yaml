@@ -1226,6 +1226,31 @@ paths:
           $ref: "#/components/responses/Forbidden"
         "404":
           $ref: "#/components/responses/NotFound"
+  /v1/admin/tournaments/{tournament}/stories:
+    put:
+      operationId: putAdminStories
+      tags: [admin]
+      summary: Replace a tournament's stories with these, in this order
+      description: Audited. The Origin must be the admin site.
+      parameters:
+        - $ref: "#/components/parameters/AdminTournamentSlug"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/StoryList"
+      responses:
+        "204":
+          description: Saved
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
   /v1/admin/tournaments/{tournament}/card:
     put:
       operationId: putAdminCard
@@ -1734,6 +1759,35 @@ components:
         change:
           type: number
           format: double
+    Story:
+      description: One of a tournament's stories, as DANeo's series pages tell them
+      type: object
+      additionalProperties: false
+      required: [player, badge, title, text]
+      properties:
+        player:
+          type: string
+          maxLength: 200
+        badge:
+          description: A short line beside the player, such as "Reigning World Champion"; may be empty
+          type: string
+          maxLength: 60
+        title:
+          type: string
+          maxLength: 120
+        text:
+          type: string
+          maxLength: 1000
+    StoryList:
+      type: object
+      additionalProperties: false
+      required: [stories]
+      properties:
+        stories:
+          type: array
+          maxItems: 12
+          items:
+            $ref: "#/components/schemas/Story"
     TournamentCard:
       description: How a tournament presents itself on its card and its page's header; an empty field is unset
       type: object
@@ -1919,8 +1973,12 @@ components:
           enum: [admin, organiser]
     AdminTournament:
       type: object
-      required: [slug, name, visible, rated, community, card, regulations, cge_regulations, seasons]
+      required: [slug, name, visible, rated, community, card, stories, regulations, cge_regulations, seasons]
       properties:
+        stories:
+          type: array
+          items:
+            $ref: "#/components/schemas/Story"
         card:
           $ref: "#/components/schemas/TournamentCard"
         regulations:
@@ -3249,8 +3307,13 @@ components:
                 type: string
     CatalogueTournament:
       type: object
-      required: [run_id, slug, name, card, rated, seasons, ladder, top_tier_wins, players, rules, game_records]
+      required: [run_id, slug, name, card, rated, seasons, ladder, top_tier_wins, players, rules, game_records, stories]
       properties:
+        stories:
+          description: Its stories, as admin writes them, in order
+          type: array
+          items:
+            $ref: "#/components/schemas/Story"
         game_records:
           description: The ten highest winning scores in its played games
           type: array

@@ -88,7 +88,7 @@ func TestCatalogueTournament(t *testing.T) {
 		`"first_game":"2024-07-01","games":632,"label":"2024","last_game":"2025-02-24","note":"The first held in two halves.","players":128,` +
 		`"podium":[{"final":"","finished":"2025-02-24","name":"saru","place":1,"source":"CGE /tournaments/detail/4991/7"}],` +
 		`"stages":[{"first_game":"2025-02-03","games":5,"label":"Stage 7","last_game":"2025-02-24","note":"Played at the club.","players":2}]}],"slug":"wimbledon",` +
-		`"top_tier_wins":[{"name":"wolvs","source":"Hall of Fame","wins":10},{"name":"Grozz","source":"Hall of Fame","wins":3.5}]}`
+		`"stories":[],"top_tier_wins":[{"name":"wolvs","source":"Hall of Fame","wins":10},{"name":"Grozz","source":"Hall of Fame","wins":3.5}]}`
 	if got := strings.TrimSpace(rec.Body.String()); rec.Code != http.StatusOK || got != want {
 		t.Errorf("GET a tournament: %d %s\nwant 200 %s", rec.Code, got, want)
 	}

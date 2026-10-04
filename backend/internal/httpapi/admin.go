@@ -43,6 +43,7 @@ type Admins interface {
 	SetTitle(ctx context.Context, o store.TitleOverride) error
 	ClearTitle(ctx context.Context, name string) error
 	SetCard(ctx context.Context, slug string, c store.Card) error
+	SetStories(ctx context.Context, slug string, list []store.Story) error
 	SetRegulations(ctx context.Context, slug, text string) error
 	SetPodium(ctx context.Context, slug, season string, podium []store.PodiumEntry, note string) error
 	ClearPodium(ctx context.Context, slug, season string) error
@@ -148,7 +149,7 @@ func (s *server) GetAdminTournaments(ctx context.Context, _ GetAdminTournamentsR
 			seasons[j] = AdminSeason{Label: se.Label, Note: se.Note, HasGames: se.HasGames, Stages: stages, Podium: podium, PodiumNote: se.PodiumNote}
 		}
 		out[i] = AdminTournament{Slug: t.Slug, Name: t.Name, Visible: t.Visible, Rated: t.Rated, Community: t.Community,
-			Card: tournamentCard(t.Card), Regulations: t.Regulations, CgeRegulations: t.CGERegulations, Seasons: seasons}
+			Card: tournamentCard(t.Card), Stories: storyList(t.Stories), Regulations: t.Regulations, CgeRegulations: t.CGERegulations, Seasons: seasons}
 	}
 	return GetAdminTournaments200JSONResponse{Body: out, Headers: GetAdminTournaments200ResponseHeaders{CacheControl: cacheNone}}, nil
 }
@@ -776,4 +777,40 @@ func (s *server) PutAdminCard(ctx context.Context, req PutAdminCardRequestObject
 		return nil, err
 	}
 	return PutAdminCard204Response{}, nil
+}
+
+// storyList turns a tournament's stories into the API's.
+func storyList(list []store.Story) []Story {
+	out := make([]Story, len(list))
+	for i, st := range list {
+		out[i] = Story{Player: st.Player, Badge: st.Badge, Title: st.Title, Text: st.Text}
+	}
+	return out
+}
+
+func (s *server) PutAdminStories(ctx context.Context, req PutAdminStoriesRequestObject) (PutAdminStoriesResponseObject, error) {
+	a, ok := adminFrom(ctx)
+	if !ok {
+		return nil, errors.New("admin route reached without the gate")
+	}
+	const bad = "at most 12 stories, each with a player, a title (120 characters) and the story (1,000), a badge of up to 60"
+	if req.Body == nil || len(req.Body.Stories) > 12 {
+		return PutAdminStories400JSONResponse{badRequest400(bad)}, nil
+	}
+	list := make([]store.Story, len(req.Body.Stories))
+	for i, st := range req.Body.Stories {
+		list[i] = store.Story{Player: st.Player, Badge: st.Badge, Title: st.Title, Text: st.Text}
+	}
+	switch err := s.admins.SetStories(ctx, req.Tournament, list); {
+	case errors.Is(err, store.ErrNoTournament):
+		return PutAdminStories404JSONResponse{notFound404("no such tournament")}, nil
+	case errors.Is(err, store.ErrBadStory):
+		return PutAdminStories400JSONResponse{badRequest400(bad)}, nil
+	case err != nil:
+		return nil, err
+	}
+	if err := s.admins.Audit(ctx, a.DiscordID, "tournament.stories", req.Tournament, req.Body); err != nil {
+		return nil, err
+	}
+	return PutAdminStories204Response{}, nil
 }

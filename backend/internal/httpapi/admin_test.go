@@ -101,7 +101,8 @@ func (*fakeAdmins) AllowedOrigin() string { return "https://ttac-admin.example" 
 
 func (*fakeAdmins) Tournaments(context.Context) ([]store.AdminTournament, error) {
 	return []store.AdminTournament{{Slug: "worlds", Name: "World Championship", Rated: true, Regulations: "Mine.", CGERegulations: "CGE's.",
-		Card: store.Card{Icon: "🏆", Tagline: "Annual World Championship", Summary: "The pinnacle."},
+		Card:    store.Card{Icon: "🏆", Tagline: "Annual World Championship", Summary: "The pinnacle."},
+		Stories: []store.Story{{Player: "a440", Badge: "Reigning World Champion", Title: "2025", Text: "Won."}},
 		Seasons: []store.AdminSeason{{Label: "2025", Stages: []store.AdminStage{{Label: "Stage 1", Note: "n"}},
 			Podium: []store.PodiumEntry{{Place: 1, Name: "a440"}}, PodiumNote: "CGE"}}}}, nil
 }
@@ -242,6 +243,19 @@ func (f *fakeAdmins) ClearTitle(_ context.Context, name string) error {
 		return store.ErrNoTitle
 	}
 	f.notes = append(f.notes, "clear title "+name)
+	return nil
+}
+
+func (f *fakeAdmins) SetStories(_ context.Context, slug string, list []store.Story) error {
+	if slug != "worlds" {
+		return store.ErrNoTournament
+	}
+	if len(list) > 0 && list[0].Title == "" {
+		return store.ErrBadStory
+	}
+	for _, st := range list {
+		f.notes = append(f.notes, "story "+st.Player+"|"+st.Title)
+	}
 	return nil
 }
 
@@ -924,5 +938,41 @@ func TestAnOrganiserSetsATournamentsCard(t *testing.T) {
 	var got []AdminTournament
 	if err := json.Unmarshal(rec.Body.Bytes(), &got); err != nil || got[0].Card.Tagline != "Annual World Championship" {
 		t.Errorf("GET = %s, want the card", rec.Body)
+	}
+}
+
+func TestAnOrganiserReplacesATournamentsStories(t *testing.T) {
+	const site = "https://ttac-admin.example"
+	f := &fakeAdmins{}
+	rec := adminDo(t, f, http.MethodPut, "/v1/admin/tournaments/worlds/stories", site,
+		`{"stories": [{"player": "a440", "badge": "", "title": "2025", "text": "Won."}, {"player": "pv4", "badge": "", "title": "2024", "text": "Second."}]}`)
+	if rec.Code != http.StatusNoContent {
+		t.Fatalf("PUT stories = %d %s, want 204", rec.Code, rec.Body)
+	}
+	if strings.Join(f.notes, ",") != "story a440|2025,story pv4|2024" || strings.Join(f.audits, "|") != "222222222222222222 tournament.stories worlds" {
+		t.Errorf("changes %q, audits %q", f.notes, f.audits)
+	}
+	for _, tt := range []struct {
+		name, path, origin, body string
+		want                     int
+	}{
+		{"another site", "/v1/admin/tournaments/worlds/stories", "https://evil.example", `{"stories": []}`, http.StatusForbidden},
+		{"no such tournament", "/v1/admin/tournaments/nope/stories", site, `{"stories": []}`, http.StatusNotFound},
+		{"a story without a title", "/v1/admin/tournaments/worlds/stories", site, `{"stories": [{"player": "p", "badge": "", "title": "", "text": "x"}]}`, http.StatusBadRequest},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			f := &fakeAdmins{}
+			if rec := adminDo(t, f, http.MethodPut, tt.path, tt.origin, tt.body); rec.Code != tt.want {
+				t.Errorf("PUT = %d %s, want %d", rec.Code, rec.Body, tt.want)
+			}
+			if len(f.notes)+len(f.audits) != 0 {
+				t.Errorf("a refused change still changed something: %q %q", f.notes, f.audits)
+			}
+		})
+	}
+	rec = adminDo(t, &fakeAdmins{}, http.MethodGet, "/v1/admin/tournaments", "", "")
+	var got []AdminTournament
+	if err := json.Unmarshal(rec.Body.Bytes(), &got); err != nil || len(got[0].Stories) != 1 || got[0].Stories[0].Player != "a440" {
+		t.Errorf("GET = %s, want the stories", rec.Body)
 	}
 }

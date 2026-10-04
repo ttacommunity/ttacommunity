@@ -312,3 +312,62 @@ func TestSetCardReplacesAndAnEmptyCardRemoves(t *testing.T) {
 		})
 	}
 }
+
+func TestSetStoriesReplacesATournamentsStoriesInOrder(t *testing.T) {
+	pool := migrated(t)
+	ctx := context.Background()
+	run := publishedRun(t, pool)
+	placedOn(t, pool, map[string]time.Time{"Wimbledon 2024 Stage 1 - group 1 game 1": day("2024-07-01")})
+	a := NewAdminStore(asAdminLogin(t, pool))
+	r := NewRatingsReader(asReader(t, pool))
+	stories := func() ([]Story, []Story) {
+		t.Helper()
+		ts, err := a.Tournaments(ctx)
+		if err != nil {
+			t.Fatal(err)
+		}
+		page, err := r.CatalogueTournament(ctx, run, "wimbledon")
+		if err != nil {
+			t.Fatal(err)
+		}
+		return adminTournament(t, ts, "wimbledon").Stories, page.Stories
+	}
+
+	if inAdmin, onPage := stories(); len(inAdmin) != 0 || len(onPage) != 0 {
+		t.Errorf("stories before any = %+v, %+v", inAdmin, onPage)
+	}
+	want := []Story{
+		{Player: "saru", Badge: "2024 Champion", Title: "The grass-court crown", Text: "saru beat whsvin 3-2 in the final."},
+		{Player: "whsvin", Badge: "", Title: "Runner-up", Text: "Two finals in a row."},
+	}
+	if err := a.SetStories(ctx, "wimbledon", want); err != nil {
+		t.Fatalf("SetStories: %v", err)
+	}
+	if inAdmin, onPage := stories(); !reflect.DeepEqual(inAdmin, want) || !reflect.DeepEqual(onPage, want) {
+		t.Errorf("stories = %+v and %+v, want %+v in order on both", inAdmin, onPage, want)
+	}
+	if err := a.SetStories(ctx, "wimbledon", want[1:]); err != nil {
+		t.Fatalf("SetStories(one): %v", err)
+	}
+	if inAdmin, _ := stories(); !reflect.DeepEqual(inAdmin, want[1:]) {
+		t.Errorf("stories after replacing = %+v, want only the second", inAdmin)
+	}
+	for _, tt := range []struct {
+		name, slug string
+		s          []Story
+		want       error
+	}{
+		{"no such tournament", "nope", want, ErrNoTournament},
+		{"no player", "wimbledon", []Story{{Title: "t", Text: "x"}}, ErrBadStory},
+		{"no title", "wimbledon", []Story{{Player: "p", Text: "x"}}, ErrBadStory},
+		{"no story", "wimbledon", []Story{{Player: "p", Title: "t"}}, ErrBadStory},
+		{"a long story", "wimbledon", []Story{{Player: "p", Title: "t", Text: strings.Repeat("x", 1001)}}, ErrBadStory},
+		{"too many", "wimbledon", make([]Story, 13), ErrBadStory},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			if err := a.SetStories(ctx, tt.slug, tt.s); !errors.Is(err, tt.want) {
+				t.Errorf("SetStories = %v, want %v", err, tt.want)
+			}
+		})
+	}
+}
