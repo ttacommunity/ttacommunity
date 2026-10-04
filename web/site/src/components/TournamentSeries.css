@@ -535,10 +535,6 @@ h2.panel-header {
   text-align: right;
 }
 
-.series-message {
-  color: var(--text-muted);
-}
-
 /* Where a tournament's bullets come from, when they are its CGE description. */
 .rules-source {
   margin: 0.75rem 0 0;

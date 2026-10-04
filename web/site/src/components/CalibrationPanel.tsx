@@ -20,6 +20,7 @@ import {
 import { recall } from '../lib/remembered';
 import Tex from './Tex';
 import ScrollTable from './ScrollTable';
+import Waiting from './Waiting';
 
 Chart.register(LineController, LineElement, PointElement, LinearScale, CategoryScale, Legend, Tooltip);
 
@@ -202,7 +203,7 @@ export default function CalibrationPanel({ apiUrl }: { apiUrl: string }) {
           </div>
           <div className="hero-chart-container">
             {load.kind === 'error' ? (
-              <p className="analysis-message">{load.message}</p>
+              <Waiting load={load} what="the calibration" form="inline" />
             ) : (
               <canvas ref={canvas} aria-label={`Calibration of each model against the ideal diagonal. Curves: ${curveSummary}. The table below gives the figures.`} />
             )}
@@ -268,7 +269,7 @@ export default function CalibrationPanel({ apiUrl }: { apiUrl: string }) {
                     ))}
               </tbody>
             </table>
-            {load.kind === 'loading' && <p className="analysis-message">Loading calibration…</p>}
+            {load.kind === 'loading' && <Waiting load={load} what="the calibration" form="inline" />}
           </ScrollTable>
         </div>
       </div>

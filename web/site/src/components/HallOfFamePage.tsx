@@ -19,6 +19,7 @@ import {
   worldChampions,
 } from '../lib/tournament-series';
 import ScrollTable from './ScrollTable';
+import { waitingText } from '../lib/waiting';
 
 type Load = { kind: 'loading' } | { kind: 'error'; message: string } | { kind: 'ready'; data: HallOfFame };
 
@@ -45,7 +46,7 @@ export default function HallOfFamePage({ apiUrl }: { apiUrl: string }) {
   }, [apiUrl]);
 
   const data = load.kind === 'ready' ? load.data : null;
-  const waiting = load.kind === 'error' ? load.message : 'Loading…';
+  const waiting = waitingText(load, 'the Hall of Fame') ?? '';
   const count = (slug: string) => data?.series.find((s) => s.series === slug);
   const champions = worldChampions(finals, data?.legends ?? []);
 
@@ -182,7 +183,7 @@ export default function HallOfFamePage({ apiUrl }: { apiUrl: string }) {
             <tbody>
               {data === null ? (
                 <tr>
-                  <td colSpan={8} className="hof-message">
+                  <td colSpan={8} className="waiting-row">
                     {waiting}
                   </td>
                 </tr>
@@ -243,7 +244,7 @@ export default function HallOfFamePage({ apiUrl }: { apiUrl: string }) {
               <tbody>
                 {data === null ? (
                   <tr>
-                    <td colSpan={5} className="hof-message">
+                    <td colSpan={5} className="waiting-row">
                       {waiting}
                     </td>
                   </tr>
@@ -299,7 +300,7 @@ export default function HallOfFamePage({ apiUrl }: { apiUrl: string }) {
               <tbody>
                 {data === null ? (
                   <tr>
-                    <td colSpan={5} className="hof-message">
+                    <td colSpan={5} className="waiting-row">
                       {waiting}
                     </td>
                   </tr>

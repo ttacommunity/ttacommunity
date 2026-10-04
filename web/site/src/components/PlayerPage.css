@@ -702,12 +702,6 @@
   font-size: 0.85rem;
 }
 
-.profile-message {
-  padding: 2rem;
-  text-align: center;
-  color: var(--text-muted);
-}
-
 @media (max-width: 768px) {
   .profile-header {
     margin-bottom: 1.25rem;
@@ -1067,10 +1061,6 @@
 .h2h-message {
   padding: 2rem;
   text-align: center;
-}
-
-.h2h-message.h2h-error {
-  color: #ef5350;
 }
 
 .h2h-tournament {

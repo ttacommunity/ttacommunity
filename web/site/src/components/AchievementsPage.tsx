@@ -29,6 +29,7 @@ import './AchievementsPage.css';
 import FilterInput from './FilterInput';
 import PlayerLink from './PlayerLink';
 import ScrollTable from './ScrollTable';
+import Waiting from './Waiting';
 
 type Load = { kind: 'loading' } | { kind: 'error'; message: string } | { kind: 'ready'; player: Player; ach: PlayerAchievements };
 type Sort = { col: number; dir: Direction } | null;
@@ -294,8 +295,7 @@ export default function AchievementsPage({ apiUrl }: { apiUrl: string }) {
     };
   }, [apiUrl]);
 
-  if (state.kind === 'loading') return <p className="ach-status">Loading…</p>;
-  if (state.kind === 'error') return <p className="ach-status">Could not load this player: {state.message}</p>;
+  if (state.kind !== 'ready') return <Waiting load={state} what="this player" />;
   const { player, ach } = state;
   const s = ach.summary;
   return (

@@ -49,7 +49,7 @@ export default function GameRecordsPanel({
           <tbody>
             {records === null ? (
               <tr>
-                <td colSpan={6} className="series-message">
+                <td colSpan={6} className="waiting-row">
                   {waiting}
                 </td>
               </tr>

@@ -1,0 +1,18 @@
+/* What a page shows while its data loads, or when it cannot: a card for a page, a line in a panel, a row in a table. */
+.waiting-message {
+  padding: 2rem;
+  color: var(--text-muted);
+  text-align: center;
+}
+
+.waiting-inline {
+  padding: 1.5rem 1rem;
+  color: var(--text-muted);
+  text-align: center;
+}
+
+.waiting-row {
+  padding: 1.5rem;
+  color: var(--text-muted);
+  text-align: center;
+}

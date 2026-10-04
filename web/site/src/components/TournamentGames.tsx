@@ -5,6 +5,7 @@ import { gameStateLabel, gameWhere, outcomeNote, seasonName, stageName } from '.
 import { pickPlayer } from '../lib/leaderboard-view';
 import SearchBox from './SearchBox';
 import PlayerLink from './PlayerLink';
+import Waiting from './Waiting';
 
 type Load = { kind: 'loading' } | { kind: 'error'; message: string } | { kind: 'ready'; data: CatalogueGames };
 
@@ -122,20 +123,7 @@ export default function TournamentGames({
             </tr>
           </thead>
           <tbody>
-            {load.kind === 'loading' && (
-              <tr>
-                <td colSpan={5} className="cell-muted">
-                  Loading games…
-                </td>
-              </tr>
-            )}
-            {load.kind === 'error' && (
-              <tr>
-                <td colSpan={5} className="cell-muted">
-                  {load.message}
-                </td>
-              </tr>
-            )}
+            <Waiting load={load} what="the games" form="row" colSpan={5} />
             {data !== null && data.games.length === 0 && (
               <tr>
                 <td colSpan={5} className="cell-muted">

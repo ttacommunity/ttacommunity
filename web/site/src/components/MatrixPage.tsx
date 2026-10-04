@@ -24,6 +24,7 @@ import './MatrixPage.css';
 import Tex from './Tex';
 import Segmented from './Segmented';
 import ScrollTable from './ScrollTable';
+import Waiting from './Waiting';
 
 type Load<T> = { kind: 'loading' } | { kind: 'error'; message: string } | { kind: 'ready'; data: T };
 
@@ -123,9 +124,8 @@ export default function MatrixPage({ apiUrl }: { apiUrl: string }) {
   }, [name]);
 
   if (name === '') return <Message>No player was named. Choose one from the leaderboard.</Message>;
-  if (run.kind === 'error') return <Message>{run.message}</Message>;
-  if (profile.kind === 'error') return <Message>{profile.message}</Message>;
-  if (profile.kind === 'loading') return <Message>Loading player…</Message>;
+  if (run.kind === 'error') return <Waiting load={run} what="the ratings" />;
+  if (profile.kind !== 'ready') return <Waiting load={profile} what="this player" />;
 
   const p = profile.data;
   const years = career.kind === 'ready' ? career.data.years : [];
@@ -317,7 +317,7 @@ export default function MatrixPage({ apiUrl }: { apiUrl: string }) {
 }
 
 function Message({ children }: { children: ReactNode }) {
-  return <div className="rating-card profile-message">{children}</div>;
+  return <div className="rating-card waiting-message">{children}</div>;
 }
 
 function Header({ player, format }: { player: Player; format: Format }) {

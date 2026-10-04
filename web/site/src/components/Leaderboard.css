@@ -44,13 +44,6 @@
   font-size: 0.8rem;
 }
 
-.leaderboard-message {
-  padding: 2rem;
-  color: var(--text-muted);
-  font-family: var(--font-stats);
-  text-align: center;
-}
-
 .status-active {
   color: var(--win);
 }

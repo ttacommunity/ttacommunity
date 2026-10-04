@@ -45,6 +45,7 @@ import Segmented from './Segmented';
 import FilterInput from './FilterInput';
 import PlayerLink from './PlayerLink';
 import ScrollTable from './ScrollTable';
+import Waiting from './Waiting';
 
 type Load<T> = { kind: 'loading' } | { kind: 'error'; message: string } | { kind: 'ready'; data: T };
 
@@ -141,9 +142,8 @@ export default function PlayerPage({ apiUrl }: { apiUrl: string }) {
   }, [view.name]);
 
   if (view.name === '') return <Message>No player was named. Choose one from the leaderboard.</Message>;
-  if (run.kind === 'error') return <Message>{run.message}</Message>;
-  if (profile.kind === 'error') return <Message>{profile.message}</Message>;
-  if (profile.kind === 'loading') return <Message>Loading player…</Message>;
+  if (run.kind === 'error') return <Waiting load={run} what="the ratings" />;
+  if (profile.kind !== 'ready') return <Waiting load={profile} what="this player" />;
 
   const p = profile.data;
   const provisional = isProvisional(p, view.format);
@@ -194,7 +194,7 @@ export default function PlayerPage({ apiUrl }: { apiUrl: string }) {
 }
 
 function Message({ children }: { children: ReactNode }) {
-  return <div className="rating-card profile-message">{children}</div>;
+  return <div className="rating-card waiting-message">{children}</div>;
 }
 
 function Header({
@@ -358,20 +358,7 @@ function Games({
             </tr>
           </thead>
           <tbody>
-            {state.kind === 'loading' && (
-              <tr>
-                <td colSpan={7} className="cell-empty">
-                  Loading games…
-                </td>
-              </tr>
-            )}
-            {state.kind === 'error' && (
-              <tr>
-                <td colSpan={7} className="cell-empty">
-                  {state.message}
-                </td>
-              </tr>
-            )}
+            <Waiting load={state} what="the games" form="row" colSpan={7} />
             {data !== null && data.matches.length === 0 && (
               <tr>
                 <td colSpan={7} className="cell-empty">
@@ -571,13 +558,7 @@ function Rivals({ state, compare }: { state: Load<PlayerRivals>; compare: Compar
             </tr>
           </thead>
           <tbody>
-            {state.kind !== 'ready' && (
-              <tr>
-                <td colSpan={5} className="cell-empty">
-                  {state.kind === 'loading' ? 'Loading rivals…' : state.message}
-                </td>
-              </tr>
-            )}
+            <Waiting load={state} what="the rivals" form="row" colSpan={5} />
             {state.kind === 'ready' && all.length === 0 && (
               <tr>
                 <td colSpan={5} className="cell-empty">

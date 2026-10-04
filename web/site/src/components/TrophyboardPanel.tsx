@@ -50,7 +50,7 @@ export default function TrophyboardPanel<R extends BoardEntry & { details?: stri
           <tbody>
             {rows === null || rows.length === 0 ? (
               <tr>
-                <td colSpan={span} className="series-message">
+                <td colSpan={span} className="waiting-row">
                   {rows === null ? waiting : 'No podiums recorded yet.'}
                 </td>
               </tr>

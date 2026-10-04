@@ -24,6 +24,8 @@ import { cardView } from '../lib/tournament-card';
 import TournamentGames from './TournamentGames';
 import { activeYears, catalogueHref, cgeYears, entryRows, hasPodiums, placeLabel, placeNames, regulationsBox, seasonDates, seasonName, shownName, stageName, tournamentParam } from '../lib/catalogue-view';
 import PlayerLink from './PlayerLink';
+import Waiting from './Waiting';
+import { waitingText } from '../lib/waiting';
 
 type Load<T> = { kind: 'loading' } | { kind: 'missing' } | { kind: 'error'; message: string } | { kind: 'ready'; data: T };
 
@@ -41,16 +43,12 @@ function failed(e: unknown): Load<never> {
   return { kind: 'error', message: e instanceof Error ? e.message : String(e) };
 }
 
-function Waiting({ load }: { load: Load<unknown> }) {
-  if (load.kind === 'error') return <p className="records-intro">Could not load the tournaments: {load.message}</p>;
-  if (load.kind === 'missing') {
-    return (
-      <p className="records-intro">
-        No tournament with games has that name. <a href={catalogueHref()}>See every tournament</a>.
-      </p>
-    );
-  }
-  return <p className="records-intro">Loading…</p>;
+function Missing() {
+  return (
+    <div className="rating-card waiting-message">
+      No tournament with games has that name. <a href={catalogueHref()}>See every tournament</a>.
+    </div>
+  );
 }
 
 function TournamentList({ apiUrl }: { apiUrl: string }) {
@@ -73,7 +71,7 @@ function TournamentList({ apiUrl }: { apiUrl: string }) {
         </div>
       </div>
       {load.kind !== 'ready' ? (
-        <Waiting load={load} />
+        load.kind === 'missing' ? <Missing /> : <Waiting load={load} what="the tournaments" />
       ) : (
         <div className="series-grid">
           {load.data.tournaments.map((t) => {
@@ -150,21 +148,22 @@ function TournamentDetail({ apiUrl, slug }: { apiUrl: string; slug: string }) {
   const [load, setLoad] = useState<Load<{ run: number; t: CatalogueTournament }>>({ kind: 'loading' });
   const [pick, setPick] = useState<{ season: string; n: number }>({ season: '', n: 0 });
   const content = MAJORS.find((m) => m.slug === slug);
-  const [series, setSeries] = useState<{ data: TournamentSeries | null; waiting: string }>({ data: null, waiting: 'Loading…' });
+  const [series, setSeries] = useState<{ data: TournamentSeries | null; waiting: string }>({ data: null, waiting: waitingText({ kind: 'loading' }, 'the records') ?? '' });
   useEffect(() => {
     currentRun(apiUrl)
       .then((r) => {
         if (content !== undefined) {
           tournamentSeries(apiUrl, r.run_id, content.slug)
             .then((data) => setSeries({ data, waiting: '' }))
-            .catch((e: unknown) => setSeries({ data: null, waiting: e instanceof Error ? e.message : 'The records could not be loaded.' }));
+            .catch((e: unknown) => setSeries({ data: null, waiting: waitingText({ kind: 'error', message: e instanceof Error ? e.message : String(e) }, 'the records') ?? '' }));
         }
         return catalogueTournament(apiUrl, r.run_id, slug).then((t) => ({ run: r.run_id, t }));
       })
       .then((data) => setLoad({ kind: 'ready', data }))
       .catch((e: unknown) => setLoad(failed(e)));
   }, [apiUrl, slug, content]);
-  if (load.kind !== 'ready') return <Waiting load={load} />;
+  if (load.kind === 'missing') return <Missing />;
+  if (load.kind !== 'ready') return <Waiting load={load} what="this tournament" />;
   const { run, t } = load.data;
   const games = t.seasons.reduce((n, s) => n + s.games, 0);
   const staged = t.seasons.filter((s) => s.stages.length > 1 || s.stages[0]?.label !== '');
@@ -195,7 +194,7 @@ function TournamentDetail({ apiUrl, slug }: { apiUrl: string; slug: string }) {
         <SeriesSections
           content={content}
           data={series.data}
-          waiting={series.waiting || 'Loading…'}
+          waiting={series.waiting}
           regulations={regulations}
           stories={t.stories}
         />
@@ -203,14 +202,14 @@ function TournamentDetail({ apiUrl, slug }: { apiUrl: string; slug: string }) {
       {content === undefined && (
         <div className="content-two-col">
           {regulations}
-          <TrophyboardPanel rows={t.ladder ? ladderBoard(t.top_tier_wins) : podiumBoard(t.seasons)} waiting="Loading…" />
+          <TrophyboardPanel rows={t.ladder ? ladderBoard(t.top_tier_wins) : podiumBoard(t.seasons)} waiting="Loading the records…" />
         </div>
       )}
       {content === undefined && <StoriesPanel stories={t.stories} />}
       {content === undefined && (
         <GameRecordsPanel
           records={t.game_records}
-          waiting="Loading…"
+          waiting="Loading the records…"
           title={`Highest Single-Match Scores (${t.name})`}
           intro="Historic single-match cultural scoring peaks achieved in this tournament, from its official match logs with full opponent matchups."
           slug={t.slug}

@@ -4,6 +4,7 @@ import { playerVersus, type Format, type PlayerVersus } from '@ttac/shared/ratin
 import { versusTally } from '../lib/career';
 import Segmented from './Segmented';
 import PlayerLink from './PlayerLink';
+import Waiting from './Waiting';
 
 type Load = { kind: 'loading' } | { kind: 'error'; message: string } | { kind: 'ready'; data: PlayerVersus };
 
@@ -99,8 +100,7 @@ export default function VersusDialog({
         )}
       </div>
       <div className="h2h-body">
-        {state.kind === 'loading' && <div className="h2h-message">Loading match records...</div>}
-        {state.kind === 'error' && <div className="h2h-message h2h-error">Failed to load match history: {state.message}</div>}
+        <Waiting load={state} what="the match records" form="inline" />
         {tally !== null && tally.games === 0 && (
           <div className="h2h-message">No direct tournament encounters found for this player format.</div>
         )}

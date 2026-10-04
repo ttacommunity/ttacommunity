@@ -19,6 +19,7 @@ import './CommunityPage.css';
 import Segmented from './Segmented';
 import SearchBox, { type SearchPlayer } from './SearchBox';
 import PlayerLink from './PlayerLink';
+import Waiting from './Waiting';
 
 type Load = { kind: 'loading' } | { kind: 'error'; message: string } | { kind: 'ready'; rows: CommunityRow[] };
 
@@ -357,8 +358,7 @@ export default function CommunityPage({ apiUrl }: { apiUrl: string }) {
   }, [apiUrl, view.edition]);
 
   const edition = EDITIONS[view.edition];
-  if (state.kind === 'loading') return <p className="comm-status">Loading…</p>;
-  if (state.kind === 'error') return <p className="comm-status">Could not load the leaderboard: {state.message}</p>;
+  if (state.kind !== 'ready') return <Waiting load={state} what="the community leaderboard" />;
 
   const found = view.search ? state.rows.filter((r) => matchesSearch(r.name, view.search)) : state.rows;
   const total = Math.max(1, Math.ceil(found.length / view.perPage));

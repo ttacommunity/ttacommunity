@@ -5,6 +5,7 @@ import { agreement, currentRun, distribution, type Agreement, type Distribution,
 import { FORMAT_NAMES, agreementName, onFormat, parseAnalysisParams } from '../lib/analysis';
 import { recall } from '../lib/remembered';
 import Tex from './Tex';
+import Waiting from './Waiting';
 
 Chart.register(BarController, BarElement, CategoryScale, LinearScale, Legend, Tooltip);
 
@@ -148,10 +149,8 @@ export default function EngineSpread({ apiUrl }: { apiUrl: string }) {
           </div>
         </div>
         <div className="density-chart-container">
-          {load.kind === 'error' ? (
-            <p className="analysis-message">{load.message}</p>
-          ) : load.kind === 'loading' ? (
-            <p className="analysis-message">Loading distribution…</p>
+          {load.kind !== 'ready' ? (
+            <Waiting load={load} what="the distribution" form="inline" />
           ) : (
             <canvas
               ref={canvas}

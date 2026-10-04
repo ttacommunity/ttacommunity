@@ -570,7 +570,6 @@
   }
 }
 
-
 /* Upstream's inline styles, as classes. */
 .comm-table thead tr.super-header th.comm-super-left {
   text-align: left;
@@ -613,11 +612,6 @@
 }
 .comm-dash {
   color: #665544;
-}
-.comm-status {
-  text-align: center;
-  color: var(--text-muted);
-  padding: 2rem;
 }
 
 /* styles.css's scroll hint, shown on phones. */

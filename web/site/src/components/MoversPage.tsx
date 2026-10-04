@@ -5,6 +5,7 @@ import { FORMAT_NAMES, parseMoversParams } from '../lib/analysis';
 import { Flag } from './PlayerMarks';
 import SearchBox, { type SearchPlayer } from './SearchBox';
 import ScrollTable from './ScrollTable';
+import Waiting from './Waiting';
 
 type Load = { kind: 'loading' } | { kind: 'error'; message: string } | { kind: 'ready'; players: ComparedPlayer[] };
 
@@ -129,8 +130,7 @@ export default function MoversPage({ apiUrl }: { apiUrl: string }) {
         </form>
       </div>
 
-      {load.kind === 'loading' && <p className="analysis-message">Loading players…</p>}
-      {load.kind === 'error' && <p className="analysis-message">{load.message}</p>}
+      <Waiting load={load} what="the players" />
       {load.kind === 'ready' &&
         (load.players.length > 0 ? (
           load.players.map((p) => <PlayerCard key={p.name} player={p} format={format} />)

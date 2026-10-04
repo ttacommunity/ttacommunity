@@ -47,6 +47,7 @@ import { recall, remember } from '../lib/remembered';
 import './Leaderboard.css';
 import PlayerLink from './PlayerLink';
 import ScrollTable from './ScrollTable';
+import Waiting from './Waiting';
 
 type State =
   | { kind: 'loading' }
@@ -278,16 +279,7 @@ export default function Leaderboard({ apiUrl }: { apiUrl: string }) {
           </div>
         </div>
 
-        {state.kind === 'loading' && (
-          <p role="status" className="leaderboard-message">
-            Loading…
-          </p>
-        )}
-        {state.kind === 'error' && (
-          <p role="alert" className="leaderboard-message">
-            Could not load the leaderboard: {state.message}
-          </p>
-        )}
+        <Waiting load={state} what="the leaderboard" form="inline" />
         {state.kind === 'ready' && (
           <>
             <Table

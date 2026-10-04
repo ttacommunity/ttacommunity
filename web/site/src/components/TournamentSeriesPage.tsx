@@ -9,6 +9,7 @@ import { catalogueHref } from '../lib/catalogue-view';
 import { circuitCard } from '../lib/tournament-card';
 import TournamentHero from './TournamentHero';
 import PlayerLink from './PlayerLink';
+import { waitingText } from '../lib/waiting';
 import {
   leaguePoints,
   seriesEra,
@@ -46,7 +47,7 @@ export default function TournamentSeriesPage({ apiUrl, content }: { apiUrl: stri
   }, [apiUrl, content.slug]);
 
   const data = load.kind === 'ready' ? load.data : null;
-  const waiting = load.kind === 'error' ? load.message : 'Loading…';
+  const waiting = waitingText(load, 'the records') ?? '';
 
   return (
     <>
@@ -154,7 +155,7 @@ export function SeriesSections({
               <tbody>
                 {data === null ? (
                   <tr>
-                    <td colSpan={6} className="series-message">
+                    <td colSpan={6} className="waiting-row">
                       {waiting}
                     </td>
                   </tr>

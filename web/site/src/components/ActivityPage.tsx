@@ -5,6 +5,7 @@ import { formatCards, sortCountries, titleLabel, type CountryColumn } from '../l
 import { runYears } from '../lib/player-view';
 import { Flag } from './PlayerMarks';
 import ScrollTable from './ScrollTable';
+import Waiting from './Waiting';
 
 type Load = { kind: 'loading' } | { kind: 'error'; message: string } | { kind: 'ready'; data: Activity; years: [number, number] | null };
 
@@ -36,8 +37,7 @@ export default function ActivityPage({ apiUrl }: { apiUrl: string }) {
   const ranked = useMemo(() => (load.kind === 'ready' ? load.data.countries.map((c, i) => ({ ...c, rank: i + 1 })) : []), [load]);
   const countries = sort === null ? ranked : sortCountries(ranked, sort.col, sort.asc);
 
-  if (load.kind === 'loading') return <p className="analysis-message">Loading activity…</p>;
-  if (load.kind === 'error') return <p className="analysis-message">{load.message}</p>;
+  if (load.kind !== 'ready') return <Waiting load={load} what="the activity figures" />;
 
   const a = load.data;
   const total = a.active + a.inactive;
