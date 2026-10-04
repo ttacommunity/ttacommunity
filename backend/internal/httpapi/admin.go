@@ -144,15 +144,16 @@ func (s *server) GetAdminTournaments(ctx context.Context, _ GetAdminTournamentsR
 		for j, se := range t.Seasons {
 			stages := make([]AdminStage, len(se.Stages))
 			for k, st := range se.Stages {
-				stages[k] = AdminStage{Label: st.Label, Note: st.Note}
+				stages[k] = AdminStage{Label: st.Label, OriginalName: st.OriginalName, Note: st.Note}
 			}
 			podium := make([]PodiumEntry, len(se.Podium))
 			for k, e := range se.Podium {
 				podium[k] = PodiumEntry{Place: e.Place, Name: e.Name}
 			}
-			seasons[j] = AdminSeason{Label: se.Label, Note: se.Note, HasGames: se.HasGames, Rated: se.Rated, Stages: stages, Podium: podium, PodiumNote: se.PodiumNote}
+			seasons[j] = AdminSeason{Label: se.Label, OriginalName: se.OriginalName, Note: se.Note, HasGames: se.HasGames, Rated: se.Rated, Stages: stages, Podium: podium, PodiumNote: se.PodiumNote}
 		}
-		out[i] = AdminTournament{Slug: t.Slug, Name: t.Name, Visible: t.Visible, Rated: t.Rated, Community: t.Community,
+		out[i] = AdminTournament{Slug: t.Slug, Name: t.Name, OriginalName: t.OriginalName, Kind: TournamentKind(t.Kind),
+			TopDivisions: append([]string{}, t.TopDivisions...), Visible: t.Visible, Rated: t.Rated, Community: t.Community,
 			Card: tournamentCard(t.Card), Stories: storyList(t.Stories), RatedPlayerCounts: append([]int{}, t.RatedPlayerCounts...), Regulations: t.Regulations, CgeRegulations: t.CGERegulations, Seasons: seasons}
 	}
 	return GetAdminTournaments200JSONResponse{Body: out, Headers: GetAdminTournaments200ResponseHeaders{CacheControl: cacheNone}}, nil
@@ -164,16 +165,26 @@ func (s *server) PatchAdminTournament(ctx context.Context, req PatchAdminTournam
 	if !ok {
 		return nil, errors.New("admin route reached without the gate")
 	}
-	if b == nil || (b.Visible == nil && b.Rated == nil && b.Community == nil && b.RatedPlayerCounts == nil) {
+	if b == nil || (b.Visible == nil && b.Rated == nil && b.Community == nil && b.RatedPlayerCounts == nil &&
+		b.Kind == nil && b.TopDivisions == nil) {
 		return PatchAdminTournament400JSONResponse{BadRequestJSONResponse{Body: Error{Error: "nothing to change"}, Headers: BadRequestResponseHeaders{CacheControl: cacheNone}}}, nil
 	}
 	settings := store.TournamentSettings{Visible: b.Visible, Rated: b.Rated, Community: b.Community}
 	if b.RatedPlayerCounts != nil {
 		settings.RatedPlayerCounts = *b.RatedPlayerCounts
 	}
+	if b.Kind != nil {
+		settings.Kind = string(*b.Kind)
+	}
+	if b.TopDivisions != nil {
+		settings.TopDivisions = *b.TopDivisions
+	}
 	err := s.admins.SetTournament(ctx, req.Tournament, settings)
 	if errors.Is(err, store.ErrBadPlayerCounts) {
 		return PatchAdminTournament400JSONResponse{badRequest400("rated player counts are one or more of 2, 3 and 4")}, nil
+	}
+	if errors.Is(err, store.ErrBadKind) {
+		return PatchAdminTournament400JSONResponse{badRequest400("a tournament is a league, a cup or a ladder")}, nil
 	}
 	if errors.Is(err, store.ErrNoTournament) {
 		return PatchAdminTournament404JSONResponse{NotFoundJSONResponse{Body: Error{Error: "no such tournament"}, Headers: NotFoundResponseHeaders{CacheControl: cacheNone}}}, nil
@@ -763,7 +774,7 @@ func (s *server) GetAdminData(ctx context.Context, _ GetAdminDataRequestObject) 
 
 // tournamentCard turns a tournament's card into the API's.
 func tournamentCard(c store.Card) TournamentCard {
-	return TournamentCard{Icon: c.Icon, Tagline: c.Tagline, Summary: c.Summary}
+	return TournamentCard{Icon: c.Icon, Tagline: c.Tagline, Summary: c.Summary, Subtitle: c.Subtitle, Cadence: c.Cadence}
 }
 
 func (s *server) PutAdminCard(ctx context.Context, req PutAdminCardRequestObject) (PutAdminCardResponseObject, error) {
@@ -771,12 +782,12 @@ func (s *server) PutAdminCard(ctx context.Context, req PutAdminCardRequestObject
 	if !ok {
 		return nil, errors.New("admin route reached without the gate")
 	}
-	const tooLong = "a card's icon is at most 8 characters, its description 60 and its information box 1,000"
+	const tooLong = "a card's icon is at most 8 characters, its description, subtitle and cadence 60 and its information box 1,000"
 	b := req.Body
 	if b == nil {
 		return PutAdminCard400JSONResponse{badRequest400(tooLong)}, nil
 	}
-	switch err := s.admins.SetCard(ctx, req.Tournament, store.Card{Icon: b.Icon, Tagline: b.Tagline, Summary: b.Summary}); {
+	switch err := s.admins.SetCard(ctx, req.Tournament, store.Card{Icon: b.Icon, Tagline: b.Tagline, Summary: b.Summary, Subtitle: b.Subtitle, Cadence: b.Cadence}); {
 	case errors.Is(err, store.ErrNoTournament):
 		return PutAdminCard404JSONResponse{notFound404("no such tournament")}, nil
 	case errors.Is(err, store.ErrBadCard):

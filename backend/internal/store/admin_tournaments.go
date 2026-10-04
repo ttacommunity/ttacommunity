@@ -38,13 +38,13 @@ type AdminTournament struct {
 
 // AdminSeason is a season with its own note, its stages, and the podium admin set for it, if any.
 type AdminSeason struct {
-	Label      string
-	Note       string
-	HasGames   bool
-	Rated      bool
-	Stages     []AdminStage
-	Podium     []PodiumEntry
-	PodiumNote string
+	Label, OriginalName string
+	Note                string
+	HasGames            bool
+	Rated               bool
+	Stages              []AdminStage
+	Podium              []PodiumEntry
+	PodiumNote          string
 }
 
 // PodiumEntry is one place on a podium set in admin.
@@ -55,8 +55,8 @@ type PodiumEntry struct {
 
 // AdminStage is a stage of a season (an empty label is a season without stages) with its note.
 type AdminStage struct {
-	Label string
-	Note  string
+	Label, OriginalName string
+	Note                string
 }
 
 // TournamentSettings are the settings to change; a nil field is left as it is. RatedPlayerCounts are the player
@@ -85,7 +85,7 @@ func (a *AdminStore) Tournaments(ctx context.Context) ([]AdminTournament, error)
 		       coalesce(k.icon, ''), coalesce(k.tagline, ''), coalesce(k.summary, ''), coalesce(k.subtitle, ''), coalesce(k.cadence, ''),
 		       coalesce((SELECT c.description FROM cge_tournaments c WHERE c.tournament_id = t.tournament_id AND c.description <> ''
 		                 ORDER BY coalesce(c.started, c.created, c.finished) DESC NULLS LAST, c.cge_tournament DESC LIMIT 1), ''),
-		       se.label, coalesce(st.label, ''),
+		       se.label, coalesce(st.label, ''), coalesce(se.original_name, ''), coalesce(st.original_name, ''),
 		       coalesce((SELECT note FROM tournament_season_notes n WHERE n.tournament = t.slug AND n.season = se.label AND n.stage = ''), ''),
 		       coalesce((SELECT note FROM tournament_season_notes n WHERE n.tournament = t.slug AND n.season = se.label AND n.stage = st.label AND st.label <> ''), ''),
 		       d.last IS NOT NULL, coalesce(se.rated, true), t.rated_player_counts, t.kind, t.top_divisions, t.original_name
@@ -106,12 +106,13 @@ func (a *AdminStore) Tournaments(ctx context.Context) ([]AdminTournament, error)
 	var regulations, cgeRegulations string
 	var card Card
 	var season, stage, seasonNote, stageNote *string
+	var seasonOriginal, stageOriginal string
 	var hasGames, seasonRated bool
 	var counts []int
 	var kind, original string
 	var top []string
 	_, err = pgx.ForEachRow(rows, []any{&slug, &name, &visible, &community, &rated, &regulations,
-		&card.Icon, &card.Tagline, &card.Summary, &card.Subtitle, &card.Cadence, &cgeRegulations, &season, &stage, &seasonNote, &stageNote, &hasGames,
+		&card.Icon, &card.Tagline, &card.Summary, &card.Subtitle, &card.Cadence, &cgeRegulations, &season, &stage, &seasonOriginal, &stageOriginal, &seasonNote, &stageNote, &hasGames,
 		&seasonRated, &counts, &kind, &top, &original}, func() error {
 		if len(out) == 0 || out[len(out)-1].Slug != slug {
 			out = append(out, AdminTournament{Slug: slug, Name: name, Visible: visible, Rated: rated, Community: community,
@@ -123,11 +124,11 @@ func (a *AdminStore) Tournaments(ctx context.Context) ([]AdminTournament, error)
 			return nil
 		}
 		if len(t.Seasons) == 0 || t.Seasons[len(t.Seasons)-1].Label != *season {
-			t.Seasons = append(t.Seasons, AdminSeason{Label: *season, Note: *seasonNote, HasGames: hasGames, Rated: seasonRated, Stages: []AdminStage{}})
+			t.Seasons = append(t.Seasons, AdminSeason{Label: *season, OriginalName: seasonOriginal, Note: *seasonNote, HasGames: hasGames, Rated: seasonRated, Stages: []AdminStage{}})
 		}
 		s := &t.Seasons[len(t.Seasons)-1]
 		if *stage != "" {
-			s.Stages = append(s.Stages, AdminStage{Label: *stage, Note: *stageNote})
+			s.Stages = append(s.Stages, AdminStage{Label: *stage, OriginalName: stageOriginal, Note: *stageNote})
 		}
 		return nil
 	})

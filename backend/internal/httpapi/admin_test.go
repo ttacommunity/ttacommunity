@@ -103,10 +103,11 @@ func (*fakeAdmins) AllowedOrigin() string { return "https://ttac-admin.example" 
 
 func (*fakeAdmins) Tournaments(context.Context) ([]store.AdminTournament, error) {
 	return []store.AdminTournament{{Slug: "worlds", Name: "World Championship", Rated: true, Regulations: "Mine.", CGERegulations: "CGE's.",
-		Card:              store.Card{Icon: "🏆", Tagline: "Annual World Championship", Summary: "The pinnacle."},
+		Card: store.Card{Icon: "🏆", Tagline: "Annual World Championship", Summary: "The pinnacle.", Subtitle: "4-Player", Cadence: "Annual"},
+		Kind: "cup", OriginalName: "World Championships",
 		Stories:           []store.Story{{Player: "a440", Badge: "Reigning World Champion", Title: "2025", Text: "Won."}},
 		RatedPlayerCounts: []int{3, 4},
-		Seasons: []store.AdminSeason{{Label: "2025", Rated: true, Stages: []store.AdminStage{{Label: "Stage 1", Note: "n"}},
+		Seasons: []store.AdminSeason{{Label: "2025", OriginalName: "2025 Edition", Rated: true, Stages: []store.AdminStage{{Label: "Stage 1", OriginalName: "Groups", Note: "n"}},
 			Podium: []store.PodiumEntry{{Place: 1, Name: "a440"}}, PodiumNote: "CGE"}}}}, nil
 }
 
@@ -116,6 +117,9 @@ func (f *fakeAdmins) SetTournament(_ context.Context, slug string, s store.Tourn
 	}
 	if slices.Contains(s.RatedPlayerCounts, 5) {
 		return store.ErrBadPlayerCounts
+	}
+	if s.Kind == "tour" {
+		return store.ErrBadKind
 	}
 	f.settings = append(f.settings, s)
 	return nil
@@ -285,7 +289,7 @@ func (f *fakeAdmins) SetCard(_ context.Context, slug string, c store.Card) error
 	if c.Icon == "toolong" {
 		return store.ErrBadCard
 	}
-	f.notes = append(f.notes, "card "+c.Icon+"|"+c.Tagline+"|"+c.Summary)
+	f.notes = append(f.notes, "card "+c.Icon+"|"+c.Tagline+"|"+c.Summary+"|"+c.Subtitle+"|"+c.Cadence)
 	return nil
 }
 
@@ -427,6 +431,11 @@ func TestAdminTournamentsListsSettingsAndNotes(t *testing.T) {
 	}
 	if len(got) != 1 || got[0].Slug != "worlds" || !got[0].Rated || got[0].Seasons[0].Stages[0].Note != "n" {
 		t.Errorf("tournaments = %+v", got)
+	}
+	w := got[0]
+	if w.Kind != Cup || w.TopDivisions == nil || w.OriginalName != "World Championships" ||
+		w.Seasons[0].OriginalName != "2025 Edition" || w.Seasons[0].Stages[0].OriginalName != "Groups" {
+		t.Errorf("kind %q, top %v, original names %q %q %q", w.Kind, w.TopDivisions, w.OriginalName, w.Seasons[0].OriginalName, w.Seasons[0].Stages[0].OriginalName)
 	}
 }
 
@@ -928,11 +937,11 @@ func TestAdminDataSummaryIsForAdminsAndOrganisers(t *testing.T) {
 func TestAnOrganiserSetsATournamentsCard(t *testing.T) {
 	const site = "https://ttac-admin.example"
 	f := &fakeAdmins{}
-	rec := adminDo(t, f, http.MethodPut, "/v1/admin/tournaments/worlds/card", site, `{"icon": "🏆", "tagline": "Annual", "summary": "The pinnacle."}`)
+	rec := adminDo(t, f, http.MethodPut, "/v1/admin/tournaments/worlds/card", site, `{"icon": "🏆", "tagline": "Annual", "summary": "The pinnacle.", "subtitle": "4-Player", "cadence": "Yearly"}`)
 	if rec.Code != http.StatusNoContent {
 		t.Fatalf("PUT card = %d %s, want 204", rec.Code, rec.Body)
 	}
-	if strings.Join(f.notes, "|") != "card 🏆|Annual|The pinnacle." || strings.Join(f.audits, "|") != "222222222222222222 tournament.card worlds" {
+	if strings.Join(f.notes, "|") != "card 🏆|Annual|The pinnacle.|4-Player|Yearly" || strings.Join(f.audits, "|") != "222222222222222222 tournament.card worlds" {
 		t.Errorf("changes %q, audits %q", f.notes, f.audits)
 	}
 	for _, tt := range []struct {
@@ -1005,6 +1014,13 @@ func TestAnOrganiserSetsWhatOfATournamentIsRated(t *testing.T) {
 	if len(f.settings) != 1 || !slices.Equal(f.settings[0].RatedPlayerCounts, []int{2, 4}) {
 		t.Errorf("settings = %+v, want player counts 2 and 4", f.settings)
 	}
+	if rec := adminDo(t, f, http.MethodPatch, "/v1/admin/tournaments/worlds", site, `{"kind": "league", "top_divisions": ["Final"]}`); rec.Code != http.StatusNoContent {
+		t.Fatalf("PATCH kind = %d %s, want 204", rec.Code, rec.Body)
+	}
+	if len(f.settings) != 2 || f.settings[1].Kind != "league" || !slices.Equal(f.settings[1].TopDivisions, []string{"Final"}) {
+		t.Errorf("settings = %+v, want a league with a Final", f.settings)
+	}
+	f.settings, f.audits = f.settings[:1], f.audits[:1]
 	if rec := adminDo(t, f, http.MethodPut, "/v1/admin/tournaments/worlds/season-rating", site, `{"season": "2023", "rated": false}`); rec.Code != http.StatusNoContent {
 		t.Fatalf("PUT season rating = %d %s, want 204", rec.Code, rec.Body)
 	}
@@ -1016,6 +1032,7 @@ func TestAnOrganiserSetsWhatOfATournamentIsRated(t *testing.T) {
 		want                             int
 	}{
 		{"a 5-player count", http.MethodPatch, "/v1/admin/tournaments/worlds", site, `{"rated_player_counts": [2, 5]}`, http.StatusBadRequest},
+		{"an unknown kind", http.MethodPatch, "/v1/admin/tournaments/worlds", site, `{"kind": "tour"}`, http.StatusBadRequest},
 		{"a season that does not exist", http.MethodPut, "/v1/admin/tournaments/worlds/season-rating", site, `{"season": "1999", "rated": false}`, http.StatusNotFound},
 		{"no season", http.MethodPut, "/v1/admin/tournaments/worlds/season-rating", site, `{"season": "", "rated": false}`, http.StatusBadRequest},
 		{"another site", http.MethodPut, "/v1/admin/tournaments/worlds/season-rating", "https://evil.example", `{"season": "2023", "rated": false}`, http.StatusForbidden},

@@ -1856,8 +1856,16 @@ components:
       description: How a tournament presents itself on its card and its page's header; an empty field is unset
       type: object
       additionalProperties: false
-      required: [icon, tagline, summary]
+      required: [icon, tagline, summary, subtitle, cadence]
       properties:
+        subtitle:
+          description: The line under the name on the tournament's page, such as "4-Player Competitive Format"
+          type: string
+          maxLength: 60
+        cadence:
+          description: How often it is played, such as "Annual (Every Year)"
+          type: string
+          maxLength: 60
         icon:
           description: An emoji or a few characters
           type: string
@@ -2037,8 +2045,18 @@ components:
           enum: [admin, organiser]
     AdminTournament:
       type: object
-      required: [slug, name, visible, rated, community, card, stories, regulations, cge_regulations, rated_player_counts, seasons]
+      required: [slug, name, original_name, kind, top_divisions, visible, rated, community, card, stories, regulations, cge_regulations, rated_player_counts, seasons]
       properties:
+        original_name:
+          description: The name it came in with, kept when it is renamed
+          type: string
+        kind:
+          $ref: "#/components/schemas/TournamentKind"
+        top_divisions:
+          description: A league's divisions whose final standings make its podium; empty for none
+          type: array
+          items:
+            type: string
         rated_player_counts:
           description: The player counts whose games count towards ratings
           type: array
@@ -2075,8 +2093,11 @@ components:
             $ref: "#/components/schemas/AdminSeason"
     AdminSeason:
       type: object
-      required: [label, note, has_games, rated, stages, podium, podium_note]
+      required: [label, original_name, note, has_games, rated, stages, podium, podium_note]
       properties:
+        original_name:
+          description: The label it came in with, kept when it is renamed
+          type: string
         rated:
           description: Its games count towards ratings, from the next run
           type: boolean
@@ -2100,16 +2121,33 @@ components:
             $ref: "#/components/schemas/AdminStage"
     AdminStage:
       type: object
-      required: [label, note]
+      required: [label, original_name, note]
       properties:
+        original_name:
+          description: The label it came in with, kept when it is renamed
+          type: string
         label:
           type: string
         note:
           type: string
+    TournamentKind:
+      description: A league ranks divisions over a season, a cup plays stages to a final, a ladder has no podium
+      type: string
+      enum: [league, cup, ladder]
     TournamentSettings:
       type: object
       additionalProperties: false
       properties:
+        kind:
+          $ref: "#/components/schemas/TournamentKind"
+        top_divisions:
+          description: A league's divisions whose final standings make its podium, from the next run; empty for none
+          type: array
+          maxItems: 10
+          items:
+            type: string
+            minLength: 1
+            maxLength: 64
         rated_player_counts:
           description: The player counts whose games count towards ratings, from the next run
           type: array

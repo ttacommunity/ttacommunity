@@ -46,7 +46,8 @@ func TestAdminTournamentsListSettingsSeasonsAndNotes(t *testing.T) {
 	if !worlds.Rated || worlds.Visible || worlds.Community {
 		t.Errorf("worlds settings = %+v, want rated, hidden, and not yet in the community leaderboard (no migration row)", worlds)
 	}
-	want := []AdminSeason{{Label: "2025", HasGames: true, Rated: true, Stages: []AdminStage{{Label: "Stage 1"}, {Label: "Stage 2", Note: "The upper bracket."}}}}
+	want := []AdminSeason{{Label: "2025", OriginalName: "2025", HasGames: true, Rated: true, Stages: []AdminStage{
+		{Label: "Stage 1", OriginalName: "Stage 1"}, {Label: "Stage 2", OriginalName: "Stage 2", Note: "The upper bracket."}}}}
 	if !reflect.DeepEqual(worlds.Seasons, want) {
 		t.Errorf("worlds seasons = %+v, want %+v", worlds.Seasons, want)
 	}
@@ -452,5 +453,28 @@ func TestACardKeepsItsSubtitleAndCadence(t *testing.T) {
 	}
 	if err := a.SetCard(ctx, "wimbledon", Card{Cadence: strings.Repeat("x", 61)}); !errors.Is(err, ErrBadCard) {
 		t.Errorf("a long cadence = %v, want ErrBadCard", err)
+	}
+}
+
+func TestARenamedSeasonAndStageKeepTheirOriginalNames(t *testing.T) {
+	pool := migrated(t)
+	ctx := context.Background()
+	placedOn(t, pool, map[string]time.Time{"Wimbledon 2024 Stage 1 - group 1 game 1": day("2024-07-01")})
+	for _, q := range []string{
+		"UPDATE tournament_seasons SET label = 'Season 2024' WHERE label = '2024'",
+		"UPDATE tournament_stages SET label = 'Groups' WHERE label = 'Stage 1'",
+	} {
+		if _, err := pool.Exec(ctx, q); err != nil {
+			t.Fatal(err)
+		}
+	}
+	ts, err := NewAdminStore(asAdminLogin(t, pool)).Tournaments(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	se := adminTournament(t, ts, "wimbledon").Seasons[0]
+	if se.Label != "Season 2024" || se.OriginalName != "2024" || len(se.Stages) != 1 ||
+		se.Stages[0].Label != "Groups" || se.Stages[0].OriginalName != "Stage 1" {
+		t.Errorf("season = %+v", se)
 	}
 }

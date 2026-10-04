@@ -409,6 +409,27 @@ func (e TitleCode) Valid() bool {
 	}
 }
 
+// Defines values for TournamentKind.
+const (
+	Cup    TournamentKind = "cup"
+	Ladder TournamentKind = "ladder"
+	League TournamentKind = "league"
+)
+
+// Valid indicates whether the value is a known member of the TournamentKind enum.
+func (e TournamentKind) Valid() bool {
+	switch e {
+	case Cup:
+		return true
+	case Ladder:
+		return true
+	case League:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for TournamentRecordMedal.
 const (
 	Bronze TournamentRecordMedal = "bronze"
@@ -637,6 +658,9 @@ type AdminSeason struct {
 	Label    string `json:"label"`
 	Note     string `json:"note"`
 
+	// OriginalName The label it came in with, kept when it is renamed
+	OriginalName string `json:"original_name"`
+
 	// Podium The podium set in admin, empty when the recorded or derived one shows
 	Podium     []PodiumEntry `json:"podium"`
 	PodiumNote string        `json:"podium_note"`
@@ -650,6 +674,9 @@ type AdminSeason struct {
 type AdminStage struct {
 	Label string `json:"label"`
 	Note  string `json:"note"`
+
+	// OriginalName The label it came in with, kept when it is renamed
+	OriginalName string `json:"original_name"`
 }
 
 // AdminTitle A title the engine gives, but WC; "" for none
@@ -664,8 +691,14 @@ type AdminTournament struct {
 	CgeRegulations string `json:"cge_regulations"`
 
 	// Community Counted in the overall community leaderboard
-	Community bool   `json:"community"`
-	Name      string `json:"name"`
+	Community bool `json:"community"`
+
+	// Kind A league ranks divisions over a season, a cup plays stages to a final, a ladder has no podium
+	Kind TournamentKind `json:"kind"`
+	Name string         `json:"name"`
+
+	// OriginalName The name it came in with, kept when it is renamed
+	OriginalName string `json:"original_name"`
 
 	// Rated In the community ratings
 	Rated bool `json:"rated"`
@@ -678,6 +711,9 @@ type AdminTournament struct {
 	Seasons     []AdminSeason `json:"seasons"`
 	Slug        string        `json:"slug"`
 	Stories     []Story       `json:"stories"`
+
+	// TopDivisions A league's divisions whose final standings make its podium; empty for none
+	TopDivisions []string `json:"top_divisions"`
 
 	// Visible Shown on the site though not rated
 	Visible bool `json:"visible"`
@@ -1685,8 +1721,14 @@ type TitleSetting struct {
 
 // TournamentCard How a tournament presents itself on its card and its page's header; an empty field is unset
 type TournamentCard struct {
+	// Cadence How often it is played, such as "Annual (Every Year)"
+	Cadence string `json:"cadence"`
+
 	// Icon An emoji or a few characters
 	Icon string `json:"icon"`
+
+	// Subtitle The line under the name on the tournament's page, such as "4-Player Competitive Format"
+	Subtitle string `json:"subtitle"`
 
 	// Summary The information box; plain text
 	Summary string `json:"summary"`
@@ -1694,6 +1736,9 @@ type TournamentCard struct {
 	// Tagline The short description, such as "Annual World Championship"
 	Tagline string `json:"tagline"`
 }
+
+// TournamentKind A league ranks divisions over a season, a cup plays stages to a final, a ladder has no podium
+type TournamentKind string
 
 // TournamentRecord defines model for TournamentRecord.
 type TournamentRecord struct {
@@ -1740,11 +1785,17 @@ type TournamentSeries struct {
 // TournamentSettings defines model for TournamentSettings.
 type TournamentSettings struct {
 	Community *bool `json:"community,omitempty"`
-	Rated     *bool `json:"rated,omitempty"`
+
+	// Kind A league ranks divisions over a season, a cup plays stages to a final, a ladder has no podium
+	Kind  *TournamentKind `json:"kind,omitempty"`
+	Rated *bool           `json:"rated,omitempty"`
 
 	// RatedPlayerCounts The player counts whose games count towards ratings, from the next run
 	RatedPlayerCounts *[]int `json:"rated_player_counts,omitempty"`
-	Visible           *bool  `json:"visible,omitempty"`
+
+	// TopDivisions A league's divisions whose final standings make its podium, from the next run; empty for none
+	TopDivisions *[]string `json:"top_divisions,omitempty"`
+	Visible      *bool     `json:"visible,omitempty"`
 }
 
 // TrophyRow One player on a series' board: medals and a title for the leagues
