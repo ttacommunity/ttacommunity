@@ -48,6 +48,7 @@ import './Leaderboard.css';
 import PlayerLink from './PlayerLink';
 import ScrollTable from './ScrollTable';
 import Waiting from './Waiting';
+import Pager from './Pager';
 
 type State =
   | { kind: 'loading' }
@@ -290,7 +291,13 @@ export default function Leaderboard({ apiUrl }: { apiUrl: string }) {
               linkTo={linkTo}
               caption={`${show.modelLabel(model)}, ${show.formatName(view.format)}, run ${state.board.run_id}`}
             />
-            <Pagination view={view} at={shown} linkTo={linkTo} go={go} />
+            <Pager
+              page={shown.page}
+              pages={shown.pages}
+              total={{ count: shown.total, noun: 'players' }}
+              link={(page) => linkTo({ ...view, page })}
+              go={(page) => go({ ...view, page })}
+            />
           </>
         )}
 
@@ -536,61 +543,3 @@ function Table({ view, rows, jumpTo, changes, linkTo, caption }: TableProps) {
   );
 }
 
-interface PaginationProps {
-  view: View;
-  at: { page: number; pages: number; total: number };
-  linkTo: LinkTo;
-  go: (view: View) => void;
-}
-
-/** Pagination links to the first, previous, next and last pages, and jumps to a typed page number. */
-function Pagination({ view, at, linkTo, go }: PaginationProps) {
-  const [typed, setTyped] = useState(String(at.page));
-  useEffect(() => setTyped(String(at.page)), [at.page]);
-  const to = (n: number) => linkTo({ ...view, page: n });
-
-  return (
-    <nav className="pagination" aria-label="Pages">
-      <div>
-        Showing page <strong>{at.page}</strong> of <strong>{at.pages}</strong> ({at.total.toLocaleString('en')} players)
-      </div>
-      <div className="pagination-links">
-        {at.page > 1 && (
-          <>
-            <a {...to(1)} title="Jump to First Page">
-              &laquo; First
-            </a>
-            <a {...to(at.page - 1)} title="Previous Page">
-              &lsaquo; Prev
-            </a>
-          </>
-        )}
-        <form
-          className="page-jumper"
-          onSubmit={(e) => {
-            e.preventDefault();
-            const n = Number.parseInt(typed, 10);
-            go({ ...view, page: Number.isNaN(n) ? 1 : Math.min(Math.max(n, 1), at.pages) });
-          }}
-        >
-          <span>Page</span>
-          <input type="number" min={1} max={at.pages} aria-label="Page number" value={typed} onChange={(e) => setTyped(e.target.value)} />
-          <span>/ {at.pages}</span>
-          <button type="submit" title="Go to page">
-            Go
-          </button>
-        </form>
-        {at.page < at.pages && (
-          <>
-            <a {...to(at.page + 1)} title="Next Page">
-              Next &rsaquo;
-            </a>
-            <a {...to(at.pages)} title="Jump to Last Page">
-              Last &raquo;
-            </a>
-          </>
-        )}
-      </div>
-    </nav>
-  );
-}

@@ -46,6 +46,7 @@ import FilterInput from './FilterInput';
 import PlayerLink from './PlayerLink';
 import ScrollTable from './ScrollTable';
 import Waiting from './Waiting';
+import Pager from './Pager';
 
 type Load<T> = { kind: 'loading' } | { kind: 'error'; message: string } | { kind: 'ready'; data: T };
 
@@ -402,7 +403,14 @@ function Games({
           </tbody>
         </table>
       </ScrollTable>
-      {data !== null && data.pages > 1 && <Pages page={data.page} pages={data.pages} view={view} linkTo={linkTo} go={go} />}
+      {data !== null && data.pages > 1 && (
+        <Pager
+          page={data.page}
+          pages={data.pages}
+          link={(matchPage) => linkTo({ ...view, matchPage })}
+          go={(matchPage) => go({ ...view, matchPage })}
+        />
+      )}
     </div>
   );
 }
@@ -428,68 +436,6 @@ function Replay({ code }: { code: string | null }) {
       <button type="button" className="btn-copy-code" onClick={copy} title="Copy replay code" aria-label="Copy replay code">
         {copied ? '✓' : '📋'}
       </button>
-    </div>
-  );
-}
-
-function Pages({
-  page,
-  pages,
-  view,
-  linkTo,
-  go,
-}: {
-  page: number;
-  pages: number;
-  view: PlayerView;
-  linkTo: LinkTo;
-  go: (next: PlayerView) => void;
-}) {
-  const [typed, setTyped] = useState(String(page));
-  useEffect(() => setTyped(String(page)), [page]);
-  const to = (n: number) => linkTo({ ...view, matchPage: n });
-  const jump = () => {
-    const n = Number(typed);
-    if (Number.isInteger(n) && n >= 1 && n <= pages) go({ ...view, matchPage: n });
-  };
-  return (
-    <div className="pagination-container">
-      {page > 1 && (
-        <>
-          <a {...to(1)} className="btn-antique">
-            « First
-          </a>
-          <a {...to(page - 1)} className="btn-antique">
-            ‹ Prev
-          </a>
-        </>
-      )}
-      <div className="pagination-jump">
-        <span>Page</span>
-        <input
-          type="number"
-          min={1}
-          max={pages}
-          value={typed}
-          aria-label="Page number"
-          onChange={(e) => setTyped(e.target.value)}
-          onKeyDown={(e) => e.key === 'Enter' && jump()}
-        />
-        <span>of {pages}</span>
-        <button type="button" className="btn-antique" onClick={jump}>
-          Go
-        </button>
-      </div>
-      {page < pages && (
-        <>
-          <a {...to(page + 1)} className="btn-antique">
-            Next ›
-          </a>
-          <a {...to(pages)} className="btn-antique">
-            Last »
-          </a>
-        </>
-      )}
     </div>
   );
 }

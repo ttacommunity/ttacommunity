@@ -6,7 +6,6 @@ import {
   countingColumns,
   editionFacts,
   matchesSearch,
-  pageWindow,
   parseCommunityView,
   titleMark,
   tournamentSums,
@@ -20,6 +19,7 @@ import Segmented from './Segmented';
 import SearchBox, { type SearchPlayer } from './SearchBox';
 import PlayerLink from './PlayerLink';
 import Waiting from './Waiting';
+import Pager from './Pager';
 
 type Load = { kind: 'loading' } | { kind: 'error'; message: string } | { kind: 'ready'; rows: CommunityRow[] };
 
@@ -307,40 +307,6 @@ function Table({ edition, view, rows }: { edition: Edition; view: CommunityView;
   );
 }
 
-function Pagination({ view, total }: { view: CommunityView; total: number }) {
-  if (total <= 1) return null;
-  const at = (page: number) => href(view, { page });
-  return (
-    <div className="pagination-bar">
-      {view.page > 1 && (
-        <>
-          <a href={at(1)} className="page-link">
-            « First
-          </a>
-          <a href={at(view.page - 1)} className="page-link">
-            ‹ Prev
-          </a>
-        </>
-      )}
-      {pageWindow(view.page, total).map((p) => (
-        <a key={p} href={at(p)} className={`page-link${p === view.page ? ' active' : ''}`}>
-          {p}
-        </a>
-      ))}
-      {view.page < total && (
-        <>
-          <a href={at(view.page + 1)} className="page-link">
-            Next ›
-          </a>
-          <a href={at(total)} className="page-link">
-            Last »
-          </a>
-        </>
-      )}
-    </div>
-  );
-}
-
 /** CommunityPage renders the edition, view, search and page named in the address, from the current run. */
 export default function CommunityPage({ apiUrl }: { apiUrl: string }) {
   const [view] = useState(() => parseCommunityView(new URLSearchParams(window.location.search)));
@@ -390,7 +356,15 @@ export default function CommunityPage({ apiUrl }: { apiUrl: string }) {
         <span>Swipe table horizontally for full community ranking ➔</span>
       </div>
       <Table edition={edition} view={onPage} rows={shown} />
-      <Pagination view={onPage} total={total} />
+      {total > 1 && (
+        <Pager
+          page={page}
+          pages={total}
+          total={{ count: found.length, noun: 'competitors' }}
+          link={(p) => ({ href: href(onPage, { page: p }) })}
+          go={(p) => window.location.assign(href(onPage, { page: p }))}
+        />
+      )}
     </div>
   );
 }

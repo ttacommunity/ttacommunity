@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { CommunityRow } from '@ttac/shared/ratings';
-import { countingColumns, editionFacts, pageWindow, parseCommunityView, titleMark, tournamentSums } from './community';
+import { countingColumns, editionFacts, parseCommunityView, titleMark, tournamentSums } from './community';
 import { EDITIONS } from './community-editions';
 
 const row = (r: Partial<CommunityRow>): CommunityRow => ({
@@ -46,14 +46,6 @@ describe('titleMark', () => {
     expect(titleMark(row({ title: 'S' }), EDITIONS['2024'])).toBe('S');
     expect(titleMark(row({ title: 'W' }), EDITIONS['2024'])).toBe('W');
     expect(titleMark(row({ title: null }), EDITIONS['2024'])).toBeNull();
-  });
-});
-
-describe('pageWindow', () => {
-  it('lists three pages either side, as upstream', () => {
-    expect(pageWindow(1, 30)).toEqual([1, 2, 3, 4]);
-    expect(pageWindow(10, 30)).toEqual([7, 8, 9, 10, 11, 12, 13]);
-    expect(pageWindow(30, 30)).toEqual([27, 28, 29, 30]);
   });
 });
 

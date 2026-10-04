@@ -574,47 +574,11 @@
   color: inherit;
 }
 
-.pagination-container {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: center;
-  gap: 0.5rem;
-  margin-top: 1.25rem;
-}
-
-.pagination-container .btn-antique {
-  padding: 0.3rem 0.75rem;
-  font-size: 0.85rem;
-}
-
-.pagination-jump {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.35rem;
-  font-family: var(--font-stats);
-  font-size: 0.9rem;
-  color: var(--text-muted);
-}
-
-.pagination-jump input,
 .rivals-controls select {
   background: rgba(14, 9, 6, 0.95);
   border: 1px solid var(--border-subtle);
   border-radius: 4px;
   color: var(--text-main);
-}
-
-.pagination-jump input {
-  width: 50px;
-  padding: 0.25rem;
-  font-size: 0.85rem;
-  text-align: center;
-}
-
-.pagination-jump .btn-antique {
-  padding: 0.25rem 0.6rem;
-  font-size: 0.8rem;
 }
 
 .rivals-controls {

@@ -93,13 +93,6 @@ export function editionFacts(edition: Edition) {
   };
 }
 
-/** pageWindow returns the page links upstream shows: three either side of the page. */
-export function pageWindow(page: number, total: number): number[] {
-  const got: number[] = [];
-  for (let p = Math.max(1, page - 3); p < Math.min(total + 1, page + 4); p++) got.push(p);
-  return got;
-}
-
 /** matchesSearch reports whether a name holds the search, ignoring case, as upstream's LIKE. */
 export function matchesSearch(name: string, search: string): boolean {
   return name.toLowerCase().includes(search.toLowerCase());
