@@ -111,11 +111,22 @@ describe('the Hall of Fame overview', () => {
       { label: '2024', podium: [] },
       { label: '2025', podium: [{ place: 1, name: 'cy' }] },
     ];
-    const legends = [legend({ name: 'ann', international_titles: 6, intermezzo_titles: 1 }), legend({ name: 'cy', royal_league_titles: 2 })];
+    const legends = [
+      legend({ name: 'ann', world_titles: 1, international_titles: 6, intermezzo_titles: 1 }),
+      legend({ name: 'cy', world_titles: 1, royal_league_titles: 2 }),
+    ];
     expect(worldChampions(seasons, legends)).toEqual([
       { name: 'cy', season: '2025', icon: '👑', text: '2025 Reigning World Champion • 2x Royal League Champion' },
       { name: 'ann', season: '2023', icon: '🏆', text: '2023 World Champion • 6x International Champion • Intermezzo Champion' },
     ]);
+  });
+
+  it('leaves out a winner the titles table does not credit with a World title, such as a play-off', () => {
+    const seasons = [
+      { label: '2023', podium: [{ place: 1, name: 'ann' }] },
+      { label: '2023 Play Off', podium: [{ place: 1, name: 'dee' }] },
+    ];
+    expect(worldChampions(seasons, [legend({ name: 'ann', world_titles: 1 }), legend({ name: 'dee' })]).map((c) => c.name)).toEqual(['ann']);
   });
 
   it('lists no World Champions before any final has a winner', () => {
