@@ -315,6 +315,22 @@
 /* Lets a column shrink below its table's width, which scrolls in its own box, so phones fit (changed from upstream). */
 .content-two-col > .panel-card {
   min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+/* The board's table fills its panel (the row is as tall as the longer column), never under its 480px. */
+.content-two-col .trophy-table-container {
+  flex: 1 1 0;
+  min-height: 480px;
+  max-height: none;
+}
+/* A long Format & Regulations (a CGE description) scrolls in its panel, as the board does. */
+.content-two-col .rules-list {
+  max-height: 640px;
+  overflow-y: auto;
+  padding-right: 0.5rem;
+  scrollbar-width: thin;
+  scrollbar-color: var(--accent-gold) rgba(0, 0, 0, 0.4);
 }
 
 /* Upstream's phone sizes for the hero name .tournament-hero, which the page does not use; applied to the hero it does, so a long series name fits (changed from upstream). */
