@@ -162,7 +162,7 @@ comes from:
 | `corrections` | `series,name_season,season,reason,source` | The real season of games whose name gives the wrong one; an empty `season` leaves them out of tournament results (never out of the ratings) |
 | `dates` | `series,season,finish_date,source` | The day a season officially finished (`YYYY-MM-DD`) |
 | `honours` | `series,player,gold,silver,bronze,points,source` | A player's career medals from an organisers' Hall of Fame the matches cannot rank; `series` is `sodium_ladder`, `mercurial_ladder` or `q_and_d`, and `points` (as written there) may be empty |
-| `community` | `edition,sheet_row,rank,player,points,events,source` | The community leaderboard's standings as its maintainer publishes them; `edition` is `2026`, `2025`, `2024` or `race26`, `sheet_row` is the row's place in the sheet (it orders equal ranks), and names are kept even when they are not players |
+| `community` | `edition,sheet_row,rank,player,points,events,source` | The community leaderboard's standings as its maintainer publishes them; `edition` is a year (2026, 2025, 2024) or `race26`, `sheet_row` is the row's place in the sheet (it orders equal ranks), and names are kept even when they are not players |
 | `community_scores` | `edition,player,event,score,source` | Each player's points in each event column of an edition (`wrld`, `ic_30`, `aus`…) |
 
 Loading a file replaces every fact of its kind, in one transaction; names
