@@ -18,6 +18,8 @@ import {
   sortRows,
   suggest,
   pickPlayer,
+  hiddenMatches,
+  hiddenNote,
   titleOptions,
   viewParams,
   yearDeltas,
@@ -405,5 +407,42 @@ describe('deltaDates', () => {
 
   it("uses upstream's fixed dates for a run that recorded no last game", () => {
     expect(deltaDates(null)).toEqual({ last_update: null, month: '2026-05-01', quarter: '2026-03-01', year: '2025-05-31' });
+  });
+});
+
+describe('hiddenMatches and hiddenNote', () => {
+  const found = (r: LeaderboardRow[], v: View, term: string) => {
+    const h = hiddenMatches(r, v, term);
+    if (h === null) throw new Error(`nobody hidden for ${term}`);
+    return h;
+  };
+  const rows = [row('Grozz', 1900), row('UnstableUnicorn', 1250, 23), row('OldTimer', 1500, 40, '2020-01-01'), row('Weidenbaum', 1890, 40, '2026-01-01', titled('GM'))];
+
+  it('finds a player the minimum opponents hides, and how to show them', () => {
+    const h = hiddenMatches(rows, view({ search: 'unstable', page: 3 }), 'unstable');
+    expect(h?.names).toEqual(['UnstableUnicorn']);
+    expect(h?.show).toMatchObject({ minOpps: 23, status: 'active', title: null, search: 'unstable', page: 1 });
+    expect(hiddenNote(found(rows, view({ search: 'unstable' }), 'unstable'), view(), 'unstable')).toBe('UnstableUnicorn is hidden by the minimum of 30 opponents (23 played).');
+  });
+
+  it('finds a player the activity or title filter hides', () => {
+    expect(hiddenMatches(rows, view(), 'oldtimer')?.show).toMatchObject({ status: 'all', minOpps: 30 });
+    expect(hiddenNote(found(rows, view(), 'oldtimer'), view(), 'oldtimer')).toBe('OldTimer is hidden by the Active only filter.');
+    const gm = view({ title: 'GM' });
+    expect(hiddenMatches(rows, gm, 'grozz')?.show).toMatchObject({ title: null });
+    expect(hiddenNote(found(rows, gm, 'grozz'), gm, 'grozz')).toBe('Grozz is hidden by the GM title filter.');
+  });
+
+  it('counts several hidden players, naming every filter that hides them', () => {
+    const both = found([...rows, row('Unstable2', 1200, 5, '2020-01-01')], view(), 'unstable');
+    expect(both.names).toEqual(['UnstableUnicorn', 'Unstable2']);
+    expect(both.show).toMatchObject({ minOpps: 5, status: 'all' });
+    expect(hiddenNote(both, view(), 'unstable')).toBe('2 players matching "unstable" are hidden by the minimum of 30 opponents and the Active only filter.');
+  });
+
+  it('says nothing when the search finds someone shown, nobody at all, or there is no search', () => {
+    expect(hiddenMatches(rows, view(), 'grozz')).toBeNull();
+    expect(hiddenMatches(rows, view(), 'nobody')).toBeNull();
+    expect(hiddenMatches(rows, view(), '')).toBeNull();
   });
 });

@@ -33,6 +33,8 @@ import {
   parseView,
   rankPool,
   search,
+  hiddenMatches,
+  hiddenNote,
   sortRows,
   titleOptions,
   viewParams,
@@ -159,6 +161,7 @@ export default function Leaderboard({ apiUrl }: { apiUrl: string }) {
   const cutoff = inactiveCutoff(state.kind === 'ready' ? state.lastGame : null);
   const pool = useMemo(() => rankPool(players, view, fromYear?.played, cutoff), [players, view, fromYear, cutoff]);
   const found = useMemo(() => search(pool, view.search), [pool, view.search]);
+  const hidden = useMemo(() => hiddenMatches(players, view, view.search, fromYear?.played, cutoff), [players, view, fromYear, cutoff]);
   const shown = useMemo(
     () => page(sortRows(found.rows, view.sort, view.order), view.page, found.jumpTo),
     [found, view.sort, view.order, view.page],
@@ -290,6 +293,7 @@ export default function Leaderboard({ apiUrl }: { apiUrl: string }) {
               changes={changes}
               linkTo={linkTo}
               caption={`${show.modelLabel(model)}, ${show.formatName(view.format)}, run ${state.board.run_id}`}
+              hidden={hidden === null ? null : { note: hiddenNote(hidden, view, view.search), show: hidden.show }}
             />
             <Pager
               page={shown.page}
@@ -432,6 +436,8 @@ interface TableProps {
   changes: Map<string, Delta> | null;
   linkTo: LinkTo;
   caption: string;
+  /** Who the search found behind the filters, and the view that shows them; null when nobody is hidden. */
+  hidden: { note: string; show: View } | null;
 }
 
 /** Change shows one rating change beside its value, as upstream's delta badge. */
@@ -457,7 +463,7 @@ function RankChange({ delta, rank }: { delta: Delta | undefined; rank: number | 
 }
 
 /** The table of one page of players, with sortable headers and the searched player highlighted. */
-function Table({ view, rows, jumpTo, changes, linkTo, caption }: TableProps) {
+function Table({ view, rows, jumpTo, changes, linkTo, caption, hidden }: TableProps) {
   const jumped = useRef<HTMLTableRowElement>(null);
   useEffect(() => {
     const t = setTimeout(() => jumped.current?.scrollIntoView({ behavior: 'smooth', block: 'center' }), 150);
@@ -533,7 +539,13 @@ function Table({ view, rows, jumpTo, changes, linkTo, caption }: TableProps) {
           {rows.length === 0 && (
             <tr>
               <td colSpan={headers.length} className="empty">
-                No players found matching your criteria.
+                {hidden === null ? (
+                  'No players found matching your criteria.'
+                ) : (
+                  <>
+                    {hidden.note} <a {...linkTo(hidden.show)}>Show anyway</a>
+                  </>
+                )}
               </td>
             </tr>
           )}

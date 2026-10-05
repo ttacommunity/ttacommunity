@@ -218,6 +218,57 @@ export function search(pool: RankedRow[], term: string): { rows: RankedRow[]; ju
   return { rows: found, jumpTo: null };
 }
 
+/** Players a search matches that the filters hide, and the view that shows them. */
+export type Hidden = { names: string[]; reasons: ('opponents' | 'activity' | 'title')[]; show: View };
+
+/**
+ * hiddenMatches returns the players a search matches only outside the filters (minimum opponents, activity, title),
+ * which filters hide them, and the view that relaxes just those; null when the search finds someone shown, or nobody.
+ */
+export function hiddenMatches(
+  rows: readonly LeaderboardRow[],
+  view: View,
+  term: string,
+  playedInYear?: ReadonlySet<string>,
+  cutoff?: string,
+): Hidden | null {
+  if (term === '' || search(rankPool(rows, view, playedInYear, cutoff), term).rows.length > 0) return null;
+  const terms = term.split(',').map((t) => t.trim()).filter((t) => t !== '');
+  const found = rankPool(rows, { ...view, minOpps: 0, status: 'all', title: null }, playedInYear, cutoff).filter((p) =>
+    terms.some((t) => matches(p, t)),
+  );
+  if (found.length === 0) return null;
+  const fewOpps = found.filter((p) => p.opponents < view.minOpps);
+  const inactive = view.status !== 'all' && found.some((p) => p.active !== (view.status === 'active'));
+  const otherTitle = view.title !== null && found.some((p) => p.title?.code !== view.title);
+  const reasons: Hidden['reasons'] = [];
+  if (fewOpps.length > 0) reasons.push('opponents');
+  if (inactive) reasons.push('activity');
+  if (otherTitle) reasons.push('title');
+  return {
+    names: found.map((p) => p.name),
+    reasons,
+    show: {
+      ...view,
+      minOpps: fewOpps.length > 0 ? Math.min(...fewOpps.map((p) => p.opponents)) : view.minOpps,
+      status: inactive ? 'all' : view.status,
+      title: otherTitle ? null : view.title,
+      page: 1,
+    },
+  };
+}
+
+/** hiddenNote says who a search found behind the filters, and which filters hide them. */
+export function hiddenNote(h: Hidden, view: View, term: string): string {
+  const why = h.reasons.map((r) =>
+    r === 'opponents' ? `the minimum of ${view.minOpps} opponents` : r === 'activity' ? `the ${view.status === 'active' ? 'Active' : 'Inactive'} only filter` : `the ${view.title} title filter`,
+  );
+  const filters = why.join(' and ');
+  if (h.names.length > 1) return `${h.names.length} players matching "${term}" are hidden by ${filters}.`;
+  const played = h.reasons.includes('opponents') ? ` (${h.show.minOpps} played)` : '';
+  return `${h.names[0]} is hidden by ${filters}${played}.`;
+}
+
 const sortValue: Record<Exclude<SortKey, 'name' | 'last_played'>, (p: RankedRow) => number> = {
   rank: (p) => p.displayRank,
   c_rating: (p) => p.c_rating,
