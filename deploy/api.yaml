@@ -31,7 +31,9 @@ spec:
       labels:
         app: api
     spec:
-      automountServiceAccountToken: false
+      # Its own account, which may start and stop the engine's runs (api-rbac.yaml).
+      serviceAccountName: api
+      automountServiceAccountToken: true
       imagePullSecrets:
         - name: gitlab-registry
       securityContext:
@@ -61,6 +63,20 @@ spec:
                 secretKeyRef:
                   name: ratings-api
                   key: database-url
+            # Admin: its login, and the Access app and site its requests must come from.
+            - name: RATINGS_ADMIN_DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: ratings-admin
+                  key: database-url
+            - name: ACCESS_TEAM
+              value: https://unstableunicorn.cloudflareaccess.com
+            - name: ENGINE_CRONJOB
+              value: engine
+            - name: ACCESS_AUD
+              value: f0bc8c99210a231edb4adc754229a5798e98f41ca67515da419535a251031136
+            - name: ADMIN_ORIGIN
+              value: https://ttac-admin.unstableunicorn.dev
           resources:
             requests:
               cpu: 25m
