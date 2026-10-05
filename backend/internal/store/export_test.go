@@ -40,6 +40,7 @@ func filled(t *testing.T) *pgxpool.Pool {
 		 VALUES (4760, 2, '2024 group 1', 4, NULL, 'sdzy', 65877, true, 3, -1.5, '{1,0}', NULL, '{0,0,0,2}', 'CGE page')`,
 		`INSERT INTO community_points (tournament, from_edition, group_name, place, points, source)
 		 VALUES ('worlds', 2025, 'Stage 3', 0, 130, 'sheet')`,
+		`INSERT INTO community_quarters (tournament, season, year, quarter, source) VALUES ('wimbledon', '2025', 2026, 1, 'tab')`,
 		`INSERT INTO tournament_season_notes (tournament, season, stage, note, source)
 		 VALUES ('worlds', '2023 Play Off', '', 'A line
 		 and another', 's')`,

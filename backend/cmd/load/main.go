@@ -36,7 +36,7 @@ func main() {
 	classify := flag.Bool("classify", false, "only place unplaced games in the tournament catalogue, by their names")
 	cgeGames := flag.String("cge-games", "", "attach CGE's facts (seats, CGE users, finish dates) from the CSV named to the games already loaded")
 	cgeNew := flag.String("cge-new", "", "with -cge-games: a CSV of replay codes (replay_code column first) checked by hand as new games, added even where they may look like copies")
-	facts := flag.String("facts", "", "replace every recorded tournament fact of one kind (divisions, placements, corrections, dates, honours, rules, podiums, cge_tournaments, cge_stages, cge_standings, ladder_wins, season_notes, community, community_scores or community_points) with the CSV file named")
+	facts := flag.String("facts", "", "replace every recorded tournament fact of one kind (divisions, placements, corrections, dates, honours, rules, podiums, cge_tournaments, cge_stages, cge_standings, ladder_wins, season_notes, community, community_scores, community_points or community_quarters) with the CSV file named")
 	export := flag.String("export", "", "write every input table to the directory named (new or empty), one CSV each, with a manifest")
 	restore := flag.String("restore", "", "load an export from the directory named into a new database, after applying the migrations")
 	addAdmin := flag.String("add-admin", "", "add or update the admin with the Discord id named, with -name and -role")
@@ -55,7 +55,7 @@ func main() {
 		fmt.Fprintln(os.Stderr, "       load -classify")
 		fmt.Fprintln(os.Stderr, "       load -cge-games <CSV file> [-cge-new <CSV file>]")
 		fmt.Fprintln(os.Stderr, "       load -countries <CSV file>...")
-		fmt.Fprintln(os.Stderr, "       load -facts divisions|placements|corrections|dates|honours|rules|podiums|cge_tournaments|cge_stages|cge_standings|ladder_wins|season_notes|community|community_scores|community_points <CSV file>")
+		fmt.Fprintln(os.Stderr, "       load -facts divisions|placements|corrections|dates|honours|rules|podiums|cge_tournaments|cge_stages|cge_standings|ladder_wins|season_notes|community|community_scores|community_points|community_quarters <CSV file>")
 		fmt.Fprintln(os.Stderr, "The database is RATINGS_DATABASE_URL.")
 		flag.PrintDefaults()
 	}
@@ -425,8 +425,10 @@ func replaceFacts(kind, file string) error {
 		return loadFacts(kind, file, tournamentcsv.ReadCommunityScores, store.ReplaceCommunityScores)
 	case "community_points":
 		return loadFacts(kind, file, tournamentcsv.ReadCommunityPoints, store.ReplaceCommunityPoints)
+	case "community_quarters":
+		return loadFacts(kind, file, tournamentcsv.ReadCommunityQuarters, store.ReplaceCommunityQuarters)
 	}
-	return fmt.Errorf("unknown kind of fact %q: want divisions, placements, corrections, dates, honours, rules, podiums, cge_tournaments, cge_stages, cge_standings, ladder_wins, season_notes, community, community_scores or community_points", kind)
+	return fmt.Errorf("unknown kind of fact %q: want divisions, placements, corrections, dates, honours, rules, podiums, cge_tournaments, cge_stages, cge_standings, ladder_wins, season_notes, community, community_scores, community_points or community_quarters", kind)
 }
 
 func loadFacts[T any](
