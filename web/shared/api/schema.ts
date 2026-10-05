@@ -1098,6 +1098,66 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/admin/runs/sizes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * About how much room each run takes on disk (admins only)
+         * @description Each run table's size shared among the runs by their rows in it. Slow (it counts every run's rows), so asked for once, not with each poll of the runs.
+         */
+        get: operations["getAdminRunSizes"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/runs/{run}/protected": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Protect a run from deletion, or stop protecting it (admins only)
+         * @description Audited. The Origin must be the admin site. Protecting a run being deleted keeps it.
+         */
+        put: operations["putAdminRunProtected"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/runs/{run}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Delete a run and every result of it, in the background (admins only)
+         * @description Audited. The Origin must be the admin site. Refused for a protected run, the current run, and a running one while the engine is going. The run shows as deleting until it is gone.
+         */
+        delete: operations["deleteAdminRun"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/admin/runs/{run}/publish": {
         parameters: {
             query?: never;
@@ -1165,6 +1225,22 @@ export interface components {
             progress: string;
             /** Format: date-time */
             progress_at?: string;
+            /** @description Kept from deletion */
+            protected: boolean;
+            /** @description Being deleted in the background */
+            deleting: boolean;
+        };
+        RunSize: {
+            /** Format: int64 */
+            run: number;
+            /**
+             * Format: int64
+             * @description An estimate
+             */
+            bytes: number;
+        };
+        RunProtection: {
+            protected: boolean;
         };
         StartedRun: {
             /** @description The engine Job's name */
@@ -3993,6 +4069,83 @@ export interface operations {
             403: components["responses"]["Forbidden"];
             409: components["responses"]["Conflict"];
             503: components["responses"]["NotSetUp"];
+        };
+    };
+    getAdminRunSizes: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Every run's size */
+            200: {
+                headers: {
+                    "Cache-Control": components["headers"]["CacheControl"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RunSize"][];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    putAdminRunProtected: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Any run's id, published or not */
+                run: components["parameters"]["AdminRunId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RunProtection"];
+            };
+        };
+        responses: {
+            /** @description Set */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    deleteAdminRun: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Any run's id, published or not */
+                run: components["parameters"]["AdminRunId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Being deleted */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
         };
     };
     postAdminRunPublish: {

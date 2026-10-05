@@ -4,13 +4,16 @@
 package httpapi
 
 import (
+	"cmp"
 	"context"
 	"errors"
 	"fmt"
 	"io"
 	"log/slog"
 	"net/http"
+	"slices"
 	"strings"
+	"time"
 	"unicode/utf8"
 
 	openapi_types "github.com/oapi-codegen/runtime/types"
@@ -59,6 +62,11 @@ type Admins interface {
 	SetAdmin(ctx context.Context, a store.Admin) error
 	RemoveAdmin(ctx context.Context, discordID string) error
 	Runs(ctx context.Context) ([]store.AdminRun, error)
+	SetRunProtected(ctx context.Context, run int64, protected bool) error
+	// StartDeleteRun marks a run for deletion; DeleteRun then removes it, in the background.
+	StartDeleteRun(ctx context.Context, run int64, engineGoing bool) error
+	DeleteRun(ctx context.Context, run int64) error
+	RunSizes(ctx context.Context) (map[int64]int64, error)
 	Publish(ctx context.Context, run int64) error
 	RunChanges(ctx context.Context, run, before int64) (store.RunChanges, error)
 	// StartRun starts the engine now and returns its Job's name, or enginejob.ErrRunning or ErrNotSetUp.
@@ -372,6 +380,7 @@ func (s *server) GetAdminRuns(ctx context.Context, _ GetAdminRunsRequestObject) 
 		out[i] = AdminRun{
 			Id: r.ID, Status: AdminRunStatus(r.Status), StartedAt: r.StartedAt, FinishedAt: r.FinishedAt, PublishedAt: r.PublishedAt,
 			Current: r.Current, Games: r.Games, Players: r.Players, EngineVersion: r.EngineVersion, Progress: r.Progress, ProgressAt: r.ProgressAt,
+			Protected: r.Protected, Deleting: r.Deleting,
 		}
 	}
 	return GetAdminRuns200JSONResponse{Body: out, Headers: GetAdminRuns200ResponseHeaders{CacheControl: cacheNone}}, nil
@@ -940,4 +949,84 @@ func places(p store.Places) Places {
 		return &counts
 	}
 	return Places{P2: size(p.P2), P3: size(p.P3), P4: size(p.P4)}
+}
+
+// deleteRunTimeout bounds a background delete: the largest runs take minutes.
+const deleteRunTimeout = time.Hour
+
+func (s *server) PutAdminRunProtected(ctx context.Context, req PutAdminRunProtectedRequestObject) (PutAdminRunProtectedResponseObject, error) {
+	me, ok, err := adminOnly(ctx)
+	if err != nil || !ok {
+		return PutAdminRunProtected403JSONResponse{forbidden(onlyAdminsRun)}, err
+	}
+	if req.Body == nil {
+		return PutAdminRunProtected400JSONResponse{badRequest400("say whether the run is protected")}, nil
+	}
+	switch err := s.admins.SetRunProtected(ctx, req.Run, req.Body.Protected); {
+	case errors.Is(err, store.ErrRunNotFound):
+		return PutAdminRunProtected404JSONResponse{notFound404("no such run")}, nil
+	case err != nil:
+		return nil, err
+	}
+	action := "run.unprotect"
+	if req.Body.Protected {
+		action = "run.protect"
+	}
+	if err := s.admins.Audit(ctx, me.DiscordID, action, fmt.Sprint(req.Run), map[string]any{}); err != nil {
+		return nil, err
+	}
+	return PutAdminRunProtected204Response{}, nil
+}
+
+func (s *server) DeleteAdminRun(ctx context.Context, req DeleteAdminRunRequestObject) (DeleteAdminRunResponseObject, error) {
+	me, ok, err := adminOnly(ctx)
+	if err != nil || !ok {
+		return DeleteAdminRun403JSONResponse{forbidden(onlyAdminsRun)}, err
+	}
+	going, err := s.admins.EngineGoing(ctx)
+	if err != nil {
+		if !errors.Is(err, enginejob.ErrNotSetUp) {
+			s.log.Error("asking the cluster whether the engine is going failed; a running run is kept", "err", err)
+		}
+		going = true
+	}
+	switch err := s.admins.StartDeleteRun(ctx, req.Run, going); {
+	case errors.Is(err, store.ErrRunNotFound):
+		return DeleteAdminRun404JSONResponse{notFound404("no such run")}, nil
+	case errors.Is(err, store.ErrRunProtected):
+		return DeleteAdminRun409JSONResponse{conflict409("the run is protected")}, nil
+	case errors.Is(err, store.ErrRunCurrent):
+		return DeleteAdminRun409JSONResponse{conflict409("the run is the one the site shows")}, nil
+	case errors.Is(err, store.ErrRunRunning):
+		return DeleteAdminRun409JSONResponse{conflict409("the run is still running")}, nil
+	case err != nil:
+		return nil, err
+	}
+	if err := s.admins.Audit(ctx, me.DiscordID, "run.delete", fmt.Sprint(req.Run), map[string]any{}); err != nil {
+		return nil, err
+	}
+	go func(run int64) {
+		ctx, cancel := context.WithTimeout(context.Background(), deleteRunTimeout)
+		defer cancel()
+		if err := s.admins.DeleteRun(ctx, run); err != nil {
+			s.log.Error("deleting a run failed; it stays marked, to delete again", "run", run, "err", err)
+		}
+	}(req.Run)
+	return DeleteAdminRun202Response{}, nil
+}
+
+func (s *server) GetAdminRunSizes(ctx context.Context, _ GetAdminRunSizesRequestObject) (GetAdminRunSizesResponseObject, error) {
+	if _, ok, err := adminOnly(ctx); err != nil || !ok {
+		return GetAdminRunSizes403JSONResponse{forbidden(onlyAdminsRun)}, err
+	}
+	sizes, err := s.admins.RunSizes(ctx)
+	if err != nil {
+		return nil, err
+	}
+	out := make([]RunSize, 0, len(sizes))
+	for run, bytes := range sizes {
+		out = append(out, RunSize{Run: run, Bytes: bytes})
+	}
+	slices.SortFunc(out, func(a, b RunSize) int { return cmp.Compare(a.Run, b.Run) })
+	return GetAdminRunSizes200JSONResponse{Body: out, Headers: GetAdminRunSizes200ResponseHeaders{CacheControl: cacheNone}}, nil
 }
