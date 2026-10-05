@@ -295,3 +295,41 @@ func TestExportZipHoldsTheSameExportAndTheAdminLoginCanTakeIt(t *testing.T) {
 		t.Errorf("restoring the unzipped export: %v", err)
 	}
 }
+
+// personalColumns are the columns that hold personal data, which the export never holds.
+var personalColumns = []string{"discord_id", "email", "ip", "ip_address", "session_id"}
+
+func TestExportHoldsNoPersonalDataOrLoadHistory(t *testing.T) {
+	ctx := context.Background()
+	pool := filled(t)
+	for _, q := range []string{
+		`INSERT INTO admins (discord_id, name, role) VALUES ('111111111111111111', 'An Admin', 'admin')`,
+		`INSERT INTO admin_audit (discord_id, action, target) VALUES ('111111111111111111', 'run.start', 'community')`,
+		`INSERT INTO refused_rows (batch_id, source_file, source_line, reason, fields)
+		 SELECT batch_id, 'm.csv', 9, 'standings_row', '{"a refused line"}' FROM import_batches LIMIT 1`,
+	} {
+		if _, err := pool.Exec(ctx, q); err != nil {
+			t.Fatalf("filling: %v", err)
+		}
+	}
+	dir := filepath.Join(t.TempDir(), "export")
+	if _, err := Export(ctx, pool, dir); err != nil {
+		t.Fatalf("Export: %v", err)
+	}
+	for name, body := range readDir(t, dir) {
+		for _, left := range []string{"admins.csv", "admin_audit.csv", "refused_rows.csv"} {
+			if name == left {
+				t.Errorf("the export holds %s", name)
+			}
+		}
+		header := strings.SplitN(string(body), "\n", 2)[0]
+		for _, col := range strings.Split(header, ",") {
+			if slices.Contains(personalColumns, strings.Trim(col, `"`)) {
+				t.Errorf("%s has the personal column %s", name, col)
+			}
+		}
+		if strings.Contains(string(body), "111111111111111111") {
+			t.Errorf("%s holds an admin's Discord id", name)
+		}
+	}
+}

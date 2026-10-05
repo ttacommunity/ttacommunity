@@ -25,10 +25,12 @@ import (
 )
 
 // ExportTables are the tables that hold inputs, in an order a restore can
-// load them (a table after those it refers to). Every other table holds a
-// run's results, which the engine computes again.
+// load them (a table after those it refers to): what a new database needs
+// for the engine to recompute every view. An export may be shared, so it
+// holds no personal data. Every other table holds a run's results, which the
+// engine computes again, or is in NotExported.
 var ExportTables = []string{
-	"import_batches", "refused_rows", "players",
+	"import_batches", "players",
 	"tournaments", "tournament_seasons", "tournament_stages",
 	"matches", "match_seats",
 	"rankings", "ranking_tournaments", "cge_tournaments", "cge_standings", "community_points", "community_quarters", "community_ladders",
@@ -38,8 +40,13 @@ var ExportTables = []string{
 	"tournament_season_corrections", "tournament_season_notes", "tournament_season_rules",
 	"tournament_podium_overrides", "tournament_regulations", "player_title_overrides",
 	"badges", "player_badges", "tournament_cards", "tournament_stories",
-	"admins", "admin_audit",
 }
+
+// NotExported are the input tables an export leaves out: who the admins are
+// and what they did (Discord ids; a new database adds its admins with
+// load -add-admin), and the rows a load refused (load history, which no view
+// needs).
+var NotExported = []string{"refused_rows", "admins", "admin_audit"}
 
 // Manifest describes an export: the schema it was taken at and each table's file.
 type Manifest struct {
@@ -254,7 +261,8 @@ func restoreTable(ctx context.Context, tx pgx.Tx, dir string, t ExportedTable) e
 }
 
 // checkInputTables refuses a database whose input tables (those without a
-// run_id, other than goose's and rating_runs) are not exactly ExportTables.
+// run_id, other than goose's and rating_runs) are not exactly ExportTables
+// and NotExported.
 func checkInputTables(ctx context.Context, tx pgx.Tx) error {
 	rows, err := tx.Query(ctx, `
 		SELECT t.table_name FROM information_schema.tables t
@@ -272,13 +280,13 @@ func checkInputTables(ctx context.Context, tx pgx.Tx) error {
 	}
 	var problems []error
 	for _, t := range found {
-		if !slices.Contains(ExportTables, t) {
-			problems = append(problems, fmt.Errorf("input table %s is not in ExportTables", t))
+		if !slices.Contains(ExportTables, t) && !slices.Contains(NotExported, t) {
+			problems = append(problems, fmt.Errorf("input table %s is in neither ExportTables nor NotExported", t))
 		}
 	}
-	for _, t := range ExportTables {
+	for _, t := range append(slices.Clone(ExportTables), NotExported...) {
 		if !slices.Contains(found, t) {
-			problems = append(problems, fmt.Errorf("table %s in ExportTables is not in the database", t))
+			problems = append(problems, fmt.Errorf("table %s in ExportTables or NotExported is not in the database", t))
 		}
 	}
 	return errors.Join(problems...)
