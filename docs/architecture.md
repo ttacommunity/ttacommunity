@@ -181,7 +181,7 @@ TTA community server and email via `mail-relay`.
 ## What it sits on
 
 The home k3s cluster managed by `picluster`: four Pi 4s (arm64) and
-`unstableserver`/`wsl-laptop` (amd64), with Longhorn, Flux and the GitLab
-runners. Both databases and the engine are pinned to **`unstableserver`**,
+`unstableserver`/`wsl-laptop` (amd64), with Longhorn, Flux and the GitHub
+Actions runners. Both databases and the engine are pinned to **`unstableserver`**,
 because the upstream DB is ~1.4 GB (unmeasured) and the engine is numpy-heavy.
 TLS terminates at Cloudflare, and traffic arrives through a cloudflared tunnel.
