@@ -59,6 +59,7 @@ while IFS= read -r ref; do
   case $code in
     200) printf '  ok       %s\n' "$ref" ;;
     404) printf '  MISSING  %s\n           if any part was typed rather than resolved, it is invented\n' "$ref"
+         case $ref in ghcr.io/*) printf '           (GHCR also says 404 to a token that cannot read the package: gh auth refresh -s read:packages)\n' ;; esac
          problems=$((problems + 1)) ;;
     *)   printf '  ?        %s\n           registry said "%s"; NOT treated as a pass\n' "$ref" "$code"
          problems=$((problems + 1)) ;;
