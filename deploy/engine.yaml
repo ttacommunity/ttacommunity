@@ -41,7 +41,7 @@ spec:
           containers:
             - name: engine
               image: registry.gitlab.com/unstablehomelab/ttacommunity/engine:sha-c010ae86@sha256:55604e6e55f390dee85edb4b4c3f19c4582d2f11e13a5de45aaff5c6115b8fd2
-              args: [-m, tta_ratings_engine.run]
+              args: [-m, tta_ratings_engine.run, --workers, "4"]
               env:
                 # The commit the image was built from.
                 - name: ENGINE_VERSION
@@ -52,11 +52,12 @@ spec:
                       name: ratings-engine
                       key: database-url
               resources:
+                # Four workers: ~2.3 GiB together in a local run.
                 requests:
-                  cpu: "1"
-                  memory: 1536Mi
-                limits:
+                  cpu: "4"
                   memory: 3Gi
+                limits:
+                  memory: 4Gi
               securityContext:
                 allowPrivilegeEscalation: false
                 readOnlyRootFilesystem: true

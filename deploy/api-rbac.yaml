@@ -1,0 +1,39 @@
+# The API's own account, so admin can start and stop a rating run: it may
+# read the engine CronJob, and list, create and delete Jobs in this
+# namespace. Nothing else. Kubernetes cannot narrow delete to engine's Jobs
+# (their names are generated); the API only ever deletes those.
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: api
+  namespace: ttacommunity
+automountServiceAccountToken: false
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: api-starts-engine
+  namespace: ttacommunity
+rules:
+  - apiGroups: [batch]
+    resources: [cronjobs]
+    resourceNames: [engine]
+    verbs: [get]
+  - apiGroups: [batch]
+    resources: [jobs]
+    verbs: [list, create, delete]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: api-starts-engine
+  namespace: ttacommunity
+subjects:
+  - kind: ServiceAccount
+    name: api
+    namespace: ttacommunity
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: api-starts-engine

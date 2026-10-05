@@ -10,5 +10,6 @@ resources:
   # Temporary: the database on the LAN for development. Remove when done.
   - ratings-db-lan.yaml
   - api.yaml
+  - api-rbac.yaml
   - engine.yaml
   - cloudflare-tunnel.yaml

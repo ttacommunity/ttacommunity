@@ -11,6 +11,7 @@ Pipe values in; never use `--from-literal`, which leaves them in shell history.
 | `ratings-db` | `password` | `ratings-db` | Password of `ratings`, the ratings database's owner |
 | `ratings-engine` | `database-url` | `engine` | The engine's connection URL, as `ratings` |
 | `ratings-api` | `password`, `database-url` | `api`, `scripts/seed-cluster-db.sh` | The read-only `ratings_api` login |
+| `ratings-admin` | `password`, `database-url` | `api` | The api's admin login `ratings_admin_api`, a member of `ratings_admin` (writes only what admin edits) |
 | `gitlab-registry` | `.dockerconfigjson` | `api`, `engine` | Pulls images from the project's GitLab registry. Deploy token `cluster-image-pull` |
 | `ttacommunity-tunnel` | `credentials.json` | `cloudflared` | The `ttacommunity` tunnel's credentials, from `cloudflared tunnel create ttacommunity` (`~/.cloudflared/<tunnel id>.json`) |
 | `ratings-dev-engine` | `database-url` | `engine-dev` | The dev engine's connection URL, as `ratings_dev`, owner of `ratings_dev` only |
@@ -79,6 +80,11 @@ kubectl "${ns[@]}" create secret generic ratings-dev-admin \
   --from-file=password=/dev/shm/pw --from-file=database-url=/dev/shm/url
 rm /dev/shm/pw /dev/shm/url
 ```
+
+The api's admin login is made the same way, with `ratings_admin_api` for
+`ratings_dev_admin_api`, `ratings` for `ratings_dev` in the URL, and Secret
+`ratings-admin`. Only listed logins may connect to `ratings`, so its SQL also
+has `GRANT CONNECT ON DATABASE ratings TO ratings_admin_api;`.
 
 `gitlab-registry` holds a **project deploy token with `read_registry` only**
 (GitLab → Settings → Repository → Deploy tokens):
