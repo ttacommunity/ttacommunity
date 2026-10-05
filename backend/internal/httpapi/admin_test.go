@@ -207,6 +207,16 @@ func (*fakeAdmins) DataSummary(context.Context) (store.DataSummary, error) {
 	return store.DataSummary{Games: 144691, NeverPlayed: 36, Unplaced: 0, Players: 5210, LatestGame: &latest}, nil
 }
 
+func (*fakeAdmins) CheckStandings(context.Context) (store.StandingsCheck, error) {
+	return store.StandingsCheck{StagesOnlyOnCGE: 18, Stages: []store.StageCheck{{
+		CGETournament: 19, CGESeason: 4, Name: "Intermezzo Championship", Players: 520, Agree: 519,
+		Differences: []store.StandingDifference{{
+			CGEUser: 80023, Player: "HnNAdventures", Kind: store.DiffPlacesTimeout, CGEGames: 6, HeldGames: 6, CGEPoints: 2,
+			CGEPlaces: store.Places{P3: []int{0, 1, 5}}, HeldPlaces: store.Places{P3: []int{0, 4, 2}},
+		}},
+	}}}, nil
+}
+
 func (*fakeAdmins) Badges(context.Context) ([]store.Badge, error) {
 	return []store.Badge{{ID: 3, Label: "Organiser", Description: "Runs a league", Players: []string{"Ann"}}}, nil
 }
@@ -939,6 +949,20 @@ func TestAdminDataSummaryIsForAdminsAndOrganisers(t *testing.T) {
 		if got.Games != 144691 || got.NeverPlayed != 36 || got.LatestGame == nil || got.LastLoad != nil {
 			t.Errorf("data = %+v", got)
 		}
+	}
+}
+
+func TestAdminStandingsCheckIsForAdminsAndOrganisers(t *testing.T) {
+	for _, who := range []string{"111111111111111111", "222222222222222222"} {
+		rec := adminDoAs(t, &fakeAdmins{}, who, http.MethodGet, "/v1/admin/standings-check", "", "")
+		if rec.Code != http.StatusOK {
+			t.Fatalf("GET standings check as %s = %d %s", who, rec.Code, rec.Body)
+		}
+		body := rec.Body.Bytes()
+		wantJSON(t, body, "stages_only_on_cge", `18`)
+		wantJSON(t, body, "stages.0", `{"cge_tournament": 19, "cge_season": 4, "players": 520, "agree": 519}`)
+		wantJSON(t, body, "stages.0.differences.0", `{"player": "HnNAdventures", "kind": "places_after_a_timeout", "cge_games": 6, "held_never_played": 0}`)
+		wantJSON(t, body, "stages.0.differences.0.cge_places", `{"p2": null, "p3": [0, 1, 5], "p4": null}`)
 	}
 }
 

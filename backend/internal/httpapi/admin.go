@@ -36,6 +36,7 @@ type Admins interface {
 	SetSeasonInChampions(ctx context.Context, slug, season string, in bool) error
 	SetNote(ctx context.Context, slug, season, stage, note string) error
 	DataSummary(ctx context.Context) (store.DataSummary, error)
+	CheckStandings(ctx context.Context) (store.StandingsCheck, error)
 	// ExportZip writes every input table, as the load job's export, as a zip to w.
 	ExportZip(ctx context.Context, w io.Writer) error
 	Badges(ctx context.Context) ([]store.Badge, error)
@@ -907,4 +908,36 @@ func (s *server) GetAdminExport(ctx context.Context, _ GetAdminExportRequestObje
 			CacheControl: cacheNone, ContentDisposition: `attachment; filename="ttacommunity-data.zip"`,
 		},
 	}, nil
+}
+
+func (s *server) GetAdminStandingsCheck(ctx context.Context, _ GetAdminStandingsCheckRequestObject) (GetAdminStandingsCheckResponseObject, error) {
+	c, err := s.admins.CheckStandings(ctx)
+	if err != nil {
+		return nil, err
+	}
+	body := StandingsCheck{Stages: []StageCheck{}, StagesOnlyOnCge: c.StagesOnlyOnCGE}
+	for _, st := range c.Stages {
+		out := StageCheck{CgeTournament: st.CGETournament, CgeSeason: st.CGESeason, Name: st.Name,
+			Players: st.Players, Agree: st.Agree, Differences: []StandingDifference{}}
+		for _, d := range st.Differences {
+			out.Differences = append(out.Differences, StandingDifference{
+				CgeUser: d.CGEUser, Player: d.Player, Kind: StandingDifferenceKind(d.Kind),
+				CgeGames: d.CGEGames, HeldGames: d.HeldGames, HeldNeverPlayed: d.HeldNeverPlayed, CgePoints: d.CGEPoints,
+				CgePlaces: places(d.CGEPlaces), HeldPlaces: places(d.HeldPlaces),
+			})
+		}
+		body.Stages = append(body.Stages, out)
+	}
+	return GetAdminStandingsCheck200JSONResponse{Body: body, Headers: GetAdminStandingsCheck200ResponseHeaders{CacheControl: cacheNone}}, nil
+}
+
+// places turns a player's places into the API's, null for a size not played.
+func places(p store.Places) Places {
+	size := func(counts []int) *[]int {
+		if counts == nil {
+			return nil
+		}
+		return &counts
+	}
+	return Places{P2: size(p.P2), P3: size(p.P3), P4: size(p.P4)}
 }

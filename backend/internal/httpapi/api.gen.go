@@ -370,6 +370,33 @@ func (e Series) Valid() bool {
 	}
 }
 
+// Defines values for StandingDifferenceKind.
+const (
+	StandingDifferenceKindGames               StandingDifferenceKind = "games"
+	StandingDifferenceKindNotHeld             StandingDifferenceKind = "not_held"
+	StandingDifferenceKindNotOnCge            StandingDifferenceKind = "not_on_cge"
+	StandingDifferenceKindPlaces              StandingDifferenceKind = "places"
+	StandingDifferenceKindPlacesAfterATimeout StandingDifferenceKind = "places_after_a_timeout"
+)
+
+// Valid indicates whether the value is a known member of the StandingDifferenceKind enum.
+func (e StandingDifferenceKind) Valid() bool {
+	switch e {
+	case StandingDifferenceKindGames:
+		return true
+	case StandingDifferenceKindNotHeld:
+		return true
+	case StandingDifferenceKindNotOnCge:
+		return true
+	case StandingDifferenceKindPlaces:
+		return true
+	case StandingDifferenceKindPlacesAfterATimeout:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for TitleCode.
 const (
 	TitleCodeB   TitleCode = "B"
@@ -1358,6 +1385,13 @@ type Peak struct {
 	Year *int      `json:"year"`
 }
 
+// Places Firsts, seconds and so on in games of 2, 3 and 4 players; null for a size not played
+type Places struct {
+	P2 *[]int `json:"p2"`
+	P3 *[]int `json:"p3"`
+	P4 *[]int `json:"p4"`
+}
+
 // Player defines model for Player.
 type Player struct {
 	// Badges Badges admin gave the player, by label, shown beside the title
@@ -1671,6 +1705,57 @@ type SeriesCount struct {
 
 	// Series A tournament series
 	Series Series `json:"series"`
+}
+
+// StageCheck defines model for StageCheck.
+type StageCheck struct {
+	Agree         int                  `json:"agree"`
+	CgeSeason     int                  `json:"cge_season"`
+	CgeTournament int                  `json:"cge_tournament"`
+	Differences   []StandingDifference `json:"differences"`
+
+	// Name CGE's name for the tournament; empty when it is not in the catalogue
+	Name string `json:"name"`
+
+	// Players Players either side lists with a game
+	Players int `json:"players"`
+}
+
+// StandingDifference defines model for StandingDifference.
+type StandingDifference struct {
+	CgeGames int `json:"cge_games"`
+
+	// CgePlaces Firsts, seconds and so on in games of 2, 3 and 4 players; null for a size not played
+	CgePlaces Places  `json:"cge_places"`
+	CgePoints float64 `json:"cge_points"`
+	CgeUser   int     `json:"cge_user"`
+
+	// HeldGames Every game held, including those no one played
+	HeldGames int `json:"held_games"`
+
+	// HeldNeverPlayed Of held_games, those no one played; some CGE tables count them, some do not
+	HeldNeverPlayed int `json:"held_never_played"`
+
+	// HeldPlaces Firsts, seconds and so on in games of 2, 3 and 4 players; null for a size not played
+	HeldPlaces Places `json:"held_places"`
+
+	// Kind games: a different number of games; places: the same games in other places; places_after_a_timeout: as places, where one of their games had a timeout, which CGE's AI played on; not_held: CGE lists games of theirs and we hold none; not_on_cge: the other way
+	Kind StandingDifferenceKind `json:"kind"`
+
+	// Player The name CGE shows
+	Player string `json:"player"`
+}
+
+// StandingDifferenceKind games: a different number of games; places: the same games in other places; places_after_a_timeout: as places, where one of their games had a timeout, which CGE's AI played on; not_held: CGE lists games of theirs and we hold none; not_on_cge: the other way
+type StandingDifferenceKind string
+
+// StandingsCheck defines model for StandingsCheck.
+type StandingsCheck struct {
+	// Stages Every CGE stage both hold, in CGE's order
+	Stages []StageCheck `json:"stages"`
+
+	// StagesOnlyOnCge Stages CGE has a table for and we hold no game of
+	StagesOnlyOnCge int `json:"stages_only_on_cge"`
 }
 
 // StartedRun defines model for StartedRun.
@@ -2190,6 +2275,9 @@ type ServerInterface interface {
 	// PostAdminRunPublish Make a complete run the one the site shows, or roll back to an older one (admins only)
 	// (POST /v1/admin/runs/{run}/publish)
 	PostAdminRunPublish(w http.ResponseWriter, r *http.Request, run AdminRunId)
+	// GetAdminStandingsCheck CGE's standings tables checked against the games held
+	// (GET /v1/admin/standings-check)
+	GetAdminStandingsCheck(w http.ResponseWriter, r *http.Request)
 	// GetAdminTitles Titles set in admin, by player (admins only)
 	// (GET /v1/admin/titles)
 	GetAdminTitles(w http.ResponseWriter, r *http.Request)
@@ -2708,6 +2796,20 @@ func (siw *ServerInterfaceWrapper) PostAdminRunPublish(w http.ResponseWriter, r 
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.PostAdminRunPublish(w, r, run)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetAdminStandingsCheck operation middleware
+func (siw *ServerInterfaceWrapper) GetAdminStandingsCheck(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetAdminStandingsCheck(w, r)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -4529,6 +4631,7 @@ func HandlerWithOptions(si ServerInterface, options StdHTTPServerOptions) http.H
 	m.HandleFunc(http.MethodPut+" "+options.BaseURL+"/v1/admin/admins/{discord_id}", wrapper.PutAdminAdmin)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/v1/admin/export", wrapper.GetAdminExport)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/v1/admin/data", wrapper.GetAdminData)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/v1/admin/standings-check", wrapper.GetAdminStandingsCheck)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/v1/admin/badges", wrapper.GetAdminBadges)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/v1/admin/badges", wrapper.PostAdminBadge)
 	m.HandleFunc(http.MethodDelete+" "+options.BaseURL+"/v1/admin/badges/{badge}", wrapper.DeleteAdminBadge)
@@ -5853,6 +5956,65 @@ func (response PostAdminRunPublish409JSONResponse) VisitPostAdminRunPublishRespo
 	w.Header().Set("Content-Type", "application/json")
 	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
 	w.WriteHeader(409)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetAdminStandingsCheckRequestObject struct {
+}
+
+type GetAdminStandingsCheckResponseObject interface {
+	VisitGetAdminStandingsCheckResponse(w http.ResponseWriter) error
+}
+
+type GetAdminStandingsCheck200ResponseHeaders struct {
+	CacheControl string
+}
+
+type GetAdminStandingsCheck200JSONResponse struct {
+	Body    StandingsCheck
+	Headers GetAdminStandingsCheck200ResponseHeaders
+}
+
+func (response GetAdminStandingsCheck200JSONResponse) VisitGetAdminStandingsCheckResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetAdminStandingsCheck401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response GetAdminStandingsCheck401JSONResponse) VisitGetAdminStandingsCheckResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetAdminStandingsCheck403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response GetAdminStandingsCheck403JSONResponse) VisitGetAdminStandingsCheckResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(403)
 	_, err := buf.WriteTo(w)
 	return err
 }
@@ -8521,6 +8683,9 @@ type StrictServerInterface interface {
 	// PostAdminRunPublish Make a complete run the one the site shows, or roll back to an older one (admins only)
 	// (POST /v1/admin/runs/{run}/publish)
 	PostAdminRunPublish(ctx context.Context, request PostAdminRunPublishRequestObject) (PostAdminRunPublishResponseObject, error)
+	// GetAdminStandingsCheck CGE's standings tables checked against the games held
+	// (GET /v1/admin/standings-check)
+	GetAdminStandingsCheck(ctx context.Context, request GetAdminStandingsCheckRequestObject) (GetAdminStandingsCheckResponseObject, error)
 	// GetAdminTitles Titles set in admin, by player (admins only)
 	// (GET /v1/admin/titles)
 	GetAdminTitles(ctx context.Context, request GetAdminTitlesRequestObject) (GetAdminTitlesResponseObject, error)
@@ -9171,6 +9336,30 @@ func (sh *strictHandler) PostAdminRunPublish(w http.ResponseWriter, r *http.Requ
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(PostAdminRunPublishResponseObject); ok {
 		if err := validResponse.VisitPostAdminRunPublishResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// GetAdminStandingsCheck operation middleware
+func (sh *strictHandler) GetAdminStandingsCheck(w http.ResponseWriter, r *http.Request) {
+	var request GetAdminStandingsCheckRequestObject
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.GetAdminStandingsCheck(ctx, request.(GetAdminStandingsCheckRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetAdminStandingsCheck")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(GetAdminStandingsCheckResponseObject); ok {
+		if err := validResponse.VisitGetAdminStandingsCheckResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {
