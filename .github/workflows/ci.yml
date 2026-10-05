@@ -80,7 +80,8 @@ jobs:
   engine:
     needs: changes
     if: needs.changes.outputs.engine == 'true'
-    runs-on: ${{ vars.RUNNER_AMD64 || 'ubuntu-24.04' }}
+    # RUNNER_ENGINE overrides the pool: unstableserver's AppArmor denies signals the engine's tests send.
+    runs-on: ${{ vars.RUNNER_ENGINE || vars.RUNNER_AMD64 || 'ubuntu-24.04' }}
     container: docker.io/library/debian:trixie-slim@sha256:a99cfc517144bc59b1978475ec53b46ecabec7e43635402ee5b77cc54cd1b20a
     services:
       postgres:
