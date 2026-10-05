@@ -110,25 +110,7 @@ func (r *RatingsReader) TournamentSeries(ctx context.Context, run int64, series 
 	if err != nil {
 		return fail("game records", err)
 	}
-	got.GameRecords, err = pgx.CollectRows(rows, func(row pgx.CollectableRow) (GameRecord, error) {
-		var g GameRecord
-		var names [4]*string
-		var scores [4]*float64
-		err := row.Scan(&g.Tournament, &g.Date, &names[0], &scores[0], &names[1], &scores[1],
-			&names[2], &scores[2], &names[3], &scores[3])
-		var seats []Seat
-		for i := range names {
-			if names[i] != nil && scores[i] != nil {
-				seats = append(seats, Seat{Name: *names[i], Score: *scores[i]})
-			}
-		}
-		// Stable, so a tied top score goes to the earlier seat, as upstream's sort.
-		slices.SortStableFunc(seats, func(a, b Seat) int { return cmp.Compare(b.Score, a.Score) })
-		if len(seats) > 0 {
-			g.Name, g.Score, g.Opponents = seats[0].Name, seats[0].Score, seats[1:]
-		}
-		return g, err
-	})
+	got.GameRecords, err = pgx.CollectRows(rows, scanGameRecord)
 	if err != nil {
 		return fail("game records", err)
 	}
@@ -356,4 +338,25 @@ func (r *RatingsReader) CommunityLeaderboard(ctx context.Context, run int64, edi
 		return nil, fmt.Errorf("reading the community leaderboard %s: %w", edition, err)
 	}
 	return got, nil
+}
+
+// scanGameRecord reads a game (tournament, date, then each seat's name and score) as its winner's record:
+// the top score, a tie going to the earlier seat as upstream's sort, the others its opponents.
+func scanGameRecord(row pgx.CollectableRow) (GameRecord, error) {
+	var g GameRecord
+	var names [4]*string
+	var scores [4]*float64
+	err := row.Scan(&g.Tournament, &g.Date, &names[0], &scores[0], &names[1], &scores[1],
+		&names[2], &scores[2], &names[3], &scores[3])
+	var seats []Seat
+	for i := range names {
+		if names[i] != nil && scores[i] != nil {
+			seats = append(seats, Seat{Name: *names[i], Score: *scores[i]})
+		}
+	}
+	slices.SortStableFunc(seats, func(a, b Seat) int { return cmp.Compare(b.Score, a.Score) })
+	if len(seats) > 0 {
+		g.Name, g.Score, g.Opponents = seats[0].Name, seats[0].Score, seats[1:]
+	}
+	return g, err
 }

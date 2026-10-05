@@ -159,13 +159,13 @@ func TestPlayerAchievements(t *testing.T) {
 				Placement: "2 Gold, 0 Silver, 1 Bronze", Points: "3 Medals", Medal: &gold,
 				Details: "Q&D Hall of Fame Medalist", FinishDate: "Career / All-Time", Career: true},
 			{Tournament: "TCL Round 31", Season: "Tournament", Division: "Main", Placement: "1 / 2", Points: "80 pts",
-				Details: "Competed in Main &bull; Record", FinishDate: "2024-01-02"},
+				Details: "Competed in Main • Record", FinishDate: "2024-01-02"},
 		},
 	}
 	rec, _ := serve(t, f, "/v1/runs/7/players/ann/achievements")
 	want := `{"name":"Ann","records":[` +
 		`{"career":true,"details":"Q\u0026D Hall of Fame Medalist","division":"Championship","finish_date":"Career / All-Time","medal":"gold","placement":"2 Gold, 0 Silver, 1 Bronze","points":"3 Medals","season":"Career Trophy Hall of Fame","tournament":"Quick and Dirty (Q\u0026D)"},` +
-		`{"career":false,"details":"Competed in Main \u0026bull; Record","division":"Main","finish_date":"2024-01-02","medal":null,"placement":"1 / 2","points":"80 pts","season":"Tournament","tournament":"TCL Round 31"}],` +
+		`{"career":false,"details":"Competed in Main • Record","division":"Main","finish_date":"2024-01-02","medal":null,"placement":"1 / 2","points":"80 pts","season":"Tournament","tournament":"TCL Round 31"}],` +
 		`"run_id":7,"summary":{"accolades":["2024 World Champion"],"bronze":0,"gold":2,"intermezzo_titles":0,"international_titles":0,"royal_league_titles":0,"silver":1,"world_titles":1}}`
 	if got := strings.TrimSpace(rec.Body.String()); rec.Code != http.StatusOK || got != want {
 		t.Errorf("GET achievements: %d %s\nwant 200 %s", rec.Code, got, want)

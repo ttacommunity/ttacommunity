@@ -1,5 +1,6 @@
 /** Upstream's model analysis in the browser: its model list, composite score, ranking and curve filters. */
-import type { CalibrationRow, CountryRatings, Format, TitleCode } from '@ttac/shared/ratings';
+import { titleName } from './leaderboard-display';
+import type { Activity, CalibrationRow, CountryRatings, Format, TitleCode } from '@ttac/shared/ratings';
 
 export type { CountryRatings };
 
@@ -175,17 +176,53 @@ export function parseMoversParams(params: URLSearchParams): { search: string; fo
   return { search: (params.get('search') ?? '').trim(), format: ([0, 2, 3, 4] as const).find((x) => x === f) ?? 0 };
 }
 
-/** titleLabel is a title's name on upstream's activity page, which calls every title but GM and M "Platinum". */
+const count = (n: number) => n.toLocaleString('en-US');
+
+/** formatCards returns the activity page's total games and its cards for 3-, 2- and 4-player games, from the run's counts. */
+export function formatCards(formats: Activity['formats']) {
+  const of = (f: Format) => formats.find((x) => x.format === f) ?? { games: 0, pairs: 0 };
+  const card = (format: Format, name: string, note: (pairs: string) => string) => ({
+    format,
+    name,
+    note: note(count(of(format).pairs)),
+    games: of(format).games,
+  });
+  return {
+    total: formats.reduce((sum, f) => sum + f.games, 0),
+    cards: [
+      card(3, '3-Player Games', (p) => `Most popular tournament format (${p} pairwise duels)`),
+      card(2, '2-Player (Duels)', (p) => `Pure 1v1 heads-up duels (${p} pairwise games)`),
+      card(4, '4-Player Games', (p) => `Full table political strategy (${p} pairwise duels)`),
+    ],
+  };
+}
+
+const FORMAT_EVENT = 'analysis-format';
+
+/** announceFormat tells the analysis page's other parts that the reader chose format. */
+export function announceFormat(target: EventTarget, format: Format): void {
+  target.dispatchEvent(new CustomEvent<Format>(FORMAT_EVENT, { detail: format }));
+}
+
+/** onFormat calls listen with each format announced on target, and returns a function that stops it. */
+export function onFormat(target: EventTarget, listen: (format: Format) => void): () => void {
+  const handler = (e: Event) => listen((e as CustomEvent<Format>).detail);
+  target.addEventListener(FORMAT_EVENT, handler);
+  return () => target.removeEventListener(FORMAT_EVENT, handler);
+}
+
+/** titleLabel is a title's name on the activity page. */
 export function titleLabel(code: TitleCode): string {
-  return code === 'GM' ? 'Grandmaster' : code === 'M' ? 'Master' : 'Platinum';
+  return titleName(code);
 }
 
 export type CountryColumn = 'rank' | 'country' | 'players' | 'gm' | 'm_plus' | 'p_plus' | 'all';
 
-/** sortCountries sorts the countries table as upstream's script: numbers with none as 0, and rank and country as text. */
+/** sortCountries sorts the countries table: numbers with none as 0, and the country code as text. */
 export function sortCountries<T extends CountryRatings & { rank: number }>(rows: readonly T[], col: CountryColumn, asc: boolean): T[] {
   const dir = asc ? 1 : -1;
-  if (col === 'rank' || col === 'country') {
+  if (col === 'rank') return [...rows].sort((a, b) => dir * (a.rank - b.rank));
+  if (col === 'country') {
     return [...rows].sort((a, b) => dir * String(a[col]).localeCompare(String(b[col])));
   }
   return [...rows].sort((a, b) => dir * ((a[col] ?? 0) - (b[col] ?? 0)));

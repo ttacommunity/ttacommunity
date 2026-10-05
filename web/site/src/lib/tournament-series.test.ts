@@ -9,16 +9,19 @@ import {
   seriesGames,
   titleCell,
   era,
-  INTERNATIONAL,
-  WORLDS,
+  CIRCUITS,
+  GRAND_SLAMS,
+  MAJORS,
+  boardCells,
   leaguePoints,
   medalCells,
   opponentsLine,
   seriesEra,
-  SERIES_CONTENT,
   SERIES_NAV,
   seriesHref,
   seriesRecord,
+  showsWorldChampion,
+  worldChampions,
 } from './tournament-series';
 
 describe('the series nav', () => {
@@ -35,7 +38,9 @@ describe('the series nav', () => {
   });
 
   it('links a series to its page and the overview to the hub', () => {
-    expect(seriesHref('international')).toBe('/ratings/hall_of_fame/international/');
+    expect(seriesHref('international')).toBe('/ratings/tournaments/?t=international');
+    expect(seriesHref('worlds')).toBe('/ratings/tournaments/?t=worlds');
+    expect(seriesHref('grand_slams')).toBe('/ratings/hall_of_fame/grand_slams/');
     expect(seriesHref('overview')).toBe('/ratings/hall_of_fame/');
   });
 });
@@ -71,13 +76,13 @@ describe('the series figures', () => {
 
   it('has a page for each series built so far', () => {
     const series = ['international', 'intermezzo', 'royal_league', 'worlds', 'grand_slams', 'ladders'];
-    expect(SERIES_CONTENT.map((c) => c.slug)).toEqual(series);
+    expect([...MAJORS, ...CIRCUITS].map((c) => c.slug)).toEqual(series);
     expect([...BUILT].sort()).toEqual(['overview', ...series].sort());
   });
 
   it('states a static era where upstream does, else the latest season', () => {
-    expect(seriesEra(INTERNATIONAL, 34)).toBe('2016 – Present (Current: Season 34)');
-    expect(seriesEra(WORLDS, 5)).toBe('2023 – Present (Next: 2027)');
+    expect(seriesEra({ ...GRAND_SLAMS, era: undefined }, 34)).toBe('2023 – Present (Current: Season 34)');
+    expect(seriesEra(GRAND_SLAMS, 5)).toBe('2023 – Present');
   });
 
   it('leaves a board’s medal cells empty where the board has no medals, as upstream', () => {
@@ -98,6 +103,34 @@ describe('the Hall of Fame overview', () => {
     silver: 0,
     bronze: 0,
     ...over,
+  });
+
+  it('lists the World Champions from each final, latest first, with their other titles', () => {
+    const seasons = [
+      { label: '2023', in_champions: true, podium: [{ place: 2, name: 'bo' }, { place: 1, name: 'ann' }] },
+      { label: '2024', in_champions: true, podium: [] },
+      { label: '2025', in_champions: true, podium: [{ place: 1, name: 'cy' }] },
+    ];
+    const legends = [
+      legend({ name: 'ann', world_titles: 1, international_titles: 6, intermezzo_titles: 1 }),
+      legend({ name: 'cy', world_titles: 1, royal_league_titles: 2 }),
+    ];
+    expect(worldChampions(seasons, legends)).toEqual([
+      { name: 'cy', season: '2025', icon: '👑', text: '2025 Reigning World Champion • 2x Royal League Champion' },
+      { name: 'ann', season: '2023', icon: '🏆', text: '2023 World Champion • 6x International Champion • Intermezzo Champion' },
+    ]);
+  });
+
+  it('leaves out a season admin keeps out of the champions, such as a play-off', () => {
+    const seasons = [
+      { label: '2023', in_champions: true, podium: [{ place: 1, name: 'ann' }] },
+      { label: '2023 Play Off', in_champions: false, podium: [{ place: 1, name: 'dee' }] },
+    ];
+    expect(worldChampions(seasons, []).map((c) => c.name)).toEqual(['ann']);
+  });
+
+  it('lists no World Champions before any final has a winner', () => {
+    expect(worldChampions([{ label: '2026', in_champions: true, podium: [] }], [])).toEqual([]);
   });
 
   it('writes a title cell as a count, a crown for World titles, or a dash', () => {
@@ -127,5 +160,31 @@ describe('the Hall of Fame overview', () => {
     ];
     expect(derivedMatches(counts)).toBe('102,407+ Matches');
     expect(seriesGames({ series: 'grand_slams', games: 12868, seasons: 5222 })).toBe('12,868 games (5222 editions)');
+  });
+});
+
+describe('boardCells', () => {
+  const medals = { gold: 2, silver: 1, bronze: 0, games: null, wins: null, win_rate: null };
+  const ladder = { gold: null, silver: null, bronze: null, games: 120, wins: 45, win_rate: 37.5 };
+
+  it('gives a medal board its medal columns and counts', () => {
+    expect(boardCells([medals])).toMatchObject({ headings: ['🥇 Gold', '🥈 Silver', '🥉 Bronze', 'Total'], rows: [['2', '1', '0', '3']] });
+  });
+
+  it('gives a ladder board its games, wins and win rate, not empty medal cells', () => {
+    expect(boardCells([ladder])).toMatchObject({ headings: ['Games', 'Wins', 'Win %'], rows: [['120', '45', '37.5%']] });
+  });
+
+  it('writes thousands with separators', () => {
+    expect(boardCells([{ ...ladder, games: 1234, wins: 1001 }]).rows[0]).toEqual(['1,234', '1,001', '37.5%']);
+  });
+});
+
+describe('showsWorldChampion', () => {
+  it('marks a World Champion only on the World Championship', () => {
+    expect(showsWorldChampion('worlds', true)).toBe(true);
+    expect(showsWorldChampion('worlds', false)).toBe(false);
+    expect(showsWorldChampion('international', true)).toBe(false);
+    expect(showsWorldChampion('royal_league', true)).toBe(false);
   });
 });

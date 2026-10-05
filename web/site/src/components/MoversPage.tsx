@@ -1,8 +1,11 @@
 /** Upstream's multi-engine player comparison: a search, and each player's standing in every model. */
 import { useEffect, useState } from 'react';
-import { comparedPlayers, currentRun, type ComparedPlayer, type Format } from '@ttac/shared/ratings';
+import { comparedPlayers, currentRun, leaderboard, type ComparedPlayer, type Format } from '@ttac/shared/ratings';
 import { FORMAT_NAMES, parseMoversParams } from '../lib/analysis';
 import { Flag } from './PlayerMarks';
+import SearchBox, { type SearchPlayer } from './SearchBox';
+import ScrollTable from './ScrollTable';
+import Waiting from './Waiting';
 
 type Load = { kind: 'loading' } | { kind: 'error'; message: string } | { kind: 'ready'; players: ComparedPlayer[] };
 
@@ -37,10 +40,7 @@ function PlayerCard({ player, format }: { player: ComparedPlayer; format: Format
         </div>
       </div>
 
-      <div className="scroll-hint">
-        <span>Swipe table horizontally for all engine comparisons ➔</span>
-      </div>
-      <div className="table-responsive">
+      <ScrollTable hint="all engine comparisons">
         <table className="comp-table">
           <caption className="visually-hidden">{player.name}'s ratings in every engine and reset mode</caption>
           <thead>
@@ -55,6 +55,13 @@ function PlayerCard({ player, format }: { player: ComparedPlayer; format: Format
             </tr>
           </thead>
           <tbody>
+            {player.ratings.length === 0 && (
+              <tr>
+                <td colSpan={7} className="comp-empty">
+                  {player.name} has no rating in {FORMAT_NAMES[format]}: no rated games in this format.
+                </td>
+              </tr>
+            )}
             {player.ratings.map((r) => {
               const row = ROWS[r.model] ?? { engine: r.model, reset: '', className: '' };
               return (
@@ -74,7 +81,7 @@ function PlayerCard({ player, format }: { player: ComparedPlayer; format: Format
             })}
           </tbody>
         </table>
-      </div>
+      </ScrollTable>
     </div>
   );
 }
@@ -83,10 +90,16 @@ function PlayerCard({ player, format }: { player: ComparedPlayer; format: Format
 export default function MoversPage({ apiUrl }: { apiUrl: string }) {
   const [{ search, format }] = useState(() => parseMoversParams(new URLSearchParams(window.location.search)));
   const [load, setLoad] = useState<Load>({ kind: 'loading' });
+  const [names, setNames] = useState<SearchPlayer[]>([]);
 
   useEffect(() => {
     currentRun(apiUrl)
-      .then((r) => comparedPlayers(apiUrl, r.run_id, search, format))
+      .then((r) => {
+        leaderboard(apiUrl, r.run_id, 'glicko2_daneo', 0)
+          .then((b) => setNames(b.players))
+          .catch(() => setNames([]));
+        return comparedPlayers(apiUrl, r.run_id, search, format);
+      })
       .then((d) => setLoad({ kind: 'ready', players: d.players }))
       .catch((e: unknown) => setLoad({ kind: 'error', message: e instanceof Error ? e.message : String(e) }));
   }, [apiUrl, search, format]);
@@ -97,7 +110,7 @@ export default function MoversPage({ apiUrl }: { apiUrl: string }) {
         <form method="get" action="/ratings/analysis/movers/" className="movers-form">
           <div className="movers-search-field">
             <label htmlFor="movers-search">Search Player Name(s) (comma-separated):</label>
-            <input id="movers-search" type="text" name="search" defaultValue={search} placeholder="e.g. Weidenbaum, a440, Martin_Pecheur" />
+            <SearchBox players={names} value={search} name="search" inputClassName="" placeholder="e.g. Weidenbaum, a440, Martin_Pecheur" wide />
           </div>
           <div>
             <label htmlFor="movers-format">Tournament Format:</label>
@@ -117,8 +130,7 @@ export default function MoversPage({ apiUrl }: { apiUrl: string }) {
         </form>
       </div>
 
-      {load.kind === 'loading' && <p className="analysis-message">Loading players…</p>}
-      {load.kind === 'error' && <p className="analysis-message">{load.message}</p>}
+      <Waiting load={load} what="the players" />
       {load.kind === 'ready' &&
         (load.players.length > 0 ? (
           load.players.map((p) => <PlayerCard key={p.name} player={p} format={format} />)

@@ -233,3 +233,96 @@ func TestReplaceCommunityKeepsNamesThatAreNotPlayers(t *testing.T) {
 		t.Errorf("scores = %q, want %q", rows, want)
 	}
 }
+
+const ruleRows = "SELECT concat_ws('|', series, season, timeout_penalty, scoring_3p, scoring_4p, tiebreaks, source) FROM tournament_season_rules ORDER BY series, season"
+
+func TestReplaceRulesReplacesEveryEarlierRow(t *testing.T) {
+	pool := migrated(t)
+	ctx := context.Background()
+	rule := func(season int, penalty float64) tournamentcsv.Rule {
+		return tournamentcsv.Rule{Series: "intermezzo", Season: season, TimeoutPenalty: penalty, Scoring3p: "5-2-0", Source: "s"}
+	}
+	if _, err := ReplaceRules(ctx, pool, []tournamentcsv.Rule{rule(9, 0)}); err != nil {
+		t.Fatalf("first ReplaceRules: %v", err)
+	}
+
+	got, err := ReplaceRules(ctx, pool, []tournamentcsv.Rule{rule(6, -1), rule(7, 0)})
+	if err != nil {
+		t.Fatalf("ReplaceRules: %v", err)
+	}
+	if want := (FactsReplaced{Written: 2}); got != want {
+		t.Errorf("ReplaceRules = %+v, want %+v", got, want)
+	}
+	if rows, want := rowsOf(t, pool, ruleRows), []string{"intermezzo|6|-1|5-2-0|||s", "intermezzo|7|0|5-2-0|||s"}; !slices.Equal(rows, want) {
+		t.Errorf("rules = %q, want %q", rows, want)
+	}
+}
+
+const podiumRows = "SELECT concat_ws('|', cup, season, final, finished, place, player_name, source) FROM tournament_cup_podiums ORDER BY cup, season, final, place"
+
+func TestReplacePodiumsWritesKnownPlayersOnly(t *testing.T) {
+	pool := migrated(t)
+	ctx := context.Background()
+	addPlayers(t, pool, "saru", "whsvin")
+	podium := func(cup, season string, place int, player string) tournamentcsv.Podium {
+		return tournamentcsv.Podium{Cup: cup, Season: season, Finished: time.Date(2025, 2, 24, 0, 0, 0, 0, time.UTC), Place: place, Player: player, Source: "s"}
+	}
+	if _, err := ReplacePodiums(ctx, pool, []tournamentcsv.Podium{podium("wimbledon", "2023", 1, "saru")}); err != nil {
+		t.Fatalf("first ReplacePodiums: %v", err)
+	}
+
+	got, err := ReplacePodiums(ctx, pool, []tournamentcsv.Podium{
+		podium("wimbledon", "2024", 1, "saru"),
+		podium("wimbledon", "2024", 2, "whsvin"),
+		podium("wimbledon", "2024", 3, "nobody"),
+	})
+	if err != nil {
+		t.Fatalf("ReplacePodiums: %v", err)
+	}
+	if want := (FactsReplaced{Written: 2, Unknown: 1}); got != want {
+		t.Errorf("ReplacePodiums = %+v, want %+v", got, want)
+	}
+	if rows, want := rowsOf(t, pool, podiumRows), []string{"wimbledon|2024||2025-02-24|1|saru|s", "wimbledon|2024||2025-02-24|2|whsvin|s"}; !slices.Equal(rows, want) {
+		t.Errorf("podiums = %q, want %q", rows, want)
+	}
+}
+
+func TestReplaceCGETournamentsLinksOursAndRatesNoNewOne(t *testing.T) {
+	pool := migrated(t)
+	ctx := context.Background()
+	loadNamed(t, pool, "Survivors Cup 2026 Stage 1 - group 1 game 1")
+	if _, err := ClassifyMatches(ctx, pool); err != nil {
+		t.Fatalf("ClassifyMatches: %v", err)
+	}
+	finished := time.Date(2026, 9, 3, 0, 0, 0, 0, time.UTC)
+	cge := func(id int, name, tournament, season string) tournamentcsv.CGETournament {
+		return tournamentcsv.CGETournament{ID: id, Name: name, Status: "finished", Finished: &finished, Tournament: tournament, Season: season}
+	}
+	if _, err := ReplaceCGETournaments(ctx, pool, []tournamentcsv.CGETournament{cge(1, "Old", "", "")}); err != nil {
+		t.Fatalf("first ReplaceCGETournaments: %v", err)
+	}
+
+	got, err := ReplaceCGETournaments(ctx, pool, []tournamentcsv.CGETournament{
+		cge(5731, "Survivors Cup 2026", "survivors_cup", "2026"),
+		cge(5373, "Nations Cup", "nations_cup", "2025"),
+		cge(4335, "The banana tournament", "", ""),
+	})
+	if err != nil {
+		t.Fatalf("ReplaceCGETournaments: %v", err)
+	}
+	if got != (FactsReplaced{Written: 3}) {
+		t.Errorf("ReplaceCGETournaments = %+v, want 3 written", got)
+	}
+	rows := rowsOf(t, pool, `SELECT concat_ws('|', c.cge_tournament, c.name, coalesce(t.slug, '-'), c.season, c.finished)
+		FROM cge_tournaments c LEFT JOIN tournaments t USING (tournament_id) ORDER BY c.cge_tournament`)
+	want := []string{"4335|The banana tournament|-||2026-09-03", "5373|Nations Cup|nations_cup|2025|2026-09-03", "5731|Survivors Cup 2026|survivors_cup|2026|2026-09-03"}
+	if !slices.Equal(rows, want) {
+		t.Errorf("cge_tournaments = %q, want %q", rows, want)
+	}
+	if name := rowsOf(t, pool, "SELECT name FROM tournaments WHERE slug = 'nations_cup'"); !slices.Equal(name, []string{"Nations Cup"}) {
+		t.Errorf("nations_cup is named %q, want its CGE name", name)
+	}
+	if rated := rowsOf(t, pool, communityRows); slices.Contains(rated, "nations_cup") || !slices.Contains(rated, "survivors_cup") {
+		t.Errorf("community ranking = %q: want survivors_cup, and nations_cup left for admin", rated)
+	}
+}

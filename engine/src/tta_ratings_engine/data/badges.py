@@ -12,6 +12,7 @@ Implements the official badge award rules:
 - A win in the top division of the International, Intermezzo or Royal League
   (a first place or gold in the run's tournament records) -> SGM (Super GM)
 - The Reigning World Champion retains the exclusive 'WC' title.
+- A title set in admin replaces the derived one (an active player's), or takes it away.
 - Hover Reason: Shows the latest tournament division and season (e.g. 'Played in International Championship Grandmaster Season 6').
 """
 
@@ -57,14 +58,38 @@ SGM_TOURNAMENTS = (
 )
 SGM_DIVISIONS = ("Grandmaster", "Diamond", "Emperor")
 
-# Reigning World Champion holding active 'WC' title
-REIGNING_WC_PLAYERS = {"a440"}
-
-HISTORICAL_WC_INFO = {
-    "a440": (2025, "WC"),
-    "Martin_Pecheur": (2024, "WC"),
-    "Weidenbaum": (2023, "WC"),
+# The league series whose recorded divisions give a badge, as classify_division_tier names them
+SERIES_NAMES = {
+    "international": "International Championship",
+    "intermezzo": "Intermezzo Championship",
+    "royal_league": "Royal League",
 }
+
+
+def world_champions(conn, run_id) -> list[tuple[str, int]]:
+    """Returns each World Championship season's winner, oldest first: (player, season).
+
+    Admin's podium beats a recorded one, which beats the run's derived final.
+    """
+    rows = conn.execute(
+        """
+        WITH admin AS (
+            SELECT season::int AS season, player_name FROM tournament_podium_overrides
+            WHERE tournament = 'worlds' AND place = 1 AND season ~ '^[0-9]+$'),
+        recorded AS (
+            SELECT season, player_name FROM tournament_official_placements
+            WHERE series = 'worlds' AND place = 1 AND season NOT IN (SELECT season FROM admin)),
+        derived AS (
+            SELECT season, player_name FROM tournament_standings
+            WHERE run_id = %s AND series = 'worlds' AND division = 'Final' AND place = 1
+              AND season NOT IN (SELECT season FROM admin)
+              AND season NOT IN (SELECT season FROM tournament_official_placements WHERE series = 'worlds'))
+        SELECT * FROM admin UNION ALL SELECT * FROM recorded UNION ALL SELECT * FROM derived
+        ORDER BY season, player_name
+        """,
+        (run_id,),
+    ).fetchall()
+    return [(r["player_name"], r["season"]) for r in rows]
 
 
 def classify_division_tier(tournament_name: str) -> int | None:
@@ -230,21 +255,24 @@ def derive_tournament_badges(
         require_running(conn, run_id)
         # Determine 1-year (12-month) recency cutoff based on latest match in DB
         max_row = conn.execute(
-            "SELECT to_char(MAX(date), 'YYYY-MM-DD') AS max_date FROM matches"
+            "SELECT to_char(MAX(date), 'YYYY-MM-DD') AS max_date FROM matches WHERE state = 'played'"
         ).fetchone()
         if not max_row or not max_row["max_date"]:
             return {}
         max_date = date.fromisoformat(max_row["max_date"])
         cutoff_date = (max_date - relativedelta(years=1)).strftime("%Y-%m-%d")
 
-        # All tournament matches: active badges (last year) and career peaks (all-time)
+        # All tournament matches, with the division the run recorded for a name that has none
         rows = conn.execute(
             """
-            SELECT tournament, to_char(date, 'YYYY-MM-DD') AS date, player1, player2, player3, player4
-            FROM matches
-            WHERE tournament IS NOT NULL
-            ORDER BY matches.date DESC
-        """
+            SELECT m.tournament, to_char(m.date, 'YYYY-MM-DD') AS date,
+                   m.player1, m.player2, m.player3, m.player4, tg.series, tg.division
+            FROM matches m
+            LEFT JOIN tournament_games tg ON tg.match_id = m.match_id AND tg.run_id = %s
+            WHERE m.tournament IS NOT NULL AND m.state = 'played'
+            ORDER BY m.date DESC
+        """,
+            (run_id,),
         ).fetchall()
 
         player_best = {}
@@ -255,6 +283,10 @@ def derive_tournament_badges(
         for r in rows:
             tourney = r["tournament"]
             tier = classify_division_tier(tourney)
+            if tier is None and r["division"] and r["series"] in SERIES_NAMES:
+                tier = classify_division_tier(
+                    f"{SERIES_NAMES[r['series']]} {r['division']}"
+                )
             if tier is None:
                 continue
 
@@ -303,8 +335,9 @@ def derive_tournament_badges(
                 ):
                     player_career_best[p] = {"tier": tier, "year": yr, "date": d_str}
 
-        # Historical World Champions hold the exclusive tier 0 ('WC') career peak
-        for p, (yr, _title) in HISTORICAL_WC_INFO.items():
+        # World Champions hold the exclusive tier 0 ('WC') career peak, at their latest title
+        champions = world_champions(conn, run_id)
+        for p, yr in champions:
             player_career_best[p] = {"tier": 0, "year": yr, "date": f"{yr}-12-15"}
 
         records = conn.execute(
@@ -330,13 +363,32 @@ def derive_tournament_badges(
                 "badge_reason": reason,
             }
 
-        # Reigning World Champion holds exclusive active WC badge
-        for p in REIGNING_WC_PLAYERS:
-            derived_data[p] = {
-                "title": "WC",
-                "title_count": 1,
-                "badge_reason": "Reigning World Champion (World Championship 2025)",
-            }
+        # The latest season's World Champion holds the exclusive active WC badge
+        if champions:
+            latest = max(yr for _, yr in champions)
+            for p, yr in champions:
+                if yr == latest:
+                    derived_data[p] = {
+                        "title": "WC",
+                        "title_count": 1,
+                        "badge_reason": f"Reigning World Champion (World Championship {yr})",
+                    }
+
+        # A title set in admin replaces the derived one for a recently active player; '' takes it away
+        for r in conn.execute(
+            "SELECT player_name, title, reason FROM player_title_overrides"
+        ).fetchall():
+            p = r["player_name"]
+            if p not in derived_data:
+                continue
+            if r["title"] == "":
+                del derived_data[p]
+            else:
+                derived_data[p] = {
+                    "title": r["title"],
+                    "title_count": 1,
+                    "badge_reason": f"Set in admin: {r['reason']}",
+                }
 
         peaks = {}
         for p, c_info in player_career_best.items():
@@ -404,7 +456,7 @@ def derive_tournament_badges(
                 SELECT %s, name, %s, 'WC' FROM players WHERE lower(name) = lower(%s)
                 ON CONFLICT (run_id, player_name, year) DO UPDATE SET title = 'WC'
             """,
-                [(run_id, yr, p) for p, (yr, _title) in HISTORICAL_WC_INFO.items()],
+                [(run_id, yr, p) for p, yr in champions],
             )
 
     return derived_data

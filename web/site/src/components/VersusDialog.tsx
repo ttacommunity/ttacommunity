@@ -2,6 +2,9 @@
 import { useEffect, useRef, useState } from 'react';
 import { playerVersus, type Format, type PlayerVersus } from '@ttac/shared/ratings';
 import { versusTally } from '../lib/career';
+import Segmented from './Segmented';
+import PlayerLink from './PlayerLink';
+import Waiting from './Waiting';
 
 type Load = { kind: 'loading' } | { kind: 'error'; message: string } | { kind: 'ready'; data: PlayerVersus };
 
@@ -70,19 +73,7 @@ export default function VersusDialog({
       </div>
       <div className="h2h-toolbar">
         <span className="h2h-toolbar-label">Match Format:</span>
-        <div className="format-bar h2h-formats" role="group" aria-label="Match format">
-          {FORMATS.map((f) => (
-            <button
-              key={f.value}
-              type="button"
-              className={f.value === format ? 'format-btn active' : 'format-btn'}
-              aria-pressed={f.value === format}
-              onClick={() => setFormat(f.value)}
-            >
-              {f.label}
-            </button>
-          ))}
-        </div>
+        <Segmented label="Match format" look="raised" groupClass="format-bar h2h-formats" options={FORMATS} value={format} onChange={setFormat} />
       </div>
       <div className="h2h-stats">
         {tally === null ? (
@@ -109,8 +100,7 @@ export default function VersusDialog({
         )}
       </div>
       <div className="h2h-body">
-        {state.kind === 'loading' && <div className="h2h-message">Loading match records...</div>}
-        {state.kind === 'error' && <div className="h2h-message h2h-error">Failed to load match history: {state.message}</div>}
+        <Waiting load={state} what="the match records" form="inline" />
         {tally !== null && tally.games === 0 && (
           <div className="h2h-message">No direct tournament encounters found for this player format.</div>
         )}
@@ -145,7 +135,8 @@ export default function VersusDialog({
                     {m.seats.map((s, i) => (
                       <span key={`${s.name}-${i}`}>
                         <span className={s.name === a || s.name === b ? 'h2h-target' : 'h2h-other'}>
-                          {s.name}: {s.score}
+                          <PlayerLink name={s.name} className="player-link" />
+                          : {s.score}
                         </span>
                         {i < m.seats.length - 1 ? ', ' : ''}
                       </span>

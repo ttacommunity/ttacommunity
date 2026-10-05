@@ -22,6 +22,9 @@ import { recall, remember } from '../lib/remembered';
 import './PlayerPage.css';
 import './MatrixPage.css';
 import Tex from './Tex';
+import Segmented from './Segmented';
+import ScrollTable from './ScrollTable';
+import Waiting from './Waiting';
 
 type Load<T> = { kind: 'loading' } | { kind: 'error'; message: string } | { kind: 'ready'; data: T };
 
@@ -121,9 +124,8 @@ export default function MatrixPage({ apiUrl }: { apiUrl: string }) {
   }, [name]);
 
   if (name === '') return <Message>No player was named. Choose one from the leaderboard.</Message>;
-  if (run.kind === 'error') return <Message>{run.message}</Message>;
-  if (profile.kind === 'error') return <Message>{profile.message}</Message>;
-  if (profile.kind === 'loading') return <Message>Loading player…</Message>;
+  if (run.kind === 'error') return <Waiting load={run} what="the ratings" />;
+  if (profile.kind !== 'ready') return <Waiting load={profile} what="this player" />;
 
   const p = profile.data;
   const years = career.kind === 'ready' ? career.data.years : [];
@@ -135,18 +137,13 @@ export default function MatrixPage({ apiUrl }: { apiUrl: string }) {
       <Header player={p} format={format} />
 
       <div className="format-bar matrix-formats">
-        <div className="format-bar-group">
-          {FORMATS.map((f) => (
-            <a
-              key={f}
-              {...linkTo({ ...view, format: f })}
-              className={f === format ? 'format-btn active' : 'format-btn'}
-              aria-current={f === format ? 'true' : undefined}
-            >
-              {show.formatName(f)}
-            </a>
-          ))}
-        </div>
+        <Segmented
+          label="Format"
+          look="raised"
+          options={FORMATS.map((f) => ({ value: f, label: show.formatName(f) }))}
+          value={format}
+          link={(f) => linkTo({ ...view, format: f })}
+        />
       </div>
 
       <nav className="year-filter-bar" aria-label="Snapshot year">
@@ -203,10 +200,7 @@ export default function MatrixPage({ apiUrl }: { apiUrl: string }) {
           </div>
           <span className="matrix-snapshot">{year !== null ? `Snapshot: End of Season ${year}` : 'Current Live Ratings'}</span>
         </div>
-        <div className="scroll-hint">
-          <span>Swipe table horizontally for full matrix data ➔</span>
-        </div>
-        <div className="table-responsive">
+        <ScrollTable hint="full matrix data">
           <table className="matrix-table">
             <caption className="visually-hidden">
               Ratings by engine and reset mode, {formatName}
@@ -235,7 +229,7 @@ export default function MatrixPage({ apiUrl }: { apiUrl: string }) {
               ))}
             </tbody>
           </table>
-        </div>
+        </ScrollTable>
       </div>
 
       <div className="rating-card matrix-card">
@@ -250,10 +244,7 @@ export default function MatrixPage({ apiUrl }: { apiUrl: string }) {
             Hover on <strong>ℹ️ Score Index</strong> for composite formula details
           </span>
         </div>
-        <div className="scroll-hint">
-          <span>Swipe table horizontally for full career history ➔</span>
-        </div>
-        <div className="table-responsive">
+        <ScrollTable hint="full career history">
           <table className="career-history-table">
             <caption className="visually-hidden">Career by year, {formatName}</caption>
             <thead>
@@ -319,14 +310,14 @@ export default function MatrixPage({ apiUrl }: { apiUrl: string }) {
               })}
             </tbody>
           </table>
-        </div>
+        </ScrollTable>
       </div>
     </>
   );
 }
 
 function Message({ children }: { children: ReactNode }) {
-  return <div className="rating-card profile-message">{children}</div>;
+  return <div className="rating-card waiting-message">{children}</div>;
 }
 
 function Header({ player, format }: { player: Player; format: Format }) {

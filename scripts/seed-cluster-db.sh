@@ -74,6 +74,7 @@ fi
 # Roles are per server, so a dump does not carry them. Passwords never go on
 # a command line.
 roles="DO \$\$ BEGIN CREATE ROLE ratings_read NOLOGIN; EXCEPTION WHEN duplicate_object THEN NULL; END \$\$;
+DO \$\$ BEGIN CREATE ROLE ratings_admin NOLOGIN; EXCEPTION WHEN duplicate_object THEN NULL; END \$\$;
 DO \$\$ BEGIN CREATE ROLE ratings_api LOGIN; EXCEPTION WHEN duplicate_object THEN NULL; END \$\$;
 GRANT ratings_read TO ratings_api;"
 echo "creating roles"

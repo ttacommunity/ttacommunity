@@ -125,6 +125,19 @@ ci-web:
     AREA: web
     MISE_TOOLS: node
 
+# Warns (never blocks) when Google Fonts has newer files than the committed
+# ones; pnpm fonts:update writes them for a reviewed commit.
+fonts-check:
+  extends: .ci_area
+  needs: []
+  allow_failure: true
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "schedule" || $CI_PIPELINE_SOURCE == "web"'
+  variables:
+    MISE_TOOLS: node
+  script:
+    - cd web/site && node scripts/fonts.mjs check
+
 ci-checks:
   extends: .ci_area
   variables:

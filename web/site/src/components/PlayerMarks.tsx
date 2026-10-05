@@ -1,14 +1,31 @@
 /** A player's title badge and country flag, as upstream draws them in its tables. */
 import type { LeaderboardRow } from '@ttac/shared/ratings';
-import { flagSrc, titleName } from '../lib/leaderboard-display';
+import { badgeHover, flagSrc, titleBadge } from '../lib/leaderboard-display';
 
 /** TitleBadge shows the run's title in its colour (a Super GM as GM, as upstream's table), or a dash for none. */
 export function TitleBadge({ title }: { title: LeaderboardRow['title'] }) {
-  if (title === null) return <span className="badge-none">-</span>;
+  const badge = titleBadge(title);
+  if (badge === null) return <span className="badge-none">-</span>;
   return (
-    <span className={`badge badge-${title.code.toLowerCase()}`} title={title.reason || titleName(title.code)}>
-      {title.code === 'SGM' ? 'GM' : title.code}
+    <span className={`badge badge-${badge.code.toLowerCase()}`} title={badge.hover}>
+      {badge.text}
     </span>
+  );
+}
+
+/** ExtraBadges shows the badges admin gave a player, each with its description on hover (the page's tooltip when tooltip). */
+export function ExtraBadges({ badges, tooltip = false }: { badges: LeaderboardRow['badges']; tooltip?: boolean }) {
+  return (
+    <>
+      {(badges ?? []).map((b) => {
+        const hover = badgeHover(b);
+        return (
+          <span key={b.label} className="badge badge-extra" {...(tooltip ? { 'data-tooltip': hover } : { title: hover })}>
+            {b.label}
+          </span>
+        );
+      })}
+    </>
   );
 }
 

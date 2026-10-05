@@ -25,11 +25,11 @@
 
 .leaderboard-table thead th {
   padding: 0.85rem 1rem;
-  background: rgba(30, 20, 14, 0.95);
+  background: var(--surface-card);
   border-bottom: 2px solid var(--border-subtle);
   color: var(--accent-gold);
   font-family: var(--font-heading);
-  font-size: 0.85rem;
+  font-size: var(--size-table-header);
   letter-spacing: 1px;
   text-transform: uppercase;
 }
@@ -49,15 +49,15 @@
 .leaderboard-table td,
 .leaderboard-table tbody th {
   padding: 0.75rem 1rem;
-  border-bottom: 1px solid rgba(74, 53, 37, 0.35);
-  font-size: 0.92rem;
+  border-bottom: 1px solid var(--border-faint);
+  font-size: var(--size-table-cell);
   font-weight: 400;
   text-align: left;
 }
 
 .leaderboard-table tbody tr:hover td,
 .leaderboard-table tbody tr:hover th {
-  background: rgba(229, 169, 60, 0.12);
+  background: var(--gold-wash-faint);
 }
 
 .leaderboard-table .rank-col {
@@ -69,7 +69,6 @@
 
 .leaderboard-table .top-3-rank {
   color: var(--accent-gold);
-  font-size: 1.1rem;
 }
 
 .player-link,
@@ -115,7 +114,7 @@
 
 .leaderboard-table .last-played {
   color: var(--text-muted);
-  font-size: 0.85rem;
+  font-size: var(--size-table-compact);
 }
 
 .leaderboard-table .empty {
@@ -137,6 +136,6 @@
     left: 0;
     z-index: 4;
     background: rgba(22, 14, 10, 0.98);
-    box-shadow: 1px 0 3px rgba(0, 0, 0, 0.5);
+    box-shadow: 1px 0 3px var(--shadow);
   }
 }

@@ -1,12 +1,12 @@
 /* Upstream's Hall of Fame overview (tournaments/hub.html): its <style> block as it is, then its inline styles as classes. */
 
 .tournaments-header {
-  background: linear-gradient(135deg, rgba(32, 20, 13, 0.95), rgba(20, 13, 9, 0.98));
-  border: 1.5px solid rgba(229, 169, 60, 0.3);
+  background: linear-gradient(135deg, rgba(32, 20, 13, 0.95), var(--surface-well));
+  border: 1.5px solid var(--gold-wash);
   border-radius: 8px;
   padding: 2rem;
   margin-bottom: 2rem;
-  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.6);
+  box-shadow: 0 6px 24px var(--shadow);
   position: relative;
   overflow: hidden;
 }
@@ -20,7 +20,7 @@
   pointer-events: none;
 }
 .tournaments-title {
-  font-size: 2.2rem;
+  font-size: var(--size-page-title);
   font-weight: 800;
   color: var(--accent-gold);
   margin-bottom: 0.5rem;
@@ -40,11 +40,11 @@
   flex-wrap: wrap;
   margin-top: 1.5rem;
   padding-top: 1.25rem;
-  border-top: 1px solid rgba(229, 169, 60, 0.15);
+  border-top: 1px solid var(--gold-wash-faint);
 }
 .stat-pill {
   background: rgba(0, 0, 0, 0.45);
-  border: 1px solid rgba(229, 169, 60, 0.25);
+  border: 1px solid var(--gold-wash);
   padding: 0.4rem 0.9rem;
   border-radius: 6px;
   font-size: 0.9rem;
@@ -60,7 +60,7 @@
   margin-bottom: 2.5rem;
 }
 .series-card {
-  background: linear-gradient(145deg, rgba(28, 18, 12, 0.95), rgba(20, 13, 9, 0.98));
+  background: linear-gradient(145deg, var(--surface-card), var(--surface-well));
   border: 1.5px solid rgba(74, 53, 37, 0.6);
   border-radius: 8px;
   padding: 1.5rem;
@@ -71,12 +71,12 @@
   text-decoration: none;
   color: inherit;
   position: relative;
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.5);
+  box-shadow: 0 4px 16px var(--shadow);
 }
 .series-card:hover {
   transform: translateY(-3px);
   border-color: var(--accent-gold);
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.7), 0 0 14px rgba(229, 169, 60, 0.25);
+  box-shadow: 0 8px 24px var(--shadow), 0 0 14px var(--gold-wash);
 }
 .series-card-top {
   display: flex;
@@ -89,8 +89,8 @@
   line-height: 1;
 }
 .series-badge {
-  background: rgba(229, 169, 60, 0.15);
-  border: 1px solid rgba(229, 169, 60, 0.3);
+  background: var(--gold-wash-faint);
+  border: 1px solid var(--gold-wash);
   color: var(--accent-gold);
   padding: 0.25rem 0.6rem;
   border-radius: 4px;
@@ -102,7 +102,7 @@
 .series-name {
   font-size: 1.35rem;
   font-weight: 700;
-  color: #fff;
+  color: var(--text-bright);
   margin-bottom: 0.4rem;
 }
 .series-summary {
@@ -133,7 +133,7 @@
   align-items: center;
   justify-content: space-between;
   padding-top: 1rem;
-  border-top: 1px solid rgba(229, 169, 60, 0.15);
+  border-top: 1px solid var(--gold-wash-faint);
   font-size: 0.9rem;
   font-weight: 700;
   color: var(--accent-gold);
@@ -145,15 +145,15 @@
   transform: translateX(4px);
 }
 .podium-preview-card {
-  background: linear-gradient(145deg, rgba(28, 18, 12, 0.95), rgba(20, 13, 9, 0.98));
-  border: 1.5px solid rgba(229, 169, 60, 0.25);
+  background: linear-gradient(145deg, var(--surface-card), var(--surface-well));
+  border: 1.5px solid var(--gold-wash);
   border-radius: 8px;
   padding: 1.5rem;
   margin-bottom: 2rem;
-  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.5);
+  box-shadow: 0 6px 20px var(--shadow);
 }
 .podium-preview-title {
-  font-size: 1.2rem;
+  font-size: var(--size-card-title);
   font-weight: 700;
   color: var(--accent-gold);
   margin-bottom: 1rem;
@@ -168,7 +168,7 @@
 }
 .champ-highlight-box {
   background: rgba(16, 10, 6, 0.75);
-  border: 1px solid rgba(229, 169, 60, 0.25);
+  border: 1px solid var(--gold-wash);
   border-radius: 6px;
   padding: 1rem;
   display: flex;
@@ -187,8 +187,8 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  background: rgba(229, 169, 60, 0.15);
-  border: 1px solid rgba(229, 169, 60, 0.3);
+  background: var(--gold-wash-faint);
+  border: 1px solid var(--gold-wash);
   border-radius: 50%;
   flex-shrink: 0;
 }
@@ -198,7 +198,7 @@
 .champ-highlight-name {
   font-weight: 700;
   font-size: 1.05rem;
-  color: #fff;
+  color: var(--text-bright);
   text-decoration: none;
 }
 .champ-highlight-name:hover {
@@ -213,12 +213,12 @@
 
 /* WCS & Circuit Analytics Section */
 .wcs-analytics-card {
-  background: linear-gradient(145deg, rgba(28, 18, 12, 0.95), rgba(20, 13, 9, 0.98));
-  border: 1.5px solid rgba(229, 169, 60, 0.25);
+  background: linear-gradient(145deg, var(--surface-card), var(--surface-well));
+  border: 1.5px solid var(--gold-wash);
   border-radius: 8px;
   padding: 1.5rem;
   margin-bottom: 2.5rem;
-  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.5);
+  box-shadow: 0 6px 20px var(--shadow);
 }
 .wcs-grid-two {
   display: grid;
@@ -267,12 +267,12 @@
   font-size: 0.9rem;
 }
 .wcs-table th {
-  background: rgba(30, 20, 14, 0.95);
+  background: var(--surface-card);
   color: var(--accent-gold);
   padding: 0.75rem 1rem;
   text-align: left;
   border-bottom: 2px solid var(--border-subtle);
-  font-size: 0.82rem;
+  font-size: var(--size-table-header);
   text-transform: uppercase;
   letter-spacing: 0.5px;
   font-family: var(--font-heading);
@@ -288,12 +288,12 @@
 }
 .wcs-table td {
   padding: 0.75rem 1rem;
-  border-bottom: 1px solid rgba(74, 53, 37, 0.35);
-  color: #f5eedb;
-  font-size: 0.9rem;
+  border-bottom: 1px solid var(--border-faint);
+  color: var(--text-main);
+  font-size: var(--size-table-cell);
 }
 .wcs-table tbody tr:hover td {
-  background: rgba(229, 169, 60, 0.12) !important;
+  background: var(--gold-wash-faint) !important;
 }
 
 /* Upstream's inline styles, as classes. */
@@ -304,7 +304,7 @@ h1.tournaments-title {
 .podium-intro {
   margin-bottom: 1rem;
   color: var(--text-muted);
-  font-size: 0.88rem;
+  font-size: var(--size-body-short);
   line-height: 1.5;
 }
 
@@ -324,11 +324,11 @@ h1.tournaments-title {
   margin: 0;
   color: var(--accent-gold);
   font-family: var(--font-heading);
-  font-size: 1.15rem;
+  font-size: var(--size-card-title);
 }
 
 .hof-card-title-large {
-  font-size: 1.25rem;
+  font-size: var(--size-card-title);
 }
 
 .hof-card-sub {
@@ -342,9 +342,9 @@ h1.tournaments-title {
 
 .hof-tag {
   padding: 0.2rem 0.6rem;
-  border: 1px solid rgba(229, 169, 60, 0.25);
+  border: 1px solid var(--gold-wash);
   border-radius: 4px;
-  background: rgba(229, 169, 60, 0.12);
+  background: var(--gold-wash-faint);
   color: var(--accent-gold);
   font-size: 0.8rem;
   font-weight: 600;
@@ -379,18 +379,18 @@ h1.tournaments-title {
 }
 
 .wcs-table .cell-rank {
-  color: #ffd700;
+  color: var(--accent-gold-bright);
   font-weight: 700;
 }
 
 .legend-player {
-  color: #f5eedb;
+  color: var(--text-main);
   font-weight: 700;
   text-decoration: none;
 }
 
 .board-player {
-  color: #fff;
+  color: var(--text-bright);
   font-weight: 700;
   text-decoration: none;
 }
@@ -413,7 +413,7 @@ h1.tournaments-title {
 }
 
 .wcs-table .cell-world {
-  color: #ffd700;
+  color: var(--accent-gold-bright);
   font-weight: 700;
   text-align: center;
 }
@@ -474,8 +474,4 @@ h1.tournaments-title {
   color: var(--accent-gold);
   font-weight: 700;
   text-align: center;
-}
-
-.hof-message {
-  color: var(--text-muted);
 }

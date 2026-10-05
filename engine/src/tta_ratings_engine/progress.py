@@ -45,15 +45,20 @@ class Progress:
         with self._lock:
             self._current = label
 
-    def advance(self, label, cost=1.0, phase=None):
-        """Marks one step of the given cost done, counting its time to phase, and logs it if due."""
+    def advance(self, label, cost=1.0, phase=None, seconds=None):
+        """Marks one step of the given cost done, counting its time to phase, and logs it if due.
+
+        seconds is the step's own time, for a step timed elsewhere (a worker
+        process); without it, the time since the last step counts.
+        """
         with self._lock:
             self.done += 1
             self._done_cost += cost
             now = self._clock()
             if phase:
-                steps, seconds = self._phases.get(phase, (0, 0.0))
-                self._phases[phase] = (steps + 1, seconds + now - self._last_step)
+                took = now - self._last_step if seconds is None else seconds
+                steps, total = self._phases.get(phase, (0, 0.0))
+                self._phases[phase] = (steps + 1, total + took)
             self._last_step = now
             due = self._last_log is None or now - self._last_log >= self._every
             if due or self.done >= self.total:

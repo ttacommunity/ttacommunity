@@ -12,7 +12,8 @@ import {
 } from 'chart.js';
 import type { PlayerHistory } from '@ttac/shared/ratings';
 import { ENGINES, type Engine, type ResetMode } from '../lib/leaderboard-view';
-import { chartData, type ChartData } from '../lib/player-view';
+import { chartData, runYears, type ChartData } from '../lib/player-view';
+import Segmented from './Segmented';
 
 Chart.register(LineController, LineElement, PointElement, LinearScale, CategoryScale, Legend, Tooltip);
 
@@ -40,20 +41,15 @@ function Toggle<T extends string>({
   onChange: (v: T) => void;
 }) {
   return (
-    <div className="chart-toggle" role="group" aria-label={label}>
-      <span className={muted ? 'chart-toggle-label muted' : 'chart-toggle-label'}>{label}:</span>
-      {options.map((o) => (
-        <button
-          key={o.value}
-          type="button"
-          className={o.value === value ? 'format-btn active' : 'format-btn'}
-          aria-pressed={o.value === value}
-          onClick={() => onChange(o.value)}
-        >
-          {o.label}
-        </button>
-      ))}
-    </div>
+    <Segmented
+      label={label}
+      look="raised"
+      groupClass="chart-toggle"
+      prefix={<span className={muted ? 'chart-toggle-label muted' : 'chart-toggle-label'}>{label}:</span>}
+      options={options}
+      value={value}
+      onChange={onChange}
+    />
   );
 }
 
@@ -76,6 +72,7 @@ export default function RatingChart({ history }: { history: PlayerHistory | null
   const [curve, setCurve] = useState<Curve>('expected');
   const data = useMemo(() => (history === null ? null : chartData(history, mode, curve)), [history, mode, curve]);
   const empty = data !== null && data.labels.length === 0;
+  const years = data === null || empty ? null : runYears(data.labels[0] ?? null, data.labels.at(-1) ?? null);
 
   useEffect(() => {
     if (canvas.current === null || data === null || empty) return;
@@ -137,7 +134,7 @@ export default function RatingChart({ history }: { history: PlayerHistory | null
     <div className="chart-container">
       <div className="chart-head">
         <div>
-          <h3>Historical Rating Trajectory (2017 - 2026)</h3>
+          <h3>Historical Rating Trajectory{years ? ` (${years[0]} - ${years[1]})` : ''}</h3>
           <span className="chart-hint">Click legend items to toggle individual models</span>
         </div>
         <div className="chart-toggles">
@@ -155,7 +152,7 @@ export default function RatingChart({ history }: { history: PlayerHistory | null
             muted
             options={[
               { value: 'expected', label: 'Expected Mean (E = R)' },
-              { value: 'conservative', label: 'Conservative (C = R − 2σ)' },
+              { value: 'conservative', label: 'Conservative (C = μ − 3σ)' },
             ]}
             value={curve}
             onChange={setCurve}

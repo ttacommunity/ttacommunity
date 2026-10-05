@@ -1,5 +1,6 @@
 ---
 import '@ttac/shared/styles/theme.css';
+import AdminApp from '../components/AdminApp';
 ---
 <html lang="en">
   <head>
@@ -8,18 +9,22 @@ import '@ttac/shared/styles/theme.css';
     <meta name="robots" content="noindex, nofollow" />
     <title>ttacommunity admin</title>
     <meta name="description" content="Admin for ttacommunity." />
+    <link rel="stylesheet" href="/fonts/fonts.css" />
   </head>
   <body>
     <main>
       <h1>ttacommunity admin</h1>
-      <p>Imports, recomputes and publishing.</p>
+      <AdminApp client:load />
     </main>
   </body>
 </html>
 
 <style>
   main {
-    max-width: 48rem;
+    box-sizing: border-box;
+    width: 100%;
+    min-width: 0;
+    max-width: 64rem;
     margin: 0 auto;
     padding: 2rem 1rem;
   }

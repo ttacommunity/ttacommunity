@@ -40,12 +40,12 @@ spec:
               type: RuntimeDefault
           containers:
             - name: engine
-              image: registry.gitlab.com/unstablehomelab/ttacommunity/engine:sha-96821994@sha256:5195bb38659dde48e75040ece35cb438ebc16413990ad46a637c3d35ffbff0d0
+              image: registry.gitlab.com/unstablehomelab/ttacommunity/engine:sha-c010ae86@sha256:55604e6e55f390dee85edb4b4c3f19c4582d2f11e13a5de45aaff5c6115b8fd2
               args: [-m, tta_ratings_engine.run]
               env:
                 # The commit the image was built from.
                 - name: ENGINE_VERSION
-                  value: "96821994"
+                  value: "c010ae86"
                 - name: RATINGS_DATABASE_URL
                   valueFrom:
                     secretKeyRef:

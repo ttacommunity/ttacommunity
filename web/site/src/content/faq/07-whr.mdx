@@ -6,6 +6,8 @@ order: 7
 
 {/* Written by DANeo for the original ratings site. */}
 
+import FaqFigure from '../../components/FaqFigure.astro';
+
 <div class="faq-card">
   <h3>Whole-History Rating (WHR): How Does It Work and How Does It Compare?</h3>
   <div>
@@ -40,7 +42,7 @@ $$
     2\. Global Optimization (MAP Estimation)
   </h4>
   <p>
-    WHR pools all <strong>131,000+ matches</strong> and <strong>3,489 competitors</strong> across 2017&ndash;2026 into a joint posterior probability distribution and finds the most probable skill history for every player simultaneously:
+    WHR pools all <strong><FaqFigure name="run.games" fallback="131,000+" /> matches</strong> and <strong><FaqFigure name="run.players" fallback="3,489" /> competitors</strong> across <FaqFigure name="run.years" fallback="2017–2026" /> into a joint posterior probability distribution and finds the most probable skill history for every player simultaneously:
   </p>
 
   <div class="faq-formula">

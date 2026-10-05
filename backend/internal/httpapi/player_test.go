@@ -347,3 +347,11 @@ func TestPlayerMatrix(t *testing.T) {
 		t.Errorf("GET matrix of an unknown player: %d, want 404", rec.Code)
 	}
 }
+
+func TestPlayerSendsTheirBadges(t *testing.T) {
+	f := &fakePlayers{player: store.Player{Name: "Ann", Games: map[int]int{0: 0}, Badges: []store.ExtraBadge{{Label: "TD", Description: ""}}}}
+	rec, _ := serve(t, f, "/v1/runs/7/players/ann")
+	if body := rec.Body.String(); !strings.Contains(body, `"badges":[{"description":"","label":"TD"}]`) {
+		t.Errorf("player = %s, want the TD badge", rec.Body)
+	}
+}

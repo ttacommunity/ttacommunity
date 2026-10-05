@@ -1,9 +1,12 @@
 import { describe, expect, it } from 'vitest';
 import {
+  catalogueGames,
   RatingsApiError,
   activity,
   tournamentSeries,
   hallOfFame,
+  catalogue,
+  catalogueTournament,
   agreement,
   calibration,
   comparedPlayers,
@@ -192,6 +195,30 @@ describe('tournament pages', () => {
       'https://api.example/v1/runs/5/tournaments',
       'https://api.example/v1/runs/5/players/a%2Fb%20c/achievements',
       'https://api.example/v1/runs/5/community/race26',
+    ]);
+    expect(f.calls.every((c) => c.init?.credentials === 'omit')).toBe(true);
+  });
+
+  it('ask for the catalogue and one tournament without credentials', async () => {
+    const f = fakeFetch(200, '{}');
+    await catalogue('https://api.example', 5, f.fetch);
+    await catalogueTournament('https://api.example', 5, 'slow_burn', f.fetch);
+    await catalogueTournament('https://api.example', 5, 'a/b', f.fetch);
+    expect(f.calls.map((c) => c.url)).toEqual([
+      'https://api.example/v1/runs/5/catalogue',
+      'https://api.example/v1/runs/5/catalogue/slow_burn',
+      'https://api.example/v1/runs/5/catalogue/a%2Fb',
+    ]);
+    expect(f.calls.every((c) => c.init?.credentials === 'omit')).toBe(true);
+  });
+
+  it('ask for a page of games with only the filters chosen', async () => {
+    const f = fakeFetch(200, '{}');
+    await catalogueGames('https://api.example', 5, 'worlds', { page: 1 }, f.fetch);
+    await catalogueGames('https://api.example', 5, 'worlds', { season: '2022 (Age A)', stage: 'Stage 1', group: 'Group 3', player: 'Ender_Wiggin', coded: true, page: 2 }, f.fetch);
+    expect(f.calls.map((c) => c.url)).toEqual([
+      'https://api.example/v1/runs/5/catalogue/worlds/games?page=1',
+      'https://api.example/v1/runs/5/catalogue/worlds/games?page=2&season=2022+%28Age+A%29&stage=Stage+1&group=Group+3&player=Ender_Wiggin&coded=true',
     ]);
     expect(f.calls.every((c) => c.init?.credentials === 'omit')).toBe(true);
   });

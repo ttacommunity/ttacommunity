@@ -43,15 +43,11 @@ def test_series_metrics_count_as_upstream():
         match("TCL Round 12", ("a", 1), ("b", 2), ("c", 3)),
         match("NL_s10", ("a", 1), ("b", 2), ("c", 3)),
     )
-    assert series_metrics(rows) == {
-        "international": (2, 30),
-        "intermezzo": (1, 12),
-        "royal_league": (2, 10),
-        "worlds": (2, 2),
-        # Upstream counts each name before "Stage" as an edition.
-        "grand_slams": (3, 2),
-        "ladders": (2, 16),
-    }
+    got = series_metrics(rows)
+    assert got["international"] == (2, 30)
+    assert got["intermezzo"] == (1, 12)
+    assert got["royal_league"] == (2, 10)
+    assert got["worlds"] == (2, 2)
 
 
 def test_the_world_championship_board_lists_recent_champions_first():
@@ -62,6 +58,7 @@ def test_the_world_championship_board_lists_recent_champions_first():
         {"season": 2024, "player_name": "Martin_Pecheur", "place": 1},
         {"season": 2024, "player_name": "frotes", "place": 2},
         {"season": 2025, "player_name": "silent_x111", "place": 3},
+        {"season": 2022, "player_name": "Ender_Wiggin", "place": 1},
     ]
     got = worlds_board(placements)
     assert [
@@ -70,60 +67,133 @@ def test_the_world_championship_board_lists_recent_champions_first():
         ("a440", "WC", 1, 0, 0),
         ("Martin_Pecheur", "WC", 1, 0, 0),
         ("Weidenbaum", "WC", 1, 0, 0),
+        ("Ender_Wiggin", "WC", 1, 0, 0),
         ("Grozz", "GM", 0, 1, 0),
         ("frotes", "GM", 0, 1, 0),
         ("silent_x111", "GM", 0, 0, 1),
     ]
 
 
-def test_grand_slams_board_takes_each_cup_as_upstream():
+def test_grand_slams_count_each_cup_edition_once():
     rows = numbered(
-        match(
-            "Survivors Cup 2026 Final game 1",
-            ("ann", 90),
-            ("bob", 80),
-            ("cat", 70),
-            day=date(2026, 8, 1),
-        ),
-        match(
-            "Survivors Cup 2026 Final game 0",
-            ("zed", 99),
-            ("yan", 1),
-            ("xi", 0),
-            day=date(2026, 7, 1),
-        ),
-        match("Slow Burn S15 Final game 1", ("bob", 90), ("dan", 80), ("eve", 70)),
-        match("Slow Burn S15 Final game 2", ("bob", 90), ("eve", 85), ("dan", 70)),
-        match("Wimbledon 2023 stage 7 game 1", ("fay", 90), ("gus", 80)),
-        match("Wimbledon 2023 stage 7 game 2", ("fay", 90), ("gus", 80)),
-        match("Wimbledon 2025 Stage 10 game 1", ("ann", 90), ("gus", 80)),
-        match("Wimbledon 2025 Stage 10 game 2", ("gus", 90), ("hal", 80)),
-        match("Wimbledon 2025 Stage 10 game 3", ("ann", 90), ("hal", 80)),
-        match("Eiffel Tower S4 - The Top game 1", ("ivy", 90), ("jo", 80)),
-        match("Eiffel Tower S4 - The Top game 2", ("ivy", 90), ("jo", 80)),
-        match("Eiffel Tower S4 - The Top game 3", ("jo", 90), ("ivy", 80)),
-        match("Eiffel Tower S4 - The Top game 4", ("kim", 90), ("jo", 80)),
-        match("Eiffel Tower S4 - The Top game 5", ("lu", 90), ("jo", 80)),
+        match("Wimbledon 2023 stage 1 game 1", ("a", 1), ("b", 2)),
+        match("Wimbledon 2023 stage 7 game 1", ("a", 1), ("b", 2)),
+        match("Wimbledon 2025 Stage 9 game 1", ("a", 1), ("b", 2)),
+        match("Survivors Cup 2026 Final game 1", ("a", 1), ("b", 2)),
+        match("Survivors Cup 2026 Final game 2", ("a", 1), ("b", 2)),
+        match("French Open 2025 (Odd Games) - R1 game 1", ("a", 1), ("b", 2)),
+        match("French Open 2025 (Even Games) - R1 game 1", ("a", 1), ("b", 2)),
+        match("Slow Burn 1", ("a", 1), ("b", 2)),
+        match("Slow Burn S1 - game 2", ("a", 1), ("b", 2)),
+        match("Slow Burn S15 - final", ("a", 1), ("b", 2)),
+        match("Eiffel Tower S3 - Group A game 4", ("a", 1), ("b", 2)),
+        match("Eiffel Tower S3 - Group B game 1", ("a", 1), ("b", 2)),
     )
-    got = grand_slams_board(rows)
-    # Only the latest Survivors final counts; a Wimbledon player without a win
-    # gets no medal (gus in 2023, hal in 2025); Eiffel takes the top three
-    # winners of "The Top" in first-seen order among equals.
+    # Wimbledon 2023 and 2025, Survivors 2026, French Open 2025, Slow Burn 1 and 15, Eiffel Tower 3
+    assert series_metrics(rows)["grand_slams"] == (12, 7)
+
+
+def test_ladders_count_each_ladder_season_once():
+    rows = numbered(
+        match("Mercurial Season 19 - 11-Sodium 1 - game 1", ("a", 1), ("b", 2)),
+        match("Mercurial Season 19 - 17-Chlorine 2 game 1", ("a", 1), ("b", 2)),
+        match("Mercurial Season 36 - 3-Lithium 1 game 1", ("a", 1), ("b", 2)),
+        match("Sodium Season 1 - game 1", ("a", 1), ("b", 2)),
+        match(
+            "Sodium Ladder Season 16 - Sodium Ladder Sodium Tier game 1",
+            ("a", 1),
+            ("b", 2),
+        ),
+        match("TCL Round 31", ("a", 1), ("b", 2)),
+        match("ML_r11 game 1", ("a", 1), ("b", 2)),
+    )
+    # Mercurial 19 and 36, Sodium 1 and 16; TCL and ML_ rounds are not seasons
+    assert series_metrics(rows)["ladders"] == (7, 4)
+
+
+def podium(cup, season, finished, *players, final=""):
+    return [
+        {
+            "cup": cup,
+            "season": season,
+            "final": final,
+            "finished": finished,
+            "place": place,
+            "player_name": p,
+        }
+        for place, p in enumerate(players, start=1)
+    ]
+
+
+def test_grand_slams_board_counts_every_recorded_cup_year():
+    podiums = [
+        *podium("wimbledon", "2023", date(2024, 4, 6), "fay", "gus"),
+        *podium("wimbledon", "2024", date(2025, 2, 24), "fay", "ann"),
+        # Slow Burn "2024" started that year and finished in 2026.
+        *podium("slow_burn", "2024", date(2026, 8, 31), "bob", "ann", "cat"),
+        *podium(
+            "french_open",
+            "2025",
+            date(2026, 5, 19),
+            "ann",
+            "bob",
+            "cat",
+            final="odd games",
+        ),
+        *podium("eiffel_tower", "3", date(2025, 11, 30), "cat", "dan", "bob"),
+    ]
+    names = {
+        "wimbledon": "Wimbledon",
+        "slow_burn": "Slow Burn",
+        "french_open": "French Open",
+        "eiffel_tower": "Eiffel Tower",
+    }
+
+    got = grand_slams_board(podiums, names)
+
     assert [
         (b["player_name"], b["gold"], b["silver"], b["bronze"], b["details"])
         for b in got
     ] == [
-        ("ann", 2, 0, 0, "2026 Survivors Cup Champion, 2025 Wimbledon TTA Champion"),
-        ("bob", 1, 1, 0, "2026 Survivors Cup Runner-Up, Slow Burn S15 Champion"),
-        ("fay", 1, 0, 0, "2023 Wimbledon TTA Champion"),
-        ("ivy", 1, 0, 0, "Eiffel Tower Pinnacle Champion (2 Top Victories)"),
-        ("jo", 1, 0, 0, "Eiffel Tower Pinnacle Champion (1 Top Victories)"),
-        ("kim", 1, 0, 0, "Eiffel Tower Pinnacle Champion (1 Top Victories)"),
-        ("eve", 0, 1, 0, "Slow Burn S15 Runner-Up"),
-        ("gus", 0, 1, 0, "2025 Wimbledon TTA Runner-Up"),
-        ("cat", 0, 0, 1, "2026 Survivors Cup 3rd Place"),
-        ("dan", 0, 0, 1, "Slow Burn S15 3rd Place"),
+        ("fay", 2, 0, 0, "Wimbledon 2023 Champion, Wimbledon 2024 Champion"),
+        (
+            "ann",
+            1,
+            2,
+            0,
+            "Wimbledon 2024 Runner-Up, French Open 2025 (odd games) Champion",
+        ),
+        (
+            "bob",
+            1,
+            1,
+            1,
+            "Eiffel Tower S3 3rd Place, French Open 2025 (odd games) Runner-Up",
+        ),
+        (
+            "cat",
+            1,
+            0,
+            2,
+            "Eiffel Tower S3 Champion, French Open 2025 (odd games) 3rd Place",
+        ),
+        ("dan", 0, 1, 0, "Eiffel Tower S3 Runner-Up"),
+        ("gus", 0, 1, 0, "Wimbledon 2023 Runner-Up"),
     ]
+
+
+def test_grand_slams_board_leaves_out_cups_that_are_not_grand_slams():
+    got = grand_slams_board(
+        podium("leaderboard_trophy", "2025", "ann", "bob", "cat"), {}
+    )
+
+    assert got == []
+
+
+def test_grand_slams_board_names_a_cup_by_its_slug_when_the_catalogue_has_no_name():
+    got = grand_slams_board(podium("wimbledon", "2024", date(2025, 2, 24), "fay"), {})
+
+    assert got[0]["details"] == "wimbledon 2024 Champion"
 
 
 def test_ladders_board_counts_ladder_wins_for_players_of_30_games():
@@ -136,11 +206,26 @@ def test_ladders_board_counts_ladder_wins_for_players_of_30_games():
         rows.append(
             match(f"Mercurial Season 30 - 0-Tier {n} game 1", winner, loser, *third)
         )
-    rows.append(match("ML_s01 game 1", ("bob", 90), ("ann", 80)))
     got = ladders_board(numbered(*rows))
     assert [(b["player_name"], b["games"], b["wins"], b["win_rate"]) for b in got] == [
         ("ann", 30, 20, 66.7),
         ("bob", 30, 10, 33.3),
+    ]
+
+
+def test_ladders_board_counts_mercurials_early_rounds():
+    rows = [
+        match(f"Mercurial Season 19 - 0-Tier 1 game {n}", ("ann", 90), ("bob", 80))
+        for n in range(28)
+    ]
+    rows.append(match("ML_s01", ("bob", 90), ("ann", 80)))
+    rows.append(match("ML_r11", ("bob", 90), ("ann", 80)))
+
+    got = ladders_board(numbered(*rows))
+
+    assert [(b["player_name"], b["games"], b["wins"]) for b in got] == [
+        ("ann", 30, 28),
+        ("bob", 30, 2),
     ]
 
 

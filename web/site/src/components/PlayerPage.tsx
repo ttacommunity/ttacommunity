@@ -17,20 +17,19 @@ import {
   type PlayerRivals,
 } from '@ttac/shared/ratings';
 import CareerBox from './CareerBox';
-import { Flag } from './PlayerMarks';
+import { ExtraBadges, Flag } from './PlayerMarks';
 import RatingChart from './RatingChart';
 import VersusDialog from './VersusDialog';
 import * as show from '../lib/leaderboard-display';
-import { DEFAULT_VIEW, type Engine, type ResetMode } from '../lib/leaderboard-view';
+import { DEFAULT_VIEW, type ResetMode } from '../lib/leaderboard-view';
 import {
   firstSort,
   isProvisional,
   matrixHref,
   pageModel,
   parsePlayerView,
-  playerHref,
   playerParams,
-  ratingIn,
+  formatCards,
   score,
   signedDelta,
   visibleRivals,
@@ -42,7 +41,12 @@ import {
 import { achievementsHref } from '../lib/achievements';
 import { recall, remember } from '../lib/remembered';
 import './PlayerPage.css';
-import Tex from './Tex';
+import Segmented from './Segmented';
+import FilterInput from './FilterInput';
+import PlayerLink from './PlayerLink';
+import ScrollTable from './ScrollTable';
+import Waiting from './Waiting';
+import Pager from './Pager';
 
 type Load<T> = { kind: 'loading' } | { kind: 'error'; message: string } | { kind: 'ready'; data: T };
 
@@ -139,9 +143,8 @@ export default function PlayerPage({ apiUrl }: { apiUrl: string }) {
   }, [view.name]);
 
   if (view.name === '') return <Message>No player was named. Choose one from the leaderboard.</Message>;
-  if (run.kind === 'error') return <Message>{run.message}</Message>;
-  if (profile.kind === 'error') return <Message>{profile.message}</Message>;
-  if (profile.kind === 'loading') return <Message>Loading player…</Message>;
+  if (run.kind === 'error') return <Waiting load={run} what="the ratings" />;
+  if (profile.kind !== 'ready') return <Waiting load={profile} what="this player" />;
 
   const p = profile.data;
   const provisional = isProvisional(p, view.format);
@@ -152,45 +155,34 @@ export default function PlayerPage({ apiUrl }: { apiUrl: string }) {
       <Header player={p} view={view} provisional={provisional} gamesInFormat={gamesInFormat} />
 
       <div className="profile-selectors">
-        <div className="format-bar profile-bar" role="group" aria-label="Reset mode">
-          <span className="profile-bar-label">Reset Mode:</span>
-          {RESET_MODES.map((m) => (
-            <a
-              key={m.value}
-              {...linkTo({ ...view, reset: m.value, matchPage: 1 })}
-              className={m.value === view.reset ? 'format-btn active' : 'format-btn'}
-              aria-current={m.value === view.reset ? 'true' : undefined}
-              data-tooltip={m.desc}
-            >
-              {m.name}
-            </a>
-          ))}
-        </div>
-        <div className="format-bar profile-bar" role="group" aria-label="Format">
-          <span className="profile-bar-label">Format:</span>
-          {FORMATS.map((f) => (
-            <a
-              key={f}
-              {...linkTo({ ...view, format: f, matchPage: 1 })}
-              className={f === view.format ? 'format-btn active' : 'format-btn'}
-              aria-current={f === view.format ? 'true' : undefined}
-              data-tooltip={`View rating and history for ${show.formatName(f)}`}
-            >
-              {show.formatName(f)}
-            </a>
-          ))}
-        </div>
+        <Segmented
+          label="Reset mode"
+          look="raised"
+          groupClass="format-bar profile-bar"
+          prefix={<span className="profile-bar-label">Reset Mode:</span>}
+          options={RESET_MODES.map((m) => ({ value: m.value, label: m.name, tooltip: m.desc }))}
+          value={view.reset}
+          link={(reset) => linkTo({ ...view, reset, matchPage: 1 })}
+        />
+        <Segmented
+          label="Format"
+          look="raised"
+          groupClass="format-bar profile-bar"
+          prefix={<span className="profile-bar-label">Format:</span>}
+          options={FORMATS.map((f) => ({ value: f, label: show.formatName(f), tooltip: `View rating and history for ${show.formatName(f)}` }))}
+          value={view.format}
+          link={(format) => linkTo({ ...view, format, matchPage: 1 })}
+        />
       </div>
 
       <CareerBox
         player={p}
         career={career.kind === 'ready' ? career.data : null}
         summary={achievements.kind === 'ready' ? achievements.data.summary : null}
-        reset={view.reset}
         format={view.format}
       />
 
-      <ModelCards player={p} view={view} />
+      <FormatCards player={p} view={view} linkTo={linkTo} />
 
       <RatingChart history={history.kind === 'ready' ? history.data : null} />
 
@@ -203,7 +195,7 @@ export default function PlayerPage({ apiUrl }: { apiUrl: string }) {
 }
 
 function Message({ children }: { children: ReactNode }) {
-  return <div className="rating-card profile-message">{children}</div>;
+  return <div className="rating-card waiting-message">{children}</div>;
 }
 
 function Header({
@@ -231,6 +223,7 @@ function Header({
               {show.titleName(t.code)}
             </span>
           )}
+          <ExtraBadges badges={player.badges} tooltip />
           <h1 className="player-profile-name">
             {player.name}
             {provisional && (
@@ -276,55 +269,39 @@ function Header({
   );
 }
 
-const CARDS: { engine: Engine; className: string; heading: string }[] = [
-  { engine: 'glicko2_daneo', className: 'card-daneo', heading: '👑 GlickoD' },
-  { engine: 'glicko2_std', className: '', heading: 'Glicko-2 Standard' },
-  { engine: 'glicko2_mp', className: '', heading: 'Glicko-2 MP-Weighted' },
-  { engine: 'glicko2_adapt', className: 'card-adapt', heading: 'Glicko-2 Adaptive-T' },
-  { engine: 'whr', className: '', heading: 'Whole-History Rating' },
-];
-
-function caption(engine: Engine, opponents: number, winRate: number): ReactNode {
-  switch (engine) {
-    case 'glicko2_daneo':
-      return 'Custom Glicko2 implementation for Multiplayer Boardgaming by DANeo';
-    case 'glicko2_std':
-      return `Matches: ${opponents} | Win%: ${winRate.toFixed(1)}%`;
-    case 'glicko2_mp':
-      return 'Multiplayer fractional variance calibration';
-    case 'glicko2_adapt':
-      return (
-        <>
-          Adaptive format temperature <Tex tex="T(P, N)" />
-        </>
-      );
-    case 'whr':
-      return 'Full 2017-2026 retrospective Brownian walk';
-  }
-}
-
-/** ModelCards shows the player's rating in each engine for the chosen reset mode and format, upstream's defaults where none. */
-function ModelCards({ player, view }: { player: Player; view: PlayerView }) {
+/** FormatCards shows upstream's four GlickoD cards, one per format, each a link to that format; the chosen one is gold. */
+function FormatCards({ player, view, linkTo }: { player: Player; view: PlayerView; linkTo: LinkTo }) {
   return (
     <div className="cards-grid">
-      {CARDS.map((c) => {
-        const r = ratingIn(player, pageModel(c.engine, view.reset), view.format);
-        const classes = ['model-card', c.className, c.engine === view.engine && 'active-card'].filter(Boolean).join(' ');
+      {formatCards(player, view.reset).map((c) => {
+        const active = c.format === view.format;
+        const r = c.rating;
+        const classes = ['model-card', 'format-card', active && 'active-card card-daneo'].filter(Boolean).join(' ');
         return (
-          <div key={c.engine} className={classes}>
+          <a key={c.format} className={classes} {...linkTo({ ...view, engine: 'glicko2_daneo', format: c.format, matchPage: 1 })}>
             <h3>
-              <span>{c.heading}</span>
-              <span className="badge badge-rank">#{r?.rank ?? '-'}</span>
+              <span>
+                {c.icon} {c.label}
+              </span>
+              <span className="badge badge-rank">{r ? `#${r.rank}` : 'Unranked'}</span>
             </h3>
             <div className="rating-number">
-              {(r?.rating ?? 1500).toFixed(1)} <span className="rd-tag">±{(r?.rd ?? 350).toFixed(1)}</span>
+              {r ? (
+                <>
+                  {r.rating.toFixed(1)} <span className="rd-tag">±{r.rd.toFixed(1)}</span>
+                </>
+              ) : (
+                <span className="format-card-none">No matches</span>
+              )}
             </div>
             <div className="c-rating-box">
               <span>Conservative (C = μ - 3σ):</span>
-              <strong>{(r?.c_rating ?? 450).toFixed(2)}</strong>
+              <strong>{r ? r.c_rating.toFixed(2) : '—'}</strong>
             </div>
-            <div className="model-card-caption">{caption(c.engine, r?.opponents ?? 0, r?.win_rate ?? 0)}</div>
-          </div>
+            <div className="model-card-caption">
+              {r && r.opponents > 0 ? `Matches: ${r.opponents} | Win%: ${r.win_rate.toFixed(1)}%` : c.description}
+            </div>
+          </a>
         );
       })}
     </div>
@@ -365,10 +342,7 @@ function Games({
           </span>
         )}
       </div>
-      <div className="scroll-hint">
-        <span>Swipe table horizontally for full match details ➔</span>
-      </div>
-      <div className="table-responsive">
+      <ScrollTable hint="full match details">
         <table className="data-table">
           <caption className="visually-hidden">
             Games of {view.name}, {show.formatName(view.format)}, page {data?.page ?? view.matchPage}
@@ -385,20 +359,7 @@ function Games({
             </tr>
           </thead>
           <tbody>
-            {state.kind === 'loading' && (
-              <tr>
-                <td colSpan={7} className="cell-empty">
-                  Loading games…
-                </td>
-              </tr>
-            )}
-            {state.kind === 'error' && (
-              <tr>
-                <td colSpan={7} className="cell-empty">
-                  {state.message}
-                </td>
-              </tr>
-            )}
+            <Waiting load={state} what="the games" form="row" colSpan={7} />
             {data !== null && data.matches.length === 0 && (
               <tr>
                 <td colSpan={7} className="cell-empty">
@@ -426,7 +387,13 @@ function Games({
                   <div className="seats">
                     {m.seats.map((s, i) => (
                       <span key={`${s.name}-${i}`} className={s.name === data.name ? 'seat seat-self' : 'seat'}>
-                        {s.name} ({score(s.score)}){i < m.seats.length - 1 ? ',' : ''}
+                        {s.name === data.name ? (
+                          s.name
+                        ) : (
+                          <PlayerLink name={s.name} className="player-link" />
+                        )}{' '}
+                        <span className="seat-score">({score(s.score)})</span>
+                        {i < m.seats.length - 1 ? <span className="seat-score">,</span> : ''}
                       </span>
                     ))}
                   </div>
@@ -435,8 +402,15 @@ function Games({
             ))}
           </tbody>
         </table>
-      </div>
-      {data !== null && data.pages > 1 && <Pages page={data.page} pages={data.pages} view={view} linkTo={linkTo} go={go} />}
+      </ScrollTable>
+      {data !== null && data.pages > 1 && (
+        <Pager
+          page={data.page}
+          pages={data.pages}
+          link={(matchPage) => linkTo({ ...view, matchPage })}
+          go={(matchPage) => go({ ...view, matchPage })}
+        />
+      )}
     </div>
   );
 }
@@ -462,68 +436,6 @@ function Replay({ code }: { code: string | null }) {
       <button type="button" className="btn-copy-code" onClick={copy} title="Copy replay code" aria-label="Copy replay code">
         {copied ? '✓' : '📋'}
       </button>
-    </div>
-  );
-}
-
-function Pages({
-  page,
-  pages,
-  view,
-  linkTo,
-  go,
-}: {
-  page: number;
-  pages: number;
-  view: PlayerView;
-  linkTo: LinkTo;
-  go: (next: PlayerView) => void;
-}) {
-  const [typed, setTyped] = useState(String(page));
-  useEffect(() => setTyped(String(page)), [page]);
-  const to = (n: number) => linkTo({ ...view, matchPage: n });
-  const jump = () => {
-    const n = Number(typed);
-    if (Number.isInteger(n) && n >= 1 && n <= pages) go({ ...view, matchPage: n });
-  };
-  return (
-    <div className="pagination-container">
-      {page > 1 && (
-        <>
-          <a {...to(1)} className="btn-antique">
-            « First
-          </a>
-          <a {...to(page - 1)} className="btn-antique">
-            ‹ Prev
-          </a>
-        </>
-      )}
-      <div className="pagination-jump">
-        <span>Page</span>
-        <input
-          type="number"
-          min={1}
-          max={pages}
-          value={typed}
-          aria-label="Page number"
-          onChange={(e) => setTyped(e.target.value)}
-          onKeyDown={(e) => e.key === 'Enter' && jump()}
-        />
-        <span>of {pages}</span>
-        <button type="button" className="btn-antique" onClick={jump}>
-          Go
-        </button>
-      </div>
-      {page < pages && (
-        <>
-          <a {...to(page + 1)} className="btn-antique">
-            Next ›
-          </a>
-          <a {...to(pages)} className="btn-antique">
-            Last »
-          </a>
-        </>
-      )}
     </div>
   );
 }
@@ -567,19 +479,16 @@ function Rivals({ state, compare }: { state: Load<PlayerRivals>; compare: Compar
               </option>
             ))}
           </select>
-          <input
-            type="text"
-            aria-label="Filter rivals by name"
+          <FilterInput
+            label="Filter rivals by name"
             placeholder="🔍 Filter rival by name..."
+            className="rival-filter"
             value={rv.filter}
-            onChange={(e) => setRv({ ...rv, filter: e.target.value })}
+            onChange={(filter) => setRv({ ...rv, filter })}
           />
         </div>
       </div>
-      <div className="scroll-hint">
-        <span>Swipe table horizontally for full opponent stats ➔</span>
-      </div>
-      <div className="table-responsive">
+      <ScrollTable hint="full opponent stats">
         <table className="data-table">
           <caption className="visually-hidden">Record against each opponent</caption>
           <thead>
@@ -595,13 +504,7 @@ function Rivals({ state, compare }: { state: Load<PlayerRivals>; compare: Compar
             </tr>
           </thead>
           <tbody>
-            {state.kind !== 'ready' && (
-              <tr>
-                <td colSpan={5} className="cell-empty">
-                  {state.kind === 'loading' ? 'Loading rivals…' : state.message}
-                </td>
-              </tr>
-            )}
+            <Waiting load={state} what="the rivals" form="row" colSpan={5} />
             {state.kind === 'ready' && all.length === 0 && (
               <tr>
                 <td colSpan={5} className="cell-empty">
@@ -612,9 +515,7 @@ function Rivals({ state, compare }: { state: Load<PlayerRivals>; compare: Compar
             {rows.map((r) => (
               <tr key={r.name}>
                 <td>
-                  <a href={playerHref(r.name)} className="player-link rival-name">
-                    {r.name}
-                  </a>
+                  <PlayerLink name={r.name} className="player-link rival-name" />
                 </td>
                 <td>
                   <strong>{r.games}</strong>
@@ -635,7 +536,7 @@ function Rivals({ state, compare }: { state: Load<PlayerRivals>; compare: Compar
             ))}
           </tbody>
         </table>
-      </div>
+      </ScrollTable>
       {versus !== null && compare !== null && state.kind === 'ready' && (
         <VersusDialog
           apiUrl={compare.apiUrl}

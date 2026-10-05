@@ -1,57 +1,54 @@
 /** Upstream's Hall of Fame overview: the World Champions, each series' card, and the all-time, cups and ladders tables. */
 import { useEffect, useState } from 'react';
-import { currentRun, hallOfFame, type HallOfFame } from '@ttac/shared/ratings';
-import { playerHref } from '../lib/player-view';
+import { catalogue, catalogueTournament, currentRun, hallOfFame, type CatalogueEntry, type CatalogueSeason, type HallOfFame } from '@ttac/shared/ratings';
+import TournamentCard from './TournamentCard';
+import { cardView, circuitCard } from '../lib/tournament-card';
+import { catalogueHref, entryRows } from '../lib/catalogue-view';
+import PlayerLink from './PlayerLink';
 import {
   derivedMatches,
   legendMark,
   majorMedals,
   majorTitles,
-  SERIES_CONTENT,
+  CIRCUITS,
+  MAJORS,
   seriesEra,
   seriesGames,
   seriesHref,
   titleCell,
+  worldChampions,
 } from '../lib/tournament-series';
+import ScrollTable from './ScrollTable';
+import { waitingText } from '../lib/waiting';
 
 type Load = { kind: 'loading' } | { kind: 'error'; message: string } | { kind: 'ready'; data: HallOfFame };
-
-// Upstream's overview states the champions and their honours in its template.
-const CHAMPIONS = [
-  {
-    name: 'a440',
-    icon: '👑',
-    year: 2025,
-    text: '2025 Reigning World Champion • Stage 4 Upper Playoff Champion • Highest Elo/WHR ceiling in modern 3P & 4P finals.',
-  },
-  {
-    name: 'Martin_Pecheur',
-    icon: '⚔️',
-    year: 2024,
-    text: '2024 World Champion • 3x Intermezzo Champion • 2x Royal League Champion • All-round multi-format master.',
-  },
-  {
-    name: 'Weidenbaum',
-    icon: '🏛️',
-    year: 2023,
-    text: 'Inaugural 2023 World Champion • 6x International Champion • 8x Intermezzo Champion • All-time peak titleholder.',
-  },
-];
 
 /** HallOfFamePage loads the current run's overview and shows it as upstream's page does. */
 export default function HallOfFamePage({ apiUrl }: { apiUrl: string }) {
   const [load, setLoad] = useState<Load>({ kind: 'loading' });
 
+  const [tournaments, setTournaments] = useState<CatalogueEntry[]>([]);
+  const [finals, setFinals] = useState<CatalogueSeason[]>([]);
+
   useEffect(() => {
     currentRun(apiUrl)
-      .then((r) => hallOfFame(apiUrl, r.run_id))
+      .then((r) => {
+        catalogue(apiUrl, r.run_id)
+          .then((c) => setTournaments(c.tournaments))
+          .catch(() => setTournaments([]));
+        catalogueTournament(apiUrl, r.run_id, 'worlds')
+          .then((t) => setFinals(t.seasons))
+          .catch(() => setFinals([]));
+        return hallOfFame(apiUrl, r.run_id);
+      })
       .then((data) => setLoad({ kind: 'ready', data }))
       .catch((e: unknown) => setLoad({ kind: 'error', message: e instanceof Error ? e.message : String(e) }));
   }, [apiUrl]);
 
   const data = load.kind === 'ready' ? load.data : null;
-  const waiting = load.kind === 'error' ? load.message : 'Loading…';
+  const waiting = waitingText(load, 'the Hall of Fame') ?? '';
   const count = (slug: string) => data?.series.find((s) => s.series === slug);
+  const champions = worldChampions(finals, data?.legends ?? []);
 
   return (
     <>
@@ -75,7 +72,7 @@ export default function HallOfFamePage({ apiUrl }: { apiUrl: string }) {
             Historical Span: <strong>2016 – Present</strong>
           </div>
           <div className="stat-pill">
-            World Champions: <strong>3 Crowned Titleholders</strong>
+            World Champions: <strong>{new Set(champions.map((c) => c.name)).size} Crowned Titleholders</strong>
           </div>
         </div>
       </div>
@@ -89,13 +86,13 @@ export default function HallOfFamePage({ apiUrl }: { apiUrl: string }) {
           multi-round qualification groups and playoff brackets (with evolving structural formats across editions).
         </p>
         <div className="champions-highlight-grid">
-          {CHAMPIONS.map((c) => (
-            <div key={c.name} className="champ-highlight-box">
+          {champions.map((c) => (
+            <div key={c.season} className="champ-highlight-box">
               <div className="champ-highlight-avatar">{c.icon}</div>
               <div className="champ-highlight-info">
-                <a href={playerHref(c.name)} className="champ-highlight-name">
-                  {c.name} <span className="badge-wc">👑 {c.year} World Champion</span>
-                </a>
+                <PlayerLink name={c.name} className="champ-highlight-name">
+                  {c.name} <span className="badge-wc">👑 {c.season} World Champion</span>
+                </PlayerLink>
                 <div className="champ-highlight-desc">{c.text}</div>
               </div>
             </div>
@@ -104,37 +101,43 @@ export default function HallOfFamePage({ apiUrl }: { apiUrl: string }) {
       </div>
 
       <div className="series-grid">
-        {SERIES_CONTENT.map((s) => {
-          const c = count(s.slug);
+        {MAJORS.map((m) => {
+          const entry = tournaments.find((t) => t.slug === m.slug);
           return (
-            <a key={s.slug} href={seriesHref(s.slug)} className="series-card">
-              <div>
-                <div className="series-card-top">
-                  <div className="series-icon">{s.icon}</div>
-                  <div className="series-badge">{s.formatBadge}</div>
-                </div>
-                <div className="series-name">{s.name}</div>
-                <div className="series-summary">{s.summary}</div>
-                <div className="series-meta-row">
-                  <span>Structure &amp; Cadence</span>
-                  <span>{s.frequency}</span>
-                </div>
-                <div className="series-meta-row">
-                  <span>Active History</span>
-                  <span>{s.era ?? (c ? seriesEra(s, c.seasons) : '…')}</span>
-                </div>
-                <div className="series-meta-row">
-                  <span>Recorded Database Matches</span>
-                  <span>{c ? seriesGames(c) : '…'}</span>
-                </div>
-              </div>
-              <div className="series-cta">
-                <span>View Rules, Trophyboard &amp; Records</span>
-                <span className="arrow">&rarr;</span>
-              </div>
-            </a>
+            <TournamentCard
+              key={m.slug}
+              href={seriesHref(m.slug)}
+              name={m.name}
+              card={cardView(entry?.card)}
+              rows={entry !== undefined ? entryRows(entry) : [['Recorded Database Matches', '…']]}
+              cta="View Champions, Rules & Games"
+            />
           );
         })}
+        {CIRCUITS.map((s) => {
+          const c = count(s.slug);
+          return (
+            <TournamentCard
+              key={s.slug}
+              href={seriesHref(s.slug)}
+              name={s.name}
+              card={circuitCard(s)}
+              rows={[
+                ['Structure & Cadence', s.frequency],
+                ['Active History', s.era ?? (c ? seriesEra(s, c.seasons) : '…')],
+                ['Recorded Database Matches', c ? seriesGames(c) : '…'],
+              ]}
+              cta="View Board & Tournaments"
+            />
+          );
+        })}
+        <TournamentCard
+          href={catalogueHref()}
+          name="Every Tournament"
+          card={cardView({ icon: '📜', tagline: '', subtitle: '', cadence: '', summary: 'Every tournament in the record, beyond the six circuits: its champions, seasons, stages and games.' })}
+          rows={[]}
+          cta="View Every Tournament"
+        />
       </div>
 
       <div className="wcs-analytics-card">
@@ -148,10 +151,7 @@ export default function HallOfFamePage({ apiUrl }: { apiUrl: string }) {
           </div>
           <span className="hof-tag">Major League Titles Only</span>
         </div>
-        <div className="scroll-hint">
-          <span>Swipe table horizontally for full records ➔</span>
-        </div>
-        <div className="table-responsive">
+        <ScrollTable hint="full records">
           <table className="wcs-table">
             <caption className="visually-hidden">Titles and podium medals across the four major circuits</caption>
             <thead>
@@ -183,7 +183,7 @@ export default function HallOfFamePage({ apiUrl }: { apiUrl: string }) {
             <tbody>
               {data === null ? (
                 <tr>
-                  <td colSpan={8} className="hof-message">
+                  <td colSpan={8} className="waiting-row">
                     {waiting}
                   </td>
                 </tr>
@@ -194,9 +194,7 @@ export default function HallOfFamePage({ apiUrl }: { apiUrl: string }) {
                     <tr key={l.name}>
                       <td className="cell-rank">#{i + 1}</td>
                       <td>
-                        <a href={playerHref(l.name)} className="legend-player">
-                          {l.name}
-                        </a>{' '}
+                        <PlayerLink name={l.name} className="legend-player" />{' '}
                         {mark === 'WC' && <span className="badge-wc legend-mark">👑 WC</span>}
                         {mark === 'GM' && <span className="legend-mark">GM</span>}
                       </td>
@@ -212,7 +210,7 @@ export default function HallOfFamePage({ apiUrl }: { apiUrl: string }) {
               )}
             </tbody>
           </table>
-        </div>
+        </ScrollTable>
       </div>
 
       <div className="hof-two-col">
@@ -225,10 +223,7 @@ export default function HallOfFamePage({ apiUrl }: { apiUrl: string }) {
               <div className="hof-card-sub">Survivors Cup, Wimbledon TTA, Eiffel Tower, Slow Burn &amp; Major Opens</div>
             </div>
           </div>
-          <div className="scroll-hint">
-            <span>Swipe table horizontally for full records ➔</span>
-          </div>
-          <div className="table-responsive">
+          <ScrollTable hint="full records">
             <table className="wcs-table">
               <caption className="visually-hidden">The cups&apos; leading medallists</caption>
               <thead>
@@ -249,7 +244,7 @@ export default function HallOfFamePage({ apiUrl }: { apiUrl: string }) {
               <tbody>
                 {data === null ? (
                   <tr>
-                    <td colSpan={5} className="hof-message">
+                    <td colSpan={5} className="waiting-row">
                       {waiting}
                     </td>
                   </tr>
@@ -258,9 +253,7 @@ export default function HallOfFamePage({ apiUrl }: { apiUrl: string }) {
                     <tr key={g.name}>
                       <td className="cell-rank">#{i + 1}</td>
                       <td>
-                        <a href={playerHref(g.name)} className="board-player">
-                          {g.name}
-                        </a>
+                        <PlayerLink name={g.name} className="board-player" />
                       </td>
                       <td className="cell-gold">{g.gold}</td>
                       <td className="cell-silver">{g.silver}</td>
@@ -270,7 +263,7 @@ export default function HallOfFamePage({ apiUrl }: { apiUrl: string }) {
                 )}
               </tbody>
             </table>
-          </div>
+          </ScrollTable>
         </div>
 
         <div className="wcs-analytics-card">
@@ -284,10 +277,7 @@ export default function HallOfFamePage({ apiUrl }: { apiUrl: string }) {
               </div>
             </div>
           </div>
-          <div className="scroll-hint">
-            <span>Swipe table horizontally for full records ➔</span>
-          </div>
-          <div className="table-responsive">
+          <ScrollTable hint="full records">
             <table className="wcs-table">
               <caption className="visually-hidden">The ladders&apos; most winning players</caption>
               <thead>
@@ -310,7 +300,7 @@ export default function HallOfFamePage({ apiUrl }: { apiUrl: string }) {
               <tbody>
                 {data === null ? (
                   <tr>
-                    <td colSpan={5} className="hof-message">
+                    <td colSpan={5} className="waiting-row">
                       {waiting}
                     </td>
                   </tr>
@@ -319,9 +309,7 @@ export default function HallOfFamePage({ apiUrl }: { apiUrl: string }) {
                     <tr key={l.name}>
                       <td className="cell-rank">#{i + 1}</td>
                       <td>
-                        <a href={playerHref(l.name)} className="board-player">
-                          {l.name}
-                        </a>
+                        <PlayerLink name={l.name} className="board-player" />
                       </td>
                       <td className="cell-wins">{l.wins} W</td>
                       <td className="cell-games">{l.games}</td>
@@ -331,7 +319,7 @@ export default function HallOfFamePage({ apiUrl }: { apiUrl: string }) {
                 )}
               </tbody>
             </table>
-          </div>
+          </ScrollTable>
         </div>
       </div>
     </>

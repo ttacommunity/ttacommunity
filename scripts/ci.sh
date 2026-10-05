@@ -162,7 +162,15 @@ if full && area checks; then
   run bash checks/no-raw-html.sh
   run bash checks/secret-scan.sh --all
   run bash checks/verify-digests.sh
-  run bash checks/deploy-current.sh
+  # dev deploys from deploy/dev. main's pins are checked too, but not while dev's MR to main is a draft.
+  target=${CI_MERGE_REQUEST_TARGET_BRANCH_NAME:-${CI_COMMIT_BRANCH:-$(git rev-parse --abbrev-ref HEAD)}}
+  source=${CI_MERGE_REQUEST_SOURCE_BRANCH_NAME:-$target}
+  if [ "$source" = dev ] || [ "$target" = dev ]; then
+    run bash checks/deploy-current.sh deploy/dev
+  fi
+  if [ "$target" != dev ] && ! { [ "$source" = dev ] && [ "${CI_MERGE_REQUEST_DRAFT:-}" = true ]; }; then
+    run bash checks/deploy-current.sh
+  fi
 
   step "shell"
   if need shellcheck "the shell scripts"; then

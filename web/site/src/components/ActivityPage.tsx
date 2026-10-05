@@ -1,17 +1,13 @@
 /** Upstream's activity and demographics page: players, games per format, titles and the leading countries. */
 import { useEffect, useMemo, useState } from 'react';
 import { activity, currentRun, type Activity } from '@ttac/shared/ratings';
-import { sortCountries, titleLabel, type CountryColumn } from '../lib/analysis';
+import { formatCards, sortCountries, titleLabel, type CountryColumn } from '../lib/analysis';
+import { runYears } from '../lib/player-view';
 import { Flag } from './PlayerMarks';
+import ScrollTable from './ScrollTable';
+import Waiting from './Waiting';
 
-type Load = { kind: 'loading' } | { kind: 'error'; message: string } | { kind: 'ready'; data: Activity };
-
-// Upstream's page states these figures in its template, not from the data.
-const FORMAT_CARDS = [
-  { format: 3, name: '3-Player Games', note: 'Most popular tournament format (185,199 pairwise duels)' },
-  { format: 2, name: '2-Player (Duels)', note: 'Pure 1v1 heads-up duels (45,384 pairwise games)' },
-  { format: 4, name: '4-Player Games', note: 'Full table political strategy (145,842 pairwise duels)' },
-] as const;
+type Load = { kind: 'loading' } | { kind: 'error'; message: string } | { kind: 'ready'; data: Activity; years: [number, number] | null };
 
 const COLUMNS: { col: CountryColumn; label: string; tip?: string }[] = [
   { col: 'rank', label: 'Rank' },
@@ -34,21 +30,19 @@ export default function ActivityPage({ apiUrl }: { apiUrl: string }) {
 
   useEffect(() => {
     currentRun(apiUrl)
-      .then((r) => activity(apiUrl, r.run_id))
-      .then((data) => setLoad({ kind: 'ready', data }))
+      .then((r) => activity(apiUrl, r.run_id).then((data) => setLoad({ kind: 'ready', data, years: runYears(r.first_game, r.last_game) })))
       .catch((e: unknown) => setLoad({ kind: 'error', message: e instanceof Error ? e.message : String(e) }));
   }, [apiUrl]);
 
   const ranked = useMemo(() => (load.kind === 'ready' ? load.data.countries.map((c, i) => ({ ...c, rank: i + 1 })) : []), [load]);
   const countries = sort === null ? ranked : sortCountries(ranked, sort.col, sort.asc);
 
-  if (load.kind === 'loading') return <p className="analysis-message">Loading activity…</p>;
-  if (load.kind === 'error') return <p className="analysis-message">{load.message}</p>;
+  if (load.kind !== 'ready') return <Waiting load={load} what="the activity figures" />;
 
   const a = load.data;
   const total = a.active + a.inactive;
   const pct = (n: number) => (total > 0 ? ((n / total) * 100).toFixed(1) : '0.0');
-  const games = (f: number) => a.formats.find((x) => x.format === f)?.games ?? 0;
+  const formats = formatCards(a.formats);
   // Each header flips its own direction, starting ascending, as upstream's script does.
   const sortBy = (col: CountryColumn) => {
     const asc = !directions[col];
@@ -71,8 +65,8 @@ export default function ActivityPage({ apiUrl }: { apiUrl: string }) {
         </div>
         <div className="metric-card">
           <div className="metric-label">Total Matches Recorded</div>
-          <div className="metric-number metric-matches">131,424</div>
-          <div className="metric-note">Across 2017–2026 seasons</div>
+          <div className="metric-number metric-matches">{count(formats.total)}</div>
+          <div className="metric-note">{load.years ? `Across ${load.years[0]}–${load.years[1]} seasons` : 'Across every season'}</div>
         </div>
         <div className="metric-card">
           <div className="metric-label">All Recorded Competitors</div>
@@ -86,13 +80,13 @@ export default function ActivityPage({ apiUrl }: { apiUrl: string }) {
           <h3>Matches by Game Format</h3>
           <p className="activity-sub">Distribution of competitive tournaments across player counts.</p>
           <div className="activity-list">
-            {FORMAT_CARDS.map((f) => (
+            {formats.cards.map((f) => (
               <div key={f.format} className="activity-item">
                 <div>
                   <strong>{f.name}</strong>
                   <div className="activity-item-note">{f.note}</div>
                 </div>
-                <div className="activity-item-value">{count(games(f.format))}</div>
+                <div className="activity-item-value">{count(f.games)}</div>
               </div>
             ))}
           </div>
@@ -120,10 +114,7 @@ export default function ActivityPage({ apiUrl }: { apiUrl: string }) {
         <p className="activity-sub">
           Comparative average Glicko-2 ratings by official title status across the top 15 participating nations. Click headers to sort.
         </p>
-        <div className="scroll-hint">
-          <span>Swipe table horizontally for country demographics ➔</span>
-        </div>
-        <div className="table-responsive">
+        <ScrollTable hint="country demographics">
           <table className="activity-table">
             <caption className="visually-hidden">The 15 countries with most rated players, and their average Glicko-2 Standard rating by title</caption>
             <thead>
@@ -160,7 +151,7 @@ export default function ActivityPage({ apiUrl }: { apiUrl: string }) {
               ))}
             </tbody>
           </table>
-        </div>
+        </ScrollTable>
       </div>
     </>
   );

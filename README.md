@@ -115,29 +115,62 @@ git config core.hooksPath .githooks
 
 ## Load ratings data
 
-No match or rating data is kept in this repo. The ratings database is seeded
-by the load job from a directory of match CSVs that you keep elsewhere:
+No match or rating data is kept in this repo. The data lives outside it, and
+a database starts from a **baseline**: an export of every input table (games,
+CGE seats, players, the tournament catalogue, every recorded fact and admin's
+settings) with every correction already applied. Restore one into an empty
+database, then compute ratings:
 
 ```bash
-scripts/ratings-db.sh ~/tta-data            # in a container
-scripts/ratings-db.sh --native ~/tta-data   # with local Go
-scripts/ratings-db.sh --reset ~/tta-data    # empty the database first
+scripts/ratings-db.sh ~/tta-data/baseline/2026-10-04            # in a container
+scripts/ratings-db.sh --native ~/tta-data/baseline/2026-10-04   # with local Go
 ```
 
-It starts the ratings database if needed, applies the migrations, and loads
-every `*.csv` at the top of the directory (not in subdirectories), in name
-order. It refuses to load into a database that already has matches, so
-nothing is loaded twice: use `--reset` to start again. **`--reset` deletes
-every match, refused row and rating run.**
+The script starts the ratings database if needed and restores the export
+whole. It refuses a database that already holds data: to start again,
+remove the database's volume. Then [compute ratings](#compute-ratings).
 
-In a container, the job sees only that directory, so a symlink pointing out
-of it does not resolve. Copy the files in instead.
+A new baseline is any export: **Download all data** on admin's home page
+(admins and organisers; a zip of the same files), or `go run ./cmd/load
+-export <new folder>` (see [Export the data, and rebuild from
+it](#export-the-data-and-rebuild-from-it)).
 
 After pulling a new migration, apply it to a database you already loaded:
 
 ```bash
 cd backend && set -a && . ../.env && set +a && go run ./cmd/load -migrate
 ```
+
+### Add new data
+
+New games and facts are loaded on top of a restored baseline, and the next
+export is the next baseline.
+
+**New games from CGE.** The collector (kept with the data) writes each
+collected season's games, and its fact scripts turn them into one load file.
+Loading it records CGE's facts on the games already held (each seat's CGE
+user and how it ended, the finish date, replay code and stage) and adds the
+games we lack. A game that looks like a copy of one we hold is held back
+unless its replay code is in the `-cge-new` file, checked by hand:
+
+```bash
+cd backend && set -a && . ../.env && set +a
+go run ./cmd/load -cge-games ~/tta-data/new/cge_games.csv [-cge-new ~/tta-data/new/confirmed-new.csv]
+```
+
+**A first database from match CSVs.** A directory without a
+`manifest.json` is loaded as match CSVs, every `*.csv` at its top level in
+name order (the format is under [The files](#the-files)). This seeds an
+empty database only: it refuses one that already has matches, so nothing is
+loaded twice, and `--reset` deletes every match, refused row and rating run
+first. It is how the first baseline was built:
+
+```bash
+scripts/ratings-db.sh ~/tta-data/first-games
+```
+
+In a container, the job sees only that directory, so a symlink pointing out
+of it does not resolve. Copy the files in instead.
 
 Players' countries come from CSV files with a `Player` and a `Code` column
 (an ISO 3166-1 alpha-2 code, or `-` for none), such as the original site's
@@ -162,7 +195,7 @@ comes from:
 | `corrections` | `series,name_season,season,reason,source` | The real season of games whose name gives the wrong one; an empty `season` leaves them out of tournament results (never out of the ratings) |
 | `dates` | `series,season,finish_date,source` | The day a season officially finished (`YYYY-MM-DD`) |
 | `honours` | `series,player,gold,silver,bronze,points,source` | A player's career medals from an organisers' Hall of Fame the matches cannot rank; `series` is `sodium_ladder`, `mercurial_ladder` or `q_and_d`, and `points` (as written there) may be empty |
-| `community` | `edition,sheet_row,rank,player,points,events,source` | The community leaderboard's standings as its maintainer publishes them; `edition` is `2026`, `2025`, `2024` or `race26`, `sheet_row` is the row's place in the sheet (it orders equal ranks), and names are kept even when they are not players |
+| `community` | `edition,sheet_row,rank,player,points,events,source` | The community leaderboard's standings as its maintainer publishes them; `edition` is a year (2026, 2025, 2024) or `race26`, `sheet_row` is the row's place in the sheet (it orders equal ranks), and names are kept even when they are not players |
 | `community_scores` | `edition,player,event,score,source` | Each player's points in each event column of an edition (`wrld`, `ic_30`, `aus`…) |
 
 Loading a file replaces every fact of its kind, in one transaction; names
@@ -171,7 +204,7 @@ their line and reason. The next rating run uses them:
 
 ```bash
 cd backend && set -a && . ../.env && set +a
-go run ./cmd/load -facts divisions ~/tta-data/tournaments/group_divisions.csv
+go run ./cmd/load -facts divisions ~/tta-data/new/group_divisions.csv
 ```
 
 The API reads ratings as `ratings_api`, a login that can only `SELECT`.
@@ -193,6 +226,40 @@ scripts/seed-cluster-db.sh --kubectl [--dump ratings.dump]   # through kubectl
 `RATINGS_API_PASSWORD` becomes `ratings_api`'s. `--kubectl` reads both from
 the cluster's Secrets (`deploy/SECRETS.md`). Either way it refuses a database
 that already has tables.
+
+### Export the data, and rebuild from it
+
+An export is every table that holds inputs (games, CGE seats, players, the
+tournament catalogue and every recorded fact) as one CSV each, with a
+`manifest.json` of the schema version, row counts and SHA-256s. Ratings are
+not in it: the engine computes them again. Keep exports outside the repo.
+
+```bash
+go run ./cmd/load -export ~/tta-data/baseline/2026-10-05    # a new or empty folder
+```
+
+To rebuild a lost database, restore into a new, empty one, then compute:
+
+```bash
+go run ./cmd/load -restore ~/tta-data/baseline/2026-10-04
+```
+
+The restore applies the migrations, then loads everything in one
+transaction. It refuses a database that already holds games or runs, a file
+changed since the export, and an export taken at another schema version
+(restore with the `load` of that version, then migrate). Then run the engine
+([Compute ratings](#compute-ratings)).
+
+For the original site (upstream), write the games as the one match CSV its
+loader reads, `data/raw/all_matches.csv`:
+
+```bash
+go run ./cmd/load -export-upstream ~/tta-data/exports/all_matches.csv   # a new file
+```
+
+It holds every played game, oldest first. Games never played or unconfirmed
+are left out: they are not rated here, and upstream would rate them. Replay
+codes, CGE seats and the recorded tournament facts are not in that format.
 
 ### The files
 
@@ -306,19 +373,14 @@ cd backend && go run ./cmd/load -migrate
 psql "$RATINGS_DATABASE_URL" -Atc "SELECT max(version_id) FROM goose_db_version"
 ```
 
-**Load the recorded tournament facts** (see [Load ratings data](#load-ratings-data))
-when they change, before the run that should use them. Each file replaces
+**Recorded tournament facts** are in the baseline. To change one kind, write
+its whole CSV in the format under [Load ratings data](#load-ratings-data) and
+load it before the run that should use it; the file replaces every fact of
 its kind:
 
 ```bash
 cd backend
-go run ./cmd/load -facts divisions ~/tta-data/tournaments/group_divisions.csv
-go run ./cmd/load -facts placements ~/tta-data/tournaments/official_placements.csv
-go run ./cmd/load -facts corrections ~/tta-data/tournaments/season_corrections.csv
-go run ./cmd/load -facts dates ~/tta-data/tournaments/finish_dates.csv
-go run ./cmd/load -facts honours ~/tta-data/tournaments/career_honours.csv
-go run ./cmd/load -facts community ~/tta-data/tournaments/community_standings.csv
-go run ./cmd/load -facts community_scores ~/tta-data/tournaments/community_scores.csv
+go run ./cmd/load -facts placements ~/tta-data/new/official_placements.csv
 ```
 
 **Compute a rating run** with the image `deploy/engine.yaml` pins. The
@@ -371,26 +433,70 @@ from `main`:
 | Worker | Root directory | Build command | Deploy command |
 |---|---|---|---|
 | `ttacommunity` (the site) | `/web` | `pnpm --filter @ttac/site build` | `npx wrangler@4.141.0 deploy --config site/wrangler.jsonc` |
+| `ttacommunity` Previews (Settings → Builds → Previews Base) | `/web` | `pnpm --filter @ttac/site build` | `if [ "$WORKERS_CI_BRANCH" = dev ]; then npx wrangler@4.141.0 preview --config site/wrangler.jsonc; else echo "Previews are built for branch dev only"; fi` |
 | `ttac-admin` | `/web` | `pnpm --filter @ttac/admin build` | `npx wrangler@4.141.0 deploy --config admin/wrangler.jsonc` |
+| `ttac-admin` Previews | `/web` | `pnpm --filter @ttac/admin build` | `if [ "$WORKERS_CI_BRANCH" = dev ]; then npx wrangler@4.141.0 preview --config admin/wrangler.jsonc; else echo "Previews are built for branch dev only"; fi` |
 | `ttac-auth` (Discord sign-in for Access) | `/infra/access-oidc` | none | `npx wrangler deploy` |
 
 Build variables, set in each site Worker's build settings:
 
 | Variable | Worker | Value | Why |
 |---|---|---|---|
-| `PUBLIC_API_URL` | `ttacommunity` | `https://ttac-api.unstableunicorn.dev` | Where the browser reads ratings. Sent to the browser, so never a secret |
+| `PUBLIC_API_URL` | `ttacommunity` | `https://ttac-api.unstableunicorn.dev`; on `dev`, `https://ttac-api-dev.unstableunicorn.dev` | Where the browser reads ratings, and the CSP's `connect-src`. Sent to the browser, so never a secret |
+| `SITE_NOINDEX` | `ttacommunity`, `dev` only | `1` | Adds `X-Robots-Tag: noindex`: Cloudflare adds none to a Preview on a custom domain |
 | `NODE_VERSION` | both sites | the `node` version in `mise.toml` | The build image's default is older |
 | `PNPM_VERSION` | both sites | the pnpm version in `web/package.json` | The build image does not read `packageManager` |
 
-When importing a Worker, **turn off non-production (preview) builds**. The
-configs turn preview URLs off, so a preview build fails, and it reports that
-failure on the merge request's commit, which then cannot merge.
+When importing a Worker, **turn off non-production (preview) builds**, and
+on `ttacommunity` keep them to branch `dev`. Previews have no branch
+filter, so the Preview command skips every other branch. A preview build
+reports on the merge request's commit, and a failure there blocks the
+merge. Previews Base has its own build variables; don't click "Enable
+Preview URLs", which turns on `workers.dev`. `dev` is served at `dev.ttacommunity.unstableunicorn.dev`: a
+Preview on a custom domain is `<branch>.<route host>`, and the route sets
+`previews_enabled`.
 
 `ttac-auth` needs one runtime secret, `DISCORD_CLIENT_SECRET`, set under the
 Worker's Variables and Secrets (not its build variables).
 
 **`ttac-admin` is only reachable through Cloudflare Access.** Its Access
-application must exist before its domain is declared.
+application must exist before its domain is declared, and it covers
+`*.ttac-admin.unstableunicorn.dev` before previews are turned on: `dev`'s
+preview is `dev.ttac-admin.unstableunicorn.dev`.
+
+### Admin
+
+Admin is the `ttac-admin` site and the API's `/v1/admin/` routes:
+
+- **The site's Worker** serves the pages, and proxies `/api/*` to
+  `/v1/admin/*` on the API for its host (`ttac-admin` to `ttac-api`,
+  `dev.ttac-admin` to `ttac-api-dev`; any other host is refused) after
+  verifying the Access token itself
+- **The API verifies the token again** (signature, issuer, the admin app's
+  audience, expiry, a Discord id), then looks the Discord id up in `admins`:
+  role `admin` or `organiser`. A change must come from `ADMIN_ORIGIN`, and
+  every change is written to `admin_audit`
+- **The API refuses to start** without `ACCESS_TEAM`, `ACCESS_AUD`,
+  `ADMIN_ORIGIN` and `RATINGS_ADMIN_DATABASE_URL`, or when the admin login
+  could change games, players or a run's ratings
+
+**Rating runs.** Admins start a run, watch it, stop it, compare it with the
+published run, and publish it (or publish an older one to roll back). A
+stopped engine marks its run failed as it ends; a run left running by an
+engine that was killed outright shows as failed once no engine Job is going. The engine writes
+its latest progress line to `run_progress` as it goes. To start a run, the API
+creates a Job from the CronJob named by `ENGINE_CRONJOB`, in its own namespace,
+using its service account (`deploy/dev/api-rbac.yaml`: read that CronJob, and
+list, create and delete Jobs); stopping deletes that CronJob's unfinished Jobs. Without `ENGINE_CRONJOB`, as when run locally, starting a run
+answers 503; the rest of admin works.
+
+The admin login is a member of `ratings_admin`, which the migrations grant
+only what admin edits. A database owner without `CREATEROLE` needs the role
+made first (`scripts/seed-cluster-db.sh` does). Add someone to admin:
+
+```bash
+go run ./cmd/load -add-admin <Discord id> -name <name> -role admin   # or organiser
+```
 
 ### The API
 

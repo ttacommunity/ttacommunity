@@ -67,3 +67,7 @@ tools/
 
 # Local state of the Cloudflare CLI (cf), e.g. its account cache
 .cloudflare/
+
+# The "what changed" notes for DANeo: kept locally while they are edited.
+web/site/src/pages/ratings/what-changed/
+web/site/src/data/what-changed.json

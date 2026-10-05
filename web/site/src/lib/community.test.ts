@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { CommunityRow } from '@ttac/shared/ratings';
-import { countingColumns, pageWindow, parseCommunityView, titleMark, tournamentSums } from './community';
+import { countingColumns, editionFacts, parseCommunityView, titleMark, tournamentSums } from './community';
 import { EDITIONS } from './community-editions';
 
 const row = (r: Partial<CommunityRow>): CommunityRow => ({
@@ -39,18 +39,27 @@ describe('tournamentSums', () => {
 });
 
 describe('titleMark', () => {
-  it("shows WC for the edition's champion, GM, M, P and G, and nothing else, as upstream", () => {
+  it("shows WC for the edition's champion, and every other title, Super GM to Wood", () => {
     expect(titleMark(row({ name: 'Martin_Pecheur', title: 'GM' }), EDITIONS['2024'])).toBe('WC');
     expect(titleMark(row({ title: 'M' }), EDITIONS['2024'])).toBe('M');
-    expect(titleMark(row({ title: 'SGM' }), EDITIONS['2024'])).toBeNull();
-    expect(titleMark(row({ title: 'S' }), EDITIONS['2024'])).toBeNull();
+    expect(titleMark(row({ title: 'SGM' }), EDITIONS['2024'])).toBe('SGM');
+    expect(titleMark(row({ title: 'S' }), EDITIONS['2024'])).toBe('S');
+    expect(titleMark(row({ title: 'W' }), EDITIONS['2024'])).toBe('W');
+    expect(titleMark(row({ title: null }), EDITIONS['2024'])).toBeNull();
   });
 });
 
-describe('pageWindow', () => {
-  it('lists three pages either side, as upstream', () => {
-    expect(pageWindow(1, 30)).toEqual([1, 2, 3, 4]);
-    expect(pageWindow(10, 30)).toEqual([7, 8, 9, 10, 11, 12, 13]);
-    expect(pageWindow(30, 30)).toEqual([27, 28, 29, 30]);
+describe('editionFacts', () => {
+  it("counts the edition's own event slots, tiers and tournaments", () => {
+    expect(editionFacts(EDITIONS['2024'])).toMatchObject({ slots: 17, tiers: 7, tournaments: 10 });
+    expect(editionFacts(EDITIONS['2025'])).toMatchObject({ slots: 20, tiers: 7, tournaments: 11 });
+    expect(editionFacts(EDITIONS.race26)).toMatchObject({ slots: 13, tiers: 6, tournaments: 10 });
+  });
+
+  it("lists each tier with its own columns and points, not the 2026 edition's", () => {
+    const tiers = editionFacts(EDITIONS['2024']).lines;
+    expect(tiers[0]).toEqual({ name: 'World Championship', codes: 'wrld', maxPts: '2,500', each: false });
+    expect(tiers[1]).toEqual({ name: 'International Championship (4-Player League)', codes: 'ic_24–27', maxPts: '1,000', each: true });
+    expect(tiers[6]).toEqual({ name: 'Invitational Cups', codes: 'eif, qd', maxPts: '600–1,000', each: true });
   });
 });

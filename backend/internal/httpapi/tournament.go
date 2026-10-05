@@ -37,16 +37,7 @@ func (s *server) GetTournamentSeries(ctx context.Context, req GetTournamentSerie
 			Season: r.Season, Division: r.Division, LastPlayed: openapi_types.Date{Time: r.LastPlayed},
 		})
 	}
-	for _, g := range t.GameRecords {
-		opponents := make([]Seat, 0, len(g.Opponents))
-		for _, o := range g.Opponents {
-			opponents = append(opponents, Seat{Name: o.Name, Score: o.Score})
-		}
-		body.GameRecords = append(body.GameRecords, GameRecord{
-			Name: g.Name, WorldChampion: g.WorldChampion, Score: g.Score, Opponents: opponents,
-			Tournament: g.Tournament, Date: openapi_types.Date{Time: g.Date},
-		})
-	}
+	body.GameRecords = gameRecords(t.GameRecords)
 	return GetTournamentSeries200JSONResponse{
 		Body: body, Headers: GetTournamentSeries200ResponseHeaders{CacheControl: cacheRun},
 	}, nil
@@ -164,4 +155,20 @@ func (s *server) GetCommunityLeaderboard(ctx context.Context, req GetCommunityLe
 	return GetCommunityLeaderboard200JSONResponse{
 		Body: body, Headers: GetCommunityLeaderboard200ResponseHeaders{CacheControl: cacheRun},
 	}, nil
+}
+
+// gameRecords turns games' winning records into the API's.
+func gameRecords(games []store.GameRecord) []GameRecord {
+	out := make([]GameRecord, 0, len(games))
+	for _, g := range games {
+		opponents := make([]Seat, 0, len(g.Opponents))
+		for _, o := range g.Opponents {
+			opponents = append(opponents, Seat{Name: o.Name, Score: o.Score})
+		}
+		out = append(out, GameRecord{
+			Name: g.Name, WorldChampion: g.WorldChampion, Score: g.Score, Opponents: opponents,
+			Tournament: g.Tournament, Date: openapi_types.Date{Time: g.Date},
+		})
+	}
+	return out
 }

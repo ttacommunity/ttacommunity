@@ -36,7 +36,7 @@ func badRequestBody(msg string) BadRequestJSONResponse {
 
 // notFound returns the 404 body for a store error that means one, or false.
 func notFound(err error) (NotFoundJSONResponse, bool) {
-	if !errors.Is(err, store.ErrRunNotFound) && !errors.Is(err, store.ErrPlayerNotFound) {
+	if !errors.Is(err, store.ErrRunNotFound) && !errors.Is(err, store.ErrPlayerNotFound) && !errors.Is(err, store.ErrTournamentNotFound) {
 		return NotFoundJSONResponse{}, false
 	}
 	return NotFoundJSONResponse{Body: Error{Error: err.Error()}, Headers: NotFoundResponseHeaders{CacheControl: cacheNone}}, true
@@ -69,6 +69,7 @@ func (s *server) GetPlayer(ctx context.Context, req GetPlayerRequestObject) (Get
 	if p.Peak != nil {
 		body.Peak = &Peak{Code: TitleCode(p.Peak.Code), Year: p.Peak.Year}
 	}
+	body.Badges = extraBadges(p.Badges)
 	if p.LastPlayed != nil {
 		body.LastPlayed = &openapi_types.Date{Time: *p.LastPlayed}
 	}

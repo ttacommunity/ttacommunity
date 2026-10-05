@@ -199,6 +199,64 @@ def test_a_named_division_is_never_replaced_by_a_record(
     assert (row["division"], row["division_source"]) == ("Grandmaster", "name")
 
 
+def test_a_game_named_without_a_division_takes_cges_group(
+    conn, add_match, run_id, record
+):
+    record(16, "Grandmaster", "ann", "bob", "cat")
+    add_match(
+        ("ann", 90),
+        ("bob", 80),
+        ("cat", 70),
+        tournament="International S16",
+        group="Gold 2",
+    )
+
+    derive_tournaments(conn=conn, run_id=run_id)
+
+    row = conn.execute(
+        "SELECT division, group_label, division_source FROM tournament_games WHERE run_id = %s",
+        (run_id,),
+    ).fetchone()
+    assert (row["division"], row["group_label"], row["division_source"]) == (
+        "Gold",
+        "Gold 2",
+        "cge",
+    )
+
+
+def test_a_world_championship_group_is_not_a_division(conn, add_match, run_id):
+    add_match(
+        ("ann", 90),
+        ("bob", 80),
+        ("cat", 70),
+        tournament="Worlds 2025 Stage 2 - Upper 107",
+        group="Upper 107",
+    )
+
+    derive_tournaments(conn=conn, run_id=run_id)
+
+    row = conn.execute(
+        "SELECT division, division_source FROM tournament_games WHERE run_id = %s",
+        (run_id,),
+    ).fetchone()
+    assert (row["division"], row["division_source"]) == (None, None)
+
+
+def test_placements_of_a_series_the_engine_does_not_derive_are_left_alone(
+    conn, run_id, place
+):
+    place("nations_league", 10, "Apple", "DANeo")
+
+    derive_tournaments(conn=conn, run_id=run_id)
+
+    assert (
+        conn.execute(
+            "SELECT count(*) AS n FROM tournament_boards WHERE run_id = %s", (run_id,)
+        ).fetchone()["n"]
+        == 0
+    )
+
+
 def board(conn, run_id):
     rows = conn.execute(
         "SELECT player_name, gold, silver, bronze, points, title "
@@ -209,7 +267,9 @@ def board(conn, run_id):
     return {r["player_name"]: tuple(list(r.values())[1:]) for r in rows}
 
 
-def test_the_board_counts_top_division_podiums(conn, add_match, run_id):
+def test_the_board_counts_top_division_podiums(conn, add_match, run_id, place):
+    # A World Champion is WC only on the World Championship's board.
+    place("worlds", 2023, "Final", "Weidenbaum")
     for season in (30, 31):
         add_match(
             ("Weidenbaum", 90),
@@ -228,7 +288,7 @@ def test_the_board_counts_top_division_podiums(conn, add_match, run_id):
     derive_tournaments(conn=conn, run_id=run_id)
 
     assert board(conn, run_id) == {
-        "Weidenbaum": (2, 0, 0, 12.0, "WC"),
+        "Weidenbaum": (2, 0, 0, 12.0, "GM"),
         "ann": (0, 2, 0, 6.0, "M"),
         "bob": (0, 0, 2, 2.0, "M"),
     }
@@ -243,9 +303,9 @@ def season_records(conn, run_id):
     return [tuple(r.values()) for r in rows]
 
 
-def test_season_records_score_tied_places_in_seat_order(conn, add_match, run_id):
-    # Upstream's seasonal records give a tied place the points of its seat
-    # order, and count only seasons of at least 6 games.
+def test_season_records_split_a_tied_places_points(conn, add_match, run_id):
+    # Tied players share their places' points and the better place; only
+    # seasons of at least 6 games count.
     for n in range(1, 7):
         add_match(
             ("ann", 90),
@@ -262,27 +322,33 @@ def test_season_records_score_tied_places_in_seat_order(conn, add_match, run_id)
     derive_tournaments(conn=conn, run_id=run_id)
 
     assert season_records(conn, run_id) == [
-        ("ann", 30, 41.0, 7, [7, 0, 0, 0], date(2025, 7, 9)),
-        ("bob", 30, 18.0, 6, [0, 6, 0, 0], date(2025, 7, 6)),
+        ("ann", 30, 32.0, 7, [7, 0, 0, 0], date(2025, 7, 9)),
+        ("bob", 30, 27.0, 6, [6, 0, 0, 0], date(2025, 7, 6)),
         ("cat", 30, 6.0, 6, [0, 0, 6, 0], date(2025, 7, 6)),
         ("dan", 30, 0.0, 6, [0, 0, 0, 6], date(2025, 7, 6)),
     ]
 
 
-def test_season_records_leave_out_recorded_divisions(conn, add_match, run_id, record):
+def test_season_records_take_a_recorded_top_division(conn, add_match, run_id, record):
     record(20, "Grandmaster", "ann", "bob", "cat")
+    record(20, "Platinum", "dan", "eve", "fay")
     for n in range(1, 7):
         add_match(
-            ("ann", 90),
-            ("bob", 80),
-            ("cat", 70),
-            tournament="International S20",
-            day=date(2021, 1, n),
-        )
+            ("ann", 90), ("bob", 80), ("cat", 70),
+            tournament="International S20", day=date(2021, 1, n),
+        )  # fmt: skip
+        add_match(
+            ("dan", 90), ("eve", 80), ("fay", 70),
+            tournament="International S20", day=date(2021, 1, n),
+        )  # fmt: skip
 
     derive_tournaments(conn=conn, run_id=run_id)
 
-    assert season_records(conn, run_id) == []
+    assert [r[:4] for r in season_records(conn, run_id)] == [
+        ("ann", 20, 30.0, 6),
+        ("bob", 20, 12.0, 6),
+        ("cat", 20, 0.0, 6),
+    ]
 
 
 def test_derive_needs_a_running_run(conn, run_id):
@@ -304,22 +370,6 @@ def test_derive_replaces_the_runs_rows(conn, add_match, run_id):
         ("bob", 2, 2.0),
         ("cat", 3, 0.0),
     ]
-
-
-@pytest.fixture
-def place(conn):
-    """Returns a function that records official placements for a season's division."""
-
-    def add(series, season, division, *players, points=None):
-        for i, p in enumerate(players, start=1):
-            conn.execute(
-                "INSERT INTO tournament_official_placements "
-                "VALUES (%s, %s, %s, %s, %s, %s, 'test', 'sheet')",
-                (series, season, division, p, i, points[i - 1] if points else None),
-            )
-        conn.commit()
-
-    return add
 
 
 @pytest.fixture
@@ -494,21 +544,25 @@ def test_tiebreak_games_stay_out_of_standings_but_in_records(conn, add_match, ru
     assert standings(conn, run_id, 9) == [("ann", 1, 2.0), ("bob", 2, 0.0)]
 
 
-def test_intermezzo_records_leave_out_grandmaster_1_as_upstream_does(
-    conn, add_match, run_id
-):
-    kept = add_match(("ann", 90), ("bob", 80), ("cat", 70), tournament=im(1))
-    left = add_match(
+def test_records_keep_grandmaster_1_and_leave_out_master_1(conn, add_match, run_id):
+    plain = add_match(("ann", 90), ("bob", 80), ("cat", 70), tournament=im(1))
+    numbered = add_match(
         ("ann", 90), ("bob", 80), ("cat", 70), tournament=im(1, 12, "Grandmaster 1")
+    )
+    master = add_match(
+        ("ann", 90),
+        ("bob", 80),
+        ("cat", 70),
+        tournament=im(1, 12, "Master 1 - Grandmaster"),
     )
 
     derive_tournaments(conn=conn, run_id=run_id)
 
     got = {r["match_id"]: r["in_records"] for r in games(conn, run_id)}
-    assert (got[kept], got[left]) == (True, False)
+    assert (got[plain], got[numbered], got[master]) == (True, True, False)
 
 
-def test_season_records_count_the_seasons_names_give(conn, add_match, run_id, correct):
+def test_season_records_count_the_corrected_season(conn, add_match, run_id, correct):
     correct("intermezzo", 8, 7)
     for n in range(1, 7):
         add_match(
@@ -522,7 +576,7 @@ def test_season_records_count_the_seasons_names_give(conn, add_match, run_id, co
     derive_tournaments(conn=conn, run_id=run_id)
 
     got = season_records(conn, run_id)
-    assert got[0][:5] == ("ann", 8, 30.0, 6, [6, 0, 0])
+    assert got[0][:5] == ("ann", 7, 30.0, 6, [6, 0, 0])
 
 
 def test_royal_league_season_records_are_wins_draws_losses(conn, add_match, run_id):
@@ -546,7 +600,7 @@ def test_a_league_game_short_of_players_scores_as_upstream(conn, add_match, run_
     assert standings(conn, run_id, 23) == [("ann", 1, 5.0), ("bob", 2, 2.0)]
 
 
-def test_season_records_keep_a_left_out_seasons_games_as_upstream(
+def test_season_records_leave_out_a_left_out_seasons_games(
     conn, add_match, run_id, correct
 ):
     correct("intermezzo", 7, None)
@@ -561,12 +615,7 @@ def test_season_records_keep_a_left_out_seasons_games_as_upstream(
 
     derive_tournaments(conn=conn, run_id=run_id)
 
-    row = conn.execute(
-        "SELECT season, division, points FROM tournament_season_records "
-        "WHERE run_id = %s AND player_name = 'ann'",
-        (run_id,),
-    ).fetchone()
-    assert (row["season"], row["division"], row["points"]) == (7, "Grandmaster", 30.0)
+    assert season_records(conn, run_id) == []
 
 
 def test_derive_writes_every_series_counts(conn, add_match, run_id):
@@ -576,17 +625,20 @@ def test_derive_writes_every_series_counts(conn, add_match, run_id):
     derive_tournaments(conn=conn, run_id=run_id)
 
     rows = conn.execute(
-        "SELECT series, games, editions FROM tournament_series WHERE run_id = %s ORDER BY series",
+        "SELECT series, games, editions FROM tournament_series WHERE run_id = %s",
         (run_id,),
     ).fetchall()
-    assert [tuple(r.values()) for r in rows] == [
-        ("grand_slams", 0, 0),
-        ("intermezzo", 0, 0),
-        ("international", 1, 30),
-        ("ladders", 0, 16),
-        ("royal_league", 0, 0),
-        ("worlds", 1, 1),
-    ]
+    got = {r["series"]: (r["games"], r["editions"]) for r in rows}
+    assert set(got) == {
+        "international",
+        "intermezzo",
+        "royal_league",
+        "worlds",
+        "grand_slams",
+        "ladders",
+    }
+    assert got["international"] == (1, 30)
+    assert got["worlds"] == (1, 1)
 
 
 def positions(conn, run_id, series):
@@ -657,3 +709,215 @@ def test_derive_writes_the_all_time_table(conn, add_match, run_id, place):
         (1, "ann", 1, 0, 1, 1, 0),
         (2, "bob", 0, 1, 1, 0, 0),
     ]
+
+
+def test_a_recorded_top_division_game_is_a_single_game_record(
+    conn, add_match, run_id, record
+):
+    record(20, "Grandmaster", "ann", "bob", "cat")
+    record(20, "Platinum", "dan", "eve", "fay")
+    top = add_match(
+        ("ann", 90), ("bob", 80), ("cat", 70), tournament="International S20"
+    )
+    lower = add_match(
+        ("dan", 90), ("eve", 80), ("fay", 70), tournament="International S20"
+    )
+
+    derive_tournaments(conn=conn, run_id=run_id)
+
+    got = {r["match_id"]: r["in_records"] for r in games(conn, run_id)}
+    assert (got[top], got[lower]) == (True, False)
+
+
+def test_a_seasons_timeout_penalty_costs_points(conn, add_match, run_id):
+    conn.execute(
+        "INSERT INTO tournament_season_rules (series, season, timeout_penalty, source) VALUES ('intermezzo', 8, -1, 's')"
+    )
+    conn.commit()
+    for n in range(1, 7):
+        cat = (
+            -5 if n <= 2 else 70
+        )  # a timeout scores -5, as upstream's scraper writes it
+        add_match(
+            ("ann", 90),
+            ("bob", 80),
+            ("cat", cat),
+            tournament=im(n),
+            day=date(2020, 8, n),
+        )
+
+    derive_tournaments(conn=conn, run_id=run_id)
+
+    assert standings(conn, run_id, 8) == [
+        ("ann", 1, 30.0),
+        ("bob", 2, 12.0),
+        ("cat", 3, -2.0),
+    ]
+    assert [r[:3] for r in season_records(conn, run_id)] == [
+        ("ann", 8, 30.0),
+        ("bob", 8, 12.0),
+        ("cat", 8, -2.0),
+    ]
+
+
+def test_a_season_without_a_rule_has_no_timeout_penalty(conn, add_match, run_id):
+    for n in range(1, 7):
+        add_match(
+            ("ann", 90),
+            ("bob", 80),
+            ("cat", -5),
+            tournament=im(n),
+            day=date(2020, 8, n),
+        )
+
+    derive_tournaments(conn=conn, run_id=run_id)
+
+    assert standings(conn, run_id, 8)[2] == ("cat", 3, 0.0)
+
+
+def test_a_game_never_played_gives_no_points_place_or_game(conn, add_match, run_id):
+    add_match(("ann", 90), ("bob", 80), ("cat", 70), tournament=gm(1))
+    add_match(
+        ("ann", -5), ("bob", -5), ("cat", -5), tournament=gm(2), state="never_played"
+    )
+
+    derive_tournaments(conn=conn, run_id=run_id)
+
+    rows = conn.execute(
+        "SELECT player_name, place, points, games FROM tournament_standings WHERE run_id = %s ORDER BY place",
+        (run_id,),
+    ).fetchall()
+    # International's 3-player points are 5-2-0; the never-played game adds no points, place or game.
+    assert [tuple(r.values()) for r in rows] == [
+        ("ann", 1, 5.0, 1),
+        ("bob", 2, 2.0, 1),
+        ("cat", 3, 0.0, 1),
+    ]
+
+
+@pytest.fixture
+def worlds_game(conn, add_match):
+    """Returns a function that adds a game to a World Championship season's stage, its CGE tournament in status."""
+
+    def add(season, stage, cge_season, status, *players):
+        cge = 9000 + season
+        conn.execute(
+            "INSERT INTO cge_tournaments (cge_tournament, name, status) VALUES (%s, %s, %s) "
+            "ON CONFLICT (cge_tournament) DO UPDATE SET status = excluded.status",
+            (cge, f"World Championship {season}", status),
+        )
+        t = conn.execute(
+            "INSERT INTO tournaments (slug, name) VALUES ('worlds', 'World Championship') "
+            "ON CONFLICT (slug) DO UPDATE SET slug = excluded.slug RETURNING tournament_id"
+        ).fetchone()["tournament_id"]
+        se = conn.execute(
+            "INSERT INTO tournament_seasons (tournament_id, label) VALUES (%s, %s) "
+            "ON CONFLICT (tournament_id, label) DO UPDATE SET label = excluded.label RETURNING season_id",
+            (t, str(season)),
+        ).fetchone()["season_id"]
+        st = conn.execute(
+            "INSERT INTO tournament_stages (season_id, label, cge_tournament, cge_season) VALUES (%s, %s, %s, %s) "
+            "ON CONFLICT (season_id, label) DO UPDATE SET label = excluded.label RETURNING stage_id",
+            (se, stage, cge, cge_season),
+        ).fetchone()["stage_id"]
+        match = add_match(
+            *players, tournament=f"Worlds {season} {stage} - Final", placed=None
+        )
+        conn.execute(
+            "UPDATE matches SET stage_id = %s WHERE match_id = %s", (st, match)
+        )
+        conn.commit()
+
+    return add
+
+
+def worlds_podium(conn, run_id, season):
+    rows = conn.execute(
+        "SELECT player_name, place, points FROM tournament_standings "
+        "WHERE run_id = %s AND series = 'worlds' AND season = %s AND division = 'Final' ORDER BY place",
+        (run_id, season),
+    ).fetchall()
+    return [(r["player_name"], r["place"], r["points"]) for r in rows]
+
+
+def world_titles(conn, run_id):
+    return {
+        r["player_name"]: r["world_titles"]
+        for r in conn.execute(
+            "SELECT player_name, world_titles FROM tournament_achievements WHERE run_id = %s AND world_titles > 0",
+            (run_id,),
+        ).fetchall()
+    }
+
+
+def a_final(worlds_game, season=2025, status="finished"):
+    worlds_game(
+        season, "Stage 7", 7, status, ("ann", 90), ("bob", 80), ("cat", 70), ("dan", 60)
+    )
+    # The final, by CGE's points: 4p 6/3/1/0, 3p 5/2/0, 2p 4/0.
+    worlds_game(
+        season, "Stage 8", 8, status, ("bob", 90), ("ann", 80), ("cat", 70), ("dan", 60)
+    )
+    worlds_game(season, "Stage 8", 8, status, ("cat", 90), ("bob", 80), ("ann", 70))
+    worlds_game(season, "Stage 8", 8, status, ("bob", 90), ("dan", 80))
+
+
+def test_a_finished_world_championship_takes_its_podium_from_the_final(
+    conn, worlds_game, run_id
+):
+    a_final(worlds_game)
+
+    derive_tournaments(conn=conn, run_id=run_id)
+
+    assert worlds_podium(conn, run_id, 2025) == [
+        ("bob", 1, 12.0),
+        ("cat", 2, 6.0),
+        ("ann", 3, 3.0),
+        ("dan", 4, 0.0),
+    ]
+    assert world_titles(conn, run_id) == {"bob": 1}
+
+
+def test_a_world_championship_still_running_has_no_podium(conn, worlds_game, run_id):
+    a_final(worlds_game, status="running")
+
+    derive_tournaments(conn=conn, run_id=run_id)
+
+    assert worlds_podium(conn, run_id, 2025) == []
+    assert world_titles(conn, run_id) == {}
+
+
+def test_a_recorded_podium_beats_the_derived_one(conn, worlds_game, run_id, place):
+    a_final(worlds_game)
+    place("worlds", 2025, "Final", "dan", "ann", "cat")
+
+    derive_tournaments(conn=conn, run_id=run_id)
+
+    assert worlds_podium(conn, run_id, 2025) == []
+    assert world_titles(conn, run_id) == {"dan": 1}
+
+
+def test_an_admin_podium_beats_a_recorded_one(conn, worlds_game, run_id, place):
+    a_final(worlds_game)
+    place("worlds", 2025, "Final", "dan", "ann", "cat")
+    for p, name in enumerate(("ann", "dan", "bob"), start=1):
+        conn.execute(
+            "INSERT INTO tournament_podium_overrides (tournament, season, place, player_name) VALUES ('worlds', '2025', %s, %s)",
+            (p, name),
+        )
+    conn.commit()
+
+    derive_tournaments(conn=conn, run_id=run_id)
+
+    assert world_titles(conn, run_id) == {"ann": 1}
+
+
+def test_a_final_tie_the_rules_cannot_split_gives_no_podium(conn, worlds_game, run_id):
+    # ann and bob share both games' points and winning shares; head-to-head is level.
+    worlds_game(2025, "Stage 8", 8, "finished", ("ann", 90), ("bob", 90))
+    worlds_game(2025, "Stage 8", 8, "finished", ("bob", 80), ("ann", 80))
+
+    derive_tournaments(conn=conn, run_id=run_id)
+
+    assert worlds_podium(conn, run_id, 2025) == []
+    assert world_titles(conn, run_id) == {}

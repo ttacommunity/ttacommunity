@@ -1,8 +1,16 @@
 /** Upstream's leaderboard view: its options and filters, ranking, search, sort and paging, all in the browser. */
 import type { Format, History, LeaderboardRow, Model, TitleCode, YearLeaderboard } from '@ttac/shared/ratings';
 
-/** A player whose last game is on or before this date is inactive. Upstream's fixed date, not yet a rolling rule. */
-export const INACTIVE_ON_OR_BEFORE = '2025-05-31';
+/** Upstream's fixed cutoff, kept for a run that recorded no last game. */
+const UPSTREAM_CUTOFF = '2025-05-31';
+
+/** inactiveCutoff returns the date on or before which a last game makes a player inactive: 12 months before the run's last game. */
+export function inactiveCutoff(lastGame: string | null): string {
+  if (lastGame === null) return UPSTREAM_CUTOFF;
+  const d = new Date(`${lastGame}T00:00:00Z`);
+  d.setUTCFullYear(d.getUTCFullYear() - 1);
+  return d.toISOString().slice(0, 10);
+}
 
 /** Rows a page, and the fewest opponents a player needs to appear by default. */
 export const PER_PAGE = 50;
@@ -20,13 +28,18 @@ export type Order = 'asc' | 'desc';
 export type DeltaWindow = 'none' | 'last_update' | 'month' | 'quarter' | 'year';
 export type StatsView = 'season' | 'career';
 
-/** The date each delta window compares against: upstream's fixed dates, or null for the previous rating period. */
-export const DELTA_DATES: Record<Exclude<DeltaWindow, 'none'>, string | null> = {
-  last_update: null,
-  month: '2026-05-01',
-  quarter: '2026-03-01',
-  year: '2025-05-31',
-};
+/** Upstream's fixed delta dates, kept for a run that recorded no last game. */
+const UPSTREAM_DELTA_DATES = { last_update: null, month: '2026-05-01', quarter: '2026-03-01', year: '2025-05-31' } as const;
+
+/**
+ * deltaDates returns the date each delta window compares against: 30, 90 and 365 days before the run's last game, or
+ * null for the previous rating period.
+ */
+export function deltaDates(lastGame: string | null): Record<Exclude<DeltaWindow, 'none'>, string | null> {
+  if (lastGame === null) return { ...UPSTREAM_DELTA_DATES };
+  const before = (days: number) => new Date(Date.parse(`${lastGame}T00:00:00Z`) - days * 86_400_000).toISOString().slice(0, 10);
+  return { last_update: null, month: before(30), quarter: before(90), year: before(365) };
+}
 const DELTAS: readonly DeltaWindow[] = ['none', 'last_update', 'month', 'quarter', 'year'];
 
 const FORMATS: readonly Format[] = [0, 2, 3, 4];
@@ -158,15 +171,20 @@ const byName = (a: { name: string }, b: { name: string }) => (a.name < b.name ? 
 
 /**
  * rankPool keeps the players the status, opponent and title filters allow, ranked 1… by conservative rating. Active
- * means playing since upstream's cutoff, or in a year's archive, being among those who played that year.
+ * means a last game after cutoff (inactiveCutoff), or in a year's archive, being among those who played that year.
  */
-export function rankPool(rows: readonly LeaderboardRow[], view: View, playedInYear?: ReadonlySet<string>): RankedRow[] {
+export function rankPool(
+  rows: readonly LeaderboardRow[],
+  view: View,
+  playedInYear?: ReadonlySet<string>,
+  cutoff: string = UPSTREAM_CUTOFF,
+): RankedRow[] {
   return rows
     .map((p) => {
       const active =
         view.year !== null && playedInYear
           ? playedInYear.has(p.name)
-          : p.last_played !== null && p.last_played > INACTIVE_ON_OR_BEFORE;
+          : p.last_played !== null && p.last_played > cutoff;
       return { ...p, displayRank: 0, active, provisional: active && p.opponents < PROVISIONAL_BELOW };
     })
     .filter(
@@ -198,6 +216,57 @@ export function search(pool: RankedRow[], term: string): { rows: RankedRow[]; ju
   const exact = found.find((p) => p.name.toLowerCase() === term.toLowerCase());
   if (exact || found.length === 1) return { rows: pool, jumpTo: (exact ?? found[0]).name };
   return { rows: found, jumpTo: null };
+}
+
+/** Players a search matches that the filters hide, and the view that shows them. */
+export type Hidden = { names: string[]; reasons: ('opponents' | 'activity' | 'title')[]; show: View };
+
+/**
+ * hiddenMatches returns the players a search matches only outside the filters (minimum opponents, activity, title),
+ * which filters hide them, and the view that relaxes just those; null when the search finds someone shown, or nobody.
+ */
+export function hiddenMatches(
+  rows: readonly LeaderboardRow[],
+  view: View,
+  term: string,
+  playedInYear?: ReadonlySet<string>,
+  cutoff?: string,
+): Hidden | null {
+  if (term === '' || search(rankPool(rows, view, playedInYear, cutoff), term).rows.length > 0) return null;
+  const terms = term.split(',').map((t) => t.trim()).filter((t) => t !== '');
+  const found = rankPool(rows, { ...view, minOpps: 0, status: 'all', title: null }, playedInYear, cutoff).filter((p) =>
+    terms.some((t) => matches(p, t)),
+  );
+  if (found.length === 0) return null;
+  const fewOpps = found.filter((p) => p.opponents < view.minOpps);
+  const inactive = view.status !== 'all' && found.some((p) => p.active !== (view.status === 'active'));
+  const otherTitle = view.title !== null && found.some((p) => p.title?.code !== view.title);
+  const reasons: Hidden['reasons'] = [];
+  if (fewOpps.length > 0) reasons.push('opponents');
+  if (inactive) reasons.push('activity');
+  if (otherTitle) reasons.push('title');
+  return {
+    names: found.map((p) => p.name),
+    reasons,
+    show: {
+      ...view,
+      minOpps: fewOpps.length > 0 ? Math.min(...fewOpps.map((p) => p.opponents)) : view.minOpps,
+      status: inactive ? 'all' : view.status,
+      title: otherTitle ? null : view.title,
+      page: 1,
+    },
+  };
+}
+
+/** hiddenNote says who a search found behind the filters, and which filters hide them. */
+export function hiddenNote(h: Hidden, view: View, term: string): string {
+  const why = h.reasons.map((r) =>
+    r === 'opponents' ? `the minimum of ${view.minOpps} opponents` : r === 'activity' ? `the ${view.status === 'active' ? 'Active' : 'Inactive'} only filter` : `the ${view.title} title filter`,
+  );
+  const filters = why.join(' and ');
+  if (h.names.length > 1) return `${h.names.length} players matching "${term}" are hidden by ${filters}.`;
+  const played = h.reasons.includes('opponents') ? ` (${h.show.minOpps} played)` : '';
+  return `${h.names[0]} is hidden by ${filters}${played}.`;
 }
 
 const sortValue: Record<Exclude<SortKey, 'name' | 'last_played'>, (p: RankedRow) => number> = {
@@ -261,23 +330,47 @@ export function suggest<T extends { name: string }>(rows: readonly T[], input: s
     .slice(0, 12);
 }
 
+/** pickPlayer returns the name typed in full (any case), else the top suggestion for it, else null. */
+export function pickPlayer(names: readonly string[], typed: string): string | null {
+  const t = typed.trim().toLowerCase();
+  const exact = names.find((n) => n.toLowerCase() === t);
+  if (exact !== undefined) return exact;
+  return suggest(names.map((name) => ({ name })), t)[0]?.name ?? null;
+}
+
 /** titleOptions lists the titles some row holds: GM, M, P and G first, as upstream orders them. */
 export function titleOptions(rows: readonly LeaderboardRow[]): TitleCode[] {
   const held = new Set(rows.map((p) => p.title?.code));
   return TITLES.filter((t) => held.has(t));
 }
 
-export type Delta = { c_rating: number; rating: number };
+/** Delta is a player's change over the chosen window, and their rank then (null without a past rating). */
+export type Delta = { c_rating: number; rating: number; pastRank: number | null };
 
-/** deltas returns each row's rating and C-rating now minus in the past; 0 for a player with no past rating. */
+/**
+ * deltas returns each row's rating and C-rating now minus in the past (0 for a player with no past rating), and their
+ * past rank among everyone then by C-rating, as upstream ranks its history (ties by name).
+ */
 export function deltas(rows: readonly LeaderboardRow[], past: History['players']): Map<string, Delta> {
   const then = new Map(past.map((h) => [h.name, h]));
+  const ranked = [...past].sort((a, b) => b.c_rating - a.c_rating || a.name.localeCompare(b.name));
+  const pastRank = new Map(ranked.map((h, i) => [h.name, i + 1]));
   return new Map(
     rows.map((p) => {
       const h = then.get(p.name);
-      return [p.name, h ? { c_rating: p.c_rating - h.c_rating, rating: p.rating - h.rating } : { c_rating: 0, rating: 0 }];
+      return [
+        p.name,
+        h
+          ? { c_rating: p.c_rating - h.c_rating, rating: p.rating - h.rating, pastRank: pastRank.get(p.name) ?? null }
+          : { c_rating: 0, rating: 0, pastRank: null },
+      ];
     }),
   );
+}
+
+/** rankChange is how many places a player rose since the window's start (past rank minus the rank shown), or 0. */
+export function rankChange(d: Delta | undefined, shownRank: number | null): number {
+  return d?.pastRank == null || shownRank === null ? 0 : d.pastRank - shownRank;
 }
 
 /**
@@ -330,12 +423,17 @@ export function yearRows(board: YearLeaderboard, stats: StatsView): { rows: Lead
   return { rows, played: new Set(board.players.filter((p) => p.season.opponents > 0).map((p) => p.name)) };
 }
 
-/** yearDeltas returns each player's change since the previous year's end; 0 for a player without a rating then. */
+/** yearDeltas returns each player's change since the previous year's end, and their rank then among the board's players; 0 without a rating then. */
 export function yearDeltas(board: YearLeaderboard): Map<string, Delta> {
+  const before = board.players.flatMap((p) => (p.previous ? [{ name: p.name, c_rating: p.previous.c_rating }] : []));
+  before.sort((a, b) => b.c_rating - a.c_rating || a.name.localeCompare(b.name));
+  const pastRank = new Map(before.map((h, i) => [h.name, i + 1]));
   return new Map(
     board.players.map((p) => [
       p.name,
-      p.previous ? { c_rating: p.c_rating - p.previous.c_rating, rating: p.rating - p.previous.rating } : { c_rating: 0, rating: 0 },
+      p.previous
+        ? { c_rating: p.c_rating - p.previous.c_rating, rating: p.rating - p.previous.rating, pastRank: pastRank.get(p.name) ?? null }
+        : { c_rating: 0, rating: 0, pastRank: null },
     ]),
   );
 }

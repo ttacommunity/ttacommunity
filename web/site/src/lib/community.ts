@@ -59,17 +59,38 @@ export function tournamentSums(
   return got;
 }
 
-/** titleMark is the title column: WC for a World Champion or the edition's champion, then GM, M, P or G; anything else shows none, as upstream. */
-export function titleMark(row: CommunityRow, edition: Edition): 'WC' | 'GM' | 'M' | 'P' | 'G' | null {
+/** titleMark is the title column: WC for a World Champion or the edition's champion, else the player's title, if any. */
+export function titleMark(row: CommunityRow, edition: Edition): CommunityRow['title'] {
   if (row.title === 'WC' || row.name.toLowerCase() === edition.info.wc.toLowerCase()) return 'WC';
-  return row.title === 'GM' || row.title === 'M' || row.title === 'P' || row.title === 'G' ? row.title : null;
+  return row.title;
 }
 
-/** pageWindow returns the page links upstream shows: three either side of the page. */
-export function pageWindow(page: number, total: number): number[] {
-  const got: number[] = [];
-  for (let p = Math.max(1, page - 3); p < Math.min(total + 1, page + 4); p++) got.push(p);
-  return got;
+/** codesOf writes a tier's column codes: a run of one series' seasons as "ic_24–27", others listed. */
+function codesOf(ids: string[]): string {
+  const parts = ids.map((id) => /^([a-z]+)_(\d+)$/.exec(id));
+  const series = parts[0]?.[1];
+  if (ids.length > 1 && parts.every((m) => m !== null && m[1] === series)) return `${ids[0]}–${parts.at(-1)?.[2]}`;
+  return ids.join(', ');
+}
+
+/** editionFacts returns an edition's event slots, tiers and tournaments, and each tier's columns and maximum points. */
+export function editionFacts(edition: Edition) {
+  const pts = (n: number) => n.toLocaleString('en-US');
+  return {
+    slots: edition.categories.reduce((n, c) => n + c.columns.length, 0),
+    tiers: edition.categories.length,
+    tournaments: edition.summary.length,
+    lines: edition.categories.map((c) => {
+      const max = c.columns.map((x) => x.maxPts);
+      const [lo, hi] = [Math.min(...max), Math.max(...max)];
+      return {
+        name: c.category,
+        codes: codesOf(c.columns.map((x) => x.id)),
+        maxPts: lo === hi ? pts(hi) : `${pts(lo)}–${pts(hi)}`,
+        each: c.columns.length > 1,
+      };
+    }),
+  };
 }
 
 /** matchesSearch reports whether a name holds the search, ignoring case, as upstream's LIKE. */

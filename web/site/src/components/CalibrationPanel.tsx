@@ -7,6 +7,7 @@ import {
   MODELS,
   MODE_NAMES,
   activeModels,
+  announceFormat,
   eceClass,
   parseAnalysisParams,
   rankModels,
@@ -18,6 +19,8 @@ import {
 } from '../lib/analysis';
 import { recall } from '../lib/remembered';
 import Tex from './Tex';
+import ScrollTable from './ScrollTable';
+import Waiting from './Waiting';
 
 Chart.register(LineController, LineElement, PointElement, LinearScale, CategoryScale, Legend, Tooltip);
 
@@ -96,6 +99,8 @@ export default function CalibrationPanel({ apiUrl }: { apiUrl: string }) {
     window.history.replaceState(null, '', `?${params}`);
   }, [mode, format]);
 
+  useEffect(() => announceFormat(window, format), [format]);
+
   useEffect(() => {
     if (canvas.current === null || !ready) return;
     const heading = getComputedStyle(document.documentElement).getPropertyValue('--font-heading').trim() || 'serif';
@@ -173,6 +178,7 @@ export default function CalibrationPanel({ apiUrl }: { apiUrl: string }) {
   const resetAll = () => {
     setEngines(new Set(ALL_ENGINES));
     setResets(new Set<Reset>(['continuous']));
+    setPrior('standard');
     setMode('standard');
     setFormat(0);
   };
@@ -197,7 +203,7 @@ export default function CalibrationPanel({ apiUrl }: { apiUrl: string }) {
           </div>
           <div className="hero-chart-container">
             {load.kind === 'error' ? (
-              <p className="analysis-message">{load.message}</p>
+              <Waiting load={load} what="the calibration" form="inline" />
             ) : (
               <canvas ref={canvas} aria-label={`Calibration of each model against the ideal diagonal. Curves: ${curveSummary}. The table below gives the figures.`} />
             )}
@@ -213,10 +219,7 @@ export default function CalibrationPanel({ apiUrl }: { apiUrl: string }) {
               </div>
             </div>
           </div>
-          <div className="scroll-hint">
-            <span>Swipe table horizontally for all 4 metrics ➔</span>
-          </div>
-          <div className="table-responsive">
+          <ScrollTable hint="all 4 metrics">
             <table className="ranked-table">
               <thead>
                 <tr>
@@ -266,8 +269,8 @@ export default function CalibrationPanel({ apiUrl }: { apiUrl: string }) {
                     ))}
               </tbody>
             </table>
-            {load.kind === 'loading' && <p className="analysis-message">Loading calibration…</p>}
-          </div>
+            {load.kind === 'loading' && <Waiting load={load} what="the calibration" form="inline" />}
+          </ScrollTable>
         </div>
       </div>
 

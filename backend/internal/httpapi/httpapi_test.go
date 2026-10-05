@@ -22,6 +22,7 @@ import (
 type fakeRatings struct {
 	run      store.PublishedRun
 	runErr   error
+	lastGame *time.Time
 	board    []store.LeaderboardRow
 	boardErr error
 	pingErr  error
@@ -46,6 +47,10 @@ func (f *fakeRatings) History(_ context.Context, run int64, model string, format
 func (f *fakeRatings) Ping(context.Context) error {
 	f.calls++
 	return f.pingErr
+}
+
+func (f *fakeRatings) RunLastGame(context.Context, int64) (*time.Time, error) {
+	return f.lastGame, nil
 }
 
 func (f *fakeRatings) CurrentRun(context.Context) (store.PublishedRun, error) {
@@ -127,6 +132,18 @@ func (f *fakeRatings) CommunityLeaderboard(context.Context, int64, string) ([]st
 	panic("not faked")
 }
 
+func (f *fakeRatings) Catalogue(context.Context, int64) (store.CatalogueView, error) {
+	panic("not faked")
+}
+
+func (f *fakeRatings) CatalogueTournament(context.Context, int64, string) (store.CatalogueTournament, error) {
+	panic("not faked")
+}
+
+func (f *fakeRatings) CatalogueGames(context.Context, int64, string, store.CatalogueGamesFilter) (store.CatalogueGames, error) {
+	panic("not faked")
+}
+
 func (f *fakeRatings) PlayerAchievements(context.Context, int64, string) (string, *store.AchievementSummary, []store.TournamentRecord, error) {
 	panic("not faked")
 }
@@ -136,7 +153,7 @@ func serve(t *testing.T, ratings Ratings, path string) (*httptest.ResponseRecord
 	var logs bytes.Buffer
 	log := slog.New(slog.NewJSONHandler(&logs, nil))
 	rec := httptest.NewRecorder()
-	NewMux(ratings, log).ServeHTTP(rec, httptest.NewRequest(http.MethodGet, path, nil))
+	NewMux(ratings, nil, log).ServeHTTP(rec, httptest.NewRequest(http.MethodGet, path, nil))
 	return rec, logs.String()
 }
 
@@ -168,7 +185,7 @@ func TestRoutesMatchTheSpec(t *testing.T) {
 		}
 	}
 	router := &recordingRouter{ServeMux: http.NewServeMux()}
-	registerRoutes(router, &fakeRatings{}, slog.New(slog.DiscardHandler))
+	registerRoutes(router, &fakeRatings{}, nil, slog.New(slog.DiscardHandler))
 
 	slices.Sort(want)
 	slices.Sort(router.patterns)
@@ -193,7 +210,7 @@ func TestHealthz(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			ratings := &fakeRatings{pingErr: errors.New("database down")}
 			rec := httptest.NewRecorder()
-			NewMux(ratings, slog.New(slog.DiscardHandler)).ServeHTTP(rec, httptest.NewRequest(tt.method, tt.path, nil))
+			NewMux(ratings, nil, slog.New(slog.DiscardHandler)).ServeHTTP(rec, httptest.NewRequest(tt.method, tt.path, nil))
 
 			if rec.Code != tt.wantCode {
 				t.Errorf("%s %s: code = %d, want %d", tt.method, tt.path, rec.Code, tt.wantCode)
@@ -226,7 +243,7 @@ func TestReadyz(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			ratings := &fakeRatings{pingErr: tt.pingErr}
 			rec := httptest.NewRecorder()
-			NewMux(ratings, slog.New(slog.DiscardHandler)).ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/readyz", nil))
+			NewMux(ratings, nil, slog.New(slog.DiscardHandler)).ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/readyz", nil))
 
 			if rec.Code != tt.wantCode {
 				t.Errorf("code = %d, want %d", rec.Code, tt.wantCode)
@@ -246,6 +263,8 @@ func TestReadyz(t *testing.T) {
 
 func TestCurrentRun(t *testing.T) {
 	at := time.Date(2026, 9, 27, 4, 0, 0, 0, time.UTC)
+	first, last := time.Date(2017, 3, 4, 0, 0, 0, 0, time.UTC), time.Date(2026, 8, 31, 0, 0, 0, 0, time.UTC)
+	finished, games, players := at.Add(-time.Minute), 135393, 3526
 	tests := []struct {
 		name      string
 		ratings   *fakeRatings
@@ -254,11 +273,13 @@ func TestCurrentRun(t *testing.T) {
 		wantBody  string
 	}{
 		{
-			name:      "published",
-			ratings:   &fakeRatings{run: store.PublishedRun{ID: 5, PublishedAt: at}},
+			name: "published",
+			ratings: &fakeRatings{run: store.PublishedRun{ID: 5, PublishedAt: at, FirstGame: &first, LastGame: &last,
+				Games: &games, Players: &players, EngineVersion: "abc1234", FinishedAt: &finished}},
 			wantCode:  http.StatusOK,
 			wantCache: "public, max-age=60",
-			wantBody:  `{"published_at":"2026-09-27T04:00:00Z","run_id":5}`,
+			wantBody: `{"engine_version":"abc1234","finished_at":"2026-09-27T03:59:00Z","first_game":"2017-03-04","games":135393,` +
+				`"last_game":"2026-08-31","players":3526,"published_at":"2026-09-27T04:00:00Z","run_id":5}`,
 		},
 		{
 			name:      "nothing published",
@@ -285,9 +306,7 @@ func TestCurrentRun(t *testing.T) {
 			if got := rec.Header().Get("Cache-Control"); got != tt.wantCache {
 				t.Errorf("Cache-Control = %q, want %q", got, tt.wantCache)
 			}
-			if got := strings.TrimSpace(rec.Body.String()); got != tt.wantBody {
-				t.Errorf("body = %q, want %q", got, tt.wantBody)
-			}
+			wantJSON(t, rec.Body.Bytes(), "", tt.wantBody)
 		})
 	}
 }
@@ -385,9 +404,7 @@ func TestLeaderboard(t *testing.T) {
 			if got := rec.Header().Get("Content-Type"); got != "application/json" {
 				t.Errorf("GET %s: Content-Type = %q, want %q", tt.path, got, "application/json")
 			}
-			if got := strings.TrimSpace(rec.Body.String()); got != tt.wantBody {
-				t.Errorf("GET %s: body = %q, want %q", tt.path, got, tt.wantBody)
-			}
+			wantJSON(t, rec.Body.Bytes(), "", tt.wantBody)
 			if called := tt.ratings.calls > 0; called != tt.wantCall {
 				t.Fatalf("GET %s: store called = %t, want %t", tt.path, called, tt.wantCall)
 			}
@@ -485,9 +502,7 @@ func TestHistory(t *testing.T) {
 			if got := rec.Header().Get("Cache-Control"); got != tt.wantCache {
 				t.Errorf("GET %s: Cache-Control = %q, want %q", tt.path, got, tt.wantCache)
 			}
-			if got := strings.TrimSpace(rec.Body.String()); got != tt.wantBody {
-				t.Errorf("GET %s: body = %q, want %q", tt.path, got, tt.wantBody)
-			}
+			wantJSON(t, rec.Body.Bytes(), "", tt.wantBody)
 			if (tt.ratings.gotAt == nil) != (tt.wantAt == nil) || (tt.wantAt != nil && !tt.ratings.gotAt.Equal(*tt.wantAt)) {
 				t.Errorf("GET %s: store asked for at %v, want %v", tt.path, tt.ratings.gotAt, tt.wantAt)
 			}
@@ -568,5 +583,21 @@ func TestLeaderboardCSVRefusals(t *testing.T) {
 	rec, _ := serve(t, &fakeRatings{boardErr: store.ErrRunNotFound}, "/v1/runs/9/leaderboard.csv")
 	if rec.Code != http.StatusNotFound {
 		t.Errorf("unpublished run: code = %d, want 404", rec.Code)
+	}
+}
+
+func TestLeaderboardSendsEachPlayersBadgesOnlyWhenTheyHaveSome(t *testing.T) {
+	rank := 1
+	f := &fakeRatings{run: store.PublishedRun{ID: 7}, board: []store.LeaderboardRow{
+		{Rank: &rank, Name: "ann", Badges: []store.ExtraBadge{{Label: "Organiser", Description: "Runs a league"}}},
+		{Name: "bob"},
+	}}
+	rec, _ := serve(t, f, "/v1/runs/7/leaderboard?model=glicko2_daneo&format=0")
+	body := rec.Body.String()
+	if rec.Code != http.StatusOK {
+		t.Fatalf("GET leaderboard = %d %s", rec.Code, body)
+	}
+	if !strings.Contains(body, `"badges":[{"description":"Runs a league","label":"Organiser"}]`) || strings.Count(body, `"badges"`) != 1 {
+		t.Errorf("leaderboard = %s, want ann's badge and no badges field for bob", body)
 	}
 }

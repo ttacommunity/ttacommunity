@@ -115,10 +115,11 @@ export interface paths {
         };
         /**
          * Each player's rating at a past date, for rating changes over time
-         * @description Each player's rating at the end of the latest rating period on or
-         *     before `at`. Without `at`, the run's previous period, the one before
-         *     its last. A player with no rating by then is left out. Cached for five
-         *     minutes.
+         * @description The snapshot of the latest rating period on or before `at` (the first
+         *     period when `at` is earlier), as the original site compares against:
+         *     the players in that snapshot, each with their rating then. Without
+         *     `at`, the run's previous period, the one before its last. The answer's
+         *     date is the snapshot's. Cached for five minutes.
          */
         get: operations["getHistory"];
         put?: never;
@@ -521,6 +522,76 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/runs/{run}/catalogue": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Every tournament with games
+         * @description Each tournament the site shows (rated, or made visible though not
+         *     rated) that has placed games: its seasons, games, players and first
+         *     and last game; and CGE's tournaments the site shows. Games come from the
+         *     tournament catalogue, which can grow without a new run, so this is
+         *     cached for five minutes.
+         */
+        get: operations["getCatalogue"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/runs/{run}/catalogue/{tournament}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * One tournament's seasons, stages and podiums
+         * @description The tournament's seasons in order of their first game, each with its
+         *     stages and its recorded podium. A hidden tournament (not rated, not
+         *     made visible) is not found. Cached for five minutes.
+         */
+        get: operations["getCatalogueTournament"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/runs/{run}/catalogue/{tournament}/games": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * One page of a tournament's games
+         * @description The tournament's games, newest first, 50 to a page, never-played ones
+         *     included and marked. Narrowed by season, stage and group (as the
+         *     catalogue labels them; an empty value does not narrow), and to games
+         *     with a replay code. A page past the last gives the last. A hidden
+         *     tournament is not found. Cached for five minutes.
+         */
+        get: operations["getCatalogueGames"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/runs/{run}/community/{edition}": {
         parameters: {
             query?: never;
@@ -545,10 +616,753 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/admin/me": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Who is signed in to admin, and in which role
+         * @description Admin routes are reached through the admin site's Worker, behind
+         *     Cloudflare Access. Each request's Access token (Cf-Access-Jwt-Assertion)
+         *     is verified, and the Discord id in it must be an admin or organiser.
+         *     Never cached.
+         */
+        get: operations["getAdminMe"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/tournaments": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Every tournament with its settings, seasons, stages and notes */
+        get: operations["getAdminTournaments"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/tournaments/{tournament}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Change whether a tournament is shown, rated, or counted in the community leaderboard
+         * @description Only the settings given change. Admins and organisers may change them;
+         *     each change is audited. The Origin must be the admin site. Rating
+         *     takes effect on the next engine run.
+         */
+        patch: operations["patchAdminTournament"];
+        trace?: never;
+    };
+    "/v1/admin/tournaments/{tournament}/notes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Set the note shown beside a season or one of its stages; an empty note removes it
+         * @description Audited. The Origin must be the admin site.
+         */
+        put: operations["putAdminNote"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/admins": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Everyone in admin, with their role (admins only) */
+        get: operations["getAdminAdmins"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/admins/{discord_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Add someone to admin, or change their name or role (admins only; admin always keeps one admin)
+         * @description Audited. The Origin must be the admin site.
+         */
+        put: operations["putAdminAdmin"];
+        post?: never;
+        /**
+         * Take someone out of admin (admins only; admin always keeps one admin)
+         * @description Audited. The Origin must be the admin site. Their Access session still lasts until it ends or is revoked in Cloudflare.
+         */
+        delete: operations["deleteAdminAdmin"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/export": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Download every input table as a zip (admins and organisers)
+         * @description The same export the load job writes (one CSV per table and a manifest with each file's row count and SHA-256), from one snapshot; the load job's -restore reads it back. Audited.
+         */
+        get: operations["getAdminExport"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/data": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The loaded data at a glance */
+        get: operations["getAdminData"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/badges": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Every badge admin made, with who holds it (admins only) */
+        get: operations["getAdminBadges"];
+        put?: never;
+        /**
+         * Make a badge (admins only)
+         * @description Audited. The Origin must be the admin site.
+         */
+        post: operations["postAdminBadge"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/badges/{badge}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Change a badge's label and description (admins only)
+         * @description Audited. The Origin must be the admin site.
+         */
+        put: operations["putAdminBadge"];
+        post?: never;
+        /**
+         * Remove a badge, from everyone who holds it (admins only)
+         * @description Audited. The Origin must be the admin site.
+         */
+        delete: operations["deleteAdminBadge"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/badges/{badge}/players/{player}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Give a player a badge, shown at once (admins only)
+         * @description Audited. The Origin must be the admin site.
+         */
+        put: operations["putAdminBadgePlayer"];
+        post?: never;
+        /**
+         * Take a badge from a player (admins only)
+         * @description Audited. The Origin must be the admin site.
+         */
+        delete: operations["deleteAdminBadgePlayer"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/titles": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Titles set in admin, by player (admins only) */
+        get: operations["getAdminTitles"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/titles/{player}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Set a player's title, replacing the derived one from the next rating run (admins only)
+         * @description A title the engine gives, but not WC (it comes from the World Championship's podium), or "" to take the title away. The 12-month activity rule still applies. Audited. The Origin must be the admin site.
+         */
+        put: operations["putAdminTitle"];
+        post?: never;
+        /**
+         * Remove a player's title set in admin, so the next run derives it again (admins only)
+         * @description Audited. The Origin must be the admin site.
+         */
+        delete: operations["deleteAdminTitle"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/tournaments/{tournament}/season-rating": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Set whether a season's games count towards ratings, from the next run
+         * @description Its games still show on the tournament page, marked not rated. Audited. The Origin must be the admin site.
+         */
+        put: operations["putAdminSeasonRating"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/tournaments/{tournament}/season-champions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Set whether a season's winner is listed among the tournament's champions
+         * @description Such as the Hall of Fame's World Champions; a play-off can be left out. Audited. The Origin must be the admin site.
+         */
+        put: operations["putAdminSeasonChampions"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/tournaments/{tournament}/stories": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Replace a tournament's stories with these, in this order
+         * @description Audited. The Origin must be the admin site.
+         */
+        put: operations["putAdminStories"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/tournaments/{tournament}/card": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Set how a tournament presents itself on its card and its page's header
+         * @description All fields empty removes it. Audited. The Origin must be the admin site.
+         */
+        put: operations["putAdminCard"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/tournaments/{tournament}/regulations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Write a tournament's format and regulations, shown instead of its latest CGE description
+         * @description An empty text removes it, so CGE's shows again. Audited. The Origin must be the admin site.
+         */
+        put: operations["putAdminRegulations"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/tournaments/{tournament}/podium": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Set a season's podium by hand, over a recorded or derived one
+         * @description The tournament page shows it at once; titles and achievements follow at the next rating run. Audited. The Origin must be the admin site.
+         */
+        put: operations["putAdminPodium"];
+        post?: never;
+        /**
+         * Remove a season's podium set by hand, so the recorded or derived one shows again
+         * @description Audited. The Origin must be the admin site.
+         */
+        delete: operations["deleteAdminPodium"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/tournaments/{tournament}/seasons": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Add a season with no games yet, so a note can be shown for it
+         * @description Audited. The Origin must be the admin site.
+         */
+        post: operations["postAdminSeason"];
+        /**
+         * Remove a season that has no games, with its notes
+         * @description Audited. The Origin must be the admin site.
+         */
+        delete: operations["deleteAdminSeason"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/runs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Rating runs, newest first, with a running one's progress (admins only)
+         * @description Where the API can see the engine's Jobs, a run still marked running with no engine Job going is shown as failed: its engine ended without marking it.
+         */
+        get: operations["getAdminRuns"];
+        put?: never;
+        /**
+         * Start a rating run now (admins only)
+         * @description Starts the engine as a Job. The run is not published: publish it once it is complete. Audited. The Origin must be the admin site.
+         */
+        post: operations["postAdminRun"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/runs/stop": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Stop the rating run that is going (admins only)
+         * @description Deletes the engine's Job. The engine marks its run failed, with the progress line "stopped", as it ends. Audited. The Origin must be the admin site.
+         */
+        post: operations["postAdminRunStop"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/runs/{run}/publish": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Make a complete run the one the site shows, or roll back to an older one (admins only)
+         * @description Audited. The Origin must be the admin site.
+         */
+        post: operations["postAdminRunPublish"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/runs/{run}/changes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * How far ratings moved from another run, by default the one the site showed before it (admins only)
+         * @description For a run never published, that is the published run; for a published run, the run first published most recently before it. Compares conservative ratings of the default model, in every format.
+         */
+        get: operations["getAdminRunChanges"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        AdminRun: {
+            /** Format: int64 */
+            id: number;
+            /** @enum {string} */
+            status: "running" | "complete" | "failed";
+            /** Format: date-time */
+            started_at: string;
+            /** Format: date-time */
+            finished_at?: string;
+            /**
+             * Format: date-time
+             * @description When it was first published
+             */
+            published_at?: string;
+            /** @description The run the site shows */
+            current: boolean;
+            games: number;
+            players: number;
+            engine_version: string;
+            /** @description The engine's latest progress line, empty before its first */
+            progress: string;
+            /** Format: date-time */
+            progress_at?: string;
+        };
+        StartedRun: {
+            /** @description The engine Job's name */
+            job: string;
+        };
+        RunChanges: {
+            /** Format: int64 */
+            run: number;
+            /** Format: int64 */
+            against: number;
+            ratings: number;
+            ratings_before: number;
+            /** @description Ratings in this run but not the other */
+            new: number;
+            /** @description Ratings in the other run but not this one */
+            gone: number;
+            moved_1: number;
+            moved_10: number;
+            moved_50: number;
+            moved_100: number;
+            /** @description The 20 biggest moves in the overall format */
+            biggest: components["schemas"]["RunMove"][];
+        };
+        RunMove: {
+            name: string;
+            /** Format: double */
+            before: number;
+            /** Format: double */
+            after: number;
+            /** Format: double */
+            change: number;
+        };
+        SeasonRating: {
+            season: string;
+            rated: boolean;
+        };
+        SeasonInChampions: {
+            season: string;
+            in_champions: boolean;
+        };
+        /** @description One of a tournament's stories, as DANeo's series pages tell them */
+        Story: {
+            player: string;
+            /** @description A short line beside the player, such as "Reigning World Champion"; may be empty */
+            badge: string;
+            title: string;
+            text: string;
+        };
+        StoryList: {
+            stories: components["schemas"]["Story"][];
+        };
+        /** @description How a tournament presents itself on its card and its page's header; an empty field is unset */
+        TournamentCard: {
+            /** @description The line under the name on the tournament's page, such as "4-Player Competitive Format" */
+            subtitle: string;
+            /** @description How often it is played, such as "Annual (Every Year)" */
+            cadence: string;
+            /** @description An emoji or a few characters */
+            icon: string;
+            /** @description The short description, such as "Annual World Championship" */
+            tagline: string;
+            /** @description The information box; plain text */
+            summary: string;
+        };
+        DataSummary: {
+            /** @description Played games */
+            games: number;
+            /** @description Games recorded but never played, kept and not rated */
+            never_played: number;
+            /** @description Games in no tournament; a rating run refuses to start while any are */
+            unplaced: number;
+            players: number;
+            /**
+             * Format: date
+             * @description The latest played game's date
+             */
+            latest_game: string | null;
+            /**
+             * Format: date-time
+             * @description When data was last loaded
+             */
+            last_load: string | null;
+            /** @description Rows the last load refused */
+            last_load_refused: number;
+        };
+        ExtraBadge: {
+            label: string;
+            /** @description Shown on hover; may be empty */
+            description: string;
+        };
+        AdminBadge: {
+            /** Format: int64 */
+            id: number;
+            label: string;
+            description: string;
+            /** @description Who holds it, by name */
+            players: string[];
+        };
+        BadgeSetting: {
+            label: string;
+            description: string;
+        };
+        TitleOverride: {
+            name: string;
+            title: components["schemas"]["AdminTitle"];
+            reason: string;
+        };
+        TitleSetting: {
+            title: components["schemas"]["AdminTitle"];
+            /** @description Why; shown when hovering the badge */
+            reason: string;
+        };
+        /**
+         * @description A title the engine gives, but WC; "" for none
+         * @enum {string}
+         */
+        AdminTitle: "SGM" | "GM" | "M" | "P" | "G" | "S" | "B" | "W" | "";
+        Regulations: {
+            /** @description Plain text; empty removes it */
+            text: string;
+        };
+        PodiumEntry: {
+            place: number;
+            name: string;
+        };
+        SeasonPodium: {
+            season: string;
+            podium: components["schemas"]["PodiumEntry"][];
+            /** @description Why, or where the placing comes from */
+            note: string;
+        };
+        NewSeason: {
+            /** @description As the site shows it, e.g. "1" or "2023 Play Off" */
+            label: string;
+        };
+        AdminPerson: {
+            discord_id: string;
+            name: string;
+            /** @enum {string} */
+            role: "admin" | "organiser";
+        };
+        AdminRole: {
+            name: string;
+            /** @enum {string} */
+            role: "admin" | "organiser";
+        };
+        AdminTournament: {
+            /** @description The name it came in with, kept when it is renamed */
+            original_name: string;
+            kind: components["schemas"]["TournamentKind"];
+            /** @description A league's divisions whose final standings make its podium; empty for none */
+            top_divisions: string[];
+            /** @description The player counts whose games count towards ratings */
+            rated_player_counts: number[];
+            stories: components["schemas"]["Story"][];
+            card: components["schemas"]["TournamentCard"];
+            /** @description The format and regulations written in admin, empty for none */
+            regulations: string;
+            /** @description The latest edition's description on CGE, shown when admin has written none; empty for none */
+            cge_regulations: string;
+            slug: string;
+            name: string;
+            /** @description Shown on the site though not rated */
+            visible: boolean;
+            /** @description In the community ratings */
+            rated: boolean;
+            /** @description Counted in the overall community leaderboard */
+            community: boolean;
+            seasons: components["schemas"]["AdminSeason"][];
+        };
+        AdminSeason: {
+            /** @description Its winner is listed among the tournament's champions */
+            in_champions: boolean;
+            /** @description The label it came in with, kept when it is renamed */
+            original_name: string;
+            /** @description Its games count towards ratings, from the next run */
+            rated: boolean;
+            /** @description The podium set in admin, empty when the recorded or derived one shows */
+            podium: components["schemas"]["PodiumEntry"][];
+            podium_note: string;
+            label: string;
+            /** @description False for a season admin added, which can be removed */
+            has_games: boolean;
+            note: string;
+            stages: components["schemas"]["AdminStage"][];
+        };
+        AdminStage: {
+            /** @description The label it came in with, kept when it is renamed */
+            original_name: string;
+            label: string;
+            note: string;
+        };
+        /**
+         * @description A league ranks divisions over a season, a cup plays stages to a final, a ladder has no podium
+         * @enum {string}
+         */
+        TournamentKind: "league" | "cup" | "ladder";
+        TournamentSettings: {
+            kind?: components["schemas"]["TournamentKind"];
+            /** @description A league's divisions whose final standings make its podium on the site; empty for none */
+            top_divisions?: string[];
+            /** @description The player counts whose games count towards ratings, from the next run */
+            rated_player_counts?: number[];
+            visible?: boolean;
+            rated?: boolean;
+            community?: boolean;
+        };
+        SeasonNote: {
+            season: string;
+            /** @description Empty for the season's own note */
+            stage: string;
+            note: string;
+        };
+        AdminMe: {
+            name: string;
+            /** @enum {string} */
+            role: "admin" | "organiser";
+        };
         Health: {
             status: string;
         };
@@ -560,6 +1374,27 @@ export interface components {
             run_id: number;
             /** Format: date-time */
             published_at: string;
+            /** @description The commit the engine that computed the run was built from */
+            engine_version: string;
+            /**
+             * Format: date-time
+             * @description When the run was computed
+             */
+            finished_at: string | null;
+            /** @description The games the run rated; null for a run computed before runs recorded it */
+            games: number | null;
+            /** @description The players the run rated; null for a run computed before runs recorded it */
+            players: number | null;
+            /**
+             * Format: date
+             * @description The date of the run's first game; null for a run computed before runs recorded it
+             */
+            first_game: string | null;
+            /**
+             * Format: date
+             * @description The date of the run's last game; null for a run computed before runs recorded it
+             */
+            last_game: string | null;
         };
         /**
          * @description The rating model. `_softer` models reset gently each season, and
@@ -612,6 +1447,8 @@ export interface components {
             /** @description The player's country, ISO 3166-1 alpha-2, if known */
             country: string | null;
             title: components["schemas"]["Title"];
+            /** @description Badges admin gave the player, by label, shown beside the title */
+            badges?: components["schemas"]["ExtraBadge"][];
         };
         History: {
             /** Format: int64 */
@@ -651,6 +1488,8 @@ export interface components {
             name: string;
             country: string | null;
             title: components["schemas"]["Title"];
+            /** @description Badges admin gave the player, by label, shown beside the title */
+            badges?: components["schemas"]["ExtraBadge"][];
             peak: components["schemas"]["Peak"];
             /** Format: date */
             last_played: string | null;
@@ -671,6 +1510,12 @@ export interface components {
         FormatGames: {
             format: components["schemas"]["Format"];
             games: number;
+        };
+        FormatGamesAndPairs: {
+            format: components["schemas"]["Format"];
+            games: number;
+            /** @description The one-to-one pairs the engine rated from those games */
+            pairs: number;
         };
         PlayerRating: {
             model: components["schemas"]["Model"];
@@ -1031,7 +1876,7 @@ export interface components {
             active: number;
             inactive: number;
             /** @description Games per format, 2 to 4 players */
-            formats: components["schemas"]["FormatGames"][];
+            formats: components["schemas"]["FormatGamesAndPairs"][];
             /** @description Players per title, most first */
             titles: components["schemas"]["TitlePlayers"][];
             countries: components["schemas"]["CountryRatings"][];
@@ -1128,6 +1973,176 @@ export interface components {
             scores: {
                 [key: string]: number;
             };
+        };
+        /** @description How many games and players a tournament, season or stage has, and when its first and last game were played */
+        GameSpan: {
+            games: number;
+            players: number;
+            /** Format: date */
+            first_game: string;
+            /** Format: date */
+            last_game: string;
+        };
+        /** @description A season's games and players, and its first and last game; a season admin added before it has games has none */
+        SeasonSpan: {
+            games: number;
+            players: number;
+            /** Format: date */
+            first_game: string | null;
+            /** Format: date */
+            last_game: string | null;
+        };
+        /** @description A tournament as the catalogue names it, with its seasons and games */
+        CatalogueEntry: components["schemas"]["GameSpan"] & {
+            slug: string;
+            name: string;
+            card: components["schemas"]["TournamentCard"];
+            seasons: number;
+            /** @description The rankings it is rated in, by slug; none for a tournament not rated */
+            rankings: string[];
+        };
+        /** @description A tournament on CGE's site, as its page shows it */
+        CGETournament: {
+            cge_tournament: number;
+            name: string;
+            status: string;
+            organiser: string;
+            /**
+             * Format: date
+             * @description When it started, or was created when it shows no start
+             */
+            started: string | null;
+            /** Format: date */
+            finished: string | null;
+            url: string;
+            /** @description Which of the catalogue's tournaments it is, by slug; "" for none */
+            tournament: string;
+            /** @description Whether that tournament is in a ranking */
+            rated: boolean;
+        };
+        Catalogue: {
+            /** Format: int64 */
+            run_id: number;
+            tournaments: components["schemas"]["CatalogueEntry"][];
+            /** @description The tournaments on CGE's site the site shows (rated, or made visible), newest first */
+            cge_tournaments: components["schemas"]["CGETournament"][];
+        };
+        /** @description A stage of a season; label "" is the season's only or main stage */
+        CatalogueStage: components["schemas"]["GameSpan"] & {
+            label: string;
+            /** @description A note shown beside the stage, or null */
+            note: string | null;
+        };
+        /** @description A place on a cup year's recorded podium */
+        PodiumPlace: {
+            place: number;
+            name: string;
+            /** @description Which final, when a year has several; "" otherwise */
+            final: string;
+            /** Format: date */
+            finished: string;
+            /** @description Where the podium was recorded from */
+            source: string;
+        };
+        CatalogueSeason: components["schemas"]["SeasonSpan"] & {
+            label: string;
+            /** @description Its winner is listed among the tournament's champions; false for one admin leaves out, such as a play-off */
+            in_champions: boolean;
+            /** @description A note shown beside the season, such as what a special season was, or null */
+            note: string | null;
+            stages: components["schemas"]["CatalogueStage"][];
+            /**
+             * @description The season's top three: a cup's recorded podium, or a league's
+             *     recorded placements or else its top division's standings in
+             *     this run. Empty when neither is known.
+             */
+            podium: components["schemas"]["PodiumPlace"][];
+            /** @description The CGE pages the season's games come from, if any */
+            cge_pages: string[];
+        };
+        CatalogueTournament: {
+            /** @description Its stories, as admin writes them, in order */
+            stories: components["schemas"]["Story"][];
+            /** @description The ten highest winning scores in its played games */
+            game_records: components["schemas"]["GameRecord"][];
+            /** @description In a ranking, so its games move ratings */
+            rated: boolean;
+            card: components["schemas"]["TournamentCard"];
+            /** @description A ladder's champions are counted as top-tier wins, not season podiums */
+            ladder: boolean;
+            /** @description Each CGE edition's description, usually its organiser's format and rules, newest first; plain text */
+            rules: components["schemas"]["EditionRules"][];
+            /** @description The format and regulations written in admin, shown instead of the rules; plain text, absent for none */
+            regulations?: string;
+            /** @description Everyone who played a shown game of the tournament, by name, for a search box */
+            players: string[];
+            /** @description A ladder's players by their wins in its top tier, most first, as its organisers count them (half a win for a tie) */
+            top_tier_wins: components["schemas"]["LadderWin"][];
+            /** Format: int64 */
+            run_id: number;
+            slug: string;
+            name: string;
+            /** @description In order of their first game */
+            seasons: components["schemas"]["CatalogueSeason"][];
+        };
+        EditionRules: {
+            cge_tournament: number;
+            name: string;
+            url: string;
+            description: string;
+        };
+        LadderWin: {
+            name: string;
+            /** Format: double */
+            wins: number;
+            source: string;
+        };
+        CatalogueGames: {
+            /** Format: int64 */
+            run_id: number;
+            slug: string;
+            page: number;
+            pages: number;
+            /** @description The games the filters keep */
+            total: number;
+            /** @description How many of the games the season, stage and group keep have a replay code */
+            coded: number;
+            /** @description The chosen season's groups (in its chosen stage), in order; empty when no season is chosen */
+            groups: string[];
+            games: components["schemas"]["CatalogueGame"][];
+        };
+        CatalogueGame: {
+            /** @description Counts towards ratings - played, and its tournament, season and player count rated */
+            rated: boolean;
+            /** Format: int64 */
+            match_id: number;
+            /** Format: date */
+            date: string;
+            season: string;
+            /** @description "" for a season's only or main stage */
+            stage: string;
+            /** @description "" when the game's name gives none */
+            group: string;
+            /** @description The game's number in its group, or null when its name gives none */
+            game: number | null;
+            /**
+             * @description A never-played game had no player; an unconfirmed one has a result in doubt. Neither is rated
+             * @enum {string}
+             */
+            state: "played" | "never_played" | "unconfirmed";
+            replay_code: string | null;
+            /** @description Highest score first */
+            seats: components["schemas"]["GameSeat"][];
+        };
+        GameSeat: {
+            name: string;
+            /** Format: double */
+            score: number;
+            /**
+             * @description How the seat ended, as CGE records it; null where CGE's seats are not known
+             * @enum {string|null}
+             */
+            outcome: "finished" | "resigned" | "timed_out" | null;
         };
         /**
          * @description A tournament series
@@ -1241,6 +2256,46 @@ export interface components {
         };
     };
     responses: {
+        /** @description The change cannot be made in the current state, such as a run already going */
+        Conflict: {
+            headers: {
+                "Cache-Control": components["headers"]["CacheControl"];
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["Error"];
+            };
+        };
+        /** @description This API is not set up to do that here */
+        NotSetUp: {
+            headers: {
+                "Cache-Control": components["headers"]["CacheControl"];
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["Error"];
+            };
+        };
+        /** @description No Access token, or one that does not verify */
+        Unauthorized: {
+            headers: {
+                "Cache-Control": components["headers"]["CacheControl"];
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["Error"];
+            };
+        };
+        /** @description The token is valid, but its Discord id is not an admin or organiser */
+        Forbidden: {
+            headers: {
+                "Cache-Control": components["headers"]["CacheControl"];
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["Error"];
+            };
+        };
         /** @description A parameter is not one the API knows */
         BadRequest: {
             headers: {
@@ -1273,6 +2328,15 @@ export interface components {
         };
     };
     parameters: {
+        AdminBadgeId: number;
+        /** @description The player's name, as the leaderboard gives it */
+        AdminPlayer: string;
+        /** @description Any run's id, published or not */
+        AdminRunId: number;
+        /** @description A Discord user id */
+        DiscordID: string;
+        /** @description The tournament's slug */
+        AdminTournamentSlug: string;
         Model: components["schemas"]["Model"];
         Format: components["schemas"]["Format"];
         /** @description The player's name, as the leaderboard gives it */
@@ -1395,7 +2459,7 @@ export interface operations {
             query?: {
                 model?: components["parameters"]["Model"];
                 format?: components["parameters"]["Format"];
-                /** @description Active players (last played after 2025-05-31), inactive ones, or all */
+                /** @description Active players (played in the 12 months before the run's last game), inactive ones, or all */
                 status?: "active" | "all" | "inactive";
                 /** @description The fewest opponents a player needs (30 by default, 0 in a year's archive) */
                 min_opps?: number;
@@ -1949,6 +3013,95 @@ export interface operations {
             404: components["responses"]["NotFound"];
         };
     };
+    getCatalogue: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A published run's id, from `/v1/runs/current` */
+                run: components["parameters"]["RunId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The tournaments, by name */
+            200: {
+                headers: {
+                    "Cache-Control": components["headers"]["CacheControl"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Catalogue"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    getCatalogueTournament: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A published run's id, from `/v1/runs/current` */
+                run: components["parameters"]["RunId"];
+                tournament: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The tournament */
+            200: {
+                headers: {
+                    "Cache-Control": components["headers"]["CacheControl"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CatalogueTournament"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    getCatalogueGames: {
+        parameters: {
+            query?: {
+                season?: string;
+                stage?: string;
+                group?: string;
+                /** @description Only games this player sat in, by name in any case */
+                player?: string;
+                /** @description Only games with a replay code */
+                coded?: boolean;
+                page?: number;
+            };
+            header?: never;
+            path: {
+                /** @description A published run's id, from `/v1/runs/current` */
+                run: components["parameters"]["RunId"];
+                tournament: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description One page of games */
+            200: {
+                headers: {
+                    "Cache-Control": components["headers"]["CacheControl"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CatalogueGames"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            404: components["responses"]["NotFound"];
+        };
+    };
     getCommunityLeaderboard: {
         parameters: {
             query?: never;
@@ -1976,6 +3129,842 @@ export interface operations {
             404: components["responses"]["NotFound"];
         };
     };
+    getAdminMe: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The signed-in admin */
+            200: {
+                headers: {
+                    "Cache-Control": components["headers"]["CacheControl"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminMe"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    getAdminTournaments: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The tournaments, by name */
+            200: {
+                headers: {
+                    "Cache-Control": components["headers"]["CacheControl"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminTournament"][];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    patchAdminTournament: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The tournament's slug */
+                tournament: components["parameters"]["AdminTournamentSlug"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TournamentSettings"];
+            };
+        };
+        responses: {
+            /** @description Changed */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    putAdminNote: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The tournament's slug */
+                tournament: components["parameters"]["AdminTournamentSlug"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SeasonNote"];
+            };
+        };
+        responses: {
+            /** @description Saved */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    getAdminAdmins: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The admins and organisers, by name */
+            200: {
+                headers: {
+                    "Cache-Control": components["headers"]["CacheControl"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminPerson"][];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    putAdminAdmin: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A Discord user id */
+                discord_id: components["parameters"]["DiscordID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AdminRole"];
+            };
+        };
+        responses: {
+            /** @description Saved */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    deleteAdminAdmin: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A Discord user id */
+                discord_id: components["parameters"]["DiscordID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Removed */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    getAdminExport: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The export */
+            200: {
+                headers: {
+                    "Cache-Control": components["headers"]["CacheControl"];
+                    "Content-Disposition": string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/zip": string;
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    getAdminData: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Counts and dates */
+            200: {
+                headers: {
+                    "Cache-Control": components["headers"]["CacheControl"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DataSummary"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    getAdminBadges: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The badges, by label */
+            200: {
+                headers: {
+                    "Cache-Control": components["headers"]["CacheControl"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminBadge"][];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    postAdminBadge: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BadgeSetting"];
+            };
+        };
+        responses: {
+            /** @description Made */
+            201: {
+                headers: {
+                    "Cache-Control": components["headers"]["CacheControl"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminBadge"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            409: components["responses"]["Conflict"];
+        };
+    };
+    putAdminBadge: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                badge: components["parameters"]["AdminBadgeId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BadgeSetting"];
+            };
+        };
+        responses: {
+            /** @description Saved */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+        };
+    };
+    deleteAdminBadge: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                badge: components["parameters"]["AdminBadgeId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Removed */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    putAdminBadgePlayer: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                badge: components["parameters"]["AdminBadgeId"];
+                /** @description The player's name, as the leaderboard gives it */
+                player: components["parameters"]["AdminPlayer"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Given */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    deleteAdminBadgePlayer: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                badge: components["parameters"]["AdminBadgeId"];
+                /** @description The player's name, as the leaderboard gives it */
+                player: components["parameters"]["AdminPlayer"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Taken */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    getAdminTitles: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Each player's title set in admin */
+            200: {
+                headers: {
+                    "Cache-Control": components["headers"]["CacheControl"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TitleOverride"][];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    putAdminTitle: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The player's name, as the leaderboard gives it */
+                player: components["parameters"]["AdminPlayer"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TitleSetting"];
+            };
+        };
+        responses: {
+            /** @description Saved */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    deleteAdminTitle: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The player's name, as the leaderboard gives it */
+                player: components["parameters"]["AdminPlayer"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Removed */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    putAdminSeasonRating: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The tournament's slug */
+                tournament: components["parameters"]["AdminTournamentSlug"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SeasonRating"];
+            };
+        };
+        responses: {
+            /** @description Saved */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    putAdminSeasonChampions: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The tournament's slug */
+                tournament: components["parameters"]["AdminTournamentSlug"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SeasonInChampions"];
+            };
+        };
+        responses: {
+            /** @description Saved */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    putAdminStories: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The tournament's slug */
+                tournament: components["parameters"]["AdminTournamentSlug"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["StoryList"];
+            };
+        };
+        responses: {
+            /** @description Saved */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    putAdminCard: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The tournament's slug */
+                tournament: components["parameters"]["AdminTournamentSlug"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TournamentCard"];
+            };
+        };
+        responses: {
+            /** @description Saved */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    putAdminRegulations: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The tournament's slug */
+                tournament: components["parameters"]["AdminTournamentSlug"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["Regulations"];
+            };
+        };
+        responses: {
+            /** @description Saved */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    putAdminPodium: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The tournament's slug */
+                tournament: components["parameters"]["AdminTournamentSlug"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SeasonPodium"];
+            };
+        };
+        responses: {
+            /** @description Saved */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    deleteAdminPodium: {
+        parameters: {
+            query: {
+                season: string;
+            };
+            header?: never;
+            path: {
+                /** @description The tournament's slug */
+                tournament: components["parameters"]["AdminTournamentSlug"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Removed */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    postAdminSeason: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The tournament's slug */
+                tournament: components["parameters"]["AdminTournamentSlug"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["NewSeason"];
+            };
+        };
+        responses: {
+            /** @description Added */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    deleteAdminSeason: {
+        parameters: {
+            query: {
+                label: string;
+            };
+            header?: never;
+            path: {
+                /** @description The tournament's slug */
+                tournament: components["parameters"]["AdminTournamentSlug"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Removed */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    getAdminRuns: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The runs */
+            200: {
+                headers: {
+                    "Cache-Control": components["headers"]["CacheControl"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminRun"][];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    postAdminRun: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The engine Job was created */
+            202: {
+                headers: {
+                    "Cache-Control": components["headers"]["CacheControl"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StartedRun"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            409: components["responses"]["Conflict"];
+            503: components["responses"]["NotSetUp"];
+        };
+    };
+    postAdminRunStop: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Stopping */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            409: components["responses"]["Conflict"];
+            503: components["responses"]["NotSetUp"];
+        };
+    };
+    postAdminRunPublish: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Any run's id, published or not */
+                run: components["parameters"]["AdminRunId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Published */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+        };
+    };
+    getAdminRunChanges: {
+        parameters: {
+            query?: {
+                against?: number;
+            };
+            header?: never;
+            path: {
+                /** @description Any run's id, published or not */
+                run: components["parameters"]["AdminRunId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The changes */
+            200: {
+                headers: {
+                    "Cache-Control": components["headers"]["CacheControl"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RunChanges"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
 }
 type FlattenedDeepRequired<T> = {
     [K in keyof T]-?: FlattenedDeepRequired<T[K] extends unknown[] | undefined | null ? Extract<T[K], unknown[]>[number] : T[K]>;
@@ -1989,6 +3978,12 @@ export const pathsV1RunsRunLeaderboardCsvGetParametersQueryStatusValues: Readonl
 export const pathsV1RunsRunLeaderboardCsvGetParametersQuerySortValues: ReadonlyArray<FlattenedDeepRequired<paths>["/v1/runs/{run}/leaderboard.csv"]["get"]["parameters"]["query"]["sort"]> = ["rank", "name", "c_rating", "rating", "opps", "win_rate", "last_played"];
 export const pathsV1RunsRunLeaderboardCsvGetParametersQueryOrderValues: ReadonlyArray<FlattenedDeepRequired<paths>["/v1/runs/{run}/leaderboard.csv"]["get"]["parameters"]["query"]["order"]> = ["asc", "desc"];
 export const pathsV1RunsRunLeaderboardCsvGetParametersQueryStats_viewValues: ReadonlyArray<FlattenedDeepRequired<paths>["/v1/runs/{run}/leaderboard.csv"]["get"]["parameters"]["query"]["stats_view"]> = ["season", "career"];
+export const adminRunStatusValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["AdminRun"]["status"]> = ["running", "complete", "failed"];
+export const adminTitleValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["AdminTitle"]> = ["SGM", "GM", "M", "P", "G", "S", "B", "W", ""];
+export const adminPersonRoleValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["AdminPerson"]["role"]> = ["admin", "organiser"];
+export const adminRoleRoleValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["AdminRole"]["role"]> = ["admin", "organiser"];
+export const tournamentKindValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["TournamentKind"]> = ["league", "cup", "ladder"];
+export const adminMeRoleValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["AdminMe"]["role"]> = ["admin", "organiser"];
 export const modelValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["Model"]> = ["glicko2_daneo", "glicko2_daneo_softer", "glicko2_std", "glicko2_std_softer", "glicko2_std_retro", "glicko2_std_softer_retro", "glicko2_mp", "glicko2_mp_softer", "glicko2_mp_retro", "glicko2_mp_softer_retro", "glicko2_adapt", "glicko2_adapt_softer", "glicko2_adapt_retro", "glicko2_adapt_softer_retro", "whr", "whr_softer"];
 export const formatValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["Format"]> = [0, 2, 3, 4];
 export const titleCodeValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["TitleCode"]> = ["WC", "SGM", "GM", "M", "P", "G", "S", "B", "W"];
@@ -1996,5 +3991,7 @@ export const calibrationRowModeValues: ReadonlyArray<FlattenedDeepRequired<compo
 export const tournamentRecordMedalValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["TournamentRecord"]["medal"]> = ["gold", "silver", "bronze"];
 export const communityEditionValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["CommunityEdition"]> = ["2026", "2025", "2024", "race26"];
 export const communityRowTitleValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["CommunityRow"]["title"]> = ["WC", "SGM", "GM", "M", "P", "G", "S", "B", "W"];
+export const catalogueGameStateValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["CatalogueGame"]["state"]> = ["played", "never_played", "unconfirmed"];
+export const gameSeatOutcomeValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["GameSeat"]["outcome"]> = ["finished", "resigned", "timed_out"];
 export const seriesValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["Series"]> = ["international", "intermezzo", "royal_league", "worlds", "grand_slams", "ladders"];
 export const trophyRowTitleValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["TrophyRow"]["title"]> = ["WC", "GM", "M"];

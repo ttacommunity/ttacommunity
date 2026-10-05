@@ -35,10 +35,34 @@
   transition: all 0.2s;
 }
 
+/* Upstream's other pages (player, matrix, chart) draw the buttons raised, with a gradient when chosen. */
+.format-btn.raised {
+  padding: 0.4rem 0.9rem;
+  border: 1px solid rgba(74, 53, 37, 0.8);
+  background: var(--surface-panel);
+  color: var(--text-soft);
+  font-size: 0.85rem;
+  transition: all 0.2s ease;
+}
+
+.format-btn.raised:hover {
+  border-color: var(--accent-gold);
+  background: var(--gold-wash);
+  color: var(--text-bright);
+}
+
+.format-btn.raised.active {
+  border-color: var(--accent-gold-bright);
+  background: var(--gradient-gold);
+  box-shadow: 0 2px 8px var(--gold-wash-strong);
+  color: var(--text-on-gold);
+  font-weight: 700;
+}
+
 .format-btn:hover {
   border-color: var(--accent-gold);
-  background: rgba(229, 169, 60, 0.12);
-  color: #fff;
+  background: var(--gold-wash-faint);
+  color: var(--text-bright);
 }
 
 .format-btn.active {
@@ -46,7 +70,7 @@
   background: var(--accent-gold);
   color: var(--text-on-gold);
   font-weight: 700;
-  box-shadow: 0 2px 6px rgba(229, 169, 60, 0.35);
+  box-shadow: 0 2px 6px var(--gold-wash-strong);
 }
 
 .format-bar-actions {

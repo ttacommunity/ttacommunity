@@ -15,14 +15,16 @@ import Segmented from './Segmented';
 import SearchBox from './SearchBox';
 import OptionsDrawer, { type LinkTo } from './OptionsDrawer';
 import YearBanner from './YearBanner';
-import { Flag, TitleBadge } from './PlayerMarks';
+import { ExtraBadges, Flag, TitleBadge } from './PlayerMarks';
 import * as show from '../lib/leaderboard-display';
 import {
   DEFAULT_VIEW,
-  DELTA_DATES,
+  deltaDates,
+  inactiveCutoff,
   csvUrl,
   defaultMinOpps,
   deltas,
+  rankChange,
   hasFilters,
   hasOptions,
   modelOf,
@@ -31,6 +33,8 @@ import {
   parseView,
   rankPool,
   search,
+  hiddenMatches,
+  hiddenNote,
   sortRows,
   titleOptions,
   viewParams,
@@ -41,14 +45,17 @@ import {
   type SortKey,
   type View,
 } from '../lib/leaderboard-view';
-import { playerHref } from '../lib/player-view';
 import { recall, remember } from '../lib/remembered';
 import './Leaderboard.css';
+import PlayerLink from './PlayerLink';
+import ScrollTable from './ScrollTable';
+import Waiting from './Waiting';
+import Pager from './Pager';
 
 type State =
   | { kind: 'loading' }
   | { kind: 'error'; message: string }
-  | { kind: 'ready'; board: Board; year: YearLeaderboard | null };
+  | { kind: 'ready'; board: Board; year: YearLeaderboard | null; lastGame: string | null };
 
 const formatOptions = formatValues.map((f) => ({ value: f, label: show.formatName(f) }));
 const OPTIONS_OPEN = 'ttac.leaderboard.options';
@@ -96,9 +103,10 @@ export default function Leaderboard({ apiUrl }: { apiUrl: string }) {
     setState({ kind: 'loading' });
     currentRun(apiUrl)
       .then(async (run): Promise<State> => {
-        if (view.year === null) return { kind: 'ready', board: await leaderboard(apiUrl, run.run_id, model, view.format), year: null };
+        if (view.year === null)
+          return { kind: 'ready', board: await leaderboard(apiUrl, run.run_id, model, view.format), year: null, lastGame: run.last_game };
         const year = await yearLeaderboard(apiUrl, run.run_id, view.year, model, view.format);
-        return { kind: 'ready', board: { run_id: year.run_id, model, format: view.format, players: [] }, year };
+        return { kind: 'ready', board: { run_id: year.run_id, model, format: view.format, players: [] }, year, lastGame: run.last_game };
       })
       .then((next) => !stale && setState(next))
       .catch((e: unknown) => !stale && setState({ kind: 'error', message: e instanceof Error ? e.message : String(e) }));
@@ -143,15 +151,17 @@ export default function Leaderboard({ apiUrl }: { apiUrl: string }) {
     }
     let stale = false;
     const { board } = state;
-    history(apiUrl, board.run_id, board.model, board.format, DELTA_DATES[view.delta])
+    history(apiUrl, board.run_id, board.model, board.format, deltaDates(state.lastGame)[view.delta])
       .then((past) => !stale && setChanges(deltas(board.players, past.players)))
       .catch(() => !stale && setChanges(new Map()));
     return () => {
       stale = true;
     };
   }, [apiUrl, state, view.delta]);
-  const pool = useMemo(() => rankPool(players, view, fromYear?.played), [players, view, fromYear]);
+  const cutoff = inactiveCutoff(state.kind === 'ready' ? state.lastGame : null);
+  const pool = useMemo(() => rankPool(players, view, fromYear?.played, cutoff), [players, view, fromYear, cutoff]);
   const found = useMemo(() => search(pool, view.search), [pool, view.search]);
+  const hidden = useMemo(() => hiddenMatches(players, view, view.search, fromYear?.played, cutoff), [players, view, fromYear, cutoff]);
   const shown = useMemo(
     () => page(sortRows(found.rows, view.sort, view.order), view.page, found.jumpTo),
     [found, view.sort, view.order, view.page],
@@ -273,21 +283,9 @@ export default function Leaderboard({ apiUrl }: { apiUrl: string }) {
           </div>
         </div>
 
-        {state.kind === 'loading' && (
-          <p role="status" className="leaderboard-message">
-            Loading…
-          </p>
-        )}
-        {state.kind === 'error' && (
-          <p role="alert" className="leaderboard-message">
-            Could not load the leaderboard: {state.message}
-          </p>
-        )}
+        <Waiting load={state} what="the leaderboard" form="inline" />
         {state.kind === 'ready' && (
           <>
-            <div className="scroll-hint">
-              <span>Swipe table horizontally for full stats ➔</span>
-            </div>
             <Table
               view={view}
               rows={shown.rows}
@@ -295,8 +293,15 @@ export default function Leaderboard({ apiUrl }: { apiUrl: string }) {
               changes={changes}
               linkTo={linkTo}
               caption={`${show.modelLabel(model)}, ${show.formatName(view.format)}, run ${state.board.run_id}`}
+              hidden={hidden === null ? null : { note: hiddenNote(hidden, view, view.search), show: hidden.show }}
             />
-            <Pagination view={view} at={shown} linkTo={linkTo} go={go} />
+            <Pager
+              page={shown.page}
+              pages={shown.pages}
+              total={{ count: shown.total, noun: 'players' }}
+              link={(page) => linkTo({ ...view, page })}
+              go={(page) => go({ ...view, page })}
+            />
           </>
         )}
 
@@ -431,6 +436,8 @@ interface TableProps {
   changes: Map<string, Delta> | null;
   linkTo: LinkTo;
   caption: string;
+  /** Who the search found behind the filters, and the view that shows them; null when nobody is hidden. */
+  hidden: { note: string; show: View } | null;
 }
 
 /** Change shows one rating change beside its value, as upstream's delta badge. */
@@ -444,8 +451,19 @@ function Change({ value, what }: { value: number | undefined; what: string }) {
   );
 }
 
+/** RankChange shows how many places a player moved over the chosen window beside their rank, as upstream's badge. */
+function RankChange({ delta, rank }: { delta: Delta | undefined; rank: number | null }) {
+  const n = rankChange(delta, rank);
+  if (n === 0) return null;
+  return (
+    <span className={`delta-badge ${n > 0 ? 'delta-pos' : 'delta-neg'}`} data-tooltip="Rank change over selected timeframe">
+      {n > 0 ? `↑+${n}` : `↓${n}`}
+    </span>
+  );
+}
+
 /** The table of one page of players, with sortable headers and the searched player highlighted. */
-function Table({ view, rows, jumpTo, changes, linkTo, caption }: TableProps) {
+function Table({ view, rows, jumpTo, changes, linkTo, caption, hidden }: TableProps) {
   const jumped = useRef<HTMLTableRowElement>(null);
   useEffect(() => {
     const t = setTimeout(() => jumped.current?.scrollIntoView({ behavior: 'smooth', block: 'center' }), 150);
@@ -453,7 +471,7 @@ function Table({ view, rows, jumpTo, changes, linkTo, caption }: TableProps) {
   }, [jumpTo]);
 
   return (
-    <div className="table-responsive">
+    <ScrollTable hint="full stats">
       <table className="leaderboard-table">
         <caption className="visually-hidden">{caption}</caption>
         <thead>
@@ -476,14 +494,13 @@ function Table({ view, rows, jumpTo, changes, linkTo, caption }: TableProps) {
             <tr key={p.name} ref={p.name === jumpTo ? jumped : undefined} className={p.name === jumpTo ? 'jump-highlight' : undefined}>
               <td className={show.isTopThree(p.displayRank) ? 'col-sticky-rank rank-col top-3-rank' : 'col-sticky-rank rank-col'}>
                 {show.rank(p.displayRank)}
+                {changes !== null && <RankChange delta={changes.get(p.name)} rank={p.displayRank} />}
               </td>
               <td>
                 <Flag country={p.country} />
               </td>
               <th scope="row">
-                <a className="player-link" href={playerHref(p.name)}>
-                  {p.name}
-                </a>
+                <PlayerLink name={p.name} className="player-link" />
                 {p.provisional && (
                   <span className="calibrating-badge" data-tooltip={`Provisional / Prior Calibration (${p.opponents}/15 matches completed)`}>
                     ⏳
@@ -497,6 +514,7 @@ function Table({ view, rows, jumpTo, changes, linkTo, caption }: TableProps) {
               </th>
               <td>
                 <TitleBadge title={p.title} />
+                <ExtraBadges badges={p.badges} />
               </td>
               <td>
                 <span className="c-rating-val">{show.cRating(p.c_rating)}</span>
@@ -521,71 +539,19 @@ function Table({ view, rows, jumpTo, changes, linkTo, caption }: TableProps) {
           {rows.length === 0 && (
             <tr>
               <td colSpan={headers.length} className="empty">
-                No players found matching your criteria.
+                {hidden === null ? (
+                  'No players found matching your criteria.'
+                ) : (
+                  <>
+                    {hidden.note} <a {...linkTo(hidden.show)}>Show anyway</a>
+                  </>
+                )}
               </td>
             </tr>
           )}
         </tbody>
       </table>
-    </div>
+    </ScrollTable>
   );
 }
 
-interface PaginationProps {
-  view: View;
-  at: { page: number; pages: number; total: number };
-  linkTo: LinkTo;
-  go: (view: View) => void;
-}
-
-/** Pagination links to the first, previous, next and last pages, and jumps to a typed page number. */
-function Pagination({ view, at, linkTo, go }: PaginationProps) {
-  const [typed, setTyped] = useState(String(at.page));
-  useEffect(() => setTyped(String(at.page)), [at.page]);
-  const to = (n: number) => linkTo({ ...view, page: n });
-
-  return (
-    <nav className="pagination" aria-label="Pages">
-      <div>
-        Showing page <strong>{at.page}</strong> of <strong>{at.pages}</strong> ({at.total.toLocaleString('en')} players)
-      </div>
-      <div className="pagination-links">
-        {at.page > 1 && (
-          <>
-            <a {...to(1)} title="Jump to First Page">
-              &laquo; First
-            </a>
-            <a {...to(at.page - 1)} title="Previous Page">
-              &lsaquo; Prev
-            </a>
-          </>
-        )}
-        <form
-          className="page-jumper"
-          onSubmit={(e) => {
-            e.preventDefault();
-            const n = Number.parseInt(typed, 10);
-            go({ ...view, page: Number.isNaN(n) ? 1 : Math.min(Math.max(n, 1), at.pages) });
-          }}
-        >
-          <span>Page</span>
-          <input type="number" min={1} max={at.pages} aria-label="Page number" value={typed} onChange={(e) => setTyped(e.target.value)} />
-          <span>/ {at.pages}</span>
-          <button type="submit" title="Go to page">
-            Go
-          </button>
-        </form>
-        {at.page < at.pages && (
-          <>
-            <a {...to(at.page + 1)} title="Next Page">
-              Next &rsaquo;
-            </a>
-            <a {...to(at.pages)} title="Jump to Last Page">
-              Last &raquo;
-            </a>
-          </>
-        )}
-      </div>
-    </nav>
-  );
-}

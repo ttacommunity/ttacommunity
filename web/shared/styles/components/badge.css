@@ -4,7 +4,7 @@
   padding: 0.15rem 0.45rem;
   border-radius: 4px;
   font-family: var(--font-stats);
-  font-size: 0.75rem;
+  font-size: var(--size-label);
   font-weight: 700;
   text-align: center;
 }
@@ -17,7 +17,7 @@
 }
 
 .badge-format {
-  background: rgba(229, 169, 60, 0.18);
+  background: var(--gold-wash-faint);
   border: 1px solid var(--accent-gold);
   color: var(--accent-gold);
 }
@@ -35,11 +35,11 @@
   gap: 0.3rem;
   background: linear-gradient(135deg, #450a0a 0%, #7f1d1d 30%, #991b1b 60%, #450a0a 100%);
   border: 1.5px solid #d4af37;
-  box-shadow: 0 0 14px rgba(212, 175, 55, 0.6), inset 0 1px 2px rgba(255, 235, 150, 0.4), 0 2px 6px rgba(0, 0, 0, 0.7);
+  box-shadow: 0 0 14px rgba(212, 175, 55, 0.6), inset 0 1px 2px rgba(255, 235, 150, 0.4), 0 2px 6px var(--shadow);
   color: var(--accent-gold-bright);
   font-weight: 800;
   letter-spacing: 0.6px;
-  text-shadow: 0 0 6px rgba(255, 215, 0, 0.6), 0 1px 2px rgba(0, 0, 0, 0.9);
+  text-shadow: 0 0 6px rgba(255, 215, 0, 0.6), 0 1px 2px var(--shadow-deep);
 }
 
 .badge-wc::before {
@@ -55,11 +55,11 @@
   background: linear-gradient(135deg, #78350f 0%, #b45309 30%, #d97706 60%, #f59e0b 100%);
   border: 1.5px solid #fde047;
   border-radius: 4px;
-  box-shadow: 0 0 10px rgba(245, 158, 11, 0.5), inset 0 1px 2px rgba(254, 240, 138, 0.5), 0 2px 5px rgba(0, 0, 0, 0.6);
+  box-shadow: 0 0 10px rgba(245, 158, 11, 0.5), inset 0 1px 2px rgba(254, 240, 138, 0.5), 0 2px 5px var(--shadow);
   color: #fffbeb;
   font-weight: 800;
   letter-spacing: 0.5px;
-  text-shadow: 0 0 4px rgba(253, 224, 71, 0.5), 0 1px 2px rgba(0, 0, 0, 0.8);
+  text-shadow: 0 0 4px rgba(253, 224, 71, 0.5), 0 1px 2px var(--shadow-deep);
 }
 
 .badge-sgm::before {
@@ -68,13 +68,16 @@
   filter: drop-shadow(0 0 3px rgba(253, 224, 71, 0.9));
 }
 
-.badge-gm { background: #e5a93c; border: 1px solid #ffcc66; color: #1c130d; }
+.badge-gm { background: var(--accent-gold); border: 1px solid #ffcc66; color: var(--bg-dark); }
 .badge-m { background: #94a3b8; border: 1px solid #cbd5e1; color: #0f172a; }
 .badge-p { background: #38bdf8; border: 1px solid #7dd3fc; color: #082f49; }
-.badge-g { background: #eab308; border: 1px solid #fde047; color: #1c130d; }
-.badge-s { background: #94a3b8; border: 1px solid #cbd5e1; color: #1c130d; }
+.badge-g { background: #eab308; border: 1px solid #fde047; color: var(--bg-dark); }
+.badge-s { background: #94a3b8; border: 1px solid #cbd5e1; color: var(--bg-dark); }
 .badge-b { background: #b45309; border: 1px solid #d97706; color: #fffbeb; }
 .badge-w { background: #78350f; border: 1px solid #92400e; color: #fef3c7; }
+
+/* A badge admin gave: a title's shape, in a neutral colour so it is not read as a rank. */
+.badge-extra { margin-left: 0.25rem; background: transparent; border: 1px solid #a8a29e; color: #e7e5e4; font-weight: 600; }
 
 .badge-none {
   color: #665544;
@@ -110,7 +113,7 @@
 
 /* A plain gold badge, as upstream's .badge-rank. */
 .badge-rank {
-  background: rgba(229, 169, 60, 0.15);
+  background: var(--gold-wash-faint);
   color: var(--accent-gold);
-  border: 1px solid rgba(229, 169, 60, 0.4);
+  border: 1px solid var(--gold-wash-strong);
 }

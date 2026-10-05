@@ -110,7 +110,11 @@ func (s *server) GetLeaderboardCsv(ctx context.Context, req GetLeaderboardCsvReq
 		rows, q.Played = leaderboardview.FromYear(board, string(stats))
 		season, yearSlug = strconv.Itoa(*p.Year), strconv.Itoa(*p.Year)
 	} else {
-		rows, err = s.ratings.Leaderboard(ctx, req.Run, string(model), int(format))
+		var last *time.Time
+		if last, err = s.ratings.RunLastGame(ctx, req.Run); err == nil {
+			q.InactiveOnOrBefore = leaderboardview.InactiveCutoff(last)
+			rows, err = s.ratings.Leaderboard(ctx, req.Run, string(model), int(format))
+		}
 	}
 	if errors.Is(err, store.ErrRunNotFound) || errors.Is(err, store.ErrNoHistory) {
 		return GetLeaderboardCsv404JSONResponse{NotFoundJSONResponse{

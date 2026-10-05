@@ -20,8 +20,13 @@ var (
 
 // PublishedRun is a run visitors can read.
 type PublishedRun struct {
-	ID          int64
-	PublishedAt time.Time
+	ID            int64
+	PublishedAt   time.Time
+	EngineVersion string
+	FinishedAt    *time.Time
+	// What the engine recorded about the run's input; nil for a run completed before it did.
+	Games, Players      *int
+	FirstGame, LastGame *time.Time
 }
 
 // LeaderboardRow is one player's rating in one model and format.
@@ -42,6 +47,34 @@ type LeaderboardRow struct {
 	Country    *string
 	Title      *Title
 	Peak       *Peak
+	Badges     []ExtraBadge
+}
+
+// ExtraBadge is a badge admin gave a player, shown beside their title.
+type ExtraBadge struct {
+	Label       string
+	Description string
+}
+
+// badgesByPlayer returns every player's badges, by label: they show at once, whatever the run.
+func (r *RatingsReader) badgesByPlayer(ctx context.Context, names []string) (map[string][]ExtraBadge, error) {
+	rows, err := r.pool.Query(ctx, `
+		SELECT pb.player_name, b.label, b.description FROM player_badges pb JOIN badges b USING (badge_id)
+		WHERE pb.player_name = ANY($1) ORDER BY lower(b.label)`, names)
+	if err != nil {
+		return nil, fmt.Errorf("reading badges: %w", err)
+	}
+	got := map[string][]ExtraBadge{}
+	var name string
+	var b ExtraBadge
+	_, err = pgx.ForEachRow(rows, []any{&name, &b.Label, &b.Description}, func() error {
+		got[name] = append(got[name], b)
+		return nil
+	})
+	if err != nil {
+		return nil, fmt.Errorf("reading badges: %w", err)
+	}
+	return got, nil
 }
 
 // Peak is a player's best title over their career, and the year they held it.
@@ -100,12 +133,15 @@ func (r *RatingsReader) CheckReadOnly(ctx context.Context) error {
 	return nil
 }
 
-// CurrentRun returns the run the site shows now, or ErrNoPublishedRun.
+// CurrentRun returns the run the site shows now, the community ranking's,
+// with what the engine recorded about it, or ErrNoPublishedRun.
 func (r *RatingsReader) CurrentRun(ctx context.Context) (PublishedRun, error) {
 	var run PublishedRun
 	err := r.pool.QueryRow(ctx, `
-		SELECT c.run_id, r.published_at
-		FROM current_run c JOIN rating_runs r USING (run_id)`).Scan(&run.ID, &run.PublishedAt)
+		SELECT c.run_id, r.published_at, r.engine_version, r.finished_at, r.games, r.players, r.first_game, r.last_game
+		FROM current_run c JOIN rating_runs r USING (run_id)
+		WHERE c.ranking_id = community_ranking()`).Scan(&run.ID, &run.PublishedAt, &run.EngineVersion, &run.FinishedAt,
+		&run.Games, &run.Players, &run.FirstGame, &run.LastGame)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return PublishedRun{}, ErrNoPublishedRun
 	}
@@ -113,6 +149,20 @@ func (r *RatingsReader) CurrentRun(ctx context.Context) (PublishedRun, error) {
 		return PublishedRun{}, fmt.Errorf("reading the current run: %w", err)
 	}
 	return run, nil
+}
+
+// RunLastGame returns the date of a run's last game, or nil for a run that
+// recorded none. An unknown run is ErrRunNotFound.
+func (r *RatingsReader) RunLastGame(ctx context.Context, run int64) (*time.Time, error) {
+	var last *time.Time
+	err := r.pool.QueryRow(ctx, "SELECT last_game FROM rating_runs WHERE run_id = $1", run).Scan(&last)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return nil, ErrRunNotFound
+	}
+	if err != nil {
+		return nil, fmt.Errorf("reading run %d's last game: %w", run, err)
+	}
+	return last, nil
 }
 
 // Leaderboard returns a published run's ratings for one model and format in
@@ -153,20 +203,40 @@ func (r *RatingsReader) Leaderboard(ctx context.Context, run int64, model string
 	if err != nil {
 		return nil, fmt.Errorf("reading run %d's %s leaderboard: %w", run, model, err)
 	}
+	names := make([]string, len(board))
+	for i, p := range board {
+		names[i] = p.Name
+	}
+	badges, err := r.badgesByPlayer(ctx, names)
+	if err != nil {
+		return nil, err
+	}
+	for i := range board {
+		board[i].Badges = badges[board[i].Name]
+	}
 	return board, nil
 }
 
-// History returns each player's rating at the end of the latest period on or
-// before at, for a published run, model and format, and the date it used.
-// Without at, it uses the run's previous period, the one before its last.
-// Players with no rating by then are left out.
+// History returns the snapshot of the latest period on or before at (the first
+// period when at is earlier), for a published run, model and format, and its date.
+// Without at, it uses the run's previous period, the one before its last. Only the
+// players in that snapshot are in it.
 func (r *RatingsReader) History(ctx context.Context, run int64, model string, format int, at *time.Time) (time.Time, []HistoryRow, error) {
 	if err := r.requirePublished(ctx, run); err != nil {
 		return time.Time{}, nil, err
 	}
 	var on time.Time
 	if at != nil {
-		on = *at
+		// The snapshot on or before the date, else the first one, as upstream picks it (7cd7220).
+		err := r.pool.QueryRow(ctx, `
+			SELECT coalesce(max(period_date) FILTER (WHERE period_date <= $4), min(period_date))
+			FROM rating_history WHERE run_id = $1 AND model_type = $2 AND player_count = $3`, run, model, format, *at).Scan(&on)
+		if errors.Is(err, pgx.ErrNoRows) || (err == nil && on.IsZero()) {
+			return time.Time{}, nil, ErrNoHistory
+		}
+		if err != nil {
+			return time.Time{}, nil, fmt.Errorf("finding run %d's snapshot for %s: %w", run, at.Format(time.DateOnly), err)
+		}
 	} else {
 		err := r.pool.QueryRow(ctx, `
 			SELECT period_date FROM (
@@ -183,10 +253,10 @@ func (r *RatingsReader) History(ctx context.Context, run int64, model string, fo
 	}
 
 	rows, err := r.pool.Query(ctx, `
-		SELECT DISTINCT ON (player_name) player_name, rating, rd, c_rating
+		SELECT player_name, rating, rd, c_rating
 		FROM rating_history
-		WHERE run_id = $1 AND model_type = $2 AND player_count = $3 AND period_date <= $4
-		ORDER BY player_name, period_date DESC`, run, model, format, on)
+		WHERE run_id = $1 AND model_type = $2 AND player_count = $3 AND period_date = $4
+		ORDER BY player_name`, run, model, format, on)
 	if err != nil {
 		return time.Time{}, nil, fmt.Errorf("reading run %d's %s history: %w", run, model, err)
 	}

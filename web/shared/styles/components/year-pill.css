@@ -15,7 +15,7 @@
 }
 
 .year-pill:hover {
-  background: rgba(229, 169, 60, 0.15);
+  background: var(--gold-wash-faint);
   border-color: var(--accent-gold);
   color: var(--text-main);
 }
@@ -23,23 +23,23 @@
 .year-pill.active {
   background: var(--accent-gold);
   border-color: var(--accent-gold);
-  box-shadow: 0 2px 6px rgba(229, 169, 60, 0.35);
-  color: #1c130d;
+  box-shadow: 0 2px 6px var(--gold-wash-strong);
+  color: var(--bg-dark);
   font-weight: 700;
 }
 
 .year-pill-wc {
   margin-left: 0.25rem;
   padding: 0.1rem 0.3rem;
-  background: #ffd700;
+  background: var(--accent-gold-bright);
   border-radius: 3px;
-  color: #1c130d;
+  color: var(--bg-dark);
   font-size: 0.68rem;
   font-weight: 800;
   line-height: 1;
 }
 
 .year-pill.active .year-pill-wc {
-  background: #1c130d;
-  color: #ffd700;
+  background: var(--bg-dark);
+  color: var(--accent-gold-bright);
 }

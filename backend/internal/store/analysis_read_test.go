@@ -53,10 +53,10 @@ func TestAnalysisRatingsGivesThePageModelsAndWhoIsActive(t *testing.T) {
 	ctx := context.Background()
 	run := publishedRun(t, pool)
 	addPlayers(t, pool, "ann", "bob", "cy")
-	addRating(t, pool, run, "glicko2_daneo", 0, "ann", intp(1), 1800)
-	addRating(t, pool, run, "whr_softer", 0, "ann", intp(2), 1700)
-	addRating(t, pool, run, "glicko2_std_retro", 0, "ann", intp(1), 1900)
-	addRating(t, pool, run, "glicko2_daneo", 2, "ann", intp(1), 1500)
+	addRating(t, pool, run, "glicko2_daneo", 0, "ann", ptr(1), 1800)
+	addRating(t, pool, run, "whr_softer", 0, "ann", ptr(2), 1700)
+	addRating(t, pool, run, "glicko2_std_retro", 0, "ann", ptr(1), 1900)
+	addRating(t, pool, run, "glicko2_daneo", 2, "ann", ptr(1), 1500)
 	// In the year to the newest game (2025-09-11): ann 11 games, bob 10 (and one older), cy 11, one a day
 	// after the cutoff; each opponent otherwise plays too few to count.
 	start := day("2025-09-01")
@@ -92,7 +92,7 @@ func TestComparedPlayersFindsNamesOrCountriesStrongestFirst(t *testing.T) {
 		t.Fatalf("setting countries: %v", err)
 	}
 	for name, c := range map[string]float64{"Annika": 1700, "hannah": 1800, "bob": 1600, "Zed": 1900} {
-		addRating(t, pool, run, "glicko2_daneo", 0, name, intp(1), c)
+		addRating(t, pool, run, "glicko2_daneo", 0, name, ptr(1), c)
 	}
 	addTitle(t, pool, run, "hannah", "GM", 2, "WC 2024")
 
@@ -123,10 +123,10 @@ func TestComparedPlayersDefaultsToUpstreamsSixInItsOrderWithTheirRatings(t *test
 	ctx := context.Background()
 	run := publishedRun(t, pool)
 	addPlayers(t, pool, "saru", "a440", "Genghisip", "someone")
-	addRating(t, pool, run, "whr", 3, "a440", intp(4), 1800)
+	addRating(t, pool, run, "whr", 3, "a440", ptr(4), 1800)
 	addRating(t, pool, run, "glicko2_daneo", 3, "a440", nil, 1900)
-	addRating(t, pool, run, "glicko2_std_retro", 3, "a440", intp(1), 1950)
-	addRating(t, pool, run, "glicko2_daneo", 0, "a440", intp(1), 1850)
+	addRating(t, pool, run, "glicko2_std_retro", 3, "a440", ptr(1), 1950)
+	addRating(t, pool, run, "glicko2_daneo", 0, "a440", ptr(1), 1850)
 
 	got, err := r.ComparedPlayers(ctx, run, 3, nil)
 	if err != nil {
@@ -159,10 +159,10 @@ func TestActivityCountsPlayersGamesTitlesAndCountries(t *testing.T) {
 		t.Fatalf("setting countries: %v", err)
 	}
 	for name, rating := range map[string]float64{"gm1": 1900, "gm2": 1951, "m1": 1800, "p1": 1700, "s1": 1500, "fr1": 1600, "cz1": 1550} {
-		addRating(t, pool, run, "glicko2_std", 0, name, intp(1), rating-100)
+		addRating(t, pool, run, "glicko2_std", 0, name, ptr(1), rating-100)
 	}
-	addRating(t, pool, run, "glicko2_std", 2, "s1", intp(1), 2400)
-	addRating(t, pool, other, "glicko2_std", 0, "unrated", intp(1), 1500)
+	addRating(t, pool, run, "glicko2_std", 2, "s1", ptr(1), 2400)
+	addRating(t, pool, other, "glicko2_std", 0, "unrated", ptr(1), 1500)
 	// Active means a last game after the cutoff, in any model or format.
 	_, err = pool.Exec(ctx, `UPDATE player_ratings SET last_played = CASE WHEN player_count = 2 THEN '2025-06-01'::date
 		ELSE '2025-05-31'::date END WHERE run_id = $1 AND player_name IN ('gm1', 's1')`, run)
@@ -185,8 +185,8 @@ func TestActivityCountsPlayersGamesTitlesAndCountries(t *testing.T) {
 	if got.Active != 1 || got.Inactive != 7 {
 		t.Errorf("active, inactive = %d, %d, want 1 (s1, by their 2-player game), 7 (gm1 on the cutoff, the rest before or unrated)", got.Active, got.Inactive)
 	}
-	if fmt.Sprint(got.Formats) != "[{2 1} {3 2}]" {
-		t.Errorf("formats = %v, want the run's games only: [{2 1} {3 2}]", got.Formats)
+	if fmt.Sprint(got.Formats) != "[{2 1 1} {3 2 6}]" {
+		t.Errorf("formats = %v, want the run's games and their pairs only: [{2 1 1} {3 2 6}]", got.Formats)
 	}
 	if fmt.Sprint(got.Titles) != "[{GM 2} {S 1} {P 1} {M 1}]" {
 		t.Errorf("titles = %v, want this run's, most first, ties in reverse code order as upstream's SQLite", got.Titles)

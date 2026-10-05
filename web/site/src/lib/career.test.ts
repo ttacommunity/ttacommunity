@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import type { CareerYear, PlayerRating, VersusMatch } from '@ttac/shared/ratings';
-import { careerPeakYear, divergenceNotes, isPeakHigher, scoreYears, versusTally, wcLabel } from './career';
+import type { CareerYear, VersusMatch } from '@ttac/shared/ratings';
+import { careerPeakYear, isPeakHigher, scoreYears, versusTally, wcLabel } from './career';
 
 const year = (y: number, wins: number, winRate: number, peak: number | null, title: CareerYear['title'] = null): CareerYear => ({
   year: y,
@@ -42,42 +42,6 @@ describe('careerPeakYear', () => {
 
   it('is null without years', () => {
     expect(careerPeakYear([], null)).toBeNull();
-  });
-});
-
-const rating = (model: PlayerRating['model'], value: number): PlayerRating => ({
-  model,
-  format: 0,
-  rank: 1,
-  rating: value,
-  rd: 30,
-  c_rating: value - 90,
-  opponents: 10,
-  win_rate: 50,
-});
-
-describe('divergenceNotes', () => {
-  it('compares Standard with MP-Weighted and WHR as upstream words it', () => {
-    expect(divergenceNotes(rating('glicko2_std', 2007.7), rating('glicko2_mp', 1961.1), rating('whr', 2063.5))).toEqual([
-      'Rating adjusts downward by 46.6 pts under MP-Weighted, reflecting calibration for multiplayer (3p/4p) play where naive dueling over-accumulates confidence.',
-      'WHR evaluates career strength 55.8 pts higher retrospectively, crediting resilient play across high-variance tournament seasons.',
-    ]);
-  });
-
-  it('uses the other sentences below the thresholds and in the other direction', () => {
-    expect(divergenceNotes(rating('glicko2_std', 1500), rating('glicko2_mp', 1520), rating('whr', 1470))).toEqual([
-      'Rating gains 20.0 pts under MP-Weighted, demonstrating high conversion efficiency in complex multiplayer tables.',
-      "WHR smooths out localized hot streaks by 30.0 pts, grounding historical trajectory against opponents' lifetime records.",
-    ]);
-    expect(divergenceNotes(rating('glicko2_std', 1500), rating('glicko2_mp', 1510), rating('whr', 1515))).toEqual([
-      'Standard and MP-Weighted ratings are tightly aligned, indicating balanced duel and multiplayer tournament exposure.',
-      'WHR retrospective reconstruction confirms the forward Glicko-2 trajectory with exceptional fidelity.',
-    ]);
-  });
-
-  it('leaves out a comparison with a missing rating', () => {
-    expect(divergenceNotes(rating('glicko2_std', 1500), undefined, rating('whr', 1515))).toHaveLength(1);
-    expect(divergenceNotes(undefined, rating('glicko2_mp', 1500), rating('whr', 1515))).toEqual([]);
   });
 });
 

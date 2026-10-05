@@ -4,6 +4,7 @@ import (
 	"strings"
 	"testing"
 
+	"ttacommunity/backend/internal/cgegames"
 	"ttacommunity/backend/internal/countrycsv"
 	"ttacommunity/backend/internal/matchcsv"
 	"ttacommunity/backend/internal/store"
@@ -102,5 +103,91 @@ func TestReportCountriesCountsAndNamesNoPlayer(t *testing.T) {
 	}
 	if strings.Contains(got, "secretname") {
 		t.Errorf("report names a player:\n%s", got)
+	}
+}
+
+func TestReportClassifiedCountsAndNamesUnreadTournaments(t *testing.T) {
+	var b strings.Builder
+	reportClassified(&b, store.Classified{Placed: 5, Unplaced: []string{"Friendly game", "Odd Cup"}})
+	got := b.String()
+
+	for _, want := range []string{
+		"placed in the catalogue: 5",
+		"names no rule reads: 2 (their games stay unplaced)",
+		"  Friendly game\n  Odd Cup\n",
+	} {
+		if !strings.Contains(got, want) {
+			t.Errorf("report is missing %q:\n%s", want, got)
+		}
+	}
+}
+
+func TestReportClassifiedSaysNothingIsUnplaced(t *testing.T) {
+	var b strings.Builder
+	reportClassified(&b, store.Classified{Placed: 3})
+	if got := b.String(); strings.Contains(got, "no rule reads") {
+		t.Errorf("report lists unread names when there are none:\n%s", got)
+	}
+}
+
+func TestReportAttachedCountsAndNamesNoPlayer(t *testing.T) {
+	var b strings.Builder
+	reportAttached(&b, "g.csv", cgegames.Result{Refused: []cgegames.Refusal{{Line: 4, Reason: cgegames.BadSeat}}}, store.Added{
+		Added: 5, NeverPlayed: 2, AlreadyHeld: 7, Unsettled: 1,
+		Conflicts: []cgegames.Game{{CGETournament: 21, CGESeason: 9, Seats: []cgegames.Seat{{Name: "secretname"}}}},
+	}, store.Attached{
+		Matched:       3,
+		Renamed:       2,
+		LacksTimedOut: 4,
+		NeverPlayed:   1,
+		Cleared:       6,
+		Unmatched: []cgegames.Game{
+			{CGETournament: 21, CGESeason: 7, Seats: []cgegames.Seat{{Name: "secretname"}}},
+			{CGETournament: 21, CGESeason: 7}, {CGETournament: 19, CGESeason: 2},
+		},
+		Seasons: []store.SeasonLink{{CGETournament: 21, CGESeason: 7, Season: "16", Games: 3}},
+	})
+	got := b.String()
+	for _, want := range []string{
+		"matched to our games: 3 (2 with a player renamed since, 4 our file records without a timed-out player)",
+		"never played, set apart: 1",
+		"matched before but no longer, cleared: 6",
+		"no game of ours: 3 (CGE 19/2: 1, 21/7: 2)",
+		"  CGE 21/7 -> season 16: 3 games\n",
+		"refused: 1\n  g.csv:4 bad_seat\n",
+		"added: 5 (2 of them never played)",
+		"already held: 7",
+		"placing not settled, not added: 1",
+		"may be a copy of ours, not added: 1 (CGE 21/9: 1)",
+	} {
+		if !strings.Contains(got, want) {
+			t.Errorf("report is missing %q:\n%s", want, got)
+		}
+	}
+	if strings.Contains(got, "secretname") {
+		t.Errorf("report names a player:\n%s", got)
+	}
+}
+
+func TestReadConfirmedTakesReplayCodes(t *testing.T) {
+	got, err := readConfirmed("new.csv", strings.NewReader("replay_code,reason\nTEPIBOTA,checked on CGE\nROSOBOBU,\n"))
+	if err != nil {
+		t.Fatalf("readConfirmed: %v", err)
+	}
+	if len(got) != 2 || !got["TEPIBOTA"] || !got["ROSOBOBU"] {
+		t.Errorf("readConfirmed = %v, want TEPIBOTA and ROSOBOBU", got)
+	}
+}
+
+func TestReadConfirmedRefusesAnythingElse(t *testing.T) {
+	for name, in := range map[string]string{
+		"no header":     "TEPIBOTA\n",
+		"another first": "code,replay_code\nTEPIBOTA,x\n",
+		"a bad code":    "replay_code\ntepibota\n",
+		"an empty code": "replay_code\n\n,why\n",
+	} {
+		if _, err := readConfirmed("new.csv", strings.NewReader(in)); err == nil {
+			t.Errorf("readConfirmed(%s) accepted it, want an error", name)
+		}
 	}
 }

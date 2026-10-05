@@ -4,8 +4,8 @@ import { communityLeaderboard, currentRun, type CommunityEdition, type Community
 import { Flag } from './PlayerMarks';
 import {
   countingColumns,
+  editionFacts,
   matchesSearch,
-  pageWindow,
   parseCommunityView,
   titleMark,
   tournamentSums,
@@ -13,8 +13,13 @@ import {
   type CommunityView,
 } from '../lib/community';
 import { EDITIONS, type Edition } from '../lib/community-editions';
-import { playerHref } from '../lib/player-view';
+import { titleName } from '../lib/leaderboard-display';
 import './CommunityPage.css';
+import Segmented from './Segmented';
+import SearchBox, { type SearchPlayer } from './SearchBox';
+import PlayerLink from './PlayerLink';
+import Waiting from './Waiting';
+import Pager from './Pager';
 
 type Load = { kind: 'loading' } | { kind: 'error'; message: string } | { kind: 'ready'; rows: CommunityRow[] };
 
@@ -24,7 +29,6 @@ const PILLS: { edition: CommunityEdition; text: string; tip: string }[] = [
   { edition: '2024', text: '📜 2024 Final Archive', tip: 'Official final standings for Season 2024' },
   { edition: 'race26', text: '🏁 2026 Race Tracker', tip: 'Live seasonal points race for calendar year 2026' },
 ];
-const TITLE_TIPS = { WC: 'Reigning World Champion (2025)', GM: 'Grandmaster', M: 'Master', P: 'Platinum', G: 'Gold' } as const;
 
 /** href is the page's address for a view, as upstream's links carry edition, view, search and page. */
 function href(view: CommunityView, change: Partial<CommunityView>): string {
@@ -61,7 +65,7 @@ function Hero({ edition, view, rows }: { edition: Edition; view: CommunityView; 
         <div className="maintainer-desc">
           This official leaderboard is curated and maintained by{' '}
           <strong>
-            <a href={playerHref('wolvs')}>Wolvs</a>
+            <PlayerLink name="wolvs">Wolvs</PlayerLink>
           </strong>{' '}
           • Tracking tournament finishes under the official Best-8 system.
         </div>
@@ -88,21 +92,19 @@ function Hero({ edition, view, rows }: { edition: Edition; view: CommunityView; 
         </div>
         <div className="stat-tile">
           <div className="stat-tile-num">{events}</div>
-          <div className="stat-tile-label">Tracked Events (7 Tiers)</div>
+          <div className="stat-tile-label">Tracked Events ({editionFacts(edition).tiers} Tiers)</div>
         </div>
         <div className="stat-tile">
           <div className="stat-tile-num">
-            <a href={playerHref(top?.name ?? 'wolvs')} className="comm-top-link">
-              {top?.name ?? 'wolvs'}
-            </a>
+            <PlayerLink name={top?.name ?? 'wolvs'} className="comm-top-link" />
           </div>
           <div className="stat-tile-label">#1 Rank ({whole(top?.points ?? 6320)} pts)</div>
         </div>
         <div className="stat-tile">
           <div className="stat-tile-num">
-            <a href={playerHref(edition.info.wc)} className="comm-wc-link">
+            <PlayerLink name={edition.info.wc} className="comm-wc-link">
               <span className="badge badge-wc comm-wc-badge">WC</span> {edition.info.wc}
-            </a>
+            </PlayerLink>
           </div>
           <div className="stat-tile-label">Reigning World Champion</div>
         </div>
@@ -111,7 +113,8 @@ function Hero({ edition, view, rows }: { edition: Edition; view: CommunityView; 
   );
 }
 
-function Explainers() {
+function Explainers({ edition }: { edition: Edition }) {
+  const facts = editionFacts(edition);
   return (
     <div className="explainer-cards">
       <div className="explainer-card">
@@ -125,7 +128,7 @@ function Explainers() {
         <ul>
           <li>
             <strong>Top 8 Scores Count</strong>: A player&apos;s total is the sum of their 8 highest-scoring tournament finishes
-            across all 19 active event slots.
+            across all {facts.slots} active event slots.
           </li>
           <li>
             <strong>Participation Protected</strong>: If a competitor has played in 8 or fewer events, all scores sum normally.
@@ -141,56 +144,29 @@ function Explainers() {
         <h3>
           <span>🏆</span> Tracked Event Slots &amp; Point Tiers
         </h3>
-        <p>The leaderboard covers 19 major tournaments over a rolling 1-to-2 year seasonal window:</p>
+        <p>This edition covers {facts.slots} event slots in {facts.tiers} tiers:</p>
         <ul>
-          <li>
-            <strong>
-              World Championship (<code>wrld</code>)
-            </strong>
-            : 2,500 pts max • The premier global biennial championship (won by <strong>a440</strong> in 2025).
-          </li>
-          <li>
-            <strong>
-              International Championship (<code>ic_30</code>–<code>33</code>)
-            </strong>
-            : 1,000 pts max per season • 4 rolling seasons of the classic 4-player league.
-          </li>
-          <li>
-            <strong>
-              Intermezzo Championship (<code>im_27</code>–<code>30</code>)
-            </strong>
-            : 1,000 pts max per season • 4 rolling seasons of the 3-player championship.
-          </li>
-          <li>
-            <strong>
-              Royal League (<code>rl_05</code>–<code>08</code>)
-            </strong>
-            : 1,000 pts max per season • 4 rolling seasons of elite divisional play.
-          </li>
-          <li>
-            <strong>Grand Slams &amp; Ladders</strong>: Wimbledon, Australian Open, Sodium Ladder, Mercurial Ladder (1,000 pts
-            max each), Eiffel Cup &amp; Quick &amp; Dirty (600 pts).
-          </li>
+          {facts.lines.map((t) => (
+            <li key={t.name}>
+              <strong>
+                {t.name} (<code>{t.codes}</code>)
+              </strong>
+              : {t.maxPts} pts max{t.each ? ' each' : ''}
+            </li>
+          ))}
         </ul>
       </div>
     </div>
   );
 }
 
-function Controls({ view }: { view: CommunityView }) {
+function Controls({ view, slots, names }: { view: CommunityView; slots: number; names: SearchPlayer[] }) {
   return (
     <div className="comm-controls">
       <form method="get" action="/ratings/community/" className="comm-search-form">
         <input type="hidden" name="view" value={view.view} />
         <input type="hidden" name="edition" value={view.edition} />
-        <input
-          type="text"
-          name="q"
-          defaultValue={view.search}
-          placeholder="Search competitor by name..."
-          aria-label="Search competitor by name"
-          className="comm-search-input"
-        />
+        <SearchBox players={names} value={view.search} name="q" inputClassName="comm-search-input" placeholder="Search competitor by name..." />
         <button type="submit" className="btn-search-gold">
           Search
         </button>
@@ -206,22 +182,16 @@ function Controls({ view }: { view: CommunityView }) {
       >
         <span>🖱️</span> Scroll table with <strong>CMB</strong>
       </div>
-      <div className="view-toggle-bar">
-        <a
-          href={href(view, { view: 'standard' })}
-          className={`view-btn${view.view === 'standard' ? ' active' : ''}`}
-          title="Standard View: Shows the sum of each tournament for optimal visibility"
-        >
-          📊 Standard View (Tournament Summary)
-        </a>
-        <a
-          href={href(view, { view: 'expanded' })}
-          className={`view-btn${view.view === 'expanded' ? ' active' : ''}`}
-          title="Expanded View: Expands to the sides showing all 19 individual periods"
-        >
-          📑 Expanded View (All Periods)
-        </a>
-      </div>
+      <Segmented
+        label="View"
+        look="view"
+        options={[
+          { value: 'standard', label: '📊 Standard View (Tournament Summary)', title: 'Standard View: Shows the sum of each tournament for optimal visibility' },
+          { value: 'expanded', label: '📑 Expanded View (All Periods)', title: `Expanded View: Expands to the sides showing all ${slots} individual periods` },
+        ]}
+        value={view.view}
+        link={(v) => ({ href: href(view, { view: v }) })}
+      />
     </div>
   );
 }
@@ -285,15 +255,13 @@ function Table({ edition, view, rows }: { edition: Edition; view: CommunityView;
                   </td>
                   <td className="sticky-col-player text-left">
                     <Flag country={r.country} />{' '}
-                    <a href={playerHref(r.name)} className="player-link comm-player">
-                      {r.name}
-                    </a>
+                    <PlayerLink name={r.name} className="player-link comm-player" />
                   </td>
                   <td>
                     {mark === null ? (
                       <span className="comm-dash">-</span>
                     ) : (
-                      <span className={`badge badge-${mark.toLowerCase()}`} title={TITLE_TIPS[mark]}>
+                      <span className={`badge badge-${mark.toLowerCase()}`} title={titleName(mark)}>
                         {mark}
                       </span>
                     )}
@@ -339,40 +307,6 @@ function Table({ edition, view, rows }: { edition: Edition; view: CommunityView;
   );
 }
 
-function Pagination({ view, total }: { view: CommunityView; total: number }) {
-  if (total <= 1) return null;
-  const at = (page: number) => href(view, { page });
-  return (
-    <div className="pagination-bar">
-      {view.page > 1 && (
-        <>
-          <a href={at(1)} className="page-link">
-            « First
-          </a>
-          <a href={at(view.page - 1)} className="page-link">
-            ‹ Prev
-          </a>
-        </>
-      )}
-      {pageWindow(view.page, total).map((p) => (
-        <a key={p} href={at(p)} className={`page-link${p === view.page ? ' active' : ''}`}>
-          {p}
-        </a>
-      ))}
-      {view.page < total && (
-        <>
-          <a href={at(view.page + 1)} className="page-link">
-            Next ›
-          </a>
-          <a href={at(total)} className="page-link">
-            Last »
-          </a>
-        </>
-      )}
-    </div>
-  );
-}
-
 /** CommunityPage renders the edition, view, search and page named in the address, from the current run. */
 export default function CommunityPage({ apiUrl }: { apiUrl: string }) {
   const [view] = useState(() => parseCommunityView(new URLSearchParams(window.location.search)));
@@ -390,8 +324,7 @@ export default function CommunityPage({ apiUrl }: { apiUrl: string }) {
   }, [apiUrl, view.edition]);
 
   const edition = EDITIONS[view.edition];
-  if (state.kind === 'loading') return <p className="comm-status">Loading…</p>;
-  if (state.kind === 'error') return <p className="comm-status">Could not load the leaderboard: {state.message}</p>;
+  if (state.kind !== 'ready') return <Waiting load={state} what="the community leaderboard" />;
 
   const found = view.search ? state.rows.filter((r) => matchesSearch(r.name, view.search)) : state.rows;
   const total = Math.max(1, Math.ceil(found.length / view.perPage));
@@ -402,8 +335,8 @@ export default function CommunityPage({ apiUrl }: { apiUrl: string }) {
   return (
     <div className="community-page">
       <Hero edition={edition} view={onPage} rows={state.rows} />
-      <Explainers />
-      <Controls view={onPage} />
+      <Explainers edition={edition} />
+      <Controls view={onPage} slots={editionFacts(edition).slots} names={state.rows.map((r) => ({ name: r.name, country: r.country }))} />
       <div className="results-counter-card">
         <div>
           Showing <strong className="comm-count-shown">{shown.length}</strong> of{' '}
@@ -413,7 +346,9 @@ export default function CommunityPage({ apiUrl }: { apiUrl: string }) {
         <div>
           Mode:{' '}
           <strong className="comm-mode">
-            {view.view === 'standard' ? 'Tournament Sums (10 Tournaments)' : 'All 19 Period Columns'}
+            {view.view === 'standard'
+              ? `Tournament Sums (${editionFacts(edition).tournaments} Tournaments)`
+              : `All ${editionFacts(edition).slots} Period Columns`}
           </strong>
         </div>
       </div>
@@ -421,7 +356,15 @@ export default function CommunityPage({ apiUrl }: { apiUrl: string }) {
         <span>Swipe table horizontally for full community ranking ➔</span>
       </div>
       <Table edition={edition} view={onPage} rows={shown} />
-      <Pagination view={onPage} total={total} />
+      {total > 1 && (
+        <Pager
+          page={page}
+          pages={total}
+          total={{ count: found.length, noun: 'competitors' }}
+          link={(p) => ({ href: href(onPage, { page: p }) })}
+          go={(p) => window.location.assign(href(onPage, { page: p }))}
+        />
+      )}
     </div>
   );
 }

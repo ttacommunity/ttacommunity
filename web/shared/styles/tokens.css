@@ -8,19 +8,47 @@
   --accent-gold: #e5a93c;
   --accent-gold-light: #ffde8a;
   --accent-gold-bright: #ffd700;
+  --accent-gold-soft: #ffd54f;
+  --accent-gold-deep: #b87c1c;
+  --gradient-gold: linear-gradient(135deg, #e5a93c 0%, #b87c1c 100%);
   --accent-crimson: #8e1e1d;
   --text-main: #f3e5c8;
   --text-soft: #cfbeab;
   --text-muted: #a89880;
   --text-on-gold: #120904;
+  --text-bright: #fff;
   --border-subtle: #4a3525;
   --win: #66bb6a;
   --loss: #ef5350;
   --draw: #ffa726;
 
-  /* The --font-* families come from Astro's <Font />; the fallbacks cover pages without it. */
-  --font-heading: var(--font-cinzel, 'Cinzel', serif);
-  --font-subheading: var(--font-marcellus, 'Marcellus', serif);
-  --font-body: var(--font-source-serif, 'Source Serif 4', Georgia, serif);
-  --font-stats: var(--font-inter, 'Inter', system-ui, sans-serif);
+  /* The site serves these families from public/fonts/fonts.css (scripts/fonts.mjs). */
+  --font-heading: 'Cinzel', serif;
+  --font-subheading: 'Marcellus', serif;
+  --font-body: 'Source Serif 4', Georgia, serif;
+  --font-stats: 'Inter', system-ui, sans-serif;
+
+  /* Text sizes by role, as upstream's pages set them (its leaderboard's where they differ). */
+  --size-page-title: 2.1rem;
+  --size-card-title: 1.35rem;
+  --size-subheading: 1.15rem;
+  --size-body: 1.05rem;
+  --size-body-short: 0.92rem;
+  --size-table-header: 0.85rem;
+  --size-table-cell: 0.92rem;
+  --size-table-compact: 0.85rem;
+  --size-label: 0.75rem;
+  --size-button: 0.9rem;
+
+  /* The few strengths of gold wash, shadow and border, and the darker surfaces. */
+  --gold-wash-faint: rgba(229, 169, 60, 0.15);
+  --gold-wash: rgba(229, 169, 60, 0.25);
+  --gold-wash-strong: rgba(229, 169, 60, 0.4);
+  --shadow-light: rgba(0, 0, 0, 0.3);
+  --shadow: rgba(0, 0, 0, 0.6);
+  --shadow-deep: rgba(0, 0, 0, 0.9);
+  --border-faint: rgba(74, 53, 37, 0.3);
+  --surface-card: rgba(28, 18, 12, 0.95);
+  --surface-well: rgba(20, 13, 9, 0.98);
+  --surface-field: rgba(14, 9, 6, 0.95);
 }

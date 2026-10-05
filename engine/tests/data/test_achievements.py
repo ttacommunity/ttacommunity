@@ -61,6 +61,24 @@ def medals(player, gold=0, silver=0, bronze=0):
             ("World Championship 2026", "Stage 2", "Group A"),
         ),
         ("Sodium Season 16 - Xenon 2", ("Sodium Ladder", "Season 16", "Xenon 2")),
+        ("ML_s01", ("Mercurial Ladder", "Season 1", "Ladder Division")),
+        ("ML_r11", ("Mercurial Ladder", "Season 11", "Ladder Division")),
+        (
+            "Mercurial Season 22 - 6-Carbon 1",
+            ("Mercurial Ladder", "Season 22", "6-Carbon 1"),
+        ),
+        ("Sodium Ladder Season 16 - Tier 1", ("Sodium Ladder", "Season 16", "Tier 1")),
+        ("Premier League 2 game 5", ("Premier League", "Season 2", "Division")),
+        ("Slow Burn S10 - group 1", ("Slow Burn", "Season 10", "group 1")),
+        ("Eiffel Tower S03 - The Top", ("Eiffel Tower Cup", "Season 3", "The Top")),
+        (
+            "Survivors Cup 2026 Stage 4 - group 2 game 1",
+            ("Survivors Cup", "2026", "Stage 4 - group 2"),
+        ),
+        ("Leaderboard Trophy 2025 Stage 3", ("Leaderboard Trophy", "2025", "Stage 3")),
+        # upstream files NL_s under Sodium Ladder and calls DC_s "Diamond Cup"
+        ("NL_s07", ("Nations League", "Season 7", "Division")),
+        ("DC_s02", ("Duel Curve", "Season 2", "Division")),
         ("TCL Round 31", ("TCL Round 31", "Tournament", "Main")),
         ("French Open 2026 - Final", ("French Open 2026", "Final", "Main")),
         ("", ("Unknown Tournament", "Season", "Main")),
@@ -198,7 +216,7 @@ def test_player_records_list_a_champions_seasons_as_upstream(records):
         record(3, "International Championship", "Season 29", "Grandmaster", "1 / 3", "25 pts", "gold",
                "Season 29 International Championship Standing (1 of 3)", "2026-01-01"),
         record(4, "International Championship", "Season 30", "Grandmaster", "1 / 3", "20 pts", "gold",
-               "Season 30 International Championship Standing (1 of 3) &bull; Record: 1W - 1L (50.0% win rate)",
+               "Season 30 International Championship Standing (1 of 3) • Record: 1W - 1L (50.0% win rate)",
                "2025-08-14"),
         record(13, "Quick and Dirty (Q&D)", "Career Trophy Hall of Fame", "Championship",
                "2 Gold, 0 Silver, 1 Bronze", "3 Medals", "gold",
@@ -212,7 +230,7 @@ def test_player_records_break_a_season_tie_by_the_sheets_order(records):
     s30 = [r for r in records["bob"] if r["season"] == "Season 30"]
     assert s30 == [
         record(7, "International Championship", "Season 30", "Grandmaster", "2 / 3", "20 pts", "silver",
-               "Season 30 International Championship Standing (2 of 3) &bull; Record: 1W - 1L (50.0% win rate)",
+               "Season 30 International Championship Standing (2 of 3) • Record: 1W - 1L (50.0% win rate)",
                "2025-08-14"),
     ]  # fmt: skip
 
@@ -223,7 +241,7 @@ def test_player_records_rank_other_groups_by_wins_as_upstream(records):
                "Royal League Emperor Division Runner-up (Season 1)", "2024-08-11"),
         record(15, "TCL Round 31", "Tournament", "Main", "2 / 2", "60 pts", None,
                "Competed in Main: 1 matches played, 0 victories (0.0% win rate)", "2024-01-02"),
-        record(16, "International Championship", "Season 30", "Master 1", "1 / 4", "2W - 0L (100.0%)", "gold",
+        record(16, "International Championship", "Season 30", "Master 1", "1 / 4", "2W - 0L (100.0%)", None,
                "Competed in Master 1: 2 matches played, 2 victories (100.0% win rate)", "2025-08-14"),
     ]  # fmt: skip
     assert [(r["position"], r["placement"], r["medal"]) for r in records["fay"]] == [
@@ -283,3 +301,33 @@ def test_player_records_write_each_honour_series_in_upstreams_order():
     assert {(r["season"], r["finish_date"], r["career"]) for r in got} == {
         ("Career Hall of Fame", "Career / All-Time", True)
     }
+
+
+def test_player_records_give_a_cup_one_row_each_ranked_by_the_furthest_stage():
+    rows = [
+        match("Survivors Cup 2026 Stage 1 - group 1 game 1", ("ann", 50), ("bob", 40), ("cat", 30),
+              day=date(2026, 3, 1), match_id=1),
+        match("Survivors Cup 2026 Stage 2 - group 1 game 1", ("bob", 60), ("ann", 20),
+              day=date(2026, 4, 1), match_id=2),
+        match("Survivors Cup 2026 Stage 3 - group 1 game 1", ("bob", 70), ("dan", 10),
+              day=date(2026, 5, 1), match_id=3),
+    ]  # fmt: skip
+    got = player_records(
+        rows=rows,
+        top_divisions=TOP,
+        standings={},
+        official={},
+        boards={},
+        honours=[],
+        dates={},
+    )
+    assert [(r["player_name"], r["season"], r["division"], r["placement"], r["points"], r["medal"]) for r in got] == [
+        ("bob", "2026", "Championship", "1 / 4", "170 pts", "gold"),
+        ("dan", "2026", "Championship", "2 / 4", "10 pts", "silver"),
+        ("ann", "2026", "Championship", "3 / 4", "70 pts", "bronze"),
+        ("cat", "2026", "Championship", "4 / 4", "30 pts", None),
+    ]  # fmt: skip
+    assert got[0]["details"] == (
+        "Advanced to Stage 3 • 3 matches played, 2 victories (66.7% win rate) • Cumulative Score: 170 pts"
+    )
+    assert got[0]["finish_date"] == "2026-05-01"

@@ -148,3 +148,55 @@ def test_a_days_games_are_numbered_in_upstreams_assembled_order(
     expand_pairwise(conn, run_id)
     same_day = [p[0] for p in pairs(conn, run_id) if p[0] in (rl, worlds)]
     assert same_day == [worlds, rl]
+
+
+def test_pairs_come_only_from_the_runs_ranking(conn, add_match, run_id):
+    rated = add_match(("Alice", 120), ("Bob", 90))
+    add_match(("Cat", 120), ("Dan", 90), placed="unrated")
+
+    assert expand_pairwise(conn, run_id) == 1
+    assert [p[0] for p in pairs(conn, run_id)] == [rated]
+
+
+def test_a_game_never_played_gives_no_pairs(conn, add_match, run_id):
+    played = add_match(("Alice", 120), ("Bob", 90))
+    add_match(("Alice", -5), ("Bob", -5), state="never_played")
+
+    assert expand_pairwise(conn, run_id) == 1
+    assert [p[0] for p in pairs(conn, run_id)] == [played]
+
+
+def matches_paired(conn, run_id):
+    return conn.execute(
+        "SELECT count(DISTINCT match_id) AS n FROM pairwise_matches WHERE run_id = %s",
+        (run_id,),
+    ).fetchone()["n"]
+
+
+def test_a_season_left_out_of_ratings_gives_no_pairs(conn, add_match, run_id):
+    add_match(("Ann", 10), ("Bob", 5))
+    add_match(("Ann", 10), ("Cat", 5))
+    conn.execute("UPDATE tournament_seasons SET rated = false")
+    conn.commit()
+
+    expand_pairwise(conn, run_id)
+
+    assert matches_paired(conn, run_id) == 0
+
+
+def test_only_the_rated_player_counts_give_pairs(conn, add_match, run_id):
+    add_match(("Ann", 10), ("Bob", 5))
+    add_match(("Ann", 10), ("Bob", 5), ("Cat", 1))
+    add_match(("Ann", 10), ("Bob", 5), ("Cat", 1), ("Dan", 0))
+    conn.execute(
+        "UPDATE tournaments SET rated_player_counts = '{3,4}' WHERE slug = 'rated'"
+    )
+    conn.commit()
+
+    expand_pairwise(conn, run_id)
+
+    counts = conn.execute(
+        "SELECT DISTINCT m.player_count FROM pairwise_matches p JOIN matches m USING (match_id) WHERE p.run_id = %s ORDER BY 1",
+        (run_id,),
+    ).fetchall()
+    assert [r["player_count"] for r in counts] == [3, 4]

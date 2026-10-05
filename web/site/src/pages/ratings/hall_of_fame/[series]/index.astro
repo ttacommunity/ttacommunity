@@ -1,14 +1,14 @@
 ---
-/** A Hall of Fame series page, one built for each series in SERIES_CONTENT. */
+/** A Hall of Fame circuit page (Grand Slams, Ladders): one for each series of several tournaments. */
 import { PUBLIC_API_URL } from 'astro:env/client';
 import SiteLayout from '../../../../layouts/SiteLayout.astro';
 import SeriesNav from '../../../../components/SeriesNav.astro';
 import TournamentSeriesPage from '../../../../components/TournamentSeriesPage';
-import { SERIES_CONTENT, type SeriesContent } from '../../../../lib/tournament-series';
+import { CIRCUITS, type SeriesContent } from '../../../../lib/tournament-series';
 import '../../../../components/TournamentSeries.css';
 
 export function getStaticPaths() {
-  return SERIES_CONTENT.map((content) => ({ params: { series: content.slug }, props: { content } }));
+  return CIRCUITS.map((content) => ({ params: { series: content.slug }, props: { content } }));
 }
 
 const { content } = Astro.props as { content: SeriesContent };

@@ -46,21 +46,26 @@ type Ratings interface {
 	AnalysisRatings(ctx context.Context, run int64, format int) ([]store.ModelRating, map[string]bool, error)
 	ComparedPlayers(ctx context.Context, run int64, format int, terms []string) ([]store.ComparedPlayer, error)
 	Activity(ctx context.Context, run int64, inactiveOnOrBefore time.Time) (store.Activity, error)
+	RunLastGame(ctx context.Context, run int64) (*time.Time, error)
 	TournamentSeries(ctx context.Context, run int64, series string) (store.TournamentSeries, error)
 	HallOfFame(ctx context.Context, run int64) (store.HallOfFame, error)
 	PlayerAchievements(ctx context.Context, run int64, name string) (string, *store.AchievementSummary, []store.TournamentRecord, error)
 	CommunityLeaderboard(ctx context.Context, run int64, edition string) ([]store.CommunityRow, error)
+	Catalogue(ctx context.Context, run int64) (store.CatalogueView, error)
+	CatalogueTournament(ctx context.Context, run int64, slug string) (store.CatalogueTournament, error)
+	CatalogueGames(ctx context.Context, run int64, slug string, f store.CatalogueGamesFilter) (store.CatalogueGames, error)
 }
 
-// NewMux returns the API's handler with every route in the spec registered.
-func NewMux(ratings Ratings, log *slog.Logger) http.Handler {
+// NewMux returns the API's handler with every route in the spec registered. Admin routes go through
+// the admin gate, without CORS; with admins nil they refuse every request.
+func NewMux(ratings Ratings, admins Admins, log *slog.Logger) http.Handler {
 	mux := http.NewServeMux()
-	registerRoutes(mux, ratings, log)
-	return publicCORS(mux)
+	registerRoutes(mux, ratings, admins, log)
+	return routeAdmin(publicCORS(mux), adminGate(mux, admins, log))
 }
 
-func registerRoutes(router ServeMux, ratings Ratings, log *slog.Logger) {
-	strict := NewStrictHandlerWithOptions(&server{ratings: ratings, log: log}, nil, StrictHTTPServerOptions{
+func registerRoutes(router ServeMux, ratings Ratings, admins Admins, log *slog.Logger) {
+	strict := NewStrictHandlerWithOptions(&server{ratings: ratings, admins: admins, log: log}, nil, StrictHTTPServerOptions{
 		RequestErrorHandlerFunc:  badRequest,
 		ResponseErrorHandlerFunc: internalError(log),
 	})
@@ -109,6 +114,7 @@ func writeError(w http.ResponseWriter, code int, msg string) {
 
 type server struct {
 	ratings Ratings
+	admins  Admins
 	log     *slog.Logger
 }
 
@@ -146,8 +152,22 @@ func (s *server) GetCurrentRun(ctx context.Context, _ GetCurrentRunRequestObject
 	if err != nil {
 		return nil, err
 	}
+	utc := func(t *time.Time) *time.Time {
+		if t == nil {
+			return nil
+		}
+		u := t.UTC()
+		return &u
+	}
+	date := func(t *time.Time) *openapi_types.Date {
+		if t == nil {
+			return nil
+		}
+		return &openapi_types.Date{Time: *t}
+	}
 	return GetCurrentRun200JSONResponse{
-		Body:    Run{RunId: run.ID, PublishedAt: run.PublishedAt.UTC()},
+		Body: Run{RunId: run.ID, PublishedAt: run.PublishedAt.UTC(), EngineVersion: run.EngineVersion, FinishedAt: utc(run.FinishedAt),
+			Games: run.Games, Players: run.Players, FirstGame: date(run.FirstGame), LastGame: date(run.LastGame)},
 		Headers: GetCurrentRun200ResponseHeaders{CacheControl: cacheCurrent},
 	}, nil
 }
@@ -195,6 +215,7 @@ func (s *server) GetLeaderboard(ctx context.Context, req GetLeaderboardRequestOb
 		if p.LastPlayed != nil {
 			row.LastPlayed = &openapi_types.Date{Time: *p.LastPlayed}
 		}
+		row.Badges = extraBadges(p.Badges)
 		players = append(players, row)
 	}
 	return GetLeaderboard200JSONResponse{
@@ -257,4 +278,16 @@ func leaderboardRefused(msg string) GetLeaderboardResponseObject {
 		Body:    Error{Error: msg},
 		Headers: BadRequestResponseHeaders{CacheControl: cacheNone},
 	}}
+}
+
+// extraBadges turns a player's badges into the API's, or nil for none, so the field is left out.
+func extraBadges(bs []store.ExtraBadge) *[]ExtraBadge {
+	if len(bs) == 0 {
+		return nil
+	}
+	out := make([]ExtraBadge, len(bs))
+	for i, b := range bs {
+		out[i] = ExtraBadge{Label: b.Label, Description: b.Description}
+	}
+	return &out
 }

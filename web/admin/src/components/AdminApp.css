@@ -1,0 +1,426 @@
+/* Admin's own rules; panels, the table and buttons are the shared theme's (rating-card, leaderboard-table, btn-antique). */
+.signed-in {
+  display: inline-block;
+  margin-bottom: 1.5rem;
+  padding: 0.5rem 1rem;
+  border: 1px solid var(--border-subtle);
+  border-radius: 6px;
+  background: var(--surface-panel);
+  color: var(--text-soft);
+}
+.rating-card.admin-card {
+  min-width: 0;
+  padding: 1.25rem 1.5rem;
+}
+.admin-card .rating-card-heading {
+  margin-bottom: 0.4rem;
+}
+.admin-card > .muted {
+  margin-bottom: 1rem;
+}
+@media (max-width: 600px) {
+  .rating-card.admin-card {
+    padding: 1rem 0.75rem;
+  }
+}
+.muted {
+  color: var(--text-muted);
+}
+.row-error {
+  color: var(--loss);
+}
+.admin-table input[type='checkbox'] {
+  width: 1.1rem;
+  height: 1.1rem;
+  accent-color: var(--accent-gold);
+}
+.admin-table .btn-settings {
+  display: inline-block;
+  padding: 0.25rem 0.6rem;
+  font-size: 0.8rem;
+  white-space: nowrap;
+  text-decoration: none;
+}
+.tournaments-table .col-setting,
+.tournaments-table .col-seasons {
+  text-align: center;
+}
+.tournaments-table .yes {
+  color: var(--win);
+}
+.tournaments-table .no {
+  color: var(--text-muted);
+}
+@media (max-width: 640px) {
+  .tournaments-table .col-seasons {
+    display: none;
+  }
+  .tournaments-table th,
+  .tournaments-table td {
+    padding-inline: 0.4rem;
+  }
+}
+.tournament-title {
+  margin: 0 0 1rem;
+  color: var(--accent-gold-bright);
+  font-family: var(--font-heading);
+}
+.settings-list {
+  display: grid;
+  gap: 0.6rem;
+}
+.setting {
+  display: flex;
+  gap: 0.6rem;
+  align-items: flex-start;
+}
+.setting input[type='checkbox'] {
+  flex: none;
+  width: 1.1rem;
+  height: 1.1rem;
+  margin-top: 0.2rem;
+  accent-color: var(--accent-gold);
+}
+.regulations-text {
+  box-sizing: border-box;
+  width: 100%;
+  padding: 0.5rem;
+  border: 1px solid var(--border-subtle);
+  border-radius: 4px;
+  background: var(--bg-dark);
+  color: var(--text-main);
+  font: inherit;
+  line-height: 1.4;
+}
+.season-notes h3 {
+  margin: 0;
+  font-family: var(--font-heading);
+  font-size: 1rem;
+  color: var(--accent-gold);
+}
+.season-notes + .season-notes {
+  padding-top: 1rem;
+  border-top: 1px solid var(--border-subtle);
+}
+.season-notes {
+  display: grid;
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+}
+.note-box {
+  display: grid;
+  gap: 0.3rem;
+}
+.note-box label {
+  color: var(--accent-gold-light);
+}
+.note-box textarea {
+  box-sizing: border-box;
+  width: 100%;
+  padding: 0.4rem;
+  border: 1px solid var(--border-subtle);
+  border-radius: 4px;
+  background: var(--bg-dark);
+  color: var(--text-main);
+  font-family: var(--font-body);
+}
+.note-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+.note-actions button:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+.note-status {
+  color: var(--text-muted);
+}
+.rating-card.admin-card + .rating-card.admin-card {
+  margin-top: 1.5rem;
+}
+.admin-message {
+  margin-bottom: 1rem;
+  color: var(--accent-gold-light);
+}
+.admin-id {
+  font-family: var(--font-stats);
+  color: var(--text-muted);
+}
+.admin-card select,
+.admin-add input {
+  padding: 0.3rem 0.5rem;
+  border: 1px solid var(--border-subtle);
+  border-radius: 4px;
+  background: var(--bg-dark);
+  color: var(--text-main);
+}
+.admin-add {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 0.75rem;
+  margin-top: 1rem;
+}
+.admin-add h3 {
+  width: 100%;
+  font-family: var(--font-heading);
+  font-size: 1rem;
+  color: var(--accent-gold);
+}
+.admin-add label {
+  display: grid;
+  gap: 0.25rem;
+  color: var(--text-soft);
+  font-size: 0.85rem;
+}
+.season-add,
+.season-empty {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+}
+.season-add label {
+  display: grid;
+  gap: 0.25rem;
+  color: var(--text-soft);
+  font-size: 0.85rem;
+}
+.season-add input {
+  padding: 0.3rem 0.5rem;
+  border: 1px solid var(--border-subtle);
+  border-radius: 4px;
+  background: var(--bg-dark);
+  color: var(--text-main);
+}
+.season-empty {
+  align-items: center;
+  margin-bottom: 0.25rem;
+}
+.runs-actions {
+  margin-bottom: 0.75rem;
+}
+.run-state {
+  display: inline-block;
+  padding: 0.1rem 0.5rem;
+  border: 1px solid var(--border-subtle);
+  border-radius: 999px;
+  font-size: 0.8rem;
+  white-space: nowrap;
+}
+.run-shown {
+  border-color: var(--accent-gold);
+  color: var(--accent-gold-bright);
+}
+.run-running {
+  border-color: var(--draw);
+  color: var(--draw);
+}
+.run-complete {
+  color: var(--win);
+}
+.run-failed {
+  border-color: var(--loss);
+  color: var(--loss);
+}
+.run-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+.run-progress {
+  display: grid;
+  gap: 0.25rem;
+}
+.run-progress progress {
+  width: 100%;
+  accent-color: var(--accent-gold);
+}
+.run-changes p {
+  margin: 0 0 0.5rem;
+}
+.run-changes caption {
+  text-align: left;
+  color: var(--text-soft);
+  font-size: 0.85rem;
+}
+.run-buttons button {
+  white-space: nowrap;
+}
+@media (max-width: 640px) {
+  .runs-table .run-wide {
+    display: none;
+  }
+  .runs-table th,
+  .runs-table td {
+    padding-inline: 0.4rem;
+  }
+}
+.run-block {
+  margin-block: 1rem;
+}
+.run-block h3,
+.run-changes h3 {
+  margin: 0 0 0.5rem;
+  font-family: var(--font-heading);
+  font-size: 1rem;
+  color: var(--accent-gold);
+}
+.run-stop {
+  margin-top: 0.5rem;
+}
+.podium-box {
+  min-width: 0;
+  margin: 0.5rem 0 1rem;
+  padding: 0.5rem 0.75rem;
+  border: 1px solid var(--border-subtle);
+  border-radius: 4px;
+}
+.podium-box legend {
+  color: var(--text-soft);
+  font-size: 0.85rem;
+}
+.podium-places {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem 0.75rem;
+}
+.podium-places label {
+  display: grid;
+  gap: 0.25rem;
+  color: var(--text-soft);
+  font-size: 0.85rem;
+}
+.podium-places input {
+  width: 10rem;
+  max-width: 100%;
+  padding: 0.3rem 0.5rem;
+  border: 1px solid var(--border-subtle);
+  border-radius: 4px;
+  background: var(--bg-dark);
+  color: var(--text-main);
+}
+.podium-places .podium-note {
+  flex: 1 1 14rem;
+}
+.podium-places .podium-note input {
+  width: 100%;
+}
+.admin-add .title-reason {
+  flex: 1 1 16rem;
+}
+.admin-add .title-reason input {
+  width: 100%;
+}
+.badge-row {
+  padding-block: 0.75rem;
+  border-bottom: 1px solid var(--border-subtle);
+}
+.badge-row .admin-add {
+  margin-top: 0.5rem;
+}
+.badge-holders {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  margin: 0.5rem 0 0;
+}
+.badge-holder {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.1rem 0.25rem 0.1rem 0.5rem;
+  border: 1px solid var(--border-subtle);
+  border-radius: 999px;
+  color: var(--text-main);
+}
+.badge-take {
+  min-width: 1.5rem;
+  min-height: 1.5rem;
+  border: none;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--text-soft);
+  cursor: pointer;
+}
+.badge-take:hover,
+.badge-take:focus-visible {
+  color: var(--loss);
+}
+.data-facts {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr));
+  gap: 0.75rem 1rem;
+  margin: 0;
+}
+.data-facts dt {
+  color: var(--text-soft);
+  font-size: 0.8rem;
+}
+.data-facts dd {
+  margin: 0.15rem 0 0;
+  color: var(--text-main);
+  font-variant-numeric: tabular-nums;
+}
+.card-fields {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}
+.card-fields label {
+  display: grid;
+  gap: 0.25rem;
+  color: var(--text-soft);
+  font-size: 0.85rem;
+}
+.card-fields input,
+.card-fields textarea {
+  box-sizing: border-box;
+  padding: 0.3rem 0.5rem;
+  border: 1px solid var(--border-subtle);
+  border-radius: 4px;
+  background: var(--bg-dark);
+  color: var(--text-main);
+  font: inherit;
+}
+.card-fields #card-icon {
+  width: 5rem;
+}
+.card-fields .card-tagline {
+  flex: 1 1 14rem;
+}
+.card-fields .card-summary {
+  flex: 1 1 100%;
+}
+.story-box {
+  min-width: 0;
+  margin: 0 0 0.75rem;
+  padding: 0.5rem 0.75rem;
+  border: 1px solid var(--border-subtle);
+  border-radius: 4px;
+}
+.story-box legend {
+  color: var(--text-soft);
+  font-size: 0.85rem;
+}
+.setting-counts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem 1.25rem;
+  margin: 0.25rem 0 0;
+  padding: 0;
+  border: none;
+}
+.setting-counts legend {
+  margin-bottom: 0.4rem;
+}
+.setting-counts input,
+.season-rated input {
+  accent-color: var(--accent-gold);
+}
+.season-rated {
+  color: var(--text-soft);
+  font-size: 0.9rem;
+}

@@ -76,6 +76,11 @@ time: if the estimates drift, update `STEP_COST` from those lines.
   a tournament change. It refuses if the matches changed since that run
   (its pairs must be identical), and the run records which run it copied
   (`copied_from`)
+- `--workers 4` runs the steps after the pairs (each format's models,
+  calibration and walk-forward, and the tournaments) in 4 processes: 9m17s
+  against 22m13s on 8 cores, about 2.3 GiB for the four together, and every
+  table identical to a run with one worker. Walk-forward's months stay in
+  order: each month starts from the last one's ratings
 - It refuses to start with `ENGINE_VERSION` unset, or with no matches loaded
 
 ## Running the tests

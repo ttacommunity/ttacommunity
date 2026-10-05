@@ -7,16 +7,16 @@ comes from recorded facts (divisions, official placements, season corrections).
 """
 
 import functools
+import itertools
 import re
 from collections import defaultdict
 from collections.abc import Callable
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from typing import NamedTuple
 
 import psycopg
 
 from tta_ratings_engine.data.achievements import player_achievements, player_records
-from tta_ratings_engine.data.badges import HISTORICAL_WC_INFO
 from tta_ratings_engine.data.db import require_running
 from tta_ratings_engine.data.match_order import assembled_order
 from tta_ratings_engine.data.series_pages import (
@@ -107,6 +107,11 @@ def _like(name: str, *words: str) -> bool:
     return any(w.lower() in name.lower() for w in words)
 
 
+def _master_division(name: str) -> bool:
+    """Reports whether name is a game of the Master 1 or 2 division; "Grandmaster 1" is not."""
+    return re.search(r"\bMaster [12]\b", name, re.IGNORECASE) is not None
+
+
 def parse_worlds(name: str) -> Parsed | None:
     """Returns a World Championship game's edition number ("Worlds 2025", "Worlds 2"), or None.
 
@@ -141,7 +146,7 @@ SERIES = {
         in_records=lambda n: (
             n.lower().startswith("international")
             and _like(n, "Grandmaster", "Diamond")
-            and not _like(n, "Master 1", "Master 2")
+            and not _master_division(n)
         ),
         record_min_games=6,
         record_division="Grandmaster",
@@ -154,7 +159,7 @@ SERIES = {
         in_records=lambda n: (
             n.lower().startswith("intermezzo")
             and _like(n, "Grandmaster", "GM", "Diamond", "Premier")
-            and not _like(n, "Master 1", "Master 2")
+            and not _master_division(n)
         ),
         record_min_games=6,
         record_division="Grandmaster",
@@ -184,6 +189,52 @@ SERIES = {
         season_records=False,
     ),
 }
+
+
+# A World Championship final, scored as CGE's rules say: points by place, ties split.
+WORLDS_FINAL = replace(
+    SERIES["worlds"], points={2: [4, 0], 3: [5, 2, 0], 4: [6, 3, 1, 0]}
+)
+
+
+def worlds_finals(conn) -> dict[int, list[list[tuple[str, float]]]]:
+    """Returns each finished World Championship's final, as its played games' scores, by season.
+
+    The final is the last stage of a season whose CGE tournament is finished, when its games are one group.
+    """
+    rows = conn.execute(
+        """
+        SELECT se.label::int AS season, m.group_label, m.player_count,
+               m.player1, m.score1, m.player2, m.score2, m.player3, m.score3, m.player4, m.score4
+        FROM tournaments t
+        JOIN tournament_seasons se USING (tournament_id)
+        JOIN tournament_stages st USING (season_id)
+        JOIN cge_tournaments c ON c.cge_tournament = st.cge_tournament
+        JOIN matches m ON m.stage_id = st.stage_id
+        WHERE t.slug = 'worlds' AND c.status = 'finished' AND se.label ~ '^[0-9]+$'
+          AND coalesce(m.state, 'played') = 'played'
+          AND st.cge_season = (SELECT max(s2.cge_season) FROM tournament_stages s2 WHERE s2.season_id = se.season_id)
+        ORDER BY m.date, m.match_id
+        """
+    ).fetchall()
+    games, groups = defaultdict(list), defaultdict(set)
+    for r in rows:
+        games[r["season"]].append(_scores(r))
+        groups[r["season"]].add(r["group_label"] or "")
+    return {season: g for season, g in games.items() if len(groups[season]) == 1}
+
+
+def final_podium(games):
+    """Returns a final's standings, or None when the rules cannot split a tie for a podium place."""
+    t = _tally(games, WORLDS_FINAL.points)
+    order = _league_order(t)
+    points, above, performance = t["points"], t["above"], t["performance"]
+    for a, b in itertools.pairwise(order[:4]):
+        tied = [p for p in order if points[p] == points[a]]
+        level = points[a] == points[b] and performance[a] == performance[b]
+        if level and (len(tied) != 2 or above[a][b] == above[b][a]):
+            return None
+    return rank_group(games, WORLDS_FINAL)
 
 
 def game_points(
@@ -218,8 +269,15 @@ def _places(scores):
     return {p: 1 + sum(1 for _, s in scores if s > score) for p, score in scores}
 
 
-def _tally(games, table):
-    """Returns each player's points, games, placings, head-to-head, performance, wins and score."""
+# A timed-out seat's score, as upstream's scraper writes it.
+TIMEOUT_SCORE = -5.0
+
+
+def _tally(games, table, penalty=0.0):
+    """Returns each player's points, games, placings, head-to-head, performance, wins and score.
+
+    penalty is the points each timed-out game costs (the season's rule, 0 or less).
+    """
     t = {
         "points": defaultdict(float),
         "games": defaultdict(int),
@@ -238,6 +296,8 @@ def _tally(games, table):
             t["games"][p] += 1
             t["placings"][p][place - 1] += 1
         for p, s in scores:
+            if s == TIMEOUT_SCORE:
+                t["points"][p] += penalty
             share = s / best if best > 0 else 0.0
             t["performance"][p] += 1.0 if s == best else max(PERFORMANCE_FLOOR, share)
             t["score"][p] += s
@@ -291,9 +351,9 @@ def _duel_order(t):
     return sorted(sorted(points), key=functools.cmp_to_key(compare))
 
 
-def rank_group(games: list[list[tuple[str, float]]], rules: Series):
-    """Returns a group's standings as dicts in place order, by the series' rules."""
-    t = _tally(games, rules.points)
+def rank_group(games: list[list[tuple[str, float]]], rules: Series, penalty=0.0):
+    """Returns a group's standings as dicts in place order, by the series' rules and the season's timeout penalty."""
+    t = _tally(games, rules.points, penalty)
     order = _duel_order(t) if rules.duel else _league_order(t)
     return [
         {
@@ -334,8 +394,9 @@ def classify(rows, recorded, corrections):
     rows are matches in match_id order; recorded maps (series, season,
     player) to a recorded division; corrections map (series, name season) to
     the real season, or None to leave the games out. A game without a named
-    division takes a recorded one only when every player in it has the same
-    one; recorded games of one division that never meet form numbered groups.
+    division takes the group CGE recorded for it, else a recorded one only when
+    every player in it has the same one; recorded games of one division that
+    never meet form numbered groups.
     """
     out = []
     pending = defaultdict(list)
@@ -357,6 +418,12 @@ def classify(rows, recorded, corrections):
             if parsed.division:
                 g.update(division=parsed.division, group=parsed.group, source="name")
                 break
+            # A league game named without its division: the group CGE recorded for it, when it has one.
+            cge_group = (r.get("group_label") or "").strip()
+            if cge_group and not parsed.tiebreak and rules.points:
+                division = re.sub(r"\s+\d+$", "", cge_group)
+                g.update(division=division, group=cge_group, source="cge")
+                break
             players = [r[f"player{i}"] for i in range(1, r["player_count"] + 1)]
             divs = {recorded.get((series, season, p)) for p in players}
             if len(divs) == 1 and None not in divs and not parsed.tiebreak:
@@ -375,20 +442,24 @@ def _scores(r):
     return [(r[f"player{i}"], r[f"score{i}"]) for i in range(1, r["player_count"] + 1)]
 
 
-def season_records(rows, rules: Series):
-    """Returns upstream's premier seasonal records: one per player and named season.
+def season_records(rows, rules: Series, penalties=None):
+    """Returns the premier seasonal records: one per player and season.
 
-    As upstream's get_premier_seasonal_records: its records games only, the
-    season the name gives, a tied place scored by seat order, and seasons of
-    at least record_min_games games. placings are the 1st, 2nd, 3rd and 4th
-    places; in Royal League, wins, draws and losses. rows are in match_id order.
+    From upstream's get_premier_seasonal_records: its records games only, and
+    seasons of at least record_min_games games; but by the corrected season
+    (a season left out has none), and tied players share their places' points
+    and the better place, as the series' rules say; penalties maps a season to
+    the points each timed-out game costs. placings are the 1st, 2nd, 3rd and
+    4th places; in Royal League, wins, draws and losses. rows are in match_id order.
     """
     got = {}
     for r in rows:
         order = sorted(_scores(r), key=lambda ps: -ps[1])
+        shared = game_points(order, points_table(rules.points, len(order)))
+        places = _places(order)
         for place, (p, score) in enumerate(order, start=1):
             rec = got.setdefault(
-                (r["name_season"], p),
+                (r["season"], p),
                 {"division": rules.record_division, "points": 0.0, "games": 0,
                  "placings": [0, 0, 0] if len(rules.points) == 1 else [0, 0, 0, 0],
                  "first_match_id": r["match_id"]},
@@ -401,8 +472,11 @@ def season_records(rows, rules: Series):
                 rec["points"] += (2.0, 1.0, 0.0)[result]
                 rec["placings"][result] += 1
             else:
-                rec["points"] += points_table(rules.points, len(order))[place - 1]
-                rec["placings"][place - 1] += 1
+                penalty = (penalties or {}).get(r["season"], 0.0)
+                rec["points"] += shared[p] + (
+                    penalty if score == TIMEOUT_SCORE else 0.0
+                )
+                rec["placings"][places[p] - 1] += 1
     return {k: v for k, v in got.items() if v["games"] >= rules.record_min_games}
 
 
@@ -435,7 +509,7 @@ def _league_boards(standings, official):
     boards = defaultdict(list)
     for (series, p), m in medals.items():
         if m["first"] is not None:
-            title = "WC" if p in HISTORICAL_WC_INFO else ("GM" if m["gold"] else "M")
+            title = "GM" if m["gold"] else "M"
             boards[series].append(
                 {"player_name": p, **m, "first_season": m["first"], "title": title}
             )
@@ -444,6 +518,41 @@ def _league_boards(standings, official):
             key=lambda b: (-b["gold"], -b["silver"], -b["bronze"], -b["points"], b["first_season"], b["player_name"])
         )  # fmt: skip
     return boards
+
+
+def _worlds_podiums(conn, run_id, official, standing_rows):
+    """Puts each World Championship season's podium into official, by precedence: admin's, recorded, derived.
+
+    A derived final's standings are added to standing_rows.
+    """
+    recorded = {season for series, season, _ in official if series == "worlds"}
+    for season, games in sorted(worlds_finals(conn).items()):
+        if season in recorded:
+            continue
+        standings = final_podium(games)
+        if standings is None:
+            continue
+        for s in standings:
+            standing_rows.append(
+                (run_id, "worlds", season, "Final", "Final", s["player_name"],
+                 s["place"], s["points"], s["games"], s["placings"])
+            )  # fmt: skip
+        official[("worlds", season, "Final")] = [
+            {"series": "worlds", "season": season, "division": "Final", **s}
+            for s in standings[:3]
+        ]
+    overrides = defaultdict(list)
+    for r in conn.execute(
+        "SELECT season::int AS season, place, player_name FROM tournament_podium_overrides "
+        "WHERE tournament = 'worlds' AND season ~ '^[0-9]+$' ORDER BY place"
+    ).fetchall():
+        overrides[r["season"]].append(
+            {"series": "worlds", "division": "Final", "points": None, **r}
+        )
+    for season, placed in overrides.items():
+        for key in [k for k in official if k[0] == "worlds" and k[1] == season]:
+            del official[key]
+        official[("worlds", season, "Final")] = placed
 
 
 def _board_rows(run_id, boards):
@@ -467,7 +576,7 @@ def derive_tournaments(*, conn: psycopg.Connection, run_id: int) -> None:
         require_running(conn, run_id)
         rows = conn.execute(
             "SELECT match_id, tournament, date, player_count, player1, score1, player2, score2, "
-            "player3, score3, player4, score4 FROM matches ORDER BY match_id"
+            "player3, score3, player4, score4, group_label FROM matches WHERE state = 'played' ORDER BY match_id"
         ).fetchall()
         recorded = {
             (r["series"], r["season"], r["player_name"]): r["division"]
@@ -484,13 +593,21 @@ def derive_tournaments(*, conn: psycopg.Connection, run_id: int) -> None:
         official = defaultdict(list)
         for r in conn.execute(
             "SELECT series, season, division, player_name, place, points "
-            "FROM tournament_official_placements ORDER BY place, player_name"
+            "FROM tournament_official_placements WHERE series = ANY(%s) "
+            "ORDER BY place, player_name",
+            (list(SERIES),),
         ).fetchall():
             official[(r["series"], r["season"], r["division"])].append(r)
         dates = {
             (r["series"], r["season"]): r["finish_date"].isoformat()
             for r in conn.execute(
                 "SELECT series, season, finish_date FROM tournament_finish_dates"
+            ).fetchall()
+        }
+        penalties = {
+            (r["series"], r["season"]): r["timeout_penalty"]
+            for r in conn.execute(
+                "SELECT series, season, timeout_penalty FROM tournament_season_rules"
             ).fetchall()
         }
         honours = conn.execute(
@@ -504,8 +621,15 @@ def derive_tournaments(*, conn: psycopg.Connection, run_id: int) -> None:
         records = defaultdict(list)
         for g in classified:
             r = by_id[g["match_id"]]
+            # A season without division names has its top division recorded from the organisers' sheet.
+            if (
+                g["source"] == "recorded"
+                and g["division"] in SERIES[g["series"]].top_divisions
+            ):
+                g["in_records"] = True
             if (
                 g["in_records"]
+                and g["season"] is not None
                 and not g["tiebreak"]
                 and SERIES[g["series"]].season_records
             ):
@@ -517,18 +641,29 @@ def derive_tournaments(*, conn: psycopg.Connection, run_id: int) -> None:
         standing_rows = []
         derived = defaultdict(list)
         for (series, season, division, group), games in groups.items():
-            for s in rank_group(games, SERIES[series]):
+            for s in rank_group(
+                games, SERIES[series], penalties.get((series, season), 0.0)
+            ):
                 standing_rows.append(
                     (run_id, series, season, division, group, s["player_name"],
                      s["place"], s["points"], s["games"], s["placings"])
                 )  # fmt: skip
                 derived[(series, season, division)].append(s)
+        _worlds_podiums(conn, run_id, official, standing_rows)
         boards = _league_boards(derived, official)
         boards["worlds"] = worlds_board(
             [{**p, "season": season} for (series, season, _), placed in official.items()
              if series == "worlds" for p in placed]
         )  # fmt: skip
-        boards["grand_slams"] = grand_slams_board(rows)
+        boards["grand_slams"] = grand_slams_board(
+            conn.execute(
+                "SELECT cup, season, final, finished, place, player_name FROM tournament_cup_podiums"
+            ).fetchall(),
+            {
+                r["slug"]: r["name"]
+                for r in conn.execute("SELECT slug, name FROM tournaments").fetchall()
+            },
+        )
         boards["ladders"] = ladders_board(rows)
         legend_rows = [
             (run_id, position, r["player_name"], r["world_titles"], r["international_titles"],
@@ -569,7 +704,9 @@ def derive_tournaments(*, conn: psycopg.Connection, run_id: int) -> None:
             (run_id, series, season, rec["division"], p, rec["points"], rec["games"],
              rec["placings"], rec["last_date"], rec["first_match_id"])
             for series, top_rows in records.items()
-            for (season, p), rec in season_records(top_rows, SERIES[series]).items()
+            for (season, p), rec in season_records(
+                top_rows, SERIES[series], {s: v for (x, s), v in penalties.items() if x == series}
+            ).items()
         ]  # fmt: skip
 
         for table in (

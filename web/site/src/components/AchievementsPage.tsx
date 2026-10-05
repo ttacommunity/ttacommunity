@@ -12,8 +12,11 @@ import { Flag } from './PlayerMarks';
 import * as show from '../lib/leaderboard-display';
 import {
   careerCells,
+  cgeTournamentUrl,
   honorRoll,
   matchesFilter,
+  recordCategory,
+  resultCell,
   seasonCells,
   sortCareer,
   sortSeasons,
@@ -21,9 +24,12 @@ import {
   totalTitles,
   type Direction,
 } from '../lib/achievements';
-import { playerHref } from '../lib/player-view';
 import './PlayerPage.css';
 import './AchievementsPage.css';
+import FilterInput from './FilterInput';
+import PlayerLink from './PlayerLink';
+import ScrollTable from './ScrollTable';
+import Waiting from './Waiting';
 
 type Load = { kind: 'loading' } | { kind: 'error'; message: string } | { kind: 'ready'; player: Player; ach: PlayerAchievements };
 type Sort = { col: number; dir: Direction } | null;
@@ -31,11 +37,9 @@ type Sort = { col: number; dir: Direction } | null;
 const SEASON_HEADS = [
   ['Date of Finish', 'Click to sort by Date of Finish'],
   ['Tournament', 'Click to sort by Tournament'],
-  ['Season / Stage', 'Click to sort by Season'],
+  ['Season', 'Click to sort by Season'],
   ['Division / Tier', 'Click to sort by Division'],
-  ['Placement / Standing', 'Click to sort by Placement'],
-  ['Score / Result', 'Click to sort by Score'],
-  ['Podium Medal', 'Click to sort by Medal'],
+  ['Result', 'Click to sort by Result'],
 ];
 const CAREER_HEADS = ['Tournament', 'Career Scope', 'Division / Honor', 'Placement / Podium', 'Points / Wins', 'Podium Medal'];
 
@@ -48,10 +52,35 @@ function next(dirs: Record<number, Direction>, col: number): Direction {
   return (dirs[col] ?? 'asc') === 'asc' ? 'desc' : 'asc';
 }
 
-function MedalCell({ medal }: { medal: TournamentRecord['medal'] }) {
-  if (medal === null) return <span className="ach-muted">-</span>;
-  const text = { gold: '🥇 Gold', silver: '🥈 Silver', bronze: '🥉 Bronze' }[medal];
-  return <span className={`medal-badge-inline medal-${medal}`}>{text}</span>;
+function MedalCell({ r }: { r: TournamentRecord }) {
+  if (r.medal === null) return <span className="ach-muted">-</span>;
+  const text = { gold: '🥇 Gold', silver: '🥈 Silver', bronze: '🥉 Bronze' }[r.medal];
+  return <span className={`medal-badge-inline medal-${recordCategory(r.tournament)}-${r.medal}`}>{text}</span>;
+}
+
+/** ResultCell shows upstream's result: a medal badge styled by the tournament's category, or the placement. */
+function ResultCell({ r }: { r: TournamentRecord }) {
+  if (r.medal === null) return <span className="ach-result">{r.placement || '-'}</span>;
+  const medal = r.medal.charAt(0).toUpperCase() + r.medal.slice(1);
+  return (
+    <span
+      className={`medal-badge-inline medal-${recordCategory(r.tournament)}-${r.medal}`}
+      title={`${r.tournament} ${medal} (${r.placement})`}
+    >
+      {resultCell(r)}
+    </span>
+  );
+}
+
+/** TournamentName links a record's tournament to its CGE page, where it has one. */
+function TournamentName({ r }: { r: TournamentRecord }) {
+  const url = cgeTournamentUrl(r.tournament, r.season);
+  if (url === null) return <>{r.tournament}</>;
+  return (
+    <a href={url} target="_blank" rel="noopener noreferrer" className="tournament-cge-link" title="Open official CGE Tournament page">
+      {r.tournament} <span className="external-link-icon">↗</span>
+    </a>
+  );
 }
 
 function Header({ player }: { player: Player }) {
@@ -85,16 +114,12 @@ function Header({ player }: { player: Player }) {
               </span>
             </>
           )}
-          <span className="meta-separator">•</span>
-          <span>
-            Tournament Records &amp; Career Hall of Fame Finishes • Last Match: <strong>{player.last_played ?? 'N/A'}</strong>
-          </span>
         </div>
       </div>
       <div className="ach-links">
-        <a href={playerHref(player.name)} className="btn-back-profile">
+        <PlayerLink name={player.name} className="btn-back-profile">
           « Back to Player Profile
-        </a>
+        </PlayerLink>
         <a href="/ratings/" className="home-circle-btn" title="Return to Competitive Leaderboard">
           <img src="/img/home-button-circle.webp" alt="Leaderboard" className="home-btn-img" width={58} height={58} />
         </a>
@@ -146,22 +171,18 @@ function Records({ records }: { records: TournamentRecord[] }) {
             </button>
           </div>
         </div>
-        <input
-          type="text"
-          value={filter}
-          onChange={(e) => setFilter(e.target.value)}
+        <FilterInput
+          label="Filter tournaments, seasons"
           placeholder="🔍 Filter tournaments, seasons..."
-          aria-label="Filter tournaments, seasons"
-          className="input-antique ach-filter"
+          className="ach-filter"
+          value={filter}
+          onChange={setFilter}
         />
       </div>
 
       {tab === 'seasons' ? (
         <div>
-          <div className="scroll-hint">
-            <span>Swipe table horizontally for full achievement details ➔</span>
-          </div>
-          <div className="table-responsive">
+          <ScrollTable hint="full achievement details">
             <table className="records-table">
               <thead>
                 <tr>
@@ -176,7 +197,7 @@ function Records({ records }: { records: TournamentRecord[] }) {
               <tbody>
                 {shownSeasons.length === 0 ? (
                   <tr>
-                    <td colSpan={8} className="ach-empty">
+                    <td colSpan={6} className="ach-empty">
                       No individual tournament seasons registered.
                     </td>
                   </tr>
@@ -186,13 +207,13 @@ function Records({ records }: { records: TournamentRecord[] }) {
                     return (
                       <tr key={i} hidden={!matchesFilter(cells, filter)}>
                         <td className="ach-date">{cells[0]}</td>
-                        <td className="ach-tournament">{r.tournament}</td>
+                        <td className="ach-tournament">
+                          <TournamentName r={r} />
+                        </td>
                         <td className="ach-strong">{r.season}</td>
                         <td>{r.division}</td>
-                        <td className="ach-strong">{r.placement}</td>
-                        <td>{cells[5]}</td>
                         <td>
-                          <MedalCell medal={r.medal} />
+                          <ResultCell r={r} />
                         </td>
                         <td className="ach-details">{r.details}</td>
                       </tr>
@@ -201,14 +222,11 @@ function Records({ records }: { records: TournamentRecord[] }) {
                 )}
               </tbody>
             </table>
-          </div>
+          </ScrollTable>
         </div>
       ) : (
         <div>
-          <div className="scroll-hint">
-            <span>Swipe table horizontally for full career details ➔</span>
-          </div>
-          <div className="table-responsive">
+          <ScrollTable hint="full career details">
             <table className="records-table">
               <thead>
                 <tr>
@@ -230,13 +248,15 @@ function Records({ records }: { records: TournamentRecord[] }) {
                 ) : (
                   shownCareers.map((r, i) => (
                     <tr key={i} hidden={!matchesFilter(careerCells(r), filter)}>
-                      <td className="ach-career-tournament">{r.tournament}</td>
+                      <td className="ach-career-tournament">
+                        <TournamentName r={r} />
+                      </td>
                       <td className="ach-career-scope">{r.season}</td>
                       <td>{r.division}</td>
                       <td className="ach-strong">{r.placement}</td>
                       <td>{r.points || '-'}</td>
                       <td>
-                        <MedalCell medal={r.medal} />
+                        <MedalCell r={r} />
                       </td>
                       <td className="ach-details">{r.details}</td>
                     </tr>
@@ -244,7 +264,7 @@ function Records({ records }: { records: TournamentRecord[] }) {
                 )}
               </tbody>
             </table>
-          </div>
+          </ScrollTable>
         </div>
       )}
     </div>
@@ -275,8 +295,7 @@ export default function AchievementsPage({ apiUrl }: { apiUrl: string }) {
     };
   }, [apiUrl]);
 
-  if (state.kind === 'loading') return <p className="ach-status">Loading…</p>;
-  if (state.kind === 'error') return <p className="ach-status">Could not load this player: {state.message}</p>;
+  if (state.kind !== 'ready') return <Waiting load={state} what="this player" />;
   const { player, ach } = state;
   const s = ach.summary;
   return (

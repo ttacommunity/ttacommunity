@@ -12,9 +12,17 @@ import (
 	"ttacommunity/backend/internal/store"
 )
 
-// InactiveOnOrBefore is upstream's fixed cutoff: a player whose last game is on
-// or before it is inactive. The site uses the same date.
-var InactiveOnOrBefore = time.Date(2025, 5, 31, 0, 0, 0, 0, time.UTC)
+// upstreamCutoff is upstream's fixed date, kept for a run that recorded no last game.
+var upstreamCutoff = time.Date(2025, 5, 31, 0, 0, 0, 0, time.UTC)
+
+// InactiveCutoff returns the date on or before which a player's last game makes
+// them inactive: 12 months before the run's last game. The site uses the same rule.
+func InactiveCutoff(lastGame *time.Time) time.Time {
+	if lastGame == nil {
+		return upstreamCutoff
+	}
+	return lastGame.AddDate(-1, 0, 0)
+}
 
 // Query is the table's filters and sort, as the site's parameters carry them.
 type Query struct {
@@ -26,6 +34,8 @@ type Query struct {
 	Order   string // asc or desc
 	// Played, for a year's archive, names who played that year: they are its active players.
 	Played map[string]bool
+	// InactiveOnOrBefore is the live board's cutoff (InactiveCutoff).
+	InactiveOnOrBefore time.Time
 }
 
 // Row is one shown player, with their rank among the filtered players.
@@ -39,7 +49,7 @@ type Row struct {
 func Select(rows []store.LeaderboardRow, q Query) []Row {
 	var pool []Row
 	for _, p := range rows {
-		active := p.LastPlayed != nil && p.LastPlayed.After(InactiveOnOrBefore)
+		active := p.LastPlayed != nil && p.LastPlayed.After(q.InactiveOnOrBefore)
 		if q.Played != nil {
 			active = q.Played[p.Name]
 		}

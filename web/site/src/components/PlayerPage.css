@@ -8,10 +8,10 @@
   max-width: 100%;
   margin: 0.5rem auto 2rem;
   padding: 1.5rem 2rem;
-  background: rgba(26, 17, 12, 0.95);
+  background: var(--surface-card);
   border: 1.5px solid var(--border-subtle);
   border-radius: 8px;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.7);
+  box-shadow: 0 4px 20px var(--shadow);
   backdrop-filter: blur(8px);
   text-align: center;
 }
@@ -48,15 +48,15 @@
   display: inline-block;
   margin: 0.2rem 0;
   font-family: var(--font-heading);
-  font-size: 2.35rem;
+  font-size: var(--size-page-title);
   font-weight: 700;
   line-height: 1.2;
-  color: #ffd54f;
+  color: var(--accent-gold-soft);
   letter-spacing: 1px;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   text-shadow:
-    0 2px 4px rgba(0, 0, 0, 0.95),
+    0 2px 4px var(--shadow-deep),
     0 4px 14px rgba(0, 0, 0, 0.85);
 }
 
@@ -75,8 +75,8 @@
   background: linear-gradient(180deg, #dfb975 0%, #be9045 100%);
   border: 1px solid #7a5420;
   border-radius: 4px;
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.5);
-  color: #120904;
+  box-shadow: 0 2px 6px var(--shadow);
+  color: var(--text-on-gold);
   font-family: var(--font-stats);
   font-size: 0.88rem;
   font-weight: 700;
@@ -172,7 +172,7 @@
 
 .model-card.active-card {
   border: 1px solid var(--accent-gold);
-  box-shadow: 0 4px 15px rgba(229, 169, 60, 0.25);
+  box-shadow: 0 4px 15px var(--gold-wash);
 }
 
 .model-card h3 {
@@ -181,7 +181,7 @@
   justify-content: space-between;
   margin-bottom: 0.75rem;
   font-family: var(--font-heading);
-  font-size: 1.1rem;
+  font-size: var(--size-subheading);
   color: var(--accent-gold);
 }
 
@@ -222,28 +222,45 @@
   color: #887864;
 }
 
+/* A format card is a link to that format. */
+.model-card.format-card {
+  display: block;
+  color: inherit;
+  text-decoration: none;
+  cursor: pointer;
+  transition:
+    transform 0.15s ease,
+    box-shadow 0.15s ease;
+}
+
+.format-card-none {
+  font-size: 1.05rem;
+  font-weight: normal;
+  color: var(--text-muted);
+}
+
 /* GlickoD's card: upstream's gold gradient. */
 .model-card.card-daneo {
   border: 1.5px solid #b8860b;
-  background: linear-gradient(135deg, rgba(46, 31, 20, 0.95) 0%, rgba(22, 14, 9, 0.98) 100%);
+  background: linear-gradient(135deg, rgba(46, 31, 20, 0.95) 0%, var(--surface-well) 100%);
   box-shadow:
     0 4px 18px rgba(0, 0, 0, 0.65),
-    inset 0 1px 0 rgba(229, 169, 60, 0.2);
+    inset 0 1px 0 var(--gold-wash);
 }
 
 .card-daneo h3 {
-  color: #ffd54f;
+  color: var(--accent-gold-soft);
 }
 
 .card-daneo .badge-rank {
   background: #332211;
-  color: #ffd54f;
+  color: var(--accent-gold-soft);
   border: 1.5px solid #b8860b;
   font-weight: 700;
 }
 
 .card-daneo .rating-number {
-  color: #ffde8a;
+  color: var(--accent-gold-light);
   font-weight: 800;
 }
 
@@ -260,26 +277,11 @@
 }
 
 .card-daneo .c-rating-box strong {
-  color: #ffd54f;
+  color: var(--accent-gold-soft);
 }
 
 .card-daneo .model-card-caption {
-  color: #a89880;
-}
-
-/* Adaptive-T's card: upstream's green. */
-.card-adapt .badge-rank {
-  background: rgba(34, 197, 94, 0.2);
-  color: #22c55e;
-  border: 1px solid rgba(34, 197, 94, 0.4);
-}
-
-.card-adapt .rating-number {
-  color: #4ade80;
-}
-
-.card-adapt .c-rating-box strong {
-  color: #22c55e;
+  color: var(--text-muted);
 }
 
 .chart-container {
@@ -306,7 +308,7 @@
 .chart-head h3 {
   margin: 0 0 0.2rem;
   font-family: var(--font-heading);
-  font-size: 1.2rem;
+  font-size: var(--size-subheading);
   color: var(--accent-gold);
 }
 
@@ -328,7 +330,7 @@
   align-items: center;
   gap: 0.35rem;
   padding: 0.25rem 0.5rem;
-  background: rgba(0, 0, 0, 0.35);
+  background: var(--shadow-light);
   border: 1px solid var(--border-subtle);
   border-radius: 6px;
 }
@@ -379,7 +381,7 @@
 
 .chart-empty-title {
   font-size: 1rem;
-  color: #ffd54f;
+  color: var(--accent-gold-soft);
 }
 
 .chart-empty-text {
@@ -433,10 +435,10 @@
 
 .data-table th {
   padding: 0.65rem 0.85rem;
-  background: rgba(30, 20, 14, 0.95);
+  background: var(--surface-card);
   border-bottom: 2px solid var(--border-subtle);
   font-family: var(--font-heading);
-  font-size: 0.8rem;
+  font-size: var(--size-table-header);
   color: var(--accent-gold);
   text-align: left;
   text-transform: uppercase;
@@ -479,8 +481,8 @@
 }
 
 .place-1 {
-  background: #e5a93c;
-  color: #1c130d;
+  background: var(--accent-gold);
+  color: var(--bg-dark);
 }
 
 .place-2 {
@@ -490,11 +492,11 @@
 
 .place-3 {
   background: #b87333;
-  color: #fff;
+  color: var(--text-bright);
 }
 
 .place-4 {
-  background: #4a3525;
+  background: var(--border-subtle);
   color: #aaa;
 }
 
@@ -526,7 +528,7 @@
   border-radius: 3px;
   font-family: monospace;
   font-size: 0.82rem;
-  color: #ffd54f;
+  color: var(--accent-gold-soft);
   letter-spacing: 0.5px;
 }
 
@@ -544,12 +546,6 @@
   color: var(--text-muted);
 }
 
-.seats {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.4rem;
-}
-
 .seat {
   color: var(--text-muted);
 }
@@ -559,48 +555,30 @@
   color: var(--accent-gold);
 }
 
-.pagination-container {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: center;
-  gap: 0.5rem;
-  margin-top: 1.25rem;
-}
-
-.pagination-container .btn-antique {
-  padding: 0.3rem 0.75rem;
-  font-size: 0.85rem;
-}
-
-.pagination-jump {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.35rem;
-  font-family: var(--font-stats);
-  font-size: 0.9rem;
+.seat-score {
   color: var(--text-muted);
 }
 
-.pagination-jump input,
-.rivals-controls select,
-.rivals-controls input {
-  background: rgba(14, 9, 6, 0.95);
+.seat .player-link,
+.h2h-scores .player-link {
+  color: var(--accent-gold-soft);
+  text-decoration: none;
+}
+
+.seat .player-link:hover,
+.h2h-scores .player-link:hover {
+  text-decoration: underline;
+}
+
+.h2h-other .player-link {
+  color: inherit;
+}
+
+.rivals-controls select {
+  background: var(--surface-field);
   border: 1px solid var(--border-subtle);
   border-radius: 4px;
-  color: #f3e5c8;
-}
-
-.pagination-jump input {
-  width: 50px;
-  padding: 0.25rem;
-  font-size: 0.85rem;
-  text-align: center;
-}
-
-.pagination-jump .btn-antique {
-  padding: 0.25rem 0.6rem;
-  font-size: 0.8rem;
+  color: var(--text-main);
 }
 
 .rivals-controls {
@@ -615,10 +593,8 @@
   font-size: 0.85rem;
 }
 
-.rivals-controls input {
+.rival-filter {
   width: 180px;
-  padding: 0.35rem 0.85rem;
-  font-size: 0.85rem;
 }
 
 .sort-head {
@@ -640,17 +616,17 @@
 
 .sort-head.win,
 .wld-num.win {
-  color: #66bb6a;
+  color: var(--win);
 }
 
 .sort-head.loss,
 .wld-num.loss {
-  color: #ef5350;
+  color: var(--loss);
 }
 
 .sort-head.draw,
 .wld-num.draw {
-  color: #ffa726;
+  color: var(--draw);
 }
 
 .wld-num {
@@ -667,16 +643,17 @@
 
 .rival-name.player-link {
   font-family: var(--font-body);
+  font-size: 0.9rem;
   font-weight: 600;
   color: #f7dfa5;
 }
 
 .rival-rate.good {
-  color: #66bb6a;
+  color: var(--win);
 }
 
 .rival-rate.bad {
-  color: #ef5350;
+  color: var(--loss);
 }
 
 .rivals-expand {
@@ -687,12 +664,6 @@
 .rivals-expand .btn-antique {
   padding: 0.4rem 1rem;
   font-size: 0.85rem;
-}
-
-.profile-message {
-  padding: 2rem;
-  text-align: center;
-  color: var(--text-muted);
 }
 
 @media (max-width: 768px) {
@@ -783,13 +754,13 @@
   font-size: 0.85rem;
   color: var(--text-muted);
 }
-.career-medal-gold { color: #ffd700; }
+.career-medal-gold { color: var(--accent-gold-bright); }
 .career-medal-silver { color: #cfd8dc; }
 .career-medal-bronze { color: #cd7f32; }
 
 .career-honor-roll {
   margin-bottom: 0.6rem;
-  font-size: 1.05rem;
+  font-size: var(--size-body);
   font-weight: 500;
   color: #fff3db;
 }
@@ -804,16 +775,16 @@
 .career-honor-badge {
   background: rgba(18, 12, 8, 0.92);
   border: 1px solid #c59b27;
-  border-left: 3px solid #ffd54f;
+  border-left: 3px solid var(--accent-gold-soft);
   padding: 0.45rem 0.85rem;
   border-radius: 4px;
   display: flex;
   align-items: center;
   gap: 0.6rem;
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.6);
+  box-shadow: 0 2px 6px var(--shadow);
 }
 .honor-star {
-  color: #ffd54f;
+  color: var(--accent-gold-soft);
   font-size: 1rem;
   line-height: 1;
   flex-shrink: 0;
@@ -839,7 +810,7 @@
   gap: 0.75rem;
   margin: 0.8rem 0;
   padding: 0.75rem 1rem;
-  background: linear-gradient(135deg, rgba(229, 169, 60, 0.15) 0%, rgba(30, 20, 14, 0.8) 100%);
+  background: linear-gradient(135deg, var(--gold-wash-faint) 0%, rgba(30, 20, 14, 0.8) 100%);
   border: 1.5px solid var(--accent-gold);
   border-radius: 6px;
 }
@@ -868,11 +839,11 @@
 .career-season-stats {
   font-family: var(--font-stats);
   font-size: 0.85rem;
-  color: #f3e5c8;
+  color: var(--text-main);
 }
 
 .career-season-peak {
-  color: #ffd700;
+  color: var(--accent-gold-bright);
 }
 
 .career-peaks {
@@ -898,7 +869,7 @@
 }
 
 .career-peak-rating {
-  color: #ffd54f;
+  color: var(--accent-gold-soft);
 }
 
 .career-peak-rank {
@@ -925,7 +896,7 @@
   gap: 0.35rem;
   padding: 0.3rem 0.65rem;
   background: rgba(142, 30, 29, 0.25);
-  border: 1px solid #8e1e1d;
+  border: 1px solid var(--accent-crimson);
   border-radius: 4px;
   color: #ffb4a2;
   font-family: var(--font-stats);
@@ -936,10 +907,10 @@
 }
 
 .btn-h2h-compare:hover {
-  background: #8e1e1d;
+  background: var(--accent-crimson);
   border-color: var(--accent-gold);
   box-shadow: 0 2px 8px rgba(142, 30, 29, 0.6);
-  color: #fff;
+  color: var(--text-bright);
   transform: translateY(-1px);
 }
 
@@ -952,7 +923,7 @@
   background: rgba(28, 19, 13, 0.98);
   border: 2px solid var(--accent-gold);
   border-radius: 8px;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.9);
+  box-shadow: 0 8px 32px var(--shadow-deep);
   color: var(--text-main);
 }
 
@@ -1025,19 +996,19 @@
 }
 
 .h2h-total {
-  color: #ffd54f;
+  color: var(--accent-gold-soft);
 }
 
 .h2h-win {
-  color: #66bb6a;
+  color: var(--win);
 }
 
 .h2h-loss {
-  color: #ef5350;
+  color: var(--loss);
 }
 
 .h2h-draw {
-  color: #ffa726;
+  color: var(--draw);
 }
 
 .h2h-body {
@@ -1056,10 +1027,6 @@
   text-align: center;
 }
 
-.h2h-message.h2h-error {
-  color: #ef5350;
-}
-
 .h2h-tournament {
   font-weight: 600;
   color: var(--accent-gold);
@@ -1071,7 +1038,7 @@
 
 .h2h-target {
   font-weight: 700;
-  color: #ffd54f;
+  color: var(--accent-gold-soft);
 }
 
 .h2h-other {
@@ -1087,21 +1054,21 @@
   background: linear-gradient(135deg, rgba(74, 18, 22, 0.92) 0%, rgba(43, 29, 20, 0.95) 100%);
   border: 1.5px solid #d49438;
   border-radius: 5px;
-  box-shadow: 0 3px 10px rgba(0, 0, 0, 0.5);
-  color: #ffd54f;
+  box-shadow: 0 3px 10px var(--shadow);
+  color: var(--accent-gold-soft);
   font-family: var(--font-subheading);
   font-size: 0.92rem;
   font-weight: 700;
   text-decoration: none;
-  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.9);
+  text-shadow: 0 1px 2px var(--shadow-deep);
   transition: all 0.2s ease;
 }
 
 .btn-tournament-achievements:hover {
   background: linear-gradient(135deg, rgba(100, 24, 30, 0.98) 0%, rgba(65, 40, 25, 0.98) 100%);
-  border-color: #ffd54f;
-  box-shadow: 0 4px 14px rgba(229, 169, 60, 0.4);
-  color: #fff;
+  border-color: var(--accent-gold-soft);
+  box-shadow: 0 4px 14px var(--gold-wash-strong);
+  color: var(--text-bright);
   transform: translateY(-1px);
 }
 

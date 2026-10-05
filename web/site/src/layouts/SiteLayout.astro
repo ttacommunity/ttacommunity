@@ -1,7 +1,6 @@
 ---
 /** The page shell every site page uses: upstream's header, nav and footer around the page's content. */
 import '@ttac/shared/styles/theme.css';
-import { Font } from 'astro:assets';
 import { currentSection, sections } from '../lib/nav';
 
 interface Props {
@@ -19,10 +18,7 @@ const current = currentSection(Astro.url.pathname);
     <title>{title}</title>
     <meta name="description" content={description} />
     <link rel="icon" type="image/png" href="/favicon.png" />
-    <Font cssVariable="--font-cinzel" preload />
-    <Font cssVariable="--font-marcellus" />
-    <Font cssVariable="--font-source-serif" />
-    <Font cssVariable="--font-inter" />
+    <link rel="stylesheet" href="/fonts/fonts.css" />
     <slot name="head" />
   </head>
   <body>
@@ -64,8 +60,8 @@ const current = currentSection(Astro.url.pathname);
       <div class="footer-container">
         <p><strong>Through the Ages Rating Engine</strong> -- Powered by Glicko-2 and Coulom Whole-History Rating.</p>
         <p class="footer-small">
-          Data from competitive online TTA tournaments (2017-2026). &bull;
-          <a href="https://ttac-admin.unstableunicorn.dev/">Webmaster</a>
+          Data from competitive online TTA tournaments<span class="run-facts"></span>. &bull;
+          <a href="https://ttac-admin.unstableunicorn.dev/">Designed and built by DANeo</a>
         </p>
       </div>
     </footer>
@@ -73,7 +69,18 @@ const current = currentSection(Astro.url.pathname);
     <div class="site-tooltip" role="tooltip" aria-hidden="true"></div>
 
     <script>
+      import { PUBLIC_API_URL } from 'astro:env/client';
+      import { currentRun } from '@ttac/shared/ratings';
+      import { runFacts } from '../lib/run-facts';
       import { placeTooltip } from '../lib/tooltip-position';
+
+      // Without an answer the footer keeps its plain wording.
+      const facts = document.querySelector('.run-facts');
+      if (facts) {
+        currentRun(PUBLIC_API_URL)
+          .then((run) => (facts.textContent = runFacts(run)))
+          .catch(() => undefined);
+      }
 
       // The background starts below the header, whose height changes when it wraps.
       const header = document.querySelector('.site-header');

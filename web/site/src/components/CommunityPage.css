@@ -6,21 +6,21 @@
   padding: 2rem;
   margin: 0.5rem auto 2rem auto;
   max-width: 1400px;
-  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.8);
+  box-shadow: 0 4px 24px var(--shadow-deep);
   backdrop-filter: blur(8px);
   text-align: center;
 }
 .comm-title {
   font-family: var(--font-heading);
-  font-size: 2.2rem;
+  font-size: var(--size-page-title);
   color: #df7a6c;
   margin-bottom: 0.5rem;
   -webkit-text-stroke: 1px #180407;
   paint-order: stroke fill;
-  text-shadow: -1.5px -1.5px 0 #180407, 1.5px 1.5px 0 #180407, -1.5px 1.5px 0 #180407, 1.5px 1.5px 0 #180407, 0 3px 8px rgba(0,0,0,0.95);
+  text-shadow: -1.5px -1.5px 0 #180407, 1.5px 1.5px 0 #180407, -1.5px 1.5px 0 #180407, 1.5px 1.5px 0 #180407, 0 3px 8px var(--shadow-deep);
 }
 .comm-subtitle {
-  color: #cfbeab;
+  color: var(--text-soft);
   font-size: 1.05rem;
   margin-bottom: 1.5rem;
 }
@@ -38,13 +38,13 @@
   border-radius: 6px;
   padding: 1rem;
   text-align: center;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.5);
+  box-shadow: 0 2px 8px var(--shadow);
 }
 .stat-tile-num {
   font-size: 1.8rem;
   font-weight: 700;
   font-family: var(--font-stats);
-  color: #ffde8a;
+  color: var(--accent-gold-light);
   line-height: 1.2;
 }
 .stat-tile-label {
@@ -71,7 +71,7 @@
   border: 1px solid var(--border-subtle);
   border-radius: 6px;
   padding: 1.4rem 1.6rem;
-  box-shadow: 0 4px 16px rgba(0,0,0,0.6);
+  box-shadow: 0 4px 16px var(--shadow);
 }
 .explainer-card h3 {
   font-family: var(--font-heading);
@@ -83,7 +83,7 @@
   gap: 0.5rem;
 }
 .explainer-card p {
-  font-size: 0.92rem;
+  font-size: var(--size-body-short);
   line-height: 1.55;
   color: #dfd0c0;
   margin-bottom: 0.75rem;
@@ -112,7 +112,7 @@
   padding: 1rem 1.5rem;
   border-radius: 6px;
   border: 1px solid var(--border-subtle);
-  box-shadow: 0 4px 16px rgba(0,0,0,0.5);
+  box-shadow: 0 4px 16px var(--shadow);
 }
 .comm-search-form {
   display: flex;
@@ -126,7 +126,7 @@
   flex: 1;
   background: rgba(10, 7, 5, 0.95);
   border: 1px solid var(--border-subtle);
-  color: #fff;
+  color: var(--text-bright);
   padding: 0.55rem 0.9rem;
   border-radius: 4px;
   font-family: var(--font-body);
@@ -136,13 +136,13 @@
 .comm-search-input:focus {
   outline: none;
   border-color: var(--accent-gold);
-  box-shadow: 0 0 8px rgba(229, 169, 60, 0.25);
+  box-shadow: 0 0 8px var(--gold-wash);
 }
 
 /* Premium Search & Action Buttons */
 .btn-search-gold {
-  background: linear-gradient(135deg, #e5a93c 0%, #b87c1c 100%);
-  color: #120904;
+  background: var(--gradient-gold);
+  color: var(--text-on-gold);
   font-family: var(--font-heading);
   font-size: 0.88rem;
   font-weight: 700;
@@ -151,18 +151,18 @@
   border-radius: 4px;
   padding: 0.55rem 1.25rem;
   cursor: pointer;
-  box-shadow: 0 2px 6px rgba(0,0,0,0.6);
+  box-shadow: 0 2px 6px var(--shadow);
   transition: all 0.2s ease;
   white-space: nowrap;
 }
 .btn-search-gold:hover {
-  background: linear-gradient(135deg, #ffde8a 0%, #d49024 100%);
+  background: linear-gradient(135deg, var(--accent-gold-light) 0%, #d49024 100%);
   box-shadow: 0 0 12px rgba(229, 169, 60, 0.5);
   transform: translateY(-1px);
 }
 .btn-clear-muted {
-  background: rgba(43, 29, 20, 0.85);
-  color: #cfbeab;
+  background: var(--surface-panel);
+  color: var(--text-soft);
   border: 1px solid var(--border-subtle);
   border-radius: 4px;
   padding: 0.55rem 0.95rem;
@@ -174,7 +174,7 @@
 }
 .btn-clear-muted:hover {
   border-color: var(--accent-gold);
-  color: #fff;
+  color: var(--text-bright);
   background: rgba(74, 53, 37, 0.6);
 }
 
@@ -184,23 +184,23 @@
   align-items: center;
   justify-content: center;
   gap: 0.45rem;
-  background: rgba(14, 9, 6, 0.95);
-  border: 1px solid rgba(229, 169, 60, 0.35);
+  background: var(--surface-field);
+  border: 1px solid var(--gold-wash-strong);
   padding: 0.45rem 1rem;
   border-radius: 20px;
-  color: #ffde8a;
+  color: var(--accent-gold-light);
   font-family: var(--font-stats);
   font-size: 0.84rem;
   font-weight: 600;
   letter-spacing: 0.3px;
   text-align: center;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.4);
+  box-shadow: 0 2px 8px var(--shadow-light);
 }
 
 /* View Mode Switcher */
 .view-toggle-bar {
   display: inline-flex;
-  background: rgba(14, 9, 6, 0.95);
+  background: var(--surface-field);
   padding: 0.25rem;
   border-radius: 6px;
   border: 1px solid var(--border-subtle);
@@ -212,20 +212,20 @@
   font-family: var(--font-stats);
   font-size: 0.85rem;
   font-weight: 600;
-  color: #cfbeab;
+  color: var(--text-soft);
   text-decoration: none;
   transition: all 0.2s ease;
   white-space: nowrap;
 }
 .view-btn:hover {
-  color: #fff;
-  background: rgba(229, 169, 60, 0.15);
+  color: var(--text-bright);
+  background: var(--gold-wash-faint);
 }
 .view-btn.active {
-  background: linear-gradient(135deg, #e5a93c 0%, #b87c1c 100%);
-  color: #120904;
+  background: var(--gradient-gold);
+  color: var(--text-on-gold);
   font-weight: 700;
-  box-shadow: 0 2px 6px rgba(229, 169, 60, 0.4);
+  box-shadow: 0 2px 6px var(--gold-wash-strong);
 }
 
 /* Results Counter Card */
@@ -244,7 +244,7 @@
   align-items: center;
   flex-wrap: wrap;
   gap: 0.5rem;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
+  box-shadow: 0 4px 12px var(--shadow);
 }
 
 /* Table Container */
@@ -255,7 +255,7 @@
   border: 1px solid var(--border-subtle);
   border-radius: 6px;
   background: rgba(18, 12, 8, 0.96);
-  box-shadow: 0 4px 20px rgba(0,0,0,0.8);
+  box-shadow: 0 4px 20px var(--shadow-deep);
   transition: all 0.3s ease;
 }
 /* Expanded view expands to sides for full width visibility */
@@ -276,7 +276,7 @@
 .comm-table thead tr.super-header th {
   background: rgba(14, 9, 6, 0.98);
   font-family: var(--font-heading);
-  font-size: 0.78rem;
+  font-size: var(--size-table-header);
   color: var(--accent-gold);
   text-transform: uppercase;
   letter-spacing: 0.5px;
@@ -286,9 +286,9 @@
 }
 .comm-table thead tr.col-header th {
   background: rgba(26, 17, 12, 0.98);
-  color: #e5a93c;
+  color: var(--accent-gold);
   font-family: var(--font-heading);
-  font-size: 0.8rem;
+  font-size: var(--size-table-header);
   padding: 0.65rem 0.6rem;
   border-bottom: 2px solid var(--border-subtle);
   text-align: center;
@@ -297,11 +297,11 @@
   text-align: left;
 }
 .comm-table tbody tr {
-  border-bottom: 1px solid rgba(74, 53, 37, 0.35);
+  border-bottom: 1px solid var(--border-faint);
   transition: background-color 0.15s;
 }
 .comm-table tbody tr:hover {
-  background-color: rgba(229, 169, 60, 0.08);
+  background-color: var(--gold-wash-faint);
 }
 .comm-table td {
   padding: 0.55rem 0.65rem;
@@ -342,9 +342,9 @@
   font-size: 0.82rem;
   text-align: center;
 }
-.rank-1 { background: #ffd700; color: #180407; box-shadow: 0 0 8px rgba(255,215,0,0.6); }
+.rank-1 { background: var(--accent-gold-bright); color: #180407; box-shadow: 0 0 8px rgba(255,215,0,0.6); }
 .rank-2 { background: #cfd8dc; color: #180407; }
-.rank-3 { background: #cd7f32; color: #fff; }
+.rank-3 { background: #cd7f32; color: var(--text-bright); }
 .rank-default { color: #a89988; }
 
 /* Scores: Active Counting vs Discarded */
@@ -352,11 +352,11 @@
   display: inline-block;
   padding: 0.15rem 0.4rem;
   border-radius: 4px;
-  background: rgba(229, 169, 60, 0.22);
+  background: var(--gold-wash);
   border: 1px solid rgba(255, 215, 0, 0.5);
-  color: #ffde8a;
+  color: var(--accent-gold-light);
   font-weight: 700;
-  box-shadow: 0 0 5px rgba(229, 169, 60, 0.25);
+  box-shadow: 0 0 5px var(--gold-wash);
 }
 .score-dropped {
   color: #6d5b4f;
@@ -369,48 +369,16 @@
 .points-total {
   font-size: 1.05rem;
   font-weight: 800;
-  color: #ffde8a;
-  text-shadow: 0 1px 3px rgba(0,0,0,0.8);
-}
-
-/* Pagination Bar */
-.pagination-bar {
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  gap: 0.5rem;
-  margin: 1.5rem auto 3rem auto;
-  flex-wrap: wrap;
-}
-.page-link {
-  padding: 0.4rem 0.85rem;
-  border-radius: 4px;
-  background: rgba(30, 20, 14, 0.9);
-  border: 1px solid var(--border-subtle);
-  color: #cfbeab;
-  text-decoration: none;
-  font-family: var(--font-stats);
-  font-size: 0.9rem;
-  transition: all 0.2s;
-}
-.page-link:hover {
-  border-color: var(--accent-gold);
-  color: #fff;
-  background: rgba(229, 169, 60, 0.2);
-}
-.page-link.active {
-  background: var(--accent-gold);
-  color: #120904;
-  font-weight: 700;
-  border-color: #ffd700;
+  color: var(--accent-gold-light);
+  text-shadow: 0 1px 3px var(--shadow-deep);
 }
 
 /* Wolvs Maintainer Attribution Card */
 .maintainer-card {
   max-width: 900px;
   margin: 0 auto 1.5rem auto;
-  background: linear-gradient(135deg, rgba(28, 18, 12, 0.95) 0%, rgba(18, 11, 7, 0.98) 100%);
-  border: 1px solid rgba(229, 169, 60, 0.4);
+  background: linear-gradient(135deg, var(--surface-card) 0%, rgba(18, 11, 7, 0.98) 100%);
+  border: 1px solid var(--gold-wash-strong);
   border-radius: 8px;
   padding: 0.85rem 1.4rem;
   display: flex;
@@ -418,7 +386,7 @@
   justify-content: center;
   gap: 0.85rem;
   flex-wrap: wrap;
-  box-shadow: 0 4px 18px rgba(0, 0, 0, 0.6), inset 0 1px 0 rgba(255, 215, 0, 0.15);
+  box-shadow: 0 4px 18px var(--shadow), inset 0 1px 0 rgba(255, 215, 0, 0.15);
   font-size: 0.95rem;
   text-align: center;
 }
@@ -426,9 +394,9 @@
   display: inline-flex;
   align-items: center;
   gap: 0.4rem;
-  background: rgba(229, 169, 60, 0.15);
+  background: var(--gold-wash-faint);
   border: 1px solid var(--accent-gold);
-  color: #ffd700;
+  color: var(--accent-gold-bright);
   padding: 0.25rem 0.65rem;
   border-radius: 4px;
   font-family: var(--font-heading);
@@ -442,15 +410,15 @@
   font-family: var(--font-body);
 }
 .maintainer-desc strong a {
-  color: #ffde8a;
+  color: var(--accent-gold-light);
   text-decoration: none;
   font-weight: 700;
   border-bottom: 1px dashed rgba(229, 169, 60, 0.5);
   transition: all 0.2s;
 }
 .maintainer-desc strong a:hover {
-  color: #fff;
-  border-bottom-color: #ffd700;
+  color: var(--text-bright);
+  border-bottom-color: var(--accent-gold-bright);
 }
 
 /* Edition / Year Selector Bar */
@@ -489,22 +457,22 @@
   font-weight: 600;
   text-decoration: none;
   border: 1px solid transparent;
-  color: #cfbeab;
+  color: var(--text-soft);
   background: transparent;
   transition: all 0.2s ease;
   white-space: nowrap;
 }
 .edition-pill:hover {
-  border-color: rgba(229, 169, 60, 0.4);
-  color: #fff;
+  border-color: var(--gold-wash-strong);
+  color: var(--text-bright);
   background: rgba(229, 169, 60, 0.1);
 }
 .edition-pill.active {
-  background: linear-gradient(135deg, #e5a93c 0%, #b87c1c 100%);
-  color: #120904;
+  background: var(--gradient-gold);
+  color: var(--text-on-gold);
   font-weight: 700;
-  border-color: #ffd700;
-  box-shadow: 0 2px 8px rgba(229, 169, 60, 0.4);
+  border-color: var(--accent-gold-bright);
+  box-shadow: 0 2px 8px var(--gold-wash-strong);
 }
 
 @media (max-width: 768px) {
@@ -519,8 +487,9 @@
     font-size: 0.9rem;
     margin-bottom: 1rem;
   }
+  /* Columns may shrink below a long name, which then wraps inside its tile. */
   .comm-stats-grid {
-    grid-template-columns: repeat(2, 1fr);
+    grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 0.6rem;
   }
   .stat-tile {
@@ -528,6 +497,7 @@
   }
   .stat-tile-num {
     font-size: 1.4rem;
+    overflow-wrap: anywhere;
   }
   .comm-controls {
     padding: 0.85rem;
@@ -568,18 +538,17 @@
   }
 }
 
-
 /* Upstream's inline styles, as classes. */
 .comm-table thead tr.super-header th.comm-super-left {
   text-align: left;
   padding-left: 1rem;
 }
 .comm-top-link {
-  color: #ffde8a;
+  color: var(--accent-gold-light);
   text-decoration: none;
 }
 .comm-wc-link {
-  color: #ffd700;
+  color: var(--accent-gold-bright);
   text-decoration: none;
 }
 .badge.comm-wc-badge {
@@ -590,10 +559,10 @@
   font-size: 1rem;
 }
 .comm-count-total {
-  color: #fff;
+  color: var(--text-bright);
 }
 .comm-count-filter {
-  color: #cfbeab;
+  color: var(--text-soft);
 }
 .comm-mode {
   color: var(--accent-gold);
@@ -611,11 +580,6 @@
 }
 .comm-dash {
   color: #665544;
-}
-.comm-status {
-  text-align: center;
-  color: var(--text-muted);
-  padding: 2rem;
 }
 
 /* styles.css's scroll hint, shown on phones. */
@@ -635,4 +599,12 @@
     align-items: center;
     gap: 0.35rem;
   }
+}
+
+/* The pager sits below the table, not inside a card, so it brings its own panel. */
+.community-page > .pagination {
+  padding: 0.75rem 1rem;
+  background: var(--surface-card);
+  border: 1px solid var(--border-subtle);
+  border-radius: 8px;
 }

@@ -1,0 +1,12 @@
+---
+/** The Tournaments page: every tournament in the record, or one tournament (?t=) season by season. */
+import { PUBLIC_API_URL } from 'astro:env/client';
+import SiteLayout from '../../../layouts/SiteLayout.astro';
+import TournamentsPage from '../../../components/TournamentsPage';
+import '../../../components/HallOfFame.css';
+import '../../../components/TournamentSeries.css';
+import '../../../components/TournamentGames.css';
+---
+<SiteLayout title="Tournaments | Every Tournament in the Record" description="Every Through the Ages tournament in the record: its seasons, stages, games, players and podiums.">
+  <TournamentsPage client:only="react" apiUrl={PUBLIC_API_URL} />
+</SiteLayout>

@@ -1,23 +1,28 @@
-// Command load seeds the ratings database from a directory of match CSVs,
-// sets players' countries from CSVs with Player and Code columns, or
-// replaces one kind of recorded tournament fact from one CSV.
+// Command load seeds the ratings database from a directory of match CSVs and
+// places each game in the tournament catalogue, sets players' countries from
+// CSVs with Player and Code columns, or replaces one kind of recorded
+// tournament fact from one CSV.
 // It checks every row first, and writes no matches if the database has some.
 package main
 
 import (
 	"context"
+	"encoding/csv"
+	"errors"
 	"flag"
 	"fmt"
 	"io"
 	"os"
 	"os/signal"
 	"path/filepath"
+	"regexp"
 	"slices"
 	"strings"
 	"syscall"
 
 	"github.com/jackc/pgx/v5/pgxpool"
 
+	"ttacommunity/backend/internal/cgegames"
 	"ttacommunity/backend/internal/countrycsv"
 	"ttacommunity/backend/internal/matchcsv"
 	"ttacommunity/backend/internal/store"
@@ -28,26 +33,65 @@ func main() {
 	reset := flag.Bool("reset", false, "delete every match, refusal and rating run first")
 	migrate := flag.Bool("migrate", false, "only apply the ratings migrations, and load nothing")
 	countries := flag.Bool("countries", false, "set players' countries from the CSV files named, a later file winning")
-	facts := flag.String("facts", "", "replace every recorded tournament fact of one kind (divisions, placements, corrections, dates, honours, community or community_scores) with the CSV file named")
+	classify := flag.Bool("classify", false, "only place unplaced games in the tournament catalogue, by their names")
+	cgeGames := flag.String("cge-games", "", "attach CGE's facts (seats, CGE users, finish dates) from the CSV named to the games already loaded")
+	cgeNew := flag.String("cge-new", "", "with -cge-games: a CSV of replay codes (replay_code column first) checked by hand as new games, added even where they may look like copies")
+	facts := flag.String("facts", "", "replace every recorded tournament fact of one kind (divisions, placements, corrections, dates, honours, rules, podiums, cge_tournaments, cge_stages, ladder_wins, season_notes, community or community_scores) with the CSV file named")
+	export := flag.String("export", "", "write every input table to the directory named (new or empty), one CSV each, with a manifest")
+	restore := flag.String("restore", "", "load an export from the directory named into a new database, after applying the migrations")
+	addAdmin := flag.String("add-admin", "", "add or update the admin with the Discord id named, with -name and -role")
+	adminName := flag.String("name", "", "with -add-admin: the admin's name as admin shows it")
+	adminRole := flag.String("role", "", "with -add-admin: admin or organiser")
+	upstream := flag.String("export-upstream", "", "write every played game to the new file named, as the match CSV upstream's site loads")
 	flag.Usage = func() {
 		fmt.Fprintln(os.Stderr, "usage: load [-reset] <directory of match CSVs>")
+		fmt.Fprintln(os.Stderr, "       load -export <directory>")
+		fmt.Fprintln(os.Stderr, "       load -restore <directory>")
+		fmt.Fprintln(os.Stderr, "       load -export-upstream <file>")
+		fmt.Fprintln(os.Stderr, "       load -add-admin <Discord id> -name <name> -role admin|organiser")
 		fmt.Fprintln(os.Stderr, "       load -migrate")
+		fmt.Fprintln(os.Stderr, "       load -classify")
+		fmt.Fprintln(os.Stderr, "       load -cge-games <CSV file> [-cge-new <CSV file>]")
 		fmt.Fprintln(os.Stderr, "       load -countries <CSV file>...")
-		fmt.Fprintln(os.Stderr, "       load -facts divisions|placements|corrections|dates|honours|community|community_scores <CSV file>")
+		fmt.Fprintln(os.Stderr, "       load -facts divisions|placements|corrections|dates|honours|rules|podiums|cge_tournaments|cge_stages|ladder_wins|season_notes|community|community_scores <CSV file>")
 		fmt.Fprintln(os.Stderr, "The database is RATINGS_DATABASE_URL.")
 		flag.PrintDefaults()
 	}
 	flag.Parse()
-	one := !*reset && btoi(*migrate)+btoi(*countries)+btoi(*facts != "") == 1
+	one := !*reset && btoi(*migrate)+btoi(*classify)+btoi(*cgeGames != "")+btoi(*countries)+btoi(*facts != "")+btoi(*export != "")+btoi(*restore != "")+btoi(*upstream != "")+btoi(*addAdmin != "") == 1
 	var err error
 	switch {
 	case *migrate && one && flag.NArg() == 0:
 		err = migrateOnly()
+	case *classify && one && flag.NArg() == 0:
+		err = classifyOnly()
+	case *cgeNew != "" && *cgeGames == "":
+		flag.Usage()
+		os.Exit(64)
+	case *cgeGames != "" && one && flag.NArg() == 0:
+		err = attachCGEGames(*cgeGames, *cgeNew)
 	case *countries && one && flag.NArg() > 0:
 		err = setCountries(flag.Args())
 	case *facts != "" && one && flag.NArg() == 1:
 		err = replaceFacts(*facts, flag.Arg(0))
-	case !*migrate && !*countries && *facts == "" && flag.NArg() == 1:
+	case *export != "" && one && flag.NArg() == 0:
+		err = exportTo(*export)
+	case *restore != "" && one && flag.NArg() == 0:
+		err = restoreFrom(*restore)
+	case *addAdmin != "" && one && flag.NArg() == 0:
+		err = withPool(func(ctx context.Context, pool *pgxpool.Pool) error {
+			if err := store.MigrateRatings(ctx, pool); err != nil {
+				return err
+			}
+			if err := store.AddAdmin(ctx, pool, store.Admin{DiscordID: *addAdmin, Name: *adminName, Role: *adminRole}); err != nil {
+				return err
+			}
+			fmt.Printf("%s is now %s\n", *adminName, *adminRole)
+			return nil
+		})
+	case *upstream != "" && one && flag.NArg() == 0:
+		err = exportForUpstream(*upstream)
+	case !*migrate && !*classify && *cgeGames == "" && !*countries && *facts == "" && *export == "" && *restore == "" && *upstream == "" && *addAdmin == "" && flag.NArg() == 1:
 		err = run(*reset, flag.Arg(0))
 	default:
 		flag.Usage()
@@ -77,6 +121,233 @@ func migrateOnly() error {
 	}
 	fmt.Println("ratings migrations applied")
 	return nil
+}
+
+// exportTo writes an export of the ratings database's inputs to dir and reports each table's rows.
+func exportTo(dir string) error {
+	return withPool(func(ctx context.Context, pool *pgxpool.Pool) error {
+		m, err := store.Export(ctx, pool, dir)
+		if err != nil {
+			return err
+		}
+		fmt.Printf("exported at schema version %d to %s:\n", m.SchemaVersion, dir)
+		for _, t := range m.Tables {
+			fmt.Printf("  %s: %d\n", t.Table, t.Rows)
+		}
+		return nil
+	})
+}
+
+// restoreFrom applies the migrations, then loads the export in dir into the
+// database, which must hold no inputs and no runs. Run the engine after it.
+func restoreFrom(dir string) error {
+	return withPool(func(ctx context.Context, pool *pgxpool.Pool) error {
+		if err := store.MigrateRatings(ctx, pool); err != nil {
+			return err
+		}
+		if err := store.Restore(ctx, pool, dir); err != nil {
+			return err
+		}
+		fmt.Println("restored from", dir, "- run the engine to compute ratings")
+		return nil
+	})
+}
+
+// exportForUpstream writes every played game to file, which must not exist yet, as upstream's match CSV.
+func exportForUpstream(file string) error {
+	return withPool(func(ctx context.Context, pool *pgxpool.Pool) error {
+		f, err := os.OpenFile(file, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0o600)
+		if err != nil {
+			return err
+		}
+		n, err := store.ExportForUpstream(ctx, pool, f)
+		if cerr := f.Close(); err == nil {
+			err = cerr
+		}
+		if err != nil {
+			return err
+		}
+		fmt.Printf("wrote %d played games to %s\n", n, file)
+		return nil
+	})
+}
+
+// withPool opens RATINGS_DATABASE_URL and calls f with it, stopping on an interrupt.
+func withPool(f func(context.Context, *pgxpool.Pool) error) error {
+	dbURL := os.Getenv("RATINGS_DATABASE_URL")
+	if dbURL == "" {
+		return fmt.Errorf("RATINGS_DATABASE_URL is not set")
+	}
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer stop()
+	pool, err := pgxpool.New(ctx, dbURL)
+	if err != nil {
+		return fmt.Errorf("opening the ratings database: %w", err)
+	}
+	defer pool.Close()
+	return f(ctx, pool)
+}
+
+// classifyOnly places every unplaced game in the tournament catalogue, after
+// applying any pending migration.
+func classifyOnly() error {
+	dbURL := os.Getenv("RATINGS_DATABASE_URL")
+	if dbURL == "" {
+		return fmt.Errorf("RATINGS_DATABASE_URL is not set")
+	}
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer stop()
+	pool, err := pgxpool.New(ctx, dbURL)
+	if err != nil {
+		return fmt.Errorf("opening the ratings database: %w", err)
+	}
+	defer pool.Close()
+	if err := store.MigrateRatings(ctx, pool); err != nil {
+		return err
+	}
+	placed, err := store.ClassifyMatches(ctx, pool)
+	if err != nil {
+		return err
+	}
+	reportClassified(os.Stdout, placed)
+	return nil
+}
+
+// reportClassified writes how many games were placed and each tournament
+// name no rule reads. It names tournaments, never a player.
+func reportClassified(w io.Writer, c store.Classified) {
+	fmt.Fprintf(w, "placed in the catalogue: %d\n", c.Placed)
+	if len(c.Unplaced) == 0 {
+		return
+	}
+	fmt.Fprintf(w, "names no rule reads: %d (their games stay unplaced)\n", len(c.Unplaced))
+	for _, n := range c.Unplaced {
+		fmt.Fprintf(w, "  %s\n", n)
+	}
+}
+
+// attachCGEGames reads the files first, then records CGE's facts on the games
+// already loaded and adds the games we lack (store.AddCGEGames, with the
+// replay codes in newFile, if named, confirmed new), after applying any
+// pending migration.
+func attachCGEGames(file, newFile string) error {
+	dbURL := os.Getenv("RATINGS_DATABASE_URL")
+	if dbURL == "" {
+		return fmt.Errorf("RATINGS_DATABASE_URL is not set")
+	}
+	f, err := os.Open(file)
+	if err != nil {
+		return fmt.Errorf("opening %s: %w", file, err)
+	}
+	res, err := cgegames.Read(file, f)
+	f.Close()
+	if err != nil {
+		return err
+	}
+	confirmed := map[string]bool{}
+	if newFile != "" {
+		nf, err := os.Open(newFile)
+		if err != nil {
+			return fmt.Errorf("opening %s: %w", newFile, err)
+		}
+		confirmed, err = readConfirmed(newFile, nf)
+		nf.Close()
+		if err != nil {
+			return err
+		}
+	}
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer stop()
+	pool, err := pgxpool.New(ctx, dbURL)
+	if err != nil {
+		return fmt.Errorf("opening the ratings database: %w", err)
+	}
+	defer pool.Close()
+	if err := store.MigrateRatings(ctx, pool); err != nil {
+		return err
+	}
+	got, err := store.AttachCGEGames(ctx, pool, res.Games)
+	if err != nil {
+		return err
+	}
+	added, err := store.AddCGEGames(ctx, pool, res.Games, confirmed)
+	if err != nil {
+		return err
+	}
+	reportAttached(os.Stdout, file, res, added, got)
+	return nil
+}
+
+// replayCode is the shape of a CGE replay code.
+var replayCode = regexp.MustCompile(`^[A-Z0-9]{4,16}$`)
+
+// readConfirmed reads a CSV whose first column is replay_code: games checked
+// by hand as new. It refuses a missing header or a code of the wrong shape.
+func readConfirmed(file string, r io.Reader) (map[string]bool, error) {
+	cr := csv.NewReader(r)
+	cr.FieldsPerRecord = -1
+	head, err := cr.Read()
+	if err != nil {
+		return nil, fmt.Errorf("%s: %w", file, err)
+	}
+	if head[0] != "replay_code" {
+		return nil, fmt.Errorf("%s: want replay_code as the first column", file)
+	}
+	got := map[string]bool{}
+	for line := 2; ; line++ {
+		rec, err := cr.Read()
+		if errors.Is(err, io.EOF) {
+			return got, nil
+		}
+		if err != nil {
+			return nil, fmt.Errorf("%s: %w", file, err)
+		}
+		if !replayCode.MatchString(rec[0]) {
+			return nil, fmt.Errorf("%s:%d: not a replay code", file, line)
+		}
+		got[rec[0]] = true
+	}
+}
+
+// reportAttached writes how many CGE games matched ours, which did not (by
+// CGE tournament and stage), which of our seasons each stage matched, and
+// what was added. It names tournaments and seasons, never a player.
+func reportAttached(w io.Writer, file string, res cgegames.Result, added store.Added, got store.Attached) {
+	fmt.Fprintf(w, "matched to our games: %d (%d with a player renamed since, %d our file records without a timed-out player)\n",
+		got.Matched, got.Renamed, got.LacksTimedOut)
+	fmt.Fprintf(w, "never played, set apart: %d\n", got.NeverPlayed)
+	fmt.Fprintf(w, "matched before but no longer, cleared: %d\n", got.Cleared)
+	fmt.Fprintf(w, "no game of ours: %d (CGE %s)\n", len(got.Unmatched), byStage(got.Unmatched))
+	fmt.Fprintln(w, "where each CGE stage matched:")
+	for _, l := range got.Seasons {
+		fmt.Fprintf(w, "  CGE %d/%d -> season %s: %d games\n", l.CGETournament, l.CGESeason, l.Season, l.Games)
+	}
+	fmt.Fprintf(w, "refused: %d\n", len(res.Refused))
+	for _, r := range res.Refused {
+		fmt.Fprintf(w, "  %s:%d %s\n", file, r.Line, r.Reason)
+	}
+	fmt.Fprintf(w, "added: %d (%d of them never played)\n", added.Added, added.NeverPlayed)
+	fmt.Fprintf(w, "already held: %d\n", added.AlreadyHeld)
+	fmt.Fprintf(w, "placing not settled, not added: %d\n", added.Unsettled)
+	fmt.Fprintf(w, "may be a copy of ours, not added: %d (CGE %s)\n", len(added.Conflicts), byStage(added.Conflicts))
+}
+
+// byStage counts games by CGE tournament and stage: "19/2: 1, 21/7: 2".
+func byStage(games []cgegames.Game) string {
+	counts := map[string]int{}
+	for _, g := range games {
+		counts[fmt.Sprintf("%d/%d", g.CGETournament, g.CGESeason)]++
+	}
+	keys := make([]string, 0, len(counts))
+	for k := range counts {
+		keys = append(keys, k)
+	}
+	slices.Sort(keys)
+	parts := make([]string, len(keys))
+	for i, k := range keys {
+		parts[i] = fmt.Sprintf("%s: %d", k, counts[k])
+	}
+	return strings.Join(parts, ", ")
 }
 
 // setCountries reads every file first, then sets the countries of known
@@ -130,12 +401,24 @@ func replaceFacts(kind, file string) error {
 		return loadFacts(kind, file, tournamentcsv.ReadFinishDates, store.ReplaceFinishDates)
 	case "honours":
 		return loadFacts(kind, file, tournamentcsv.ReadHonours, store.ReplaceHonours)
+	case "rules":
+		return loadFacts(kind, file, tournamentcsv.ReadRules, store.ReplaceRules)
+	case "podiums":
+		return loadFacts(kind, file, tournamentcsv.ReadPodiums, store.ReplacePodiums)
+	case "cge_tournaments":
+		return loadFacts(kind, file, tournamentcsv.ReadCGETournaments, store.ReplaceCGETournaments)
+	case "cge_stages":
+		return loadFacts(kind, file, tournamentcsv.ReadCGEStages, store.ReplaceCGEStages)
+	case "ladder_wins":
+		return loadFacts(kind, file, tournamentcsv.ReadLadderWins, store.ReplaceLadderWins)
+	case "season_notes":
+		return loadFacts(kind, file, tournamentcsv.ReadSeasonNotes, store.ReplaceSeasonNotes)
 	case "community":
 		return loadFacts(kind, file, tournamentcsv.ReadCommunityStandings, store.ReplaceCommunityStandings)
 	case "community_scores":
 		return loadFacts(kind, file, tournamentcsv.ReadCommunityScores, store.ReplaceCommunityScores)
 	}
-	return fmt.Errorf("unknown kind of fact %q: want divisions, placements, corrections, dates, honours, community or community_scores", kind)
+	return fmt.Errorf("unknown kind of fact %q: want divisions, placements, corrections, dates, honours, rules, podiums, cge_tournaments, cge_stages, ladder_wins, season_notes, community or community_scores", kind)
 }
 
 func loadFacts[T any](
@@ -246,6 +529,11 @@ func run(reset bool, dir string) error {
 		return fmt.Errorf("loading: %w (to start again from empty: -reset, or --reset with scripts/ratings-db.sh)", err)
 	}
 	report(os.Stdout, res, loaded)
+	placed, err := store.ClassifyMatches(ctx, pool)
+	if err != nil {
+		return fmt.Errorf("placing the loaded games: %w", err)
+	}
+	reportClassified(os.Stdout, placed)
 	return nil
 }
 

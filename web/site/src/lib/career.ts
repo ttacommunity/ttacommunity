@@ -1,5 +1,5 @@
-/** Upstream's career box and head-to-head popup: its year scoring, model notes and shared-game tally. */
-import type { CareerYear, Format, Player, PlayerRating, TitleCode, VersusMatch } from '@ttac/shared/ratings';
+/** Upstream's career box and head-to-head popup: its year scoring and shared-game tally. */
+import type { CareerYear, Format, Player, TitleCode, VersusMatch } from '@ttac/shared/ratings';
 
 type Peak = Player['peak'];
 
@@ -50,40 +50,6 @@ export function wcLabel(title: Player['title'], peak: Peak): string | null {
   if (title?.code === 'WC') return 'Reigning WC';
   if (peak?.code === 'WC' && peak.year !== null) return `${peak.year} WC`;
   return null;
-}
-
-/** divergenceNotes returns upstream's two sentences comparing Standard with MP-Weighted, and WHR with Standard. */
-export function divergenceNotes(std?: PlayerRating, mp?: PlayerRating, whr?: PlayerRating): string[] {
-  const notes: string[] = [];
-  if (std && mp) {
-    const diff = std.rating - mp.rating;
-    if (diff > 15) {
-      notes.push(
-        `Rating adjusts downward by ${diff.toFixed(1)} pts under MP-Weighted, reflecting calibration for multiplayer (3p/4p) play where naive dueling over-accumulates confidence.`,
-      );
-    } else if (diff < -15) {
-      notes.push(
-        `Rating gains ${Math.abs(diff).toFixed(1)} pts under MP-Weighted, demonstrating high conversion efficiency in complex multiplayer tables.`,
-      );
-    } else {
-      notes.push('Standard and MP-Weighted ratings are tightly aligned, indicating balanced duel and multiplayer tournament exposure.');
-    }
-  }
-  if (std && whr) {
-    const diff = whr.rating - std.rating;
-    if (diff > 20) {
-      notes.push(
-        `WHR evaluates career strength ${diff.toFixed(1)} pts higher retrospectively, crediting resilient play across high-variance tournament seasons.`,
-      );
-    } else if (diff < -20) {
-      notes.push(
-        `WHR smooths out localized hot streaks by ${Math.abs(diff).toFixed(1)} pts, grounding historical trajectory against opponents' lifetime records.`,
-      );
-    } else {
-      notes.push('WHR retrospective reconstruction confirms the forward Glicko-2 trajectory with exceptional fidelity.');
-    }
-  }
-  return notes;
 }
 
 /** isPeakHigher reports whether the career peak, with its year, outranks the current title, as upstream decides it. */

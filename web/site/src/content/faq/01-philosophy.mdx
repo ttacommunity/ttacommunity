@@ -6,6 +6,8 @@ order: 1
 
 {/* Written by DANeo for the original ratings site. */}
 
+import FaqFigure from '../../components/FaqFigure.astro';
+
 <div class="faq-card faq-card-gold">
   <h3 class="c-yellow">What is a Rating Engine and What Does It Try to Achieve?</h3>
   <div>
@@ -45,7 +47,7 @@ Measures the mean squared difference between predicted win probabilities $P_k$ a
   <div>
 
       <p>
-    To provide complete analytical transparency, this portal computes five distinct mathematical rating engines on the exact same competitive dataset of over 131,000 matches:
+    To provide complete analytical transparency, this portal computes five distinct mathematical rating engines on the exact same competitive dataset of <FaqFigure name="run.games" fallback="over 131,000" /> matches:
   </p>
   <div class="faq-table-wrap">
     <table class="faq-table">

@@ -1,0 +1,92 @@
+# The dev site's API: the same api, built from branch dev, reading the
+# ratings_dev database as its read-only ratings_dev_api login.
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: api-dev
+  namespace: ttacommunity
+spec:
+  type: ClusterIP
+  selector:
+    app: api-dev
+  ports:
+    - name: http
+      port: 8080
+      targetPort: http
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: api-dev
+  namespace: ttacommunity
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: api-dev
+  template:
+    metadata:
+      labels:
+        app: api-dev
+    spec:
+      serviceAccountName: api-dev
+      automountServiceAccountToken: true
+      imagePullSecrets:
+        - name: gitlab-registry
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 65532
+        runAsGroup: 65532
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: api
+          image: registry.gitlab.com/unstablehomelab/ttacommunity/api:sha-c010ae86@sha256:c769c4bc650efa1c24d12b264ba98990b8524e7c27795f86c4676f224053bee3
+          ports:
+            - name: http
+              containerPort: 8080
+          env:
+            - name: API_ADDR
+              value: ":8080"
+            - name: RATINGS_READ_DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: ratings-dev-api
+                  key: database-url
+            # Admin: its login, and the Access app and site its requests must come from.
+            - name: RATINGS_ADMIN_DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: ratings-dev-admin
+                  key: database-url
+            - name: ACCESS_TEAM
+              value: https://unstableunicorn.cloudflareaccess.com
+            - name: ENGINE_CRONJOB
+              value: engine-dev
+            - name: ACCESS_AUD
+              value: f0bc8c99210a231edb4adc754229a5798e98f41ca67515da419535a251031136
+            - name: ADMIN_ORIGIN
+              value: https://dev.ttac-admin.unstableunicorn.dev
+          resources:
+            requests:
+              cpu: 25m
+              memory: 32Mi
+            limits:
+              memory: 128Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: [ALL]
+          readinessProbe:
+            httpGet:
+              path: /readyz
+              port: http
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: http
+            initialDelaySeconds: 5
+            periodSeconds: 30

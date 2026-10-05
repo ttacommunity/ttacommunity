@@ -54,3 +54,18 @@ describe('resolveTab', () => {
     expect(Object.keys(FAQ_ALIASES)).toHaveLength(11);
   });
 });
+
+describe('faqFigures from the run', () => {
+  const run = {
+    run_id: 6, published_at: '2026-10-01T02:00:00Z', engine_version: 'a', finished_at: null,
+    games: 135393, players: 3526, first_game: '2017-09-25', last_game: '2026-08-31',
+  };
+
+  it("adds the run's games, players and years", () => {
+    expect(faqFigures([], null, run)).toEqual({ 'run.games': '135,393', 'run.players': '3,526', 'run.years': '2017–2026' });
+  });
+
+  it('leaves out what the run did not record', () => {
+    expect(faqFigures([], null, { ...run, games: null, players: null, first_game: null })).toEqual({});
+  });
+});
