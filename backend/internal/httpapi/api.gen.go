@@ -658,7 +658,10 @@ type AdminRoleRole string
 // AdminRun defines model for AdminRun.
 type AdminRun struct {
 	// Current The run the site shows
-	Current       bool       `json:"current"`
+	Current bool `json:"current"`
+
+	// Deleting Being deleted in the background
+	Deleting      bool       `json:"deleting"`
 	EngineVersion string     `json:"engine_version"`
 	FinishedAt    *time.Time `json:"finished_at,omitempty"`
 	Games         int        `json:"games"`
@@ -668,6 +671,9 @@ type AdminRun struct {
 	// Progress The engine's latest progress line, empty before its first
 	Progress   string     `json:"progress"`
 	ProgressAt *time.Time `json:"progress_at,omitempty"`
+
+	// Protected Kept from deletion
+	Protected bool `json:"protected"`
 
 	// PublishedAt When it was first published
 	PublishedAt *time.Time     `json:"published_at,omitempty"`
@@ -1634,6 +1640,18 @@ type RunMove struct {
 	Name   string  `json:"name"`
 }
 
+// RunProtection defines model for RunProtection.
+type RunProtection struct {
+	Protected bool `json:"protected"`
+}
+
+// RunSize defines model for RunSize.
+type RunSize struct {
+	// Bytes An estimate
+	Bytes int64 `json:"bytes"`
+	Run   int64 `json:"run"`
+}
+
 // SeasonInChampions defines model for SeasonInChampions.
 type SeasonInChampions struct {
 	InChampions bool   `json:"in_champions"`
@@ -2186,6 +2204,9 @@ type PostAdminBadgeJSONRequestBody = BadgeSetting
 // PutAdminBadgeJSONRequestBody defines body for PutAdminBadge for application/json ContentType.
 type PutAdminBadgeJSONRequestBody = BadgeSetting
 
+// PutAdminRunProtectedJSONRequestBody defines body for PutAdminRunProtected for application/json ContentType.
+type PutAdminRunProtectedJSONRequestBody = RunProtection
+
 // PutAdminTitleJSONRequestBody defines body for PutAdminTitle for application/json ContentType.
 type PutAdminTitleJSONRequestBody = TitleSetting
 
@@ -2266,12 +2287,21 @@ type ServerInterface interface {
 	// PostAdminRun Start a rating run now (admins only)
 	// (POST /v1/admin/runs)
 	PostAdminRun(w http.ResponseWriter, r *http.Request)
+	// GetAdminRunSizes About how much room each run takes on disk (admins only)
+	// (GET /v1/admin/runs/sizes)
+	GetAdminRunSizes(w http.ResponseWriter, r *http.Request)
 	// PostAdminRunStop Stop the rating run that is going (admins only)
 	// (POST /v1/admin/runs/stop)
 	PostAdminRunStop(w http.ResponseWriter, r *http.Request)
+	// DeleteAdminRun Delete a run and every result of it, in the background (admins only)
+	// (DELETE /v1/admin/runs/{run})
+	DeleteAdminRun(w http.ResponseWriter, r *http.Request, run AdminRunId)
 	// GetAdminRunChanges How far ratings moved from another run, by default the one the site showed before it (admins only)
 	// (GET /v1/admin/runs/{run}/changes)
 	GetAdminRunChanges(w http.ResponseWriter, r *http.Request, run AdminRunId, params GetAdminRunChangesParams)
+	// PutAdminRunProtected Protect a run from deletion, or stop protecting it (admins only)
+	// (PUT /v1/admin/runs/{run}/protected)
+	PutAdminRunProtected(w http.ResponseWriter, r *http.Request, run AdminRunId)
 	// PostAdminRunPublish Make a complete run the one the site shows, or roll back to an older one (admins only)
 	// (POST /v1/admin/runs/{run}/publish)
 	PostAdminRunPublish(w http.ResponseWriter, r *http.Request, run AdminRunId)
@@ -2723,11 +2753,51 @@ func (siw *ServerInterfaceWrapper) PostAdminRun(w http.ResponseWriter, r *http.R
 	handler.ServeHTTP(w, r)
 }
 
+// GetAdminRunSizes operation middleware
+func (siw *ServerInterfaceWrapper) GetAdminRunSizes(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetAdminRunSizes(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // PostAdminRunStop operation middleware
 func (siw *ServerInterfaceWrapper) PostAdminRunStop(w http.ResponseWriter, r *http.Request) {
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.PostAdminRunStop(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// DeleteAdminRun operation middleware
+func (siw *ServerInterfaceWrapper) DeleteAdminRun(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "run" -------------
+	var run AdminRunId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "run", r.PathValue("run"), &run, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "integer", Format: "int64", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "run", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.DeleteAdminRun(w, r, run)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -2770,6 +2840,32 @@ func (siw *ServerInterfaceWrapper) GetAdminRunChanges(w http.ResponseWriter, r *
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.GetAdminRunChanges(w, r, run, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// PutAdminRunProtected operation middleware
+func (siw *ServerInterfaceWrapper) PutAdminRunProtected(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "run" -------------
+	var run AdminRunId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "run", r.PathValue("run"), &run, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "integer", Format: "int64", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "run", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.PutAdminRunProtected(w, r, run)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -4653,6 +4749,9 @@ func HandlerWithOptions(si ServerInterface, options StdHTTPServerOptions) http.H
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/v1/admin/runs", wrapper.GetAdminRuns)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/v1/admin/runs", wrapper.PostAdminRun)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/v1/admin/runs/stop", wrapper.PostAdminRunStop)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/v1/admin/runs/sizes", wrapper.GetAdminRunSizes)
+	m.HandleFunc(http.MethodPut+" "+options.BaseURL+"/v1/admin/runs/{run}/protected", wrapper.PutAdminRunProtected)
+	m.HandleFunc(http.MethodDelete+" "+options.BaseURL+"/v1/admin/runs/{run}", wrapper.DeleteAdminRun)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/v1/admin/runs/{run}/publish", wrapper.PostAdminRunPublish)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/v1/admin/runs/{run}/changes", wrapper.GetAdminRunChanges)
 
@@ -5733,6 +5832,65 @@ func (response PostAdminRun503JSONResponse) VisitPostAdminRunResponse(w http.Res
 	return err
 }
 
+type GetAdminRunSizesRequestObject struct {
+}
+
+type GetAdminRunSizesResponseObject interface {
+	VisitGetAdminRunSizesResponse(w http.ResponseWriter) error
+}
+
+type GetAdminRunSizes200ResponseHeaders struct {
+	CacheControl string
+}
+
+type GetAdminRunSizes200JSONResponse struct {
+	Body    []RunSize
+	Headers GetAdminRunSizes200ResponseHeaders
+}
+
+func (response GetAdminRunSizes200JSONResponse) VisitGetAdminRunSizesResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetAdminRunSizes401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response GetAdminRunSizes401JSONResponse) VisitGetAdminRunSizesResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetAdminRunSizes403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response GetAdminRunSizes403JSONResponse) VisitGetAdminRunSizesResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
 type PostAdminRunStopRequestObject struct {
 }
 
@@ -5808,6 +5966,82 @@ func (response PostAdminRunStop503JSONResponse) VisitPostAdminRunStopResponse(w 
 	return err
 }
 
+type DeleteAdminRunRequestObject struct {
+	Run AdminRunId `json:"run"`
+}
+
+type DeleteAdminRunResponseObject interface {
+	VisitDeleteAdminRunResponse(w http.ResponseWriter) error
+}
+
+type DeleteAdminRun202Response struct {
+}
+
+func (response DeleteAdminRun202Response) VisitDeleteAdminRunResponse(w http.ResponseWriter) error {
+	w.WriteHeader(202)
+	return nil
+}
+
+type DeleteAdminRun401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response DeleteAdminRun401JSONResponse) VisitDeleteAdminRunResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DeleteAdminRun403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response DeleteAdminRun403JSONResponse) VisitDeleteAdminRunResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DeleteAdminRun404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response DeleteAdminRun404JSONResponse) VisitDeleteAdminRunResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DeleteAdminRun409JSONResponse struct{ ConflictJSONResponse }
+
+func (response DeleteAdminRun409JSONResponse) VisitDeleteAdminRunResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(409)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
 type GetAdminRunChangesRequestObject struct {
 	Run    AdminRunId `json:"run"`
 	Params GetAdminRunChangesParams
@@ -5872,6 +6106,83 @@ func (response GetAdminRunChanges403JSONResponse) VisitGetAdminRunChangesRespons
 type GetAdminRunChanges404JSONResponse struct{ NotFoundJSONResponse }
 
 func (response GetAdminRunChanges404JSONResponse) VisitGetAdminRunChangesResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PutAdminRunProtectedRequestObject struct {
+	Run  AdminRunId `json:"run"`
+	Body *PutAdminRunProtectedJSONRequestBody
+}
+
+type PutAdminRunProtectedResponseObject interface {
+	VisitPutAdminRunProtectedResponse(w http.ResponseWriter) error
+}
+
+type PutAdminRunProtected204Response struct {
+}
+
+func (response PutAdminRunProtected204Response) VisitPutAdminRunProtectedResponse(w http.ResponseWriter) error {
+	w.WriteHeader(204)
+	return nil
+}
+
+type PutAdminRunProtected400JSONResponse struct{ BadRequestJSONResponse }
+
+func (response PutAdminRunProtected400JSONResponse) VisitPutAdminRunProtectedResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PutAdminRunProtected401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response PutAdminRunProtected401JSONResponse) VisitPutAdminRunProtectedResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PutAdminRunProtected403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response PutAdminRunProtected403JSONResponse) VisitPutAdminRunProtectedResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PutAdminRunProtected404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response PutAdminRunProtected404JSONResponse) VisitPutAdminRunProtectedResponse(w http.ResponseWriter) error {
 
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
@@ -8674,12 +8985,21 @@ type StrictServerInterface interface {
 	// PostAdminRun Start a rating run now (admins only)
 	// (POST /v1/admin/runs)
 	PostAdminRun(ctx context.Context, request PostAdminRunRequestObject) (PostAdminRunResponseObject, error)
+	// GetAdminRunSizes About how much room each run takes on disk (admins only)
+	// (GET /v1/admin/runs/sizes)
+	GetAdminRunSizes(ctx context.Context, request GetAdminRunSizesRequestObject) (GetAdminRunSizesResponseObject, error)
 	// PostAdminRunStop Stop the rating run that is going (admins only)
 	// (POST /v1/admin/runs/stop)
 	PostAdminRunStop(ctx context.Context, request PostAdminRunStopRequestObject) (PostAdminRunStopResponseObject, error)
+	// DeleteAdminRun Delete a run and every result of it, in the background (admins only)
+	// (DELETE /v1/admin/runs/{run})
+	DeleteAdminRun(ctx context.Context, request DeleteAdminRunRequestObject) (DeleteAdminRunResponseObject, error)
 	// GetAdminRunChanges How far ratings moved from another run, by default the one the site showed before it (admins only)
 	// (GET /v1/admin/runs/{run}/changes)
 	GetAdminRunChanges(ctx context.Context, request GetAdminRunChangesRequestObject) (GetAdminRunChangesResponseObject, error)
+	// PutAdminRunProtected Protect a run from deletion, or stop protecting it (admins only)
+	// (PUT /v1/admin/runs/{run}/protected)
+	PutAdminRunProtected(ctx context.Context, request PutAdminRunProtectedRequestObject) (PutAdminRunProtectedResponseObject, error)
 	// PostAdminRunPublish Make a complete run the one the site shows, or roll back to an older one (admins only)
 	// (POST /v1/admin/runs/{run}/publish)
 	PostAdminRunPublish(ctx context.Context, request PostAdminRunPublishRequestObject) (PostAdminRunPublishResponseObject, error)
@@ -9266,6 +9586,30 @@ func (sh *strictHandler) PostAdminRun(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// GetAdminRunSizes operation middleware
+func (sh *strictHandler) GetAdminRunSizes(w http.ResponseWriter, r *http.Request) {
+	var request GetAdminRunSizesRequestObject
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.GetAdminRunSizes(ctx, request.(GetAdminRunSizesRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetAdminRunSizes")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(GetAdminRunSizesResponseObject); ok {
+		if err := validResponse.VisitGetAdminRunSizesResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
 // PostAdminRunStop operation middleware
 func (sh *strictHandler) PostAdminRunStop(w http.ResponseWriter, r *http.Request) {
 	var request PostAdminRunStopRequestObject
@@ -9283,6 +9627,32 @@ func (sh *strictHandler) PostAdminRunStop(w http.ResponseWriter, r *http.Request
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(PostAdminRunStopResponseObject); ok {
 		if err := validResponse.VisitPostAdminRunStopResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// DeleteAdminRun operation middleware
+func (sh *strictHandler) DeleteAdminRun(w http.ResponseWriter, r *http.Request, run AdminRunId) {
+	var request DeleteAdminRunRequestObject
+
+	request.Run = run
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.DeleteAdminRun(ctx, request.(DeleteAdminRunRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "DeleteAdminRun")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(DeleteAdminRunResponseObject); ok {
+		if err := validResponse.VisitDeleteAdminRunResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {
@@ -9310,6 +9680,39 @@ func (sh *strictHandler) GetAdminRunChanges(w http.ResponseWriter, r *http.Reque
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(GetAdminRunChangesResponseObject); ok {
 		if err := validResponse.VisitGetAdminRunChangesResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// PutAdminRunProtected operation middleware
+func (sh *strictHandler) PutAdminRunProtected(w http.ResponseWriter, r *http.Request, run AdminRunId) {
+	var request PutAdminRunProtectedRequestObject
+
+	request.Run = run
+
+	var body PutAdminRunProtectedJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.PutAdminRunProtected(ctx, request.(PutAdminRunProtectedRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "PutAdminRunProtected")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(PutAdminRunProtectedResponseObject); ok {
+		if err := validResponse.VisitPutAdminRunProtectedResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {

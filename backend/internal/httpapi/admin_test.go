@@ -30,6 +30,8 @@ type fakeAdmins struct {
 	// engine is what EngineGoing answers: "" for a run going, "ended" for none, "unset" for not set up,
 	// "unreachable" for an error.
 	engine string
+	// deleted receives each run DeleteRun removes, from the handler's background delete.
+	deleted chan int64
 }
 
 // fakeRuns are runs 4 (complete, published third, after a roll back), 5 (complete, published first),
@@ -100,6 +102,41 @@ func (f *fakeAdmins) StartRun(context.Context) (string, error) {
 }
 
 func (*fakeAdmins) AllowedOrigin() string { return "https://ttac-admin.example" }
+
+// In the fake, run 4 is protected, 7 current and 9 running; 99 does not exist.
+func (f *fakeAdmins) SetRunProtected(_ context.Context, run int64, protected bool) error {
+	if run == 99 {
+		return store.ErrRunNotFound
+	}
+	f.notes = append(f.notes, fmt.Sprintf("protect %d %t", run, protected))
+	return nil
+}
+
+func (f *fakeAdmins) StartDeleteRun(_ context.Context, run int64, engineGoing bool) error {
+	switch {
+	case run == 99:
+		return store.ErrRunNotFound
+	case run == 4:
+		return store.ErrRunProtected
+	case run == 7:
+		return store.ErrRunCurrent
+	case run == 9 && engineGoing:
+		return store.ErrRunRunning
+	}
+	f.notes = append(f.notes, fmt.Sprintf("delete %d", run))
+	return nil
+}
+
+func (f *fakeAdmins) DeleteRun(_ context.Context, run int64) error {
+	if f.deleted != nil {
+		f.deleted <- run
+	}
+	return nil
+}
+
+func (*fakeAdmins) RunSizes(context.Context) (map[int64]int64, error) {
+	return map[int64]int64{7: 4_000_000_000, 8: 3_500_000_000}, nil
+}
 
 func (*fakeAdmins) Tournaments(context.Context) ([]store.AdminTournament, error) {
 	return []store.AdminTournament{{Slug: "worlds", Name: "World Championship", Rated: true, Regulations: "Mine.", CGERegulations: "CGE's.",
@@ -640,6 +677,13 @@ func TestRunChangesAreRefusedWhenTheyShouldBe(t *testing.T) {
 		{"a stop from another site", owner, http.MethodPost, "/v1/admin/runs/stop", "https://evil.example", nil, http.StatusForbidden},
 		{"a stop with nothing going", owner, http.MethodPost, "/v1/admin/runs/stop", site, enginejob.ErrNotRunning, http.StatusConflict},
 		{"a stop where runs are not set up", owner, http.MethodPost, "/v1/admin/runs/stop", site, enginejob.ErrNotSetUp, http.StatusServiceUnavailable},
+		{"an organiser deletes a run", org, http.MethodDelete, "/v1/admin/runs/8", site, nil, http.StatusForbidden},
+		{"a delete from another site", owner, http.MethodDelete, "/v1/admin/runs/8", "https://evil.example", nil, http.StatusForbidden},
+		{"deleting a protected run", owner, http.MethodDelete, "/v1/admin/runs/4", site, nil, http.StatusConflict},
+		{"deleting the current run", owner, http.MethodDelete, "/v1/admin/runs/7", site, nil, http.StatusConflict},
+		{"deleting the running run", owner, http.MethodDelete, "/v1/admin/runs/9", site, nil, http.StatusConflict},
+		{"deleting no run", owner, http.MethodDelete, "/v1/admin/runs/99", site, nil, http.StatusNotFound},
+		{"an organiser asks for sizes", org, http.MethodGet, "/v1/admin/runs/sizes", "", nil, http.StatusForbidden},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -1138,5 +1182,64 @@ func TestAnOrganiserLeavesASeasonOutOfTheChampions(t *testing.T) {
 	var got []AdminTournament
 	if err := json.Unmarshal(rec.Body.Bytes(), &got); err != nil || !got[0].Seasons[0].InChampions {
 		t.Errorf("GET = %s, want the season in the champions", rec.Body)
+	}
+}
+
+func TestAnAdminProtectsAndDeletesRunsAndEachIsAudited(t *testing.T) {
+	const site, owner = "https://ttac-admin.example", "111111111111111111"
+	f := &fakeAdmins{deleted: make(chan int64, 1)}
+	if rec := adminDoAs(t, f, owner, http.MethodPut, "/v1/admin/runs/5/protected", site, `{"protected": true}`); rec.Code != http.StatusNoContent {
+		t.Errorf("protect 5 = %d %s, want 204", rec.Code, rec.Body)
+	}
+	if rec := adminDoAs(t, f, owner, http.MethodPut, "/v1/admin/runs/99/protected", site, `{"protected": true}`); rec.Code != http.StatusNotFound {
+		t.Errorf("protect 99 = %d %s, want 404", rec.Code, rec.Body)
+	}
+	if rec := adminDoAs(t, f, owner, http.MethodDelete, "/v1/admin/runs/8", site, ""); rec.Code != http.StatusAccepted {
+		t.Fatalf("delete 8 = %d %s, want 202", rec.Code, rec.Body)
+	}
+	select {
+	case got := <-f.deleted:
+		if got != 8 {
+			t.Errorf("the background delete removed run %d, want 8", got)
+		}
+	case <-time.After(5 * time.Second):
+		t.Fatal("the background delete never ran")
+	}
+	if want := "protect 5 true|delete 8"; strings.Join(f.notes, "|") != want {
+		t.Errorf("changes = %q, want %q", f.notes, want)
+	}
+	if want := owner + " run.protect 5|" + owner + " run.delete 8"; strings.Join(f.audits, "|") != want {
+		t.Errorf("audits = %q, want %q", f.audits, want)
+	}
+}
+
+func TestACrashedRunCanBeDeletedWhenTheEngineIsNotGoing(t *testing.T) {
+	f := &fakeAdmins{engine: "ended", deleted: make(chan int64, 1)}
+	if rec := adminDoAs(t, f, "111111111111111111", http.MethodDelete, "/v1/admin/runs/9", "https://ttac-admin.example", ""); rec.Code != http.StatusAccepted {
+		t.Errorf("delete 9 with the engine ended = %d %s, want 202", rec.Code, rec.Body)
+	}
+	<-f.deleted
+}
+
+func TestAdminRunSizesListsEachRun(t *testing.T) {
+	rec := adminDoAs(t, &fakeAdmins{}, "111111111111111111", http.MethodGet, "/v1/admin/runs/sizes", "", "")
+	if rec.Code != http.StatusOK {
+		t.Fatalf("GET sizes = %d %s", rec.Code, rec.Body)
+	}
+	wantJSON(t, rec.Body.Bytes(), "0", `{"run": 7, "bytes": 4000000000}`)
+	wantJSON(t, rec.Body.Bytes(), "1", `{"run": 8, "bytes": 3500000000}`)
+}
+
+func TestProtectingARunIsRefusedWhenItShouldBe(t *testing.T) {
+	const site, owner, org = "https://ttac-admin.example", "111111111111111111", "222222222222222222"
+	for _, tt := range []struct{ name, who, origin string }{
+		{"an organiser", org, site},
+		{"another site", owner, "https://evil.example"},
+	} {
+		f := &fakeAdmins{}
+		rec := adminDoAs(t, f, tt.who, http.MethodPut, "/v1/admin/runs/8/protected", tt.origin, `{"protected": true}`)
+		if rec.Code != http.StatusForbidden || len(f.notes)+len(f.audits) != 0 {
+			t.Errorf("%s: PUT protected = %d %s, changes %q; want 403 and nothing changed", tt.name, rec.Code, rec.Body, f.notes)
+		}
 	}
 }
