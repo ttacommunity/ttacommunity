@@ -607,3 +607,37 @@ def test_a_ladder_round_counts_in_the_year_the_organisers_recorded(
         )
     }
     assert ("2025", "ann") in got and ("2024", "ann") not in got
+
+
+def test_a_ladder_edition_before_its_first_rule_keeps_the_sheets_points(
+    conn, run_id, catalogue, add_match
+):
+    catalogue("mercurial_ladder", "1", [("", None, None)])
+    conn.execute(
+        "INSERT INTO community_ladders VALUES ('mercurial_ladder', 2025, 0.8, NULL, '{1,0.4,0}', 10, 'tab')"
+    )
+    points_table(conn, "mercurial_ladder", 2025, {("leaderboard", 1): 1000})
+    add_match(
+        ("ann", 300),
+        ("bob", 200),
+        day=date(2024, 6, 1),
+        placed=None,
+        group="Mercurial Tier",
+    )
+    conn.execute(
+        "UPDATE matches SET stage_id = (SELECT stage_id FROM tournament_stages x JOIN tournament_seasons s USING (season_id) "
+        "JOIN tournaments t USING (tournament_id) WHERE t.slug = 'mercurial_ladder')"
+    )
+    conn.execute(
+        "INSERT INTO community_scores VALUES ('2024', 'ann', 'ml', 640, 'sheet')"
+    )
+    conn.commit()
+    derive_community(conn=conn, run_id=run_id)
+    got = {
+        (r["player_name"], r["points"], r["source"])
+        for r in conn.execute(
+            "SELECT player_name, points, source FROM community_edition_points WHERE run_id = %s AND edition = '2024' AND event = 'ml'",
+            (run_id,),
+        )
+    }
+    assert got == {("ann", 640, "sheet")}

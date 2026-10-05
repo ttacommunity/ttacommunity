@@ -478,7 +478,8 @@ def _ladder_points(ladders, edition, quarters, points):
     A calendar year sums its rounds (by their year); a rolling year the latest
     rounds finished by its end. The totals are ranked (equal totals share a
     rank) into the ladder's leaderboard table. A ladder with a round in the
-    window that cannot be scored is left out, for the sheet's points to stand.
+    window that cannot be scored, or an edition before its first rule, is left
+    out, for the sheet's points to stand.
     """
     last = max(quarters)
     end = date(
@@ -493,7 +494,10 @@ def _ladder_points(ladders, edition, quarters, points):
         if not window or any(games is None for _, _, games, _ in window):
             continue
         year = last[0]
-        rule = rules[max((e for e in rules if e <= year), default=min(rules))]
+        known = [e for e in rules if e <= year]
+        if not known:
+            continue  # scored by a rule not recorded: the sheet's points stand
+        rule = rules[max(known)]
         totals = Counter()
         for _, _, games, _ in window:
             totals.update(round_points(games, rule))
