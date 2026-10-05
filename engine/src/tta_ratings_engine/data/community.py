@@ -336,7 +336,7 @@ def _rank_editions(conn, run_id, rows, points):
     firsts = list(events) + [
         (d.year, (d.month - 1) // 3 + 1)
         for _, _, rounds in ladders.values()
-        for _, d, _ in rounds
+        for _, d, _, _ in rounds
     ]
     if not firsts or latest is None:
         conn.execute(
@@ -405,7 +405,9 @@ def _rank_editions(conn, run_id, rows, points):
 
 
 def _ladder_rounds(conn):
-    """Returns each ladder's rule and rounds: {slug: (rules by from_edition, [(round, finished, games or None)])}.
+    """Returns each ladder's rule and rounds: {slug: (rules by from_edition, [(round, finished, games or None, year)])}.
+
+    A round's year is the one the organisers recorded for it (community_quarters), else the year it finished.
 
     A round finished on its last game's CGE finish date, else its match file date.
     games are (group, [(player, score)]) of the round's played games, or None
@@ -428,6 +430,13 @@ def _ladder_rounds(conn):
     }
     got = {}
     for slug in rules:
+        years = {
+            r["season"]: r["year"]
+            for r in conn.execute(
+                "SELECT season, year FROM community_quarters WHERE tournament = %s",
+                (slug,),
+            )
+        }
         rounds = defaultdict(list)
         finished = {}
         for r in conn.execute(
@@ -453,6 +462,7 @@ def _ladder_rounds(conn):
                     label,
                     finished[label],
                     None if any(g == "" for g, _ in games) else games,
+                    years.get(label, finished[label].year),
                 )
                 for label, games in sorted(
                     rounds.items(), key=lambda kv: finished[kv[0]]
@@ -465,7 +475,7 @@ def _ladder_rounds(conn):
 def _ladder_points(ladders, edition, quarters, points):
     """Returns {(player, code): points} for each ladder an edition can score.
 
-    A calendar year sums the rounds finished in it; a rolling year the latest
+    A calendar year sums its rounds (by their year); a rolling year the latest
     rounds finished by its end. The totals are ranked (equal totals share a
     rank) into the ladder's leaderboard table. A ladder with a round in the
     window that cannot be scored is left out, for the sheet's points to stand.
@@ -478,16 +488,14 @@ def _ladder_points(ladders, edition, quarters, points):
     for slug, (rules, size, rounds) in ladders.items():
         done = [r for r in rounds if r[1] < end]
         window = (
-            [r for r in done if r[1].year == last[0]]
-            if edition.isdigit()
-            else done[-size:]
+            [r for r in done if r[3] == last[0]] if edition.isdigit() else done[-size:]
         )
-        if not window or any(games is None for _, _, games in window):
+        if not window or any(games is None for _, _, games, _ in window):
             continue
         year = last[0]
         rule = rules[max((e for e in rules if e <= year), default=min(rules))]
         totals = Counter()
-        for _, _, games in window:
+        for _, _, games, _ in window:
             totals.update(round_points(games, rule))
         table = table_for(points, slug, year)
         for rank, name in ranked({n: t for n, t in totals.items() if t > 0}):

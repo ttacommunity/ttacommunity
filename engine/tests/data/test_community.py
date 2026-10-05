@@ -574,3 +574,36 @@ def test_a_ladder_round_counts_in_the_year_cge_finished_it(
         )
     }
     assert ("2025", "ann") in got and ("2024", "ann") not in got
+
+
+def test_a_ladder_round_counts_in_the_year_the_organisers_recorded(
+    conn, run_id, catalogue, add_match
+):
+    # Sodium's first round finished in 2024; the organisers count it in 2025.
+    catalogue("sodium_ladder", "1", [("", None, None)], quarter=(2025, 1))
+    conn.execute(
+        "INSERT INTO community_ladders VALUES ('sodium_ladder', 2025, 0.8, 4, '{1,0.5,0.166,0}', 8, 'tab')"
+    )
+    points_table(conn, "sodium_ladder", 2025, {("leaderboard", 1): 1000})
+    add_match(
+        ("ann", 300),
+        ("bob", 200),
+        day=date(2024, 11, 21),
+        placed=None,
+        group="Sodium Tier",
+    )
+    conn.execute(
+        "UPDATE matches SET stage_id = (SELECT stage_id FROM tournament_stages x JOIN tournament_seasons s USING (season_id) "
+        "JOIN tournaments t USING (tournament_id) WHERE t.slug = 'sodium_ladder')"
+    )
+    add_match(("x", 1), ("y", 0), day=date(2025, 3, 1), placed=None)
+    conn.commit()
+    derive_community(conn=conn, run_id=run_id)
+    got = {
+        (r["edition"], r["player_name"])
+        for r in conn.execute(
+            "SELECT edition, player_name FROM community_edition_points WHERE run_id = %s AND event = 'sl'",
+            (run_id,),
+        )
+    }
+    assert ("2025", "ann") in got and ("2024", "ann") not in got
