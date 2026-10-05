@@ -10,6 +10,7 @@ stage, a cup's round, the Eiffel Tower's floor.
 
 import re
 from collections import Counter, defaultdict
+from datetime import date
 
 import psycopg
 
@@ -141,6 +142,56 @@ def ranked(totals):
     return got
 
 
+LADDER_CODES = {"mercurial_ladder": "ml", "sodium_ladder": "sl"}
+
+
+def rungs(groups):
+    """Returns {group: rung}: the top tier (a group without a number) first, then element numbers from the highest.
+
+    Every group of one element shares its rung.
+    """
+    numbered = {
+        g: int(re.match(r"-?\d+", g).group(0)) for g in groups if re.match(r"-?\d+", g)
+    }
+    top = [g for g in groups if g not in numbered]
+    order = sorted(set(numbered.values()), reverse=True)
+    got = {g: 1 for g in top}
+    for g, n in numbered.items():
+        got[g] = (1 if top else 0) + order.index(n) + 1
+    return got
+
+
+def rung_value(rung, rule):
+    """Returns what a rung's winner earns before rounding: 1000 × ratio^steps, half a step a rung after half_steps_from."""
+    half = rule["half_steps_from"]
+    steps = rung - 1 if not half or rung <= half else half - 1 + (rung - half) / 2
+    return 1000 * rule["ratio"] ** steps
+
+
+def round_points(games, rule):
+    """Returns {player: points} for one ladder round: games are (group, [(player, score)]).
+
+    Each place earns its share of the rung's value, rounded; tied players average their places' unrounded shares.
+    """
+    rung = rungs([g for g, _ in games])
+    shares = rule["shares"]
+    got = {}
+    for group, seats in games:
+        value = rung_value(rung[group], rule)
+        for name, score in seats:
+            better = sum(1 for _, o in seats if o > score)
+            tied = sum(1 for _, o in seats if o == score)
+            share = (
+                sum(
+                    shares[p] if p < len(shares) else 0
+                    for p in range(better, better + tied)
+                )
+                / tied
+            )
+            got[name] = got.get(name, 0) + round(value * share)
+    return got
+
+
 def _scored(kind, lines, table):
     """Returns {player: points} for one season's lines (stage, group, place, user, name), by its kind."""
     if kind == "league":
@@ -243,7 +294,7 @@ def derive_community(*, conn: psycopg.Connection, run_id: int) -> None:
             table = table_for(points, s["slug"], edition)
             for name, pts in _scored(KINDS[s["slug"]], lines, table).items():
                 rows.append((run_id, s["slug"], s["label"], name, pts))
-        _rank_editions(conn, run_id, rows)
+        _rank_editions(conn, run_id, rows, points)
         conn.execute("DELETE FROM community_event_points WHERE run_id = %s", (run_id,))
         with conn.cursor() as cur:
             cur.executemany(
@@ -251,7 +302,7 @@ def derive_community(*, conn: psycopg.Connection, run_id: int) -> None:
             )
 
 
-def _rank_editions(conn, run_id, rows):
+def _rank_editions(conn, run_id, rows, points):
     """Replaces the run's editions: each player's events in each, their best eight, and the ranking.
 
     rows are the run's computed event points. An event the engine does not
@@ -281,13 +332,18 @@ def _rank_editions(conn, run_id, rows):
             q = (d.year, (d.month - 1) // 3 + 1)
         if q is not None:
             events[q][(name, event_code(slug, season))] = pts
-    if not events or latest is None:
+    ladders = _ladder_rounds(conn)
+    firsts = list(events) + [
+        (d.year, (d.month - 1) // 3 + 1)
+        for _, _, rounds in ladders.values()
+        for _, d, _ in rounds
+    ]
+    if not firsts or latest is None:
         conn.execute(
             "DELETE FROM community_edition_points WHERE run_id = %s", (run_id,)
         )
         conn.execute("DELETE FROM community_rankings WHERE run_id = %s", (run_id,))
         return
-    computed = {code for q in events.values() for _, code in q}
     spelling = {
         r["name"].lower(): r["name"] for r in conn.execute("SELECT name FROM players")
     }
@@ -295,20 +351,27 @@ def _rank_editions(conn, run_id, rows):
     for r in conn.execute(
         "SELECT edition, player_name, event, score FROM community_scores"
     ):
-        if r["edition"] in SHEET_EDITIONS and r["event"] not in computed:
+        if r["edition"] in SHEET_EDITIONS:
             name = spelling.get(r["player_name"].lower(), r["player_name"])
             sheet[SHEET_EDITIONS[r["edition"]]][(name, r["event"])] = r["score"]
     point_rows, rank_rows = [], []
-    for edition, in_it in editions(min(events), latest).items():
+    for edition, in_it in editions(min(firsts), latest).items():
         scored = defaultdict(dict)
         sources = {}
         for q in in_it:
             for (name, code), pts in events.get(q, {}).items():
                 scored[name][code] = pts
                 sources[(name, code)] = "computed"
-        for (name, code), pts in sheet.get(edition, {}).items():
+        for (name, code), pts in _ladder_points(
+            ladders, edition, in_it, points
+        ).items():
             scored[name][code] = pts
-            sources[(name, code)] = "sheet"
+            sources[(name, code)] = "computed"
+        computed = {code for _, code in sources}
+        for (name, code), pts in sheet.get(edition, {}).items():
+            if code not in computed:
+                scored[name][code] = pts
+                sources[(name, code)] = "sheet"
         totals, counts = {}, {}
         for name, evs in scored.items():
             totals[name], counts[name] = best_eight(evs)
@@ -339,3 +402,94 @@ def _rank_editions(conn, run_id, rows):
         cur.executemany(
             "INSERT INTO community_rankings VALUES (%s, %s, %s, %s, %s, %s)", rank_rows
         )
+
+
+def _ladder_rounds(conn):
+    """Returns each ladder's rule and rounds: {slug: (rules by from_edition, [(round, finished, games or None)])}.
+
+    A round finished on its last game's CGE finish date, else its match file date.
+    games are (group, [(player, score)]) of the round's played games, or None
+    when any lacks a group name, so the round cannot be scored.
+    """
+    rules = defaultdict(dict)
+    for r in conn.execute(
+        "SELECT tournament, from_edition, ratio, half_steps_from, shares FROM community_ladders"
+    ):
+        rules[r["tournament"]][r["from_edition"]] = {
+            "ratio": r["ratio"],
+            "half_steps_from": r["half_steps_from"],
+            "shares": r["shares"],
+        }
+    sizes = {
+        r["tournament"]: r["rounds"]
+        for r in conn.execute(
+            "SELECT DISTINCT ON (tournament) tournament, rounds FROM community_ladders ORDER BY tournament, from_edition DESC"
+        )
+    }
+    got = {}
+    for slug in rules:
+        rounds = defaultdict(list)
+        finished = {}
+        for r in conn.execute(
+            """SELECT s.label, coalesce(m.cge_finished, m.date) AS date, m.group_label, m.player1, m.score1, m.player2, m.score2,
+                      m.player3, m.score3, m.player4, m.score4
+               FROM matches m JOIN tournament_stages x USING (stage_id) JOIN tournament_seasons s USING (season_id)
+               JOIN tournaments t USING (tournament_id)
+               WHERE t.slug = %s AND t.in_community_leaderboard AND m.state = 'played'""",
+            (slug,),
+        ):
+            seats = [
+                (r[f"player{i}"], r[f"score{i}"])
+                for i in range(1, 5)
+                if r[f"player{i}"]
+            ]
+            rounds[r["label"]].append((r["group_label"], seats))
+            finished[r["label"]] = max(finished.get(r["label"], r["date"]), r["date"])
+        got[slug] = (
+            rules[slug],
+            sizes[slug],
+            [
+                (
+                    label,
+                    finished[label],
+                    None if any(g == "" for g, _ in games) else games,
+                )
+                for label, games in sorted(
+                    rounds.items(), key=lambda kv: finished[kv[0]]
+                )
+            ],
+        )
+    return got
+
+
+def _ladder_points(ladders, edition, quarters, points):
+    """Returns {(player, code): points} for each ladder an edition can score.
+
+    A calendar year sums the rounds finished in it; a rolling year the latest
+    rounds finished by its end. The totals are ranked (equal totals share a
+    rank) into the ladder's leaderboard table. A ladder with a round in the
+    window that cannot be scored is left out, for the sheet's points to stand.
+    """
+    last = max(quarters)
+    end = date(
+        last[0] + last[1] // 4, last[1] % 4 * 3 + 1, 1
+    )  # the day after the edition
+    got = {}
+    for slug, (rules, size, rounds) in ladders.items():
+        done = [r for r in rounds if r[1] < end]
+        window = (
+            [r for r in done if r[1].year == last[0]]
+            if edition.isdigit()
+            else done[-size:]
+        )
+        if not window or any(games is None for _, _, games in window):
+            continue
+        year = last[0]
+        rule = rules[max((e for e in rules if e <= year), default=min(rules))]
+        totals = Counter()
+        for _, _, games in window:
+            totals.update(round_points(games, rule))
+        table = table_for(points, slug, year)
+        for rank, name in ranked({n: t for n, t in totals.items() if t > 0}):
+            got[(name, LADDER_CODES[slug])] = table.get(("leaderboard", rank), 0)
+    return got

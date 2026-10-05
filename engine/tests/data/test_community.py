@@ -12,6 +12,9 @@ from tta_ratings_engine.data.community import (
     place_points,
     ranked,
     round_name,
+    round_points,
+    rung_value,
+    rungs,
     table_for,
     wimbledon_round,
 )
@@ -445,3 +448,129 @@ def test_an_eiffel_tower_player_without_points_above_zero_scores_nothing(
         ("eiffel_tower", "3", "ann", 5),
         ("eiffel_tower", "3", "bob", 0),
     ]
+
+
+# Ladders: round points by rung and place, summed over an edition's rounds, ranked into the grid.
+
+MERCURIAL = {"ratio": 0.8, "half_steps_from": None, "shares": [1, 0.4, 0]}
+SODIUM = {"ratio": 0.8, "half_steps_from": 4, "shares": [1, 0.5, 0.166, 0]}
+
+
+def test_rungs_count_down_from_the_top_tier_by_element_number():
+    groups = [
+        "Mercurial Tier",
+        "25-Manganese",
+        "23-Vanadium 1",
+        "23-Vanadium 2",
+        "1-Hydrogen 4",
+    ]
+    assert rungs(groups) == {
+        "Mercurial Tier": 1,
+        "25-Manganese": 2,
+        "23-Vanadium 1": 3,
+        "23-Vanadium 2": 3,
+        "1-Hydrogen 4": 4,
+    }
+
+
+@pytest.mark.parametrize(
+    "rule, rung, want",
+    [
+        (MERCURIAL, 1, 1000),
+        (MERCURIAL, 5, 409.6),
+        (SODIUM, 4, 512),
+        (SODIUM, 5, 457.95),
+        (SODIUM, 6, 409.6),
+    ],
+)
+def test_rung_value(rule, rung, want):
+    assert rung_value(rung, rule) == pytest.approx(want, abs=0.01)
+
+
+def test_round_points_round_each_share_and_average_a_tie_unrounded():
+    games = [("19-Potassium 2", [("jantteri", 203), ("Beebs", 203), ("Bright", -3)])]
+    # Rung 1 here: 1000 and 400 averaged is 700; with 19 a lower rung the same rule holds.
+    assert round_points(games, MERCURIAL) == {
+        "jantteri": 700,
+        "Beebs": 700,
+        "Bright": 0,
+    }
+    games = [
+        ("Mercurial Tier", [("a", 9)]),
+        ("5-Boron", [("b", 300), ("c", 200), ("d", 100)]),
+    ]
+    assert round_points(games, MERCURIAL) == {"a": 1000, "b": 800, "c": 320, "d": 0}
+
+
+def test_a_ladder_edition_ranks_its_rounds_totals_into_the_grid(
+    conn, run_id, catalogue, add_match
+):
+    for r in ("1", "2"):
+        catalogue("mercurial_ladder", r, [("", None, None)])
+    conn.execute(
+        "INSERT INTO community_ladders VALUES ('mercurial_ladder', 2024, 0.8, NULL, '{1,0.4,0}', 10, 'tab')"
+    )
+    points_table(
+        conn,
+        "mercurial_ladder",
+        2024,
+        {("leaderboard", 1): 1000, ("leaderboard", 2): 750, ("leaderboard", 3): 640},
+    )
+    for r, day in (("1", date(2025, 3, 1)), ("2", date(2025, 6, 1))):
+        add_match(
+            ("ann", 300),
+            ("bob", 200),
+            ("cy", 100),
+            day=day,
+            placed=None,
+            group="Mercurial Tier",
+        )
+        conn.execute(
+            "UPDATE matches SET stage_id = (SELECT stage_id FROM tournament_stages x JOIN tournament_seasons s USING (season_id) "
+            "JOIN tournaments t USING (tournament_id) WHERE t.slug = 'mercurial_ladder' AND s.label = %s) "
+            "WHERE match_id = (SELECT max(match_id) FROM matches)",
+            (r,),
+        )
+    conn.commit()
+    derive_community(conn=conn, run_id=run_id)
+    got = {
+        (r["player_name"], r["points"])
+        for r in conn.execute(
+            "SELECT player_name, points FROM community_edition_points WHERE run_id = %s AND edition = '2025' AND event = 'ml'",
+            (run_id,),
+        )
+    }
+    assert got == {("ann", 1000), ("bob", 750)}  # cy scored nothing, so is not ranked
+
+
+def test_a_ladder_round_counts_in_the_year_cge_finished_it(
+    conn, run_id, catalogue, add_match
+):
+    catalogue("sodium_ladder", "1", [("", None, None)])
+    conn.execute(
+        "INSERT INTO community_ladders VALUES ('sodium_ladder', 2025, 0.8, 4, '{1,0.5,0.166,0}', 8, 'tab')"
+    )
+    points_table(conn, "sodium_ladder", 2025, {("leaderboard", 1): 1000})
+    # The match file dates the round in 2024; CGE finished it in 2025.
+    add_match(
+        ("ann", 300),
+        ("bob", 200),
+        day=date(2024, 10, 13),
+        placed=None,
+        group="Sodium Tier",
+    )
+    conn.execute(
+        "UPDATE matches SET cge_finished = '2025-01-20', stage_id = (SELECT stage_id FROM tournament_stages x "
+        "JOIN tournament_seasons s USING (season_id) JOIN tournaments t USING (tournament_id) WHERE t.slug = 'sodium_ladder')"
+    )
+    add_match(("x", 1), ("y", 0), day=date(2025, 3, 1), placed=None)
+    conn.commit()
+    derive_community(conn=conn, run_id=run_id)
+    got = {
+        (r["edition"], r["player_name"])
+        for r in conn.execute(
+            "SELECT edition, player_name FROM community_edition_points WHERE run_id = %s AND event = 'sl'",
+            (run_id,),
+        )
+    }
+    assert ("2025", "ann") in got and ("2024", "ann") not in got
