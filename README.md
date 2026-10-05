@@ -118,7 +118,7 @@ git config core.hooksPath .githooks
 No match or rating data is kept in this repo. The data lives outside it, and
 a database starts from a **baseline**: an export of every input table (games,
 CGE seats, players, the tournament catalogue, every recorded fact and admin's
-settings) with every correction already applied. Restore one into an empty
+settings, but no personal data) with every correction already applied. Restore one into an empty
 database, then compute ratings:
 
 ```bash
@@ -232,7 +232,9 @@ that already has tables.
 An export is every table that holds inputs (games, CGE seats, players, the
 tournament catalogue and every recorded fact) as one CSV each, with a
 `manifest.json` of the schema version, row counts and SHA-256s. Ratings are
-not in it: the engine computes them again. Keep exports outside the repo.
+not in it: the engine computes them again. **An export holds no personal
+data, so it can be shared:** who the admins are, the audit of what they did,
+and the rows a load refused are left out. Keep exports outside the repo.
 
 ```bash
 go run ./cmd/load -export ~/tta-data/baseline/2026-10-05    # a new or empty folder
@@ -247,7 +249,8 @@ go run ./cmd/load -restore ~/tta-data/baseline/2026-10-04
 The restore applies the migrations, then loads everything in one
 transaction. It refuses a database that already holds games or runs, a file
 changed since the export, and an export taken at another schema version
-(restore with the `load` of that version, then migrate). Then run the engine
+(restore with the `load` of that version, then migrate). Add the admins
+(`load -add-admin`), then run the engine
 ([Compute ratings](#compute-ratings)).
 
 For the original site (upstream), write the games as the one match CSV its
