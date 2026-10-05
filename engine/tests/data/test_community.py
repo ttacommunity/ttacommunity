@@ -1,0 +1,345 @@
+import pytest
+
+from tta_ratings_engine.data.community import (
+    derive_community,
+    division,
+    eiffel_floor,
+    place_points,
+    round_name,
+    table_for,
+    wimbledon_round,
+)
+from tta_ratings_engine.data.db import RunNotRunning
+
+POINTS = {
+    ("international", 2024): {("Wood", 2): 15},
+    ("international", 2025): {("Wood", 2): 20, ("Grandmaster", 1): 1000},
+}
+
+
+def test_a_table_is_the_latest_from_or_before_the_edition():
+    assert table_for(POINTS, "international", 2024) == {("Wood", 2): 15}
+    assert table_for(POINTS, "international", 2026)[("Wood", 2)] == 20
+
+
+def test_an_edition_before_every_table_takes_the_earliest():
+    assert table_for(POINTS, "international", 2020) == {("Wood", 2): 15}
+
+
+def test_a_tournament_without_a_table_has_none():
+    assert table_for(POINTS, "wimbledon", 2025) == {}
+
+
+WORLDS = {
+    ("Stage 1", 4): 20,
+    ("Stage 3", 0): 130,
+    ("Stage 3", 2): 115,
+    ("Stage 3", 4): 80,
+    ("Stage 8", 1): 2500,
+}
+
+
+@pytest.mark.parametrize(
+    "group, place, upper, want",
+    [
+        ("Stage 3", 2, False, 115),  # listed
+        ("Stage 1", 1, False, 20),  # not listed: the next place listed
+        ("Stage 3", 3, False, 80),
+        ("Stage 3", 4, True, 130),  # leaving from an Upper group: the "0" row
+        ("Stage 3", 2, True, 130),
+        ("Stage 8", 2, False, 0),  # nothing listed from here on
+        ("Stage 5", 1, False, 0),  # no such group
+    ],
+)
+def test_place_points(group, place, upper, want):
+    assert place_points(WORLDS, group, place, upper=upper) == want
+
+
+def test_an_upper_group_without_a_zero_row_scores_by_place():
+    assert place_points(WORLDS, "Stage 1", 4, upper=True) == 20
+
+
+@pytest.mark.parametrize(
+    "group, want",
+    [("Bronze 12", "Bronze"), ("Grandmaster", "Grandmaster"), ("Silver 3", "Silver")],
+)
+def test_division(group, want):
+    assert division(group) == want
+
+
+@pytest.mark.parametrize(
+    "players, want",
+    [
+        (256, "R256"),
+        (128, "R128"),
+        (32, "R32"),
+        (16, "QF"),
+        (8, "SF"),
+        (4, "Final"),
+        (5, None),
+    ],
+)
+def test_round_name_by_players_in_the_stage(players, want):
+    assert round_name(players) == want
+
+
+def test_wimbledon_rounds_count_back_from_the_final():
+    stages = [1, 2, 3, 4, 5, 6, 7]
+    assert [wimbledon_round(s, stages) for s in stages] == [
+        "R1",
+        "R2",
+        "R3",
+        "R4",
+        "R5",
+        "SF",
+        "Final",
+    ]
+
+
+@pytest.mark.parametrize(
+    "group, want",
+    [
+        ("The Top", "The Top"),
+        ("The Stairs", "The Stairs"),
+        ("The Gardens", "Other"),
+        ("1st Floor", "Other"),
+    ],
+)
+def test_eiffel_floor(group, want):
+    assert eiffel_floor(group) == want
+
+
+# The database part: places from CGE's standings or the run's own, names by CGE user.
+
+
+@pytest.fixture
+def run_id(conn):
+    rid = conn.execute(
+        "INSERT INTO rating_runs (engine_version, input_fingerprint, status) VALUES ('t', 'f', 'running') RETURNING run_id"
+    ).fetchone()["run_id"]
+    conn.commit()
+    return rid
+
+
+@pytest.fixture
+def catalogue(conn):
+    """Returns a function that adds a season of a tournament in the community leaderboard, its stages linked to CGE."""
+
+    def add(slug, season, stages=(), quarter=None):
+        t = conn.execute(
+            "INSERT INTO tournaments (slug, name, in_community_leaderboard) VALUES (%s, %s, true) "
+            "ON CONFLICT (slug) DO UPDATE SET slug = excluded.slug RETURNING tournament_id",
+            (slug, slug),
+        ).fetchone()["tournament_id"]
+        s = conn.execute(
+            "INSERT INTO tournament_seasons (tournament_id, label) VALUES (%s, %s) RETURNING season_id",
+            (t, season),
+        ).fetchone()["season_id"]
+        for label, cge_t, cge_s in stages:
+            conn.execute(
+                "INSERT INTO tournament_stages (season_id, label, cge_tournament, cge_season) VALUES (%s, %s, %s, %s)",
+                (s, label, cge_t, cge_s),
+            )
+        if quarter:
+            conn.execute(
+                "INSERT INTO community_quarters VALUES (%s, %s, %s, %s, 'tab')",
+                (slug, season, quarter[0], quarter[1]),
+            )
+        conn.commit()
+
+    return add
+
+
+def points_table(conn, slug, edition, cells):
+    for (group, place), pts in cells.items():
+        conn.execute(
+            "INSERT INTO community_points VALUES (%s, %s, %s, %s, %s, 'sheet')",
+            (slug, edition, group, place, pts),
+        )
+    conn.commit()
+
+
+def cge_line(conn, t, s, group, place, player, user, games=6):
+    conn.execute(
+        "INSERT INTO cge_standings (cge_tournament, cge_season, group_name, row_number, place, player_name, cge_user, "
+        "banned, games, points, source) VALUES (%s, %s, %s, %s, %s, %s, %s, false, %s, 0, 'CGE')",
+        (t, s, group, place, place, player, user, games),
+    )
+    conn.commit()
+
+
+def event_points(conn, run_id):
+    rows = conn.execute(
+        "SELECT tournament, season, player_name, points FROM community_event_points WHERE run_id = %s "
+        "ORDER BY tournament, season, player_name",
+        (run_id,),
+    ).fetchall()
+    return [(r["tournament"], r["season"], r["player_name"], r["points"]) for r in rows]
+
+
+def test_a_league_season_scores_cge_places_by_division(conn, run_id, catalogue):
+    catalogue("international", "30", [("", 21, 21)], quarter=(2025, 3))
+    points_table(
+        conn, "international", 2025, {("Grandmaster", 1): 1000, ("Wood", 2): 20}
+    )
+    cge_line(conn, 21, 21, "Grandmaster", 1, "ann", 1)
+    cge_line(conn, 21, 21, "Wood 7", 2, "bob", 2)
+    cge_line(conn, 21, 21, "Wood 7", 3, "cy", 3)
+    derive_community(conn=conn, run_id=run_id)
+    assert event_points(conn, run_id) == [
+        ("international", "30", "ann", 1000),
+        ("international", "30", "bob", 20),
+        ("international", "30", "cy", 0),
+    ]
+
+
+def test_the_seasons_quarter_picks_the_table(conn, run_id, catalogue):
+    catalogue("international", "27", [("", 21, 18)], quarter=(2024, 4))
+    points_table(conn, "international", 2024, {("Wood", 2): 15})
+    points_table(conn, "international", 2025, {("Wood", 2): 20})
+    cge_line(conn, 21, 18, "Wood 1", 2, "bob", 2)
+    derive_community(conn=conn, run_id=run_id)
+    assert event_points(conn, run_id) == [("international", "27", "bob", 15)]
+
+
+def test_a_deleted_cge_account_keeps_the_name_our_games_have(
+    conn, run_id, catalogue, add_match
+):
+    catalogue("intermezzo", "25", [("", 19, 20)], quarter=(2025, 1))
+    points_table(conn, "intermezzo", 2025, {("Gold", 1): 185})
+    add_match(("Malakesh", 200), ("ann", 100), placed=None)
+    conn.execute(
+        "INSERT INTO match_seats (match_id, seat, player_name, outcome, cge_user) SELECT match_id, 1, player1, 'finished', 38126 FROM matches"
+    )
+    cge_line(conn, 19, 20, "Gold 3", 1, "deleted_user_1003913", 38126)
+    derive_community(conn=conn, run_id=run_id)
+    assert event_points(conn, run_id) == [("intermezzo", "25", "Malakesh", 185)]
+
+
+def test_a_league_season_without_cge_standings_takes_the_runs_own(
+    conn, run_id, catalogue
+):
+    catalogue("international", "33", [("", 21, 24)], quarter=(2026, 2))
+    points_table(conn, "international", 2025, {("Master", 2): 410})
+    conn.execute(
+        "INSERT INTO tournament_standings VALUES (%s, 'international', 33, 'Master', 'Master 1', 'ann', 2, 9, 6, '{0,0,0,0}')",
+        (run_id,),
+    )
+    conn.commit()
+    derive_community(conn=conn, run_id=run_id)
+    assert event_points(conn, run_id) == [("international", "33", "ann", 410)]
+
+
+def test_a_world_championship_scores_the_last_stage_reached(conn, run_id, catalogue):
+    catalogue(
+        "worlds",
+        "2025",
+        [("Stage 1", 5204, 1), ("Stage 2", 5204, 2), ("Stage 3", 5204, 3)],
+        quarter=(2025, 4),
+    )
+    points_table(
+        conn,
+        "worlds",
+        2025,
+        {("Stage 1", 4): 20, ("Stage 3", 0): 130, ("Stage 3", 2): 115},
+    )
+    cge_line(conn, 5204, 1, "2025 Group 1", 1, "ann", 1)
+    cge_line(conn, 5204, 3, "2025 Lower 1", 2, "ann", 1)
+    cge_line(conn, 5204, 1, "2025 Group 1", 3, "bob", 2)
+    cge_line(conn, 5204, 3, "2025 Upper 4", 4, "cy", 3)
+    derive_community(conn=conn, run_id=run_id)
+    assert event_points(conn, run_id) == [
+        ("worlds", "2025", "ann", 115),
+        ("worlds", "2025", "bob", 20),
+        ("worlds", "2025", "cy", 130),
+    ]
+
+
+def test_a_cup_scores_the_round_a_player_goes_out_in(conn, run_id, catalogue):
+    catalogue(
+        "australian_open",
+        "2025",
+        [("Stage 1", 5233, 1), ("Stage 2", 5233, 2)],
+        quarter=(2025, 3),
+    )
+    points_table(
+        conn,
+        "australian_open",
+        2025,
+        {("SF", 3): 500, ("SF", 4): 500, ("Final", 1): 1000},
+    )
+    for i, name in enumerate(["a", "b", "c", "d", "e", "f", "g", "h"], start=1):
+        cge_line(
+            conn, 5233, 1, "group 1" if i <= 4 else "group 2", (i - 1) % 4 + 1, name, i
+        )
+    for i, name in enumerate(["a", "b", "e", "f"], start=1):
+        cge_line(
+            conn, 5233, 2, "Final", i, name, {"a": 1, "b": 2, "e": 5, "f": 6}[name]
+        )
+    derive_community(conn=conn, run_id=run_id)
+    got = {p: pts for _, _, p, pts in event_points(conn, run_id)}
+    assert got["a"] == 1000 and got["c"] == 500 and got["h"] == 500
+
+
+def test_a_player_cge_lists_with_no_game_scores_nothing(conn, run_id, catalogue):
+    catalogue("international", "30", [("", 21, 21)], quarter=(2025, 3))
+    points_table(conn, "international", 2025, {("Wood", 1): 27})
+    cge_line(conn, 21, 21, "Wood 1", 1, "quit", 9, games=0)
+    derive_community(conn=conn, run_id=run_id)
+    assert event_points(conn, run_id) == []
+
+
+def test_a_tournament_out_of_the_leaderboard_scores_nothing(conn, run_id, catalogue):
+    catalogue("international", "30", [("", 21, 21)], quarter=(2025, 3))
+    conn.execute("UPDATE tournaments SET in_community_leaderboard = false")
+    points_table(conn, "international", 2025, {("Wood", 1): 27})
+    cge_line(conn, 21, 21, "Wood 1", 1, "ann", 1)
+    derive_community(conn=conn, run_id=run_id)
+    assert event_points(conn, run_id) == []
+
+
+def test_derive_community_needs_a_running_run(conn, run_id):
+    conn.execute(
+        "UPDATE rating_runs SET status = 'failed' WHERE run_id = %s", (run_id,)
+    )
+    conn.commit()
+    with pytest.raises(RunNotRunning):
+        derive_community(conn=conn, run_id=run_id)
+
+
+def test_derive_community_replaces_the_runs_rows(conn, run_id, catalogue):
+    catalogue("international", "30", [("", 21, 21)], quarter=(2025, 3))
+    points_table(conn, "international", 2025, {("Wood", 1): 27})
+    cge_line(conn, 21, 21, "Wood 1", 1, "ann", 1)
+    derive_community(conn=conn, run_id=run_id)
+    derive_community(conn=conn, run_id=run_id)
+    assert event_points(conn, run_id) == [("international", "30", "ann", 27)]
+
+
+def test_a_cup_takes_every_stage_of_its_cge_tournament(conn, run_id, catalogue):
+    # Its early stages came from the match files, unlinked; CGE's tables still hold them.
+    catalogue("wimbledon", "2025", [("Stage 3", 5495, 3)], quarter=(2026, 1))
+    points_table(
+        conn,
+        "wimbledon",
+        2026,
+        {("R1", 2): 5, ("SF", 2): 480, ("Final", 1): 1000, ("Final", 2): 770},
+    )
+    cge_line(conn, 5495, 1, "group 1", 1, "ann", 1)
+    cge_line(conn, 5495, 1, "group 1", 2, "bob", 2)
+    cge_line(conn, 5495, 2, "SF 1", 1, "ann", 1)
+    cge_line(conn, 5495, 2, "SF 1", 2, "cy", 3)
+    cge_line(conn, 5495, 3, "Final", 1, "ann", 1)
+    cge_line(conn, 5495, 3, "Final", 2, "dee", 4)
+    derive_community(conn=conn, run_id=run_id)
+    got = {p: pts for _, _, p, pts in event_points(conn, run_id)}
+    assert got == {"ann": 1000, "bob": 5, "cy": 480, "dee": 770}
+
+
+def test_a_league_kind_takes_only_its_own_seasons_stage(conn, run_id, catalogue):
+    catalogue("eiffel_tower", "3", [("", 3947, 3)], quarter=(2025, 4))
+    points_table(conn, "eiffel_tower", 2025, {("The Top", 1): 1000})
+    cge_line(conn, 3947, 2, "The Top", 1, "old", 1)
+    cge_line(conn, 3947, 3, "The Top", 1, "ann", 2)
+    derive_community(conn=conn, run_id=run_id)
+    assert event_points(conn, run_id) == [("eiffel_tower", "3", "ann", 1000)]
