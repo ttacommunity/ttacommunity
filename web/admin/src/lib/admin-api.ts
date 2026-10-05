@@ -9,6 +9,7 @@ export type AdminPerson = components['schemas']['AdminPerson'];
 export type AdminRun = components['schemas']['AdminRun'];
 export type RunChanges = components['schemas']['RunChanges'];
 export type StartedRun = components['schemas']['StartedRun'];
+export type RunSize = components['schemas']['RunSize'];
 
 /** AdminResult is an answer's data, or why the request was refused. */
 export type AdminResult<T> = { ok: true; data: T } | { ok: false; status: number; message: string };

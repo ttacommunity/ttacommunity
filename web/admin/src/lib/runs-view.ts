@@ -13,3 +13,25 @@ export function parseProgress(line: string): Progress | null {
   if (total < 1 || done > total) return null;
   return { done, total, label: m[3], elapsed: m[4], eta: m[5] === '?' ? '' : m[5] };
 }
+
+type RunState = { status: string; current: boolean; protected: boolean; deleting: boolean };
+
+/** canDelete says whether a run offers Delete: not protected, not on the site, not going, not already being deleted. */
+export function canDelete(run: RunState): boolean {
+  return !run.protected && !run.current && !run.deleting && run.status !== 'running';
+}
+
+const UNITS = ['B', 'kB', 'MB', 'GB', 'TB'];
+
+/** sizeText writes bytes in the largest unit under a thousand ("4.0 GB"), '' for a size not known yet. */
+export function sizeText(bytes: number | undefined): string {
+  if (bytes === undefined) return '';
+  if (bytes === 0) return '0 B';
+  const unit = Math.min(Math.floor(Math.log10(bytes) / 3), UNITS.length - 1);
+  return unit === 0 ? `${bytes} B` : `${(bytes / 1000 ** unit).toFixed(1)} ${UNITS[unit]}`;
+}
+
+/** keepPolling says whether the runs change on their own: one is going or being deleted. */
+export function keepPolling(runs: { status: string; deleting: boolean }[]): boolean {
+  return runs.some((r) => r.status === 'running' || r.deleting);
+}

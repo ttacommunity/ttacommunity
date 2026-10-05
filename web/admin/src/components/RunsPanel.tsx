@@ -1,7 +1,7 @@
-/** Rating runs, for admins: start one now, watch its progress, compare it with the published run, and publish it. */
+/** Rating runs, for admins: start one, watch its progress, compare and publish it, and protect or delete old ones. */
 import { useEffect, useState } from 'react';
-import { adminRequest, type AdminRun, type RunChanges, type StartedRun } from '../lib/admin-api';
-import { parseProgress } from '../lib/runs-view';
+import { adminRequest, type AdminRun, type RunChanges, type RunSize, type StartedRun } from '../lib/admin-api';
+import { canDelete, keepPolling, parseProgress, sizeText } from '../lib/runs-view';
 
 const POLL_MS = 5000;
 const ZONE = Intl.DateTimeFormat().resolvedOptions().timeZone;
@@ -81,6 +81,7 @@ export default function RunsPanel() {
   const [waitingUntil, setWaitingUntil] = useState(0);
   const [comparing, setComparing] = useState<number | null>(null);
   const [all, setAll] = useState(false);
+  const [sizes, setSizes] = useState<Map<number, number>>(new Map());
 
   const load = async () => {
     const r = await adminRequest<AdminRun[]>('/api/runs', {});
@@ -88,14 +89,21 @@ export default function RunsPanel() {
     else setMessage(r.message);
   };
   const going = runs?.some((r) => r.status === 'running') ?? false;
+  const changing = runs !== null && keepPolling(runs);
   useEffect(() => {
     void load();
   }, []);
+  // Sizes take a few seconds to count, so they load when the runs listed change, not with each poll.
   useEffect(() => {
-    if (!going && Date.now() > waitingUntil) return;
+    void adminRequest<RunSize[]>('/api/runs/sizes', {}).then((r) => {
+      if (r.ok) setSizes(new Map(r.data.map((s) => [s.run, s.bytes])));
+    });
+  }, [runs?.length]);
+  useEffect(() => {
+    if (!changing && Date.now() > waitingUntil) return;
     const timer = window.setInterval(() => void load(), POLL_MS);
     return () => window.clearInterval(timer);
-  }, [going, waitingUntil]);
+  }, [changing, waitingUntil]);
 
   const start = async () => {
     if (!window.confirm('Start a rating run now? It usually takes 20 to 40 minutes, and is not shown on the site until you publish it.')) return;
@@ -122,6 +130,21 @@ export default function RunsPanel() {
     setMessage('');
     const r = await adminRequest(`/api/runs/${run.id}/publish`, { method: 'POST' });
     setMessage(r.ok ? `Run ${run.id} is now the one the site shows.` : r.message);
+    await load();
+  };
+
+  const protect = async (run: AdminRun, on: boolean) => {
+    setMessage('');
+    const r = await adminRequest(`/api/runs/${run.id}/protected`, { method: 'PUT', json: { protected: on } });
+    if (!r.ok) setMessage(r.message);
+    await load();
+  };
+  const remove = async (run: AdminRun) => {
+    const size = sizeText(sizes.get(run.id));
+    if (!window.confirm(`Delete run ${run.id}${size === '' ? '' : ` (${size})`} and every result of it? This cannot be undone.`)) return;
+    setMessage('');
+    const r = await adminRequest(`/api/runs/${run.id}`, { method: 'DELETE' });
+    setMessage(r.ok ? `Deleting run ${run.id}. It disappears from this list once it is gone.` : r.message);
     await load();
   };
 
@@ -167,6 +190,8 @@ export default function RunsPanel() {
                 <th scope="col">Started ({ZONE})</th>
                 <th scope="col" className="run-wide">Games</th>
                 <th scope="col" className="run-wide">Players</th>
+                <th scope="col">Size</th>
+                <th scope="col">Protect</th>
                 <th scope="col">Actions</th>
               </tr>
             </thead>
@@ -178,6 +203,9 @@ export default function RunsPanel() {
                   comparing={comparing === r.id}
                   onCompare={() => setComparing(comparing === r.id ? null : r.id)}
                   onPublish={() => void publish(r)}
+                  size={sizes.get(r.id)}
+                  onProtect={(on) => void protect(r, on)}
+                  onDelete={() => void remove(r)}
                 />
               ))}
             </tbody>
@@ -203,24 +231,45 @@ function RunRow({
   comparing,
   onCompare,
   onPublish,
+  size,
+  onProtect,
+  onDelete,
 }: {
   run: AdminRun;
   comparing: boolean;
   onCompare: () => void;
   onPublish: () => void;
+  size: number | undefined;
+  onProtect: (on: boolean) => void;
+  onDelete: () => void;
 }) {
   const state = run.current ? 'shown' : run.status;
   return (
     <tr>
       <th scope="row">{run.id}</th>
       <td>
-        <span className={`run-state run-${state}`}>{run.current ? 'On the site' : STATES[run.status]}</span>
+        <span className={`run-state run-${state}`}>{run.current ? 'On the site' : run.deleting ? 'Deleting…' : STATES[run.status]}</span>
       </td>
       <td>{when(run.started_at)}</td>
       <td className="run-wide">{run.games > 0 ? run.games.toLocaleString() : ''}</td>
       <td className="run-wide">{run.players > 0 ? run.players.toLocaleString() : ''}</td>
+      <td>{sizeText(size)}</td>
       <td>
-        {run.status === 'complete' && (
+        <input
+          type="checkbox"
+          checked={run.protected}
+          disabled={run.deleting}
+          onChange={(e) => onProtect(e.target.checked)}
+          aria-label={`Protect run ${run.id} from deletion`}
+        />
+      </td>
+      <td>
+        {canDelete(run) && (
+          <button type="button" className="btn-antique run-delete" onClick={onDelete}>
+            Delete
+          </button>
+        )}
+        {run.status === 'complete' && !run.deleting && (
           <div className="run-buttons">
             <button type="button" className="btn-antique" aria-expanded={comparing} onClick={onCompare}>
               Changes {comparing ? '▾' : '▸'}
