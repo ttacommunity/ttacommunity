@@ -14,7 +14,7 @@ ROOT=$PWD
 TESTS_ONLY=0
 SLOW=0
 ONLY=""
-[ "${CI_COMMIT_BRANCH:-}" = main ] && SLOW=1
+[ "${GITHUB_EVENT_NAME:-}" = push ] && [ "${GITHUB_REF_NAME:-}" = main ] && SLOW=1
 while [ $# -gt 0 ]; do
   case $1 in
     --tests-only) TESTS_ONLY=1 ;;
@@ -163,13 +163,19 @@ if full && area checks; then
   run bash checks/secret-scan.sh --all
   run bash checks/verify-digests.sh
   # dev deploys from deploy/dev. main's pins are checked too, but not while dev's MR to main is a draft.
-  target=${CI_MERGE_REQUEST_TARGET_BRANCH_NAME:-${CI_COMMIT_BRANCH:-$(git rev-parse --abbrev-ref HEAD)}}
-  source=${CI_MERGE_REQUEST_SOURCE_BRANCH_NAME:-$target}
+  target=${GITHUB_BASE_REF:-${GITHUB_REF_NAME:-$(git rev-parse --abbrev-ref HEAD)}}
+  source=${GITHUB_HEAD_REF:-$target}
   if [ "$source" = dev ] || [ "$target" = dev ]; then
     run bash checks/deploy-current.sh deploy/dev
   fi
-  if [ "$target" != dev ] && ! { [ "$source" = dev ] && [ "${CI_MERGE_REQUEST_DRAFT:-}" = true ]; }; then
+  if [ "$target" != dev ] && ! { [ "$source" = dev ] && [ "${PR_DRAFT:-}" = true ]; }; then
     run bash checks/deploy-current.sh
+  fi
+
+  step "workflows"
+  if need actionlint "the GitHub workflows" && need zizmor "the GitHub workflows' security"; then
+    run actionlint .github/workflows/*.yml
+    run zizmor --quiet .github/workflows
   fi
 
   step "shell"
@@ -192,7 +198,7 @@ printf '\n\033[1mNot covered here:\033[0m\n'
 for item in "${not_covered[@]}" \
   "Cloudflare's own Workers build (check its build log after a merge to main)" \
   "container images: built by the CI image jobs, not by this script" \
-  "secret_detection and semgrep-sast: GitLab templates, CI only"; do
+  "gitleaks and semgrep: their own CI jobs (secrets, sast)"; do
   echo "  - $item"
 done
 

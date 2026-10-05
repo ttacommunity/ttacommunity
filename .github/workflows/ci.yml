@@ -1,0 +1,185 @@
+# A thin wrapper: each job runs scripts/ci.sh --only <area>, the script developers run.
+# The runner comes from the RUNNER_AMD64 variable (our own runners), else GitHub's.
+
+name: ci
+
+on:
+  pull_request:
+  push:
+    branches: [main, dev]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+defaults:
+  run:
+    # bash runs with -eo pipefail; the container's default sh hides a failure before a pipe.
+    shell: bash
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+env:
+  MISE_VERSION: v2026.9.14
+  MISE_YES: '1'
+  # The checkout belongs to another user than the job container's root.
+  GIT_CONFIG_COUNT: '1'
+  GIT_CONFIG_KEY_0: safe.directory
+  GIT_CONFIG_VALUE_0: '*'
+  COREPACK_ENABLE_DOWNLOAD_PROMPT: '0'
+
+jobs:
+  changes:
+    runs-on: ${{ vars.RUNNER_AMD64 || 'ubuntu-24.04' }}
+    container: docker.io/library/debian:trixie-slim@sha256:a99cfc517144bc59b1978475ec53b46ecabec7e43635402ee5b77cc54cd1b20a
+    outputs:
+      go: ${{ steps.areas.outputs.go }}
+      engine: ${{ steps.areas.outputs.engine }}
+      web: ${{ steps.areas.outputs.web }}
+    steps:
+      - run: apt-get update -qq && apt-get install -y -qq --no-install-recommends ca-certificates git >/dev/null
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - id: areas
+        env:
+          BASE: ${{ github.event.pull_request.base.sha }}
+        run: bash scripts/ci-changes.sh "$BASE" | tee -a "$GITHUB_OUTPUT"
+
+  go:
+    needs: changes
+    if: needs.changes.outputs.go == 'true'
+    runs-on: ${{ vars.RUNNER_AMD64 || 'ubuntu-24.04' }}
+    container: docker.io/library/debian:trixie-slim@sha256:a99cfc517144bc59b1978475ec53b46ecabec7e43635402ee5b77cc54cd1b20a
+    services:
+      postgres:
+        image: docker.io/library/postgres:18-alpine@sha256:77f585114c32fbca283dc835b0596f4e52b51b4c6662d7810b2f4084f60a1873
+        env:
+          POSTGRES_DB: ttac_test
+          POSTGRES_USER: ttac
+          POSTGRES_PASSWORD: ci-only-not-a-real-secret
+    env:
+      # Our runners put a service in the job's own pod; GitHub's reach it by name.
+      TEST_DATABASE_URL: postgres://ttac:ci-only-not-a-real-secret@${{ vars.RUNNER_AMD64 && '127.0.0.1' || 'postgres' }}:5432/ttac_test?sslmode=disable
+    steps:
+      - run: apt-get update -qq && apt-get install -y -qq --no-install-recommends bash ca-certificates curl git jq xz-utils gcc libc6-dev >/dev/null
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: tools
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          scripts/install-mise.sh "$MISE_VERSION" /usr/local/bin
+          mise trust && mise install go
+      - run: PATH="$HOME/.local/share/mise/shims:$PATH" bash scripts/ci.sh --only go
+
+  engine:
+    needs: changes
+    if: needs.changes.outputs.engine == 'true'
+    runs-on: ${{ vars.RUNNER_AMD64 || 'ubuntu-24.04' }}
+    container: docker.io/library/debian:trixie-slim@sha256:a99cfc517144bc59b1978475ec53b46ecabec7e43635402ee5b77cc54cd1b20a
+    services:
+      postgres:
+        image: docker.io/library/postgres:18-alpine@sha256:77f585114c32fbca283dc835b0596f4e52b51b4c6662d7810b2f4084f60a1873
+        env:
+          POSTGRES_DB: ttac_test
+          POSTGRES_USER: ttac
+          POSTGRES_PASSWORD: ci-only-not-a-real-secret
+    env:
+      TEST_DATABASE_URL: postgres://ttac:ci-only-not-a-real-secret@${{ vars.RUNNER_AMD64 && '127.0.0.1' || 'postgres' }}:5432/ttac_test?sslmode=disable
+    steps:
+      - run: apt-get update -qq && apt-get install -y -qq --no-install-recommends bash ca-certificates curl git jq xz-utils >/dev/null
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: tools
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          scripts/install-mise.sh "$MISE_VERSION" /usr/local/bin
+          mise trust && mise install uv
+      - run: PATH="$HOME/.local/share/mise/shims:$PATH" bash scripts/ci.sh --only engine
+
+  web:
+    needs: changes
+    if: needs.changes.outputs.web == 'true'
+    runs-on: ${{ vars.RUNNER_AMD64 || 'ubuntu-24.04' }}
+    container: docker.io/library/debian:trixie-slim@sha256:a99cfc517144bc59b1978475ec53b46ecabec7e43635402ee5b77cc54cd1b20a
+    steps:
+      - run: apt-get update -qq && apt-get install -y -qq --no-install-recommends bash ca-certificates curl git jq xz-utils >/dev/null
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: tools
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          scripts/install-mise.sh "$MISE_VERSION" /usr/local/bin
+          mise trust && mise install node
+      - run: PATH="$HOME/.local/share/mise/shims:$PATH" bash scripts/ci.sh --only web
+
+  checks:
+    runs-on: ${{ vars.RUNNER_AMD64 || 'ubuntu-24.04' }}
+    container: docker.io/library/debian:trixie-slim@sha256:a99cfc517144bc59b1978475ec53b46ecabec7e43635402ee5b77cc54cd1b20a
+    permissions:
+      contents: read
+      packages: read
+    steps:
+      - run: apt-get update -qq && apt-get install -y -qq --no-install-recommends bash ca-certificates curl git jq xz-utils >/dev/null
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          # deploy-current.sh reads the commits deploy/'s images were built from.
+          fetch-depth: 0
+      - name: tools
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          scripts/install-mise.sh "$MISE_VERSION" /usr/local/bin
+          mise trust && mise install shellcheck actionlint zizmor
+      - env:
+          GITHUB_TOKEN: ${{ github.token }}
+          GH_TOKEN: ${{ github.token }}
+          PR_DRAFT: ${{ github.event.pull_request.draft }}
+        run: PATH="$HOME/.local/share/mise/shims:$PATH" bash scripts/ci.sh --only checks
+
+  secrets:
+    runs-on: ${{ vars.RUNNER_AMD64 || 'ubuntu-24.04' }}
+    container: docker.io/library/debian:trixie-slim@sha256:a99cfc517144bc59b1978475ec53b46ecabec7e43635402ee5b77cc54cd1b20a
+    steps:
+      - run: apt-get update -qq && apt-get install -y -qq --no-install-recommends bash ca-certificates curl git xz-utils >/dev/null
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - name: tools
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          scripts/install-mise.sh "$MISE_VERSION" /usr/local/bin
+          mise trust && mise install gitleaks
+      # gitleaks passes "0 commits scanned" when git fails, so require a scan.
+      - run: |
+          PATH="$HOME/.local/share/mise/shims:$PATH" gitleaks git --redact --no-banner --no-color . 2>&1 | tee "$RUNNER_TEMP/gitleaks.log"
+          grep -qE ' [1-9][0-9]* commits scanned' "$RUNNER_TEMP/gitleaks.log"
+
+  sast:
+    runs-on: ${{ vars.RUNNER_AMD64 || 'ubuntu-24.04' }}
+    container: docker.io/library/debian:trixie-slim@sha256:a99cfc517144bc59b1978475ec53b46ecabec7e43635402ee5b77cc54cd1b20a
+    steps:
+      - run: apt-get update -qq && apt-get install -y -qq --no-install-recommends bash ca-certificates curl git xz-utils >/dev/null
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: tools
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          scripts/install-mise.sh "$MISE_VERSION" /usr/local/bin
+          mise trust && mise install uv pipx:semgrep
+      # Reports without blocking, as GitLab's SAST did; findings are triaged by hand.
+      - run: PATH="$HOME/.local/share/mise/shims:$PATH" semgrep scan --config p/default --metrics off

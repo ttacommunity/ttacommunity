@@ -1,0 +1,5 @@
+# Labels of our self-hosted runner pools, so actionlint accepts them.
+self-hosted-runner:
+  labels:
+    - picluster-amd64
+    - picluster-arm64

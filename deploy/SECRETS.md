@@ -12,7 +12,7 @@ Pipe values in; never use `--from-literal`, which leaves them in shell history.
 | `ratings-engine` | `database-url` | `engine` | The engine's connection URL, as `ratings` |
 | `ratings-api` | `password`, `database-url` | `api`, `scripts/seed-cluster-db.sh` | The read-only `ratings_api` login |
 | `ratings-admin` | `password`, `database-url` | `api` | The api's admin login `ratings_admin_api`, a member of `ratings_admin` (writes only what admin edits) |
-| `gitlab-registry` | `.dockerconfigjson` | `api`, `engine` | Pulls images from the project's GitLab registry. Deploy token `cluster-image-pull` |
+| `ghcr` | `.dockerconfigjson` | `api`, `engine` | Pulls the private images from GHCR. A machine account's classic token with `read:packages` only |
 | `ttacommunity-tunnel` | `credentials.json` | `cloudflared` | The `ttacommunity` tunnel's credentials, from `cloudflared tunnel create ttacommunity` (`~/.cloudflared/<tunnel id>.json`) |
 | `ratings-dev-engine` | `database-url` | `engine-dev` | The dev engine's connection URL, as `ratings_dev`, owner of `ratings_dev` only |
 | `ratings-dev-api` | `password`, `database-url` | `api-dev`, `scripts/seed-dev-db.sh` | The dev api's read-only `ratings_dev_api` login |
@@ -86,14 +86,14 @@ The api's admin login is made the same way, with `ratings_admin_api` for
 `ratings-admin`. Only listed logins may connect to `ratings`, so its SQL also
 has `GRANT CONNECT ON DATABASE ratings TO ratings_admin_api;`.
 
-`gitlab-registry` holds a **project deploy token with `read_registry` only**
-(GitLab → Settings → Repository → Deploy tokens):
+`ghcr` holds a **machine account's classic token with `read:packages` only**
+(a personal token would tie the cluster to one person):
 
 ```sh
-read -rp 'deploy token username: ' user
-read -rsp 'deploy token: ' token; echo
-printf '{"auths":{"registry.gitlab.com":{"auth":"%s"}}}' "$(printf '%s:%s' "$user" "$token" | base64 -w0)" |
-  kubectl -n ttacommunity create secret generic gitlab-registry \
+read -rp 'machine account username: ' user
+read -rsp 'token: ' token; echo
+printf '{"auths":{"ghcr.io":{"auth":"%s"}}}' "$(printf '%s:%s' "$user" "$token" | base64 -w0)" |
+  kubectl -n ttacommunity create secret generic ghcr \
     --type=kubernetes.io/dockerconfigjson --from-file=.dockerconfigjson=/dev/stdin
 unset token
 ```

@@ -329,23 +329,16 @@ a Cloudflare credential.
 The images are pinned in the same merge request as the code, so a merge
 deploys both together:
 
-1. When the code is final, run the manual `api-image` and `engine-image` jobs
-   in the merge request's pipeline. Each pushes `<image>:sha-<commit>`
+1. When the code is final, run the `images` workflow on the pull request's
+   branch (Actions → images → Run workflow). Each job pushes
+   `<image>:sha-<commit>` to GHCR and prints the reference in its summary
 2. Resolve each digest, and pin `tag@digest` in `deploy/`. Set the engine's
    `ENGINE_VERSION` in `deploy/engine.yaml` to the same commit: every run
-   records it:
+   records it. The packages are private, so log in with your `gh` token:
 
    ```bash
-   crane digest registry.gitlab.com/unstablehomelab/ttacommunity/api:sha-<commit>
-   ```
-
-   The registry is private: without a `crane auth login`, read the digest
-   through the GitLab API instead, and check it against the job's log line
-   `…:sha-<commit>: digest: sha256:…`:
-
-   ```bash
-   glab api "projects/:id/registry/repositories?per_page=50" | jq -r '.[] | "\(.id) \(.name)"'
-   glab api "projects/:id/registry/repositories/<id>/tags/sha-<commit>" | jq -r .digest
+   gh auth token | crane auth login ghcr.io -u "$(gh api user -q .login)" --password-stdin
+   crane digest ghcr.io/ttacommunity/ttacommunity/api:sha-<commit>
    ```
 
 3. Apply any new migration to the cluster's database **before** merging

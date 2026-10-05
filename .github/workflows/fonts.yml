@@ -1,0 +1,41 @@
+# Weekly: warn when Google Fonts has newer files than the committed ones.
+# pnpm fonts:update writes them for a reviewed commit.
+
+name: fonts
+
+on:
+  schedule:
+    - cron: '17 6 * * 1'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+defaults:
+  run:
+    # bash runs with -eo pipefail; the container's default sh hides a failure before a pipe.
+    shell: bash
+
+jobs:
+  check:
+    runs-on: ${{ vars.RUNNER_AMD64 || 'ubuntu-24.04' }}
+    container: docker.io/library/debian:trixie-slim@sha256:a99cfc517144bc59b1978475ec53b46ecabec7e43635402ee5b77cc54cd1b20a
+    env:
+      MISE_YES: '1'
+      COREPACK_ENABLE_DOWNLOAD_PROMPT: '0'
+      # The checkout belongs to another user than the job container's root.
+      GIT_CONFIG_COUNT: '1'
+      GIT_CONFIG_KEY_0: safe.directory
+      GIT_CONFIG_VALUE_0: '*'
+    steps:
+      - run: apt-get update -qq && apt-get install -y -qq --no-install-recommends bash ca-certificates curl git xz-utils >/dev/null
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: tools
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          scripts/install-mise.sh v2026.9.14 /usr/local/bin
+          mise trust && mise install node
+      - run: cd web/site && PATH="$HOME/.local/share/mise/shims:$PATH" node scripts/fonts.mjs check

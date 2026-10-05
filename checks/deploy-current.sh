@@ -15,7 +15,7 @@ case $dir in
   *) echo "deploy-current: checks deploy or deploy/dev, not '$dir'" >&2; exit 64 ;;
 esac
 
-registry='registry.gitlab.com/unstablehomelab/ttacommunity'
+registry='ghcr.io/ttacommunity/ttacommunity'
 
 # sources lists the paths image $1 is built from.
 sources() {

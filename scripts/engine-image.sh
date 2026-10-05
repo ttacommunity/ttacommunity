@@ -3,7 +3,7 @@
 # Wheels are downloaded for linux/amd64, layered onto the pinned Python base
 # with crane, and configured to match engine/Dockerfile. Prints the digest.
 #
-# Usage: scripts/engine-image.sh <image ref, e.g. registry.gitlab.com/group/project/engine:tag>
+# Usage: scripts/engine-image.sh <image ref, e.g. ghcr.io/org/repo/engine:tag>
 set -euo pipefail
 
 ref=${1:?usage: engine-image.sh <image ref>}

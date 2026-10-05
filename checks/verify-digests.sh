@@ -1,15 +1,15 @@
 #!/usr/bin/env bash
 # Ask each registry whether every pinned image digest in the repo exists.
 # A fabricated digest looks exactly like a real one; only the registry knows.
-# Private GitLab images use CI_REGISTRY_USER/CI_JOB_TOKEN when they are set,
-# and otherwise the local glab login, if there is one.
+# Private GHCR images use GITHUB_TOKEN when it is set (CI), and otherwise the
+# local gh login, if there is one.
 set -uo pipefail
 
 cd "$(dirname "$0")/.." || exit 1
 
-GLAB_TOKEN=""
-if [ -z "${CI_JOB_TOKEN:-}" ] && command -v glab >/dev/null 2>&1; then
-  GLAB_TOKEN=$(glab config get token --host gitlab.com 2>/dev/null) || GLAB_TOKEN=""
+GHCR_TOKEN=${GITHUB_TOKEN:-}
+if [ -z "$GHCR_TOKEN" ] && command -v gh >/dev/null 2>&1; then
+  GHCR_TOKEN=$(gh auth token --hostname github.com 2>/dev/null) || GHCR_TOKEN=""
 fi
 
 command -v curl >/dev/null 2>&1 || { echo "verify-digests: curl is required" >&2; exit 1; }
@@ -34,10 +34,8 @@ status() {
   if printf '%s' "$headers" | grep -qi '^HTTP/[0-9.]* 401'; then
     realm=$(printf '%s' "$headers" | tr -d '\r' | sed -n 's/^[Ww]ww-[Aa]uthenticate:.*realm="\([^"]*\)".*/\1/p')
     service=$(printf '%s' "$headers" | tr -d '\r' | sed -n 's/^[Ww]ww-[Aa]uthenticate:.*service="\([^"]*\)".*/\1/p')
-    if [ "$registry" = registry.gitlab.com ] && [ -n "${CI_JOB_TOKEN:-}" ]; then
-      auth=(-u "${CI_REGISTRY_USER}:${CI_JOB_TOKEN}")
-    elif [ "$registry" = registry.gitlab.com ] && [ -n "$GLAB_TOKEN" ]; then
-      auth=(-u "oauth2:$GLAB_TOKEN")
+    if [ "$registry" = ghcr.io ] && [ -n "$GHCR_TOKEN" ]; then
+      auth=(-u "token:$GHCR_TOKEN")
     fi
     token=$(curl -sS --max-time 25 "${auth[@]}" "$realm?scope=repository:$repo:pull&service=$service" |
       jq -r '.token // .access_token // empty')
@@ -47,7 +45,7 @@ status() {
 }
 
 mapfile -t sources < <(git ls-files -co --exclude-standard |
-  grep -E '(^|/)(Dockerfile|docker-compose\.yml|\.ko\.yaml|\.gitlab-ci\.yml)$|^deploy/|^scripts/')
+  grep -E '(^|/)(Dockerfile|docker-compose\.yml|\.ko\.yaml)$|^\.github/workflows/|^deploy/|^scripts/')
 refs=$(grep -hoE '[a-z0-9][a-z0-9./_-]*(:[A-Za-z0-9._-]+)?@sha256:[0-9a-f]{64}' "${sources[@]}" | sort -u)
 if [ -z "$refs" ]; then
   echo "verify-digests: found no pinned references, which is itself suspicious" >&2

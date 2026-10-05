@@ -22,7 +22,7 @@ patterns=(
   'glpat-[A-Za-z0-9_-]{20,}'                               # GitLab access token
   'gldt-[A-Za-z0-9_-]{20,}'                                # GitLab deploy token
   'glrt-[A-Za-z0-9_-]{20,}'                                # GitLab runner token
-  'ghp_[A-Za-z0-9]{36}'                                    # GitHub token
+  'gh[pousr]_[A-Za-z0-9]{36}'                              # GitHub tokens (personal, OAuth, app, refresh)
   'github_pat_[A-Za-z0-9_]{60,}'                           # GitHub fine-grained token
   'AKIA[0-9A-Z]{16}'                                       # AWS access key id
   '-----BEGIN [A-Z ]*PRIVATE KEY-----'                     # any private key
