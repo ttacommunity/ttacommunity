@@ -36,29 +36,31 @@ func main() {
 	classify := flag.Bool("classify", false, "only place unplaced games in the tournament catalogue, by their names")
 	cgeGames := flag.String("cge-games", "", "attach CGE's facts (seats, CGE users, finish dates) from the CSV named to the games already loaded")
 	cgeNew := flag.String("cge-new", "", "with -cge-games: a CSV of replay codes (replay_code column first) checked by hand as new games, added even where they may look like copies")
-	facts := flag.String("facts", "", "replace every recorded tournament fact of one kind (divisions, placements, corrections, dates, honours, rules, podiums, cge_tournaments, cge_stages, ladder_wins, season_notes, community or community_scores) with the CSV file named")
+	facts := flag.String("facts", "", "replace every recorded tournament fact of one kind (divisions, placements, corrections, dates, honours, rules, podiums, cge_tournaments, cge_stages, cge_standings, ladder_wins, season_notes, community or community_scores) with the CSV file named")
 	export := flag.String("export", "", "write every input table to the directory named (new or empty), one CSV each, with a manifest")
 	restore := flag.String("restore", "", "load an export from the directory named into a new database, after applying the migrations")
 	addAdmin := flag.String("add-admin", "", "add or update the admin with the Discord id named, with -name and -role")
 	adminName := flag.String("name", "", "with -add-admin: the admin's name as admin shows it")
 	adminRole := flag.String("role", "", "with -add-admin: admin or organiser")
+	standings := flag.String("check-standings", "", "compare CGE's standings tables with the games held: print the counts, and write each difference to the new CSV file named")
 	upstream := flag.String("export-upstream", "", "write every played game to the new file named, as the match CSV upstream's site loads")
 	flag.Usage = func() {
 		fmt.Fprintln(os.Stderr, "usage: load [-reset] <directory of match CSVs>")
 		fmt.Fprintln(os.Stderr, "       load -export <directory>")
 		fmt.Fprintln(os.Stderr, "       load -restore <directory>")
 		fmt.Fprintln(os.Stderr, "       load -export-upstream <file>")
+		fmt.Fprintln(os.Stderr, "       load -check-standings <file>")
 		fmt.Fprintln(os.Stderr, "       load -add-admin <Discord id> -name <name> -role admin|organiser")
 		fmt.Fprintln(os.Stderr, "       load -migrate")
 		fmt.Fprintln(os.Stderr, "       load -classify")
 		fmt.Fprintln(os.Stderr, "       load -cge-games <CSV file> [-cge-new <CSV file>]")
 		fmt.Fprintln(os.Stderr, "       load -countries <CSV file>...")
-		fmt.Fprintln(os.Stderr, "       load -facts divisions|placements|corrections|dates|honours|rules|podiums|cge_tournaments|cge_stages|ladder_wins|season_notes|community|community_scores <CSV file>")
+		fmt.Fprintln(os.Stderr, "       load -facts divisions|placements|corrections|dates|honours|rules|podiums|cge_tournaments|cge_stages|cge_standings|ladder_wins|season_notes|community|community_scores <CSV file>")
 		fmt.Fprintln(os.Stderr, "The database is RATINGS_DATABASE_URL.")
 		flag.PrintDefaults()
 	}
 	flag.Parse()
-	one := !*reset && btoi(*migrate)+btoi(*classify)+btoi(*cgeGames != "")+btoi(*countries)+btoi(*facts != "")+btoi(*export != "")+btoi(*restore != "")+btoi(*upstream != "")+btoi(*addAdmin != "") == 1
+	one := !*reset && btoi(*migrate)+btoi(*classify)+btoi(*cgeGames != "")+btoi(*countries)+btoi(*facts != "")+btoi(*export != "")+btoi(*restore != "")+btoi(*upstream != "")+btoi(*addAdmin != "")+btoi(*standings != "") == 1
 	var err error
 	switch {
 	case *migrate && one && flag.NArg() == 0:
@@ -91,7 +93,9 @@ func main() {
 		})
 	case *upstream != "" && one && flag.NArg() == 0:
 		err = exportForUpstream(*upstream)
-	case !*migrate && !*classify && *cgeGames == "" && !*countries && *facts == "" && *export == "" && *restore == "" && *upstream == "" && *addAdmin == "" && flag.NArg() == 1:
+	case *standings != "" && one && flag.NArg() == 0:
+		err = checkStandings(*standings)
+	case !*migrate && !*classify && *cgeGames == "" && !*countries && *facts == "" && *export == "" && *restore == "" && *upstream == "" && *addAdmin == "" && *standings == "" && flag.NArg() == 1:
 		err = run(*reset, flag.Arg(0))
 	default:
 		flag.Usage()
@@ -409,6 +413,8 @@ func replaceFacts(kind, file string) error {
 		return loadFacts(kind, file, tournamentcsv.ReadCGETournaments, store.ReplaceCGETournaments)
 	case "cge_stages":
 		return loadFacts(kind, file, tournamentcsv.ReadCGEStages, store.ReplaceCGEStages)
+	case "cge_standings":
+		return loadFacts(kind, file, tournamentcsv.ReadCGEStandings, store.ReplaceCGEStandings)
 	case "ladder_wins":
 		return loadFacts(kind, file, tournamentcsv.ReadLadderWins, store.ReplaceLadderWins)
 	case "season_notes":
@@ -418,7 +424,7 @@ func replaceFacts(kind, file string) error {
 	case "community_scores":
 		return loadFacts(kind, file, tournamentcsv.ReadCommunityScores, store.ReplaceCommunityScores)
 	}
-	return fmt.Errorf("unknown kind of fact %q: want divisions, placements, corrections, dates, honours, rules, podiums, cge_tournaments, cge_stages, ladder_wins, season_notes, community or community_scores", kind)
+	return fmt.Errorf("unknown kind of fact %q: want divisions, placements, corrections, dates, honours, rules, podiums, cge_tournaments, cge_stages, cge_standings, ladder_wins, season_notes, community or community_scores", kind)
 }
 
 func loadFacts[T any](
