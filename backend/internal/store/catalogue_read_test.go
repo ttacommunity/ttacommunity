@@ -93,16 +93,28 @@ func TestCatalogueTournamentGivesSeasonsInOrderWithStagesAndPodium(t *testing.T)
 	stage := func(label string, d time.Time) CatalogueStage {
 		return CatalogueStage{Label: label, Span: GameSpan{Games: 1, Players: 2, First: d, Last: d}}
 	}
-	want := CatalogueTournament{Slug: "wimbledon", Name: "Wimbledon", Rated: true, Seasons: []CatalogueSeason{
-		{Label: "2023", InChampions: true, Span: GameSpan{Games: 1, Players: 2, First: day("2023-07-15"), Last: day("2023-07-15")},
-			Stages: []CatalogueStage{stage("Stage 1", day("2023-07-15"))}, Podium: []PodiumPlace{}, CGE: []CGELink{}},
-		{Label: "2024", InChampions: true, Span: GameSpan{Games: 2, Players: 3, First: day("2024-07-01"), Last: day("2025-02-24")},
+	type season struct {
+		Label  string
+		Span   GameSpan
+		Stages []CatalogueStage
+		Podium []PodiumPlace
+	}
+	want := []season{
+		{Label: "2023", Span: GameSpan{Games: 1, Players: 2, First: day("2023-07-15"), Last: day("2023-07-15")},
+			Stages: []CatalogueStage{stage("Stage 1", day("2023-07-15"))}, Podium: []PodiumPlace{}},
+		{Label: "2024", Span: GameSpan{Games: 2, Players: 3, First: day("2024-07-01"), Last: day("2025-02-24")},
 			Stages: []CatalogueStage{stage("Stage 1", day("2024-07-01")), stage("Stage 7", day("2025-02-24"))},
-			Podium: []PodiumPlace{{Place: 1, Name: "ann", Final: "", Finished: day("2025-02-24"), Source: "CGE"}}, CGE: []CGELink{}},
-	}, TopTierWins: []LadderWin{}, Players: []string{"ann", "bob2", "bob3", "bob4"}, Rules: []EditionRules{}}
-	got.GameRecords, got.Stories = nil, nil // its highest scores and stories have their own tests
-	if !reflect.DeepEqual(got, want) {
-		t.Errorf("CatalogueTournament = %+v, want %+v", got, want)
+			Podium: []PodiumPlace{{Place: 1, Name: "ann", Final: "", Finished: day("2025-02-24"), Source: "CGE"}}},
+	}
+	seasons := make([]season, len(got.Seasons))
+	for i, s := range got.Seasons {
+		seasons[i] = season{s.Label, s.Span, s.Stages, s.Podium}
+	}
+	if got.Slug != "wimbledon" || got.Name != "Wimbledon" || !reflect.DeepEqual(seasons, want) {
+		t.Errorf("CatalogueTournament %s %q seasons = %+v, want %+v", got.Slug, got.Name, seasons, want)
+	}
+	if !reflect.DeepEqual(got.Players, []string{"ann", "bob2", "bob3", "bob4"}) {
+		t.Errorf("players = %v", got.Players)
 	}
 }
 

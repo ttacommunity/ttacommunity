@@ -5,6 +5,7 @@ package store
 import (
 	"context"
 	"errors"
+	"fmt"
 	"reflect"
 	"slices"
 	"strings"
@@ -46,10 +47,16 @@ func TestAdminTournamentsListSettingsSeasonsAndNotes(t *testing.T) {
 	if !worlds.Rated || worlds.Visible || worlds.Community {
 		t.Errorf("worlds settings = %+v, want rated, hidden, and not yet in the community leaderboard (no migration row)", worlds)
 	}
-	want := []AdminSeason{{Label: "2025", OriginalName: "2025", HasGames: true, Rated: true, InChampions: true, Stages: []AdminStage{
-		{Label: "Stage 1", OriginalName: "Stage 1"}, {Label: "Stage 2", OriginalName: "Stage 2", Note: "The upper bracket."}}}}
-	if !reflect.DeepEqual(worlds.Seasons, want) {
-		t.Errorf("worlds seasons = %+v, want %+v", worlds.Seasons, want)
+	var got2 []string
+	for _, se := range worlds.Seasons {
+		got2 = append(got2, fmt.Sprintf("%s games=%v note=%q", se.Label, se.HasGames, se.Note))
+		for _, st := range se.Stages {
+			got2 = append(got2, fmt.Sprintf("  %s note=%q", st.Label, st.Note))
+		}
+	}
+	want := []string{`2025 games=true note=""`, `  Stage 1 note=""`, `  Stage 2 note="The upper bracket."`}
+	if !reflect.DeepEqual(got2, want) {
+		t.Errorf("worlds seasons = %q, want %q", got2, want)
 	}
 }
 

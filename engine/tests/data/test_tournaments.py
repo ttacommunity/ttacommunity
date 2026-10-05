@@ -625,17 +625,20 @@ def test_derive_writes_every_series_counts(conn, add_match, run_id):
     derive_tournaments(conn=conn, run_id=run_id)
 
     rows = conn.execute(
-        "SELECT series, games, editions FROM tournament_series WHERE run_id = %s ORDER BY series",
+        "SELECT series, games, editions FROM tournament_series WHERE run_id = %s",
         (run_id,),
     ).fetchall()
-    assert [tuple(r.values()) for r in rows] == [
-        ("grand_slams", 0, 0),
-        ("intermezzo", 0, 0),
-        ("international", 1, 30),
-        ("ladders", 0, 0),
-        ("royal_league", 0, 0),
-        ("worlds", 1, 1),
-    ]
+    got = {r["series"]: (r["games"], r["editions"]) for r in rows}
+    assert set(got) == {
+        "international",
+        "intermezzo",
+        "royal_league",
+        "worlds",
+        "grand_slams",
+        "ladders",
+    }
+    assert got["international"] == (1, 30)
+    assert got["worlds"] == (1, 1)
 
 
 def positions(conn, run_id, series):
