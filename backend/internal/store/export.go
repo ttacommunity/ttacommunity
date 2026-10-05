@@ -31,7 +31,7 @@ var ExportTables = []string{
 	"import_batches", "refused_rows", "players",
 	"tournaments", "tournament_seasons", "tournament_stages",
 	"matches", "match_seats",
-	"rankings", "ranking_tournaments", "cge_tournaments",
+	"rankings", "ranking_tournaments", "cge_tournaments", "cge_standings", "community_points", "community_quarters", "community_ladders",
 	"community_scores", "community_standings",
 	"tournament_career_honours", "tournament_cup_podiums", "tournament_finish_dates",
 	"tournament_group_divisions", "tournament_ladder_wins", "tournament_official_placements",

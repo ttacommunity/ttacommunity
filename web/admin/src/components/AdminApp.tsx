@@ -5,6 +5,7 @@ import { SETTINGS, settingsHref } from '../lib/tournament-page';
 import AdminList from './AdminList';
 import RunsPanel from './RunsPanel';
 import DataCard from './DataCard';
+import StandingsCheckPanel from './StandingsCheckPanel';
 import TitlesPanel from './TitlesPanel';
 import BadgesPanel from './BadgesPanel';
 import './AdminApp.css';
@@ -45,6 +46,7 @@ export default function AdminApp() {
         Signed in as <strong>{me.data.name}</strong> ({me.data.role})
       </p>
       <DataCard />
+      <StandingsCheckPanel />
       {me.data.role === 'admin' && <RunsPanel />}
       {me.data.role === 'admin' && <AdminList myName={me.data.name} />}
       {me.data.role === 'admin' && <TitlesPanel />}

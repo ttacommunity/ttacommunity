@@ -1061,6 +1061,29 @@ paths:
           $ref: "#/components/responses/Unauthorized"
         "403":
           $ref: "#/components/responses/Forbidden"
+  /v1/admin/standings-check:
+    get:
+      operationId: getAdminStandingsCheck
+      tags: [admin]
+      summary: CGE's standings tables checked against the games held
+      description: >-
+        Each player's games and places in every CGE stage both hold, against
+        CGE's table for it (their groups added up). Lists each player who
+        differs, by stage.
+      responses:
+        "200":
+          description: The stages checked, and every difference
+          headers:
+            Cache-Control:
+              $ref: "#/components/headers/CacheControl"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StandingsCheck"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
   /v1/admin/badges:
     get:
       operationId: getAdminBadges
@@ -1942,6 +1965,90 @@ components:
         last_load_refused:
           description: Rows the last load refused
           type: integer
+    StandingsCheck:
+      type: object
+      required: [stages, stages_only_on_cge]
+      properties:
+        stages:
+          description: Every CGE stage both hold, in CGE's order
+          type: array
+          items:
+            $ref: "#/components/schemas/StageCheck"
+        stages_only_on_cge:
+          description: Stages CGE has a table for and we hold no game of
+          type: integer
+    StageCheck:
+      type: object
+      required: [cge_tournament, cge_season, name, players, agree, differences]
+      properties:
+        cge_tournament:
+          type: integer
+        cge_season:
+          type: integer
+        name:
+          description: CGE's name for the tournament; empty when it is not in the catalogue
+          type: string
+        players:
+          description: Players either side lists with a game
+          type: integer
+        agree:
+          type: integer
+        differences:
+          type: array
+          items:
+            $ref: "#/components/schemas/StandingDifference"
+    StandingDifference:
+      type: object
+      required: [cge_user, player, kind, cge_games, held_games, held_never_played, cge_points, cge_places, held_places]
+      properties:
+        cge_user:
+          type: integer
+        player:
+          description: The name CGE shows
+          type: string
+        kind:
+          description: >-
+            games: a different number of games; places: the same games in
+            other places; places_after_a_timeout: as places, where one of
+            their games had a timeout, which CGE's AI played on; not_held: CGE
+            lists games of theirs and we hold none; not_on_cge: the other way
+          type: string
+          enum: [games, places, places_after_a_timeout, not_held, not_on_cge]
+        cge_games:
+          type: integer
+        held_games:
+          description: Every game held, including those no one played
+          type: integer
+        held_never_played:
+          description: Of held_games, those no one played; some CGE tables count them, some do not
+          type: integer
+        cge_points:
+          type: number
+          format: double
+        cge_places:
+          $ref: "#/components/schemas/Places"
+        held_places:
+          $ref: "#/components/schemas/Places"
+    Places:
+      description: Firsts, seconds and so on in games of 2, 3 and 4 players; null for a size not played
+      type: object
+      required: [p2, p3, p4]
+      properties:
+        p2:
+          type: array
+          nullable: true
+          items:
+            type: integer
+        p3:
+          type: array
+          nullable: true
+          items:
+            type: integer
+        p4:
+          type: array
+          nullable: true
+          items:
+            type: integer
     ExtraBadge:
       type: object
       required: [label, description]

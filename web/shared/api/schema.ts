@@ -776,6 +776,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/admin/standings-check": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * CGE's standings tables checked against the games held
+         * @description Each player's games and places in every CGE stage both hold, against CGE's table for it (their groups added up). Lists each player who differs, by stage.
+         */
+        get: operations["getAdminStandingsCheck"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/admin/badges": {
         parameters: {
             query?: never;
@@ -1229,6 +1249,47 @@ export interface components {
             last_load: string | null;
             /** @description Rows the last load refused */
             last_load_refused: number;
+        };
+        StandingsCheck: {
+            /** @description Every CGE stage both hold, in CGE's order */
+            stages: components["schemas"]["StageCheck"][];
+            /** @description Stages CGE has a table for and we hold no game of */
+            stages_only_on_cge: number;
+        };
+        StageCheck: {
+            cge_tournament: number;
+            cge_season: number;
+            /** @description CGE's name for the tournament; empty when it is not in the catalogue */
+            name: string;
+            /** @description Players either side lists with a game */
+            players: number;
+            agree: number;
+            differences: components["schemas"]["StandingDifference"][];
+        };
+        StandingDifference: {
+            cge_user: number;
+            /** @description The name CGE shows */
+            player: string;
+            /**
+             * @description games: a different number of games; places: the same games in other places; places_after_a_timeout: as places, where one of their games had a timeout, which CGE's AI played on; not_held: CGE lists games of theirs and we hold none; not_on_cge: the other way
+             * @enum {string}
+             */
+            kind: "games" | "places" | "places_after_a_timeout" | "not_held" | "not_on_cge";
+            cge_games: number;
+            /** @description Every game held, including those no one played */
+            held_games: number;
+            /** @description Of held_games, those no one played; some CGE tables count them, some do not */
+            held_never_played: number;
+            /** Format: double */
+            cge_points: number;
+            cge_places: components["schemas"]["Places"];
+            held_places: components["schemas"]["Places"];
+        };
+        /** @description Firsts, seconds and so on in games of 2, 3 and 4 players; null for a size not played */
+        Places: {
+            p2: number[] | null;
+            p3: number[] | null;
+            p4: number[] | null;
         };
         ExtraBadge: {
             label: string;
@@ -3355,6 +3416,29 @@ export interface operations {
             403: components["responses"]["Forbidden"];
         };
     };
+    getAdminStandingsCheck: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The stages checked, and every difference */
+            200: {
+                headers: {
+                    "Cache-Control": components["headers"]["CacheControl"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StandingsCheck"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
     getAdminBadges: {
         parameters: {
             query?: never;
@@ -3979,6 +4063,7 @@ export const pathsV1RunsRunLeaderboardCsvGetParametersQuerySortValues: ReadonlyA
 export const pathsV1RunsRunLeaderboardCsvGetParametersQueryOrderValues: ReadonlyArray<FlattenedDeepRequired<paths>["/v1/runs/{run}/leaderboard.csv"]["get"]["parameters"]["query"]["order"]> = ["asc", "desc"];
 export const pathsV1RunsRunLeaderboardCsvGetParametersQueryStats_viewValues: ReadonlyArray<FlattenedDeepRequired<paths>["/v1/runs/{run}/leaderboard.csv"]["get"]["parameters"]["query"]["stats_view"]> = ["season", "career"];
 export const adminRunStatusValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["AdminRun"]["status"]> = ["running", "complete", "failed"];
+export const standingDifferenceKindValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["StandingDifference"]["kind"]> = ["games", "places", "places_after_a_timeout", "not_held", "not_on_cge"];
 export const adminTitleValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["AdminTitle"]> = ["SGM", "GM", "M", "P", "G", "S", "B", "W", ""];
 export const adminPersonRoleValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["AdminPerson"]["role"]> = ["admin", "organiser"];
 export const adminRoleRoleValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["AdminRole"]["role"]> = ["admin", "organiser"];
