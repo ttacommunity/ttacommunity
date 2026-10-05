@@ -306,9 +306,7 @@ func TestCurrentRun(t *testing.T) {
 			if got := rec.Header().Get("Cache-Control"); got != tt.wantCache {
 				t.Errorf("Cache-Control = %q, want %q", got, tt.wantCache)
 			}
-			if got := strings.TrimSpace(rec.Body.String()); got != tt.wantBody {
-				t.Errorf("body = %q, want %q", got, tt.wantBody)
-			}
+			wantJSON(t, rec.Body.Bytes(), "", tt.wantBody)
 		})
 	}
 }
@@ -406,9 +404,7 @@ func TestLeaderboard(t *testing.T) {
 			if got := rec.Header().Get("Content-Type"); got != "application/json" {
 				t.Errorf("GET %s: Content-Type = %q, want %q", tt.path, got, "application/json")
 			}
-			if got := strings.TrimSpace(rec.Body.String()); got != tt.wantBody {
-				t.Errorf("GET %s: body = %q, want %q", tt.path, got, tt.wantBody)
-			}
+			wantJSON(t, rec.Body.Bytes(), "", tt.wantBody)
 			if called := tt.ratings.calls > 0; called != tt.wantCall {
 				t.Fatalf("GET %s: store called = %t, want %t", tt.path, called, tt.wantCall)
 			}
@@ -506,9 +502,7 @@ func TestHistory(t *testing.T) {
 			if got := rec.Header().Get("Cache-Control"); got != tt.wantCache {
 				t.Errorf("GET %s: Cache-Control = %q, want %q", tt.path, got, tt.wantCache)
 			}
-			if got := strings.TrimSpace(rec.Body.String()); got != tt.wantBody {
-				t.Errorf("GET %s: body = %q, want %q", tt.path, got, tt.wantBody)
-			}
+			wantJSON(t, rec.Body.Bytes(), "", tt.wantBody)
 			if (tt.ratings.gotAt == nil) != (tt.wantAt == nil) || (tt.wantAt != nil && !tt.ratings.gotAt.Equal(*tt.wantAt)) {
 				t.Errorf("GET %s: store asked for at %v, want %v", tt.path, tt.ratings.gotAt, tt.wantAt)
 			}

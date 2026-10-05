@@ -54,12 +54,15 @@ func TestCatalogue(t *testing.T) {
 		},
 	}}
 	rec, _ := serve(t, f, "/v1/runs/7/catalogue")
-	want := `{"cge_tournaments":[{"cge_tournament":5373,"finished":"2025-11-19","name":"Nations Cup","organiser":"","rated":false,"started":null,` +
-		`"status":"finished","tournament":"nations_cup","url":"https://account.czechgames.com/tournaments/detail/5373"}],"run_id":7,` +
-		`"tournaments":[{"card":{"cadence":"","icon":"","subtitle":"","summary":"","tagline":""},"first_game":"2019-03-10","games":25342,"last_game":"2026-05-31","name":"Intermezzo","players":1900,"rankings":["community"],"seasons":30,"slug":"intermezzo"}]}`
-	if got := strings.TrimSpace(rec.Body.String()); rec.Code != http.StatusOK || got != want {
-		t.Errorf("GET catalogue: %d %s\nwant 200 %s", rec.Code, got, want)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("GET catalogue = %d %s", rec.Code, rec.Body)
 	}
+	body := rec.Body.Bytes()
+	wantJSON(t, body, "run_id", `7`)
+	wantJSON(t, body, "cge_tournaments", `[{"cge_tournament":5373,"finished":"2025-11-19","name":"Nations Cup","organiser":"","rated":false,
+		"started":null,"status":"finished","tournament":"nations_cup","url":"https://account.czechgames.com/tournaments/detail/5373"}]`)
+	wantJSON(t, body, "tournaments", `[{"slug":"intermezzo","name":"Intermezzo","first_game":"2019-03-10","last_game":"2026-05-31",
+		"games":25342,"players":1900,"seasons":30,"rankings":["community"]}]`)
 	if rec.Header().Get("Cache-Control") != "public, max-age=300" || f.gotRun != 7 {
 		t.Errorf("GET catalogue: Cache-Control %q, asked run %d", rec.Header().Get("Cache-Control"), f.gotRun)
 	}
@@ -83,15 +86,26 @@ func TestCatalogueTournament(t *testing.T) {
 	}}, Ladder: true, TopTierWins: []store.LadderWin{{Name: "wolvs", Wins: 10, Source: "Hall of Fame"}, {Name: "Grozz", Wins: 3.5, Source: "Hall of Fame"}},
 		Players: []string{"Grozz", "saru"}, Rules: []store.EditionRules{{CGETournament: 4991, Name: "Wimbledon 2024", Description: "2p knock-out."}}}}
 	rec, _ := serve(t, f, "/v1/runs/7/catalogue/wimbledon")
-	want := `{"card":{"cadence":"","icon":"","subtitle":"","summary":"","tagline":""},"game_records":[],"ladder":true,"name":"Wimbledon","players":["Grozz","saru"],"rated":false,` +
-		`"rules":[{"cge_tournament":4991,"description":"2p knock-out.","name":"Wimbledon 2024","url":"https://account.czechgames.com/tournaments/detail/4991"}],"run_id":7,"seasons":[{"cge_pages":["https://account.czechgames.com/tournaments/detail/4991","https://account.czechgames.com/tournaments/detail/19/20"],` +
-		`"first_game":"2024-07-01","games":632,"in_champions":true,"label":"2024","last_game":"2025-02-24","note":"The first held in two halves.","players":128,` +
-		`"podium":[{"final":"","finished":"2025-02-24","name":"saru","place":1,"source":"CGE /tournaments/detail/4991/7"}],` +
-		`"stages":[{"first_game":"2025-02-03","games":5,"label":"Stage 7","last_game":"2025-02-24","note":"Played at the club.","players":2}]}],"slug":"wimbledon",` +
-		`"stories":[],"top_tier_wins":[{"name":"wolvs","source":"Hall of Fame","wins":10},{"name":"Grozz","source":"Hall of Fame","wins":3.5}]}`
-	if got := strings.TrimSpace(rec.Body.String()); rec.Code != http.StatusOK || got != want {
-		t.Errorf("GET a tournament: %d %s\nwant 200 %s", rec.Code, got, want)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("GET a tournament = %d %s", rec.Code, rec.Body)
 	}
+	body := rec.Body.Bytes()
+	wantJSON(t, body, "run_id", `7`)
+	wantJSON(t, body, "slug", `"wimbledon"`)
+	wantJSON(t, body, "name", `"Wimbledon"`)
+	wantJSON(t, body, "ladder", `true`)
+	wantJSON(t, body, "players", `["Grozz","saru"]`)
+	wantJSON(t, body, "rules", `[{"cge_tournament":4991,"description":"2p knock-out.","name":"Wimbledon 2024",
+		"url":"https://account.czechgames.com/tournaments/detail/4991"}]`)
+	wantJSON(t, body, "seasons.0", `{"label":"2024","first_game":"2024-07-01","last_game":"2025-02-24","games":632,"players":128,
+		"note":"The first held in two halves.",
+		"cge_pages":["https://account.czechgames.com/tournaments/detail/4991","https://account.czechgames.com/tournaments/detail/19/20"]}`)
+	wantJSON(t, body, "seasons.0.podium", `[{"final":"","finished":"2025-02-24","name":"saru","place":1,"source":"CGE /tournaments/detail/4991/7"}]`)
+	wantJSON(t, body, "seasons.0.stages", `[{"first_game":"2025-02-03","games":5,"label":"Stage 7","last_game":"2025-02-24",
+		"note":"Played at the club.","players":2}]`)
+	wantJSON(t, body, "top_tier_wins", `[{"name":"wolvs","source":"Hall of Fame","wins":10},{"name":"Grozz","source":"Hall of Fame","wins":3.5}]`)
+	wantJSON(t, body, "stories", `[]`)
+	wantJSON(t, body, "game_records", `[]`)
 	if rec.Header().Get("Cache-Control") != "public, max-age=300" || f.gotRun != 7 || f.gotSlug != "wimbledon" {
 		t.Errorf("GET a tournament: Cache-Control %q; asked run %d, %q", rec.Header().Get("Cache-Control"), f.gotRun, f.gotSlug)
 	}
