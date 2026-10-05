@@ -1,0 +1,76 @@
+# Build the api and engine images and push them to GHCR as sha-<commit>.
+# Pinning a digest in deploy/ is a reviewed commit; CI never commits one.
+
+name: images
+
+on:
+  push:
+    branches: [main]
+    paths: [backend/**, engine/**, scripts/engine-image.sh, mise.toml, .github/workflows/images.yml]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  MISE_VERSION: v2026.9.14
+  MISE_YES: '1'
+  REGISTRY: ghcr.io/${{ github.repository }}
+
+jobs:
+  api:
+    runs-on: ${{ vars.RUNNER_AMD64 || 'ubuntu-24.04' }}
+    container: docker.io/library/debian:trixie-slim@sha256:a99cfc517144bc59b1978475ec53b46ecabec7e43635402ee5b77cc54cd1b20a
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - run: apt-get update -qq && apt-get install -y -qq --no-install-recommends bash ca-certificates curl git jq xz-utils >/dev/null
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: tools
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          scripts/install-mise.sh "$MISE_VERSION" /usr/local/bin
+          mise trust && mise install go ko crane
+      # ko builds in userspace, with mise's Go; platforms come from backend/.ko.yaml.
+      - env:
+          TOKEN: ${{ github.token }}
+          ACTOR: ${{ github.actor }}
+        run: |
+          export PATH="$HOME/.local/share/mise/shims:$PATH"
+          echo "$TOKEN" | ko login ghcr.io -u "$ACTOR" --password-stdin
+          cd backend
+          ref=$(KO_DOCKER_REPO="$REGISTRY/api" ko build ./cmd/api --bare --tags "sha-${GITHUB_SHA::8}")
+          crane manifest "$ref" | jq -e '[.manifests[].platform.architecture] | contains(["amd64", "arm64"])'
+          echo "api image $ref" | tee -a "$GITHUB_STEP_SUMMARY"
+
+  engine:
+    runs-on: ${{ vars.RUNNER_AMD64 || 'ubuntu-24.04' }}
+    container: docker.io/library/debian:trixie-slim@sha256:a99cfc517144bc59b1978475ec53b46ecabec7e43635402ee5b77cc54cd1b20a
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - run: apt-get update -qq && apt-get install -y -qq --no-install-recommends bash ca-certificates curl git jq xz-utils >/dev/null
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: tools
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          scripts/install-mise.sh "$MISE_VERSION" /usr/local/bin
+          mise trust && mise install uv crane
+      - env:
+          TOKEN: ${{ github.token }}
+          ACTOR: ${{ github.actor }}
+        run: |
+          export PATH="$HOME/.local/share/mise/shims:$PATH"
+          echo "$TOKEN" | crane auth login ghcr.io -u "$ACTOR" --password-stdin
+          ref="$REGISTRY/engine:sha-${GITHUB_SHA::8}"
+          digest=$(scripts/engine-image.sh "$ref")
+          crane config "$ref" | jq -e '.architecture == "amd64" and .config.User == "65532:65532"'
+          echo "engine image $ref@$digest" | tee -a "$GITHUB_STEP_SUMMARY"
