@@ -1,10 +1,16 @@
+from datetime import date
+
 import pytest
 
 from tta_ratings_engine.data.community import (
+    best_eight,
     derive_community,
     division,
+    editions,
     eiffel_floor,
+    event_code,
     place_points,
+    ranked,
     round_name,
     table_for,
     wimbledon_round,
@@ -159,11 +165,11 @@ def points_table(conn, slug, edition, cells):
     conn.commit()
 
 
-def cge_line(conn, t, s, group, place, player, user, games=6):
+def cge_line(conn, t, s, group, place, player, user, games=6, points=10):
     conn.execute(
         "INSERT INTO cge_standings (cge_tournament, cge_season, group_name, row_number, place, player_name, cge_user, "
-        "banned, games, points, source) VALUES (%s, %s, %s, %s, %s, %s, %s, false, %s, 0, 'CGE')",
-        (t, s, group, place, place, player, user, games),
+        "banned, games, points, source) VALUES (%s, %s, %s, %s, %s, %s, %s, false, %s, %s, 'CGE')",
+        (t, s, group, place, place, player, user, games, points),
     )
     conn.commit()
 
@@ -343,3 +349,99 @@ def test_a_league_kind_takes_only_its_own_seasons_stage(conn, run_id, catalogue)
     cge_line(conn, 3947, 3, "The Top", 1, "ann", 2)
     derive_community(conn=conn, run_id=run_id)
     assert event_points(conn, run_id) == [("eiffel_tower", "3", "ann", 1000)]
+
+
+# Editions, best 8 and ranks.
+
+
+def test_editions_are_calendar_years_and_rolling_years_to_each_complete_quarter():
+    got = editions(first=(2024, 3), latest=date(2025, 2, 10))
+    assert got["2024"] == {(2024, 1), (2024, 2), (2024, 3), (2024, 4)}
+    assert got["2025"] == {(2025, 1), (2025, 2), (2025, 3), (2025, 4)}
+    assert got["rolling 2024 Q4"] == {(2024, 1), (2024, 2), (2024, 3), (2024, 4)}
+    assert got["rolling 2024 Q3"] == {(2023, 4), (2024, 1), (2024, 2), (2024, 3)}
+    assert "rolling 2025 Q1" not in got  # the quarter is not over
+    assert "rolling 2024 Q2" not in got  # before the first event
+
+
+def test_best_eight_sums_the_eight_best_and_counts_the_events_that_scored():
+    assert best_eight({"a": 100, "b": 0, **{f"e{i}": i for i in range(1, 10)}}) == (
+        100 + 9 + 8 + 7 + 6 + 5 + 4 + 3,
+        10,
+    )
+
+
+def test_equal_points_share_a_rank():
+    assert ranked({"ann": 50, "bob": 70, "cy": 50, "dee": 10}) == [
+        (1, "bob"),
+        (2, "ann"),
+        (2, "cy"),
+        (4, "dee"),
+    ]
+
+
+@pytest.mark.parametrize(
+    "slug, season, want",
+    [("international", "30", "ic_30"), ("intermezzo", "27", "im_27"), ("royal_league", "5", "rl_05"),
+     ("worlds", "2025", "wrld"), ("australian_open", "2025", "aus"), ("wimbledon", "2024", "wmbl"),
+     ("eiffel_tower", "3", "eif")],
+)  # fmt: skip
+def test_event_code_is_the_organisers(slug, season, want):
+    assert event_code(slug, season) == want
+
+
+def rankings(conn, run_id, edition):
+    rows = conn.execute(
+        "SELECT rank, player_name, points, events FROM community_rankings WHERE run_id = %s AND edition = %s ORDER BY rank, player_name",
+        (run_id, edition),
+    ).fetchall()
+    return [(r["rank"], r["player_name"], r["points"], r["events"]) for r in rows]
+
+
+def test_an_edition_ranks_its_seasons_and_the_sheets_other_events(
+    conn, run_id, catalogue, add_match
+):
+    catalogue("international", "30", [("", 21, 21)], quarter=(2025, 3))
+    catalogue("international", "31", [("", 21, 22)], quarter=(2025, 4))
+    catalogue("international", "29", [("", 21, 20)], quarter=(2025, 2))
+    points_table(conn, "international", 2025, {("Wood", 1): 27, ("Wood", 2): 20})
+    cge_line(conn, 21, 21, "Wood 1", 1, "ann", 1)
+    cge_line(conn, 21, 22, "Wood 1", 2, "ann", 1)
+    cge_line(conn, 21, 22, "Wood 1", 1, "Bob", 2)
+    cge_line(conn, 21, 20, "Wood 1", 1, "cy", 3)
+    add_match(("Bob", 1), ("x", 0), day=date(2026, 1, 5), placed=None)
+    # Royal League is not computed: the sheet's points stand, under our spelling of the name.
+    conn.execute(
+        "INSERT INTO community_scores VALUES ('2025', 'BOB', 'rl_05', 30, 'sheet')"
+    )
+    conn.execute(
+        "INSERT INTO community_scores VALUES ('2025', 'BOB', 'ic_30', 999, 'sheet')"
+    )  # computed: ours win
+    conn.commit()
+    derive_community(conn=conn, run_id=run_id)
+    assert rankings(conn, run_id, "2025") == [
+        (1, "Bob", 57, 2),
+        (2, "ann", 47, 2),
+        (3, "cy", 27, 1),
+    ]
+    # The sheet has no such edition, so only computed events count.
+    assert rankings(conn, run_id, "rolling 2025 Q4") == [
+        (1, "ann", 47, 2),
+        (2, "Bob", 27, 1),
+        (2, "cy", 27, 1),
+    ]
+
+
+def test_an_eiffel_tower_player_without_points_above_zero_scores_nothing(
+    conn, run_id, catalogue
+):
+    # The Eiffel Tower takes points off for timeouts; its table's "<0" row is worth nothing.
+    catalogue("eiffel_tower", "3", [("", 3947, 3)], quarter=(2025, 4))
+    points_table(conn, "eiffel_tower", 2025, {("Other", 24): 5, ("Other", 25): 4})
+    cge_line(conn, 3947, 3, "The Legs", 24, "ann", 1, points=3)
+    cge_line(conn, 3947, 3, "The Legs", 25, "bob", 2, points=0)
+    derive_community(conn=conn, run_id=run_id)
+    assert event_points(conn, run_id) == [
+        ("eiffel_tower", "3", "ann", 5),
+        ("eiffel_tower", "3", "bob", 0),
+    ]

@@ -115,7 +115,7 @@ RECOMPUTED_TABLES = [
     "pairwise_matches", "player_titles", "player_peak_titles", "player_yearly_titles",
     "tournament_games", "tournament_standings", "tournament_boards", "tournament_season_records",
     "tournament_series", "tournament_legends", "tournament_achievements", "tournament_records",
-    "community_event_points",
+    "community_event_points", "community_edition_points", "community_rankings",
 ]  # fmt: skip
 
 
