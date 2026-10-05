@@ -47,7 +47,22 @@ The toolchain versions are pinned in [`mise.toml`](mise.toml): Go, Node, uv
 (which fetches Python itself), crane and shellcheck. With
 [mise](https://mise.jdx.dev) installed, `mise install` fetches exactly those,
 and CI uses the same file. pnpm comes through Node's corepack, at the version
-`web/package.json` pins. On Windows, use WSL2 or the containers.
+`web/package.json` pins.
+
+**On Windows**, natively, without Docker (PowerShell; Windows PowerShell 5.1
+or PowerShell 7). Allow local scripts once:
+`Set-ExecutionPolicy -Scope CurrentUser RemoteSigned`. Then:
+
+```powershell
+scripts\install.ps1      # mise (via winget), Go, Node, uv; PostgreSQL 18 as a service; local databases
+scripts\ratings-db.ps1 <baseline folder>   # load data, see below
+scripts\dev.ps1          # api, worker and site; Ctrl-C stops them
+```
+
+`install.ps1` asks once for a password for the local `postgres` superuser
+(only it uses it) and installs PostgreSQL on port 55432. It is safe to run
+again. `. scripts\env.ps1` loads `.env` into your PowerShell session for
+running anything by hand.
 
 ### Show a local build to someone: Cloudflare quick tunnels
 
@@ -103,6 +118,10 @@ scripts/test.sh    # every test: Go (with a throwaway Postgres), the engine, and
 scripts/ci.sh      # everything CI runs, in the same order
 ```
 
+On Windows, `scripts\test.ps1` runs the same tests against the local
+Postgres service (it lists what it leaves out). The `windows` workflow runs
+`install.ps1` and `test.ps1` on GitHub's Windows runner when started by hand.
+
 CI runs `scripts/ci.sh` unchanged, so a green run here means a green pipeline.
 The script ends by listing what it did not cover.
 
@@ -124,6 +143,7 @@ database, then compute ratings:
 ```bash
 scripts/ratings-db.sh ~/tta-data/baseline/2026-10-04            # in a container
 scripts/ratings-db.sh --native ~/tta-data/baseline/2026-10-04   # with local Go
+scripts\ratings-db.ps1 ..\tta-data\baseline\2026-10-04             # Windows
 ```
 
 The script starts the ratings database if needed and restores the export
@@ -312,6 +332,8 @@ cd engine
 set -a; . ../.env; set +a
 ENGINE_VERSION=$(git rev-parse --short HEAD) uv run python -m tta_ratings_engine.run
 ```
+
+In PowerShell: `. scripts\env.ps1; cd engine; $env:ENGINE_VERSION = git rev-parse --short HEAD; uv run python -m tta_ratings_engine.run`.
 
 A full run of every model and format takes about 20 minutes and 1 GB of
 memory on a desktop, and logs its progress and time left as it goes. It is
