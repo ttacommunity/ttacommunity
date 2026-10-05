@@ -424,3 +424,16 @@
   color: var(--text-soft);
   font-size: 0.9rem;
 }
+.check-kinds {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem 1.25rem;
+  margin: 0.75rem 0 1rem;
+  padding: 0.5rem 0.75rem;
+  border: 1px solid var(--border-subtle);
+  border-radius: 6px;
+}
+.check-kinds legend {
+  padding: 0 0.3rem;
+  color: var(--text-muted);
+}
