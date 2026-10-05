@@ -12,6 +12,11 @@ on:
 permissions:
   contents: read
 
+defaults:
+  run:
+    # bash runs with -eo pipefail; the container's default sh hides a failure before a pipe.
+    shell: bash
+
 concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
@@ -19,6 +24,10 @@ concurrency:
 env:
   MISE_VERSION: v2026.9.14
   MISE_YES: '1'
+  # The checkout belongs to another user than the job container's root.
+  GIT_CONFIG_COUNT: '1'
+  GIT_CONFIG_KEY_0: safe.directory
+  GIT_CONFIG_VALUE_0: '*'
   COREPACK_ENABLE_DOWNLOAD_PROMPT: '0'
 
 jobs:
@@ -153,7 +162,10 @@ jobs:
         run: |
           scripts/install-mise.sh "$MISE_VERSION" /usr/local/bin
           mise trust && mise install gitleaks
-      - run: PATH="$HOME/.local/share/mise/shims:$PATH" gitleaks git --redact --no-banner .
+      # gitleaks passes "0 commits scanned" when git fails, so require a scan.
+      - run: |
+          PATH="$HOME/.local/share/mise/shims:$PATH" gitleaks git --redact --no-banner --no-color . 2>&1 | tee "$RUNNER_TEMP/gitleaks.log"
+          grep -qE ' [1-9][0-9]* commits scanned' "$RUNNER_TEMP/gitleaks.log"
 
   sast:
     runs-on: ${{ vars.RUNNER_AMD64 || 'ubuntu-24.04' }}
@@ -169,4 +181,5 @@ jobs:
         run: |
           scripts/install-mise.sh "$MISE_VERSION" /usr/local/bin
           mise trust && mise install uv pipx:semgrep
-      - run: PATH="$HOME/.local/share/mise/shims:$PATH" semgrep scan --config p/default --metrics off --error
+      # Reports without blocking, as GitLab's SAST did; findings are triaged by hand.
+      - run: PATH="$HOME/.local/share/mise/shims:$PATH" semgrep scan --config p/default --metrics off

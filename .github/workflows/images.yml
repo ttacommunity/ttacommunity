@@ -15,9 +15,18 @@ on:
 permissions:
   contents: read
 
+defaults:
+  run:
+    # bash runs with -eo pipefail; the container's default sh hides a failure before a pipe.
+    shell: bash
+
 env:
   MISE_VERSION: v2026.9.14
   MISE_YES: '1'
+  # The checkout belongs to another user than the job container's root.
+  GIT_CONFIG_COUNT: '1'
+  GIT_CONFIG_KEY_0: safe.directory
+  GIT_CONFIG_VALUE_0: '*'
   REGISTRY: ghcr.io/${{ github.repository }}
   COMMIT: ${{ github.event.pull_request.head.sha || github.sha }}
 

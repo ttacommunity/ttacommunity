@@ -11,6 +11,11 @@ on:
 permissions:
   contents: read
 
+defaults:
+  run:
+    # bash runs with -eo pipefail; the container's default sh hides a failure before a pipe.
+    shell: bash
+
 jobs:
   check:
     runs-on: ${{ vars.RUNNER_AMD64 || 'ubuntu-24.04' }}
@@ -18,6 +23,10 @@ jobs:
     env:
       MISE_YES: '1'
       COREPACK_ENABLE_DOWNLOAD_PROMPT: '0'
+      # The checkout belongs to another user than the job container's root.
+      GIT_CONFIG_COUNT: '1'
+      GIT_CONFIG_KEY_0: safe.directory
+      GIT_CONFIG_VALUE_0: '*'
     steps:
       - run: apt-get update -qq && apt-get install -y -qq --no-install-recommends bash ca-certificates curl git xz-utils >/dev/null
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1

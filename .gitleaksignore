@@ -1,0 +1,5 @@
+# Accepted gitleaks findings, by fingerprint: Cloudflare Access's AUD (an identifier carried in every
+# token, not a credential) and a test's lookup key. A new finding still fails the secrets job.
+23fb5b91d69403a9878755df35599e440682d649:web/admin/wrangler.jsonc:generic-api-key:28
+c27a04a5bf9770990d94fda2c96a07b5ec938173:web/admin/wrangler.jsonc:generic-api-key:17
+a1669e4855b40b5126badd6fcd15611aaaeeb9e1:web/site/src/lib/analysis.test.ts:generic-api-key:57
