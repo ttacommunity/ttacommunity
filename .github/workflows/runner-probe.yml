@@ -1,0 +1,14 @@
+# Throwaway: proves each self-hosted pool runs jobs on the expected architecture.
+name: runner-probe
+on: pull_request
+permissions:
+  contents: read
+jobs:
+  probe:
+    strategy:
+      matrix:
+        pool: [picluster-amd64, picluster-arm64]
+    runs-on: ${{ matrix.pool }}
+    container: docker.io/library/debian:trixie-slim@sha256:a99cfc517144bc59b1978475ec53b46ecabec7e43635402ee5b77cc54cd1b20a
+    steps:
+      - run: uname -m; echo "$RUNNER_NAME"
