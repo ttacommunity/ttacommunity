@@ -326,7 +326,7 @@ a Cloudflare credential.
 
 ### Shipping a change to the api or the engine
 
-The images are pinned in the same merge request as the code, so a merge
+The images are pinned in the same pull request as the code, so a merge
 deploys both together:
 
 1. When the code is final, run the `images` workflow on the pull request's
@@ -446,7 +446,7 @@ Build variables, set in each site Worker's build settings:
 When importing a Worker, **turn off non-production (preview) builds**, and
 on `ttacommunity` keep them to branch `dev`. Previews have no branch
 filter, so the Preview command skips every other branch. A preview build
-reports on the merge request's commit, and a failure there blocks the
+reports on the pull request's commit, and a failure there blocks the
 merge. Previews Base has its own build variables; don't click "Enable
 Preview URLs", which turns on `workers.dev`. `dev` is served at `dev.ttacommunity.unstableunicorn.dev`: a
 Preview on a custom domain is `<branch>.<route host>`, and the route sets

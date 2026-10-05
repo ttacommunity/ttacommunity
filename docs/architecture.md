@@ -78,7 +78,7 @@ to the series they run.
 ## Site content
 
 Text pages and cards (the FAQ, the methodology, the analysis commentary)
-are MDX files in `web/site/src/content/`, changed by merge request. MDX is
+are MDX files in `web/site/src/content/`, changed by pull request. MDX is
 used across the whole site so there is one way to write content: Markdown
 for prose, maths in `$…$` rendered to MathML by KaTeX at build (no maths
 script in the browser), and HTML with classes or small components where a
