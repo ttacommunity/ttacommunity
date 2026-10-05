@@ -335,3 +335,21 @@ func ReplaceCommunityScores(ctx context.Context, pool *pgxpool.Pool, rows []tour
 		editions, players, events, scores, sources)
 	return FactsReplaced{Written: n}, err
 }
+
+// ReplaceCommunityPoints replaces every community points table, in one
+// transaction. A row for a tournament the catalogue lacks is counted, not written.
+func ReplaceCommunityPoints(ctx context.Context, pool *pgxpool.Pool, rows []tournamentcsv.CommunityPoints) (FactsReplaced, error) {
+	var tournaments, groups, sources []string
+	var editions, places, points []int32
+	for _, r := range rows {
+		tournaments, editions, groups = append(tournaments, r.Tournament), append(editions, int32(r.FromEdition)), append(groups, r.Group)
+		places, points, sources = append(places, int32(r.Place)), append(points, int32(r.Points)), append(sources, r.Source)
+	}
+	n, err := replaceAll(ctx, pool, "community_points", `
+		INSERT INTO community_points (tournament, from_edition, group_name, place, points, source)
+		SELECT x.* FROM unnest($1::text[], $2::int[], $3::text[], $4::int[], $5::int[], $6::text[])
+		       AS x(tournament, from_edition, group_name, place, points, source)
+		JOIN tournaments t ON t.slug = x.tournament`,
+		tournaments, editions, groups, places, points, sources)
+	return FactsReplaced{Written: n, Unknown: len(rows) - n}, err
+}
