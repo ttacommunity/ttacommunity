@@ -22,6 +22,12 @@ import (
 // newDB creates an empty database for one test and drops it afterwards.
 func newDB(t *testing.T) *pgxpool.Pool {
 	t.Helper()
+	return newDBFrom(t, "")
+}
+
+// newDBFrom creates a database for one test, a copy of template when it is named, and drops it afterwards.
+func newDBFrom(t *testing.T, template string) *pgxpool.Pool {
+	t.Helper()
 	base := os.Getenv("TEST_DATABASE_URL")
 	if base == "" {
 		t.Fatal("TEST_DATABASE_URL is not set: integration tests need a database")
@@ -34,7 +40,11 @@ func newDB(t *testing.T) *pgxpool.Pool {
 	t.Cleanup(func() { admin.Close(context.Background()) })
 
 	name := "ratings_test_" + rand.Text()[:12]
-	if _, err := admin.Exec(ctx, "CREATE DATABASE "+pgx.Identifier{name}.Sanitize()); err != nil {
+	create := "CREATE DATABASE " + pgx.Identifier{name}.Sanitize()
+	if template != "" {
+		create += " TEMPLATE " + pgx.Identifier{template}.Sanitize()
+	}
+	if _, err := admin.Exec(ctx, create); err != nil {
 		t.Fatalf("creating %s: %v", name, err)
 	}
 	u, err := url.Parse(base)

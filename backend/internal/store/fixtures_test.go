@@ -6,6 +6,11 @@ package store
 
 import (
 	"context"
+	"crypto/rand"
+	"fmt"
+	"net/url"
+	"os"
+	"sync"
 	"testing"
 	"time"
 
@@ -15,11 +20,66 @@ import (
 
 func migrated(t *testing.T) *pgxpool.Pool {
 	t.Helper()
-	pool := newDB(t)
-	if err := MigrateRatings(context.Background(), pool); err != nil {
-		t.Fatalf("MigrateRatings: %v", err)
+	if _, again := parallel.LoadOrStore(t, true); !again {
+		t.Parallel() // each test has its own database
 	}
-	return pool
+	if template.once.Do(func() { template.name, template.err = migrateTemplate() }); template.err != nil {
+		t.Fatalf("migrating the template database: %v", template.err)
+	}
+	return newDBFrom(t, template.name)
+}
+
+// parallel holds the tests already marked parallel, as a test that asks for two databases may mark itself only once.
+var parallel sync.Map
+
+// template is one migrated database per test run, which migrated copies: much faster than migrating each time.
+var template struct {
+	once sync.Once
+	name string
+	err  error
+}
+
+// migrateTemplate creates and migrates the template database, closing every connection to it so it can be copied.
+func migrateTemplate() (string, error) {
+	ctx := context.Background()
+	base, err := url.Parse(os.Getenv("TEST_DATABASE_URL"))
+	if err != nil || base.Host == "" {
+		return "", fmt.Errorf("TEST_DATABASE_URL is not set or not a URL: integration tests need a database")
+	}
+	admin, err := pgx.Connect(ctx, base.String())
+	if err != nil {
+		return "", fmt.Errorf("connecting to the test server: %w", err)
+	}
+	defer admin.Close(ctx)
+	name := "ratings_template_" + rand.Text()[:12]
+	if _, err := admin.Exec(ctx, "CREATE DATABASE "+pgx.Identifier{name}.Sanitize()); err != nil {
+		return "", fmt.Errorf("creating %s: %w", name, err)
+	}
+	base.Path = "/" + name
+	pool, err := pgxpool.New(ctx, base.String())
+	if err != nil {
+		return name, fmt.Errorf("opening %s: %w", name, err)
+	}
+	defer pool.Close()
+	if err := MigrateRatings(ctx, pool); err != nil {
+		return name, fmt.Errorf("MigrateRatings: %w", err)
+	}
+	return name, nil
+}
+
+// TestMain drops the template database once every test has run.
+func TestMain(m *testing.M) {
+	code := m.Run()
+	if template.name != "" {
+		if admin, err := pgx.Connect(context.Background(), os.Getenv("TEST_DATABASE_URL")); err == nil {
+			if _, err := admin.Exec(context.Background(), "DROP DATABASE "+pgx.Identifier{template.name}.Sanitize()+" WITH (FORCE)"); err != nil {
+				fmt.Fprintf(os.Stderr, "dropping %s: %v\n", template.name, err)
+				code = 1
+			}
+			admin.Close(context.Background())
+		}
+	}
+	os.Exit(code)
 }
 
 // asReader opens a second pool on pool's database whose connections act as ratings_read.
