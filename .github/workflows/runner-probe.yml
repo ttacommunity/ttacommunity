@@ -12,3 +12,4 @@ jobs:
     container: docker.io/library/debian:trixie-slim@sha256:a99cfc517144bc59b1978475ec53b46ecabec7e43635402ee5b77cc54cd1b20a
     steps:
       - run: uname -m; echo "$RUNNER_NAME"
+      - run: test ! -e /var/run/secrets/kubernetes.io/serviceaccount/token && echo "no SA token"
