@@ -4,6 +4,8 @@ import (
 	"context"
 	"fmt"
 	"slices"
+	"strconv"
+	"strings"
 	"time"
 
 	"github.com/jackc/pgx/v5"
@@ -368,5 +370,30 @@ func ReplaceCommunityQuarters(ctx context.Context, pool *pgxpool.Pool, rows []to
 		SELECT x.* FROM unnest($1::text[], $2::text[], $3::int[], $4::int[], $5::text[]) AS x(tournament, season, year, quarter, source)
 		JOIN tournaments t ON t.slug = x.tournament`,
 		tournaments, seasons, years, quarters, sources)
+	return FactsReplaced{Written: n, Unknown: len(rows) - n}, err
+}
+
+// ReplaceCommunityLadders replaces how each ladder's rounds are scored, in one
+// transaction. A row for a tournament the catalogue lacks is counted, not written.
+func ReplaceCommunityLadders(ctx context.Context, pool *pgxpool.Pool, rows []tournamentcsv.CommunityLadder) (FactsReplaced, error) {
+	var tournaments, shares, sources []string
+	var editions, halves, rounds []int32
+	var ratios []float64
+	for _, r := range rows {
+		parts := make([]string, len(r.Shares))
+		for i, v := range r.Shares {
+			parts[i] = strconv.FormatFloat(v, 'f', -1, 64)
+		}
+		tournaments, editions, ratios = append(tournaments, r.Tournament), append(editions, int32(r.FromEdition)), append(ratios, r.Ratio)
+		halves, shares = append(halves, int32(r.HalfStepsFrom)), append(shares, strings.Join(parts, " "))
+		rounds, sources = append(rounds, int32(r.Rounds)), append(sources, r.Source)
+	}
+	n, err := replaceAll(ctx, pool, "community_ladders", `
+		INSERT INTO community_ladders (tournament, from_edition, ratio, half_steps_from, shares, rounds, source)
+		SELECT x.tournament, x.from_edition, x.ratio, nullif(x.half, 0), string_to_array(x.shares, ' ')::float8[], x.rounds, x.source
+		FROM unnest($1::text[], $2::int[], $3::float8[], $4::int[], $5::text[], $6::int[], $7::text[])
+		     AS x(tournament, from_edition, ratio, half, shares, rounds, source)
+		JOIN tournaments t ON t.slug = x.tournament`,
+		tournaments, editions, ratios, halves, shares, rounds, sources)
 	return FactsReplaced{Written: n, Unknown: len(rows) - n}, err
 }
