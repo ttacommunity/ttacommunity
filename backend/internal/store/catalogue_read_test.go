@@ -11,29 +11,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/jackc/pgx/v5/pgxpool"
-
 	"ttacommunity/backend/internal/tournamentcsv"
 )
-
-// placedOn loads games by name, each played on its date, and places them in the catalogue.
-func placedOn(t *testing.T, pool *pgxpool.Pool, games map[string]time.Time) {
-	t.Helper()
-	ctx := context.Background()
-	var names []string
-	for n := range games {
-		names = append(names, n)
-	}
-	loadNamed(t, pool, names...)
-	for n, d := range games {
-		if _, err := pool.Exec(ctx, "UPDATE matches SET date = $2 WHERE tournament = $1", n, d); err != nil {
-			t.Fatalf("dating %s: %v", n, err)
-		}
-	}
-	if _, err := ClassifyMatches(ctx, pool); err != nil {
-		t.Fatalf("ClassifyMatches: %v", err)
-	}
-}
 
 func TestCatalogueListsEachTournamentWithGames(t *testing.T) {
 	pool := migrated(t)

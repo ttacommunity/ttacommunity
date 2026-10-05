@@ -31,8 +31,6 @@ func classifyGame(t *testing.T, pool *pgxpool.Pool, run, match int64, c classifi
 	}
 }
 
-func ptr(s string) *string { return &s }
-
 func TestTournamentSeriesGivesTheSeriesCounts(t *testing.T) {
 	pool := migrated(t)
 	ctx := context.Background()

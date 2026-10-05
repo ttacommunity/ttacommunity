@@ -55,15 +55,6 @@ func newDB(t *testing.T) *pgxpool.Pool {
 	return pool
 }
 
-func migrated(t *testing.T) *pgxpool.Pool {
-	t.Helper()
-	pool := newDB(t)
-	if err := MigrateRatings(context.Background(), pool); err != nil {
-		t.Fatalf("MigrateRatings: %v", err)
-	}
-	return pool
-}
-
 func tables(t *testing.T, pool *pgxpool.Pool) []string {
 	t.Helper()
 	rows, err := pool.Query(context.Background(),
@@ -252,15 +243,6 @@ func TestNewDBIsolatesTests(t *testing.T) {
 	}
 	if nameA == nameB {
 		t.Errorf("two tests share database %s", fmt.Sprint(nameA))
-	}
-}
-
-func addPlayers(t *testing.T, pool *pgxpool.Pool, names ...string) {
-	t.Helper()
-	for _, n := range names {
-		if _, err := pool.Exec(context.Background(), "INSERT INTO players (name) VALUES ($1)", n); err != nil {
-			t.Fatalf("adding player %s: %v", n, err)
-		}
 	}
 }
 

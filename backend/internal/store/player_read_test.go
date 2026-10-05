@@ -59,11 +59,6 @@ func addGame(t *testing.T, pool *pgxpool.Pool, run int64, date, tournament strin
 	return id
 }
 
-func publishedRun(t *testing.T, pool *pgxpool.Pool) int64 {
-	t.Helper()
-	return addRun(t, pool, "complete", time.Date(2026, 9, 27, 4, 0, 0, 0, time.UTC))
-}
-
 func TestPlayerFindsANameExactlyOrByAUniqueCase(t *testing.T) {
 	pool := migrated(t)
 	r := NewRatingsReader(asReader(t, pool))
@@ -110,12 +105,12 @@ func TestPlayerGivesRatingsGamesAndDetails(t *testing.T) {
 		t.Fatalf("adding ann's peak: %v", err)
 	}
 	for _, model := range PlayerPageModels {
-		addRating(t, pool, run, model, 0, "ann", intp(4), 1800)
+		addRating(t, pool, run, model, 0, "ann", ptr(4), 1800)
 	}
 	addRating(t, pool, run, "glicko2_daneo", 3, "ann", nil, 1700)
-	addRating(t, pool, run, "glicko2_std_retro", 0, "ann", intp(1), 1900)
-	addRating(t, pool, run, "glicko2_daneo", 0, "bob", intp(1), 1900)
-	addRating(t, pool, other, "glicko2_daneo", 0, "ann", intp(9), 1000)
+	addRating(t, pool, run, "glicko2_std_retro", 0, "ann", ptr(1), 1900)
+	addRating(t, pool, run, "glicko2_daneo", 0, "bob", ptr(1), 1900)
+	addRating(t, pool, other, "glicko2_daneo", 0, "ann", ptr(9), 1000)
 
 	addGame(t, pool, run, "2025-01-05", "Cup", Seat{"ann", 90}, Seat{"bob", 80})
 	addGame(t, pool, run, "2025-03-07", "Cup", Seat{"ann", 70}, Seat{"bob", 60}, Seat{"cy", 50})
@@ -248,12 +243,12 @@ func TestRatingsOfGivesTheNamedPlayersInOneModelAndFormat(t *testing.T) {
 	ctx := context.Background()
 	run := publishedRun(t, pool)
 	other := publishedRun(t, pool)
-	addRating(t, pool, run, "glicko2_std", 2, "ann", intp(1), 1800)
-	addRating(t, pool, run, "glicko2_std", 2, "bob", intp(2), 1700)
-	addRating(t, pool, run, "glicko2_std", 2, "cy", intp(3), 1600)
-	addRating(t, pool, run, "glicko2_std", 0, "ann", intp(1), 1000)
-	addRating(t, pool, run, "glicko2_mp", 2, "ann", intp(1), 1100)
-	addRating(t, pool, other, "glicko2_std", 2, "bob", intp(1), 1200)
+	addRating(t, pool, run, "glicko2_std", 2, "ann", ptr(1), 1800)
+	addRating(t, pool, run, "glicko2_std", 2, "bob", ptr(2), 1700)
+	addRating(t, pool, run, "glicko2_std", 2, "cy", ptr(3), 1600)
+	addRating(t, pool, run, "glicko2_std", 0, "ann", ptr(1), 1000)
+	addRating(t, pool, run, "glicko2_mp", 2, "ann", ptr(1), 1100)
+	addRating(t, pool, other, "glicko2_std", 2, "bob", ptr(1), 1200)
 
 	got, err := r.RatingsOf(ctx, run, "glicko2_std", 2, []string{"ann", "bob", "nobody"})
 	if err != nil {
@@ -329,7 +324,7 @@ func TestPlayerCareerGivesEachYearsRecordPeakAndTitle(t *testing.T) {
 	}
 	peak2024 := 1790.0
 	want := []CareerYear{
-		{Year: 2024, Opponents: 3, Wins: 1, Losses: 1, Draws: 1, PeakRating: &peak2024, Title: strp("GM")},
+		{Year: 2024, Opponents: 3, Wins: 1, Losses: 1, Draws: 1, PeakRating: &peak2024, Title: ptr("GM")},
 		{Year: 2025, Opponents: 1, Losses: 1},
 	}
 	if name != "ann" || fmt.Sprint(deref(years)) != fmt.Sprint(deref(want)) {
@@ -405,8 +400,6 @@ func TestVersusGivesTwoPlayersSharedGamesNewestFirst(t *testing.T) {
 	}
 }
 
-func strp(s string) *string { return &s }
-
 // deref prints a career's optional fields by value, so two careers compare by content.
 func deref(years []CareerYear) []string {
 	out := make([]string, 0, len(years))
@@ -464,10 +457,10 @@ func TestPlayerMatrixGivesTheLiveRatings(t *testing.T) {
 	ctx := context.Background()
 	run := publishedRun(t, pool)
 	addPlayers(t, pool, "ann")
-	addRating(t, pool, run, "glicko2_daneo", 0, "ann", intp(4), 1800.04)
+	addRating(t, pool, run, "glicko2_daneo", 0, "ann", ptr(4), 1800.04)
 	addRating(t, pool, run, "whr_softer", 0, "ann", nil, 1700)
-	addRating(t, pool, run, "glicko2_std_retro", 0, "ann", intp(1), 1900)
-	addRating(t, pool, run, "glicko2_daneo", 2, "ann", intp(2), 1500)
+	addRating(t, pool, run, "glicko2_std_retro", 0, "ann", ptr(1), 1900)
+	addRating(t, pool, run, "glicko2_daneo", 2, "ann", ptr(2), 1500)
 
 	name, cells, err := r.PlayerMatrix(ctx, run, "ANN", 0, nil)
 	if err != nil {
@@ -475,7 +468,7 @@ func TestPlayerMatrixGivesTheLiveRatings(t *testing.T) {
 	}
 	// addRating stores rating = c + 100 and RD 50.
 	want := []MatrixCell{
-		{Model: "glicko2_daneo", Rating: 1900, RD: 50, CRating: 1800, Rank: intp(4)},
+		{Model: "glicko2_daneo", Rating: 1900, RD: 50, CRating: 1800, Rank: ptr(4)},
 		{Model: "whr_softer", Rating: 1800, RD: 50, CRating: 1700},
 	}
 	if name != "ann" || fmt.Sprint(cellText(cells)) != fmt.Sprint(cellText(want)) {
@@ -502,7 +495,7 @@ func TestPlayerMatrixTakesEachModelsLastPeriodOfTheYear(t *testing.T) {
 		t.Fatalf("PlayerMatrix: %v", err)
 	}
 	// ann is second by conservative rating on Standard's last 2024 period; she has no WHR row on WHR's.
-	want := []MatrixCell{{Model: "glicko2_std", Rating: 1690, RD: 30, CRating: 1600, Rank: intp(2)}}
+	want := []MatrixCell{{Model: "glicko2_std", Rating: 1690, RD: 30, CRating: 1600, Rank: ptr(2)}}
 	if fmt.Sprint(cellText(cells)) != fmt.Sprint(cellText(want)) {
 		t.Errorf("PlayerMatrix(ann, 2024) = %v, want %v", cellText(cells), cellText(want))
 	}
@@ -637,7 +630,7 @@ func TestPlayerGivesTheirBadges(t *testing.T) {
 	ctx := context.Background()
 	run := publishedRun(t, pool)
 	addPlayers(t, pool, "ann")
-	addRating(t, pool, run, "glicko2_daneo", 0, "ann", intp(1), 1900)
+	addRating(t, pool, run, "glicko2_daneo", 0, "ann", ptr(1), 1900)
 	giveBadges(t, pool, "ann", "Organiser")
 
 	got, err := r.Player(ctx, run, "ann")

@@ -7,26 +7,7 @@ import (
 	"errors"
 	"reflect"
 	"testing"
-
-	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgxpool"
 )
-
-// asAdminLogin returns a pool on the same database acting as ratings_admin, as the API's admin login does.
-func asAdminLogin(t *testing.T, pool *pgxpool.Pool) *pgxpool.Pool {
-	t.Helper()
-	cfg := pool.Config().Copy()
-	cfg.AfterConnect = func(ctx context.Context, c *pgx.Conn) error {
-		_, err := c.Exec(ctx, "SET ROLE ratings_admin")
-		return err
-	}
-	admin, err := pgxpool.NewWithConfig(context.Background(), cfg)
-	if err != nil {
-		t.Fatalf("opening a ratings_admin pool: %v", err)
-	}
-	t.Cleanup(admin.Close)
-	return admin
-}
 
 func TestAdminFindsAnAddedAdminAndNoOneElse(t *testing.T) {
 	pool := migrated(t)

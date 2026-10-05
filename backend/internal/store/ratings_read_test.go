@@ -10,66 +10,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
-
-// asReader opens a second pool on pool's database whose connections act as ratings_read.
-func asReader(t *testing.T, pool *pgxpool.Pool) *pgxpool.Pool {
-	t.Helper()
-	cfg := pool.Config().Copy()
-	cfg.AfterConnect = func(ctx context.Context, c *pgx.Conn) error {
-		_, err := c.Exec(ctx, "SET ROLE ratings_read")
-		return err
-	}
-	reader, err := pgxpool.NewWithConfig(context.Background(), cfg)
-	if err != nil {
-		t.Fatalf("opening a ratings_read pool: %v", err)
-	}
-	t.Cleanup(reader.Close)
-	return reader
-}
-
-// addRun inserts a run with status, published at publishedAt unless it is zero.
-func addRun(t *testing.T, pool *pgxpool.Pool, status string, publishedAt time.Time) int64 {
-	t.Helper()
-	var published *time.Time
-	if !publishedAt.IsZero() {
-		published = &publishedAt
-	}
-	var id int64
-	err := pool.QueryRow(context.Background(),
-		"INSERT INTO rating_runs (engine_version, input_fingerprint, status, published_at) VALUES ('v1', 'f1', $1, $2) RETURNING run_id",
-		status, published).Scan(&id)
-	if err != nil {
-		t.Fatalf("inserting a %s run: %v", status, err)
-	}
-	return id
-}
-
-func makeCurrent(t *testing.T, pool *pgxpool.Pool, run int64) {
-	t.Helper()
-	_, err := pool.Exec(context.Background(),
-		"INSERT INTO current_run (run_id) VALUES ($1) ON CONFLICT (ranking_id) DO UPDATE SET run_id = excluded.run_id", run)
-	if err != nil {
-		t.Fatalf("making run %d current: %v", run, err)
-	}
-}
-
-func addRating(t *testing.T, pool *pgxpool.Pool, run int64, model string, format int, name string, rank *int, cRating float64) {
-	t.Helper()
-	_, err := pool.Exec(context.Background(), `
-		INSERT INTO player_ratings (run_id, model_type, player_count, player_name, rating, rd, sigma, c_rating, rank,
-			rank_delta, games_played, opponents_count, wins, losses, draws, win_rate, last_played)
-		VALUES ($1, $2, $3, $4, $5::float8 + 100, 50, 0.06, $5::float8, $6, -2, 12, 9, 7, 4, 1, 58.3, '2025-02-17')`,
-		run, model, format, name, cRating, rank)
-	if err != nil {
-		t.Fatalf("inserting %s's rating in run %d: %v", name, run, err)
-	}
-}
-
-func intp(n int) *int { return &n }
 
 func TestRatingsReadRoleCanOnlySelect(t *testing.T) {
 	pool := migrated(t)
@@ -179,14 +122,14 @@ func TestLeaderboard(t *testing.T) {
 	at := time.Date(2026, 9, 27, 4, 0, 0, 0, time.UTC)
 
 	run := addRun(t, pool, "complete", at)
-	addRating(t, pool, run, "glicko2_daneo", 0, "cat", intp(3), 1500)
-	addRating(t, pool, run, "glicko2_daneo", 0, "ann", intp(1), 1900)
+	addRating(t, pool, run, "glicko2_daneo", 0, "cat", ptr(3), 1500)
+	addRating(t, pool, run, "glicko2_daneo", 0, "ann", ptr(1), 1900)
 	addRating(t, pool, run, "glicko2_daneo", 0, "unranked", nil, 1000)
-	addRating(t, pool, run, "glicko2_daneo", 0, "bob", intp(2), 1700)
-	addRating(t, pool, run, "glicko2_daneo", 2, "duel-only", intp(1), 2000)
-	addRating(t, pool, run, "whr", 0, "whr-only", intp(1), 2000)
+	addRating(t, pool, run, "glicko2_daneo", 0, "bob", ptr(2), 1700)
+	addRating(t, pool, run, "glicko2_daneo", 2, "duel-only", ptr(1), 2000)
+	addRating(t, pool, run, "whr", 0, "whr-only", ptr(1), 2000)
 	other := addRun(t, pool, "complete", at)
-	addRating(t, pool, other, "glicko2_daneo", 0, "other-run", intp(1), 2000)
+	addRating(t, pool, other, "glicko2_daneo", 0, "other-run", ptr(1), 2000)
 
 	got, err := r.Leaderboard(ctx, run, "glicko2_daneo", 0)
 	if err != nil {
@@ -201,7 +144,7 @@ func TestLeaderboard(t *testing.T) {
 	}
 
 	want := LeaderboardRow{
-		Rank: intp(1), RankDelta: -2, Name: "ann", Rating: 2000, RD: 50, CRating: 1900,
+		Rank: ptr(1), RankDelta: -2, Name: "ann", Rating: 2000, RD: 50, CRating: 1900,
 		Games: 12, Opponents: 9, Wins: 7, Losses: 4, Draws: 1, WinRate: 58.3,
 		LastPlayed: new(time.Date(2025, 2, 17, 0, 0, 0, 0, time.UTC)),
 	}
@@ -256,7 +199,7 @@ func addRatingIfRun(t *testing.T, pool *pgxpool.Pool, run int64) {
 		t.Fatalf("looking up run %d: %v", run, err)
 	}
 	if exists {
-		addRating(t, pool, run, "glicko2_daneo", 0, "ann", intp(1), 1900)
+		addRating(t, pool, run, "glicko2_daneo", 0, "ann", ptr(1), 1900)
 	}
 }
 
@@ -282,9 +225,9 @@ func TestLeaderboardJoinsPlayerCountryAndTheRunsTitle(t *testing.T) {
 	}
 	run := addRun(t, pool, "complete", at)
 	other := addRun(t, pool, "complete", at)
-	addRating(t, pool, run, "glicko2_daneo", 0, "ann", intp(1), 1900)
-	addRating(t, pool, run, "glicko2_daneo", 0, "bob", intp(2), 1700)
-	addRating(t, pool, run, "glicko2_daneo", 0, "not-a-player", intp(3), 1500)
+	addRating(t, pool, run, "glicko2_daneo", 0, "ann", ptr(1), 1900)
+	addRating(t, pool, run, "glicko2_daneo", 0, "bob", ptr(2), 1700)
+	addRating(t, pool, run, "glicko2_daneo", 0, "not-a-player", ptr(3), 1500)
 	addTitle(t, pool, run, "ann", "GM", 3, "Played in Royal League Grandmaster Season 16")
 	addTitle(t, pool, other, "bob", "M", 1, "from another run")
 
@@ -319,14 +262,6 @@ func addHistory(t *testing.T, pool *pgxpool.Pool, run int64, model string, forma
 	if err != nil {
 		t.Fatalf("adding %s's history at %s: %v", name, period, err)
 	}
-}
-
-func day(s string) time.Time {
-	d, err := time.Parse(time.DateOnly, s)
-	if err != nil {
-		panic(err)
-	}
-	return d
 }
 
 func TestHistoryGivesTheSnapshotOnOrBeforeADateAsUpstream(t *testing.T) {
@@ -402,8 +337,8 @@ func TestLeaderboardJoinsTheRunsCareerPeak(t *testing.T) {
 	ctx := context.Background()
 	run := addRun(t, pool, "complete", time.Date(2026, 9, 27, 4, 0, 0, 0, time.UTC))
 	other := addRun(t, pool, "complete", time.Date(2026, 9, 27, 4, 0, 0, 0, time.UTC))
-	addRating(t, pool, run, "glicko2_daneo", 0, "ann", intp(1), 1900)
-	addRating(t, pool, run, "glicko2_daneo", 0, "bob", intp(2), 1700)
+	addRating(t, pool, run, "glicko2_daneo", 0, "ann", ptr(1), 1900)
+	addRating(t, pool, run, "glicko2_daneo", 0, "bob", ptr(2), 1700)
 	for _, p := range []struct {
 		run  int64
 		name string
@@ -505,8 +440,8 @@ func TestLeaderboardGivesEachPlayersBadgesAtOnce(t *testing.T) {
 	r := NewRatingsReader(asReader(t, pool))
 	ctx := context.Background()
 	run := addRun(t, pool, "complete", time.Date(2026, 9, 27, 4, 0, 0, 0, time.UTC))
-	addRating(t, pool, run, "glicko2_daneo", 0, "ann", intp(1), 1900)
-	addRating(t, pool, run, "glicko2_daneo", 0, "bob", intp(2), 1700)
+	addRating(t, pool, run, "glicko2_daneo", 0, "ann", ptr(1), 1900)
+	addRating(t, pool, run, "glicko2_daneo", 0, "bob", ptr(2), 1700)
 	giveBadges(t, pool, "ann", "TD", "Organiser")
 
 	got, err := r.Leaderboard(ctx, run, "glicko2_daneo", 0)
