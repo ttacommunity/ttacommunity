@@ -90,12 +90,11 @@ case "${1:-}" in
     groups=()
     stop() { trap - EXIT INT TERM; for g in "${groups[@]}"; do kill -TERM -- "-$g" 2>/dev/null; done; wait; }
     trap stop EXIT INT TERM
+    (cd web && COREPACK_ENABLE_DOWNLOAD_PROMPT=0 corepack pnpm install --frozen-lockfile --silent) || exit 1
     setsid bash -c 'cd backend && exec go run ./cmd/api' & groups+=($!)
     setsid bash -c 'cd backend && exec go run ./cmd/worker' & groups+=($!)
-    setsid bash -c 'cd web && COREPACK_ENABLE_DOWNLOAD_PROMPT=0 corepack pnpm install --frozen-lockfile --silent &&
-      cd site && exec ./node_modules/.bin/astro dev --ignore-lock' & groups+=($!)
-    setsid bash -c 'cd web && COREPACK_ENABLE_DOWNLOAD_PROMPT=0 corepack pnpm install --frozen-lockfile --silent &&
-      cd admin && exec ./node_modules/.bin/astro dev --ignore-lock' & groups+=($!)
+    setsid bash -c 'cd web/site && exec ./node_modules/.bin/astro dev --ignore-lock' & groups+=($!)
+    setsid bash -c 'cd web/admin && exec ./node_modules/.bin/astro dev --ignore-lock' & groups+=($!)
     ok=0
     wait_for api http://127.0.0.1:8080/healthz || ok=1
     wait_for site http://127.0.0.1:4321/ || ok=1
