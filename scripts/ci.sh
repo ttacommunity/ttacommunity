@@ -181,7 +181,8 @@ if full && area checks; then
   step "powershell"
   # The Windows twins run only on a manual Windows job; parsing them here is the cheap net.
   if need pwsh "the PowerShell scripts"; then
-    run pwsh -NoProfile -File checks/ps-parse.ps1
+    # Parsing needs no locale data, and the CI image has no libicu.
+    run env DOTNET_SYSTEM_GLOBALIZATION_INVARIANT=1 pwsh -NoProfile -File checks/ps-parse.ps1
   fi
 
   step "shell"
