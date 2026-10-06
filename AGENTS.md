@@ -234,3 +234,6 @@ Both private to the `ttacommunity` organisation; ask a maintainer for access.
   Green is not the whole story: say what the change was *not* tested against
 - Image builds: add the `images` label to a pull request once the code is
   final; it builds `sha-<commit>` images to pin in `deploy/`
+- **Issues** open through a form: Bug, Data (a wrong or missing game, score
+  or result), Feature, Decision, Task. Label the area: `ratings`,
+  `tournaments`, `site` or `admin`

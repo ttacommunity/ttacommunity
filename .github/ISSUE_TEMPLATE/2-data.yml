@@ -1,0 +1,49 @@
+name: Data
+description: A game, score, date, result or player in the record is wrong or missing
+type: Bug
+labels: [data]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Ratings are computed from the record of games, so a fix here can move ratings.
+        Point to a source we can check: CGE's tournament page or the organisers' sheet.
+  - type: input
+    id: tournament
+    attributes:
+      label: Tournament
+      placeholder: International Championship
+    validations:
+      required: true
+  - type: input
+    id: season
+    attributes:
+      label: Season, stage or round
+      placeholder: Season 30, Gold 2
+    validations:
+      required: true
+  - type: input
+    id: game
+    attributes:
+      label: Game
+      description: The game number, and its 8-letter replay (share) code if you have it
+      placeholder: game 4
+  - type: input
+    id: players
+    attributes:
+      label: Players
+      description: TTA usernames as CGE shows them
+  - type: textarea
+    id: what
+    attributes:
+      label: What is wrong
+      description: What the site shows, and what it should be
+    validations:
+      required: true
+  - type: textarea
+    id: source
+    attributes:
+      label: Source
+      description: A link to CGE's page or the organisers' sheet that shows it
+    validations:
+      required: true
