@@ -33,6 +33,7 @@ $procs = @(
     # --ignore-lock stops astro detaching into a daemon when an AI agent runs this;
     # --host: on Windows astro otherwise listens on ::1 only.
     Start-Process corepack -ArgumentList 'pnpm', 'exec', 'astro', 'dev', '--ignore-lock', '--host', '127.0.0.1' -WorkingDirectory (Join-Path $root 'web\site') -NoNewWindow -PassThru
+    Start-Process corepack -ArgumentList 'pnpm', 'exec', 'astro', 'dev', '--ignore-lock', '--host', '127.0.0.1' -WorkingDirectory (Join-Path $root 'web\admin') -NoNewWindow -PassThru
 )
 
 # Wait-Up polls $Url for up to 90 seconds and reports it under $Name.
@@ -51,8 +52,9 @@ function Wait-Up($Name, $Url) {
 try {
     $apiUp = Wait-Up 'api' 'http://127.0.0.1:8080/healthz'
     $siteUp = Wait-Up 'site' 'http://127.0.0.1:4321/'
-    if (-not ($apiUp -and $siteUp)) { throw 'dev.ps1: something did not start' }
-    Write-Host 'dev.ps1: running. Ctrl-C stops api, worker and site.'
+    $adminUp = Wait-Up 'admin' 'http://127.0.0.1:4322/'
+    if (-not ($apiUp -and $siteUp -and $adminUp)) { throw 'dev.ps1: something did not start' }
+    Write-Host 'dev.ps1: running. Ctrl-C stops api, worker, site and admin.'
     Wait-Process -Id ($procs | ForEach-Object Id)
 } finally {
     # go run and corepack start child processes, so stop each whole tree.

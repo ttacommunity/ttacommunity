@@ -48,12 +48,15 @@ func main() {
 		os.Exit(1)
 	}
 
-	admins, closeAdmins, err := openAdmin(ctx)
+	admins, closeAdmins, err := openAdmin(ctx, addr)
 	if err != nil {
 		log.Error("refusing to start: admin is not set up", "err", err)
 		os.Exit(1)
 	}
 	defer closeAdmins()
+	if os.Getenv("ADMIN_DEV_USER") != "" {
+		log.Warn("admin sign-in is bypassed for local development (ADMIN_DEV_USER)")
+	}
 
 	ln, err := net.Listen("tcp", addr)
 	if err != nil {
@@ -106,7 +109,8 @@ func (d adminDeps) EngineGoing(ctx context.Context) (bool, error) {
 // openAdmin builds admin from ACCESS_TEAM, ACCESS_AUD, ADMIN_ORIGIN and RATINGS_ADMIN_DATABASE_URL. Any of them
 // unset, or an admin login that can change more than admin edits, is an error: admin never starts open.
 // ENGINE_CRONJOB, when set, names the CronJob admin starts runs from, in the pod's namespace.
-func openAdmin(ctx context.Context) (adminDeps, func(), error) {
+// ADMIN_DEV_USER, when set, bypasses Access for local development; addr must then be 127.0.0.1.
+func openAdmin(ctx context.Context, addr string) (adminDeps, func(), error) {
 	team, aud, url := os.Getenv("ACCESS_TEAM"), os.Getenv("ACCESS_AUD"), os.Getenv("RATINGS_ADMIN_DATABASE_URL")
 	if url == "" {
 		return adminDeps{}, nil, errors.New("RATINGS_ADMIN_DATABASE_URL is not set")
@@ -115,7 +119,15 @@ func openAdmin(ctx context.Context) (adminDeps, func(), error) {
 	if !strings.HasPrefix(origin, "https://") && !strings.HasPrefix(origin, "http://127.0.0.1:") {
 		return adminDeps{}, nil, errors.New("ADMIN_ORIGIN must be the admin site's https origin")
 	}
-	v, err := access.NewVerifier(access.Config{Team: team, AUD: aud}, &http.Client{Timeout: 10 * time.Second}, time.Now)
+	devUser := os.Getenv("ADMIN_DEV_USER")
+	v, err := access.NewVerifier(access.Config{
+		Team:         team,
+		AUD:          aud,
+		DevUser:      devUser,
+		Origin:       origin,
+		ListenAddr:   addr,
+		InKubernetes: os.Getenv("KUBERNETES_SERVICE_HOST") != "",
+	}, &http.Client{Timeout: 10 * time.Second}, time.Now)
 	if err != nil {
 		return adminDeps{}, nil, err
 	}

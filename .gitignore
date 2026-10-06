@@ -65,6 +65,16 @@ Thumbs.db
 *.swp
 tools/
 
+# --- AI agent workspaces --------------------------------------------------------
+# Local state some coding agents write into the workspace (Google Antigravity /
+# Gemini, and similar). AGENTS.md is NOT here: it is the shared, tracked
+# instructions file.
+.agent/
+.agents/
+.gemini/
+.antigravity/
+GEMINI.md
+
 # Local state of the Cloudflare CLI (cf), e.g. its account cache
 .cloudflare/
 

@@ -94,11 +94,14 @@ case "${1:-}" in
     setsid bash -c 'cd backend && exec go run ./cmd/worker' & groups+=($!)
     setsid bash -c 'cd web && COREPACK_ENABLE_DOWNLOAD_PROMPT=0 corepack pnpm install --frozen-lockfile --silent &&
       cd site && exec ./node_modules/.bin/astro dev --ignore-lock' & groups+=($!)
+    setsid bash -c 'cd web && COREPACK_ENABLE_DOWNLOAD_PROMPT=0 corepack pnpm install --frozen-lockfile --silent &&
+      cd admin && exec ./node_modules/.bin/astro dev --ignore-lock' & groups+=($!)
     ok=0
     wait_for api http://127.0.0.1:8080/healthz || ok=1
     wait_for site http://127.0.0.1:4321/ || ok=1
+    wait_for admin http://127.0.0.1:4322/ || ok=1
     [ "$ok" = 0 ] || exit 1
-    echo "dev.sh: running natively. Ctrl-C stops api, worker and site; 'scripts/dev.sh down' stops Postgres."
+    echo "dev.sh: running natively. Ctrl-C stops api, worker, site and admin; 'scripts/dev.sh down' stops Postgres."
     wait
     ;;
   "")

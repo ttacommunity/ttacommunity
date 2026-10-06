@@ -33,7 +33,7 @@ backend:
 Set-ExecutionPolicy -Scope CurrentUser RemoteSigned
 scripts\install.ps1                         # mise, Go, Node, uv, PostgreSQL 18 (user install; -Service for a Windows service), local databases
 scripts\ratings-db.ps1 ..\ttac-ratings-data\baseline\2026-10-06   # load the data
-scripts\dev.ps1                             # api :8080, worker, site :4321
+scripts\dev.ps1                             # api :8080, worker, site :4321, admin :4322
 scripts\test.ps1                            # every test
 ```
 
@@ -50,11 +50,20 @@ scripts/ci.sh            # everything CI runs, in CI's order
   `web/package.json`. CI installs the same. Don't install a different version
   by hand
 - `.env` is created from `.env.example` on first run. Its values are for
-  local use only. In PowerShell, `. scripts\env.ps1` loads it into the session
+  local use only. In PowerShell, always dot-source `. scripts\env.ps1` to load
+  it and add mise shims (`%LOCALAPPDATA%\mise\shims`) and Postgres tools to PATH
+- **Postgres startup**: `scripts\env.ps1` starts Postgres if stopped. After a
+  restart or crash recovery, wait for `pg_isready` before connecting if queries
+  report "the database system is starting up"
 - **Data is never in this repo.** The maintainers keep a baseline export (every
-  input table, no personal data) in a private repo, `ttac-ratings-data`; clone
-  it beside this one. Compute ratings after loading: see README, "Compute
-  ratings"
+  input table, no personal data) in a private repo in the ttacommunity
+  organization: `ttac-ratings-data` (`git@github.com:ttacommunity/ttac-ratings-data.git`).
+  Clone it beside this repository (`..\ttac-ratings-data`). Compute ratings after
+  loading: see README, "Compute ratings"
+- **Admin in local dev**: `ADMIN_DEV_USER` in `.env` enables local admin without
+  Cloudflare Access (active only when `ADMIN_ORIGIN` is `http://127.0.0.1:*`). Seed a
+  local admin user via `go run ./cmd/load -add-admin 100000000000000001 -name "Local Admin" -role admin`.
+  `scripts\dev.ps1` runs the admin UI at `http://127.0.0.1:4322`
 - The Windows scripts are twins of the bash ones. **Change one, change the
   other.** CI only parses the `.ps1` files on Linux; the `windows` workflow
   runs them for real when started by hand
@@ -159,7 +168,9 @@ scripts/ci.sh            # everything CI runs, in CI's order
 - Tournament results are derived from matches, with organisers' recorded
   rulings applied on top and the derived result kept visible
 - Python 3.12 via uv; `uv run pytest`, `uv run ruff check .`,
-  `uv run ruff format .`. Slow tests are marked `slow` and run on `main`
+  `uv run ruff format .`. Slow tests are marked `slow` and run on `main`.
+  Tests that touch the database require `TEST_DATABASE_URL` (which `scripts/test.ps1`
+  and `scripts/test.sh` set automatically); without it, those tests fail
 - `tests/` mirrors the package: one `test_<module>.py` per module
 
 ## Web (`web/`)
