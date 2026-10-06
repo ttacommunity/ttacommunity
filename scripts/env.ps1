@@ -51,6 +51,11 @@ if ($onWindows) {
 # first use installs every tool in mise.toml, CI's linters included.
 $env:MISE_AUTO_INSTALL = 'false'
 $env:MISE_EXEC_AUTO_INSTALL = 'false'
+# A shell opened before install.ps1 lacks the PATH winget set for mise; read it as a new shell would.
+if ($onWindows -and -not (Get-Command mise -ErrorAction SilentlyContinue)) {
+    $env:PATH = [Environment]::GetEnvironmentVariable('PATH', 'Machine') + ';' +
+        [Environment]::GetEnvironmentVariable('PATH', 'User') + ';' + $env:PATH
+}
 if ($env:LOCALAPPDATA) {
     $shims = Join-Path $env:LOCALAPPDATA 'mise\shims'
     if ((Test-Path $shims) -and ($env:PATH -notlike "*$shims*")) { $env:PATH = "$shims;$env:PATH" }
