@@ -1359,7 +1359,14 @@ GRANT SELECT ON TABLE public.walk_forward_calibration TO ratings_admin;
 ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT SELECT ON TABLES TO ratings_read;
 
 -- goose made its table before this file ran: the export reads it as either login.
-GRANT SELECT ON public.goose_db_version TO ratings_read, ratings_admin;
+-- +goose StatementBegin
+DO $$
+BEGIN
+    IF to_regclass('public.goose_db_version') IS NOT NULL THEN
+        GRANT SELECT ON public.goose_db_version TO ratings_read, ratings_admin;
+    END IF;
+END $$;
+-- +goose StatementEnd
 
 -- The rows every database starts with: the community ranking, and the
 -- built-in tournaments' cards, regulations and stories.
@@ -1408,5 +1415,12 @@ ALTER DEFAULT PRIVILEGES IN SCHEMA public REVOKE SELECT ON TABLES FROM ratings_r
 DROP TABLE admin_audit, admins, badges, cge_standings, cge_tournaments, community_edition_points, community_event_points, community_ladders, community_points, community_quarters, community_rankings, community_scores, community_standings, current_run, import_batches, match_seats, matches, pairwise_matches, player_badges, player_peak_titles, player_ratings, player_title_overrides, player_titles, player_yearly_titles, players, ranking_tournaments, rankings, rating_history, rating_runs, refused_rows, run_progress, standard_calibration, tournament_achievements, tournament_boards, tournament_cards, tournament_career_honours, tournament_cup_podiums, tournament_finish_dates, tournament_games, tournament_group_divisions, tournament_ladder_wins, tournament_legends, tournament_official_placements, tournament_podium_overrides, tournament_records, tournament_regulations, tournament_season_corrections, tournament_season_notes, tournament_season_records, tournament_season_rules, tournament_seasons, tournament_series, tournament_stages, tournament_standings, tournament_stories, tournaments, walk_forward_calibration CASCADE;
 DROP FUNCTION public.community_ranking();
 DROP FUNCTION public.delete_run(id bigint);
-REVOKE SELECT ON public.goose_db_version FROM ratings_read, ratings_admin;
+-- +goose StatementBegin
+DO $$
+BEGIN
+    IF to_regclass('public.goose_db_version') IS NOT NULL THEN
+        REVOKE SELECT ON public.goose_db_version FROM ratings_read, ratings_admin;
+    END IF;
+END $$;
+-- +goose StatementEnd
 REVOKE USAGE ON SCHEMA public FROM ratings_read, ratings_admin;

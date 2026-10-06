@@ -133,6 +133,37 @@ def best_eight(events):
     return sum(scores[:8]), sum(1 for x in scores if x > 0)
 
 
+# The organisers' sheet columns, left to right: of equal points, the event
+# further left counts (its highlight rule, RANK plus COUNTIF to the left).
+COLUMNS = [
+    "wrld",
+    "ic",
+    "im",
+    "rl",
+    "wmbl",
+    "aus",
+    "surv",
+    "snail",
+    "sl",
+    "ml",
+    "eif",
+    "qd",
+    "ldrb",
+]
+
+
+def sheet_column(code):
+    """Returns where an event's column sits in the organisers' sheet: kind, then season."""
+    kind, _, season = code.partition("_")
+    place = COLUMNS.index(kind) if kind in COLUMNS else len(COLUMNS)
+    return (place, int(season) if season.isdigit() else 0, code)
+
+
+def counted(events):
+    """Returns the codes of a player's eight best events, ties going to the sheet's earlier column."""
+    return set(sorted(events, key=lambda c: (-events[c], sheet_column(c)))[:8])
+
+
 def ranked(totals):
     """Returns [(rank, player)] by total, highest first; equal totals share a rank."""
     order = sorted(totals, key=lambda p: (-totals[p], p.lower()))
@@ -375,7 +406,7 @@ def _rank_editions(conn, run_id, rows, points):
         totals, counts = {}, {}
         for name, evs in scored.items():
             totals[name], counts[name] = best_eight(evs)
-            best = sorted(evs, key=lambda c: -evs[c])[:8]
+            best = counted(evs)
             for code, pts in evs.items():
                 point_rows.append(
                     (
