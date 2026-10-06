@@ -192,3 +192,64 @@ func TestNewVerifierRefusesAMissingSetting(t *testing.T) {
 		}
 	}
 }
+
+func TestNewVerifierAllowsDevUserWithLocalOrigin(t *testing.T) {
+	cfg := Config{
+		DevUser:    "100000000000000001",
+		Origin:     "http://127.0.0.1:4322",
+		ListenAddr: "127.0.0.1:8080",
+	}
+	v, err := NewVerifier(cfg, http.DefaultClient, func() time.Time { return now })
+	if err != nil {
+		t.Fatalf("NewVerifier: %v", err)
+	}
+
+	for _, tt := range []struct {
+		name    string
+		token   string
+		wantID  string
+		wantErr bool
+	}{
+		{"empty token", "", "100000000000000001", false},
+		{"dev token", "dev", "100000000000000001", false},
+		{"specific dev user", "dev-222222222222222222", "222222222222222222", false},
+		{"invalid dev token", "other-token", "", true},
+		{"malformed dev id", "dev-bad", "", true},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := v.Verify(context.Background(), tt.token)
+			if (err != nil) != tt.wantErr {
+				t.Fatalf("Verify(%q) error = %v, wantErr %v", tt.token, err, tt.wantErr)
+			}
+			if !tt.wantErr && got.DiscordID != tt.wantID {
+				t.Errorf("DiscordID = %q, want %q", got.DiscordID, tt.wantID)
+			}
+		})
+	}
+}
+
+func TestNewVerifierRefusesDevUserOutsideALocalDevelopmentSetup(t *testing.T) {
+	local := Config{DevUser: "100000000000000001", Origin: "http://127.0.0.1:4322", ListenAddr: "127.0.0.1:8080"}
+	for _, tt := range []struct {
+		name string
+		edit func(*Config)
+	}{
+		{"the admin site's https origin", func(c *Config) { c.Origin = "https://ttac-admin.unstableunicorn.dev" }},
+		{"no origin", func(c *Config) { c.Origin = "" }},
+		{"a localhost origin", func(c *Config) { c.Origin = "http://localhost:4322" }},
+		{"a dev user that is not a Discord id", func(c *Config) { c.DevUser = "not-a-discord-id" }},
+		{"listening on every interface", func(c *Config) { c.ListenAddr = ":8080" }},
+		{"listening on every IPv4 interface", func(c *Config) { c.ListenAddr = "0.0.0.0:8080" }},
+		{"listening on every IPv6 interface", func(c *Config) { c.ListenAddr = "[::]:8080" }},
+		{"listening on a LAN address", func(c *Config) { c.ListenAddr = "192.168.1.5:8080" }},
+		{"running in Kubernetes", func(c *Config) { c.InKubernetes = true }},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			c := local
+			tt.edit(&c)
+			if _, err := NewVerifier(c, http.DefaultClient, time.Now); err == nil {
+				t.Errorf("NewVerifier(%+v): nil error, want a refusal", c)
+			}
+		})
+	}
+}

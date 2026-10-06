@@ -112,10 +112,14 @@ scripts/dev.sh down        # stop the containers (data volumes are kept)
 scripts\dev.ps1            # api, worker and site; Ctrl-C stops them
 ```
 
-The site is at http://127.0.0.1:4321 and the API at
-http://127.0.0.1:8080/healthz. Admin runs with `corepack pnpm --filter
-@ttac/admin dev`; its `/api/*` routes answer 401 locally, because only
-Cloudflare Access can sign an admin in.
+The site is at http://127.0.0.1:4321, admin at http://127.0.0.1:4322 and
+the API at http://127.0.0.1:8080/healthz. Locally, `ADMIN_DEV_USER` in `.env`
+stands in for Cloudflare Access: a request with no Access token is that
+admin, and the token `dev-<id>` is admin `<id>` (to try another role). Add
+that admin once, `go run ./cmd/load -add-admin 100000000000000001 -name
+"Local admin" -role admin`. The api refuses `ADMIN_DEV_USER` unless
+`ADMIN_ORIGIN` and `API_ADDR` are `127.0.0.1` and it runs outside
+Kubernetes, so it can never open a deployed admin.
 
 ### 5. Test it
 
