@@ -8,16 +8,14 @@ SET LOCAL check_function_bodies = false;
 -- +goose StatementBegin
 DO $$
 BEGIN
-    -- Roles are per server, and another database may have made them.
-    CREATE ROLE ratings_read NOLOGIN;
-EXCEPTION WHEN duplicate_object THEN NULL;
-END $$;
--- +goose StatementEnd
--- +goose StatementBegin
-DO $$
-BEGIN
-    CREATE ROLE ratings_admin NOLOGIN;
-EXCEPTION WHEN duplicate_object THEN NULL;
+    -- Roles are per server: another database may have made them, and an
+    -- owner without CREATEROLE can migrate once they exist.
+    IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'ratings_read') THEN
+        CREATE ROLE ratings_read NOLOGIN;
+    END IF;
+    IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'ratings_admin') THEN
+        CREATE ROLE ratings_admin NOLOGIN;
+    END IF;
 END $$;
 -- +goose StatementEnd
 

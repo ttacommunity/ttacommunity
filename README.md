@@ -543,17 +543,33 @@ When done, stop the port-forward (`kill %1` in the same shell) and
 #### Rebuild the cluster's database
 
 The cluster's `ratings` database rebuilt from an export, with the
-port-forward and `RATINGS_DATABASE_URL` above. The api serves errors from
-step 3 until step 7, and admin is empty until step 6.
+port-forward and `RATINGS_DATABASE_URL` above. The dev site's `ratings_dev`
+is rebuilt the same way: its owner is `ratings_dev`, its logins
+`ratings_dev_api` and `ratings_dev_admin_api`, and its `RATINGS_DATABASE_URL`
+is in the `ratings-dev-engine` Secret. The api serves errors from step 4
+until step 8.
 
-1. **Keep a full copy first**, and prove it restores elsewhere (it holds the
-   admins, so keep it outside any repository, mode 600):
+**What an export does not hold**, and where it comes from in a rebuild:
+
+| What | Where it lives | Brought back by |
+|---|---|---|
+| Admins and their audit (personal data) | the database only | step 2's backup file, restored in step 7 |
+| The database logins and their passwords | the server (roles) and the Secrets in [`deploy/SECRETS.md`](deploy/SECRETS.md) | untouched by a database rebuild; a new server needs them created again from the Secrets |
+| The Secrets themselves | the cluster, made by hand | keep a copy outside the cluster; recreate as `SECRETS.md` describes |
+| Ratings and tournament results | computed | step 8 |
+
+1. **Keep a full copy first**, and prove it restores elsewhere (not on a
+   cluster node's own disk: a large restore there can evict the database).
+   It holds the admins, so keep it outside any repository, mode 600:
    `pg_dump -Fc "$RATINGS_DATABASE_URL" > ratings-<date>.dump`
-2. **Note the highest run id**:
+2. **Back up what the export leaves out** (mode 600):
+   `pg_dump -Fc --data-only -t admins -t admin_audit "$RATINGS_DATABASE_URL" > admins-<date>.dump`
+3. **Note the highest run id**:
    `psql "$RATINGS_DATABASE_URL" -Atc "SELECT max(run_id) FROM rating_runs"`.
    Run-scoped API responses are cached at the edge for a year, so new runs
    must not reuse an old run's id
-3. **Drop and recreate the database**, keeping who may connect:
+4. **Drop and recreate the database** with the same owner and connect
+   rights (for `ratings_dev`: owner `ratings_dev`, and no `REVOKE`/`GRANT`):
 
    ```bash
    kubectl -n ttacommunity exec -i deploy/ratings-db -- psql -v ON_ERROR_STOP=1 -U ratings -d postgres <<'SQL'
@@ -564,12 +580,15 @@ step 3 until step 7, and admin is empty until step 6.
    SQL
    ```
 
-4. **Restore the newest export** (step 2 of [Rebuild a database from
-   scratch](#rebuild-a-database-from-scratch))
-5. **Continue the run ids** after the highest from step 2:
+5. **Restore the newest export** (step 2 of [Rebuild a database from
+   scratch](#rebuild-a-database-from-scratch)) as the database's owner. The
+   export must be at the code's schema version
+6. **Continue the run ids** after the highest from step 3:
    `psql "$RATINGS_DATABASE_URL" -c "SELECT setval('rating_runs_run_id_seq', <highest>)"`
-6. **Add the admins back** (`load -add-admin`, as above)
-7. **Compute a run, check it, and publish it** (above)
+7. **Restore the admins** from step 2:
+   `pg_restore --data-only -d "$RATINGS_DATABASE_URL" admins-<date>.dump`
+   (or add them by hand with `load -add-admin`)
+8. **Compute a run, check it, and publish it** (above)
 
 ### The sites and the sign-in worker on Cloudflare Workers
 
