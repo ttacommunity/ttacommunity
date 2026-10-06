@@ -475,7 +475,10 @@ code than the branch's, so a late code change needs a new image and pin.
 
 ### The cluster's ratings database
 
-The database is reached through `kubectl port-forward`, as its owner
+Getting `kubectl` access to the cluster:
+[`cluster-access`](https://github.com/ttacommunity/cluster-access)
+(private; a maintainer adds you). The database is reached through
+`kubectl port-forward`, as its owner
 `ratings`, with the password read from its Secret into the environment only
 (never onto disk or into shell history):
 

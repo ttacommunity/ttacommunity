@@ -79,6 +79,17 @@ scripts/ci.sh            # everything CI runs, in CI's order
   other.** CI only parses the `.ps1` files on Linux; the `windows` workflow
   runs them for real when started by hand
 
+## Related repositories
+
+Both private to the `ttacommunity` organisation; ask a maintainer for access.
+
+- **[`ttac-ratings-data`](https://github.com/ttacommunity/ttac-ratings-data)**:
+  the data a local database is restored from. Clone it beside this
+  repository (`../ttac-ratings-data`)
+- **[`cluster-access`](https://github.com/ttacommunity/cluster-access)**: how
+  a maintainer reaches the home cluster with `kubectl` (tools, sign-in, the
+  kubeconfig). Follow it rather than copying its steps here
+
 ## How we work
 
 - **Boring and obvious beats clever.** A contributor who knows one of Go,
