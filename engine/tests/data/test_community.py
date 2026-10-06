@@ -4,6 +4,7 @@ import pytest
 
 from tta_ratings_engine.data.community import (
     best_eight,
+    counted,
     derive_community,
     division,
     editions,
@@ -372,6 +373,29 @@ def test_best_eight_sums_the_eight_best_and_counts_the_events_that_scored():
         100 + 9 + 8 + 7 + 6 + 5 + 4 + 3,
         10,
     )
+
+
+def test_counted_are_the_eight_best_events():
+    events = {"wrld": 100, **{f"ic_{i}": i for i in range(1, 10)}}
+    assert counted(events) == {"wrld", *(f"ic_{i}" for i in range(3, 10))}
+
+
+def test_of_equal_points_the_event_in_the_sheets_earlier_column_counts():
+    filler = {f"rl_{i:02d}": 500 for i in range(1, 8)}
+    assert "ic_16" in counted({**filler, "im_13": 92, "ic_16": 92})
+    assert "wrld" in counted({**filler, "ic_1": 92, "wrld": 92})
+    assert "aus" in counted({**filler, "sl": 92, "aus": 92})
+    assert "sl" in counted({**filler, "ml": 92, "sl": 92})
+
+
+def test_seasons_compare_as_numbers_not_text():
+    filler = {f"rl_{i:02d}": 500 for i in range(1, 8)}
+    assert "im_9" in counted({**filler, "im_10": 92, "im_9": 92})
+
+
+def test_an_event_the_sheet_has_no_column_for_comes_last():
+    filler = {f"rl_{i:02d}": 500 for i in range(1, 8)}
+    assert "ldrb" in counted({**filler, "zzz": 92, "ldrb": 92})
 
 
 def test_equal_points_share_a_rank():

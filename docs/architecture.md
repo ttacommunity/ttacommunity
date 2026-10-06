@@ -1,52 +1,67 @@
 # Architecture
 
-**Draft.** How the pieces fit together, and where the trust boundaries are.
+How the pieces fit together, what the ratings database holds, and where the
+trust boundaries are. **Built:** the ratings site, its public API, admin,
+the data load job and the engine. **Planned:** Tournaments, TTA Pulse,
+player sign-in, the worker's timed jobs and the app database; they are
+drawn dashed below and marked *(planned)* in the text.
 
 ## Pieces
 
 ```mermaid
 flowchart LR
     subgraph cf["Cloudflare"]
-        pages["Cloudflare-built Astro sites<br/>ttacommunity.*: /ratings · /tournaments · /pulse<br/>ttac-admin.* (+ Worker proxy)"]
-        access["Access + Discord OIDC worker<br/>(ttac-admin always; the site while experimenting)"]
+        site["site (Astro, static)<br/>ttacommunity.*: /ratings, /tournaments, /pulse"]
+        admin["admin (Astro + Worker proxy)<br/>ttac-admin.*"]
+        access["Access + Discord OIDC Worker<br/>(admin only)"]
     end
-    subgraph cluster["k3s — namespace ttacommunity (default-deny)"]
-        api["api (Go)<br/>public ratings API · auth · tournaments/pulse"]
-        worker["worker (Go)<br/>reminders · kick-offs · rounds · outbox · ingestion"]
-        engine["engine (Python)<br/>CronJob: recompute → new run"]
+    subgraph cluster["k3s: namespace ttacommunity (default-deny)"]
+        api["api (Go)<br/>public ratings API · admin routes"]
+        engine["engine (Python)<br/>Job: compute a new run"]
+        load["load (Go)<br/>data load job, by hand"]
         rdb[("ratings DB")]
+        worker["worker (Go)<br/>timed jobs"]
         adb[("app DB")]
     end
-    browser["Browser"] --> pages
+    browser["Browser"] --> site
     browser -->|"ttac-api.* (CORS, Origin-checked)"| api
-    pages -->|"admin /api/* + Access JWT"| api
-    api --> rdb
-    api --> adb
-    worker --> adb
-    worker --> rdb
+    browser --> access --> admin
+    admin -->|"/api/* + Access JWT"| api
+    api -->|"SELECT; admin's writes"| rdb
+    api -->|starts a Job| engine
     engine --> rdb
-    api -->|OAuth2| discord["Discord"]
-    worker -->|bot DMs| discord
-    worker -->|games, results| cge["CGE API"]
-    worker -->|SA token| relay["mail-relay"]
+    load --> rdb
+    worker -.-> adb
+    worker -.->|games, results| cge["CGE API"]
+    worker -.->|bot DMs| discord["Discord"]
+    api -.->|player sign-in| discord
+    api -.-> adb
+    classDef planned stroke-dasharray: 5 5
+    class worker,adb planned
 ```
 
 | Piece | Role | Writes to |
 |---|---|---|
-| **api** | Public ratings reads, Discord sign-in, Tournaments/Pulse actions, and **admin routes that accept only a valid admin-app Access JWT** (audience-pinned, fail closed), reached through the admin site's Worker | app DB. Ratings DB **import batches and recompute requests** (admin routes only) |
-| **worker** | Everything that happens *at a time*. **Exactly one acts at a time** (a Postgres advisory lock), so a rollout cannot start a game twice. | app DB. Ratings DB import batches (CGE ingestion, later) |
-| **engine** | Reads matches, computes all models, and writes a **new run**. It never overwrites a published run | Ratings DB result tables only |
-| **site, admin** | Astro, built and hosted by Cloudflare from git. One public site with sections, and admin on its own host behind Access. Types generated from the OpenAPI spec | nothing |
+| **api** | Public ratings reads (cacheable, by run), and **admin routes that accept only a valid admin-app Access JWT** (audience-pinned, fail closed), reached through admin's Worker. Starts engine runs as Kubernetes Jobs. *(Planned: player sign-in with Discord, Tournaments and Pulse actions.)* | Ratings DB: admin's edits, runs started and published, through a role that can write only those |
+| **engine** | Reads the games, computes every model and the tournament results, and writes a **new run**. It never overwrites a published one | Ratings DB: the run's result tables |
+| **load** (`cmd/load`) | The data load job, run by hand: restores a baseline export, loads match CSVs, CGE's games and recorded facts, applies migrations, exports. It validates every row and records what it refuses | Ratings DB input tables |
+| **site, admin** | Astro, built and hosted by Cloudflare from `main` (previews from `dev`). One public site with sections, and admin on its own host behind Access. Types generated from the OpenAPI spec | nothing |
+| **worker** *(planned)* | Everything that happens *at a time*: reminders, kick-offs, rounds, the outbox. **Exactly one acts at a time** (a Postgres advisory lock), so a rollout cannot start a game twice. A stub today | app DB |
 
-**Two databases with separate roles.** The public read path uses a read-only
-role on the ratings DB, so a bug in a public endpoint cannot write ratings.
+**Separate roles per purpose.** Public routes read the ratings DB through a
+`SELECT`-only login, so a bug in a public endpoint cannot write ratings.
+Admin's writes go through a second login that can change only what admin
+edits. The app DB *(planned)* holds players, sessions and matches, apart
+from the ratings.
 
 ## Data flow for ratings
 
-`upload (now) / CGE API (later)` → **import batch** (validated, duplicates
-removed, aliases resolved, junk *refused* rather than warned) →
-**recompute request** → engine job → **new run** → **published** once its
-checks pass (a one-row switch) → API serves it, and Cloudflare caches until the next publish.
+**games** (a baseline restore, match CSVs, or CGE's own records, through the
+load job) → **import batch** (validated; duplicates, renamed players and junk
+are matched or *refused*, never silently kept) → **run**, started from admin
+(the api creates a Job from the engine's CronJob) or by hand → **published**
+from admin once its checks pass (a one-row switch) → the API serves it, and
+Cloudflare caches each response until the next publish.
 
 ### Rating runs
 
@@ -74,6 +89,65 @@ achievements) are derived by the engine from matches and the tournament
 rules. Organisers record what matches
 cannot show, such as seeding and official rulings, in the admin site, scoped
 to the series they run.
+
+## The ratings database
+
+PostgreSQL. **The exact schema is
+[`backend/migrations/ratings/00001_schema.sql`](../backend/migrations/ratings/00001_schema.sql)**
+(every table, function, index, grant and starting row), plus any numbered
+migration after it (goose, plain SQL). To see the tables, apply them to an
+empty database (`go run ./cmd/load -migrate`) and use `\d` in `psql`. A
+database is rebuilt from scratch from an export (README, "Rebuild a
+database from scratch"). What follows is the shape, which changes only when
+a new kind of data arrives.
+
+```mermaid
+erDiagram
+    import_batches ||--o{ matches : "loaded by"
+    import_batches ||--o{ refused_rows : "refused by"
+    tournaments ||--o{ tournament_seasons : has
+    tournament_seasons ||--o{ tournament_stages : has
+    tournament_stages ||--o{ matches : "played in"
+    matches ||--o{ match_seats : "who, score, CGE name"
+    rankings ||--o{ ranking_tournaments : "counts"
+    tournaments ||--o{ ranking_tournaments : "counted in"
+    rankings ||--o{ rating_runs : "computed as"
+    rating_runs ||--o| current_run : "published as"
+    rating_runs ||--o{ RUN_RESULTS : "writes"
+    RUN_RESULTS {
+        int run_id "every result row names its run"
+    }
+```
+
+The tables fall into five groups:
+
+| Group | What it holds | Tables (examples) | Written by |
+|---|---|---|---|
+| **Games** | Every game and its seats: players, scores, CGE game and names, its state (played, never played, unconfirmed). The input to every run | `matches`, `match_seats`, `players`, `import_batches`, `refused_rows` | load job |
+| **Catalogue and recorded facts** | Tournaments, seasons and stages; what counts towards which ranking; and what games cannot say: official placements, divisions, podium and title overrides, rules, notes, cards, regulations, stories, CGE's own standings, community points | `tournaments`, `tournament_seasons`, `tournament_stages`, `rankings`, `ranking_tournaments`, `cge_tournaments`, `tournament_official_placements`, `tournament_cards`, `community_scores`, `badges` | load job, admin |
+| **Runs** | One row per computation: its ranking, engine version, input fingerprint, status, progress, whether it is protected; and which run each ranking publishes | `rating_runs`, `run_progress`, `current_run` | engine, admin |
+| **Run results** | Everything a run computes, each row keyed by `run_id`: ratings and history per model and format, the 1v1 pairs, calibration, titles, tournament standings, boards, records and achievements, the community leaderboard | `player_ratings`, `rating_history`, `pairwise_matches`, `player_titles`, `tournament_standings`, `tournament_records`, `community_rankings` | engine |
+| **Admin** | Who may use admin and with which role; an audit of every admin change | `admins`, `admin_audit` | admin |
+
+Patterns that hold across the schema:
+
+- **Runs, not overwrites.** A result table never changes a published run's
+  rows; deleting a run deletes its results with it (the foreign keys
+  cascade). A protected run cannot be deleted
+- **Facts are keyed by name** (tournament or series, season, player), not by
+  foreign keys to games, so a recorded fact survives a re-import of the games
+- **The export is the import.** Every input table (Games, Catalogue and
+  recorded facts, admin's settings) is exported as CSV with a manifest
+  (`go run ./cmd/load -export`, or **Download all data** in admin) and
+  restored whole by `-restore`. Personal data (`admins`, `admin_audit`) and
+  `refused_rows` are left out, and a test enforces it
+- **Roles:** `ratings` owns the schema (load job, engine); `ratings_read`
+  may only `SELECT` (the api's public routes); `ratings_admin` may write
+  only admin's tables (the api's admin routes)
+
+The **app database** *(planned)* will hold players, sessions, tournament
+matches, the Pulse queue and the notification outbox, with its own
+migrations in `backend/migrations/app/`.
 
 ## Site content
 
@@ -139,12 +213,13 @@ so a change to markup, styling or wording changes no test.
 
 ## The community's data outlives the site
 
-The worker exports the community's data (matches, tournaments, results,
-published ratings) as CSV on a schedule to a public data repository, whose
-releases are archived independently. **The export format is the import
-format**, so anyone can rebuild an instance from the public backup alone.
-**It contains no personal data.** Operational backups, which do, are
-separate and private.
+Every input table can be exported as CSV and restored whole (see [the
+ratings database](#the-ratings-database)): **the export format is the import
+format**, and **it contains no personal data**. Today the maintainers keep
+baselines in a private data repository. *(Planned: the worker publishes
+exports on a schedule to a public data repository, so anyone can rebuild an
+instance from the public backup alone.)* Operational backups, which hold
+personal data, are separate and private.
 
 ## Time
 
@@ -152,7 +227,7 @@ Instants are `timestamptz` in UTC, and each player has an **IANA timezone**
 name, never an offset. The browser's timezone only pre-fills the setup form.
 Times are rendered in the viewer's zone.
 
-## Notifications
+## Notifications *(planned)*
 
 An **outbox** row is written in the same transaction as its cause. The worker
 sends it and records the result. A crash between those steps causes at worst a
@@ -161,13 +236,18 @@ TTA community server and email via `mail-relay`.
 
 ## Trust boundaries
 
-- **Sign-in proves a Discord identity.** A TTA username is a *claim* until it
-  is confirmed by email to the address CGE holds. Unverified players
-  cannot act on CGE matches.
+- **Admin is behind Cloudflare Access**, signed in with Discord through
+  our own OIDC Worker; the api verifies the Access JWT on every admin
+  request, and an admin's role (admin, organiser) is checked there. The
+  public site and API need no sign-in
+- **Player sign-in proves a Discord identity** *(planned)*. A TTA username
+  is a *claim* until it is confirmed by email to the address CGE holds.
+  Unverified players cannot act on CGE matches.
 - **CSRF:** the sites and the API are same-site, so `SameSite` does not
   protect. Every state-changing request checks `Origin`.
-- **Egress:** only `worker` and `api` (for the OAuth token exchange) reach the
-  internet, and RFC1918 ranges are excluded.
+- **Egress:** default-deny. The api reaches only Cloudflare Access's
+  signing keys and the Kubernetes API (to start engine Jobs); the worker
+  *(planned)* will reach CGE and Discord. RFC1918 ranges are excluded.
 - **Personal data** (Discord id and handle, optional email, TTA username,
   timezone) is **never logged at any level**.
 - **Analytics:** the public site allows the beacon Cloudflare injects for
@@ -180,8 +260,10 @@ TTA community server and email via `mail-relay`.
 
 ## What it sits on
 
-The home k3s cluster managed by `picluster`: four Pi 4s (arm64) and
-`unstableserver`/`wsl-laptop` (amd64), with Longhorn, Flux and the GitHub
-Actions runners. Both databases and the engine are pinned to **`unstableserver`**,
-because the upstream DB is ~1.4 GB (unmeasured) and the engine is numpy-heavy.
-TLS terminates at Cloudflare, and traffic arrives through a cloudflared tunnel.
+A home k3s cluster: four Pi 4s (arm64) and two amd64 machines, with
+Longhorn storage, Flux, and the GitHub Actions runners CI uses. Flux applies
+`deploy/` from `main`, as an account that can change only the `ttacommunity`
+namespace. The database and the engine run on the larger amd64 machine. TLS
+terminates at Cloudflare, and traffic arrives through a cloudflared tunnel.
+Images are built by CI into GitHub's container registry and pinned by
+digest in `deploy/`.

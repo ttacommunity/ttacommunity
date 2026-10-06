@@ -4,70 +4,172 @@ A community platform for **Through the Ages**, with three sites on one backend:
 
 - **Ratings**: community Glicko ratings, with a public API. The rating math is
   DANeo's rating engine
-- **Tournaments**: players in official tournament matches agree a start time,
-  get reminders, and have the game started for them
-- **TTA Pulse**: a blitz queue that pairs players near their level
+- **Tournaments** (planned): players in official tournament matches agree a
+  start time, get reminders, and have the game started for them
+- **TTA Pulse** (planned): a blitz queue that pairs players near their level
 
-**Early days.** The foundation is in place and the features are being built.
-How the pieces fit: [`docs/architecture.md`](docs/architecture.md).
+The ratings site, its public API and the admin site are built; Tournaments and
+Pulse are not yet. How the pieces fit, and the database schema:
+[`docs/architecture.md`](docs/architecture.md). Rules for contributors and
+coding agents: [`AGENTS.md`](AGENTS.md).
 
 ## Layout
 
 | Directory | What | Language |
 |---|---|---|
-| `backend/` | The API and the worker (`cmd/api`, `cmd/worker`) | Go |
-| `engine/` | The rating engine, run as a scheduled job | Python (uv) |
-| `web/` | The public site, the admin site, and shared theme and types | Astro, React, TypeScript (pnpm) |
+| `backend/` | `cmd/api` (the JSON API), `cmd/load` (the data load job), `cmd/worker` (timed jobs, a stub so far), `internal/`, `migrations/`, and `api/openapi.yaml` (the API contract) | Go |
+| `engine/` | The rating engine, run as a job | Python (uv) |
+| `web/` | `site` (public), `admin`, and `shared` (theme, components, generated API types) | Astro, React, TypeScript (pnpm) |
+| `infra/access-oidc/` | The Worker that signs admins in to Cloudflare Access with Discord | JavaScript |
+| `deploy/` | What the home cluster runs (Flux applies it from `main`) | Kubernetes YAML |
+| `scripts/` | Install, run, test and CI entry points; `.ps1` twins for Windows | Bash, PowerShell |
 | `checks/` | Repo checks: secrets, digests, comment density, no raw HTML | Bash |
-| `scripts/` | Run, test and CI entry points | Bash |
+| `docs/` | Architecture, user journeys | Markdown |
 
-## Run it
+## Develop
 
-**In containers**, with only Docker (or Podman with a compose provider):
+### 1. Get the code and the data
 
-```bash
-scripts/dev.sh           # both databases, api, worker, the engine once, and the site
-scripts/dev.sh down      # stop it; the database volumes are kept
-```
-
-Then open the site at http://127.0.0.1:4321, and the API at
-http://127.0.0.1:8080/healthz. The first run creates `.env` from
-`.env.example`, whose values are for local use only.
-
-With Podman, the compose plugin talks to Podman's API socket. Turn it on once:
-`systemctl --user enable --now podman.socket`.
-
-**Natively**, for day-to-day work (Postgres still runs in a container):
+The code is here; the data never is (it lives in a private repository the
+maintainers share). Clone both side by side:
 
 ```bash
-scripts/dev.sh --native
+git clone git@github.com:ttacommunity/ttacommunity.git
+git clone git@github.com:ttacommunity/ttac-ratings-data.git
 ```
 
-The toolchain versions are pinned in [`mise.toml`](mise.toml): Go, Node, uv
-(which fetches Python itself), crane and shellcheck. With
-[mise](https://mise.jdx.dev) installed, `mise install` fetches exactly those,
-and CI uses the same file. pnpm comes through Node's corepack, at the version
-`web/package.json` pins.
+On Windows over HTTPS, sign in to GitHub once when Git Credential Manager
+asks, or use `git@github.com:` URLs with an SSH key.
 
-**On Windows**, natively, without Docker (PowerShell; Windows PowerShell 5.1
-or PowerShell 7). To clone the private repos over HTTPS, sign in to GitHub
-once when Git Credential Manager asks, or clone with `git@github.com:` URLs
-and an SSH key. Allow local scripts once:
-`Set-ExecutionPolicy -Scope CurrentUser RemoteSigned`. Then:
+### 2. Install the tools
+
+Every tool version is pinned in [`mise.toml`](mise.toml) (Go, Node, uv, which
+fetches Python 3.12 itself, and CI's linters), and pnpm's in
+`web/package.json`, used through Node's corepack. CI installs the same.
+
+**Linux and macOS:** install [mise](https://mise.jdx.dev), then `mise
+install`. Postgres runs in a container: Docker, or Podman with a compose
+provider (turn on its socket once: `systemctl --user enable --now
+podman.socket`).
+
+**Windows** (no Docker; Windows PowerShell 5.1 or PowerShell 7). Allow local
+scripts once, then install:
 
 ```powershell
-scripts\install.ps1      # mise (via winget), Go, Node, uv; PostgreSQL 18; local databases
-scripts\ratings-db.ps1 <baseline folder>   # load data, see below
-scripts\dev.ps1          # api, worker and site; Ctrl-C stops them
+Set-ExecutionPolicy -Scope CurrentUser RemoteSigned
+scripts\install.ps1
 ```
 
-`install.ps1` asks once for a password for the local `postgres` superuser
-(only it uses it) and installs PostgreSQL 18 on port 55432, for your user
-only: no admin rights, unpacked to `%LOCALAPPDATA%\ttacommunity`, and started
-by the scripts when they need it (`pg_ctl stop` stops it). With `-Service`
-it installs PostgreSQL as a Windows service instead (asks for admin), always
-running. It is safe to run again. `. scripts\env.ps1` loads `.env` into your PowerShell session for
+`install.ps1` installs mise with winget, then Go, Node and uv, and
+PostgreSQL 18 on port 55432, for your user only: no admin rights, unpacked
+to `%LOCALAPPDATA%\ttacommunity`, and started by the scripts when they need
+it (`pg_ctl stop` stops it). It asks once for a password for the local
+`postgres` superuser, which only it uses. With `-Service` it installs
+PostgreSQL as a Windows service instead (asks for admin). It is safe to run
+again. `. scripts\env.ps1` loads `.env` into a PowerShell session for
 running anything by hand.
+
+Either way, turn on the git hooks, which refuse a commit or push that looks
+like it holds a credential (`install.ps1` does this for you):
+
+```bash
+git config core.hooksPath .githooks
+```
+
+The first run of any script creates `.env` from `.env.example`. Its values
+are for local use only.
+
+### 3. Load the data and compute ratings
+
+Restore the newest baseline from the data repository into the empty local
+database, then compute a rating run and publish it locally:
+
+```bash
+scripts/ratings-db.sh --native ../ttac-ratings-data/baseline/2026-10-06
+cd engine && set -a && . ../.env && set +a
+ENGINE_VERSION=local uv run python -m tta_ratings_engine.run --make-current
+```
+
+```powershell
+scripts\ratings-db.ps1 ..\ttac-ratings-data\baseline\2026-10-06
+. scripts\env.ps1; cd engine; $env:ENGINE_VERSION = 'local'
+uv run python -m tta_ratings_engine.run --make-current
+```
+
+A full run takes about 20 minutes. `--formats 2` rates two-player games only,
+for a quicker look. More in [Load ratings data](#load-ratings-data) and
+[Compute ratings](#compute-ratings).
+
+### 4. Run it
+
+```bash
+scripts/dev.sh --native    # api, worker and site here; Postgres in a container
+scripts/dev.sh             # or everything in containers, the engine once too
+scripts/dev.sh down        # stop the containers (data volumes are kept)
+```
+
+```powershell
+scripts\dev.ps1            # api, worker and site; Ctrl-C stops them
+```
+
+The site is at http://127.0.0.1:4321 and the API at
+http://127.0.0.1:8080/healthz. Admin runs with `corepack pnpm --filter
+@ttac/admin dev`; its `/api/*` routes answer 401 locally, because only
+Cloudflare Access can sign an admin in.
+
+### 5. Test it
+
+```bash
+scripts/test.sh    # every test: Go (with a throwaway Postgres), the engine, web
+scripts/ci.sh      # everything CI runs, in the same order
+```
+
+```powershell
+scripts\test.ps1   # the same tests, against the local Postgres
+```
+
+CI runs `scripts/ci.sh` unchanged, one job per area, so a green run here
+means a green pipeline. Each script ends by listing what it did not cover.
+The `windows` workflow runs `install.ps1` and `test.ps1` on GitHub's Windows
+runner when started by hand.
+
+With Windows 11's **Smart App Control** on, Go's tests fail at random with
+"An Application Control policy has blocked this file": Windows refuses the
+unsigned test programs `go test` builds, and offers no exception for them.
+Turn Smart App Control off while developing (Windows Security → App &
+browser control → Smart App Control; on a Windows 11 with the April 2026
+updates it can be turned back on there), or rely on CI for the Go tests.
+
+### 6. Make a change
+
+Read [`AGENTS.md`](AGENTS.md) first: how we test, comment, commit and open
+pull requests. Then, by kind of change:
+
+- **The API**: change `backend/api/openapi.yaml` first, then the handler
+  in `backend/internal/httpapi`. Regenerate both sides and commit them:
+  `cd backend && go generate ./internal/httpapi` and `corepack pnpm
+  --filter @ttac/shared gen:api` (in `web/`). A test fails while a route and
+  the spec disagree
+- **The database**: add the next numbered file to
+  `backend/migrations/ratings/` (goose, plain SQL, with its `-- +goose
+  Down`), after `00001_schema.sql`, the whole schema at its start. Never
+  edit one that has reached `main`. Apply it locally with `go
+  run ./cmd/load -migrate`. The export and import must stay equal: a new
+  table the data needs goes into the export too, and the data repository
+  then needs a new baseline. The schema at a glance:
+  [`docs/architecture.md#the-ratings-database`](docs/architecture.md#the-ratings-database)
+- **The engine**: `engine/`; don't change the rating math itself
+  (`engine.py`, `solver.py`) to make something else easier. `uv run pytest`,
+  `uv run ruff check .`, `uv run ruff format .`
+- **A page**: `web/site/src/pages/`; text pages are MDX in
+  `web/site/src/content/`. Keep components thin: decisions go in a tested
+  `lib/` function
+- **The api or engine image**: once the code is final, add the `images`
+  label to the pull request and pin the digests it prints in `deploy/` (see
+  [Shipping a change](#shipping-a-change-to-the-api-or-the-engine))
+
+Branch from `main` and open a pull request to `main`. Merging needs a
+maintainer.
 
 ### Show a local build to someone: Cloudflare quick tunnels
 
@@ -116,32 +218,6 @@ curl -s "https://<site-tunnel>.trycloudflare.com/ratings/" | grep -o 'props="[^"
 The preview sends none of `public/_headers`, so the real CSP is only
 checked on the deployed site.
 
-## Test it
-
-```bash
-scripts/test.sh    # every test: Go (with a throwaway Postgres), the engine, and web
-scripts/ci.sh      # everything CI runs, in the same order
-```
-
-On Windows, `scripts\test.ps1` runs the same tests against the local
-Postgres (it lists what it leaves out). With Windows 11's **Smart App
-Control** on, Go's tests fail at random with "An Application Control policy
-has blocked this file": Windows refuses the unsigned test programs `go test`
-builds. No assertion failed. Rely on CI for the Go tests, or turn Smart App
-Control off (Windows Security → App & browser control; turning it back on
-needs a Windows reset). The `windows` workflow runs
-`install.ps1` and `test.ps1` on GitHub's Windows runner when started by hand.
-
-CI runs `scripts/ci.sh` unchanged, so a green run here means a green pipeline.
-The script ends by listing what it did not cover.
-
-Turn on the git hooks, which refuse a commit or push that looks like it holds a
-credential:
-
-```bash
-git config core.hooksPath .githooks
-```
-
 ## Load ratings data
 
 No match or rating data is kept in this repo. The data lives outside it, and
@@ -151,9 +227,9 @@ settings, but no personal data) with every correction already applied. Restore o
 database, then compute ratings:
 
 ```bash
-scripts/ratings-db.sh ~/tta-data/baseline/2026-10-04            # in a container
-scripts/ratings-db.sh --native ~/tta-data/baseline/2026-10-04   # with local Go
-scripts\ratings-db.ps1 ..\tta-data\baseline\2026-10-04             # Windows
+scripts/ratings-db.sh ../ttac-ratings-data/baseline/2026-10-06            # in a container
+scripts/ratings-db.sh --native ../ttac-ratings-data/baseline/2026-10-06   # with local Go
+scripts\ratings-db.ps1 ..\ttac-ratings-data\baseline\2026-10-06            # Windows
 ```
 
 The script starts the ratings database if needed and restores the export
@@ -270,18 +346,31 @@ and the rows a load refused are left out. Keep exports outside the repo.
 go run ./cmd/load -export ~/tta-data/baseline/2026-10-05    # a new or empty folder
 ```
 
-To rebuild a lost database, restore into a new, empty one, then compute:
+#### Rebuild a database from scratch
 
-```bash
-go run ./cmd/load -restore ~/tta-data/baseline/2026-10-04
-```
+Everything a database needs comes back from an export: the schema from the
+migrations, the inputs from the CSVs, the ratings from the engine. To start
+again from nothing:
 
-The restore applies the migrations, then loads everything in one
-transaction. It refuses a database that already holds games or runs, a file
-changed since the export, and an export taken at another schema version
-(restore with the `load` of that version, then migrate). Add the admins
-(`load -add-admin`), then run the engine
-([Compute ratings](#compute-ratings)).
+1. **An empty database.** Locally: `scripts/dev.sh down`, remove the
+   `ratings-db` volume (`podman volume rm` or `docker volume rm`), and start
+   it again; on Windows: `dropdb ratings` and `createdb -O ratings ratings`
+   (as `postgres`), or rerun `install.ps1`. The cluster's:
+   [Rebuild the cluster's database](#rebuild-the-clusters-database)
+2. **Schema and data**, from the newest export:
+
+   ```bash
+   cd backend && go run ./cmd/load -restore ../../ttac-ratings-data/baseline/<date>
+   ```
+
+   The restore applies the migrations, then loads everything in one
+   transaction. It refuses a database that already holds games or runs, a
+   file changed since the export, and an export taken at another schema
+   version (restore with the `load` of that version, then migrate)
+3. **Admins**, which no export holds (they are personal data):
+   `go run ./cmd/load -add-admin <Discord id> -name <name> -role admin`
+4. **Ratings**: run the engine and publish the run
+   ([Compute ratings](#compute-ratings), with `--make-current`)
 
 For the original site (upstream), write the games as the one match CSV its
 loader reads, `data/raw/all_matches.csv`:
@@ -438,18 +527,70 @@ engine's `--make-current` does, and the site shows the run within a minute
 ```bash
 psql "$RATINGS_DATABASE_URL" -v run=<run_id> <<'SQL'
 BEGIN;
-INSERT INTO current_run (run_id) VALUES (:run)
-  ON CONFLICT (only_row) DO UPDATE SET run_id = excluded.run_id;
+INSERT INTO current_run (ranking_id, run_id)
+  SELECT ranking_id, run_id FROM rating_runs WHERE run_id = :run
+  ON CONFLICT (ranking_id) DO UPDATE SET run_id = excluded.run_id;
 UPDATE rating_runs SET published_at = now() WHERE run_id = :run;
 COMMIT;
 SQL
 ```
 
-Only a `complete` run can be made current: the database refuses any other.
-Going back is the same statement with the earlier run's id.
+Admin's runs panel publishes the same way. Only a `complete` run can be
+made current: the database refuses any other. Going back is the same
+statement with the earlier run's id.
 
 When done, stop the port-forward (`kill %1` in the same shell) and
 `unset PGPASSWORD`.
+
+#### Rebuild the cluster's database
+
+The cluster's `ratings` database rebuilt from an export, with the
+port-forward and `RATINGS_DATABASE_URL` above. The dev site's `ratings_dev`
+is rebuilt the same way: its owner is `ratings_dev`, its logins
+`ratings_dev_api` and `ratings_dev_admin_api`, and its `RATINGS_DATABASE_URL`
+is in the `ratings-dev-engine` Secret. The api serves errors from step 4
+until step 8.
+
+**What an export does not hold**, and where it comes from in a rebuild:
+
+| What | Where it lives | Brought back by |
+|---|---|---|
+| Admins and their audit (personal data) | the database only | step 2's backup file, restored in step 7 |
+| The database logins and their passwords | the server (roles) and the Secrets in [`deploy/SECRETS.md`](deploy/SECRETS.md) | untouched by a database rebuild; a new server needs them created again from the Secrets |
+| The Secrets themselves | the cluster, made by hand | keep a copy outside the cluster; recreate as `SECRETS.md` describes |
+| Ratings and tournament results | computed | step 8 |
+
+1. **Keep a full copy first**, and prove it restores elsewhere (not on a
+   cluster node's own disk: a large restore there can evict the database).
+   It holds the admins, so keep it outside any repository, mode 600:
+   `pg_dump -Fc "$RATINGS_DATABASE_URL" > ratings-<date>.dump`
+2. **Back up what the export leaves out** (mode 600):
+   `pg_dump -Fc --data-only -t admins -t admin_audit "$RATINGS_DATABASE_URL" > admins-<date>.dump`
+3. **Note the highest run id**:
+   `psql "$RATINGS_DATABASE_URL" -Atc "SELECT max(run_id) FROM rating_runs"`.
+   Run-scoped API responses are cached at the edge for a year, so new runs
+   must not reuse an old run's id
+4. **Drop and recreate the database** with the same owner and connect
+   rights (for `ratings_dev`: owner `ratings_dev`, and no `REVOKE`/`GRANT`):
+
+   ```bash
+   kubectl -n ttacommunity exec -i deploy/ratings-db -- psql -v ON_ERROR_STOP=1 -U ratings -d postgres <<'SQL'
+   DROP DATABASE ratings WITH (FORCE);
+   CREATE DATABASE ratings OWNER ratings;
+   REVOKE CONNECT ON DATABASE ratings FROM PUBLIC;
+   GRANT CONNECT ON DATABASE ratings TO ratings_api, ratings_admin_api;
+   SQL
+   ```
+
+5. **Restore the newest export** (step 2 of [Rebuild a database from
+   scratch](#rebuild-a-database-from-scratch)) as the database's owner. The
+   export must be at the code's schema version
+6. **Continue the run ids** after the highest from step 3:
+   `psql "$RATINGS_DATABASE_URL" -c "SELECT setval('rating_runs_run_id_seq', <highest>)"`
+7. **Restore the admins** from step 2:
+   `pg_restore --data-only -d "$RATINGS_DATABASE_URL" admins-<date>.dump`
+   (or add them by hand with `load -add-admin`)
+8. **Compute a run, check it, and publish it** (above)
 
 ### The sites and the sign-in worker on Cloudflare Workers
 
