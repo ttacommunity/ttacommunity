@@ -60,10 +60,21 @@ scripts/ci.sh            # everything CI runs, in CI's order
   organization: `ttac-ratings-data` (`git@github.com:ttacommunity/ttac-ratings-data.git`).
   Clone it beside this repository (`..\ttac-ratings-data`). Compute ratings after
   loading: see README, "Compute ratings"
-- **Admin in local dev**: `ADMIN_DEV_USER` in `.env` enables local admin without
-  Cloudflare Access (active only when `ADMIN_ORIGIN` is `http://127.0.0.1:*`). Seed a
-  local admin user via `go run ./cmd/load -add-admin 100000000000000001 -name "Local Admin" -role admin`.
-  `scripts\dev.ps1` runs the admin UI at `http://127.0.0.1:4322`
+- **Admin in local dev**: the dev scripts run admin at http://127.0.0.1:4322.
+  With `ADMIN_DEV_USER` set in `.env`, the api signs a request with no Access
+  token in as that admin, and a token `dev-<id>` as admin `<id>` (to try
+  other roles; the id must be in `admins`). The api refuses to start with it
+  unless `ADMIN_ORIGIN` is `http://127.0.0.1:…`, `API_ADDR` is
+  `127.0.0.1:…`, and it is not in Kubernetes. Add the admin once:
+  `go run ./cmd/load -add-admin 100000000000000001 -name "Local admin" -role admin`.
+  An older `.env` may say `API_ADDR=:8080`: change it to `127.0.0.1:8080`
+- **A local database from before 2026-10-06** (schema numbered past 1) does
+  not take the new schema: rebuild it from the baseline (README, "Rebuild a
+  database from scratch")
+- **On a machine that is also a cluster node**, keep big local databases
+  off its disk: a full restore there can make Kubernetes evict the cluster's
+  own database. Remove throwaway containers with `podman rm -f -v <name>`,
+  never a host-wide `prune`
 - The Windows scripts are twins of the bash ones. **Change one, change the
   other.** CI only parses the `.ps1` files on Linux; the `windows` workflow
   runs them for real when started by hand
@@ -143,8 +154,11 @@ scripts/ci.sh            # everything CI runs, in CI's order
 - State-changing routes check `Origin` against an exact allowlist. CORS is an
   exact allowlist, never `*` with credentials
 - **Migrations**: goose, numbered plain `.sql` files in
-  `backend/migrations/<db>/`. One that has reached `main` is never edited; fix
-  forward. Write the `-- +goose Down`, or mark it `-- irreversible` with why
+  `backend/migrations/<db>/`. `00001_schema.sql` is the ratings schema at
+  its start; a change is the next number after it. One that has reached
+  `main` is never edited; fix forward. Write the `-- +goose Down`, or mark it
+  `-- irreversible` with why. The schema's shape:
+  `docs/architecture.md#the-ratings-database`
 - Errors: wrap with `%w` and context. An error crossing a trust boundary is
   rewritten, not wrapped (a database error can carry hosts and users)
 - `slog`, JSON to stdout. A type holding a secret gets a redacting `String()`
