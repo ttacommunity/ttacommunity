@@ -5,6 +5,8 @@ param(
     [int]$Port = 55432
 )
 $ErrorActionPreference = 'Stop'
+$env:MISE_AUTO_INSTALL = 'false'
+$env:MISE_EXEC_AUTO_INSTALL = 'false'
 Set-Location (Split-Path -Parent $PSScriptRoot)
 
 function Test-Command($name) { [bool](Get-Command $name -ErrorAction SilentlyContinue) }
@@ -35,9 +37,19 @@ if ($env:PG_SUPERPASSWORD) {
     $superPlain = [Runtime.InteropServices.Marshal]::PtrToStringAuto([Runtime.InteropServices.Marshal]::SecureStringToBSTR($super))
 }
 if (-not $service) {
+    # The installer takes its password on the command line, where other local
+    # processes can read it, so it gets a throwaway one, replaced below.
+    $installPw = [guid]::NewGuid().ToString('N')
     winget install --id PostgreSQL.PostgreSQL.18 --exact --accept-package-agreements --accept-source-agreements `
-        --override "--mode unattended --unattendedmodeui none --superpassword `"$superPlain`" --serverport $Port --disable-components pgAdmin,stackbuilder"
+        --override "--mode unattended --unattendedmodeui none --superpassword $installPw --serverport $Port --disable-components pgAdmin,stackbuilder"
     if ($LASTEXITCODE -ne 0) { throw 'install.ps1: PostgreSQL install failed' }
+    . "$PSScriptRoot\env.ps1"
+    $env:PGPASSWORD = $installPw
+    "SELECT format('ALTER ROLE postgres PASSWORD %L', :'pw') \gexec" |
+        psql -X -q -v ON_ERROR_STOP=1 -v "pw=$superPlain" -h 127.0.0.1 -p $Port -U postgres -d postgres
+    $failed = $LASTEXITCODE
+    Remove-Item Env:PGPASSWORD
+    if ($failed -ne 0) { throw 'install.ps1: setting the postgres password failed' }
 } else {
     Write-Host "install.ps1: using the existing service $($service.Name) on port $Port"
 }
@@ -48,12 +60,16 @@ if ($Port -ne 55432) {
     . "$PSScriptRoot\env.ps1"
 }
 
-# The roles the containers create as their superusers: ratings and app own
-# their databases; ttac runs the tests, which create and drop databases.
+# The roles the containers create as their superusers, and superusers here
+# too: the tests and migrations SET ROLE to roles they create, which a
+# CREATEROLE role may not do since PostgreSQL 16.
 $env:PGPASSWORD = $superPlain
 $sql = @"
-SELECT format('CREATE ROLE %I LOGIN CREATEDB CREATEROLE', r) FROM unnest(ARRAY['ratings','app','ttac']) r
+SELECT format('CREATE ROLE %I LOGIN', r) FROM unnest(ARRAY['ratings','app','ttac']) r
   WHERE NOT EXISTS (SELECT FROM pg_roles WHERE rolname = r) \gexec
+ALTER ROLE ratings SUPERUSER;
+ALTER ROLE app SUPERUSER;
+ALTER ROLE ttac SUPERUSER;
 SELECT format('ALTER ROLE ratings PASSWORD %L', :'ratings_pw') \gexec
 SELECT format('ALTER ROLE app PASSWORD %L', :'app_pw') \gexec
 ALTER ROLE ttac PASSWORD 'local-only';

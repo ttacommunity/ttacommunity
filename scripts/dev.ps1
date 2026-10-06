@@ -30,8 +30,9 @@ if ($installed -ne 0) { throw 'dev.ps1: pnpm install failed' }
 $procs = @(
     Start-Process go -ArgumentList 'run', './cmd/api' -WorkingDirectory (Join-Path $root 'backend') -NoNewWindow -PassThru
     Start-Process go -ArgumentList 'run', './cmd/worker' -WorkingDirectory (Join-Path $root 'backend') -NoNewWindow -PassThru
-    # --ignore-lock stops astro detaching into a daemon when an AI agent runs this.
-    Start-Process corepack -ArgumentList 'pnpm', 'exec', 'astro', 'dev', '--ignore-lock' -WorkingDirectory (Join-Path $root 'web\site') -NoNewWindow -PassThru
+    # --ignore-lock stops astro detaching into a daemon when an AI agent runs this;
+    # --host: on Windows astro otherwise listens on ::1 only.
+    Start-Process corepack -ArgumentList 'pnpm', 'exec', 'astro', 'dev', '--ignore-lock', '--host', '127.0.0.1' -WorkingDirectory (Join-Path $root 'web\site') -NoNewWindow -PassThru
 )
 
 # Wait-Up polls $Url for up to 90 seconds and reports it under $Name.

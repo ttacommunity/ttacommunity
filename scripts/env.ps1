@@ -25,7 +25,10 @@ if ($onWindows) {
     $pgBin = 'C:\Program Files\PostgreSQL\18\bin'
     if ((Test-Path $pgBin) -and ($env:PATH -notlike "*$pgBin*")) { $env:PATH = "$pgBin;$env:PATH" }
 }
-# mise's shims put the pinned Go, Node and uv on PATH.
+# mise's shims put the pinned Go, Node and uv on PATH. Without these, a shim's
+# first use installs every tool in mise.toml, CI's linters included.
+$env:MISE_AUTO_INSTALL = 'false'
+$env:MISE_EXEC_AUTO_INSTALL = 'false'
 if ($env:LOCALAPPDATA) {
     $shims = Join-Path $env:LOCALAPPDATA 'mise\shims'
     if ((Test-Path $shims) -and ($env:PATH -notlike "*$shims*")) { $env:PATH = "$shims;$env:PATH" }

@@ -50,7 +50,9 @@ and CI uses the same file. pnpm comes through Node's corepack, at the version
 `web/package.json` pins.
 
 **On Windows**, natively, without Docker (PowerShell; Windows PowerShell 5.1
-or PowerShell 7). Allow local scripts once:
+or PowerShell 7). To clone the private repos over HTTPS, sign in to GitHub
+once when Git Credential Manager asks, or clone with `git@github.com:` URLs
+and an SSH key. Allow local scripts once:
 `Set-ExecutionPolicy -Scope CurrentUser RemoteSigned`. Then:
 
 ```powershell
