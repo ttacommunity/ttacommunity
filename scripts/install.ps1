@@ -1,7 +1,8 @@
 # Install everything needed to develop natively on Windows, then create the
 # local databases and logins. Safe to run again: each step skips what exists.
-# Usage: scripts\install.ps1 [-Port 55432]   (PG_SUPERPASSWORD, if set, answers the prompt)
+# Usage: scripts\install.ps1 [-Service] [-Port 55432]   (PG_SUPERPASSWORD, if set, answers the prompt)
 param(
+    [switch]$Service,
     [int]$Port = 55432
 )
 $ErrorActionPreference = 'Stop'
@@ -27,38 +28,70 @@ mise trust
 mise install go node uv
 if ($LASTEXITCODE -ne 0) { throw 'install.ps1: mise install failed' }
 
-# PostgreSQL 18 as a Windows service. Its superuser is postgres; the
-# password chosen here is needed only by this script.
-$service = Get-Service -Name 'postgresql-x64-18' -ErrorAction SilentlyContinue
+# PostgreSQL 18: by default a user install (EDB's binaries, no admin, started
+# by env.ps1 when needed); with -Service, a Windows service from winget (UAC).
+# Its superuser is postgres; the password chosen here is needed only by this script.
 if ($env:PG_SUPERPASSWORD) {
     $superPlain = $env:PG_SUPERPASSWORD
 } else {
     $super = Read-Host -AsSecureString 'Password for the local postgres superuser (new, or the existing one)'
     $superPlain = [Runtime.InteropServices.Marshal]::PtrToStringAuto([Runtime.InteropServices.Marshal]::SecureStringToBSTR($super))
 }
-if (-not $service) {
-    # The installer takes its password on the command line, where other local
-    # processes can read it, so it gets a throwaway one, replaced below.
-    $installPw = [guid]::NewGuid().ToString('N')
-    winget install --id PostgreSQL.PostgreSQL.18 --exact --accept-package-agreements --accept-source-agreements `
-        --override "--mode unattended --unattendedmodeui none --superpassword $installPw --serverport $Port --disable-components pgAdmin,stackbuilder"
-    if ($LASTEXITCODE -ne 0) { throw 'install.ps1: PostgreSQL install failed' }
-    . "$PSScriptRoot\env.ps1"
-    $env:PGPASSWORD = $installPw
-    "SELECT format('ALTER ROLE postgres PASSWORD %L', :'pw') \gexec" |
-        psql -X -q -v ON_ERROR_STOP=1 -v "pw=$superPlain" -h 127.0.0.1 -p $Port -U postgres -d postgres
-    $failed = $LASTEXITCODE
-    Remove-Item Env:PGPASSWORD
-    if ($failed -ne 0) { throw 'install.ps1: setting the postgres password failed' }
-} else {
-    Write-Host "install.ps1: using the existing service $($service.Name) on port $Port"
-}
-
 . "$PSScriptRoot\env.ps1"
 if ($Port -ne 55432) {
     (Get-Content .env -Raw) -replace '127\.0\.0\.1:55432/', "127.0.0.1:$Port/" | Set-Content .env -NoNewline
-    . "$PSScriptRoot\env.ps1"
 }
+
+if ($Service) {
+    $existing = Get-Service -Name 'postgresql-x64-18' -ErrorAction SilentlyContinue
+    if ($existing) {
+        Write-Host "install.ps1: using the existing service $($existing.Name) on port $Port"
+    } else {
+        # The installer takes its password on the command line, where other local
+        # processes can read it, so it gets a throwaway one, replaced below.
+        $installPw = [guid]::NewGuid().ToString('N')
+        winget install --id PostgreSQL.PostgreSQL.18 --exact --accept-package-agreements --accept-source-agreements `
+            --override "--mode unattended --unattendedmodeui none --superpassword $installPw --serverport $Port --disable-components pgAdmin,stackbuilder"
+        if ($LASTEXITCODE -ne 0) { throw 'install.ps1: PostgreSQL install failed' }
+        . "$PSScriptRoot\env.ps1"
+        $env:PGPASSWORD = $installPw
+        "SELECT format('ALTER ROLE postgres PASSWORD %L', :'pw') \gexec" |
+            psql -X -q -v ON_ERROR_STOP=1 -v "pw=$superPlain" -h 127.0.0.1 -p $Port -U postgres -d postgres
+        $failed = $LASTEXITCODE
+        Remove-Item Env:PGPASSWORD
+        if ($failed -ne 0) { throw 'install.ps1: setting the postgres password failed' }
+    }
+} else {
+    $pgHome = Join-Path $env:LOCALAPPDATA 'ttacommunity'
+    $pgData = Join-Path $pgHome 'pgdata'
+    if (-not (Test-Path (Join-Path $pgHome 'pgsql\bin\pg_ctl.exe'))) {
+        # The same release winget's installer carries; EDB publishes no checksum, so ours is pinned.
+        $zip = Join-Path $env:TEMP 'postgresql-18.6-5-windows-x64-binaries.zip'
+        $ProgressPreference = 'SilentlyContinue'   # 5.1's progress bar slows a download many times over
+        Invoke-WebRequest -UseBasicParsing -OutFile $zip -Uri 'https://get.enterprisedb.com/postgresql/postgresql-18.6-5-windows-x64-binaries.zip'
+        if ((Get-FileHash $zip -Algorithm SHA256).Hash -ne 'E2246BA91D22345BC3D017586C09EDE52D9DF180B1EEB480F050445F1CAD84E2') {
+            Remove-Item $zip
+            throw 'install.ps1: the PostgreSQL download does not match its pinned SHA-256'
+        }
+        New-Item -ItemType Directory -Force $pgHome | Out-Null
+        tar -xf $zip -C $pgHome --exclude 'pgsql/pgAdmin 4' --exclude 'pgsql/StackBuilder' --exclude 'pgsql/doc'
+        $unpacked = $LASTEXITCODE
+        Remove-Item $zip
+        if ($unpacked -ne 0) { throw 'install.ps1: unpacking PostgreSQL failed' }
+    }
+    if (-not (Test-Path (Join-Path $pgData 'PG_VERSION'))) {
+        $pwFile = Join-Path $env:TEMP ([guid]::NewGuid().ToString('N'))
+        try {
+            Set-Content -Path $pwFile -Value $superPlain -NoNewline
+            & (Join-Path $pgHome 'pgsql\bin\initdb.exe') -D $pgData -U postgres --pwfile=$pwFile -E UTF8 --locale=C --auth=scram-sha-256
+            if ($LASTEXITCODE -ne 0) { throw 'install.ps1: initdb failed' }
+        } finally {
+            Remove-Item $pwFile -ErrorAction SilentlyContinue
+        }
+        Add-Content (Join-Path $pgData 'postgresql.conf') "`nlisten_addresses = '127.0.0.1'`nport = $Port"
+    }
+}
+. "$PSScriptRoot\env.ps1"
 
 # The roles the containers create as their superusers, and superusers here
 # too: the tests and migrations SET ROLE to roles they create, which a

@@ -56,14 +56,17 @@ and an SSH key. Allow local scripts once:
 `Set-ExecutionPolicy -Scope CurrentUser RemoteSigned`. Then:
 
 ```powershell
-scripts\install.ps1      # mise (via winget), Go, Node, uv; PostgreSQL 18 as a service; local databases
+scripts\install.ps1      # mise (via winget), Go, Node, uv; PostgreSQL 18; local databases
 scripts\ratings-db.ps1 <baseline folder>   # load data, see below
 scripts\dev.ps1          # api, worker and site; Ctrl-C stops them
 ```
 
 `install.ps1` asks once for a password for the local `postgres` superuser
-(only it uses it) and installs PostgreSQL on port 55432. It is safe to run
-again. `. scripts\env.ps1` loads `.env` into your PowerShell session for
+(only it uses it) and installs PostgreSQL 18 on port 55432, for your user
+only: no admin rights, unpacked to `%LOCALAPPDATA%\ttacommunity`, and started
+by the scripts when they need it (`pg_ctl stop` stops it). With `-Service`
+it installs PostgreSQL as a Windows service instead (asks for admin), always
+running. It is safe to run again. `. scripts\env.ps1` loads `.env` into your PowerShell session for
 running anything by hand.
 
 ### Show a local build to someone: Cloudflare quick tunnels
@@ -121,7 +124,12 @@ scripts/ci.sh      # everything CI runs, in the same order
 ```
 
 On Windows, `scripts\test.ps1` runs the same tests against the local
-Postgres service (it lists what it leaves out). The `windows` workflow runs
+Postgres (it lists what it leaves out). With Windows 11's **Smart App
+Control** on, Go's tests fail at random with "An Application Control policy
+has blocked this file": Windows refuses the unsigned test programs `go test`
+builds. No assertion failed. Rely on CI for the Go tests, or turn Smart App
+Control off (Windows Security → App & browser control; turning it back on
+needs a Windows reset). The `windows` workflow runs
 `install.ps1` and `test.ps1` on GitHub's Windows runner when started by hand.
 
 CI runs `scripts/ci.sh` unchanged, so a green run here means a green pipeline.

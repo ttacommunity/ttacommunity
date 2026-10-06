@@ -20,7 +20,20 @@ foreach ($line in Get-Content $envFile) {
     }
 }
 
-# Postgres's tools (psql) come with the Windows service; put them on PATH.
+# A user install of Postgres (install.ps1's default): its tools on PATH,
+# PGDATA set so pg_ctl works directly, and started if it is not running.
+$userPg = if ($env:LOCALAPPDATA) { Join-Path $env:LOCALAPPDATA 'ttacommunity' } else { $null }
+if ($userPg -and (Test-Path (Join-Path $userPg 'pgdata\PG_VERSION'))) {
+    $env:PGDATA = Join-Path $userPg 'pgdata'
+    $userBin = Join-Path $userPg 'pgsql\bin'
+    if ($env:PATH -notlike "*$userBin*") { $env:PATH = "$userBin;$env:PATH" }
+    pg_ctl status | Out-Null
+    if ($LASTEXITCODE -ne 0) {
+        pg_ctl start -w -l (Join-Path $userPg 'postgres.log') | Out-Null
+        if ($LASTEXITCODE -ne 0) { throw "env.ps1: Postgres did not start; see $(Join-Path $userPg 'postgres.log')" }
+    }
+}
+# With -Service, Postgres's tools come with the Windows service; put them on PATH.
 if ($onWindows) {
     $pgBin = 'C:\Program Files\PostgreSQL\18\bin'
     if ((Test-Path $pgBin) -and ($env:PATH -notlike "*$pgBin*")) { $env:PATH = "$pgBin;$env:PATH" }
