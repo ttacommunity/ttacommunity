@@ -527,15 +527,17 @@ engine's `--make-current` does, and the site shows the run within a minute
 ```bash
 psql "$RATINGS_DATABASE_URL" -v run=<run_id> <<'SQL'
 BEGIN;
-INSERT INTO current_run (run_id) VALUES (:run)
-  ON CONFLICT (only_row) DO UPDATE SET run_id = excluded.run_id;
+INSERT INTO current_run (ranking_id, run_id)
+  SELECT ranking_id, run_id FROM rating_runs WHERE run_id = :run
+  ON CONFLICT (ranking_id) DO UPDATE SET run_id = excluded.run_id;
 UPDATE rating_runs SET published_at = now() WHERE run_id = :run;
 COMMIT;
 SQL
 ```
 
-Only a `complete` run can be made current: the database refuses any other.
-Going back is the same statement with the earlier run's id.
+Admin's runs panel publishes the same way. Only a `complete` run can be
+made current: the database refuses any other. Going back is the same
+statement with the earlier run's id.
 
 When done, stop the port-forward (`kill %1` in the same shell) and
 `unset PGPASSWORD`.
