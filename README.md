@@ -461,10 +461,10 @@ from `main`:
 | Worker | Root directory | Build command | Deploy command |
 |---|---|---|---|
 | `ttacommunity` (the site) | `/web` | `pnpm --filter @ttac/site build` | `npx wrangler@4.141.0 deploy --config site/wrangler.jsonc` |
-| `ttacommunity` Previews (Settings → Builds → Previews Base) | `/web` | `pnpm --filter @ttac/site build` | `if [ "$WORKERS_CI_BRANCH" = dev ]; then npx wrangler@4.141.0 preview --config site/wrangler.jsonc; else echo "Previews are built for branch dev only"; fi` |
+| `ttacommunity` Previews (Settings → Builds → Previews Base) | `/web` | `if [ "$WORKERS_CI_BRANCH" = dev ]; then pnpm --filter @ttac/site build; else echo "Previews are built for branch dev only"; fi` | `if [ "$WORKERS_CI_BRANCH" = dev ]; then npx wrangler@4.141.0 preview --config site/wrangler.jsonc; else echo "Previews are built for branch dev only"; fi` |
 | `ttac-admin` | `/web` | `pnpm --filter @ttac/admin build` | `npx wrangler@4.141.0 deploy --config admin/wrangler.jsonc` |
-| `ttac-admin` Previews | `/web` | `pnpm --filter @ttac/admin build` | `if [ "$WORKERS_CI_BRANCH" = dev ]; then npx wrangler@4.141.0 preview --config admin/wrangler.jsonc; else echo "Previews are built for branch dev only"; fi` |
-| `ttac-auth` (Discord sign-in for Access) | `/infra/access-oidc` | none | `npx wrangler deploy` |
+| `ttac-admin` Previews | `/web` | `if [ "$WORKERS_CI_BRANCH" = dev ]; then pnpm --filter @ttac/admin build; else echo "Previews are built for branch dev only"; fi` | `if [ "$WORKERS_CI_BRANCH" = dev ]; then npx wrangler@4.141.0 preview --config admin/wrangler.jsonc; else echo "Previews are built for branch dev only"; fi` |
+| `ttac-auth` (Discord sign-in for Access), no previews | `/infra/access-oidc` | none | `npx wrangler deploy` |
 
 Build variables, set in each site Worker's build settings:
 
@@ -475,9 +475,10 @@ Build variables, set in each site Worker's build settings:
 | `NODE_VERSION` | both sites | the `node` version in `mise.toml` | The build image's default is older |
 | `PNPM_VERSION` | both sites | the pnpm version in `web/package.json` | The build image does not read `packageManager` |
 
-When importing a Worker, **turn off non-production (preview) builds**, and
-on `ttacommunity` keep them to branch `dev`. Previews have no branch
-filter, so the Preview command skips every other branch. A preview build
+When importing a Worker, **turn off non-production (preview) builds**. Only
+`ttacommunity` and `ttac-admin` have them, for branch `dev`. Previews have no
+branch filter, so both their build and deploy commands skip every other
+branch: a push elsewhere runs a short build that does nothing and passes. A preview build
 reports on the pull request's commit, and a failure there blocks the
 merge. Previews Base has its own build variables; don't click "Enable
 Preview URLs", which turns on `workers.dev`. `dev` is served at `dev.ttacommunity.unstableunicorn.dev`: a
