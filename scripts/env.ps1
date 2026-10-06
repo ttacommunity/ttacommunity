@@ -1,5 +1,5 @@
 # Load .env into this PowerShell session, creating it from .env.example first.
-# On Windows both databases live in one Postgres service, so the app database's
+# On Windows both databases live in one Postgres server, so the app database's
 # port becomes the ratings one. Usage: . scripts\env.ps1   (dot-sourced)
 
 $root = Split-Path -Parent $PSScriptRoot
@@ -29,8 +29,17 @@ if ($userPg -and (Test-Path (Join-Path $userPg 'pgdata\PG_VERSION'))) {
     if ($env:PATH -notlike "*$userBin*") { $env:PATH = "$userBin;$env:PATH" }
     pg_ctl status | Out-Null
     if ($LASTEXITCODE -ne 0) {
-        pg_ctl start -w -l (Join-Path $userPg 'postgres.log') | Out-Null
-        if ($LASTEXITCODE -ne 0) { throw "env.ps1: Postgres did not start; see $(Join-Path $userPg 'postgres.log')" }
+        # Not `pg_ctl start | Out-Null`: the server inherits the pipe, and the
+        # pipe stays open until the server stops. Start it detached, then poll.
+        $log = Join-Path $userPg 'postgres.log'
+        Start-Process -FilePath (Join-Path $userBin 'pg_ctl.exe') -WindowStyle Hidden `
+            -ArgumentList 'start', '-D', "`"$env:PGDATA`"", '-l', "`"$log`""
+        for ($i = 0; $i -lt 60; $i++) {
+            Start-Sleep -Seconds 1
+            pg_ctl status | Out-Null
+            if ($LASTEXITCODE -eq 0) { break }
+        }
+        if ($LASTEXITCODE -ne 0) { throw "env.ps1: Postgres did not start within 60s; see $log" }
     }
 }
 # With -Service, Postgres's tools come with the Windows service; put them on PATH.
