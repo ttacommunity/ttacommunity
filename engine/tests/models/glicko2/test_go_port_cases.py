@@ -146,7 +146,7 @@ def test_go_port_cases_match_the_engine():
             json.dumps([{**c, "want": compute(c)} for c in INPUTS], indent=1) + "\n"
         )
 
-    stored = json.loads(CASES.read_text())
+    stored = json.loads(CASES.read_text(encoding="utf-8"))
     assert [c["name"] for c in stored] == [c["name"] for c in INPUTS]
     for case in stored:
         assert {k: v for k, v in case.items() if k != "want"} == next(

@@ -178,6 +178,13 @@ if full && area checks; then
     run zizmor --quiet .github/workflows
   fi
 
+  step "powershell"
+  # The Windows twins run only on a manual Windows job; parsing them here is the cheap net.
+  if need pwsh "the PowerShell scripts"; then
+    # Parsing needs no locale data, and the CI image has no libicu.
+    run env DOTNET_SYSTEM_GLOBALIZATION_INVARIANT=1 pwsh -NoProfile -File checks/ps-parse.ps1
+  fi
+
   step "shell"
   if need shellcheck "the shell scripts"; then
     run shellcheck scripts/*.sh checks/*.sh .githooks/*

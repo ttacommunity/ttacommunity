@@ -1,6 +1,7 @@
 import multiprocessing
 import os
 import signal
+import sys
 from datetime import date
 
 import pytest
@@ -632,6 +633,10 @@ def progress_line(conn, run_id):
     return row and row["line"]
 
 
+@pytest.mark.skipif(
+    sys.platform == "win32",
+    reason="Windows ends a process on SIGTERM; the engine runs on Linux",
+)
 def test_a_stopped_run_is_marked_failed_and_says_so(conn, db_url, add_match):
     season(add_match)
     previous = signal.getsignal(signal.SIGTERM)

@@ -16,7 +16,7 @@ MIGRATIONS = Path(__file__).resolve().parents[2] / "backend" / "migrations" / "r
 
 def up_sql(path):
     """Returns the goose Up section of a migration file."""
-    text = path.read_text()
+    text = path.read_text(encoding="utf-8")
     return text.split("-- +goose Up", 1)[1].split("-- +goose Down", 1)[0]
 
 
