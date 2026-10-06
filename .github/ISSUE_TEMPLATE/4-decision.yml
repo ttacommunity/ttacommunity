@@ -29,8 +29,7 @@ body:
     attributes:
       label: Who decides
       options:
-        - DANeo (the rating engine and its site)
-        - Tournament organisers
         - Maintainers
+        - Tournament organisers
     validations:
       required: true
