@@ -141,7 +141,7 @@ func (*fakeAdmins) RunSizes(context.Context) (map[int64]int64, error) {
 func (*fakeAdmins) Tournaments(context.Context) ([]store.AdminTournament, error) {
 	return []store.AdminTournament{{Slug: "worlds", Name: "World Championship", Rated: true, Regulations: "Mine.", CGERegulations: "CGE's.",
 		Card: store.Card{Icon: "🏆", Tagline: "Annual World Championship", Summary: "The pinnacle.", Subtitle: "4-Player", Cadence: "Annual"},
-		Kind: "cup", OriginalName: "World Championships", Points: map[int][]float64{2: nil, 3: {5, 2, 0}, 4: {6, 3, 1, 0}},
+		Kind: "cup", OriginalName: "World Championships", Points: map[int][]float64{2: nil, 3: {5, 2, 0}, 4: {6, 3, 1, 0}}, StageName: "Round",
 		Stories:           []store.Story{{Player: "a440", Badge: "Reigning World Champion", Title: "2025", Text: "Won."}},
 		RatedPlayerCounts: []int{3, 4},
 		Seasons: []store.AdminSeason{{Label: "2025", OriginalName: "2025 Edition", Rated: true, InChampions: true, TimeoutPenalty: -1, Stages: []store.AdminStage{{Label: "Stage 1", OriginalName: "Groups", Note: "n"}},
@@ -160,6 +160,9 @@ func (f *fakeAdmins) SetTournament(_ context.Context, slug string, s store.Tourn
 	}
 	if len(s.Points[3]) == 2 {
 		return store.ErrBadScoring
+	}
+	if s.SeasonName != nil && len(*s.SeasonName) > 32 {
+		return store.ErrBadLevelName
 	}
 	f.settings = append(f.settings, s)
 	return nil
@@ -1187,6 +1190,28 @@ func TestAnOrganiserSetsScoringAndTimeoutPenalties(t *testing.T) {
 	wantJSON(t, rec.Body.Bytes(), "0.points_3p", `[5, 2, 0]`)
 	wantJSON(t, rec.Body.Bytes(), "0.points_4p", `[6, 3, 1, 0]`)
 	wantJSON(t, rec.Body.Bytes(), "0.seasons.0.timeout_penalty", `-1`)
+}
+
+func TestAnOrganiserNamesATournamentsSeasonsAndStages(t *testing.T) {
+	const site = "https://ttac-admin.example"
+	f := &fakeAdmins{}
+	if rec := adminDo(t, f, http.MethodPatch, "/v1/admin/tournaments/worlds", site, `{"season_name": "Edition", "stage_name": ""}`); rec.Code != http.StatusNoContent {
+		t.Fatalf("PATCH names = %d %s, want 204", rec.Code, rec.Body)
+	}
+	if len(f.settings) != 1 || f.settings[0].SeasonName == nil || *f.settings[0].SeasonName != "Edition" ||
+		f.settings[0].StageName == nil || *f.settings[0].StageName != "" {
+		t.Errorf("settings = %+v, want season Edition and the stage's default", f.settings)
+	}
+	f = &fakeAdmins{}
+	if rec := adminDo(t, f, http.MethodPatch, "/v1/admin/tournaments/worlds", site, `{"season_name": "`+strings.Repeat("x", 33)+`"}`); rec.Code != http.StatusBadRequest {
+		t.Errorf("a 33-character name = %d %s, want 400", rec.Code, rec.Body)
+	}
+	if len(f.settings)+len(f.audits) != 0 {
+		t.Errorf("a refused name still changed something: %+v %q", f.settings, f.audits)
+	}
+	rec := adminDo(t, &fakeAdmins{}, http.MethodGet, "/v1/admin/tournaments", "", "")
+	wantJSON(t, rec.Body.Bytes(), "0.season_name", `""`)
+	wantJSON(t, rec.Body.Bytes(), "0.stage_name", `"Round"`)
 }
 
 func TestAdminsAndOrganisersDownloadTheData(t *testing.T) {

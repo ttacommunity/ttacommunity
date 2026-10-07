@@ -1451,6 +1451,10 @@ export interface components {
         AdminTournament: {
             /** @description The name it came in with, kept when it is renamed */
             original_name: string;
+            /** @description What it calls a season, as admin set it; empty for the default, Season */
+            season_name: string;
+            /** @description What it calls a stage, as admin set it; empty for the default, Stage */
+            stage_name: string;
             points_2p: components["schemas"]["PlacePoints"];
             points_3p: components["schemas"]["PlacePoints"];
             points_4p: components["schemas"]["PlacePoints"];
@@ -1519,6 +1523,10 @@ export interface components {
             points_2p?: components["schemas"]["PlacePoints"];
             points_3p?: components["schemas"]["PlacePoints"];
             points_4p?: components["schemas"]["PlacePoints"];
+            /** @description What it calls a season on its pages ("Edition", "Round"…); empty for the default, Season */
+            season_name?: string;
+            /** @description What it calls a stage on its pages; empty for the default, Stage */
+            stage_name?: string;
         };
         /** @description Points for each place in a game of that many players, best place first, from the next run; empty for a player count the tournament does not score. Never negative, never higher for a worse place */
         PlacePoints: number[];
@@ -2239,6 +2247,10 @@ export interface components {
             cge_pages: string[];
         };
         CatalogueTournament: {
+            /** @description What it calls a season, as headings use it ("Season" unless admin set another word, such as "Edition") */
+            season_name: string;
+            /** @description What it calls a stage ("Stage" unless admin set another word, such as "Season") */
+            stage_name: string;
             /** @description Its stories, as admin writes them, in order */
             stories: components["schemas"]["Story"][];
             /** @description The ten highest winning scores in its played games */

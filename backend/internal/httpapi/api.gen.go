@@ -755,10 +755,16 @@ type AdminTournament struct {
 	RatedPlayerCounts []int `json:"rated_player_counts"`
 
 	// Regulations The format and regulations written in admin, empty for none
-	Regulations string        `json:"regulations"`
-	Seasons     []AdminSeason `json:"seasons"`
-	Slug        string        `json:"slug"`
-	Stories     []Story       `json:"stories"`
+	Regulations string `json:"regulations"`
+
+	// SeasonName What it calls a season, as admin set it; empty for the default, Season
+	SeasonName string        `json:"season_name"`
+	Seasons    []AdminSeason `json:"seasons"`
+	Slug       string        `json:"slug"`
+
+	// StageName What it calls a stage, as admin set it; empty for the default, Stage
+	StageName string  `json:"stage_name"`
+	Stories   []Story `json:"stories"`
 
 	// TopDivisions A league's divisions whose final standings make its podium; empty for none
 	TopDivisions []string `json:"top_divisions"`
@@ -1007,9 +1013,15 @@ type CatalogueTournament struct {
 	Rules []EditionRules `json:"rules"`
 	RunId int64          `json:"run_id"`
 
+	// SeasonName What it calls a season, as headings use it ("Season" unless admin set another word, such as "Edition")
+	SeasonName string `json:"season_name"`
+
 	// Seasons In order of their first game
 	Seasons []CatalogueSeason `json:"seasons"`
 	Slug    string            `json:"slug"`
+
+	// StageName What it calls a stage ("Stage" unless admin set another word, such as "Season")
+	StageName string `json:"stage_name"`
 
 	// Stories Its stories, as admin writes them, in order
 	Stories []Story `json:"stories"`
@@ -1939,6 +1951,12 @@ type TournamentSettings struct {
 
 	// RatedPlayerCounts The player counts whose games count towards ratings, from the next run
 	RatedPlayerCounts *[]int `json:"rated_player_counts,omitempty"`
+
+	// SeasonName What it calls a season on its pages ("Edition", "Round"…); empty for the default, Season
+	SeasonName *string `json:"season_name,omitempty"`
+
+	// StageName What it calls a stage on its pages; empty for the default, Stage
+	StageName *string `json:"stage_name,omitempty"`
 
 	// TopDivisions A league's divisions whose final standings make its podium on the site; empty for none
 	TopDivisions *[]string `json:"top_divisions,omitempty"`

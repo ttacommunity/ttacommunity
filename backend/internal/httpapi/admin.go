@@ -167,7 +167,7 @@ func (s *server) GetAdminTournaments(ctx context.Context, _ GetAdminTournamentsR
 		out[i] = AdminTournament{Slug: t.Slug, Name: t.Name, OriginalName: t.OriginalName, Kind: TournamentKind(t.Kind),
 			TopDivisions: append([]string{}, t.TopDivisions...), Visible: t.Visible, Rated: t.Rated, Community: t.Community,
 			Points2p: append(PlacePoints{}, t.Points[2]...), Points3p: append(PlacePoints{}, t.Points[3]...), Points4p: append(PlacePoints{}, t.Points[4]...),
-			Card: tournamentCard(t.Card), Stories: storyList(t.Stories), RatedPlayerCounts: append([]int{}, t.RatedPlayerCounts...), Regulations: t.Regulations, CgeRegulations: t.CGERegulations, Seasons: seasons}
+			SeasonName: t.SeasonName, StageName: t.StageName, Card: tournamentCard(t.Card), Stories: storyList(t.Stories), RatedPlayerCounts: append([]int{}, t.RatedPlayerCounts...), Regulations: t.Regulations, CgeRegulations: t.CGERegulations, Seasons: seasons}
 	}
 	return GetAdminTournaments200JSONResponse{Body: out, Headers: GetAdminTournaments200ResponseHeaders{CacheControl: cacheNone}}, nil
 }
@@ -179,10 +179,11 @@ func (s *server) PatchAdminTournament(ctx context.Context, req PatchAdminTournam
 		return nil, errors.New("admin route reached without the gate")
 	}
 	if b == nil || (b.Visible == nil && b.Rated == nil && b.Community == nil && b.RatedPlayerCounts == nil &&
-		b.Kind == nil && b.TopDivisions == nil && b.Points2p == nil && b.Points3p == nil && b.Points4p == nil) {
+		b.Kind == nil && b.TopDivisions == nil && b.Points2p == nil && b.Points3p == nil && b.Points4p == nil &&
+		b.SeasonName == nil && b.StageName == nil) {
 		return PatchAdminTournament400JSONResponse{BadRequestJSONResponse{Body: Error{Error: "nothing to change"}, Headers: BadRequestResponseHeaders{CacheControl: cacheNone}}}, nil
 	}
-	settings := store.TournamentSettings{Visible: b.Visible, Rated: b.Rated, Community: b.Community}
+	settings := store.TournamentSettings{Visible: b.Visible, Rated: b.Rated, Community: b.Community, SeasonName: b.SeasonName, StageName: b.StageName}
 	if b.RatedPlayerCounts != nil {
 		settings.RatedPlayerCounts = *b.RatedPlayerCounts
 	}
@@ -203,6 +204,9 @@ func (s *server) PatchAdminTournament(ctx context.Context, req PatchAdminTournam
 	err := s.admins.SetTournament(ctx, req.Tournament, settings)
 	if errors.Is(err, store.ErrBadScoring) {
 		return PatchAdminTournament400JSONResponse{badRequest400(store.ErrBadScoring.Error())}, nil
+	}
+	if errors.Is(err, store.ErrBadLevelName) {
+		return PatchAdminTournament400JSONResponse{badRequest400(store.ErrBadLevelName.Error())}, nil
 	}
 	if errors.Is(err, store.ErrBadPlayerCounts) {
 		return PatchAdminTournament400JSONResponse{badRequest400("rated player counts are one or more of 2, 3 and 4")}, nil

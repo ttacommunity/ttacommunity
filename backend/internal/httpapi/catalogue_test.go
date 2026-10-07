@@ -111,6 +111,22 @@ func TestCatalogueTournament(t *testing.T) {
 	}
 }
 
+func TestCatalogueTournamentNamesItsSeasonsAndStages(t *testing.T) {
+	for _, tt := range []struct {
+		name, season, stage, wantSeason, wantStage string
+	}{
+		{"the defaults", "", "", `"Season"`, `"Stage"`},
+		{"its own words", "Edition", "Season", `"Edition"`, `"Season"`},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			f := &fakeCatalogue{tournament: store.CatalogueTournament{Slug: "slow_burn", Name: "Slow Burn", SeasonName: tt.season, StageName: tt.stage}}
+			rec, _ := serve(t, f, "/v1/runs/7/catalogue/slow_burn")
+			wantJSON(t, rec.Body.Bytes(), "season_name", tt.wantSeason)
+			wantJSON(t, rec.Body.Bytes(), "stage_name", tt.wantStage)
+		})
+	}
+}
+
 func TestCatalogueGames(t *testing.T) {
 	d, _ := time.Parse(time.DateOnly, "2025-02-24")
 	f := &fakeCatalogue{games: store.CatalogueGames{Total: 2, Coded: 1, Page: 1, Pages: 1, Groups: []string{"Final"}, Games: []store.CatalogueGame{
