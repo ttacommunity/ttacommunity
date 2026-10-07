@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"regexp"
 	"slices"
+	"strconv"
 	"strings"
 	"unicode/utf8"
 
@@ -46,9 +47,11 @@ type AdminSeason struct {
 	Rated               bool
 	// InChampions is whether its winner is listed among the tournament's champions.
 	InChampions bool
-	Stages      []AdminStage
-	Podium      []PodiumEntry
-	PodiumNote  string
+	// TimeoutPenalty is the points a player loses for each game they time out of, 0 or below.
+	TimeoutPenalty float64
+	Stages         []AdminStage
+	Podium         []PodiumEntry
+	PodiumNote     string
 }
 
 // PodiumEntry is one place on a podium set in admin.
@@ -99,7 +102,8 @@ func (a *AdminStore) Tournaments(ctx context.Context) ([]AdminTournament, error)
 		       coalesce((SELECT note FROM tournament_season_notes n WHERE n.tournament = t.slug AND n.season = se.label AND n.stage = ''), ''),
 		       coalesce((SELECT note FROM tournament_season_notes n WHERE n.tournament = t.slug AND n.season = se.label AND n.stage = st.label AND st.label <> ''), ''),
 		       d.last IS NOT NULL, coalesce(se.rated, true), coalesce(se.in_champions, true), t.rated_player_counts, t.kind, t.top_divisions, t.original_name,
-		       t.points_2p, t.points_3p, t.points_4p
+		       t.points_2p, t.points_3p, t.points_4p,
+		       coalesce((SELECT r.timeout_penalty FROM tournament_season_rules r WHERE r.series = t.slug AND r.season::text = se.label), 0)
 		FROM tournaments t
 		LEFT JOIN tournament_cards k ON k.tournament = t.slug
 		LEFT JOIN tournament_seasons se USING (tournament_id)
@@ -123,9 +127,10 @@ func (a *AdminStore) Tournaments(ctx context.Context) ([]AdminTournament, error)
 	var kind, original string
 	var top []string
 	var p2, p3, p4 []float64
+	var penalty float64
 	_, err = pgx.ForEachRow(rows, []any{&slug, &name, &visible, &community, &rated, &regulations,
 		&card.Icon, &card.Tagline, &card.Summary, &card.Subtitle, &card.Cadence, &cgeRegulations, &season, &stage, &seasonOriginal, &stageOriginal, &seasonNote, &stageNote, &hasGames,
-		&seasonRated, &inChampions, &counts, &kind, &top, &original, &p2, &p3, &p4}, func() error {
+		&seasonRated, &inChampions, &counts, &kind, &top, &original, &p2, &p3, &p4, &penalty}, func() error {
 		if len(out) == 0 || out[len(out)-1].Slug != slug {
 			out = append(out, AdminTournament{Slug: slug, Name: name, Visible: visible, Rated: rated, Community: community,
 				Regulations: regulations, CGERegulations: cgeRegulations, Card: card, RatedPlayerCounts: counts,
@@ -136,7 +141,7 @@ func (a *AdminStore) Tournaments(ctx context.Context) ([]AdminTournament, error)
 			return nil
 		}
 		if len(t.Seasons) == 0 || t.Seasons[len(t.Seasons)-1].Label != *season {
-			t.Seasons = append(t.Seasons, AdminSeason{Label: *season, OriginalName: seasonOriginal, Note: *seasonNote, HasGames: hasGames, Rated: seasonRated, InChampions: inChampions, Stages: []AdminStage{}})
+			t.Seasons = append(t.Seasons, AdminSeason{Label: *season, OriginalName: seasonOriginal, Note: *seasonNote, HasGames: hasGames, Rated: seasonRated, InChampions: inChampions, TimeoutPenalty: penalty, Stages: []AdminStage{}})
 		}
 		s := &t.Seasons[len(t.Seasons)-1]
 		if *stage != "" {
@@ -549,6 +554,30 @@ func (a *AdminStore) SetSeasonInChampions(ctx context.Context, slug, season stri
 
 // SetSeasonRated sets whether a season's games count towards ratings, from the next run, or returns
 // ErrNoTournament for a season that does not exist.
+// ErrBadPenalty means a time-out penalty above 0, or for a season not numbered.
+var ErrBadPenalty = errors.New("a time-out penalty is 0 or below, for a numbered season")
+
+// SetSeasonPenalty sets the points a player loses in a season's standings for each game they time out of.
+func (a *AdminStore) SetSeasonPenalty(ctx context.Context, slug, season string, penalty float64) error {
+	number, err := strconv.Atoi(season)
+	if penalty > 0 || err != nil || number < 1 {
+		return ErrBadPenalty
+	}
+	tag, err := a.pool.Exec(ctx, `
+		INSERT INTO tournament_season_rules (series, season, timeout_penalty, source)
+		SELECT t.slug, $2::int, $3, 'admin' FROM tournaments t JOIN tournament_seasons se USING (tournament_id)
+		WHERE t.slug = $1 AND se.label = $2::int::text
+		ON CONFLICT (series, season) DO UPDATE SET timeout_penalty = excluded.timeout_penalty, source = excluded.source`,
+		slug, number, penalty)
+	if err != nil {
+		return fmt.Errorf("setting %s %s's time-out penalty: %w", slug, season, err)
+	}
+	if tag.RowsAffected() == 0 {
+		return ErrNoTournament
+	}
+	return nil
+}
+
 func (a *AdminStore) SetSeasonRated(ctx context.Context, slug, season string, rated bool) error {
 	tag, err := a.pool.Exec(ctx, `UPDATE tournament_seasons se SET rated = $3 FROM tournaments t
 		WHERE t.tournament_id = se.tournament_id AND t.slug = $1 AND se.label = $2`, slug, season, rated)

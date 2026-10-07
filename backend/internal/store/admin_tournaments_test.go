@@ -582,3 +582,43 @@ func TestASeasonCanBeLeftOutOfTheChampions(t *testing.T) {
 		t.Errorf("no such season = %v, want ErrNoTournament", err)
 	}
 }
+
+func TestAdminSetsASeasonsTimeoutPenalty(t *testing.T) {
+	pool := migrated(t)
+	ctx := context.Background()
+	placedOn(t, pool, map[string]time.Time{
+		"Intermezzo S6 - Bronze 1 game 1": day("2020-05-01"),
+		"Intermezzo S7 - Bronze 1 game 1": day("2020-08-01"),
+	})
+	a := NewAdminStore(asAdminLogin(t, pool))
+	penalties := func() map[string]float64 {
+		t.Helper()
+		ts, err := a.Tournaments(ctx)
+		if err != nil {
+			t.Fatal(err)
+		}
+		got := map[string]float64{}
+		for _, se := range adminTournament(t, ts, "intermezzo").Seasons {
+			got[se.Label] = se.TimeoutPenalty
+		}
+		return got
+	}
+	if err := a.SetSeasonPenalty(ctx, "intermezzo", "6", -1); err != nil {
+		t.Fatalf("SetSeasonPenalty: %v", err)
+	}
+	if got := penalties(); got["6"] != -1 || got["7"] != 0 {
+		t.Errorf("penalties = %v, want S6 -1, S7 0", got)
+	}
+	if err := a.SetSeasonPenalty(ctx, "intermezzo", "6", 0); err != nil {
+		t.Fatalf("SetSeasonPenalty: %v", err)
+	}
+	if got := penalties(); got["6"] != 0 {
+		t.Errorf("after setting 0, S6 penalty = %v, want 0", got["6"])
+	}
+	if err := a.SetSeasonPenalty(ctx, "intermezzo", "7", 1); !errors.Is(err, ErrBadPenalty) {
+		t.Errorf("a positive penalty = %v, want ErrBadPenalty", err)
+	}
+	if err := a.SetSeasonPenalty(ctx, "intermezzo", "99", -1); !errors.Is(err, ErrNoTournament) {
+		t.Errorf("no such season = %v, want ErrNoTournament", err)
+	}
+}
