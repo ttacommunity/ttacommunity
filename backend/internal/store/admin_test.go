@@ -67,7 +67,7 @@ func TestThePublicReaderCannotReadAdminsOrTheAudit(t *testing.T) {
 
 func TestTheAdminLoginCannotChangeGamesOrRuns(t *testing.T) {
 	admin := asAdminLogin(t, migrated(t))
-	for _, q := range []string{"DELETE FROM matches", "DELETE FROM rating_runs", "UPDATE players SET name = name", "CREATE TABLE x (y int)"} {
+	for _, q := range []string{"DELETE FROM games", "DELETE FROM rating_runs", "UPDATE players SET name = name", "CREATE TABLE x (y int)"} {
 		if _, err := admin.Exec(context.Background(), q); err == nil {
 			t.Errorf("ratings_admin ran %q, want permission denied", q)
 		}

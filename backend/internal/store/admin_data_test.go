@@ -22,8 +22,8 @@ func TestDataSummaryCountsTheGamesAndLoads(t *testing.T) {
 			t.Fatalf("%s: %v", q, err)
 		}
 	}
-	exec("UPDATE matches SET state = 'never_played', date = '2025-01-01' WHERE tournament = 'Intermezzo S24 - Bronze 1 game 2'")
-	exec("UPDATE matches SET stage_id = NULL WHERE tournament = 'Wimbledon 2024 Stage 1 - group 1 game 1'")
+	exec("UPDATE games SET state = 'never_played', date = '2025-01-01' WHERE name = 'Intermezzo S24 - Bronze 1 game 2'")
+	exec("UPDATE games SET group_id = NULL WHERE name = 'Wimbledon 2024 Stage 1 - group 1 game 1'")
 	var players int
 	if err := pool.QueryRow(ctx, "SELECT count(*) FROM players").Scan(&players); err != nil {
 		t.Fatal(err)

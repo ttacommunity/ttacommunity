@@ -44,7 +44,7 @@ ALTER TABLE games RENAME COLUMN match_id TO game_id;
 ALTER TABLE games RENAME COLUMN tournament TO name;
 ALTER TABLE games RENAME COLUMN replay_code TO share_code;
 ALTER TABLE games
-    ADD COLUMN group_id bigint REFERENCES groups,
+    ADD COLUMN group_id bigint REFERENCES groups, -- null until the game is placed
     ADD COLUMN cge_session integer UNIQUE CHECK (cge_session > 0),
     ADD COLUMN started_at timestamptz,
     ADD COLUMN finished_at timestamptz,
@@ -58,7 +58,6 @@ UPDATE games g SET group_id = gr.group_id
 FROM game_groups k JOIN groups gr ON gr.stage_id = k.stage_id AND gr.name = k.group_label
   AND gr.cge_tournament IS NOT DISTINCT FROM k.cge_tournament AND gr.cge_stage_number IS NOT DISTINCT FROM k.cge_season
 WHERE k.match_id = g.game_id;
-ALTER TABLE games ALTER COLUMN group_id SET NOT NULL;
 CREATE INDEX games_group ON games (group_id);
 
 -- An account belongs to the player of its latest game; a second account on one player is an alias.
@@ -195,11 +194,29 @@ ALTER TABLE games
     DROP COLUMN stage_id, DROP COLUMN group_label, DROP COLUMN cge_tournament, DROP COLUMN cge_season;
 ALTER TABLE series DROP COLUMN points_2p, DROP COLUMN points_3p, DROP COLUMN points_4p;
 
-GRANT SELECT ON groups, group_members, seats, player_accounts, settings, cge_tournament_moderators TO ratings_read;
-GRANT SELECT ON groups, group_members, seats, player_accounts, settings, cge_tournament_moderators TO ratings_admin;
+-- One row per game with its place in the catalogue and its seats in seat order: what most readers list.
+CREATE VIEW game_lines AS
+SELECT g.game_id, g.name, g.date, g.state, g.share_code, g.glicko_eligible, g.game_number, g.cge_finished,
+       g.batch_id, g.group_id, gr.name AS group_name, gr.stage_id, st.tournament_id, t.series_id,
+       gr.cge_tournament, gr.cge_stage_number,
+       count(*)::smallint AS player_count,
+       array_agg(s.player_name ORDER BY s.seat) AS players,
+       array_agg(s.culture ORDER BY s.seat) AS cultures,
+       array_agg(s.place ORDER BY s.seat) AS places,
+       array_agg(s.outcome ORDER BY s.seat) AS outcomes
+FROM games g
+JOIN seats s USING (game_id)
+LEFT JOIN groups gr USING (group_id)
+LEFT JOIN stages st USING (stage_id)
+LEFT JOIN tournaments t USING (tournament_id)
+GROUP BY g.game_id, gr.group_id, st.stage_id, t.tournament_id;
+
+GRANT SELECT ON groups, group_members, seats, player_accounts, settings, cge_tournament_moderators, game_lines TO ratings_read;
+GRANT SELECT ON groups, group_members, seats, player_accounts, settings, cge_tournament_moderators, game_lines TO ratings_admin;
 GRANT INSERT, UPDATE, DELETE ON settings TO ratings_admin;
 
 -- +goose Down
+DROP VIEW game_lines;
 REVOKE INSERT, UPDATE, DELETE ON settings FROM ratings_admin;
 
 ALTER TABLE series

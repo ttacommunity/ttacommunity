@@ -22,18 +22,28 @@ func addGame(t *testing.T, pool *pgxpool.Pool, run int64, date, tournament strin
 	if err := pool.QueryRow(ctx, "INSERT INTO import_batches (source) VALUES ('load') RETURNING batch_id").Scan(&batch); err != nil {
 		t.Fatalf("adding a batch: %v", err)
 	}
-	cols := make([]any, 8)
-	for i, s := range seats {
-		cols[2*i], cols[2*i+1] = s.Name, s.Score
-	}
 	var id int64
 	err := pool.QueryRow(ctx, `
-		INSERT INTO matches (batch_id, source_file, source_line, tournament, date, player_count,
-			player1, score1, player2, score2, player3, score3, player4, score4)
-		VALUES ($1, 'f.csv', 1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12) RETURNING match_id`,
-		append([]any{batch, tournament, date, len(seats)}, cols...)...).Scan(&id)
+		INSERT INTO games (batch_id, source_file, source_line, name, date)
+		VALUES ($1, 'f.csv', 1, $2, $3) RETURNING game_id`, batch, tournament, date).Scan(&id)
 	if err != nil {
 		t.Fatalf("adding a game on %s: %v", date, err)
+	}
+	var names []string
+	var scores []float64
+	for _, s := range seats {
+		names, scores = append(names, s.Name), append(scores, s.Score)
+	}
+	if _, err := pool.Exec(ctx, "INSERT INTO players (name) SELECT unnest($1::text[]) ON CONFLICT (name) DO NOTHING", names); err != nil {
+		t.Fatalf("adding game %d's players: %v", id, err)
+	}
+	_, err = pool.Exec(ctx, `
+		INSERT INTO seats (game_id, seat, player_id, player_name, culture, recorded_score, place)
+		SELECT $1, s.seat, p.player_id, s.name, greatest(s.score, 0), s.score, rank() OVER (ORDER BY s.score DESC)
+		FROM unnest($2::text[], $3::float8[]) WITH ORDINALITY AS s(name, score, seat) JOIN players p USING (name)`,
+		id, names, scores)
+	if err != nil {
+		t.Fatalf("adding game %d's seats: %v", id, err)
 	}
 	if run == 0 {
 		return id

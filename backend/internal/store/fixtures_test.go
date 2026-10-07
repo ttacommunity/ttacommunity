@@ -184,7 +184,7 @@ func placedOn(t *testing.T, pool *pgxpool.Pool, games map[string]time.Time) {
 	}
 	loadNamed(t, pool, names...)
 	for n, d := range games {
-		if _, err := pool.Exec(ctx, "UPDATE matches SET date = $2 WHERE tournament = $1", n, d); err != nil {
+		if _, err := pool.Exec(ctx, "UPDATE games SET date = $2 WHERE name = $1", n, d); err != nil {
 			t.Fatalf("dating %s: %v", n, err)
 		}
 	}

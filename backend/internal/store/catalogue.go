@@ -42,24 +42,26 @@ func ClassifyMatches(ctx context.Context, pool *pgxpool.Pool) (Classified, error
 	// A tournament first seen here is rated in the community ranking, as all were on the original site.
 	if _, err := tx.Exec(ctx, `
 		WITH added AS (
-			INSERT INTO tournaments (slug, name, original_name, kind, top_divisions, points_2p, points_3p, points_4p, season_name, stage_name)
-			SELECT slug, name, name, kind, coalesce(string_to_array(nullif(tops, ''), '|'), '{}'),
-			       coalesce(string_to_array(nullif(p2, ''), ',')::float8[], '{}'),
-			       coalesce(string_to_array(nullif(p3, ''), ',')::float8[], '{}'),
-			       coalesce(string_to_array(nullif(p4, ''), ',')::float8[], '{}'),
-			       season_name, stage_name
-			FROM unnest($1::text[], $2::text[], $3::text[], $4::text[], $5::text[], $6::text[], $7::text[], $8::text[], $9::text[])
-			     AS x(slug, name, kind, tops, p2, p3, p4, season_name, stage_name)
+			INSERT INTO series (slug, name, original_name, kind, top_divisions, tournament_noun, stage_noun)
+			SELECT slug, name, name, kind, coalesce(string_to_array(nullif(tops, ''), '|'), '{}'), season_name, stage_name
+			FROM unnest($1::text[], $2::text[], $3::text[], $4::text[], $5::text[], $6::text[])
+			     AS x(slug, name, kind, tops, season_name, stage_name)
 			ON CONFLICT (slug) DO NOTHING
-			RETURNING tournament_id
+			RETURNING series_id, slug
+		), ranked AS (
+			INSERT INTO ranking_series (ranking_id, series_id)
+			SELECT r.ranking_id, a.series_id FROM rankings r CROSS JOIN added a WHERE r.slug = 'community'
 		)
-		INSERT INTO ranking_tournaments (ranking_id, tournament_id)
-		SELECT r.ranking_id, a.tournament_id FROM rankings r CROSS JOIN added a WHERE r.slug = 'community'`,
-		slugs, names, kinds, tops, p2, p3, p4, seasonNames, stageNames); err != nil {
+		INSERT INTO settings (series_id, points_2p, points_3p, points_4p, source)
+		SELECT a.series_id, string_to_array(nullif(x.p2, ''), ',')::float8[], string_to_array(nullif(x.p3, ''), ',')::float8[],
+		       string_to_array(nullif(x.p4, ''), ',')::float8[], 'catalogue'
+		FROM added a JOIN unnest($1::text[], $7::text[], $8::text[], $9::text[]) AS x(slug, p2, p3, p4) USING (slug)
+		WHERE x.p2 <> '' OR x.p3 <> '' OR x.p4 <> ''`,
+		slugs, names, kinds, tops, seasonNames, stageNames, p2, p3, p4); err != nil {
 		return Classified{}, fmt.Errorf("adding tournaments: %w", err)
 	}
 
-	rows, err := tx.Query(ctx, "SELECT match_id, tournament FROM matches WHERE stage_id IS NULL ORDER BY match_id")
+	rows, err := tx.Query(ctx, "SELECT game_id, name FROM games WHERE group_id IS NULL ORDER BY game_id")
 	if err != nil {
 		return Classified{}, fmt.Errorf("reading unplaced matches: %w", err)
 	}
@@ -89,33 +91,50 @@ func ClassifyMatches(ctx context.Context, pool *pgxpool.Pool) (Classified, error
 	}
 
 	if _, err := tx.Exec(ctx, `
-		INSERT INTO tournament_seasons (tournament_id, label, original_name)
-		SELECT DISTINCT t.tournament_id, p.season, p.season
+		INSERT INTO tournaments (series_id, label, original_name)
+		SELECT DISTINCT se.series_id, p.season, p.season
 		FROM unnest($1::text[], $2::text[]) AS p(slug, season)
-		JOIN tournaments t USING (slug)
-		ON CONFLICT (tournament_id, label) DO NOTHING`, tournaments, seasons); err != nil {
+		JOIN series se USING (slug)
+		ON CONFLICT (series_id, label) DO NOTHING`, tournaments, seasons); err != nil {
 		return Classified{}, fmt.Errorf("adding seasons: %w", err)
 	}
 	if _, err := tx.Exec(ctx, `
-		INSERT INTO tournament_stages (season_id, label, original_name)
-		SELECT DISTINCT s.season_id, p.stage, p.stage
+		INSERT INTO stages (tournament_id, label, original_name)
+		SELECT DISTINCT t.tournament_id, p.stage, p.stage
 		FROM unnest($1::text[], $2::text[], $3::text[]) AS p(slug, season, stage)
-		JOIN tournaments t USING (slug)
-		JOIN tournament_seasons s ON s.tournament_id = t.tournament_id AND s.label = p.season
-		ON CONFLICT (season_id, label) DO NOTHING`, tournaments, seasons, stages); err != nil {
+		JOIN series se USING (slug)
+		JOIN tournaments t ON t.series_id = se.series_id AND t.label = p.season
+		ON CONFLICT (tournament_id, label) DO NOTHING`, tournaments, seasons, stages); err != nil {
 		return Classified{}, fmt.Errorf("adding stages: %w", err)
 	}
+	if _, err := tx.Exec(ctx, `
+		INSERT INTO groups (stage_id, name)
+		SELECT DISTINCT st.stage_id, p.grp
+		FROM unnest($1::text[], $2::text[], $3::text[], $4::text[]) AS p(slug, season, stage, grp)
+		JOIN series se USING (slug)
+		JOIN tournaments t ON t.series_id = se.series_id AND t.label = p.season
+		JOIN stages st ON st.tournament_id = t.tournament_id AND st.label = p.stage
+		ON CONFLICT DO NOTHING`, tournaments, seasons, stages, grps); err != nil {
+		return Classified{}, fmt.Errorf("adding groups: %w", err)
+	}
 	tag, err := tx.Exec(ctx, `
-		UPDATE matches m
-		SET stage_id = st.stage_id, group_label = p.grp, game_number = nullif(p.game, 0)
+		UPDATE games g
+		SET group_id = gr.group_id, game_number = nullif(p.game, 0)
 		FROM unnest($1::bigint[], $2::text[], $3::text[], $4::text[], $5::text[], $6::int[])
-		         AS p(match_id, slug, season, stage, grp, game)
-		JOIN tournaments t ON t.slug = p.slug
-		JOIN tournament_seasons s ON s.tournament_id = t.tournament_id AND s.label = p.season
-		JOIN tournament_stages st ON st.season_id = s.season_id AND st.label = p.stage
-		WHERE m.match_id = p.match_id`, ids, tournaments, seasons, stages, grps, games)
+		         AS p(game_id, slug, season, stage, grp, game)
+		JOIN series se ON se.slug = p.slug
+		JOIN tournaments t ON t.series_id = se.series_id AND t.label = p.season
+		JOIN stages st ON st.tournament_id = t.tournament_id AND st.label = p.stage
+		JOIN groups gr ON gr.stage_id = st.stage_id AND gr.name = p.grp AND gr.cge_tournament IS NULL
+		WHERE g.game_id = p.game_id`, ids, tournaments, seasons, stages, grps, games)
 	if err != nil {
 		return Classified{}, fmt.Errorf("placing matches: %w", err)
+	}
+	if _, err := tx.Exec(ctx, `
+		INSERT INTO group_members (group_id, player_id)
+		SELECT DISTINCT g.group_id, s.player_id FROM games g JOIN seats s USING (game_id)
+		WHERE g.game_id = ANY($1) ON CONFLICT DO NOTHING`, ids); err != nil {
+		return Classified{}, fmt.Errorf("adding group members: %w", err)
 	}
 	if err := tx.Commit(ctx); err != nil {
 		return Classified{}, fmt.Errorf("committing the placements: %w", err)
