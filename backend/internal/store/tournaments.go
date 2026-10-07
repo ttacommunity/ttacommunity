@@ -20,6 +20,8 @@ import (
 type FactsReplaced struct {
 	Written int
 	Unknown int
+	// Kept counts rows left as admin set them, which a load never replaces.
+	Kept int
 }
 
 // replaceAll empties table and runs insert with args in one transaction,
@@ -104,7 +106,8 @@ func ReplaceCorrections(ctx context.Context, pool *pgxpool.Pool, fixes []tournam
 	return FactsReplaced{Written: n}, err
 }
 
-// ReplaceRules replaces every season's recorded rules, in one transaction.
+// ReplaceRules replaces every season's recorded rules, in one transaction. A season whose
+// time-out penalty was set in admin keeps it, counted as Kept.
 func ReplaceRules(ctx context.Context, pool *pgxpool.Pool, rules []tournamentcsv.Rule) (FactsReplaced, error) {
 	var series, s3, s4, tiebreaks, sources []string
 	var seasons []int32
@@ -113,11 +116,27 @@ func ReplaceRules(ctx context.Context, pool *pgxpool.Pool, rules []tournamentcsv
 		series, seasons, penalties = append(series, r.Series), append(seasons, int32(r.Season)), append(penalties, r.TimeoutPenalty)
 		s3, s4, tiebreaks, sources = append(s3, r.Scoring3p), append(s4, r.Scoring4p), append(tiebreaks, r.Tiebreaks), append(sources, r.Source)
 	}
-	n, err := replaceAll(ctx, pool, "tournament_season_rules", `
+	tx, err := pool.Begin(ctx)
+	if err != nil {
+		return FactsReplaced{}, fmt.Errorf("starting the tournament_season_rules load: %w", err)
+	}
+	defer tx.Rollback(ctx)
+	if _, err := tx.Exec(ctx, "DELETE FROM tournament_season_rules WHERE source <> 'admin'"); err != nil {
+		return FactsReplaced{}, fmt.Errorf("clearing tournament_season_rules: %w", err)
+	}
+	tag, err := tx.Exec(ctx, `
 		INSERT INTO tournament_season_rules (series, season, timeout_penalty, scoring_3p, scoring_4p, tiebreaks, source)
-		SELECT * FROM unnest($1::text[], $2::int[], $3::float8[], $4::text[], $5::text[], $6::text[], $7::text[])`,
+		SELECT * FROM unnest($1::text[], $2::int[], $3::float8[], $4::text[], $5::text[], $6::text[], $7::text[])
+		ON CONFLICT (series, season) DO NOTHING`,
 		series, seasons, penalties, s3, s4, tiebreaks, sources)
-	return FactsReplaced{Written: n}, err
+	if err != nil {
+		return FactsReplaced{}, fmt.Errorf("writing tournament_season_rules: %w", err)
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return FactsReplaced{}, fmt.Errorf("committing tournament_season_rules: %w", err)
+	}
+	written := int(tag.RowsAffected())
+	return FactsReplaced{Written: written, Kept: len(rules) - written}, nil
 }
 
 // ReplacePodiums replaces every cup year's recorded podium, in one transaction.

@@ -48,7 +48,7 @@ func TestReportFactsCountsAndNamesNoPlayer(t *testing.T) {
 		{File: "d.csv", Line: 3, Reason: tournamentcsv.BadSeason},
 		{File: "d.csv", Line: 5, Reason: tournamentcsv.Duplicate},
 	}
-	replaced := store.FactsReplaced{Written: 2, Unknown: 1}
+	replaced := store.FactsReplaced{Written: 2, Unknown: 1, Kept: 1}
 
 	var b strings.Builder
 	reportFacts(&b, "placements", "d.csv", 5, refused, replaced)
@@ -59,6 +59,7 @@ func TestReportFactsCountsAndNamesNoPlayer(t *testing.T) {
 		"rows read: 5",
 		"placements written: 2",
 		"not a player: 1",
+		"kept as set in admin: 1",
 		"refused: 2",
 		"  d.csv:3 bad_season\n  d.csv:5 duplicate\n",
 	} {

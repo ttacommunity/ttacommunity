@@ -258,6 +258,29 @@ func TestReplaceRulesReplacesEveryEarlierRow(t *testing.T) {
 	}
 }
 
+func TestReplaceRulesKeepsAPenaltySetInAdmin(t *testing.T) {
+	pool := migrated(t)
+	ctx := context.Background()
+	placedOn(t, pool, map[string]time.Time{"Intermezzo S6 - Bronze 1 game 1": day("2020-05-01")})
+	if err := NewAdminStore(asAdminLogin(t, pool)).SetSeasonPenalty(ctx, "intermezzo", "6", -2); err != nil {
+		t.Fatalf("SetSeasonPenalty: %v", err)
+	}
+	rule := func(season int, penalty float64) tournamentcsv.Rule {
+		return tournamentcsv.Rule{Series: "intermezzo", Season: season, TimeoutPenalty: penalty, Scoring3p: "5-2-0", Source: "s"}
+	}
+
+	got, err := ReplaceRules(ctx, pool, []tournamentcsv.Rule{rule(6, -1), rule(7, 0)})
+	if err != nil {
+		t.Fatalf("ReplaceRules: %v", err)
+	}
+	if want := (FactsReplaced{Written: 1, Kept: 1}); got != want {
+		t.Errorf("ReplaceRules = %+v, want %+v", got, want)
+	}
+	if rows, want := rowsOf(t, pool, ruleRows), []string{"intermezzo|6|-2||||admin", "intermezzo|7|0|5-2-0|||s"}; !slices.Equal(rows, want) {
+		t.Errorf("rules = %q, want %q", rows, want)
+	}
+}
+
 const podiumRows = "SELECT concat_ws('|', cup, season, final, finished, place, player_name, source) FROM tournament_cup_podiums ORDER BY cup, season, final, place"
 
 func TestReplacePodiumsWritesKnownPlayersOnly(t *testing.T) {
