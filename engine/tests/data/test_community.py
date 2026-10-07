@@ -667,7 +667,7 @@ def test_a_ladder_edition_before_its_first_rule_keeps_the_sheets_points(
     assert got == {("ann", 640, "sheet")}
 
 
-def test_of_two_seasons_giving_one_event_in_a_quarter_the_one_among_the_champions_counts(
+def test_a_season_left_out_of_the_community_leaderboard_scores_nothing(
     conn, run_id, catalogue, add_match
 ):
     catalogue(
@@ -678,7 +678,7 @@ def test_of_two_seasons_giving_one_event_in_a_quarter_the_one_among_the_champion
     )
     catalogue("worlds", "2023 Play Off", [("Stage 1", 4150, 1)], quarter=(2023, 4))
     conn.execute(
-        "UPDATE tournament_seasons SET in_champions = false WHERE label = '2023 Play Off'"
+        "UPDATE tournament_seasons SET in_community = false WHERE label = '2023 Play Off'"
     )
     points_table(conn, "worlds", 2023, {("Stage 1", 4): 20, ("Stage 3", 2): 115})
     cge_line(conn, 4149, 1, "2023 Group 1", 1, "ann", 1)
@@ -693,3 +693,36 @@ def test_of_two_seasons_giving_one_event_in_a_quarter_the_one_among_the_champion
         (run_id,),
     ).fetchall()
     assert [r["points"] for r in got] == [115]
+    assert [s for _, s, _, _ in event_points(conn, run_id)] == ["2023"]
+
+
+def test_a_ladder_round_left_out_of_the_community_leaderboard_scores_nothing(
+    conn, run_id, catalogue, add_match
+):
+    catalogue("sodium_ladder", "1", [("", None, None)])
+    conn.execute("UPDATE tournament_seasons SET in_community = false")
+    conn.execute(
+        "INSERT INTO community_ladders VALUES ('sodium_ladder', 2025, 0.8, 4, '{1,0.5,0.166,0}', 8, 'tab')"
+    )
+    points_table(conn, "sodium_ladder", 2025, {("leaderboard", 1): 1000})
+    add_match(
+        ("ann", 300),
+        ("bob", 200),
+        day=date(2025, 1, 20),
+        placed=None,
+        group="Sodium Tier",
+    )
+    conn.execute(
+        "UPDATE matches SET stage_id = (SELECT stage_id FROM tournament_stages x "
+        "JOIN tournament_seasons s USING (season_id) JOIN tournaments t USING (tournament_id) WHERE t.slug = 'sodium_ladder')"
+    )
+    add_match(("x", 1), ("y", 0), day=date(2025, 3, 1), placed=None)
+    conn.commit()
+
+    derive_community(conn=conn, run_id=run_id)
+
+    got = conn.execute(
+        "SELECT count(*) AS n FROM community_edition_points WHERE run_id = %s AND event = 'sl'",
+        (run_id,),
+    ).fetchone()
+    assert got["n"] == 0

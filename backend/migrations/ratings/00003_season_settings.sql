@@ -1,6 +1,12 @@
--- What each tournament calls its seasons and stages, set in admin ('' for the defaults, Season and Stage).
--- Slow Burn's editions are its seasons and its stages are what its rules call seasons, so it takes those words.
+-- What each tournament calls its seasons and stages ('' for the defaults, Season and Stage), and whether each
+-- season counts in the community leaderboard, both set in admin. Slow Burn's editions are its seasons and its
+-- stages what its rules call seasons, so it takes those words; World Championship 2023's play-off does not count.
 -- +goose Up
+ALTER TABLE tournament_seasons ADD COLUMN in_community boolean NOT NULL DEFAULT true;
+GRANT UPDATE (in_community) ON tournament_seasons TO ratings_admin;
+UPDATE tournament_seasons se SET in_community = false FROM tournaments t
+WHERE t.tournament_id = se.tournament_id AND t.slug = 'worlds' AND se.label = '2023 Play Off';
+
 ALTER TABLE tournaments
     ADD COLUMN season_name text NOT NULL DEFAULT '' CHECK (char_length(season_name) <= 32),
     ADD COLUMN stage_name text NOT NULL DEFAULT '' CHECK (char_length(stage_name) <= 32);
@@ -28,3 +34,5 @@ WHERE n.tournament = 'slow_burn' AND n.stage ~ '^Season [0-9]+$';
 
 REVOKE UPDATE (season_name, stage_name) ON tournaments FROM ratings_admin;
 ALTER TABLE tournaments DROP COLUMN season_name, DROP COLUMN stage_name;
+REVOKE UPDATE (in_community) ON tournament_seasons FROM ratings_admin;
+ALTER TABLE tournament_seasons DROP COLUMN in_community;
