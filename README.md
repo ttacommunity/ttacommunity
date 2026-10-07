@@ -258,18 +258,6 @@ cd backend && set -a && . ../.env && set +a && go run ./cmd/load -migrate
 New games and facts are loaded on top of a restored baseline, and the next
 export is the next baseline.
 
-**New games from CGE.** The collector (kept with the data) writes each
-collected season's games, and its fact scripts turn them into one load file.
-Loading it records CGE's facts on the games already held (each seat's CGE
-user and how it ended, the finish date, replay code and stage) and adds the
-games we lack. A game that looks like a copy of one we hold is held back
-unless its replay code is in the `-cge-new` file, checked by hand:
-
-```bash
-cd backend && set -a && . ../.env && set +a
-go run ./cmd/load -cge-games ~/tta-data/new/cge_games.csv [-cge-new ~/tta-data/new/confirmed-new.csv]
-```
-
 **A first database from match CSVs.** A directory without a
 `manifest.json` is loaded as match CSVs, every `*.csv` at its top level in
 name order (the format is under [The files](#the-files)). This seeds an

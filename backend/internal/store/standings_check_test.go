@@ -6,6 +6,8 @@ import (
 	"context"
 	"fmt"
 	"slices"
+	"strconv"
+	"strings"
 	"testing"
 
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -66,33 +68,59 @@ func gone(name string, user int) seat                { return seat{name, -5, "ti
 func heldGame(tb testing.TB, pool *pgxpool.Pool, t, s int, seats ...seat) {
 	tb.Helper()
 	ctx := context.Background()
-	var batch int64
+	var batch, group, id int64
 	if err := pool.QueryRow(ctx, "INSERT INTO import_batches (source) VALUES ('admin') RETURNING batch_id").Scan(&batch); err != nil {
 		tb.Fatalf("starting a batch: %v", err)
 	}
-	cols := []any{batch, len(seats), t, s}
-	for i := range 4 {
-		if i < len(seats) {
-			cols = append(cols, seats[i].name, seats[i].score)
-		} else {
-			cols = append(cols, nil, nil)
-		}
-	}
-	var id int64
 	err := pool.QueryRow(ctx, `
-		INSERT INTO matches (batch_id, source_file, source_line, tournament, date, player_count, cge_tournament, cge_season,
-		                     player1, score1, player2, score2, player3, score3, player4, score4)
-		VALUES ($1, 'm.csv', 1, 'a game', '2025-01-01', $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12) RETURNING match_id`,
-		cols...).Scan(&id)
+		WITH se AS (INSERT INTO series (slug, name) VALUES ('held', 'Held') ON CONFLICT (slug) DO UPDATE SET name = excluded.name RETURNING series_id),
+		t AS (INSERT INTO tournaments (series_id, label) SELECT series_id, $3 FROM se
+		      ON CONFLICT (series_id, label) DO UPDATE SET label = excluded.label RETURNING tournament_id),
+		st AS (INSERT INTO stages (tournament_id, label) SELECT tournament_id, $4 FROM t
+		       ON CONFLICT (tournament_id, label) DO UPDATE SET label = excluded.label RETURNING stage_id)
+		INSERT INTO groups (stage_id, name, cge_tournament, cge_stage_number) SELECT stage_id, '', $1, $2 FROM st
+		ON CONFLICT (stage_id, name, cge_tournament, cge_stage_number) DO UPDATE SET name = excluded.name RETURNING group_id`,
+		t, s, strconv.Itoa(t), strconv.Itoa(s)).Scan(&group)
+	if err != nil {
+		tb.Fatalf("finding CGE stage %d/%d: %v", t, s, err)
+	}
+	err = pool.QueryRow(ctx, `
+		INSERT INTO games (batch_id, source_file, source_line, name, date, group_id)
+		VALUES ($1, 'm.csv', 1, 'a game', '2025-01-01', $2) RETURNING game_id`, batch, group).Scan(&id)
 	if err != nil {
 		tb.Fatalf("adding a game: %v", err)
 	}
 	for i, st := range seats {
-		if _, err := pool.Exec(ctx, "INSERT INTO match_seats (match_id, seat, player_name, outcome, cge_user) VALUES ($1, $2, $3, $4, $5)",
-			id, i+1, st.name, st.outcome, st.user); err != nil {
+		for _, q := range []string{
+			"INSERT INTO players (name) VALUES ($1) ON CONFLICT (name) DO NOTHING",
+			"INSERT INTO player_accounts (cge_user, player_id, name) SELECT $2, player_id, $1 FROM players WHERE name = $1 ON CONFLICT DO NOTHING",
+		} {
+			args := []any{st.name}
+			if strings.Contains(q, "$2") {
+				args = append(args, st.user)
+			}
+			if _, err := pool.Exec(ctx, q, args...); err != nil {
+				tb.Fatalf("adding %s: %v", st.name, err)
+			}
+		}
+		_, err := pool.Exec(ctx, `
+			INSERT INTO seats (game_id, seat, player_id, player_name, cge_user, outcome, culture, recorded_score, place)
+			SELECT $1, $2, player_id, $3, $5, $4, CASE WHEN $4 = 'finished' THEN greatest($6::float8, 0) ELSE 0 END, $6,
+			       1 + (SELECT count(*) FROM unnest($7::float8[]) AS o(score) WHERE o.score > $6)
+			FROM players WHERE name = $3`,
+			id, i+1, st.name, st.outcome, st.user, st.score, scoresOf(seats))
+		if err != nil {
 			tb.Fatalf("adding a seat: %v", err)
 		}
 	}
+}
+
+func scoresOf(seats []seat) []float64 {
+	var out []float64
+	for _, s := range seats {
+		out = append(out, s.score)
+	}
+	return out
 }
 
 func samePlaces(a, b Places) bool {
@@ -258,7 +286,7 @@ func TestCheckStandingsCountsAGameNoOnePlayedAsCGEDoes(t *testing.T) {
 	pool := migrated(t)
 	heldGame(t, pool, 19, 3, done("ann", 200, 1), done("bob", 150, 2))
 	heldGame(t, pool, 19, 3, gone("ann", 1), gone("bob", 2))
-	if _, err := pool.Exec(context.Background(), "UPDATE matches SET state = 'never_played' WHERE match_id = (SELECT max(match_id) FROM matches)"); err != nil {
+	if _, err := pool.Exec(context.Background(), "UPDATE games SET state = 'never_played' WHERE game_id = (SELECT max(game_id) FROM games)"); err != nil {
 		t.Fatal(err)
 	}
 	// CGE counts the game, and places its seats as its AI finished them.
@@ -276,7 +304,7 @@ func TestCheckStandingsTakesACountWithoutTheGameNoOnePlayed(t *testing.T) {
 	pool := migrated(t)
 	heldGame(t, pool, 4369, 1, done("ann", 200, 1), done("bob", 150, 2))
 	heldGame(t, pool, 4369, 1, gone("ann", 1), gone("bob", 2))
-	if _, err := pool.Exec(context.Background(), "UPDATE matches SET state = 'never_played' WHERE match_id = (SELECT max(match_id) FROM matches)"); err != nil {
+	if _, err := pool.Exec(context.Background(), "UPDATE games SET state = 'never_played' WHERE game_id = (SELECT max(game_id) FROM games)"); err != nil {
 		t.Fatal(err)
 	}
 	got := checked(t, pool,

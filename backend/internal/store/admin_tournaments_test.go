@@ -583,8 +583,8 @@ func TestARenamedSeasonAndStageKeepTheirOriginalNames(t *testing.T) {
 	ctx := context.Background()
 	placedOn(t, pool, map[string]time.Time{"Wimbledon 2024 Stage 1 - group 1 game 1": day("2024-07-01")})
 	for _, q := range []string{
-		"UPDATE tournament_seasons SET label = 'Season 2024' WHERE label = '2024'",
-		"UPDATE tournament_stages SET label = 'Groups' WHERE label = 'Stage 1'",
+		"UPDATE tournaments SET label = 'Season 2024' WHERE label = '2024'",
+		"UPDATE stages SET label = 'Groups' WHERE label = 'Stage 1'",
 	} {
 		if _, err := pool.Exec(ctx, q); err != nil {
 			t.Fatal(err)
