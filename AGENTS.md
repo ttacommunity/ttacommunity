@@ -231,7 +231,10 @@ Both private to the `ttacommunity` organisation; ask a maintainer for access.
   test it** (commands and URLs). Merging needs a maintainer
 - **CI runs `scripts/ci.sh`**, one job per area (go, engine, web, checks),
   plus secret and code scanning. If it passes locally it should pass in CI.
-  Green is not the whole story: say what the change was *not* tested against
+  Locally, red means something to fix: what only CI can check (our private
+  images without `read:packages`, a branch's `deploy/` pins) is listed under
+  "Not covered here" instead. Green is not the whole story: say what the
+  change was *not* tested against
 - Image builds: add the `images` label to a pull request once the code is
   final; it builds `sha-<commit>` images to pin in `deploy/`
 - **Issues** open through a form: Bug, Data (a wrong or missing game, score
