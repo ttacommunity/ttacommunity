@@ -355,14 +355,33 @@ def _rank_editions(conn, run_id, rows, points):
     latest = conn.execute(
         "SELECT max(date) AS d FROM matches WHERE state = 'played'"
     ).fetchone()["d"]
+    champions = {
+        (r["slug"], r["label"]): r["in_champions"]
+        for r in conn.execute(
+            "SELECT t.slug, s.label, s.in_champions FROM tournament_seasons s JOIN tournaments t USING (tournament_id)"
+        )
+    }
     events = defaultdict(dict)  # (year, quarter) -> {(player, code): points}
+    chosen = defaultdict(
+        dict
+    )  # (year, quarter) -> {(player, code): why that season's points stand}
     for _, slug, season, name, pts in rows:
         q = quarters.get((slug, season))
         if q is None and finished.get((slug, season)):
             d = finished[(slug, season)]
             q = (d.year, (d.month - 1) // 3 + 1)
-        if q is not None:
-            events[q][(name, event_code(slug, season))] = pts
+        if q is None:
+            continue
+        # Two seasons giving one event in a quarter (a World Championship and its play-off): the one among the
+        # champions counts, then the later finished, then the later label; never whichever row came last.
+        key = (name, event_code(slug, season))
+        rank = (
+            champions.get((slug, season), True),
+            finished.get((slug, season)) or date.min,
+            season,
+        )
+        if key not in chosen[q] or rank > chosen[q][key]:
+            chosen[q][key], events[q][key] = rank, pts
     ladders = _ladder_rounds(conn)
     firsts = list(events) + [
         (d.year, (d.month - 1) // 3 + 1)

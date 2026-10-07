@@ -665,3 +665,31 @@ def test_a_ladder_edition_before_its_first_rule_keeps_the_sheets_points(
         )
     }
     assert got == {("ann", 640, "sheet")}
+
+
+def test_of_two_seasons_giving_one_event_in_a_quarter_the_one_among_the_champions_counts(
+    conn, run_id, catalogue, add_match
+):
+    catalogue(
+        "worlds",
+        "2023",
+        [("Stage 1", 4149, 1), ("Stage 3", 4149, 3)],
+        quarter=(2023, 4),
+    )
+    catalogue("worlds", "2023 Play Off", [("Stage 1", 4150, 1)], quarter=(2023, 4))
+    conn.execute(
+        "UPDATE tournament_seasons SET in_champions = false WHERE label = '2023 Play Off'"
+    )
+    points_table(conn, "worlds", 2023, {("Stage 1", 4): 20, ("Stage 3", 2): 115})
+    cge_line(conn, 4149, 1, "2023 Group 1", 1, "ann", 1)
+    cge_line(conn, 4149, 3, "2023 Lower 1", 2, "ann", 1)
+    cge_line(conn, 4150, 1, "2023 Group 1", 1, "ann", 1)
+    add_match(("ann", 1), ("x", 0), day=date(2024, 3, 1), placed=None)
+
+    derive_community(conn=conn, run_id=run_id)
+
+    got = conn.execute(
+        "SELECT points FROM community_edition_points WHERE run_id = %s AND edition = '2023' AND player_name = 'ann' AND event = 'wrld'",
+        (run_id,),
+    ).fetchall()
+    assert [r["points"] for r in got] == [115]
