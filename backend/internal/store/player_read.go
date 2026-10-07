@@ -269,9 +269,12 @@ func scanMatch(row pgx.CollectableRow) (PlayerMatch, error) {
 	return m, err
 }
 
-// RatingsOf returns the ratings of the named players who have one in a run's
-// model and format.
+// RatingsOf returns the ratings of the named players who have one in a published run's
+// model and format. An unknown or unpublished run is ErrRunNotFound.
 func (r *RatingsReader) RatingsOf(ctx context.Context, run int64, model string, format int, names []string) (map[string]Rated, error) {
+	if err := r.requirePublished(ctx, run); err != nil {
+		return nil, err
+	}
 	rows, err := r.pool.Query(ctx, `
 		SELECT player_name, rating, rd FROM player_ratings
 		WHERE run_id = $1 AND model_type = $2 AND player_count = $3 AND player_name = ANY($4)`,
