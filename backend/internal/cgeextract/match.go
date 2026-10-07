@@ -120,7 +120,8 @@ func Match(cge []Game, ours []OurGame, names map[string][]int, series map[int]in
 }
 
 // MatchSeats pairs our seats (by number) with the CGE game's seats (by index): by CGE account, else by a name
-// the account played under. It returns the pairs and the CGE seats left without one, in seat order.
+// the account played under, else by a finished score only one seat has, else the one seat left on each side. It
+// returns the pairs and the CGE seats left without one, in seat order.
 func MatchSeats(g Game, ours []OurSeat, names map[string][]int) (map[int]int, []int) {
 	pairs := map[int]int{}
 	taken := map[int]bool{}
@@ -139,8 +140,34 @@ func MatchSeats(g Game, ours []OurSeat, names map[string][]int) (map[int]int, []
 			rest = append(rest, o)
 		}
 	}
+	var left []OurSeat
 	for _, o := range rest {
-		pair(o, names[strings.ToLower(o.Name)])
+		if !pair(o, names[strings.ToLower(o.Name)]) {
+			left = append(left, o)
+		}
+	}
+	// A player we hold under a name no account played under (a rename): by their finished score, where only one
+	// seat has it, else the one seat left on each side.
+	var unpaired []OurSeat
+	for _, o := range left {
+		var same []int
+		for i, s := range g.Seats {
+			if !taken[i] && s.FinishStatus == Finished && *s.Score == o.Score {
+				same = append(same, i)
+			}
+		}
+		if len(same) == 1 {
+			pairs[o.Seat], taken[same[0]] = same[0], true
+		} else {
+			unpaired = append(unpaired, o)
+		}
+	}
+	if len(unpaired) == 1 && len(g.Seats)-len(pairs) == 1 {
+		for i := range g.Seats {
+			if !taken[i] {
+				pairs[unpaired[0].Seat], taken[i] = i, true
+			}
+		}
 	}
 	var missing []int
 	for i := range g.Seats {

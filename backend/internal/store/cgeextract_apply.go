@@ -196,15 +196,18 @@ func writeMatched(ctx context.Context, tx pgx.Tx, _ CGEPlan, _ CGEInput, got *CG
 			return err
 		}
 	}
+	// A seat only CGE holds joins its game, never past the fourth (a seat we could not pair stays ours).
 	tag, err := tx.Exec(ctx, `
 		INSERT INTO seats (game_id, seat, player_id, player_name, cge_user, outcome, culture, place, starting_position,
 		                   cge_score, cge_standing)
-		SELECT m.game_id,
-		       (SELECT max(seat) FROM seats WHERE game_id = m.game_id) + row_number() OVER (PARTITION BY m.game_id ORDER BY x.idx),
-		       a.player_id, pl.name, x.player_id, x.outcome, `+cgeCulture+`, x.place, x.starting_position, x.score, x.standing
-		FROM x_match m JOIN x_seats x USING (session)
-		JOIN player_accounts a ON a.cge_user = x.player_id JOIN players pl ON pl.player_id = a.player_id
-		WHERE NOT EXISTS (SELECT FROM x_pairs p WHERE p.session = x.session AND p.idx = x.idx)`)
+		SELECT * FROM (
+			SELECT m.game_id,
+			       (SELECT max(seat) FROM seats WHERE game_id = m.game_id) + row_number() OVER (PARTITION BY m.game_id ORDER BY x.idx) AS seat,
+			       a.player_id, pl.name, x.player_id, x.outcome, `+cgeCulture+`, x.place, x.starting_position, x.score, x.standing
+			FROM x_match m JOIN x_seats x USING (session)
+			JOIN player_accounts a ON a.cge_user = x.player_id JOIN players pl ON pl.player_id = a.player_id
+			WHERE NOT EXISTS (SELECT FROM x_pairs p WHERE p.session = x.session AND p.idx = x.idx)) s
+		WHERE s.seat <= 4`)
 	if err != nil {
 		return err
 	}
@@ -247,13 +250,16 @@ func addGames(ctx context.Context, tx pgx.Tx, plan CGEPlan, in CGEInput, got *CG
 	}
 	groups := map[int]int64{}
 	numbers := map[int64]int{}
+	prefixes := map[int64]string{}
+	stageOf := map[[2]int]int64{}
+	stages := map[int64]*string{}
 	var rows []added
 	for _, session := range plan.Matching.Added {
 		g := bySession[session]
 		group, ok := groups[g.GroupID]
 		if !ok {
 			var err error
-			if group, err = placeGroup(ctx, tx, plan, in, g, got); err != nil {
+			if group, err = placeGroup(ctx, tx, plan, in, g, got, stageOf); err != nil {
 				return err
 			}
 			groups[g.GroupID] = group
@@ -270,10 +276,15 @@ func addGames(ctx context.Context, tx pgx.Tx, plan CGEPlan, in CGEInput, got *CG
 			numbers[group] = highest
 		}
 		numbers[group]++
-		name, err := gameName(ctx, tx, group, g, numbers[group])
-		if err != nil {
-			return err
+		prefix, ok := prefixes[group]
+		if !ok {
+			var err error
+			if prefix, err = groupPrefix(ctx, tx, group, g, stages); err != nil {
+				return err
+			}
+			prefixes[group] = prefix
 		}
+		name := fmt.Sprintf("%s game %d", prefix, numbers[group])
 		rows = append(rows, added{session: session, gameNumber: numbers[group], group: group, name: name,
 			state: gameState(g), date: gameDate(g, in.Extract, latest)})
 	}
@@ -323,10 +334,10 @@ func addGames(ctx context.Context, tx pgx.Tx, plan CGEPlan, in CGEInput, got *CG
 	return nil
 }
 
-// placeGroup returns our group for a CGE game's group: the one that took its id, else a new group in our stage
+// placeGroup returns our group for a CGE game's group (stageOf caches our stage per CGE stage): the one that took its id, else a new group in our stage
 // for its CGE stage, making that stage (and a league's season, or an unlinked tournament's hidden series) when
 // there is none. It returns 0 when a league's season cannot be told from its other stages.
-func placeGroup(ctx context.Context, tx pgx.Tx, plan CGEPlan, in CGEInput, g cgeextract.Game, got *CGEApplied) (int64, error) {
+func placeGroup(ctx context.Context, tx pgx.Tx, plan CGEPlan, in CGEInput, g cgeextract.Game, got *CGEApplied, stageOf map[[2]int]int64) (int64, error) {
 	var group int64
 	err := tx.QueryRow(ctx, "SELECT group_id FROM groups WHERE cge_group = $1", g.GroupID).Scan(&group)
 	if err == nil {
@@ -335,9 +346,16 @@ func placeGroup(ctx context.Context, tx pgx.Tx, plan CGEPlan, in CGEInput, g cge
 	if err != pgx.ErrNoRows {
 		return 0, err
 	}
-	stage, err := stageFor(ctx, tx, plan, in, g, got)
-	if err != nil || stage == 0 {
-		return 0, err
+	key := [2]int{g.TournamentID, g.StageNumber}
+	stage, ok := stageOf[key]
+	if !ok {
+		if stage, err = stageFor(ctx, tx, plan, in, g, got); err != nil {
+			return 0, err
+		}
+		stageOf[key] = stage
+	}
+	if stage == 0 {
+		return 0, nil
 	}
 	err = tx.QueryRow(ctx, `
 		INSERT INTO groups (stage_id, name, cge_tournament, cge_stage_number, cge_group) VALUES ($1, $2, $3, $4, $5)
@@ -426,31 +444,45 @@ func stageFor(ctx context.Context, tx pgx.Tx, plan CGEPlan, in CGEInput, g cgeex
 	return stage, err
 }
 
-// gameName names a game as its group's games are named ("Intermezzo S24 - Bronze 1 game 3"), else as its
-// stage's games with its group's name, else its CGE tournament, stage and group.
-func gameName(ctx context.Context, tx pgx.Tx, group int64, g cgeextract.Game, number int) (string, error) {
+// groupPrefix returns how a group's games are named before " game N": as its games are ("Intermezzo S24 - Bronze 1"),
+// else as its stage's games with its group's name, else its CGE tournament, stage and group. stages caches each
+// stage's first game name (nil for none).
+func groupPrefix(ctx context.Context, tx pgx.Tx, group int64, g cgeextract.Game, stages map[int64]*string) (string, error) {
 	var sibling string
 	err := tx.QueryRow(ctx, `SELECT name FROM games WHERE group_id = $1 ORDER BY game_id LIMIT 1`, group).Scan(&sibling)
 	if err == nil {
-		return fmt.Sprintf("%s game %d", trailingGame.ReplaceAllString(sibling, ""), number), nil
+		return trailingGame.ReplaceAllString(sibling, ""), nil
 	}
 	if err != pgx.ErrNoRows {
 		return "", err
 	}
-	err = tx.QueryRow(ctx, `SELECT g.name FROM games g JOIN groups gr USING (group_id)
-		WHERE gr.stage_id = (SELECT stage_id FROM groups WHERE group_id = $1) ORDER BY g.game_id LIMIT 1`, group).Scan(&sibling)
-	if err == nil {
-		if prefix, _, ok := strings.Cut(sibling, " - "); ok {
-			return fmt.Sprintf("%s - %s game %d", prefix, g.GroupName, number), nil
-		}
-	} else if err != pgx.ErrNoRows {
+	var stage int64
+	if err := tx.QueryRow(ctx, "SELECT stage_id FROM groups WHERE group_id = $1", group).Scan(&stage); err != nil {
 		return "", err
+	}
+	first, ok := stages[stage]
+	if !ok {
+		var name string
+		err := tx.QueryRow(ctx, `SELECT g.name FROM games g JOIN groups gr USING (group_id)
+			WHERE gr.stage_id = $1 ORDER BY g.game_id LIMIT 1`, stage).Scan(&name)
+		if err != nil && err != pgx.ErrNoRows {
+			return "", err
+		}
+		if err == nil {
+			first = &name
+		}
+		stages[stage] = first
+	}
+	if first != nil {
+		if prefix, _, ok := strings.Cut(*first, " - "); ok {
+			return prefix + " - " + g.GroupName, nil
+		}
 	}
 	name := fmt.Sprintf("%s Stage %d", g.Seats[0].TournamentName, g.StageNumber)
 	if g.GroupName != "" {
 		name += " - " + g.GroupName
 	}
-	return fmt.Sprintf("%s game %d", name, number), nil
+	return name, nil
 }
 
 // gameState is a CGE game's state as ours: never played when cancelled or no one finished or resigned.

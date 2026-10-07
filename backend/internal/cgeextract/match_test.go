@@ -98,6 +98,10 @@ func TestMatchSeatsPairsEachCGESeatWithOurs(t *testing.T) {
 			map[int]int{1: 1, 2: 0, 3: 2}, nil},
 		{"a seat only CGE holds", []OurSeat{{Seat: 1, Name: "ann"}, {Seat: 2, Name: "bob"}},
 			map[int]int{1: 0, 2: 1}, []int{2}},
+		{"a renamed player by their score", []OurSeat{{Seat: 1, Name: "ann"}, {Seat: 2, Name: "old name", Score: 150}, {Seat: 3, Name: "cy"}},
+			map[int]int{1: 0, 2: 1, 3: 2}, nil},
+		{"the one seat left on each side", []OurSeat{{Seat: 1, Name: "ann"}, {Seat: 2, Name: "bob"}, {Seat: 3, Name: "old name", Score: -5}},
+			map[int]int{1: 0, 2: 1, 3: 2}, nil},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
