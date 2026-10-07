@@ -423,6 +423,59 @@ func TestAdminSetsWhichSeasonsAndPlayerCountsAreRated(t *testing.T) {
 	}
 }
 
+func TestAdminSetsWhatATournamentCallsItsSeasonsAndStages(t *testing.T) {
+	pool := migrated(t)
+	ctx := context.Background()
+	placedOn(t, pool, map[string]time.Time{"Wimbledon 2024 Stage 1 - group 1 game 1": day("2024-07-01")})
+	a := NewAdminStore(asAdminLogin(t, pool))
+	names := func() (string, string) {
+		t.Helper()
+		ts, err := a.Tournaments(ctx)
+		if err != nil {
+			t.Fatal(err)
+		}
+		w := adminTournament(t, ts, "wimbledon")
+		return w.SeasonName, w.StageName
+	}
+	if season, stage := names(); season != "" || stage != "" {
+		t.Errorf("before = %q, %q, want both empty (the defaults)", season, stage)
+	}
+	if err := a.SetTournament(ctx, "wimbledon", TournamentSettings{SeasonName: ptr(" Edition "), StageName: ptr("Round")}); err != nil {
+		t.Fatalf("SetTournament: %v", err)
+	}
+	if season, stage := names(); season != "Edition" || stage != "Round" {
+		t.Errorf("after = %q, %q, want Edition, Round", season, stage)
+	}
+	if err := a.SetTournament(ctx, "wimbledon", TournamentSettings{StageName: ptr("")}); err != nil {
+		t.Fatalf("SetTournament: %v", err)
+	}
+	if season, stage := names(); season != "Edition" || stage != "" {
+		t.Errorf("after clearing the stage name = %q, %q, want Edition and the default", season, stage)
+	}
+	if err := a.SetTournament(ctx, "wimbledon", TournamentSettings{SeasonName: ptr(strings.Repeat("x", 33))}); !errors.Is(err, ErrBadLevelName) {
+		t.Errorf("a 33-character name = %v, want ErrBadLevelName", err)
+	}
+}
+
+func TestATournamentFirstSeenStartsWithItsLevelNames(t *testing.T) {
+	pool := migrated(t)
+	ctx := context.Background()
+	placedOn(t, pool, map[string]time.Time{
+		"Slow Burn S3 - group 1 game 1":           day("2024-07-01"),
+		"Wimbledon 2024 Stage 1 - group 1 game 1": day("2024-07-01"),
+	})
+	ts, err := NewAdminStore(asAdminLogin(t, pool)).Tournaments(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if sb := adminTournament(t, ts, "slow_burn"); sb.SeasonName != "Edition" || sb.StageName != "Season" {
+		t.Errorf("slow_burn names = %q, %q, want Edition, Season", sb.SeasonName, sb.StageName)
+	}
+	if w := adminTournament(t, ts, "wimbledon"); w.SeasonName != "" || w.StageName != "" {
+		t.Errorf("wimbledon names = %q, %q, want the defaults", w.SeasonName, w.StageName)
+	}
+}
+
 func TestAdminSetsATournamentsKindAndTopDivisions(t *testing.T) {
 	pool := migrated(t)
 	ctx := context.Background()

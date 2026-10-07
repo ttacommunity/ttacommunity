@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/pressly/goose/v3"
 
 	"ttacommunity/backend/internal/gamename"
 	"ttacommunity/backend/internal/matchcsv"
@@ -210,5 +211,57 @@ func TestClassifyMatchesGivesNewTournamentsTheirKindAndKeepsOriginalNames(t *tes
 	var stages int
 	if err := pool.QueryRow(ctx, "SELECT count(*) FROM tournament_stages WHERE original_name <> label OR original_name = '' AND label <> ''").Scan(&stages); err != nil || stages != 0 {
 		t.Errorf("%d stages without their original name (%v)", stages, err)
+	}
+}
+
+func TestMigrationThreeNamesSlowBurnsLevelsAndRenamesItsStages(t *testing.T) {
+	pool := migrated(t)
+	ctx := context.Background()
+	down := func(to int64) {
+		t.Helper()
+		if err := withRatingsMigrations(pool, func(p *goose.Provider) error { _, err := p.DownTo(ctx, to); return err }); err != nil {
+			t.Fatalf("migrating down to %d: %v", to, err)
+		}
+	}
+	down(2)
+	for _, q := range []string{
+		`INSERT INTO tournaments (slug, name, original_name, kind) VALUES ('slow_burn', 'Slow Burn', 'Slow Burn', 'cup'), ('wimbledon', 'Wimbledon', 'Wimbledon', 'cup')`,
+		`INSERT INTO tournament_seasons (tournament_id, label) SELECT tournament_id, l FROM tournaments, (VALUES ('1 (2024)'), ('2 (2026)')) v(l) WHERE slug = 'slow_burn'`,
+		`INSERT INTO tournament_seasons (tournament_id, label) SELECT tournament_id, '2024' FROM tournaments WHERE slug = 'wimbledon'`,
+		`INSERT INTO tournament_stages (season_id, label, original_name) SELECT season_id, st, st FROM tournament_seasons,
+		   (VALUES ('Stage 1'), ('Stage 15'), ('Final')) v(st)`,
+		`INSERT INTO tournament_season_notes (tournament, season, stage, note, source) VALUES ('slow_burn', '1 (2024)', 'Stage 15', 'the final', 'test')`,
+	} {
+		if _, err := pool.Exec(ctx, q); err != nil {
+			t.Fatalf("building the old shape: %v\n%s", err, q)
+		}
+	}
+	stages := `SELECT concat_ws('|', t.slug, se.label, st.label, st.original_name) FROM tournament_stages st
+		JOIN tournament_seasons se USING (season_id) JOIN tournaments t USING (tournament_id) ORDER BY 1`
+
+	if err := MigrateRatings(ctx, pool); err != nil {
+		t.Fatalf("MigrateRatings: %v", err)
+	}
+	want := []string{
+		"slow_burn|1 (2024)|Final|Final", "slow_burn|1 (2024)|Season 1|Season 1", "slow_burn|1 (2024)|Season 15|Season 15",
+		"slow_burn|2 (2026)|Final|Final", "slow_burn|2 (2026)|Season 1|Season 1", "slow_burn|2 (2026)|Season 15|Season 15",
+		"wimbledon|2024|Final|Final", "wimbledon|2024|Stage 1|Stage 1", "wimbledon|2024|Stage 15|Stage 15",
+	}
+	if got := slices.Sorted(slices.Values(rowsOf(t, pool, stages))); !slices.Equal(got, slices.Sorted(slices.Values(want))) {
+		t.Errorf("stages = %q, want %q", got, want)
+	}
+	if got := rowsOf(t, pool, `SELECT concat_ws('|', slug, season_name, stage_name) FROM tournaments ORDER BY slug`); !slices.Equal(got, []string{"slow_burn|Edition|Season", "wimbledon||"}) {
+		t.Errorf("names = %q, want Slow Burn's set and Wimbledon's default", got)
+	}
+	if got := rowsOf(t, pool, `SELECT stage FROM tournament_season_notes`); !slices.Equal(got, []string{"Season 15"}) {
+		t.Errorf("note's stage = %q, want Season 15", got)
+	}
+
+	down(2)
+	if got := rowsOf(t, pool, `SELECT stage FROM tournament_season_notes`); !slices.Equal(got, []string{"Stage 15"}) {
+		t.Errorf("after down, note's stage = %q, want Stage 15", got)
+	}
+	if got := rowsOf(t, pool, stages+" LIMIT 1"); len(got) != 1 || got[0] != "slow_burn|1 (2024)|Final|Final" {
+		t.Errorf("after down, first stage = %q", got)
 	}
 }
