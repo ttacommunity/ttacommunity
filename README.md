@@ -310,12 +310,18 @@ comes from:
 
 Loading a file replaces every fact of its kind, in one transaction; names
 that are not players are counted and skipped, and bad rows are refused with
-their line and reason. The next rating run uses them:
+their line and reason. A season's time-out penalty set in admin is kept when
+`rules` are reloaded. The next rating run uses them:
 
 ```bash
 cd backend && set -a && . ../.env && set +a
 go run ./cmd/load -facts divisions ~/tta-data/new/group_divisions.csv
 ```
+
+Each tournament's points per place (for 2, 3 and 4 players), its top
+divisions and each season's time-out penalty are set in admin's tournament
+settings. The engine scores standings with them, and refuses to run when
+International, Intermezzo, Royal League or the World Championship has none.
 
 The API reads ratings as `ratings_api`, a login that can only `SELECT`.
 `scripts/dev.sh` creates it, and the API refuses to start if its login can
