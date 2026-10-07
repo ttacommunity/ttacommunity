@@ -24,33 +24,44 @@ def new_run(conn):
     return rid
 
 
-def test_two_player_match_is_one_full_weight_pair(conn, add_match, run_id):
-    m = add_match(("Alice", 120), ("Bob", 90))
+@pytest.mark.parametrize(
+    "seats, want",
+    [
+        ([("Alice", 120), ("Bob", 90)], [("Alice", "Bob", 120, 90, 1.0, 1.0)]),
+        (
+            [("A", 10), ("B", 20), ("C", 30)],
+            [
+                ("A", "B", 10, 20, 0.0, 0.5),
+                ("A", "C", 10, 30, 0.0, 0.5),
+                ("B", "C", 20, 30, 0.0, 0.5),
+            ],
+        ),
+        (
+            [("A", 40), ("B", 30), ("C", 30), ("D", 50)],
+            [
+                ("A", "B", 40, 30, 1.0, 0.333333333),
+                ("A", "C", 40, 30, 1.0, 0.333333333),
+                ("A", "D", 40, 50, 0.0, 0.333333333),
+                ("B", "C", 30, 30, 0.5, 0.333333333),
+                ("B", "D", 30, 50, 0.0, 0.333333333),
+                ("C", "D", 30, 50, 0.0, 0.333333333),
+            ],
+        ),
+    ],
+    ids=["two players", "three players", "four players, a tie"],
+)
+def test_a_game_is_a_pair_for_each_two_seats_weighted_by_its_size(
+    conn, add_match, run_id, seats, want
+):
+    m = add_match(*seats)
 
-    assert expand_pairwise(conn, run_id) == 1
-    assert pairs(conn, run_id) == [(m, "Alice", "Bob", 120, 90, 1.0, 1.0, True)]
-
-
-def test_four_player_match_is_six_pairs_weighted_a_third(conn, add_match, run_id):
-    add_match(("A", 40), ("B", 30), ("C", 30), ("D", 50))
-
-    assert expand_pairwise(conn, run_id) == 6
-    got = [(a, b, out, round(w, 9)) for _, a, b, _, _, out, w, _ in pairs(conn, run_id)]
-    assert got == [
-        ("A", "B", 1.0, 0.333333333),
-        ("A", "C", 1.0, 0.333333333),
-        ("A", "D", 0.0, 0.333333333),
-        ("B", "C", 0.5, 0.333333333),
-        ("B", "D", 0.0, 0.333333333),
-        ("C", "D", 0.0, 0.333333333),
+    assert expand_pairwise(conn, run_id) == len(want)
+    got = [
+        (a, b, sa, sb, out, round(w, 9))
+        for mid, a, b, sa, sb, out, w, _ in pairs(conn, run_id)
     ]
-
-
-def test_three_player_match_pairs_are_weighted_a_half(conn, add_match, run_id):
-    add_match(("A", 10), ("B", 20), ("C", 30))
-
-    expand_pairwise(conn, run_id)
-    assert [w for *_, w, _ in pairs(conn, run_id)] == [0.5, 0.5, 0.5]
+    assert got == want
+    assert {p[0] for p in pairs(conn, run_id)} == {m}
 
 
 def test_ineligible_match_stays_ineligible_in_its_pairs(conn, add_match, run_id):
@@ -150,51 +161,30 @@ def test_a_days_games_are_numbered_in_upstreams_assembled_order(
     assert same_day == [worlds, rl]
 
 
-def test_pairs_come_only_from_the_runs_ranking(conn, add_match, run_id):
+@pytest.mark.parametrize(
+    "change",
+    [
+        "UPDATE games SET group_id = NULL WHERE game_id = (SELECT max(game_id) FROM games)",
+        "UPDATE games SET state = 'never_played' WHERE game_id = (SELECT max(game_id) FROM games)",
+        "UPDATE tournaments SET rated = false",
+        "UPDATE series SET rated_player_counts = '{3,4}' WHERE slug = 'rated'",
+    ],
+    ids=["unplaced", "never played", "season not rated", "player count not rated"],
+)
+def test_a_game_left_out_of_the_runs_ranking_gives_no_pairs(
+    conn, add_match, run_id, change
+):
+    add_match(("Ann", 10), ("Bob", 5))
+    conn.execute(change)
+    conn.commit()
+
+    assert expand_pairwise(conn, run_id) == 0
+
+
+def test_pairs_come_only_from_the_runs_rankings_series(conn, add_match, run_id):
     rated = add_match(("Alice", 120), ("Bob", 90))
     add_match(("Cat", 120), ("Dan", 90), placed="unrated")
+    three = add_match(("Ann", 10), ("Bob", 5), ("Cat", 1))
 
-    assert expand_pairwise(conn, run_id) == 1
-    assert [p[0] for p in pairs(conn, run_id)] == [rated]
-
-
-def test_a_game_never_played_gives_no_pairs(conn, add_match, run_id):
-    played = add_match(("Alice", 120), ("Bob", 90))
-    add_match(("Alice", -5), ("Bob", -5), state="never_played")
-
-    assert expand_pairwise(conn, run_id) == 1
-    assert [p[0] for p in pairs(conn, run_id)] == [played]
-
-
-def matches_paired(conn, run_id):
-    return conn.execute(
-        "SELECT count(DISTINCT match_id) AS n FROM pairwise_matches WHERE run_id = %s",
-        (run_id,),
-    ).fetchone()["n"]
-
-
-def test_a_season_left_out_of_ratings_gives_no_pairs(conn, add_match, run_id):
-    add_match(("Ann", 10), ("Bob", 5))
-    add_match(("Ann", 10), ("Cat", 5))
-    conn.execute("UPDATE tournaments SET rated = false")
-    conn.commit()
-
-    expand_pairwise(conn, run_id)
-
-    assert matches_paired(conn, run_id) == 0
-
-
-def test_only_the_rated_player_counts_give_pairs(conn, add_match, run_id):
-    add_match(("Ann", 10), ("Bob", 5))
-    add_match(("Ann", 10), ("Bob", 5), ("Cat", 1))
-    add_match(("Ann", 10), ("Bob", 5), ("Cat", 1), ("Dan", 0))
-    conn.execute("UPDATE series SET rated_player_counts = '{3,4}' WHERE slug = 'rated'")
-    conn.commit()
-
-    expand_pairwise(conn, run_id)
-
-    counts = conn.execute(
-        "SELECT DISTINCT m.player_count FROM pairwise_matches p JOIN game_lines m ON m.game_id = p.match_id WHERE p.run_id = %s ORDER BY 1",
-        (run_id,),
-    ).fetchall()
-    assert [r["player_count"] for r in counts] == [3, 4]
+    assert expand_pairwise(conn, run_id) == 4
+    assert {p[0] for p in pairs(conn, run_id)} == {rated, three}
