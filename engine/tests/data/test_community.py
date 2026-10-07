@@ -137,17 +137,17 @@ def catalogue(conn):
 
     def add(slug, season, stages=(), quarter=None):
         t = conn.execute(
-            "INSERT INTO tournaments (slug, name, in_community_leaderboard) VALUES (%s, %s, true) "
-            "ON CONFLICT (slug) DO UPDATE SET in_community_leaderboard = true RETURNING tournament_id",
+            "INSERT INTO series (slug, name, in_community_leaderboard) VALUES (%s, %s, true) "
+            "ON CONFLICT (slug) DO UPDATE SET in_community_leaderboard = true RETURNING series_id",
             (slug, slug),
-        ).fetchone()["tournament_id"]
+        ).fetchone()["series_id"]
         s = conn.execute(
-            "INSERT INTO tournament_seasons (tournament_id, label) VALUES (%s, %s) RETURNING season_id",
+            "INSERT INTO tournaments (series_id, label) VALUES (%s, %s) RETURNING tournament_id",
             (t, season),
-        ).fetchone()["season_id"]
+        ).fetchone()["tournament_id"]
         for label, cge_t, cge_s in stages:
             conn.execute(
-                "INSERT INTO tournament_stages (season_id, label, cge_tournament, cge_season) VALUES (%s, %s, %s, %s)",
+                "INSERT INTO stages (tournament_id, label, cge_tournament, cge_stage_number) VALUES (%s, %s, %s, %s)",
                 (s, label, cge_t, cge_s),
             )
         if quarter:
@@ -219,7 +219,10 @@ def test_a_deleted_cge_account_keeps_the_name_our_games_have(
     points_table(conn, "intermezzo", 2025, {("Gold", 1): 185})
     add_match(("Malakesh", 200), ("ann", 100), placed=None)
     conn.execute(
-        "INSERT INTO match_seats (match_id, seat, player_name, outcome, cge_user) SELECT match_id, 1, player1, 'finished', 38126 FROM matches"
+        "INSERT INTO player_accounts (cge_user, player_id, name) SELECT 38126, player_id, 'deleted_user_1003913' FROM players WHERE name = 'Malakesh'"
+    )
+    conn.execute(
+        "UPDATE seats SET cge_user = 38126, outcome = 'finished' WHERE seat = 1"
     )
     cge_line(conn, 19, 20, "Gold 3", 1, "deleted_user_1003913", 38126)
     derive_community(conn=conn, run_id=run_id)
@@ -301,7 +304,7 @@ def test_a_player_cge_lists_with_no_game_scores_nothing(conn, run_id, catalogue)
 
 def test_a_tournament_out_of_the_leaderboard_scores_nothing(conn, run_id, catalogue):
     catalogue("international", "30", [("", 21, 21)], quarter=(2025, 3))
-    conn.execute("UPDATE tournaments SET in_community_leaderboard = false")
+    conn.execute("UPDATE series SET in_community_leaderboard = false")
     points_table(conn, "international", 2025, {("Wood", 1): 27})
     cge_line(conn, 21, 21, "Wood 1", 1, "ann", 1)
     derive_community(conn=conn, run_id=run_id)
@@ -527,7 +530,7 @@ def test_round_points_round_each_share_and_average_a_tie_unrounded():
 
 
 def test_a_ladder_edition_ranks_its_rounds_totals_into_the_grid(
-    conn, run_id, catalogue, add_match
+    conn, run_id, catalogue, add_match, move_last_game
 ):
     for r in ("1", "2"):
         catalogue("mercurial_ladder", r, [("", None, None)])
@@ -549,12 +552,7 @@ def test_a_ladder_edition_ranks_its_rounds_totals_into_the_grid(
             placed=None,
             group="Mercurial Tier",
         )
-        conn.execute(
-            "UPDATE matches SET stage_id = (SELECT stage_id FROM tournament_stages x JOIN tournament_seasons s USING (season_id) "
-            "JOIN tournaments t USING (tournament_id) WHERE t.slug = 'mercurial_ladder' AND s.label = %s) "
-            "WHERE match_id = (SELECT max(match_id) FROM matches)",
-            (r,),
-        )
+        move_last_game("mercurial_ladder", "Mercurial Tier", label=r)
     conn.commit()
     derive_community(conn=conn, run_id=run_id)
     got = {
@@ -568,7 +566,7 @@ def test_a_ladder_edition_ranks_its_rounds_totals_into_the_grid(
 
 
 def test_a_ladder_round_counts_in_the_year_cge_finished_it(
-    conn, run_id, catalogue, add_match
+    conn, run_id, catalogue, add_match, move_last_game
 ):
     catalogue("sodium_ladder", "1", [("", None, None)])
     conn.execute(
@@ -583,10 +581,7 @@ def test_a_ladder_round_counts_in_the_year_cge_finished_it(
         placed=None,
         group="Sodium Tier",
     )
-    conn.execute(
-        "UPDATE matches SET cge_finished = '2025-01-20', stage_id = (SELECT stage_id FROM tournament_stages x "
-        "JOIN tournament_seasons s USING (season_id) JOIN tournaments t USING (tournament_id) WHERE t.slug = 'sodium_ladder')"
-    )
+    move_last_game("sodium_ladder", "Sodium Tier", cge_finished=date(2025, 1, 20))
     add_match(("x", 1), ("y", 0), day=date(2025, 3, 1), placed=None)
     conn.commit()
     derive_community(conn=conn, run_id=run_id)
@@ -601,7 +596,7 @@ def test_a_ladder_round_counts_in_the_year_cge_finished_it(
 
 
 def test_a_ladder_round_counts_in_the_year_the_organisers_recorded(
-    conn, run_id, catalogue, add_match
+    conn, run_id, catalogue, add_match, move_last_game
 ):
     # Sodium's first round finished in 2024; the organisers count it in 2025.
     catalogue("sodium_ladder", "1", [("", None, None)], quarter=(2025, 1))
@@ -616,10 +611,7 @@ def test_a_ladder_round_counts_in_the_year_the_organisers_recorded(
         placed=None,
         group="Sodium Tier",
     )
-    conn.execute(
-        "UPDATE matches SET stage_id = (SELECT stage_id FROM tournament_stages x JOIN tournament_seasons s USING (season_id) "
-        "JOIN tournaments t USING (tournament_id) WHERE t.slug = 'sodium_ladder')"
-    )
+    move_last_game("sodium_ladder", "Sodium Tier")
     add_match(("x", 1), ("y", 0), day=date(2025, 3, 1), placed=None)
     conn.commit()
     derive_community(conn=conn, run_id=run_id)
@@ -634,7 +626,7 @@ def test_a_ladder_round_counts_in_the_year_the_organisers_recorded(
 
 
 def test_a_ladder_edition_before_its_first_rule_keeps_the_sheets_points(
-    conn, run_id, catalogue, add_match
+    conn, run_id, catalogue, add_match, move_last_game
 ):
     catalogue("mercurial_ladder", "1", [("", None, None)])
     conn.execute(
@@ -648,10 +640,7 @@ def test_a_ladder_edition_before_its_first_rule_keeps_the_sheets_points(
         placed=None,
         group="Mercurial Tier",
     )
-    conn.execute(
-        "UPDATE matches SET stage_id = (SELECT stage_id FROM tournament_stages x JOIN tournament_seasons s USING (season_id) "
-        "JOIN tournaments t USING (tournament_id) WHERE t.slug = 'mercurial_ladder')"
-    )
+    move_last_game("mercurial_ladder", "Mercurial Tier")
     conn.execute(
         "INSERT INTO community_scores VALUES ('2024', 'ann', 'ml', 640, 'sheet')"
     )
@@ -678,7 +667,7 @@ def test_a_season_left_out_of_the_community_leaderboard_scores_nothing(
     )
     catalogue("worlds", "2023 Play Off", [("Stage 1", 4150, 1)], quarter=(2023, 4))
     conn.execute(
-        "UPDATE tournament_seasons SET in_community = false WHERE label = '2023 Play Off'"
+        "UPDATE tournaments SET in_community = false WHERE label = '2023 Play Off'"
     )
     points_table(conn, "worlds", 2023, {("Stage 1", 4): 20, ("Stage 3", 2): 115})
     cge_line(conn, 4149, 1, "2023 Group 1", 1, "ann", 1)
@@ -697,10 +686,10 @@ def test_a_season_left_out_of_the_community_leaderboard_scores_nothing(
 
 
 def test_a_ladder_round_left_out_of_the_community_leaderboard_scores_nothing(
-    conn, run_id, catalogue, add_match
+    conn, run_id, catalogue, add_match, move_last_game
 ):
     catalogue("sodium_ladder", "1", [("", None, None)])
-    conn.execute("UPDATE tournament_seasons SET in_community = false")
+    conn.execute("UPDATE tournaments SET in_community = false")
     conn.execute(
         "INSERT INTO community_ladders VALUES ('sodium_ladder', 2025, 0.8, 4, '{1,0.5,0.166,0}', 8, 'tab')"
     )
@@ -712,10 +701,7 @@ def test_a_ladder_round_left_out_of_the_community_leaderboard_scores_nothing(
         placed=None,
         group="Sodium Tier",
     )
-    conn.execute(
-        "UPDATE matches SET stage_id = (SELECT stage_id FROM tournament_stages x "
-        "JOIN tournament_seasons s USING (season_id) JOIN tournaments t USING (tournament_id) WHERE t.slug = 'sodium_ladder')"
-    )
+    move_last_game("sodium_ladder", "Sodium Tier")
     add_match(("x", 1), ("y", 0), day=date(2025, 3, 1), placed=None)
     conn.commit()
 

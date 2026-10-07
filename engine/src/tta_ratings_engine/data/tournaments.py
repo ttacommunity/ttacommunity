@@ -200,7 +200,9 @@ def series_rules(conn) -> tuple[dict[str, Series], Series]:
     rows = {
         r["slug"]: r
         for r in conn.execute(
-            "SELECT slug, top_divisions, points_2p, points_3p, points_4p FROM tournaments WHERE slug = ANY(%s)",
+            "SELECT se.slug, se.top_divisions, coalesce(s.points_2p, '{}') AS points_2p, "
+            "coalesce(s.points_3p, '{}') AS points_3p, coalesce(s.points_4p, '{}') AS points_4p "
+            "FROM series se LEFT JOIN settings s ON s.series_id = se.series_id WHERE se.slug = ANY(%s)",
             (list(SERIES),),
         ).fetchall()
     }
@@ -232,17 +234,16 @@ def worlds_finals(conn) -> dict[int, list[list[tuple[str, float]]]]:
     """
     rows = conn.execute(
         """
-        SELECT se.label::int AS season, m.group_label, m.player_count,
-               m.player1, m.score1, m.player2, m.score2, m.player3, m.score3, m.player4, m.score4
-        FROM tournaments t
-        JOIN tournament_seasons se USING (tournament_id)
-        JOIN tournament_stages st USING (season_id)
+        SELECT se.label::int AS season, m.group_name AS group_label, m.players, m.scores
+        FROM series t
+        JOIN tournaments se ON se.series_id = t.series_id
+        JOIN stages st ON st.tournament_id = se.tournament_id
         JOIN cge_tournaments c ON c.cge_tournament = st.cge_tournament
-        JOIN matches m ON m.stage_id = st.stage_id
+        JOIN game_lines m ON m.stage_id = st.stage_id
         WHERE t.slug = 'worlds' AND c.status = 'finished' AND se.label ~ '^[0-9]+$'
           AND coalesce(m.state, 'played') = 'played'
-          AND st.cge_season = (SELECT max(s2.cge_season) FROM tournament_stages s2 WHERE s2.season_id = se.season_id)
-        ORDER BY m.date, m.match_id
+          AND st.cge_stage_number = (SELECT max(s2.cge_stage_number) FROM stages s2 WHERE s2.tournament_id = se.tournament_id)
+        ORDER BY m.date, m.game_id
         """
     ).fetchall()
     games, groups = defaultdict(list), defaultdict(set)
@@ -452,7 +453,7 @@ def classify(rows, recorded, corrections, series_rules):
                 division = re.sub(r"\s+\d+$", "", cge_group)
                 g.update(division=division, group=cge_group, source="cge")
                 break
-            players = [r[f"player{i}"] for i in range(1, r["player_count"] + 1)]
+            players = list(r["players"])
             divs = {recorded.get((series, season, p)) for p in players}
             if len(divs) == 1 and None not in divs and not parsed.tiebreak:
                 pending[(series, season, divs.pop())].append((g, players))
@@ -467,7 +468,7 @@ def classify(rows, recorded, corrections, series_rules):
 
 
 def _scores(r):
-    return [(r[f"player{i}"], r[f"score{i}"]) for i in range(1, r["player_count"] + 1)]
+    return list(zip(r["players"], r["scores"]))
 
 
 def season_records(rows, rules: Series, penalties=None):
@@ -606,11 +607,12 @@ def derive_tournaments(*, conn: psycopg.Connection, run_id: int) -> None:
         require_running(conn, run_id)
         rules, final = series_rules(conn)
         rows = conn.execute(
-            "SELECT m.match_id, m.tournament, m.date, m.player_count, m.player1, m.score1, m.player2, m.score2, "
-            "m.player3, m.score3, m.player4, m.score4, m.group_label, t.slug AS catalogue_slug, t.name AS catalogue_name, "
+            "SELECT m.game_id AS match_id, m.name AS tournament, m.date, m.player_count, m.players, m.scores, "
+            "m.group_name AS group_label, t.slug AS catalogue_slug, t.name AS catalogue_name, "
             "se.label AS catalogue_season, st.label AS catalogue_stage "
-            "FROM matches m LEFT JOIN tournament_stages st USING (stage_id) LEFT JOIN tournament_seasons se USING (season_id) "
-            "LEFT JOIN tournaments t USING (tournament_id) WHERE m.state = 'played' ORDER BY m.match_id"
+            "FROM game_lines m LEFT JOIN stages st ON st.stage_id = m.stage_id "
+            "LEFT JOIN tournaments se ON se.tournament_id = m.tournament_id "
+            "LEFT JOIN series t ON t.series_id = m.series_id WHERE m.state = 'played' ORDER BY m.game_id"
         ).fetchall()
         recorded = {
             (r["series"], r["season"], r["player_name"]): r["division"]
@@ -641,7 +643,9 @@ def derive_tournaments(*, conn: psycopg.Connection, run_id: int) -> None:
         penalties = {
             (r["series"], r["season"]): r["timeout_penalty"]
             for r in conn.execute(
-                "SELECT series, season, timeout_penalty FROM tournament_season_rules"
+                "SELECT se.slug AS series, t.label::int AS season, s.timeout_penalty FROM settings s "
+                "JOIN tournaments t ON t.tournament_id = s.tournament_id JOIN series se ON se.series_id = t.series_id "
+                "WHERE s.timeout_penalty IS NOT NULL AND t.label ~ '^[0-9]+$'"
             ).fetchall()
         }
         honours = conn.execute(
@@ -695,7 +699,7 @@ def derive_tournaments(*, conn: psycopg.Connection, run_id: int) -> None:
             ).fetchall(),
             {
                 r["slug"]: r["name"]
-                for r in conn.execute("SELECT slug, name FROM tournaments").fetchall()
+                for r in conn.execute("SELECT slug, name FROM series").fetchall()
             },
         )
         boards["ladders"] = ladders_board(rows)

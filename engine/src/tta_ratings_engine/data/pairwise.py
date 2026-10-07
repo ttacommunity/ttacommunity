@@ -29,16 +29,14 @@ def _expand(conn, run_id):
     # Only played games whose tournament is in the run's ranking.
     rows = conn.execute(
         """
-        SELECT m.match_id, m.tournament, m.date, m.glicko_eligible,
-               m.player1, m.score1, m.player2, m.score2, m.player3, m.score3, m.player4, m.score4
-        FROM matches m
-        JOIN tournament_stages st USING (stage_id)
-        JOIN tournament_seasons s USING (season_id)
-        JOIN tournaments t ON t.tournament_id = s.tournament_id
-        JOIN ranking_tournaments rt ON rt.tournament_id = s.tournament_id
+        SELECT m.game_id AS match_id, m.name AS tournament, m.date, m.glicko_eligible, m.players, m.scores
+        FROM game_lines m
+        JOIN tournaments s ON s.tournament_id = m.tournament_id
+        JOIN series t ON t.series_id = m.series_id
+        JOIN ranking_series rt ON rt.series_id = m.series_id
         JOIN rating_runs r ON r.ranking_id = rt.ranking_id AND r.run_id = %s
         WHERE m.state = 'played' AND s.rated AND m.player_count = ANY(t.rated_player_counts)
-        ORDER BY m.match_id
+        ORDER BY m.game_id
         """,
         (run_id,),
     ).fetchall()
@@ -46,12 +44,9 @@ def _expand(conn, run_id):
 
     pairwise_to_insert = []
     for row in rows:
-        participants = []
-        for i in range(1, 5):
-            p_name = row[f"player{i}"]
-            score = row[f"score{i}"]
-            if p_name and score is not None:
-                participants.append((p_name, float(score)))
+        participants = [
+            (p, float(score)) for p, score in zip(row["players"], row["scores"])
+        ]
 
         p_count = len(participants)
         if p_count < 2:

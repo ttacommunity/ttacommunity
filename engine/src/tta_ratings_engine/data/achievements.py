@@ -317,9 +317,7 @@ def _campaign_rows(rows, keys, dates):
     for r in rows:
         key = record_key(r)
         g = groups.setdefault(key, {"matches": [], "players": set()})
-        seats = [(r[f"player{i}"], r[f"score{i}"]) for i in range(1, 5)][
-            : r["player_count"]
-        ]
+        seats = zip(r["players"], r["scores"])
         players = [(p.strip(), s if s is not None else 0) for p, s in seats if p]
         g["players"].update(p for p, _ in players)
         players.sort(key=lambda ps: ps[1], reverse=True)

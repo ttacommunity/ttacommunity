@@ -176,7 +176,7 @@ def matches_paired(conn, run_id):
 def test_a_season_left_out_of_ratings_gives_no_pairs(conn, add_match, run_id):
     add_match(("Ann", 10), ("Bob", 5))
     add_match(("Ann", 10), ("Cat", 5))
-    conn.execute("UPDATE tournament_seasons SET rated = false")
+    conn.execute("UPDATE tournaments SET rated = false")
     conn.commit()
 
     expand_pairwise(conn, run_id)
@@ -188,15 +188,13 @@ def test_only_the_rated_player_counts_give_pairs(conn, add_match, run_id):
     add_match(("Ann", 10), ("Bob", 5))
     add_match(("Ann", 10), ("Bob", 5), ("Cat", 1))
     add_match(("Ann", 10), ("Bob", 5), ("Cat", 1), ("Dan", 0))
-    conn.execute(
-        "UPDATE tournaments SET rated_player_counts = '{3,4}' WHERE slug = 'rated'"
-    )
+    conn.execute("UPDATE series SET rated_player_counts = '{3,4}' WHERE slug = 'rated'")
     conn.commit()
 
     expand_pairwise(conn, run_id)
 
     counts = conn.execute(
-        "SELECT DISTINCT m.player_count FROM pairwise_matches p JOIN matches m USING (match_id) WHERE p.run_id = %s ORDER BY 1",
+        "SELECT DISTINCT m.player_count FROM pairwise_matches p JOIN game_lines m ON m.game_id = p.match_id WHERE p.run_id = %s ORDER BY 1",
         (run_id,),
     ).fetchall()
     assert [r["player_count"] for r in counts] == [3, 4]

@@ -153,13 +153,13 @@ def test_a_run_writes_tournament_results(conn, add_match):
             "INSERT INTO tournament_career_honours "
             "VALUES ('q_and_d', 'Ann', 1, 0, 0, NULL, 's')"
         ),
-        "INSERT INTO tournament_season_rules (series, season, timeout_penalty, source) VALUES ('intermezzo', 6, -1, 's')",
+        "INSERT INTO settings (series_id, timeout_penalty) SELECT series_id, -1 FROM series WHERE slug = 'rated'",
         "INSERT INTO tournament_cup_podiums VALUES ('wimbledon', '2024', '', 1, 'Ann', 's', '2025-02-24')",
         "INSERT INTO tournament_podium_overrides (tournament, season, place, player_name) VALUES ('worlds', '2025', 1, 'Ann')",
         "INSERT INTO cge_tournaments (cge_tournament, name, status) VALUES (5204, 'World Championship 2025', 'finished')",
         "INSERT INTO player_title_overrides VALUES ('Ann', 'GM', 'r')",
-        "UPDATE tournament_seasons SET rated = false",
-        "UPDATE tournaments SET rated_player_counts = '{2,3}'",
+        "UPDATE tournaments SET rated = false",
+        "UPDATE series SET rated_player_counts = '{2,3}'",
     ],
 )
 def test_a_recorded_fact_changes_the_input_fingerprint(conn, add_match, fact):
@@ -521,8 +521,8 @@ def add_ranking(conn, slug, *tournaments):
     ).fetchone()["ranking_id"]
     for t in tournaments:
         conn.execute(
-            "INSERT INTO ranking_tournaments (ranking_id, tournament_id) "
-            "SELECT %s, tournament_id FROM tournaments WHERE slug = %s",
+            "INSERT INTO ranking_series (ranking_id, series_id) "
+            "SELECT %s, series_id FROM series WHERE slug = %s",
             (rid, t),
         )
     conn.commit()
@@ -574,8 +574,8 @@ def test_a_rankings_tournaments_are_part_of_its_input(conn, add_match):
     add_match(("Eve", 10), ("Fay", 5), placed="other")
     first = run(conn, "v1", formats=[2], log=lambda _: None)
     conn.execute(
-        "INSERT INTO ranking_tournaments (ranking_id, tournament_id) "
-        "SELECT community_ranking(), tournament_id FROM tournaments WHERE slug = 'other'"
+        "INSERT INTO ranking_series (ranking_id, series_id) "
+        "SELECT community_ranking(), series_id FROM series WHERE slug = 'other'"
     )
     conn.commit()
 
@@ -602,7 +602,7 @@ def test_a_games_state_is_part_of_the_input(conn, add_match):
     season(add_match)
     m = add_match(("Ann", -5), ("Bob", -5), day=date(2022, 3, 1))
     first = run(conn, "v1", formats=[2], log=lambda _: None)
-    conn.execute("UPDATE matches SET state = 'never_played' WHERE match_id = %s", (m,))
+    conn.execute("UPDATE games SET state = 'never_played' WHERE game_id = %s", (m,))
     conn.commit()
 
     second = run(conn, "v1", formats=[2], log=lambda _: None)

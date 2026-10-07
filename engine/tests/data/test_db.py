@@ -47,7 +47,7 @@ def test_the_test_database_has_the_migrated_schema(conn):
         )
     }
 
-    assert {"matches", "players", "rating_runs", "pairwise_matches"} <= tables
+    assert {"games", "seats", "players", "rating_runs", "pairwise_matches"} <= tables
 
 
 @pytest.mark.parametrize("status", ["complete", "failed"])

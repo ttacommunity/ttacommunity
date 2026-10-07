@@ -195,11 +195,12 @@ ALTER TABLE games
 ALTER TABLE series DROP COLUMN points_2p, DROP COLUMN points_3p, DROP COLUMN points_4p;
 
 -- One row per game with its place in the catalogue and its seats in seat order: what most readers list.
--- Seats are gathered per game, so a filter on games still uses the indexes.
+-- Seats are gathered per game, so a filter on games still uses the indexes. scores are the source's own (a CGE
+-- game has none: culture, or -place unfinished, which keeps the order), what the engine reads today.
 CREATE VIEW game_lines AS
 SELECT g.game_id, g.name, g.date, g.state, g.share_code, g.glicko_eligible, g.game_number, g.cge_finished,
        g.batch_id, g.group_id, gr.name AS group_name, gr.stage_id, st.tournament_id, t.series_id,
-       gr.cge_tournament, gr.cge_stage_number, s.player_count, s.players, s.cultures, s.places, s.outcomes
+       gr.cge_tournament, gr.cge_stage_number, s.player_count, s.players, s.cultures, s.places, s.outcomes, s.scores
 FROM games g
 LEFT JOIN groups gr USING (group_id)
 LEFT JOIN stages st USING (stage_id)
@@ -207,7 +208,8 @@ LEFT JOIN tournaments t USING (tournament_id)
 CROSS JOIN LATERAL (
     SELECT count(*)::smallint AS player_count,
            array_agg(player_name ORDER BY seat) AS players, array_agg(culture ORDER BY seat) AS cultures,
-           array_agg(place ORDER BY seat) AS places, array_agg(outcome ORDER BY seat) AS outcomes
+           array_agg(place ORDER BY seat) AS places, array_agg(outcome ORDER BY seat) AS outcomes,
+           array_agg(coalesce(recorded_score, CASE WHEN outcome = 'finished' THEN culture ELSE -place END) ORDER BY seat) AS scores
     FROM seats WHERE seats.game_id = g.game_id) s;
 
 GRANT SELECT ON groups, group_members, seats, player_accounts, settings, cge_tournament_moderators, game_lines TO ratings_read;

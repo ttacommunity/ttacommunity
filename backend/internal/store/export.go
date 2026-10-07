@@ -350,14 +350,9 @@ func schemaVersion(ctx context.Context, tx pgx.Tx) (int64, error) {
 // many it wrote. Games never played or unconfirmed are left out: they are not
 // rated here, and upstream would rate them.
 func ExportForUpstream(ctx context.Context, pool *pgxpool.Pool, w io.Writer) (int, error) {
-	// A seat with no recorded score (a CGE game) gets one that keeps its order: culture, or -place unfinished.
 	rows, err := pool.Query(ctx, `
-		SELECT g.name, to_char(g.date, 'YYYY-MM-DD'), count(*),
-		       array_agg(s.player_name ORDER BY s.seat),
-		       array_agg(coalesce(s.recorded_score, CASE WHEN s.outcome = 'finished' THEN s.culture ELSE -s.place END)
-		                 ORDER BY s.seat)
-		FROM games g JOIN seats s USING (game_id) WHERE g.state = 'played'
-		GROUP BY g.game_id ORDER BY g.date, g.game_id`)
+		SELECT name, to_char(date, 'YYYY-MM-DD'), player_count, players, scores
+		FROM game_lines WHERE state = 'played' ORDER BY date, game_id`)
 	if err != nil {
 		return 0, fmt.Errorf("exporting for upstream: %w", err)
 	}

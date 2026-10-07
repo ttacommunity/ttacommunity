@@ -58,11 +58,19 @@ def template_db():
                 c.execute(up_sql(f))
             # The series the engine derives, with the settings the load job gives them when first seen.
             c.execute(
-                "INSERT INTO tournaments (slug, name, top_divisions, points_2p, points_3p, points_4p) VALUES "
-                "('international', 'International', '{Grandmaster,Diamond}', '{}', '{5,2,0}', '{6,3,1,0}'), "
-                "('intermezzo', 'Intermezzo', '{Grandmaster,Diamond}', '{}', '{5,2,0}', '{}'), "
-                "('royal_league', 'Royal League', '{Emperor}', '{2,0}', '{}', '{}'), "
-                "('worlds', 'World Championship', '{Final}', '{4,0}', '{5,2,0}', '{6,3,1,0}')"
+                "INSERT INTO series (slug, name, top_divisions) VALUES "
+                "('international', 'International', '{Grandmaster,Diamond}'), "
+                "('intermezzo', 'Intermezzo', '{Grandmaster,Diamond}'), "
+                "('royal_league', 'Royal League', '{Emperor}'), "
+                "('worlds', 'World Championship', '{Final}')"
+            )
+            c.execute(
+                "INSERT INTO settings (series_id, points_2p, points_3p, points_4p) "
+                "SELECT series_id, p2, p3, p4 FROM series JOIN (VALUES "
+                "('international', NULL, '{5,2,0}'::float8[], '{6,3,1,0}'::float8[]), "
+                "('intermezzo', NULL, '{5,2,0}', NULL), "
+                "('royal_league', '{2,0}'::float8[], NULL, NULL), "
+                "('worlds', '{4,0}', '{5,2,0}', '{6,3,1,0}')) AS v(slug, p2, p3, p4) USING (slug)"
             )
         yield name
     finally:
@@ -84,29 +92,35 @@ def conn(db_url):
     c.close()
 
 
-def stage_in(conn, slug):
-    """Returns the stage of test tournament slug, creating it; "rated" is in the community ranking."""
-    t = conn.execute(
-        "INSERT INTO tournaments (slug, name) VALUES (%s, %s) ON CONFLICT (slug) DO UPDATE SET slug = excluded.slug "
-        "RETURNING tournament_id",
+def group_in(conn, slug, group=""):
+    """Returns group of test series slug's tournament 1, creating them; "rated" is in the community ranking."""
+    se = conn.execute(
+        "INSERT INTO series (slug, name) VALUES (%s, %s) ON CONFLICT (slug) DO UPDATE SET slug = excluded.slug "
+        "RETURNING series_id",
         (slug, slug),
-    ).fetchone()["tournament_id"]
+    ).fetchone()["series_id"]
     if slug == "rated":
         conn.execute(
-            "INSERT INTO ranking_tournaments (ranking_id, tournament_id) VALUES (community_ranking(), %s) "
+            "INSERT INTO ranking_series (ranking_id, series_id) VALUES (community_ranking(), %s) "
             "ON CONFLICT DO NOTHING",
-            (t,),
+            (se,),
         )
-    s = conn.execute(
-        "INSERT INTO tournament_seasons (tournament_id, label) VALUES (%s, '1') "
-        "ON CONFLICT (tournament_id, label) DO UPDATE SET label = excluded.label RETURNING season_id",
+    t = conn.execute(
+        "INSERT INTO tournaments (series_id, label) VALUES (%s, '1') "
+        "ON CONFLICT (series_id, label) DO UPDATE SET label = excluded.label RETURNING tournament_id",
+        (se,),
+    ).fetchone()["tournament_id"]
+    st = conn.execute(
+        "INSERT INTO stages (tournament_id, label) VALUES (%s, '') "
+        "ON CONFLICT (tournament_id, label) DO UPDATE SET label = excluded.label RETURNING stage_id",
         (t,),
-    ).fetchone()["season_id"]
-    return conn.execute(
-        "INSERT INTO tournament_stages (season_id, label) VALUES (%s, '') "
-        "ON CONFLICT (season_id, label) DO UPDATE SET label = excluded.label RETURNING stage_id",
-        (s,),
     ).fetchone()["stage_id"]
+    return conn.execute(
+        "INSERT INTO groups (stage_id, name) VALUES (%s, %s) "
+        "ON CONFLICT (stage_id, name, cge_tournament, cge_stage_number) DO UPDATE SET name = excluded.name "
+        "RETURNING group_id",
+        (st, group),
+    ).fetchone()["group_id"]
 
 
 @pytest.fixture
@@ -127,32 +141,30 @@ def add_match(conn):
         state="played",
         group="",
     ):
-        cols = {
-            "batch_id": batch,
-            "source_file": "test.csv",
-            "source_line": next(line),
-            "tournament": tournament,
-            "date": day,
-            "player_count": len(players),
-            "glicko_eligible": eligible,
-            "stage_id": stage_in(conn, placed) if placed else None,
-            "state": state,
-            "group_label": group,
-        }
-        for i, (name, score) in enumerate(players, start=1):
-            cols[f"player{i}"] = name
-            cols[f"score{i}"] = score
+        match_id = conn.execute(
+            "INSERT INTO games (batch_id, source_file, source_line, name, date, glicko_eligible, group_id, state) "
+            "VALUES (%s, 'test.csv', %s, %s, %s, %s, %s, %s) RETURNING game_id",
+            (
+                batch,
+                next(line),
+                tournament,
+                day,
+                eligible,
+                group_in(conn, placed, group) if placed else None,
+                state,
+            ),
+        ).fetchone()["game_id"]
+        for name, _ in players:
             conn.execute(
-                "INSERT INTO players (name) VALUES (%s) ON CONFLICT DO NOTHING",
-                (name,),
+                "INSERT INTO players (name) VALUES (%s) ON CONFLICT DO NOTHING", (name,)
             )
-        stmt = sql.SQL(
-            "INSERT INTO matches ({}) VALUES ({}) RETURNING match_id"
-        ).format(
-            sql.SQL(", ").join(map(sql.Identifier, cols)),
-            sql.SQL(", ").join(sql.Placeholder() * len(cols)),
+        conn.execute(
+            "INSERT INTO seats (game_id, seat, player_id, player_name, culture, recorded_score, place) "
+            "SELECT %s, s.seat, p.player_id, s.name, greatest(s.score, 0), s.score, "
+            "rank() OVER (ORDER BY s.score DESC) "
+            "FROM unnest(%s::text[], %s::float8[]) WITH ORDINALITY AS s(name, score, seat) JOIN players p USING (name)",
+            (match_id, [n for n, _ in players], [sc for _, sc in players]),
         )
-        match_id = conn.execute(stmt, list(cols.values())).fetchone()["match_id"]
         conn.commit()
         return match_id
 
@@ -184,3 +196,30 @@ def place(conn):
         conn.commit()
 
     return add
+
+
+@pytest.fixture
+def move_last_game(conn):
+    """Returns a function that moves the newest game into a group of series slug's stage (that stage of that
+    tournament label, where named, else its only one), creating the group, and optionally sets CGE's finish date."""
+
+    def move(slug, group="", label=None, stage=None, cge_finished=None):
+        conn.execute(
+            "WITH st AS (SELECT x.stage_id FROM stages x JOIN tournaments s USING (tournament_id) "
+            "JOIN series t USING (series_id) WHERE t.slug = %(slug)s AND (%(label)s::text IS NULL OR s.label = %(label)s) "
+            "AND (%(stage)s::text IS NULL OR x.label = %(stage)s)), "
+            "gr AS (INSERT INTO groups (stage_id, name) SELECT stage_id, %(group)s FROM st "
+            "ON CONFLICT (stage_id, name, cge_tournament, cge_stage_number) DO UPDATE SET name = excluded.name "
+            "RETURNING group_id) "
+            "UPDATE games SET group_id = (SELECT group_id FROM gr), cge_finished = coalesce(%(finished)s, cge_finished) "
+            "WHERE game_id = (SELECT max(game_id) FROM games)",
+            {
+                "slug": slug,
+                "group": group,
+                "label": label,
+                "stage": stage,
+                "finished": cge_finished,
+            },
+        )
+
+    return move

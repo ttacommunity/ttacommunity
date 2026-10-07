@@ -11,17 +11,15 @@ from tta_ratings_engine.data.achievements import (
 
 
 def match(tournament, *players, day, match_id):
-    """A matches row as derive_tournaments reads it."""
-    row = {
+    """A game row as derive_tournaments reads it."""
+    return {
         "match_id": match_id,
         "tournament": tournament,
         "date": day,
         "player_count": len(players),
+        "players": [p for p, _ in players],
+        "scores": [s for _, s in players],
     }
-    for i in range(1, 5):
-        name, score = players[i - 1] if i <= len(players) else (None, None)
-        row[f"player{i}"], row[f"score{i}"] = name, score
-    return row
 
 
 TOP = {"international": {"Grandmaster"}, "intermezzo": {"Grandmaster"}}

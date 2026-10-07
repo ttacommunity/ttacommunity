@@ -133,9 +133,7 @@ def worlds_board(placements) -> list[dict]:
 
 def _players(r):
     """Returns a game's players and scores, highest first, a missing score as 0."""
-    seats = [(r[f"player{i}"], r[f"score{i}"]) for i in range(1, 5)][
-        : r["player_count"]
-    ]
+    seats = zip(r["players"], r["scores"])
     return sorted(
         ((p, float(s) if s is not None else 0.0) for p, s in seats if p),
         key=lambda ps: -ps[1],
