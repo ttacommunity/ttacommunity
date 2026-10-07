@@ -53,7 +53,10 @@ ALTER TABLE games
     ADD COLUMN rules text,
     ADD COLUMN card_set text,
     ADD COLUMN cge_players_in_game smallint CHECK (cge_players_in_game > 0),
-    ADD CONSTRAINT games_share_code_key UNIQUE (share_code);
+    ADD CONSTRAINT games_share_code_key UNIQUE (share_code),
+    DROP CONSTRAINT matches_state_check,
+    -- running and prepared: CGE's games still being played or not yet started, kept, never rated.
+    ADD CONSTRAINT games_state_check CHECK (state IN ('played', 'never_played', 'unconfirmed', 'running', 'prepared'));
 UPDATE games g SET group_id = gr.group_id
 FROM game_groups k JOIN groups gr ON gr.stage_id = k.stage_id AND gr.name = k.group_label
   AND gr.cge_tournament IS NOT DISTINCT FROM k.cge_tournament AND gr.cge_stage_number IS NOT DISTINCT FROM k.cge_season
@@ -217,6 +220,7 @@ GRANT SELECT ON groups, group_members, seats, player_accounts, settings, cge_tou
 GRANT INSERT, UPDATE, DELETE ON settings TO ratings_admin;
 
 -- +goose Down
+DELETE FROM games WHERE state IN ('running', 'prepared');
 DROP VIEW game_lines;
 REVOKE INSERT, UPDATE, DELETE ON settings FROM ratings_admin;
 
@@ -302,6 +306,8 @@ ALTER TABLE games DROP COLUMN group_id, DROP COLUMN cge_session, DROP COLUMN sta
     DROP COLUMN speed, DROP COLUMN timer, DROP COLUMN rules, DROP COLUMN card_set, DROP COLUMN cge_players_in_game,
     DROP CONSTRAINT games_share_code_key;
 DROP TABLE groups;
+ALTER TABLE games DROP CONSTRAINT games_state_check,
+    ADD CONSTRAINT matches_state_check CHECK (state IN ('played', 'never_played', 'unconfirmed'));
 ALTER TABLE games RENAME COLUMN share_code TO replay_code;
 ALTER TABLE games RENAME COLUMN name TO tournament;
 ALTER TABLE games RENAME COLUMN game_id TO match_id;

@@ -14,6 +14,7 @@ import (
 // the accounts each name has played under, and our series for each linked CGE tournament.
 type CGEPlan struct {
 	Games    []cgeextract.Game
+	Ours     []cgeextract.OurGame
 	Matching cgeextract.Matching
 	Names    map[string][]int
 	Series   map[int]int64
@@ -97,6 +98,7 @@ func PlanCGEExtract(ctx context.Context, pool *pgxpool.Pool, x cgeextract.Extrac
 	if err := rows.Err(); err != nil {
 		return CGEPlan{}, fmt.Errorf("reading our games: %w", err)
 	}
+	plan.Ours = ours
 	plan.Matching = cgeextract.Match(plan.Games, ours, plan.Names, plan.Series)
 	return plan, nil
 }

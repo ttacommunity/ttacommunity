@@ -151,8 +151,8 @@ func MatchSeats(g Game, ours []OurSeat, names map[string][]int) (map[int]int, []
 	return pairs, missing
 }
 
-// cgeKey is a game's seat count and its finished seats' scores, sorted; with resignedAsZero, its resigners
-// count as 0, as the organisers' files score them.
+// cgeKey is a game's finished seats' scores, sorted; with resignedAsZero, its resigners count as 0, as the
+// organisers' files score them.
 func cgeKey(g Game, resignedAsZero bool) string {
 	var scores []float64
 	for _, s := range g.Seats {
@@ -163,10 +163,10 @@ func cgeKey(g Game, resignedAsZero bool) string {
 			scores = append(scores, 0)
 		}
 	}
-	return key(len(g.Seats), scores)
+	return key(scores)
 }
 
-// ourKey is our game's seat count and its scores of 0 or more, sorted: the seats that finished.
+// ourKey is our game's scores of 0 or more, sorted: the seats that finished.
 func ourKey(o OurGame) string {
 	var scores []float64
 	for _, s := range o.Seats {
@@ -174,19 +174,26 @@ func ourKey(o OurGame) string {
 			scores = append(scores, s.Score)
 		}
 	}
-	return key(len(o.Seats), scores)
+	return key(scores)
 }
 
-func key(seats int, scores []float64) string {
+func key(scores []float64) string {
 	slices.Sort(scores)
-	return fmt.Sprint(seats, scores)
+	return fmt.Sprint(scores)
 }
 
 func sameSeries(a, b int64) bool { return a == 0 || b == 0 || a == b }
 
-// playersFit reports whether each of our seats was played by an account of the CGE game.
+// playersFit reports whether each of our seats was played by an account of the CGE game, and ours lacks at most
+// its timed-out seats.
 func playersFit(g Game, o OurGame, names map[string][]int) bool {
-	if len(g.Seats) != len(o.Seats) {
+	played := 0
+	for _, s := range g.Seats {
+		if s.FinishStatus != TimedOut {
+			played++
+		}
+	}
+	if len(o.Seats) < played || len(o.Seats) > len(g.Seats) {
 		return false
 	}
 	for _, s := range o.Seats {
