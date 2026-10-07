@@ -31,6 +31,8 @@ type AdminTournament struct {
 	RatedPlayerCounts []int
 	Kind              string
 	TopDivisions      []string
+	// Points are the points per place, by player count (2, 3 and 4), empty for a count it does not score.
+	Points map[int][]float64
 	// OriginalName is the name the tournament came in with, kept when it is renamed.
 	OriginalName string
 	Seasons      []AdminSeason
@@ -69,7 +71,13 @@ type TournamentSettings struct {
 	// Kind is league, cup or ladder ("" unchanged); TopDivisions give a league's podium (nil unchanged).
 	Kind         string
 	TopDivisions []string
+	// Points replace the points per place for each player count given; an empty list clears one.
+	Points map[int][]float64
 }
+
+// ErrBadScoring means points for a player count other than 2, 3 or 4, not one per place, negative,
+// or higher for a worse place.
+var ErrBadScoring = errors.New("points are one per place, never negative, and never higher for a worse place")
 
 // ErrBadKind means a kind other than league, cup or ladder.
 var ErrBadKind = errors.New("a tournament is a league, a cup or a ladder")
@@ -90,7 +98,8 @@ func (a *AdminStore) Tournaments(ctx context.Context) ([]AdminTournament, error)
 		       se.label, coalesce(st.label, ''), coalesce(se.original_name, ''), coalesce(st.original_name, ''),
 		       coalesce((SELECT note FROM tournament_season_notes n WHERE n.tournament = t.slug AND n.season = se.label AND n.stage = ''), ''),
 		       coalesce((SELECT note FROM tournament_season_notes n WHERE n.tournament = t.slug AND n.season = se.label AND n.stage = st.label AND st.label <> ''), ''),
-		       d.last IS NOT NULL, coalesce(se.rated, true), coalesce(se.in_champions, true), t.rated_player_counts, t.kind, t.top_divisions, t.original_name
+		       d.last IS NOT NULL, coalesce(se.rated, true), coalesce(se.in_champions, true), t.rated_player_counts, t.kind, t.top_divisions, t.original_name,
+		       t.points_2p, t.points_3p, t.points_4p
 		FROM tournaments t
 		LEFT JOIN tournament_cards k ON k.tournament = t.slug
 		LEFT JOIN tournament_seasons se USING (tournament_id)
@@ -113,13 +122,14 @@ func (a *AdminStore) Tournaments(ctx context.Context) ([]AdminTournament, error)
 	var counts []int
 	var kind, original string
 	var top []string
+	var p2, p3, p4 []float64
 	_, err = pgx.ForEachRow(rows, []any{&slug, &name, &visible, &community, &rated, &regulations,
 		&card.Icon, &card.Tagline, &card.Summary, &card.Subtitle, &card.Cadence, &cgeRegulations, &season, &stage, &seasonOriginal, &stageOriginal, &seasonNote, &stageNote, &hasGames,
-		&seasonRated, &inChampions, &counts, &kind, &top, &original}, func() error {
+		&seasonRated, &inChampions, &counts, &kind, &top, &original, &p2, &p3, &p4}, func() error {
 		if len(out) == 0 || out[len(out)-1].Slug != slug {
 			out = append(out, AdminTournament{Slug: slug, Name: name, Visible: visible, Rated: rated, Community: community,
 				Regulations: regulations, CGERegulations: cgeRegulations, Card: card, RatedPlayerCounts: counts,
-				Kind: kind, TopDivisions: top, OriginalName: original, Seasons: []AdminSeason{}})
+				Kind: kind, TopDivisions: top, Points: map[int][]float64{2: p2, 3: p3, 4: p4}, OriginalName: original, Seasons: []AdminSeason{}})
 		}
 		t := &out[len(out)-1]
 		if season == nil {
@@ -243,6 +253,20 @@ func seasonExists(ctx context.Context, tx pgx.Tx, slug, season string) error {
 	return nil
 }
 
+// validScoring reports whether points suit a game of that many players: none, or one per place,
+// never negative and never higher for a worse place.
+func validScoring(players int, points []float64) bool {
+	if players < 2 || players > 4 || (len(points) != 0 && len(points) != players) {
+		return false
+	}
+	for i, p := range points {
+		if p < 0 || (i > 0 && p > points[i-1]) {
+			return false
+		}
+	}
+	return true
+}
+
 // SetTournament changes a tournament's settings in one transaction, or returns ErrNoTournament.
 func (a *AdminStore) SetTournament(ctx context.Context, slug string, s TournamentSettings) error {
 	if s.Kind != "" && s.Kind != "league" && s.Kind != "cup" && s.Kind != "ladder" {
@@ -264,6 +288,11 @@ func (a *AdminStore) SetTournament(ctx context.Context, slug string, s Tournamen
 			return ErrBadPlayerCounts
 		}
 		s.RatedPlayerCounts = counts
+	}
+	for players, points := range s.Points {
+		if !validScoring(players, points) {
+			return ErrBadScoring
+		}
 	}
 	return pgx.BeginFunc(ctx, a.pool, func(tx pgx.Tx) error {
 		var id int64
@@ -289,6 +318,15 @@ func (a *AdminStore) SetTournament(ctx context.Context, slug string, s Tournamen
 		}
 		if s.RatedPlayerCounts != nil {
 			if _, err := tx.Exec(ctx, "UPDATE tournaments SET rated_player_counts = $2 WHERE tournament_id = $1", id, s.RatedPlayerCounts); err != nil {
+				return fmt.Errorf("setting %s: %w", slug, err)
+			}
+		}
+		for players, points := range s.Points {
+			if points == nil {
+				points = []float64{}
+			}
+			column := pgx.Identifier{fmt.Sprintf("points_%dp", players)}.Sanitize()
+			if _, err := tx.Exec(ctx, "UPDATE tournaments SET "+column+" = $2 WHERE tournament_id = $1", id, points); err != nil {
 				return fmt.Errorf("setting %s: %w", slug, err)
 			}
 		}

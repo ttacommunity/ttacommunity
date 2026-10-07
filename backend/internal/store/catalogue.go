@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"slices"
+	"strconv"
 	"strings"
 
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -29,22 +30,27 @@ func ClassifyMatches(ctx context.Context, pool *pgxpool.Pool) (Classified, error
 	}
 	defer tx.Rollback(ctx)
 
-	var slugs, names, kinds, tops []string
+	var slugs, names, kinds, tops, p2, p3, p4 []string
 	for _, t := range gamename.Tournaments {
 		slugs, names, kinds = append(slugs, t.Slug), append(names, t.Name), append(kinds, t.Kind)
 		tops = append(tops, strings.Join(t.TopDivisions, "|"))
+		points := gamename.Scoring[t.Slug]
+		p2, p3, p4 = append(p2, joinPoints(points[2])), append(p3, joinPoints(points[3])), append(p4, joinPoints(points[4]))
 	}
 	// A tournament first seen here is rated in the community ranking, as all were on the original site.
 	if _, err := tx.Exec(ctx, `
 		WITH added AS (
-			INSERT INTO tournaments (slug, name, original_name, kind, top_divisions)
-			SELECT slug, name, name, kind, coalesce(string_to_array(nullif(tops, ''), '|'), '{}')
-			FROM unnest($1::text[], $2::text[], $3::text[], $4::text[]) AS x(slug, name, kind, tops)
+			INSERT INTO tournaments (slug, name, original_name, kind, top_divisions, points_2p, points_3p, points_4p)
+			SELECT slug, name, name, kind, coalesce(string_to_array(nullif(tops, ''), '|'), '{}'),
+			       coalesce(string_to_array(nullif(p2, ''), ',')::float8[], '{}'),
+			       coalesce(string_to_array(nullif(p3, ''), ',')::float8[], '{}'),
+			       coalesce(string_to_array(nullif(p4, ''), ',')::float8[], '{}')
+			FROM unnest($1::text[], $2::text[], $3::text[], $4::text[], $5::text[], $6::text[], $7::text[]) AS x(slug, name, kind, tops, p2, p3, p4)
 			ON CONFLICT (slug) DO NOTHING
 			RETURNING tournament_id
 		)
 		INSERT INTO ranking_tournaments (ranking_id, tournament_id)
-		SELECT r.ranking_id, a.tournament_id FROM rankings r CROSS JOIN added a WHERE r.slug = 'community'`, slugs, names, kinds, tops); err != nil {
+		SELECT r.ranking_id, a.tournament_id FROM rankings r CROSS JOIN added a WHERE r.slug = 'community'`, slugs, names, kinds, tops, p2, p3, p4); err != nil {
 		return Classified{}, fmt.Errorf("adding tournaments: %w", err)
 	}
 
@@ -116,4 +122,13 @@ func ClassifyMatches(ctx context.Context, pool *pgxpool.Pool) (Classified, error
 	}
 	slices.Sort(got.Unplaced)
 	return got, nil
+}
+
+// joinPoints writes points per place as "5,2,0", or "" for none.
+func joinPoints(points []float64) string {
+	parts := make([]string, len(points))
+	for i, p := range points {
+		parts[i] = strconv.FormatFloat(p, 'g', -1, 64)
+	}
+	return strings.Join(parts, ",")
 }

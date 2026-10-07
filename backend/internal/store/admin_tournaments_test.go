@@ -444,6 +444,68 @@ func TestAdminSetsATournamentsKindAndTopDivisions(t *testing.T) {
 	}
 }
 
+func TestAdminSetsATournamentsScoring(t *testing.T) {
+	pool := migrated(t)
+	ctx := context.Background()
+	placedOn(t, pool, map[string]time.Time{"Wimbledon 2024 Stage 1 - group 1 game 1": day("2024-07-01")})
+	a := NewAdminStore(asAdminLogin(t, pool))
+	scoring := func() map[int][]float64 {
+		t.Helper()
+		ts, err := a.Tournaments(ctx)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return adminTournament(t, ts, "wimbledon").Points
+	}
+	if err := a.SetTournament(ctx, "wimbledon", TournamentSettings{Points: map[int][]float64{3: {5, 2, 0}, 4: {6, 3, 1, 0}}}); err != nil {
+		t.Fatalf("SetTournament: %v", err)
+	}
+	if got := scoring(); !slices.Equal(got[3], []float64{5, 2, 0}) || !slices.Equal(got[4], []float64{6, 3, 1, 0}) || len(got[2]) != 0 {
+		t.Errorf("scoring = %v, want 3p 5-2-0, 4p 6-3-1-0, no 2p", got)
+	}
+	if err := a.SetTournament(ctx, "wimbledon", TournamentSettings{Points: map[int][]float64{3: {}}}); err != nil {
+		t.Fatalf("SetTournament: %v", err)
+	}
+	if got := scoring(); len(got[3]) != 0 || !slices.Equal(got[4], []float64{6, 3, 1, 0}) {
+		t.Errorf("after clearing 3p, scoring = %v, want only 4p 6-3-1-0", got)
+	}
+	for _, tt := range []struct {
+		name   string
+		points map[int][]float64
+	}{
+		{"a place missing", map[int][]float64{3: {5, 2}}},
+		{"a worse place scoring more", map[int][]float64{3: {2, 5, 0}}},
+		{"negative points", map[int][]float64{2: {2, -1}}},
+		{"five players", map[int][]float64{5: {5, 4, 3, 2, 1}}},
+	} {
+		if err := a.SetTournament(ctx, "wimbledon", TournamentSettings{Points: tt.points}); !errors.Is(err, ErrBadScoring) {
+			t.Errorf("%s: %v, want ErrBadScoring", tt.name, err)
+		}
+	}
+	if got := scoring(); !slices.Equal(got[4], []float64{6, 3, 1, 0}) {
+		t.Errorf("after refusals, scoring = %v, want 4p 6-3-1-0 unchanged", got)
+	}
+}
+
+func TestATournamentFirstSeenStartsWithItsScoring(t *testing.T) {
+	pool := migrated(t)
+	ctx := context.Background()
+	placedOn(t, pool, map[string]time.Time{
+		"International S30 - Gold 2 game 1":       day("2025-01-01"),
+		"Wimbledon 2024 Stage 1 - group 1 game 1": day("2024-07-01"),
+	})
+	ts, err := NewAdminStore(asAdminLogin(t, pool)).Tournaments(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := adminTournament(t, ts, "international").Points; !slices.Equal(got[3], []float64{5, 2, 0}) || !slices.Equal(got[4], []float64{6, 3, 1, 0}) {
+		t.Errorf("international scoring = %v, want 3p 5-2-0, 4p 6-3-1-0", got)
+	}
+	if got := adminTournament(t, ts, "wimbledon").Points; len(got[2])+len(got[3])+len(got[4]) != 0 {
+		t.Errorf("wimbledon scoring = %v, want none", got)
+	}
+}
+
 func TestACardKeepsItsSubtitleAndCadence(t *testing.T) {
 	pool := migrated(t)
 	ctx := context.Background()
