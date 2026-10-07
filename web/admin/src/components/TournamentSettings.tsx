@@ -622,6 +622,12 @@ function SeasonsCard({ t, onReload }: { t: AdminTournament; onReload: () => Prom
     if (r.ok) await onReload();
     else setError(r.message);
   };
+  const setInCommunity = async (label: string, in_community: boolean) => {
+    setError('');
+    const r = await adminRequest(`/api/tournaments/${t.slug}/season-community`, { method: 'PUT', json: { season: label, in_community } });
+    if (r.ok) await onReload();
+    else setError(r.message);
+  };
   const removeSeason = async (label: string) => {
     if (!window.confirm(`Remove ${t.name} season ${label} and its notes?`)) return;
     setError('');
@@ -674,6 +680,16 @@ function SeasonsCard({ t, onReload }: { t: AdminTournament; onReload: () => Prom
               onChange={(e) => void setInChampions(se.label, e.target.checked)}
             />{' '}
             Winner listed among the champions <span className="muted">(such as the Hall of Fame's World Champions; untick a play-off)</span>
+          </label>
+          <label className="season-rated">
+            <input
+              id={`season-community-${se.label}`.replace(/[^A-Za-z0-9-]/g, '_')}
+              type="checkbox"
+              checked={se.in_community}
+              onChange={(e) => void setInCommunity(se.label, e.target.checked)}
+            />{' '}
+            Counts in the community leaderboard{' '}
+            <span className="muted">(from the next engine run, when the tournament counts; untick a play-off that should not score)</span>
           </label>
           {!se.has_games && (
             <div className="season-empty">

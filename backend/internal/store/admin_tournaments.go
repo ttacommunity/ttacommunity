@@ -51,9 +51,11 @@ type AdminSeason struct {
 	InChampions bool
 	// TimeoutPenalty is the points a player loses for each game they time out of, 0 or below.
 	TimeoutPenalty float64
-	Stages         []AdminStage
-	Podium         []PodiumEntry
-	PodiumNote     string
+	// InCommunity is whether the season counts in the community leaderboard.
+	InCommunity bool
+	Stages      []AdminStage
+	Podium      []PodiumEntry
+	PodiumNote  string
 }
 
 // PodiumEntry is one place on a podium set in admin.
@@ -108,7 +110,8 @@ func (a *AdminStore) Tournaments(ctx context.Context) ([]AdminTournament, error)
 		       se.label, coalesce(st.label, ''), coalesce(se.original_name, ''), coalesce(st.original_name, ''),
 		       coalesce((SELECT note FROM tournament_season_notes n WHERE n.tournament = t.slug AND n.season = se.label AND n.stage = ''), ''),
 		       coalesce((SELECT note FROM tournament_season_notes n WHERE n.tournament = t.slug AND n.season = se.label AND n.stage = st.label AND st.label <> ''), ''),
-		       d.last IS NOT NULL, coalesce(se.rated, true), coalesce(se.in_champions, true), t.rated_player_counts, t.kind, t.top_divisions, t.original_name,
+		       d.last IS NOT NULL, coalesce(se.rated, true), coalesce(se.in_champions, true), coalesce(se.in_community, true),
+		       t.rated_player_counts, t.kind, t.top_divisions, t.original_name,
 		       t.points_2p, t.points_3p, t.points_4p, t.season_name, t.stage_name,
 		       coalesce((SELECT r.timeout_penalty FROM tournament_season_rules r WHERE r.series = t.slug AND r.season::text = se.label), 0)
 		FROM tournaments t
@@ -129,7 +132,7 @@ func (a *AdminStore) Tournaments(ctx context.Context) ([]AdminTournament, error)
 	var card Card
 	var season, stage, seasonNote, stageNote *string
 	var seasonOriginal, stageOriginal string
-	var hasGames, seasonRated, inChampions bool
+	var hasGames, seasonRated, inChampions, inCommunity bool
 	var counts []int
 	var kind, original string
 	var top []string
@@ -138,7 +141,7 @@ func (a *AdminStore) Tournaments(ctx context.Context) ([]AdminTournament, error)
 	var penalty float64
 	_, err = pgx.ForEachRow(rows, []any{&slug, &name, &visible, &community, &rated, &regulations,
 		&card.Icon, &card.Tagline, &card.Summary, &card.Subtitle, &card.Cadence, &cgeRegulations, &season, &stage, &seasonOriginal, &stageOriginal, &seasonNote, &stageNote, &hasGames,
-		&seasonRated, &inChampions, &counts, &kind, &top, &original, &p2, &p3, &p4, &seasonName, &stageName, &penalty}, func() error {
+		&seasonRated, &inChampions, &inCommunity, &counts, &kind, &top, &original, &p2, &p3, &p4, &seasonName, &stageName, &penalty}, func() error {
 		if len(out) == 0 || out[len(out)-1].Slug != slug {
 			out = append(out, AdminTournament{Slug: slug, Name: name, Visible: visible, Rated: rated, Community: community,
 				Regulations: regulations, CGERegulations: cgeRegulations, Card: card, RatedPlayerCounts: counts,
@@ -150,7 +153,7 @@ func (a *AdminStore) Tournaments(ctx context.Context) ([]AdminTournament, error)
 			return nil
 		}
 		if len(t.Seasons) == 0 || t.Seasons[len(t.Seasons)-1].Label != *season {
-			t.Seasons = append(t.Seasons, AdminSeason{Label: *season, OriginalName: seasonOriginal, Note: *seasonNote, HasGames: hasGames, Rated: seasonRated, InChampions: inChampions, TimeoutPenalty: penalty, Stages: []AdminStage{}})
+			t.Seasons = append(t.Seasons, AdminSeason{Label: *season, OriginalName: seasonOriginal, Note: *seasonNote, HasGames: hasGames, Rated: seasonRated, InChampions: inChampions, InCommunity: inCommunity, TimeoutPenalty: penalty, Stages: []AdminStage{}})
 		}
 		s := &t.Seasons[len(t.Seasons)-1]
 		if *stage != "" {
@@ -569,6 +572,20 @@ func (a *AdminStore) SetSeasonInChampions(ctx context.Context, slug, season stri
 		WHERE t.tournament_id = se.tournament_id AND t.slug = $1 AND se.label = $2`, slug, season, in)
 	if err != nil {
 		return fmt.Errorf("setting whether %s %s is among the champions: %w", slug, season, err)
+	}
+	if tag.RowsAffected() == 0 {
+		return ErrNoTournament
+	}
+	return nil
+}
+
+// SetSeasonInCommunity sets whether a season counts in the community leaderboard, from the next run, or
+// returns ErrNoTournament for a season that does not exist.
+func (a *AdminStore) SetSeasonInCommunity(ctx context.Context, slug, season string, in bool) error {
+	tag, err := a.pool.Exec(ctx, `UPDATE tournament_seasons se SET in_community = $3 FROM tournaments t
+		WHERE t.tournament_id = se.tournament_id AND t.slug = $1 AND se.label = $2`, slug, season, in)
+	if err != nil {
+		return fmt.Errorf("setting whether %s %s counts in the community leaderboard: %w", slug, season, err)
 	}
 	if tag.RowsAffected() == 0 {
 		return ErrNoTournament

@@ -636,6 +636,31 @@ func TestASeasonCanBeLeftOutOfTheChampions(t *testing.T) {
 	}
 }
 
+func TestASeasonCanBeLeftOutOfTheCommunityLeaderboard(t *testing.T) {
+	pool := migrated(t)
+	ctx := context.Background()
+	placedOn(t, pool, map[string]time.Time{
+		"Wimbledon 2024 Stage 1 - group 1 game 1": day("2024-07-01"),
+		"Wimbledon 2025 Stage 1 - group 1 game 1": day("2025-07-01"),
+	})
+	a := NewAdminStore(asAdminLogin(t, pool))
+	if err := a.SetSeasonInCommunity(ctx, "wimbledon", "2024", false); err != nil {
+		t.Fatalf("SetSeasonInCommunity: %v", err)
+	}
+	ts, err := a.Tournaments(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, se := range adminTournament(t, ts, "wimbledon").Seasons {
+		if se.InCommunity != (se.Label != "2024") {
+			t.Errorf("season %s in the community leaderboard = %v", se.Label, se.InCommunity)
+		}
+	}
+	if err := a.SetSeasonInCommunity(ctx, "wimbledon", "1999", false); !errors.Is(err, ErrNoTournament) {
+		t.Errorf("no such season = %v, want ErrNoTournament", err)
+	}
+}
+
 func TestAdminSetsASeasonsTimeoutPenalty(t *testing.T) {
 	pool := migrated(t)
 	ctx := context.Background()

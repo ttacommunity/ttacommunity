@@ -946,6 +946,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/admin/tournaments/{tournament}/season-community": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Set whether a season counts in the community leaderboard, from the next run
+         * @description Such as a play-off that should not score; the tournament's own setting still decides for all its seasons. Audited. The Origin must be the admin site.
+         */
+        put: operations["putAdminSeasonCommunity"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/admin/tournaments/{tournament}/season-champions": {
         parameters: {
             query?: never;
@@ -1301,6 +1321,10 @@ export interface components {
             season: string;
             in_champions: boolean;
         };
+        SeasonInCommunity: {
+            season: string;
+            in_community: boolean;
+        };
         /** @description One of a tournament's stories, as DANeo's series pages tell them */
         Story: {
             player: string;
@@ -1482,6 +1506,8 @@ export interface components {
         AdminSeason: {
             /** @description Its winner is listed among the tournament's champions */
             in_champions: boolean;
+            /** @description It counts in the community leaderboard (when its tournament does) */
+            in_community: boolean;
             /**
              * Format: double
              * @description The points a player loses in its standings for each game they time out of, 0 or below
@@ -3840,6 +3866,35 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": components["schemas"]["SeasonPenalty"];
+            };
+        };
+        responses: {
+            /** @description Saved */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    putAdminSeasonCommunity: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The tournament's slug */
+                tournament: components["parameters"]["AdminTournamentSlug"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SeasonInCommunity"];
             };
         };
         responses: {
