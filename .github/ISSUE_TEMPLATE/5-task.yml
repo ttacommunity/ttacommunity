@@ -1,0 +1,17 @@
+name: Task
+description: Planned work, for maintainers and contributors
+type: Task
+body:
+  - type: textarea
+    id: what
+    attributes:
+      label: What
+    validations:
+      required: true
+  - type: textarea
+    id: done
+    attributes:
+      label: Done when
+      description: How we know it is finished, ideally something a test or a request can show
+    validations:
+      required: true

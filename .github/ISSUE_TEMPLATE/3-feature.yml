@@ -1,0 +1,21 @@
+name: Feature
+description: Something new the site, the API or admin should do
+type: Feature
+body:
+  - type: textarea
+    id: need
+    attributes:
+      label: Who it is for, and what they are trying to do
+      placeholder: As a tournament player, I want to … so that …
+    validations:
+      required: true
+  - type: textarea
+    id: today
+    attributes:
+      label: What they do today
+      description: The workaround, if any
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposal
+      description: How it could work. Optional; the need matters more

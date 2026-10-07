@@ -1,0 +1,35 @@
+name: Decision
+description: A choice to settle before work starts
+type: Task
+labels: [decision]
+body:
+  - type: textarea
+    id: question
+    attributes:
+      label: Question
+      description: One question, answerable with a choice
+    validations:
+      required: true
+  - type: textarea
+    id: context
+    attributes:
+      label: What happens today
+      description: The behaviour or data the question is about, with evidence (numbers, examples, links)
+    validations:
+      required: true
+  - type: textarea
+    id: options
+    attributes:
+      label: Options
+      description: Each option and what it changes. Say if an option moves ratings
+    validations:
+      required: true
+  - type: dropdown
+    id: who
+    attributes:
+      label: Who decides
+      options:
+        - Maintainers
+        - Tournament organisers
+    validations:
+      required: true

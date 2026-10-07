@@ -1,0 +1,35 @@
+name: Bug
+description: The site, the API or the code does the wrong thing
+type: Bug
+body:
+  - type: markdown
+    attributes:
+      value: |
+        A wrong game, score, date or result in the record is a **Data** report instead.
+        Everything here is public: no emails, passwords or tokens.
+  - type: input
+    id: where
+    attributes:
+      label: Where
+      description: The page address, API route or file
+      placeholder: https://…/ratings/player/…
+    validations:
+      required: true
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened
+      description: Steps to see it, and what you saw
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: What you expected
+    validations:
+      required: true
+  - type: input
+    id: device
+    attributes:
+      label: Device and browser
+      placeholder: Android phone, Chrome
