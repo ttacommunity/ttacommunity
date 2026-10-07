@@ -331,3 +331,71 @@ def test_player_records_give_a_cup_one_row_each_ranked_by_the_furthest_stage():
         "Advanced to Stage 3 • 3 matches played, 2 victories (66.7% win rate) • Cumulative Score: 170 pts"
     )
     assert got[0]["finish_date"] == "2026-05-01"
+
+
+def slow_burn(edition, stage, group, *players, match_id):
+    """A Slow Burn matches row, with where the catalogue places it."""
+    row = match(
+        f"Slow Burn game {match_id}",
+        *players,
+        day=date(2025, 1, match_id),
+        match_id=match_id,
+    )
+    return {**row, "group_label": group, "catalogue_slug": "slow_burn", "catalogue_name": "Slow Burn",
+            "catalogue_season": edition, "catalogue_stage": stage}  # fmt: skip
+
+
+def test_slow_burn_records_take_its_edition_and_stage_from_the_catalogue():
+    rows = [
+        slow_burn(
+            "1 (2024)",
+            "Season 10",
+            "group 1",
+            ("ann", 90),
+            ("bob", 80),
+            ("cat", 70),
+            match_id=1,
+        ),
+        slow_burn(
+            "1 (2024)",
+            "Season 10",
+            "group 1",
+            ("bob", 90),
+            ("ann", 80),
+            ("cat", 70),
+            match_id=2,
+        ),
+        slow_burn(
+            "2 (2026)",
+            "Season 1",
+            "group 4",
+            ("dan", 90),
+            ("eve", 80),
+            ("fay", 70),
+            match_id=3,
+        ),
+        slow_burn(
+            "2 (2026)",
+            "Season 1",
+            "group 4",
+            ("eve", 90),
+            ("dan", 80),
+            ("fay", 70),
+            match_id=4,
+        ),
+    ]
+    got = player_records(
+        rows=rows,
+        top_divisions=TOP,
+        standings={},
+        official={},
+        boards={},
+        honours=[],
+        dates={},
+    )
+
+    assert {(r["tournament"], r["season"], r["division"]) for r in got} == {
+        ("Slow Burn 1 (2024)", "Season 10", "group 1"),
+        ("Slow Burn 2 (2026)", "Season 1", "group 4"),
+    }
+    assert {r["medal"] for r in got} == {None}

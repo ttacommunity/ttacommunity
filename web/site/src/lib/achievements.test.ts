@@ -180,6 +180,8 @@ describe('cgeTournamentUrl', () => {
     expect(cgeTournamentUrl('Wimbledon 2023', 'Stage 2')).toBe(page(4369));
     expect(cgeTournamentUrl('Leaderboard Trophy', '2025')).toBe(page(5695));
     expect(cgeTournamentUrl('Nations League', 'Season 7')).toBe(page(4127));
+    expect(cgeTournamentUrl('Slow Burn 1 (2024)', 'Season 10')).toBe(page(4807));
+    expect(cgeTournamentUrl('Slow Burn 2 (2026)', 'Season 1')).toBe(page(5979));
   });
 
   it('gives none where CGE has no page for it', () => {
