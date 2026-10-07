@@ -101,11 +101,10 @@ func (r *RatingsReader) TournamentSeries(ctx context.Context, run int64, series 
 	}
 
 	rows, err = r.pool.Query(ctx, `
-		SELECT m.tournament, m.date, m.player1, m.score1, m.player2, m.score2,
-		       m.player3, m.score3, m.player4, m.score4
-		FROM tournament_games g JOIN matches m USING (match_id)
+		SELECT l.name, l.date, l.players, l.cultures, l.places
+		FROM tournament_games g JOIN game_lines l ON l.game_id = g.match_id
 		WHERE g.run_id = $1 AND g.series = $2 AND g.in_records
-		ORDER BY greatest(m.score1, m.score2, m.score3, m.score4) DESC, m.match_id
+		ORDER BY (SELECT max(c) FROM unnest(l.cultures) c) DESC, l.game_id
 		LIMIT $3`, run, series, recordsShown)
 	if err != nil {
 		return fail("game records", err)
@@ -340,21 +339,27 @@ func (r *RatingsReader) CommunityLeaderboard(ctx context.Context, run int64, edi
 	return got, nil
 }
 
-// scanGameRecord reads a game (tournament, date, then each seat's name and score) as its winner's record:
-// the top score, a tie going to the earlier seat as upstream's sort, the others its opponents.
+// scanGameRecord reads a game (tournament, date, then its seats' names, cultures and places) as its winner's
+// record: the best place, a tie going to the earlier seat as upstream's sort, the others its opponents.
 func scanGameRecord(row pgx.CollectableRow) (GameRecord, error) {
 	var g GameRecord
-	var names [4]*string
-	var scores [4]*float64
-	err := row.Scan(&g.Tournament, &g.Date, &names[0], &scores[0], &names[1], &scores[1],
-		&names[2], &scores[2], &names[3], &scores[3])
-	var seats []Seat
-	for i := range names {
-		if names[i] != nil && scores[i] != nil {
-			seats = append(seats, Seat{Name: *names[i], Score: *scores[i]})
-		}
+	var names []string
+	var cultures []float64
+	var places []int16
+	err := row.Scan(&g.Tournament, &g.Date, &names, &cultures, &places)
+	type placed struct {
+		seat  Seat
+		place int16
 	}
-	slices.SortStableFunc(seats, func(a, b Seat) int { return cmp.Compare(b.Score, a.Score) })
+	byPlace := make([]placed, len(names))
+	for i := range names {
+		byPlace[i] = placed{Seat{Name: names[i], Score: cultures[i]}, places[i]}
+	}
+	slices.SortStableFunc(byPlace, func(a, b placed) int { return cmp.Compare(a.place, b.place) })
+	var seats []Seat
+	for _, p := range byPlace {
+		seats = append(seats, p.seat)
+	}
 	if len(seats) > 0 {
 		g.Name, g.Score, g.Opponents = seats[0].Name, seats[0].Score, seats[1:]
 	}

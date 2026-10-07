@@ -58,7 +58,7 @@ type HistoryPoint struct {
 	CRating float64
 }
 
-// Seat is one player's score in a game.
+// Seat is one player's culture in a game.
 type Seat struct {
 	Name  string
 	Score float64
@@ -157,7 +157,7 @@ func (r *RatingsReader) Player(ctx context.Context, run int64, asked string) (Pl
 
 	rows, err := r.pool.Query(ctx, `
 		SELECT m.player_count, count(*), max(m.date)
-		FROM matches m JOIN (`+playerGames+`) mine USING (match_id)
+		FROM game_lines m JOIN (`+playerGames+`) mine ON mine.match_id = m.game_id
 		GROUP BY m.player_count`, run, name)
 	if err != nil {
 		return Player{}, fmt.Errorf("counting a player's games in run %d: %w", run, err)
@@ -234,7 +234,7 @@ func (r *RatingsReader) PlayerMatches(ctx context.Context, run int64, asked stri
 	const inFormat = ` WHERE $3 = 0 OR m.player_count = $3`
 	var mp MatchPage
 	err = r.pool.QueryRow(ctx, `
-		SELECT count(*) FROM matches m JOIN (`+playerGames+`) mine USING (match_id)`+inFormat,
+		SELECT count(*) FROM game_lines m JOIN (`+playerGames+`) mine ON mine.match_id = m.game_id`+inFormat,
 		run, name, format).Scan(&mp.Total)
 	if err != nil {
 		return "", MatchPage{}, fmt.Errorf("counting a player's games in run %d: %w", run, err)
@@ -243,10 +243,9 @@ func (r *RatingsReader) PlayerMatches(ctx context.Context, run int64, asked stri
 	mp.Page = min(max(page, 1), mp.Pages)
 
 	rows, err := r.pool.Query(ctx, `
-		SELECT m.match_id, m.tournament, m.date, m.player_count, m.replay_code,
-			m.player1, m.score1, m.player2, m.score2, m.player3, m.score3, m.player4, m.score4
-		FROM matches m JOIN (`+playerGames+`) mine USING (match_id)`+inFormat+`
-		ORDER BY m.date DESC, m.match_id DESC
+		SELECT m.game_id, m.name, m.date, m.player_count, m.share_code, m.players, m.cultures
+		FROM game_lines m JOIN (`+playerGames+`) mine ON mine.match_id = m.game_id`+inFormat+`
+		ORDER BY m.date DESC, m.game_id DESC
 		LIMIT $4 OFFSET $5`, run, name, format, gamesPerPage, (mp.Page-1)*gamesPerPage)
 	if err != nil {
 		return "", MatchPage{}, fmt.Errorf("reading a player's games in run %d: %w", run, err)
@@ -261,14 +260,11 @@ func (r *RatingsReader) PlayerMatches(ctx context.Context, run int64, asked stri
 // scanMatch reads a game and its seats, in the order they were recorded.
 func scanMatch(row pgx.CollectableRow) (PlayerMatch, error) {
 	var m PlayerMatch
-	var names [4]*string
-	var scores [4]*float64
-	err := row.Scan(&m.ID, &m.Tournament, &m.Date, &m.PlayerCount, &m.ReplayCode,
-		&names[0], &scores[0], &names[1], &scores[1], &names[2], &scores[2], &names[3], &scores[3])
+	var names []string
+	var cultures []float64
+	err := row.Scan(&m.ID, &m.Tournament, &m.Date, &m.PlayerCount, &m.ReplayCode, &names, &cultures)
 	for i := range names {
-		if names[i] != nil && scores[i] != nil {
-			m.Seats = append(m.Seats, Seat{Name: *names[i], Score: *scores[i]})
-		}
+		m.Seats = append(m.Seats, Seat{Name: names[i], Score: cultures[i]})
 	}
 	return m, err
 }
@@ -536,13 +532,13 @@ func (r *RatingsReader) Versus(ctx context.Context, run int64, asked, other stri
 		return "", "", nil, err
 	}
 	rows, err := r.pool.Query(ctx, `
-		SELECT m.match_id, m.tournament, m.date, m.player_count, m.replay_code,
-			m.player1, m.score1, m.player2, m.score2, m.player3, m.score3, m.player4, m.score4
-		FROM matches m JOIN (
+		SELECT m.game_id, m.name, m.date, m.player_count, m.share_code, m.players, m.cultures
+		FROM game_lines m JOIN (
 			SELECT match_id FROM pairwise_matches WHERE run_id = $1 AND player_a = $2 AND player_b = $3
 			UNION
-			SELECT match_id FROM pairwise_matches WHERE run_id = $1 AND player_a = $3 AND player_b = $2) shared USING (match_id)
-		ORDER BY m.date DESC, m.match_id DESC
+			SELECT match_id FROM pairwise_matches WHERE run_id = $1 AND player_a = $3 AND player_b = $2) shared
+			ON shared.match_id = m.game_id
+		ORDER BY m.date DESC, m.game_id DESC
 		LIMIT $4`, run, a, b, sharedGames)
 	if err != nil {
 		return "", "", nil, fmt.Errorf("reading shared games in run %d: %w", run, err)

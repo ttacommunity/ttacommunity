@@ -101,25 +101,27 @@ var ErrBadPlayerCounts = errors.New("rated player counts are one or more of 2, 3
 func (a *AdminStore) Tournaments(ctx context.Context) ([]AdminTournament, error) {
 	rows, err := a.pool.Query(ctx, `
 		SELECT t.slug, t.name, t.visible, t.in_community_leaderboard,
-		       EXISTS (SELECT 1 FROM ranking_tournaments rt JOIN rankings r USING (ranking_id)
-		               WHERE r.slug = 'community' AND rt.tournament_id = t.tournament_id),
+		       EXISTS (SELECT 1 FROM ranking_series rt JOIN rankings r USING (ranking_id)
+		               WHERE r.slug = 'community' AND rt.series_id = t.series_id),
 		       coalesce((SELECT text FROM tournament_regulations g WHERE g.tournament = t.slug), ''),
 		       coalesce(k.icon, ''), coalesce(k.tagline, ''), coalesce(k.summary, ''), coalesce(k.subtitle, ''), coalesce(k.cadence, ''),
-		       coalesce((SELECT c.description FROM cge_tournaments c WHERE c.tournament_id = t.tournament_id AND c.description <> ''
+		       coalesce((SELECT c.description FROM cge_tournaments c WHERE c.series_id = t.series_id AND c.description <> ''
 		                 ORDER BY coalesce(c.started, c.created, c.finished) DESC NULLS LAST, c.cge_tournament DESC LIMIT 1), ''),
 		       se.label, coalesce(st.label, ''), coalesce(se.original_name, ''), coalesce(st.original_name, ''),
 		       coalesce((SELECT note FROM tournament_season_notes n WHERE n.tournament = t.slug AND n.season = se.label AND n.stage = ''), ''),
 		       coalesce((SELECT note FROM tournament_season_notes n WHERE n.tournament = t.slug AND n.season = se.label AND n.stage = st.label AND st.label <> ''), ''),
 		       d.last IS NOT NULL, coalesce(se.rated, true), coalesce(se.in_champions, true), coalesce(se.in_community, true),
 		       t.rated_player_counts, t.kind, t.top_divisions, t.original_name,
-		       t.points_2p, t.points_3p, t.points_4p, t.season_name, t.stage_name,
-		       coalesce((SELECT r.timeout_penalty FROM tournament_season_rules r WHERE r.series = t.slug AND r.season::text = se.label), 0)
-		FROM tournaments t
+		       coalesce(sp.points_2p, '{}'), coalesce(sp.points_3p, '{}'), coalesce(sp.points_4p, '{}'), t.tournament_noun, t.stage_noun,
+		       coalesce((SELECT r.timeout_penalty FROM settings r WHERE r.tournament_id = se.tournament_id), 0)
+		FROM series t
+		LEFT JOIN settings sp ON sp.series_id = t.series_id
 		LEFT JOIN tournament_cards k ON k.tournament = t.slug
-		LEFT JOIN tournament_seasons se USING (tournament_id)
-		LEFT JOIN tournament_stages st USING (season_id)
-		LEFT JOIN LATERAL (SELECT max(m.date) AS last FROM tournament_stages s2 JOIN matches m ON m.stage_id = s2.stage_id
-		                   WHERE s2.season_id = se.season_id) d ON true
+		LEFT JOIN tournaments se ON se.series_id = t.series_id
+		LEFT JOIN stages st ON st.tournament_id = se.tournament_id
+		LEFT JOIN LATERAL (SELECT max(m.date) AS last FROM stages s2 JOIN groups g2 ON g2.stage_id = s2.stage_id
+		                   JOIN games m ON m.group_id = g2.group_id
+		                   WHERE s2.tournament_id = se.tournament_id) d ON true
 		ORDER BY t.name, coalesce(substring(se.label FROM '^[0-9]+')::int, -1) DESC, d.last DESC NULLS LAST,
 		         se.label DESC, st.stage_id`)
 	if err != nil {
@@ -259,7 +261,7 @@ func (a *AdminStore) ClearPodium(ctx context.Context, slug, season string) error
 // seasonExists returns ErrNoTournament unless the tournament has that season.
 func seasonExists(ctx context.Context, tx pgx.Tx, slug, season string) error {
 	var exists bool
-	err := tx.QueryRow(ctx, `SELECT EXISTS (SELECT 1 FROM tournaments t JOIN tournament_seasons se USING (tournament_id)
+	err := tx.QueryRow(ctx, `SELECT EXISTS (SELECT 1 FROM series t JOIN tournaments se USING (series_id)
 		WHERE t.slug = $1 AND se.label = $2)`, slug, season).Scan(&exists)
 	if err != nil {
 		return fmt.Errorf("finding %s %s: %w", slug, season, err)
@@ -311,7 +313,7 @@ func (a *AdminStore) SetTournament(ctx context.Context, slug string, s Tournamen
 			return ErrBadScoring
 		}
 	}
-	levels := map[string]*string{"season_name": s.SeasonName, "stage_name": s.StageName}
+	levels := map[string]*string{"tournament_noun": s.SeasonName, "stage_noun": s.StageName}
 	for _, name := range levels {
 		if name != nil {
 			if *name = strings.TrimSpace(*name); utf8.RuneCountInString(*name) > 32 {
@@ -321,56 +323,58 @@ func (a *AdminStore) SetTournament(ctx context.Context, slug string, s Tournamen
 	}
 	return pgx.BeginFunc(ctx, a.pool, func(tx pgx.Tx) error {
 		var id int64
-		if err := tx.QueryRow(ctx, "SELECT tournament_id FROM tournaments WHERE slug = $1", slug).Scan(&id); errors.Is(err, pgx.ErrNoRows) {
+		if err := tx.QueryRow(ctx, "SELECT series_id FROM series WHERE slug = $1", slug).Scan(&id); errors.Is(err, pgx.ErrNoRows) {
 			return ErrNoTournament
 		} else if err != nil {
 			return fmt.Errorf("setting %s: %w", slug, err)
 		}
 		if s.Visible != nil {
-			if _, err := tx.Exec(ctx, "UPDATE tournaments SET visible = $2 WHERE tournament_id = $1", id, *s.Visible); err != nil {
+			if _, err := tx.Exec(ctx, "UPDATE series SET visible = $2 WHERE series_id = $1", id, *s.Visible); err != nil {
 				return fmt.Errorf("setting %s: %w", slug, err)
 			}
 		}
 		if s.Kind != "" {
-			if _, err := tx.Exec(ctx, "UPDATE tournaments SET kind = $2 WHERE tournament_id = $1", id, s.Kind); err != nil {
+			if _, err := tx.Exec(ctx, "UPDATE series SET kind = $2 WHERE series_id = $1", id, s.Kind); err != nil {
 				return fmt.Errorf("setting %s: %w", slug, err)
 			}
 		}
 		if s.TopDivisions != nil {
-			if _, err := tx.Exec(ctx, "UPDATE tournaments SET top_divisions = $2 WHERE tournament_id = $1", id, s.TopDivisions); err != nil {
+			if _, err := tx.Exec(ctx, "UPDATE series SET top_divisions = $2 WHERE series_id = $1", id, s.TopDivisions); err != nil {
 				return fmt.Errorf("setting %s: %w", slug, err)
 			}
 		}
 		if s.RatedPlayerCounts != nil {
-			if _, err := tx.Exec(ctx, "UPDATE tournaments SET rated_player_counts = $2 WHERE tournament_id = $1", id, s.RatedPlayerCounts); err != nil {
+			if _, err := tx.Exec(ctx, "UPDATE series SET rated_player_counts = $2 WHERE series_id = $1", id, s.RatedPlayerCounts); err != nil {
 				return fmt.Errorf("setting %s: %w", slug, err)
 			}
 		}
 		for players, points := range s.Points {
-			if points == nil {
-				points = []float64{}
+			var set *[]float64 // none set: nothing to score with
+			if len(points) > 0 {
+				set = &points
 			}
 			column := pgx.Identifier{fmt.Sprintf("points_%dp", players)}.Sanitize()
-			if _, err := tx.Exec(ctx, "UPDATE tournaments SET "+column+" = $2 WHERE tournament_id = $1", id, points); err != nil {
+			if _, err := tx.Exec(ctx, "INSERT INTO settings (series_id, "+column+", source) VALUES ($1, $2, 'admin') "+
+				"ON CONFLICT (series_id) DO UPDATE SET "+column+" = excluded."+column, id, set); err != nil {
 				return fmt.Errorf("setting %s: %w", slug, err)
 			}
 		}
 		for column, name := range levels {
 			if name != nil {
-				if _, err := tx.Exec(ctx, "UPDATE tournaments SET "+pgx.Identifier{column}.Sanitize()+" = $2 WHERE tournament_id = $1", id, *name); err != nil {
+				if _, err := tx.Exec(ctx, "UPDATE series SET "+pgx.Identifier{column}.Sanitize()+" = $2 WHERE series_id = $1", id, *name); err != nil {
 					return fmt.Errorf("setting %s: %w", slug, err)
 				}
 			}
 		}
 		if s.Community != nil {
-			if _, err := tx.Exec(ctx, "UPDATE tournaments SET in_community_leaderboard = $2 WHERE tournament_id = $1", id, *s.Community); err != nil {
+			if _, err := tx.Exec(ctx, "UPDATE series SET in_community_leaderboard = $2 WHERE series_id = $1", id, *s.Community); err != nil {
 				return fmt.Errorf("setting %s: %w", slug, err)
 			}
 		}
 		if s.Rated != nil {
-			q := `DELETE FROM ranking_tournaments WHERE tournament_id = $1 AND ranking_id = community_ranking()`
+			q := `DELETE FROM ranking_series WHERE series_id = $1 AND ranking_id = community_ranking()`
 			if *s.Rated {
-				q = `INSERT INTO ranking_tournaments (ranking_id, tournament_id) VALUES (community_ranking(), $1) ON CONFLICT DO NOTHING`
+				q = `INSERT INTO ranking_series (ranking_id, series_id) VALUES (community_ranking(), $1) ON CONFLICT DO NOTHING`
 			}
 			if _, err := tx.Exec(ctx, q, id); err != nil {
 				return fmt.Errorf("setting %s: %w", slug, err)
@@ -385,8 +389,8 @@ func (a *AdminStore) SetTournament(ctx context.Context, slug string, s Tournamen
 func (a *AdminStore) SetNote(ctx context.Context, slug, season, stage, note string) error {
 	var exists bool
 	if err := a.pool.QueryRow(ctx, `
-		SELECT EXISTS (SELECT 1 FROM tournaments t JOIN tournament_seasons se USING (tournament_id)
-		               LEFT JOIN tournament_stages st USING (season_id)
+		SELECT EXISTS (SELECT 1 FROM series t JOIN tournaments se USING (series_id)
+		               LEFT JOIN stages st USING (tournament_id)
 		               WHERE t.slug = $1 AND se.label = $2 AND ($3 = '' OR st.label = $3))`, slug, season, stage).Scan(&exists); err != nil {
 		return fmt.Errorf("noting %s %s: %w", slug, season, err)
 	}
@@ -421,9 +425,9 @@ func (a *AdminStore) AddSeason(ctx context.Context, slug, label string) error {
 	typed := strings.TrimSpace(label)
 	label = seasonPrefix.ReplaceAllString(typed, "")
 	tag, err := a.pool.Exec(ctx, `
-		INSERT INTO tournament_seasons (tournament_id, label, original_name)
-		SELECT tournament_id, $2, $3 FROM tournaments WHERE slug = $1
-		ON CONFLICT (tournament_id, label) DO NOTHING`, slug, label, typed)
+		INSERT INTO tournaments (series_id, label, original_name)
+		SELECT series_id, $2, $3 FROM series WHERE slug = $1
+		ON CONFLICT (series_id, label) DO NOTHING`, slug, label, typed)
 	if err != nil {
 		return fmt.Errorf("adding season %s of %s: %w", label, slug, err)
 	}
@@ -431,7 +435,7 @@ func (a *AdminStore) AddSeason(ctx context.Context, slug, label string) error {
 		return nil
 	}
 	var exists bool
-	if err := a.pool.QueryRow(ctx, "SELECT EXISTS (SELECT 1 FROM tournaments WHERE slug = $1)", slug).Scan(&exists); err != nil {
+	if err := a.pool.QueryRow(ctx, "SELECT EXISTS (SELECT 1 FROM series WHERE slug = $1)", slug).Scan(&exists); err != nil {
 		return fmt.Errorf("adding season %s of %s: %w", label, slug, err)
 	}
 	if !exists {
@@ -447,8 +451,8 @@ func (a *AdminStore) RemoveSeason(ctx context.Context, slug, label string) error
 		var id int64
 		var stages bool
 		err := tx.QueryRow(ctx, `
-			SELECT se.season_id, EXISTS (SELECT 1 FROM tournament_stages st WHERE st.season_id = se.season_id)
-			FROM tournaments t JOIN tournament_seasons se USING (tournament_id) WHERE t.slug = $1 AND se.label = $2`,
+			SELECT se.tournament_id, EXISTS (SELECT 1 FROM stages st WHERE st.tournament_id = se.tournament_id)
+			FROM series t JOIN tournaments se USING (series_id) WHERE t.slug = $1 AND se.label = $2`,
 			slug, label).Scan(&id, &stages)
 		if errors.Is(err, pgx.ErrNoRows) {
 			return ErrNoTournament
@@ -462,7 +466,7 @@ func (a *AdminStore) RemoveSeason(ctx context.Context, slug, label string) error
 		if _, err := tx.Exec(ctx, "DELETE FROM tournament_season_notes WHERE tournament = $1 AND season = $2", slug, label); err != nil {
 			return fmt.Errorf("removing season %s of %s: %w", label, slug, err)
 		}
-		if _, err := tx.Exec(ctx, "DELETE FROM tournament_seasons WHERE season_id = $1", id); err != nil {
+		if _, err := tx.Exec(ctx, "DELETE FROM tournaments WHERE tournament_id = $1", id); err != nil {
 			return fmt.Errorf("removing season %s of %s: %w", label, slug, err)
 		}
 		return nil
@@ -475,7 +479,7 @@ func (a *AdminStore) SetRegulations(ctx context.Context, slug, text string) erro
 	text = strings.TrimSpace(text)
 	return pgx.BeginFunc(ctx, a.pool, func(tx pgx.Tx) error {
 		var exists bool
-		if err := tx.QueryRow(ctx, "SELECT EXISTS (SELECT 1 FROM tournaments WHERE slug = $1)", slug).Scan(&exists); err != nil {
+		if err := tx.QueryRow(ctx, "SELECT EXISTS (SELECT 1 FROM series WHERE slug = $1)", slug).Scan(&exists); err != nil {
 			return fmt.Errorf("setting the regulations of %s: %w", slug, err)
 		}
 		if !exists {
@@ -507,7 +511,7 @@ func (a *AdminStore) SetCard(ctx context.Context, slug string, c Card) error {
 	}
 	return pgx.BeginFunc(ctx, a.pool, func(tx pgx.Tx) error {
 		var exists bool
-		if err := tx.QueryRow(ctx, "SELECT EXISTS (SELECT 1 FROM tournaments WHERE slug = $1)", slug).Scan(&exists); err != nil {
+		if err := tx.QueryRow(ctx, "SELECT EXISTS (SELECT 1 FROM series WHERE slug = $1)", slug).Scan(&exists); err != nil {
 			return fmt.Errorf("setting the card of %s: %w", slug, err)
 		}
 		if !exists {
@@ -546,7 +550,7 @@ func (a *AdminStore) SetStories(ctx context.Context, slug string, list []Story) 
 	}
 	return pgx.BeginFunc(ctx, a.pool, func(tx pgx.Tx) error {
 		var exists bool
-		if err := tx.QueryRow(ctx, "SELECT EXISTS (SELECT 1 FROM tournaments WHERE slug = $1)", slug).Scan(&exists); err != nil {
+		if err := tx.QueryRow(ctx, "SELECT EXISTS (SELECT 1 FROM series WHERE slug = $1)", slug).Scan(&exists); err != nil {
 			return fmt.Errorf("setting the stories of %s: %w", slug, err)
 		}
 		if !exists {
@@ -568,8 +572,8 @@ func (a *AdminStore) SetStories(ctx context.Context, slug string, list []Story) 
 // SetSeasonInChampions sets whether a season's winner is listed among the tournament's champions, or returns
 // ErrNoTournament for a season that does not exist.
 func (a *AdminStore) SetSeasonInChampions(ctx context.Context, slug, season string, in bool) error {
-	tag, err := a.pool.Exec(ctx, `UPDATE tournament_seasons se SET in_champions = $3 FROM tournaments t
-		WHERE t.tournament_id = se.tournament_id AND t.slug = $1 AND se.label = $2`, slug, season, in)
+	tag, err := a.pool.Exec(ctx, `UPDATE tournaments se SET in_champions = $3 FROM series t
+		WHERE t.series_id = se.series_id AND t.slug = $1 AND se.label = $2`, slug, season, in)
 	if err != nil {
 		return fmt.Errorf("setting whether %s %s is among the champions: %w", slug, season, err)
 	}
@@ -582,8 +586,8 @@ func (a *AdminStore) SetSeasonInChampions(ctx context.Context, slug, season stri
 // SetSeasonInCommunity sets whether a season counts in the community leaderboard, from the next run, or
 // returns ErrNoTournament for a season that does not exist.
 func (a *AdminStore) SetSeasonInCommunity(ctx context.Context, slug, season string, in bool) error {
-	tag, err := a.pool.Exec(ctx, `UPDATE tournament_seasons se SET in_community = $3 FROM tournaments t
-		WHERE t.tournament_id = se.tournament_id AND t.slug = $1 AND se.label = $2`, slug, season, in)
+	tag, err := a.pool.Exec(ctx, `UPDATE tournaments se SET in_community = $3 FROM series t
+		WHERE t.series_id = se.series_id AND t.slug = $1 AND se.label = $2`, slug, season, in)
 	if err != nil {
 		return fmt.Errorf("setting whether %s %s counts in the community leaderboard: %w", slug, season, err)
 	}
@@ -605,10 +609,10 @@ func (a *AdminStore) SetSeasonPenalty(ctx context.Context, slug, season string, 
 		return ErrBadPenalty
 	}
 	tag, err := a.pool.Exec(ctx, `
-		INSERT INTO tournament_season_rules (series, season, timeout_penalty, source)
-		SELECT t.slug, $2::int, $3, 'admin' FROM tournaments t JOIN tournament_seasons se USING (tournament_id)
+		INSERT INTO settings (tournament_id, timeout_penalty, source)
+		SELECT se.tournament_id, $3, 'admin' FROM series t JOIN tournaments se USING (series_id)
 		WHERE t.slug = $1 AND se.label = $2::int::text
-		ON CONFLICT (series, season) DO UPDATE SET timeout_penalty = excluded.timeout_penalty, source = excluded.source`,
+		ON CONFLICT (tournament_id) DO UPDATE SET timeout_penalty = excluded.timeout_penalty, source = excluded.source`,
 		slug, number, penalty)
 	if err != nil {
 		return fmt.Errorf("setting %s %s's time-out penalty: %w", slug, season, err)
@@ -620,8 +624,8 @@ func (a *AdminStore) SetSeasonPenalty(ctx context.Context, slug, season string, 
 }
 
 func (a *AdminStore) SetSeasonRated(ctx context.Context, slug, season string, rated bool) error {
-	tag, err := a.pool.Exec(ctx, `UPDATE tournament_seasons se SET rated = $3 FROM tournaments t
-		WHERE t.tournament_id = se.tournament_id AND t.slug = $1 AND se.label = $2`, slug, season, rated)
+	tag, err := a.pool.Exec(ctx, `UPDATE tournaments se SET rated = $3 FROM series t
+		WHERE t.series_id = se.series_id AND t.slug = $1 AND se.label = $2`, slug, season, rated)
 	if err != nil {
 		return fmt.Errorf("setting whether %s %s is rated: %w", slug, season, err)
 	}

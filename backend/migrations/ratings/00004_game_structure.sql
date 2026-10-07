@@ -162,7 +162,7 @@ END $$;
 ALTER TABLE cge_tournaments DROP CONSTRAINT cge_tournaments_check;
 ALTER TABLE cge_tournaments RENAME COLUMN tournament_id TO series_id;
 ALTER TABLE cge_tournaments
-    ADD COLUMN tournament_id bigint REFERENCES tournaments,
+    ADD COLUMN tournament_id bigint REFERENCES tournaments ON DELETE SET NULL,
     ADD COLUMN organiser_user integer REFERENCES player_accounts;
 -- A catalogued season with no games yet (one still to start) becomes its tournament.
 INSERT INTO tournaments (series_id, label)
@@ -195,21 +195,20 @@ ALTER TABLE games
 ALTER TABLE series DROP COLUMN points_2p, DROP COLUMN points_3p, DROP COLUMN points_4p;
 
 -- One row per game with its place in the catalogue and its seats in seat order: what most readers list.
+-- Seats are gathered per game, so a filter on games still uses the indexes.
 CREATE VIEW game_lines AS
 SELECT g.game_id, g.name, g.date, g.state, g.share_code, g.glicko_eligible, g.game_number, g.cge_finished,
        g.batch_id, g.group_id, gr.name AS group_name, gr.stage_id, st.tournament_id, t.series_id,
-       gr.cge_tournament, gr.cge_stage_number,
-       count(*)::smallint AS player_count,
-       array_agg(s.player_name ORDER BY s.seat) AS players,
-       array_agg(s.culture ORDER BY s.seat) AS cultures,
-       array_agg(s.place ORDER BY s.seat) AS places,
-       array_agg(s.outcome ORDER BY s.seat) AS outcomes
+       gr.cge_tournament, gr.cge_stage_number, s.player_count, s.players, s.cultures, s.places, s.outcomes
 FROM games g
-JOIN seats s USING (game_id)
 LEFT JOIN groups gr USING (group_id)
 LEFT JOIN stages st USING (stage_id)
 LEFT JOIN tournaments t USING (tournament_id)
-GROUP BY g.game_id, gr.group_id, st.stage_id, t.tournament_id;
+CROSS JOIN LATERAL (
+    SELECT count(*)::smallint AS player_count,
+           array_agg(player_name ORDER BY seat) AS players, array_agg(culture ORDER BY seat) AS cultures,
+           array_agg(place ORDER BY seat) AS places, array_agg(outcome ORDER BY seat) AS outcomes
+    FROM seats WHERE seats.game_id = g.game_id) s;
 
 GRANT SELECT ON groups, group_members, seats, player_accounts, settings, cge_tournament_moderators, game_lines TO ratings_read;
 GRANT SELECT ON groups, group_members, seats, player_accounts, settings, cge_tournament_moderators, game_lines TO ratings_admin;
