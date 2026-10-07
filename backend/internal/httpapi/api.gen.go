@@ -704,6 +704,9 @@ type AdminSeason struct {
 	// Rated Its games count towards ratings, from the next run
 	Rated  bool         `json:"rated"`
 	Stages []AdminStage `json:"stages"`
+
+	// TimeoutPenalty The points a player loses in its standings for each game they time out of, 0 or below
+	TimeoutPenalty float64 `json:"timeout_penalty"`
 }
 
 // AdminStage defines model for AdminStage.
@@ -735,6 +738,15 @@ type AdminTournament struct {
 
 	// OriginalName The name it came in with, kept when it is renamed
 	OriginalName string `json:"original_name"`
+
+	// Points2p Points for each place in a game of that many players, best place first, from the next run; empty for a player count the tournament does not score. Never negative, never higher for a worse place
+	Points2p PlacePoints `json:"points_2p"`
+
+	// Points3p Points for each place in a game of that many players, best place first, from the next run; empty for a player count the tournament does not score. Never negative, never higher for a worse place
+	Points3p PlacePoints `json:"points_3p"`
+
+	// Points4p Points for each place in a game of that many players, best place first, from the next run; empty for a player count the tournament does not score. Never negative, never higher for a worse place
+	Points4p PlacePoints `json:"points_4p"`
 
 	// Rated In the community ratings
 	Rated bool `json:"rated"`
@@ -1391,6 +1403,9 @@ type Peak struct {
 	Year *int      `json:"year"`
 }
 
+// PlacePoints Points for each place in a game of that many players, best place first, from the next run; empty for a player count the tournament does not score. Never negative, never higher for a worse place
+type PlacePoints = []float64
+
 // Places Firsts, seconds and so on in games of 2, 3 and 4 players; null for a size not played
 type Places struct {
 	P2 *[]int `json:"p2"`
@@ -1667,6 +1682,14 @@ type SeasonNote struct {
 	Stage string `json:"stage"`
 }
 
+// SeasonPenalty defines model for SeasonPenalty.
+type SeasonPenalty struct {
+	Season string `json:"season"`
+
+	// TimeoutPenalty The points a player loses in the season's standings for each game they time out of, from the next run
+	TimeoutPenalty float64 `json:"timeout_penalty"`
+}
+
 // SeasonPodium defines model for SeasonPodium.
 type SeasonPodium struct {
 	// Note Why, or where the placing comes from
@@ -1902,8 +1925,17 @@ type TournamentSettings struct {
 	Community *bool `json:"community,omitempty"`
 
 	// Kind A league ranks divisions over a season, a cup plays stages to a final, a ladder has no podium
-	Kind  *TournamentKind `json:"kind,omitempty"`
-	Rated *bool           `json:"rated,omitempty"`
+	Kind *TournamentKind `json:"kind,omitempty"`
+
+	// Points2p Points for each place in a game of that many players, best place first, from the next run; empty for a player count the tournament does not score. Never negative, never higher for a worse place
+	Points2p *PlacePoints `json:"points_2p,omitempty"`
+
+	// Points3p Points for each place in a game of that many players, best place first, from the next run; empty for a player count the tournament does not score. Never negative, never higher for a worse place
+	Points3p *PlacePoints `json:"points_3p,omitempty"`
+
+	// Points4p Points for each place in a game of that many players, best place first, from the next run; empty for a player count the tournament does not score. Never negative, never higher for a worse place
+	Points4p *PlacePoints `json:"points_4p,omitempty"`
+	Rated    *bool        `json:"rated,omitempty"`
 
 	// RatedPlayerCounts The player counts whose games count towards ratings, from the next run
 	RatedPlayerCounts *[]int `json:"rated_player_counts,omitempty"`
@@ -2228,6 +2260,9 @@ type PutAdminRegulationsJSONRequestBody = Regulations
 // PutAdminSeasonChampionsJSONRequestBody defines body for PutAdminSeasonChampions for application/json ContentType.
 type PutAdminSeasonChampionsJSONRequestBody = SeasonInChampions
 
+// PutAdminSeasonPenaltyJSONRequestBody defines body for PutAdminSeasonPenalty for application/json ContentType.
+type PutAdminSeasonPenaltyJSONRequestBody = SeasonPenalty
+
 // PutAdminSeasonRatingJSONRequestBody defines body for PutAdminSeasonRating for application/json ContentType.
 type PutAdminSeasonRatingJSONRequestBody = SeasonRating
 
@@ -2341,6 +2376,9 @@ type ServerInterface interface {
 	// PutAdminSeasonChampions Set whether a season's winner is listed among the tournament's champions
 	// (PUT /v1/admin/tournaments/{tournament}/season-champions)
 	PutAdminSeasonChampions(w http.ResponseWriter, r *http.Request, tournament AdminTournamentSlug)
+	// PutAdminSeasonPenalty Set a numbered season's time-out penalty, from the next run
+	// (PUT /v1/admin/tournaments/{tournament}/season-penalty)
+	PutAdminSeasonPenalty(w http.ResponseWriter, r *http.Request, tournament AdminTournamentSlug)
 	// PutAdminSeasonRating Set whether a season's games count towards ratings, from the next run
 	// (PUT /v1/admin/tournaments/{tournament}/season-rating)
 	PutAdminSeasonRating(w http.ResponseWriter, r *http.Request, tournament AdminTournamentSlug)
@@ -3184,6 +3222,32 @@ func (siw *ServerInterfaceWrapper) PutAdminSeasonChampions(w http.ResponseWriter
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.PutAdminSeasonChampions(w, r, tournament)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// PutAdminSeasonPenalty operation middleware
+func (siw *ServerInterfaceWrapper) PutAdminSeasonPenalty(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "tournament" -------------
+	var tournament AdminTournamentSlug
+
+	err = runtime.BindStyledParameterWithOptions("simple", "tournament", r.PathValue("tournament"), &tournament, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "tournament", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.PutAdminSeasonPenalty(w, r, tournament)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -4738,6 +4802,7 @@ func HandlerWithOptions(si ServerInterface, options StdHTTPServerOptions) http.H
 	m.HandleFunc(http.MethodDelete+" "+options.BaseURL+"/v1/admin/titles/{player}", wrapper.DeleteAdminTitle)
 	m.HandleFunc(http.MethodPut+" "+options.BaseURL+"/v1/admin/titles/{player}", wrapper.PutAdminTitle)
 	m.HandleFunc(http.MethodPut+" "+options.BaseURL+"/v1/admin/tournaments/{tournament}/season-rating", wrapper.PutAdminSeasonRating)
+	m.HandleFunc(http.MethodPut+" "+options.BaseURL+"/v1/admin/tournaments/{tournament}/season-penalty", wrapper.PutAdminSeasonPenalty)
 	m.HandleFunc(http.MethodPut+" "+options.BaseURL+"/v1/admin/tournaments/{tournament}/season-champions", wrapper.PutAdminSeasonChampions)
 	m.HandleFunc(http.MethodPut+" "+options.BaseURL+"/v1/admin/tournaments/{tournament}/stories", wrapper.PutAdminStories)
 	m.HandleFunc(http.MethodPut+" "+options.BaseURL+"/v1/admin/tournaments/{tournament}/card", wrapper.PutAdminCard)
@@ -7110,6 +7175,83 @@ func (response PutAdminSeasonChampions404JSONResponse) VisitPutAdminSeasonChampi
 	return err
 }
 
+type PutAdminSeasonPenaltyRequestObject struct {
+	Tournament AdminTournamentSlug `json:"tournament"`
+	Body       *PutAdminSeasonPenaltyJSONRequestBody
+}
+
+type PutAdminSeasonPenaltyResponseObject interface {
+	VisitPutAdminSeasonPenaltyResponse(w http.ResponseWriter) error
+}
+
+type PutAdminSeasonPenalty204Response struct {
+}
+
+func (response PutAdminSeasonPenalty204Response) VisitPutAdminSeasonPenaltyResponse(w http.ResponseWriter) error {
+	w.WriteHeader(204)
+	return nil
+}
+
+type PutAdminSeasonPenalty400JSONResponse struct{ BadRequestJSONResponse }
+
+func (response PutAdminSeasonPenalty400JSONResponse) VisitPutAdminSeasonPenaltyResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PutAdminSeasonPenalty401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response PutAdminSeasonPenalty401JSONResponse) VisitPutAdminSeasonPenaltyResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PutAdminSeasonPenalty403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response PutAdminSeasonPenalty403JSONResponse) VisitPutAdminSeasonPenaltyResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PutAdminSeasonPenalty404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response PutAdminSeasonPenalty404JSONResponse) VisitPutAdminSeasonPenaltyResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
 type PutAdminSeasonRatingRequestObject struct {
 	Tournament AdminTournamentSlug `json:"tournament"`
 	Body       *PutAdminSeasonRatingJSONRequestBody
@@ -9039,6 +9181,9 @@ type StrictServerInterface interface {
 	// PutAdminSeasonChampions Set whether a season's winner is listed among the tournament's champions
 	// (PUT /v1/admin/tournaments/{tournament}/season-champions)
 	PutAdminSeasonChampions(ctx context.Context, request PutAdminSeasonChampionsRequestObject) (PutAdminSeasonChampionsResponseObject, error)
+	// PutAdminSeasonPenalty Set a numbered season's time-out penalty, from the next run
+	// (PUT /v1/admin/tournaments/{tournament}/season-penalty)
+	PutAdminSeasonPenalty(ctx context.Context, request PutAdminSeasonPenaltyRequestObject) (PutAdminSeasonPenaltyResponseObject, error)
 	// PutAdminSeasonRating Set whether a season's games count towards ratings, from the next run
 	// (PUT /v1/admin/tournaments/{tournament}/season-rating)
 	PutAdminSeasonRating(ctx context.Context, request PutAdminSeasonRatingRequestObject) (PutAdminSeasonRatingResponseObject, error)
@@ -10095,6 +10240,39 @@ func (sh *strictHandler) PutAdminSeasonChampions(w http.ResponseWriter, r *http.
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(PutAdminSeasonChampionsResponseObject); ok {
 		if err := validResponse.VisitPutAdminSeasonChampionsResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// PutAdminSeasonPenalty operation middleware
+func (sh *strictHandler) PutAdminSeasonPenalty(w http.ResponseWriter, r *http.Request, tournament AdminTournamentSlug) {
+	var request PutAdminSeasonPenaltyRequestObject
+
+	request.Tournament = tournament
+
+	var body PutAdminSeasonPenaltyJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.PutAdminSeasonPenalty(ctx, request.(PutAdminSeasonPenaltyRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "PutAdminSeasonPenalty")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(PutAdminSeasonPenaltyResponseObject); ok {
+		if err := validResponse.VisitPutAdminSeasonPenaltyResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {

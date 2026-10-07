@@ -477,6 +477,9 @@ func reportFacts(w io.Writer, kind, file string, rows int, refused []tournamentc
 	fmt.Fprintf(w, "rows read: %d\n", rows)
 	fmt.Fprintf(w, "%s written: %d\n", kind, replaced.Written)
 	fmt.Fprintf(w, "not a player: %d\n", replaced.Unknown)
+	if replaced.Kept > 0 {
+		fmt.Fprintf(w, "kept as set in admin: %d\n", replaced.Kept)
+	}
 	fmt.Fprintf(w, "refused: %d\n", len(refused))
 	for _, r := range refused {
 		fmt.Fprintf(w, "  %s:%d %s\n", r.File, r.Line, r.Reason)

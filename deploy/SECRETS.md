@@ -9,12 +9,12 @@ Pipe values in; never use `--from-literal`, which leaves them in shell history.
 | Secret | Keys | Used by | What it is |
 |---|---|---|---|
 | `ratings-db` | `password` | `ratings-db` | Password of `ratings`, the ratings database's owner |
-| `ratings-engine` | `database-url` | `engine` | The engine's connection URL, as `ratings` |
+| `ratings-engine` | `database-url` | `engine`, `api`'s `migrate` init container | The engine's connection URL, as `ratings`; the api's init container applies the migrations with it |
 | `ratings-api` | `password`, `database-url` | `api`, `scripts/seed-cluster-db.sh` | The read-only `ratings_api` login |
 | `ratings-admin` | `password`, `database-url` | `api` | The api's admin login `ratings_admin_api`, a member of `ratings_admin` (writes only what admin edits) |
 | `ghcr` | `.dockerconfigjson` | `api`, `engine` | Pulls the private images from GHCR. A machine account's classic token with `read:packages` only |
 | `ttacommunity-tunnel` | `credentials.json` | `cloudflared` | The `ttacommunity` tunnel's credentials, from `cloudflared tunnel create ttacommunity` (`~/.cloudflared/<tunnel id>.json`) |
-| `ratings-dev-engine` | `database-url` | `engine-dev` | The dev engine's connection URL, as `ratings_dev`, owner of `ratings_dev` only |
+| `ratings-dev-engine` | `database-url` | `engine-dev`, `api-dev`'s `migrate` init container | The dev engine's connection URL, as `ratings_dev`, owner of `ratings_dev` only; the dev api's init container applies the migrations with it |
 | `ratings-dev-api` | `password`, `database-url` | `api-dev`, `scripts/seed-dev-db.sh` | The dev api's read-only `ratings_dev_api` login |
 | `ratings-dev-admin` | `password`, `database-url` | `api-dev` | The dev api's admin login `ratings_dev_admin_api`, a member of `ratings_admin` (writes only what admin edits) |
 | `ttacommunity-dev-tunnel` | `credentials.json` | `cloudflared-dev` | The `ttacommunity-dev` tunnel's credentials, from `cloudflared tunnel create ttacommunity-dev` |

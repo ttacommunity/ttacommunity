@@ -49,6 +49,14 @@ var Tournaments = []Tournament{
 	{"nations_league", "Nations League", "league", []string{"Apple"}},
 }
 
+// Scoring is the points per place, by player count, a tournament starts with when first added; admin changes it after.
+var Scoring = map[string]map[int][]float64{
+	"international": {3: {5, 2, 0}, 4: {6, 3, 1, 0}},
+	"intermezzo":    {3: {5, 2, 0}},
+	"royal_league":  {2: {2, 0}},
+	"worlds":        {2: {4, 0}, 3: {5, 2, 0}, 4: {6, 3, 1, 0}},
+}
+
 // rule reads one name shape. Its pattern's first group is the season; place,
 // when set, turns the groups into season and stage instead.
 type rule struct {

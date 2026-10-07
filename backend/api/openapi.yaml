@@ -1302,6 +1302,31 @@ paths:
           $ref: "#/components/responses/Forbidden"
         "404":
           $ref: "#/components/responses/NotFound"
+  /v1/admin/tournaments/{tournament}/season-penalty:
+    put:
+      operationId: putAdminSeasonPenalty
+      tags: [admin]
+      summary: Set a numbered season's time-out penalty, from the next run
+      description: The points a player loses in its standings for each game they time out of. Audited. The Origin must be the admin site.
+      parameters:
+        - $ref: "#/components/parameters/AdminTournamentSlug"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SeasonPenalty"
+      responses:
+        "204":
+          description: Saved
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
   /v1/admin/tournaments/{tournament}/season-champions:
     put:
       operationId: putAdminSeasonChampions
@@ -2283,11 +2308,17 @@ components:
           enum: [admin, organiser]
     AdminTournament:
       type: object
-      required: [slug, name, original_name, kind, top_divisions, visible, rated, community, card, stories, regulations, cge_regulations, rated_player_counts, seasons]
+      required: [slug, name, original_name, kind, top_divisions, points_2p, points_3p, points_4p, visible, rated, community, card, stories, regulations, cge_regulations, rated_player_counts, seasons]
       properties:
         original_name:
           description: The name it came in with, kept when it is renamed
           type: string
+        points_2p:
+          $ref: "#/components/schemas/PlacePoints"
+        points_3p:
+          $ref: "#/components/schemas/PlacePoints"
+        points_4p:
+          $ref: "#/components/schemas/PlacePoints"
         kind:
           $ref: "#/components/schemas/TournamentKind"
         top_divisions:
@@ -2331,11 +2362,15 @@ components:
             $ref: "#/components/schemas/AdminSeason"
     AdminSeason:
       type: object
-      required: [label, original_name, note, has_games, rated, in_champions, stages, podium, podium_note]
+      required: [label, original_name, note, has_games, rated, in_champions, timeout_penalty, stages, podium, podium_note]
       properties:
         in_champions:
           description: Its winner is listed among the tournament's champions
           type: boolean
+        timeout_penalty:
+          description: The points a player loses in its standings for each game they time out of, 0 or below
+          type: number
+          format: double
         original_name:
           description: The label it came in with, kept when it is renamed
           type: string
@@ -2403,6 +2438,36 @@ components:
           type: boolean
         community:
           type: boolean
+        points_2p:
+          $ref: "#/components/schemas/PlacePoints"
+        points_3p:
+          $ref: "#/components/schemas/PlacePoints"
+        points_4p:
+          $ref: "#/components/schemas/PlacePoints"
+    PlacePoints:
+      description: >
+        Points for each place in a game of that many players, best place first, from the next run;
+        empty for a player count the tournament does not score. Never negative, never higher for a worse place
+      type: array
+      maxItems: 4
+      items:
+        type: number
+        format: double
+        minimum: 0
+    SeasonPenalty:
+      type: object
+      additionalProperties: false
+      required: [season, timeout_penalty]
+      properties:
+        season:
+          type: string
+          minLength: 1
+          maxLength: 64
+        timeout_penalty:
+          description: The points a player loses in the season's standings for each game they time out of, from the next run
+          type: number
+          format: double
+          maximum: 0
     SeasonNote:
       type: object
       additionalProperties: false

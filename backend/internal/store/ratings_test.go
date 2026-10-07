@@ -102,6 +102,28 @@ func TestMigrationsGoDownAndUpAgain(t *testing.T) {
 	}
 }
 
+func TestMigrationsStartedTogetherApplyOnce(t *testing.T) {
+	pool := migrated(t)
+	ctx := context.Background()
+	want := tables(t, pool)
+	if err := migrateRatingsDown(ctx, pool); err != nil {
+		t.Fatalf("migrating down: %v", err)
+	}
+
+	errs := make(chan error, 4)
+	for range 4 {
+		go func() { errs <- MigrateRatings(ctx, pool) }()
+	}
+	for range 4 {
+		if err := <-errs; err != nil {
+			t.Errorf("a migration started alongside others: %v", err)
+		}
+	}
+	if got := tables(t, pool); !slices.Equal(got, want) {
+		t.Errorf("tables = %q, want %q", got, want)
+	}
+}
+
 func TestResetEmptiesTheTables(t *testing.T) {
 	pool := migrated(t)
 	ctx := context.Background()

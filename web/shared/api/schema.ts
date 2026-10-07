@@ -926,6 +926,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/admin/tournaments/{tournament}/season-penalty": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Set a numbered season's time-out penalty, from the next run
+         * @description The points a player loses in its standings for each game they time out of. Audited. The Origin must be the admin site.
+         */
+        put: operations["putAdminSeasonPenalty"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/admin/tournaments/{tournament}/season-champions": {
         parameters: {
             query?: never;
@@ -1431,6 +1451,9 @@ export interface components {
         AdminTournament: {
             /** @description The name it came in with, kept when it is renamed */
             original_name: string;
+            points_2p: components["schemas"]["PlacePoints"];
+            points_3p: components["schemas"]["PlacePoints"];
+            points_4p: components["schemas"]["PlacePoints"];
             kind: components["schemas"]["TournamentKind"];
             /** @description A league's divisions whose final standings make its podium; empty for none */
             top_divisions: string[];
@@ -1455,6 +1478,11 @@ export interface components {
         AdminSeason: {
             /** @description Its winner is listed among the tournament's champions */
             in_champions: boolean;
+            /**
+             * Format: double
+             * @description The points a player loses in its standings for each game they time out of, 0 or below
+             */
+            timeout_penalty: number;
             /** @description The label it came in with, kept when it is renamed */
             original_name: string;
             /** @description Its games count towards ratings, from the next run */
@@ -1488,6 +1516,19 @@ export interface components {
             visible?: boolean;
             rated?: boolean;
             community?: boolean;
+            points_2p?: components["schemas"]["PlacePoints"];
+            points_3p?: components["schemas"]["PlacePoints"];
+            points_4p?: components["schemas"]["PlacePoints"];
+        };
+        /** @description Points for each place in a game of that many players, best place first, from the next run; empty for a player count the tournament does not score. Never negative, never higher for a worse place */
+        PlacePoints: number[];
+        SeasonPenalty: {
+            season: string;
+            /**
+             * Format: double
+             * @description The points a player loses in the season's standings for each game they time out of, from the next run
+             */
+            timeout_penalty: number;
         };
         SeasonNote: {
             season: string;
@@ -3758,6 +3799,35 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": components["schemas"]["SeasonRating"];
+            };
+        };
+        responses: {
+            /** @description Saved */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    putAdminSeasonPenalty: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The tournament's slug */
+                tournament: components["parameters"]["AdminTournamentSlug"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SeasonPenalty"];
             };
         };
         responses: {
