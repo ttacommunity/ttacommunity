@@ -18,7 +18,10 @@ def match(tournament, *players, day, match_id):
         "date": day,
         "player_count": len(players),
         "players": [p for p, _ in players],
-        "scores": [s for _, s in players],
+        "places": [1 + sum(1 for _, o in players if o > s) for _, s in players],
+        "cultures": [max(s, 0) for _, s in players],
+        "outcomes": ["finished" if s >= 0 else "timed_out" for _, s in players],
+        "game_points": [None for _ in players],
     }
 
 

@@ -181,7 +181,7 @@ def input_fingerprint(conn, ranking_id):
         """
         WITH m AS (
             SELECT md5(string_agg(
-                (name, date, players, scores, glicko_eligible, group_id, state)::text,
+                (name, date, players, scores, places, cultures, outcomes, game_points, glicko_eligible, group_id, state)::text,
                 E'\\n' ORDER BY game_id)) AS md5
             FROM game_lines
         ), f AS (

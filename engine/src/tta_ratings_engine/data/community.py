@@ -200,7 +200,7 @@ def rung_value(rung, rule):
 
 
 def round_points(games, rule):
-    """Returns {player: points} for one ladder round: games are (group, [(player, score)]).
+    """Returns {player: points} for one ladder round: games are (group, [(player, place)]).
 
     Each place earns its share of the rung's value, rounded; tied players average their places' unrounded shares.
     """
@@ -209,9 +209,9 @@ def round_points(games, rule):
     got = {}
     for group, seats in games:
         value = rung_value(rung[group], rule)
-        for name, score in seats:
-            better = sum(1 for _, o in seats if o > score)
-            tied = sum(1 for _, o in seats if o == score)
+        for name, place in seats:
+            better = sum(1 for _, o in seats if o < place)
+            tied = sum(1 for _, o in seats if o == place)
             share = (
                 sum(
                     shares[p] if p < len(shares) else 0
@@ -480,13 +480,13 @@ def _ladder_rounds(conn):
         rounds = defaultdict(list)
         finished = {}
         for r in conn.execute(
-            """SELECT s.label, coalesce(m.cge_finished, m.date) AS date, m.group_name AS group_label, m.players, m.scores
+            """SELECT s.label, coalesce(m.cge_finished, m.date) AS date, m.group_name AS group_label, m.players, m.places
                FROM game_lines m JOIN tournaments s ON s.tournament_id = m.tournament_id
                JOIN series t ON t.series_id = m.series_id
                WHERE t.slug = %s AND t.in_community_leaderboard AND s.in_community AND m.state = 'played'""",
             (slug,),
         ):
-            seats = list(zip(r["players"], r["scores"]))
+            seats = list(zip(r["players"], r["places"]))
             rounds[r["label"]].append((r["group_label"], seats))
             finished[r["label"]] = max(finished.get(r["label"], r["date"]), r["date"])
         got[slug] = (

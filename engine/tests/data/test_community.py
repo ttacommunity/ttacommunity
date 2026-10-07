@@ -515,7 +515,7 @@ def test_rung_value(rule, rung, want):
 
 
 def test_round_points_round_each_share_and_average_a_tie_unrounded():
-    games = [("19-Potassium 2", [("jantteri", 203), ("Beebs", 203), ("Bright", -3)])]
+    games = [("19-Potassium 2", [("jantteri", 1), ("Beebs", 1), ("Bright", 3)])]
     # Rung 1 here: 1000 and 400 averaged is 700; with 19 a lower rung the same rule holds.
     assert round_points(games, MERCURIAL) == {
         "jantteri": 700,
@@ -523,8 +523,8 @@ def test_round_points_round_each_share_and_average_a_tie_unrounded():
         "Bright": 0,
     }
     games = [
-        ("Mercurial Tier", [("a", 9)]),
-        ("5-Boron", [("b", 300), ("c", 200), ("d", 100)]),
+        ("Mercurial Tier", [("a", 1)]),
+        ("5-Boron", [("b", 1), ("c", 2), ("d", 3)]),
     ]
     assert round_points(games, MERCURIAL) == {"a": 1000, "b": 800, "c": 320, "d": 0}
 

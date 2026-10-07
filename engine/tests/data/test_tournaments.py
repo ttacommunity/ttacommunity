@@ -6,7 +6,6 @@ from tta_ratings_engine.data.db import RunNotRunning
 from tta_ratings_engine.data.tournaments import (
     SeriesRulesMissing,
     derive_tournaments,
-    game_points,
     parse_intermezzo,
     parse_international,
     parse_royal_league,
@@ -70,29 +69,32 @@ def test_parse_royal_league(name, want):
     assert parse_royal_league(name) == want
 
 
-def test_game_points_split_ties():
-    four = [6, 3, 1, 0]
-    assert game_points([("a", 90), ("b", 80), ("c", 70), ("d", 60)], four) == {
-        "a": 6,
-        "b": 3,
-        "c": 1,
-        "d": 0,
-    }
-    assert game_points([("a", 90), ("b", 90), ("c", 70), ("d", 70)], four) == {
-        "a": 4.5,
-        "b": 4.5,
-        "c": 0.5,
-        "d": 0.5,
-    }
-    assert game_points([("a", 50), ("b", 50), ("c", 50)], [5, 2, 0]) == {
-        "a": 7 / 3,
-        "b": 7 / 3,
-        "c": 7 / 3,
-    }
-
-
 def gm(n, season=30):
     return f"International S{season} - Grandmaster game {n}"
+
+
+# The series a test game's name places it in, as the load job's classifier does.
+SERIES_OF = (
+    ("International", "international"),
+    ("Intermezzo", "intermezzo"),
+    ("RL_", "royal_league"),
+    ("Worlds", "worlds"),
+)
+
+
+@pytest.fixture
+def add_match(add_match):
+    """The shared add_match, placing a game in the series its name says, so its seats take that series' points."""
+
+    def add(*players, tournament="T", placed="rated", **kw):
+        if placed == "rated":
+            placed = next(
+                (slug for prefix, slug in SERIES_OF if tournament.startswith(prefix)),
+                placed,
+            )
+        return add_match(*players, tournament=tournament, placed=placed, **kw)
+
+    return add
 
 
 @pytest.fixture
@@ -727,14 +729,6 @@ def test_a_recorded_top_division_game_is_a_single_game_record(
 
 
 def test_a_seasons_timeout_penalty_costs_points(conn, add_match, run_id):
-    conn.execute(
-        "INSERT INTO tournaments (series_id, label) SELECT series_id, '8' FROM series WHERE slug = 'intermezzo'"
-    )
-    conn.execute(
-        "INSERT INTO settings (tournament_id, timeout_penalty, source) SELECT tournament_id, -1, 's' FROM tournaments "
-        "JOIN series USING (series_id) WHERE slug = 'intermezzo' AND label = '8'"
-    )
-    conn.commit()
     for n in range(1, 7):
         cat = (
             -5 if n <= 2 else 70
@@ -746,6 +740,11 @@ def test_a_seasons_timeout_penalty_costs_points(conn, add_match, run_id):
             tournament=im(n),
             day=date(2020, 8, n),
         )
+    conn.execute(
+        "INSERT INTO settings (tournament_id, timeout_penalty) SELECT tournament_id, -1 FROM tournaments "
+        "JOIN series USING (series_id) WHERE slug = 'intermezzo'"
+    )
+    conn.commit()
 
     derive_tournaments(conn=conn, run_id=run_id)
 

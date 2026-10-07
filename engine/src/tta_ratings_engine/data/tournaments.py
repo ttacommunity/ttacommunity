@@ -19,6 +19,7 @@ import psycopg
 from tta_ratings_engine.data.achievements import player_achievements, player_records
 from tta_ratings_engine.data.db import require_running
 from tta_ratings_engine.data.match_order import assembled_order
+from tta_ratings_engine.data.seats import SEAT_COLUMNS, Seat, by_place, seats_of
 from tta_ratings_engine.data.series_pages import (
     grand_slams_board,
     ladders_board,
@@ -227,14 +228,14 @@ def series_rules(conn) -> tuple[dict[str, Series], Series]:
     return rules, final
 
 
-def worlds_finals(conn) -> dict[int, list[list[tuple[str, float]]]]:
-    """Returns each finished World Championship's final, as its played games' scores, by season.
+def worlds_finals(conn) -> dict[int, list[list[Seat]]]:
+    """Returns each finished World Championship's final, as its played games' seats, by season.
 
     The final is the last stage of a season whose CGE tournament is finished, when its games are one group.
     """
     rows = conn.execute(
-        """
-        SELECT se.label::int AS season, m.group_name AS group_label, m.players, m.scores
+        f"""
+        SELECT se.label::int AS season, m.group_name AS group_label, {SEAT_COLUMNS}
         FROM series t
         JOIN tournaments se ON se.series_id = t.series_id
         JOIN stages st ON st.tournament_id = se.tournament_id
@@ -248,14 +249,14 @@ def worlds_finals(conn) -> dict[int, list[list[tuple[str, float]]]]:
     ).fetchall()
     games, groups = defaultdict(list), defaultdict(set)
     for r in rows:
-        games[r["season"]].append(_scores(r))
+        games[r["season"]].append(seats_of(r))
         groups[r["season"]].add(r["group_label"] or "")
     return {season: g for season, g in games.items() if len(groups[season]) == 1}
 
 
 def final_podium(games, final: Series):
     """Returns a final's standings under final's rules, or None when they cannot split a tie for a podium place."""
-    t = _tally(games, final.points)
+    t = _tally(games)
     order = _league_order(t)
     points, above, performance = t["points"], t["above"], t["performance"]
     for a, b in itertools.pairwise(order[:4]):
@@ -266,46 +267,10 @@ def final_podium(games, final: Series):
     return rank_group(games, final)
 
 
-def game_points(
-    scores: list[tuple[str, float]], table: list[float]
-) -> dict[str, float]:
-    """Returns each player's points for one game; tied players share their places' points."""
-    order = sorted(scores, key=lambda ps: -ps[1])
-    got = {}
-    i = 0
-    while i < len(order):
-        j = i
-        while j + 1 < len(order) and order[j + 1][1] == order[i][1]:
-            j += 1
-        share = sum(table[i : j + 1]) / (j - i + 1)
-        for k in range(i, j + 1):
-            got[order[k][0]] = share
-        i = j + 1
-    return got
+def _tally(games):
+    """Returns each player's points, games, placings, head-to-head, performance, wins and culture.
 
-
-def points_table(points: dict[int, list[float]], players: int) -> list[float]:
-    """Returns the points for each place in a game of that many players.
-
-    A game with fewer players than any table (one left a league game) takes
-    the top places of the smallest, as upstream's records score it.
-    """
-    return points.get(players) or min(points.values(), key=len)[:players]
-
-
-def _places(scores):
-    """Returns each player's place in one game, tied players sharing the better one."""
-    return {p: 1 + sum(1 for _, s in scores if s > score) for p, score in scores}
-
-
-# A timed-out seat's score, as upstream's scraper writes it.
-TIMEOUT_SCORE = -5.0
-
-
-def _tally(games, table, penalty=0.0):
-    """Returns each player's points, games, placings, head-to-head, performance, wins and score.
-
-    penalty is the points each timed-out game costs (the season's rule, 0 or less).
+    games are each game's seats; points are the seats' game points (a timed-out seat's are its penalty).
     """
     t = {
         "points": defaultdict(float),
@@ -317,27 +282,25 @@ def _tally(games, table, penalty=0.0):
         "wins": defaultdict(int),
         "score": defaultdict(float),
     }
-    for scores in games:
-        got = game_points(scores, points_table(table, len(scores)))
-        best = max(s for _, s in scores)
-        for p, place in _places(scores).items():
-            t["points"][p] += got[p]
+    for seats in games:
+        best = max(s.culture for s in seats)
+        winners = sum(1 for s in seats if s.place == 1)
+        for s in seats:
+            p, got = s.player, s.points or 0.0
+            t["points"][p] += got
             t["games"][p] += 1
-            t["placings"][p][place - 1] += 1
-        for p, s in scores:
-            if s == TIMEOUT_SCORE:
-                t["points"][p] += penalty
-            share = s / best if best > 0 else 0.0
-            t["performance"][p] += 1.0 if s == best else max(PERFORMANCE_FLOOR, share)
-            t["score"][p] += s
-            t["wins"][p] += (
-                1 if s == best and sum(x == best for _, x in scores) == 1 else 0
+            t["placings"][p][s.place - 1] += 1
+            share = s.culture / best if best > 0 else 0.0
+            t["performance"][p] += (
+                1.0 if s.place == 1 else max(PERFORMANCE_FLOOR, share)
             )
-            for q, u in scores:
-                if s > u:
-                    t["above"][p][q] += 1
-                if q != p:
-                    t["h2h"][p][q] += got[p]
+            t["score"][p] += s.culture
+            t["wins"][p] += 1 if s.place == 1 and winners == 1 else 0
+            for o in seats:
+                if s.place < o.place:
+                    t["above"][p][o.player] += 1
+                if o.player != p:
+                    t["h2h"][p][o.player] += got
     return t
 
 
@@ -380,9 +343,9 @@ def _duel_order(t):
     return sorted(sorted(points), key=functools.cmp_to_key(compare))
 
 
-def rank_group(games: list[list[tuple[str, float]]], rules: Series, penalty=0.0):
-    """Returns a group's standings as dicts in place order, by the series' rules and the season's timeout penalty."""
-    t = _tally(games, rules.points, penalty)
+def rank_group(games: list[list[Seat]], rules: Series):
+    """Returns a group's standings as dicts in place order, by its seats' game points and the series' tiebreaks."""
+    t = _tally(games)
     order = _duel_order(t) if rules.duel else _league_order(t)
     return [
         {
@@ -467,26 +430,20 @@ def classify(rows, recorded, corrections, series_rules):
     return out
 
 
-def _scores(r):
-    return list(zip(r["players"], r["scores"]))
-
-
-def season_records(rows, rules: Series, penalties=None):
+def season_records(rows, rules: Series):
     """Returns the premier seasonal records: one per player and season.
 
     From upstream's get_premier_seasonal_records: its records games only, and
     seasons of at least record_min_games games; but by the corrected season
-    (a season left out has none), and tied players share their places' points
-    and the better place, as the series' rules say; penalties maps a season to
-    the points each timed-out game costs. placings are the 1st, 2nd, 3rd and
+    (a season left out has none); points are the seats' game points, tied players sharing their places'.
+    placings are the 1st, 2nd, 3rd and
     4th places; in Royal League, wins, draws and losses. rows are in match_id order.
     """
     got = {}
     for r in rows:
-        order = sorted(_scores(r), key=lambda ps: -ps[1])
-        shared = game_points(order, points_table(rules.points, len(order)))
-        places = _places(order)
-        for place, (p, score) in enumerate(order, start=1):
+        order = by_place(seats_of(r))
+        for i, seat in enumerate(order):
+            p = seat.player
             rec = got.setdefault(
                 (r["season"], p),
                 {"division": rules.record_division, "points": 0.0, "games": 0,
@@ -496,16 +453,13 @@ def season_records(rows, rules: Series, penalties=None):
             rec["games"] += 1
             rec["last_date"] = r["date"]
             if rules.duel:
-                other = order[1 if place == 1 else 0][1]
-                result = 0 if score > other else (1 if score == other else 2)
+                other = order[1 if i == 0 else 0].place
+                result = 0 if seat.place < other else (1 if seat.place == other else 2)
                 rec["points"] += (2.0, 1.0, 0.0)[result]
                 rec["placings"][result] += 1
             else:
-                penalty = (penalties or {}).get(r["season"], 0.0)
-                rec["points"] += shared[p] + (
-                    penalty if score == TIMEOUT_SCORE else 0.0
-                )
-                rec["placings"][places[p] - 1] += 1
+                rec["points"] += seat.points or 0.0
+                rec["placings"][seat.place - 1] += 1
     return {k: v for k, v in got.items() if v["games"] >= rules.record_min_games}
 
 
@@ -607,7 +561,7 @@ def derive_tournaments(*, conn: psycopg.Connection, run_id: int) -> None:
         require_running(conn, run_id)
         rules, final = series_rules(conn)
         rows = conn.execute(
-            "SELECT m.game_id AS match_id, m.name AS tournament, m.date, m.player_count, m.players, m.scores, "
+            f"SELECT m.game_id AS match_id, m.name AS tournament, m.date, m.player_count, {SEAT_COLUMNS}, "
             "m.group_name AS group_label, t.slug AS catalogue_slug, t.name AS catalogue_name, "
             "se.label AS catalogue_season, st.label AS catalogue_stage "
             "FROM game_lines m LEFT JOIN stages st ON st.stage_id = m.stage_id "
@@ -640,14 +594,6 @@ def derive_tournaments(*, conn: psycopg.Connection, run_id: int) -> None:
                 "SELECT series, season, finish_date FROM tournament_finish_dates"
             ).fetchall()
         }
-        penalties = {
-            (r["series"], r["season"]): r["timeout_penalty"]
-            for r in conn.execute(
-                "SELECT se.slug AS series, t.label::int AS season, s.timeout_penalty FROM settings s "
-                "JOIN tournaments t ON t.tournament_id = s.tournament_id JOIN series se ON se.series_id = t.series_id "
-                "WHERE s.timeout_penalty IS NOT NULL AND t.label ~ '^[0-9]+$'"
-            ).fetchall()
-        }
         honours = conn.execute(
             "SELECT series, player_name, gold, silver, bronze, points "
             "FROM tournament_career_honours ORDER BY series, player_name"
@@ -674,14 +620,12 @@ def derive_tournaments(*, conn: psycopg.Connection, run_id: int) -> None:
                 records[g["series"]].append({**r, **g})
             if g["division"] is not None and not g["tiebreak"]:
                 key = (g["series"], g["season"], g["division"], g["group"])
-                groups[key].append(_scores(r))
+                groups[key].append(seats_of(r))
 
         standing_rows = []
         derived = defaultdict(list)
         for (series, season, division, group), games in groups.items():
-            for s in rank_group(
-                games, rules[series], penalties.get((series, season), 0.0)
-            ):
+            for s in rank_group(games, rules[series]):
                 standing_rows.append(
                     (run_id, series, season, division, group, s["player_name"],
                      s["place"], s["points"], s["games"], s["placings"])
@@ -742,9 +686,7 @@ def derive_tournaments(*, conn: psycopg.Connection, run_id: int) -> None:
             (run_id, series, season, rec["division"], p, rec["points"], rec["games"],
              rec["placings"], rec["last_date"], rec["first_match_id"])
             for series, top_rows in records.items()
-            for (season, p), rec in season_records(
-                top_rows, rules[series], {s: v for (x, s), v in penalties.items() if x == series}
-            ).items()
+            for (season, p), rec in season_records(top_rows, rules[series]).items()
         ]  # fmt: skip
 
         written = (

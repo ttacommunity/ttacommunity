@@ -89,6 +89,10 @@ def test_a_run_writes_tournament_results(conn, add_match):
         day=date(2022, 2, 12),
         tournament="International S30 - Grandmaster game 1",
     )
+    conn.execute(
+        "INSERT INTO settings (series_id, points_3p) SELECT series_id, '{5,2,0}' FROM series WHERE slug = 'rated'"
+    )
+    conn.commit()
 
     run_id = run(conn, "v-test", formats=[2], log=lambda _: None)
 

@@ -158,12 +158,16 @@ def add_match(conn):
             conn.execute(
                 "INSERT INTO players (name) VALUES (%s) ON CONFLICT DO NOTHING", (name,)
             )
+        # Outcomes and places as the load job reads a file's scores: -1 and -5 timed out, other negatives resigned.
         conn.execute(
-            "INSERT INTO seats (game_id, seat, player_id, player_name, culture, recorded_score, place) "
-            "SELECT %s, s.seat, p.player_id, s.name, greatest(s.score, 0), s.score, "
-            "rank() OVER (ORDER BY s.score DESC) "
-            "FROM unnest(%s::text[], %s::float8[]) WITH ORDINALITY AS s(name, score, seat) JOIN players p USING (name)",
-            (match_id, [n for n, _ in players], [sc for _, sc in players]),
+            "WITH s AS (SELECT s.*, CASE WHEN s.score >= 0 THEN 'finished' WHEN s.score IN (-1, -5) THEN 'timed_out' "
+            "ELSE 'resigned' END AS outcome FROM unnest(%s::text[], %s::float8[]) WITH ORDINALITY AS s(name, score, seat)) "
+            "INSERT INTO seats (game_id, seat, player_id, player_name, culture, recorded_score, outcome, place) "
+            "SELECT %s, s.seat, p.player_id, s.name, greatest(s.score, 0), s.score, s.outcome, "
+            "CASE WHEN s.outcome = 'timed_out' THEN 1 + count(*) FILTER (WHERE s.outcome <> 'timed_out') OVER () "
+            "ELSE rank() OVER (ORDER BY CASE s.outcome WHEN 'finished' THEN 0 WHEN 'resigned' THEN 1 ELSE 2 END, s.score DESC) END "
+            "FROM s JOIN players p USING (name)",
+            ([n for n, _ in players], [sc for _, sc in players], match_id),
         )
         conn.commit()
         return match_id
