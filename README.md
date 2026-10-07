@@ -85,13 +85,13 @@ Restore the newest baseline from the data repository into the empty local
 database, then compute a rating run and publish it locally:
 
 ```bash
-scripts/ratings-db.sh --native ../ttac-ratings-data/baseline/2026-10-06
+scripts/ratings-db.sh --native ../ttac-ratings-data/baseline/2026-10-07
 cd engine && set -a && . ../.env && set +a
 ENGINE_VERSION=local uv run python -m tta_ratings_engine.run --make-current
 ```
 
 ```powershell
-scripts\ratings-db.ps1 ..\ttac-ratings-data\baseline\2026-10-06
+scripts\ratings-db.ps1 ..\ttac-ratings-data\baseline\2026-10-07
 . scripts\env.ps1; cd engine; $env:ENGINE_VERSION = 'local'
 uv run python -m tta_ratings_engine.run --make-current
 ```
@@ -231,9 +231,9 @@ settings, but no personal data) with every correction already applied. Restore o
 database, then compute ratings:
 
 ```bash
-scripts/ratings-db.sh ../ttac-ratings-data/baseline/2026-10-06            # in a container
-scripts/ratings-db.sh --native ../ttac-ratings-data/baseline/2026-10-06   # with local Go
-scripts\ratings-db.ps1 ..\ttac-ratings-data\baseline\2026-10-06            # Windows
+scripts/ratings-db.sh ../ttac-ratings-data/baseline/2026-10-07            # in a container
+scripts/ratings-db.sh --native ../ttac-ratings-data/baseline/2026-10-07   # with local Go
+scripts\ratings-db.ps1 ..\ttac-ratings-data\baseline\2026-10-07            # Windows
 ```
 
 The script starts the ratings database if needed and restores the export
