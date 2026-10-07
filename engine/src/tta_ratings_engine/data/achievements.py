@@ -71,6 +71,23 @@ def player_achievements(
     return kept
 
 
+# Tournaments recorded from the catalogue rather than from match names, as editions of stages.
+CATALOGUE_RECORDS = frozenset({"slow_burn"})
+
+
+def record_key(row) -> tuple[str, str, str]:
+    """Returns a match's record tournament, season and division: from the catalogue for CATALOGUE_RECORDS
+    ("Slow Burn 1 (2024)", its stage, its group), else read from its name as upstream does."""
+    if row.get("catalogue_slug") in CATALOGUE_RECORDS:
+        stage = row["catalogue_stage"] or row["catalogue_season"]
+        return (
+            f"{row['catalogue_name']} {row['catalogue_season']}",
+            stage,
+            row.get("group_label") or stage,
+        )
+    return campaign(row["tournament"])
+
+
 def campaign(name: str) -> tuple[str, str, str]:
     """Returns the tournament, season and division upstream reads from a match name."""
     if not name:
@@ -298,7 +315,7 @@ def _campaign_rows(rows, keys, dates):
     """
     groups = {}
     for r in rows:
-        key = campaign(r["tournament"])
+        key = record_key(r)
         g = groups.setdefault(key, {"matches": [], "players": set()})
         seats = [(r[f"player{i}"], r[f"score{i}"]) for i in range(1, 5)][
             : r["player_count"]
@@ -451,8 +468,10 @@ def _top_tier_medals(records):
         keep = True
         if r["tournament"].startswith("TCL Round"):
             keep = False
+        # A catalogue edition ("Slow Burn 1 (2024)") follows its tournament's rule.
+        base = re.sub(r" \d+ \(\d{4}\)$", "", r["tournament"])
         for tournaments, divisions in _TOP_TIER:
-            if r["tournament"] in tournaments:
+            if base in tournaments:
                 keep = d in divisions or (
                     r["tournament"] == "Mercurial Ladder" and d.startswith("1-hydrogen")
                 )

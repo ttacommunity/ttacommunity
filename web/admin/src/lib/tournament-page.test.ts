@@ -3,6 +3,7 @@ import {
   divisionList,
   divisionText,
   hasPenalty,
+  levelNamesPatch,
   penaltyValue,
   pointsList,
   pointsText,
@@ -40,6 +41,20 @@ describe('pointsList and pointsText', () => {
   it('write points for the box pointsList reads', () => {
     expect(pointsText([6, 3, 1, 0])).toBe('6-3-1-0');
     expect(pointsText([])).toBe('');
+  });
+});
+
+describe('levelNamesPatch', () => {
+  const saved = { season_name: '', stage_name: 'Season' };
+
+  it('sends only the names that changed, trimmed', () => {
+    expect(levelNamesPatch({ season_name: ' Edition ', stage_name: 'Season' }, saved)).toEqual({ season_name: 'Edition' });
+    expect(levelNamesPatch({ season_name: '', stage_name: '' }, saved)).toEqual({ stage_name: '' });
+  });
+
+  it('sends nothing when nothing changed, and refuses a name the API would refuse', () => {
+    expect(levelNamesPatch({ season_name: ' ', stage_name: 'Season' }, saved)).toEqual({});
+    expect(levelNamesPatch({ season_name: 'x'.repeat(33), stage_name: 'Season' }, saved)).toBeNull();
   });
 });
 

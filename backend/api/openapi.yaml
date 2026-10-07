@@ -1327,6 +1327,31 @@ paths:
           $ref: "#/components/responses/Forbidden"
         "404":
           $ref: "#/components/responses/NotFound"
+  /v1/admin/tournaments/{tournament}/season-community:
+    put:
+      operationId: putAdminSeasonCommunity
+      tags: [admin]
+      summary: Set whether a season counts in the community leaderboard, from the next run
+      description: Such as a play-off that should not score; the tournament's own setting still decides for all its seasons. Audited. The Origin must be the admin site.
+      parameters:
+        - $ref: "#/components/parameters/AdminTournamentSlug"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SeasonInCommunity"
+      responses:
+        "204":
+          description: Saved
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
   /v1/admin/tournaments/{tournament}/season-champions:
     put:
       operationId: putAdminSeasonChampions
@@ -2002,6 +2027,17 @@ components:
           maxLength: 64
         in_champions:
           type: boolean
+    SeasonInCommunity:
+      type: object
+      additionalProperties: false
+      required: [season, in_community]
+      properties:
+        season:
+          type: string
+          minLength: 1
+          maxLength: 64
+        in_community:
+          type: boolean
     Story:
       description: One of a tournament's stories, as DANeo's series pages tell them
       type: object
@@ -2308,10 +2344,16 @@ components:
           enum: [admin, organiser]
     AdminTournament:
       type: object
-      required: [slug, name, original_name, kind, top_divisions, points_2p, points_3p, points_4p, visible, rated, community, card, stories, regulations, cge_regulations, rated_player_counts, seasons]
+      required: [slug, name, original_name, kind, top_divisions, points_2p, points_3p, points_4p, season_name, stage_name, visible, rated, community, card, stories, regulations, cge_regulations, rated_player_counts, seasons]
       properties:
         original_name:
           description: The name it came in with, kept when it is renamed
+          type: string
+        season_name:
+          description: What it calls a season, as admin set it; empty for the default, Season
+          type: string
+        stage_name:
+          description: What it calls a stage, as admin set it; empty for the default, Stage
           type: string
         points_2p:
           $ref: "#/components/schemas/PlacePoints"
@@ -2362,10 +2404,13 @@ components:
             $ref: "#/components/schemas/AdminSeason"
     AdminSeason:
       type: object
-      required: [label, original_name, note, has_games, rated, in_champions, timeout_penalty, stages, podium, podium_note]
+      required: [label, original_name, note, has_games, rated, in_champions, in_community, timeout_penalty, stages, podium, podium_note]
       properties:
         in_champions:
           description: Its winner is listed among the tournament's champions
+          type: boolean
+        in_community:
+          description: It counts in the community leaderboard (when its tournament does)
           type: boolean
         timeout_penalty:
           description: The points a player loses in its standings for each game they time out of, 0 or below
@@ -2444,6 +2489,14 @@ components:
           $ref: "#/components/schemas/PlacePoints"
         points_4p:
           $ref: "#/components/schemas/PlacePoints"
+        season_name:
+          description: What it calls a season on its pages ("Edition", "Round"…); empty for the default, Season
+          type: string
+          maxLength: 32
+        stage_name:
+          description: What it calls a stage on its pages; empty for the default, Stage
+          type: string
+          maxLength: 32
     PlacePoints:
       description: >
         Points for each place in a game of that many players, best place first, from the next run;
@@ -3734,8 +3787,14 @@ components:
                 type: string
     CatalogueTournament:
       type: object
-      required: [run_id, slug, name, card, rated, seasons, ladder, top_tier_wins, players, rules, game_records, stories]
+      required: [run_id, slug, name, card, rated, seasons, ladder, top_tier_wins, players, rules, game_records, stories, season_name, stage_name]
       properties:
+        season_name:
+          description: What it calls a season, as headings use it ("Season" unless admin set another word, such as "Edition")
+          type: string
+        stage_name:
+          description: What it calls a stage ("Stage" unless admin set another word, such as "Season")
+          type: string
         stories:
           description: Its stories, as admin writes them, in order
           type: array

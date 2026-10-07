@@ -109,6 +109,7 @@ const CGE_YEARLY: [RegExp, Record<string, number>][] = [
   [/^survivors cup/i, { '2026': 5731 }],
   [/^leaderboard trophy/i, { '2025': 5695 }],
   [/^nations cup/i, { '2025': 5373 }],
+  [/^slow burn/i, { '2024': 4807, '2026': 5979 }],
 ];
 
 /** cgeTournamentUrl returns the CGE page of a record's tournament (that year's, for a yearly event), or null if it has none. */

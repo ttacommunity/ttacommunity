@@ -41,9 +41,14 @@ export function stageName(label: string): string {
   return label === '' ? 'Main stage' : label;
 }
 
-/** seasonName names a season: "Season 24" or "Season 2022 (Age A)", or a named one such as "Grand Prix 2023" as it is. */
-export function seasonName(label: string): string {
-  return /^\d/.test(label) ? `Season ${label}` : label;
+/** seasonName names a season in the tournament's word: "Season 24", "Edition 1 (2024)", or a named one such as "Grand Prix 2023" as it is. */
+export function seasonName(label: string, word = 'Season'): string {
+  return /^\d/.test(label) ? `${word} ${label}` : label;
+}
+
+/** plural names more than one season or stage, in the tournament's word: "Seasons", "Editions". */
+export function plural(word: string): string {
+  return `${word}s`;
 }
 
 /** placeLabel names a podium place as the Hall of Fame's cup honours do. */

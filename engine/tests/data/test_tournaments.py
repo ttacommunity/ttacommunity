@@ -995,3 +995,34 @@ def test_derive_leaves_its_tables_analysed(conn, add_match, run_id):
         "SELECT reltuples FROM pg_class WHERE relname = 'tournament_games'"
     ).fetchone()
     assert rows["reltuples"] >= 1
+
+
+def test_slow_burn_records_name_its_edition_and_stage_from_the_catalogue(
+    conn, add_match, run_id
+):
+    for winner, other in (("ann", "bob"), ("bob", "ann")):
+        add_match(
+            (winner, 90),
+            (other, 80),
+            ("cat", 70),
+            tournament="Slow Burn S10 - group 1 game 1",
+            placed="slow_burn",
+            group="group 1",
+        )
+    conn.execute("UPDATE tournaments SET name = 'Slow Burn' WHERE slug = 'slow_burn'")
+    conn.execute(
+        "UPDATE tournament_seasons se SET label = '1 (2024)' FROM tournaments t WHERE t.tournament_id = se.tournament_id AND t.slug = 'slow_burn'"
+    )
+    conn.execute("UPDATE tournament_stages st SET label = 'Season 10' FROM tournament_seasons se JOIN tournaments t USING (tournament_id) "
+                 "WHERE st.season_id = se.season_id AND t.slug = 'slow_burn'")  # fmt: skip
+    conn.commit()
+
+    derive_tournaments(conn=conn, run_id=run_id)
+
+    rows = conn.execute(
+        "SELECT DISTINCT tournament, season, division FROM tournament_records WHERE run_id = %s AND tournament LIKE 'Slow Burn%%'",
+        (run_id,),
+    ).fetchall()
+    assert [tuple(r.values()) for r in rows] == [
+        ("Slow Burn 1 (2024)", "Season 10", "group 1")
+    ]

@@ -292,7 +292,7 @@ def derive_community(*, conn: psycopg.Connection, run_id: int) -> None:
                        WHERE x.season_id = s.season_id) AS finished
                FROM tournament_seasons s JOIN tournaments t USING (tournament_id)
                LEFT JOIN community_quarters q ON q.tournament = t.slug AND q.season = s.label
-               WHERE t.in_community_leaderboard AND t.slug = ANY(%s)""",
+               WHERE t.in_community_leaderboard AND s.in_community AND t.slug = ANY(%s)""",
             (list(KINDS),),
         ).fetchall()
         rows = []
@@ -356,13 +356,22 @@ def _rank_editions(conn, run_id, rows, points):
         "SELECT max(date) AS d FROM matches WHERE state = 'played'"
     ).fetchone()["d"]
     events = defaultdict(dict)  # (year, quarter) -> {(player, code): points}
+    chosen = defaultdict(
+        dict
+    )  # (year, quarter) -> {(player, code): the season's finish and label}
     for _, slug, season, name, pts in rows:
         q = quarters.get((slug, season))
         if q is None and finished.get((slug, season)):
             d = finished[(slug, season)]
             q = (d.year, (d.month - 1) // 3 + 1)
-        if q is not None:
-            events[q][(name, event_code(slug, season))] = pts
+        if q is None:
+            continue
+        # Two counting seasons giving one event in a quarter: the later finished, then the later label, counts;
+        # never whichever row came last. A season that should not count is switched off in admin.
+        key = (name, event_code(slug, season))
+        rank = (finished.get((slug, season)) or date.min, season)
+        if key not in chosen[q] or rank > chosen[q][key]:
+            chosen[q][key], events[q][key] = rank, pts
     ladders = _ladder_rounds(conn)
     firsts = list(events) + [
         (d.year, (d.month - 1) // 3 + 1)
@@ -475,7 +484,7 @@ def _ladder_rounds(conn):
                       m.player3, m.score3, m.player4, m.score4
                FROM matches m JOIN tournament_stages x USING (stage_id) JOIN tournament_seasons s USING (season_id)
                JOIN tournaments t USING (tournament_id)
-               WHERE t.slug = %s AND t.in_community_leaderboard AND m.state = 'played'""",
+               WHERE t.slug = %s AND t.in_community_leaderboard AND s.in_community AND m.state = 'played'""",
             (slug,),
         ):
             seats = [

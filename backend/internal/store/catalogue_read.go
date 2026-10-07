@@ -117,6 +117,8 @@ type CatalogueTournament struct {
 	// GameRecords are its ten highest winning scores in played games.
 	GameRecords []GameRecord
 	Stories     []Story
+	// SeasonName and StageName are what it calls its seasons and stages, empty for the defaults.
+	SeasonName, StageName string
 }
 
 // Story is one of a tournament's stories, as DANeo's series pages tell them: a player, a badge, a title and the
@@ -218,7 +220,8 @@ func (r *RatingsReader) CatalogueTournament(ctx context.Context, run int64, slug
 	}
 	got := CatalogueTournament{Slug: slug, Seasons: []CatalogueSeason{}, TopTierWins: []LadderWin{}}
 	var top []string
-	err := r.pool.QueryRow(ctx, "SELECT kind = 'ladder', top_divisions FROM tournaments WHERE slug = $1", slug).Scan(&got.Ladder, &top)
+	err := r.pool.QueryRow(ctx, "SELECT kind = 'ladder', top_divisions, season_name, stage_name FROM tournaments WHERE slug = $1", slug).
+		Scan(&got.Ladder, &top, &got.SeasonName, &got.StageName)
 	if err != nil && !errors.Is(err, pgx.ErrNoRows) {
 		return fail("kind", err)
 	}

@@ -97,6 +97,29 @@ func TestCatalogueTournamentGivesSeasonsInOrderWithStagesAndPodium(t *testing.T)
 	}
 }
 
+func TestCatalogueTournamentSaysWhatItCallsItsSeasonsAndStages(t *testing.T) {
+	pool := migrated(t)
+	ctx := context.Background()
+	run := publishedRun(t, pool)
+	placedOn(t, pool, map[string]time.Time{
+		"Slow Burn S3 - group 1 game 1":           day("2024-07-01"),
+		"Wimbledon 2024 Stage 1 - group 1 game 1": day("2024-07-01"),
+	})
+	r := NewRatingsReader(asReader(t, pool))
+	for _, tt := range []struct{ slug, season, stage string }{
+		{"slow_burn", "Edition", "Season"},
+		{"wimbledon", "", ""},
+	} {
+		got, err := r.CatalogueTournament(ctx, run, tt.slug)
+		if err != nil {
+			t.Fatalf("CatalogueTournament(%q): %v", tt.slug, err)
+		}
+		if got.SeasonName != tt.season || got.StageName != tt.stage {
+			t.Errorf("%s names = %q, %q, want %q, %q", tt.slug, got.SeasonName, got.StageName, tt.season, tt.stage)
+		}
+	}
+}
+
 func TestCatalogueTournamentRefusesATournamentWithoutGames(t *testing.T) {
 	pool := migrated(t)
 	ctx := context.Background()

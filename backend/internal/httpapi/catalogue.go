@@ -1,6 +1,7 @@
 package httpapi
 
 import (
+	"cmp"
 	"context"
 	"fmt"
 	"regexp"
@@ -69,6 +70,7 @@ func (s *server) GetCatalogueTournament(ctx context.Context, req GetCatalogueTou
 	body := CatalogueTournament{
 		RunId: req.Run, Slug: t.Slug, Name: t.Name, Card: tournamentCard(t.Card), Rated: t.Rated, GameRecords: gameRecords(t.GameRecords), Stories: storyList(t.Stories), Seasons: make([]CatalogueSeason, 0, len(t.Seasons)),
 		Ladder: t.Ladder, TopTierWins: make([]LadderWin, 0, len(t.TopTierWins)), Players: append([]string{}, t.Players...),
+		SeasonName: cmp.Or(t.SeasonName, "Season"), StageName: cmp.Or(t.StageName, "Stage"),
 	}
 	if t.Regulations != "" {
 		body.Regulations = &t.Regulations

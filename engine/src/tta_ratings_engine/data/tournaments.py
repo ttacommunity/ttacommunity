@@ -606,8 +606,11 @@ def derive_tournaments(*, conn: psycopg.Connection, run_id: int) -> None:
         require_running(conn, run_id)
         rules, final = series_rules(conn)
         rows = conn.execute(
-            "SELECT match_id, tournament, date, player_count, player1, score1, player2, score2, "
-            "player3, score3, player4, score4, group_label FROM matches WHERE state = 'played' ORDER BY match_id"
+            "SELECT m.match_id, m.tournament, m.date, m.player_count, m.player1, m.score1, m.player2, m.score2, "
+            "m.player3, m.score3, m.player4, m.score4, m.group_label, t.slug AS catalogue_slug, t.name AS catalogue_name, "
+            "se.label AS catalogue_season, st.label AS catalogue_stage "
+            "FROM matches m LEFT JOIN tournament_stages st USING (stage_id) LEFT JOIN tournament_seasons se USING (season_id) "
+            "LEFT JOIN tournaments t USING (tournament_id) WHERE m.state = 'played' ORDER BY m.match_id"
         ).fetchall()
         recorded = {
             (r["series"], r["season"], r["player_name"]): r["division"]

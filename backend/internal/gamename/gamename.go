@@ -57,6 +57,11 @@ var Scoring = map[string]map[int][]float64{
 	"worlds":        {2: {4, 0}, 3: {5, 2, 0}, 4: {6, 3, 1, 0}},
 }
 
+// LevelNames are what a tournament calls its seasons and stages when first added, where not the defaults.
+var LevelNames = map[string][2]string{
+	"slow_burn": {"Edition", "Season"},
+}
+
 // rule reads one name shape. Its pattern's first group is the season; place,
 // when set, turns the groups into season and stage instead.
 type rule struct {
@@ -111,15 +116,16 @@ var rules = []rule{
 	rp(`^Australian Open (\d{4}) Stage (\d+)`, "australian_open", yearAndStage),
 	rp(`^Survivors Cup (\d{4}) Stage (\d+)`, "survivors_cup", yearAndStage),
 	rp(`^Leaderboard Trophy (\d{4}) Stage (\d+)`, "leaderboard_trophy", yearAndStage),
+	// Slow Burn's editions are its seasons; its stages are what its rules call seasons, so they are labelled so.
 	rp(`^Slow Burn Season (\d+) Stage (\d+)`, "slow_burn", func(m []string) (string, string, bool) {
 		year, ok := slowBurnYears[m[1]]
 		st, stOK := number(m[2])
-		return m[1] + " (" + year + ")", "Stage " + st, ok && stOK
+		return m[1] + " (" + year + ")", "Season " + st, ok && stOK
 	}),
-	// Slow Burn's first season names only its stages, as "S" numbers.
+	// Slow Burn's first edition names only its stages, as "S" numbers.
 	rp(`^Slow Burn S?(\d+)`, "slow_burn", func(m []string) (string, string, bool) {
 		st, ok := number(m[1])
-		return "1 (2024)", "Stage " + st, ok
+		return "1 (2024)", "Season " + st, ok
 	}),
 	r(`^Eiffel Tower S(\d+)`, "eiffel_tower", ""),
 	r(`^ML_[sr](\d+)`, "mercurial_ladder", ""),
@@ -199,7 +205,7 @@ func number(s string) (string, bool) {
 	return strconv.Itoa(n), true
 }
 
-// slowBurnYears gives the year each Slow Burn season started, as CGE shows it.
+// slowBurnYears gives the year each Slow Burn edition started, as CGE shows it.
 var slowBurnYears = map[string]string{"1": "2024", "2": "2026"}
 
 // worldsSeason names a World Championship by its year; the first also by its Age.

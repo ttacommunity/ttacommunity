@@ -38,6 +38,7 @@ type Admins interface {
 	SetSeasonRated(ctx context.Context, slug, season string, rated bool) error
 	SetSeasonPenalty(ctx context.Context, slug, season string, penalty float64) error
 	SetSeasonInChampions(ctx context.Context, slug, season string, in bool) error
+	SetSeasonInCommunity(ctx context.Context, slug, season string, in bool) error
 	SetNote(ctx context.Context, slug, season, stage, note string) error
 	DataSummary(ctx context.Context) (store.DataSummary, error)
 	CheckStandings(ctx context.Context) (store.StandingsCheck, error)
@@ -161,13 +162,13 @@ func (s *server) GetAdminTournaments(ctx context.Context, _ GetAdminTournamentsR
 			for k, e := range se.Podium {
 				podium[k] = PodiumEntry{Place: e.Place, Name: e.Name}
 			}
-			seasons[j] = AdminSeason{Label: se.Label, OriginalName: se.OriginalName, Note: se.Note, HasGames: se.HasGames, Rated: se.Rated, InChampions: se.InChampions,
+			seasons[j] = AdminSeason{Label: se.Label, OriginalName: se.OriginalName, Note: se.Note, HasGames: se.HasGames, Rated: se.Rated, InChampions: se.InChampions, InCommunity: se.InCommunity,
 				TimeoutPenalty: se.TimeoutPenalty, Stages: stages, Podium: podium, PodiumNote: se.PodiumNote}
 		}
 		out[i] = AdminTournament{Slug: t.Slug, Name: t.Name, OriginalName: t.OriginalName, Kind: TournamentKind(t.Kind),
 			TopDivisions: append([]string{}, t.TopDivisions...), Visible: t.Visible, Rated: t.Rated, Community: t.Community,
 			Points2p: append(PlacePoints{}, t.Points[2]...), Points3p: append(PlacePoints{}, t.Points[3]...), Points4p: append(PlacePoints{}, t.Points[4]...),
-			Card: tournamentCard(t.Card), Stories: storyList(t.Stories), RatedPlayerCounts: append([]int{}, t.RatedPlayerCounts...), Regulations: t.Regulations, CgeRegulations: t.CGERegulations, Seasons: seasons}
+			SeasonName: t.SeasonName, StageName: t.StageName, Card: tournamentCard(t.Card), Stories: storyList(t.Stories), RatedPlayerCounts: append([]int{}, t.RatedPlayerCounts...), Regulations: t.Regulations, CgeRegulations: t.CGERegulations, Seasons: seasons}
 	}
 	return GetAdminTournaments200JSONResponse{Body: out, Headers: GetAdminTournaments200ResponseHeaders{CacheControl: cacheNone}}, nil
 }
@@ -179,10 +180,11 @@ func (s *server) PatchAdminTournament(ctx context.Context, req PatchAdminTournam
 		return nil, errors.New("admin route reached without the gate")
 	}
 	if b == nil || (b.Visible == nil && b.Rated == nil && b.Community == nil && b.RatedPlayerCounts == nil &&
-		b.Kind == nil && b.TopDivisions == nil && b.Points2p == nil && b.Points3p == nil && b.Points4p == nil) {
+		b.Kind == nil && b.TopDivisions == nil && b.Points2p == nil && b.Points3p == nil && b.Points4p == nil &&
+		b.SeasonName == nil && b.StageName == nil) {
 		return PatchAdminTournament400JSONResponse{BadRequestJSONResponse{Body: Error{Error: "nothing to change"}, Headers: BadRequestResponseHeaders{CacheControl: cacheNone}}}, nil
 	}
-	settings := store.TournamentSettings{Visible: b.Visible, Rated: b.Rated, Community: b.Community}
+	settings := store.TournamentSettings{Visible: b.Visible, Rated: b.Rated, Community: b.Community, SeasonName: b.SeasonName, StageName: b.StageName}
 	if b.RatedPlayerCounts != nil {
 		settings.RatedPlayerCounts = *b.RatedPlayerCounts
 	}
@@ -203,6 +205,9 @@ func (s *server) PatchAdminTournament(ctx context.Context, req PatchAdminTournam
 	err := s.admins.SetTournament(ctx, req.Tournament, settings)
 	if errors.Is(err, store.ErrBadScoring) {
 		return PatchAdminTournament400JSONResponse{badRequest400(store.ErrBadScoring.Error())}, nil
+	}
+	if errors.Is(err, store.ErrBadLevelName) {
+		return PatchAdminTournament400JSONResponse{badRequest400(store.ErrBadLevelName.Error())}, nil
 	}
 	if errors.Is(err, store.ErrBadPlayerCounts) {
 		return PatchAdminTournament400JSONResponse{badRequest400("rated player counts are one or more of 2, 3 and 4")}, nil
@@ -925,6 +930,27 @@ func (s *server) PutAdminSeasonChampions(ctx context.Context, req PutAdminSeason
 		return nil, err
 	}
 	return PutAdminSeasonChampions204Response{}, nil
+}
+
+func (s *server) PutAdminSeasonCommunity(ctx context.Context, req PutAdminSeasonCommunityRequestObject) (PutAdminSeasonCommunityResponseObject, error) {
+	a, ok := adminFrom(ctx)
+	if !ok {
+		return nil, errors.New("admin route reached without the gate")
+	}
+	b := req.Body
+	if b == nil || b.Season == "" || len(b.Season) > 64 {
+		return PutAdminSeasonCommunity400JSONResponse{badRequest400("a season, and whether it counts in the community leaderboard")}, nil
+	}
+	switch err := s.admins.SetSeasonInCommunity(ctx, req.Tournament, b.Season, b.InCommunity); {
+	case errors.Is(err, store.ErrNoTournament):
+		return PutAdminSeasonCommunity404JSONResponse{notFound404("no such tournament or season")}, nil
+	case err != nil:
+		return nil, err
+	}
+	if err := s.admins.Audit(ctx, a.DiscordID, "tournament.season.community", req.Tournament, b); err != nil {
+		return nil, err
+	}
+	return PutAdminSeasonCommunity204Response{}, nil
 }
 
 func (s *server) GetAdminExport(ctx context.Context, _ GetAdminExportRequestObject) (GetAdminExportResponseObject, error) {
