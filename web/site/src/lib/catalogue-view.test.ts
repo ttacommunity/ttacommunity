@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { catalogueHref, cgeYears, entryRows, hasPodiums, gameStateLabel, gameWhere, outcomeNote, placeLabel, placeNames, seasonName, shownName, spanYears, stageName, tournamentParam, seasonDates, activeYears, regulationsBox } from './catalogue-view';
+import { catalogueHref, cgeYears, entryRows, hasPodiums, gameStateLabel, gameWhere, outcomeNote, placeLabel, placeNames, plural, seasonName, shownName, spanYears, stageName, tournamentParam, seasonDates, activeYears, regulationsBox } from './catalogue-view';
 
 describe('tournamentParam', () => {
   it('takes a slug from the address', () => {
@@ -42,6 +42,19 @@ describe('seasonName', () => {
   it('writes a named season as it is', () => {
     expect(seasonName('First Edition (2023)')).toBe('First Edition (2023)');
     expect(seasonName('Grand Prix 2023')).toBe('Grand Prix 2023');
+  });
+  it('uses the word the tournament calls its seasons', () => {
+    expect(seasonName('1 (2024)', 'Edition')).toBe('Edition 1 (2024)');
+    expect(seasonName('31', 'Round')).toBe('Round 31');
+    expect(seasonName('Grand Prix 2023', 'Edition')).toBe('Grand Prix 2023');
+  });
+});
+
+describe('plural', () => {
+  it('names more than one season or stage', () => {
+    expect(plural('Season')).toBe('Seasons');
+    expect(plural('Edition')).toBe('Editions');
+    expect(plural('Stage')).toBe('Stages');
   });
 });
 

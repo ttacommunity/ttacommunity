@@ -1,7 +1,7 @@
 /** A tournament's games, newest first, narrowed by season, stage and group, with one-click replay codes. */
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { catalogueGames, type CatalogueGames, type CatalogueSeason, type GamesFilter } from '@ttac/shared/ratings';
-import { gameStateLabel, gameWhere, outcomeNote, seasonName, stageName } from '../lib/catalogue-view';
+import { gameStateLabel, gameWhere, outcomeNote, plural, seasonName, stageName } from '../lib/catalogue-view';
 import { pickPlayer } from '../lib/leaderboard-view';
 import SearchBox from './SearchBox';
 import PlayerLink from './PlayerLink';
@@ -20,6 +20,8 @@ export default function TournamentGames({
   seasons,
   players,
   pick,
+  seasonWord,
+  stageWord,
 }: {
   apiUrl: string;
   run: number;
@@ -27,6 +29,9 @@ export default function TournamentGames({
   seasons: CatalogueSeason[];
   players: string[];
   pick: { season: string; n: number };
+  /** What the tournament calls a season and a stage. */
+  seasonWord: string;
+  stageWord: string;
 }) {
   const [filter, setFilter] = useState<GamesFilter>({ page: 1 });
   const panel = useRef<HTMLDivElement>(null);
@@ -64,21 +69,21 @@ export default function TournamentGames({
       </div>
       <div className="games-filters">
         <label>
-          <span>Season</span>
+          <span>{seasonWord}</span>
           <select id="games-season" value={filter.season ?? ''} onChange={(e) => narrow({ season: e.target.value, stage: '', group: '' })}>
-            <option value="">All seasons</option>
+            <option value="">All {plural(seasonWord).toLowerCase()}</option>
             {seasons.map((s) => (
               <option key={s.label} value={s.label}>
-                {seasonName(s.label)}
+                {seasonName(s.label, seasonWord)}
               </option>
             ))}
           </select>
         </label>
         {stages.length > 0 && (
           <label>
-            <span>Stage</span>
+            <span>{stageWord}</span>
             <select id="games-stage" value={filter.stage ?? ''} onChange={(e) => narrow({ stage: e.target.value, group: '' })}>
-              <option value="">All stages</option>
+              <option value="">All {plural(stageWord).toLowerCase()}</option>
               {stages.map((st) => (
                 <option key={st.label} value={st.label}>
                   {stageName(st.label)}
@@ -116,7 +121,7 @@ export default function TournamentGames({
           <thead>
             <tr>
               <th className="col-center">Date</th>
-              <th>Season</th>
+              <th>{seasonWord}</th>
               <th>Game</th>
               <th>Players &amp; scores</th>
               <th>Replay code</th>
@@ -134,7 +139,7 @@ export default function TournamentGames({
             {data?.games.map((g) => (
               <tr key={g.match_id} className={g.state !== 'played' ? 'game-never-played' : undefined}>
                 <td className="cell-date">{g.date}</td>
-                <td className="cell-muted">{seasonName(g.season)}</td>
+                <td className="cell-muted">{seasonName(g.season, seasonWord)}</td>
                 <td>
                   {gameWhere(g)}
                   {gameStateLabel(g.state, g.rated) !== '' && <span className="panel-tag game-state">{gameStateLabel(g.state, g.rated)}</span>}
