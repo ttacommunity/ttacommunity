@@ -85,13 +85,13 @@ Restore the newest baseline from the data repository into the empty local
 database, then compute a rating run and publish it locally:
 
 ```bash
-scripts/ratings-db.sh --native ../ttac-ratings-data/baseline/2026-10-07
+scripts/ratings-db.sh --native ../ttac-ratings-data/baseline
 cd engine && set -a && . ../.env && set +a
 ENGINE_VERSION=local uv run python -m tta_ratings_engine.run --make-current
 ```
 
 ```powershell
-scripts\ratings-db.ps1 ..\ttac-ratings-data\baseline\2026-10-07
+scripts\ratings-db.ps1 ..\ttac-ratings-data\baseline
 . scripts\env.ps1; cd engine; $env:ENGINE_VERSION = 'local'
 uv run python -m tta_ratings_engine.run --make-current
 ```
@@ -231,9 +231,9 @@ settings, but no personal data) with every correction already applied. Restore o
 database, then compute ratings:
 
 ```bash
-scripts/ratings-db.sh ../ttac-ratings-data/baseline/2026-10-07            # in a container
-scripts/ratings-db.sh --native ../ttac-ratings-data/baseline/2026-10-07   # with local Go
-scripts\ratings-db.ps1 ..\ttac-ratings-data\baseline\2026-10-07            # Windows
+scripts/ratings-db.sh ../ttac-ratings-data/baseline            # in a container
+scripts/ratings-db.sh --native ../ttac-ratings-data/baseline   # with local Go
+scripts\ratings-db.ps1 ..\ttac-ratings-data\baseline            # Windows
 ```
 
 The script starts the ratings database if needed and restores the export
@@ -243,7 +243,9 @@ remove the database's volume. Then [compute ratings](#compute-ratings).
 A new baseline is any export: **Download all data** on admin's home page
 (admins and organisers; a zip of the same files), or `go run ./cmd/load
 -export <new folder>` (see [Export the data, and rebuild from
-it](#export-the-data-and-rebuild-from-it)).
+it](#export-the-data-and-rebuild-from-it)). It replaces the contents of the
+data repo's `baseline/` folder, whose name never changes, so the commands here
+stay the same.
 
 After pulling a new migration, apply it to a database you already loaded:
 
@@ -353,7 +355,7 @@ data, so it can be shared:** who the admins are, the audit of what they did,
 and the rows a load refused are left out. Keep exports outside the repo.
 
 ```bash
-go run ./cmd/load -export ~/tta-data/baseline/2026-10-05    # a new or empty folder
+go run ./cmd/load -export <new or empty folder>
 ```
 
 #### Rebuild a database from scratch
@@ -370,7 +372,7 @@ again from nothing:
 2. **Schema and data**, from the newest export:
 
    ```bash
-   cd backend && go run ./cmd/load -restore ../../ttac-ratings-data/baseline/<date>
+   cd backend && go run ./cmd/load -restore ../../ttac-ratings-data/baseline
    ```
 
    The restore applies the migrations, then loads everything in one

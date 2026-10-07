@@ -32,7 +32,7 @@ backend:
 # Windows, once: allow local scripts, then install everything
 Set-ExecutionPolicy -Scope CurrentUser RemoteSigned
 scripts\install.ps1                         # mise, Go, Node, uv, PostgreSQL 18 (user install; -Service for a Windows service), local databases
-scripts\ratings-db.ps1 ..\ttac-ratings-data\baseline\2026-10-07   # load the data
+scripts\ratings-db.ps1 ..\ttac-ratings-data\baseline   # load the data
 scripts\dev.ps1                             # api :8080, worker, site :4321, admin :4322
 scripts\test.ps1                            # every test
 ```
@@ -40,7 +40,7 @@ scripts\test.ps1                            # every test
 ```bash
 # Linux / macOS (Docker or Podman for Postgres)
 mise install
-scripts/ratings-db.sh --native ../ttac-ratings-data/baseline/2026-10-07
+scripts/ratings-db.sh --native ../ttac-ratings-data/baseline
 scripts/dev.sh --native
 scripts/test.sh
 scripts/ci.sh            # everything CI runs, in CI's order
