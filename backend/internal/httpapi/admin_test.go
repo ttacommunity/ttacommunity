@@ -141,10 +141,10 @@ func (*fakeAdmins) RunSizes(context.Context) (map[int64]int64, error) {
 func (*fakeAdmins) Tournaments(context.Context) ([]store.AdminTournament, error) {
 	return []store.AdminTournament{{Slug: "worlds", Name: "World Championship", Rated: true, Regulations: "Mine.", CGERegulations: "CGE's.",
 		Card: store.Card{Icon: "🏆", Tagline: "Annual World Championship", Summary: "The pinnacle.", Subtitle: "4-Player", Cadence: "Annual"},
-		Kind: "cup", OriginalName: "World Championships",
+		Kind: "cup", OriginalName: "World Championships", Points: map[int][]float64{2: nil, 3: {5, 2, 0}, 4: {6, 3, 1, 0}},
 		Stories:           []store.Story{{Player: "a440", Badge: "Reigning World Champion", Title: "2025", Text: "Won."}},
 		RatedPlayerCounts: []int{3, 4},
-		Seasons: []store.AdminSeason{{Label: "2025", OriginalName: "2025 Edition", Rated: true, InChampions: true, Stages: []store.AdminStage{{Label: "Stage 1", OriginalName: "Groups", Note: "n"}},
+		Seasons: []store.AdminSeason{{Label: "2025", OriginalName: "2025 Edition", Rated: true, InChampions: true, TimeoutPenalty: -1, Stages: []store.AdminStage{{Label: "Stage 1", OriginalName: "Groups", Note: "n"}},
 			Podium: []store.PodiumEntry{{Place: 1, Name: "a440"}}, PodiumNote: "CGE"}}}}, nil
 }
 
@@ -158,7 +158,21 @@ func (f *fakeAdmins) SetTournament(_ context.Context, slug string, s store.Tourn
 	if s.Kind == "tour" {
 		return store.ErrBadKind
 	}
+	if len(s.Points[3]) == 2 {
+		return store.ErrBadScoring
+	}
 	f.settings = append(f.settings, s)
+	return nil
+}
+
+func (f *fakeAdmins) SetSeasonPenalty(_ context.Context, slug, season string, penalty float64) error {
+	if slug != "worlds" || season == "1999" {
+		return store.ErrNoTournament
+	}
+	if penalty > 0 {
+		return store.ErrBadPenalty
+	}
+	f.notes = append(f.notes, fmt.Sprintf("season %s penalty %g", season, penalty))
 	return nil
 }
 
@@ -1128,6 +1142,51 @@ func TestAnOrganiserSetsWhatOfATournamentIsRated(t *testing.T) {
 	if err := json.Unmarshal(rec.Body.Bytes(), &got); err != nil || !slices.Equal(got[0].RatedPlayerCounts, []int{3, 4}) || !got[0].Seasons[0].Rated {
 		t.Errorf("GET = %s, want the rated player counts and the season rated", rec.Body)
 	}
+}
+
+func TestAnOrganiserSetsScoringAndTimeoutPenalties(t *testing.T) {
+	const site, org = "https://ttac-admin.example", "222222222222222222"
+	f := &fakeAdmins{}
+	if rec := adminDo(t, f, http.MethodPatch, "/v1/admin/tournaments/worlds", site, `{"points_3p": [5, 2, 0], "points_4p": [6, 3, 1, 0]}`); rec.Code != http.StatusNoContent {
+		t.Fatalf("PATCH scoring = %d %s, want 204", rec.Code, rec.Body)
+	}
+	if len(f.settings) != 1 || !slices.Equal(f.settings[0].Points[3], []float64{5, 2, 0}) || !slices.Equal(f.settings[0].Points[4], []float64{6, 3, 1, 0}) {
+		t.Errorf("settings = %+v, want 3p 5-2-0 and 4p 6-3-1-0", f.settings)
+	}
+	if _, set := f.settings[0].Points[2]; set {
+		t.Errorf("settings = %+v, want 2p left as it is", f.settings)
+	}
+	if rec := adminDo(t, f, http.MethodPut, "/v1/admin/tournaments/worlds/season-penalty", site, `{"season": "2025", "timeout_penalty": -1}`); rec.Code != http.StatusNoContent {
+		t.Fatalf("PUT season penalty = %d %s, want 204", rec.Code, rec.Body)
+	}
+	if strings.Join(f.notes, "|") != "season 2025 penalty -1" || strings.Join(f.audits, "|") != org+" tournament.settings worlds|"+org+" tournament.season.penalty worlds" {
+		t.Errorf("changes %q, audits %q", f.notes, f.audits)
+	}
+	for _, tt := range []struct {
+		name, method, path, origin, body string
+		want                             int
+	}{
+		{"points not one per place", http.MethodPatch, "/v1/admin/tournaments/worlds", site, `{"points_3p": [5, 2]}`, http.StatusBadRequest},
+		{"a positive penalty", http.MethodPut, "/v1/admin/tournaments/worlds/season-penalty", site, `{"season": "2025", "timeout_penalty": 1}`, http.StatusBadRequest},
+		{"no season", http.MethodPut, "/v1/admin/tournaments/worlds/season-penalty", site, `{"season": "", "timeout_penalty": -1}`, http.StatusBadRequest},
+		{"a season that does not exist", http.MethodPut, "/v1/admin/tournaments/worlds/season-penalty", site, `{"season": "1999", "timeout_penalty": -1}`, http.StatusNotFound},
+		{"another site", http.MethodPut, "/v1/admin/tournaments/worlds/season-penalty", "https://evil.example", `{"season": "2025", "timeout_penalty": -1}`, http.StatusForbidden},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			f := &fakeAdmins{}
+			if rec := adminDo(t, f, tt.method, tt.path, tt.origin, tt.body); rec.Code != tt.want {
+				t.Errorf("%s = %d %s, want %d", tt.path, rec.Code, rec.Body, tt.want)
+			}
+			if len(f.settings)+len(f.notes)+len(f.audits) != 0 {
+				t.Errorf("a refused change still changed something: %+v %q %q", f.settings, f.notes, f.audits)
+			}
+		})
+	}
+	rec := adminDo(t, &fakeAdmins{}, http.MethodGet, "/v1/admin/tournaments", "", "")
+	wantJSON(t, rec.Body.Bytes(), "0.points_2p", `[]`)
+	wantJSON(t, rec.Body.Bytes(), "0.points_3p", `[5, 2, 0]`)
+	wantJSON(t, rec.Body.Bytes(), "0.points_4p", `[6, 3, 1, 0]`)
+	wantJSON(t, rec.Body.Bytes(), "0.seasons.0.timeout_penalty", `-1`)
 }
 
 func TestAdminsAndOrganisersDownloadTheData(t *testing.T) {
