@@ -13,6 +13,10 @@ func cgeSeat(player int, culture float64) Seat {
 	return Seat{PlayerID: player, FinishStatus: Finished, Score: &culture}
 }
 
+func resignedSeat(player int, mark float64) Seat {
+	return Seat{PlayerID: player, FinishStatus: Resigned, Score: &mark}
+}
+
 func cgeGame(session, tournament int, code string, seats ...Seat) Game {
 	return Game{SessionID: session, TournamentID: tournament, ShareCode: code, State: "finished", Seats: seats}
 }
@@ -40,6 +44,8 @@ func TestMatchFindsEachCGEGamesCopyOfOurs(t *testing.T) {
 			[]OurGame{ours(1, 7, "", seat("bob", 150), seat("ann", 200))}, map[int64]int{1: 100}},
 		{"leaving out a timed-out seat", cgeGame(100, 19, "CODEAAAA", cgeSeat(1, 200), cgeSeat(2, 150), cgeSeat(3, -1)),
 			[]OurGame{ours(1, 7, "", seat("ann", 200), seat("bob", 150), seat("cy", -5))}, map[int64]int{1: 100}},
+		{"a resignation our file scored 0", cgeGame(100, 19, "CODEAAAA", cgeSeat(1, 200), cgeSeat(2, 150), resignedSeat(3, -9)),
+			[]OurGame{ours(1, 7, "", seat("ann", 200), seat("bob", 150), seat("cy", 0))}, map[int64]int{1: 100}},
 		{"not when the scores differ", cgeGame(100, 19, "CODEAAAA", cgeSeat(1, 200), cgeSeat(2, 150)),
 			[]OurGame{ours(1, 7, "", seat("ann", 200), seat("bob", 151))}, map[int64]int{}},
 		{"not when a player differs", cgeGame(100, 19, "CODEAAAA", cgeSeat(1, 200), cgeSeat(2, 150)),

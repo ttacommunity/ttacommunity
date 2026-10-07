@@ -87,9 +87,11 @@ func Match(cge []Game, ours []OurGame, names map[string][]int, series map[int]in
 		}
 		var fits []int64
 		if g.State == "finished" {
-			for _, i := range byKey[cgeKey(g)] {
-				if o := ours[i]; !used[o.ID] && sameSeries(series[g.TournamentID], o.Series) && playersFit(g, o, names) {
-					fits = append(fits, o.ID)
+			for _, k := range slices.Compact([]string{cgeKey(g, false), cgeKey(g, true)}) {
+				for _, i := range byKey[k] {
+					if o := ours[i]; !used[o.ID] && sameSeries(series[g.TournamentID], o.Series) && playersFit(g, o, names) {
+						fits = append(fits, o.ID)
+					}
 				}
 			}
 		}
@@ -149,12 +151,16 @@ func MatchSeats(g Game, ours []OurSeat, names map[string][]int) (map[int]int, []
 	return pairs, missing
 }
 
-// cgeKey is a game's seat count and its finished seats' scores, sorted.
-func cgeKey(g Game) string {
+// cgeKey is a game's seat count and its finished seats' scores, sorted; with resignedAsZero, its resigners
+// count as 0, as the organisers' files score them.
+func cgeKey(g Game, resignedAsZero bool) string {
 	var scores []float64
 	for _, s := range g.Seats {
-		if s.FinishStatus == Finished {
+		switch {
+		case s.FinishStatus == Finished:
 			scores = append(scores, *s.Score)
+		case s.FinishStatus == Resigned && resignedAsZero:
+			scores = append(scores, 0)
 		}
 	}
 	return key(len(g.Seats), scores)
