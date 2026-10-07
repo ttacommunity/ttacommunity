@@ -9,6 +9,7 @@ import {
   penaltyValue,
   pointsText,
   renamedFrom,
+  levelNamesPatch,
   scoringPatch,
   SETTINGS,
   slugParam,
@@ -218,6 +219,13 @@ function SettingsCard({ t, onChange }: { t: AdminTournament; onChange: (t: Admin
   };
   const [points, setPoints] = useState({ 2: pointsText(t.points_2p), 3: pointsText(t.points_3p), 4: pointsText(t.points_4p) });
   const scoring = scoringPatch(points, t);
+  const [levels, setLevels] = useState({ season_name: t.season_name, stage_name: t.stage_name });
+  const levelChange = levelNamesPatch(levels, t);
+  const saveLevels = () => {
+    if (levelChange === null) return;
+    onChange({ ...t, ...levelChange });
+    void patch(levelChange, t);
+  };
   const saveScoring = () => {
     if (scoring === null) return;
     onChange({ ...t, ...scoring });
@@ -317,6 +325,40 @@ function SettingsCard({ t, onChange }: { t: AdminTournament; onChange: (t: Admin
             Save
           </button>
           {scoring === null && <span className="muted"> One number per place, never higher for a worse place</span>}
+        </fieldset>
+        <fieldset className="setting-counts">
+          <legend>
+            <strong>Words on its pages</strong>
+            <span className="muted"> · What it calls a season and a stage, such as Edition or Round; empty for the defaults</span>
+          </legend>
+          <label>
+            A season is called{' '}
+            <input
+              id="level-season"
+              value={levels.season_name}
+              placeholder="Season"
+              maxLength={32}
+              onChange={(e) => setLevels({ ...levels, season_name: e.target.value })}
+            />
+          </label>
+          <label>
+            A stage is called{' '}
+            <input
+              id="level-stage"
+              value={levels.stage_name}
+              placeholder="Stage"
+              maxLength={32}
+              onChange={(e) => setLevels({ ...levels, stage_name: e.target.value })}
+            />
+          </label>{' '}
+          <button
+            type="button"
+            className="btn-antique"
+            onClick={saveLevels}
+            disabled={levelChange === null || Object.keys(levelChange).length === 0}
+          >
+            Save
+          </button>
         </fieldset>
       </div>
       {error !== '' && (

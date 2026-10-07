@@ -93,3 +93,19 @@ export function penaltyValue(text: string): number | null {
 export function renamedFrom(name: string, original: string): string | null {
   return original !== '' && original !== name ? original : null;
 }
+
+type LevelNames = { season_name: string; stage_name: string };
+
+/**
+ * levelNamesPatch returns the season and stage names to send, trimmed, for those that differ from saved ('' is the default),
+ * {} when none do, or null when one is longer than the API allows (32 characters).
+ */
+export function levelNamesPatch(boxes: LevelNames, saved: LevelNames): Partial<LevelNames> | null {
+  const patch: Partial<LevelNames> = {};
+  for (const key of ['season_name', 'stage_name'] as const) {
+    const name = boxes[key].trim();
+    if ([...name].length > 32) return null;
+    if (name !== saved[key]) patch[key] = name;
+  }
+  return patch;
+}
