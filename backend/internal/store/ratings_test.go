@@ -83,8 +83,8 @@ func TestMigrationsGoDownAndUpAgain(t *testing.T) {
 	pool := migrated(t)
 	ctx := context.Background()
 	up := tables(t, pool)
-	if !slices.Contains(up, "matches") || !slices.Contains(up, "rating_runs") {
-		t.Fatalf("after up: tables = %q, want matches and rating_runs among them", up)
+	if !slices.Contains(up, "games") || !slices.Contains(up, "rating_runs") {
+		t.Fatalf("after up: tables = %q, want games and rating_runs among them", up)
 	}
 
 	if err := ResetRatings(ctx, pool); err != nil {
