@@ -37,6 +37,9 @@ func main() {
 	adminName := flag.String("name", "", "with -add-admin: the admin's name as admin shows it")
 	adminRole := flag.String("role", "", "with -add-admin: admin or organiser")
 	standings := flag.String("check-standings", "", "compare CGE's standings tables with the games held: print the counts, and write each difference to the new CSV file named")
+	cgeExtract := flag.String("cge-extract", "", "plan how CGE's extract in the directory named meets our games, with -cge-settings; -apply writes it")
+	cgeSettings := flag.String("cge-settings", "", "with -cge-extract: the directory of CGE's tournament and stage settings")
+	apply := flag.Bool("apply", false, "with -cge-extract: write the plan")
 	upstream := flag.String("export-upstream", "", "write every played game to the new file named, as the match CSV upstream's site loads")
 	flag.Usage = func() {
 		fmt.Fprintln(os.Stderr, "usage: load [-reset] <directory of match CSVs>")
@@ -45,6 +48,7 @@ func main() {
 		fmt.Fprintln(os.Stderr, "       load -export-upstream <file>")
 		fmt.Fprintln(os.Stderr, "       load -check-standings <file>")
 		fmt.Fprintln(os.Stderr, "       load -add-admin <Discord id> -name <name> -role admin|organiser")
+		fmt.Fprintln(os.Stderr, "       load -cge-extract <directory> -cge-settings <directory> [-apply]")
 		fmt.Fprintln(os.Stderr, "       load -migrate")
 		fmt.Fprintln(os.Stderr, "       load -classify")
 		fmt.Fprintln(os.Stderr, "       load -countries <CSV file>...")
@@ -53,7 +57,7 @@ func main() {
 		flag.PrintDefaults()
 	}
 	flag.Parse()
-	one := !*reset && btoi(*migrate)+btoi(*classify)+btoi(*countries)+btoi(*facts != "")+btoi(*export != "")+btoi(*restore != "")+btoi(*upstream != "")+btoi(*addAdmin != "")+btoi(*standings != "") == 1
+	one := !*reset && btoi(*migrate)+btoi(*classify)+btoi(*countries)+btoi(*facts != "")+btoi(*export != "")+btoi(*restore != "")+btoi(*upstream != "")+btoi(*addAdmin != "")+btoi(*standings != "")+btoi(*cgeExtract != "") == 1
 	var err error
 	switch {
 	case *migrate && one && flag.NArg() == 0:
@@ -83,7 +87,9 @@ func main() {
 		err = exportForUpstream(*upstream)
 	case *standings != "" && one && flag.NArg() == 0:
 		err = checkStandings(*standings)
-	case !*migrate && !*classify && !*countries && *facts == "" && *export == "" && *restore == "" && *upstream == "" && *addAdmin == "" && *standings == "" && flag.NArg() == 1:
+	case *cgeExtract != "" && *cgeSettings != "" && one && flag.NArg() == 0:
+		err = loadCGEExtract(*cgeExtract, *cgeSettings, *apply)
+	case !*migrate && !*classify && !*countries && *facts == "" && *export == "" && *restore == "" && *upstream == "" && *addAdmin == "" && *standings == "" && *cgeExtract == "" && flag.NArg() == 1:
 		err = run(*reset, flag.Arg(0))
 	default:
 		flag.Usage()
