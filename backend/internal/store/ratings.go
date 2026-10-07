@@ -12,6 +12,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/jackc/pgx/v5/stdlib"
 	"github.com/pressly/goose/v3"
+	"github.com/pressly/goose/v3/lock"
 
 	"ttacommunity/backend/internal/matchcsv"
 	"ttacommunity/backend/migrations"
@@ -28,15 +29,20 @@ type Loaded struct {
 	Players int
 }
 
-// withRatingsMigrations runs fn with a goose provider for the ratings migrations.
+// withRatingsMigrations runs fn with a goose provider for the ratings migrations, holding
+// goose's advisory lock so migrations started together (two api pods) run one after another.
 func withRatingsMigrations(pool *pgxpool.Pool, fn func(*goose.Provider) error) error {
 	dir, err := fs.Sub(migrations.Ratings, "ratings")
 	if err != nil {
 		return fmt.Errorf("opening the ratings migrations: %w", err)
 	}
+	locker, err := lock.NewPostgresSessionLocker(lock.WithLockTimeout(1, 300))
+	if err != nil {
+		return fmt.Errorf("making the migration lock: %w", err)
+	}
 	db := stdlib.OpenDBFromPool(pool)
 	defer db.Close()
-	p, err := goose.NewProvider(goose.DialectPostgres, db, dir)
+	p, err := goose.NewProvider(goose.DialectPostgres, db, dir, goose.WithSessionLocker(locker))
 	if err != nil {
 		return fmt.Errorf("reading the ratings migrations: %w", err)
 	}

@@ -472,9 +472,10 @@ deploys both together:
    crane digest ghcr.io/ttacommunity/ttacommunity/api:sha-<commit>
    ```
 
-3. Apply any new migration to the cluster's database **before** merging
-   (see [the cluster's database](#the-clusters-ratings-database)).
-   Migrations only add, so the running api is unaffected
+3. Nothing to do for migrations: each api pod's `migrate` init container
+   (the api image run with `-migrate`, as the database's owner) applies them
+   before the new api starts, one pod at a time. Migrations only add, so the
+   api still running from before is unaffected while it happens
 
 `checks/deploy-current.sh` fails if `deploy/` pins an image built from older
 code than the branch's, so a late code change needs a new image and pin.
@@ -494,8 +495,8 @@ export PGPASSWORD=$(kubectl -n ttacommunity get secret ratings-db -o jsonpath='{
 export RATINGS_DATABASE_URL="postgres://ratings@127.0.0.1:55499/ratings?sslmode=disable"
 ```
 
-**Apply new migrations** (before merging the change that needs them), and
-check the version moved:
+**Apply migrations by hand** only when the deploy cannot (the api's init
+container normally does it), and check the version moved:
 
 ```bash
 psql "$RATINGS_DATABASE_URL" -Atc "SELECT max(version_id) FROM goose_db_version"

@@ -4,6 +4,8 @@ package main
 import (
 	"context"
 	"errors"
+	"flag"
+	"fmt"
 	"log/slog"
 	"net"
 	"net/http"
@@ -21,8 +23,32 @@ import (
 	"ttacommunity/backend/internal/store"
 )
 
+// migrate applies the ratings migrations as url's login, the database's owner.
+func migrate(ctx context.Context, url string) error {
+	if url == "" {
+		return errors.New("RATINGS_DATABASE_URL is not set")
+	}
+	pool, err := pgxpool.New(ctx, url)
+	if err != nil {
+		return fmt.Errorf("opening the ratings database: %w", err)
+	}
+	defer pool.Close()
+	return store.MigrateRatings(ctx, pool)
+}
+
 func main() {
 	log := slog.New(slog.NewJSONHandler(os.Stdout, nil))
+	// The api pod's init container runs -migrate first, so a deploy applies its own migrations.
+	migrateOnly := flag.Bool("migrate", false, "apply the ratings migrations as RATINGS_DATABASE_URL's login, then exit")
+	flag.Parse()
+	if *migrateOnly {
+		if err := migrate(context.Background(), os.Getenv("RATINGS_DATABASE_URL")); err != nil {
+			log.Error("migrating the ratings database failed", "err", err)
+			os.Exit(1)
+		}
+		log.Info("ratings migrations applied")
+		return
+	}
 	addr := os.Getenv("API_ADDR")
 	if addr == "" {
 		addr = ":8080"
