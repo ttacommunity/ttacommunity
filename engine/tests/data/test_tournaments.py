@@ -463,56 +463,52 @@ def rl(n, season=9, group="Emperor"):
     return f"RL_s{season:02d} - {group} game {n}"
 
 
-def test_royal_league_head_to_head_breaks_a_tie(conn, add_match, run_id):
-    add_match(("bob", 100), ("ann", 90), tournament=rl(1))
-    add_match(("ann", 100), ("cat", 90), tournament=rl(2))
-    add_match(("bob", 50), ("cat", 90), tournament=rl(3))
-    add_match(("ann", 100), ("cat", 90), tournament=rl(4))
+@pytest.mark.parametrize(
+    "games, want",
+    [
+        pytest.param(
+            [
+                (("bob", 100), ("ann", 90)),
+                (("ann", 100), ("cat", 90)),
+                (("bob", 50), ("cat", 90)),
+                (("ann", 100), ("cat", 90)),
+            ],
+            [("ann", 1, 4.0), ("cat", 2, 2.0), ("bob", 3, 2.0)],
+            id="bob and cat on 2 points: cat beat bob",
+        ),
+        pytest.param(
+            [
+                (("ann", 100), ("bob", 100)),
+                (("ann", 100), ("cat", 100)),
+                (("ann", 100), ("dan", 100)),
+                (("bob", 100), ("cat", 90)),
+                (("dan", 100), ("bob", 90)),
+                (("dan", 100), ("cat", 90)),
+            ],
+            [("dan", 1, 5.0), ("bob", 2, 3.0), ("ann", 3, 3.0), ("cat", 4, 1.0)],
+            id="ann and bob drew, on 3 points: bob has a win, ann three draws",
+        ),
+        pytest.param(
+            [
+                (("ann", 100), ("bob", 100)),
+                (("ann", 100), ("cat", 90)),
+                (("bob", 300), ("dan", 10)),
+                (("cat", 50), ("dan", 40)),
+            ],
+            [("bob", 1, 3.0), ("ann", 2, 3.0), ("cat", 3, 2.0), ("dan", 4, 0.0)],
+            id="ann and bob drew and won once each: bob scored more",
+        ),
+    ],
+)
+def test_royal_league_breaks_ties_by_head_to_head_then_wins_then_total_score(
+    conn, add_match, run_id, games, want
+):
+    for n, seats in enumerate(games, start=1):
+        add_match(*seats, tournament=rl(n))
 
     derive_tournaments(conn=conn, run_id=run_id)
 
-    # bob and cat both have 2 points; cat beat bob.
-    assert standings(conn, run_id, 9) == [
-        ("ann", 1, 4.0),
-        ("cat", 2, 2.0),
-        ("bob", 3, 2.0),
-    ]
-
-
-def test_royal_league_then_wins(conn, add_match, run_id):
-    # ann and bob drew each other and have 3 points: bob with a win, ann with three draws.
-    add_match(("ann", 100), ("bob", 100), tournament=rl(1))
-    add_match(("ann", 100), ("cat", 100), tournament=rl(2))
-    add_match(("ann", 100), ("dan", 100), tournament=rl(3))
-    add_match(("bob", 100), ("cat", 90), tournament=rl(4))
-    add_match(("dan", 100), ("bob", 90), tournament=rl(5))
-    add_match(("dan", 100), ("cat", 90), tournament=rl(6))
-
-    derive_tournaments(conn=conn, run_id=run_id)
-
-    assert standings(conn, run_id, 9) == [
-        ("dan", 1, 5.0),
-        ("bob", 2, 3.0),
-        ("ann", 3, 3.0),
-        ("cat", 4, 1.0),
-    ]
-
-
-def test_royal_league_then_total_score(conn, add_match, run_id):
-    # ann and bob drew each other and each won once; bob scored more in all.
-    add_match(("ann", 100), ("bob", 100), tournament=rl(1))
-    add_match(("ann", 100), ("cat", 90), tournament=rl(2))
-    add_match(("bob", 300), ("dan", 10), tournament=rl(3))
-    add_match(("cat", 50), ("dan", 40), tournament=rl(4))
-
-    derive_tournaments(conn=conn, run_id=run_id)
-
-    assert standings(conn, run_id, 9) == [
-        ("bob", 1, 3.0),
-        ("ann", 2, 3.0),
-        ("cat", 3, 2.0),
-        ("dan", 4, 0.0),
-    ]
+    assert standings(conn, run_id, 9) == want
 
 
 def test_royal_league_boards_score_medals_and_order_by_first_medal(
