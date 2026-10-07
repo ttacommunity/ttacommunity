@@ -51,7 +51,7 @@ spec:
               app: api
       containers:
         - name: api
-          image: ghcr.io/ttacommunity/ttacommunity/api:sha-5c2d9739@sha256:0610174e76dd485bbc63398438cce4f9e9dabf4f5a7436c567ffb44124d26bd6
+          image: ghcr.io/ttacommunity/ttacommunity/api:sha-e4fea9b7@sha256:3ca915e3bc64a24155613ed1a5c84606e59e305fcb6674aa2860e65c06a2ac18
           ports:
             - name: http
               containerPort: 8080
