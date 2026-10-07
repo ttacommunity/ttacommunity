@@ -3,9 +3,16 @@
 # A fabricated digest looks exactly like a real one; only the registry knows.
 # Private GHCR images use GITHUB_TOKEN when it is set (CI), and otherwise the
 # local gh login, if there is one.
+# Usage: checks/verify-digests.sh [--skip-own]   (--skip-own lists our own GHCR images as not checked)
 set -uo pipefail
 
 cd "$(dirname "$0")/.." || exit 1
+skip_own=0
+case ${1:-} in
+  --skip-own) skip_own=1 ;;
+  "") ;;
+  *) echo "verify-digests: unknown argument: $1" >&2; exit 64 ;;
+esac
 
 GHCR_TOKEN=${GITHUB_TOKEN:-}
 if [ -z "$GHCR_TOKEN" ] && command -v gh >/dev/null 2>&1; then
@@ -52,8 +59,13 @@ if [ -z "$refs" ]; then
   exit 1
 fi
 
-problems=0; checked=0
+problems=0; checked=0; skipped=0
 while IFS= read -r ref; do
+  if [ "$skip_own" = 1 ] && [[ $ref == ghcr.io/ttacommunity/* ]]; then
+    printf '  NOT CHECKED  %s\n' "$ref"
+    skipped=$((skipped + 1))
+    continue
+  fi
   checked=$((checked + 1))
   code=$(status "$ref")
   case $code in
@@ -70,4 +82,4 @@ if [ "$problems" -gt 0 ]; then
   echo "verify-digests: $problems of $checked reference(s) did not resolve" >&2
   exit 1
 fi
-echo "  verify-digests: all $checked reference(s) resolve"
+echo "  verify-digests: all $checked reference(s) checked resolve; $skipped of our own not checked"

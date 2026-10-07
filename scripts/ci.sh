@@ -49,9 +49,27 @@ full() { [ "$TESTS_ONLY" = 0 ]; }
 area() { [ -z "$ONLY" ] || [ "$ONLY" = "$1" ]; }
 stop_pg() { command -v podman >/dev/null 2>&1 && podman rm -f "$PG_NAME" >/dev/null 2>&1; }
 
-# start_test_db sets TEST_DATABASE_URL, starting a throwaway Postgres if CI has not.
+# dev_test_db sets TEST_DATABASE_URL to a ttac_test database on .env's local dev server, as scripts\test.ps1
+# does, creating its ttac login the first time; it fails when that server is not running.
+dev_test_db() {
+  [ -z "${CI:-}" ] && [ -f "$ROOT/.env" ] && command -v psql >/dev/null 2>&1 || return 1
+  local dev host
+  # shellcheck disable=SC1091
+  dev=$(set -a; . "$ROOT/.env"; printf '%s' "${RATINGS_DATABASE_URL:-}")
+  host=$(printf '%s' "$dev" | sed -n 's|^postgres://[^@]*@\([^/]*\)/.*|\1|p')
+  [ -n "$host" ] && psql "$dev" -qAtc 'SELECT 1' >/dev/null 2>&1 || return 1
+  psql "$dev" -qAt -v ON_ERROR_STOP=1 >/dev/null <<'SQL' || return 1
+SELECT format('CREATE ROLE ttac LOGIN SUPERUSER PASSWORD %L', 'local-only') WHERE NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'ttac') \gexec
+SELECT 'CREATE DATABASE ttac_test OWNER ttac' WHERE NOT EXISTS (SELECT FROM pg_database WHERE datname = 'ttac_test') \gexec
+SQL
+  export TEST_DATABASE_URL="postgres://ttac:local-only@$host/ttac_test?sslmode=disable"
+  echo "  tests use the local dev server's ttac_test database"
+}
+
+# start_test_db sets TEST_DATABASE_URL: CI's, else the local dev server's, else a throwaway Postgres.
 start_test_db() {
   [ -n "${TEST_DATABASE_URL:-}" ] && return 0
+  dev_test_db && return 0
   need podman "a throwaway Postgres for integration tests" || return 1
   stop_pg
   podman run -d --name "$PG_NAME" -e POSTGRES_USER=ttac -e POSTGRES_PASSWORD=local-only \
@@ -161,15 +179,26 @@ if full && area checks; then
   run bash checks/comment-density.sh
   run bash checks/no-raw-html.sh
   run bash checks/secret-scan.sh --all
-  run bash checks/verify-digests.sh
+  # Locally, red means something to fix here: a gh login that cannot read our packages leaves our images to CI.
+  if [ -z "${CI:-}" ] && [ -z "${GITHUB_TOKEN:-}" ] && ! gh auth status 2>&1 | grep -qE 'read:packages|write:packages'; then
+    run bash checks/verify-digests.sh --skip-own
+    not_covered+=("our own GHCR images' digests: your gh login cannot read them (gh auth refresh -s read:packages); CI checks them")
+  else
+    run bash checks/verify-digests.sh
+  fi
   # dev deploys from deploy/dev. main's pins are checked too, but not while dev's MR to main is a draft.
   target=${GITHUB_BASE_REF:-${GITHUB_REF_NAME:-$(git rev-parse --abbrev-ref HEAD)}}
   source=${GITHUB_HEAD_REF:-$target}
-  if [ "$source" = dev ] || [ "$target" = dev ]; then
-    run bash checks/deploy-current.sh deploy/dev
-  fi
-  if [ "$target" != dev ] && ! { [ "$source" = dev ] && [ "${PR_DRAFT:-}" = true ]; }; then
-    run bash checks/deploy-current.sh
+  if [ -z "${CI:-}" ] && [ "$source" != main ] && [ "$source" != dev ]; then
+    # A branch's images are built by CI (the images label), so its pins cannot be brought up to date here.
+    not_covered+=("deploy/ pins built from this branch's code: CI checks them; pin the images the images label builds")
+  else
+    if [ "$source" = dev ] || [ "$target" = dev ]; then
+      run bash checks/deploy-current.sh deploy/dev
+    fi
+    if [ "$target" != dev ] && ! { [ "$source" = dev ] && [ "${PR_DRAFT:-}" = true ]; }; then
+      run bash checks/deploy-current.sh
+    fi
   fi
 
   step "workflows"

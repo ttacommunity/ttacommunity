@@ -124,7 +124,7 @@ Kubernetes, so it can never open a deployed admin.
 ### 5. Test it
 
 ```bash
-scripts/test.sh    # every test: Go (with a throwaway Postgres), the engine, web
+scripts/test.sh    # every test: Go, the engine, web, on the local dev Postgres (else a throwaway one)
 scripts/ci.sh      # everything CI runs, in the same order
 ```
 
