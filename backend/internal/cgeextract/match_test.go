@@ -2,6 +2,7 @@ package cgeextract
 
 import (
 	"slices"
+	"strings"
 	"testing"
 )
 
@@ -62,7 +63,7 @@ func TestMatchFindsEachCGEGamesCopyOfOurs(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := Match([]Game{tt.cge}, tt.ours, names, series)
+			got := Match([]Game{tt.cge}, tt.ours, names, series, nil)
 			if !mapsEqual(got.Matched, tt.want) {
 				t.Errorf("matched = %v, want %v", got.Matched, tt.want)
 			}
@@ -77,7 +78,7 @@ func TestMatchAddsWhatOnlyCGEHasAndHoldsBackPossibleCopies(t *testing.T) {
 		cgeGame(101, 19, "CODEBBBB", cgeSeat(3, 120), cgeSeat(4, 110)),
 	}
 	// Ours holds ann and bob's game with a score typed differently: a possible copy, not a match.
-	got := Match(cge, []OurGame{ours(1, 7, "", seat("ann", 200), seat("bob", 15))}, names, series)
+	got := Match(cge, []OurGame{ours(1, 7, "", seat("ann", 200), seat("bob", 15))}, names, series, nil)
 
 	if !slices.Equal(got.Added, []int{101}) || !slices.Equal(got.HeldBack, []int{100}) || !slices.Equal(got.OursOnly, []int64{1}) {
 		t.Errorf("added %v, held back %v, ours only %v; want 101, 100 and our game 1", got.Added, got.HeldBack, got.OursOnly)
@@ -123,4 +124,27 @@ func mapsEqual[K comparable, V comparable](a, b map[K]V) bool {
 		}
 	}
 	return true
+}
+
+func TestMatchTakesAConfirmedPairBeforeAnythingElse(t *testing.T) {
+	series := map[int]int64{19: 7}
+	cge := []Game{cgeGame(100, 19, "CODEAAAA", cgeSeat(1, 200), cgeSeat(2, 150))}
+	// The file typed bob's score differently: held back, unless the pair is confirmed.
+	ours := []OurGame{ours(1, 7, "", seat("ann", 200), seat("bob", 15))}
+
+	got := Match(cge, ours, names, series, map[string]int64{"CODEAAAA": 1})
+
+	if !mapsEqual(got.Matched, map[int64]int{1: 100}) || len(got.HeldBack) != 0 {
+		t.Errorf("matched %v, held back %v; want our game 1 matched to 100", got.Matched, got.HeldBack)
+	}
+}
+
+func TestReadConfirmedPairs(t *testing.T) {
+	got, err := ReadConfirmedPairs("p.csv", strings.NewReader("share_code,game_id,reason\nCODEAAAA,12,r\nCODEBBBB,x,r\n"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(got.Pairs) != 1 || got.Pairs["CODEAAAA"] != 12 || len(got.Refused) != 1 || got.Refused[0].Line != 3 {
+		t.Errorf("pairs %v, refused %+v; want CODEAAAA→12 and line 3 refused", got.Pairs, got.Refused)
+	}
 }

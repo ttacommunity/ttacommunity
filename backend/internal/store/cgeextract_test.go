@@ -34,7 +34,7 @@ func TestPlanCGEExtractMatchesOurGamesByCodeAndByPlayers(t *testing.T) {
 		extractSeat(102, 19, 2, "bob", "CODECCCC", 70), extractSeat(102, 19, 3, "cy", "CODECCCC", 60),
 	}}
 
-	plan, err := PlanCGEExtract(ctx, pool, x)
+	plan, err := PlanCGEExtract(ctx, pool, x, nil)
 	if err != nil {
 		t.Fatalf("PlanCGEExtract: %v", err)
 	}
@@ -108,7 +108,7 @@ func TestApplyCGEExtractWritesWhatCGERecorded(t *testing.T) {
 		Special:  map[int]cgeextract.Special{200: {Rules: "Tabletop", CardSet: "Random Mix"}},
 		Settings: []cgeextract.Settings{{TournamentID: 19, TimeoutPenalty: &penalty}},
 	}
-	plan, err := PlanCGEExtract(ctx, pool, x)
+	plan, err := PlanCGEExtract(ctx, pool, x, nil)
 	if err != nil {
 		t.Fatalf("PlanCGEExtract: %v", err)
 	}

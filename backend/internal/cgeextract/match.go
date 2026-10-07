@@ -65,11 +65,17 @@ type Matching struct {
 // Match matches each CGE game to one of ours: by share code, else by its players and its finished seats'
 // scores, when exactly one of our games without a code fits (a timed-out seat is left out, as our files score
 // it -5 or -1 where CGE has none). names maps a lower-case name to the accounts that played under it; series
-// maps a CGE tournament to our series (absent if not linked), and a match never crosses series. A game only
-// CGE has is held back when an unmatched game of ours in its series has the same players.
-func Match(cge []Game, ours []OurGame, names map[string][]int, series map[int]int64) Matching {
+// maps a CGE tournament to our series (absent if not linked), and a match never crosses series. confirmed maps
+// a share code to our game, checked by hand, matched first. A game only CGE has is held back when an unmatched
+// game of ours in its series has the same players.
+func Match(cge []Game, ours []OurGame, names map[string][]int, series map[int]int64, confirmed map[string]int64) Matching {
 	got := Matching{Matched: map[int64]int{}}
 	used := map[int64]bool{}
+	for _, g := range cge {
+		if id, ok := confirmed[g.ShareCode]; ok && !used[id] {
+			got.Matched[id], used[id] = g.SessionID, true
+		}
+	}
 	byCode := map[string]int64{}
 	byKey := map[string][]int{}
 	for i, o := range ours {
@@ -81,6 +87,9 @@ func Match(cge []Game, ours []OurGame, names map[string][]int, series map[int]in
 	}
 	var unmatched []Game
 	for _, g := range cge {
+		if _, ok := confirmed[g.ShareCode]; ok && used[confirmed[g.ShareCode]] {
+			continue
+		}
 		if id, ok := byCode[g.ShareCode]; ok && !used[id] {
 			got.Matched[id], used[id] = g.SessionID, true
 			continue

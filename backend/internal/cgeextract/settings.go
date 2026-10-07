@@ -61,6 +61,26 @@ func ReadSpecialRules(file string, r io.Reader) (SpecialRules, error) {
 	return got, err
 }
 
+// ConfirmedPairs is what a confirmed pairs file gave: our game id by CGE share code, checked by hand.
+type ConfirmedPairs struct {
+	Pairs   map[string]int64
+	Refused []Refusal
+}
+
+// ReadConfirmedPairs reads a CSV of share_code, game_id and reason.
+func ReadConfirmedPairs(file string, r io.Reader) (ConfirmedPairs, error) {
+	got := ConfirmedPairs{Pairs: map[string]int64{}}
+	err := readRows(file, r, []string{"share_code", "game_id", "reason"}, func(line int, f func(string) string) {
+		id, err := strconv.ParseInt(f("game_id"), 10, 64)
+		if err != nil || id < 1 || f("share_code") == "" {
+			got.Refused = append(got.Refused, Refusal{Line: line, Reason: BadID})
+			return
+		}
+		got.Pairs[f("share_code")] = id
+	})
+	return got, err
+}
+
 // ReadTournamentSettings reads tournament_settings.csv, each tournament's settings.
 func ReadTournamentSettings(file string, r io.Reader) (SettingsFile, error) {
 	return readSettings(file, r, tournamentHeader, false)

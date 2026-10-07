@@ -20,8 +20,8 @@ type CGEPlan struct {
 	Series   map[int]int64
 }
 
-// PlanCGEExtract reads our games and matches the extract's to them, writing nothing.
-func PlanCGEExtract(ctx context.Context, pool *pgxpool.Pool, x cgeextract.Extract) (CGEPlan, error) {
+// PlanCGEExtract reads our games and matches the extract's to them, confirmed pairs first, writing nothing.
+func PlanCGEExtract(ctx context.Context, pool *pgxpool.Pool, x cgeextract.Extract, confirmed map[string]int64) (CGEPlan, error) {
 	plan := CGEPlan{Games: cgeextract.Games(x.Seats), Names: map[string][]int{}, Series: map[int]int64{}}
 	addName := func(name string, account int) {
 		k := strings.ToLower(name)
@@ -99,6 +99,6 @@ func PlanCGEExtract(ctx context.Context, pool *pgxpool.Pool, x cgeextract.Extrac
 		return CGEPlan{}, fmt.Errorf("reading our games: %w", err)
 	}
 	plan.Ours = ours
-	plan.Matching = cgeextract.Match(plan.Games, ours, plan.Names, plan.Series)
+	plan.Matching = cgeextract.Match(plan.Games, ours, plan.Names, plan.Series, confirmed)
 	return plan, nil
 }

@@ -15,9 +15,10 @@ import (
 	"ttacommunity/backend/internal/store"
 )
 
-// loadCGEExtract reads CGE's extract from dir and its settings from settingsDir, plans how it meets our games
-// and prints the plan; with apply it also writes it, after applying any pending migration.
-func loadCGEExtract(dir, settingsDir string, apply bool) error {
+// loadCGEExtract reads CGE's extract from dir, its settings from settingsDir and, if named, the pairs of CGE's
+// and our games confirmed by hand from pairsFile; plans how it meets our games and prints the plan; with apply
+// it also writes it, after applying any pending migration.
+func loadCGEExtract(dir, settingsDir, pairsFile string, apply bool) error {
 	read := func(name string, read func(string, io.Reader) error) error {
 		f, err := os.Open(name)
 		if err != nil {
@@ -27,6 +28,7 @@ func loadCGEExtract(dir, settingsDir string, apply bool) error {
 		return read(name, f)
 	}
 	var in store.CGEInput
+	var confirmed map[string]int64
 	steps := []struct {
 		file string
 		read func(string, io.Reader) error
@@ -51,6 +53,19 @@ func loadCGEExtract(dir, settingsDir string, apply bool) error {
 			return err
 		}},
 	}
+	if pairsFile != "" {
+		steps = append(steps, struct {
+			file string
+			read func(string, io.Reader) error
+		}{pairsFile, func(n string, r io.Reader) error {
+			got, err := cgeextract.ReadConfirmedPairs(n, r)
+			if err == nil && len(got.Refused) > 0 {
+				err = fmt.Errorf("%s: %d rows refused, the first at line %d", n, len(got.Refused), got.Refused[0].Line)
+			}
+			confirmed = got.Pairs
+			return err
+		}})
+	}
 	for _, s := range steps {
 		if err := read(s.file, s.read); err != nil {
 			return err
@@ -60,7 +75,7 @@ func loadCGEExtract(dir, settingsDir string, apply bool) error {
 		if err := store.MigrateRatings(ctx, pool); err != nil {
 			return err
 		}
-		plan, err := store.PlanCGEExtract(ctx, pool, in.Extract)
+		plan, err := store.PlanCGEExtract(ctx, pool, in.Extract, confirmed)
 		if err != nil {
 			return err
 		}
