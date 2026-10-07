@@ -1,7 +1,6 @@
 package store
 
 import (
-	"cmp"
 	"context"
 	"errors"
 	"fmt"
@@ -347,18 +346,9 @@ func scanGameRecord(row pgx.CollectableRow) (GameRecord, error) {
 	var cultures []float64
 	var places []int16
 	err := row.Scan(&g.Tournament, &g.Date, &names, &cultures, &places)
-	type placed struct {
-		seat  Seat
-		place int16
-	}
-	byPlace := make([]placed, len(names))
-	for i := range names {
-		byPlace[i] = placed{Seat{Name: names[i], Score: cultures[i]}, places[i]}
-	}
-	slices.SortStableFunc(byPlace, func(a, b placed) int { return cmp.Compare(a.place, b.place) })
 	var seats []Seat
-	for _, p := range byPlace {
-		seats = append(seats, p.seat)
+	for _, p := range byPlace(names, cultures, places, nil) {
+		seats = append(seats, Seat{Name: p.Name, Score: p.Score})
 	}
 	if len(seats) > 0 {
 		g.Name, g.Score, g.Opponents = seats[0].Name, seats[0].Score, seats[1:]

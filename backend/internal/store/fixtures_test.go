@@ -195,3 +195,32 @@ func placedOn(t *testing.T, pool *pgxpool.Pool, games map[string]time.Time) {
 
 // ptr returns a pointer to a copy of v, for optional fields in test data.
 func ptr[T any](v T) *T { return &v }
+
+// setSeats replaces the seats of every game named like pattern (SQL LIKE), adding players as needed; each
+// seat's place follows its score, and its culture is the score, or 0 below 0.
+func setSeats(t *testing.T, pool *pgxpool.Pool, pattern string, seats ...Seat) {
+	t.Helper()
+	ctx := context.Background()
+	var names []string
+	var scores []float64
+	for _, s := range seats {
+		names, scores = append(names, s.Name), append(scores, s.Score)
+	}
+	steps := []struct {
+		q    string
+		args []any
+	}{
+		{"DELETE FROM seats WHERE game_id IN (SELECT game_id FROM games WHERE name LIKE $1)", []any{pattern}},
+		{"INSERT INTO players (name) SELECT unnest($1::text[]) ON CONFLICT (name) DO NOTHING", []any{names}},
+		{`INSERT INTO seats (game_id, seat, player_id, player_name, culture, recorded_score, place)
+		  SELECT g.game_id, s.seat, p.player_id, s.name, greatest(s.score, 0), s.score,
+		         rank() OVER (PARTITION BY g.game_id ORDER BY s.score DESC)
+		  FROM games g CROSS JOIN unnest($2::text[], $3::float8[]) WITH ORDINALITY AS s(name, score, seat)
+		  JOIN players p ON p.name = s.name WHERE g.name LIKE $1`, []any{pattern, names, scores}},
+	}
+	for _, step := range steps {
+		if _, err := pool.Exec(ctx, step.q, step.args...); err != nil {
+			t.Fatalf("setting the seats of %s: %v\n%s", pattern, err, step.q)
+		}
+	}
+}

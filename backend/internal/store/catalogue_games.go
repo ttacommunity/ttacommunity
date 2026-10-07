@@ -61,18 +61,18 @@ type CatalogueGames struct {
 // shownGames is every placed game of a shown tournament (rated or made
 // visible), never-played ones included, with its season and stage.
 const shownGames = `
-	SELECT m.match_id, m.date, s.label AS season, st.label AS stage, m.group_label, coalesce(m.game_number, 0) AS game,
-	       m.state, coalesce(m.replay_code, '') AS code,
+	SELECT m.game_id AS match_id, m.date, s.label AS season, st.label AS stage, m.group_name AS group_label,
+	       coalesce(m.game_number, 0) AS game, m.state, coalesce(m.share_code, '') AS code,
 	       m.state = 'played' AND s.rated AND m.player_count = ANY(t.rated_player_counts)
-	         AND EXISTS (SELECT 1 FROM ranking_tournaments rt WHERE rt.tournament_id = t.tournament_id) AS rated
-	FROM matches m
-	JOIN tournament_stages st USING (stage_id)
-	JOIN tournament_seasons s USING (season_id)
-	JOIN tournaments t USING (tournament_id)
+	         AND EXISTS (SELECT 1 FROM ranking_series rt WHERE rt.series_id = t.series_id) AS rated
+	FROM game_lines m
+	JOIN stages st USING (stage_id)
+	JOIN tournaments s ON s.tournament_id = st.tournament_id
+	JOIN series t ON t.series_id = s.series_id
 	WHERE t.slug = $1
-	  AND (t.visible OR EXISTS (SELECT 1 FROM ranking_tournaments rt WHERE rt.tournament_id = t.tournament_id))
+	  AND (t.visible OR EXISTS (SELECT 1 FROM ranking_series rt WHERE rt.series_id = t.series_id))
 	  AND ($2 = '' OR s.label = $2) AND ($3 = '' OR st.label = $3)
-	  AND ($4 = '' OR lower($4) IN (lower(m.player1), lower(m.player2), lower(m.player3), lower(m.player4)))`
+	  AND ($4 = '' OR lower($4) IN (SELECT lower(x) FROM unnest(m.players) x))`
 
 // CatalogueGames returns one page of a shown tournament's games, newest
 // first, for a published run. A page past the last gives the last. A
@@ -115,9 +115,8 @@ func (r *RatingsReader) CatalogueGames(ctx context.Context, run int64, slug stri
 
 	rows, err := r.pool.Query(ctx, `
 		SELECT g.match_id, g.date, g.season, g.stage, g.group_label, g.game, g.state, g.code, g.rated,
-		       m.player1, m.score1, m.player2, m.score2, m.player3, m.score3, m.player4, m.score4,
-		       coalesce((SELECT jsonb_object_agg(player_name, outcome) FROM match_seats WHERE match_id = g.match_id), '{}')
-		FROM (`+shownGames+`) g JOIN matches m USING (match_id)
+		       m.players, m.cultures, m.places, m.outcomes
+		FROM (`+shownGames+`) g JOIN game_lines m ON m.game_id = g.match_id
 		WHERE ($5 = '' OR g.group_label = $5) AND (NOT $6 OR g.code <> '')
 		ORDER BY g.date DESC, g.season, g.stage, g.group_label, g.game DESC, g.match_id
 		LIMIT $7 OFFSET $8`,
@@ -127,17 +126,13 @@ func (r *RatingsReader) CatalogueGames(ctx context.Context, run int64, slug stri
 	}
 	got.Games, err = pgx.CollectRows(rows, func(row pgx.CollectableRow) (CatalogueGame, error) {
 		var g CatalogueGame
-		var names [4]*string
-		var scores [4]*float64
-		var outcomes map[string]string
+		var names []string
+		var cultures []float64
+		var places []int16
+		var outcomes []*string
 		err := row.Scan(&g.ID, &g.Date, &g.Season, &g.Stage, &g.Group, &g.Game, &g.State, &g.Code, &g.Rated,
-			&names[0], &scores[0], &names[1], &scores[1], &names[2], &scores[2], &names[3], &scores[3], &outcomes)
-		for i := range names {
-			if names[i] != nil && scores[i] != nil {
-				g.Seats = append(g.Seats, GameSeat{Name: *names[i], Score: *scores[i], Outcome: outcomes[*names[i]]})
-			}
-		}
-		slices.SortStableFunc(g.Seats, func(a, b GameSeat) int { return cmp.Compare(b.Score, a.Score) })
+			&names, &cultures, &places, &outcomes)
+		g.Seats = byPlace(names, cultures, places, outcomes)
 		return g, err
 	})
 	if err != nil {
@@ -193,4 +188,23 @@ func naturally(a, b string) int {
 		}
 	}
 	return cmp.Compare(len(pa), len(pb))
+}
+
+// byPlace returns a game's seats from its seat-ordered arrays, best place first, a tie in seat order.
+// An outcome not recorded is "".
+func byPlace(names []string, cultures []float64, places []int16, outcomes []*string) []GameSeat {
+	order := make([]int, len(names))
+	for i := range order {
+		order[i] = i
+	}
+	slices.SortStableFunc(order, func(a, b int) int { return cmp.Compare(places[a], places[b]) })
+	seats := make([]GameSeat, 0, len(names))
+	for _, i := range order {
+		seat := GameSeat{Name: names[i], Score: cultures[i]}
+		if i < len(outcomes) && outcomes[i] != nil {
+			seat.Outcome = *outcomes[i]
+		}
+		seats = append(seats, seat)
+	}
+	return seats
 }

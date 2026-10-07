@@ -76,15 +76,15 @@ func TestCatalogueGamesGivesSeatsStateAndCode(t *testing.T) {
 		"Intermezzo S24 - Bronze 1 game 2": day("2024-01-09"),
 	})
 	var id int64
-	if err := pool.QueryRow(ctx, `UPDATE matches SET state = 'never_played', replay_code = 'ABCDEFGH'
-		WHERE tournament = 'Intermezzo S24 - Bronze 1 game 2' RETURNING match_id`).Scan(&id); err != nil {
+	if err := pool.QueryRow(ctx, `UPDATE games SET state = 'never_played', share_code = 'ABCDEFGH'
+		WHERE name = 'Intermezzo S24 - Bronze 1 game 2' RETURNING game_id`).Scan(&id); err != nil {
 		t.Fatalf("marking a game never played: %v", err)
 	}
-	if _, err := pool.Exec(ctx, "INSERT INTO match_seats (match_id, seat, player_name, outcome) VALUES ($1, 1, 'ann', 'timed_out')", id); err != nil {
+	if _, err := pool.Exec(ctx, "UPDATE seats SET outcome = 'timed_out', culture = 0 WHERE game_id = $1 AND seat = 1", id); err != nil {
 		t.Fatalf("adding a seat: %v", err)
 	}
 	var bob string
-	if err := pool.QueryRow(ctx, "SELECT player2 FROM matches WHERE match_id = $1", id).Scan(&bob); err != nil {
+	if err := pool.QueryRow(ctx, "SELECT player_name FROM seats WHERE game_id = $1 AND seat = 2", id).Scan(&bob); err != nil {
 		t.Fatalf("reading the game: %v", err)
 	}
 
@@ -99,8 +99,8 @@ func TestCatalogueGamesGivesSeatsStateAndCode(t *testing.T) {
 	if g.State != "never_played" || g.Code != "ABCDEFGH" || g.ID != id {
 		t.Errorf("newest game = %+v, want never played, code ABCDEFGH, id %d", g, id)
 	}
-	// Highest score first; an outcome only where CGE's seat is known.
-	want := []GameSeat{{Name: bob, Score: 2}, {Name: "ann", Score: 1, Outcome: "timed_out"}}
+	// Best place first; a timed-out seat has no culture; an outcome only where it is known.
+	want := []GameSeat{{Name: bob, Score: 2}, {Name: "ann", Score: 0, Outcome: "timed_out"}}
 	if !reflect.DeepEqual(g.Seats, want) {
 		t.Errorf("seats = %+v, want %+v", g.Seats, want)
 	}
@@ -118,7 +118,7 @@ func TestCatalogueGamesCountsAndFiltersCodes(t *testing.T) {
 		"Intermezzo S24 - Bronze 1 game 2": day("2024-01-09"),
 		"Intermezzo S24 - Bronze 1 game 3": day("2024-01-16"),
 	})
-	if _, err := pool.Exec(ctx, "UPDATE matches SET replay_code = 'CODE' || game_number WHERE game_number < 3"); err != nil {
+	if _, err := pool.Exec(ctx, "UPDATE games SET share_code = 'CODE' || game_number WHERE game_number < 3"); err != nil {
 		t.Fatalf("adding codes: %v", err)
 	}
 	r := NewRatingsReader(asReader(t, pool))
@@ -171,7 +171,7 @@ func TestCatalogueGamesRefusesAHiddenTournamentAndAnUnpublishedRun(t *testing.T)
 	ctx := context.Background()
 	run := publishedRun(t, pool)
 	placedOn(t, pool, map[string]time.Time{"Wimbledon 2024 Stage 1 - group 1 game 1": day("2024-07-01")})
-	if _, err := pool.Exec(ctx, `DELETE FROM ranking_tournaments WHERE tournament_id = (SELECT tournament_id FROM tournaments WHERE slug = 'wimbledon')`); err != nil {
+	if _, err := pool.Exec(ctx, `DELETE FROM ranking_series WHERE series_id = (SELECT series_id FROM series WHERE slug = 'wimbledon')`); err != nil {
 		t.Fatalf("unrating wimbledon: %v", err)
 	}
 	r := NewRatingsReader(asReader(t, pool))
@@ -197,7 +197,7 @@ func TestCatalogueGamesNarrowsToAPlayer(t *testing.T) {
 		"Intermezzo S25 - Bronze 2 game 1": day("2024-05-01"),
 	})
 	var bob string
-	if err := pool.QueryRow(ctx, "SELECT player2 FROM matches WHERE tournament = 'Intermezzo S24 - Bronze 1 game 2'").Scan(&bob); err != nil {
+	if err := pool.QueryRow(ctx, "SELECT s.player_name FROM seats s JOIN games g USING (game_id) WHERE g.name = 'Intermezzo S24 - Bronze 1 game 2' AND s.seat = 2").Scan(&bob); err != nil {
 		t.Fatalf("reading a player: %v", err)
 	}
 	r := NewRatingsReader(asReader(t, pool))
@@ -231,7 +231,7 @@ func TestAnUnconfirmedGameIsListedButNotCounted(t *testing.T) {
 		"Intermezzo S24 - Bronze 1 game 1": day("2024-01-02"),
 		"Intermezzo S24 - Bronze 1 game 2": day("2024-01-09"),
 	})
-	if _, err := pool.Exec(ctx, "UPDATE matches SET state = 'unconfirmed' WHERE tournament = 'Intermezzo S24 - Bronze 1 game 2'"); err != nil {
+	if _, err := pool.Exec(ctx, "UPDATE games SET state = 'unconfirmed' WHERE name = 'Intermezzo S24 - Bronze 1 game 2'"); err != nil {
 		t.Fatalf("marking a game unconfirmed: %v", err)
 	}
 	r := NewRatingsReader(asReader(t, pool))
@@ -263,10 +263,12 @@ func TestCatalogueGamesMarksWhichGamesAreRated(t *testing.T) {
 		"Wimbledon 2024 Stage 7 - Final game 1":   day("2025-02-24"),
 	})
 	for _, q := range []string{
-		"UPDATE tournament_seasons SET rated = false WHERE label = '2023'",
-		"UPDATE matches SET player3 = 'cat', score3 = 1, player_count = 3 WHERE tournament LIKE '%group 2 game 1'",
-		"UPDATE tournaments SET rated_player_counts = '{2}' WHERE slug = 'wimbledon'",
-		"UPDATE matches SET state = 'never_played' WHERE tournament LIKE '%Final game 1'",
+		"UPDATE tournaments SET rated = false WHERE label = '2023'",
+		"INSERT INTO players (name) VALUES ('cat')",
+		`INSERT INTO seats (game_id, seat, player_id, player_name, culture, recorded_score, place)
+		 SELECT game_id, 3, (SELECT player_id FROM players WHERE name = 'cat'), 'cat', 1, 1, 2 FROM games WHERE name LIKE '%group 2 game 1'`,
+		"UPDATE series SET rated_player_counts = '{2}' WHERE slug = 'wimbledon'",
+		"UPDATE games SET state = 'never_played' WHERE name LIKE '%Final game 1'",
 	} {
 		if _, err := pool.Exec(ctx, q); err != nil {
 			t.Fatalf("%s: %v", q, err)
@@ -295,7 +297,7 @@ func TestCatalogueGamesMarksWhichGamesAreRated(t *testing.T) {
 	if got := rated(); !reflect.DeepEqual(got, want) {
 		t.Errorf("rated = %v, want %v", got, want)
 	}
-	for _, q := range []string{"DELETE FROM ranking_tournaments", "UPDATE tournaments SET visible = true"} {
+	for _, q := range []string{"DELETE FROM ranking_series", "UPDATE series SET visible = true"} {
 		if _, err := pool.Exec(ctx, q); err != nil {
 			t.Fatal(err)
 		}
