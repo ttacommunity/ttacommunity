@@ -138,7 +138,7 @@ def catalogue(conn):
     def add(slug, season, stages=(), quarter=None):
         t = conn.execute(
             "INSERT INTO tournaments (slug, name, in_community_leaderboard) VALUES (%s, %s, true) "
-            "ON CONFLICT (slug) DO UPDATE SET slug = excluded.slug RETURNING tournament_id",
+            "ON CONFLICT (slug) DO UPDATE SET in_community_leaderboard = true RETURNING tournament_id",
             (slug, slug),
         ).fetchone()["tournament_id"]
         s = conn.execute(

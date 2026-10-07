@@ -4,6 +4,7 @@ import pytest
 
 from tta_ratings_engine.data.db import RunNotRunning
 from tta_ratings_engine.data.tournaments import (
+    SeriesRulesMissing,
     derive_tournaments,
     game_points,
     parse_intermezzo,
@@ -921,3 +922,65 @@ def test_a_final_tie_the_rules_cannot_split_gives_no_podium(conn, worlds_game, r
 
     assert worlds_podium(conn, run_id, 2025) == []
     assert world_titles(conn, run_id) == {}
+
+
+def test_league_points_come_from_the_tournament_settings(conn, add_match, run_id):
+    conn.execute(
+        "UPDATE tournaments SET points_3p = '{9,1,0}' WHERE slug = 'international'"
+    )
+    add_match(("ann", 100), ("bob", 90), ("cat", 80), tournament=gm(1))
+
+    derive_tournaments(conn=conn, run_id=run_id)
+
+    assert standings(conn, run_id, 30) == [
+        ("ann", 1, 9.0),
+        ("bob", 2, 1.0),
+        ("cat", 3, 0.0),
+    ]
+
+
+def test_top_divisions_come_from_the_tournament_settings(conn, add_match, run_id):
+    conn.execute(
+        "UPDATE tournaments SET top_divisions = '{Gold}' WHERE slug = 'international'"
+    )
+    add_match(("ann", 90), ("bob", 80), ("cat", 70), tournament=gm(1))
+    add_match(
+        ("dan", 90),
+        ("eve", 80),
+        ("fay", 70),
+        tournament="International S30 - Gold 1 game 1",
+    )
+
+    derive_tournaments(conn=conn, run_id=run_id)
+
+    assert set(board(conn, run_id)) == {"dan", "eve", "fay"}
+
+
+def test_the_world_championship_final_is_scored_from_its_settings(
+    conn, worlds_game, run_id
+):
+    conn.execute(
+        "UPDATE tournaments SET points_4p = '{1,1,1,0}', points_3p = '{1,1,0}', points_2p = '{1,0}' WHERE slug = 'worlds'"
+    )
+    a_final(worlds_game)
+
+    derive_tournaments(conn=conn, run_id=run_id)
+
+    assert [p[1:] for p in worlds_podium(conn, run_id, 2025)][:1] == [(1, 3.0)]
+
+
+@pytest.mark.parametrize(
+    "change",
+    [
+        "UPDATE tournaments SET points_2p = '{}', points_3p = '{}', points_4p = '{}' WHERE slug = 'intermezzo'",
+        "UPDATE tournaments SET top_divisions = '{}' WHERE slug = 'royal_league'",
+        "UPDATE tournaments SET points_2p = '{}', points_3p = '{}', points_4p = '{}' WHERE slug = 'worlds'",
+        "DELETE FROM tournaments WHERE slug = 'international'",
+    ],
+)
+def test_derive_refuses_a_series_without_its_rules(conn, run_id, change):
+    conn.execute(change)
+    conn.commit()
+
+    with pytest.raises(SeriesRulesMissing):
+        derive_tournaments(conn=conn, run_id=run_id)

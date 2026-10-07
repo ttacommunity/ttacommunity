@@ -56,6 +56,14 @@ def template_db():
         with psycopg.connect(url_for(name)) as c:
             for f in files:
                 c.execute(up_sql(f))
+            # The series the engine derives, with the settings the load job gives them when first seen.
+            c.execute(
+                "INSERT INTO tournaments (slug, name, top_divisions, points_2p, points_3p, points_4p) VALUES "
+                "('international', 'International', '{Grandmaster,Diamond}', '{}', '{5,2,0}', '{6,3,1,0}'), "
+                "('intermezzo', 'Intermezzo', '{Grandmaster,Diamond}', '{}', '{5,2,0}', '{}'), "
+                "('royal_league', 'Royal League', '{Emperor}', '{2,0}', '{}', '{}'), "
+                "('worlds', 'World Championship', '{Final}', '{4,0}', '{5,2,0}', '{6,3,1,0}')"
+            )
         yield name
     finally:
         drop_database(name)
