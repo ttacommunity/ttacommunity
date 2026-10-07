@@ -13,7 +13,7 @@ import (
 func TestReplaceCommunityLaddersWritesKnownTournamentsOnly(t *testing.T) {
 	pool := migrated(t)
 	ctx := context.Background()
-	if _, err := pool.Exec(ctx, "INSERT INTO tournaments (slug, name, kind) VALUES ('sodium_ladder', 'Sodium Ladder', 'ladder')"); err != nil {
+	if _, err := pool.Exec(ctx, "INSERT INTO series (slug, name, kind) VALUES ('sodium_ladder', 'Sodium Ladder', 'ladder')"); err != nil {
 		t.Fatal(err)
 	}
 	got, err := ReplaceCommunityLadders(ctx, pool, []tournamentcsv.CommunityLadder{

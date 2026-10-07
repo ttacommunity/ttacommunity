@@ -31,8 +31,8 @@ func filled(t *testing.T) *pgxpool.Pool {
 		"Wimbledon 2024 Stage 7 - Final game 1": day("2025-02-24"),
 	})
 	for _, q := range []string{
-		`INSERT INTO match_seats (match_id, seat, player_name, outcome, cge_user)
-		 SELECT match_id, 1, player1, 'finished', 42 FROM matches ORDER BY match_id LIMIT 1`,
+		`INSERT INTO player_accounts (cge_user, player_id, name) SELECT 42, player_id, player_name FROM seats ORDER BY game_id, seat LIMIT 1`,
+		`UPDATE seats SET cge_user = 42, outcome = 'finished' WHERE (game_id, seat) = (SELECT game_id, seat FROM seats ORDER BY game_id, seat LIMIT 1)`,
 		`INSERT INTO tournament_official_placements (series, season, division, player_name, place, points, reason, source)
 		 VALUES ('nations_league', 10, 'Apple', 'DANeo', 1, 36, 'r', 's, with a comma and "quotes"')`,
 		`INSERT INTO cge_standings (cge_tournament, cge_season, group_name, row_number, place, player_name, cge_user,
@@ -109,19 +109,19 @@ func TestRestoreRefusesADatabaseThatHoldsData(t *testing.T) {
 	}
 	busy := filled(t)
 	var before int
-	if err := busy.QueryRow(ctx, "SELECT count(*) FROM matches").Scan(&before); err != nil {
+	if err := busy.QueryRow(ctx, "SELECT count(*) FROM games").Scan(&before); err != nil {
 		t.Fatal(err)
 	}
 
 	if err := Restore(ctx, busy, dir); err == nil {
-		t.Fatal("Restore into a database with matches: no error, want a refusal")
+		t.Fatal("Restore into a database with games: no error, want a refusal")
 	}
 	var after int
-	if err := busy.QueryRow(ctx, "SELECT count(*) FROM matches").Scan(&after); err != nil {
+	if err := busy.QueryRow(ctx, "SELECT count(*) FROM games").Scan(&after); err != nil {
 		t.Fatal(err)
 	}
 	if after != before {
-		t.Errorf("matches = %d after a refused restore, want %d", after, before)
+		t.Errorf("games = %d after a refused restore, want %d", after, before)
 	}
 }
 
@@ -131,7 +131,7 @@ func TestRestoreRefusesAChangedFile(t *testing.T) {
 	if _, err := Export(ctx, filled(t), dir); err != nil {
 		t.Fatalf("Export: %v", err)
 	}
-	f := filepath.Join(dir, "matches.csv")
+	f := filepath.Join(dir, "games.csv")
 	b, err := os.ReadFile(f)
 	if err != nil {
 		t.Fatal(err)
@@ -141,12 +141,12 @@ func TestRestoreRefusesAChangedFile(t *testing.T) {
 	}
 
 	fresh := migrated(t)
-	if err := Restore(ctx, fresh, dir); err == nil || !strings.Contains(err.Error(), "matches.csv") {
-		t.Errorf("Restore of a changed file: err = %v, want a refusal naming matches.csv", err)
+	if err := Restore(ctx, fresh, dir); err == nil || !strings.Contains(err.Error(), "games.csv") {
+		t.Errorf("Restore of a changed file: err = %v, want a refusal naming games.csv", err)
 	}
 	var n int
-	if err := fresh.QueryRow(ctx, "SELECT count(*) FROM matches").Scan(&n); err != nil || n != 0 {
-		t.Errorf("matches = %d (%v) after a refused restore, want 0", n, err)
+	if err := fresh.QueryRow(ctx, "SELECT count(*) FROM games").Scan(&n); err != nil || n != 0 {
+		t.Errorf("games = %d (%v) after a refused restore, want 0", n, err)
 	}
 }
 
@@ -216,7 +216,7 @@ func TestExportForUpstreamWritesEveryPlayedGameInItsMatchFormat(t *testing.T) {
 	if _, err := LoadMatches(ctx, pool, ms, nil); err != nil {
 		t.Fatalf("LoadMatches: %v", err)
 	}
-	if _, err := pool.Exec(ctx, `UPDATE matches SET state = CASE tournament
+	if _, err := pool.Exec(ctx, `UPDATE games SET state = CASE name
 		WHEN 'Intermezzo S24 - Bronze 1 game 2' THEN 'never_played'
 		WHEN 'Intermezzo S24 - Bronze 1 game 3' THEN 'unconfirmed' ELSE 'played' END`); err != nil {
 		t.Fatalf("setting states: %v", err)

@@ -60,7 +60,8 @@ FROM game_groups k JOIN groups gr ON gr.stage_id = k.stage_id AND gr.name = k.gr
 WHERE k.match_id = g.game_id;
 CREATE INDEX games_group ON games (group_id);
 
--- An account belongs to the player of its latest game; a second account on one player is an alias.
+-- An account belongs to the player of its latest game; a second account on one player is an alias, linked with
+-- its reason (who linked it is in admin_audit, which no export holds).
 CREATE TABLE player_accounts (
     cge_user integer PRIMARY KEY CHECK (cge_user > 0),
     player_id bigint NOT NULL REFERENCES players,
@@ -68,7 +69,6 @@ CREATE TABLE player_accounts (
     banned boolean NOT NULL DEFAULT false,
     deleted boolean NOT NULL DEFAULT false,
     linked_reason text NOT NULL DEFAULT '',
-    linked_by text NOT NULL DEFAULT '',
     linked_on date
 );
 CREATE INDEX player_accounts_player ON player_accounts (player_id);

@@ -13,7 +13,7 @@ import (
 func TestReplaceCommunityQuartersWritesKnownTournamentsOnly(t *testing.T) {
 	pool := migrated(t)
 	ctx := context.Background()
-	if _, err := pool.Exec(ctx, "INSERT INTO tournaments (slug, name, kind) VALUES ('wimbledon', 'Wimbledon', 'cup')"); err != nil {
+	if _, err := pool.Exec(ctx, "INSERT INTO series (slug, name, kind) VALUES ('wimbledon', 'Wimbledon', 'cup')"); err != nil {
 		t.Fatal(err)
 	}
 	quarter := func(tournament, season string, year, q int) tournamentcsv.CommunityQuarter {

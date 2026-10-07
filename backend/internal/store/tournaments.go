@@ -106,37 +106,47 @@ func ReplaceCorrections(ctx context.Context, pool *pgxpool.Pool, fixes []tournam
 	return FactsReplaced{Written: n}, err
 }
 
-// ReplaceRules replaces every season's recorded rules, in one transaction. A season whose
-// time-out penalty was set in admin keeps it, counted as Kept.
+// ReplaceRules replaces every season's recorded time-out penalty and tiebreakers, kept as the season's
+// settings, in one transaction. A season whose penalty was set in admin keeps it, counted as Kept; a row
+// naming a season the catalogue lacks is counted as Unknown. Points per place stay the series' own.
 func ReplaceRules(ctx context.Context, pool *pgxpool.Pool, rules []tournamentcsv.Rule) (FactsReplaced, error) {
-	var series, s3, s4, tiebreaks, sources []string
+	var series, tiebreaks, sources []string
 	var seasons []int32
 	var penalties []float64
 	for _, r := range rules {
 		series, seasons, penalties = append(series, r.Series), append(seasons, int32(r.Season)), append(penalties, r.TimeoutPenalty)
-		s3, s4, tiebreaks, sources = append(s3, r.Scoring3p), append(s4, r.Scoring4p), append(tiebreaks, r.Tiebreaks), append(sources, r.Source)
+		tiebreaks, sources = append(tiebreaks, r.Tiebreaks), append(sources, r.Source)
 	}
 	tx, err := pool.Begin(ctx)
 	if err != nil {
-		return FactsReplaced{}, fmt.Errorf("starting the tournament_season_rules load: %w", err)
+		return FactsReplaced{}, fmt.Errorf("starting the season rules load: %w", err)
 	}
 	defer tx.Rollback(ctx)
-	if _, err := tx.Exec(ctx, "DELETE FROM tournament_season_rules WHERE source <> 'admin'"); err != nil {
-		return FactsReplaced{}, fmt.Errorf("clearing tournament_season_rules: %w", err)
+	if _, err := tx.Exec(ctx, "DELETE FROM settings WHERE tournament_id IS NOT NULL AND source <> 'admin'"); err != nil {
+		return FactsReplaced{}, fmt.Errorf("clearing season rules: %w", err)
+	}
+	const named = `
+		FROM unnest($1::text[], $2::int[], $3::float8[], $4::text[], $5::text[]) AS x(series, season, penalty, tiebreaks, source)
+		JOIN series se ON se.slug = x.series
+		JOIN tournaments t ON t.series_id = se.series_id AND t.label = x.season::text`
+	var known int
+	if err := tx.QueryRow(ctx, "SELECT count(*)"+named, series, seasons, penalties, tiebreaks, sources).Scan(&known); err != nil {
+		return FactsReplaced{}, fmt.Errorf("finding the rules' seasons: %w", err)
 	}
 	tag, err := tx.Exec(ctx, `
-		INSERT INTO tournament_season_rules (series, season, timeout_penalty, scoring_3p, scoring_4p, tiebreaks, source)
-		SELECT * FROM unnest($1::text[], $2::int[], $3::float8[], $4::text[], $5::text[], $6::text[], $7::text[])
-		ON CONFLICT (series, season) DO NOTHING`,
-		series, seasons, penalties, s3, s4, tiebreaks, sources)
+		INSERT INTO settings (tournament_id, timeout_penalty, tiebreak_2p, tiebreak_3p_plus, source)
+		SELECT t.tournament_id, x.penalty, nullif(split_part(x.tiebreaks, ' / ', 1), ''),
+		       nullif(split_part(x.tiebreaks, ' / ', 2), ''), x.source`+named+`
+		ON CONFLICT (tournament_id) DO NOTHING`,
+		series, seasons, penalties, tiebreaks, sources)
 	if err != nil {
-		return FactsReplaced{}, fmt.Errorf("writing tournament_season_rules: %w", err)
+		return FactsReplaced{}, fmt.Errorf("writing season rules: %w", err)
 	}
 	if err := tx.Commit(ctx); err != nil {
-		return FactsReplaced{}, fmt.Errorf("committing tournament_season_rules: %w", err)
+		return FactsReplaced{}, fmt.Errorf("committing season rules: %w", err)
 	}
 	written := int(tag.RowsAffected())
-	return FactsReplaced{Written: written, Kept: len(rules) - written}, nil
+	return FactsReplaced{Written: written, Kept: known - written, Unknown: len(rules) - known}, nil
 }
 
 // ReplacePodiums replaces every cup year's recorded podium, in one transaction.
@@ -187,7 +197,7 @@ func ReplaceLadderWins(ctx context.Context, pool *pgxpool.Pool, wins []tournamen
 		SELECT x.ladder, p.name, x.wins, x.source
 		FROM unnest($1::text[], $2::text[], $3::numeric[], $4::text[]) AS x(ladder, player, wins, source)
 		JOIN players p ON p.name = x.player
-		JOIN tournaments t ON t.slug = x.ladder AND t.kind = 'ladder'`,
+		JOIN series t ON t.slug = x.ladder AND t.kind = 'ladder'`,
 		ladders, players, counts, sources)
 	return FactsReplaced{Written: n, Unknown: len(wins) - n}, err
 }
@@ -207,15 +217,15 @@ func ReplaceCGEStages(ctx context.Context, pool *pgxpool.Pool, links []tournamen
 		return FactsReplaced{}, fmt.Errorf("starting the CGE stages load: %w", err)
 	}
 	defer tx.Rollback(ctx)
-	if _, err := tx.Exec(ctx, "UPDATE tournament_stages SET cge_tournament = NULL, cge_season = NULL WHERE cge_tournament IS NOT NULL"); err != nil {
+	if _, err := tx.Exec(ctx, "UPDATE stages SET cge_tournament = NULL, cge_stage_number = NULL WHERE cge_tournament IS NOT NULL"); err != nil {
 		return FactsReplaced{}, fmt.Errorf("clearing CGE stages: %w", err)
 	}
 	tag, err := tx.Exec(ctx, `
-		UPDATE tournament_stages st SET cge_tournament = x.ct, cge_season = x.cs
+		UPDATE stages st SET cge_tournament = x.ct, cge_stage_number = x.cs
 		FROM unnest($1::text[], $2::text[], $3::text[], $4::int[], $5::int[]) AS x(slug, season, stage, ct, cs)
-		JOIN tournaments t ON t.slug = x.slug
-		JOIN tournament_seasons s ON s.tournament_id = t.tournament_id AND s.label = x.season
-		WHERE st.season_id = s.season_id AND st.label = x.stage`, slugs, seasons, stages, cgeT, cgeS)
+		JOIN series se ON se.slug = x.slug
+		JOIN tournaments t ON t.series_id = se.series_id AND t.label = x.season
+		WHERE st.tournament_id = t.tournament_id AND st.label = x.stage`, slugs, seasons, stages, cgeT, cgeS)
 	if err != nil {
 		return FactsReplaced{}, fmt.Errorf("writing CGE stages: %w", err)
 	}
@@ -227,8 +237,9 @@ func ReplaceCGEStages(ctx context.Context, pool *pgxpool.Pool, links []tournamen
 }
 
 // ReplaceCGETournaments replaces CGE's catalogue, in one transaction, linking
-// each row to the tournament it names. A tournament named that the catalogue
-// lacks is added under its CGE name, in no ranking: admin decides its rating.
+// each row to the series and season it names. A series named that the catalogue
+// lacks is added under its CGE name, in no ranking: admin decides its rating; a
+// season it lacks is added, with no games yet.
 func ReplaceCGETournaments(ctx context.Context, pool *pgxpool.Pool, rows []tournamentcsv.CGETournament) (FactsReplaced, error) {
 	var ids []int32
 	var names, statuses, organisers, descriptions, glicko, links, slugs, seasons []string
@@ -260,22 +271,30 @@ func ReplaceCGETournaments(ctx context.Context, pool *pgxpool.Pool, rows []tourn
 	}
 	defer tx.Rollback(ctx)
 	if _, err := tx.Exec(ctx, `
-		INSERT INTO tournaments (slug, name, original_name) SELECT slug, name, name FROM unnest($1::text[], $2::text[]) AS x(slug, name)
+		INSERT INTO series (slug, name, original_name) SELECT slug, name, name FROM unnest($1::text[], $2::text[]) AS x(slug, name)
 		ON CONFLICT (slug) DO NOTHING`, addSlugs, addNames); err != nil {
 		return FactsReplaced{}, fmt.Errorf("adding the tournaments CGE's catalogue names: %w", err)
+	}
+	if _, err := tx.Exec(ctx, `
+		INSERT INTO tournaments (series_id, label)
+		SELECT DISTINCT se.series_id, x.season FROM unnest($1::text[], $2::text[]) AS x(slug, season)
+		JOIN series se USING (slug) WHERE x.season <> ''
+		ON CONFLICT (series_id, label) DO NOTHING`, slugs, seasons); err != nil {
+		return FactsReplaced{}, fmt.Errorf("adding the seasons CGE's catalogue names: %w", err)
 	}
 	if _, err := tx.Exec(ctx, "DELETE FROM cge_tournaments"); err != nil {
 		return FactsReplaced{}, fmt.Errorf("clearing cge_tournaments: %w", err)
 	}
 	tag, err := tx.Exec(ctx, `
 		INSERT INTO cge_tournaments (cge_tournament, name, status, organiser, created, started, finished,
-		                             description, mentions_glicko, links, tournament_id, season)
+		                             description, mentions_glicko, links, series_id, tournament_id)
 		SELECT x.id, x.name, x.status, x.organiser, x.created, x.started, x.finished,
-		       x.description, x.glicko, x.links, t.tournament_id, x.season
+		       x.description, x.glicko, x.links, se.series_id, t.tournament_id
 		FROM unnest($1::int[], $2::text[], $3::text[], $4::text[], $5::date[], $6::date[], $7::date[],
 		            $8::text[], $9::text[], $10::text[], $11::text[], $12::text[])
 		     AS x(id, name, status, organiser, created, started, finished, description, glicko, links, slug, season)
-		LEFT JOIN tournaments t ON t.slug = x.slug`,
+		LEFT JOIN series se ON se.slug = x.slug
+		LEFT JOIN tournaments t ON t.series_id = se.series_id AND t.label = x.season AND x.season <> ''`,
 		ids, names, statuses, organisers, created, started, finished, descriptions, glicko, links, slugs, seasons)
 	if err != nil {
 		return FactsReplaced{}, fmt.Errorf("writing cge_tournaments: %w", err)
@@ -370,7 +389,7 @@ func ReplaceCommunityPoints(ctx context.Context, pool *pgxpool.Pool, rows []tour
 		INSERT INTO community_points (tournament, from_edition, group_name, place, points, source)
 		SELECT x.* FROM unnest($1::text[], $2::int[], $3::text[], $4::int[], $5::int[], $6::text[])
 		       AS x(tournament, from_edition, group_name, place, points, source)
-		JOIN tournaments t ON t.slug = x.tournament`,
+		JOIN series t ON t.slug = x.tournament`,
 		tournaments, editions, groups, places, points, sources)
 	return FactsReplaced{Written: n, Unknown: len(rows) - n}, err
 }
@@ -387,7 +406,7 @@ func ReplaceCommunityQuarters(ctx context.Context, pool *pgxpool.Pool, rows []to
 	n, err := replaceAll(ctx, pool, "community_quarters", `
 		INSERT INTO community_quarters (tournament, season, year, quarter, source)
 		SELECT x.* FROM unnest($1::text[], $2::text[], $3::int[], $4::int[], $5::text[]) AS x(tournament, season, year, quarter, source)
-		JOIN tournaments t ON t.slug = x.tournament`,
+		JOIN series t ON t.slug = x.tournament`,
 		tournaments, seasons, years, quarters, sources)
 	return FactsReplaced{Written: n, Unknown: len(rows) - n}, err
 }
@@ -412,7 +431,7 @@ func ReplaceCommunityLadders(ctx context.Context, pool *pgxpool.Pool, rows []tou
 		SELECT x.tournament, x.from_edition, x.ratio, nullif(x.half, 0), string_to_array(x.shares, ' ')::float8[], x.rounds, x.source
 		FROM unnest($1::text[], $2::int[], $3::float8[], $4::int[], $5::text[], $6::int[], $7::text[])
 		     AS x(tournament, from_edition, ratio, half, shares, rounds, source)
-		JOIN tournaments t ON t.slug = x.tournament`,
+		JOIN series t ON t.slug = x.tournament`,
 		tournaments, editions, ratios, halves, shares, rounds, sources)
 	return FactsReplaced{Written: n, Unknown: len(rows) - n}, err
 }

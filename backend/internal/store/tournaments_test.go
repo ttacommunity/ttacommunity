@@ -234,11 +234,18 @@ func TestReplaceCommunityKeepsNamesThatAreNotPlayers(t *testing.T) {
 	}
 }
 
-const ruleRows = "SELECT concat_ws('|', series, season, timeout_penalty, scoring_3p, scoring_4p, tiebreaks, source) FROM tournament_season_rules ORDER BY series, season"
+const ruleRows = `SELECT concat_ws('|', se.slug, t.label, s.timeout_penalty, coalesce(s.tiebreak_2p, ''), s.source)
+	FROM settings s JOIN tournaments t ON t.tournament_id = s.tournament_id JOIN series se ON se.series_id = t.series_id
+	ORDER BY se.slug, t.label`
 
 func TestReplaceRulesReplacesEveryEarlierRow(t *testing.T) {
 	pool := migrated(t)
 	ctx := context.Background()
+	placedOn(t, pool, map[string]time.Time{
+		"Intermezzo S6 - Bronze 1 game 1": day("2020-05-01"),
+		"Intermezzo S7 - Bronze 1 game 1": day("2020-08-01"),
+		"Intermezzo S9 - Bronze 1 game 1": day("2021-02-01"),
+	})
 	rule := func(season int, penalty float64) tournamentcsv.Rule {
 		return tournamentcsv.Rule{Series: "intermezzo", Season: season, TimeoutPenalty: penalty, Scoring3p: "5-2-0", Source: "s"}
 	}
@@ -246,14 +253,14 @@ func TestReplaceRulesReplacesEveryEarlierRow(t *testing.T) {
 		t.Fatalf("first ReplaceRules: %v", err)
 	}
 
-	got, err := ReplaceRules(ctx, pool, []tournamentcsv.Rule{rule(6, -1), rule(7, 0)})
+	got, err := ReplaceRules(ctx, pool, []tournamentcsv.Rule{rule(6, -1), rule(7, 0), rule(8, 0)})
 	if err != nil {
 		t.Fatalf("ReplaceRules: %v", err)
 	}
-	if want := (FactsReplaced{Written: 2}); got != want {
-		t.Errorf("ReplaceRules = %+v, want %+v", got, want)
+	if want := (FactsReplaced{Written: 2, Unknown: 1}); got != want {
+		t.Errorf("ReplaceRules = %+v, want %+v (season 8 has no games)", got, want)
 	}
-	if rows, want := rowsOf(t, pool, ruleRows), []string{"intermezzo|6|-1|5-2-0|||s", "intermezzo|7|0|5-2-0|||s"}; !slices.Equal(rows, want) {
+	if rows, want := rowsOf(t, pool, ruleRows), []string{"intermezzo|6|-1||s", "intermezzo|7|0||s"}; !slices.Equal(rows, want) {
 		t.Errorf("rules = %q, want %q", rows, want)
 	}
 }
@@ -261,7 +268,10 @@ func TestReplaceRulesReplacesEveryEarlierRow(t *testing.T) {
 func TestReplaceRulesKeepsAPenaltySetInAdmin(t *testing.T) {
 	pool := migrated(t)
 	ctx := context.Background()
-	placedOn(t, pool, map[string]time.Time{"Intermezzo S6 - Bronze 1 game 1": day("2020-05-01")})
+	placedOn(t, pool, map[string]time.Time{
+		"Intermezzo S6 - Bronze 1 game 1": day("2020-05-01"),
+		"Intermezzo S7 - Bronze 1 game 1": day("2020-08-01"),
+	})
 	if err := NewAdminStore(asAdminLogin(t, pool)).SetSeasonPenalty(ctx, "intermezzo", "6", -2); err != nil {
 		t.Fatalf("SetSeasonPenalty: %v", err)
 	}
@@ -276,7 +286,7 @@ func TestReplaceRulesKeepsAPenaltySetInAdmin(t *testing.T) {
 	if want := (FactsReplaced{Written: 1, Kept: 1}); got != want {
 		t.Errorf("ReplaceRules = %+v, want %+v", got, want)
 	}
-	if rows, want := rowsOf(t, pool, ruleRows), []string{"intermezzo|6|-2||||admin", "intermezzo|7|0|5-2-0|||s"}; !slices.Equal(rows, want) {
+	if rows, want := rowsOf(t, pool, ruleRows), []string{"intermezzo|6|-2||admin", "intermezzo|7|0||s"}; !slices.Equal(rows, want) {
 		t.Errorf("rules = %q, want %q", rows, want)
 	}
 }
@@ -336,13 +346,14 @@ func TestReplaceCGETournamentsLinksOursAndRatesNoNewOne(t *testing.T) {
 	if got != (FactsReplaced{Written: 3}) {
 		t.Errorf("ReplaceCGETournaments = %+v, want 3 written", got)
 	}
-	rows := rowsOf(t, pool, `SELECT concat_ws('|', c.cge_tournament, c.name, coalesce(t.slug, '-'), c.season, c.finished)
-		FROM cge_tournaments c LEFT JOIN tournaments t USING (tournament_id) ORDER BY c.cge_tournament`)
+	rows := rowsOf(t, pool, `SELECT concat_ws('|', c.cge_tournament, c.name, coalesce(se.slug, '-'), coalesce(t.label, ''), c.finished)
+		FROM cge_tournaments c LEFT JOIN series se ON se.series_id = c.series_id
+		LEFT JOIN tournaments t ON t.tournament_id = c.tournament_id ORDER BY c.cge_tournament`)
 	want := []string{"4335|The banana tournament|-||2026-09-03", "5373|Nations Cup|nations_cup|2025|2026-09-03", "5731|Survivors Cup 2026|survivors_cup|2026|2026-09-03"}
 	if !slices.Equal(rows, want) {
 		t.Errorf("cge_tournaments = %q, want %q", rows, want)
 	}
-	if name := rowsOf(t, pool, "SELECT name FROM tournaments WHERE slug = 'nations_cup'"); !slices.Equal(name, []string{"Nations Cup"}) {
+	if name := rowsOf(t, pool, "SELECT name FROM series WHERE slug = 'nations_cup'"); !slices.Equal(name, []string{"Nations Cup"}) {
 		t.Errorf("nations_cup is named %q, want its CGE name", name)
 	}
 	if rated := rowsOf(t, pool, communityRows); slices.Contains(rated, "nations_cup") || !slices.Contains(rated, "survivors_cup") {

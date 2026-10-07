@@ -30,14 +30,14 @@ import (
 // holds no personal data. Every other table holds a run's results, which the
 // engine computes again, or is in NotExported.
 var ExportTables = []string{
-	"import_batches", "players",
-	"tournaments", "tournament_seasons", "tournament_stages",
-	"matches", "match_seats",
-	"rankings", "ranking_tournaments", "cge_tournaments", "cge_standings", "community_points", "community_quarters", "community_ladders",
-	"community_scores", "community_standings",
+	"import_batches", "players", "player_accounts",
+	"series", "tournaments", "stages", "groups", "group_members", "settings",
+	"games", "seats",
+	"rankings", "ranking_series", "cge_tournaments", "cge_tournament_moderators", "cge_standings",
+	"community_points", "community_quarters", "community_ladders", "community_scores", "community_standings",
 	"tournament_career_honours", "tournament_cup_podiums", "tournament_finish_dates",
 	"tournament_group_divisions", "tournament_ladder_wins", "tournament_official_placements",
-	"tournament_season_corrections", "tournament_season_notes", "tournament_season_rules",
+	"tournament_season_corrections", "tournament_season_notes",
 	"tournament_podium_overrides", "tournament_regulations", "player_title_overrides",
 	"badges", "player_badges", "tournament_cards", "tournament_stories",
 }
@@ -350,10 +350,14 @@ func schemaVersion(ctx context.Context, tx pgx.Tx) (int64, error) {
 // many it wrote. Games never played or unconfirmed are left out: they are not
 // rated here, and upstream would rate them.
 func ExportForUpstream(ctx context.Context, pool *pgxpool.Pool, w io.Writer) (int, error) {
+	// A seat with no recorded score (a CGE game) gets one that keeps its order: culture, or -place unfinished.
 	rows, err := pool.Query(ctx, `
-		SELECT tournament, to_char(date, 'YYYY-MM-DD'), player_count,
-		       player1, score1, player2, score2, player3, score3, player4, score4
-		FROM matches WHERE state = 'played' ORDER BY date, match_id`)
+		SELECT g.name, to_char(g.date, 'YYYY-MM-DD'), count(*),
+		       array_agg(s.player_name ORDER BY s.seat),
+		       array_agg(coalesce(s.recorded_score, CASE WHEN s.outcome = 'finished' THEN s.culture ELSE -s.place END)
+		                 ORDER BY s.seat)
+		FROM games g JOIN seats s USING (game_id) WHERE g.state = 'played'
+		GROUP BY g.game_id ORDER BY g.date, g.game_id`)
 	if err != nil {
 		return 0, fmt.Errorf("exporting for upstream: %w", err)
 	}
@@ -366,17 +370,16 @@ func ExportForUpstream(ctx context.Context, pool *pgxpool.Pool, w io.Writer) (in
 	for rows.Next() {
 		var tournament, date string
 		var count int
-		var names [4]*string
-		var scores [4]*float64
-		if err := rows.Scan(&tournament, &date, &count,
-			&names[0], &scores[0], &names[1], &scores[1], &names[2], &scores[2], &names[3], &scores[3]); err != nil {
+		var names []string
+		var scores []float64
+		if err := rows.Scan(&tournament, &date, &count, &names, &scores); err != nil {
 			return n, fmt.Errorf("exporting for upstream: %w", err)
 		}
 		record := []string{tournament, date}
-		for i := range names {
+		for i := range 4 {
 			name, score := "", ""
-			if names[i] != nil && scores[i] != nil {
-				name, score = *names[i], strconv.FormatFloat(*scores[i], 'f', -1, 64)
+			if i < len(names) {
+				name, score = names[i], strconv.FormatFloat(scores[i], 'f', -1, 64)
 			}
 			record = append(record, name, score)
 		}

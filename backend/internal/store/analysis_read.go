@@ -81,15 +81,10 @@ func (r *RatingsReader) AnalysisRatings(ctx context.Context, run int64, format i
 
 	rows, err = r.pool.Query(ctx, `
 		WITH run_games AS (
-			SELECT DISTINCT m.match_id, m.date, m.player1, m.player2, m.player3, m.player4
-			FROM matches m JOIN pairwise_matches p ON p.match_id = m.match_id AND p.run_id = $1),
-		recent AS (
-			SELECT * FROM run_games WHERE date >= (SELECT max(date) FROM run_games) - 365)
-		SELECT name FROM (
-			SELECT player1 AS name FROM recent UNION ALL SELECT player2 FROM recent
-			UNION ALL SELECT player3 FROM recent WHERE player3 IS NOT NULL
-			UNION ALL SELECT player4 FROM recent WHERE player4 IS NOT NULL) seats
-		GROUP BY name HAVING count(*) > 10`, run)
+			SELECT DISTINCT g.game_id, g.date FROM games g JOIN pairwise_matches p ON p.match_id = g.game_id AND p.run_id = $1)
+		SELECT s.player_name FROM run_games r JOIN seats s USING (game_id)
+		WHERE r.date >= (SELECT max(date) FROM run_games) - 365
+		GROUP BY s.player_name HAVING count(*) > 10`, run)
 	if err != nil {
 		return nil, nil, fmt.Errorf("reading run %d's active players: %w", run, err)
 	}
@@ -239,9 +234,8 @@ func (r *RatingsReader) Activity(ctx context.Context, run int64, inactiveOnOrBef
 	}
 
 	rows, err := r.pool.Query(ctx, `
-		SELECT m.player_count, count(DISTINCT m.match_id), count(*) FROM pairwise_matches pw
-		JOIN matches m USING (match_id) WHERE pw.run_id = $1
-		GROUP BY m.player_count ORDER BY m.player_count`, run)
+		SELECT player_count, count(DISTINCT match_id), count(*) FROM pairwise_matches WHERE run_id = $1
+		GROUP BY player_count ORDER BY player_count`, run)
 	if err == nil {
 		a.Formats, err = pgx.CollectRows(rows, pgx.RowToStructByPos[FormatCount])
 	}
