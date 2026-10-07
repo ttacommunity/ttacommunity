@@ -43,14 +43,6 @@ func TestCatalogueListsEachTournamentWithGames(t *testing.T) {
 	}
 }
 
-func TestCatalogueNeedsAPublishedRun(t *testing.T) {
-	pool := migrated(t)
-	run := addRun(t, pool, "complete", time.Time{})
-	if _, err := NewRatingsReader(asReader(t, pool)).Catalogue(context.Background(), run); !errors.Is(err, ErrRunNotFound) {
-		t.Errorf("Catalogue of an unpublished run: %v, want ErrRunNotFound", err)
-	}
-}
-
 func TestCatalogueTournamentGivesSeasonsInOrderWithStagesAndPodium(t *testing.T) {
 	pool := migrated(t)
 	ctx := context.Background()

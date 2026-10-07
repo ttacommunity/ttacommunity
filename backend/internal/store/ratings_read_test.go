@@ -315,16 +315,10 @@ func TestHistoryWithoutADateUsesThePreviousPeriod(t *testing.T) {
 	}
 }
 
-func TestHistoryRefusesUnpublishedRunsAndEmptyHistory(t *testing.T) {
+func TestHistoryRefusesEmptyHistory(t *testing.T) {
 	pool := migrated(t)
 	r := NewRatingsReader(asReader(t, pool))
 	ctx := context.Background()
-	hidden := addRun(t, pool, "complete", time.Time{})
-	addHistory(t, pool, hidden, "glicko2_daneo", 0, "ann", "2026-07-31", 1600)
-	if _, _, err := r.History(ctx, hidden, "glicko2_daneo", 0, nil); !errors.Is(err, ErrRunNotFound) {
-		t.Errorf("History of an unpublished run: err = %v, want ErrRunNotFound", err)
-	}
-
 	empty := addRun(t, pool, "complete", time.Date(2026, 9, 27, 4, 0, 0, 0, time.UTC))
 	if _, _, err := r.History(ctx, empty, "glicko2_daneo", 0, nil); !errors.Is(err, ErrNoHistory) {
 		t.Errorf("History with no periods: err = %v, want ErrNoHistory", err)

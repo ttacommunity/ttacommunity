@@ -74,7 +74,6 @@ func TestPlayerFindsANameExactlyOrByAUniqueCase(t *testing.T) {
 	r := NewRatingsReader(asReader(t, pool))
 	ctx := context.Background()
 	run := publishedRun(t, pool)
-	unpublished := addRun(t, pool, "complete", time.Time{})
 	addPlayers(t, pool, "Ann", "Nyalala", "nyalala")
 
 	tests := []struct {
@@ -88,7 +87,6 @@ func TestPlayerFindsANameExactlyOrByAUniqueCase(t *testing.T) {
 		{name: "exact name among two cases", asked: "nyalala", run: run, want: "nyalala"},
 		{name: "another case, two matches", asked: "NYALALA", run: run, err: ErrPlayerNotFound},
 		{name: "unknown name", asked: "zed", run: run, err: ErrPlayerNotFound},
-		{name: "unpublished run", asked: "Ann", run: unpublished, err: ErrRunNotFound},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

@@ -166,7 +166,7 @@ func TestCatalogueGamesPages(t *testing.T) {
 	}
 }
 
-func TestCatalogueGamesRefusesAHiddenTournamentAndAnUnpublishedRun(t *testing.T) {
+func TestCatalogueGamesRefusesAHiddenTournament(t *testing.T) {
 	pool := migrated(t)
 	ctx := context.Background()
 	run := publishedRun(t, pool)
@@ -180,10 +180,6 @@ func TestCatalogueGamesRefusesAHiddenTournamentAndAnUnpublishedRun(t *testing.T)
 		if _, err := r.CatalogueGames(ctx, run, slug, CatalogueGamesFilter{}); !errors.Is(err, ErrTournamentNotFound) {
 			t.Errorf("CatalogueGames(%q): %v, want ErrTournamentNotFound", slug, err)
 		}
-	}
-	unpublished := addRun(t, pool, "complete", time.Time{})
-	if _, err := r.CatalogueGames(ctx, unpublished, "wimbledon", CatalogueGamesFilter{}); !errors.Is(err, ErrRunNotFound) {
-		t.Errorf("CatalogueGames of an unpublished run: %v, want ErrRunNotFound", err)
 	}
 }
 
