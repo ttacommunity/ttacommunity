@@ -42,6 +42,53 @@ export function divisionText(divisions: readonly string[]): string {
   return divisions.join(', ');
 }
 
+/**
+ * pointsList reads points per place for a game of that many players ("6-3-1-0", commas or spaces too):
+ * [] for an empty box, or null where the API would refuse them (not one per place, negative, or higher for a worse place).
+ */
+export function pointsList(text: string, players: number): number[] | null {
+  const parts = text.trim() === '' ? [] : text.trim().split(/\s*[-,\s]\s*/);
+  if (parts.length === 0) return [];
+  const points = parts.map((p) => (/^\d+(\.\d+)?$/.test(p) ? Number(p) : NaN));
+  if (points.length !== players || points.some((p, i) => Number.isNaN(p) || (i > 0 && p > points[i - 1]))) return null;
+  return points;
+}
+
+/** pointsText writes points per place for the box pointsList reads. */
+export function pointsText(points: readonly number[]): string {
+  return points.join('-');
+}
+
+type Scoring = { points_2p: number[]; points_3p: number[]; points_4p: number[] };
+
+/**
+ * scoringPatch returns the points per place to send for the boxes (by player count) that differ from saved,
+ * {} when none do, or null when a box holds points the API would refuse.
+ */
+export function scoringPatch(boxes: Record<2 | 3 | 4, string>, saved: Scoring): Partial<Scoring> | null {
+  const patch: Partial<Scoring> = {};
+  for (const n of [2, 3, 4] as const) {
+    const points = pointsList(boxes[n], n);
+    if (points === null) return null;
+    const key = `points_${n}p` as const;
+    if (pointsText(points) !== pointsText(saved[key])) patch[key] = points;
+  }
+  return patch;
+}
+
+/** hasPenalty reports whether a season can have a time-out penalty: a league's, numbered. */
+export function hasPenalty(kind: string, season: string): boolean {
+  return kind === 'league' && /^\d+$/.test(season);
+}
+
+/** penaltyValue reads a season's time-out penalty, 0 or below, or null for anything else. */
+export function penaltyValue(text: string): number | null {
+  const t = text.trim();
+  if (!/^-?\d+(\.\d+)?$/.test(t)) return null;
+  const n = Number(t);
+  return n > 0 ? null : n;
+}
+
 /** renamedFrom returns the name something came in with, or null when it has not been renamed. */
 export function renamedFrom(name: string, original: string): string | null {
   return original !== '' && original !== name ? original : null;

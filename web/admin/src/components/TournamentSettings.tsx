@@ -2,7 +2,19 @@
 import { useEffect, useState, type FormEvent } from 'react';
 import { adminRequest, type AdminMe, type AdminTournament } from '../lib/admin-api';
 import { podiumNames, podiumRequest, type PodiumEntry } from '../lib/podium';
-import { divisionList, divisionText, renamedFrom, SETTINGS, slugParam, toggledCounts, type Setting } from '../lib/tournament-page';
+import {
+  divisionList,
+  divisionText,
+  hasPenalty,
+  penaltyValue,
+  pointsText,
+  renamedFrom,
+  scoringPatch,
+  SETTINGS,
+  slugParam,
+  toggledCounts,
+  type Setting,
+} from '../lib/tournament-page';
 import './AdminApp.css';
 
 type Load<T> = { kind: 'loading' } | { kind: 'error'; message: string } | { kind: 'ready'; data: T };
@@ -50,6 +62,40 @@ function NoteBox({
           {status}
         </span>
       </div>
+    </div>
+  );
+}
+
+/** PenaltyBox edits the points a numbered season's standings take off for each game a player times out of. */
+function PenaltyBox({ slug, season, initial }: { slug: string; season: string; initial: number }) {
+  const [text, setText] = useState(String(initial));
+  const [saved, setSaved] = useState(initial);
+  const [status, setStatus] = useState('');
+  const id = `penalty-${slug}-${season}`.replace(/[^A-Za-z0-9-]/g, '_');
+  const value = penaltyValue(text);
+  const save = async () => {
+    if (value === null) return;
+    setStatus('Saving…');
+    const r = await adminRequest(`/api/tournaments/${slug}/season-penalty`, { method: 'PUT', json: { season, timeout_penalty: value } });
+    if (r.ok) {
+      setSaved(value);
+      setStatus('Saved');
+    } else {
+      setStatus(r.message);
+    }
+  };
+  return (
+    <div className="setting">
+      <label htmlFor={id}>
+        Time-out penalty <span className="muted">(points per game timed out of, 0 or below, from the next engine run)</span>
+      </label>{' '}
+      <input id={id} value={text} maxLength={8} inputMode="decimal" onChange={(e) => setText(e.target.value)} />{' '}
+      <button type="button" className="btn-antique" onClick={save} disabled={value === null || value === saved}>
+        Save
+      </button>{' '}
+      <span className="note-status" role="status">
+        {value === null ? 'A number, 0 or below' : status}
+      </span>
     </div>
   );
 }
@@ -170,6 +216,13 @@ function SettingsCard({ t, onChange }: { t: AdminTournament; onChange: (t: Admin
     onChange({ ...t, top_divisions: top });
     void patch({ top_divisions: top }, t);
   };
+  const [points, setPoints] = useState({ 2: pointsText(t.points_2p), 3: pointsText(t.points_3p), 4: pointsText(t.points_4p) });
+  const scoring = scoringPatch(points, t);
+  const saveScoring = () => {
+    if (scoring === null) return;
+    onChange({ ...t, ...scoring });
+    void patch(scoring, t);
+  };
   return (
     <section className="rating-card admin-card" aria-labelledby="settings-heading">
       <h2 id="settings-heading" className="rating-card-heading">
@@ -236,6 +289,35 @@ function SettingsCard({ t, onChange }: { t: AdminTournament; onChange: (t: Admin
             </button>
           </div>
         )}
+        <fieldset className="setting-counts">
+          <legend>
+            <strong>Points per place</strong>
+            <span className="muted">
+              {' '}
+              · Best place first, such as 5-2-0; empty where it does not score that player count. Standings use them from the next engine run
+            </span>
+          </legend>
+          {([2, 3, 4] as const).map((n) => (
+            <label key={n}>
+              {n}-player{' '}
+              <input
+                id={`points-${n}`}
+                value={points[n]}
+                maxLength={40}
+                onChange={(e) => setPoints({ ...points, [n]: e.target.value })}
+              />
+            </label>
+          ))}{' '}
+          <button
+            type="button"
+            className="btn-antique"
+            onClick={saveScoring}
+            disabled={scoring === null || Object.keys(scoring).length === 0}
+          >
+            Save
+          </button>
+          {scoring === null && <span className="muted"> One number per place, never higher for a worse place</span>}
+        </fieldset>
       </div>
       {error !== '' && (
         <p className="row-error" role="alert">
@@ -559,6 +641,7 @@ function SeasonsCard({ t, onReload }: { t: AdminTournament; onReload: () => Prom
               </button>
             </div>
           )}
+          {hasPenalty(t.kind, se.label) && <PenaltyBox slug={t.slug} season={se.label} initial={se.timeout_penalty} />}
           <NoteBox slug={t.slug} season={se.label} stage="" initial={se.note} />
           {se.stages.map((st) => (
             <NoteBox
