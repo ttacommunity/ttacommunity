@@ -63,6 +63,7 @@ func ApplyCGEExtract(ctx context.Context, pool *pgxpool.Pool, plan CGEPlan, in C
 		{"writing the catalogue", writeCatalogue},
 		{"writing settings", writeSettings},
 		{"writing refusals", writeRefusals},
+		{"reading outcomes from the files' scores", fileOutcomes},
 	}
 	for _, s := range steps {
 		if err := s.run(ctx, tx, plan, in, &got); err != nil {
@@ -622,4 +623,30 @@ func writeRefusals(ctx context.Context, tx pgx.Tx, _ CGEPlan, in CGEInput, got *
 			return []any{got.BatchID, extractFile, r.Line, string(r.Reason), []string{}}, nil
 		}))
 	return err
+}
+
+// fileOutcomes gives each played seat no source recorded an outcome for the one CGE would: above or at 0
+// finished, -1 and -5 (the files' marks) timed out, below that resigned; and places its game's seats as CGE
+// does: finishers by score, resigners by their score, timed-out seats tied last.
+func fileOutcomes(ctx context.Context, tx pgx.Tx, _ CGEPlan, _ CGEInput, _ *CGEApplied) error {
+	for _, q := range []string{
+		`CREATE TEMPORARY TABLE x_inferred ON COMMIT DROP AS
+		 SELECT DISTINCT s.game_id FROM seats s JOIN games g USING (game_id)
+		 WHERE g.state = 'played' AND s.outcome IS NULL AND s.recorded_score IS NOT NULL`,
+		`UPDATE seats s SET outcome = CASE WHEN s.recorded_score >= 0 THEN 'finished'
+		                                   WHEN s.recorded_score IN (-1, -5) THEN 'timed_out' ELSE 'resigned' END,
+		                    culture = greatest(s.recorded_score, 0)
+		 FROM x_inferred x WHERE s.game_id = x.game_id AND s.outcome IS NULL AND s.recorded_score IS NOT NULL`,
+		`WITH ranked AS (
+			SELECT s.game_id, s.seat,
+			       CASE WHEN s.outcome = 'timed_out' THEN 1 + count(*) FILTER (WHERE s.outcome <> 'timed_out') OVER (PARTITION BY s.game_id)
+			            ELSE rank() OVER (PARTITION BY s.game_id ORDER BY CASE s.outcome WHEN 'finished' THEN 0 WHEN 'resigned' THEN 1 ELSE 2 END, s.recorded_score DESC) END AS place
+			FROM seats s JOIN x_inferred USING (game_id))
+		 UPDATE seats s SET place = r.place FROM ranked r WHERE s.game_id = r.game_id AND s.seat = r.seat`,
+	} {
+		if _, err := tx.Exec(ctx, q); err != nil {
+			return err
+		}
+	}
+	return nil
 }

@@ -152,3 +152,22 @@ func TestApplyCGEExtractWritesWhatCGERecorded(t *testing.T) {
 		})
 	}
 }
+
+func TestApplyCGEExtractReadsOutcomesFromTheFilesScores(t *testing.T) {
+	pool := migrated(t)
+	ctx := context.Background()
+	placedOn(t, pool, map[string]time.Time{"Intermezzo S4 - Bronze 1 game 1": day("2019-01-02")})
+	setSeats(t, pool, "%game 1", Seat{"ann", 120}, Seat{"bob", 0}, Seat{"cy", -3}, Seat{"dee", -1})
+	plan, err := PlanCGEExtract(ctx, pool, cgeextract.Extract{}, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := ApplyCGEExtract(ctx, pool, plan, CGEInput{}); err != nil {
+		t.Fatalf("ApplyCGEExtract: %v", err)
+	}
+	got := rowsOf(t, pool, "SELECT player_name || ' ' || outcome || ' ' || culture || ' ' || place FROM seats ORDER BY seat")
+	want := []string{"ann finished 120 1", "bob finished 0 2", "cy resigned 0 3", "dee timed_out 0 4"}
+	if !slices.Equal(got, want) {
+		t.Errorf("seats = %q, want %q", got, want)
+	}
+}
