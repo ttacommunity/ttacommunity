@@ -984,3 +984,14 @@ def test_derive_refuses_a_series_without_its_rules(conn, run_id, change):
 
     with pytest.raises(SeriesRulesMissing):
         derive_tournaments(conn=conn, run_id=run_id)
+
+
+def test_derive_leaves_its_tables_analysed(conn, add_match, run_id):
+    add_match(("ann", 100), ("bob", 90), ("cat", 80), tournament=gm(1))
+
+    derive_tournaments(conn=conn, run_id=run_id)
+
+    rows = conn.execute(
+        "SELECT reltuples FROM pg_class WHERE relname = 'tournament_games'"
+    ).fetchone()
+    assert rows["reltuples"] >= 1

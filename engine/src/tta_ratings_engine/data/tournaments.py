@@ -740,7 +740,7 @@ def derive_tournaments(*, conn: psycopg.Connection, run_id: int) -> None:
             ).items()
         ]  # fmt: skip
 
-        for table in (
+        written = (
             "tournament_records",
             "tournament_achievements",
             "tournament_series",
@@ -749,7 +749,8 @@ def derive_tournaments(*, conn: psycopg.Connection, run_id: int) -> None:
             "tournament_boards",
             "tournament_standings",
             "tournament_games",
-        ):
+        )
+        for table in written:
             conn.execute(f"DELETE FROM {table} WHERE run_id = %s", (run_id,))
         with conn.cursor().copy(
             "COPY tournament_games (run_id, match_id, series, season, name_season, division, "
@@ -796,3 +797,6 @@ def derive_tournaments(*, conn: psycopg.Connection, run_id: int) -> None:
                 "INSERT INTO tournament_season_records VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)",
                 record_rows,
             )
+        # Without fresh statistics, the titles' query on tournament_games gets a plan for the run's rows missing.
+        for table in written:
+            conn.execute(f"ANALYZE {table}")
