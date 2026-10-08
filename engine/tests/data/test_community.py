@@ -16,6 +16,7 @@ from tta_ratings_engine.data.community import (
     round_points,
     rung_value,
     rungs,
+    scored,
     table_for,
     wimbledon_round,
 )
@@ -117,6 +118,71 @@ def test_wimbledon_rounds_count_back_from_the_final():
 )
 def test_eiffel_floor(group, want):
     assert eiffel_floor(group) == want
+
+
+def line(stage, group, place, name, points=10):
+    return {
+        "stage": stage,
+        "group": group,
+        "place": place,
+        "name": name,
+        "points": points,
+    }
+
+
+@pytest.mark.parametrize(
+    ("kind", "lines", "table", "want"),
+    [
+        pytest.param(
+            "league",
+            [
+                line(21, "Grandmaster", 1, "ann"),
+                line(21, "Wood 7", 2, "bob"),
+                line(21, "Wood 7", 3, "cy"),
+            ],
+            {("Grandmaster", 1): 1000, ("Wood", 2): 20},
+            {"ann": 1000, "bob": 20, "cy": 0},
+            id="a league scores each place by its division",
+        ),
+        pytest.param(
+            "worlds",
+            [
+                line(1, "2025 Group 1", 1, "ann"),
+                line(3, "2025 Lower 1", 2, "ann"),
+                line(1, "2025 Group 1", 3, "bob"),
+                line(3, "2025 Upper 4", 4, "cy"),
+            ],
+            {("Stage 1", 4): 20, ("Stage 3", 0): 130, ("Stage 3", 2): 115},
+            {"ann": 115, "bob": 20, "cy": 130},
+            id="a World Championship scores the last stage reached, the upper bracket as its own row",
+        ),
+        pytest.param(
+            "rounds",
+            [
+                line(1, "group 1" if i <= 4 else "group 2", (i - 1) % 4 + 1, n)
+                for i, n in enumerate("abcdefgh", start=1)
+            ]
+            + [line(2, "Final", i, n) for i, n in enumerate("abef", start=1)],
+            {("SF", 3): 500, ("SF", 4): 500, ("Final", 1): 1000},
+            {"a": 1000, "c": 500, "h": 500},
+            id="a cup scores the round a player goes out in",
+        ),
+        pytest.param(
+            "floors",
+            [
+                line(3, "The Legs", 24, "ann", points=3),
+                line(3, "The Legs", 25, "bob", points=0),
+            ],
+            {("Other", 24): 5, ("Other", 25): 4},
+            {"ann": 5, "bob": 0},
+            id="the Eiffel Tower scores nothing for a player not above 0 points",
+        ),
+    ],
+)
+def test_a_season_scores_by_its_kind(kind, lines, table, want):
+    got = scored(kind, lines, table)
+
+    assert {p: got[p] for p in want} == want
 
 
 # The database part: places from CGE's standings or the run's own, names by CGE user.
@@ -241,59 +307,6 @@ def test_a_league_season_without_cge_standings_takes_the_runs_own(
     conn.commit()
     derive_community(conn=conn, run_id=run_id)
     assert event_points(conn, run_id) == [("international", "33", "ann", 410)]
-
-
-def test_a_world_championship_scores_the_last_stage_reached(conn, run_id, catalogue):
-    catalogue(
-        "worlds",
-        "2025",
-        [("Stage 1", 5204, 1), ("Stage 2", 5204, 2), ("Stage 3", 5204, 3)],
-        quarter=(2025, 4),
-    )
-    points_table(
-        conn,
-        "worlds",
-        2025,
-        {("Stage 1", 4): 20, ("Stage 3", 0): 130, ("Stage 3", 2): 115},
-    )
-    cge_line(conn, 5204, 1, "2025 Group 1", 1, "ann", 1)
-    cge_line(conn, 5204, 3, "2025 Lower 1", 2, "ann", 1)
-    cge_line(conn, 5204, 1, "2025 Group 1", 3, "bob", 2)
-    cge_line(conn, 5204, 3, "2025 Upper 4", 4, "cy", 3)
-    derive_community(conn=conn, run_id=run_id)
-    assert event_points(conn, run_id) == [
-        ("worlds", "2025", "ann", 115),
-        ("worlds", "2025", "bob", 20),
-        ("worlds", "2025", "cy", 130),
-    ]
-
-
-def test_a_cup_scores_the_round_a_player_goes_out_in(conn, run_id, catalogue):
-    catalogue(
-        "australian_open",
-        "2025",
-        [("Stage 1", 5233, 1), ("Stage 2", 5233, 2)],
-        quarter=(2025, 3),
-    )
-    points_table(
-        conn,
-        "australian_open",
-        2025,
-        {("SF", 3): 500, ("SF", 4): 500, ("Final", 1): 1000},
-    )
-    for i, name in enumerate(["a", "b", "c", "d", "e", "f", "g", "h"], start=1):
-        cge_line(
-            conn, 5233, 1, "group 1" if i <= 4 else "group 2", (i - 1) % 4 + 1, name, i
-        )
-    for i, name in enumerate(["a", "b", "e", "f"], start=1):
-        cge_line(
-            conn, 5233, 2, "Final", i, name, {"a": 1, "b": 2, "e": 5, "f": 6}[name]
-        )
-    derive_community(conn=conn, run_id=run_id)
-    got = {p: pts for _, _, p, pts in event_points(conn, run_id)}
-    assert got["a"] == 1000
-    assert got["c"] == 500
-    assert got["h"] == 500
 
 
 def test_a_player_cge_lists_with_no_game_scores_nothing(conn, run_id, catalogue):
@@ -461,21 +474,6 @@ def test_an_edition_ranks_its_seasons_and_the_sheets_other_events(
         (1, "ann", 47, 2),
         (2, "Bob", 27, 1),
         (2, "cy", 27, 1),
-    ]
-
-
-def test_an_eiffel_tower_player_without_points_above_zero_scores_nothing(
-    conn, run_id, catalogue
-):
-    # The Eiffel Tower takes points off for timeouts; its table's "<0" row is worth nothing.
-    catalogue("eiffel_tower", "3", [("", 3947, 3)], quarter=(2025, 4))
-    points_table(conn, "eiffel_tower", 2025, {("Other", 24): 5, ("Other", 25): 4})
-    cge_line(conn, 3947, 3, "The Legs", 24, "ann", 1, points=3)
-    cge_line(conn, 3947, 3, "The Legs", 25, "bob", 2, points=0)
-    derive_community(conn=conn, run_id=run_id)
-    assert event_points(conn, run_id) == [
-        ("eiffel_tower", "3", "ann", 5),
-        ("eiffel_tower", "3", "bob", 0),
     ]
 
 

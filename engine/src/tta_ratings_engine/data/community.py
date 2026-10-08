@@ -223,8 +223,9 @@ def round_points(games, rule):
     return got
 
 
-def _scored(kind, lines, table):
-    """Returns {player: points} for one season's lines (stage, group, place, user, name), by its kind."""
+def scored(kind, lines, table):
+    """Returns {player: points} for one season's lines (stage, group, place, name, and points for floors), by its
+    kind, from table's points by (group, place)."""
     if kind == "league":
         return {
             ln["name"]: place_points(table, division(ln["group"]), ln["place"])
@@ -323,7 +324,7 @@ def derive_community(*, conn: psycopg.Connection, run_id: int) -> None:
                 continue
             edition = s["year"] or s["finished"]
             table = table_for(points, s["slug"], edition)
-            for name, pts in _scored(KINDS[s["slug"]], lines, table).items():
+            for name, pts in scored(KINDS[s["slug"]], lines, table).items():
                 rows.append((run_id, s["slug"], s["label"], name, pts))
         _rank_editions(conn, run_id, rows, points)
         conn.execute("DELETE FROM community_event_points WHERE run_id = %s", (run_id,))
