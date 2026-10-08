@@ -8,10 +8,12 @@ const row = (r: Partial<CommunityRow>): CommunityRow => ({
 });
 
 describe('parseCommunityView', () => {
-  it("reads upstream's edition names and falls back to 2026", () => {
-    expect(parseCommunityView(new URLSearchParams('edition=y2024')).edition).toBe('2024');
-    expect(parseCommunityView(new URLSearchParams('edition=race')).edition).toBe('race26');
-    expect(parseCommunityView(new URLSearchParams('edition=1999')).edition).toBe('2026');
+  it.each([
+    ['y2024', '2024'],
+    ['race', 'race26'],
+    ['1999', '2026'],
+  ])("reads upstream's edition name %s as %s, falling back to 2026", (edition, want) => {
+    expect(parseCommunityView(new URLSearchParams({ edition })).edition).toBe(want);
   });
 
   it('keeps 10 to 200 rows a page, all as 2000, and the standard view unless expanded', () => {
@@ -39,13 +41,15 @@ describe('tournamentSums', () => {
 });
 
 describe('titleMark', () => {
-  it("shows WC for the edition's champion, and every other title, Super GM to Wood", () => {
-    expect(titleMark(row({ name: EDITIONS['2024'].info.wc, title: 'GM' }), EDITIONS['2024'])).toBe('WC');
-    expect(titleMark(row({ title: 'M' }), EDITIONS['2024'])).toBe('M');
-    expect(titleMark(row({ title: 'SGM' }), EDITIONS['2024'])).toBe('SGM');
-    expect(titleMark(row({ title: 'S' }), EDITIONS['2024'])).toBe('S');
-    expect(titleMark(row({ title: 'W' }), EDITIONS['2024'])).toBe('W');
-    expect(titleMark(row({ title: null }), EDITIONS['2024'])).toBeNull();
+  it.each([
+    ["WC for the edition's champion, over their title", { name: EDITIONS['2024'].info.wc, title: 'GM' }, 'WC'],
+    ['a Master', { title: 'M' }, 'M'],
+    ['a Super GM', { title: 'SGM' }, 'SGM'],
+    ['a Silver', { title: 'S' }, 'S'],
+    ['a Wood', { title: 'W' }, 'W'],
+    ['nothing for no title', { title: null }, null],
+  ] as const)('shows %s', (_name, fields, want) => {
+    expect(titleMark(row(fields), EDITIONS['2024'])).toBe(want);
   });
 });
 

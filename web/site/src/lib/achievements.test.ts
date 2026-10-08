@@ -64,25 +64,30 @@ describe('totalTitles', () => {
 });
 
 describe('titleBadge', () => {
-  it('shows a World Champion for a current or past title, then the current title', () => {
-    expect(titleBadge({ code: 'WC', count: 1, reason: '' }, { code: 'WC', year: 2025 })).toEqual({
-      code: 'wc',
-      text: 'World Champion',
-      tooltip: 'Official Competitive Title: Reigning World Champion (2025)',
-      reigning: true,
-    });
-    expect(titleBadge({ code: 'GM', count: 1, reason: '' }, { code: 'WC', year: 2023 })).toEqual({
-      code: 'wc',
-      text: 'World Champion',
-      tooltip: 'Official Competitive Title: World Champion (2023)',
-      reigning: false,
-    });
-    expect(titleBadge({ code: 'GM', count: 1, reason: '' }, { code: 'GM', year: 2024 })).toEqual({
-      code: 'gm',
-      text: 'Grandmaster',
-      tooltip: 'Official Competitive Title: Grandmaster',
-      reigning: false,
-    });
+  it.each([
+    [
+      'the reigning World Champion',
+      'WC',
+      { code: 'WC', year: 2025 },
+      { code: 'wc', text: 'World Champion', tooltip: 'Official Competitive Title: Reigning World Champion (2025)', reigning: true },
+    ],
+    [
+      'a past World Champion over the current title',
+      'GM',
+      { code: 'WC', year: 2023 },
+      { code: 'wc', text: 'World Champion', tooltip: 'Official Competitive Title: World Champion (2023)', reigning: false },
+    ],
+    [
+      'the current title when the peak is no higher',
+      'GM',
+      { code: 'GM', year: 2024 },
+      { code: 'gm', text: 'Grandmaster', tooltip: 'Official Competitive Title: Grandmaster', reigning: false },
+    ],
+  ] as const)('shows %s', (_name, current, peak, want) => {
+    expect(titleBadge({ code: current, count: 1, reason: '' }, peak)).toEqual(want);
+  });
+
+  it('shows the current title with no peak, and nothing with neither', () => {
     expect(titleBadge({ code: 'M', count: 1, reason: '' }, null)?.text).toBe('Master');
     expect(titleBadge(null, null)).toBeNull();
   });
@@ -112,12 +117,15 @@ describe('cells', () => {
 });
 
 describe('matchesFilter', () => {
-  it("matches a row's text ignoring case, but not across two cells", () => {
-    const r = seasonCells(rec({ medal: 'silver' }));
-    expect(matchesFilter(r, 'COMPETED IN')).toBe(true);
-    expect(matchesFilter(r, 'round 31')).toBe(true);
-    expect(matchesFilter(r, '31 tournament')).toBe(false);
-    expect(matchesFilter(r, '')).toBe(true);
+  const r = seasonCells(rec({ medal: 'silver' }));
+
+  it.each([
+    ['text in another case', 'COMPETED IN', true],
+    ['part of a cell', 'round 31', true],
+    ['text across two cells', '31 tournament', false],
+    ['no filter', '', true],
+  ])("matches a row's text ignoring case, but not across two cells: %s", (_name, filter, want) => {
+    expect(matchesFilter(r, filter)).toBe(want);
   });
 });
 
@@ -158,34 +166,36 @@ describe('achievementsHref', () => {
 });
 
 describe('recordCategory', () => {
-  it("files a tournament under upstream's medal styles", () => {
-    expect(recordCategory('World Championship 2025')).toBe('wcs');
-    expect(recordCategory('Intermezzo Championship')).toBe('major');
-    expect(recordCategory('Royal League')).toBe('major');
-    expect(recordCategory('Sodium Ladder')).toBe('ladder');
-    expect(recordCategory('TCL Round 31')).toBe('ladder');
-    expect(recordCategory('French Open 2026 (Odd Games) Stage 1')).toBe('slam');
-    expect(recordCategory('Wimbledon 2025')).toBe('slam');
-    expect(recordCategory('Survivors Cup')).toBe('other');
+  it.each([
+    ['World Championship 2025', 'wcs'],
+    ['Intermezzo Championship', 'major'],
+    ['Royal League', 'major'],
+    ['Sodium Ladder', 'ladder'],
+    ['TCL Round 31', 'ladder'],
+    ['French Open 2026 (Odd Games) Stage 1', 'slam'],
+    ['Wimbledon 2025', 'slam'],
+    ['Survivors Cup', 'other'],
+  ])("files %s under upstream's medal style %s", (tournament, want) => {
+    expect(recordCategory(tournament)).toBe(want);
   });
 });
 
 describe('cgeTournamentUrl', () => {
   const page = (id: number) => `https://account.czechgames.com/tournaments/detail/${id}`;
 
-  it("links a league to its CGE tournament, and a yearly event to that year's", () => {
-    expect(cgeTournamentUrl('International Championship', 'Season 30')).toBe(page(21));
-    expect(cgeTournamentUrl('World Championship', '2024')).toBe(page(4760));
-    expect(cgeTournamentUrl('World Championship 2025', 'Championship')).toBe(page(5204));
-    expect(cgeTournamentUrl('Wimbledon 2023', 'Stage 2')).toBe(page(4369));
-    expect(cgeTournamentUrl('Leaderboard Trophy', '2025')).toBe(page(5695));
-    expect(cgeTournamentUrl('Nations League', 'Season 7')).toBe(page(4127));
-    expect(cgeTournamentUrl('Slow Burn 1 (2024)', 'Season 10')).toBe(page(4807));
-    expect(cgeTournamentUrl('Slow Burn 2 (2026)', 'Season 1')).toBe(page(5979));
-  });
-
-  it('gives none where CGE has no page for it', () => {
-    expect(cgeTournamentUrl('World Championship', '2021')).toBeNull();
-    expect(cgeTournamentUrl('Quick and Dirty (Q&D)', 'Career Trophy Hall of Fame')).toBeNull();
+  // A league links to its CGE tournament, a yearly event to that year's; none where CGE has no page.
+  it.each([
+    ['International Championship', 'Season 30', page(21)],
+    ['World Championship', '2024', page(4760)],
+    ['World Championship 2025', 'Championship', page(5204)],
+    ['Wimbledon 2023', 'Stage 2', page(4369)],
+    ['Leaderboard Trophy', '2025', page(5695)],
+    ['Nations League', 'Season 7', page(4127)],
+    ['Slow Burn 1 (2024)', 'Season 10', page(4807)],
+    ['Slow Burn 2 (2026)', 'Season 1', page(5979)],
+    ['World Championship', '2021', null],
+    ['Quick and Dirty (Q&D)', 'Career Trophy Hall of Fame', null],
+  ])('links %s, %s to %s', (tournament, season, want) => {
+    expect(cgeTournamentUrl(tournament, season)).toBe(want);
   });
 });
