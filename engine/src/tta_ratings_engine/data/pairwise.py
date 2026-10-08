@@ -29,7 +29,7 @@ def _expand(conn, run_id):
     # Only played games whose tournament is in the run's ranking.
     rows = conn.execute(
         """
-        SELECT m.game_id AS match_id, m.name AS tournament, m.date, m.glicko_eligible, m.players, m.places, m.cultures
+        SELECT m.game_id AS match_id, m.name AS tournament, m.date, m.glicko_eligible, m.players, m.places, m.cultures, m.outcomes
         FROM game_lines m
         JOIN tournaments s ON s.tournament_id = m.tournament_id
         JOIN series t ON t.series_id = m.series_id
@@ -46,7 +46,7 @@ def _expand(conn, run_id):
     for row in rows:
         p_count = len(row["players"])
         for pa, pb, sa, sb, out_a, weight in pairs_of(
-            row["players"], row["places"], row["cultures"]
+            row["players"], row["places"], row["cultures"], row["outcomes"]
         ):
             pairwise_to_insert.append(
                 (
@@ -77,16 +77,22 @@ def _expand(conn, run_id):
     return len(pairwise_to_insert)
 
 
-def pairs_of(players, places, cultures):
+def pairs_of(players, places, cultures, outcomes=None):
     """Returns a game's pairs, one for each two seats in seat order, as (player_a, player_b, culture_a, culture_b,
-    outcome_a, weight): the better place wins (1.0), a shared place draws (0.5), each weighted 1/(N-1)."""
-    seats = list(zip(players, places, cultures))
+    outcome_a, weight): the better place wins (1.0), a shared place draws (0.5), each weighted 1/(N-1).
+    A pair between two players who both timed out is omitted.
+    """
+    if outcomes is None:
+        outcomes = [None] * len(players)
+    seats = list(zip(players, places, cultures, outcomes))
     if len(seats) < 2:
         return []
     weight = 1.0 / float(len(seats) - 1)
     pairs = []
-    for i, (pa, place_a, sa) in enumerate(seats):
-        for pb, place_b, sb in seats[i + 1 :]:
+    for i, (pa, place_a, sa, oa) in enumerate(seats):
+        for pb, place_b, sb, ob in seats[i + 1 :]:
+            if oa == "timed_out" and ob == "timed_out":
+                continue
             out_a = 1.0 if place_a < place_b else 0.0 if place_a > place_b else 0.5
             pairs.append((pa, pb, sa, sb, out_a, weight))
     return pairs
