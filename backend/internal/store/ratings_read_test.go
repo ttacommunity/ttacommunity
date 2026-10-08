@@ -5,13 +5,14 @@ package store
 import (
 	"context"
 	"errors"
-	"reflect"
 	"slices"
 	"testing"
 	"time"
 
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
+
+	"github.com/google/go-cmp/cmp"
 )
 
 func TestRatingsReadRoleCanOnlySelect(t *testing.T) {
@@ -443,8 +444,11 @@ func TestLeaderboardGivesEachPlayersBadgesAtOnce(t *testing.T) {
 		t.Fatalf("Leaderboard: %v", err)
 	}
 	want := []ExtraBadge{{Label: "Organiser", Description: "Organiser description"}, {Label: "TD", Description: "TD description"}}
-	if !reflect.DeepEqual(got[0].Badges, want) || len(got[1].Badges) != 0 {
-		t.Errorf("badges = %+v and %+v, want ann's two by label and none for bob", got[0].Badges, got[1].Badges)
+	if diff := cmp.Diff(want, got[0].Badges); diff != "" {
+		t.Errorf("ann's badges, by label (-want +got):\n%s", diff)
+	}
+	if len(got[1].Badges) != 0 {
+		t.Errorf("bob's badges = %+v, want none", got[1].Badges)
 	}
 }
 

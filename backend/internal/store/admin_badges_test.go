@@ -5,16 +5,15 @@ package store
 import (
 	"context"
 	"errors"
-	"reflect"
 	"testing"
+
+	"github.com/google/go-cmp/cmp"
 )
 
 func TestBadgesAreMadeGivenTakenAndRemoved(t *testing.T) {
 	pool := migrated(t)
 	ctx := context.Background()
-	if _, err := pool.Exec(ctx, "INSERT INTO players (name) VALUES ('Ann'), ('Bob')"); err != nil {
-		t.Fatal(err)
-	}
+	addPlayers(t, pool, "Ann", "Bob")
 	a := NewAdminStore(asAdminLogin(t, pool))
 
 	org, err := a.AddBadge(ctx, Badge{Label: " Organiser ", Description: "Runs a league"})
@@ -48,8 +47,8 @@ func TestBadgesAreMadeGivenTakenAndRemoved(t *testing.T) {
 		{ID: td, Label: "Director", Description: "Tournament director", Players: []string{"Ann"}},
 		{ID: org, Label: "Organiser", Description: "Runs a league", Players: []string{"Ann"}},
 	}
-	if !reflect.DeepEqual(got, want) {
-		t.Errorf("badges = %+v, want %+v", got, want)
+	if diff := cmp.Diff(want, got); diff != "" {
+		t.Errorf("badges (-want +got):\n%s", diff)
 	}
 
 	if err := a.RemoveBadge(ctx, org); err != nil {
@@ -63,9 +62,7 @@ func TestBadgesAreMadeGivenTakenAndRemoved(t *testing.T) {
 func TestBadgeChangesAreRefusedWhenTheyShouldBe(t *testing.T) {
 	pool := migrated(t)
 	ctx := context.Background()
-	if _, err := pool.Exec(ctx, "INSERT INTO players (name) VALUES ('Ann')"); err != nil {
-		t.Fatal(err)
-	}
+	addPlayers(t, pool, "Ann")
 	a := NewAdminStore(asAdminLogin(t, pool))
 	id, err := a.AddBadge(ctx, Badge{Label: "Organiser"})
 	if err != nil {

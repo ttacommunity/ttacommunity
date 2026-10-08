@@ -6,12 +6,13 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"reflect"
 	"slices"
 	"testing"
 	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
+
+	"github.com/google/go-cmp/cmp"
 )
 
 // addGame stores one game and, if run is not zero, the run's 1v1 pairs for it.
@@ -645,7 +646,7 @@ func TestPlayerGivesTheirBadges(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Player: %v", err)
 	}
-	if want := []ExtraBadge{{Label: "Organiser", Description: "Organiser description"}}; !reflect.DeepEqual(got.Badges, want) {
-		t.Errorf("badges = %+v, want %+v", got.Badges, want)
+	if diff := cmp.Diff([]ExtraBadge{{Label: "Organiser", Description: "Organiser description"}}, got.Badges); diff != "" {
+		t.Errorf("badges (-want +got):\n%s", diff)
 	}
 }

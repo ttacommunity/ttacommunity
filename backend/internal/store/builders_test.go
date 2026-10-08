@@ -70,6 +70,25 @@ func setGameState(t *testing.T, pool *pgxpool.Pool, pattern, state string) {
 	}
 }
 
+// setOutcome records how a player's game ended (finished, resigned or timed_out) in every game named like pattern;
+// a timed-out player has no culture.
+func setOutcome(t *testing.T, pool *pgxpool.Pool, pattern, player, outcome string) {
+	t.Helper()
+	if _, err := pool.Exec(context.Background(), `
+		UPDATE seats s SET outcome = $3, culture = CASE WHEN $3 = 'timed_out' THEN 0 ELSE s.culture END
+		FROM games g WHERE g.game_id = s.game_id AND g.name LIKE $1 AND s.player_name = $2`, pattern, player, outcome); err != nil {
+		t.Fatalf("setting %s's outcome in %s: %v", player, pattern, err)
+	}
+}
+
+// setShareCode gives the game named name CGE's share code.
+func setShareCode(t *testing.T, pool *pgxpool.Pool, name, code string) {
+	t.Helper()
+	if _, err := pool.Exec(context.Background(), "UPDATE games SET share_code = $2 WHERE name = $1", name, code); err != nil {
+		t.Fatalf("coding %s: %v", name, err)
+	}
+}
+
 // addPeakTitle records the engine's peak title for a player in a run.
 func addPeakTitle(t *testing.T, pool *pgxpool.Pool, run int64, name, title string, year int) {
 	t.Helper()

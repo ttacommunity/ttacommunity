@@ -5,8 +5,9 @@ package store
 import (
 	"context"
 	"errors"
-	"reflect"
 	"testing"
+
+	"github.com/google/go-cmp/cmp"
 )
 
 func TestAdminFindsAnAddedAdminAndNoOneElse(t *testing.T) {
@@ -105,9 +106,12 @@ func TestAdminsListsSetsAndRemovesAsTheAdminLogin(t *testing.T) {
 	}
 
 	got, err := a.Admins(ctx)
+	if err != nil {
+		t.Fatalf("Admins: %v", err)
+	}
 	want := []Admin{{DiscordID: "222222222222222222", Name: "Organiser", Role: RoleAdmin}, {DiscordID: "111111111111111111", Name: "Owner", Role: RoleAdmin}}
-	if err != nil || !reflect.DeepEqual(got, want) {
-		t.Errorf("Admins = %+v, %v; want %+v (by name)", got, err, want)
+	if diff := cmp.Diff(want, got); diff != "" {
+		t.Errorf("Admins, by name (-want +got):\n%s", diff)
 	}
 
 	if err := a.RemoveAdmin(ctx, "222222222222222222"); err != nil {
