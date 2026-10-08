@@ -99,5 +99,14 @@ func addPeakTitle(t *testing.T, pool *pgxpool.Pool, run int64, name, title strin
 	}
 }
 
+// setCountries sets each named player's country, as the country load does.
+func setCountries(t *testing.T, pool *pgxpool.Pool, countries map[string]string) {
+	t.Helper()
+	got, err := SetCountries(context.Background(), pool, countries)
+	if err != nil || got.Unknown != 0 {
+		t.Fatalf("SetCountries = %+v, %v; want every country set", got, err)
+	}
+}
+
 // date returns a pointer to the day s, for optional dates in test data.
 func date(s string) *time.Time { return ptr(day(s)) }

@@ -55,9 +55,7 @@ func TestTournamentSeriesGivesTheBoardInTheEnginesOrder(t *testing.T) {
 	pool := migrated(t)
 	ctx := context.Background()
 	run := publishedRun(t, pool)
-	if _, err := pool.Exec(ctx, "INSERT INTO player_peak_titles VALUES ($1, 'cat', 'WC', 2023)", run); err != nil {
-		t.Fatalf("adding a World Champion: %v", err)
-	}
+	addPeakTitle(t, pool, run, "cat", "WC", 2023)
 	insert := `INSERT INTO tournament_boards (run_id, series, player_name, gold, silver, bronze, points, title,
 		first_season, position, details, games, wins, win_rate) VALUES ($1, 'x', $2, $3, $4, $5, 0, $6, NULL, $7, $8, $9, $10, $11)`
 	one, two := 1, 2
@@ -123,9 +121,7 @@ func TestTournamentSeriesGivesTheTenBestSeasons(t *testing.T) {
 	pool := migrated(t)
 	ctx := context.Background()
 	run := publishedRun(t, pool)
-	if _, err := pool.Exec(ctx, "INSERT INTO player_peak_titles VALUES ($1, 'p05', 'WC', 2024)", run); err != nil {
-		t.Fatalf("adding a World Champion: %v", err)
-	}
+	addPeakTitle(t, pool, run, "p05", "WC", 2024)
 	// Eleven seasons: p00 has most points; p01 and p02 tie on points and wins, p02 seen first.
 	for i := range 11 {
 		points, wins, first := float64(30-i), 3, int64(100+i)
@@ -215,13 +211,13 @@ func TestHallOfFameGivesCountsLegendsAndTheTopOfTwoBoards(t *testing.T) {
 	run := publishedRun(t, pool)
 	for _, q := range []string{
 		"INSERT INTO tournament_series VALUES ($1, 'worlds', 31121, 5), ($1, 'international', 31674, 34)",
-		"INSERT INTO player_peak_titles VALUES ($1, 'wc', 'WC', 2025)",
 		"INSERT INTO tournament_legends VALUES ($1, 2, 'ann', 0, 2, 0, 0, 2, 1, 0), ($1, 1, 'wc', 1, 1, 0, 0, 2, 0, 1)",
 	} {
 		if _, err := pool.Exec(ctx, q, run); err != nil {
 			t.Fatalf("%s: %v", q, err)
 		}
 	}
+	addPeakTitle(t, pool, run, "wc", "WC", 2025)
 	for i := range 12 {
 		_, err := pool.Exec(ctx, `INSERT INTO tournament_boards (run_id, series, player_name, gold, silver, bronze, points, position, details)
 			VALUES ($1, 'grand_slams', $2, 1, 0, 0, 0, $3, 'cup')`, run, fmt.Sprintf("g%02d", i), i+1)
@@ -351,11 +347,10 @@ func TestCommunityLeaderboardGivesAnEditionWithPlayersCountriesAndTitles(t *test
 	ctx := context.Background()
 	run := publishedRun(t, pool)
 	addPlayers(t, pool, "ann", "RowandeSable", "RowanDeSable")
+	setCountries(t, pool, map[string]string{"ann": "PL", "RowandeSable": "FR"})
 	for _, q := range []string{
-		"UPDATE players SET country_code = 'PL' WHERE name = 'ann'",
-		"UPDATE players SET country_code = 'FR' WHERE name = 'RowandeSable'",
 		"INSERT INTO player_titles (run_id, player_name, title, title_count, badge_reason) VALUES ($1, 'ann', 'SGM', 1, 'r')",
-		`INSERT INTO community_standings VALUES ('2024', 2, 2, 'Martin Pecheur', 6687, 13, 's'), ('2024', 1, 1, 'ANN', 7657, 11, 's'),
+		`INSERT INTO community_standings VALUES ('2024', 2, 2, 'Marten Fisher', 6687, 13, 's'), ('2024', 1, 1, 'ANN', 7657, 11, 's'),
 		  ('2024', 4, 3, 'RowandeSable', 10, 1, 's'), ('2024', 3, 3, 'zed', 10, 1, 's'), ('2025', 1, 1, 'ann', 6600, 17, 's')`,
 		"INSERT INTO community_scores VALUES ('2024', 'ANN', 'wrld', 1600, 's'), ('2024', 'ANN', 'ic_24', 1000, 's'), ('2025', 'ann', 'wrld', 5, 's')",
 	} {
@@ -378,7 +373,7 @@ func TestCommunityLeaderboardGivesAnEditionWithPlayersCountriesAndTitles(t *test
 	}
 	want := []string{
 		"1 ANN PL SGM 7657 11 map[ic_24:1000 wrld:1600]",
-		"2 Martin Pecheur - - 6687 13 map[]",
+		"2 Marten Fisher - - 6687 13 map[]",
 		"3 zed - - 10 1 map[]", // equal ranks and points in the sheet's order
 		"3 RowandeSable FR - 10 1 map[]",
 	}

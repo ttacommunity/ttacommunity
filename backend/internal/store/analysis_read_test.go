@@ -90,9 +90,7 @@ func TestComparedPlayersFindsNamesOrCountriesStrongestFirst(t *testing.T) {
 	ctx := context.Background()
 	run := publishedRun(t, pool)
 	addPlayers(t, pool, "Annika", "hannah", "bob", "Zed")
-	if _, err := pool.Exec(ctx, "UPDATE players SET country_code = 'PL' WHERE name IN ('bob', 'Zed')"); err != nil {
-		t.Fatalf("setting countries: %v", err)
-	}
+	setCountries(t, pool, map[string]string{"bob": "PL", "Zed": "PL"})
 	for name, c := range map[string]float64{"Annika": 1700, "hannah": 1800, "bob": 1600, "Zed": 1900} {
 		addRating(t, pool, run, "glicko2_daneo", 0, name, ptr(1), c)
 	}
@@ -158,18 +156,14 @@ func TestActivityCountsPlayersGamesTitlesAndCountries(t *testing.T) {
 	run := publishedRun(t, pool)
 	other := publishedRun(t, pool)
 	addPlayers(t, pool, "gm1", "gm2", "m1", "p1", "s1", "fr1", "cz1", "unrated")
-	_, err := pool.Exec(ctx, `UPDATE players SET country_code = CASE WHEN name = 'fr1' THEN 'FR' WHEN name = 'cz1' THEN 'CZ'
-		WHEN name = 'unrated' THEN 'DE' ELSE 'PL' END`)
-	if err != nil {
-		t.Fatalf("setting countries: %v", err)
-	}
+	setCountries(t, pool, map[string]string{"gm1": "PL", "gm2": "PL", "m1": "PL", "p1": "PL", "s1": "PL", "fr1": "FR", "cz1": "CZ", "unrated": "DE"})
 	for name, rating := range map[string]float64{"gm1": 1900, "gm2": 1951, "m1": 1800, "p1": 1700, "s1": 1500, "fr1": 1600, "cz1": 1550} {
 		addRating(t, pool, run, "glicko2_std", 0, name, ptr(1), rating-100)
 	}
 	addRating(t, pool, run, "glicko2_std", 2, "s1", ptr(1), 2400)
 	addRating(t, pool, other, "glicko2_std", 0, "unrated", ptr(1), 1500)
 	// Active means a last game after the cutoff, in any model or format.
-	_, err = pool.Exec(ctx, `UPDATE player_ratings SET last_played = CASE WHEN player_count = 2 THEN '2025-06-01'::date
+	_, err := pool.Exec(ctx, `UPDATE player_ratings SET last_played = CASE WHEN player_count = 2 THEN '2025-06-01'::date
 		ELSE '2025-05-31'::date END WHERE run_id = $1 AND player_name IN ('gm1', 's1')`, run)
 	if err != nil {
 		t.Fatalf("setting last played: %v", err)

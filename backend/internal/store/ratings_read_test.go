@@ -338,9 +338,7 @@ func TestLeaderboardJoinsTheRunsCareerPeak(t *testing.T) {
 		run  int64
 		name string
 	}{{run, "ann"}, {other, "bob"}} {
-		if _, err := pool.Exec(ctx, "INSERT INTO player_peak_titles (run_id, player_name, peak_title, peak_year) VALUES ($1, $2, 'GM', 2024)", p.run, p.name); err != nil {
-			t.Fatalf("adding %s's peak: %v", p.name, err)
-		}
+		addPeakTitle(t, pool, p.run, p.name, "GM", 2024)
 	}
 
 	got, err := r.Leaderboard(ctx, run, "glicko2_daneo", 0)

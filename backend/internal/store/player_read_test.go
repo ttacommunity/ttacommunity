@@ -110,9 +110,7 @@ func TestPlayerGivesRatingsGamesAndDetails(t *testing.T) {
 		t.Fatalf("SetCountries: %v", err)
 	}
 	addTitle(t, pool, run, "ann", "GM", 2, "Played in Royal League Grandmaster")
-	if _, err := pool.Exec(ctx, "INSERT INTO player_peak_titles (run_id, player_name, peak_title, peak_year) VALUES ($1, 'ann', 'WC', 2024)", run); err != nil {
-		t.Fatalf("adding ann's peak: %v", err)
-	}
+	addPeakTitle(t, pool, run, "ann", "WC", 2024)
 	for _, model := range PlayerPageModels {
 		addRating(t, pool, run, model, 0, "ann", ptr(4), 1800)
 	}
