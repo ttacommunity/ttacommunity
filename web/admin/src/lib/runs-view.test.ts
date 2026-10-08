@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { canDelete, keepPolling, parseProgress, sizeText } from './runs-view';
+import { awaitStartedRun, canDelete, keepPolling, parseProgress, sizeText } from './runs-view';
 
 describe('parseProgress', () => {
   it('reads the step, label, time taken and time left from an engine line', () => {
@@ -59,11 +59,21 @@ describe('sizeText', () => {
 });
 
 describe('keepPolling', () => {
+  const now = 1_000_000;
+
   it.each([
-    ['a run going', 'running', false, true],
-    ['a run being deleted', 'complete', true, true],
-    ['only finished runs', 'complete', false, false],
-  ])('polls while a run is going or being deleted: %s', (_name, status, deleting, want) => {
-    expect(keepPolling([{ status, deleting }])).toBe(want);
+    ['a run going', 'running', false, 0, true],
+    ['a run being deleted', 'complete', true, 0, true],
+    ['only finished runs', 'complete', false, 0, false],
+    ['finished runs while a started run is awaited', 'complete', false, now + 1, true],
+    ['finished runs once the wait is over', 'complete', false, now - 1, false],
+  ])('polls while a run is going, being deleted or awaited: %s', (_name, status, deleting, waitingUntil, want) => {
+    expect(keepPolling([{ status, deleting }], waitingUntil, now)).toBe(want);
+  });
+});
+
+describe('awaitStartedRun', () => {
+  it('waits three minutes for a started run to appear', () => {
+    expect(awaitStartedRun(1_000_000)).toBe(1_000_000 + 3 * 60 * 1000);
   });
 });
