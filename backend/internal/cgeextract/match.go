@@ -128,9 +128,11 @@ func Match(cge []Game, ours []OurGame, names map[string][]int, series map[int]in
 	return got
 }
 
-// MatchSeats pairs our seats (by number) with the CGE game's seats (by index): by CGE account, else by a name
-// the account played under, else by a finished score only one seat has, else the one seat left on each side. It
-// returns the pairs and the CGE seats left without one, in seat order.
+// MatchSeats pairs our seats (by number) with the CGE game's seats (by index): by the name CGE's seat has in
+// this game, else by the CGE account an earlier load stored on our seat, else by a name the account played
+// under, else by a finished score only one seat has, else the one seat left on each side. CGE's own names come
+// first, so one wrong account stored before cannot swap two players. It returns the pairs and the CGE seats
+// left without one, in seat order.
 func MatchSeats(g Game, ours []OurSeat, names map[string][]int) (map[int]int, []int) {
 	pairs := map[int]int{}
 	taken := map[int]bool{}
@@ -143,8 +145,23 @@ func MatchSeats(g Game, ours []OurSeat, names map[string][]int) (map[int]int, []
 		}
 		return false
 	}
-	var rest []OurSeat
+	var unnamed []OurSeat
 	for _, o := range ours {
+		same := -1
+		for i, s := range g.Seats {
+			if !taken[i] && s.PlayerName != "" && strings.EqualFold(s.PlayerName, o.Name) {
+				same = i
+				break
+			}
+		}
+		if same < 0 {
+			unnamed = append(unnamed, o)
+			continue
+		}
+		pairs[o.Seat], taken[same] = same, true
+	}
+	var rest []OurSeat
+	for _, o := range unnamed {
 		if o.Account == 0 || !pair(o, []int{o.Account}) {
 			rest = append(rest, o)
 		}

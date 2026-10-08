@@ -184,3 +184,82 @@ func TestApplyCGEExtractReadsOutcomesFromTheFilesScores(t *testing.T) {
 		t.Errorf("seats = %q, want %q", got, want)
 	}
 }
+
+func TestApplyCGEExtractCorrectsAnAccountAnEarlierLoadLinkedWrongly(t *testing.T) {
+	tests := []struct {
+		name         string
+		reason       string
+		wantLinked   string
+		wantRelinked int
+	}{
+		{"a link the load made follows the seats", "", "bob", 1},
+		{"a link set by hand is kept", "the same person, by their choice", "ann", 0},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			pool := migrated(t)
+			ctx := context.Background()
+			placedOn(t, pool, map[string]time.Time{
+				"Intermezzo S24 - Bronze 1 game 1": day("2024-01-02"),
+				"Intermezzo S24 - Bronze 1 game 2": day("2024-01-09"),
+			})
+			setSeats(t, pool, "%game 1", Seat{"ann", 200}, Seat{"bob", 150})
+			setSeats(t, pool, "%game 2", Seat{"ann", 120}, Seat{"bob", 90})
+			setShareCode(t, pool, "Intermezzo S24 - Bronze 1 game 1", "CODEAAAA")
+			var seats []cgeextract.Seat
+			seats = append(seats, extractOf(19, 100, "CODEAAAA", cgeDone(1, "ann", 1, 200), cgeDone(2, "bob", 2, 150))...)
+			seats = append(seats, extractOf(19, 101, "CODEBBBB", cgeDone(1, "ann", 1, 120), cgeDone(2, "bob", 2, 90))...)
+			seats = append(seats, extractOf(19, 102, "CODECCCC", cgeDone(2, "bob", 1, 80), cgeDone(3, "cy", 2, 70))...)
+			in := CGEInput{Extract: cgeextract.Extract{Seats: seats}}
+			load := func() CGEApplied {
+				t.Helper()
+				plan, err := PlanCGEExtract(ctx, pool, in.Extract, nil)
+				if err != nil {
+					t.Fatalf("PlanCGEExtract: %v", err)
+				}
+				got, err := ApplyCGEExtract(ctx, pool, plan, in)
+				if err != nil {
+					t.Fatalf("ApplyCGEExtract: %v", err)
+				}
+				return got
+			}
+			load()
+			// As an earlier load left it: bob's account linked to ann, the two swapped in their shared game,
+			// and the game only CGE has given to ann.
+			for _, q := range []string{
+				`UPDATE player_accounts SET player_id = (SELECT player_id FROM players WHERE name = 'ann'),
+				        linked_reason = '` + tt.reason + `' WHERE cge_user = 2`,
+				`UPDATE seats s SET cge_user = 3 - s.cge_user, place = 3 - s.place, culture = CASE s.place WHEN 1 THEN 150 ELSE 200 END
+				 FROM games g WHERE g.game_id = s.game_id AND g.share_code = 'CODEAAAA'`,
+				`UPDATE seats s SET player_id = (SELECT player_id FROM players WHERE name = 'ann'), player_name = 'ann'
+				 FROM games g WHERE g.game_id = s.game_id AND g.share_code = 'CODECCCC' AND s.cge_user = 2`,
+			} {
+				if _, err := pool.Exec(ctx, q); err != nil {
+					t.Fatalf("%s: %v", q, err)
+				}
+			}
+
+			got := load()
+
+			if got.Relinked != tt.wantRelinked {
+				t.Errorf("relinked = %d, want %d", got.Relinked, tt.wantRelinked)
+			}
+			checks := []struct{ what, query, want string }{
+				{"bob's account", `SELECT p.name FROM player_accounts a JOIN players p USING (player_id) WHERE a.cge_user = 2`, tt.wantLinked},
+				{"the game only CGE has", `SELECT s.player_name FROM seats s JOIN games g USING (game_id)
+					WHERE g.share_code = 'CODECCCC' AND s.cge_user = 2`, tt.wantLinked},
+				{"ann's seat in the shared game", `SELECT s.cge_user || ' ' || s.place || ' ' || s.culture FROM seats s
+					JOIN games g USING (game_id) WHERE g.share_code = 'CODEAAAA' AND s.player_name = 'ann'`, "1 1 200"},
+			}
+			for _, c := range checks {
+				var v string
+				if err := pool.QueryRow(ctx, c.query).Scan(&v); err != nil {
+					t.Fatalf("%s: %v", c.what, err)
+				}
+				if v != c.want {
+					t.Errorf("%s = %q, want %q", c.what, v, c.want)
+				}
+			}
+		})
+	}
+}

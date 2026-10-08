@@ -114,6 +114,19 @@ func TestMatchSeatsPairsEachCGESeatWithOurs(t *testing.T) {
 	}
 }
 
+func TestMatchSeatsTrustsCGEsNameBeforeAnAccountAnEarlierLoadStored(t *testing.T) {
+	ann, bob := cgeSeat(1, 200), cgeSeat(2, 150)
+	ann.PlayerName, bob.PlayerName = "ann", "bob"
+	// An earlier load swapped the two seats' accounts; CGE's own seats name who sat where.
+	stored := []OurSeat{{Seat: 1, Name: "ann", Account: 2}, {Seat: 2, Name: "Bob", Account: 1}}
+
+	pairs, missing := MatchSeats(cgeGame(100, 19, "CODEAAAA", ann, bob), stored, names)
+
+	if want := map[int]int{1: 0, 2: 1}; !mapsEqual(pairs, want) || len(missing) != 0 {
+		t.Errorf("pairs %v, missing %v; want %v, none", pairs, missing, want)
+	}
+}
+
 func mapsEqual[K comparable, V comparable](a, b map[K]V) bool {
 	if len(a) != len(b) {
 		return false
