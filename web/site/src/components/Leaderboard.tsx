@@ -211,7 +211,7 @@ export default function Leaderboard({ apiUrl }: { apiUrl: string }) {
               {view.minOpps > 0 && (
                 <>
                   {' '}
-                  <span className="leaderboard-status status-min">(&ge; {view.minOpps} matches)</span>
+                  <span className="leaderboard-status status-min">(&ge; {view.minOpps} opponents)</span>
                 </>
               )}
             </p>
@@ -254,8 +254,8 @@ export default function Leaderboard({ apiUrl }: { apiUrl: string }) {
             )}
             {view.minOpps !== defaultMinOpps(view.year) && (
               <span className="filter-pill">
-                Min Matches: &ge;{view.minOpps}{' '}
-                <a {...linkTo({ ...view, minOpps: defaultMinOpps(view.year), page: 1 })} aria-label="Clear minimum matches">
+                Min Opponents: &ge;{view.minOpps}{' '}
+                <a {...linkTo({ ...view, minOpps: defaultMinOpps(view.year), page: 1 })} aria-label="Clear minimum opponents">
                   ✕
                 </a>
               </span>
@@ -502,7 +502,7 @@ function Table({ view, rows, jumpTo, changes, linkTo, caption, hidden }: TablePr
               <th scope="row">
                 <PlayerLink name={p.name} className="player-link" />
                 {p.provisional && (
-                  <span className="calibrating-badge" data-tooltip={`Provisional / Prior Calibration (${p.opponents}/15 matches completed)`}>
+                  <span className="calibrating-badge" data-tooltip={`Provisional / Prior Calibration (${p.opponents}/15 opponents faced)`}>
                     ⏳
                   </span>
                 )}

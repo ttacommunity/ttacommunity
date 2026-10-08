@@ -208,7 +208,7 @@ export default function OptionsDrawer({ view, titles, years, downloads, linkTo, 
 
         <div className="options-field">
           <label className="options-group-title" htmlFor="options-min">
-            <span>⚔️ Minimum Matches</span>
+            <span>⚔️ Minimum Opponents</span>
           </label>
           <div className="options-min-row">
             <input
@@ -217,7 +217,7 @@ export default function OptionsDrawer({ view, titles, years, downloads, linkTo, 
               min={0}
               max={1000}
               className="input-antique"
-              placeholder="Min matches"
+              placeholder="Min opponents"
               value={minOpps}
               onChange={(e) => setMinOpps(e.target.value)}
             />

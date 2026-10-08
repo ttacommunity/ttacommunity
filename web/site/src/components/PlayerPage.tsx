@@ -231,7 +231,7 @@ function Header({
                 {' '}
                 <span
                   className="profile-calibrating"
-                  data-tooltip={`Provisional / Calibrating Prior: ${gamesInFormat}/15 matches completed`}
+                  data-tooltip={`Provisional / Calibrating Prior: ${gamesInFormat}/15 opponents faced`}
                 >
                   ⏳
                 </span>
@@ -299,7 +299,7 @@ function FormatCards({ player, view, linkTo }: { player: Player; view: PlayerVie
               <strong>{r ? r.c_rating.toFixed(2) : '—'}</strong>
             </div>
             <div className="model-card-caption">
-              {r && r.opponents > 0 ? `Matches: ${r.opponents} | Win%: ${r.win_rate.toFixed(1)}%` : c.description}
+              {r && r.opponents > 0 ? `Opponents: ${r.opponents} | Win%: ${r.win_rate.toFixed(1)}%` : c.description}
             </div>
           </a>
         );

@@ -110,7 +110,7 @@ export default function CareerBox({
                   {season.title !== null && <SeasonBadge code={season.title} />}
                 </div>
                 <div className="career-season-stats">
-                  {season.wins} Wins / {season.opponents} Matches (<strong>{season.win_rate.toFixed(1)}%</strong> Win Rate)
+                  {season.wins} Wins / {season.opponents} Opponents (<strong>{season.win_rate.toFixed(1)}%</strong> Win Rate)
                   {season.peak_rating ? (
                     <>
                       {' '}
