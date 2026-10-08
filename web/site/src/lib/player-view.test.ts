@@ -21,7 +21,7 @@ import {
 describe('playerHref', () => {
   it('puts the name in the query, encoded', () => {
     expect(playerHref('alder440')).toBe('/ratings/player/?name=alder440');
-    expect(playerHref('gigi lamoroso')).toBe('/ratings/player/?name=gigi+lamoroso');
+    expect(playerHref('gila loomer')).toBe('/ratings/player/?name=gila+loomer');
     expect(playerHref('a&b=c')).toBe('/ratings/player/?name=a%26b%3Dc');
   });
 });
