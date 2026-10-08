@@ -29,10 +29,15 @@ type CGEApplied struct {
 	Matched, Added, HeldBack, Unplaced      int
 	SeatsAdded, PlayersAdded, AccountsAdded int
 	SeriesAdded, SettingsWritten, Refused   int
+	// Relinked counts accounts an earlier load linked to one player that their paired seats show is another's.
+	Relinked int
 }
 
 // The file the extract's rows come from, as games and refusals name it.
 const extractFile = "tournaments_export.csv"
+
+// The source of the games an earlier CGE scrape loaded: their seats are named as CGE named them then.
+const scrapeFile = "cge"
 
 var trailingGame = regexp.MustCompile(`\s+game\s*\d+\s*$`)
 
@@ -59,6 +64,7 @@ func ApplyCGEExtract(ctx context.Context, pool *pgxpool.Pool, plan CGEPlan, in C
 		{"staging the extract", stageExtract},
 		{"writing accounts", writeAccounts},
 		{"writing matched games", writeMatched},
+		{"naming the seats of games only CGE has by their accounts", followAccounts},
 		{"adding games only CGE has", addGames},
 		{"writing the catalogue", writeCatalogue},
 		{"writing settings", writeSettings},
@@ -142,16 +148,27 @@ func writeAccounts(ctx context.Context, tx pgx.Tx, _ CGEPlan, _ CGEInput, got *C
 		`CREATE TEMPORARY TABLE x_accounts ON COMMIT DROP AS
 		 SELECT DISTINCT ON (player_id) player_id, player_name, banned FROM x_seats
 		 ORDER BY player_id, finished_at DESC NULLS LAST`,
+		// Each account's player is the one most of its seats in the organisers' games show; a game CGE's extract
+		// or an earlier scrape named has no say, as its names come from CGE's accounts.
 		`CREATE TEMPORARY TABLE x_paired ON COMMIT DROP AS
 		 SELECT DISTINCT ON (x.player_id) x.player_id, s.player_id AS our_player
 		 FROM x_pairs p JOIN x_seats x USING (session, idx) JOIN seats s ON s.game_id = p.game_id AND s.seat = p.seat
+		 JOIN games g ON g.game_id = p.game_id WHERE g.source_file NOT IN ('` + extractFile + `', '` + scrapeFile + `')
 		 GROUP BY x.player_id, s.player_id ORDER BY x.player_id, count(*) DESC`,
 	} {
 		if _, err := tx.Exec(ctx, q); err != nil {
 			return err
 		}
 	}
+	// An account an earlier load linked follows the player most of its paired seats show; one linked by hand stays.
 	tag, err := tx.Exec(ctx, `
+		UPDATE player_accounts pa SET player_id = p.our_player FROM x_paired p
+		WHERE pa.cge_user = p.player_id AND pa.player_id <> p.our_player AND pa.linked_reason = ''`)
+	if err != nil {
+		return err
+	}
+	got.Relinked = int(tag.RowsAffected())
+	tag, err = tx.Exec(ctx, `
 		INSERT INTO players (name)
 		SELECT a.player_name FROM x_accounts a
 		WHERE NOT EXISTS (SELECT FROM player_accounts pa WHERE pa.cge_user = a.player_id)
@@ -171,6 +188,28 @@ func writeAccounts(ctx context.Context, tx pgx.Tx, _ CGEPlan, _ CGEInput, got *C
 		FROM x_accounts a LEFT JOIN x_paired p USING (player_id) LEFT JOIN players pl ON pl.name = a.player_name
 		ON CONFLICT (cge_user) DO UPDATE SET name = excluded.name, banned = excluded.banned, deleted = excluded.deleted`)
 	return err
+}
+
+// followAccounts names each seat of a game CGE named (one only CGE has, or one an earlier scrape loaded) after its
+// account's player, so its seats follow a relinked account, once matched seats have their accounts; a group's
+// members are the players with a seat in its games.
+func followAccounts(ctx context.Context, tx pgx.Tx, _ CGEPlan, _ CGEInput, _ *CGEApplied) error {
+	for _, q := range []string{
+		`UPDATE seats s SET player_id = a.player_id, player_name = pl.name
+		 FROM games g, player_accounts a, players pl
+		 WHERE g.game_id = s.game_id AND g.source_file IN ('` + extractFile + `', '` + scrapeFile + `') AND a.cge_user = s.cge_user
+		   AND pl.player_id = a.player_id AND s.player_id <> a.player_id`,
+		`INSERT INTO group_members (group_id, player_id)
+		 SELECT DISTINCT g.group_id, s.player_id FROM games g JOIN seats s USING (game_id)
+		 WHERE g.group_id IS NOT NULL ON CONFLICT DO NOTHING`,
+		`DELETE FROM group_members m WHERE NOT EXISTS (
+		   SELECT FROM games g JOIN seats s USING (game_id) WHERE g.group_id = m.group_id AND s.player_id = m.player_id)`,
+	} {
+		if _, err := tx.Exec(ctx, q); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // The culture CGE records for a seat: its score when finished, else none.
