@@ -61,6 +61,7 @@ func ApplyCGEExtract(ctx context.Context, pool *pgxpool.Pool, plan CGEPlan, in C
 		{"staging the extract", stageExtract},
 		{"writing accounts", writeAccounts},
 		{"writing matched games", writeMatched},
+		{"naming the seats of games only CGE has by their accounts", followAccounts},
 		{"adding games only CGE has", addGames},
 		{"writing the catalogue", writeCatalogue},
 		{"writing settings", writeSettings},
@@ -144,9 +145,12 @@ func writeAccounts(ctx context.Context, tx pgx.Tx, _ CGEPlan, _ CGEInput, got *C
 		`CREATE TEMPORARY TABLE x_accounts ON COMMIT DROP AS
 		 SELECT DISTINCT ON (player_id) player_id, player_name, banned FROM x_seats
 		 ORDER BY player_id, finished_at DESC NULLS LAST`,
+		// Each account's player is the one most of its seats in our own games show; a game only CGE has is named
+		// from the accounts, so it has no say.
 		`CREATE TEMPORARY TABLE x_paired ON COMMIT DROP AS
 		 SELECT DISTINCT ON (x.player_id) x.player_id, s.player_id AS our_player
 		 FROM x_pairs p JOIN x_seats x USING (session, idx) JOIN seats s ON s.game_id = p.game_id AND s.seat = p.seat
+		 JOIN games g ON g.game_id = p.game_id WHERE g.source_file <> '` + extractFile + `'
 		 GROUP BY x.player_id, s.player_id ORDER BY x.player_id, count(*) DESC`,
 	} {
 		if _, err := tx.Exec(ctx, q); err != nil {
@@ -180,11 +184,13 @@ func writeAccounts(ctx context.Context, tx pgx.Tx, _ CGEPlan, _ CGEInput, got *C
 		SELECT a.player_id, coalesce(p.our_player, pl.player_id), a.player_name, a.banned, a.player_name ~ '^deleted_user_[0-9]+$'
 		FROM x_accounts a LEFT JOIN x_paired p USING (player_id) LEFT JOIN players pl ON pl.name = a.player_name
 		ON CONFLICT (cge_user) DO UPDATE SET name = excluded.name, banned = excluded.banned, deleted = excluded.deleted`)
-	if err != nil {
-		return err
-	}
-	// A game only CGE has is its accounts' players', so its seats follow a relinked account; a group's members
-	// are the players with a seat in its games.
+	return err
+}
+
+// followAccounts names each seat of a game only CGE has after its account's player, so its seats follow a
+// relinked account, once matched seats have their accounts; a group's members are the players with a seat in
+// its games.
+func followAccounts(ctx context.Context, tx pgx.Tx, _ CGEPlan, _ CGEInput, _ *CGEApplied) error {
 	for _, q := range []string{
 		`UPDATE seats s SET player_id = a.player_id, player_name = pl.name
 		 FROM games g, player_accounts a, players pl
