@@ -217,12 +217,12 @@ func TestCommunityLeaderboard(t *testing.T) {
 	pl, gm := "PL", "SGM"
 	f := &fakeCommunity{rows: []store.CommunityRow{
 		{Rank: 1, Name: "ann", Country: &pl, Title: &gm, Points: 7657, Events: 11, Scores: map[string]float64{"wrld": 1600, "ic_24": 1000}},
-		{Rank: 2, Name: "Martin Pecheur", Points: 6687.5, Events: 13, Scores: map[string]float64{}},
+		{Rank: 2, Name: "Marten Fisher", Points: 6687.5, Events: 13, Scores: map[string]float64{}},
 	}}
 	rec, _ := serve(t, f, "/v1/runs/7/community/race26")
 	want := `{"edition":"race26","rows":[` +
 		`{"country":"PL","events":11,"name":"ann","points":7657,"rank":1,"scores":{"ic_24":1000,"wrld":1600},"title":"SGM"},` +
-		`{"country":null,"events":13,"name":"Martin Pecheur","points":6687.5,"rank":2,"scores":{},"title":null}],"run_id":7}`
+		`{"country":null,"events":13,"name":"Marten Fisher","points":6687.5,"rank":2,"scores":{},"title":null}],"run_id":7}`
 	if got := strings.TrimSpace(rec.Body.String()); rec.Code != http.StatusOK || got != want {
 		t.Errorf("GET community: %d %s\nwant 200 %s", rec.Code, got, want)
 	}

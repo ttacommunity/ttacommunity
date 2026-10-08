@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { adminApiPath, apiOriginFor, verifyAccessToken, type Jwk } from './proxy';
+import { adminApiPath, apiOriginFor, keyCache, verifyAccessToken, type Jwk } from './proxy';
 
 const TEAM = 'https://team.cloudflareaccess.com';
 const AUD = 'aud-of-the-admin-app';
@@ -95,5 +95,21 @@ describe('apiOriginFor', () => {
     for (const host of ['3f2a9c1b.ttac-admin.unstableunicorn.dev', 'evil.example', 'ttac-admin.unstableunicorn.dev.evil.example', '']) {
       expect(apiOriginFor(host), host).toBeNull();
     }
+  });
+});
+
+describe('keyCache', () => {
+  it.each([
+    ['not again within the time kept', 1_000, 1_000 + 299_999, 1],
+    ['again once the time kept is over', 1_000, 1_000 + 300_000, 2],
+  ])('fetches the keys once, and %s', async (_name, first, second, want) => {
+    let loads = 0;
+    const keys = keyCache(async () => {
+      loads++;
+      return [{ kid: `k${loads}` }];
+    }, 300_000);
+    await keys(first);
+    await keys(second);
+    expect(loads).toBe(want);
   });
 });

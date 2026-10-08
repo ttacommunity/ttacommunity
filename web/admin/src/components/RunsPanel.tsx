@@ -1,7 +1,7 @@
 /** Rating runs, for admins: start one, watch its progress, compare and publish it, and protect or delete old ones. */
 import { useEffect, useState } from 'react';
 import { adminRequest, type AdminRun, type RunChanges, type RunSize, type StartedRun } from '../lib/admin-api';
-import { canDelete, keepPolling, parseProgress, sizeText } from '../lib/runs-view';
+import { awaitStartedRun, canDelete, keepPolling, parseProgress, sizeText } from '../lib/runs-view';
 
 const POLL_MS = 5000;
 const ZONE = Intl.DateTimeFormat().resolvedOptions().timeZone;
@@ -89,7 +89,7 @@ export default function RunsPanel() {
     else setMessage(r.message);
   };
   const going = runs?.some((r) => r.status === 'running') ?? false;
-  const changing = runs !== null && keepPolling(runs);
+  const changing = runs !== null && keepPolling(runs, waitingUntil, Date.now());
   useEffect(() => {
     void load();
   }, []);
@@ -100,7 +100,7 @@ export default function RunsPanel() {
     });
   }, [runs?.length]);
   useEffect(() => {
-    if (!changing && Date.now() > waitingUntil) return;
+    if (!changing) return;
     const timer = window.setInterval(() => void load(), POLL_MS);
     return () => window.clearInterval(timer);
   }, [changing, waitingUntil]);
@@ -114,7 +114,7 @@ export default function RunsPanel() {
       return;
     }
     setMessage(`Started ${r.data.job}. Its run appears here once the engine connects.`);
-    setWaitingUntil(Date.now() + 3 * 60 * 1000);
+    setWaitingUntil(awaitStartedRun(Date.now()));
   };
   const stop = async (run: AdminRun) => {
     if (!window.confirm(`Stop run ${run.id}? It is marked failed, and its work so far is not kept.`)) return;

@@ -6,12 +6,13 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"reflect"
 	"slices"
 	"testing"
 	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
+
+	"github.com/google/go-cmp/cmp"
 )
 
 // addGame stores one game and, if run is not zero, the run's 1v1 pairs for it.
@@ -74,7 +75,7 @@ func TestPlayerFindsANameExactlyOrByAUniqueCase(t *testing.T) {
 	r := NewRatingsReader(asReader(t, pool))
 	ctx := context.Background()
 	run := publishedRun(t, pool)
-	addPlayers(t, pool, "Ann", "Nyalala", "nyalala")
+	addPlayers(t, pool, "Ann", "Nimbusnim", "nimbusnim")
 
 	tests := []struct {
 		name, asked string
@@ -84,8 +85,8 @@ func TestPlayerFindsANameExactlyOrByAUniqueCase(t *testing.T) {
 	}{
 		{name: "exact name", asked: "Ann", run: run, want: "Ann"},
 		{name: "another case, one match", asked: "aNN", run: run, want: "Ann"},
-		{name: "exact name among two cases", asked: "nyalala", run: run, want: "nyalala"},
-		{name: "another case, two matches", asked: "NYALALA", run: run, err: ErrPlayerNotFound},
+		{name: "exact name among two cases", asked: "nimbusnim", run: run, want: "nimbusnim"},
+		{name: "another case, two matches", asked: "NIMBUSNIM", run: run, err: ErrPlayerNotFound},
 		{name: "unknown name", asked: "zed", run: run, err: ErrPlayerNotFound},
 	}
 	for _, tt := range tests {
@@ -109,9 +110,7 @@ func TestPlayerGivesRatingsGamesAndDetails(t *testing.T) {
 		t.Fatalf("SetCountries: %v", err)
 	}
 	addTitle(t, pool, run, "ann", "GM", 2, "Played in Royal League Grandmaster")
-	if _, err := pool.Exec(ctx, "INSERT INTO player_peak_titles (run_id, player_name, peak_title, peak_year) VALUES ($1, 'ann', 'WC', 2024)", run); err != nil {
-		t.Fatalf("adding ann's peak: %v", err)
-	}
+	addPeakTitle(t, pool, run, "ann", "WC", 2024)
 	for _, model := range PlayerPageModels {
 		addRating(t, pool, run, model, 0, "ann", ptr(4), 1800)
 	}
@@ -645,7 +644,7 @@ func TestPlayerGivesTheirBadges(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Player: %v", err)
 	}
-	if want := []ExtraBadge{{Label: "Organiser", Description: "Organiser description"}}; !reflect.DeepEqual(got.Badges, want) {
-		t.Errorf("badges = %+v, want %+v", got.Badges, want)
+	if diff := cmp.Diff([]ExtraBadge{{Label: "Organiser", Description: "Organiser description"}}, got.Badges); diff != "" {
+		t.Errorf("badges (-want +got):\n%s", diff)
 	}
 }

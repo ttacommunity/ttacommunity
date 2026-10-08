@@ -5,16 +5,15 @@ package store
 import (
 	"context"
 	"errors"
-	"reflect"
 	"testing"
+
+	"github.com/google/go-cmp/cmp"
 )
 
 func TestSetTitleReplacesAndClearTitleRemoves(t *testing.T) {
 	pool := migrated(t)
 	ctx := context.Background()
-	if _, err := pool.Exec(ctx, "INSERT INTO players (name) VALUES ('Ann'), ('Bob')"); err != nil {
-		t.Fatal(err)
-	}
+	addPlayers(t, pool, "Ann", "Bob")
 	a := NewAdminStore(asAdminLogin(t, pool))
 
 	for _, o := range []TitleOverride{{Name: "Ann", Title: "GM", Reason: "first"}, {Name: "Ann", Title: "SGM", Reason: " won 2019 "}, {Name: "Bob", Title: "", Reason: "a false Super GM"}} {
@@ -27,8 +26,8 @@ func TestSetTitleReplacesAndClearTitleRemoves(t *testing.T) {
 		t.Fatal(err)
 	}
 	want := []TitleOverride{{Name: "Ann", Title: "SGM", Reason: "won 2019"}, {Name: "Bob", Title: "", Reason: "a false Super GM"}}
-	if !reflect.DeepEqual(got, want) {
-		t.Errorf("overrides = %+v, want %+v", got, want)
+	if diff := cmp.Diff(want, got); diff != "" {
+		t.Errorf("overrides (-want +got):\n%s", diff)
 	}
 
 	if err := a.ClearTitle(ctx, "Ann"); err != nil {
@@ -45,9 +44,7 @@ func TestSetTitleReplacesAndClearTitleRemoves(t *testing.T) {
 func TestSetTitleRefusesWhatAdminCannotSet(t *testing.T) {
 	pool := migrated(t)
 	ctx := context.Background()
-	if _, err := pool.Exec(ctx, "INSERT INTO players (name) VALUES ('Ann')"); err != nil {
-		t.Fatal(err)
-	}
+	addPlayers(t, pool, "Ann")
 	a := NewAdminStore(asAdminLogin(t, pool))
 	for _, tt := range []struct {
 		name string

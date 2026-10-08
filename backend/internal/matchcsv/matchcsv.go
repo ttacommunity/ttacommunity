@@ -72,6 +72,9 @@ type Refusal struct {
 	Fields []string
 }
 
+// ErrBadHeader means a file's header is not a match CSV's.
+var ErrBadHeader = errors.New("the header is not a match CSV's")
+
 // Read reads every record after the header from r. It fails if the file
 // is not a match CSV. A record with the wrong column count is still returned,
 // so Check can refuse it with a reason.
@@ -83,7 +86,7 @@ func Read(file string, r io.Reader) ([]Row, error) {
 		return nil, fmt.Errorf("reading the header of %s: %w", file, err)
 	}
 	if !slices.Equal(head, Header) {
-		return nil, fmt.Errorf("%s: header is %q, want %q", file, head, Header)
+		return nil, fmt.Errorf("%s: header is %q, want %q: %w", file, head, Header, ErrBadHeader)
 	}
 
 	var rows []Row

@@ -31,7 +31,13 @@ export function sizeText(bytes: number | undefined): string {
   return unit === 0 ? `${bytes} B` : `${(bytes / 1000 ** unit).toFixed(1)} ${UNITS[unit]}`;
 }
 
-/** keepPolling says whether the runs change on their own: one is going or being deleted. */
-export function keepPolling(runs: { status: string; deleting: boolean }[]): boolean {
-  return runs.some((r) => r.status === 'running' || r.deleting);
+/** keepPolling says whether the runs may change without the admin: one is going or being deleted, or a run
+ * just started is awaited until waitingUntil (ms since the epoch, as now). */
+export function keepPolling(runs: { status: string; deleting: boolean }[], waitingUntil: number, now: number): boolean {
+  return now < waitingUntil || runs.some((r) => r.status === 'running' || r.deleting);
+}
+
+/** awaitStartedRun gives when to stop waiting for a run started at now to appear: its engine takes a while to connect. */
+export function awaitStartedRun(now: number): number {
+  return now + 3 * 60 * 1000;
 }

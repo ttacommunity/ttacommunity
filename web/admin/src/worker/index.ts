@@ -1,5 +1,5 @@
 /** The admin site's Worker: static pages, and /api/* proxied to the API's admin routes for a verified Access session. */
-import { adminApiPath, apiOriginFor, verifyAccessToken, type Jwk } from './proxy';
+import { adminApiPath, apiOriginFor, keyCache, verifyAccessToken, type Jwk } from './proxy';
 
 interface Env {
   ASSETS: { fetch(request: Request): Promise<Response> };
@@ -8,15 +8,13 @@ interface Env {
 }
 
 const KEYS_FOR_MS = 5 * 60 * 1000;
-let cached: { keys: Jwk[]; at: number } | null = null;
+let teamKeys: ((now: number) => Promise<Jwk[]>) | null = null;
 
-async function teamKeys(team: string): Promise<Jwk[]> {
-  if (cached !== null && Date.now() - cached.at < KEYS_FOR_MS) return cached.keys;
+async function fetchKeys(team: string): Promise<Jwk[]> {
   const res = await fetch(`${team}/cdn-cgi/access/certs`);
   if (!res.ok) throw new Error(`certs: ${res.status}`);
   const body = (await res.json()) as { keys?: Jwk[] };
-  cached = { keys: body.keys ?? [], at: Date.now() };
-  return cached.keys;
+  return body.keys ?? [];
 }
 
 function refuse(status: number, error: string): Response {
@@ -33,7 +31,8 @@ export default {
     if (path === null) return refuse(404, 'no such admin route');
     const token = request.headers.get('Cf-Access-Jwt-Assertion') ?? '';
     const team = env.ACCESS_TEAM;
-    if (!(await verifyAccessToken(token, team, env.ACCESS_AUD, Date.now() / 1000, () => teamKeys(team)))) {
+    const keys = (teamKeys ??= keyCache(() => fetchKeys(team), KEYS_FOR_MS));
+    if (!(await verifyAccessToken(token, team, env.ACCESS_AUD, Date.now() / 1000, () => keys(Date.now())))) {
       return refuse(401, 'sign in again');
     }
     const headers = new Headers({ 'Cf-Access-Jwt-Assertion': token, Accept: 'application/json' });

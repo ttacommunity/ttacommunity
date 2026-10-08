@@ -37,24 +37,25 @@ func TestReadPlacementsTakesEveryColumn(t *testing.T) {
 	}
 }
 
-func TestReadPlacementsTakesTheWorldChampionship(t *testing.T) {
-	got, err := ReadPlacements("p.csv", strings.NewReader(placementsHeader+"worlds,2025,Final,ann,1,,r,s\n"))
-	if err != nil {
-		t.Fatalf("ReadPlacements: %v", err)
+func TestReadPlacementsTakesWhatOnlySomeTournamentsHave(t *testing.T) {
+	tests := []struct {
+		name string
+		rows string
+		want int
+	}{
+		{"the World Championship, with a year for a season and no points", "worlds,2025,Final,ann,1,,r,s\n", 1},
+		{"a champion team, two players in first place", "nations_league,10,Apple,Dahlia,1,36,r,s\nnations_league,10,Apple,Drover,1,36,r,s\n", 2},
 	}
-	if len(got.Facts) != 1 || got.Facts[0].Series != "worlds" || got.Facts[0].Season != 2025 {
-		t.Errorf("placements = %+v, refused %v; want the 2025 World Championship", got.Facts, got.Refused)
-	}
-}
-
-func TestReadPlacementsTakesATeamOfTheNationsLeague(t *testing.T) {
-	got, err := ReadPlacements("p.csv", strings.NewReader(placementsHeader+
-		"nations_league,10,Apple,DANeo,1,36,r,s\nnations_league,10,Apple,DrRerNate,1,36,r,s\n"))
-	if err != nil {
-		t.Fatalf("ReadPlacements: %v", err)
-	}
-	if len(got.Facts) != 2 || len(got.Refused) != 0 {
-		t.Errorf("placements = %+v, refused %v; want both players of the champion team", got.Facts, got.Refused)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := ReadPlacements("p.csv", strings.NewReader(placementsHeader+tt.rows))
+			if err != nil {
+				t.Fatalf("ReadPlacements: %v", err)
+			}
+			if len(got.Facts) != tt.want || len(got.Refused) != 0 {
+				t.Errorf("placements = %+v, refused %v; want %d taken", got.Facts, got.Refused, tt.want)
+			}
+		})
 	}
 }
 

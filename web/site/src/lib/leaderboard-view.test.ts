@@ -179,19 +179,24 @@ describe('search', () => {
 describe('sortRows and nextSort', () => {
   const pool = rankPool([row('b', 1800, 60), row('a', 1900, 40), row('c', 1700, 50)], view());
 
-  it('sorts by rank, name or a number, either way', () => {
-    expect(sortRows(pool, 'rank', 'asc').map((p) => p.name)).toEqual(['a', 'b', 'c']);
-    expect(sortRows(pool, 'rank', 'desc').map((p) => p.name)).toEqual(['c', 'b', 'a']);
-    expect(sortRows(pool, 'name', 'asc').map((p) => p.name)).toEqual(['a', 'b', 'c']);
-    expect(sortRows(pool, 'opps', 'desc').map((p) => p.name)).toEqual(['b', 'c', 'a']);
+  it.each([
+    ['rank', 'asc', ['a', 'b', 'c']],
+    ['rank', 'desc', ['c', 'b', 'a']],
+    ['name', 'asc', ['a', 'b', 'c']],
+    ['opps', 'desc', ['b', 'c', 'a']],
+  ] as const)('sorts by %s, %s', (sort, order, want) => {
+    expect(sortRows(pool, sort, order).map((p) => p.name)).toEqual(want);
   });
 
-  it('toggles as upstream: rank and name start ascending, numbers descending', () => {
-    expect(nextSort(view(), 'rank')).toEqual({ sort: 'rank', order: 'desc' });
-    expect(nextSort(view({ sort: 'rank', order: 'desc' }), 'rank')).toEqual({ sort: 'rank', order: 'asc' });
-    expect(nextSort(view(), 'name')).toEqual({ sort: 'name', order: 'asc' });
-    expect(nextSort(view(), 'c_rating')).toEqual({ sort: 'c_rating', order: 'desc' });
-    expect(nextSort(view({ sort: 'c_rating', order: 'desc' }), 'c_rating')).toEqual({ sort: 'c_rating', order: 'asc' });
+  // As upstream: rank and name start ascending, numbers descending; the same column again turns it round.
+  it.each([
+    ['rank, first', view(), 'rank', { sort: 'rank', order: 'desc' }],
+    ['rank, again', view({ sort: 'rank', order: 'desc' }), 'rank', { sort: 'rank', order: 'asc' }],
+    ['name, first', view(), 'name', { sort: 'name', order: 'asc' }],
+    ['a number, first', view(), 'c_rating', { sort: 'c_rating', order: 'desc' }],
+    ['a number, again', view({ sort: 'c_rating', order: 'desc' }), 'c_rating', { sort: 'c_rating', order: 'asc' }],
+  ] as const)('toggles %s', (_name, current, column, want) => {
+    expect(nextSort(current, column)).toEqual(want);
   });
 });
 
@@ -223,21 +228,23 @@ describe('hasOptions and hasFilters', () => {
 });
 
 describe('pickPlayer', () => {
-  const names = ['Ender_Wiggin', 'LavenderQueen', 'exender', 'theblender'];
+  const names = ['Ember_Wolf', 'LarchQueen', 'remember', 'December'];
 
   it('picks a name typed in full, in any case', () => {
-    expect(pickPlayer(names, ' ender_wiggin ')).toBe('Ender_Wiggin');
+    expect(pickPlayer(names, ' ember_wolf ')).toBe('Ember_Wolf');
   });
 
   it('picks the top suggestion for part of a name', () => {
-    expect(pickPlayer(names, 'ender')).toBe('Ender_Wiggin');
-    expect(pickPlayer(names, 'LAVEN')).toBe('LavenderQueen');
+    expect(pickPlayer(names, 'embe')).toBe('Ember_Wolf');
+    expect(pickPlayer(names, 'LARCH')).toBe('LarchQueen');
   });
 
-  it('picks nobody when nothing matches or too little is typed', () => {
-    expect(pickPlayer(names, 'Ender_Wiggen')).toBeNull();
-    expect(pickPlayer(names, 'e')).toBeNull();
-    expect(pickPlayer(names, '')).toBeNull();
+  it.each([
+    ['a name nobody has', 'Ember_Wulf'],
+    ['one character', 'e'],
+    ['nothing', ''],
+  ])('picks nobody for %s', (_name, typed) => {
+    expect(pickPlayer(names, typed)).toBeNull();
   });
 });
 
@@ -257,11 +264,14 @@ describe('suggest', () => {
 });
 
 describe('titleOptions', () => {
-  it('lists the titles present, GM, M, P and G first, as upstream', () => {
-    const rows = [row('a', 1, 40, null, titled('M')), row('b', 1, 40, null, titled('WC')), row('c', 1), row('d', 1, 40, null, titled('GM'))];
-    expect(titleOptions(rows)).toEqual(['GM', 'M', 'WC']);
-    expect(titleOptions([...rows, row('e', 1, 40, null, titled('SGM'))])).toEqual(['GM', 'M', 'SGM', 'WC']);
-    expect(titleOptions([row('f', 1, 40, null, titled('B')), row('g', 1, 40, null, titled('W'))])).toEqual(['W', 'B']);
+  const rows = [row('a', 1, 40, null, titled('M')), row('b', 1, 40, null, titled('WC')), row('c', 1), row('d', 1, 40, null, titled('GM'))];
+
+  it.each([
+    ['GM, M, P and G first', rows, ['GM', 'M', 'WC']],
+    ['another title among them', [...rows, row('e', 1, 40, null, titled('SGM'))], ['GM', 'M', 'SGM', 'WC']],
+    ['only those present', [row('f', 1, 40, null, titled('B')), row('g', 1, 40, null, titled('W'))], ['W', 'B']],
+  ])('lists the titles present, as upstream: %s', (_name, present, want) => {
+    expect(titleOptions(present)).toEqual(want);
   });
 });
 
@@ -285,12 +295,14 @@ describe('deltas', () => {
 });
 
 describe('rankChange', () => {
-  it('is the past rank minus the rank shown, or 0 when either is missing', () => {
-    expect(rankChange({ c_rating: 0, rating: 0, pastRank: 9 }, 4)).toBe(5);
-    expect(rankChange({ c_rating: 0, rating: 0, pastRank: 2 }, 6)).toBe(-4);
-    expect(rankChange({ c_rating: 0, rating: 0, pastRank: null }, 6)).toBe(0);
-    expect(rankChange(undefined, 6)).toBe(0);
-    expect(rankChange({ c_rating: 0, rating: 0, pastRank: 3 }, null)).toBe(0);
+  it.each([
+    ['a rise', { c_rating: 0, rating: 0, pastRank: 9 }, 4, 5],
+    ['a fall', { c_rating: 0, rating: 0, pastRank: 2 }, 6, -4],
+    ['no past rank', { c_rating: 0, rating: 0, pastRank: null }, 6, 0],
+    ['no past rating at all', undefined, 6, 0],
+    ['no rank shown', { c_rating: 0, rating: 0, pastRank: 3 }, null, 0],
+  ])('is the past rank minus the rank shown, or 0 when either is missing: %s', (_name, past, shown, want) => {
+    expect(rankChange(past, shown)).toBe(want);
   });
 });
 
@@ -416,32 +428,32 @@ describe('hiddenMatches and hiddenNote', () => {
     if (h === null) throw new Error(`nobody hidden for ${term}`);
     return h;
   };
-  const rows = [row('Grozz', 1900), row('UnstableUnicorn', 1250, 23), row('OldTimer', 1500, 40, '2020-01-01'), row('Weidenbaum', 1890, 40, '2026-01-01', titled('GM'))];
+  const rows = [row('Grebe', 1900), row('Umber_Owl', 1250, 23), row('OldTimer', 1500, 40, '2020-01-01'), row('Willow_Tree', 1890, 40, '2026-01-01', titled('GM'))];
 
   it('finds a player the minimum opponents hides, and how to show them', () => {
-    const h = hiddenMatches(rows, view({ search: 'unstable', page: 3 }), 'unstable');
-    expect(h?.names).toEqual(['UnstableUnicorn']);
-    expect(h?.show).toMatchObject({ minOpps: 23, status: 'active', title: null, search: 'unstable', page: 1 });
-    expect(hiddenNote(found(rows, view({ search: 'unstable' }), 'unstable'), view(), 'unstable')).toBe('UnstableUnicorn is hidden by the minimum of 30 opponents (23 played).');
+    const h = hiddenMatches(rows, view({ search: 'umber', page: 3 }), 'umber');
+    expect(h?.names).toEqual(['Umber_Owl']);
+    expect(h?.show).toMatchObject({ minOpps: 23, status: 'active', title: null, search: 'umber', page: 1 });
+    expect(hiddenNote(found(rows, view({ search: 'umber' }), 'umber'), view(), 'umber')).toBe('Umber_Owl is hidden by the minimum of 30 opponents (23 played).');
   });
 
   it('finds a player the activity or title filter hides', () => {
     expect(hiddenMatches(rows, view(), 'oldtimer')?.show).toMatchObject({ status: 'all', minOpps: 30 });
     expect(hiddenNote(found(rows, view(), 'oldtimer'), view(), 'oldtimer')).toBe('OldTimer is hidden by the Active only filter.');
     const gm = view({ title: 'GM' });
-    expect(hiddenMatches(rows, gm, 'grozz')?.show).toMatchObject({ title: null });
-    expect(hiddenNote(found(rows, gm, 'grozz'), gm, 'grozz')).toBe('Grozz is hidden by the GM title filter.');
+    expect(hiddenMatches(rows, gm, 'grebe')?.show).toMatchObject({ title: null });
+    expect(hiddenNote(found(rows, gm, 'grebe'), gm, 'grebe')).toBe('Grebe is hidden by the GM title filter.');
   });
 
   it('counts several hidden players, naming every filter that hides them', () => {
-    const both = found([...rows, row('Unstable2', 1200, 5, '2020-01-01')], view(), 'unstable');
-    expect(both.names).toEqual(['UnstableUnicorn', 'Unstable2']);
+    const both = found([...rows, row('Umber2', 1200, 5, '2020-01-01')], view(), 'umber');
+    expect(both.names).toEqual(['Umber_Owl', 'Umber2']);
     expect(both.show).toMatchObject({ minOpps: 5, status: 'all' });
-    expect(hiddenNote(both, view(), 'unstable')).toBe('2 players matching "unstable" are hidden by the minimum of 30 opponents and the Active only filter.');
+    expect(hiddenNote(both, view(), 'umber')).toBe('2 players matching "umber" are hidden by the minimum of 30 opponents and the Active only filter.');
   });
 
   it('says nothing when the search finds someone shown, nobody at all, or there is no search', () => {
-    expect(hiddenMatches(rows, view(), 'grozz')).toBeNull();
+    expect(hiddenMatches(rows, view(), 'grebe')).toBeNull();
     expect(hiddenMatches(rows, view(), 'nobody')).toBeNull();
     expect(hiddenMatches(rows, view(), '')).toBeNull();
   });

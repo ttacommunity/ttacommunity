@@ -122,7 +122,7 @@ func TestReplaceFactsReplacesEarlierRowsAndCountsUnknowns(t *testing.T) {
 			then: func(ctx context.Context, p *pgxpool.Pool) (FactsReplaced, error) {
 				return ReplaceHonours(ctx, p, []tournamentcsv.Honour{
 					{Series: "sodium_ladder", Player: "ann", Gold: 5, Silver: 2, Points: &points, Source: "s"},
-					{Series: "q_and_d", Player: "Martin Pecheur", Gold: 3, Source: "q"},
+					{Series: "q_and_d", Player: "Marten Fisher", Gold: 3, Source: "q"},
 					{Series: "q_and_d", Player: "bob", Gold: 2, Silver: 2, Bronze: 1, Source: "q"},
 				})
 			},
@@ -151,24 +151,24 @@ func TestReplaceFactsReplacesEarlierRowsAndCountsUnknowns(t *testing.T) {
 			then: func(ctx context.Context, p *pgxpool.Pool) (FactsReplaced, error) {
 				return ReplaceCommunityStandings(ctx, p, []tournamentcsv.Standing{
 					{Edition: "2024", SheetRow: 1, Rank: 1, Player: "ann", Points: 7657, Events: 11, Source: "s"},
-					{Edition: "2024", SheetRow: 2, Rank: 2, Player: "Martin Pecheur", Points: 6687, Events: 13, Source: "s"},
+					{Edition: "2024", SheetRow: 2, Rank: 2, Player: "Marten Fisher", Points: 6687, Events: 13, Source: "s"},
 				})
 			},
 			want:     FactsReplaced{Written: 2},
 			rows:     "SELECT concat_ws('|', edition, sheet_row, rank, player_name, points, events, source) FROM community_standings ORDER BY rank",
-			wantRows: []string{"2024|1|1|ann|7657|11|s", "2024|2|2|Martin Pecheur|6687|13|s"},
+			wantRows: []string{"2024|1|1|ann|7657|11|s", "2024|2|2|Marten Fisher|6687|13|s"},
 		},
 		{
 			name: "community scores keep names that are not players",
 			then: func(ctx context.Context, p *pgxpool.Pool) (FactsReplaced, error) {
 				return ReplaceCommunityScores(ctx, p, []tournamentcsv.Score{
 					{Edition: "2024", Player: "ann", Event: "wrld", Score: 1600, Source: "s"},
-					{Edition: "2024", Player: "Martin Pecheur", Event: "qd", Score: 450, Source: "s"},
+					{Edition: "2024", Player: "Marten Fisher", Event: "qd", Score: 450, Source: "s"},
 				})
 			},
 			want:     FactsReplaced{Written: 2},
 			rows:     "SELECT concat_ws('|', edition, player_name, event, score, source) FROM community_scores ORDER BY score",
-			wantRows: []string{"2024|Martin Pecheur|qd|450|s", "2024|ann|wrld|1600|s"},
+			wantRows: []string{"2024|Marten Fisher|qd|450|s", "2024|ann|wrld|1600|s"},
 		},
 		{
 			name:  "community points of known tournaments",

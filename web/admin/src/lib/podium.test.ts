@@ -3,11 +3,11 @@ import { podiumNames, podiumRequest } from './podium';
 
 describe('podiumRequest', () => {
   it('sends the places filled in, trimmed, with their place numbers', () => {
-    expect(podiumRequest('2025', [' a440 ', '', 'Eepogi'], ' From CGE ')).toEqual({
+    expect(podiumRequest('2025', [' alder440 ', '', 'Eider'], ' From CGE ')).toEqual({
       season: '2025',
       podium: [
-        { place: 1, name: 'a440' },
-        { place: 3, name: 'Eepogi' },
+        { place: 1, name: 'alder440' },
+        { place: 3, name: 'Eider' },
       ],
       note: 'From CGE',
     });
@@ -20,7 +20,7 @@ describe('podiumRequest', () => {
 
 describe('podiumNames', () => {
   it('lays a saved podium out as three boxes, empty where a place is not set', () => {
-    expect(podiumNames([{ place: 3, name: 'Eepogi' }, { place: 1, name: 'a440' }])).toEqual(['a440', '', 'Eepogi']);
+    expect(podiumNames([{ place: 3, name: 'Eider' }, { place: 1, name: 'alder440' }])).toEqual(['alder440', '', 'Eider']);
     expect(podiumNames([])).toEqual(['', '', '']);
   });
 });

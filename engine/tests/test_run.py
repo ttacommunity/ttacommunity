@@ -660,7 +660,7 @@ def _drop(sql):
 
 
 @pytest.mark.parametrize(
-    "seeded, change, ranking, error, match",
+    ("seeded", "change", "ranking", "error", "match"),
     [
         pytest.param(
             False,

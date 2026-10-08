@@ -89,3 +89,13 @@ export async function verifyAccessToken(
     return false;
   }
 }
+
+/** keyCache returns a function giving the keys load fetches, fetched again only once they are forMs old (now in ms). */
+export function keyCache(load: () => Promise<Jwk[]>, forMs: number): (now: number) => Promise<Jwk[]> {
+  let cached: { keys: Jwk[]; at: number } | null = null;
+  return async (now) => {
+    if (cached !== null && now - cached.at < forMs) return cached.keys;
+    cached = { keys: await load(), at: now };
+    return cached.keys;
+  };
+}

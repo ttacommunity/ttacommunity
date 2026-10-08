@@ -34,27 +34,27 @@ describe('stageName', () => {
 });
 
 describe('seasonName', () => {
-  it('calls a numbered or dated season a season', () => {
-    expect(seasonName('24')).toBe('Season 24');
-    expect(seasonName('2022 (Age A)')).toBe('Season 2022 (Age A)');
-    expect(seasonName('1 (2024)')).toBe('Season 1 (2024)');
-  });
-  it('writes a named season as it is', () => {
-    expect(seasonName('First Edition (2023)')).toBe('First Edition (2023)');
-    expect(seasonName('Grand Prix 2023')).toBe('Grand Prix 2023');
-  });
-  it('uses the word the tournament calls its seasons', () => {
-    expect(seasonName('1 (2024)', 'Edition')).toBe('Edition 1 (2024)');
-    expect(seasonName('31', 'Round')).toBe('Round 31');
-    expect(seasonName('Grand Prix 2023', 'Edition')).toBe('Grand Prix 2023');
+  it.each([
+    ['a numbered season', '24', undefined, 'Season 24'],
+    ['a dated season', '2022 (Age A)', undefined, 'Season 2022 (Age A)'],
+    ['a numbered season with its year', '1 (2024)', undefined, 'Season 1 (2024)'],
+    ['a named season, as it is', 'First Edition (2023)', undefined, 'First Edition (2023)'],
+    ['another named season, as it is', 'Grand Prix 2023', undefined, 'Grand Prix 2023'],
+    ['a season the tournament calls an edition', '1 (2024)', 'Edition', 'Edition 1 (2024)'],
+    ['a season the tournament calls a round', '31', 'Round', 'Round 31'],
+    ['a named season of a tournament with editions', 'Grand Prix 2023', 'Edition', 'Grand Prix 2023'],
+  ])('names %s', (_name, label, noun, want) => {
+    expect(seasonName(label, noun)).toBe(want);
   });
 });
 
 describe('plural', () => {
-  it('names more than one season or stage', () => {
-    expect(plural('Season')).toBe('Seasons');
-    expect(plural('Edition')).toBe('Editions');
-    expect(plural('Stage')).toBe('Stages');
+  it.each([
+    ['Season', 'Seasons'],
+    ['Edition', 'Editions'],
+    ['Stage', 'Stages'],
+  ])('names more than one %s as %s', (noun, want) => {
+    expect(plural(noun)).toBe(want);
   });
 });
 
@@ -65,36 +65,44 @@ describe('placeLabel', () => {
 });
 
 describe('cgeYears', () => {
-  it('gives the years a CGE tournament ran, or when it began if it has not finished', () => {
-    expect(cgeYears('2024-06-01', '2025-02-24')).toBe('2024 – 2025');
-    expect(cgeYears(null, '2023-05-23')).toBe('2023');
-    expect(cgeYears('2026-09-29', null)).toBe('2026 –');
-    expect(cgeYears(null, null)).toBe('');
+  it.each([
+    ['started and finished', '2024-06-01', '2025-02-24', '2024 – 2025'],
+    ['finished, no start recorded', null, '2023-05-23', '2023'],
+    ['started, not finished', '2026-09-29', null, '2026 –'],
+    ['neither', null, null, ''],
+  ])('gives the years a CGE tournament ran: %s', (_name, started, finished, want) => {
+    expect(cgeYears(started, finished)).toBe(want);
   });
 });
 
 describe('shownName', () => {
-  it('marks a tournament shown though not rated', () => {
-    expect(shownName('Nations Cup', false)).toBe('Nations Cup (Not Rated)');
-    expect(shownName('Wimbledon 2024', true)).toBe('Wimbledon 2024');
+  it.each([
+    ['not rated, marked', 'Nations Cup', false, 'Nations Cup (Not Rated)'],
+    ['rated, as it is', 'Wimbledon 2024', true, 'Wimbledon 2024'],
+  ])('names a tournament %s', (_name, name, rated, want) => {
+    expect(shownName(name, rated)).toBe(want);
   });
 });
 
 describe('gameWhere', () => {
-  it('names the stage, group and game a game sits in, leaving out what it lacks', () => {
-    expect(gameWhere({ stage: 'Stage 2', group: 'Lower 17', game: 5 })).toBe('Stage 2 · Lower 17 · game 5');
-    expect(gameWhere({ stage: '', group: 'Bronze 3', game: 7 })).toBe('Bronze 3 · game 7');
-    expect(gameWhere({ stage: 'Stage 1', group: '', game: null })).toBe('Stage 1');
-    expect(gameWhere({ stage: '', group: '', game: null })).toBe('');
+  it.each([
+    ['all three', { stage: 'Stage 2', group: 'Lower 17', game: 5 }, 'Stage 2 · Lower 17 · game 5'],
+    ['no stage', { stage: '', group: 'Bronze 3', game: 7 }, 'Bronze 3 · game 7'],
+    ['a stage only', { stage: 'Stage 1', group: '', game: null }, 'Stage 1'],
+    ['none of them', { stage: '', group: '', game: null }, ''],
+  ])('names the stage, group and game a game sits in: %s', (_name, where, want) => {
+    expect(gameWhere(where)).toBe(want);
   });
 });
 
 describe('outcomeNote', () => {
-  it('marks a seat that did not finish', () => {
-    expect(outcomeNote('resigned')).toBe('resigned');
-    expect(outcomeNote('timed_out')).toBe('timed out');
-    expect(outcomeNote('finished')).toBe('');
-    expect(outcomeNote(null)).toBe('');
+  it.each([
+    ['resigned', 'resigned'],
+    ['timed_out', 'timed out'],
+    ['finished', ''],
+    [null, ''],
+  ])('notes an outcome of %s as "%s", marking only a seat that did not finish', (outcome, want) => {
+    expect(outcomeNote(outcome)).toBe(want);
   });
 });
 
@@ -125,14 +133,13 @@ describe('entryRows', () => {
 });
 
 describe('gameStateLabel', () => {
-  it('marks a game left out of the ratings', () => {
-    expect(gameStateLabel('played', true)).toBe('');
-    expect(gameStateLabel('never_played', false)).toBe('Never played');
-    expect(gameStateLabel('unconfirmed', false)).toBe('Unconfirmed result, not rated');
-  });
-
-  it('marks a played game not rated when its tournament, season or player count is not rated', () => {
-    expect(gameStateLabel('played', false)).toBe('Not rated');
+  it.each([
+    ['a rated game, unmarked', 'played', true, ''],
+    ['a game never played', 'never_played', false, 'Never played'],
+    ['an unconfirmed result', 'unconfirmed', false, 'Unconfirmed result, not rated'],
+    ['a played game its tournament, season or player count leaves unrated', 'played', false, 'Not rated'],
+  ])('labels %s', (_name, state, rated, want) => {
+    expect(gameStateLabel(state, rated)).toBe(want);
   });
 });
 

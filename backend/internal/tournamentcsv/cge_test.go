@@ -10,7 +10,7 @@ const cgeHeader = "cge_tournament,name,status,organiser,created,started,finished
 
 func TestReadCGETournamentsTakesEachTournament(t *testing.T) {
 	in := cgeHeader +
-		"5731,Survivors Cup 2026,finished,wolvs,2025-12-21,,2026-09-03,\"Welcome!\nOne game per round.\",Survivors Cup contributes to Glicko,https://example.org,survivors_cup,2026\n" +
+		"5731,Survivors Cup 2026,finished,wren,2025-12-21,,2026-09-03,\"Welcome!\nOne game per round.\",Survivors Cup contributes to Glicko,https://example.org,survivors_cup,2026\n" +
 		"4335,The banana tournament,finished,,,,2023-05-23,,,,,\n"
 
 	got, err := ReadCGETournaments("c.csv", strings.NewReader(in))
@@ -22,7 +22,7 @@ func TestReadCGETournamentsTakesEachTournament(t *testing.T) {
 	}
 	s := got.Facts[0]
 	created, finished := day(2025, 12, 21), day(2026, 9, 3)
-	if s.ID != 5731 || s.Name != "Survivors Cup 2026" || s.Organiser != "wolvs" || *s.Created != created || s.Started != nil ||
+	if s.ID != 5731 || s.Name != "Survivors Cup 2026" || s.Organiser != "wren" || *s.Created != created || s.Started != nil ||
 		*s.Finished != finished || s.Description != "Welcome!\nOne game per round." || s.Tournament != "survivors_cup" || s.Season != "2026" {
 		t.Errorf("first = %+v", s)
 	}

@@ -37,11 +37,13 @@ describe('the series nav', () => {
     ]);
   });
 
-  it('links a series to its page and the overview to the hub', () => {
-    expect(seriesHref('international')).toBe('/ratings/tournaments/?t=international');
-    expect(seriesHref('worlds')).toBe('/ratings/tournaments/?t=worlds');
-    expect(seriesHref('grand_slams')).toBe('/ratings/hall_of_fame/grand_slams/');
-    expect(seriesHref('overview')).toBe('/ratings/hall_of_fame/');
+  it.each([
+    ['international', '/ratings/tournaments/?t=international'],
+    ['worlds', '/ratings/tournaments/?t=worlds'],
+    ['grand_slams', '/ratings/hall_of_fame/grand_slams/'],
+    ['overview', '/ratings/hall_of_fame/'],
+  ] as const)('links %s to %s: a series to its page, the overview to the hub', (series, want) => {
+    expect(seriesHref(series)).toBe(want);
   });
 });
 
@@ -60,18 +62,21 @@ describe('the series figures', () => {
   it('lists opponents highest first, whole scores without a decimal', () => {
     expect(
       opponentsLine([
-        { name: 'funestus', score: 334 },
-        { name: 'wolvs', score: 307.5 },
+        { name: 'fulmar', score: 334 },
+        { name: 'wren', score: 307.5 },
       ]),
-    ).toBe('vs funestus (334 pts), wolvs (307.5 pts)');
+    ).toBe('vs fulmar (334 pts), wren (307.5 pts)');
     expect(opponentsLine([])).toBe('');
   });
 
-  it('shows a league season as its places, and a Royal League season as wins, draws and losses', () => {
-    expect(seriesRecord('international', [6, 1, 0, 0])).toBe('6/1/0/0');
-    expect(seriesRecord('intermezzo', [6, 0, 0])).toBe('6/0/0');
-    expect(seriesRecord('royal_league', [6, 0, 1])).toBe('6/1');
-    expect(seriesRecord('royal_league', [5, 1, 1])).toBe('5/1/1');
+  // A league season shows its places; a Royal League season its wins, draws and losses.
+  it.each([
+    ['a 4-player league season', 'international', [6, 1, 0, 0], '6/1/0/0'],
+    ['a 3-player league season', 'intermezzo', [6, 0, 0], '6/0/0'],
+    ['a Royal League season without draws', 'royal_league', [6, 0, 1], '6/1'],
+    ['a Royal League season with a draw', 'royal_league', [5, 1, 1], '5/1/1'],
+  ] as const)('shows %s', (_name, series, record, want) => {
+    expect(seriesRecord(series, [...record])).toBe(want);
   });
 
   it('has a page for each series built so far', () => {
@@ -133,17 +138,21 @@ describe('the Hall of Fame overview', () => {
     expect(worldChampions([{ label: '2026', in_champions: true, podium: [] }], [])).toEqual([]);
   });
 
-  it('writes a title cell as a count, a crown for World titles, or a dash', () => {
-    expect(titleCell(6)).toBe('6');
-    expect(titleCell(1, true)).toBe('1 👑');
-    expect(titleCell(0, true)).toBe('-');
+  it.each([
+    ['a count', 6, false, '6'],
+    ['a crown for World titles', 1, true, '1 👑'],
+    ['a dash for none', 0, true, '-'],
+  ])('writes a title cell as %s', (_name, titles, world, want) => {
+    expect(titleCell(titles, world)).toBe(want);
   });
 
-  it('marks a World Champion, or GM from three titles', () => {
-    expect(legendMark(legend({ world_champion: true }))).toBe('WC');
-    expect(legendMark(legend({ world_titles: 1 }))).toBe('WC');
-    expect(legendMark(legend({ international_titles: 2, intermezzo_titles: 1 }))).toBe('GM');
-    expect(legendMark(legend({ international_titles: 2 }))).toBeNull();
+  it.each([
+    ['the World Champion', { world_champion: true }, 'WC'],
+    ['a past World Champion', { world_titles: 1 }, 'WC'],
+    ['three titles', { international_titles: 2, intermezzo_titles: 1 }, 'GM'],
+    ['two titles', { international_titles: 2 }, null],
+  ])('marks %s', (_name, fields, want) => {
+    expect(legendMark(legend(fields))).toBe(want);
   });
 
   it('writes the medals and their total as upstream', () => {
@@ -181,10 +190,12 @@ describe('boardCells', () => {
 });
 
 describe('showsWorldChampion', () => {
-  it('marks a World Champion only on the World Championship', () => {
-    expect(showsWorldChampion('worlds', true)).toBe(true);
-    expect(showsWorldChampion('worlds', false)).toBe(false);
-    expect(showsWorldChampion('international', true)).toBe(false);
-    expect(showsWorldChampion('royal_league', true)).toBe(false);
+  it.each([
+    ['the World Champion on the World Championship', 'worlds', true, true],
+    ['another player on the World Championship', 'worlds', false, false],
+    ['the World Champion on the International', 'international', true, false],
+    ['the World Champion on the Royal League', 'royal_league', true, false],
+  ] as const)('marks %s', (_name, series, champion, want) => {
+    expect(showsWorldChampion(series, champion)).toBe(want);
   });
 });

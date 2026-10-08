@@ -19,10 +19,12 @@ import {
 } from './player-view';
 
 describe('playerHref', () => {
-  it('puts the name in the query, encoded', () => {
-    expect(playerHref('a440')).toBe('/ratings/player/?name=a440');
-    expect(playerHref('gigi lamoroso')).toBe('/ratings/player/?name=gigi+lamoroso');
-    expect(playerHref('a&b=c')).toBe('/ratings/player/?name=a%26b%3Dc');
+  it.each([
+    ['a plain name', 'alder440', '/ratings/player/?name=alder440'],
+    ['a space', 'gila loomer', '/ratings/player/?name=gila+loomer'],
+    ['query characters', 'a&b=c', '/ratings/player/?name=a%26b%3Dc'],
+  ])('puts the name in the query, encoded: %s', (_name, name, want) => {
+    expect(playerHref(name)).toBe(want);
   });
 });
 
@@ -92,20 +94,17 @@ const player = (games: number, last: string | null, newest: string | null): Play
 });
 
 describe('isProvisional', () => {
-  it('is true under 15 games in the format while active', () => {
-    expect(isProvisional(player(14, '2026-01-01', '2026-08-31'), 0)).toBe(true);
-    expect(isProvisional(player(15, '2026-01-01', '2026-08-31'), 0)).toBe(false);
-    expect(isProvisional(player(3, '2026-01-01', '2026-08-31'), 2)).toBe(false);
-  });
-
-  it('is false after more than a year without a game, counted to the newest game', () => {
-    expect(isProvisional(player(3, '2025-08-31', '2026-08-31'), 0)).toBe(true);
-    expect(isProvisional(player(3, '2025-08-30', '2026-08-31'), 0)).toBe(false);
-  });
-
-  it('treats a missing date as 1900, as upstream does', () => {
-    expect(isProvisional(player(3, null, null), 0)).toBe(true);
-    expect(isProvisional(player(3, null, '2026-08-31'), 0)).toBe(false);
+  // Provisional means under 15 games in the format while active; a missing date counts as 1900, as upstream.
+  it.each([
+    { name: '14 games, active', games: 14, last: '2026-01-01', newest: '2026-08-31', format: 0, want: true },
+    { name: '15 games, active', games: 15, last: '2026-01-01', newest: '2026-08-31', format: 0, want: false },
+    { name: '3 games in another format', games: 3, last: '2026-01-01', newest: '2026-08-31', format: 2, want: false },
+    { name: 'a year to the day before the newest game', games: 3, last: '2025-08-31', newest: '2026-08-31', format: 0, want: true },
+    { name: 'more than a year before the newest game', games: 3, last: '2025-08-30', newest: '2026-08-31', format: 0, want: false },
+    { name: 'no dates at all', games: 3, last: null, newest: null, format: 0, want: true },
+    { name: 'no last game, a newest game', games: 3, last: null, newest: '2026-08-31', format: 0, want: false },
+  ] as const)('$name: provisional is $want', ({ games, last, newest, format, want }) => {
+    expect(isProvisional(player(games, last, newest), format)).toBe(want);
   });
 });
 
@@ -170,20 +169,24 @@ describe('chartData', () => {
 });
 
 describe('signedDelta', () => {
-  it('writes upstream ΔR: a sign when not zero, one decimal, a dash for none', () => {
-    expect(signedDelta(2.1)).toBe('+2.1');
-    expect(signedDelta(-3)).toBe('-3.0');
-    expect(signedDelta(0)).toBe('0.0');
-    expect(signedDelta(-0)).toBe('0.0');
-    expect(signedDelta(null)).toBe('—');
+  it.each([
+    [2.1, '+2.1'],
+    [-3, '-3.0'],
+    [0, '0.0'],
+    [-0, '0.0'],
+    [null, '—'],
+  ])('writes upstream ΔR: %s as %s', (delta, want) => {
+    expect(signedDelta(delta)).toBe(want);
   });
 });
 
 describe('score', () => {
-  it('drops the decimals of a whole score', () => {
-    expect(score(197)).toBe('197');
-    expect(score(-2)).toBe('-2');
-    expect(score(12.5)).toBe('12.5');
+  it.each([
+    [197, '197'],
+    [-2, '-2'],
+    [12.5, '12.5'],
+  ])('writes %s as %s, dropping the decimals of a whole score', (n, want) => {
+    expect(score(n)).toBe(want);
   });
 });
 

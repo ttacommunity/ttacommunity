@@ -7,6 +7,8 @@ import (
 	"fmt"
 	"testing"
 	"time"
+
+	"github.com/google/go-cmp/cmp"
 )
 
 func TestCalibrationGivesTheAggregatedRowsOfBothModes(t *testing.T) {
@@ -88,9 +90,7 @@ func TestComparedPlayersFindsNamesOrCountriesStrongestFirst(t *testing.T) {
 	ctx := context.Background()
 	run := publishedRun(t, pool)
 	addPlayers(t, pool, "Annika", "hannah", "bob", "Zed")
-	if _, err := pool.Exec(ctx, "UPDATE players SET country_code = 'PL' WHERE name IN ('bob', 'Zed')"); err != nil {
-		t.Fatalf("setting countries: %v", err)
-	}
+	setCountries(t, pool, map[string]string{"bob": "PL", "Zed": "PL"})
 	for name, c := range map[string]float64{"Annika": 1700, "hannah": 1800, "bob": 1600, "Zed": 1900} {
 		addRating(t, pool, run, "glicko2_daneo", 0, name, ptr(1), c)
 	}
@@ -122,11 +122,12 @@ func TestComparedPlayersDefaultsToUpstreamsSixInItsOrderWithTheirRatings(t *test
 	r := NewRatingsReader(asReader(t, pool))
 	ctx := context.Background()
 	run := publishedRun(t, pool)
-	addPlayers(t, pool, "saru", "a440", "Genghisip", "someone")
-	addRating(t, pool, run, "whr", 3, "a440", ptr(4), 1800)
-	addRating(t, pool, run, "glicko2_daneo", 3, "a440", nil, 1900)
-	addRating(t, pool, run, "glicko2_std_retro", 3, "a440", ptr(1), 1950)
-	addRating(t, pool, run, "glicko2_daneo", 0, "a440", ptr(1), 1850)
+	first, middle, last := DefaultCompared[0], DefaultCompared[3], DefaultCompared[5]
+	addPlayers(t, pool, last, middle, first, "someone")
+	addRating(t, pool, run, "whr", 3, middle, ptr(4), 1800)
+	addRating(t, pool, run, "glicko2_daneo", 3, middle, nil, 1900)
+	addRating(t, pool, run, "glicko2_std_retro", 3, middle, ptr(1), 1950)
+	addRating(t, pool, run, "glicko2_daneo", 0, middle, ptr(1), 1850)
 
 	got, err := r.ComparedPlayers(ctx, run, 3, nil)
 	if err != nil {
@@ -136,13 +137,15 @@ func TestComparedPlayersDefaultsToUpstreamsSixInItsOrderWithTheirRatings(t *test
 	for _, p := range got {
 		names = append(names, p.Name)
 	}
-	if fmt.Sprint(names) != "[Genghisip a440 saru]" {
-		t.Errorf("names = %v, want the default players present, in upstream's order", names)
+	if diff := cmp.Diff([]string{first, middle, last}, names); diff != "" {
+		t.Fatalf("names, the default players present in upstream's order (-want +got):\n%s", diff)
 	}
-	a := got[1].Ratings
-	if len(a) != 2 || a[0].Model != "glicko2_daneo" || a[0].Rank != nil || a[1].Model != "whr" || *a[1].Rank != 4 ||
-		a[1].Rating != 1900 || a[1].RD != 50 || a[1].CRating != 1800 || a[1].Opponents != 9 || a[1].WinRate != 58.3 {
-		t.Errorf("a440's ratings = %+v, want GlickoD then WHR in format 3, no retro model", a)
+	want := []ComparedRating{
+		{Model: "glicko2_daneo", Rating: 2000, RD: 50, CRating: 1900, Opponents: 9, WinRate: 58.3},
+		{Model: "whr", Rank: ptr(4), Rating: 1900, RD: 50, CRating: 1800, Opponents: 9, WinRate: 58.3},
+	}
+	if diff := cmp.Diff(want, got[1].Ratings); diff != "" {
+		t.Errorf("%s's ratings, format 3 only and no retro model (-want +got):\n%s", middle, diff)
 	}
 }
 
@@ -153,18 +156,14 @@ func TestActivityCountsPlayersGamesTitlesAndCountries(t *testing.T) {
 	run := publishedRun(t, pool)
 	other := publishedRun(t, pool)
 	addPlayers(t, pool, "gm1", "gm2", "m1", "p1", "s1", "fr1", "cz1", "unrated")
-	_, err := pool.Exec(ctx, `UPDATE players SET country_code = CASE WHEN name = 'fr1' THEN 'FR' WHEN name = 'cz1' THEN 'CZ'
-		WHEN name = 'unrated' THEN 'DE' ELSE 'PL' END`)
-	if err != nil {
-		t.Fatalf("setting countries: %v", err)
-	}
+	setCountries(t, pool, map[string]string{"gm1": "PL", "gm2": "PL", "m1": "PL", "p1": "PL", "s1": "PL", "fr1": "FR", "cz1": "CZ", "unrated": "DE"})
 	for name, rating := range map[string]float64{"gm1": 1900, "gm2": 1951, "m1": 1800, "p1": 1700, "s1": 1500, "fr1": 1600, "cz1": 1550} {
 		addRating(t, pool, run, "glicko2_std", 0, name, ptr(1), rating-100)
 	}
 	addRating(t, pool, run, "glicko2_std", 2, "s1", ptr(1), 2400)
 	addRating(t, pool, other, "glicko2_std", 0, "unrated", ptr(1), 1500)
 	// Active means a last game after the cutoff, in any model or format.
-	_, err = pool.Exec(ctx, `UPDATE player_ratings SET last_played = CASE WHEN player_count = 2 THEN '2025-06-01'::date
+	_, err := pool.Exec(ctx, `UPDATE player_ratings SET last_played = CASE WHEN player_count = 2 THEN '2025-06-01'::date
 		ELSE '2025-05-31'::date END WHERE run_id = $1 AND player_name IN ('gm1', 's1')`, run)
 	if err != nil {
 		t.Fatalf("setting last played: %v", err)

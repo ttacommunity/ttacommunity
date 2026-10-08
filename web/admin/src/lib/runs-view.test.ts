@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { canDelete, keepPolling, parseProgress, sizeText } from './runs-view';
+import { awaitStartedRun, canDelete, keepPolling, parseProgress, sizeText } from './runs-view';
 
 describe('parseProgress', () => {
   it('reads the step, label, time taken and time left from an engine line', () => {
@@ -16,10 +16,12 @@ describe('parseProgress', () => {
     expect(parseProgress('[0/1] still on pairs | elapsed 0m30s | eta ?')).toMatchObject({ done: 0, total: 1, eta: '' });
   });
 
-  it('gives null for a line that is not a step, so the page shows it as it is', () => {
-    expect(parseProgress('')).toBeNull();
-    expect(parseProgress('run 33: community, engine 218f9a35')).toBeNull();
-    expect(parseProgress('[3/0] nothing | elapsed 1s | eta 1s')).toBeNull();
+  it.each([
+    ['an empty line', ''],
+    ['a run header', 'run 33: community, engine 218f9a35'],
+    ['a step out of none', '[3/0] nothing | elapsed 1s | eta 1s'],
+  ])('gives null for %s, so the page shows it as it is', (_name, line) => {
+    expect(parseProgress(line)).toBeNull();
   });
 });
 
@@ -31,19 +33,23 @@ describe('canDelete', () => {
     expect(canDelete({ ...run, status: 'failed' })).toBe(true);
   });
 
-  it('hides delete on a protected, shown, going or already deleting run', () => {
-    expect(canDelete({ ...run, protected: true })).toBe(false);
-    expect(canDelete({ ...run, current: true })).toBe(false);
-    expect(canDelete({ ...run, status: 'running' })).toBe(false);
-    expect(canDelete({ ...run, deleting: true })).toBe(false);
+  it.each([
+    ['protected', { protected: true }],
+    ['shown', { current: true }],
+    ['going', { status: 'running' }],
+    ['already deleting', { deleting: true }],
+  ] as const)('hides delete on a %s run', (_name, change) => {
+    expect(canDelete({ ...run, ...change })).toBe(false);
   });
 });
 
 describe('sizeText', () => {
-  it('writes a size in the largest unit under a thousand, one decimal', () => {
-    expect(sizeText(4_000_000_000)).toBe('4.0 GB');
-    expect(sizeText(350_000_000)).toBe('350.0 MB');
-    expect(sizeText(12_500)).toBe('12.5 kB');
+  it.each([
+    [4_000_000_000, '4.0 GB'],
+    [350_000_000, '350.0 MB'],
+    [12_500, '12.5 kB'],
+  ])('writes %i bytes as %s: the largest unit under a thousand, one decimal', (bytes, want) => {
+    expect(sizeText(bytes)).toBe(want);
   });
 
   it('writes nothing for a size not known yet, and 0 B for an empty run', () => {
@@ -53,9 +59,21 @@ describe('sizeText', () => {
 });
 
 describe('keepPolling', () => {
-  it('polls while a run is going or being deleted', () => {
-    expect(keepPolling([{ status: 'running', deleting: false }])).toBe(true);
-    expect(keepPolling([{ status: 'complete', deleting: true }])).toBe(true);
-    expect(keepPolling([{ status: 'complete', deleting: false }])).toBe(false);
+  const now = 1_000_000;
+
+  it.each([
+    ['a run going', 'running', false, 0, true],
+    ['a run being deleted', 'complete', true, 0, true],
+    ['only finished runs', 'complete', false, 0, false],
+    ['finished runs while a started run is awaited', 'complete', false, now + 1, true],
+    ['finished runs once the wait is over', 'complete', false, now - 1, false],
+  ])('polls while a run is going, being deleted or awaited: %s', (_name, status, deleting, waitingUntil, want) => {
+    expect(keepPolling([{ status, deleting }], waitingUntil, now)).toBe(want);
+  });
+});
+
+describe('awaitStartedRun', () => {
+  it('waits three minutes for a started run to appear', () => {
+    expect(awaitStartedRun(1_000_000)).toBe(1_000_000 + 3 * 60 * 1000);
   });
 });

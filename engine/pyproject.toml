@@ -11,7 +11,7 @@ dependencies = [
 
 [dependency-groups]
 dev = [
-    "pytest>=8",
+    "pytest>=9",
     "ruff>=0.6",
 ]
 
@@ -22,6 +22,7 @@ build-backend = "uv_build"
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 addopts = ["--import-mode=importlib"]
+strict = true
 markers = ["slow: convergence sweeps; CI runs them on main only"]
 
 [tool.ruff]
@@ -37,3 +38,6 @@ extend-exclude = [
     "tests/models/whr/test_engine.py",
     "tests/models/whr/test_solver.py",
 ]
+
+[tool.ruff.lint]
+extend-select = ["PT"]

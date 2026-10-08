@@ -53,25 +53,25 @@ def test_series_metrics_count_as_upstream():
 
 def test_the_world_championship_board_lists_recent_champions_first():
     placements = [
-        {"season": 2023, "player_name": "Weidenbaum", "place": 1},
-        {"season": 2025, "player_name": "a440", "place": 1},
-        {"season": 2025, "player_name": "Grozz", "place": 2},
-        {"season": 2024, "player_name": "Martin_Pecheur", "place": 1},
-        {"season": 2024, "player_name": "frotes", "place": 2},
-        {"season": 2025, "player_name": "silent_x111", "place": 3},
-        {"season": 2022, "player_name": "Ender_Wiggin", "place": 1},
+        {"season": 2023, "player_name": "Willow_Tree", "place": 1},
+        {"season": 2025, "player_name": "alder440", "place": 1},
+        {"season": 2025, "player_name": "Grebe", "place": 2},
+        {"season": 2024, "player_name": "Marten_Fisher", "place": 1},
+        {"season": 2024, "player_name": "flicker", "place": 2},
+        {"season": 2025, "player_name": "stilt_x111", "place": 3},
+        {"season": 2022, "player_name": "Ember_Wolf", "place": 1},
     ]
     got = worlds_board(placements)
     assert [
         (b["player_name"], b["title"], b["gold"], b["silver"], b["bronze"]) for b in got
     ] == [
-        ("a440", "WC", 1, 0, 0),
-        ("Martin_Pecheur", "WC", 1, 0, 0),
-        ("Weidenbaum", "WC", 1, 0, 0),
-        ("Ender_Wiggin", "WC", 1, 0, 0),
-        ("Grozz", "GM", 0, 1, 0),
-        ("frotes", "GM", 0, 1, 0),
-        ("silent_x111", "GM", 0, 0, 1),
+        ("alder440", "WC", 1, 0, 0),
+        ("Marten_Fisher", "WC", 1, 0, 0),
+        ("Willow_Tree", "WC", 1, 0, 0),
+        ("Ember_Wolf", "WC", 1, 0, 0),
+        ("Grebe", "GM", 0, 1, 0),
+        ("flicker", "GM", 0, 1, 0),
+        ("stilt_x111", "GM", 0, 0, 1),
     ]
 
 

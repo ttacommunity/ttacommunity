@@ -6,13 +6,14 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"reflect"
 	"slices"
 	"strings"
 	"testing"
 	"time"
 
 	"ttacommunity/backend/internal/tournamentcsv"
+
+	"github.com/google/go-cmp/cmp"
 )
 
 func adminTournament(t *testing.T, ts []AdminTournament, slug string) AdminTournament {
@@ -55,8 +56,8 @@ func TestAdminTournamentsListSettingsSeasonsAndNotes(t *testing.T) {
 		}
 	}
 	want := []string{`2025 games=true note=""`, `  Stage 1 note=""`, `  Stage 2 note="The upper bracket."`}
-	if !reflect.DeepEqual(got2, want) {
-		t.Errorf("worlds seasons = %q, want %q", got2, want)
+	if diff := cmp.Diff(want, got2); diff != "" {
+		t.Errorf("worlds seasons (-want +got):\n%s", diff)
 	}
 }
 
@@ -166,8 +167,8 @@ func TestAdminTournamentsListSeasonsLatestFirst(t *testing.T) {
 	for _, s := range adminTournament(t, got, "international").Seasons {
 		labels = append(labels, s.Label)
 	}
-	if !reflect.DeepEqual(labels, []string{"10", "3", "2", "1"}) {
-		t.Errorf("seasons = %v, want 10, 3, 2, 1", labels)
+	if diff := cmp.Diff([]string{"10", "3", "2", "1"}, labels); diff != "" {
+		t.Errorf("seasons (-want +got):\n%s", diff)
 	}
 }
 
@@ -177,11 +178,11 @@ func TestSetPodiumReplacesASeasonsPodiumAndClearPodiumRemovesIt(t *testing.T) {
 	placedOn(t, pool, map[string]time.Time{"Worlds 2025 Stage 1 - Upper 1 game 1": day("2025-03-01")})
 	a := NewAdminStore(asAdminLogin(t, pool))
 
-	first := []PodiumEntry{{Place: 1, Name: "a440"}, {Place: 2, Name: "kyshantry"}, {Place: 3, Name: "Eepogi"}}
+	first := []PodiumEntry{{Place: 1, Name: "alder440"}, {Place: 2, Name: "kittiwake"}, {Place: 3, Name: "Eider"}}
 	if err := a.SetPodium(ctx, "worlds", "2025", first, "From CGE's final"); err != nil {
 		t.Fatalf("SetPodium: %v", err)
 	}
-	if err := a.SetPodium(ctx, "worlds", "2025", []PodiumEntry{{Place: 1, Name: "kyshantry"}}, ""); err != nil {
+	if err := a.SetPodium(ctx, "worlds", "2025", []PodiumEntry{{Place: 1, Name: "kittiwake"}}, ""); err != nil {
 		t.Fatalf("SetPodium again: %v", err)
 	}
 	got, err := a.Tournaments(ctx)
@@ -189,8 +190,11 @@ func TestSetPodiumReplacesASeasonsPodiumAndClearPodiumRemovesIt(t *testing.T) {
 		t.Fatal(err)
 	}
 	se := adminTournament(t, got, "worlds").Seasons[0]
-	if !reflect.DeepEqual(se.Podium, []PodiumEntry{{Place: 1, Name: "kyshantry"}}) || se.PodiumNote != "" {
-		t.Errorf("podium = %+v %q, want only the second one", se.Podium, se.PodiumNote)
+	if diff := cmp.Diff([]PodiumEntry{{Place: 1, Name: "kittiwake"}}, se.Podium); diff != "" {
+		t.Errorf("podium, only the second one (-want +got):\n%s", diff)
+	}
+	if se.PodiumNote != "" {
+		t.Errorf("podium note = %q, want none", se.PodiumNote)
 	}
 
 	if err := a.ClearPodium(ctx, "worlds", "2025"); err != nil {
@@ -346,20 +350,25 @@ func TestSetStoriesReplacesATournamentsStoriesInOrder(t *testing.T) {
 		t.Errorf("stories before any = %+v, %+v", inAdmin, onPage)
 	}
 	want := []Story{
-		{Player: "saru", Badge: "2024 Champion", Title: "The grass-court crown", Text: "saru beat whsvin 3-2 in the final."},
-		{Player: "whsvin", Badge: "", Title: "Runner-up", Text: "Two finals in a row."},
+		{Player: "sora", Badge: "2024 Champion", Title: "The grass-court crown", Text: "sora beat wheatear 3-2 in the final."},
+		{Player: "wheatear", Badge: "", Title: "Runner-up", Text: "Two finals in a row."},
 	}
 	if err := a.SetStories(ctx, "wimbledon", want); err != nil {
 		t.Fatalf("SetStories: %v", err)
 	}
-	if inAdmin, onPage := stories(); !reflect.DeepEqual(inAdmin, want) || !reflect.DeepEqual(onPage, want) {
-		t.Errorf("stories = %+v and %+v, want %+v in order on both", inAdmin, onPage, want)
+	inAdmin, onPage := stories()
+	if diff := cmp.Diff(want, inAdmin); diff != "" {
+		t.Errorf("stories in admin (-want +got):\n%s", diff)
+	}
+	if diff := cmp.Diff(want, onPage); diff != "" {
+		t.Errorf("stories on the page (-want +got):\n%s", diff)
 	}
 	if err := a.SetStories(ctx, "wimbledon", want[1:]); err != nil {
 		t.Fatalf("SetStories(one): %v", err)
 	}
-	if inAdmin, _ := stories(); !reflect.DeepEqual(inAdmin, want[1:]) {
-		t.Errorf("stories after replacing = %+v, want only the second", inAdmin)
+	inAdmin, _ = stories()
+	if diff := cmp.Diff(want[1:], inAdmin); diff != "" {
+		t.Errorf("stories after replacing (-want +got):\n%s", diff)
 	}
 	for _, tt := range []struct {
 		name, slug string
@@ -400,8 +409,8 @@ func TestAdminSetsWhichSeasonsAndPlayerCountsAreRated(t *testing.T) {
 		t.Fatal(err)
 	}
 	w := adminTournament(t, ts, "wimbledon")
-	if !reflect.DeepEqual(w.RatedPlayerCounts, []int{2, 4}) {
-		t.Errorf("rated player counts = %v, want 2 and 4, in order", w.RatedPlayerCounts)
+	if diff := cmp.Diff([]int{2, 4}, w.RatedPlayerCounts); diff != "" {
+		t.Errorf("rated player counts (-want +got):\n%s", diff)
 	}
 	for _, se := range w.Seasons {
 		if se.Rated != (se.Label != "2023") {

@@ -7,6 +7,9 @@ import (
 	"path"
 )
 
+// ErrNoFiles means a folder holds no .csv file to load.
+var ErrNoFiles = errors.New("no .csv files to load")
+
 // Result is what CheckFiles found.
 type Result struct {
 	Files   []string
@@ -24,7 +27,7 @@ func CheckFiles(fsys fs.FS) (Result, error) {
 		return Result{}, fmt.Errorf("listing .csv files: %w", err)
 	}
 	if len(files) == 0 {
-		return Result{}, errors.New("no .csv files to load")
+		return Result{}, ErrNoFiles
 	}
 
 	var got Result

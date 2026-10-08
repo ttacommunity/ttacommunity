@@ -3,17 +3,21 @@ from datetime import date
 import pytest
 
 from tta_ratings_engine.data.db import RunNotRunning
+from tta_ratings_engine.data.seats import Seat
 from tta_ratings_engine.data.tournaments import (
+    SERIES,
     SeriesRulesMissing,
     derive_tournaments,
+    final_podium,
     parse_intermezzo,
     parse_international,
     parse_royal_league,
+    rank_group,
 )
 
 
 @pytest.mark.parametrize(
-    "name, want",
+    ("name", "want"),
     [
         ("International S30 - Silver 5 game 12", (30, "Silver", "Silver 5", False)),
         (
@@ -32,7 +36,7 @@ def test_parse_international(name, want):
 
 
 @pytest.mark.parametrize(
-    "name, want",
+    ("name", "want"),
     [
         ("Intermezzo S24 - Wood 12 game 2", (24, "Wood", "Wood 12", False)),
         (
@@ -48,7 +52,7 @@ def test_parse_intermezzo(name, want):
 
 
 @pytest.mark.parametrize(
-    "name, want",
+    ("name", "want"),
     [
         ("RL_s09 - Marquess 3 game 24", (9, "Marquess", "Marquess 3", False)),
         ("RL_s03 - Emperor game 5", (3, "Emperor", "Emperor", False)),
@@ -122,36 +126,87 @@ def standings(conn, run_id, season):
     return [(r["player_name"], r["place"], r["points"]) for r in rows]
 
 
-def test_a_two_way_tie_goes_to_head_to_head(conn, add_match, run_id):
-    add_match(("ann", 100), ("cat", 90), ("bob", 80), tournament=gm(1))
-    add_match(("bob", 100), ("ann", 90), ("cat", 80), tournament=gm(2))
-    add_match(("cat", 100), ("dan", 90), ("ann", 10), tournament=gm(3))
-
-    derive_tournaments(conn=conn, run_id=run_id)
-
-    # ann and cat both have 7; ann finished above cat in two of their three games.
-    assert standings(conn, run_id, 30) == [
-        ("ann", 1, 7.0),
-        ("cat", 2, 7.0),
-        ("bob", 3, 5.0),
-        ("dan", 4, 2.0),
+def seats(*rows):
+    """Returns a game's seats from (player, place, points, culture) rows, each finished."""
+    return [
+        Seat(p, place, float(c), "finished", float(pts)) for p, place, pts, c in rows
     ]
 
 
-def test_a_three_way_tie_goes_to_relative_performance(conn, add_match, run_id):
-    # Each wins once and is 2nd once: 7 points each. Shares of the winner's
-    # score: ann 1 + 0.9 + 0.5 (floor), bob 1 + 0.5 + 0.8, cat 1 + 0.6 + 0.5.
-    add_match(("ann", 100), ("bob", 50), ("cat", 10), tournament=gm(1))
-    add_match(("bob", 100), ("cat", 60), ("ann", 20), tournament=gm(2))
-    add_match(("cat", 100), ("ann", 90), ("bob", 80), tournament=gm(3))
+@pytest.mark.parametrize(
+    ("series", "games", "want"),
+    [
+        pytest.param(
+            "international",
+            [
+                seats(("ann", 1, 5, 100), ("cat", 2, 2, 90), ("bob", 3, 0, 80)),
+                seats(("bob", 1, 5, 100), ("ann", 2, 2, 90), ("cat", 3, 0, 80)),
+                seats(("cat", 1, 5, 100), ("dan", 2, 2, 90), ("ann", 3, 0, 10)),
+            ],
+            [("ann", 1, 7.0), ("cat", 2, 7.0), ("bob", 3, 5.0), ("dan", 4, 2.0)],
+            id="a league's two-way tie goes to head-to-head: ann above cat in two of three",
+        ),
+        pytest.param(
+            "international",
+            [
+                seats(("ann", 1, 5, 100), ("bob", 2, 2, 50), ("cat", 3, 0, 10)),
+                seats(("bob", 1, 5, 100), ("cat", 2, 2, 60), ("ann", 3, 0, 20)),
+                seats(("cat", 1, 5, 100), ("ann", 2, 2, 90), ("bob", 3, 0, 80)),
+            ],
+            [("ann", 1, 7.0), ("bob", 2, 7.0), ("cat", 3, 7.0)],
+            id="a league's three-way tie goes to shares of the winner's score: 2.4, 2.3, 2.1",
+        ),
+        pytest.param(
+            "royal_league",
+            [
+                seats(("bob", 1, 2, 100), ("ann", 2, 0, 90)),
+                seats(("ann", 1, 2, 100), ("cat", 2, 0, 90)),
+                seats(("cat", 1, 2, 90), ("bob", 2, 0, 50)),
+                seats(("ann", 1, 2, 100), ("cat", 2, 0, 90)),
+            ],
+            [("ann", 1, 4.0), ("cat", 2, 2.0), ("bob", 3, 2.0)],
+            id="Royal League: bob and cat on 2 points, cat beat bob",
+        ),
+        pytest.param(
+            "royal_league",
+            [
+                seats(("ann", 1, 1, 100), ("bob", 1, 1, 100)),
+                seats(("ann", 1, 1, 100), ("cat", 1, 1, 100)),
+                seats(("ann", 1, 1, 100), ("dan", 1, 1, 100)),
+                seats(("bob", 1, 2, 100), ("cat", 2, 0, 90)),
+                seats(("dan", 1, 2, 100), ("bob", 2, 0, 90)),
+                seats(("dan", 1, 2, 100), ("cat", 2, 0, 90)),
+            ],
+            [("dan", 1, 5.0), ("bob", 2, 3.0), ("ann", 3, 3.0), ("cat", 4, 1.0)],
+            id="Royal League: ann and bob drew, on 3 points; bob has a win, ann three draws",
+        ),
+        pytest.param(
+            "royal_league",
+            [
+                seats(("ann", 1, 1, 100), ("bob", 1, 1, 100)),
+                seats(("ann", 1, 2, 100), ("cat", 2, 0, 90)),
+                seats(("bob", 1, 2, 300), ("dan", 2, 0, 10)),
+                seats(("cat", 1, 2, 50), ("dan", 2, 0, 40)),
+            ],
+            [("bob", 1, 3.0), ("ann", 2, 3.0), ("cat", 3, 2.0), ("dan", 4, 0.0)],
+            id="Royal League: ann and bob drew and won once each, bob scored more",
+        ),
+    ],
+)
+def test_rank_group_breaks_ties_by_the_series_rules(series, games, want):
+    got = rank_group(games, SERIES[series])
 
-    derive_tournaments(conn=conn, run_id=run_id)
+    assert [(r["player_name"], r["place"], r["points"]) for r in got] == want
 
-    assert standings(conn, run_id, 30) == [
-        ("ann", 1, 7.0),
-        ("bob", 2, 7.0),
-        ("cat", 3, 7.0),
+
+def test_a_final_tie_the_rules_cannot_split_gives_no_podium():
+    # ann and bob share both games' points and winning shares; head-to-head is level.
+    games = [
+        seats(("ann", 1, 2, 90), ("bob", 1, 2, 90)),
+        seats(("bob", 1, 2, 80), ("ann", 1, 2, 80)),
     ]
+
+    assert final_podium(games, SERIES["worlds"]) is None
 
 
 def test_a_season_without_divisions_uses_the_recorded_ones(
@@ -248,7 +303,7 @@ def test_a_world_championship_group_is_not_a_division(conn, add_match, run_id):
 def test_placements_of_a_series_the_engine_does_not_derive_are_left_alone(
     conn, run_id, place
 ):
-    place("nations_league", 10, "Apple", "DANeo")
+    place("nations_league", 10, "Apple", "Dahlia")
 
     derive_tournaments(conn=conn, run_id=run_id)
 
@@ -272,10 +327,10 @@ def board(conn, run_id):
 
 def test_the_board_counts_top_division_podiums(conn, add_match, run_id, place):
     # A World Champion is WC only on the World Championship's board.
-    place("worlds", 2023, "Final", "Weidenbaum")
+    place("worlds", 2023, "Final", "Willow_Tree")
     for season in (30, 31):
         add_match(
-            ("Weidenbaum", 90),
+            ("Willow_Tree", 90),
             ("ann", 80),
             ("bob", 70),
             ("cat", 60),
@@ -291,7 +346,7 @@ def test_the_board_counts_top_division_podiums(conn, add_match, run_id, place):
     derive_tournaments(conn=conn, run_id=run_id)
 
     assert board(conn, run_id) == {
-        "Weidenbaum": (2, 0, 0, 12.0, "GM"),
+        "Willow_Tree": (2, 0, 0, 12.0, "GM"),
         "ann": (0, 2, 0, 6.0, "M"),
         "bob": (0, 0, 2, 2.0, "M"),
     }
@@ -465,54 +520,6 @@ def rl(n, season=9, group="Emperor"):
     return f"RL_s{season:02d} - {group} game {n}"
 
 
-@pytest.mark.parametrize(
-    "games, want",
-    [
-        pytest.param(
-            [
-                (("bob", 100), ("ann", 90)),
-                (("ann", 100), ("cat", 90)),
-                (("bob", 50), ("cat", 90)),
-                (("ann", 100), ("cat", 90)),
-            ],
-            [("ann", 1, 4.0), ("cat", 2, 2.0), ("bob", 3, 2.0)],
-            id="bob and cat on 2 points: cat beat bob",
-        ),
-        pytest.param(
-            [
-                (("ann", 100), ("bob", 100)),
-                (("ann", 100), ("cat", 100)),
-                (("ann", 100), ("dan", 100)),
-                (("bob", 100), ("cat", 90)),
-                (("dan", 100), ("bob", 90)),
-                (("dan", 100), ("cat", 90)),
-            ],
-            [("dan", 1, 5.0), ("bob", 2, 3.0), ("ann", 3, 3.0), ("cat", 4, 1.0)],
-            id="ann and bob drew, on 3 points: bob has a win, ann three draws",
-        ),
-        pytest.param(
-            [
-                (("ann", 100), ("bob", 100)),
-                (("ann", 100), ("cat", 90)),
-                (("bob", 300), ("dan", 10)),
-                (("cat", 50), ("dan", 40)),
-            ],
-            [("bob", 1, 3.0), ("ann", 2, 3.0), ("cat", 3, 2.0), ("dan", 4, 0.0)],
-            id="ann and bob drew and won once each: bob scored more",
-        ),
-    ],
-)
-def test_royal_league_breaks_ties_by_head_to_head_then_wins_then_total_score(
-    conn, add_match, run_id, games, want
-):
-    for n, seats in enumerate(games, start=1):
-        add_match(*seats, tournament=rl(n))
-
-    derive_tournaments(conn=conn, run_id=run_id)
-
-    assert standings(conn, run_id, 9) == want
-
-
 def test_royal_league_boards_score_medals_and_order_by_first_medal(
     conn, add_match, run_id, place
 ):
@@ -651,8 +658,8 @@ def positions(conn, run_id, series):
 
 def test_boards_are_numbered_in_upstream_order(conn, add_match, run_id, place):
     add_match(("bob", 90), ("ann", 80), ("cat", 70), tournament=gm(1))
-    place("worlds", 2024, "Final", "Martin_Pecheur", "frotes")
-    place("worlds", 2025, "Final", "a440", "Grozz")
+    place("worlds", 2024, "Final", "Marten_Fisher", "flicker")
+    place("worlds", 2025, "Final", "alder440", "Grebe")
 
     derive_tournaments(conn=conn, run_id=run_id)
 
@@ -662,10 +669,10 @@ def test_boards_are_numbered_in_upstream_order(conn, add_match, run_id, place):
         ("cat", 3, "M"),
     ]
     assert positions(conn, run_id, "worlds") == [
-        ("a440", 1, "WC"),
-        ("Martin_Pecheur", 2, "WC"),
-        ("Grozz", 3, "GM"),
-        ("frotes", 4, "GM"),
+        ("alder440", 1, "WC"),
+        ("Marten_Fisher", 2, "WC"),
+        ("Grebe", 3, "GM"),
+        ("flicker", 4, "GM"),
     ]
 
 
@@ -906,17 +913,6 @@ def test_an_admin_podium_beats_a_recorded_one(conn, worlds_game, run_id, place):
     derive_tournaments(conn=conn, run_id=run_id)
 
     assert world_titles(conn, run_id) == {"ann": 1}
-
-
-def test_a_final_tie_the_rules_cannot_split_gives_no_podium(conn, worlds_game, run_id):
-    # ann and bob share both games' points and winning shares; head-to-head is level.
-    worlds_game(2025, "Stage 8", 8, "finished", ("ann", 90), ("bob", 90))
-    worlds_game(2025, "Stage 8", 8, "finished", ("bob", 80), ("ann", 80))
-
-    derive_tournaments(conn=conn, run_id=run_id)
-
-    assert worlds_podium(conn, run_id, 2025) == []
-    assert world_titles(conn, run_id) == {}
 
 
 def test_league_points_come_from_the_tournament_settings(conn, add_match, run_id):

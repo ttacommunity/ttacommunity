@@ -18,7 +18,7 @@ Implements the official badge award rules:
 
 import re
 from datetime import date
-from typing import Any
+from typing import Any, NamedTuple
 
 import psycopg
 from dateutil.relativedelta import relativedelta
@@ -242,6 +242,15 @@ def parse_badge_reason(tournament_name: str, tier: int) -> str:
     return f"Played in {t}"
 
 
+class Titles(NamedTuple):
+    """A run's titles: active (each recently active player's title, count and reason), peaks (each player's
+    career peak and its year) and yearly (each (player, year)'s best title)."""
+
+    active: dict[str, dict[str, Any]]
+    peaks: dict[str, tuple[str, int | None]]
+    yearly: dict[tuple[str, int], str]
+
+
 def derive_tournament_badges(
     *, conn: psycopg.Connection, run_id: int
 ) -> dict[str, Any]:
@@ -273,68 +282,7 @@ def derive_tournament_badges(
         """,
             (run_id,),
         ).fetchall()
-
-        player_best = {}
-        player_career_best = {}
-        player_tier_counts = {}
-        player_year_best = {}
-
-        for r in rows:
-            tourney = r["tournament"]
-            tier = classify_division_tier(tourney)
-            if tier is None and r["division"] and r["series"] in SERIES_NAMES:
-                tier = classify_division_tier(
-                    f"{SERIES_NAMES[r['series']]} {r['division']}"
-                )
-            if tier is None:
-                continue
-
-            d_str = r["date"]
-            yr = int(d_str[:4])
-
-            participants = list(r["players"])
-
-            for p in participants:
-                if not p:
-                    continue
-
-                if tier < player_year_best.get((p, yr), 8):
-                    player_year_best[(p, yr)] = tier
-
-                if d_str >= cutoff_date:
-                    if (
-                        p not in player_best
-                        or tier < player_best[p]["tier"]
-                        or (
-                            tier == player_best[p]["tier"]
-                            and d_str > player_best[p]["date"]
-                        )
-                    ):
-                        player_best[p] = {
-                            "tier": tier,
-                            "tournament": tourney,
-                            "date": d_str,
-                            "reason": parse_badge_reason(tourney, tier),
-                        }
-
-                    if tier == 1:
-                        player_tier_counts[p] = player_tier_counts.get(p, 0) + 1
-
-                if (
-                    p not in player_career_best
-                    or tier < player_career_best[p]["tier"]
-                    or (
-                        tier == player_career_best[p]["tier"]
-                        and d_str > player_career_best[p]["date"]
-                    )
-                ):
-                    player_career_best[p] = {"tier": tier, "year": yr, "date": d_str}
-
-        # World Champions hold the exclusive tier 0 ('WC') career peak, at their latest title
         champions = world_champions(conn, run_id)
-        for p, yr in champions:
-            player_career_best[p] = {"tier": 0, "year": yr, "date": f"{yr}-12-15"}
-
         records = conn.execute(
             """
             SELECT player_name, tournament, season, division, placement, medal, finish_date
@@ -342,72 +290,11 @@ def derive_tournament_badges(
         """,
             (run_id,),
         ).fetchall()
-        active_sgm, career_sgm = _super_gm(records, cutoff_date)
-
-        derived_data = {}
-        for p, info in player_best.items():
-            if p in active_sgm:
-                title, reason = "SGM", active_sgm[p]["reason"]
-            else:
-                title, reason = TIER_TITLE_MAP.get(info["tier"], "W"), info["reason"]
-            derived_data[p] = {
-                "title": title,
-                "title_count": player_tier_counts.get(
-                    p, 1 if title in ("GM", "SGM") else 0
-                ),
-                "badge_reason": reason,
-            }
-
-        # The latest season's World Champion holds the exclusive active WC badge
-        if champions:
-            latest = max(yr for _, yr in champions)
-            for p, yr in champions:
-                if yr == latest:
-                    derived_data[p] = {
-                        "title": "WC",
-                        "title_count": 1,
-                        "badge_reason": f"Reigning World Champion (World Championship {yr})",
-                    }
-
-        # A title set in admin replaces the derived one for a recently active player; '' takes it away
-        for r in conn.execute(
+        overrides = conn.execute(
             "SELECT player_name, title, reason FROM player_title_overrides"
-        ).fetchall():
-            p = r["player_name"]
-            if p not in derived_data:
-                continue
-            if r["title"] == "":
-                del derived_data[p]
-            else:
-                derived_data[p] = {
-                    "title": r["title"],
-                    "title_count": 1,
-                    "badge_reason": f"Set in admin: {r['reason']}",
-                }
-
-        peaks = {}
-        for p, c_info in player_career_best.items():
-            if c_info["tier"] == 0:
-                peaks[p] = ("WC", c_info["year"])
-            elif p in career_sgm:
-                peaks[p] = ("SGM", career_sgm[p]["year"] or c_info["year"])
-            else:
-                peaks[p] = (TIER_TITLE_MAP.get(c_info["tier"], "W"), c_info["year"])
-        # A premier win with no titled game at all still makes a Super GM peak
-        for p, s_info in career_sgm.items():
-            peaks.setdefault(p, ("SGM", s_info["year"]))
-
-        # Each year's title: the best division played, then the records, then the career peak
-        yearly = {k: TIER_TITLE_MAP.get(t, "W") for k, t in player_year_best.items()}
-        for key, code in _record_years(records).items():
-            if code == "SGM" or key not in yearly:
-                yearly[key] = code
-        for p, (peak, yr) in peaks.items():
-            best = yearly.get((p, yr))
-            if yr is not None and (
-                best is None or TITLE_ORDER[peak] < TITLE_ORDER[best]
-            ):
-                yearly[(p, yr)] = peak
+        ).fetchall()
+        titles = badge_titles(rows, cutoff_date, champions, records, overrides)
+        derived_data, peaks, yearly = titles
 
         # Replace the run's titles and peaks; unknown names are skipped, as upstream's UPDATE did
         conn.execute("DELETE FROM player_titles WHERE run_id = %s", (run_id,))
@@ -454,7 +341,141 @@ def derive_tournament_badges(
                 [(run_id, yr, p) for p, yr in champions],
             )
 
-    return derived_data
+    return titles.active
+
+
+def badge_titles(rows, cutoff_date, champions, records, overrides) -> Titles:
+    """Returns the titles the games, World Champions, records and admin's overrides give.
+
+    rows are the played games newest first (tournament, date as YYYY-MM-DD, players, and the series and division
+    the run recorded); cutoff_date (YYYY-MM-DD) starts the active window; champions are (player, title year);
+    records are the run's season records; overrides are admin's titles ('' takes one away).
+    """
+    player_best = {}
+    player_career_best = {}
+    player_tier_counts = {}
+    player_year_best = {}
+
+    for r in rows:
+        tourney = r["tournament"]
+        tier = classify_division_tier(tourney)
+        if tier is None and r["division"] and r["series"] in SERIES_NAMES:
+            tier = classify_division_tier(
+                f"{SERIES_NAMES[r['series']]} {r['division']}"
+            )
+        if tier is None:
+            continue
+
+        d_str = r["date"]
+        yr = int(d_str[:4])
+
+        participants = list(r["players"])
+
+        for p in participants:
+            if not p:
+                continue
+
+            if tier < player_year_best.get((p, yr), 8):
+                player_year_best[(p, yr)] = tier
+
+            if d_str >= cutoff_date:
+                if (
+                    p not in player_best
+                    or tier < player_best[p]["tier"]
+                    or (
+                        tier == player_best[p]["tier"]
+                        and d_str > player_best[p]["date"]
+                    )
+                ):
+                    player_best[p] = {
+                        "tier": tier,
+                        "tournament": tourney,
+                        "date": d_str,
+                        "reason": parse_badge_reason(tourney, tier),
+                    }
+
+                if tier == 1:
+                    player_tier_counts[p] = player_tier_counts.get(p, 0) + 1
+
+            if (
+                p not in player_career_best
+                or tier < player_career_best[p]["tier"]
+                or (
+                    tier == player_career_best[p]["tier"]
+                    and d_str > player_career_best[p]["date"]
+                )
+            ):
+                player_career_best[p] = {"tier": tier, "year": yr, "date": d_str}
+
+    # World Champions hold the exclusive tier 0 ('WC') career peak, at their latest title
+    for p, yr in champions:
+        player_career_best[p] = {"tier": 0, "year": yr, "date": f"{yr}-12-15"}
+
+    active_sgm, career_sgm = _super_gm(records, cutoff_date)
+    active_sgm, career_sgm = _super_gm(records, cutoff_date)
+
+    derived_data = {}
+    for p, info in player_best.items():
+        if p in active_sgm:
+            title, reason = "SGM", active_sgm[p]["reason"]
+        else:
+            title, reason = TIER_TITLE_MAP.get(info["tier"], "W"), info["reason"]
+        derived_data[p] = {
+            "title": title,
+            "title_count": player_tier_counts.get(
+                p, 1 if title in ("GM", "SGM") else 0
+            ),
+            "badge_reason": reason,
+        }
+
+    # The latest season's World Champion holds the exclusive active WC badge
+    if champions:
+        latest = max(yr for _, yr in champions)
+        for p, yr in champions:
+            if yr == latest:
+                derived_data[p] = {
+                    "title": "WC",
+                    "title_count": 1,
+                    "badge_reason": f"Reigning World Champion (World Championship {yr})",
+                }
+
+    # A title set in admin replaces the derived one for a recently active player; '' takes it away
+    for r in overrides:
+        p = r["player_name"]
+        if p not in derived_data:
+            continue
+        if r["title"] == "":
+            del derived_data[p]
+        else:
+            derived_data[p] = {
+                "title": r["title"],
+                "title_count": 1,
+                "badge_reason": f"Set in admin: {r['reason']}",
+            }
+
+    peaks = {}
+    for p, c_info in player_career_best.items():
+        if c_info["tier"] == 0:
+            peaks[p] = ("WC", c_info["year"])
+        elif p in career_sgm:
+            peaks[p] = ("SGM", career_sgm[p]["year"] or c_info["year"])
+        else:
+            peaks[p] = (TIER_TITLE_MAP.get(c_info["tier"], "W"), c_info["year"])
+    # A premier win with no titled game at all still makes a Super GM peak
+    for p, s_info in career_sgm.items():
+        peaks.setdefault(p, ("SGM", s_info["year"]))
+
+    # Each year's title: the best division played, then the records, then the career peak
+    yearly = {k: TIER_TITLE_MAP.get(t, "W") for k, t in player_year_best.items()}
+    for key, code in _record_years(records).items():
+        if code == "SGM" or key not in yearly:
+            yearly[key] = code
+    for p, (peak, yr) in peaks.items():
+        best = yearly.get((p, yr))
+        if yr is not None and (best is None or TITLE_ORDER[peak] < TITLE_ORDER[best]):
+            yearly[(p, yr)] = peak
+
+    return Titles(derived_data, peaks, yearly)
 
 
 def _super_gm(records, cutoff_date):

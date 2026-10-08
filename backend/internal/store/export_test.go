@@ -7,6 +7,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -34,10 +35,10 @@ func filled(t *testing.T) *pgxpool.Pool {
 		`INSERT INTO player_accounts (cge_user, player_id, name) SELECT 42, player_id, player_name FROM seats ORDER BY game_id, seat LIMIT 1`,
 		`UPDATE seats SET cge_user = 42, outcome = 'finished' WHERE (game_id, seat) = (SELECT game_id, seat FROM seats ORDER BY game_id, seat LIMIT 1)`,
 		`INSERT INTO tournament_official_placements (series, season, division, player_name, place, points, reason, source)
-		 VALUES ('nations_league', 10, 'Apple', 'DANeo', 1, 36, 'r', 's, with a comma and "quotes"')`,
+		 VALUES ('nations_league', 10, 'Apple', 'Dahlia', 1, 36, 'r', 's, with a comma and "quotes"')`,
 		`INSERT INTO cge_standings (cge_tournament, cge_season, group_name, row_number, place, player_name, cge_user,
 		                           banned, games, points, places_2p, places_3p, places_4p, source)
-		 VALUES (4760, 2, '2024 group 1', 4, NULL, 'sdzy', 65877, true, 3, -1.5, '{1,0}', NULL, '{0,0,0,2}', 'CGE page')`,
+		 VALUES (4760, 2, '2024 group 1', 4, NULL, 'swift', 65877, true, 3, -1.5, '{1,0}', NULL, '{0,0,0,2}', 'CGE page')`,
 		`INSERT INTO community_points (tournament, from_edition, group_name, place, points, source)
 		 VALUES ('worlds', 2025, 'Stage 3', 0, 130, 'sheet')`,
 		`INSERT INTO community_quarters (tournament, season, year, quarter, source) VALUES ('wimbledon', '2025', 2026, 1, 'tab')`,
@@ -141,8 +142,12 @@ func TestRestoreRefusesAChangedFile(t *testing.T) {
 	}
 
 	fresh := migrated(t)
-	if err := Restore(ctx, fresh, dir); err == nil || !strings.Contains(err.Error(), "games.csv") {
-		t.Errorf("Restore of a changed file: err = %v, want a refusal naming games.csv", err)
+	err = Restore(ctx, fresh, dir)
+	if !errors.Is(err, ErrExportChanged) {
+		t.Errorf("Restore of a changed file = %v, want ErrExportChanged", err)
+	}
+	if err != nil && !strings.Contains(err.Error(), "games.csv") {
+		t.Errorf("Restore of a changed file = %v, want it to name games.csv", err)
 	}
 	var n int
 	if err := fresh.QueryRow(ctx, "SELECT count(*) FROM games").Scan(&n); err != nil || n != 0 {
@@ -171,8 +176,8 @@ func TestRestoreRefusesAnotherSchemaVersion(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if err := Restore(ctx, migrated(t), dir); err == nil || !strings.Contains(err.Error(), "schema") {
-		t.Errorf("Restore of an older schema: err = %v, want a refusal naming the schema", err)
+	if err := Restore(ctx, migrated(t), dir); !errors.Is(err, ErrSchemaMismatch) {
+		t.Errorf("Restore of an older schema = %v, want ErrSchemaMismatch", err)
 	}
 }
 
@@ -195,8 +200,11 @@ func TestExportRefusesAnInputTableItDoesNotKnow(t *testing.T) {
 
 	dir := filepath.Join(t.TempDir(), "x")
 	_, err := Export(context.Background(), pool, dir)
-	if err == nil || !strings.Contains(err.Error(), "player_aliases") {
-		t.Errorf("Export with an unlisted table: err = %v, want a refusal naming player_aliases", err)
+	if !errors.Is(err, ErrUnlistedTable) {
+		t.Errorf("Export with an unlisted table = %v, want ErrUnlistedTable", err)
+	}
+	if err != nil && !strings.Contains(err.Error(), "player_aliases") {
+		t.Errorf("Export with an unlisted table = %v, want it to name player_aliases", err)
 	}
 	if _, err := os.Stat(dir); !os.IsNotExist(err) {
 		t.Errorf("a refused export left %s behind (stat: %v)", dir, err)

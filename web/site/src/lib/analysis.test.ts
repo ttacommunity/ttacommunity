@@ -41,11 +41,13 @@ describe('MODELS', () => {
 });
 
 describe('compositeScore', () => {
-  it("weighs Brier and ECE 35% each, log loss and accuracy 15%, as upstream", () => {
-    // Brier 0.20 → 0.5, ECE 0.02 → 0.75, log loss 0.60 → 0.4, accuracy 65 → 0.5: 57.2499… in floating point, so 57.2
-    expect(compositeScore(0.2, 0.02, 0.6, 65)).toBe(57.2);
-    expect(compositeScore(0.3, 0.1, 0.8, 40)).toBe(0);
-    expect(compositeScore(0.1, 0, 0.4, 90)).toBe(100);
+  // Brier 0.20 → 0.5, ECE 0.02 → 0.75, log loss 0.60 → 0.4, accuracy 65 → 0.5: 57.2499… in floating point, so 57.2
+  it.each([
+    ['in between', 0.2, 0.02, 0.6, 65, 57.2],
+    ['the worst', 0.3, 0.1, 0.8, 40, 0],
+    ['the best', 0.1, 0, 0.4, 90, 100],
+  ])('weighs Brier and ECE 35%% each, log loss and accuracy 15%%, as upstream: %s', (_name, brier, ece, logLoss, accuracy, want) => {
+    expect(compositeScore(brier, ece, logLoss, accuracy)).toBe(want);
   });
 });
 
@@ -108,19 +110,23 @@ describe('parseAnalysisParams', () => {
 });
 
 describe('agreementName', () => {
-  it("names models as upstream's agreement cards do", () => {
-    expect(agreementName('glicko2_daneo')).toBe('GlickoD');
-    expect(agreementName('glicko2_daneo_softer')).toBe('GlickoD (Season Reset)');
-    expect(agreementName('glicko2_adapt')).toBe('G2 Adapt (Career)');
-    expect(agreementName('whr_softer')).toBe('WHR (Season Reset)');
+  it.each([
+    ['glicko2_daneo', 'GlickoD'],
+    ['glicko2_daneo_softer', 'GlickoD (Season Reset)'],
+    ['glicko2_adapt', 'G2 Adapt (Career)'],
+    ['whr_softer', 'WHR (Season Reset)'],
+  ] as const)("names %s %s, as upstream's agreement cards do", (model, want) => {
+    expect(agreementName(model)).toBe(want);
   });
 });
 
 describe('parseMoversParams', () => {
-  it('reads the search and format, as upstream: any other format is all formats', () => {
-    expect(parseMoversParams(new URLSearchParams('search=%20a440,IT%20&format=3'))).toEqual({ search: 'a440,IT', format: 3 });
-    expect(parseMoversParams(new URLSearchParams('format=x'))).toEqual({ search: '', format: 0 });
-    expect(parseMoversParams(new URLSearchParams('format=5&min_games=3'))).toEqual({ search: '', format: 0 });
+  it.each([
+    ['a search, trimmed, and a format', 'search=%20b440,IT%20&format=3', { search: 'b440,IT', format: 3 }],
+    ['a format that is not a number, as all formats', 'format=x', { search: '', format: 0 }],
+    ['a format we do not have, as all formats', 'format=5&min_games=3', { search: '', format: 0 }],
+  ])('reads %s, as upstream', (_name, query, want) => {
+    expect(parseMoversParams(new URLSearchParams(query))).toEqual(want);
   });
 });
 
@@ -136,10 +142,12 @@ describe('sortCountries', () => {
   const c = (country: string, players: number, gm: number | null): CountryRatings => ({ country, players, gm, m_plus: null, p_plus: null, all: 1500 });
   const rows = [c('US', 131, 1885.6), c('CZ', 33, null), c('FR', 27, 1953.6)].map((r, i) => ({ ...r, rank: i + 1 }));
 
-  it('sorts numbers with a missing average as 0, and codes as text', () => {
-    expect(sortCountries(rows, 'gm', true).map((r) => r.country)).toEqual(['CZ', 'US', 'FR']);
-    expect(sortCountries(rows, 'gm', false).map((r) => r.country)).toEqual(['FR', 'US', 'CZ']);
-    expect(sortCountries(rows, 'country', true).map((r) => r.country)).toEqual(['CZ', 'FR', 'US']);
+  it.each([
+    ['a number, descending', 'gm', true, ['CZ', 'US', 'FR']],
+    ['a number, ascending', 'gm', false, ['FR', 'US', 'CZ']],
+    ['codes, as text', 'country', true, ['CZ', 'FR', 'US']],
+  ] as const)('sorts by %s, a missing average as 0', (_name, column, descending, want) => {
+    expect(sortCountries(rows, column, descending).map((r) => r.country)).toEqual(want);
   });
 
   it('sorts the rank column as numbers, not as text (1, 2, 3, not 1, 10, 11)', () => {

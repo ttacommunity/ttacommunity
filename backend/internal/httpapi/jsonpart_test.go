@@ -90,7 +90,7 @@ func wantJSON(t *testing.T, body []byte, path, want string) {
 }
 
 func TestWantJSONChecksOnlyWhatItNames(t *testing.T) {
-	body := []byte(`{"run_id":7,"seasons":[{"label":"2024","first_game":null,"podium":[{"place":1,"name":"saru"}],"extra":true}]}`)
+	body := []byte(`{"run_id":7,"seasons":[{"label":"2024","first_game":null,"podium":[{"place":1,"name":"sora"}],"extra":true}]}`)
 	for _, tt := range []struct {
 		name, path, want string
 		ok               bool

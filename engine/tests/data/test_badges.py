@@ -1,10 +1,14 @@
+from datetime import date
+
 import pytest
 
 from tta_ratings_engine.data.badges import (
+    badge_titles,
     classify_division_tier,
     derive_tournament_badges,
     parse_badge_reason,
 )
+from tta_ratings_engine.data.db import RunNotRunning
 
 
 def test_badge_classification():
@@ -60,11 +64,274 @@ def test_royal_league_reasons_name_the_lower_ranks():
     )
 
 
+# The rules, on the games, records and overrides the run reads.
+
+CUTOFF = "2023-06-01"  # a year before the newest game, 2024-06-01
+
+
+def game(day, tournament, *players, series=None, division=None):
+    """Returns a played game as badge_titles reads it."""
+    return {
+        "tournament": tournament,
+        "date": day,
+        "players": list(players),
+        "series": series,
+        "division": division,
+    }
+
+
+def newest_first(*games):
+    return sorted(games, key=lambda g: g["date"], reverse=True)
+
+
+def season_record(player, tournament, season, division, placement, medal, finish):
+    return {
+        "player_name": player,
+        "tournament": tournament,
+        "season": season,
+        "division": division,
+        "placement": placement,
+        "medal": medal,
+        "finish_date": finish,
+    }
+
+
+def override(player, title, reason="r"):
+    return {"player_name": player, "title": title, "reason": reason}
+
+
+def rule_titles(games, records=(), overrides=(), champions=()):
+    return badge_titles(
+        newest_first(*games), CUTOFF, list(champions), list(records), list(overrides)
+    )
+
+
+def active(t):
+    return {
+        p: (d["title"], d["title_count"], d["badge_reason"])
+        for p, d in t.active.items()
+    }
+
+
+def test_a_player_gets_the_title_of_their_best_recent_division():
+    t = rule_titles(
+        [
+            game("2024-05-01", "RL_s08 - Emperor", "Ann", "Bob"),
+            game("2024-06-01", "RL_s09 - King", "Ann", "Cat"),
+        ]
+    )
+
+    assert active(t)["Ann"] == ("GM", 1, "Played in Royal League Emperor Season 8")
+    assert active(t)["Cat"] == ("M", 0, "Played in Royal League King Season 9")
+
+
+def test_only_the_last_year_counts():
+    t = rule_titles(
+        [
+            game("2023-05-31", "RL_s01 - Emperor", "Old", "Bob"),
+            game(CUTOFF, "RL_s02 - Duke", "Edge", "Eve"),
+            game("2023-07-01", "RL_s02 - Duke", "Recent", "Dan"),
+            game("2024-06-01", "RL_s09 - Duke", "Ann", "Cat"),
+        ]
+    )
+
+    assert set(t.active) == {"Ann", "Cat", "Recent", "Dan", "Edge", "Eve"}
+
+
+def test_a_division_the_run_recorded_gives_a_title():
+    t = rule_titles(
+        [
+            game(
+                "2024-06-01",
+                "International S27",
+                "Ann",
+                "Bob",
+                series="international",
+                division="Grandmaster",
+            )
+        ]
+    )
+
+    assert active(t)["Ann"] == (
+        "GM",
+        1,
+        "Played in International Championship Grandmaster Season 27",
+    )
+
+
+def test_games_outside_the_championships_earn_no_title():
+    t = rule_titles([game("2024-06-01", "Friendly Cup", "Ann", "Bob")])
+
+    assert t.active == {}
+
+
+def test_a_player_keeps_their_career_peak_title():
+    t = rule_titles(
+        [
+            game("2021-03-01", "RL_s03 - Emperor", "Ann", "Bob"),
+            game("2022-03-01", "RL_s04 - Emperor", "Ann", "Bob"),
+            game("2024-06-01", "RL_s09 - King", "Ann", "Cat"),
+        ]
+    )
+
+    assert t.active["Ann"]["title"] == "M"
+    assert "Bob" not in t.active
+    assert t.peaks == {"Ann": ("GM", 2022), "Bob": ("GM", 2022), "Cat": ("M", 2024)}
+
+
+def test_each_year_keeps_the_best_division_played():
+    t = rule_titles(
+        [
+            game("2021-03-01", "RL_s03 - Duke", "Ann", "Bob"),
+            game("2021-09-01", "RL_s04 - Emperor", "Ann", "Cat"),
+            game("2022-03-01", "RL_s05 - King", "Ann", "Bob"),
+            game("2023-03-01", "Friendly Cup", "Ann", "Dan"),
+        ]
+    )
+
+    assert {k: v for k, v in t.yearly.items() if k[0] == "Ann"} == {
+        ("Ann", 2021): "GM",
+        ("Ann", 2022): "M",
+    }
+    assert t.yearly[("Bob", 2021)] == "G"
+    assert ("Dan", 2023) not in t.yearly
+
+
+def test_a_recent_top_division_win_is_super_gm():
+    t = rule_titles(
+        [game("2024-06-01", "RL_s09 - Emperor", "Ann", "Bob")],
+        records=[
+            season_record(
+                "Ann",
+                "Royal League",
+                "Season 9",
+                "Emperor",
+                "1 / 8",
+                "gold",
+                "2024-05-27",
+            ),
+            season_record(
+                "Bob",
+                "Royal League",
+                "Season 9",
+                "Emperor",
+                "2 / 8",
+                "silver",
+                "2024-05-27",
+            ),
+        ],
+    )
+
+    assert active(t)["Ann"] == ("SGM", 1, "Champion of Royal League Emperor (Season 9)")
+    assert active(t)["Bob"] == ("GM", 1, "Played in Royal League Emperor Season 9")
+    assert t.peaks == {"Ann": ("SGM", 2024), "Bob": ("GM", 2024)}
+
+
+def test_an_older_top_division_win_is_a_super_gm_peak():
+    ic = "International Championship"
+    t = rule_titles(
+        [
+            game("2024-06-01", "Friendly Cup", p, "Bob")
+            for p in ("Cat", "Dan", "Eve", "Fay")
+        ],
+        records=[
+            season_record(
+                "Cat", ic, "Season 20", "Grandmaster", "1 / 7", "gold", "2022-12-04"
+            ),
+            # upstream counts a campaign row too, whatever group it ranked first in
+            season_record(
+                "Dan", ic, "Season 14", "Grandmaster", "1 / 735", "gold", "2021-03-02"
+            ),
+            season_record(
+                "Eve", ic, "Season 20", "Grandmaster", "3 / 7", "bronze", "2022-12-04"
+            ),
+            season_record(
+                "Fay", ic, "Season 30", "Master 1", "1 / 4", "gold", "2025-08-14"
+            ),
+        ],
+    )
+
+    assert t.active == {}
+    assert t.peaks == {"Cat": ("SGM", 2022), "Dan": ("SGM", 2021)}
+
+
+def test_records_add_super_gm_years_and_untitled_seasons():
+    t = rule_titles(
+        [
+            game("2024-06-01", "RL_s09 - King", "Ann", "Cat"),
+            game("2021-03-01", "RL_s03 - Duke", "Bob", "Cat"),
+        ],
+        records=[
+            # a season named without its division: the record gives the year's title
+            season_record(
+                "Ann",
+                "International Championship",
+                "Season 20",
+                "Grandmaster",
+                "5 / 7",
+                None,
+                "2020-12-06",
+            ),
+            season_record(
+                "Ann",
+                "Royal League",
+                "Season 9",
+                "Emperor",
+                "2 / 8",
+                "silver",
+                "2024-05-27",
+            ),
+            season_record(
+                "Bob",
+                "Intermezzo Championship",
+                "Season 13",
+                "Grandmaster",
+                "1 / 5",
+                "gold",
+                "2021-11-30",
+            ),
+        ],
+    )
+
+    assert {k: v for k, v in t.yearly.items() if k[0] in ("Ann", "Bob")} == {
+        ("Ann", 2020): "GM",
+        ("Ann", 2024): "M",
+        ("Bob", 2021): "SGM",
+    }
+
+
+@pytest.mark.parametrize(
+    ("overrides", "player", "want"),
+    [
+        pytest.param(
+            [override("Ann", "SGM")],
+            "Ann",
+            ("SGM", 1, "Set in admin: r"),
+            id="replaces the derived title",
+        ),
+        pytest.param(
+            [override("Bob", "")], "Bob", None, id="an empty title takes it away"
+        ),
+        pytest.param(
+            [override("Ann", "GM", "won the 2019 final, recorded nowhere")],
+            "Ann",
+            ("GM", 1, "Set in admin: won the 2019 final, recorded nowhere"),
+            id="gives its reason",
+        ),
+        pytest.param(
+            [override("Cat", "GM")], "Cat", None, id="still needs a recent game"
+        ),
+    ],
+)
+def test_a_title_set_in_admin(overrides, player, want):
+    t = rule_titles(
+        [game("2024-06-01", "RL_s09 - Duke", "Ann", "Bob")], overrides=overrides
+    )
+
+    assert active(t).get(player) == want
+
+
 # End to end, on Postgres: titles derived from matches and written per run.
-
-from datetime import date
-
-from tta_ratings_engine.data.db import RunNotRunning
 
 
 def titles(conn, run_id):
@@ -77,80 +344,25 @@ def titles(conn, run_id):
     }
 
 
-def test_a_player_gets_the_title_of_their_best_recent_division(conn, add_match, run_id):
-    add_match(
-        ("Ann", 10), ("Bob", 5), day=date(2024, 5, 1), tournament="RL_s08 - Emperor"
-    )
-    add_match(("Ann", 10), ("Cat", 5), day=date(2024, 6, 1), tournament="RL_s09 - King")
-
-    derive_tournament_badges(conn=conn, run_id=run_id)
-
-    got = titles(conn, run_id)
-    assert got["Ann"] == ("GM", 1, "Played in Royal League Emperor Season 8")
-    assert got["Cat"] == ("M", 0, "Played in Royal League King Season 9")
-
-
-def test_only_the_last_year_counts(conn, add_match, run_id):
-    add_match(
-        ("Old", 10), ("Bob", 5), day=date(2023, 5, 31), tournament="RL_s01 - Emperor"
-    )
-    add_match(
-        ("Recent", 10), ("Dan", 5), day=date(2023, 7, 1), tournament="RL_s02 - Duke"
-    )
-    add_match(("Ann", 10), ("Cat", 5), day=date(2024, 6, 1), tournament="RL_s09 - Duke")
-
-    derive_tournament_badges(conn=conn, run_id=run_id)
-
-    assert set(titles(conn, run_id)) == {"Ann", "Cat", "Recent", "Dan"}
-
-
-def test_a_division_the_run_recorded_gives_a_title(conn, add_match, run_id):
-    match_id = add_match(
-        ("Ann", 10), ("Bob", 5), day=date(2024, 6, 1), tournament="International S27"
-    )
-    conn.execute(
-        "INSERT INTO tournament_games (run_id, match_id, series, season, name_season, "
-        "division, group_label, division_source) "
-        "VALUES (%s, %s, 'international', 27, 27, 'Grandmaster', 'Grandmaster', 'recorded')",
-        (run_id, match_id),
-    )
-
-    derive_tournament_badges(conn=conn, run_id=run_id)
-
-    assert titles(conn, run_id)["Ann"] == (
-        "GM",
-        1,
-        "Played in International Championship Grandmaster Season 27",
-    )
-
-
-def test_games_outside_the_championships_earn_no_title(conn, add_match, run_id):
-    add_match(("Ann", 10), ("Bob", 5), day=date(2024, 6, 1), tournament="Friendly Cup")
-
-    derive_tournament_badges(conn=conn, run_id=run_id)
-
-    assert titles(conn, run_id) == {}
-
-
 def test_the_reigning_champion_is_the_latest_seasons_winner(
     conn, add_match, run_id, place
 ):
-    place("worlds", 2024, "Final", "Martin_Pecheur", "pv4")
-    place("worlds", 2025, "Final", "a440", "kyshantry")
+    place("worlds", 2024, "Final", "Marten_Fisher", "pipit4")
+    place("worlds", 2025, "Final", "alder440", "kittiwake")
     add_match(("Ann", 10), ("Bob", 5), day=date(2024, 6, 1), tournament="RL_s09 - Duke")
     derive_tournament_badges(conn=conn, run_id=run_id)
-    assert "a440" not in titles(conn, run_id)
+    assert "alder440" not in titles(conn, run_id)
 
     add_match(
-        ("a440", 10),
-        ("Martin_Pecheur", 5),
+        ("alder440", 10),
+        ("Marten_Fisher", 5),
         day=date(2024, 6, 2),
         tournament="Friendly Cup",
     )
     derive_tournament_badges(conn=conn, run_id=run_id)
     got = titles(conn, run_id)
-    assert got["a440"][0] == "WC"
-    assert got.get("Martin_Pecheur", ("",))[0] != "WC"
+    assert got["alder440"][0] == "WC"
+    assert got.get("Marten_Fisher", ("",))[0] != "WC"
 
 
 def test_deriving_again_replaces_the_runs_titles_peaks_and_years(
@@ -194,35 +406,19 @@ def peaks(conn, run_id):
     }
 
 
-def test_a_player_keeps_their_career_peak_title(conn, add_match, run_id):
-    add_match(
-        ("Ann", 10), ("Bob", 5), day=date(2021, 3, 1), tournament="RL_s03 - Emperor"
-    )
-    add_match(
-        ("Ann", 10), ("Bob", 5), day=date(2022, 3, 1), tournament="RL_s04 - Emperor"
-    )
-    add_match(("Ann", 10), ("Cat", 5), day=date(2024, 6, 1), tournament="RL_s09 - King")
-
-    derive_tournament_badges(conn=conn, run_id=run_id)
-
-    assert titles(conn, run_id)["Ann"][0] == "M"
-    got = peaks(conn, run_id)
-    assert got["Ann"] == ("GM", 2022)
-    assert got["Bob"] == ("GM", 2022)
-    assert got["Cat"] == ("M", 2024)
-    assert "Bob" not in titles(conn, run_id)
-
-
 def test_world_champions_peak_at_their_title_year(conn, add_match, run_id, place):
-    place("worlds", 2022, "Final", "Ender_Wiggin", "LaoHuang")
-    place("worlds", 2023, "Final", "Weidenbaum")
-    place("worlds", 2025, "Final", "a440")
+    place("worlds", 2022, "Final", "Ember_Wolf", "Linnet")
+    place("worlds", 2023, "Final", "Willow_Tree")
+    place("worlds", 2025, "Final", "alder440")
     add_match(
-        ("Weidenbaum", 10), ("Bob", 5), day=date(2024, 6, 1), tournament="RL_s09 - King"
+        ("Willow_Tree", 10),
+        ("Bob", 5),
+        day=date(2024, 6, 1),
+        tournament="RL_s09 - King",
     )
     add_match(
-        ("a440", 10),
-        ("Ender_Wiggin", 5),
+        ("alder440", 10),
+        ("Ember_Wolf", 5),
         day=date(2024, 6, 2),
         tournament="Friendly Cup",
     )
@@ -230,10 +426,10 @@ def test_world_champions_peak_at_their_title_year(conn, add_match, run_id, place
     derive_tournament_badges(conn=conn, run_id=run_id)
 
     got = peaks(conn, run_id)
-    assert got["Weidenbaum"] == ("WC", 2023)
-    assert got["a440"] == ("WC", 2025)
-    assert got["Ender_Wiggin"] == ("WC", 2022)
-    assert titles(conn, run_id)["Weidenbaum"][0] == "M"
+    assert got["Willow_Tree"] == ("WC", 2023)
+    assert got["alder440"] == ("WC", 2025)
+    assert got["Ember_Wolf"] == ("WC", 2022)
+    assert titles(conn, run_id)["Willow_Tree"][0] == "M"
 
 
 def yearly(conn, run_id):
@@ -246,271 +442,52 @@ def yearly(conn, run_id):
     }
 
 
-def test_each_year_keeps_the_best_division_played(conn, add_match, run_id):
-    add_match(("Ann", 10), ("Bob", 5), day=date(2021, 3, 1), tournament="RL_s03 - Duke")
-    add_match(
-        ("Ann", 10), ("Cat", 5), day=date(2021, 9, 1), tournament="RL_s04 - Emperor"
-    )
-    add_match(("Ann", 10), ("Bob", 5), day=date(2022, 3, 1), tournament="RL_s05 - King")
-    add_match(("Ann", 10), ("Dan", 5), day=date(2023, 3, 1), tournament="Friendly Cup")
-
-    derive_tournament_badges(conn=conn, run_id=run_id)
-
-    got = yearly(conn, run_id)
-    assert {k: v for k, v in got.items() if k[0] == "Ann"} == {
-        ("Ann", 2021): "GM",
-        ("Ann", 2022): "M",
-    }
-    assert got[("Bob", 2021)] == "G"
-    assert ("Dan", 2023) not in got
-
-
 def test_world_champions_hold_wc_in_their_title_year(conn, add_match, run_id, place):
-    place("worlds", 2023, "Final", "Weidenbaum")
-    place("worlds", 2025, "Final", "a440")
+    place("worlds", 2023, "Final", "Willow_Tree")
+    place("worlds", 2025, "Final", "alder440")
     add_match(
-        ("Weidenbaum", 10), ("Bob", 5), day=date(2023, 6, 1), tournament="RL_s09 - King"
+        ("Willow_Tree", 10),
+        ("Bob", 5),
+        day=date(2023, 6, 1),
+        tournament="RL_s09 - King",
     )
-    add_match(("A440", 10), ("Bob", 5), day=date(2024, 6, 2), tournament="Friendly Cup")
-
-    derive_tournament_badges(conn=conn, run_id=run_id)
-
-    got = yearly(conn, run_id)
-    assert got[("Weidenbaum", 2023)] == "WC"
-    assert got[("A440", 2025)] == "WC"
-    assert ("Martin_Pecheur", 2024) not in got
-
-
-def add_record(
-    conn, run_id, player, tournament, season, division, placement, medal, finish
-):
-    """A tournament_records row, as the tournaments step writes it before titles."""
-    position = conn.execute(
-        "SELECT count(*) + 1 AS n FROM tournament_records WHERE run_id = %s", (run_id,)
-    ).fetchone()["n"]
-    conn.execute(
-        "INSERT INTO tournament_records VALUES (%s, %s, %s, %s, %s, %s, %s, '', %s, '', %s, false)",
-        (
-            run_id,
-            player,
-            position,
-            tournament,
-            season,
-            division,
-            placement,
-            medal,
-            finish,
-        ),
-    )
-
-
-def test_a_recent_top_division_win_is_super_gm(conn, add_match, run_id):
     add_match(
-        ("Ann", 10), ("Bob", 5), day=date(2024, 6, 1), tournament="RL_s09 - Emperor"
-    )
-    add_record(
-        conn,
-        run_id,
-        "Ann",
-        "Royal League",
-        "Season 9",
-        "Emperor",
-        "1 / 8",
-        "gold",
-        "2024-05-27",
-    )
-    add_record(
-        conn,
-        run_id,
-        "Bob",
-        "Royal League",
-        "Season 9",
-        "Emperor",
-        "2 / 8",
-        "silver",
-        "2024-05-27",
-    )
-
-    derive_tournament_badges(conn=conn, run_id=run_id)
-
-    got = titles(conn, run_id)
-    assert got["Ann"] == ("SGM", 1, "Champion of Royal League Emperor (Season 9)")
-    assert got["Bob"] == ("GM", 1, "Played in Royal League Emperor Season 9")
-    assert peaks(conn, run_id) == {"Ann": ("SGM", 2024), "Bob": ("GM", 2024)}
-
-
-def test_an_older_top_division_win_is_a_super_gm_peak(conn, add_match, run_id):
-    for p in ("Cat", "Dan", "Eve", "Fay"):
-        add_match((p, 10), ("Bob", 5), day=date(2024, 6, 1), tournament="Friendly Cup")
-    add_record(
-        conn,
-        run_id,
-        "Cat",
-        "International Championship",
-        "Season 20",
-        "Grandmaster",
-        "1 / 7",
-        "gold",
-        "2022-12-04",
-    )
-    # upstream counts a campaign row too, whatever group it ranked first in
-    add_record(
-        conn,
-        run_id,
-        "Dan",
-        "International Championship",
-        "Season 14",
-        "Grandmaster",
-        "1 / 735",
-        "gold",
-        "2021-03-02",
-    )
-    add_record(
-        conn,
-        run_id,
-        "Eve",
-        "International Championship",
-        "Season 20",
-        "Grandmaster",
-        "3 / 7",
-        "bronze",
-        "2022-12-04",
-    )
-    add_record(
-        conn,
-        run_id,
-        "Fay",
-        "International Championship",
-        "Season 30",
-        "Master 1",
-        "1 / 4",
-        "gold",
-        "2025-08-14",
-    )
-
-    derive_tournament_badges(conn=conn, run_id=run_id)
-
-    assert titles(conn, run_id) == {}
-    assert peaks(conn, run_id) == {"Cat": ("SGM", 2022), "Dan": ("SGM", 2021)}
-
-
-def test_records_add_super_gm_years_and_untitled_seasons(conn, add_match, run_id):
-    add_match(("Ann", 10), ("Cat", 5), day=date(2024, 6, 1), tournament="RL_s09 - King")
-    add_match(("Bob", 10), ("Cat", 5), day=date(2021, 3, 1), tournament="RL_s03 - Duke")
-    # a season named without its division: the record gives the year's title
-    add_record(
-        conn,
-        run_id,
-        "Ann",
-        "International Championship",
-        "Season 20",
-        "Grandmaster",
-        "5 / 7",
-        None,
-        "2020-12-06",
-    )
-    add_record(
-        conn,
-        run_id,
-        "Ann",
-        "Royal League",
-        "Season 9",
-        "Emperor",
-        "2 / 8",
-        "silver",
-        "2024-05-27",
-    )
-    add_record(
-        conn,
-        run_id,
-        "Bob",
-        "Intermezzo Championship",
-        "Season 13",
-        "Grandmaster",
-        "1 / 5",
-        "gold",
-        "2021-11-30",
+        ("Alder440", 10), ("Bob", 5), day=date(2024, 6, 2), tournament="Friendly Cup"
     )
 
     derive_tournament_badges(conn=conn, run_id=run_id)
 
     got = yearly(conn, run_id)
-    assert {k: v for k, v in got.items() if k[0] in ("Ann", "Bob")} == {
-        ("Ann", 2020): "GM",
-        ("Ann", 2024): "M",
-        ("Bob", 2021): "SGM",
-    }
+    assert got[("Willow_Tree", 2023)] == "WC"
+    assert got[("Alder440", 2025)] == "WC"
+    assert ("Marten_Fisher", 2024) not in got
 
 
 def test_the_reigning_champion_comes_from_admin_then_recorded_then_the_runs_final(
     conn, add_match, run_id, place
 ):
-    place("worlds", 2024, "Final", "Martin_Pecheur")
+    place("worlds", 2024, "Final", "Marten_Fisher")
     conn.execute(
-        "INSERT INTO tournament_standings VALUES (%s, 'worlds', 2025, 'Final', 'Final', 'a440', 1, 16, 4, %s)",
+        "INSERT INTO tournament_standings VALUES (%s, 'worlds', 2025, 'Final', 'Final', 'alder440', 1, 16, 4, %s)",
         (run_id, [3, 1, 0, 0]),
     )
     conn.commit()
     add_match(
-        ("a440", 10),
-        ("Martin_Pecheur", 5),
-        ("pv4", 1),
+        ("alder440", 10),
+        ("Marten_Fisher", 5),
+        ("pipit4", 1),
         day=date(2024, 6, 2),
         tournament="Friendly Cup",
     )
 
     derive_tournament_badges(conn=conn, run_id=run_id)
-    assert titles(conn, run_id)["a440"][0] == "WC"
+    assert titles(conn, run_id)["alder440"][0] == "WC"
 
     conn.execute(
-        "INSERT INTO tournament_podium_overrides (tournament, season, place, player_name) VALUES ('worlds', '2025', 1, 'pv4')"
+        "INSERT INTO tournament_podium_overrides (tournament, season, place, player_name) VALUES ('worlds', '2025', 1, 'pipit4')"
     )
     conn.commit()
     derive_tournament_badges(conn=conn, run_id=run_id)
     got = titles(conn, run_id)
-    assert got["pv4"][0] == "WC"
-    assert got.get("a440", ("",))[0] != "WC"
-
-
-def override_title(conn, name, title, reason="the organisers' ruling"):
-    conn.execute(
-        "INSERT INTO player_title_overrides VALUES (%s, %s, %s)", (name, title, reason)
-    )
-    conn.commit()
-
-
-def test_a_title_set_in_admin_replaces_the_derived_one(conn, add_match, run_id):
-    add_match(("Ann", 10), ("Bob", 5), day=date(2024, 6, 1), tournament="RL_s09 - Duke")
-    derive_tournament_badges(conn=conn, run_id=run_id)
-    derived = titles(conn, run_id)
-    assert "Ann" in derived and derived["Ann"][0] != "SGM"
-
-    override_title(conn, "Ann", "SGM")
-    override_title(conn, "Bob", "")
-    derive_tournament_badges(conn=conn, run_id=run_id)
-
-    got = titles(conn, run_id)
-    assert got["Ann"][0] == "SGM"
-    assert "Bob" not in got
-
-
-def test_a_title_set_in_admin_gives_its_reason(conn, add_match, run_id):
-    add_match(("Ann", 10), ("Bob", 5), day=date(2024, 6, 1), tournament="RL_s09 - Duke")
-    override_title(conn, "Ann", "GM", "won the 2019 final, recorded nowhere")
-
-    derive_tournament_badges(conn=conn, run_id=run_id)
-
-    reason = conn.execute(
-        "SELECT badge_reason FROM player_titles WHERE run_id = %s AND player_name = 'Ann'",
-        (run_id,),
-    ).fetchone()["badge_reason"]
-    assert reason == "Set in admin: won the 2019 final, recorded nowhere"
-
-
-def test_a_title_set_in_admin_still_needs_a_recent_game(conn, add_match, run_id):
-    add_match(("Ann", 10), ("Bob", 5), day=date(2024, 6, 1), tournament="RL_s09 - Duke")
-    override_title(conn, "Cat", "GM")
-
-    derive_tournament_badges(conn=conn, run_id=run_id)
-
-    assert "Cat" not in titles(conn, run_id)
+    assert got["pipit4"][0] == "WC"
+    assert got.get("alder440", ("",))[0] != "WC"

@@ -515,7 +515,7 @@ func TestLeaderboardCSV(t *testing.T) {
 	old := time.Date(2020, 1, 1, 0, 0, 0, 0, time.UTC)
 	ru, year := "RU", 2026
 	rows := []store.LeaderboardRow{
-		{Name: "Grozz", Rating: 1979.194, RD: 20.146, CRating: 1918.756, Opponents: 775, Wins: 551, Losses: 218, Draws: 6,
+		{Name: "Grebe", Rating: 1979.194, RD: 20.146, CRating: 1918.756, Opponents: 775, Wins: 551, Losses: 218, Draws: 6,
 			WinRate: 71.48, LastPlayed: &played, Country: &ru,
 			Title: &store.Title{Code: "GM", Count: 3, Reason: "Played in Royal League Emperor Season 9"},
 			Peak:  &store.Peak{Code: "WC", Year: &year}},
@@ -542,7 +542,7 @@ func TestLeaderboardCSV(t *testing.T) {
 	}
 	want := "\ufeffRank,Player,Country,Title,Title_Name,Badge_Reason,Peak_Title,Peak_Year,Rating,RD,Conservative_Rating," +
 		"Matches,Wins,Losses,Draws,Win_Rate,Status,Last_Played,Model,Format,Reset_Mode,Season\r\n" +
-		"1,Grozz,RU,GM,Grandmaster,Played in Royal League Emperor Season 9,World Champion,2026,1979.19,20.15,1918.76," +
+		"1,Grebe,RU,GM,Grandmaster,Played in Royal League Emperor Season 9,World Champion,2026,1979.19,20.15,1918.76," +
 		"775,551,218,6,71.5%,Active,2026-08-28,Glicko-2 Standard,2-Player (Duel),Season Reset,Live / All-Time\r\n" +
 		`2,"'-odd, ""quoted""",,,,,,,1500.00,50.00,1350.00,40,0,0,0,50.0%,Active,2026-08-28,Glicko-2 Standard,2-Player (Duel),Season Reset,Live / All-Time` + "\r\n"
 	if got := rec.Body.String(); got != want {
