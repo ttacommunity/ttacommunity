@@ -223,19 +223,19 @@ describe('hasOptions and hasFilters', () => {
 });
 
 describe('pickPlayer', () => {
-  const names = ['Ender_Wiggin', 'LavenderQueen', 'exender', 'theblender'];
+  const names = ['Ember_Wolf', 'LarchQueen', 'remember', 'December'];
 
   it('picks a name typed in full, in any case', () => {
-    expect(pickPlayer(names, ' ender_wiggin ')).toBe('Ender_Wiggin');
+    expect(pickPlayer(names, ' ember_wolf ')).toBe('Ember_Wolf');
   });
 
   it('picks the top suggestion for part of a name', () => {
-    expect(pickPlayer(names, 'ender')).toBe('Ender_Wiggin');
-    expect(pickPlayer(names, 'LAVEN')).toBe('LavenderQueen');
+    expect(pickPlayer(names, 'embe')).toBe('Ember_Wolf');
+    expect(pickPlayer(names, 'LARCH')).toBe('LarchQueen');
   });
 
   it('picks nobody when nothing matches or too little is typed', () => {
-    expect(pickPlayer(names, 'Ender_Wiggen')).toBeNull();
+    expect(pickPlayer(names, 'Ember_Wulf')).toBeNull();
     expect(pickPlayer(names, 'e')).toBeNull();
     expect(pickPlayer(names, '')).toBeNull();
   });
@@ -416,32 +416,32 @@ describe('hiddenMatches and hiddenNote', () => {
     if (h === null) throw new Error(`nobody hidden for ${term}`);
     return h;
   };
-  const rows = [row('Grozz', 1900), row('UnstableUnicorn', 1250, 23), row('OldTimer', 1500, 40, '2020-01-01'), row('Weidenbaum', 1890, 40, '2026-01-01', titled('GM'))];
+  const rows = [row('Grebe', 1900), row('Umber_Owl', 1250, 23), row('OldTimer', 1500, 40, '2020-01-01'), row('Willow_Tree', 1890, 40, '2026-01-01', titled('GM'))];
 
   it('finds a player the minimum opponents hides, and how to show them', () => {
-    const h = hiddenMatches(rows, view({ search: 'unstable', page: 3 }), 'unstable');
-    expect(h?.names).toEqual(['UnstableUnicorn']);
-    expect(h?.show).toMatchObject({ minOpps: 23, status: 'active', title: null, search: 'unstable', page: 1 });
-    expect(hiddenNote(found(rows, view({ search: 'unstable' }), 'unstable'), view(), 'unstable')).toBe('UnstableUnicorn is hidden by the minimum of 30 opponents (23 played).');
+    const h = hiddenMatches(rows, view({ search: 'umber', page: 3 }), 'umber');
+    expect(h?.names).toEqual(['Umber_Owl']);
+    expect(h?.show).toMatchObject({ minOpps: 23, status: 'active', title: null, search: 'umber', page: 1 });
+    expect(hiddenNote(found(rows, view({ search: 'umber' }), 'umber'), view(), 'umber')).toBe('Umber_Owl is hidden by the minimum of 30 opponents (23 played).');
   });
 
   it('finds a player the activity or title filter hides', () => {
     expect(hiddenMatches(rows, view(), 'oldtimer')?.show).toMatchObject({ status: 'all', minOpps: 30 });
     expect(hiddenNote(found(rows, view(), 'oldtimer'), view(), 'oldtimer')).toBe('OldTimer is hidden by the Active only filter.');
     const gm = view({ title: 'GM' });
-    expect(hiddenMatches(rows, gm, 'grozz')?.show).toMatchObject({ title: null });
-    expect(hiddenNote(found(rows, gm, 'grozz'), gm, 'grozz')).toBe('Grozz is hidden by the GM title filter.');
+    expect(hiddenMatches(rows, gm, 'grebe')?.show).toMatchObject({ title: null });
+    expect(hiddenNote(found(rows, gm, 'grebe'), gm, 'grebe')).toBe('Grebe is hidden by the GM title filter.');
   });
 
   it('counts several hidden players, naming every filter that hides them', () => {
-    const both = found([...rows, row('Unstable2', 1200, 5, '2020-01-01')], view(), 'unstable');
-    expect(both.names).toEqual(['UnstableUnicorn', 'Unstable2']);
+    const both = found([...rows, row('Umber2', 1200, 5, '2020-01-01')], view(), 'umber');
+    expect(both.names).toEqual(['Umber_Owl', 'Umber2']);
     expect(both.show).toMatchObject({ minOpps: 5, status: 'all' });
-    expect(hiddenNote(both, view(), 'unstable')).toBe('2 players matching "unstable" are hidden by the minimum of 30 opponents and the Active only filter.');
+    expect(hiddenNote(both, view(), 'umber')).toBe('2 players matching "umber" are hidden by the minimum of 30 opponents and the Active only filter.');
   });
 
   it('says nothing when the search finds someone shown, nobody at all, or there is no search', () => {
-    expect(hiddenMatches(rows, view(), 'grozz')).toBeNull();
+    expect(hiddenMatches(rows, view(), 'grebe')).toBeNull();
     expect(hiddenMatches(rows, view(), 'nobody')).toBeNull();
     expect(hiddenMatches(rows, view(), '')).toBeNull();
   });

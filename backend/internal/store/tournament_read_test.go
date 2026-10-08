@@ -316,16 +316,16 @@ func TestPlayerAchievementsMatchRecordsIgnoringCase(t *testing.T) {
 	r := NewRatingsReader(asReader(t, pool))
 	ctx := context.Background()
 	run := publishedRun(t, pool)
-	addPlayers(t, pool, "RobertdeSable", "RobertDeSable")
-	addRecord(t, pool, run, "RobertdeSable", 1, "2020-07-26", false)
-	addRecord(t, pool, run, "RobertDeSable", 2, "2023-09-25", false)
+	addPlayers(t, pool, "RowandeSable", "RowanDeSable")
+	addRecord(t, pool, run, "RowandeSable", 1, "2020-07-26", false)
+	addRecord(t, pool, run, "RowanDeSable", 2, "2023-09-25", false)
 
-	name, summary, recs, err := r.PlayerAchievements(ctx, run, "RobertdeSable")
+	name, summary, recs, err := r.PlayerAchievements(ctx, run, "RowandeSable")
 	if err != nil {
 		t.Fatalf("PlayerAchievements: %v", err)
 	}
-	if got, want := recordIDs(recs), []string{"RobertDeSable #2", "RobertdeSable #1"}; name != "RobertdeSable" || summary != nil || !slices.Equal(got, want) {
-		t.Errorf("PlayerAchievements = %q, %+v, %q; want RobertdeSable, no summary, %q", name, summary, got, want)
+	if got, want := recordIDs(recs), []string{"RowanDeSable #2", "RowandeSable #1"}; name != "RowandeSable" || summary != nil || !slices.Equal(got, want) {
+		t.Errorf("PlayerAchievements = %q, %+v, %q; want RowandeSable, no summary, %q", name, summary, got, want)
 	}
 }
 
@@ -350,13 +350,13 @@ func TestCommunityLeaderboardGivesAnEditionWithPlayersCountriesAndTitles(t *test
 	r := NewRatingsReader(asReader(t, pool))
 	ctx := context.Background()
 	run := publishedRun(t, pool)
-	addPlayers(t, pool, "ann", "RobertdeSable", "RobertDeSable")
+	addPlayers(t, pool, "ann", "RowandeSable", "RowanDeSable")
 	for _, q := range []string{
 		"UPDATE players SET country_code = 'PL' WHERE name = 'ann'",
-		"UPDATE players SET country_code = 'FR' WHERE name = 'RobertdeSable'",
+		"UPDATE players SET country_code = 'FR' WHERE name = 'RowandeSable'",
 		"INSERT INTO player_titles (run_id, player_name, title, title_count, badge_reason) VALUES ($1, 'ann', 'SGM', 1, 'r')",
 		`INSERT INTO community_standings VALUES ('2024', 2, 2, 'Martin Pecheur', 6687, 13, 's'), ('2024', 1, 1, 'ANN', 7657, 11, 's'),
-		  ('2024', 4, 3, 'RobertdeSable', 10, 1, 's'), ('2024', 3, 3, 'zed', 10, 1, 's'), ('2025', 1, 1, 'ann', 6600, 17, 's')`,
+		  ('2024', 4, 3, 'RowandeSable', 10, 1, 's'), ('2024', 3, 3, 'zed', 10, 1, 's'), ('2025', 1, 1, 'ann', 6600, 17, 's')`,
 		"INSERT INTO community_scores VALUES ('2024', 'ANN', 'wrld', 1600, 's'), ('2024', 'ANN', 'ic_24', 1000, 's'), ('2025', 'ann', 'wrld', 5, 's')",
 	} {
 		args := []any{}
@@ -380,7 +380,7 @@ func TestCommunityLeaderboardGivesAnEditionWithPlayersCountriesAndTitles(t *test
 		"1 ANN PL SGM 7657 11 map[ic_24:1000 wrld:1600]",
 		"2 Martin Pecheur - - 6687 13 map[]",
 		"3 zed - - 10 1 map[]", // equal ranks and points in the sheet's order
-		"3 RobertdeSable FR - 10 1 map[]",
+		"3 RowandeSable FR - 10 1 map[]",
 	}
 	if !slices.Equal(lines, want) {
 		t.Errorf("CommunityLeaderboard(2024) =\n%s\nwant\n%s", strings.Join(lines, "\n"), strings.Join(want, "\n"))

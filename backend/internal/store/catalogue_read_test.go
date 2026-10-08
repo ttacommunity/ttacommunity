@@ -310,7 +310,7 @@ func TestCatalogueTournamentFindsAPlacementForALabelledSeason(t *testing.T) {
 	run := publishedRun(t, pool)
 	placedOn(t, pool, map[string]time.Time{"Worlds 1 stage 8": day("2022-07-28")})
 	if _, err := pool.Exec(ctx, `INSERT INTO tournament_official_placements (series, season, division, player_name, place, points, reason, source)
-		VALUES ('worlds', 2022, 'Final', 'Ender_Wiggin', 1, NULL, 'CGE final standings', 'CGE /tournaments/detail/3391/8')`); err != nil {
+		VALUES ('worlds', 2022, 'Final', 'Ember_Wolf', 1, NULL, 'CGE final standings', 'CGE /tournaments/detail/3391/8')`); err != nil {
 		t.Fatalf("adding a placement: %v", err)
 	}
 
@@ -318,7 +318,7 @@ func TestCatalogueTournamentFindsAPlacementForALabelledSeason(t *testing.T) {
 	if err != nil {
 		t.Fatalf("CatalogueTournament: %v", err)
 	}
-	want := []PodiumPlace{{Place: 1, Name: "Ender_Wiggin", Finished: day("2022-07-28"), Source: "CGE /tournaments/detail/3391/8"}}
+	want := []PodiumPlace{{Place: 1, Name: "Ember_Wolf", Finished: day("2022-07-28"), Source: "CGE /tournaments/detail/3391/8"}}
 	if s := got.Seasons[0]; s.Label != "2022 (Age A)" || !reflect.DeepEqual(s.Podium, want) {
 		t.Errorf("season %q podium = %+v, want %+v", s.Label, s.Podium, want)
 	}
@@ -330,7 +330,7 @@ func TestCatalogueTournamentGivesATeamPodiumFromItsTopDivision(t *testing.T) {
 	run := publishedRun(t, pool)
 	placedOn(t, pool, map[string]time.Time{"NL_s10": day("2024-09-15")})
 	if _, err := pool.Exec(ctx, `INSERT INTO tournament_official_placements (series, season, division, player_name, place, points, reason, source)
-		VALUES ('nations_league', 10, 'Apple', 'DANeo', 1, 36, 'r', 's'), ('nations_league', 10, 'Apple', 'DrRerNate', 1, 36, 'r', 's'),
+		VALUES ('nations_league', 10, 'Apple', 'Dahlia', 1, 36, 'r', 's'), ('nations_league', 10, 'Apple', 'Drover', 1, 36, 'r', 's'),
 		       ('nations_league', 10, 'Banana', 'ann', 1, 40, 'r', 's')`); err != nil {
 		t.Fatalf("adding placements: %v", err)
 	}
@@ -340,8 +340,8 @@ func TestCatalogueTournamentGivesATeamPodiumFromItsTopDivision(t *testing.T) {
 		t.Fatalf("CatalogueTournament: %v", err)
 	}
 	want := []PodiumPlace{
-		{Place: 1, Name: "DANeo", Finished: day("2024-09-15"), Source: "s"},
-		{Place: 1, Name: "DrRerNate", Finished: day("2024-09-15"), Source: "s"},
+		{Place: 1, Name: "Dahlia", Finished: day("2024-09-15"), Source: "s"},
+		{Place: 1, Name: "Drover", Finished: day("2024-09-15"), Source: "s"},
 	}
 	if s := got.Seasons[0]; s.Label != "10" || !reflect.DeepEqual(s.Podium, want) {
 		t.Errorf("season %q podium = %+v, want %+v", s.Label, s.Podium, want)
@@ -557,11 +557,11 @@ func TestCatalogueTournamentShowsAnAdminPodiumOverAnyOther(t *testing.T) {
 	run := publishedRun(t, pool)
 	placedOn(t, pool, map[string]time.Time{"Worlds 1 stage 8": day("2022-07-28")})
 	if _, err := pool.Exec(ctx, `INSERT INTO tournament_official_placements (series, season, division, player_name, place, points, reason, source)
-		VALUES ('worlds', 2022, 'Final', 'Ender_Wiggin', 1, NULL, 'CGE final standings', 'CGE /tournaments/detail/3391/8')`); err != nil {
+		VALUES ('worlds', 2022, 'Final', 'Ember_Wolf', 1, NULL, 'CGE final standings', 'CGE /tournaments/detail/3391/8')`); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := pool.Exec(ctx, `INSERT INTO tournament_podium_overrides (tournament, season, place, player_name, note)
-		VALUES ('worlds', '2022 (Age A)', 1, 'LaoHuang', 'The organiser''s ruling'), ('worlds', '2022 (Age A)', 2, 'Ender_Wiggin', '')`); err != nil {
+		VALUES ('worlds', '2022 (Age A)', 1, 'Linnet', 'The organiser''s ruling'), ('worlds', '2022 (Age A)', 2, 'Ember_Wolf', '')`); err != nil {
 		t.Fatal(err)
 	}
 
@@ -570,8 +570,8 @@ func TestCatalogueTournamentShowsAnAdminPodiumOverAnyOther(t *testing.T) {
 		t.Fatalf("CatalogueTournament: %v", err)
 	}
 	want := []PodiumPlace{
-		{Place: 1, Name: "LaoHuang", Finished: day("2022-07-28"), Source: "Set in admin: The organiser's ruling"},
-		{Place: 2, Name: "Ender_Wiggin", Finished: day("2022-07-28"), Source: "Set in admin"},
+		{Place: 1, Name: "Linnet", Finished: day("2022-07-28"), Source: "Set in admin: The organiser's ruling"},
+		{Place: 2, Name: "Ember_Wolf", Finished: day("2022-07-28"), Source: "Set in admin"},
 	}
 	if s := got.Seasons[0]; !reflect.DeepEqual(s.Podium, want) {
 		t.Errorf("season %q podium = %+v, want %+v", s.Label, s.Podium, want)

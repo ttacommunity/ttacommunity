@@ -248,7 +248,7 @@ def test_a_world_championship_group_is_not_a_division(conn, add_match, run_id):
 def test_placements_of_a_series_the_engine_does_not_derive_are_left_alone(
     conn, run_id, place
 ):
-    place("nations_league", 10, "Apple", "DANeo")
+    place("nations_league", 10, "Apple", "Dahlia")
 
     derive_tournaments(conn=conn, run_id=run_id)
 
@@ -272,10 +272,10 @@ def board(conn, run_id):
 
 def test_the_board_counts_top_division_podiums(conn, add_match, run_id, place):
     # A World Champion is WC only on the World Championship's board.
-    place("worlds", 2023, "Final", "Weidenbaum")
+    place("worlds", 2023, "Final", "Willow_Tree")
     for season in (30, 31):
         add_match(
-            ("Weidenbaum", 90),
+            ("Willow_Tree", 90),
             ("ann", 80),
             ("bob", 70),
             ("cat", 60),
@@ -291,7 +291,7 @@ def test_the_board_counts_top_division_podiums(conn, add_match, run_id, place):
     derive_tournaments(conn=conn, run_id=run_id)
 
     assert board(conn, run_id) == {
-        "Weidenbaum": (2, 0, 0, 12.0, "GM"),
+        "Willow_Tree": (2, 0, 0, 12.0, "GM"),
         "ann": (0, 2, 0, 6.0, "M"),
         "bob": (0, 0, 2, 2.0, "M"),
     }
@@ -651,8 +651,8 @@ def positions(conn, run_id, series):
 
 def test_boards_are_numbered_in_upstream_order(conn, add_match, run_id, place):
     add_match(("bob", 90), ("ann", 80), ("cat", 70), tournament=gm(1))
-    place("worlds", 2024, "Final", "Martin_Pecheur", "frotes")
-    place("worlds", 2025, "Final", "a440", "Grozz")
+    place("worlds", 2024, "Final", "Marten_Fisher", "flicker")
+    place("worlds", 2025, "Final", "alder440", "Grebe")
 
     derive_tournaments(conn=conn, run_id=run_id)
 
@@ -662,10 +662,10 @@ def test_boards_are_numbered_in_upstream_order(conn, add_match, run_id, place):
         ("cat", 3, "M"),
     ]
     assert positions(conn, run_id, "worlds") == [
-        ("a440", 1, "WC"),
-        ("Martin_Pecheur", 2, "WC"),
-        ("Grozz", 3, "GM"),
-        ("frotes", 4, "GM"),
+        ("alder440", 1, "WC"),
+        ("Marten_Fisher", 2, "WC"),
+        ("Grebe", 3, "GM"),
+        ("flicker", 4, "GM"),
     ]
 
 

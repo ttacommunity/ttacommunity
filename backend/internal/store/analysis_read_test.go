@@ -7,6 +7,8 @@ import (
 	"fmt"
 	"testing"
 	"time"
+
+	"github.com/google/go-cmp/cmp"
 )
 
 func TestCalibrationGivesTheAggregatedRowsOfBothModes(t *testing.T) {
@@ -122,11 +124,12 @@ func TestComparedPlayersDefaultsToUpstreamsSixInItsOrderWithTheirRatings(t *test
 	r := NewRatingsReader(asReader(t, pool))
 	ctx := context.Background()
 	run := publishedRun(t, pool)
-	addPlayers(t, pool, "saru", "a440", "Genghisip", "someone")
-	addRating(t, pool, run, "whr", 3, "a440", ptr(4), 1800)
-	addRating(t, pool, run, "glicko2_daneo", 3, "a440", nil, 1900)
-	addRating(t, pool, run, "glicko2_std_retro", 3, "a440", ptr(1), 1950)
-	addRating(t, pool, run, "glicko2_daneo", 0, "a440", ptr(1), 1850)
+	first, middle, last := DefaultCompared[0], DefaultCompared[3], DefaultCompared[5]
+	addPlayers(t, pool, last, middle, first, "someone")
+	addRating(t, pool, run, "whr", 3, middle, ptr(4), 1800)
+	addRating(t, pool, run, "glicko2_daneo", 3, middle, nil, 1900)
+	addRating(t, pool, run, "glicko2_std_retro", 3, middle, ptr(1), 1950)
+	addRating(t, pool, run, "glicko2_daneo", 0, middle, ptr(1), 1850)
 
 	got, err := r.ComparedPlayers(ctx, run, 3, nil)
 	if err != nil {
@@ -136,13 +139,15 @@ func TestComparedPlayersDefaultsToUpstreamsSixInItsOrderWithTheirRatings(t *test
 	for _, p := range got {
 		names = append(names, p.Name)
 	}
-	if fmt.Sprint(names) != "[Genghisip a440 saru]" {
-		t.Errorf("names = %v, want the default players present, in upstream's order", names)
+	if diff := cmp.Diff([]string{first, middle, last}, names); diff != "" {
+		t.Fatalf("names, the default players present in upstream's order (-want +got):\n%s", diff)
 	}
-	a := got[1].Ratings
-	if len(a) != 2 || a[0].Model != "glicko2_daneo" || a[0].Rank != nil || a[1].Model != "whr" || *a[1].Rank != 4 ||
-		a[1].Rating != 1900 || a[1].RD != 50 || a[1].CRating != 1800 || a[1].Opponents != 9 || a[1].WinRate != 58.3 {
-		t.Errorf("a440's ratings = %+v, want GlickoD then WHR in format 3, no retro model", a)
+	want := []ComparedRating{
+		{Model: "glicko2_daneo", Rating: 2000, RD: 50, CRating: 1900, Opponents: 9, WinRate: 58.3},
+		{Model: "whr", Rank: ptr(4), Rating: 1900, RD: 50, CRating: 1800, Opponents: 9, WinRate: 58.3},
+	}
+	if diff := cmp.Diff(want, got[1].Ratings); diff != "" {
+		t.Errorf("%s's ratings, format 3 only and no retro model (-want +got):\n%s", middle, diff)
 	}
 }
 

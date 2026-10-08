@@ -142,10 +142,10 @@ func (*fakeAdmins) Tournaments(context.Context) ([]store.AdminTournament, error)
 	return []store.AdminTournament{{Slug: "worlds", Name: "World Championship", Rated: true, Regulations: "Mine.", CGERegulations: "CGE's.",
 		Card: store.Card{Icon: "🏆", Tagline: "Annual World Championship", Summary: "The pinnacle.", Subtitle: "4-Player", Cadence: "Annual"},
 		Kind: "cup", OriginalName: "World Championships", Points: map[int][]float64{2: nil, 3: {5, 2, 0}, 4: {6, 3, 1, 0}}, StageName: "Round",
-		Stories:           []store.Story{{Player: "a440", Badge: "Reigning World Champion", Title: "2025", Text: "Won."}},
+		Stories:           []store.Story{{Player: "alder440", Badge: "Reigning World Champion", Title: "2025", Text: "Won."}},
 		RatedPlayerCounts: []int{3, 4},
 		Seasons: []store.AdminSeason{{Label: "2025", OriginalName: "2025 Edition", Rated: true, InChampions: true, InCommunity: true, TimeoutPenalty: -1, Stages: []store.AdminStage{{Label: "Stage 1", OriginalName: "Groups", Note: "n"}},
-			Podium: []store.PodiumEntry{{Place: 1, Name: "a440"}}, PodiumNote: "CGE"}}}}, nil
+			Podium: []store.PodiumEntry{{Place: 1, Name: "alder440"}}, PodiumNote: "CGE"}}}}, nil
 }
 
 func (f *fakeAdmins) SetTournament(_ context.Context, slug string, s store.TournamentSettings) error {
@@ -273,7 +273,7 @@ func (*fakeAdmins) CheckStandings(context.Context) (store.StandingsCheck, error)
 	return store.StandingsCheck{StagesOnlyOnCGE: 18, Stages: []store.StageCheck{{
 		CGETournament: 19, CGESeason: 4, Name: "Intermezzo Championship", Players: 520, Agree: 519,
 		Differences: []store.StandingDifference{{
-			CGEUser: 80023, Player: "HnNAdventures", Kind: store.DiffPlacesTimeout, CGEGames: 6, HeldGames: 6, CGEPoints: 2,
+			CGEUser: 80023, Player: "Heron_Hill", Kind: store.DiffPlacesTimeout, CGEGames: 6, HeldGames: 6, CGEPoints: 2,
 			CGEPlaces: store.Places{P3: []int{0, 1, 5}}, HeldPlaces: store.Places{P3: []int{0, 4, 2}},
 		}},
 	}}}, nil
@@ -572,13 +572,13 @@ func TestAnAdminManagesOthersInAdmin(t *testing.T) {
 	if err := json.Unmarshal(rec.Body.Bytes(), &got); err != nil || rec.Code != http.StatusOK || len(got) != 1 || got[0].Name != "Owner" {
 		t.Fatalf("GET admins = %d %s", rec.Code, rec.Body)
 	}
-	if rec := adminDoAs(t, f, owner, http.MethodPut, "/v1/admin/admins/100000000000000002", site, `{"name": "DANeo", "role": "organiser"}`); rec.Code != http.StatusNoContent {
+	if rec := adminDoAs(t, f, owner, http.MethodPut, "/v1/admin/admins/100000000000000002", site, `{"name": "Dahlia", "role": "organiser"}`); rec.Code != http.StatusNoContent {
 		t.Errorf("PUT another = %d %s, want 204", rec.Code, rec.Body)
 	}
 	if rec := adminDoAs(t, f, owner, http.MethodDelete, "/v1/admin/admins/100000000000000002", site, ""); rec.Code != http.StatusNoContent {
 		t.Errorf("DELETE another = %d %s, want 204", rec.Code, rec.Body)
 	}
-	if want := []string{"set 100000000000000002 DANeo organiser", "remove 100000000000000002"}; strings.Join(f.notes, "|") != strings.Join(want, "|") || len(f.audits) != 2 {
+	if want := []string{"set 100000000000000002 Dahlia organiser", "remove 100000000000000002"}; strings.Join(f.notes, "|") != strings.Join(want, "|") || len(f.audits) != 2 {
 		t.Errorf("changes = %q, audits %q", f.notes, f.audits)
 	}
 }
@@ -797,14 +797,14 @@ func TestAnOrganiserSetsAndClearsASeasonsPodium(t *testing.T) {
 	const site, org = "https://ttac-admin.example", "222222222222222222"
 	f := &fakeAdmins{}
 	rec := adminDo(t, f, http.MethodPut, "/v1/admin/tournaments/worlds/podium", site,
-		`{"season": "2025", "podium": [{"place": 1, "name": "a440"}, {"place": 2, "name": "kyshantry"}], "note": "CGE final"}`)
+		`{"season": "2025", "podium": [{"place": 1, "name": "alder440"}, {"place": 2, "name": "kittiwake"}], "note": "CGE final"}`)
 	if rec.Code != http.StatusNoContent {
 		t.Fatalf("PUT podium = %d %s, want 204", rec.Code, rec.Body)
 	}
 	if rec := adminDo(t, f, http.MethodDelete, "/v1/admin/tournaments/worlds/podium?season=2025", site, ""); rec.Code != http.StatusNoContent {
 		t.Errorf("DELETE podium = %d %s, want 204", rec.Code, rec.Body)
 	}
-	if want := "podium 2025 [{1 a440} {2 kyshantry}] CGE final|clear podium 2025"; strings.Join(f.notes, "|") != want {
+	if want := "podium 2025 [{1 alder440} {2 kittiwake}] CGE final|clear podium 2025"; strings.Join(f.notes, "|") != want {
 		t.Errorf("changes = %q, want %q", f.notes, want)
 	}
 	if want := org + " tournament.podium worlds|" + org + " tournament.podium.clear worlds"; strings.Join(f.audits, "|") != want {
@@ -845,7 +845,7 @@ func TestAdminTournamentsShowASeasonsPodium(t *testing.T) {
 	if err := json.Unmarshal(rec.Body.Bytes(), &got); err != nil || rec.Code != http.StatusOK {
 		t.Fatalf("GET = %d %s", rec.Code, rec.Body)
 	}
-	if se := got[0].Seasons[0]; len(se.Podium) != 1 || se.Podium[0].Name != "a440" || se.PodiumNote != "CGE" {
+	if se := got[0].Seasons[0]; len(se.Podium) != 1 || se.Podium[0].Name != "alder440" || se.PodiumNote != "CGE" {
 		t.Errorf("season = %+v", se)
 	}
 }
@@ -1030,7 +1030,7 @@ func TestAdminStandingsCheckIsForAdminsAndOrganisers(t *testing.T) {
 		body := rec.Body.Bytes()
 		wantJSON(t, body, "stages_only_on_cge", `18`)
 		wantJSON(t, body, "stages.0", `{"cge_tournament": 19, "cge_season": 4, "players": 520, "agree": 519}`)
-		wantJSON(t, body, "stages.0.differences.0", `{"player": "HnNAdventures", "kind": "places_after_a_timeout", "cge_games": 6, "held_never_played": 0}`)
+		wantJSON(t, body, "stages.0.differences.0", `{"player": "Heron_Hill", "kind": "places_after_a_timeout", "cge_games": 6, "held_never_played": 0}`)
 		wantJSON(t, body, "stages.0.differences.0.cge_places", `{"p2": null, "p3": [0, 1, 5], "p4": null}`)
 	}
 }
@@ -1074,11 +1074,11 @@ func TestAnOrganiserReplacesATournamentsStories(t *testing.T) {
 	const site = "https://ttac-admin.example"
 	f := &fakeAdmins{}
 	rec := adminDo(t, f, http.MethodPut, "/v1/admin/tournaments/worlds/stories", site,
-		`{"stories": [{"player": "a440", "badge": "", "title": "2025", "text": "Won."}, {"player": "pv4", "badge": "", "title": "2024", "text": "Second."}]}`)
+		`{"stories": [{"player": "alder440", "badge": "", "title": "2025", "text": "Won."}, {"player": "pipit4", "badge": "", "title": "2024", "text": "Second."}]}`)
 	if rec.Code != http.StatusNoContent {
 		t.Fatalf("PUT stories = %d %s, want 204", rec.Code, rec.Body)
 	}
-	if strings.Join(f.notes, ",") != "story a440|2025,story pv4|2024" || strings.Join(f.audits, "|") != "222222222222222222 tournament.stories worlds" {
+	if strings.Join(f.notes, ",") != "story alder440|2025,story pipit4|2024" || strings.Join(f.audits, "|") != "222222222222222222 tournament.stories worlds" {
 		t.Errorf("changes %q, audits %q", f.notes, f.audits)
 	}
 	for _, tt := range []struct {
@@ -1101,7 +1101,7 @@ func TestAnOrganiserReplacesATournamentsStories(t *testing.T) {
 	}
 	rec = adminDo(t, &fakeAdmins{}, http.MethodGet, "/v1/admin/tournaments", "", "")
 	var got []AdminTournament
-	if err := json.Unmarshal(rec.Body.Bytes(), &got); err != nil || len(got[0].Stories) != 1 || got[0].Stories[0].Player != "a440" {
+	if err := json.Unmarshal(rec.Body.Bytes(), &got); err != nil || len(got[0].Stories) != 1 || got[0].Stories[0].Player != "alder440" {
 		t.Errorf("GET = %s, want the stories", rec.Body)
 	}
 }

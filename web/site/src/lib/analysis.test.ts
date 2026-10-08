@@ -118,7 +118,7 @@ describe('agreementName', () => {
 
 describe('parseMoversParams', () => {
   it('reads the search and format, as upstream: any other format is all formats', () => {
-    expect(parseMoversParams(new URLSearchParams('search=%20a440,IT%20&format=3'))).toEqual({ search: 'a440,IT', format: 3 });
+    expect(parseMoversParams(new URLSearchParams('search=%20b440,IT%20&format=3'))).toEqual({ search: 'b440,IT', format: 3 });
     expect(parseMoversParams(new URLSearchParams('format=x'))).toEqual({ search: '', format: 0 });
     expect(parseMoversParams(new URLSearchParams('format=5&min_games=3'))).toEqual({ search: '', format: 0 });
   });

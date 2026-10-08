@@ -42,17 +42,17 @@ const rec = (r: Partial<TournamentRecord>): TournamentRecord => ({
 describe('honorRoll', () => {
   it('names each circuit title and the career medals, as upstream', () => {
     expect(
-      honorRoll('Weidenbaum', summary({ world_titles: 1, international_titles: 6, intermezzo_titles: 8, gold: 15, silver: 6, bronze: 6 })),
+      honorRoll('Willow_Tree', summary({ world_titles: 1, international_titles: 6, intermezzo_titles: 8, gold: 15, silver: 6, bronze: 6 })),
     ).toBe(
-      'Weidenbaum is a decorated competitor with 1x World Champion, 6x International Champion, 8x Intermezzo Champion (Total Career Medals: 15G / 6S / 6B).',
+      'Willow_Tree is a decorated competitor with 1x World Champion, 6x International Champion, 8x Intermezzo Champion (Total Career Medals: 15G / 6S / 6B).',
     );
-    expect(honorRoll('saru', summary({ royal_league_titles: 2, gold: 2, silver: 2, bronze: 1 }))).toBe(
-      'saru is a decorated competitor with 2x Royal League Champion (Total Career Medals: 2G / 2S / 1B).',
+    expect(honorRoll('sora', summary({ royal_league_titles: 2, gold: 2, silver: 2, bronze: 1 }))).toBe(
+      'sora is a decorated competitor with 2x Royal League Champion (Total Career Medals: 2G / 2S / 1B).',
     );
   });
 
   it('counts medals alone for a player without a title', () => {
-    expect(honorRoll('Veivi', summary({ silver: 1, bronze: 2 }))).toBe('Veivi has achieved 0G / 1S / 2B podium medals.');
+    expect(honorRoll('Vireo', summary({ silver: 1, bronze: 2 }))).toBe('Vireo has achieved 0G / 1S / 2B podium medals.');
   });
 });
 

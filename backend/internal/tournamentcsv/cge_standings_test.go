@@ -10,8 +10,8 @@ const cgeStandingsHeader = "cge_tournament,cge_season,group,row,place,player,cge
 
 func TestReadCGEStandingsTakesEachRow(t *testing.T) {
 	in := cgeStandingsHeader +
-		"4760,2,2024 group 1,1,1,Machote,101239,,5,21,1 1,1 0 0,2 0 0 0,CGE p\n" +
-		"4760,2,2024 group 1,4,4,sdzy (BAN),65877,true,2,-1.5,,,0 0 0 2,CGE p\n"
+		"4760,2,2024 group 1,1,1,Magpie,101239,,5,21,1 1,1 0 0,2 0 0 0,CGE p\n" +
+		"4760,2,2024 group 1,4,4,swift (BAN),65877,true,2,-1.5,,,0 0 0 2,CGE p\n"
 	got, err := ReadCGEStandings("s.csv", strings.NewReader(in))
 	if err != nil {
 		t.Fatalf("ReadCGEStandings: %v", err)
@@ -21,7 +21,7 @@ func TestReadCGEStandingsTakesEachRow(t *testing.T) {
 	}
 	first, last := got.Facts[0], got.Facts[1]
 	if first.CGETournament != 4760 || first.CGESeason != 2 || first.Group != "2024 group 1" || first.Row != 1 || first.Place != 1 ||
-		first.Player != "Machote" || first.CGEUser != 101239 || first.Banned || first.Games != 5 || first.Points != 21 {
+		first.Player != "Magpie" || first.CGEUser != 101239 || first.Banned || first.Games != 5 || first.Points != 21 {
 		t.Errorf("first row = %+v", first)
 	}
 	if !slices.Equal(first.Places2p, []int{1, 1}) || !slices.Equal(first.Places3p, []int{1, 0, 0}) || !slices.Equal(first.Places4p, []int{2, 0, 0, 0}) {

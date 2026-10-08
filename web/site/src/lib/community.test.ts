@@ -40,7 +40,7 @@ describe('tournamentSums', () => {
 
 describe('titleMark', () => {
   it("shows WC for the edition's champion, and every other title, Super GM to Wood", () => {
-    expect(titleMark(row({ name: 'Martin_Pecheur', title: 'GM' }), EDITIONS['2024'])).toBe('WC');
+    expect(titleMark(row({ name: EDITIONS['2024'].info.wc, title: 'GM' }), EDITIONS['2024'])).toBe('WC');
     expect(titleMark(row({ title: 'M' }), EDITIONS['2024'])).toBe('M');
     expect(titleMark(row({ title: 'SGM' }), EDITIONS['2024'])).toBe('SGM');
     expect(titleMark(row({ title: 'S' }), EDITIONS['2024'])).toBe('S');

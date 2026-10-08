@@ -28,12 +28,12 @@ describe('podiumBoard', () => {
 describe('ladderBoard', () => {
   it("shows a ladder's top-tier wins, most first, under their own heading", () => {
     const board = ladderBoard([
-      { name: 'Grozz', wins: 3.5, source: 'Hall of Fame' },
-      { name: 'wolvs', wins: 10, source: 'Hall of Fame' },
+      { name: 'Grebe', wins: 3.5, source: 'Hall of Fame' },
+      { name: 'wren', wins: 10, source: 'Hall of Fame' },
     ]);
     expect(board.map((r) => [r.name, r.wins])).toEqual([
-      ['wolvs', 10],
-      ['Grozz', 3.5],
+      ['wren', 10],
+      ['Grebe', 3.5],
     ]);
     expect(boardCells(board)).toMatchObject({ headings: ['🏆 Top-tier wins'], rows: [['10'], ['3.5']] });
   });

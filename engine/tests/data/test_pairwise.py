@@ -147,11 +147,11 @@ def test_a_days_games_are_numbered_in_upstreams_assembled_order(
         tournament="Worlds 2024 Stage 1",
     )
     rl = add_match(
-        ("Kartek", 2), ("Rob51", 1), day=day, tournament="RL_s03 - Knight 2 game 5"
+        ("Kestrel", 2), ("Robin51", 1), day=day, tournament="RL_s03 - Knight 2 game 5"
     )
     worlds = add_match(
-        ("Kartek", 3),
-        ("Ivan04", 1),
+        ("Kestrel", 3),
+        ("Ibis04", 1),
         day=day,
         tournament="Worlds 2025 Stage 2 - game 11",
     )

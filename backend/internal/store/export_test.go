@@ -34,10 +34,10 @@ func filled(t *testing.T) *pgxpool.Pool {
 		`INSERT INTO player_accounts (cge_user, player_id, name) SELECT 42, player_id, player_name FROM seats ORDER BY game_id, seat LIMIT 1`,
 		`UPDATE seats SET cge_user = 42, outcome = 'finished' WHERE (game_id, seat) = (SELECT game_id, seat FROM seats ORDER BY game_id, seat LIMIT 1)`,
 		`INSERT INTO tournament_official_placements (series, season, division, player_name, place, points, reason, source)
-		 VALUES ('nations_league', 10, 'Apple', 'DANeo', 1, 36, 'r', 's, with a comma and "quotes"')`,
+		 VALUES ('nations_league', 10, 'Apple', 'Dahlia', 1, 36, 'r', 's, with a comma and "quotes"')`,
 		`INSERT INTO cge_standings (cge_tournament, cge_season, group_name, row_number, place, player_name, cge_user,
 		                           banned, games, points, places_2p, places_3p, places_4p, source)
-		 VALUES (4760, 2, '2024 group 1', 4, NULL, 'sdzy', 65877, true, 3, -1.5, '{1,0}', NULL, '{0,0,0,2}', 'CGE page')`,
+		 VALUES (4760, 2, '2024 group 1', 4, NULL, 'swift', 65877, true, 3, -1.5, '{1,0}', NULL, '{0,0,0,2}', 'CGE page')`,
 		`INSERT INTO community_points (tournament, from_edition, group_name, place, points, source)
 		 VALUES ('worlds', 2025, 'Stage 3', 0, 130, 'sheet')`,
 		`INSERT INTO community_quarters (tournament, season, year, quarter, source) VALUES ('wimbledon', '2025', 2026, 1, 'tab')`,

@@ -29,10 +29,10 @@ func TestReplaceCGEStandingsReplacesEveryEarlierRow(t *testing.T) {
 	if _, err := ReplaceCGEStandings(ctx, pool, []tournamentcsv.CGEStanding{cgeStanding(1, 1, "old", 1, "x", 9, 1, 2, []int{1, 0}, nil, nil)}); err != nil {
 		t.Fatalf("first ReplaceCGEStandings: %v", err)
 	}
-	unplaced := cgeStanding(4760, 2, "2024 group 1", 4, "sdzy", 65877, 2, -1.5, nil, nil, []int{0, 0, 0, 2})
+	unplaced := cgeStanding(4760, 2, "2024 group 1", 4, "swift", 65877, 2, -1.5, nil, nil, []int{0, 0, 0, 2})
 	unplaced.Place, unplaced.Banned = 0, true
 	got, err := ReplaceCGEStandings(ctx, pool, []tournamentcsv.CGEStanding{
-		cgeStanding(4760, 2, "2024 group 1", 1, "Machote", 101239, 5, 21, []int{1, 1}, []int{1, 0, 0}, []int{2, 0, 0, 0}),
+		cgeStanding(4760, 2, "2024 group 1", 1, "Magpie", 101239, 5, 21, []int{1, 1}, []int{1, 0, 0}, []int{2, 0, 0, 0}),
 		unplaced,
 	})
 	if err != nil {
@@ -45,8 +45,8 @@ func TestReplaceCGEStandingsReplacesEveryEarlierRow(t *testing.T) {
 	                     banned, games, points, coalesce(places_2p::text, '-'), coalesce(places_3p::text, '-'), places_4p, source)
 	              FROM cge_standings ORDER BY row_number`
 	want := []string{
-		"4760|2|2024 group 1|1|1|Machote|101239|f|5|21|{1,1}|{1,0,0}|{2,0,0,0}|CGE page",
-		"4760|2|2024 group 1|4|-|sdzy|65877|t|2|-1.5|-|-|{0,0,0,2}|CGE page",
+		"4760|2|2024 group 1|1|1|Magpie|101239|f|5|21|{1,1}|{1,0,0}|{2,0,0,0}|CGE page",
+		"4760|2|2024 group 1|4|-|swift|65877|t|2|-1.5|-|-|{0,0,0,2}|CGE page",
 	}
 	if got := rowsOf(t, pool, rows); !slices.Equal(got, want) {
 		t.Errorf("rows = %q, want %q", got, want)

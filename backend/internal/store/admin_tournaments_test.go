@@ -177,11 +177,11 @@ func TestSetPodiumReplacesASeasonsPodiumAndClearPodiumRemovesIt(t *testing.T) {
 	placedOn(t, pool, map[string]time.Time{"Worlds 2025 Stage 1 - Upper 1 game 1": day("2025-03-01")})
 	a := NewAdminStore(asAdminLogin(t, pool))
 
-	first := []PodiumEntry{{Place: 1, Name: "a440"}, {Place: 2, Name: "kyshantry"}, {Place: 3, Name: "Eepogi"}}
+	first := []PodiumEntry{{Place: 1, Name: "alder440"}, {Place: 2, Name: "kittiwake"}, {Place: 3, Name: "Eider"}}
 	if err := a.SetPodium(ctx, "worlds", "2025", first, "From CGE's final"); err != nil {
 		t.Fatalf("SetPodium: %v", err)
 	}
-	if err := a.SetPodium(ctx, "worlds", "2025", []PodiumEntry{{Place: 1, Name: "kyshantry"}}, ""); err != nil {
+	if err := a.SetPodium(ctx, "worlds", "2025", []PodiumEntry{{Place: 1, Name: "kittiwake"}}, ""); err != nil {
 		t.Fatalf("SetPodium again: %v", err)
 	}
 	got, err := a.Tournaments(ctx)
@@ -189,7 +189,7 @@ func TestSetPodiumReplacesASeasonsPodiumAndClearPodiumRemovesIt(t *testing.T) {
 		t.Fatal(err)
 	}
 	se := adminTournament(t, got, "worlds").Seasons[0]
-	if !reflect.DeepEqual(se.Podium, []PodiumEntry{{Place: 1, Name: "kyshantry"}}) || se.PodiumNote != "" {
+	if !reflect.DeepEqual(se.Podium, []PodiumEntry{{Place: 1, Name: "kittiwake"}}) || se.PodiumNote != "" {
 		t.Errorf("podium = %+v %q, want only the second one", se.Podium, se.PodiumNote)
 	}
 
@@ -346,8 +346,8 @@ func TestSetStoriesReplacesATournamentsStoriesInOrder(t *testing.T) {
 		t.Errorf("stories before any = %+v, %+v", inAdmin, onPage)
 	}
 	want := []Story{
-		{Player: "saru", Badge: "2024 Champion", Title: "The grass-court crown", Text: "saru beat whsvin 3-2 in the final."},
-		{Player: "whsvin", Badge: "", Title: "Runner-up", Text: "Two finals in a row."},
+		{Player: "sora", Badge: "2024 Champion", Title: "The grass-court crown", Text: "sora beat wheatear 3-2 in the final."},
+		{Player: "wheatear", Badge: "", Title: "Runner-up", Text: "Two finals in a row."},
 	}
 	if err := a.SetStories(ctx, "wimbledon", want); err != nil {
 		t.Fatalf("SetStories: %v", err)

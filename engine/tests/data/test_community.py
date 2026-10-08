@@ -217,16 +217,16 @@ def test_a_deleted_cge_account_keeps_the_name_our_games_have(
 ):
     catalogue("intermezzo", "25", [("", 19, 20)], quarter=(2025, 1))
     points_table(conn, "intermezzo", 2025, {("Gold", 1): 185})
-    add_match(("Malakesh", 200), ("ann", 100), placed=None)
+    add_match(("Mallard", 200), ("ann", 100), placed=None)
     conn.execute(
-        "INSERT INTO player_accounts (cge_user, player_id, name) SELECT 38126, player_id, 'deleted_user_1003913' FROM players WHERE name = 'Malakesh'"
+        "INSERT INTO player_accounts (cge_user, player_id, name) SELECT 38126, player_id, 'deleted_user_1000001' FROM players WHERE name = 'Mallard'"
     )
     conn.execute(
         "UPDATE seats SET cge_user = 38126, outcome = 'finished' WHERE seat = 1"
     )
-    cge_line(conn, 19, 20, "Gold 3", 1, "deleted_user_1003913", 38126)
+    cge_line(conn, 19, 20, "Gold 3", 1, "deleted_user_1000001", 38126)
     derive_community(conn=conn, run_id=run_id)
-    assert event_points(conn, run_id) == [("intermezzo", "25", "Malakesh", 185)]
+    assert event_points(conn, run_id) == [("intermezzo", "25", "Mallard", 185)]
 
 
 def test_a_league_season_without_cge_standings_takes_the_runs_own(
@@ -517,11 +517,11 @@ def test_rung_value(rule, rung, want):
 
 
 def test_round_points_round_each_share_and_average_a_tie_unrounded():
-    games = [("19-Potassium 2", [("jantteri", 1), ("Beebs", 1), ("Bright", 3)])]
+    games = [("19-Potassium 2", [("jay_t", 1), ("Bramble", 1), ("Bright", 3)])]
     # Rung 1 here: 1000 and 400 averaged is 700; with 19 a lower rung the same rule holds.
     assert round_points(games, MERCURIAL) == {
-        "jantteri": 700,
-        "Beebs": 700,
+        "jay_t": 700,
+        "Bramble": 700,
         "Bright": 0,
     }
     games = [

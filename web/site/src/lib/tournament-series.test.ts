@@ -60,10 +60,10 @@ describe('the series figures', () => {
   it('lists opponents highest first, whole scores without a decimal', () => {
     expect(
       opponentsLine([
-        { name: 'funestus', score: 334 },
-        { name: 'wolvs', score: 307.5 },
+        { name: 'fulmar', score: 334 },
+        { name: 'wren', score: 307.5 },
       ]),
-    ).toBe('vs funestus (334 pts), wolvs (307.5 pts)');
+    ).toBe('vs fulmar (334 pts), wren (307.5 pts)');
     expect(opponentsLine([])).toBe('');
   });
 

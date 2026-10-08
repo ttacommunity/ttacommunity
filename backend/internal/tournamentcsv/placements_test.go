@@ -49,7 +49,7 @@ func TestReadPlacementsTakesTheWorldChampionship(t *testing.T) {
 
 func TestReadPlacementsTakesATeamOfTheNationsLeague(t *testing.T) {
 	got, err := ReadPlacements("p.csv", strings.NewReader(placementsHeader+
-		"nations_league,10,Apple,DANeo,1,36,r,s\nnations_league,10,Apple,DrRerNate,1,36,r,s\n"))
+		"nations_league,10,Apple,Dahlia,1,36,r,s\nnations_league,10,Apple,Drover,1,36,r,s\n"))
 	if err != nil {
 		t.Fatalf("ReadPlacements: %v", err)
 	}
