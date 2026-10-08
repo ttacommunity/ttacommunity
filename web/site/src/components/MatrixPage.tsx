@@ -171,7 +171,7 @@ export default function MatrixPage({ apiUrl }: { apiUrl: string }) {
             </div>
             <div className="peak-year-text">
               In {best.year}, <strong>{p.name}</strong> achieved a dominant <strong>{best.win_rate.toFixed(1)}% win rate</strong> across{' '}
-              <strong>{best.opponents} competitive matches</strong> ({best.wins} wins, {best.losses} losses)
+              <strong>{best.opponents} competitive opponents</strong> ({best.wins} wins, {best.losses} losses)
               {best.peak_rating ? (
                 <>
                   {' '}
