@@ -483,7 +483,8 @@ def test_a_title_set_in_admin_replaces_the_derived_one(conn, add_match, run_id):
     add_match(("Ann", 10), ("Bob", 5), day=date(2024, 6, 1), tournament="RL_s09 - Duke")
     derive_tournament_badges(conn=conn, run_id=run_id)
     derived = titles(conn, run_id)
-    assert "Ann" in derived and derived["Ann"][0] != "SGM"
+    assert "Ann" in derived
+    assert derived["Ann"][0] != "SGM"
 
     override_title(conn, "Ann", "SGM")
     override_title(conn, "Bob", "")

@@ -13,7 +13,7 @@ from tta_ratings_engine.data.tournaments import (
 
 
 @pytest.mark.parametrize(
-    "name, want",
+    ("name", "want"),
     [
         ("International S30 - Silver 5 game 12", (30, "Silver", "Silver 5", False)),
         (
@@ -32,7 +32,7 @@ def test_parse_international(name, want):
 
 
 @pytest.mark.parametrize(
-    "name, want",
+    ("name", "want"),
     [
         ("Intermezzo S24 - Wood 12 game 2", (24, "Wood", "Wood 12", False)),
         (
@@ -48,7 +48,7 @@ def test_parse_intermezzo(name, want):
 
 
 @pytest.mark.parametrize(
-    "name, want",
+    ("name", "want"),
     [
         ("RL_s09 - Marquess 3 game 24", (9, "Marquess", "Marquess 3", False)),
         ("RL_s03 - Emperor game 5", (3, "Emperor", "Emperor", False)),
@@ -466,7 +466,7 @@ def rl(n, season=9, group="Emperor"):
 
 
 @pytest.mark.parametrize(
-    "games, want",
+    ("games", "want"),
     [
         pytest.param(
             [

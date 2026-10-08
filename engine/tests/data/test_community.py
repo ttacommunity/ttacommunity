@@ -50,7 +50,7 @@ WORLDS = {
 
 
 @pytest.mark.parametrize(
-    "group, place, upper, want",
+    ("group", "place", "upper", "want"),
     [
         ("Stage 3", 2, False, 115),  # listed
         ("Stage 1", 1, False, 20),  # not listed: the next place listed
@@ -70,7 +70,7 @@ def test_an_upper_group_without_a_zero_row_scores_by_place():
 
 
 @pytest.mark.parametrize(
-    "group, want",
+    ("group", "want"),
     [("Bronze 12", "Bronze"), ("Grandmaster", "Grandmaster"), ("Silver 3", "Silver")],
 )
 def test_division(group, want):
@@ -78,7 +78,7 @@ def test_division(group, want):
 
 
 @pytest.mark.parametrize(
-    "players, want",
+    ("players", "want"),
     [
         (256, "R256"),
         (128, "R128"),
@@ -107,7 +107,7 @@ def test_wimbledon_rounds_count_back_from_the_final():
 
 
 @pytest.mark.parametrize(
-    "group, want",
+    ("group", "want"),
     [
         ("The Top", "The Top"),
         ("The Stairs", "The Stairs"),
@@ -291,7 +291,9 @@ def test_a_cup_scores_the_round_a_player_goes_out_in(conn, run_id, catalogue):
         )
     derive_community(conn=conn, run_id=run_id)
     got = {p: pts for _, _, p, pts in event_points(conn, run_id)}
-    assert got["a"] == 1000 and got["c"] == 500 and got["h"] == 500
+    assert got["a"] == 1000
+    assert got["c"] == 500
+    assert got["h"] == 500
 
 
 def test_a_player_cge_lists_with_no_game_scores_nothing(conn, run_id, catalogue):
@@ -411,7 +413,7 @@ def test_equal_points_share_a_rank():
 
 
 @pytest.mark.parametrize(
-    "slug, season, want",
+    ("slug", "season", "want"),
     [("international", "30", "ic_30"), ("intermezzo", "27", "im_27"), ("royal_league", "5", "rl_05"),
      ("worlds", "2025", "wrld"), ("australian_open", "2025", "aus"), ("wimbledon", "2024", "wmbl"),
      ("eiffel_tower", "3", "eif")],
@@ -501,7 +503,7 @@ def test_rungs_count_down_from_the_top_tier_by_element_number():
 
 
 @pytest.mark.parametrize(
-    "rule, rung, want",
+    ("rule", "rung", "want"),
     [
         (MERCURIAL, 1, 1000),
         (MERCURIAL, 5, 409.6),
@@ -592,7 +594,8 @@ def test_a_ladder_round_counts_in_the_year_cge_finished_it(
             (run_id,),
         )
     }
-    assert ("2025", "ann") in got and ("2024", "ann") not in got
+    assert ("2025", "ann") in got
+    assert ("2024", "ann") not in got
 
 
 def test_a_ladder_round_counts_in_the_year_the_organisers_recorded(
@@ -622,7 +625,8 @@ def test_a_ladder_round_counts_in_the_year_the_organisers_recorded(
             (run_id,),
         )
     }
-    assert ("2025", "ann") in got and ("2024", "ann") not in got
+    assert ("2025", "ann") in got
+    assert ("2024", "ann") not in got
 
 
 def test_a_ladder_edition_before_its_first_rule_keeps_the_sheets_points(

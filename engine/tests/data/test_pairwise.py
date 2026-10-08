@@ -25,7 +25,7 @@ def new_run(conn):
 
 
 @pytest.mark.parametrize(
-    "seats, want",
+    ("seats", "want"),
     [
         ([("Alice", 120), ("Bob", 90)], [("Alice", "Bob", 120, 90, 1.0, 1.0)]),
         (
