@@ -44,40 +44,26 @@ def _expand(conn, run_id):
 
     pairwise_to_insert = []
     for row in rows:
-        participants = list(zip(row["players"], row["places"], row["cultures"]))
-
-        p_count = len(participants)
-        if p_count < 2:
-            continue
-
-        weight = 1.0 / float(p_count - 1)
-        for i in range(p_count):
-            for j in range(i + 1, p_count):
-                pa, place_a, sa = participants[i]
-                pb, place_b, sb = participants[j]
-                if place_a < place_b:
-                    out_a = 1.0
-                elif place_a > place_b:
-                    out_a = 0.0
-                else:
-                    out_a = 0.5
-
-                pairwise_to_insert.append(
-                    (
-                        run_id,
-                        row["match_id"],
-                        row["date"],
-                        row["tournament"],
-                        p_count,
-                        pa,
-                        pb,
-                        sa,
-                        sb,
-                        out_a,
-                        weight,
-                        row["glicko_eligible"],
-                    )
+        p_count = len(row["players"])
+        for pa, pb, sa, sb, out_a, weight in pairs_of(
+            row["players"], row["places"], row["cultures"]
+        ):
+            pairwise_to_insert.append(
+                (
+                    run_id,
+                    row["match_id"],
+                    row["date"],
+                    row["tournament"],
+                    p_count,
+                    pa,
+                    pb,
+                    sa,
+                    sb,
+                    out_a,
+                    weight,
+                    row["glicko_eligible"],
                 )
+            )
 
     conn.execute("DELETE FROM pairwise_matches WHERE run_id = %s", (run_id,))
     with conn.cursor().copy(
@@ -89,3 +75,18 @@ def _expand(conn, run_id):
     conn.execute("ANALYZE pairwise_matches")
 
     return len(pairwise_to_insert)
+
+
+def pairs_of(players, places, cultures):
+    """Returns a game's pairs, one for each two seats in seat order, as (player_a, player_b, culture_a, culture_b,
+    outcome_a, weight): the better place wins (1.0), a shared place draws (0.5), each weighted 1/(N-1)."""
+    seats = list(zip(players, places, cultures))
+    if len(seats) < 2:
+        return []
+    weight = 1.0 / float(len(seats) - 1)
+    pairs = []
+    for i, (pa, place_a, sa) in enumerate(seats):
+        for pb, place_b, sb in seats[i + 1 :]:
+            out_a = 1.0 if place_a < place_b else 0.0 if place_a > place_b else 0.5
+            pairs.append((pa, pb, sa, sb, out_a, weight))
+    return pairs

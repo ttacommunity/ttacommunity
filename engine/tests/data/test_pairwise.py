@@ -3,7 +3,7 @@ from datetime import date
 import pytest
 
 from tta_ratings_engine.data.db import RunNotRunning, connect
-from tta_ratings_engine.data.pairwise import expand_pairwise
+from tta_ratings_engine.data.pairwise import expand_pairwise, pairs_of
 
 
 def pairs(conn, run_id):
@@ -25,19 +25,30 @@ def new_run(conn):
 
 
 @pytest.mark.parametrize(
-    ("seats", "want"),
+    ("players", "places", "cultures", "want"),
     [
-        ([("Alice", 120), ("Bob", 90)], [("Alice", "Bob", 120, 90, 1.0, 1.0)]),
-        (
-            [("A", 10), ("B", 20), ("C", 30)],
+        pytest.param(
+            ["Alice", "Bob"],
+            [1, 2],
+            [120, 90],
+            [("Alice", "Bob", 120, 90, 1.0, 1.0)],
+            id="two players",
+        ),
+        pytest.param(
+            ["A", "B", "C"],
+            [3, 2, 1],
+            [10, 20, 30],
             [
                 ("A", "B", 10, 20, 0.0, 0.5),
                 ("A", "C", 10, 30, 0.0, 0.5),
                 ("B", "C", 20, 30, 0.0, 0.5),
             ],
+            id="three players",
         ),
-        (
-            [("A", 40), ("B", 30), ("C", 30), ("D", 50)],
+        pytest.param(
+            ["A", "B", "C", "D"],
+            [2, 3, 3, 1],
+            [40, 30, 30, 50],
             [
                 ("A", "B", 40, 30, 1.0, 0.333333333),
                 ("A", "C", 40, 30, 1.0, 0.333333333),
@@ -46,21 +57,26 @@ def new_run(conn):
                 ("B", "D", 30, 50, 0.0, 0.333333333),
                 ("C", "D", 30, 50, 0.0, 0.333333333),
             ],
+            id="four players, a shared place draws",
         ),
+        pytest.param(["A"], [1], [10], [], id="one player, no pairs"),
     ],
-    ids=["two players", "three players", "four players, a tie"],
 )
 def test_a_game_is_a_pair_for_each_two_seats_weighted_by_its_size(
-    conn, add_match, run_id, seats, want
+    players, places, cultures, want
 ):
-    m = add_match(*seats)
-
-    assert expand_pairwise(conn, run_id) == len(want)
     got = [
         (a, b, sa, sb, out, round(w, 9))
-        for mid, a, b, sa, sb, out, w, _ in pairs(conn, run_id)
+        for a, b, sa, sb, out, w in pairs_of(players, places, cultures)
     ]
+
     assert got == want
+
+
+def test_each_game_is_written_as_its_pairs(conn, add_match, run_id):
+    m = add_match(("A", 10), ("B", 20), ("C", 30))
+
+    assert expand_pairwise(conn, run_id) == 3
     assert {p[0] for p in pairs(conn, run_id)} == {m}
 
 
