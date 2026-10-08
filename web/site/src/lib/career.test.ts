@@ -46,12 +46,14 @@ describe('careerPeakYear', () => {
 });
 
 describe('isPeakHigher', () => {
-  it('is true when the career peak outranks the current title, or there is none', () => {
-    expect(isPeakHigher('M', { code: 'GM', year: 2022 })).toBe(true);
-    expect(isPeakHigher(null, { code: 'W', year: 2022 })).toBe(true);
-    expect(isPeakHigher('GM', { code: 'GM', year: 2022 })).toBe(false);
-    expect(isPeakHigher('M', { code: 'GM', year: null })).toBe(false);
-    expect(isPeakHigher('M', null)).toBe(false);
+  it.each([
+    ['a peak above the current title', 'M', { code: 'GM', year: 2022 }, true],
+    ['a peak and no current title', null, { code: 'W', year: 2022 }, true],
+    ['a peak equal to the current title', 'GM', { code: 'GM', year: 2022 }, false],
+    ['a peak with no year', 'M', { code: 'GM', year: null }, false],
+    ['no peak', 'M', null, false],
+  ] as const)('is %s: %s', (_name, current, peak, want) => {
+    expect(isPeakHigher(current, peak)).toBe(want);
   });
 });
 
@@ -90,12 +92,14 @@ describe('scoreYears', () => {
 });
 
 describe('wcLabel', () => {
-  it("names the reigning champion, then a past champion's year, as upstream's header", () => {
-    expect(wcLabel({ code: 'WC', count: 1, reason: '' }, { code: 'WC', year: 2025 })).toBe('Reigning WC');
-    expect(wcLabel({ code: 'GM', count: 1, reason: '' }, { code: 'WC', year: 2024 })).toBe('2024 WC');
-    expect(wcLabel(null, { code: 'WC', year: 2023 })).toBe('2023 WC');
-    expect(wcLabel({ code: 'GM', count: 1, reason: '' }, { code: 'GM', year: 2022 })).toBeNull();
-    expect(wcLabel(null, null)).toBeNull();
+  it.each([
+    ['the reigning champion', { code: 'WC', count: 1, reason: '' }, { code: 'WC', year: 2025 }, 'Reigning WC'],
+    ['a past champion with another title', { code: 'GM', count: 1, reason: '' }, { code: 'WC', year: 2024 }, '2024 WC'],
+    ['a past champion with no title', null, { code: 'WC', year: 2023 }, '2023 WC'],
+    ['nobody who was champion', { code: 'GM', count: 1, reason: '' }, { code: 'GM', year: 2022 }, null],
+    ['nobody with no title or peak', null, null, null],
+  ] as const)("names %s as upstream's header does", (_name, title, peak, want) => {
+    expect(wcLabel(title, peak)).toBe(want);
   });
 });
 

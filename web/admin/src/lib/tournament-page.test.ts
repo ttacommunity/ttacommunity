@@ -15,11 +15,13 @@ import {
 } from './tournament-page';
 
 describe('pointsList and pointsText', () => {
-  it('read points per place from a box, in any of the usual separators', () => {
-    expect(pointsList('6-3-1-0', 4)).toEqual([6, 3, 1, 0]);
-    expect(pointsList(' 5, 2, 0 ', 3)).toEqual([5, 2, 0]);
-    expect(pointsList('2 0', 2)).toEqual([2, 0]);
-    expect(pointsList('2.5-1-0', 3)).toEqual([2.5, 1, 0]);
+  it.each([
+    ['dashes', '6-3-1-0', 4, [6, 3, 1, 0]],
+    ['commas and spaces around', ' 5, 2, 0 ', 3, [5, 2, 0]],
+    ['spaces', '2 0', 2, [2, 0]],
+    ['a decimal', '2.5-1-0', 3, [2.5, 1, 0]],
+  ])('read points per place from a box with %s', (_name, box, players, want) => {
+    expect(pointsList(box, players)).toEqual(want);
   });
 
   it('read an empty box as no scoring for that player count', () => {
@@ -73,18 +75,22 @@ describe('scoringPatch', () => {
 });
 
 describe('hasPenalty', () => {
-  it('offers a time-out penalty for a league season with a number', () => {
-    expect(hasPenalty('league', '6')).toBe(true);
-    expect(hasPenalty('league', '2023 Play Off')).toBe(false);
-    expect(hasPenalty('cup', '2024')).toBe(false);
+  it.each([
+    ['a numbered league season', 'league', '6', true],
+    ['a named league season', 'league', '2023 Play Off', false],
+    ['a cup season', 'cup', '2024', false],
+  ])('offers a time-out penalty only for a league season with a number: %s', (_name, kind, season, want) => {
+    expect(hasPenalty(kind, season)).toBe(want);
   });
 });
 
 describe('penaltyValue', () => {
-  it('reads a time-out penalty of 0 or below', () => {
-    expect(penaltyValue('-1')).toBe(-1);
-    expect(penaltyValue(' 0 ')).toBe(0);
-    expect(penaltyValue('-0.5')).toBe(-0.5);
+  it.each([
+    ['-1', -1],
+    [' 0 ', 0],
+    ['-0.5', -0.5],
+  ])('reads a time-out penalty of "%s" as %d', (box, want) => {
+    expect(penaltyValue(box)).toBe(want);
   });
 
   it('refuses a positive or unreadable penalty', () => {
@@ -130,9 +136,11 @@ describe('divisionList and divisionText', () => {
 });
 
 describe('renamedFrom', () => {
-  it('gives the original name only when it was renamed', () => {
-    expect(renamedFrom('Season 2024', '2024')).toBe('2024');
-    expect(renamedFrom('2024', '2024')).toBeNull();
-    expect(renamedFrom('2024', '')).toBeNull();
+  it.each([
+    ['renamed', 'Season 2024', '2024', '2024'],
+    ['kept', '2024', '2024', null],
+    ['with no original', '2024', '', null],
+  ])('gives the original name only when it was renamed: %s', (_name, name, original, want) => {
+    expect(renamedFrom(name, original)).toBe(want);
   });
 });

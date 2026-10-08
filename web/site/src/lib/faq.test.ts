@@ -44,13 +44,19 @@ describe('faqFigures', () => {
 });
 
 describe('resolveTab', () => {
-  it("resolves upstream's tab aliases and refuses unknown tabs", () => {
-    const tabs = ['philosophy', 'gold-standard', 'recalibration-15', 'resets'];
-    expect(resolveTab('15game', tabs)).toBe('recalibration-15');
-    expect(resolveTab('gold', tabs)).toBe('gold-standard');
-    expect(resolveTab('resets', tabs)).toBe('resets');
-    expect(resolveTab('nope', tabs)).toBeNull();
-    expect(resolveTab('', tabs)).toBeNull();
+  const tabs = ['philosophy', 'gold-standard', 'recalibration-15', 'resets'];
+
+  it.each([
+    ['an alias', '15game', 'recalibration-15'],
+    ['another alias', 'gold', 'gold-standard'],
+    ['a tab by its own name', 'resets', 'resets'],
+    ['an unknown tab, refused', 'nope', null],
+    ['no tab, refused', '', null],
+  ])("resolves %s, as upstream's tabs do", (_name, asked, want) => {
+    expect(resolveTab(asked, tabs)).toBe(want);
+  });
+
+  it("keeps upstream's 11 aliases", () => {
     expect(Object.keys(FAQ_ALIASES)).toHaveLength(11);
   });
 });

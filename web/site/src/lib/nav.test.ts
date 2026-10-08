@@ -17,22 +17,18 @@ describe('sections', () => {
 });
 
 describe('currentSection', () => {
-  it('matches a section and every page under it', () => {
-    expect(currentSection('/ratings/')).toBe('/ratings/');
-    expect(currentSection('/ratings')).toBe('/ratings/');
-    expect(currentSection('/ratings/player/x/')).toBe('/ratings/');
-  });
-
-  it('prefers the most specific section', () => {
-    expect(currentSection('/ratings/analysis/')).toBe('/ratings/analysis/');
-    expect(currentSection('/ratings/analysis/movers/')).toBe('/ratings/analysis/');
-    expect(currentSection('/ratings/faq/')).toBe('/ratings/faq/');
-    expect(currentSection('/ratings/hall_of_fame/royal_league/')).toBe('/ratings/hall_of_fame/');
-  });
-
-  it('matches nothing outside the sections or on a shared prefix', () => {
-    expect(currentSection('/')).toBeUndefined();
-    expect(currentSection('/ratingsx/')).toBeUndefined();
-    expect(currentSection('/design/')).toBeUndefined();
+  it.each([
+    ['a section', '/ratings/', '/ratings/'],
+    ['a section without its slash', '/ratings', '/ratings/'],
+    ['a page under a section', '/ratings/player/x/', '/ratings/'],
+    ['the most specific section', '/ratings/analysis/', '/ratings/analysis/'],
+    ['a page under the most specific section', '/ratings/analysis/movers/', '/ratings/analysis/'],
+    ['another specific section', '/ratings/faq/', '/ratings/faq/'],
+    ['a page under another specific section', '/ratings/hall_of_fame/royal_league/', '/ratings/hall_of_fame/'],
+    ['nothing at the home page', '/', undefined],
+    ['nothing on a shared prefix', '/ratingsx/', undefined],
+    ['nothing outside the sections', '/design/', undefined],
+  ])('matches %s', (_name, path, want) => {
+    expect(currentSection(path)).toBe(want);
   });
 });
