@@ -36,6 +36,9 @@ type CGEApplied struct {
 // The file the extract's rows come from, as games and refusals name it.
 const extractFile = "tournaments_export.csv"
 
+// The source of the games an earlier CGE scrape loaded: their seats are named as CGE named them then.
+const scrapeFile = "cge"
+
 var trailingGame = regexp.MustCompile(`\s+game\s*\d+\s*$`)
 
 // ApplyCGEExtract writes the extract as one import batch, in one transaction, by plan (PlanCGEExtract's):
@@ -145,12 +148,12 @@ func writeAccounts(ctx context.Context, tx pgx.Tx, _ CGEPlan, _ CGEInput, got *C
 		`CREATE TEMPORARY TABLE x_accounts ON COMMIT DROP AS
 		 SELECT DISTINCT ON (player_id) player_id, player_name, banned FROM x_seats
 		 ORDER BY player_id, finished_at DESC NULLS LAST`,
-		// Each account's player is the one most of its seats in our own games show; a game only CGE has is named
-		// from the accounts, so it has no say.
+		// Each account's player is the one most of its seats in the organisers' games show; a game CGE's extract
+		// or an earlier scrape named has no say, as its names come from CGE's accounts.
 		`CREATE TEMPORARY TABLE x_paired ON COMMIT DROP AS
 		 SELECT DISTINCT ON (x.player_id) x.player_id, s.player_id AS our_player
 		 FROM x_pairs p JOIN x_seats x USING (session, idx) JOIN seats s ON s.game_id = p.game_id AND s.seat = p.seat
-		 JOIN games g ON g.game_id = p.game_id WHERE g.source_file <> '` + extractFile + `'
+		 JOIN games g ON g.game_id = p.game_id WHERE g.source_file NOT IN ('` + extractFile + `', '` + scrapeFile + `')
 		 GROUP BY x.player_id, s.player_id ORDER BY x.player_id, count(*) DESC`,
 	} {
 		if _, err := tx.Exec(ctx, q); err != nil {
@@ -187,14 +190,14 @@ func writeAccounts(ctx context.Context, tx pgx.Tx, _ CGEPlan, _ CGEInput, got *C
 	return err
 }
 
-// followAccounts names each seat of a game only CGE has after its account's player, so its seats follow a
-// relinked account, once matched seats have their accounts; a group's members are the players with a seat in
-// its games.
+// followAccounts names each seat of a game CGE named (one only CGE has, or one an earlier scrape loaded) after its
+// account's player, so its seats follow a relinked account, once matched seats have their accounts; a group's
+// members are the players with a seat in its games.
 func followAccounts(ctx context.Context, tx pgx.Tx, _ CGEPlan, _ CGEInput, _ *CGEApplied) error {
 	for _, q := range []string{
 		`UPDATE seats s SET player_id = a.player_id, player_name = pl.name
 		 FROM games g, player_accounts a, players pl
-		 WHERE g.game_id = s.game_id AND g.source_file = '` + extractFile + `' AND a.cge_user = s.cge_user
+		 WHERE g.game_id = s.game_id AND g.source_file IN ('` + extractFile + `', '` + scrapeFile + `') AND a.cge_user = s.cge_user
 		   AND pl.player_id = a.player_id AND s.player_id <> a.player_id`,
 		`INSERT INTO group_members (group_id, player_id)
 		 SELECT DISTINCT g.group_id, s.player_id FROM games g JOIN seats s USING (game_id)

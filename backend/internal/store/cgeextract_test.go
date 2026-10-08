@@ -227,14 +227,15 @@ func TestApplyCGEExtractCorrectsAnAccountAnEarlierLoadLinkedWrongly(t *testing.T
 			}
 			load()
 			// As an earlier load left it: bob's account linked to ann, the two swapped in their shared game,
-			// and bob's seats in the games only CGE has given to ann.
+			// and bob's seats in the games only CGE has, and in one an earlier CGE scrape named, given to ann.
 			for _, q := range []string{
 				`UPDATE player_accounts SET player_id = (SELECT player_id FROM players WHERE name = 'ann'),
 				        linked_reason = '` + tt.reason + `' WHERE cge_user = 2`,
 				`UPDATE seats s SET cge_user = 3 - s.cge_user, place = 3 - s.place, culture = CASE s.place WHEN 1 THEN 150 ELSE 200 END
 				 FROM games g WHERE g.game_id = s.game_id AND g.share_code = 'CODEAAAA'`,
 				`UPDATE seats s SET player_id = (SELECT player_id FROM players WHERE name = 'ann'), player_name = 'ann'
-				 FROM games g WHERE g.game_id = s.game_id AND g.share_code IN ('CODECCCC', 'CODEDDDD') AND s.cge_user = 2`,
+				 FROM games g WHERE g.game_id = s.game_id AND g.share_code IN ('CODECCCC', 'CODEDDDD', 'CODEBBBB') AND s.cge_user = 2`,
+				`UPDATE games SET source_file = 'cge' WHERE share_code = 'CODEBBBB'`,
 			} {
 				if _, err := pool.Exec(ctx, q); err != nil {
 					t.Fatalf("%s: %v", q, err)
@@ -252,6 +253,8 @@ func TestApplyCGEExtractCorrectsAnAccountAnEarlierLoadLinkedWrongly(t *testing.T
 					WHERE g.share_code = 'CODECCCC' AND s.cge_user = 2`, tt.wantLinked},
 				{"the game only CGE has between the two", `SELECT string_agg(s.cge_user || ' ' || s.player_name, ', ' ORDER BY s.cge_user)
 					FROM seats s JOIN games g USING (game_id) WHERE g.share_code = 'CODEDDDD'`, tt.wantBetween},
+				{"the game an earlier CGE scrape named", `SELECT string_agg(s.cge_user || ' ' || s.player_name, ', ' ORDER BY s.cge_user)
+					FROM seats s JOIN games g USING (game_id) WHERE g.share_code = 'CODEBBBB'`, tt.wantBetween},
 				{"ann's seat in the shared game", `SELECT s.cge_user || ' ' || s.place || ' ' || s.culture FROM seats s
 					JOIN games g USING (game_id) WHERE g.share_code = 'CODEAAAA' AND s.player_name = 'ann'`, "1 1 200"},
 			}
