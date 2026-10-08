@@ -204,3 +204,35 @@ def test_pairs_come_only_from_the_runs_rankings_series(conn, add_match, run_id):
 
     assert expand_pairwise(conn, run_id) == 4
     assert {p[0] for p in pairs(conn, run_id)} == {rated, three}
+
+
+def test_mutual_timeout_pairs_are_omitted():
+    players = ["A", "B", "C", "D"]
+    places = [1, 2, 3, 3]
+    cultures = [50, 40, 0, 0]
+    outcomes = ["finished", "finished", "timed_out", "timed_out"]
+
+    got = [
+        (a, b, sa, sb, out, round(w, 9))
+        for a, b, sa, sb, out, w in pairs_of(players, places, cultures, outcomes)
+    ]
+
+    want = [
+        ("A", "B", 50, 40, 1.0, 0.333333333),
+        ("A", "C", 50, 0, 1.0, 0.333333333),
+        ("A", "D", 50, 0, 1.0, 0.333333333),
+        ("B", "C", 40, 0, 1.0, 0.333333333),
+        ("B", "D", 40, 0, 1.0, 0.333333333),
+    ]
+    assert got == want
+
+
+def test_a_game_with_multiple_timeouts_omits_mutual_timeout_pairs(
+    conn, add_match, run_id
+):
+    add_match(("A", 50), ("B", 40), ("C", -1), ("D", -1))
+
+    assert expand_pairwise(conn, run_id) == 5
+    pair_players = {(p[1], p[2]) for p in pairs(conn, run_id)}
+    assert ("C", "D") not in pair_players
+    assert ("D", "C") not in pair_players
