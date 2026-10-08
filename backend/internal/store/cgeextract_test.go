@@ -108,12 +108,25 @@ func TestApplyCGEExtractWritesWhatCGERecorded(t *testing.T) {
 		Special:  map[int]cgeextract.Special{200: {Rules: "Tabletop", CardSet: "Random Mix"}},
 		Settings: []cgeextract.Settings{{TournamentID: 19, TimeoutPenalty: &penalty}},
 	}
-	plan, err := PlanCGEExtract(ctx, pool, x, nil)
-	if err != nil {
-		t.Fatalf("PlanCGEExtract: %v", err)
+	snapshot := func() []string {
+		return rowsOf(t, pool, `SELECT 'g' || g::text FROM games g UNION ALL SELECT 's' || s::text FROM seats s
+			UNION ALL SELECT 'a' || a::text FROM player_accounts a UNION ALL SELECT 'x' || x::text FROM settings x
+			UNION ALL SELECT 'r' || r::text FROM groups r ORDER BY 1`)
 	}
-	if _, err := ApplyCGEExtract(ctx, pool, plan, in); err != nil {
-		t.Fatalf("ApplyCGEExtract: %v", err)
+	var first []string
+	for load := range 2 {
+		plan, err := PlanCGEExtract(ctx, pool, x, nil)
+		if err != nil {
+			t.Fatalf("PlanCGEExtract: %v", err)
+		}
+		if _, err := ApplyCGEExtract(ctx, pool, plan, in); err != nil {
+			t.Fatalf("ApplyCGEExtract: %v", err)
+		}
+		if load == 0 {
+			first = snapshot()
+		} else if again := snapshot(); !slices.Equal(again, first) {
+			t.Errorf("a second load of the same extract changed the data:\n%q\nwant\n%q", again, first)
+		}
 	}
 
 	tests := []struct{ name, query, want string }{

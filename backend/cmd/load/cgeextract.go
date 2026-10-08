@@ -128,6 +128,6 @@ func reportCGEExtract(w io.Writer, plan store.CGEPlan, refused []cgeextract.Refu
 	}
 	a := *applied
 	fmt.Fprintf(w, "batch %d: %d games added (%d with no place to go), %d seats added, %d accounts and %d players added, "+
-		"%d hidden series added, %d settings written\n",
+		"%d hidden series added, %d settings rows checked\n",
 		a.BatchID, a.Added, a.Unplaced, a.SeatsAdded, a.AccountsAdded, a.PlayersAdded, a.SeriesAdded, a.SettingsWritten)
 }
