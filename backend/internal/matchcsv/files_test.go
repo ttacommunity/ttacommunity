@@ -1,6 +1,7 @@
 package matchcsv
 
 import (
+	"errors"
 	"fmt"
 	"strings"
 	"testing"
@@ -44,21 +45,20 @@ func TestCheckFilesReadsEveryCSVInNameOrder(t *testing.T) {
 
 func TestCheckFilesFails(t *testing.T) {
 	tests := []struct {
-		name    string
-		fsys    fstest.MapFS
-		wantErr string
+		name string
+		fsys fstest.MapFS
+		want error
 	}{
-		{name: "no CSV files", fsys: fstest.MapFS{"README.md": {Data: []byte("x")}}, wantErr: "no .csv files"},
+		{name: "no CSV files", fsys: fstest.MapFS{"README.md": {Data: []byte("x")}}, want: ErrNoFiles},
 		{name: "a file that is not a match CSV", fsys: fstest.MapFS{
 			"a.csv": {Data: []byte(header)},
 			"b.csv": {Data: []byte("Player,Rating\r\n")},
-		}, wantErr: "b.csv"},
+		}, want: ErrBadHeader},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			_, err := CheckFiles(tt.fsys)
-			if err == nil || !strings.Contains(err.Error(), tt.wantErr) {
-				t.Errorf("CheckFiles: err = %v, want one containing %q", err, tt.wantErr)
+			if _, err := CheckFiles(tt.fsys); !errors.Is(err, tt.want) {
+				t.Errorf("CheckFiles = %v, want %v", err, tt.want)
 			}
 		})
 	}

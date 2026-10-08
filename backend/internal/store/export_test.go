@@ -7,6 +7,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -141,8 +142,12 @@ func TestRestoreRefusesAChangedFile(t *testing.T) {
 	}
 
 	fresh := migrated(t)
-	if err := Restore(ctx, fresh, dir); err == nil || !strings.Contains(err.Error(), "games.csv") {
-		t.Errorf("Restore of a changed file: err = %v, want a refusal naming games.csv", err)
+	err = Restore(ctx, fresh, dir)
+	if !errors.Is(err, ErrExportChanged) {
+		t.Errorf("Restore of a changed file = %v, want ErrExportChanged", err)
+	}
+	if err != nil && !strings.Contains(err.Error(), "games.csv") {
+		t.Errorf("Restore of a changed file = %v, want it to name games.csv", err)
 	}
 	var n int
 	if err := fresh.QueryRow(ctx, "SELECT count(*) FROM games").Scan(&n); err != nil || n != 0 {
@@ -171,8 +176,8 @@ func TestRestoreRefusesAnotherSchemaVersion(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if err := Restore(ctx, migrated(t), dir); err == nil || !strings.Contains(err.Error(), "schema") {
-		t.Errorf("Restore of an older schema: err = %v, want a refusal naming the schema", err)
+	if err := Restore(ctx, migrated(t), dir); !errors.Is(err, ErrSchemaMismatch) {
+		t.Errorf("Restore of an older schema = %v, want ErrSchemaMismatch", err)
 	}
 }
 
@@ -195,8 +200,11 @@ func TestExportRefusesAnInputTableItDoesNotKnow(t *testing.T) {
 
 	dir := filepath.Join(t.TempDir(), "x")
 	_, err := Export(context.Background(), pool, dir)
-	if err == nil || !strings.Contains(err.Error(), "player_aliases") {
-		t.Errorf("Export with an unlisted table: err = %v, want a refusal naming player_aliases", err)
+	if !errors.Is(err, ErrUnlistedTable) {
+		t.Errorf("Export with an unlisted table = %v, want ErrUnlistedTable", err)
+	}
+	if err != nil && !strings.Contains(err.Error(), "player_aliases") {
+		t.Errorf("Export with an unlisted table = %v, want it to name player_aliases", err)
 	}
 	if _, err := os.Stat(dir); !os.IsNotExist(err) {
 		t.Errorf("a refused export left %s behind (stat: %v)", dir, err)

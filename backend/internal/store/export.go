@@ -24,6 +24,15 @@ import (
 	"ttacommunity/backend/internal/matchcsv"
 )
 
+// ErrExportChanged means an exported file differs from what its manifest records.
+var ErrExportChanged = errors.New("the export has changed since it was written")
+
+// ErrSchemaMismatch means an export and the database are at different schema versions.
+var ErrSchemaMismatch = errors.New("the export and the database are at different schema versions")
+
+// ErrUnlistedTable means an input table is in neither ExportTables nor NotExported, or a listed table is missing.
+var ErrUnlistedTable = errors.New("the input tables differ from the export's list")
+
 // ExportTables are the tables that hold inputs, in an order a restore can
 // load them (a table after those it refers to): what a new database needs
 // for the engine to recompute every view. An export may be shared, so it
@@ -187,7 +196,7 @@ func Restore(ctx context.Context, pool *pgxpool.Pool, dir string) error {
 	if v, err := schemaVersion(ctx, tx); err != nil {
 		return err
 	} else if v != m.SchemaVersion {
-		return fmt.Errorf("restoring: the export is at schema version %d, the database at %d", m.SchemaVersion, v)
+		return fmt.Errorf("restoring: the export is at schema version %d, the database at %d: %w", m.SchemaVersion, v, ErrSchemaMismatch)
 	}
 	if err := checkInputTables(ctx, tx); err != nil {
 		return err
@@ -238,7 +247,7 @@ func checkFile(dir string, t ExportedTable) error {
 		return fmt.Errorf("restoring %s: %w", t.File, err)
 	}
 	if got := hex.EncodeToString(h.Sum(nil)); got != t.SHA256 {
-		return fmt.Errorf("restoring: %s has changed since the export (SHA-256 %s, manifest %s)", t.File, got, t.SHA256)
+		return fmt.Errorf("restoring %s (SHA-256 %s, manifest %s): %w", t.File, got, t.SHA256, ErrExportChanged)
 	}
 	return nil
 }
@@ -281,12 +290,12 @@ func checkInputTables(ctx context.Context, tx pgx.Tx) error {
 	var problems []error
 	for _, t := range found {
 		if !slices.Contains(ExportTables, t) && !slices.Contains(NotExported, t) {
-			problems = append(problems, fmt.Errorf("input table %s is in neither ExportTables nor NotExported", t))
+			problems = append(problems, fmt.Errorf("input table %s is in neither ExportTables nor NotExported: %w", t, ErrUnlistedTable))
 		}
 	}
 	for _, t := range append(slices.Clone(ExportTables), NotExported...) {
 		if !slices.Contains(found, t) {
-			problems = append(problems, fmt.Errorf("table %s in ExportTables or NotExported is not in the database", t))
+			problems = append(problems, fmt.Errorf("table %s in ExportTables or NotExported is not in the database: %w", t, ErrUnlistedTable))
 		}
 	}
 	return errors.Join(problems...)
