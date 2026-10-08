@@ -25,12 +25,12 @@ func (a *AdminStore) DataSummary(ctx context.Context) (DataSummary, error) {
 	err := a.pool.QueryRow(ctx, `
 		SELECT count(*) FILTER (WHERE state = 'played'),
 		       count(*) FILTER (WHERE state <> 'played'),
-		       count(*) FILTER (WHERE stage_id IS NULL),
+		       count(*) FILTER (WHERE group_id IS NULL),
 		       (SELECT count(*) FROM players),
 		       max(date) FILTER (WHERE state = 'played'),
 		       (SELECT max(created_at) FROM import_batches),
 		       (SELECT count(*) FROM refused_rows WHERE batch_id = (SELECT max(batch_id) FROM import_batches))
-		FROM matches`).Scan(&d.Games, &d.NeverPlayed, &d.Unplaced, &d.Players, &d.LatestGame, &d.LastLoad, &d.LastLoadRefused)
+		FROM games`).Scan(&d.Games, &d.NeverPlayed, &d.Unplaced, &d.Players, &d.LatestGame, &d.LastLoad, &d.LastLoadRefused)
 	if err != nil {
 		return DataSummary{}, fmt.Errorf("summarising the data: %w", err)
 	}

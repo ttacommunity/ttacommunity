@@ -315,16 +315,10 @@ func TestHistoryWithoutADateUsesThePreviousPeriod(t *testing.T) {
 	}
 }
 
-func TestHistoryRefusesUnpublishedRunsAndEmptyHistory(t *testing.T) {
+func TestHistoryRefusesEmptyHistory(t *testing.T) {
 	pool := migrated(t)
 	r := NewRatingsReader(asReader(t, pool))
 	ctx := context.Background()
-	hidden := addRun(t, pool, "complete", time.Time{})
-	addHistory(t, pool, hidden, "glicko2_daneo", 0, "ann", "2026-07-31", 1600)
-	if _, _, err := r.History(ctx, hidden, "glicko2_daneo", 0, nil); !errors.Is(err, ErrRunNotFound) {
-		t.Errorf("History of an unpublished run: err = %v, want ErrRunNotFound", err)
-	}
-
 	empty := addRun(t, pool, "complete", time.Date(2026, 9, 27, 4, 0, 0, 0, time.UTC))
 	if _, _, err := r.History(ctx, empty, "glicko2_daneo", 0, nil); !errors.Is(err, ErrNoHistory) {
 		t.Errorf("History with no periods: err = %v, want ErrNoHistory", err)
@@ -451,5 +445,53 @@ func TestLeaderboardGivesEachPlayersBadgesAtOnce(t *testing.T) {
 	want := []ExtraBadge{{Label: "Organiser", Description: "Organiser description"}, {Label: "TD", Description: "TD description"}}
 	if !reflect.DeepEqual(got[0].Badges, want) || len(got[1].Badges) != 0 {
 		t.Errorf("badges = %+v and %+v, want ann's two by label and none for bob", got[0].Badges, got[1].Badges)
+	}
+}
+
+func TestEveryReaderRefusesAnUnpublishedRun(t *testing.T) {
+	pool := migrated(t)
+	ctx := context.Background()
+	addPlayers(t, pool, "Ann", "Bob")
+	run := addRun(t, pool, "complete", time.Time{})
+	r := NewRatingsReader(asReader(t, pool))
+	readers := map[string]func() error{
+		"Calibration":     func() error { _, err := r.Calibration(ctx, run); return err },
+		"AnalysisRatings": func() error { _, _, err := r.AnalysisRatings(ctx, run, 0); return err },
+		"ComparedPlayers": func() error { _, err := r.ComparedPlayers(ctx, run, 0, nil); return err },
+		"Activity":        func() error { _, err := r.Activity(ctx, run, day("2026-01-01")); return err },
+		"Catalogue":       func() error { _, err := r.Catalogue(ctx, run); return err },
+		"CatalogueTournament": func() error {
+			_, err := r.CatalogueTournament(ctx, run, "wimbledon")
+			return err
+		},
+		"CatalogueGames": func() error {
+			_, err := r.CatalogueGames(ctx, run, "wimbledon", CatalogueGamesFilter{})
+			return err
+		},
+		"RunLastGame":          func() error { _, err := r.RunLastGame(ctx, run); return err },
+		"Leaderboard":          func() error { _, err := r.Leaderboard(ctx, run, "glicko2_daneo", 0); return err },
+		"History":              func() error { _, _, err := r.History(ctx, run, "glicko2_daneo", 0, nil); return err },
+		"TournamentSeries":     func() error { _, err := r.TournamentSeries(ctx, run, "international"); return err },
+		"HallOfFame":           func() error { _, err := r.HallOfFame(ctx, run); return err },
+		"PlayerAchievements":   func() error { _, _, _, err := r.PlayerAchievements(ctx, run, "Ann"); return err },
+		"CommunityLeaderboard": func() error { _, err := r.CommunityLeaderboard(ctx, run, "2024"); return err },
+		"YearBoard":            func() error { _, err := r.YearBoard(ctx, run, 2025, "glicko2_daneo", 0); return err },
+		"Years":                func() error { _, err := r.Years(ctx, run); return err },
+		"Player":               func() error { _, err := r.Player(ctx, run, "Ann"); return err },
+		"PlayerHistory":        func() error { _, _, err := r.PlayerHistory(ctx, run, "Ann", 0); return err },
+		"PlayerMatches":        func() error { _, _, err := r.PlayerMatches(ctx, run, "Ann", 0, 1); return err },
+		"RatingsOf": func() error {
+			_, err := r.RatingsOf(ctx, run, "glicko2_daneo", 0, []string{"Ann"})
+			return err
+		},
+		"PlayerRivals": func() error { _, _, err := r.PlayerRivals(ctx, run, "Ann", 0); return err },
+		"PlayerCareer": func() error { _, _, _, err := r.PlayerCareer(ctx, run, "Ann", 0); return err },
+		"Versus":       func() error { _, _, _, err := r.Versus(ctx, run, "Ann", "Bob"); return err },
+		"PlayerMatrix": func() error { _, _, err := r.PlayerMatrix(ctx, run, "Ann", 0, nil); return err },
+	}
+	for name, read := range readers {
+		if err := read(); !errors.Is(err, ErrRunNotFound) {
+			t.Errorf("%s of an unpublished run: err = %v, want ErrRunNotFound", name, err)
+		}
 	}
 }

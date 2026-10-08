@@ -130,6 +130,14 @@ Both private to the `ttacommunity` organisation; ask a maintainer for access.
   DOM tests of UI components: keep a component thin and put its decisions in
   a `lib/` function with its own test
 - **A test checks what it is about**, not a whole struct or every field
+- **One function, several cases: one table of cases**, not a test per case
+  ([Go's guide](https://go.dev/wiki/TableDrivenTests); pytest
+  `parametrize`, Vitest `it.each`). A table holds one kind of case: when
+  cases need different fields, write a separate test
+- **Hard-to-write tests mean hard-to-use code**: heavy setup or many fakes
+  is a reason to change the code. Prefer simple stubs to mocks, test through
+  the public interface
+  ([anti-patterns](https://quii.gitbook.io/learn-go-with-tests/meta/anti-patterns))
 - **Test data is invented.** Never a real Discord id, handle, email or TTA
   username, and never a slice of real match data. Use ids like
   `100000000000000001`

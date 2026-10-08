@@ -153,13 +153,17 @@ def test_the_reigning_champion_is_the_latest_seasons_winner(
     assert got.get("Martin_Pecheur", ("",))[0] != "WC"
 
 
-def test_deriving_again_replaces_the_runs_titles(conn, add_match, run_id):
+def test_deriving_again_replaces_the_runs_titles_peaks_and_years(
+    conn, add_match, run_id
+):
     add_match(("Ann", 10), ("Bob", 5), day=date(2024, 6, 1), tournament="RL_s09 - Duke")
 
     derive_tournament_badges(conn=conn, run_id=run_id)
     derive_tournament_badges(conn=conn, run_id=run_id)
 
     assert len(titles(conn, run_id)) == 2
+    assert set(peaks(conn, run_id)) == {"Ann", "Bob"}
+    assert yearly(conn, run_id) == {("Ann", 2024): "G", ("Bob", 2024): "G"}
 
 
 def test_a_finished_run_gets_no_titles(conn, add_match, run_id):
@@ -232,17 +236,6 @@ def test_world_champions_peak_at_their_title_year(conn, add_match, run_id, place
     assert titles(conn, run_id)["Weidenbaum"][0] == "M"
 
 
-def test_peaks_are_only_for_known_players_and_replaced_each_time(
-    conn, add_match, run_id
-):
-    add_match(("Ann", 10), ("Bob", 5), day=date(2024, 6, 1), tournament="RL_s09 - Duke")
-
-    derive_tournament_badges(conn=conn, run_id=run_id)
-    derive_tournament_badges(conn=conn, run_id=run_id)
-
-    assert set(peaks(conn, run_id)) == {"Ann", "Bob"}
-
-
 def yearly(conn, run_id):
     return {
         (r["player_name"], r["year"]): r["title"]
@@ -286,15 +279,6 @@ def test_world_champions_hold_wc_in_their_title_year(conn, add_match, run_id, pl
     assert got[("Weidenbaum", 2023)] == "WC"
     assert got[("A440", 2025)] == "WC"
     assert ("Martin_Pecheur", 2024) not in got
-
-
-def test_yearly_titles_are_replaced_each_time(conn, add_match, run_id):
-    add_match(("Ann", 10), ("Bob", 5), day=date(2024, 6, 1), tournament="RL_s09 - Duke")
-
-    derive_tournament_badges(conn=conn, run_id=run_id)
-    derive_tournament_badges(conn=conn, run_id=run_id)
-
-    assert yearly(conn, run_id) == {("Ann", 2024): "G", ("Bob", 2024): "G"}
 
 
 def add_record(

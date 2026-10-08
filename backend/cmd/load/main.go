@@ -7,22 +7,18 @@ package main
 
 import (
 	"context"
-	"encoding/csv"
-	"errors"
 	"flag"
 	"fmt"
 	"io"
 	"os"
 	"os/signal"
 	"path/filepath"
-	"regexp"
 	"slices"
 	"strings"
 	"syscall"
 
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	"ttacommunity/backend/internal/cgegames"
 	"ttacommunity/backend/internal/countrycsv"
 	"ttacommunity/backend/internal/matchcsv"
 	"ttacommunity/backend/internal/store"
@@ -34,8 +30,6 @@ func main() {
 	migrate := flag.Bool("migrate", false, "only apply the ratings migrations, and load nothing")
 	countries := flag.Bool("countries", false, "set players' countries from the CSV files named, a later file winning")
 	classify := flag.Bool("classify", false, "only place unplaced games in the tournament catalogue, by their names")
-	cgeGames := flag.String("cge-games", "", "attach CGE's facts (seats, CGE users, finish dates) from the CSV named to the games already loaded")
-	cgeNew := flag.String("cge-new", "", "with -cge-games: a CSV of replay codes (replay_code column first) checked by hand as new games, added even where they may look like copies")
 	facts := flag.String("facts", "", "replace every recorded tournament fact of one kind (divisions, placements, corrections, dates, honours, rules, podiums, cge_tournaments, cge_stages, cge_standings, ladder_wins, season_notes, community, community_scores, community_points, community_quarters or community_ladders) with the CSV file named")
 	export := flag.String("export", "", "write every input table to the directory named (new or empty), one CSV each, with a manifest")
 	restore := flag.String("restore", "", "load an export from the directory named into a new database, after applying the migrations")
@@ -43,6 +37,10 @@ func main() {
 	adminName := flag.String("name", "", "with -add-admin: the admin's name as admin shows it")
 	adminRole := flag.String("role", "", "with -add-admin: admin or organiser")
 	standings := flag.String("check-standings", "", "compare CGE's standings tables with the games held: print the counts, and write each difference to the new CSV file named")
+	cgeExtract := flag.String("cge-extract", "", "plan how CGE's extract in the directory named meets our games, with -cge-settings; -apply writes it")
+	cgeSettings := flag.String("cge-settings", "", "with -cge-extract: the directory of CGE's tournament and stage settings")
+	cgePairs := flag.String("cge-pairs", "", "with -cge-extract: a CSV (share_code, game_id, reason) of CGE games matched to ours by hand")
+	apply := flag.Bool("apply", false, "with -cge-extract: write the plan")
 	upstream := flag.String("export-upstream", "", "write every played game to the new file named, as the match CSV upstream's site loads")
 	flag.Usage = func() {
 		fmt.Fprintln(os.Stderr, "usage: load [-reset] <directory of match CSVs>")
@@ -51,27 +49,22 @@ func main() {
 		fmt.Fprintln(os.Stderr, "       load -export-upstream <file>")
 		fmt.Fprintln(os.Stderr, "       load -check-standings <file>")
 		fmt.Fprintln(os.Stderr, "       load -add-admin <Discord id> -name <name> -role admin|organiser")
+		fmt.Fprintln(os.Stderr, "       load -cge-extract <directory> -cge-settings <directory> [-cge-pairs <file>] [-apply]")
 		fmt.Fprintln(os.Stderr, "       load -migrate")
 		fmt.Fprintln(os.Stderr, "       load -classify")
-		fmt.Fprintln(os.Stderr, "       load -cge-games <CSV file> [-cge-new <CSV file>]")
 		fmt.Fprintln(os.Stderr, "       load -countries <CSV file>...")
 		fmt.Fprintln(os.Stderr, "       load -facts divisions|placements|corrections|dates|honours|rules|podiums|cge_tournaments|cge_stages|cge_standings|ladder_wins|season_notes|community|community_scores|community_points|community_quarters|community_ladders <CSV file>")
 		fmt.Fprintln(os.Stderr, "The database is RATINGS_DATABASE_URL.")
 		flag.PrintDefaults()
 	}
 	flag.Parse()
-	one := !*reset && btoi(*migrate)+btoi(*classify)+btoi(*cgeGames != "")+btoi(*countries)+btoi(*facts != "")+btoi(*export != "")+btoi(*restore != "")+btoi(*upstream != "")+btoi(*addAdmin != "")+btoi(*standings != "") == 1
+	one := !*reset && btoi(*migrate)+btoi(*classify)+btoi(*countries)+btoi(*facts != "")+btoi(*export != "")+btoi(*restore != "")+btoi(*upstream != "")+btoi(*addAdmin != "")+btoi(*standings != "")+btoi(*cgeExtract != "") == 1
 	var err error
 	switch {
 	case *migrate && one && flag.NArg() == 0:
 		err = migrateOnly()
 	case *classify && one && flag.NArg() == 0:
 		err = classifyOnly()
-	case *cgeNew != "" && *cgeGames == "":
-		flag.Usage()
-		os.Exit(64)
-	case *cgeGames != "" && one && flag.NArg() == 0:
-		err = attachCGEGames(*cgeGames, *cgeNew)
 	case *countries && one && flag.NArg() > 0:
 		err = setCountries(flag.Args())
 	case *facts != "" && one && flag.NArg() == 1:
@@ -95,7 +88,9 @@ func main() {
 		err = exportForUpstream(*upstream)
 	case *standings != "" && one && flag.NArg() == 0:
 		err = checkStandings(*standings)
-	case !*migrate && !*classify && *cgeGames == "" && !*countries && *facts == "" && *export == "" && *restore == "" && *upstream == "" && *addAdmin == "" && *standings == "" && flag.NArg() == 1:
+	case *cgeExtract != "" && *cgeSettings != "" && one && flag.NArg() == 0:
+		err = loadCGEExtract(*cgeExtract, *cgeSettings, *cgePairs, *apply)
+	case !*migrate && !*classify && !*countries && *facts == "" && *export == "" && *restore == "" && *upstream == "" && *addAdmin == "" && *standings == "" && *cgeExtract == "" && flag.NArg() == 1:
 		err = run(*reset, flag.Arg(0))
 	default:
 		flag.Usage()
@@ -228,130 +223,6 @@ func reportClassified(w io.Writer, c store.Classified) {
 	for _, n := range c.Unplaced {
 		fmt.Fprintf(w, "  %s\n", n)
 	}
-}
-
-// attachCGEGames reads the files first, then records CGE's facts on the games
-// already loaded and adds the games we lack (store.AddCGEGames, with the
-// replay codes in newFile, if named, confirmed new), after applying any
-// pending migration.
-func attachCGEGames(file, newFile string) error {
-	dbURL := os.Getenv("RATINGS_DATABASE_URL")
-	if dbURL == "" {
-		return fmt.Errorf("RATINGS_DATABASE_URL is not set")
-	}
-	f, err := os.Open(file)
-	if err != nil {
-		return fmt.Errorf("opening %s: %w", file, err)
-	}
-	res, err := cgegames.Read(file, f)
-	f.Close()
-	if err != nil {
-		return err
-	}
-	confirmed := map[string]bool{}
-	if newFile != "" {
-		nf, err := os.Open(newFile)
-		if err != nil {
-			return fmt.Errorf("opening %s: %w", newFile, err)
-		}
-		confirmed, err = readConfirmed(newFile, nf)
-		nf.Close()
-		if err != nil {
-			return err
-		}
-	}
-	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
-	defer stop()
-	pool, err := pgxpool.New(ctx, dbURL)
-	if err != nil {
-		return fmt.Errorf("opening the ratings database: %w", err)
-	}
-	defer pool.Close()
-	if err := store.MigrateRatings(ctx, pool); err != nil {
-		return err
-	}
-	got, err := store.AttachCGEGames(ctx, pool, res.Games)
-	if err != nil {
-		return err
-	}
-	added, err := store.AddCGEGames(ctx, pool, res.Games, confirmed)
-	if err != nil {
-		return err
-	}
-	reportAttached(os.Stdout, file, res, added, got)
-	return nil
-}
-
-// replayCode is the shape of a CGE replay code.
-var replayCode = regexp.MustCompile(`^[A-Z0-9]{4,16}$`)
-
-// readConfirmed reads a CSV whose first column is replay_code: games checked
-// by hand as new. It refuses a missing header or a code of the wrong shape.
-func readConfirmed(file string, r io.Reader) (map[string]bool, error) {
-	cr := csv.NewReader(r)
-	cr.FieldsPerRecord = -1
-	head, err := cr.Read()
-	if err != nil {
-		return nil, fmt.Errorf("%s: %w", file, err)
-	}
-	if head[0] != "replay_code" {
-		return nil, fmt.Errorf("%s: want replay_code as the first column", file)
-	}
-	got := map[string]bool{}
-	for line := 2; ; line++ {
-		rec, err := cr.Read()
-		if errors.Is(err, io.EOF) {
-			return got, nil
-		}
-		if err != nil {
-			return nil, fmt.Errorf("%s: %w", file, err)
-		}
-		if !replayCode.MatchString(rec[0]) {
-			return nil, fmt.Errorf("%s:%d: not a replay code", file, line)
-		}
-		got[rec[0]] = true
-	}
-}
-
-// reportAttached writes how many CGE games matched ours, which did not (by
-// CGE tournament and stage), which of our seasons each stage matched, and
-// what was added. It names tournaments and seasons, never a player.
-func reportAttached(w io.Writer, file string, res cgegames.Result, added store.Added, got store.Attached) {
-	fmt.Fprintf(w, "matched to our games: %d (%d with a player renamed since, %d our file records without a timed-out player)\n",
-		got.Matched, got.Renamed, got.LacksTimedOut)
-	fmt.Fprintf(w, "never played, set apart: %d\n", got.NeverPlayed)
-	fmt.Fprintf(w, "matched before but no longer, cleared: %d\n", got.Cleared)
-	fmt.Fprintf(w, "no game of ours: %d (CGE %s)\n", len(got.Unmatched), byStage(got.Unmatched))
-	fmt.Fprintln(w, "where each CGE stage matched:")
-	for _, l := range got.Seasons {
-		fmt.Fprintf(w, "  CGE %d/%d -> season %s: %d games\n", l.CGETournament, l.CGESeason, l.Season, l.Games)
-	}
-	fmt.Fprintf(w, "refused: %d\n", len(res.Refused))
-	for _, r := range res.Refused {
-		fmt.Fprintf(w, "  %s:%d %s\n", file, r.Line, r.Reason)
-	}
-	fmt.Fprintf(w, "added: %d (%d of them never played)\n", added.Added, added.NeverPlayed)
-	fmt.Fprintf(w, "already held: %d\n", added.AlreadyHeld)
-	fmt.Fprintf(w, "placing not settled, not added: %d\n", added.Unsettled)
-	fmt.Fprintf(w, "may be a copy of ours, not added: %d (CGE %s)\n", len(added.Conflicts), byStage(added.Conflicts))
-}
-
-// byStage counts games by CGE tournament and stage: "19/2: 1, 21/7: 2".
-func byStage(games []cgegames.Game) string {
-	counts := map[string]int{}
-	for _, g := range games {
-		counts[fmt.Sprintf("%d/%d", g.CGETournament, g.CGESeason)]++
-	}
-	keys := make([]string, 0, len(counts))
-	for k := range counts {
-		keys = append(keys, k)
-	}
-	slices.Sort(keys)
-	parts := make([]string, len(keys))
-	for i, k := range keys {
-		parts[i] = fmt.Sprintf("%s: %d", k, counts[k])
-	}
-	return strings.Join(parts, ", ")
 }
 
 // setCountries reads every file first, then sets the countries of known

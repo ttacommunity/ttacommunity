@@ -9,6 +9,8 @@ the recorded facts instead of spreadsheets. The records keep upstream's rules.
 import re
 from collections import defaultdict
 
+from tta_ratings_engine.data.seats import by_place, seats_of
+
 PLACES = ("gold", "silver", "bronze")
 FALLBACK_DATE = "2026-01-01"
 CAREER = "Career / All-Time"
@@ -317,14 +319,13 @@ def _campaign_rows(rows, keys, dates):
     for r in rows:
         key = record_key(r)
         g = groups.setdefault(key, {"matches": [], "players": set()})
-        seats = [(r[f"player{i}"], r[f"score{i}"]) for i in range(1, 5)][
-            : r["player_count"]
+        players = [
+            (s.player.strip(), s.culture, s.place) for s in by_place(seats_of(r))
         ]
-        players = [(p.strip(), s if s is not None else 0) for p, s in seats if p]
-        g["players"].update(p for p, _ in players)
-        players.sort(key=lambda ps: ps[1], reverse=True)
-        g["matches"].append({"date": str(r["date"]), "count": r["player_count"], "players": players,
-                             "max": players[0][1] if players else 0})  # fmt: skip
+        g["players"].update(p for p, _, _ in players)
+        g["matches"].append(
+            {"date": str(r["date"]), "count": r["player_count"], "players": players}
+        )
 
     out = []
     for (tournament, season, division), g in groups.items():
@@ -334,12 +335,12 @@ def _campaign_rows(rows, keys, dates):
         )
         played = {}
         for m in g["matches"]:
-            for rank, (p, score) in enumerate(m["players"], start=1):
+            for rank, (p, score, place) in enumerate(m["players"], start=1):
                 pc = played.setdefault(
                     p, {"games": 0, "wins": 0, "total": 0, "finish": m["date"]}
                 )
                 pc["games"] += 1
-                pc["wins"] += 1 if (score >= m["max"] and score > 0) or rank == 1 else 0
+                pc["wins"] += 1 if place == 1 else 0
                 pc["total"] += score
                 pc["last"], pc["rank"], pc["count"] = score, rank, m["count"]
                 pc["finish"] = max(pc["finish"], m["date"])

@@ -85,7 +85,7 @@ func (a *AdminStore) CheckLimits(ctx context.Context) error {
 	err := a.pool.QueryRow(ctx, `
 		SELECT (SELECT rolsuper FROM pg_roles WHERE rolname = current_user)
 			OR has_schema_privilege('public', 'CREATE')
-			OR has_table_privilege('matches', 'INSERT, DELETE, TRUNCATE')
+			OR has_table_privilege('games', 'INSERT, DELETE, TRUNCATE')
 			OR has_table_privilege('players', 'UPDATE, DELETE, TRUNCATE')
 			OR has_table_privilege('rating_runs', 'DELETE, TRUNCATE')`).Scan(&tooStrong)
 	if err != nil {

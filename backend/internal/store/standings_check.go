@@ -134,7 +134,8 @@ func (a *AdminStore) CheckStandings(ctx context.Context) (StandingsCheck, error)
 	}
 	if err := a.pool.QueryRow(ctx, `
 		SELECT count(*) FROM (SELECT DISTINCT cge_tournament, cge_season FROM cge_standings) c
-		WHERE NOT EXISTS (SELECT 1 FROM matches m WHERE (m.cge_tournament, m.cge_season) = (c.cge_tournament, c.cge_season))`).Scan(&got.StagesOnlyOnCGE); err != nil {
+		WHERE NOT EXISTS (SELECT 1 FROM groups gr JOIN games m USING (group_id)
+		                  WHERE (gr.cge_tournament, gr.cge_stage_number) = (c.cge_tournament, c.cge_season))`).Scan(&got.StagesOnlyOnCGE); err != nil {
 		return StandingsCheck{}, fmt.Errorf("counting the stages only CGE holds: %w", err)
 	}
 	return got, nil
@@ -161,13 +162,13 @@ func differenceKind(onCGE, held, otherGames bool, cge, ours Places, timeout bool
 // both hold, ordered by stage and CGE user. Places come from played games only: CGE's AI placed the rest. A size CGE
 // shows only zeros for was not played.
 const standingsCheckQuery = `
-WITH seats AS (
-	SELECT m.cge_tournament AS t, m.cge_season AS s, m.match_id, m.player_count AS n, x.cge_user, x.player_name,
-	       CASE WHEN m.state = 'played' THEN 1 + (SELECT count(*) FROM unnest(ARRAY[m.score1, m.score2, m.score3, m.score4]) AS o(score)
-	            WHERE o.score > CASE x.seat WHEN 1 THEN m.score1 WHEN 2 THEN m.score2 WHEN 3 THEN m.score3 ELSE m.score4 END) END AS place,
-	       m.state <> 'played' OR EXISTS (SELECT 1 FROM match_seats z WHERE z.match_id = m.match_id AND z.outcome = 'timed_out') AS timeout
-	FROM matches m JOIN match_seats x USING (match_id)
-	WHERE m.cge_tournament IS NOT NULL AND x.cge_user IS NOT NULL
+WITH ours AS (
+	SELECT gr.cge_tournament AS t, gr.cge_stage_number AS s, m.game_id,
+	       (SELECT count(*) FROM seats y WHERE y.game_id = m.game_id) AS n, x.cge_user, x.player_name,
+	       CASE WHEN m.state = 'played' THEN x.place END AS place,
+	       m.state <> 'played' OR EXISTS (SELECT 1 FROM seats z WHERE z.game_id = m.game_id AND z.outcome = 'timed_out') AS timeout
+	FROM games m JOIN groups gr USING (group_id) JOIN seats x USING (game_id)
+	WHERE gr.cge_tournament IS NOT NULL AND x.cge_user IS NOT NULL
 ),
 held AS (
 	SELECT t, s, cge_user, min(player_name) AS player_name, count(*) AS games, count(place) AS played, bool_or(timeout) AS timeout,
@@ -176,7 +177,7 @@ held AS (
 	                                           count(*) FILTER (WHERE n = 3 AND place = 3)] END AS p3,
 	       CASE WHEN bool_or(n = 4 AND place IS NOT NULL) THEN ARRAY[count(*) FILTER (WHERE n = 4 AND place = 1), count(*) FILTER (WHERE n = 4 AND place = 2),
 	                                           count(*) FILTER (WHERE n = 4 AND place = 3), count(*) FILTER (WHERE n = 4 AND place = 4)] END AS p4
-	FROM seats GROUP BY t, s, cge_user
+	FROM ours GROUP BY t, s, cge_user
 ),
 cge AS (
 	SELECT cge_tournament AS t, cge_season AS s, cge_user, min(player_name) AS player_name, sum(games)::int AS games, sum(points) AS points,

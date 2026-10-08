@@ -85,7 +85,8 @@ RESULT_TABLES = [
     "tournament_season_corrections",
     "tournament_finish_dates",
     "tournament_career_honours",
-    "tournament_season_rules",
+    "settings",
+    "seats",
     "tournament_cup_podiums",
     "tournament_podium_overrides",
     "player_title_overrides",
@@ -159,8 +160,8 @@ def check_schema(conn):
             is None
         ):
             missing.append("run_progress")
-        if "rated" not in _columns(conn, "tournament_seasons", leave_out=()):
-            missing.append("tournament_seasons.rated")
+        if "rated" not in _columns(conn, "tournaments", leave_out=()):
+            missing.append("tournaments.rated")
     if missing:
         raise SchemaOutOfDate(
             f"missing {', '.join(missing)}: apply the ratings migrations first"
@@ -180,10 +181,9 @@ def input_fingerprint(conn, ranking_id):
         """
         WITH m AS (
             SELECT md5(string_agg(
-                (tournament, date, player1, score1, player2, score2,
-                 player3, score3, player4, score4, glicko_eligible, stage_id, state)::text,
-                E'\\n' ORDER BY match_id)) AS md5
-            FROM matches
+                (name, date, players, scores, places, cultures, outcomes, game_points, glicko_eligible, group_id, state)::text,
+                E'\\n' ORDER BY game_id)) AS md5
+            FROM game_lines
         ), f AS (
             SELECT string_agg(r, E'\\n' ORDER BY r) AS facts FROM (
                 SELECT 'd' || t::text AS r FROM tournament_group_divisions t
@@ -191,14 +191,14 @@ def input_fingerprint(conn, ranking_id):
                 UNION ALL SELECT 'c' || t::text FROM tournament_season_corrections t
                 UNION ALL SELECT 'f' || t::text FROM tournament_finish_dates t
                 UNION ALL SELECT 'h' || t::text FROM tournament_career_honours t
-                UNION ALL SELECT 'r' || t::text FROM tournament_season_rules t
+                UNION ALL SELECT 'r' || t::text FROM settings t
                 UNION ALL SELECT 'u' || t::text FROM tournament_cup_podiums t
                 UNION ALL SELECT 'o' || t::text FROM tournament_podium_overrides t
                 UNION ALL SELECT 't' || t::text FROM player_title_overrides t
                 UNION ALL SELECT 's' || cge_tournament || status FROM cge_tournaments
-                UNION ALL SELECT 'k' || t.slug || t.rated_player_counts::text FROM ranking_tournaments rt
-                    JOIN tournaments t USING (tournament_id) WHERE rt.ranking_id = %s
-                UNION ALL SELECT 'n' || season_id FROM tournament_seasons WHERE NOT rated
+                UNION ALL SELECT 'k' || t.slug || t.rated_player_counts::text FROM ranking_series rt
+                    JOIN series t USING (series_id) WHERE rt.ranking_id = %s
+                UNION ALL SELECT 'n' || tournament_id FROM tournaments WHERE NOT rated
             ) x
         )
         SELECT CASE WHEN f.facts IS NULL THEN m.md5 ELSE md5(m.md5 || md5(f.facts)) END
@@ -270,7 +270,7 @@ def run(
             raise UnknownRanking(f"no ranking is called {ranking!r}")
         ranking_id = row["ranking_id"]
         unplaced = conn.execute(
-            "SELECT count(*) AS n FROM matches WHERE stage_id IS NULL"
+            "SELECT count(*) AS n FROM games WHERE group_id IS NULL"
         ).fetchone()["n"]
         if unplaced:
             raise GamesUnplaced(

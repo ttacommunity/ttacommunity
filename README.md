@@ -258,17 +258,24 @@ cd backend && set -a && . ../.env && set +a && go run ./cmd/load -migrate
 New games and facts are loaded on top of a restored baseline, and the next
 export is the next baseline.
 
-**New games from CGE.** The collector (kept with the data) writes each
-collected season's games, and its fact scripts turn them into one load file.
-Loading it records CGE's facts on the games already held (each seat's CGE
-user and how it ended, the finish date, replay code and stage) and adds the
-games we lack. A game that looks like a copy of one we hold is held back
-unless its replay code is in the `-cge-new` file, checked by hand:
+**CGE's data extract.** CGE's export of every tournament game (one row per
+player per game) is the most complete record. `-cge-extract` matches its
+games to ours (by share code, else by players and finished scores), fills in
+what CGE recorded (each seat's account, outcome and place, the game's times
+and share code; CGE's finish date becomes the game's date), adds the games we
+lack (a CGE tournament we do not link becomes a hidden, unrated series) and
+the settings we lack from the settings files beside it. A game that may be a
+copy of ours is held back; a file of pairs checked by hand (`share_code,
+game_id,reason`) matches them. It prints the plan and writes nothing unless
+given `-apply`; loading the same extract again changes nothing:
 
 ```bash
 cd backend && set -a && . ../.env && set +a
-go run ./cmd/load -cge-games ~/tta-data/new/cge_games.csv [-cge-new ~/tta-data/new/confirmed-new.csv]
+go run ./cmd/load -cge-extract ../../ttac-ratings-data/cge/extract/2026-10-07 \
+  -cge-settings ../../ttac-ratings-data/cge/settings [-cge-pairs <file>] [-apply]
 ```
+
+The extract in the data repository is gzipped (`gzip -dk` restores it).
 
 **A first database from match CSVs.** A directory without a
 `manifest.json` is loaded as match CSVs, every `*.csv` at its top level in

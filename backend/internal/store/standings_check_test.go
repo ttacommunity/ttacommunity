@@ -6,6 +6,8 @@ import (
 	"context"
 	"fmt"
 	"slices"
+	"strconv"
+	"strings"
 	"testing"
 
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -66,33 +68,59 @@ func gone(name string, user int) seat                { return seat{name, -5, "ti
 func heldGame(tb testing.TB, pool *pgxpool.Pool, t, s int, seats ...seat) {
 	tb.Helper()
 	ctx := context.Background()
-	var batch int64
+	var batch, group, id int64
 	if err := pool.QueryRow(ctx, "INSERT INTO import_batches (source) VALUES ('admin') RETURNING batch_id").Scan(&batch); err != nil {
 		tb.Fatalf("starting a batch: %v", err)
 	}
-	cols := []any{batch, len(seats), t, s}
-	for i := range 4 {
-		if i < len(seats) {
-			cols = append(cols, seats[i].name, seats[i].score)
-		} else {
-			cols = append(cols, nil, nil)
-		}
-	}
-	var id int64
 	err := pool.QueryRow(ctx, `
-		INSERT INTO matches (batch_id, source_file, source_line, tournament, date, player_count, cge_tournament, cge_season,
-		                     player1, score1, player2, score2, player3, score3, player4, score4)
-		VALUES ($1, 'm.csv', 1, 'a game', '2025-01-01', $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12) RETURNING match_id`,
-		cols...).Scan(&id)
+		WITH se AS (INSERT INTO series (slug, name) VALUES ('held', 'Held') ON CONFLICT (slug) DO UPDATE SET name = excluded.name RETURNING series_id),
+		t AS (INSERT INTO tournaments (series_id, label) SELECT series_id, $3 FROM se
+		      ON CONFLICT (series_id, label) DO UPDATE SET label = excluded.label RETURNING tournament_id),
+		st AS (INSERT INTO stages (tournament_id, label) SELECT tournament_id, $4 FROM t
+		       ON CONFLICT (tournament_id, label) DO UPDATE SET label = excluded.label RETURNING stage_id)
+		INSERT INTO groups (stage_id, name, cge_tournament, cge_stage_number) SELECT stage_id, '', $1, $2 FROM st
+		ON CONFLICT (stage_id, name, cge_tournament, cge_stage_number) DO UPDATE SET name = excluded.name RETURNING group_id`,
+		t, s, strconv.Itoa(t), strconv.Itoa(s)).Scan(&group)
+	if err != nil {
+		tb.Fatalf("finding CGE stage %d/%d: %v", t, s, err)
+	}
+	err = pool.QueryRow(ctx, `
+		INSERT INTO games (batch_id, source_file, source_line, name, date, group_id)
+		VALUES ($1, 'm.csv', 1, 'a game', '2025-01-01', $2) RETURNING game_id`, batch, group).Scan(&id)
 	if err != nil {
 		tb.Fatalf("adding a game: %v", err)
 	}
 	for i, st := range seats {
-		if _, err := pool.Exec(ctx, "INSERT INTO match_seats (match_id, seat, player_name, outcome, cge_user) VALUES ($1, $2, $3, $4, $5)",
-			id, i+1, st.name, st.outcome, st.user); err != nil {
+		for _, q := range []string{
+			"INSERT INTO players (name) VALUES ($1) ON CONFLICT (name) DO NOTHING",
+			"INSERT INTO player_accounts (cge_user, player_id, name) SELECT $2, player_id, $1 FROM players WHERE name = $1 ON CONFLICT DO NOTHING",
+		} {
+			args := []any{st.name}
+			if strings.Contains(q, "$2") {
+				args = append(args, st.user)
+			}
+			if _, err := pool.Exec(ctx, q, args...); err != nil {
+				tb.Fatalf("adding %s: %v", st.name, err)
+			}
+		}
+		_, err := pool.Exec(ctx, `
+			INSERT INTO seats (game_id, seat, player_id, player_name, cge_user, outcome, culture, recorded_score, place)
+			SELECT $1, $2, player_id, $3, $5, $4, CASE WHEN $4 = 'finished' THEN greatest($6::float8, 0) ELSE 0 END, $6,
+			       1 + (SELECT count(*) FROM unnest($7::float8[]) AS o(score) WHERE o.score > $6)
+			FROM players WHERE name = $3`,
+			id, i+1, st.name, st.outcome, st.user, st.score, scoresOf(seats))
+		if err != nil {
 			tb.Fatalf("adding a seat: %v", err)
 		}
 	}
+}
+
+func scoresOf(seats []seat) []float64 {
+	var out []float64
+	for _, s := range seats {
+		out = append(out, s.score)
+	}
+	return out
 }
 
 func samePlaces(a, b Places) bool {
@@ -123,67 +151,164 @@ func differences(c StandingsCheck) []string {
 	return got
 }
 
-func TestCheckStandingsFindsNothingWhenTheGamesAgree(t *testing.T) {
-	pool := migrated(t)
-	heldGame(t, pool, 19, 14, done("ann", 200, 1), done("bob", 150, 2), done("cy", 100, 3))
-	heldGame(t, pool, 19, 14, done("bob", 180, 2), done("ann", 170, 1))
-	got := checked(t, pool,
-		cgeStanding(19, 14, "Gold 1", 1, "ann", 1, 2, 5, []int{0, 1}, []int{1, 0, 0}, nil),
-		cgeStanding(19, 14, "Gold 1", 2, "bob", 2, 2, 6, []int{1, 0}, []int{0, 1, 0}, nil),
-		cgeStanding(19, 14, "Gold 1", 3, "cy", 3, 1, 0, nil, []int{0, 0, 1}, nil),
-	)
-	if len(got.Stages) != 1 || got.Stages[0].Players != 3 || got.Stages[0].Agree != 3 || len(differences(got)) != 0 {
-		t.Errorf("check = %+v, want one stage of 3 players, all agreeing", got)
+// held is a game we hold, of CGE tournament t's stage s; never marks one no one played.
+type held struct {
+	t, s  int
+	seats []seat
+	never bool
+}
+
+func TestCheckStandingsNamesEachDifference(t *testing.T) {
+	tests := []struct {
+		name  string
+		games []held
+		lines []tournamentcsv.CGEStanding
+		want  []string
+	}{
+		{
+			name: "games that agree",
+			games: []held{
+				{t: 19, s: 14, seats: []seat{done("ann", 200, 1), done("bob", 150, 2), done("cy", 100, 3)}},
+				{t: 19, s: 14, seats: []seat{done("bob", 180, 2), done("ann", 170, 1)}},
+			},
+			lines: []tournamentcsv.CGEStanding{
+				cgeStanding(19, 14, "Gold 1", 1, "ann", 1, 2, 5, []int{0, 1}, []int{1, 0, 0}, nil),
+				cgeStanding(19, 14, "Gold 1", 2, "bob", 2, 2, 6, []int{1, 0}, []int{0, 1, 0}, nil),
+				cgeStanding(19, 14, "Gold 1", 3, "cy", 3, 1, 0, nil, []int{0, 0, 1}, nil),
+			},
+		},
+		{
+			name: "a player's groups in a stage add up to one line",
+			games: []held{
+				{t: 5638, s: 2, seats: []seat{done("ann", 200, 1), done("bob", 150, 2)}},
+				{t: 5638, s: 2, seats: []seat{done("ann", 300, 1), done("cy", 100, 3)}},
+			},
+			lines: []tournamentcsv.CGEStanding{
+				cgeStanding(5638, 2, "Group 1 Game 3", 1, "ann", 1, 1, 4, []int{1, 0}, nil, nil),
+				cgeStanding(5638, 2, "Group 1 Game 3", 2, "bob", 2, 1, 0, []int{0, 1}, nil, nil),
+				cgeStanding(5638, 2, "Group 2 Game 4", 1, "ann", 1, 1, 4, []int{1, 0}, nil, nil),
+				cgeStanding(5638, 2, "Group 2 Game 4", 2, "cy", 3, 1, 0, []int{0, 1}, nil, nil),
+			},
+		},
+		{
+			name: "each kind of difference",
+			games: []held{
+				{t: 21, s: 7, seats: []seat{done("ann", 200, 1), done("bob", 150, 2)}},
+				{t: 21, s: 7, seats: []seat{done("ann", 210, 1), done("bob", 190, 2)}},
+				{t: 21, s: 7, seats: []seat{done("dee", 120, 4), done("eve", 110, 5)}},
+			},
+			lines: []tournamentcsv.CGEStanding{
+				cgeStanding(21, 7, "Bronze 1", 1, "ann", 1, 3, 8, []int{3, 0}, nil, nil),
+				cgeStanding(21, 7, "Bronze 1", 2, "bob", 2, 2, 4, []int{1, 1}, nil, nil),
+				cgeStanding(21, 7, "Bronze 1", 3, "cy", 3, 2, 0, []int{0, 2}, nil, nil),
+				cgeStanding(21, 7, "Bronze 2", 1, "dee", 4, 1, 4, []int{1, 0}, nil, nil),
+			},
+			want: []string{"21/7 1 games", "21/7 2 places", "21/7 3 not_held", "21/7 5 not_on_cge"},
+		},
+		{
+			// CGE's AI played on for cy and finished second, so CGE put ann third.
+			name:  "places after an opponent timed out",
+			games: []held{{t: 19, s: 4, seats: []seat{done("bob", 200, 2), done("ann", 150, 1), gone("cy", 3)}}},
+			lines: []tournamentcsv.CGEStanding{
+				cgeStanding(19, 4, "Wood 1", 1, "bob", 2, 1, 5, nil, []int{1, 0, 0}, nil),
+				cgeStanding(19, 4, "Wood 1", 2, "ann", 1, 1, 0, nil, []int{0, 0, 1}, nil),
+				cgeStanding(19, 4, "Wood 1", 3, "cy", 3, 1, 2, nil, []int{0, 1, 0}, nil),
+			},
+			want: []string{"19/4 1 places_after_a_timeout", "19/4 3 places_after_a_timeout"},
+		},
+		{
+			name:  "a tie shares second place",
+			games: []held{{t: 19, s: 3, seats: []seat{done("ann", 200, 1), done("bob", 150, 2), done("cy", 150, 3)}}},
+			lines: []tournamentcsv.CGEStanding{
+				cgeStanding(19, 3, "Gold 1", 1, "ann", 1, 1, 5, nil, []int{1, 0, 0}, nil),
+				cgeStanding(19, 3, "Gold 1", 2, "bob", 2, 1, 1, nil, []int{0, 1, 0}, nil),
+				cgeStanding(19, 3, "Gold 1", 3, "cy", 3, 1, 1, nil, []int{0, 1, 0}, nil),
+			},
+		},
+		{
+			name:  "a player CGE lists with no games is no difference",
+			games: []held{{t: 19, s: 3, seats: []seat{done("ann", 200, 1), done("bob", 150, 2)}}},
+			lines: []tournamentcsv.CGEStanding{
+				cgeStanding(19, 3, "Gold 1", 1, "ann", 1, 1, 4, []int{1, 0}, nil, nil),
+				cgeStanding(19, 3, "Gold 1", 2, "bob", 2, 1, 0, []int{0, 1}, nil, nil),
+				cgeStanding(19, 3, "Gold 1", 3, "quit", 3, 0, 0, nil, nil, nil),
+			},
+		},
+		{
+			name:  "CGE's zero lines are sizes not played",
+			games: []held{{t: 19, s: 17, seats: []seat{done("ann", 200, 1), done("bob", 150, 2), done("cy", 100, 3)}}},
+			lines: []tournamentcsv.CGEStanding{
+				cgeStanding(19, 17, "Gold 1", 1, "ann", 1, 1, 5, []int{0, 0}, []int{1, 0, 0}, nil),
+				cgeStanding(19, 17, "Gold 1", 2, "bob", 2, 1, 2, []int{0, 0}, []int{0, 1, 0}, []int{0, 0, 0, 0}),
+				cgeStanding(19, 17, "Gold 1", 3, "cy", 3, 1, 0, nil, []int{0, 0, 1}, nil),
+			},
+		},
+		{
+			// CGE counts the game, and places its seats as its AI finished them.
+			name: "a game no one played, counted as CGE does",
+			games: []held{
+				{t: 19, s: 3, seats: []seat{done("ann", 200, 1), done("bob", 150, 2)}},
+				{t: 19, s: 3, seats: []seat{gone("ann", 1), gone("bob", 2)}, never: true},
+			},
+			lines: []tournamentcsv.CGEStanding{
+				cgeStanding(19, 3, "Gold 1", 1, "ann", 1, 2, 4, []int{1, 1}, nil, nil),
+				cgeStanding(19, 3, "Gold 1", 2, "bob", 2, 2, 4, []int{1, 1}, nil, nil),
+			},
+			want: []string{"19/3 1 places_after_a_timeout", "19/3 2 places_after_a_timeout"},
+		},
+		{
+			name: "a CGE count without the game no one played",
+			games: []held{
+				{t: 4369, s: 1, seats: []seat{done("ann", 200, 1), done("bob", 150, 2)}},
+				{t: 4369, s: 1, seats: []seat{gone("ann", 1), gone("bob", 2)}, never: true},
+			},
+			lines: []tournamentcsv.CGEStanding{
+				cgeStanding(4369, 1, "group 1", 1, "ann", 1, 1, 4, []int{1, 0}, nil, nil),
+				cgeStanding(4369, 1, "group 1", 2, "bob", 2, 1, 0, []int{0, 1}, nil, nil),
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			pool := migrated(t)
+			for _, g := range tt.games {
+				heldGame(t, pool, g.t, g.s, g.seats...)
+				if g.never {
+					if _, err := pool.Exec(context.Background(), "UPDATE games SET state = 'never_played' WHERE game_id = (SELECT max(game_id) FROM games)"); err != nil {
+						t.Fatal(err)
+					}
+				}
+			}
+			if d := differences(checked(t, pool, tt.lines...)); !slices.Equal(d, tt.want) {
+				t.Errorf("differences = %q, want %q", d, tt.want)
+			}
+		})
 	}
 }
 
-func TestCheckStandingsAddsUpAPlayersGroupsInAStage(t *testing.T) {
-	pool := migrated(t)
-	heldGame(t, pool, 5638, 2, done("ann", 200, 1), done("bob", 150, 2))
-	heldGame(t, pool, 5638, 2, done("ann", 300, 1), done("cy", 100, 3))
-	got := checked(t, pool,
-		cgeStanding(5638, 2, "Group 1 Game 3", 1, "ann", 1, 1, 4, []int{1, 0}, nil, nil),
-		cgeStanding(5638, 2, "Group 1 Game 3", 2, "bob", 2, 1, 0, []int{0, 1}, nil, nil),
-		cgeStanding(5638, 2, "Group 2 Game 4", 1, "ann", 1, 1, 4, []int{1, 0}, nil, nil),
-		cgeStanding(5638, 2, "Group 2 Game 4", 2, "cy", 3, 1, 0, []int{0, 1}, nil, nil),
-	)
-	if d := differences(got); len(d) != 0 || got.Stages[0].Agree != 3 {
-		t.Errorf("differences = %q, check %+v; want ann's two groups counted as one line that agrees", d, got)
-	}
-}
-
-func TestCheckStandingsNamesEachKindOfDifference(t *testing.T) {
+func TestCheckStandingsCountsPlayersAndAgreements(t *testing.T) {
 	pool := migrated(t)
 	heldGame(t, pool, 21, 7, done("ann", 200, 1), done("bob", 150, 2))
-	heldGame(t, pool, 21, 7, done("ann", 210, 1), done("bob", 190, 2))
 	heldGame(t, pool, 21, 7, done("dee", 120, 4), done("eve", 110, 5))
+	heldGame(t, pool, 19, 3, done("ann", 200, 1), done("bob", 150, 2))
 	got := checked(t, pool,
-		cgeStanding(21, 7, "Bronze 1", 1, "ann", 1, 3, 8, []int{3, 0}, nil, nil),
-		cgeStanding(21, 7, "Bronze 1", 2, "bob", 2, 2, 4, []int{1, 1}, nil, nil),
+		cgeStanding(21, 7, "Bronze 1", 1, "ann", 1, 1, 4, []int{1, 0}, nil, nil),
+		cgeStanding(21, 7, "Bronze 1", 2, "bob", 2, 1, 0, []int{0, 1}, nil, nil),
 		cgeStanding(21, 7, "Bronze 1", 3, "cy", 3, 2, 0, []int{0, 2}, nil, nil),
 		cgeStanding(21, 7, "Bronze 2", 1, "dee", 4, 1, 4, []int{1, 0}, nil, nil),
+		cgeStanding(19, 3, "Gold 1", 1, "ann", 1, 1, 4, []int{1, 0}, nil, nil),
+		cgeStanding(19, 3, "Gold 1", 2, "bob", 2, 1, 0, []int{0, 1}, nil, nil),
+		cgeStanding(19, 3, "Gold 1", 3, "quit", 3, 0, 0, nil, nil, nil),
+		cgeStanding(5600, 1, "group 1", 1, "ann", 1, 1, 4, []int{1, 0}, nil, nil),
 	)
-	want := []string{"21/7 1 games", "21/7 2 places", "21/7 3 not_held", "21/7 5 not_on_cge"}
-	if d := differences(got); !slices.Equal(d, want) {
-		t.Errorf("differences = %q, want %q", d, want)
+	var stages []string
+	for _, st := range got.Stages {
+		stages = append(stages, fmt.Sprintf("%d/%d %d players %d agree", st.CGETournament, st.CGESeason, st.Players, st.Agree))
 	}
-	if st := got.Stages[0]; st.Players != 5 || st.Agree != 1 {
-		t.Errorf("stage = %d players, %d agree; want 5 and 1 (dee)", st.Players, st.Agree)
-	}
-}
-
-func TestCheckStandingsSaysWhenAnOpponentTimedOut(t *testing.T) {
-	pool := migrated(t)
-	// CGE's AI played on for cy and finished second, so CGE put ann third.
-	heldGame(t, pool, 19, 4, done("bob", 200, 2), done("ann", 150, 1), gone("cy", 3))
-	got := checked(t, pool,
-		cgeStanding(19, 4, "Wood 1", 1, "bob", 2, 1, 5, nil, []int{1, 0, 0}, nil),
-		cgeStanding(19, 4, "Wood 1", 2, "ann", 1, 1, 0, nil, []int{0, 0, 1}, nil),
-		cgeStanding(19, 4, "Wood 1", 3, "cy", 3, 1, 2, nil, []int{0, 1, 0}, nil),
-	)
-	want := []string{"19/4 1 places_after_a_timeout", "19/4 3 places_after_a_timeout"}
-	if d := differences(got); !slices.Equal(d, want) {
-		t.Errorf("differences = %q, want %q", d, want)
+	// 21/7: ann, bob, dee agree; cy is only on CGE, eve only here. 19/3: quit played nothing. 5600/1 is only on CGE.
+	want := []string{"19/3 2 players 2 agree", "21/7 5 players 3 agree"}
+	if !slices.Equal(stages, want) || got.StagesOnlyOnCGE != 1 {
+		t.Errorf("stages = %q, only on CGE %d; want %q and 1", stages, got.StagesOnlyOnCGE, want)
 	}
 }
 
@@ -199,91 +324,5 @@ func TestCheckStandingsShowsBothSidesOfADifference(t *testing.T) {
 	if d.Player != "ann" || d.CGEGames != 2 || d.HeldGames != 1 || d.CGEPoints != 5 ||
 		!samePlaces(d.CGEPlaces, Places{P2: []int{1, 0}, P3: []int{0, 1, 0}}) || !samePlaces(d.HeldPlaces, Places{P3: []int{1, 0, 0}}) {
 		t.Errorf("difference = %+v, want ann: CGE 2 games, 5 points, a 2p first and a 3p second; held 1 game, a 3p first", d)
-	}
-}
-
-func TestCheckStandingsSharesATiedPlace(t *testing.T) {
-	pool := migrated(t)
-	heldGame(t, pool, 19, 3, done("ann", 200, 1), done("bob", 150, 2), done("cy", 150, 3))
-	got := checked(t, pool,
-		cgeStanding(19, 3, "Gold 1", 1, "ann", 1, 1, 5, nil, []int{1, 0, 0}, nil),
-		cgeStanding(19, 3, "Gold 1", 2, "bob", 2, 1, 1, nil, []int{0, 1, 0}, nil),
-		cgeStanding(19, 3, "Gold 1", 3, "cy", 3, 1, 1, nil, []int{0, 1, 0}, nil),
-	)
-	if d := differences(got); len(d) != 0 {
-		t.Errorf("differences = %q, want none: bob and cy tie for second", d)
-	}
-}
-
-func TestCheckStandingsLeavesOutStagesOnlyOneSideHas(t *testing.T) {
-	pool := migrated(t)
-	heldGame(t, pool, 19, 3, done("ann", 200, 1), done("bob", 150, 2))
-	got := checked(t, pool,
-		cgeStanding(19, 3, "Gold 1", 1, "ann", 1, 1, 4, []int{1, 0}, nil, nil),
-		cgeStanding(19, 3, "Gold 1", 2, "bob", 2, 1, 0, []int{0, 1}, nil, nil),
-		cgeStanding(5600, 1, "group 1", 1, "ann", 1, 1, 4, []int{1, 0}, nil, nil),
-	)
-	if len(got.Stages) != 1 || got.Stages[0].CGETournament != 19 || got.StagesOnlyOnCGE != 1 {
-		t.Errorf("check = %+v, want stage 19/3 checked and one stage only on CGE", got)
-	}
-}
-
-func TestCheckStandingsIgnoresAPlayerCGEListsWithNoGames(t *testing.T) {
-	pool := migrated(t)
-	heldGame(t, pool, 19, 3, done("ann", 200, 1), done("bob", 150, 2))
-	got := checked(t, pool,
-		cgeStanding(19, 3, "Gold 1", 1, "ann", 1, 1, 4, []int{1, 0}, nil, nil),
-		cgeStanding(19, 3, "Gold 1", 2, "bob", 2, 1, 0, []int{0, 1}, nil, nil),
-		cgeStanding(19, 3, "Gold 1", 3, "quit", 3, 0, 0, nil, nil, nil),
-	)
-	if d := differences(got); len(d) != 0 || got.Stages[0].Players != 2 {
-		t.Errorf("differences = %q, players %d; want none, 2 players: one who played no game is no difference", d, got.Stages[0].Players)
-	}
-}
-
-func TestCheckStandingsTakesAnEmptyLineAsNoGamesOfThatSize(t *testing.T) {
-	pool := migrated(t)
-	heldGame(t, pool, 19, 17, done("ann", 200, 1), done("bob", 150, 2), done("cy", 100, 3))
-	got := checked(t, pool,
-		cgeStanding(19, 17, "Gold 1", 1, "ann", 1, 1, 5, []int{0, 0}, []int{1, 0, 0}, nil),
-		cgeStanding(19, 17, "Gold 1", 2, "bob", 2, 1, 2, []int{0, 0}, []int{0, 1, 0}, []int{0, 0, 0, 0}),
-		cgeStanding(19, 17, "Gold 1", 3, "cy", 3, 1, 0, nil, []int{0, 0, 1}, nil),
-	)
-	if d := differences(got); len(d) != 0 {
-		t.Errorf("differences = %q, want none: CGE's zero lines are sizes not played", d)
-	}
-}
-
-func TestCheckStandingsCountsAGameNoOnePlayedAsCGEDoes(t *testing.T) {
-	pool := migrated(t)
-	heldGame(t, pool, 19, 3, done("ann", 200, 1), done("bob", 150, 2))
-	heldGame(t, pool, 19, 3, gone("ann", 1), gone("bob", 2))
-	if _, err := pool.Exec(context.Background(), "UPDATE matches SET state = 'never_played' WHERE match_id = (SELECT max(match_id) FROM matches)"); err != nil {
-		t.Fatal(err)
-	}
-	// CGE counts the game, and places its seats as its AI finished them.
-	got := checked(t, pool,
-		cgeStanding(19, 3, "Gold 1", 1, "ann", 1, 2, 4, []int{1, 1}, nil, nil),
-		cgeStanding(19, 3, "Gold 1", 2, "bob", 2, 2, 4, []int{1, 1}, nil, nil),
-	)
-	want := []string{"19/3 1 places_after_a_timeout", "19/3 2 places_after_a_timeout"}
-	if d := differences(got); !slices.Equal(d, want) {
-		t.Errorf("differences = %q, want %q: the same games, the never-played one placed by CGE's AI", d, want)
-	}
-}
-
-func TestCheckStandingsTakesACountWithoutTheGameNoOnePlayed(t *testing.T) {
-	pool := migrated(t)
-	heldGame(t, pool, 4369, 1, done("ann", 200, 1), done("bob", 150, 2))
-	heldGame(t, pool, 4369, 1, gone("ann", 1), gone("bob", 2))
-	if _, err := pool.Exec(context.Background(), "UPDATE matches SET state = 'never_played' WHERE match_id = (SELECT max(match_id) FROM matches)"); err != nil {
-		t.Fatal(err)
-	}
-	got := checked(t, pool,
-		cgeStanding(4369, 1, "group 1", 1, "ann", 1, 1, 4, []int{1, 0}, nil, nil),
-		cgeStanding(4369, 1, "group 1", 2, "bob", 2, 1, 0, []int{0, 1}, nil, nil),
-	)
-	if d := differences(got); len(d) != 0 {
-		t.Errorf("differences = %q, want none: some CGE tables leave out a game no one played", d)
 	}
 }

@@ -6,7 +6,6 @@ from tta_ratings_engine.data.db import RunNotRunning
 from tta_ratings_engine.data.tournaments import (
     SeriesRulesMissing,
     derive_tournaments,
-    game_points,
     parse_intermezzo,
     parse_international,
     parse_royal_league,
@@ -70,29 +69,32 @@ def test_parse_royal_league(name, want):
     assert parse_royal_league(name) == want
 
 
-def test_game_points_split_ties():
-    four = [6, 3, 1, 0]
-    assert game_points([("a", 90), ("b", 80), ("c", 70), ("d", 60)], four) == {
-        "a": 6,
-        "b": 3,
-        "c": 1,
-        "d": 0,
-    }
-    assert game_points([("a", 90), ("b", 90), ("c", 70), ("d", 70)], four) == {
-        "a": 4.5,
-        "b": 4.5,
-        "c": 0.5,
-        "d": 0.5,
-    }
-    assert game_points([("a", 50), ("b", 50), ("c", 50)], [5, 2, 0]) == {
-        "a": 7 / 3,
-        "b": 7 / 3,
-        "c": 7 / 3,
-    }
-
-
 def gm(n, season=30):
     return f"International S{season} - Grandmaster game {n}"
+
+
+# The series a test game's name places it in, as the load job's classifier does.
+SERIES_OF = (
+    ("International", "international"),
+    ("Intermezzo", "intermezzo"),
+    ("RL_", "royal_league"),
+    ("Worlds", "worlds"),
+)
+
+
+@pytest.fixture
+def add_match(add_match):
+    """The shared add_match, placing a game in the series its name says, so its seats take that series' points."""
+
+    def add(*players, tournament="T", placed="rated", **kw):
+        if placed == "rated":
+            placed = next(
+                (slug for prefix, slug in SERIES_OF if tournament.startswith(prefix)),
+                placed,
+            )
+        return add_match(*players, tournament=tournament, placed=placed, **kw)
+
+    return add
 
 
 @pytest.fixture
@@ -463,56 +465,52 @@ def rl(n, season=9, group="Emperor"):
     return f"RL_s{season:02d} - {group} game {n}"
 
 
-def test_royal_league_head_to_head_breaks_a_tie(conn, add_match, run_id):
-    add_match(("bob", 100), ("ann", 90), tournament=rl(1))
-    add_match(("ann", 100), ("cat", 90), tournament=rl(2))
-    add_match(("bob", 50), ("cat", 90), tournament=rl(3))
-    add_match(("ann", 100), ("cat", 90), tournament=rl(4))
+@pytest.mark.parametrize(
+    "games, want",
+    [
+        pytest.param(
+            [
+                (("bob", 100), ("ann", 90)),
+                (("ann", 100), ("cat", 90)),
+                (("bob", 50), ("cat", 90)),
+                (("ann", 100), ("cat", 90)),
+            ],
+            [("ann", 1, 4.0), ("cat", 2, 2.0), ("bob", 3, 2.0)],
+            id="bob and cat on 2 points: cat beat bob",
+        ),
+        pytest.param(
+            [
+                (("ann", 100), ("bob", 100)),
+                (("ann", 100), ("cat", 100)),
+                (("ann", 100), ("dan", 100)),
+                (("bob", 100), ("cat", 90)),
+                (("dan", 100), ("bob", 90)),
+                (("dan", 100), ("cat", 90)),
+            ],
+            [("dan", 1, 5.0), ("bob", 2, 3.0), ("ann", 3, 3.0), ("cat", 4, 1.0)],
+            id="ann and bob drew, on 3 points: bob has a win, ann three draws",
+        ),
+        pytest.param(
+            [
+                (("ann", 100), ("bob", 100)),
+                (("ann", 100), ("cat", 90)),
+                (("bob", 300), ("dan", 10)),
+                (("cat", 50), ("dan", 40)),
+            ],
+            [("bob", 1, 3.0), ("ann", 2, 3.0), ("cat", 3, 2.0), ("dan", 4, 0.0)],
+            id="ann and bob drew and won once each: bob scored more",
+        ),
+    ],
+)
+def test_royal_league_breaks_ties_by_head_to_head_then_wins_then_total_score(
+    conn, add_match, run_id, games, want
+):
+    for n, seats in enumerate(games, start=1):
+        add_match(*seats, tournament=rl(n))
 
     derive_tournaments(conn=conn, run_id=run_id)
 
-    # bob and cat both have 2 points; cat beat bob.
-    assert standings(conn, run_id, 9) == [
-        ("ann", 1, 4.0),
-        ("cat", 2, 2.0),
-        ("bob", 3, 2.0),
-    ]
-
-
-def test_royal_league_then_wins(conn, add_match, run_id):
-    # ann and bob drew each other and have 3 points: bob with a win, ann with three draws.
-    add_match(("ann", 100), ("bob", 100), tournament=rl(1))
-    add_match(("ann", 100), ("cat", 100), tournament=rl(2))
-    add_match(("ann", 100), ("dan", 100), tournament=rl(3))
-    add_match(("bob", 100), ("cat", 90), tournament=rl(4))
-    add_match(("dan", 100), ("bob", 90), tournament=rl(5))
-    add_match(("dan", 100), ("cat", 90), tournament=rl(6))
-
-    derive_tournaments(conn=conn, run_id=run_id)
-
-    assert standings(conn, run_id, 9) == [
-        ("dan", 1, 5.0),
-        ("bob", 2, 3.0),
-        ("ann", 3, 3.0),
-        ("cat", 4, 1.0),
-    ]
-
-
-def test_royal_league_then_total_score(conn, add_match, run_id):
-    # ann and bob drew each other and each won once; bob scored more in all.
-    add_match(("ann", 100), ("bob", 100), tournament=rl(1))
-    add_match(("ann", 100), ("cat", 90), tournament=rl(2))
-    add_match(("bob", 300), ("dan", 10), tournament=rl(3))
-    add_match(("cat", 50), ("dan", 40), tournament=rl(4))
-
-    derive_tournaments(conn=conn, run_id=run_id)
-
-    assert standings(conn, run_id, 9) == [
-        ("bob", 1, 3.0),
-        ("ann", 2, 3.0),
-        ("cat", 3, 2.0),
-        ("dan", 4, 0.0),
-    ]
+    assert standings(conn, run_id, 9) == want
 
 
 def test_royal_league_boards_score_medals_and_order_by_first_medal(
@@ -731,10 +729,6 @@ def test_a_recorded_top_division_game_is_a_single_game_record(
 
 
 def test_a_seasons_timeout_penalty_costs_points(conn, add_match, run_id):
-    conn.execute(
-        "INSERT INTO tournament_season_rules (series, season, timeout_penalty, source) VALUES ('intermezzo', 8, -1, 's')"
-    )
-    conn.commit()
     for n in range(1, 7):
         cat = (
             -5 if n <= 2 else 70
@@ -746,6 +740,11 @@ def test_a_seasons_timeout_penalty_costs_points(conn, add_match, run_id):
             tournament=im(n),
             day=date(2020, 8, n),
         )
+    conn.execute(
+        "INSERT INTO settings (tournament_id, timeout_penalty) SELECT tournament_id, -1 FROM tournaments "
+        "JOIN series USING (series_id) WHERE slug = 'intermezzo'"
+    )
+    conn.commit()
 
     derive_tournaments(conn=conn, run_id=run_id)
 
@@ -797,7 +796,7 @@ def test_a_game_never_played_gives_no_points_place_or_game(conn, add_match, run_
 
 
 @pytest.fixture
-def worlds_game(conn, add_match):
+def worlds_game(conn, add_match, move_last_game):
     """Returns a function that adds a game to a World Championship season's stage, its CGE tournament in status."""
 
     def add(season, stage, cge_season, status, *players):
@@ -808,25 +807,21 @@ def worlds_game(conn, add_match):
             (cge, f"World Championship {season}", status),
         )
         t = conn.execute(
-            "INSERT INTO tournaments (slug, name) VALUES ('worlds', 'World Championship') "
-            "ON CONFLICT (slug) DO UPDATE SET slug = excluded.slug RETURNING tournament_id"
-        ).fetchone()["tournament_id"]
+            "INSERT INTO series (slug, name) VALUES ('worlds', 'World Championship') "
+            "ON CONFLICT (slug) DO UPDATE SET slug = excluded.slug RETURNING series_id"
+        ).fetchone()["series_id"]
         se = conn.execute(
-            "INSERT INTO tournament_seasons (tournament_id, label) VALUES (%s, %s) "
-            "ON CONFLICT (tournament_id, label) DO UPDATE SET label = excluded.label RETURNING season_id",
+            "INSERT INTO tournaments (series_id, label) VALUES (%s, %s) "
+            "ON CONFLICT (series_id, label) DO UPDATE SET label = excluded.label RETURNING tournament_id",
             (t, str(season)),
-        ).fetchone()["season_id"]
-        st = conn.execute(
-            "INSERT INTO tournament_stages (season_id, label, cge_tournament, cge_season) VALUES (%s, %s, %s, %s) "
-            "ON CONFLICT (season_id, label) DO UPDATE SET label = excluded.label RETURNING stage_id",
-            (se, stage, cge, cge_season),
-        ).fetchone()["stage_id"]
-        match = add_match(
-            *players, tournament=f"Worlds {season} {stage} - Final", placed=None
-        )
+        ).fetchone()["tournament_id"]
         conn.execute(
-            "UPDATE matches SET stage_id = %s WHERE match_id = %s", (st, match)
+            "INSERT INTO stages (tournament_id, label, cge_tournament, cge_stage_number) VALUES (%s, %s, %s, %s) "
+            "ON CONFLICT (tournament_id, label) DO NOTHING",
+            (se, stage, cge, cge_season),
         )
+        add_match(*players, tournament=f"Worlds {season} {stage} - Final", placed=None)
+        move_last_game("worlds", label=str(season), stage=stage)
         conn.commit()
 
     return add
@@ -926,7 +921,7 @@ def test_a_final_tie_the_rules_cannot_split_gives_no_podium(conn, worlds_game, r
 
 def test_league_points_come_from_the_tournament_settings(conn, add_match, run_id):
     conn.execute(
-        "UPDATE tournaments SET points_3p = '{9,1,0}' WHERE slug = 'international'"
+        "UPDATE settings SET points_3p = '{9,1,0}' WHERE series_id = (SELECT series_id FROM series WHERE slug = 'international')"
     )
     add_match(("ann", 100), ("bob", 90), ("cat", 80), tournament=gm(1))
 
@@ -941,7 +936,7 @@ def test_league_points_come_from_the_tournament_settings(conn, add_match, run_id
 
 def test_top_divisions_come_from_the_tournament_settings(conn, add_match, run_id):
     conn.execute(
-        "UPDATE tournaments SET top_divisions = '{Gold}' WHERE slug = 'international'"
+        "UPDATE series SET top_divisions = '{Gold}' WHERE slug = 'international'"
     )
     add_match(("ann", 90), ("bob", 80), ("cat", 70), tournament=gm(1))
     add_match(
@@ -960,7 +955,7 @@ def test_the_world_championship_final_is_scored_from_its_settings(
     conn, worlds_game, run_id
 ):
     conn.execute(
-        "UPDATE tournaments SET points_4p = '{1,1,1,0}', points_3p = '{1,1,0}', points_2p = '{1,0}' WHERE slug = 'worlds'"
+        "UPDATE settings SET points_4p = '{1,1,1,0}', points_3p = '{1,1,0}', points_2p = '{1,0}' WHERE series_id = (SELECT series_id FROM series WHERE slug = 'worlds')"
     )
     a_final(worlds_game)
 
@@ -972,10 +967,10 @@ def test_the_world_championship_final_is_scored_from_its_settings(
 @pytest.mark.parametrize(
     "change",
     [
-        "UPDATE tournaments SET points_2p = '{}', points_3p = '{}', points_4p = '{}' WHERE slug = 'intermezzo'",
-        "UPDATE tournaments SET top_divisions = '{}' WHERE slug = 'royal_league'",
-        "UPDATE tournaments SET points_2p = '{}', points_3p = '{}', points_4p = '{}' WHERE slug = 'worlds'",
-        "DELETE FROM tournaments WHERE slug = 'international'",
+        "DELETE FROM settings WHERE series_id = (SELECT series_id FROM series WHERE slug = 'intermezzo')",
+        "UPDATE series SET top_divisions = '{}' WHERE slug = 'royal_league'",
+        "DELETE FROM settings WHERE series_id = (SELECT series_id FROM series WHERE slug = 'worlds')",
+        "DELETE FROM series WHERE slug = 'international'",
     ],
 )
 def test_derive_refuses_a_series_without_its_rules(conn, run_id, change):
@@ -1009,12 +1004,12 @@ def test_slow_burn_records_name_its_edition_and_stage_from_the_catalogue(
             placed="slow_burn",
             group="group 1",
         )
-    conn.execute("UPDATE tournaments SET name = 'Slow Burn' WHERE slug = 'slow_burn'")
+    conn.execute("UPDATE series SET name = 'Slow Burn' WHERE slug = 'slow_burn'")
     conn.execute(
-        "UPDATE tournament_seasons se SET label = '1 (2024)' FROM tournaments t WHERE t.tournament_id = se.tournament_id AND t.slug = 'slow_burn'"
+        "UPDATE tournaments se SET label = '1 (2024)' FROM series t WHERE t.series_id = se.series_id AND t.slug = 'slow_burn'"
     )
-    conn.execute("UPDATE tournament_stages st SET label = 'Season 10' FROM tournament_seasons se JOIN tournaments t USING (tournament_id) "
-                 "WHERE st.season_id = se.season_id AND t.slug = 'slow_burn'")  # fmt: skip
+    conn.execute("UPDATE stages st SET label = 'Season 10' FROM tournaments se JOIN series t USING (series_id) "
+                 "WHERE st.tournament_id = se.tournament_id AND t.slug = 'slow_burn'")  # fmt: skip
     conn.commit()
 
     derive_tournaments(conn=conn, run_id=run_id)

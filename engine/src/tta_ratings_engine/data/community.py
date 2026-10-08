@@ -200,7 +200,7 @@ def rung_value(rung, rule):
 
 
 def round_points(games, rule):
-    """Returns {player: points} for one ladder round: games are (group, [(player, score)]).
+    """Returns {player: points} for one ladder round: games are (group, [(player, place)]).
 
     Each place earns its share of the rung's value, rounded; tied players average their places' unrounded shares.
     """
@@ -209,9 +209,9 @@ def round_points(games, rule):
     got = {}
     for group, seats in games:
         value = rung_value(rung[group], rule)
-        for name, score in seats:
-            better = sum(1 for _, o in seats if o > score)
-            tied = sum(1 for _, o in seats if o == score)
+        for name, place in seats:
+            better = sum(1 for _, o in seats if o < place)
+            tied = sum(1 for _, o in seats if o == place)
             share = (
                 sum(
                     shares[p] if p < len(shares) else 0
@@ -282,15 +282,15 @@ def derive_community(*, conn: psycopg.Connection, run_id: int) -> None:
         names = {
             r["cge_user"]: r["name"]
             for r in conn.execute(
-                "SELECT cge_user, mode() WITHIN GROUP (ORDER BY player_name) AS name FROM match_seats "
+                "SELECT cge_user, mode() WITHIN GROUP (ORDER BY player_name) AS name FROM seats "
                 "WHERE cge_user IS NOT NULL GROUP BY cge_user"
             )
         }
         seasons = conn.execute(
-            """SELECT t.slug, s.label, s.season_id, q.year,
-                      (SELECT extract(year FROM max(m.date))::int FROM matches m JOIN tournament_stages x USING (stage_id)
-                       WHERE x.season_id = s.season_id) AS finished
-               FROM tournament_seasons s JOIN tournaments t USING (tournament_id)
+            """SELECT t.slug, s.label, s.tournament_id AS season_id, q.year,
+                      (SELECT extract(year FROM max(m.date))::int FROM game_lines m
+                       WHERE m.tournament_id = s.tournament_id) AS finished
+               FROM tournaments s JOIN series t USING (series_id)
                LEFT JOIN community_quarters q ON q.tournament = t.slug AND q.season = s.label
                WHERE t.in_community_leaderboard AND s.in_community AND t.slug = ANY(%s)""",
             (list(KINDS),),
@@ -305,8 +305,8 @@ def derive_community(*, conn: psycopg.Connection, run_id: int) -> None:
                     """SELECT c.cge_season, c.group_name, c.place, c.row_number, c.cge_user, c.player_name, c.points
                        FROM cge_standings c
                        WHERE c.games > 0 AND EXISTS (
-                         SELECT 1 FROM tournament_stages x WHERE x.season_id = %s
-                         AND x.cge_tournament = c.cge_tournament AND (%s OR x.cge_season = c.cge_season))""",
+                         SELECT 1 FROM stages x WHERE x.tournament_id = %s
+                         AND x.cge_tournament = c.cge_tournament AND (%s OR x.cge_stage_number = c.cge_season))""",
                     (s["season_id"], s["slug"] in CUPS),
                 )
             ]  # fmt: skip
@@ -348,12 +348,12 @@ def _rank_editions(conn, run_id, rows, points):
     finished = {
         (r["slug"], r["label"]): r["last"]
         for r in conn.execute(
-            "SELECT t.slug, s.label, max(m.date) AS last FROM matches m JOIN tournament_stages x USING (stage_id) "
-            "JOIN tournament_seasons s USING (season_id) JOIN tournaments t USING (tournament_id) GROUP BY 1, 2"
+            "SELECT t.slug, s.label, max(m.date) AS last FROM game_lines m "
+            "JOIN tournaments s ON s.tournament_id = m.tournament_id JOIN series t ON t.series_id = m.series_id GROUP BY 1, 2"
         )
     }
     latest = conn.execute(
-        "SELECT max(date) AS d FROM matches WHERE state = 'played'"
+        "SELECT max(date) AS d FROM games WHERE state = 'played'"
     ).fetchone()["d"]
     events = defaultdict(dict)  # (year, quarter) -> {(player, code): points}
     chosen = defaultdict(
@@ -480,18 +480,13 @@ def _ladder_rounds(conn):
         rounds = defaultdict(list)
         finished = {}
         for r in conn.execute(
-            """SELECT s.label, coalesce(m.cge_finished, m.date) AS date, m.group_label, m.player1, m.score1, m.player2, m.score2,
-                      m.player3, m.score3, m.player4, m.score4
-               FROM matches m JOIN tournament_stages x USING (stage_id) JOIN tournament_seasons s USING (season_id)
-               JOIN tournaments t USING (tournament_id)
+            """SELECT s.label, coalesce(m.cge_finished, m.date) AS date, m.group_name AS group_label, m.players, m.places
+               FROM game_lines m JOIN tournaments s ON s.tournament_id = m.tournament_id
+               JOIN series t ON t.series_id = m.series_id
                WHERE t.slug = %s AND t.in_community_leaderboard AND s.in_community AND m.state = 'played'""",
             (slug,),
         ):
-            seats = [
-                (r[f"player{i}"], r[f"score{i}"])
-                for i in range(1, 5)
-                if r[f"player{i}"]
-            ]
+            seats = list(zip(r["players"], r["places"]))
             rounds[r["label"]].append((r["group_label"], seats))
             finished[r["label"]] = max(finished.get(r["label"], r["date"]), r["date"])
         got[slug] = (

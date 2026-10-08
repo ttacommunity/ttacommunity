@@ -151,14 +151,14 @@ func (r *RatingsReader) CurrentRun(ctx context.Context) (PublishedRun, error) {
 	return run, nil
 }
 
-// RunLastGame returns the date of a run's last game, or nil for a run that
-// recorded none. An unknown run is ErrRunNotFound.
+// RunLastGame returns the date of a published run's last game, or nil for a run that
+// recorded none. An unknown or unpublished run is ErrRunNotFound.
 func (r *RatingsReader) RunLastGame(ctx context.Context, run int64) (*time.Time, error) {
+	if err := r.requirePublished(ctx, run); err != nil {
+		return nil, err
+	}
 	var last *time.Time
 	err := r.pool.QueryRow(ctx, "SELECT last_game FROM rating_runs WHERE run_id = $1", run).Scan(&last)
-	if errors.Is(err, pgx.ErrNoRows) {
-		return nil, ErrRunNotFound
-	}
 	if err != nil {
 		return nil, fmt.Errorf("reading run %d's last game: %w", run, err)
 	}

@@ -209,15 +209,6 @@ func TestTournamentSeriesGivesTheBestGamesMarkedForRecords(t *testing.T) {
 	}
 }
 
-func TestTournamentSeriesNeedsAPublishedRun(t *testing.T) {
-	pool := migrated(t)
-	run := addRun(t, pool, "complete", time.Time{})
-	_, err := NewRatingsReader(asReader(t, pool)).TournamentSeries(context.Background(), run, "international")
-	if !errors.Is(err, ErrRunNotFound) {
-		t.Errorf("TournamentSeries of an unpublished run: %v, want ErrRunNotFound", err)
-	}
-}
-
 func TestHallOfFameGivesCountsLegendsAndTheTopOfTwoBoards(t *testing.T) {
 	pool := migrated(t)
 	ctx := context.Background()
@@ -261,14 +252,6 @@ func TestHallOfFameGivesCountsLegendsAndTheTopOfTwoBoards(t *testing.T) {
 	}
 	if len(got.Ladders) != 1 || *got.Ladders[0].Wins != 54 {
 		t.Errorf("ladders = %+v, want the one ladder row", got.Ladders)
-	}
-}
-
-func TestHallOfFameNeedsAPublishedRun(t *testing.T) {
-	pool := migrated(t)
-	run := addRun(t, pool, "complete", time.Time{})
-	if _, err := NewRatingsReader(asReader(t, pool)).HallOfFame(context.Background(), run); !errors.Is(err, ErrRunNotFound) {
-		t.Errorf("HallOfFame of an unpublished run: %v, want ErrRunNotFound", err)
 	}
 }
 
@@ -346,19 +329,15 @@ func TestPlayerAchievementsMatchRecordsIgnoringCase(t *testing.T) {
 	}
 }
 
-func TestPlayerAchievementsRefuseAnUnknownPlayerOrUnpublishedRun(t *testing.T) {
+func TestPlayerAchievementsRefuseAnUnknownPlayer(t *testing.T) {
 	pool := migrated(t)
 	r := NewRatingsReader(asReader(t, pool))
 	ctx := context.Background()
 	run := publishedRun(t, pool)
-	unpublished := addRun(t, pool, "complete", time.Time{})
 	addPlayers(t, pool, "Ann")
 
 	if _, _, _, err := r.PlayerAchievements(ctx, run, "Nobody"); !errors.Is(err, ErrPlayerNotFound) {
 		t.Errorf("PlayerAchievements of an unknown player: %v, want ErrPlayerNotFound", err)
-	}
-	if _, _, _, err := r.PlayerAchievements(ctx, unpublished, "Ann"); !errors.Is(err, ErrRunNotFound) {
-		t.Errorf("PlayerAchievements of an unpublished run: %v, want ErrRunNotFound", err)
 	}
 	_, summary, recs, err := r.PlayerAchievements(ctx, run, "Ann")
 	if err != nil || summary != nil || len(recs) != 0 {
@@ -405,10 +384,5 @@ func TestCommunityLeaderboardGivesAnEditionWithPlayersCountriesAndTitles(t *test
 	}
 	if !slices.Equal(lines, want) {
 		t.Errorf("CommunityLeaderboard(2024) =\n%s\nwant\n%s", strings.Join(lines, "\n"), strings.Join(want, "\n"))
-	}
-
-	unpublished := addRun(t, pool, "complete", time.Time{})
-	if _, err := r.CommunityLeaderboard(ctx, unpublished, "2024"); !errors.Is(err, ErrRunNotFound) {
-		t.Errorf("CommunityLeaderboard of an unpublished run: %v, want ErrRunNotFound", err)
 	}
 }

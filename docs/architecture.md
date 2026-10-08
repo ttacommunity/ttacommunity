@@ -103,14 +103,21 @@ a new kind of data arrives.
 
 ```mermaid
 erDiagram
-    import_batches ||--o{ matches : "loaded by"
+    import_batches ||--o{ games : "loaded by"
     import_batches ||--o{ refused_rows : "refused by"
-    tournaments ||--o{ tournament_seasons : has
-    tournament_seasons ||--o{ tournament_stages : has
-    tournament_stages ||--o{ matches : "played in"
-    matches ||--o{ match_seats : "who, score, CGE name"
-    rankings ||--o{ ranking_tournaments : "counts"
-    tournaments ||--o{ ranking_tournaments : "counted in"
+    series ||--o{ tournaments : has
+    tournaments ||--o{ stages : has
+    stages ||--o{ groups : has
+    groups ||--o{ games : "played in"
+    groups ||--o{ group_members : has
+    games ||--o{ seats : "one per player"
+    players ||--o{ player_accounts : "CGE accounts"
+    player_accounts ||--o{ seats : "played"
+    series ||--o| settings : "defaults"
+    tournaments ||--o| settings : "overrides"
+    stages ||--o| settings : "overrides"
+    rankings ||--o{ ranking_series : "counts"
+    series ||--o{ ranking_series : "counted in"
     rankings ||--o{ rating_runs : "computed as"
     rating_runs ||--o| current_run : "published as"
     rating_runs ||--o{ RUN_RESULTS : "writes"
@@ -119,12 +126,24 @@ erDiagram
     }
 ```
 
+A **series** (International, World Championship) holds **tournaments** (a
+season or a year), each in **stages**, each in **groups** of **games**. A
+**seat** is one player in one game: their culture (never negative), their
+**place** (finishers by CGE's standing, then resigners, the last to resign
+highest, then timed-out players, tied last) and how they finished. A
+**setting** (points per place, time-out penalty, tiebreakers) sits on a
+series and may be overridden by a tournament or a stage. Two views put this
+together: `stage_settings` (each stage's settings, resolved) and
+`game_lines` (one row per game, its seats in seat order and each seat's game
+points). The engine rates who placed above whom, and scores standings from
+game points.
+
 The tables fall into five groups:
 
 | Group | What it holds | Tables (examples) | Written by |
 |---|---|---|---|
-| **Games** | Every game and its seats: players, scores, CGE game and names, its state (played, never played, unconfirmed). The input to every run | `matches`, `match_seats`, `players`, `import_batches`, `refused_rows` | load job |
-| **Catalogue and recorded facts** | Tournaments, seasons and stages; what counts towards which ranking; and what games cannot say: official placements, divisions, podium and title overrides, rules, notes, cards, regulations, stories, CGE's own standings, community points | `tournaments`, `tournament_seasons`, `tournament_stages`, `rankings`, `ranking_tournaments`, `cge_tournaments`, `tournament_official_placements`, `tournament_cards`, `community_scores`, `badges` | load job, admin |
+| **Games** | Every game and its seats: players, culture, place, outcome, CGE game, account and times; its state (played, never played, unconfirmed, running, prepared). The input to every run | `games`, `seats`, `players`, `player_accounts`, `import_batches`, `refused_rows` | load job |
+| **Catalogue and recorded facts** | Series, tournaments, stages and groups with their settings; what counts towards which ranking; and what games cannot say: official placements, divisions, podium and title overrides, rules, notes, cards, regulations, stories, CGE's own standings, community points | `series`, `tournaments`, `stages`, `groups`, `settings`, `rankings`, `ranking_series`, `cge_tournaments`, `tournament_official_placements`, `tournament_cards`, `community_scores`, `badges` | load job, admin |
 | **Runs** | One row per computation: its ranking, engine version, input fingerprint, status, progress, whether it is protected; and which run each ranking publishes | `rating_runs`, `run_progress`, `current_run` | engine, admin |
 | **Run results** | Everything a run computes, each row keyed by `run_id`: ratings and history per model and format, the 1v1 pairs, calibration, titles, tournament standings, boards, records and achievements, the community leaderboard | `player_ratings`, `rating_history`, `pairwise_matches`, `player_titles`, `tournament_standings`, `tournament_records`, `community_rankings` | engine |
 | **Admin** | Who may use admin and with which role; an audit of every admin change | `admins`, `admin_audit` | admin |

@@ -255,7 +255,7 @@ def derive_tournament_badges(
         require_running(conn, run_id)
         # Determine 1-year (12-month) recency cutoff based on latest match in DB
         max_row = conn.execute(
-            "SELECT to_char(MAX(date), 'YYYY-MM-DD') AS max_date FROM matches WHERE state = 'played'"
+            "SELECT to_char(MAX(date), 'YYYY-MM-DD') AS max_date FROM games WHERE state = 'played'"
         ).fetchone()
         if not max_row or not max_row["max_date"]:
             return {}
@@ -265,11 +265,10 @@ def derive_tournament_badges(
         # All tournament matches, with the division the run recorded for a name that has none
         rows = conn.execute(
             """
-            SELECT m.tournament, to_char(m.date, 'YYYY-MM-DD') AS date,
-                   m.player1, m.player2, m.player3, m.player4, tg.series, tg.division
-            FROM matches m
-            LEFT JOIN tournament_games tg ON tg.match_id = m.match_id AND tg.run_id = %s
-            WHERE m.tournament IS NOT NULL AND m.state = 'played'
+            SELECT m.name AS tournament, to_char(m.date, 'YYYY-MM-DD') AS date, m.players, tg.series, tg.division
+            FROM game_lines m
+            LEFT JOIN tournament_games tg ON tg.match_id = m.game_id AND tg.run_id = %s
+            WHERE m.state = 'played'
             ORDER BY m.date DESC
         """,
             (run_id,),
@@ -293,11 +292,7 @@ def derive_tournament_badges(
             d_str = r["date"]
             yr = int(d_str[:4])
 
-            participants = [r["player1"], r["player2"]]
-            if r["player3"]:
-                participants.append(r["player3"])
-            if r["player4"]:
-                participants.append(r["player4"])
+            participants = list(r["players"])
 
             for p in participants:
                 if not p:

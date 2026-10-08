@@ -11,6 +11,8 @@ selection.
 import re
 from collections import defaultdict
 
+from tta_ratings_engine.data.seats import by_place, seats_of
+
 PLACES = ("gold", "silver", "bronze")
 LABELS = ("Champion", "Runner-Up", "3rd Place")
 
@@ -132,14 +134,8 @@ def worlds_board(placements) -> list[dict]:
 
 
 def _players(r):
-    """Returns a game's players and scores, highest first, a missing score as 0."""
-    seats = [(r[f"player{i}"], r[f"score{i}"]) for i in range(1, 5)][
-        : r["player_count"]
-    ]
-    return sorted(
-        ((p, float(s) if s is not None else 0.0) for p, s in seats if p),
-        key=lambda ps: -ps[1],
-    )
+    """Returns a game's players and cultures, best place first."""
+    return [(s.player, s.culture) for s in by_place(seats_of(r)) if s.player]
 
 
 # The cups on the Grand Slams board, by catalogue slug.

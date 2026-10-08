@@ -10,17 +10,18 @@ from tta_ratings_engine.data.series_pages import (
 
 
 def match(tournament, *players, day=date(2025, 1, 1), match_id=0):
-    """A matches row as derive_tournaments reads it."""
-    row = {
+    """A game row as derive_tournaments reads it."""
+    return {
         "match_id": match_id,
         "tournament": tournament,
         "date": day,
         "player_count": len(players),
+        "players": [p for p, _ in players],
+        "places": [1 + sum(1 for _, o in players if o > s) for _, s in players],
+        "cultures": [max(s, 0) for _, s in players],
+        "outcomes": ["finished" if s >= 0 else "timed_out" for _, s in players],
+        "game_points": [None for _ in players],
     }
-    for i in range(1, 5):
-        name, score = players[i - 1] if i <= len(players) else (None, None)
-        row[f"player{i}"], row[f"score{i}"] = name, score
-    return row
 
 
 def numbered(*rows):

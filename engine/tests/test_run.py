@@ -89,6 +89,10 @@ def test_a_run_writes_tournament_results(conn, add_match):
         day=date(2022, 2, 12),
         tournament="International S30 - Grandmaster game 1",
     )
+    conn.execute(
+        "INSERT INTO settings (series_id, points_3p) SELECT series_id, '{5,2,0}' FROM series WHERE slug = 'rated'"
+    )
+    conn.commit()
 
     run_id = run(conn, "v-test", formats=[2], log=lambda _: None)
 
@@ -153,13 +157,13 @@ def test_a_run_writes_tournament_results(conn, add_match):
             "INSERT INTO tournament_career_honours "
             "VALUES ('q_and_d', 'Ann', 1, 0, 0, NULL, 's')"
         ),
-        "INSERT INTO tournament_season_rules (series, season, timeout_penalty, source) VALUES ('intermezzo', 6, -1, 's')",
+        "INSERT INTO settings (series_id, timeout_penalty) SELECT series_id, -1 FROM series WHERE slug = 'rated'",
         "INSERT INTO tournament_cup_podiums VALUES ('wimbledon', '2024', '', 1, 'Ann', 's', '2025-02-24')",
         "INSERT INTO tournament_podium_overrides (tournament, season, place, player_name) VALUES ('worlds', '2025', 1, 'Ann')",
         "INSERT INTO cge_tournaments (cge_tournament, name, status) VALUES (5204, 'World Championship 2025', 'finished')",
         "INSERT INTO player_title_overrides VALUES ('Ann', 'GM', 'r')",
-        "UPDATE tournament_seasons SET rated = false",
-        "UPDATE tournaments SET rated_player_counts = '{2,3}'",
+        "UPDATE tournaments SET rated = false",
+        "UPDATE series SET rated_player_counts = '{2,3}'",
     ],
 )
 def test_a_recorded_fact_changes_the_input_fingerprint(conn, add_match, fact):
@@ -230,13 +234,6 @@ def test_a_failure_marks_the_run_failed_and_is_raised(conn, add_match, monkeypat
     assert current(conn) is None
 
 
-def test_an_empty_database_is_refused_before_a_run_starts(conn):
-    with pytest.raises(runner.NoMatches):
-        run(conn, "v-test", log=lambda _: None)
-
-    assert conn.execute("SELECT count(*) AS n FROM rating_runs").fetchone()["n"] == 0
-
-
 def test_the_command_needs_an_engine_version(monkeypatch, db_url):
     monkeypatch.setenv("RATINGS_DATABASE_URL", db_url)
     monkeypatch.delenv("ENGINE_VERSION", raising=False)
@@ -258,22 +255,6 @@ def test_the_command_runs_the_formats_asked_for(monkeypatch, db_url, conn, add_m
         "SELECT DISTINCT player_count FROM player_ratings WHERE run_id = %s", (run_id,)
     ).fetchall()
     assert [r["player_count"] for r in formats] == [2]
-
-
-@pytest.mark.parametrize(
-    "table", ["player_titles", "tournament_group_divisions", "tournament_series"]
-)
-def test_a_database_missing_a_migration_is_refused_before_a_run_starts(
-    conn, add_match, table
-):
-    season(add_match)
-    conn.execute(f"DROP TABLE {table} CASCADE")
-    conn.commit()
-
-    with pytest.raises(runner.SchemaOutOfDate, match=table):
-        run(conn, "v-test", log=lambda _: None)
-
-    assert conn.execute("SELECT count(*) AS n FROM rating_runs").fetchone()["n"] == 0
 
 
 def test_a_run_ends_with_the_time_each_phase_took(conn, add_match):
@@ -504,15 +485,6 @@ def test_a_tournaments_only_run_records_its_stats_too(conn, add_match):
     assert run_stats(conn, fast) == run_stats(conn, full)
 
 
-def test_a_database_without_the_run_stats_migration_is_refused(conn, add_match):
-    season(add_match)
-    conn.execute("ALTER TABLE rating_runs DROP COLUMN games")
-    conn.commit()
-
-    with pytest.raises(runner.SchemaOutOfDate, match="rating_runs.games"):
-        run(conn, "v-test", log=lambda _: None)
-
-
 def add_ranking(conn, slug, *tournaments):
     """Adds ranking slug holding test tournaments already made by add_match."""
     rid = conn.execute(
@@ -521,20 +493,11 @@ def add_ranking(conn, slug, *tournaments):
     ).fetchone()["ranking_id"]
     for t in tournaments:
         conn.execute(
-            "INSERT INTO ranking_tournaments (ranking_id, tournament_id) "
-            "SELECT %s, tournament_id FROM tournaments WHERE slug = %s",
+            "INSERT INTO ranking_series (ranking_id, series_id) "
+            "SELECT %s, series_id FROM series WHERE slug = %s",
             (rid, t),
         )
     conn.commit()
-
-
-def test_a_run_refuses_while_a_game_is_placed_in_no_tournament(conn, add_match):
-    season(add_match)
-    add_match(("Ann", 10), ("Bob", 5), placed=None)
-
-    with pytest.raises(runner.GamesUnplaced, match="1 game"):
-        run(conn, "v1", formats=[2], log=lambda _: None)
-    assert conn.execute("SELECT count(*) AS n FROM rating_runs").fetchone()["n"] == 0
 
 
 def test_a_run_rates_the_ranking_it_names_and_publishes_it_alone(conn, add_match):
@@ -562,20 +525,13 @@ def test_a_run_rates_the_ranking_it_names_and_publishes_it_alone(conn, add_match
     ]
 
 
-def test_a_run_refuses_a_ranking_that_does_not_exist(conn, add_match):
-    season(add_match)
-
-    with pytest.raises(runner.UnknownRanking, match="snail"):
-        run(conn, "v1", formats=[2], log=lambda _: None, ranking="snail")
-
-
 def test_a_rankings_tournaments_are_part_of_its_input(conn, add_match):
     season(add_match)
     add_match(("Eve", 10), ("Fay", 5), placed="other")
     first = run(conn, "v1", formats=[2], log=lambda _: None)
     conn.execute(
-        "INSERT INTO ranking_tournaments (ranking_id, tournament_id) "
-        "SELECT community_ranking(), tournament_id FROM tournaments WHERE slug = 'other'"
+        "INSERT INTO ranking_series (ranking_id, series_id) "
+        "SELECT community_ranking(), series_id FROM series WHERE slug = 'other'"
     )
     conn.commit()
 
@@ -602,7 +558,7 @@ def test_a_games_state_is_part_of_the_input(conn, add_match):
     season(add_match)
     m = add_match(("Ann", -5), ("Bob", -5), day=date(2022, 3, 1))
     first = run(conn, "v1", formats=[2], log=lambda _: None)
-    conn.execute("UPDATE matches SET state = 'never_played' WHERE match_id = %s", (m,))
+    conn.execute("UPDATE games SET state = 'never_played' WHERE game_id = %s", (m,))
     conn.commit()
 
     second = run(conn, "v1", formats=[2], log=lambda _: None)
@@ -697,3 +653,78 @@ def test_a_parallel_run_counts_each_step_as_it_finishes(
     run(conn, "v-test", formats=[2], log=lambda _: None, workers=2, url=db_url)
 
     assert len(finished_together) > 1, "every step was counted at once, at the end"
+
+
+def _drop(sql):
+    return lambda conn, add_match: conn.execute(sql)
+
+
+@pytest.mark.parametrize(
+    "seeded, change, ranking, error, match",
+    [
+        pytest.param(
+            False,
+            None,
+            "community",
+            runner.NoMatches,
+            "no matches",
+            id="empty database",
+        ),
+        pytest.param(
+            True,
+            _drop("DROP TABLE player_titles CASCADE"),
+            "community",
+            runner.SchemaOutOfDate,
+            "player_titles",
+            id="missing player_titles",
+        ),
+        pytest.param(
+            True,
+            _drop("DROP TABLE tournament_group_divisions CASCADE"),
+            "community",
+            runner.SchemaOutOfDate,
+            "tournament_group_divisions",
+            id="missing tournament_group_divisions",
+        ),
+        pytest.param(
+            True,
+            _drop("DROP TABLE tournament_series CASCADE"),
+            "community",
+            runner.SchemaOutOfDate,
+            "tournament_series",
+            id="missing tournament_series",
+        ),
+        pytest.param(
+            True,
+            _drop("ALTER TABLE rating_runs DROP COLUMN games"),
+            "community",
+            runner.SchemaOutOfDate,
+            "rating_runs.games",
+            id="missing run stats",
+        ),
+        pytest.param(
+            True,
+            lambda conn, add_match: add_match(("Ann", 10), ("Bob", 5), placed=None),
+            "community",
+            runner.GamesUnplaced,
+            "1 game",
+            id="a game placed nowhere",
+        ),
+        pytest.param(
+            True, None, "snail", runner.UnknownRanking, "snail", id="unknown ranking"
+        ),
+    ],
+)
+def test_a_run_is_refused_before_it_starts(
+    conn, add_match, seeded, change, ranking, error, match
+):
+    if seeded:
+        season(add_match)
+    if change:
+        change(conn, add_match)
+    conn.commit()
+
+    with pytest.raises(error, match=match):
+        run(conn, "v-test", formats=[2], log=lambda _: None, ranking=ranking)
+
+    assert conn.execute("SELECT count(*) AS n FROM rating_runs").fetchone()["n"] == 0

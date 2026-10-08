@@ -33,12 +33,13 @@ func loadNamed(t *testing.T, pool *pgxpool.Pool, names ...string) {
 }
 
 const placedRows = `
-	SELECT concat_ws('|', m.tournament, t.slug, s.label, st.label, m.group_label, coalesce(m.game_number, 0))
-	FROM matches m
-	JOIN tournament_stages st USING (stage_id)
-	JOIN tournament_seasons s USING (season_id)
+	SELECT concat_ws('|', g.name, se.slug, t.label, st.label, gr.name, coalesce(g.game_number, 0))
+	FROM games g
+	JOIN groups gr USING (group_id)
+	JOIN stages st USING (stage_id)
 	JOIN tournaments t USING (tournament_id)
-	ORDER BY m.match_id`
+	JOIN series se USING (series_id)
+	ORDER BY g.game_id`
 
 func TestClassifyMatchesPlacesEachGameInTheCatalogue(t *testing.T) {
 	pool := migrated(t)
@@ -65,10 +66,10 @@ func TestClassifyMatchesPlacesEachGameInTheCatalogue(t *testing.T) {
 	if rows := rowsOf(t, pool, placedRows); !slices.Equal(rows, want) {
 		t.Errorf("placed = %q, want %q", rows, want)
 	}
-	if n := count(t, pool, "tournament_stages"); n != 3 {
+	if n := count(t, pool, "stages"); n != 3 {
 		t.Errorf("stages = %d, want 3 (one per stage, however many games)", n)
 	}
-	if name := rowsOf(t, pool, "SELECT name FROM tournaments WHERE slug = 'worlds'"); !slices.Equal(name, []string{"World Championship"}) {
+	if name := rowsOf(t, pool, "SELECT name FROM series WHERE slug = 'worlds'"); !slices.Equal(name, []string{"World Championship"}) {
 		t.Errorf("worlds is named %q, want World Championship", name)
 	}
 }
@@ -84,7 +85,7 @@ func TestClassifyMatchesLeavesNamesItCannotReadUnplaced(t *testing.T) {
 	if got.Placed != 1 || !slices.Equal(got.Unplaced, []string{"Friendly game"}) {
 		t.Errorf("ClassifyMatches = %+v, want 1 placed and Friendly game unplaced once", got)
 	}
-	if n := rowsOf(t, pool, "SELECT tournament FROM matches WHERE stage_id IS NULL"); len(n) != 2 {
+	if n := rowsOf(t, pool, "SELECT name FROM games WHERE group_id IS NULL"); len(n) != 2 {
 		t.Errorf("unplaced matches = %q, want both Friendly games", n)
 	}
 }
@@ -97,7 +98,7 @@ func TestClassifyMatchesPlacesOnlyUnplacedGames(t *testing.T) {
 		t.Fatalf("first ClassifyMatches: %v", err)
 	}
 	// A placement set by hand, such as from CGE, is not read again from the name.
-	if _, err := pool.Exec(ctx, "UPDATE matches SET group_label = 'from CGE' WHERE tournament = 'International S10'"); err != nil {
+	if _, err := pool.Exec(ctx, "UPDATE groups SET name = 'from CGE' WHERE group_id = (SELECT group_id FROM games WHERE name = 'International S10')"); err != nil {
 		t.Fatalf("setting a group: %v", err)
 	}
 
@@ -108,10 +109,10 @@ func TestClassifyMatchesPlacesOnlyUnplacedGames(t *testing.T) {
 	if got.Placed != 0 {
 		t.Errorf("second ClassifyMatches placed %d, want 0", got.Placed)
 	}
-	if g := rowsOf(t, pool, "SELECT group_label FROM matches WHERE tournament = 'International S10'"); !slices.Equal(g, []string{"from CGE"}) {
+	if g := rowsOf(t, pool, "SELECT gr.name FROM games g JOIN groups gr USING (group_id) WHERE g.name = 'International S10'"); !slices.Equal(g, []string{"from CGE"}) {
 		t.Errorf("group = %q, want the one set by hand", g)
 	}
-	if n := count(t, pool, "tournament_seasons"); n != 2 {
+	if n := count(t, pool, "tournaments"); n != 2 {
 		t.Errorf("seasons = %d, want 2", n)
 	}
 }
@@ -123,20 +124,20 @@ func TestClassifyMatchesKeepsATournamentRenamedInAdmin(t *testing.T) {
 	if _, err := ClassifyMatches(ctx, pool); err != nil {
 		t.Fatalf("first ClassifyMatches: %v", err)
 	}
-	if _, err := pool.Exec(ctx, "UPDATE tournaments SET name = 'Duel Curve League' WHERE slug = 'duel_curve'"); err != nil {
+	if _, err := pool.Exec(ctx, "UPDATE series SET name = 'Duel Curve League' WHERE slug = 'duel_curve'"); err != nil {
 		t.Fatalf("renaming: %v", err)
 	}
 	if _, err := ClassifyMatches(ctx, pool); err != nil {
 		t.Fatalf("second ClassifyMatches: %v", err)
 	}
-	if name := rowsOf(t, pool, "SELECT name FROM tournaments WHERE slug = 'duel_curve'"); !slices.Equal(name, []string{"Duel Curve League"}) {
+	if name := rowsOf(t, pool, "SELECT name FROM series WHERE slug = 'duel_curve'"); !slices.Equal(name, []string{"Duel Curve League"}) {
 		t.Errorf("name = %q, want the admin's", name)
 	}
 }
 
 const communityRows = `
-	SELECT t.slug FROM ranking_tournaments rt
-	JOIN rankings r USING (ranking_id) JOIN tournaments t USING (tournament_id)
+	SELECT t.slug FROM ranking_series rt
+	JOIN rankings r USING (ranking_id) JOIN series t USING (series_id)
 	WHERE r.slug = 'community' ORDER BY t.slug`
 
 func TestClassifyMatchesRatesANewTournamentInTheCommunityRanking(t *testing.T) {
@@ -158,7 +159,7 @@ func TestClassifyMatchesKeepsATournamentTakenOutOfARanking(t *testing.T) {
 	if _, err := ClassifyMatches(ctx, pool); err != nil {
 		t.Fatalf("first ClassifyMatches: %v", err)
 	}
-	if _, err := pool.Exec(ctx, `DELETE FROM ranking_tournaments WHERE tournament_id = (SELECT tournament_id FROM tournaments WHERE slug = 'duel_curve')`); err != nil {
+	if _, err := pool.Exec(ctx, `DELETE FROM ranking_series WHERE series_id = (SELECT series_id FROM series WHERE slug = 'duel_curve')`); err != nil {
 		t.Fatalf("taking duel_curve out: %v", err)
 	}
 	if _, err := ClassifyMatches(ctx, pool); err != nil {
@@ -178,7 +179,7 @@ func TestClassifyMatchesGivesNewTournamentsTheirKindAndKeepsOriginalNames(t *tes
 	}
 	kinds := map[string]string{}
 	tops := map[string][]string{}
-	rows, err := pool.Query(ctx, "SELECT slug, kind, top_divisions, original_name = name FROM tournaments")
+	rows, err := pool.Query(ctx, "SELECT slug, kind, top_divisions, original_name = name FROM series")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -201,15 +202,15 @@ func TestClassifyMatchesGivesNewTournamentsTheirKindAndKeepsOriginalNames(t *tes
 		t.Errorf("top divisions = %v", tops)
 	}
 
-	if _, err := pool.Exec(ctx, "UPDATE tournament_seasons SET label = 'Renamed' WHERE label = '2024'"); err != nil {
+	if _, err := pool.Exec(ctx, "UPDATE tournaments SET label = 'Renamed' WHERE label = '2024'"); err != nil {
 		t.Fatal(err)
 	}
 	var original string
-	if err := pool.QueryRow(ctx, "SELECT original_name FROM tournament_seasons WHERE label = 'Renamed'").Scan(&original); err != nil || original != "2024" {
+	if err := pool.QueryRow(ctx, "SELECT original_name FROM tournaments WHERE label = 'Renamed'").Scan(&original); err != nil || original != "2024" {
 		t.Errorf("a renamed season's original name = %q, %v; want 2024", original, err)
 	}
 	var stages int
-	if err := pool.QueryRow(ctx, "SELECT count(*) FROM tournament_stages WHERE original_name <> label OR original_name = '' AND label <> ''").Scan(&stages); err != nil || stages != 0 {
+	if err := pool.QueryRow(ctx, "SELECT count(*) FROM stages WHERE original_name <> label OR original_name = '' AND label <> ''").Scan(&stages); err != nil || stages != 0 {
 		t.Errorf("%d stages without their original name (%v)", stages, err)
 	}
 }
@@ -239,8 +240,8 @@ func TestMigrationThreeNamesSlowBurnsLevelsAndRenamesItsStages(t *testing.T) {
 	stages := `SELECT concat_ws('|', t.slug, se.label, st.label, st.original_name) FROM tournament_stages st
 		JOIN tournament_seasons se USING (season_id) JOIN tournaments t USING (tournament_id) ORDER BY 1`
 
-	if err := MigrateRatings(ctx, pool); err != nil {
-		t.Fatalf("MigrateRatings: %v", err)
+	if err := migrateRatingsTo(ctx, pool, 3); err != nil {
+		t.Fatalf("migrateRatingsTo(3): %v", err)
 	}
 	want := []string{
 		"slow_burn|1 (2024)|Final|Final", "slow_burn|1 (2024)|Season 1|Season 1", "slow_burn|1 (2024)|Season 15|Season 15",

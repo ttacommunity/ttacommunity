@@ -83,8 +83,8 @@ func TestMigrationsGoDownAndUpAgain(t *testing.T) {
 	pool := migrated(t)
 	ctx := context.Background()
 	up := tables(t, pool)
-	if !slices.Contains(up, "matches") || !slices.Contains(up, "rating_runs") {
-		t.Fatalf("after up: tables = %q, want matches and rating_runs among them", up)
+	if !slices.Contains(up, "games") || !slices.Contains(up, "rating_runs") {
+		t.Fatalf("after up: tables = %q, want games and rating_runs among them", up)
 	}
 
 	if err := ResetRatings(ctx, pool); err != nil {
@@ -133,8 +133,8 @@ func TestResetEmptiesTheTables(t *testing.T) {
 	if err := ResetRatings(ctx, pool); err != nil {
 		t.Fatalf("ResetRatings: %v", err)
 	}
-	if n := count(t, pool, "matches"); n != 0 {
-		t.Errorf("matches after reset = %d, want 0", n)
+	if n := count(t, pool, "games"); n != 0 {
+		t.Errorf("games after reset = %d, want 0", n)
 	}
 }
 
@@ -213,7 +213,7 @@ func TestLoadMatchesWritesMatchesRefusalsAndPlayers(t *testing.T) {
 	var line, players int
 	var s4 float64
 	err = pool.QueryRow(ctx,
-		"SELECT player3, score4, player_count, source_file, source_line FROM matches WHERE source_line = 3").
+		"SELECT l.players[3], l.cultures[4], l.player_count, g.source_file, g.source_line FROM game_lines l JOIN games g USING (game_id) WHERE g.source_line = 3").
 		Scan(&p3, &s4, &players, &file, &line)
 	if err != nil {
 		t.Fatalf("reading back the 4-player match: %v", err)
@@ -257,7 +257,7 @@ func TestLoadMatchesIsAllOrNothing(t *testing.T) {
 	if err == nil {
 		t.Fatal("LoadMatches with the same game twice: got no error, want the unique constraint")
 	}
-	for _, table := range []string{"import_batches", "matches", "players"} {
+	for _, table := range []string{"import_batches", "games", "seats", "players"} {
 		if n := count(t, pool, table); n != 0 {
 			t.Errorf("%s = %d after a failed load, want 0", table, n)
 		}

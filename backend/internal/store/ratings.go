@@ -59,6 +59,16 @@ func MigrateRatings(ctx context.Context, pool *pgxpool.Pool) error {
 	})
 }
 
+// migrateRatingsTo applies the ratings migrations up to and including version.
+func migrateRatingsTo(ctx context.Context, pool *pgxpool.Pool, version int64) error {
+	return withRatingsMigrations(pool, func(p *goose.Provider) error {
+		if _, err := p.UpTo(ctx, version); err != nil {
+			return fmt.Errorf("migrating the ratings database up to %d: %w", version, err)
+		}
+		return nil
+	})
+}
+
 func migrateRatingsDown(ctx context.Context, pool *pgxpool.Pool) error {
 	return withRatingsMigrations(pool, func(p *goose.Provider) error {
 		if _, err := p.DownTo(ctx, 0); err != nil {
@@ -114,8 +124,8 @@ func LoadMatches(ctx context.Context, pool *pgxpool.Pool, matches []matchcsv.Mat
 	defer tx.Rollback(ctx)
 
 	var filled bool
-	if err := tx.QueryRow(ctx, "SELECT EXISTS (SELECT 1 FROM matches)").Scan(&filled); err != nil {
-		return Loaded{}, fmt.Errorf("checking for loaded matches: %w", err)
+	if err := tx.QueryRow(ctx, "SELECT EXISTS (SELECT 1 FROM games)").Scan(&filled); err != nil {
+		return Loaded{}, fmt.Errorf("checking for loaded games: %w", err)
 	}
 	if filled {
 		return Loaded{}, ErrNotEmpty
@@ -126,25 +136,25 @@ func LoadMatches(ctx context.Context, pool *pgxpool.Pool, matches []matchcsv.Mat
 		return Loaded{}, fmt.Errorf("starting an import batch: %w", err)
 	}
 
-	n, err := tx.CopyFrom(ctx, pgx.Identifier{"matches"},
-		[]string{"batch_id", "source_file", "source_line", "tournament", "date", "player_count",
-			"player1", "score1", "player2", "score2", "player3", "score3", "player4", "score4"},
+	n, err := tx.CopyFrom(ctx, pgx.Identifier{"games"},
+		[]string{"batch_id", "source_file", "source_line", "name", "date"},
 		pgx.CopyFromSlice(len(matches), func(i int) ([]any, error) {
 			m := matches[i]
-			row := []any{got.BatchID, m.File, m.Line, m.Tournament, m.Date, len(m.Players)}
-			for seat := range 4 {
-				if seat < len(m.Players) {
-					row = append(row, m.Players[seat].Name, m.Players[seat].Score)
-				} else {
-					row = append(row, nil, nil)
-				}
-			}
-			return row, nil
+			return []any{got.BatchID, m.File, m.Line, m.Tournament, m.Date}, nil
 		}))
 	if err != nil {
-		return Loaded{}, fmt.Errorf("writing matches: %w", err)
+		return Loaded{}, fmt.Errorf("writing games: %w", err)
 	}
 	got.Matches = int(n)
+	var files, names []string
+	var lines, seatNos []int32
+	var scores []float64
+	for _, m := range matches {
+		for i, p := range m.Players {
+			files, lines, seatNos = append(files, m.File), append(lines, int32(m.Line)), append(seatNos, int32(i+1))
+			names, scores = append(names, p.Name), append(scores, p.Score)
+		}
+	}
 
 	n, err = tx.CopyFrom(ctx, pgx.Identifier{"refused_rows"},
 		[]string{"batch_id", "source_file", "source_line", "reason", "fields"},
@@ -159,15 +169,24 @@ func LoadMatches(ctx context.Context, pool *pgxpool.Pool, matches []matchcsv.Mat
 
 	tag, err := tx.Exec(ctx, `
 		INSERT INTO players (name)
-		SELECT DISTINCT name
-		FROM matches, unnest(ARRAY[player1, player2, player3, player4]) AS name
-		WHERE batch_id = $1 AND name IS NOT NULL
-		ORDER BY name
-		ON CONFLICT (name) DO NOTHING`, got.BatchID)
+		SELECT DISTINCT name FROM unnest($1::text[]) AS name ORDER BY name
+		ON CONFLICT (name) DO NOTHING`, names)
 	if err != nil {
 		return Loaded{}, fmt.Errorf("adding players: %w", err)
 	}
 	got.Players = int(tag.RowsAffected())
+
+	// The file says only the score: culture is never negative, and place keeps the score's order.
+	if _, err := tx.Exec(ctx, `
+		INSERT INTO seats (game_id, seat, player_id, player_name, culture, recorded_score, place)
+		SELECT g.game_id, s.seat, p.player_id, s.name, greatest(s.score, 0), s.score,
+		       rank() OVER (PARTITION BY g.game_id ORDER BY s.score DESC)
+		FROM unnest($2::text[], $3::int[], $4::int[], $5::text[], $6::float8[]) AS s(file, line, seat, name, score)
+		JOIN games g ON g.batch_id = $1 AND g.source_file = s.file AND g.source_line = s.line
+		JOIN players p ON p.name = s.name`,
+		got.BatchID, files, lines, seatNos, names, scores); err != nil {
+		return Loaded{}, fmt.Errorf("writing seats: %w", err)
+	}
 
 	if err := tx.Commit(ctx); err != nil {
 		return Loaded{}, fmt.Errorf("committing the load: %w", err)
