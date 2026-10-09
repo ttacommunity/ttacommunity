@@ -40,13 +40,15 @@ TIER_NAMES = {
 TITLE_ORDER = {
     "WC": 0,
     "SGM": 1,
-    "GM": 2,
-    "M": 3,
-    "P": 4,
-    "G": 5,
-    "S": 6,
-    "B": 7,
-    "W": 8,
+    "WCS": 2,
+    "WCB": 3,
+    "GM": 4,
+    "M": 5,
+    "P": 6,
+    "G": 7,
+    "S": 8,
+    "B": 9,
+    "W": 10,
 }
 
 # The leagues and divisions whose win makes a Super GM, as the records name them
@@ -65,30 +67,38 @@ SERIES_NAMES = {
 }
 
 
-def world_champions(conn, run_id) -> list[tuple[str, int]]:
-    """Returns each World Championship season's winner, oldest first: (player, season).
+def world_podiums(conn, run_id) -> list[tuple[str, int, int]]:
+    """Returns each World Championship season's podium finishes (place 1, 2, 3), oldest first: (player, season, place).
 
     Admin's podium beats a recorded one, which beats the run's derived final.
     """
     rows = conn.execute(
         """
         WITH admin AS (
-            SELECT season::int AS season, player_name FROM tournament_podium_overrides
-            WHERE tournament = 'worlds' AND place = 1 AND season ~ '^[0-9]+$'),
+            SELECT season::int AS season, place, player_name FROM tournament_podium_overrides
+            WHERE tournament = 'worlds' AND place BETWEEN 1 AND 3 AND season ~ '^[0-9]+$'),
         recorded AS (
-            SELECT season, player_name FROM tournament_official_placements
-            WHERE series = 'worlds' AND place = 1 AND season NOT IN (SELECT season FROM admin)),
+            SELECT season, place, player_name FROM tournament_official_placements
+            WHERE series = 'worlds' AND place BETWEEN 1 AND 3
+              AND (season, place) NOT IN (SELECT season, place FROM admin)),
         derived AS (
-            SELECT season, player_name FROM tournament_standings
-            WHERE run_id = %s AND series = 'worlds' AND division = 'Final' AND place = 1
-              AND season NOT IN (SELECT season FROM admin)
-              AND season NOT IN (SELECT season FROM tournament_official_placements WHERE series = 'worlds'))
-        SELECT * FROM admin UNION ALL SELECT * FROM recorded UNION ALL SELECT * FROM derived
-        ORDER BY season, player_name
+            SELECT season, place, player_name FROM tournament_standings
+            WHERE run_id = %s AND series = 'worlds' AND division = 'Final' AND place BETWEEN 1 AND 3
+              AND (season, place) NOT IN (SELECT season, place FROM admin)
+              AND (season, place) NOT IN (SELECT season, place FROM tournament_official_placements WHERE series = 'worlds'))
+        SELECT season, place, player_name FROM admin
+        UNION ALL SELECT season, place, player_name FROM recorded
+        UNION ALL SELECT season, place, player_name FROM derived
+        ORDER BY season, place, player_name
         """,
         (run_id,),
     ).fetchall()
-    return [(r["player_name"], r["season"]) for r in rows]
+    return [(r["player_name"], r["season"], r["place"]) for r in rows]
+
+
+def world_champions(conn, run_id) -> list[tuple[str, int]]:
+    """Returns each World Championship season's winner, oldest first: (player, season)."""
+    return [(p, yr) for p, yr, pl in world_podiums(conn, run_id) if pl == 1]
 
 
 def classify_division_tier(tournament_name: str) -> int | None:
@@ -279,7 +289,7 @@ def derive_tournament_badges(*, conn: DictConnection, run_id: int) -> dict[str, 
         """,
             (run_id,),
         ).fetchall()
-        champions = world_champions(conn, run_id)
+        podiums = world_podiums(conn, run_id)
         records = conn.execute(
             """
             SELECT player_name, tournament, season, division, placement, medal, finish_date
@@ -290,7 +300,7 @@ def derive_tournament_badges(*, conn: DictConnection, run_id: int) -> dict[str, 
         overrides = conn.execute(
             "SELECT player_name, title, reason FROM player_title_overrides"
         ).fetchall()
-        titles = badge_titles(rows, cutoff_date, champions, records, overrides)
+        titles = badge_titles(rows, cutoff_date, podiums, records, overrides)
         derived_data, peaks, yearly = titles
 
         # Replace the run's titles and peaks; unknown names are skipped, as upstream's UPDATE did
@@ -328,25 +338,28 @@ def derive_tournament_badges(*, conn: DictConnection, run_id: int) -> dict[str, 
             """,
                 [(run_id, yr, code, p) for (p, yr), code in yearly.items()],
             )
-            # A World Champion holds WC in their title year, matched ignoring case as upstream's page does
+            # World Championship podium finishers hold their title (WC, WCS, WCB) in their title year
             cur.executemany(
                 """
                 INSERT INTO player_yearly_titles (run_id, player_name, year, title)
-                SELECT %s, name, %s, 'WC' FROM players WHERE lower(name) = lower(%s)
-                ON CONFLICT (run_id, player_name, year) DO UPDATE SET title = 'WC'
+                SELECT %s, name, %s, %s FROM players WHERE lower(name) = lower(%s)
+                ON CONFLICT (run_id, player_name, year) DO UPDATE SET title = EXCLUDED.title
             """,
-                [(run_id, yr, p) for p, yr in champions],
+                [
+                    (run_id, yr, "WC" if pl == 1 else "WCS" if pl == 2 else "WCB", p)
+                    for p, yr, pl in podiums
+                ],
             )
 
     return titles.active
 
 
 def badge_titles(rows, cutoff_date, champions, records, overrides) -> Titles:
-    """Returns the titles the games, World Champions, records and admin's overrides give.
+    """Returns the titles the games, World Championship podiums, records and admin's overrides give.
 
     rows are the played games newest first (tournament, date as YYYY-MM-DD, players, and the series and division
-    the run recorded); cutoff_date (YYYY-MM-DD) starts the active window; champions are (player, title year);
-    records are the run's season records; overrides are admin's titles ('' takes one away).
+    the run recorded); cutoff_date (YYYY-MM-DD) starts the active window; champions are (player, title year) or
+    (player, season, place) for podiums; records are the run's season records; overrides are admin's titles ('' takes one away).
     """
     player_best: dict[str, dict[str, Any]] = {}
     player_career_best: dict[str, dict[str, Any]] = {}
@@ -404,11 +417,31 @@ def badge_titles(rows, cutoff_date, champions, records, overrides) -> Titles:
             ):
                 player_career_best[p] = {"tier": tier, "year": yr, "date": d_str}
 
-    # World Champions hold the exclusive tier 0 ('WC') career peak, at their latest title
-    for p, yr in champions:
-        player_career_best[p] = {"tier": 0, "year": yr, "date": f"{yr}-12-15"}
+    # Normalize champions/podiums: allow list of (player, season) or (player, season, place)
+    world_champ_list: list[tuple[str, int]] = []
+    world_silver_list: list[tuple[str, int]] = []
+    world_bronze_list: list[tuple[str, int]] = []
+    for item in champions:
+        if len(item) == 2:
+            p, yr = item
+            world_champ_list.append((p, yr))
+        elif len(item) == 3:
+            p, yr, pl = item
+            if pl == 1:
+                world_champ_list.append((p, yr))
+            elif pl == 2:
+                world_silver_list.append((p, yr))
+            elif pl == 3:
+                world_bronze_list.append((p, yr))
 
-    active_sgm, career_sgm = _super_gm(records, cutoff_date)
+    career_worlds = {}
+    for p, yr in world_bronze_list:
+        career_worlds[p] = ("WCB", yr)
+    for p, yr in world_silver_list:
+        career_worlds[p] = ("WCS", yr)
+    for p, yr in world_champ_list:
+        career_worlds[p] = ("WC", yr)
+
     active_sgm, career_sgm = _super_gm(records, cutoff_date)
 
     derived_data = {}
@@ -426,9 +459,9 @@ def badge_titles(rows, cutoff_date, champions, records, overrides) -> Titles:
         }
 
     # The latest season's World Champion holds the exclusive active WC badge
-    if champions:
-        latest = max(yr for _, yr in champions)
-        for p, yr in champions:
+    if world_champ_list:
+        latest = max(yr for _, yr in world_champ_list)
+        for p, yr in world_champ_list:
             if yr == latest:
                 derived_data[p] = {
                     "title": "WC",
@@ -452,15 +485,16 @@ def badge_titles(rows, cutoff_date, champions, records, overrides) -> Titles:
 
     peaks = {}
     for p, c_info in player_career_best.items():
-        if c_info["tier"] == 0:
-            peaks[p] = ("WC", c_info["year"])
-        elif p in career_sgm:
-            peaks[p] = ("SGM", career_sgm[p]["year"] or c_info["year"])
-        else:
-            peaks[p] = (TIER_TITLE_MAP.get(c_info["tier"], "W"), c_info["year"])
-    # A premier win with no titled game at all still makes a Super GM peak
+        peaks[p] = (TIER_TITLE_MAP.get(c_info["tier"], "W"), c_info["year"])
+
+    # Major titles & Worlds podiums outrank division tiers
+    for p, (w_title, yr) in career_worlds.items():
+        if p not in peaks or TITLE_ORDER[w_title] < TITLE_ORDER.get(peaks[p][0], 99):
+            peaks[p] = (w_title, yr)
+
     for p, s_info in career_sgm.items():
-        peaks.setdefault(p, ("SGM", s_info["year"]))
+        if p not in peaks or TITLE_ORDER["SGM"] < TITLE_ORDER.get(peaks[p][0], 99):
+            peaks[p] = ("SGM", s_info["year"])
 
     # Each year's title: the best division played, then the records, then the career peak
     yearly = {k: TIER_TITLE_MAP.get(t, "W") for k, t in player_year_best.items()}

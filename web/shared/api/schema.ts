@@ -1213,7 +1213,7 @@ export interface components {
          * @description A title the engine gives, but WC; "" for none
          * @enum {string}
          */
-        AdminTitle: "SGM" | "GM" | "M" | "P" | "G" | "S" | "B" | "W" | "";
+        AdminTitle: "SGM" | "WCS" | "WCB" | "GM" | "M" | "P" | "G" | "S" | "B" | "W" | "";
         PodiumEntry: {
             place: number;
             name: string;
@@ -1542,7 +1542,7 @@ export interface components {
             c_rating: number;
         };
         /** @enum {string} */
-        TitleCode: "WC" | "SGM" | "GM" | "M" | "P" | "G" | "S" | "B" | "W";
+        TitleCode: "WC" | "SGM" | "WCS" | "WCB" | "GM" | "M" | "P" | "G" | "S" | "B" | "W";
         /** @description The tournament title the run derived for the player, if any */
         Title: {
             code: components["schemas"]["TitleCode"];
@@ -2036,7 +2036,7 @@ export interface components {
              * @description The run's title for the player, null when none or not a player here
              * @enum {string|null}
              */
-            title: "WC" | "SGM" | "GM" | "M" | "P" | "G" | "S" | "B" | "W" | null;
+            title: "WC" | "SGM" | "WCS" | "WCB" | "GM" | "M" | "P" | "G" | "S" | "B" | "W" | null;
             /** Format: double */
             points: number;
             events: number;
@@ -3942,7 +3942,7 @@ export const pathsV1RunsRunLeaderboardCsvGetParametersQueryOrderValues: Readonly
 export const pathsV1RunsRunLeaderboardCsvGetParametersQueryStats_viewValues: ReadonlyArray<FlattenedDeepRequired<paths>["/v1/runs/{run}/leaderboard.csv"]["get"]["parameters"]["query"]["stats_view"]> = ["season", "career"];
 export const adminRunStatusValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["AdminRun"]["status"]> = ["running", "complete", "failed"];
 export const standingDifferenceKindValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["StandingDifference"]["kind"]> = ["games", "places", "places_after_a_timeout", "not_held", "not_on_cge"];
-export const adminTitleValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["AdminTitle"]> = ["SGM", "GM", "M", "P", "G", "S", "B", "W", ""];
+export const adminTitleValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["AdminTitle"]> = ["SGM", "WCS", "WCB", "GM", "M", "P", "G", "S", "B", "W", ""];
 export const adminPersonRoleValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["AdminPerson"]["role"]> = ["admin", "organiser"];
 export const adminRoleRoleValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["AdminRole"]["role"]> = ["admin", "organiser"];
 export const adminSeasonSuggested_fromValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["AdminSeason"]["suggested_from"]> = ["recorded", "final_stage", ""];
@@ -3950,11 +3950,11 @@ export const tournamentKindValues: ReadonlyArray<FlattenedDeepRequired<component
 export const adminMeRoleValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["AdminMe"]["role"]> = ["admin", "organiser"];
 export const modelValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["Model"]> = ["glicko2_daneo", "glicko2_daneo_softer", "glicko2_std", "glicko2_std_softer", "glicko2_std_retro", "glicko2_std_softer_retro", "glicko2_mp", "glicko2_mp_softer", "glicko2_mp_retro", "glicko2_mp_softer_retro", "glicko2_adapt", "glicko2_adapt_softer", "glicko2_adapt_retro", "glicko2_adapt_softer_retro", "whr", "whr_softer"];
 export const formatValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["Format"]> = [0, 2, 3, 4];
-export const titleCodeValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["TitleCode"]> = ["WC", "SGM", "GM", "M", "P", "G", "S", "B", "W"];
+export const titleCodeValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["TitleCode"]> = ["WC", "SGM", "WCS", "WCB", "GM", "M", "P", "G", "S", "B", "W"];
 export const calibrationRowModeValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["CalibrationRow"]["mode"]> = ["standard", "walk_forward"];
 export const tournamentRecordMedalValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["TournamentRecord"]["medal"]> = ["gold", "silver", "bronze"];
 export const communityEditionValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["CommunityEdition"]> = ["2026", "2025", "2024", "race26"];
-export const communityRowTitleValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["CommunityRow"]["title"]> = ["WC", "SGM", "GM", "M", "P", "G", "S", "B", "W"];
+export const communityRowTitleValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["CommunityRow"]["title"]> = ["WC", "SGM", "WCS", "WCB", "GM", "M", "P", "G", "S", "B", "W"];
 export const catalogueGameStateValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["CatalogueGame"]["state"]> = ["played", "never_played", "unconfirmed"];
 export const gameSeatOutcomeValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["GameSeat"]["outcome"]> = ["finished", "resigned", "timed_out"];
 export const seriesValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["Series"]> = ["international", "intermezzo", "royal_league", "worlds", "grand_slams", "ladders"];

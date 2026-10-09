@@ -4,10 +4,10 @@ import type { CareerYear, Format, Player, TitleCode, VersusMatch } from '@ttac/s
 type Peak = Player['peak'];
 
 /** Upstream's bonus for the best title held in a year. */
-const TITLE_BONUS: Record<TitleCode, number> = { WC: 150, SGM: 100, GM: 60, M: 40, P: 25, G: 15, S: 5, B: 0, W: -5 };
+const TITLE_BONUS: Record<TitleCode, number> = { WC: 150, SGM: 100, WCS: 85, WCB: 70, GM: 60, M: 40, P: 25, G: 15, S: 5, B: 0, W: -5 };
 
 /** Upstream's ranking of titles, best first. */
-const TITLE_ORDER: Record<TitleCode, number> = { WC: 0, SGM: 1, GM: 2, M: 3, P: 4, G: 5, S: 6, B: 7, W: 8 };
+const TITLE_ORDER: Record<TitleCode, number> = { WC: 0, SGM: 1, WCS: 2, WCB: 3, GM: 4, M: 5, P: 6, G: 7, S: 8, B: 9, W: 10 };
 
 /** A scored career year, with the title the box shows for it. */
 export type ScoredYear = CareerYear & { score: number; title: TitleCode | null };

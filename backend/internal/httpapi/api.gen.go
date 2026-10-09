@@ -126,6 +126,8 @@ const (
 	AdminTitleS     AdminTitle = "S"
 	AdminTitleSGM   AdminTitle = "SGM"
 	AdminTitleW     AdminTitle = "W"
+	AdminTitleWCB   AdminTitle = "WCB"
+	AdminTitleWCS   AdminTitle = "WCS"
 )
 
 // Valid indicates whether the value is a known member of the AdminTitle enum.
@@ -148,6 +150,10 @@ func (e AdminTitle) Valid() bool {
 	case AdminTitleSGM:
 		return true
 	case AdminTitleW:
+		return true
+	case AdminTitleWCB:
+		return true
+	case AdminTitleWCS:
 		return true
 	default:
 		return false
@@ -228,6 +234,8 @@ const (
 	CommunityRowTitleSGM CommunityRowTitle = "SGM"
 	CommunityRowTitleW   CommunityRowTitle = "W"
 	CommunityRowTitleWC  CommunityRowTitle = "WC"
+	CommunityRowTitleWCB CommunityRowTitle = "WCB"
+	CommunityRowTitleWCS CommunityRowTitle = "WCS"
 )
 
 // Valid indicates whether the value is a known member of the CommunityRowTitle enum.
@@ -250,6 +258,10 @@ func (e CommunityRowTitle) Valid() bool {
 	case CommunityRowTitleW:
 		return true
 	case CommunityRowTitleWC:
+		return true
+	case CommunityRowTitleWCB:
+		return true
+	case CommunityRowTitleWCS:
 		return true
 	default:
 		return false
@@ -429,6 +441,8 @@ const (
 	TitleCodeSGM TitleCode = "SGM"
 	TitleCodeW   TitleCode = "W"
 	TitleCodeWC  TitleCode = "WC"
+	TitleCodeWCB TitleCode = "WCB"
+	TitleCodeWCS TitleCode = "WCS"
 )
 
 // Valid indicates whether the value is a known member of the TitleCode enum.
@@ -451,6 +465,10 @@ func (e TitleCode) Valid() bool {
 	case TitleCodeW:
 		return true
 	case TitleCodeWC:
+		return true
+	case TitleCodeWCB:
+		return true
+	case TitleCodeWCS:
 		return true
 	default:
 		return false

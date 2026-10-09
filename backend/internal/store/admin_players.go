@@ -18,7 +18,7 @@ type TitleOverride struct {
 }
 
 // AdminTitles are the titles admin can set; WC comes from the World Championship's podium.
-var AdminTitles = []string{"SGM", "GM", "M", "P", "G", "S", "B", "W", ""}
+var AdminTitles = []string{"SGM", "WCS", "WCB", "GM", "M", "P", "G", "S", "B", "W", ""}
 
 var (
 	// ErrNoPlayer means no player has that name.
