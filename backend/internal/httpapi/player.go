@@ -311,7 +311,7 @@ func (s *server) GetPlayerVersus(ctx context.Context, req GetPlayerVersusRequest
 		slices.SortStableFunc(seats, func(a, b store.Seat) int { return compareDesc(a.Score, b.Score) })
 		vm := VersusMatch{
 			MatchId: m.ID, Tournament: m.Tournament, Date: openapi_types.Date{Time: m.Date},
-			PlayerCount: m.PlayerCount, Seats: make([]Seat, 0, len(seats)),
+			PlayerCount: m.PlayerCount, ReplayCode: m.ReplayCode, Seats: make([]Seat, 0, len(seats)),
 		}
 		for i, seat := range seats {
 			switch seat.Name {

@@ -272,12 +272,13 @@ func TestPlayerCareer(t *testing.T) {
 
 func TestPlayerVersusPlacesBothPlayers(t *testing.T) {
 	day := time.Date(2026, 8, 26, 0, 0, 0, 0, time.UTC)
+	code := "HEKANUJIMA"
 	f := &fakeCareer{shared: []store.PlayerMatch{{
-		ID: 9, Tournament: "Worlds", Date: day, PlayerCount: 3,
+		ID: 9, Tournament: "Worlds", Date: day, PlayerCount: 3, ReplayCode: &code,
 		Seats: []store.Seat{{Name: "Ann", Score: 113}, {Name: "cy", Score: 96}, {Name: "Bob", Score: 112}},
 	}}}
 	rec, _ := serve(t, f, "/v1/runs/7/players/ann/versus/bob")
-	want := `{"matches":[{"date":"2026-08-26","match_id":9,"name_place":1,"other_place":2,"player_count":3,` +
+	want := `{"matches":[{"date":"2026-08-26","match_id":9,"name_place":1,"other_place":2,"player_count":3,"replay_code":"HEKANUJIMA",` +
 		`"seats":[{"name":"Ann","score":113},{"name":"Bob","score":112},{"name":"cy","score":96}],"tournament":"Worlds"}],` +
 		`"name":"Ann","other":"Bob","run_id":7}`
 	if got := strings.TrimSpace(rec.Body.String()); rec.Code != http.StatusOK || got != want {

@@ -2006,6 +2006,7 @@ type VersusMatch struct {
 	NamePlace   int                `json:"name_place"`
 	OtherPlace  int                `json:"other_place"`
 	PlayerCount int                `json:"player_count"`
+	ReplayCode  *string            `json:"replay_code"`
 
 	// Seats Highest score first
 	Seats      []Seat `json:"seats"`
