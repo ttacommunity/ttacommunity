@@ -1743,6 +1743,7 @@ export interface components {
             player_count: number;
             name_place: number;
             other_place: number;
+            replay_code: string | null;
             /** @description Highest score first */
             seats: components["schemas"]["Seat"][];
         };

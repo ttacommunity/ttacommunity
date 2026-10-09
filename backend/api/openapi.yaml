@@ -2945,7 +2945,7 @@ components:
             $ref: "#/components/schemas/VersusMatch"
     VersusMatch:
       type: object
-      required: [match_id, tournament, date, player_count, name_place, other_place, seats]
+      required: [match_id, tournament, date, player_count, name_place, other_place, seats, replay_code]
       properties:
         match_id:
           type: integer
@@ -2961,6 +2961,9 @@ components:
           type: integer
         other_place:
           type: integer
+        replay_code:
+          type: string
+          nullable: true
         seats:
           description: Highest score first
           type: array
