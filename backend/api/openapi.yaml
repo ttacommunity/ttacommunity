@@ -1415,31 +1415,6 @@ paths:
           $ref: "#/components/responses/Conflict"
         "503":
           $ref: "#/components/responses/NotSetUp"
-  /v1/admin/runs/sizes:
-    get:
-      operationId: getAdminRunSizes
-      tags: [admin]
-      summary: About how much room each run takes on disk (admins only)
-      description: >-
-        Each run table's size shared among the runs by their rows in it. Slow
-        (it counts every run's rows), so asked for once, not with each poll of
-        the runs.
-      responses:
-        "200":
-          description: Every run's size
-          headers:
-            Cache-Control:
-              $ref: "#/components/headers/CacheControl"
-          content:
-            application/json:
-              schema:
-                type: array
-                items:
-                  $ref: "#/components/schemas/RunSize"
-        "401":
-          $ref: "#/components/responses/Unauthorized"
-        "403":
-          $ref: "#/components/responses/Forbidden"
   /v1/admin/runs/{run}:
     patch:
       operationId: patchAdminRun
@@ -1695,8 +1670,15 @@ components:
   schemas:
     AdminRun:
       type: object
-      required: [id, status, started_at, current, games, players, engine_version, progress, protected, deleting]
+      required: [id, status, started_at, current, games, players, engine_version, progress, protected, deleting, bytes]
       properties:
+        bytes:
+          description: >-
+            About how much room the run takes on disk: each run table's size
+            shared among the runs by the rows each recorded as it ended. 0
+            while it is going
+          type: integer
+          format: int64
         id:
           type: integer
           format: int64
@@ -1734,17 +1716,6 @@ components:
         deleting:
           description: Being deleted in the background
           type: boolean
-    RunSize:
-      type: object
-      required: [run, bytes]
-      properties:
-        run:
-          type: integer
-          format: int64
-        bytes:
-          description: An estimate
-          type: integer
-          format: int64
     RunProtection:
       type: object
       required: [protected]

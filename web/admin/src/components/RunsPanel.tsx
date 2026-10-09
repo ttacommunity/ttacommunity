@@ -1,8 +1,8 @@
 /** Rating runs, for admins: start one, watch its progress, compare and publish it, and protect or delete old ones. */
 import { useEffect, useState } from 'react';
 import * as req from '../lib/admin-requests';
-import { adminRequest, type AdminRun, type RunChanges, type RunSize, type StartedRun } from '../lib/admin-api';
-import { awaitStartedRun, canDelete, keepPolling, parseProgress, publishVerb, runGoing, runLabel, shownRuns, sizeText } from '../lib/runs-view';
+import { adminRequest, type AdminRun, type RunChanges, type StartedRun } from '../lib/admin-api';
+import { awaitStartedRun, canDelete, keepPolling, parseProgress, publishVerb, runGoing, runLabel, runSize, shownRuns } from '../lib/runs-view';
 
 const POLL_MS = 5000;
 const ZONE = Intl.DateTimeFormat().resolvedOptions().timeZone;
@@ -81,7 +81,6 @@ export default function RunsPanel() {
   const [waitingUntil, setWaitingUntil] = useState(0);
   const [comparing, setComparing] = useState<number | null>(null);
   const [all, setAll] = useState(false);
-  const [sizes, setSizes] = useState<Map<number, number>>(new Map());
 
   const load = async () => {
     const r = await adminRequest<AdminRun[]>('/api/runs', {});
@@ -93,12 +92,6 @@ export default function RunsPanel() {
   useEffect(() => {
     void load();
   }, []);
-  // Sizes take a few seconds to count, so they load when the runs listed change, not with each poll.
-  useEffect(() => {
-    void adminRequest<RunSize[]>('/api/runs/sizes', {}).then((r) => {
-      if (r.ok) setSizes(new Map(r.data.map((s) => [s.run, s.bytes])));
-    });
-  }, [runs?.length]);
   useEffect(() => {
     if (!changing) return;
     const timer = window.setInterval(() => void load(), POLL_MS);
@@ -139,7 +132,7 @@ export default function RunsPanel() {
     await load();
   };
   const remove = async (run: AdminRun) => {
-    const size = sizeText(sizes.get(run.id));
+    const size = runSize(run);
     if (!window.confirm(`Delete run ${run.id}${size === '' ? '' : ` (${size})`} and every result of it? This cannot be undone.`)) return;
     setMessage('');
     const r = await req.send(req.deleteRun(run.id));
@@ -202,7 +195,6 @@ export default function RunsPanel() {
                   comparing={comparing === r.id}
                   onCompare={() => setComparing(comparing === r.id ? null : r.id)}
                   onPublish={() => void publish(r)}
-                  size={sizes.get(r.id)}
                   onProtect={(on) => void protect(r, on)}
                   onDelete={() => void remove(r)}
                 />
@@ -230,7 +222,6 @@ function RunRow({
   comparing,
   onCompare,
   onPublish,
-  size,
   onProtect,
   onDelete,
 }: {
@@ -238,7 +229,6 @@ function RunRow({
   comparing: boolean;
   onCompare: () => void;
   onPublish: () => void;
-  size: number | undefined;
   onProtect: (on: boolean) => void;
   onDelete: () => void;
 }) {
@@ -252,7 +242,7 @@ function RunRow({
       <td>{when(run.started_at)}</td>
       <td className="run-wide">{run.games > 0 ? run.games.toLocaleString() : ''}</td>
       <td className="run-wide">{run.players > 0 ? run.players.toLocaleString() : ''}</td>
-      <td>{sizeText(size)}</td>
+      <td>{runSize(run)}</td>
       <td>
         <input
           type="checkbox"

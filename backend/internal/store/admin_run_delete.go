@@ -99,47 +99,25 @@ func deletable(ctx context.Context, tx pgx.Tx, run int64, engineGoing bool) erro
 	return nil
 }
 
-// RunSizes estimates how many bytes each run takes: each run table's size on disk, shared among the runs by
-// their rows in it. A run with no rows takes 0.
+// RunSizes estimates how many bytes each run takes: each run table's size on disk, shared among the runs by the
+// rows each recorded in it as it ended. A run that recorded none, as one still going, takes 0.
 func (a *AdminStore) RunSizes(ctx context.Context) (map[int64]int64, error) {
-	tables, err := a.pool.Query(ctx, `
-		SELECT k.conrelid::regclass::text, pg_total_relation_size(k.conrelid)
-		FROM pg_constraint k WHERE k.confrelid = 'rating_runs'::regclass AND k.contype = 'f' AND k.confdeltype = 'c'`)
+	rows, err := a.pool.Query(ctx, `
+		WITH t AS (SELECT conrelid::regclass::text AS t, pg_total_relation_size(conrelid) AS bytes FROM pg_constraint
+		           WHERE confrelid = 'rating_runs'::regclass AND contype = 'f' AND confdeltype = 'c'),
+		n AS (SELECT r.run_id, t.t, t.bytes, coalesce((r.result_rows ->> t.t)::numeric, 0) AS n FROM rating_runs r CROSS JOIN t),
+		total AS (SELECT t, sum(n) AS n FROM n GROUP BY t)
+		SELECT n.run_id, coalesce(sum(floor(n.bytes * n.n / nullif(total.n, 0))), 0)::bigint FROM n JOIN total USING (t) GROUP BY n.run_id`)
 	if err != nil {
-		return nil, fmt.Errorf("listing run tables: %w", err)
-	}
-	type table struct {
-		name  string
-		bytes int64
-	}
-	list, err := pgx.CollectRows(tables, func(row pgx.CollectableRow) (table, error) {
-		var t table
-		return t, row.Scan(&t.name, &t.bytes)
-	})
-	if err != nil {
-		return nil, fmt.Errorf("listing run tables: %w", err)
+		return nil, fmt.Errorf("estimating run sizes: %w", err)
 	}
 	sizes := map[int64]int64{}
-	for _, t := range list {
-		rows, err := a.pool.Query(ctx, "SELECT run_id, count(*) FROM "+pgx.Identifier{t.name}.Sanitize()+" GROUP BY run_id")
-		if err != nil {
-			return nil, fmt.Errorf("counting %s by run: %w", t.name, err)
-		}
-		type count struct{ run, rows int64 }
-		counts, err := pgx.CollectRows(rows, func(row pgx.CollectableRow) (count, error) {
-			var c count
-			return c, row.Scan(&c.run, &c.rows)
-		})
-		if err != nil {
-			return nil, fmt.Errorf("counting %s by run: %w", t.name, err)
-		}
-		var total int64
-		for _, c := range counts {
-			total += c.rows
-		}
-		for _, c := range counts {
-			sizes[c.run] += t.bytes * c.rows / total
-		}
+	var run, bytes int64
+	if _, err := pgx.ForEachRow(rows, []any{&run, &bytes}, func() error {
+		sizes[run] = bytes
+		return nil
+	}); err != nil {
+		return nil, fmt.Errorf("estimating run sizes: %w", err)
 	}
 	return sizes, nil
 }

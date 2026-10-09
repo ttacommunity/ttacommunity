@@ -4,14 +4,12 @@
 package httpapi
 
 import (
-	"cmp"
 	"context"
 	"errors"
 	"fmt"
 	"io"
 	"log/slog"
 	"net/http"
-	"slices"
 	"strings"
 	"time"
 	"unicode/utf8"
@@ -292,6 +290,10 @@ func (s *server) GetAdminRuns(ctx context.Context, _ GetAdminRunsRequestObject) 
 	if err != nil {
 		return nil, err
 	}
+	sizes, err := s.admins.RunSizes(ctx)
+	if err != nil {
+		return nil, err
+	}
 	going, err := s.admins.EngineGoing(ctx)
 	if err != nil {
 		if !errors.Is(err, enginejob.ErrNotSetUp) {
@@ -307,7 +309,7 @@ func (s *server) GetAdminRuns(ctx context.Context, _ GetAdminRunsRequestObject) 
 		out[i] = AdminRun{
 			Id: r.ID, Status: AdminRunStatus(r.Status), StartedAt: r.StartedAt, FinishedAt: r.FinishedAt, PublishedAt: r.PublishedAt,
 			Current: r.Current, Games: r.Games, Players: r.Players, EngineVersion: r.EngineVersion, Progress: r.Progress, ProgressAt: r.ProgressAt,
-			Protected: r.Protected, Deleting: r.Deleting,
+			Protected: r.Protected, Deleting: r.Deleting, Bytes: sizes[r.ID],
 		}
 	}
 	return GetAdminRuns200JSONResponse{Body: out, Headers: GetAdminRuns200ResponseHeaders{CacheControl: cacheNone}}, nil
@@ -749,22 +751,6 @@ func (s *server) DeleteAdminRun(ctx context.Context, req DeleteAdminRunRequestOb
 		}
 	}(req.Run)
 	return DeleteAdminRun202Response{}, nil
-}
-
-func (s *server) GetAdminRunSizes(ctx context.Context, _ GetAdminRunSizesRequestObject) (GetAdminRunSizesResponseObject, error) {
-	if _, ok, err := adminOnly(ctx); err != nil || !ok {
-		return GetAdminRunSizes403JSONResponse{forbidden(onlyAdminsRun)}, err
-	}
-	sizes, err := s.admins.RunSizes(ctx)
-	if err != nil {
-		return nil, err
-	}
-	out := make([]RunSize, 0, len(sizes))
-	for run, bytes := range sizes {
-		out = append(out, RunSize{Run: run, Bytes: bytes})
-	}
-	slices.SortFunc(out, func(a, b RunSize) int { return cmp.Compare(a.Run, b.Run) })
-	return GetAdminRunSizes200JSONResponse{Body: out, Headers: GetAdminRunSizes200ResponseHeaders{CacheControl: cacheNone}}, nil
 }
 
 // dateOf returns t as an API date, or nil for none.

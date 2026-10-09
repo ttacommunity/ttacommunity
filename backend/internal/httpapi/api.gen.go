@@ -684,6 +684,9 @@ type AdminRoleRole string
 
 // AdminRun defines model for AdminRun.
 type AdminRun struct {
+	// Bytes About how much room the run takes on disk: each run table's size shared among the runs by the rows each recorded as it ended. 0 while it is going
+	Bytes int64 `json:"bytes"`
+
 	// Current The run the site shows
 	Current bool `json:"current"`
 
@@ -1787,13 +1790,6 @@ type RunProtection struct {
 	Protected bool `json:"protected"`
 }
 
-// RunSize defines model for RunSize.
-type RunSize struct {
-	// Bytes An estimate
-	Bytes int64 `json:"bytes"`
-	Run   int64 `json:"run"`
-}
-
 // SeasonChange defines model for SeasonChange.
 type SeasonChange struct {
 	// ClearPodium Removes its podium set by hand
@@ -2423,9 +2419,6 @@ type ServerInterface interface {
 	// PostAdminRun Start a rating run now (admins only)
 	// (POST /v1/admin/runs)
 	PostAdminRun(w http.ResponseWriter, r *http.Request)
-	// GetAdminRunSizes About how much room each run takes on disk (admins only)
-	// (GET /v1/admin/runs/sizes)
-	GetAdminRunSizes(w http.ResponseWriter, r *http.Request)
 	// PostAdminRunStop Stop the rating run that is going (admins only)
 	// (POST /v1/admin/runs/stop)
 	PostAdminRunStop(w http.ResponseWriter, r *http.Request)
@@ -2795,20 +2788,6 @@ func (siw *ServerInterfaceWrapper) PostAdminRun(w http.ResponseWriter, r *http.R
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.PostAdminRun(w, r)
-	}))
-
-	for _, middleware := range siw.HandlerMiddlewares {
-		handler = middleware(handler)
-	}
-
-	handler.ServeHTTP(w, r)
-}
-
-// GetAdminRunSizes operation middleware
-func (siw *ServerInterfaceWrapper) GetAdminRunSizes(w http.ResponseWriter, r *http.Request) {
-
-	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.GetAdminRunSizes(w, r)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -4637,7 +4616,6 @@ func HandlerWithOptions(si ServerInterface, options StdHTTPServerOptions) http.H
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/v1/admin/runs", wrapper.GetAdminRuns)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/v1/admin/runs", wrapper.PostAdminRun)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/v1/admin/runs/stop", wrapper.PostAdminRunStop)
-	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/v1/admin/runs/sizes", wrapper.GetAdminRunSizes)
 	m.HandleFunc(http.MethodDelete+" "+options.BaseURL+"/v1/admin/runs/{run}", wrapper.DeleteAdminRun)
 	m.HandleFunc(http.MethodPatch+" "+options.BaseURL+"/v1/admin/runs/{run}", wrapper.PatchAdminRun)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/v1/admin/runs/{run}/publish", wrapper.PostAdminRunPublish)
@@ -5592,65 +5570,6 @@ func (response PostAdminRun503JSONResponse) VisitPostAdminRunResponse(w http.Res
 	w.Header().Set("Content-Type", "application/json")
 	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
 	w.WriteHeader(503)
-	_, err := buf.WriteTo(w)
-	return err
-}
-
-type GetAdminRunSizesRequestObject struct {
-}
-
-type GetAdminRunSizesResponseObject interface {
-	VisitGetAdminRunSizesResponse(w http.ResponseWriter) error
-}
-
-type GetAdminRunSizes200ResponseHeaders struct {
-	CacheControl string
-}
-
-type GetAdminRunSizes200JSONResponse struct {
-	Body    []RunSize
-	Headers GetAdminRunSizes200ResponseHeaders
-}
-
-func (response GetAdminRunSizes200JSONResponse) VisitGetAdminRunSizesResponse(w http.ResponseWriter) error {
-
-	var buf bytes.Buffer
-	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
-		return err
-	}
-	w.Header().Set("Content-Type", "application/json")
-	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
-	w.WriteHeader(200)
-	_, err := buf.WriteTo(w)
-	return err
-}
-
-type GetAdminRunSizes401JSONResponse struct{ UnauthorizedJSONResponse }
-
-func (response GetAdminRunSizes401JSONResponse) VisitGetAdminRunSizesResponse(w http.ResponseWriter) error {
-
-	var buf bytes.Buffer
-	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
-		return err
-	}
-	w.Header().Set("Content-Type", "application/json")
-	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
-	w.WriteHeader(401)
-	_, err := buf.WriteTo(w)
-	return err
-}
-
-type GetAdminRunSizes403JSONResponse struct{ ForbiddenJSONResponse }
-
-func (response GetAdminRunSizes403JSONResponse) VisitGetAdminRunSizesResponse(w http.ResponseWriter) error {
-
-	var buf bytes.Buffer
-	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
-		return err
-	}
-	w.Header().Set("Content-Type", "application/json")
-	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
-	w.WriteHeader(403)
 	_, err := buf.WriteTo(w)
 	return err
 }
@@ -8385,9 +8304,6 @@ type StrictServerInterface interface {
 	// PostAdminRun Start a rating run now (admins only)
 	// (POST /v1/admin/runs)
 	PostAdminRun(ctx context.Context, request PostAdminRunRequestObject) (PostAdminRunResponseObject, error)
-	// GetAdminRunSizes About how much room each run takes on disk (admins only)
-	// (GET /v1/admin/runs/sizes)
-	GetAdminRunSizes(ctx context.Context, request GetAdminRunSizesRequestObject) (GetAdminRunSizesResponseObject, error)
 	// PostAdminRunStop Stop the rating run that is going (admins only)
 	// (POST /v1/admin/runs/stop)
 	PostAdminRunStop(ctx context.Context, request PostAdminRunStopRequestObject) (PostAdminRunStopResponseObject, error)
@@ -8910,30 +8826,6 @@ func (sh *strictHandler) PostAdminRun(w http.ResponseWriter, r *http.Request) {
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(PostAdminRunResponseObject); ok {
 		if err := validResponse.VisitPostAdminRunResponse(w); err != nil {
-			sh.options.ResponseErrorHandlerFunc(w, r, err)
-		}
-	} else if response != nil {
-		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
-	}
-}
-
-// GetAdminRunSizes operation middleware
-func (sh *strictHandler) GetAdminRunSizes(w http.ResponseWriter, r *http.Request) {
-	var request GetAdminRunSizesRequestObject
-
-	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
-		return sh.ssi.GetAdminRunSizes(ctx, request.(GetAdminRunSizesRequestObject))
-	}
-	for _, middleware := range sh.middlewares {
-		handler = middleware(handler, "GetAdminRunSizes")
-	}
-
-	response, err := handler(r.Context(), w, r, request)
-
-	if err != nil {
-		sh.options.ResponseErrorHandlerFunc(w, r, err)
-	} else if validResponse, ok := response.(GetAdminRunSizesResponseObject); ok {
-		if err := validResponse.VisitGetAdminRunSizesResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {

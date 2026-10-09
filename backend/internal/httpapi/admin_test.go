@@ -742,7 +742,6 @@ func TestRunChangesAreRefusedWhenTheyShouldBe(t *testing.T) {
 		{"deleting the current run", owner, http.MethodDelete, "/v1/admin/runs/7", site, nil, http.StatusConflict},
 		{"deleting the running run", owner, http.MethodDelete, "/v1/admin/runs/9", site, nil, http.StatusConflict},
 		{"deleting no run", owner, http.MethodDelete, "/v1/admin/runs/99", site, nil, http.StatusNotFound},
-		{"an organiser asks for sizes", org, http.MethodGet, "/v1/admin/runs/sizes", "", nil, http.StatusForbidden},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -1286,13 +1285,14 @@ func TestACrashedRunCanBeDeletedWhenTheEngineIsNotGoing(t *testing.T) {
 	<-f.deleted
 }
 
-func TestAdminRunSizesListsEachRun(t *testing.T) {
-	rec := adminDoAs(t, &fakeAdmins{}, "111111111111111111", http.MethodGet, "/v1/admin/runs/sizes", "", "")
+func TestAdminRunsGiveEachRunsSize(t *testing.T) {
+	rec := adminDoAs(t, &fakeAdmins{}, "111111111111111111", http.MethodGet, "/v1/admin/runs", "", "")
 	if rec.Code != http.StatusOK {
-		t.Fatalf("GET sizes = %d %s", rec.Code, rec.Body)
+		t.Fatalf("GET runs = %d %s", rec.Code, rec.Body)
 	}
-	wantJSON(t, rec.Body.Bytes(), "0", `{"run": 7, "bytes": 4000000000}`)
-	wantJSON(t, rec.Body.Bytes(), "1", `{"run": 8, "bytes": 3500000000}`)
+	wantJSON(t, rec.Body.Bytes(), "0", `{"id": 9, "bytes": 0}`)
+	wantJSON(t, rec.Body.Bytes(), "1", `{"id": 8, "bytes": 3500000000}`)
+	wantJSON(t, rec.Body.Bytes(), "2", `{"id": 7, "bytes": 4000000000}`)
 }
 
 func TestProtectingARunIsRefusedWhenItShouldBe(t *testing.T) {

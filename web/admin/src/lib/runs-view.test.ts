@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { awaitStartedRun, canDelete, keepPolling, parseProgress, publishVerb, runGoing, runLabel, shownRuns, sizeText } from './runs-view';
+import { awaitStartedRun, canDelete, keepPolling, parseProgress, publishVerb, runGoing, runLabel, runSize, shownRuns, sizeText } from './runs-view';
 
 describe('parseProgress', () => {
   it('reads the step, label, time taken and time left from an engine line', () => {
@@ -116,5 +116,15 @@ describe('runs panel', () => {
     ['none running', [RUN(2)], false],
   ])('knows a run is going with %s', (_, runs, want) => {
     expect(runGoing(runs)).toBe(want);
+  });
+});
+
+describe('runSize', () => {
+  it.each([
+    ['a finished run', 'complete', 4_000_000_000, '4.0 GB'],
+    ['a failed run with nothing left', 'failed', 0, '0 B'],
+    ['a run still going, its rows not yet recorded', 'running', 0, ''],
+  ] as const)('writes %s', (_, status, bytes, want) => {
+    expect(runSize({ status, bytes })).toBe(want);
   });
 });
