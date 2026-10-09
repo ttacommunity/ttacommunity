@@ -124,22 +124,29 @@ func TestDeleteRunRefusesARunProtectedSinceItWasMarked(t *testing.T) {
 	}
 }
 
-func TestRunSizesShareEachTableByItsRows(t *testing.T) {
+func TestRunSizesShareEachTableByTheRowsEachRunRecorded(t *testing.T) {
 	pool := migrated(t)
 	ctx := context.Background()
 	a := NewAdminStore(asAdminLogin(t, pool))
 	small := addRun(t, pool, "complete", time.Time{})
 	big := addRun(t, pool, "complete", time.Time{})
 	empty := addRun(t, pool, "failed", time.Time{})
-	withRatings(t, pool, small, 1)
-	withRatings(t, pool, big, 3)
+	going := addRun(t, pool, "running", time.Time{})
+	for run, n := range map[int64]int{small: 1, big: 3, going: 2} {
+		withRatings(t, pool, run, n)
+	}
+	for run, n := range map[int64]int{small: 1, big: 3} {
+		if _, err := pool.Exec(ctx, "UPDATE rating_runs SET result_rows = jsonb_build_object('player_ratings', $2::int) WHERE run_id = $1", run, n); err != nil {
+			t.Fatal(err)
+		}
+	}
 
 	got, err := a.RunSizes(ctx)
 	if err != nil {
 		t.Fatalf("RunSizes: %v", err)
 	}
-	if got[small] <= 0 || got[big] != 3*got[small] || got[empty] != 0 {
-		t.Errorf("sizes = %v, want run %d three times run %d, and run %d none", got, big, small, empty)
+	if got[small] <= 0 || got[big] != 3*got[small] || got[empty] != 0 || got[going] != 0 {
+		t.Errorf("sizes = %v, want run %d three times run %d, and runs %d and %d, which recorded no rows, none", got, big, small, empty, going)
 	}
 }
 

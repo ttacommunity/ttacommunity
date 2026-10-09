@@ -16,18 +16,6 @@ import psycopg
 
 from tta_ratings_engine.data.db import require_running
 
-# How each tournament's places are scored, by its slug.
-LEAGUES = {"international", "intermezzo"}
-# Cups are one CGE tournament a season; the others hold every season in one.
-CUPS = {"worlds", "australian_open", "wimbledon"}
-KINDS = {
-    "international": "league",
-    "intermezzo": "league",
-    "worlds": "worlds",
-    "australian_open": "rounds",
-    "wimbledon": "knockout",
-    "eiffel_tower": "floors",
-}
 ROUNDS = {256: "R256", 128: "R128", 64: "R64", 32: "R32", 16: "QF", 8: "SF", 4: "Final"}
 FLOORS = {"The Top", "The Elevator", "2nd Floor", "The Stairs"}
 
@@ -82,18 +70,6 @@ def eiffel_floor(group):
     return group if group in FLOORS else "Other"
 
 
-# The organisers' event codes, as their sheet heads its columns.
-CODES = {
-    "worlds": "wrld",
-    "australian_open": "aus",
-    "wimbledon": "wmbl",
-    "eiffel_tower": "eif",
-}
-SEASON_CODES = {
-    "international": "ic_{}",
-    "intermezzo": "im_{}",
-    "royal_league": "rl_{:02d}",
-}
 # The organisers' sheet editions, as ours: its "2026" is the rolling year to 2026 Q2, Race 26 is 2026.
 SHEET_EDITIONS = {
     "2024": "2024",
@@ -103,11 +79,19 @@ SHEET_EDITIONS = {
 }
 
 
-def event_code(tournament, season):
-    """Returns the organisers' code for a season: ic_30, rl_05, or the tournament's own (wrld, aus …)."""
-    if tournament in SEASON_CODES:
-        return SEASON_CODES[tournament].format(int(season))
-    return CODES[tournament]
+def event_code(code, season):
+    """Returns the organisers' code for a season from its series' code: ic_{} gives ic_30, wrld stays wrld."""
+    return code.format(int(season)) if "{" in code else code
+
+
+def series_codes(conn):
+    """Returns each series' code in the organisers' sheet, by slug, for those that have one."""
+    return {
+        r["slug"]: r["community_code"]
+        for r in conn.execute(
+            "SELECT slug, community_code FROM series WHERE community_code IS NOT NULL"
+        )
+    }
 
 
 def editions(first, latest):
@@ -171,9 +155,6 @@ def ranked(totals):
     for i, p in enumerate(order, start=1):
         got.append((got[-1][0] if got and totals[p] == totals[got[-1][1]] else i, p))
     return got
-
-
-LADDER_CODES = {"mercurial_ladder": "ml", "sodium_ladder": "sl"}
 
 
 def rungs(groups):
@@ -288,13 +269,14 @@ def derive_community(*, conn: psycopg.Connection, run_id: int) -> None:
             )
         }
         seasons = conn.execute(
-            """SELECT t.slug, s.label, s.tournament_id AS season_id, q.year,
+            # A series' community_scoring says how its places score; a cup is one CGE tournament a season, the
+            # others hold every season in one.
+            """SELECT t.slug, t.community_scoring AS scoring, t.kind = 'cup' AS cup, s.label, s.tournament_id AS season_id, q.year,
                       (SELECT extract(year FROM max(m.date))::int FROM game_lines m
                        WHERE m.tournament_id = s.tournament_id) AS finished
                FROM tournaments s JOIN series t USING (series_id)
                LEFT JOIN community_quarters q ON q.tournament = t.slug AND q.season = s.label
-               WHERE t.in_community_leaderboard AND s.in_community AND t.slug = ANY(%s)""",
-            (list(KINDS),),
+               WHERE t.in_community_leaderboard AND s.in_community AND t.community_scoring IS NOT NULL"""
         ).fetchall()
         rows = []
         for s in seasons:
@@ -308,10 +290,10 @@ def derive_community(*, conn: psycopg.Connection, run_id: int) -> None:
                        WHERE c.games > 0 AND EXISTS (
                          SELECT 1 FROM stages x WHERE x.tournament_id = %s
                          AND x.cge_tournament = c.cge_tournament AND (%s OR x.cge_stage_number = c.cge_season))""",
-                    (s["season_id"], s["slug"] in CUPS),
+                    (s["season_id"], s["cup"]),
                 )
             ]  # fmt: skip
-            if not lines and s["slug"] in LEAGUES and s["label"].isdigit():
+            if not lines and s["scoring"] == "league" and s["label"].isdigit():
                 lines = [
                     {"stage": 0, "group": r["division"], "place": r["place"], "name": r["player_name"]}
                     for r in conn.execute(
@@ -324,7 +306,7 @@ def derive_community(*, conn: psycopg.Connection, run_id: int) -> None:
                 continue
             edition = s["year"] or s["finished"]
             table = table_for(points, s["slug"], edition)
-            for name, pts in scored(KINDS[s["slug"]], lines, table).items():
+            for name, pts in scored(s["scoring"], lines, table).items():
                 rows.append((run_id, s["slug"], s["label"], name, pts))
         _rank_editions(conn, run_id, rows, points)
         conn.execute("DELETE FROM community_event_points WHERE run_id = %s", (run_id,))
@@ -340,6 +322,7 @@ def _rank_editions(conn, run_id, rows, points):
     rows are the run's computed event points. An event the engine does not
     compute takes the organisers' sheet points, in the editions the sheet has.
     """
+    codes = series_codes(conn)
     quarters = {
         (r["tournament"], r["season"]): (r["year"], r["quarter"])
         for r in conn.execute(
@@ -369,7 +352,7 @@ def _rank_editions(conn, run_id, rows, points):
             continue
         # Two counting seasons giving one event in a quarter: the later finished, then the later label, counts;
         # never whichever row came last. A season that should not count is switched off in admin.
-        key = (name, event_code(slug, season))
+        key = (name, event_code(codes[slug], season))
         rank = (finished.get((slug, season)) or date.min, season)
         if key not in chosen[q] or rank > chosen[q][key]:
             chosen[q][key], events[q][key] = rank, pts
@@ -404,7 +387,7 @@ def _rank_editions(conn, run_id, rows, points):
                 scored[name][code] = pts
                 sources[(name, code)] = "computed"
         for (name, code), pts in _ladder_points(
-            ladders, edition, in_it, points
+            ladders, edition, in_it, points, codes
         ).items():
             scored[name][code] = pts
             sources[(name, code)] = "computed"
@@ -508,8 +491,8 @@ def _ladder_rounds(conn):
     return got
 
 
-def _ladder_points(ladders, edition, quarters, points):
-    """Returns {(player, code): points} for each ladder an edition can score.
+def _ladder_points(ladders, edition, quarters, points, codes):
+    """Returns {(player, code): points} for each ladder an edition can score, code being its series' (codes).
 
     A calendar year sums its rounds (by their year); a rolling year the latest
     rounds finished by its end. The totals are ranked (equal totals share a
@@ -539,5 +522,5 @@ def _ladder_points(ladders, edition, quarters, points):
             totals.update(round_points(games, rule))
         table = table_for(points, slug, year)
         for rank, name in ranked({n: t for n, t in totals.items() if t > 0}):
-            got[(name, LADDER_CODES[slug])] = table.get(("leaderboard", rank), 0)
+            got[(name, codes[slug])] = table.get(("leaderboard", rank), 0)
     return got

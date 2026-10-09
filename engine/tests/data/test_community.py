@@ -197,15 +197,32 @@ def run_id(conn):
     return rid
 
 
+# Each test series' community scoring, kind and sheet code, as the load job gives them; any other scores nothing.
+SCORING = {
+    "international": ("league", "league", "ic_{}"),
+    "intermezzo": ("league", "league", "im_{}"),
+    "worlds": ("worlds", "cup", "wrld"),
+    "australian_open": ("rounds", "cup", "aus"),
+    "wimbledon": ("knockout", "cup", "wmbl"),
+    "eiffel_tower": ("floors", "league", "eif"),
+    "mercurial_ladder": (None, "ladder", "ml"),
+    "sodium_ladder": (None, "ladder", "sl"),
+}
+
+
 @pytest.fixture
 def catalogue(conn):
     """Returns a function that adds a season of a tournament in the community leaderboard, its stages linked to CGE."""
 
-    def add(slug, season, stages=(), quarter=None):
+    def add(slug, season, stages=(), quarter=None, scoring=None, kind=None, code=None):
+        known = SCORING.get(slug, (None, "cup", None))
+        scoring, kind, code = scoring or known[0], kind or known[1], code or known[2]
         t = conn.execute(
-            "INSERT INTO series (slug, name, in_community_leaderboard) VALUES (%s, %s, true) "
-            "ON CONFLICT (slug) DO UPDATE SET in_community_leaderboard = true RETURNING series_id",
-            (slug, slug),
+            "INSERT INTO series (slug, name, in_community_leaderboard, community_scoring, kind, community_code) "
+            "VALUES (%s, %s, true, %s, %s, %s) ON CONFLICT (slug) DO UPDATE SET in_community_leaderboard = true, "
+            "community_scoring = excluded.community_scoring, kind = excluded.kind, "
+            "community_code = excluded.community_code RETURNING series_id",
+            (slug, slug, scoring, kind, code),
         ).fetchone()["series_id"]
         s = conn.execute(
             "INSERT INTO tournaments (series_id, label) VALUES (%s, %s) RETURNING tournament_id",
@@ -426,13 +443,12 @@ def test_equal_points_share_a_rank():
 
 
 @pytest.mark.parametrize(
-    ("slug", "season", "want"),
-    [("international", "30", "ic_30"), ("intermezzo", "27", "im_27"), ("royal_league", "5", "rl_05"),
-     ("worlds", "2025", "wrld"), ("australian_open", "2025", "aus"), ("wimbledon", "2024", "wmbl"),
-     ("eiffel_tower", "3", "eif")],
+    ("code", "season", "want"),
+    [("ic_{}", "30", "ic_30"), ("im_{}", "27", "im_27"), ("rl_{:02d}", "5", "rl_05"),
+     ("wrld", "2025", "wrld"), ("eif", "3", "eif")],
 )  # fmt: skip
-def test_event_code_is_the_organisers(slug, season, want):
-    assert event_code(slug, season) == want
+def test_event_code_is_the_series_code_with_its_season(code, season, want):
+    assert event_code(code, season) == want
 
 
 def rankings(conn, run_id, edition):
@@ -714,3 +730,23 @@ def test_a_ladder_round_left_out_of_the_community_leaderboard_scores_nothing(
         (run_id,),
     ).fetchone()
     assert got["n"] == 0
+
+
+def test_a_series_scores_as_its_community_scoring_says_not_by_its_slug(
+    conn, run_id, catalogue
+):
+    catalogue(
+        "grass_cup",
+        "2025",
+        [("Stage 2", 5496, 2)],
+        quarter=(2026, 1),
+        scoring="knockout",
+        kind="cup",
+        code="grs",
+    )
+    points_table(conn, "grass_cup", 2026, {("SF", 2): 480, ("Final", 1): 1000})
+    cge_line(conn, 5496, 1, "SF 1", 2, "bob", 2)
+    cge_line(conn, 5496, 2, "Final", 1, "ann", 1)
+    derive_community(conn=conn, run_id=run_id)
+    got = {p: pts for _, _, p, pts in event_points(conn, run_id)}
+    assert got == {"ann": 1000, "bob": 480}

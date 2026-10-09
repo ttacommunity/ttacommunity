@@ -1,12 +1,27 @@
 #!/usr/bin/env bash
-# Create the dev site's database, ratings_dev, on the cluster's ratings server
-# as a copy of the parity database, with its owner and read-only logins.
-# Refuses when ratings_dev already exists. Passwords come from the Secrets in
-# deploy/SECRETS.md. Usage: scripts/seed-dev-db.sh
+# Create the dev site's database, ratings_dev, on the cluster's ratings server as a copy of production's, with
+# its grants, owner and read-only logins. Passwords come from the Secrets in deploy/SECRETS.md.
 set -euo pipefail
 
 cd "$(dirname "$0")/.."
-[ $# -eq 0 ] || { sed -n '2,5p' "$0" >&2; exit 64; }
+usage() {
+  cat >&2 <<'EOF'
+Usage: scripts/seed-dev-db.sh [--replace] [--latest-run | --no-runs | --all-runs]
+  --latest-run  inputs and production's current published run (the default)
+  --no-runs     inputs only, as a baseline holds them: nothing published until an engine run
+  --all-runs    everything, every run
+  --replace     drop ratings_dev first (otherwise an existing one is refused)
+EOF
+  exit 64
+}
+mode=latest-run replace=0
+for arg in "$@"; do
+  case "$arg" in
+    --latest-run | --no-runs | --all-runs) mode=${arg#--} ;;
+    --replace) replace=1 ;;
+    *) usage ;;
+  esac
+done
 
 ns=(-n ttacommunity)
 pod=(exec -i deploy/ratings-db --)
@@ -15,8 +30,11 @@ secret() { kubectl "${ns[@]}" get secret "$1" -o jsonpath="{.data.$2}" | base64 
 
 kubectl "${ns[@]}" rollout status deploy/ratings-db --timeout=60s
 
-if [ "$(sql -d ratings -Atc "select count(*) from pg_database where datname = 'ratings_dev'")" != 0 ]; then
-  echo "seed-dev-db.sh: ratings_dev already exists; refusing" >&2
+if [ "$replace" = 1 ]; then
+  echo "dropping ratings_dev"
+  sql -d ratings -c "DROP DATABASE IF EXISTS ratings_dev WITH (FORCE)"
+elif [ "$(sql -d ratings -Atc "select count(*) from pg_database where datname = 'ratings_dev'")" != 0 ]; then
+  echo "seed-dev-db.sh: ratings_dev already exists; refusing (--replace drops it)" >&2
   exit 1
 fi
 
@@ -41,9 +59,12 @@ SQL
 unset owner_url owner_pw api_pw pw
 
 # A long kubectl exec stream stalls, so the copy runs detached inside the pod.
-echo "copying ratings into ratings_dev inside the pod"
+echo "copying ratings into ratings_dev inside the pod ($mode)"
+# Which tables are inputs is the load job's to say, not this script's.
+(cd backend && go run ./cmd/load -input-tables) | kubectl "${ns[@]}" "${pod[@]}" sh -c 'cat > /tmp/input-tables'
+kubectl "${ns[@]}" "${pod[@]}" sh -c 'cat > /tmp/copy-ratings-db.sh' < scripts/copy-ratings-db.sh
 kubectl "${ns[@]}" "${pod[@]}" rm -f /tmp/dev-restore.log
-kubectl "${ns[@]}" "${pod[@]}" sh -c "setsid nohup sh -c '{ pg_dump -Fc -U ratings -d ratings -f /tmp/dev.dump && pg_restore --exit-on-error --no-owner --no-privileges --role=ratings_dev -U ratings -d ratings_dev /tmp/dev.dump; } > /tmp/dev-restore.log 2>&1; echo exit=\$? >> /tmp/dev-restore.log; rm -f /tmp/dev.dump' > /dev/null 2>&1 < /dev/null &"
+kubectl "${ns[@]}" "${pod[@]}" sh -c "setsid nohup sh -c 'sh /tmp/copy-ratings-db.sh ratings ratings_dev ratings_dev $mode /tmp/input-tables > /tmp/dev-restore.log 2>&1; echo exit=\$? >> /tmp/dev-restore.log' > /dev/null 2>&1 < /dev/null &"
 until result=$(kubectl "${ns[@]}" "${pod[@]}" sh -c 'grep "^exit=" /tmp/dev-restore.log' 2>/dev/null); do
   sleep 15
 done
@@ -52,10 +73,9 @@ if [ "$result" != exit=0 ]; then
   exit 1
 fi
 
-# ratings_read's grants, as migration 00004 makes them, but for tables ratings_dev creates.
+# The copy keeps production's grants; ratings_dev gets its own default privileges for the tables its migrations create.
 sql -d ratings_dev <<'SQL'
 GRANT USAGE ON SCHEMA public TO ratings_read;
-GRANT SELECT ON ALL TABLES IN SCHEMA public TO ratings_read;
 ALTER DEFAULT PRIVILEGES FOR ROLE ratings_dev IN SCHEMA public GRANT SELECT ON TABLES TO ratings_read;
 SQL
-sql -d ratings_dev -Atc "select 'players: ' || count(*) from players union all select 'rating runs: ' || count(*) from rating_runs union all select 'current run: ' || run_id from current_run"
+sql -d ratings_dev -Atc "select 'players: ' || count(*) from players union all select 'rating runs: ' || count(*) from rating_runs union all select 'current run: ' || coalesce((select run_id::text from current_run), 'none')"

@@ -267,7 +267,9 @@ lack (a CGE tournament we do not link becomes a hidden, unrated series) and
 the settings we lack from the settings files beside it. A game that may be a
 copy of ours is held back; a file of pairs checked by hand (`share_code,
 game_id,reason`) matches them. It prints the plan and writes nothing unless
-given `-apply`; loading the same extract again changes nothing:
+given `-apply`; loading the same extract again changes nothing, except that
+it merges a hidden series' stages back into one tournament where an earlier
+load split them:
 
 ```bash
 cd backend && set -a && . ../.env && set +a
@@ -569,7 +571,10 @@ When done, stop the port-forward (`kill %1` in the same shell) and
 
 The cluster's `ratings` database rebuilt from an export, with the
 port-forward and `RATINGS_DATABASE_URL` above. The dev site's `ratings_dev`
-is rebuilt the same way: its owner is `ratings_dev`, its logins
+is usually refreshed from production instead, with
+`scripts/seed-dev-db.sh --replace`: the inputs and the current run by
+default, or `--no-runs` (inputs only) or `--all-runs`. It can be rebuilt
+from an export the same way: its owner is `ratings_dev`, its logins
 `ratings_dev_api` and `ratings_dev_admin_api`, and its `RATINGS_DATABASE_URL`
 is in the `ratings-dev-engine` Secret. The api serves errors from step 4
 until step 8.

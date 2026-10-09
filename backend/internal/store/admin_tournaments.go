@@ -10,6 +10,7 @@ import (
 	"slices"
 	"strconv"
 	"strings"
+	"time"
 	"unicode/utf8"
 
 	"github.com/jackc/pgx/v5"
@@ -38,7 +39,14 @@ type AdminTournament struct {
 	SeasonName, StageName string
 	// OriginalName is the name the tournament came in with, kept when it is renamed.
 	OriginalName string
-	Seasons      []AdminSeason
+	// Parent is the slug of the group it is in, "" for none; Description is admin's text about it.
+	Parent, Description string
+	// IsGroup is whether it is a group made in admin, holding tournaments and groups and no games of its own.
+	IsGroup bool
+	// Games counts its played and unplayed games; FirstGame and LastGame are their dates, nil for none.
+	Games               int
+	FirstGame, LastGame *time.Time
+	Seasons             []AdminSeason
 }
 
 // AdminSeason is a season with its own note, its stages, and the podium admin set for it, if any.
@@ -56,6 +64,12 @@ type AdminSeason struct {
 	Stages      []AdminStage
 	Podium      []PodiumEntry
 	PodiumNote  string
+	// Suggested is the podium to start from when admin has set none: the organisers' recorded one (SuggestedFrom
+	// "recorded"), else the final stage's games when it is one group ("final_stage"), else none ("").
+	Suggested     []PodiumEntry
+	SuggestedFrom string
+	// Games and Players count its games, across its stages, and the players in them.
+	Games, Players int
 }
 
 // PodiumEntry is one place on a podium set in admin.
@@ -64,10 +78,13 @@ type PodiumEntry struct {
 	Name  string
 }
 
-// AdminStage is a stage of a season (an empty label is a season without stages) with its note.
+// AdminStage is a stage of a season (an empty label is a season without stages) with its note, its number (CGE's,
+// else the last number in its label, else 0), and how many games it holds, were played, and players are in them.
 type AdminStage struct {
-	Label, OriginalName string
-	Note                string
+	Label, OriginalName      string
+	Note                     string
+	Number                   int
+	Games, Finished, Players int
 }
 
 // TournamentSettings are the settings to change; a nil field is left as it is. RatedPlayerCounts are the player
@@ -82,6 +99,9 @@ type TournamentSettings struct {
 	Points map[int][]float64
 	// SeasonName and StageName name its seasons and stages (nil unchanged, "" the default).
 	SeasonName, StageName *string
+	// Parent is the slug of the group to put it in, "" for none; Description replaces its description, and Name a
+	// group's name (nil unchanged).
+	Parent, Description, Name *string
 }
 
 // ErrBadLevelName means a season or stage name longer than 32 characters.
@@ -92,13 +112,48 @@ var ErrBadLevelName = errors.New("a season or stage name is at most 32 character
 var ErrBadScoring = errors.New("points are one per place, never negative, and never higher for a worse place")
 
 // ErrBadKind means a kind other than league, cup or ladder.
-var ErrBadKind = errors.New("a tournament is a league, a cup or a ladder")
+var ErrBadKind = errors.New("a tournament is a league, a cup or a ladder; a group may also be a series or a group of groups")
 
 // ErrBadPlayerCounts means rated player counts that are empty or not among 2, 3 and 4.
 var ErrBadPlayerCounts = errors.New("rated player counts are one or more of 2, 3 and 4")
 
-// Tournaments returns every tournament with its settings, seasons (latest first), stages and notes, in name order.
-func (a *AdminStore) Tournaments(ctx context.Context) ([]AdminTournament, error) {
+// Tournament returns one tournament with its settings, seasons (latest first), stages and notes, each season's and
+// stage's games and players, its podiums and its stories; ErrNoTournament when there is none.
+func (a *AdminStore) Tournament(ctx context.Context, slug string) (AdminTournament, error) {
+	out, err := a.tournament(ctx, slug)
+	if err != nil {
+		return AdminTournament{}, err
+	}
+	if len(out) == 0 {
+		return AdminTournament{}, ErrNoTournament
+	}
+	t := out[0]
+	counts, err := a.SeasonCounts(ctx, slug)
+	if err != nil {
+		return AdminTournament{}, err
+	}
+	for i := range t.Seasons {
+		se := &t.Seasons[i]
+		for _, c := range counts {
+			if c.Season != se.Label {
+				continue
+			}
+			se.Games, se.Players = c.Games, c.Players
+			for j := range se.Stages {
+				for _, sc := range c.Stages {
+					if sc.Stage == se.Stages[j].Label {
+						st := &se.Stages[j]
+						st.Number, st.Games, st.Finished, st.Players = sc.Number, sc.Games, sc.Finished, sc.Players
+					}
+				}
+			}
+		}
+	}
+	return t, nil
+}
+
+// tournament reads the tournament slug's rows: none when there is no such tournament, else one.
+func (a *AdminStore) tournament(ctx context.Context, slug string) ([]AdminTournament, error) {
 	rows, err := a.pool.Query(ctx, `
 		SELECT t.slug, t.name, t.visible, t.in_community_leaderboard,
 		       EXISTS (SELECT 1 FROM ranking_series rt JOIN rankings r USING (ranking_id)
@@ -113,22 +168,23 @@ func (a *AdminStore) Tournaments(ctx context.Context) ([]AdminTournament, error)
 		       d.last IS NOT NULL, coalesce(se.rated, true), coalesce(se.in_champions, true), coalesce(se.in_community, true),
 		       t.rated_player_counts, t.kind, t.top_divisions, t.original_name,
 		       coalesce(sp.points_2p, '{}'), coalesce(sp.points_3p, '{}'), coalesce(sp.points_4p, '{}'), t.tournament_noun, t.stage_noun,
-		       coalesce((SELECT r.timeout_penalty FROM settings r WHERE r.tournament_id = se.tournament_id), 0)
+		       coalesce((SELECT r.timeout_penalty FROM settings r WHERE r.tournament_id = se.tournament_id), 0),
+		       coalesce((SELECT p.slug FROM series p WHERE p.series_id = t.parent_id), ''), t.description, t.is_group
 		FROM series t
 		LEFT JOIN settings sp ON sp.series_id = t.series_id
 		LEFT JOIN tournament_cards k ON k.tournament = t.slug
 		LEFT JOIN tournaments se ON se.series_id = t.series_id
 		LEFT JOIN stages st ON st.tournament_id = se.tournament_id
-		LEFT JOIN LATERAL (SELECT max(m.date) AS last FROM stages s2 JOIN groups g2 ON g2.stage_id = s2.stage_id
-		                   JOIN games m ON m.group_id = g2.group_id
-		                   WHERE s2.tournament_id = se.tournament_id) d ON true
-		ORDER BY t.name, coalesce(substring(se.label FROM '^[0-9]+')::int, -1) DESC, d.last DESC NULLS LAST,
-		         se.label DESC, st.stage_id`)
+		LEFT JOIN (SELECT s2.tournament_id, max(m.date) AS last FROM series x JOIN tournaments t2 USING (series_id)
+		           JOIN stages s2 USING (tournament_id) JOIN groups g2 USING (stage_id) JOIN games m USING (group_id)
+		           WHERE x.slug = $1 GROUP BY s2.tournament_id) d ON d.tournament_id = se.tournament_id
+		WHERE t.slug = $1
+		ORDER BY coalesce(substring(se.label FROM '^[0-9]+')::int, -1) DESC, d.last DESC NULLS LAST, se.label DESC, st.stage_id`, slug)
 	if err != nil {
 		return nil, fmt.Errorf("reading tournaments for admin: %w", err)
 	}
 	var out []AdminTournament
-	var slug, name string
+	var rowSlug, name string
 	var visible, community, rated bool
 	var regulations, cgeRegulations string
 	var card Card
@@ -141,14 +197,17 @@ func (a *AdminStore) Tournaments(ctx context.Context) ([]AdminTournament, error)
 	var p2, p3, p4 []float64
 	var seasonName, stageName string
 	var penalty float64
-	_, err = pgx.ForEachRow(rows, []any{&slug, &name, &visible, &community, &rated, &regulations,
+	var parent, description string
+	var isGroup bool
+	_, err = pgx.ForEachRow(rows, []any{&rowSlug, &name, &visible, &community, &rated, &regulations,
 		&card.Icon, &card.Tagline, &card.Summary, &card.Subtitle, &card.Cadence, &cgeRegulations, &season, &stage, &seasonOriginal, &stageOriginal, &seasonNote, &stageNote, &hasGames,
-		&seasonRated, &inChampions, &inCommunity, &counts, &kind, &top, &original, &p2, &p3, &p4, &seasonName, &stageName, &penalty}, func() error {
-		if len(out) == 0 || out[len(out)-1].Slug != slug {
-			out = append(out, AdminTournament{Slug: slug, Name: name, Visible: visible, Rated: rated, Community: community,
+		&seasonRated, &inChampions, &inCommunity, &counts, &kind, &top, &original, &p2, &p3, &p4, &seasonName, &stageName, &penalty, &parent, &description, &isGroup}, func() error {
+		if len(out) == 0 || out[len(out)-1].Slug != rowSlug {
+			out = append(out, AdminTournament{Slug: rowSlug, Name: name, Visible: visible, Rated: rated, Community: community,
 				Regulations: regulations, CGERegulations: cgeRegulations, Card: card, RatedPlayerCounts: counts,
 				Kind: kind, TopDivisions: top, Points: map[int][]float64{2: p2, 3: p3, 4: p4},
-				SeasonName: seasonName, StageName: stageName, OriginalName: original, Seasons: []AdminSeason{}})
+				SeasonName: seasonName, StageName: stageName, OriginalName: original, Parent: parent, Description: description,
+				IsGroup: isGroup, Seasons: []AdminSeason{}})
 		}
 		t := &out[len(out)-1]
 		if season == nil {
@@ -169,12 +228,110 @@ func (a *AdminStore) Tournaments(ctx context.Context) ([]AdminTournament, error)
 	if err := a.addPodiums(ctx, out); err != nil {
 		return nil, err
 	}
+	if err := a.addGames(ctx, out, slug); err != nil {
+		return nil, err
+	}
+	if err := a.addSuggestedPodiums(ctx, out, slug); err != nil {
+		return nil, err
+	}
 	for i := range out {
 		if out[i].Stories, err = stories(ctx, a.pool, out[i].Slug); err != nil {
 			return nil, fmt.Errorf("reading %s's stories for admin: %w", out[i].Slug, err)
 		}
 	}
 	return out, nil
+}
+
+// addSuggestedPodiums puts on each season the podium admin would start from: its recorded placements, else, once it
+// has finished, its final stage's games when that stage is one group, ranked by game points, then culture (equal on
+// both share a place).
+func (a *AdminStore) addSuggestedPodiums(ctx context.Context, ts []AdminTournament, slug string) error {
+	rows, err := a.pool.Query(ctx, `
+		WITH s AS (SELECT st.tournament_id, st.stage_id, max(g.date) AS last, count(DISTINCT g.group_id) AS groups
+		           FROM games g JOIN groups gr USING (group_id) JOIN stages st USING (stage_id)
+		           JOIN tournaments tt USING (tournament_id) JOIN series ss USING (series_id)
+		           WHERE g.state = 'played' AND ss.slug = $1 GROUP BY 1, 2),
+		final AS (SELECT DISTINCT ON (tournament_id) tournament_id, stage_id, groups FROM s
+		          -- Only a finished tournament has a final: its CGE tournament finished, or a league past its season.
+		          WHERE NOT EXISTS (SELECT FROM stages x JOIN cge_tournaments c ON c.cge_tournament = x.cge_tournament
+		                            WHERE x.tournament_id = s.tournament_id AND c.status <> 'finished'
+		                              AND NOT (c.status ~ '^after season [0-9]+$'
+		                                       AND x.cge_stage_number <= substring(c.status FROM '[0-9]+$')::int))
+		          ORDER BY tournament_id, last DESC, stage_id DESC),
+		-- game_lines only for the one-group finals: reading it whole takes seconds.
+		seat AS (SELECT f.tournament_id, p.player, p.pts, p.culture FROM final f
+		         JOIN game_lines l ON l.stage_id = f.stage_id AND l.state = 'played',
+		         unnest(l.players, l.game_points, l.cultures) AS p (player, pts, culture) WHERE f.groups = 1),
+		total AS (SELECT tournament_id, player, sum(pts) AS pts, sum(culture) AS culture FROM seat GROUP BY 1, 2),
+		derived AS (SELECT tournament_id, player, rank() OVER (PARTITION BY tournament_id ORDER BY pts DESC NULLS LAST,
+		                                                         culture DESC NULLS LAST)::int AS place FROM total),
+		recorded AS (SELECT t.tournament_id, o.player_name AS player, o.place FROM tournament_official_placements o
+		             JOIN series se ON se.slug = o.series JOIN tournaments t ON t.series_id = se.series_id AND t.label = o.season::text
+		             WHERE se.slug = $1)
+		SELECT se.slug, t.label, x.source, x.place, x.player FROM (
+		    SELECT tournament_id, 'recorded' AS source, place, player FROM recorded
+		    UNION ALL SELECT d.tournament_id, 'final_stage', d.place, d.player FROM derived d
+		    WHERE NOT EXISTS (SELECT FROM recorded r WHERE r.tournament_id = d.tournament_id)) x
+		JOIN tournaments t USING (tournament_id) JOIN series se USING (series_id)
+		WHERE x.place <= 3 ORDER BY 1, 2, x.place, x.player`, slug)
+	if err != nil {
+		return fmt.Errorf("suggesting podiums for admin: %w", err)
+	}
+	type key struct{ slug, season string }
+	type suggestion struct {
+		from   string
+		places []PodiumEntry
+	}
+	by := map[key]*suggestion{}
+	var rowSlug, season, from, player string
+	var place int
+	if _, err := pgx.ForEachRow(rows, []any{&rowSlug, &season, &from, &place, &player}, func() error {
+		k := key{rowSlug, season}
+		if by[k] == nil {
+			by[k] = &suggestion{from: from}
+		}
+		by[k].places = append(by[k].places, PodiumEntry{Place: place, Name: player})
+		return nil
+	}); err != nil {
+		return fmt.Errorf("suggesting podiums for admin: %w", err)
+	}
+	for i := range ts {
+		for j := range ts[i].Seasons {
+			if s := by[key{ts[i].Slug, ts[i].Seasons[j].Label}]; s != nil {
+				ts[i].Seasons[j].Suggested, ts[i].Seasons[j].SuggestedFrom = s.places, s.from
+			}
+		}
+	}
+	return nil
+}
+
+// addGames puts each series' game count and first and last game dates on it.
+func (a *AdminStore) addGames(ctx context.Context, ts []AdminTournament, slug string) error {
+	rows, err := a.pool.Query(ctx, `SELECT se.slug, count(*), min(g.date), max(g.date)
+		FROM games g JOIN groups gr USING (group_id) JOIN stages st USING (stage_id)
+		JOIN tournaments t USING (tournament_id) JOIN series se USING (series_id) WHERE se.slug = $1 GROUP BY se.slug`, slug)
+	if err != nil {
+		return fmt.Errorf("reading each tournament's games for admin: %w", err)
+	}
+	type games struct {
+		n           int
+		first, last time.Time
+	}
+	by := map[string]games{}
+	var rowSlug string
+	var g games
+	if _, err := pgx.ForEachRow(rows, []any{&rowSlug, &g.n, &g.first, &g.last}, func() error {
+		by[rowSlug] = g
+		return nil
+	}); err != nil {
+		return fmt.Errorf("reading each tournament's games for admin: %w", err)
+	}
+	for i := range ts {
+		if g, ok := by[ts[i].Slug]; ok {
+			ts[i].Games, ts[i].FirstGame, ts[i].LastGame = g.n, &g.first, &g.last
+		}
+	}
+	return nil
 }
 
 // addPodiums puts each podium set in admin on its season.
@@ -288,8 +445,13 @@ func validScoring(players int, points []float64) bool {
 
 // SetTournament changes a tournament's settings in one transaction, or returns ErrNoTournament.
 func (a *AdminStore) SetTournament(ctx context.Context, slug string, s TournamentSettings) error {
-	if s.Kind != "" && s.Kind != "league" && s.Kind != "cup" && s.Kind != "ladder" {
+	if s.Kind != "" && !slices.Contains(kinds, s.Kind) && !slices.Contains(groupKinds, s.Kind) {
 		return ErrBadKind
+	}
+	if s.Name != nil {
+		if *s.Name = strings.TrimSpace(*s.Name); *s.Name == "" || utf8.RuneCountInString(*s.Name) > 100 {
+			return ErrBadGroup
+		}
 	}
 	if s.TopDivisions != nil {
 		top := make([]string, 0, len(s.TopDivisions))
@@ -321,12 +483,51 @@ func (a *AdminStore) SetTournament(ctx context.Context, slug string, s Tournamen
 			}
 		}
 	}
+	if s.Description != nil {
+		if *s.Description = strings.TrimSpace(*s.Description); utf8.RuneCountInString(*s.Description) > 2000 {
+			return ErrBadGroup
+		}
+	}
 	return pgx.BeginFunc(ctx, a.pool, func(tx pgx.Tx) error {
 		var id int64
 		if err := tx.QueryRow(ctx, "SELECT series_id FROM series WHERE slug = $1", slug).Scan(&id); errors.Is(err, pgx.ErrNoRows) {
 			return ErrNoTournament
 		} else if err != nil {
 			return fmt.Errorf("setting %s: %w", slug, err)
+		}
+		var isGroup bool
+		if err := tx.QueryRow(ctx, "SELECT is_group FROM series WHERE series_id = $1", id).Scan(&isGroup); err != nil {
+			return fmt.Errorf("setting %s: %w", slug, err)
+		}
+		if slices.Contains(groupKinds, s.Kind) && !isGroup {
+			return ErrBadKind
+		}
+		if s.Name != nil {
+			if !isGroup {
+				return ErrNotAGroup
+			}
+			if _, err := tx.Exec(ctx, "UPDATE series SET name = $2 WHERE series_id = $1", id, *s.Name); err != nil {
+				return fmt.Errorf("renaming %s: %w", slug, err)
+			}
+		}
+		if s.Parent != nil {
+			var parent *int64
+			if *s.Parent != "" {
+				parent = new(int64)
+				if err := tx.QueryRow(ctx, "SELECT series_id FROM series WHERE slug = $1", *s.Parent).Scan(parent); errors.Is(err, pgx.ErrNoRows) {
+					return ErrNoTournament
+				} else if err != nil {
+					return fmt.Errorf("setting %s's group: %w", slug, err)
+				}
+			}
+			if err := setParent(ctx, tx, slug, parent); err != nil {
+				return err
+			}
+		}
+		if s.Description != nil {
+			if _, err := tx.Exec(ctx, "UPDATE series SET description = $2 WHERE series_id = $1", id, *s.Description); err != nil {
+				return fmt.Errorf("setting %s: %w", slug, err)
+			}
 		}
 		if s.Visible != nil {
 			if _, err := tx.Exec(ctx, "UPDATE series SET visible = $2 WHERE series_id = $1", id, *s.Visible); err != nil {

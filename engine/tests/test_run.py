@@ -728,3 +728,48 @@ def test_a_run_is_refused_before_it_starts(
         run(conn, "v-test", formats=[2], log=lambda _: None, ranking=ranking)
 
     assert conn.execute("SELECT count(*) AS n FROM rating_runs").fetchone()["n"] == 0
+
+
+def run_tables(conn):
+    return [
+        r["t"]
+        for r in conn.execute(
+            "SELECT conrelid::regclass::text AS t FROM pg_constraint "
+            "WHERE confrelid = 'rating_runs'::regclass AND contype = 'f' AND confdeltype = 'c'"
+        ).fetchall()
+    ]
+
+
+def result_rows(conn, run_id):
+    return conn.execute(
+        "SELECT result_rows FROM rating_runs WHERE run_id = %s", (run_id,)
+    ).fetchone()["result_rows"]
+
+
+@pytest.mark.parametrize("kind", ["full", "tournaments only"])
+def test_a_run_records_the_rows_it_wrote_to_each_table(conn, add_match, kind):
+    season(add_match)
+    run_id = run(conn, "v1", formats=[2], log=lambda _: None, make_current=True)
+    if kind == "tournaments only":
+        run_id = run(conn, "v2", tournaments_only=True, log=lambda _: None)
+
+    got = result_rows(conn, run_id)
+
+    assert got["pairwise_matches"] > 0
+    assert {t: got.get(t, 0) for t in run_tables(conn)} == {
+        t: count(conn, t, run_id) for t in run_tables(conn)
+    }
+
+
+def test_a_failed_run_records_the_rows_it_left(conn, add_match, monkeypatch):
+    season(add_match)
+    monkeypatch.setattr(runner, "derive_tournament_badges", boom)
+    with pytest.raises(RuntimeError, match="boom"):
+        run(conn, "v-test", formats=[2], log=lambda _: None)
+    run_id = conn.execute("SELECT run_id FROM rating_runs").fetchone()["run_id"]
+
+    got = result_rows(conn, run_id)
+
+    assert {t: got.get(t, 0) for t in run_tables(conn)} == {
+        t: count(conn, t, run_id) for t in run_tables(conn)
+    }

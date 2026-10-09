@@ -884,10 +884,10 @@ paths:
     get:
       operationId: getAdminTournaments
       tags: [admin]
-      summary: Every tournament with its settings, seasons, stages and notes
+      summary: Every tournament and group in brief, by name
       responses:
         "200":
-          description: The tournaments, by name
+          description: The tournaments and groups, without their seasons
           headers:
             Cache-Control:
               $ref: "#/components/headers/CacheControl"
@@ -896,16 +896,70 @@ paths:
               schema:
                 type: array
                 items:
-                  $ref: "#/components/schemas/AdminTournament"
+                  $ref: "#/components/schemas/AdminTournamentRow"
         "401":
           $ref: "#/components/responses/Unauthorized"
         "403":
           $ref: "#/components/responses/Forbidden"
+    post:
+      operationId: postAdminGroup
+      tags: [admin]
+      summary: Make a group of related tournaments, holding the ones named
+      description: |
+        Its slug comes from its name. Admins and organisers may make one; it is
+        audited. The Origin must be the admin site.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/NewGroup"
+      responses:
+        "201":
+          description: Made
+          headers:
+            Cache-Control:
+              $ref: "#/components/headers/CacheControl"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CreatedGroup"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
   /v1/admin/tournaments/{tournament}:
+    get:
+      operationId: getAdminTournament
+      tags: [admin]
+      summary: One tournament with its settings, seasons (latest first), stages, notes, podiums and stories
+      description: Each season and stage comes with its games and players.
+      parameters:
+        - $ref: "#/components/parameters/AdminTournamentSlug"
+      responses:
+        "200":
+          description: The tournament
+          headers:
+            Cache-Control:
+              $ref: "#/components/headers/CacheControl"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminTournament"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
     patch:
       operationId: patchAdminTournament
       tags: [admin]
-      summary: Change whether a tournament is shown, rated, or counted in the community leaderboard
+      summary: Change a tournament's settings, card, regulations, stories, description, group, or a group's members
       description: |
         Only the settings given change. Admins and organisers may change them;
         each change is audited. The Origin must be the admin site. Rating
@@ -921,31 +975,6 @@ paths:
       responses:
         "204":
           description: Changed
-        "400":
-          $ref: "#/components/responses/BadRequest"
-        "401":
-          $ref: "#/components/responses/Unauthorized"
-        "403":
-          $ref: "#/components/responses/Forbidden"
-        "404":
-          $ref: "#/components/responses/NotFound"
-  /v1/admin/tournaments/{tournament}/notes:
-    put:
-      operationId: putAdminNote
-      tags: [admin]
-      summary: Set the note shown beside a season or one of its stages; an empty note removes it
-      description: Audited. The Origin must be the admin site.
-      parameters:
-        - $ref: "#/components/parameters/AdminTournamentSlug"
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/SeasonNote"
-      responses:
-        "204":
-          description: Saved
         "400":
           $ref: "#/components/responses/BadRequest"
         "401":
@@ -1138,7 +1167,7 @@ paths:
     put:
       operationId: putAdminBadge
       tags: [admin]
-      summary: Change a badge's label and description (admins only)
+      summary: Change a badge's label and description, and who holds it when players are given (admins only)
       description: Audited. The Origin must be the admin site.
       parameters:
         - $ref: "#/components/parameters/AdminBadgeId"
@@ -1171,41 +1200,6 @@ paths:
       responses:
         "204":
           description: Removed
-        "401":
-          $ref: "#/components/responses/Unauthorized"
-        "403":
-          $ref: "#/components/responses/Forbidden"
-        "404":
-          $ref: "#/components/responses/NotFound"
-  /v1/admin/badges/{badge}/players/{player}:
-    put:
-      operationId: putAdminBadgePlayer
-      tags: [admin]
-      summary: Give a player a badge, shown at once (admins only)
-      description: Audited. The Origin must be the admin site.
-      parameters:
-        - $ref: "#/components/parameters/AdminBadgeId"
-        - $ref: "#/components/parameters/AdminPlayer"
-      responses:
-        "204":
-          description: Given
-        "401":
-          $ref: "#/components/responses/Unauthorized"
-        "403":
-          $ref: "#/components/responses/Forbidden"
-        "404":
-          $ref: "#/components/responses/NotFound"
-    delete:
-      operationId: deleteAdminBadgePlayer
-      tags: [admin]
-      summary: Take a badge from a player (admins only)
-      description: Audited. The Origin must be the admin site.
-      parameters:
-        - $ref: "#/components/parameters/AdminBadgeId"
-        - $ref: "#/components/parameters/AdminPlayer"
-      responses:
-        "204":
-          description: Taken
         "401":
           $ref: "#/components/responses/Unauthorized"
         "403":
@@ -1277,197 +1271,25 @@ paths:
           $ref: "#/components/responses/Forbidden"
         "404":
           $ref: "#/components/responses/NotFound"
-  /v1/admin/tournaments/{tournament}/season-rating:
-    put:
-      operationId: putAdminSeasonRating
+  /v1/admin/tournaments/{tournament}/seasons/{season}:
+    patch:
+      operationId: patchAdminSeason
       tags: [admin]
-      summary: Set whether a season's games count towards ratings, from the next run
-      description: Its games still show on the tournament page, marked not rated. Audited. The Origin must be the admin site.
+      summary: Change a season's settings, notes or podium
+      description: |
+        Only what is given changes: whether it is rated, among the champions or in the community
+        leaderboard, its time-out penalty, its note and its stages' notes (an empty note removes
+        one), and its podium set by hand (clear_podium removes it, so the recorded or derived one
+        shows). Audited. The Origin must be the admin site.
       parameters:
         - $ref: "#/components/parameters/AdminTournamentSlug"
+        - $ref: "#/components/parameters/AdminSeasonLabel"
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              $ref: "#/components/schemas/SeasonRating"
-      responses:
-        "204":
-          description: Saved
-        "400":
-          $ref: "#/components/responses/BadRequest"
-        "401":
-          $ref: "#/components/responses/Unauthorized"
-        "403":
-          $ref: "#/components/responses/Forbidden"
-        "404":
-          $ref: "#/components/responses/NotFound"
-  /v1/admin/tournaments/{tournament}/season-penalty:
-    put:
-      operationId: putAdminSeasonPenalty
-      tags: [admin]
-      summary: Set a numbered season's time-out penalty, from the next run
-      description: The points a player loses in its standings for each game they time out of. Audited. The Origin must be the admin site.
-      parameters:
-        - $ref: "#/components/parameters/AdminTournamentSlug"
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/SeasonPenalty"
-      responses:
-        "204":
-          description: Saved
-        "400":
-          $ref: "#/components/responses/BadRequest"
-        "401":
-          $ref: "#/components/responses/Unauthorized"
-        "403":
-          $ref: "#/components/responses/Forbidden"
-        "404":
-          $ref: "#/components/responses/NotFound"
-  /v1/admin/tournaments/{tournament}/season-community:
-    put:
-      operationId: putAdminSeasonCommunity
-      tags: [admin]
-      summary: Set whether a season counts in the community leaderboard, from the next run
-      description: Such as a play-off that should not score; the tournament's own setting still decides for all its seasons. Audited. The Origin must be the admin site.
-      parameters:
-        - $ref: "#/components/parameters/AdminTournamentSlug"
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/SeasonInCommunity"
-      responses:
-        "204":
-          description: Saved
-        "400":
-          $ref: "#/components/responses/BadRequest"
-        "401":
-          $ref: "#/components/responses/Unauthorized"
-        "403":
-          $ref: "#/components/responses/Forbidden"
-        "404":
-          $ref: "#/components/responses/NotFound"
-  /v1/admin/tournaments/{tournament}/season-champions:
-    put:
-      operationId: putAdminSeasonChampions
-      tags: [admin]
-      summary: Set whether a season's winner is listed among the tournament's champions
-      description: Such as the Hall of Fame's World Champions; a play-off can be left out. Audited. The Origin must be the admin site.
-      parameters:
-        - $ref: "#/components/parameters/AdminTournamentSlug"
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/SeasonInChampions"
-      responses:
-        "204":
-          description: Saved
-        "400":
-          $ref: "#/components/responses/BadRequest"
-        "401":
-          $ref: "#/components/responses/Unauthorized"
-        "403":
-          $ref: "#/components/responses/Forbidden"
-        "404":
-          $ref: "#/components/responses/NotFound"
-  /v1/admin/tournaments/{tournament}/stories:
-    put:
-      operationId: putAdminStories
-      tags: [admin]
-      summary: Replace a tournament's stories with these, in this order
-      description: Audited. The Origin must be the admin site.
-      parameters:
-        - $ref: "#/components/parameters/AdminTournamentSlug"
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/StoryList"
-      responses:
-        "204":
-          description: Saved
-        "400":
-          $ref: "#/components/responses/BadRequest"
-        "401":
-          $ref: "#/components/responses/Unauthorized"
-        "403":
-          $ref: "#/components/responses/Forbidden"
-        "404":
-          $ref: "#/components/responses/NotFound"
-  /v1/admin/tournaments/{tournament}/card:
-    put:
-      operationId: putAdminCard
-      tags: [admin]
-      summary: Set how a tournament presents itself on its card and its page's header
-      description: All fields empty removes it. Audited. The Origin must be the admin site.
-      parameters:
-        - $ref: "#/components/parameters/AdminTournamentSlug"
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/TournamentCard"
-      responses:
-        "204":
-          description: Saved
-        "400":
-          $ref: "#/components/responses/BadRequest"
-        "401":
-          $ref: "#/components/responses/Unauthorized"
-        "403":
-          $ref: "#/components/responses/Forbidden"
-        "404":
-          $ref: "#/components/responses/NotFound"
-  /v1/admin/tournaments/{tournament}/regulations:
-    put:
-      operationId: putAdminRegulations
-      tags: [admin]
-      summary: Write a tournament's format and regulations, shown instead of its latest CGE description
-      description: An empty text removes it, so CGE's shows again. Audited. The Origin must be the admin site.
-      parameters:
-        - $ref: "#/components/parameters/AdminTournamentSlug"
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/Regulations"
-      responses:
-        "204":
-          description: Saved
-        "400":
-          $ref: "#/components/responses/BadRequest"
-        "401":
-          $ref: "#/components/responses/Unauthorized"
-        "403":
-          $ref: "#/components/responses/Forbidden"
-        "404":
-          $ref: "#/components/responses/NotFound"
-  /v1/admin/tournaments/{tournament}/podium:
-    put:
-      operationId: putAdminPodium
-      tags: [admin]
-      summary: Set a season's podium by hand, over a recorded or derived one
-      description: >
-        The tournament page shows it at once; titles and achievements follow
-        at the next rating run. Audited. The Origin must be the admin site.
-      parameters:
-        - $ref: "#/components/parameters/AdminTournamentSlug"
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/SeasonPodium"
+              $ref: "#/components/schemas/SeasonChange"
       responses:
         "204":
           description: Saved
@@ -1480,22 +1302,18 @@ paths:
         "404":
           $ref: "#/components/responses/NotFound"
     delete:
-      operationId: deleteAdminPodium
+      operationId: deleteAdminSeason
       tags: [admin]
-      summary: Remove a season's podium set by hand, so the recorded or derived one shows again
+      summary: Remove a season that has no games, with its notes
       description: Audited. The Origin must be the admin site.
       parameters:
         - $ref: "#/components/parameters/AdminTournamentSlug"
-        - name: season
-          in: query
-          required: true
-          schema:
-            type: string
-            minLength: 1
-            maxLength: 64
+        - $ref: "#/components/parameters/AdminSeasonLabel"
       responses:
         "204":
           description: Removed
+        "400":
+          $ref: "#/components/responses/BadRequest"
         "401":
           $ref: "#/components/responses/Unauthorized"
         "403":
@@ -1519,31 +1337,6 @@ paths:
       responses:
         "204":
           description: Added
-        "400":
-          $ref: "#/components/responses/BadRequest"
-        "401":
-          $ref: "#/components/responses/Unauthorized"
-        "403":
-          $ref: "#/components/responses/Forbidden"
-        "404":
-          $ref: "#/components/responses/NotFound"
-    delete:
-      operationId: deleteAdminSeason
-      tags: [admin]
-      summary: Remove a season that has no games, with its notes
-      description: Audited. The Origin must be the admin site.
-      parameters:
-        - $ref: "#/components/parameters/AdminTournamentSlug"
-        - name: label
-          in: query
-          required: true
-          schema:
-            type: string
-            minLength: 1
-            maxLength: 64
-      responses:
-        "204":
-          description: Removed
         "400":
           $ref: "#/components/responses/BadRequest"
         "401":
@@ -1622,34 +1415,9 @@ paths:
           $ref: "#/components/responses/Conflict"
         "503":
           $ref: "#/components/responses/NotSetUp"
-  /v1/admin/runs/sizes:
-    get:
-      operationId: getAdminRunSizes
-      tags: [admin]
-      summary: About how much room each run takes on disk (admins only)
-      description: >-
-        Each run table's size shared among the runs by their rows in it. Slow
-        (it counts every run's rows), so asked for once, not with each poll of
-        the runs.
-      responses:
-        "200":
-          description: Every run's size
-          headers:
-            Cache-Control:
-              $ref: "#/components/headers/CacheControl"
-          content:
-            application/json:
-              schema:
-                type: array
-                items:
-                  $ref: "#/components/schemas/RunSize"
-        "401":
-          $ref: "#/components/responses/Unauthorized"
-        "403":
-          $ref: "#/components/responses/Forbidden"
-  /v1/admin/runs/{run}/protected:
-    put:
-      operationId: putAdminRunProtected
+  /v1/admin/runs/{run}:
+    patch:
+      operationId: patchAdminRun
       tags: [admin]
       summary: Protect a run from deletion, or stop protecting it (admins only)
       description: Audited. The Origin must be the admin site. Protecting a run being deleted keeps it.
@@ -1672,7 +1440,6 @@ paths:
           $ref: "#/components/responses/Forbidden"
         "404":
           $ref: "#/components/responses/NotFound"
-  /v1/admin/runs/{run}:
     delete:
       operationId: deleteAdminRun
       tags: [admin]
@@ -1792,6 +1559,15 @@ components:
         type: string
         pattern: "^[a-z][a-z0-9_]*$"
         maxLength: 64
+    AdminSeasonLabel:
+      name: season
+      in: path
+      required: true
+      description: The season's label, as admin lists it
+      schema:
+        type: string
+        minLength: 1
+        maxLength: 64
     Model:
       name: model
       in: query
@@ -1894,8 +1670,15 @@ components:
   schemas:
     AdminRun:
       type: object
-      required: [id, status, started_at, current, games, players, engine_version, progress, protected, deleting]
+      required: [id, status, started_at, current, games, players, engine_version, progress, protected, deleting, bytes]
       properties:
+        bytes:
+          description: >-
+            About how much room the run takes on disk: each run table's size
+            shared among the runs by the rows each recorded as it ended. 0
+            while it is going
+          type: integer
+          format: int64
         id:
           type: integer
           format: int64
@@ -1933,17 +1716,6 @@ components:
         deleting:
           description: Being deleted in the background
           type: boolean
-    RunSize:
-      type: object
-      required: [run, bytes]
-      properties:
-        run:
-          type: integer
-          format: int64
-        bytes:
-          description: An estimate
-          type: integer
-          format: int64
     RunProtection:
       type: object
       required: [protected]
@@ -2005,39 +1777,6 @@ components:
         change:
           type: number
           format: double
-    SeasonRating:
-      type: object
-      additionalProperties: false
-      required: [season, rated]
-      properties:
-        season:
-          type: string
-          minLength: 1
-          maxLength: 64
-        rated:
-          type: boolean
-    SeasonInChampions:
-      type: object
-      additionalProperties: false
-      required: [season, in_champions]
-      properties:
-        season:
-          type: string
-          minLength: 1
-          maxLength: 64
-        in_champions:
-          type: boolean
-    SeasonInCommunity:
-      type: object
-      additionalProperties: false
-      required: [season, in_community]
-      properties:
-        season:
-          type: string
-          minLength: 1
-          maxLength: 64
-        in_community:
-          type: boolean
     Story:
       description: One of a tournament's stories, as DANeo's series pages tell them
       type: object
@@ -2057,16 +1796,6 @@ components:
         text:
           type: string
           maxLength: 1000
-    StoryList:
-      type: object
-      additionalProperties: false
-      required: [stories]
-      properties:
-        stories:
-          type: array
-          maxItems: 12
-          items:
-            $ref: "#/components/schemas/Story"
     TournamentCard:
       description: How a tournament presents itself on its card and its page's header; an empty field is unset
       type: object
@@ -2242,6 +1971,14 @@ components:
         description:
           type: string
           maxLength: 300
+        players:
+          description: When given, exactly the players who hold it
+          type: array
+          maxItems: 2000
+          items:
+            type: string
+            minLength: 1
+            maxLength: 64
     TitleOverride:
       type: object
       required: [name, title, reason]
@@ -2268,15 +2005,6 @@ components:
       description: A title the engine gives, but WC; "" for none
       type: string
       enum: [SGM, GM, M, P, G, S, B, W, ""]
-    Regulations:
-      type: object
-      additionalProperties: false
-      required: [text]
-      properties:
-        text:
-          description: Plain text; empty removes it
-          type: string
-          maxLength: 10000
     PodiumEntry:
       type: object
       additionalProperties: false
@@ -2290,25 +2018,6 @@ components:
           type: string
           minLength: 1
           maxLength: 64
-    SeasonPodium:
-      type: object
-      additionalProperties: false
-      required: [season, podium, note]
-      properties:
-        season:
-          type: string
-          minLength: 1
-          maxLength: 64
-        podium:
-          type: array
-          minItems: 1
-          maxItems: 3
-          items:
-            $ref: "#/components/schemas/PodiumEntry"
-        note:
-          description: Why, or where the placing comes from
-          type: string
-          maxLength: 500
     NewSeason:
       type: object
       additionalProperties: false
@@ -2344,11 +2053,33 @@ components:
           enum: [admin, organiser]
     AdminTournament:
       type: object
-      required: [slug, name, original_name, kind, top_divisions, points_2p, points_3p, points_4p, season_name, stage_name, visible, rated, community, card, stories, regulations, cge_regulations, rated_player_counts, seasons]
+      required: [slug, name, original_name, kind, top_divisions, points_2p, points_3p, points_4p, season_name, stage_name, visible, rated, community, card, stories, regulations, cge_regulations, rated_player_counts, seasons, parent, description, is_group, games, first_game, last_game]
       properties:
         original_name:
           description: The name it came in with, kept when it is renamed
           type: string
+        parent:
+          description: The slug of the group it is in; empty for none
+          type: string
+        description:
+          description: Admin's description of it; empty for none
+          type: string
+        is_group:
+          description: Whether it is a group made in admin, holding tournaments and groups and no games of its own
+          type: boolean
+        games:
+          description: How many games it holds
+          type: integer
+        first_game:
+          description: The date of its first game; null for none
+          type: string
+          format: date
+          nullable: true
+        last_game:
+          description: The date of its last game; null for none
+          type: string
+          format: date
+          nullable: true
         season_name:
           description: What it calls a season, as admin set it; empty for the default, Season
           type: string
@@ -2404,8 +2135,14 @@ components:
             $ref: "#/components/schemas/AdminSeason"
     AdminSeason:
       type: object
-      required: [label, original_name, note, has_games, rated, in_champions, in_community, timeout_penalty, stages, podium, podium_note]
+      required: [label, original_name, note, has_games, rated, in_champions, in_community, timeout_penalty, stages, podium, podium_note, suggested_podium, suggested_from, games, players]
       properties:
+        games:
+          description: Its games, across its stages
+          type: integer
+        players:
+          description: The players in them
+          type: integer
         in_champions:
           description: Its winner is listed among the tournament's champions
           type: boolean
@@ -2429,6 +2166,16 @@ components:
             $ref: "#/components/schemas/PodiumEntry"
         podium_note:
           type: string
+        suggested_podium:
+          description: The podium to start from when admin has set none
+          type: array
+          items:
+            $ref: "#/components/schemas/PodiumEntry"
+        suggested_from:
+          description: Where the suggestion comes from; recorded (the organisers' placements), final_stage (its one-group final's games, by game points then culture), or empty for none
+          type: string
+          enum: [recorded, final_stage, ""]
+          x-enum-varnames: [SuggestedRecorded, SuggestedFinalStage, SuggestedNone]
         label:
           type: string
         has_games:
@@ -2442,8 +2189,18 @@ components:
             $ref: "#/components/schemas/AdminStage"
     AdminStage:
       type: object
-      required: [label, original_name, note]
+      required: [label, original_name, note, number, games, finished, players]
       properties:
+        number:
+          description: Its number (CGE's, else the last number in its label), 0 for none
+          type: integer
+        games:
+          type: integer
+        finished:
+          description: How many of its games were played
+          type: integer
+        players:
+          type: integer
         original_name:
           description: The label it came in with, kept when it is renamed
           type: string
@@ -2452,13 +2209,158 @@ components:
         note:
           type: string
     TournamentKind:
-      description: A league ranks divisions over a season, a cup plays stages to a final, a ladder has no podium
+      description: A league ranks divisions over a season, a cup plays stages to a final, a ladder has no podium; only a group is also a series (editions of one event) or a group (of groups)
       type: string
-      enum: [league, cup, ladder]
+      enum: [league, cup, ladder, series, group]
+      x-enum-varnames: [KindLeague, KindCup, KindLadder, KindSeries, KindGroup]
+    AdminTournamentRow:
+      type: object
+      required: [slug, name, kind, parent, is_group, description, cge_about, visible, rated, community, games, first_game, last_game]
+      properties:
+        slug:
+          type: string
+        name:
+          type: string
+        kind:
+          $ref: "#/components/schemas/TournamentKind"
+        parent:
+          description: The slug of the group it is in; empty for none
+          type: string
+        is_group:
+          type: boolean
+        description:
+          description: Admin's description of it; empty for none
+          type: string
+        cge_about:
+          description: The first 200 characters of CGE's latest description of it, on one line
+          type: string
+        visible:
+          type: boolean
+        rated:
+          type: boolean
+        community:
+          type: boolean
+        games:
+          type: integer
+        first_game:
+          type: string
+          format: date
+          nullable: true
+        last_game:
+          type: string
+          format: date
+          nullable: true
+    SeasonChange:
+      type: object
+      additionalProperties: false
+      properties:
+        rated:
+          description: Its games count towards ratings, from the next run
+          type: boolean
+        in_champions:
+          description: Its winner is listed among the champions
+          type: boolean
+        in_community:
+          description: It counts in the community leaderboard, from the next run
+          type: boolean
+        timeout_penalty:
+          description: The points a player loses in its standings for each game they time out of, from the next run
+          type: number
+          format: double
+          maximum: 0
+        note:
+          description: Its own note; empty removes it
+          type: string
+          maxLength: 2000
+        stage_notes:
+          description: Notes by stage label; an empty note removes one
+          type: object
+          additionalProperties:
+            type: string
+            maxLength: 2000
+        podium:
+          $ref: "#/components/schemas/PodiumSetting"
+        clear_podium:
+          description: Removes its podium set by hand
+          type: boolean
+    PodiumSetting:
+      type: object
+      additionalProperties: false
+      required: [podium, note]
+      properties:
+        podium:
+          type: array
+          minItems: 1
+          maxItems: 3
+          items:
+            $ref: "#/components/schemas/PodiumEntry"
+        note:
+          description: Why, or where the placing comes from
+          type: string
+          maxLength: 500
+    NewGroup:
+      type: object
+      additionalProperties: false
+      required: [name, kind]
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 100
+        description:
+          type: string
+          maxLength: 2000
+        kind:
+          $ref: "#/components/schemas/TournamentKind"
+        members:
+          description: The slugs of the tournaments it holds
+          type: array
+          maxItems: 200
+          items:
+            type: string
+            minLength: 1
+            maxLength: 100
+    CreatedGroup:
+      type: object
+      required: [slug]
+      properties:
+        slug:
+          type: string
     TournamentSettings:
       type: object
       additionalProperties: false
       properties:
+        card:
+          $ref: "#/components/schemas/TournamentCard"
+        regulations:
+          description: Plain text; empty shows CGE's description again
+          type: string
+          maxLength: 10000
+        stories:
+          type: array
+          maxItems: 12
+          items:
+            $ref: "#/components/schemas/Story"
+        members:
+          description: A group's members, exactly
+          type: array
+          maxItems: 500
+          items:
+            type: string
+            minLength: 1
+            maxLength: 100
+        parent:
+          description: The slug of the group to put it in; empty takes it out of any
+          type: string
+          maxLength: 100
+        name:
+          description: A group's new name (only a group is renamed)
+          type: string
+          minLength: 1
+          maxLength: 100
+        description:
+          type: string
+          maxLength: 2000
         kind:
           $ref: "#/components/schemas/TournamentKind"
         top_divisions:
@@ -2507,36 +2409,6 @@ components:
         type: number
         format: double
         minimum: 0
-    SeasonPenalty:
-      type: object
-      additionalProperties: false
-      required: [season, timeout_penalty]
-      properties:
-        season:
-          type: string
-          minLength: 1
-          maxLength: 64
-        timeout_penalty:
-          description: The points a player loses in the season's standings for each game they time out of, from the next run
-          type: number
-          format: double
-          maximum: 0
-    SeasonNote:
-      type: object
-      additionalProperties: false
-      required: [season, stage, note]
-      properties:
-        season:
-          type: string
-          minLength: 1
-          maxLength: 64
-        stage:
-          description: Empty for the season's own note
-          type: string
-          maxLength: 64
-        note:
-          type: string
-          maxLength: 2000
     AdminMe:
       type: object
       required: [name, role]

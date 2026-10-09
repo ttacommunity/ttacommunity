@@ -14,6 +14,7 @@ import time
 from concurrent.futures import FIRST_COMPLETED, ProcessPoolExecutor, wait
 
 import psycopg
+from psycopg.types.json import Jsonb
 
 from tta_ratings_engine.data.badges import derive_tournament_badges
 from tta_ratings_engine.data.community import derive_community
@@ -103,7 +104,7 @@ RESULT_TABLES = [
 
 
 # What a completed run records about its input, for the site's header and footer.
-RUN_STATS = ["games", "players", "pairs", "first_game", "last_game"]
+RUN_STATS = ["games", "players", "pairs", "first_game", "last_game", "result_rows"]
 
 # A tournaments-only run copies these from the current run, and recomputes the rest.
 COPIED_TABLES = [
@@ -318,12 +319,14 @@ def run(
         )
         conn.rollback()
         with conn.transaction():
+            _record_rows(conn, run_id)
             _finish(conn, run_id, "failed")
         log(f"run {run_id}: failed")
         raise
 
     with conn.transaction():
         _record_stats(conn, run_id)
+        _record_rows(conn, run_id)
         _finish(conn, run_id, "complete")
         if make_current:
             _publish(conn, run_id)
@@ -623,6 +626,24 @@ def _record_stats(conn, run_id):
         WHERE run_id = %(run)s
         """,
         {"run": run_id},
+    )
+
+
+def _record_rows(conn, run_id):
+    """Records the run's rows in each table whose rows go with their run, for admin's sizes."""
+    tables = conn.execute(
+        "SELECT conrelid::regclass::text AS t FROM pg_constraint "
+        "WHERE confrelid = 'rating_runs'::regclass AND contype = 'f' AND confdeltype = 'c'"
+    ).fetchall()
+    counts = {
+        r["t"]: conn.execute(
+            f"SELECT count(*) AS n FROM {r['t']} WHERE run_id = %s", (run_id,)
+        ).fetchone()["n"]
+        for r in tables
+    }
+    conn.execute(
+        "UPDATE rating_runs SET result_rows = %s WHERE run_id = %s",
+        (Jsonb(counts), run_id),
     )
 
 
