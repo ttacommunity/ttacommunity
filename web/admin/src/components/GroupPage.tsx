@@ -1,7 +1,8 @@
 /** A group's page: its name, type and description, then what it holds, chosen with Modify. */
 import { useState } from 'react';
-import { adminRequest, type AdminTournament } from '../lib/admin-api';
-import { candidatesFor, membersOf } from '../lib/tournament-groups';
+import * as req from '../lib/admin-requests';
+import type { AdminTournament } from '../lib/admin-api';
+import { candidatesFor, groupChange, membersOf, toggled } from '../lib/tournament-groups';
 import { opensSettings, settingsHref } from '../lib/tournament-page';
 import MoveButton from './MoveButton';
 import { GROUP_KINDS } from './NewGroupForm';
@@ -16,13 +17,11 @@ function GroupSettings({ g, all, onReload }: { g: AdminTournament; all: readonly
   const [kind, setKind] = useState<Kind>(g.kind);
   const [description, setDescription] = useState(g.description);
   const [status, setStatus] = useState('');
-  const changed = name.trim() !== g.name || kind !== g.kind || description.trim() !== g.description;
+  const change = groupChange(g, { name, kind, description });
   const save = async () => {
     setStatus('Saving…');
-    const r = await adminRequest(`/api/tournaments/${g.slug}`, {
-      method: 'PATCH',
-      json: { name: name.trim(), kind, description: description.trim() },
-    });
+    if (change === null) return;
+    const r = await req.send(req.setTournament(g.slug, change));
     if (!r.ok) {
       setStatus(r.message);
       return;
@@ -57,7 +56,7 @@ function GroupSettings({ g, all, onReload }: { g: AdminTournament; all: readonly
             <textarea className="input-antique" id="group-description" value={description} maxLength={2000} rows={2} onChange={(e) => setDescription(e.target.value)} />
           </div>
           <p>
-            <button type="button" className="btn-antique" onClick={save} disabled={!changed || name.trim() === ''}>
+            <button type="button" className="btn-antique" onClick={save} disabled={change === null}>
               Save
             </button>{' '}
             <span className="note-status" role="status">
@@ -87,7 +86,7 @@ function Members({ g, all, onReload }: { g: AdminTournament; all: readonly Admin
   };
   const done = async () => {
     setStatus('Saving…');
-    const r = await adminRequest(`/api/tournaments/${g.slug}/members`, { method: 'PUT', json: { members: chosen } });
+    const r = await req.send(req.setMembers(g.slug, chosen));
     if (!r.ok) {
       setStatus(r.message);
       return;
@@ -96,7 +95,7 @@ function Members({ g, all, onReload }: { g: AdminTournament; all: readonly Admin
     setModifying(false);
     setStatus('Saved');
   };
-  const toggle = (slug: string) => setChosen((c) => (c.includes(slug) ? c.filter((s) => s !== slug) : [...c, slug]));
+  const toggle = (slug: string) => setChosen((c) => toggled(c, slug));
   return (
     <section className="rating-card admin-card" aria-labelledby="members-heading">
       <h2 id="members-heading" className="rating-card-heading">

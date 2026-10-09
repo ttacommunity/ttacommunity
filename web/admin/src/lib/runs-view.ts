@@ -41,3 +41,28 @@ export function keepPolling(runs: { status: string; deleting: boolean }[], waiti
 export function awaitStartedRun(now: number): number {
   return now + 3 * 60 * 1000;
 }
+
+type Run = { id: number; status: 'running' | 'complete' | 'failed'; current: boolean; deleting: boolean };
+const STATES: Record<Run['status'], string> = { running: 'Running', complete: 'Complete', failed: 'Failed' };
+
+/** runLabel names a run's state: on the site, being deleted, else running, complete or failed. */
+export function runLabel(run: Run): string {
+  if (run.current) return 'On the site';
+  return run.deleting ? 'Deleting…' : STATES[run.status];
+}
+
+/** publishVerb says what publishing run does: roll back to an earlier run than the one shown, else publish. */
+export function publishVerb(runs: readonly Run[], run: Run): 'Publish' | 'Roll back to' {
+  const current = runs.find((r) => r.current);
+  return current !== undefined && current.id > run.id ? 'Roll back to' : 'Publish';
+}
+
+/** shownRuns returns the latest n runs, or all of them when asked. */
+export function shownRuns<T>(runs: readonly T[], all: boolean, n: number): T[] {
+  return all ? [...runs] : runs.slice(0, n);
+}
+
+/** runGoing says whether a run is going. */
+export function runGoing(runs: readonly { status: string }[]): boolean {
+  return runs.some((r) => r.status === 'running');
+}

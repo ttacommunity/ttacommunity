@@ -1,6 +1,7 @@
 /** Titles set by hand, for admins: each replaces the engine's derived title from the next rating run. */
 import { useEffect, useState, type FormEvent } from 'react';
 import type { components } from '@ttac/shared/api';
+import * as req from '../lib/admin-requests';
 import { adminRequest } from '../lib/admin-api';
 
 type TitleOverride = components['schemas']['TitleOverride'];
@@ -40,17 +41,14 @@ export default function TitlesPanel() {
   const save = async (e: FormEvent) => {
     e.preventDefault();
     const name = form.name.trim();
-    const r = await adminRequest(`/api/titles/${encodeURIComponent(name)}`, {
-      method: 'PUT',
-      json: { title: form.title, reason: form.reason.trim() },
-    });
+    const r = await req.send(req.setTitle(name, form.title, form.reason));
     setMessage(r.ok ? `Saved ${name}: ${titleLabel(form.title)}. It shows from the next rating run.` : r.message);
     if (r.ok) setForm({ name: '', title: 'GM', reason: '' });
     await load();
   };
   const remove = async (o: TitleOverride) => {
     if (!window.confirm(`Remove the title set for ${o.name}? The next run derives it again.`)) return;
-    const r = await adminRequest(`/api/titles/${encodeURIComponent(o.name)}`, { method: 'DELETE' });
+    const r = await req.send(req.clearTitle(o.name));
     setMessage(r.ok ? `Removed ${o.name}'s title. The next run derives it again.` : r.message);
     await load();
   };

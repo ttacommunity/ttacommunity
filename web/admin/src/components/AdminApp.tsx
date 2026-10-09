@@ -1,9 +1,9 @@
 /** The admin page: the site's header with admin's tabs (tournaments, data and rating runs, titles and badges, admins). */
-import { useEffect, useState } from 'react';
+import { Fragment, useEffect, useState, type ReactNode } from 'react';
 import Segmented from '@ttac/shared/Segmented';
 import { adminRequest, type AdminMe, type AdminTournament } from '../lib/admin-api';
-import { tabFrom, tabsFor, type TabKey } from '../lib/admin-tabs';
-import { isRated, topLevel } from '../lib/tournament-groups';
+import { panelsFor, tabFrom, tabsFor, type Panel, type TabKey } from '../lib/admin-tabs';
+import { listed } from '../lib/tournament-groups';
 import { settingsHref } from '../lib/tournament-page';
 import AdminHeader from './AdminHeader';
 import NewGroupForm from './NewGroupForm';
@@ -58,7 +58,7 @@ function Tournaments() {
       {tournaments.kind === 'error' && <p className="row-error" role="alert">{tournaments.message}</p>}
       {tournaments.kind === 'ready' && (
         <TournamentTable
-          rows={topLevel(tournaments.data).filter((t) => isRated(tournaments.data, t.slug) === rated)}
+          rows={listed(tournaments.data, rated)}
           all={tournaments.data}
           caption={`Each top-level ${rated ? 'rated' : 'unrated'} tournament or group and its settings`}
           action={(t) => (
@@ -70,6 +70,26 @@ function Tournaments() {
       )}
     </section>
   );
+}
+
+/** panel draws one of admin's panels; myName is who is signed in, for the admin list. */
+function panel(p: Panel, myName: string): ReactNode {
+  switch (p) {
+    case 'tournaments':
+      return <Tournaments />;
+    case 'data':
+      return <DataCard />;
+    case 'runs':
+      return <RunsPanel />;
+    case 'standings':
+      return <StandingsCheckPanel />;
+    case 'titles':
+      return <TitlesPanel />;
+    case 'badges':
+      return <BadgesPanel />;
+    case 'admins':
+      return <AdminList myName={myName} />;
+  }
 }
 
 /** AdminApp loads who is signed in, then shows the tab the address names, following it as it changes. */
@@ -97,21 +117,9 @@ export default function AdminApp() {
             <p className="signed-in">
               Signed in as <strong>{me.data.name}</strong> ({me.data.role})
             </p>
-            {tab === 'tournaments' && <Tournaments />}
-            {tab === 'data' && (
-              <>
-                <DataCard />
-                {me.data.role === 'admin' && <RunsPanel />}
-                <StandingsCheckPanel />
-              </>
-            )}
-            {tab === 'titles' && (
-              <>
-                <TitlesPanel />
-                <BadgesPanel />
-              </>
-            )}
-            {tab === 'admins' && <AdminList myName={me.data.name} />}
+            {panelsFor(tab, me.data.role).map((p) => (
+              <Fragment key={p}>{panel(p, me.data.name)}</Fragment>
+            ))}
           </>
         )}
       </main>

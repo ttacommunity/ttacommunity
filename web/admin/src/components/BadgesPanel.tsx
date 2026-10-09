@@ -1,6 +1,8 @@
 /** Badges, for admins: make one, give it to players and take it back; each shows beside a player's title at once. */
+import { badgeChanged } from '../lib/admin-edits';
 import { useEffect, useState, type FormEvent } from 'react';
 import type { components } from '@ttac/shared/api';
+import * as req from '../lib/admin-requests';
 import { adminRequest } from '../lib/admin-api';
 
 type AdminBadge = components['schemas']['AdminBadge'];
@@ -11,26 +13,26 @@ function BadgeRow({ badge, onReload, say }: { badge: AdminBadge; onReload: () =>
   const [description, setDescription] = useState(badge.description);
   const [player, setPlayer] = useState('');
   const save = async () => {
-    const r = await adminRequest(`/api/badges/${badge.id}`, { method: 'PUT', json: { label: label.trim(), description: description.trim() } });
+    const r = await req.send(req.setBadge(badge.id, label, description));
     say(r.ok ? `Saved ${label.trim()}.` : r.message);
     await onReload();
   };
   const remove = async () => {
     if (!window.confirm(`Remove the ${badge.label} badge from everyone who holds it?`)) return;
-    const r = await adminRequest(`/api/badges/${badge.id}`, { method: 'DELETE' });
+    const r = await req.send(req.removeBadge(badge.id));
     say(r.ok ? `Removed the ${badge.label} badge.` : r.message);
     await onReload();
   };
   const give = async (e: FormEvent) => {
     e.preventDefault();
     const name = player.trim();
-    const r = await adminRequest(`/api/badges/${badge.id}/players/${encodeURIComponent(name)}`, { method: 'PUT' });
+    const r = await req.send(req.giveBadge(badge.id, name));
     say(r.ok ? `Gave ${name} the ${badge.label} badge.` : r.message);
     if (r.ok) setPlayer('');
     await onReload();
   };
   const take = async (name: string) => {
-    const r = await adminRequest(`/api/badges/${badge.id}/players/${encodeURIComponent(name)}`, { method: 'DELETE' });
+    const r = await req.send(req.takeBadge(badge.id, name));
     say(r.ok ? `Took the ${badge.label} badge from ${name}.` : r.message);
     await onReload();
   };
@@ -50,7 +52,7 @@ function BadgeRow({ badge, onReload, say }: { badge: AdminBadge; onReload: () =>
           type="button"
           className="btn-antique"
           onClick={() => void save()}
-          disabled={label.trim() === '' || (label.trim() === badge.label && description.trim() === badge.description)}
+          disabled={!badgeChanged(badge, label, description)}
         >
           Save
         </button>
@@ -102,10 +104,7 @@ export default function BadgesPanel() {
 
   const add = async (e: FormEvent) => {
     e.preventDefault();
-    const r = await adminRequest<AdminBadge>('/api/badges', {
-      method: 'POST',
-      json: { label: form.label.trim(), description: form.description.trim() },
-    });
+    const r = await req.send<AdminBadge>(req.addBadge(form.label, form.description));
     setMessage(r.ok ? `Made the ${r.data.label} badge. Give it to players below.` : r.message);
     if (r.ok) setForm({ label: '', description: '' });
     await load();

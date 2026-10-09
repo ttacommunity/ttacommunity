@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { tabFrom, tabsFor } from './admin-tabs';
+import { panelsFor, tabFrom, tabsFor } from './admin-tabs';
 
 describe('admin tabs', () => {
   it.each([
@@ -18,5 +18,15 @@ describe('admin tabs', () => {
     ['#data', 'organiser', 'data'],
   ] as const)('opens %s for an %s on %s', (hash, role, want) => {
     expect(tabFrom(hash, role)).toBe(want);
+  });
+
+  it.each([
+    ['data', 'admin', ['data', 'runs', 'standings']],
+    ['data', 'organiser', ['data', 'standings']],
+    ['titles', 'admin', ['titles', 'badges']],
+    ['tournaments', 'organiser', ['tournaments']],
+    ['admins', 'admin', ['admins']],
+  ] as const)('shows the %s tab to an %s as its panels', (tab, role, want) => {
+    expect(panelsFor(tab, role)).toEqual(want);
   });
 });

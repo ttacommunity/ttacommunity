@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { awaitStartedRun, canDelete, keepPolling, parseProgress, sizeText } from './runs-view';
+import { awaitStartedRun, canDelete, keepPolling, parseProgress, publishVerb, runGoing, runLabel, shownRuns, sizeText } from './runs-view';
 
 describe('parseProgress', () => {
   it('reads the step, label, time taken and time left from an engine line', () => {
@@ -75,5 +75,46 @@ describe('keepPolling', () => {
 describe('awaitStartedRun', () => {
   it('waits three minutes for a started run to appear', () => {
     expect(awaitStartedRun(1_000_000)).toBe(1_000_000 + 3 * 60 * 1000);
+  });
+});
+
+const RUN = (id: number, over: Partial<{ status: 'running' | 'complete' | 'failed'; current: boolean; deleting: boolean }> = {}) => ({
+  id,
+  status: 'complete' as const,
+  current: false,
+  deleting: false,
+  ...over,
+});
+
+describe('runs panel', () => {
+  it.each([
+    ['the one on the site', RUN(5, { current: true }), 'On the site'],
+    ['one being deleted', RUN(4, { deleting: true }), 'Deleting…'],
+    ['a failed one', RUN(3, { status: 'failed' }), 'Failed'],
+    ['a complete one', RUN(2), 'Complete'],
+    ['a running one', RUN(6, { status: 'running' }), 'Running'],
+  ])('labels %s', (_, run, want) => {
+    expect(runLabel(run)).toBe(want);
+  });
+
+  it.each([
+    ['a later run publishes', 7, 'Publish'],
+    ['an earlier run rolls back', 3, 'Roll back to'],
+  ])('%s', (_, id, want) => {
+    expect(publishVerb([RUN(5, { current: true }), RUN(7), RUN(3)], RUN(id))).toBe(want);
+  });
+
+  it.each([
+    ['the latest few', false, [9, 8]],
+    ['all when asked', true, [9, 8, 7]],
+  ])('shows %s', (_, all, want) => {
+    expect(shownRuns([RUN(9), RUN(8), RUN(7)], all, 2).map((r) => r.id)).toEqual(want);
+  });
+
+  it.each([
+    ['one running', [RUN(2), RUN(3, { status: 'running' })], true],
+    ['none running', [RUN(2)], false],
+  ])('knows a run is going with %s', (_, runs, want) => {
+    expect(runGoing(runs)).toBe(want);
   });
 });

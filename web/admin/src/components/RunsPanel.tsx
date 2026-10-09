@@ -1,12 +1,12 @@
 /** Rating runs, for admins: start one, watch its progress, compare and publish it, and protect or delete old ones. */
 import { useEffect, useState } from 'react';
+import * as req from '../lib/admin-requests';
 import { adminRequest, type AdminRun, type RunChanges, type RunSize, type StartedRun } from '../lib/admin-api';
-import { awaitStartedRun, canDelete, keepPolling, parseProgress, sizeText } from '../lib/runs-view';
+import { awaitStartedRun, canDelete, keepPolling, parseProgress, publishVerb, runGoing, runLabel, shownRuns, sizeText } from '../lib/runs-view';
 
 const POLL_MS = 5000;
 const ZONE = Intl.DateTimeFormat().resolvedOptions().timeZone;
 const SHOWN = 8;
-const STATES: Record<AdminRun['status'], string> = { running: 'Running', complete: 'Complete', failed: 'Failed' };
 
 function when(iso: string | undefined): string {
   return iso === undefined ? '' : new Date(iso).toLocaleString(undefined, { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
@@ -88,7 +88,7 @@ export default function RunsPanel() {
     if (r.ok) setRuns(r.data);
     else setMessage(r.message);
   };
-  const going = runs?.some((r) => r.status === 'running') ?? false;
+  const going = runs !== null && runGoing(runs);
   const changing = runs !== null && keepPolling(runs, waitingUntil, Date.now());
   useEffect(() => {
     void load();
@@ -108,7 +108,7 @@ export default function RunsPanel() {
   const start = async () => {
     if (!window.confirm('Start a rating run now? It usually takes 20 to 40 minutes, and is not shown on the site until you publish it.')) return;
     setMessage('');
-    const r = await adminRequest<StartedRun>('/api/runs', { method: 'POST' });
+    const r = await req.send<StartedRun>(req.startRun());
     if (!r.ok) {
       setMessage(r.message);
       return;
@@ -119,23 +119,22 @@ export default function RunsPanel() {
   const stop = async (run: AdminRun) => {
     if (!window.confirm(`Stop run ${run.id}? It is marked failed, and its work so far is not kept.`)) return;
     setMessage('');
-    const r = await adminRequest('/api/runs/stop', { method: 'POST' });
+    const r = await req.send(req.stopRun());
     setMessage(r.ok ? `Stopping run ${run.id}. It shows as failed once the engine has ended.` : r.message);
     await load();
   };
   const publish = async (run: AdminRun) => {
-    const current = runs?.find((r) => r.current);
-    const verb = current !== undefined && current.id > run.id ? 'Roll back to' : 'Publish';
+    const verb = publishVerb(runs ?? [], run);
     if (!window.confirm(`${verb} run ${run.id}? The site shows it at once.`)) return;
     setMessage('');
-    const r = await adminRequest(`/api/runs/${run.id}/publish`, { method: 'POST' });
+    const r = await req.send(req.publishRun(run.id));
     setMessage(r.ok ? `Run ${run.id} is now the one the site shows.` : r.message);
     await load();
   };
 
   const protect = async (run: AdminRun, on: boolean) => {
     setMessage('');
-    const r = await adminRequest(`/api/runs/${run.id}/protected`, { method: 'PUT', json: { protected: on } });
+    const r = await req.send(req.protectRun(run.id, on));
     if (!r.ok) setMessage(r.message);
     await load();
   };
@@ -143,12 +142,12 @@ export default function RunsPanel() {
     const size = sizeText(sizes.get(run.id));
     if (!window.confirm(`Delete run ${run.id}${size === '' ? '' : ` (${size})`} and every result of it? This cannot be undone.`)) return;
     setMessage('');
-    const r = await adminRequest(`/api/runs/${run.id}`, { method: 'DELETE' });
+    const r = await req.send(req.deleteRun(run.id));
     setMessage(r.ok ? `Deleting run ${run.id}. It disappears from this list once it is gone.` : r.message);
     await load();
   };
 
-  const shown = runs === null ? [] : all ? runs : runs.slice(0, SHOWN);
+  const shown = runs === null ? [] : shownRuns(runs, all, SHOWN);
   return (
     <section className="rating-card admin-card" aria-labelledby="runs-heading">
       <h2 id="runs-heading" className="rating-card-heading">
@@ -248,7 +247,7 @@ function RunRow({
     <tr>
       <th scope="row">{run.id}</th>
       <td>
-        <span className={`run-state run-${state}`}>{run.current ? 'On the site' : run.deleting ? 'Deleting…' : STATES[run.status]}</span>
+        <span className={`run-state run-${state}`}>{runLabel(run)}</span>
       </td>
       <td>{when(run.started_at)}</td>
       <td className="run-wide">{run.games > 0 ? run.games.toLocaleString() : ''}</td>

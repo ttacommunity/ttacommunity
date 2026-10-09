@@ -1,5 +1,7 @@
 /** A tournament's or group's page: the groups it is in; a group's settings and members, or a tournament's settings, format and regulations, and seasons. */
+import { canAddStory, cardChanged, movedStory, regulationsSavable, storiesChanged, textChanged } from '../lib/admin-edits';
 import { Fragment, useEffect, useState, type FormEvent } from 'react';
+import * as req from '../lib/admin-requests';
 import { adminRequest, type AdminMe, type AdminTournament } from '../lib/admin-api';
 import { podiumRequest, podiumStart, type PodiumEntry } from '../lib/podium';
 import { seasonSummary, stageRows, type SeasonCount } from '../lib/season-counts';
@@ -47,7 +49,7 @@ function NoteBox({
   const id = `note-${slug}-${season}-${stage}`.replace(/[^A-Za-z0-9-]/g, '_');
   const save = async () => {
     setStatus('Saving…');
-    const r = await adminRequest(`/api/tournaments/${slug}/notes`, { method: 'PUT', json: { season, stage, note: text.trim() } });
+    const r = await req.send(req.setNote(slug, season, stage, text));
     if (r.ok) {
       setSaved(text.trim());
       setStatus(text.trim() === '' ? 'Removed' : 'Saved');
@@ -64,7 +66,7 @@ function NoteBox({
       </label>
       <textarea className="input-antique" id={id} value={text} maxLength={2000} rows={2} onChange={(e) => setText(e.target.value)} />
       <div className="note-actions">
-        <button type="button" className="btn-antique" onClick={save} disabled={text.trim() === saved}>
+        <button type="button" className="btn-antique" onClick={save} disabled={!textChanged(saved, text)}>
           Save note
         </button>
         <span className="note-status" role="status">
@@ -85,7 +87,7 @@ function PenaltyBox({ slug, season, initial }: { slug: string; season: string; i
   const save = async () => {
     if (value === null) return;
     setStatus('Saving…');
-    const r = await adminRequest(`/api/tournaments/${slug}/season-penalty`, { method: 'PUT', json: { season, timeout_penalty: value } });
+    const r = await req.send(req.setPenalty(slug, season, value));
     if (r.ok) {
       setSaved(value);
       setStatus('Saved');
@@ -147,13 +149,13 @@ function PodiumBox({
     const body = podiumRequest(season, names, note);
     if (body === null) return;
     setStatus('Saving…');
-    const r = await adminRequest(`/api/tournaments/${slug}/podium`, { method: 'PUT', json: body });
+    const r = await req.send(req.setPodium(slug, body));
     setStatus(r.ok ? 'Saved. Titles follow at the next run.' : r.message);
     if (r.ok) await onReload();
   };
   const clear = async () => {
     setStatus('Removing…');
-    const r = await adminRequest(`/api/tournaments/${slug}/podium?season=${encodeURIComponent(season)}`, { method: 'DELETE' });
+    const r = await req.send(req.clearPodium(slug, season));
     setStatus(r.ok ? 'Removed. The recorded or derived podium shows again.' : r.message);
     if (r.ok) await onReload();
   };
@@ -202,7 +204,7 @@ function SettingsCard({ t, onChange }: { t: AdminTournament; onChange: (t: Admin
   const set = async (key: Setting, value: boolean) => {
     setError('');
     onChange({ ...t, [key]: value });
-    const r = await adminRequest(`/api/tournaments/${t.slug}`, { method: 'PATCH', json: { [key]: value } });
+    const r = await req.send(req.setTournament(t.slug, { [key]: value }));
     if (!r.ok) {
       onChange({ ...t, [key]: !value });
       setError(r.message);
@@ -217,7 +219,7 @@ function SettingsCard({ t, onChange }: { t: AdminTournament; onChange: (t: Admin
     setError('');
     const before = t.rated_player_counts;
     onChange({ ...t, rated_player_counts: next });
-    const r = await adminRequest(`/api/tournaments/${t.slug}`, { method: 'PATCH', json: { rated_player_counts: next } });
+    const r = await req.send(req.setTournament(t.slug, { rated_player_counts: next }));
     if (!r.ok) {
       onChange({ ...t, rated_player_counts: before });
       setError(r.message);
@@ -226,7 +228,7 @@ function SettingsCard({ t, onChange }: { t: AdminTournament; onChange: (t: Admin
   const [divisions, setDivisions] = useState(divisionText(t.top_divisions));
   const patch = async (json: object, undo: AdminTournament) => {
     setError('');
-    const r = await adminRequest(`/api/tournaments/${t.slug}`, { method: 'PATCH', json });
+    const r = await req.send(req.setTournament(t.slug, json));
     if (!r.ok) {
       onChange(undo);
       setError(r.message);
@@ -398,10 +400,10 @@ function SettingsCard({ t, onChange }: { t: AdminTournament; onChange: (t: Admin
 function CardSettings({ t, onReload }: { t: AdminTournament; onReload: () => Promise<void> }) {
   const [card, setCard] = useState(t.card);
   const [status, setStatus] = useState('');
-  const changed = (Object.keys(card) as (keyof typeof card)[]).some((k) => card[k] !== t.card[k]);
+  const changed = cardChanged(t.card, card);
   const save = async () => {
     setStatus('Saving…');
-    const r = await adminRequest(`/api/tournaments/${t.slug}/card`, { method: 'PUT', json: card });
+    const r = await req.send(req.setCard(t.slug, card));
     setStatus(r.ok ? 'Saved. The cards and the tournament page show it at once.' : r.message);
     if (r.ok) await onReload();
   };
@@ -478,7 +480,7 @@ function RegulationsCard({ t, onReload }: { t: AdminTournament; onReload: () => 
   const [status, setStatus] = useState('');
   const save = async (value: string) => {
     setStatus('Saving…');
-    const r = await adminRequest(`/api/tournaments/${t.slug}/regulations`, { method: 'PUT', json: { text: value } });
+    const r = await req.send(req.setRegulations(t.slug, value));
     if (!r.ok) {
       setStatus(r.message);
       return;
@@ -513,7 +515,7 @@ function RegulationsCard({ t, onReload }: { t: AdminTournament; onReload: () => 
           type="button"
           className="btn-antique"
           onClick={() => void save(text)}
-          disabled={text.trim() === '' || text.trim() === (t.regulations === '' ? t.cge_regulations : t.regulations).trim()}
+          disabled={!regulationsSavable(text, t.regulations, t.cge_regulations)}
         >
           Save
         </button>
@@ -537,17 +539,13 @@ const NO_STORY: Story = { player: '', badge: '', title: '', text: '' };
 function StoriesSettings({ t, onReload }: { t: AdminTournament; onReload: () => Promise<void> }) {
   const [list, setList] = useState<Story[]>(t.stories);
   const [status, setStatus] = useState('');
-  const changed = JSON.stringify(list) !== JSON.stringify(t.stories);
+  const changed = storiesChanged(t.stories, list);
   const set = (i: number, field: keyof Story, value: string) =>
     setList(list.map((s, j) => (j === i ? { ...s, [field]: value } : s)));
-  const move = (i: number, by: number) => {
-    const next = [...list];
-    [next[i], next[i + by]] = [next[i + by], next[i]];
-    setList(next);
-  };
+  const move = (i: number, by: number) => setList(movedStory(list, i, by));
   const save = async () => {
     setStatus('Saving…');
-    const r = await adminRequest(`/api/tournaments/${t.slug}/stories`, { method: 'PUT', json: { stories: list } });
+    const r = await req.send(req.setStories(t.slug, list));
     setStatus(r.ok ? 'Saved. The tournament page shows them at once.' : r.message);
     if (r.ok) await onReload();
   };
@@ -607,7 +605,7 @@ function StoriesSettings({ t, onReload }: { t: AdminTournament; onReload: () => 
         </fieldset>
       ))}
       <div className="note-actions">
-        <button type="button" className="btn-antique" onClick={() => setList([...list, NO_STORY])} disabled={list.length >= 12}>
+        <button type="button" className="btn-antique" onClick={() => setList([...list, NO_STORY])} disabled={!canAddStory(list)}>
           Add a story
         </button>
         <button type="button" className="btn-antique" onClick={() => void save()} disabled={!changed}>
@@ -692,7 +690,7 @@ function SeasonsCard({ t, onReload }: { t: AdminTournament; onReload: () => Prom
   const addSeason = async (e: FormEvent) => {
     e.preventDefault();
     setError('');
-    const r = await adminRequest(`/api/tournaments/${t.slug}/seasons`, { method: 'POST', json: { label: newSeason.trim() } });
+    const r = await req.send(req.addSeason(t.slug, newSeason));
     if (r.ok) {
       setNewSeason('');
       await onReload();
@@ -700,26 +698,26 @@ function SeasonsCard({ t, onReload }: { t: AdminTournament; onReload: () => Prom
   };
   const setRated = async (label: string, rated: boolean) => {
     setError('');
-    const r = await adminRequest(`/api/tournaments/${t.slug}/season-rating`, { method: 'PUT', json: { season: label, rated } });
+    const r = await req.send(req.setSeasonFlag(t.slug, label, 'rated', rated));
     if (r.ok) await onReload();
     else setError(r.message);
   };
   const setInChampions = async (label: string, in_champions: boolean) => {
     setError('');
-    const r = await adminRequest(`/api/tournaments/${t.slug}/season-champions`, { method: 'PUT', json: { season: label, in_champions } });
+    const r = await req.send(req.setSeasonFlag(t.slug, label, 'champions', in_champions));
     if (r.ok) await onReload();
     else setError(r.message);
   };
   const setInCommunity = async (label: string, in_community: boolean) => {
     setError('');
-    const r = await adminRequest(`/api/tournaments/${t.slug}/season-community`, { method: 'PUT', json: { season: label, in_community } });
+    const r = await req.send(req.setSeasonFlag(t.slug, label, 'community', in_community));
     if (r.ok) await onReload();
     else setError(r.message);
   };
   const removeSeason = async (label: string) => {
     if (!window.confirm(`Remove ${t.name} season ${label} and its notes?`)) return;
     setError('');
-    const r = await adminRequest(`/api/tournaments/${t.slug}/seasons?label=${encodeURIComponent(label)}`, { method: 'DELETE' });
+    const r = await req.send(req.removeSeason(t.slug, label));
     if (r.ok) await onReload();
     else setError(r.message);
   };

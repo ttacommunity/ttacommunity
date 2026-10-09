@@ -1,5 +1,7 @@
 /** The admin list, for admins: who is in admin and their role, with adding, changing and removing. */
+import { isDiscordId } from '../lib/admin-edits';
 import { useEffect, useState, type FormEvent } from 'react';
+import * as req from '../lib/admin-requests';
 import { adminRequest, type AdminPerson } from '../lib/admin-api';
 
 type Role = AdminPerson['role'];
@@ -25,20 +27,20 @@ export default function AdminList({ myName }: { myName: string }) {
 
   const save = async (id: string, name: string, role: Role) => {
     setMessage('');
-    const r = await adminRequest(`/api/admins/${id}`, { method: 'PUT', json: { name, role } });
+    const r = await req.send(req.setAdmin(id, name, role));
     setMessage(r.ok ? `Saved ${name} as ${role}.` : r.message);
     await load();
     return r.ok;
   };
   const remove = async (p: AdminPerson) => {
     if (!window.confirm(`Take ${p.name} out of admin?`)) return;
-    const r = await adminRequest(`/api/admins/${p.discord_id}`, { method: 'DELETE' });
+    const r = await req.send(req.removeAdmin(p.discord_id));
     setMessage(r.ok ? `Removed ${p.name}. Their sign-in lasts until it ends or is revoked in Cloudflare Access.` : r.message);
     await load();
   };
   const add = async (e: FormEvent) => {
     e.preventDefault();
-    if (!/^[0-9]{5,25}$/.test(form.id.trim())) {
+    if (!isDiscordId(form.id)) {
       setMessage('A Discord id is the number in Discord under Copy User ID (Developer Mode).');
       return;
     }

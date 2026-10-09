@@ -108,3 +108,48 @@ export function isRated<T extends { slug: string; parent: string; is_group: bool
   if (!t.is_group) return t.rated;
   return list.some((m) => m.parent === slug && isRated(list, m.slug));
 }
+
+/** typeLabel names a row's type: a tournament's kind; a group says what it groups. */
+export function typeLabel(t: { kind: string; is_group: boolean }): string {
+  if (!t.is_group) return t.kind;
+  if (t.kind === 'series') return 'series';
+  return t.kind === 'group' ? 'group of groups' : `group of ${t.kind}s`;
+}
+
+/** rowTotals returns a row's games and dates: a group's are what is in it, a tournament's its own. */
+export function rowTotals<T extends Played>(list: readonly T[], t: T): { games: number; first: string | null; last: string | null } {
+  return t.is_group ? groupTotals(list, t.slug) : { games: t.games, first: t.first_game, last: t.last_game };
+}
+
+/** listed returns the top level that is rated, or that is not. */
+export function listed<T extends { slug: string; parent: string; is_group: boolean; rated: boolean }>(list: readonly T[], rated: boolean): T[] {
+  return list.filter((t) => t.parent === '' && isRated(list, t.slug) === rated);
+}
+
+/** moveChoices returns where slug can move: out of every group ("" first, when it is in one), then each group it can join. */
+export function moveChoices<T extends Grouped>(list: readonly T[], slug: string): { parent: string; label: string }[] {
+  const inOne = (list.find((t) => t.slug === slug)?.parent ?? '') !== '';
+  return [
+    ...(inOne ? [{ parent: '', label: 'No group: the top level' }] : []),
+    ...groupsToJoin(list, slug).map((g) => ({ parent: g.slug, label: g.name })),
+  ];
+}
+
+/** toggled returns chosen with slug added, or taken out when it is there. */
+export function toggled(chosen: readonly string[], slug: string): string[] {
+  return chosen.includes(slug) ? chosen.filter((s) => s !== slug) : [...chosen, slug];
+}
+
+type GroupForm<K extends string> = { name: string; kind: K; description: string };
+
+/** groupChange returns what saving a group's settings sends, trimmed, or null when nothing changed or it has no name. */
+export function groupChange<K extends string>(saved: GroupForm<K>, form: GroupForm<K>): GroupForm<K> | null {
+  const next = { name: form.name.trim(), kind: form.kind, description: form.description.trim() };
+  if (next.name === '') return null;
+  return next.name === saved.name && next.kind === saved.kind && next.description === saved.description ? null : next;
+}
+
+/** newGroupBody returns what making a group sends, or null without a name. */
+export function newGroupBody<K extends string>(name: string, kind: K): { name: string; kind: K } | null {
+  return name.trim() === '' ? null : { name: name.trim(), kind };
+}

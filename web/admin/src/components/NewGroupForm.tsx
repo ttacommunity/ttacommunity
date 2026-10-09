@@ -1,6 +1,8 @@
 /** A form that makes a group of related tournaments from its name and type, then opens its page. */
 import { useState, type FormEvent } from 'react';
-import { adminRequest, type AdminTournament } from '../lib/admin-api';
+import * as req from '../lib/admin-requests';
+import type { AdminTournament } from '../lib/admin-api';
+import { newGroupBody } from '../lib/tournament-groups';
 import { settingsHref } from '../lib/tournament-page';
 
 type Kind = AdminTournament['kind'];
@@ -21,8 +23,10 @@ export default function NewGroupForm() {
   const [status, setStatus] = useState('');
   const make = async (e: FormEvent) => {
     e.preventDefault();
+    const body = newGroupBody(name, kind);
+    if (body === null) return;
     setStatus('Making…');
-    const r = await adminRequest<{ slug: string }>('/api/tournaments', { method: 'POST', json: { name: name.trim(), kind } });
+    const r = await req.send<{ slug: string }>(req.newGroup(body));
     if (r.ok) {
       window.location.href = settingsHref(r.data.slug);
     } else {
@@ -47,7 +51,7 @@ export default function NewGroupForm() {
         </select>
       </div>
       <p>
-        <button type="submit" className="btn-antique" disabled={name.trim() === ''}>
+        <button type="submit" className="btn-antique" disabled={newGroupBody(name, kind) === null}>
           Make the group
         </button>{' '}
         <span className="note-status" role="status">

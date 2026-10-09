@@ -1,5 +1,23 @@
 import { describe, expect, it } from 'vitest';
-import { candidatesFor, dateSpan, detail, groupsAbove, groupsToJoin, groupTotals, isRated, membersOf, topLevel, unrelated } from './tournament-groups';
+import {
+  candidatesFor,
+  dateSpan,
+  detail,
+  groupChange,
+  groupsAbove,
+  groupsToJoin,
+  groupTotals,
+  isRated,
+  listed,
+  membersOf,
+  moveChoices,
+  newGroupBody,
+  rowTotals,
+  toggled,
+  topLevel,
+  typeLabel,
+  unrelated,
+} from './tournament-groups';
 
 // The group worlds holds the group wc_2027, which holds wc_2027_tiebreak; swiss_open and slow_burn are related to
 // nothing; leagues is an empty league group.
@@ -109,5 +127,65 @@ describe('tournament groups', () => {
     ['an unrated tournament', 'a', false],
   ])('counts as rated: %s', (_, slug, want) => {
     expect(isRated(RATED, slug)).toBe(want);
+  });
+
+  it.each([
+    ['a tournament by its kind', { kind: 'cup', is_group: false }, 'cup'],
+    ['a series group', { kind: 'series', is_group: true }, 'series'],
+    ['a group of groups', { kind: 'group', is_group: true }, 'group of groups'],
+    ['a group of one kind', { kind: 'league', is_group: true }, 'group of leagues'],
+  ])('labels the type of %s', (_, t, want) => {
+    expect(typeLabel(t)).toBe(want);
+  });
+
+  const ROWS = [
+    { slug: 'g', parent: '', is_group: true, games: 0, first_game: null, last_game: null, rated: false },
+    { slug: 'a', parent: 'g', is_group: false, games: 5, first_game: '2024-01-01', last_game: '2024-02-01', rated: true },
+    { slug: 'b', parent: '', is_group: false, games: 2, first_game: '2023-01-01', last_game: '2023-01-05', rated: false },
+  ];
+  it.each([
+    ['a group by what is in it', ROWS[0], { games: 5, first: '2024-01-01', last: '2024-02-01' }],
+    ['a tournament by its own games', ROWS[2], { games: 2, first: '2023-01-01', last: '2023-01-05' }],
+  ])('totals %s', (_, row, want) => {
+    expect(rowTotals(ROWS, row)).toEqual(want);
+  });
+
+  it.each([
+    [true, ['g']],
+    [false, ['b']],
+  ])('lists the top level, rated %s', (rated, want) => {
+    expect(slugs(listed(ROWS, rated))).toEqual(want);
+  });
+
+  it.each([
+    ['a tournament in a group: no group first, then the others', 'wc_2027_tiebreak', [['', 'No group: the top level'], ['leagues', 'Leagues'], ['worlds', 'World Championship']]],
+    ['one in no group: the groups only', 'swiss_open', [['leagues', 'Leagues'], ['wc_2027', 'World Championship 2027'], ['worlds', 'World Championship']]],
+    ['a group with nowhere to go', 'worlds', [['leagues', 'Leagues']]],
+  ])('offers moving %s', (_, slug, want) => {
+    expect(moveChoices(LIST, slug).map((c) => [c.parent, c.label])).toEqual(want);
+  });
+
+  it.each([
+    ['adds one not chosen', ['a'], 'b', ['a', 'b']],
+    ['removes one chosen', ['a', 'b'], 'a', ['b']],
+  ])('toggles a choice: %s', (_, chosen, slug, want) => {
+    expect(toggled(chosen, slug)).toEqual(want);
+  });
+
+  const G = { name: 'Swiss Open', kind: 'series', description: 'Every year' };
+  it.each([
+    ['nothing changed', { name: ' Swiss Open ', kind: 'series', description: 'Every year ' }, null],
+    ['an empty name', { name: '  ', kind: 'series', description: 'Every year' }, null],
+    ['a new name and description, trimmed', { name: ' Swiss Opens ', kind: 'series', description: ' Annual ' }, { name: 'Swiss Opens', kind: 'series', description: 'Annual' }],
+    ['a new type', { name: 'Swiss Open', kind: 'cup', description: 'Every year' }, { name: 'Swiss Open', kind: 'cup', description: 'Every year' }],
+  ])('saves a group: %s', (_, form, want) => {
+    expect(groupChange(G, form)).toEqual(want);
+  });
+
+  it.each([
+    ['a name, trimmed', ' Quick and Dirty ', 'series', { name: 'Quick and Dirty', kind: 'series' }],
+    ['no name', '   ', 'cup', null],
+  ])('makes a new group from %s', (_, name, kind, want) => {
+    expect(newGroupBody(name, kind)).toEqual(want);
   });
 });

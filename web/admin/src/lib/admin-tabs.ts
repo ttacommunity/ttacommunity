@@ -21,3 +21,12 @@ export function tabFrom(hash: string, role: Role): TabKey {
   const named = hash === '#runs' ? '#data' : hash;
   return tabsFor(role).find((t) => `#${t.key}` === named)?.key ?? 'tournaments';
 }
+
+export type Panel = 'tournaments' | 'data' | 'runs' | 'standings' | 'titles' | 'badges' | 'admins';
+
+/** panelsFor returns the panels a tab shows role, in order: rating runs only to an admin. */
+export function panelsFor(tab: TabKey, role: Role): Panel[] {
+  if (tab === 'data') return role === 'admin' ? ['data', 'runs', 'standings'] : ['data', 'standings'];
+  if (tab === 'titles') return ['titles', 'badges'];
+  return [tab];
+}

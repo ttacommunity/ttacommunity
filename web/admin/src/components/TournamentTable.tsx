@@ -1,7 +1,7 @@
 /** Admin's table of tournaments and groups: the main list, a group's members, and Modify's choices. */
 import type { ReactNode } from 'react';
 import type { AdminTournament } from '../lib/admin-api';
-import { dateSpan, detail, groupTotals, membersOf } from '../lib/tournament-groups';
+import { dateSpan, detail, membersOf, rowTotals, typeLabel } from '../lib/tournament-groups';
 import { SETTINGS, settingsHref } from '../lib/tournament-page';
 
 /** YesNo marks a setting on or off in the read-only list. */
@@ -11,13 +11,6 @@ function YesNo({ on, label, name }: { on: boolean; label: string; name: string }
       {on ? '✓' : '–'}
     </span>
   );
-}
-
-/** typeLabel names a row's type: a group says what it groups. */
-function typeLabel(t: AdminTournament): string {
-  if (!t.is_group) return t.kind;
-  if (t.kind === 'series') return 'series';
-  return t.kind === 'group' ? 'group of groups' : `group of ${t.kind}s`;
 }
 
 /**
@@ -62,7 +55,7 @@ export default function TournamentTable({
         </thead>
         <tbody>
           {rows.map((t) => {
-            const total = t.is_group ? groupTotals(all, t.slug) : { games: t.games, first: t.first_game, last: t.last_game };
+            const total = rowTotals(all, t);
             return (
               <tr key={t.slug}>
                 <th scope="row">
