@@ -64,8 +64,8 @@ export function dateSpan(first: string | null, last: string | null): string {
 }
 
 /** detail returns a row's description on one line, at most 140 characters: admin's, else CGE's. */
-export function detail(t: { description: string; cge_regulations: string }): string {
-  const text = (t.description || t.cge_regulations).replace(/\s+/g, ' ').trim();
+export function detail(t: { description: string; cge_about: string }): string {
+  const text = (t.description || t.cge_about).replace(/\s+/g, ' ').trim();
   return text.length > 140 ? `${text.slice(0, 139)}…` : text;
 }
 

@@ -39,12 +39,14 @@ func (a *AdminStore) SeasonCounts(ctx context.Context, slug string) ([]SeasonCou
 		            FROM stages s JOIN tournaments t USING (tournament_id) WHERE t.series_id = $1),
 		sp AS (SELECT DISTINCT st.stage_id, s.player_id FROM st JOIN groups gr USING (stage_id)
 		       JOIN games g USING (group_id) JOIN seats s USING (game_id)),
+		gc AS (SELECT gr.stage_id, count(*)::int AS games, (count(*) FILTER (WHERE g.state = 'played'))::int AS finished
+		       FROM st JOIN groups gr USING (stage_id) JOIN games g USING (group_id) GROUP BY gr.stage_id),
+		pc AS (SELECT stage_id, count(*)::int AS players FROM sp GROUP BY stage_id),
 		season AS (SELECT st.tournament_id, count(DISTINCT sp.player_id)::int AS players FROM sp JOIN st USING (stage_id) GROUP BY 1)
-		SELECT st.season, st.label, st.number,
-		       (SELECT count(*)::int FROM groups gr JOIN games g USING (group_id) WHERE gr.stage_id = st.stage_id),
-		       (SELECT count(*)::int FROM groups gr JOIN games g USING (group_id) WHERE gr.stage_id = st.stage_id AND g.state = 'played'),
-		       (SELECT count(*)::int FROM sp WHERE sp.stage_id = st.stage_id), coalesce(sn.players, 0)
-		FROM st LEFT JOIN season sn USING (tournament_id) ORDER BY st.season, st.stage_id`, id)
+		SELECT st.season, st.label, st.number, coalesce(gc.games, 0), coalesce(gc.finished, 0), coalesce(pc.players, 0),
+		       coalesce(sn.players, 0)
+		FROM st LEFT JOIN gc USING (stage_id) LEFT JOIN pc USING (stage_id) LEFT JOIN season sn USING (tournament_id)
+		ORDER BY st.season, st.stage_id`, id)
 	if err != nil {
 		return nil, fmt.Errorf("counting %s's games: %w", slug, err)
 	}

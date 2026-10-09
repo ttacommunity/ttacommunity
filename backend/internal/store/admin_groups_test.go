@@ -34,11 +34,7 @@ func group(t *testing.T, a *AdminStore, name, kind string, members ...string) st
 
 func listed(t *testing.T, a *AdminStore, slug string) AdminTournament {
 	t.Helper()
-	got, err := a.Tournaments(context.Background())
-	if err != nil {
-		t.Fatal(err)
-	}
-	return adminTournament(t, got, slug)
+	return adminTournament(t, a, slug)
 }
 
 func TestCreateGroupMakesAGroupHoldingItsMembers(t *testing.T) {
@@ -223,5 +219,31 @@ func TestSeasonCountsCountEachStagesAndSeasonsGamesAndPlayers(t *testing.T) {
 	}
 	if _, err := a.SeasonCounts(ctx, "no_such"); !errors.Is(err, ErrNoTournament) {
 		t.Errorf("SeasonCounts(no_such) = %v, want ErrNoTournament", err)
+	}
+}
+
+func TestTournamentGivesItsSeasonsAndStagesTheirCounts(t *testing.T) {
+	pool := migrated(t)
+	ctx := context.Background()
+	placedOn(t, pool, map[string]time.Time{
+		"Worlds 2024 Stage 1 - Group 1 game 1": day("2024-01-01"), "Worlds 2024 Stage 2 - Final game 1": day("2024-02-01"),
+	})
+	setSeats(t, pool, "Worlds 2024 Stage 1 - Group 1 game 1", Seat{"ann", 200}, Seat{"bob", 150}, Seat{"cy", 100})
+	setSeats(t, pool, "Worlds 2024 Stage 2 - Final game 1", Seat{"ann", 200}, Seat{"bob", 150})
+	a := NewAdminStore(asAdminLogin(t, pool))
+
+	w := adminTournament(t, a, "worlds")
+	var counts []string
+	for _, se := range w.Seasons {
+		counts = append(counts, fmt.Sprintf("%s: %d games %d players", se.Label, se.Games, se.Players))
+		for _, st := range se.Stages {
+			counts = append(counts, fmt.Sprintf("%s #%d %d/%d games %d players", st.Label, st.Number, st.Finished, st.Games, st.Players))
+		}
+	}
+	if got, want := strings.Join(counts, ", "), "2024: 2 games 3 players, Stage 1 #1 1/1 games 3 players, Stage 2 #2 1/1 games 2 players"; got != want {
+		t.Errorf("counts = %q, want %q", got, want)
+	}
+	if _, err := a.Tournament(ctx, "no_such"); !errors.Is(err, ErrNoTournament) {
+		t.Errorf("Tournament(no_such) = %v, want ErrNoTournament", err)
 	}
 }

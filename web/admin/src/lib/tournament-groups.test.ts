@@ -104,9 +104,9 @@ describe('tournament groups', () => {
   });
 
   it.each([
-    ['admin\'s description first', { description: 'Ours', cge_regulations: 'CGE\'s' }, 'Ours'],
-    ['else CGE\'s, on one line', { description: '', cge_regulations: 'Rules:\n\nplay  well' }, 'Rules: play well'],
-    ['cut at 140 characters', { description: 'x'.repeat(150), cge_regulations: '' }, `${'x'.repeat(139)}…`],
+    ['admin\'s description first', { description: 'Ours', cge_about: 'CGE\'s' }, 'Ours'],
+    ['else CGE\'s, on one line', { description: '', cge_about: 'Rules:\n\nplay  well' }, 'Rules: play well'],
+    ['cut at 140 characters', { description: 'x'.repeat(150), cge_about: '' }, `${'x'.repeat(139)}…`],
   ])('describes a row: %s', (_, t, want) => {
     expect(detail(t)).toBe(want);
   });

@@ -3,8 +3,7 @@ import { podiumNames, podiumRequest, podiumStart } from './podium';
 
 describe('podiumRequest', () => {
   it('sends the places filled in, trimmed, with their place numbers', () => {
-    expect(podiumRequest('2025', [' alder440 ', '', 'Eider'], ' From CGE ')).toEqual({
-      season: '2025',
+    expect(podiumRequest([' alder440 ', '', 'Eider'], ' From CGE ')).toEqual({
       podium: [
         { place: 1, name: 'alder440' },
         { place: 3, name: 'Eider' },
@@ -14,7 +13,7 @@ describe('podiumRequest', () => {
   });
 
   it('gives null when no place is filled in', () => {
-    expect(podiumRequest('2025', ['', ' ', ''], 'x')).toBeNull();
+    expect(podiumRequest(['', ' ', ''], 'x')).toBeNull();
   });
 });
 

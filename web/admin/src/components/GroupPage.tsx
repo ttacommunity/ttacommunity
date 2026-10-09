@@ -1,17 +1,17 @@
 /** A group's page: its name, type and description, then what it holds, chosen with Modify. */
 import { useState } from 'react';
 import * as req from '../lib/admin-requests';
-import type { AdminTournament } from '../lib/admin-api';
+import type { AdminTournamentRow, TournamentBrief } from '../lib/admin-api';
 import { candidatesFor, groupChange, membersOf, toggled } from '../lib/tournament-groups';
 import { opensSettings, settingsHref } from '../lib/tournament-page';
 import MoveButton from './MoveButton';
 import { GROUP_KINDS } from './NewGroupForm';
 import TournamentTable from './TournamentTable';
 
-type Kind = AdminTournament['kind'];
+type Kind = AdminTournamentRow['kind'];
 
 /** GroupSettings edits a group's name, type and description and moves it, open when the address asks for it. */
-function GroupSettings({ g, all, onReload }: { g: AdminTournament; all: readonly AdminTournament[]; onReload: () => Promise<void> }) {
+function GroupSettings({ g, all, onReload }: { g: TournamentBrief; all: readonly AdminTournamentRow[]; onReload: () => Promise<void> }) {
   const [shown, setShown] = useState(() => opensSettings(new URLSearchParams(window.location.search)));
   const [name, setName] = useState(g.name);
   const [kind, setKind] = useState<Kind>(g.kind);
@@ -73,7 +73,7 @@ function GroupSettings({ g, all, onReload }: { g: AdminTournament; all: readonly
 }
 
 /** Members lists what the group holds, each with its settings; Modify picks them from what matches its type. */
-function Members({ g, all, onReload }: { g: AdminTournament; all: readonly AdminTournament[]; onReload: () => Promise<void> }) {
+function Members({ g, all, onReload }: { g: TournamentBrief; all: readonly AdminTournamentRow[]; onReload: () => Promise<void> }) {
   const members = membersOf(all, g.slug);
   const [modifying, setModifying] = useState(false);
   const [chosen, setChosen] = useState<string[]>([]);
@@ -167,7 +167,7 @@ function Members({ g, all, onReload }: { g: AdminTournament; all: readonly Admin
 }
 
 /** GroupPage shows a group's settings at the top, then what it holds. */
-export default function GroupPage({ g, all, onReload }: { g: AdminTournament; all: readonly AdminTournament[]; onReload: () => Promise<void> }) {
+export default function GroupPage({ g, all, onReload }: { g: TournamentBrief; all: readonly AdminTournamentRow[]; onReload: () => Promise<void> }) {
   return (
     <>
       <GroupSettings key={`${g.name}-${g.kind}-${g.description}-${g.parent}`} g={g} all={all} onReload={onReload} />

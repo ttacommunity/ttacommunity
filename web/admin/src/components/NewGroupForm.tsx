@@ -1,11 +1,11 @@
 /** A form that makes a group of related tournaments from its name and type, then opens its page. */
 import { useState, type FormEvent } from 'react';
 import * as req from '../lib/admin-requests';
-import type { AdminTournament } from '../lib/admin-api';
+import type { AdminTournamentRow } from '../lib/admin-api';
 import { newGroupBody } from '../lib/tournament-groups';
 import { settingsHref } from '../lib/tournament-page';
 
-type Kind = AdminTournament['kind'];
+type Kind = AdminTournamentRow['kind'];
 
 /** GROUP_KINDS are what a group can hold, as the forms offer them. */
 export const GROUP_KINDS: { kind: Kind; label: string }[] = [

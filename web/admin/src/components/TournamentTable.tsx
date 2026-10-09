@@ -1,6 +1,6 @@
 /** Admin's table of tournaments and groups: the main list, a group's members, and Modify's choices. */
 import type { ReactNode } from 'react';
-import type { AdminTournament } from '../lib/admin-api';
+import type { AdminTournamentRow } from '../lib/admin-api';
 import { dateSpan, detail, membersOf, rowTotals, typeLabel } from '../lib/tournament-groups';
 import { SETTINGS, settingsHref } from '../lib/tournament-page';
 
@@ -24,10 +24,10 @@ export default function TournamentTable({
   action,
   details = false,
 }: {
-  rows: readonly AdminTournament[];
-  all: readonly AdminTournament[];
+  rows: readonly AdminTournamentRow[];
+  all: readonly AdminTournamentRow[];
   caption: string;
-  action: (t: AdminTournament) => ReactNode;
+  action: (t: AdminTournamentRow) => ReactNode;
   details?: boolean;
 }) {
   return (

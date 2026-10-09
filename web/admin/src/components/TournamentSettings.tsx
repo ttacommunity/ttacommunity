@@ -2,9 +2,9 @@
 import { canAddStory, cardChanged, movedStory, regulationsSavable, storiesChanged, textChanged } from '../lib/admin-edits';
 import { Fragment, useEffect, useState, type FormEvent } from 'react';
 import * as req from '../lib/admin-requests';
-import { adminRequest, type AdminMe, type AdminTournament } from '../lib/admin-api';
+import { adminRequest, type AdminMe, type AdminTournament, type AdminTournamentRow } from '../lib/admin-api';
 import { podiumRequest, podiumStart, type PodiumEntry } from '../lib/podium';
-import { seasonSummary, stageRows, type SeasonCount } from '../lib/season-counts';
+import { seasonSummary, stageRows } from '../lib/season-counts';
 import {
   divisionList,
   divisionText,
@@ -146,10 +146,10 @@ function PodiumBox({
   const [status, setStatus] = useState('');
   const id = `podium-${slug}-${season}`.replace(/[^A-Za-z0-9-]/g, '_');
   const save = async () => {
-    const body = podiumRequest(season, names, note);
+    const body = podiumRequest(names, note);
     if (body === null) return;
     setStatus('Saving…');
-    const r = await req.send(req.setPodium(slug, body));
+    const r = await req.send(req.setPodium(slug, season, body));
     setStatus(r.ok ? 'Saved. Titles follow at the next run.' : r.message);
     if (r.ok) await onReload();
   };
@@ -182,7 +182,7 @@ function PodiumBox({
         </label>
       </div>
       <div className="note-actions">
-        <button type="button" className="btn-antique" onClick={() => void save()} disabled={podiumRequest(season, names, note) === null}>
+        <button type="button" className="btn-antique" onClick={() => void save()} disabled={podiumRequest(names, note) === null}>
           Set podium
         </button>
         {saved.length > 0 && (
@@ -620,7 +620,7 @@ function StoriesSettings({ t, onReload }: { t: AdminTournament; onReload: () => 
 }
 
 /** StagesTable lists a season's stages with their players, games and notes; a row's button opens its note to edit. */
-function StagesTable({ slug, season, rows, onReload }: { slug: string; season: string; rows: ReturnType<typeof stageRows>; onReload: () => Promise<void> }) {
+function StagesTable({ slug, season, rows, onReload }: { slug: string; season: string; rows: AdminTournament['seasons'][number]['stages']; onReload: () => Promise<void> }) {
   const [editing, setEditing] = useState('');
   return (
     <div className="table-responsive">
@@ -648,7 +648,7 @@ function StagesTable({ slug, season, rows, onReload }: { slug: string; season: s
                   )}
                 </th>
                 <td>{st.players}</td>
-                <td>{st.games}</td>
+                <td>{st.finished}</td>
                 <td className="stage-note">{st.note}</td>
                 <td>
                   <button
@@ -680,11 +680,7 @@ function StagesTable({ slug, season, rows, onReload }: { slug: string; season: s
  * demand, and adds or removes a season without games. */
 function SeasonsCard({ t, onReload }: { t: AdminTournament; onReload: () => Promise<void> }) {
   const [error, setError] = useState('');
-  const [counts, setCounts] = useState<SeasonCount[]>([]);
   const [shown, setShown] = useState<string[]>([]);
-  useEffect(() => {
-    void adminRequest<SeasonCount[]>(`/api/tournaments/${t.slug}/counts`, {}).then((r) => r.ok && setCounts(r.data));
-  }, [t.slug]);
   const toggle = (label: string) => setShown((s) => (s.includes(label) ? s.filter((x) => x !== label) : [...s, label]));
   const [newSeason, setNewSeason] = useState('');
   const addSeason = async (e: FormEvent) => {
@@ -742,8 +738,7 @@ function SeasonsCard({ t, onReload }: { t: AdminTournament; onReload: () => Prom
       )}
       {t.seasons.length === 0 && <p className="muted">No seasons yet.</p>}
       {t.seasons.map((se) => {
-        const count = counts.find((c) => c.season === se.label);
-        const sum = seasonSummary(se.stages, count);
+        const sum = seasonSummary(se);
         return (
           <div key={se.label} className="season-notes">
             <h3>
@@ -762,7 +757,7 @@ function SeasonsCard({ t, onReload }: { t: AdminTournament; onReload: () => Prom
                 </button>
               )}
             </p>
-            {shown.includes(se.label) && <StagesTable slug={t.slug} season={se.label} rows={stageRows(se.stages, count)} onReload={onReload} />}
+            {shown.includes(se.label) && <StagesTable slug={t.slug} season={se.label} rows={stageRows(se.stages)} onReload={onReload} />}
             <label className="season-rated">
               <input
                 id={`season-rated-${se.label}`.replace(/[^A-Za-z0-9-]/g, '_')}
@@ -821,21 +816,21 @@ function SeasonsCard({ t, onReload }: { t: AdminTournament; onReload: () => Prom
 export default function TournamentSettings() {
   const [me, setMe] = useState<Load<AdminMe>>({ kind: 'loading' });
   const [t, setT] = useState<Load<AdminTournament>>({ kind: 'loading' });
-  const [all, setAll] = useState<AdminTournament[]>([]);
+  const [all, setAll] = useState<AdminTournamentRow[]>([]);
   const load = async () => {
     const slug = slugParam(new URLSearchParams(window.location.search));
     if (slug === null) {
       setT({ kind: 'error', message: 'This address names no tournament. Go back to the list.' });
       return;
     }
-    const r = await adminRequest<AdminTournament[]>('/api/tournaments', {});
-    if (!r.ok) {
-      setT({ kind: 'error', message: r.message });
-      return;
-    }
-    setAll(r.data);
-    const found = r.data.find((x) => x.slug === slug);
-    setT(found === undefined ? { kind: 'error', message: `No tournament is called ${slug}.` } : { kind: 'ready', data: found });
+    const [one, rows] = await Promise.all([
+      adminRequest<AdminTournament>(`/api/tournaments/${encodeURIComponent(slug)}`, {}),
+      adminRequest<AdminTournamentRow[]>('/api/tournaments', {}),
+    ]);
+    if (rows.ok) setAll(rows.data);
+    if (!one.ok) setT({ kind: 'error', message: one.status === 404 ? `No tournament is called ${slug}.` : one.message });
+    else if (!rows.ok) setT({ kind: 'error', message: rows.message });
+    else setT({ kind: 'ready', data: one.data });
   };
   useEffect(() => {
     void adminRequest<AdminMe>('/api/me', {}).then((r) =>

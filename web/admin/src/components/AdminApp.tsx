@@ -1,7 +1,7 @@
 /** The admin page: the site's header with admin's tabs (tournaments, data and rating runs, titles and badges, admins). */
 import { Fragment, useEffect, useState, type ReactNode } from 'react';
 import Segmented from '@ttac/shared/Segmented';
-import { adminRequest, type AdminMe, type AdminTournament } from '../lib/admin-api';
+import { adminRequest, type AdminMe, type AdminTournamentRow } from '../lib/admin-api';
 import { panelsFor, tabFrom, tabsFor, type Panel, type TabKey } from '../lib/admin-tabs';
 import { listed } from '../lib/tournament-groups';
 import { settingsHref } from '../lib/tournament-page';
@@ -20,11 +20,11 @@ type Load<T> = { kind: 'loading' } | { kind: 'error'; message: string } | { kind
 
 /** Tournaments lists the top-level tournaments and groups, rated or unrated, with New group. */
 function Tournaments() {
-  const [tournaments, setTournaments] = useState<Load<AdminTournament[]>>({ kind: 'loading' });
+  const [tournaments, setTournaments] = useState<Load<AdminTournamentRow[]>>({ kind: 'loading' });
   const [making, setMaking] = useState(false);
   const [rated, setRated] = useState(true);
   useEffect(() => {
-    void adminRequest<AdminTournament[]>('/api/tournaments', {}).then((r) =>
+    void adminRequest<AdminTournamentRow[]>('/api/tournaments', {}).then((r) =>
       setTournaments(r.ok ? { kind: 'ready', data: r.data } : { kind: 'error', message: r.message }),
     );
   }, []);

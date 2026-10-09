@@ -1,5 +1,5 @@
 /** Where a tournament or group sits: the groups it is in, as links, and for a tournament the Move button. */
-import type { AdminTournament } from '../lib/admin-api';
+import type { AdminTournamentRow, TournamentBrief } from '../lib/admin-api';
 import { groupsAbove } from '../lib/tournament-groups';
 import { settingsHref } from '../lib/tournament-page';
 import MoveButton from './MoveButton';
@@ -10,8 +10,8 @@ export default function RelatedCard({
   all,
   onReload,
 }: {
-  t: AdminTournament;
-  all: readonly AdminTournament[];
+  t: TournamentBrief;
+  all: readonly AdminTournamentRow[];
   onReload: () => Promise<void>;
 }) {
   const above = groupsAbove(all, t.slug);

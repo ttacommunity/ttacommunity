@@ -1,7 +1,7 @@
 /** A single Move button that opens a list of groups, and moves a tournament or group into the one chosen. */
 import { useState } from 'react';
 import * as req from '../lib/admin-requests';
-import type { AdminTournament } from '../lib/admin-api';
+import type { AdminTournamentRow, TournamentBrief } from '../lib/admin-api';
 import { moveChoices } from '../lib/tournament-groups';
 
 /** MoveButton moves t into a group from all, or out of every group, then calls onReload. */
@@ -10,8 +10,8 @@ export default function MoveButton({
   all,
   onReload,
 }: {
-  t: AdminTournament;
-  all: readonly AdminTournament[];
+  t: TournamentBrief;
+  all: readonly AdminTournamentRow[];
   onReload: () => Promise<void>;
 }) {
   const [open, setOpen] = useState(false);

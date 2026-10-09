@@ -26,13 +26,13 @@ function BadgeRow({ badge, onReload, say }: { badge: AdminBadge; onReload: () =>
   const give = async (e: FormEvent) => {
     e.preventDefault();
     const name = player.trim();
-    const r = await req.send(req.giveBadge(badge.id, name));
+    const r = await req.send(req.giveBadge(badge, name));
     say(r.ok ? `Gave ${name} the ${badge.label} badge.` : r.message);
     if (r.ok) setPlayer('');
     await onReload();
   };
   const take = async (name: string) => {
-    const r = await req.send(req.takeBadge(badge.id, name));
+    const r = await req.send(req.takeBadge(badge, name));
     say(r.ok ? `Took the ${badge.label} badge from ${name}.` : r.message);
     await onReload();
   };
