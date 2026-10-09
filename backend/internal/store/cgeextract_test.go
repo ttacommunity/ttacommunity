@@ -4,6 +4,7 @@ package store
 
 import (
 	"context"
+	"fmt"
 	"slices"
 	"testing"
 	"time"
@@ -152,6 +153,104 @@ func TestApplyCGEExtractWritesWhatCGERecorded(t *testing.T) {
 			"-1 cge"},
 		{"an organiser is an account", `SELECT organiser_user::text FROM cge_tournaments WHERE cge_tournament = 999`, "5"},
 		{"a moderator is an account", `SELECT cge_user::text FROM cge_tournament_moderators WHERE cge_tournament = 999`, "6"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var got string
+			if err := pool.QueryRow(ctx, tt.query).Scan(&got); err != nil {
+				t.Fatalf("%v\n%s", err, tt.query)
+			}
+			if got != tt.want {
+				t.Errorf("got = %q, want %q", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestApplyCGEExtractKeepsAnUnlinkedTournamentsStagesInOneTournament(t *testing.T) {
+	pool := migrated(t)
+	ctx := context.Background()
+	inStage := func(stage int, seats []cgeextract.Seat) []cgeextract.Seat {
+		for i := range seats {
+			seats[i].StageID, seats[i].StageNumber, seats[i].GroupID, seats[i].GroupName = 10+stage, stage, 90+stage, "Group A"
+		}
+		return seats
+	}
+	tournaments := map[int]cgeextract.Tournament{999: {ID: 999, Name: "Snail Cup"}}
+	var seats []cgeextract.Seat
+	seats = append(seats, inStage(1, extractOf(999, 200, "CODEDDDD", cgeDone(5, "eve", 1, 100), cgeDone(6, "fay", 2, 50)))...)
+	seats = append(seats, inStage(2, extractOf(999, 201, "CODEEEEE", cgeDone(5, "eve", 1, 90), cgeDone(6, "fay", 2, 60)))...)
+	later := append(slices.Clone(seats), inStage(3, extractOf(999, 202, "CODEFFFF", cgeDone(5, "eve", 2, 80), cgeDone(6, "fay", 1, 85)))...)
+	for _, s := range [][]cgeextract.Seat{seats, later} {
+		x := cgeextract.Extract{Seats: s, Tournaments: tournaments}
+		plan, err := PlanCGEExtract(ctx, pool, x, nil)
+		if err != nil {
+			t.Fatalf("PlanCGEExtract: %v", err)
+		}
+		if _, err := ApplyCGEExtract(ctx, pool, plan, CGEInput{Extract: x}); err != nil {
+			t.Fatalf("ApplyCGEExtract: %v", err)
+		}
+	}
+
+	var got string
+	err := pool.QueryRow(ctx, `SELECT string_agg(t.label || ': ' || st.label, ', ' ORDER BY st.cge_stage_number)
+		FROM series se JOIN tournaments t USING (series_id) JOIN stages st USING (tournament_id) WHERE se.slug = 'cge_999'`).Scan(&got)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if want := "1: Stage 1, 1: Stage 2, 1: Stage 3"; got != want {
+		t.Errorf("tournament: stage = %q, want %q", got, want)
+	}
+}
+
+func TestApplyCGEExtractMovesAnUnlinkedTournamentsStagesBackIntoOneTournament(t *testing.T) {
+	pool := migrated(t)
+	ctx := context.Background()
+	var seats []cgeextract.Seat
+	for stage := range 3 {
+		s := extractOf(999, 200+stage, fmt.Sprintf("CODE%04d", stage), cgeDone(5, "eve", 1, 100), cgeDone(6, "fay", 2, 50))
+		for i := range s {
+			s[i].StageID, s[i].StageNumber, s[i].GroupID, s[i].GroupName = 11+stage, 1+stage, 91+stage, "Group A"
+		}
+		seats = append(seats, s...)
+	}
+	x := cgeextract.Extract{Seats: seats, Tournaments: map[int]cgeextract.Tournament{999: {ID: 999, Name: "Snail Cup"}}}
+	load := func() CGEApplied {
+		t.Helper()
+		plan, err := PlanCGEExtract(ctx, pool, x, nil)
+		if err != nil {
+			t.Fatalf("PlanCGEExtract: %v", err)
+		}
+		got, err := ApplyCGEExtract(ctx, pool, plan, CGEInput{Extract: x})
+		if err != nil {
+			t.Fatalf("ApplyCGEExtract: %v", err)
+		}
+		return got
+	}
+	load()
+	for _, q := range []string{
+		`INSERT INTO tournaments (series_id, label, original_name)
+		 SELECT series_id, n::text, n::text FROM series, generate_series(2, 3) n WHERE slug = 'cge_999'`,
+		`UPDATE stages st SET tournament_id = t.tournament_id, label = '', original_name = ''
+		 FROM tournaments t JOIN series se USING (series_id)
+		 WHERE se.slug = 'cge_999' AND t.label = st.cge_stage_number::text AND st.cge_tournament = 999 AND st.cge_stage_number > 1`,
+		`INSERT INTO settings (stage_id, timeout_penalty, source) SELECT stage_id, -2, 'cge' FROM stages WHERE cge_tournament = 999 AND cge_stage_number = 3`,
+	} {
+		if _, err := pool.Exec(ctx, q); err != nil {
+			t.Fatalf("%s: %v", q, err)
+		}
+	}
+
+	if got := load().TournamentsMerged; got != 2 {
+		t.Errorf("TournamentsMerged = %d, want 2", got)
+	}
+	tests := []struct{ name, query, want string }{
+		{"one tournament holds every stage", `SELECT string_agg(t.label || ': ' || st.label, ', ' ORDER BY st.cge_stage_number)
+			FROM series se JOIN tournaments t USING (series_id) JOIN stages st USING (tournament_id) WHERE se.slug = 'cge_999'`,
+			"1: Stage 1, 1: Stage 2, 1: Stage 3"},
+		{"no tournament is left empty", `SELECT count(*)::text FROM tournaments t JOIN series se USING (series_id) WHERE se.slug = 'cge_999'`, "1"},
+		{"a moved stage keeps its settings", `SELECT s.timeout_penalty::text FROM settings s JOIN stages st USING (stage_id)
+			WHERE st.cge_tournament = 999 AND st.cge_stage_number = 3`, "-2"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
