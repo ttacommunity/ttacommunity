@@ -20,10 +20,23 @@ registry='ghcr.io/ttacommunity/ttacommunity'
 # sources lists the paths image $1 is built from.
 sources() {
   case $1 in
-    api) echo "backend mise.toml" ;;
-    engine) echo "engine scripts/engine-image.sh mise.toml" ;;
+    api) echo "backend" ;;
+    engine) echo "engine scripts/engine-image.sh" ;;
     *) return 1 ;;
   esac
+}
+
+# tools lists the mise.toml tools image $1's build installs (.github/workflows/images.yml).
+tools() {
+  case $1 in
+    api) echo "go ko crane" ;;
+    engine) echo "uv crane" ;;
+  esac
+}
+
+# tool_pins prints mise.toml's lines for the tools $2 at commit $1.
+tool_pins() {
+  git show "$1:mise.toml" | grep -E "^(${2// /|}) = "
 }
 
 mapfile -t pins < <(grep -rhoE "${exclude[@]}" "$registry/[a-z-]+:sha-[0-9a-f]+" "$dir" | sort -u)
@@ -50,6 +63,9 @@ for pin in "${pins[@]}"; do
   # shellcheck disable=SC2086 # paths is a list of paths
   if ! git diff --quiet "$commit" HEAD -- $paths; then
     echo "  $pin: built from $commit, but $paths changed since. Rebuild the image and pin it" >&2
+    failed=1
+  elif [ "$(tool_pins "$commit" "$(tools "$name")")" != "$(tool_pins HEAD "$(tools "$name")")" ]; then
+    echo "  $pin: built from $commit, but its tools ($(tools "$name")) changed in mise.toml since. Rebuild the image and pin it" >&2
     failed=1
   fi
 done

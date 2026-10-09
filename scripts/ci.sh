@@ -183,6 +183,7 @@ if full && area checks; then
     run bash checks/deploy-env-strings.test.sh
     run bash checks/deploy-env-strings.sh
   fi
+  run bash checks/deploy-current.test.sh
   # Locally, red means something to fix here: a gh login that cannot read our packages leaves our images to CI.
   if [ -z "${CI:-}" ] && [ -z "${GITHUB_TOKEN:-}" ] && ! gh auth status 2>&1 | grep -qE 'read:packages|write:packages'; then
     run bash checks/verify-digests.sh --skip-own
