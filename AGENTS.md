@@ -232,6 +232,10 @@ Both private to the `ttacommunity` organisation; ask a maintainer for access.
 ## Git and pull requests
 
 - Branch from the latest `main`; never commit to `main` directly
+- **Work on an issue starts from it**: `gh issue develop <n> --base main
+  --checkout` (or "Create a branch" on the issue) makes a branch linked to
+  it. End the PR's **What it does** with `Closes #<n>`, so merging to `main`
+  closes the issue. Branch names alone link nothing
 - **Commit messages**: one line, imperative, capitalised, no full stop, about
   50 characters (72 at most). Describe the change in plain words:
   `Add sign-in with Discord to the API`. No AI or tool attribution trailers
