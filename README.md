@@ -571,7 +571,10 @@ When done, stop the port-forward (`kill %1` in the same shell) and
 
 The cluster's `ratings` database rebuilt from an export, with the
 port-forward and `RATINGS_DATABASE_URL` above. The dev site's `ratings_dev`
-is rebuilt the same way: its owner is `ratings_dev`, its logins
+is usually refreshed from production instead, with
+`scripts/seed-dev-db.sh --replace`: the inputs and the current run by
+default, or `--no-runs` (inputs only) or `--all-runs`. It can be rebuilt
+from an export the same way: its owner is `ratings_dev`, its logins
 `ratings_dev_api` and `ratings_dev_admin_api`, and its `RATINGS_DATABASE_URL`
 is in the `ratings-dev-engine` Secret. The api serves errors from step 4
 until step 8.
