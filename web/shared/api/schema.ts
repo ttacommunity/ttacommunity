@@ -649,7 +649,12 @@ export interface paths {
         /** Every tournament with its settings, seasons, stages and notes */
         get: operations["getAdminTournaments"];
         put?: never;
-        post?: never;
+        /**
+         * Make a group of related tournaments, holding the ones named
+         * @description Its slug comes from its name. Admins and organisers may make one; it is
+         *     audited. The Origin must be the admin site.
+         */
+        post: operations["postAdminGroup"];
         delete?: never;
         options?: never;
         head?: never;
@@ -670,12 +675,34 @@ export interface paths {
         options?: never;
         head?: never;
         /**
-         * Change whether a tournament is shown, rated, or counted in the community leaderboard
+         * Change a tournament's settings, its description, or the group it is in
          * @description Only the settings given change. Admins and organisers may change them;
          *     each change is audited. The Origin must be the admin site. Rating
          *     takes effect on the next engine run.
          */
         patch: operations["patchAdminTournament"];
+        trace?: never;
+    };
+    "/v1/admin/tournaments/{tournament}/members": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Make these exactly what a group holds
+         * @description Each named tournament or group is put in it, and any other it held is
+         *     taken out of every group. Only a group holds members. Admins and
+         *     organisers may change it; it is audited. The Origin must be the admin site.
+         */
+        put: operations["putAdminGroupMembers"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
         trace?: never;
     };
     "/v1/admin/tournaments/{tournament}/notes": {
@@ -1475,6 +1502,24 @@ export interface components {
         AdminTournament: {
             /** @description The name it came in with, kept when it is renamed */
             original_name: string;
+            /** @description The slug of the group it is in; empty for none */
+            parent: string;
+            /** @description Admin's description of it; empty for none */
+            description: string;
+            /** @description Whether it is a group made in admin, holding tournaments and groups and no games of its own */
+            is_group: boolean;
+            /** @description How many games it holds */
+            games: number;
+            /**
+             * Format: date
+             * @description The date of its first game; null for none
+             */
+            first_game: string | null;
+            /**
+             * Format: date
+             * @description The date of its last game; null for none
+             */
+            last_game: string | null;
             /** @description What it calls a season, as admin set it; empty for the default, Season */
             season_name: string;
             /** @description What it calls a stage, as admin set it; empty for the default, Stage */
@@ -1533,11 +1578,26 @@ export interface components {
             note: string;
         };
         /**
-         * @description A league ranks divisions over a season, a cup plays stages to a final, a ladder has no podium
+         * @description A league ranks divisions over a season, a cup plays stages to a final, a ladder has no podium; only a group is also a series (editions of one event) or a group (of groups)
          * @enum {string}
          */
-        TournamentKind: "league" | "cup" | "ladder";
+        TournamentKind: "league" | "cup" | "ladder" | "series" | "group";
+        NewGroup: {
+            name: string;
+            description?: string;
+            kind: components["schemas"]["TournamentKind"];
+            /** @description The slugs of the tournaments it holds */
+            members?: string[];
+        };
+        CreatedGroup: {
+            slug: string;
+        };
         TournamentSettings: {
+            /** @description The slug of the group to put it in; empty takes it out of any */
+            parent?: string;
+            /** @description A group's new name (only a group is renamed) */
+            name?: string;
+            description?: string;
             kind?: components["schemas"]["TournamentKind"];
             /** @description A league's divisions whose final standings make its podium on the site; empty for none */
             top_divisions?: string[];
@@ -3391,6 +3451,35 @@ export interface operations {
             403: components["responses"]["Forbidden"];
         };
     };
+    postAdminGroup: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["NewGroup"];
+            };
+        };
+        responses: {
+            /** @description Made */
+            201: {
+                headers: {
+                    "Cache-Control": components["headers"]["CacheControl"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CreatedGroup"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
     patchAdminTournament: {
         parameters: {
             query?: never;
@@ -3404,6 +3493,37 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": components["schemas"]["TournamentSettings"];
+            };
+        };
+        responses: {
+            /** @description Changed */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    putAdminGroupMembers: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The tournament's slug */
+                tournament: components["parameters"]["AdminTournamentSlug"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    members: string[];
+                };
             };
         };
         responses: {
@@ -4357,7 +4477,7 @@ export const standingDifferenceKindValues: ReadonlyArray<FlattenedDeepRequired<c
 export const adminTitleValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["AdminTitle"]> = ["SGM", "GM", "M", "P", "G", "S", "B", "W", ""];
 export const adminPersonRoleValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["AdminPerson"]["role"]> = ["admin", "organiser"];
 export const adminRoleRoleValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["AdminRole"]["role"]> = ["admin", "organiser"];
-export const tournamentKindValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["TournamentKind"]> = ["league", "cup", "ladder"];
+export const tournamentKindValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["TournamentKind"]> = ["league", "cup", "ladder", "series", "group"];
 export const adminMeRoleValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["AdminMe"]["role"]> = ["admin", "organiser"];
 export const modelValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["Model"]> = ["glicko2_daneo", "glicko2_daneo_softer", "glicko2_std", "glicko2_std_softer", "glicko2_std_retro", "glicko2_std_softer_retro", "glicko2_mp", "glicko2_mp_softer", "glicko2_mp_retro", "glicko2_mp_softer_retro", "glicko2_adapt", "glicko2_adapt_softer", "glicko2_adapt_retro", "glicko2_adapt_softer_retro", "whr", "whr_softer"];
 export const formatValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["Format"]> = [0, 2, 3, 4];

@@ -437,3 +437,41 @@
   padding: 0 0.3rem;
   color: var(--text-muted);
 }
+.new-group {
+  display: grid;
+  gap: 0.6rem;
+  margin: 0.8rem 0;
+  padding: 0.8rem;
+  border: 1px solid var(--border-subtle);
+}
+.group-members {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(16rem, 1fr));
+  gap: 0.2rem 1rem;
+  max-height: 20rem;
+  overflow-y: auto;
+  border: 1px solid var(--border-subtle);
+}
+.group-members legend {
+  padding: 0 0.3rem;
+  color: var(--text-muted);
+}
+.group-member input[type='checkbox'] {
+  accent-color: var(--accent-gold);
+}
+.group-member-list {
+  display: grid;
+  gap: 0.3rem;
+  padding-left: 1.2rem;
+}
+.row-detail {
+  display: block;
+  font-weight: normal;
+  font-size: 0.85em;
+}
+.row-dates {
+  white-space: nowrap;
+}
+.group-place {
+  margin: 0 0 1rem;
+}

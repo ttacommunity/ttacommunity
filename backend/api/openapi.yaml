@@ -901,11 +901,42 @@ paths:
           $ref: "#/components/responses/Unauthorized"
         "403":
           $ref: "#/components/responses/Forbidden"
+    post:
+      operationId: postAdminGroup
+      tags: [admin]
+      summary: Make a group of related tournaments, holding the ones named
+      description: |
+        Its slug comes from its name. Admins and organisers may make one; it is
+        audited. The Origin must be the admin site.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/NewGroup"
+      responses:
+        "201":
+          description: Made
+          headers:
+            Cache-Control:
+              $ref: "#/components/headers/CacheControl"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CreatedGroup"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
   /v1/admin/tournaments/{tournament}:
     patch:
       operationId: patchAdminTournament
       tags: [admin]
-      summary: Change whether a tournament is shown, rated, or counted in the community leaderboard
+      summary: Change a tournament's settings, its description, or the group it is in
       description: |
         Only the settings given change. Admins and organisers may change them;
         each change is audited. The Origin must be the admin site. Rating
@@ -918,6 +949,44 @@ paths:
           application/json:
             schema:
               $ref: "#/components/schemas/TournamentSettings"
+      responses:
+        "204":
+          description: Changed
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /v1/admin/tournaments/{tournament}/members:
+    put:
+      operationId: putAdminGroupMembers
+      tags: [admin]
+      summary: Make these exactly what a group holds
+      description: |
+        Each named tournament or group is put in it, and any other it held is
+        taken out of every group. Only a group holds members. Admins and
+        organisers may change it; it is audited. The Origin must be the admin site.
+      parameters:
+        - $ref: "#/components/parameters/AdminTournamentSlug"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [members]
+              properties:
+                members:
+                  type: array
+                  maxItems: 500
+                  items:
+                    type: string
+                    minLength: 1
+                    maxLength: 100
       responses:
         "204":
           description: Changed
@@ -2344,11 +2413,33 @@ components:
           enum: [admin, organiser]
     AdminTournament:
       type: object
-      required: [slug, name, original_name, kind, top_divisions, points_2p, points_3p, points_4p, season_name, stage_name, visible, rated, community, card, stories, regulations, cge_regulations, rated_player_counts, seasons]
+      required: [slug, name, original_name, kind, top_divisions, points_2p, points_3p, points_4p, season_name, stage_name, visible, rated, community, card, stories, regulations, cge_regulations, rated_player_counts, seasons, parent, description, is_group, games, first_game, last_game]
       properties:
         original_name:
           description: The name it came in with, kept when it is renamed
           type: string
+        parent:
+          description: The slug of the group it is in; empty for none
+          type: string
+        description:
+          description: Admin's description of it; empty for none
+          type: string
+        is_group:
+          description: Whether it is a group made in admin, holding tournaments and groups and no games of its own
+          type: boolean
+        games:
+          description: How many games it holds
+          type: integer
+        first_game:
+          description: The date of its first game; null for none
+          type: string
+          format: date
+          nullable: true
+        last_game:
+          description: The date of its last game; null for none
+          type: string
+          format: date
+          nullable: true
         season_name:
           description: What it calls a season, as admin set it; empty for the default, Season
           type: string
@@ -2452,13 +2543,54 @@ components:
         note:
           type: string
     TournamentKind:
-      description: A league ranks divisions over a season, a cup plays stages to a final, a ladder has no podium
+      description: A league ranks divisions over a season, a cup plays stages to a final, a ladder has no podium; only a group is also a series (editions of one event) or a group (of groups)
       type: string
-      enum: [league, cup, ladder]
+      enum: [league, cup, ladder, series, group]
+      x-enum-varnames: [KindLeague, KindCup, KindLadder, KindSeries, KindGroup]
+    NewGroup:
+      type: object
+      additionalProperties: false
+      required: [name, kind]
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 100
+        description:
+          type: string
+          maxLength: 2000
+        kind:
+          $ref: "#/components/schemas/TournamentKind"
+        members:
+          description: The slugs of the tournaments it holds
+          type: array
+          maxItems: 200
+          items:
+            type: string
+            minLength: 1
+            maxLength: 100
+    CreatedGroup:
+      type: object
+      required: [slug]
+      properties:
+        slug:
+          type: string
     TournamentSettings:
       type: object
       additionalProperties: false
       properties:
+        parent:
+          description: The slug of the group to put it in; empty takes it out of any
+          type: string
+          maxLength: 100
+        name:
+          description: A group's new name (only a group is renamed)
+          type: string
+          minLength: 1
+          maxLength: 100
+        description:
+          type: string
+          maxLength: 2000
         kind:
           $ref: "#/components/schemas/TournamentKind"
         top_divisions:

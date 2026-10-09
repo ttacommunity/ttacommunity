@@ -709,3 +709,24 @@ func TestAdminSetsASeasonsTimeoutPenalty(t *testing.T) {
 		t.Errorf("no such season = %v, want ErrNoTournament", err)
 	}
 }
+
+func TestAdminTournamentsListsEachSeriesOnceWhenTwoShareAName(t *testing.T) {
+	pool := migrated(t)
+	ctx := context.Background()
+	placedOn(t, pool, map[string]time.Time{"International S30 - Grandmaster game 1": day("2024-09-15"),
+		"International S20 - Grandmaster game 1": day("2024-10-15"), "Intermezzo S24 - Bronze 1 game 1": day("2024-09-16")})
+	if _, err := pool.Exec(ctx, "UPDATE series SET name = 'Same' WHERE slug IN ('international', 'intermezzo')"); err != nil {
+		t.Fatal(err)
+	}
+	got, err := NewAdminStore(asAdminLogin(t, pool)).Tournaments(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	seen := map[string]int{}
+	for _, s := range got {
+		seen[s.Slug]++
+	}
+	if seen["international"] != 1 || seen["intermezzo"] != 1 {
+		t.Errorf("entries per slug = %v, want one each", seen)
+	}
+}

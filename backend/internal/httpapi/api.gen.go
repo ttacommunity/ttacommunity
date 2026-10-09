@@ -438,19 +438,25 @@ func (e TitleCode) Valid() bool {
 
 // Defines values for TournamentKind.
 const (
-	Cup    TournamentKind = "cup"
-	Ladder TournamentKind = "ladder"
-	League TournamentKind = "league"
+	KindCup    TournamentKind = "cup"
+	KindGroup  TournamentKind = "group"
+	KindLadder TournamentKind = "ladder"
+	KindLeague TournamentKind = "league"
+	KindSeries TournamentKind = "series"
 )
 
 // Valid indicates whether the value is a known member of the TournamentKind enum.
 func (e TournamentKind) Valid() bool {
 	switch e {
-	case Cup:
+	case KindCup:
 		return true
-	case Ladder:
+	case KindGroup:
 		return true
-	case League:
+	case KindLadder:
+		return true
+	case KindLeague:
+		return true
+	case KindSeries:
 		return true
 	default:
 		return false
@@ -735,12 +741,30 @@ type AdminTournament struct {
 	// Community Counted in the overall community leaderboard
 	Community bool `json:"community"`
 
-	// Kind A league ranks divisions over a season, a cup plays stages to a final, a ladder has no podium
+	// Description Admin's description of it; empty for none
+	Description string `json:"description"`
+
+	// FirstGame The date of its first game; null for none
+	FirstGame *openapi_types.Date `json:"first_game"`
+
+	// Games How many games it holds
+	Games int `json:"games"`
+
+	// IsGroup Whether it is a group made in admin, holding tournaments and groups and no games of its own
+	IsGroup bool `json:"is_group"`
+
+	// Kind A league ranks divisions over a season, a cup plays stages to a final, a ladder has no podium; only a group is also a series (editions of one event) or a group (of groups)
 	Kind TournamentKind `json:"kind"`
-	Name string         `json:"name"`
+
+	// LastGame The date of its last game; null for none
+	LastGame *openapi_types.Date `json:"last_game"`
+	Name     string              `json:"name"`
 
 	// OriginalName The name it came in with, kept when it is renamed
 	OriginalName string `json:"original_name"`
+
+	// Parent The slug of the group it is in; empty for none
+	Parent string `json:"parent"`
 
 	// Points2p Points for each place in a game of that many players, best place first, from the next run; empty for a player count the tournament does not score. Never negative, never higher for a worse place
 	Points2p PlacePoints `json:"points_2p"`
@@ -1121,6 +1145,11 @@ type CountryRatings struct {
 	Players int      `json:"players"`
 }
 
+// CreatedGroup defines model for CreatedGroup.
+type CreatedGroup struct {
+	Slug string `json:"slug"`
+}
+
 // DataSummary defines model for DataSummary.
 type DataSummary struct {
 	// Games Played games
@@ -1404,6 +1433,18 @@ type ModelPeak struct {
 
 	// Rating The highest rating, to 0.1
 	Rating float64 `json:"rating"`
+}
+
+// NewGroup defines model for NewGroup.
+type NewGroup struct {
+	Description *string `json:"description,omitempty"`
+
+	// Kind A league ranks divisions over a season, a cup plays stages to a final, a ladder has no podium; only a group is also a series (editions of one event) or a group (of groups)
+	Kind TournamentKind `json:"kind"`
+
+	// Members The slugs of the tournaments it holds
+	Members *[]string `json:"members,omitempty"`
+	Name    string    `json:"name"`
 }
 
 // NewSeason defines model for NewSeason.
@@ -1896,7 +1937,7 @@ type TournamentCard struct {
 	Tagline string `json:"tagline"`
 }
 
-// TournamentKind A league ranks divisions over a season, a cup plays stages to a final, a ladder has no podium
+// TournamentKind A league ranks divisions over a season, a cup plays stages to a final, a ladder has no podium; only a group is also a series (editions of one event) or a group (of groups)
 type TournamentKind string
 
 // TournamentRecord defines model for TournamentRecord.
@@ -1943,10 +1984,17 @@ type TournamentSeries struct {
 
 // TournamentSettings defines model for TournamentSettings.
 type TournamentSettings struct {
-	Community *bool `json:"community,omitempty"`
+	Community   *bool   `json:"community,omitempty"`
+	Description *string `json:"description,omitempty"`
 
-	// Kind A league ranks divisions over a season, a cup plays stages to a final, a ladder has no podium
+	// Kind A league ranks divisions over a season, a cup plays stages to a final, a ladder has no podium; only a group is also a series (editions of one event) or a group (of groups)
 	Kind *TournamentKind `json:"kind,omitempty"`
+
+	// Name A group's new name (only a group is renamed)
+	Name *string `json:"name,omitempty"`
+
+	// Parent The slug of the group to put it in; empty takes it out of any
+	Parent *string `json:"parent,omitempty"`
 
 	// Points2p Points for each place in a game of that many players, best place first, from the next run; empty for a player count the tournament does not score. Never negative, never higher for a worse place
 	Points2p *PlacePoints `json:"points_2p,omitempty"`
@@ -2129,6 +2177,11 @@ type GetAdminRunChangesParams struct {
 	Against *int64 `form:"against,omitempty" json:"against,omitempty"`
 }
 
+// PutAdminGroupMembersJSONBody defines parameters for PutAdminGroupMembers.
+type PutAdminGroupMembersJSONBody struct {
+	Members []string `json:"members"`
+}
+
 // DeleteAdminPodiumParams defines parameters for DeleteAdminPodium.
 type DeleteAdminPodiumParams struct {
 	Season string `form:"season" json:"season"`
@@ -2269,11 +2322,17 @@ type PutAdminRunProtectedJSONRequestBody = RunProtection
 // PutAdminTitleJSONRequestBody defines body for PutAdminTitle for application/json ContentType.
 type PutAdminTitleJSONRequestBody = TitleSetting
 
+// PostAdminGroupJSONRequestBody defines body for PostAdminGroup for application/json ContentType.
+type PostAdminGroupJSONRequestBody = NewGroup
+
 // PatchAdminTournamentJSONRequestBody defines body for PatchAdminTournament for application/json ContentType.
 type PatchAdminTournamentJSONRequestBody = TournamentSettings
 
 // PutAdminCardJSONRequestBody defines body for PutAdminCard for application/json ContentType.
 type PutAdminCardJSONRequestBody = TournamentCard
+
+// PutAdminGroupMembersJSONRequestBody defines body for PutAdminGroupMembers for application/json ContentType.
+type PutAdminGroupMembersJSONRequestBody PutAdminGroupMembersJSONBody
 
 // PutAdminNoteJSONRequestBody defines body for PutAdminNote for application/json ContentType.
 type PutAdminNoteJSONRequestBody = SeasonNote
@@ -2385,12 +2444,18 @@ type ServerInterface interface {
 	// GetAdminTournaments Every tournament with its settings, seasons, stages and notes
 	// (GET /v1/admin/tournaments)
 	GetAdminTournaments(w http.ResponseWriter, r *http.Request)
-	// PatchAdminTournament Change whether a tournament is shown, rated, or counted in the community leaderboard
+	// PostAdminGroup Make a group of related tournaments, holding the ones named
+	// (POST /v1/admin/tournaments)
+	PostAdminGroup(w http.ResponseWriter, r *http.Request)
+	// PatchAdminTournament Change a tournament's settings, its description, or the group it is in
 	// (PATCH /v1/admin/tournaments/{tournament})
 	PatchAdminTournament(w http.ResponseWriter, r *http.Request, tournament AdminTournamentSlug)
 	// PutAdminCard Set how a tournament presents itself on its card and its page's header
 	// (PUT /v1/admin/tournaments/{tournament}/card)
 	PutAdminCard(w http.ResponseWriter, r *http.Request, tournament AdminTournamentSlug)
+	// PutAdminGroupMembers Make these exactly what a group holds
+	// (PUT /v1/admin/tournaments/{tournament}/members)
+	PutAdminGroupMembers(w http.ResponseWriter, r *http.Request, tournament AdminTournamentSlug)
 	// PutAdminNote Set the note shown beside a season or one of its stages; an empty note removes it
 	// (PUT /v1/admin/tournaments/{tournament}/notes)
 	PutAdminNote(w http.ResponseWriter, r *http.Request, tournament AdminTournamentSlug)
@@ -3066,6 +3131,20 @@ func (siw *ServerInterfaceWrapper) GetAdminTournaments(w http.ResponseWriter, r 
 	handler.ServeHTTP(w, r)
 }
 
+// PostAdminGroup operation middleware
+func (siw *ServerInterfaceWrapper) PostAdminGroup(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.PostAdminGroup(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // PatchAdminTournament operation middleware
 func (siw *ServerInterfaceWrapper) PatchAdminTournament(w http.ResponseWriter, r *http.Request) {
 
@@ -3109,6 +3188,32 @@ func (siw *ServerInterfaceWrapper) PutAdminCard(w http.ResponseWriter, r *http.R
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.PutAdminCard(w, r, tournament)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// PutAdminGroupMembers operation middleware
+func (siw *ServerInterfaceWrapper) PutAdminGroupMembers(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "tournament" -------------
+	var tournament AdminTournamentSlug
+
+	err = runtime.BindStyledParameterWithOptions("simple", "tournament", r.PathValue("tournament"), &tournament, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "tournament", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.PutAdminGroupMembers(w, r, tournament)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -4843,7 +4948,9 @@ func HandlerWithOptions(si ServerInterface, options StdHTTPServerOptions) http.H
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/v1/runs/{run}/community/{edition}", wrapper.GetCommunityLeaderboard)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/v1/admin/me", wrapper.GetAdminMe)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/v1/admin/tournaments", wrapper.GetAdminTournaments)
+	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/v1/admin/tournaments", wrapper.PostAdminGroup)
 	m.HandleFunc(http.MethodPatch+" "+options.BaseURL+"/v1/admin/tournaments/{tournament}", wrapper.PatchAdminTournament)
+	m.HandleFunc(http.MethodPut+" "+options.BaseURL+"/v1/admin/tournaments/{tournament}/members", wrapper.PutAdminGroupMembers)
 	m.HandleFunc(http.MethodPut+" "+options.BaseURL+"/v1/admin/tournaments/{tournament}/notes", wrapper.PutAdminNote)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/v1/admin/admins", wrapper.GetAdminAdmins)
 	m.HandleFunc(http.MethodDelete+" "+options.BaseURL+"/v1/admin/admins/{discord_id}", wrapper.DeleteAdminAdmin)
@@ -6711,6 +6818,96 @@ func (response GetAdminTournaments403JSONResponse) VisitGetAdminTournamentsRespo
 	return err
 }
 
+type PostAdminGroupRequestObject struct {
+	Body *PostAdminGroupJSONRequestBody
+}
+
+type PostAdminGroupResponseObject interface {
+	VisitPostAdminGroupResponse(w http.ResponseWriter) error
+}
+
+type PostAdminGroup201ResponseHeaders struct {
+	CacheControl string
+}
+
+type PostAdminGroup201JSONResponse struct {
+	Body    CreatedGroup
+	Headers PostAdminGroup201ResponseHeaders
+}
+
+func (response PostAdminGroup201JSONResponse) VisitPostAdminGroupResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(201)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PostAdminGroup400JSONResponse struct{ BadRequestJSONResponse }
+
+func (response PostAdminGroup400JSONResponse) VisitPostAdminGroupResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PostAdminGroup401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response PostAdminGroup401JSONResponse) VisitPostAdminGroupResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PostAdminGroup403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response PostAdminGroup403JSONResponse) VisitPostAdminGroupResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PostAdminGroup404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response PostAdminGroup404JSONResponse) VisitPostAdminGroupResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
 type PatchAdminTournamentRequestObject struct {
 	Tournament AdminTournamentSlug `json:"tournament"`
 	Body       *PatchAdminTournamentJSONRequestBody
@@ -6853,6 +7050,83 @@ func (response PutAdminCard403JSONResponse) VisitPutAdminCardResponse(w http.Res
 type PutAdminCard404JSONResponse struct{ NotFoundJSONResponse }
 
 func (response PutAdminCard404JSONResponse) VisitPutAdminCardResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PutAdminGroupMembersRequestObject struct {
+	Tournament AdminTournamentSlug `json:"tournament"`
+	Body       *PutAdminGroupMembersJSONRequestBody
+}
+
+type PutAdminGroupMembersResponseObject interface {
+	VisitPutAdminGroupMembersResponse(w http.ResponseWriter) error
+}
+
+type PutAdminGroupMembers204Response struct {
+}
+
+func (response PutAdminGroupMembers204Response) VisitPutAdminGroupMembersResponse(w http.ResponseWriter) error {
+	w.WriteHeader(204)
+	return nil
+}
+
+type PutAdminGroupMembers400JSONResponse struct{ BadRequestJSONResponse }
+
+func (response PutAdminGroupMembers400JSONResponse) VisitPutAdminGroupMembersResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PutAdminGroupMembers401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response PutAdminGroupMembers401JSONResponse) VisitPutAdminGroupMembersResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PutAdminGroupMembers403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response PutAdminGroupMembers403JSONResponse) VisitPutAdminGroupMembersResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PutAdminGroupMembers404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response PutAdminGroupMembers404JSONResponse) VisitPutAdminGroupMembersResponse(w http.ResponseWriter) error {
 
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
@@ -9297,12 +9571,18 @@ type StrictServerInterface interface {
 	// GetAdminTournaments Every tournament with its settings, seasons, stages and notes
 	// (GET /v1/admin/tournaments)
 	GetAdminTournaments(ctx context.Context, request GetAdminTournamentsRequestObject) (GetAdminTournamentsResponseObject, error)
-	// PatchAdminTournament Change whether a tournament is shown, rated, or counted in the community leaderboard
+	// PostAdminGroup Make a group of related tournaments, holding the ones named
+	// (POST /v1/admin/tournaments)
+	PostAdminGroup(ctx context.Context, request PostAdminGroupRequestObject) (PostAdminGroupResponseObject, error)
+	// PatchAdminTournament Change a tournament's settings, its description, or the group it is in
 	// (PATCH /v1/admin/tournaments/{tournament})
 	PatchAdminTournament(ctx context.Context, request PatchAdminTournamentRequestObject) (PatchAdminTournamentResponseObject, error)
 	// PutAdminCard Set how a tournament presents itself on its card and its page's header
 	// (PUT /v1/admin/tournaments/{tournament}/card)
 	PutAdminCard(ctx context.Context, request PutAdminCardRequestObject) (PutAdminCardResponseObject, error)
+	// PutAdminGroupMembers Make these exactly what a group holds
+	// (PUT /v1/admin/tournaments/{tournament}/members)
+	PutAdminGroupMembers(ctx context.Context, request PutAdminGroupMembersRequestObject) (PutAdminGroupMembersResponseObject, error)
 	// PutAdminNote Set the note shown beside a season or one of its stages; an empty note removes it
 	// (PUT /v1/admin/tournaments/{tournament}/notes)
 	PutAdminNote(ctx context.Context, request PutAdminNoteRequestObject) (PutAdminNoteResponseObject, error)
@@ -10162,6 +10442,37 @@ func (sh *strictHandler) GetAdminTournaments(w http.ResponseWriter, r *http.Requ
 	}
 }
 
+// PostAdminGroup operation middleware
+func (sh *strictHandler) PostAdminGroup(w http.ResponseWriter, r *http.Request) {
+	var request PostAdminGroupRequestObject
+
+	var body PostAdminGroupJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.PostAdminGroup(ctx, request.(PostAdminGroupRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "PostAdminGroup")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(PostAdminGroupResponseObject); ok {
+		if err := validResponse.VisitPostAdminGroupResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
 // PatchAdminTournament operation middleware
 func (sh *strictHandler) PatchAdminTournament(w http.ResponseWriter, r *http.Request, tournament AdminTournamentSlug) {
 	var request PatchAdminTournamentRequestObject
@@ -10221,6 +10532,39 @@ func (sh *strictHandler) PutAdminCard(w http.ResponseWriter, r *http.Request, to
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(PutAdminCardResponseObject); ok {
 		if err := validResponse.VisitPutAdminCardResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// PutAdminGroupMembers operation middleware
+func (sh *strictHandler) PutAdminGroupMembers(w http.ResponseWriter, r *http.Request, tournament AdminTournamentSlug) {
+	var request PutAdminGroupMembersRequestObject
+
+	request.Tournament = tournament
+
+	var body PutAdminGroupMembersJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.PutAdminGroupMembers(ctx, request.(PutAdminGroupMembersRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "PutAdminGroupMembers")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(PutAdminGroupMembersResponseObject); ok {
+		if err := validResponse.VisitPutAdminGroupMembersResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {

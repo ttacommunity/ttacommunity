@@ -164,8 +164,36 @@ func (f *fakeAdmins) SetTournament(_ context.Context, slug string, s store.Tourn
 	if s.SeasonName != nil && len(*s.SeasonName) > 32 {
 		return store.ErrBadLevelName
 	}
+	if s.Parent != nil && *s.Parent == "worlds" {
+		return store.ErrGroupCycle
+	}
 	f.settings = append(f.settings, s)
 	return nil
+}
+
+func (f *fakeAdmins) SetMembers(_ context.Context, group string, members []string) error {
+	if group == "worlds" {
+		return store.ErrNotAGroup
+	}
+	if slices.Contains(members, "no_such") {
+		return store.ErrNoTournament
+	}
+	f.notes = append(f.notes, fmt.Sprintf("members %s %v", group, members))
+	return nil
+}
+
+func (f *fakeAdmins) CreateGroup(_ context.Context, g store.Group) (string, error) {
+	if g.Name == "!" {
+		return "", store.ErrBadGroup
+	}
+	if g.Kind == "bowl" {
+		return "", store.ErrBadKind
+	}
+	if slices.Contains(g.Members, "no_such") {
+		return "", store.ErrNoTournament
+	}
+	f.notes = append(f.notes, fmt.Sprintf("group %s %s %v", g.Name, g.Kind, g.Members))
+	return "big_cups", nil
 }
 
 func (f *fakeAdmins) SetSeasonPenalty(_ context.Context, slug, season string, penalty float64) error {
@@ -513,7 +541,7 @@ func TestAdminTournamentsListsSettingsAndNotes(t *testing.T) {
 		t.Errorf("tournaments = %+v", got)
 	}
 	w := got[0]
-	if w.Kind != Cup || w.TopDivisions == nil || w.OriginalName != "World Championships" ||
+	if w.Kind != KindCup || w.TopDivisions == nil || w.OriginalName != "World Championships" ||
 		w.Seasons[0].OriginalName != "2025 Edition" || w.Seasons[0].Stages[0].OriginalName != "Groups" {
 		t.Errorf("kind %q, top %v, original names %q %q %q", w.Kind, w.TopDivisions, w.OriginalName, w.Seasons[0].OriginalName, w.Seasons[0].Stages[0].OriginalName)
 	}
@@ -1364,5 +1392,58 @@ func TestProtectingARunIsRefusedWhenItShouldBe(t *testing.T) {
 		if rec.Code != http.StatusForbidden || len(f.notes)+len(f.audits) != 0 {
 			t.Errorf("%s: PUT protected = %d %s, changes %q; want 403 and nothing changed", tt.name, rec.Code, rec.Body, f.notes)
 		}
+	}
+}
+
+func TestAdminGroupsRelatedTournaments(t *testing.T) {
+	const site, org = "https://ttac-admin.example", "222222222222222222"
+	f := &fakeAdmins{}
+	rec := adminDo(t, f, http.MethodPost, "/v1/admin/tournaments", site, `{"name": "Big Cups", "kind": "cup", "members": ["worlds", "wimbledon"]}`)
+	if rec.Code != http.StatusCreated {
+		t.Fatalf("POST = %d %s, want 201", rec.Code, rec.Body)
+	}
+	wantJSON(t, rec.Body.Bytes(), "slug", `"big_cups"`)
+	if rec := adminDo(t, f, http.MethodPatch, "/v1/admin/tournaments/worlds", site, `{"parent": "big_cups", "description": "Every year", "name": "Worlds"}`); rec.Code != http.StatusNoContent {
+		t.Fatalf("PATCH parent = %d %s, want 204", rec.Code, rec.Body)
+	}
+	if len(f.settings) != 1 || *f.settings[0].Parent != "big_cups" || *f.settings[0].Description != "Every year" || *f.settings[0].Name != "Worlds" {
+		t.Errorf("settings = %+v, want worlds in big_cups with its description and name", f.settings)
+	}
+	if rec := adminDo(t, f, http.MethodPut, "/v1/admin/tournaments/big_cups/members", site, `{"members": ["wimbledon"]}`); rec.Code != http.StatusNoContent {
+		t.Fatalf("PUT members = %d %s, want 204", rec.Code, rec.Body)
+	}
+	if got, want := strings.Join(f.notes, "|"), "group Big Cups cup [worlds wimbledon]|members big_cups [wimbledon]"; got != want {
+		t.Errorf("changes = %q, want %q", got, want)
+	}
+	if got, want := strings.Join(f.audits, "|"), org+" tournament.group big_cups|"+org+" tournament.settings worlds|"+org+" tournament.members big_cups"; got != want {
+		t.Errorf("audits = %q, want %q", got, want)
+	}
+}
+
+func TestAdminRefusesAGroupItCannotMake(t *testing.T) {
+	const site = "https://ttac-admin.example"
+	tests := []struct {
+		name, method, path, origin, body string
+		want                             int
+	}{
+		{"a name with no letter", http.MethodPost, "/v1/admin/tournaments", site, `{"name": "!", "kind": "cup", "members": []}`, http.StatusBadRequest},
+		{"no such kind", http.MethodPost, "/v1/admin/tournaments", site, `{"name": "Cups", "kind": "bowl", "members": []}`, http.StatusBadRequest},
+		{"no such member", http.MethodPost, "/v1/admin/tournaments", site, `{"name": "Cups", "kind": "cup", "members": ["no_such"]}`, http.StatusNotFound},
+		{"another site", http.MethodPost, "/v1/admin/tournaments", "https://evil.example", `{"name": "Cups", "kind": "cup", "members": []}`, http.StatusForbidden},
+		{"a group in itself", http.MethodPatch, "/v1/admin/tournaments/worlds", site, `{"parent": "worlds"}`, http.StatusBadRequest},
+		{"members for a tournament", http.MethodPut, "/v1/admin/tournaments/worlds/members", site, `{"members": ["wimbledon"]}`, http.StatusBadRequest},
+		{"no such member", http.MethodPut, "/v1/admin/tournaments/big_cups/members", site, `{"members": ["no_such"]}`, http.StatusNotFound},
+		{"members from another site", http.MethodPut, "/v1/admin/tournaments/big_cups/members", "https://evil.example", `{"members": []}`, http.StatusForbidden},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			f := &fakeAdmins{}
+			if rec := adminDo(t, f, tt.method, tt.path, tt.origin, tt.body); rec.Code != tt.want {
+				t.Errorf("%s %s %s = %d %s, want %d", tt.method, tt.path, tt.body, rec.Code, rec.Body, tt.want)
+			}
+			if len(f.audits) != 0 {
+				t.Errorf("audits = %q, want none", f.audits)
+			}
+		})
 	}
 }

@@ -1,4 +1,4 @@
-/** A tournament's settings page: its on/off settings, its format and regulations, and each season's notes and podium. */
+/** A tournament's or group's page: the groups it is in; a group's settings and members, or a tournament's settings, format and regulations, and seasons. */
 import { useEffect, useState, type FormEvent } from 'react';
 import { adminRequest, type AdminMe, type AdminTournament } from '../lib/admin-api';
 import { podiumNames, podiumRequest, type PodiumEntry } from '../lib/podium';
@@ -16,6 +16,8 @@ import {
   toggledCounts,
   type Setting,
 } from '../lib/tournament-page';
+import GroupPage from './GroupPage';
+import RelatedCard from './RelatedCard';
 import './AdminApp.css';
 
 type Load<T> = { kind: 'loading' } | { kind: 'error'; message: string } | { kind: 'ready'; data: T };
@@ -722,6 +724,7 @@ function SeasonsCard({ t, onReload }: { t: AdminTournament; onReload: () => Prom
 export default function TournamentSettings() {
   const [me, setMe] = useState<Load<AdminMe>>({ kind: 'loading' });
   const [t, setT] = useState<Load<AdminTournament>>({ kind: 'loading' });
+  const [all, setAll] = useState<AdminTournament[]>([]);
   const load = async () => {
     const slug = slugParam(new URLSearchParams(window.location.search));
     if (slug === null) {
@@ -733,6 +736,7 @@ export default function TournamentSettings() {
       setT({ kind: 'error', message: r.message });
       return;
     }
+    setAll(r.data);
     const found = r.data.find((x) => x.slug === slug);
     setT(found === undefined ? { kind: 'error', message: `No tournament is called ${slug}.` } : { kind: 'ready', data: found });
   };
@@ -763,11 +767,18 @@ export default function TournamentSettings() {
           {renamedFrom(t.data.name, t.data.original_name) !== null && (
             <p className="muted">Imported as {renamedFrom(t.data.name, t.data.original_name)}</p>
           )}
-          <SettingsCard t={t.data} onChange={(next) => setT({ kind: 'ready', data: next })} />
-          <CardSettings t={t.data} onReload={load} />
-          <RegulationsCard t={t.data} onReload={load} />
-          <StoriesSettings t={t.data} onReload={load} />
-          <SeasonsCard t={t.data} onReload={load} />
+          <RelatedCard t={t.data} all={all} onReload={load} />
+          {t.data.is_group ? (
+            <GroupPage g={t.data} all={all} onReload={load} />
+          ) : (
+            <>
+              <SettingsCard t={t.data} onChange={(next) => setT({ kind: 'ready', data: next })} />
+              <CardSettings t={t.data} onReload={load} />
+              <RegulationsCard t={t.data} onReload={load} />
+              <StoriesSettings t={t.data} onReload={load} />
+              <SeasonsCard t={t.data} onReload={load} />
+            </>
+          )}
         </>
       )}
     </>
