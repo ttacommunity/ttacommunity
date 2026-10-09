@@ -3,7 +3,7 @@ import { useEffect, useState } from 'react';
 import type { TitleCode, YearEntry } from '@ttac/shared/ratings';
 import { engineName } from '../lib/leaderboard-display';
 import { DEFAULT_VIEW, ENGINES, defaultMinOpps, retroApplies, type DeltaWindow, type Engine, type ResetMode, type Status, type View } from '../lib/leaderboard-view';
-import Segmented from './Segmented';
+import Segmented from '@ttac/shared/Segmented';
 
 /** A link to a view: a real address, followed in place. */
 export type LinkTo = (view: View) => { href: string; onClick: (e: React.MouseEvent) => void };

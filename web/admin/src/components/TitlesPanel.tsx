@@ -105,11 +105,11 @@ export default function TitlesPanel() {
         <h3>Set a title</h3>
         <label>
           Player (as the leaderboard spells it)
-          <input value={form.name} maxLength={200} onChange={(e) => setForm({ ...form, name: e.target.value })} required />
+          <input className="input-antique" value={form.name} maxLength={200} onChange={(e) => setForm({ ...form, name: e.target.value })} required />
         </label>
         <label>
           Title
-          <select value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value as Title })}>
+          <select className="input-antique" value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value as Title })}>
             {TITLES.map((t) => (
               <option key={t.value} value={t.value}>
                 {t.label}
@@ -119,7 +119,7 @@ export default function TitlesPanel() {
         </label>
         <label className="title-reason">
           Reason (shown when hovering the badge)
-          <input value={form.reason} maxLength={300} onChange={(e) => setForm({ ...form, reason: e.target.value })} required />
+          <input className="input-antique" value={form.reason} maxLength={300} onChange={(e) => setForm({ ...form, reason: e.target.value })} required />
         </label>
         <button type="submit" className="btn-antique">
           Set title

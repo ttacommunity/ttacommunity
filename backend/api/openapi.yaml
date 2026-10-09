@@ -2495,7 +2495,7 @@ components:
             $ref: "#/components/schemas/AdminSeason"
     AdminSeason:
       type: object
-      required: [label, original_name, note, has_games, rated, in_champions, in_community, timeout_penalty, stages, podium, podium_note]
+      required: [label, original_name, note, has_games, rated, in_champions, in_community, timeout_penalty, stages, podium, podium_note, suggested_podium, suggested_from]
       properties:
         in_champions:
           description: Its winner is listed among the tournament's champions
@@ -2520,6 +2520,16 @@ components:
             $ref: "#/components/schemas/PodiumEntry"
         podium_note:
           type: string
+        suggested_podium:
+          description: The podium to start from when admin has set none
+          type: array
+          items:
+            $ref: "#/components/schemas/PodiumEntry"
+        suggested_from:
+          description: Where the suggestion comes from; recorded (the organisers' placements), final_stage (its one-group final's games, by game points then culture), or empty for none
+          type: string
+          enum: [recorded, final_stage, ""]
+          x-enum-varnames: [SuggestedRecorded, SuggestedFinalStage, SuggestedNone]
         label:
           type: string
         has_games:

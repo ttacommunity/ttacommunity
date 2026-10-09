@@ -97,3 +97,14 @@ export function groupTotals<T extends Played>(
   walk(slug);
   return { games, first, last };
 }
+
+/** isRated says whether slug counts as rated: a tournament by its own setting, a group when anything in it is. */
+export function isRated<T extends { slug: string; parent: string; is_group: boolean; rated: boolean }>(
+  list: readonly T[],
+  slug: string,
+): boolean {
+  const t = list.find((x) => x.slug === slug);
+  if (t === undefined) return false;
+  if (!t.is_group) return t.rated;
+  return list.some((m) => m.parent === slug && isRated(list, m.slug));
+}

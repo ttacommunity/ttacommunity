@@ -94,6 +94,27 @@ func (e AdminRunStatus) Valid() bool {
 	}
 }
 
+// Defines values for AdminSeasonSuggestedFrom.
+const (
+	SuggestedFinalStage AdminSeasonSuggestedFrom = "final_stage"
+	SuggestedNone       AdminSeasonSuggestedFrom = ""
+	SuggestedRecorded   AdminSeasonSuggestedFrom = "recorded"
+)
+
+// Valid indicates whether the value is a known member of the AdminSeasonSuggestedFrom enum.
+func (e AdminSeasonSuggestedFrom) Valid() bool {
+	switch e {
+	case SuggestedFinalStage:
+		return true
+	case SuggestedNone:
+		return true
+	case SuggestedRecorded:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for AdminTitle.
 const (
 	AdminTitleB     AdminTitle = "B"
@@ -714,9 +735,18 @@ type AdminSeason struct {
 	Rated  bool         `json:"rated"`
 	Stages []AdminStage `json:"stages"`
 
+	// SuggestedFrom Where the suggestion comes from; recorded (the organisers' placements), final_stage (its one-group final's games, by game points then culture), or empty for none
+	SuggestedFrom AdminSeasonSuggestedFrom `json:"suggested_from"`
+
+	// SuggestedPodium The podium to start from when admin has set none
+	SuggestedPodium []PodiumEntry `json:"suggested_podium"`
+
 	// TimeoutPenalty The points a player loses in its standings for each game they time out of, 0 or below
 	TimeoutPenalty float64 `json:"timeout_penalty"`
 }
+
+// AdminSeasonSuggestedFrom Where the suggestion comes from; recorded (the organisers' placements), final_stage (its one-group final's games, by game points then culture), or empty for none
+type AdminSeasonSuggestedFrom string
 
 // AdminStage defines model for AdminStage.
 type AdminStage struct {

@@ -40,11 +40,11 @@ function GroupSettings({ g, all, onReload }: { g: AdminTournament; all: readonly
         <>
           <div className="setting">
             <label htmlFor="group-name">Name</label>{' '}
-            <input id="group-name" value={name} maxLength={100} onChange={(e) => setName(e.target.value)} />
+            <input className="input-antique" id="group-name" value={name} maxLength={100} onChange={(e) => setName(e.target.value)} />
           </div>
           <div className="setting">
             <label htmlFor="group-kind">It holds</label>{' '}
-            <select id="group-kind" value={kind} onChange={(e) => setKind(e.target.value as Kind)}>
+            <select className="input-antique" id="group-kind" value={kind} onChange={(e) => setKind(e.target.value as Kind)}>
               {GROUP_KINDS.map((k) => (
                 <option key={k.kind} value={k.kind}>
                   {k.label}
@@ -54,7 +54,7 @@ function GroupSettings({ g, all, onReload }: { g: AdminTournament; all: readonly
           </div>
           <div className="note-box">
             <label htmlFor="group-description">Description</label>
-            <textarea id="group-description" value={description} maxLength={2000} rows={2} onChange={(e) => setDescription(e.target.value)} />
+            <textarea className="input-antique" id="group-description" value={description} maxLength={2000} rows={2} onChange={(e) => setDescription(e.target.value)} />
           </div>
           <p>
             <button type="button" className="btn-antique" onClick={save} disabled={!changed || name.trim() === ''}>

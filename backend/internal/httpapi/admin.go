@@ -160,12 +160,10 @@ func (s *server) GetAdminTournaments(ctx context.Context, _ GetAdminTournamentsR
 			for k, st := range se.Stages {
 				stages[k] = AdminStage{Label: st.Label, OriginalName: st.OriginalName, Note: st.Note}
 			}
-			podium := make([]PodiumEntry, len(se.Podium))
-			for k, e := range se.Podium {
-				podium[k] = PodiumEntry{Place: e.Place, Name: e.Name}
-			}
+			podium, suggested := podiumEntries(se.Podium), podiumEntries(se.Suggested)
 			seasons[j] = AdminSeason{Label: se.Label, OriginalName: se.OriginalName, Note: se.Note, HasGames: se.HasGames, Rated: se.Rated, InChampions: se.InChampions, InCommunity: se.InCommunity,
-				TimeoutPenalty: se.TimeoutPenalty, Stages: stages, Podium: podium, PodiumNote: se.PodiumNote}
+				TimeoutPenalty: se.TimeoutPenalty, Stages: stages, Podium: podium, PodiumNote: se.PodiumNote,
+				SuggestedPodium: suggested, SuggestedFrom: AdminSeasonSuggestedFrom(se.SuggestedFrom)}
 		}
 		out[i] = AdminTournament{Slug: t.Slug, Name: t.Name, OriginalName: t.OriginalName, Parent: t.Parent, Description: t.Description, IsGroup: t.IsGroup,
 			Games: t.Games, FirstGame: dateOf(t.FirstGame), LastGame: dateOf(t.LastGame), Kind: TournamentKind(t.Kind),
@@ -1157,4 +1155,13 @@ func dateOf(t *time.Time) *openapi_types.Date {
 		return nil
 	}
 	return &openapi_types.Date{Time: *t}
+}
+
+// podiumEntries returns a podium as the API's, empty for none.
+func podiumEntries(p []store.PodiumEntry) []PodiumEntry {
+	out := make([]PodiumEntry, len(p))
+	for i, e := range p {
+		out[i] = PodiumEntry{Place: e.Place, Name: e.Name}
+	}
+	return out
 }

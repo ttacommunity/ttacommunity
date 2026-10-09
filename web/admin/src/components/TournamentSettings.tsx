@@ -1,7 +1,7 @@
 /** A tournament's or group's page: the groups it is in; a group's settings and members, or a tournament's settings, format and regulations, and seasons. */
 import { useEffect, useState, type FormEvent } from 'react';
 import { adminRequest, type AdminMe, type AdminTournament } from '../lib/admin-api';
-import { podiumNames, podiumRequest, type PodiumEntry } from '../lib/podium';
+import { podiumRequest, podiumStart, type PodiumEntry } from '../lib/podium';
 import {
   divisionList,
   divisionText,
@@ -16,6 +16,8 @@ import {
   toggledCounts,
   type Setting,
 } from '../lib/tournament-page';
+import { tabsFor } from '../lib/admin-tabs';
+import AdminHeader from './AdminHeader';
 import GroupPage from './GroupPage';
 import RelatedCard from './RelatedCard';
 import './AdminApp.css';
@@ -56,7 +58,7 @@ function NoteBox({
         {stage === '' ? 'Season note' : `${stage} note`}
         {original !== null && <span className="muted"> · imported as {original}</span>}
       </label>
-      <textarea id={id} value={text} maxLength={2000} rows={2} onChange={(e) => setText(e.target.value)} />
+      <textarea className="input-antique" id={id} value={text} maxLength={2000} rows={2} onChange={(e) => setText(e.target.value)} />
       <div className="note-actions">
         <button type="button" className="btn-antique" onClick={save} disabled={text.trim() === saved}>
           Save note
@@ -92,7 +94,7 @@ function PenaltyBox({ slug, season, initial }: { slug: string; season: string; i
       <label htmlFor={id}>
         Time-out penalty <span className="muted">(points per game timed out of, 0 or below, from the next engine run)</span>
       </label>{' '}
-      <input id={id} value={text} maxLength={8} inputMode="decimal" onChange={(e) => setText(e.target.value)} />{' '}
+      <input className="input-antique" id={id} value={text} maxLength={8} inputMode="decimal" onChange={(e) => setText(e.target.value)} />{' '}
       <button type="button" className="btn-antique" onClick={save} disabled={value === null || value === saved}>
         Save
       </button>{' '}
@@ -106,21 +108,35 @@ function PenaltyBox({ slug, season, initial }: { slug: string; season: string; i
 const PLACES = ['1st', '2nd', '3rd'];
 
 /** PodiumBox sets a season's podium by hand, over the recorded or derived one, or removes it. */
+// What the box's legend says of where its names came from.
+const ORIGIN = {
+  admin: '(set by hand)',
+  recorded: '(as recorded by the organisers: set it to keep it here)',
+  final_stage: "(suggested from the final stage's games: check it, then set it)",
+  none: '(nothing recorded or suggested)',
+};
+const ORIGIN_NOTE = { admin: '', recorded: 'As recorded by the organisers', final_stage: "From the final stage's games", none: '' };
+
 function PodiumBox({
   slug,
   season,
   saved,
   savedNote,
+  suggested,
+  suggestedFrom,
   onReload,
 }: {
   slug: string;
   season: string;
   saved: PodiumEntry[];
   savedNote: string;
+  suggested: PodiumEntry[];
+  suggestedFrom: string;
   onReload: () => Promise<void>;
 }) {
-  const [names, setNames] = useState(podiumNames(saved));
-  const [note, setNote] = useState(savedNote);
+  const start = podiumStart(saved, suggested, suggestedFrom);
+  const [names, setNames] = useState(start.names);
+  const [note, setNote] = useState(savedNote || ORIGIN_NOTE[start.origin]);
   const [status, setStatus] = useState('');
   const id = `podium-${slug}-${season}`.replace(/[^A-Za-z0-9-]/g, '_');
   const save = async () => {
@@ -139,12 +155,14 @@ function PodiumBox({
   };
   return (
     <fieldset className="podium-box">
-      <legend>Season {season} podium {saved.length > 0 ? '(set by hand)' : '(from the results)'}</legend>
+      <legend>
+        Season {season} podium {ORIGIN[start.origin]}
+      </legend>
       <div className="podium-places">
         {PLACES.map((label, i) => (
           <label key={label}>
             {label}
-            <input
+            <input className="input-antique"
               id={`${id}-${i + 1}`}
               value={names[i]}
               maxLength={64}
@@ -154,7 +172,7 @@ function PodiumBox({
         ))}
         <label className="podium-note">
           Why, or where it comes from
-          <input id={`${id}-note`} value={note} maxLength={500} onChange={(e) => setNote(e.target.value)} />
+          <input className="input-antique" id={`${id}-note`} value={note} maxLength={500} onChange={(e) => setNote(e.target.value)} />
         </label>
       </div>
       <div className="note-actions">
@@ -276,7 +294,7 @@ function SettingsCard({ t, onChange }: { t: AdminTournament; onChange: (t: Admin
             <strong>Kind</strong>
             <span className="muted"> · A league's podium is its top divisions' standings; a ladder has none</span>
           </label>{' '}
-          <select id="setting-kind" value={t.kind} onChange={(e) => setKind(e.target.value as AdminTournament['kind'])}>
+          <select className="input-antique" id="setting-kind" value={t.kind} onChange={(e) => setKind(e.target.value as AdminTournament['kind'])}>
             <option value="league">League</option>
             <option value="cup">Cup</option>
             <option value="ladder">Ladder</option>
@@ -288,7 +306,7 @@ function SettingsCard({ t, onChange }: { t: AdminTournament; onChange: (t: Admin
               <strong>Top divisions</strong>
               <span className="muted"> · Comma-separated; the champions table follows at once</span>
             </label>{' '}
-            <input id="setting-top" value={divisions} maxLength={300} onChange={(e) => setDivisions(e.target.value)} />{' '}
+            <input className="input-antique" id="setting-top" value={divisions} maxLength={300} onChange={(e) => setDivisions(e.target.value)} />{' '}
             <button
               type="button"
               className="btn-antique"
@@ -310,7 +328,7 @@ function SettingsCard({ t, onChange }: { t: AdminTournament; onChange: (t: Admin
           {([2, 3, 4] as const).map((n) => (
             <label key={n}>
               {n}-player{' '}
-              <input
+              <input className="input-antique"
                 id={`points-${n}`}
                 value={points[n]}
                 maxLength={40}
@@ -335,7 +353,7 @@ function SettingsCard({ t, onChange }: { t: AdminTournament; onChange: (t: Admin
           </legend>
           <label>
             A season is called{' '}
-            <input
+            <input className="input-antique"
               id="level-season"
               value={levels.season_name}
               placeholder="Season"
@@ -345,7 +363,7 @@ function SettingsCard({ t, onChange }: { t: AdminTournament; onChange: (t: Admin
           </label>
           <label>
             A stage is called{' '}
-            <input
+            <input className="input-antique"
               id="level-stage"
               value={levels.stage_name}
               placeholder="Stage"
@@ -395,11 +413,11 @@ function CardSettings({ t, onReload }: { t: AdminTournament; onReload: () => Pro
       <div className="card-fields">
         <label>
           Icon
-          <input id="card-icon" value={card.icon} maxLength={8} placeholder="📜" onChange={(e) => setCard({ ...card, icon: e.target.value })} />
+          <input className="input-antique" id="card-icon" value={card.icon} maxLength={8} placeholder="📜" onChange={(e) => setCard({ ...card, icon: e.target.value })} />
         </label>
         <label className="card-tagline">
           Short description
-          <input
+          <input className="input-antique"
             id="card-tagline"
             value={card.tagline}
             maxLength={60}
@@ -409,7 +427,7 @@ function CardSettings({ t, onReload }: { t: AdminTournament; onReload: () => Pro
         </label>
         <label className="card-tagline">
           Page subtitle
-          <input
+          <input className="input-antique"
             id="card-subtitle"
             value={card.subtitle}
             maxLength={60}
@@ -419,7 +437,7 @@ function CardSettings({ t, onReload }: { t: AdminTournament; onReload: () => Pro
         </label>
         <label className="card-tagline">
           Cadence
-          <input
+          <input className="input-antique"
             id="card-cadence"
             value={card.cadence}
             maxLength={60}
@@ -429,7 +447,7 @@ function CardSettings({ t, onReload }: { t: AdminTournament; onReload: () => Pro
         </label>
         <label className="card-summary">
           Information box
-          <textarea
+          <textarea className="input-antique"
             id="card-summary"
             value={card.summary}
             maxLength={1000}
@@ -544,11 +562,11 @@ function StoriesSettings({ t, onReload }: { t: AdminTournament; onReload: () => 
           <div className="card-fields">
             <label>
               Player
-              <input id={`story-${i}-player`} value={st.player} maxLength={200} onChange={(e) => set(i, 'player', e.target.value)} />
+              <input className="input-antique" id={`story-${i}-player`} value={st.player} maxLength={200} onChange={(e) => set(i, 'player', e.target.value)} />
             </label>
             <label>
               Badge
-              <input
+              <input className="input-antique"
                 id={`story-${i}-badge`}
                 value={st.badge}
                 maxLength={60}
@@ -558,11 +576,11 @@ function StoriesSettings({ t, onReload }: { t: AdminTournament; onReload: () => 
             </label>
             <label className="card-tagline">
               Title
-              <input id={`story-${i}-title`} value={st.title} maxLength={120} onChange={(e) => set(i, 'title', e.target.value)} />
+              <input className="input-antique" id={`story-${i}-title`} value={st.title} maxLength={120} onChange={(e) => set(i, 'title', e.target.value)} />
             </label>
             <label className="card-summary">
               Story
-              <textarea id={`story-${i}-text`} value={st.text} maxLength={1000} rows={3} onChange={(e) => set(i, 'text', e.target.value)} />
+              <textarea className="input-antique" id={`story-${i}-text`} value={st.text} maxLength={1000} rows={3} onChange={(e) => set(i, 'text', e.target.value)} />
             </label>
           </div>
           <div className="note-actions">
@@ -645,7 +663,7 @@ function SeasonsCard({ t, onReload }: { t: AdminTournament; onReload: () => Prom
       <form className="season-add" onSubmit={(e) => void addSeason(e)}>
         <label>
           Add a season with no games yet (its label as the site shows it, without "Season")
-          <input value={newSeason} maxLength={64} placeholder="e.g. 1 or 2023" onChange={(e) => setNewSeason(e.target.value)} />
+          <input className="input-antique" value={newSeason} maxLength={64} placeholder="e.g. 1 or 2023" onChange={(e) => setNewSeason(e.target.value)} />
         </label>
         <button type="submit" className="btn-antique" disabled={newSeason.trim() === ''}>
           Add season
@@ -713,7 +731,15 @@ function SeasonsCard({ t, onReload }: { t: AdminTournament; onReload: () => Prom
               original={renamedFrom(st.label, st.original_name)}
             />
           ))}
-          <PodiumBox slug={t.slug} season={se.label} saved={se.podium} savedNote={se.podium_note} onReload={onReload} />
+          <PodiumBox
+            slug={t.slug}
+            season={se.label}
+            saved={se.podium}
+            savedNote={se.podium_note}
+            suggested={se.suggested_podium}
+            suggestedFrom={se.suggested_from}
+            onReload={onReload}
+          />
         </div>
       ))}
     </section>
@@ -747,27 +773,29 @@ export default function TournamentSettings() {
     void load();
   }, []);
 
-  if (me.kind === 'error') return <p className="row-error" role="alert">{me.message}</p>;
   return (
     <>
-      <p className="signed-in">
-        <a href="/">← All tournaments</a>
-        {me.kind === 'ready' && (
-          <span className="muted">
-            {' '}
-            · Signed in as <strong>{me.data.name}</strong> ({me.data.role})
-          </span>
-        )}
-      </p>
+      <AdminHeader tabs={me.kind === 'ready' ? tabsFor(me.data.role) : []} current="tournaments" />
+      <main className="admin-main">
+      {me.kind === 'error' && <p className="row-error" role="alert">{me.message}</p>}
+      {me.kind === 'ready' && (
+        <p className="signed-in">
+          Signed in as <strong>{me.data.name}</strong> ({me.data.role})
+        </p>
+      )}
       {t.kind === 'loading' && <p className="muted">Loading…</p>}
       {t.kind === 'error' && <p className="row-error" role="alert">{t.message}</p>}
       {t.kind === 'ready' && (
         <>
-          <h2 className="tournament-title">{t.data.name}</h2>
-          {renamedFrom(t.data.name, t.data.original_name) !== null && (
-            <p className="muted">Imported as {renamedFrom(t.data.name, t.data.original_name)}</p>
-          )}
-          <RelatedCard t={t.data} all={all} onReload={load} />
+          <section className="rating-card admin-card page-header" aria-labelledby="page-title">
+            <RelatedCard t={t.data} all={all} onReload={load} />
+            <h2 id="page-title" className="tournament-title">
+              {t.data.name}
+            </h2>
+            {renamedFrom(t.data.name, t.data.original_name) !== null && (
+              <p className="muted">Imported as {renamedFrom(t.data.name, t.data.original_name)}</p>
+            )}
+          </section>
           {t.data.is_group ? (
             <GroupPage g={t.data} all={all} onReload={load} />
           ) : (
@@ -781,6 +809,7 @@ export default function TournamentSettings() {
           )}
         </>
       )}
+      </main>
     </>
   );
 }

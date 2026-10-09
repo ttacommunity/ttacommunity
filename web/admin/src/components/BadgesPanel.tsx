@@ -40,11 +40,11 @@ function BadgeRow({ badge, onReload, say }: { badge: AdminBadge; onReload: () =>
       <div className="admin-add">
         <label>
           Label
-          <input id={`${id}-label`} value={label} maxLength={16} onChange={(e) => setLabel(e.target.value)} />
+          <input className="input-antique" id={`${id}-label`} value={label} maxLength={16} onChange={(e) => setLabel(e.target.value)} />
         </label>
         <label className="title-reason">
           Description (shown on hover)
-          <input id={`${id}-description`} value={description} maxLength={300} onChange={(e) => setDescription(e.target.value)} />
+          <input className="input-antique" id={`${id}-description`} value={description} maxLength={300} onChange={(e) => setDescription(e.target.value)} />
         </label>
         <button
           type="button"
@@ -75,7 +75,7 @@ function BadgeRow({ badge, onReload, say }: { badge: AdminBadge; onReload: () =>
       <form className="admin-add" onSubmit={(e) => void give(e)}>
         <label>
           Give it to (as the leaderboard spells the name)
-          <input id={`${id}-player`} value={player} maxLength={200} onChange={(e) => setPlayer(e.target.value)} />
+          <input className="input-antique" id={`${id}-player`} value={player} maxLength={200} onChange={(e) => setPlayer(e.target.value)} />
         </label>
         <button type="submit" className="btn-antique" disabled={player.trim() === ''}>
           Give
@@ -131,11 +131,11 @@ export default function BadgesPanel() {
         <h3>Make a badge</h3>
         <label>
           Label (up to 16 characters)
-          <input value={form.label} maxLength={16} onChange={(e) => setForm({ ...form, label: e.target.value })} required />
+          <input className="input-antique" value={form.label} maxLength={16} onChange={(e) => setForm({ ...form, label: e.target.value })} required />
         </label>
         <label className="title-reason">
           Description (shown on hover)
-          <input value={form.description} maxLength={300} onChange={(e) => setForm({ ...form, description: e.target.value })} />
+          <input className="input-antique" value={form.description} maxLength={300} onChange={(e) => setForm({ ...form, description: e.target.value })} />
         </label>
         <button type="submit" className="btn-antique">
           Make badge

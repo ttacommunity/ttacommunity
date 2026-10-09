@@ -64,6 +64,10 @@ type AdminSeason struct {
 	Stages      []AdminStage
 	Podium      []PodiumEntry
 	PodiumNote  string
+	// Suggested is the podium to start from when admin has set none: the organisers' recorded one (SuggestedFrom
+	// "recorded"), else the final stage's games when it is one group ("final_stage"), else none ("").
+	Suggested     []PodiumEntry
+	SuggestedFrom string
 }
 
 // PodiumEntry is one place on a podium set in admin.
@@ -187,12 +191,75 @@ func (a *AdminStore) Tournaments(ctx context.Context) ([]AdminTournament, error)
 	if err := a.addGames(ctx, out); err != nil {
 		return nil, err
 	}
+	if err := a.addSuggestedPodiums(ctx, out); err != nil {
+		return nil, err
+	}
 	for i := range out {
 		if out[i].Stories, err = stories(ctx, a.pool, out[i].Slug); err != nil {
 			return nil, fmt.Errorf("reading %s's stories for admin: %w", out[i].Slug, err)
 		}
 	}
 	return out, nil
+}
+
+// addSuggestedPodiums puts on each season the podium admin would start from: its recorded placements, else, once it
+// has finished, its final stage's games when that stage is one group, ranked by game points, then culture (equal on
+// both share a place).
+func (a *AdminStore) addSuggestedPodiums(ctx context.Context, ts []AdminTournament) error {
+	rows, err := a.pool.Query(ctx, `
+		WITH s AS (SELECT st.tournament_id, st.stage_id, max(g.date) AS last, count(DISTINCT g.group_id) AS groups
+		           FROM games g JOIN groups gr USING (group_id) JOIN stages st USING (stage_id) WHERE g.state = 'played' GROUP BY 1, 2),
+		final AS (SELECT DISTINCT ON (tournament_id) tournament_id, stage_id, groups FROM s
+		          -- Only a finished tournament has a final: its CGE tournament finished, or a league past its season.
+		          WHERE NOT EXISTS (SELECT FROM stages x JOIN cge_tournaments c ON c.cge_tournament = x.cge_tournament
+		                            WHERE x.tournament_id = s.tournament_id AND c.status <> 'finished'
+		                              AND NOT (c.status ~ '^after season [0-9]+$'
+		                                       AND x.cge_stage_number <= substring(c.status FROM '[0-9]+$')::int))
+		          ORDER BY tournament_id, last DESC, stage_id DESC),
+		-- game_lines only for the one-group finals: reading it whole takes seconds.
+		seat AS (SELECT f.tournament_id, p.player, p.pts, p.culture FROM final f
+		         JOIN game_lines l ON l.stage_id = f.stage_id AND l.state = 'played',
+		         unnest(l.players, l.game_points, l.cultures) AS p (player, pts, culture) WHERE f.groups = 1),
+		total AS (SELECT tournament_id, player, sum(pts) AS pts, sum(culture) AS culture FROM seat GROUP BY 1, 2),
+		derived AS (SELECT tournament_id, player, rank() OVER (PARTITION BY tournament_id ORDER BY pts DESC NULLS LAST,
+		                                                         culture DESC NULLS LAST)::int AS place FROM total),
+		recorded AS (SELECT t.tournament_id, o.player_name AS player, o.place FROM tournament_official_placements o
+		             JOIN series se ON se.slug = o.series JOIN tournaments t ON t.series_id = se.series_id AND t.label = o.season::text)
+		SELECT se.slug, t.label, x.source, x.place, x.player FROM (
+		    SELECT tournament_id, 'recorded' AS source, place, player FROM recorded
+		    UNION ALL SELECT d.tournament_id, 'final_stage', d.place, d.player FROM derived d
+		    WHERE NOT EXISTS (SELECT FROM recorded r WHERE r.tournament_id = d.tournament_id)) x
+		JOIN tournaments t USING (tournament_id) JOIN series se USING (series_id)
+		WHERE x.place <= 3 ORDER BY 1, 2, x.place, x.player`)
+	if err != nil {
+		return fmt.Errorf("suggesting podiums for admin: %w", err)
+	}
+	type key struct{ slug, season string }
+	type suggestion struct {
+		from   string
+		places []PodiumEntry
+	}
+	by := map[key]*suggestion{}
+	var slug, season, from, player string
+	var place int
+	if _, err := pgx.ForEachRow(rows, []any{&slug, &season, &from, &place, &player}, func() error {
+		k := key{slug, season}
+		if by[k] == nil {
+			by[k] = &suggestion{from: from}
+		}
+		by[k].places = append(by[k].places, PodiumEntry{Place: place, Name: player})
+		return nil
+	}); err != nil {
+		return fmt.Errorf("suggesting podiums for admin: %w", err)
+	}
+	for i := range ts {
+		for j := range ts[i].Seasons {
+			if s := by[key{ts[i].Slug, ts[i].Seasons[j].Label}]; s != nil {
+				ts[i].Seasons[j].Suggested, ts[i].Seasons[j].SuggestedFrom = s.places, s.from
+			}
+		}
+	}
+	return nil
 }
 
 // addGames puts each series' game count and first and last game dates on it.

@@ -15,7 +15,7 @@ import {
 import { EDITIONS, type Edition } from '../lib/community-editions';
 import { titleName } from '../lib/leaderboard-display';
 import './CommunityPage.css';
-import Segmented from './Segmented';
+import Segmented from '@ttac/shared/Segmented';
 import SearchBox, { type SearchPlayer } from './SearchBox';
 import PlayerLink from './PlayerLink';
 import Waiting from './Waiting';

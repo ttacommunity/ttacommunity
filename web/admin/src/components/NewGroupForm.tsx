@@ -34,11 +34,11 @@ export default function NewGroupForm() {
       <h3 id="new-group-heading">New group</h3>
       <div className="setting">
         <label htmlFor="new-group-name">Name</label>{' '}
-        <input id="new-group-name" value={name} maxLength={100} required onChange={(e) => setName(e.target.value)} />
+        <input className="input-antique" id="new-group-name" value={name} maxLength={100} required onChange={(e) => setName(e.target.value)} />
       </div>
       <div className="setting">
         <label htmlFor="new-group-kind">It holds</label>{' '}
-        <select id="new-group-kind" value={kind} onChange={(e) => setKind(e.target.value as Kind)}>
+        <select className="input-antique" id="new-group-kind" value={kind} onChange={(e) => setKind(e.target.value as Kind)}>
           {GROUP_KINDS.map((k) => (
             <option key={k.kind} value={k.kind}>
               {k.label}

@@ -82,7 +82,7 @@ export default function AdminList({ myName }: { myName: string }) {
                     </th>
                     <td className="admin-id">{p.discord_id}</td>
                     <td>
-                      <select
+                      <select className="input-antique"
                         aria-label={`Role: ${p.name}`}
                         value={p.role}
                         onChange={(e) => void save(p.discord_id, p.name, e.target.value as Role)}
@@ -110,15 +110,15 @@ export default function AdminList({ myName }: { myName: string }) {
         <h3>Add someone</h3>
         <label>
           Discord id
-          <input inputMode="numeric" value={form.id} onChange={(e) => setForm({ ...form, id: e.target.value })} required />
+          <input className="input-antique" inputMode="numeric" value={form.id} onChange={(e) => setForm({ ...form, id: e.target.value })} required />
         </label>
         <label>
           Name
-          <input value={form.name} maxLength={64} onChange={(e) => setForm({ ...form, name: e.target.value })} required />
+          <input className="input-antique" value={form.name} maxLength={64} onChange={(e) => setForm({ ...form, name: e.target.value })} required />
         </label>
         <label>
           Role
-          <select value={form.role} onChange={(e) => setForm({ ...form, role: e.target.value as Role })}>
+          <select className="input-antique" value={form.role} onChange={(e) => setForm({ ...form, role: e.target.value as Role })}>
             {ROLES.map((r) => (
               <option key={r.value} value={r.value}>
                 {r.label}

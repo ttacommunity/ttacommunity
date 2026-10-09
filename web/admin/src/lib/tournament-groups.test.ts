@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { candidatesFor, dateSpan, detail, groupsAbove, groupsToJoin, groupTotals, membersOf, topLevel, unrelated } from './tournament-groups';
+import { candidatesFor, dateSpan, detail, groupsAbove, groupsToJoin, groupTotals, isRated, membersOf, topLevel, unrelated } from './tournament-groups';
 
 // The group worlds holds the group wc_2027, which holds wc_2027_tiebreak; swiss_open and slow_burn are related to
 // nothing; leagues is an empty league group.
@@ -91,5 +91,23 @@ describe('tournament groups', () => {
     ['cut at 140 characters', { description: 'x'.repeat(150), cge_regulations: '' }, `${'x'.repeat(139)}…`],
   ])('describes a row: %s', (_, t, want) => {
     expect(detail(t)).toBe(want);
+  });
+
+  const RATED = [
+    { slug: 'mixed', parent: '', is_group: true, rated: false },
+    { slug: 'a', parent: 'mixed', is_group: false, rated: false },
+    { slug: 'inner', parent: 'mixed', is_group: true, rated: false },
+    { slug: 'b', parent: 'inner', is_group: false, rated: true },
+    { slug: 'unrated', parent: '', is_group: true, rated: false },
+    { slug: 'c', parent: 'unrated', is_group: false, rated: false },
+    { slug: 'lone', parent: '', is_group: false, rated: true },
+  ];
+  it.each([
+    ['a group holding a rated tournament at any depth', 'mixed', true],
+    ['a group holding none', 'unrated', false],
+    ['a tournament, by its own setting', 'lone', true],
+    ['an unrated tournament', 'a', false],
+  ])('counts as rated: %s', (_, slug, want) => {
+    expect(isRated(RATED, slug)).toBe(want);
   });
 });

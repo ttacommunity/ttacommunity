@@ -1,8 +1,11 @@
-/** The admin page: who is signed in, rating runs and the admin list for admins, and the top-level tournaments and groups with links to their settings. */
+/** The admin page: the site's header with admin's tabs (tournaments, data and rating runs, titles and badges, admins). */
 import { useEffect, useState } from 'react';
+import Segmented from '@ttac/shared/Segmented';
 import { adminRequest, type AdminMe, type AdminTournament } from '../lib/admin-api';
-import { topLevel } from '../lib/tournament-groups';
+import { tabFrom, tabsFor, type TabKey } from '../lib/admin-tabs';
+import { isRated, topLevel } from '../lib/tournament-groups';
 import { settingsHref } from '../lib/tournament-page';
+import AdminHeader from './AdminHeader';
 import NewGroupForm from './NewGroupForm';
 import TournamentTable from './TournamentTable';
 import AdminList from './AdminList';
@@ -15,68 +18,103 @@ import './AdminApp.css';
 
 type Load<T> = { kind: 'loading' } | { kind: 'error'; message: string } | { kind: 'ready'; data: T };
 
-/** AdminApp loads who is signed in, then the tournaments they can edit. */
-export default function AdminApp() {
-  const [me, setMe] = useState<Load<AdminMe>>({ kind: 'loading' });
+/** Tournaments lists the top-level tournaments and groups, rated or unrated, with New group. */
+function Tournaments() {
   const [tournaments, setTournaments] = useState<Load<AdminTournament[]>>({ kind: 'loading' });
   const [making, setMaking] = useState(false);
-
-  const loadTournaments = async () => {
-    const r = await adminRequest<AdminTournament[]>('/api/tournaments', {});
-    setTournaments(r.ok ? { kind: 'ready', data: r.data } : { kind: 'error', message: r.message });
-  };
+  const [rated, setRated] = useState(true);
   useEffect(() => {
-    void adminRequest<AdminMe>('/api/me', {}).then((r) =>
-      setMe(r.ok ? { kind: 'ready', data: r.data } : { kind: 'error', message: r.message }),
+    void adminRequest<AdminTournament[]>('/api/tournaments', {}).then((r) =>
+      setTournaments(r.ok ? { kind: 'ready', data: r.data } : { kind: 'error', message: r.message }),
     );
-    void loadTournaments();
   }, []);
+  return (
+    <section className="rating-card admin-card" aria-labelledby="tournaments-heading">
+      <h2 id="tournaments-heading" className="rating-card-heading">
+        Tournaments
+      </h2>
+      <p className="muted">
+        Each group of related tournaments once, and each tournament related to nothing. A name opens what is in it;
+        Settings opens its settings.
+      </p>
+      <div className="format-bar">
+        <Segmented
+          label="Which tournaments"
+          options={[
+            { value: 'rated', label: 'Rated' },
+            { value: 'unrated', label: 'Unrated' },
+          ]}
+          value={rated ? 'rated' : 'unrated'}
+          onChange={(v) => setRated(v === 'rated')}
+        />
+        <div className="format-bar-actions">
+          <button type="button" className="btn-antique" onClick={() => setMaking(!making)} aria-expanded={making}>
+            New group
+          </button>
+        </div>
+      </div>
+      {making && <NewGroupForm />}
+      {tournaments.kind === 'loading' && <p className="muted">Loading tournaments…</p>}
+      {tournaments.kind === 'error' && <p className="row-error" role="alert">{tournaments.message}</p>}
+      {tournaments.kind === 'ready' && (
+        <TournamentTable
+          rows={topLevel(tournaments.data).filter((t) => isRated(tournaments.data, t.slug) === rated)}
+          all={tournaments.data}
+          caption={`Each top-level ${rated ? 'rated' : 'unrated'} tournament or group and its settings`}
+          action={(t) => (
+            <a className="btn-antique btn-settings" href={settingsHref(t.slug, t.is_group)} aria-label={`Settings for ${t.name}`}>
+              Settings
+            </a>
+          )}
+        />
+      )}
+    </section>
+  );
+}
 
-  if (me.kind === 'loading') return <p className="muted">Loading…</p>;
-  if (me.kind === 'error') return <p className="row-error" role="alert">{me.message}</p>;
+/** AdminApp loads who is signed in, then shows the tab the address names, following it as it changes. */
+export default function AdminApp() {
+  const [me, setMe] = useState<Load<AdminMe>>({ kind: 'loading' });
+  const [tab, setTab] = useState<TabKey>('tournaments');
+  useEffect(() => {
+    void adminRequest<AdminMe>('/api/me', {}).then((r) => {
+      setMe(r.ok ? { kind: 'ready', data: r.data } : { kind: 'error', message: r.message });
+      if (!r.ok) return;
+      const follow = () => setTab(tabFrom(window.location.hash, r.data.role));
+      follow();
+      window.addEventListener('hashchange', follow);
+    });
+  }, []);
 
   return (
     <>
-      <p className="signed-in">
-        Signed in as <strong>{me.data.name}</strong> ({me.data.role})
-      </p>
-      <DataCard />
-      <StandingsCheckPanel />
-      {me.data.role === 'admin' && <RunsPanel />}
-      {me.data.role === 'admin' && <AdminList myName={me.data.name} />}
-      {me.data.role === 'admin' && <TitlesPanel />}
-      {me.data.role === 'admin' && <BadgesPanel />}
-      <section className="rating-card admin-card" aria-labelledby="tournaments-heading">
-        <h2 id="tournaments-heading" className="rating-card-heading">
-          Tournaments
-        </h2>
-        <p className="muted">
-          Each group of related tournaments once, and each tournament related to nothing. A group's settings page lists its
-          tournaments; each one's settings, format and regulations, season notes and podiums are on its own page.
-        </p>
-        {tournaments.kind === 'ready' && (
-          <p>
-            <button type="button" className="btn-antique" onClick={() => setMaking(!making)} aria-expanded={making}>
-              New group
-            </button>
-          </p>
-        )}
-        {making && <NewGroupForm />}
-        {tournaments.kind === 'loading' && <p className="muted">Loading tournaments…</p>}
-        {tournaments.kind === 'error' && <p className="row-error" role="alert">{tournaments.message}</p>}
-        {tournaments.kind === 'ready' && (
-          <TournamentTable
-            rows={topLevel(tournaments.data)}
-            all={tournaments.data}
-            caption="Each top-level tournament or group and its settings"
-            action={(t) => (
-              <a className="btn-antique btn-settings" href={settingsHref(t.slug, t.is_group)} aria-label={`Settings for ${t.name}`}>
-                Settings
-              </a>
+      <AdminHeader tabs={me.kind === 'ready' ? tabsFor(me.data.role) : []} current={me.kind === 'ready' ? tab : null} />
+      <main className="admin-main">
+        {me.kind === 'loading' && <p className="muted">Loading…</p>}
+        {me.kind === 'error' && <p className="row-error" role="alert">{me.message}</p>}
+        {me.kind === 'ready' && (
+          <>
+            <p className="signed-in">
+              Signed in as <strong>{me.data.name}</strong> ({me.data.role})
+            </p>
+            {tab === 'tournaments' && <Tournaments />}
+            {tab === 'data' && (
+              <>
+                <DataCard />
+                {me.data.role === 'admin' && <RunsPanel />}
+                <StandingsCheckPanel />
+              </>
             )}
-          />
+            {tab === 'titles' && (
+              <>
+                <TitlesPanel />
+                <BadgesPanel />
+              </>
+            )}
+            {tab === 'admins' && <AdminList myName={me.data.name} />}
+          </>
         )}
-      </section>
+      </main>
     </>
   );
 }

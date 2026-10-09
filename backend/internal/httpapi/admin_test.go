@@ -145,7 +145,8 @@ func (*fakeAdmins) Tournaments(context.Context) ([]store.AdminTournament, error)
 		Stories:           []store.Story{{Player: "alder440", Badge: "Reigning World Champion", Title: "2025", Text: "Won."}},
 		RatedPlayerCounts: []int{3, 4},
 		Seasons: []store.AdminSeason{{Label: "2025", OriginalName: "2025 Edition", Rated: true, InChampions: true, InCommunity: true, TimeoutPenalty: -1, Stages: []store.AdminStage{{Label: "Stage 1", OriginalName: "Groups", Note: "n"}},
-			Podium: []store.PodiumEntry{{Place: 1, Name: "alder440"}}, PodiumNote: "CGE"}}}}, nil
+			Podium: []store.PodiumEntry{{Place: 1, Name: "alder440"}}, PodiumNote: "CGE",
+			Suggested: []store.PodiumEntry{{Place: 1, Name: "birch550"}}, SuggestedFrom: "final_stage"}}}}, nil
 }
 
 func (f *fakeAdmins) SetTournament(_ context.Context, slug string, s store.TournamentSettings) error {
@@ -876,6 +877,12 @@ func TestAdminTournamentsShowASeasonsPodium(t *testing.T) {
 	if se := got[0].Seasons[0]; len(se.Podium) != 1 || se.Podium[0].Name != "alder440" || se.PodiumNote != "CGE" {
 		t.Errorf("season = %+v", se)
 	}
+}
+
+func TestAdminTournamentsSuggestASeasonsPodium(t *testing.T) {
+	rec := adminDo(t, &fakeAdmins{}, http.MethodGet, "/v1/admin/tournaments", "", "")
+	wantJSON(t, rec.Body.Bytes(), "0.seasons.0.suggested_podium", `[{"place":1,"name":"birch550"}]`)
+	wantJSON(t, rec.Body.Bytes(), "0.seasons.0.suggested_from", `"final_stage"`)
 }
 
 func TestAnOrganiserWritesATournamentsRegulations(t *testing.T) {

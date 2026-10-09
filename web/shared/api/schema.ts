@@ -1565,6 +1565,13 @@ export interface components {
             /** @description The podium set in admin, empty when the recorded or derived one shows */
             podium: components["schemas"]["PodiumEntry"][];
             podium_note: string;
+            /** @description The podium to start from when admin has set none */
+            suggested_podium: components["schemas"]["PodiumEntry"][];
+            /**
+             * @description Where the suggestion comes from; recorded (the organisers' placements), final_stage (its one-group final's games, by game points then culture), or empty for none
+             * @enum {string}
+             */
+            suggested_from: "recorded" | "final_stage" | "";
             label: string;
             /** @description False for a season admin added, which can be removed */
             has_games: boolean;
@@ -4477,6 +4484,7 @@ export const standingDifferenceKindValues: ReadonlyArray<FlattenedDeepRequired<c
 export const adminTitleValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["AdminTitle"]> = ["SGM", "GM", "M", "P", "G", "S", "B", "W", ""];
 export const adminPersonRoleValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["AdminPerson"]["role"]> = ["admin", "organiser"];
 export const adminRoleRoleValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["AdminRole"]["role"]> = ["admin", "organiser"];
+export const adminSeasonSuggested_fromValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["AdminSeason"]["suggested_from"]> = ["recorded", "final_stage", ""];
 export const tournamentKindValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["TournamentKind"]> = ["league", "cup", "ladder", "series", "group"];
 export const adminMeRoleValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["AdminMe"]["role"]> = ["admin", "organiser"];
 export const modelValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["Model"]> = ["glicko2_daneo", "glicko2_daneo_softer", "glicko2_std", "glicko2_std_softer", "glicko2_std_retro", "glicko2_std_softer_retro", "glicko2_mp", "glicko2_mp_softer", "glicko2_mp_retro", "glicko2_mp_softer_retro", "glicko2_adapt", "glicko2_adapt_softer", "glicko2_adapt_retro", "glicko2_adapt_softer_retro", "whr", "whr_softer"];

@@ -38,7 +38,7 @@ export default function MoveButton({
           <label htmlFor={`move-${t.slug}`} className="visually-hidden">
             Move {t.name} to
           </label>
-          <select id={`move-${t.slug}`} value="" onChange={(e) => void move(e.target.value === '-' ? '' : e.target.value)}>
+          <select className="input-antique" id={`move-${t.slug}`} value="" onChange={(e) => void move(e.target.value === '-' ? '' : e.target.value)}>
             <option value="">Move to…</option>
             {t.parent !== '' && <option value="-">No group: the top level</option>}
             {groups.map((g) => (
