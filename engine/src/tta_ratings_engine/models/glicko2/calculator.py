@@ -360,7 +360,9 @@ def compute_glicko2_ratings(
                                 new_r = (
                                     1.0 - eff_lambda
                                 ) * r_cur.rating + eff_lambda * tier_mean
-                                ratings_p1_world[p_name] = Rating(new_r, new_rd, r_cur.sigma)
+                                ratings_p1_world[p_name] = Rating(
+                                    new_r, new_rd, r_cur.sigma
+                                )
                     prev_year_p1 = cur_year
 
                     p1_matches = periods[m_key]
@@ -436,12 +438,20 @@ def compute_glicko2_ratings(
                             )
                             if current_priors and p_name in current_priors:
                                 # Damped relaxation update for fixed-point stability
-                                d_r = (1.0 - alpha) * current_priors[p_name].rating + alpha * r_at_thresh.rating
-                                d_rd = (1.0 - alpha) * current_priors[p_name].rd + alpha * r_at_thresh.rd
-                                new_discovered[p_name] = Rating(d_r, d_rd, r_at_thresh.sigma)
+                                d_r = (1.0 - alpha) * current_priors[
+                                    p_name
+                                ].rating + alpha * r_at_thresh.rating
+                                d_rd = (1.0 - alpha) * current_priors[
+                                    p_name
+                                ].rd + alpha * r_at_thresh.rd
+                                new_discovered[p_name] = Rating(
+                                    d_r, d_rd, r_at_thresh.sigma
+                                )
                             else:
                                 new_discovered[p_name] = Rating(
-                                    r_at_thresh.rating, r_at_thresh.rd, r_at_thresh.sigma
+                                    r_at_thresh.rating,
+                                    r_at_thresh.rd,
+                                    r_at_thresh.sigma,
                                 )
 
                             if enc_after_thresh:
@@ -467,7 +477,9 @@ def compute_glicko2_ratings(
                             elif prev_games < p_thresh and total_games > p_thresh:
                                 needed = p_thresh - prev_games
                                 mids_up = set(distinct_new[:needed])
-                                enc_after = [it for it in enc_list if it[4] not in mids_up]
+                                enc_after = [
+                                    it for it in enc_list if it[4] not in mids_up
+                                ]
                                 if enc_after:
                                     ratings_p1_world[p_name] = run_update_p1(
                                         ratings_p1_world[p_name], enc_after
@@ -495,9 +507,13 @@ def compute_glicko2_ratings(
                             and len(games_played_p1[p_name]) >= p_thresh
                         ):
                             r_cur = ratings_p1_world[p_name]
-                            phi_new = (r_cur.phi**2 + INACTIVITY_DRIFT_PER_MONTH**2) ** 0.5
+                            phi_new = (
+                                r_cur.phi**2 + INACTIVITY_DRIFT_PER_MONTH**2
+                            ) ** 0.5
                             new_rd = min(350.0, phi_new * GLICKO2_SCALE)
-                            ratings_p1_world[p_name] = Rating(r_cur.rating, new_rd, r_cur.sigma)
+                            ratings_p1_world[p_name] = Rating(
+                                r_cur.rating, new_rd, r_cur.sigma
+                            )
 
                 return new_discovered
 
@@ -518,8 +534,7 @@ def compute_glicko2_ratings(
                     for p_name, p_r in new_priors.items():
                         if p_name in calibrated_priors:
                             d = abs(p_r.rating - calibrated_priors[p_name].rating)
-                            if d > max_d:
-                                max_d = d
+                            max_d = max(max_d, d)
                     calibrated_priors = new_priors
                     if max_d < tolerance:
                         break
