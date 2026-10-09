@@ -13,7 +13,7 @@ import {
 import type { PlayerHistory } from '@ttac/shared/ratings';
 import { ENGINES, type Engine, type ResetMode } from '../lib/leaderboard-view';
 import { chartData, runYears, type ChartData } from '../lib/player-view';
-import Segmented from './Segmented';
+import Segmented from '@ttac/shared/Segmented';
 
 Chart.register(LineController, LineElement, PointElement, LinearScale, CategoryScale, Legend, Tooltip);
 

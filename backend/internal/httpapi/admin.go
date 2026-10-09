@@ -4,14 +4,12 @@
 package httpapi
 
 import (
-	"cmp"
 	"context"
 	"errors"
 	"fmt"
 	"io"
 	"log/slog"
 	"net/http"
-	"slices"
 	"strings"
 	"time"
 	"unicode/utf8"
@@ -33,8 +31,11 @@ type Admins interface {
 	Audit(ctx context.Context, discordID, action, target string, detail any) error
 	// AllowedOrigin is the admin site's origin, the only one a change may come from.
 	AllowedOrigin() string
-	Tournaments(ctx context.Context) ([]store.AdminTournament, error)
+	TournamentRows(ctx context.Context) ([]store.AdminTournamentRow, error)
+	Tournament(ctx context.Context, slug string) (store.AdminTournament, error)
 	SetTournament(ctx context.Context, slug string, s store.TournamentSettings) error
+	CreateGroup(ctx context.Context, g store.Group) (string, error)
+	SetMembers(ctx context.Context, group string, members []string) error
 	SetSeasonRated(ctx context.Context, slug, season string, rated bool) error
 	SetSeasonPenalty(ctx context.Context, slug, season string, penalty float64) error
 	SetSeasonInChampions(ctx context.Context, slug, season string, in bool) error
@@ -48,8 +49,6 @@ type Admins interface {
 	AddBadge(ctx context.Context, b store.Badge) (int64, error)
 	SetBadge(ctx context.Context, b store.Badge) error
 	RemoveBadge(ctx context.Context, id int64) error
-	GiveBadge(ctx context.Context, id int64, name string) error
-	TakeBadge(ctx context.Context, id int64, name string) error
 	TitleOverrides(ctx context.Context) ([]store.TitleOverride, error)
 	SetTitle(ctx context.Context, o store.TitleOverride) error
 	ClearTitle(ctx context.Context, name string) error
@@ -145,108 +144,34 @@ func (s *server) GetAdminMe(ctx context.Context, _ GetAdminMeRequestObject) (Get
 	}, nil
 }
 
-func (s *server) GetAdminTournaments(ctx context.Context, _ GetAdminTournamentsRequestObject) (GetAdminTournamentsResponseObject, error) {
-	ts, err := s.admins.Tournaments(ctx)
-	if err != nil {
-		return nil, err
-	}
-	out := make([]AdminTournament, len(ts))
-	for i, t := range ts {
-		seasons := make([]AdminSeason, len(t.Seasons))
-		for j, se := range t.Seasons {
-			stages := make([]AdminStage, len(se.Stages))
-			for k, st := range se.Stages {
-				stages[k] = AdminStage{Label: st.Label, OriginalName: st.OriginalName, Note: st.Note}
-			}
-			podium := make([]PodiumEntry, len(se.Podium))
-			for k, e := range se.Podium {
-				podium[k] = PodiumEntry{Place: e.Place, Name: e.Name}
-			}
-			seasons[j] = AdminSeason{Label: se.Label, OriginalName: se.OriginalName, Note: se.Note, HasGames: se.HasGames, Rated: se.Rated, InChampions: se.InChampions, InCommunity: se.InCommunity,
-				TimeoutPenalty: se.TimeoutPenalty, Stages: stages, Podium: podium, PodiumNote: se.PodiumNote}
-		}
-		out[i] = AdminTournament{Slug: t.Slug, Name: t.Name, OriginalName: t.OriginalName, Kind: TournamentKind(t.Kind),
-			TopDivisions: append([]string{}, t.TopDivisions...), Visible: t.Visible, Rated: t.Rated, Community: t.Community,
-			Points2p: append(PlacePoints{}, t.Points[2]...), Points3p: append(PlacePoints{}, t.Points[3]...), Points4p: append(PlacePoints{}, t.Points[4]...),
-			SeasonName: t.SeasonName, StageName: t.StageName, Card: tournamentCard(t.Card), Stories: storyList(t.Stories), RatedPlayerCounts: append([]int{}, t.RatedPlayerCounts...), Regulations: t.Regulations, CgeRegulations: t.CGERegulations, Seasons: seasons}
-	}
-	return GetAdminTournaments200JSONResponse{Body: out, Headers: GetAdminTournaments200ResponseHeaders{CacheControl: cacheNone}}, nil
-}
-
-func (s *server) PatchAdminTournament(ctx context.Context, req PatchAdminTournamentRequestObject) (PatchAdminTournamentResponseObject, error) {
+func (s *server) PostAdminGroup(ctx context.Context, req PostAdminGroupRequestObject) (PostAdminGroupResponseObject, error) {
 	a, ok := adminFrom(ctx)
-	b := req.Body
 	if !ok {
 		return nil, errors.New("admin route reached without the gate")
 	}
-	if b == nil || (b.Visible == nil && b.Rated == nil && b.Community == nil && b.RatedPlayerCounts == nil &&
-		b.Kind == nil && b.TopDivisions == nil && b.Points2p == nil && b.Points3p == nil && b.Points4p == nil &&
-		b.SeasonName == nil && b.StageName == nil) {
-		return PatchAdminTournament400JSONResponse{BadRequestJSONResponse{Body: Error{Error: "nothing to change"}, Headers: BadRequestResponseHeaders{CacheControl: cacheNone}}}, nil
-	}
-	settings := store.TournamentSettings{Visible: b.Visible, Rated: b.Rated, Community: b.Community, SeasonName: b.SeasonName, StageName: b.StageName}
-	if b.RatedPlayerCounts != nil {
-		settings.RatedPlayerCounts = *b.RatedPlayerCounts
-	}
-	if b.Kind != nil {
-		settings.Kind = string(*b.Kind)
-	}
-	if b.TopDivisions != nil {
-		settings.TopDivisions = *b.TopDivisions
-	}
-	for players, points := range map[int]*PlacePoints{2: b.Points2p, 3: b.Points3p, 4: b.Points4p} {
-		if points != nil {
-			if settings.Points == nil {
-				settings.Points = map[int][]float64{}
-			}
-			settings.Points[players] = append([]float64{}, *points...)
-		}
-	}
-	err := s.admins.SetTournament(ctx, req.Tournament, settings)
-	if errors.Is(err, store.ErrBadScoring) {
-		return PatchAdminTournament400JSONResponse{badRequest400(store.ErrBadScoring.Error())}, nil
-	}
-	if errors.Is(err, store.ErrBadLevelName) {
-		return PatchAdminTournament400JSONResponse{badRequest400(store.ErrBadLevelName.Error())}, nil
-	}
-	if errors.Is(err, store.ErrBadPlayerCounts) {
-		return PatchAdminTournament400JSONResponse{badRequest400("rated player counts are one or more of 2, 3 and 4")}, nil
-	}
-	if errors.Is(err, store.ErrBadKind) {
-		return PatchAdminTournament400JSONResponse{badRequest400("a tournament is a league, a cup or a ladder")}, nil
-	}
-	if errors.Is(err, store.ErrNoTournament) {
-		return PatchAdminTournament404JSONResponse{NotFoundJSONResponse{Body: Error{Error: "no such tournament"}, Headers: NotFoundResponseHeaders{CacheControl: cacheNone}}}, nil
-	}
-	if err != nil {
-		return nil, err
-	}
-	if err := s.admins.Audit(ctx, a.DiscordID, "tournament.settings", req.Tournament, b); err != nil {
-		return nil, err
-	}
-	return PatchAdminTournament204Response{}, nil
-}
-
-func (s *server) PutAdminNote(ctx context.Context, req PutAdminNoteRequestObject) (PutAdminNoteResponseObject, error) {
-	a, ok := adminFrom(ctx)
 	b := req.Body
-	if !ok {
-		return nil, errors.New("admin route reached without the gate")
+	g := store.Group{Name: b.Name, Kind: string(b.Kind)}
+	if b.Description != nil {
+		g.Description = *b.Description
 	}
-	if b == nil || b.Season == "" || len(b.Season) > 64 || len(b.Stage) > 64 || len(b.Note) > 2000 {
-		return PutAdminNote400JSONResponse{BadRequestJSONResponse{Body: Error{Error: "a note needs a season, and stays under 2000 characters"}, Headers: BadRequestResponseHeaders{CacheControl: cacheNone}}}, nil
+	if b.Members != nil {
+		g.Members = *b.Members
 	}
-	err := s.admins.SetNote(ctx, req.Tournament, b.Season, b.Stage, b.Note)
-	if errors.Is(err, store.ErrNoTournament) {
-		return PutAdminNote404JSONResponse{NotFoundJSONResponse{Body: Error{Error: "no such tournament or season"}, Headers: NotFoundResponseHeaders{CacheControl: cacheNone}}}, nil
-	}
-	if err != nil {
+	slug, err := s.admins.CreateGroup(ctx, g)
+	switch {
+	case errors.Is(err, store.ErrBadGroup), errors.Is(err, store.ErrGroupCycle):
+		return PostAdminGroup400JSONResponse{badRequest400(err.Error())}, nil
+	case errors.Is(err, store.ErrBadKind):
+		return PostAdminGroup400JSONResponse{badRequest400(store.ErrBadKind.Error())}, nil
+	case errors.Is(err, store.ErrNoTournament):
+		return PostAdminGroup404JSONResponse{NotFoundJSONResponse{Body: Error{Error: "no such tournament"}, Headers: NotFoundResponseHeaders{CacheControl: cacheNone}}}, nil
+	case err != nil:
 		return nil, err
 	}
-	if err := s.admins.Audit(ctx, a.DiscordID, "tournament.note", req.Tournament, b); err != nil {
+	if err := s.admins.Audit(ctx, a.DiscordID, "tournament.group", slug, b); err != nil {
 		return nil, err
 	}
-	return PutAdminNote204Response{}, nil
+	return PostAdminGroup201JSONResponse{Body: CreatedGroup{Slug: slug}, Headers: PostAdminGroup201ResponseHeaders{CacheControl: cacheNone}}, nil
 }
 
 func forbidden(msg string) ForbiddenJSONResponse {
@@ -351,25 +276,6 @@ func (s *server) PostAdminSeason(ctx context.Context, req PostAdminSeasonRequest
 	return PostAdminSeason204Response{}, nil
 }
 
-func (s *server) DeleteAdminSeason(ctx context.Context, req DeleteAdminSeasonRequestObject) (DeleteAdminSeasonResponseObject, error) {
-	a, ok := adminFrom(ctx)
-	if !ok {
-		return nil, errors.New("admin route reached without the gate")
-	}
-	switch err := s.admins.RemoveSeason(ctx, req.Tournament, req.Params.Label); {
-	case errors.Is(err, store.ErrNoTournament):
-		return DeleteAdminSeason404JSONResponse{notFound404("no such season")}, nil
-	case errors.Is(err, store.ErrSeasonHasGames):
-		return DeleteAdminSeason400JSONResponse{badRequest400("the season has games, so it stays")}, nil
-	case err != nil:
-		return nil, err
-	}
-	if err := s.admins.Audit(ctx, a.DiscordID, "tournament.season.remove", req.Tournament, map[string]string{"label": req.Params.Label}); err != nil {
-		return nil, err
-	}
-	return DeleteAdminSeason204Response{}, nil
-}
-
 const onlyAdminsRun = "only admins run the engine"
 
 func conflict409(msg string) ConflictJSONResponse {
@@ -381,6 +287,10 @@ func (s *server) GetAdminRuns(ctx context.Context, _ GetAdminRunsRequestObject) 
 		return GetAdminRuns403JSONResponse{forbidden(onlyAdminsRun)}, err
 	}
 	runs, err := s.admins.Runs(ctx)
+	if err != nil {
+		return nil, err
+	}
+	sizes, err := s.admins.RunSizes(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -399,7 +309,7 @@ func (s *server) GetAdminRuns(ctx context.Context, _ GetAdminRunsRequestObject) 
 		out[i] = AdminRun{
 			Id: r.ID, Status: AdminRunStatus(r.Status), StartedAt: r.StartedAt, FinishedAt: r.FinishedAt, PublishedAt: r.PublishedAt,
 			Current: r.Current, Games: r.Games, Players: r.Players, EngineVersion: r.EngineVersion, Progress: r.Progress, ProgressAt: r.ProgressAt,
-			Protected: r.Protected, Deleting: r.Deleting,
+			Protected: r.Protected, Deleting: r.Deleting, Bytes: sizes[r.ID],
 		}
 	}
 	return GetAdminRuns200JSONResponse{Body: out, Headers: GetAdminRuns200ResponseHeaders{CacheControl: cacheNone}}, nil
@@ -522,73 +432,6 @@ func defaultAgainst(runs []store.AdminRun, run int64) int64 {
 		return 0
 	}
 	return before.ID
-}
-
-func (s *server) PutAdminPodium(ctx context.Context, req PutAdminPodiumRequestObject) (PutAdminPodiumResponseObject, error) {
-	a, ok := adminFrom(ctx)
-	if !ok {
-		return nil, errors.New("admin route reached without the gate")
-	}
-	b := req.Body
-	if b == nil || b.Season == "" || len(b.Season) > 64 || len(b.Note) > 500 || len(b.Podium) == 0 || len(b.Podium) > 3 {
-		return PutAdminPodium400JSONResponse{badRequest400("a podium needs a season, 1st to 3rd, and a note under 500 characters")}, nil
-	}
-	podium := make([]store.PodiumEntry, len(b.Podium))
-	for i, e := range b.Podium {
-		if len(e.Name) > 64 {
-			return PutAdminPodium400JSONResponse{badRequest400("a player's name is at most 64 characters")}, nil
-		}
-		podium[i] = store.PodiumEntry{Place: e.Place, Name: e.Name}
-	}
-	switch err := s.admins.SetPodium(ctx, req.Tournament, b.Season, podium, strings.TrimSpace(b.Note)); {
-	case errors.Is(err, store.ErrNoTournament):
-		return PutAdminPodium404JSONResponse{notFound404("no such tournament or season")}, nil
-	case errors.Is(err, store.ErrBadPodium):
-		return PutAdminPodium400JSONResponse{badRequest400("a podium is 1st to 3rd, each place and player once")}, nil
-	case err != nil:
-		return nil, err
-	}
-	if err := s.admins.Audit(ctx, a.DiscordID, "tournament.podium", req.Tournament, b); err != nil {
-		return nil, err
-	}
-	return PutAdminPodium204Response{}, nil
-}
-
-func (s *server) DeleteAdminPodium(ctx context.Context, req DeleteAdminPodiumRequestObject) (DeleteAdminPodiumResponseObject, error) {
-	a, ok := adminFrom(ctx)
-	if !ok {
-		return nil, errors.New("admin route reached without the gate")
-	}
-	switch err := s.admins.ClearPodium(ctx, req.Tournament, req.Params.Season); {
-	case errors.Is(err, store.ErrNoTournament):
-		return DeleteAdminPodium404JSONResponse{notFound404("no such tournament or season")}, nil
-	case err != nil:
-		return nil, err
-	}
-	if err := s.admins.Audit(ctx, a.DiscordID, "tournament.podium.clear", req.Tournament, map[string]string{"season": req.Params.Season}); err != nil {
-		return nil, err
-	}
-	return DeleteAdminPodium204Response{}, nil
-}
-
-func (s *server) PutAdminRegulations(ctx context.Context, req PutAdminRegulationsRequestObject) (PutAdminRegulationsResponseObject, error) {
-	a, ok := adminFrom(ctx)
-	if !ok {
-		return nil, errors.New("admin route reached without the gate")
-	}
-	if req.Body == nil || len(req.Body.Text) > 10000 {
-		return PutAdminRegulations400JSONResponse{badRequest400("regulations are at most 10,000 characters")}, nil
-	}
-	switch err := s.admins.SetRegulations(ctx, req.Tournament, req.Body.Text); {
-	case errors.Is(err, store.ErrNoTournament):
-		return PutAdminRegulations404JSONResponse{notFound404("no such tournament")}, nil
-	case err != nil:
-		return nil, err
-	}
-	if err := s.admins.Audit(ctx, a.DiscordID, "tournament.regulations", req.Tournament, req.Body); err != nil {
-		return nil, err
-	}
-	return PutAdminRegulations204Response{}, nil
 }
 
 const onlyAdminsTitle = "only admins set titles"
@@ -718,6 +561,9 @@ func (s *server) PutAdminBadge(ctx context.Context, req PutAdminBadgeRequestObje
 		return PutAdminBadge400JSONResponse{badRequest400(msg)}, nil
 	}
 	b.ID = req.Badge
+	if req.Body.Players != nil {
+		b.Players = append([]string{}, *req.Body.Players...)
+	}
 	switch err := s.admins.SetBadge(ctx, b); {
 	case errors.Is(err, store.ErrNoBadge):
 		return PutAdminBadge404JSONResponse{notFound404("no such badge")}, nil
@@ -725,6 +571,8 @@ func (s *server) PutAdminBadge(ctx context.Context, req PutAdminBadgeRequestObje
 		return PutAdminBadge409JSONResponse{conflictBadge()}, nil
 	case errors.Is(err, store.ErrBadBadge):
 		return PutAdminBadge400JSONResponse{badRequest400("a badge's label is 1 to 16 characters")}, nil
+	case errors.Is(err, store.ErrNoPlayer):
+		return PutAdminBadge404JSONResponse{notFound404("no player has one of those names")}, nil
 	case err != nil:
 		return nil, err
 	}
@@ -751,42 +599,6 @@ func (s *server) DeleteAdminBadge(ctx context.Context, req DeleteAdminBadgeReque
 	return DeleteAdminBadge204Response{}, nil
 }
 
-func (s *server) PutAdminBadgePlayer(ctx context.Context, req PutAdminBadgePlayerRequestObject) (PutAdminBadgePlayerResponseObject, error) {
-	me, ok, err := adminOnly(ctx)
-	if err != nil || !ok {
-		return PutAdminBadgePlayer403JSONResponse{forbidden(onlyAdminsBadge)}, err
-	}
-	switch err := s.admins.GiveBadge(ctx, req.Badge, req.Player); {
-	case errors.Is(err, store.ErrNoBadge):
-		return PutAdminBadgePlayer404JSONResponse{notFound404("no such badge")}, nil
-	case errors.Is(err, store.ErrNoPlayer):
-		return PutAdminBadgePlayer404JSONResponse{notFound404("no player has that name")}, nil
-	case err != nil:
-		return nil, err
-	}
-	if err := s.admins.Audit(ctx, me.DiscordID, "badge.give", fmt.Sprint(req.Badge), map[string]string{"player": req.Player}); err != nil {
-		return nil, err
-	}
-	return PutAdminBadgePlayer204Response{}, nil
-}
-
-func (s *server) DeleteAdminBadgePlayer(ctx context.Context, req DeleteAdminBadgePlayerRequestObject) (DeleteAdminBadgePlayerResponseObject, error) {
-	me, ok, err := adminOnly(ctx)
-	if err != nil || !ok {
-		return DeleteAdminBadgePlayer403JSONResponse{forbidden(onlyAdminsBadge)}, err
-	}
-	switch err := s.admins.TakeBadge(ctx, req.Badge, req.Player); {
-	case errors.Is(err, store.ErrNoBadge):
-		return DeleteAdminBadgePlayer404JSONResponse{notFound404("the player does not hold that badge")}, nil
-	case err != nil:
-		return nil, err
-	}
-	if err := s.admins.Audit(ctx, me.DiscordID, "badge.take", fmt.Sprint(req.Badge), map[string]string{"player": req.Player}); err != nil {
-		return nil, err
-	}
-	return DeleteAdminBadgePlayer204Response{}, nil
-}
-
 func (s *server) GetAdminData(ctx context.Context, _ GetAdminDataRequestObject) (GetAdminDataResponseObject, error) {
 	d, err := s.admins.DataSummary(ctx)
 	if err != nil {
@@ -807,30 +619,6 @@ func tournamentCard(c store.Card) TournamentCard {
 	return TournamentCard{Icon: c.Icon, Tagline: c.Tagline, Summary: c.Summary, Subtitle: c.Subtitle, Cadence: c.Cadence}
 }
 
-func (s *server) PutAdminCard(ctx context.Context, req PutAdminCardRequestObject) (PutAdminCardResponseObject, error) {
-	a, ok := adminFrom(ctx)
-	if !ok {
-		return nil, errors.New("admin route reached without the gate")
-	}
-	const tooLong = "a card's icon is at most 8 characters, its description, subtitle and cadence 60 and its information box 1,000"
-	b := req.Body
-	if b == nil {
-		return PutAdminCard400JSONResponse{badRequest400(tooLong)}, nil
-	}
-	switch err := s.admins.SetCard(ctx, req.Tournament, store.Card{Icon: b.Icon, Tagline: b.Tagline, Summary: b.Summary, Subtitle: b.Subtitle, Cadence: b.Cadence}); {
-	case errors.Is(err, store.ErrNoTournament):
-		return PutAdminCard404JSONResponse{notFound404("no such tournament")}, nil
-	case errors.Is(err, store.ErrBadCard):
-		return PutAdminCard400JSONResponse{badRequest400(tooLong)}, nil
-	case err != nil:
-		return nil, err
-	}
-	if err := s.admins.Audit(ctx, a.DiscordID, "tournament.card", req.Tournament, b); err != nil {
-		return nil, err
-	}
-	return PutAdminCard204Response{}, nil
-}
-
 // storyList turns a tournament's stories into the API's.
 func storyList(list []store.Story) []Story {
 	out := make([]Story, len(list))
@@ -838,119 +626,6 @@ func storyList(list []store.Story) []Story {
 		out[i] = Story{Player: st.Player, Badge: st.Badge, Title: st.Title, Text: st.Text}
 	}
 	return out
-}
-
-func (s *server) PutAdminStories(ctx context.Context, req PutAdminStoriesRequestObject) (PutAdminStoriesResponseObject, error) {
-	a, ok := adminFrom(ctx)
-	if !ok {
-		return nil, errors.New("admin route reached without the gate")
-	}
-	const bad = "at most 12 stories, each with a player, a title (120 characters) and the story (1,000), a badge of up to 60"
-	if req.Body == nil || len(req.Body.Stories) > 12 {
-		return PutAdminStories400JSONResponse{badRequest400(bad)}, nil
-	}
-	list := make([]store.Story, len(req.Body.Stories))
-	for i, st := range req.Body.Stories {
-		list[i] = store.Story{Player: st.Player, Badge: st.Badge, Title: st.Title, Text: st.Text}
-	}
-	switch err := s.admins.SetStories(ctx, req.Tournament, list); {
-	case errors.Is(err, store.ErrNoTournament):
-		return PutAdminStories404JSONResponse{notFound404("no such tournament")}, nil
-	case errors.Is(err, store.ErrBadStory):
-		return PutAdminStories400JSONResponse{badRequest400(bad)}, nil
-	case err != nil:
-		return nil, err
-	}
-	if err := s.admins.Audit(ctx, a.DiscordID, "tournament.stories", req.Tournament, req.Body); err != nil {
-		return nil, err
-	}
-	return PutAdminStories204Response{}, nil
-}
-
-func (s *server) PutAdminSeasonRating(ctx context.Context, req PutAdminSeasonRatingRequestObject) (PutAdminSeasonRatingResponseObject, error) {
-	a, ok := adminFrom(ctx)
-	if !ok {
-		return nil, errors.New("admin route reached without the gate")
-	}
-	b := req.Body
-	if b == nil || b.Season == "" || len(b.Season) > 64 {
-		return PutAdminSeasonRating400JSONResponse{badRequest400("a season, and whether it is rated")}, nil
-	}
-	switch err := s.admins.SetSeasonRated(ctx, req.Tournament, b.Season, b.Rated); {
-	case errors.Is(err, store.ErrNoTournament):
-		return PutAdminSeasonRating404JSONResponse{notFound404("no such tournament or season")}, nil
-	case err != nil:
-		return nil, err
-	}
-	if err := s.admins.Audit(ctx, a.DiscordID, "tournament.season.rated", req.Tournament, b); err != nil {
-		return nil, err
-	}
-	return PutAdminSeasonRating204Response{}, nil
-}
-
-func (s *server) PutAdminSeasonPenalty(ctx context.Context, req PutAdminSeasonPenaltyRequestObject) (PutAdminSeasonPenaltyResponseObject, error) {
-	a, ok := adminFrom(ctx)
-	if !ok {
-		return nil, errors.New("admin route reached without the gate")
-	}
-	b := req.Body
-	if b == nil || b.Season == "" || len(b.Season) > 64 {
-		return PutAdminSeasonPenalty400JSONResponse{badRequest400("a season, and its time-out penalty")}, nil
-	}
-	switch err := s.admins.SetSeasonPenalty(ctx, req.Tournament, b.Season, b.TimeoutPenalty); {
-	case errors.Is(err, store.ErrBadPenalty):
-		return PutAdminSeasonPenalty400JSONResponse{badRequest400(store.ErrBadPenalty.Error())}, nil
-	case errors.Is(err, store.ErrNoTournament):
-		return PutAdminSeasonPenalty404JSONResponse{notFound404("no such tournament or season")}, nil
-	case err != nil:
-		return nil, err
-	}
-	if err := s.admins.Audit(ctx, a.DiscordID, "tournament.season.penalty", req.Tournament, b); err != nil {
-		return nil, err
-	}
-	return PutAdminSeasonPenalty204Response{}, nil
-}
-
-func (s *server) PutAdminSeasonChampions(ctx context.Context, req PutAdminSeasonChampionsRequestObject) (PutAdminSeasonChampionsResponseObject, error) {
-	a, ok := adminFrom(ctx)
-	if !ok {
-		return nil, errors.New("admin route reached without the gate")
-	}
-	b := req.Body
-	if b == nil || b.Season == "" || len(b.Season) > 64 {
-		return PutAdminSeasonChampions400JSONResponse{badRequest400("a season, and whether its winner is among the champions")}, nil
-	}
-	switch err := s.admins.SetSeasonInChampions(ctx, req.Tournament, b.Season, b.InChampions); {
-	case errors.Is(err, store.ErrNoTournament):
-		return PutAdminSeasonChampions404JSONResponse{notFound404("no such tournament or season")}, nil
-	case err != nil:
-		return nil, err
-	}
-	if err := s.admins.Audit(ctx, a.DiscordID, "tournament.season.champions", req.Tournament, b); err != nil {
-		return nil, err
-	}
-	return PutAdminSeasonChampions204Response{}, nil
-}
-
-func (s *server) PutAdminSeasonCommunity(ctx context.Context, req PutAdminSeasonCommunityRequestObject) (PutAdminSeasonCommunityResponseObject, error) {
-	a, ok := adminFrom(ctx)
-	if !ok {
-		return nil, errors.New("admin route reached without the gate")
-	}
-	b := req.Body
-	if b == nil || b.Season == "" || len(b.Season) > 64 {
-		return PutAdminSeasonCommunity400JSONResponse{badRequest400("a season, and whether it counts in the community leaderboard")}, nil
-	}
-	switch err := s.admins.SetSeasonInCommunity(ctx, req.Tournament, b.Season, b.InCommunity); {
-	case errors.Is(err, store.ErrNoTournament):
-		return PutAdminSeasonCommunity404JSONResponse{notFound404("no such tournament or season")}, nil
-	case err != nil:
-		return nil, err
-	}
-	if err := s.admins.Audit(ctx, a.DiscordID, "tournament.season.community", req.Tournament, b); err != nil {
-		return nil, err
-	}
-	return PutAdminSeasonCommunity204Response{}, nil
 }
 
 func (s *server) GetAdminExport(ctx context.Context, _ GetAdminExportRequestObject) (GetAdminExportResponseObject, error) {
@@ -1017,17 +692,17 @@ func places(p store.Places) Places {
 // deleteRunTimeout bounds a background delete: the largest runs take minutes.
 const deleteRunTimeout = time.Hour
 
-func (s *server) PutAdminRunProtected(ctx context.Context, req PutAdminRunProtectedRequestObject) (PutAdminRunProtectedResponseObject, error) {
+func (s *server) PatchAdminRun(ctx context.Context, req PatchAdminRunRequestObject) (PatchAdminRunResponseObject, error) {
 	me, ok, err := adminOnly(ctx)
 	if err != nil || !ok {
-		return PutAdminRunProtected403JSONResponse{forbidden(onlyAdminsRun)}, err
+		return PatchAdminRun403JSONResponse{forbidden(onlyAdminsRun)}, err
 	}
 	if req.Body == nil {
-		return PutAdminRunProtected400JSONResponse{badRequest400("say whether the run is protected")}, nil
+		return PatchAdminRun400JSONResponse{badRequest400("say whether the run is protected")}, nil
 	}
 	switch err := s.admins.SetRunProtected(ctx, req.Run, req.Body.Protected); {
 	case errors.Is(err, store.ErrRunNotFound):
-		return PutAdminRunProtected404JSONResponse{notFound404("no such run")}, nil
+		return PatchAdminRun404JSONResponse{notFound404("no such run")}, nil
 	case err != nil:
 		return nil, err
 	}
@@ -1038,7 +713,7 @@ func (s *server) PutAdminRunProtected(ctx context.Context, req PutAdminRunProtec
 	if err := s.admins.Audit(ctx, me.DiscordID, action, fmt.Sprint(req.Run), map[string]any{}); err != nil {
 		return nil, err
 	}
-	return PutAdminRunProtected204Response{}, nil
+	return PatchAdminRun204Response{}, nil
 }
 
 func (s *server) DeleteAdminRun(ctx context.Context, req DeleteAdminRunRequestObject) (DeleteAdminRunResponseObject, error) {
@@ -1078,18 +753,19 @@ func (s *server) DeleteAdminRun(ctx context.Context, req DeleteAdminRunRequestOb
 	return DeleteAdminRun202Response{}, nil
 }
 
-func (s *server) GetAdminRunSizes(ctx context.Context, _ GetAdminRunSizesRequestObject) (GetAdminRunSizesResponseObject, error) {
-	if _, ok, err := adminOnly(ctx); err != nil || !ok {
-		return GetAdminRunSizes403JSONResponse{forbidden(onlyAdminsRun)}, err
+// dateOf returns t as an API date, or nil for none.
+func dateOf(t *time.Time) *openapi_types.Date {
+	if t == nil {
+		return nil
 	}
-	sizes, err := s.admins.RunSizes(ctx)
-	if err != nil {
-		return nil, err
+	return &openapi_types.Date{Time: *t}
+}
+
+// podiumEntries returns a podium as the API's, empty for none.
+func podiumEntries(p []store.PodiumEntry) []PodiumEntry {
+	out := make([]PodiumEntry, len(p))
+	for i, e := range p {
+		out[i] = PodiumEntry{Place: e.Place, Name: e.Name}
 	}
-	out := make([]RunSize, 0, len(sizes))
-	for run, bytes := range sizes {
-		out = append(out, RunSize{Run: run, Bytes: bytes})
-	}
-	slices.SortFunc(out, func(a, b RunSize) int { return cmp.Compare(a.Run, b.Run) })
-	return GetAdminRunSizes200JSONResponse{Body: out, Headers: GetAdminRunSizes200ResponseHeaders{CacheControl: cacheNone}}, nil
+	return out
 }

@@ -41,6 +41,7 @@ func main() {
 	cgeSettings := flag.String("cge-settings", "", "with -cge-extract: the directory of CGE's tournament and stage settings")
 	cgePairs := flag.String("cge-pairs", "", "with -cge-extract: a CSV (share_code, game_id, reason) of CGE games matched to ours by hand")
 	apply := flag.Bool("apply", false, "with -cge-extract: write the plan")
+	inputTables := flag.Bool("input-tables", false, "print the tables that hold inputs, one per line, and touch no database")
 	upstream := flag.String("export-upstream", "", "write every played game to the new file named, as the match CSV upstream's site loads")
 	flag.Usage = func() {
 		fmt.Fprintln(os.Stderr, "usage: load [-reset] <directory of match CSVs>")
@@ -51,6 +52,7 @@ func main() {
 		fmt.Fprintln(os.Stderr, "       load -add-admin <Discord id> -name <name> -role admin|organiser")
 		fmt.Fprintln(os.Stderr, "       load -cge-extract <directory> -cge-settings <directory> [-cge-pairs <file>] [-apply]")
 		fmt.Fprintln(os.Stderr, "       load -migrate")
+		fmt.Fprintln(os.Stderr, "       load -input-tables")
 		fmt.Fprintln(os.Stderr, "       load -classify")
 		fmt.Fprintln(os.Stderr, "       load -countries <CSV file>...")
 		fmt.Fprintln(os.Stderr, "       load -facts divisions|placements|corrections|dates|honours|rules|podiums|cge_tournaments|cge_stages|cge_standings|ladder_wins|season_notes|community|community_scores|community_points|community_quarters|community_ladders <CSV file>")
@@ -58,9 +60,11 @@ func main() {
 		flag.PrintDefaults()
 	}
 	flag.Parse()
-	one := !*reset && btoi(*migrate)+btoi(*classify)+btoi(*countries)+btoi(*facts != "")+btoi(*export != "")+btoi(*restore != "")+btoi(*upstream != "")+btoi(*addAdmin != "")+btoi(*standings != "")+btoi(*cgeExtract != "") == 1
+	one := !*reset && btoi(*migrate)+btoi(*classify)+btoi(*countries)+btoi(*facts != "")+btoi(*export != "")+btoi(*restore != "")+btoi(*upstream != "")+btoi(*addAdmin != "")+btoi(*standings != "")+btoi(*cgeExtract != "")+btoi(*inputTables) == 1
 	var err error
 	switch {
+	case *inputTables && one && flag.NArg() == 0:
+		writeInputTables(os.Stdout)
 	case *migrate && one && flag.NArg() == 0:
 		err = migrateOnly()
 	case *classify && one && flag.NArg() == 0:
@@ -90,7 +94,7 @@ func main() {
 		err = checkStandings(*standings)
 	case *cgeExtract != "" && *cgeSettings != "" && one && flag.NArg() == 0:
 		err = loadCGEExtract(*cgeExtract, *cgeSettings, *cgePairs, *apply)
-	case !*migrate && !*classify && !*countries && *facts == "" && *export == "" && *restore == "" && *upstream == "" && *addAdmin == "" && *standings == "" && *cgeExtract == "" && flag.NArg() == 1:
+	case !*migrate && !*classify && !*countries && *facts == "" && *export == "" && *restore == "" && *upstream == "" && *addAdmin == "" && *standings == "" && *cgeExtract == "" && !*inputTables && flag.NArg() == 1:
 		err = run(*reset, flag.Arg(0))
 	default:
 		flag.Usage()
@@ -445,5 +449,13 @@ func report(w io.Writer, res matchcsv.Result, loaded store.Loaded) {
 	}
 	if loaded.Refused > 0 {
 		fmt.Fprintln(w, "Each refused row, with its file, line and reason, is in the refused_rows table.")
+	}
+}
+
+// writeInputTables writes the tables that hold inputs, one per line: store.ExportTables, then store.NotExported.
+// Every other table but goose's holds a run's results.
+func writeInputTables(w io.Writer) {
+	for _, t := range append(slices.Clone(store.ExportTables), store.NotExported...) {
+		fmt.Fprintln(w, t)
 	}
 }

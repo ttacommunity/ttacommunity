@@ -22,7 +22,7 @@ import { recall, remember } from '../lib/remembered';
 import './PlayerPage.css';
 import './MatrixPage.css';
 import Tex from './Tex';
-import Segmented from './Segmented';
+import Segmented from '@ttac/shared/Segmented';
 import ScrollTable from './ScrollTable';
 import Waiting from './Waiting';
 

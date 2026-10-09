@@ -1,35 +1,7 @@
 ---
-import '@ttac/shared/styles/theme.css';
 import AdminApp from '../components/AdminApp';
+import AdminLayout from '../layouts/AdminLayout.astro';
 ---
-<html lang="en">
-  <head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <meta name="robots" content="noindex, nofollow" />
-    <title>ttacommunity admin</title>
-    <meta name="description" content="Admin for ttacommunity." />
-    <link rel="stylesheet" href="/fonts/fonts.css" />
-  </head>
-  <body>
-    <main>
-      <h1>ttacommunity admin</h1>
-      <AdminApp client:load />
-    </main>
-  </body>
-</html>
-
-<style>
-  main {
-    box-sizing: border-box;
-    width: 100%;
-    min-width: 0;
-    max-width: 64rem;
-    margin: 0 auto;
-    padding: 2rem 1rem;
-  }
-  h1 {
-    color: var(--accent-gold);
-    font-family: var(--font-heading);
-  }
-</style>
+<AdminLayout title="Admin · Through the Ages community" description="Admin for ttacommunity.">
+  <AdminApp client:load />
+</AdminLayout>

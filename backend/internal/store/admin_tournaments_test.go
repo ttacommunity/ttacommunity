@@ -16,15 +16,13 @@ import (
 	"github.com/google/go-cmp/cmp"
 )
 
-func adminTournament(t *testing.T, ts []AdminTournament, slug string) AdminTournament {
+func adminTournament(t *testing.T, a *AdminStore, slug string) AdminTournament {
 	t.Helper()
-	for _, x := range ts {
-		if x.Slug == slug {
-			return x
-		}
+	got, err := a.Tournament(context.Background(), slug)
+	if err != nil {
+		t.Fatalf("Tournament(%s): %v", slug, err)
 	}
-	t.Fatalf("no tournament %s in %+v", slug, ts)
-	return AdminTournament{}
+	return got
 }
 
 func TestAdminTournamentsListSettingsSeasonsAndNotes(t *testing.T) {
@@ -40,11 +38,7 @@ func TestAdminTournamentsListSettingsSeasonsAndNotes(t *testing.T) {
 		t.Fatalf("SetNote: %v", err)
 	}
 
-	got, err := a.Tournaments(ctx)
-	if err != nil {
-		t.Fatalf("Tournaments: %v", err)
-	}
-	worlds := adminTournament(t, got, "worlds")
+	worlds := adminTournament(t, a, "worlds")
 	if !worlds.Rated || worlds.Visible || worlds.Community {
 		t.Errorf("worlds settings = %+v, want rated, hidden, and not yet in the community leaderboard (no migration row)", worlds)
 	}
@@ -75,11 +69,7 @@ func TestSetTournamentChangesOnlyWhatItIsGiven(t *testing.T) {
 		t.Fatalf("SetTournament(unrate): %v", err)
 	}
 
-	got, err := a.Tournaments(ctx)
-	if err != nil {
-		t.Fatal(err)
-	}
-	nl := adminTournament(t, got, "nations_league")
+	nl := adminTournament(t, a, "nations_league")
 	if !nl.Visible || !nl.Community || nl.Rated {
 		t.Errorf("nations_league = %+v, want visible, in the community leaderboard, not rated", nl)
 	}
@@ -159,12 +149,8 @@ func TestAdminTournamentsListSeasonsLatestFirst(t *testing.T) {
 	if err := a.AddSeason(ctx, "international", "1"); err != nil {
 		t.Fatal(err)
 	}
-	got, err := a.Tournaments(ctx)
-	if err != nil {
-		t.Fatal(err)
-	}
 	var labels []string
-	for _, s := range adminTournament(t, got, "international").Seasons {
+	for _, s := range adminTournament(t, a, "international").Seasons {
 		labels = append(labels, s.Label)
 	}
 	if diff := cmp.Diff([]string{"10", "3", "2", "1"}, labels); diff != "" {
@@ -185,11 +171,7 @@ func TestSetPodiumReplacesASeasonsPodiumAndClearPodiumRemovesIt(t *testing.T) {
 	if err := a.SetPodium(ctx, "worlds", "2025", []PodiumEntry{{Place: 1, Name: "kittiwake"}}, ""); err != nil {
 		t.Fatalf("SetPodium again: %v", err)
 	}
-	got, err := a.Tournaments(ctx)
-	if err != nil {
-		t.Fatal(err)
-	}
-	se := adminTournament(t, got, "worlds").Seasons[0]
+	se := adminTournament(t, a, "worlds").Seasons[0]
 	if diff := cmp.Diff([]PodiumEntry{{Place: 1, Name: "kittiwake"}}, se.Podium); diff != "" {
 		t.Errorf("podium, only the second one (-want +got):\n%s", diff)
 	}
@@ -200,8 +182,7 @@ func TestSetPodiumReplacesASeasonsPodiumAndClearPodiumRemovesIt(t *testing.T) {
 	if err := a.ClearPodium(ctx, "worlds", "2025"); err != nil {
 		t.Fatalf("ClearPodium: %v", err)
 	}
-	got, _ = a.Tournaments(ctx)
-	if p := adminTournament(t, got, "worlds").Seasons[0].Podium; len(p) != 0 {
+	if p := adminTournament(t, a, "worlds").Seasons[0].Podium; len(p) != 0 {
 		t.Errorf("podium after clearing = %+v", p)
 	}
 }
@@ -249,11 +230,7 @@ func TestSetRegulationsReplacesAndAnEmptyTextRemoves(t *testing.T) {
 	}
 	a := NewAdminStore(asAdminLogin(t, pool))
 	regs := func() (string, string) {
-		ts, err := a.Tournaments(ctx)
-		if err != nil {
-			t.Fatal(err)
-		}
-		w := adminTournament(t, ts, "wimbledon")
+		w := adminTournament(t, a, "wimbledon")
 		return w.Regulations, w.CGERegulations
 	}
 
@@ -286,11 +263,7 @@ func TestSetCardReplacesAndAnEmptyCardRemoves(t *testing.T) {
 	a := NewAdminStore(asAdminLogin(t, pool))
 	card := func() Card {
 		t.Helper()
-		ts, err := a.Tournaments(ctx)
-		if err != nil {
-			t.Fatal(err)
-		}
-		return adminTournament(t, ts, "wimbledon").Card
+		return adminTournament(t, a, "wimbledon").Card
 	}
 
 	if got := card(); got != (Card{}) {
@@ -335,15 +308,11 @@ func TestSetStoriesReplacesATournamentsStoriesInOrder(t *testing.T) {
 	r := NewRatingsReader(asReader(t, pool))
 	stories := func() ([]Story, []Story) {
 		t.Helper()
-		ts, err := a.Tournaments(ctx)
-		if err != nil {
-			t.Fatal(err)
-		}
 		page, err := r.CatalogueTournament(ctx, run, "wimbledon")
 		if err != nil {
 			t.Fatal(err)
 		}
-		return adminTournament(t, ts, "wimbledon").Stories, page.Stories
+		return adminTournament(t, a, "wimbledon").Stories, page.Stories
 	}
 
 	if inAdmin, onPage := stories(); len(inAdmin) != 0 || len(onPage) != 0 {
@@ -404,11 +373,7 @@ func TestAdminSetsWhichSeasonsAndPlayerCountsAreRated(t *testing.T) {
 	if err := a.SetSeasonRated(ctx, "wimbledon", "2023", false); err != nil {
 		t.Fatalf("SetSeasonRated: %v", err)
 	}
-	ts, err := a.Tournaments(ctx)
-	if err != nil {
-		t.Fatal(err)
-	}
-	w := adminTournament(t, ts, "wimbledon")
+	w := adminTournament(t, a, "wimbledon")
 	if diff := cmp.Diff([]int{2, 4}, w.RatedPlayerCounts); diff != "" {
 		t.Errorf("rated player counts (-want +got):\n%s", diff)
 	}
@@ -439,11 +404,7 @@ func TestAdminSetsWhatATournamentCallsItsSeasonsAndStages(t *testing.T) {
 	a := NewAdminStore(asAdminLogin(t, pool))
 	names := func() (string, string) {
 		t.Helper()
-		ts, err := a.Tournaments(ctx)
-		if err != nil {
-			t.Fatal(err)
-		}
-		w := adminTournament(t, ts, "wimbledon")
+		w := adminTournament(t, a, "wimbledon")
 		return w.SeasonName, w.StageName
 	}
 	if season, stage := names(); season != "" || stage != "" {
@@ -468,19 +429,15 @@ func TestAdminSetsWhatATournamentCallsItsSeasonsAndStages(t *testing.T) {
 
 func TestATournamentFirstSeenStartsWithItsLevelNames(t *testing.T) {
 	pool := migrated(t)
-	ctx := context.Background()
 	placedOn(t, pool, map[string]time.Time{
 		"Slow Burn S3 - group 1 game 1":           day("2024-07-01"),
 		"Wimbledon 2024 Stage 1 - group 1 game 1": day("2024-07-01"),
 	})
-	ts, err := NewAdminStore(asAdminLogin(t, pool)).Tournaments(ctx)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if sb := adminTournament(t, ts, "slow_burn"); sb.SeasonName != "Edition" || sb.StageName != "Season" {
+	a := NewAdminStore(asAdminLogin(t, pool))
+	if sb := adminTournament(t, a, "slow_burn"); sb.SeasonName != "Edition" || sb.StageName != "Season" {
 		t.Errorf("slow_burn names = %q, %q, want Edition, Season", sb.SeasonName, sb.StageName)
 	}
-	if w := adminTournament(t, ts, "wimbledon"); w.SeasonName != "" || w.StageName != "" {
+	if w := adminTournament(t, a, "wimbledon"); w.SeasonName != "" || w.StageName != "" {
 		t.Errorf("wimbledon names = %q, %q, want the defaults", w.SeasonName, w.StageName)
 	}
 }
@@ -493,11 +450,7 @@ func TestAdminSetsATournamentsKindAndTopDivisions(t *testing.T) {
 	if err := a.SetTournament(ctx, "wimbledon", TournamentSettings{Kind: "league", TopDivisions: []string{" Gold ", "Silver"}}); err != nil {
 		t.Fatalf("SetTournament: %v", err)
 	}
-	ts, err := a.Tournaments(ctx)
-	if err != nil {
-		t.Fatal(err)
-	}
-	w := adminTournament(t, ts, "wimbledon")
+	w := adminTournament(t, a, "wimbledon")
 	if w.Kind != "league" || !slices.Equal(w.TopDivisions, []string{"Gold", "Silver"}) || w.OriginalName != "Wimbledon" {
 		t.Errorf("wimbledon = kind %q, top %v, original %q", w.Kind, w.TopDivisions, w.OriginalName)
 	}
@@ -513,11 +466,7 @@ func TestAdminSetsATournamentsScoring(t *testing.T) {
 	a := NewAdminStore(asAdminLogin(t, pool))
 	scoring := func() map[int][]float64 {
 		t.Helper()
-		ts, err := a.Tournaments(ctx)
-		if err != nil {
-			t.Fatal(err)
-		}
-		return adminTournament(t, ts, "wimbledon").Points
+		return adminTournament(t, a, "wimbledon").Points
 	}
 	if err := a.SetTournament(ctx, "wimbledon", TournamentSettings{Points: map[int][]float64{3: {5, 2, 0}, 4: {6, 3, 1, 0}}}); err != nil {
 		t.Fatalf("SetTournament: %v", err)
@@ -551,19 +500,15 @@ func TestAdminSetsATournamentsScoring(t *testing.T) {
 
 func TestATournamentFirstSeenStartsWithItsScoring(t *testing.T) {
 	pool := migrated(t)
-	ctx := context.Background()
 	placedOn(t, pool, map[string]time.Time{
 		"International S30 - Gold 2 game 1":       day("2025-01-01"),
 		"Wimbledon 2024 Stage 1 - group 1 game 1": day("2024-07-01"),
 	})
-	ts, err := NewAdminStore(asAdminLogin(t, pool)).Tournaments(ctx)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if got := adminTournament(t, ts, "international").Points; !slices.Equal(got[3], []float64{5, 2, 0}) || !slices.Equal(got[4], []float64{6, 3, 1, 0}) {
+	a := NewAdminStore(asAdminLogin(t, pool))
+	if got := adminTournament(t, a, "international").Points; !slices.Equal(got[3], []float64{5, 2, 0}) || !slices.Equal(got[4], []float64{6, 3, 1, 0}) {
 		t.Errorf("international scoring = %v, want 3p 5-2-0, 4p 6-3-1-0", got)
 	}
-	if got := adminTournament(t, ts, "wimbledon").Points; len(got[2])+len(got[3])+len(got[4]) != 0 {
+	if got := adminTournament(t, a, "wimbledon").Points; len(got[2])+len(got[3])+len(got[4]) != 0 {
 		t.Errorf("wimbledon scoring = %v, want none", got)
 	}
 }
@@ -599,11 +544,8 @@ func TestARenamedSeasonAndStageKeepTheirOriginalNames(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	ts, err := NewAdminStore(asAdminLogin(t, pool)).Tournaments(ctx)
-	if err != nil {
-		t.Fatal(err)
-	}
-	se := adminTournament(t, ts, "wimbledon").Seasons[0]
+	a := NewAdminStore(asAdminLogin(t, pool))
+	se := adminTournament(t, a, "wimbledon").Seasons[0]
 	if se.Label != "Season 2024" || se.OriginalName != "2024" || len(se.Stages) != 1 ||
 		se.Stages[0].Label != "Groups" || se.Stages[0].OriginalName != "Stage 1" {
 		t.Errorf("season = %+v", se)
@@ -631,11 +573,7 @@ func TestASeasonCanBeLeftOutOfTheChampions(t *testing.T) {
 			t.Errorf("season %s in champions = %v", se.Label, se.InChampions)
 		}
 	}
-	ts, err := a.Tournaments(ctx)
-	if err != nil {
-		t.Fatal(err)
-	}
-	for _, se := range adminTournament(t, ts, "wimbledon").Seasons {
+	for _, se := range adminTournament(t, a, "wimbledon").Seasons {
 		if se.InChampions != (se.Label != "2024") {
 			t.Errorf("admin season %s in champions = %v", se.Label, se.InChampions)
 		}
@@ -656,11 +594,7 @@ func TestASeasonCanBeLeftOutOfTheCommunityLeaderboard(t *testing.T) {
 	if err := a.SetSeasonInCommunity(ctx, "wimbledon", "2024", false); err != nil {
 		t.Fatalf("SetSeasonInCommunity: %v", err)
 	}
-	ts, err := a.Tournaments(ctx)
-	if err != nil {
-		t.Fatal(err)
-	}
-	for _, se := range adminTournament(t, ts, "wimbledon").Seasons {
+	for _, se := range adminTournament(t, a, "wimbledon").Seasons {
 		if se.InCommunity != (se.Label != "2024") {
 			t.Errorf("season %s in the community leaderboard = %v", se.Label, se.InCommunity)
 		}
@@ -680,12 +614,8 @@ func TestAdminSetsASeasonsTimeoutPenalty(t *testing.T) {
 	a := NewAdminStore(asAdminLogin(t, pool))
 	penalties := func() map[string]float64 {
 		t.Helper()
-		ts, err := a.Tournaments(ctx)
-		if err != nil {
-			t.Fatal(err)
-		}
 		got := map[string]float64{}
-		for _, se := range adminTournament(t, ts, "intermezzo").Seasons {
+		for _, se := range adminTournament(t, a, "intermezzo").Seasons {
 			got[se.Label] = se.TimeoutPenalty
 		}
 		return got
@@ -707,5 +637,111 @@ func TestAdminSetsASeasonsTimeoutPenalty(t *testing.T) {
 	}
 	if err := a.SetSeasonPenalty(ctx, "intermezzo", "99", -1); !errors.Is(err, ErrNoTournament) {
 		t.Errorf("no such season = %v, want ErrNoTournament", err)
+	}
+}
+
+func TestTournamentRowsListEachSeriesOnceWhenTwoShareAName(t *testing.T) {
+	pool := migrated(t)
+	ctx := context.Background()
+	placedOn(t, pool, map[string]time.Time{"International S30 - Grandmaster game 1": day("2024-09-15"),
+		"International S20 - Grandmaster game 1": day("2024-10-15"), "Intermezzo S24 - Bronze 1 game 1": day("2024-09-16")})
+	if _, err := pool.Exec(ctx, "UPDATE series SET name = 'Same' WHERE slug IN ('international', 'intermezzo')"); err != nil {
+		t.Fatal(err)
+	}
+	got, err := NewAdminStore(asAdminLogin(t, pool)).TournamentRows(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	seen := map[string]int{}
+	for _, s := range got {
+		seen[s.Slug]++
+	}
+	if seen["international"] != 1 || seen["intermezzo"] != 1 {
+		t.Errorf("entries per slug = %v, want one each", seen)
+	}
+}
+
+func TestAdminTournamentsSuggestASeasonsPodium(t *testing.T) {
+	pool := migrated(t)
+	ctx := context.Background()
+	placedOn(t, pool, map[string]time.Time{
+		"Worlds 2024 Stage 1 - Group 1 game 1": day("2024-01-01"), "Worlds 2024 Stage 1 - Group 2 game 1": day("2024-01-02"),
+		"Worlds 2024 Stage 2 - Final game 1": day("2024-02-01"), "Worlds 2024 Stage 2 - Final game 2": day("2024-02-02"),
+		"Worlds 2025 Stage 2 - Upper game 1": day("2025-02-01"), "Worlds 2025 Stage 2 - Lower game 1": day("2025-02-01"),
+		"Worlds 2026 Stage 2 - Final game 1":   day("2026-02-01"),
+		"Worlds 2027 Stage 1 - Group 1 game 1": day("2027-01-01"),
+	})
+	setSeats(t, pool, "Worlds 2024 Stage 2 - Final game 1", Seat{"ann", 200}, Seat{"bob", 150}, Seat{"cy", 100})
+	setSeats(t, pool, "Worlds 2024 Stage 2 - Final game 2", Seat{"bob", 210}, Seat{"ann", 190}, Seat{"cy", 80})
+	setSeats(t, pool, "Worlds 2026 Stage 2 - Final game 1", Seat{"dee", 200}, Seat{"eve", 150}, Seat{"fay", 100})
+	for _, q := range []string{
+		`INSERT INTO cge_tournaments (cge_tournament, name, status) VALUES (900, 'WC 2027', 'Stage 1 of 6')`,
+		`UPDATE stages SET cge_tournament = 900, cge_stage_number = 1 WHERE tournament_id = (SELECT tournament_id FROM tournaments WHERE label = '2027')`,
+	} {
+		if _, err := pool.Exec(ctx, q); err != nil {
+			t.Fatalf("%s: %v", q, err)
+		}
+	}
+	if _, err := pool.Exec(ctx, `INSERT INTO tournament_official_placements (series, season, division, player_name, place, reason, source)
+		VALUES ('worlds', 2026, 'Final', 'fay', 1, 'test', 'test'), ('worlds', 2026, 'Final', 'eve', 2, 'test', 'test')`); err != nil {
+		t.Fatal(err)
+	}
+	a := NewAdminStore(asAdminLogin(t, pool))
+	seasons := map[string]AdminSeason{}
+	for _, s := range adminTournament(t, a, "worlds").Seasons {
+		seasons[s.Label] = s
+	}
+	tests := []struct{ season, from, want string }{
+		{"2024", "final_stage", "1 ann, 2 bob, 3 cy"},
+		{"2025", "", ""},
+		{"2026", "recorded", "1 fay, 2 eve"},
+		{"2027", "", ""},
+	}
+	for _, tt := range tests {
+		t.Run(tt.season, func(t *testing.T) {
+			s := seasons[tt.season]
+			var places []string
+			for _, p := range s.Suggested {
+				places = append(places, fmt.Sprintf("%d %s", p.Place, p.Name))
+			}
+			if got := strings.Join(places, ", "); got != tt.want || s.SuggestedFrom != tt.from {
+				t.Errorf("suggested %q from %q, want %q from %q", got, s.SuggestedFrom, tt.want, tt.from)
+			}
+		})
+	}
+}
+
+func TestTournamentRowsListEachSeriesInBrief(t *testing.T) {
+	pool := migrated(t)
+	ctx := context.Background()
+	placedOn(t, pool, map[string]time.Time{
+		"International S30 - Grandmaster game 1": day("2024-09-15"), "International S31 - Grandmaster game 1": day("2024-10-20"),
+	})
+	if _, err := pool.Exec(ctx, `INSERT INTO cge_tournaments (cge_tournament, name, status, series_id, description)
+		SELECT 21, 'International', 'running', series_id, repeat('word ', 60) FROM series WHERE slug = 'international'`); err != nil {
+		t.Fatal(err)
+	}
+	a := NewAdminStore(asAdminLogin(t, pool))
+	g, err := a.CreateGroup(ctx, Group{Name: "Leagues", Kind: "league", Members: []string{"international"}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	rows, err := a.TournamentRows(ctx)
+	if err != nil {
+		t.Fatalf("TournamentRows: %v", err)
+	}
+	by := map[string]AdminTournamentRow{}
+	for _, r := range rows {
+		by[r.Slug] = r
+	}
+	intl, group := by["international"], by[g]
+	if intl.Games != 2 || intl.FirstGame == nil || !intl.FirstGame.Equal(day("2024-09-15")) || intl.Parent != g || !intl.Rated || intl.Kind != "league" {
+		t.Errorf("international = %+v, want 2 games from 2024-09-15, in %s, rated, a league", intl, g)
+	}
+	if n := len([]rune(intl.CGEAbout)); n != 200 {
+		t.Errorf("CGE's description = %d characters, want the first 200", n)
+	}
+	if !group.IsGroup || group.Name != "Leagues" || group.Games != 0 {
+		t.Errorf("group = %+v, want an empty group called Leagues", group)
 	}
 }

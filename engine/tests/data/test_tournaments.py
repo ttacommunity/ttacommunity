@@ -967,6 +967,7 @@ def test_the_world_championship_final_is_scored_from_its_settings(
         "UPDATE series SET top_divisions = '{}' WHERE slug = 'royal_league'",
         "DELETE FROM settings WHERE series_id = (SELECT series_id FROM series WHERE slug = 'worlds')",
         "DELETE FROM series WHERE slug = 'international'",
+        "UPDATE series SET results_rules = NULL WHERE slug = 'intermezzo'",
     ],
 )
 def test_derive_refuses_a_series_without_its_rules(conn, run_id, change):
@@ -1017,3 +1018,18 @@ def test_slow_burn_records_name_its_edition_and_stage_from_the_catalogue(
     assert [tuple(r.values()) for r in rows] == [
         ("Slow Burn 1 (2024)", "Season 10", "group 1")
     ]
+
+
+def test_a_rule_set_derives_the_results_of_the_series_that_holds_it(
+    conn, add_match, run_id
+):
+    conn.execute("UPDATE series SET slug = 'kings_league' WHERE slug = 'royal_league'")
+    conn.commit()
+    add_match(("ann", 90), ("bob", 80), tournament=rl(1))
+
+    derive_tournaments(conn=conn, run_id=run_id)
+
+    got = conn.execute(
+        "SELECT DISTINCT series FROM tournament_standings WHERE run_id = %s", (run_id,)
+    ).fetchall()
+    assert [r["series"] for r in got] == ["kings_league"]

@@ -11,7 +11,7 @@ import {
   type YearEntry,
   type YearLeaderboard,
 } from '@ttac/shared/ratings';
-import Segmented from './Segmented';
+import Segmented from '@ttac/shared/Segmented';
 import SearchBox from './SearchBox';
 import OptionsDrawer, { type LinkTo } from './OptionsDrawer';
 import YearBanner from './YearBanner';

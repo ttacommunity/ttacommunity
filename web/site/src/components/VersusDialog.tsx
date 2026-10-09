@@ -2,7 +2,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { playerVersus, type Format, type PlayerVersus } from '@ttac/shared/ratings';
 import { versusTally } from '../lib/career';
-import Segmented from './Segmented';
+import Segmented from '@ttac/shared/Segmented';
 import PlayerLink from './PlayerLink';
 import Waiting from './Waiting';
 

@@ -3,13 +3,14 @@ import type { components } from '@ttac/shared/api';
 
 export type AdminMe = components['schemas']['AdminMe'];
 export type AdminTournament = components['schemas']['AdminTournament'];
+export type AdminTournamentRow = components['schemas']['AdminTournamentRow'];
+/** TournamentBrief is what a list row and a whole tournament share. */
+export type TournamentBrief = Omit<AdminTournamentRow, 'cge_about'>;
 export type TournamentSettings = components['schemas']['TournamentSettings'];
-export type SeasonNote = components['schemas']['SeasonNote'];
 export type AdminPerson = components['schemas']['AdminPerson'];
 export type AdminRun = components['schemas']['AdminRun'];
 export type RunChanges = components['schemas']['RunChanges'];
 export type StartedRun = components['schemas']['StartedRun'];
-export type RunSize = components['schemas']['RunSize'];
 
 /** AdminResult is an answer's data, or why the request was refused. */
 export type AdminResult<T> = { ok: true; data: T } | { ok: false; status: number; message: string };

@@ -9,10 +9,15 @@
     "./time": "./src/time.ts",
     "./api": "./api/schema.ts",
     "./ratings": "./src/ratings.ts",
-    "./styles/*": "./styles/*"
+    "./styles/*": "./styles/*",
+    "./Segmented": "./src/Segmented.tsx"
   },
   "devDependencies": {
     "openapi-typescript": "7.13.0",
-    "typescript": "~6.0.3"
+    "typescript": "~6.0.3",
+    "@types/react": "^19.3.0"
+  },
+  "peerDependencies": {
+    "react": "^19.3.0"
   }
 }
