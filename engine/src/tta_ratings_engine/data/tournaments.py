@@ -192,31 +192,32 @@ SERIES = {
 
 
 def series_rules(conn) -> tuple[dict[str, Series], Series]:
-    """Returns SERIES with each series' points and top divisions from its tournament settings, and the
-    World Championship final's rules.
+    """Returns each series holding one of SERIES' rule sets (its results_rules), by slug, with its points and top
+    divisions from its tournament settings, and the World Championship final's rules.
 
     The World Championship's points score only its final: its other stages have no standings. Raises
-    SeriesRulesMissing when a series has no settings, a league no points or top divisions, or the final no points.
+    SeriesRulesMissing when a rule set has no series, a league no points or top divisions, or the final no points.
     """
     rows = {
-        r["slug"]: r
+        r["results_rules"]: r
         for r in conn.execute(
-            "SELECT se.slug, se.top_divisions, coalesce(s.points_2p, '{}') AS points_2p, "
-            "coalesce(s.points_3p, '{}') AS points_3p, coalesce(s.points_4p, '{}') AS points_4p "
-            "FROM series se LEFT JOIN settings s ON s.series_id = se.series_id WHERE se.slug = ANY(%s)",
-            (list(SERIES),),
+            "SELECT se.slug, se.results_rules, se.top_divisions, "
+            "coalesce(s.points_2p, '{}') AS points_2p, coalesce(s.points_3p, '{}') AS points_3p, "
+            "coalesce(s.points_4p, '{}') AS points_4p "
+            "FROM series se LEFT JOIN settings s ON s.series_id = se.series_id WHERE se.results_rules IS NOT NULL"
         ).fetchall()
     }
     rules, final = {}, None
-    for slug, base in SERIES.items():
-        r = rows.get(slug)
+    for name, base in SERIES.items():
+        r = rows.get(name)
         if r is None:
-            raise SeriesRulesMissing(f"{slug} has no tournament settings")
+            raise SeriesRulesMissing(f"no series holds the {name} rules")
+        slug = r["slug"]
         points = {n: list(r[f"points_{n}p"]) for n in (2, 3, 4) if r[f"points_{n}p"]}
         top = frozenset(r["top_divisions"])
         if not points:
             raise SeriesRulesMissing(f"{slug} has no points per place")
-        if slug == "worlds":
+        if name == "worlds":
             rules[slug], final = (
                 replace(base, top_divisions=top),
                 replace(base, points=points),
@@ -226,6 +227,13 @@ def series_rules(conn) -> tuple[dict[str, Series], Series]:
             raise SeriesRulesMissing(f"{slug} has no top divisions")
         rules[slug] = replace(base, points=points, top_divisions=top)
     return rules, final
+
+
+def holder(conn, name) -> str:
+    """Returns the slug of the series holding the rule set name."""
+    return conn.execute(
+        "SELECT slug FROM series WHERE results_rules = %s", (name,)
+    ).fetchone()["slug"]
 
 
 def worlds_finals(conn) -> dict[int, list[list[Seat]]]:
@@ -241,7 +249,7 @@ def worlds_finals(conn) -> dict[int, list[list[Seat]]]:
         JOIN stages st ON st.tournament_id = se.tournament_id
         JOIN cge_tournaments c ON c.cge_tournament = st.cge_tournament
         JOIN game_lines m ON m.stage_id = st.stage_id
-        WHERE t.slug = 'worlds' AND c.status = 'finished' AND se.label ~ '^[0-9]+$'
+        WHERE t.results_rules = 'worlds' AND c.status = 'finished' AND se.label ~ '^[0-9]+$'
           AND coalesce(m.state, 'played') = 'played'
           AND st.cge_stage_number = (SELECT max(s2.cge_stage_number) FROM stages s2 WHERE s2.tournament_id = se.tournament_id)
         ORDER BY m.date, m.game_id
@@ -504,12 +512,13 @@ def _league_boards(standings, official, series_rules):
     return boards
 
 
-def _worlds_podiums(conn, run_id, official, standing_rows, final):
+def _worlds_podiums(conn, run_id, official, standing_rows, final, worlds):
     """Puts each World Championship season's podium into official, by precedence: admin's, recorded, derived.
 
-    A derived final, scored by final's rules, adds its standings to standing_rows.
+    worlds is the slug of the series holding the World Championship rules. A derived final, scored by final's
+    rules, adds its standings to standing_rows.
     """
-    recorded = {season for series, season, _ in official if series == "worlds"}
+    recorded = {season for series, season, _ in official if series == worlds}
     for season, games in sorted(worlds_finals(conn).items()):
         if season in recorded:
             continue
@@ -518,25 +527,26 @@ def _worlds_podiums(conn, run_id, official, standing_rows, final):
             continue
         for s in standings:
             standing_rows.append(
-                (run_id, "worlds", season, "Final", "Final", s["player_name"],
+                (run_id, worlds, season, "Final", "Final", s["player_name"],
                  s["place"], s["points"], s["games"], s["placings"])
             )  # fmt: skip
-        official[("worlds", season, "Final")] = [
-            {"series": "worlds", "season": season, "division": "Final", **s}
+        official[(worlds, season, "Final")] = [
+            {"series": worlds, "season": season, "division": "Final", **s}
             for s in standings[:3]
         ]
     overrides = defaultdict(list)
     for r in conn.execute(
         "SELECT season::int AS season, place, player_name FROM tournament_podium_overrides "
-        "WHERE tournament = 'worlds' AND season ~ '^[0-9]+$' ORDER BY place"
+        "WHERE tournament = %s AND season ~ '^[0-9]+$' ORDER BY place",
+        (worlds,),
     ).fetchall():
         overrides[r["season"]].append(
-            {"series": "worlds", "division": "Final", "points": None, **r}
+            {"series": worlds, "division": "Final", "points": None, **r}
         )
     for season, placed in overrides.items():
-        for key in [k for k in official if k[0] == "worlds" and k[1] == season]:
+        for key in [k for k in official if k[0] == worlds and k[1] == season]:
             del official[key]
-        official[("worlds", season, "Final")] = placed
+        official[(worlds, season, "Final")] = placed
 
 
 def _board_rows(run_id, boards):
@@ -631,11 +641,12 @@ def derive_tournaments(*, conn: psycopg.Connection, run_id: int) -> None:
                      s["place"], s["points"], s["games"], s["placings"])
                 )  # fmt: skip
                 derived[(series, season, division)].append(s)
-        _worlds_podiums(conn, run_id, official, standing_rows, final)
+        worlds = holder(conn, "worlds")
+        _worlds_podiums(conn, run_id, official, standing_rows, final, worlds)
         boards = _league_boards(derived, official, rules)
         boards["worlds"] = worlds_board(
             [{**p, "season": season} for (series, season, _), placed in official.items()
-             if series == "worlds" for p in placed]
+             if series == worlds for p in placed]
         )  # fmt: skip
         boards["grand_slams"] = grand_slams_board(
             conn.execute(
@@ -658,22 +669,23 @@ def derive_tournaments(*, conn: psycopg.Connection, run_id: int) -> None:
             for series, (games, editions) in series_metrics(rows).items()
         ]
 
-        worlds = {
+        world_places = {
             (season, p["player_name"]): p["place"]
             for (series, season, _), placed in official.items()
-            if series == "worlds"
+            if series == worlds
             for p in placed
         }
         achievement_rows = [
             (run_id, a["player_name"], a["world_titles"], a["international_titles"],
              a["intermezzo_titles"], a["royal_league_titles"], a["gold"], a["silver"],
              a["bronze"], a["accolades"])
-            for a in player_achievements(boards, worlds)
+            for a in player_achievements(boards, world_places)
         ]  # fmt: skip
         player_record_rows = player_records(
             rows=assembled_order(rows),
             top_divisions={
-                s: rules[s].top_divisions for s in ("international", "intermezzo")
+                s: rules[s].top_divisions
+                for s in (holder(conn, "international"), holder(conn, "intermezzo"))
             },
             standings=derived,
             official=official,

@@ -1,37 +1,7 @@
 ---
-import '@ttac/shared/styles/theme.css';
 import TournamentSettings from '../components/TournamentSettings';
+import AdminLayout from '../layouts/AdminLayout.astro';
 ---
-<html lang="en">
-  <head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <meta name="robots" content="noindex, nofollow" />
-    <title>Tournament settings · ttacommunity admin</title>
-    <meta name="description" content="A tournament's settings in ttacommunity admin." />
-    <link rel="stylesheet" href="/fonts/fonts.css" />
-  </head>
-  <body>
-    <main>
-      <h1><a href="/">ttacommunity admin</a></h1>
-      <TournamentSettings client:load />
-    </main>
-  </body>
-</html>
-
-<style>
-  main {
-    box-sizing: border-box;
-    width: 100%;
-    min-width: 0;
-    max-width: 64rem;
-    margin: 0 auto;
-    padding: 2rem 1rem;
-  }
-  h1,
-  h1 a {
-    color: var(--accent-gold);
-    font-family: var(--font-heading);
-    text-decoration: none;
-  }
-</style>
+<AdminLayout title="Tournament settings · Through the Ages community admin" description="A tournament's settings in ttacommunity admin.">
+  <TournamentSettings client:load />
+</AdminLayout>

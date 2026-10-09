@@ -79,20 +79,26 @@ func (a *AdminStore) AddBadge(ctx context.Context, b Badge) (int64, error) {
 	return id, nil
 }
 
-// SetBadge changes a badge's label and description, or returns ErrNoBadge, ErrBadBadge or ErrBadgeExists.
+// SetBadge changes a badge's label and description and, when Players is not nil, makes them exactly the players who
+// hold it, in one transaction. It returns ErrNoBadge, ErrBadBadge, ErrBadgeExists or ErrNoPlayer, changing nothing.
 func (a *AdminStore) SetBadge(ctx context.Context, b Badge) error {
 	b, err := cleanBadge(b)
 	if err != nil {
 		return err
 	}
-	tag, err := a.pool.Exec(ctx, "UPDATE badges SET label = $2, description = $3 WHERE badge_id = $1", b.ID, b.Label, b.Description)
-	if err != nil {
-		return fmt.Errorf("changing a badge: %w", labelTaken(err))
-	}
-	if tag.RowsAffected() == 0 {
-		return ErrNoBadge
-	}
-	return nil
+	return pgx.BeginFunc(ctx, a.pool, func(tx pgx.Tx) error {
+		tag, err := tx.Exec(ctx, "UPDATE badges SET label = $2, description = $3 WHERE badge_id = $1", b.ID, b.Label, b.Description)
+		if err != nil {
+			return fmt.Errorf("changing a badge: %w", labelTaken(err))
+		}
+		if tag.RowsAffected() == 0 {
+			return ErrNoBadge
+		}
+		if b.Players == nil {
+			return nil
+		}
+		return setBadgePlayers(ctx, tx, b.ID, b.Players)
+	})
 }
 
 // RemoveBadge removes a badge from everyone who holds it, or returns ErrNoBadge.
@@ -107,35 +113,23 @@ func (a *AdminStore) RemoveBadge(ctx context.Context, id int64) error {
 	return nil
 }
 
-// GiveBadge gives a player a badge (again is no change), or returns ErrNoBadge or ErrNoPlayer.
-func (a *AdminStore) GiveBadge(ctx context.Context, id int64, name string) error {
-	return pgx.BeginFunc(ctx, a.pool, func(tx pgx.Tx) error {
-		var badge, player bool
-		err := tx.QueryRow(ctx, `SELECT EXISTS (SELECT 1 FROM badges WHERE badge_id = $1), EXISTS (SELECT 1 FROM players WHERE name = $2)`,
-			id, name).Scan(&badge, &player)
-		switch {
-		case err != nil:
-			return fmt.Errorf("giving a badge: %w", err)
-		case !badge:
-			return ErrNoBadge
-		case !player:
-			return ErrNoPlayer
-		}
-		if _, err := tx.Exec(ctx, "INSERT INTO player_badges (player_name, badge_id) VALUES ($1, $2) ON CONFLICT DO NOTHING", name, id); err != nil {
-			return fmt.Errorf("giving a badge: %w", err)
-		}
-		return nil
-	})
-}
-
-// TakeBadge takes a badge from a player, or returns ErrNoBadge when they do not hold it.
-func (a *AdminStore) TakeBadge(ctx context.Context, id int64, name string) error {
-	tag, err := a.pool.Exec(ctx, "DELETE FROM player_badges WHERE badge_id = $1 AND player_name = $2", id, name)
-	if err != nil {
-		return fmt.Errorf("taking a badge: %w", err)
+// setBadgePlayers makes names exactly the players who hold a badge, or returns ErrNoPlayer for a name no player has.
+func setBadgePlayers(ctx context.Context, tx pgx.Tx, id int64, names []string) error {
+	var unknown int
+	err := tx.QueryRow(ctx, "SELECT count(*) FROM unnest($1::text[]) n WHERE NOT EXISTS (SELECT 1 FROM players p WHERE p.name = n)",
+		names).Scan(&unknown)
+	switch {
+	case err != nil:
+		return fmt.Errorf("setting a badge's players: %w", err)
+	case unknown > 0:
+		return ErrNoPlayer
 	}
-	if tag.RowsAffected() == 0 {
-		return ErrNoBadge
+	if _, err := tx.Exec(ctx, "DELETE FROM player_badges WHERE badge_id = $1 AND NOT player_name = ANY($2)", id, names); err != nil {
+		return fmt.Errorf("setting a badge's players: %w", err)
+	}
+	if _, err := tx.Exec(ctx, `INSERT INTO player_badges (player_name, badge_id) SELECT DISTINCT n, $1::bigint FROM unnest($2::text[]) n
+		ON CONFLICT DO NOTHING`, id, names); err != nil {
+		return fmt.Errorf("setting a badge's players: %w", err)
 	}
 	return nil
 }

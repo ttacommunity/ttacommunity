@@ -2,7 +2,7 @@
 import type { YearLeaderboard } from '@ttac/shared/ratings';
 import type { View } from '../lib/leaderboard-view';
 import type { LinkTo } from './OptionsDrawer';
-import Segmented from './Segmented';
+import Segmented from '@ttac/shared/Segmented';
 import PlayerLink from './PlayerLink';
 
 interface Props {

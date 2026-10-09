@@ -12,9 +12,14 @@ export const SETTINGS: { key: Setting; label: string; short: string; hint: strin
 // The API's pattern for a tournament in a path.
 const SLUG = /^[a-z][a-z0-9_]{0,63}$/;
 
-/** settingsHref is the address of a tournament's settings page. */
-export function settingsHref(slug: string): string {
-  return `/tournament/?t=${encodeURIComponent(slug)}`;
+/** settingsHref is the address of a tournament's or group's page; with settings, a group's opens on its settings. */
+export function settingsHref(slug: string, settings = false): string {
+  return `/tournament/?t=${encodeURIComponent(slug)}${settings ? '&open=settings' : ''}`;
+}
+
+/** opensSettings says whether the address asks for a group's settings open. */
+export function opensSettings(search: URLSearchParams): boolean {
+  return search.get('open') === 'settings';
 }
 
 /** slugParam returns the tournament the address names (?t=), or null for none or one the API would refuse. */

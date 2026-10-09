@@ -266,3 +266,33 @@ func TestMigrationThreeNamesSlowBurnsLevelsAndRenamesItsStages(t *testing.T) {
 		t.Errorf("after down, first stage = %q", got)
 	}
 }
+
+func TestClassifyMatchesGivesNewSeriesTheEnginesRules(t *testing.T) {
+	pool := migrated(t)
+	ctx := context.Background()
+	loadNamed(t, pool, "Wimbledon 2024 Stage 1 - group 1 game 1", "International S30 - Grandmaster game 1", "ML_s12",
+		"WC 2023 Stage 1 - Group 1 game 1")
+	if _, err := ClassifyMatches(ctx, pool); err != nil {
+		t.Fatalf("ClassifyMatches: %v", err)
+	}
+	tests := []struct{ slug, scoring, code, results string }{
+		{"international", "league", "ic_{}", "international"},
+		{"worlds", "worlds", "wrld", "worlds"},
+		{"wimbledon", "knockout", "wmbl", ""},
+		{"mercurial_ladder", "", "ml", ""},
+	}
+	for _, tt := range tests {
+		t.Run(tt.slug, func(t *testing.T) {
+			var scoring, code, results string
+			err := pool.QueryRow(ctx, `SELECT coalesce(community_scoring, ''), coalesce(community_code, ''),
+				coalesce(results_rules, '') FROM series WHERE slug = $1`, tt.slug).Scan(&scoring, &code, &results)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if scoring != tt.scoring || code != tt.code || results != tt.results {
+				t.Errorf("community scoring, code, results rules = %q, %q, %q, want %q, %q, %q",
+					scoring, code, results, tt.scoring, tt.code, tt.results)
+			}
+		})
+	}
+}

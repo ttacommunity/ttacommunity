@@ -41,7 +41,7 @@ import {
 import { achievementsHref } from '../lib/achievements';
 import { recall, remember } from '../lib/remembered';
 import './PlayerPage.css';
-import Segmented from './Segmented';
+import Segmented from '@ttac/shared/Segmented';
 import FilterInput from './FilterInput';
 import PlayerLink from './PlayerLink';
 import ScrollTable from './ScrollTable';

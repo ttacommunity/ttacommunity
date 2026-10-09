@@ -30,9 +30,11 @@ func ClassifyMatches(ctx context.Context, pool *pgxpool.Pool) (Classified, error
 	}
 	defer tx.Rollback(ctx)
 
-	var slugs, names, kinds, tops, p2, p3, p4, seasonNames, stageNames []string
+	var slugs, names, kinds, tops, p2, p3, p4, seasonNames, stageNames, scorings, codes, results []string
 	for _, t := range gamename.Tournaments {
 		slugs, names, kinds = append(slugs, t.Slug), append(names, t.Name), append(kinds, t.Kind)
+		rules := gamename.Rules[t.Slug]
+		scorings, codes, results = append(scorings, rules.CommunityScoring), append(codes, rules.CommunityCode), append(results, rules.Results)
 		tops = append(tops, strings.Join(t.TopDivisions, "|"))
 		points := gamename.Scoring[t.Slug]
 		p2, p3, p4 = append(p2, joinPoints(points[2])), append(p3, joinPoints(points[3])), append(p4, joinPoints(points[4]))
@@ -42,10 +44,12 @@ func ClassifyMatches(ctx context.Context, pool *pgxpool.Pool) (Classified, error
 	// A tournament first seen here is rated in the community ranking, as all were on the original site.
 	if _, err := tx.Exec(ctx, `
 		WITH added AS (
-			INSERT INTO series (slug, name, original_name, kind, top_divisions, tournament_noun, stage_noun)
-			SELECT slug, name, name, kind, coalesce(string_to_array(nullif(tops, ''), '|'), '{}'), season_name, stage_name
-			FROM unnest($1::text[], $2::text[], $3::text[], $4::text[], $5::text[], $6::text[])
-			     AS x(slug, name, kind, tops, season_name, stage_name)
+			INSERT INTO series (slug, name, original_name, kind, top_divisions, tournament_noun, stage_noun,
+			                    community_scoring, community_code, results_rules)
+			SELECT slug, name, name, kind, coalesce(string_to_array(nullif(tops, ''), '|'), '{}'), season_name, stage_name,
+			       nullif(scoring, ''), nullif(code, ''), nullif(results, '')
+			FROM unnest($1::text[], $2::text[], $3::text[], $4::text[], $5::text[], $6::text[], $10::text[], $11::text[],
+			            $12::text[]) AS x(slug, name, kind, tops, season_name, stage_name, scoring, code, results)
 			ON CONFLICT (slug) DO NOTHING
 			RETURNING series_id, slug
 		), ranked AS (
@@ -57,7 +61,7 @@ func ClassifyMatches(ctx context.Context, pool *pgxpool.Pool) (Classified, error
 		       string_to_array(nullif(x.p4, ''), ',')::float8[], 'catalogue'
 		FROM added a JOIN unnest($1::text[], $7::text[], $8::text[], $9::text[]) AS x(slug, p2, p3, p4) USING (slug)
 		WHERE x.p2 <> '' OR x.p3 <> '' OR x.p4 <> ''`,
-		slugs, names, kinds, tops, seasonNames, stageNames, p2, p3, p4); err != nil {
+		slugs, names, kinds, tops, seasonNames, stageNames, p2, p3, p4, scorings, codes, results); err != nil {
 		return Classified{}, fmt.Errorf("adding tournaments: %w", err)
 	}
 

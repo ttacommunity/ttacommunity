@@ -9,6 +9,7 @@ import {
   pointsText,
   renamedFrom,
   scoringPatch,
+  opensSettings,
   settingsHref,
   slugParam,
   toggledCounts,
@@ -104,6 +105,12 @@ describe('settingsHref and slugParam', () => {
   it('link to a tournament settings page and read it back', () => {
     expect(settingsHref('royal_league')).toBe('/tournament/?t=royal_league');
     expect(slugParam(new URLSearchParams('t=royal_league'))).toBe('royal_league');
+  });
+
+  it('link to a group with its settings open, and read that back', () => {
+    expect(settingsHref('quick_and_dirty', true)).toBe('/tournament/?t=quick_and_dirty&open=settings');
+    expect(opensSettings(new URLSearchParams('t=quick_and_dirty&open=settings'))).toBe(true);
+    expect(opensSettings(new URLSearchParams('t=quick_and_dirty'))).toBe(false);
   });
 
   it('refuse an address that names no tournament the API would accept', () => {

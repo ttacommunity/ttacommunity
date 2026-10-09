@@ -1,6 +1,7 @@
 package main
 
 import (
+	"slices"
 	"strings"
 	"testing"
 
@@ -127,5 +128,15 @@ func TestReportClassifiedSaysNothingIsUnplaced(t *testing.T) {
 	reportClassified(&b, store.Classified{Placed: 3})
 	if got := b.String(); strings.Contains(got, "no rule reads") {
 		t.Errorf("report lists unread names when there are none:\n%s", got)
+	}
+}
+
+func TestWriteInputTablesListsTheStoresInputTables(t *testing.T) {
+	var b strings.Builder
+	writeInputTables(&b)
+	got := strings.Fields(b.String())
+	want := append(slices.Clone(store.ExportTables), store.NotExported...)
+	if !slices.Equal(got, want) {
+		t.Errorf("got = %q, want %q", got, want)
 	}
 }

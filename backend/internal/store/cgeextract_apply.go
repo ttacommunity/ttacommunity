@@ -31,6 +31,8 @@ type CGEApplied struct {
 	SeriesAdded, SettingsWritten, Refused   int
 	// Relinked counts accounts an earlier load linked to one player that their paired seats show is another's.
 	Relinked int
+	// TournamentsMerged counts the tournaments an earlier load split off an unlinked CGE tournament's hidden series.
+	TournamentsMerged int
 }
 
 // The file the extract's rows come from, as games and refusals name it.
@@ -62,6 +64,7 @@ func ApplyCGEExtract(ctx context.Context, pool *pgxpool.Pool, plan CGEPlan, in C
 		run  func(context.Context, pgx.Tx, CGEPlan, CGEInput, *CGEApplied) error
 	}{
 		{"staging the extract", stageExtract},
+		{"merging the tournaments an earlier load split off hidden series", mergeHiddenSeries},
 		{"writing accounts", writeAccounts},
 		{"writing matched games", writeMatched},
 		{"naming the seats of games only CGE has by their accounts", followAccounts},
@@ -374,6 +377,31 @@ func addGames(ctx context.Context, tx pgx.Tx, plan CGEPlan, in CGEInput, got *CG
 	return nil
 }
 
+// mergeHiddenSeries moves the stages of each hidden series' other tournaments under its tournament "1", naming
+// those left unnamed by their CGE stage, and deletes the tournaments it empties.
+func mergeHiddenSeries(ctx context.Context, tx pgx.Tx, _ CGEPlan, _ CGEInput, got *CGEApplied) error {
+	for _, q := range []string{
+		`INSERT INTO tournaments (series_id, label, original_name)
+		 SELECT DISTINCT se.series_id, '1', '1' FROM series se JOIN tournaments t USING (series_id)
+		 WHERE se.slug ~ '^cge_[0-9]+$' AND NOT se.visible AND t.label <> '1'
+		 ON CONFLICT (series_id, label) DO NOTHING`,
+		`UPDATE stages st SET tournament_id = one.tournament_id,
+		     label = CASE st.label WHEN '' THEN 'Stage ' || st.cge_stage_number ELSE st.label END,
+		     original_name = CASE st.original_name WHEN '' THEN 'Stage ' || st.cge_stage_number ELSE st.original_name END
+		 FROM tournaments t JOIN series se USING (series_id) JOIN tournaments one ON one.series_id = se.series_id AND one.label = '1'
+		 WHERE st.tournament_id = t.tournament_id AND se.slug ~ '^cge_[0-9]+$' AND NOT se.visible AND t.label <> '1'`,
+	} {
+		if _, err := tx.Exec(ctx, q); err != nil {
+			return err
+		}
+	}
+	tag, err := tx.Exec(ctx, `DELETE FROM tournaments t USING series se
+		WHERE se.series_id = t.series_id AND se.slug ~ '^cge_[0-9]+$' AND NOT se.visible AND t.label <> '1'
+		  AND NOT EXISTS (SELECT FROM stages st WHERE st.tournament_id = t.tournament_id)`)
+	got.TournamentsMerged = int(tag.RowsAffected())
+	return err
+}
+
 // placeGroup returns our group for a CGE game's group (stageOf caches our stage per CGE stage): the one that took its id, else a new group in our stage
 // for its CGE stage, making that stage (and a league's season, or an unlinked tournament's hidden series) when
 // there is none. It returns 0 when a league's season cannot be told from its other stages.
@@ -421,8 +449,13 @@ func stageFor(ctx context.Context, tx pgx.Tx, plan CGEPlan, in CGEInput, g cgeex
 	if err != pgx.ErrNoRows {
 		return 0, err
 	}
+	slug := fmt.Sprintf("cge_%d", g.TournamentID)
 	series := plan.Series[g.TournamentID]
-	hidden := series == 0
+	var own int64
+	if err := tx.QueryRow(ctx, "SELECT series_id FROM series WHERE slug = $1", slug).Scan(&own); err != nil && err != pgx.ErrNoRows {
+		return 0, err
+	}
+	hidden := series == 0 || series == own
 	var tournament *int64
 	if !hidden {
 		if err := tx.QueryRow(ctx, "SELECT tournament_id FROM cge_tournaments WHERE cge_tournament = $1", g.TournamentID).Scan(&tournament); err != nil && err != pgx.ErrNoRows {
@@ -434,12 +467,12 @@ func stageFor(ctx context.Context, tx pgx.Tx, plan CGEPlan, in CGEInput, g cgeex
 			name = g.Seats[0].TournamentName
 		}
 		tag, err := tx.Exec(ctx, `INSERT INTO series (slug, name, original_name, visible) VALUES ($1, $2, $2, false)
-			ON CONFLICT (slug) DO NOTHING`, fmt.Sprintf("cge_%d", g.TournamentID), name)
+			ON CONFLICT (slug) DO NOTHING`, slug, name)
 		if err != nil {
 			return 0, err
 		}
 		got.SeriesAdded += int(tag.RowsAffected())
-		if err := tx.QueryRow(ctx, "SELECT series_id FROM series WHERE slug = $1", fmt.Sprintf("cge_%d", g.TournamentID)).Scan(&series); err != nil {
+		if err := tx.QueryRow(ctx, "SELECT series_id FROM series WHERE slug = $1", slug).Scan(&series); err != nil {
 			return 0, err
 		}
 		plan.Series[g.TournamentID] = series
