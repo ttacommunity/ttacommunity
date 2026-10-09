@@ -28,6 +28,10 @@ pod=(exec -i deploy/ratings-db --)
 sql() { kubectl "${ns[@]}" "${pod[@]}" psql -X -q -v ON_ERROR_STOP=1 -U ratings "$@"; }
 secret() { kubectl "${ns[@]}" get secret "$1" -o jsonpath="{.data.$2}" | base64 -d; }
 
+# Which tables are inputs is the load job's to say; asked before anything is dropped, so a failure changes nothing.
+tables=$(cd backend && go run ./cmd/load -input-tables)
+[ -n "$tables" ] || { echo "seed-dev-db.sh: the load job listed no input tables" >&2; exit 1; }
+
 kubectl "${ns[@]}" rollout status deploy/ratings-db --timeout=60s
 
 if [ "$replace" = 1 ]; then
@@ -60,8 +64,7 @@ unset owner_url owner_pw api_pw pw
 
 # A long kubectl exec stream stalls, so the copy runs detached inside the pod.
 echo "copying ratings into ratings_dev inside the pod ($mode)"
-# Which tables are inputs is the load job's to say, not this script's.
-(cd backend && go run ./cmd/load -input-tables) | kubectl "${ns[@]}" "${pod[@]}" sh -c 'cat > /tmp/input-tables'
+kubectl "${ns[@]}" "${pod[@]}" sh -c 'cat > /tmp/input-tables' <<<"$tables"
 kubectl "${ns[@]}" "${pod[@]}" sh -c 'cat > /tmp/copy-ratings-db.sh' < scripts/copy-ratings-db.sh
 kubectl "${ns[@]}" "${pod[@]}" rm -f /tmp/dev-restore.log
 kubectl "${ns[@]}" "${pod[@]}" sh -c "setsid nohup sh -c 'sh /tmp/copy-ratings-db.sh ratings ratings_dev ratings_dev $mode /tmp/input-tables > /tmp/dev-restore.log 2>&1; echo exit=\$? >> /tmp/dev-restore.log' > /dev/null 2>&1 < /dev/null &"
