@@ -266,7 +266,7 @@ def compute_glicko2_ratings(
         sorted_months = sorted(periods.keys())
 
         # -----------------------------------------------------------------
-        # PASS 1 (If retro_calibrated): Discovery of emergent ratings at threshold
+        # PASS 1 (If retro_calibrated): Iterative Discovery of emergent priors
         # -----------------------------------------------------------------
         calibrated_priors: dict[str, Rating] = {}
         player_thresholds: dict[str, int] = {}
@@ -274,171 +274,270 @@ def compute_glicko2_ratings(
             player_thresholds = compute_player_thresholds(
                 rows, standard_threshold=calibration_threshold
             )
-            ratings_p1: dict[str, Rating] = defaultdict(
-                lambda: Rating(1500.0, 350.0, CALIBRATED_SIGMA)
-            )
-            games_played_p1 = defaultdict(set)
-            prev_year_p1 = None
 
-            for m_key in sorted_months:
-                cur_year = m_key[:4]
-                if (
-                    prev_year_p1 is not None
-                    and cur_year != prev_year_p1
-                    and reset_mode != "continuous"
-                ):
-                    act_p1 = [r for r in ratings_p1.values() if r.rd < 350.0]
-                    if act_p1:
-                        pop_mu = sum(r.rating for r in act_p1) / len(act_p1)
-                        pop_sigma = max(
-                            50.0,
-                            (
-                                sum((r.rating - pop_mu) ** 2 for r in act_p1)
-                                / len(act_p1)
+            def _run_pass1_iteration(
+                current_priors: dict[str, Rating] | None, alpha: float = 0.5
+            ) -> dict[str, Rating]:
+                # ratings_discovery: tracking each player's own discovery path from 1500
+                ratings_p1_discovery: dict[str, Rating] = defaultdict(
+                    lambda: Rating(1500.0, 350.0, CALIBRATED_SIGMA)
+                )
+                # ratings_p1_world: ratings presented to opponents
+                ratings_p1_world: dict[str, Rating] = defaultdict(
+                    lambda: Rating(1500.0, 350.0, CALIBRATED_SIGMA)
+                )
+                if current_priors:
+                    for p_name, pr in current_priors.items():
+                        ratings_p1_world[p_name] = Rating(pr.rating, pr.rd, pr.sigma)
+
+                games_played_p1 = defaultdict(set)
+                prev_year_p1 = None
+                new_discovered: dict[str, Rating] = {}
+
+                for m_key in sorted_months:
+                    cur_year = m_key[:4]
+                    if (
+                        prev_year_p1 is not None
+                        and cur_year != prev_year_p1
+                        and reset_mode != "continuous"
+                    ):
+                        act_p1 = [r for r in ratings_p1_world.values() if r.rd < 350.0]
+                        if act_p1:
+                            pop_mu = sum(r.rating for r in act_p1) / len(act_p1)
+                            pop_sigma = max(
+                                50.0,
+                                (
+                                    sum((r.rating - pop_mu) ** 2 for r in act_p1)
+                                    / len(act_p1)
+                                )
+                                ** 0.5,
                             )
-                            ** 0.5,
-                        )
-                        pop_rd_mean = sum(r.rd for r in act_p1) / len(act_p1)
-                        pop_rd_min = max(20.0, min(r.rd for r in act_p1))
-                    else:
-                        pop_mu, pop_sigma, pop_rd_mean, pop_rd_min = (
-                            1500.0,
-                            175.0,
-                            75.0,
-                            30.0,
-                        )
-
-                    base_a = (
-                        RESET_ALPHA_SOFTER
-                        if reset_mode == "softer"
-                        else (
-                            RESET_ALPHA_SOFT
-                            if reset_mode == "soft"
-                            else RESET_ALPHA_HARD
-                        )
-                    )
-                    base_l = (
-                        RESET_LAMBDA_SOFTER
-                        if reset_mode == "softer"
-                        else (
-                            RESET_LAMBDA_SOFT
-                            if reset_mode == "soft"
-                            else RESET_LAMBDA_HARD
-                        )
-                    )
-
-                    for p_name, r_cur in list(ratings_p1.items()):
-                        if r_cur.rd < 350.0:
-                            tier_mean = get_tier_mean(
-                                r_cur.rating, mean_rating=pop_mu, sigma=pop_sigma
+                            pop_rd_mean = sum(r.rd for r in act_p1) / len(act_p1)
+                            pop_rd_min = max(20.0, min(r.rd for r in act_p1))
+                        else:
+                            pop_mu, pop_sigma, pop_rd_mean, pop_rd_min = (
+                                1500.0,
+                                175.0,
+                                75.0,
+                                30.0,
                             )
-                            eff_alpha, eff_lambda = compute_decoupled_scaling(
-                                r_cur.rating,
-                                r_cur.rd,
-                                mean_rating=pop_mu,
-                                sigma_pop=pop_sigma,
-                                rd_mean=pop_rd_mean,
-                                rd_min=pop_rd_min,
-                                base_alpha=base_a,
-                                base_lambda=base_l,
+
+                        base_a = (
+                            RESET_ALPHA_SOFTER
+                            if reset_mode == "softer"
+                            else (
+                                RESET_ALPHA_SOFT
+                                if reset_mode == "soft"
+                                else RESET_ALPHA_HARD
                             )
-                            new_rd = min(350.0, r_cur.rd * eff_alpha)
-                            new_r = (
-                                1.0 - eff_lambda
-                            ) * r_cur.rating + eff_lambda * tier_mean
-                            ratings_p1[p_name] = Rating(new_r, new_rd, r_cur.sigma)
-                prev_year_p1 = cur_year
+                        )
+                        base_l = (
+                            RESET_LAMBDA_SOFTER
+                            if reset_mode == "softer"
+                            else (
+                                RESET_LAMBDA_SOFT
+                                if reset_mode == "soft"
+                                else RESET_LAMBDA_HARD
+                            )
+                        )
 
-                p1_matches = periods[m_key]
-                p1_encounters = defaultdict(list)
-                for m in p1_matches:
-                    pa, pb = m["player_a"], m["player_b"]
-                    mid = m["match_id"] if "match_id" in m else (m["date"], pa, pb)
-                    out_a = m["outcome_a"]
-                    m_pcount = m.get("player_count", player_count)
+                        for p_name, r_cur in list(ratings_p1_world.items()):
+                            if r_cur.rd < 350.0:
+                                tier_mean = get_tier_mean(
+                                    r_cur.rating, mean_rating=pop_mu, sigma=pop_sigma
+                                )
+                                eff_alpha, eff_lambda = compute_decoupled_scaling(
+                                    r_cur.rating,
+                                    r_cur.rd,
+                                    mean_rating=pop_mu,
+                                    sigma_pop=pop_sigma,
+                                    rd_mean=pop_rd_mean,
+                                    rd_min=pop_rd_min,
+                                    base_alpha=base_a,
+                                    base_lambda=base_l,
+                                )
+                                new_rd = min(350.0, r_cur.rd * eff_alpha)
+                                new_r = (
+                                    1.0 - eff_lambda
+                                ) * r_cur.rating + eff_lambda * tier_mean
+                                ratings_p1_world[p_name] = Rating(
+                                    new_r, new_rd, r_cur.sigma
+                                )
+                    prev_year_p1 = cur_year
 
-                    if base_model == "glicko2_daneo":
-                        w = GOLDEN_MP_WEIGHTS.get(m_pcount, 1.0)
-                    elif base_model == "glicko2_mp" or weighted:
-                        w = m["weight"]
-                    else:
-                        w = 1.0
+                    p1_matches = periods[m_key]
+                    p1_encounters = defaultdict(list)
+                    for m in p1_matches:
+                        pa, pb = m["player_a"], m["player_b"]
+                        mid = m["match_id"] if "match_id" in m else (m["date"], pa, pb)
+                        out_a = m["outcome_a"]
+                        m_pcount = m.get("player_count", player_count)
 
-                    p1_encounters[pa].append((ratings_p1[pb], out_a, w, m_pcount, mid))
-                    p1_encounters[pb].append(
-                        (ratings_p1[pa], 1.0 - out_a, w, m_pcount, mid)
-                    )
+                        if base_model == "glicko2_daneo":
+                            w = GOLDEN_MP_WEIGHTS.get(m_pcount, 1.0)
+                        elif base_model == "glicko2_mp" or weighted:
+                            w = m["weight"]
+                        else:
+                            w = 1.0
 
-                p1_active = set(p1_encounters.keys())
-                for p_name, enc_list in p1_encounters.items():
-                    prev_games = len(games_played_p1[p_name])
-                    distinct_new = []
-                    for it in enc_list:
-                        mid = it[4]
-                        if mid not in games_played_p1[p_name]:
-                            games_played_p1[p_name].add(mid)
-                            distinct_new.append(mid)
-                    total_games = len(games_played_p1[p_name])
-                    p_thresh = player_thresholds.get(p_name, calibration_threshold)
+                        # Opponents are evaluated via ratings_p1_world!
+                        p1_encounters[pa].append(
+                            (ratings_p1_world[pb], out_a, w, m_pcount, mid)
+                        )
+                        p1_encounters[pb].append(
+                            (ratings_p1_world[pa], 1.0 - out_a, w, m_pcount, mid)
+                        )
 
-                    def run_update_p1(r_cur, items):
-                        if base_model == "glicko2_adapt":
-                            enc4 = [(it[0], it[1], it[2], it[3]) for it in items]
-                            return update_rating_adaptive(
-                                r_cur, enc4, tau=tau, params_dict=ADAPTIVE_T_PARAMS
+                    p1_active = set(p1_encounters.keys())
+                    for p_name, enc_list in p1_encounters.items():
+                        prev_games = len(games_played_p1[p_name])
+                        distinct_new = []
+                        for it in enc_list:
+                            mid = it[4]
+                            if mid not in games_played_p1[p_name]:
+                                games_played_p1[p_name].add(mid)
+                                distinct_new.append(mid)
+                        total_games = len(games_played_p1[p_name])
+                        p_thresh = player_thresholds.get(p_name, calibration_threshold)
+
+                        def run_update_p1(r_cur, items):
+                            if base_model == "glicko2_adapt":
+                                enc4 = [(it[0], it[1], it[2], it[3]) for it in items]
+                                return update_rating_adaptive(
+                                    r_cur, enc4, tau=tau, params_dict=ADAPTIVE_T_PARAMS
+                                )
+                            else:
+                                enc3 = [(it[0], it[1], it[2]) for it in items]
+                                return update_rating(
+                                    r_cur,
+                                    enc3,
+                                    tau=tau,
+                                    weighted=(
+                                        base_model in ("glicko2_mp", "glicko2_daneo")
+                                        or weighted
+                                    ),
+                                )
+
+                        # 1. Update ratings_p1_discovery for player's personal discovery path
+                        if (
+                            prev_games < p_thresh
+                            and total_games >= p_thresh
+                            and p_name not in new_discovered
+                        ):
+                            needed = p_thresh - prev_games
+                            mids_up_to_thresh = set(distinct_new[:needed])
+                            enc_up_to_thresh = [
+                                it for it in enc_list if it[4] in mids_up_to_thresh
+                            ]
+                            enc_after_thresh = [
+                                it for it in enc_list if it[4] not in mids_up_to_thresh
+                            ]
+
+                            r_at_thresh = run_update_p1(
+                                ratings_p1_discovery[p_name], enc_up_to_thresh
+                            )
+                            if current_priors and p_name in current_priors:
+                                # Damped relaxation update for fixed-point stability
+                                d_r = (1.0 - alpha) * current_priors[
+                                    p_name
+                                ].rating + alpha * r_at_thresh.rating
+                                d_rd = (1.0 - alpha) * current_priors[
+                                    p_name
+                                ].rd + alpha * r_at_thresh.rd
+                                new_discovered[p_name] = Rating(
+                                    d_r, d_rd, r_at_thresh.sigma
+                                )
+                            else:
+                                new_discovered[p_name] = Rating(
+                                    r_at_thresh.rating,
+                                    r_at_thresh.rd,
+                                    r_at_thresh.sigma,
+                                )
+
+                            if enc_after_thresh:
+                                ratings_p1_discovery[p_name] = run_update_p1(
+                                    r_at_thresh, enc_after_thresh
+                                )
+                            else:
+                                ratings_p1_discovery[p_name] = r_at_thresh
+                        elif prev_games >= p_thresh:
+                            ratings_p1_discovery[p_name] = run_update_p1(
+                                ratings_p1_discovery[p_name], enc_list
                             )
                         else:
-                            enc3 = [(it[0], it[1], it[2]) for it in items]
-                            return update_rating(
-                                r_cur,
-                                enc3,
-                                tau=tau,
-                                weighted=(
-                                    base_model in ("glicko2_mp", "glicko2_daneo")
-                                    or weighted
-                                ),
+                            # Still provisional (total_games < p_thresh)
+                            ratings_p1_discovery[p_name] = run_update_p1(
+                                ratings_p1_discovery[p_name], enc_list
                             )
 
-                    if (
-                        prev_games < p_thresh
-                        and total_games >= p_thresh
-                        and p_name not in calibrated_priors
-                    ):
-                        needed = p_thresh - prev_games
-                        mids_up_to_thresh = set(distinct_new[:needed])
-                        enc_up_to_thresh = [
-                            it for it in enc_list if it[4] in mids_up_to_thresh
-                        ]
-                        enc_after_thresh = [
-                            it for it in enc_list if it[4] not in mids_up_to_thresh
-                        ]
-
-                        r_at_thresh = run_update_p1(
-                            ratings_p1[p_name], enc_up_to_thresh
-                        )
-                        calibrated_priors[p_name] = Rating(
-                            r_at_thresh.rating, r_at_thresh.rd, r_at_thresh.sigma
-                        )
-                        if enc_after_thresh:
-                            ratings_p1[p_name] = run_update_p1(
-                                r_at_thresh, enc_after_thresh
-                            )
+                        # 2. Update ratings_p1_world (Option A* Surgical Split)
+                        if current_priors and p_name in current_priors:
+                            if total_games <= p_thresh:
+                                pass  # Frozen during provisional window
+                            elif prev_games < p_thresh and total_games > p_thresh:
+                                needed = p_thresh - prev_games
+                                mids_up = set(distinct_new[:needed])
+                                enc_after = [
+                                    it for it in enc_list if it[4] not in mids_up
+                                ]
+                                if enc_after:
+                                    ratings_p1_world[p_name] = run_update_p1(
+                                        ratings_p1_world[p_name], enc_after
+                                    )
+                            else:
+                                ratings_p1_world[p_name] = run_update_p1(
+                                    ratings_p1_world[p_name], enc_list
+                                )
                         else:
-                            ratings_p1[p_name] = r_at_thresh
-                    else:
-                        ratings_p1[p_name] = run_update_p1(ratings_p1[p_name], enc_list)
+                            ratings_p1_world[p_name] = run_update_p1(
+                                ratings_p1_world[p_name], enc_list
+                            )
 
-                for p_name in list(ratings_p1.keys()):
-                    p_thresh = player_thresholds.get(p_name, calibration_threshold)
-                    if (
-                        p_name not in p1_active
-                        and ratings_p1[p_name].rd < 350.0
-                        and len(games_played_p1[p_name]) >= p_thresh
-                    ):
-                        r_cur = ratings_p1[p_name]
-                        phi_new = (r_cur.phi**2 + INACTIVITY_DRIFT_PER_MONTH**2) ** 0.5
-                        new_rd = min(350.0, phi_new * GLICKO2_SCALE)
-                        ratings_p1[p_name] = Rating(r_cur.rating, new_rd, r_cur.sigma)
+                    for p_name in list(ratings_p1_world.keys()):
+                        p_thresh = player_thresholds.get(p_name, calibration_threshold)
+                        is_frozen = (
+                            current_priors
+                            and p_name in current_priors
+                            and len(games_played_p1[p_name]) < p_thresh
+                        )
+                        if (
+                            not is_frozen
+                            and p_name not in p1_active
+                            and ratings_p1_world[p_name].rd < 350.0
+                            and len(games_played_p1[p_name]) >= p_thresh
+                        ):
+                            r_cur = ratings_p1_world[p_name]
+                            phi_new = (
+                                r_cur.phi**2 + INACTIVITY_DRIFT_PER_MONTH**2
+                            ) ** 0.5
+                            new_rd = min(350.0, phi_new * GLICKO2_SCALE)
+                            ratings_p1_world[p_name] = Rating(
+                                r_cur.rating, new_rd, r_cur.sigma
+                            )
+
+                return new_discovered
+
+            # Initial Pass (k = 0): naive initial discovery
+            calibrated_priors = _run_pass1_iteration(None, alpha=1.0)
+
+            # Iterative refinement passes (k = 1..max_iterations-1)
+            max_prior_iterations = 5
+            tolerance = 0.5
+            relaxation = 0.5
+
+            if calibrated_priors and max_prior_iterations > 1:
+                for _ in range(1, max_prior_iterations):
+                    new_priors = _run_pass1_iteration(
+                        calibrated_priors, alpha=relaxation
+                    )
+                    max_d = 0.0
+                    for p_name, p_r in new_priors.items():
+                        if p_name in calibrated_priors:
+                            d = abs(p_r.rating - calibrated_priors[p_name].rating)
+                            max_d = max(max_d, d)
+                    calibrated_priors = new_priors
+                    if max_d < tolerance:
+                        break
 
         # -----------------------------------------------------------------
         # PASS 2 (or Standard Pass): Chronological calculation with Option A*
