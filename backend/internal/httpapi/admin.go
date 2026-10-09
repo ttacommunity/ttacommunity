@@ -37,6 +37,7 @@ type Admins interface {
 	SetTournament(ctx context.Context, slug string, s store.TournamentSettings) error
 	CreateGroup(ctx context.Context, g store.Group) (string, error)
 	SetMembers(ctx context.Context, group string, members []string) error
+	SeasonCounts(ctx context.Context, slug string) ([]store.SeasonCount, error)
 	SetSeasonRated(ctx context.Context, slug, season string, rated bool) error
 	SetSeasonPenalty(ctx context.Context, slug, season string, penalty float64) error
 	SetSeasonInChampions(ctx context.Context, slug, season string, in bool) error
@@ -260,6 +261,25 @@ func (s *server) PostAdminGroup(ctx context.Context, req PostAdminGroupRequestOb
 		return nil, err
 	}
 	return PostAdminGroup201JSONResponse{Body: CreatedGroup{Slug: slug}, Headers: PostAdminGroup201ResponseHeaders{CacheControl: cacheNone}}, nil
+}
+
+func (s *server) GetAdminSeasonCounts(ctx context.Context, req GetAdminSeasonCountsRequestObject) (GetAdminSeasonCountsResponseObject, error) {
+	counts, err := s.admins.SeasonCounts(ctx, req.Tournament)
+	if errors.Is(err, store.ErrNoTournament) {
+		return GetAdminSeasonCounts404JSONResponse{NotFoundJSONResponse{Body: Error{Error: "no such tournament"}, Headers: NotFoundResponseHeaders{CacheControl: cacheNone}}}, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	out := make([]SeasonCount, len(counts))
+	for i, c := range counts {
+		stages := make([]StageCount, len(c.Stages))
+		for j, st := range c.Stages {
+			stages[j] = StageCount{Stage: st.Stage, Number: st.Number, Games: st.Games, Finished: st.Finished, Players: st.Players}
+		}
+		out[i] = SeasonCount{Season: c.Season, Games: c.Games, Players: c.Players, Stages: stages}
+	}
+	return GetAdminSeasonCounts200JSONResponse{Body: out, Headers: GetAdminSeasonCounts200ResponseHeaders{CacheControl: cacheNone}}, nil
 }
 
 func (s *server) PutAdminGroupMembers(ctx context.Context, req PutAdminGroupMembersRequestObject) (PutAdminGroupMembersResponseObject, error) {

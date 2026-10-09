@@ -172,6 +172,13 @@ func (f *fakeAdmins) SetTournament(_ context.Context, slug string, s store.Tourn
 	return nil
 }
 
+func (*fakeAdmins) SeasonCounts(_ context.Context, slug string) ([]store.SeasonCount, error) {
+	if slug != "worlds" {
+		return nil, store.ErrNoTournament
+	}
+	return []store.SeasonCount{{Season: "2024", Games: 3, Players: 5, Stages: []store.StageCount{{Stage: "Stage 1", Number: 1, Games: 2, Finished: 1, Players: 5}}}}, nil
+}
+
 func (f *fakeAdmins) SetMembers(_ context.Context, group string, members []string) error {
 	if group == "worlds" {
 		return store.ErrNotAGroup
@@ -1452,5 +1459,17 @@ func TestAdminRefusesAGroupItCannotMake(t *testing.T) {
 				t.Errorf("audits = %q, want none", f.audits)
 			}
 		})
+	}
+}
+
+func TestAdminSeasonCountsGivesEachSeasonsAndStagesGamesAndPlayers(t *testing.T) {
+	rec := adminDo(t, &fakeAdmins{}, http.MethodGet, "/v1/admin/tournaments/worlds/counts", "", "")
+	if rec.Code != http.StatusOK {
+		t.Fatalf("GET = %d %s, want 200", rec.Code, rec.Body)
+	}
+	wantJSON(t, rec.Body.Bytes(), "0.players", `5`)
+	wantJSON(t, rec.Body.Bytes(), "0.stages.0", `{"stage":"Stage 1","number":1,"games":2,"finished":1,"players":5}`)
+	if rec := adminDo(t, &fakeAdmins{}, http.MethodGet, "/v1/admin/tournaments/no_such/counts", "", ""); rec.Code != http.StatusNotFound {
+		t.Errorf("GET no_such = %d, want 404", rec.Code)
 	}
 }

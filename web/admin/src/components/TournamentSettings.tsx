@@ -1,7 +1,8 @@
 /** A tournament's or group's page: the groups it is in; a group's settings and members, or a tournament's settings, format and regulations, and seasons. */
-import { useEffect, useState, type FormEvent } from 'react';
+import { Fragment, useEffect, useState, type FormEvent } from 'react';
 import { adminRequest, type AdminMe, type AdminTournament } from '../lib/admin-api';
 import { podiumRequest, podiumStart, type PodiumEntry } from '../lib/podium';
+import { seasonSummary, stageRows, type SeasonCount } from '../lib/season-counts';
 import {
   divisionList,
   divisionText,
@@ -31,12 +32,14 @@ function NoteBox({
   stage,
   initial,
   original = null,
+  onSaved,
 }: {
   slug: string;
   season: string;
   stage: string;
   initial: string;
   original?: string | null;
+  onSaved?: () => void;
 }) {
   const [text, setText] = useState(initial);
   const [saved, setSaved] = useState(initial);
@@ -48,6 +51,7 @@ function NoteBox({
     if (r.ok) {
       setSaved(text.trim());
       setStatus(text.trim() === '' ? 'Removed' : 'Saved');
+      onSaved?.();
     } else {
       setStatus(r.message);
     }
@@ -617,9 +621,73 @@ function StoriesSettings({ t, onReload }: { t: AdminTournament; onReload: () => 
   );
 }
 
-/** SeasonsCard lists a tournament's seasons with their notes and podiums, and adds or removes a season without games. */
+/** StagesTable lists a season's stages with their players, games and notes; a row's button opens its note to edit. */
+function StagesTable({ slug, season, rows, onReload }: { slug: string; season: string; rows: ReturnType<typeof stageRows>; onReload: () => Promise<void> }) {
+  const [editing, setEditing] = useState('');
+  return (
+    <div className="table-responsive">
+      <table className="leaderboard-table admin-table stages-table">
+        <caption className="visually-hidden">Season {season}'s stages</caption>
+        <thead>
+          <tr>
+            <th scope="col">Stage</th>
+            <th scope="col">Players</th>
+            <th scope="col">Games</th>
+            <th scope="col">Note</th>
+            <th scope="col">
+              <span className="visually-hidden">Action</span>
+            </th>
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((st) => (
+            <Fragment key={st.label}>
+              <tr>
+                <th scope="row">
+                  {st.label}
+                  {renamedFrom(st.label, st.original_name) !== null && (
+                    <span className="row-detail muted">imported as {renamedFrom(st.label, st.original_name)}</span>
+                  )}
+                </th>
+                <td>{st.players}</td>
+                <td>{st.games}</td>
+                <td className="stage-note">{st.note}</td>
+                <td>
+                  <button
+                    type="button"
+                    className="btn-antique btn-settings"
+                    aria-expanded={editing === st.label}
+                    onClick={() => setEditing(editing === st.label ? '' : st.label)}
+                  >
+                    {editing === st.label ? 'Close' : st.note === '' ? 'Add note' : 'Edit note'}
+                  </button>
+                </td>
+              </tr>
+              {editing === st.label && (
+                <tr>
+                  <td colSpan={5}>
+                    <NoteBox slug={slug} season={season} stage={st.label} initial={st.note} onSaved={() => void onReload()} />
+                  </td>
+                </tr>
+              )}
+            </Fragment>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+/** SeasonsCard lists a tournament's seasons with their counts, settings, notes and podiums, each season's stages on
+ * demand, and adds or removes a season without games. */
 function SeasonsCard({ t, onReload }: { t: AdminTournament; onReload: () => Promise<void> }) {
   const [error, setError] = useState('');
+  const [counts, setCounts] = useState<SeasonCount[]>([]);
+  const [shown, setShown] = useState<string[]>([]);
+  useEffect(() => {
+    void adminRequest<SeasonCount[]>(`/api/tournaments/${t.slug}/counts`, {}).then((r) => r.ok && setCounts(r.data));
+  }, [t.slug]);
+  const toggle = (label: string) => setShown((s) => (s.includes(label) ? s.filter((x) => x !== label) : [...s, label]));
   const [newSeason, setNewSeason] = useState('');
   const addSeason = async (e: FormEvent) => {
     e.preventDefault();
@@ -675,73 +743,78 @@ function SeasonsCard({ t, onReload }: { t: AdminTournament; onReload: () => Prom
         </p>
       )}
       {t.seasons.length === 0 && <p className="muted">No seasons yet.</p>}
-      {t.seasons.map((se) => (
-        <div key={se.label} className="season-notes">
-          <h3>
-            Season {se.label}
-            {renamedFrom(se.label, se.original_name) !== null && (
-              <span className="muted"> · imported as {renamedFrom(se.label, se.original_name)}</span>
+      {t.seasons.map((se) => {
+        const count = counts.find((c) => c.season === se.label);
+        const sum = seasonSummary(se.stages, count);
+        return (
+          <div key={se.label} className="season-notes">
+            <h3>
+              Season {se.label}
+              {renamedFrom(se.label, se.original_name) !== null && (
+                <span className="muted"> · imported as {renamedFrom(se.label, se.original_name)}</span>
+              )}
+            </h3>
+            <p className="season-summary">
+              <span className="muted">
+                {sum.stages} {sum.stages === 1 ? 'stage' : 'stages'} · {sum.players} players · {sum.games} games
+              </span>{' '}
+              {sum.stages > 0 && (
+                <button type="button" className="btn-antique btn-settings" aria-expanded={shown.includes(se.label)} onClick={() => toggle(se.label)}>
+                  {shown.includes(se.label) ? 'Hide stages' : 'Show stages'}
+                </button>
+              )}
+            </p>
+            {shown.includes(se.label) && <StagesTable slug={t.slug} season={se.label} rows={stageRows(se.stages, count)} onReload={onReload} />}
+            <label className="season-rated">
+              <input
+                id={`season-rated-${se.label}`.replace(/[^A-Za-z0-9-]/g, '_')}
+                type="checkbox"
+                checked={se.rated}
+                onChange={(e) => void setRated(se.label, e.target.checked)}
+              />{' '}
+              Counts towards ratings <span className="muted">(from the next engine run; its games still show, marked not rated)</span>
+            </label>
+            <label className="season-rated">
+              <input
+                id={`season-champions-${se.label}`.replace(/[^A-Za-z0-9-]/g, '_')}
+                type="checkbox"
+                checked={se.in_champions}
+                onChange={(e) => void setInChampions(se.label, e.target.checked)}
+              />{' '}
+              Winner listed among the champions <span className="muted">(such as the Hall of Fame's World Champions; untick a play-off)</span>
+            </label>
+            <label className="season-rated">
+              <input
+                id={`season-community-${se.label}`.replace(/[^A-Za-z0-9-]/g, '_')}
+                type="checkbox"
+                checked={se.in_community}
+                onChange={(e) => void setInCommunity(se.label, e.target.checked)}
+              />{' '}
+              Counts in the community leaderboard{' '}
+              <span className="muted">(from the next engine run, when the tournament counts; untick a play-off that should not score)</span>
+            </label>
+            {!se.has_games && (
+              <div className="season-empty">
+                <span className="muted">No games recorded.</span>
+                <button type="button" className="btn-antique" onClick={() => void removeSeason(se.label)}>
+                  Remove season
+                </button>
+              </div>
             )}
-          </h3>
-          <label className="season-rated">
-            <input
-              id={`season-rated-${se.label}`.replace(/[^A-Za-z0-9-]/g, '_')}
-              type="checkbox"
-              checked={se.rated}
-              onChange={(e) => void setRated(se.label, e.target.checked)}
-            />{' '}
-            Counts towards ratings <span className="muted">(from the next engine run; its games still show, marked not rated)</span>
-          </label>
-          <label className="season-rated">
-            <input
-              id={`season-champions-${se.label}`.replace(/[^A-Za-z0-9-]/g, '_')}
-              type="checkbox"
-              checked={se.in_champions}
-              onChange={(e) => void setInChampions(se.label, e.target.checked)}
-            />{' '}
-            Winner listed among the champions <span className="muted">(such as the Hall of Fame's World Champions; untick a play-off)</span>
-          </label>
-          <label className="season-rated">
-            <input
-              id={`season-community-${se.label}`.replace(/[^A-Za-z0-9-]/g, '_')}
-              type="checkbox"
-              checked={se.in_community}
-              onChange={(e) => void setInCommunity(se.label, e.target.checked)}
-            />{' '}
-            Counts in the community leaderboard{' '}
-            <span className="muted">(from the next engine run, when the tournament counts; untick a play-off that should not score)</span>
-          </label>
-          {!se.has_games && (
-            <div className="season-empty">
-              <span className="muted">No games recorded.</span>
-              <button type="button" className="btn-antique" onClick={() => void removeSeason(se.label)}>
-                Remove season
-              </button>
-            </div>
-          )}
-          {hasPenalty(t.kind, se.label) && <PenaltyBox slug={t.slug} season={se.label} initial={se.timeout_penalty} />}
-          <NoteBox slug={t.slug} season={se.label} stage="" initial={se.note} />
-          {se.stages.map((st) => (
-            <NoteBox
-              key={st.label}
+            {hasPenalty(t.kind, se.label) && <PenaltyBox slug={t.slug} season={se.label} initial={se.timeout_penalty} />}
+            <NoteBox slug={t.slug} season={se.label} stage="" initial={se.note} />
+            <PodiumBox
               slug={t.slug}
               season={se.label}
-              stage={st.label}
-              initial={st.note}
-              original={renamedFrom(st.label, st.original_name)}
+              saved={se.podium}
+              savedNote={se.podium_note}
+              suggested={se.suggested_podium}
+              suggestedFrom={se.suggested_from}
+              onReload={onReload}
             />
-          ))}
-          <PodiumBox
-            slug={t.slug}
-            season={se.label}
-            saved={se.podium}
-            savedNote={se.podium_note}
-            suggested={se.suggested_podium}
-            suggestedFrom={se.suggested_from}
-            onReload={onReload}
-          />
-        </div>
-      ))}
+          </div>
+        );
+      })}
     </section>
   );
 }

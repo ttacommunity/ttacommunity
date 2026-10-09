@@ -464,3 +464,14 @@
     padding: 0 0.75rem;
   }
 }
+.season-summary {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.6rem;
+  margin: 0 0 0.6rem;
+}
+.stages-table .stage-note {
+  max-width: 28rem;
+  white-space: pre-wrap;
+}

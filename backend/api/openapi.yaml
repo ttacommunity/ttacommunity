@@ -960,6 +960,31 @@ paths:
           $ref: "#/components/responses/Forbidden"
         "404":
           $ref: "#/components/responses/NotFound"
+  /v1/admin/tournaments/{tournament}/counts:
+    get:
+      operationId: getAdminSeasonCounts
+      tags: [admin]
+      summary: How many games and players each of a tournament's seasons and stages holds
+      parameters:
+        - $ref: "#/components/parameters/AdminTournamentSlug"
+      responses:
+        "200":
+          description: Its seasons, each with its stages
+          headers:
+            Cache-Control:
+              $ref: "#/components/headers/CacheControl"
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/SeasonCount"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
   /v1/admin/tournaments/{tournament}/members:
     put:
       operationId: putAdminGroupMembers
@@ -2579,6 +2604,39 @@ components:
             type: string
             minLength: 1
             maxLength: 100
+    SeasonCount:
+      type: object
+      required: [season, games, players, stages]
+      properties:
+        season:
+          type: string
+        games:
+          description: Its games, across its stages
+          type: integer
+        players:
+          description: The players in them
+          type: integer
+        stages:
+          type: array
+          items:
+            $ref: "#/components/schemas/StageCount"
+    StageCount:
+      type: object
+      required: [stage, number, games, finished, players]
+      properties:
+        number:
+          description: Its number (CGE's, else the last number in its label), 0 for none
+          type: integer
+        finished:
+          description: How many of its games were played
+          type: integer
+        stage:
+          description: The stage's label; empty for a season without stages
+          type: string
+        games:
+          type: integer
+        players:
+          type: integer
     CreatedGroup:
       type: object
       required: [slug]

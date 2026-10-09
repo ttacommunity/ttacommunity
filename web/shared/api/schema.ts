@@ -683,6 +683,23 @@ export interface paths {
         patch: operations["patchAdminTournament"];
         trace?: never;
     };
+    "/v1/admin/tournaments/{tournament}/counts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** How many games and players each of a tournament's seasons and stages holds */
+        get: operations["getAdminSeasonCounts"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/admin/tournaments/{tournament}/members": {
         parameters: {
             query?: never;
@@ -1595,6 +1612,24 @@ export interface components {
             kind: components["schemas"]["TournamentKind"];
             /** @description The slugs of the tournaments it holds */
             members?: string[];
+        };
+        SeasonCount: {
+            season: string;
+            /** @description Its games, across its stages */
+            games: number;
+            /** @description The players in them */
+            players: number;
+            stages: components["schemas"]["StageCount"][];
+        };
+        StageCount: {
+            /** @description Its number (CGE's, else the last number in its label), 0 for none */
+            number: number;
+            /** @description How many of its games were played */
+            finished: number;
+            /** @description The stage's label; empty for a season without stages */
+            stage: string;
+            games: number;
+            players: number;
         };
         CreatedGroup: {
             slug: string;
@@ -3511,6 +3546,33 @@ export interface operations {
                 content?: never;
             };
             400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    getAdminSeasonCounts: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The tournament's slug */
+                tournament: components["parameters"]["AdminTournamentSlug"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Its seasons, each with its stages */
+            200: {
+                headers: {
+                    "Cache-Control": components["headers"]["CacheControl"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SeasonCount"][];
+                };
+            };
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];

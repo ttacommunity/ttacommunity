@@ -1753,6 +1753,17 @@ type RunSize struct {
 	Run   int64 `json:"run"`
 }
 
+// SeasonCount defines model for SeasonCount.
+type SeasonCount struct {
+	// Games Its games, across its stages
+	Games int `json:"games"`
+
+	// Players The players in them
+	Players int          `json:"players"`
+	Season  string       `json:"season"`
+	Stages  []StageCount `json:"stages"`
+}
+
 // SeasonInChampions defines model for SeasonInChampions.
 type SeasonInChampions struct {
 	InChampions bool   `json:"in_champions"`
@@ -1852,6 +1863,20 @@ type StageCheck struct {
 
 	// Players Players either side lists with a game
 	Players int `json:"players"`
+}
+
+// StageCount defines model for StageCount.
+type StageCount struct {
+	// Finished How many of its games were played
+	Finished int `json:"finished"`
+	Games    int `json:"games"`
+
+	// Number Its number (CGE's, else the last number in its label), 0 for none
+	Number  int `json:"number"`
+	Players int `json:"players"`
+
+	// Stage The stage's label; empty for a season without stages
+	Stage string `json:"stage"`
 }
 
 // StandingDifference defines model for StandingDifference.
@@ -2483,6 +2508,9 @@ type ServerInterface interface {
 	// PutAdminCard Set how a tournament presents itself on its card and its page's header
 	// (PUT /v1/admin/tournaments/{tournament}/card)
 	PutAdminCard(w http.ResponseWriter, r *http.Request, tournament AdminTournamentSlug)
+	// GetAdminSeasonCounts How many games and players each of a tournament's seasons and stages holds
+	// (GET /v1/admin/tournaments/{tournament}/counts)
+	GetAdminSeasonCounts(w http.ResponseWriter, r *http.Request, tournament AdminTournamentSlug)
 	// PutAdminGroupMembers Make these exactly what a group holds
 	// (PUT /v1/admin/tournaments/{tournament}/members)
 	PutAdminGroupMembers(w http.ResponseWriter, r *http.Request, tournament AdminTournamentSlug)
@@ -3218,6 +3246,32 @@ func (siw *ServerInterfaceWrapper) PutAdminCard(w http.ResponseWriter, r *http.R
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.PutAdminCard(w, r, tournament)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetAdminSeasonCounts operation middleware
+func (siw *ServerInterfaceWrapper) GetAdminSeasonCounts(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "tournament" -------------
+	var tournament AdminTournamentSlug
+
+	err = runtime.BindStyledParameterWithOptions("simple", "tournament", r.PathValue("tournament"), &tournament, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "tournament", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetAdminSeasonCounts(w, r, tournament)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -4980,6 +5034,7 @@ func HandlerWithOptions(si ServerInterface, options StdHTTPServerOptions) http.H
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/v1/admin/tournaments", wrapper.GetAdminTournaments)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/v1/admin/tournaments", wrapper.PostAdminGroup)
 	m.HandleFunc(http.MethodPatch+" "+options.BaseURL+"/v1/admin/tournaments/{tournament}", wrapper.PatchAdminTournament)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/v1/admin/tournaments/{tournament}/counts", wrapper.GetAdminSeasonCounts)
 	m.HandleFunc(http.MethodPut+" "+options.BaseURL+"/v1/admin/tournaments/{tournament}/members", wrapper.PutAdminGroupMembers)
 	m.HandleFunc(http.MethodPut+" "+options.BaseURL+"/v1/admin/tournaments/{tournament}/notes", wrapper.PutAdminNote)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/v1/admin/admins", wrapper.GetAdminAdmins)
@@ -7080,6 +7135,81 @@ func (response PutAdminCard403JSONResponse) VisitPutAdminCardResponse(w http.Res
 type PutAdminCard404JSONResponse struct{ NotFoundJSONResponse }
 
 func (response PutAdminCard404JSONResponse) VisitPutAdminCardResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetAdminSeasonCountsRequestObject struct {
+	Tournament AdminTournamentSlug `json:"tournament"`
+}
+
+type GetAdminSeasonCountsResponseObject interface {
+	VisitGetAdminSeasonCountsResponse(w http.ResponseWriter) error
+}
+
+type GetAdminSeasonCounts200ResponseHeaders struct {
+	CacheControl string
+}
+
+type GetAdminSeasonCounts200JSONResponse struct {
+	Body    []SeasonCount
+	Headers GetAdminSeasonCounts200ResponseHeaders
+}
+
+func (response GetAdminSeasonCounts200JSONResponse) VisitGetAdminSeasonCountsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetAdminSeasonCounts401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response GetAdminSeasonCounts401JSONResponse) VisitGetAdminSeasonCountsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetAdminSeasonCounts403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response GetAdminSeasonCounts403JSONResponse) VisitGetAdminSeasonCountsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetAdminSeasonCounts404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response GetAdminSeasonCounts404JSONResponse) VisitGetAdminSeasonCountsResponse(w http.ResponseWriter) error {
 
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
@@ -9610,6 +9740,9 @@ type StrictServerInterface interface {
 	// PutAdminCard Set how a tournament presents itself on its card and its page's header
 	// (PUT /v1/admin/tournaments/{tournament}/card)
 	PutAdminCard(ctx context.Context, request PutAdminCardRequestObject) (PutAdminCardResponseObject, error)
+	// GetAdminSeasonCounts How many games and players each of a tournament's seasons and stages holds
+	// (GET /v1/admin/tournaments/{tournament}/counts)
+	GetAdminSeasonCounts(ctx context.Context, request GetAdminSeasonCountsRequestObject) (GetAdminSeasonCountsResponseObject, error)
 	// PutAdminGroupMembers Make these exactly what a group holds
 	// (PUT /v1/admin/tournaments/{tournament}/members)
 	PutAdminGroupMembers(ctx context.Context, request PutAdminGroupMembersRequestObject) (PutAdminGroupMembersResponseObject, error)
@@ -10562,6 +10695,32 @@ func (sh *strictHandler) PutAdminCard(w http.ResponseWriter, r *http.Request, to
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(PutAdminCardResponseObject); ok {
 		if err := validResponse.VisitPutAdminCardResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// GetAdminSeasonCounts operation middleware
+func (sh *strictHandler) GetAdminSeasonCounts(w http.ResponseWriter, r *http.Request, tournament AdminTournamentSlug) {
+	var request GetAdminSeasonCountsRequestObject
+
+	request.Tournament = tournament
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.GetAdminSeasonCounts(ctx, request.(GetAdminSeasonCountsRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetAdminSeasonCounts")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(GetAdminSeasonCountsResponseObject); ok {
+		if err := validResponse.VisitGetAdminSeasonCountsResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {
