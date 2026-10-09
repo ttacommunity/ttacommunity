@@ -28,6 +28,21 @@ type Tournament struct {
 	TopDivisions []string
 }
 
+// Rules are how the engine treats a tournament when first added: how its places score in the community
+// leaderboard, its column code in the organisers' sheet ("ic_{}" adds the season), and which of the engine's rule
+// sets derives its results ("" for none).
+var Rules = map[string]struct{ CommunityScoring, CommunityCode, Results string }{
+	"international":    {"league", "ic_{}", "international"},
+	"intermezzo":       {"league", "im_{}", "intermezzo"},
+	"royal_league":     {"", "rl_{:02d}", "royal_league"},
+	"worlds":           {"worlds", "wrld", "worlds"},
+	"australian_open":  {"rounds", "aus", ""},
+	"wimbledon":        {"knockout", "wmbl", ""},
+	"eiffel_tower":     {"floors", "eif", ""},
+	"mercurial_ladder": {"", "ml", ""},
+	"sodium_ladder":    {"", "sl", ""},
+}
+
 // Tournaments lists every tournament a name rule can return.
 var Tournaments = []Tournament{
 	{"international", "International", "league", []string{"Grandmaster", "Diamond"}},

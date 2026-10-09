@@ -58,11 +58,11 @@ def template_db():
                 c.execute(up_sql(f))
             # The series the engine derives, with the settings the load job gives them when first seen.
             c.execute(
-                "INSERT INTO series (slug, name, top_divisions) VALUES "
-                "('international', 'International', '{Grandmaster,Diamond}'), "
-                "('intermezzo', 'Intermezzo', '{Grandmaster,Diamond}'), "
-                "('royal_league', 'Royal League', '{Emperor}'), "
-                "('worlds', 'World Championship', '{Final}')"
+                "INSERT INTO series (slug, name, top_divisions, results_rules) VALUES "
+                "('international', 'International', '{Grandmaster,Diamond}', 'international'), "
+                "('intermezzo', 'Intermezzo', '{Grandmaster,Diamond}', 'intermezzo'), "
+                "('royal_league', 'Royal League', '{Emperor}', 'royal_league'), "
+                "('worlds', 'World Championship', '{Final}', 'worlds')"
             )
             c.execute(
                 "INSERT INTO settings (series_id, points_2p, points_3p, points_4p) "
