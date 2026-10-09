@@ -1,0 +1,22 @@
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: example
+spec:
+  schedule: "0 0 * * *"
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          initContainers:
+            - name: setup
+              image: example.invalid/setup
+              env:
+                - name: BAD
+                  value: 8080
+          containers:
+            - name: app
+              image: example.invalid/app
+              env:
+                - name: GOOD
+                  value: "8080"
