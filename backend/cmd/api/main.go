@@ -62,7 +62,7 @@ func main() {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 
-	pool, err := pgxpool.New(ctx, readURL)
+	pool, err := store.OpenPool(ctx, readURL)
 	if err != nil {
 		log.Error("opening the ratings read pool failed", "err", err)
 		os.Exit(1)
@@ -157,7 +157,7 @@ func openAdmin(ctx context.Context, addr string) (adminDeps, func(), error) {
 	if err != nil {
 		return adminDeps{}, nil, err
 	}
-	pool, err := pgxpool.New(ctx, url)
+	pool, err := store.OpenPool(ctx, url)
 	if err != nil {
 		return adminDeps{}, nil, errors.New("opening the admin pool failed")
 	}
