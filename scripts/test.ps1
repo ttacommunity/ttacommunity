@@ -22,7 +22,13 @@ function Run-Step($Dir, $Name, [scriptblock]$Command) {
 if ($env:RATINGS_DATABASE_URL -notmatch '@([^/]+)/') { throw 'test.ps1: RATINGS_DATABASE_URL in .env has no host' }
 $env:TEST_DATABASE_URL = "postgres://ttac:local-only@$($Matches[1])/ttac_test?sslmode=disable"
 
-Run-Step backend 'go: unit tests' { go test -count=1 ./... }
+$cover = New-TemporaryFile
+Run-Step backend 'go: unit tests' { go test -count=1 "-coverprofile=$cover" ./... }
+# Coverage is reported, never enforced, as in scripts/ci.sh.
+Push-Location (Join-Path $root backend)
+Write-Host "  unit tests' total coverage: $((go tool cover "-func=$cover" | Select-Object -Last 1) -split '\s+' | Select-Object -Last 1)"
+Pop-Location
+Remove-Item $cover
 Run-Step backend 'go: integration tests' { go test -tags=integration -count=1 ./... }
 Run-Step engine 'engine: sync' { uv sync --frozen --quiet }
 Run-Step engine 'engine: tests' { uv run --frozen pytest -q -m 'not slow' }
