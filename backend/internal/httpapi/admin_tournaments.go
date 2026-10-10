@@ -119,39 +119,29 @@ func (s *server) PatchAdminTournament(ctx context.Context, req PatchAdminTournam
 	if b.Stories != nil && len(*b.Stories) > 12 {
 		return PatchAdminTournament400JSONResponse{badRequest400("at most 12 stories")}, nil
 	}
-	var steps []func() error
+	change := store.TournamentChange{Regulations: b.Regulations, Members: b.Members}
 	if anySetting {
-		steps = append(steps, func() error { return s.admins.SetTournament(ctx, req.Tournament, settings) })
+		change.Settings = &settings
 	}
 	if c := b.Card; c != nil {
-		steps = append(steps, func() error {
-			return s.admins.SetCard(ctx, req.Tournament, store.Card{Icon: c.Icon, Tagline: c.Tagline, Summary: c.Summary, Subtitle: c.Subtitle, Cadence: c.Cadence})
-		})
-	}
-	if b.Regulations != nil {
-		steps = append(steps, func() error { return s.admins.SetRegulations(ctx, req.Tournament, *b.Regulations) })
+		change.Card = &store.Card{Icon: c.Icon, Tagline: c.Tagline, Summary: c.Summary, Subtitle: c.Subtitle, Cadence: c.Cadence}
 	}
 	if b.Stories != nil {
 		list := make([]store.Story, len(*b.Stories))
 		for i, st := range *b.Stories {
 			list[i] = store.Story{Player: st.Player, Badge: st.Badge, Title: st.Title, Text: st.Text}
 		}
-		steps = append(steps, func() error { return s.admins.SetStories(ctx, req.Tournament, list) })
+		change.Stories = &list
 	}
-	if b.Members != nil {
-		steps = append(steps, func() error { return s.admins.SetMembers(ctx, req.Tournament, *b.Members) })
+	err := s.admins.ChangeTournament(ctx, req.Tournament, change)
+	switch code, msg := refusal(err); code {
+	case http.StatusNotFound:
+		return PatchAdminTournament404JSONResponse{notFound404(msg)}, nil
+	case http.StatusBadRequest:
+		return PatchAdminTournament400JSONResponse{badRequest400(msg)}, nil
 	}
-	for _, step := range steps {
-		err := step()
-		switch code, msg := refusal(err); code {
-		case http.StatusNotFound:
-			return PatchAdminTournament404JSONResponse{notFound404(msg)}, nil
-		case http.StatusBadRequest:
-			return PatchAdminTournament400JSONResponse{badRequest400(msg)}, nil
-		}
-		if err != nil {
-			return nil, err
-		}
+	if err != nil {
+		return nil, err
 	}
 	if err := s.admins.Audit(ctx, a.DiscordID, "tournament.settings", req.Tournament, b); err != nil {
 		return nil, err
@@ -159,60 +149,43 @@ func (s *server) PatchAdminTournament(ctx context.Context, req PatchAdminTournam
 	return PatchAdminTournament204Response{}, nil
 }
 
-// seasonSteps returns the store calls a season change makes, the podium first as it is the likeliest to be refused,
-// or a message when it is not one the API takes.
-func (s *server) seasonSteps(ctx context.Context, slug, season string, b *SeasonChange) ([]func() error, string) {
-	var steps []func() error
+// seasonChange returns the store change a season change asks for, or a message when it is not one the API takes.
+func seasonChange(season string, b *SeasonChange) (store.SeasonChange, string) {
 	switch {
 	case len(season) > 64:
-		return nil, "a season's label is at most 64 characters"
+		return store.SeasonChange{}, "a season's label is at most 64 characters"
 	case b.Podium != nil && b.ClearPodium != nil && *b.ClearPodium:
-		return nil, "set a podium or clear it, not both"
+		return store.SeasonChange{}, "set a podium or clear it, not both"
 	case b.Podium != nil && (len(b.Podium.Podium) == 0 || len(b.Podium.Podium) > 3 || len(b.Podium.Note) > 500):
-		return nil, "a podium has one to three places and a note of at most 500 characters"
+		return store.SeasonChange{}, "a podium has one to three places and a note of at most 500 characters"
 	case b.Note != nil && len(*b.Note) > 2000:
-		return nil, "a note is at most 2,000 characters"
+		return store.SeasonChange{}, "a note is at most 2,000 characters"
 	}
+	c := store.SeasonChange{Rated: b.Rated, InChampions: b.InChampions, InCommunity: b.InCommunity,
+		TimeoutPenalty: b.TimeoutPenalty, Note: b.Note, ClearPodium: b.ClearPodium != nil && *b.ClearPodium}
 	if p := b.Podium; p != nil {
 		podium := make([]store.PodiumEntry, len(p.Podium))
 		for i, e := range p.Podium {
 			if len(e.Name) > 64 {
-				return nil, "a player's name is at most 64 characters"
+				return store.SeasonChange{}, "a player's name is at most 64 characters"
 			}
 			podium[i] = store.PodiumEntry{Place: e.Place, Name: e.Name}
 		}
-		steps = append(steps, func() error { return s.admins.SetPodium(ctx, slug, season, podium, strings.TrimSpace(p.Note)) })
-	}
-	if b.ClearPodium != nil && *b.ClearPodium {
-		steps = append(steps, func() error { return s.admins.ClearPodium(ctx, slug, season) })
-	}
-	if b.Rated != nil {
-		steps = append(steps, func() error { return s.admins.SetSeasonRated(ctx, slug, season, *b.Rated) })
-	}
-	if b.InChampions != nil {
-		steps = append(steps, func() error { return s.admins.SetSeasonInChampions(ctx, slug, season, *b.InChampions) })
-	}
-	if b.InCommunity != nil {
-		steps = append(steps, func() error { return s.admins.SetSeasonInCommunity(ctx, slug, season, *b.InCommunity) })
-	}
-	if b.TimeoutPenalty != nil {
-		steps = append(steps, func() error { return s.admins.SetSeasonPenalty(ctx, slug, season, *b.TimeoutPenalty) })
-	}
-	if b.Note != nil {
-		steps = append(steps, func() error { return s.admins.SetNote(ctx, slug, season, "", *b.Note) })
+		c.Podium, c.PodiumNote = &podium, strings.TrimSpace(p.Note)
 	}
 	if b.StageNotes != nil {
 		for stage, note := range *b.StageNotes {
 			if stage == "" || len(stage) > 64 || len(note) > 2000 {
-				return nil, "a stage's label is 1 to 64 characters and its note at most 2,000"
+				return store.SeasonChange{}, "a stage's label is 1 to 64 characters and its note at most 2,000"
 			}
-			steps = append(steps, func() error { return s.admins.SetNote(ctx, slug, season, stage, note) })
 		}
+		c.StageNotes = *b.StageNotes
 	}
-	if len(steps) == 0 {
-		return nil, "nothing to change"
+	if c.Podium == nil && !c.ClearPodium && c.Rated == nil && c.InChampions == nil && c.InCommunity == nil &&
+		c.TimeoutPenalty == nil && c.Note == nil && len(c.StageNotes) == 0 {
+		return store.SeasonChange{}, "nothing to change"
 	}
-	return steps, ""
+	return c, ""
 }
 
 func (s *server) PatchAdminSeason(ctx context.Context, req PatchAdminSeasonRequestObject) (PatchAdminSeasonResponseObject, error) {
@@ -223,21 +196,19 @@ func (s *server) PatchAdminSeason(ctx context.Context, req PatchAdminSeasonReque
 	if req.Body == nil {
 		return PatchAdminSeason400JSONResponse{badRequest400("nothing to change")}, nil
 	}
-	steps, msg := s.seasonSteps(ctx, req.Tournament, req.Season, req.Body)
+	change, msg := seasonChange(req.Season, req.Body)
 	if msg != "" {
 		return PatchAdminSeason400JSONResponse{badRequest400(msg)}, nil
 	}
-	for _, step := range steps {
-		err := step()
-		switch code, msg := refusal(err); code {
-		case http.StatusNotFound:
-			return PatchAdminSeason404JSONResponse{notFound404(msg)}, nil
-		case http.StatusBadRequest:
-			return PatchAdminSeason400JSONResponse{badRequest400(msg)}, nil
-		}
-		if err != nil {
-			return nil, err
-		}
+	err := s.admins.ChangeSeason(ctx, req.Tournament, req.Season, change)
+	switch code, msg := refusal(err); code {
+	case http.StatusNotFound:
+		return PatchAdminSeason404JSONResponse{notFound404(msg)}, nil
+	case http.StatusBadRequest:
+		return PatchAdminSeason400JSONResponse{badRequest400(msg)}, nil
+	}
+	if err != nil {
+		return nil, err
 	}
 	if err := s.admins.Audit(ctx, a.DiscordID, "tournament.season", req.Tournament, map[string]any{"season": req.Season, "change": req.Body}); err != nil {
 		return nil, err
