@@ -152,6 +152,17 @@ func (f *fakeRatings) PlayerAchievements(context.Context, int64, string) (string
 	panic("not faked")
 }
 
+// readsOnly is a Ratings with only the parts a test sets: any other read panics, and the mux answers 500.
+type readsOnly struct {
+	RunReads
+	BoardReads
+	PlayerReads
+	YearReads
+	AnalysisReads
+	TournamentReads
+	CatalogueReads
+}
+
 func serve(t *testing.T, ratings Ratings, path string) (*httptest.ResponseRecorder, string) {
 	t.Helper()
 	var logs bytes.Buffer

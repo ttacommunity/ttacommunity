@@ -11,11 +11,14 @@ import (
 )
 
 type fakeYears struct {
-	fakeRatings
-	board store.YearBoard
-	years []store.Year
-	err   error
-	year  int
+	board  store.YearBoard
+	years  []store.Year
+	err    error
+	calls  int
+	gotRun int64
+	year   int
+	gotMod string
+	gotFmt int
 }
 
 func (f *fakeYears) YearBoard(_ context.Context, run int64, year int, model string, format int) (store.YearBoard, error) {
@@ -46,7 +49,7 @@ func TestYearLeaderboard(t *testing.T) {
 			LastPlayed: &last, PreviousRating: &pr, PreviousRD: &prd, PreviousCRating: &pc,
 		}},
 	}}
-	rec, _ := serve(t, f, "/v1/runs/7/years/2024/leaderboard?model=glicko2_std&format=3")
+	rec, _ := serve(t, readsOnly{YearReads: f}, "/v1/runs/7/years/2024/leaderboard?model=glicko2_std&format=3")
 	want := `{"champions":[{"name":"bob","reigning":false}],"format":3,"games":2,"model":"glicko2_std","players":[` +
 		`{"c_rating":1600,"career":{"draws":1,"losses":2,"opponents":6,"win_rate":58.3,"wins":3},"country":"PL",` +
 		`"last_played":"2024-12-20","name":"ann","previous":{"c_rating":1500,"rating":1590,"rd":30},"rating":1690,"rd":30,` +
@@ -62,7 +65,7 @@ func TestYearLeaderboard(t *testing.T) {
 
 func TestYearLeaderboardDefaultsAndRefusals(t *testing.T) {
 	f := &fakeYears{board: store.YearBoard{Year: 2024, Snapshot: time.Date(2024, 12, 31, 0, 0, 0, 0, time.UTC)}}
-	rec, _ := serve(t, f, "/v1/runs/7/years/2024/leaderboard")
+	rec, _ := serve(t, readsOnly{YearReads: f}, "/v1/runs/7/years/2024/leaderboard")
 	if rec.Code != http.StatusOK || f.gotMod != "glicko2_daneo" || f.gotFmt != 0 ||
 		!strings.Contains(rec.Body.String(), `"players":[]`) || !strings.Contains(rec.Body.String(), `"previous":null`) {
 		t.Errorf("GET year board with no options: %d %s (asked %s %d)", rec.Code, rec.Body.String(), f.gotMod, f.gotFmt)
@@ -76,13 +79,13 @@ func TestYearLeaderboardDefaultsAndRefusals(t *testing.T) {
 		"/v1/runs/0/years":                            "bad parameter: run",
 	} {
 		f := &fakeYears{}
-		rec, _ := serve(t, f, path)
+		rec, _ := serve(t, readsOnly{YearReads: f}, path)
 		if got := strings.TrimSpace(rec.Body.String()); rec.Code != http.StatusBadRequest || got != `{"error":"`+msg+`"}` || f.calls != 0 {
 			t.Errorf("GET %s: %d %s; want 400 %q before the store", path, rec.Code, got, msg)
 		}
 	}
 	for _, err := range []error{store.ErrNoHistory, store.ErrRunNotFound} {
-		rec, _ := serve(t, &fakeYears{err: err}, "/v1/runs/7/years/2019/leaderboard")
+		rec, _ := serve(t, readsOnly{YearReads: &fakeYears{err: err}}, "/v1/runs/7/years/2019/leaderboard")
 		if rec.Code != http.StatusNotFound || rec.Header().Get("Cache-Control") != "no-store" {
 			t.Errorf("GET year board with %v: %d %q; want 404 no-store", err, rec.Code, rec.Header().Get("Cache-Control"))
 		}
@@ -91,7 +94,7 @@ func TestYearLeaderboardDefaultsAndRefusals(t *testing.T) {
 
 func TestYears(t *testing.T) {
 	f := &fakeYears{years: []store.Year{{Year: 2026}, {Year: 2025, Champion: true}}}
-	rec, _ := serve(t, f, "/v1/runs/7/years")
+	rec, _ := serve(t, readsOnly{YearReads: f}, "/v1/runs/7/years")
 	want := `{"run_id":7,"years":[{"champion":false,"year":2026},{"champion":true,"year":2025}]}`
 	if got := strings.TrimSpace(rec.Body.String()); rec.Code != http.StatusOK || got != want {
 		t.Errorf("GET years: %d %s", rec.Code, got)
@@ -99,7 +102,7 @@ func TestYears(t *testing.T) {
 	if rec.Header().Get("Cache-Control") != "public, max-age=300" {
 		t.Errorf("GET years: Cache-Control %q, want five minutes", rec.Header().Get("Cache-Control"))
 	}
-	rec, _ = serve(t, &fakeYears{err: store.ErrRunNotFound}, "/v1/runs/9/years")
+	rec, _ = serve(t, readsOnly{YearReads: &fakeYears{err: store.ErrRunNotFound}}, "/v1/runs/9/years")
 	if rec.Code != http.StatusNotFound {
 		t.Errorf("GET years of an unknown run: %d, want 404", rec.Code)
 	}
@@ -116,7 +119,7 @@ func yearCSVBoard() store.YearBoard {
 
 func TestLeaderboardCSVForAYear(t *testing.T) {
 	f := &fakeYears{board: yearCSVBoard()}
-	rec, _ := serve(t, f, "/v1/runs/7/leaderboard.csv?year=2024&model=whr&format=2")
+	rec, _ := serve(t, readsOnly{YearReads: f}, "/v1/runs/7/leaderboard.csv?year=2024&model=whr&format=2")
 	if rec.Code != http.StatusOK || f.year != 2024 || f.gotMod != "whr" || f.gotFmt != 2 {
 		t.Fatalf("GET year CSV: %d; asked %d %s %d", rec.Code, f.year, f.gotMod, f.gotFmt)
 	}
@@ -129,7 +132,7 @@ func TestLeaderboardCSVForAYear(t *testing.T) {
 		t.Errorf("Content-Disposition = %q", got)
 	}
 
-	rec, _ = serve(t, &fakeYears{board: yearCSVBoard()}, "/v1/runs/7/leaderboard.csv?year=2024&stats_view=career&status=all")
+	rec, _ = serve(t, readsOnly{YearReads: &fakeYears{board: yearCSVBoard()}}, "/v1/runs/7/leaderboard.csv?year=2024&stats_view=career&status=all")
 	lines = strings.Split(strings.TrimSpace(strings.TrimPrefix(rec.Body.String(), "\xef\xbb\xbf")), "\r\n")
 	if len(lines) != 3 || !strings.HasPrefix(lines[1], "1,bob,,,,,,,1740.00,30.00,1650.00,4,1,3,0,25.0%,Inactive,") ||
 		!strings.HasPrefix(lines[2], "2,ann,,,,,,,1690.00,30.00,1600.00,6,3,2,1,58.3%,Active,") {
@@ -143,12 +146,12 @@ func TestLeaderboardCSVRefusesABadYear(t *testing.T) {
 		"/v1/runs/7/leaderboard.csv?year=2024&stats_view=total": "bad parameter: stats_view",
 	} {
 		f := &fakeYears{}
-		rec, _ := serve(t, f, path)
+		rec, _ := serve(t, readsOnly{YearReads: f}, path)
 		if got := strings.TrimSpace(rec.Body.String()); rec.Code != http.StatusBadRequest || got != `{"error":"`+msg+`"}` || f.calls != 0 {
 			t.Errorf("GET %s: %d %s; want 400 %q before the store", path, rec.Code, got, msg)
 		}
 	}
-	rec, _ := serve(t, &fakeYears{err: store.ErrNoHistory}, "/v1/runs/7/leaderboard.csv?year=2019")
+	rec, _ := serve(t, readsOnly{YearReads: &fakeYears{err: store.ErrNoHistory}}, "/v1/runs/7/leaderboard.csv?year=2019")
 	if rec.Code != http.StatusNotFound {
 		t.Errorf("GET year CSV without history: %d, want 404", rec.Code)
 	}
