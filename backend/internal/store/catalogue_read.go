@@ -454,12 +454,16 @@ func (r *RatingsReader) CatalogueTournament(ctx context.Context, run int64, slug
 	if err != nil {
 		return fail("rated", err)
 	}
+	// The best scores come from the seats; game_lines builds its arrays only for the games shown.
 	rows, err = r.pool.Query(ctx, `
+		WITH top AS (
+		    SELECT g.game_id, max(p.culture) AS best
+		    FROM games g JOIN seats p USING (game_id) JOIN groups gr USING (group_id) JOIN stages st USING (stage_id)
+		    JOIN tournaments s USING (tournament_id) JOIN series t USING (series_id)
+		    WHERE t.slug = $1 AND g.state = 'played'
+		    GROUP BY g.game_id ORDER BY best DESC, g.game_id LIMIT $2)
 		SELECT m.name, m.date, m.players, m.cultures, m.places
-		FROM game_lines m JOIN series t USING (series_id)
-		WHERE t.slug = $1 AND m.state = 'played'
-		ORDER BY (SELECT max(c) FROM unnest(m.cultures) c) DESC, m.game_id
-		LIMIT $2`, slug, recordsShown)
+		FROM top JOIN game_lines m USING (game_id) ORDER BY top.best DESC, top.game_id`, slug, recordsShown)
 	if err != nil {
 		return fail("game records", err)
 	}
@@ -475,8 +479,11 @@ func (r *RatingsReader) CatalogueTournament(ctx context.Context, run int64, slug
 
 	// Every player of the shown tournament, for a search box's suggestions.
 	rows, err = r.pool.Query(ctx, `
-		SELECT DISTINCT p.player_name FROM (`+shownGames+`) g JOIN seats p ON p.game_id = g.match_id
-		ORDER BY p.player_name`, slug, "", "", "")
+		SELECT DISTINCT p.player_name
+		FROM games g JOIN seats p USING (game_id) JOIN groups gr USING (group_id) JOIN stages st USING (stage_id)
+		JOIN tournaments s USING (tournament_id) JOIN series t USING (series_id)
+		WHERE t.slug = $1 AND (t.visible OR EXISTS (SELECT 1 FROM ranking_series rt WHERE rt.series_id = t.series_id))
+		ORDER BY p.player_name`, slug)
 	if err != nil {
 		return fail("players", err)
 	}
