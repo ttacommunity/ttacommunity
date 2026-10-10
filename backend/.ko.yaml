@@ -7,7 +7,3 @@ builds:
     main: ./cmd/api
     env: [CGO_ENABLED=0]
     flags: [-trimpath]
-  - id: worker
-    main: ./cmd/worker
-    env: [CGO_ENABLED=0]
-    flags: [-trimpath]

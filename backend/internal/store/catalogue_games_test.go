@@ -234,6 +234,7 @@ func TestAnUnconfirmedGameIsListedButNotCounted(t *testing.T) {
 	if len(games.Games) != 2 || games.Games[0].State != "unconfirmed" {
 		t.Errorf("games = %+v, want both, the newest unconfirmed", games.Games)
 	}
+	withSpans(t, pool, run)
 	view, err := r.Catalogue(ctx, run)
 	if err != nil {
 		t.Fatalf("Catalogue: %v", err)

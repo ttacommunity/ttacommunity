@@ -17,7 +17,7 @@ backend:
 
 | Path | What |
 |---|---|
-| `backend/` | Go: `cmd/api` (JSON API), `cmd/worker` (timed jobs), `cmd/load` (the data load job), `internal/`, `migrations/` |
+| `backend/` | Go: `cmd/api` (JSON API), `cmd/load` (the data load job), `internal/`, `migrations/` |
 | `backend/api/openapi.yaml` | The API contract. The TS types are generated from it |
 | `engine/` | Python (uv): the rating engine. Runs as a job, not a server |
 | `web/` | Astro + React + TypeScript (pnpm): `site` (public), `admin`, `shared` |
@@ -33,7 +33,7 @@ backend:
 Set-ExecutionPolicy -Scope CurrentUser RemoteSigned
 scripts\install.ps1                         # mise, Go, Node, uv, PostgreSQL 18 (user install; -Service for a Windows service), local databases
 scripts\ratings-db.ps1 ..\ttac-ratings-data\baseline   # load the data
-scripts\dev.ps1                             # api :8080, worker, site :4321, admin :4322
+scripts\dev.ps1                             # api :8080, site :4321, admin :4322
 scripts\test.ps1                            # every test
 ```
 

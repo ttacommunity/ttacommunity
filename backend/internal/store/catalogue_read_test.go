@@ -27,6 +27,7 @@ func TestCatalogueListsEachTournamentWithGames(t *testing.T) {
 		"Friendly game":                           day("2024-08-01"),
 	})
 
+	withSpans(t, pool, run)
 	view, err := NewRatingsReader(asReader(t, pool)).Catalogue(context.Background(), run)
 	if err != nil {
 		t.Fatalf("Catalogue: %v", err)
@@ -56,6 +57,7 @@ func TestCatalogueTournamentGivesSeasonsInOrderWithStagesAndPodium(t *testing.T)
 		t.Fatalf("ReplacePodiums: %v", err)
 	}
 
+	withSpans(t, pool, run)
 	got, err := NewRatingsReader(asReader(t, pool)).CatalogueTournament(ctx, run, "wimbledon")
 	if err != nil {
 		t.Fatalf("CatalogueTournament: %v", err)
@@ -92,6 +94,7 @@ func TestCatalogueTournamentSaysWhatItCallsItsSeasonsAndStages(t *testing.T) {
 		{"wimbledon", "", ""},
 	} {
 		t.Run(tt.slug, func(t *testing.T) {
+			withSpans(t, pool, run)
 			got, err := r.CatalogueTournament(context.Background(), run, tt.slug)
 			if err != nil {
 				t.Fatalf("CatalogueTournament(%q): %v", tt.slug, err)
@@ -111,6 +114,7 @@ func TestCatalogueTournamentRefusesATournamentWithoutGames(t *testing.T) {
 
 	for _, slug := range []string{"no_such_cup", "wimbledon"} {
 		t.Run(slug, func(t *testing.T) {
+			withSpans(t, pool, run)
 			if _, err := r.CatalogueTournament(context.Background(), run, slug); !errors.Is(err, ErrTournamentNotFound) {
 				t.Errorf("CatalogueTournament(%q) = %v, want ErrTournamentNotFound", slug, err)
 			}
@@ -131,6 +135,7 @@ func TestCatalogueListsOnlyRatedCGETournaments(t *testing.T) {
 			Started: date("2020-04-14"), Finished: date("2020-06-27")},
 	)
 
+	withSpans(t, pool, run)
 	view, err := NewRatingsReader(asReader(t, pool)).Catalogue(context.Background(), run)
 	if err != nil {
 		t.Fatalf("Catalogue: %v", err)
@@ -161,6 +166,7 @@ func TestCatalogueShowsAnUnratedTournamentOnlyWhenMadeVisible(t *testing.T) {
 	r := NewRatingsReader(asReader(t, pool))
 	listed := func() []string {
 		t.Helper()
+		withSpans(t, pool, run)
 		view, err := r.Catalogue(ctx, run)
 		if err != nil {
 			t.Fatalf("Catalogue: %v", err)
@@ -178,6 +184,7 @@ func TestCatalogueShowsAnUnratedTournamentOnlyWhenMadeVisible(t *testing.T) {
 	if got, want := listed(), []string{"intermezzo", "57"}; !slices.Equal(got, want) {
 		t.Errorf("listed = %q, want %q: not unrated wimbledon or CGE 56", got, want)
 	}
+	withSpans(t, pool, run)
 	if _, err := r.CatalogueTournament(ctx, run, "wimbledon"); !errors.Is(err, ErrTournamentNotFound) {
 		t.Errorf("CatalogueTournament(unrated, hidden wimbledon) = %v, want ErrTournamentNotFound", err)
 	}
@@ -186,6 +193,7 @@ func TestCatalogueShowsAnUnratedTournamentOnlyWhenMadeVisible(t *testing.T) {
 	if got, want := listed(), []string{"intermezzo", "wimbledon", "57"}; !slices.Equal(got, want) {
 		t.Errorf("listed once wimbledon is visible = %q, want %q", got, want)
 	}
+	withSpans(t, pool, run)
 	if _, err := r.CatalogueTournament(ctx, run, "wimbledon"); err != nil {
 		t.Errorf("CatalogueTournament(visible wimbledon) = %v, want no error", err)
 	}
@@ -200,6 +208,7 @@ func TestCatalogueCountsOnlyPlayedGames(t *testing.T) {
 	})
 	setGameState(t, pool, "Intermezzo S24 - Bronze 1 game 2", "never_played")
 
+	withSpans(t, pool, run)
 	view, err := NewRatingsReader(asReader(t, pool)).Catalogue(context.Background(), run)
 	if err != nil {
 		t.Fatalf("Catalogue: %v", err)
@@ -226,6 +235,7 @@ func TestCatalogueTournamentGivesLeagueChampions(t *testing.T) {
 	addPlacements(t, pool, tournamentcsv.Placement{Series: "intermezzo", Season: 25, Division: "Grandmaster", Player: "dan",
 		Place: 1, Points: ptr(21.0), Reason: "the sheet differs", Source: "the organisers' sheet"})
 
+	withSpans(t, pool, run)
 	got, err := NewRatingsReader(asReader(t, pool)).CatalogueTournament(ctx, run, "intermezzo")
 	if err != nil {
 		t.Fatalf("CatalogueTournament: %v", err)
@@ -265,6 +275,7 @@ func TestCatalogueTournamentLinksEachSeasonToCGE(t *testing.T) {
 		"wimbledon":  {{{Tournament: 4991}}},
 	} {
 		t.Run(slug, func(t *testing.T) {
+			withSpans(t, pool, run)
 			got, err := r.CatalogueTournament(ctx, run, slug)
 			if err != nil {
 				t.Fatalf("CatalogueTournament: %v", err)
@@ -283,6 +294,7 @@ func TestCatalogueTournamentFindsAPlacementForALabelledSeason(t *testing.T) {
 	addPlacements(t, pool, tournamentcsv.Placement{Series: "worlds", Season: 2022, Division: "Final", Player: "Ember_Wolf",
 		Place: 1, Reason: "CGE final standings", Source: "CGE /tournaments/detail/3391/8"})
 
+	withSpans(t, pool, run)
 	got, err := NewRatingsReader(asReader(t, pool)).CatalogueTournament(context.Background(), run, "worlds")
 	if err != nil {
 		t.Fatalf("CatalogueTournament: %v", err)
@@ -306,6 +318,7 @@ func TestCatalogueTournamentGivesATeamPodiumFromItsTopDivision(t *testing.T) {
 	}
 	addPlacements(t, pool, place("Apple", "Dahlia", 36), place("Apple", "Drover", 36), place("Banana", "ann", 40))
 
+	withSpans(t, pool, run)
 	got, err := NewRatingsReader(asReader(t, pool)).CatalogueTournament(context.Background(), run, "nations_league")
 	if err != nil {
 		t.Fatalf("CatalogueTournament: %v", err)
@@ -355,6 +368,7 @@ func TestReplaceCGEStagesLinksSeasonsWithoutMatchedGames(t *testing.T) {
 		"wimbledon":  {{{Tournament: 4991}}},
 	} {
 		t.Run(slug, func(t *testing.T) {
+			withSpans(t, pool, run)
 			cat, err := r.CatalogueTournament(ctx, run, slug)
 			if err != nil {
 				t.Fatalf("CatalogueTournament: %v", err)
@@ -391,6 +405,7 @@ func TestCatalogueTournamentGivesALaddersTopTierWins(t *testing.T) {
 		t.Errorf("ReplaceLadderWins = %+v, want %+v: 3 not a player or not a ladder", got, want)
 	}
 	r := NewRatingsReader(asReader(t, pool))
+	withSpans(t, pool, run)
 	ladder, err := r.CatalogueTournament(ctx, run, "mercurial_ladder")
 	if err != nil {
 		t.Fatalf("CatalogueTournament(mercurial_ladder): %v", err)
@@ -402,6 +417,7 @@ func TestCatalogueTournamentGivesALaddersTopTierWins(t *testing.T) {
 	if diff := cmp.Diff(want, ladder.TopTierWins); diff != "" {
 		t.Errorf("mercurial_ladder top-tier wins (-want +got):\n%s", diff)
 	}
+	withSpans(t, pool, run)
 	league, err := r.CatalogueTournament(ctx, run, "intermezzo")
 	if err != nil {
 		t.Fatalf("CatalogueTournament(intermezzo): %v", err)
@@ -418,6 +434,7 @@ func TestCatalogueTournamentListsItsPlayers(t *testing.T) {
 		"Intermezzo S24 - Bronze 1 game 1": day("2024-01-02"),
 		"Intermezzo S25 - Bronze 2 game 1": day("2024-05-01"),
 	})
+	withSpans(t, pool, run)
 	got, err := NewRatingsReader(asReader(t, pool)).CatalogueTournament(context.Background(), run, "intermezzo")
 	if err != nil {
 		t.Fatalf("CatalogueTournament: %v", err)
@@ -445,6 +462,7 @@ func TestCatalogueTournamentKeepsAPlayOffApartFromItsYear(t *testing.T) {
 		t.Fatalf("ReplaceSeasonNotes = %+v, %v; want 2 written", got, err)
 	}
 
+	withSpans(t, pool, run)
 	got, err := NewRatingsReader(asReader(t, pool)).CatalogueTournament(ctx, run, "worlds")
 	if err != nil {
 		t.Fatalf("CatalogueTournament: %v", err)
@@ -472,6 +490,7 @@ func TestCatalogueTournamentGivesEachEditionsRulesFromCGE(t *testing.T) {
 		tournamentcsv.CGETournament{ID: 4991, Name: "Wimbledon 2024", Status: "finished", Started: date("2024-07-01"), Description: "The second edition.", Tournament: "wimbledon", Season: "2024"},
 		tournamentcsv.CGETournament{ID: 9999, Name: "Wimbledon 2027", Status: "upcoming", Tournament: "wimbledon", Season: "2027"},
 	)
+	withSpans(t, pool, run)
 	got, err := NewRatingsReader(asReader(t, pool)).CatalogueTournament(context.Background(), run, "wimbledon")
 	if err != nil {
 		t.Fatalf("CatalogueTournament: %v", err)
@@ -502,6 +521,7 @@ func TestCatalogueTournamentListsASeasonWithoutGamesInNumberOrder(t *testing.T) 
 		t.Fatalf("SetNote: %v", err)
 	}
 
+	withSpans(t, pool, run)
 	got, err := NewRatingsReader(asReader(t, pool)).CatalogueTournament(ctx, run, "international")
 	if err != nil {
 		t.Fatalf("CatalogueTournament: %v", err)
@@ -531,6 +551,7 @@ func TestCatalogueTournamentShowsAnAdminPodiumOverAnyOther(t *testing.T) {
 		t.Fatalf("SetPodium: %v", err)
 	}
 
+	withSpans(t, pool, run)
 	got, err := NewRatingsReader(asReader(t, pool)).CatalogueTournament(ctx, run, "worlds")
 	if err != nil {
 		t.Fatalf("CatalogueTournament: %v", err)
@@ -551,6 +572,7 @@ func TestCatalogueTournamentGivesTheRegulationsWrittenInAdmin(t *testing.T) {
 	placedOn(t, pool, map[string]time.Time{"Wimbledon 2024 Stage 1 - group 1 game 1": day("2024-07-01")})
 	r := NewRatingsReader(asReader(t, pool))
 
+	withSpans(t, pool, run)
 	got, err := r.CatalogueTournament(ctx, run, "wimbledon")
 	if err != nil {
 		t.Fatalf("CatalogueTournament: %v", err)
@@ -561,6 +583,7 @@ func TestCatalogueTournamentGivesTheRegulationsWrittenInAdmin(t *testing.T) {
 	if err := NewAdminStore(pool).SetRegulations(ctx, "wimbledon", "Best of three."); err != nil {
 		t.Fatalf("SetRegulations: %v", err)
 	}
+	withSpans(t, pool, run)
 	if got, err = r.CatalogueTournament(ctx, run, "wimbledon"); err != nil || got.Regulations != "Best of three." {
 		t.Errorf("regulations = %q, %v; want admin's", got.Regulations, err)
 	}
@@ -577,6 +600,7 @@ func TestCatalogueGivesEachTournamentsCard(t *testing.T) {
 	}
 	r := NewRatingsReader(asReader(t, pool))
 
+	withSpans(t, pool, run)
 	view, err := r.Catalogue(ctx, run)
 	if err != nil {
 		t.Fatalf("Catalogue: %v", err)
@@ -588,6 +612,7 @@ func TestCatalogueGivesEachTournamentsCard(t *testing.T) {
 	if got := view.Tournaments[i].Card; got != want {
 		t.Errorf("card in the list = %+v, want %+v", got, want)
 	}
+	withSpans(t, pool, run)
 	one, err := r.CatalogueTournament(ctx, run, "wimbledon")
 	if err != nil {
 		t.Fatalf("CatalogueTournament: %v", err)
@@ -603,10 +628,12 @@ func TestCatalogueTournamentSaysWhetherItIsRated(t *testing.T) {
 	run := publishedRun(t, pool)
 	placedOn(t, pool, map[string]time.Time{"Wimbledon 2024 Stage 1 - group 1 game 1": day("2024-07-01")})
 	r := NewRatingsReader(asReader(t, pool))
+	withSpans(t, pool, run)
 	if got, err := r.CatalogueTournament(ctx, run, "wimbledon"); err != nil || !got.Rated {
 		t.Errorf("rated = %v, %v; want rated", got.Rated, err)
 	}
 	setTournament(t, pool, "wimbledon", TournamentSettings{Rated: ptr(false), Visible: ptr(true)})
+	withSpans(t, pool, run)
 	if got, err := r.CatalogueTournament(ctx, run, "wimbledon"); err != nil || got.Rated {
 		t.Errorf("rated after leaving the ranking = %v, %v; want not rated", got.Rated, err)
 	}
@@ -625,6 +652,7 @@ func TestCatalogueTournamentGivesItsHighestWinningScores(t *testing.T) {
 	setSeats(t, pool, "%game 3", Seat{"dan", 999}, Seat{"eve", 0})
 	setGameState(t, pool, "%game 3", "never_played")
 
+	withSpans(t, pool, run)
 	got, err := NewRatingsReader(asReader(t, pool)).CatalogueTournament(context.Background(), run, "wimbledon")
 	if err != nil {
 		t.Fatalf("CatalogueTournament: %v", err)
@@ -644,10 +672,12 @@ func TestCatalogueTournamentTakesItsKindFromTheDatabase(t *testing.T) {
 	run := publishedRun(t, pool)
 	placedOn(t, pool, map[string]time.Time{"Wimbledon 2024 Stage 1 - group 1 game 1": day("2024-07-01")})
 	r := NewRatingsReader(asReader(t, pool))
+	withSpans(t, pool, run)
 	if got, err := r.CatalogueTournament(ctx, run, "wimbledon"); err != nil || got.Ladder {
 		t.Errorf("wimbledon as a cup: ladder = %v, %v; want a cup", got.Ladder, err)
 	}
 	setTournament(t, pool, "wimbledon", TournamentSettings{Kind: "ladder"})
+	withSpans(t, pool, run)
 	if got, err := r.CatalogueTournament(ctx, run, "wimbledon"); err != nil || !got.Ladder {
 		t.Errorf("wimbledon made a ladder: ladder = %v, %v; want a ladder", got.Ladder, err)
 	}

@@ -49,16 +49,30 @@ func calibText(rows []CalibrationRow) []string {
 	return out
 }
 
-func TestAnalysisRatingsGivesThePageModelsAndWhoIsActive(t *testing.T) {
+func TestAnalysisRatingsGivesThePageModelsInAFormat(t *testing.T) {
 	pool := migrated(t)
 	r := NewRatingsReader(asReader(t, pool))
-	ctx := context.Background()
 	run := publishedRun(t, pool)
-	addPlayers(t, pool, "ann", "bob", "cy")
+	addPlayers(t, pool, "ann")
 	addRating(t, pool, run, "glicko2_daneo", 0, "ann", ptr(1), 1800)
 	addRating(t, pool, run, "whr_softer", 0, "ann", ptr(2), 1700)
 	addRating(t, pool, run, "glicko2_std_retro", 0, "ann", ptr(1), 1900)
 	addRating(t, pool, run, "glicko2_daneo", 2, "ann", ptr(1), 1500)
+
+	ratings, err := r.AnalysisRatings(context.Background(), run, 0)
+	if err != nil {
+		t.Fatalf("AnalysisRatings: %v", err)
+	}
+	if len(ratings) != 2 || ratings[0].Model != "glicko2_daneo" || ratings[1].Model != "whr_softer" || ratings[0].Opponents != 9 {
+		t.Errorf("ratings = %+v, want ann's two page-model ratings in format 0", ratings)
+	}
+}
+
+func TestActivePlayersPlayedMoreThanTenGamesInTheRunsLastYear(t *testing.T) {
+	pool := migrated(t)
+	r := NewRatingsReader(asReader(t, pool))
+	run := publishedRun(t, pool)
+	addPlayers(t, pool, "ann", "bob", "cy")
 	// In the year to the newest game (2025-09-11): ann 11 games, bob 10 (and one older), cy 11, one a day
 	// after the cutoff; each opponent otherwise plays too few to count.
 	start := day("2025-09-01")
@@ -72,12 +86,9 @@ func TestAnalysisRatingsGivesThePageModelsAndWhoIsActive(t *testing.T) {
 	}
 	addGame(t, pool, run, "2024-09-11", "Cup", Seat{"cy", 9}, Seat{"x3", 5})
 
-	ratings, active, err := r.AnalysisRatings(ctx, run, 0)
+	active, err := r.ActivePlayers(context.Background(), run)
 	if err != nil {
-		t.Fatalf("AnalysisRatings: %v", err)
-	}
-	if len(ratings) != 2 || ratings[0].Model != "glicko2_daneo" || ratings[1].Model != "whr_softer" || ratings[0].Opponents != 9 {
-		t.Errorf("ratings = %+v, want ann's two page-model ratings in format 0", ratings)
+		t.Fatalf("ActivePlayers: %v", err)
 	}
 	if fmt.Sprint(active) != "map[ann:true cy:true]" {
 		t.Errorf("active = %v, want ann and cy (more than 10 games from 2024-09-11 to 2025-09-11)", active)

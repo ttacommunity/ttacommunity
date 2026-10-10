@@ -1,4 +1,4 @@
-# Start the api, worker and site natively on Windows, against the local
+# Start the api, site and admin natively on Windows, against the local
 # Postgres service, and check that they answer. Ctrl-C stops all three.
 # Usage: scripts\dev.ps1   (after scripts\install.ps1)
 $ErrorActionPreference = 'Stop'
@@ -29,7 +29,6 @@ if ($installed -ne 0) { throw 'dev.ps1: pnpm install failed' }
 
 $procs = @(
     Start-Process go -ArgumentList 'run', './cmd/api' -WorkingDirectory (Join-Path $root 'backend') -NoNewWindow -PassThru
-    Start-Process go -ArgumentList 'run', './cmd/worker' -WorkingDirectory (Join-Path $root 'backend') -NoNewWindow -PassThru
     # --ignore-lock stops astro detaching into a daemon when an AI agent runs this;
     # --host: on Windows astro otherwise listens on ::1 only.
     Start-Process corepack -ArgumentList 'pnpm', 'exec', 'astro', 'dev', '--ignore-lock', '--host', '127.0.0.1' -WorkingDirectory (Join-Path $root 'web\site') -NoNewWindow -PassThru
@@ -54,7 +53,7 @@ try {
     $siteUp = Wait-Up 'site' 'http://127.0.0.1:4321/'
     $adminUp = Wait-Up 'admin' 'http://127.0.0.1:4322/'
     if (-not ($apiUp -and $siteUp -and $adminUp)) { throw 'dev.ps1: something did not start' }
-    Write-Host 'dev.ps1: running. Ctrl-C stops api, worker, site and admin.'
+    Write-Host 'dev.ps1: running. Ctrl-C stops api, site and admin.'
     Wait-Process -Id ($procs | ForEach-Object Id)
 } finally {
     # go run and corepack start child processes, so stop each whole tree.

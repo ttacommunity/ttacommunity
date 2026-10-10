@@ -146,37 +146,27 @@ type EditionRules struct {
 	Description   string
 }
 
-// placedSeats is every placed game's seats, one row per player, with its
-// tournament, season and stage, for tournaments the site shows: rated (in a
-// ranking) or made visible. Never-played games are not counted.
-const placedSeats = `
-	SELECT t.slug, t.name, s.tournament_id AS season_id, s.label AS season, st.stage_id, st.label AS stage,
-	       m.game_id AS match_id, m.date, p.player_name AS player
-	FROM games m
-	JOIN seats p USING (game_id)
-	JOIN groups gr USING (group_id)
-	JOIN stages st USING (stage_id)
-	JOIN tournaments s USING (tournament_id)
-	JOIN series t USING (series_id)
-	WHERE m.state = 'played'
-	  AND (t.visible OR EXISTS (SELECT 1 FROM ranking_series rt WHERE rt.series_id = t.series_id))`
-
 // Catalogue returns every shown tournament with placed games, by name, with
 // the rankings it is in, and CGE's shown tournaments, newest first, for a
-// published run. Shown is rated or made visible; unplaced games count nowhere.
+// published run. Shown is rated or made visible; the games are counted as the
+// run counted them (its catalogue spans), and unplaced games count nowhere.
 func (r *RatingsReader) Catalogue(ctx context.Context, run int64) (CatalogueView, error) {
 	if err := r.requirePublished(ctx, run); err != nil {
 		return CatalogueView{}, err
 	}
 	rows, err := r.pool.Query(ctx, `
-		WITH g AS (`+placedSeats+`)
-		SELECT slug, name, count(DISTINCT season_id), count(DISTINCT match_id), count(DISTINCT player), min(date), max(date),
+		SELECT t.slug, t.name,
+		       (SELECT count(*) FROM catalogue_spans se WHERE se.run_id = $1 AND se.series_id = t.series_id
+		          AND se.tournament_id IS NOT NULL AND se.stage_id IS NULL),
+		       s.games, s.players, s.first_game, s.last_game,
 		       array(SELECT k.slug FROM ranking_series rt JOIN rankings k USING (ranking_id)
-		             JOIN series t USING (series_id) WHERE t.slug = g.slug ORDER BY k.slug),
+		             WHERE rt.series_id = t.series_id ORDER BY k.slug),
 		       coalesce(c.icon, ''), coalesce(c.tagline, ''), coalesce(c.summary, ''),
 		       coalesce(c.subtitle, ''), coalesce(c.cadence, '')
-		FROM g LEFT JOIN tournament_cards c ON c.tournament = g.slug
-		GROUP BY slug, name, c.icon, c.tagline, c.summary, c.subtitle, c.cadence ORDER BY name, slug`)
+		FROM catalogue_spans s JOIN series t USING (series_id) LEFT JOIN tournament_cards c ON c.tournament = t.slug
+		WHERE s.run_id = $1 AND s.tournament_id IS NULL
+		  AND (t.visible OR EXISTS (SELECT 1 FROM ranking_series rt WHERE rt.series_id = t.series_id))
+		ORDER BY t.name, t.slug`, run)
 	if err != nil {
 		return CatalogueView{}, fmt.Errorf("reading the catalogue: %w", err)
 	}
@@ -211,7 +201,8 @@ func (r *RatingsReader) Catalogue(ctx context.Context, run int64) (CatalogueView
 
 // CatalogueTournament returns a tournament's seasons in order of their first
 // game, each with its stages (in the same order) and its recorded podium,
-// for a published run. A tournament without placed games, or hidden, is ErrTournamentNotFound.
+// for a published run, counted as the run counted them. A tournament without
+// placed games, or hidden, is ErrTournamentNotFound.
 func (r *RatingsReader) CatalogueTournament(ctx context.Context, run int64, slug string) (CatalogueTournament, error) {
 	if err := r.requirePublished(ctx, run); err != nil {
 		return CatalogueTournament{}, err
@@ -227,9 +218,11 @@ func (r *RatingsReader) CatalogueTournament(ctx context.Context, run int64, slug
 		return fail("kind", err)
 	}
 	rows, err := r.pool.Query(ctx, `
-		WITH g AS (`+placedSeats+` AND t.slug = $1)
-		SELECT name, season_id, season, count(DISTINCT match_id), count(DISTINCT player), min(date), max(date)
-		FROM g GROUP BY name, season_id, season ORDER BY min(date), season`, slug)
+		SELECT t.name, s.tournament_id, se.label, s.games, s.players, s.first_game, s.last_game
+		FROM catalogue_spans s JOIN series t USING (series_id) JOIN tournaments se ON se.tournament_id = s.tournament_id
+		WHERE s.run_id = $2 AND t.slug = $1 AND s.stage_id IS NULL
+		  AND (t.visible OR EXISTS (SELECT 1 FROM ranking_series rt WHERE rt.series_id = t.series_id))
+		ORDER BY s.first_game, se.label`, slug, run)
 	if err != nil {
 		return fail("seasons", err)
 	}
@@ -273,9 +266,11 @@ func (r *RatingsReader) CatalogueTournament(ctx context.Context, run int64, slug
 	}
 
 	rows, err = r.pool.Query(ctx, `
-		WITH g AS (`+placedSeats+` AND t.slug = $1)
-		SELECT season_id, stage, count(DISTINCT match_id), count(DISTINCT player), min(date), max(date)
-		FROM g GROUP BY season_id, stage_id, stage ORDER BY min(date), stage`, slug)
+		SELECT s.tournament_id, st.label, s.games, s.players, s.first_game, s.last_game
+		FROM catalogue_spans s JOIN series t USING (series_id) JOIN stages st ON st.stage_id = s.stage_id
+		WHERE s.run_id = $2 AND t.slug = $1
+		  AND (t.visible OR EXISTS (SELECT 1 FROM ranking_series rt WHERE rt.series_id = t.series_id))
+		ORDER BY s.first_game, st.label`, slug, run)
 	if err != nil {
 		return fail("stages", err)
 	}
@@ -459,12 +454,16 @@ func (r *RatingsReader) CatalogueTournament(ctx context.Context, run int64, slug
 	if err != nil {
 		return fail("rated", err)
 	}
+	// The best scores come from the seats; game_lines builds its arrays only for the games shown.
 	rows, err = r.pool.Query(ctx, `
+		WITH top AS (
+		    SELECT g.game_id, max(p.culture) AS best
+		    FROM games g JOIN seats p USING (game_id) JOIN groups gr USING (group_id) JOIN stages st USING (stage_id)
+		    JOIN tournaments s USING (tournament_id) JOIN series t USING (series_id)
+		    WHERE t.slug = $1 AND g.state = 'played'
+		    GROUP BY g.game_id ORDER BY best DESC, g.game_id LIMIT $2)
 		SELECT m.name, m.date, m.players, m.cultures, m.places
-		FROM game_lines m JOIN series t USING (series_id)
-		WHERE t.slug = $1 AND m.state = 'played'
-		ORDER BY (SELECT max(c) FROM unnest(m.cultures) c) DESC, m.game_id
-		LIMIT $2`, slug, recordsShown)
+		FROM top JOIN game_lines m USING (game_id) ORDER BY top.best DESC, top.game_id`, slug, recordsShown)
 	if err != nil {
 		return fail("game records", err)
 	}
@@ -480,8 +479,11 @@ func (r *RatingsReader) CatalogueTournament(ctx context.Context, run int64, slug
 
 	// Every player of the shown tournament, for a search box's suggestions.
 	rows, err = r.pool.Query(ctx, `
-		SELECT DISTINCT p.player_name FROM (`+shownGames+`) g JOIN seats p ON p.game_id = g.match_id
-		ORDER BY p.player_name`, slug, "", "", "")
+		SELECT DISTINCT p.player_name
+		FROM games g JOIN seats p USING (game_id) JOIN groups gr USING (group_id) JOIN stages st USING (stage_id)
+		JOIN tournaments s USING (tournament_id) JOIN series t USING (series_id)
+		WHERE t.slug = $1 AND (t.visible OR EXISTS (SELECT 1 FROM ranking_series rt WHERE rt.series_id = t.series_id))
+		ORDER BY p.player_name`, slug)
 	if err != nil {
 		return fail("players", err)
 	}

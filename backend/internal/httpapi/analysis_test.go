@@ -43,10 +43,15 @@ func (f *fakeAnalysis) Calibration(_ context.Context, run int64) ([]store.Calibr
 	return f.calib, f.err
 }
 
-func (f *fakeAnalysis) AnalysisRatings(_ context.Context, run int64, format int) ([]store.ModelRating, map[string]bool, error) {
+func (f *fakeAnalysis) AnalysisRatings(_ context.Context, run int64, format int) ([]store.ModelRating, error) {
 	f.calls++
 	f.gotRun, f.gotFmt = run, format
-	return f.ratings, f.active, f.err
+	return f.ratings, f.err
+}
+
+func (f *fakeAnalysis) ActivePlayers(_ context.Context, run int64) (map[string]bool, error) {
+	f.gotRun = run
+	return f.active, f.err
 }
 
 func TestCalibrationParsesEachRowsBins(t *testing.T) {

@@ -458,7 +458,8 @@ func TestEveryReaderRefusesAnUnpublishedRun(t *testing.T) {
 	r := NewRatingsReader(asReader(t, pool))
 	readers := map[string]func() error{
 		"Calibration":     func() error { _, err := r.Calibration(ctx, run); return err },
-		"AnalysisRatings": func() error { _, _, err := r.AnalysisRatings(ctx, run, 0); return err },
+		"AnalysisRatings": func() error { _, err := r.AnalysisRatings(ctx, run, 0); return err },
+		"ActivePlayers":   func() error { _, err := r.ActivePlayers(ctx, run); return err },
 		"ComparedPlayers": func() error { _, err := r.ComparedPlayers(ctx, run, 0, nil); return err },
 		"Activity":        func() error { _, err := r.Activity(ctx, run, day("2026-01-01")); return err },
 		"Catalogue":       func() error { _, err := r.Catalogue(ctx, run); return err },
