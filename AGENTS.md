@@ -209,7 +209,9 @@ Both private to the `ttacommunity` organisation; ask a maintainer for access.
 - Tournament results are derived from matches, with organisers' recorded
   rulings applied on top and the derived result kept visible
 - Python 3.12 via uv; `uv run pytest`, `uv run ruff check .`,
-  `uv run ruff format .`. Slow tests are marked `slow` and run on `main`.
+  `uv run ruff format .`, `uv run mypy`. mypy checks our code (`data/`,
+  `run.py`, `progress.py`), not upstream's `models/`: fix a finding in our
+  code, never in the math. Slow tests are marked `slow` and run on `main`.
   Tests that touch the database require `TEST_DATABASE_URL` (which `scripts/test.ps1`
   and `scripts/test.sh` set automatically); without it, those tests fail
 - `tests/` mirrors the package: one `test_<module>.py` per module

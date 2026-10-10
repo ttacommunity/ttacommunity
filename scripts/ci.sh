@@ -126,6 +126,7 @@ if need uv "the engine"; then
   if full; then
     run uv run --frozen ruff check .
     run uv run --frozen ruff format --check .
+    run uv run --frozen mypy
   fi
   # No skip without a database: the tests fail on a missing TEST_DATABASE_URL.
   start_test_db || fail "engine tests: no database"
