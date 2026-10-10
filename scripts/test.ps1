@@ -31,6 +31,7 @@ Run-Step web 'web: install' { corepack pnpm install --frozen-lockfile --silent }
 Run-Step web 'web: tests' { corepack pnpm test }
 Run-Step infra/access-oidc 'sign-in worker: install' { npm ci --omit=dev --ignore-scripts --no-audit --no-fund --silent }
 Run-Step infra/access-oidc 'sign-in worker: tests' { npm test }
+Run-Step infra/build-notifier 'build notifier: tests' { npm test }
 
 Write-Host "`nNot covered here:"
 Write-Host '  - Go race detector (needs a C compiler on Windows; Linux CI runs it)'

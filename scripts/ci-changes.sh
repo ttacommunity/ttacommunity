@@ -13,8 +13,8 @@ declare -A paths=(
   [go]='^backend/'
   # The engine's tests apply the migrations and share cases with the Go port.
   [engine]='^(engine/|backend/migrations/|backend/internal/ratingdelta/testdata/)'
-  # The TS types are generated from the spec; the Access worker's tests run here too.
-  [web]='^(web/|backend/api/openapi\.yaml$|checks/csp-inline\.mjs$|infra/access-oidc/)'
+  # The TS types are generated from the spec; the infra workers' tests run here too.
+  [web]='^(web/|backend/api/openapi\.yaml$|checks/csp-inline\.mjs$|infra/)'
 )
 
 if [ -z "$base" ]; then
