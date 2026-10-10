@@ -8,6 +8,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"log/slog"
 	"net/http"
 	"time"
@@ -58,11 +59,11 @@ type Ratings interface {
 }
 
 // NewMux returns the API's handler with every route in the spec registered. Admin routes go through
-// the admin gate, without CORS; with admins nil they refuse every request.
+// the admin gate, without CORS; with admins nil they refuse every request. A panic answers 500.
 func NewMux(ratings Ratings, admins Admins, log *slog.Logger) http.Handler {
 	mux := http.NewServeMux()
 	registerRoutes(mux, ratings, admins, log)
-	return routeAdmin(publicCORS(mux), adminGate(mux, admins, log))
+	return recoverPanics(routeAdmin(publicCORS(mux), adminGate(mux, admins, log)), log)
 }
 
 func registerRoutes(router ServeMux, ratings Ratings, admins Admins, log *slog.Logger) {
@@ -78,6 +79,25 @@ func registerRoutes(router ServeMux, ratings Ratings, admins Admins, log *slog.L
 func publicCORS(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Access-Control-Allow-Origin", "*")
+		next.ServeHTTP(w, r)
+	})
+}
+
+// recoverPanics answers a handler's panic with a 500 and logs it by route.
+// Left to net/http, the panic is logged as plain text with the client's IP.
+// http.ErrAbortHandler is re-panicked, so net/http still aborts the response.
+func recoverPanics(next http.Handler, log *slog.Logger) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		defer func() {
+			v := recover()
+			if v == http.ErrAbortHandler {
+				panic(v)
+			}
+			if v != nil {
+				log.Error("handler panicked", "route", r.Pattern, "panic", fmt.Sprint(v))
+				writeError(w, http.StatusInternalServerError, "internal error")
+			}
+		}()
 		next.ServeHTTP(w, r)
 	})
 }

@@ -451,6 +451,84 @@ func TestErrorsLogTheRouteNotThePath(t *testing.T) {
 	}
 }
 
+func TestRecoverPanics(t *testing.T) {
+	tests := []struct {
+		name     string
+		handler  http.HandlerFunc
+		wantCode int
+		wantLog  string
+	}{
+		{"panic with an error", func(http.ResponseWriter, *http.Request) { panic(errors.New("kaboom")) }, http.StatusInternalServerError, "kaboom"},
+		{"panic with a string", func(http.ResponseWriter, *http.Request) { panic("kaboom") }, http.StatusInternalServerError, "kaboom"},
+		{"no panic", func(w http.ResponseWriter, _ *http.Request) { w.WriteHeader(http.StatusTeapot) }, http.StatusTeapot, ""},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			mux := http.NewServeMux()
+			mux.Handle("GET /boom/{name}", tt.handler)
+			var buf bytes.Buffer
+			h := recoverPanics(mux, slog.New(slog.NewJSONHandler(&buf, nil)))
+			req := httptest.NewRequest(http.MethodGet, "/boom/Someplayer", nil)
+			req.RemoteAddr = "203.0.113.9:4000"
+			rec := httptest.NewRecorder()
+
+			h.ServeHTTP(rec, req)
+
+			if rec.Code != tt.wantCode {
+				t.Errorf("code = %d, want %d", rec.Code, tt.wantCode)
+			}
+			logs := buf.String()
+			if tt.wantLog == "" {
+				if logs != "" {
+					t.Errorf("log = %q, want none", logs)
+				}
+				return
+			}
+			wantJSON(t, rec.Body.Bytes(), "error", `"internal error"`)
+			if !strings.Contains(logs, `"route":"GET /boom/{name}"`) || !strings.Contains(logs, tt.wantLog) {
+				t.Errorf("log = %q, want the route and %q", logs, tt.wantLog)
+			}
+			if strings.Contains(logs, "Someplayer") || strings.Contains(logs, "203.0.113.9") {
+				t.Errorf("log = %q, carries the path or the client IP", logs)
+			}
+		})
+	}
+}
+
+type panickingRatings struct{ fakeRatings }
+
+func (*panickingRatings) CurrentRun(context.Context) (store.PublishedRun, error) {
+	panic("kaboom")
+}
+
+func TestTheAPIRecoversAPanicByRoute(t *testing.T) {
+	rec, logs := serve(t, &panickingRatings{}, "/v1/runs/current")
+
+	if rec.Code != http.StatusInternalServerError {
+		t.Errorf("code = %d, want %d", rec.Code, http.StatusInternalServerError)
+	}
+	if !strings.Contains(logs, `"route":"GET /v1/runs/current"`) {
+		t.Errorf("log = %q, want the route", logs)
+	}
+}
+
+func TestRecoverPanicsLetsAnAbortThrough(t *testing.T) {
+	var buf bytes.Buffer
+	h := recoverPanics(http.HandlerFunc(func(http.ResponseWriter, *http.Request) {
+		panic(http.ErrAbortHandler)
+	}), slog.New(slog.NewJSONHandler(&buf, nil)))
+	defer func() {
+		if v := recover(); v != http.ErrAbortHandler {
+			t.Errorf("recovered %v, want http.ErrAbortHandler re-panicked", v)
+		}
+		if buf.Len() != 0 {
+			t.Errorf("log = %q, want none", buf.String())
+		}
+	}()
+
+	h.ServeHTTP(httptest.NewRecorder(), httptest.NewRequest(http.MethodGet, "/", nil))
+}
+
 func TestHistory(t *testing.T) {
 	previous := time.Date(2026, 7, 31, 0, 0, 0, 0, time.UTC)
 	may := time.Date(2026, 5, 1, 0, 0, 0, 0, time.UTC)
