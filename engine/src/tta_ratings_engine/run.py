@@ -12,6 +12,7 @@ import os
 import signal
 import time
 from concurrent.futures import FIRST_COMPLETED, ProcessPoolExecutor, wait
+from datetime import UTC, datetime
 
 import psycopg
 from psycopg.types.json import Jsonb
@@ -244,9 +245,11 @@ def stop_on_sigterm():
 
 def run(
     conn, engine_version, *, formats=FORMATS, log=print, make_current=False, tournaments_only=False,
-    workers=1, url=None, ranking="community",
+    workers=1, url=None, ranking="community", clock=lambda: datetime.now(UTC),
 ):  # fmt: skip
     """Computes a run of a ranking (its tournaments' games) and returns its run_id.
+
+    The run records when it started, finished and was published from clock.
 
     With tournaments_only, it copies the current run's ratings and
     calibration and recomputes only tournament results and titles, for
@@ -291,9 +294,9 @@ def run(
                 )
             source = row["run_id"]
         run_id = conn.execute(
-            "INSERT INTO rating_runs (engine_version, input_fingerprint, copied_from, ranking_id) "
-            "VALUES (%s, %s, %s, %s) RETURNING run_id",
-            (engine_version, fingerprint, source, ranking_id),
+            "INSERT INTO rating_runs (engine_version, input_fingerprint, copied_from, ranking_id, started_at) "
+            "VALUES (%s, %s, %s, %s, %s) RETURNING run_id",
+            (engine_version, fingerprint, source, ranking_id, clock()),
         ).fetchone()["run_id"]
     if source is None:
         log(
@@ -320,16 +323,16 @@ def run(
         conn.rollback()
         with conn.transaction():
             _record_rows(conn, run_id)
-            _finish(conn, run_id, "failed")
+            _finish(conn, run_id, "failed", clock())
         log(f"run {run_id}: failed")
         raise
 
     with conn.transaction():
         _record_stats(conn, run_id)
         _record_rows(conn, run_id)
-        _finish(conn, run_id, "complete")
+        _finish(conn, run_id, "complete", clock())
         if make_current:
-            _publish(conn, run_id)
+            _publish(conn, run_id, clock())
     close_progress()
     log(f"run {run_id}: complete" + (", and now current" if make_current else ""))
     return run_id
@@ -647,14 +650,14 @@ def _record_rows(conn, run_id):
     )
 
 
-def _finish(conn, run_id, status):
+def _finish(conn, run_id, status, at):
     conn.execute(
-        "UPDATE rating_runs SET status = %s, finished_at = now() WHERE run_id = %s",
-        (status, run_id),
+        "UPDATE rating_runs SET status = %s, finished_at = %s WHERE run_id = %s",
+        (status, at, run_id),
     )
 
 
-def _publish(conn, run_id):
+def _publish(conn, run_id, at):
     conn.execute(
         "INSERT INTO current_run (ranking_id, run_id) "
         "SELECT ranking_id, run_id FROM rating_runs WHERE run_id = %s "
@@ -662,7 +665,7 @@ def _publish(conn, run_id):
         (run_id,),
     )
     conn.execute(
-        "UPDATE rating_runs SET published_at = now() WHERE run_id = %s", (run_id,)
+        "UPDATE rating_runs SET published_at = %s WHERE run_id = %s", (at, run_id)
     )
 
 

@@ -40,12 +40,12 @@ spec:
               type: RuntimeDefault
           containers:
             - name: engine
-              image: ghcr.io/ttacommunity/ttacommunity/engine:sha-41d48214@sha256:7fc6f442979b1f842f556c9119db043fd204e5e9af462c969b56ce35835b1c6f
+              image: ghcr.io/ttacommunity/ttacommunity/engine:sha-ee4304bd@sha256:2071d694d71e1f3f327134ca0a9a47b1736f6652c31c384138dbad3000025046
               args: [-m, tta_ratings_engine.run, --workers, "4"]
               env:
                 # The commit the image was built from.
                 - name: ENGINE_VERSION
-                  value: "41d48214"
+                  value: "ee4304bd"
                 - name: RATINGS_DATABASE_URL
                   valueFrom:
                     secretKeyRef:

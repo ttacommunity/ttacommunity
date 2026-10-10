@@ -2,7 +2,7 @@ import multiprocessing
 import os
 import signal
 import sys
-from datetime import date
+from datetime import UTC, date, datetime, timedelta
 
 import pytest
 
@@ -301,21 +301,22 @@ def test_a_failed_run_keeps_the_steps_it_finished(conn, db_url, add_match, monke
 
 def test_a_run_records_how_long_it_took(conn, add_match, monkeypatch):
     season(add_match)
+    now = [datetime(2026, 1, 1, 12, 0, tzinfo=UTC)]
     real = runner.derive_tournament_badges
 
     def slow(**kw):
-        conn.execute("SELECT pg_sleep(1.1)")
+        now[0] += timedelta(minutes=7, seconds=30)
         return real(**kw)
 
     monkeypatch.setattr(runner, "derive_tournament_badges", slow)
 
-    run_id = run(conn, "v-test", formats=[2], log=lambda _: None)
+    run_id = run(conn, "v-test", formats=[2], log=lambda _: None, clock=lambda: now[0])
 
     took = conn.execute(
-        "SELECT extract(epoch FROM finished_at - started_at) AS s FROM rating_runs WHERE run_id = %s",
+        "SELECT finished_at - started_at AS took FROM rating_runs WHERE run_id = %s",
         (run_id,),
-    ).fetchone()["s"]
-    assert took >= 1.1
+    ).fetchone()["took"]
+    assert took == timedelta(minutes=7, seconds=30)
 
 
 def rows_of(conn, table, run_id):
