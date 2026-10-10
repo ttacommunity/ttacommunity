@@ -105,3 +105,24 @@ func TestReadRefusesAnotherHeader(t *testing.T) {
 		t.Error("Read with another header: no error, want one")
 	}
 }
+
+func FuzzRead(f *testing.F) {
+	f.Add(header)
+	f.Add(header + row(5, 1, "ann", "1", "181.0", "finished") + row(5, 2, "bob(BAN)", "2", "120.5", "finished"))
+	f.Add(header + row(6, 1, "ann", "", "-9", "resigned") + row(6, 2, "bob", "", "-8", "resigned") + row(6, 3, "cy", "", "", "timed out"))
+	f.Add(header + row(7, 1, "ann", "", "", "") + row(7, 1, "ann", "", "", ""))
+	f.Fuzz(func(t *testing.T, in string) {
+		got, err := Read("x.csv", strings.NewReader(in))
+		if err != nil {
+			return
+		}
+		if n := len(got.Seats) + len(got.Refused); n != got.Rows {
+			t.Errorf("seats + refused = %d, want rows %d", n, got.Rows)
+		}
+		for _, g := range Games(got.Seats) {
+			if places := Places(g.Seats); len(places) != len(g.Seats) {
+				t.Errorf("session %d: %d places for %d seats", g.SessionID, len(places), len(g.Seats))
+			}
+		}
+	})
+}
