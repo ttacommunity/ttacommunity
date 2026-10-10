@@ -1,0 +1,84 @@
+# Weekly: fail when a dependency has a known vulnerability, so a new advisory
+# never fails an unrelated pull request. A failure means: bump that dependency.
+
+name: vulns
+
+on:
+  schedule:
+    - cron: '41 6 * * 1'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+defaults:
+  run:
+    # bash runs with -eo pipefail; the container's default sh hides a failure before a pipe.
+    shell: bash
+
+env:
+  MISE_VERSION: v2026.9.14
+  MISE_YES: '1'
+  COREPACK_ENABLE_DOWNLOAD_PROMPT: '0'
+  # The checkout belongs to another user than the job container's root.
+  GIT_CONFIG_COUNT: '1'
+  GIT_CONFIG_KEY_0: safe.directory
+  GIT_CONFIG_VALUE_0: '*'
+
+jobs:
+  go:
+    runs-on: ${{ vars.RUNNER_AMD64 || 'ubuntu-24.04' }}
+    container: docker.io/library/debian:trixie-slim@sha256:a99cfc517144bc59b1978475ec53b46ecabec7e43635402ee5b77cc54cd1b20a
+    env:
+      # govulncheck peaks near 1.2 GB unchecked and about 850 MB with this; a job gets 1 GiB.
+      GOMEMLIMIT: 600MiB
+    steps:
+      - run: apt-get update -qq && apt-get install -y -qq --no-install-recommends bash ca-certificates curl git xz-utils >/dev/null
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: tools
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          scripts/install-mise.sh "$MISE_VERSION" /usr/local/bin
+          mise trust && mise install go && mise install go:golang.org/x/vuln/cmd/govulncheck
+      - run: cd backend && PATH="$HOME/.local/share/mise/shims:$PATH" govulncheck ./...
+
+  engine:
+    runs-on: ${{ vars.RUNNER_AMD64 || 'ubuntu-24.04' }}
+    container: docker.io/library/debian:trixie-slim@sha256:a99cfc517144bc59b1978475ec53b46ecabec7e43635402ee5b77cc54cd1b20a
+    steps:
+      - run: apt-get update -qq && apt-get install -y -qq --no-install-recommends bash ca-certificates curl git xz-utils >/dev/null
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: tools
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          scripts/install-mise.sh "$MISE_VERSION" /usr/local/bin
+          mise trust && mise install uv pipx:pip-audit
+      - run: |
+          export PATH="$HOME/.local/share/mise/shims:$PATH"
+          cd engine && uv export --frozen --no-dev --no-emit-project | pip-audit --strict --require-hashes --disable-pip -r /dev/stdin
+
+  web:
+    runs-on: ${{ vars.RUNNER_AMD64 || 'ubuntu-24.04' }}
+    container: docker.io/library/debian:trixie-slim@sha256:a99cfc517144bc59b1978475ec53b46ecabec7e43635402ee5b77cc54cd1b20a
+    steps:
+      - run: apt-get update -qq && apt-get install -y -qq --no-install-recommends bash ca-certificates curl git xz-utils >/dev/null
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: tools
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          scripts/install-mise.sh "$MISE_VERSION" /usr/local/bin
+          mise trust && mise install node
+      - name: site and admin
+        run: cd web && PATH="$HOME/.local/share/mise/shims:$PATH" corepack pnpm audit --prod
+      - name: access-oidc
+        if: ${{ !cancelled() }}
+        run: cd infra/access-oidc && PATH="$HOME/.local/share/mise/shims:$PATH" npm audit --omit=dev
