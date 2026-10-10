@@ -17,7 +17,7 @@ coding agents: [`AGENTS.md`](AGENTS.md).
 
 | Directory | What | Language |
 |---|---|---|
-| `backend/` | `cmd/api` (the JSON API), `cmd/load` (the data load job), `cmd/worker` (timed jobs, a stub so far), `internal/`, `migrations/`, and `api/openapi.yaml` (the API contract) | Go |
+| `backend/` | `cmd/api` (the JSON API), `cmd/load` (the data load job), `internal/`, `migrations/`, and `api/openapi.yaml` (the API contract) | Go |
 | `engine/` | The rating engine, run as a job | Python (uv) |
 | `web/` | `site` (public), `admin`, and `shared` (theme, components, generated API types) | Astro, React, TypeScript (pnpm) |
 | `infra/access-oidc/` | The Worker that signs admins in to Cloudflare Access with Discord | JavaScript |
@@ -103,13 +103,13 @@ for a quicker look. More in [Load ratings data](#load-ratings-data) and
 ### 4. Run it
 
 ```bash
-scripts/dev.sh --native    # api, worker and site here; Postgres in a container
+scripts/dev.sh --native    # api, site and admin here; Postgres in a container
 scripts/dev.sh             # or everything in containers, the engine once too
 scripts/dev.sh down        # stop the containers (data volumes are kept)
 ```
 
 ```powershell
-scripts\dev.ps1            # api, worker and site; Ctrl-C stops them
+scripts\dev.ps1            # api, site and admin; Ctrl-C stops them
 ```
 
 The site is at http://127.0.0.1:4321, admin at http://127.0.0.1:4322 and

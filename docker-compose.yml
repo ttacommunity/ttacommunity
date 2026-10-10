@@ -1,4 +1,4 @@
-# Everything in containers: both databases, api, worker, the engine and the
+# Everything in containers: both databases, api, the engine and the
 # site's dev server. Start it with scripts/dev.sh. Ports bind to localhost only.
 name: ttacommunity
 
@@ -42,13 +42,6 @@ services:
     ports: ["127.0.0.1:8080:8080"]
     depends_on:
       ratings-db: { condition: service_healthy }
-      app-db: { condition: service_healthy }
-
-  worker:
-    build: { context: backend, target: worker }
-    environment:
-      APP_DATABASE_URL: postgres://app:${APP_DB_PASSWORD}@app-db:5432/app?sslmode=disable
-    depends_on:
       app-db: { condition: service_healthy }
 
   # Seeds the ratings DB: restores a baseline export, or loads match CSVs. scripts/ratings-db.sh mounts the directory.

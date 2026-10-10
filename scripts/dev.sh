@@ -2,7 +2,7 @@
 # Start everything for local development and check that it answers.
 #
 # Usage: scripts/dev.sh            all in containers, detached
-#        scripts/dev.sh --native   Postgres in containers; api, worker, site run here
+#        scripts/dev.sh --native   Postgres in containers; api, site run here
 #        scripts/dev.sh down       stop the containers (data volumes are kept)
 set -uo pipefail
 
@@ -92,7 +92,6 @@ case "${1:-}" in
     trap stop EXIT INT TERM
     (cd web && COREPACK_ENABLE_DOWNLOAD_PROMPT=0 corepack pnpm install --frozen-lockfile --silent) || exit 1
     setsid bash -c 'cd backend && exec go run ./cmd/api' & groups+=($!)
-    setsid bash -c 'cd backend && exec go run ./cmd/worker' & groups+=($!)
     setsid bash -c 'cd web/site && exec ./node_modules/.bin/astro dev --ignore-lock' & groups+=($!)
     setsid bash -c 'cd web/admin && exec ./node_modules/.bin/astro dev --ignore-lock' & groups+=($!)
     ok=0
@@ -100,14 +99,14 @@ case "${1:-}" in
     wait_for site http://127.0.0.1:4321/ || ok=1
     wait_for admin http://127.0.0.1:4322/ || ok=1
     [ "$ok" = 0 ] || exit 1
-    echo "dev.sh: running natively. Ctrl-C stops api, worker, site and admin; 'scripts/dev.sh down' stops Postgres."
+    echo "dev.sh: running natively. Ctrl-C stops api, site and admin; 'scripts/dev.sh down' stops Postgres."
     wait
     ;;
   "")
     "${compose[@]}" up -d --wait ratings-db app-db || exit 1
     ratings_read_login || exit 1
     ratings_admin_login || exit 1
-    "${compose[@]}" up -d --build --wait api worker || exit 1
+    "${compose[@]}" up -d --build --wait api || exit 1
     "${compose[@]}" up -d site || exit 1
     ok=0
     "${compose[@]}" --profile engine run --rm --build engine || { echo "  FAILED  engine run" >&2; ok=1; }
