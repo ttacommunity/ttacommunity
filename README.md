@@ -87,12 +87,12 @@ database, then compute a rating run and publish it locally:
 ```bash
 scripts/ratings-db.sh --native ../ttac-ratings-data/baseline
 cd engine && set -a && . ../.env && set +a
-ENGINE_VERSION=local uv run python -m tta_ratings_engine.run --make-current
+uv run python -m tta_ratings_engine.run --make-current
 ```
 
 ```powershell
 scripts\ratings-db.ps1 ..\ttac-ratings-data\baseline
-. scripts\env.ps1; cd engine; $env:ENGINE_VERSION = 'local'
+. scripts\env.ps1; cd engine
 uv run python -m tta_ratings_engine.run --make-current
 ```
 
@@ -450,10 +450,10 @@ With matches loaded, the engine computes a new rating run from them:
 ```bash
 cd engine
 set -a; . ../.env; set +a
-ENGINE_VERSION=$(git rev-parse --short HEAD) uv run python -m tta_ratings_engine.run
+uv run python -m tta_ratings_engine.run
 ```
 
-In PowerShell: `. scripts\env.ps1; cd engine; $env:ENGINE_VERSION = git rev-parse --short HEAD; uv run python -m tta_ratings_engine.run`.
+In PowerShell: `. scripts\env.ps1; cd engine; uv run python -m tta_ratings_engine.run`.
 
 A full run of every model and format takes about 20 minutes and 1 GB of
 memory on a desktop, and logs its progress and time left as it goes. It is
@@ -474,9 +474,7 @@ deploys both together:
 1. When the code is final, run the `images` workflow on the pull request's
    branch (Actions → images → Run workflow). Each job pushes
    `<image>:sha-<commit>` to GHCR and prints the reference in its summary
-2. Resolve each digest, and pin `tag@digest` in `deploy/`. Set the engine's
-   `ENGINE_VERSION` in `deploy/engine.yaml` to the same commit: every run
-   records it. The packages are private, so log in with your `gh` token:
+2. Resolve each digest, and pin `tag@digest` in `deploy/`. The packages are private, so log in with your `gh` token:
 
    ```bash
    gh auth token | crane auth login ghcr.io -u "$(gh api user -q .login)" --password-stdin

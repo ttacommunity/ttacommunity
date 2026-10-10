@@ -1,8 +1,7 @@
 #!/usr/bin/env bash
 # Fail when deploy/ pins one of our images built from older code than HEAD's.
 # Each pin's tag names the commit it was built from (sha-<commit>); the code
-# that image is built from must be the same at that commit and at HEAD, and
-# the engine's ENGINE_VERSION must name its image's commit.
+# that image is built from must be the same at that commit and at HEAD.
 # Usage: checks/deploy-current.sh [deploy | deploy/dev]   (branch dev's own pins)
 set -uo pipefail
 
@@ -69,15 +68,6 @@ for pin in "${pins[@]}"; do
     failed=1
   fi
 done
-
-# The engine records ENGINE_VERSION on every run, so it must name the pinned image's commit,
-# quoted: YAML reads an all-digit commit as a number, which Kubernetes refuses.
-engine_pin=$(grep -oE "$registry/engine:sha-[0-9a-f]+" "$dir/engine.yaml" | head -1)
-engine_version=$(grep -A1 -E 'name: ENGINE_VERSION' "$dir/engine.yaml" | grep -oE 'value: *"[0-9a-f]+"' | grep -oE '[0-9a-f]{7,}')
-if [ -z "$engine_pin" ] || [ -z "$engine_version" ] || [ "${engine_pin##*:sha-}" != "$engine_version" ]; then
-  echo "  $dir/engine.yaml: ENGINE_VERSION '$engine_version' is not the engine image's commit '${engine_pin##*:sha-}', quoted" >&2
-  failed=1
-fi
 
 if [ "$failed" -ne 0 ]; then
   echo "deploy-current: $dir/ is out of step with its code" >&2

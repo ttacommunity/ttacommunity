@@ -194,6 +194,11 @@ Both private to the `ttacommunity` organisation; ask a maintainer for access.
   math: **do not edit them** to make something else easier. Storage changes
   go in the adapter layer. A change that *intends* to move ratings is a
   maintainers' decision, made explicitly
+- **A change that moves ratings is a new engine version.** Bump `version` in
+  `engine/pyproject.toml` and add its hash to `engine/tests/golden.json`
+  (the golden test's failure prints it). CI fails a change that moves
+  ratings without a new version, and a version's hash never changes. Every
+  run records the version
 - The engine reads only the database: no web code, scraping, CSV or
   spreadsheet parsing. Loading and checking data is the Go load job's work
 - **Runs, not overwrites**: each computation writes a new run; publishing is
@@ -251,4 +256,5 @@ Both private to the `ttacommunity` organisation; ask a maintainer for access.
   final; it builds `sha-<commit>` images to pin in `deploy/`
 - **Issues** open through a form: Bug, Data (a wrong or missing game, score
   or result), Feature, Decision, Task. Label the area: `ratings`,
-  `tournaments`, `site` or `admin`
+  `tournaments`, `site`, `admin`, `build` (CI, checks, images) or `infra`
+  (hosting, Cloudflare, backups)
