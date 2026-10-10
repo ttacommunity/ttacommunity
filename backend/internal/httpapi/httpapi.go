@@ -63,7 +63,8 @@ type Ratings interface {
 func NewMux(ratings Ratings, admins Admins, log *slog.Logger) http.Handler {
 	mux := http.NewServeMux()
 	registerRoutes(mux, ratings, admins, log)
-	return recoverPanics(limitBodies(routeAdmin(publicCORS(mux), adminGate(mux, admins, log))), log)
+	// recoverPanics logs r.Pattern, which the mux sets on the request it gets: nothing between them may copy it.
+	return withDeadline(recoverPanics(limitBodies(routeAdmin(publicCORS(mux), adminGate(mux, admins, log))), log), requestDeadline)
 }
 
 func registerRoutes(router ServeMux, ratings Ratings, admins Admins, log *slog.Logger) {
@@ -99,6 +100,20 @@ func recoverPanics(next http.Handler, log *slog.Logger) http.Handler {
 			}
 		}()
 		next.ServeHTTP(w, r)
+	})
+}
+
+// requestDeadline cancels a request's work, its queries included. It is under
+// the server's WriteTimeout, so a handler sees the cancel while it can still answer.
+const requestDeadline = 25 * time.Second
+
+// withDeadline gives each request's context a deadline d away, or keeps an
+// earlier one.
+func withDeadline(next http.Handler, d time.Duration) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		ctx, cancel := context.WithTimeout(r.Context(), d)
+		defer cancel()
+		next.ServeHTTP(w, r.WithContext(ctx))
 	})
 }
 

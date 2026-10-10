@@ -495,6 +495,60 @@ func TestRecoverPanics(t *testing.T) {
 	}
 }
 
+func TestWithDeadline(t *testing.T) {
+	tests := []struct {
+		name   string
+		parent time.Duration
+		want   time.Duration
+	}{
+		{"no deadline yet", 0, 25 * time.Second},
+		{"an earlier deadline is kept", time.Second, time.Second},
+		{"a later deadline is shortened", time.Minute, 25 * time.Second},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var got time.Time
+			var ok bool
+			h := withDeadline(http.HandlerFunc(func(_ http.ResponseWriter, r *http.Request) {
+				got, ok = r.Context().Deadline()
+			}), 25*time.Second)
+			ctx := context.Background()
+			before := time.Now()
+			if tt.parent > 0 {
+				var cancel context.CancelFunc
+				ctx, cancel = context.WithTimeout(ctx, tt.parent)
+				defer cancel()
+			}
+
+			h.ServeHTTP(httptest.NewRecorder(), httptest.NewRequestWithContext(ctx, http.MethodGet, "/", nil))
+
+			after := time.Now()
+			if !ok || got.Before(before.Add(tt.want)) || got.After(after.Add(tt.want)) {
+				t.Errorf("deadline = %v (set %v), want %v from now", got, ok, tt.want)
+			}
+		})
+	}
+}
+
+type deadlineRatings struct {
+	fakeRatings
+	hasDeadline bool
+}
+
+func (d *deadlineRatings) CurrentRun(ctx context.Context) (store.PublishedRun, error) {
+	_, d.hasDeadline = ctx.Deadline()
+	return store.PublishedRun{}, errors.New("no run")
+}
+
+func TestTheAPIGivesEachRequestADeadline(t *testing.T) {
+	ratings := &deadlineRatings{}
+	serve(t, ratings, "/v1/runs/current")
+
+	if !ratings.hasDeadline {
+		t.Error("GET /v1/runs/current: the handler's context has no deadline")
+	}
+}
+
 type panickingRatings struct{ fakeRatings }
 
 func (*panickingRatings) CurrentRun(context.Context) (store.PublishedRun, error) {
