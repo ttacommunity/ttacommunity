@@ -64,7 +64,8 @@ const shownGames = `
 	SELECT m.game_id AS match_id, m.date, s.label AS season, st.label AS stage, m.group_name AS group_label,
 	       coalesce(m.game_number, 0) AS game, m.state, coalesce(m.share_code, '') AS code,
 	       m.state = 'played' AND s.rated AND m.player_count = ANY(t.rated_player_counts)
-	         AND EXISTS (SELECT 1 FROM ranking_series rt WHERE rt.series_id = t.series_id) AS rated
+	         AND EXISTS (SELECT 1 FROM ranking_series rt WHERE rt.series_id = t.series_id) AS rated,
+	       m.players, m.cultures, m.places, m.outcomes
 	FROM game_lines m
 	JOIN stages st USING (stage_id)
 	JOIN tournaments s ON s.tournament_id = st.tournament_id
@@ -115,8 +116,8 @@ func (r *RatingsReader) CatalogueGames(ctx context.Context, run int64, slug stri
 
 	rows, err := r.pool.Query(ctx, `
 		SELECT g.match_id, g.date, g.season, g.stage, g.group_label, g.game, g.state, g.code, g.rated,
-		       m.players, m.cultures, m.places, m.outcomes
-		FROM (`+shownGames+`) g JOIN game_lines m ON m.game_id = g.match_id
+		       g.players, g.cultures, g.places, g.outcomes
+		FROM (`+shownGames+`) g
 		WHERE ($5 = '' OR g.group_label = $5) AND (NOT $6 OR g.code <> '')
 		ORDER BY g.date DESC, g.season, g.stage, g.group_label, g.game DESC, g.match_id
 		LIMIT $7 OFFSET $8`,
