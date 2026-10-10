@@ -186,9 +186,10 @@ Both private to the `ttacommunity` organisation; ask a maintainer for access.
   Tests touching shared tables live in `internal/store`
 - Times are `timestamptz` in UTC plus an IANA zone name per player, never an
   offset. Test a DST change in both hemispheres
-- `gofmt`, `go vet` and `staticcheck` must be clean (`mise install
-  staticcheck`; `scripts/ci.sh` runs it). Fix the code rather than add a `//lint:ignore`;
-  one that is truly needed says why on the same line
+- `gofmt`, `go vet` and `staticcheck ./...` must be clean. `mise install`
+  (or `scripts\install.ps1`) brings staticcheck; `scripts/ci.sh` runs all
+  three. Fix the code rather than add a `//lint:ignore`; one that is truly
+  needed says why on the same line
 
 ## Engine (`engine/`)
 
