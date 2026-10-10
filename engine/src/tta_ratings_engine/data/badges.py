@@ -20,10 +20,9 @@ import re
 from datetime import date
 from typing import Any, NamedTuple
 
-import psycopg
 from dateutil.relativedelta import relativedelta
 
-from tta_ratings_engine.data.db import require_running
+from tta_ratings_engine.data.db import DictConnection, require_running
 
 # Tournament division tier rankings (1 = Highest / GM, 2 = M, 3 = P, 4 = G, 5 = S, 6 = B, 7 = W)
 TIER_TITLE_MAP = {1: "GM", 2: "M", 3: "P", 4: "G", 5: "S", 6: "B", 7: "W"}
@@ -251,9 +250,7 @@ class Titles(NamedTuple):
     yearly: dict[tuple[str, int], str]
 
 
-def derive_tournament_badges(
-    *, conn: psycopg.Connection, run_id: int
-) -> dict[str, Any]:
+def derive_tournament_badges(*, conn: DictConnection, run_id: int) -> dict[str, Any]:
     """Derives tournament badges for players active within the last year, and returns them.
 
     Replaces the run's player_titles (active titles), player_peak_titles
@@ -351,10 +348,10 @@ def badge_titles(rows, cutoff_date, champions, records, overrides) -> Titles:
     the run recorded); cutoff_date (YYYY-MM-DD) starts the active window; champions are (player, title year);
     records are the run's season records; overrides are admin's titles ('' takes one away).
     """
-    player_best = {}
-    player_career_best = {}
-    player_tier_counts = {}
-    player_year_best = {}
+    player_best: dict[str, dict[str, Any]] = {}
+    player_career_best: dict[str, dict[str, Any]] = {}
+    player_tier_counts: dict[str, int] = {}
+    player_year_best: dict[tuple[str, int], int] = {}
 
     for r in rows:
         tourney = r["tournament"]

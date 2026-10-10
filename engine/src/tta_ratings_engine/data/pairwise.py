@@ -1,8 +1,6 @@
 """Expands every match into the one-on-one results the rating models read."""
 
-import psycopg
-
-from tta_ratings_engine.data.db import require_running
+from tta_ratings_engine.data.db import DictConnection, require_running
 from tta_ratings_engine.data.match_order import assembled_order
 
 PAIR_COLUMNS = (
@@ -11,7 +9,7 @@ PAIR_COLUMNS = (
 )
 
 
-def expand_pairwise(conn: psycopg.Connection, run_id: int) -> int:
+def expand_pairwise(conn: DictConnection, run_id: int) -> int:
     """Rebuilds the run's pairwise_matches from the played matches of its ranking's tournaments, in rated seasons
     and rated player counts, commits, and returns how many pairs it wrote.
 
