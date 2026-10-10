@@ -11,8 +11,10 @@ import multiprocessing
 import os
 import signal
 import time
+import tomllib
 from concurrent.futures import FIRST_COMPLETED, ProcessPoolExecutor, wait
 from datetime import UTC, datetime
+from pathlib import Path
 
 import psycopg
 from psycopg.types.json import Jsonb
@@ -669,8 +671,14 @@ def _publish(conn, run_id, at):
     )
 
 
+def engine_version():
+    """Returns the engine's version from engine/pyproject.toml; a new version is a change that moves ratings."""
+    with open(Path(__file__).parents[2] / "pyproject.toml", "rb") as f:
+        return tomllib.load(f)["project"]["version"]
+
+
 def main(argv=None):
-    """Runs the engine from the command line. Needs RATINGS_DATABASE_URL and ENGINE_VERSION."""
+    """Runs the engine from the command line. Needs RATINGS_DATABASE_URL."""
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument(
         "--formats", nargs="+", type=int, choices=FORMATS, default=FORMATS,
@@ -693,16 +701,11 @@ def main(argv=None):
         help="copy the current run's ratings and recompute only tournament results and titles",
     )  # fmt: skip
     args = parser.parse_args(argv)
-    version = os.environ.get("ENGINE_VERSION")
-    if not version:
-        raise SystemExit(
-            "ENGINE_VERSION is not set: say which engine this run comes from"
-        )
     stop_on_sigterm()
     with connect() as conn:
         run(
             conn,
-            version,
+            engine_version(),
             formats=args.formats,
             log=functools.partial(print, flush=True),
             make_current=args.make_current,

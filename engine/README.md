@@ -47,11 +47,11 @@ The four files upstream's math lives in, and their tests, are exempt from
 ## Running the engine
 
 It needs a loaded ratings database (see "Load ratings data" in the main
-`README.md`) and says which engine version it is:
+`README.md`):
 
 ```sh
 set -a; . ../.env; set +a
-ENGINE_VERSION=$(git rev-parse --short HEAD) uv run python -m tta_ratings_engine.run
+uv run python -m tta_ratings_engine.run
 ```
 
 A run computes the 16 models upstream's site shows, for all formats together
@@ -81,7 +81,17 @@ time: if the estimates drift, update `STEP_COST` from those lines.
   against 22m13s on 8 cores, about 2.3 GiB for the four together, and every
   table identical to a run with one worker. Walk-forward's months stay in
   order: each month starts from the last one's ratings
-- It refuses to start with `ENGINE_VERSION` unset, or with no matches loaded
+- It refuses to start with no matches loaded
+
+## Versions
+
+Every run records the engine's version, from `pyproject.toml`. A change that
+moves ratings is a new version: bump it, and add the new version's hash to
+`tests/golden.json`. `test_the_results_match_the_engine_versions_golden_hash`
+rates a small invented season in every format and hashes every result, so a
+change that moves ratings without a new version fails, and its message gives
+the hash. A refactor keeps the hash. A version's hash never changes once it
+is on `main` (`checks/engine-golden.sh`).
 
 ## Running the tests
 

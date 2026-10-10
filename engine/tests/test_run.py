@@ -1,8 +1,13 @@
+import hashlib
+import json
 import multiprocessing
 import os
 import signal
 import sys
 from datetime import UTC, date, datetime, timedelta
+from decimal import Decimal
+from importlib import metadata
+from pathlib import Path
 
 import pytest
 
@@ -234,23 +239,31 @@ def test_a_failure_marks_the_run_failed_and_is_raised(conn, add_match, monkeypat
     assert current(conn) is None
 
 
-def test_the_command_needs_an_engine_version(monkeypatch, db_url):
-    monkeypatch.setenv("RATINGS_DATABASE_URL", db_url)
-    monkeypatch.delenv("ENGINE_VERSION", raising=False)
+def test_the_engine_version_is_the_one_in_pyproject():
+    assert runner.engine_version() == metadata.version("tta-ratings-engine")
 
-    with pytest.raises(SystemExit, match="ENGINE_VERSION"):
-        main([])
+
+def test_the_command_records_the_engine_version_from_pyproject(
+    monkeypatch, db_url, conn, add_match
+):
+    season(add_match)
+    monkeypatch.setenv("RATINGS_DATABASE_URL", db_url)
+    monkeypatch.setenv("ENGINE_VERSION", "set-by-hand")
+
+    main(["--formats", "2", "--make-current"])
+
+    assert the_run(conn, current(conn))["engine_version"] == metadata.version(
+        "tta-ratings-engine"
+    )
 
 
 def test_the_command_runs_the_formats_asked_for(monkeypatch, db_url, conn, add_match):
     season(add_match)
     monkeypatch.setenv("RATINGS_DATABASE_URL", db_url)
-    monkeypatch.setenv("ENGINE_VERSION", "v-cli")
 
     main(["--formats", "2", "--make-current"])
 
     run_id = current(conn)
-    assert the_run(conn, run_id)["engine_version"] == "v-cli"
     formats = conn.execute(
         "SELECT DISTINCT player_count FROM player_ratings WHERE run_id = %s", (run_id,)
     ).fetchall()
@@ -444,7 +457,6 @@ def test_a_failed_task_fails_a_parallel_run(conn, db_url, add_match, monkeypatch
 def test_the_command_runs_in_parallel_when_asked(monkeypatch, db_url, conn, add_match):
     season(add_match)
     monkeypatch.setenv("RATINGS_DATABASE_URL", db_url)
-    monkeypatch.setenv("ENGINE_VERSION", "v-cli")
     lines = []
     monkeypatch.setattr(
         "builtins.print", lambda *a, **_: lines.append(" ".join(map(str, a)))
@@ -774,3 +786,92 @@ def test_a_failed_run_records_the_rows_it_left(conn, add_match, monkeypatch):
     assert {t: got.get(t, 0) for t in run_tables(conn)} == {
         t: count(conn, t, run_id) for t in run_tables(conn)
     }
+
+
+GOLDEN = Path(__file__).with_name("golden.json")
+
+
+def golden_season(add_match):
+    """Seven months of invented games in every format, with a timeout and a resignation."""
+    months = [
+        (2021, 10),
+        (2021, 11),
+        (2021, 12),
+        (2022, 1),
+        (2022, 2),
+        (2022, 3),
+        (2022, 4),
+    ]
+    for i, (year, month) in enumerate(months):
+        swing = (i * 17) % 40
+        add_match(
+            ("Ann", 120 - swing),
+            ("Bob", 95 + swing),
+            day=date(year, month, 2),
+            tournament="RL_s01 - Emperor",
+        )
+        add_match(
+            ("Cat", 88 + swing),
+            ("Dan", 101),
+            day=date(year, month, 5),
+            tournament="RL_s01 - Emperor",
+        )
+        add_match(
+            ("Eve", 110),
+            ("Fay", 70 + swing),
+            ("Ann", 99),
+            day=date(year, month, 9),
+            tournament="Cup",
+        )
+        add_match(("Bob", 130 - swing), ("Cat", 125), ("Dan", -1), ("Eve", 80 + swing),
+                  day=date(year, month, 14), tournament="Cup")  # fmt: skip
+        add_match(("Fay", 90), ("Dan", -2), day=date(year, month, 20), tournament="Cup")
+
+
+def stable(value):
+    """A value as text, floats to 9 significant digits so the machine's rounding cannot change it."""
+    if isinstance(value, float | Decimal):
+        return f"{float(value):.9g}"
+    return str(value)
+
+
+def results_hash(conn, run_id):
+    """A hash of every row a run computed, table by table, in a stable order."""
+    digest = hashlib.sha256()
+    for table in sorted(runner.COPIED_TABLES + runner.RECOMPUTED_TABLES):
+        rows = conn.execute(
+            f"SELECT * FROM {table} WHERE run_id = %s", (run_id,)
+        ).fetchall()
+        lines = sorted(
+            "|".join(
+                f"{k}={stable(v)}"
+                for k, v in sorted(r.items())
+                if k not in ("run_id", "pairwise_id")
+            )
+            for r in rows
+        )
+        digest.update(f"{table} {len(lines)}\n".encode())
+        for line in lines:
+            digest.update(f"{line}\n".encode())
+    return digest.hexdigest()
+
+
+def test_the_results_match_the_engine_versions_golden_hash(conn, add_match):
+    golden_season(add_match)
+
+    run_id = run(conn, "golden", log=lambda _: None)
+
+    rated = conn.execute(
+        "SELECT DISTINCT model_type, player_count FROM player_ratings WHERE run_id = %s",
+        (run_id,),
+    ).fetchall()
+    assert {(r["model_type"], r["player_count"]) for r in rated} == {
+        (m, f) for m in MODEL_TYPES for f in FORMATS
+    }
+    version, got = runner.engine_version(), results_hash(conn, run_id)
+    want = json.loads(GOLDEN.read_text()).get(version)
+    assert got == want, (
+        f"engine {version}'s results hash to {got}, not {want}. If this change is meant to move ratings, "
+        f'bump the version in engine/pyproject.toml and add "<new version>": "{got}" to tests/golden.json. '
+        "A version's hash never changes."
+    )

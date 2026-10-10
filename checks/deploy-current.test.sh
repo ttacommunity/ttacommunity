@@ -25,8 +25,6 @@ repo() {
   cat >"$dir/deploy/engine.yaml" <<EOF
 image: ghcr.io/ttacommunity/ttacommunity/engine:sha-$sha
 image: ghcr.io/ttacommunity/ttacommunity/api:sha-$sha
-- name: ENGINE_VERSION
-  value: "$sha"
 EOF
   git -C "$dir" add -A
   git -C "$dir" -c user.name=test -c user.email=test@example.invalid commit -q -m pin
