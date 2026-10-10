@@ -85,11 +85,12 @@ func (r *RatingsReader) ActivePlayers(ctx context.Context, run int64) (map[strin
 	if err := r.requirePublished(ctx, run); err != nil {
 		return nil, err
 	}
+	// Only the last year's pairs are read, through the (run_id, date) index; a pair's date is its game's.
 	rows, err := r.pool.Query(ctx, `
-		WITH run_games AS (
-			SELECT DISTINCT g.game_id, g.date FROM games g JOIN pairwise_matches p ON p.match_id = g.game_id AND p.run_id = $1)
-		SELECT s.player_name FROM run_games r JOIN seats s USING (game_id)
-		WHERE r.date >= (SELECT max(date) FROM run_games) - 365
+		WITH recent AS (
+			SELECT DISTINCT match_id FROM pairwise_matches
+			WHERE run_id = $1 AND date >= (SELECT max(date) FROM pairwise_matches WHERE run_id = $1) - 365)
+		SELECT s.player_name FROM recent r JOIN seats s ON s.game_id = r.match_id
 		GROUP BY s.player_name HAVING count(*) > 10`, run)
 	if err != nil {
 		return nil, fmt.Errorf("reading run %d's active players: %w", run, err)
