@@ -3,6 +3,16 @@ packages:
   - admin
   - shared
 
+# Security fixes in packages we only get through others, until those others
+# ask for them; drop a line when `pnpm audit --prod` stays clean without it.
+# katex: one version for the build's rehype-katex (which asks for ^0.16) and
+# the browser's <Tex>, so a formula renders the same in both.
+overrides:
+  http-cache-semantics: ^4.3.0
+  katex: 0.18.11
+  sharp: ^0.35.5
+  source-map-js: ^1.2.2
+
 # Only these packages may run install scripts (esbuild fetches its binary).
 allowBuilds:
   esbuild: true
