@@ -25,7 +25,7 @@ if (-not (Test-Command mise)) {
     $env:PATH = [Environment]::GetEnvironmentVariable('PATH', 'Machine') + ';' + [Environment]::GetEnvironmentVariable('PATH', 'User')
 }
 mise trust
-mise install go node uv staticcheck
+mise install go node uv
 if ($LASTEXITCODE -ne 0) { throw 'install.ps1: mise install failed' }
 
 # PostgreSQL 18: by default a user install (EDB's binaries, no admin, started

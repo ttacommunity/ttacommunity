@@ -30,7 +30,7 @@ jobs:
     runs-on: ${{ vars.RUNNER_AMD64 || 'ubuntu-24.04' }}
     container: docker.io/library/debian:trixie-slim@sha256:a99cfc517144bc59b1978475ec53b46ecabec7e43635402ee5b77cc54cd1b20a
     env:
-      # govulncheck peaks near 1.2 GB unchecked and about 850 MB with this; a job gets 1 GiB.
+      # govulncheck measured 1.2 GB unchecked, under 600 MB with this; a job gets 1 GiB.
       GOMEMLIMIT: 600MiB
     steps:
       - run: apt-get update -qq && apt-get install -y -qq --no-install-recommends bash ca-certificates curl git xz-utils >/dev/null
@@ -42,8 +42,8 @@ jobs:
           GITHUB_TOKEN: ${{ github.token }}
         run: |
           scripts/install-mise.sh "$MISE_VERSION" /usr/local/bin
-          mise trust && mise install go && mise install go:golang.org/x/vuln/cmd/govulncheck
-      - run: cd backend && PATH="$HOME/.local/share/mise/shims:$PATH" govulncheck ./...
+          mise trust && mise install go
+      - run: cd backend && PATH="$HOME/.local/share/mise/shims:$PATH" go tool govulncheck ./...
 
   engine:
     runs-on: ${{ vars.RUNNER_AMD64 || 'ubuntu-24.04' }}

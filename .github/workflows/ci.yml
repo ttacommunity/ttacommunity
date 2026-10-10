@@ -74,7 +74,7 @@ jobs:
           GITHUB_TOKEN: ${{ github.token }}
         run: |
           scripts/install-mise.sh "$MISE_VERSION" /usr/local/bin
-          mise trust && mise install go staticcheck
+          mise trust && mise install go
       - run: PATH="$HOME/.local/share/mise/shims:$PATH" bash scripts/ci.sh --only go
 
   engine:
