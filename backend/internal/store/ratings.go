@@ -59,16 +59,6 @@ func MigrateRatings(ctx context.Context, pool *pgxpool.Pool) error {
 	})
 }
 
-// migrateRatingsTo applies the ratings migrations up to and including version.
-func migrateRatingsTo(ctx context.Context, pool *pgxpool.Pool, version int64) error {
-	return withRatingsMigrations(pool, func(p *goose.Provider) error {
-		if _, err := p.UpTo(ctx, version); err != nil {
-			return fmt.Errorf("migrating the ratings database up to %d: %w", version, err)
-		}
-		return nil
-	})
-}
-
 func migrateRatingsDown(ctx context.Context, pool *pgxpool.Pool) error {
 	return withRatingsMigrations(pool, func(p *goose.Provider) error {
 		if _, err := p.DownTo(ctx, 0); err != nil {
