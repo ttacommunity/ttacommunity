@@ -15,6 +15,9 @@ export type StartedRun = components['schemas']['StartedRun'];
 /** AdminResult is an answer's data, or why the request was refused. */
 export type AdminResult<T> = { ok: true; data: T } | { ok: false; status: number; message: string };
 
+/** Load is something a page is loading, failed to load and why, or has. */
+export type Load<T> = { kind: 'loading' } | { kind: 'error'; message: string } | { kind: 'ready'; data: T };
+
 type Fetch = (input: string, init: RequestInit) => Promise<Response>;
 
 function refusal(status: number, error: string | undefined): string {

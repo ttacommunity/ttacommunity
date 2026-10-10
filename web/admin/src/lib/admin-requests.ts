@@ -4,7 +4,7 @@ import { adminRequest, type AdminResult } from './admin-api';
 
 type Schemas = components['schemas'];
 type Method = 'POST' | 'PUT' | 'PATCH' | 'DELETE';
-type SeasonFlag = 'rated' | 'champions' | 'community';
+export type SeasonFlag = 'rated' | 'champions' | 'community';
 
 /** Request is one change: where it goes, and how. */
 export type Request = { path: string; init: { method: Method; json?: unknown } };
