@@ -634,6 +634,7 @@ from `main`:
 | `ttac-admin` | `/web` | `pnpm --filter @ttac/admin build` | `npx wrangler@4.141.0 deploy --config admin/wrangler.jsonc` |
 | `ttac-admin` Previews | `/web` | `if [ "$WORKERS_CI_BRANCH" = dev ]; then pnpm --filter @ttac/admin build; else echo "Previews are built for branch dev only"; fi` | `if [ "$WORKERS_CI_BRANCH" = dev ]; then npx wrangler@4.141.0 preview --config admin/wrangler.jsonc; else echo "Previews are built for branch dev only"; fi` |
 | `ttac-auth` (Discord sign-in for Access), no previews | `/infra/access-oidc` | none | `npx wrangler deploy` |
+| `build-discord-notifier` (posts `main` and `dev` builds to Discord; secret `DISCORD_WEBHOOK_URL`), no previews | `/infra/build-notifier` | none | `npx wrangler deploy` |
 
 Build variables, set in each site Worker's build settings:
 
