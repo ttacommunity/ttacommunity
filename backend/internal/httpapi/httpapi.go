@@ -63,7 +63,7 @@ type Ratings interface {
 func NewMux(ratings Ratings, admins Admins, log *slog.Logger) http.Handler {
 	mux := http.NewServeMux()
 	registerRoutes(mux, ratings, admins, log)
-	return recoverPanics(routeAdmin(publicCORS(mux), adminGate(mux, admins, log)), log)
+	return recoverPanics(limitBodies(routeAdmin(publicCORS(mux), adminGate(mux, admins, log))), log)
 }
 
 func registerRoutes(router ServeMux, ratings Ratings, admins Admins, log *slog.Logger) {
@@ -102,13 +102,30 @@ func recoverPanics(next http.Handler, log *slog.Logger) http.Handler {
 	})
 }
 
+// maxBody is the most any request body may hold. The largest body a route
+// takes, a tournament's settings, is tens of kilobytes at most.
+const maxBody = 1 << 20
+
+// limitBodies stops reading a request body past maxBody. GETs carry no body,
+// so they are limited too rather than branched on.
+func limitBodies(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		r.Body = http.MaxBytesReader(w, r.Body, maxBody)
+		next.ServeHTTP(w, r)
+	})
+}
+
 // badRequest answers a parameter the generated code could not parse, naming
 // the parameter but never echoing its value.
 func badRequest(w http.ResponseWriter, _ *http.Request, err error) {
 	msg := "bad request"
 	var invalid *InvalidParamFormatError
 	var required *RequiredParamError
+	var tooLarge *http.MaxBytesError
 	switch {
+	case errors.As(err, &tooLarge):
+		writeError(w, http.StatusRequestEntityTooLarge, "request body too large")
+		return
 	case errors.As(err, &invalid):
 		msg = "bad parameter: " + invalid.ParamName
 	case errors.As(err, &required):

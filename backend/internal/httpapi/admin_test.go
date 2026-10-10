@@ -653,6 +653,47 @@ func TestAdminChangesRefuseAnotherOriginOrABadRequest(t *testing.T) {
 	}
 }
 
+type countingReader struct {
+	r    io.Reader
+	read int
+}
+
+func (c *countingReader) Read(p []byte) (int, error) {
+	n, err := c.r.Read(p)
+	c.read += n
+	return n, err
+}
+
+func TestRequestBodiesAreLimited(t *testing.T) {
+	tests := []struct {
+		name string
+		body string
+		want int
+	}{
+		{"a body over the limit", `{"name": "` + strings.Repeat("x", 2<<20) + `"}`, http.StatusRequestEntityTooLarge},
+		{"bad JSON under the limit", `{"name": `, http.StatusBadRequest},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			body := &countingReader{r: strings.NewReader(tt.body)}
+			req := httptest.NewRequest(http.MethodPost, "/v1/admin/tournaments", body)
+			req.Header.Set("Cf-Access-Jwt-Assertion", "good-222222222222222222")
+			req.Header.Set("Content-Type", "application/json")
+			req.Header.Set("Origin", "https://ttac-admin.example")
+			rec := httptest.NewRecorder()
+
+			NewMux(&fakeRatings{}, &fakeAdmins{}, slog.New(slog.DiscardHandler)).ServeHTTP(rec, req)
+
+			if rec.Code != tt.want {
+				t.Errorf("POST %d bytes: code = %d %s, want %d", len(tt.body), rec.Code, rec.Body, tt.want)
+			}
+			if body.read > 1<<20+1 {
+				t.Errorf("POST %d bytes: read %d, want at most the 1 MiB limit", len(tt.body), body.read)
+			}
+		})
+	}
+}
+
 func TestAnAdminManagesOthersInAdmin(t *testing.T) {
 	const site, owner = "https://ttac-admin.example", "111111111111111111"
 	f := &fakeAdmins{}
