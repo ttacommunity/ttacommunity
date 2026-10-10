@@ -308,6 +308,7 @@ func TestSetStoriesReplacesATournamentsStoriesInOrder(t *testing.T) {
 	r := NewRatingsReader(asReader(t, pool))
 	stories := func() ([]Story, []Story) {
 		t.Helper()
+		withSpans(t, pool, run)
 		page, err := r.CatalogueTournament(ctx, run, "wimbledon")
 		if err != nil {
 			t.Fatal(err)
@@ -523,6 +524,7 @@ func TestACardKeepsItsSubtitleAndCadence(t *testing.T) {
 	if err := a.SetCard(ctx, "wimbledon", want); err != nil {
 		t.Fatalf("SetCard: %v", err)
 	}
+	withSpans(t, pool, run)
 	page, err := NewRatingsReader(asReader(t, pool)).CatalogueTournament(ctx, run, "wimbledon")
 	if err != nil || page.Card != want {
 		t.Errorf("card on the page = %+v, %v; want %+v", page.Card, err, want)
@@ -564,6 +566,7 @@ func TestASeasonCanBeLeftOutOfTheChampions(t *testing.T) {
 	if err := a.SetSeasonInChampions(ctx, "wimbledon", "2024", false); err != nil {
 		t.Fatalf("SetSeasonInChampions: %v", err)
 	}
+	withSpans(t, pool, run)
 	page, err := NewRatingsReader(asReader(t, pool)).CatalogueTournament(ctx, run, "wimbledon")
 	if err != nil {
 		t.Fatal(err)

@@ -20,6 +20,7 @@ import psycopg
 from psycopg.types.json import Jsonb
 
 from tta_ratings_engine.data.badges import derive_tournament_badges
+from tta_ratings_engine.data.catalogue import derive_catalogue
 from tta_ratings_engine.data.community import derive_community
 from tta_ratings_engine.data.db import connect
 from tta_ratings_engine.data.pairwise import expand_pairwise
@@ -103,6 +104,7 @@ RESULT_TABLES = [
     "tournament_legends",
     "tournament_achievements",
     "tournament_records",
+    "catalogue_spans",
 ]
 
 
@@ -120,7 +122,7 @@ RECOMPUTED_TABLES = [
     "pairwise_matches", "player_titles", "player_peak_titles", "player_yearly_titles",
     "tournament_games", "tournament_standings", "tournament_boards", "tournament_season_records",
     "tournament_series", "tournament_legends", "tournament_achievements", "tournament_records",
-    "community_event_points", "community_edition_points", "community_rankings",
+    "community_event_points", "community_edition_points", "community_rankings", "catalogue_spans",
 ]  # fmt: skip
 
 
@@ -413,6 +415,7 @@ def _compute(conn, run_id, formats, log):
         progress.working_on("tournaments")
         derive_tournaments(**on_run)
         derive_community(**on_run)
+        derive_catalogue(**on_run)
         progress.advance("tournaments", STEP_COST["tournaments", None], "tournaments")
 
         progress.working_on("titles")
@@ -484,6 +487,7 @@ def _run_task(url, run_id, kind, fmt, name):
         elif kind == "tournaments":
             derive_tournaments(**on_run)
             derive_community(**on_run)
+            derive_catalogue(**on_run)
             derive_tournament_badges(**on_run)
         else:
             raise ValueError(f"unknown engine task: {kind}")
@@ -610,6 +614,7 @@ def _recompute_tournaments(conn, run_id, source, log):
     progress.working_on("tournaments")
     derive_tournaments(**on_run)
     derive_community(**on_run)
+    derive_catalogue(**on_run)
     progress.advance("tournaments", 1, "tournaments")
     progress.working_on("titles")
     derive_tournament_badges(**on_run)

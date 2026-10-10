@@ -144,6 +144,18 @@ func publishedRun(t *testing.T, pool *pgxpool.Pool) int64 {
 	return addRun(t, pool, "complete", time.Date(2026, 9, 27, 4, 0, 0, 0, time.UTC))
 }
 
+// withSpans records run's catalogue spans from the games placed so far, as the engine does in a run.
+func withSpans(t *testing.T, pool *pgxpool.Pool, run int64) {
+	t.Helper()
+	ctx := context.Background()
+	if _, err := pool.Exec(ctx, "DELETE FROM catalogue_spans WHERE run_id = $1", run); err != nil {
+		t.Fatalf("clearing run %d's catalogue spans: %v", run, err)
+	}
+	if _, err := pool.Exec(ctx, "SELECT derive_catalogue_spans($1)", run); err != nil {
+		t.Fatalf("deriving run %d's catalogue spans: %v", run, err)
+	}
+}
+
 func makeCurrent(t *testing.T, pool *pgxpool.Pool, run int64) {
 	t.Helper()
 	_, err := pool.Exec(context.Background(),
