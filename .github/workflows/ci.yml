@@ -140,7 +140,7 @@ jobs:
           GITHUB_TOKEN: ${{ github.token }}
         run: |
           scripts/install-mise.sh "$MISE_VERSION" /usr/local/bin
-          mise trust && mise install shellcheck actionlint zizmor powershell
+          mise trust && mise install shellcheck actionlint zizmor powershell kustomize yq
       - env:
           GITHUB_TOKEN: ${{ github.token }}
           GH_TOKEN: ${{ github.token }}

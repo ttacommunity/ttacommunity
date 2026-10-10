@@ -1,0 +1,24 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: example
+spec:
+  template:
+    spec:
+      containers:
+        - name: app
+          image: example.invalid/app
+          env:
+            - name: QUOTED_NUMBER
+              value: "96821994"
+            - name: QUOTED_BOOL
+              value: "true"
+            - name: EMPTY
+              value: ""
+            - name: PLAIN
+              value: info
+            - name: FROM_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: example
+                  key: password
