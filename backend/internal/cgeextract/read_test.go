@@ -74,6 +74,7 @@ func TestReadRefusesRowsThatDoNotFit(t *testing.T) {
 		{"a finished seat without a score", row(5, 1, "ann", "1", "", "finished"), BadScore},
 		{"a resigned seat with a positive score", row(5, 1, "ann", "2", "12.0", "resigned"), BadScore},
 		{"a timed-out seat with a standing", row(5, 1, "ann", "2", "", "timed out"), BadStanding},
+		{"a finished seat without a standing", row(5, 1, "ann", "", "181.0", "finished"), BadStanding},
 		{"a seat with no player", row(5, 0, "", "", "", "timed out"), NoPlayer},
 	}
 	for _, tt := range tests {
