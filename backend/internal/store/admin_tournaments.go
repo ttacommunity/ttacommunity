@@ -883,8 +883,6 @@ func (a *AdminStore) SetSeasonInCommunity(ctx context.Context, slug, season stri
 	return nil
 }
 
-// SetSeasonRated sets whether a season's games count towards ratings, from the next run, or returns
-// ErrNoTournament for a season that does not exist.
 // ErrBadPenalty means a time-out penalty above 0, or for a season not numbered.
 var ErrBadPenalty = errors.New("a time-out penalty is 0 or below, for a numbered season")
 
@@ -909,6 +907,8 @@ func (a *AdminStore) SetSeasonPenalty(ctx context.Context, slug, season string, 
 	return nil
 }
 
+// SetSeasonRated sets whether a season's games count towards ratings, from the next run, or returns
+// ErrNoTournament for a season that does not exist.
 func (a *AdminStore) SetSeasonRated(ctx context.Context, slug, season string, rated bool) error {
 	tag, err := a.pool.Exec(ctx, `UPDATE tournaments se SET rated = $3 FROM series t
 		WHERE t.series_id = se.series_id AND t.slug = $1 AND se.label = $2`, slug, season, rated)
