@@ -192,6 +192,61 @@ func (f *fakeAdmins) SetMembers(_ context.Context, group string, members []strin
 	return nil
 }
 
+func (f *fakeAdmins) ChangeTournament(ctx context.Context, slug string, c store.TournamentChange) error {
+	if c.Settings != nil {
+		if err := f.SetTournament(ctx, slug, *c.Settings); err != nil {
+			return err
+		}
+	}
+	if c.Card != nil {
+		if err := f.SetCard(ctx, slug, *c.Card); err != nil {
+			return err
+		}
+	}
+	if c.Regulations != nil {
+		if err := f.SetRegulations(ctx, slug, *c.Regulations); err != nil {
+			return err
+		}
+	}
+	if c.Stories != nil {
+		if err := f.SetStories(ctx, slug, *c.Stories); err != nil {
+			return err
+		}
+	}
+	if c.Members != nil {
+		return f.SetMembers(ctx, slug, *c.Members)
+	}
+	return nil
+}
+
+func (f *fakeAdmins) ChangeSeason(ctx context.Context, slug, season string, c store.SeasonChange) error {
+	steps := []struct {
+		asked bool
+		do    func() error
+	}{
+		{c.Podium != nil, func() error { return f.SetPodium(ctx, slug, season, *c.Podium, c.PodiumNote) }},
+		{c.ClearPodium, func() error { return f.ClearPodium(ctx, slug, season) }},
+		{c.Rated != nil, func() error { return f.SetSeasonRated(ctx, slug, season, *c.Rated) }},
+		{c.InChampions != nil, func() error { return f.SetSeasonInChampions(ctx, slug, season, *c.InChampions) }},
+		{c.InCommunity != nil, func() error { return f.SetSeasonInCommunity(ctx, slug, season, *c.InCommunity) }},
+		{c.TimeoutPenalty != nil, func() error { return f.SetSeasonPenalty(ctx, slug, season, *c.TimeoutPenalty) }},
+		{c.Note != nil, func() error { return f.SetNote(ctx, slug, season, "", *c.Note) }},
+	}
+	for _, st := range steps {
+		if st.asked {
+			if err := st.do(); err != nil {
+				return err
+			}
+		}
+	}
+	for stage, note := range c.StageNotes {
+		if err := f.SetNote(ctx, slug, season, stage, note); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 func (f *fakeAdmins) CreateGroup(_ context.Context, g store.Group) (string, error) {
 	if g.Name == "!" {
 		return "", store.ErrBadGroup

@@ -33,14 +33,11 @@ type Admins interface {
 	AllowedOrigin() string
 	TournamentRows(ctx context.Context) ([]store.AdminTournamentRow, error)
 	Tournament(ctx context.Context, slug string) (store.AdminTournament, error)
-	SetTournament(ctx context.Context, slug string, s store.TournamentSettings) error
+	// ChangeTournament sets every part of a change in one transaction: a refused part changes nothing.
+	ChangeTournament(ctx context.Context, slug string, c store.TournamentChange) error
+	// ChangeSeason sets every part of a season change in one transaction: a refused part changes nothing.
+	ChangeSeason(ctx context.Context, slug, season string, c store.SeasonChange) error
 	CreateGroup(ctx context.Context, g store.Group) (string, error)
-	SetMembers(ctx context.Context, group string, members []string) error
-	SetSeasonRated(ctx context.Context, slug, season string, rated bool) error
-	SetSeasonPenalty(ctx context.Context, slug, season string, penalty float64) error
-	SetSeasonInChampions(ctx context.Context, slug, season string, in bool) error
-	SetSeasonInCommunity(ctx context.Context, slug, season string, in bool) error
-	SetNote(ctx context.Context, slug, season, stage, note string) error
 	DataSummary(ctx context.Context) (store.DataSummary, error)
 	CheckStandings(ctx context.Context) (store.StandingsCheck, error)
 	// ExportZip writes every input table, as the load job's export, as a zip to w.
@@ -52,11 +49,6 @@ type Admins interface {
 	TitleOverrides(ctx context.Context) ([]store.TitleOverride, error)
 	SetTitle(ctx context.Context, o store.TitleOverride) error
 	ClearTitle(ctx context.Context, name string) error
-	SetCard(ctx context.Context, slug string, c store.Card) error
-	SetStories(ctx context.Context, slug string, list []store.Story) error
-	SetRegulations(ctx context.Context, slug, text string) error
-	SetPodium(ctx context.Context, slug, season string, podium []store.PodiumEntry, note string) error
-	ClearPodium(ctx context.Context, slug, season string) error
 	AddSeason(ctx context.Context, slug, label string) error
 	RemoveSeason(ctx context.Context, slug, label string) error
 	Admins(ctx context.Context) ([]store.Admin, error)

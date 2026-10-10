@@ -745,3 +745,118 @@ func TestTournamentRowsListEachSeriesInBrief(t *testing.T) {
 		t.Errorf("group = %+v, want an empty group called Leagues", group)
 	}
 }
+
+func TestChangeTournamentAppliesEveryPart(t *testing.T) {
+	a := groupedSeries(t)
+	ctx := context.Background()
+	g := group(t, a, "Leagues", "league", "international")
+	name, regulations := "Leagues renamed", "Best of three."
+
+	err := a.ChangeTournament(ctx, g, TournamentChange{
+		Settings:    &TournamentSettings{Name: &name},
+		Card:        &Card{Icon: "🏆"},
+		Regulations: &regulations,
+		Stories:     &[]Story{{Player: "Player One", Title: "First", Text: "Won it."}},
+		Members:     &[]string{"intermezzo"},
+	})
+	if err != nil {
+		t.Fatalf("ChangeTournament: %v", err)
+	}
+	got := listed(t, a, g)
+	if got.Name != name || got.Card.Icon != "🏆" || got.Regulations != regulations || len(got.Stories) != 1 {
+		t.Errorf("after the change: name %q, card %+v, regulations %q, %d stories; want every part set",
+			got.Name, got.Card, got.Regulations, len(got.Stories))
+	}
+	if p := listed(t, a, "intermezzo").Parent; p != g {
+		t.Errorf("intermezzo's parent = %q, want %q", p, g)
+	}
+}
+
+func TestChangeTournamentRefusedChangesNothing(t *testing.T) {
+	name, regulations := "Leagues renamed", "Best of three."
+	tests := []struct {
+		name string
+		c    TournamentChange
+		want error
+	}{
+		{"a member that does not exist", TournamentChange{Settings: &TournamentSettings{Name: &name}, Card: &Card{Icon: "🏆"},
+			Regulations: &regulations, Members: &[]string{"no_such"}}, ErrNoTournament},
+		{"a story without a title", TournamentChange{Settings: &TournamentSettings{Name: &name}, Card: &Card{Icon: "🏆"},
+			Stories: &[]Story{{Player: "Player One", Text: "Won it."}}}, ErrBadStory},
+		{"a card too long", TournamentChange{Settings: &TournamentSettings{Name: &name}, Card: &Card{Icon: strings.Repeat("x", 9)}},
+			ErrBadCard},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			a := groupedSeries(t)
+			g := group(t, a, "Leagues", "league", "international")
+
+			if err := a.ChangeTournament(context.Background(), g, tt.c); !errors.Is(err, tt.want) {
+				t.Errorf("ChangeTournament = %v, want %v", err, tt.want)
+			}
+			got := listed(t, a, g)
+			if got.Name != "Leagues" || got.Card != (Card{}) || got.Regulations != "" || len(got.Stories) != 0 {
+				t.Errorf("after a refused change: name %q, card %+v, regulations %q, %d stories; want it unchanged",
+					got.Name, got.Card, got.Regulations, len(got.Stories))
+			}
+			if p := listed(t, a, "international").Parent; p != g {
+				t.Errorf("international's parent = %q after a refused change, want %q", p, g)
+			}
+		})
+	}
+}
+
+func wimbledonSeason(t *testing.T, a *AdminStore, label string) AdminSeason {
+	t.Helper()
+	for _, se := range adminTournament(t, a, "wimbledon").Seasons {
+		if se.Label == label {
+			return se
+		}
+	}
+	t.Fatalf("wimbledon has no season %s", label)
+	return AdminSeason{}
+}
+
+func wimbledon2023(t *testing.T) *AdminStore {
+	t.Helper()
+	pool := migrated(t)
+	placedOn(t, pool, map[string]time.Time{"Wimbledon 2023 stage 1": day("2023-07-15")})
+	return NewAdminStore(asAdminLogin(t, pool))
+}
+
+func TestChangeSeasonAppliesEveryPart(t *testing.T) {
+	a := wimbledon2023(t)
+	rated, note := false, "Played on grass."
+
+	if err := a.ChangeSeason(context.Background(), "wimbledon", "2023", SeasonChange{Rated: &rated, Note: &note}); err != nil {
+		t.Fatalf("ChangeSeason: %v", err)
+	}
+	if got := wimbledonSeason(t, a, "2023"); got.Rated || got.Note != note {
+		t.Errorf("after the change: rated %v, note %q; want false, %q", got.Rated, got.Note, note)
+	}
+}
+
+func TestChangeSeasonRefusedChangesNothing(t *testing.T) {
+	rated, note, penalty := false, "Played on grass.", 1.0
+	tests := []struct {
+		name string
+		c    SeasonChange
+		want error
+	}{
+		{"a penalty above zero", SeasonChange{Rated: &rated, Note: &note, TimeoutPenalty: &penalty}, ErrBadPenalty},
+		{"a note for a stage that does not exist", SeasonChange{Rated: &rated, Note: &note,
+			StageNotes: map[string]string{"no_such": "A stage note."}}, ErrNoTournament},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			a := wimbledon2023(t)
+
+			if err := a.ChangeSeason(context.Background(), "wimbledon", "2023", tt.c); !errors.Is(err, tt.want) {
+				t.Errorf("ChangeSeason = %v, want %v", err, tt.want)
+			}
+			if got := wimbledonSeason(t, a, "2023"); !got.Rated || got.Note != "" {
+				t.Errorf("after a refused change: rated %v, note %q; want it unchanged", got.Rated, got.Note)
+			}
+		})
+	}
+}

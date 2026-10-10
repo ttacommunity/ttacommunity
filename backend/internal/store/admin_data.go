@@ -39,6 +39,6 @@ func (a *AdminStore) DataSummary(ctx context.Context) (DataSummary, error) {
 
 // ExportZip writes every input table, as the load job's export, as a zip to w, through the admin login.
 func (a *AdminStore) ExportZip(ctx context.Context, w io.Writer) error {
-	_, err := ExportZip(ctx, a.pool, w)
+	_, err := ExportZip(ctx, a.snapshot, w)
 	return err
 }

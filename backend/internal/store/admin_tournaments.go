@@ -674,6 +674,91 @@ func (a *AdminStore) RemoveSeason(ctx context.Context, slug, label string) error
 	})
 }
 
+// SeasonChange is a change to one season: each part that is not nil, true or empty is set.
+type SeasonChange struct {
+	Podium         *[]PodiumEntry
+	PodiumNote     string
+	ClearPodium    bool
+	Rated          *bool
+	InChampions    *bool
+	InCommunity    *bool
+	TimeoutPenalty *float64
+	Note           *string
+	StageNotes     map[string]string
+}
+
+// ChangeSeason sets every part of c on a tournament's season in one transaction, so a refused part changes
+// nothing. It returns what the refused part's Set method would.
+func (a *AdminStore) ChangeSeason(ctx context.Context, slug, season string, c SeasonChange) error {
+	return a.inTx(ctx, func(tx *AdminStore) error {
+		steps := []struct {
+			asked bool
+			do    func() error
+		}{
+			{c.Podium != nil, func() error { return tx.SetPodium(ctx, slug, season, *c.Podium, c.PodiumNote) }},
+			{c.ClearPodium, func() error { return tx.ClearPodium(ctx, slug, season) }},
+			{c.Rated != nil, func() error { return tx.SetSeasonRated(ctx, slug, season, *c.Rated) }},
+			{c.InChampions != nil, func() error { return tx.SetSeasonInChampions(ctx, slug, season, *c.InChampions) }},
+			{c.InCommunity != nil, func() error { return tx.SetSeasonInCommunity(ctx, slug, season, *c.InCommunity) }},
+			{c.TimeoutPenalty != nil, func() error { return tx.SetSeasonPenalty(ctx, slug, season, *c.TimeoutPenalty) }},
+			{c.Note != nil, func() error { return tx.SetNote(ctx, slug, season, "", *c.Note) }},
+		}
+		for _, st := range steps {
+			if st.asked {
+				if err := st.do(); err != nil {
+					return err
+				}
+			}
+		}
+		for stage, note := range c.StageNotes {
+			if err := tx.SetNote(ctx, slug, season, stage, note); err != nil {
+				return err
+			}
+		}
+		return nil
+	})
+}
+
+// TournamentChange is a change to a tournament: each part that is not nil is set.
+type TournamentChange struct {
+	Settings    *TournamentSettings
+	Card        *Card
+	Regulations *string
+	Stories     *[]Story
+	Members     *[]string
+}
+
+// ChangeTournament sets every part of c on tournament slug in one transaction, so a refused part changes
+// nothing. It returns what the refused part's Set method would.
+func (a *AdminStore) ChangeTournament(ctx context.Context, slug string, c TournamentChange) error {
+	return a.inTx(ctx, func(tx *AdminStore) error {
+		if c.Settings != nil {
+			if err := tx.SetTournament(ctx, slug, *c.Settings); err != nil {
+				return err
+			}
+		}
+		if c.Card != nil {
+			if err := tx.SetCard(ctx, slug, *c.Card); err != nil {
+				return err
+			}
+		}
+		if c.Regulations != nil {
+			if err := tx.SetRegulations(ctx, slug, *c.Regulations); err != nil {
+				return err
+			}
+		}
+		if c.Stories != nil {
+			if err := tx.SetStories(ctx, slug, *c.Stories); err != nil {
+				return err
+			}
+		}
+		if c.Members != nil {
+			return tx.SetMembers(ctx, slug, *c.Members)
+		}
+		return nil
+	})
+}
+
 // SetRegulations saves a tournament's format and regulations text, shown instead of CGE's; an empty text
 // removes it. It returns ErrNoTournament for a tournament that does not exist.
 func (a *AdminStore) SetRegulations(ctx context.Context, slug, text string) error {

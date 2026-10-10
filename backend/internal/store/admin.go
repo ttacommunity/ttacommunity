@@ -9,6 +9,7 @@ import (
 	"fmt"
 
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -30,12 +31,28 @@ type Admin struct {
 
 // AdminStore reads admins and writes the audit, as the ratings_admin login.
 type AdminStore struct {
-	pool *pgxpool.Pool
+	pool     conn          // the admin login's pool, or a transaction begun on it by inTx
+	snapshot *pgxpool.Pool // exports begin their own read-only snapshot, so they need the pool itself
+}
+
+// conn is what the store's statements run on: a *pgxpool.Pool or a pgx.Tx.
+type conn interface {
+	Begin(ctx context.Context) (pgx.Tx, error)
+	Exec(ctx context.Context, sql string, args ...any) (pgconn.CommandTag, error)
+	Query(ctx context.Context, sql string, args ...any) (pgx.Rows, error)
+	QueryRow(ctx context.Context, sql string, args ...any) pgx.Row
 }
 
 // NewAdminStore returns a store on the admin login's pool.
 func NewAdminStore(pool *pgxpool.Pool) *AdminStore {
-	return &AdminStore{pool: pool}
+	return &AdminStore{pool: pool, snapshot: pool}
+}
+
+// inTx runs fn with a store whose statements are all in one transaction, committed only when fn returns nil.
+func (a *AdminStore) inTx(ctx context.Context, fn func(tx *AdminStore) error) error {
+	return pgx.BeginFunc(ctx, a.pool, func(tx pgx.Tx) error {
+		return fn(&AdminStore{pool: tx, snapshot: a.snapshot})
+	})
 }
 
 // Admin returns the admin with this Discord id, or ErrNotAdmin.

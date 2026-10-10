@@ -52,7 +52,7 @@ spec:
       # Applies the ratings migrations before the api starts, as the database's owner (goose's lock serialises pods).
       initContainers:
         - name: migrate
-          image: ghcr.io/ttacommunity/ttacommunity/api:sha-7fff0066@sha256:4fbcd266d05372c368472a58e3b0213e70105cf1e591f505d952d63376f90bcf
+          image: ghcr.io/ttacommunity/ttacommunity/api:sha-df8b4a3c@sha256:5ce7ddfda339322fda4c7c554a81cc5be47a0b773f42f9f338af9937ff1fb51f
           args: [-migrate]
           env:
             - name: RATINGS_DATABASE_URL
@@ -73,7 +73,7 @@ spec:
               drop: [ALL]
       containers:
         - name: api
-          image: ghcr.io/ttacommunity/ttacommunity/api:sha-7fff0066@sha256:4fbcd266d05372c368472a58e3b0213e70105cf1e591f505d952d63376f90bcf
+          image: ghcr.io/ttacommunity/ttacommunity/api:sha-df8b4a3c@sha256:5ce7ddfda339322fda4c7c554a81cc5be47a0b773f42f9f338af9937ff1fb51f
           ports:
             - name: http
               containerPort: 8080
