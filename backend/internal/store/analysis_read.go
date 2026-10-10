@@ -56,19 +56,17 @@ func (r *RatingsReader) Calibration(ctx context.Context, run int64) ([]Calibrati
 	return got, nil
 }
 
-// AnalysisRatings returns a published run's ratings in PlayerPageModels for a
-// format, and the players active as upstream's analysis counts them: more than
-// 10 games in the 365 days up to the run's newest game.
-func (r *RatingsReader) AnalysisRatings(ctx context.Context, run int64, format int) ([]ModelRating, map[string]bool, error) {
+// AnalysisRatings returns a published run's ratings in PlayerPageModels for a format.
+func (r *RatingsReader) AnalysisRatings(ctx context.Context, run int64, format int) ([]ModelRating, error) {
 	if err := r.requirePublished(ctx, run); err != nil {
-		return nil, nil, err
+		return nil, err
 	}
 	rows, err := r.pool.Query(ctx, `
 		SELECT player_name, model_type, rating, rank, opponents_count FROM player_ratings
 		WHERE run_id = $1 AND player_count = $2 AND model_type = ANY($3)
 		ORDER BY player_name, model_type`, run, format, PlayerPageModels)
 	if err != nil {
-		return nil, nil, fmt.Errorf("reading run %d's ratings: %w", run, err)
+		return nil, fmt.Errorf("reading run %d's ratings: %w", run, err)
 	}
 	ratings, err := pgx.CollectRows(rows, func(row pgx.CollectableRow) (ModelRating, error) {
 		var m ModelRating
@@ -76,27 +74,35 @@ func (r *RatingsReader) AnalysisRatings(ctx context.Context, run int64, format i
 		return m, err
 	})
 	if err != nil {
-		return nil, nil, fmt.Errorf("reading run %d's ratings: %w", run, err)
+		return nil, fmt.Errorf("reading run %d's ratings: %w", run, err)
 	}
+	return ratings, nil
+}
 
-	rows, err = r.pool.Query(ctx, `
+// ActivePlayers returns the players active in a published run as upstream's
+// analysis counts them: more than 10 games in the 365 days up to its newest game.
+func (r *RatingsReader) ActivePlayers(ctx context.Context, run int64) (map[string]bool, error) {
+	if err := r.requirePublished(ctx, run); err != nil {
+		return nil, err
+	}
+	rows, err := r.pool.Query(ctx, `
 		WITH run_games AS (
 			SELECT DISTINCT g.game_id, g.date FROM games g JOIN pairwise_matches p ON p.match_id = g.game_id AND p.run_id = $1)
 		SELECT s.player_name FROM run_games r JOIN seats s USING (game_id)
 		WHERE r.date >= (SELECT max(date) FROM run_games) - 365
 		GROUP BY s.player_name HAVING count(*) > 10`, run)
 	if err != nil {
-		return nil, nil, fmt.Errorf("reading run %d's active players: %w", run, err)
+		return nil, fmt.Errorf("reading run %d's active players: %w", run, err)
 	}
 	names, err := pgx.CollectRows(rows, pgx.RowTo[string])
 	if err != nil {
-		return nil, nil, fmt.Errorf("reading run %d's active players: %w", run, err)
+		return nil, fmt.Errorf("reading run %d's active players: %w", run, err)
 	}
 	active := make(map[string]bool, len(names))
 	for _, n := range names {
 		active[n] = true
 	}
-	return ratings, active, nil
+	return active, nil
 }
 
 // CompareModels are the models upstream's player comparison shows, in its order.

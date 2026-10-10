@@ -88,8 +88,12 @@ func (f *fakeRatings) Calibration(context.Context, int64) ([]store.CalibrationRo
 	return nil, nil
 }
 
-func (f *fakeRatings) AnalysisRatings(context.Context, int64, int) ([]store.ModelRating, map[string]bool, error) {
-	return nil, nil, nil
+func (f *fakeRatings) AnalysisRatings(context.Context, int64, int) ([]store.ModelRating, error) {
+	return nil, nil
+}
+
+func (f *fakeRatings) ActivePlayers(context.Context, int64) (map[string]bool, error) {
+	return nil, nil
 }
 
 func (f *fakeRatings) ComparedPlayers(context.Context, int64, int, []string) ([]store.ComparedPlayer, error) {

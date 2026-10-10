@@ -44,10 +44,14 @@ func (s *server) GetDistribution(ctx context.Context, req GetDistributionRequest
 	if msg := analysisRefusal(req.Run, format); msg != "" {
 		return GetDistribution400JSONResponse{badRequestBody(msg)}, nil
 	}
-	ratings, active, err := s.ratings.AnalysisRatings(ctx, req.Run, int(format))
+	ratings, err := s.ratings.AnalysisRatings(ctx, req.Run, int(format))
 	if nf, ok := notFound(err); ok {
 		return GetDistribution404JSONResponse{nf}, nil
 	}
+	if err != nil {
+		return nil, err
+	}
+	active, err := s.ratings.ActivePlayers(ctx, req.Run)
 	if err != nil {
 		return nil, err
 	}
@@ -65,7 +69,7 @@ func (s *server) GetAgreement(ctx context.Context, req GetAgreementRequestObject
 	if msg := analysisRefusal(req.Run, format); msg != "" {
 		return GetAgreement400JSONResponse{badRequestBody(msg)}, nil
 	}
-	ratings, _, err := s.ratings.AnalysisRatings(ctx, req.Run, int(format))
+	ratings, err := s.ratings.AnalysisRatings(ctx, req.Run, int(format))
 	if nf, ok := notFound(err); ok {
 		return GetAgreement404JSONResponse{nf}, nil
 	}
