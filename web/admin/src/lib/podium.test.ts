@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { podiumNames, podiumRequest, podiumStart } from './podium';
+import { podiumNames, podiumNoteStart, podiumRequest, podiumStart } from './podium';
 
 describe('podiumRequest', () => {
   it('sends the places filled in, trimmed, with their place numbers', () => {
@@ -32,5 +32,19 @@ describe('podiumStart', () => {
     ['else nothing', [], [], '', ['', '', ''], 'none'],
   ] as const)('starts from %s', (_, saved, suggested, from, names, origin) => {
     expect(podiumStart([...saved], [...suggested], from)).toEqual({ names, origin });
+  });
+});
+
+describe('podiumNoteStart', () => {
+  it.each([
+    ['a saved note, whatever the origin', 'Organisers ruled on a tie', 'recorded', 'Organisers ruled on a tie'],
+    ['nothing for a podium set by hand with no note', '', 'admin', ''],
+    ['nothing when nothing was recorded or suggested', '', 'none', ''],
+  ] as const)('starts the note from %s', (_, saved, origin, want) => {
+    expect(podiumNoteStart(saved, origin)).toBe(want);
+  });
+
+  it.each(['recorded', 'final_stage'] as const)('says where a %s suggestion came from', (origin) => {
+    expect(podiumNoteStart('', origin)).not.toBe('');
   });
 });

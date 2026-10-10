@@ -1,4 +1,5 @@
 /** A tournament's settings page in admin: its address, and the settings it edits. */
+import type { AdminResult, AdminTournament, AdminTournamentRow, Load } from './admin-api';
 
 export type Setting = 'visible' | 'rated' | 'community';
 
@@ -40,6 +41,11 @@ export function divisionList(text: string): string[] {
     .split(',')
     .map((d) => d.trim())
     .filter((d) => d !== '');
+}
+
+/** divisionsChanged says whether the top divisions box differs from those saved, spaces and blanks aside. */
+export function divisionsChanged(text: string, saved: readonly string[]): boolean {
+  return divisionText(divisionList(text)) !== divisionText(saved);
 }
 
 /** divisionText writes top divisions for the box divisionList reads. */
@@ -113,4 +119,41 @@ export function levelNamesPatch(boxes: LevelNames, saved: LevelNames): Partial<L
     if (name !== saved[key]) patch[key] = name;
   }
   return patch;
+}
+
+/** patchReady says whether a patch can be saved: valid (not null) and changing something. */
+export function patchReady(patch: object | null): boolean {
+  return patch !== null && Object.keys(patch).length > 0;
+}
+
+/** penaltySavable says whether a time-out penalty can be saved: readable, and not the one saved. */
+export function penaltySavable(value: number | null, saved: number): boolean {
+  return value !== null && value !== saved;
+}
+
+/** fieldId builds an element id from its parts, joined by dashes, with anything but letters, digits and dashes as _. */
+export function fieldId(...parts: string[]): string {
+  return parts.join('-').replace(/[^A-Za-z0-9-]/g, '_');
+}
+
+/** toggled returns list with item removed if it is there, else added at the end. */
+export function toggled(list: readonly string[], item: string): string[] {
+  return list.includes(item) ? list.filter((x) => x !== item) : [...list, item];
+}
+
+/** noteAction is what a stage's note button does: close the open note, else add one or edit the one there. */
+export function noteAction(open: boolean, note: string): 'close' | 'add' | 'edit' {
+  if (open) return 'close';
+  return note === '' ? 'add' : 'edit';
+}
+
+/** tournamentLoad is the page's state from the answers for its tournament and the list of all of them. */
+export function tournamentLoad(
+  slug: string,
+  one: AdminResult<AdminTournament>,
+  rows: AdminResult<AdminTournamentRow[]>,
+): Load<AdminTournament> {
+  if (!one.ok) return { kind: 'error', message: one.status === 404 ? `No tournament is called ${slug}.` : one.message };
+  if (!rows.ok) return { kind: 'error', message: rows.message };
+  return { kind: 'ready', data: one.data };
 }

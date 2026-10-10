@@ -1,5 +1,20 @@
 import { describe, expect, it } from 'vitest';
-import { badgeChanged, canAddStory, cardChanged, isDiscordId, movedStory, regulationsSavable, storiesChanged, textChanged } from './admin-edits';
+import {
+  addedStory,
+  badgeChanged,
+  canAddStory,
+  cardChanged,
+  editedStory,
+  isDiscordId,
+  isRemoval,
+  movedStory,
+  regulationsSavable,
+  regulationsSource,
+  regulationsStart,
+  removedStory,
+  storiesChanged,
+  textChanged,
+} from './admin-edits';
 
 const CARD = { icon: '🏆', tagline: 'Annual', summary: '', subtitle: '', cadence: '' };
 const STORY = (title: string) => ({ player: 'ann', badge: '', title, text: '' });
@@ -67,5 +82,34 @@ describe('admin edits', () => {
     ['no label', '  ', 'Was here', false],
   ])('lets a badge be saved when %s', (_, label, description, want) => {
     expect(badgeChanged({ label: 'Founder', description: 'Was there' }, label, description)).toBe(want);
+  });
+
+  it.each([
+    ['nothing', '  ', true],
+    ['text', ' Best of three ', false],
+  ])('sees saving %s as a removal', (_, text, want) => {
+    expect(isRemoval(text)).toBe(want);
+  });
+
+  it.each([
+    ['ours, over CGE’s', 'Ours.', 'CGE’s.', 'Ours.', 'ours'],
+    ['CGE’s, when none of ours is set', '', 'CGE’s.', 'CGE’s.', 'cge'],
+    ['nothing, when neither is set', '', '', '', 'none'],
+  ] as const)('starts regulations from %s', (_, ours, cge, text, source) => {
+    expect(regulationsStart(ours, cge)).toBe(text);
+    expect(regulationsSource(ours, cge)).toBe(source);
+  });
+
+  it('edits one field of one story', () => {
+    const got = editedStory([STORY('A'), STORY('B')], 1, 'text', 'Won it all');
+    expect(got.map((s) => [s.title, s.text])).toEqual([['A', ''], ['B', 'Won it all']]);
+  });
+
+  it('removes one story, keeping the order of the rest', () => {
+    expect(removedStory([STORY('A'), STORY('B'), STORY('C')], 1).map((s) => s.title)).toEqual(['A', 'C']);
+  });
+
+  it('adds an empty story at the end', () => {
+    expect(addedStory([STORY('A')])).toEqual([STORY('A'), { player: '', badge: '', title: '', text: '' }]);
   });
 });

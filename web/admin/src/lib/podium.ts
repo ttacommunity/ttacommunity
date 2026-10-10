@@ -27,3 +27,16 @@ export function podiumStart(saved: PodiumEntry[], suggested: PodiumEntry[], from
   const names = suggested.slice(0, 3).map((e) => e.name);
   return { names: [...names, '', '', ''].slice(0, 3), origin: from };
 }
+
+// What the note says of a podium nobody has set by hand.
+const ORIGIN_NOTE: Record<Origin, string> = {
+  admin: '',
+  recorded: 'As recorded by the organisers',
+  final_stage: "From the final stage's games",
+  none: '',
+};
+
+/** podiumNoteStart is the note box's first contents: the saved note, else where the suggested names came from. */
+export function podiumNoteStart(saved: string, origin: Origin): string {
+  return saved || ORIGIN_NOTE[origin];
+}

@@ -1,7 +1,7 @@
 /** The admin page: the site's header with admin's tabs (tournaments, data and rating runs, titles and badges, admins). */
 import { Fragment, useEffect, useState, type ReactNode } from 'react';
 import Segmented from '@ttac/shared/Segmented';
-import { adminRequest, type AdminMe, type AdminTournamentRow } from '../lib/admin-api';
+import { adminRequest, type AdminMe, type AdminTournamentRow, type Load } from '../lib/admin-api';
 import { panelsFor, tabFrom, tabsFor, type Panel, type TabKey } from '../lib/admin-tabs';
 import { listed } from '../lib/tournament-groups';
 import { settingsHref } from '../lib/tournament-page';
@@ -15,8 +15,6 @@ import StandingsCheckPanel from './StandingsCheckPanel';
 import TitlesPanel from './TitlesPanel';
 import BadgesPanel from './BadgesPanel';
 import './AdminApp.css';
-
-type Load<T> = { kind: 'loading' } | { kind: 'error'; message: string } | { kind: 'ready'; data: T };
 
 /** Tournaments lists the top-level tournaments and groups, rated or unrated, with New group. */
 function Tournaments() {
