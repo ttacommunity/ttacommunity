@@ -30,6 +30,11 @@ describe('adminRequest', () => {
       status: 409,
       message: 'Refused: a rating run is already going.',
     });
+    expect(await adminRequest('/api/tournaments/worlds', { method: 'PATCH' }, answer(413, { error: 'request body too large' }))).toEqual({
+      ok: false,
+      status: 413,
+      message: 'Refused: request body too large.',
+    });
     expect(await adminRequest('/api/x', {}, answer(500, 'not json'))).toEqual({
       ok: false,
       status: 500,
