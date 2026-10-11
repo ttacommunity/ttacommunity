@@ -30,6 +30,11 @@ describe('adminRequest', () => {
       status: 409,
       message: 'Refused: a rating run is already going.',
     });
+    expect(await adminRequest('/api/tournaments/worlds', { method: 'PATCH' }, answer(413, { error: 'request body too large' }))).toEqual({
+      ok: false,
+      status: 413,
+      message: 'Refused: request body too large.',
+    });
     expect(await adminRequest('/api/x', {}, answer(500, 'not json'))).toEqual({
       ok: false,
       status: 500,
@@ -65,6 +70,19 @@ describe('adminDownload', () => {
       status: 403,
       message: 'Refused: not allowed here.',
     });
+  });
+
+  it('says a download that broke off part way should be tried again', async () => {
+    const body = new ReadableStream({
+      start(c) {
+        c.enqueue(new TextEncoder().encode('PK'));
+        c.error(new TypeError('network error'));
+      },
+    });
+
+    const r = await adminDownload('/api/export', vi.fn(async () => new Response(body, { status: 200 })));
+
+    expect(r).toMatchObject({ ok: false, message: expect.stringContaining('broke off') });
   });
 });
 

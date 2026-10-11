@@ -232,7 +232,7 @@ def legends(boards: dict[str, list[dict]], shown: int = 25) -> list[dict]:
     across them. A player needs a title or two medals. Ordered by titles,
     World titles, golds, silvers, bronzes and medals, ties first seen first.
     """
-    got: dict[str, dict[str, int]] = {}
+    got: dict[str, dict[str, Any]] = {}
     for series, title_key in MAJOR_CIRCUITS.items():
         for b in boards.get(series, []):
             row = got.setdefault(

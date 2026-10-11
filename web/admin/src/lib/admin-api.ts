@@ -1,5 +1,6 @@
 /** Calls to the admin API through this site's /api proxy, with refusals turned into plain messages. */
 import type { components } from '@ttac/shared/api';
+import { errorFields, type ErrorFields } from '@ttac/shared/ratings';
 
 export type AdminMe = components['schemas']['AdminMe'];
 export type AdminTournament = components['schemas']['AdminTournament'];
@@ -26,20 +27,9 @@ export function firstError(...loads: Load<unknown>[]): string | null {
 
 type Fetch = (input: string, init: RequestInit) => Promise<Response>;
 
-type ErrorBody = { error: string | undefined; requestId: string | undefined };
-
-/** errorOf reads an error answer's message and, on a server error, its request id. */
-function errorOf(body: unknown): ErrorBody {
-  if (typeof body !== 'object' || body === null) return { error: undefined, requestId: undefined };
-  return {
-    error: 'error' in body ? String(body.error) : undefined,
-    requestId: 'request_id' in body && typeof body.request_id === 'string' ? body.request_id : undefined,
-  };
-}
-
-function refusal(status: number, { error, requestId }: ErrorBody): string {
+function refusal(status: number, { error, requestId }: ErrorFields): string {
   if (status === 401) return 'Your sign-in has ended. Reload the page to sign in again.';
-  if ([400, 403, 404, 409, 503].includes(status)) return `Refused: ${error ?? 'not allowed'}.`;
+  if ([400, 403, 404, 409, 413, 503].includes(status)) return `Refused: ${error ?? 'not allowed'}.`;
   const ref = requestId === undefined ? '' : ` Quote ref ${requestId}.`;
   return `The API failed (${status}). Try again, or tell an admin.${ref}`;
 }
@@ -69,7 +59,7 @@ export async function adminRequest<T>(
     body = null;
   }
   if (res.ok) return { ok: true, data: body as T };
-  return { ok: false, status: res.status, message: refusal(res.status, errorOf(body)) };
+  return { ok: false, status: res.status, message: refusal(res.status, errorFields(body)) };
 }
 
 /** adminDownload fetches a file from an admin path on this site, or why it was refused. */
@@ -80,14 +70,20 @@ export async function adminDownload(path: string, fetcher: Fetch = fetch): Promi
   } catch {
     return { ok: false, status: 0, message: 'The admin site could not be reached. Check your connection.' };
   }
-  if (res.ok) return { ok: true, data: await res.blob() };
+  if (res.ok) {
+    try {
+      return { ok: true, data: await res.blob() };
+    } catch {
+      return { ok: false, status: 0, message: 'The download broke off part way. Try again.' };
+    }
+  }
   let body: unknown = null;
   try {
     body = await res.json();
   } catch {
     body = null;
   }
-  return { ok: false, status: res.status, message: refusal(res.status, errorOf(body)) };
+  return { ok: false, status: res.status, message: refusal(res.status, errorFields(body)) };
 }
 
 /** exportFileName names a data download by the local day it was taken. */

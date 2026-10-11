@@ -33,36 +33,62 @@ func New() *Registry {
 	return r
 }
 
-// Observe records one answered request. route is the mux's pattern, never the path.
+// Observe records one answered request. route is the mux's pattern, never the path. Status 0, an
+// answer aborted after it started, is labelled "aborted".
 func (r *Registry) Observe(route string, status int, took time.Duration) {
-	r.requests.WithLabelValues(route, strconv.Itoa(status)).Observe(took.Seconds())
+	label := strconv.Itoa(status)
+	if status == 0 {
+		label = "aborted"
+	}
+	r.requests.WithLabelValues(route, label).Observe(took.Seconds())
 }
 
 // AddPool reports pool's connections, labelled with its name.
 func (r *Registry) AddPool(name string, pool *pgxpool.Pool) {
 	labels := prometheus.Labels{"pool": name}
-	gauge := func(metric, help string, value func(*pgxpool.Stat) float64) prometheus.Collector {
-		return prometheus.NewGaugeFunc(prometheus.GaugeOpts{Name: metric, Help: help, ConstLabels: labels},
-			func() float64 { return value(pool.Stat()) })
+	metric := func(name, help string, kind prometheus.ValueType, value func(*pgxpool.Stat) float64) poolMetric {
+		return poolMetric{desc: prometheus.NewDesc(name, help, nil, labels), kind: kind, value: value}
 	}
-	counter := func(metric, help string, value func(*pgxpool.Stat) float64) prometheus.Collector {
-		return prometheus.NewCounterFunc(prometheus.CounterOpts{Name: metric, Help: help, ConstLabels: labels},
-			func() float64 { return value(pool.Stat()) })
-	}
-	r.reg.MustRegister(
-		gauge("ttacapi_db_pool_acquired_connections", "Connections in use.",
+	r.reg.MustRegister(&poolCollector{pool: pool, metrics: []poolMetric{
+		metric("ttacapi_db_pool_acquired_connections", "Connections in use.", prometheus.GaugeValue,
 			func(s *pgxpool.Stat) float64 { return float64(s.AcquiredConns()) }),
-		gauge("ttacapi_db_pool_idle_connections", "Connections open and free.",
+		metric("ttacapi_db_pool_idle_connections", "Connections open and free.", prometheus.GaugeValue,
 			func(s *pgxpool.Stat) float64 { return float64(s.IdleConns()) }),
-		gauge("ttacapi_db_pool_max_connections", "The most connections the pool opens.",
+		metric("ttacapi_db_pool_max_connections", "The most connections the pool opens.", prometheus.GaugeValue,
 			func(s *pgxpool.Stat) float64 { return float64(s.MaxConns()) }),
-		counter("ttacapi_db_pool_acquires_total", "Connections taken from the pool.",
+		metric("ttacapi_db_pool_acquires_total", "Connections taken from the pool.", prometheus.CounterValue,
 			func(s *pgxpool.Stat) float64 { return float64(s.AcquireCount()) }),
-		counter("ttacapi_db_pool_empty_acquires_total", "Connections waited for, because none was free.",
+		metric("ttacapi_db_pool_empty_acquires_total", "Connections waited for, because none was free.", prometheus.CounterValue,
 			func(s *pgxpool.Stat) float64 { return float64(s.EmptyAcquireCount()) }),
-		counter("ttacapi_db_pool_empty_acquire_wait_seconds_total", "Time spent waiting for a free connection.",
+		metric("ttacapi_db_pool_empty_acquire_wait_seconds_total", "Time spent waiting for a free connection.", prometheus.CounterValue,
 			func(s *pgxpool.Stat) float64 { return s.EmptyAcquireWaitTime().Seconds() }),
-	)
+	}})
+}
+
+// poolMetric is one number read from a pool's stats.
+type poolMetric struct {
+	desc  *prometheus.Desc
+	kind  prometheus.ValueType
+	value func(*pgxpool.Stat) float64
+}
+
+// poolCollector reports a pool's metrics from one reading of its stats per scrape, so they agree.
+type poolCollector struct {
+	pool    *pgxpool.Pool
+	metrics []poolMetric
+}
+
+func (c *poolCollector) Describe(ch chan<- *prometheus.Desc) {
+	for _, m := range c.metrics {
+		ch <- m.desc
+	}
+}
+
+func (c *poolCollector) Collect(ch chan<- prometheus.Metric) {
+	s := c.pool.Stat()
+	for _, m := range c.metrics {
+		ch <- prometheus.MustNewConstMetric(m.desc, m.kind, m.value(s))
+	}
 }
 
 // Handler serves the metrics in Prometheus's text format.

@@ -46,7 +46,7 @@ function network() {
           headers: { 'Content-Type': 'application/zip', 'Content-Disposition': 'attachment; filename="ttacommunity-data.zip"' },
         });
       }
-      return Response.json({ ok: true }, { status: 200 });
+      return Response.json({ ok: true }, { status: 200, headers: { 'X-Request-Id': '0123456789abcdef' } });
     }),
   );
   return calls;
@@ -124,6 +124,12 @@ describe('the admin Worker', () => {
     expect(await res.text()).toBe('PK zip');
     expect(res.headers.get('Content-Type')).toBe('application/zip');
     expect(res.headers.get('Content-Disposition')).toBe('attachment; filename="ttacommunity-data.zip"');
+  });
+
+  it("passes the API's request id on, so an error can be reported by it", async () => {
+    network();
+    const res = await worker.fetch(new Request(`${SITE}/api/me`, { headers: { 'Cf-Access-Jwt-Assertion': good } }), env().env);
+    expect(res.headers.get('X-Request-Id')).toBe('0123456789abcdef');
   });
 
   it("keeps Access's signing keys for a while rather than fetching them on every request", async () => {

@@ -18,6 +18,7 @@ import {
   playerHistory,
   playerMatches,
   communityLeaderboard,
+  errorFields,
   playerAchievements,
   playerCareer,
   playerMatrix,
@@ -228,5 +229,17 @@ describe('tournament pages', () => {
       'https://api.example/v1/runs/5/catalogue/worlds/games?page=2&season=2022+%28Age+A%29&stage=Stage+1&group=Group+3&player=Ember_Wolf&coded=true',
     ]);
     expect(f.calls.every((c) => c.init?.credentials === 'omit')).toBe(true);
+  });
+});
+
+describe('errorFields', () => {
+  it.each([
+    ['an error with its request id', { error: 'internal error', request_id: '0123456789abcdef' }, 'internal error', '0123456789abcdef'],
+    ['an error alone', { error: 'unknown model' }, 'unknown model', undefined],
+    ['not an object', 'Bad Gateway', undefined, undefined],
+    ['no body', null, undefined, undefined],
+    ['fields that are not strings', { error: 404, request_id: ['x'] }, undefined, undefined],
+  ])('%s', (_, body, error, requestId) => {
+    expect(errorFields(body)).toEqual({ error, requestId });
   });
 });

@@ -709,10 +709,13 @@ A WAF rate-limiting rule on that hostname comes first.
 
 #### Find an error someone reports
 
-Every answer carries an `X-Request-Id` header. A server error (500) also
-puts it in its body as `request_id` and in its log line, and the site and
-admin show it as "ref …". The id is random, so it tells nothing about who
-asked. Find the error by it (`app=api-dev` on dev):
+The API sets an `X-Request-Id` header on every answer. Admin's proxy passes
+it on; on the site only the browser's developer tools show it, as the
+site's code cannot read it across origins. A server error (500) also puts
+it in its body as `request_id` and in its log line, and that is where
+people see it: the site and admin show it as "ref …" in the error's
+message. The id is random, so it tells nothing about who asked. Find the
+error by it (`app=api-dev` on dev):
 
 ```bash
 kubectl -n ttacommunity logs -l app=api --tail=-1 | grep '"request_id":"<id>"'
@@ -723,7 +726,9 @@ kubectl -n ttacommunity logs -l app=api --tail=-1 | grep '"request_id":"<id>"'
 The api serves Prometheus metrics at `/metrics` on a listener of its own,
 `METRICS_ADDR` (`127.0.0.1:8081` locally, `:8081` in the cluster), never on
 the public port. They are how long requests take by route pattern and status
-(`ttacapi_http_request_duration_seconds`), each database pool's connections
+(`ttacapi_http_request_duration_seconds`; status `aborted` for an answer
+cut off after it started, such as an export that failed part way), each
+database pool's connections
 (`ttacapi_db_pool_…`), and Go's runtime. A request taking a second or more
 also logs a `slow request` line. In the cluster only Prometheus may reach
 that port (`deploy/networkpolicy.yaml`); its scrape config and dashboard live
