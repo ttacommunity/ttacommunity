@@ -568,14 +568,39 @@ func (*panickingRatings) CurrentRun(context.Context) (store.PublishedRun, error)
 	panic("kaboom")
 }
 
-func TestTheAPIRecoversAPanicByRoute(t *testing.T) {
-	rec, logs := serve(t, &panickingRatings{}, "/v1/runs/current")
+type panickingAdmins struct{ fakeAdmins }
 
-	if rec.Code != http.StatusInternalServerError {
-		t.Errorf("code = %d, want %d", rec.Code, http.StatusInternalServerError)
+func (*panickingAdmins) Runs(context.Context) ([]store.AdminRun, error) {
+	panic("kaboom")
+}
+
+func TestTheAPIRecoversAPanicByRoute(t *testing.T) {
+	tests := []struct {
+		name    string
+		ratings Ratings
+		admins  Admins
+		path    string
+		route   string
+	}{
+		{"a public route", &panickingRatings{}, nil, "/v1/runs/current", "GET /v1/runs/current"},
+		{"an admin route", &fakeRatings{}, &panickingAdmins{}, "/v1/admin/runs", "GET /v1/admin/runs"},
 	}
-	if !strings.Contains(logs, `"route":"GET /v1/runs/current"`) {
-		t.Errorf("log = %q, want the route", logs)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var logs bytes.Buffer
+			req := httptest.NewRequest(http.MethodGet, tt.path, nil)
+			req.Header.Set("Cf-Access-Jwt-Assertion", "good-111111111111111111")
+			rec := httptest.NewRecorder()
+
+			NewMux(tt.ratings, tt.admins, slog.New(slog.NewJSONHandler(&logs, nil))).ServeHTTP(rec, req)
+
+			if rec.Code != http.StatusInternalServerError {
+				t.Errorf("code = %d, want %d", rec.Code, http.StatusInternalServerError)
+			}
+			if !strings.Contains(logs.String(), `"route":"`+tt.route+`"`) {
+				t.Errorf("log = %q, want the route %q", logs.String(), tt.route)
+			}
+		})
 	}
 }
 
