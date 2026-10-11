@@ -6,6 +6,9 @@ import (
 	"errors"
 	"net/http"
 	"strings"
+	"time"
+
+	openapi_types "github.com/oapi-codegen/runtime/types"
 
 	"ttacommunity/backend/internal/store"
 )
@@ -233,4 +236,58 @@ func (s *server) DeleteAdminSeason(ctx context.Context, req DeleteAdminSeasonReq
 		return nil, err
 	}
 	return DeleteAdminSeason204Response{}, nil
+}
+
+func (s *server) PostAdminSeason(ctx context.Context, req PostAdminSeasonRequestObject) (PostAdminSeasonResponseObject, error) {
+	a, ok := adminFrom(ctx)
+	if !ok {
+		return nil, errors.New("admin route reached without the gate")
+	}
+	if req.Body == nil || strings.TrimSpace(req.Body.Label) == "" || len(req.Body.Label) > 64 {
+		return PostAdminSeason400JSONResponse{badRequest400("a season needs a label")}, nil
+	}
+	label := strings.TrimSpace(req.Body.Label)
+	switch err := s.admins.AddSeason(ctx, req.Tournament, label); {
+	case errors.Is(err, store.ErrNoTournament):
+		return PostAdminSeason404JSONResponse{notFound404("no such tournament")}, nil
+	case errors.Is(err, store.ErrSeasonExists):
+		return PostAdminSeason400JSONResponse{badRequest400("the tournament already has that season")}, nil
+	case err != nil:
+		return nil, err
+	}
+	if err := s.admins.Audit(ctx, a.DiscordID, "tournament.season.add", req.Tournament, map[string]string{"label": label}); err != nil {
+		return nil, err
+	}
+	return PostAdminSeason204Response{}, nil
+}
+
+// tournamentCard turns a tournament's card into the API's.
+func tournamentCard(c store.Card) TournamentCard {
+	return TournamentCard{Icon: c.Icon, Tagline: c.Tagline, Summary: c.Summary, Subtitle: c.Subtitle, Cadence: c.Cadence}
+}
+
+// storyList turns a tournament's stories into the API's.
+func storyList(list []store.Story) []Story {
+	out := make([]Story, len(list))
+	for i, st := range list {
+		out[i] = Story{Player: st.Player, Badge: st.Badge, Title: st.Title, Text: st.Text}
+	}
+	return out
+}
+
+// dateOf returns t as an API date, or nil for none.
+func dateOf(t *time.Time) *openapi_types.Date {
+	if t == nil {
+		return nil
+	}
+	return &openapi_types.Date{Time: *t}
+}
+
+// podiumEntries returns a podium as the API's, empty for none.
+func podiumEntries(p []store.PodiumEntry) []PodiumEntry {
+	out := make([]PodiumEntry, len(p))
+	for i, e := range p {
+		out[i] = PodiumEntry{Place: e.Place, Name: e.Name}
+	}
+	return out
 }

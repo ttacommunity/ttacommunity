@@ -27,12 +27,32 @@ const (
 	cacheNone    = "no-store"
 )
 
-// Ratings is what the public ratings routes read.
+// Ratings is what the public ratings routes read: each route file's reads, together.
 type Ratings interface {
+	RunReads
+	BoardReads
+	PlayerReads
+	YearReads
+	AnalysisReads
+	TournamentReads
+	CatalogueReads
+}
+
+// RunReads are the reads every area shares: whether the database answers, the run the site shows, a run's last game.
+type RunReads interface {
 	Ping(ctx context.Context) error
 	CurrentRun(ctx context.Context) (store.PublishedRun, error)
+	RunLastGame(ctx context.Context, run int64) (*time.Time, error)
+}
+
+// BoardReads are the leaderboard's reads, here and in csv.go.
+type BoardReads interface {
 	Leaderboard(ctx context.Context, run int64, model string, format int) ([]store.LeaderboardRow, error)
 	History(ctx context.Context, run int64, model string, format int, at *time.Time) (time.Time, []store.HistoryRow, error)
+}
+
+// PlayerReads are player.go's reads.
+type PlayerReads interface {
 	Player(ctx context.Context, run int64, name string) (store.Player, error)
 	PlayerHistory(ctx context.Context, run int64, name string, format int) (string, []store.HistoryPoint, error)
 	PlayerMatches(ctx context.Context, run int64, name string, format, page int) (string, store.MatchPage, error)
@@ -41,18 +61,33 @@ type Ratings interface {
 	PlayerCareer(ctx context.Context, run int64, name string, format int) (string, []store.CareerYear, []store.ModelPeak, error)
 	Versus(ctx context.Context, run int64, name, other string) (string, string, []store.PlayerMatch, error)
 	PlayerMatrix(ctx context.Context, run int64, name string, format int, year *int) (string, []store.MatrixCell, error)
+}
+
+// YearReads are year.go's reads, and csv.go's for one year.
+type YearReads interface {
 	YearBoard(ctx context.Context, run int64, year int, model string, format int) (store.YearBoard, error)
 	Years(ctx context.Context, run int64) ([]store.Year, error)
+}
+
+// AnalysisReads are analysis.go's reads.
+type AnalysisReads interface {
 	Calibration(ctx context.Context, run int64) ([]store.CalibrationRow, error)
 	AnalysisRatings(ctx context.Context, run int64, format int) ([]store.ModelRating, error)
 	ActivePlayers(ctx context.Context, run int64) (map[string]bool, error)
 	ComparedPlayers(ctx context.Context, run int64, format int, terms []string) ([]store.ComparedPlayer, error)
 	Activity(ctx context.Context, run int64, inactiveOnOrBefore time.Time) (store.Activity, error)
-	RunLastGame(ctx context.Context, run int64) (*time.Time, error)
+}
+
+// TournamentReads are tournament.go's reads.
+type TournamentReads interface {
 	TournamentSeries(ctx context.Context, run int64, series string) (store.TournamentSeries, error)
 	HallOfFame(ctx context.Context, run int64) (store.HallOfFame, error)
 	PlayerAchievements(ctx context.Context, run int64, name string) (string, *store.AchievementSummary, []store.TournamentRecord, error)
 	CommunityLeaderboard(ctx context.Context, run int64, edition string) ([]store.CommunityRow, error)
+}
+
+// CatalogueReads are catalogue.go's reads.
+type CatalogueReads interface {
 	Catalogue(ctx context.Context, run int64) (store.CatalogueView, error)
 	CatalogueTournament(ctx context.Context, run int64, slug string) (store.CatalogueTournament, error)
 	CatalogueGames(ctx context.Context, run int64, slug string, f store.CatalogueGamesFilter) (store.CatalogueGames, error)
