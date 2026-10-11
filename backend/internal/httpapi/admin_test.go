@@ -503,7 +503,7 @@ func adminGet(t *testing.T, admins Admins, token string) *httptest.ResponseRecor
 		req.Header.Set("Cf-Access-Jwt-Assertion", token)
 	}
 	rec := httptest.NewRecorder()
-	NewMux(&fakeRatings{}, admins, slog.New(slog.DiscardHandler)).ServeHTTP(rec, req)
+	newMux(&fakeRatings{}, admins, slog.New(slog.DiscardHandler)).ServeHTTP(rec, req)
 	return rec
 }
 
@@ -555,7 +555,7 @@ func TestNoPathReachesAnAdminRouteAroundTheGate(t *testing.T) {
 	for _, path := range []string{"/v1/./admin/me", "/v1//admin/me", "/v1/x/../admin/me", "/v1/%61dmin/me", "/v1/admin/me/"} {
 		req := httptest.NewRequest(http.MethodGet, path, nil)
 		rec := httptest.NewRecorder()
-		NewMux(&fakeRatings{}, &fakeAdmins{}, slog.New(slog.DiscardHandler)).ServeHTTP(rec, req)
+		newMux(&fakeRatings{}, &fakeAdmins{}, slog.New(slog.DiscardHandler)).ServeHTTP(rec, req)
 		if rec.Code == http.StatusOK {
 			t.Errorf("GET %s without a token = 200 %s, want a refusal", path, rec.Body)
 		}
@@ -576,7 +576,7 @@ func adminDoAs(t *testing.T, admins Admins, who, method, path, origin, body stri
 		req.Header.Set("Origin", origin)
 	}
 	rec := httptest.NewRecorder()
-	NewMux(&fakeRatings{}, admins, slog.New(slog.DiscardHandler)).ServeHTTP(rec, req)
+	newMux(&fakeRatings{}, admins, slog.New(slog.DiscardHandler)).ServeHTTP(rec, req)
 	return rec
 }
 
@@ -640,7 +640,7 @@ func TestRequestBodiesAreLimited(t *testing.T) {
 			req.Header.Set("Origin", "https://ttac-admin.example")
 			rec := httptest.NewRecorder()
 
-			NewMux(&fakeRatings{}, &fakeAdmins{}, slog.New(slog.DiscardHandler)).ServeHTTP(rec, req)
+			newMux(&fakeRatings{}, &fakeAdmins{}, slog.New(slog.DiscardHandler)).ServeHTTP(rec, req)
 
 			if rec.Code != tt.want {
 				t.Errorf("POST %d bytes: code = %d %s, want %d", len(tt.body), rec.Code, rec.Body, tt.want)

@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { adminDownload, adminRequest, exportFileName } from './admin-api';
+import { adminDownload, adminRequest, exportFileName, firstError, type Load } from './admin-api';
 
 function answer(status: number, body: unknown) {
   return vi.fn(async () => new Response(body === null ? null : JSON.stringify(body), { status }));
@@ -65,6 +65,31 @@ describe('adminDownload', () => {
       status: 403,
       message: 'Refused: not allowed here.',
     });
+  });
+});
+
+describe('a server error', () => {
+  it.each([
+    ['a request', (f: ReturnType<typeof answer>) => adminRequest('/api/me', {}, f)],
+    ['a download', (f: ReturnType<typeof answer>) => adminDownload('/api/export', f)],
+  ])('quotes its request id, to report it by, for %s', async (_, call) => {
+    const r = await call(answer(500, { error: 'internal error', request_id: '0123456789abcdef' }));
+
+    expect(r).toMatchObject({ ok: false, status: 500, message: expect.stringContaining('0123456789abcdef') });
+  });
+});
+
+describe('firstError', () => {
+  const ready: Load<number> = { kind: 'ready', data: 1 };
+  const loading: Load<number> = { kind: 'loading' };
+  const failed = (message: string): Load<number> => ({ kind: 'error', message });
+
+  it.each([
+    ['nothing failed', [ready, loading], null],
+    ['one failed', [ready, failed('no tournament')], 'no tournament'],
+    ['both failed: the first', [failed('sign-in ended'), failed('no tournament')], 'sign-in ended'],
+  ])('%s', (_, loads, want) => {
+    expect(firstError(...loads)).toBe(want);
   });
 });
 

@@ -66,6 +66,13 @@ describe('currentRun', () => {
     expect(err).toMatchObject({ status: 503, message: 'no rating run has been published yet' });
   });
 
+  it("quotes a server error's request id in its message, to report it by", async () => {
+    const f = fakeFetch(500, '{"error":"internal error","request_id":"0123456789abcdef"}');
+    const err = await currentRun('https://api.example', f.fetch).catch((e: unknown) => e);
+
+    expect(err).toMatchObject({ status: 500, message: expect.stringContaining('0123456789abcdef') });
+  });
+
   it('raises a plain message when the error body is not JSON', async () => {
     const f = fakeFetch(502, '<html>Bad gateway</html>');
     const err = await currentRun('https://api.example', f.fetch).catch((e: unknown) => e);

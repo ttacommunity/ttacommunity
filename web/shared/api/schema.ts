@@ -1432,6 +1432,12 @@ export interface components {
         };
         Error: {
             error: string;
+            /**
+             * @description On a server error (500), the request's id, as in the
+             *     `X-Request-Id` header every response carries. Quote it when
+             *     reporting the problem: it finds the error in the API's log.
+             */
+            request_id?: string;
         };
         Run: {
             /** Format: int64 */

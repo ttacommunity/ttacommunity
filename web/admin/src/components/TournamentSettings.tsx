@@ -1,9 +1,10 @@
 /** A tournament's or group's page: the groups it is in; a group's settings and members, or a tournament's settings, format and regulations, and seasons. */
 import { useEffect, useState } from 'react';
-import { adminRequest, type AdminMe, type AdminTournament, type AdminTournamentRow, type Load } from '../lib/admin-api';
+import { adminRequest, firstError, type AdminMe, type AdminTournament, type AdminTournamentRow, type Load } from '../lib/admin-api';
 import { renamedFrom, slugParam, tournamentLoad } from '../lib/tournament-page';
 import { tabsFor } from '../lib/admin-tabs';
 import AdminHeader from './AdminHeader';
+import PageError from './PageError';
 import GroupPage from './GroupPage';
 import RelatedCard from './RelatedCard';
 import SettingsCard from './SettingsCard';
@@ -37,19 +38,19 @@ export default function TournamentSettings() {
     );
     void load();
   }, []);
+  const error = firstError(me, t);
 
   return (
     <>
       <AdminHeader tabs={me.kind === 'ready' ? tabsFor(me.data.role) : []} current="tournaments" />
       <main className="admin-main">
-      {me.kind === 'error' && <p className="row-error" role="alert">{me.message}</p>}
+      {error !== null && <PageError message={error} />}
       {me.kind === 'ready' && (
         <p className="signed-in">
           Signed in as <strong>{me.data.name}</strong> ({me.data.role})
         </p>
       )}
       {t.kind === 'loading' && <p className="muted">Loading…</p>}
-      {t.kind === 'error' && <p className="row-error" role="alert">{t.message}</p>}
       {t.kind === 'ready' && (
         <>
           <section className="rating-card admin-card page-header" aria-labelledby="page-title">
