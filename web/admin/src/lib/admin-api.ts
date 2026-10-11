@@ -20,10 +20,22 @@ export type Load<T> = { kind: 'loading' } | { kind: 'error'; message: string } |
 
 type Fetch = (input: string, init: RequestInit) => Promise<Response>;
 
-function refusal(status: number, error: string | undefined): string {
+type ErrorBody = { error: string | undefined; requestId: string | undefined };
+
+/** errorOf reads an error answer's message and, on a server error, its request id. */
+function errorOf(body: unknown): ErrorBody {
+  if (typeof body !== 'object' || body === null) return { error: undefined, requestId: undefined };
+  return {
+    error: 'error' in body ? String(body.error) : undefined,
+    requestId: 'request_id' in body && typeof body.request_id === 'string' ? body.request_id : undefined,
+  };
+}
+
+function refusal(status: number, { error, requestId }: ErrorBody): string {
   if (status === 401) return 'Your sign-in has ended. Reload the page to sign in again.';
   if ([400, 403, 404, 409, 503].includes(status)) return `Refused: ${error ?? 'not allowed'}.`;
-  return `The API failed (${status}). Try again, or tell an admin.`;
+  const ref = requestId === undefined ? '' : ` Quote ref ${requestId}.`;
+  return `The API failed (${status}). Try again, or tell an admin.${ref}`;
 }
 
 /** adminRequest calls an admin path on this site, sending json as the body when given, and returns its result. */
@@ -51,8 +63,7 @@ export async function adminRequest<T>(
     body = null;
   }
   if (res.ok) return { ok: true, data: body as T };
-  const error = typeof body === 'object' && body !== null && 'error' in body ? String(body.error) : undefined;
-  return { ok: false, status: res.status, message: refusal(res.status, error) };
+  return { ok: false, status: res.status, message: refusal(res.status, errorOf(body)) };
 }
 
 /** adminDownload fetches a file from an admin path on this site, or why it was refused. */
@@ -64,14 +75,13 @@ export async function adminDownload(path: string, fetcher: Fetch = fetch): Promi
     return { ok: false, status: 0, message: 'The admin site could not be reached. Check your connection.' };
   }
   if (res.ok) return { ok: true, data: await res.blob() };
-  let error: string | undefined;
+  let body: unknown = null;
   try {
-    const body: unknown = await res.json();
-    error = typeof body === 'object' && body !== null && 'error' in body ? String(body.error) : undefined;
+    body = await res.json();
   } catch {
-    error = undefined;
+    body = null;
   }
-  return { ok: false, status: res.status, message: refusal(res.status, error) };
+  return { ok: false, status: res.status, message: refusal(res.status, errorOf(body)) };
 }
 
 /** exportFileName names a data download by the local day it was taken. */

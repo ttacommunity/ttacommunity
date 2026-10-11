@@ -6,6 +6,8 @@ package httpapi
 
 import (
 	"context"
+	"crypto/rand"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -95,11 +97,12 @@ type CatalogueReads interface {
 
 // NewMux returns the API's handler with every route in the spec registered. Admin routes go through
 // the admin gate, without CORS; with admins nil they refuse every request. A panic answers 500.
+// Every response carries an X-Request-Id, which a 500's body and log line repeat.
 func NewMux(ratings Ratings, admins Admins, log *slog.Logger) http.Handler {
 	mux := http.NewServeMux()
 	registerRoutes(mux, ratings, admins, log)
 	// recoverPanics logs r.Pattern, which the mux sets on the request it gets: nothing between them may copy it.
-	return withDeadline(recoverPanics(limitBodies(routeAdmin(publicCORS(mux), adminGate(mux, admins, log))), log), requestDeadline)
+	return withRequestID(withDeadline(recoverPanics(limitBodies(routeAdmin(publicCORS(mux), adminGate(mux, admins, log))), log), requestDeadline))
 }
 
 func registerRoutes(router ServeMux, ratings Ratings, admins Admins, log *slog.Logger) {
@@ -130,12 +133,32 @@ func recoverPanics(next http.Handler, log *slog.Logger) http.Handler {
 				panic(v)
 			}
 			if v != nil {
-				log.Error("handler panicked", "route", r.Pattern, "panic", fmt.Sprint(v))
-				writeError(w, http.StatusInternalServerError, "internal error")
+				log.Error("handler panicked", "route", r.Pattern, "request_id", requestID(r.Context()), "panic", fmt.Sprint(v))
+				serverError(w, r)
 			}
 		}()
 		next.ServeHTTP(w, r)
 	})
+}
+
+type requestIDKey struct{}
+
+// withRequestID gives each request a random id, in its context and the X-Request-Id response header.
+// A client's own X-Request-Id is ignored: it would put text anyone chooses in the log.
+func withRequestID(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		b := make([]byte, 8)
+		_, _ = rand.Read(b) // never fails: crypto/rand crashes the program instead
+		id := hex.EncodeToString(b)
+		w.Header().Set("X-Request-Id", id)
+		next.ServeHTTP(w, r.WithContext(context.WithValue(r.Context(), requestIDKey{}, id)))
+	})
+}
+
+// requestID returns the id withRequestID gave the request, or "" without one.
+func requestID(ctx context.Context) string {
+	id, _ := ctx.Value(requestIDKey{}).(string)
+	return id
 }
 
 // requestDeadline cancels a request's work, its queries included. It is under
@@ -188,16 +211,29 @@ func badRequest(w http.ResponseWriter, _ *http.Request, err error) {
 // a database error can carry hosts and user names.
 func internalError(log *slog.Logger) func(http.ResponseWriter, *http.Request, error) {
 	return func(w http.ResponseWriter, r *http.Request, err error) {
-		log.Error("request failed", "route", r.Pattern, "err", err)
-		writeError(w, http.StatusInternalServerError, "internal error")
+		log.Error("request failed", "route", r.Pattern, "request_id", requestID(r.Context()), "err", err)
+		serverError(w, r)
 	}
 }
 
+// serverError answers 500 with a fixed message and the request's id, which the caller logs.
+func serverError(w http.ResponseWriter, r *http.Request) {
+	body := Error{Error: "internal error"}
+	if id := requestID(r.Context()); id != "" {
+		body.RequestId = &id
+	}
+	writeErrorBody(w, http.StatusInternalServerError, body)
+}
+
 func writeError(w http.ResponseWriter, code int, msg string) {
+	writeErrorBody(w, code, Error{Error: msg})
+}
+
+func writeErrorBody(w http.ResponseWriter, code int, body Error) {
 	w.Header().Set("Content-Type", "application/json")
 	w.Header().Set("Cache-Control", cacheNone)
 	w.WriteHeader(code)
-	_ = json.NewEncoder(w).Encode(Error{Error: msg})
+	_ = json.NewEncoder(w).Encode(body)
 }
 
 type server struct {

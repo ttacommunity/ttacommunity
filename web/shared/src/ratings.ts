@@ -276,11 +276,11 @@ async function get<T>(fetchFn: typeof fetch, base: string, path: string): Promis
   const res = await fetchFn(base.replace(/\/+$/, '') + path, { credentials: 'omit' });
   if (!res.ok) {
     const body: unknown = await res.json().catch(() => null);
+    const fields = body !== null && typeof body === 'object' ? body : {};
     const message =
-      body !== null && typeof body === 'object' && 'error' in body && typeof body.error === 'string'
-        ? body.error
-        : `request failed (${res.status})`;
-    throw new RatingsApiError(res.status, message);
+      'error' in fields && typeof fields.error === 'string' ? fields.error : `request failed (${res.status})`;
+    const ref = 'request_id' in fields && typeof fields.request_id === 'string' ? ` (ref ${fields.request_id})` : '';
+    throw new RatingsApiError(res.status, message + ref);
   }
   return (await res.json()) as T;
 }

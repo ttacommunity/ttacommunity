@@ -9,7 +9,9 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"regexp"
 	"slices"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -574,6 +576,74 @@ func TestTheAPIRecoversAPanicByRoute(t *testing.T) {
 	}
 	if !strings.Contains(logs, `"route":"GET /v1/runs/current"`) {
 		t.Errorf("log = %q, want the route", logs)
+	}
+}
+
+var requestIDPattern = regexp.MustCompile(`^[0-9a-f]{16}$`)
+
+type failingAdmin struct{ fakeAdmins }
+
+func (*failingAdmin) Admin(context.Context, string) (store.Admin, error) {
+	return store.Admin{}, errors.New("connection refused")
+}
+
+func TestServerErrorsCarryTheRequestID(t *testing.T) {
+	tests := []struct {
+		name    string
+		ratings Ratings
+		admins  Admins
+		path    string
+	}{
+		{"a handler's error", &fakeRatings{boardErr: errors.New("boom")}, nil, "/v1/runs/7/leaderboard"},
+		{"a handler's panic", &panickingRatings{}, nil, "/v1/runs/current"},
+		{"the admin gate's error", &fakeRatings{}, &failingAdmin{}, "/v1/admin/me"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var logs bytes.Buffer
+			req := httptest.NewRequest(http.MethodGet, tt.path, nil)
+			req.Header.Set("Cf-Access-Jwt-Assertion", "good-111111111111111111")
+			rec := httptest.NewRecorder()
+
+			NewMux(tt.ratings, tt.admins, slog.New(slog.NewJSONHandler(&logs, nil))).ServeHTTP(rec, req)
+
+			if rec.Code != http.StatusInternalServerError {
+				t.Errorf("code = %d, want %d", rec.Code, http.StatusInternalServerError)
+			}
+			id := rec.Header().Get("X-Request-Id")
+			if !requestIDPattern.MatchString(id) {
+				t.Fatalf("X-Request-Id = %q, want 16 hex digits", id)
+			}
+			wantJSON(t, rec.Body.Bytes(), "request_id", strconv.Quote(id))
+			var entry map[string]any
+			if err := json.Unmarshal(logs.Bytes(), &entry); err != nil {
+				t.Fatalf("log line %q: %v", logs.String(), err)
+			}
+			if entry["request_id"] != id {
+				t.Errorf("log request_id = %v, want %q", entry["request_id"], id)
+			}
+		})
+	}
+}
+
+func TestEachResponseGetsItsOwnRequestID(t *testing.T) {
+	mux := NewMux(&fakeRatings{}, nil, slog.New(slog.DiscardHandler))
+	var ids []string
+	for range 2 {
+		req := httptest.NewRequest(http.MethodGet, "/healthz", nil)
+		req.Header.Set("X-Request-Id", "0123456789abcdef")
+		rec := httptest.NewRecorder()
+		mux.ServeHTTP(rec, req)
+		ids = append(ids, rec.Header().Get("X-Request-Id"))
+	}
+
+	for _, id := range ids {
+		if !requestIDPattern.MatchString(id) || id == "0123456789abcdef" {
+			t.Errorf("X-Request-Id = %q, want 16 hex digits of our own", id)
+		}
+	}
+	if ids[0] == ids[1] {
+		t.Errorf("two requests got the same X-Request-Id %q", ids[0])
 	}
 }
 

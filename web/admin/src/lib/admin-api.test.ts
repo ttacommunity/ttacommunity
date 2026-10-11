@@ -68,6 +68,17 @@ describe('adminDownload', () => {
   });
 });
 
+describe('a server error', () => {
+  it.each([
+    ['a request', (f: ReturnType<typeof answer>) => adminRequest('/api/me', {}, f)],
+    ['a download', (f: ReturnType<typeof answer>) => adminDownload('/api/export', f)],
+  ])('quotes its request id, to report it by, for %s', async (_, call) => {
+    const r = await call(answer(500, { error: 'internal error', request_id: '0123456789abcdef' }));
+
+    expect(r).toMatchObject({ ok: false, status: 500, message: expect.stringContaining('0123456789abcdef') });
+  });
+});
+
 describe('exportFileName', () => {
   it("names a download by the day it was taken, so several don't overwrite each other", () => {
     expect(exportFileName(new Date(2026, 9, 4, 22, 5))).toBe('ttacommunity-data-2026-10-04.zip');

@@ -2433,6 +2433,12 @@ components:
       properties:
         error:
           type: string
+        request_id:
+          type: string
+          description: |
+            On a server error (500), the request's id, as in the
+            `X-Request-Id` header every response carries. Quote it when
+            reporting the problem: it finds the error in the API's log.
     Run:
       type: object
       required: [run_id, published_at, engine_version, finished_at, games, players, first_game, last_game]

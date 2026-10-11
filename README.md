@@ -706,3 +706,14 @@ cloudflared tunnel route dns ttacommunity ttac-api.unstableunicorn.dev
 ```
 
 A WAF rate-limiting rule on that hostname comes first.
+
+#### Find an error someone reports
+
+Every answer carries an `X-Request-Id` header. A server error (500) also
+puts it in its body as `request_id` and in its log line, and the site and
+admin show it as "ref …". The id is random, so it tells nothing about who
+asked. Find the error by it (`app=api-dev` on dev):
+
+```bash
+kubectl -n ttacommunity logs -l app=api --tail=-1 | grep '"request_id":"<id>"'
+```
