@@ -25,12 +25,14 @@ func TestObserveCountsARequestByRouteAndStatus(t *testing.T) {
 	r.Observe("GET /v1/runs/current", 200, 30*time.Millisecond)
 	r.Observe("GET /v1/runs/current", 200, 2*time.Second)
 	r.Observe("GET /v1/runs/current", 500, time.Millisecond)
+	r.Observe("GET /v1/admin/export", 0, time.Second)
 
 	body := scrape(t, r)
 
 	for _, want := range []string{
 		`ttacapi_http_request_duration_seconds_count{route="GET /v1/runs/current",status="200"} 2`,
 		`ttacapi_http_request_duration_seconds_count{route="GET /v1/runs/current",status="500"} 1`,
+		`ttacapi_http_request_duration_seconds_count{route="GET /v1/admin/export",status="aborted"} 1`,
 		`ttacapi_http_request_duration_seconds_bucket{route="GET /v1/runs/current",status="200",le="0.05"} 1`,
 	} {
 		if !strings.Contains(body, want) {

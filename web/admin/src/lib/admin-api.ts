@@ -80,7 +80,13 @@ export async function adminDownload(path: string, fetcher: Fetch = fetch): Promi
   } catch {
     return { ok: false, status: 0, message: 'The admin site could not be reached. Check your connection.' };
   }
-  if (res.ok) return { ok: true, data: await res.blob() };
+  if (res.ok) {
+    try {
+      return { ok: true, data: await res.blob() };
+    } catch {
+      return { ok: false, status: 0, message: 'The download broke off part way. Try again.' };
+    }
+  }
   let body: unknown = null;
   try {
     body = await res.json();

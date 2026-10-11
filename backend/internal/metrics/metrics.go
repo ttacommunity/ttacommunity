@@ -33,9 +33,14 @@ func New() *Registry {
 	return r
 }
 
-// Observe records one answered request. route is the mux's pattern, never the path.
+// Observe records one answered request. route is the mux's pattern, never the path. Status 0, an
+// answer aborted after it started, is labelled "aborted".
 func (r *Registry) Observe(route string, status int, took time.Duration) {
-	r.requests.WithLabelValues(route, strconv.Itoa(status)).Observe(took.Seconds())
+	label := strconv.Itoa(status)
+	if status == 0 {
+		label = "aborted"
+	}
+	r.requests.WithLabelValues(route, label).Observe(took.Seconds())
 }
 
 // AddPool reports pool's connections, labelled with its name.

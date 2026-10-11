@@ -1,10 +1,17 @@
 package httpapi
 
 import (
+	"bytes"
+	"context"
 	"encoding/json"
+	"errors"
+	"io"
+	"log/slog"
 	"net/http"
+	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 )
 
 func TestAdminDataSummaryIsForAdminsAndOrganisers(t *testing.T) {
@@ -52,5 +59,45 @@ func TestAdminsAndOrganisersDownloadTheData(t *testing.T) {
 	}
 	if rec := adminDoAs(t, &fakeAdmins{}, "111111111111111111", http.MethodGet, "/v1/admin/export", "", ""); rec.Code != http.StatusOK {
 		t.Errorf("an admin's export = %d, want 200", rec.Code)
+	}
+}
+
+// brokenExport writes part of the zip, then fails.
+type brokenExport struct{ fakeAdmins }
+
+func (*brokenExport) ExportZip(_ context.Context, w io.Writer) error {
+	if _, err := w.Write(bytes.Repeat([]byte("PK"), 32<<10)); err != nil {
+		return err
+	}
+	return errors.New("connection reset")
+}
+
+func TestAnExportThatFailsPartWayIsAborted(t *testing.T) {
+	var logs bytes.Buffer
+	requests := &recordedRequests{}
+	srv := httptest.NewServer(NewMux(&fakeRatings{}, &brokenExport{}, slog.New(slog.NewJSONHandler(&logs, nil)), requests, stepClock(time.Millisecond)))
+	req, _ := http.NewRequest(http.MethodGet, srv.URL+"/v1/admin/export", nil)
+	req.Header.Set("Cf-Access-Jwt-Assertion", "good-111111111111111111")
+
+	res, err := srv.Client().Do(req)
+	if err != nil {
+		t.Fatalf("GET export: %v", err)
+	}
+	body, readErr := io.ReadAll(res.Body)
+	_ = res.Body.Close()
+	srv.Close() // waits for the handler, so its log and report are in
+
+	if !errors.Is(readErr, io.ErrUnexpectedEOF) {
+		t.Errorf("reading the export: err = %v, want io.ErrUnexpectedEOF", readErr)
+	}
+	if bytes.Contains(body, []byte("internal error")) {
+		t.Errorf("the export ends with an error body: %q", body[max(0, len(body)-80):])
+	}
+	id := res.Header.Get("X-Request-Id")
+	if !strings.Contains(logs.String(), `"msg":"request failed"`) || !strings.Contains(logs.String(), `"request_id":"`+id+`"`) {
+		t.Errorf("log = %q, want a request failed line with request id %q", logs.String(), id)
+	}
+	if len(requests.got) != 1 || requests.got[0].status != 0 {
+		t.Errorf("reported %+v, want one with status 0 (aborted)", requests.got)
 	}
 }

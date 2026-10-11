@@ -791,6 +791,25 @@ func TestRecoverPanicsLetsAnAbortThrough(t *testing.T) {
 	h.ServeHTTP(httptest.NewRecorder(), httptest.NewRequest(http.MethodGet, "/", nil))
 }
 
+func TestAPanicAfterTheAnswerStartedAbortsIt(t *testing.T) {
+	discard := slog.New(slog.DiscardHandler)
+	h := observe(recoverPanics(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		_, _ = w.Write([]byte("PK"))
+		panic("kaboom")
+	}), http.NewServeMux(), discard), http.NewServeMux(), &recordedRequests{}, stepClock(time.Millisecond), discard)
+	rec := httptest.NewRecorder()
+	defer func() {
+		if v := recover(); v != http.ErrAbortHandler {
+			t.Errorf("recovered %v, want http.ErrAbortHandler", v)
+		}
+		if strings.Contains(rec.Body.String(), "internal error") {
+			t.Errorf("body = %q, want no error written into the started answer", rec.Body)
+		}
+	}()
+
+	h.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/", nil))
+}
+
 func TestHistory(t *testing.T) {
 	previous := time.Date(2026, 7, 31, 0, 0, 0, 0, time.UTC)
 	may := time.Date(2026, 5, 1, 0, 0, 0, 0, time.UTC)

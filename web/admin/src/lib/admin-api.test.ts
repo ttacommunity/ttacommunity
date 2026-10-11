@@ -66,6 +66,19 @@ describe('adminDownload', () => {
       message: 'Refused: not allowed here.',
     });
   });
+
+  it('says a download that broke off part way should be tried again', async () => {
+    const body = new ReadableStream({
+      start(c) {
+        c.enqueue(new TextEncoder().encode('PK'));
+        c.error(new TypeError('network error'));
+      },
+    });
+
+    const r = await adminDownload('/api/export', vi.fn(async () => new Response(body, { status: 200 })));
+
+    expect(r).toMatchObject({ ok: false, message: expect.stringContaining('broke off') });
+  });
 });
 
 describe('a server error', () => {
