@@ -20,6 +20,7 @@ import (
 	"ttacommunity/backend/internal/access"
 	"ttacommunity/backend/internal/enginejob"
 	"ttacommunity/backend/internal/httpapi"
+	"ttacommunity/backend/internal/metrics"
 	"ttacommunity/backend/internal/store"
 )
 
@@ -68,18 +69,21 @@ func main() {
 		os.Exit(1)
 	}
 	defer pool.Close()
+	reg := metrics.New()
+	reg.AddPool("ratings_read", pool)
 	ratings := store.NewRatingsReader(pool)
 	if err := ratings.CheckReadOnly(ctx); err != nil {
 		log.Error("refusing to start: the ratings read role must be read-only", "err", err)
 		os.Exit(1)
 	}
 
-	admins, closeAdmins, err := openAdmin(ctx, addr)
+	admins, adminPool, err := openAdmin(ctx, addr)
 	if err != nil {
 		log.Error("refusing to start: admin is not set up", "err", err)
 		os.Exit(1)
 	}
-	defer closeAdmins()
+	defer adminPool.Close()
+	reg.AddPool("ratings_admin", adminPool)
 	if os.Getenv("ADMIN_DEV_USER") != "" {
 		log.Warn("admin sign-in is bypassed for local development (ADMIN_DEV_USER)")
 	}
@@ -90,11 +94,34 @@ func main() {
 		os.Exit(1)
 	}
 	log.Info("api listening", "addr", ln.Addr().String())
-	if err := httpapi.Serve(ctx, ln, httpapi.NewMux(ratings, admins, log), log); err != nil {
+	serveMetrics(ctx, os.Getenv("METRICS_ADDR"), reg, log)
+	if err := httpapi.Serve(ctx, ln, httpapi.NewMux(ratings, admins, log, reg, time.Now), log); err != nil {
 		log.Error("api stopped", "err", err)
 		os.Exit(1)
 	}
 	log.Info("api stopped cleanly")
+}
+
+// serveMetrics serves reg at GET /metrics on addr, a listener of its own that the tunnel never reaches,
+// until ctx ends. With addr empty, metrics are kept but not served.
+func serveMetrics(ctx context.Context, addr string, reg *metrics.Registry, log *slog.Logger) {
+	if addr == "" {
+		log.Info("metrics are not served: METRICS_ADDR is not set")
+		return
+	}
+	ln, err := net.Listen("tcp", addr)
+	if err != nil {
+		log.Error("metrics listen failed", "addr", addr, "err", err)
+		os.Exit(1)
+	}
+	mux := http.NewServeMux()
+	mux.Handle("GET /metrics", reg.Handler())
+	log.Info("metrics listening", "addr", ln.Addr().String())
+	go func() {
+		if err := httpapi.Serve(ctx, ln, mux, log); err != nil {
+			log.Error("metrics stopped", "err", err)
+		}
+	}()
 }
 
 // adminDeps verifies admin requests' Access tokens, reads admins through the admin login, and starts runs.
@@ -136,7 +163,8 @@ func (d adminDeps) EngineGoing(ctx context.Context) (bool, error) {
 // unset, or an admin login that can change more than admin edits, is an error: admin never starts open.
 // ENGINE_CRONJOB, when set, names the CronJob admin starts runs from, in the pod's namespace.
 // ADMIN_DEV_USER, when set, bypasses Access for local development; addr must then be 127.0.0.1.
-func openAdmin(ctx context.Context, addr string) (adminDeps, func(), error) {
+// It returns admin and its pool, for the caller to close and report on.
+func openAdmin(ctx context.Context, addr string) (adminDeps, *pgxpool.Pool, error) {
 	team, aud, url := os.Getenv("ACCESS_TEAM"), os.Getenv("ACCESS_AUD"), os.Getenv("RATINGS_ADMIN_DATABASE_URL")
 	if url == "" {
 		return adminDeps{}, nil, errors.New("RATINGS_ADMIN_DATABASE_URL is not set")
@@ -173,5 +201,5 @@ func openAdmin(ctx context.Context, addr string) (adminDeps, func(), error) {
 			return adminDeps{}, nil, err
 		}
 	}
-	return adminDeps{v, a, origin, starter}, pool.Close, nil
+	return adminDeps{v, a, origin, starter}, pool, nil
 }

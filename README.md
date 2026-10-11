@@ -717,3 +717,18 @@ asked. Find the error by it (`app=api-dev` on dev):
 ```bash
 kubectl -n ttacommunity logs -l app=api --tail=-1 | grep '"request_id":"<id>"'
 ```
+
+#### Metrics
+
+The api serves Prometheus metrics at `/metrics` on a listener of its own,
+`METRICS_ADDR` (`127.0.0.1:8081` locally, `:8081` in the cluster), never on
+the public port. They are how long requests take by route pattern and status
+(`ttacapi_http_request_duration_seconds`), each database pool's connections
+(`ttacapi_db_pool_…`), and Go's runtime. A request taking a second or more
+also logs a `slow request` line. In the cluster only Prometheus may reach
+that port (`deploy/networkpolicy.yaml`); its scrape config and dashboard live
+with the cluster's own configuration.
+
+```bash
+curl -s http://127.0.0.1:8081/metrics | grep '^ttacapi_'
+```

@@ -165,12 +165,39 @@ type readsOnly struct {
 	CatalogueReads
 }
 
+type observed struct {
+	route  string
+	status int
+	took   time.Duration
+}
+
+// recordedRequests keeps what the mux reports of each request.
+type recordedRequests struct{ got []observed }
+
+func (r *recordedRequests) Observe(route string, status int, took time.Duration) {
+	r.got = append(r.got, observed{route, status, took})
+}
+
+// stepClock returns a clock that moves on by step each time it is read.
+func stepClock(step time.Duration) func() time.Time {
+	now := time.Date(2026, 10, 11, 12, 0, 0, 0, time.UTC)
+	return func() time.Time {
+		now = now.Add(step)
+		return now
+	}
+}
+
+// newMux is NewMux for tests that are not about what it reports of each request.
+func newMux(ratings Ratings, admins Admins, log *slog.Logger) http.Handler {
+	return NewMux(ratings, admins, log, &recordedRequests{}, stepClock(time.Millisecond))
+}
+
 func serve(t *testing.T, ratings Ratings, path string) (*httptest.ResponseRecorder, string) {
 	t.Helper()
 	var logs bytes.Buffer
 	log := slog.New(slog.NewJSONHandler(&logs, nil))
 	rec := httptest.NewRecorder()
-	NewMux(ratings, nil, log).ServeHTTP(rec, httptest.NewRequest(http.MethodGet, path, nil))
+	newMux(ratings, nil, log).ServeHTTP(rec, httptest.NewRequest(http.MethodGet, path, nil))
 	return rec, logs.String()
 }
 
@@ -227,7 +254,7 @@ func TestHealthz(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			ratings := &fakeRatings{pingErr: errors.New("database down")}
 			rec := httptest.NewRecorder()
-			NewMux(ratings, nil, slog.New(slog.DiscardHandler)).ServeHTTP(rec, httptest.NewRequest(tt.method, tt.path, nil))
+			newMux(ratings, nil, slog.New(slog.DiscardHandler)).ServeHTTP(rec, httptest.NewRequest(tt.method, tt.path, nil))
 
 			if rec.Code != tt.wantCode {
 				t.Errorf("%s %s: code = %d, want %d", tt.method, tt.path, rec.Code, tt.wantCode)
@@ -260,7 +287,7 @@ func TestReadyz(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			ratings := &fakeRatings{pingErr: tt.pingErr}
 			rec := httptest.NewRecorder()
-			NewMux(ratings, nil, slog.New(slog.DiscardHandler)).ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/readyz", nil))
+			newMux(ratings, nil, slog.New(slog.DiscardHandler)).ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/readyz", nil))
 
 			if rec.Code != tt.wantCode {
 				t.Errorf("code = %d, want %d", rec.Code, tt.wantCode)
@@ -592,7 +619,7 @@ func TestTheAPIRecoversAPanicByRoute(t *testing.T) {
 			req.Header.Set("Cf-Access-Jwt-Assertion", "good-111111111111111111")
 			rec := httptest.NewRecorder()
 
-			NewMux(tt.ratings, tt.admins, slog.New(slog.NewJSONHandler(&logs, nil))).ServeHTTP(rec, req)
+			newMux(tt.ratings, tt.admins, slog.New(slog.NewJSONHandler(&logs, nil))).ServeHTTP(rec, req)
 
 			if rec.Code != http.StatusInternalServerError {
 				t.Errorf("code = %d, want %d", rec.Code, http.StatusInternalServerError)
@@ -630,7 +657,7 @@ func TestServerErrorsCarryTheRequestID(t *testing.T) {
 			req.Header.Set("Cf-Access-Jwt-Assertion", "good-111111111111111111")
 			rec := httptest.NewRecorder()
 
-			NewMux(tt.ratings, tt.admins, slog.New(slog.NewJSONHandler(&logs, nil))).ServeHTTP(rec, req)
+			newMux(tt.ratings, tt.admins, slog.New(slog.NewJSONHandler(&logs, nil))).ServeHTTP(rec, req)
 
 			if rec.Code != http.StatusInternalServerError {
 				t.Errorf("code = %d, want %d", rec.Code, http.StatusInternalServerError)
@@ -652,7 +679,7 @@ func TestServerErrorsCarryTheRequestID(t *testing.T) {
 }
 
 func TestEachResponseGetsItsOwnRequestID(t *testing.T) {
-	mux := NewMux(&fakeRatings{}, nil, slog.New(slog.DiscardHandler))
+	mux := newMux(&fakeRatings{}, nil, slog.New(slog.DiscardHandler))
 	var ids []string
 	for range 2 {
 		req := httptest.NewRequest(http.MethodGet, "/healthz", nil)
@@ -669,6 +696,77 @@ func TestEachResponseGetsItsOwnRequestID(t *testing.T) {
 	}
 	if ids[0] == ids[1] {
 		t.Errorf("two requests got the same X-Request-Id %q", ids[0])
+	}
+}
+
+func TestTheAPIReportsEachRequestByRouteAndStatus(t *testing.T) {
+	tests := []struct {
+		name    string
+		ratings Ratings
+		admins  Admins
+		path    string
+		want    observed
+	}{
+		{"a public route", &fakeRatings{}, nil, "/healthz", observed{"GET /healthz", 200, time.Millisecond}},
+		{"a failing route", &fakeRatings{runErr: errors.New("boom")}, nil, "/v1/runs/current", observed{"GET /v1/runs/current", 500, time.Millisecond}},
+		{"an admin route", &fakeRatings{}, &fakeAdmins{}, "/v1/admin/runs", observed{"GET /v1/admin/runs", 200, time.Millisecond}},
+		{"a panicking admin route", &fakeRatings{}, &panickingAdmins{}, "/v1/admin/runs", observed{"GET /v1/admin/runs", 500, time.Millisecond}},
+		{"an admin request the gate refuses", &fakeRatings{}, nil, "/v1/admin/runs", observed{"unrouted", 401, time.Millisecond}},
+		{"a path with no route", &fakeRatings{}, nil, "/v1/nowhere", observed{"unrouted", 404, time.Millisecond}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			requests := &recordedRequests{}
+			req := httptest.NewRequest(http.MethodGet, tt.path, nil)
+			req.Header.Set("Cf-Access-Jwt-Assertion", "good-111111111111111111")
+
+			NewMux(tt.ratings, tt.admins, slog.New(slog.DiscardHandler), requests, stepClock(time.Millisecond)).ServeHTTP(httptest.NewRecorder(), req)
+
+			if len(requests.got) != 1 || requests.got[0] != tt.want {
+				t.Errorf("GET %s reported %+v, want one %+v", tt.path, requests.got, tt.want)
+			}
+		})
+	}
+}
+
+func TestTheAPILogsASlowRequest(t *testing.T) {
+	tests := []struct {
+		name     string
+		took     time.Duration
+		wantLogs bool
+	}{
+		{"a quick answer", 999 * time.Millisecond, false},
+		{"a slow answer", time.Second, true},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var logs bytes.Buffer
+			rec := httptest.NewRecorder()
+
+			NewMux(&fakeRatings{}, nil, slog.New(slog.NewJSONHandler(&logs, nil)), &recordedRequests{}, stepClock(tt.took)).
+				ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/healthz?player=Someplayer", nil))
+
+			if !tt.wantLogs {
+				if logs.Len() != 0 {
+					t.Errorf("log = %q, want none", logs.String())
+				}
+				return
+			}
+			var entry map[string]any
+			if err := json.Unmarshal(logs.Bytes(), &entry); err != nil {
+				t.Fatalf("log line %q: %v", logs.String(), err)
+			}
+			want := map[string]any{"msg": "slow request", "route": "GET /healthz", "status": float64(200),
+				"took_ms": float64(tt.took.Milliseconds()), "request_id": rec.Header().Get("X-Request-Id")}
+			for k, v := range want {
+				if entry[k] != v {
+					t.Errorf("log %s = %v, want %v", k, entry[k], v)
+				}
+			}
+			if strings.Contains(logs.String(), "Someplayer") {
+				t.Errorf("log %q carries the request path", logs.String())
+			}
+		})
 	}
 }
 

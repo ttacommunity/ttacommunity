@@ -95,14 +95,68 @@ type CatalogueReads interface {
 	CatalogueGames(ctx context.Context, run int64, slug string, f store.CatalogueGamesFilter) (store.CatalogueGames, error)
 }
 
+// Requests records each answered request: its route pattern, status code and how long it took.
+type Requests interface {
+	Observe(route string, status int, took time.Duration)
+}
+
 // NewMux returns the API's handler with every route in the spec registered. Admin routes go through
 // the admin gate, without CORS; with admins nil they refuse every request. A panic answers 500.
-// Every response carries an X-Request-Id, which a 500's body and log line repeat.
-func NewMux(ratings Ratings, admins Admins, log *slog.Logger) http.Handler {
+// Every response carries an X-Request-Id, which a 500's body and log line repeat. Each request is
+// reported to requests, timed by now, and logged when slower than slowRequest.
+func NewMux(ratings Ratings, admins Admins, log *slog.Logger, requests Requests, now func() time.Time) http.Handler {
 	mux := http.NewServeMux()
 	registerRoutes(mux, ratings, admins, log)
-	// recoverPanics logs r.Pattern, which the mux sets on the request it gets: nothing between them may copy it.
-	return withRequestID(withDeadline(recoverPanics(limitBodies(routeAdmin(publicCORS(mux), adminGate(mux, admins, log))), log), requestDeadline))
+	// observe and recoverPanics read r.Pattern, which the mux sets on the request it gets: nothing between
+	// them may copy it. limitBodies needs the server's own writer, so it sits outside observe's.
+	routed := recoverPanics(routeAdmin(publicCORS(mux), adminGate(mux, admins, log)), log)
+	return withRequestID(withDeadline(limitBodies(observe(routed, requests, now, log)), requestDeadline))
+}
+
+// slowRequest is how long an answer may take before it is logged as slow.
+const slowRequest = time.Second
+
+// observe reports each request to requests by route and status, and logs one that took slowRequest
+// or longer. A request answered without a route (an unknown path, a refused admin) is "unrouted".
+func observe(next http.Handler, requests Requests, now func() time.Time, log *slog.Logger) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		start := now()
+		sw := &statusWriter{ResponseWriter: w, status: http.StatusOK}
+		next.ServeHTTP(sw, r)
+		took := now().Sub(start)
+		route := r.Pattern
+		if route == "" {
+			route = "unrouted"
+		}
+		requests.Observe(route, sw.status, took)
+		if took >= slowRequest {
+			log.Warn("slow request", "route", route, "status", sw.status, "took_ms", took.Milliseconds(), "request_id", requestID(r.Context()))
+		}
+	})
+}
+
+// statusWriter remembers the status code a handler answers with: 200 unless it writes another first.
+type statusWriter struct {
+	http.ResponseWriter
+	status  int
+	written bool
+}
+
+func (w *statusWriter) WriteHeader(code int) {
+	if !w.written {
+		w.status, w.written = code, true
+	}
+	w.ResponseWriter.WriteHeader(code)
+}
+
+func (w *statusWriter) Write(b []byte) (int, error) {
+	w.written = true
+	return w.ResponseWriter.Write(b)
+}
+
+// Unwrap lets http.ResponseController reach the server's writer.
+func (w *statusWriter) Unwrap() http.ResponseWriter {
+	return w.ResponseWriter
 }
 
 func registerRoutes(router ServeMux, ratings Ratings, admins Admins, log *slog.Logger) {

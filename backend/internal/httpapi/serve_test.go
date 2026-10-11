@@ -22,7 +22,7 @@ func TestServeAnswersThenStopsWhenContextIsCancelled(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	done := make(chan error, 1)
 	go func() {
-		done <- Serve(ctx, ln, NewMux(&fakeRatings{}, nil, slog.New(slog.DiscardHandler)), slog.New(slog.DiscardHandler))
+		done <- Serve(ctx, ln, newMux(&fakeRatings{}, nil, slog.New(slog.DiscardHandler)), slog.New(slog.DiscardHandler))
 	}()
 
 	resp, err := client.Get("http://" + ln.Addr().String() + "/healthz")
@@ -100,7 +100,7 @@ func TestServeReturnsListenerError(t *testing.T) {
 	}
 	ln.Close()
 
-	err = Serve(context.Background(), ln, NewMux(&fakeRatings{}, nil, slog.New(slog.DiscardHandler)), slog.New(slog.DiscardHandler))
+	err = Serve(context.Background(), ln, newMux(&fakeRatings{}, nil, slog.New(slog.DiscardHandler)), slog.New(slog.DiscardHandler))
 	if err == nil || errors.Is(err, http.ErrServerClosed) {
 		t.Errorf("Serve on a closed listener: err = %v, want a listener error", err)
 	}
