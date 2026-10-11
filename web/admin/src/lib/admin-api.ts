@@ -18,6 +18,12 @@ export type AdminResult<T> = { ok: true; data: T } | { ok: false; status: number
 /** Load is something a page is loading, failed to load and why, or has. */
 export type Load<T> = { kind: 'loading' } | { kind: 'error'; message: string } | { kind: 'ready'; data: T };
 
+/** firstError returns the message of the first load that failed, or null when none did: a page shows one. */
+export function firstError(...loads: Load<unknown>[]): string | null {
+  for (const l of loads) if (l.kind === 'error') return l.message;
+  return null;
+}
+
 type Fetch = (input: string, init: RequestInit) => Promise<Response>;
 
 type ErrorBody = { error: string | undefined; requestId: string | undefined };
