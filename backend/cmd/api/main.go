@@ -90,7 +90,7 @@ func main() {
 		os.Exit(1)
 	}
 	log.Info("api listening", "addr", ln.Addr().String())
-	if err := httpapi.Serve(ctx, ln, httpapi.NewMux(ratings, admins, log)); err != nil {
+	if err := httpapi.Serve(ctx, ln, httpapi.NewMux(ratings, admins, log), log); err != nil {
 		log.Error("api stopped", "err", err)
 		os.Exit(1)
 	}

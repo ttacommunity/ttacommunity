@@ -8,6 +8,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"log/slog"
 	"net/http"
 	"time"
@@ -58,11 +59,12 @@ type Ratings interface {
 }
 
 // NewMux returns the API's handler with every route in the spec registered. Admin routes go through
-// the admin gate, without CORS; with admins nil they refuse every request.
+// the admin gate, without CORS; with admins nil they refuse every request. A panic answers 500.
 func NewMux(ratings Ratings, admins Admins, log *slog.Logger) http.Handler {
 	mux := http.NewServeMux()
 	registerRoutes(mux, ratings, admins, log)
-	return routeAdmin(publicCORS(mux), adminGate(mux, admins, log))
+	// recoverPanics logs r.Pattern, which the mux sets on the request it gets: nothing between them may copy it.
+	return withDeadline(recoverPanics(limitBodies(routeAdmin(publicCORS(mux), adminGate(mux, admins, log))), log), requestDeadline)
 }
 
 func registerRoutes(router ServeMux, ratings Ratings, admins Admins, log *slog.Logger) {
@@ -82,13 +84,63 @@ func publicCORS(next http.Handler) http.Handler {
 	})
 }
 
+// recoverPanics answers a handler's panic with a 500 and logs it by route.
+// Left to net/http, the panic is logged as plain text with the client's IP.
+// http.ErrAbortHandler is re-panicked, so net/http still aborts the response.
+func recoverPanics(next http.Handler, log *slog.Logger) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		defer func() {
+			v := recover()
+			if v == http.ErrAbortHandler {
+				panic(v)
+			}
+			if v != nil {
+				log.Error("handler panicked", "route", r.Pattern, "panic", fmt.Sprint(v))
+				writeError(w, http.StatusInternalServerError, "internal error")
+			}
+		}()
+		next.ServeHTTP(w, r)
+	})
+}
+
+// requestDeadline cancels a request's work, its queries included. It is under
+// the server's WriteTimeout, so a handler sees the cancel while it can still answer.
+const requestDeadline = 25 * time.Second
+
+// withDeadline gives each request's context a deadline d away, or keeps an
+// earlier one.
+func withDeadline(next http.Handler, d time.Duration) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		ctx, cancel := context.WithTimeout(r.Context(), d)
+		defer cancel()
+		next.ServeHTTP(w, r.WithContext(ctx))
+	})
+}
+
+// maxBody is the most any request body may hold. The largest body a route
+// takes, a tournament's settings, is tens of kilobytes at most.
+const maxBody = 1 << 20
+
+// limitBodies stops reading a request body past maxBody. GETs carry no body,
+// so they are limited too rather than branched on.
+func limitBodies(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		r.Body = http.MaxBytesReader(w, r.Body, maxBody)
+		next.ServeHTTP(w, r)
+	})
+}
+
 // badRequest answers a parameter the generated code could not parse, naming
 // the parameter but never echoing its value.
 func badRequest(w http.ResponseWriter, _ *http.Request, err error) {
 	msg := "bad request"
 	var invalid *InvalidParamFormatError
 	var required *RequiredParamError
+	var tooLarge *http.MaxBytesError
 	switch {
+	case errors.As(err, &tooLarge):
+		writeError(w, http.StatusRequestEntityTooLarge, "request body too large")
+		return
 	case errors.As(err, &invalid):
 		msg = "bad parameter: " + invalid.ParamName
 	case errors.As(err, &required):

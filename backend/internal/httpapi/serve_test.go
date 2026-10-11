@@ -1,11 +1,14 @@
 package httpapi
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"log/slog"
 	"net"
 	"net/http"
+	"strings"
+	"sync"
 	"testing"
 	"time"
 )
@@ -18,7 +21,9 @@ func TestServeAnswersThenStopsWhenContextIsCancelled(t *testing.T) {
 	}
 	ctx, cancel := context.WithCancel(context.Background())
 	done := make(chan error, 1)
-	go func() { done <- Serve(ctx, ln, NewMux(&fakeRatings{}, nil, slog.New(slog.DiscardHandler))) }()
+	go func() {
+		done <- Serve(ctx, ln, NewMux(&fakeRatings{}, nil, slog.New(slog.DiscardHandler)), slog.New(slog.DiscardHandler))
+	}()
 
 	resp, err := client.Get("http://" + ln.Addr().String() + "/healthz")
 	if err != nil {
@@ -44,6 +49,50 @@ func TestServeAnswersThenStopsWhenContextIsCancelled(t *testing.T) {
 	}
 }
 
+func TestServeLogsServerErrorsThroughSlog(t *testing.T) {
+	ln, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatalf("listen: %v", err)
+	}
+	var buf syncBuffer
+	twice := http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		w.WriteHeader(http.StatusOK)
+	})
+	ctx, cancel := context.WithCancel(context.Background())
+	done := make(chan error, 1)
+	go func() { done <- Serve(ctx, ln, twice, slog.New(slog.NewJSONHandler(&buf, nil))) }()
+
+	resp, err := (&http.Client{Timeout: 2 * time.Second}).Get("http://" + ln.Addr().String() + "/")
+	if err != nil {
+		t.Fatalf("GET /: %v", err)
+	}
+	resp.Body.Close()
+	cancel()
+	<-done
+
+	if logs := buf.String(); !strings.Contains(logs, `"level":"ERROR"`) || !strings.Contains(logs, "superfluous") {
+		t.Errorf("log = %q, want the server's message as a JSON error", logs)
+	}
+}
+
+type syncBuffer struct {
+	mu  sync.Mutex
+	buf bytes.Buffer
+}
+
+func (b *syncBuffer) Write(p []byte) (int, error) {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	return b.buf.Write(p)
+}
+
+func (b *syncBuffer) String() string {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	return b.buf.String()
+}
+
 func TestServeReturnsListenerError(t *testing.T) {
 	ln, err := net.Listen("tcp", "127.0.0.1:0")
 	if err != nil {
@@ -51,7 +100,7 @@ func TestServeReturnsListenerError(t *testing.T) {
 	}
 	ln.Close()
 
-	err = Serve(context.Background(), ln, NewMux(&fakeRatings{}, nil, slog.New(slog.DiscardHandler)))
+	err = Serve(context.Background(), ln, NewMux(&fakeRatings{}, nil, slog.New(slog.DiscardHandler)), slog.New(slog.DiscardHandler))
 	if err == nil || errors.Is(err, http.ErrServerClosed) {
 		t.Errorf("Serve on a closed listener: err = %v, want a listener error", err)
 	}
