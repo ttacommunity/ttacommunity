@@ -531,6 +531,10 @@ func TestRecoverPanics(t *testing.T) {
 			if strings.Contains(logs, "Someplayer") || strings.Contains(logs, "203.0.113.9") {
 				t.Errorf("log = %q, carries the path or the client IP", logs)
 			}
+			var line struct{ Stack string }
+			if err := json.Unmarshal(buf.Bytes(), &line); err != nil || !strings.Contains(line.Stack, "httpapi_test.go") {
+				t.Errorf("log stack = %q (%v), want one naming httpapi_test.go", line.Stack, err)
+			}
 		})
 	}
 }

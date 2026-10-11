@@ -13,6 +13,7 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
+	"runtime/debug"
 	"time"
 
 	openapi_types "github.com/oapi-codegen/runtime/types"
@@ -176,7 +177,7 @@ func publicCORS(next http.Handler) http.Handler {
 	})
 }
 
-// recoverPanics answers a handler's panic with a 500 and logs it by route.
+// recoverPanics answers a handler's panic with a 500 and logs it by route, with its stack.
 // Left to net/http, the panic is logged as plain text with the client's IP.
 // http.ErrAbortHandler is re-panicked, so net/http still aborts the response.
 func recoverPanics(next http.Handler, log *slog.Logger) http.Handler {
@@ -187,7 +188,7 @@ func recoverPanics(next http.Handler, log *slog.Logger) http.Handler {
 				panic(v)
 			}
 			if v != nil {
-				log.Error("handler panicked", "route", r.Pattern, "request_id", requestID(r.Context()), "panic", fmt.Sprint(v))
+				log.Error("handler panicked", "route", r.Pattern, "request_id", requestID(r.Context()), "panic", fmt.Sprint(v), "stack", string(debug.Stack()))
 				serverError(w, r)
 			}
 		}()
