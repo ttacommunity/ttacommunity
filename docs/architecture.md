@@ -269,7 +269,8 @@ TTA community server and email via `mail-relay`.
   *(planned)* will reach CGE and Discord. RFC1918 ranges are excluded.
 - **Personal data** (Discord id and handle, optional email, TTA username,
   timezone) is **never logged at any level**. A reported error is found by
-  the random request id its answer carries (`X-Request-Id`).
+  the random request id the API sets on every answer (`X-Request-Id`);
+  people see it as "ref …" in a server error's message.
 - **Metrics** are served on a port of their own that the tunnel does not
   reach, and only the cluster's Prometheus may connect to it. They name
   route patterns and status codes, never a path.
