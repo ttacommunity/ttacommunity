@@ -50,7 +50,8 @@ scripts/ci.sh            # everything CI runs, in CI's order
   `web/package.json`. CI installs the same. Don't install a different version
   by hand
 - `.env` is created from `.env.example` on first run. Its values are for
-  local use only. In PowerShell, always dot-source `. scripts\env.ps1` to load
+  local use only. `scripts/dev.sh` and `scripts\dev.ps1` warn when `.env`
+  lacks a setting added to `.env.example` since: copy it across. In PowerShell, always dot-source `. scripts\env.ps1` to load
   it and add mise shims (`%LOCALAPPDATA%\mise\shims`) and Postgres tools to PATH
 - **Postgres startup**: `scripts\env.ps1` starts Postgres if stopped. After a
   restart or crash recovery, wait for `pg_isready` before connecting if queries

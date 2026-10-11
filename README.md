@@ -77,7 +77,8 @@ git config core.hooksPath .githooks
 ```
 
 The first run of any script creates `.env` from `.env.example`. Its values
-are for local use only.
+are for local use only. The dev scripts warn when `.env` lacks a setting
+added to `.env.example` since; copy that line across.
 
 ### 3. Load the data and compute ratings
 
