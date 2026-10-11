@@ -147,7 +147,7 @@ func (*fakeAdmins) Tournament(_ context.Context, slug string) (store.AdminTourna
 		Kind: "cup", OriginalName: "World Championships", Points: map[int][]float64{2: nil, 3: {5, 2, 0}, 4: {6, 3, 1, 0}}, StageName: "Round",
 		Stories:           []store.Story{{Player: "alder440", Badge: "Reigning World Champion", Title: "2025", Text: "Won."}},
 		RatedPlayerCounts: []int{3, 4},
-		Seasons: []store.AdminSeason{{Label: "2025", OriginalName: "2025 Edition", Rated: true, InChampions: true, InCommunity: true, TimeoutPenalty: -1, Games: 3, Players: 5, Stages: []store.AdminStage{{Label: "Stage 1", OriginalName: "Groups", Note: "n", Number: 1, Games: 2, Finished: 1, Players: 5}},
+		Seasons: []store.AdminSeason{{Label: "2025", OriginalName: "2025 Edition", Rated: true, InChampions: true, InCommunity: true, TimeoutPenalty: -1, Games: 3, Finished: 2, Players: 5, Stages: []store.AdminStage{{Label: "Stage 1", OriginalName: "Groups", Note: "n", Number: 1, Games: 2, Finished: 1, Players: 5}},
 			Podium: []store.PodiumEntry{{Place: 1, Name: "alder440"}}, PodiumNote: "CGE",
 			Suggested: []store.PodiumEntry{{Place: 1, Name: "birch550"}}, SuggestedFrom: "final_stage"}}}, nil
 }
@@ -503,7 +503,7 @@ func adminGet(t *testing.T, admins Admins, token string) *httptest.ResponseRecor
 		req.Header.Set("Cf-Access-Jwt-Assertion", token)
 	}
 	rec := httptest.NewRecorder()
-	NewMux(&fakeRatings{}, admins, slog.New(slog.DiscardHandler)).ServeHTTP(rec, req)
+	newMux(&fakeRatings{}, admins, slog.New(slog.DiscardHandler)).ServeHTTP(rec, req)
 	return rec
 }
 
@@ -555,7 +555,7 @@ func TestNoPathReachesAnAdminRouteAroundTheGate(t *testing.T) {
 	for _, path := range []string{"/v1/./admin/me", "/v1//admin/me", "/v1/x/../admin/me", "/v1/%61dmin/me", "/v1/admin/me/"} {
 		req := httptest.NewRequest(http.MethodGet, path, nil)
 		rec := httptest.NewRecorder()
-		NewMux(&fakeRatings{}, &fakeAdmins{}, slog.New(slog.DiscardHandler)).ServeHTTP(rec, req)
+		newMux(&fakeRatings{}, &fakeAdmins{}, slog.New(slog.DiscardHandler)).ServeHTTP(rec, req)
 		if rec.Code == http.StatusOK {
 			t.Errorf("GET %s without a token = 200 %s, want a refusal", path, rec.Body)
 		}
@@ -576,50 +576,8 @@ func adminDoAs(t *testing.T, admins Admins, who, method, path, origin, body stri
 		req.Header.Set("Origin", origin)
 	}
 	rec := httptest.NewRecorder()
-	NewMux(&fakeRatings{}, admins, slog.New(slog.DiscardHandler)).ServeHTTP(rec, req)
+	newMux(&fakeRatings{}, admins, slog.New(slog.DiscardHandler)).ServeHTTP(rec, req)
 	return rec
-}
-
-func TestAdminTournamentsListsEachInBrief(t *testing.T) {
-	rec := adminDo(t, &fakeAdmins{}, http.MethodGet, "/v1/admin/tournaments", "", "")
-	if rec.Code != http.StatusOK {
-		t.Fatalf("GET /v1/admin/tournaments = %d %s", rec.Code, rec.Body)
-	}
-	wantJSON(t, rec.Body.Bytes(), "0", `{"slug": "worlds", "kind": "cup", "rated": true, "games": 3, "first_game": "2024-01-02", "cge_about": "CGE's."}`)
-}
-
-func TestAdminTournamentGivesItsSettingsSeasonsAndStages(t *testing.T) {
-	rec := adminDo(t, &fakeAdmins{}, http.MethodGet, "/v1/admin/tournaments/worlds", "", "")
-	if rec.Code != http.StatusOK {
-		t.Fatalf("GET /v1/admin/tournaments/worlds = %d %s", rec.Code, rec.Body)
-	}
-	body := rec.Body.Bytes()
-	wantJSON(t, body, "", `{"slug": "worlds", "kind": "cup", "original_name": "World Championships", "top_divisions": []}`)
-	wantJSON(t, body, "seasons.0", `{"label": "2025", "original_name": "2025 Edition", "games": 3, "players": 5}`)
-	wantJSON(t, body, "seasons.0.stages.0", `{"label": "Stage 1", "original_name": "Groups", "note": "n", "number": 1, "games": 2, "finished": 1, "players": 5}`)
-	if rec := adminDo(t, &fakeAdmins{}, http.MethodGet, "/v1/admin/tournaments/nope", "", ""); rec.Code != http.StatusNotFound {
-		t.Errorf("GET nope = %d, want 404", rec.Code)
-	}
-}
-
-func TestAnOrganiserChangesATournamentAndItIsAudited(t *testing.T) {
-	f := &fakeAdmins{}
-	rec := adminDo(t, f, http.MethodPatch, "/v1/admin/tournaments/worlds", "https://ttac-admin.example", `{"community": true}`)
-	if rec.Code != http.StatusNoContent {
-		t.Fatalf("PATCH = %d %s, want 204", rec.Code, rec.Body)
-	}
-	if len(f.settings) != 1 || f.settings[0].Community == nil || !*f.settings[0].Community || f.settings[0].Visible != nil {
-		t.Errorf("settings = %+v, want only community on", f.settings)
-	}
-	if len(f.audits) != 1 || f.audits[0] != "222222222222222222 tournament.settings worlds" {
-		t.Errorf("audits = %q", f.audits)
-	}
-
-	rec = adminDo(t, f, http.MethodPatch, "/v1/admin/tournaments/worlds/seasons/2025", "https://ttac-admin.example",
-		`{"stage_notes": {"Stage 1": "The groups."}}`)
-	if rec.Code != http.StatusNoContent || len(f.notes) != 1 || f.notes[0] != "2025|Stage 1|The groups." || len(f.audits) != 2 {
-		t.Errorf("PATCH stage note = %d, notes %q, audits %q", rec.Code, f.notes, f.audits)
-	}
 }
 
 func TestAdminChangesRefuseAnotherOriginOrABadRequest(t *testing.T) {
@@ -648,6 +606,47 @@ func TestAdminChangesRefuseAnotherOriginOrABadRequest(t *testing.T) {
 			}
 			if len(f.settings)+len(f.notes)+len(f.audits) != 0 {
 				t.Errorf("a refused change still changed something: %+v %q %q", f.settings, f.notes, f.audits)
+			}
+		})
+	}
+}
+
+type countingReader struct {
+	r    io.Reader
+	read int
+}
+
+func (c *countingReader) Read(p []byte) (int, error) {
+	n, err := c.r.Read(p)
+	c.read += n
+	return n, err
+}
+
+func TestRequestBodiesAreLimited(t *testing.T) {
+	tests := []struct {
+		name string
+		body string
+		want int
+	}{
+		{"a body over the limit", `{"name": "` + strings.Repeat("x", 2<<20) + `"}`, http.StatusRequestEntityTooLarge},
+		{"bad JSON under the limit", `{"name": `, http.StatusBadRequest},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			body := &countingReader{r: strings.NewReader(tt.body)}
+			req := httptest.NewRequest(http.MethodPost, "/v1/admin/tournaments", body)
+			req.Header.Set("Cf-Access-Jwt-Assertion", "good-222222222222222222")
+			req.Header.Set("Content-Type", "application/json")
+			req.Header.Set("Origin", "https://ttac-admin.example")
+			rec := httptest.NewRecorder()
+
+			newMux(&fakeRatings{}, &fakeAdmins{}, slog.New(slog.DiscardHandler)).ServeHTTP(rec, req)
+
+			if rec.Code != tt.want {
+				t.Errorf("POST %d bytes: code = %d %s, want %d", len(tt.body), rec.Code, rec.Body, tt.want)
+			}
+			if body.read > 1<<20+1 {
+				t.Errorf("POST %d bytes: read %d, want at most the 1 MiB limit", len(tt.body), body.read)
 			}
 		})
 	}
@@ -707,712 +706,5 @@ func TestAnAdminRenamesThemselves(t *testing.T) {
 		`{"name": "Owner, renamed", "role": "admin"}`)
 	if rec.Code != http.StatusNoContent || len(f.audits) != 1 {
 		t.Errorf("PUT self = %d %s, audits %q; want 204 and audited", rec.Code, rec.Body, f.audits)
-	}
-}
-
-func TestAdminAddsAndRemovesASeasonWithoutGames(t *testing.T) {
-	const site = "https://ttac-admin.example"
-	tests := []struct {
-		name, method, path, body string
-		want                     int
-		change                   string
-	}{
-		{"add", http.MethodPost, "/v1/admin/tournaments/worlds/seasons", `{"label": "2021"}`, http.StatusNoContent, "add season 2021"},
-		{"add one that exists", http.MethodPost, "/v1/admin/tournaments/worlds/seasons", `{"label": "2025"}`, http.StatusBadRequest, ""},
-		{"add an empty label", http.MethodPost, "/v1/admin/tournaments/worlds/seasons", `{"label": " "}`, http.StatusBadRequest, ""},
-		{"add to no tournament", http.MethodPost, "/v1/admin/tournaments/nope/seasons", `{"label": "1"}`, http.StatusNotFound, ""},
-		{"remove", http.MethodDelete, "/v1/admin/tournaments/worlds/seasons/2023%20Play%20Off", "", http.StatusNoContent, "remove season 2023 Play Off"},
-		{"remove one with games", http.MethodDelete, "/v1/admin/tournaments/worlds/seasons/2025", "", http.StatusBadRequest, ""},
-		{"remove one that does not exist", http.MethodDelete, "/v1/admin/tournaments/worlds/seasons/1999", "", http.StatusNotFound, ""},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			f := &fakeAdmins{}
-			rec := adminDo(t, f, tt.method, tt.path, site, tt.body)
-			if rec.Code != tt.want {
-				t.Fatalf("%s %s = %d %s, want %d", tt.method, tt.path, rec.Code, rec.Body, tt.want)
-			}
-			changed := strings.Join(f.notes, "|")
-			if changed != tt.change || (tt.change != "") != (len(f.audits) == 1) {
-				t.Errorf("changes %q, audits %q; want %q, audited when changed", changed, f.audits, tt.change)
-			}
-		})
-	}
-}
-
-func TestAnAdminListsRuns(t *testing.T) {
-	rec := adminDoAs(t, &fakeAdmins{}, "111111111111111111", http.MethodGet, "/v1/admin/runs", "", "")
-	var got []AdminRun
-	if err := json.Unmarshal(rec.Body.Bytes(), &got); err != nil || rec.Code != http.StatusOK {
-		t.Fatalf("GET runs = %d %s", rec.Code, rec.Body)
-	}
-	if len(got) != 6 || got[0].Id != 9 || got[0].Progress != "[3/10] models 2p" || !got[2].Current || got[2].PublishedAt == nil || got[1].PublishedAt != nil {
-		t.Errorf("runs = %+v", got)
-	}
-}
-
-func TestAnAdminStartsAndPublishesRunsAndEachIsAudited(t *testing.T) {
-	const site, owner = "https://ttac-admin.example", "111111111111111111"
-	f := &fakeAdmins{}
-	rec := adminDoAs(t, f, owner, http.MethodPost, "/v1/admin/runs", site, "")
-	var started StartedRun
-	if err := json.Unmarshal(rec.Body.Bytes(), &started); err != nil || rec.Code != http.StatusAccepted || started.Job != "engine-dev-admin-x7k2p" {
-		t.Fatalf("POST runs = %d %s, want 202 with the job", rec.Code, rec.Body)
-	}
-	if rec := adminDoAs(t, f, owner, http.MethodPost, "/v1/admin/runs/8/publish", site, ""); rec.Code != http.StatusNoContent {
-		t.Errorf("publish 8 = %d %s, want 204", rec.Code, rec.Body)
-	}
-	if want := "start|publish 8"; strings.Join(f.notes, "|") != want {
-		t.Errorf("changes = %q, want %q", f.notes, want)
-	}
-	if want := owner + " run.start engine-dev-admin-x7k2p|" + owner + " run.publish 8"; strings.Join(f.audits, "|") != want {
-		t.Errorf("audits = %q, want %q", f.audits, want)
-	}
-}
-
-func TestRunChangesAreRefusedWhenTheyShouldBe(t *testing.T) {
-	const site, owner, org = "https://ttac-admin.example", "111111111111111111", "222222222222222222"
-	tests := []struct {
-		name, who, method, path, origin string
-		startErr                        error // also what a stop returns
-		want                            int
-	}{
-		{"an organiser lists runs", org, http.MethodGet, "/v1/admin/runs", "", nil, http.StatusForbidden},
-		{"an organiser starts a run", org, http.MethodPost, "/v1/admin/runs", site, nil, http.StatusForbidden},
-		{"an organiser publishes", org, http.MethodPost, "/v1/admin/runs/8/publish", site, nil, http.StatusForbidden},
-		{"an organiser compares", org, http.MethodGet, "/v1/admin/runs/8/changes", "", nil, http.StatusForbidden},
-		{"a start from another site", owner, http.MethodPost, "/v1/admin/runs", "https://evil.example", nil, http.StatusForbidden},
-		{"a start while a run is going", owner, http.MethodPost, "/v1/admin/runs", site, enginejob.ErrRunning, http.StatusConflict},
-		{"a start where runs are not set up", owner, http.MethodPost, "/v1/admin/runs", site, enginejob.ErrNotSetUp, http.StatusServiceUnavailable},
-		{"publishing a running run", owner, http.MethodPost, "/v1/admin/runs/9/publish", site, nil, http.StatusConflict},
-		{"publishing no run", owner, http.MethodPost, "/v1/admin/runs/99/publish", site, nil, http.StatusNotFound},
-		{"publishing from another site", owner, http.MethodPost, "/v1/admin/runs/8/publish", "https://evil.example", nil, http.StatusForbidden},
-		{"an organiser stops a run", org, http.MethodPost, "/v1/admin/runs/stop", site, nil, http.StatusForbidden},
-		{"a stop from another site", owner, http.MethodPost, "/v1/admin/runs/stop", "https://evil.example", nil, http.StatusForbidden},
-		{"a stop with nothing going", owner, http.MethodPost, "/v1/admin/runs/stop", site, enginejob.ErrNotRunning, http.StatusConflict},
-		{"a stop where runs are not set up", owner, http.MethodPost, "/v1/admin/runs/stop", site, enginejob.ErrNotSetUp, http.StatusServiceUnavailable},
-		{"an organiser deletes a run", org, http.MethodDelete, "/v1/admin/runs/8", site, nil, http.StatusForbidden},
-		{"a delete from another site", owner, http.MethodDelete, "/v1/admin/runs/8", "https://evil.example", nil, http.StatusForbidden},
-		{"deleting a protected run", owner, http.MethodDelete, "/v1/admin/runs/4", site, nil, http.StatusConflict},
-		{"deleting the current run", owner, http.MethodDelete, "/v1/admin/runs/7", site, nil, http.StatusConflict},
-		{"deleting the running run", owner, http.MethodDelete, "/v1/admin/runs/9", site, nil, http.StatusConflict},
-		{"deleting no run", owner, http.MethodDelete, "/v1/admin/runs/99", site, nil, http.StatusNotFound},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			f := &fakeAdmins{startErr: tt.startErr, stopErr: tt.startErr}
-			rec := adminDoAs(t, f, tt.who, tt.method, tt.path, tt.origin, "")
-			if rec.Code != tt.want {
-				t.Errorf("%s %s = %d %s, want %d", tt.method, tt.path, rec.Code, rec.Body, tt.want)
-			}
-			if len(f.notes)+len(f.audits) != 0 {
-				t.Errorf("a refused change still changed something: %q %q", f.notes, f.audits)
-			}
-		})
-	}
-}
-
-func TestRunChangesCompareWithThePublishedRunUnlessAsked(t *testing.T) {
-	const owner = "111111111111111111"
-	tests := []struct {
-		name, path   string
-		want         int
-		run, against int64
-	}{
-		{"against the published run", "/v1/admin/runs/9/changes", http.StatusOK, 9, 7},
-		{"the published run against the run published before it", "/v1/admin/runs/7/changes", http.StatusOK, 7, 5},
-		{"a run published later against the run published before it", "/v1/admin/runs/4/changes", http.StatusOK, 4, 7},
-		{"a run never published against the published run", "/v1/admin/runs/6/changes", http.StatusOK, 6, 7},
-		{"the first run published, with nothing before it", "/v1/admin/runs/5/changes", http.StatusNotFound, 0, 0},
-		{"against a run asked for", "/v1/admin/runs/9/changes?against=8", http.StatusOK, 9, 8},
-		{"a run that does not exist", "/v1/admin/runs/99/changes", http.StatusNotFound, 0, 0},
-		{"against a run that does not exist", "/v1/admin/runs/9/changes?against=99", http.StatusNotFound, 0, 0},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			rec := adminDoAs(t, &fakeAdmins{}, owner, http.MethodGet, tt.path, "", "")
-			if rec.Code != tt.want {
-				t.Fatalf("GET %s = %d %s, want %d", tt.path, rec.Code, rec.Body, tt.want)
-			}
-			if tt.want != http.StatusOK {
-				return
-			}
-			var got RunChanges
-			if err := json.Unmarshal(rec.Body.Bytes(), &got); err != nil {
-				t.Fatal(err)
-			}
-			if got.Run != tt.run || got.Against != tt.against || got.Ratings != int(tt.run) || got.RatingsBefore != int(tt.against) || got.Biggest[0].Change != -120 {
-				t.Errorf("changes = %+v, want run %d against %d", got, tt.run, tt.against)
-			}
-		})
-	}
-}
-
-func TestAnAdminStopsTheRunThatIsGoing(t *testing.T) {
-	const owner = "111111111111111111"
-	f := &fakeAdmins{}
-	if rec := adminDoAs(t, f, owner, http.MethodPost, "/v1/admin/runs/stop", "https://ttac-admin.example", ""); rec.Code != http.StatusNoContent {
-		t.Fatalf("POST stop = %d %s, want 204", rec.Code, rec.Body)
-	}
-	if strings.Join(f.notes, "|") != "stop" || strings.Join(f.audits, "|") != owner+" run.stop engine-dev-admin-x7k2p" {
-		t.Errorf("changes %q, audits %q", f.notes, f.audits)
-	}
-}
-
-func TestARunWhoseEngineEndedIsShownFailed(t *testing.T) {
-	for _, tt := range []struct {
-		engine, status, progress string
-	}{
-		{"", "running", "[3/10] models 2p"},
-		{"ended", "failed", "the engine ended without finishing this run"},
-		{"unset", "running", "[3/10] models 2p"},
-		{"unreachable", "running", "[3/10] models 2p"},
-	} {
-		t.Run("engine "+tt.engine, func(t *testing.T) {
-			rec := adminDoAs(t, &fakeAdmins{engine: tt.engine}, "111111111111111111", http.MethodGet, "/v1/admin/runs", "", "")
-			var got []AdminRun
-			if err := json.Unmarshal(rec.Body.Bytes(), &got); err != nil || rec.Code != http.StatusOK {
-				t.Fatalf("GET runs = %d %s", rec.Code, rec.Body)
-			}
-			if string(got[0].Status) != tt.status || got[0].Progress != tt.progress || got[1].Status != "complete" {
-				t.Errorf("runs = %+v, want run 9 %s with %q", got, tt.status, tt.progress)
-			}
-		})
-	}
-}
-
-func TestAnOrganiserSetsAndClearsASeasonsPodium(t *testing.T) {
-	const site, org = "https://ttac-admin.example", "222222222222222222"
-	f := &fakeAdmins{}
-	rec := adminDo(t, f, http.MethodPatch, "/v1/admin/tournaments/worlds/seasons/2025", site,
-		`{"podium": {"podium": [{"place": 1, "name": "alder440"}, {"place": 2, "name": "kittiwake"}], "note": "CGE final"}}`)
-	if rec.Code != http.StatusNoContent {
-		t.Fatalf("PATCH podium = %d %s, want 204", rec.Code, rec.Body)
-	}
-	if rec := adminDo(t, f, http.MethodPatch, "/v1/admin/tournaments/worlds/seasons/2025", site, `{"clear_podium": true}`); rec.Code != http.StatusNoContent {
-		t.Errorf("PATCH clear podium = %d %s, want 204", rec.Code, rec.Body)
-	}
-	if want := "podium 2025 [{1 alder440} {2 kittiwake}] CGE final|clear podium 2025"; strings.Join(f.notes, "|") != want {
-		t.Errorf("changes = %q, want %q", f.notes, want)
-	}
-	if want := org + " tournament.season worlds|" + org + " tournament.season worlds"; strings.Join(f.audits, "|") != want {
-		t.Errorf("audits = %q, want %q", f.audits, want)
-	}
-}
-
-func TestPodiumChangesAreRefusedWhenTheyShouldBe(t *testing.T) {
-	const site = "https://ttac-admin.example"
-	tests := []struct {
-		name, path, origin, body string
-		want                     int
-	}{
-		{"another site", "/v1/admin/tournaments/worlds/seasons/2025", "https://evil.example", `{"podium": {"podium": [{"place": 1, "name": "a"}], "note": ""}}`, http.StatusForbidden},
-		{"no such season", "/v1/admin/tournaments/worlds/seasons/1999", site, `{"podium": {"podium": [{"place": 1, "name": "a"}], "note": ""}}`, http.StatusNotFound},
-		{"not a podium", "/v1/admin/tournaments/worlds/seasons/2025", site, `{"podium": {"podium": [{"place": 1, "name": "twice"}], "note": ""}}`, http.StatusBadRequest},
-		{"nobody on it", "/v1/admin/tournaments/worlds/seasons/2025", site, `{"podium": {"podium": [], "note": ""}}`, http.StatusBadRequest},
-		{"four places", "/v1/admin/tournaments/worlds/seasons/2025", site, `{"podium": {"podium": [{"place": 1, "name": "a"}, {"place": 2, "name": "b"}, {"place": 3, "name": "c"}, {"place": 4, "name": "d"}], "note": ""}}`, http.StatusBadRequest},
-		{"a long note", "/v1/admin/tournaments/worlds/seasons/2025", site, `{"podium": {"podium": [{"place": 1, "name": "a"}], "note": "` + strings.Repeat("x", 501) + `"}}`, http.StatusBadRequest},
-		{"set and cleared at once", "/v1/admin/tournaments/worlds/seasons/2025", site, `{"podium": {"podium": [{"place": 1, "name": "a"}], "note": ""}, "clear_podium": true}`, http.StatusBadRequest},
-		{"clearing no such season", "/v1/admin/tournaments/worlds/seasons/1999", site, `{"clear_podium": true}`, http.StatusNotFound},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			f := &fakeAdmins{}
-			rec := adminDo(t, f, http.MethodPatch, tt.path, tt.origin, tt.body)
-			if rec.Code != tt.want {
-				t.Errorf("PATCH %s %s = %d %s, want %d", tt.path, tt.body, rec.Code, rec.Body, tt.want)
-			}
-			if len(f.notes)+len(f.audits) != 0 {
-				t.Errorf("a refused change still changed something: %q %q", f.notes, f.audits)
-			}
-		})
-	}
-}
-
-func TestAdminTournamentShowsASeasonsPodiumAndASuggestedOne(t *testing.T) {
-	rec := adminDo(t, &fakeAdmins{}, http.MethodGet, "/v1/admin/tournaments/worlds", "", "")
-	wantJSON(t, rec.Body.Bytes(), "seasons.0.podium", `[{"place":1,"name":"alder440"}]`)
-	wantJSON(t, rec.Body.Bytes(), "seasons.0.podium_note", `"CGE"`)
-	wantJSON(t, rec.Body.Bytes(), "seasons.0.suggested_podium", `[{"place":1,"name":"birch550"}]`)
-	wantJSON(t, rec.Body.Bytes(), "seasons.0.suggested_from", `"final_stage"`)
-}
-
-func TestAnAdminSetsAndClearsAPlayersTitle(t *testing.T) {
-	const site, owner = "https://ttac-admin.example", "111111111111111111"
-	f := &fakeAdmins{}
-	rec := adminDoAs(t, f, owner, http.MethodGet, "/v1/admin/titles", "", "")
-	var got []TitleOverride
-	if err := json.Unmarshal(rec.Body.Bytes(), &got); err != nil || len(got) != 1 || got[0].Title != "SGM" {
-		t.Fatalf("GET titles = %d %s", rec.Code, rec.Body)
-	}
-	if rec := adminDoAs(t, f, owner, http.MethodPut, "/v1/admin/titles/Mr%20Ann", site, `{"title": "", "reason": "a false Super GM"}`); rec.Code != http.StatusNoContent {
-		t.Errorf("PUT = %d %s, want 204", rec.Code, rec.Body)
-	}
-	if rec := adminDoAs(t, f, owner, http.MethodDelete, "/v1/admin/titles/Ann", site, ""); rec.Code != http.StatusNoContent {
-		t.Errorf("DELETE = %d %s, want 204", rec.Code, rec.Body)
-	}
-	if want := "title Mr Ann  a false Super GM|clear title Ann"; strings.Join(f.notes, "|") != want {
-		t.Errorf("changes = %q, want %q", f.notes, want)
-	}
-	if want := owner + " player.title Mr Ann|" + owner + " player.title.clear Ann"; strings.Join(f.audits, "|") != want {
-		t.Errorf("audits = %q, want %q", f.audits, want)
-	}
-}
-
-func TestTitleChangesAreRefusedWhenTheyShouldBe(t *testing.T) {
-	const site, owner, org = "https://ttac-admin.example", "111111111111111111", "222222222222222222"
-	tests := []struct {
-		name, who, method, path, origin, body string
-		want                                  int
-	}{
-		{"an organiser lists", org, http.MethodGet, "/v1/admin/titles", "", "", http.StatusForbidden},
-		{"an organiser sets", org, http.MethodPut, "/v1/admin/titles/Ann", site, `{"title": "GM", "reason": "r"}`, http.StatusForbidden},
-		{"an organiser clears", org, http.MethodDelete, "/v1/admin/titles/Ann", site, "", http.StatusForbidden},
-		{"another site", owner, http.MethodPut, "/v1/admin/titles/Ann", "https://evil.example", `{"title": "GM", "reason": "r"}`, http.StatusForbidden},
-		{"WC", owner, http.MethodPut, "/v1/admin/titles/Ann", site, `{"title": "WC", "reason": "r"}`, http.StatusBadRequest},
-		{"a made-up title", owner, http.MethodPut, "/v1/admin/titles/Ann", site, `{"title": "Legend", "reason": "r"}`, http.StatusBadRequest},
-		{"no reason", owner, http.MethodPut, "/v1/admin/titles/Ann", site, `{"title": "GM", "reason": ""}`, http.StatusBadRequest},
-		{"a long reason", owner, http.MethodPut, "/v1/admin/titles/Ann", site, `{"title": "GM", "reason": "` + strings.Repeat("x", 301) + `"}`, http.StatusBadRequest},
-		{"no such player", owner, http.MethodPut, "/v1/admin/titles/Nobody", site, `{"title": "GM", "reason": "r"}`, http.StatusNotFound},
-		{"clearing a title never set", owner, http.MethodDelete, "/v1/admin/titles/Bob", site, "", http.StatusNotFound},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			f := &fakeAdmins{}
-			rec := adminDoAs(t, f, tt.who, tt.method, tt.path, tt.origin, tt.body)
-			if rec.Code != tt.want {
-				t.Errorf("%s %s = %d %s, want %d", tt.method, tt.path, rec.Code, rec.Body, tt.want)
-			}
-			if len(f.notes)+len(f.audits) != 0 {
-				t.Errorf("a refused change still changed something: %q %q", f.notes, f.audits)
-			}
-		})
-	}
-}
-
-func TestAnAdminMakesGivesTakesAndRemovesBadges(t *testing.T) {
-	const site, owner = "https://ttac-admin.example", "111111111111111111"
-	f := &fakeAdmins{}
-	rec := adminDoAs(t, f, owner, http.MethodGet, "/v1/admin/badges", "", "")
-	var list []AdminBadge
-	if err := json.Unmarshal(rec.Body.Bytes(), &list); err != nil || len(list) != 1 || list[0].Players[0] != "Ann" {
-		t.Fatalf("GET badges = %d %s", rec.Code, rec.Body)
-	}
-	rec = adminDoAs(t, f, owner, http.MethodPost, "/v1/admin/badges", site, `{"label": "TD", "description": "Tournament director"}`)
-	var made AdminBadge
-	if err := json.Unmarshal(rec.Body.Bytes(), &made); err != nil || rec.Code != http.StatusCreated || made.Id != 4 || made.Label != "TD" {
-		t.Fatalf("POST badge = %d %s, want 201 with id 4", rec.Code, rec.Body)
-	}
-	for _, step := range []struct{ method, path, body string }{
-		{http.MethodPut, "/v1/admin/badges/3", `{"label": "Org", "description": ""}`},
-		{http.MethodPut, "/v1/admin/badges/3", `{"label": "Org", "description": "", "players": ["Bob"]}`},
-		{http.MethodPut, "/v1/admin/badges/3", `{"label": "Org", "description": "", "players": []}`},
-		{http.MethodDelete, "/v1/admin/badges/3", ""},
-	} {
-		if rec := adminDoAs(t, f, owner, step.method, step.path, site, step.body); rec.Code != http.StatusNoContent {
-			t.Errorf("%s %s = %d %s, want 204", step.method, step.path, rec.Code, rec.Body)
-		}
-	}
-	if want := "add badge TD|set badge 3 Org []|set badge 3 Org [Bob]|set badge 3 Org []|remove badge 3"; strings.Join(f.notes, "|") != want {
-		t.Errorf("changes = %q, want %q", f.notes, want)
-	}
-	if want := []string{"badge.add TD", "badge.set 3", "badge.set 3", "badge.set 3", "badge.remove 3"}; len(f.audits) != len(want) {
-		t.Errorf("audits = %q, want %d", f.audits, len(want))
-	} else {
-		for i, w := range want {
-			if f.audits[i] != owner+" "+w {
-				t.Errorf("audit %d = %q, want %q", i, f.audits[i], owner+" "+w)
-			}
-		}
-	}
-}
-
-func TestBadgeChangesAreRefusedWhenTheyShouldBe(t *testing.T) {
-	const site, owner, org = "https://ttac-admin.example", "111111111111111111", "222222222222222222"
-	tests := []struct {
-		name, who, method, path, origin, body string
-		want                                  int
-	}{
-		{"an organiser lists", org, http.MethodGet, "/v1/admin/badges", "", "", http.StatusForbidden},
-		{"an organiser makes", org, http.MethodPost, "/v1/admin/badges", site, `{"label": "X", "description": ""}`, http.StatusForbidden},
-		{"an organiser gives", org, http.MethodPut, "/v1/admin/badges/3", site, `{"label": "Organiser", "description": "", "players": ["Ann"]}`, http.StatusForbidden},
-		{"another site", owner, http.MethodPost, "/v1/admin/badges", "https://evil.example", `{"label": "X", "description": ""}`, http.StatusForbidden},
-		{"no label", owner, http.MethodPost, "/v1/admin/badges", site, `{"label": " ", "description": ""}`, http.StatusBadRequest},
-		{"a long label", owner, http.MethodPost, "/v1/admin/badges", site, `{"label": "Seventeen letters", "description": ""}`, http.StatusBadRequest},
-		{"a long description", owner, http.MethodPost, "/v1/admin/badges", site, `{"label": "X", "description": "` + strings.Repeat("x", 301) + `"}`, http.StatusBadRequest},
-		{"a label taken", owner, http.MethodPost, "/v1/admin/badges", site, `{"label": "Organiser", "description": ""}`, http.StatusConflict},
-		{"changing no badge", owner, http.MethodPut, "/v1/admin/badges/9", site, `{"label": "X", "description": ""}`, http.StatusNotFound},
-		{"giving no badge", owner, http.MethodPut, "/v1/admin/badges/9", site, `{"label": "X", "description": "", "players": ["Ann"]}`, http.StatusNotFound},
-		{"giving to nobody", owner, http.MethodPut, "/v1/admin/badges/3", site, `{"label": "Organiser", "description": "", "players": ["Ann", "Nobody"]}`, http.StatusNotFound},
-		{"removing no badge", owner, http.MethodDelete, "/v1/admin/badges/9", site, "", http.StatusNotFound},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			f := &fakeAdmins{}
-			rec := adminDoAs(t, f, tt.who, tt.method, tt.path, tt.origin, tt.body)
-			if rec.Code != tt.want {
-				t.Errorf("%s %s = %d %s, want %d", tt.method, tt.path, rec.Code, rec.Body, tt.want)
-			}
-			if len(f.notes)+len(f.audits) != 0 {
-				t.Errorf("a refused change still changed something: %q %q", f.notes, f.audits)
-			}
-		})
-	}
-}
-
-func TestAdminDataSummaryIsForAdminsAndOrganisers(t *testing.T) {
-	for _, who := range []string{"111111111111111111", "222222222222222222"} {
-		rec := adminDoAs(t, &fakeAdmins{}, who, http.MethodGet, "/v1/admin/data", "", "")
-		var got DataSummary
-		if err := json.Unmarshal(rec.Body.Bytes(), &got); err != nil || rec.Code != http.StatusOK {
-			t.Fatalf("GET data as %s = %d %s", who, rec.Code, rec.Body)
-		}
-		if got.Games != 144691 || got.NeverPlayed != 36 || got.LatestGame == nil || got.LastLoad != nil {
-			t.Errorf("data = %+v", got)
-		}
-	}
-}
-
-func TestAdminStandingsCheckIsForAdminsAndOrganisers(t *testing.T) {
-	for _, who := range []string{"111111111111111111", "222222222222222222"} {
-		rec := adminDoAs(t, &fakeAdmins{}, who, http.MethodGet, "/v1/admin/standings-check", "", "")
-		if rec.Code != http.StatusOK {
-			t.Fatalf("GET standings check as %s = %d %s", who, rec.Code, rec.Body)
-		}
-		body := rec.Body.Bytes()
-		wantJSON(t, body, "stages_only_on_cge", `18`)
-		wantJSON(t, body, "stages.0", `{"cge_tournament": 19, "cge_season": 4, "players": 520, "agree": 519}`)
-		wantJSON(t, body, "stages.0.differences.0", `{"player": "Heron_Hill", "kind": "places_after_a_timeout", "cge_games": 6, "held_never_played": 0}`)
-		wantJSON(t, body, "stages.0.differences.0.cge_places", `{"p2": null, "p3": [0, 1, 5], "p4": null}`)
-	}
-}
-
-func TestAnOrganiserWritesATournamentsCardRegulationsAndStories(t *testing.T) {
-	const site, org = "https://ttac-admin.example", "222222222222222222"
-	tests := []struct {
-		name, body, change string
-	}{
-		{"a card", `{"card": {"icon": "🏆", "tagline": "Annual", "summary": "The pinnacle.", "subtitle": "4-Player", "cadence": "Yearly"}}`,
-			"card 🏆|Annual|The pinnacle.|4-Player|Yearly"},
-		{"regulations", `{"regulations": "Best of three."}`, "regulations Best of three."},
-		{"stories, in order", `{"stories": [{"player": "alder440", "badge": "", "title": "2025", "text": "Won."}, {"player": "pipit4", "badge": "", "title": "2024", "text": "Second."}]}`,
-			"story alder440|2025,story pipit4|2024"},
-		{"all three", `{"card": {"icon": "x", "tagline": "", "summary": ""}, "regulations": "", "stories": []}`, "card x||||,regulations "},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			f := &fakeAdmins{}
-			if rec := adminDo(t, f, http.MethodPatch, "/v1/admin/tournaments/worlds", site, tt.body); rec.Code != http.StatusNoContent {
-				t.Fatalf("PATCH %s = %d %s, want 204", tt.body, rec.Code, rec.Body)
-			}
-			if strings.Join(f.notes, ",") != tt.change || strings.Join(f.audits, "|") != org+" tournament.settings worlds" {
-				t.Errorf("changes %q, audits %q; want %q, audited once", f.notes, f.audits, tt.change)
-			}
-		})
-	}
-}
-
-func TestCardRegulationsAndStoriesAreRefusedWhenTheyShouldBe(t *testing.T) {
-	const site = "https://ttac-admin.example"
-	tests := []struct {
-		name, path, origin, body string
-		want                     int
-	}{
-		{"a card from another site", "/v1/admin/tournaments/worlds", "https://evil.example", `{"card": {"icon": "", "tagline": "", "summary": ""}}`, http.StatusForbidden},
-		{"a card for no tournament", "/v1/admin/tournaments/nope", site, `{"card": {"icon": "", "tagline": "", "summary": ""}}`, http.StatusNotFound},
-		{"a card too long for the store", "/v1/admin/tournaments/worlds", site, `{"card": {"icon": "toolong", "tagline": "", "summary": ""}}`, http.StatusBadRequest},
-		{"regulations for no tournament", "/v1/admin/tournaments/nope", site, `{"regulations": "x"}`, http.StatusNotFound},
-		{"regulations too long", "/v1/admin/tournaments/worlds", site, `{"regulations": "` + strings.Repeat("x", 10001) + `"}`, http.StatusBadRequest},
-		{"stories for no tournament", "/v1/admin/tournaments/nope", site, `{"stories": []}`, http.StatusNotFound},
-		{"a story without a title", "/v1/admin/tournaments/worlds", site, `{"stories": [{"player": "p", "badge": "", "title": "", "text": "x"}]}`, http.StatusBadRequest},
-		{"thirteen stories", "/v1/admin/tournaments/worlds", site, `{"stories": [` + strings.TrimSuffix(strings.Repeat(`{"player": "p", "badge": "", "title": "t", "text": "x"},`, 13), ",") + `]}`, http.StatusBadRequest},
-		{"regulations after a setting", "/v1/admin/tournaments/worlds", site, `{"visible": true, "regulations": "` + strings.Repeat("x", 10001) + `"}`, http.StatusBadRequest},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			f := &fakeAdmins{}
-			if rec := adminDo(t, f, http.MethodPatch, tt.path, tt.origin, tt.body); rec.Code != tt.want {
-				t.Errorf("PATCH %s = %d %s, want %d", tt.path, rec.Code, rec.Body, tt.want)
-			}
-			if len(f.settings)+len(f.notes)+len(f.audits) != 0 {
-				t.Errorf("a refused change still changed something: %+v %q %q", f.settings, f.notes, f.audits)
-			}
-		})
-	}
-}
-
-func TestAdminTournamentGivesItsCardRegulationsAndStories(t *testing.T) {
-	rec := adminDo(t, &fakeAdmins{}, http.MethodGet, "/v1/admin/tournaments/worlds", "", "")
-	body := rec.Body.Bytes()
-	wantJSON(t, body, "card", `{"tagline": "Annual World Championship"}`)
-	wantJSON(t, body, "", `{"regulations": "Mine.", "cge_regulations": "CGE's."}`)
-	wantJSON(t, body, "stories.0", `{"player": "alder440"}`)
-}
-
-func TestAnOrganiserSetsWhatOfATournamentIsRated(t *testing.T) {
-	const site, org = "https://ttac-admin.example", "222222222222222222"
-	f := &fakeAdmins{}
-	if rec := adminDo(t, f, http.MethodPatch, "/v1/admin/tournaments/worlds", site, `{"rated_player_counts": [2, 4]}`); rec.Code != http.StatusNoContent {
-		t.Fatalf("PATCH player counts = %d %s, want 204", rec.Code, rec.Body)
-	}
-	if len(f.settings) != 1 || !slices.Equal(f.settings[0].RatedPlayerCounts, []int{2, 4}) {
-		t.Errorf("settings = %+v, want player counts 2 and 4", f.settings)
-	}
-	if rec := adminDo(t, f, http.MethodPatch, "/v1/admin/tournaments/worlds", site, `{"kind": "league", "top_divisions": ["Final"]}`); rec.Code != http.StatusNoContent {
-		t.Fatalf("PATCH kind = %d %s, want 204", rec.Code, rec.Body)
-	}
-	if len(f.settings) != 2 || f.settings[1].Kind != "league" || !slices.Equal(f.settings[1].TopDivisions, []string{"Final"}) {
-		t.Errorf("settings = %+v, want a league with a Final", f.settings)
-	}
-	f.settings, f.audits = f.settings[:1], f.audits[:1]
-	if rec := adminDo(t, f, http.MethodPatch, "/v1/admin/tournaments/worlds/seasons/2023", site, `{"rated": false}`); rec.Code != http.StatusNoContent {
-		t.Fatalf("PATCH season rated = %d %s, want 204", rec.Code, rec.Body)
-	}
-	if strings.Join(f.notes, "|") != "season 2023 rated false" || strings.Join(f.audits, "|") != org+" tournament.settings worlds|"+org+" tournament.season worlds" {
-		t.Errorf("changes %q, audits %q", f.notes, f.audits)
-	}
-	for _, tt := range []struct {
-		name, method, path, origin, body string
-		want                             int
-	}{
-		{"a 5-player count", http.MethodPatch, "/v1/admin/tournaments/worlds", site, `{"rated_player_counts": [2, 5]}`, http.StatusBadRequest},
-		{"an unknown kind", http.MethodPatch, "/v1/admin/tournaments/worlds", site, `{"kind": "tour"}`, http.StatusBadRequest},
-		{"a season that does not exist", http.MethodPatch, "/v1/admin/tournaments/worlds/seasons/1999", site, `{"rated": false}`, http.StatusNotFound},
-		{"a season of no tournament", http.MethodPatch, "/v1/admin/tournaments/nope/seasons/2023", site, `{"rated": false}`, http.StatusNotFound},
-	} {
-		t.Run(tt.name, func(t *testing.T) {
-			f := &fakeAdmins{}
-			if rec := adminDo(t, f, tt.method, tt.path, tt.origin, tt.body); rec.Code != tt.want {
-				t.Errorf("%s = %d %s, want %d", tt.path, rec.Code, rec.Body, tt.want)
-			}
-			if len(f.settings)+len(f.notes)+len(f.audits) != 0 {
-				t.Errorf("a refused change still changed something: %+v %q %q", f.settings, f.notes, f.audits)
-			}
-		})
-	}
-	rec := adminDo(t, &fakeAdmins{}, http.MethodGet, "/v1/admin/tournaments/worlds", "", "")
-	wantJSON(t, rec.Body.Bytes(), "rated_player_counts", `[3, 4]`)
-	wantJSON(t, rec.Body.Bytes(), "seasons.0.rated", `true`)
-}
-
-func TestAnOrganiserSetsScoringAndTimeoutPenalties(t *testing.T) {
-	const site, org = "https://ttac-admin.example", "222222222222222222"
-	f := &fakeAdmins{}
-	if rec := adminDo(t, f, http.MethodPatch, "/v1/admin/tournaments/worlds", site, `{"points_3p": [5, 2, 0], "points_4p": [6, 3, 1, 0]}`); rec.Code != http.StatusNoContent {
-		t.Fatalf("PATCH scoring = %d %s, want 204", rec.Code, rec.Body)
-	}
-	if len(f.settings) != 1 || !slices.Equal(f.settings[0].Points[3], []float64{5, 2, 0}) || !slices.Equal(f.settings[0].Points[4], []float64{6, 3, 1, 0}) {
-		t.Errorf("settings = %+v, want 3p 5-2-0 and 4p 6-3-1-0", f.settings)
-	}
-	if _, set := f.settings[0].Points[2]; set {
-		t.Errorf("settings = %+v, want 2p left as it is", f.settings)
-	}
-	if rec := adminDo(t, f, http.MethodPatch, "/v1/admin/tournaments/worlds/seasons/2025", site, `{"timeout_penalty": -1}`); rec.Code != http.StatusNoContent {
-		t.Fatalf("PATCH season penalty = %d %s, want 204", rec.Code, rec.Body)
-	}
-	if strings.Join(f.notes, "|") != "season 2025 penalty -1" || strings.Join(f.audits, "|") != org+" tournament.settings worlds|"+org+" tournament.season worlds" {
-		t.Errorf("changes %q, audits %q", f.notes, f.audits)
-	}
-	for _, tt := range []struct {
-		name, method, path, origin, body string
-		want                             int
-	}{
-		{"points not one per place", http.MethodPatch, "/v1/admin/tournaments/worlds", site, `{"points_3p": [5, 2]}`, http.StatusBadRequest},
-		{"a positive penalty", http.MethodPatch, "/v1/admin/tournaments/worlds/seasons/2025", site, `{"timeout_penalty": 1}`, http.StatusBadRequest},
-		{"a season that does not exist", http.MethodPatch, "/v1/admin/tournaments/worlds/seasons/1999", site, `{"timeout_penalty": -1}`, http.StatusNotFound},
-	} {
-		t.Run(tt.name, func(t *testing.T) {
-			f := &fakeAdmins{}
-			if rec := adminDo(t, f, tt.method, tt.path, tt.origin, tt.body); rec.Code != tt.want {
-				t.Errorf("%s = %d %s, want %d", tt.path, rec.Code, rec.Body, tt.want)
-			}
-			if len(f.settings)+len(f.notes)+len(f.audits) != 0 {
-				t.Errorf("a refused change still changed something: %+v %q %q", f.settings, f.notes, f.audits)
-			}
-		})
-	}
-	rec := adminDo(t, &fakeAdmins{}, http.MethodGet, "/v1/admin/tournaments/worlds", "", "")
-	wantJSON(t, rec.Body.Bytes(), "", `{"points_2p": [], "points_3p": [5, 2, 0], "points_4p": [6, 3, 1, 0]}`)
-	wantJSON(t, rec.Body.Bytes(), "seasons.0.timeout_penalty", `-1`)
-}
-
-func TestAnOrganiserNamesATournamentsSeasonsAndStages(t *testing.T) {
-	const site = "https://ttac-admin.example"
-	f := &fakeAdmins{}
-	if rec := adminDo(t, f, http.MethodPatch, "/v1/admin/tournaments/worlds", site, `{"season_name": "Edition", "stage_name": ""}`); rec.Code != http.StatusNoContent {
-		t.Fatalf("PATCH names = %d %s, want 204", rec.Code, rec.Body)
-	}
-	if len(f.settings) != 1 || f.settings[0].SeasonName == nil || *f.settings[0].SeasonName != "Edition" ||
-		f.settings[0].StageName == nil || *f.settings[0].StageName != "" {
-		t.Errorf("settings = %+v, want season Edition and the stage's default", f.settings)
-	}
-	f = &fakeAdmins{}
-	if rec := adminDo(t, f, http.MethodPatch, "/v1/admin/tournaments/worlds", site, `{"season_name": "`+strings.Repeat("x", 33)+`"}`); rec.Code != http.StatusBadRequest {
-		t.Errorf("a 33-character name = %d %s, want 400", rec.Code, rec.Body)
-	}
-	if len(f.settings)+len(f.audits) != 0 {
-		t.Errorf("a refused name still changed something: %+v %q", f.settings, f.audits)
-	}
-	rec := adminDo(t, &fakeAdmins{}, http.MethodGet, "/v1/admin/tournaments/worlds", "", "")
-	wantJSON(t, rec.Body.Bytes(), "", `{"season_name": "", "stage_name": "Round"}`)
-}
-
-func TestAdminsAndOrganisersDownloadTheData(t *testing.T) {
-	const org = "222222222222222222"
-	f := &fakeAdmins{}
-	rec := adminDoAs(t, f, org, http.MethodGet, "/v1/admin/export", "", "")
-	if rec.Code != http.StatusOK || rec.Body.String() != "PK zip bytes" {
-		t.Fatalf("GET export = %d %q, want 200 and the zip", rec.Code, rec.Body)
-	}
-	if got := rec.Header().Get("Content-Type"); got != "application/zip" {
-		t.Errorf("Content-Type = %q", got)
-	}
-	if got := rec.Header().Get("Content-Disposition"); got != `attachment; filename="ttacommunity-data.zip"` {
-		t.Errorf("Content-Disposition = %q", got)
-	}
-	if rec.Header().Get("Cache-Control") != "no-store" || strings.Join(f.audits, "|") != org+" data.export all" {
-		t.Errorf("Cache-Control %q, audits %q", rec.Header().Get("Cache-Control"), f.audits)
-	}
-	if rec := adminDoAs(t, &fakeAdmins{}, "111111111111111111", http.MethodGet, "/v1/admin/export", "", ""); rec.Code != http.StatusOK {
-		t.Errorf("an admin's export = %d, want 200", rec.Code)
-	}
-}
-
-func TestAnOrganiserChangesASeasonAndItIsAuditedOnce(t *testing.T) {
-	const site, org = "https://ttac-admin.example", "222222222222222222"
-	tests := []struct {
-		name, body, change string
-	}{
-		{"out of the community leaderboard", `{"in_community": false}`, "season 2023 Play Off community false"},
-		{"out of the champions", `{"in_champions": false}`, "season 2023 Play Off champions false"},
-		{"its note", `{"note": "Replayed."}`, "2023 Play Off||Replayed."},
-		{"several at once, the podium first", `{"rated": true, "in_champions": true, "podium": {"podium": [{"place": 1, "name": "a"}], "note": ""}}`,
-			"podium 2023 Play Off [{1 a}] |season 2023 Play Off rated true|season 2023 Play Off champions true"},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			f := &fakeAdmins{}
-			if rec := adminDo(t, f, http.MethodPatch, "/v1/admin/tournaments/worlds/seasons/2023%20Play%20Off", site, tt.body); rec.Code != http.StatusNoContent {
-				t.Fatalf("PATCH %s = %d %s, want 204", tt.body, rec.Code, rec.Body)
-			}
-			if strings.Join(f.notes, "|") != tt.change || strings.Join(f.audits, "|") != org+" tournament.season worlds" {
-				t.Errorf("changes %q, audits %q; want %q, audited once", f.notes, f.audits, tt.change)
-			}
-		})
-	}
-	rec := adminDo(t, &fakeAdmins{}, http.MethodGet, "/v1/admin/tournaments/worlds", "", "")
-	wantJSON(t, rec.Body.Bytes(), "seasons.0", `{"in_community": true, "in_champions": true}`)
-}
-
-func TestAnAdminProtectsAndDeletesRunsAndEachIsAudited(t *testing.T) {
-	const site, owner = "https://ttac-admin.example", "111111111111111111"
-	f := &fakeAdmins{deleted: make(chan int64, 1)}
-	if rec := adminDoAs(t, f, owner, http.MethodPatch, "/v1/admin/runs/5", site, `{"protected": true}`); rec.Code != http.StatusNoContent {
-		t.Errorf("protect 5 = %d %s, want 204", rec.Code, rec.Body)
-	}
-	if rec := adminDoAs(t, f, owner, http.MethodPatch, "/v1/admin/runs/99", site, `{"protected": true}`); rec.Code != http.StatusNotFound {
-		t.Errorf("protect 99 = %d %s, want 404", rec.Code, rec.Body)
-	}
-	if rec := adminDoAs(t, f, owner, http.MethodDelete, "/v1/admin/runs/8", site, ""); rec.Code != http.StatusAccepted {
-		t.Fatalf("delete 8 = %d %s, want 202", rec.Code, rec.Body)
-	}
-	select {
-	case got := <-f.deleted:
-		if got != 8 {
-			t.Errorf("the background delete removed run %d, want 8", got)
-		}
-	case <-time.After(5 * time.Second):
-		t.Fatal("the background delete never ran")
-	}
-	if want := "protect 5 true|delete 8"; strings.Join(f.notes, "|") != want {
-		t.Errorf("changes = %q, want %q", f.notes, want)
-	}
-	if want := owner + " run.protect 5|" + owner + " run.delete 8"; strings.Join(f.audits, "|") != want {
-		t.Errorf("audits = %q, want %q", f.audits, want)
-	}
-}
-
-func TestACrashedRunCanBeDeletedWhenTheEngineIsNotGoing(t *testing.T) {
-	f := &fakeAdmins{engine: "ended", deleted: make(chan int64, 1)}
-	if rec := adminDoAs(t, f, "111111111111111111", http.MethodDelete, "/v1/admin/runs/9", "https://ttac-admin.example", ""); rec.Code != http.StatusAccepted {
-		t.Errorf("delete 9 with the engine ended = %d %s, want 202", rec.Code, rec.Body)
-	}
-	<-f.deleted
-}
-
-func TestAdminRunsGiveEachRunsSize(t *testing.T) {
-	rec := adminDoAs(t, &fakeAdmins{}, "111111111111111111", http.MethodGet, "/v1/admin/runs", "", "")
-	if rec.Code != http.StatusOK {
-		t.Fatalf("GET runs = %d %s", rec.Code, rec.Body)
-	}
-	wantJSON(t, rec.Body.Bytes(), "0", `{"id": 9, "bytes": 0}`)
-	wantJSON(t, rec.Body.Bytes(), "1", `{"id": 8, "bytes": 3500000000}`)
-	wantJSON(t, rec.Body.Bytes(), "2", `{"id": 7, "bytes": 4000000000}`)
-}
-
-func TestProtectingARunIsRefusedWhenItShouldBe(t *testing.T) {
-	const site, owner, org = "https://ttac-admin.example", "111111111111111111", "222222222222222222"
-	for _, tt := range []struct{ name, who, origin string }{
-		{"an organiser", org, site},
-		{"another site", owner, "https://evil.example"},
-	} {
-		f := &fakeAdmins{}
-		rec := adminDoAs(t, f, tt.who, http.MethodPatch, "/v1/admin/runs/8", tt.origin, `{"protected": true}`)
-		if rec.Code != http.StatusForbidden || len(f.notes)+len(f.audits) != 0 {
-			t.Errorf("%s: PATCH protected = %d %s, changes %q; want 403 and nothing changed", tt.name, rec.Code, rec.Body, f.notes)
-		}
-	}
-}
-
-func TestAdminGroupsRelatedTournaments(t *testing.T) {
-	const site, org = "https://ttac-admin.example", "222222222222222222"
-	f := &fakeAdmins{}
-	rec := adminDo(t, f, http.MethodPost, "/v1/admin/tournaments", site, `{"name": "Big Cups", "kind": "cup", "members": ["worlds", "wimbledon"]}`)
-	if rec.Code != http.StatusCreated {
-		t.Fatalf("POST = %d %s, want 201", rec.Code, rec.Body)
-	}
-	wantJSON(t, rec.Body.Bytes(), "slug", `"big_cups"`)
-	if rec := adminDo(t, f, http.MethodPatch, "/v1/admin/tournaments/worlds", site, `{"parent": "big_cups", "description": "Every year", "name": "Worlds"}`); rec.Code != http.StatusNoContent {
-		t.Fatalf("PATCH parent = %d %s, want 204", rec.Code, rec.Body)
-	}
-	if len(f.settings) != 1 || *f.settings[0].Parent != "big_cups" || *f.settings[0].Description != "Every year" || *f.settings[0].Name != "Worlds" {
-		t.Errorf("settings = %+v, want worlds in big_cups with its description and name", f.settings)
-	}
-	if rec := adminDo(t, f, http.MethodPatch, "/v1/admin/tournaments/big_cups", site, `{"members": ["wimbledon"]}`); rec.Code != http.StatusNoContent {
-		t.Fatalf("PATCH members = %d %s, want 204", rec.Code, rec.Body)
-	}
-	if got, want := strings.Join(f.notes, "|"), "group Big Cups cup [worlds wimbledon]|members big_cups [wimbledon]"; got != want {
-		t.Errorf("changes = %q, want %q", got, want)
-	}
-	if got, want := strings.Join(f.audits, "|"), org+" tournament.group big_cups|"+org+" tournament.settings worlds|"+org+" tournament.settings big_cups"; got != want {
-		t.Errorf("audits = %q, want %q", got, want)
-	}
-}
-
-func TestAdminRefusesAGroupItCannotMake(t *testing.T) {
-	const site = "https://ttac-admin.example"
-	tests := []struct {
-		name, method, path, origin, body string
-		want                             int
-	}{
-		{"a name with no letter", http.MethodPost, "/v1/admin/tournaments", site, `{"name": "!", "kind": "cup", "members": []}`, http.StatusBadRequest},
-		{"no such kind", http.MethodPost, "/v1/admin/tournaments", site, `{"name": "Cups", "kind": "bowl", "members": []}`, http.StatusBadRequest},
-		{"no such member", http.MethodPost, "/v1/admin/tournaments", site, `{"name": "Cups", "kind": "cup", "members": ["no_such"]}`, http.StatusNotFound},
-		{"another site", http.MethodPost, "/v1/admin/tournaments", "https://evil.example", `{"name": "Cups", "kind": "cup", "members": []}`, http.StatusForbidden},
-		{"a group in itself", http.MethodPatch, "/v1/admin/tournaments/worlds", site, `{"parent": "worlds"}`, http.StatusBadRequest},
-		{"members for a tournament", http.MethodPatch, "/v1/admin/tournaments/worlds", site, `{"members": ["wimbledon"]}`, http.StatusBadRequest},
-		{"no such member", http.MethodPatch, "/v1/admin/tournaments/big_cups", site, `{"members": ["no_such"]}`, http.StatusNotFound},
-		{"members from another site", http.MethodPatch, "/v1/admin/tournaments/big_cups", "https://evil.example", `{"members": []}`, http.StatusForbidden},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			f := &fakeAdmins{}
-			if rec := adminDo(t, f, tt.method, tt.path, tt.origin, tt.body); rec.Code != tt.want {
-				t.Errorf("%s %s %s = %d %s, want %d", tt.method, tt.path, tt.body, rec.Code, rec.Body, tt.want)
-			}
-			if len(f.audits) != 0 {
-				t.Errorf("audits = %q, want none", f.audits)
-			}
-		})
 	}
 }

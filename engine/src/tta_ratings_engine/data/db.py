@@ -7,10 +7,13 @@ goose migrations in backend/migrations/ratings.
 import os
 
 import psycopg
-from psycopg.rows import dict_row
+from psycopg.rows import DictRow, dict_row
+
+# DictConnection is a connection whose rows are dicts, as connect opens them.
+DictConnection = psycopg.Connection[DictRow]
 
 
-def connect(url=None):
+def connect(url: str | None = None) -> DictConnection:
     """Opens the ratings database at url, or at RATINGS_DATABASE_URL, with rows as dicts.
 
     The connection autocommits, so each `with conn.transaction()` block is a

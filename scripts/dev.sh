@@ -29,6 +29,13 @@ set -a
 # shellcheck disable=SC1091
 . ./.env
 set +a
+# .env is made once, so a setting added to .env.example since is missing from an older one.
+missing=$(LC_ALL=C comm -23 \
+  <(sed -n 's/^\([A-Za-z_][A-Za-z0-9_]*\)=.*/\1/p' .env.example | LC_ALL=C sort -u) \
+  <(sed -n 's/^\([A-Za-z_][A-Za-z0-9_]*\)=.*/\1/p' .env | LC_ALL=C sort -u) | paste -sd, -)
+if [ -n "$missing" ]; then
+  echo "dev.sh: .env has no ${missing//,/, }, which .env.example sets; copy those lines across" >&2
+fi
 
 # ratings_read_login creates or updates the api's read-only login, ratings_api.
 # The ratings_read role it joins is the one migration 00004 grants SELECT to.

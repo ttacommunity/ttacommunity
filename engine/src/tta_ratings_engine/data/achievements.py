@@ -8,6 +8,7 @@ the recorded facts instead of spreadsheets. The records keep upstream's rules.
 
 import re
 from collections import defaultdict
+from typing import Any
 
 from tta_ratings_engine.data.seats import by_place, seats_of
 
@@ -36,7 +37,7 @@ def player_achievements(
     bronze); worlds maps (year, player) to a World Championship place. A
     player with no title and no medal is left out.
     """
-    got = {}
+    got: dict[str, dict[str, Any]] = {}
 
     def row(p):
         return got.setdefault(p, {

@@ -1,6 +1,7 @@
 package cgeextract
 
 import (
+	"fmt"
 	"slices"
 	"strconv"
 	"strings"
@@ -74,6 +75,7 @@ func TestReadRefusesRowsThatDoNotFit(t *testing.T) {
 		{"a finished seat without a score", row(5, 1, "ann", "1", "", "finished"), BadScore},
 		{"a resigned seat with a positive score", row(5, 1, "ann", "2", "12.0", "resigned"), BadScore},
 		{"a timed-out seat with a standing", row(5, 1, "ann", "2", "", "timed out"), BadStanding},
+		{"a finished seat without a standing", row(5, 1, "ann", "", "181.0", "finished"), BadStanding},
 		{"a seat with no player", row(5, 0, "", "", "", "timed out"), NoPlayer},
 	}
 	for _, tt := range tests {
@@ -104,4 +106,56 @@ func TestReadRefusesAnotherHeader(t *testing.T) {
 	if _, err := Read("x.csv", strings.NewReader("tournament_id,name\n")); err == nil {
 		t.Error("Read with another header: no error, want one")
 	}
+}
+
+func FuzzRead(f *testing.F) {
+	f.Add(header)
+	f.Add(header + row(5, 1, "ann", "1", "181.0", "finished") + row(5, 2, "bob(BAN)", "2", "120.5", "finished"))
+	f.Add(header + row(6, 1, "ann", "", "-9", "resigned") + row(6, 2, "bob", "", "-8", "resigned") + row(6, 3, "cy", "", "", "timed out"))
+	f.Add(header + row(7, 1, "ann", "", "", "") + row(7, 1, "ann", "", "", ""))
+	f.Add(header + row(8, 1, "ann", "1", "150.0", "finished") + row(8, 2, "bob", "", "-9", "resigned") + row(8, 3, "cy", "", "", "timed out"))
+	f.Fuzz(func(t *testing.T, in string) {
+		got, err := Read("x.csv", strings.NewReader(in))
+		if err != nil {
+			return
+		}
+		if n := len(got.Seats) + len(got.Refused); n != got.Rows {
+			t.Errorf("seats + refused = %d, want rows %d", n, got.Rows)
+		}
+		for _, g := range Games(got.Seats) {
+			if broken := placesBreakTheRules(g.Seats, Places(g.Seats)); broken != "" {
+				t.Errorf("session %d: %s", g.SessionID, broken)
+			}
+		}
+	})
+}
+
+// placesBreakTheRules says which of Places' rules places breaks for seats, or "" for none.
+func placesBreakTheRules(seats []Seat, places []int) string {
+	if len(places) != len(seats) {
+		return fmt.Sprintf("%d places for %d seats", len(places), len(seats))
+	}
+	var finishers, resigners int
+	for _, s := range seats {
+		switch s.FinishStatus {
+		case Finished:
+			finishers++
+		case Resigned:
+			resigners++
+		}
+	}
+	for i, s := range seats {
+		p := places[i]
+		switch {
+		case p < 1 || p > len(seats):
+			return fmt.Sprintf("seat %d placed %d of %d", i, p, len(seats))
+		case s.FinishStatus == Finished && p > finishers:
+			return fmt.Sprintf("finisher %d placed %d, behind the %d finishers", i, p, finishers)
+		case s.FinishStatus == Resigned && (p <= finishers || p > finishers+resigners):
+			return fmt.Sprintf("resigner %d placed %d, want %d to %d", i, p, finishers+1, finishers+resigners)
+		case s.FinishStatus == TimedOut && p != finishers+resigners+1:
+			return fmt.Sprintf("timed-out seat %d placed %d, want %d", i, p, finishers+resigners+1)
+		}
+	}
+	return ""
 }

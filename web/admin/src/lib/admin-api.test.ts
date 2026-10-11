@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { adminDownload, adminRequest, exportFileName } from './admin-api';
+import { adminDownload, adminRequest, exportFileName, firstError, type Load } from './admin-api';
 
 function answer(status: number, body: unknown) {
   return vi.fn(async () => new Response(body === null ? null : JSON.stringify(body), { status }));
@@ -29,6 +29,11 @@ describe('adminRequest', () => {
       ok: false,
       status: 409,
       message: 'Refused: a rating run is already going.',
+    });
+    expect(await adminRequest('/api/tournaments/worlds', { method: 'PATCH' }, answer(413, { error: 'request body too large' }))).toEqual({
+      ok: false,
+      status: 413,
+      message: 'Refused: request body too large.',
     });
     expect(await adminRequest('/api/x', {}, answer(500, 'not json'))).toEqual({
       ok: false,
@@ -65,6 +70,44 @@ describe('adminDownload', () => {
       status: 403,
       message: 'Refused: not allowed here.',
     });
+  });
+
+  it('says a download that broke off part way should be tried again', async () => {
+    const body = new ReadableStream({
+      start(c) {
+        c.enqueue(new TextEncoder().encode('PK'));
+        c.error(new TypeError('network error'));
+      },
+    });
+
+    const r = await adminDownload('/api/export', vi.fn(async () => new Response(body, { status: 200 })));
+
+    expect(r).toMatchObject({ ok: false, message: expect.stringContaining('broke off') });
+  });
+});
+
+describe('a server error', () => {
+  it.each([
+    ['a request', (f: ReturnType<typeof answer>) => adminRequest('/api/me', {}, f)],
+    ['a download', (f: ReturnType<typeof answer>) => adminDownload('/api/export', f)],
+  ])('quotes its request id, to report it by, for %s', async (_, call) => {
+    const r = await call(answer(500, { error: 'internal error', request_id: '0123456789abcdef' }));
+
+    expect(r).toMatchObject({ ok: false, status: 500, message: expect.stringContaining('0123456789abcdef') });
+  });
+});
+
+describe('firstError', () => {
+  const ready: Load<number> = { kind: 'ready', data: 1 };
+  const loading: Load<number> = { kind: 'loading' };
+  const failed = (message: string): Load<number> => ({ kind: 'error', message });
+
+  it.each([
+    ['nothing failed', [ready, loading], null],
+    ['one failed', [ready, failed('no tournament')], 'no tournament'],
+    ['both failed: the first', [failed('sign-in ended'), failed('no tournament')], 'sign-in ended'],
+  ])('%s', (_, loads, want) => {
+    expect(firstError(...loads)).toBe(want);
   });
 });
 

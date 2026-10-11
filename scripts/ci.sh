@@ -95,8 +95,16 @@ if need go "the backend"; then
     [ -z "$unformatted" ] || fail "not gofmt-clean: $unformatted"
     run go vet ./...
     run go vet -tags=integration ./...
+    run go tool staticcheck ./...
+    run go tool staticcheck -tags=integration ./...
   fi
-  run go test -race -count=1 ./...
+  # Coverage is reported, never enforced: each package's is on its "ok" line, the total below.
+  cover=$(mktemp)
+  run go test -race -count=1 -coverprofile="$cover" ./...
+  total=$(go tool cover -func="$cover" | tail -1 | awk '{print $NF}')
+  echo "  unit tests' total coverage: $total"
+  [ -n "${GITHUB_STEP_SUMMARY:-}" ] && echo "Go unit tests' coverage: $total (reported, never enforced)" >>"$GITHUB_STEP_SUMMARY"
+  rm -f "$cover"
   if start_test_db; then
     run go test -tags=integration -count=1 ./...
   else
@@ -124,6 +132,7 @@ if need uv "the engine"; then
   if full; then
     run uv run --frozen ruff check .
     run uv run --frozen ruff format --check .
+    run uv run --frozen mypy
   fi
   # No skip without a database: the tests fail on a missing TEST_DATABASE_URL.
   start_test_db || fail "engine tests: no database"

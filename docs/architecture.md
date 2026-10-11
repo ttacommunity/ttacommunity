@@ -268,7 +268,12 @@ TTA community server and email via `mail-relay`.
   signing keys and the Kubernetes API (to start engine Jobs); the worker
   *(planned)* will reach CGE and Discord. RFC1918 ranges are excluded.
 - **Personal data** (Discord id and handle, optional email, TTA username,
-  timezone) is **never logged at any level**.
+  timezone) is **never logged at any level**. A reported error is found by
+  the random request id the API sets on every answer (`X-Request-Id`);
+  people see it as "ref …" in a server error's message.
+- **Metrics** are served on a port of their own that the tunnel does not
+  reach, and only the cluster's Prometheus may connect to it. They name
+  route patterns and status codes, never a path.
 - **Analytics:** the public site allows the beacon Cloudflare injects for
   its Web Analytics (`https://static.cloudflareinsights.com/beacon.min.js/`
   in the CSP's `script-src`, trailing slash included, since the beacon's

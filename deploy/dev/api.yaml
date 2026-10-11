@@ -6,6 +6,9 @@ kind: Service
 metadata:
   name: api-dev
   namespace: ttacommunity
+  # The picluster repo's ServiceMonitor finds both apis' metrics by this label.
+  labels:
+    app.kubernetes.io/name: ttac-api
 spec:
   type: ClusterIP
   selector:
@@ -14,6 +17,10 @@ spec:
     - name: http
       port: 8080
       targetPort: http
+    # Prometheus only (networkpolicy.yaml); the tunnel maps 8080 alone.
+    - name: metrics
+      port: 8081
+      targetPort: metrics
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -43,7 +50,7 @@ spec:
       # Applies the ratings migrations to ratings_dev before the api starts, as its owner (goose's lock serialises pods).
       initContainers:
         - name: migrate
-          image: ghcr.io/ttacommunity/ttacommunity/api:sha-077cb942@sha256:1f0efb779eeb377dfa8d3935add18b30923f03cef245f89bfa5028da56366340
+          image: ghcr.io/ttacommunity/ttacommunity/api:sha-6db18924@sha256:77e0b318f3c6c0166d294ed24ecd5db4d8cbbb87bbc48a999e48db2049bd873d
           args: [-migrate]
           env:
             - name: RATINGS_DATABASE_URL
@@ -64,13 +71,17 @@ spec:
               drop: [ALL]
       containers:
         - name: api
-          image: ghcr.io/ttacommunity/ttacommunity/api:sha-077cb942@sha256:1f0efb779eeb377dfa8d3935add18b30923f03cef245f89bfa5028da56366340
+          image: ghcr.io/ttacommunity/ttacommunity/api:sha-6db18924@sha256:77e0b318f3c6c0166d294ed24ecd5db4d8cbbb87bbc48a999e48db2049bd873d
           ports:
             - name: http
               containerPort: 8080
+            - name: metrics
+              containerPort: 8081
           env:
             - name: API_ADDR
               value: ":8080"
+            - name: METRICS_ADDR
+              value: ":8081"
             - name: RATINGS_READ_DATABASE_URL
               valueFrom:
                 secretKeyRef:

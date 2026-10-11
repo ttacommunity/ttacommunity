@@ -43,8 +43,10 @@ export default {
     const body = request.method === 'GET' || request.method === 'HEAD' ? undefined : await request.arrayBuffer();
     const res = await fetch(`${api}${path}`, { method: request.method, headers, body });
     const out = new Headers({ 'Content-Type': res.headers.get('Content-Type') ?? 'application/json', 'Cache-Control': 'no-store' });
-    const disposition = res.headers.get('Content-Disposition');
-    if (disposition) out.set('Content-Disposition', disposition);
+    for (const name of ['Content-Disposition', 'X-Request-Id']) {
+      const value = res.headers.get(name);
+      if (value) out.set(name, value);
+    }
     return new Response(res.body, { status: res.status, headers: out });
   },
 };

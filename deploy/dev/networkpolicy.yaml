@@ -23,6 +23,30 @@ spec:
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
+  name: api-dev-metrics-from-prometheus
+  namespace: ttacommunity
+spec:
+  podSelector:
+    matchLabels:
+      app: api-dev
+  policyTypes: [Ingress]
+  ingress:
+    # The cluster's Prometheus, to the metrics port only: one entry, so namespace AND pod must match.
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: observability
+          podSelector:
+            matchLabels:
+              app.kubernetes.io/name: prometheus
+              prometheus: prometheus-kube-prometheus-prometheus
+      ports:
+        - protocol: TCP
+          port: 8081
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
   name: tunnel-dev-egress
   namespace: ttacommunity
 spec:

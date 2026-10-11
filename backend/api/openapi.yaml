@@ -2135,10 +2135,13 @@ components:
             $ref: "#/components/schemas/AdminSeason"
     AdminSeason:
       type: object
-      required: [label, original_name, note, has_games, rated, in_champions, in_community, timeout_penalty, stages, podium, podium_note, suggested_podium, suggested_from, games, players]
+      required: [label, original_name, note, has_games, rated, in_champions, in_community, timeout_penalty, stages, podium, podium_note, suggested_podium, suggested_from, games, finished, players]
       properties:
         games:
-          description: Its games, across its stages
+          description: Its games, across its stages (a season without stages keeps them in one, unnamed, that stages leaves out)
+          type: integer
+        finished:
+          description: Its games that were played, counted as games is
           type: integer
         players:
           description: The players in them
@@ -2430,6 +2433,12 @@ components:
       properties:
         error:
           type: string
+        request_id:
+          type: string
+          description: |
+            On a server error (500), the request's id, as in the
+            `X-Request-Id` header every response carries. Quote it when
+            reporting the problem: it finds the error in the API's log.
     Run:
       type: object
       required: [run_id, published_at, engine_version, finished_at, games, players, first_game, last_game]

@@ -169,7 +169,7 @@ func parse(rec []string) (Seat, Tournament, Stage, Reason) {
 	switch {
 	case status == Finished && (score == nil || *score < 0), status == Resigned && (score == nil || *score >= 0):
 		return Seat{}, Tournament{}, Stage{}, BadScore
-	case status == TimedOut && (standing != nil || score != nil):
+	case status == TimedOut && (standing != nil || score != nil), status == Finished && standing == nil:
 		return Seat{}, Tournament{}, Stage{}, BadStanding
 	}
 	name, banned := strings.CutSuffix(f("player_name"), "(BAN)")

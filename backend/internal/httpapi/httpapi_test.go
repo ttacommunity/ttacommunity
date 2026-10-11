@@ -9,7 +9,9 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"regexp"
 	"slices"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -152,12 +154,50 @@ func (f *fakeRatings) PlayerAchievements(context.Context, int64, string) (string
 	panic("not faked")
 }
 
+// readsOnly is a Ratings with only the parts a test sets: any other read panics, and the mux answers 500.
+type readsOnly struct {
+	RunReads
+	BoardReads
+	PlayerReads
+	YearReads
+	AnalysisReads
+	TournamentReads
+	CatalogueReads
+}
+
+type observed struct {
+	route  string
+	status int
+	took   time.Duration
+}
+
+// recordedRequests keeps what the mux reports of each request.
+type recordedRequests struct{ got []observed }
+
+func (r *recordedRequests) Observe(route string, status int, took time.Duration) {
+	r.got = append(r.got, observed{route, status, took})
+}
+
+// stepClock returns a clock that moves on by step each time it is read.
+func stepClock(step time.Duration) func() time.Time {
+	now := time.Date(2026, 10, 11, 12, 0, 0, 0, time.UTC)
+	return func() time.Time {
+		now = now.Add(step)
+		return now
+	}
+}
+
+// newMux is NewMux for tests that are not about what it reports of each request.
+func newMux(ratings Ratings, admins Admins, log *slog.Logger) http.Handler {
+	return NewMux(ratings, admins, log, &recordedRequests{}, stepClock(time.Millisecond))
+}
+
 func serve(t *testing.T, ratings Ratings, path string) (*httptest.ResponseRecorder, string) {
 	t.Helper()
 	var logs bytes.Buffer
 	log := slog.New(slog.NewJSONHandler(&logs, nil))
 	rec := httptest.NewRecorder()
-	NewMux(ratings, nil, log).ServeHTTP(rec, httptest.NewRequest(http.MethodGet, path, nil))
+	newMux(ratings, nil, log).ServeHTTP(rec, httptest.NewRequest(http.MethodGet, path, nil))
 	return rec, logs.String()
 }
 
@@ -214,7 +254,7 @@ func TestHealthz(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			ratings := &fakeRatings{pingErr: errors.New("database down")}
 			rec := httptest.NewRecorder()
-			NewMux(ratings, nil, slog.New(slog.DiscardHandler)).ServeHTTP(rec, httptest.NewRequest(tt.method, tt.path, nil))
+			newMux(ratings, nil, slog.New(slog.DiscardHandler)).ServeHTTP(rec, httptest.NewRequest(tt.method, tt.path, nil))
 
 			if rec.Code != tt.wantCode {
 				t.Errorf("%s %s: code = %d, want %d", tt.method, tt.path, rec.Code, tt.wantCode)
@@ -247,7 +287,7 @@ func TestReadyz(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			ratings := &fakeRatings{pingErr: tt.pingErr}
 			rec := httptest.NewRecorder()
-			NewMux(ratings, nil, slog.New(slog.DiscardHandler)).ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/readyz", nil))
+			newMux(ratings, nil, slog.New(slog.DiscardHandler)).ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/readyz", nil))
 
 			if rec.Code != tt.wantCode {
 				t.Errorf("code = %d, want %d", rec.Code, tt.wantCode)
@@ -449,6 +489,325 @@ func TestErrorsLogTheRouteNotThePath(t *testing.T) {
 	if strings.Contains(logs, "/v1/runs/7") || strings.Contains(logs, "model=whr") {
 		t.Errorf("log %q carries the request path", logs)
 	}
+}
+
+func TestRecoverPanics(t *testing.T) {
+	tests := []struct {
+		name     string
+		handler  http.HandlerFunc
+		wantCode int
+		wantLog  string
+	}{
+		{"panic with an error", func(http.ResponseWriter, *http.Request) { panic(errors.New("kaboom")) }, http.StatusInternalServerError, "kaboom"},
+		{"panic with a string", func(http.ResponseWriter, *http.Request) { panic("kaboom") }, http.StatusInternalServerError, "kaboom"},
+		{"no panic", func(w http.ResponseWriter, _ *http.Request) { w.WriteHeader(http.StatusTeapot) }, http.StatusTeapot, ""},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			mux := http.NewServeMux()
+			mux.Handle("GET /boom/{name}", tt.handler)
+			var buf bytes.Buffer
+			h := recoverPanics(mux, mux, slog.New(slog.NewJSONHandler(&buf, nil)))
+			req := httptest.NewRequest(http.MethodGet, "/boom/Someplayer", nil)
+			req.RemoteAddr = "203.0.113.9:4000"
+			rec := httptest.NewRecorder()
+
+			h.ServeHTTP(rec, req)
+
+			if rec.Code != tt.wantCode {
+				t.Errorf("code = %d, want %d", rec.Code, tt.wantCode)
+			}
+			logs := buf.String()
+			if tt.wantLog == "" {
+				if logs != "" {
+					t.Errorf("log = %q, want none", logs)
+				}
+				return
+			}
+			wantJSON(t, rec.Body.Bytes(), "error", `"internal error"`)
+			if !strings.Contains(logs, `"route":"GET /boom/{name}"`) || !strings.Contains(logs, tt.wantLog) {
+				t.Errorf("log = %q, want the route and %q", logs, tt.wantLog)
+			}
+			if strings.Contains(logs, "Someplayer") || strings.Contains(logs, "203.0.113.9") {
+				t.Errorf("log = %q, carries the path or the client IP", logs)
+			}
+			var line struct{ Stack string }
+			if err := json.Unmarshal(buf.Bytes(), &line); err != nil || !strings.Contains(line.Stack, "httpapi_test.go") {
+				t.Errorf("log stack = %q (%v), want one naming httpapi_test.go", line.Stack, err)
+			}
+		})
+	}
+}
+
+func TestWithDeadline(t *testing.T) {
+	tests := []struct {
+		name   string
+		parent time.Duration
+		want   time.Duration
+	}{
+		{"no deadline yet", 0, 25 * time.Second},
+		{"an earlier deadline is kept", time.Second, time.Second},
+		{"a later deadline is shortened", time.Minute, 25 * time.Second},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var got time.Time
+			var ok bool
+			h := withDeadline(http.HandlerFunc(func(_ http.ResponseWriter, r *http.Request) {
+				got, ok = r.Context().Deadline()
+			}), 25*time.Second)
+			ctx := context.Background()
+			before := time.Now()
+			if tt.parent > 0 {
+				var cancel context.CancelFunc
+				ctx, cancel = context.WithTimeout(ctx, tt.parent)
+				defer cancel()
+			}
+
+			h.ServeHTTP(httptest.NewRecorder(), httptest.NewRequestWithContext(ctx, http.MethodGet, "/", nil))
+
+			after := time.Now()
+			if !ok || got.Before(before.Add(tt.want)) || got.After(after.Add(tt.want)) {
+				t.Errorf("deadline = %v (set %v), want %v from now", got, ok, tt.want)
+			}
+		})
+	}
+}
+
+type deadlineRatings struct {
+	fakeRatings
+	hasDeadline bool
+}
+
+func (d *deadlineRatings) CurrentRun(ctx context.Context) (store.PublishedRun, error) {
+	_, d.hasDeadline = ctx.Deadline()
+	return store.PublishedRun{}, errors.New("no run")
+}
+
+func TestTheAPIGivesEachRequestADeadline(t *testing.T) {
+	ratings := &deadlineRatings{}
+	serve(t, ratings, "/v1/runs/current")
+
+	if !ratings.hasDeadline {
+		t.Error("GET /v1/runs/current: the handler's context has no deadline")
+	}
+}
+
+type panickingRatings struct{ fakeRatings }
+
+func (*panickingRatings) CurrentRun(context.Context) (store.PublishedRun, error) {
+	panic("kaboom")
+}
+
+type panickingAdmins struct{ fakeAdmins }
+
+func (*panickingAdmins) Runs(context.Context) ([]store.AdminRun, error) {
+	panic("kaboom")
+}
+
+func TestTheAPIRecoversAPanicByRoute(t *testing.T) {
+	tests := []struct {
+		name    string
+		ratings Ratings
+		admins  Admins
+		path    string
+		route   string
+	}{
+		{"a public route", &panickingRatings{}, nil, "/v1/runs/current", "GET /v1/runs/current"},
+		{"an admin route", &fakeRatings{}, &panickingAdmins{}, "/v1/admin/runs", "GET /v1/admin/runs"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var logs bytes.Buffer
+			req := httptest.NewRequest(http.MethodGet, tt.path, nil)
+			req.Header.Set("Cf-Access-Jwt-Assertion", "good-111111111111111111")
+			rec := httptest.NewRecorder()
+
+			newMux(tt.ratings, tt.admins, slog.New(slog.NewJSONHandler(&logs, nil))).ServeHTTP(rec, req)
+
+			if rec.Code != http.StatusInternalServerError {
+				t.Errorf("code = %d, want %d", rec.Code, http.StatusInternalServerError)
+			}
+			if !strings.Contains(logs.String(), `"route":"`+tt.route+`"`) {
+				t.Errorf("log = %q, want the route %q", logs.String(), tt.route)
+			}
+		})
+	}
+}
+
+var requestIDPattern = regexp.MustCompile(`^[0-9a-f]{16}$`)
+
+type failingAdmin struct{ fakeAdmins }
+
+func (*failingAdmin) Admin(context.Context, string) (store.Admin, error) {
+	return store.Admin{}, errors.New("connection refused")
+}
+
+func TestServerErrorsCarryTheRequestID(t *testing.T) {
+	tests := []struct {
+		name    string
+		ratings Ratings
+		admins  Admins
+		path    string
+	}{
+		{"a handler's error", &fakeRatings{boardErr: errors.New("boom")}, nil, "/v1/runs/7/leaderboard"},
+		{"a handler's panic", &panickingRatings{}, nil, "/v1/runs/current"},
+		{"the admin gate's error", &fakeRatings{}, &failingAdmin{}, "/v1/admin/me"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var logs bytes.Buffer
+			req := httptest.NewRequest(http.MethodGet, tt.path, nil)
+			req.Header.Set("Cf-Access-Jwt-Assertion", "good-111111111111111111")
+			rec := httptest.NewRecorder()
+
+			newMux(tt.ratings, tt.admins, slog.New(slog.NewJSONHandler(&logs, nil))).ServeHTTP(rec, req)
+
+			if rec.Code != http.StatusInternalServerError {
+				t.Errorf("code = %d, want %d", rec.Code, http.StatusInternalServerError)
+			}
+			id := rec.Header().Get("X-Request-Id")
+			if !requestIDPattern.MatchString(id) {
+				t.Fatalf("X-Request-Id = %q, want 16 hex digits", id)
+			}
+			wantJSON(t, rec.Body.Bytes(), "request_id", strconv.Quote(id))
+			var entry map[string]any
+			if err := json.Unmarshal(logs.Bytes(), &entry); err != nil {
+				t.Fatalf("log line %q: %v", logs.String(), err)
+			}
+			if entry["request_id"] != id {
+				t.Errorf("log request_id = %v, want %q", entry["request_id"], id)
+			}
+		})
+	}
+}
+
+func TestEachResponseGetsItsOwnRequestID(t *testing.T) {
+	mux := newMux(&fakeRatings{}, nil, slog.New(slog.DiscardHandler))
+	var ids []string
+	for range 2 {
+		req := httptest.NewRequest(http.MethodGet, "/healthz", nil)
+		req.Header.Set("X-Request-Id", "0123456789abcdef")
+		rec := httptest.NewRecorder()
+		mux.ServeHTTP(rec, req)
+		ids = append(ids, rec.Header().Get("X-Request-Id"))
+	}
+
+	for _, id := range ids {
+		if !requestIDPattern.MatchString(id) || id == "0123456789abcdef" {
+			t.Errorf("X-Request-Id = %q, want 16 hex digits of our own", id)
+		}
+	}
+	if ids[0] == ids[1] {
+		t.Errorf("two requests got the same X-Request-Id %q", ids[0])
+	}
+}
+
+func TestTheAPIReportsEachRequestByRouteAndStatus(t *testing.T) {
+	tests := []struct {
+		name    string
+		ratings Ratings
+		admins  Admins
+		path    string
+		want    observed
+	}{
+		{"a public route", &fakeRatings{}, nil, "/healthz", observed{"GET /healthz", 200, time.Millisecond}},
+		{"a failing route", &fakeRatings{runErr: errors.New("boom")}, nil, "/v1/runs/current", observed{"GET /v1/runs/current", 500, time.Millisecond}},
+		{"an admin route", &fakeRatings{}, &fakeAdmins{}, "/v1/admin/runs", observed{"GET /v1/admin/runs", 200, time.Millisecond}},
+		{"a panicking admin route", &fakeRatings{}, &panickingAdmins{}, "/v1/admin/runs", observed{"GET /v1/admin/runs", 500, time.Millisecond}},
+		{"an admin request the gate refuses", &fakeRatings{}, nil, "/v1/admin/runs", observed{"GET /v1/admin/runs", 401, time.Millisecond}},
+		{"a path with no route", &fakeRatings{}, nil, "/v1/nowhere", observed{"unrouted", 404, time.Millisecond}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			requests := &recordedRequests{}
+			req := httptest.NewRequest(http.MethodGet, tt.path, nil)
+			req.Header.Set("Cf-Access-Jwt-Assertion", "good-111111111111111111")
+
+			NewMux(tt.ratings, tt.admins, slog.New(slog.DiscardHandler), requests, stepClock(time.Millisecond)).ServeHTTP(httptest.NewRecorder(), req)
+
+			if len(requests.got) != 1 || requests.got[0] != tt.want {
+				t.Errorf("GET %s reported %+v, want one %+v", tt.path, requests.got, tt.want)
+			}
+		})
+	}
+}
+
+func TestTheAPILogsASlowRequest(t *testing.T) {
+	tests := []struct {
+		name     string
+		took     time.Duration
+		wantLogs bool
+	}{
+		{"a quick answer", 999 * time.Millisecond, false},
+		{"a slow answer", time.Second, true},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var logs bytes.Buffer
+			rec := httptest.NewRecorder()
+
+			NewMux(&fakeRatings{}, nil, slog.New(slog.NewJSONHandler(&logs, nil)), &recordedRequests{}, stepClock(tt.took)).
+				ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/healthz?player=Someplayer", nil))
+
+			if !tt.wantLogs {
+				if logs.Len() != 0 {
+					t.Errorf("log = %q, want none", logs.String())
+				}
+				return
+			}
+			var entry map[string]any
+			if err := json.Unmarshal(logs.Bytes(), &entry); err != nil {
+				t.Fatalf("log line %q: %v", logs.String(), err)
+			}
+			want := map[string]any{"msg": "slow request", "route": "GET /healthz", "status": float64(200),
+				"took_ms": float64(tt.took.Milliseconds()), "request_id": rec.Header().Get("X-Request-Id")}
+			for k, v := range want {
+				if entry[k] != v {
+					t.Errorf("log %s = %v, want %v", k, entry[k], v)
+				}
+			}
+			if strings.Contains(logs.String(), "Someplayer") {
+				t.Errorf("log %q carries the request path", logs.String())
+			}
+		})
+	}
+}
+
+func TestRecoverPanicsLetsAnAbortThrough(t *testing.T) {
+	var buf bytes.Buffer
+	h := recoverPanics(http.HandlerFunc(func(http.ResponseWriter, *http.Request) {
+		panic(http.ErrAbortHandler)
+	}), http.NewServeMux(), slog.New(slog.NewJSONHandler(&buf, nil)))
+	defer func() {
+		if v := recover(); v != http.ErrAbortHandler {
+			t.Errorf("recovered %v, want http.ErrAbortHandler re-panicked", v)
+		}
+		if buf.Len() != 0 {
+			t.Errorf("log = %q, want none", buf.String())
+		}
+	}()
+
+	h.ServeHTTP(httptest.NewRecorder(), httptest.NewRequest(http.MethodGet, "/", nil))
+}
+
+func TestAPanicAfterTheAnswerStartedAbortsIt(t *testing.T) {
+	discard := slog.New(slog.DiscardHandler)
+	h := observe(recoverPanics(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		_, _ = w.Write([]byte("PK"))
+		panic("kaboom")
+	}), http.NewServeMux(), discard), http.NewServeMux(), &recordedRequests{}, stepClock(time.Millisecond), discard)
+	rec := httptest.NewRecorder()
+	defer func() {
+		if v := recover(); v != http.ErrAbortHandler {
+			t.Errorf("recovered %v, want http.ErrAbortHandler", v)
+		}
+		if strings.Contains(rec.Body.String(), "internal error") {
+			t.Errorf("body = %q, want no error written into the started answer", rec.Body)
+		}
+	}()
+
+	h.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/", nil))
 }
 
 func TestHistory(t *testing.T) {

@@ -29,6 +29,14 @@
 .row-error {
   color: var(--loss);
 }
+.rating-card.page-error {
+  max-width: 48rem;
+  border-left: 4px solid var(--loss);
+}
+.page-error p {
+  margin: 0;
+  color: var(--text-main);
+}
 .admin-table input[type='checkbox'] {
   width: 1.1rem;
   height: 1.1rem;

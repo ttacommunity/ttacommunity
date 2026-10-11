@@ -9,11 +9,12 @@ import (
 	"github.com/jackc/pgx/v5"
 )
 
-// SeasonCount is how many games and players a season holds, across its stages, and each stage's.
+// SeasonCount is how many games a season holds, how many of them were played, and how many players are in them,
+// across its stages (a season without stages has one, unnamed), and each stage's.
 type SeasonCount struct {
-	Season         string
-	Games, Players int
-	Stages         []StageCount
+	Season                   string
+	Games, Finished, Players int
+	Stages                   []StageCount
 }
 
 // StageCount is one stage's number (CGE's, else the last number in its label, else 0), how many games it holds and
@@ -59,6 +60,7 @@ func (a *AdminStore) SeasonCounts(ctx context.Context, slug string) ([]SeasonCou
 		}
 		c := &out[len(out)-1]
 		c.Games += games
+		c.Finished += finished
 		c.Stages = append(c.Stages, StageCount{Stage: stage, Number: number, Games: games, Finished: finished, Players: players})
 		return nil
 	}); err != nil {

@@ -50,7 +50,8 @@ scripts/ci.sh            # everything CI runs, in CI's order
   `web/package.json`. CI installs the same. Don't install a different version
   by hand
 - `.env` is created from `.env.example` on first run. Its values are for
-  local use only. In PowerShell, always dot-source `. scripts\env.ps1` to load
+  local use only. `scripts/dev.sh` and `scripts\dev.ps1` warn when `.env`
+  lacks a setting added to `.env.example` since: copy it across. In PowerShell, always dot-source `. scripts\env.ps1` to load
   it and add mise shims (`%LOCALAPPDATA%\mise\shims`) and Postgres tools to PATH
 - **Postgres startup**: `scripts\env.ps1` starts Postgres if stopped. After a
   restart or crash recovery, wait for `pg_isready` before connecting if queries
@@ -141,6 +142,10 @@ Both private to the `ttacommunity` organisation; ask a maintainer for access.
 - **Test data is invented.** Never a real Discord id, handle, email or TTA
   username, and never a slice of real match data. Use ids like
   `100000000000000001`
+- **Coverage is a prompt to look, never a target.** `scripts/ci.sh` prints
+  Go's. The engine's and web's are run by hand when you want them (commands
+  under Engine and Web), and add no dependency. A low number is not a
+  reason to write a test that asserts nothing
 
 ### Safety rules that are not negotiable
 
@@ -186,7 +191,10 @@ Both private to the `ttacommunity` organisation; ask a maintainer for access.
   Tests touching shared tables live in `internal/store`
 - Times are `timestamptz` in UTC plus an IANA zone name per player, never an
   offset. Test a DST change in both hemispheres
-- `gofmt` and `go vet` must be clean
+- `gofmt`, `go vet` and `go tool staticcheck ./...` must be clean;
+  `scripts/ci.sh` runs all three. staticcheck and govulncheck are `tool`
+  lines in `go.mod`, so they build with the project's Go. Fix the code rather than add a `//lint:ignore`; one that is truly
+  needed says why on the same line
 
 ## Engine (`engine/`)
 
@@ -206,10 +214,29 @@ Both private to the `ttacommunity` organisation; ask a maintainer for access.
 - Tournament results are derived from matches, with organisers' recorded
   rulings applied on top and the derived result kept visible
 - Python 3.12 via uv; `uv run pytest`, `uv run ruff check .`,
-  `uv run ruff format .`. Slow tests are marked `slow` and run on `main`.
+  `uv run ruff format .`, `uv run mypy`. mypy checks our code (`data/`,
+  `run.py`, `progress.py`), not upstream's `models/`: fix a finding in our
+  code, never in the math. Slow tests are marked `slow` and run on `main`.
   Tests that touch the database require `TEST_DATABASE_URL` (which `scripts/test.ps1`
   and `scripts/test.sh` set automatically); without it, those tests fail
 - `tests/` mirrors the package: one `test_<module>.py` per module
+- **Coverage, by hand.** `--with` adds pytest-cov for this run only; it is
+  not in `uv.lock`. The database is the tests' own, made by `install.ps1` or
+  the first `scripts/test.sh` (use your `.env`'s port if it is not 55432):
+
+  ```powershell
+  cd engine
+  $env:TEST_DATABASE_URL = 'postgres://ttac:local-only@127.0.0.1:55432/ttac_test?sslmode=disable'
+  uv run --frozen --with pytest-cov pytest -m 'not slow' --cov=tta_ratings_engine --cov-branch
+  ```
+
+  ```bash
+  cd engine
+  TEST_DATABASE_URL='postgres://ttac:local-only@127.0.0.1:55432/ttac_test?sslmode=disable' \
+    uv run --frozen --with pytest-cov pytest -m 'not slow' --cov=tta_ratings_engine --cov-branch
+  ```
+
+  Upstream's `models/` is in the report; we do not add tests to it
 
 ## Web (`web/`)
 
@@ -233,6 +260,22 @@ Both private to the `ttacommunity` organisation; ask a maintainer for access.
   captions, a text alternative for every chart
 - Cloudflare builds and hosts both sites from `main`. CI building both sites
   is the real gate
+- **Coverage, by hand.** `dlx` fetches the coverage package for this run
+  only, at the installed vitest's version, which it must match. The report
+  lists the files the tests import: components are not tested, so look at
+  `lib/`:
+
+  ```powershell
+  cd web
+  $v = (Get-Content node_modules/vitest/package.json | ConvertFrom-Json).version
+  corepack pnpm "--package=vitest@$v" "--package=@vitest/coverage-v8@$v" dlx vitest run --coverage.enabled --coverage.reporter=text
+  ```
+
+  ```bash
+  cd web
+  v=$(node -p "require('./node_modules/vitest/package.json').version")
+  corepack pnpm "--package=vitest@$v" "--package=@vitest/coverage-v8@$v" dlx vitest run --coverage.enabled --coverage.reporter=text
+  ```
 
 ## Git and pull requests
 

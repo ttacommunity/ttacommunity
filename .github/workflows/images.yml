@@ -58,7 +58,8 @@ jobs:
           export PATH="$HOME/.local/share/mise/shims:$PATH"
           echo "$TOKEN" | ko login ghcr.io -u "$ACTOR" --password-stdin
           cd backend
-          ref=$(KO_DOCKER_REPO="$REGISTRY/api" ko build ./cmd/api --bare --tags "sha-${COMMIT::8}")
+          # One platform at a time: both at once outgrow the job's 1 GiB.
+          ref=$(KO_DOCKER_REPO="$REGISTRY/api" ko build ./cmd/api --bare --jobs 1 --tags "sha-${COMMIT::8}")
           crane manifest "$ref" | jq -e '[.manifests[].platform.architecture] | contains(["amd64", "arm64"])'
           echo "api image $ref" | tee -a "$GITHUB_STEP_SUMMARY"
 

@@ -8,8 +8,8 @@ export function stageRows<T extends Stage>(stages: readonly T[]): T[] {
     .sort((a, b) => b.number - a.number || b.label.localeCompare(a.label, undefined, { numeric: true }));
 }
 
-/** seasonSummary returns a season's stages with finished games, their finished games, and its players. */
-export function seasonSummary(season: { players: number; stages: readonly Stage[] }): { stages: number; games: number; players: number } {
-  const rows = stageRows(season.stages);
-  return { stages: rows.length, games: rows.reduce((n, r) => n + r.finished, 0), players: season.players };
+/** seasonSummary returns a season's stages with finished games, its finished games (a season without stages has them
+ * in an unnamed stage, which stages leaves out), and its players. */
+export function seasonSummary(season: { players: number; finished: number; stages: readonly Stage[] }): { stages: number; games: number; players: number } {
+  return { stages: stageRows(season.stages).length, games: season.finished, players: season.players };
 }

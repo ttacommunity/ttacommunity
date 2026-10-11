@@ -716,7 +716,10 @@ type AdminRunStatus string
 
 // AdminSeason defines model for AdminSeason.
 type AdminSeason struct {
-	// Games Its games, across its stages
+	// Finished Its games that were played, counted as games is
+	Finished int `json:"finished"`
+
+	// Games Its games, across its stages (a season without stages keeps them in one, unnamed, that stages leaves out)
 	Games int `json:"games"`
 
 	// HasGames False for a season admin added, which can be removed
@@ -1277,6 +1280,11 @@ type EngineDistribution struct {
 // Error defines model for Error.
 type Error struct {
 	Error string `json:"error"`
+
+	// RequestId On a server error (500), the request's id, as in the
+	// `X-Request-Id` header every response carries. Quote it when
+	// reporting the problem: it finds the error in the API's log.
+	RequestId *string `json:"request_id,omitempty"`
 }
 
 // ExtraBadge defines model for ExtraBadge.

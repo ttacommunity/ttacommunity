@@ -6,6 +6,7 @@ import { panelsFor, tabFrom, tabsFor, type Panel, type TabKey } from '../lib/adm
 import { listed } from '../lib/tournament-groups';
 import { settingsHref } from '../lib/tournament-page';
 import AdminHeader from './AdminHeader';
+import PageError from './PageError';
 import NewGroupForm from './NewGroupForm';
 import TournamentTable from './TournamentTable';
 import AdminList from './AdminList';
@@ -109,7 +110,7 @@ export default function AdminApp() {
       <AdminHeader tabs={me.kind === 'ready' ? tabsFor(me.data.role) : []} current={me.kind === 'ready' ? tab : null} />
       <main className="admin-main">
         {me.kind === 'loading' && <p className="muted">Loading…</p>}
-        {me.kind === 'error' && <p className="row-error" role="alert">{me.message}</p>}
+        {me.kind === 'error' && <PageError message={me.message} />}
         {me.kind === 'ready' && (
           <>
             <p className="signed-in">

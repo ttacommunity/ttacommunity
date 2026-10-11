@@ -63,3 +63,19 @@ func TestCheckFilesFails(t *testing.T) {
 		})
 	}
 }
+
+func FuzzCheckFiles(f *testing.F) {
+	f.Add([]byte(header))
+	f.Add([]byte(header + "Cup,2024-01-02,ann,1,bob,2,,,,,2\r\nCup,2024-01-03,\"multi\nline\",1,bob,2,,,,,2\r\n"))
+	f.Add([]byte(header + "Intermezzo S7,2024-01-02,ann,331,bob,212,cat,-5.0,,,3\r\nCup,2024-01-02,ann,1\r\n"))
+	f.Add([]byte(header + "Cup,2024-01-02,ann,1,bob,2,,,,,2\r\nCup,2024-01-02,ann,1,bob,2,,,,,2\r\n"))
+	f.Fuzz(func(t *testing.T, data []byte) {
+		got, err := CheckFiles(fstest.MapFS{"s1.csv": {Data: data}})
+		if err != nil {
+			return
+		}
+		if n := len(got.Matches) + len(got.Refused); n != got.Rows {
+			t.Errorf("matches + refused = %d, want rows %d", n, got.Rows)
+		}
+	})
+}

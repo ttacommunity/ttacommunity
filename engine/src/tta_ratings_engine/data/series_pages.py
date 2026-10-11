@@ -10,6 +10,7 @@ selection.
 
 import re
 from collections import defaultdict
+from typing import Any
 
 from tta_ratings_engine.data.seats import by_place, seats_of
 
@@ -112,7 +113,9 @@ def worlds_board(placements) -> list[dict]:
     equals, as upstream lists it. A World Champion's title is WC, any other
     medallist's GM.
     """
-    medals = defaultdict(lambda: {"gold": 0, "silver": 0, "bronze": 0, "latest": 0})
+    medals: defaultdict[str, dict[str, int]] = defaultdict(
+        lambda: {"gold": 0, "silver": 0, "bronze": 0, "latest": 0}
+    )
     for p in placements:
         if p["place"] <= 3:
             m = medals[p["player_name"]]
@@ -158,7 +161,7 @@ def grand_slams_board(podiums, names) -> list[dict]:
     cup's slug to its name. Ordered by golds, silvers, bronzes, then name. Each
     player's details are their first two honours, by the day each final finished.
     """
-    trophies = {}
+    trophies: dict[str, dict[str, Any]] = {}
     for p in sorted(
         podiums, key=lambda p: (p["finished"], p["cup"], p["final"], p["place"])
     ):
@@ -193,7 +196,7 @@ def ladders_board(rows) -> list[dict]:
     and Transcontinental games only; players of 30 games or more; most wins
     first, then win rate. rows are in match_id order.
     """
-    stats = {}
+    stats: dict[str, dict[str, int]] = {}
     for r in rows:
         if not _any(r["tournament"], "%Mercurial%", "ML_%", "%Sodium%", "%TCL%"):
             continue
@@ -229,15 +232,15 @@ def legends(boards: dict[str, list[dict]], shown: int = 25) -> list[dict]:
     across them. A player needs a title or two medals. Ordered by titles,
     World titles, golds, silvers, bronzes and medals, ties first seen first.
     """
-    got = {}
-    for series, titles in MAJOR_CIRCUITS.items():
+    got: dict[str, dict[str, Any]] = {}
+    for series, title_key in MAJOR_CIRCUITS.items():
         for b in boards.get(series, []):
             row = got.setdefault(
                 b["player_name"],
                 {"player_name": b["player_name"], **dict.fromkeys(MAJOR_CIRCUITS.values(), 0),
                  "gold": 0, "silver": 0, "bronze": 0},
             )  # fmt: skip
-            row[titles] += b["gold"]
+            row[title_key] += b["gold"]
             for m in PLACES:
                 row[m] += b[m]
 

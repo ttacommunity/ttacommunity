@@ -4,6 +4,11 @@
 $ErrorActionPreference = 'Stop'
 . "$PSScriptRoot\env.ps1"
 $root = Split-Path -Parent $PSScriptRoot
+# .env is made once, so a setting added to .env.example since is missing from an older one.
+$names = { param($file) Get-Content $file | ForEach-Object { if ($_ -match '^([A-Za-z_][A-Za-z0-9_]*)=') { $Matches[1] } } }
+$have = & $names (Join-Path $root '.env')
+$missing = @(& $names (Join-Path $root '.env.example') | Where-Object { $_ -notin $have })
+if ($missing) { Write-Warning "dev.ps1: .env has no $($missing -join ', '), which .env.example sets; copy those lines across" }
 
 # The api's read-only and admin logins, joining the roles migrations 00004
 # and 00029 grant to. Created or updated as the database's owner.

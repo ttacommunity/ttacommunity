@@ -209,12 +209,12 @@ func TestSeasonCountsCountEachStagesAndSeasonsGamesAndPlayers(t *testing.T) {
 	}
 	var counts []string
 	for _, se := range got {
-		counts = append(counts, fmt.Sprintf("%s: %d games %d players", se.Season, se.Games, se.Players))
+		counts = append(counts, fmt.Sprintf("%s: %d games %d finished %d players", se.Season, se.Games, se.Finished, se.Players))
 		for _, st := range se.Stages {
 			counts = append(counts, fmt.Sprintf("%s #%d %d games %d finished %d players", st.Stage, st.Number, st.Games, st.Finished, st.Players))
 		}
 	}
-	if got, want := strings.Join(counts, ", "), "2024: 3 games 5 players, Stage 1 #1 2 games 1 finished 5 players, Stage 2 #2 1 games 1 finished 2 players"; got != want {
+	if got, want := strings.Join(counts, ", "), "2024: 3 games 2 finished 5 players, Stage 1 #1 2 games 1 finished 5 players, Stage 2 #2 1 games 1 finished 2 players"; got != want {
 		t.Errorf("counts = %q, want %q", got, want)
 	}
 	if _, err := a.SeasonCounts(ctx, "no_such"); !errors.Is(err, ErrNoTournament) {
@@ -235,15 +235,32 @@ func TestTournamentGivesItsSeasonsAndStagesTheirCounts(t *testing.T) {
 	w := adminTournament(t, a, "worlds")
 	var counts []string
 	for _, se := range w.Seasons {
-		counts = append(counts, fmt.Sprintf("%s: %d games %d players", se.Label, se.Games, se.Players))
+		counts = append(counts, fmt.Sprintf("%s: %d/%d games %d players", se.Label, se.Finished, se.Games, se.Players))
 		for _, st := range se.Stages {
 			counts = append(counts, fmt.Sprintf("%s #%d %d/%d games %d players", st.Label, st.Number, st.Finished, st.Games, st.Players))
 		}
 	}
-	if got, want := strings.Join(counts, ", "), "2024: 2 games 3 players, Stage 1 #1 1/1 games 3 players, Stage 2 #2 1/1 games 2 players"; got != want {
+	if got, want := strings.Join(counts, ", "), "2024: 2/2 games 3 players, Stage 1 #1 1/1 games 3 players, Stage 2 #2 1/1 games 2 players"; got != want {
 		t.Errorf("counts = %q, want %q", got, want)
 	}
 	if _, err := a.Tournament(ctx, "no_such"); !errors.Is(err, ErrNoTournament) {
 		t.Errorf("Tournament(no_such) = %v, want ErrNoTournament", err)
+	}
+}
+
+func TestTournamentCountsTheFinishedGamesOfASeasonWithoutStages(t *testing.T) {
+	pool := migrated(t)
+	ctx := context.Background()
+	placedOn(t, pool, map[string]time.Time{
+		"International S30 - Gold 2 game 1": day("2025-01-01"), "International S30 - Gold 2 game 2": day("2025-01-02"),
+	})
+	if _, err := pool.Exec(ctx, "UPDATE games SET state = 'running' WHERE name = 'International S30 - Gold 2 game 2'"); err != nil {
+		t.Fatal(err)
+	}
+	a := NewAdminStore(asAdminLogin(t, pool))
+
+	se := adminTournament(t, a, "international").Seasons[0]
+	if se.Label != "30" || len(se.Stages) != 0 || se.Finished != 1 || se.Games != 2 {
+		t.Errorf("season = %s with %d stages, %d/%d games; want 30 with no stages, 1/2 games", se.Label, len(se.Stages), se.Finished, se.Games)
 	}
 }
