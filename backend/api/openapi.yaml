@@ -2135,10 +2135,13 @@ components:
             $ref: "#/components/schemas/AdminSeason"
     AdminSeason:
       type: object
-      required: [label, original_name, note, has_games, rated, in_champions, in_community, timeout_penalty, stages, podium, podium_note, suggested_podium, suggested_from, games, players]
+      required: [label, original_name, note, has_games, rated, in_champions, in_community, timeout_penalty, stages, podium, podium_note, suggested_podium, suggested_from, games, finished, players]
       properties:
         games:
-          description: Its games, across its stages
+          description: Its games, across its stages (a season without stages keeps them in one, unnamed, that stages leaves out)
+          type: integer
+        finished:
+          description: Its games that were played, counted as games is
           type: integer
         players:
           description: The players in them

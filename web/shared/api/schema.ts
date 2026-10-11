@@ -1283,8 +1283,10 @@ export interface components {
             seasons: components["schemas"]["AdminSeason"][];
         };
         AdminSeason: {
-            /** @description Its games, across its stages */
+            /** @description Its games, across its stages (a season without stages keeps them in one, unnamed, that stages leaves out) */
             games: number;
+            /** @description Its games that were played, counted as games is */
+            finished: number;
             /** @description The players in them */
             players: number;
             /** @description Its winner is listed among the tournament's champions */

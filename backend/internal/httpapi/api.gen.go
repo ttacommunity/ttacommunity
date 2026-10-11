@@ -716,7 +716,10 @@ type AdminRunStatus string
 
 // AdminSeason defines model for AdminSeason.
 type AdminSeason struct {
-	// Games Its games, across its stages
+	// Finished Its games that were played, counted as games is
+	Finished int `json:"finished"`
+
+	// Games Its games, across its stages (a season without stages keeps them in one, unnamed, that stages leaves out)
 	Games int `json:"games"`
 
 	// HasGames False for a season admin added, which can be removed
