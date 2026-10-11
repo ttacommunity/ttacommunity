@@ -147,7 +147,7 @@ func (*fakeAdmins) Tournament(_ context.Context, slug string) (store.AdminTourna
 		Kind: "cup", OriginalName: "World Championships", Points: map[int][]float64{2: nil, 3: {5, 2, 0}, 4: {6, 3, 1, 0}}, StageName: "Round",
 		Stories:           []store.Story{{Player: "alder440", Badge: "Reigning World Champion", Title: "2025", Text: "Won."}},
 		RatedPlayerCounts: []int{3, 4},
-		Seasons: []store.AdminSeason{{Label: "2025", OriginalName: "2025 Edition", Rated: true, InChampions: true, InCommunity: true, TimeoutPenalty: -1, Games: 3, Players: 5, Stages: []store.AdminStage{{Label: "Stage 1", OriginalName: "Groups", Note: "n", Number: 1, Games: 2, Finished: 1, Players: 5}},
+		Seasons: []store.AdminSeason{{Label: "2025", OriginalName: "2025 Edition", Rated: true, InChampions: true, InCommunity: true, TimeoutPenalty: -1, Games: 3, Finished: 2, Players: 5, Stages: []store.AdminStage{{Label: "Stage 1", OriginalName: "Groups", Note: "n", Number: 1, Games: 2, Finished: 1, Players: 5}},
 			Podium: []store.PodiumEntry{{Place: 1, Name: "alder440"}}, PodiumNote: "CGE",
 			Suggested: []store.PodiumEntry{{Place: 1, Name: "birch550"}}, SuggestedFrom: "final_stage"}}}, nil
 }

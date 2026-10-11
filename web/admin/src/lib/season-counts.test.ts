@@ -24,9 +24,10 @@ describe('season counts', () => {
   });
 
   it.each([
-    ['a season with stages', { players: 5, stages: STAGES }, { stages: 3, games: 7, players: 5 }],
-    ['a season with no games yet', { players: 0, stages: [] }, { stages: 0, games: 0, players: 0 }],
-  ])('sums up %s: its stages with finished games, their finished games, its players', (_, season, want) => {
+    ['a season with stages', { players: 5, finished: 7, stages: STAGES }, { stages: 3, games: 7, players: 5 }],
+    ['a season with no games yet', { players: 0, finished: 0, stages: [] }, { stages: 0, games: 0, players: 0 }],
+    ['a league season, its games in no named stage', { players: 546, finished: 560, stages: [] }, { stages: 0, games: 560, players: 546 }],
+  ])('sums up %s: its stages with finished games, its finished games, its players', (_, season, want) => {
     expect(seasonSummary(season)).toEqual(want);
   });
 });

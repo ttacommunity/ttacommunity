@@ -64,8 +64,9 @@ type AdminSeason struct {
 	// "recorded"), else the final stage's games when it is one group ("final_stage"), else none ("").
 	Suggested     []PodiumEntry
 	SuggestedFrom string
-	// Games and Players count its games, across its stages, and the players in them.
-	Games, Players int
+	// Games, Finished and Players count its games, those played, and the players in them, across its stages: a
+	// season without stages keeps its games in one, unnamed, which Stages leaves out.
+	Games, Finished, Players int
 }
 
 // PodiumEntry is one place on a podium set in admin.
@@ -104,7 +105,7 @@ func (a *AdminStore) Tournament(ctx context.Context, slug string) (AdminTourname
 			if c.Season != se.Label {
 				continue
 			}
-			se.Games, se.Players = c.Games, c.Players
+			se.Games, se.Finished, se.Players = c.Games, c.Finished, c.Players
 			for j := range se.Stages {
 				for _, sc := range c.Stages {
 					if sc.Stage == se.Stages[j].Label {

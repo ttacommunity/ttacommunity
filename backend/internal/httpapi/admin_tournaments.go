@@ -64,7 +64,7 @@ func (s *server) GetAdminTournament(ctx context.Context, req GetAdminTournamentR
 		seasons[j] = AdminSeason{Label: se.Label, OriginalName: se.OriginalName, Note: se.Note, HasGames: se.HasGames, Rated: se.Rated,
 			InChampions: se.InChampions, InCommunity: se.InCommunity, TimeoutPenalty: se.TimeoutPenalty, Stages: stages,
 			Podium: podiumEntries(se.Podium), PodiumNote: se.PodiumNote, SuggestedPodium: podiumEntries(se.Suggested),
-			SuggestedFrom: AdminSeasonSuggestedFrom(se.SuggestedFrom), Games: se.Games, Players: se.Players}
+			SuggestedFrom: AdminSeasonSuggestedFrom(se.SuggestedFrom), Games: se.Games, Finished: se.Finished, Players: se.Players}
 	}
 	out := AdminTournament{Slug: t.Slug, Name: t.Name, OriginalName: t.OriginalName, Parent: t.Parent, Description: t.Description,
 		IsGroup: t.IsGroup, Games: t.Games, FirstGame: dateOf(t.FirstGame), LastGame: dateOf(t.LastGame), Kind: TournamentKind(t.Kind),

@@ -22,7 +22,7 @@ func TestAdminTournamentGivesItsSettingsSeasonsAndStages(t *testing.T) {
 	}
 	body := rec.Body.Bytes()
 	wantJSON(t, body, "", `{"slug": "worlds", "kind": "cup", "original_name": "World Championships", "top_divisions": []}`)
-	wantJSON(t, body, "seasons.0", `{"label": "2025", "original_name": "2025 Edition", "games": 3, "players": 5}`)
+	wantJSON(t, body, "seasons.0", `{"label": "2025", "original_name": "2025 Edition", "games": 3, "finished": 2, "players": 5}`)
 	wantJSON(t, body, "seasons.0.stages.0", `{"label": "Stage 1", "original_name": "Groups", "note": "n", "number": 1, "games": 2, "finished": 1, "players": 5}`)
 	if rec := adminDo(t, &fakeAdmins{}, http.MethodGet, "/v1/admin/tournaments/nope", "", ""); rec.Code != http.StatusNotFound {
 		t.Errorf("GET nope = %d, want 404", rec.Code)
