@@ -507,7 +507,7 @@ func TestRecoverPanics(t *testing.T) {
 			mux := http.NewServeMux()
 			mux.Handle("GET /boom/{name}", tt.handler)
 			var buf bytes.Buffer
-			h := recoverPanics(mux, slog.New(slog.NewJSONHandler(&buf, nil)))
+			h := recoverPanics(mux, mux, slog.New(slog.NewJSONHandler(&buf, nil)))
 			req := httptest.NewRequest(http.MethodGet, "/boom/Someplayer", nil)
 			req.RemoteAddr = "203.0.113.9:4000"
 			rec := httptest.NewRecorder()
@@ -715,7 +715,7 @@ func TestTheAPIReportsEachRequestByRouteAndStatus(t *testing.T) {
 		{"a failing route", &fakeRatings{runErr: errors.New("boom")}, nil, "/v1/runs/current", observed{"GET /v1/runs/current", 500, time.Millisecond}},
 		{"an admin route", &fakeRatings{}, &fakeAdmins{}, "/v1/admin/runs", observed{"GET /v1/admin/runs", 200, time.Millisecond}},
 		{"a panicking admin route", &fakeRatings{}, &panickingAdmins{}, "/v1/admin/runs", observed{"GET /v1/admin/runs", 500, time.Millisecond}},
-		{"an admin request the gate refuses", &fakeRatings{}, nil, "/v1/admin/runs", observed{"unrouted", 401, time.Millisecond}},
+		{"an admin request the gate refuses", &fakeRatings{}, nil, "/v1/admin/runs", observed{"GET /v1/admin/runs", 401, time.Millisecond}},
 		{"a path with no route", &fakeRatings{}, nil, "/v1/nowhere", observed{"unrouted", 404, time.Millisecond}},
 	}
 	for _, tt := range tests {
@@ -778,7 +778,7 @@ func TestRecoverPanicsLetsAnAbortThrough(t *testing.T) {
 	var buf bytes.Buffer
 	h := recoverPanics(http.HandlerFunc(func(http.ResponseWriter, *http.Request) {
 		panic(http.ErrAbortHandler)
-	}), slog.New(slog.NewJSONHandler(&buf, nil)))
+	}), http.NewServeMux(), slog.New(slog.NewJSONHandler(&buf, nil)))
 	defer func() {
 		if v := recover(); v != http.ErrAbortHandler {
 			t.Errorf("recovered %v, want http.ErrAbortHandler re-panicked", v)

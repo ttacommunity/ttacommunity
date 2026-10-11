@@ -99,10 +99,7 @@ func adminGate(next http.Handler, admins Admins, log *slog.Logger) http.Handler 
 			serverError(w, r)
 			return
 		}
-		inner := r.WithContext(context.WithValue(r.Context(), adminKey{}, a))
-		// The mux sets the route on the copy it gets; copy it back, even past a panic, for the outer log.
-		defer func() { r.Pattern = inner.Pattern }()
-		next.ServeHTTP(w, inner)
+		next.ServeHTTP(w, r.WithContext(context.WithValue(r.Context(), adminKey{}, a)))
 	})
 }
 

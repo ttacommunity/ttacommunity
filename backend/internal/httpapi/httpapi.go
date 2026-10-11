@@ -108,27 +108,23 @@ type Requests interface {
 func NewMux(ratings Ratings, admins Admins, log *slog.Logger, requests Requests, now func() time.Time) http.Handler {
 	mux := http.NewServeMux()
 	registerRoutes(mux, ratings, admins, log)
-	// observe and recoverPanics read r.Pattern, which the mux sets on the request it gets: nothing between
-	// them may copy it. limitBodies needs the server's own writer, so it sits outside observe's.
-	routed := recoverPanics(routeAdmin(publicCORS(mux), adminGate(mux, admins, log)), log)
-	return withRequestID(withDeadline(limitBodies(observe(routed, requests, now, log)), requestDeadline))
+	// limitBodies needs the server's own writer, so it sits outside observe's.
+	routed := recoverPanics(routeAdmin(publicCORS(mux), adminGate(mux, admins, log)), mux, log)
+	return withRequestID(withDeadline(limitBodies(observe(routed, mux, requests, now, log)), requestDeadline))
 }
 
 // slowRequest is how long an answer may take before it is logged as slow.
 const slowRequest = time.Second
 
-// observe reports each request to requests by route and status, and logs one that took slowRequest
-// or longer. A request answered without a route (an unknown path, a refused admin) is "unrouted".
-func observe(next http.Handler, requests Requests, now func() time.Time, log *slog.Logger) http.Handler {
+// observe reports each request to requests by the route mux matches and its status, and logs one
+// that took slowRequest or longer.
+func observe(next http.Handler, mux *http.ServeMux, requests Requests, now func() time.Time, log *slog.Logger) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		start := now()
 		sw := &statusWriter{ResponseWriter: w, status: http.StatusOK}
 		next.ServeHTTP(sw, r)
 		took := now().Sub(start)
-		route := r.Pattern
-		if route == "" {
-			route = "unrouted"
-		}
+		route := routeOf(mux, r)
 		requests.Observe(route, sw.status, took)
 		if took >= slowRequest {
 			log.Warn("slow request", "route", route, "status", sw.status, "took_ms", took.Milliseconds(), "request_id", requestID(r.Context()))
@@ -177,10 +173,10 @@ func publicCORS(next http.Handler) http.Handler {
 	})
 }
 
-// recoverPanics answers a handler's panic with a 500 and logs it by route, with its stack.
-// Left to net/http, the panic is logged as plain text with the client's IP.
+// recoverPanics answers a handler's panic with a 500 and logs it by the route mux matches, with its
+// stack. Left to net/http, the panic is logged as plain text with the client's IP.
 // http.ErrAbortHandler is re-panicked, so net/http still aborts the response.
-func recoverPanics(next http.Handler, log *slog.Logger) http.Handler {
+func recoverPanics(next http.Handler, mux *http.ServeMux, log *slog.Logger) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		defer func() {
 			v := recover()
@@ -188,12 +184,21 @@ func recoverPanics(next http.Handler, log *slog.Logger) http.Handler {
 				panic(v)
 			}
 			if v != nil {
-				log.Error("handler panicked", "route", r.Pattern, "request_id", requestID(r.Context()), "panic", fmt.Sprint(v), "stack", string(debug.Stack()))
+				log.Error("handler panicked", "route", routeOf(mux, r), "request_id", requestID(r.Context()), "panic", fmt.Sprint(v), "stack", string(debug.Stack()))
 				serverError(w, r)
 			}
 		}()
 		next.ServeHTTP(w, r)
 	})
+}
+
+// routeOf returns the pattern mux matches r with, or "unrouted" when none does (an unknown path or
+// method). Unlike r.Pattern, it holds outside the mux and on a request a middleware has copied.
+func routeOf(mux *http.ServeMux, r *http.Request) string {
+	if _, route := mux.Handler(r); route != "" {
+		return route
+	}
+	return "unrouted"
 }
 
 type requestIDKey struct{}
