@@ -1,0 +1,2 @@
+go test fuzz v1
+string("tournament_id,tournament_name,organiser_id,organiser_name,moderators,tournament_created_at,tournament_started_at,tournament_finished_at,stage_id,stage_number,stage_started_at,stage_finished_at,group_id,group_name,session_id,share_code,session_state,started_at,finished_at,speed,timer,player_id,player_name,starting_position,players_in_game,standing,score,finish_status\n1,,1,,,,,,1,1,,,1,0,1,,finished,,,0,0,1,,0,1,,0,finished")

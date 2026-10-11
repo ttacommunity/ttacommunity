@@ -77,3 +77,16 @@ func TestReadSettingsRefusesBadValues(t *testing.T) {
 		})
 	}
 }
+
+func FuzzReadSettings(f *testing.F) {
+	f.Add("tournament_id,tournament_name,session_id,share_code,rules,card_set\n56,Cup,891270,ABCDEFGH,Tabletop,Random Mix\n")
+	f.Add("share_code,game_id,reason\nCODEAAAA,12,r\nCODEBBBB,x,r\n")
+	f.Add(tournamentSettings + `19,6,-1,yes,-,5-2-0,,"duelPositionsComparison, winnerScore",-,26,26` + "\n")
+	f.Add(stageSettings + "19,3,1,,-1,no,,,,-,-,/tournaments/detail/19/1,2026-10-01\n")
+	f.Fuzz(func(t *testing.T, in string) {
+		_, _ = ReadSpecialRules("r.csv", strings.NewReader(in))
+		_, _ = ReadConfirmedPairs("p.csv", strings.NewReader(in))
+		_, _ = ReadTournamentSettings("t.csv", strings.NewReader(in))
+		_, _ = ReadStageSettings("s.csv", strings.NewReader(in))
+	})
+}

@@ -36,6 +36,7 @@ node_modules/
 dist/
 .astro/
 coverage/
+.coverage
 coverage.out
 coverage.html
 __pycache__/

@@ -80,3 +80,18 @@ func TestReadFilesFailsOnAMissingFile(t *testing.T) {
 		t.Error("ReadFiles of a missing file: no error, want one")
 	}
 }
+
+func FuzzRead(f *testing.F) {
+	f.Add("Rank,Player,Code,Title\r\n1,ann,PL,GM\r\n2,bob,-,M\r\n3,cat,,\r\n4,dan,US,-\r\n")
+	f.Add("Player,Code\nann,pl\nbob,POL\ncat,P1\n,DE\n eve ,FR\nfay,NL\n")
+	f.Add("Code,Player\nPL,ann\nPL,ann\n")
+	f.Fuzz(func(t *testing.T, in string) {
+		got, err := Read("r.csv", strings.NewReader(in))
+		if err != nil {
+			return
+		}
+		if n := len(got.Countries) + got.None + len(got.Refused); n > got.Rows {
+			t.Errorf("countries + none + refused = %d, more than rows %d", n, got.Rows)
+		}
+	})
+}
