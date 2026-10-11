@@ -73,6 +73,18 @@ export class RatingsApiError extends Error {
   }
 }
 
+/** An error answer's message and request id, each undefined when the body lacks it as a string. */
+export type ErrorFields = { error: string | undefined; requestId: string | undefined };
+
+/** errorFields reads an error answer's body: `{ error, request_id }`, with a request id on a server error. */
+export function errorFields(body: unknown): ErrorFields {
+  if (typeof body !== 'object' || body === null) return { error: undefined, requestId: undefined };
+  return {
+    error: 'error' in body && typeof body.error === 'string' ? body.error : undefined,
+    requestId: 'request_id' in body && typeof body.request_id === 'string' ? body.request_id : undefined,
+  };
+}
+
 /** Returns the run the site shows now. */
 export async function currentRun(base: string, fetchFn: typeof fetch = fetch): Promise<Run> {
   return get<Run>(fetchFn, base, '/v1/runs/current');
@@ -275,12 +287,9 @@ export async function catalogueGames(base: string, run: number, slug: string, fi
 async function get<T>(fetchFn: typeof fetch, base: string, path: string): Promise<T> {
   const res = await fetchFn(base.replace(/\/+$/, '') + path, { credentials: 'omit' });
   if (!res.ok) {
-    const body: unknown = await res.json().catch(() => null);
-    const fields = body !== null && typeof body === 'object' ? body : {};
-    const message =
-      'error' in fields && typeof fields.error === 'string' ? fields.error : `request failed (${res.status})`;
-    const ref = 'request_id' in fields && typeof fields.request_id === 'string' ? ` (ref ${fields.request_id})` : '';
-    throw new RatingsApiError(res.status, message + ref);
+    const { error, requestId } = errorFields(await res.json().catch(() => null));
+    const ref = requestId === undefined ? '' : ` (ref ${requestId})`;
+    throw new RatingsApiError(res.status, (error ?? `request failed (${res.status})`) + ref);
   }
   return (await res.json()) as T;
 }
