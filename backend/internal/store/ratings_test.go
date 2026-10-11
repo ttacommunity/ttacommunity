@@ -15,9 +15,20 @@ import (
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/pressly/goose/v3"
 
 	"ttacommunity/backend/internal/matchcsv"
 )
+
+// migrateRatingsTo applies the ratings migrations up to and including version.
+func migrateRatingsTo(ctx context.Context, pool *pgxpool.Pool, version int64) error {
+	return withRatingsMigrations(pool, func(p *goose.Provider) error {
+		if _, err := p.UpTo(ctx, version); err != nil {
+			return fmt.Errorf("migrating the ratings database up to %d: %w", version, err)
+		}
+		return nil
+	})
+}
 
 // newDB creates an empty database for one test and drops it afterwards.
 func newDB(t *testing.T) *pgxpool.Pool {

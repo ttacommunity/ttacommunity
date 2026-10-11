@@ -95,6 +95,8 @@ if need go "the backend"; then
     [ -z "$unformatted" ] || fail "not gofmt-clean: $unformatted"
     run go vet ./...
     run go vet -tags=integration ./...
+    run go tool staticcheck ./...
+    run go tool staticcheck -tags=integration ./...
   fi
   run go test -race -count=1 ./...
   if start_test_db; then
@@ -124,6 +126,7 @@ if need uv "the engine"; then
   if full; then
     run uv run --frozen ruff check .
     run uv run --frozen ruff format --check .
+    run uv run --frozen mypy
   fi
   # No skip without a database: the tests fail on a missing TEST_DATABASE_URL.
   start_test_db || fail "engine tests: no database"

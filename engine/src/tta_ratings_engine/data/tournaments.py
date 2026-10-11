@@ -12,12 +12,10 @@ import re
 from collections import defaultdict
 from collections.abc import Callable
 from dataclasses import dataclass, field, replace
-from typing import NamedTuple
-
-import psycopg
+from typing import Any, NamedTuple
 
 from tta_ratings_engine.data.achievements import player_achievements, player_records
-from tta_ratings_engine.data.db import require_running
+from tta_ratings_engine.data.db import DictConnection, require_running
 from tta_ratings_engine.data.match_order import assembled_order
 from tta_ratings_engine.data.seats import SEAT_COLUMNS, Seat, by_place, seats_of
 from tta_ratings_engine.data.series_pages import (
@@ -226,6 +224,8 @@ def series_rules(conn) -> tuple[dict[str, Series], Series]:
         if not top:
             raise SeriesRulesMissing(f"{slug} has no top divisions")
         rules[slug] = replace(base, points=points, top_divisions=top)
+    if final is None:
+        raise SeriesRulesMissing("no series holds the worlds rules")
     return rules, final
 
 
@@ -447,7 +447,7 @@ def season_records(rows, rules: Series):
     placings are the 1st, 2nd, 3rd and
     4th places; in Royal League, wins, draws and losses. rows are in match_id order.
     """
-    got = {}
+    got: dict[tuple[Any, str], dict[str, Any]] = {}
     for r in rows:
         order = by_place(seats_of(r))
         for i, seat in enumerate(order):
@@ -560,7 +560,7 @@ def _board_rows(run_id, boards):
     ]  # fmt: skip
 
 
-def derive_tournaments(*, conn: psycopg.Connection, run_id: int) -> None:
+def derive_tournaments(*, conn: DictConnection, run_id: int) -> None:
     """Replaces the run's tournament games, standings, boards, seasonal records
     and each player's achievements and records.
 

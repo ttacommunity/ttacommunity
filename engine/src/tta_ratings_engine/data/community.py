@@ -11,10 +11,9 @@ stage, a cup's round, the Eiffel Tower's floor.
 import re
 from collections import Counter, defaultdict
 from datetime import date
+from typing import Any
 
-import psycopg
-
-from tta_ratings_engine.data.db import require_running
+from tta_ratings_engine.data.db import DictConnection, require_running
 
 ROUNDS = {256: "R256", 128: "R128", 64: "R64", 32: "R32", 16: "QF", 8: "SF", 4: "Final"}
 FLOORS = {"The Top", "The Elevator", "2nd Floor", "The Stairs"}
@@ -247,14 +246,16 @@ def scored(kind, lines, table):
     raise ValueError(f"unknown kind {kind!r}")
 
 
-def derive_community(*, conn: psycopg.Connection, run_id: int) -> None:
+def derive_community(*, conn: DictConnection, run_id: int) -> None:
     """Replaces the run's community event points, for every season of a tournament in the leaderboard.
 
     In one committed transaction. Raises RunNotRunning unless the run is running.
     """
     with conn.transaction():
         require_running(conn, run_id)
-        points = defaultdict(dict)
+        points: defaultdict[tuple[str, Any], dict[tuple[str, Any], Any]] = defaultdict(
+            dict
+        )
         for r in conn.execute(
             "SELECT tournament, from_edition, group_name, place, points FROM community_points"
         ):

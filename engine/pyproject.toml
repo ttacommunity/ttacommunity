@@ -11,6 +11,7 @@ dependencies = [
 
 [dependency-groups]
 dev = [
+    "mypy>=1.14",
     "pytest>=9",
     "ruff>=0.6",
 ]
@@ -41,3 +42,23 @@ extend-exclude = [
 
 [tool.ruff.lint]
 extend-select = ["PT"]
+
+[tool.mypy]
+python_version = "3.12"
+# The adapter layer: database access and the run around the math.
+files = [
+    "src/tta_ratings_engine/data",
+    "src/tta_ratings_engine/progress.py",
+    "src/tta_ratings_engine/run.py",
+]
+
+# models/ is upstream's calculation (engine.md): read for its types, but its
+# own errors are not fixed here, so a type checker never edits the math.
+[[tool.mypy.overrides]]
+module = ["tta_ratings_engine.models", "tta_ratings_engine.models.*"]
+follow_imports = "silent"
+
+# python-dateutil ships no types; its stubs would be one more dependency for one import.
+[[tool.mypy.overrides]]
+module = ["dateutil", "dateutil.*"]
+ignore_missing_imports = true
