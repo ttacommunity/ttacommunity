@@ -14,8 +14,10 @@ spec:
   ingress:
     - from:
         - podSelector:
-            matchLabels:
-              app: cloudflared-dev
+            matchExpressions:
+              - key: app
+                operator: In
+                values: [cloudflared-dev, ttac-api-dev-tunnel]
       ports:
         - protocol: TCP
           port: 8080
@@ -52,8 +54,10 @@ metadata:
 spec:
   # As tunnel-egress: any public address on the tunnel's ports, RFC1918 excluded.
   podSelector:
-    matchLabels:
-      app: cloudflared-dev
+    matchExpressions:
+      - key: app
+        operator: In
+        values: [cloudflared-dev, ttac-api-dev-tunnel]
   policyTypes: [Egress]
   egress:
     - to:

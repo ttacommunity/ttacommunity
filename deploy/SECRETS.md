@@ -18,6 +18,8 @@ Pipe values in; never use `--from-literal`, which leaves them in shell history.
 | `ratings-dev-api` | `password`, `database-url` | `api-dev`, `scripts/seed-dev-db.sh` | The dev api's read-only `ratings_dev_api` login |
 | `ratings-dev-admin` | `password`, `database-url` | `api-dev` | The dev api's admin login `ratings_dev_admin_api`, a member of `ratings_admin` (writes only what admin edits) |
 | `ttacommunity-dev-tunnel` | `credentials.json` | `cloudflared-dev` | The `ttacommunity-dev` tunnel's credentials, from `cloudflared tunnel create ttacommunity-dev` |
+| `ttac-api-tunnel` | `credentials.json` | `ttac-api-tunnel` | The new Cloudflare account's `ttac-api` tunnel's credentials (below, "The new account's tunnels") |
+| `ttac-api-dev-tunnel` | `credentials.json` | `ttac-api-dev-tunnel` | The new Cloudflare account's `ttac-api-dev` tunnel's credentials (below) |
 | `ttacommunity-git-auth`, **in `flux-system`** | `username`, `password` | Flux | Reads this repo. Deploy token `flux-git-read`, `read_repository` only |
 
 ## Creating them
@@ -97,3 +99,20 @@ printf '{"auths":{"ghcr.io":{"auth":"%s"}}}' "$(printf '%s:%s' "$user" "$token" 
     --type=kubernetes.io/dockerconfigjson --from-file=.dockerconfigjson=/dev/stdin
 unset token
 ```
+
+### The new account's tunnels
+
+`ttac-api-tunnel` and `ttac-api-dev-tunnel` hold the credentials of the new
+Cloudflare account's tunnels. `cloudflared tunnel create` needs a zone in the
+account, which it does not have yet, so they were made through Cloudflare's
+API instead: locally managed (`config_src: local`, so their routes come from
+`cloudflare-tunnel.yaml`), each with a random 32-byte secret. The Secret holds
+`{"AccountTag", "TunnelSecret", "TunnelID"}`, the same shape as the older ones.
+To recreate one:
+
+1. Create a new tunnel the same way, with an account API token that has
+   **Cloudflare One Connector: cloudflared** (Edit)
+   ([Cloudflare's guide](https://developers.cloudflare.com/cloudflare-one/networks/connectors/cloudflare-tunnel/get-started/create-remote-tunnel-api/))
+2. Create the Secret from that JSON on stdin, as above
+3. Put the new tunnel id in `cloudflare-tunnel.yaml`, and point the DNS
+   records at it once its hostnames exist

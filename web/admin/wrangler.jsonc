@@ -11,8 +11,10 @@
     "run_worker_first": ["/api/*"]
   },
   // Access app "ttacommunity admin" (it covers *.ttac-admin too): team and AUD read with cf (2026-10-03).
-  // The API each host uses is fixed in src/worker/proxy.ts. The API verifies the token again.
+  // /api/* is proxied to API_ORIGIN only on ADMIN_HOST, which the API verifies the token again for.
   "vars": {
+    "ADMIN_HOST": "ttac-admin.unstableunicorn.dev",
+    "API_ORIGIN": "https://ttac-api.unstableunicorn.dev",
     "ACCESS_TEAM": "https://unstableunicorn.cloudflareaccess.com",
     "ACCESS_AUD": "f0bc8c99210a231edb4adc754229a5798e98f41ca67515da419535a251031136"
   },
@@ -21,11 +23,30 @@
   "preview_urls": false,
   // Previews (branch dev) serve at dev.ttac-admin, which the Access app's *.ttac-admin covers.
   "routes": [{ "pattern": "ttac-admin.unstableunicorn.dev", "custom_domain": true, "previews_enabled": true }],
-  // Previews do not inherit vars; they verify against the same Access app.
+  // Previews do not inherit vars; they verify against the same Access app, and use the dev API.
   "previews": {
     "vars": {
+      "ADMIN_HOST": "dev.ttac-admin.unstableunicorn.dev",
+      "API_ORIGIN": "https://ttac-api-dev.unstableunicorn.dev",
       "ACCESS_TEAM": "https://unstableunicorn.cloudflareaccess.com",
       "ACCESS_AUD": "f0bc8c99210a231edb4adc754229a5798e98f41ca67515da419535a251031136"
+    }
+  },
+  "env": {
+    // The new Cloudflare account until its domain and Access app exist (deploy --env newaccount):
+    // no hostname, and empty settings, so /api/* refuses everything.
+    "newaccount": {
+      "name": "ttac-admin",
+      "vars": {
+        "ADMIN_HOST": "",
+        "API_ORIGIN": "",
+        "ACCESS_TEAM": "https://ttacommunitydev.cloudflareaccess.com",
+        "ACCESS_AUD": ""
+      },
+      "workers_dev": false,
+      "preview_urls": false,
+      "routes": [],
+      "previews": {}
     }
   }
 }

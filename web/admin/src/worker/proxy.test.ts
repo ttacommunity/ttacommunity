@@ -86,15 +86,17 @@ describe('verifyAccessToken', () => {
 });
 
 describe('apiOriginFor', () => {
-  it("sends the admin site to the main API and its dev preview to the dev API", () => {
-    expect(apiOriginFor('ttac-admin.unstableunicorn.dev')).toBe('https://ttac-api.unstableunicorn.dev');
-    expect(apiOriginFor('dev.ttac-admin.unstableunicorn.dev')).toBe('https://ttac-api-dev.unstableunicorn.dev');
-  });
-
-  it('gives no API to any other host, such as a deployment preview', () => {
-    for (const host of ['3f2a9c1b.ttac-admin.unstableunicorn.dev', 'evil.example', 'ttac-admin.unstableunicorn.dev.evil.example', '']) {
-      expect(apiOriginFor(host), host).toBeNull();
-    }
+  it.each([
+    { name: 'the configured admin host', host: 'ttac-admin.example', adminHost: 'ttac-admin.example', apiOrigin: 'https://api.example', want: 'https://api.example' },
+    { name: 'a deployment preview', host: '3f2a9c1b.ttac-admin.example', adminHost: 'ttac-admin.example', apiOrigin: 'https://api.example', want: null },
+    { name: 'a lookalike host', host: 'ttac-admin.example.evil.example', adminHost: 'ttac-admin.example', apiOrigin: 'https://api.example', want: null },
+    { name: 'another host', host: 'evil.example', adminHost: 'ttac-admin.example', apiOrigin: 'https://api.example', want: null },
+    { name: 'no admin host set', host: '', adminHost: undefined, apiOrigin: 'https://api.example', want: null },
+    { name: 'an empty admin host', host: '', adminHost: '', apiOrigin: 'https://api.example', want: null },
+    { name: 'no API set', host: 'ttac-admin.example', adminHost: 'ttac-admin.example', apiOrigin: undefined, want: null },
+    { name: 'an API over plain http', host: 'ttac-admin.example', adminHost: 'ttac-admin.example', apiOrigin: 'http://api.example', want: null },
+  ])('$name', ({ host, adminHost, apiOrigin, want }) => {
+    expect(apiOriginFor(host, adminHost, apiOrigin)).toBe(want);
   });
 });
 

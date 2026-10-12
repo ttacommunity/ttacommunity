@@ -2,15 +2,15 @@ import { describe, expect, it } from 'vitest';
 import { siteHeaders } from './site-headers';
 
 const template = `/*
-  Content-Security-Policy: default-src 'self'; img-src 'self' data:; connect-src 'self' https://ttac-api.unstableunicorn.dev; object-src 'none'
+  Content-Security-Policy: default-src 'self'; img-src 'self' data:; connect-src 'self' https://api.example; object-src 'none'
   X-Content-Type-Options: nosniff
 `;
 
 describe('siteHeaders', () => {
   it('points connect-src at the API origin it is built with', () => {
-    const out = siteHeaders(template, 'https://ttac-api-dev.unstableunicorn.dev', false);
-    expect(out).toContain("connect-src 'self' https://ttac-api-dev.unstableunicorn.dev; object-src 'none'");
-    expect(out).not.toContain('https://ttac-api.unstableunicorn.dev');
+    const out = siteHeaders(template, 'https://api-dev.example', false);
+    expect(out).toContain("connect-src 'self' https://api-dev.example; object-src 'none'");
+    expect(out).not.toContain('https://api.example');
   });
 
   it('uses only the origin of an API URL with a path', () => {
@@ -19,12 +19,12 @@ describe('siteHeaders', () => {
   });
 
   it('leaves every other header and directive as it was', () => {
-    const out = siteHeaders(template, 'https://ttac-api.unstableunicorn.dev', false);
+    const out = siteHeaders(template, 'https://api.example', false);
     expect(out).toBe(template);
   });
 
   it('adds noindex for every path when asked', () => {
-    const out = siteHeaders(template, 'https://ttac-api.unstableunicorn.dev', true);
+    const out = siteHeaders(template, 'https://api.example', true);
     expect(out).toBe(template.replace('/*\n', '/*\n  X-Robots-Tag: noindex\n'));
   });
 

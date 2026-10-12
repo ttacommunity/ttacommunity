@@ -4,8 +4,8 @@ import type { Jwk } from './proxy';
 
 const TEAM = 'https://team.cloudflareaccess.com';
 const AUD = 'aud-of-the-admin-app';
-const SITE = 'https://dev.ttac-admin.unstableunicorn.dev';
-const API = 'https://ttac-api-dev.unstableunicorn.dev';
+const SITE = 'https://ttac-admin.example';
+const API = 'https://api.example';
 
 function b64url(b: ArrayBuffer | string): string {
   const raw = typeof b === 'string' ? new TextEncoder().encode(b) : new Uint8Array(b);
@@ -54,7 +54,7 @@ function network() {
 
 function env(over: Record<string, unknown> = {}) {
   const assets = vi.fn(async () => new Response('page'));
-  return { env: { ASSETS: { fetch: assets }, ACCESS_TEAM: TEAM, ACCESS_AUD: AUD, ...over }, assets };
+  return { env: { ASSETS: { fetch: assets }, ACCESS_TEAM: TEAM, ACCESS_AUD: AUD, ADMIN_HOST: 'ttac-admin.example', API_ORIGIN: API, ...over }, assets };
 }
 
 describe('the admin Worker', () => {
@@ -71,7 +71,8 @@ describe('the admin Worker', () => {
     const calls = network();
     const unknownHost = await worker.fetch(new Request('https://evil.example/api/me', { headers: { 'Cf-Access-Jwt-Assertion': good } }), env().env);
     const noAud = await worker.fetch(new Request(`${SITE}/api/me`, { headers: { 'Cf-Access-Jwt-Assertion': good } }), env({ ACCESS_AUD: '' }).env);
-    expect([unknownHost.status, noAud.status]).toEqual([503, 503]);
+    const noHost = await worker.fetch(new Request(`${SITE}/api/me`, { headers: { 'Cf-Access-Jwt-Assertion': good } }), env({ ADMIN_HOST: undefined }).env);
+    expect([unknownHost.status, noAud.status, noHost.status]).toEqual([503, 503, 503]);
     expect(calls).toEqual([]);
   });
 
