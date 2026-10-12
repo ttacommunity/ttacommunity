@@ -86,10 +86,14 @@ export default function HallOfFamePage({ apiUrl }: { apiUrl: string }) {
           podiums (Gold 🥇, Silver 🥈, Bronze 🥉) across each contested edition.
         </p>
         <div className="champions-highlight-grid">
-          {finals.filter((s) => s.in_champions && s.podium.length > 0).map((s) => {
-            const gold = s.podium.find((p) => p.place === 1);
-            const silver = s.podium.find((p) => p.place === 2);
-            const bronze = s.podium.find((p) => p.place === 3);
+          {finals
+            .filter((s) => s.in_champions && s.podium.length > 0)
+            .slice()
+            .reverse()
+            .map((s) => {
+              const gold = s.podium.find((p) => p.place === 1);
+              const silver = s.podium.find((p) => p.place === 2);
+              const bronze = s.podium.find((p) => p.place === 3);
             return (
               <div key={s.label} className="champ-highlight-box wcs-podium-card">
                 <div className="champ-highlight-avatar">🏆</div>
