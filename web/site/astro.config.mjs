@@ -26,6 +26,8 @@ export default defineConfig({
     schema: {
       // The public API the browser reads ratings from. The default is local development's.
       PUBLIC_API_URL: envField.string({ context: 'client', access: 'public', url: true, default: 'http://127.0.0.1:8080' }),
+      // The admin site the header and home page link to. The default is local development's.
+      PUBLIC_ADMIN_URL: envField.string({ context: 'client', access: 'public', url: true, default: 'http://127.0.0.1:4322' }),
     },
   },
 });

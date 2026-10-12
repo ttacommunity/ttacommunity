@@ -5,15 +5,14 @@ export interface Jwk extends JsonWebKey {
   kid?: string;
 }
 
-// The API each admin host talks to: production to the main API, the dev branch's preview to the dev API.
-const API_ORIGINS: Record<string, string> = {
-  'ttac-admin.unstableunicorn.dev': 'https://ttac-api.unstableunicorn.dev',
-  'dev.ttac-admin.unstableunicorn.dev': 'https://ttac-api-dev.unstableunicorn.dev',
-};
-
-/** apiOriginFor returns the API for the host the admin site was reached on, or null for any other host. */
-export function apiOriginFor(host: string): string | null {
-  return Object.hasOwn(API_ORIGINS, host) ? (API_ORIGINS[host] ?? null) : null;
+/**
+ * apiOriginFor returns `apiOrigin` when the admin site was reached on `adminHost`, its configured host,
+ * or null for any other host, either setting missing, or an API not on https.
+ */
+export function apiOriginFor(host: string, adminHost: string | undefined, apiOrigin: string | undefined): string | null {
+  if (!adminHost || !apiOrigin || host !== adminHost) return null;
+  // The Access token is forwarded to it, so never over plain http.
+  return apiOrigin.startsWith('https://') ? apiOrigin : null;
 }
 
 const PLAIN_PATH = /^\/api\/[A-Za-z0-9_-]+(\/[A-Za-z0-9_.-]+)*$/;

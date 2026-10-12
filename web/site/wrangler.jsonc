@@ -14,5 +14,14 @@
     { "pattern": "ttacommunity.unstableunicorn.dev", "custom_domain": true, "previews_enabled": true }
   ],
   // Previews take no settings from production; the site has none to give them.
-  "previews": {}
+  "previews": {},
+  "env": {
+    // The new Cloudflare account until its domain is live (deploy --env newaccount): no hostname at all.
+    "newaccount": {
+      "name": "ttacommunity",
+      "workers_dev": false,
+      "preview_urls": false,
+      "routes": []
+    }
+  }
 }
