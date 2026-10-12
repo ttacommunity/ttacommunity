@@ -41,6 +41,11 @@ func TestAnOrganiserChangesATournamentAndItIsAudited(t *testing.T) {
 	if len(f.audits) != 1 || f.audits[0] != "222222222222222222 tournament.settings worlds" {
 		t.Errorf("audits = %q", f.audits)
 	}
+	rec = adminDo(t, f, http.MethodPatch, "/v1/admin/tournaments/worlds", "https://ttac-admin.example", `{"blitz": true}`)
+	if rec.Code != http.StatusNoContent || len(f.settings) != 2 || f.settings[1].Blitz == nil || !*f.settings[1].Blitz {
+		t.Errorf("PATCH blitz = %d %s, settings %+v; want 204 with blitz on", rec.Code, rec.Body, f.settings)
+	}
+	f.settings, f.audits = f.settings[:1], f.audits[:1]
 
 	rec = adminDo(t, f, http.MethodPatch, "/v1/admin/tournaments/worlds/seasons/2025", "https://ttac-admin.example",
 		`{"stage_notes": {"Stage 1": "The groups."}}`)

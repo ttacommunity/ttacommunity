@@ -17,7 +17,9 @@ import (
 // counts whose games count towards ratings (2, 3, 4).
 type TournamentSettings struct {
 	Visible, Rated, Community *bool
-	RatedPlayerCounts         []int
+	// Blitz marks a series run from admin as a blitz tournament: entrants, weekly pairings and results.
+	Blitz             *bool
+	RatedPlayerCounts []int
 	// Kind is league, cup or ladder ("" unchanged); TopDivisions give a league's podium (nil unchanged).
 	Kind         string
 	TopDivisions []string
@@ -145,6 +147,11 @@ func (a *AdminStore) SetTournament(ctx context.Context, slug string, s Tournamen
 		}
 		if s.Visible != nil {
 			if _, err := tx.Exec(ctx, "UPDATE series SET visible = $2 WHERE series_id = $1", id, *s.Visible); err != nil {
+				return fmt.Errorf("setting %s: %w", slug, err)
+			}
+		}
+		if s.Blitz != nil {
+			if _, err := tx.Exec(ctx, "UPDATE series SET blitz = $2 WHERE series_id = $1", id, *s.Blitz); err != nil {
 				return fmt.Errorf("setting %s: %w", slug, err)
 			}
 		}

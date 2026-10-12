@@ -3,8 +3,8 @@ import { panelsFor, tabFrom, tabsFor } from './admin-tabs';
 
 describe('admin tabs', () => {
   it.each([
-    ['admin', ['tournaments', 'community', 'data', 'titles', 'admins']],
-    ['organiser', ['tournaments', 'data']],
+    ['admin', ['tournaments', 'community', 'blitz', 'data', 'titles', 'admins']],
+    ['organiser', ['tournaments', 'blitz', 'data']],
   ] as const)('shows %s its tabs', (role, want) => {
     expect(tabsFor(role).map((t) => t.key)).toEqual(want);
   });
@@ -18,6 +18,7 @@ describe('admin tabs', () => {
     ['#runs', 'admin', 'data'],
     ['#admins', 'organiser', 'tournaments'],
     ['#data', 'organiser', 'data'],
+    ['#blitz', 'organiser', 'blitz'],
   ] as const)('opens %s for an %s on %s', (hash, role, want) => {
     expect(tabFrom(hash, role)).toBe(want);
   });
@@ -29,6 +30,7 @@ describe('admin tabs', () => {
     ['data', 'organiser', ['data', 'standings']],
     ['titles', 'admin', ['titles', 'badges']],
     ['tournaments', 'organiser', ['tournaments']],
+    ['blitz', 'organiser', ['blitz']],
     ['admins', 'admin', ['admins']],
   ] as const)('shows the %s tab to an %s as its panels', (tab, role, want) => {
     expect(panelsFor(tab, role)).toEqual(want);

@@ -1,4 +1,4 @@
-/** The admin page: the site's header with admin's tabs (tournaments, data and rating runs, titles and badges, admins). */
+/** The admin page: the site's header with admin's tabs (tournaments, blitz, data and rating runs, titles and badges, admins). */
 import { Fragment, useEffect, useState, type ReactNode } from 'react';
 import Segmented from '@ttac/shared/Segmented';
 import { adminRequest, type AdminMe, type AdminTournamentRow, type Load } from '../lib/admin-api';
@@ -16,6 +16,7 @@ import StandingsCheckPanel from './StandingsCheckPanel';
 import TitlesPanel from './TitlesPanel';
 import BadgesPanel from './BadgesPanel';
 import CommunityPanel from './CommunityPanel';
+import BlitzPanel from './BlitzPanel';
 import './AdminApp.css';
 
 /** Tournaments lists the top-level tournaments and groups, rated or unrated, with New group. */
@@ -79,6 +80,8 @@ function panel(p: Panel, myName: string): ReactNode {
       return <Tournaments />;
     case 'community':
       return <CommunityPanel />;
+    case 'blitz':
+      return <BlitzPanel />;
     case 'data':
       return <DataCard />;
     case 'runs':

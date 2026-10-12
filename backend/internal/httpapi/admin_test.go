@@ -32,6 +32,9 @@ type fakeAdmins struct {
 	engine string
 	// deleted receives each run DeleteRun removes, from the handler's background delete.
 	deleted chan int64
+	// entrants and format are the blitz edition us_open 2026's (admin_blitz_test.go).
+	entrants []store.BlitzEntrant
+	format   store.BlitzFormat
 }
 
 // fakeRuns are runs 4 (complete, published third, after a roll back), 5 (complete, published first),
@@ -590,6 +593,12 @@ func adminDo(t *testing.T, admins Admins, method, path, origin, body string) *ht
 
 func adminDoAs(t *testing.T, admins Admins, who, method, path, origin, body string) *httptest.ResponseRecorder {
 	t.Helper()
+	return adminDoWith(t, &fakeRatings{}, admins, who, method, path, origin, body)
+}
+
+// adminDoWith is adminDoAs for a route that also reads ratings.
+func adminDoWith(t *testing.T, ratings Ratings, admins Admins, who, method, path, origin, body string) *httptest.ResponseRecorder {
+	t.Helper()
 	req := httptest.NewRequest(method, path, strings.NewReader(body))
 	req.Header.Set("Cf-Access-Jwt-Assertion", "good-"+who)
 	req.Header.Set("Content-Type", "application/json")
@@ -597,7 +606,7 @@ func adminDoAs(t *testing.T, admins Admins, who, method, path, origin, body stri
 		req.Header.Set("Origin", origin)
 	}
 	rec := httptest.NewRecorder()
-	newMux(&fakeRatings{}, admins, slog.New(slog.DiscardHandler)).ServeHTTP(rec, req)
+	newMux(ratings, admins, slog.New(slog.DiscardHandler)).ServeHTTP(rec, req)
 	return rec
 }
 

@@ -9,6 +9,7 @@
     "./time": "./src/time.ts",
     "./api": "./api/schema.ts",
     "./ratings": "./src/ratings.ts",
+    "./blitz": "./src/blitz.ts",
     "./styles/*": "./styles/*",
     "./Segmented": "./src/Segmented.tsx"
   },

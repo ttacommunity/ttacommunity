@@ -53,9 +53,9 @@ var ExportTables = []string{
 
 // NotExported are the input tables an export leaves out: who the admins are
 // and what they did (Discord ids; a new database adds its admins with
-// load -add-admin), and the rows a load refused (load history, which no view
-// needs).
-var NotExported = []string{"refused_rows", "admins", "admin_audit"}
+// load -add-admin), the rows a load refused (load history, which no view
+// needs), and blitz tournaments' entrants (Discord names) with their editions.
+var NotExported = []string{"refused_rows", "admins", "admin_audit", "blitz_editions", "blitz_entries"}
 
 // Manifest describes an export: the schema it was taken at and each table's file.
 type Manifest struct {

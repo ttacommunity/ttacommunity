@@ -724,6 +724,44 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/blitz": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Every edition of the blitz tournaments shown on the site
+         * @description Blitz tournaments are run from admin, a round a week, so this answer
+         *     changes as organisers work: it is cached for a minute.
+         */
+        get: operations["getBlitzEditions"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/blitz/{tournament}/{edition}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** A blitz edition's format and the entrants still in */
+        get: operations["getBlitzEdition"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/admin/me": {
         parameters: {
             query?: never;
@@ -1179,6 +1217,91 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/admin/blitz": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Every edition of every series marked Blitz, with how many entrants are in and dropped */
+        get: operations["getAdminBlitzEditions"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/blitz/{tournament}/{edition}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** A blitz edition's format and every entrant, Discord names included */
+        get: operations["getAdminBlitzEdition"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Set a blitz edition's format
+         * @description Audited. The Origin must be the admin site.
+         */
+        patch: operations["patchAdminBlitzEdition"];
+        trace?: never;
+    };
+    "/v1/admin/blitz/{tournament}/{edition}/entrants": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Add entrants to a blitz edition, all or none
+         * @description Audited. The Origin must be the admin site. A time zone is an IANA
+         *     name (Europe/Berlin). A name the ratings know is kept in their
+         *     spelling. A name already entered, in any case, refuses the whole
+         *     list and is named.
+         */
+        post: operations["postAdminBlitzEntrants"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/blitz/{tournament}/{edition}/entrants/{entrant}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Remove an entrant added by mistake
+         * @description Audited. The Origin must be the admin site.
+         */
+        delete: operations["deleteAdminBlitzEntrant"];
+        options?: never;
+        head?: never;
+        /**
+         * Change an entrant's Discord name, time zone or status (active or dropped)
+         * @description Audited. The Origin must be the admin site.
+         */
+        patch: operations["patchAdminBlitzEntrant"];
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -1433,6 +1556,8 @@ export interface components {
             rated: boolean;
             /** @description Counted in the overall community leaderboard */
             community: boolean;
+            /** @description Run from admin as a blitz tournament */
+            blitz: boolean;
             seasons: components["schemas"]["AdminSeason"][];
         };
         AdminSeason: {
@@ -1502,6 +1627,7 @@ export interface components {
             visible: boolean;
             rated: boolean;
             community: boolean;
+            blitz: boolean;
             games: number;
             /** Format: date */
             first_game: string | null;
@@ -1565,6 +1691,8 @@ export interface components {
             visible?: boolean;
             rated?: boolean;
             community?: boolean;
+            /** @description Run from admin as a blitz tournament, a round a week, with its entrants, pairings, results and standings */
+            blitz?: boolean;
             points_2p?: components["schemas"]["PlacePoints"];
             points_3p?: components["schemas"]["PlacePoints"];
             points_4p?: components["schemas"]["PlacePoints"];
@@ -1582,6 +1710,103 @@ export interface components {
         };
         Health: {
             status: string;
+        };
+        /** @description How a blitz edition runs, Swiss rounds and then a knockout of that many players (0 for none) */
+        BlitzFormat: {
+            swiss_rounds: number;
+            /** @description 0, 2, 4, 8, 16 or 32 */
+            knockout_size: number;
+        };
+        /** @description One edition of a blitz tournament as the site's list shows it */
+        BlitzEditionRow: {
+            /** @description The tournament's slug */
+            tournament: string;
+            /** @description The tournament's name */
+            name: string;
+            /** @description The edition's label */
+            edition: string;
+            format: components["schemas"]["BlitzFormat"];
+            /** @description How many entrants are still in */
+            entrants: number;
+        };
+        BlitzEditions: {
+            editions: components["schemas"]["BlitzEditionRow"][];
+        };
+        /** @description An entrant as the site shows them */
+        BlitzEntrant: {
+            /** @description The TTA username as entered */
+            name: string;
+            /** @description The IANA time zone */
+            zone: string;
+            /** @description The zone's offset from UTC now, as +02:00 */
+            utc_offset: string;
+            /**
+             * Format: double
+             * @description The 2-player rating in the current run, null when unrated
+             */
+            rating: number | null;
+        };
+        /** @description A blitz edition for the site, with the entrants still in */
+        BlitzEdition: {
+            tournament: string;
+            name: string;
+            edition: string;
+            format: components["schemas"]["BlitzFormat"];
+            entrants: components["schemas"]["BlitzEntrant"][];
+        };
+        /** @description One edition of a blitz tournament as admin's list shows it */
+        AdminBlitzEditionRow: {
+            tournament: string;
+            name: string;
+            edition: string;
+            format: components["schemas"]["BlitzFormat"];
+            /** @description How many entrants are still in */
+            entrants: number;
+            /** @description How many have dropped out */
+            dropped: number;
+        };
+        AdminBlitzEntrant: {
+            /** Format: int64 */
+            id: number;
+            /** @description The TTA username as entered */
+            name: string;
+            /** @description The ratings' spelling of the name, empty for a player the ratings do not know */
+            player: string;
+            discord_name: string;
+            zone: string;
+            utc_offset: string;
+            /** Format: double */
+            rating: number | null;
+            /** @enum {string} */
+            status: "active" | "dropped";
+        };
+        AdminBlitzEdition: {
+            tournament: string;
+            name: string;
+            edition: string;
+            format: components["schemas"]["BlitzFormat"];
+            /** @description Every entrant, in sign-up order, dropped ones included */
+            entrants: components["schemas"]["AdminBlitzEntrant"][];
+        };
+        NewBlitzEntrant: {
+            name: string;
+            discord_name?: string;
+            /** @description An IANA time zone, such as Europe/Berlin */
+            zone: string;
+        };
+        NewBlitzEntrants: {
+            entrants: components["schemas"]["NewBlitzEntrant"][];
+        };
+        BlitzEntrantIds: {
+            /** @description The new entrants' ids, in the order given */
+            ids: number[];
+        };
+        /** @description What to change; a field left out stays as it is */
+        BlitzEntrantChange: {
+            discord_name?: string;
+            zone?: string;
+            /** @enum {string} */
+            status?: "active" | "dropped";
         };
         Error: {
             error: string;
@@ -2751,6 +2976,9 @@ export interface components {
         };
     };
     parameters: {
+        /** @description The edition's label, as admin lists it (a season) */
+        BlitzEditionLabel: string;
+        BlitzEntrantId: number;
         AdminBadgeId: number;
         /** @description The player's name, as the leaderboard gives it */
         AdminPlayer: string;
@@ -3663,6 +3891,55 @@ export interface operations {
             404: components["responses"]["NotFound"];
         };
     };
+    getBlitzEditions: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The editions, by tournament name, newest edition first */
+            200: {
+                headers: {
+                    "Cache-Control": components["headers"]["CacheControl"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BlitzEditions"];
+                };
+            };
+        };
+    };
+    getBlitzEdition: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The tournament's slug */
+                tournament: components["parameters"]["AdminTournamentSlug"];
+                /** @description The edition's label, as admin lists it (a season) */
+                edition: components["parameters"]["BlitzEditionLabel"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The edition */
+            200: {
+                headers: {
+                    "Cache-Control": components["headers"]["CacheControl"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BlitzEdition"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            404: components["responses"]["NotFound"];
+        };
+    };
     getAdminMe: {
         parameters: {
             query?: never;
@@ -4459,6 +4736,184 @@ export interface operations {
             404: components["responses"]["NotFound"];
         };
     };
+    getAdminBlitzEditions: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The editions, by tournament name, newest edition first */
+            200: {
+                headers: {
+                    "Cache-Control": components["headers"]["CacheControl"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminBlitzEditionRow"][];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    getAdminBlitzEdition: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The tournament's slug */
+                tournament: components["parameters"]["AdminTournamentSlug"];
+                /** @description The edition's label, as admin lists it (a season) */
+                edition: components["parameters"]["BlitzEditionLabel"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The edition */
+            200: {
+                headers: {
+                    "Cache-Control": components["headers"]["CacheControl"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminBlitzEdition"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    patchAdminBlitzEdition: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The tournament's slug */
+                tournament: components["parameters"]["AdminTournamentSlug"];
+                /** @description The edition's label, as admin lists it (a season) */
+                edition: components["parameters"]["BlitzEditionLabel"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BlitzFormat"];
+            };
+        };
+        responses: {
+            /** @description Saved */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    postAdminBlitzEntrants: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The tournament's slug */
+                tournament: components["parameters"]["AdminTournamentSlug"];
+                /** @description The edition's label, as admin lists it (a season) */
+                edition: components["parameters"]["BlitzEditionLabel"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["NewBlitzEntrants"];
+            };
+        };
+        responses: {
+            /** @description Added */
+            201: {
+                headers: {
+                    "Cache-Control": components["headers"]["CacheControl"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BlitzEntrantIds"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+        };
+    };
+    deleteAdminBlitzEntrant: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The tournament's slug */
+                tournament: components["parameters"]["AdminTournamentSlug"];
+                /** @description The edition's label, as admin lists it (a season) */
+                edition: components["parameters"]["BlitzEditionLabel"];
+                entrant: components["parameters"]["BlitzEntrantId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Removed */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    patchAdminBlitzEntrant: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The tournament's slug */
+                tournament: components["parameters"]["AdminTournamentSlug"];
+                /** @description The edition's label, as admin lists it (a season) */
+                edition: components["parameters"]["BlitzEditionLabel"];
+                entrant: components["parameters"]["BlitzEntrantId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BlitzEntrantChange"];
+            };
+        };
+        responses: {
+            /** @description Saved */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
 }
 type FlattenedDeepRequired<T> = {
     [K in keyof T]-?: FlattenedDeepRequired<T[K] extends unknown[] | undefined | null ? Extract<T[K], unknown[]>[number] : T[K]>;
@@ -4481,6 +4936,8 @@ export const adminRoleRoleValues: ReadonlyArray<FlattenedDeepRequired<components
 export const adminSeasonSuggested_fromValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["AdminSeason"]["suggested_from"]> = ["recorded", "final_stage", ""];
 export const tournamentKindValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["TournamentKind"]> = ["league", "cup", "ladder", "series", "group"];
 export const adminMeRoleValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["AdminMe"]["role"]> = ["admin", "organiser"];
+export const adminBlitzEntrantStatusValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["AdminBlitzEntrant"]["status"]> = ["active", "dropped"];
+export const blitzEntrantChangeStatusValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["BlitzEntrantChange"]["status"]> = ["active", "dropped"];
 export const modelValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["Model"]> = ["glicko2_daneo", "glicko2_daneo_softer", "glicko2_std", "glicko2_std_softer", "glicko2_std_retro", "glicko2_std_softer_retro", "glicko2_mp", "glicko2_mp_softer", "glicko2_mp_retro", "glicko2_mp_softer_retro", "glicko2_adapt", "glicko2_adapt_softer", "glicko2_adapt_retro", "glicko2_adapt_softer_retro", "whr", "whr_softer"];
 export const formatValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["Format"]> = [0, 2, 3, 4];
 export const titleCodeValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["TitleCode"]> = ["WC", "SGM", "WCS", "WCB", "GM", "M", "P", "G", "S", "B", "W"];

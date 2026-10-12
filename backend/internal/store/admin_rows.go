@@ -16,10 +16,10 @@ type AdminTournamentRow struct {
 	IsGroup                  bool
 	Description              string
 	// CGEAbout is the first 200 characters of CGE's latest description of it, on one line.
-	CGEAbout                  string
-	Visible, Rated, Community bool
-	Games                     int
-	FirstGame, LastGame       *time.Time
+	CGEAbout                         string
+	Visible, Rated, Community, Blitz bool
+	Games                            int
+	FirstGame, LastGame              *time.Time
 }
 
 // TournamentRows returns every tournament and group in brief, in name order.
@@ -35,7 +35,7 @@ func (a *AdminStore) TournamentRows(ctx context.Context) ([]AdminTournamentRow, 
 		                                     LIMIT 1), ''), '\s+', ' ', 'g'), 200),
 		       s.visible, EXISTS (SELECT 1 FROM ranking_series rt JOIN rankings r USING (ranking_id)
 		                          WHERE r.slug = 'community' AND rt.series_id = s.series_id),
-		       s.in_community_leaderboard, coalesce(g.n, 0), g.first, g.last
+		       s.in_community_leaderboard, s.blitz, coalesce(g.n, 0), g.first, g.last
 		FROM series s LEFT JOIN series p ON p.series_id = s.parent_id LEFT JOIN g ON g.series_id = s.series_id
 		ORDER BY s.name, s.slug`)
 	if err != nil {
@@ -44,7 +44,7 @@ func (a *AdminStore) TournamentRows(ctx context.Context) ([]AdminTournamentRow, 
 	out, err := pgx.CollectRows(rows, func(row pgx.CollectableRow) (AdminTournamentRow, error) {
 		var r AdminTournamentRow
 		return r, row.Scan(&r.Slug, &r.Name, &r.Kind, &r.Parent, &r.IsGroup, &r.Description, &r.CGEAbout,
-			&r.Visible, &r.Rated, &r.Community, &r.Games, &r.FirstGame, &r.LastGame)
+			&r.Visible, &r.Rated, &r.Community, &r.Blitz, &r.Games, &r.FirstGame, &r.LastGame)
 	})
 	if err != nil {
 		return nil, fmt.Errorf("listing tournaments for admin: %w", err)

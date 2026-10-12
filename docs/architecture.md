@@ -2,7 +2,8 @@
 
 How the pieces fit together, what the ratings database holds, and where the
 trust boundaries are. **Built:** the ratings site, its public API, admin,
-the data load job and the engine. **Planned:** Tournaments, TTA Pulse,
+the data load job and the engine; blitz tournaments' entrants (their
+pairings, results and standings are being built). **Planned:** Tournaments, TTA Pulse,
 player sign-in, the worker's timed jobs and the app database; they are
 drawn dashed below and marked *(planned)* in the text.
 
@@ -11,7 +12,7 @@ drawn dashed below and marked *(planned)* in the text.
 ```mermaid
 flowchart LR
     subgraph cf["Cloudflare"]
-        site["site (Astro, static)<br/>ttacommunity.*: /ratings, /tournaments, /pulse"]
+        site["site (Astro, static)<br/>ttacommunity.*: /ratings, /blitz, /tournaments, /pulse"]
         admin["admin (Astro + Worker proxy)<br/>ttac-admin.*"]
         access["Access + Discord OIDC Worker<br/>(admin only)"]
     end
@@ -161,8 +162,9 @@ Patterns that hold across the schema:
 - **The export is the import.** Every input table (Games, Catalogue and
   recorded facts, admin's settings) is exported as CSV with a manifest
   (`go run ./cmd/load -export`, or **Download all data** in admin) and
-  restored whole by `-restore`. Personal data (`admins`, `admin_audit`) and
-  `refused_rows` are left out, and a test enforces it
+  restored whole by `-restore`. Personal data (`admins`, `admin_audit`, the
+  blitz tables with their Discord names) and `refused_rows` are left out,
+  and a test enforces it
 - **Roles:** `ratings` owns the schema (load job, engine); `ratings_read`
   may only `SELECT` (the api's public routes); `ratings_admin` may write
   only admin's tables (the api's admin routes)
@@ -181,6 +183,19 @@ script in the browser), and HTML with classes or small components where a
 page needs styled boxes or tables. A new page is a new file.
 Interactive parts write maths the same way, as TeX, through a small
 `<Tex>` component that runs the same KaTeX in the browser.
+
+### Blitz tournaments
+
+A blitz tournament is an ordinary tournament whose series has the **Blitz**
+setting: organisers run it from admin's Blitz tab, a round a week, in the
+format CGE's US Open uses (Swiss rounds, then a knockout). Today admin
+holds each edition's format (`blitz_editions`) and entrants
+(`blitz_entries`: TTA username, Discord name, IANA time zone), added one
+at a time; a username the ratings know is kept in their spelling. The
+site's `/blitz` shows the editions and who is in. **A Discord name never leaves admin**: the public role has
+no `SELECT` on that column, so no public route can read it, and the export
+leaves the blitz tables out. Pairings, results (recorded as games under
+the tournament) and standings come next.
 
 ### Tournaments: data, not code
 

@@ -6,10 +6,14 @@ A community platform for **Through the Ages**, with three sites on one backend:
   DANeo's rating engine
 - **Tournaments** (planned): players in official tournament matches agree a
   start time, get reminders, and have the game started for them
+- **Blitz tournaments** (being built): organisers run a Swiss-and-knockout
+  blitz tournament from admin, and the site shows who is in, the weekly
+  pairings, results and standings
 - **TTA Pulse** (planned): a blitz queue that pairs players near their level
 
-The ratings site, its public API and the admin site are built; Tournaments and
-Pulse are not yet. How the pieces fit, and the database schema:
+The ratings site, its public API and the admin site are built, and blitz
+tournaments' entrants with them; Tournaments and Pulse are not yet. How the
+pieces fit, and the database schema:
 [`docs/architecture.md`](docs/architecture.md). Rules for contributors and
 coding agents: [`AGENTS.md`](AGENTS.md).
 

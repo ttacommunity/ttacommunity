@@ -66,6 +66,13 @@ type Admins interface {
 	AdminCommunityEditions(ctx context.Context) ([]store.CommunityEdition, error)
 	SetCommunityEdition(ctx context.Context, slug string, c store.CommunityEditionChange) error
 	CreateCommunityEdition(ctx context.Context, e store.CommunityEdition) error
+	BlitzEditions(ctx context.Context) ([]store.BlitzEditionRow, error)
+	BlitzEdition(ctx context.Context, slug, edition string) (store.BlitzEdition, error)
+	SetBlitzFormat(ctx context.Context, slug, edition string, f store.BlitzFormat) error
+	// AddBlitzEntrants adds every entrant or none, and returns their ids in order.
+	AddBlitzEntrants(ctx context.Context, slug, edition string, entrants []store.BlitzEntrant) ([]int64, error)
+	SetBlitzEntrant(ctx context.Context, slug, edition string, id int64, c store.BlitzEntrantChange) error
+	RemoveBlitzEntrant(ctx context.Context, slug, edition string, id int64) error
 }
 
 type adminKey struct{}

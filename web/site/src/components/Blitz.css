@@ -1,0 +1,58 @@
+/* The Blitz section: the list of editions and an edition's entrants, in the site's card and table look. */
+
+.blitz-card {
+  max-width: 56rem;
+  margin: 0 auto 1.5rem;
+  padding: 1.5rem 1.75rem;
+}
+.blitz-card .muted {
+  color: var(--text-muted);
+}
+.blitz-intro {
+  margin: 0 0 1rem;
+  color: var(--text-soft);
+  line-height: 1.6;
+}
+.blitz-table-wrap {
+  overflow-x: auto;
+}
+.blitz-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-family: var(--font-stats);
+  font-size: 0.95rem;
+}
+.blitz-table caption {
+  caption-side: top;
+  padding-bottom: 0.5rem;
+  text-align: left;
+  color: var(--text-muted);
+  font-size: 0.85rem;
+}
+.blitz-table th,
+.blitz-table td {
+  padding: 0.45rem 0.6rem;
+  border-bottom: 1px solid var(--border-subtle);
+  text-align: left;
+  vertical-align: top;
+}
+.blitz-table thead th {
+  color: var(--accent-gold);
+  font-weight: 600;
+  white-space: nowrap;
+}
+.blitz-table tbody th {
+  font-weight: 600;
+}
+.blitz-table .num {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+.blitz-table a {
+  color: var(--accent-gold);
+}
+.blitz-back {
+  display: inline-block;
+  margin-bottom: 0.75rem;
+  color: var(--text-muted);
+}

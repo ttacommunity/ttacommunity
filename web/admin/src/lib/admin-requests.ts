@@ -58,6 +58,18 @@ const FLAGS: Record<SeasonFlag, 'rated' | 'in_champions' | 'in_community'> = {
 export const setSeasonFlag = (slug: string, label: string, flag: SeasonFlag, on: boolean) =>
   to(season(slug, label), 'PATCH', { [FLAGS[flag]]: on });
 
+const blitz = (slug: string, edition: string) => `/api/blitz/${slug}/${encodeURIComponent(edition)}`;
+/** addBlitzEntrants adds entrants to an edition, all or none. */
+export const addBlitzEntrants = (slug: string, edition: string, entrants: Schemas['NewBlitzEntrant'][]) =>
+  to(`${blitz(slug, edition)}/entrants`, 'POST', { entrants });
+/** setBlitzEntrant changes an entrant's Discord name, time zone or status. */
+export const setBlitzEntrant = (slug: string, edition: string, id: number, change: Schemas['BlitzEntrantChange']) =>
+  to(`${blitz(slug, edition)}/entrants/${id}`, 'PATCH', change);
+/** removeBlitzEntrant removes an entrant added by mistake. */
+export const removeBlitzEntrant = (slug: string, edition: string, id: number) => to(`${blitz(slug, edition)}/entrants/${id}`, 'DELETE');
+/** setBlitzFormat sets an edition's Swiss rounds and knockout size. */
+export const setBlitzFormat = (slug: string, edition: string, format: Schemas['BlitzFormat']) => to(blitz(slug, edition), 'PATCH', format);
+
 /** setAdmin adds or changes an admin. */
 export const setAdmin = (id: string, name: string, role: string) => to(`/api/admins/${id}`, 'PUT', { name, role });
 /** removeAdmin removes an admin. */

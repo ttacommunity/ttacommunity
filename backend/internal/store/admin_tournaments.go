@@ -22,6 +22,7 @@ type AdminTournament struct {
 	Visible           bool
 	Rated             bool
 	Community         bool
+	Blitz             bool
 	Regulations       string
 	CGERegulations    string
 	Card              Card
@@ -122,7 +123,7 @@ func (a *AdminStore) Tournament(ctx context.Context, slug string) (AdminTourname
 // tournament reads the tournament slug's rows: none when there is no such tournament, else one.
 func (a *AdminStore) tournament(ctx context.Context, slug string) ([]AdminTournament, error) {
 	rows, err := a.pool.Query(ctx, `
-		SELECT t.slug, t.name, t.visible, t.in_community_leaderboard,
+		SELECT t.slug, t.name, t.visible, t.in_community_leaderboard, t.blitz,
 		       EXISTS (SELECT 1 FROM ranking_series rt JOIN rankings r USING (ranking_id)
 		               WHERE r.slug = 'community' AND rt.series_id = t.series_id),
 		       coalesce((SELECT text FROM tournament_regulations g WHERE g.tournament = t.slug), ''),
@@ -152,7 +153,7 @@ func (a *AdminStore) tournament(ctx context.Context, slug string) ([]AdminTourna
 	}
 	var out []AdminTournament
 	var rowSlug, name string
-	var visible, community, rated bool
+	var visible, community, blitz, rated bool
 	var regulations, cgeRegulations string
 	var card Card
 	var season, stage, seasonNote, stageNote *string
@@ -166,11 +167,11 @@ func (a *AdminStore) tournament(ctx context.Context, slug string) ([]AdminTourna
 	var penalty float64
 	var parent, description string
 	var isGroup bool
-	_, err = pgx.ForEachRow(rows, []any{&rowSlug, &name, &visible, &community, &rated, &regulations,
+	_, err = pgx.ForEachRow(rows, []any{&rowSlug, &name, &visible, &community, &blitz, &rated, &regulations,
 		&card.Icon, &card.Tagline, &card.Summary, &card.Subtitle, &card.Cadence, &cgeRegulations, &season, &stage, &seasonOriginal, &stageOriginal, &seasonNote, &stageNote, &hasGames,
 		&seasonRated, &inChampions, &inCommunity, &counts, &kind, &top, &original, &p2, &p3, &p4, &seasonName, &stageName, &penalty, &parent, &description, &isGroup}, func() error {
 		if len(out) == 0 || out[len(out)-1].Slug != rowSlug {
-			out = append(out, AdminTournament{Slug: rowSlug, Name: name, Visible: visible, Rated: rated, Community: community,
+			out = append(out, AdminTournament{Slug: rowSlug, Name: name, Visible: visible, Rated: rated, Community: community, Blitz: blitz,
 				Regulations: regulations, CGERegulations: cgeRegulations, Card: card, RatedPlayerCounts: counts,
 				Kind: kind, TopDivisions: top, Points: map[int][]float64{2: p2, 3: p3, 4: p4},
 				SeasonName: seasonName, StageName: stageName, OriginalName: original, Parent: parent, Description: description,
