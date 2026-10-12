@@ -888,10 +888,15 @@ type AdminBlitzEditionRow struct {
 
 // AdminBlitzEntrant defines model for AdminBlitzEntrant.
 type AdminBlitzEntrant struct {
-	DiscordName string `json:"discord_name"`
-	Id          int64  `json:"id"`
+	Country     *string `json:"country"`
+	DiscordName string  `json:"discord_name"`
+	Email       string  `json:"email"`
+	Id          int64   `json:"id"`
 
-	// Name The TTA username as entered
+	// Member The member entered
+	Member int64 `json:"member"`
+
+	// Name The member's TTA username
 	Name string `json:"name"`
 
 	// Player The ratings' spelling of the name, empty for a player the ratings do not know
@@ -955,6 +960,38 @@ type AdminMe struct {
 
 // AdminMeRole defines model for AdminMe.Role.
 type AdminMeRole string
+
+// AdminMember A member of the community as admin sees them
+type AdminMember struct {
+	BanReason string     `json:"ban_reason"`
+	Banned    bool       `json:"banned"`
+	BannedAt  *time.Time `json:"banned_at"`
+
+	// CgeUser The CGE account's id, null until known
+	CgeUser *int `json:"cge_user"`
+
+	// Country A two-letter country code, null for none
+	Country     *string   `json:"country"`
+	CreatedAt   time.Time `json:"created_at"`
+	DiscordName string    `json:"discord_name"`
+	Email       string    `json:"email"`
+
+	// Entries How many editions the member is in
+	Entries int   `json:"entries"`
+	Id      int64 `json:"id"`
+
+	// Name The TTA username as in the app
+	Name string `json:"name"`
+
+	// Player The ratings' spelling of the name, empty for a player the ratings do not know
+	Player string `json:"player"`
+
+	// UtcOffset The zone's offset from UTC now, as +02:00
+	UtcOffset string `json:"utc_offset"`
+
+	// Zone The IANA time zone
+	Zone string `json:"zone"`
+}
 
 // AdminPerson defines model for AdminPerson.
 type AdminPerson struct {
@@ -1234,7 +1271,10 @@ type BlitzEditions struct {
 
 // BlitzEntrant An entrant as the site shows them
 type BlitzEntrant struct {
-	// Name The TTA username as entered
+	// Country A two-letter country code, null for none
+	Country *string `json:"country"`
+
+	// Name The member's TTA username
 	Name string `json:"name"`
 
 	// Rating The 2-player rating in the current run, null when unrated
@@ -1247,9 +1287,12 @@ type BlitzEntrant struct {
 	Zone string `json:"zone"`
 }
 
-// BlitzEntrantChange What to change; a field left out stays as it is
+// BlitzEntrantChange What to change, the entrant's status or the member's details; a field left out stays as it is
 type BlitzEntrantChange struct {
+	// Country A two-letter country code, or empty for none
+	Country     *string                   `json:"country,omitempty"`
 	DiscordName *string                   `json:"discord_name,omitempty"`
+	Email       *string                   `json:"email,omitempty"`
 	Status      *BlitzEntrantChangeStatus `json:"status,omitempty"`
 	Zone        *string                   `json:"zone,omitempty"`
 }
@@ -1352,6 +1395,9 @@ type BlitzRuling struct {
 // BlitzStanding One row of the standings
 type BlitzStanding struct {
 	Byes int `json:"byes"`
+
+	// Country A two-letter country code, null for none
+	Country *string `json:"country"`
 
 	// Games Matches decided, byes aside
 	Games int    `json:"games"`
@@ -2046,6 +2092,29 @@ type MatrixCell struct {
 	Rd     float64 `json:"rd"`
 }
 
+// MemberAdded defines model for MemberAdded.
+type MemberAdded struct {
+	Id int64 `json:"id"`
+}
+
+// MemberBan defines model for MemberBan.
+type MemberBan struct {
+	Reason string `json:"reason"`
+}
+
+// MemberChange What to change; a field left out stays as it is
+type MemberChange struct {
+	// CgeUser The CGE account's id, which the data must know; 0 unlinks it
+	CgeUser *int `json:"cge_user,omitempty"`
+
+	// Country A two-letter country code, or empty for none
+	Country     *string `json:"country,omitempty"`
+	DiscordName *string `json:"discord_name,omitempty"`
+	Email       *string `json:"email,omitempty"`
+	Name        *string `json:"name,omitempty"`
+	Zone        *string `json:"zone,omitempty"`
+}
+
 // Model The rating model. `_softer` models reset gently each season, and
 // `_retro` models start from a retrospectively calibrated prior.
 type Model string
@@ -2078,16 +2147,20 @@ type ModelPeak struct {
 	Rating float64 `json:"rating"`
 }
 
-// NewBlitzEntrant defines model for NewBlitzEntrant.
+// NewBlitzEntrant A member to enter, by id, or by TTA username with the details a new member needs when the name is not a member yet
 type NewBlitzEntrant struct {
+	// Country A two-letter country code
+	Country     *string `json:"country,omitempty"`
 	DiscordName *string `json:"discord_name,omitempty"`
-	Name        string  `json:"name"`
+	Email       *string `json:"email,omitempty"`
+	Member      *int64  `json:"member,omitempty"`
+	Name        *string `json:"name,omitempty"`
 
 	// Status Active unless given; pending for someone not yet confirmed
 	Status *NewBlitzEntrantStatus `json:"status,omitempty"`
 
-	// Zone An IANA time zone, such as Europe/Berlin
-	Zone string `json:"zone"`
+	// Zone An IANA time zone, such as Europe/Berlin; UTC until known
+	Zone *string `json:"zone,omitempty"`
 }
 
 // NewBlitzEntrantStatus Active unless given; pending for someone not yet confirmed
@@ -2114,6 +2187,20 @@ type NewGroup struct {
 	// Members The slugs of the tournaments it holds
 	Members *[]string `json:"members,omitempty"`
 	Name    string    `json:"name"`
+}
+
+// NewMember defines model for NewMember.
+type NewMember struct {
+	// Country A two-letter country code
+	Country     *string `json:"country,omitempty"`
+	DiscordName *string `json:"discord_name,omitempty"`
+	Email       *string `json:"email,omitempty"`
+
+	// Name The TTA username as in the app
+	Name string `json:"name"`
+
+	// Zone An IANA time zone, such as Europe/Berlin; UTC until known
+	Zone *string `json:"zone,omitempty"`
 }
 
 // NewSeason defines model for NewSeason.
@@ -2946,6 +3033,9 @@ type BlitzRoundId = int64
 // DiscordID defines model for DiscordID.
 type DiscordID = string
 
+// MemberId defines model for MemberId.
+type MemberId = int64
+
 // PlayerName defines model for PlayerName.
 type PlayerName = string
 
@@ -3147,6 +3237,15 @@ type PostAdminCommunityEditionJSONRequestBody = CommunityEditionItem
 // PatchAdminCommunityEditionJSONRequestBody defines body for PatchAdminCommunityEdition for application/json ContentType.
 type PatchAdminCommunityEditionJSONRequestBody = CommunityEditionPatch
 
+// PostAdminMemberJSONRequestBody defines body for PostAdminMember for application/json ContentType.
+type PostAdminMemberJSONRequestBody = NewMember
+
+// PatchAdminMemberJSONRequestBody defines body for PatchAdminMember for application/json ContentType.
+type PatchAdminMemberJSONRequestBody = MemberChange
+
+// PutAdminMemberBanJSONRequestBody defines body for PutAdminMemberBan for application/json ContentType.
+type PutAdminMemberBanJSONRequestBody = MemberBan
+
 // PatchAdminRunJSONRequestBody defines body for PatchAdminRun for application/json ContentType.
 type PatchAdminRunJSONRequestBody = RunProtection
 
@@ -3248,6 +3347,24 @@ type ServerInterface interface {
 	// GetAdminMe Who is signed in to admin, and in which role
 	// (GET /v1/admin/me)
 	GetAdminMe(w http.ResponseWriter, r *http.Request)
+	// GetAdminMembers The community's members, by name (admins and organisers)
+	// (GET /v1/admin/members)
+	GetAdminMembers(w http.ResponseWriter, r *http.Request)
+	// PostAdminMember Add a member (admins and organisers)
+	// (POST /v1/admin/members)
+	PostAdminMember(w http.ResponseWriter, r *http.Request)
+	// DeleteAdminMember Remove a member added by mistake (admins only)
+	// (DELETE /v1/admin/members/{member})
+	DeleteAdminMember(w http.ResponseWriter, r *http.Request, member MemberId)
+	// PatchAdminMember Change a member's details (admins and organisers)
+	// (PATCH /v1/admin/members/{member})
+	PatchAdminMember(w http.ResponseWriter, r *http.Request, member MemberId)
+	// DeleteAdminMemberBan Lift a member's ban (admins only)
+	// (DELETE /v1/admin/members/{member}/ban)
+	DeleteAdminMemberBan(w http.ResponseWriter, r *http.Request, member MemberId)
+	// PutAdminMemberBan Ban a member from taking part, with a reason (admins only)
+	// (PUT /v1/admin/members/{member}/ban)
+	PutAdminMemberBan(w http.ResponseWriter, r *http.Request, member MemberId)
 	// GetAdminRuns Rating runs, newest first, with a running one's progress (admins only)
 	// (GET /v1/admin/runs)
 	GetAdminRuns(w http.ResponseWriter, r *http.Request)
@@ -4147,6 +4264,138 @@ func (siw *ServerInterfaceWrapper) GetAdminMe(w http.ResponseWriter, r *http.Req
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.GetAdminMe(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetAdminMembers operation middleware
+func (siw *ServerInterfaceWrapper) GetAdminMembers(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetAdminMembers(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// PostAdminMember operation middleware
+func (siw *ServerInterfaceWrapper) PostAdminMember(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.PostAdminMember(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// DeleteAdminMember operation middleware
+func (siw *ServerInterfaceWrapper) DeleteAdminMember(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "member" -------------
+	var member MemberId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "member", r.PathValue("member"), &member, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "integer", Format: "int64", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "member", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.DeleteAdminMember(w, r, member)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// PatchAdminMember operation middleware
+func (siw *ServerInterfaceWrapper) PatchAdminMember(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "member" -------------
+	var member MemberId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "member", r.PathValue("member"), &member, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "integer", Format: "int64", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "member", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.PatchAdminMember(w, r, member)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// DeleteAdminMemberBan operation middleware
+func (siw *ServerInterfaceWrapper) DeleteAdminMemberBan(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "member" -------------
+	var member MemberId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "member", r.PathValue("member"), &member, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "integer", Format: "int64", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "member", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.DeleteAdminMemberBan(w, r, member)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// PutAdminMemberBan operation middleware
+func (siw *ServerInterfaceWrapper) PutAdminMemberBan(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "member" -------------
+	var member MemberId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "member", r.PathValue("member"), &member, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "integer", Format: "int64", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "member", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.PutAdminMemberBan(w, r, member)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -6188,6 +6437,12 @@ func HandlerWithOptions(si ServerInterface, options StdHTTPServerOptions) http.H
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/v1/admin/admins", wrapper.GetAdminAdmins)
 	m.HandleFunc(http.MethodDelete+" "+options.BaseURL+"/v1/admin/admins/{discord_id}", wrapper.DeleteAdminAdmin)
 	m.HandleFunc(http.MethodPut+" "+options.BaseURL+"/v1/admin/admins/{discord_id}", wrapper.PutAdminAdmin)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/v1/admin/members", wrapper.GetAdminMembers)
+	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/v1/admin/members", wrapper.PostAdminMember)
+	m.HandleFunc(http.MethodDelete+" "+options.BaseURL+"/v1/admin/members/{member}", wrapper.DeleteAdminMember)
+	m.HandleFunc(http.MethodPatch+" "+options.BaseURL+"/v1/admin/members/{member}", wrapper.PatchAdminMember)
+	m.HandleFunc(http.MethodDelete+" "+options.BaseURL+"/v1/admin/members/{member}/ban", wrapper.DeleteAdminMemberBan)
+	m.HandleFunc(http.MethodPut+" "+options.BaseURL+"/v1/admin/members/{member}/ban", wrapper.PutAdminMemberBan)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/v1/admin/export", wrapper.GetAdminExport)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/v1/admin/data", wrapper.GetAdminData)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/v1/admin/standings-check", wrapper.GetAdminStandingsCheck)
@@ -8208,6 +8463,461 @@ func (response GetAdminMe403JSONResponse) VisitGetAdminMeResponse(w http.Respons
 	w.Header().Set("Content-Type", "application/json")
 	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
 	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetAdminMembersRequestObject struct {
+}
+
+type GetAdminMembersResponseObject interface {
+	VisitGetAdminMembersResponse(w http.ResponseWriter) error
+}
+
+type GetAdminMembers200ResponseHeaders struct {
+	CacheControl string
+}
+
+type GetAdminMembers200JSONResponse struct {
+	Body    []AdminMember
+	Headers GetAdminMembers200ResponseHeaders
+}
+
+func (response GetAdminMembers200JSONResponse) VisitGetAdminMembersResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetAdminMembers401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response GetAdminMembers401JSONResponse) VisitGetAdminMembersResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetAdminMembers403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response GetAdminMembers403JSONResponse) VisitGetAdminMembersResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PostAdminMemberRequestObject struct {
+	Body *PostAdminMemberJSONRequestBody
+}
+
+type PostAdminMemberResponseObject interface {
+	VisitPostAdminMemberResponse(w http.ResponseWriter) error
+}
+
+type PostAdminMember201ResponseHeaders struct {
+	CacheControl string
+}
+
+type PostAdminMember201JSONResponse struct {
+	Body    MemberAdded
+	Headers PostAdminMember201ResponseHeaders
+}
+
+func (response PostAdminMember201JSONResponse) VisitPostAdminMemberResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(201)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PostAdminMember400JSONResponse struct{ BadRequestJSONResponse }
+
+func (response PostAdminMember400JSONResponse) VisitPostAdminMemberResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PostAdminMember401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response PostAdminMember401JSONResponse) VisitPostAdminMemberResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PostAdminMember403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response PostAdminMember403JSONResponse) VisitPostAdminMemberResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PostAdminMember409JSONResponse struct{ ConflictJSONResponse }
+
+func (response PostAdminMember409JSONResponse) VisitPostAdminMemberResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(409)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DeleteAdminMemberRequestObject struct {
+	Member MemberId `json:"member"`
+}
+
+type DeleteAdminMemberResponseObject interface {
+	VisitDeleteAdminMemberResponse(w http.ResponseWriter) error
+}
+
+type DeleteAdminMember204Response struct {
+}
+
+func (response DeleteAdminMember204Response) VisitDeleteAdminMemberResponse(w http.ResponseWriter) error {
+	w.WriteHeader(204)
+	return nil
+}
+
+type DeleteAdminMember401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response DeleteAdminMember401JSONResponse) VisitDeleteAdminMemberResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DeleteAdminMember403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response DeleteAdminMember403JSONResponse) VisitDeleteAdminMemberResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DeleteAdminMember404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response DeleteAdminMember404JSONResponse) VisitDeleteAdminMemberResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DeleteAdminMember409JSONResponse struct{ ConflictJSONResponse }
+
+func (response DeleteAdminMember409JSONResponse) VisitDeleteAdminMemberResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(409)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PatchAdminMemberRequestObject struct {
+	Member MemberId `json:"member"`
+	Body   *PatchAdminMemberJSONRequestBody
+}
+
+type PatchAdminMemberResponseObject interface {
+	VisitPatchAdminMemberResponse(w http.ResponseWriter) error
+}
+
+type PatchAdminMember204Response struct {
+}
+
+func (response PatchAdminMember204Response) VisitPatchAdminMemberResponse(w http.ResponseWriter) error {
+	w.WriteHeader(204)
+	return nil
+}
+
+type PatchAdminMember400JSONResponse struct{ BadRequestJSONResponse }
+
+func (response PatchAdminMember400JSONResponse) VisitPatchAdminMemberResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PatchAdminMember401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response PatchAdminMember401JSONResponse) VisitPatchAdminMemberResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PatchAdminMember403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response PatchAdminMember403JSONResponse) VisitPatchAdminMemberResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PatchAdminMember404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response PatchAdminMember404JSONResponse) VisitPatchAdminMemberResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PatchAdminMember409JSONResponse struct{ ConflictJSONResponse }
+
+func (response PatchAdminMember409JSONResponse) VisitPatchAdminMemberResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(409)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DeleteAdminMemberBanRequestObject struct {
+	Member MemberId `json:"member"`
+}
+
+type DeleteAdminMemberBanResponseObject interface {
+	VisitDeleteAdminMemberBanResponse(w http.ResponseWriter) error
+}
+
+type DeleteAdminMemberBan204Response struct {
+}
+
+func (response DeleteAdminMemberBan204Response) VisitDeleteAdminMemberBanResponse(w http.ResponseWriter) error {
+	w.WriteHeader(204)
+	return nil
+}
+
+type DeleteAdminMemberBan401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response DeleteAdminMemberBan401JSONResponse) VisitDeleteAdminMemberBanResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DeleteAdminMemberBan403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response DeleteAdminMemberBan403JSONResponse) VisitDeleteAdminMemberBanResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DeleteAdminMemberBan404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response DeleteAdminMemberBan404JSONResponse) VisitDeleteAdminMemberBanResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PutAdminMemberBanRequestObject struct {
+	Member MemberId `json:"member"`
+	Body   *PutAdminMemberBanJSONRequestBody
+}
+
+type PutAdminMemberBanResponseObject interface {
+	VisitPutAdminMemberBanResponse(w http.ResponseWriter) error
+}
+
+type PutAdminMemberBan204Response struct {
+}
+
+func (response PutAdminMemberBan204Response) VisitPutAdminMemberBanResponse(w http.ResponseWriter) error {
+	w.WriteHeader(204)
+	return nil
+}
+
+type PutAdminMemberBan400JSONResponse struct{ BadRequestJSONResponse }
+
+func (response PutAdminMemberBan400JSONResponse) VisitPutAdminMemberBanResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PutAdminMemberBan401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response PutAdminMemberBan401JSONResponse) VisitPutAdminMemberBanResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PutAdminMemberBan403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response PutAdminMemberBan403JSONResponse) VisitPutAdminMemberBanResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PutAdminMemberBan404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response PutAdminMemberBan404JSONResponse) VisitPutAdminMemberBanResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(404)
 	_, err := buf.WriteTo(w)
 	return err
 }
@@ -11431,6 +12141,24 @@ type StrictServerInterface interface {
 	// GetAdminMe Who is signed in to admin, and in which role
 	// (GET /v1/admin/me)
 	GetAdminMe(ctx context.Context, request GetAdminMeRequestObject) (GetAdminMeResponseObject, error)
+	// GetAdminMembers The community's members, by name (admins and organisers)
+	// (GET /v1/admin/members)
+	GetAdminMembers(ctx context.Context, request GetAdminMembersRequestObject) (GetAdminMembersResponseObject, error)
+	// PostAdminMember Add a member (admins and organisers)
+	// (POST /v1/admin/members)
+	PostAdminMember(ctx context.Context, request PostAdminMemberRequestObject) (PostAdminMemberResponseObject, error)
+	// DeleteAdminMember Remove a member added by mistake (admins only)
+	// (DELETE /v1/admin/members/{member})
+	DeleteAdminMember(ctx context.Context, request DeleteAdminMemberRequestObject) (DeleteAdminMemberResponseObject, error)
+	// PatchAdminMember Change a member's details (admins and organisers)
+	// (PATCH /v1/admin/members/{member})
+	PatchAdminMember(ctx context.Context, request PatchAdminMemberRequestObject) (PatchAdminMemberResponseObject, error)
+	// DeleteAdminMemberBan Lift a member's ban (admins only)
+	// (DELETE /v1/admin/members/{member}/ban)
+	DeleteAdminMemberBan(ctx context.Context, request DeleteAdminMemberBanRequestObject) (DeleteAdminMemberBanResponseObject, error)
+	// PutAdminMemberBan Ban a member from taking part, with a reason (admins only)
+	// (PUT /v1/admin/members/{member}/ban)
+	PutAdminMemberBan(ctx context.Context, request PutAdminMemberBanRequestObject) (PutAdminMemberBanResponseObject, error)
 	// GetAdminRuns Rating runs, newest first, with a running one's progress (admins only)
 	// (GET /v1/admin/runs)
 	GetAdminRuns(ctx context.Context, request GetAdminRunsRequestObject) (GetAdminRunsResponseObject, error)
@@ -12396,6 +13124,179 @@ func (sh *strictHandler) GetAdminMe(w http.ResponseWriter, r *http.Request) {
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(GetAdminMeResponseObject); ok {
 		if err := validResponse.VisitGetAdminMeResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// GetAdminMembers operation middleware
+func (sh *strictHandler) GetAdminMembers(w http.ResponseWriter, r *http.Request) {
+	var request GetAdminMembersRequestObject
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.GetAdminMembers(ctx, request.(GetAdminMembersRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetAdminMembers")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(GetAdminMembersResponseObject); ok {
+		if err := validResponse.VisitGetAdminMembersResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// PostAdminMember operation middleware
+func (sh *strictHandler) PostAdminMember(w http.ResponseWriter, r *http.Request) {
+	var request PostAdminMemberRequestObject
+
+	var body PostAdminMemberJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.PostAdminMember(ctx, request.(PostAdminMemberRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "PostAdminMember")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(PostAdminMemberResponseObject); ok {
+		if err := validResponse.VisitPostAdminMemberResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// DeleteAdminMember operation middleware
+func (sh *strictHandler) DeleteAdminMember(w http.ResponseWriter, r *http.Request, member MemberId) {
+	var request DeleteAdminMemberRequestObject
+
+	request.Member = member
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.DeleteAdminMember(ctx, request.(DeleteAdminMemberRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "DeleteAdminMember")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(DeleteAdminMemberResponseObject); ok {
+		if err := validResponse.VisitDeleteAdminMemberResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// PatchAdminMember operation middleware
+func (sh *strictHandler) PatchAdminMember(w http.ResponseWriter, r *http.Request, member MemberId) {
+	var request PatchAdminMemberRequestObject
+
+	request.Member = member
+
+	var body PatchAdminMemberJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.PatchAdminMember(ctx, request.(PatchAdminMemberRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "PatchAdminMember")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(PatchAdminMemberResponseObject); ok {
+		if err := validResponse.VisitPatchAdminMemberResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// DeleteAdminMemberBan operation middleware
+func (sh *strictHandler) DeleteAdminMemberBan(w http.ResponseWriter, r *http.Request, member MemberId) {
+	var request DeleteAdminMemberBanRequestObject
+
+	request.Member = member
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.DeleteAdminMemberBan(ctx, request.(DeleteAdminMemberBanRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "DeleteAdminMemberBan")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(DeleteAdminMemberBanResponseObject); ok {
+		if err := validResponse.VisitDeleteAdminMemberBanResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// PutAdminMemberBan operation middleware
+func (sh *strictHandler) PutAdminMemberBan(w http.ResponseWriter, r *http.Request, member MemberId) {
+	var request PutAdminMemberBanRequestObject
+
+	request.Member = member
+
+	var body PutAdminMemberBanJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.PutAdminMemberBan(ctx, request.(PutAdminMemberBanRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "PutAdminMemberBan")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(PutAdminMemberBanResponseObject); ok {
+		if err := validResponse.VisitPutAdminMemberBanResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {

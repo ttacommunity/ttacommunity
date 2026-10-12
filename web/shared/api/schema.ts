@@ -874,6 +874,84 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/admin/members": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The community's members, by name (admins and organisers)
+         * @description Everyone who takes part in anything we run, keyed by their TTA
+         *     username, with the CGE account and ratings player attached as they
+         *     become known, how to reach them, their country and zone, and any
+         *     community ban.
+         */
+        get: operations["getAdminMembers"];
+        put?: never;
+        /**
+         * Add a member (admins and organisers)
+         * @description Audited. The Origin must be the admin site. A username a CGE account
+         *     or the ratings know takes their spelling and their ids. A person
+         *     already a member, by username in any case or by that account, is
+         *     refused and named.
+         */
+        post: operations["postAdminMember"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/members/{member}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Remove a member added by mistake (admins only)
+         * @description Audited. The Origin must be the admin site. A member in an edition cannot be removed.
+         */
+        delete: operations["deleteAdminMember"];
+        options?: never;
+        head?: never;
+        /**
+         * Change a member's details (admins and organisers)
+         * @description Audited. The Origin must be the admin site. A field left out stays as it is.
+         */
+        patch: operations["patchAdminMember"];
+        trace?: never;
+    };
+    "/v1/admin/members/{member}/ban": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Ban a member from taking part, with a reason (admins only)
+         * @description Audited. The Origin must be the admin site. A banned member cannot be entered in an edition; their games and ratings are untouched.
+         */
+        put: operations["putAdminMemberBan"];
+        post?: never;
+        /**
+         * Lift a member's ban (admins only)
+         * @description Audited. The Origin must be the admin site.
+         */
+        delete: operations["deleteAdminMemberBan"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/admin/export": {
         parameters: {
             query?: never;
@@ -1871,8 +1949,10 @@ export interface components {
         };
         /** @description An entrant as the site shows them */
         BlitzEntrant: {
-            /** @description The TTA username as entered */
+            /** @description The member's TTA username */
             name: string;
+            /** @description A two-letter country code, null for none */
+            country: string | null;
             /** @description The IANA time zone */
             zone: string;
             /** @description The zone's offset from UTC now, as +02:00 */
@@ -1943,6 +2023,8 @@ export interface components {
         BlitzStanding: {
             rank: number;
             name: string;
+            /** @description A two-letter country code, null for none */
+            country: string | null;
             /**
              * Format: double
              * @description A win 1, a draw a half, a bye 1
@@ -2036,11 +2118,18 @@ export interface components {
         AdminBlitzEntrant: {
             /** Format: int64 */
             id: number;
-            /** @description The TTA username as entered */
+            /**
+             * Format: int64
+             * @description The member entered
+             */
+            member: number;
+            /** @description The member's TTA username */
             name: string;
             /** @description The ratings' spelling of the name, empty for a player the ratings do not know */
             player: string;
             discord_name: string;
+            email: string;
+            country: string | null;
             zone: string;
             utc_offset: string;
             /** Format: double */
@@ -2063,6 +2152,61 @@ export interface components {
             /** @description By rank, as the site shows them; dropped players last */
             standings: components["schemas"]["BlitzStanding"][];
         };
+        /** @description A member of the community as admin sees them */
+        AdminMember: {
+            /** Format: int64 */
+            id: number;
+            /** @description The TTA username as in the app */
+            name: string;
+            /** @description The ratings' spelling of the name, empty for a player the ratings do not know */
+            player: string;
+            /** @description The CGE account's id, null until known */
+            cge_user: number | null;
+            discord_name: string;
+            email: string;
+            /** @description A two-letter country code, null for none */
+            country: string | null;
+            /** @description The IANA time zone */
+            zone: string;
+            /** @description The zone's offset from UTC now, as +02:00 */
+            utc_offset: string;
+            banned: boolean;
+            ban_reason: string;
+            /** Format: date-time */
+            banned_at: string | null;
+            /** @description How many editions the member is in */
+            entries: number;
+            /** Format: date-time */
+            created_at: string;
+        };
+        NewMember: {
+            /** @description The TTA username as in the app */
+            name: string;
+            discord_name?: string;
+            email?: string;
+            /** @description A two-letter country code */
+            country?: string;
+            /** @description An IANA time zone, such as Europe/Berlin; UTC until known */
+            zone?: string;
+        };
+        /** @description What to change; a field left out stays as it is */
+        MemberChange: {
+            name?: string;
+            discord_name?: string;
+            email?: string;
+            /** @description A two-letter country code, or empty for none */
+            country?: string;
+            zone?: string;
+            /** @description The CGE account's id, which the data must know; 0 unlinks it */
+            cge_user?: number;
+        };
+        MemberAdded: {
+            /** Format: int64 */
+            id: number;
+        };
+        MemberBan: {
+            reason: string;
+        };
         /** @description A played game, with the share code, each side as the match names them, and the day played */
         BlitzGameRecord: {
             share_code: string;
@@ -2083,11 +2227,17 @@ export interface components {
             result: components["schemas"]["BlitzResult"];
             reason: string;
         };
+        /** @description A member to enter, by id, or by TTA username with the details a new member needs when the name is not a member yet */
         NewBlitzEntrant: {
-            name: string;
+            /** Format: int64 */
+            member?: number;
+            name?: string;
             discord_name?: string;
-            /** @description An IANA time zone, such as Europe/Berlin */
-            zone: string;
+            email?: string;
+            /** @description A two-letter country code */
+            country?: string;
+            /** @description An IANA time zone, such as Europe/Berlin; UTC until known */
+            zone?: string;
             /**
              * @description Active unless given; pending for someone not yet confirmed
              * @enum {string}
@@ -2101,9 +2251,12 @@ export interface components {
             /** @description The new entrants' ids, in the order given */
             ids: number[];
         };
-        /** @description What to change; a field left out stays as it is */
+        /** @description What to change, the entrant's status or the member's details; a field left out stays as it is */
         BlitzEntrantChange: {
             discord_name?: string;
+            email?: string;
+            /** @description A two-letter country code, or empty for none */
+            country?: string;
             zone?: string;
             /** @enum {string} */
             status?: "pending" | "active" | "dropped";
@@ -3281,6 +3434,7 @@ export interface components {
         BlitzEntrantId: number;
         BlitzRoundId: number;
         BlitzMatchId: number;
+        MemberId: number;
         AdminBadgeId: number;
         /** @description The player's name, as the leaderboard gives it */
         AdminPlayer: string;
@@ -4437,6 +4591,162 @@ export interface operations {
         requestBody?: never;
         responses: {
             /** @description Removed */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    getAdminMembers: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The members, by name without case */
+            200: {
+                headers: {
+                    "Cache-Control": components["headers"]["CacheControl"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminMember"][];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    postAdminMember: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["NewMember"];
+            };
+        };
+        responses: {
+            /** @description Added */
+            201: {
+                headers: {
+                    "Cache-Control": components["headers"]["CacheControl"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MemberAdded"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            409: components["responses"]["Conflict"];
+        };
+    };
+    deleteAdminMember: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                member: components["parameters"]["MemberId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Removed */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+        };
+    };
+    patchAdminMember: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                member: components["parameters"]["MemberId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MemberChange"];
+            };
+        };
+        responses: {
+            /** @description Saved */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+        };
+    };
+    putAdminMemberBan: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                member: components["parameters"]["MemberId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MemberBan"];
+            };
+        };
+        responses: {
+            /** @description Banned */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    deleteAdminMemberBan: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                member: components["parameters"]["MemberId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Unbanned */
             204: {
                 headers: {
                     [name: string]: unknown;

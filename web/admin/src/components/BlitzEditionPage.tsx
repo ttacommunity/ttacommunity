@@ -2,11 +2,12 @@
 import { useEffect, useState, type FormEvent } from 'react';
 import { formatLabel, offsetLabel, resultSummary, zoneOptions } from '@ttac/shared/blitz';
 import { formatInstant } from '@ttac/shared/time';
-import { adminRequest, firstError, type AdminBlitzEdition, type AdminMe, type BlitzEntrantIds, type Load } from '../lib/admin-api';
+import { adminRequest, firstError, type AdminBlitzEdition, type AdminMe, type AdminMember, type BlitzEntrantIds, type Load } from '../lib/admin-api';
 import * as req from '../lib/admin-requests';
 import { tabsFor } from '../lib/admin-tabs';
 import { editionParams, playersView, type AdminBlitzEntrant } from '../lib/blitz-page';
 import { emptyGameForm, gameRecordFrom, type BlitzStanding, type GameForm } from '../lib/blitz-results';
+import { isCountryCode, membersToEnter } from '../lib/members';
 import { canPair, editableRound, newestFirst, undecided, unpaired, withBye, withPair, withoutMatch, zoneGapLabel, type AdminBlitzMatch, type AdminBlitzRound } from '../lib/blitz-rounds';
 import AdminHeader from './AdminHeader';
 import PageError from './PageError';
@@ -316,7 +317,7 @@ function RoundsCard({ at, ed, onReload, say }: Props) {
 
 /** EntrantsCard lists every entrant with what admin knows of them, and edits, drops, reinstates or removes one. */
 function EntrantsCard({ at, ed, onReload, say }: Props) {
-  const [editing, setEditing] = useState<{ id: number; discord_name: string; zone: string } | null>(null);
+  const [editing, setEditing] = useState<{ id: number; discord_name: string; email: string; country: string; zone: string } | null>(null);
   const [known] = useState(knownZones);
   const change = async (e: AdminBlitzEntrant, status: AdminBlitzEntrant['status']) => {
     const r = await req.send(req.setBlitzEntrant(at.slug, at.edition, e.id, { status }));
@@ -326,7 +327,13 @@ function EntrantsCard({ at, ed, onReload, say }: Props) {
   const save = async (e: FormEvent) => {
     e.preventDefault();
     if (editing === null) return;
-    const r = await req.send(req.setBlitzEntrant(at.slug, at.edition, editing.id, { discord_name: editing.discord_name, zone: editing.zone }));
+    if (!isCountryCode(editing.country)) {
+      say('A country is a two-letter code, such as DE.');
+      return;
+    }
+    const r = await req.send(
+      req.setBlitzEntrant(at.slug, at.edition, editing.id, { discord_name: editing.discord_name, email: editing.email, country: editing.country.trim(), zone: editing.zone }),
+    );
     say(r.ok ? 'Saved.' : r.message);
     if (r.ok) setEditing(null);
     await onReload();
@@ -356,6 +363,8 @@ function EntrantsCard({ at, ed, onReload, say }: Props) {
               <tr>
                 <th scope="col">Username</th>
                 <th scope="col">Discord</th>
+                <th scope="col">Email</th>
+                <th scope="col">Country</th>
                 <th scope="col">Time zone</th>
                 <th scope="col">Rating</th>
                 <th scope="col">Status</th>
@@ -377,6 +386,12 @@ function EntrantsCard({ at, ed, onReload, say }: Props) {
                         maxLength={100}
                         onChange={(ev) => setEditing({ ...editing, discord_name: ev.target.value })}
                       />
+                    </td>
+                    <td>
+                      <input className="input-antique" aria-label={`Email of ${e.name}`} type="email" value={editing.email} maxLength={254} onChange={(ev) => setEditing({ ...editing, email: ev.target.value })} />
+                    </td>
+                    <td>
+                      <input className="input-antique" aria-label={`Country of ${e.name}`} value={editing.country} maxLength={2} onChange={(ev) => setEditing({ ...editing, country: ev.target.value })} />
                     </td>
                     <td>
                       <select
@@ -410,13 +425,15 @@ function EntrantsCard({ at, ed, onReload, say }: Props) {
                       {e.player === '' && <span className="row-detail muted">not in the ratings</span>}
                     </th>
                     <td>{e.discord_name}</td>
+                    <td>{e.email}</td>
+                    <td>{e.country ?? ''}</td>
                     <td>
                       {e.zone} <span className="muted">{offsetLabel(e.utc_offset)}</span>
                     </td>
                     <td>{e.rating === null ? '–' : Math.round(e.rating)}</td>
                     <td>{e.status}</td>
                     <td className="run-buttons">
-                      <button type="button" className="btn-antique" onClick={() => setEditing({ id: e.id, discord_name: e.discord_name, zone: e.zone })}>
+                      <button type="button" className="btn-antique" onClick={() => setEditing({ id: e.id, discord_name: e.discord_name, email: e.email, country: e.country ?? '', zone: e.zone })}>
                         Edit
                       </button>
                       {e.status === 'pending' && (
@@ -442,26 +459,78 @@ function EntrantsCard({ at, ed, onReload, say }: Props) {
   );
 }
 
-/** AddEntrantCard adds one entrant: the TTA username (kept in the ratings' spelling when known), Discord name and zone. */
-function AddEntrantCard({ at, onReload, say }: Props) {
-  const [one, setOne] = useState({ name: '', discord_name: '', zone: 'UTC', status: 'active' as 'active' | 'pending' });
+/** AddEntrantCard enters a member: one picked from the members list, or a new one by TTA username with their Discord name, email, country and zone. */
+function AddEntrantCard({ at, ed, onReload, say }: Props) {
+  const [members, setMembers] = useState<AdminMember[]>([]);
+  const [pick, setPick] = useState('');
+  const [one, setOne] = useState({ name: '', discord_name: '', email: '', country: '', zone: 'UTC' });
+  const [pending, setPending] = useState(false);
   const [known] = useState(knownZones);
+  const loadMembers = async () => {
+    const r = await adminRequest<AdminMember[]>('/api/members', {});
+    if (r.ok) setMembers(r.data);
+  };
+  useEffect(() => {
+    void loadMembers();
+  }, [ed]);
+  const status = pending ? ('pending' as const) : ('active' as const);
+  const enter = async (e: FormEvent) => {
+    e.preventDefault();
+    const member = Number(pick);
+    if (!member) return;
+    const r = await req.send<BlitzEntrantIds>(req.addBlitzEntrants(at.slug, at.edition, [{ member, status }]));
+    say(r.ok ? `Entered ${members.find((m) => m.id === member)?.name ?? 'the member'}.` : r.message);
+    if (r.ok) setPick('');
+    await onReload();
+  };
   const add = async (e: FormEvent) => {
     e.preventDefault();
-    const r = await req.send<BlitzEntrantIds>(req.addBlitzEntrants(at.slug, at.edition, [one]));
+    if (!isCountryCode(one.country)) {
+      say('A country is a two-letter code, such as DE.');
+      return;
+    }
+    const r = await req.send<BlitzEntrantIds>(req.addBlitzEntrants(at.slug, at.edition, [{ ...one, country: one.country.trim(), status }]));
     if (r.ok) {
-      say(`Added ${one.name}.`);
-      setOne({ ...one, name: '', discord_name: '' });
+      say(`Added ${one.name.trim()}.`);
+      setOne({ ...one, name: '', discord_name: '', email: '', country: '' });
       await onReload();
+      await loadMembers();
     } else say(r.message);
   };
+  const choices = membersToEnter(members, ed.entrants);
   return (
     <section className="rating-card admin-card" aria-labelledby="add-heading">
       <h2 id="add-heading" className="rating-card-heading">
         Add an entrant
       </h2>
-      <p className="muted">The username as on CGE, their Discord name, and the time zone they play in (the sheet&apos;s EU, US and Asia are regions: pick the zone).</p>
+      <p className="muted">
+        Enter a member of the community, or add a new one: the username as on CGE, their Discord name or email, their
+        country, and the time zone they play in (the sheet&apos;s EU, US and Asia are regions: pick the zone).
+      </p>
+      <label className="setting-inline">
+        <input type="checkbox" checked={pending} onChange={(e) => setPending(e.target.checked)} />
+        Not confirmed yet
+      </label>
+      <form className="admin-add" onSubmit={(e) => void enter(e)}>
+        <h3>A member</h3>
+        <label>
+          Member
+          <select className="input-antique" value={pick} onChange={(e) => setPick(e.target.value)}>
+            <option value="">choose</option>
+            {choices.map((m) => (
+              <option key={m.id} value={m.id}>
+                {m.name}
+              </option>
+            ))}
+          </select>
+        </label>
+        <button type="submit" className="btn-antique" disabled={pick === ''}>
+          Enter
+        </button>
+        {choices.length === 0 && <span className="muted">Every member is in already.</span>}
+      </form>
       <form className="admin-add" onSubmit={(e) => void add(e)}>
+        <h3>A new member</h3>
         <label>
           Username
           <input className="input-antique" value={one.name} maxLength={100} required onChange={(e) => setOne({ ...one, name: e.target.value })} />
@@ -469,6 +538,14 @@ function AddEntrantCard({ at, onReload, say }: Props) {
         <label>
           Discord name
           <input className="input-antique" value={one.discord_name} maxLength={100} onChange={(e) => setOne({ ...one, discord_name: e.target.value })} />
+        </label>
+        <label>
+          Email
+          <input className="input-antique" type="email" value={one.email} maxLength={254} onChange={(e) => setOne({ ...one, email: e.target.value })} />
+        </label>
+        <label>
+          Country
+          <input className="input-antique" value={one.country} maxLength={2} placeholder="DE" onChange={(e) => setOne({ ...one, country: e.target.value })} />
         </label>
         <label>
           Time zone
@@ -479,10 +556,6 @@ function AddEntrantCard({ at, onReload, say }: Props) {
               </option>
             ))}
           </select>
-        </label>
-        <label className="setting-inline">
-          <input type="checkbox" checked={one.status === 'pending'} onChange={(e) => setOne({ ...one, status: e.target.checked ? 'pending' : 'active' })} />
-          Not confirmed yet
         </label>
         <button type="submit" className="btn-antique" disabled={one.name.trim() === ''}>
           Add
@@ -735,7 +808,7 @@ function PlayersViewCard({ entrants }: { entrants: AdminBlitzEntrant[] }) {
       <h2 id="players-view-heading" className="rating-card-heading">
         What players see
       </h2>
-      <p className="muted">The site shows the entrants still in: username, time zone and rating. Never a Discord name.</p>
+      <p className="muted">The site shows the entrants still in: username, country, time zone and rating. Never a Discord name or an email.</p>
       {shown.length === 0 && <p className="muted">Nobody yet.</p>}
       {shown.length > 0 && (
         <div className="table-responsive">
@@ -744,6 +817,7 @@ function PlayersViewCard({ entrants }: { entrants: AdminBlitzEntrant[] }) {
             <thead>
               <tr>
                 <th scope="col">Username</th>
+                <th scope="col">Country</th>
                 <th scope="col">Time zone</th>
                 <th scope="col">Rating</th>
               </tr>
@@ -752,6 +826,7 @@ function PlayersViewCard({ entrants }: { entrants: AdminBlitzEntrant[] }) {
               {shown.map((e) => (
                 <tr key={e.name}>
                   <th scope="row">{e.name}</th>
+                  <td>{e.country ?? ''}</td>
                   <td>
                     {offsetLabel(e.utc_offset)} <span className="muted">{e.zone}</span>
                   </td>

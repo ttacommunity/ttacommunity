@@ -30,8 +30,8 @@ func (f *fakeRatings) BlitzEdition(ctx context.Context, slug, edition string) (s
 	game := int64(500)
 	played := time.Date(2026, 10, 14, 0, 0, 0, 0, time.UTC)
 	return store.BlitzEdition{BlitzEditionRow: rows[0], Entrants: []store.BlitzEntrant{
-		{ID: 7, Name: "Ann", Player: "Ann", Zone: "Europe/Berlin", Status: "active"},
-		{ID: 8, Name: "bob", Zone: "America/New_York", Status: "active"},
+		{ID: 7, MemberID: 1007, Name: "Ann", Player: "Ann", Zone: "Europe/Berlin", Country: "DE", Status: "active"},
+		{ID: 8, MemberID: 1008, Name: "bob", Zone: "America/New_York", Status: "active"},
 	}, Rounds: []store.BlitzRound{
 		{ID: 101, Number: 1, Kind: "swiss", PublishedAt: &at, Matches: []store.BlitzMatch{{ID: 1, A: 7, B: &bob, Result: "b", GameID: &game, DecidedAt: &at,
 			Game:   &store.BlitzGame{ShareCode: "ABCD1234", A: store.BlitzSide{Culture: 200, Outcome: "finished"}, B: store.BlitzSide{Culture: 210, Outcome: "finished"}, Played: played},
@@ -60,9 +60,10 @@ func TestTheSiteListsBlitzEditionsAndTheirEntrants(t *testing.T) {
 		t.Fatalf("GET /v1/blitz/us_open/2026 = %d %s", rec.Code, rec.Body)
 	}
 	ann := 1700.0
+	de := "DE"
 	want := []BlitzEntrant{
-		{Name: "Ann", Zone: "Europe/Berlin", UtcOffset: "+02:00", Rating: &ann},
-		{Name: "bob", Zone: "America/New_York", UtcOffset: "-04:00", Rating: nil},
+		{Name: "Ann", Country: &de, Zone: "Europe/Berlin", UtcOffset: "+02:00", Rating: &ann},
+		{Name: "bob", Country: nil, Zone: "America/New_York", UtcOffset: "-04:00", Rating: nil},
 	}
 	if diff := cmp.Diff(want, ed.Entrants); diff != "" {
 		t.Errorf("entrants (-want +got):\n%s", diff)
@@ -84,8 +85,8 @@ func TestTheSiteListsBlitzEditionsAndTheirEntrants(t *testing.T) {
 		t.Errorf("the site's edition carries the ruling's reason: %s", rec.Body)
 	}
 	wantStandings := []BlitzStanding{
-		{Rank: 1, Name: "bob", Points: 1, Games: 1, Byes: 0, OpponentsPoints: 1, Status: "active"},
-		{Rank: 2, Name: "Ann", Points: 1, Games: 1, Byes: 1, OpponentsPoints: 1, Status: "active"},
+		{Rank: 1, Name: "bob", Country: nil, Points: 1, Games: 1, Byes: 0, OpponentsPoints: 1, Status: "active"},
+		{Rank: 2, Name: "Ann", Country: &de, Points: 1, Games: 1, Byes: 1, OpponentsPoints: 1, Status: "active"},
 	}
 	if diff := cmp.Diff(wantStandings, ed.Standings); diff != "" {
 		t.Errorf("standings (-want +got):\n%s", diff)

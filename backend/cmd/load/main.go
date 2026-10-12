@@ -424,6 +424,16 @@ func run(reset bool, dir string) error {
 		return fmt.Errorf("placing the loaded games: %w", err)
 	}
 	reportClassified(os.Stdout, placed)
+	return linkMembers(ctx, pool)
+}
+
+// linkMembers attaches the community's members to the accounts and players a load brought, and says how many.
+func linkMembers(ctx context.Context, pool *pgxpool.Pool) error {
+	linked, err := store.LinkMembers(ctx, pool)
+	if err != nil {
+		return fmt.Errorf("linking members: %w", err)
+	}
+	fmt.Fprintf(os.Stdout, "members linked: %d to a CGE account, %d to a player, %d renamed to their account's name\n", linked.Accounts, linked.Players, linked.Renamed)
 	return nil
 }
 

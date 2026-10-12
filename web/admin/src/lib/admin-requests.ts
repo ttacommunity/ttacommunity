@@ -85,6 +85,17 @@ export const recordBlitzGame = (slug: string, edition: string, round: number, ma
 export const recordBlitzRuling = (slug: string, edition: string, round: number, match: number, ruling: Schemas['BlitzRuling']) =>
   to(`${blitz(slug, edition)}/rounds/${round}/matches/${match}/ruling`, 'PUT', ruling);
 
+/** addMember adds a member of the community. */
+export const addMember = (member: Schemas['NewMember']) => to('/api/members', 'POST', member);
+/** setMember changes a member's details. */
+export const setMember = (id: number, change: Schemas['MemberChange']) => to(`/api/members/${id}`, 'PATCH', change);
+/** removeMember removes a member added by mistake. */
+export const removeMember = (id: number) => to(`/api/members/${id}`, 'DELETE');
+/** banMember bans a member from taking part, with a reason. */
+export const banMember = (id: number, reason: string) => to(`/api/members/${id}/ban`, 'PUT', { reason });
+/** unbanMember lifts a member's ban. */
+export const unbanMember = (id: number) => to(`/api/members/${id}/ban`, 'DELETE');
+
 /** setAdmin adds or changes an admin. */
 export const setAdmin = (id: string, name: string, role: string) => to(`/api/admins/${id}`, 'PUT', { name, role });
 /** removeAdmin removes an admin. */

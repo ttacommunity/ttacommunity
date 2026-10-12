@@ -213,10 +213,33 @@ still cannot delete games, players or runs, and the api refuses to start
 if it could.
 
 The site's `/blitz` shows the editions, each one's standings, the published
-pairings with their results, and who is in. **A Discord name never leaves
-admin**: the public role has no `SELECT` on that column, so no public route
-can read it, and the export leaves the blitz tables out. A ruling's reason
-stays in admin too. The knockout comes next.
+pairings with their results, and who is in, each with their country's
+flag. A ruling's reason stays in admin. The knockout comes next.
+
+### Members
+
+Everyone who takes part in anything the community runs is a **member**
+(`members`), apart from the ratings' `players`, which the engine's data
+alone defines. A member is keyed by their TTA username exactly as in the
+app, unique without case; the CGE account (`cge_user`) and ratings player
+(`player_id`) are attached as they become known. Adding a member whose
+name a CGE account or the ratings know takes their spelling and their ids;
+after every data load the load job matches members to the accounts and
+players it brought by name, and renames a member with an account to that
+account's current name, so a CGE rename follows through. Admin may enter a
+CGE id by hand. The ratings never make or change a player from a member.
+
+A member also carries a Discord name, an email (so organisers can reach
+players who have no Discord), a country for the flag, a time zone, and a
+**community ban** with its reason, which stops them being entered in an
+edition and leaves their games and ratings alone. Admins and organisers
+add and edit members; bans and removals are admins' only, and a member in
+an edition cannot be removed. Blitz entrants are members: an entry holds
+only the edition, the status and a `member_id`.
+
+**Personal data never leaves admin**: the public role has no `SELECT` on a
+member's Discord id or name, email or ban, so no public route can read
+them, and the export leaves `members` and the blitz tables out.
 
 ### Tournaments: data, not code
 

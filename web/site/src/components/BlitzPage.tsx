@@ -4,6 +4,7 @@ import { RatingsApiError, blitzEdition, blitzEditions, type BlitzEdition, type B
 import { formatLabel, resultSummary, zoneLabel } from '@ttac/shared/blitz';
 import { editionHref, editionParams, ratingText, roundsNewestFirst } from '../lib/blitz';
 import { catalogueHref } from '../lib/catalogue-view';
+import { Flag } from './PlayerMarks';
 import Waiting from './Waiting';
 import './Blitz.css';
 
@@ -159,6 +160,9 @@ function EditionPage({ apiUrl, slug, edition }: { apiUrl: string; slug: string; 
                   <tr key={s.name} className={s.status === 'dropped' ? 'blitz-dropped' : ''}>
                     <td className="num">{s.rank}</td>
                     <th scope="row">
+                      <span className="blitz-flag">
+                        <Flag country={s.country} />
+                      </span>
                       {s.name}
                       {s.status === 'dropped' && <span className="blitz-note">dropped</span>}
                     </th>
@@ -247,7 +251,12 @@ function EditionPage({ apiUrl, slug, edition }: { apiUrl: string; slug: string; 
               <tbody>
                 {ed.entrants.map((e) => (
                   <tr key={e.name}>
-                    <th scope="row">{e.name}</th>
+                    <th scope="row">
+                      <span className="blitz-flag">
+                        <Flag country={e.country} />
+                      </span>
+                      {e.name}
+                    </th>
                     <td>{zoneLabel(e.zone, e.utc_offset)}</td>
                     <td className="num">{ratingText(e.rating)}</td>
                   </tr>

@@ -10,6 +10,7 @@ import (
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
+	"github.com/google/go-cmp/cmp/cmpopts"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -107,8 +108,13 @@ func TestBlitzEntrantsAreAddedChangedAndRemoved(t *testing.T) {
 		{ID: ids[1], Name: "Bob", Player: "Bob", DiscordName: "", Zone: "America/New_York", Status: "active"},
 		{ID: ids[2], Name: "Cy", Player: "", DiscordName: "", Zone: "UTC", Status: "pending"},
 	}
-	if diff := cmp.Diff(want, ed.Entrants); diff != "" {
+	if diff := cmp.Diff(want, ed.Entrants, cmpopts.IgnoreFields(BlitzEntrant{}, "MemberID")); diff != "" {
 		t.Errorf("admin's entrants (-want +got):\n%s", diff)
+	}
+	for _, e := range ed.Entrants {
+		if e.MemberID == 0 {
+			t.Errorf("entrant %s has no member", e.Name)
+		}
 	}
 	if ed.BlitzEditionRow.Entrants != 2 || ed.Pending != 1 || ed.Dropped != 0 {
 		t.Errorf("counts = in %d pending %d out %d, want 2, 1 and 0", ed.BlitzEditionRow.Entrants, ed.Pending, ed.Dropped)
@@ -130,7 +136,7 @@ func TestBlitzEntrantsAreAddedChangedAndRemoved(t *testing.T) {
 		t.Fatalf("the site's BlitzEdition: %v", err)
 	}
 	wantPublic := []BlitzEntrant{{ID: ids[0], Name: "Ann", Zone: "Europe/London", Status: "active"}, {ID: ids[1], Name: "Bob", Player: "Bob", Zone: "America/New_York", Status: "dropped"}}
-	if diff := cmp.Diff(wantPublic, public.Entrants); diff != "" {
+	if diff := cmp.Diff(wantPublic, public.Entrants, cmpopts.IgnoreFields(BlitzEntrant{}, "MemberID")); diff != "" {
 		t.Errorf("the site's entrants, dropped included and pending left out (-want +got):\n%s", diff)
 	}
 	if public.BlitzEditionRow.Entrants != 1 || public.Dropped != 1 {
@@ -156,11 +162,12 @@ func TestBlitzEntrantsAreRefusedWhenTheyShouldBe(t *testing.T) {
 		{"an unknown edition", "us_open", "2027", nil, []BlitzEntrant{{Name: "Ann", Zone: "UTC"}}, ErrNoBlitzEdition, ""},
 		{"a series not marked blitz", "worlds", "2025", nil, []BlitzEntrant{{Name: "Ann", Zone: "UTC"}}, ErrNoBlitzEdition, ""},
 		{"no name", "us_open", "2026", nil, []BlitzEntrant{{Name: " ", Zone: "UTC"}}, ErrBadBlitzEntrant, ""},
-		{"a long name", "us_open", "2026", nil, []BlitzEntrant{{Name: strings.Repeat("x", 101), Zone: "UTC"}}, ErrBadBlitzEntrant, ""},
-		{"a long Discord name", "us_open", "2026", nil, []BlitzEntrant{{Name: "Ann", DiscordName: strings.Repeat("x", 101), Zone: "UTC"}}, ErrBadBlitzEntrant, ""},
-		{"no zone", "us_open", "2026", nil, []BlitzEntrant{{Name: "Ann"}}, ErrBadBlitzEntrant, ""},
+		{"a long name", "us_open", "2026", nil, []BlitzEntrant{{Name: strings.Repeat("x", 101), Zone: "UTC"}}, ErrBadMember, ""},
+		{"a long Discord name", "us_open", "2026", nil, []BlitzEntrant{{Name: "Ann", DiscordName: strings.Repeat("x", 101), Zone: "UTC"}}, ErrBadMember, ""},
+		{"no zone", "us_open", "2026", nil, []BlitzEntrant{{Name: "Ann"}}, ErrBadMember, ""},
+		{"an unknown member", "us_open", "2026", nil, []BlitzEntrant{{MemberID: 999}}, ErrNoMember, ""},
 		{"a status that is not one", "us_open", "2026", nil, []BlitzEntrant{{Name: "Ann", Zone: "UTC", Status: "gone"}}, ErrBadBlitzStatus, ""},
-		{"a name twice in the list", "us_open", "2026", nil, []BlitzEntrant{{Name: "Ann", Zone: "UTC"}, {Name: "ann", Zone: "UTC"}}, &BlitzEntrantExistsError{}, "ann"},
+		{"a name twice in the list", "us_open", "2026", nil, []BlitzEntrant{{Name: "Ann", Zone: "UTC"}, {Name: "ann", Zone: "UTC"}}, &BlitzEntrantExistsError{}, "Ann"},
 		{"a name already entered", "us_open", "2026", []BlitzEntrant{{Name: "Ann", Zone: "UTC"}}, []BlitzEntrant{{Name: "ANN", Zone: "UTC"}, {Name: "Cy", Zone: "UTC"}}, &BlitzEntrantExistsError{}, "Ann"},
 	}
 	for _, tt := range tests {
@@ -207,8 +214,9 @@ func TestBlitzEntrantChangesAreRefusedWhenTheyShouldBe(t *testing.T) {
 		want    error
 	}{
 		{"a status that is not active or dropped", "2026", ids[0], BlitzEntrantChange{Status: &gone}, ErrBadBlitzStatus},
-		{"an empty zone", "2026", ids[0], BlitzEntrantChange{Zone: &blank}, ErrBadBlitzEntrant},
-		{"a long Discord name", "2026", ids[0], BlitzEntrantChange{DiscordName: &long}, ErrBadBlitzEntrant},
+		{"an empty zone", "2026", ids[0], BlitzEntrantChange{Zone: &blank}, ErrBadMember},
+		{"a long Discord name", "2026", ids[0], BlitzEntrantChange{DiscordName: &long}, ErrBadMember},
+		{"a country that is not a code", "2026", ids[0], BlitzEntrantChange{Country: &long}, ErrBadMember},
 		{"an entrant of another edition", "2025", ids[0], BlitzEntrantChange{DiscordName: &blank}, ErrNoBlitzEntrant},
 		{"an unknown entrant", "2026", ids[0] + 100, BlitzEntrantChange{DiscordName: &blank}, ErrNoBlitzEntrant},
 		{"an unknown edition", "2027", ids[0], BlitzEntrantChange{DiscordName: &blank}, ErrNoBlitzEdition},
@@ -268,10 +276,10 @@ func TestThePublicRoleCannotReadADiscordName(t *testing.T) {
 	pool, _ := blitzFixture(t)
 	ctx := context.Background()
 	reader := asReader(t, pool)
-	if _, err := reader.Exec(ctx, "SELECT discord_name FROM blitz_entries"); err == nil || !strings.Contains(err.Error(), "permission denied") {
+	if _, err := reader.Exec(ctx, "SELECT discord_name FROM members"); err == nil || !strings.Contains(err.Error(), "permission denied") {
 		t.Errorf("ratings_read reading discord_name = %v, want permission denied", err)
 	}
-	if _, err := reader.Exec(ctx, "SELECT entry_id, tournament_id, name, zone, status, joined_at FROM blitz_entries"); err != nil {
-		t.Errorf("ratings_read reading the other columns: %v, want nil", err)
+	if _, err := reader.Exec(ctx, "SELECT entry_id, tournament_id, member_id, status, joined_at FROM blitz_entries"); err != nil {
+		t.Errorf("ratings_read reading an entry's columns: %v, want nil", err)
 	}
 }

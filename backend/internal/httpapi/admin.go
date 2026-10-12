@@ -81,6 +81,13 @@ type Admins interface {
 	// RecordBlitzGame records or corrects the game a match was played as; RecordBlitzRuling decides it by ruling.
 	RecordBlitzGame(ctx context.Context, slug, edition string, matchID int64, g store.BlitzGame) error
 	RecordBlitzRuling(ctx context.Context, slug, edition string, matchID int64, result, reason string) error
+	// The community's members: listed, added (returning the id), changed, banned and unbanned, removed.
+	Members(ctx context.Context) ([]store.Member, error)
+	AddMember(ctx context.Context, m store.Member) (int64, error)
+	SetMember(ctx context.Context, id int64, c store.MemberChange) error
+	BanMember(ctx context.Context, id int64, reason string) error
+	UnbanMember(ctx context.Context, id int64) error
+	RemoveMember(ctx context.Context, id int64) error
 }
 
 type adminKey struct{}

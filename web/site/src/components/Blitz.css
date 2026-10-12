@@ -68,6 +68,11 @@
 .blitz-dropped {
   color: var(--text-muted);
 }
+.blitz-flag {
+  display: inline-block;
+  margin-right: 0.4rem;
+  vertical-align: middle;
+}
 .blitz-note {
   display: block;
   color: var(--text-muted);

@@ -38,10 +38,10 @@ func playedGame(m store.BlitzMatch) *BlitzPlayedGame {
 
 // blitzStandings ranks an edition's entrants, pending ones aside, by its rounds' results and its tiebreak seed.
 func blitzStandings(ed store.BlitzEdition) []BlitzStanding {
-	names := map[int64]string{}
+	names, countries := map[int64]string{}, map[int64]string{}
 	var entrants []blitz.Entrant
 	for _, e := range ed.Entrants {
-		names[e.ID] = e.Name
+		names[e.ID], countries[e.ID] = e.Name, e.Country
 		if e.Status != "pending" {
 			entrants = append(entrants, blitz.Entrant{ID: e.ID, Dropped: e.Status == "dropped"})
 		}
@@ -62,8 +62,8 @@ func blitzStandings(ed store.BlitzEdition) []BlitzStanding {
 		if s.Dropped {
 			status = "dropped"
 		}
-		out = append(out, BlitzStanding{Rank: s.Rank, Name: names[s.ID], Points: s.Points, Games: s.Games, Byes: s.Byes,
-			OpponentsPoints: s.OpponentsPoints, Status: BlitzStandingStatus(status)})
+		out = append(out, BlitzStanding{Rank: s.Rank, Name: names[s.ID], Country: nullableText(countries[s.ID]), Points: s.Points, Games: s.Games,
+			Byes: s.Byes, OpponentsPoints: s.OpponentsPoints, Status: BlitzStandingStatus(status)})
 	}
 	return out
 }
@@ -103,7 +103,7 @@ func (s *server) GetBlitzEdition(ctx context.Context, req GetBlitzEditionRequest
 			continue
 		}
 		offset, _ := blitz.Offset(e.Zone, s.now())
-		entrant := BlitzEntrant{Name: e.Name, Zone: e.Zone, UtcOffset: offset}
+		entrant := BlitzEntrant{Name: e.Name, Country: nullableText(e.Country), Zone: e.Zone, UtcOffset: offset}
 		if r, ok := rated[e.Player]; ok {
 			entrant.Rating = &r.Rating
 		}

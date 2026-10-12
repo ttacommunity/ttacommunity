@@ -53,8 +53,8 @@ func (s *server) blitzRatings(ctx context.Context, entrants []store.BlitzEntrant
 func (s *server) adminBlitzEntrant(e store.BlitzEntrant, rated map[string]store.Rated) AdminBlitzEntrant {
 	// A stored zone was checked on the way in, so an error here is an unknown later zone: shown with no offset.
 	offset, _ := blitz.Offset(e.Zone, s.now())
-	out := AdminBlitzEntrant{Id: e.ID, Name: e.Name, Player: e.Player, DiscordName: e.DiscordName, Zone: e.Zone,
-		UtcOffset: offset, Status: AdminBlitzEntrantStatus(e.Status)}
+	out := AdminBlitzEntrant{Id: e.ID, Member: e.MemberID, Name: e.Name, Player: e.Player, DiscordName: e.DiscordName, Email: e.Email,
+		Country: nullableText(e.Country), Zone: e.Zone, UtcOffset: offset, Status: AdminBlitzEntrantStatus(e.Status)}
 	if r, ok := rated[e.Player]; ok {
 		out.Rating = &r.Rating
 	}
@@ -139,26 +139,43 @@ func (s *server) PostAdminBlitzEntrants(ctx context.Context, req PostAdminBlitzE
 	}
 	entrants := make([]store.BlitzEntrant, len(req.Body.Entrants))
 	for i, e := range req.Body.Entrants {
-		if msg := zoneProblem(strings.TrimSpace(e.Zone)); msg != "" {
+		in := store.BlitzEntrant{}
+		if e.Member != nil {
+			in.MemberID = *e.Member
+		}
+		if e.Name != nil {
+			in.Name = strings.TrimSpace(*e.Name)
+		}
+		if in.MemberID == 0 && in.Name == "" {
+			return PostAdminBlitzEntrants400JSONResponse{badRequest400(fmt.Sprintf("row %d: a member or a name", i+1))}, nil
+		}
+		zone, msg := memberZone(e.Zone)
+		if msg != "" {
 			return PostAdminBlitzEntrants400JSONResponse{badRequest400(fmt.Sprintf("row %d: %s", i+1, msg))}, nil
 		}
-		entrants[i] = store.BlitzEntrant{Name: e.Name, Zone: strings.TrimSpace(e.Zone)}
-		if e.DiscordName != nil {
-			entrants[i].DiscordName = *e.DiscordName
+		in.Zone = zone
+		for field, given := range map[*string]*string{&in.DiscordName: e.DiscordName, &in.Email: e.Email, &in.Country: e.Country} {
+			if given != nil {
+				*field = *given
+			}
 		}
 		if e.Status != nil {
-			entrants[i].Status = string(*e.Status)
+			in.Status = string(*e.Status)
 		}
+		entrants[i] = in
 	}
 	ids, err := s.admins.AddBlitzEntrants(ctx, req.Tournament, req.Edition, entrants)
 	var exists *store.BlitzEntrantExistsError
+	var member *store.MemberExistsError
 	switch {
-	case errors.As(err, &exists):
-		return PostAdminBlitzEntrants409JSONResponse{conflict409(exists.Error())}, nil
-	case errors.Is(err, store.ErrBadBlitzEntrant):
+	case errors.As(err, &exists), errors.As(err, &member), errors.Is(err, store.ErrMemberBanned):
+		return PostAdminBlitzEntrants409JSONResponse{conflict409(err.Error())}, nil
+	case errors.Is(err, store.ErrBadBlitzEntrant), errors.Is(err, store.ErrBadMember), errors.Is(err, store.ErrBadBlitzStatus):
 		return PostAdminBlitzEntrants400JSONResponse{badRequest400(err.Error())}, nil
 	case errors.Is(err, store.ErrNoBlitzEdition):
 		return PostAdminBlitzEntrants404JSONResponse{notFound404("no such blitz edition")}, nil
+	case errors.Is(err, store.ErrNoMember):
+		return PostAdminBlitzEntrants404JSONResponse{notFound404("no such member")}, nil
 	case err != nil:
 		return nil, err
 	}
@@ -173,23 +190,24 @@ func (s *server) PatchAdminBlitzEntrant(ctx context.Context, req PatchAdminBlitz
 	if !tournamentSlug.MatchString(req.Tournament) {
 		return PatchAdminBlitzEntrant400JSONResponse{badRequest400("bad parameter: tournament")}, nil
 	}
-	if req.Body == nil || (req.Body.DiscordName == nil && req.Body.Zone == nil && req.Body.Status == nil) {
+	b := req.Body
+	if b == nil || (b.DiscordName == nil && b.Email == nil && b.Country == nil && b.Zone == nil && b.Status == nil) {
 		return PatchAdminBlitzEntrant400JSONResponse{badRequest400("nothing to change")}, nil
 	}
-	c := store.BlitzEntrantChange{DiscordName: req.Body.DiscordName}
-	if req.Body.Zone != nil {
-		zone := strings.TrimSpace(*req.Body.Zone)
-		if msg := zoneProblem(zone); msg != "" {
+	c := store.BlitzEntrantChange{DiscordName: b.DiscordName, Email: b.Email, Country: b.Country}
+	if b.Zone != nil {
+		zone, msg := memberZone(b.Zone)
+		if msg != "" {
 			return PatchAdminBlitzEntrant400JSONResponse{badRequest400(msg)}, nil
 		}
 		c.Zone = &zone
 	}
-	if req.Body.Status != nil {
-		status := string(*req.Body.Status)
+	if b.Status != nil {
+		status := string(*b.Status)
 		c.Status = &status
 	}
 	switch err := s.admins.SetBlitzEntrant(ctx, req.Tournament, req.Edition, req.Entrant, c); {
-	case errors.Is(err, store.ErrBadBlitzEntrant), errors.Is(err, store.ErrBadBlitzStatus):
+	case errors.Is(err, store.ErrBadBlitzEntrant), errors.Is(err, store.ErrBadBlitzStatus), errors.Is(err, store.ErrBadMember):
 		return PatchAdminBlitzEntrant400JSONResponse{badRequest400(err.Error())}, nil
 	case errors.Is(err, store.ErrNoBlitzEdition):
 		return PatchAdminBlitzEntrant404JSONResponse{notFound404("no such blitz edition")}, nil

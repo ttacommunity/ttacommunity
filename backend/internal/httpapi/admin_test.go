@@ -36,6 +36,8 @@ type fakeAdmins struct {
 	entrants []store.BlitzEntrant
 	format   store.BlitzFormat
 	rounds   []store.BlitzRound
+	// members are the community's (admin_members_test.go).
+	members []store.Member
 }
 
 // fakeRuns are runs 4 (complete, published third, after a roll back), 5 (complete, published first),

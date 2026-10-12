@@ -1216,6 +1216,151 @@ paths:
           $ref: "#/components/responses/Forbidden"
         "404":
           $ref: "#/components/responses/NotFound"
+  /v1/admin/members:
+    get:
+      operationId: getAdminMembers
+      tags: [admin]
+      summary: The community's members, by name (admins and organisers)
+      description: |
+        Everyone who takes part in anything we run, keyed by their TTA
+        username, with the CGE account and ratings player attached as they
+        become known, how to reach them, their country and zone, and any
+        community ban.
+      responses:
+        "200":
+          description: The members, by name without case
+          headers:
+            Cache-Control:
+              $ref: "#/components/headers/CacheControl"
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/AdminMember"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+    post:
+      operationId: postAdminMember
+      tags: [admin]
+      summary: Add a member (admins and organisers)
+      description: |
+        Audited. The Origin must be the admin site. A username a CGE account
+        or the ratings know takes their spelling and their ids. A person
+        already a member, by username in any case or by that account, is
+        refused and named.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/NewMember"
+      responses:
+        "201":
+          description: Added
+          headers:
+            Cache-Control:
+              $ref: "#/components/headers/CacheControl"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MemberAdded"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "409":
+          $ref: "#/components/responses/Conflict"
+  /v1/admin/members/{member}:
+    patch:
+      operationId: patchAdminMember
+      tags: [admin]
+      summary: Change a member's details (admins and organisers)
+      description: Audited. The Origin must be the admin site. A field left out stays as it is.
+      parameters:
+        - $ref: "#/components/parameters/MemberId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/MemberChange"
+      responses:
+        "204":
+          description: Saved
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+    delete:
+      operationId: deleteAdminMember
+      tags: [admin]
+      summary: Remove a member added by mistake (admins only)
+      description: Audited. The Origin must be the admin site. A member in an edition cannot be removed.
+      parameters:
+        - $ref: "#/components/parameters/MemberId"
+      responses:
+        "204":
+          description: Removed
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+  /v1/admin/members/{member}/ban:
+    put:
+      operationId: putAdminMemberBan
+      tags: [admin]
+      summary: Ban a member from taking part, with a reason (admins only)
+      description: Audited. The Origin must be the admin site. A banned member cannot be entered in an edition; their games and ratings are untouched.
+      parameters:
+        - $ref: "#/components/parameters/MemberId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/MemberBan"
+      responses:
+        "204":
+          description: Banned
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    delete:
+      operationId: deleteAdminMemberBan
+      tags: [admin]
+      summary: Lift a member's ban (admins only)
+      description: Audited. The Origin must be the admin site.
+      parameters:
+        - $ref: "#/components/parameters/MemberId"
+      responses:
+        "204":
+          description: Unbanned
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
   /v1/admin/export:
     get:
       operationId: getAdminExport
@@ -2128,6 +2273,14 @@ components:
         minimum: 1
     BlitzMatchId:
       name: match
+      in: path
+      required: true
+      schema:
+        type: integer
+        format: int64
+        minimum: 1
+    MemberId:
+      name: member
       in: path
       required: true
       schema:
@@ -3098,11 +3251,15 @@ components:
     BlitzEntrant:
       description: An entrant as the site shows them
       type: object
-      required: [name, zone, utc_offset, rating]
+      required: [name, country, zone, utc_offset, rating]
       properties:
         name:
-          description: The TTA username as entered
+          description: The member's TTA username
           type: string
+        country:
+          description: A two-letter country code, null for none
+          type: string
+          nullable: true
         zone:
           description: The IANA time zone
           type: string
@@ -3217,12 +3374,16 @@ components:
     BlitzStanding:
       description: One row of the standings
       type: object
-      required: [rank, name, points, games, byes, opponents_points, status]
+      required: [rank, name, country, points, games, byes, opponents_points, status]
       properties:
         rank:
           type: integer
         name:
           type: string
+        country:
+          description: A two-letter country code, null for none
+          type: string
+          nullable: true
         points:
           description: A win 1, a draw a half, a bye 1
           type: number
@@ -3362,19 +3523,28 @@ components:
           type: integer
     AdminBlitzEntrant:
       type: object
-      required: [id, name, player, discord_name, zone, utc_offset, rating, status]
+      required: [id, member, name, player, discord_name, email, country, zone, utc_offset, rating, status]
       properties:
         id:
           type: integer
           format: int64
+        member:
+          description: The member entered
+          type: integer
+          format: int64
         name:
-          description: The TTA username as entered
+          description: The member's TTA username
           type: string
         player:
           description: The ratings' spelling of the name, empty for a player the ratings do not know
           type: string
         discord_name:
           type: string
+        email:
+          type: string
+        country:
+          type: string
+          nullable: true
         zone:
           type: string
         utc_offset:
@@ -3414,6 +3584,120 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/BlitzStanding"
+    AdminMember:
+      description: A member of the community as admin sees them
+      type: object
+      required: [id, name, player, cge_user, discord_name, email, country, zone, utc_offset, banned, ban_reason, banned_at, entries, created_at]
+      properties:
+        id:
+          type: integer
+          format: int64
+        name:
+          description: The TTA username as in the app
+          type: string
+        player:
+          description: The ratings' spelling of the name, empty for a player the ratings do not know
+          type: string
+        cge_user:
+          description: The CGE account's id, null until known
+          type: integer
+          nullable: true
+        discord_name:
+          type: string
+        email:
+          type: string
+        country:
+          description: A two-letter country code, null for none
+          type: string
+          nullable: true
+        zone:
+          description: The IANA time zone
+          type: string
+        utc_offset:
+          description: The zone's offset from UTC now, as +02:00
+          type: string
+        banned:
+          type: boolean
+        ban_reason:
+          type: string
+        banned_at:
+          type: string
+          format: date-time
+          nullable: true
+        entries:
+          description: How many editions the member is in
+          type: integer
+        created_at:
+          type: string
+          format: date-time
+    NewMember:
+      type: object
+      additionalProperties: false
+      required: [name]
+      properties:
+        name:
+          description: The TTA username as in the app
+          type: string
+          minLength: 1
+          maxLength: 100
+        discord_name:
+          type: string
+          maxLength: 100
+        email:
+          type: string
+          maxLength: 254
+        country:
+          description: A two-letter country code
+          type: string
+          maxLength: 2
+        zone:
+          description: An IANA time zone, such as Europe/Berlin; UTC until known
+          type: string
+          minLength: 1
+          maxLength: 64
+    MemberChange:
+      description: What to change; a field left out stays as it is
+      type: object
+      additionalProperties: false
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 100
+        discord_name:
+          type: string
+          maxLength: 100
+        email:
+          type: string
+          maxLength: 254
+        country:
+          description: A two-letter country code, or empty for none
+          type: string
+          maxLength: 2
+        zone:
+          type: string
+          minLength: 1
+          maxLength: 64
+        cge_user:
+          description: The CGE account's id, which the data must know; 0 unlinks it
+          type: integer
+          minimum: 0
+    MemberAdded:
+      type: object
+      required: [id]
+      properties:
+        id:
+          type: integer
+          format: int64
+    MemberBan:
+      type: object
+      additionalProperties: false
+      required: [reason]
+      properties:
+        reason:
+          type: string
+          minLength: 1
+          maxLength: 1000
     BlitzGameRecord:
       description: A played game, with the share code, each side as the match names them, and the day played
       type: object
@@ -3455,10 +3739,14 @@ components:
           minLength: 1
           maxLength: 1000
     NewBlitzEntrant:
+      description: A member to enter, by id, or by TTA username with the details a new member needs when the name is not a member yet
       type: object
       additionalProperties: false
-      required: [name, zone]
       properties:
+        member:
+          type: integer
+          format: int64
+          minimum: 1
         name:
           type: string
           minLength: 1
@@ -3466,8 +3754,15 @@ components:
         discord_name:
           type: string
           maxLength: 100
+        email:
+          type: string
+          maxLength: 254
+        country:
+          description: A two-letter country code
+          type: string
+          maxLength: 2
         zone:
-          description: An IANA time zone, such as Europe/Berlin
+          description: An IANA time zone, such as Europe/Berlin; UTC until known
           type: string
           minLength: 1
           maxLength: 64
@@ -3497,13 +3792,20 @@ components:
             type: integer
             format: int64
     BlitzEntrantChange:
-      description: What to change; a field left out stays as it is
+      description: What to change, the entrant's status or the member's details; a field left out stays as it is
       type: object
       additionalProperties: false
       properties:
         discord_name:
           type: string
           maxLength: 100
+        email:
+          type: string
+          maxLength: 254
+        country:
+          description: A two-letter country code, or empty for none
+          type: string
+          maxLength: 2
         zone:
           type: string
           minLength: 1

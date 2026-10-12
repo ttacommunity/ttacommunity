@@ -24,9 +24,12 @@ const match = (id: number, a: number, b: number | null, result: 'a' | 'b' | 'dra
 });
 const entrant = (id: number, status: 'active' | 'dropped' = 'active') => ({
   id,
+  member: 1000 + id,
   name: `p${id}`,
   player: '',
   discord_name: '',
+  email: '',
+  country: null,
   zone: 'UTC',
   utc_offset: '+00:00',
   rating: null,

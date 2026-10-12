@@ -19,7 +19,7 @@ export function editionHref(slug: string, edition: string): string {
   return `/blitz/?t=${encodeURIComponent(slug)}&e=${encodeURIComponent(edition)}`;
 }
 
-/** playersView is what players will see of the entrants: the active ones, without Discord names. */
-export function playersView(entrants: readonly AdminBlitzEntrant[]): Pick<AdminBlitzEntrant, 'name' | 'zone' | 'utc_offset' | 'rating'>[] {
-  return entrants.filter((e) => e.status === 'active').map(({ name, zone, utc_offset, rating }) => ({ name, zone, utc_offset, rating }));
+/** playersView is what players will see of the entrants: the active ones, without Discord names or emails. */
+export function playersView(entrants: readonly AdminBlitzEntrant[]): Pick<AdminBlitzEntrant, 'name' | 'country' | 'zone' | 'utc_offset' | 'rating'>[] {
+  return entrants.filter((e) => e.status === 'active').map(({ name, country, zone, utc_offset, rating }) => ({ name, country, zone, utc_offset, rating }));
 }

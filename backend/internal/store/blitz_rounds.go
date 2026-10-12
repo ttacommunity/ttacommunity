@@ -144,7 +144,7 @@ func blitzRoundID(ctx context.Context, tx pgx.Tx, edID, roundID int64) (publishe
 
 // blitzEntrantsOf reads an edition's entrants' names by id, and which are active.
 func blitzEntrantsOf(ctx context.Context, tx pgx.Tx, edID int64) (names map[int64]string, active map[int64]bool, err error) {
-	rows, err := tx.Query(ctx, "SELECT entry_id, name, status FROM blitz_entries WHERE tournament_id = $1 ORDER BY joined_at, entry_id", edID)
+	rows, err := tx.Query(ctx, "SELECT x.entry_id, m.tta_name, x.status FROM blitz_entries x JOIN members m USING (member_id) WHERE x.tournament_id = $1 ORDER BY x.joined_at, x.entry_id", edID)
 	if err != nil {
 		return nil, nil, fmt.Errorf("reading the entrants: %w", err)
 	}

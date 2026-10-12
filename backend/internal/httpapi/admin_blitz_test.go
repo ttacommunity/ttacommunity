@@ -71,6 +71,16 @@ func (f *fakeAdmins) AddBlitzEntrants(_ context.Context, slug, edition string, e
 	}
 	var ids, names = []int64{}, []string{}
 	for _, e := range entrants {
+		if e.MemberID > 0 {
+			m, err := f.findMember(e.MemberID)
+			if err != nil {
+				return nil, err
+			}
+			if m.Banned {
+				return nil, store.ErrMemberBanned
+			}
+			e.Name, e.Zone, e.Country = m.Name, m.Zone, m.Country
+		}
 		if strings.EqualFold(e.Name, "Ann") {
 			return nil, &store.BlitzEntrantExistsError{Names: []string{"Ann"}}
 		}
@@ -78,6 +88,9 @@ func (f *fakeAdmins) AddBlitzEntrants(_ context.Context, slug, edition string, e
 			return nil, store.ErrBadBlitzEntrant
 		}
 		e.ID = int64(len(f.blitzEntrants()) + 7)
+		if e.MemberID == 0 {
+			e.MemberID = 1000 + e.ID
+		}
 		if e.Status == "" {
 			e.Status = "active"
 		}
@@ -111,6 +124,14 @@ func (f *fakeAdmins) SetBlitzEntrant(_ context.Context, slug, edition string, id
 		if c.DiscordName != nil {
 			f.entrants[i].DiscordName = *c.DiscordName
 			changed = append(changed, "discord="+*c.DiscordName)
+		}
+		if c.Email != nil {
+			f.entrants[i].Email = *c.Email
+			changed = append(changed, "email="+*c.Email)
+		}
+		if c.Country != nil {
+			f.entrants[i].Country = strings.ToUpper(*c.Country)
+			changed = append(changed, "country="+*c.Country)
 		}
 		f.notes = append(f.notes, fmt.Sprintf("set entrant %d %s", id, strings.Join(changed, " ")))
 		return nil
@@ -159,9 +180,9 @@ func TestAnOrganiserFillsABlitzEdition(t *testing.T) {
 	}
 	ann := 1700.0
 	wantEntrants := []AdminBlitzEntrant{
-		{Id: 7, Name: "Ann", Player: "Ann", DiscordName: "ann#1", Zone: "Europe/Berlin", UtcOffset: "+02:00", Rating: &ann, Status: "active"},
-		{Id: 8, Name: "bob", Player: "", DiscordName: "bobby", Zone: "America/New_York", UtcOffset: "-04:00", Rating: nil, Status: "active"},
-		{Id: 9, Name: "cy", Player: "", DiscordName: "", Zone: "UTC", UtcOffset: "+00:00", Rating: nil, Status: "pending"},
+		{Id: 7, Member: 0, Name: "Ann", Player: "Ann", DiscordName: "ann#1", Zone: "Europe/Berlin", UtcOffset: "+02:00", Rating: &ann, Status: "active"},
+		{Id: 8, Member: 1008, Name: "bob", Player: "", DiscordName: "bobby", Zone: "America/New_York", UtcOffset: "-04:00", Rating: nil, Status: "active"},
+		{Id: 9, Member: 1009, Name: "cy", Player: "", DiscordName: "", Zone: "UTC", UtcOffset: "+00:00", Rating: nil, Status: "pending"},
 	}
 	if diff := cmp.Diff(wantEntrants, ed.Entrants); diff != "" {
 		t.Errorf("entrants (-want +got):\n%s", diff)

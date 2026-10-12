@@ -110,10 +110,11 @@ type blitzMatchRow struct {
 func blitzMatchOf(ctx context.Context, tx pgx.Tx, edID, matchID int64) (blitzMatchRow, error) {
 	var m blitzMatchRow
 	err := tx.QueryRow(ctx, `
-		SELECT r.number, m.entry_a, m.entry_b, a.name, coalesce(b.name, ''), m.game_id, s.name
+		SELECT r.number, m.entry_a, m.entry_b, ma.tta_name, coalesce(mb.tta_name, ''), m.game_id, s.name
 		FROM blitz_matches m JOIN blitz_rounds r USING (round_id)
 		JOIN tournaments t USING (tournament_id) JOIN series s USING (series_id)
-		JOIN blitz_entries a ON a.entry_id = m.entry_a LEFT JOIN blitz_entries b ON b.entry_id = m.entry_b
+		JOIN blitz_entries a ON a.entry_id = m.entry_a JOIN members ma ON ma.member_id = a.member_id
+		LEFT JOIN blitz_entries b ON b.entry_id = m.entry_b LEFT JOIN members mb ON mb.member_id = b.member_id
 		WHERE m.match_id = $1 AND r.tournament_id = $2`, matchID, edID).Scan(&m.Round, &m.A, &m.B, &m.NameA, &m.NameB, &m.GameID, &m.SeriesName)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return m, ErrNoBlitzMatch
@@ -127,8 +128,9 @@ func blitzMatchOf(ctx context.Context, tx pgx.Tx, edID, matchID int64) (blitzMat
 // blitzResultsIn returns ErrBlitzRoundUndecided, naming the players, when a match of the edition has no result.
 func blitzResultsIn(ctx context.Context, tx pgx.Tx, edID int64) error {
 	rows, err := tx.Query(ctx, `
-		SELECT a.name || ' v ' || b.name FROM blitz_matches m JOIN blitz_rounds r USING (round_id)
-		JOIN blitz_entries a ON a.entry_id = m.entry_a JOIN blitz_entries b ON b.entry_id = m.entry_b
+		SELECT ma.tta_name || ' v ' || mb.tta_name FROM blitz_matches m JOIN blitz_rounds r USING (round_id)
+		JOIN blitz_entries a ON a.entry_id = m.entry_a JOIN members ma ON ma.member_id = a.member_id
+		JOIN blitz_entries b ON b.entry_id = m.entry_b JOIN members mb ON mb.member_id = b.member_id
 		WHERE r.tournament_id = $1 AND m.result IS NULL ORDER BY r.number, m.match_id`, edID)
 	if err != nil {
 		return fmt.Errorf("checking for results: %w", err)
