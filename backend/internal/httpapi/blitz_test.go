@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/google/go-cmp/cmp"
 
@@ -23,9 +24,14 @@ func (f *fakeRatings) BlitzEdition(ctx context.Context, slug, edition string) (s
 		return store.BlitzEdition{}, store.ErrNoBlitzEdition
 	}
 	rows, _ := f.BlitzEditions(ctx)
+	bob := int64(8)
+	at := time.Date(2026, 10, 12, 12, 0, 0, 0, time.UTC)
 	return store.BlitzEdition{BlitzEditionRow: rows[0], Entrants: []store.BlitzEntrant{
 		{ID: 7, Name: "Ann", Player: "Ann", Zone: "Europe/Berlin", Status: "active"},
 		{ID: 8, Name: "bob", Zone: "America/New_York", Status: "active"},
+	}, Rounds: []store.BlitzRound{
+		{ID: 101, Number: 1, Kind: "swiss", PublishedAt: &at, Matches: []store.BlitzMatch{{ID: 1, A: 7, B: &bob}}},
+		{ID: 102, Number: 2, Kind: "swiss", PublishedAt: &at, Matches: []store.BlitzMatch{{ID: 2, A: 7}}},
 	}}, nil
 }
 
@@ -58,6 +64,14 @@ func TestTheSiteListsBlitzEditionsAndTheirEntrants(t *testing.T) {
 	}
 	if strings.Contains(strings.ToLower(rec.Body.String()), "discord") {
 		t.Errorf("the site's edition mentions Discord: %s", rec.Body)
+	}
+	bob := "bob"
+	wantRounds := []BlitzPublicMatch{{A: "Ann", ARating: &ann, B: &bob, BRating: nil}, {A: "Ann", ARating: &ann, B: nil, BRating: nil}}
+	if len(ed.Rounds) != 2 || ed.Rounds[0].Number != 1 || ed.Rounds[1].Number != 2 {
+		t.Fatalf("rounds = %+v, want rounds 1 and 2", ed.Rounds)
+	}
+	if diff := cmp.Diff(wantRounds, []BlitzPublicMatch{ed.Rounds[0].Matches[0], ed.Rounds[1].Matches[0]}); diff != "" {
+		t.Errorf("the rounds' matches (-want +got):\n%s", diff)
 	}
 
 	rec, _ = serve(t, &fakeRatings{runErr: store.ErrNoPublishedRun}, "/v1/blitz/us_open/2026")

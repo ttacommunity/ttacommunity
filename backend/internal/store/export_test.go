@@ -327,7 +327,7 @@ func TestExportHoldsNoPersonalDataOrLoadHistory(t *testing.T) {
 		t.Fatalf("Export: %v", err)
 	}
 	for name, body := range readDir(t, dir) {
-		for _, left := range []string{"admins.csv", "admin_audit.csv", "refused_rows.csv", "blitz_editions.csv", "blitz_entries.csv"} {
+		for _, left := range []string{"admins.csv", "admin_audit.csv", "refused_rows.csv", "blitz_editions.csv", "blitz_entries.csv", "blitz_rounds.csv", "blitz_matches.csv"} {
 			if name == left {
 				t.Errorf("the export holds %s", name)
 			}

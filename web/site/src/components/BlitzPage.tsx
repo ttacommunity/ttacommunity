@@ -2,7 +2,7 @@
 import { useEffect, useState } from 'react';
 import { RatingsApiError, blitzEdition, blitzEditions, type BlitzEdition, type BlitzEditions } from '@ttac/shared/ratings';
 import { formatLabel, zoneLabel } from '@ttac/shared/blitz';
-import { editionHref, editionParams, ratingText } from '../lib/blitz';
+import { editionHref, editionParams, ratingText, roundsNewestFirst } from '../lib/blitz';
 import Waiting from './Waiting';
 import './Blitz.css';
 
@@ -121,6 +121,46 @@ function EditionPage({ apiUrl, slug, edition }: { apiUrl: string; slug: string; 
         </h1>
         <div className="tournaments-subtitle">{formatLabel(ed.format)}. Pairings, results and standings appear here as the rounds are played.</div>
       </div>
+      {ed.rounds.length > 0 && (
+        <section className="rating-card blitz-card" aria-labelledby="blitz-rounds">
+          <h2 id="blitz-rounds" className="rating-card-heading">
+            Pairings
+          </h2>
+          <p className="blitz-intro">Who plays whom, the latest round first. Arrange your game with your opponent on Discord.</p>
+          {roundsNewestFirst(ed.rounds).map((r) => (
+            <div key={r.number} className="blitz-round">
+              <h3>Round {r.number}</h3>
+              <div className="blitz-table-wrap">
+                <table className="blitz-table">
+                  <caption>Round {r.number}&apos;s pairings</caption>
+                  <thead>
+                    <tr>
+                      <th scope="col">Player</th>
+                      <th scope="col" className="num">
+                        Rating
+                      </th>
+                      <th scope="col">Opponent</th>
+                      <th scope="col" className="num">
+                        Rating
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {r.matches.map((m) => (
+                      <tr key={`${m.a}-${m.b ?? 'bye'}`}>
+                        <th scope="row">{m.a}</th>
+                        <td className="num">{ratingText(m.a_rating)}</td>
+                        <td>{m.b === null ? <em>bye</em> : m.b}</td>
+                        <td className="num">{m.b === null ? '' : ratingText(m.b_rating)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          ))}
+        </section>
+      )}
       <section className="rating-card blitz-card" aria-labelledby="blitz-entrants">
         <a className="blitz-back" href="/blitz/">
           ← Every blitz tournament

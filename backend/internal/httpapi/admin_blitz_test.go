@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"slices"
 	"strings"
 	"testing"
 
@@ -29,9 +30,12 @@ func (f *fakeAdmins) blitzRow() store.BlitzEditionRow {
 		row.Format = f.format
 	}
 	for _, e := range f.blitzEntrants() {
-		if e.Status == "dropped" {
+		switch e.Status {
+		case "dropped":
 			row.Dropped++
-		} else {
+		case "pending":
+			row.Pending++
+		default:
 			row.Entrants++
 		}
 	}
@@ -46,7 +50,7 @@ func (f *fakeAdmins) BlitzEdition(_ context.Context, slug, edition string) (stor
 	if slug != "us_open" || edition != "2026" {
 		return store.BlitzEdition{}, store.ErrNoBlitzEdition
 	}
-	return store.BlitzEdition{BlitzEditionRow: f.blitzRow(), Entrants: f.blitzEntrants()}, nil
+	return store.BlitzEdition{BlitzEditionRow: f.blitzRow(), Entrants: f.blitzEntrants(), Rounds: slices.Clone(f.rounds)}, nil
 }
 
 func (f *fakeAdmins) SetBlitzFormat(_ context.Context, slug, edition string, format store.BlitzFormat) error {
@@ -74,7 +78,9 @@ func (f *fakeAdmins) AddBlitzEntrants(_ context.Context, slug, edition string, e
 			return nil, store.ErrBadBlitzEntrant
 		}
 		e.ID = int64(len(f.blitzEntrants()) + 7)
-		e.Status = "active"
+		if e.Status == "" {
+			e.Status = "active"
+		}
 		f.entrants = append(f.entrants, e)
 		ids, names = append(ids, e.ID), append(names, e.Name)
 	}
@@ -140,10 +146,10 @@ func TestAnOrganiserFillsABlitzEdition(t *testing.T) {
 		t.Fatalf("GET blitz = %d %s, want us_open 2026 with one entrant", rec.Code, rec.Body)
 	}
 
-	rec = do(http.MethodPost, "/v1/admin/blitz/us_open/2026/entrants", site, `{"entrants": [{"name": "bob", "discord_name": "bobby", "zone": " America/New_York "}]}`)
+	rec = do(http.MethodPost, "/v1/admin/blitz/us_open/2026/entrants", site, `{"entrants": [{"name": "bob", "discord_name": "bobby", "zone": " America/New_York "}, {"name": "cy", "zone": "UTC", "status": "pending"}]}`)
 	var ids BlitzEntrantIds
-	if err := json.Unmarshal(rec.Body.Bytes(), &ids); err != nil || rec.Code != http.StatusCreated || len(ids.Ids) != 1 || ids.Ids[0] != 8 {
-		t.Fatalf("POST entrants = %d %s, want 201 with id 8", rec.Code, rec.Body)
+	if err := json.Unmarshal(rec.Body.Bytes(), &ids); err != nil || rec.Code != http.StatusCreated || len(ids.Ids) != 2 || ids.Ids[0] != 8 {
+		t.Fatalf("POST entrants = %d %s, want 201 with ids 8 and 9", rec.Code, rec.Body)
 	}
 
 	rec = do(http.MethodGet, "/v1/admin/blitz/us_open/2026", "", "")
@@ -155,6 +161,7 @@ func TestAnOrganiserFillsABlitzEdition(t *testing.T) {
 	wantEntrants := []AdminBlitzEntrant{
 		{Id: 7, Name: "Ann", Player: "Ann", DiscordName: "ann#1", Zone: "Europe/Berlin", UtcOffset: "+02:00", Rating: &ann, Status: "active"},
 		{Id: 8, Name: "bob", Player: "", DiscordName: "bobby", Zone: "America/New_York", UtcOffset: "-04:00", Rating: nil, Status: "active"},
+		{Id: 9, Name: "cy", Player: "", DiscordName: "", Zone: "UTC", UtcOffset: "+00:00", Rating: nil, Status: "pending"},
 	}
 	if diff := cmp.Diff(wantEntrants, ed.Entrants); diff != "" {
 		t.Errorf("entrants (-want +got):\n%s", diff)
@@ -172,7 +179,7 @@ func TestAnOrganiserFillsABlitzEdition(t *testing.T) {
 			t.Errorf("%s %s = %d %s, want 204", step.method, step.path, rec.Code, rec.Body)
 		}
 	}
-	if want := "add entrants bob|set entrant 8 status=dropped|format 6/4|remove entrant 8"; strings.Join(f.notes, "|") != want {
+	if want := "add entrants bob,cy|set entrant 8 status=dropped|format 6/4|remove entrant 8"; strings.Join(f.notes, "|") != want {
 		t.Errorf("changes = %q, want %q", f.notes, want)
 	}
 	want := []string{"blitz.entrants.add us_open/2026", "blitz.entrant.set 8", "blitz.format us_open/2026", "blitz.entrant.remove 8"}

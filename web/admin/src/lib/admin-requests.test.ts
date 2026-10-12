@@ -29,6 +29,10 @@ describe('admin requests', () => {
     ['an entrant dropped', req.setBlitzEntrant('us_open', '2026', 7, { status: 'dropped' }), '/api/blitz/us_open/2026/entrants/7', 'PATCH', { status: 'dropped' }],
     ['removing an entrant', req.removeBlitzEntrant('us_open', '2026', 7), '/api/blitz/us_open/2026/entrants/7', 'DELETE', undefined],
     ['a blitz format', req.setBlitzFormat('us_open', '2026', { swiss_rounds: 6, knockout_size: 4 }), '/api/blitz/us_open/2026', 'PATCH', { swiss_rounds: 6, knockout_size: 4 }],
+    ['pairing a round', req.pairBlitzRound('us_open', '2026', { timezone: true, rating: false }), '/api/blitz/us_open/2026/rounds', 'POST', { timezone: true, rating: false }],
+    ["a round's matches by hand", req.setBlitzRoundMatches('us_open', '2026', 101, [{ a: 7, b: 8 }, { a: 9 }]), '/api/blitz/us_open/2026/rounds/101/matches', 'PUT', { matches: [{ a: 7, b: 8 }, { a: 9 }] }],
+    ['publishing a round', req.publishBlitzRound('us_open', '2026', 101), '/api/blitz/us_open/2026/rounds/101/publish', 'POST', undefined],
+    ['deleting a draft round', req.deleteBlitzRound('us_open', '2026', 101), '/api/blitz/us_open/2026/rounds/101', 'DELETE', undefined],
     // Admins, badges, titles
     ['an admin', req.setAdmin('100000000000000001', 'Ann', 'organiser'), '/api/admins/100000000000000001', 'PUT', { name: 'Ann', role: 'organiser' }],
     ['removing an admin', req.removeAdmin('100000000000000001'), '/api/admins/100000000000000001', 'DELETE', undefined],

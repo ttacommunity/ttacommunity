@@ -69,6 +69,15 @@ export const setBlitzEntrant = (slug: string, edition: string, id: number, chang
 export const removeBlitzEntrant = (slug: string, edition: string, id: number) => to(`${blitz(slug, edition)}/entrants/${id}`, 'DELETE');
 /** setBlitzFormat sets an edition's Swiss rounds and knockout size. */
 export const setBlitzFormat = (slug: string, edition: string, format: Schemas['BlitzFormat']) => to(blitz(slug, edition), 'PATCH', format);
+/** pairBlitzRound pairs the edition's next round as a draft, by the criteria given. */
+export const pairBlitzRound = (slug: string, edition: string, criteria: Schemas['NewBlitzRound']) => to(`${blitz(slug, edition)}/rounds`, 'POST', criteria);
+/** setBlitzRoundMatches replaces a round's matches, as paired by hand. */
+export const setBlitzRoundMatches = (slug: string, edition: string, round: number, matches: Schemas['BlitzRoundMatches']['matches']) =>
+  to(`${blitz(slug, edition)}/rounds/${round}/matches`, 'PUT', { matches });
+/** publishBlitzRound makes a round public. */
+export const publishBlitzRound = (slug: string, edition: string, round: number) => to(`${blitz(slug, edition)}/rounds/${round}/publish`, 'POST');
+/** deleteBlitzRound removes a draft round. */
+export const deleteBlitzRound = (slug: string, edition: string, round: number) => to(`${blitz(slug, edition)}/rounds/${round}`, 'DELETE');
 
 /** setAdmin adds or changes an admin. */
 export const setAdmin = (id: string, name: string, role: string) => to(`/api/admins/${id}`, 'PUT', { name, role });

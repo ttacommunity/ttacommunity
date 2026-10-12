@@ -1278,6 +1278,93 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/admin/blitz/{tournament}/{edition}/rounds": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Pair the edition's next round as a draft
+         * @description Audited. The Origin must be the admin site. Everyone active is
+         *     paired on equal points where possible, never with an opponent they
+         *     have met; within a score group the pairs are the best time-zone fit
+         *     (and the closest ratings, when asked), chance deciding the rest. With
+         *     an odd count the lowest-ranked player without a bye gets it. Refused
+         *     while a draft exists.
+         */
+        post: operations["postAdminBlitzRound"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/blitz/{tournament}/{edition}/rounds/{round}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Delete a draft round
+         * @description Audited. The Origin must be the admin site. A published round cannot be deleted.
+         */
+        delete: operations["deleteAdminBlitzRound"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/blitz/{tournament}/{edition}/rounds/{round}/matches": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Replace a round's matches, as paired by hand
+         * @description Audited. The Origin must be the admin site. A match names two active
+         *     entrants, or one for the bye; nobody twice; never a pair that has met.
+         *     A round may be left incomplete until it is published.
+         */
+        put: operations["putAdminBlitzRoundMatches"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/blitz/{tournament}/{edition}/rounds/{round}/publish": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Publish a round, once everyone active is in it exactly once
+         * @description Audited. The Origin must be the admin site. Publishing again changes nothing.
+         */
+        post: operations["postAdminBlitzRoundPublish"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/admin/blitz/{tournament}/{edition}/entrants/{entrant}": {
         parameters: {
             query?: never;
@@ -1746,13 +1833,81 @@ export interface components {
              */
             rating: number | null;
         };
-        /** @description A blitz edition for the site, with the entrants still in */
+        /** @description A blitz edition for the site, with the entrants still in and the published rounds */
         BlitzEdition: {
             tournament: string;
             name: string;
             edition: string;
             format: components["schemas"]["BlitzFormat"];
             entrants: components["schemas"]["BlitzEntrant"][];
+            /** @description The published rounds, first first */
+            rounds: components["schemas"]["BlitzRound"][];
+        };
+        /** @description A published round as the site shows it */
+        BlitzRound: {
+            number: number;
+            /** Format: date-time */
+            published_at: string;
+            matches: components["schemas"]["BlitzPublicMatch"][];
+        };
+        /** @description Who plays whom; b is null for the bye */
+        BlitzPublicMatch: {
+            a: string;
+            /** Format: double */
+            a_rating: number | null;
+            b: string | null;
+            /** Format: double */
+            b_rating: number | null;
+        };
+        /** @description The criteria to pair by; the time zone fit is on unless turned off */
+        NewBlitzRound: {
+            /** @default true */
+            timezone: boolean;
+            /** @default false */
+            rating: boolean;
+        };
+        /** @description A match by entrant ids; b is null for the bye. The gaps are as the entrants are now */
+        AdminBlitzMatch: {
+            /** Format: int64 */
+            id: number;
+            /** Format: int64 */
+            a: number;
+            /** Format: int64 */
+            b: number | null;
+            zone_gap_minutes: number;
+            /**
+             * Format: double
+             * @description Null when either is unrated, or for the bye
+             */
+            rating_gap: number | null;
+            /** @description Whether the two have met in another round */
+            repeat: boolean;
+        };
+        AdminBlitzRound: {
+            /** Format: int64 */
+            id: number;
+            number: number;
+            /** @enum {string} */
+            kind: "swiss" | "knockout";
+            timezone: boolean;
+            rating: boolean;
+            /**
+             * Format: date-time
+             * @description Null for a draft
+             */
+            published_at: string | null;
+            matches: components["schemas"]["AdminBlitzMatch"][];
+        };
+        BlitzRoundMatches: {
+            matches: {
+                /** Format: int64 */
+                a: number;
+                /**
+                 * Format: int64
+                 * @description Left out for the bye
+                 */
+                b?: number;
+            }[];
         };
         /** @description One edition of a blitz tournament as admin's list shows it */
         AdminBlitzEditionRow: {
@@ -1762,6 +1917,8 @@ export interface components {
             format: components["schemas"]["BlitzFormat"];
             /** @description How many entrants are still in */
             entrants: number;
+            /** @description How many are named but not yet confirmed */
+            pending: number;
             /** @description How many have dropped out */
             dropped: number;
         };
@@ -1777,8 +1934,11 @@ export interface components {
             utc_offset: string;
             /** Format: double */
             rating: number | null;
-            /** @enum {string} */
-            status: "active" | "dropped";
+            /**
+             * @description Pending is named but not confirmed, neither paired nor shown on the site
+             * @enum {string}
+             */
+            status: "pending" | "active" | "dropped";
         };
         AdminBlitzEdition: {
             tournament: string;
@@ -1787,12 +1947,19 @@ export interface components {
             format: components["schemas"]["BlitzFormat"];
             /** @description Every entrant, in sign-up order, dropped ones included */
             entrants: components["schemas"]["AdminBlitzEntrant"][];
+            /** @description Every round, first first, drafts included */
+            rounds: components["schemas"]["AdminBlitzRound"][];
         };
         NewBlitzEntrant: {
             name: string;
             discord_name?: string;
             /** @description An IANA time zone, such as Europe/Berlin */
             zone: string;
+            /**
+             * @description Active unless given; pending for someone not yet confirmed
+             * @enum {string}
+             */
+            status?: "pending" | "active";
         };
         NewBlitzEntrants: {
             entrants: components["schemas"]["NewBlitzEntrant"][];
@@ -1806,7 +1973,7 @@ export interface components {
             discord_name?: string;
             zone?: string;
             /** @enum {string} */
-            status?: "active" | "dropped";
+            status?: "pending" | "active" | "dropped";
         };
         Error: {
             error: string;
@@ -2979,6 +3146,7 @@ export interface components {
         /** @description The edition's label, as admin lists it (a season) */
         BlitzEditionLabel: string;
         BlitzEntrantId: number;
+        BlitzRoundId: number;
         AdminBadgeId: number;
         /** @description The player's name, as the leaderboard gives it */
         AdminPlayer: string;
@@ -4855,6 +5023,129 @@ export interface operations {
             409: components["responses"]["Conflict"];
         };
     };
+    postAdminBlitzRound: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The tournament's slug */
+                tournament: components["parameters"]["AdminTournamentSlug"];
+                /** @description The edition's label, as admin lists it (a season) */
+                edition: components["parameters"]["BlitzEditionLabel"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["NewBlitzRound"];
+            };
+        };
+        responses: {
+            /** @description The draft round */
+            201: {
+                headers: {
+                    "Cache-Control": components["headers"]["CacheControl"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminBlitzRound"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+        };
+    };
+    deleteAdminBlitzRound: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The tournament's slug */
+                tournament: components["parameters"]["AdminTournamentSlug"];
+                /** @description The edition's label, as admin lists it (a season) */
+                edition: components["parameters"]["BlitzEditionLabel"];
+                round: components["parameters"]["BlitzRoundId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Deleted */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+        };
+    };
+    putAdminBlitzRoundMatches: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The tournament's slug */
+                tournament: components["parameters"]["AdminTournamentSlug"];
+                /** @description The edition's label, as admin lists it (a season) */
+                edition: components["parameters"]["BlitzEditionLabel"];
+                round: components["parameters"]["BlitzRoundId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BlitzRoundMatches"];
+            };
+        };
+        responses: {
+            /** @description Saved */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    postAdminBlitzRoundPublish: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The tournament's slug */
+                tournament: components["parameters"]["AdminTournamentSlug"];
+                /** @description The edition's label, as admin lists it (a season) */
+                edition: components["parameters"]["BlitzEditionLabel"];
+                round: components["parameters"]["BlitzRoundId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Published */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+        };
+    };
     deleteAdminBlitzEntrant: {
         parameters: {
             query?: never;
@@ -4936,8 +5227,10 @@ export const adminRoleRoleValues: ReadonlyArray<FlattenedDeepRequired<components
 export const adminSeasonSuggested_fromValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["AdminSeason"]["suggested_from"]> = ["recorded", "final_stage", ""];
 export const tournamentKindValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["TournamentKind"]> = ["league", "cup", "ladder", "series", "group"];
 export const adminMeRoleValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["AdminMe"]["role"]> = ["admin", "organiser"];
-export const adminBlitzEntrantStatusValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["AdminBlitzEntrant"]["status"]> = ["active", "dropped"];
-export const blitzEntrantChangeStatusValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["BlitzEntrantChange"]["status"]> = ["active", "dropped"];
+export const adminBlitzRoundKindValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["AdminBlitzRound"]["kind"]> = ["swiss", "knockout"];
+export const adminBlitzEntrantStatusValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["AdminBlitzEntrant"]["status"]> = ["pending", "active", "dropped"];
+export const newBlitzEntrantStatusValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["NewBlitzEntrant"]["status"]> = ["pending", "active"];
+export const blitzEntrantChangeStatusValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["BlitzEntrantChange"]["status"]> = ["pending", "active", "dropped"];
 export const modelValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["Model"]> = ["glicko2_daneo", "glicko2_daneo_softer", "glicko2_std", "glicko2_std_softer", "glicko2_std_retro", "glicko2_std_softer_retro", "glicko2_mp", "glicko2_mp_softer", "glicko2_mp_retro", "glicko2_mp_softer_retro", "glicko2_adapt", "glicko2_adapt_softer", "glicko2_adapt_retro", "glicko2_adapt_softer_retro", "whr", "whr_softer"];
 export const formatValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["Format"]> = [0, 2, 3, 4];
 export const titleCodeValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["TitleCode"]> = ["WC", "SGM", "WCS", "WCB", "GM", "M", "P", "G", "S", "B", "W"];

@@ -1870,6 +1870,119 @@ paths:
           $ref: "#/components/responses/NotFound"
         "409":
           $ref: "#/components/responses/Conflict"
+  /v1/admin/blitz/{tournament}/{edition}/rounds:
+    post:
+      operationId: postAdminBlitzRound
+      tags: [admin]
+      summary: Pair the edition's next round as a draft
+      description: |
+        Audited. The Origin must be the admin site. Everyone active is
+        paired on equal points where possible, never with an opponent they
+        have met; within a score group the pairs are the best time-zone fit
+        (and the closest ratings, when asked), chance deciding the rest. With
+        an odd count the lowest-ranked player without a bye gets it. Refused
+        while a draft exists.
+      parameters:
+        - $ref: "#/components/parameters/AdminTournamentSlug"
+        - $ref: "#/components/parameters/BlitzEditionLabel"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/NewBlitzRound"
+      responses:
+        "201":
+          description: The draft round
+          headers:
+            Cache-Control:
+              $ref: "#/components/headers/CacheControl"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminBlitzRound"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+  /v1/admin/blitz/{tournament}/{edition}/rounds/{round}:
+    delete:
+      operationId: deleteAdminBlitzRound
+      tags: [admin]
+      summary: Delete a draft round
+      description: Audited. The Origin must be the admin site. A published round cannot be deleted.
+      parameters:
+        - $ref: "#/components/parameters/AdminTournamentSlug"
+        - $ref: "#/components/parameters/BlitzEditionLabel"
+        - $ref: "#/components/parameters/BlitzRoundId"
+      responses:
+        "204":
+          description: Deleted
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+  /v1/admin/blitz/{tournament}/{edition}/rounds/{round}/matches:
+    put:
+      operationId: putAdminBlitzRoundMatches
+      tags: [admin]
+      summary: Replace a round's matches, as paired by hand
+      description: |
+        Audited. The Origin must be the admin site. A match names two active
+        entrants, or one for the bye; nobody twice; never a pair that has met.
+        A round may be left incomplete until it is published.
+      parameters:
+        - $ref: "#/components/parameters/AdminTournamentSlug"
+        - $ref: "#/components/parameters/BlitzEditionLabel"
+        - $ref: "#/components/parameters/BlitzRoundId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/BlitzRoundMatches"
+      responses:
+        "204":
+          description: Saved
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /v1/admin/blitz/{tournament}/{edition}/rounds/{round}/publish:
+    post:
+      operationId: postAdminBlitzRoundPublish
+      tags: [admin]
+      summary: Publish a round, once everyone active is in it exactly once
+      description: Audited. The Origin must be the admin site. Publishing again changes nothing.
+      parameters:
+        - $ref: "#/components/parameters/AdminTournamentSlug"
+        - $ref: "#/components/parameters/BlitzEditionLabel"
+        - $ref: "#/components/parameters/BlitzRoundId"
+      responses:
+        "204":
+          description: Published
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
   /v1/admin/blitz/{tournament}/{edition}/entrants/{entrant}:
     patch:
       operationId: patchAdminBlitzEntrant
@@ -1928,6 +2041,14 @@ components:
         maxLength: 64
     BlitzEntrantId:
       name: entrant
+      in: path
+      required: true
+      schema:
+        type: integer
+        format: int64
+        minimum: 1
+    BlitzRoundId:
+      name: round
       in: path
       required: true
       schema:
@@ -2915,9 +3036,9 @@ components:
           format: double
           nullable: true
     BlitzEdition:
-      description: A blitz edition for the site, with the entrants still in
+      description: A blitz edition for the site, with the entrants still in and the published rounds
       type: object
-      required: [tournament, name, edition, format, entrants]
+      required: [tournament, name, edition, format, entrants, rounds]
       properties:
         tournament:
           type: string
@@ -2931,10 +3052,128 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/BlitzEntrant"
+        rounds:
+          description: The published rounds, first first
+          type: array
+          items:
+            $ref: "#/components/schemas/BlitzRound"
+    BlitzRound:
+      description: A published round as the site shows it
+      type: object
+      required: [number, published_at, matches]
+      properties:
+        number:
+          type: integer
+        published_at:
+          type: string
+          format: date-time
+        matches:
+          type: array
+          items:
+            $ref: "#/components/schemas/BlitzPublicMatch"
+    BlitzPublicMatch:
+      description: Who plays whom; b is null for the bye
+      type: object
+      required: [a, a_rating, b, b_rating]
+      properties:
+        a:
+          type: string
+        a_rating:
+          type: number
+          format: double
+          nullable: true
+        b:
+          type: string
+          nullable: true
+        b_rating:
+          type: number
+          format: double
+          nullable: true
+    NewBlitzRound:
+      description: The criteria to pair by; the time zone fit is on unless turned off
+      type: object
+      additionalProperties: false
+      properties:
+        timezone:
+          type: boolean
+          default: true
+        rating:
+          type: boolean
+          default: false
+    AdminBlitzMatch:
+      description: A match by entrant ids; b is null for the bye. The gaps are as the entrants are now
+      type: object
+      required: [id, a, b, zone_gap_minutes, rating_gap, repeat]
+      properties:
+        id:
+          type: integer
+          format: int64
+        a:
+          type: integer
+          format: int64
+        b:
+          type: integer
+          format: int64
+          nullable: true
+        zone_gap_minutes:
+          type: integer
+        rating_gap:
+          description: Null when either is unrated, or for the bye
+          type: number
+          format: double
+          nullable: true
+        repeat:
+          description: Whether the two have met in another round
+          type: boolean
+    AdminBlitzRound:
+      type: object
+      required: [id, number, kind, timezone, rating, published_at, matches]
+      properties:
+        id:
+          type: integer
+          format: int64
+        number:
+          type: integer
+        kind:
+          type: string
+          enum: [swiss, knockout]
+        timezone:
+          type: boolean
+        rating:
+          type: boolean
+        published_at:
+          description: Null for a draft
+          type: string
+          format: date-time
+          nullable: true
+        matches:
+          type: array
+          items:
+            $ref: "#/components/schemas/AdminBlitzMatch"
+    BlitzRoundMatches:
+      type: object
+      additionalProperties: false
+      required: [matches]
+      properties:
+        matches:
+          type: array
+          maxItems: 500
+          items:
+            type: object
+            additionalProperties: false
+            required: [a]
+            properties:
+              a:
+                type: integer
+                format: int64
+              b:
+                description: Left out for the bye
+                type: integer
+                format: int64
     AdminBlitzEditionRow:
       description: One edition of a blitz tournament as admin's list shows it
       type: object
-      required: [tournament, name, edition, format, entrants, dropped]
+      required: [tournament, name, edition, format, entrants, pending, dropped]
       properties:
         tournament:
           type: string
@@ -2946,6 +3185,9 @@ components:
           $ref: "#/components/schemas/BlitzFormat"
         entrants:
           description: How many entrants are still in
+          type: integer
+        pending:
+          description: How many are named but not yet confirmed
           type: integer
         dropped:
           description: How many have dropped out
@@ -2974,11 +3216,12 @@ components:
           format: double
           nullable: true
         status:
+          description: Pending is named but not confirmed, neither paired nor shown on the site
           type: string
-          enum: [active, dropped]
+          enum: [pending, active, dropped]
     AdminBlitzEdition:
       type: object
-      required: [tournament, name, edition, format, entrants]
+      required: [tournament, name, edition, format, entrants, rounds]
       properties:
         tournament:
           type: string
@@ -2993,6 +3236,11 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/AdminBlitzEntrant"
+        rounds:
+          description: Every round, first first, drafts included
+          type: array
+          items:
+            $ref: "#/components/schemas/AdminBlitzRound"
     NewBlitzEntrant:
       type: object
       additionalProperties: false
@@ -3010,6 +3258,10 @@ components:
           type: string
           minLength: 1
           maxLength: 64
+        status:
+          description: Active unless given; pending for someone not yet confirmed
+          type: string
+          enum: [pending, active]
     NewBlitzEntrants:
       type: object
       additionalProperties: false
@@ -3045,7 +3297,7 @@ components:
           maxLength: 64
         status:
           type: string
-          enum: [active, dropped]
+          enum: [pending, active, dropped]
     Error:
       type: object
       required: [error]

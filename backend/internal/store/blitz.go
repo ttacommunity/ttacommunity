@@ -11,6 +11,7 @@ import (
 	"unicode/utf8"
 
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 )
 
 // BlitzFormat is how an edition runs: Swiss rounds, then a knockout of that many players (0 for none).
@@ -22,24 +23,25 @@ type BlitzFormat struct {
 var DefaultBlitzFormat = BlitzFormat{SwissRounds: 8, KnockoutSize: 8}
 
 // BlitzEditionRow is one edition of a blitz series as the lists show it: the series' slug and name, the
-// edition's label and format, and how many entrants are in and dropped.
+// edition's label and format, and how many entrants are in, pending and dropped.
 type BlitzEditionRow struct {
-	Slug, Name, Edition string
-	Format              BlitzFormat
-	Entrants, Dropped   int
+	Slug, Name, Edition        string
+	Format                     BlitzFormat
+	Entrants, Pending, Dropped int
 }
 
 // BlitzEntrant is one sign-up. Player is the ratings' spelling of the name, "" for a player we do not know;
-// DiscordName is "" when read for the site. Status is active or dropped.
+// DiscordName is "" when read for the site. Status is pending (not yet confirmed), active or dropped.
 type BlitzEntrant struct {
 	ID                                      int64
 	Name, Player, DiscordName, Zone, Status string
 }
 
-// BlitzEdition is an edition with its entrants, in sign-up order.
+// BlitzEdition is an edition with its entrants, in sign-up order, and its rounds (the published ones, for the site).
 type BlitzEdition struct {
 	BlitzEditionRow
 	Entrants []BlitzEntrant
+	Rounds   []BlitzRound
 }
 
 // BlitzEntrantChange is what admin may change on an entrant; a nil field is left as it is.
@@ -59,8 +61,8 @@ var ErrBadBlitzFormat = errors.New("a blitz format is 1 to 30 Swiss rounds and a
 // ErrBadBlitzEntrant means an entrant without a name or a time zone, or a name or Discord name over 100 characters.
 var ErrBadBlitzEntrant = errors.New("an entrant has a name and a Discord name of at most 100 characters, and a time zone")
 
-// ErrBadBlitzStatus means a status other than active or dropped.
-var ErrBadBlitzStatus = errors.New("an entrant is active or dropped")
+// ErrBadBlitzStatus means a status other than pending, active or dropped.
+var ErrBadBlitzStatus = errors.New("an entrant is pending, active or dropped")
 
 // BlitzEntrantExistsError means names already in the edition, in any case: these.
 type BlitzEntrantExistsError struct{ Names []string }
@@ -69,7 +71,7 @@ func (e *BlitzEntrantExistsError) Error() string {
 	return "already entered: " + strings.Join(e.Names, ", ")
 }
 
-var blitzStatuses = []string{"active", "dropped"}
+var blitzStatuses = []string{"pending", "active", "dropped"}
 
 // blitzEditionRows lists blitz editions, the series' hidden ones too unless public, narrowed to one edition when
 // slug is given. Newest edition first within a series.
@@ -77,6 +79,7 @@ func blitzEditionRows(ctx context.Context, db conn, public bool, slug, edition s
 	rows, err := db.Query(ctx, `
 		SELECT s.slug, s.name, t.label, coalesce(e.swiss_rounds, $4), coalesce(e.knockout_size, $5),
 		       (SELECT count(*) FROM blitz_entries x WHERE x.tournament_id = t.tournament_id AND x.status = 'active')::int,
+		       (SELECT count(*) FROM blitz_entries x WHERE x.tournament_id = t.tournament_id AND x.status = 'pending')::int,
 		       (SELECT count(*) FROM blitz_entries x WHERE x.tournament_id = t.tournament_id AND x.status = 'dropped')::int
 		FROM series s JOIN tournaments t USING (series_id)
 		LEFT JOIN blitz_editions e ON e.tournament_id = t.tournament_id
@@ -88,7 +91,7 @@ func blitzEditionRows(ctx context.Context, db conn, public bool, slug, edition s
 	}
 	out, err := pgx.CollectRows(rows, func(row pgx.CollectableRow) (BlitzEditionRow, error) {
 		var r BlitzEditionRow
-		return r, row.Scan(&r.Slug, &r.Name, &r.Edition, &r.Format.SwissRounds, &r.Format.KnockoutSize, &r.Entrants, &r.Dropped)
+		return r, row.Scan(&r.Slug, &r.Name, &r.Edition, &r.Format.SwissRounds, &r.Format.KnockoutSize, &r.Entrants, &r.Pending, &r.Dropped)
 	})
 	if err != nil {
 		return nil, fmt.Errorf("listing blitz editions: %w", err)
@@ -128,6 +131,9 @@ func blitzEdition(ctx context.Context, db conn, public bool, slug, edition strin
 	})
 	if err != nil {
 		return BlitzEdition{}, fmt.Errorf("reading %s %s's entrants: %w", slug, edition, err)
+	}
+	if got.Rounds, err = blitzRounds(ctx, db, public, slug, edition); err != nil {
+		return BlitzEdition{}, err
 	}
 	return got, nil
 }
@@ -198,14 +204,20 @@ func validBlitzEntrant(e *BlitzEntrant) bool {
 }
 
 // AddBlitzEntrants adds entrants to an edition, all or none, and returns their ids in order. A name the ratings
-// know is stored in their spelling. A name already in the edition or twice in the list, in any case, is a
-// *BlitzEntrantExistsError naming each.
+// know is stored in their spelling; an entrant with no Status is active. A name already in the edition or twice
+// in the list, in any case, is a *BlitzEntrantExistsError naming each.
 func (a *AdminStore) AddBlitzEntrants(ctx context.Context, slug, edition string, entrants []BlitzEntrant) ([]int64, error) {
 	seen := map[string]bool{}
 	var twice []string
 	for i := range entrants {
 		if !validBlitzEntrant(&entrants[i]) {
 			return nil, ErrBadBlitzEntrant
+		}
+		if entrants[i].Status == "" {
+			entrants[i].Status = "active"
+		}
+		if !slices.Contains(blitzStatuses, entrants[i].Status) {
+			return nil, ErrBadBlitzStatus
 		}
 		key := strings.ToLower(entrants[i].Name)
 		if seen[key] {
@@ -243,10 +255,10 @@ func (a *AdminStore) AddBlitzEntrants(ctx context.Context, slug, edition string,
 		for _, e := range entrants {
 			var got int64
 			if err := tx.QueryRow(ctx, `
-				INSERT INTO blitz_entries (tournament_id, name, discord_name, zone)
-				VALUES ($1, coalesce((SELECT p.name FROM players p WHERE lower(p.name) = lower($2) ORDER BY p.player_id LIMIT 1), $2), $3, $4)
+				INSERT INTO blitz_entries (tournament_id, name, discord_name, zone, status)
+				VALUES ($1, coalesce((SELECT p.name FROM players p WHERE lower(p.name) = lower($2) ORDER BY p.player_id LIMIT 1), $2), $3, $4, $5)
 				RETURNING entry_id`,
-				id, e.Name, e.DiscordName, e.Zone).Scan(&got); err != nil {
+				id, e.Name, e.DiscordName, e.Zone, e.Status).Scan(&got); err != nil {
 				return fmt.Errorf("adding an entrant to %s %s: %w", slug, edition, err)
 			}
 			ids = append(ids, got)
@@ -293,7 +305,8 @@ func (a *AdminStore) SetBlitzEntrant(ctx context.Context, slug, edition string, 
 	})
 }
 
-// RemoveBlitzEntrant removes an entrant, or returns ErrNoBlitzEdition or ErrNoBlitzEntrant.
+// RemoveBlitzEntrant removes an entrant, or returns ErrNoBlitzEdition, ErrNoBlitzEntrant, or
+// ErrBlitzEntrantInRound for one a round names.
 func (a *AdminStore) RemoveBlitzEntrant(ctx context.Context, slug, edition string, id int64) error {
 	return pgx.BeginFunc(ctx, a.pool, func(tx pgx.Tx) error {
 		edID, err := blitzEditionID(ctx, tx, slug, edition)
@@ -301,6 +314,10 @@ func (a *AdminStore) RemoveBlitzEntrant(ctx context.Context, slug, edition strin
 			return err
 		}
 		tag, err := tx.Exec(ctx, "DELETE FROM blitz_entries WHERE entry_id = $1 AND tournament_id = $2", id, edID)
+		var pgErr *pgconn.PgError
+		if errors.As(err, &pgErr) && pgErr.Code == "23503" { // foreign_key_violation: a match names them
+			return ErrBlitzEntrantInRound
+		}
 		if err != nil {
 			return fmt.Errorf("removing an entrant of %s %s: %w", slug, edition, err)
 		}

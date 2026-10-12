@@ -62,7 +62,7 @@ func (s *server) adminBlitzEntrant(e store.BlitzEntrant, rated map[string]store.
 }
 
 func adminBlitzEditionRow(r store.BlitzEditionRow) AdminBlitzEditionRow {
-	return AdminBlitzEditionRow{Tournament: r.Slug, Name: r.Name, Edition: r.Edition, Entrants: r.Entrants, Dropped: r.Dropped,
+	return AdminBlitzEditionRow{Tournament: r.Slug, Name: r.Name, Edition: r.Edition, Entrants: r.Entrants, Pending: r.Pending, Dropped: r.Dropped,
 		Format: BlitzFormat{SwissRounds: r.Format.SwissRounds, KnockoutSize: r.Format.KnockoutSize}}
 }
 
@@ -95,9 +95,13 @@ func (s *server) GetAdminBlitzEdition(ctx context.Context, req GetAdminBlitzEdit
 	}
 	row := adminBlitzEditionRow(ed.BlitzEditionRow)
 	body := AdminBlitzEdition{Tournament: row.Tournament, Name: row.Name, Edition: row.Edition, Format: row.Format,
-		Entrants: make([]AdminBlitzEntrant, len(ed.Entrants))}
+		Entrants: make([]AdminBlitzEntrant, len(ed.Entrants)), Rounds: make([]AdminBlitzRound, len(ed.Rounds))}
 	for i, e := range ed.Entrants {
 		body.Entrants[i] = s.adminBlitzEntrant(e, rated)
+	}
+	now := s.now()
+	for i, r := range ed.Rounds {
+		body.Rounds[i] = s.adminBlitzRound(r, ed, rated, now)
 	}
 	return GetAdminBlitzEdition200JSONResponse{Body: body, Headers: GetAdminBlitzEdition200ResponseHeaders{CacheControl: cacheNone}}, nil
 }
@@ -141,6 +145,9 @@ func (s *server) PostAdminBlitzEntrants(ctx context.Context, req PostAdminBlitzE
 		entrants[i] = store.BlitzEntrant{Name: e.Name, Zone: strings.TrimSpace(e.Zone)}
 		if e.DiscordName != nil {
 			entrants[i].DiscordName = *e.DiscordName
+		}
+		if e.Status != nil {
+			entrants[i].Status = string(*e.Status)
 		}
 	}
 	ids, err := s.admins.AddBlitzEntrants(ctx, req.Tournament, req.Edition, entrants)

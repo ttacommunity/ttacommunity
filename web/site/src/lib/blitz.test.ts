@@ -1,5 +1,12 @@
 import { describe, expect, it } from 'vitest';
-import { editionHref, editionParams, ratingText } from './blitz';
+import { editionHref, editionParams, ratingText, roundsNewestFirst } from './blitz';
+
+describe('roundsNewestFirst', () => {
+  it('orders the rounds by number, the latest first', () => {
+    const rounds = [1, 3, 2].map((number) => ({ number, published_at: '2026-10-12T12:00:00Z', matches: [] }));
+    expect(roundsNewestFirst(rounds).map((r) => r.number)).toEqual([3, 2, 1]);
+  });
+});
 
 describe('editionParams', () => {
   it.each([

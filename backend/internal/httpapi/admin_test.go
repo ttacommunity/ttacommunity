@@ -32,9 +32,10 @@ type fakeAdmins struct {
 	engine string
 	// deleted receives each run DeleteRun removes, from the handler's background delete.
 	deleted chan int64
-	// entrants and format are the blitz edition us_open 2026's (admin_blitz_test.go).
+	// entrants, format and rounds are the blitz edition us_open 2026's (admin_blitz_test.go, admin_blitz_rounds_test.go).
 	entrants []store.BlitzEntrant
 	format   store.BlitzFormat
+	rounds   []store.BlitzRound
 }
 
 // fakeRuns are runs 4 (complete, published third, after a roll back), 5 (complete, published first),

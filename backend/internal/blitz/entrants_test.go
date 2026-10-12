@@ -34,13 +34,20 @@ func TestOffsetFollowsDaylightSavingInBothHemispheres(t *testing.T) {
 		{"America/New_York", jan, "-05:00"}, {"America/New_York", jul, "-04:00"},
 		{"Asia/Kolkata", jan, "+05:30"}, {"UTC", jul, "+00:00"},
 	}
+	minutes := map[string]int{"+01:00": 60, "+02:00": 120, "+11:00": 660, "+10:00": 600, "-05:00": -300, "-04:00": -240, "+05:30": 330, "+00:00": 0}
 	for _, tt := range tests {
 		got, err := blitz.Offset(tt.zone, tt.at)
 		if err != nil || got != tt.want {
 			t.Errorf("Offset(%q, %s) = %q, %v; want %q", tt.zone, tt.at.Format(time.DateOnly), got, err, tt.want)
 		}
+		if m, err := blitz.OffsetMinutes(tt.zone, tt.at); err != nil || m != minutes[tt.want] {
+			t.Errorf("OffsetMinutes(%q, %s) = %d, %v; want %d", tt.zone, tt.at.Format(time.DateOnly), m, err, minutes[tt.want])
+		}
 	}
 	if _, err := blitz.Offset("Mars/Olympus", jan); err == nil {
 		t.Error("Offset(Mars/Olympus) = nil error, want one")
+	}
+	if _, err := blitz.OffsetMinutes("Mars/Olympus", jan); err == nil {
+		t.Error("OffsetMinutes(Mars/Olympus) = nil error, want one")
 	}
 }

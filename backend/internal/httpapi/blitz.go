@@ -43,13 +43,40 @@ func (s *server) GetBlitzEdition(ctx context.Context, req GetBlitzEditionRequest
 	}
 	row := blitzEditionRow(ed.BlitzEditionRow)
 	body := BlitzEdition{Tournament: row.Tournament, Name: row.Name, Edition: row.Edition, Format: row.Format,
-		Entrants: make([]BlitzEntrant, len(ed.Entrants))}
+		Entrants: make([]BlitzEntrant, len(ed.Entrants)), Rounds: make([]BlitzRound, len(ed.Rounds))}
 	for i, e := range ed.Entrants {
 		offset, _ := blitz.Offset(e.Zone, s.now())
 		body.Entrants[i] = BlitzEntrant{Name: e.Name, Zone: e.Zone, UtcOffset: offset}
 		if r, ok := rated[e.Player]; ok {
 			body.Entrants[i].Rating = &r.Rating
 		}
+	}
+	// A round may name an entrant dropped since: the names come from every entrant, not the active ones shown.
+	named := map[int64]store.BlitzEntrant{}
+	for _, e := range ed.Entrants {
+		named[e.ID] = e
+	}
+	rating := func(e store.BlitzEntrant) *float64 {
+		if r, ok := rated[e.Player]; ok {
+			return &r.Rating
+		}
+		return nil
+	}
+	for i, r := range ed.Rounds {
+		pr := BlitzRound{Number: r.Number, Matches: make([]BlitzPublicMatch, len(r.Matches))}
+		if r.PublishedAt != nil {
+			pr.PublishedAt = *r.PublishedAt
+		}
+		for j, m := range r.Matches {
+			a := named[m.A]
+			pm := BlitzPublicMatch{A: a.Name, ARating: rating(a)}
+			if m.B != nil {
+				b := named[*m.B]
+				pm.B, pm.BRating = &b.Name, rating(b)
+			}
+			pr.Matches[j] = pm
+		}
+		body.Rounds[i] = pr
 	}
 	return GetBlitzEdition200JSONResponse{Body: body, Headers: GetBlitzEdition200ResponseHeaders{CacheControl: cacheCurrent}}, nil
 }

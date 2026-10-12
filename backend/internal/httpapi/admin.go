@@ -73,6 +73,11 @@ type Admins interface {
 	AddBlitzEntrants(ctx context.Context, slug, edition string, entrants []store.BlitzEntrant) ([]int64, error)
 	SetBlitzEntrant(ctx context.Context, slug, edition string, id int64, c store.BlitzEntrantChange) error
 	RemoveBlitzEntrant(ctx context.Context, slug, edition string, id int64) error
+	// AddBlitzRound makes the edition's next round as a draft and returns it with its ids and number.
+	AddBlitzRound(ctx context.Context, slug, edition string, r store.BlitzRound) (store.BlitzRound, error)
+	SetBlitzRoundMatches(ctx context.Context, slug, edition string, roundID int64, matches []store.BlitzMatch) error
+	PublishBlitzRound(ctx context.Context, slug, edition string, roundID int64) error
+	DeleteBlitzRound(ctx context.Context, slug, edition string, roundID int64) error
 }
 
 type adminKey struct{}

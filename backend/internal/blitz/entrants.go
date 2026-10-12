@@ -26,3 +26,13 @@ func Offset(zone string, t time.Time) (string, error) {
 	}
 	return t.In(loc).Format("-07:00"), nil
 }
+
+// OffsetMinutes returns zone's offset from UTC at t in minutes, east positive.
+func OffsetMinutes(zone string, t time.Time) (int, error) {
+	loc, err := time.LoadLocation(zone)
+	if err != nil {
+		return 0, err
+	}
+	_, seconds := t.In(loc).Zone()
+	return seconds / 60, nil
+}

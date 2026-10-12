@@ -93,9 +93,10 @@ func TestBlitzEntrantsAreAddedChangedAndRemoved(t *testing.T) {
 	ids, err := a.AddBlitzEntrants(ctx, "us_open", "2026", []BlitzEntrant{
 		{Name: " Ann ", DiscordName: "ann#1", Zone: "Europe/Berlin"},
 		{Name: "bob", Zone: "America/New_York"},
+		{Name: "Cy", Zone: "UTC", Status: "pending"},
 	})
-	if err != nil || len(ids) != 2 {
-		t.Fatalf("AddBlitzEntrants = %v, %v; want two ids", ids, err)
+	if err != nil || len(ids) != 3 {
+		t.Fatalf("AddBlitzEntrants = %v, %v; want three ids", ids, err)
 	}
 	ed, err := a.BlitzEdition(ctx, "us_open", "2026")
 	if err != nil {
@@ -104,12 +105,13 @@ func TestBlitzEntrantsAreAddedChangedAndRemoved(t *testing.T) {
 	want := []BlitzEntrant{
 		{ID: ids[0], Name: "Ann", Player: "", DiscordName: "ann#1", Zone: "Europe/Berlin", Status: "active"},
 		{ID: ids[1], Name: "Bob", Player: "Bob", DiscordName: "", Zone: "America/New_York", Status: "active"},
+		{ID: ids[2], Name: "Cy", Player: "", DiscordName: "", Zone: "UTC", Status: "pending"},
 	}
 	if diff := cmp.Diff(want, ed.Entrants); diff != "" {
 		t.Errorf("admin's entrants (-want +got):\n%s", diff)
 	}
-	if ed.BlitzEditionRow.Entrants != 2 || ed.Dropped != 0 {
-		t.Errorf("counts = in %d out %d, want 2 and 0", ed.BlitzEditionRow.Entrants, ed.Dropped)
+	if ed.BlitzEditionRow.Entrants != 2 || ed.Pending != 1 || ed.Dropped != 0 {
+		t.Errorf("counts = in %d pending %d out %d, want 2, 1 and 0", ed.BlitzEditionRow.Entrants, ed.Pending, ed.Dropped)
 	}
 
 	dropped, zone := "dropped", "Europe/London"
@@ -138,8 +140,8 @@ func TestBlitzEntrantsAreAddedChangedAndRemoved(t *testing.T) {
 	if err := a.RemoveBlitzEntrant(ctx, "us_open", "2026", ids[0]); err != nil {
 		t.Fatalf("RemoveBlitzEntrant: %v", err)
 	}
-	if ed, err = a.BlitzEdition(ctx, "us_open", "2026"); err != nil || len(ed.Entrants) != 1 || ed.Entrants[0].Name != "Bob" {
-		t.Errorf("entrants after removing Ann = %+v, %v; want Bob alone", ed.Entrants, err)
+	if ed, err = a.BlitzEdition(ctx, "us_open", "2026"); err != nil || len(ed.Entrants) != 2 || ed.Entrants[0].Name != "Bob" {
+		t.Errorf("entrants after removing Ann = %+v, %v; want Bob and Cy", ed.Entrants, err)
 	}
 }
 
@@ -157,6 +159,7 @@ func TestBlitzEntrantsAreRefusedWhenTheyShouldBe(t *testing.T) {
 		{"a long name", "us_open", "2026", nil, []BlitzEntrant{{Name: strings.Repeat("x", 101), Zone: "UTC"}}, ErrBadBlitzEntrant, ""},
 		{"a long Discord name", "us_open", "2026", nil, []BlitzEntrant{{Name: "Ann", DiscordName: strings.Repeat("x", 101), Zone: "UTC"}}, ErrBadBlitzEntrant, ""},
 		{"no zone", "us_open", "2026", nil, []BlitzEntrant{{Name: "Ann"}}, ErrBadBlitzEntrant, ""},
+		{"a status that is not one", "us_open", "2026", nil, []BlitzEntrant{{Name: "Ann", Zone: "UTC", Status: "gone"}}, ErrBadBlitzStatus, ""},
 		{"a name twice in the list", "us_open", "2026", nil, []BlitzEntrant{{Name: "Ann", Zone: "UTC"}, {Name: "ann", Zone: "UTC"}}, &BlitzEntrantExistsError{}, "ann"},
 		{"a name already entered", "us_open", "2026", []BlitzEntrant{{Name: "Ann", Zone: "UTC"}}, []BlitzEntrant{{Name: "ANN", Zone: "UTC"}, {Name: "Cy", Zone: "UTC"}}, &BlitzEntrantExistsError{}, "Ann"},
 	}

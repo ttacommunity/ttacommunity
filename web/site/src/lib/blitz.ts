@@ -19,3 +19,8 @@ export function editionHref(slug: string, edition: string): string {
 export function ratingText(rating: number | null): string {
   return rating === null ? '–' : String(Math.round(rating));
 }
+
+/** roundsNewestFirst orders rounds by number, the latest first. */
+export function roundsNewestFirst<R extends { number: number }>(rounds: readonly R[]): R[] {
+  return [...rounds].sort((a, b) => b.number - a.number);
+}

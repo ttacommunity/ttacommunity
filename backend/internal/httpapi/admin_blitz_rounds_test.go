@@ -1,0 +1,215 @@
+package httpapi
+
+import (
+	"context"
+	"encoding/json"
+	"fmt"
+	"net/http"
+	"net/http/httptest"
+	"strings"
+	"testing"
+	"time"
+
+	"ttacommunity/backend/internal/store"
+)
+
+func matchText(matches []store.BlitzMatch) string {
+	var parts []string
+	for _, m := range matches {
+		if m.B == nil {
+			parts = append(parts, fmt.Sprintf("bye:%d", m.A))
+		} else {
+			parts = append(parts, fmt.Sprintf("%d-%d", m.A, *m.B))
+		}
+	}
+	return strings.Join(parts, ",")
+}
+
+func (f *fakeAdmins) findRound(slug, edition string, id int64) (int, error) {
+	if slug != "us_open" || edition != "2026" {
+		return -1, store.ErrNoBlitzEdition
+	}
+	for i, r := range f.rounds {
+		if r.ID == id {
+			return i, nil
+		}
+	}
+	return -1, store.ErrNoBlitzRound
+}
+
+func (f *fakeAdmins) AddBlitzRound(_ context.Context, slug, edition string, r store.BlitzRound) (store.BlitzRound, error) {
+	if slug != "us_open" || edition != "2026" {
+		return store.BlitzRound{}, store.ErrNoBlitzEdition
+	}
+	for _, x := range f.rounds {
+		if x.PublishedAt == nil {
+			return store.BlitzRound{}, store.ErrBlitzDraftExists
+		}
+	}
+	r.ID, r.Number = int64(101+len(f.rounds)), len(f.rounds)+1
+	if r.Kind == "" {
+		r.Kind = "swiss"
+	}
+	for i := range r.Matches {
+		r.Matches[i].ID = r.ID*10 + int64(i)
+	}
+	f.rounds = append(f.rounds, r)
+	f.notes = append(f.notes, fmt.Sprintf("add round %d", r.Number))
+	return r, nil
+}
+
+func (f *fakeAdmins) SetBlitzRoundMatches(_ context.Context, slug, edition string, id int64, matches []store.BlitzMatch) error {
+	i, err := f.findRound(slug, edition, id)
+	if err != nil {
+		return err
+	}
+	for _, m := range matches {
+		if m.A == 99 || (m.B != nil && *m.B == 99) {
+			return fmt.Errorf("%w: entrant 99", store.ErrBadBlitzMatch)
+		}
+	}
+	f.rounds[i].Matches = matches
+	f.notes = append(f.notes, fmt.Sprintf("set round %d matches %s", id, matchText(matches)))
+	return nil
+}
+
+func (f *fakeAdmins) PublishBlitzRound(_ context.Context, slug, edition string, id int64) error {
+	i, err := f.findRound(slug, edition, id)
+	if err != nil {
+		return err
+	}
+	if len(f.rounds[i].Matches) == 0 {
+		return fmt.Errorf("%w: Ann", store.ErrBlitzRoundIncomplete)
+	}
+	at := time.Date(2026, 10, 12, 12, 0, 0, 0, time.UTC)
+	f.rounds[i].PublishedAt = &at
+	f.notes = append(f.notes, fmt.Sprintf("publish round %d", id))
+	return nil
+}
+
+func (f *fakeAdmins) DeleteBlitzRound(_ context.Context, slug, edition string, id int64) error {
+	i, err := f.findRound(slug, edition, id)
+	if err != nil {
+		return err
+	}
+	if i != len(f.rounds)-1 {
+		return store.ErrBlitzRoundNotLast
+	}
+	f.rounds = append(f.rounds[:i], f.rounds[i+1:]...)
+	f.notes = append(f.notes, fmt.Sprintf("remove round %d", id))
+	return nil
+}
+
+// fourEntered gives the fake Ann (7, Berlin, rated), Cy (8, Berlin, rated), bob (9, New York) and Dee (10, Chicago).
+func fourEntered(f *fakeAdmins) {
+	f.blitzEntrants()
+	_, _ = f.AddBlitzEntrants(context.Background(), "us_open", "2026", []store.BlitzEntrant{
+		{Name: "Cy", Player: "Cy", Zone: "Europe/Berlin"}, {Name: "bob", Zone: "America/New_York"}, {Name: "Dee", Zone: "America/Chicago"},
+	})
+	f.notes = nil
+}
+
+func TestAnOrganiserPairsChangesAndPublishesARound(t *testing.T) {
+	const site, org = "https://ttac-admin.example", "222222222222222222"
+	f := &fakeAdmins{}
+	fourEntered(f)
+	ratings := &fakeRatings{run: store.PublishedRun{ID: 7}, rated: map[string]store.Rated{"Ann": {Rating: 1700}, "Cy": {Rating: 1650}}}
+	do := func(method, path, body string) *httptest.ResponseRecorder {
+		return adminDoWith(t, ratings, f, org, method, path, site, body)
+	}
+
+	rec := do(http.MethodPost, "/v1/admin/blitz/us_open/2026/rounds", `{"timezone": true}`)
+	var round AdminBlitzRound
+	if err := json.Unmarshal(rec.Body.Bytes(), &round); err != nil || rec.Code != http.StatusCreated {
+		t.Fatalf("POST rounds = %d %s", rec.Code, rec.Body)
+	}
+	if round.Number != 1 || round.PublishedAt != nil || len(round.Matches) != 2 {
+		t.Fatalf("round = %+v, want a draft round 1 with two matches", round)
+	}
+	for _, m := range round.Matches {
+		switch {
+		case m.B == nil:
+			t.Errorf("match %+v is a bye, want none with four players", m)
+		case m.A == 7 || *m.B == 7:
+			if other := m.A + *m.B - 7; other != 8 || m.ZoneGapMinutes != 0 || m.RatingGap == nil || *m.RatingGap != 50 {
+				t.Errorf("Ann's match = %+v, want Cy (8) in the same zone, 50 rating points apart", m)
+			}
+		default:
+			if m.ZoneGapMinutes != 60 || m.RatingGap != nil || m.Repeat {
+				t.Errorf("the other match = %+v, want bob and Dee an hour apart, no rating gap, no repeat", m)
+			}
+		}
+	}
+
+	rec = do(http.MethodGet, "/v1/admin/blitz/us_open/2026", "")
+	var ed AdminBlitzEdition
+	if err := json.Unmarshal(rec.Body.Bytes(), &ed); err != nil || rec.Code != http.StatusOK || len(ed.Rounds) != 1 || len(ed.Rounds[0].Matches) != 2 {
+		t.Fatalf("GET edition = %d %s, want the draft round in it", rec.Code, rec.Body)
+	}
+	for _, step := range []struct{ method, path, body string }{
+		{http.MethodPut, "/v1/admin/blitz/us_open/2026/rounds/101/matches", `{"matches": [{"a": 7, "b": 9}, {"a": 8, "b": 10}]}`},
+		{http.MethodPost, "/v1/admin/blitz/us_open/2026/rounds/101/publish", ""},
+	} {
+		if rec := do(step.method, step.path, step.body); rec.Code != http.StatusNoContent {
+			t.Errorf("%s %s = %d %s, want 204", step.method, step.path, rec.Code, rec.Body)
+		}
+	}
+	if rec := do(http.MethodDelete, "/v1/admin/blitz/us_open/2026/rounds/101", ""); rec.Code != http.StatusNoContent {
+		t.Errorf("DELETE the latest round, published but unplayed = %d %s, want 204", rec.Code, rec.Body)
+	}
+	if want := "add round 1|set round 101 matches 7-9,8-10|publish round 101|remove round 101"; strings.Join(f.notes, "|") != want {
+		t.Errorf("changes = %q, want %q", f.notes, want)
+	}
+	want := []string{"blitz.round.add us_open/2026", "blitz.round.matches 101", "blitz.round.publish 101", "blitz.round.remove 101"}
+	for i, w := range want {
+		if i >= len(f.audits) || f.audits[i] != org+" "+w {
+			t.Errorf("audit %d = %q, want %q", i, f.audits, org+" "+w)
+		}
+	}
+}
+
+func TestBlitzRoundChangesAreRefusedWhenTheyShouldBe(t *testing.T) {
+	const site, owner = "https://ttac-admin.example", "111111111111111111"
+	draft := func(f *fakeAdmins) {
+		fourEntered(f)
+		f.rounds = []store.BlitzRound{{ID: 101, Number: 1, Kind: "swiss", Seed: 1}}
+	}
+	twoRounds := func(f *fakeAdmins) {
+		draft(f)
+		at := time.Date(2026, 10, 5, 12, 0, 0, 0, time.UTC)
+		f.rounds[0].PublishedAt = &at
+		f.rounds = append(f.rounds, store.BlitzRound{ID: 102, Number: 2, Kind: "swiss", Seed: 2})
+	}
+	tests := []struct {
+		name                       string
+		setup                      func(*fakeAdmins)
+		method, path, origin, body string
+		want                       int
+	}{
+		{"pairing one entrant", nil, http.MethodPost, "/v1/admin/blitz/us_open/2026/rounds", site, `{}`, http.StatusBadRequest},
+		{"pairing while a draft exists", draft, http.MethodPost, "/v1/admin/blitz/us_open/2026/rounds", site, `{}`, http.StatusConflict},
+		{"pairing an unknown edition", fourEntered, http.MethodPost, "/v1/admin/blitz/us_open/2027/rounds", site, `{}`, http.StatusNotFound},
+		{"pairing from another site", fourEntered, http.MethodPost, "/v1/admin/blitz/us_open/2026/rounds", "https://evil.example", `{}`, http.StatusForbidden},
+		{"a match naming nobody", draft, http.MethodPut, "/v1/admin/blitz/us_open/2026/rounds/101/matches", site, `{"matches": [{"a": 99, "b": 7}]}`, http.StatusBadRequest},
+		{"matches for an unknown round", draft, http.MethodPut, "/v1/admin/blitz/us_open/2026/rounds/5/matches", site, `{"matches": []}`, http.StatusNotFound},
+		{"publishing an empty round", draft, http.MethodPost, "/v1/admin/blitz/us_open/2026/rounds/101/publish", site, "", http.StatusConflict},
+		{"publishing an unknown round", draft, http.MethodPost, "/v1/admin/blitz/us_open/2026/rounds/5/publish", site, "", http.StatusNotFound},
+		{"deleting a round behind a later one", twoRounds, http.MethodDelete, "/v1/admin/blitz/us_open/2026/rounds/101", site, "", http.StatusConflict},
+		{"deleting an unknown round", draft, http.MethodDelete, "/v1/admin/blitz/us_open/2026/rounds/5", site, "", http.StatusNotFound},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			f := &fakeAdmins{}
+			if tt.setup != nil {
+				tt.setup(f)
+			}
+			rec := adminDoAs(t, f, owner, tt.method, tt.path, tt.origin, tt.body)
+			if rec.Code != tt.want {
+				t.Errorf("%s %s = %d %s, want %d", tt.method, tt.path, rec.Code, rec.Body, tt.want)
+			}
+			if len(f.notes)+len(f.audits) != 0 {
+				t.Errorf("a refused change still changed something: %q %q", f.notes, f.audits)
+			}
+		})
+	}
+}
