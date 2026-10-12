@@ -47,8 +47,10 @@ spec:
   ingress:
     - from:
         - podSelector:
-            matchLabels:
-              app: cloudflared
+            matchExpressions:
+              - key: app
+                operator: In
+                values: [cloudflared, ttac-api-tunnel]
       ports:
         - protocol: TCP
           port: 8080
@@ -86,8 +88,10 @@ spec:
   # Cloudflare's edge has no fixed addresses, so this is any public address
   # on the tunnel's ports. RFC1918 is excluded.
   podSelector:
-    matchLabels:
-      app: cloudflared
+    matchExpressions:
+      - key: app
+        operator: In
+        values: [cloudflared, ttac-api-tunnel]
   policyTypes: [Egress]
   egress:
     - to:
