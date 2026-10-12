@@ -635,6 +635,15 @@ from `main`:
 | `ttac-auth` (Discord sign-in for Access), no previews | `/infra/access-oidc` | none | `npx wrangler deploy` |
 | `build-discord-notifier` (posts `main` and `dev` builds to Discord; secret `DISCORD_WEBHOOK_URL`), no previews | `/infra/build-notifier` | none | `npx wrangler deploy` |
 
+**Until the move to the new Cloudflare account**, the `wrangler.jsonc` of
+`ttac-auth`, the site and admin also hold a `newaccount` environment. The
+new account's triggers deploy it from `main` with the commands above plus
+`--env newaccount`. It has no custom domain: `ttac-auth` answers on its
+`workers.dev` address, the site and admin on no hostname at all, and
+admin's empty settings make its `/api/*` refuse everything. Today's
+triggers deploy the top level; wrangler's warning that no environment was
+named is expected.
+
 Build variables, set in each site Worker's build settings:
 
 | Variable | Worker | Value | Why |

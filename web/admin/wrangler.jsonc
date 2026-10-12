@@ -31,5 +31,22 @@
       "ACCESS_TEAM": "https://unstableunicorn.cloudflareaccess.com",
       "ACCESS_AUD": "f0bc8c99210a231edb4adc754229a5798e98f41ca67515da419535a251031136"
     }
+  },
+  "env": {
+    // The new Cloudflare account until its domain and Access app exist (deploy --env newaccount):
+    // no hostname, and empty settings, so /api/* refuses everything.
+    "newaccount": {
+      "name": "ttac-admin",
+      "vars": {
+        "ADMIN_HOST": "",
+        "API_ORIGIN": "",
+        "ACCESS_TEAM": "https://ttacommunitydev.cloudflareaccess.com",
+        "ACCESS_AUD": ""
+      },
+      "workers_dev": false,
+      "preview_urls": false,
+      "routes": [],
+      "previews": {}
+    }
   }
 }
