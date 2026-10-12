@@ -8,9 +8,16 @@ export type AdminBlitzEntrant = Schemas['AdminBlitzEntrant'];
 /** MatchChange is a match as the API takes it back: entrant ids, b left out for the bye. */
 export type MatchChange = { a: number; b?: number };
 
-/** canPair says whether the next round can be paired: at least two active entrants and no draft open. */
+/** canPair says whether the next round can be paired: at least two active entrants, no draft open, and every match so far decided (byes aside). */
 export function canPair(entrants: readonly AdminBlitzEntrant[], rounds: readonly AdminBlitzRound[]): boolean {
-  return entrants.filter((e) => e.status === 'active').length >= 2 && rounds.every((r) => r.published_at !== null);
+  return entrants.filter((e) => e.status === 'active').length >= 2 && rounds.every((r) => r.published_at !== null) && undecided(rounds, String).length === 0;
+}
+
+/** undecided names the matches still without a result, byes aside, oldest round first, as "A v B". */
+export function undecided(rounds: readonly AdminBlitzRound[], nameOf: (id: number) => string): string[] {
+  return [...rounds]
+    .sort((a, b) => a.number - b.number)
+    .flatMap((r) => r.matches.filter((m) => m.b !== null && m.result === null).map((m) => `${nameOf(m.a)} v ${nameOf(m.b as number)}`));
 }
 
 /** newestFirst orders rounds by number, the latest first. */

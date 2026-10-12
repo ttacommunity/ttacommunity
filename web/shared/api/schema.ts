@@ -1294,7 +1294,7 @@ export interface paths {
          *     have met; within a score group the pairs are the best time-zone fit
          *     (and the closest ratings, when asked), chance deciding the rest. With
          *     an odd count the lowest-ranked player without a bye gets it. Refused
-         *     while a draft exists.
+         *     while a draft exists or a match so far has no result.
          */
         post: operations["postAdminBlitzRound"];
         delete?: never;
@@ -1314,8 +1314,9 @@ export interface paths {
         put?: never;
         post?: never;
         /**
-         * Delete a draft round
-         * @description Audited. The Origin must be the admin site. A published round cannot be deleted.
+         * Delete the latest round while nothing in it is played
+         * @description Audited. The Origin must be the admin site. Only the latest round,
+         *     draft or published, and only while none of its matches has a result.
          */
         delete: operations["deleteAdminBlitzRound"];
         options?: never;
@@ -1359,6 +1360,55 @@ export interface paths {
          * @description Audited. The Origin must be the admin site. Publishing again changes nothing.
          */
         post: operations["postAdminBlitzRoundPublish"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/blitz/{tournament}/{edition}/rounds/{round}/matches/{match}/game": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Record the game a match was played as, or correct it
+         * @description Audited. The Origin must be the admin site. The game is written under
+         *     the edition's "Round N" stage with a seat for each player, so the
+         *     tournament's page shows it at once; recording the match again changes
+         *     that one game. The higher culture wins and equal cultures draw; a
+         *     resigned or timed-out player loses with culture 0. A share code already
+         *     on another game is refused, naming it. The match's ruling, if any, is
+         *     cleared.
+         */
+        put: operations["putAdminBlitzMatchGame"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/blitz/{tournament}/{edition}/rounds/{round}/matches/{match}/ruling": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Decide a match by the organisers' ruling
+         * @description Audited. The Origin must be the admin site. A ruling awards the match
+         *     to one player, calls it a draw or a double loss, with its reason. A
+         *     game the match already has stays, overruled; recording the game again
+         *     puts its result back.
+         */
+        put: operations["putAdminBlitzMatchRuling"];
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -1833,7 +1883,7 @@ export interface components {
              */
             rating: number | null;
         };
-        /** @description A blitz edition for the site, with the entrants still in and the published rounds */
+        /** @description A blitz edition for the site, with the entrants still in, the published rounds and the standings */
         BlitzEdition: {
             tournament: string;
             name: string;
@@ -1842,6 +1892,8 @@ export interface components {
             entrants: components["schemas"]["BlitzEntrant"][];
             /** @description The published rounds, first first */
             rounds: components["schemas"]["BlitzRound"][];
+            /** @description By rank; dropped players last */
+            standings: components["schemas"]["BlitzStanding"][];
         };
         /** @description A published round as the site shows it */
         BlitzRound: {
@@ -1850,7 +1902,7 @@ export interface components {
             published_at: string;
             matches: components["schemas"]["BlitzPublicMatch"][];
         };
-        /** @description Who plays whom; b is null for the bye */
+        /** @description Who plays whom and how it ended; b is null for the bye */
         BlitzPublicMatch: {
             a: string;
             /** Format: double */
@@ -1858,6 +1910,57 @@ export interface components {
             b: string | null;
             /** Format: double */
             b_rating: number | null;
+            /** @description Null until the match is decided (a bye never is) */
+            result: components["schemas"]["BlitzResult"] | null;
+            /** @description The game played, null for none recorded */
+            game: components["schemas"]["BlitzPlayedGame"] | null;
+            /** @description Whether the result is the organisers' ruling rather than the game's outcome */
+            ruled: boolean;
+        };
+        /**
+         * @description Who won, a draw, or a double loss
+         * @enum {string}
+         */
+        BlitzResult: "a" | "b" | "draw" | "double_loss";
+        /** @description A played game as recorded, each side as the match names them */
+        BlitzPlayedGame: {
+            share_code: string;
+            /** Format: double */
+            a_culture: number;
+            a_outcome: components["schemas"]["BlitzOutcome"];
+            /** Format: double */
+            b_culture: number;
+            b_outcome: components["schemas"]["BlitzOutcome"];
+            /** Format: date */
+            played_on: string;
+        };
+        /**
+         * @description How a player's game ended
+         * @enum {string}
+         */
+        BlitzOutcome: "finished" | "resigned" | "timed_out";
+        /** @description One row of the standings */
+        BlitzStanding: {
+            rank: number;
+            name: string;
+            /**
+             * Format: double
+             * @description A win 1, a draw a half, a bye 1
+             */
+            points: number;
+            /** @description Matches decided, byes aside */
+            games: number;
+            byes: number;
+            /**
+             * Format: double
+             * @description The sum of the points of everyone met in a decided match
+             */
+            opponents_points: number;
+            /**
+             * @description Dropped players come last
+             * @enum {string}
+             */
+            status: "active" | "dropped";
         };
         /** @description The criteria to pair by; the time zone fit is on unless turned off */
         NewBlitzRound: {
@@ -1882,6 +1985,14 @@ export interface components {
             rating_gap: number | null;
             /** @description Whether the two have met in another round */
             repeat: boolean;
+            /** @description Null until the match is decided */
+            result: components["schemas"]["BlitzResult"] | null;
+            /** @description The game played, null for none recorded */
+            game: components["schemas"]["BlitzPlayedGame"] | null;
+            /** @description The organisers' reason when the result is their ruling, else empty */
+            ruling: string;
+            /** Format: date-time */
+            decided_at: string | null;
         };
         AdminBlitzRound: {
             /** Format: int64 */
@@ -1949,6 +2060,28 @@ export interface components {
             entrants: components["schemas"]["AdminBlitzEntrant"][];
             /** @description Every round, first first, drafts included */
             rounds: components["schemas"]["AdminBlitzRound"][];
+            /** @description By rank, as the site shows them; dropped players last */
+            standings: components["schemas"]["BlitzStanding"][];
+        };
+        /** @description A played game, with the share code, each side as the match names them, and the day played */
+        BlitzGameRecord: {
+            share_code: string;
+            a: components["schemas"]["BlitzGameSide"];
+            b: components["schemas"]["BlitzGameSide"];
+            /** Format: date */
+            played_on: string;
+        };
+        BlitzGameSide: {
+            /**
+             * Format: double
+             * @description Ignored (0) for a player who resigned or timed out
+             */
+            culture: number;
+            outcome: components["schemas"]["BlitzOutcome"];
+        };
+        BlitzRuling: {
+            result: components["schemas"]["BlitzResult"];
+            reason: string;
         };
         NewBlitzEntrant: {
             name: string;
@@ -3147,6 +3280,7 @@ export interface components {
         BlitzEditionLabel: string;
         BlitzEntrantId: number;
         BlitzRoundId: number;
+        BlitzMatchId: number;
         AdminBadgeId: number;
         /** @description The player's name, as the leaderboard gives it */
         AdminPlayer: string;
@@ -5146,6 +5280,73 @@ export interface operations {
             409: components["responses"]["Conflict"];
         };
     };
+    putAdminBlitzMatchGame: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The tournament's slug */
+                tournament: components["parameters"]["AdminTournamentSlug"];
+                /** @description The edition's label, as admin lists it (a season) */
+                edition: components["parameters"]["BlitzEditionLabel"];
+                round: components["parameters"]["BlitzRoundId"];
+                match: components["parameters"]["BlitzMatchId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BlitzGameRecord"];
+            };
+        };
+        responses: {
+            /** @description Recorded */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+        };
+    };
+    putAdminBlitzMatchRuling: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The tournament's slug */
+                tournament: components["parameters"]["AdminTournamentSlug"];
+                /** @description The edition's label, as admin lists it (a season) */
+                edition: components["parameters"]["BlitzEditionLabel"];
+                round: components["parameters"]["BlitzRoundId"];
+                match: components["parameters"]["BlitzMatchId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BlitzRuling"];
+            };
+        };
+        responses: {
+            /** @description Recorded */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
     deleteAdminBlitzEntrant: {
         parameters: {
             query?: never;
@@ -5227,6 +5428,9 @@ export const adminRoleRoleValues: ReadonlyArray<FlattenedDeepRequired<components
 export const adminSeasonSuggested_fromValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["AdminSeason"]["suggested_from"]> = ["recorded", "final_stage", ""];
 export const tournamentKindValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["TournamentKind"]> = ["league", "cup", "ladder", "series", "group"];
 export const adminMeRoleValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["AdminMe"]["role"]> = ["admin", "organiser"];
+export const blitzResultValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["BlitzResult"]> = ["a", "b", "draw", "double_loss"];
+export const blitzOutcomeValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["BlitzOutcome"]> = ["finished", "resigned", "timed_out"];
+export const blitzStandingStatusValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["BlitzStanding"]["status"]> = ["active", "dropped"];
 export const adminBlitzRoundKindValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["AdminBlitzRound"]["kind"]> = ["swiss", "knockout"];
 export const adminBlitzEntrantStatusValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["AdminBlitzEntrant"]["status"]> = ["pending", "active", "dropped"];
 export const newBlitzEntrantStatusValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["NewBlitzEntrant"]["status"]> = ["pending", "active"];

@@ -1881,7 +1881,7 @@ paths:
         have met; within a score group the pairs are the best time-zone fit
         (and the closest ratings, when asked), chance deciding the rest. With
         an odd count the lowest-ranked player without a bye gets it. Refused
-        while a draft exists.
+        while a draft exists or a match so far has no result.
       parameters:
         - $ref: "#/components/parameters/AdminTournamentSlug"
         - $ref: "#/components/parameters/BlitzEditionLabel"
@@ -1915,8 +1915,10 @@ paths:
     delete:
       operationId: deleteAdminBlitzRound
       tags: [admin]
-      summary: Delete a draft round
-      description: Audited. The Origin must be the admin site. A published round cannot be deleted.
+      summary: Delete the latest round while nothing in it is played
+      description: |
+        Audited. The Origin must be the admin site. Only the latest round,
+        draft or published, and only while none of its matches has a result.
       parameters:
         - $ref: "#/components/parameters/AdminTournamentSlug"
         - $ref: "#/components/parameters/BlitzEditionLabel"
@@ -1983,6 +1985,75 @@ paths:
           $ref: "#/components/responses/NotFound"
         "409":
           $ref: "#/components/responses/Conflict"
+  /v1/admin/blitz/{tournament}/{edition}/rounds/{round}/matches/{match}/game:
+    put:
+      operationId: putAdminBlitzMatchGame
+      tags: [admin]
+      summary: Record the game a match was played as, or correct it
+      description: |
+        Audited. The Origin must be the admin site. The game is written under
+        the edition's "Round N" stage with a seat for each player, so the
+        tournament's page shows it at once; recording the match again changes
+        that one game. The higher culture wins and equal cultures draw; a
+        resigned or timed-out player loses with culture 0. A share code already
+        on another game is refused, naming it. The match's ruling, if any, is
+        cleared.
+      parameters:
+        - $ref: "#/components/parameters/AdminTournamentSlug"
+        - $ref: "#/components/parameters/BlitzEditionLabel"
+        - $ref: "#/components/parameters/BlitzRoundId"
+        - $ref: "#/components/parameters/BlitzMatchId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/BlitzGameRecord"
+      responses:
+        "204":
+          description: Recorded
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+  /v1/admin/blitz/{tournament}/{edition}/rounds/{round}/matches/{match}/ruling:
+    put:
+      operationId: putAdminBlitzMatchRuling
+      tags: [admin]
+      summary: Decide a match by the organisers' ruling
+      description: |
+        Audited. The Origin must be the admin site. A ruling awards the match
+        to one player, calls it a draw or a double loss, with its reason. A
+        game the match already has stays, overruled; recording the game again
+        puts its result back.
+      parameters:
+        - $ref: "#/components/parameters/AdminTournamentSlug"
+        - $ref: "#/components/parameters/BlitzEditionLabel"
+        - $ref: "#/components/parameters/BlitzRoundId"
+        - $ref: "#/components/parameters/BlitzMatchId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/BlitzRuling"
+      responses:
+        "204":
+          description: Recorded
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
   /v1/admin/blitz/{tournament}/{edition}/entrants/{entrant}:
     patch:
       operationId: patchAdminBlitzEntrant
@@ -2049,6 +2120,14 @@ components:
         minimum: 1
     BlitzRoundId:
       name: round
+      in: path
+      required: true
+      schema:
+        type: integer
+        format: int64
+        minimum: 1
+    BlitzMatchId:
+      name: match
       in: path
       required: true
       schema:
@@ -3036,9 +3115,9 @@ components:
           format: double
           nullable: true
     BlitzEdition:
-      description: A blitz edition for the site, with the entrants still in and the published rounds
+      description: A blitz edition for the site, with the entrants still in, the published rounds and the standings
       type: object
-      required: [tournament, name, edition, format, entrants, rounds]
+      required: [tournament, name, edition, format, entrants, rounds, standings]
       properties:
         tournament:
           type: string
@@ -3057,6 +3136,11 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/BlitzRound"
+        standings:
+          description: By rank; dropped players last
+          type: array
+          items:
+            $ref: "#/components/schemas/BlitzStanding"
     BlitzRound:
       description: A published round as the site shows it
       type: object
@@ -3072,9 +3156,9 @@ components:
           items:
             $ref: "#/components/schemas/BlitzPublicMatch"
     BlitzPublicMatch:
-      description: Who plays whom; b is null for the bye
+      description: Who plays whom and how it ended; b is null for the bye
       type: object
-      required: [a, a_rating, b, b_rating]
+      required: [a, a_rating, b, b_rating, result, game, ruled]
       properties:
         a:
           type: string
@@ -3089,6 +3173,73 @@ components:
           type: number
           format: double
           nullable: true
+        result:
+          description: Null until the match is decided (a bye never is)
+          allOf:
+            - $ref: "#/components/schemas/BlitzResult"
+          nullable: true
+        game:
+          description: The game played, null for none recorded
+          allOf:
+            - $ref: "#/components/schemas/BlitzPlayedGame"
+          nullable: true
+        ruled:
+          description: Whether the result is the organisers' ruling rather than the game's outcome
+          type: boolean
+    BlitzResult:
+      description: Who won, a draw, or a double loss
+      type: string
+      enum: [a, b, draw, double_loss]
+    BlitzPlayedGame:
+      description: A played game as recorded, each side as the match names them
+      type: object
+      required: [share_code, a_culture, a_outcome, b_culture, b_outcome, played_on]
+      properties:
+        share_code:
+          type: string
+        a_culture:
+          type: number
+          format: double
+        a_outcome:
+          $ref: "#/components/schemas/BlitzOutcome"
+        b_culture:
+          type: number
+          format: double
+        b_outcome:
+          $ref: "#/components/schemas/BlitzOutcome"
+        played_on:
+          type: string
+          format: date
+    BlitzOutcome:
+      description: How a player's game ended
+      type: string
+      enum: [finished, resigned, timed_out]
+    BlitzStanding:
+      description: One row of the standings
+      type: object
+      required: [rank, name, points, games, byes, opponents_points, status]
+      properties:
+        rank:
+          type: integer
+        name:
+          type: string
+        points:
+          description: A win 1, a draw a half, a bye 1
+          type: number
+          format: double
+        games:
+          description: Matches decided, byes aside
+          type: integer
+        byes:
+          type: integer
+        opponents_points:
+          description: The sum of the points of everyone met in a decided match
+          type: number
+          format: double
+        status:
+          description: Dropped players come last
+          type: string
+          enum: [active, dropped]
     NewBlitzRound:
       description: The criteria to pair by; the time zone fit is on unless turned off
       type: object
@@ -3103,7 +3254,7 @@ components:
     AdminBlitzMatch:
       description: A match by entrant ids; b is null for the bye. The gaps are as the entrants are now
       type: object
-      required: [id, a, b, zone_gap_minutes, rating_gap, repeat]
+      required: [id, a, b, zone_gap_minutes, rating_gap, repeat, result, game, ruling, decided_at]
       properties:
         id:
           type: integer
@@ -3125,6 +3276,23 @@ components:
         repeat:
           description: Whether the two have met in another round
           type: boolean
+        result:
+          description: Null until the match is decided
+          allOf:
+            - $ref: "#/components/schemas/BlitzResult"
+          nullable: true
+        game:
+          description: The game played, null for none recorded
+          allOf:
+            - $ref: "#/components/schemas/BlitzPlayedGame"
+          nullable: true
+        ruling:
+          description: The organisers' reason when the result is their ruling, else empty
+          type: string
+        decided_at:
+          type: string
+          format: date-time
+          nullable: true
     AdminBlitzRound:
       type: object
       required: [id, number, kind, timezone, rating, published_at, matches]
@@ -3221,7 +3389,7 @@ components:
           enum: [pending, active, dropped]
     AdminBlitzEdition:
       type: object
-      required: [tournament, name, edition, format, entrants, rounds]
+      required: [tournament, name, edition, format, entrants, rounds, standings]
       properties:
         tournament:
           type: string
@@ -3241,6 +3409,51 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/AdminBlitzRound"
+        standings:
+          description: By rank, as the site shows them; dropped players last
+          type: array
+          items:
+            $ref: "#/components/schemas/BlitzStanding"
+    BlitzGameRecord:
+      description: A played game, with the share code, each side as the match names them, and the day played
+      type: object
+      additionalProperties: false
+      required: [share_code, a, b, played_on]
+      properties:
+        share_code:
+          type: string
+          minLength: 1
+          maxLength: 32
+        a:
+          $ref: "#/components/schemas/BlitzGameSide"
+        b:
+          $ref: "#/components/schemas/BlitzGameSide"
+        played_on:
+          type: string
+          format: date
+    BlitzGameSide:
+      type: object
+      additionalProperties: false
+      required: [culture, outcome]
+      properties:
+        culture:
+          description: Ignored (0) for a player who resigned or timed out
+          type: number
+          format: double
+          minimum: 0
+        outcome:
+          $ref: "#/components/schemas/BlitzOutcome"
+    BlitzRuling:
+      type: object
+      additionalProperties: false
+      required: [result, reason]
+      properties:
+        result:
+          $ref: "#/components/schemas/BlitzResult"
+        reason:
+          type: string
+          minLength: 1
+          maxLength: 1000
     NewBlitzEntrant:
       type: object
       additionalProperties: false

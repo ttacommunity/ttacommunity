@@ -1,9 +1,12 @@
-// The site's blitz tournaments: the shown editions, and an edition's entrants still in, never a Discord name.
+// The site's blitz tournaments: the shown editions, and an edition's entrants still in, its published rounds
+// with their results, and its standings; never a Discord name or a ruling's reason.
 package httpapi
 
 import (
 	"context"
 	"errors"
+
+	openapi_types "github.com/oapi-codegen/runtime/types"
 
 	"ttacommunity/backend/internal/blitz"
 	"ttacommunity/backend/internal/store"
@@ -12,6 +15,57 @@ import (
 func blitzEditionRow(r store.BlitzEditionRow) BlitzEditionRow {
 	return BlitzEditionRow{Tournament: r.Slug, Name: r.Name, Edition: r.Edition, Entrants: r.Entrants,
 		Format: BlitzFormat{SwissRounds: r.Format.SwissRounds, KnockoutSize: r.Format.KnockoutSize}}
+}
+
+// blitzResult is a match's result as the API sends it, nil until decided.
+func blitzResult(m store.BlitzMatch) *BlitzResult {
+	if m.Result == "" {
+		return nil
+	}
+	r := BlitzResult(m.Result)
+	return &r
+}
+
+// playedGame is the game a match was played as, nil for none recorded.
+func playedGame(m store.BlitzMatch) *BlitzPlayedGame {
+	if m.Game == nil {
+		return nil
+	}
+	return &BlitzPlayedGame{ShareCode: m.Game.ShareCode, PlayedOn: openapi_types.Date{Time: m.Game.Played},
+		ACulture: m.Game.A.Culture, AOutcome: BlitzOutcome(m.Game.A.Outcome),
+		BCulture: m.Game.B.Culture, BOutcome: BlitzOutcome(m.Game.B.Outcome)}
+}
+
+// blitzStandings ranks an edition's entrants, pending ones aside, by its rounds' results and its tiebreak seed.
+func blitzStandings(ed store.BlitzEdition) []BlitzStanding {
+	names := map[int64]string{}
+	var entrants []blitz.Entrant
+	for _, e := range ed.Entrants {
+		names[e.ID] = e.Name
+		if e.Status != "pending" {
+			entrants = append(entrants, blitz.Entrant{ID: e.ID, Dropped: e.Status == "dropped"})
+		}
+	}
+	var matches []blitz.Played
+	for _, r := range ed.Rounds {
+		for _, m := range r.Matches {
+			p := blitz.Played{A: m.A, Result: blitz.Result(m.Result)}
+			if m.B != nil {
+				p.B = *m.B
+			}
+			matches = append(matches, p)
+		}
+	}
+	out := make([]BlitzStanding, 0, len(entrants))
+	for _, s := range blitz.Standings(entrants, matches, uint64(ed.TiebreakSeed)) {
+		status := "active"
+		if s.Dropped {
+			status = "dropped"
+		}
+		out = append(out, BlitzStanding{Rank: s.Rank, Name: names[s.ID], Points: s.Points, Games: s.Games, Byes: s.Byes,
+			OpponentsPoints: s.OpponentsPoints, Status: BlitzStandingStatus(status)})
+	}
+	return out
 }
 
 func (s *server) GetBlitzEditions(ctx context.Context, _ GetBlitzEditionsRequestObject) (GetBlitzEditionsResponseObject, error) {
@@ -43,13 +97,17 @@ func (s *server) GetBlitzEdition(ctx context.Context, req GetBlitzEditionRequest
 	}
 	row := blitzEditionRow(ed.BlitzEditionRow)
 	body := BlitzEdition{Tournament: row.Tournament, Name: row.Name, Edition: row.Edition, Format: row.Format,
-		Entrants: make([]BlitzEntrant, len(ed.Entrants)), Rounds: make([]BlitzRound, len(ed.Rounds))}
-	for i, e := range ed.Entrants {
-		offset, _ := blitz.Offset(e.Zone, s.now())
-		body.Entrants[i] = BlitzEntrant{Name: e.Name, Zone: e.Zone, UtcOffset: offset}
-		if r, ok := rated[e.Player]; ok {
-			body.Entrants[i].Rating = &r.Rating
+		Entrants: []BlitzEntrant{}, Rounds: make([]BlitzRound, len(ed.Rounds)), Standings: blitzStandings(ed)}
+	for _, e := range ed.Entrants {
+		if e.Status != "active" {
+			continue
 		}
+		offset, _ := blitz.Offset(e.Zone, s.now())
+		entrant := BlitzEntrant{Name: e.Name, Zone: e.Zone, UtcOffset: offset}
+		if r, ok := rated[e.Player]; ok {
+			entrant.Rating = &r.Rating
+		}
+		body.Entrants = append(body.Entrants, entrant)
 	}
 	// A round may name an entrant dropped since: the names come from every entrant, not the active ones shown.
 	named := map[int64]store.BlitzEntrant{}
@@ -69,7 +127,7 @@ func (s *server) GetBlitzEdition(ctx context.Context, req GetBlitzEditionRequest
 		}
 		for j, m := range r.Matches {
 			a := named[m.A]
-			pm := BlitzPublicMatch{A: a.Name, ARating: rating(a)}
+			pm := BlitzPublicMatch{A: a.Name, ARating: rating(a), Result: blitzResult(m), Game: playedGame(m), Ruled: m.Ruling != ""}
 			if m.B != nil {
 				b := named[*m.B]
 				pm.B, pm.BRating = &b.Name, rating(b)

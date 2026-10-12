@@ -52,7 +52,7 @@ func (s *server) adminBlitzRound(r store.BlitzRound, ed store.BlitzEdition, rate
 	out := AdminBlitzRound{Id: r.ID, Number: r.Number, Kind: AdminBlitzRoundKind(r.Kind), Timezone: r.Timezone, Rating: r.Rating,
 		PublishedAt: r.PublishedAt, Matches: make([]AdminBlitzMatch, len(r.Matches))}
 	for i, m := range r.Matches {
-		am := AdminBlitzMatch{Id: m.ID, A: m.A, B: m.B}
+		am := AdminBlitzMatch{Id: m.ID, A: m.A, B: m.B, Result: blitzResult(m), Game: playedGame(m), Ruling: m.Ruling, DecidedAt: m.DecidedAt}
 		if m.B != nil {
 			a, b := byID[m.A], byID[*m.B]
 			oa, _ := blitz.OffsetMinutes(a.Zone, now)
@@ -138,7 +138,7 @@ func (s *server) PostAdminBlitzRound(ctx context.Context, req PostAdminBlitzRoun
 	}
 	made, err := s.admins.AddBlitzRound(ctx, req.Tournament, req.Edition, round)
 	switch {
-	case errors.Is(err, store.ErrBlitzDraftExists):
+	case errors.Is(err, store.ErrBlitzDraftExists), errors.Is(err, store.ErrBlitzRoundUndecided):
 		return PostAdminBlitzRound409JSONResponse{conflict409(err.Error())}, nil
 	case errors.Is(err, store.ErrBadBlitzMatch), errors.Is(err, store.ErrBlitzRepeat):
 		return PostAdminBlitzRound400JSONResponse{badRequest400(err.Error())}, nil
@@ -167,7 +167,7 @@ func (s *server) PutAdminBlitzRoundMatches(ctx context.Context, req PutAdminBlit
 		matches[i] = store.BlitzMatch{A: m.A, B: m.B}
 	}
 	switch err := s.admins.SetBlitzRoundMatches(ctx, req.Tournament, req.Edition, req.Round, matches); {
-	case errors.Is(err, store.ErrBadBlitzMatch), errors.Is(err, store.ErrBlitzRepeat):
+	case errors.Is(err, store.ErrBadBlitzMatch), errors.Is(err, store.ErrBlitzRepeat), errors.Is(err, store.ErrBlitzMatchDecided):
 		return PutAdminBlitzRoundMatches400JSONResponse{badRequest400(err.Error())}, nil
 	case errors.Is(err, store.ErrNoBlitzEdition):
 		return PutAdminBlitzRoundMatches404JSONResponse{notFound404("no such blitz edition")}, nil
@@ -209,7 +209,7 @@ func (s *server) DeleteAdminBlitzRound(ctx context.Context, req DeleteAdminBlitz
 		return DeleteAdminBlitzRound404JSONResponse{notFound404("no such blitz edition")}, nil
 	}
 	switch err := s.admins.DeleteBlitzRound(ctx, req.Tournament, req.Edition, req.Round); {
-	case errors.Is(err, store.ErrBlitzRoundNotLast):
+	case errors.Is(err, store.ErrBlitzRoundNotLast), errors.Is(err, store.ErrBlitzRoundPlayed):
 		return DeleteAdminBlitzRound409JSONResponse{conflict409(err.Error())}, nil
 	case errors.Is(err, store.ErrNoBlitzEdition):
 		return DeleteAdminBlitzRound404JSONResponse{notFound404("no such blitz edition")}, nil

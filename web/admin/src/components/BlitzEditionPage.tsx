@@ -1,12 +1,13 @@
-/** A blitz edition's page: its format, its entrants (added one at a time, dropped, removed), its rounds (paired, changed by hand, published), and what players see. */
+/** A blitz edition's page: its format, its entrants (added one at a time, dropped, removed), its rounds (paired, changed by hand, published, their results recorded), the standings, and what players see. */
 import { useEffect, useState, type FormEvent } from 'react';
-import { formatLabel, offsetLabel, zoneOptions } from '@ttac/shared/blitz';
+import { formatLabel, offsetLabel, resultSummary, zoneOptions } from '@ttac/shared/blitz';
 import { formatInstant } from '@ttac/shared/time';
 import { adminRequest, firstError, type AdminBlitzEdition, type AdminMe, type BlitzEntrantIds, type Load } from '../lib/admin-api';
 import * as req from '../lib/admin-requests';
 import { tabsFor } from '../lib/admin-tabs';
 import { editionParams, playersView, type AdminBlitzEntrant } from '../lib/blitz-page';
-import { canPair, editableRound, newestFirst, unpaired, withBye, withPair, withoutMatch, zoneGapLabel, type AdminBlitzRound } from '../lib/blitz-rounds';
+import { emptyGameForm, gameRecordFrom, type BlitzStanding, type GameForm } from '../lib/blitz-results';
+import { canPair, editableRound, newestFirst, undecided, unpaired, withBye, withPair, withoutMatch, zoneGapLabel, type AdminBlitzMatch, type AdminBlitzRound } from '../lib/blitz-rounds';
 import AdminHeader from './AdminHeader';
 import PageError from './PageError';
 import './AdminApp.css';
@@ -81,6 +82,7 @@ export default function BlitzEditionPage() {
               </p>
             )}
             <RoundsCard at={at} ed={ed.data} onReload={load} say={setMessage} />
+            <StandingsCard standings={ed.data.standings} />
             <EntrantsCard at={at} ed={ed.data} onReload={load} say={setMessage} />
             <AddEntrantCard at={at} ed={ed.data} onReload={load} say={setMessage} />
             <FormatCard at={at} ed={ed.data} onReload={load} say={setMessage} />
@@ -105,9 +107,12 @@ function viewerZone(): string {
 function RoundsCard({ at, ed, onReload, say }: Props) {
   const [criteria, setCriteria] = useState({ timezone: true, rating: false });
   const [pick, setPick] = useState({ a: '', b: '', bye: '' });
+  const [recording, setRecording] = useState<{ round: number; match: number } | null>(null);
   const [zone] = useState(viewerZone);
   const byId = new Map(ed.entrants.map((e) => [e.id, e]));
   const nameOf = (id: number) => byId.get(id)?.name ?? `entrant ${id}`;
+  const summary = (m: AdminBlitzMatch) => resultSummary({ a: nameOf(m.a), b: m.b === null ? null : nameOf(m.b), result: m.result, game: m.game, ruled: m.ruling !== '' });
+  const blockers = undecided(ed.rounds, nameOf);
   const ratingOf = (id: number) => {
     const r = byId.get(id)?.rating ?? null;
     return r === null ? '–' : String(Math.round(r));
@@ -162,7 +167,8 @@ function RoundsCard({ at, ed, onReload, say }: Props) {
         <button type="submit" className="btn-antique" disabled={!pairable}>
           Pair
         </button>
-        {!pairable && <span className="muted">Needs two active entrants and no draft open.</span>}
+        {!pairable && blockers.length > 0 && <span className="muted">Waiting for results: {blockers.join(', ')}.</span>}
+        {!pairable && blockers.length === 0 && <span className="muted">Needs two active entrants and no draft open.</span>}
       </form>
       {ed.rounds.length === 0 && <p className="muted">No rounds yet.</p>}
       {newestFirst(ed.rounds).map((r) => (
@@ -183,11 +189,10 @@ function RoundsCard({ at, ed, onReload, say }: Props) {
                     <th scope="col">Rating</th>
                     <th scope="col">Clocks</th>
                     <th scope="col">Rating gap</th>
-                    {r.id === editable && (
-                      <th scope="col">
-                        <span className="visually-hidden">Action</span>
-                      </th>
-                    )}
+                    <th scope="col">Result</th>
+                    <th scope="col">
+                      <span className="visually-hidden">Actions</span>
+                    </th>
                   </tr>
                 </thead>
                 <tbody>
@@ -202,18 +207,41 @@ function RoundsCard({ at, ed, onReload, say }: Props) {
                         {m.rating_gap === null ? '' : Math.round(m.rating_gap)}
                         {m.repeat && <span className="row-detail">met before</span>}
                       </td>
-                      {r.id === editable && (
-                        <td>
+                      <td>
+                        {m.b !== null && m.result === null ? <span className="muted">not yet</span> : summary(m)}
+                        {m.ruling !== '' && <span className="row-detail muted">{m.ruling}</span>}
+                      </td>
+                      <td className="run-buttons">
+                        {m.b !== null && (
+                          <button type="button" className="btn-antique" onClick={() => setRecording({ round: r.id, match: m.id })}>
+                            {m.result === null ? 'Record' : 'Correct'}
+                          </button>
+                        )}
+                        {r.id === editable && m.result === null && (
                           <button type="button" className="btn-antique" onClick={() => unpair(r, m.id)}>
                             Unpair
                           </button>
-                        </td>
-                      )}
+                        )}
+                      </td>
                     </tr>
                   ))}
                 </tbody>
               </table>
             </div>
+          )}
+          {recording?.round === r.id && r.matches.some((m) => m.id === recording.match) && (
+            <ResultForm
+              at={at}
+              round={r}
+              match={r.matches.find((m) => m.id === recording.match) as AdminBlitzMatch}
+              nameOf={nameOf}
+              onDone={async () => {
+                setRecording(null);
+                await onReload();
+              }}
+              onCancel={() => setRecording(null)}
+              say={say}
+            />
           )}
           {r.id === editable && (
             <div className="admin-add">
@@ -504,6 +532,197 @@ function FormatCard({ at, ed, onReload, say }: Props) {
           Save
         </button>
       </form>
+    </section>
+  );
+}
+
+/** today is the day in the viewer's zone as YYYY-MM-DD, the result form's default. */
+function today(): string {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
+/** formFromGame fills the game form from a recorded game, for a correction. */
+function formFromGame(m: AdminBlitzMatch): GameForm {
+  if (m.game === null) return emptyGameForm(today());
+  return {
+    share_code: m.game.share_code,
+    a_culture: String(m.game.a_culture),
+    a_outcome: m.game.a_outcome,
+    b_culture: String(m.game.b_culture),
+    b_outcome: m.game.b_outcome,
+    played_on: m.game.played_on,
+  };
+}
+
+const OUTCOMES: { value: GameForm['a_outcome']; label: string }[] = [
+  { value: 'finished', label: 'finished' },
+  { value: 'resigned', label: 'resigned' },
+  { value: 'timed_out', label: 'timed out' },
+];
+
+type ResultFormProps = {
+  at: Edition;
+  round: AdminBlitzRound;
+  match: AdminBlitzMatch;
+  nameOf: (id: number) => string;
+  onDone: () => Promise<void>;
+  onCancel: () => void;
+  say: (message: string) => void;
+};
+
+/** ResultForm records a match's result: the game played (share code, each player's culture and outcome, the day), or the organisers' ruling with its reason. */
+function ResultForm({ at, round, match, nameOf, onDone, onCancel, say }: ResultFormProps) {
+  const [kind, setKind] = useState<'game' | 'ruling'>(match.ruling !== '' ? 'ruling' : 'game');
+  const [game, setGame] = useState<GameForm>(() => formFromGame(match));
+  const [ruling, setRuling] = useState({ result: match.result ?? 'a', reason: match.ruling });
+  const a = nameOf(match.a);
+  const b = nameOf(match.b as number);
+  const submit = async (e: FormEvent) => {
+    e.preventDefault();
+    if (kind === 'game') {
+      const r = gameRecordFrom(game);
+      if (!r.ok) {
+        say(r.message);
+        return;
+      }
+      const res = await req.send(req.recordBlitzGame(at.slug, at.edition, round.id, match.id, r.body));
+      say(res.ok ? `${a} v ${b} recorded.` : res.message);
+      if (res.ok) await onDone();
+      return;
+    }
+    if (ruling.reason.trim() === '') {
+      say('A ruling needs a reason.');
+      return;
+    }
+    const res = await req.send(req.recordBlitzRuling(at.slug, at.edition, round.id, match.id, ruling));
+    say(res.ok ? `${a} v ${b} ruled.` : res.message);
+    if (res.ok) await onDone();
+  };
+  const side = (who: 'a' | 'b', name: string) => (
+    <>
+      <label>
+        {name}&apos;s culture
+        <input
+          className="input-antique"
+          type="number"
+          min={0}
+          step="any"
+          value={game[`${who}_culture`]}
+          disabled={game[`${who}_outcome`] !== 'finished'}
+          onChange={(e) => setGame({ ...game, [`${who}_culture`]: e.target.value })}
+        />
+      </label>
+      <label>
+        {name}
+        <select className="input-antique" value={game[`${who}_outcome`]} onChange={(e) => setGame({ ...game, [`${who}_outcome`]: e.target.value as GameForm['a_outcome'] })}>
+          {OUTCOMES.map((o) => (
+            <option key={o.value} value={o.value}>
+              {o.label}
+            </option>
+          ))}
+        </select>
+      </label>
+    </>
+  );
+  return (
+    <form className="admin-add" onSubmit={(e) => void submit(e)}>
+      <h3>
+        Result of {a} v {b}
+      </h3>
+      <label className="setting-inline">
+        <input type="radio" name="kind" checked={kind === 'game'} onChange={() => setKind('game')} />
+        A played game
+      </label>
+      <label className="setting-inline">
+        <input type="radio" name="kind" checked={kind === 'ruling'} onChange={() => setKind('ruling')} />
+        A ruling
+      </label>
+      {kind === 'game' && (
+        <>
+          <label>
+            Share code
+            <input className="input-antique" value={game.share_code} maxLength={32} onChange={(e) => setGame({ ...game, share_code: e.target.value })} />
+          </label>
+          {side('a', a)}
+          {side('b', b)}
+          <label>
+            Played on
+            <input className="input-antique" type="date" value={game.played_on} onChange={(e) => setGame({ ...game, played_on: e.target.value })} />
+          </label>
+        </>
+      )}
+      {kind === 'ruling' && (
+        <>
+          <label>
+            Ruling
+            <select className="input-antique" value={ruling.result} onChange={(e) => setRuling({ ...ruling, result: e.target.value as typeof ruling.result })}>
+              <option value="a">{a} wins</option>
+              <option value="b">{b} wins</option>
+              <option value="draw">a draw</option>
+              <option value="double_loss">both lose</option>
+            </select>
+          </label>
+          <label>
+            Reason
+            <input className="input-antique" value={ruling.reason} maxLength={1000} onChange={(e) => setRuling({ ...ruling, reason: e.target.value })} />
+          </label>
+        </>
+      )}
+      <button type="submit" className="btn-antique">
+        Save
+      </button>
+      <button type="button" className="btn-antique" onClick={onCancel}>
+        Cancel
+      </button>
+    </form>
+  );
+}
+
+/** StandingsCard shows the standings as the site does: rank, points, games, byes and opponents' points, dropped players last. */
+function StandingsCard({ standings }: { standings: BlitzStanding[] }) {
+  return (
+    <section className="rating-card admin-card" aria-labelledby="standings-heading">
+      <h2 id="standings-heading" className="rating-card-heading">
+        Standings
+      </h2>
+      <p className="muted">
+        A win is 1 point, a draw a half, a bye 1. Players on equal points who have all met are ordered by the games among
+        them, then by their opponents&apos; points, then by a draw fixed for the edition.
+      </p>
+      {standings.length === 0 && <p className="muted">Nobody to rank yet.</p>}
+      {standings.length > 0 && (
+        <div className="table-responsive">
+          <table className="leaderboard-table admin-table">
+            <caption className="visually-hidden">The standings</caption>
+            <thead>
+              <tr>
+                <th scope="col">Rank</th>
+                <th scope="col">Player</th>
+                <th scope="col">Points</th>
+                <th scope="col">Games</th>
+                <th scope="col">Byes</th>
+                <th scope="col">Opponents&apos; points</th>
+              </tr>
+            </thead>
+            <tbody>
+              {standings.map((s) => (
+                <tr key={s.name} className={s.status === 'dropped' ? 'muted' : ''}>
+                  <td>{s.rank}</td>
+                  <th scope="row">
+                    {s.name}
+                    {s.status === 'dropped' && <span className="row-detail muted">dropped</span>}
+                  </th>
+                  <td>{s.points}</td>
+                  <td>{s.games}</td>
+                  <td>{s.byes}</td>
+                  <td>{s.opponents_points}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
     </section>
   );
 }

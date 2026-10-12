@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -45,6 +46,11 @@ func (f *fakeAdmins) AddBlitzRound(_ context.Context, slug, edition string, r st
 		if x.PublishedAt == nil {
 			return store.BlitzRound{}, store.ErrBlitzDraftExists
 		}
+		for _, m := range x.Matches {
+			if m.B != nil && m.Result == "" {
+				return store.BlitzRound{}, fmt.Errorf("%w: entrant %d v entrant %d", store.ErrBlitzRoundUndecided, m.A, *m.B)
+			}
+		}
 	}
 	r.ID, r.Number = int64(101+len(f.rounds)), len(f.rounds)+1
 	if r.Kind == "" {
@@ -66,6 +72,11 @@ func (f *fakeAdmins) SetBlitzRoundMatches(_ context.Context, slug, edition strin
 	for _, m := range matches {
 		if m.A == 99 || (m.B != nil && *m.B == 99) {
 			return fmt.Errorf("%w: entrant 99", store.ErrBadBlitzMatch)
+		}
+	}
+	for _, d := range f.rounds[i].Matches {
+		if d.Result != "" && !slices.ContainsFunc(matches, func(m store.BlitzMatch) bool { return m.A == d.A && *m.B == *d.B }) {
+			return fmt.Errorf("%w: entrant %d and entrant %d", store.ErrBlitzMatchDecided, d.A, *d.B)
 		}
 	}
 	f.rounds[i].Matches = matches
@@ -94,6 +105,9 @@ func (f *fakeAdmins) DeleteBlitzRound(_ context.Context, slug, edition string, i
 	}
 	if i != len(f.rounds)-1 {
 		return store.ErrBlitzRoundNotLast
+	}
+	if slices.ContainsFunc(f.rounds[i].Matches, func(m store.BlitzMatch) bool { return m.Result != "" }) {
+		return store.ErrBlitzRoundPlayed
 	}
 	f.rounds = append(f.rounds[:i], f.rounds[i+1:]...)
 	f.notes = append(f.notes, fmt.Sprintf("remove round %d", id))
@@ -180,6 +194,11 @@ func TestBlitzRoundChangesAreRefusedWhenTheyShouldBe(t *testing.T) {
 		f.rounds[0].PublishedAt = &at
 		f.rounds = append(f.rounds, store.BlitzRound{ID: 102, Number: 2, Kind: "swiss", Seed: 2})
 	}
+	oneDecided := func(f *fakeAdmins) {
+		roundOnePublished(f)
+		at := time.Date(2026, 10, 15, 9, 0, 0, 0, time.UTC)
+		f.rounds[0].Matches[0].Result, f.rounds[0].Matches[0].DecidedAt, f.rounds[0].Matches[0].Ruling = "a", &at, "ruled"
+	}
 	tests := []struct {
 		name                       string
 		setup                      func(*fakeAdmins)
@@ -196,6 +215,9 @@ func TestBlitzRoundChangesAreRefusedWhenTheyShouldBe(t *testing.T) {
 		{"publishing an unknown round", draft, http.MethodPost, "/v1/admin/blitz/us_open/2026/rounds/5/publish", site, "", http.StatusNotFound},
 		{"deleting a round behind a later one", twoRounds, http.MethodDelete, "/v1/admin/blitz/us_open/2026/rounds/101", site, "", http.StatusConflict},
 		{"deleting an unknown round", draft, http.MethodDelete, "/v1/admin/blitz/us_open/2026/rounds/5", site, "", http.StatusNotFound},
+		{"pairing while a result is missing", oneDecided, http.MethodPost, "/v1/admin/blitz/us_open/2026/rounds", site, `{}`, http.StatusConflict},
+		{"leaving out a decided match", oneDecided, http.MethodPut, "/v1/admin/blitz/us_open/2026/rounds/101/matches", site, `{"matches": [{"a": 9, "b": 10}]}`, http.StatusBadRequest},
+		{"deleting a round with a result", oneDecided, http.MethodDelete, "/v1/admin/blitz/us_open/2026/rounds/101", site, "", http.StatusConflict},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

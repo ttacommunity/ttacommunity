@@ -129,9 +129,9 @@ func TestBlitzEntrantsAreAddedChangedAndRemoved(t *testing.T) {
 	if err != nil {
 		t.Fatalf("the site's BlitzEdition: %v", err)
 	}
-	wantPublic := []BlitzEntrant{{ID: ids[0], Name: "Ann", Zone: "Europe/London", Status: "active"}}
+	wantPublic := []BlitzEntrant{{ID: ids[0], Name: "Ann", Zone: "Europe/London", Status: "active"}, {ID: ids[1], Name: "Bob", Player: "Bob", Zone: "America/New_York", Status: "dropped"}}
 	if diff := cmp.Diff(wantPublic, public.Entrants); diff != "" {
-		t.Errorf("the site's entrants (-want +got):\n%s", diff)
+		t.Errorf("the site's entrants, dropped included and pending left out (-want +got):\n%s", diff)
 	}
 	if public.BlitzEditionRow.Entrants != 1 || public.Dropped != 1 {
 		t.Errorf("the site's counts = in %d out %d, want 1 and 1", public.BlitzEditionRow.Entrants, public.Dropped)

@@ -1,5 +1,31 @@
 import { describe, expect, it } from 'vitest';
-import { formatLabel, offsetLabel, zoneLabel, zoneOptions } from './blitz';
+import { formatLabel, offsetLabel, resultSummary, zoneLabel, zoneOptions, type BlitzPlayedGame } from './blitz';
+
+const game = (aCulture: number, bCulture: number, aOutcome: BlitzPlayedGame['a_outcome'] = 'finished', bOutcome: BlitzPlayedGame['b_outcome'] = 'finished'): BlitzPlayedGame => ({
+  share_code: 'ABCD1234',
+  a_culture: aCulture,
+  a_outcome: aOutcome,
+  b_culture: bCulture,
+  b_outcome: bOutcome,
+  played_on: '2026-10-14',
+});
+
+describe('resultSummary', () => {
+  it.each([
+    ['a bye', { a: 'Ann', b: null, result: null, game: null, ruled: false }, 'bye'],
+    ['an undecided match', { a: 'Ann', b: 'Cy', result: null, game: null, ruled: false }, ''],
+    ['a win', { a: 'Ann', b: 'Cy', result: 'a', game: game(250, 200), ruled: false }, 'Ann won 250–200'],
+    ['a win for the second player', { a: 'Ann', b: 'Cy', result: 'b', game: game(200, 250), ruled: false }, 'Cy won 200–250'],
+    ['a draw', { a: 'Ann', b: 'Cy', result: 'draw', game: game(210, 210), ruled: false }, 'Draw 210–210'],
+    ['a resignation', { a: 'Ann', b: 'Cy', result: 'a', game: game(250, 0, 'finished', 'resigned'), ruled: false }, 'Ann won 250–0, Cy resigned'],
+    ['a time-out', { a: 'Ann', b: 'Cy', result: 'b', game: game(0, 180, 'timed_out'), ruled: false }, 'Cy won 0–180, Ann timed out'],
+    ['a ruling', { a: 'Ann', b: 'Cy', result: 'b', game: null, ruled: true }, 'Cy won by ruling'],
+    ['a double loss', { a: 'Ann', b: 'Cy', result: 'double_loss', game: null, ruled: true }, 'Double loss by ruling'],
+    ['a ruling over a game', { a: 'Ann', b: 'Cy', result: 'draw', game: game(250, 200), ruled: true }, 'Draw by ruling (game 250–200)'],
+  ] as const)('summarises %s', (_name, m, want) => {
+    expect(resultSummary(m)).toBe(want);
+  });
+});
 
 describe('offsetLabel', () => {
   it.each([

@@ -23,11 +23,13 @@ type BlitzFormat struct {
 var DefaultBlitzFormat = BlitzFormat{SwissRounds: 8, KnockoutSize: 8}
 
 // BlitzEditionRow is one edition of a blitz series as the lists show it: the series' slug and name, the
-// edition's label and format, and how many entrants are in, pending and dropped.
+// edition's label and format, how many entrants are in, pending and dropped, and the seed that breaks what
+// the standings' tiebreaks leave (0 until the edition has a row of its own).
 type BlitzEditionRow struct {
 	Slug, Name, Edition        string
 	Format                     BlitzFormat
 	Entrants, Pending, Dropped int
+	TiebreakSeed               int64
 }
 
 // BlitzEntrant is one sign-up. Player is the ratings' spelling of the name, "" for a player we do not know;
@@ -80,7 +82,8 @@ func blitzEditionRows(ctx context.Context, db conn, public bool, slug, edition s
 		SELECT s.slug, s.name, t.label, coalesce(e.swiss_rounds, $4), coalesce(e.knockout_size, $5),
 		       (SELECT count(*) FROM blitz_entries x WHERE x.tournament_id = t.tournament_id AND x.status = 'active')::int,
 		       (SELECT count(*) FROM blitz_entries x WHERE x.tournament_id = t.tournament_id AND x.status = 'pending')::int,
-		       (SELECT count(*) FROM blitz_entries x WHERE x.tournament_id = t.tournament_id AND x.status = 'dropped')::int
+		       (SELECT count(*) FROM blitz_entries x WHERE x.tournament_id = t.tournament_id AND x.status = 'dropped')::int,
+		       coalesce(e.tiebreak_seed, 0)
 		FROM series s JOIN tournaments t USING (series_id)
 		LEFT JOIN blitz_editions e ON e.tournament_id = t.tournament_id
 		WHERE s.blitz AND (s.visible OR NOT $1) AND ($2 = '' OR (s.slug = $2 AND t.label = $3))
@@ -91,7 +94,7 @@ func blitzEditionRows(ctx context.Context, db conn, public bool, slug, edition s
 	}
 	out, err := pgx.CollectRows(rows, func(row pgx.CollectableRow) (BlitzEditionRow, error) {
 		var r BlitzEditionRow
-		return r, row.Scan(&r.Slug, &r.Name, &r.Edition, &r.Format.SwissRounds, &r.Format.KnockoutSize, &r.Entrants, &r.Pending, &r.Dropped)
+		return r, row.Scan(&r.Slug, &r.Name, &r.Edition, &r.Format.SwissRounds, &r.Format.KnockoutSize, &r.Entrants, &r.Pending, &r.Dropped, &r.TiebreakSeed)
 	})
 	if err != nil {
 		return nil, fmt.Errorf("listing blitz editions: %w", err)
@@ -99,8 +102,8 @@ func blitzEditionRows(ctx context.Context, db conn, public bool, slug, edition s
 	return out, nil
 }
 
-// blitzEdition reads one edition and its entrants: every one with Discord names for admin, the active ones
-// without for the site.
+// blitzEdition reads one edition and its entrants: every one with Discord names for admin; for the site the
+// active and dropped ones (the standings mark the dropped) without Discord names, never a pending one.
 func blitzEdition(ctx context.Context, db conn, public bool, slug, edition string) (BlitzEdition, error) {
 	rows, err := blitzEditionRows(ctx, db, public, slug, edition)
 	if err != nil {
@@ -120,7 +123,7 @@ func blitzEdition(ctx context.Context, db conn, public bool, slug, edition strin
 		       coalesce((SELECT p.name FROM players p WHERE lower(p.name) = lower(x.name) ORDER BY p.player_id LIMIT 1), ''),
 		       `+discord+`, x.zone, x.status
 		FROM blitz_entries x JOIN tournaments t USING (tournament_id) JOIN series s USING (series_id)
-		WHERE s.slug = $1 AND t.label = $2 AND (x.status = 'active' OR NOT $3)
+		WHERE s.slug = $1 AND t.label = $2 AND (x.status <> 'pending' OR NOT $3)
 		ORDER BY x.joined_at, x.entry_id`, slug, edition, public)
 	if err != nil {
 		return BlitzEdition{}, fmt.Errorf("reading %s %s's entrants: %w", slug, edition, err)
@@ -153,7 +156,8 @@ func (r *RatingsReader) BlitzEditions(ctx context.Context) ([]BlitzEditionRow, e
 	return blitzEditionRows(ctx, r.pool, true, "", "")
 }
 
-// BlitzEdition reads a shown edition and its active entrants for the site, or ErrNoBlitzEdition.
+// BlitzEdition reads a shown edition for the site, with its active and dropped entrants (no Discord names, no
+// pending ones), its published rounds and their results, or ErrNoBlitzEdition.
 func (r *RatingsReader) BlitzEdition(ctx context.Context, slug, edition string) (BlitzEdition, error) {
 	return blitzEdition(ctx, r.pool, true, slug, edition)
 }

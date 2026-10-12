@@ -1,8 +1,9 @@
-/** The Blitz section: every blitz edition, or one edition (?t=&e=) with the entrants still in. */
+/** The Blitz section: every blitz edition, or one edition (?t=&e=) with its standings, its pairings and results, and the entrants still in. */
 import { useEffect, useState } from 'react';
 import { RatingsApiError, blitzEdition, blitzEditions, type BlitzEdition, type BlitzEditions } from '@ttac/shared/ratings';
-import { formatLabel, zoneLabel } from '@ttac/shared/blitz';
+import { formatLabel, resultSummary, zoneLabel } from '@ttac/shared/blitz';
 import { editionHref, editionParams, ratingText, roundsNewestFirst } from '../lib/blitz';
+import { catalogueHref } from '../lib/catalogue-view';
 import Waiting from './Waiting';
 import './Blitz.css';
 
@@ -122,17 +123,71 @@ function EditionPage({ apiUrl, slug, edition }: { apiUrl: string; slug: string; 
         <div className="tournaments-subtitle">{formatLabel(ed.format)}. Pairings, results and standings appear here as the rounds are played.</div>
       </div>
       {ed.rounds.length > 0 && (
+        <section className="rating-card blitz-card" aria-labelledby="blitz-standings">
+          <h2 id="blitz-standings" className="rating-card-heading">
+            Standings
+          </h2>
+          <p className="blitz-intro">
+            A win is 1 point, a draw a half, a bye 1. Players on equal points who have all met are ordered by the games among
+            them, then by their opponents&apos; points, then by a draw fixed for the edition.
+          </p>
+          <div className="blitz-table-wrap">
+            <table className="blitz-table">
+              <caption>The standings after the results recorded so far</caption>
+              <thead>
+                <tr>
+                  <th scope="col" className="num">
+                    Rank
+                  </th>
+                  <th scope="col">Player</th>
+                  <th scope="col" className="num">
+                    Points
+                  </th>
+                  <th scope="col" className="num">
+                    Games
+                  </th>
+                  <th scope="col" className="num">
+                    Byes
+                  </th>
+                  <th scope="col" className="num">
+                    Opponents&apos; points
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                {ed.standings.map((s) => (
+                  <tr key={s.name} className={s.status === 'dropped' ? 'blitz-dropped' : ''}>
+                    <td className="num">{s.rank}</td>
+                    <th scope="row">
+                      {s.name}
+                      {s.status === 'dropped' && <span className="blitz-note">dropped</span>}
+                    </th>
+                    <td className="num">{s.points}</td>
+                    <td className="num">{s.games}</td>
+                    <td className="num">{s.byes}</td>
+                    <td className="num">{s.opponents_points}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </section>
+      )}
+      {ed.rounds.length > 0 && (
         <section className="rating-card blitz-card" aria-labelledby="blitz-rounds">
           <h2 id="blitz-rounds" className="rating-card-heading">
-            Pairings
+            Pairings and results
           </h2>
-          <p className="blitz-intro">Who plays whom, the latest round first. Arrange your game with your opponent on Discord.</p>
+          <p className="blitz-intro">
+            Who plays whom, the latest round first, and how each game went. Arrange your game with your opponent on Discord.
+            A recorded game is on the <a href={catalogueHref(ed.tournament)}>tournament&apos;s page</a> too.
+          </p>
           {roundsNewestFirst(ed.rounds).map((r) => (
             <div key={r.number} className="blitz-round">
               <h3>Round {r.number}</h3>
               <div className="blitz-table-wrap">
                 <table className="blitz-table">
-                  <caption>Round {r.number}&apos;s pairings</caption>
+                  <caption>Round {r.number}&apos;s pairings and results</caption>
                   <thead>
                     <tr>
                       <th scope="col">Player</th>
@@ -143,6 +198,7 @@ function EditionPage({ apiUrl, slug, edition }: { apiUrl: string; slug: string; 
                       <th scope="col" className="num">
                         Rating
                       </th>
+                      <th scope="col">Result</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -152,6 +208,10 @@ function EditionPage({ apiUrl, slug, edition }: { apiUrl: string; slug: string; 
                         <td className="num">{ratingText(m.a_rating)}</td>
                         <td>{m.b === null ? <em>bye</em> : m.b}</td>
                         <td className="num">{m.b === null ? '' : ratingText(m.b_rating)}</td>
+                        <td>
+                          {m.b === null ? '' : m.result === null ? <span className="muted">to be played</span> : resultSummary(m)}
+                          {m.game !== null && <span className="blitz-note">{m.game.share_code}</span>}
+                        </td>
                       </tr>
                     ))}
                   </tbody>

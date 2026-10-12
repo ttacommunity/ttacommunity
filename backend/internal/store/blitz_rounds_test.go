@@ -78,6 +78,20 @@ func TestBlitzRoundsAreMadePublishedAndListed(t *testing.T) {
 	if public, err = reader.BlitzEdition(ctx, "us_open", "2026"); err != nil || len(public.Rounds) != 1 || public.Rounds[0].PublishedAt == nil {
 		t.Errorf("the site's rounds once published = %v, %v; want round 1", roundLines(public.Rounds), err)
 	}
+	if err := a.DeleteBlitzRound(ctx, "us_open", "2026", r1.ID); err != nil {
+		t.Errorf("deleting the published round 1, the latest = %v, want nil (nothing played yet)", err)
+	}
+	if r1, err = a.AddBlitzRound(ctx, "us_open", "2026", BlitzRound{Timezone: true, Seed: 7, Matches: []BlitzMatch{{A: ann, B: &bob}, {A: cy, B: &dee}}}); err != nil || r1.Number != 1 {
+		t.Fatalf("round 1 again = %+v, %v; want round 1", r1, err)
+	}
+	if err := a.PublishBlitzRound(ctx, "us_open", "2026", r1.ID); err != nil {
+		t.Fatalf("PublishBlitzRound again: %v", err)
+	}
+	for _, m := range r1.Matches {
+		if err := a.RecordBlitzRuling(ctx, "us_open", "2026", m.ID, "draw", "agreed"); err != nil {
+			t.Fatalf("RecordBlitzRuling(%d): %v", m.ID, err)
+		}
+	}
 	r2, err := a.AddBlitzRound(ctx, "us_open", "2026", BlitzRound{Seed: 9, Matches: []BlitzMatch{{A: ann, B: &cy}, {A: bob, B: &dee}}})
 	if err != nil || r2.Number != 2 {
 		t.Errorf("the next round = %+v, %v; want round 2", r2, err)
@@ -90,15 +104,6 @@ func TestBlitzRoundsAreMadePublishedAndListed(t *testing.T) {
 	}
 	if ed, err = a.BlitzEdition(ctx, "us_open", "2026"); err != nil || len(ed.Rounds) != 1 {
 		t.Errorf("rounds after deleting the draft = %v, %v; want round 1 alone", roundLines(ed.Rounds), err)
-	}
-	if err := a.DeleteBlitzRound(ctx, "us_open", "2026", r1.ID); err != nil {
-		t.Errorf("deleting the published round 1, now the latest = %v, want nil (nothing played yet)", err)
-	}
-	if r1, err = a.AddBlitzRound(ctx, "us_open", "2026", BlitzRound{Timezone: true, Seed: 7, Matches: []BlitzMatch{{A: ann, B: &bob}, {A: cy, B: &dee}}}); err != nil || r1.Number != 1 {
-		t.Fatalf("round 1 again = %+v, %v; want round 1", r1, err)
-	}
-	if err := a.PublishBlitzRound(ctx, "us_open", "2026", r1.ID); err != nil {
-		t.Fatalf("PublishBlitzRound again: %v", err)
 	}
 	if err := a.RemoveBlitzEntrant(ctx, "us_open", "2026", ann); !errors.Is(err, ErrBlitzEntrantInRound) {
 		t.Errorf("removing an entrant who played a round = %v, want ErrBlitzEntrantInRound", err)
@@ -119,6 +124,9 @@ func TestBlitzRoundMatchesAreCheckedAndChanged(t *testing.T) {
 	}
 	if err := a.PublishBlitzRound(ctx, "us_open", "2026", r1.ID); err != nil {
 		t.Fatalf("PublishBlitzRound: %v", err)
+	}
+	if err := a.RecordBlitzRuling(ctx, "us_open", "2026", r1.Matches[0].ID, "a", "Bob did not show"); err != nil {
+		t.Fatalf("RecordBlitzRuling: %v", err)
 	}
 	tests := []struct {
 		name    string

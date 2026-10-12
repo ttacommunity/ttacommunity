@@ -188,14 +188,35 @@ Interactive parts write maths the same way, as TeX, through a small
 
 A blitz tournament is an ordinary tournament whose series has the **Blitz**
 setting: organisers run it from admin's Blitz tab, a round a week, in the
-format CGE's US Open uses (Swiss rounds, then a knockout). Today admin
-holds each edition's format (`blitz_editions`) and entrants
-(`blitz_entries`: TTA username, Discord name, IANA time zone), added one
-at a time; a username the ratings know is kept in their spelling. The
-site's `/blitz` shows the editions and who is in. **A Discord name never leaves admin**: the public role has
-no `SELECT` on that column, so no public route can read it, and the export
-leaves the blitz tables out. Pairings, results (recorded as games under
-the tournament) and standings come next.
+format CGE's US Open uses (Swiss rounds, then a knockout). Admin holds each
+edition's format and tiebreak seed (`blitz_editions`), its entrants
+(`blitz_entries`: TTA username, Discord name, IANA time zone; pending,
+active or dropped), added one at a time with a username the ratings know
+kept in their spelling, and its rounds (`blitz_rounds`, `blitz_matches`):
+paired by the api (`internal/blitz`: equal points, never the same opponent
+twice, the best time-zone fit within a score group, the bye to the lowest
+player without one), changed by hand, then published.
+
+**A result is a game.** A played game is written to `games` and `seats`
+under the edition's stage "Round N", from an `import_batches` row of
+source `admin`, so the tournament's page shows it at once and a later CGE
+extract load matches it by share code instead of adding a copy; recording
+the match again corrects that one game. The match keeps the result (a win,
+a draw or a double loss) and, when the organisers decided it instead, their
+ruling and its reason (a ruling may overrule a played game). The next round
+is paired only once every match has a result. The standings are computed
+on read (`internal/blitz`, the same for admin and the site): points, then
+CGE's tiebreaks, which are the games among tied players who have all met,
+their opponents' points, and a draw from the edition's seed. For this the
+admin login may insert and update games, seats, players and stages; it
+still cannot delete games, players or runs, and the api refuses to start
+if it could.
+
+The site's `/blitz` shows the editions, each one's standings, the published
+pairings with their results, and who is in. **A Discord name never leaves
+admin**: the public role has no `SELECT` on that column, so no public route
+can read it, and the export leaves the blitz tables out. A ruling's reason
+stays in admin too. The knockout comes next.
 
 ### Tournaments: data, not code
 

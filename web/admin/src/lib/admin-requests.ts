@@ -78,6 +78,12 @@ export const setBlitzRoundMatches = (slug: string, edition: string, round: numbe
 export const publishBlitzRound = (slug: string, edition: string, round: number) => to(`${blitz(slug, edition)}/rounds/${round}/publish`, 'POST');
 /** deleteBlitzRound removes a draft round. */
 export const deleteBlitzRound = (slug: string, edition: string, round: number) => to(`${blitz(slug, edition)}/rounds/${round}`, 'DELETE');
+/** recordBlitzGame records, or corrects, the game a match was played as. */
+export const recordBlitzGame = (slug: string, edition: string, round: number, match: number, game: Schemas['BlitzGameRecord']) =>
+  to(`${blitz(slug, edition)}/rounds/${round}/matches/${match}/game`, 'PUT', game);
+/** recordBlitzRuling decides a match by the organisers' ruling. */
+export const recordBlitzRuling = (slug: string, edition: string, round: number, match: number, ruling: Schemas['BlitzRuling']) =>
+  to(`${blitz(slug, edition)}/rounds/${round}/matches/${match}/ruling`, 'PUT', ruling);
 
 /** setAdmin adds or changes an admin. */
 export const setAdmin = (id: string, name: string, role: string) => to(`/api/admins/${id}`, 'PUT', { name, role });

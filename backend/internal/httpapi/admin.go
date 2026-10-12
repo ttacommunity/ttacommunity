@@ -78,6 +78,9 @@ type Admins interface {
 	SetBlitzRoundMatches(ctx context.Context, slug, edition string, roundID int64, matches []store.BlitzMatch) error
 	PublishBlitzRound(ctx context.Context, slug, edition string, roundID int64) error
 	DeleteBlitzRound(ctx context.Context, slug, edition string, roundID int64) error
+	// RecordBlitzGame records or corrects the game a match was played as; RecordBlitzRuling decides it by ruling.
+	RecordBlitzGame(ctx context.Context, slug, edition string, matchID int64, g store.BlitzGame) error
+	RecordBlitzRuling(ctx context.Context, slug, edition string, matchID int64, result, reason string) error
 }
 
 type adminKey struct{}

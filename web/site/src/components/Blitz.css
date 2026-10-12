@@ -65,3 +65,11 @@
   font-size: 1.05rem;
   color: var(--accent-gold);
 }
+.blitz-dropped {
+  color: var(--text-muted);
+}
+.blitz-note {
+  display: block;
+  color: var(--text-muted);
+  font-size: 0.85rem;
+}

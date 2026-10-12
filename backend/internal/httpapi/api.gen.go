@@ -220,6 +220,69 @@ func (e BlitzEntrantChangeStatus) Valid() bool {
 	}
 }
 
+// Defines values for BlitzOutcome.
+const (
+	BlitzOutcomeFinished BlitzOutcome = "finished"
+	BlitzOutcomeResigned BlitzOutcome = "resigned"
+	BlitzOutcomeTimedOut BlitzOutcome = "timed_out"
+)
+
+// Valid indicates whether the value is a known member of the BlitzOutcome enum.
+func (e BlitzOutcome) Valid() bool {
+	switch e {
+	case BlitzOutcomeFinished:
+		return true
+	case BlitzOutcomeResigned:
+		return true
+	case BlitzOutcomeTimedOut:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for BlitzResult.
+const (
+	BlitzResultA          BlitzResult = "a"
+	BlitzResultB          BlitzResult = "b"
+	BlitzResultDoubleLoss BlitzResult = "double_loss"
+	BlitzResultDraw       BlitzResult = "draw"
+)
+
+// Valid indicates whether the value is a known member of the BlitzResult enum.
+func (e BlitzResult) Valid() bool {
+	switch e {
+	case BlitzResultA:
+		return true
+	case BlitzResultB:
+		return true
+	case BlitzResultDoubleLoss:
+		return true
+	case BlitzResultDraw:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for BlitzStandingStatus.
+const (
+	BlitzStandingStatusActive  BlitzStandingStatus = "active"
+	BlitzStandingStatusDropped BlitzStandingStatus = "dropped"
+)
+
+// Valid indicates whether the value is a known member of the BlitzStandingStatus enum.
+func (e BlitzStandingStatus) Valid() bool {
+	switch e {
+	case BlitzStandingStatusActive:
+		return true
+	case BlitzStandingStatusDropped:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for CalibrationRowMode.
 const (
 	Standard    CalibrationRowMode = "standard"
@@ -330,19 +393,19 @@ func (e Format) Valid() bool {
 
 // Defines values for GameSeatOutcome.
 const (
-	Finished GameSeatOutcome = "finished"
-	Resigned GameSeatOutcome = "resigned"
-	TimedOut GameSeatOutcome = "timed_out"
+	GameSeatOutcomeFinished GameSeatOutcome = "finished"
+	GameSeatOutcomeResigned GameSeatOutcome = "resigned"
+	GameSeatOutcomeTimedOut GameSeatOutcome = "timed_out"
 )
 
 // Valid indicates whether the value is a known member of the GameSeatOutcome enum.
 func (e GameSeatOutcome) Valid() bool {
 	switch e {
-	case Finished:
+	case GameSeatOutcomeFinished:
 		return true
-	case Resigned:
+	case GameSeatOutcomeResigned:
 		return true
-	case TimedOut:
+	case GameSeatOutcomeTimedOut:
 		return true
 	default:
 		return false
@@ -798,8 +861,11 @@ type AdminBlitzEdition struct {
 	Name   string      `json:"name"`
 
 	// Rounds Every round, first first, drafts included
-	Rounds     []AdminBlitzRound `json:"rounds"`
-	Tournament string            `json:"tournament"`
+	Rounds []AdminBlitzRound `json:"rounds"`
+
+	// Standings By rank, as the site shows them; dropped players last
+	Standings  []BlitzStanding `json:"standings"`
+	Tournament string          `json:"tournament"`
 }
 
 // AdminBlitzEditionRow One edition of a blitz tournament as admin's list shows it
@@ -843,16 +909,26 @@ type AdminBlitzEntrantStatus string
 
 // AdminBlitzMatch A match by entrant ids; b is null for the bye. The gaps are as the entrants are now
 type AdminBlitzMatch struct {
-	A  int64  `json:"a"`
-	B  *int64 `json:"b"`
-	Id int64  `json:"id"`
+	A         int64      `json:"a"`
+	B         *int64     `json:"b"`
+	DecidedAt *time.Time `json:"decided_at"`
+
+	// Game The game played, null for none recorded
+	Game *BlitzPlayedGame `json:"game"`
+	Id   int64            `json:"id"`
 
 	// RatingGap Null when either is unrated, or for the bye
 	RatingGap *float64 `json:"rating_gap"`
 
 	// Repeat Whether the two have met in another round
-	Repeat         bool `json:"repeat"`
-	ZoneGapMinutes int  `json:"zone_gap_minutes"`
+	Repeat bool `json:"repeat"`
+
+	// Result Null until the match is decided
+	Result *BlitzResult `json:"result"`
+
+	// Ruling The organisers' reason when the result is their ruling, else empty
+	Ruling         string `json:"ruling"`
+	ZoneGapMinutes int    `json:"zone_gap_minutes"`
 }
 
 // AdminBlitzRound defines model for AdminBlitzRound.
@@ -1116,7 +1192,7 @@ type BadgeSetting struct {
 	Players *[]string `json:"players,omitempty"`
 }
 
-// BlitzEdition A blitz edition for the site, with the entrants still in and the published rounds
+// BlitzEdition A blitz edition for the site, with the entrants still in, the published rounds and the standings
 type BlitzEdition struct {
 	Edition  string         `json:"edition"`
 	Entrants []BlitzEntrant `json:"entrants"`
@@ -1126,8 +1202,11 @@ type BlitzEdition struct {
 	Name   string      `json:"name"`
 
 	// Rounds The published rounds, first first
-	Rounds     []BlitzRound `json:"rounds"`
-	Tournament string       `json:"tournament"`
+	Rounds []BlitzRound `json:"rounds"`
+
+	// Standings By rank; dropped players last
+	Standings  []BlitzStanding `json:"standings"`
+	Tournament string          `json:"tournament"`
 }
 
 // BlitzEditionRow One edition of a blitz tournament as the site's list shows it
@@ -1191,13 +1270,59 @@ type BlitzFormat struct {
 	SwissRounds  int `json:"swiss_rounds"`
 }
 
-// BlitzPublicMatch Who plays whom; b is null for the bye
+// BlitzGameRecord A played game, with the share code, each side as the match names them, and the day played
+type BlitzGameRecord struct {
+	A         BlitzGameSide      `json:"a"`
+	B         BlitzGameSide      `json:"b"`
+	PlayedOn  openapi_types.Date `json:"played_on"`
+	ShareCode string             `json:"share_code"`
+}
+
+// BlitzGameSide defines model for BlitzGameSide.
+type BlitzGameSide struct {
+	// Culture Ignored (0) for a player who resigned or timed out
+	Culture float64 `json:"culture"`
+
+	// Outcome How a player's game ended
+	Outcome BlitzOutcome `json:"outcome"`
+}
+
+// BlitzOutcome How a player's game ended
+type BlitzOutcome string
+
+// BlitzPlayedGame A played game as recorded, each side as the match names them
+type BlitzPlayedGame struct {
+	ACulture float64 `json:"a_culture"`
+
+	// AOutcome How a player's game ended
+	AOutcome BlitzOutcome `json:"a_outcome"`
+	BCulture float64      `json:"b_culture"`
+
+	// BOutcome How a player's game ended
+	BOutcome  BlitzOutcome       `json:"b_outcome"`
+	PlayedOn  openapi_types.Date `json:"played_on"`
+	ShareCode string             `json:"share_code"`
+}
+
+// BlitzPublicMatch Who plays whom and how it ended; b is null for the bye
 type BlitzPublicMatch struct {
 	A       string   `json:"a"`
 	ARating *float64 `json:"a_rating"`
 	B       *string  `json:"b"`
 	BRating *float64 `json:"b_rating"`
+
+	// Game The game played, null for none recorded
+	Game *BlitzPlayedGame `json:"game"`
+
+	// Result Null until the match is decided (a bye never is)
+	Result *BlitzResult `json:"result"`
+
+	// Ruled Whether the result is the organisers' ruling rather than the game's outcome
+	Ruled bool `json:"ruled"`
 }
+
+// BlitzResult Who won, a draw, or a double loss
+type BlitzResult string
 
 // BlitzRound A published round as the site shows it
 type BlitzRound struct {
@@ -1215,6 +1340,36 @@ type BlitzRoundMatches struct {
 		B *int64 `json:"b,omitempty"`
 	} `json:"matches"`
 }
+
+// BlitzRuling defines model for BlitzRuling.
+type BlitzRuling struct {
+	Reason string `json:"reason"`
+
+	// Result Who won, a draw, or a double loss
+	Result BlitzResult `json:"result"`
+}
+
+// BlitzStanding One row of the standings
+type BlitzStanding struct {
+	Byes int `json:"byes"`
+
+	// Games Matches decided, byes aside
+	Games int    `json:"games"`
+	Name  string `json:"name"`
+
+	// OpponentsPoints The sum of the points of everyone met in a decided match
+	OpponentsPoints float64 `json:"opponents_points"`
+
+	// Points A win 1, a draw a half, a bye 1
+	Points float64 `json:"points"`
+	Rank   int     `json:"rank"`
+
+	// Status Dropped players come last
+	Status BlitzStandingStatus `json:"status"`
+}
+
+// BlitzStandingStatus Dropped players come last
+type BlitzStandingStatus string
 
 // CGETournament A tournament on CGE's site, as its page shows it
 type CGETournament struct {
@@ -2782,6 +2937,9 @@ type BlitzEditionLabel = string
 // BlitzEntrantId defines model for BlitzEntrantId.
 type BlitzEntrantId = int64
 
+// BlitzMatchId defines model for BlitzMatchId.
+type BlitzMatchId = int64
+
 // BlitzRoundId defines model for BlitzRoundId.
 type BlitzRoundId = int64
 
@@ -2977,6 +3135,12 @@ type PostAdminBlitzRoundJSONRequestBody = NewBlitzRound
 // PutAdminBlitzRoundMatchesJSONRequestBody defines body for PutAdminBlitzRoundMatches for application/json ContentType.
 type PutAdminBlitzRoundMatchesJSONRequestBody = BlitzRoundMatches
 
+// PutAdminBlitzMatchGameJSONRequestBody defines body for PutAdminBlitzMatchGame for application/json ContentType.
+type PutAdminBlitzMatchGameJSONRequestBody = BlitzGameRecord
+
+// PutAdminBlitzMatchRulingJSONRequestBody defines body for PutAdminBlitzMatchRuling for application/json ContentType.
+type PutAdminBlitzMatchRulingJSONRequestBody = BlitzRuling
+
 // PostAdminCommunityEditionJSONRequestBody defines body for PostAdminCommunityEdition for application/json ContentType.
 type PostAdminCommunityEditionJSONRequestBody = CommunityEditionItem
 
@@ -3051,12 +3215,18 @@ type ServerInterface interface {
 	// PostAdminBlitzRound Pair the edition's next round as a draft
 	// (POST /v1/admin/blitz/{tournament}/{edition}/rounds)
 	PostAdminBlitzRound(w http.ResponseWriter, r *http.Request, tournament AdminTournamentSlug, edition BlitzEditionLabel)
-	// DeleteAdminBlitzRound Delete a draft round
+	// DeleteAdminBlitzRound Delete the latest round while nothing in it is played
 	// (DELETE /v1/admin/blitz/{tournament}/{edition}/rounds/{round})
 	DeleteAdminBlitzRound(w http.ResponseWriter, r *http.Request, tournament AdminTournamentSlug, edition BlitzEditionLabel, round BlitzRoundId)
 	// PutAdminBlitzRoundMatches Replace a round's matches, as paired by hand
 	// (PUT /v1/admin/blitz/{tournament}/{edition}/rounds/{round}/matches)
 	PutAdminBlitzRoundMatches(w http.ResponseWriter, r *http.Request, tournament AdminTournamentSlug, edition BlitzEditionLabel, round BlitzRoundId)
+	// PutAdminBlitzMatchGame Record the game a match was played as, or correct it
+	// (PUT /v1/admin/blitz/{tournament}/{edition}/rounds/{round}/matches/{match}/game)
+	PutAdminBlitzMatchGame(w http.ResponseWriter, r *http.Request, tournament AdminTournamentSlug, edition BlitzEditionLabel, round BlitzRoundId, match BlitzMatchId)
+	// PutAdminBlitzMatchRuling Decide a match by the organisers' ruling
+	// (PUT /v1/admin/blitz/{tournament}/{edition}/rounds/{round}/matches/{match}/ruling)
+	PutAdminBlitzMatchRuling(w http.ResponseWriter, r *http.Request, tournament AdminTournamentSlug, edition BlitzEditionLabel, round BlitzRoundId, match BlitzMatchId)
 	// PostAdminBlitzRoundPublish Publish a round, once everyone active is in it exactly once
 	// (POST /v1/admin/blitz/{tournament}/{edition}/rounds/{round}/publish)
 	PostAdminBlitzRoundPublish(w http.ResponseWriter, r *http.Request, tournament AdminTournamentSlug, edition BlitzEditionLabel, round BlitzRoundId)
@@ -3731,6 +3901,112 @@ func (siw *ServerInterfaceWrapper) PutAdminBlitzRoundMatches(w http.ResponseWrit
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.PutAdminBlitzRoundMatches(w, r, tournament, edition, round)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// PutAdminBlitzMatchGame operation middleware
+func (siw *ServerInterfaceWrapper) PutAdminBlitzMatchGame(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "tournament" -------------
+	var tournament AdminTournamentSlug
+
+	err = runtime.BindStyledParameterWithOptions("simple", "tournament", r.PathValue("tournament"), &tournament, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "tournament", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "edition" -------------
+	var edition BlitzEditionLabel
+
+	err = runtime.BindStyledParameterWithOptions("simple", "edition", r.PathValue("edition"), &edition, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "edition", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "round" -------------
+	var round BlitzRoundId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "round", r.PathValue("round"), &round, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "integer", Format: "int64", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "round", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "match" -------------
+	var match BlitzMatchId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "match", r.PathValue("match"), &match, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "integer", Format: "int64", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "match", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.PutAdminBlitzMatchGame(w, r, tournament, edition, round, match)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// PutAdminBlitzMatchRuling operation middleware
+func (siw *ServerInterfaceWrapper) PutAdminBlitzMatchRuling(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "tournament" -------------
+	var tournament AdminTournamentSlug
+
+	err = runtime.BindStyledParameterWithOptions("simple", "tournament", r.PathValue("tournament"), &tournament, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "tournament", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "edition" -------------
+	var edition BlitzEditionLabel
+
+	err = runtime.BindStyledParameterWithOptions("simple", "edition", r.PathValue("edition"), &edition, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "edition", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "round" -------------
+	var round BlitzRoundId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "round", r.PathValue("round"), &round, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "integer", Format: "int64", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "round", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "match" -------------
+	var match BlitzMatchId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "match", r.PathValue("match"), &match, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "integer", Format: "int64", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "match", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.PutAdminBlitzMatchRuling(w, r, tournament, edition, round, match)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -5943,6 +6219,8 @@ func HandlerWithOptions(si ServerInterface, options StdHTTPServerOptions) http.H
 	m.HandleFunc(http.MethodDelete+" "+options.BaseURL+"/v1/admin/blitz/{tournament}/{edition}/rounds/{round}", wrapper.DeleteAdminBlitzRound)
 	m.HandleFunc(http.MethodPut+" "+options.BaseURL+"/v1/admin/blitz/{tournament}/{edition}/rounds/{round}/matches", wrapper.PutAdminBlitzRoundMatches)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/v1/admin/blitz/{tournament}/{edition}/rounds/{round}/publish", wrapper.PostAdminBlitzRoundPublish)
+	m.HandleFunc(http.MethodPut+" "+options.BaseURL+"/v1/admin/blitz/{tournament}/{edition}/rounds/{round}/matches/{match}/game", wrapper.PutAdminBlitzMatchGame)
+	m.HandleFunc(http.MethodPut+" "+options.BaseURL+"/v1/admin/blitz/{tournament}/{edition}/rounds/{round}/matches/{match}/ruling", wrapper.PutAdminBlitzMatchRuling)
 	m.HandleFunc(http.MethodDelete+" "+options.BaseURL+"/v1/admin/blitz/{tournament}/{edition}/entrants/{entrant}", wrapper.DeleteAdminBlitzEntrant)
 	m.HandleFunc(http.MethodPatch+" "+options.BaseURL+"/v1/admin/blitz/{tournament}/{edition}/entrants/{entrant}", wrapper.PatchAdminBlitzEntrant)
 
@@ -7297,6 +7575,181 @@ func (response PutAdminBlitzRoundMatches403JSONResponse) VisitPutAdminBlitzRound
 type PutAdminBlitzRoundMatches404JSONResponse struct{ NotFoundJSONResponse }
 
 func (response PutAdminBlitzRoundMatches404JSONResponse) VisitPutAdminBlitzRoundMatchesResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PutAdminBlitzMatchGameRequestObject struct {
+	Tournament AdminTournamentSlug `json:"tournament"`
+	Edition    BlitzEditionLabel   `json:"edition"`
+	Round      BlitzRoundId        `json:"round"`
+	Match      BlitzMatchId        `json:"match"`
+	Body       *PutAdminBlitzMatchGameJSONRequestBody
+}
+
+type PutAdminBlitzMatchGameResponseObject interface {
+	VisitPutAdminBlitzMatchGameResponse(w http.ResponseWriter) error
+}
+
+type PutAdminBlitzMatchGame204Response struct {
+}
+
+func (response PutAdminBlitzMatchGame204Response) VisitPutAdminBlitzMatchGameResponse(w http.ResponseWriter) error {
+	w.WriteHeader(204)
+	return nil
+}
+
+type PutAdminBlitzMatchGame400JSONResponse struct{ BadRequestJSONResponse }
+
+func (response PutAdminBlitzMatchGame400JSONResponse) VisitPutAdminBlitzMatchGameResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PutAdminBlitzMatchGame401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response PutAdminBlitzMatchGame401JSONResponse) VisitPutAdminBlitzMatchGameResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PutAdminBlitzMatchGame403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response PutAdminBlitzMatchGame403JSONResponse) VisitPutAdminBlitzMatchGameResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PutAdminBlitzMatchGame404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response PutAdminBlitzMatchGame404JSONResponse) VisitPutAdminBlitzMatchGameResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PutAdminBlitzMatchGame409JSONResponse struct{ ConflictJSONResponse }
+
+func (response PutAdminBlitzMatchGame409JSONResponse) VisitPutAdminBlitzMatchGameResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(409)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PutAdminBlitzMatchRulingRequestObject struct {
+	Tournament AdminTournamentSlug `json:"tournament"`
+	Edition    BlitzEditionLabel   `json:"edition"`
+	Round      BlitzRoundId        `json:"round"`
+	Match      BlitzMatchId        `json:"match"`
+	Body       *PutAdminBlitzMatchRulingJSONRequestBody
+}
+
+type PutAdminBlitzMatchRulingResponseObject interface {
+	VisitPutAdminBlitzMatchRulingResponse(w http.ResponseWriter) error
+}
+
+type PutAdminBlitzMatchRuling204Response struct {
+}
+
+func (response PutAdminBlitzMatchRuling204Response) VisitPutAdminBlitzMatchRulingResponse(w http.ResponseWriter) error {
+	w.WriteHeader(204)
+	return nil
+}
+
+type PutAdminBlitzMatchRuling400JSONResponse struct{ BadRequestJSONResponse }
+
+func (response PutAdminBlitzMatchRuling400JSONResponse) VisitPutAdminBlitzMatchRulingResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PutAdminBlitzMatchRuling401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response PutAdminBlitzMatchRuling401JSONResponse) VisitPutAdminBlitzMatchRulingResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PutAdminBlitzMatchRuling403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response PutAdminBlitzMatchRuling403JSONResponse) VisitPutAdminBlitzMatchRulingResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PutAdminBlitzMatchRuling404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response PutAdminBlitzMatchRuling404JSONResponse) VisitPutAdminBlitzMatchRulingResponse(w http.ResponseWriter) error {
 
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
@@ -10945,12 +11398,18 @@ type StrictServerInterface interface {
 	// PostAdminBlitzRound Pair the edition's next round as a draft
 	// (POST /v1/admin/blitz/{tournament}/{edition}/rounds)
 	PostAdminBlitzRound(ctx context.Context, request PostAdminBlitzRoundRequestObject) (PostAdminBlitzRoundResponseObject, error)
-	// DeleteAdminBlitzRound Delete a draft round
+	// DeleteAdminBlitzRound Delete the latest round while nothing in it is played
 	// (DELETE /v1/admin/blitz/{tournament}/{edition}/rounds/{round})
 	DeleteAdminBlitzRound(ctx context.Context, request DeleteAdminBlitzRoundRequestObject) (DeleteAdminBlitzRoundResponseObject, error)
 	// PutAdminBlitzRoundMatches Replace a round's matches, as paired by hand
 	// (PUT /v1/admin/blitz/{tournament}/{edition}/rounds/{round}/matches)
 	PutAdminBlitzRoundMatches(ctx context.Context, request PutAdminBlitzRoundMatchesRequestObject) (PutAdminBlitzRoundMatchesResponseObject, error)
+	// PutAdminBlitzMatchGame Record the game a match was played as, or correct it
+	// (PUT /v1/admin/blitz/{tournament}/{edition}/rounds/{round}/matches/{match}/game)
+	PutAdminBlitzMatchGame(ctx context.Context, request PutAdminBlitzMatchGameRequestObject) (PutAdminBlitzMatchGameResponseObject, error)
+	// PutAdminBlitzMatchRuling Decide a match by the organisers' ruling
+	// (PUT /v1/admin/blitz/{tournament}/{edition}/rounds/{round}/matches/{match}/ruling)
+	PutAdminBlitzMatchRuling(ctx context.Context, request PutAdminBlitzMatchRulingRequestObject) (PutAdminBlitzMatchRulingResponseObject, error)
 	// PostAdminBlitzRoundPublish Publish a round, once everyone active is in it exactly once
 	// (POST /v1/admin/blitz/{tournament}/{edition}/rounds/{round}/publish)
 	PostAdminBlitzRoundPublish(ctx context.Context, request PostAdminBlitzRoundPublishRequestObject) (PostAdminBlitzRoundPublishResponseObject, error)
@@ -11677,6 +12136,78 @@ func (sh *strictHandler) PutAdminBlitzRoundMatches(w http.ResponseWriter, r *htt
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(PutAdminBlitzRoundMatchesResponseObject); ok {
 		if err := validResponse.VisitPutAdminBlitzRoundMatchesResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// PutAdminBlitzMatchGame operation middleware
+func (sh *strictHandler) PutAdminBlitzMatchGame(w http.ResponseWriter, r *http.Request, tournament AdminTournamentSlug, edition BlitzEditionLabel, round BlitzRoundId, match BlitzMatchId) {
+	var request PutAdminBlitzMatchGameRequestObject
+
+	request.Tournament = tournament
+	request.Edition = edition
+	request.Round = round
+	request.Match = match
+
+	var body PutAdminBlitzMatchGameJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.PutAdminBlitzMatchGame(ctx, request.(PutAdminBlitzMatchGameRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "PutAdminBlitzMatchGame")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(PutAdminBlitzMatchGameResponseObject); ok {
+		if err := validResponse.VisitPutAdminBlitzMatchGameResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// PutAdminBlitzMatchRuling operation middleware
+func (sh *strictHandler) PutAdminBlitzMatchRuling(w http.ResponseWriter, r *http.Request, tournament AdminTournamentSlug, edition BlitzEditionLabel, round BlitzRoundId, match BlitzMatchId) {
+	var request PutAdminBlitzMatchRulingRequestObject
+
+	request.Tournament = tournament
+	request.Edition = edition
+	request.Round = round
+	request.Match = match
+
+	var body PutAdminBlitzMatchRulingJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.PutAdminBlitzMatchRuling(ctx, request.(PutAdminBlitzMatchRulingRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "PutAdminBlitzMatchRuling")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(PutAdminBlitzMatchRulingResponseObject); ok {
+		if err := validResponse.VisitPutAdminBlitzMatchRulingResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {
