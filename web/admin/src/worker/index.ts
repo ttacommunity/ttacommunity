@@ -5,6 +5,8 @@ interface Env {
   ASSETS: { fetch(request: Request): Promise<Response> };
   ACCESS_TEAM?: string;
   ACCESS_AUD?: string;
+  ADMIN_HOST?: string;
+  API_ORIGIN?: string;
 }
 
 const KEYS_FOR_MS = 5 * 60 * 1000;
@@ -25,7 +27,7 @@ export default {
   async fetch(request: Request, env: Env): Promise<Response> {
     const url = new URL(request.url);
     if (!url.pathname.startsWith('/api/')) return env.ASSETS.fetch(request);
-    const api = apiOriginFor(url.hostname);
+    const api = apiOriginFor(url.hostname, env.ADMIN_HOST, env.API_ORIGIN);
     if (api === null || !env.ACCESS_TEAM || !env.ACCESS_AUD) return refuse(503, 'admin is not configured');
     const path = adminApiPath(url);
     if (path === null) return refuse(404, 'no such admin route');

@@ -1,11 +1,12 @@
 ---
+import { PUBLIC_ADMIN_URL } from 'astro:env/client';
 import SiteLayout from '../layouts/SiteLayout.astro';
 ---
 <SiteLayout title="ttacommunity" description="Ratings, tournaments and blitz games for the Through the Ages community.">
   <div class="home rating-card">
     <div class="home-top">
       <h1 class="rating-card-heading">ttacommunity</h1>
-      <a class="admin" href="https://ttac-admin.unstableunicorn.dev/">Admin</a>
+      <a class="admin" href={PUBLIC_ADMIN_URL}>Admin</a>
     </div>
     <p class="home-intro">Ratings, tournaments and blitz games for the Through the Ages community.</p>
     <nav aria-label="Sections">

@@ -1,6 +1,7 @@
 ---
 /** The page shell every site page uses: upstream's header, nav and footer around the page's content. */
 import '@ttac/shared/styles/theme.css';
+import { PUBLIC_ADMIN_URL } from 'astro:env/client';
 import homeButton from '@ttac/shared/styles/img/home-button.webp';
 import { currentSection, sections } from '../lib/nav';
 
@@ -48,7 +49,7 @@ const current = currentSection(Astro.url.pathname);
               {s.label}
             </a>
           ))}
-          <a href="https://ttac-admin.unstableunicorn.dev/" class="nav-webmaster">⚙️ Webmaster</a>
+          <a href={PUBLIC_ADMIN_URL} class="nav-webmaster">⚙️ Webmaster</a>
         </nav>
       </div>
     </header>
@@ -62,7 +63,7 @@ const current = currentSection(Astro.url.pathname);
         <p><strong>Through the Ages Rating Engine</strong> -- Powered by Glicko-2 and Coulom Whole-History Rating.</p>
         <p class="footer-small">
           Data from competitive online TTA tournaments<span class="run-facts"></span>. &bull;
-          <a href="https://ttac-admin.unstableunicorn.dev/">Designed and built by DANeo</a>
+          <a href={PUBLIC_ADMIN_URL}>Designed and built by DANeo</a>
         </p>
       </div>
     </footer>

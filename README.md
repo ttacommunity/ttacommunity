@@ -640,6 +640,7 @@ Build variables, set in each site Worker's build settings:
 | Variable | Worker | Value | Why |
 |---|---|---|---|
 | `PUBLIC_API_URL` | `ttacommunity` | `https://ttac-api.unstableunicorn.dev`; on `dev`, `https://ttac-api-dev.unstableunicorn.dev` | Where the browser reads ratings, and the CSP's `connect-src`. Sent to the browser, so never a secret |
+| `PUBLIC_ADMIN_URL` | `ttacommunity` | `https://ttac-admin.unstableunicorn.dev`; on `dev`, `https://dev.ttac-admin.unstableunicorn.dev` | Where the header, footer and home page link to admin |
 | `SITE_NOINDEX` | `ttacommunity`, `dev` only | `1` | Adds `X-Robots-Tag: noindex`: Cloudflare adds none to a Preview on a custom domain |
 | `NODE_VERSION` | both sites | the `node` version in `mise.toml` | The build image's default is older |
 | `PNPM_VERSION` | both sites | the pnpm version in `web/package.json` | The build image does not read `packageManager` |
@@ -667,9 +668,10 @@ preview is `dev.ttac-admin.unstableunicorn.dev`.
 Admin is the `ttac-admin` site and the API's `/v1/admin/` routes:
 
 - **The site's Worker** serves the pages, and proxies `/api/*` to
-  `/v1/admin/*` on the API for its host (`ttac-admin` to `ttac-api`,
-  `dev.ttac-admin` to `ttac-api-dev`; any other host is refused) after
-  verifying the Access token itself
+  `/v1/admin/*` on `API_ORIGIN` after verifying the Access token itself.
+  It does so only on `ADMIN_HOST` and refuses any other host. Both are
+  vars in `web/admin/wrangler.jsonc`: production uses `ttac-api`, the
+  `dev` preview (`previews.vars`) `ttac-api-dev`
 - **The API verifies the token again** (signature, issuer, the admin app's
   audience, expiry, a Discord id), then looks the Discord id up in `admins`:
   role `admin` or `organiser`. A change must come from `ADMIN_ORIGIN`, and
