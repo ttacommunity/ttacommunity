@@ -81,3 +81,82 @@ spec:
         - name: creds
           secret:
             secretName: ttacommunity-dev-tunnel
+---
+# The new Cloudflare account's dev tunnel, ttac-api-dev: only the catch-all
+# until the new domain is live, when it takes over the dev api's hostname rule.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: ttac-api-dev-tunnel
+  namespace: ttacommunity
+data:
+  config.yaml: |
+    tunnel: d219bc00-179d-4a5a-9427-24fde01661d8
+    credentials-file: /etc/cloudflared/creds/credentials.json
+    ingress:
+      - service: http_status:404
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ttac-api-dev-tunnel
+  namespace: ttacommunity
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: ttac-api-dev-tunnel
+  template:
+    metadata:
+      labels:
+        app: ttac-api-dev-tunnel
+    spec:
+      automountServiceAccountToken: false
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 65532
+        runAsGroup: 65532
+        seccompProfile:
+          type: RuntimeDefault
+      topologySpreadConstraints:
+        - maxSkew: 1
+          topologyKey: kubernetes.io/hostname
+          whenUnsatisfiable: ScheduleAnyway
+          labelSelector:
+            matchLabels:
+              app: ttac-api-dev-tunnel
+      containers:
+        - name: cloudflared
+          image: docker.io/cloudflare/cloudflared:2026.9.3@sha256:072c067d25ccbe61d46e18f0d0723255f2bb5304f7317caa95b27031520ff92c
+          args: [tunnel, --metrics, "0.0.0.0:2000", --config, /etc/cloudflared/config.yaml, run]
+          resources:
+            requests:
+              cpu: 25m
+              memory: 32Mi
+            limits:
+              memory: 128Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: [ALL]
+          livenessProbe:
+            httpGet:
+              path: /ready
+              port: 2000
+            initialDelaySeconds: 10
+            periodSeconds: 30
+          volumeMounts:
+            - name: config
+              mountPath: /etc/cloudflared
+              readOnly: true
+            - name: creds
+              mountPath: /etc/cloudflared/creds
+              readOnly: true
+      volumes:
+        - name: config
+          configMap:
+            name: ttac-api-dev-tunnel
+        - name: creds
+          secret:
+            secretName: ttac-api-dev-tunnel
