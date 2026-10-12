@@ -9,6 +9,8 @@ type Title = TitleOverride['title'];
 
 const TITLES: { value: Title; label: string }[] = [
   { value: 'SGM', label: 'Super Grandmaster (SGM)' },
+  { value: 'WCS', label: 'World Championship Silver (WCS)' },
+  { value: 'WCB', label: 'World Championship Bronze (WCB)' },
   { value: 'GM', label: 'Grandmaster (GM)' },
   { value: 'M', label: 'Master (M)' },
   { value: 'P', label: 'Platinum (P)' },

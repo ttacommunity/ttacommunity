@@ -407,7 +407,7 @@ def peaks(conn, run_id):
 
 
 def test_world_champions_peak_at_their_title_year(conn, add_match, run_id, place):
-    place("worlds", 2022, "Final", "Ember_Wolf", "Linnet")
+    place("worlds", 2022, "Final", "Willow_Tree", "Ember_Wolf", "Linnet")
     place("worlds", 2023, "Final", "Willow_Tree")
     place("worlds", 2025, "Final", "alder440")
     add_match(
@@ -419,6 +419,7 @@ def test_world_champions_peak_at_their_title_year(conn, add_match, run_id, place
     add_match(
         ("alder440", 10),
         ("Ember_Wolf", 5),
+        ("Linnet", 1),
         day=date(2024, 6, 2),
         tournament="Friendly Cup",
     )
@@ -428,7 +429,8 @@ def test_world_champions_peak_at_their_title_year(conn, add_match, run_id, place
     got = peaks(conn, run_id)
     assert got["Willow_Tree"] == ("WC", 2023)
     assert got["alder440"] == ("WC", 2025)
-    assert got["Ember_Wolf"] == ("WC", 2022)
+    assert got["Ember_Wolf"] == ("WCS", 2022)
+    assert got["Linnet"] == ("WCB", 2022)
     assert titles(conn, run_id)["Willow_Tree"][0] == "M"
 
 
@@ -443,7 +445,7 @@ def yearly(conn, run_id):
 
 
 def test_world_champions_hold_wc_in_their_title_year(conn, add_match, run_id, place):
-    place("worlds", 2023, "Final", "Willow_Tree")
+    place("worlds", 2023, "Final", "Willow_Tree", "SilverTree", "BronzeTree")
     place("worlds", 2025, "Final", "alder440")
     add_match(
         ("Willow_Tree", 10),
@@ -452,13 +454,20 @@ def test_world_champions_hold_wc_in_their_title_year(conn, add_match, run_id, pl
         tournament="RL_s09 - King",
     )
     add_match(
-        ("Alder440", 10), ("Bob", 5), day=date(2024, 6, 2), tournament="Friendly Cup"
+        ("Alder440", 10),
+        ("SilverTree", 5),
+        ("BronzeTree", 2),
+        ("Bob", 1),
+        day=date(2024, 6, 2),
+        tournament="Friendly Cup",
     )
 
     derive_tournament_badges(conn=conn, run_id=run_id)
 
     got = yearly(conn, run_id)
     assert got[("Willow_Tree", 2023)] == "WC"
+    assert got[("SilverTree", 2023)] == "WCS"
+    assert got[("BronzeTree", 2023)] == "WCB"
     assert got[("Alder440", 2025)] == "WC"
     assert ("Marten_Fisher", 2024) not in got
 

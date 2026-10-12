@@ -79,24 +79,50 @@ export default function HallOfFamePage({ apiUrl }: { apiUrl: string }) {
 
       <div className="podium-preview-card">
         <h2 className="podium-preview-title">
-          <span>👑</span> World Champions &amp; Dynastic Benchmark Legends
+          <span>👑</span> World Championship Hall of Fame &amp; Annual Podiums
         </h2>
         <p className="podium-intro">
-          The official annual World Championship crowns the definitive global Through the Ages champion. Staged across
-          multi-round qualification groups and playoff brackets (with evolving structural formats across editions).
+          The official annual World Championship crowns the definitive global Through the Ages champion. Below are the verified
+          podiums (Gold 🥇, Silver 🥈, Bronze 🥉) across each contested edition.
         </p>
         <div className="champions-highlight-grid">
-          {champions.map((c) => (
-            <div key={c.season} className="champ-highlight-box">
-              <div className="champ-highlight-avatar">{c.icon}</div>
-              <div className="champ-highlight-info">
-                <PlayerLink name={c.name} className="champ-highlight-name">
-                  {c.name} <span className="badge-wc">👑 {c.season} World Champion</span>
-                </PlayerLink>
-                <div className="champ-highlight-desc">{c.text}</div>
+          {finals
+            .filter((s) => s.in_champions && s.podium.length > 0)
+            .slice()
+            .reverse()
+            .map((s) => {
+              const gold = s.podium.find((p) => p.place === 1);
+              const silver = s.podium.find((p) => p.place === 2);
+              const bronze = s.podium.find((p) => p.place === 3);
+            return (
+              <div key={s.label} className="champ-highlight-box wcs-podium-card">
+                <div className="champ-highlight-avatar">🏆</div>
+                <div className="champ-highlight-info">
+                  <div className="wcs-edition-title">World Championship {s.label}</div>
+                  <div className="wcs-podium-places">
+                    {gold && (
+                      <div className="wcs-place-row">
+                        <span className="badge badge-wc">WC</span>
+                        <PlayerLink name={gold.name} className="champ-highlight-name" />
+                      </div>
+                    )}
+                    {silver && (
+                      <div className="wcs-place-row">
+                        <span className="badge badge-wcs">WCS</span>
+                        <PlayerLink name={silver.name} className="podium-runner-up" />
+                      </div>
+                    )}
+                    {bronze && (
+                      <div className="wcs-place-row">
+                        <span className="badge badge-wcb">WCB</span>
+                        <PlayerLink name={bronze.name} className="podium-third" />
+                      </div>
+                    )}
+                  </div>
+                </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       </div>
 

@@ -210,6 +210,36 @@
   margin-top: 0.2rem;
   line-height: 1.35;
 }
+.wcs-podium-card {
+  align-items: flex-start;
+}
+.wcs-edition-title {
+  font-weight: 800;
+  font-size: 1.1rem;
+  color: var(--accent-gold);
+  margin-bottom: 0.5rem;
+}
+.wcs-podium-places {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+.wcs-place-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+.podium-runner-up,
+.podium-third {
+  font-weight: 600;
+  font-size: 0.95rem;
+  color: var(--text-main);
+  text-decoration: none;
+}
+.podium-runner-up:hover,
+.podium-third:hover {
+  color: var(--accent-gold);
+}
 
 /* WCS & Circuit Analytics Section */
 .wcs-analytics-card {

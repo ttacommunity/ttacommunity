@@ -4,9 +4,10 @@
 import { createHash } from 'node:crypto';
 import { existsSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { FONTS, changes, fontFile, googleCssUrl, parseGoogleCss, pick, renderCss } from '../src/lib/fonts.ts';
 
-const DIR = new URL('../public/fonts/', import.meta.url).pathname;
+const DIR = fileURLToPath(new URL('../public/fonts/', import.meta.url));
 const MANIFEST = join(DIR, 'manifest.json');
 // Google serves woff2 only to browsers it recognises; this one is a current Chrome.
 const UA = 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36';

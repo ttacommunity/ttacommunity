@@ -2004,7 +2004,7 @@ components:
     AdminTitle:
       description: A title the engine gives, but WC; "" for none
       type: string
-      enum: [SGM, GM, M, P, G, S, B, W, ""]
+      enum: [SGM, WCS, WCB, GM, M, P, G, S, B, W, ""]
     PodiumEntry:
       type: object
       additionalProperties: false
@@ -2606,7 +2606,7 @@ components:
           format: double
     TitleCode:
       type: string
-      enum: [WC, SGM, GM, M, P, G, S, B, W]
+      enum: [WC, SGM, WCS, WCB, GM, M, P, G, S, B, W]
     Title:
       description: The tournament title the run derived for the player, if any
       type: object
@@ -3495,7 +3495,7 @@ components:
         title:
           description: The run's title for the player, null when none or not a player here
           type: string
-          enum: [WC, SGM, GM, M, P, G, S, B, W]
+          enum: [WC, SGM, WCS, WCB, GM, M, P, G, S, B, W]
           nullable: true
         points:
           type: number
