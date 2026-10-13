@@ -44,25 +44,37 @@ export function webhookFor(branch, env) {
 	return (secret && env[secret]) || null
 }
 
-export default {
-	async queue(batch, env) {
-		for (const message of batch.messages) {
-			const embed = notification(message.body, new Date())
-			const url = embed && webhookFor(message.body.payload.buildTriggerMetadata.branch, env)
-			if (!url) {
+/**
+ * deliver posts each build event in a queue batch to its branch's channel at time now, with post (fetch's signature).
+ * It acks a message once posted, or when it is not to be posted, and retries it when Discord does not take it.
+ */
+export async function deliver(batch, env, now, post) {
+	for (const message of batch.messages) {
+		const embed = notification(message.body, now)
+		const url = embed && webhookFor(message.body.payload.buildTriggerMetadata.branch, env)
+		if (!url) {
+			message.ack()
+			continue
+		}
+		try {
+			const response = await post(url, {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ embeds: [embed] }),
+			})
+			if (response.ok) {
 				message.ack()
-				continue
-			}
-			try {
-				await fetch(url, {
-					method: 'POST',
-					headers: { 'Content-Type': 'application/json' },
-					body: JSON.stringify({ embeds: [embed] }),
-				})
-				message.ack()
-			} catch {
+			} else {
 				message.retry()
 			}
+		} catch {
+			message.retry()
 		}
+	}
+}
+
+export default {
+	async queue(batch, env) {
+		await deliver(batch, env, new Date(), (url, init) => fetch(url, init))
 	},
 }
