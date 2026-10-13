@@ -85,23 +85,19 @@ type Agreement struct {
 	Top, Weakest []Pair
 }
 
-// Agree compares every pair of the page models as upstream does, Spearman's
-// formula on the run's stored ranks.
+// Agree compares every pair of the page models, Spearman's formula on ranks
+// within the sample.
 func Agree(ratings []store.ModelRating) Agreement {
 	models := store.PlayerPageModels
-	type cell struct {
-		rating float64
-		rank   int
-	}
-	by := map[string]map[string]cell{}
+	by := map[string]map[string]float64{}
 	for _, r := range ratings {
-		if r.Opponents < 15 || r.Rank == nil || !slices.Contains(models, r.Model) {
+		if r.Opponents < 15 || !slices.Contains(models, r.Model) {
 			continue
 		}
 		if by[r.Player] == nil {
-			by[r.Player] = map[string]cell{}
+			by[r.Player] = map[string]float64{}
 		}
-		by[r.Player][r.Model] = cell{r.Rating, *r.Rank}
+		by[r.Player][r.Model] = r.Rating
 	}
 	var players []string
 	for p, m := range by {
@@ -115,15 +111,29 @@ func Agree(ratings []store.ModelRating) Agreement {
 		return a
 	}
 
+	ranks := map[string]map[string]int{}
+	for _, m := range models {
+		ranks[m] = map[string]int{}
+		for _, p := range players {
+			rank := 1
+			rp := by[p][m]
+			for _, q := range players {
+				if by[q][m] > rp {
+					rank++
+				}
+			}
+			ranks[m][p] = rank
+		}
+	}
+
 	var pairs []Pair
 	for i, m1 := range models {
 		for _, m2 := range models[i+1:] {
 			v1, v2 := make([]float64, len(players)), make([]float64, len(players))
 			var d2 float64
 			for k, p := range players {
-				c1, c2 := by[p][m1], by[p][m2]
-				v1[k], v2[k] = c1.rating, c2.rating
-				d := float64(c1.rank - c2.rank)
+				v1[k], v2[k] = by[p][m1], by[p][m2]
+				d := float64(ranks[m1][p] - ranks[m2][p])
 				d2 += d * d
 			}
 			n := float64(len(players))
