@@ -173,18 +173,23 @@ func (s *server) GetPlayerMatches(ctx context.Context, req GetPlayerMatchesReque
 
 	matches := make([]PlayerMatch, 0, len(mp.Matches))
 	for _, m := range mp.Matches {
-		seats := slices.Clone(m.Seats)
-		slices.SortStableFunc(seats, func(a, b store.Seat) int { return compareDesc(a.Score, b.Score) })
+		byScore := slices.Clone(m.Seats)
+		slices.SortStableFunc(byScore, func(a, b store.Seat) int { return compareDesc(a.Score, b.Score) })
 		pm := PlayerMatch{
 			MatchId: m.ID, Tournament: m.Tournament, Date: openapi_types.Date{Time: m.Date},
-			PlayerCount: m.PlayerCount, ReplayCode: m.ReplayCode, Placement: 1, Seats: make([]Seat, 0, len(seats)),
+			PlayerCount: m.PlayerCount, ReplayCode: m.ReplayCode, Placement: 1, Seats: make([]Seat, 0, len(m.Seats)),
 		}
-		dseats := make([]ratingdelta.Seat, 0, len(seats))
-		for i, seat := range seats {
+		for i, seat := range byScore {
 			if seat.Name == name {
 				pm.Placement = i + 1
+				break
 			}
+		}
+		for _, seat := range m.Seats {
 			pm.Seats = append(pm.Seats, Seat{Name: seat.Name, Score: seat.Score})
+		}
+		dseats := make([]ratingdelta.Seat, 0, len(byScore))
+		for _, seat := range byScore {
 			dseats = append(dseats, ratingdelta.Seat{Name: seat.Name, Score: seat.Score})
 		}
 		if d, ok := ratingdelta.Delta(engine, name, m.PlayerCount, dseats, lookup); ok {

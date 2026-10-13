@@ -1,5 +1,5 @@
 ---
-import { PUBLIC_API_URL, PUBLIC_ADMIN_URL } from 'astro:env/client';
+import { PUBLIC_API_URL } from 'astro:env/client';
 import SiteLayout from '../layouts/SiteLayout.astro';
 import HomePage from '../components/HomePage';
 ---
@@ -7,5 +7,5 @@ import HomePage from '../components/HomePage';
   title="Through the Ages Community | Ratings, Tournaments & Matchmaking"
   description="The official platform for the Through the Ages board game community: Glicko-D ratings, tournament circuits, Hall of Fame, and blitz matchmaking."
 >
-  <HomePage client:only="react" apiUrl={PUBLIC_API_URL} adminUrl={PUBLIC_ADMIN_URL} />
+  <HomePage client:only="react" apiUrl={PUBLIC_API_URL} />
 </SiteLayout>

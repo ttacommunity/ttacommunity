@@ -1651,7 +1651,7 @@ export interface components {
              * @description What the game is worth to the player's rating today, to 0.1
              */
             rating_delta: number | null;
-            /** @description Highest score first */
+            /** @description Seat order */
             seats: components["schemas"]["Seat"][];
         };
         Seat: {

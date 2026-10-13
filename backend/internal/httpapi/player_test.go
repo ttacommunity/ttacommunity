@@ -174,7 +174,7 @@ func TestPlayerMatchesPlacesAndEstimates(t *testing.T) {
 		t.Fatalf("GET matches = %+v", got)
 	}
 	m := got.Matches[0]
-	wantSeats := []Seat{{Name: "bob", Score: 90}, {Name: "Ann", Score: 70}, {Name: "cy", Score: 50}}
+	wantSeats := []Seat{{Name: "cy", Score: 50}, {Name: "Ann", Score: 70}, {Name: "bob", Score: 90}}
 	if m.Placement != 2 || !slices.Equal(m.Seats, wantSeats) || m.ReplayCode == nil || *m.ReplayCode != code {
 		t.Errorf("game = place %d, seats %v, replay %v; want 2, %v, %s", m.Placement, m.Seats, m.ReplayCode, wantSeats, code)
 	}

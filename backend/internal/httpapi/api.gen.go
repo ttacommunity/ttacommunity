@@ -1641,7 +1641,7 @@ type PlayerMatch struct {
 	RatingDelta *float64 `json:"rating_delta"`
 	ReplayCode  *string  `json:"replay_code"`
 
-	// Seats Highest score first
+	// Seats Seat order
 	Seats      []Seat `json:"seats"`
 	Tournament string `json:"tournament"`
 }
