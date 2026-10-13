@@ -234,10 +234,10 @@ export default function CalibrationPanel({ apiUrl }: { apiUrl: string }) {
                   <th scope="col" data-tooltip="Log Loss (Cross-Entropy): Information-theoretic penalty for confident mispredictions. Lower is better.">
                     Log Loss ↓
                   </th>
-                  <th scope="col" data-tooltip="Accuracy & Ist vs. Soll: Vergleicht die tatsächliche Siegquote des Favoriten (Ist) mit der im Schnitt vorhergesagten Siegchance (Soll).">
-                    Favorite Win% (Ist vs. Soll) ↑
+                  <th scope="col" data-tooltip="Accuracy & Actual vs. Expected: Compares the favorite's actual win rate (Actual) with their average predicted win probability (Expected).">
+                    Favorite Win% (Actual vs. Expected) ↑
                   </th>
-                  <th scope="col" data-tooltip="Composite Predictive Score (0–100): Gewichteter Index für Vorhersagegüte = Brier Score MSE (35%) + Expected Calibration Error ECE (35%) + Log Loss Cross-Entropy (15%) + Favoriten-Treffsicherheit Accuracy (15%). Höher = Besserer Prädiktor.">
+                  <th scope="col" data-tooltip="Composite Predictive Score (0–100): Weighted index of predictive quality = Brier Score MSE (35%) + Expected Calibration Error ECE (35%) + Log Loss Cross-Entropy (15%) + Favorite Accuracy (15%). Higher is better.">
                     Score ⓘ
                   </th>
                   <th scope="col">Evaluation Verdict &amp; Profile</th>
@@ -259,7 +259,7 @@ export default function CalibrationPanel({ apiUrl }: { apiUrl: string }) {
                         <td className="logloss-cell">{rm.logLoss.toFixed(4)}</td>
                         <td className="ist-cell">
                           <strong>{rm.pIstPct.toFixed(1)}%</strong>{' '}
-                          <span className={rm.pDeltaPct >= 0 ? 'soll-up' : 'soll-down'}>(Soll: {rm.pSollPct.toFixed(1)}%)</span>
+                          <span className={rm.pDeltaPct >= 0 ? 'soll-up' : 'soll-down'}>(Expected: {rm.pSollPct.toFixed(1)}%)</span>
                         </td>
                         <td>
                           <span className="score-badge">{rm.composite.toFixed(1)}</span>

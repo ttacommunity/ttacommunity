@@ -92,3 +92,14 @@ func TestAgreeLeavesOutPlayersUnderFifteenOpponentsInAnyModel(t *testing.T) {
 		t.Errorf("one model only: %+v, want no one rated in all ten", got)
 	}
 }
+
+func TestAgreeRanksWithinSampleRegardlessOfExternalRank(t *testing.T) {
+	rows := fixture()
+	initial := Agree(rows)
+	rank := 1
+	rows = append(rows, store.ModelRating{Player: "outsider", Model: "glicko2_daneo", Rating: 3000, Rank: &rank, Opponents: 25})
+	after := Agree(rows)
+	if !slices.Equal(initial.Top, after.Top) || !slices.Equal(initial.Weakest, after.Weakest) {
+		t.Errorf("correlations changed after adding outsider: got %+v, want %+v", after, initial)
+	}
+}
