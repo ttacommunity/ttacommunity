@@ -16,13 +16,20 @@
   // Previews take no settings from production; the site has none to give them.
   "previews": {},
   "env": {
-    // The new Cloudflare account (deploy --env newaccount): ttacommunity.org, and branch dev as a
-    // Preview at dev.ttacommunity.org, which an Access app covers.
+    // The new Cloudflare account (deploy --env newaccount): ttacommunity.org. No Previews: on the
+    // zone's apex they would claim every subdomain, the API's tunnels included.
     "newaccount": {
       "name": "ttacommunity",
       "workers_dev": false,
       "preview_urls": false,
-      "routes": [{ "pattern": "ttacommunity.org", "custom_domain": true, "previews_enabled": true }]
+      "routes": [{ "pattern": "ttacommunity.org", "custom_domain": true, "previews_enabled": false }]
+    },
+    // Branch dev, deployed as a Worker of its own at dev.ttacommunity.org, which an Access app covers.
+    "newaccount-dev": {
+      "name": "ttacommunity-dev",
+      "workers_dev": false,
+      "preview_urls": false,
+      "routes": [{ "pattern": "dev.ttacommunity.org", "custom_domain": true }]
     }
   }
 }

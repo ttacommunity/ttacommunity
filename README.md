@@ -641,7 +641,10 @@ new account's triggers deploy it with the commands above plus
 `--env newaccount`; today's triggers deploy the top level, and wrangler's
 warning that no environment was named is expected. The new account serves:
 
-- the site on `ttacommunity.org`, and `dev` at `dev.ttacommunity.org`,
+- the site on `ttacommunity.org`, with no Previews: on the zone's apex a
+  Preview route claims every subdomain (`*.ttacommunity.org`), the API's
+  included. `dev` is a Worker of its own, `ttacommunity-dev`, deployed from
+  branch `dev` with `--env newaccount-dev` onto `dev.ttacommunity.org`,
   which has an Access app of its own
 - admin on `admin.ttacommunity.org`, and `dev` at `dev.admin.ttacommunity.org`
 - the API on `api.ttacommunity.org`, and `dev`'s on `api-dev.ttacommunity.org`,
@@ -655,7 +658,7 @@ Build variables, set in each site Worker's build settings:
 |---|---|---|---|
 | `PUBLIC_API_URL` | `ttacommunity` | `https://api.ttacommunity.org`; on `dev`, `https://api-dev.ttacommunity.org` (old account: `https://ttac-api.unstableunicorn.dev`; on `dev`, `https://ttac-api-dev.unstableunicorn.dev`) | Where the browser reads ratings, and the CSP's `connect-src`. Sent to the browser, so never a secret |
 | `PUBLIC_ADMIN_URL` | `ttacommunity` | `https://admin.ttacommunity.org`; on `dev`, `https://dev.admin.ttacommunity.org` (old account: `https://ttac-admin.unstableunicorn.dev`; on `dev`, `https://dev.ttac-admin.unstableunicorn.dev`) | Where the header, footer and home page link to admin |
-| `SITE_NOINDEX` | `ttacommunity`, `dev` only | `1` | Adds `X-Robots-Tag: noindex`: Cloudflare adds none to a Preview on a custom domain |
+| `SITE_NOINDEX` | `dev` only (new account: `ttacommunity-dev`) | `1` | Adds `X-Robots-Tag: noindex`, so the dev site is never indexed |
 | `NODE_VERSION` | both sites | the `node` version in `mise.toml` | The build image's default is older |
 | `PNPM_VERSION` | both sites | the pnpm version in `web/package.json` | The build image does not read `packageManager` |
 
@@ -665,10 +668,14 @@ branch filter, so both their build and deploy commands skip every other
 branch: a push elsewhere runs a short build that does nothing and passes. A preview build
 reports on the pull request's commit, and a failure there blocks the
 merge. Previews Base has its own build variables; don't click "Enable
-Preview URLs", which turns on `workers.dev`. `dev` is served at `dev.ttacommunity.org`: a
-Preview on a custom domain is `<branch>.<route host>`, and the route sets
-`previews_enabled`. It appears only once a production deploy has attached
-that route; each Preview build also publishes `<version>.<route host>`.
+Preview URLs", which turns on `workers.dev`. A Preview on a custom domain
+is `<branch>.<route host>`, and the route sets `previews_enabled`. It
+appears only once a production deploy has attached that route, and each
+Preview build also publishes `<version>.<route host>`.
+
+**The zone answers only on a fixed list of hostnames**: a WAF custom rule on
+`ttacommunity.org` blocks every other host, Preview version hosts included.
+A new public hostname is added to that rule first.
 
 `ttac-auth` needs one runtime secret, `DISCORD_CLIENT_SECRET`, set under the
 Worker's Variables and Secrets (not its build variables).
