@@ -33,20 +33,27 @@
     }
   },
   "env": {
-    // The new Cloudflare account until its domain and Access app exist (deploy --env newaccount):
-    // no hostname, and empty settings, so /api/* refuses everything.
+    // The new Cloudflare account (deploy --env newaccount). Its Access app "ttacommunity admin"
+    // covers admin.ttacommunity.org and *.admin: team and AUD read with cf (2026-10-13).
     "newaccount": {
       "name": "ttac-admin",
       "vars": {
-        "ADMIN_HOST": "",
-        "API_ORIGIN": "",
+        "ADMIN_HOST": "admin.ttacommunity.org",
+        "API_ORIGIN": "https://api.ttacommunity.org",
         "ACCESS_TEAM": "https://ttacommunitydev.cloudflareaccess.com",
-        "ACCESS_AUD": ""
+        "ACCESS_AUD": "385c7c2eee5489fc256c2aadfc1299c1a79ce78b9b712523026ffb92bf757f82"
       },
       "workers_dev": false,
       "preview_urls": false,
-      "routes": [],
-      "previews": {}
+      "routes": [{ "pattern": "admin.ttacommunity.org", "custom_domain": true, "previews_enabled": true }],
+      "previews": {
+        "vars": {
+          "ADMIN_HOST": "dev.admin.ttacommunity.org",
+          "API_ORIGIN": "https://api-dev.ttacommunity.org",
+          "ACCESS_TEAM": "https://ttacommunitydev.cloudflareaccess.com",
+          "ACCESS_AUD": "385c7c2eee5489fc256c2aadfc1299c1a79ce78b9b712523026ffb92bf757f82"
+        }
+      }
     }
   }
 }

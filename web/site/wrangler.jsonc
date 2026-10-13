@@ -16,12 +16,13 @@
   // Previews take no settings from production; the site has none to give them.
   "previews": {},
   "env": {
-    // The new Cloudflare account until its domain is live (deploy --env newaccount): no hostname at all.
+    // The new Cloudflare account (deploy --env newaccount): ttacommunity.org, and branch dev as a
+    // Preview at dev.ttacommunity.org, which an Access app covers.
     "newaccount": {
       "name": "ttacommunity",
       "workers_dev": false,
       "preview_urls": false,
-      "routes": []
+      "routes": [{ "pattern": "ttacommunity.org", "custom_domain": true, "previews_enabled": true }]
     }
   }
 }
