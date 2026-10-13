@@ -82,8 +82,7 @@ spec:
           secret:
             secretName: ttacommunity-tunnel
 ---
-# The new Cloudflare account's tunnel, ttac-api: only the catch-all until the
-# new domain is live, when it takes over the api's hostname rule above.
+# The new Cloudflare account's tunnel, ttac-api, publishing api.ttacommunity.org.
 apiVersion: v1
 kind: ConfigMap
 metadata:
@@ -94,6 +93,8 @@ data:
     tunnel: 9684e93d-112a-4c48-bcd8-a856ea32787a
     credentials-file: /etc/cloudflared/creds/credentials.json
     ingress:
+      - hostname: api.ttacommunity.org
+        service: http://api.ttacommunity.svc.cluster.local:8080
       - service: http_status:404
 ---
 apiVersion: apps/v1
