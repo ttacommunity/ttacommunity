@@ -14,7 +14,8 @@
   "preview_urls": false,
   "routes": [{ "pattern": "ttac-auth.unstableunicorn.dev", "custom_domain": true }],
   "env": {
-    // The new Cloudflare account until its domain is live (deploy --env newaccount): workers.dev only.
+    // The new Cloudflare account (deploy --env newaccount). workers.dev stays on until the
+    // Access identity provider points at auth.ttacommunity.org, or every sign-in breaks.
     "newaccount": {
       "name": "ttac-auth",
       "kv_namespaces": [{ "binding": "KV", "id": "ffb505e5a4ef4f5c9c10819a4dec9782" }],
@@ -24,7 +25,7 @@
       },
       "workers_dev": true,
       "preview_urls": false,
-      "routes": []
+      "routes": [{ "pattern": "auth.ttacommunity.org", "custom_domain": true }]
     }
   }
 }
