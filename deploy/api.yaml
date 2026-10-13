@@ -103,13 +103,13 @@ spec:
                   name: ratings-admin
                   key: database-url
             - name: ACCESS_TEAM
-              value: https://unstableunicorn.cloudflareaccess.com
+              value: https://ttacommunitydev.cloudflareaccess.com
             - name: ENGINE_CRONJOB
               value: engine
             - name: ACCESS_AUD
-              value: f0bc8c99210a231edb4adc754229a5798e98f41ca67515da419535a251031136
+              value: 385c7c2eee5489fc256c2aadfc1299c1a79ce78b9b712523026ffb92bf757f82
             - name: ADMIN_ORIGIN
-              value: https://ttac-admin.unstableunicorn.dev
+              value: https://admin.ttacommunity.org
           resources:
             requests:
               cpu: 25m
