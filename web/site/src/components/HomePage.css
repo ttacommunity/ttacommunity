@@ -99,12 +99,18 @@
   color: var(--text-bright);
 }
 
-/* ── 3 Pillar Cards (The Hub) ── */
+/* ── 4 Pillar Cards (The Hub): one row when all fit, else two by two, never three and one ── */
 .home-pillars {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 1.5rem;
   margin-bottom: 3.5rem;
+}
+
+@media (min-width: 1380px) {
+  .home-pillars {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
 }
 
 .home-pillar-card {
@@ -124,7 +130,8 @@
   box-shadow: 0 10px 28px rgba(212, 175, 55, 0.15);
 }
 
-.pillar-pulse {
+.pillar-pulse,
+.pillar-upcoming {
   border-style: dashed;
   opacity: 0.92;
 }

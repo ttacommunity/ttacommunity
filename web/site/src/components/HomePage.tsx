@@ -1,4 +1,4 @@
-/** The site's front page: the three pillar cards (Ratings, Tournaments, TTA Pulse) and the interactive community pulse feed. */
+/** The site's front page: the four pillar cards (Ratings, Tournaments, Blitz, TTA Pulse) and the interactive community pulse feed. */
 import { useEffect, useMemo, useState } from 'react';
 import {
   currentRun,
@@ -268,7 +268,30 @@ export default function HomePage({ apiUrl }: { apiUrl: string }) {
           </div>
         </div>
 
-        {/* Card 3: TTA Pulse */}
+        {/* Card 3: Blitz */}
+        <div className="home-pillar-card pillar-upcoming">
+          <div className="pillar-card-header">
+            <span className="pillar-icon">⏱️</span>
+            <span className="pillar-tag pillar-tag-upcoming">In Development</span>
+          </div>
+          <h2 className="pillar-title">Blitz Tournaments</h2>
+          <p className="pillar-desc">
+            Community-run blitz tournaments: weekly Swiss rounds paired by score and time zone, then a seeded knockout to
+            crown the champion.
+          </p>
+          <ul className="pillar-features">
+            <li>Entrants, weekly pairings &amp; results</li>
+            <li>Standings with tiebreaks</li>
+            <li>Knockout bracket &amp; champion</li>
+          </ul>
+          <div className="pillar-action">
+            <a href="/blitz/" className="btn-antique pillar-btn">
+              Explore Blitz &rarr;
+            </a>
+          </div>
+        </div>
+
+        {/* Card 4: TTA Pulse */}
         <div className="home-pillar-card pillar-pulse">
           <div className="pillar-card-header">
             <span className="pillar-icon">⚡</span>
