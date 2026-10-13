@@ -634,7 +634,7 @@ one from its branch:
 | `ttac-admin` (`admin.ttacommunity.org`) | `main` | `/web` | `pnpm --filter @ttac/admin build` | `npx wrangler@4.141.0 deploy --config admin/wrangler.jsonc` |
 | `ttac-admin` Previews (`dev.admin.ttacommunity.org`) | all but `main` | `/web` | `if [ "$WORKERS_CI_BRANCH" = dev ]; then pnpm --filter @ttac/admin build; else echo "Previews are built for branch dev only"; fi` | `if [ "$WORKERS_CI_BRANCH" = dev ]; then npx wrangler@4.141.0 preview --config admin/wrangler.jsonc; else echo "Previews are built for branch dev only"; fi` |
 | `ttac-auth`, Discord sign-in for Access (`auth.ttacommunity.org`) | `main` | `/infra/access-oidc` | none | `npx wrangler deploy` |
-| `build-discord-notifier` (posts `main` and `dev` builds to Discord; secret `DISCORD_WEBHOOK_URL`) | `main` | `/infra/build-notifier` | none | `npx wrangler deploy` |
+| `build-discord-notifier` (posts `main` builds to Discord with secret `DISCORD_WEBHOOK_URL`, and `dev` builds to their own channel with `DISCORD_DEV_WEBHOOK_URL`; without it, `dev` builds are not posted) | `main` | `/infra/build-notifier` | none | `npx wrangler deploy` |
 
 **The site has no Previews**: on the zone's apex a Preview route claims every
 subdomain (`*.ttacommunity.org`), the API's included. Branch `dev` is a

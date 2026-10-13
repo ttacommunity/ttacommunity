@@ -1,5 +1,5 @@
 // The build notifier: consumes Workers Builds events and posts finished main and dev builds to Discord.
-// DISCORD_WEBHOOK_URL is a secret set in Cloudflare, never here.
+// DISCORD_WEBHOOK_URL (main) and DISCORD_DEV_WEBHOOK_URL (dev) are secrets set in Cloudflare, never here.
 {
   "name": "build-discord-notifier",
   "main": "worker.js",

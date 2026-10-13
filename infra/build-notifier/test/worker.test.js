@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { notification } from '../worker.js'
+import { notification, webhookFor } from '../worker.js'
 
 const now = new Date('2026-01-01T12:00:00Z')
 
@@ -24,5 +24,20 @@ const cases = [
 for (const c of cases) {
 	test(`notification: ${c.name}`, () => {
 		assert.equal(notification(c.event, now) !== null, c.posted)
+	})
+}
+
+const mainURL = 'https://discord.example/api/webhooks/1/main'
+const devURL = 'https://discord.example/api/webhooks/2/dev'
+
+const webhookCases = [
+	{ name: 'main goes to the main channel', branch: 'main', env: { DISCORD_WEBHOOK_URL: mainURL, DISCORD_DEV_WEBHOOK_URL: devURL }, want: mainURL },
+	{ name: 'dev goes to the dev channel', branch: 'dev', env: { DISCORD_WEBHOOK_URL: mainURL, DISCORD_DEV_WEBHOOK_URL: devURL }, want: devURL },
+	{ name: 'dev with no dev secret goes nowhere', branch: 'dev', env: { DISCORD_WEBHOOK_URL: mainURL }, want: null },
+]
+
+for (const c of webhookCases) {
+	test(`webhookFor: ${c.name}`, () => {
+		assert.equal(webhookFor(c.branch, c.env), c.want)
 	})
 }
