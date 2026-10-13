@@ -1,5 +1,5 @@
 // The admin site as a Worker serving static assets, behind Cloudflare Access
-// at ttac-admin.unstableunicorn.dev. Workers Builds deploys it from main.
+// at admin.ttacommunity.org. Workers Builds deploys it from main.
 {
   "name": "ttac-admin",
   "compatibility_date": "2026-09-27",
@@ -10,31 +10,30 @@
     "binding": "ASSETS",
     "run_worker_first": ["/api/*"]
   },
-  // Access app "ttacommunity admin" (it covers *.ttac-admin too): team and AUD read with cf (2026-10-03).
+  // Access app "ttacommunity admin" (it covers *.admin too): team and AUD read with cf (2026-10-13).
   // /api/* is proxied to API_ORIGIN only on ADMIN_HOST, which the API verifies the token again for.
   "vars": {
-    "ADMIN_HOST": "ttac-admin.unstableunicorn.dev",
-    "API_ORIGIN": "https://ttac-api.unstableunicorn.dev",
-    "ACCESS_TEAM": "https://unstableunicorn.cloudflareaccess.com",
-    "ACCESS_AUD": "f0bc8c99210a231edb4adc754229a5798e98f41ca67515da419535a251031136"
+    "ADMIN_HOST": "admin.ttacommunity.org",
+    "API_ORIGIN": "https://api.ttacommunity.org",
+    "ACCESS_TEAM": "https://ttacommunitydev.cloudflareaccess.com",
+    "ACCESS_AUD": "385c7c2eee5489fc256c2aadfc1299c1a79ce78b9b712523026ffb92bf757f82"
   },
   // Access protects only the custom domain, so no other hostname may serve it.
   "workers_dev": false,
   "preview_urls": false,
-  // Previews (branch dev) serve at dev.ttac-admin, which the Access app's *.ttac-admin covers.
-  "routes": [{ "pattern": "ttac-admin.unstableunicorn.dev", "custom_domain": true, "previews_enabled": true }],
+  // Previews (branch dev) serve at dev.admin, which the Access app's *.admin covers.
+  "routes": [{ "pattern": "admin.ttacommunity.org", "custom_domain": true, "previews_enabled": true }],
   // Previews do not inherit vars; they verify against the same Access app, and use the dev API.
   "previews": {
     "vars": {
-      "ADMIN_HOST": "dev.ttac-admin.unstableunicorn.dev",
-      "API_ORIGIN": "https://ttac-api-dev.unstableunicorn.dev",
-      "ACCESS_TEAM": "https://unstableunicorn.cloudflareaccess.com",
-      "ACCESS_AUD": "f0bc8c99210a231edb4adc754229a5798e98f41ca67515da419535a251031136"
+      "ADMIN_HOST": "dev.admin.ttacommunity.org",
+      "API_ORIGIN": "https://api-dev.ttacommunity.org",
+      "ACCESS_TEAM": "https://ttacommunitydev.cloudflareaccess.com",
+      "ACCESS_AUD": "385c7c2eee5489fc256c2aadfc1299c1a79ce78b9b712523026ffb92bf757f82"
     }
   },
   "env": {
-    // The new Cloudflare account (deploy --env newaccount). Its Access app "ttacommunity admin"
-    // covers admin.ttacommunity.org and *.admin: team and AUD read with cf (2026-10-13).
+    // The old name of the top level, until the build triggers stop naming it.
     "newaccount": {
       "name": "ttac-admin",
       "vars": {

@@ -1,30 +1,32 @@
 // The public site as a Worker serving static assets: Astro's build output,
-// including public/_headers. Workers Builds deploys it from main, and branch
-// dev as a Preview at dev.ttacommunity.unstableunicorn.dev.
+// including public/_headers. Workers Builds deploys it from main to
+// ttacommunity.org, and branch dev to the Worker ttacommunity-dev (--env dev).
 {
   "name": "ttacommunity",
   "compatibility_date": "2026-09-27",
   "assets": {
     "directory": "./dist"
   },
-  // No workers.dev hostnames: production and Previews are served only on the custom domain.
+  // No workers.dev hostnames, and no Previews: on the zone's apex they would claim every
+  // subdomain, the API's tunnels included.
   "workers_dev": false,
   "preview_urls": false,
-  "routes": [
-    { "pattern": "ttacommunity.unstableunicorn.dev", "custom_domain": true, "previews_enabled": true }
-  ],
-  // Previews take no settings from production; the site has none to give them.
-  "previews": {},
+  "routes": [{ "pattern": "ttacommunity.org", "custom_domain": true, "previews_enabled": false }],
   "env": {
-    // The new Cloudflare account (deploy --env newaccount): ttacommunity.org. No Previews: on the
-    // zone's apex they would claim every subdomain, the API's tunnels included.
+    // Branch dev, deployed as a Worker of its own at dev.ttacommunity.org, which an Access app covers.
+    "dev": {
+      "name": "ttacommunity-dev",
+      "workers_dev": false,
+      "preview_urls": false,
+      "routes": [{ "pattern": "dev.ttacommunity.org", "custom_domain": true }]
+    },
+    // The old names of the top level and dev, until the build triggers stop naming them.
     "newaccount": {
       "name": "ttacommunity",
       "workers_dev": false,
       "preview_urls": false,
       "routes": [{ "pattern": "ttacommunity.org", "custom_domain": true, "previews_enabled": false }]
     },
-    // Branch dev, deployed as a Worker of its own at dev.ttacommunity.org, which an Access app covers.
     "newaccount-dev": {
       "name": "ttacommunity-dev",
       "workers_dev": false,
