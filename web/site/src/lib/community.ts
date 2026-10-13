@@ -35,12 +35,12 @@ export function parseCommunityView(params: URLSearchParams): CommunityView {
   };
 }
 
-/** countingColumns returns a player's 8 best events, equal scores in the sheet's column order. */
-export function countingColumns(scores: Record<string, number>, sheetOrder: readonly string[]): string[] {
+/** countingColumns returns a player's best events, equal scores in the sheet's column order. */
+export function countingColumns(scores: Record<string, number>, sheetOrder: readonly string[], count = 8): string[] {
   return sheetOrder
     .filter((c) => scores[c] !== undefined)
     .sort((a, b) => (scores[b] ?? 0) - (scores[a] ?? 0))
-    .slice(0, 8);
+    .slice(0, count);
 }
 
 /** tournamentSums returns each tournament's positive points and whether one of its events counts; null when none. */
@@ -76,7 +76,9 @@ function codesOf(ids: string[]): string {
 /** editionFacts returns an edition's event slots, tiers and tournaments, and each tier's columns and maximum points. */
 export function editionFacts(edition: Edition) {
   const pts = (n: number) => n.toLocaleString('en-US');
+  const count = edition.countingEvents ?? 8;
   return {
+    counting: count,
     slots: edition.categories.reduce((n, c) => n + c.columns.length, 0),
     tiers: edition.categories.length,
     tournaments: edition.summary.length,

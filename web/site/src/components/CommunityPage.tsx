@@ -115,24 +115,25 @@ function Hero({ edition, view, rows }: { edition: Edition; view: CommunityView; 
 
 function Explainers({ edition }: { edition: Edition }) {
   const facts = editionFacts(edition);
+  const count = facts.counting;
   return (
     <div className="explainer-cards">
       <div className="explainer-card">
         <h3>
-          <span>📜</span> The Best-8 Rolling Point System
+          <span>📜</span> The Best-{count} Point System
         </h3>
         <p>
-          The Community Standard Leaderboard ranks players by cumulative performance across the global circuit. To reward
-          peak mastery while preventing burnout, rankings operate on a strict <strong>Best-8 Rolling Rule</strong>:
+          The Community Leaderboard ranks players by cumulative performance across the circuit. To reward
+          peak mastery while preventing burnout, rankings operate on a strict <strong>Best-{count} Rule</strong>:
         </p>
         <ul>
           <li>
-            <strong>Top 8 Scores Count</strong>: A player&apos;s total is the sum of their 8 highest-scoring tournament finishes
+            <strong>Top {count} Scores Count</strong>: A player&apos;s total is the sum of their {count} highest-scoring tournament finishes
             across all {facts.slots} active event slots.
           </li>
           <li>
-            <strong>Participation Protected</strong>: If a competitor has played in 8 or fewer events, all scores sum normally.
-            Any scores beyond the 8th are dropped—ensuring players can freely compete without risking their placement.
+            <strong>Participation Protected</strong>: If a competitor has played in {count} or fewer events, all scores sum normally.
+            Any scores beyond the {count}th are dropped—ensuring players can freely compete without risking their placement.
           </li>
           <li>
             <strong>Visual Cues</strong>: In the table, counting scores are highlighted in{' '}
@@ -245,7 +246,8 @@ function Table({ edition, view, rows }: { edition: Edition; view: CommunityView;
             </tr>
           ) : (
             rows.map((r) => {
-              const counting = countingColumns(r.scores, edition.sheetOrder);
+              const count = edition.countingEvents ?? 8;
+              const counting = countingColumns(r.scores, edition.sheetOrder, count);
               const sums = tournamentSums(r.scores, edition.summary, counting);
               const mark = titleMark(r, edition);
               return (
@@ -274,7 +276,7 @@ function Table({ edition, view, rows }: { edition: Edition; view: CommunityView;
                     ? edition.summary.map((t) => {
                         const s = sums[t.id];
                         const tip = s
-                          ? `${t.name} Sum: ${whole(s.sum)} pts (${s.counting ? 'contributes to Top-8 total' : 'dropped beyond Top-8'})`
+                          ? `${t.name} Sum: ${whole(s.sum)} pts (${s.counting ? `contributes to Top-${count} total` : `dropped beyond Top-${count}`})`
                           : '';
                         return (
                           <td key={t.id}>
@@ -289,8 +291,8 @@ function Table({ edition, view, rows }: { edition: Edition; view: CommunityView;
                           v === undefined
                             ? ''
                             : on
-                              ? `Counts toward Top-8 total: ${whole(v)} pts in ${c.name}`
-                              : `Dropped (beyond Top-8): ${whole(v)} pts in ${c.name}`;
+                              ? `Counts toward Top-${count} total: ${whole(v)} pts in ${c.name}`
+                              : `Dropped (beyond Top-${count}): ${whole(v)} pts in ${c.name}`;
                         return (
                           <td key={c.id}>
                             <Score value={v} counting={on} tip={tip} />

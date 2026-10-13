@@ -244,6 +244,7 @@ export const edition = {
       "desc": "Swiss tournament"
     }
   ],
+  "countingEvents": 6,
   "sheetOrder": [
     "wrld",
     "ic_32",

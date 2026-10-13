@@ -30,6 +30,11 @@ describe('countingColumns', () => {
     expect(countingColumns(scores, ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j'])).toEqual(['b', 'c', 'a', 'i', 'h', 'g', 'f', 'e']);
     expect(countingColumns({ x: 500, y: 500 }, ['y', 'x'])).toEqual(['y', 'x']);
   });
+
+  it("respects a custom counting count (e.g. best 6 for Race 26)", () => {
+    const scores = { a: 10, b: 50, c: 50, d: 1, e: 2, f: 3, g: 4, h: 5, i: 6, j: 0 };
+    expect(countingColumns(scores, ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j'], 6)).toEqual(['b', 'c', 'a', 'i', 'h', 'g']);
+  });
 });
 
 describe('tournamentSums', () => {
@@ -55,9 +60,9 @@ describe('titleMark', () => {
 
 describe('editionFacts', () => {
   it("counts the edition's own event slots, tiers and tournaments", () => {
-    expect(editionFacts(EDITIONS['2024'])).toMatchObject({ slots: 17, tiers: 7, tournaments: 10 });
-    expect(editionFacts(EDITIONS['2025'])).toMatchObject({ slots: 20, tiers: 7, tournaments: 11 });
-    expect(editionFacts(EDITIONS.race26)).toMatchObject({ slots: 13, tiers: 6, tournaments: 10 });
+    expect(editionFacts(EDITIONS['2024'])).toMatchObject({ counting: 8, slots: 17, tiers: 7, tournaments: 10 });
+    expect(editionFacts(EDITIONS['2025'])).toMatchObject({ counting: 8, slots: 20, tiers: 7, tournaments: 11 });
+    expect(editionFacts(EDITIONS.race26)).toMatchObject({ counting: 6, slots: 13, tiers: 6, tournaments: 10 });
   });
 
   it("lists each tier with its own columns and points, not the 2026 edition's", () => {
