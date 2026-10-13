@@ -68,15 +68,15 @@ func TestBlitzRoundsAreMadePublishedAndListed(t *testing.T) {
 		t.Errorf("admin's rounds = %v, want %v", roundLines(ed.Rounds), want)
 	}
 	public, err := reader.BlitzEdition(ctx, "us_open", "2026")
-	if err != nil || len(public.Rounds) != 0 {
-		t.Errorf("the site's rounds while a draft = %v, %v; want none", roundLines(public.Rounds), err)
+	if err != nil || len(public.Rounds) != 0 || public.Round != nil {
+		t.Errorf("the site's rounds while a draft = %v, round reached %v, %v; want none", roundLines(public.Rounds), public.Round, err)
 	}
 
 	if err := a.PublishBlitzRound(ctx, "us_open", "2026", r1.ID); err != nil {
 		t.Fatalf("PublishBlitzRound: %v", err)
 	}
-	if public, err = reader.BlitzEdition(ctx, "us_open", "2026"); err != nil || len(public.Rounds) != 1 || public.Rounds[0].PublishedAt == nil {
-		t.Errorf("the site's rounds once published = %v, %v; want round 1", roundLines(public.Rounds), err)
+	if public, err = reader.BlitzEdition(ctx, "us_open", "2026"); err != nil || len(public.Rounds) != 1 || public.Rounds[0].PublishedAt == nil || public.Round == nil || *public.Round != 1 {
+		t.Errorf("the site's rounds once published = %v, round reached %v, %v; want round 1", roundLines(public.Rounds), public.Round, err)
 	}
 	if err := a.DeleteBlitzRound(ctx, "us_open", "2026", r1.ID); err != nil {
 		t.Errorf("deleting the published round 1, the latest = %v, want nil (nothing played yet)", err)

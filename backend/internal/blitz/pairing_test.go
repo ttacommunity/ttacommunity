@@ -10,6 +10,12 @@ import (
 	"ttacommunity/backend/internal/blitz"
 )
 
+// placed gives a player their place in the standings.
+func placed(p blitz.Player, place int) blitz.Player {
+	p.Place = place
+	return p
+}
+
 // rated makes a player with an offset in hours, a rating and points.
 func rated(id int64, hours float64, rating, points float64) blitz.Player {
 	return blitz.Player{ID: id, Offset: int(hours * 60), Rating: rating, Rated: true, Points: points}
@@ -74,6 +80,8 @@ func TestPairGivesTheByeToTheLowestRankedWithoutOne(t *testing.T) {
 		{"an unrated player below every rated one", []blitz.Player{rated(1, 0, 1800, 0), rated(2, 0, 1600, 0), {ID: 3}}, 3},
 		{"the next one up when the lowest had a bye", []blitz.Player{rated(1, 0, 1800, 0), rated(2, 0, 1600, 0), {ID: 3, HadBye: true}}, 2},
 		{"the lowest again when everyone had one", []blitz.Player{{ID: 1, HadBye: true, Points: 1}, {ID: 2, HadBye: true, Points: 1}, {ID: 3, HadBye: true}}, 3},
+		{"the lowest in the standings, whatever the ratings", []blitz.Player{placed(rated(1, 0, 1800, 0), 3), placed(rated(2, 0, 1600, 0), 1), placed(rated(3, 0, 1700, 0), 2)}, 1},
+		{"the next one up in the standings when the lowest had a bye", []blitz.Player{placed(blitz.Player{ID: 1, HadBye: true}, 3), placed(rated(2, 0, 1600, 0), 1), placed(rated(3, 0, 1700, 0), 2)}, 3},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -82,7 +90,7 @@ func TestPairGivesTheByeToTheLowestRankedWithoutOne(t *testing.T) {
 				t.Fatalf("Pair: %v", err)
 			}
 			if got.Bye == nil || *got.Bye != tt.want {
-				t.Errorf("bye = %v, want %d", got.Bye, tt.want)
+				t.Errorf("round = %v, want the bye to %d", pairs(got), tt.want)
 			}
 			if len(got.Matches) != 1 {
 				t.Errorf("matches = %v, want one", pairs(got))

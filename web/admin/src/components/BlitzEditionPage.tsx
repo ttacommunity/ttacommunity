@@ -8,7 +8,7 @@ import { tabsFor } from '../lib/admin-tabs';
 import { editionParams, playersView, type AdminBlitzEntrant } from '../lib/blitz-page';
 import { emptyGameForm, gameRecordFrom, type BlitzStanding, type GameForm } from '../lib/blitz-results';
 import { isCountryCode, membersToEnter } from '../lib/members';
-import { canPair, editableRound, newestFirst, undecided, unpaired, withBye, withPair, withoutMatch, zoneGapLabel, type AdminBlitzMatch, type AdminBlitzRound } from '../lib/blitz-rounds';
+import { asChanges, canDeleteRound, canPair, decidedOnly, editableRound, inARound, newestFirst, samePairs, undecided, unpaired, unsavedMatch, zoneGapLabel, type AdminBlitzMatch, type AdminBlitzRound } from '../lib/blitz-rounds';
 import AdminHeader from './AdminHeader';
 import PageError from './PageError';
 import './AdminApp.css';
@@ -119,30 +119,54 @@ function RoundsCard({ at, ed, onReload, say }: Props) {
     return r === null ? '–' : String(Math.round(r));
   };
   const editable = editableRound(ed.rounds);
+  // pending is the latest round's matches as changed here and not yet saved; null while the saved ones are shown.
+  const [pending, setPending] = useState<AdminBlitzMatch[] | null>(null);
+  const shownOf = (r: AdminBlitzRound) => (r.id === editable && pending !== null ? pending : r.matches);
+  const freeOf = (r: AdminBlitzRound) => unpaired(ed.entrants, { ...r, matches: shownOf(r) });
   const run = async (r: req.Request, done: string) => {
     const res = await req.send(r);
     say(res.ok ? done : res.message);
     await onReload();
+    return res.ok;
   };
   const pair = (e: FormEvent) => {
     e.preventDefault();
     void run(req.pairBlitzRound(at.slug, at.edition, criteria), `Round ${ed.rounds.length + 1} paired as a draft.`);
+  };
+  const repair = async (r: AdminBlitzRound) => {
+    const res = await req.send<AdminBlitzRound>(req.proposeBlitzPairing(at.slug, at.edition, r.id, criteria));
+    if (!res.ok) {
+      say(res.message);
+      return;
+    }
+    setPending(res.data.matches);
+    say(`Round ${r.number} paired again. Not saved yet: ${r.published_at === null ? 'publish' : 'update'} it, or discard.`);
   };
   const addPair = (r: AdminBlitzRound) => {
     const a = Number(pick.a);
     const b = Number(pick.b);
     if (!a || !b || a === b) return;
     setPick({ ...pick, a: '', b: '' });
-    void run(req.setBlitzRoundMatches(at.slug, at.edition, r.id, withPair(r.matches, a, b)), `${nameOf(a)} plays ${nameOf(b)}.`);
+    setPending([...shownOf(r), unsavedMatch(a, b)]);
   };
   const giveBye = (r: AdminBlitzRound) => {
     const a = Number(pick.bye);
     if (!a) return;
     setPick({ ...pick, bye: '' });
-    void run(req.setBlitzRoundMatches(at.slug, at.edition, r.id, withBye(r.matches, a)), `${nameOf(a)} has the bye.`);
+    setPending([...shownOf(r).filter((m) => m.b !== null), unsavedMatch(a, null)]);
   };
-  const unpair = (r: AdminBlitzRound, id: number) =>
-    void run(req.setBlitzRoundMatches(at.slug, at.edition, r.id, withoutMatch(r.matches, id)), 'Unpaired.');
+  const unpair = (r: AdminBlitzRound, i: number) => setPending(shownOf(r).filter((_, j) => j !== i));
+  const unpairAll = (r: AdminBlitzRound) => {
+    setPending(decidedOnly(shownOf(r)));
+    say(`Everyone without a result in round ${r.number} is unpaired: pair them by hand, then ${r.published_at === null ? 'publish' : 'update'}.`);
+  };
+  const changed = (r: AdminBlitzRound) => pending !== null && r.id === editable && !samePairs(r.matches, pending);
+  const save = async (r: AdminBlitzRound) => {
+    if (changed(r) && !(await run(req.setBlitzRoundMatches(at.slug, at.edition, r.id, asChanges(shownOf(r))), 'Saved.'))) return;
+    setPending(null);
+    if (r.published_at === null) await run(req.publishBlitzRound(at.slug, at.edition, r.id), `Round ${r.number} published.`);
+    else if (changed(r)) say(`Round ${r.number} updated: the site shows it now.`);
+  };
   const pairable = canPair(ed.entrants, ed.rounds);
   return (
     <section className="rating-card admin-card" aria-labelledby="rounds-heading">
@@ -152,8 +176,9 @@ function RoundsCard({ at, ed, onReload, say }: Props) {
       <p className="muted">
         Pairing puts players on equal points together, never with an opponent they have met; within a score group
         the pairs are the best time-zone fit (and the closest ratings, when ticked), chance deciding the rest. With an
-        odd count the lowest-ranked player without a bye sits out. A round is a draft you can change by hand until
-        you publish it; the latest round can still be changed afterwards.
+        odd count the lowest in the standings without a bye sits out. The latest round can be paired again or changed by
+        hand (Unpair all, to enter a round paired elsewhere): nothing you change is saved until you publish it, or
+        update it once it is published, and a match with a result stays as it is.
       </p>
       <form className="admin-add" onSubmit={pair}>
         <h3>Pair round {ed.rounds.length + 1}</h3>
@@ -176,9 +201,10 @@ function RoundsCard({ at, ed, onReload, say }: Props) {
         <div key={r.id} className="round-block">
           <h3>
             Round {r.number} · {r.published_at === null ? 'draft' : `published ${formatInstant(r.published_at, zone)}`}
+            {changed(r) && <span className="row-detail">unsaved changes</span>}
           </h3>
-          {r.matches.length === 0 && <p className="muted">No matches.</p>}
-          {r.matches.length > 0 && (
+          {shownOf(r).length === 0 && <p className="muted">No matches.</p>}
+          {shownOf(r).length > 0 && (
             <div className="table-responsive">
               <table className="leaderboard-table admin-table">
                 <caption className="visually-hidden">Round {r.number}&apos;s matches</caption>
@@ -197,8 +223,8 @@ function RoundsCard({ at, ed, onReload, say }: Props) {
                   </tr>
                 </thead>
                 <tbody>
-                  {r.matches.map((m) => (
-                    <tr key={m.id} className={m.repeat ? 'row-error' : ''}>
+                  {shownOf(r).map((m, i) => (
+                    <tr key={m.id === 0 ? `new-${i}` : m.id} className={m.repeat ? 'row-error' : ''}>
                       <th scope="row">{nameOf(m.a)}</th>
                       <td>{ratingOf(m.a)}</td>
                       <td>{m.b === null ? <em>bye</em> : nameOf(m.b)}</td>
@@ -213,13 +239,13 @@ function RoundsCard({ at, ed, onReload, say }: Props) {
                         {m.ruling !== '' && <span className="row-detail muted">{m.ruling}</span>}
                       </td>
                       <td className="run-buttons">
-                        {m.b !== null && (
+                        {m.b !== null && m.id !== 0 && !changed(r) && (
                           <button type="button" className="btn-antique" onClick={() => setRecording({ round: r.id, match: m.id })}>
                             {m.result === null ? 'Record' : 'Correct'}
                           </button>
                         )}
                         {r.id === editable && m.result === null && (
-                          <button type="button" className="btn-antique" onClick={() => unpair(r, m.id)}>
+                          <button type="button" className="btn-antique" onClick={() => unpair(r, i)}>
                             Unpair
                           </button>
                         )}
@@ -247,14 +273,14 @@ function RoundsCard({ at, ed, onReload, say }: Props) {
           {r.id === editable && (
             <div className="admin-add">
               <h3>Change by hand</h3>
-              {unpaired(ed.entrants, r).length === 0 && <span className="muted">Everyone active is in a match.</span>}
-              {unpaired(ed.entrants, r).length > 0 && (
+              {freeOf(r).length === 0 && <span className="muted">Everyone active is in a match.</span>}
+              {freeOf(r).length > 0 && (
                 <>
                   <label>
                     Pair
                     <select className="input-antique" value={pick.a} onChange={(e) => setPick({ ...pick, a: e.target.value })}>
                       <option value="">choose</option>
-                      {unpaired(ed.entrants, r).map((e) => (
+                      {freeOf(r).map((e) => (
                         <option key={e.id} value={e.id}>
                           {e.name}
                         </option>
@@ -265,7 +291,7 @@ function RoundsCard({ at, ed, onReload, say }: Props) {
                     with
                     <select className="input-antique" value={pick.b} onChange={(e) => setPick({ ...pick, b: e.target.value })}>
                       <option value="">choose</option>
-                      {unpaired(ed.entrants, r).map((e) => (
+                      {freeOf(r).map((e) => (
                         <option key={e.id} value={e.id}>
                           {e.name}
                         </option>
@@ -279,7 +305,7 @@ function RoundsCard({ at, ed, onReload, say }: Props) {
                     Bye to
                     <select className="input-antique" value={pick.bye} onChange={(e) => setPick({ ...pick, bye: e.target.value })}>
                       <option value="">choose</option>
-                      {unpaired(ed.entrants, r).map((e) => (
+                      {freeOf(r).map((e) => (
                         <option key={e.id} value={e.id}>
                           {e.name}
                         </option>
@@ -291,21 +317,31 @@ function RoundsCard({ at, ed, onReload, say }: Props) {
                   </button>
                 </>
               )}
-              {r.published_at === null && (
-                <>
-                  <button type="button" className="btn-antique" onClick={() => void run(req.publishBlitzRound(at.slug, at.edition, r.id), `Round ${r.number} published.`)}>
-                    Publish
-                  </button>
-                  <button
-                    type="button"
-                    className="btn-antique"
-                    onClick={() => {
-                      if (window.confirm(`Delete the draft of round ${r.number}?`)) void run(req.deleteBlitzRound(at.slug, at.edition, r.id), 'Draft deleted.');
-                    }}
-                  >
-                    Delete draft
-                  </button>
-                </>
+              <button type="button" className="btn-antique" onClick={() => void repair(r)}>
+                Re-pair
+              </button>
+              <button type="button" className="btn-antique" disabled={decidedOnly(shownOf(r)).length === shownOf(r).length} onClick={() => unpairAll(r)}>
+                Unpair all
+              </button>
+              <button type="button" className="btn-antique" disabled={r.published_at !== null && !changed(r)} onClick={() => void save(r)}>
+                {r.published_at === null ? 'Publish' : 'Update'}
+              </button>
+              {changed(r) && (
+                <button type="button" className="btn-antique" onClick={() => setPending(null)}>
+                  Discard changes
+                </button>
+              )}
+              {canDeleteRound(r) && (
+                <button
+                  type="button"
+                  className="btn-antique"
+                  onClick={() => {
+                    const what = r.published_at === null ? `the draft of round ${r.number}` : `round ${r.number}, published but not yet played`;
+                    if (window.confirm(`Delete ${what}? Pair again afterwards.`)) void run(req.deleteBlitzRound(at.slug, at.edition, r.id), `Round ${r.number} deleted.`);
+                  }}
+                >
+                  {r.published_at === null ? 'Delete draft' : 'Delete round'}
+                </button>
               )}
             </div>
           )}
@@ -352,7 +388,8 @@ function EntrantsCard({ at, ed, onReload, say }: Props) {
       <p className="muted">
         A name the ratings know is shown in their spelling, with the 2-player rating of the current run. Pending
         players are named but not confirmed: neither paired nor shown on the site until you confirm them. Drop someone
-        who withdrew: their results stand and they are not paired again. Remove only a mistaken entry.
+        who withdrew: their results stand and they are not paired again. Remove only a mistaken entry, before any
+        round names them (unpair them first).
       </p>
       {ed.entrants.length === 0 && <p className="muted">No entrants yet. Add them below.</p>}
       {ed.entrants.length > 0 && (
@@ -444,9 +481,11 @@ function EntrantsCard({ at, ed, onReload, say }: Props) {
                       <button type="button" className="btn-antique" onClick={() => void change(e, e.status === 'dropped' ? 'active' : 'dropped')}>
                         {e.status === 'dropped' ? 'Reinstate' : 'Drop'}
                       </button>
-                      <button type="button" className="btn-antique" onClick={() => void remove(e)}>
-                        Remove
-                      </button>
+                      {!inARound(e.id, ed.rounds) && (
+                        <button type="button" className="btn-antique" onClick={() => void remove(e)}>
+                          Remove
+                        </button>
+                      )}
                     </td>
                   </tr>
                 ),

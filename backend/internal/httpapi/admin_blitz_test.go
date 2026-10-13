@@ -29,6 +29,11 @@ func (f *fakeAdmins) blitzRow() store.BlitzEditionRow {
 	if f.format != (store.BlitzFormat{}) {
 		row.Format = f.format
 	}
+	for _, r := range f.rounds {
+		if r.PublishedAt != nil && (row.Round == nil || r.Number > *row.Round) {
+			row.Round = new(r.Number)
+		}
+	}
 	for _, e := range f.blitzEntrants() {
 		switch e.Status {
 		case "dropped":
@@ -142,6 +147,13 @@ func (f *fakeAdmins) SetBlitzEntrant(_ context.Context, slug, edition string, id
 func (f *fakeAdmins) RemoveBlitzEntrant(_ context.Context, slug, edition string, id int64) error {
 	if slug != "us_open" || edition != "2026" {
 		return store.ErrNoBlitzEdition
+	}
+	for _, r := range f.rounds {
+		for _, m := range r.Matches {
+			if m.A == id || (m.B != nil && *m.B == id) {
+				return store.ErrBlitzEntrantInRound
+			}
+		}
 	}
 	for i, e := range f.blitzEntrants() {
 		if e.ID == id {

@@ -1371,7 +1371,7 @@ export interface paths {
          *     paired on equal points where possible, never with an opponent they
          *     have met; within a score group the pairs are the best time-zone fit
          *     (and the closest ratings, when asked), chance deciding the rest. With
-         *     an odd count the lowest-ranked player without a bye gets it. Refused
+         *     an odd count the lowest in the standings without a bye gets it. Refused
          *     while a draft exists or a match so far has no result.
          */
         post: operations["postAdminBlitzRound"];
@@ -1397,6 +1397,29 @@ export interface paths {
          *     draft or published, and only while none of its matches has a result.
          */
         delete: operations["deleteAdminBlitzRound"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/blitz/{tournament}/{edition}/rounds/{round}/pairing": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Propose a fresh pairing of a round, without saving it
+         * @description Everyone active now is paired as for a new round, by the criteria
+         *     given; a match of the round that already has a result is kept and
+         *     its players are left out. Nothing is written: the proposal's new
+         *     matches have no id. Save it with PUT matches.
+         */
+        post: operations["postAdminBlitzRoundPairing"];
+        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
@@ -1505,7 +1528,8 @@ export interface paths {
         post?: never;
         /**
          * Remove an entrant added by mistake
-         * @description Audited. The Origin must be the admin site.
+         * @description Audited. The Origin must be the admin site. An entrant a round names,
+         *     draft or published, is refused: unpair them first, or drop them.
          */
         delete: operations["deleteAdminBlitzEntrant"];
         options?: never;
@@ -1934,6 +1958,8 @@ export interface components {
         };
         /** @description One edition of a blitz tournament as the site's list shows it */
         BlitzEditionRow: {
+            /** @description The latest published round's number, null before the first is published */
+            round: number | null;
             /** @description The tournament's slug */
             tournament: string;
             /** @description The tournament's name */
@@ -2104,6 +2130,8 @@ export interface components {
         };
         /** @description One edition of a blitz tournament as admin's list shows it */
         AdminBlitzEditionRow: {
+            /** @description The latest published round's number, null before the first is published */
+            round: number | null;
             tournament: string;
             name: string;
             edition: string;
@@ -5530,6 +5558,41 @@ export interface operations {
             409: components["responses"]["Conflict"];
         };
     };
+    postAdminBlitzRoundPairing: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The tournament's slug */
+                tournament: components["parameters"]["AdminTournamentSlug"];
+                /** @description The edition's label, as admin lists it (a season) */
+                edition: components["parameters"]["BlitzEditionLabel"];
+                round: components["parameters"]["BlitzRoundId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["NewBlitzRound"];
+            };
+        };
+        responses: {
+            /** @description The round as it would be */
+            200: {
+                headers: {
+                    "Cache-Control": components["headers"]["CacheControl"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminBlitzRound"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
     putAdminBlitzRoundMatches: {
         parameters: {
             query?: never;
@@ -5682,6 +5745,7 @@ export interface operations {
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
         };
     };
     patchAdminBlitzEntrant: {

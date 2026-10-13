@@ -182,6 +182,59 @@ func TestAnOrganiserPairsChangesAndPublishesARound(t *testing.T) {
 	}
 }
 
+func TestAProposedPairingKeepsDecidedMatchesAndWritesNothing(t *testing.T) {
+	const site, org = "https://ttac-admin.example", "222222222222222222"
+	f := &fakeAdmins{}
+	roundOnePublished(f)
+	at := time.Date(2026, 10, 15, 9, 0, 0, 0, time.UTC)
+	f.rounds[0].Matches[0].Result, f.rounds[0].Matches[0].DecidedAt, f.rounds[0].Matches[0].Ruling = "a", &at, "ruled"
+	ratings := &fakeRatings{run: store.PublishedRun{ID: 7}}
+	rec := adminDoWith(t, ratings, f, org, http.MethodPost, "/v1/admin/blitz/us_open/2026/rounds/101/pairing", site, `{"timezone": true}`)
+	var round AdminBlitzRound
+	if err := json.Unmarshal(rec.Body.Bytes(), &round); err != nil || rec.Code != http.StatusOK {
+		t.Fatalf("POST pairing = %d %s, want 200", rec.Code, rec.Body)
+	}
+	if round.Id != 101 || round.Number != 1 || round.PublishedAt == nil || len(round.Matches) != 2 {
+		t.Fatalf("proposal = %+v, want round 101 with two matches", round)
+	}
+	kept, fresh := round.Matches[0], round.Matches[1]
+	if kept.Id != 1010 || kept.Result == nil || *kept.Result != "a" {
+		t.Errorf("the decided match = %+v, want Ann v Cy kept with its id and result", kept)
+	}
+	if fresh.Id != 0 || fresh.Result != nil || fresh.B == nil || fresh.A+*fresh.B != 19 {
+		t.Errorf("the fresh match = %+v, want bob and Dee paired again with no id", fresh)
+	}
+	if len(f.notes)+len(f.audits) != 0 {
+		t.Errorf("a proposal changed something: %q %q", f.notes, f.audits)
+	}
+	if rec := adminDoWith(t, ratings, f, org, http.MethodPost, "/v1/admin/blitz/us_open/2026/rounds/5/pairing", site, `{}`); rec.Code != http.StatusNotFound {
+		t.Errorf("a proposal for an unknown round = %d, want 404", rec.Code)
+	}
+}
+
+func TestTheNextRoundIsPairedOnPoints(t *testing.T) {
+	const site, org = "https://ttac-admin.example", "222222222222222222"
+	f := &fakeAdmins{}
+	roundOnePublished(f)
+	at := time.Date(2026, 10, 15, 9, 0, 0, 0, time.UTC)
+	for i := range f.rounds[0].Matches { // Ann beat Cy, bob beat Dee: the winners meet in round 2 despite the zones
+		f.rounds[0].Matches[i].Result, f.rounds[0].Matches[i].DecidedAt, f.rounds[0].Matches[i].Ruling = "a", &at, "ruled"
+	}
+	rec := adminDoWith(t, &fakeRatings{run: store.PublishedRun{ID: 7}}, f, org, http.MethodPost, "/v1/admin/blitz/us_open/2026/rounds", site, `{"timezone": true}`)
+	var round AdminBlitzRound
+	if err := json.Unmarshal(rec.Body.Bytes(), &round); err != nil || rec.Code != http.StatusCreated || len(round.Matches) != 2 {
+		t.Fatalf("POST rounds = %d %s, want round 2 with two matches", rec.Code, rec.Body)
+	}
+	var pairs []string
+	for _, m := range round.Matches {
+		pairs = append(pairs, fmt.Sprintf("%d-%d", min(m.A, *m.B), max(m.A, *m.B)))
+	}
+	slices.Sort(pairs)
+	if want := []string{"7-9", "8-10"}; !slices.Equal(pairs, want) {
+		t.Errorf("round 2's pairs = %v, want %v (the winners together, the losers together)", pairs, want)
+	}
+}
+
 func TestBlitzRoundChangesAreRefusedWhenTheyShouldBe(t *testing.T) {
 	const site, owner = "https://ttac-admin.example", "111111111111111111"
 	draft := func(f *fakeAdmins) {
@@ -217,6 +270,7 @@ func TestBlitzRoundChangesAreRefusedWhenTheyShouldBe(t *testing.T) {
 		{"deleting an unknown round", draft, http.MethodDelete, "/v1/admin/blitz/us_open/2026/rounds/5", site, "", http.StatusNotFound},
 		{"pairing while a result is missing", oneDecided, http.MethodPost, "/v1/admin/blitz/us_open/2026/rounds", site, `{}`, http.StatusConflict},
 		{"leaving out a decided match", oneDecided, http.MethodPut, "/v1/admin/blitz/us_open/2026/rounds/101/matches", site, `{"matches": [{"a": 9, "b": 10}]}`, http.StatusBadRequest},
+		{"removing an entrant a round names", roundOnePublished, http.MethodDelete, "/v1/admin/blitz/us_open/2026/entrants/7", site, "", http.StatusConflict},
 		{"deleting a round with a result", oneDecided, http.MethodDelete, "/v1/admin/blitz/us_open/2026/rounds/101", site, "", http.StatusConflict},
 	}
 	for _, tt := range tests {
@@ -233,5 +287,28 @@ func TestBlitzRoundChangesAreRefusedWhenTheyShouldBe(t *testing.T) {
 				t.Errorf("a refused change still changed something: %q %q", f.notes, f.audits)
 			}
 		})
+	}
+}
+
+func TestTheByeGoesByTheStandingsNotTheRatings(t *testing.T) {
+	const site, org = "https://ttac-admin.example", "222222222222222222"
+	f := &fakeAdmins{}
+	roundOnePublished(f)
+	at := time.Date(2026, 10, 15, 9, 0, 0, 0, time.UTC)
+	// Ann and Cy both lost; bob beat Dee and then dropped. Dee's opponent scored, so Dee places above Ann and Cy,
+	// though Dee is the one without a rating.
+	f.rounds[0].Matches[0].Result, f.rounds[0].Matches[0].DecidedAt, f.rounds[0].Matches[0].Ruling = "double_loss", &at, "no-show"
+	f.rounds[0].Matches[1].Result, f.rounds[0].Matches[1].DecidedAt, f.rounds[0].Matches[1].Ruling = "a", &at, "ruled"
+	f.entrants[2].Status = "dropped"
+	ratings := &fakeRatings{run: store.PublishedRun{ID: 7}, rated: map[string]store.Rated{"Ann": {Rating: 1700}, "Cy": {Rating: 1650}}}
+	rec := adminDoWith(t, ratings, f, org, http.MethodPost, "/v1/admin/blitz/us_open/2026/rounds", site, `{"timezone": true}`)
+	var round AdminBlitzRound
+	if err := json.Unmarshal(rec.Body.Bytes(), &round); err != nil || rec.Code != http.StatusCreated {
+		t.Fatalf("POST rounds = %d %s, want round 2", rec.Code, rec.Body)
+	}
+	for _, m := range round.Matches {
+		if m.B == nil && m.A != 7 && m.A != 8 {
+			t.Errorf("the bye went to entrant %d, want Ann (7) or Cy (8), the lowest in the standings", m.A)
+		}
 	}
 }

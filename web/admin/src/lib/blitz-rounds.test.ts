@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { canPair, editableRound, newestFirst, undecided, unpaired, withBye, withPair, withoutMatch, zoneGapLabel, type AdminBlitzRound } from './blitz-rounds';
+import { canDeleteRound, canPair, decidedOnly, editableRound, inARound, newestFirst, samePairs, undecided, unpaired, unsavedMatch, withBye, withPair, withoutMatch, zoneGapLabel, type AdminBlitzRound } from './blitz-rounds';
 
 const round = (id: number, number: number, published: boolean, matches: AdminBlitzRound['matches']): AdminBlitzRound => ({
   id,
@@ -49,6 +49,32 @@ describe('canPair', () => {
   });
 });
 
+describe('unsavedMatch and samePairs', () => {
+  it('makes a match with no id, no gaps and no result', () => {
+    expect(unsavedMatch(1, 2)).toEqual({ id: 0, a: 1, b: 2, zone_gap_minutes: 0, rating_gap: null, repeat: false, result: null, game: null, ruling: '', decided_at: null });
+    expect(unsavedMatch(3, null).b).toBe(null);
+  });
+  it.each([
+    ['the same pairs in the same order', [match(1, 1, 2), match(2, 3, null)], [unsavedMatch(1, 2), unsavedMatch(3, null)], true],
+    ['the same pairs in another order', [match(1, 1, 2), match(2, 3, null)], [unsavedMatch(3, null), unsavedMatch(1, 2)], true],
+    ['a different pair', [match(1, 1, 2), match(2, 3, 4)], [unsavedMatch(1, 3), unsavedMatch(2, 4)], false],
+    ['a pair turned into a bye', [match(1, 1, 2)], [unsavedMatch(1, null)], false],
+    ['one match fewer', [match(1, 1, 2), match(2, 3, 4)], [unsavedMatch(1, 2)], false],
+  ])('sees %s', (_name, saved, pending, want) => {
+    expect(samePairs(saved, pending)).toBe(want);
+  });
+});
+
+describe('canDeleteRound', () => {
+  it.each([
+    ['a draft', round(1, 1, false, [match(1, 1, 2)]), true],
+    ['a published round with nothing played', round(1, 1, true, [match(1, 1, 2), match(2, 3, null)]), true],
+    ['a published round with a result', round(1, 1, true, [match(1, 1, 2, 'a'), match(2, 3, 4)]), false],
+  ])('says whether %s can be deleted', (_name, r, want) => {
+    expect(canDeleteRound(r)).toBe(want);
+  });
+});
+
 describe('undecided', () => {
   it('names the matches still without a result, byes aside, oldest round first', () => {
     const rounds = [round(2, 2, true, [match(3, 1, 3), match(4, 2, null)]), round(1, 1, true, [match(1, 1, 2, 'draw'), match(2, 3, 4)])];
@@ -95,5 +121,29 @@ describe('zoneGapLabel', () => {
     [360, '6 h apart'],
   ])('shows %d minutes as %s', (minutes, want) => {
     expect(zoneGapLabel(minutes)).toBe(want);
+  });
+});
+
+describe('decidedOnly', () => {
+  it.each([
+    ['a fresh draft', [match(1, 1, 2), match(2, 3, 4), match(3, 5, null)], []],
+    ['a round with one result', [match(1, 1, 2, 'a'), match(2, 3, 4), match(3, 5, null)], [1]],
+    ['a round with every result', [match(1, 1, 2, 'draw'), match(2, 3, 4, 'b')], [1, 2]],
+    ['no matches', [], []],
+  ])('keeps only the matches with a result in %s', (_name, matches, want) => {
+    expect(decidedOnly(matches).map((m) => m.id)).toEqual(want);
+  });
+});
+
+describe('inARound', () => {
+  const rounds = [round(1, 1, true, [match(1, 1, 2, 'a'), match(2, 3, null)]), round(2, 2, false, [match(3, 4, 5)])];
+  it.each([
+    ['side a of a published match', 1, true],
+    ['side b of a published match', 2, true],
+    ['the bye', 3, true],
+    ['a draft match', 5, true],
+    ['nobody paired', 6, false],
+  ])('says %s', (_name, id, want) => {
+    expect(inARound(id, rounds)).toBe(want);
   });
 });

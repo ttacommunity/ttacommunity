@@ -1,5 +1,15 @@
 import { describe, expect, it } from 'vitest';
-import { editionHref, editionParams, ratingText, roundsNewestFirst } from './blitz';
+import { editionHref, editionParams, ratingText, roundLabel, roundsNewestFirst } from './blitz';
+
+describe('roundLabel', () => {
+  it.each([
+    [null, 'Pairing not started'],
+    [1, 'Round 1'],
+    [8, 'Round 8'],
+  ])('labels round %s as %s', (round, want) => {
+    expect(roundLabel(round)).toBe(want);
+  });
+});
 
 describe('roundsNewestFirst', () => {
   it('orders the rounds by number, the latest first', () => {

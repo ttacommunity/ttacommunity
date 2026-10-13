@@ -10,11 +10,13 @@ import (
 	"slices"
 )
 
-// Player is an entrant as the pairing sees them: their points so far, rating (Rated false when they have none),
-// the zone's offset from UTC in minutes at pairing time, who they have met, and whether they had a bye.
+// Player is an entrant as the pairing sees them: their points so far, their place in the standings before the
+// round (1 the top, 0 when not known), rating (Rated false when they have none), the zone's offset from UTC in
+// minutes at pairing time, who they have met, and whether they had a bye.
 type Player struct {
 	ID        int64
 	Points    float64
+	Place     int
 	Rating    float64
 	Rated     bool
 	Offset    int
@@ -120,7 +122,8 @@ func Pair(players []Player, c Criteria, seed uint64) (Round, error) {
 	return round, nil
 }
 
-// rank orders players as the standings do: points, then rating with unrated players last, then chance.
+// rank orders players by points, then by their place in the standings where both have one, then by rating with
+// unrated players last, then by chance.
 func rank(players []Player, rng *rand.Rand) []Player {
 	ranked := slices.Clone(players)
 	draw := make(map[int64]float64, len(ranked))
@@ -133,6 +136,9 @@ func rank(players []Player, rng *rand.Rand) []Player {
 				return -1
 			}
 			return 1
+		}
+		if a.Place > 0 && b.Place > 0 && a.Place != b.Place {
+			return a.Place - b.Place
 		}
 		if a.Rated != b.Rated {
 			if a.Rated {

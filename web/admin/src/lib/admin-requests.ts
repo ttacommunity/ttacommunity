@@ -71,6 +71,9 @@ export const removeBlitzEntrant = (slug: string, edition: string, id: number) =>
 export const setBlitzFormat = (slug: string, edition: string, format: Schemas['BlitzFormat']) => to(blitz(slug, edition), 'PATCH', format);
 /** pairBlitzRound pairs the edition's next round as a draft, by the criteria given. */
 export const pairBlitzRound = (slug: string, edition: string, criteria: Schemas['NewBlitzRound']) => to(`${blitz(slug, edition)}/rounds`, 'POST', criteria);
+/** proposeBlitzPairing asks for a fresh pairing of a round, kept decided matches included, without saving it. */
+export const proposeBlitzPairing = (slug: string, edition: string, round: number, criteria: Schemas['NewBlitzRound']) =>
+  to(`${blitz(slug, edition)}/rounds/${round}/pairing`, 'POST', criteria);
 /** setBlitzRoundMatches replaces a round's matches, as paired by hand. */
 export const setBlitzRoundMatches = (slug: string, edition: string, round: number, matches: Schemas['BlitzRoundMatches']['matches']) =>
   to(`${blitz(slug, edition)}/rounds/${round}/matches`, 'PUT', { matches });

@@ -30,6 +30,38 @@ export function editableRound(rounds: readonly AdminBlitzRound[]): number | null
   return newestFirst(rounds)[0]?.id ?? null;
 }
 
+/** unsavedMatch is a match as proposed or made by hand and not yet saved: no id, no gaps, no result. */
+export function unsavedMatch(a: number, b: number | null): AdminBlitzMatch {
+  return { id: 0, a, b, zone_gap_minutes: 0, rating_gap: null, repeat: false, result: null, game: null, ruling: '', decided_at: null };
+}
+
+/** pairKey names a pairing by its two sides, the bye's second as "bye". */
+function pairKey(m: AdminBlitzMatch): string {
+  return `${m.a}-${m.b ?? 'bye'}`;
+}
+
+/** samePairs says whether two sets of matches pair the same players the same way, in any order. */
+export function samePairs(saved: readonly AdminBlitzMatch[], pending: readonly AdminBlitzMatch[]): boolean {
+  const a = saved.map(pairKey).sort();
+  const b = pending.map(pairKey).sort();
+  return a.length === b.length && a.every((k, i) => k === b[i]);
+}
+
+/** canDeleteRound says whether a round can still be deleted: nothing in it has a result (it must also be the latest, which editableRound ensures). */
+export function canDeleteRound(round: AdminBlitzRound): boolean {
+  return round.matches.every((m) => m.result === null);
+}
+
+/** decidedOnly keeps the matches that have a result: what is left of a round once everyone else is unpaired, to pair it by hand. */
+export function decidedOnly(matches: readonly AdminBlitzMatch[]): AdminBlitzMatch[] {
+  return matches.filter((m) => m.result !== null);
+}
+
+/** inARound says whether any round, draft or published, names the entrant: such an entrant cannot be removed, only dropped. */
+export function inARound(id: number, rounds: readonly AdminBlitzRound[]): boolean {
+  return rounds.some((r) => r.matches.some((m) => m.a === id || m.b === id));
+}
+
 /** unpaired lists the active entrants a round leaves out, in sign-up order. */
 export function unpaired(entrants: readonly AdminBlitzEntrant[], round: AdminBlitzRound): AdminBlitzEntrant[] {
   const paired = new Set<number>();
@@ -40,9 +72,12 @@ export function unpaired(entrants: readonly AdminBlitzEntrant[], round: AdminBli
   return entrants.filter((e) => e.status === 'active' && !paired.has(e.id));
 }
 
-function changes(matches: readonly AdminBlitzMatch[]): MatchChange[] {
+/** asChanges turns matches into what the API takes back: entrant ids, b left out for the bye. */
+export function asChanges(matches: readonly AdminBlitzMatch[]): MatchChange[] {
   return matches.map((m) => (m.b === null ? { a: m.a } : { a: m.a, b: m.b }));
 }
+
+const changes = asChanges;
 
 /** withoutMatch is the round's matches without the one given, as the API takes them. */
 export function withoutMatch(matches: readonly AdminBlitzMatch[], id: number): MatchChange[] {

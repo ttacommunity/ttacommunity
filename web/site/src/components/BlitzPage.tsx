@@ -2,7 +2,7 @@
 import { useEffect, useState } from 'react';
 import { RatingsApiError, blitzEdition, blitzEditions, type BlitzEdition, type BlitzEditions } from '@ttac/shared/ratings';
 import { formatLabel, resultSummary, zoneLabel } from '@ttac/shared/blitz';
-import { editionHref, editionParams, ratingText, roundsNewestFirst } from '../lib/blitz';
+import { editionHref, editionParams, ratingText, roundLabel, roundsNewestFirst } from '../lib/blitz';
 import { catalogueHref } from '../lib/catalogue-view';
 import { Flag } from './PlayerMarks';
 import Waiting from './Waiting';
@@ -63,6 +63,7 @@ function BlitzList({ apiUrl }: { apiUrl: string }) {
                     <th scope="col">Tournament</th>
                     <th scope="col">Edition</th>
                     <th scope="col">Format</th>
+                    <th scope="col">Reached</th>
                     <th scope="col" className="num">
                       Players
                     </th>
@@ -76,6 +77,7 @@ function BlitzList({ apiUrl }: { apiUrl: string }) {
                       </th>
                       <td>{r.edition}</td>
                       <td>{formatLabel(r.format)}</td>
+                      <td>{roundLabel(r.round)}</td>
                       <td className="num">{r.entrants}</td>
                     </tr>
                   ))}
@@ -121,8 +123,18 @@ function EditionPage({ apiUrl, slug, edition }: { apiUrl: string; slug: string; 
         <h1 className="tournaments-title">
           <span>⚡</span> {ed.name} {ed.edition}
         </h1>
-        <div className="tournaments-subtitle">{formatLabel(ed.format)}. Pairings, results and standings appear here as the rounds are played.</div>
+        <div className="tournaments-subtitle">
+          {formatLabel(ed.format)}. {roundLabel(ed.rounds.length === 0 ? null : Math.max(...ed.rounds.map((r) => r.number)))}.
+        </div>
       </div>
+      {ed.rounds.length === 0 && (
+        <section className="rating-card blitz-card" aria-labelledby="blitz-not-started">
+          <h2 id="blitz-not-started" className="rating-card-heading">
+            Pairing not started
+          </h2>
+          <p className="blitz-intro">Round 1&apos;s pairings, the results and the standings appear here once the organisers publish them.</p>
+        </section>
+      )}
       {ed.rounds.length > 0 && (
         <section className="rating-card blitz-card" aria-labelledby="blitz-standings">
           <h2 id="blitz-standings" className="rating-card-heading">

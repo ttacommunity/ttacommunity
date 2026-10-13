@@ -13,7 +13,7 @@ import (
 )
 
 func blitzEditionRow(r store.BlitzEditionRow) BlitzEditionRow {
-	return BlitzEditionRow{Tournament: r.Slug, Name: r.Name, Edition: r.Edition, Entrants: r.Entrants,
+	return BlitzEditionRow{Tournament: r.Slug, Name: r.Name, Edition: r.Edition, Entrants: r.Entrants, Round: r.Round,
 		Format: BlitzFormat{SwissRounds: r.Format.SwissRounds, KnockoutSize: r.Format.KnockoutSize}}
 }
 

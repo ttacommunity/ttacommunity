@@ -78,16 +78,28 @@ func (s *server) adminBlitzRound(r store.BlitzRound, ed store.BlitzEdition, rate
 	return out
 }
 
-// pairingPlayers turns the edition's active entrants into what the pairing needs, as of now.
-func pairingPlayers(ed store.BlitzEdition, rated map[string]store.Rated, now time.Time) []blitz.Player {
-	met, byes := metBefore(ed.Rounds, 0), hadBye(ed.Rounds)
+// pairingPlayers turns the edition's active entrants into what the pairing needs, as of now, leaving out the
+// round named by except (0 for none: a new round) when counting points, places, opponents and byes, and the
+// entrants in busy.
+func pairingPlayers(ed store.BlitzEdition, rated map[string]store.Rated, now time.Time, except int64, busy map[int64]bool) []blitz.Player {
+	var others []store.BlitzRound
+	for _, r := range ed.Rounds {
+		if r.ID != except {
+			others = append(others, r)
+		}
+	}
+	met, byes := metBefore(others, 0), hadBye(others)
+	points, places := map[string]float64{}, map[string]int{}
+	for _, s := range blitzStandings(store.BlitzEdition{BlitzEditionRow: ed.BlitzEditionRow, Entrants: ed.Entrants, Rounds: others}) {
+		points[s.Name], places[s.Name] = s.Points, s.Rank
+	}
 	var players []blitz.Player
 	for _, e := range ed.Entrants {
-		if e.Status != "active" {
+		if e.Status != "active" || busy[e.ID] {
 			continue
 		}
 		offset, _ := blitz.OffsetMinutes(e.Zone, now)
-		p := blitz.Player{ID: e.ID, Offset: offset, Opponents: met[e.ID], HadBye: byes[e.ID]}
+		p := blitz.Player{ID: e.ID, Points: points[e.Name], Place: places[e.Name], Offset: offset, Opponents: met[e.ID], HadBye: byes[e.ID]}
 		if r, ok := rated[e.Player]; ok {
 			p.Rating, p.Rated = r.Rating, true
 		}
@@ -121,7 +133,7 @@ func (s *server) PostAdminBlitzRound(ctx context.Context, req PostAdminBlitzRoun
 	}
 	now := s.now()
 	seed := uint64(now.UnixNano())
-	paired, err := blitz.Pair(pairingPlayers(ed, rated, now), criteria, seed)
+	paired, err := blitz.Pair(pairingPlayers(ed, rated, now, 0, nil), criteria, seed)
 	if errors.Is(err, blitz.ErrTooFew) || errors.Is(err, blitz.ErrNoPairing) {
 		return PostAdminBlitzRound400JSONResponse{badRequest400(err.Error())}, nil
 	}
@@ -222,4 +234,68 @@ func (s *server) DeleteAdminBlitzRound(ctx context.Context, req DeleteAdminBlitz
 		return nil, err
 	}
 	return DeleteAdminBlitzRound204Response{}, nil
+}
+
+// PostAdminBlitzRoundPairing proposes a fresh pairing of a round: its decided matches kept, everyone else active
+// paired again as for a new round. Nothing is written and nothing audited.
+func (s *server) PostAdminBlitzRoundPairing(ctx context.Context, req PostAdminBlitzRoundPairingRequestObject) (PostAdminBlitzRoundPairingResponseObject, error) {
+	if !tournamentSlug.MatchString(req.Tournament) {
+		return PostAdminBlitzRoundPairing400JSONResponse{badRequest400("bad parameter: tournament")}, nil
+	}
+	criteria := blitz.Criteria{Timezone: true}
+	if req.Body != nil && req.Body.Timezone != nil {
+		criteria.Timezone = *req.Body.Timezone
+	}
+	if req.Body != nil && req.Body.Rating != nil {
+		criteria.Rating = *req.Body.Rating
+	}
+	ed, err := s.admins.BlitzEdition(ctx, req.Tournament, req.Edition)
+	if errors.Is(err, store.ErrNoBlitzEdition) {
+		return PostAdminBlitzRoundPairing404JSONResponse{notFound404("no such blitz edition")}, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	var round *store.BlitzRound
+	for i := range ed.Rounds {
+		if ed.Rounds[i].ID == req.Round {
+			round = &ed.Rounds[i]
+		}
+	}
+	if round == nil {
+		return PostAdminBlitzRoundPairing404JSONResponse{notFound404("no such round")}, nil
+	}
+	rated, err := s.blitzRatings(ctx, ed.Entrants)
+	if err != nil {
+		return nil, err
+	}
+	proposal := store.BlitzRound{ID: round.ID, Number: round.Number, Kind: round.Kind, Timezone: criteria.Timezone, Rating: criteria.Rating, PublishedAt: round.PublishedAt}
+	busy := map[int64]bool{}
+	for _, m := range round.Matches {
+		if m.Result != "" {
+			proposal.Matches = append(proposal.Matches, m)
+			busy[m.A] = true
+			if m.B != nil {
+				busy[*m.B] = true
+			}
+		}
+	}
+	now := s.now()
+	seed := uint64(now.UnixNano())
+	proposal.Seed = int64(seed)
+	paired, err := blitz.Pair(pairingPlayers(ed, rated, now, round.ID, busy), criteria, seed)
+	if errors.Is(err, blitz.ErrTooFew) || errors.Is(err, blitz.ErrNoPairing) {
+		return PostAdminBlitzRoundPairing400JSONResponse{badRequest400(err.Error())}, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	for _, m := range paired.Matches {
+		b := m.B
+		proposal.Matches = append(proposal.Matches, store.BlitzMatch{A: m.A, B: &b})
+	}
+	if paired.Bye != nil {
+		proposal.Matches = append(proposal.Matches, store.BlitzMatch{A: *paired.Bye})
+	}
+	return PostAdminBlitzRoundPairing200JSONResponse{Body: s.adminBlitzRound(proposal, ed, rated, now), Headers: PostAdminBlitzRoundPairing200ResponseHeaders{CacheControl: cacheNone}}, nil
 }

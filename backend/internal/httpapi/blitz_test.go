@@ -17,7 +17,7 @@ import (
 // The fake's shown blitz edition is us_open 2026 with Ann (known to the ratings) and bob (not) still in.
 
 func (f *fakeRatings) BlitzEditions(context.Context) ([]store.BlitzEditionRow, error) {
-	return []store.BlitzEditionRow{{Slug: "us_open", Name: "US Open", Edition: "2026", Format: store.DefaultBlitzFormat, Entrants: 2}}, nil
+	return []store.BlitzEditionRow{{Slug: "us_open", Name: "US Open", Edition: "2026", Format: store.DefaultBlitzFormat, Entrants: 2, Round: new(2)}}, nil
 }
 
 func (f *fakeRatings) BlitzEdition(ctx context.Context, slug, edition string) (store.BlitzEdition, error) {
@@ -47,8 +47,8 @@ func TestTheSiteListsBlitzEditionsAndTheirEntrants(t *testing.T) {
 	if err := json.Unmarshal(rec.Body.Bytes(), &list); err != nil || rec.Code != http.StatusOK {
 		t.Fatalf("GET /v1/blitz = %d %s", rec.Code, rec.Body)
 	}
-	if len(list.Editions) != 1 || list.Editions[0].Tournament != "us_open" || list.Editions[0].Entrants != 2 {
-		t.Errorf("editions = %+v, want us_open 2026 with 2 entrants", list.Editions)
+	if len(list.Editions) != 1 || list.Editions[0].Tournament != "us_open" || list.Editions[0].Entrants != 2 || list.Editions[0].Round == nil || *list.Editions[0].Round != 2 {
+		t.Errorf("editions = %+v, want us_open 2026 with 2 entrants at round 2", list.Editions)
 	}
 	if got := rec.Header().Get("Cache-Control"); got != cacheCurrent {
 		t.Errorf("Cache-Control = %q, want %q", got, cacheCurrent)

@@ -29,6 +29,8 @@ type BlitzEditionRow struct {
 	Format                     BlitzFormat
 	Entrants, Pending, Dropped int
 	TiebreakSeed               int64
+	// Round is the latest published round's number, nil before the first is published.
+	Round *int
 }
 
 // BlitzEntrant is one sign-up: a member in an edition. Name, Player (the ratings' spelling, "" for a player
@@ -85,7 +87,8 @@ func blitzEditionRows(ctx context.Context, db conn, public bool, slug, edition s
 		       (SELECT count(*) FROM blitz_entries x WHERE x.tournament_id = t.tournament_id AND x.status = 'active')::int,
 		       (SELECT count(*) FROM blitz_entries x WHERE x.tournament_id = t.tournament_id AND x.status = 'pending')::int,
 		       (SELECT count(*) FROM blitz_entries x WHERE x.tournament_id = t.tournament_id AND x.status = 'dropped')::int,
-		       coalesce(e.tiebreak_seed, 0)
+		       coalesce(e.tiebreak_seed, 0),
+		       (SELECT max(r.number) FROM blitz_rounds r WHERE r.tournament_id = t.tournament_id AND r.published_at IS NOT NULL)
 		FROM series s JOIN tournaments t USING (series_id)
 		LEFT JOIN blitz_editions e ON e.tournament_id = t.tournament_id
 		WHERE s.blitz AND (s.visible OR NOT $1) AND ($2 = '' OR (s.slug = $2 AND t.label = $3))
@@ -96,7 +99,7 @@ func blitzEditionRows(ctx context.Context, db conn, public bool, slug, edition s
 	}
 	out, err := pgx.CollectRows(rows, func(row pgx.CollectableRow) (BlitzEditionRow, error) {
 		var r BlitzEditionRow
-		return r, row.Scan(&r.Slug, &r.Name, &r.Edition, &r.Format.SwissRounds, &r.Format.KnockoutSize, &r.Entrants, &r.Pending, &r.Dropped, &r.TiebreakSeed)
+		return r, row.Scan(&r.Slug, &r.Name, &r.Edition, &r.Format.SwissRounds, &r.Format.KnockoutSize, &r.Entrants, &r.Pending, &r.Dropped, &r.TiebreakSeed, &r.Round)
 	})
 	if err != nil {
 		return nil, fmt.Errorf("listing blitz editions: %w", err)

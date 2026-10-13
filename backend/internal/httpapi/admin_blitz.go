@@ -63,7 +63,7 @@ func (s *server) adminBlitzEntrant(e store.BlitzEntrant, rated map[string]store.
 
 func adminBlitzEditionRow(r store.BlitzEditionRow) AdminBlitzEditionRow {
 	return AdminBlitzEditionRow{Tournament: r.Slug, Name: r.Name, Edition: r.Edition, Entrants: r.Entrants, Pending: r.Pending, Dropped: r.Dropped,
-		Format: BlitzFormat{SwissRounds: r.Format.SwissRounds, KnockoutSize: r.Format.KnockoutSize}}
+		Round: r.Round, Format: BlitzFormat{SwissRounds: r.Format.SwissRounds, KnockoutSize: r.Format.KnockoutSize}}
 }
 
 func (s *server) GetAdminBlitzEditions(ctx context.Context, _ GetAdminBlitzEditionsRequestObject) (GetAdminBlitzEditionsResponseObject, error) {
@@ -232,6 +232,8 @@ func (s *server) DeleteAdminBlitzEntrant(ctx context.Context, req DeleteAdminBli
 		return DeleteAdminBlitzEntrant404JSONResponse{notFound404("no such blitz edition")}, nil
 	case errors.Is(err, store.ErrNoBlitzEntrant):
 		return DeleteAdminBlitzEntrant404JSONResponse{notFound404("no such entrant")}, nil
+	case errors.Is(err, store.ErrBlitzEntrantInRound):
+		return DeleteAdminBlitzEntrant409JSONResponse{conflict409(err.Error())}, nil
 	case err != nil:
 		return nil, err
 	}

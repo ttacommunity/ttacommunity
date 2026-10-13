@@ -2025,7 +2025,7 @@ paths:
         paired on equal points where possible, never with an opponent they
         have met; within a score group the pairs are the best time-zone fit
         (and the closest ratings, when asked), chance deciding the rest. With
-        an odd count the lowest-ranked player without a bye gets it. Refused
+        an odd count the lowest in the standings without a bye gets it. Refused
         while a draft exists or a match so far has no result.
       parameters:
         - $ref: "#/components/parameters/AdminTournamentSlug"
@@ -2079,6 +2079,44 @@ paths:
           $ref: "#/components/responses/NotFound"
         "409":
           $ref: "#/components/responses/Conflict"
+  /v1/admin/blitz/{tournament}/{edition}/rounds/{round}/pairing:
+    post:
+      operationId: postAdminBlitzRoundPairing
+      tags: [admin]
+      summary: Propose a fresh pairing of a round, without saving it
+      description: |
+        Everyone active now is paired as for a new round, by the criteria
+        given; a match of the round that already has a result is kept and
+        its players are left out. Nothing is written: the proposal's new
+        matches have no id. Save it with PUT matches.
+      parameters:
+        - $ref: "#/components/parameters/AdminTournamentSlug"
+        - $ref: "#/components/parameters/BlitzEditionLabel"
+        - $ref: "#/components/parameters/BlitzRoundId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/NewBlitzRound"
+      responses:
+        "200":
+          description: The round as it would be
+          headers:
+            Cache-Control:
+              $ref: "#/components/headers/CacheControl"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminBlitzRound"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
   /v1/admin/blitz/{tournament}/{edition}/rounds/{round}/matches:
     put:
       operationId: putAdminBlitzRoundMatches
@@ -2230,7 +2268,9 @@ paths:
       operationId: deleteAdminBlitzEntrant
       tags: [admin]
       summary: Remove an entrant added by mistake
-      description: Audited. The Origin must be the admin site.
+      description: |
+        Audited. The Origin must be the admin site. An entrant a round names,
+        draft or published, is refused: unpair them first, or drop them.
       parameters:
         - $ref: "#/components/parameters/AdminTournamentSlug"
         - $ref: "#/components/parameters/BlitzEditionLabel"
@@ -2244,6 +2284,8 @@ paths:
           $ref: "#/components/responses/Forbidden"
         "404":
           $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
 components:
   parameters:
     BlitzEditionLabel:
@@ -3224,8 +3266,12 @@ components:
     BlitzEditionRow:
       description: One edition of a blitz tournament as the site's list shows it
       type: object
-      required: [tournament, name, edition, format, entrants]
+      required: [tournament, name, edition, format, entrants, round]
       properties:
+        round:
+          description: The latest published round's number, null before the first is published
+          type: integer
+          nullable: true
         tournament:
           description: The tournament's slug
           type: string
@@ -3502,8 +3548,12 @@ components:
     AdminBlitzEditionRow:
       description: One edition of a blitz tournament as admin's list shows it
       type: object
-      required: [tournament, name, edition, format, entrants, pending, dropped]
+      required: [tournament, name, edition, format, entrants, pending, dropped, round]
       properties:
+        round:
+          description: The latest published round's number, null before the first is published
+          type: integer
+          nullable: true
         tournament:
           type: string
         name:

@@ -20,6 +20,11 @@ export function ratingText(rating: number | null): string {
   return rating === null ? '–' : String(Math.round(rating));
 }
 
+/** roundLabel names the round an edition has reached, or says the pairing has not started. */
+export function roundLabel(round: number | null): string {
+  return round === null ? 'Pairing not started' : `Round ${round}`;
+}
+
 /** roundsNewestFirst orders rounds by number, the latest first. */
 export function roundsNewestFirst<R extends { number: number }>(rounds: readonly R[]): R[] {
   return [...rounds].sort((a, b) => b.number - a.number);
