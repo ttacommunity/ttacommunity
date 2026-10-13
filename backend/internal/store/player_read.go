@@ -15,6 +15,15 @@ import (
 // match would find and more than one player does.
 var ErrPlayerNotFound = errors.New("no player has this name")
 
+// DeletedPlayer is what a player whose CGE accounts are deleted or banned is masked as.
+const DeletedPlayer = "Deleted player"
+
+// notHiddenPlayer excludes players who have any deleted or banned CGE account.
+const notHiddenPlayer = `NOT EXISTS (
+	SELECT 1 FROM player_accounts pa
+	WHERE pa.player_id = p.player_id AND (pa.deleted OR pa.banned)
+)`
+
 // PlayerPageModels are the models the player page shows: each engine,
 // continuous and with a season reset.
 var PlayerPageModels = []string{
@@ -98,12 +107,13 @@ const playerGames = `
 	SELECT match_id FROM pairwise_matches WHERE run_id = $1 AND player_b = $2`
 
 // resolve returns the stored name for asked in a published run: the exact
-// name, else the only one equal to it ignoring case.
+// name, else the only one equal to it ignoring case. Players with deleted or
+// banned CGE accounts are not resolved.
 func (r *RatingsReader) resolve(ctx context.Context, run int64, asked string) (string, error) {
 	if err := r.requirePublished(ctx, run); err != nil {
 		return "", err
 	}
-	rows, err := r.pool.Query(ctx, "SELECT name FROM players WHERE lower(name) = lower($1)", asked)
+	rows, err := r.pool.Query(ctx, "SELECT p.name FROM players p WHERE lower(p.name) = lower($1) AND "+notHiddenPlayer, asked)
 	if err != nil {
 		return "", fmt.Errorf("looking up a player: %w", err)
 	}
@@ -253,6 +263,9 @@ func (r *RatingsReader) PlayerMatches(ctx context.Context, run int64, asked stri
 	mp.Matches, err = pgx.CollectRows(rows, scanMatch)
 	if err != nil {
 		return "", MatchPage{}, fmt.Errorf("reading a player's games in run %d: %w", run, err)
+	}
+	if err := r.maskMatchSeats(ctx, mp.Matches); err != nil {
+		return "", MatchPage{}, err
 	}
 	return name, mp, nil
 }
@@ -550,6 +563,9 @@ func (r *RatingsReader) Versus(ctx context.Context, run int64, asked, other stri
 	if err != nil {
 		return "", "", nil, fmt.Errorf("reading shared games in run %d: %w", run, err)
 	}
+	if err := r.maskMatchSeats(ctx, games); err != nil {
+		return "", "", nil, err
+	}
 	return a, b, games, nil
 }
 
@@ -597,4 +613,59 @@ func (r *RatingsReader) PlayerMatrix(ctx context.Context, run int64, asked strin
 		return "", nil, fmt.Errorf("reading a player's matrix in run %d: %w", run, err)
 	}
 	return name, cells, nil
+}
+
+// maskHiddenNames returns the subset of names whose CGE accounts are deleted or banned.
+func (r *RatingsReader) maskHiddenNames(ctx context.Context, names []string) (map[string]bool, error) {
+	if len(names) == 0 {
+		return nil, nil
+	}
+	rows, err := r.pool.Query(ctx, `
+		SELECT DISTINCT p.name FROM players p
+		JOIN player_accounts pa USING (player_id)
+		WHERE p.name = ANY($1) AND (pa.deleted OR pa.banned)`, names)
+	if err != nil {
+		return nil, fmt.Errorf("checking hidden players: %w", err)
+	}
+	hidden, err := pgx.CollectRows(rows, pgx.RowTo[string])
+	if err != nil {
+		return nil, fmt.Errorf("checking hidden players: %w", err)
+	}
+	if len(hidden) == 0 {
+		return nil, nil
+	}
+	set := make(map[string]bool, len(hidden))
+	for _, n := range hidden {
+		set[n] = true
+	}
+	return set, nil
+}
+
+// maskMatchSeats replaces the names of seats whose players are deleted or banned with DeletedPlayer.
+func (r *RatingsReader) maskMatchSeats(ctx context.Context, matches []PlayerMatch) error {
+	var names []string
+	seen := map[string]bool{}
+	for _, m := range matches {
+		for _, s := range m.Seats {
+			if !seen[s.Name] {
+				seen[s.Name] = true
+				names = append(names, s.Name)
+			}
+		}
+	}
+	hidden, err := r.maskHiddenNames(ctx, names)
+	if err != nil {
+		return err
+	}
+	if len(hidden) == 0 {
+		return nil
+	}
+	for i := range matches {
+		for j := range matches[i].Seats {
+			if hidden[matches[i].Seats[j].Name] {
+				matches[i].Seats[j].Name = DeletedPlayer
+			}
+		}
+	}
+	return nil
 }
