@@ -13,13 +13,11 @@ Pipe values in; never use `--from-literal`, which leaves them in shell history.
 | `ratings-api` | `password`, `database-url` | `api`, `scripts/seed-cluster-db.sh` | The read-only `ratings_api` login |
 | `ratings-admin` | `password`, `database-url` | `api` | The api's admin login `ratings_admin_api`, a member of `ratings_admin` (writes only what admin edits) |
 | `ghcr` | `.dockerconfigjson` | `api`, `engine` | Pulls the private images from GHCR. A machine account's classic token with `read:packages` only |
-| `ttacommunity-tunnel` | `credentials.json` | `cloudflared` | The `ttacommunity` tunnel's credentials, from `cloudflared tunnel create ttacommunity` (`~/.cloudflared/<tunnel id>.json`) |
 | `ratings-dev-engine` | `database-url` | `engine-dev`, `api-dev`'s `migrate` init container | The dev engine's connection URL, as `ratings_dev`, owner of `ratings_dev` only; the dev api's init container applies the migrations with it |
 | `ratings-dev-api` | `password`, `database-url` | `api-dev`, `scripts/seed-dev-db.sh` | The dev api's read-only `ratings_dev_api` login |
 | `ratings-dev-admin` | `password`, `database-url` | `api-dev` | The dev api's admin login `ratings_dev_admin_api`, a member of `ratings_admin` (writes only what admin edits) |
-| `ttacommunity-dev-tunnel` | `credentials.json` | `cloudflared-dev` | The `ttacommunity-dev` tunnel's credentials, from `cloudflared tunnel create ttacommunity-dev` |
-| `ttac-api-tunnel` | `credentials.json` | `ttac-api-tunnel` | The new Cloudflare account's `ttac-api` tunnel's credentials (below, "The new account's tunnels") |
-| `ttac-api-dev-tunnel` | `credentials.json` | `ttac-api-dev-tunnel` | The new Cloudflare account's `ttac-api-dev` tunnel's credentials (below) |
+| `ttac-api-tunnel` | `credentials.json` | `ttac-api-tunnel` | The `ttac-api` tunnel's credentials (below, "The tunnels") |
+| `ttac-api-dev-tunnel` | `credentials.json` | `ttac-api-dev-tunnel` | The `ttac-api-dev` tunnel's credentials (below) |
 | `ttacommunity-git-auth`, **in `flux-system`** | `username`, `password` | Flux | Reads this repo. Deploy token `flux-git-read`, `read_repository` only |
 
 ## Creating them
@@ -100,15 +98,14 @@ printf '{"auths":{"ghcr.io":{"auth":"%s"}}}' "$(printf '%s:%s' "$user" "$token" 
 unset token
 ```
 
-### The new account's tunnels
+### The tunnels
 
-`ttac-api-tunnel` and `ttac-api-dev-tunnel` hold the credentials of the new
-Cloudflare account's tunnels. `cloudflared tunnel create` needs a zone in the
-account, which it does not have yet, so they were made through Cloudflare's
-API instead: locally managed (`config_src: local`, so their routes come from
+`ttac-api-tunnel` and `ttac-api-dev-tunnel` hold the credentials of the
+tunnels `ttac-api` and `ttac-api-dev`. They were made through Cloudflare's
+API: locally managed (`config_src: local`, so their routes come from
 `cloudflare-tunnel.yaml`), each with a random 32-byte secret. The Secret holds
-`{"AccountTag", "TunnelSecret", "TunnelID"}`, the same shape as the older ones.
-To recreate one:
+`{"AccountTag", "TunnelSecret", "TunnelID"}`, the shape `cloudflared tunnel
+create` writes. To recreate one:
 
 1. Create a new tunnel the same way, with an account API token that has
    **Cloudflare One Connector: cloudflared** (Edit)

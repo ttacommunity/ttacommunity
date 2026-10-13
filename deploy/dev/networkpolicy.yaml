@@ -17,7 +17,7 @@ spec:
             matchExpressions:
               - key: app
                 operator: In
-                values: [cloudflared-dev, ttac-api-dev-tunnel]
+                values: [ttac-api-dev-tunnel]
       ports:
         - protocol: TCP
           port: 8080
@@ -57,7 +57,7 @@ spec:
     matchExpressions:
       - key: app
         operator: In
-        values: [cloudflared-dev, ttac-api-dev-tunnel]
+        values: [ttac-api-dev-tunnel]
   policyTypes: [Egress]
   egress:
     - to:
