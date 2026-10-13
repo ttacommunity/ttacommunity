@@ -31,28 +31,5 @@
       "ACCESS_TEAM": "https://ttacommunitydev.cloudflareaccess.com",
       "ACCESS_AUD": "385c7c2eee5489fc256c2aadfc1299c1a79ce78b9b712523026ffb92bf757f82"
     }
-  },
-  "env": {
-    // The old name of the top level, until the build triggers stop naming it.
-    "newaccount": {
-      "name": "ttac-admin",
-      "vars": {
-        "ADMIN_HOST": "admin.ttacommunity.org",
-        "API_ORIGIN": "https://api.ttacommunity.org",
-        "ACCESS_TEAM": "https://ttacommunitydev.cloudflareaccess.com",
-        "ACCESS_AUD": "385c7c2eee5489fc256c2aadfc1299c1a79ce78b9b712523026ffb92bf757f82"
-      },
-      "workers_dev": false,
-      "preview_urls": false,
-      "routes": [{ "pattern": "admin.ttacommunity.org", "custom_domain": true, "previews_enabled": true }],
-      "previews": {
-        "vars": {
-          "ADMIN_HOST": "dev.admin.ttacommunity.org",
-          "API_ORIGIN": "https://api-dev.ttacommunity.org",
-          "ACCESS_TEAM": "https://ttacommunitydev.cloudflareaccess.com",
-          "ACCESS_AUD": "385c7c2eee5489fc256c2aadfc1299c1a79ce78b9b712523026ffb92bf757f82"
-        }
-      }
-    }
   }
 }

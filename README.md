@@ -624,54 +624,46 @@ until step 8.
 Each is a Worker configured by a `wrangler.jsonc`, which also declares its
 custom domain (so a merge that changes it changes what is published).
 Cloudflare's Workers Builds is connected to this repository and deploys each
-from `main`:
+one from its branch:
 
-| Worker | Root directory | Build command | Deploy command |
-|---|---|---|---|
-| `ttacommunity` (the site) | `/web` | `pnpm --filter @ttac/site build` | `npx wrangler@4.141.0 deploy --config site/wrangler.jsonc` |
-| `ttacommunity` Previews (Settings → Builds → Previews Base) | `/web` | `if [ "$WORKERS_CI_BRANCH" = dev ]; then pnpm --filter @ttac/site build; else echo "Previews are built for branch dev only"; fi` | `if [ "$WORKERS_CI_BRANCH" = dev ]; then npx wrangler@4.141.0 preview --config site/wrangler.jsonc; else echo "Previews are built for branch dev only"; fi` |
-| `ttac-admin` | `/web` | `pnpm --filter @ttac/admin build` | `npx wrangler@4.141.0 deploy --config admin/wrangler.jsonc` |
-| `ttac-admin` Previews | `/web` | `if [ "$WORKERS_CI_BRANCH" = dev ]; then pnpm --filter @ttac/admin build; else echo "Previews are built for branch dev only"; fi` | `if [ "$WORKERS_CI_BRANCH" = dev ]; then npx wrangler@4.141.0 preview --config admin/wrangler.jsonc; else echo "Previews are built for branch dev only"; fi` |
-| `ttac-auth` (Discord sign-in for Access), no previews | `/infra/access-oidc` | none | `npx wrangler deploy` |
-| `build-discord-notifier` (posts `main` and `dev` builds to Discord; secret `DISCORD_WEBHOOK_URL`), no previews | `/infra/build-notifier` | none | `npx wrangler deploy` |
+| Worker (host) | Branch | Root directory | Build command | Deploy command |
+|---|---|---|---|---|
+| `ttacommunity`, the site (`ttacommunity.org`) | `main` | `/web` | `pnpm --filter @ttac/site build` | `npx wrangler@4.141.0 deploy --config site/wrangler.jsonc` |
+| `ttacommunity`, non-production builds | all but `main` | `/web` | `echo "No site previews: branch dev deploys as Worker ttacommunity-dev"` | the same `echo` |
+| `ttacommunity-dev`, the dev site (`dev.ttacommunity.org`) | `dev` | `/web` | `if [ "$WORKERS_CI_BRANCH" = dev ]; then pnpm --filter @ttac/site build; else echo "ttacommunity-dev builds from branch dev only"; exit 1; fi` | `if [ "$WORKERS_CI_BRANCH" = dev ]; then npx wrangler@4.141.0 deploy --config site/wrangler.jsonc --env dev; else echo "ttacommunity-dev builds from branch dev only"; exit 1; fi` |
+| `ttac-admin` (`admin.ttacommunity.org`) | `main` | `/web` | `pnpm --filter @ttac/admin build` | `npx wrangler@4.141.0 deploy --config admin/wrangler.jsonc` |
+| `ttac-admin` Previews (`dev.admin.ttacommunity.org`) | all but `main` | `/web` | `if [ "$WORKERS_CI_BRANCH" = dev ]; then pnpm --filter @ttac/admin build; else echo "Previews are built for branch dev only"; fi` | `if [ "$WORKERS_CI_BRANCH" = dev ]; then npx wrangler@4.141.0 preview --config admin/wrangler.jsonc; else echo "Previews are built for branch dev only"; fi` |
+| `ttac-auth`, Discord sign-in for Access (`auth.ttacommunity.org`) | `main` | `/infra/access-oidc` | none | `npx wrangler deploy` |
+| `build-discord-notifier` (posts `main` and `dev` builds to Discord; secret `DISCORD_WEBHOOK_URL`) | `main` | `/infra/build-notifier` | none | `npx wrangler deploy` |
 
-**Until the old Cloudflare account is retired**, the `wrangler.jsonc` of
-`ttac-auth`, the site and admin also hold a `newaccount` environment. The
-new account's triggers deploy it with the commands above plus
-`--env newaccount`; today's triggers deploy the top level, and wrangler's
-warning that no environment was named is expected. The new account serves:
-
-- the site on `ttacommunity.org`, with no Previews: on the zone's apex a
-  Preview route claims every subdomain (`*.ttacommunity.org`), the API's
-  included. `dev` is a Worker of its own, `ttacommunity-dev`, deployed from
-  branch `dev` with `--env newaccount-dev` onto `dev.ttacommunity.org`,
-  which has an Access app of its own
-- admin on `admin.ttacommunity.org`, and `dev` at `dev.admin.ttacommunity.org`
-- the API on `api.ttacommunity.org`, and `dev`'s on `api-dev.ttacommunity.org`,
-  through the tunnels `ttac-api` and `ttac-api-dev`
-- `ttac-auth` on `auth.ttacommunity.org` only, which the Access identity
-  provider signs in through
+**The site has no Previews**: on the zone's apex a Preview route claims every
+subdomain (`*.ttacommunity.org`), the API's included. Branch `dev` is a
+Worker of its own instead, `ttacommunity-dev`, from the site's `env.dev`.
+**Keep the site's non-production trigger, which only echoes**: with none, a
+push to another branch lands on the production trigger, and retrying that
+build deploys the branch to production. The API is `api.ttacommunity.org`,
+and `dev`'s `api-dev.ttacommunity.org`, through tunnels ("The API" below).
 
 Build variables, set in each site Worker's build settings:
 
 | Variable | Worker | Value | Why |
 |---|---|---|---|
-| `PUBLIC_API_URL` | `ttacommunity` | `https://api.ttacommunity.org`; on `dev`, `https://api-dev.ttacommunity.org` (old account: `https://ttac-api.unstableunicorn.dev`; on `dev`, `https://ttac-api-dev.unstableunicorn.dev`) | Where the browser reads ratings, and the CSP's `connect-src`. Sent to the browser, so never a secret |
-| `PUBLIC_ADMIN_URL` | `ttacommunity` | `https://admin.ttacommunity.org`; on `dev`, `https://dev.admin.ttacommunity.org` (old account: `https://ttac-admin.unstableunicorn.dev`; on `dev`, `https://dev.ttac-admin.unstableunicorn.dev`) | Where the header, footer and home page link to admin |
-| `SITE_NOINDEX` | `dev` only (new account: `ttacommunity-dev`) | `1` | Adds `X-Robots-Tag: noindex`, so the dev site is never indexed |
-| `NODE_VERSION` | both sites | the `node` version in `mise.toml` | The build image's default is older |
-| `PNPM_VERSION` | both sites | the pnpm version in `web/package.json` | The build image does not read `packageManager` |
+| `PUBLIC_API_URL` | `ttacommunity`, `ttacommunity-dev` | `https://api.ttacommunity.org`; on `dev`, `https://api-dev.ttacommunity.org` | Where the browser reads ratings, and the CSP's `connect-src`. Sent to the browser, so never a secret |
+| `PUBLIC_ADMIN_URL` | `ttacommunity`, `ttacommunity-dev` | `https://admin.ttacommunity.org`; on `dev`, `https://dev.admin.ttacommunity.org` | Where the header, footer and home page link to admin |
+| `SITE_NOINDEX` | `ttacommunity-dev` | `1` | Adds `X-Robots-Tag: noindex`, so the dev site is never indexed |
+| `NODE_VERSION` | the site Workers and admin | the `node` version in `mise.toml` | The build image's default is older |
+| `PNPM_VERSION` | the site Workers and admin | the pnpm version in `web/package.json` | The build image does not read `packageManager` |
 
-When importing a Worker, **turn off non-production (preview) builds**. Only
-`ttacommunity` and `ttac-admin` have them, for branch `dev`. Previews have no
-branch filter, so both their build and deploy commands skip every other
-branch: a push elsewhere runs a short build that does nothing and passes. A preview build
-reports on the pull request's commit, and a failure there blocks the
-merge. Previews Base has its own build variables; don't click "Enable
-Preview URLs", which turns on `workers.dev`. A Preview on a custom domain
-is `<branch>.<route host>`, and the route sets `previews_enabled`. It
-appears only once a production deploy has attached that route, and each
-Preview build also publishes `<version>.<route host>`.
+When importing a Worker, **turn off its non-production (preview) builds**
+unless the table lists them. Admin's are for branch `dev` only, but they
+have no branch filter, so both their build and deploy commands skip every
+other branch: a push elsewhere runs a short build that does nothing and
+passes. A preview build reports on the pull request's commit, and a failure
+there blocks the merge. Previews Base has its own build variables; don't
+click "Enable Preview URLs", which turns on `workers.dev`. A Preview on a
+custom domain is `<branch>.<route host>`, and the route sets
+`previews_enabled`. It appears only once a production deploy has attached
+that route, and each Preview build also publishes `<version>.<route host>`.
 
 **The zone answers only on a fixed list of hostnames**: a WAF custom rule on
 `ttacommunity.org` blocks every other host, Preview version hosts included.
@@ -692,8 +684,8 @@ Admin is the `ttac-admin` site and the API's `/v1/admin/` routes:
 - **The site's Worker** serves the pages, and proxies `/api/*` to
   `/v1/admin/*` on `API_ORIGIN` after verifying the Access token itself.
   It does so only on `ADMIN_HOST` and refuses any other host. Both are
-  vars in `web/admin/wrangler.jsonc`: production uses `ttac-api`, the
-  `dev` preview (`previews.vars`) `ttac-api-dev`
+  vars in `web/admin/wrangler.jsonc`: production uses `api.ttacommunity.org`,
+  the `dev` preview (`previews.vars`) `api-dev.ttacommunity.org`
 - **The API verifies the token again** (signature, issuer, the admin app's
   audience, expiry, a Discord id), then looks the Discord id up in `admins`:
   role `admin` or `organiser`. A change must come from `ADMIN_ORIGIN`, and
