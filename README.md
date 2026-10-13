@@ -635,21 +635,26 @@ from `main`:
 | `ttac-auth` (Discord sign-in for Access), no previews | `/infra/access-oidc` | none | `npx wrangler deploy` |
 | `build-discord-notifier` (posts `main` and `dev` builds to Discord; secret `DISCORD_WEBHOOK_URL`), no previews | `/infra/build-notifier` | none | `npx wrangler deploy` |
 
-**Until the move to the new Cloudflare account**, the `wrangler.jsonc` of
+**Until the old Cloudflare account is retired**, the `wrangler.jsonc` of
 `ttac-auth`, the site and admin also hold a `newaccount` environment. The
-new account's triggers deploy it from `main` with the commands above plus
-`--env newaccount`. It has no custom domain: `ttac-auth` answers on its
-`workers.dev` address, the site and admin on no hostname at all, and
-admin's empty settings make its `/api/*` refuse everything. Today's
-triggers deploy the top level; wrangler's warning that no environment was
-named is expected.
+new account's triggers deploy it with the commands above plus
+`--env newaccount`; today's triggers deploy the top level, and wrangler's
+warning that no environment was named is expected. The new account serves:
+
+- the site on `ttacommunity.org`, and `dev` at `dev.ttacommunity.org`,
+  which has an Access app of its own
+- admin on `admin.ttacommunity.org`, and `dev` at `dev.admin.ttacommunity.org`
+- the API on `api.ttacommunity.org`, and `dev`'s on `api-dev.ttacommunity.org`,
+  through the tunnels `ttac-api` and `ttac-api-dev`
+- `ttac-auth` on `auth.ttacommunity.org`, and on its `workers.dev` address
+  until the Access identity provider uses `auth.ttacommunity.org`
 
 Build variables, set in each site Worker's build settings:
 
 | Variable | Worker | Value | Why |
 |---|---|---|---|
-| `PUBLIC_API_URL` | `ttacommunity` | `https://ttac-api.unstableunicorn.dev`; on `dev`, `https://ttac-api-dev.unstableunicorn.dev` | Where the browser reads ratings, and the CSP's `connect-src`. Sent to the browser, so never a secret |
-| `PUBLIC_ADMIN_URL` | `ttacommunity` | `https://ttac-admin.unstableunicorn.dev`; on `dev`, `https://dev.ttac-admin.unstableunicorn.dev` | Where the header, footer and home page link to admin |
+| `PUBLIC_API_URL` | `ttacommunity` | `https://api.ttacommunity.org`; on `dev`, `https://api-dev.ttacommunity.org` (old account: `https://ttac-api.unstableunicorn.dev`; on `dev`, `https://ttac-api-dev.unstableunicorn.dev`) | Where the browser reads ratings, and the CSP's `connect-src`. Sent to the browser, so never a secret |
+| `PUBLIC_ADMIN_URL` | `ttacommunity` | `https://admin.ttacommunity.org`; on `dev`, `https://dev.admin.ttacommunity.org` (old account: `https://ttac-admin.unstableunicorn.dev`; on `dev`, `https://dev.ttac-admin.unstableunicorn.dev`) | Where the header, footer and home page link to admin |
 | `SITE_NOINDEX` | `ttacommunity`, `dev` only | `1` | Adds `X-Robots-Tag: noindex`: Cloudflare adds none to a Preview on a custom domain |
 | `NODE_VERSION` | both sites | the `node` version in `mise.toml` | The build image's default is older |
 | `PNPM_VERSION` | both sites | the pnpm version in `web/package.json` | The build image does not read `packageManager` |
@@ -660,17 +665,18 @@ branch filter, so both their build and deploy commands skip every other
 branch: a push elsewhere runs a short build that does nothing and passes. A preview build
 reports on the pull request's commit, and a failure there blocks the
 merge. Previews Base has its own build variables; don't click "Enable
-Preview URLs", which turns on `workers.dev`. `dev` is served at `dev.ttacommunity.unstableunicorn.dev`: a
+Preview URLs", which turns on `workers.dev`. `dev` is served at `dev.ttacommunity.org`: a
 Preview on a custom domain is `<branch>.<route host>`, and the route sets
-`previews_enabled`.
+`previews_enabled`. It appears only once a production deploy has attached
+that route; each Preview build also publishes `<version>.<route host>`.
 
 `ttac-auth` needs one runtime secret, `DISCORD_CLIENT_SECRET`, set under the
 Worker's Variables and Secrets (not its build variables).
 
 **`ttac-admin` is only reachable through Cloudflare Access.** Its Access
 application must exist before its domain is declared, and it covers
-`*.ttac-admin.unstableunicorn.dev` before previews are turned on: `dev`'s
-preview is `dev.ttac-admin.unstableunicorn.dev`.
+`*.admin.ttacommunity.org` before previews are turned on: `dev`'s
+preview is `dev.admin.ttacommunity.org`.
 
 ### Admin
 
@@ -710,13 +716,15 @@ go run ./cmd/load -add-admin <Discord id> -name <name> -role admin   # or organi
 ### The API
 
 `deploy/cloudflare-tunnel.yaml` runs the tunnel's connector. The hostname goes
-live when a DNS record points at the tunnel:
+live when a DNS record points at the tunnel and its ingress rule names it:
 
 ```bash
-cloudflared tunnel route dns ttacommunity ttac-api.unstableunicorn.dev
+cloudflared tunnel route dns ttac-api api.ttacommunity.org
 ```
 
-A WAF rate-limiting rule on that hostname comes first.
+A WAF rate-limiting rule on that hostname comes first. cloudflared reads its
+ingress rules only when it starts, so restart it after changing them:
+`kubectl -n ttacommunity rollout restart deployment/ttac-api-tunnel`.
 
 #### Find an error someone reports
 
