@@ -649,8 +649,8 @@ warning that no environment was named is expected. The new account serves:
 - admin on `admin.ttacommunity.org`, and `dev` at `dev.admin.ttacommunity.org`
 - the API on `api.ttacommunity.org`, and `dev`'s on `api-dev.ttacommunity.org`,
   through the tunnels `ttac-api` and `ttac-api-dev`
-- `ttac-auth` on `auth.ttacommunity.org`, and on its `workers.dev` address
-  until the Access identity provider uses `auth.ttacommunity.org`
+- `ttac-auth` on `auth.ttacommunity.org` only, which the Access identity
+  provider signs in through
 
 Build variables, set in each site Worker's build settings:
 
