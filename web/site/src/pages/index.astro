@@ -1,78 +1,11 @@
 ---
-import { PUBLIC_ADMIN_URL } from 'astro:env/client';
+import { PUBLIC_API_URL } from 'astro:env/client';
 import SiteLayout from '../layouts/SiteLayout.astro';
+import HomePage from '../components/HomePage';
 ---
-<SiteLayout title="ttacommunity" description="Ratings, tournaments and blitz games for the Through the Ages community.">
-  <div class="home rating-card">
-    <div class="home-top">
-      <h1 class="rating-card-heading">ttacommunity</h1>
-      <a class="admin" href={PUBLIC_ADMIN_URL}>Admin</a>
-    </div>
-    <p class="home-intro">Ratings, tournaments and blitz games for the Through the Ages community.</p>
-    <nav aria-label="Sections">
-      <a class="card" href="/ratings/">
-        <h2>Ratings</h2>
-        <p>The community leaderboard: every rated player, by model and player count.</p>
-      </a>
-    </nav>
-  </div>
+<SiteLayout
+  title="Through the Ages Community | Ratings, Tournaments & Matchmaking"
+  description="The official platform for the Through the Ages board game community: Glicko-D ratings, tournament circuits, Hall of Fame, and blitz matchmaking."
+>
+  <HomePage client:only="react" apiUrl={PUBLIC_API_URL} />
 </SiteLayout>
-
-<style>
-  .home {
-    max-width: 48rem;
-    margin: 0 auto;
-    padding: 1.5rem 1.75rem;
-  }
-
-  .home-top {
-    display: flex;
-    align-items: baseline;
-    justify-content: space-between;
-    gap: 1rem;
-  }
-
-  .home-intro {
-    margin: 0.5rem 0 1.25rem;
-    color: var(--text-soft);
-  }
-
-  .admin {
-    padding: 0.25rem 0.75rem;
-    border: 1px solid var(--border-subtle);
-    border-radius: 4px;
-    color: var(--text-muted);
-    font-family: var(--font-stats);
-    font-size: 0.85rem;
-  }
-
-  .admin:hover {
-    border-color: var(--accent-gold);
-    color: var(--accent-gold);
-  }
-
-  .card {
-    display: block;
-    max-width: 22rem;
-    padding: 1rem 1.25rem;
-    background: var(--surface-inset);
-    border: 1px solid var(--border-subtle);
-    border-radius: 6px;
-    color: var(--text-main);
-  }
-
-  .card:hover {
-    border-color: var(--accent-gold);
-    color: var(--text-main);
-  }
-
-  .card h2 {
-    margin-bottom: 0.25rem;
-    color: var(--accent-gold);
-    font-family: var(--font-heading);
-  }
-
-  .card p {
-    color: var(--text-muted);
-  }
-</style>
