@@ -1,21 +1,20 @@
-// The Discord OIDC provider that Cloudflare Access signs admins in with.
-// Workers Builds deploys it from main. DISCORD_CLIENT_SECRET is a Worker
-// secret, never here.
+// The Discord OIDC provider that Cloudflare Access signs admins in with, at
+// auth.ttacommunity.org only. Workers Builds deploys it from main.
+// DISCORD_CLIENT_SECRET is a Worker secret, never here.
 {
   "name": "ttac-auth",
   "main": "worker.js",
   "compatibility_date": "2026-09-27",
-  "kv_namespaces": [{ "binding": "KV", "id": "db7b6bc1d3114c00bc8d3f3a6edd92f7" }],
+  "kv_namespaces": [{ "binding": "KV", "id": "ffb505e5a4ef4f5c9c10819a4dec9782" }],
   "vars": {
     "CLIENT_ID": "1553758975940370573",
-    "REDIRECT_URL": "https://unstableunicorn.cloudflareaccess.com/cdn-cgi/access/callback"
+    "REDIRECT_URL": "https://ttacommunitydev.cloudflareaccess.com/cdn-cgi/access/callback"
   },
   "workers_dev": false,
   "preview_urls": false,
-  "routes": [{ "pattern": "ttac-auth.unstableunicorn.dev", "custom_domain": true }],
+  "routes": [{ "pattern": "auth.ttacommunity.org", "custom_domain": true }],
   "env": {
-    // The new Cloudflare account (deploy --env newaccount): auth.ttacommunity.org only, which the
-    // Access identity provider signs in through.
+    // The old name of the top level, until the build trigger stops naming it.
     "newaccount": {
       "name": "ttac-auth",
       "kv_namespaces": [{ "binding": "KV", "id": "ffb505e5a4ef4f5c9c10819a4dec9782" }],
