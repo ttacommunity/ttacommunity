@@ -19,19 +19,6 @@
       "workers_dev": false,
       "preview_urls": false,
       "routes": [{ "pattern": "dev.ttacommunity.org", "custom_domain": true }]
-    },
-    // The old names of the top level and dev, until the build triggers stop naming them.
-    "newaccount": {
-      "name": "ttacommunity",
-      "workers_dev": false,
-      "preview_urls": false,
-      "routes": [{ "pattern": "ttacommunity.org", "custom_domain": true, "previews_enabled": false }]
-    },
-    "newaccount-dev": {
-      "name": "ttacommunity-dev",
-      "workers_dev": false,
-      "preview_urls": false,
-      "routes": [{ "pattern": "dev.ttacommunity.org", "custom_domain": true }]
     }
   }
 }
