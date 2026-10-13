@@ -63,7 +63,7 @@ func (s *server) adminBlitzEntrant(e store.BlitzEntrant, rated map[string]store.
 
 func adminBlitzEditionRow(r store.BlitzEditionRow) AdminBlitzEditionRow {
 	return AdminBlitzEditionRow{Tournament: r.Slug, Name: r.Name, Edition: r.Edition, Entrants: r.Entrants, Pending: r.Pending, Dropped: r.Dropped,
-		Round: r.Round, Format: BlitzFormat{SwissRounds: r.Format.SwissRounds, KnockoutSize: r.Format.KnockoutSize}}
+		Round: r.Round, Champion: r.Champion, Format: BlitzFormat{SwissRounds: r.Format.SwissRounds, KnockoutSize: r.Format.KnockoutSize}}
 }
 
 func (s *server) GetAdminBlitzEditions(ctx context.Context, _ GetAdminBlitzEditionsRequestObject) (GetAdminBlitzEditionsResponseObject, error) {
@@ -94,7 +94,7 @@ func (s *server) GetAdminBlitzEdition(ctx context.Context, req GetAdminBlitzEdit
 		return nil, err
 	}
 	row := adminBlitzEditionRow(ed.BlitzEditionRow)
-	body := AdminBlitzEdition{Tournament: row.Tournament, Name: row.Name, Edition: row.Edition, Format: row.Format,
+	body := AdminBlitzEdition{Tournament: row.Tournament, Name: row.Name, Edition: row.Edition, Format: row.Format, Champion: row.Champion,
 		Entrants: make([]AdminBlitzEntrant, len(ed.Entrants)), Rounds: make([]AdminBlitzRound, len(ed.Rounds)), Standings: blitzStandings(ed)}
 	for i, e := range ed.Entrants {
 		body.Entrants[i] = s.adminBlitzEntrant(e, rated)
@@ -118,6 +118,8 @@ func (s *server) PatchAdminBlitzEdition(ctx context.Context, req PatchAdminBlitz
 	switch err := s.admins.SetBlitzFormat(ctx, req.Tournament, req.Edition, f); {
 	case errors.Is(err, store.ErrBadBlitzFormat):
 		return PatchAdminBlitzEdition400JSONResponse{badRequest400(err.Error())}, nil
+	case errors.Is(err, store.ErrBlitzFormatLocked):
+		return PatchAdminBlitzEdition409JSONResponse{conflict409(err.Error())}, nil
 	case errors.Is(err, store.ErrNoBlitzEdition):
 		return PatchAdminBlitzEdition404JSONResponse{notFound404("no such blitz edition")}, nil
 	case err != nil:

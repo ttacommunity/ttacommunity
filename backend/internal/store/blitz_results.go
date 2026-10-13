@@ -45,6 +45,9 @@ var ErrBadBlitzRuling = errors.New("a ruling is a, b, draw or double_loss, with 
 // ErrBlitzRoundUndecided means a match of an earlier round has no result yet, so the next round cannot be made.
 var ErrBlitzRoundUndecided = errors.New("waiting for results")
 
+// ErrBlitzKnockoutWinner means a ruling on a knockout match that names no winner: someone has to go through.
+var ErrBlitzKnockoutWinner = errors.New("a knockout match needs a winner: rule for one player")
+
 // ErrBlitzMatchDecided means a round's matches were replaced without a match that has a result: it stays.
 var ErrBlitzMatchDecided = errors.New("a match with a result stays")
 
@@ -95,9 +98,13 @@ func blitzOutcome(g BlitzGame) (result string, a, b BlitzSide, placeA, placeB in
 	return "draw", a, b, 1, 1
 }
 
-// blitzMatchRow is a match as recording a result needs it: its round, each side's entry and name, its game.
+// blitzMatchRow is a match as recording a result needs it: its round and the round's kind, each side's entry,
+// name and knockout seed, its game.
 type blitzMatchRow struct {
 	Round      int
+	Kind       string
+	SeedA      *int
+	SeedB      *int
 	A          int64
 	B          *int64
 	NameA      string
@@ -110,12 +117,12 @@ type blitzMatchRow struct {
 func blitzMatchOf(ctx context.Context, tx pgx.Tx, edID, matchID int64) (blitzMatchRow, error) {
 	var m blitzMatchRow
 	err := tx.QueryRow(ctx, `
-		SELECT r.number, m.entry_a, m.entry_b, ma.tta_name, coalesce(mb.tta_name, ''), m.game_id, s.name
+		SELECT r.number, r.kind, m.seed_a, m.seed_b, m.entry_a, m.entry_b, ma.tta_name, coalesce(mb.tta_name, ''), m.game_id, s.name
 		FROM blitz_matches m JOIN blitz_rounds r USING (round_id)
 		JOIN tournaments t USING (tournament_id) JOIN series s USING (series_id)
 		JOIN blitz_entries a ON a.entry_id = m.entry_a JOIN members ma ON ma.member_id = a.member_id
 		LEFT JOIN blitz_entries b ON b.entry_id = m.entry_b LEFT JOIN members mb ON mb.member_id = b.member_id
-		WHERE m.match_id = $1 AND r.tournament_id = $2`, matchID, edID).Scan(&m.Round, &m.A, &m.B, &m.NameA, &m.NameB, &m.GameID, &m.SeriesName)
+		WHERE m.match_id = $1 AND r.tournament_id = $2`, matchID, edID).Scan(&m.Round, &m.Kind, &m.SeedA, &m.SeedB, &m.A, &m.B, &m.NameA, &m.NameB, &m.GameID, &m.SeriesName)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return m, ErrNoBlitzMatch
 	}
@@ -125,13 +132,16 @@ func blitzMatchOf(ctx context.Context, tx pgx.Tx, edID, matchID int64) (blitzMat
 	return m, nil
 }
 
-// blitzResultsIn returns ErrBlitzRoundUndecided, naming the players, when a match of the edition has no result.
+// blitzResultsIn returns ErrBlitzRoundUndecided, naming the players, when a match of the edition has no result,
+// or a knockout match no winner.
 func blitzResultsIn(ctx context.Context, tx pgx.Tx, edID int64) error {
 	rows, err := tx.Query(ctx, `
-		SELECT ma.tta_name || ' v ' || mb.tta_name FROM blitz_matches m JOIN blitz_rounds r USING (round_id)
+		SELECT ma.tta_name || ' v ' || mb.tta_name || CASE WHEN m.result IS NULL THEN '' ELSE ' (no winner yet)' END
+		FROM blitz_matches m JOIN blitz_rounds r USING (round_id)
 		JOIN blitz_entries a ON a.entry_id = m.entry_a JOIN members ma ON ma.member_id = a.member_id
 		JOIN blitz_entries b ON b.entry_id = m.entry_b JOIN members mb ON mb.member_id = b.member_id
-		WHERE r.tournament_id = $1 AND m.result IS NULL ORDER BY r.number, m.match_id`, edID)
+		WHERE r.tournament_id = $1 AND (m.result IS NULL OR (r.kind = 'knockout' AND m.result NOT IN ('a', 'b')))
+		ORDER BY r.number, m.match_id`, edID)
 	if err != nil {
 		return fmt.Errorf("checking for results: %w", err)
 	}
@@ -177,7 +187,8 @@ func blitzRoundGroup(ctx context.Context, tx pgx.Tx, edID int64, round int) (int
 }
 
 // RecordBlitzGame records a played game on a match, or corrects the game it already has (the one game: no
-// duplicate), and sets the match's result from it, clearing any ruling. It returns ErrNoBlitzEdition,
+// duplicate), and sets the match's result from it, clearing any ruling. A drawn knockout game stays a draw as a
+// game, and the match goes to the higher seed. It returns ErrNoBlitzEdition,
 // ErrNoBlitzMatch, ErrBlitzBye, ErrBadBlitzGame, or a *BlitzShareCodeError for a code on another game.
 func (a *AdminStore) RecordBlitzGame(ctx context.Context, slug, edition string, matchID int64, g BlitzGame) error {
 	if !validBlitzGame(&g) {
@@ -195,6 +206,12 @@ func (a *AdminStore) RecordBlitzGame(ctx context.Context, slug, edition string, 
 		}
 		if m.B == nil {
 			return ErrBlitzBye
+		}
+		if m.Kind == "knockout" && result == "draw" {
+			result = "b"
+			if *m.SeedA < *m.SeedB {
+				result = "a"
+			}
 		}
 		var other int64
 		switch err := tx.QueryRow(ctx, "SELECT game_id FROM games WHERE share_code = $1 AND game_id IS DISTINCT FROM $2", g.ShareCode, m.GameID).Scan(&other); {
@@ -270,8 +287,9 @@ func (a *AdminStore) RecordBlitzGame(ctx context.Context, slug, edition string, 
 	})
 }
 
-// RecordBlitzRuling decides a match by the organisers' ruling (a, b, draw or double_loss) with its reason; a
-// game the match has stays. It returns ErrNoBlitzEdition, ErrNoBlitzMatch, ErrBlitzBye or ErrBadBlitzRuling.
+// RecordBlitzRuling decides a match by the organisers' ruling (a, b, draw or double_loss; a or b in the knockout)
+// with its reason; a game the match has stays. It returns ErrNoBlitzEdition, ErrNoBlitzMatch, ErrBlitzBye,
+// ErrBadBlitzRuling or ErrBlitzKnockoutWinner.
 func (a *AdminStore) RecordBlitzRuling(ctx context.Context, slug, edition string, matchID int64, result, reason string) error {
 	reason = strings.TrimSpace(reason)
 	if !slices.Contains(blitzResults, result) || reason == "" || utf8.RuneCountInString(reason) > 1000 {
@@ -288,6 +306,9 @@ func (a *AdminStore) RecordBlitzRuling(ctx context.Context, slug, edition string
 		}
 		if m.B == nil {
 			return ErrBlitzBye
+		}
+		if m.Kind == "knockout" && result != "a" && result != "b" {
+			return ErrBlitzKnockoutWinner
 		}
 		if _, err := tx.Exec(ctx, "UPDATE blitz_matches SET result = $2, ruling = $3, decided_at = now() WHERE match_id = $1", matchID, result, reason); err != nil {
 			return fmt.Errorf("recording a ruling: %w", err)

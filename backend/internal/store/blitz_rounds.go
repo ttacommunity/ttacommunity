@@ -13,13 +13,19 @@ import (
 	"github.com/jackc/pgx/v5"
 )
 
-// BlitzMatch is one pairing of a round, by entrant ids; B is nil for the bye. Result is how it ended ("" for
-// not yet): a, b, draw or double_loss, from the played Game (whose first seat is A) or from a Ruling, the
-// organisers' reason, which may overrule a game.
+// BlitzMatch is one pairing of a round, by entrant ids; B is nil for the bye. Slot is a knockout match's place in
+// the bracket (nil in a Swiss round): the winners of slots 2k and 2k+1 meet in slot k of the next round. SeedA
+// and SeedB are a knockout match's players' seeds, their places in the Swiss standings when the knockout began;
+// a drawn knockout game sends the higher seed through. Result
+// is how it ended ("" for not yet): a, b, draw or double_loss, from the played Game (whose first seat is A) or
+// from a Ruling, the organisers' reason, which may overrule a game.
 type BlitzMatch struct {
 	ID        int64
 	A         int64
 	B         *int64
+	Slot      *int
+	SeedA     *int
+	SeedB     *int
 	Result    string
 	GameID    *int64
 	Game      *BlitzGame
@@ -57,6 +63,13 @@ var ErrBlitzRepeat = errors.New("they have met before")
 // ErrBlitzRoundIncomplete means an active entrant is in no match of the round being published.
 var ErrBlitzRoundIncomplete = errors.New("not paired")
 
+// ErrBlitzKnockoutFixed means a knockout round follows the bracket: it is deleted and paired again, never changed
+// by hand.
+var ErrBlitzKnockoutFixed = errors.New("a knockout round follows the bracket: delete it and pair again")
+
+// ErrBlitzFinished means the edition's final has a winner: there is no next round.
+var ErrBlitzFinished = errors.New("the edition is finished")
+
 // ErrBlitzEntrantInRound means an entrant in a round cannot be removed: drop them instead.
 var ErrBlitzEntrantInRound = errors.New("the entrant is in a round: drop them instead of removing them")
 
@@ -85,7 +98,7 @@ func blitzRounds(ctx context.Context, db conn, public bool, slug, edition string
 		ids[i] = r.ID
 	}
 	matches, err := db.Query(ctx, `
-		SELECT m.round_id, m.match_id, m.entry_a, m.entry_b, coalesce(m.result, ''), m.game_id, m.ruling, m.decided_at,
+		SELECT m.round_id, m.match_id, m.entry_a, m.entry_b, m.slot, m.seed_a, m.seed_b, coalesce(m.result, ''), m.game_id, m.ruling, m.decided_at,
 		       coalesce(g.share_code, ''), g.date, sa.culture, coalesce(sa.outcome, ''), sb.culture, coalesce(sb.outcome, '')
 		FROM blitz_matches m
 		LEFT JOIN games g ON g.game_id = m.game_id
@@ -100,12 +113,15 @@ func blitzRounds(ctx context.Context, db conn, public bool, slug, edition string
 	var g BlitzGame
 	var played *time.Time
 	var cultureA, cultureB *float64
-	if _, err := pgx.ForEachRow(matches, []any{&roundID, &m.ID, &m.A, &m.B, &m.Result, &m.GameID, &m.Ruling, &m.DecidedAt,
+	if _, err := pgx.ForEachRow(matches, []any{&roundID, &m.ID, &m.A, &m.B, &m.Slot, &m.SeedA, &m.SeedB, &m.Result, &m.GameID, &m.Ruling, &m.DecidedAt,
 		&g.ShareCode, &played, &cultureA, &g.A.Outcome, &cultureB, &g.B.Outcome}, func() error {
 		i := slices.IndexFunc(rounds, func(r BlitzRound) bool { return r.ID == roundID })
 		got := BlitzMatch{ID: m.ID, A: m.A, Result: m.Result, Ruling: m.Ruling}
 		if m.B != nil {
 			got.B = new(*m.B)
+		}
+		if m.Slot != nil {
+			got.Slot, got.SeedA, got.SeedB = new(*m.Slot), new(*m.SeedA), new(*m.SeedB)
 		}
 		if m.GameID != nil {
 			got.GameID = new(*m.GameID)
@@ -129,17 +145,17 @@ func blitzRounds(ctx context.Context, db conn, public bool, slug, edition string
 	return rounds, nil
 }
 
-// blitzRoundID finds a round of the edition, or returns ErrNoBlitzRound.
-func blitzRoundID(ctx context.Context, tx pgx.Tx, edID, roundID int64) (published bool, err error) {
-	var at *time.Time
-	err = tx.QueryRow(ctx, "SELECT published_at FROM blitz_rounds WHERE round_id = $1 AND tournament_id = $2", roundID, edID).Scan(&at)
+// blitzRoundKind finds a round of the edition and returns its kind (swiss or knockout), or ErrNoBlitzRound.
+func blitzRoundKind(ctx context.Context, tx pgx.Tx, edID, roundID int64) (string, error) {
+	var kind string
+	err := tx.QueryRow(ctx, "SELECT kind FROM blitz_rounds WHERE round_id = $1 AND tournament_id = $2", roundID, edID).Scan(&kind)
 	if errors.Is(err, pgx.ErrNoRows) {
-		return false, ErrNoBlitzRound
+		return "", ErrNoBlitzRound
 	}
 	if err != nil {
-		return false, fmt.Errorf("finding round %d: %w", roundID, err)
+		return "", fmt.Errorf("finding round %d: %w", roundID, err)
 	}
-	return at != nil, nil
+	return kind, nil
 }
 
 // blitzEntrantsOf reads an edition's entrants' names by id, and which are active.
@@ -168,9 +184,10 @@ func matchKey(m BlitzMatch) [2]int64 {
 	return [2]int64{m.A, *m.B}
 }
 
-// checkBlitzMatches refuses matches that name anyone but an active entrant once, or a pair met in another round
-// of the edition; with complete, also a round that leaves an active entrant out.
-func checkBlitzMatches(ctx context.Context, tx pgx.Tx, edID, roundID int64, matches []BlitzMatch, complete bool) error {
+// checkBlitzMatches refuses matches that name anyone but an active entrant once. A Swiss round (kind swiss) is
+// also refused a pair met in another round of the edition and, with complete, an active entrant left out; a
+// knockout round's matches each need two players, a slot and both seeds, and may repeat a pairing.
+func checkBlitzMatches(ctx context.Context, tx pgx.Tx, edID, roundID int64, kind string, matches []BlitzMatch, complete bool) error {
 	names, active, err := blitzEntrantsOf(ctx, tx, edID)
 	if err != nil {
 		return fmt.Errorf("checking a round: %w", err)
@@ -206,9 +223,13 @@ func checkBlitzMatches(ctx context.Context, tx pgx.Tx, edID, roundID int64, matc
 	}); err != nil {
 		return fmt.Errorf("checking a round: %w", err)
 	}
+	knockout := kind == "knockout"
 	for _, m := range matches {
 		if err := take(m.A); err != nil {
 			return err
+		}
+		if knockout && (m.B == nil || m.Slot == nil || m.SeedA == nil || m.SeedB == nil) {
+			return fmt.Errorf("%w: a knockout match needs two players, a slot and their seeds: %s", ErrBadBlitzMatch, who(m.A))
 		}
 		if m.B == nil {
 			continue
@@ -216,11 +237,11 @@ func checkBlitzMatches(ctx context.Context, tx pgx.Tx, edID, roundID int64, matc
 		if err := take(*m.B); err != nil {
 			return err
 		}
-		if met[[2]int64{min(m.A, *m.B), max(m.A, *m.B)}] {
+		if !knockout && met[[2]int64{min(m.A, *m.B), max(m.A, *m.B)}] {
 			return fmt.Errorf("%w: %s and %s", ErrBlitzRepeat, who(m.A), who(*m.B))
 		}
 	}
-	if complete {
+	if complete && !knockout {
 		var missing []string
 		for id, on := range active {
 			if on && !seen[id] {
@@ -240,16 +261,18 @@ func insertBlitzMatches(ctx context.Context, tx pgx.Tx, roundID int64, matches [
 	out := make([]BlitzMatch, 0, len(matches))
 	for _, m := range matches {
 		var id int64
-		if err := tx.QueryRow(ctx, "INSERT INTO blitz_matches (round_id, entry_a, entry_b) VALUES ($1, $2, $3) RETURNING match_id", roundID, m.A, m.B).Scan(&id); err != nil {
+		if err := tx.QueryRow(ctx, "INSERT INTO blitz_matches (round_id, entry_a, entry_b, slot, seed_a, seed_b) VALUES ($1, $2, $3, $4, $5, $6) RETURNING match_id",
+			roundID, m.A, m.B, m.Slot, m.SeedA, m.SeedB).Scan(&id); err != nil {
 			return nil, fmt.Errorf("adding a match to round %d: %w", roundID, err)
 		}
-		out = append(out, BlitzMatch{ID: id, A: m.A, B: m.B})
+		out = append(out, BlitzMatch{ID: id, A: m.A, B: m.B, Slot: m.Slot, SeedA: m.SeedA, SeedB: m.SeedB})
 	}
 	return out, nil
 }
 
-// AddBlitzRound makes the edition's next round as a draft, from r's criteria, seed and matches (which may leave
-// entrants unpaired until it is published). It returns the round with its ids and number.
+// AddBlitzRound makes the edition's next round as a draft, from r's kind (swiss when empty), criteria, seed and
+// matches (a Swiss round may leave entrants unpaired until it is published). It returns the round with its ids and
+// number, or ErrBlitzDraftExists, ErrBlitzRoundUndecided, ErrBlitzFinished, ErrBadBlitzMatch or ErrBlitzRepeat.
 func (a *AdminStore) AddBlitzRound(ctx context.Context, slug, edition string, r BlitzRound) (BlitzRound, error) {
 	if r.Kind == "" {
 		r.Kind = "swiss"
@@ -269,7 +292,12 @@ func (a *AdminStore) AddBlitzRound(ctx context.Context, slug, edition string, r 
 		if err := blitzResultsIn(ctx, tx, edID); err != nil {
 			return err
 		}
-		if err := checkBlitzMatches(ctx, tx, edID, 0, r.Matches, false); err != nil {
+		if champion, err := blitzChampion(ctx, tx, edID); err != nil {
+			return err
+		} else if champion != nil {
+			return ErrBlitzFinished
+		}
+		if err := checkBlitzMatches(ctx, tx, edID, 0, r.Kind, r.Matches, false); err != nil {
 			return err
 		}
 		if err := tx.QueryRow(ctx, `
@@ -287,18 +315,23 @@ func (a *AdminStore) AddBlitzRound(ctx context.Context, slug, edition string, r 
 	return r, nil
 }
 
-// SetBlitzRoundMatches replaces a round's matches, checked as AddBlitzRound checks them. A match with a result
-// stays as it is: the new matches must include it, else ErrBlitzMatchDecided names it.
+// SetBlitzRoundMatches replaces a Swiss round's matches, checked as AddBlitzRound checks them. A match with a
+// result stays as it is: the new matches must include it, else ErrBlitzMatchDecided names it. A knockout round
+// is ErrBlitzKnockoutFixed.
 func (a *AdminStore) SetBlitzRoundMatches(ctx context.Context, slug, edition string, roundID int64, matches []BlitzMatch) error {
 	return pgx.BeginFunc(ctx, a.pool, func(tx pgx.Tx) error {
 		edID, err := blitzEditionID(ctx, tx, slug, edition)
 		if err != nil {
 			return err
 		}
-		if _, err := blitzRoundID(ctx, tx, edID, roundID); err != nil {
+		kind, err := blitzRoundKind(ctx, tx, edID, roundID)
+		if err != nil {
 			return err
 		}
-		if err := checkBlitzMatches(ctx, tx, edID, roundID, matches, false); err != nil {
+		if kind == "knockout" {
+			return ErrBlitzKnockoutFixed
+		}
+		if err := checkBlitzMatches(ctx, tx, edID, roundID, kind, matches, false); err != nil {
 			return err
 		}
 		rows, err := tx.Query(ctx, "SELECT match_id, entry_a, entry_b FROM blitz_matches WHERE round_id = $1 AND result IS NOT NULL ORDER BY match_id", roundID)
@@ -341,29 +374,30 @@ func (a *AdminStore) SetBlitzRoundMatches(ctx context.Context, slug, edition str
 	})
 }
 
-// PublishBlitzRound makes a round public, once every active entrant is in it exactly once and no pair is a
-// repeat. Publishing again changes nothing.
+// PublishBlitzRound makes a round public: a Swiss round once every active entrant is in it exactly once and no
+// pair is a repeat; a knockout round as the bracket made it. Publishing again changes nothing.
 func (a *AdminStore) PublishBlitzRound(ctx context.Context, slug, edition string, roundID int64) error {
 	return pgx.BeginFunc(ctx, a.pool, func(tx pgx.Tx) error {
 		edID, err := blitzEditionID(ctx, tx, slug, edition)
 		if err != nil {
 			return err
 		}
-		if _, err := blitzRoundID(ctx, tx, edID, roundID); err != nil {
+		kind, err := blitzRoundKind(ctx, tx, edID, roundID)
+		if err != nil {
 			return err
 		}
-		rows, err := tx.Query(ctx, "SELECT match_id, entry_a, entry_b FROM blitz_matches WHERE round_id = $1 ORDER BY match_id", roundID)
+		rows, err := tx.Query(ctx, "SELECT match_id, entry_a, entry_b, slot, seed_a, seed_b FROM blitz_matches WHERE round_id = $1 ORDER BY match_id", roundID)
 		if err != nil {
 			return fmt.Errorf("publishing round %d: %w", roundID, err)
 		}
 		matches, err := pgx.CollectRows(rows, func(row pgx.CollectableRow) (BlitzMatch, error) {
 			var m BlitzMatch
-			return m, row.Scan(&m.ID, &m.A, &m.B)
+			return m, row.Scan(&m.ID, &m.A, &m.B, &m.Slot, &m.SeedA, &m.SeedB)
 		})
 		if err != nil {
 			return fmt.Errorf("publishing round %d: %w", roundID, err)
 		}
-		if err := checkBlitzMatches(ctx, tx, edID, roundID, matches, true); err != nil {
+		if err := checkBlitzMatches(ctx, tx, edID, roundID, kind, matches, true); err != nil {
 			return err
 		}
 		if _, err := tx.Exec(ctx, "UPDATE blitz_rounds SET published_at = now() WHERE round_id = $1 AND published_at IS NULL", roundID); err != nil {
@@ -382,7 +416,7 @@ func (a *AdminStore) DeleteBlitzRound(ctx context.Context, slug, edition string,
 		if err != nil {
 			return err
 		}
-		if _, err := blitzRoundID(ctx, tx, edID, roundID); err != nil {
+		if _, err := blitzRoundKind(ctx, tx, edID, roundID); err != nil {
 			return err
 		}
 		var last int64

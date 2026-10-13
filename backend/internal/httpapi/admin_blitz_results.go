@@ -49,7 +49,7 @@ func (s *server) PutAdminBlitzMatchRuling(ctx context.Context, req PutAdminBlitz
 		return PutAdminBlitzMatchRuling400JSONResponse{badRequest400("the ruling: result and reason")}, nil
 	}
 	switch err := s.admins.RecordBlitzRuling(ctx, req.Tournament, req.Edition, req.Match, string(req.Body.Result), req.Body.Reason); {
-	case errors.Is(err, store.ErrBadBlitzRuling), errors.Is(err, store.ErrBlitzBye):
+	case errors.Is(err, store.ErrBadBlitzRuling), errors.Is(err, store.ErrBlitzBye), errors.Is(err, store.ErrBlitzKnockoutWinner):
 		return PutAdminBlitzMatchRuling400JSONResponse{badRequest400(err.Error())}, nil
 	case errors.Is(err, store.ErrNoBlitzEdition):
 		return PutAdminBlitzMatchRuling404JSONResponse{notFound404("no such blitz edition")}, nil

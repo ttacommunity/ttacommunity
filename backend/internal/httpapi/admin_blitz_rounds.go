@@ -2,9 +2,12 @@
 package httpapi
 
 import (
+	"cmp"
 	"context"
 	"errors"
 	"fmt"
+	"slices"
+	"strings"
 	"time"
 
 	"ttacommunity/backend/internal/blitz"
@@ -41,18 +44,25 @@ func hadBye(rounds []store.BlitzRound) map[int64]bool {
 	return byes
 }
 
-// adminBlitzRound shows a round with each match's gaps as the entrants are now, and whether a pair has met in
-// another round.
+// adminBlitzRound shows a round with each match's gaps as the entrants are now and, in a Swiss round, whether a
+// pair has met in another Swiss round (the knockout may repeat a pairing).
 func (s *server) adminBlitzRound(r store.BlitzRound, ed store.BlitzEdition, rated map[string]store.Rated, now time.Time) AdminBlitzRound {
 	byID := map[int64]store.BlitzEntrant{}
 	for _, e := range ed.Entrants {
 		byID[e.ID] = e
 	}
-	met := metBefore(ed.Rounds, r.ID)
+	var swiss []store.BlitzRound
+	for _, x := range ed.Rounds {
+		if x.Kind != "knockout" {
+			swiss = append(swiss, x)
+		}
+	}
+	met := metBefore(swiss, r.ID)
 	out := AdminBlitzRound{Id: r.ID, Number: r.Number, Kind: AdminBlitzRoundKind(r.Kind), Timezone: r.Timezone, Rating: r.Rating,
 		PublishedAt: r.PublishedAt, Matches: make([]AdminBlitzMatch, len(r.Matches))}
 	for i, m := range r.Matches {
-		am := AdminBlitzMatch{Id: m.ID, A: m.A, B: m.B, Result: blitzResult(m), Game: playedGame(m), Ruling: m.Ruling, DecidedAt: m.DecidedAt}
+		am := AdminBlitzMatch{Id: m.ID, A: m.A, B: m.B, Slot: m.Slot, ASeed: m.SeedA, BSeed: m.SeedB, Result: blitzResult(m), Game: playedGame(m),
+			Ruling: m.Ruling, DecidedAt: m.DecidedAt}
 		if m.B != nil {
 			a, b := byID[m.A], byID[*m.B]
 			oa, _ := blitz.OffsetMinutes(a.Zone, now)
@@ -67,11 +77,7 @@ func (s *server) adminBlitzRound(r store.BlitzRound, ed store.BlitzEdition, rate
 					am.RatingGap = &gap
 				}
 			}
-			for _, o := range met[m.A] {
-				if o == *m.B {
-					am.Repeat = true
-				}
-			}
+			am.Repeat = r.Kind != "knockout" && slices.Contains(met[m.A], *m.B)
 		}
 		out.Matches[i] = am
 	}
@@ -108,6 +114,71 @@ func pairingPlayers(ed store.BlitzEdition, rated map[string]store.Rated, now tim
 	return players
 }
 
+// errNoKnockout means the knockout's next round cannot be paired yet, or at all.
+var errNoKnockout = errors.New("cannot pair the knockout")
+
+// nextKnockout pairs the knockout's next round: the top of the Swiss standings, best seed against worst, when it
+// has none yet; else the winners of its latest round, neighbouring slots meeting. Each match carries its slot and
+// its players' seeds, their places in the Swiss standings when the knockout began.
+func nextKnockout(ed store.BlitzEdition) ([]store.BlitzMatch, error) {
+	var last *store.BlitzRound
+	for i := range ed.Rounds {
+		if ed.Rounds[i].Kind == "knockout" && (last == nil || ed.Rounds[i].Number > last.Number) {
+			last = &ed.Rounds[i]
+		}
+	}
+	var pairs [][2]int64
+	var err error
+	seedOf := map[int64]int{}
+	if last == nil {
+		size := ed.Format.KnockoutSize
+		var seeded []int64
+		for _, s := range swissStandings(ed) {
+			if !s.Dropped && len(seeded) < size {
+				seeded = append(seeded, s.ID)
+				seedOf[s.ID] = len(seeded)
+			}
+		}
+		if len(seeded) < size {
+			return nil, fmt.Errorf("%w: it takes the top %d, and %d players are still in", errNoKnockout, size, len(seeded))
+		}
+		pairs, err = blitz.FirstKnockout(seeded)
+	} else {
+		names := map[int64]string{}
+		for _, e := range ed.Entrants {
+			names[e.ID] = e.Name
+		}
+		matches := slices.SortedFunc(slices.Values(last.Matches), func(a, b store.BlitzMatch) int { return cmp.Compare(*a.Slot, *b.Slot) })
+		var winners []int64
+		var open []string
+		for _, m := range matches {
+			if w, ok := blitz.Winner(played(m)); ok {
+				winners = append(winners, w)
+				seedOf[m.A], seedOf[*m.B] = *m.SeedA, *m.SeedB
+			} else {
+				open = append(open, names[m.A]+" v "+names[*m.B])
+			}
+		}
+		if len(open) > 0 {
+			return nil, fmt.Errorf("%w: no winner yet in %s", store.ErrBlitzRoundUndecided, strings.Join(open, ", "))
+		}
+		if len(winners) == 1 {
+			return nil, store.ErrBlitzFinished
+		}
+		pairs, err = blitz.NextKnockout(winners)
+	}
+	if err != nil {
+		return nil, fmt.Errorf("%w: %w", errNoKnockout, err)
+	}
+	out := make([]store.BlitzMatch, len(pairs))
+	for i, p := range pairs {
+		out[i] = store.BlitzMatch{A: p[0], B: new(p[1]), Slot: new(i), SeedA: new(seedOf[p[0]]), SeedB: new(seedOf[p[1]])}
+	}
+	return out, nil
+}
+
+// PostAdminBlitzRound pairs the edition's next round as a draft: a Swiss round while the format has some left,
+// then the knockout's rounds.
 func (s *server) PostAdminBlitzRound(ctx context.Context, req PostAdminBlitzRoundRequestObject) (PostAdminBlitzRoundResponseObject, error) {
 	me, _ := adminFrom(ctx)
 	if !tournamentSlug.MatchString(req.Tournament) {
@@ -131,26 +202,50 @@ func (s *server) PostAdminBlitzRound(ctx context.Context, req PostAdminBlitzRoun
 	if err != nil {
 		return nil, err
 	}
+	if slices.ContainsFunc(ed.Rounds, func(r store.BlitzRound) bool { return r.PublishedAt == nil }) {
+		return PostAdminBlitzRound409JSONResponse{conflict409(store.ErrBlitzDraftExists.Error())}, nil
+	}
+	swissMade := 0
+	for _, r := range ed.Rounds {
+		if r.Kind != "knockout" {
+			swissMade++
+		}
+	}
 	now := s.now()
 	seed := uint64(now.UnixNano())
-	paired, err := blitz.Pair(pairingPlayers(ed, rated, now, 0, nil), criteria, seed)
-	if errors.Is(err, blitz.ErrTooFew) || errors.Is(err, blitz.ErrNoPairing) {
-		return PostAdminBlitzRound400JSONResponse{badRequest400(err.Error())}, nil
-	}
-	if err != nil {
-		return nil, err
-	}
-	round := store.BlitzRound{Timezone: criteria.Timezone, Rating: criteria.Rating, Seed: int64(seed)}
-	for _, m := range paired.Matches {
-		b := m.B
-		round.Matches = append(round.Matches, store.BlitzMatch{A: m.A, B: &b})
-	}
-	if paired.Bye != nil {
-		round.Matches = append(round.Matches, store.BlitzMatch{A: *paired.Bye})
+	var round store.BlitzRound
+	switch {
+	case swissMade < ed.Format.SwissRounds:
+		paired, err := blitz.Pair(pairingPlayers(ed, rated, now, 0, nil), criteria, seed)
+		if errors.Is(err, blitz.ErrTooFew) || errors.Is(err, blitz.ErrNoPairing) {
+			return PostAdminBlitzRound400JSONResponse{badRequest400(err.Error())}, nil
+		}
+		if err != nil {
+			return nil, err
+		}
+		round = store.BlitzRound{Kind: "swiss", Timezone: criteria.Timezone, Rating: criteria.Rating, Seed: int64(seed)}
+		for _, m := range paired.Matches {
+			round.Matches = append(round.Matches, store.BlitzMatch{A: m.A, B: new(m.B)})
+		}
+		if paired.Bye != nil {
+			round.Matches = append(round.Matches, store.BlitzMatch{A: *paired.Bye})
+		}
+	case ed.Format.KnockoutSize == 0:
+		return PostAdminBlitzRound409JSONResponse{conflict409(store.ErrBlitzFinished.Error())}, nil
+	default:
+		matches, err := nextKnockout(ed)
+		switch {
+		case errors.Is(err, errNoKnockout), errors.Is(err, store.ErrBlitzRoundUndecided), errors.Is(err, store.ErrBlitzFinished):
+			return PostAdminBlitzRound409JSONResponse{conflict409(err.Error())}, nil
+		case err != nil:
+			return nil, err
+		}
+		criteria = blitz.Criteria{}
+		round = store.BlitzRound{Kind: "knockout", Seed: int64(seed), Matches: matches}
 	}
 	made, err := s.admins.AddBlitzRound(ctx, req.Tournament, req.Edition, round)
 	switch {
-	case errors.Is(err, store.ErrBlitzDraftExists), errors.Is(err, store.ErrBlitzRoundUndecided):
+	case errors.Is(err, store.ErrBlitzDraftExists), errors.Is(err, store.ErrBlitzRoundUndecided), errors.Is(err, store.ErrBlitzFinished):
 		return PostAdminBlitzRound409JSONResponse{conflict409(err.Error())}, nil
 	case errors.Is(err, store.ErrBadBlitzMatch), errors.Is(err, store.ErrBlitzRepeat):
 		return PostAdminBlitzRound400JSONResponse{badRequest400(err.Error())}, nil
@@ -159,7 +254,7 @@ func (s *server) PostAdminBlitzRound(ctx context.Context, req PostAdminBlitzRoun
 	case err != nil:
 		return nil, err
 	}
-	if err := s.admins.Audit(ctx, me.DiscordID, "blitz.round.add", blitzEditionKey(req.Tournament, req.Edition), map[string]any{"round": made.Number, "timezone": criteria.Timezone, "rating": criteria.Rating, "seed": seed}); err != nil {
+	if err := s.admins.Audit(ctx, me.DiscordID, "blitz.round.add", blitzEditionKey(req.Tournament, req.Edition), map[string]any{"round": made.Number, "kind": made.Kind, "timezone": criteria.Timezone, "rating": criteria.Rating, "seed": seed}); err != nil {
 		return nil, err
 	}
 	ed.Rounds = append(ed.Rounds, made)
@@ -181,6 +276,8 @@ func (s *server) PutAdminBlitzRoundMatches(ctx context.Context, req PutAdminBlit
 	switch err := s.admins.SetBlitzRoundMatches(ctx, req.Tournament, req.Edition, req.Round, matches); {
 	case errors.Is(err, store.ErrBadBlitzMatch), errors.Is(err, store.ErrBlitzRepeat), errors.Is(err, store.ErrBlitzMatchDecided):
 		return PutAdminBlitzRoundMatches400JSONResponse{badRequest400(err.Error())}, nil
+	case errors.Is(err, store.ErrBlitzKnockoutFixed):
+		return PutAdminBlitzRoundMatches409JSONResponse{conflict409(err.Error())}, nil
 	case errors.Is(err, store.ErrNoBlitzEdition):
 		return PutAdminBlitzRoundMatches404JSONResponse{notFound404("no such blitz edition")}, nil
 	case errors.Is(err, store.ErrNoBlitzRound):
@@ -264,6 +361,9 @@ func (s *server) PostAdminBlitzRoundPairing(ctx context.Context, req PostAdminBl
 	}
 	if round == nil {
 		return PostAdminBlitzRoundPairing404JSONResponse{notFound404("no such round")}, nil
+	}
+	if round.Kind == "knockout" {
+		return PostAdminBlitzRoundPairing409JSONResponse{conflict409(store.ErrBlitzKnockoutFixed.Error())}, nil
 	}
 	rated, err := s.blitzRatings(ctx, ed.Entrants)
 	if err != nil {

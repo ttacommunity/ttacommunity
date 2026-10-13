@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -69,6 +70,11 @@ func (f *fakeAdmins) RecordBlitzRuling(_ context.Context, slug, edition string, 
 	}
 	if m.B == nil {
 		return store.ErrBlitzBye
+	}
+	for _, r := range f.rounds {
+		if r.Kind == "knockout" && slices.ContainsFunc(r.Matches, func(x store.BlitzMatch) bool { return x.ID == id }) && result != "a" && result != "b" {
+			return store.ErrBlitzKnockoutWinner
+		}
 	}
 	at := time.Date(2026, 10, 15, 9, 0, 0, 0, time.UTC)
 	m.Result, m.Ruling, m.DecidedAt = result, reason, &at

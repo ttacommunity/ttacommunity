@@ -1328,7 +1328,7 @@ export interface paths {
         head?: never;
         /**
          * Set a blitz edition's format
-         * @description Audited. The Origin must be the admin site.
+         * @description Audited. The Origin must be the admin site. Refused once the knockout has a round.
          */
         patch: operations["patchAdminBlitzEdition"];
         trace?: never;
@@ -1371,8 +1371,13 @@ export interface paths {
          *     paired on equal points where possible, never with an opponent they
          *     have met; within a score group the pairs are the best time-zone fit
          *     (and the closest ratings, when asked), chance deciding the rest. With
-         *     an odd count the lowest in the standings without a bye gets it. Refused
-         *     while a draft exists or a match so far has no result.
+         *     an odd count the lowest in the standings without a bye gets it. After
+         *     the last Swiss round it pairs the knockout instead: first the top of
+         *     the standings, 1 v 8, 2 v 7… for eight, then each round's winners,
+         *     neighbouring matches meeting, until the final; the criteria do not
+         *     apply. Refused while a draft exists, a match so far has no result or
+         *     a knockout match no winner, the knockout lacks players, or the
+         *     edition is finished.
          */
         post: operations["postAdminBlitzRound"];
         delete?: never;
@@ -1416,7 +1421,8 @@ export interface paths {
          * @description Everyone active now is paired as for a new round, by the criteria
          *     given; a match of the round that already has a result is kept and
          *     its players are left out. Nothing is written: the proposal's new
-         *     matches have no id. Save it with PUT matches.
+         *     matches have no id. Save it with PUT matches. A knockout round follows
+         *     the bracket and is refused.
          */
         post: operations["postAdminBlitzRoundPairing"];
         delete?: never;
@@ -1437,7 +1443,8 @@ export interface paths {
          * Replace a round's matches, as paired by hand
          * @description Audited. The Origin must be the admin site. A match names two active
          *     entrants, or one for the bye; nobody twice; never a pair that has met.
-         *     A round may be left incomplete until it is published.
+         *     A round may be left incomplete until it is published. A knockout round
+         *     follows the bracket and is refused.
          */
         put: operations["putAdminBlitzRoundMatches"];
         post?: never;
@@ -1481,8 +1488,9 @@ export interface paths {
          *     the edition's "Round N" stage with a seat for each player, so the
          *     tournament's page shows it at once; recording the match again changes
          *     that one game. The higher culture wins and equal cultures draw; a
-         *     resigned or timed-out player loses with culture 0. A share code already
-         *     on another game is refused, naming it. The match's ruling, if any, is
+         *     resigned or timed-out player loses with culture 0; a drawn knockout
+         *     game stays a draw as a game and sends the higher seed through. A share
+         *     code already on another game is refused, naming it. The match's ruling, if any, is
          *     cleared.
          */
         put: operations["putAdminBlitzMatchGame"];
@@ -1504,9 +1512,9 @@ export interface paths {
         /**
          * Decide a match by the organisers' ruling
          * @description Audited. The Origin must be the admin site. A ruling awards the match
-         *     to one player, calls it a draw or a double loss, with its reason. A
-         *     game the match already has stays, overruled; recording the game again
-         *     puts its result back.
+         *     to one player, calls it a draw or a double loss, with its reason; a
+         *     knockout match's ruling names who goes through. A game the match already has stays, overruled;
+         *     recording the game again puts its result back.
          */
         put: operations["putAdminBlitzMatchRuling"];
         post?: never;
@@ -1958,6 +1966,8 @@ export interface components {
         };
         /** @description One edition of a blitz tournament as the site's list shows it */
         BlitzEditionRow: {
+            /** @description The winner of the knockout's final, by username; null until the final has a winner */
+            champion: string | null;
             /** @description The latest published round's number, null before the first is published */
             round: number | null;
             /** @description The tournament's slug */
@@ -1991,6 +2001,8 @@ export interface components {
         };
         /** @description A blitz edition for the site, with the entrants still in, the published rounds and the standings */
         BlitzEdition: {
+            /** @description The winner of the knockout's final, by username; null until the final has a winner */
+            champion: string | null;
             tournament: string;
             name: string;
             edition: string;
@@ -2004,12 +2016,21 @@ export interface components {
         /** @description A published round as the site shows it */
         BlitzRound: {
             number: number;
+            /**
+             * @description A Swiss round, or a knockout round (its matches in bracket order)
+             * @enum {string}
+             */
+            kind: "swiss" | "knockout";
             /** Format: date-time */
             published_at: string;
             matches: components["schemas"]["BlitzPublicMatch"][];
         };
         /** @description Who plays whom and how it ended; b is null for the bye */
         BlitzPublicMatch: {
+            /** @description In a knockout match, a's seed, their place in the Swiss standings when the knockout began; null in a Swiss round */
+            a_seed: number | null;
+            /** @description In a knockout match, b's seed, their place in the Swiss standings when the knockout began; null in a Swiss round */
+            b_seed: number | null;
             a: string;
             /** Format: double */
             a_rating: number | null;
@@ -2079,6 +2100,12 @@ export interface components {
         };
         /** @description A match by entrant ids; b is null for the bye. The gaps are as the entrants are now */
         AdminBlitzMatch: {
+            /** @description A knockout match's place in the bracket, from 0; the winners of slots 2k and 2k+1 meet in slot k next. Null in a Swiss round */
+            slot: number | null;
+            /** @description In a knockout match, a's seed, their place in the Swiss standings when the knockout began; null in a Swiss round */
+            a_seed: number | null;
+            /** @description In a knockout match, b's seed, their place in the Swiss standings when the knockout began; null in a Swiss round */
+            b_seed: number | null;
             /** Format: int64 */
             id: number;
             /** Format: int64 */
@@ -2130,6 +2157,8 @@ export interface components {
         };
         /** @description One edition of a blitz tournament as admin's list shows it */
         AdminBlitzEditionRow: {
+            /** @description The winner of the knockout's final, by username; null until the final has a winner */
+            champion: string | null;
             /** @description The latest published round's number, null before the first is published */
             round: number | null;
             tournament: string;
@@ -2169,6 +2198,8 @@ export interface components {
             status: "pending" | "active" | "dropped";
         };
         AdminBlitzEdition: {
+            /** @description The winner of the knockout's final, by username; null until the final has a winner */
+            champion: string | null;
             tournament: string;
             name: string;
             edition: string;
@@ -5458,6 +5489,7 @@ export interface operations {
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
         };
     };
     postAdminBlitzEntrants: {
@@ -5591,6 +5623,7 @@ export interface operations {
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
         };
     };
     putAdminBlitzRoundMatches: {
@@ -5623,6 +5656,7 @@ export interface operations {
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
         };
     };
     postAdminBlitzRoundPublish: {
@@ -5802,6 +5836,7 @@ export const adminRoleRoleValues: ReadonlyArray<FlattenedDeepRequired<components
 export const adminSeasonSuggested_fromValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["AdminSeason"]["suggested_from"]> = ["recorded", "final_stage", ""];
 export const tournamentKindValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["TournamentKind"]> = ["league", "cup", "ladder", "series", "group"];
 export const adminMeRoleValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["AdminMe"]["role"]> = ["admin", "organiser"];
+export const blitzRoundKindValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["BlitzRound"]["kind"]> = ["swiss", "knockout"];
 export const blitzResultValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["BlitzResult"]> = ["a", "b", "draw", "double_loss"];
 export const blitzOutcomeValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["BlitzOutcome"]> = ["finished", "resigned", "timed_out"];
 export const blitzStandingStatusValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["BlitzStanding"]["status"]> = ["active", "dropped"];

@@ -22,9 +22,11 @@ import (
 )
 
 type fakeRatings struct {
-	run      store.PublishedRun
-	runErr   error
-	lastGame *time.Time
+	// blitzEdition, when set, is what BlitzEdition answers for us_open 2026 (blitz_test.go).
+	blitzEdition *store.BlitzEdition
+	run          store.PublishedRun
+	runErr       error
+	lastGame     *time.Time
 	// rated is what RatingsOf answers, by name.
 	rated    map[string]store.Rated
 	board    []store.LeaderboardRow

@@ -13,11 +13,31 @@ export function canPair(entrants: readonly AdminBlitzEntrant[], rounds: readonly
   return entrants.filter((e) => e.status === 'active').length >= 2 && rounds.every((r) => r.published_at !== null) && undecided(rounds, String).length === 0;
 }
 
-/** undecided names the matches still without a result, byes aside, oldest round first, as "A v B". */
+/** undecided names the matches still without a result, byes aside, oldest round first, as "A v B"; a knockout match with a result but no winner (a draw, a double loss) as "A v B (no winner yet)". */
 export function undecided(rounds: readonly AdminBlitzRound[], nameOf: (id: number) => string): string[] {
   return [...rounds]
     .sort((a, b) => a.number - b.number)
-    .flatMap((r) => r.matches.filter((m) => m.b !== null && m.result === null).map((m) => `${nameOf(m.a)} v ${nameOf(m.b as number)}`));
+    .flatMap((r) =>
+      r.matches
+        .filter((m) => m.b !== null && (m.result === null || (r.kind === 'knockout' && m.result !== 'a' && m.result !== 'b')))
+        .map((m) => `${nameOf(m.a)} v ${nameOf(m.b as number)}${m.result === null ? '' : ' (no winner yet)'}`),
+    );
+}
+
+/** NextRound is the round Pair makes next: its number, and whether it is a Swiss or a knockout round. */
+export type NextRound = { number: number; kind: AdminBlitzRound['kind'] };
+
+/** nextRound is the round Pair makes next: Swiss rounds until the format's are made, then the knockout's; null once there is a champion, or after the Swiss rounds when there is no knockout. */
+export function nextRound(rounds: readonly AdminBlitzRound[], format: { swiss_rounds: number; knockout_size: number }, champion: string | null): NextRound | null {
+  if (champion !== null) return null;
+  const number = rounds.reduce((n, r) => Math.max(n, r.number), 0) + 1;
+  if (rounds.filter((r) => r.kind === 'swiss').length < format.swiss_rounds) return { number, kind: 'swiss' };
+  return format.knockout_size === 0 ? null : { number, kind: 'knockout' };
+}
+
+/** rulingChoices are the results a ruling may give: a knockout match needs a winner, so no draw or double loss there. */
+export function rulingChoices(kind: AdminBlitzRound['kind']): NonNullable<AdminBlitzMatch['result']>[] {
+  return kind === 'knockout' ? ['a', 'b'] : ['a', 'b', 'draw', 'double_loss'];
 }
 
 /** newestFirst orders rounds by number, the latest first. */
@@ -32,7 +52,7 @@ export function editableRound(rounds: readonly AdminBlitzRound[]): number | null
 
 /** unsavedMatch is a match as proposed or made by hand and not yet saved: no id, no gaps, no result. */
 export function unsavedMatch(a: number, b: number | null): AdminBlitzMatch {
-  return { id: 0, a, b, zone_gap_minutes: 0, rating_gap: null, repeat: false, result: null, game: null, ruling: '', decided_at: null };
+  return { id: 0, a, b, slot: null, a_seed: null, b_seed: null, zone_gap_minutes: 0, rating_gap: null, repeat: false, result: null, game: null, ruling: '', decided_at: null };
 }
 
 /** pairKey names a pairing by its two sides, the bye's second as "bye". */

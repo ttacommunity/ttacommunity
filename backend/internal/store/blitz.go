@@ -31,6 +31,8 @@ type BlitzEditionRow struct {
 	TiebreakSeed               int64
 	// Round is the latest published round's number, nil before the first is published.
 	Round *int
+	// Champion is the winner of the published final, by username: nil until the final has a winner.
+	Champion *string
 }
 
 // BlitzEntrant is one sign-up: a member in an edition. Name, Player (the ratings' spelling, "" for a player
@@ -64,6 +66,9 @@ var ErrNoBlitzEntrant = errors.New("no such entrant")
 // ErrBadBlitzFormat means Swiss rounds outside 1 to 30, or a knockout not of 0, 2, 4, 8, 16 or 32 players.
 var ErrBadBlitzFormat = errors.New("a blitz format is 1 to 30 Swiss rounds and a knockout of 0, 2, 4, 8, 16 or 32 players")
 
+// ErrBlitzFormatLocked means the format cannot change once the knockout has a round.
+var ErrBlitzFormatLocked = errors.New("the format cannot change once the knockout has started")
+
 // ErrBadBlitzEntrant means an entrant without a name or a time zone, or a name or Discord name over 100 characters.
 var ErrBadBlitzEntrant = errors.New("an entrant has a name and a Discord name of at most 100 characters, and a time zone")
 
@@ -79,6 +84,23 @@ func (e *BlitzEntrantExistsError) Error() string {
 
 var blitzStatuses = []string{"pending", "active", "dropped"}
 
+// blitzChampionOf is the username of the winner of edition t's published final, the knockout round with one
+// match, or null while it has none.
+const blitzChampionOf = `(SELECT mm.tta_name FROM blitz_rounds r JOIN blitz_matches m ON m.round_id = r.round_id
+	JOIN blitz_entries x ON x.entry_id = CASE m.result WHEN 'a' THEN m.entry_a ELSE m.entry_b END
+	JOIN members mm ON mm.member_id = x.member_id
+	WHERE r.tournament_id = t.tournament_id AND r.kind = 'knockout' AND r.published_at IS NOT NULL AND m.result IN ('a', 'b')
+	  AND NOT EXISTS (SELECT 1 FROM blitz_matches o WHERE o.round_id = r.round_id AND o.match_id <> m.match_id))`
+
+// blitzChampion returns the edition's champion, nil while its final has no winner.
+func blitzChampion(ctx context.Context, tx pgx.Tx, edID int64) (*string, error) {
+	var champion *string
+	if err := tx.QueryRow(ctx, "SELECT "+blitzChampionOf+" FROM tournaments t WHERE t.tournament_id = $1", edID).Scan(&champion); err != nil {
+		return nil, fmt.Errorf("finding the champion: %w", err)
+	}
+	return champion, nil
+}
+
 // blitzEditionRows lists blitz editions, the series' hidden ones too unless public, narrowed to one edition when
 // slug is given. Newest edition first within a series.
 func blitzEditionRows(ctx context.Context, db conn, public bool, slug, edition string) ([]BlitzEditionRow, error) {
@@ -88,7 +110,8 @@ func blitzEditionRows(ctx context.Context, db conn, public bool, slug, edition s
 		       (SELECT count(*) FROM blitz_entries x WHERE x.tournament_id = t.tournament_id AND x.status = 'pending')::int,
 		       (SELECT count(*) FROM blitz_entries x WHERE x.tournament_id = t.tournament_id AND x.status = 'dropped')::int,
 		       coalesce(e.tiebreak_seed, 0),
-		       (SELECT max(r.number) FROM blitz_rounds r WHERE r.tournament_id = t.tournament_id AND r.published_at IS NOT NULL)
+		       (SELECT max(r.number) FROM blitz_rounds r WHERE r.tournament_id = t.tournament_id AND r.published_at IS NOT NULL),
+		       `+blitzChampionOf+`
 		FROM series s JOIN tournaments t USING (series_id)
 		LEFT JOIN blitz_editions e ON e.tournament_id = t.tournament_id
 		WHERE s.blitz AND (s.visible OR NOT $1) AND ($2 = '' OR (s.slug = $2 AND t.label = $3))
@@ -99,7 +122,7 @@ func blitzEditionRows(ctx context.Context, db conn, public bool, slug, edition s
 	}
 	out, err := pgx.CollectRows(rows, func(row pgx.CollectableRow) (BlitzEditionRow, error) {
 		var r BlitzEditionRow
-		return r, row.Scan(&r.Slug, &r.Name, &r.Edition, &r.Format.SwissRounds, &r.Format.KnockoutSize, &r.Entrants, &r.Pending, &r.Dropped, &r.TiebreakSeed, &r.Round)
+		return r, row.Scan(&r.Slug, &r.Name, &r.Edition, &r.Format.SwissRounds, &r.Format.KnockoutSize, &r.Entrants, &r.Pending, &r.Dropped, &r.TiebreakSeed, &r.Round, &r.Champion)
 	})
 	if err != nil {
 		return nil, fmt.Errorf("listing blitz editions: %w", err)
@@ -186,7 +209,8 @@ func blitzEditionID(ctx context.Context, tx pgx.Tx, slug, edition string) (int64
 	return id, nil
 }
 
-// SetBlitzFormat sets an edition's format, or returns ErrBadBlitzFormat or ErrNoBlitzEdition.
+// SetBlitzFormat sets an edition's format until its knockout has a round, or returns ErrBadBlitzFormat,
+// ErrBlitzFormatLocked or ErrNoBlitzEdition.
 func (a *AdminStore) SetBlitzFormat(ctx context.Context, slug, edition string, f BlitzFormat) error {
 	if f.SwissRounds < 1 || f.SwissRounds > 30 || !slices.Contains([]int{0, 2, 4, 8, 16, 32}, f.KnockoutSize) {
 		return ErrBadBlitzFormat
@@ -195,6 +219,13 @@ func (a *AdminStore) SetBlitzFormat(ctx context.Context, slug, edition string, f
 		id, err := blitzEditionID(ctx, tx, slug, edition)
 		if err != nil {
 			return err
+		}
+		var started bool
+		if err := tx.QueryRow(ctx, "SELECT EXISTS (SELECT 1 FROM blitz_rounds WHERE tournament_id = $1 AND kind = 'knockout')", id).Scan(&started); err != nil {
+			return fmt.Errorf("setting %s %s's format: %w", slug, edition, err)
+		}
+		if started {
+			return ErrBlitzFormatLocked
 		}
 		if _, err := tx.Exec(ctx, "UPDATE blitz_editions SET swiss_rounds = $2, knockout_size = $3 WHERE tournament_id = $1",
 			id, f.SwissRounds, f.KnockoutSize); err != nil {

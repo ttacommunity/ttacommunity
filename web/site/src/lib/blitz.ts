@@ -1,4 +1,4 @@
-/** The Blitz section's decisions: which edition the address names, its address, and how a rating reads. */
+/** The Blitz section's decisions: which edition the address names, its address, how a rating reads, and which rounds are the pairings and which the bracket. */
 
 // The API's pattern for a tournament in a path.
 const SLUG = /^[a-z][a-z0-9_]{0,63}$/;
@@ -20,12 +20,10 @@ export function ratingText(rating: number | null): string {
   return rating === null ? '–' : String(Math.round(rating));
 }
 
-/** roundLabel names the round an edition has reached, or says the pairing has not started. */
-export function roundLabel(round: number | null): string {
-  return round === null ? 'Pairing not started' : `Round ${round}`;
-}
-
-/** roundsNewestFirst orders rounds by number, the latest first. */
-export function roundsNewestFirst<R extends { number: number }>(rounds: readonly R[]): R[] {
-  return [...rounds].sort((a, b) => b.number - a.number);
+/** splitRounds parts an edition's rounds: the Swiss rounds newest first, for the pairings; the knockout rounds in bracket order, first round to final. */
+export function splitRounds<R extends { number: number; kind: 'swiss' | 'knockout' }>(rounds: readonly R[]): { swiss: R[]; knockout: R[] } {
+  return {
+    swiss: rounds.filter((r) => r.kind === 'swiss').sort((a, b) => b.number - a.number),
+    knockout: rounds.filter((r) => r.kind === 'knockout').sort((a, b) => a.number - b.number),
+  };
 }

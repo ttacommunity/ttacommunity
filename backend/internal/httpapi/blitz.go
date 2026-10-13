@@ -13,7 +13,7 @@ import (
 )
 
 func blitzEditionRow(r store.BlitzEditionRow) BlitzEditionRow {
-	return BlitzEditionRow{Tournament: r.Slug, Name: r.Name, Edition: r.Edition, Entrants: r.Entrants, Round: r.Round,
+	return BlitzEditionRow{Tournament: r.Slug, Name: r.Name, Edition: r.Edition, Entrants: r.Entrants, Round: r.Round, Champion: r.Champion,
 		Format: BlitzFormat{SwissRounds: r.Format.SwissRounds, KnockoutSize: r.Format.KnockoutSize}}
 }
 
@@ -36,28 +36,45 @@ func playedGame(m store.BlitzMatch) *BlitzPlayedGame {
 		BCulture: m.Game.B.Culture, BOutcome: BlitzOutcome(m.Game.B.Outcome)}
 }
 
-// blitzStandings ranks an edition's entrants, pending ones aside, by its rounds' results and its tiebreak seed.
-func blitzStandings(ed store.BlitzEdition) []BlitzStanding {
-	names, countries := map[int64]string{}, map[int64]string{}
+// played is a match as the blitz package sees it; B is 0 for a bye.
+func played(m store.BlitzMatch) blitz.Played {
+	p := blitz.Played{A: m.A, Result: blitz.Result(m.Result)}
+	if m.B != nil {
+		p.B = *m.B
+	}
+	return p
+}
+
+// swissStandings ranks an edition's entrants, pending ones aside, by its Swiss rounds' results and its tiebreak
+// seed. The knockout's results never count: the standings after the last Swiss round are its seeds.
+func swissStandings(ed store.BlitzEdition) []blitz.Standing {
 	var entrants []blitz.Entrant
 	for _, e := range ed.Entrants {
-		names[e.ID], countries[e.ID] = e.Name, e.Country
 		if e.Status != "pending" {
 			entrants = append(entrants, blitz.Entrant{ID: e.ID, Dropped: e.Status == "dropped"})
 		}
 	}
 	var matches []blitz.Played
 	for _, r := range ed.Rounds {
+		if r.Kind == "knockout" {
+			continue
+		}
 		for _, m := range r.Matches {
-			p := blitz.Played{A: m.A, Result: blitz.Result(m.Result)}
-			if m.B != nil {
-				p.B = *m.B
-			}
-			matches = append(matches, p)
+			matches = append(matches, played(m))
 		}
 	}
-	out := make([]BlitzStanding, 0, len(entrants))
-	for _, s := range blitz.Standings(entrants, matches, uint64(ed.TiebreakSeed)) {
+	return blitz.Standings(entrants, matches, uint64(ed.TiebreakSeed))
+}
+
+// blitzStandings is the edition's standings as the API sends them.
+func blitzStandings(ed store.BlitzEdition) []BlitzStanding {
+	names, countries := map[int64]string{}, map[int64]string{}
+	for _, e := range ed.Entrants {
+		names[e.ID], countries[e.ID] = e.Name, e.Country
+	}
+	standings := swissStandings(ed)
+	out := make([]BlitzStanding, 0, len(standings))
+	for _, s := range standings {
 		status := "active"
 		if s.Dropped {
 			status = "dropped"
@@ -97,7 +114,7 @@ func (s *server) GetBlitzEdition(ctx context.Context, req GetBlitzEditionRequest
 	}
 	row := blitzEditionRow(ed.BlitzEditionRow)
 	body := BlitzEdition{Tournament: row.Tournament, Name: row.Name, Edition: row.Edition, Format: row.Format,
-		Entrants: []BlitzEntrant{}, Rounds: make([]BlitzRound, len(ed.Rounds)), Standings: blitzStandings(ed)}
+		Entrants: []BlitzEntrant{}, Rounds: make([]BlitzRound, len(ed.Rounds)), Standings: blitzStandings(ed), Champion: row.Champion}
 	for _, e := range ed.Entrants {
 		if e.Status != "active" {
 			continue
@@ -121,13 +138,14 @@ func (s *server) GetBlitzEdition(ctx context.Context, req GetBlitzEditionRequest
 		return nil
 	}
 	for i, r := range ed.Rounds {
-		pr := BlitzRound{Number: r.Number, Matches: make([]BlitzPublicMatch, len(r.Matches))}
+		pr := BlitzRound{Number: r.Number, Kind: BlitzRoundKind(r.Kind), Matches: make([]BlitzPublicMatch, len(r.Matches))}
 		if r.PublishedAt != nil {
 			pr.PublishedAt = *r.PublishedAt
 		}
 		for j, m := range r.Matches {
 			a := named[m.A]
 			pm := BlitzPublicMatch{A: a.Name, ARating: rating(a), Result: blitzResult(m), Game: playedGame(m), Ruled: m.Ruling != ""}
+			pm.ASeed, pm.BSeed = m.SeedA, m.SeedB
 			if m.B != nil {
 				b := named[*m.B]
 				pm.B, pm.BRating = &b.Name, rating(b)

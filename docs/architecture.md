@@ -195,7 +195,7 @@ active or dropped), added one at a time with a username the ratings know
 kept in their spelling, and its rounds (`blitz_rounds`, `blitz_matches`):
 paired by the api (`internal/blitz`: equal points, never the same opponent
 twice, the best time-zone fit within a score group, the bye to the lowest
-player without one), changed by hand, then published.
+in the standings without one), changed by hand, then published.
 
 **A result is a game.** A played game is written to `games` and `seats`
 under the edition's stage "Round N", from an `import_batches` row of
@@ -212,9 +212,27 @@ admin login may insert and update games, seats, players and stages; it
 still cannot delete games, players or runs, and the api refuses to start
 if it could.
 
-The site's `/blitz` shows the editions, each one's standings, the published
-pairings with their results, and who is in, each with their country's
-flag. A ruling's reason stays in admin. The knockout comes next.
+**The knockout** follows the last Swiss round, and the same Pair makes it:
+the top of the standings, the best seed against the worst, then each
+round's winners until the final. Each knockout match keeps its place in
+the bracket (`blitz_matches.slot`): the winners of slots 2k and 2k+1 meet
+in slot k of the next round. It also keeps its players' seeds, their
+places in the Swiss standings when the knockout began, so a later
+correction to a Swiss result never moves the bracket. A knockout round
+follows the bracket, so it is never changed by hand, and it may repeat a
+Swiss pairing. A knockout match needs a winner: a drawn game stays a draw
+as a game and sends the higher seed through, and a ruling there names the
+winner. The standings count the Swiss rounds only. The champion is
+the winner of the published final, worked out on read; once the knockout
+has a round, the edition's format no longer changes.
+
+The site's `/blitz` shows the editions, each one's knockout and champion,
+its standings, the published Swiss pairings with their results, and who is
+in, each with their country's flag. A ruling's reason stays in admin.
+
+Blitz belongs to the root site, not to the ratings: the header on the home
+page and `/blitz` lists the root site's sections (Ratings, Blitz), and
+everything under `/ratings/` keeps the ratings' own menu and footer.
 
 ### Members
 
@@ -230,7 +248,10 @@ account's current name, so a CGE rename follows through. Admin may enter a
 CGE id by hand. The ratings never make or change a player from a member.
 
 A member also carries a Discord name, an email (so organisers can reach
-players who have no Discord), a country for the flag, a time zone, and a
+players who have no Discord), a country (one of ISO 3166's two-letter
+codes, or XK for Kosovo; the site has a flag for each, from
+[Flagpedia](https://flagpedia.net), whose flags are public domain), a time
+zone, and a
 **community ban** with its reason, which stops them being entered in an
 edition and leaves their games and ratings alone. Admins and organisers
 add and edit members; bans and removals are admins' only, and a member in

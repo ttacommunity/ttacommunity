@@ -1,6 +1,6 @@
 /** A blitz edition's page: its format, its entrants (added one at a time, dropped, removed), its rounds (paired, changed by hand, published, their results recorded), the standings, and what players see. */
 import { useEffect, useState, type FormEvent } from 'react';
-import { formatLabel, offsetLabel, resultSummary, zoneOptions } from '@ttac/shared/blitz';
+import { formatLabel, offsetLabel, resultSummary, roundTitle, seededName, zoneOptions } from '@ttac/shared/blitz';
 import { formatInstant } from '@ttac/shared/time';
 import { adminRequest, firstError, type AdminBlitzEdition, type AdminMe, type AdminMember, type BlitzEntrantIds, type Load } from '../lib/admin-api';
 import * as req from '../lib/admin-requests';
@@ -8,7 +8,7 @@ import { tabsFor } from '../lib/admin-tabs';
 import { editionParams, playersView, type AdminBlitzEntrant } from '../lib/blitz-page';
 import { emptyGameForm, gameRecordFrom, type BlitzStanding, type GameForm } from '../lib/blitz-results';
 import { isCountryCode, membersToEnter } from '../lib/members';
-import { asChanges, canDeleteRound, canPair, decidedOnly, editableRound, inARound, newestFirst, samePairs, undecided, unpaired, unsavedMatch, zoneGapLabel, type AdminBlitzMatch, type AdminBlitzRound } from '../lib/blitz-rounds';
+import { asChanges, canDeleteRound, canPair, decidedOnly, editableRound, inARound, nextRound, rulingChoices, newestFirst, samePairs, undecided, unpaired, unsavedMatch, zoneGapLabel, type AdminBlitzMatch, type AdminBlitzRound } from '../lib/blitz-rounds';
 import AdminHeader from './AdminHeader';
 import PageError from './PageError';
 import './AdminApp.css';
@@ -75,6 +75,12 @@ export default function BlitzEditionPage() {
               </h2>
               <p className="muted">
                 {formatLabel(ed.data.format)}. {count('active')} in, {count('pending')} pending, {count('dropped')} dropped.
+                {ed.data.champion !== null && (
+                  <>
+                    {' '}
+                    Champion: <strong>{ed.data.champion}</strong>.
+                  </>
+                )}
               </p>
             </section>
             {message !== '' && (
@@ -119,6 +125,7 @@ function RoundsCard({ at, ed, onReload, say }: Props) {
     return r === null ? '–' : String(Math.round(r));
   };
   const editable = editableRound(ed.rounds);
+  const next = nextRound(ed.rounds, ed.format, ed.champion);
   // pending is the latest round's matches as changed here and not yet saved; null while the saved ones are shown.
   const [pending, setPending] = useState<AdminBlitzMatch[] | null>(null);
   const shownOf = (r: AdminBlitzRound) => (r.id === editable && pending !== null ? pending : r.matches);
@@ -131,7 +138,8 @@ function RoundsCard({ at, ed, onReload, say }: Props) {
   };
   const pair = (e: FormEvent) => {
     e.preventDefault();
-    void run(req.pairBlitzRound(at.slug, at.edition, criteria), `Round ${ed.rounds.length + 1} paired as a draft.`);
+    if (next === null) return;
+    void run(req.pairBlitzRound(at.slug, at.edition, criteria), `${roundTitle(next.number, ed.format)} paired as a draft.`);
   };
   const repair = async (r: AdminBlitzRound) => {
     const res = await req.send<AdminBlitzRound>(req.proposeBlitzPairing(at.slug, at.edition, r.id, criteria));
@@ -164,10 +172,10 @@ function RoundsCard({ at, ed, onReload, say }: Props) {
   const save = async (r: AdminBlitzRound) => {
     if (changed(r) && !(await run(req.setBlitzRoundMatches(at.slug, at.edition, r.id, asChanges(shownOf(r))), 'Saved.'))) return;
     setPending(null);
-    if (r.published_at === null) await run(req.publishBlitzRound(at.slug, at.edition, r.id), `Round ${r.number} published.`);
-    else if (changed(r)) say(`Round ${r.number} updated: the site shows it now.`);
+    if (r.published_at === null) await run(req.publishBlitzRound(at.slug, at.edition, r.id), `${roundTitle(r.number, ed.format)} published.`);
+    else if (changed(r)) say(`${roundTitle(r.number, ed.format)} updated: the site shows it now.`);
   };
-  const pairable = canPair(ed.entrants, ed.rounds);
+  const pairable = canPair(ed.entrants, ed.rounds) && next !== null;
   return (
     <section className="rating-card admin-card" aria-labelledby="rounds-heading">
       <h2 id="rounds-heading" className="rating-card-heading">
@@ -178,29 +186,37 @@ function RoundsCard({ at, ed, onReload, say }: Props) {
         the pairs are the best time-zone fit (and the closest ratings, when ticked), chance deciding the rest. With an
         odd count the lowest in the standings without a bye sits out. The latest round can be paired again or changed by
         hand (Unpair all, to enter a round paired elsewhere): nothing you change is saved until you publish it, or
-        update it once it is published, and a match with a result stays as it is.
+        update it once it is published, and a match with a result stays as it is. After the last Swiss round, Pair
+        makes the knockout: the top {ed.format.knockout_size} of the standings, the best seed against the worst, then
+        each round&apos;s winners until the final. A knockout round follows the bracket and is not changed by hand; a
+        drawn knockout game sends the higher seed through, and a knockout ruling names who goes through.
       </p>
       <form className="admin-add" onSubmit={pair}>
-        <h3>Pair round {ed.rounds.length + 1}</h3>
-        <label className="setting-inline">
-          <input type="checkbox" checked={criteria.timezone} onChange={(e) => setCriteria({ ...criteria, timezone: e.target.checked })} />
-          Time-zone fit
-        </label>
-        <label className="setting-inline">
-          <input type="checkbox" checked={criteria.rating} onChange={(e) => setCriteria({ ...criteria, rating: e.target.checked })} />
-          Closest ratings
-        </label>
+        <h3>{next === null ? 'Every round is paired' : `Pair ${roundTitle(next.number, ed.format)}`}</h3>
+        {next?.kind === 'swiss' && (
+          <>
+            <label className="setting-inline">
+              <input type="checkbox" checked={criteria.timezone} onChange={(e) => setCriteria({ ...criteria, timezone: e.target.checked })} />
+              Time-zone fit
+            </label>
+            <label className="setting-inline">
+              <input type="checkbox" checked={criteria.rating} onChange={(e) => setCriteria({ ...criteria, rating: e.target.checked })} />
+              Closest ratings
+            </label>
+          </>
+        )}
         <button type="submit" className="btn-antique" disabled={!pairable}>
           Pair
         </button>
         {!pairable && blockers.length > 0 && <span className="muted">Waiting for results: {blockers.join(', ')}.</span>}
-        {!pairable && blockers.length === 0 && <span className="muted">Needs two active entrants and no draft open.</span>}
+        {!pairable && blockers.length === 0 && next !== null && <span className="muted">Needs two active entrants and no draft open.</span>}
+        {next === null && ed.champion !== null && <span className="muted">Finished: {ed.champion} is the champion.</span>}
       </form>
       {ed.rounds.length === 0 && <p className="muted">No rounds yet.</p>}
       {newestFirst(ed.rounds).map((r) => (
         <div key={r.id} className="round-block">
           <h3>
-            Round {r.number} · {r.published_at === null ? 'draft' : `published ${formatInstant(r.published_at, zone)}`}
+            {roundTitle(r.number, ed.format)} · {r.published_at === null ? 'draft' : `published ${formatInstant(r.published_at, zone)}`}
             {changed(r) && <span className="row-detail">unsaved changes</span>}
           </h3>
           {shownOf(r).length === 0 && <p className="muted">No matches.</p>}
@@ -225,9 +241,9 @@ function RoundsCard({ at, ed, onReload, say }: Props) {
                 <tbody>
                   {shownOf(r).map((m, i) => (
                     <tr key={m.id === 0 ? `new-${i}` : m.id} className={m.repeat ? 'row-error' : ''}>
-                      <th scope="row">{nameOf(m.a)}</th>
+                      <th scope="row">{seededName(nameOf(m.a), m.a_seed)}</th>
                       <td>{ratingOf(m.a)}</td>
-                      <td>{m.b === null ? <em>bye</em> : nameOf(m.b)}</td>
+                      <td>{m.b === null ? <em>bye</em> : seededName(nameOf(m.b), m.b_seed)}</td>
                       <td>{m.b === null ? '' : ratingOf(m.b)}</td>
                       <td>{m.b === null ? '' : zoneGapLabel(m.zone_gap_minutes)}</td>
                       <td>
@@ -244,7 +260,7 @@ function RoundsCard({ at, ed, onReload, say }: Props) {
                             {m.result === null ? 'Record' : 'Correct'}
                           </button>
                         )}
-                        {r.id === editable && m.result === null && (
+                        {r.id === editable && r.kind === 'swiss' && m.result === null && (
                           <button type="button" className="btn-antique" onClick={() => unpair(r, i)}>
                             Unpair
                           </button>
@@ -272,9 +288,10 @@ function RoundsCard({ at, ed, onReload, say }: Props) {
           )}
           {r.id === editable && (
             <div className="admin-add">
-              <h3>Change by hand</h3>
-              {freeOf(r).length === 0 && <span className="muted">Everyone active is in a match.</span>}
-              {freeOf(r).length > 0 && (
+              <h3>{r.kind === 'swiss' ? 'Change by hand' : 'The bracket'}</h3>
+              {r.kind === 'knockout' && <span className="muted">A knockout round follows the bracket: delete it and pair again to redo it.</span>}
+              {r.kind === 'swiss' && freeOf(r).length === 0 && <span className="muted">Everyone active is in a match.</span>}
+              {r.kind === 'swiss' && freeOf(r).length > 0 && (
                 <>
                   <label>
                     Pair
@@ -317,15 +334,21 @@ function RoundsCard({ at, ed, onReload, say }: Props) {
                   </button>
                 </>
               )}
-              <button type="button" className="btn-antique" onClick={() => void repair(r)}>
-                Re-pair
-              </button>
-              <button type="button" className="btn-antique" disabled={decidedOnly(shownOf(r)).length === shownOf(r).length} onClick={() => unpairAll(r)}>
-                Unpair all
-              </button>
-              <button type="button" className="btn-antique" disabled={r.published_at !== null && !changed(r)} onClick={() => void save(r)}>
-                {r.published_at === null ? 'Publish' : 'Update'}
-              </button>
+              {r.kind === 'swiss' && (
+                <>
+                  <button type="button" className="btn-antique" onClick={() => void repair(r)}>
+                    Re-pair
+                  </button>
+                  <button type="button" className="btn-antique" disabled={decidedOnly(shownOf(r)).length === shownOf(r).length} onClick={() => unpairAll(r)}>
+                    Unpair all
+                  </button>
+                </>
+              )}
+              {(r.kind === 'swiss' || r.published_at === null) && (
+                <button type="button" className="btn-antique" disabled={r.published_at !== null && !changed(r)} onClick={() => void save(r)}>
+                  {r.published_at === null ? 'Publish' : 'Update'}
+                </button>
+              )}
               {changed(r) && (
                 <button type="button" className="btn-antique" onClick={() => setPending(null)}>
                   Discard changes
@@ -336,8 +359,9 @@ function RoundsCard({ at, ed, onReload, say }: Props) {
                   type="button"
                   className="btn-antique"
                   onClick={() => {
-                    const what = r.published_at === null ? `the draft of round ${r.number}` : `round ${r.number}, published but not yet played`;
-                    if (window.confirm(`Delete ${what}? Pair again afterwards.`)) void run(req.deleteBlitzRound(at.slug, at.edition, r.id), `Round ${r.number} deleted.`);
+                    const title = roundTitle(r.number, ed.format);
+                    const what = r.published_at === null ? `the draft of ${title}` : `${title}, published but not yet played`;
+                    if (window.confirm(`Delete ${what}? Pair again afterwards.`)) void run(req.deleteBlitzRound(at.slug, at.edition, r.id), `${title} deleted.`);
                   }}
                 >
                   {r.published_at === null ? 'Delete draft' : 'Delete round'}
@@ -607,6 +631,7 @@ function AddEntrantCard({ at, ed, onReload, say }: Props) {
 /** FormatCard sets the edition's Swiss rounds and knockout size. */
 function FormatCard({ at, ed, onReload, say }: Props) {
   const [format, setFormat] = useState(ed.format);
+  const locked = ed.rounds.some((r) => r.kind === 'knockout');
   const save = async (e: FormEvent) => {
     e.preventDefault();
     const r = await req.send(req.setBlitzFormat(at.slug, at.edition, format));
@@ -618,6 +643,7 @@ function FormatCard({ at, ed, onReload, say }: Props) {
       <h2 id="format-heading" className="rating-card-heading">
         Format
       </h2>
+      {locked && <p className="muted">The knockout has started: the format no longer changes.</p>}
       <form className="admin-add" onSubmit={(e) => void save(e)}>
         <label>
           Swiss rounds
@@ -640,7 +666,7 @@ function FormatCard({ at, ed, onReload, say }: Props) {
             ))}
           </select>
         </label>
-        <button type="submit" className="btn-antique">
+        <button type="submit" className="btn-antique" disabled={locked}>
           Save
         </button>
       </form>
@@ -687,7 +713,8 @@ type ResultFormProps = {
 function ResultForm({ at, round, match, nameOf, onDone, onCancel, say }: ResultFormProps) {
   const [kind, setKind] = useState<'game' | 'ruling'>(match.ruling !== '' ? 'ruling' : 'game');
   const [game, setGame] = useState<GameForm>(() => formFromGame(match));
-  const [ruling, setRuling] = useState({ result: match.result ?? 'a', reason: match.ruling });
+  const choices = rulingChoices(round.kind);
+  const [ruling, setRuling] = useState({ result: match.result !== null && choices.includes(match.result) ? match.result : 'a', reason: match.ruling });
   const a = nameOf(match.a);
   const b = nameOf(match.b as number);
   const submit = async (e: FormEvent) => {
@@ -769,10 +796,11 @@ function ResultForm({ at, round, match, nameOf, onDone, onCancel, say }: ResultF
           <label>
             Ruling
             <select className="input-antique" value={ruling.result} onChange={(e) => setRuling({ ...ruling, result: e.target.value as typeof ruling.result })}>
-              <option value="a">{a} wins</option>
-              <option value="b">{b} wins</option>
-              <option value="draw">a draw</option>
-              <option value="double_loss">both lose</option>
+              {choices.map((c) => (
+                <option key={c} value={c}>
+                  {{ a: `${seededName(a, match.a_seed)} wins`, b: `${seededName(b, match.b_seed)} wins`, draw: 'a draw', double_loss: 'both lose' }[c]}
+                </option>
+              ))}
             </select>
           </label>
           <label>

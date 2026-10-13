@@ -1,4 +1,4 @@
-/** What both sites say about a blitz tournament: a zone's offset, a format, the zones a select offers, and how a match's result reads. */
+/** What both sites say about a blitz tournament: a zone's offset, a format, the zones a select offers, how a match's result reads, and how a round and a seeded player are named. */
 import type { components } from '../api/schema';
 
 export type BlitzFormat = components['schemas']['BlitzFormat'];
@@ -16,11 +16,19 @@ function scoreText(m: MatchResultView, game: BlitzPlayedGame): string {
   return score + ended(m.a, game.a_outcome) + ended(m.b, game.b_outcome);
 }
 
-/** resultSummary says how a match ended: "bye", "" while undecided, else who won (or a draw, or a double loss), the score, and "by ruling" when the organisers decided it. */
+/** drawnGame says whether a game ended level: both players finished on the same culture. */
+function drawnGame(g: BlitzPlayedGame): boolean {
+  return g.a_outcome === 'finished' && g.b_outcome === 'finished' && g.a_culture === g.b_culture;
+}
+
+/** resultSummary says how a match ended: "bye", "" while undecided, else who won (or a draw, or a double loss), the score, "by ruling" when the organisers decided it, and who went through as the higher seed when a knockout game was drawn. */
 export function resultSummary(m: MatchResultView): string {
   if (m.b === null) return 'bye';
   if (m.result === null) return '';
   const who = { a: `${m.a} won`, b: `${m.b} won`, draw: 'Draw', double_loss: 'Double loss' }[m.result];
+  if (!m.ruled && m.game !== null && drawnGame(m.game) && (m.result === 'a' || m.result === 'b')) {
+    return `Draw ${scoreText(m, m.game)}: ${m.result === 'a' ? m.a : m.b} through as the higher seed`;
+  }
   if (!m.ruled) return m.game === null ? who : `${who} ${scoreText(m, m.game)}`;
   return m.game === null ? `${who} by ruling` : `${who} by ruling (game ${scoreText(m, m.game)})`;
 }
@@ -52,4 +60,30 @@ export function zoneOptions(known: readonly string[], current: string): string[]
   const rest = known.filter((z) => z !== 'UTC');
   if (current !== '' && current !== 'UTC' && !rest.includes(current)) rest.push(current);
   return ['UTC', ...rest.sort()];
+}
+
+/** knockoutStage names a knockout round by how many still play in it (Final, Semi-finals, Quarter-finals, Round of 16), or null for a round outside the knockout. */
+export function knockoutStage(round: number, f: BlitzFormat): string | null {
+  const k = round - f.swiss_rounds;
+  if (k < 1 || f.knockout_size === 0) return null;
+  const players = f.knockout_size / 2 ** (k - 1);
+  if (players < 2) return null;
+  return { 2: 'Final', 4: 'Semi-finals', 8: 'Quarter-finals' }[players] ?? `Round of ${players}`;
+}
+
+/** roundTitle names a round: "Round 3", or "Round 9 · Quarter-finals" in the knockout. */
+export function roundTitle(round: number, f: BlitzFormat): string {
+  const stage = knockoutStage(round, f);
+  return stage === null ? `Round ${round}` : `Round ${round} · ${stage}`;
+}
+
+/** seededName writes a knockout player with their seed, as "(1) Ann", or the name alone without one. */
+export function seededName(name: string, seed: number | null): string {
+  return seed === null ? name : `(${seed}) ${name}`;
+}
+
+/** reachedLabel says how far an edition has got: "Pairing not started", the latest published round's title, or "Finished: champion Ann". */
+export function reachedLabel(round: number | null, f: BlitzFormat, champion: string | null): string {
+  if (champion !== null) return `Finished: champion ${champion}`;
+  return round === null ? 'Pairing not started' : roundTitle(round, f);
 }

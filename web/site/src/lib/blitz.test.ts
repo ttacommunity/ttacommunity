@@ -1,20 +1,17 @@
 import { describe, expect, it } from 'vitest';
-import { editionHref, editionParams, ratingText, roundLabel, roundsNewestFirst } from './blitz';
+import { editionHref, editionParams, ratingText, splitRounds } from './blitz';
 
-describe('roundLabel', () => {
-  it.each([
-    [null, 'Pairing not started'],
-    [1, 'Round 1'],
-    [8, 'Round 8'],
-  ])('labels round %s as %s', (round, want) => {
-    expect(roundLabel(round)).toBe(want);
-  });
-});
-
-describe('roundsNewestFirst', () => {
-  it('orders the rounds by number, the latest first', () => {
-    const rounds = [1, 3, 2].map((number) => ({ number, published_at: '2026-10-12T12:00:00Z', matches: [] }));
-    expect(roundsNewestFirst(rounds).map((r) => r.number)).toEqual([3, 2, 1]);
+describe('splitRounds', () => {
+  it('puts the Swiss rounds newest first and the knockout rounds in bracket order, first to final', () => {
+    const rounds = [
+      { number: 1, kind: 'swiss' },
+      { number: 4, kind: 'knockout' },
+      { number: 3, kind: 'knockout' },
+      { number: 2, kind: 'swiss' },
+    ] as const;
+    const { swiss, knockout } = splitRounds(rounds);
+    expect(swiss.map((r) => r.number)).toEqual([2, 1]);
+    expect(knockout.map((r) => r.number)).toEqual([3, 4]);
   });
 });
 

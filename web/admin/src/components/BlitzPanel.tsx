@@ -1,6 +1,6 @@
-/** The Blitz tab: every edition of every series marked Blitz, with its entrant counts, each opening its page. */
+/** The Blitz tab: every edition of every series marked Blitz, with how far it has got and its entrant counts, each opening its page. */
 import { useEffect, useState } from 'react';
-import { formatLabel } from '@ttac/shared/blitz';
+import { formatLabel, reachedLabel } from '@ttac/shared/blitz';
 import { adminRequest, type AdminBlitzEditionRow, type Load } from '../lib/admin-api';
 import { editionHref } from '../lib/blitz-page';
 
@@ -30,12 +30,13 @@ export default function BlitzPanel() {
       {rows.kind === 'ready' && rows.data.length > 0 && (
         <div className="table-responsive">
           <table className="leaderboard-table admin-table">
-            <caption className="visually-hidden">Blitz editions, their format and entrants</caption>
+            <caption className="visually-hidden">Blitz editions, their format, how far each has got and its entrants</caption>
             <thead>
               <tr>
                 <th scope="col">Tournament</th>
                 <th scope="col">Edition</th>
                 <th scope="col">Format</th>
+                <th scope="col">Reached</th>
                 <th scope="col">In</th>
                 <th scope="col">Pending</th>
                 <th scope="col">Dropped</th>
@@ -51,6 +52,7 @@ export default function BlitzPanel() {
                   </th>
                   <td>{r.edition}</td>
                   <td>{formatLabel(r.format)}</td>
+                  <td>{reachedLabel(r.round, r.format, r.champion)}</td>
                   <td>{r.entrants}</td>
                   <td>{r.pending}</td>
                   <td>{r.dropped}</td>

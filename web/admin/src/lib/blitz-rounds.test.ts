@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { canDeleteRound, canPair, decidedOnly, editableRound, inARound, newestFirst, samePairs, undecided, unpaired, unsavedMatch, withBye, withPair, withoutMatch, zoneGapLabel, type AdminBlitzRound } from './blitz-rounds';
+import { canDeleteRound, canPair, decidedOnly, editableRound, inARound, nextRound, rulingChoices, newestFirst, samePairs, undecided, unpaired, unsavedMatch, withBye, withPair, withoutMatch, zoneGapLabel, type AdminBlitzRound } from './blitz-rounds';
 
 const round = (id: number, number: number, published: boolean, matches: AdminBlitzRound['matches']): AdminBlitzRound => ({
   id,
@@ -10,10 +10,14 @@ const round = (id: number, number: number, published: boolean, matches: AdminBli
   published_at: published ? '2026-10-12T12:00:00Z' : null,
   matches,
 });
+const knockout = (id: number, number: number, published: boolean, matches: AdminBlitzRound['matches']): AdminBlitzRound => ({ ...round(id, number, published, matches), kind: 'knockout' });
 const match = (id: number, a: number, b: number | null, result: 'a' | 'b' | 'draw' | 'double_loss' | null = null): AdminBlitzRound['matches'][number] => ({
   id,
   a,
   b,
+  slot: null,
+  a_seed: null,
+  b_seed: null,
   zone_gap_minutes: 0,
   rating_gap: null,
   repeat: false,
@@ -51,7 +55,7 @@ describe('canPair', () => {
 
 describe('unsavedMatch and samePairs', () => {
   it('makes a match with no id, no gaps and no result', () => {
-    expect(unsavedMatch(1, 2)).toEqual({ id: 0, a: 1, b: 2, zone_gap_minutes: 0, rating_gap: null, repeat: false, result: null, game: null, ruling: '', decided_at: null });
+    expect(unsavedMatch(1, 2)).toEqual({ id: 0, a: 1, b: 2, slot: null, a_seed: null, b_seed: null, zone_gap_minutes: 0, rating_gap: null, repeat: false, result: null, game: null, ruling: '', decided_at: null });
     expect(unsavedMatch(3, null).b).toBe(null);
   });
   it.each([
@@ -79,6 +83,33 @@ describe('undecided', () => {
   it('names the matches still without a result, byes aside, oldest round first', () => {
     const rounds = [round(2, 2, true, [match(3, 1, 3), match(4, 2, null)]), round(1, 1, true, [match(1, 1, 2, 'draw'), match(2, 3, 4)])];
     expect(undecided(rounds, (id) => `p${id}`)).toEqual(['p3 v p4', 'p1 v p3']);
+  });
+  it('names a knockout match without a winner, a draw or a double loss', () => {
+    const rounds = [round(1, 1, true, [match(1, 1, 2, 'a')]), knockout(2, 2, true, [match(2, 1, 3, 'draw'), match(3, 2, 4, 'b'), match(4, 5, 6, 'double_loss')])];
+    expect(undecided(rounds, (id) => `p${id}`)).toEqual(['p1 v p3 (no winner yet)', 'p5 v p6 (no winner yet)']);
+  });
+});
+
+describe('nextRound', () => {
+  const usOpen = { swiss_rounds: 2, knockout_size: 4 };
+  it.each([
+    ['round 1 before anything', [], usOpen, null, { number: 1, kind: 'swiss' }],
+    ['a Swiss round while some are left', [round(1, 1, true, [])], usOpen, null, { number: 2, kind: 'swiss' }],
+    ['the knockout after the last Swiss round', [round(1, 1, true, []), round(2, 2, true, [])], usOpen, null, { number: 3, kind: 'knockout' }],
+    ['the knockout again after a knockout round', [round(1, 1, true, []), round(2, 2, true, []), knockout(3, 3, true, [])], usOpen, null, { number: 4, kind: 'knockout' }],
+    ['nothing once there is a champion', [round(1, 1, true, []), round(2, 2, true, []), knockout(3, 3, true, []), knockout(4, 4, true, [])], usOpen, 'p1', null],
+    ['nothing after the Swiss with no knockout', [round(1, 1, true, []), round(2, 2, true, [])], { swiss_rounds: 2, knockout_size: 0 }, null, null],
+  ])('pairs %s', (_name, rounds, format, champion, want) => {
+    expect(nextRound(rounds, format, champion)).toEqual(want);
+  });
+});
+
+describe('rulingChoices', () => {
+  it.each([
+    ['a Swiss match', 'swiss', ['a', 'b', 'draw', 'double_loss']],
+    ['a knockout match, which needs a winner', 'knockout', ['a', 'b']],
+  ] as const)('offers %s', (_name, kind, want) => {
+    expect(rulingChoices(kind)).toEqual(want);
   });
 });
 

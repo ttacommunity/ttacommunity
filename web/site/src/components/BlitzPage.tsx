@@ -1,14 +1,16 @@
-/** The Blitz section: every blitz edition, or one edition (?t=&e=) with its standings, its pairings and results, and the entrants still in. */
+/** The Blitz section: every blitz edition, or one edition (?t=&e=) with its knockout and champion, its standings, its Swiss pairings and results, and the entrants still in. */
 import { useEffect, useState } from 'react';
 import { RatingsApiError, blitzEdition, blitzEditions, type BlitzEdition, type BlitzEditions } from '@ttac/shared/ratings';
-import { formatLabel, resultSummary, zoneLabel } from '@ttac/shared/blitz';
-import { editionHref, editionParams, ratingText, roundLabel, roundsNewestFirst } from '../lib/blitz';
+import type { components } from '@ttac/shared/api';
+import { formatLabel, reachedLabel, resultSummary, roundTitle, seededName, zoneLabel, type BlitzFormat } from '@ttac/shared/blitz';
+import { editionHref, editionParams, ratingText, splitRounds } from '../lib/blitz';
 import { catalogueHref } from '../lib/catalogue-view';
 import { Flag } from './PlayerMarks';
 import Waiting from './Waiting';
 import './Blitz.css';
 
 type Load<T> = { kind: 'loading' } | { kind: 'missing' } | { kind: 'error'; message: string } | { kind: 'ready'; data: T };
+type BlitzRound = components['schemas']['BlitzRound'];
 
 /** BlitzPage shows the edition the address names, or the list of every edition. */
 export default function BlitzPage({ apiUrl }: { apiUrl: string }) {
@@ -77,7 +79,7 @@ function BlitzList({ apiUrl }: { apiUrl: string }) {
                       </th>
                       <td>{r.edition}</td>
                       <td>{formatLabel(r.format)}</td>
-                      <td>{roundLabel(r.round)}</td>
+                      <td>{reachedLabel(r.round, r.format, r.champion)}</td>
                       <td className="num">{r.entrants}</td>
                     </tr>
                   ))}
@@ -117,6 +119,9 @@ function EditionPage({ apiUrl, slug, edition }: { apiUrl: string; slug: string; 
     );
   }
   const ed = load.data;
+  const { swiss, knockout } = splitRounds(ed.rounds);
+  const latest = ed.rounds.length === 0 ? null : Math.max(...ed.rounds.map((r) => r.number));
+  const countryOf = new Map(ed.standings.map((s) => [s.name, s.country]));
   return (
     <>
       <div className="tournaments-header">
@@ -124,7 +129,7 @@ function EditionPage({ apiUrl, slug, edition }: { apiUrl: string; slug: string; 
           <span>⚡</span> {ed.name} {ed.edition}
         </h1>
         <div className="tournaments-subtitle">
-          {formatLabel(ed.format)}. {roundLabel(ed.rounds.length === 0 ? null : Math.max(...ed.rounds.map((r) => r.number)))}.
+          {formatLabel(ed.format)}. {reachedLabel(latest, ed.format, ed.champion)}.
         </div>
       </div>
       {ed.rounds.length === 0 && (
@@ -133,6 +138,30 @@ function EditionPage({ apiUrl, slug, edition }: { apiUrl: string; slug: string; 
             Pairing not started
           </h2>
           <p className="blitz-intro">Round 1&apos;s pairings, the results and the standings appear here once the organisers publish them.</p>
+        </section>
+      )}
+      {knockout.length > 0 && (
+        <section className="rating-card blitz-card" aria-labelledby="blitz-knockout">
+          <h2 id="blitz-knockout" className="rating-card-heading">
+            Knockout
+          </h2>
+          {ed.champion !== null && (
+            <p className="blitz-champion">
+              Champion:{' '}
+              <span className="blitz-flag">
+                <Flag country={countryOf.get(ed.champion) ?? null} />
+              </span>
+              <strong>{ed.champion}</strong>
+            </p>
+          )}
+          <p className="blitz-intro">
+            The top {ed.format.knockout_size} after the Swiss rounds, seeded by the standings: the best seed meets the worst,
+            and the winners of neighbouring matches meet next, through to the final. A drawn game sends the higher seed
+            through.
+          </p>
+          {knockout.map((r) => (
+            <RoundTable key={r.number} round={r} format={ed.format} />
+          ))}
         </section>
       )}
       {ed.rounds.length > 0 && (
@@ -189,7 +218,7 @@ function EditionPage({ apiUrl, slug, edition }: { apiUrl: string; slug: string; 
           </div>
         </section>
       )}
-      {ed.rounds.length > 0 && (
+      {swiss.length > 0 && (
         <section className="rating-card blitz-card" aria-labelledby="blitz-rounds">
           <h2 id="blitz-rounds" className="rating-card-heading">
             Pairings and results
@@ -198,42 +227,8 @@ function EditionPage({ apiUrl, slug, edition }: { apiUrl: string; slug: string; 
             Who plays whom, the latest round first, and how each game went. Arrange your game with your opponent on Discord.
             A recorded game is on the <a href={catalogueHref(ed.tournament)}>tournament&apos;s page</a> too.
           </p>
-          {roundsNewestFirst(ed.rounds).map((r) => (
-            <div key={r.number} className="blitz-round">
-              <h3>Round {r.number}</h3>
-              <div className="blitz-table-wrap">
-                <table className="blitz-table">
-                  <caption>Round {r.number}&apos;s pairings and results</caption>
-                  <thead>
-                    <tr>
-                      <th scope="col">Player</th>
-                      <th scope="col" className="num">
-                        Rating
-                      </th>
-                      <th scope="col">Opponent</th>
-                      <th scope="col" className="num">
-                        Rating
-                      </th>
-                      <th scope="col">Result</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {r.matches.map((m) => (
-                      <tr key={`${m.a}-${m.b ?? 'bye'}`}>
-                        <th scope="row">{m.a}</th>
-                        <td className="num">{ratingText(m.a_rating)}</td>
-                        <td>{m.b === null ? <em>bye</em> : m.b}</td>
-                        <td className="num">{m.b === null ? '' : ratingText(m.b_rating)}</td>
-                        <td>
-                          {m.b === null ? '' : m.result === null ? <span className="muted">to be played</span> : resultSummary(m)}
-                          {m.game !== null && <span className="blitz-note">{m.game.share_code}</span>}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </div>
+          {swiss.map((r) => (
+            <RoundTable key={r.number} round={r} format={ed.format} />
           ))}
         </section>
       )}
@@ -279,5 +274,47 @@ function EditionPage({ apiUrl, slug, edition }: { apiUrl: string; slug: string; 
         )}
       </section>
     </>
+  );
+}
+
+/** RoundTable shows one round's pairings and results, knockout players with their seeds. */
+function RoundTable({ round: r, format }: { round: BlitzRound; format: BlitzFormat }) {
+  const title = roundTitle(r.number, format);
+  return (
+    <div className="blitz-round">
+      <h3>{title}</h3>
+      <div className="blitz-table-wrap">
+        <table className="blitz-table">
+          <caption>{title}: pairings and results</caption>
+          <thead>
+            <tr>
+              <th scope="col">Player</th>
+              <th scope="col" className="num">
+                Rating
+              </th>
+              <th scope="col">Opponent</th>
+              <th scope="col" className="num">
+                Rating
+              </th>
+              <th scope="col">Result</th>
+            </tr>
+          </thead>
+          <tbody>
+            {r.matches.map((m) => (
+              <tr key={`${m.a}-${m.b ?? 'bye'}`}>
+                <th scope="row">{seededName(m.a, m.a_seed)}</th>
+                <td className="num">{ratingText(m.a_rating)}</td>
+                <td>{m.b === null ? <em>bye</em> : seededName(m.b, m.b_seed)}</td>
+                <td className="num">{m.b === null ? '' : ratingText(m.b_rating)}</td>
+                <td>
+                  {m.b === null ? '' : m.result === null ? <span className="muted">to be played</span> : resultSummary(m)}
+                  {m.game !== null && <span className="blitz-note">{m.game.share_code}</span>}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
   );
 }

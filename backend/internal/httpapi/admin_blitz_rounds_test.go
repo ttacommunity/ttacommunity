@@ -69,6 +69,9 @@ func (f *fakeAdmins) SetBlitzRoundMatches(_ context.Context, slug, edition strin
 	if err != nil {
 		return err
 	}
+	if f.rounds[i].Kind == "knockout" {
+		return store.ErrBlitzKnockoutFixed
+	}
 	for _, m := range matches {
 		if m.A == 99 || (m.B != nil && *m.B == 99) {
 			return fmt.Errorf("%w: entrant 99", store.ErrBadBlitzMatch)

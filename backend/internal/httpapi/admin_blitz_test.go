@@ -44,7 +44,30 @@ func (f *fakeAdmins) blitzRow() store.BlitzEditionRow {
 			row.Entrants++
 		}
 	}
+	for _, r := range f.rounds {
+		if w, ok := finalWinner(r); ok {
+			for _, e := range f.blitzEntrants() {
+				if e.ID == w {
+					row.Champion = new(e.Name)
+				}
+			}
+		}
+	}
 	return row
+}
+
+// finalWinner is the winner of a published knockout round of one match, the final.
+func finalWinner(r store.BlitzRound) (int64, bool) {
+	if r.Kind != "knockout" || r.PublishedAt == nil || len(r.Matches) != 1 || r.Matches[0].B == nil {
+		return 0, false
+	}
+	switch m := r.Matches[0]; m.Result {
+	case "a":
+		return m.A, true
+	case "b":
+		return *m.B, true
+	}
+	return 0, false
 }
 
 func (f *fakeAdmins) BlitzEditions(context.Context) ([]store.BlitzEditionRow, error) {
@@ -64,6 +87,9 @@ func (f *fakeAdmins) SetBlitzFormat(_ context.Context, slug, edition string, for
 	}
 	if format.KnockoutSize == 3 {
 		return store.ErrBadBlitzFormat
+	}
+	if slices.ContainsFunc(f.rounds, func(r store.BlitzRound) bool { return r.Kind == "knockout" }) {
+		return store.ErrBlitzFormatLocked
 	}
 	f.format = format
 	f.notes = append(f.notes, fmt.Sprintf("format %d/%d", format.SwissRounds, format.KnockoutSize))

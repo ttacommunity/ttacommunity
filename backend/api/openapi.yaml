@@ -1955,7 +1955,7 @@ paths:
       operationId: patchAdminBlitzEdition
       tags: [admin]
       summary: Set a blitz edition's format
-      description: Audited. The Origin must be the admin site.
+      description: Audited. The Origin must be the admin site. Refused once the knockout has a round.
       parameters:
         - $ref: "#/components/parameters/AdminTournamentSlug"
         - $ref: "#/components/parameters/BlitzEditionLabel"
@@ -1976,6 +1976,8 @@ paths:
           $ref: "#/components/responses/Forbidden"
         "404":
           $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
   /v1/admin/blitz/{tournament}/{edition}/entrants:
     post:
       operationId: postAdminBlitzEntrants
@@ -2025,8 +2027,13 @@ paths:
         paired on equal points where possible, never with an opponent they
         have met; within a score group the pairs are the best time-zone fit
         (and the closest ratings, when asked), chance deciding the rest. With
-        an odd count the lowest in the standings without a bye gets it. Refused
-        while a draft exists or a match so far has no result.
+        an odd count the lowest in the standings without a bye gets it. After
+        the last Swiss round it pairs the knockout instead: first the top of
+        the standings, 1 v 8, 2 v 7… for eight, then each round's winners,
+        neighbouring matches meeting, until the final; the criteria do not
+        apply. Refused while a draft exists, a match so far has no result or
+        a knockout match no winner, the knockout lacks players, or the
+        edition is finished.
       parameters:
         - $ref: "#/components/parameters/AdminTournamentSlug"
         - $ref: "#/components/parameters/BlitzEditionLabel"
@@ -2088,7 +2095,8 @@ paths:
         Everyone active now is paired as for a new round, by the criteria
         given; a match of the round that already has a result is kept and
         its players are left out. Nothing is written: the proposal's new
-        matches have no id. Save it with PUT matches.
+        matches have no id. Save it with PUT matches. A knockout round follows
+        the bracket and is refused.
       parameters:
         - $ref: "#/components/parameters/AdminTournamentSlug"
         - $ref: "#/components/parameters/BlitzEditionLabel"
@@ -2117,6 +2125,8 @@ paths:
           $ref: "#/components/responses/Forbidden"
         "404":
           $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
   /v1/admin/blitz/{tournament}/{edition}/rounds/{round}/matches:
     put:
       operationId: putAdminBlitzRoundMatches
@@ -2125,7 +2135,8 @@ paths:
       description: |
         Audited. The Origin must be the admin site. A match names two active
         entrants, or one for the bye; nobody twice; never a pair that has met.
-        A round may be left incomplete until it is published.
+        A round may be left incomplete until it is published. A knockout round
+        follows the bracket and is refused.
       parameters:
         - $ref: "#/components/parameters/AdminTournamentSlug"
         - $ref: "#/components/parameters/BlitzEditionLabel"
@@ -2147,6 +2158,8 @@ paths:
           $ref: "#/components/responses/Forbidden"
         "404":
           $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
   /v1/admin/blitz/{tournament}/{edition}/rounds/{round}/publish:
     post:
       operationId: postAdminBlitzRoundPublish
@@ -2178,8 +2191,9 @@ paths:
         the edition's "Round N" stage with a seat for each player, so the
         tournament's page shows it at once; recording the match again changes
         that one game. The higher culture wins and equal cultures draw; a
-        resigned or timed-out player loses with culture 0. A share code already
-        on another game is refused, naming it. The match's ruling, if any, is
+        resigned or timed-out player loses with culture 0; a drawn knockout
+        game stays a draw as a game and sends the higher seed through. A share
+        code already on another game is refused, naming it. The match's ruling, if any, is
         cleared.
       parameters:
         - $ref: "#/components/parameters/AdminTournamentSlug"
@@ -2212,9 +2226,9 @@ paths:
       summary: Decide a match by the organisers' ruling
       description: |
         Audited. The Origin must be the admin site. A ruling awards the match
-        to one player, calls it a draw or a double loss, with its reason. A
-        game the match already has stays, overruled; recording the game again
-        puts its result back.
+        to one player, calls it a draw or a double loss, with its reason; a
+        knockout match's ruling names who goes through. A game the match already has stays, overruled;
+        recording the game again puts its result back.
       parameters:
         - $ref: "#/components/parameters/AdminTournamentSlug"
         - $ref: "#/components/parameters/BlitzEditionLabel"
@@ -3266,8 +3280,12 @@ components:
     BlitzEditionRow:
       description: One edition of a blitz tournament as the site's list shows it
       type: object
-      required: [tournament, name, edition, format, entrants, round]
+      required: [tournament, name, edition, format, entrants, round, champion]
       properties:
+        champion:
+          description: The winner of the knockout's final, by username; null until the final has a winner
+          type: string
+          nullable: true
         round:
           description: The latest published round's number, null before the first is published
           type: integer
@@ -3320,8 +3338,12 @@ components:
     BlitzEdition:
       description: A blitz edition for the site, with the entrants still in, the published rounds and the standings
       type: object
-      required: [tournament, name, edition, format, entrants, rounds, standings]
+      required: [tournament, name, edition, format, entrants, rounds, standings, champion]
       properties:
+        champion:
+          description: The winner of the knockout's final, by username; null until the final has a winner
+          type: string
+          nullable: true
         tournament:
           type: string
         name:
@@ -3347,10 +3369,14 @@ components:
     BlitzRound:
       description: A published round as the site shows it
       type: object
-      required: [number, published_at, matches]
+      required: [number, kind, published_at, matches]
       properties:
         number:
           type: integer
+        kind:
+          description: A Swiss round, or a knockout round (its matches in bracket order)
+          type: string
+          enum: [swiss, knockout]
         published_at:
           type: string
           format: date-time
@@ -3361,8 +3387,16 @@ components:
     BlitzPublicMatch:
       description: Who plays whom and how it ended; b is null for the bye
       type: object
-      required: [a, a_rating, b, b_rating, result, game, ruled]
+      required: [a, a_rating, a_seed, b, b_rating, b_seed, result, game, ruled]
       properties:
+        a_seed:
+          description: In a knockout match, a's seed, their place in the Swiss standings when the knockout began; null in a Swiss round
+          type: integer
+          nullable: true
+        b_seed:
+          description: In a knockout match, b's seed, their place in the Swiss standings when the knockout began; null in a Swiss round
+          type: integer
+          nullable: true
         a:
           type: string
         a_rating:
@@ -3461,8 +3495,20 @@ components:
     AdminBlitzMatch:
       description: A match by entrant ids; b is null for the bye. The gaps are as the entrants are now
       type: object
-      required: [id, a, b, zone_gap_minutes, rating_gap, repeat, result, game, ruling, decided_at]
+      required: [id, a, b, slot, a_seed, b_seed, zone_gap_minutes, rating_gap, repeat, result, game, ruling, decided_at]
       properties:
+        slot:
+          description: A knockout match's place in the bracket, from 0; the winners of slots 2k and 2k+1 meet in slot k next. Null in a Swiss round
+          type: integer
+          nullable: true
+        a_seed:
+          description: In a knockout match, a's seed, their place in the Swiss standings when the knockout began; null in a Swiss round
+          type: integer
+          nullable: true
+        b_seed:
+          description: In a knockout match, b's seed, their place in the Swiss standings when the knockout began; null in a Swiss round
+          type: integer
+          nullable: true
         id:
           type: integer
           format: int64
@@ -3548,8 +3594,12 @@ components:
     AdminBlitzEditionRow:
       description: One edition of a blitz tournament as admin's list shows it
       type: object
-      required: [tournament, name, edition, format, entrants, pending, dropped, round]
+      required: [tournament, name, edition, format, entrants, pending, dropped, round, champion]
       properties:
+        champion:
+          description: The winner of the knockout's final, by username; null until the final has a winner
+          type: string
+          nullable: true
         round:
           description: The latest published round's number, null before the first is published
           type: integer
@@ -3609,8 +3659,12 @@ components:
           enum: [pending, active, dropped]
     AdminBlitzEdition:
       type: object
-      required: [tournament, name, edition, format, entrants, rounds, standings]
+      required: [tournament, name, edition, format, entrants, rounds, standings, champion]
       properties:
+        champion:
+          description: The winner of the knockout's final, by username; null until the final has a winner
+          type: string
+          nullable: true
         tournament:
           type: string
         name:

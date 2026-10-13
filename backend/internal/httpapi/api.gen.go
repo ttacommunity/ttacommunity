@@ -42,16 +42,16 @@ func (e AdminBlitzEntrantStatus) Valid() bool {
 
 // Defines values for AdminBlitzRoundKind.
 const (
-	Knockout AdminBlitzRoundKind = "knockout"
-	Swiss    AdminBlitzRoundKind = "swiss"
+	AdminBlitzRoundKindKnockout AdminBlitzRoundKind = "knockout"
+	AdminBlitzRoundKindSwiss    AdminBlitzRoundKind = "swiss"
 )
 
 // Valid indicates whether the value is a known member of the AdminBlitzRoundKind enum.
 func (e AdminBlitzRoundKind) Valid() bool {
 	switch e {
-	case Knockout:
+	case AdminBlitzRoundKindKnockout:
 		return true
-	case Swiss:
+	case AdminBlitzRoundKindSwiss:
 		return true
 	default:
 		return false
@@ -259,6 +259,24 @@ func (e BlitzResult) Valid() bool {
 	case BlitzResultDoubleLoss:
 		return true
 	case BlitzResultDraw:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for BlitzRoundKind.
+const (
+	BlitzRoundKindKnockout BlitzRoundKind = "knockout"
+	BlitzRoundKindSwiss    BlitzRoundKind = "swiss"
+)
+
+// Valid indicates whether the value is a known member of the BlitzRoundKind enum.
+func (e BlitzRoundKind) Valid() bool {
+	switch e {
+	case BlitzRoundKindKnockout:
+		return true
+	case BlitzRoundKindSwiss:
 		return true
 	default:
 		return false
@@ -851,7 +869,9 @@ type AdminBadge struct {
 
 // AdminBlitzEdition defines model for AdminBlitzEdition.
 type AdminBlitzEdition struct {
-	Edition string `json:"edition"`
+	// Champion The winner of the knockout's final, by username; null until the final has a winner
+	Champion *string `json:"champion"`
+	Edition  string  `json:"edition"`
 
 	// Entrants Every entrant, in sign-up order, dropped ones included
 	Entrants []AdminBlitzEntrant `json:"entrants"`
@@ -870,6 +890,9 @@ type AdminBlitzEdition struct {
 
 // AdminBlitzEditionRow One edition of a blitz tournament as admin's list shows it
 type AdminBlitzEditionRow struct {
+	// Champion The winner of the knockout's final, by username; null until the final has a winner
+	Champion *string `json:"champion"`
+
 	// Dropped How many have dropped out
 	Dropped int    `json:"dropped"`
 	Edition string `json:"edition"`
@@ -917,8 +940,14 @@ type AdminBlitzEntrantStatus string
 
 // AdminBlitzMatch A match by entrant ids; b is null for the bye. The gaps are as the entrants are now
 type AdminBlitzMatch struct {
-	A         int64      `json:"a"`
-	B         *int64     `json:"b"`
+	A int64 `json:"a"`
+
+	// ASeed In a knockout match, a's seed, their place in the Swiss standings when the knockout began; null in a Swiss round
+	ASeed *int   `json:"a_seed"`
+	B     *int64 `json:"b"`
+
+	// BSeed In a knockout match, b's seed, their place in the Swiss standings when the knockout began; null in a Swiss round
+	BSeed     *int       `json:"b_seed"`
 	DecidedAt *time.Time `json:"decided_at"`
 
 	// Game The game played, null for none recorded
@@ -935,8 +964,11 @@ type AdminBlitzMatch struct {
 	Result *BlitzResult `json:"result"`
 
 	// Ruling The organisers' reason when the result is their ruling, else empty
-	Ruling         string `json:"ruling"`
-	ZoneGapMinutes int    `json:"zone_gap_minutes"`
+	Ruling string `json:"ruling"`
+
+	// Slot A knockout match's place in the bracket, from 0; the winners of slots 2k and 2k+1 meet in slot k next. Null in a Swiss round
+	Slot           *int `json:"slot"`
+	ZoneGapMinutes int  `json:"zone_gap_minutes"`
 }
 
 // AdminBlitzRound defines model for AdminBlitzRound.
@@ -1234,6 +1266,8 @@ type BadgeSetting struct {
 
 // BlitzEdition A blitz edition for the site, with the entrants still in, the published rounds and the standings
 type BlitzEdition struct {
+	// Champion The winner of the knockout's final, by username; null until the final has a winner
+	Champion *string        `json:"champion"`
 	Edition  string         `json:"edition"`
 	Entrants []BlitzEntrant `json:"entrants"`
 
@@ -1251,6 +1285,9 @@ type BlitzEdition struct {
 
 // BlitzEditionRow One edition of a blitz tournament as the site's list shows it
 type BlitzEditionRow struct {
+	// Champion The winner of the knockout's final, by username; null until the final has a winner
+	Champion *string `json:"champion"`
+
 	// Edition The edition's label
 	Edition string `json:"edition"`
 
@@ -1357,8 +1394,14 @@ type BlitzPlayedGame struct {
 type BlitzPublicMatch struct {
 	A       string   `json:"a"`
 	ARating *float64 `json:"a_rating"`
+
+	// ASeed In a knockout match, a's seed, their place in the Swiss standings when the knockout began; null in a Swiss round
+	ASeed   *int     `json:"a_seed"`
 	B       *string  `json:"b"`
 	BRating *float64 `json:"b_rating"`
+
+	// BSeed In a knockout match, b's seed, their place in the Swiss standings when the knockout began; null in a Swiss round
+	BSeed *int `json:"b_seed"`
 
 	// Game The game played, null for none recorded
 	Game *BlitzPlayedGame `json:"game"`
@@ -1375,10 +1418,15 @@ type BlitzResult string
 
 // BlitzRound A published round as the site shows it
 type BlitzRound struct {
+	// Kind A Swiss round, or a knockout round (its matches in bracket order)
+	Kind        BlitzRoundKind     `json:"kind"`
 	Matches     []BlitzPublicMatch `json:"matches"`
 	Number      int                `json:"number"`
 	PublishedAt time.Time          `json:"published_at"`
 }
+
+// BlitzRoundKind A Swiss round, or a knockout round (its matches in bracket order)
+type BlitzRoundKind string
 
 // BlitzRoundMatches defines model for BlitzRoundMatches.
 type BlitzRoundMatches struct {
@@ -7386,6 +7434,21 @@ func (response PatchAdminBlitzEdition404JSONResponse) VisitPatchAdminBlitzEditio
 	return err
 }
 
+type PatchAdminBlitzEdition409JSONResponse struct{ ConflictJSONResponse }
+
+func (response PatchAdminBlitzEdition409JSONResponse) VisitPatchAdminBlitzEditionResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(409)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
 type PostAdminBlitzEntrantsRequestObject struct {
 	Tournament AdminTournamentSlug `json:"tournament"`
 	Edition    BlitzEditionLabel   `json:"edition"`
@@ -7914,6 +7977,21 @@ func (response PutAdminBlitzRoundMatches404JSONResponse) VisitPutAdminBlitzRound
 	return err
 }
 
+type PutAdminBlitzRoundMatches409JSONResponse struct{ ConflictJSONResponse }
+
+func (response PutAdminBlitzRoundMatches409JSONResponse) VisitPutAdminBlitzRoundMatchesResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(409)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
 type PutAdminBlitzMatchGameRequestObject struct {
 	Tournament AdminTournamentSlug `json:"tournament"`
 	Edition    BlitzEditionLabel   `json:"edition"`
@@ -8178,6 +8256,21 @@ func (response PostAdminBlitzRoundPairing404JSONResponse) VisitPostAdminBlitzRou
 	w.Header().Set("Content-Type", "application/json")
 	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
 	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PostAdminBlitzRoundPairing409JSONResponse struct{ ConflictJSONResponse }
+
+func (response PostAdminBlitzRoundPairing409JSONResponse) VisitPostAdminBlitzRoundPairingResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(409)
 	_, err := buf.WriteTo(w)
 	return err
 }

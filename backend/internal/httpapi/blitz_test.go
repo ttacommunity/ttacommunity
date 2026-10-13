@@ -24,6 +24,9 @@ func (f *fakeRatings) BlitzEdition(ctx context.Context, slug, edition string) (s
 	if slug != "us_open" || edition != "2026" {
 		return store.BlitzEdition{}, store.ErrNoBlitzEdition
 	}
+	if f.blitzEdition != nil {
+		return *f.blitzEdition, nil
+	}
 	rows, _ := f.BlitzEditions(ctx)
 	bob := int64(8)
 	at := time.Date(2026, 10, 12, 12, 0, 0, 0, time.UTC)
@@ -113,5 +116,34 @@ func TestTheSiteBlitzRoutesRefuseWhatTheyShould(t *testing.T) {
 				t.Errorf("GET %s = %d %s, want %d", tt.path, rec.Code, rec.Body, tt.want)
 			}
 		})
+	}
+}
+
+func TestTheSiteShowsTheKnockoutWithSeedsAndTheChampion(t *testing.T) {
+	bob := int64(8)
+	at := time.Date(2026, 12, 21, 12, 0, 0, 0, time.UTC)
+	ed := store.BlitzEdition{
+		BlitzEditionRow: store.BlitzEditionRow{Slug: "us_open", Name: "US Open", Edition: "2026", Format: store.BlitzFormat{SwissRounds: 1, KnockoutSize: 2},
+			Entrants: 2, Round: new(2), Champion: new("bob")},
+		Entrants: []store.BlitzEntrant{{ID: 7, Name: "Ann", Zone: "UTC", Status: "active"}, {ID: 8, Name: "bob", Zone: "UTC", Status: "active"}},
+		Rounds: []store.BlitzRound{
+			{ID: 101, Number: 1, Kind: "swiss", PublishedAt: &at, Matches: []store.BlitzMatch{{ID: 1, A: 7, B: &bob, Result: "a", Ruling: "ruled", DecidedAt: &at}}},
+			{ID: 102, Number: 2, Kind: "knockout", PublishedAt: &at, Matches: []store.BlitzMatch{{ID: 2, A: 7, B: &bob, Slot: new(0), SeedA: new(1), SeedB: new(2), Result: "b", Ruling: "ruled", DecidedAt: &at}}},
+		},
+	}
+	rec, _ := serve(t, &fakeRatings{run: store.PublishedRun{ID: 7}, blitzEdition: &ed}, "/v1/blitz/us_open/2026")
+	var got BlitzEdition
+	if err := json.Unmarshal(rec.Body.Bytes(), &got); err != nil || rec.Code != http.StatusOK || len(got.Rounds) != 2 {
+		t.Fatalf("GET /v1/blitz/us_open/2026 = %d %s", rec.Code, rec.Body)
+	}
+	if got.Champion == nil || *got.Champion != "bob" {
+		t.Errorf("champion = %v, want bob", got.Champion)
+	}
+	if swiss := got.Rounds[0]; swiss.Kind != "swiss" || swiss.Matches[0].ASeed != nil {
+		t.Errorf("the Swiss round = %+v, want kind swiss and no seeds", swiss)
+	}
+	final := got.Rounds[1]
+	if m := final.Matches[0]; final.Kind != "knockout" || m.ASeed == nil || *m.ASeed != 1 || m.BSeed == nil || *m.BSeed != 2 {
+		t.Errorf("the final = %+v, want kind knockout, Ann seeded 1 and bob 2", final)
 	}
 }
