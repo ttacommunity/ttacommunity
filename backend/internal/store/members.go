@@ -56,7 +56,7 @@ var ErrBadMember = errors.New("a member has a TTA username of at most 100 charac
 // ErrMemberBanned means a banned member was entered in an edition.
 var ErrMemberBanned = errors.New("the member is banned")
 
-// ErrMemberInUse means a member in an edition cannot be removed: drop them from it instead.
+// ErrMemberInUse means a member in an edition, as an entrant or an organiser, cannot be removed: take them out of it instead.
 var ErrMemberInUse = errors.New("the member is in an edition and cannot be removed")
 
 // ErrNoCGEAccount means no CGE account the data knows has that id.
@@ -261,11 +261,12 @@ func (a *AdminStore) UnbanMember(ctx context.Context, id int64) error {
 	return nil
 }
 
-// RemoveMember removes a member added by mistake, or returns ErrMemberInUse for one in an edition, or ErrNoMember.
+// RemoveMember removes a member added by mistake, or returns ErrMemberInUse for one who enters or organises an edition, or
+// ErrNoMember.
 func (a *AdminStore) RemoveMember(ctx context.Context, id int64) error {
 	tag, err := a.pool.Exec(ctx, "DELETE FROM members WHERE member_id = $1", id)
 	var pgErr *pgconn.PgError
-	if errors.As(err, &pgErr) && pgErr.Code == "23503" { // foreign_key_violation: an entry names them
+	if errors.As(err, &pgErr) && pgErr.Code == "23503" { // foreign_key_violation: an entry or an organiser names them
 		return ErrMemberInUse
 	}
 	if err != nil {

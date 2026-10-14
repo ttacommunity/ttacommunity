@@ -8,6 +8,7 @@ const round = (id: number, number: number, published: boolean, matches: AdminBli
   timezone: true,
   rating: false,
   published_at: published ? '2026-10-12T12:00:00Z' : null,
+  deadline: null,
   matches,
   reserve: null,
 });

@@ -70,7 +70,7 @@ export default function MembersPanel({ role }: { role: AdminMe['role'] }) {
       <p className="muted">
         Everyone who takes part in anything we run, by their TTA username as in the app. A name the ratings or a CGE
         account know is linked to them, and the link fills itself in as games are loaded. A banned member cannot be
-        entered in an edition; their games and ratings stay. Organisers reach players by Discord name or email.
+        entered in an edition; their games and ratings stay. Organisers reach players by Discord username or email.
       </p>
       {message !== '' && (
         <p className="admin-message" role="status">
@@ -141,7 +141,7 @@ export default function MembersPanel({ role }: { role: AdminMe['role'] }) {
                         <input className="input-antique" aria-label={`CGE id of ${m.name}`} inputMode="numeric" value={editing.cge_user} onChange={(e) => setEditing({ ...editing, cge_user: e.target.value })} />
                       </td>
                       <td>
-                        <input className="input-antique" aria-label={`Discord name of ${m.name}`} value={editing.discord_name} maxLength={100} onChange={(e) => setEditing({ ...editing, discord_name: e.target.value })} />
+                        <input className="input-antique" aria-label={`Discord username of ${m.name}`} value={editing.discord_name} maxLength={100} onChange={(e) => setEditing({ ...editing, discord_name: e.target.value })} />
                       </td>
                       <td>
                         <input className="input-antique" aria-label={`Email of ${m.name}`} type="email" value={editing.email} maxLength={254} onChange={(e) => setEditing({ ...editing, email: e.target.value })} />

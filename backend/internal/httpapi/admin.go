@@ -11,6 +11,7 @@ import (
 	"log/slog"
 	"net/http"
 	"strings"
+	"time"
 
 	"ttacommunity/backend/internal/access"
 	"ttacommunity/backend/internal/store"
@@ -87,6 +88,11 @@ type Admins interface {
 	// RecordBlitzGame records or corrects the game a match was played as; RecordBlitzRuling decides it by ruling.
 	RecordBlitzGame(ctx context.Context, slug, edition string, matchID int64, g store.BlitzGame) error
 	RecordBlitzRuling(ctx context.Context, slug, edition string, matchID int64, result, reason string) error
+	// AddBlitzOrganiser and RemoveBlitzOrganiser change who the edition's Discord threads tell players to ping;
+	// SetBlitzRoundDeadline sets the deadline a round's threads give.
+	AddBlitzOrganiser(ctx context.Context, slug, edition string, member int64) error
+	RemoveBlitzOrganiser(ctx context.Context, slug, edition string, member int64) error
+	SetBlitzRoundDeadline(ctx context.Context, slug, edition string, roundID int64, at time.Time, zone string) error
 	// The community's members: listed, added (returning the id), changed, banned and unbanned, removed.
 	Members(ctx context.Context) ([]store.Member, error)
 	AddMember(ctx context.Context, m store.Member) (int64, error)

@@ -60,6 +60,9 @@ func (s *server) adminBlitzRound(r store.BlitzRound, ed store.BlitzEdition, rate
 	met := metBefore(swiss, r.ID)
 	out := AdminBlitzRound{Id: r.ID, Number: r.Number, Kind: AdminBlitzRoundKind(r.Kind), Timezone: r.Timezone, Rating: r.Rating,
 		PublishedAt: r.PublishedAt, Matches: make([]AdminBlitzMatch, len(r.Matches))}
+	if r.Deadline != nil {
+		out.Deadline = &BlitzDeadline{At: *r.Deadline, Zone: r.DeadlineZone}
+	}
 	for i, m := range r.Matches {
 		am := AdminBlitzMatch{Id: m.ID, A: m.A, B: m.B, Slot: m.Slot, ASeed: m.SeedA, BSeed: m.SeedB, Result: blitzResult(m), Game: playedGame(m),
 			Ruling: m.Ruling, DecidedAt: m.DecidedAt}

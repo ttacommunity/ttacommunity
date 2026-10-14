@@ -880,6 +880,9 @@ type AdminBlitzEdition struct {
 	Format BlitzFormat `json:"format"`
 	Name   string      `json:"name"`
 
+	// Organisers The members the Discord thread messages tell players to ping, in the order added
+	Organisers []AdminBlitzOrganiser `json:"organisers"`
+
 	// Rounds Every round, first first, drafts included
 	Rounds []AdminBlitzRound `json:"rounds"`
 
@@ -971,12 +974,24 @@ type AdminBlitzMatch struct {
 	ZoneGapMinutes int  `json:"zone_gap_minutes"`
 }
 
+// AdminBlitzOrganiser A member who organises an edition
+type AdminBlitzOrganiser struct {
+	// DiscordName Empty when not known
+	DiscordName string `json:"discord_name"`
+	Member      int64  `json:"member"`
+
+	// Name The TTA username
+	Name string `json:"name"`
+}
+
 // AdminBlitzRound defines model for AdminBlitzRound.
 type AdminBlitzRound struct {
-	Id      int64               `json:"id"`
-	Kind    AdminBlitzRoundKind `json:"kind"`
-	Matches []AdminBlitzMatch   `json:"matches"`
-	Number  int                 `json:"number"`
+	// Deadline The deadline to play by, null until set
+	Deadline *BlitzDeadline      `json:"deadline"`
+	Id       int64               `json:"id"`
+	Kind     AdminBlitzRoundKind `json:"kind"`
+	Matches  []AdminBlitzMatch   `json:"matches"`
+	Number   int                 `json:"number"`
 
 	// PublishedAt Null for a draft
 	PublishedAt *time.Time `json:"published_at"`
@@ -1269,6 +1284,25 @@ type BadgeSetting struct {
 	Players *[]string `json:"players,omitempty"`
 }
 
+// BlitzDeadline A deadline, and the time zone it was set in
+type BlitzDeadline struct {
+	At time.Time `json:"at"`
+
+	// Zone An IANA time zone, a region (US East) or Unknown (UTC)
+	Zone string `json:"zone"`
+}
+
+// BlitzDeadlineSet A deadline as a day and a time on the clocks of a time zone
+type BlitzDeadlineSet struct {
+	Day openapi_types.Date `json:"day"`
+
+	// Time As 12:00 on the clocks of zone
+	Time string `json:"time"`
+
+	// Zone An IANA time zone, a region (US East) or Unknown (UTC), whose clocks the day and time are on
+	Zone string `json:"zone"`
+}
+
 // BlitzEdition A blitz edition for the site, with the entrants still in, the published rounds and the standings
 type BlitzEdition struct {
 	// Champion The winner of the knockout's final, by username; null until the final has a winner
@@ -1394,6 +1428,11 @@ type BlitzMatchChange struct {
 
 	// B Left out for the bye
 	B *int64 `json:"b,omitempty"`
+}
+
+// BlitzOrganiserAdd The member to add as an organiser
+type BlitzOrganiserAdd struct {
+	Member int64 `json:"member"`
 }
 
 // BlitzOutcome How a player's game ended
@@ -3358,8 +3397,14 @@ type PostAdminBlitzEntrantsJSONRequestBody = NewBlitzEntrants
 // PatchAdminBlitzEntrantJSONRequestBody defines body for PatchAdminBlitzEntrant for application/json ContentType.
 type PatchAdminBlitzEntrantJSONRequestBody = BlitzEntrantChange
 
+// PostAdminBlitzOrganiserJSONRequestBody defines body for PostAdminBlitzOrganiser for application/json ContentType.
+type PostAdminBlitzOrganiserJSONRequestBody = BlitzOrganiserAdd
+
 // PostAdminBlitzRoundJSONRequestBody defines body for PostAdminBlitzRound for application/json ContentType.
 type PostAdminBlitzRoundJSONRequestBody = NewBlitzRound
+
+// PutAdminBlitzRoundDeadlineJSONRequestBody defines body for PutAdminBlitzRoundDeadline for application/json ContentType.
+type PutAdminBlitzRoundDeadlineJSONRequestBody = BlitzDeadlineSet
 
 // PutAdminBlitzRoundMatchesJSONRequestBody defines body for PutAdminBlitzRoundMatches for application/json ContentType.
 type PutAdminBlitzRoundMatchesJSONRequestBody = BlitzRoundMatches
@@ -3459,12 +3504,21 @@ type ServerInterface interface {
 	// PatchAdminBlitzEntrant Change an entrant's Discord name, time zone or status (active or dropped)
 	// (PATCH /v1/admin/blitz/{tournament}/{edition}/entrants/{entrant})
 	PatchAdminBlitzEntrant(w http.ResponseWriter, r *http.Request, tournament AdminTournamentSlug, edition BlitzEditionLabel, entrant BlitzEntrantId)
+	// PostAdminBlitzOrganiser Add a member as an organiser of a blitz edition
+	// (POST /v1/admin/blitz/{tournament}/{edition}/organisers)
+	PostAdminBlitzOrganiser(w http.ResponseWriter, r *http.Request, tournament AdminTournamentSlug, edition BlitzEditionLabel)
+	// DeleteAdminBlitzOrganiser Stop a member organising a blitz edition
+	// (DELETE /v1/admin/blitz/{tournament}/{edition}/organisers/{member})
+	DeleteAdminBlitzOrganiser(w http.ResponseWriter, r *http.Request, tournament AdminTournamentSlug, edition BlitzEditionLabel, member MemberId)
 	// PostAdminBlitzRound Pair the edition's next round as a draft
 	// (POST /v1/admin/blitz/{tournament}/{edition}/rounds)
 	PostAdminBlitzRound(w http.ResponseWriter, r *http.Request, tournament AdminTournamentSlug, edition BlitzEditionLabel)
 	// DeleteAdminBlitzRound Delete the latest round while nothing in it is played
 	// (DELETE /v1/admin/blitz/{tournament}/{edition}/rounds/{round})
 	DeleteAdminBlitzRound(w http.ResponseWriter, r *http.Request, tournament AdminTournamentSlug, edition BlitzEditionLabel, round BlitzRoundId)
+	// PutAdminBlitzRoundDeadline Set the deadline to play a round by, draft or published
+	// (PUT /v1/admin/blitz/{tournament}/{edition}/rounds/{round}/deadline)
+	PutAdminBlitzRoundDeadline(w http.ResponseWriter, r *http.Request, tournament AdminTournamentSlug, edition BlitzEditionLabel, round BlitzRoundId)
 	// PutAdminBlitzRoundMatches Replace a round's matches, as paired by hand
 	// (PUT /v1/admin/blitz/{tournament}/{edition}/rounds/{round}/matches)
 	PutAdminBlitzRoundMatches(w http.ResponseWriter, r *http.Request, tournament AdminTournamentSlug, edition BlitzEditionLabel, round BlitzRoundId)
@@ -3483,6 +3537,9 @@ type ServerInterface interface {
 	// PostAdminBlitzRoundPublish Publish a round, once everyone active is in it exactly once
 	// (POST /v1/admin/blitz/{tournament}/{edition}/rounds/{round}/publish)
 	PostAdminBlitzRoundPublish(w http.ResponseWriter, r *http.Request, tournament AdminTournamentSlug, edition BlitzEditionLabel, round BlitzRoundId)
+	// GetAdminBlitzRoundThreads Download a round's Discord threads as text to paste
+	// (GET /v1/admin/blitz/{tournament}/{edition}/rounds/{round}/threads)
+	GetAdminBlitzRoundThreads(w http.ResponseWriter, r *http.Request, tournament AdminTournamentSlug, edition BlitzEditionLabel, round BlitzRoundId)
 	// GetAdminCommunityEditions Every edition of the community leaderboard
 	// (GET /v1/admin/community/editions)
 	GetAdminCommunityEditions(w http.ResponseWriter, r *http.Request)
@@ -4118,6 +4175,85 @@ func (siw *ServerInterfaceWrapper) PatchAdminBlitzEntrant(w http.ResponseWriter,
 	handler.ServeHTTP(w, r)
 }
 
+// PostAdminBlitzOrganiser operation middleware
+func (siw *ServerInterfaceWrapper) PostAdminBlitzOrganiser(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "tournament" -------------
+	var tournament AdminTournamentSlug
+
+	err = runtime.BindStyledParameterWithOptions("simple", "tournament", r.PathValue("tournament"), &tournament, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "tournament", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "edition" -------------
+	var edition BlitzEditionLabel
+
+	err = runtime.BindStyledParameterWithOptions("simple", "edition", r.PathValue("edition"), &edition, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "edition", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.PostAdminBlitzOrganiser(w, r, tournament, edition)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// DeleteAdminBlitzOrganiser operation middleware
+func (siw *ServerInterfaceWrapper) DeleteAdminBlitzOrganiser(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "tournament" -------------
+	var tournament AdminTournamentSlug
+
+	err = runtime.BindStyledParameterWithOptions("simple", "tournament", r.PathValue("tournament"), &tournament, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "tournament", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "edition" -------------
+	var edition BlitzEditionLabel
+
+	err = runtime.BindStyledParameterWithOptions("simple", "edition", r.PathValue("edition"), &edition, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "edition", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "member" -------------
+	var member MemberId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "member", r.PathValue("member"), &member, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "integer", Format: "int64", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "member", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.DeleteAdminBlitzOrganiser(w, r, tournament, edition, member)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // PostAdminBlitzRound operation middleware
 func (siw *ServerInterfaceWrapper) PostAdminBlitzRound(w http.ResponseWriter, r *http.Request) {
 
@@ -4188,6 +4324,50 @@ func (siw *ServerInterfaceWrapper) DeleteAdminBlitzRound(w http.ResponseWriter, 
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.DeleteAdminBlitzRound(w, r, tournament, edition, round)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// PutAdminBlitzRoundDeadline operation middleware
+func (siw *ServerInterfaceWrapper) PutAdminBlitzRoundDeadline(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "tournament" -------------
+	var tournament AdminTournamentSlug
+
+	err = runtime.BindStyledParameterWithOptions("simple", "tournament", r.PathValue("tournament"), &tournament, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "tournament", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "edition" -------------
+	var edition BlitzEditionLabel
+
+	err = runtime.BindStyledParameterWithOptions("simple", "edition", r.PathValue("edition"), &edition, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "edition", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "round" -------------
+	var round BlitzRoundId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "round", r.PathValue("round"), &round, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "integer", Format: "int64", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "round", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.PutAdminBlitzRoundDeadline(w, r, tournament, edition, round)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -4479,6 +4659,50 @@ func (siw *ServerInterfaceWrapper) PostAdminBlitzRoundPublish(w http.ResponseWri
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.PostAdminBlitzRoundPublish(w, r, tournament, edition, round)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetAdminBlitzRoundThreads operation middleware
+func (siw *ServerInterfaceWrapper) GetAdminBlitzRoundThreads(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "tournament" -------------
+	var tournament AdminTournamentSlug
+
+	err = runtime.BindStyledParameterWithOptions("simple", "tournament", r.PathValue("tournament"), &tournament, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "tournament", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "edition" -------------
+	var edition BlitzEditionLabel
+
+	err = runtime.BindStyledParameterWithOptions("simple", "edition", r.PathValue("edition"), &edition, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "edition", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "round" -------------
+	var round BlitzRoundId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "round", r.PathValue("round"), &round, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "integer", Format: "int64", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "round", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetAdminBlitzRoundThreads(w, r, tournament, edition, round)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -6856,6 +7080,10 @@ func HandlerWithOptions(si ServerInterface, options StdHTTPServerOptions) http.H
 	m.HandleFunc(http.MethodPut+" "+options.BaseURL+"/v1/admin/blitz/{tournament}/{edition}/rounds/{round}/matches/{match}/ruling", wrapper.PutAdminBlitzMatchRuling)
 	m.HandleFunc(http.MethodDelete+" "+options.BaseURL+"/v1/admin/blitz/{tournament}/{edition}/entrants/{entrant}", wrapper.DeleteAdminBlitzEntrant)
 	m.HandleFunc(http.MethodPatch+" "+options.BaseURL+"/v1/admin/blitz/{tournament}/{edition}/entrants/{entrant}", wrapper.PatchAdminBlitzEntrant)
+	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/v1/admin/blitz/{tournament}/{edition}/organisers", wrapper.PostAdminBlitzOrganiser)
+	m.HandleFunc(http.MethodDelete+" "+options.BaseURL+"/v1/admin/blitz/{tournament}/{edition}/organisers/{member}", wrapper.DeleteAdminBlitzOrganiser)
+	m.HandleFunc(http.MethodPut+" "+options.BaseURL+"/v1/admin/blitz/{tournament}/{edition}/rounds/{round}/deadline", wrapper.PutAdminBlitzRoundDeadline)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/v1/admin/blitz/{tournament}/{edition}/rounds/{round}/threads", wrapper.GetAdminBlitzRoundThreads)
 
 	return m
 }
@@ -8093,6 +8321,147 @@ func (response PatchAdminBlitzEntrant409JSONResponse) VisitPatchAdminBlitzEntran
 	return err
 }
 
+type PostAdminBlitzOrganiserRequestObject struct {
+	Tournament AdminTournamentSlug `json:"tournament"`
+	Edition    BlitzEditionLabel   `json:"edition"`
+	Body       *PostAdminBlitzOrganiserJSONRequestBody
+}
+
+type PostAdminBlitzOrganiserResponseObject interface {
+	VisitPostAdminBlitzOrganiserResponse(w http.ResponseWriter) error
+}
+
+type PostAdminBlitzOrganiser204Response struct {
+}
+
+func (response PostAdminBlitzOrganiser204Response) VisitPostAdminBlitzOrganiserResponse(w http.ResponseWriter) error {
+	w.WriteHeader(204)
+	return nil
+}
+
+type PostAdminBlitzOrganiser400JSONResponse struct{ BadRequestJSONResponse }
+
+func (response PostAdminBlitzOrganiser400JSONResponse) VisitPostAdminBlitzOrganiserResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PostAdminBlitzOrganiser401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response PostAdminBlitzOrganiser401JSONResponse) VisitPostAdminBlitzOrganiserResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PostAdminBlitzOrganiser403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response PostAdminBlitzOrganiser403JSONResponse) VisitPostAdminBlitzOrganiserResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PostAdminBlitzOrganiser404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response PostAdminBlitzOrganiser404JSONResponse) VisitPostAdminBlitzOrganiserResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DeleteAdminBlitzOrganiserRequestObject struct {
+	Tournament AdminTournamentSlug `json:"tournament"`
+	Edition    BlitzEditionLabel   `json:"edition"`
+	Member     MemberId            `json:"member"`
+}
+
+type DeleteAdminBlitzOrganiserResponseObject interface {
+	VisitDeleteAdminBlitzOrganiserResponse(w http.ResponseWriter) error
+}
+
+type DeleteAdminBlitzOrganiser204Response struct {
+}
+
+func (response DeleteAdminBlitzOrganiser204Response) VisitDeleteAdminBlitzOrganiserResponse(w http.ResponseWriter) error {
+	w.WriteHeader(204)
+	return nil
+}
+
+type DeleteAdminBlitzOrganiser401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response DeleteAdminBlitzOrganiser401JSONResponse) VisitDeleteAdminBlitzOrganiserResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DeleteAdminBlitzOrganiser403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response DeleteAdminBlitzOrganiser403JSONResponse) VisitDeleteAdminBlitzOrganiserResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DeleteAdminBlitzOrganiser404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response DeleteAdminBlitzOrganiser404JSONResponse) VisitDeleteAdminBlitzOrganiserResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
 type PostAdminBlitzRoundRequestObject struct {
 	Tournament AdminTournamentSlug `json:"tournament"`
 	Edition    BlitzEditionLabel   `json:"edition"`
@@ -8266,6 +8635,100 @@ func (response DeleteAdminBlitzRound404JSONResponse) VisitDeleteAdminBlitzRoundR
 type DeleteAdminBlitzRound409JSONResponse struct{ ConflictJSONResponse }
 
 func (response DeleteAdminBlitzRound409JSONResponse) VisitDeleteAdminBlitzRoundResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(409)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PutAdminBlitzRoundDeadlineRequestObject struct {
+	Tournament AdminTournamentSlug `json:"tournament"`
+	Edition    BlitzEditionLabel   `json:"edition"`
+	Round      BlitzRoundId        `json:"round"`
+	Body       *PutAdminBlitzRoundDeadlineJSONRequestBody
+}
+
+type PutAdminBlitzRoundDeadlineResponseObject interface {
+	VisitPutAdminBlitzRoundDeadlineResponse(w http.ResponseWriter) error
+}
+
+type PutAdminBlitzRoundDeadline204Response struct {
+}
+
+func (response PutAdminBlitzRoundDeadline204Response) VisitPutAdminBlitzRoundDeadlineResponse(w http.ResponseWriter) error {
+	w.WriteHeader(204)
+	return nil
+}
+
+type PutAdminBlitzRoundDeadline400JSONResponse struct{ BadRequestJSONResponse }
+
+func (response PutAdminBlitzRoundDeadline400JSONResponse) VisitPutAdminBlitzRoundDeadlineResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PutAdminBlitzRoundDeadline401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response PutAdminBlitzRoundDeadline401JSONResponse) VisitPutAdminBlitzRoundDeadlineResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PutAdminBlitzRoundDeadline403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response PutAdminBlitzRoundDeadline403JSONResponse) VisitPutAdminBlitzRoundDeadlineResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PutAdminBlitzRoundDeadline404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response PutAdminBlitzRoundDeadline404JSONResponse) VisitPutAdminBlitzRoundDeadlineResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PutAdminBlitzRoundDeadline409JSONResponse struct{ ConflictJSONResponse }
+
+func (response PutAdminBlitzRoundDeadline409JSONResponse) VisitPutAdminBlitzRoundDeadlineResponse(w http.ResponseWriter) error {
 
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
@@ -8816,6 +9279,97 @@ func (response PostAdminBlitzRoundPublish404JSONResponse) VisitPostAdminBlitzRou
 type PostAdminBlitzRoundPublish409JSONResponse struct{ ConflictJSONResponse }
 
 func (response PostAdminBlitzRoundPublish409JSONResponse) VisitPostAdminBlitzRoundPublishResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(409)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetAdminBlitzRoundThreadsRequestObject struct {
+	Tournament AdminTournamentSlug `json:"tournament"`
+	Edition    BlitzEditionLabel   `json:"edition"`
+	Round      BlitzRoundId        `json:"round"`
+}
+
+type GetAdminBlitzRoundThreadsResponseObject interface {
+	VisitGetAdminBlitzRoundThreadsResponse(w http.ResponseWriter) error
+}
+
+type GetAdminBlitzRoundThreads200ResponseHeaders struct {
+	CacheControl       string
+	ContentDisposition string
+}
+
+type GetAdminBlitzRoundThreads200TextResponse struct {
+	Body    string
+	Headers GetAdminBlitzRoundThreads200ResponseHeaders
+}
+
+func (response GetAdminBlitzRoundThreads200TextResponse) VisitGetAdminBlitzRoundThreadsResponse(w http.ResponseWriter) error {
+
+	w.Header().Set("Content-Type", "text/plain")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.Header().Set("Content-Disposition", fmt.Sprint(response.Headers.ContentDisposition))
+	w.WriteHeader(200)
+
+	_, err := w.Write([]byte(fmt.Sprint(response.Body)))
+	return err
+}
+
+type GetAdminBlitzRoundThreads401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response GetAdminBlitzRoundThreads401JSONResponse) VisitGetAdminBlitzRoundThreadsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetAdminBlitzRoundThreads403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response GetAdminBlitzRoundThreads403JSONResponse) VisitGetAdminBlitzRoundThreadsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetAdminBlitzRoundThreads404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response GetAdminBlitzRoundThreads404JSONResponse) VisitGetAdminBlitzRoundThreadsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetAdminBlitzRoundThreads409JSONResponse struct{ ConflictJSONResponse }
+
+func (response GetAdminBlitzRoundThreads409JSONResponse) VisitGetAdminBlitzRoundThreadsResponse(w http.ResponseWriter) error {
 
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
@@ -13034,12 +13588,21 @@ type StrictServerInterface interface {
 	// PatchAdminBlitzEntrant Change an entrant's Discord name, time zone or status (active or dropped)
 	// (PATCH /v1/admin/blitz/{tournament}/{edition}/entrants/{entrant})
 	PatchAdminBlitzEntrant(ctx context.Context, request PatchAdminBlitzEntrantRequestObject) (PatchAdminBlitzEntrantResponseObject, error)
+	// PostAdminBlitzOrganiser Add a member as an organiser of a blitz edition
+	// (POST /v1/admin/blitz/{tournament}/{edition}/organisers)
+	PostAdminBlitzOrganiser(ctx context.Context, request PostAdminBlitzOrganiserRequestObject) (PostAdminBlitzOrganiserResponseObject, error)
+	// DeleteAdminBlitzOrganiser Stop a member organising a blitz edition
+	// (DELETE /v1/admin/blitz/{tournament}/{edition}/organisers/{member})
+	DeleteAdminBlitzOrganiser(ctx context.Context, request DeleteAdminBlitzOrganiserRequestObject) (DeleteAdminBlitzOrganiserResponseObject, error)
 	// PostAdminBlitzRound Pair the edition's next round as a draft
 	// (POST /v1/admin/blitz/{tournament}/{edition}/rounds)
 	PostAdminBlitzRound(ctx context.Context, request PostAdminBlitzRoundRequestObject) (PostAdminBlitzRoundResponseObject, error)
 	// DeleteAdminBlitzRound Delete the latest round while nothing in it is played
 	// (DELETE /v1/admin/blitz/{tournament}/{edition}/rounds/{round})
 	DeleteAdminBlitzRound(ctx context.Context, request DeleteAdminBlitzRoundRequestObject) (DeleteAdminBlitzRoundResponseObject, error)
+	// PutAdminBlitzRoundDeadline Set the deadline to play a round by, draft or published
+	// (PUT /v1/admin/blitz/{tournament}/{edition}/rounds/{round}/deadline)
+	PutAdminBlitzRoundDeadline(ctx context.Context, request PutAdminBlitzRoundDeadlineRequestObject) (PutAdminBlitzRoundDeadlineResponseObject, error)
 	// PutAdminBlitzRoundMatches Replace a round's matches, as paired by hand
 	// (PUT /v1/admin/blitz/{tournament}/{edition}/rounds/{round}/matches)
 	PutAdminBlitzRoundMatches(ctx context.Context, request PutAdminBlitzRoundMatchesRequestObject) (PutAdminBlitzRoundMatchesResponseObject, error)
@@ -13058,6 +13621,9 @@ type StrictServerInterface interface {
 	// PostAdminBlitzRoundPublish Publish a round, once everyone active is in it exactly once
 	// (POST /v1/admin/blitz/{tournament}/{edition}/rounds/{round}/publish)
 	PostAdminBlitzRoundPublish(ctx context.Context, request PostAdminBlitzRoundPublishRequestObject) (PostAdminBlitzRoundPublishResponseObject, error)
+	// GetAdminBlitzRoundThreads Download a round's Discord threads as text to paste
+	// (GET /v1/admin/blitz/{tournament}/{edition}/rounds/{round}/threads)
+	GetAdminBlitzRoundThreads(ctx context.Context, request GetAdminBlitzRoundThreadsRequestObject) (GetAdminBlitzRoundThreadsResponseObject, error)
 	// GetAdminCommunityEditions Every edition of the community leaderboard
 	// (GET /v1/admin/community/editions)
 	GetAdminCommunityEditions(ctx context.Context, request GetAdminCommunityEditionsRequestObject) (GetAdminCommunityEditionsResponseObject, error)
@@ -13746,6 +14312,68 @@ func (sh *strictHandler) PatchAdminBlitzEntrant(w http.ResponseWriter, r *http.R
 	}
 }
 
+// PostAdminBlitzOrganiser operation middleware
+func (sh *strictHandler) PostAdminBlitzOrganiser(w http.ResponseWriter, r *http.Request, tournament AdminTournamentSlug, edition BlitzEditionLabel) {
+	var request PostAdminBlitzOrganiserRequestObject
+
+	request.Tournament = tournament
+	request.Edition = edition
+
+	var body PostAdminBlitzOrganiserJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.PostAdminBlitzOrganiser(ctx, request.(PostAdminBlitzOrganiserRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "PostAdminBlitzOrganiser")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(PostAdminBlitzOrganiserResponseObject); ok {
+		if err := validResponse.VisitPostAdminBlitzOrganiserResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// DeleteAdminBlitzOrganiser operation middleware
+func (sh *strictHandler) DeleteAdminBlitzOrganiser(w http.ResponseWriter, r *http.Request, tournament AdminTournamentSlug, edition BlitzEditionLabel, member MemberId) {
+	var request DeleteAdminBlitzOrganiserRequestObject
+
+	request.Tournament = tournament
+	request.Edition = edition
+	request.Member = member
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.DeleteAdminBlitzOrganiser(ctx, request.(DeleteAdminBlitzOrganiserRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "DeleteAdminBlitzOrganiser")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(DeleteAdminBlitzOrganiserResponseObject); ok {
+		if err := validResponse.VisitDeleteAdminBlitzOrganiserResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
 // PostAdminBlitzRound operation middleware
 func (sh *strictHandler) PostAdminBlitzRound(w http.ResponseWriter, r *http.Request, tournament AdminTournamentSlug, edition BlitzEditionLabel) {
 	var request PostAdminBlitzRoundRequestObject
@@ -13801,6 +14429,41 @@ func (sh *strictHandler) DeleteAdminBlitzRound(w http.ResponseWriter, r *http.Re
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(DeleteAdminBlitzRoundResponseObject); ok {
 		if err := validResponse.VisitDeleteAdminBlitzRoundResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// PutAdminBlitzRoundDeadline operation middleware
+func (sh *strictHandler) PutAdminBlitzRoundDeadline(w http.ResponseWriter, r *http.Request, tournament AdminTournamentSlug, edition BlitzEditionLabel, round BlitzRoundId) {
+	var request PutAdminBlitzRoundDeadlineRequestObject
+
+	request.Tournament = tournament
+	request.Edition = edition
+	request.Round = round
+
+	var body PutAdminBlitzRoundDeadlineJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.PutAdminBlitzRoundDeadline(ctx, request.(PutAdminBlitzRoundDeadlineRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "PutAdminBlitzRoundDeadline")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(PutAdminBlitzRoundDeadlineResponseObject); ok {
+		if err := validResponse.VisitPutAdminBlitzRoundDeadlineResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {
@@ -14007,6 +14670,34 @@ func (sh *strictHandler) PostAdminBlitzRoundPublish(w http.ResponseWriter, r *ht
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(PostAdminBlitzRoundPublishResponseObject); ok {
 		if err := validResponse.VisitPostAdminBlitzRoundPublishResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// GetAdminBlitzRoundThreads operation middleware
+func (sh *strictHandler) GetAdminBlitzRoundThreads(w http.ResponseWriter, r *http.Request, tournament AdminTournamentSlug, edition BlitzEditionLabel, round BlitzRoundId) {
+	var request GetAdminBlitzRoundThreadsRequestObject
+
+	request.Tournament = tournament
+	request.Edition = edition
+	request.Round = round
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.GetAdminBlitzRoundThreads(ctx, request.(GetAdminBlitzRoundThreadsRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetAdminBlitzRoundThreads")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(GetAdminBlitzRoundThreadsResponseObject); ok {
+		if err := validResponse.VisitGetAdminBlitzRoundThreadsResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {

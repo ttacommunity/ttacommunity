@@ -516,6 +516,12 @@
 .round-hint {
   margin-top: 0.5rem;
 }
+.organiser-list {
+  display: grid;
+  gap: 0.4rem;
+  margin: 0 0 0.75rem;
+  padding-left: 1.25rem;
+}
 /* A result form: what kind of result on top, then a row for each part, its buttons last. Opened under a table
    row, it stays in view while the table scrolls sideways on a phone. */
 .result-form {

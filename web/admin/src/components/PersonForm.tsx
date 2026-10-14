@@ -61,8 +61,8 @@ export default function PersonForm({ searchBase, taken, regions, countries, subm
       />
       {picked !== null && <span className="muted pick-note">{picked.detail}</span>}
       <label>
-        Discord name
-        <input className="input-antique" value={details.discord_name} maxLength={100} disabled={picked === null} onChange={(e) => setDetails({ ...details, discord_name: e.target.value })} />
+        Discord username
+        <input className="input-antique" value={details.discord_name} maxLength={100} placeholder="not the display name" disabled={picked === null} onChange={(e) => setDetails({ ...details, discord_name: e.target.value })} />
       </label>
       <label>
         Email

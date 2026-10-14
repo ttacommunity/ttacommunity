@@ -36,6 +36,8 @@ type fakeAdmins struct {
 	entrants []store.BlitzEntrant
 	format   store.BlitzFormat
 	rounds   []store.BlitzRound
+	// organisers are us_open 2026's (admin_blitz_threads_test.go).
+	organisers []store.BlitzOrganiser
 	// members are the community's (admin_members_test.go).
 	members []store.Member
 	// added is every entrant AddBlitzEntrants was given; candidates is what BlitzCandidates finds, and searched
@@ -634,6 +636,8 @@ func TestAdminChangesRefuseAnotherOriginOrABadRequest(t *testing.T) {
 		{"a long season note", http.MethodPatch, "/v1/admin/tournaments/worlds/seasons/2025", "https://ttac-admin.example", `{"note": "` + strings.Repeat("x", 2001) + `"}`, http.StatusBadRequest},
 		{"a long season label", http.MethodPatch, "/v1/admin/tournaments/worlds/seasons/" + strings.Repeat("x", 65), "https://ttac-admin.example", `{"note": "x"}`, http.StatusBadRequest},
 		{"a season change from another site", http.MethodPatch, "/v1/admin/tournaments/worlds/seasons/2025", "https://evil.example", `{"note": "x"}`, http.StatusForbidden},
+		{"a deadline from another site", http.MethodPut, "/v1/admin/blitz/us_open/2026/rounds/101/deadline", "https://evil.example", `{"day": "2026-10-19", "time": "12:00", "zone": "UTC"}`, http.StatusForbidden},
+		{"an organiser from another site", http.MethodPost, "/v1/admin/blitz/us_open/2026/organisers", "https://evil.example", `{"member": 21}`, http.StatusForbidden},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

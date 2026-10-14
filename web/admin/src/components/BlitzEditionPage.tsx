@@ -5,11 +5,12 @@ import BackLink from '@ttac/shared/BackLink';
 import SubTabs from '@ttac/shared/SubTabs';
 import { formatLabel, offsetLabel, resultSummary, roundShown, roundSummary, roundTitle, seededName } from '@ttac/shared/blitz';
 import { formatInstant } from '@ttac/shared/time';
-import { adminRequest, firstError, type AdminBlitzEdition, type AdminMe, type BlitzEntrantIds, type Load } from '../lib/admin-api';
+import { adminDownload, adminRequest, firstError, type AdminBlitzEdition, type AdminMe, type BlitzEntrantIds, type Load } from '../lib/admin-api';
 import * as req from '../lib/admin-requests';
 import { tabsFor } from '../lib/admin-tabs';
 import { editionParams, formatAdvice, type AdminBlitzEntrant } from '../lib/blitz-page';
 import { emptyGameForm, gameRecordFrom, type BlitzStanding, type GameForm } from '../lib/blitz-results';
+import { deadlineForm, deadlineLabel, deadlineLocked, organiserChoices, threadsBlocker, threadsFileName, type DeadlineForm } from '../lib/blitz-threads';
 import { entrantToAdd, wildcardChoices, type PersonChoice, type PersonDetails } from '../lib/person-form';
 import { countryNames, type Country } from '../lib/countries';
 import { clockIn, type Region } from '../lib/zones';
@@ -324,6 +325,7 @@ function RoundsPanel({ at, ed, regions, onReload, say }: Props) {
               {shown(r) ? 'Hide matches' : 'Show matches'}
             </button>
           </p>
+          <RoundThreads at={at} ed={ed} round={r} regions={regions} unsaved={changed(r)} onReload={onReload} say={say} />
           {shown(r) && (
             <>
               {openSwiss(r) && (
@@ -533,7 +535,7 @@ function EntrantsPanel({ at, ed, regions, countries, onReload, say }: Props) {
                     <td>
                       <input
                         className="input-antique"
-                        aria-label={`Discord name of ${e.name}`}
+                        aria-label={`Discord username of ${e.name}`}
                         value={editing.discord_name}
                         maxLength={100}
                         onChange={(ev) => setEditing({ ...editing, discord_name: ev.target.value })}
@@ -654,6 +656,7 @@ function EditionTabs(props: Props) {
             panel: (
               <>
                 <FormatPanel {...props} />
+                <OrganisersPanel {...props} />
                 <RoundsPanel {...props} />
               </>
             ),
@@ -674,6 +677,116 @@ function EditionTabs(props: Props) {
         onChoose={setView}
       />
     </section>
+  );
+}
+
+/** OrganisersPanel lists the members every round's Discord threads tell players to ping, removes one, and adds a member found by their username. */
+function OrganisersPanel({ at, ed, onReload, say }: Props) {
+  const [typed, setTyped] = useState('');
+  const found = usePeopleSearch('/api/people', typed, false, ed);
+  const choices = organiserChoices(found, ed.organisers);
+  const change = async (r: req.Request, done: string) => {
+    const res = await req.send(r);
+    say(res.ok ? done : res.message);
+    if (res.ok) setTyped('');
+    await onReload();
+  };
+  return (
+    <div className="admin-subsection">
+      <h3>Organisers</h3>
+      <p className="muted">Each game&apos;s Discord thread tells its players to ping them, by Discord username.</p>
+      {ed.organisers.length === 0 && <p className="muted">None yet.</p>}
+      {ed.organisers.length > 0 && (
+        <ul className="organiser-list">
+          {ed.organisers.map((o) => (
+            <li key={o.member}>
+              {o.name} <span className="muted">{o.discord_name === '' ? 'no Discord username yet' : `@${o.discord_name}`}</span>{' '}
+              <button type="button" className="btn-antique" onClick={() => void change(req.removeBlitzOrganiser(at.slug, at.edition, o.member), `${o.name} no longer organises it.`)}>
+                Remove
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+      <div className="admin-add">
+        <PickBox
+          label="Add an organiser"
+          text={typed}
+          placeholder="Type a member's name"
+          options={choices}
+          onText={setTyped}
+          onPick={(o) => {
+            const c = choices.find((x) => x.key === o.key);
+            if (c !== undefined && !c.disabled) void change(req.addBlitzOrganiser(at.slug, at.edition, Number(c.key)), `${c.label} organises it now.`);
+          }}
+        />
+      </div>
+    </div>
+  );
+}
+
+type RoundThreadsProps = Pick<Props, 'at' | 'ed' | 'regions' | 'onReload' | 'say'> & { round: AdminBlitzRound; unsaved: boolean };
+
+/** RoundThreads shows a round's deadline and sets it (a day and a time on a zone's clocks) until the round is finished, and downloads the round's Discord threads once they can be made. */
+function RoundThreads({ at, ed, round, regions, unsaved, onReload, say }: RoundThreadsProps) {
+  const [form, setForm] = useState<DeadlineForm | null>(null);
+  const blocker = threadsBlocker(round, ed.organisers.length, unsaved);
+  const save = async (e: FormEvent) => {
+    e.preventDefault();
+    if (form === null) return;
+    const r = await req.send(req.setBlitzRoundDeadline(at.slug, at.edition, round.id, form));
+    say(r.ok ? `${roundTitle(round.number, ed.format)}: deadline saved.` : r.message);
+    if (r.ok) setForm(null);
+    await onReload();
+  };
+  const download = async () => {
+    const r = await adminDownload(req.blitzThreadsPath(at.slug, at.edition, round.id));
+    if (!r.ok) {
+      say(r.message);
+      return;
+    }
+    const url = URL.createObjectURL(r.data);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = threadsFileName(at.slug, at.edition, round.number);
+    a.click();
+    URL.revokeObjectURL(url);
+    say(`${roundTitle(round.number, ed.format)}: Discord threads downloaded.`);
+  };
+  return (
+    <>
+      <p className="season-summary">
+        <span className="muted">{deadlineLabel(regions, round.deadline)}</span>{' '}
+        {!deadlineLocked(round) && (
+          <button type="button" className="btn-antique btn-settings" aria-expanded={form !== null} onClick={() => setForm(form === null ? deadlineForm(regions, round.deadline, viewerZone()) : null)}>
+            {round.deadline === null ? 'Set deadline' : 'Change deadline'}
+          </button>
+        )}{' '}
+        <button type="button" className="btn-antique btn-settings" disabled={blocker !== ''} onClick={() => void download()}>
+          Discord threads
+        </button>
+        {blocker !== '' && <span className="row-detail muted">{blocker}</span>}
+      </p>
+      {form !== null && !deadlineLocked(round) && (
+        <form className="result-row" onSubmit={(e) => void save(e)}>
+          <label>
+            Deadline
+            <input className="input-antique" type="date" required value={form.day} onChange={(e) => setForm({ ...form, day: e.target.value })} />
+          </label>
+          <label>
+            Time
+            <input className="input-antique" type="time" required value={form.time} onChange={(e) => setForm({ ...form, time: e.target.value })} />
+          </label>
+          <ZonePick label="Time zone" regions={regions} value={form.zone} onChange={(zone) => setForm({ ...form, zone })} />
+          <button type="submit" className="btn-antique">
+            Save
+          </button>
+          <button type="button" className="btn-antique" onClick={() => setForm(null)}>
+            Cancel
+          </button>
+        </form>
+      )}
+    </>
   );
 }
 

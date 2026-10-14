@@ -82,6 +82,15 @@ export const setBlitzRoundMatches = (slug: string, edition: string, round: numbe
   to(`${blitz(slug, edition)}/rounds/${round}/matches`, 'PUT', { matches });
 /** publishBlitzRound makes a round public. */
 export const publishBlitzRound = (slug: string, edition: string, round: number) => to(`${blitz(slug, edition)}/rounds/${round}/publish`, 'POST');
+/** setBlitzRoundDeadline sets the deadline to play a round by, as a day and a time on the clocks of a zone. */
+export const setBlitzRoundDeadline = (slug: string, edition: string, round: number, deadline: Schemas['BlitzDeadlineSet']) =>
+  to(`${blitz(slug, edition)}/rounds/${round}/deadline`, 'PUT', deadline);
+/** blitzThreadsPath is where a round's Discord threads download. */
+export const blitzThreadsPath = (slug: string, edition: string, round: number) => `${blitz(slug, edition)}/rounds/${round}/threads`;
+/** addBlitzOrganiser makes a member an organiser of the edition. */
+export const addBlitzOrganiser = (slug: string, edition: string, member: number) => to(`${blitz(slug, edition)}/organisers`, 'POST', { member });
+/** removeBlitzOrganiser stops a member organising the edition. */
+export const removeBlitzOrganiser = (slug: string, edition: string, member: number) => to(`${blitz(slug, edition)}/organisers/${member}`, 'DELETE');
 /** deleteBlitzRound removes a draft round. */
 export const deleteBlitzRound = (slug: string, edition: string, round: number) => to(`${blitz(slug, edition)}/rounds/${round}`, 'DELETE');
 /** recordBlitzGame records, or corrects, the game a match was played as. */
