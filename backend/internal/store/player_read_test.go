@@ -711,24 +711,26 @@ func TestPlayerSeats(t *testing.T) {
 	run := publishedRun(t, pool)
 
 	addPlayers(t, pool, "ann", "bob", "cyd")
-	// 2P game (rated): ann seat 1 wins
+	// 2P game (rated): ann seat 1 wins outright
 	addGame(t, pool, run, "2026-01-01", "Dual 1", Seat{"ann", 150}, Seat{"bob", 100})
-	// 2P game (rated): ann seat 2 loses
+	// 2P game (rated): ann seat 2 loses outright
 	addGame(t, pool, run, "2026-01-02", "Dual 2", Seat{"bob", 120}, Seat{"ann", 110})
+	// 2P game (rated): ann seat 1 draws
+	addGame(t, pool, run, "2026-01-03", "Dual 3", Seat{"ann", 130}, Seat{"bob", 130})
 
-	// 3P unrated game (run=0): ann seat 1 wins
-	addGame(t, pool, 0, "2026-01-03", "Exhibition", Seat{"ann", 200}, Seat{"bob", 150}, Seat{"cyd", 100})
+	// 3P unrated game (run=0): ann seat 1 wins outright
+	addGame(t, pool, 0, "2026-01-04", "Exhibition", Seat{"ann", 200}, Seat{"bob", 150}, Seat{"cyd", 100})
 
 	// 1. Rated only
 	ratedStats, err := r.PlayerSeats(ctx, run, "ann", false)
 	if err != nil {
 		t.Fatalf("PlayerSeats(rated): %v", err)
 	}
-	if ratedStats.Overall.TotalGames != 2 || ratedStats.Overall.TotalWins != 1 {
-		t.Errorf("rated total: games %d, wins %d; want 2, 1", ratedStats.Overall.TotalGames, ratedStats.Overall.TotalWins)
+	if ratedStats.Overall.TotalGames != 3 || ratedStats.Overall.TotalWins != 1 || ratedStats.Overall.TotalDraws != 1 {
+		t.Errorf("rated total: games %d, wins %d, draws %d; want 3, 1, 1", ratedStats.Overall.TotalGames, ratedStats.Overall.TotalWins, ratedStats.Overall.TotalDraws)
 	}
-	if ratedStats.Overall.WinRate != 50.0 {
-		t.Errorf("rated winrate: %f; want 50.0", ratedStats.Overall.WinRate)
+	if ratedStats.Overall.WinRate != 33.33 {
+		t.Errorf("rated winrate: %f; want 33.33", ratedStats.Overall.WinRate)
 	}
 	if ratedStats.Overall.StrongestSeat == nil || ratedStats.Overall.StrongestSeat.Seat != 1 {
 		t.Errorf("strongest seat: %v; want seat 1", ratedStats.Overall.StrongestSeat)
@@ -742,7 +744,7 @@ func TestPlayerSeats(t *testing.T) {
 	if err != nil {
 		t.Fatalf("PlayerSeats(unrated): %v", err)
 	}
-	if allStats.Overall.TotalGames != 3 || allStats.Overall.TotalWins != 2 {
-		t.Errorf("all games total: games %d, wins %d; want 3, 2", allStats.Overall.TotalGames, allStats.Overall.TotalWins)
+	if allStats.Overall.TotalGames != 4 || allStats.Overall.TotalWins != 2 || allStats.Overall.TotalDraws != 1 {
+		t.Errorf("all games total: games %d, wins %d, draws %d; want 4, 2, 1", allStats.Overall.TotalGames, allStats.Overall.TotalWins, allStats.Overall.TotalDraws)
 	}
 }

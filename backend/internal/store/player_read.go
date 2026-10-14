@@ -628,6 +628,7 @@ type PlayerSeatStats struct {
 type PlayerSeatOverview struct {
 	TotalGames    int
 	TotalWins     int
+	TotalDraws    int
 	WinRate       float64
 	AvgCulture    float64
 	StrongestSeat *PlayerSeatDelta
@@ -647,6 +648,7 @@ type PlayerSeatGroup struct {
 	PlayerCount int
 	TotalGames  int
 	TotalWins   int
+	TotalDraws  int
 	WinRate     float64
 	AvgCulture  float64
 	Seats       []PlayerSeatRow
@@ -657,6 +659,7 @@ type PlayerSeatRow struct {
 	Seat         int
 	Games        int
 	Wins         int
+	Draws        int
 	WinRate      float64
 	DeltaWinRate float64
 	AvgCulture   float64
@@ -699,16 +702,20 @@ func (r *RatingsReader) PlayerSeats(ctx context.Context, run int64, asked string
 				vg.player_count,
 				coalesce(s.starting_position + 1, s.seat) AS seat,
 				s.place,
-				s.culture
+				s.culture,
+				count(*) FILTER (WHERE s2.place = 1) AS p1_count
 			FROM valid_games vg
 			JOIN seats s ON s.game_id = vg.game_id
+			JOIN seats s2 ON s2.game_id = vg.game_id
 			WHERE s.player_name = ` + nameParam + `
+			GROUP BY vg.player_count, vg.game_id, coalesce(s.starting_position + 1, s.seat), s.place, s.culture
 		)
 		SELECT 
 			player_count,
 			seat,
 			count(*) AS games,
-			count(*) FILTER (WHERE place = 1) AS wins,
+			count(*) FILTER (WHERE place = 1 AND p1_count = 1) AS wins,
+			count(*) FILTER (WHERE place = 1 AND p1_count > 1) AS draws,
 			round(avg(culture)::numeric, 1) AS avg_culture,
 			count(*) FILTER (WHERE place = 1) AS p1,
 			count(*) FILTER (WHERE place = 2) AS p2,
@@ -728,13 +735,14 @@ func (r *RatingsReader) PlayerSeats(ctx context.Context, run int64, asked string
 		seat           int
 		games          int
 		wins           int
+		draws          int
 		avgCulture     float64
 		p1, p2, p3, p4 int
 	}
 
 	rawList, err := pgx.CollectRows(rows, func(row pgx.CollectableRow) (rawRow, error) {
 		var rr rawRow
-		err := row.Scan(&rr.playerCount, &rr.seat, &rr.games, &rr.wins, &rr.avgCulture, &rr.p1, &rr.p2, &rr.p3, &rr.p4)
+		err := row.Scan(&rr.playerCount, &rr.seat, &rr.games, &rr.wins, &rr.draws, &rr.avgCulture, &rr.p1, &rr.p2, &rr.p3, &rr.p4)
 		return rr, err
 	})
 	if err != nil {
@@ -747,7 +755,7 @@ func (r *RatingsReader) PlayerSeats(ctx context.Context, run int64, asked string
 		Groups:  make([]PlayerSeatGroup, 0, 3),
 	}
 
-	var totalOverallGames, totalOverallWins int
+	var totalOverallGames, totalOverallWins, totalOverallDraws int
 	var weightedOverallCultureSum float64
 
 	var allSeatDeltas []PlayerSeatDelta
@@ -763,6 +771,7 @@ func (r *RatingsReader) PlayerSeats(ctx context.Context, run int64, asked string
 			if rr.playerCount == pc {
 				group.TotalGames += rr.games
 				group.TotalWins += rr.wins
+				group.TotalDraws += rr.draws
 				groupCultureSum += rr.avgCulture * float64(rr.games)
 			}
 		}
@@ -789,6 +798,7 @@ func (r *RatingsReader) PlayerSeats(ctx context.Context, run int64, asked string
 			if match != nil && match.games > 0 {
 				row.Games = match.games
 				row.Wins = match.wins
+				row.Draws = match.draws
 				row.WinRate = round.To(float64(match.wins)/float64(match.games)*100, 2)
 				row.DeltaWinRate = round.To(row.WinRate-group.WinRate, 2)
 				row.AvgCulture = round.Tenth(match.avgCulture)
@@ -818,6 +828,7 @@ func (r *RatingsReader) PlayerSeats(ctx context.Context, run int64, asked string
 
 		totalOverallGames += group.TotalGames
 		totalOverallWins += group.TotalWins
+		totalOverallDraws += group.TotalDraws
 		weightedOverallCultureSum += groupCultureSum
 
 		stats.Groups = append(stats.Groups, group)
@@ -825,6 +836,7 @@ func (r *RatingsReader) PlayerSeats(ctx context.Context, run int64, asked string
 
 	stats.Overall.TotalGames = totalOverallGames
 	stats.Overall.TotalWins = totalOverallWins
+	stats.Overall.TotalDraws = totalOverallDraws
 	if totalOverallGames > 0 {
 		stats.Overall.WinRate = round.To(float64(totalOverallWins)/float64(totalOverallGames)*100, 2)
 		stats.Overall.AvgCulture = round.Tenth(weightedOverallCultureSum / float64(totalOverallGames))

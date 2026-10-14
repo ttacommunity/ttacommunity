@@ -1833,6 +1833,7 @@ type PlayerSeatGroup struct {
 	AvgCulture  float64         `json:"avg_culture"`
 	PlayerCount int             `json:"player_count"`
 	Seats       []PlayerSeatRow `json:"seats"`
+	TotalDraws  int             `json:"total_draws"`
 	TotalGames  int             `json:"total_games"`
 	TotalWins   int             `json:"total_wins"`
 	WinRate     float64         `json:"win_rate"`
@@ -1842,6 +1843,7 @@ type PlayerSeatGroup struct {
 type PlayerSeatOverview struct {
 	AvgCulture    float64          `json:"avg_culture"`
 	StrongestSeat *PlayerSeatDelta `json:"strongest_seat"`
+	TotalDraws    int              `json:"total_draws"`
 	TotalGames    int              `json:"total_games"`
 	TotalWins     int              `json:"total_wins"`
 	WeakestSeat   *PlayerSeatDelta `json:"weakest_seat"`
@@ -1853,14 +1855,19 @@ type PlayerSeatRow struct {
 	AvgCulture float64 `json:"avg_culture"`
 
 	// DeltaWinRate Win rate minus group overall win rate
-	DeltaWinRate float64         `json:"delta_win_rate"`
-	Games        int             `json:"games"`
-	Places       []SeatPlaceRate `json:"places"`
+	DeltaWinRate float64 `json:"delta_win_rate"`
+
+	// Draws Tied games for 1st place
+	Draws  int             `json:"draws"`
+	Games  int             `json:"games"`
+	Places []SeatPlaceRate `json:"places"`
 
 	// Seat 1-indexed turn position (Seat 1 = starting player)
 	Seat    int     `json:"seat"`
 	WinRate float64 `json:"win_rate"`
-	Wins    int     `json:"wins"`
+
+	// Wins Outright wins (sole 1st place finishes)
+	Wins int `json:"wins"`
 }
 
 // PlayerSeatStats defines model for PlayerSeatStats.
@@ -2069,6 +2076,8 @@ type SeatStatsGroup struct {
 
 // SeatWinrateRow defines model for SeatWinrateRow.
 type SeatWinrateRow struct {
+	// Draws Tied games for 1st place
+	Draws int `json:"draws"`
 	Games int `json:"games"`
 
 	// Places Detailed placement breakdown (1st, 2nd, 3rd, 4th)
@@ -2079,7 +2088,9 @@ type SeatWinrateRow struct {
 
 	// WinRate Win rate as a percentage rounded to two decimals
 	WinRate float64 `json:"win_rate"`
-	Wins    int     `json:"wins"`
+
+	// Wins Outright wins (sole 1st place finishes)
+	Wins int `json:"wins"`
 }
 
 // Series A tournament series

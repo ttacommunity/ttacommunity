@@ -191,13 +191,6 @@ export default function PlayerPage({ apiUrl }: { apiUrl: string }) {
         format={view.format}
       />
 
-      <PositionSeatStats
-        state={seats}
-        format={view.format}
-        includeUnrated={includeUnrated}
-        onToggleUnrated={() => setIncludeUnrated(!includeUnrated)}
-      />
-
       <FormatCards player={p} view={view} linkTo={linkTo} />
 
       <RatingChart history={history.kind === 'ready' ? history.data : null} />
@@ -206,6 +199,13 @@ export default function PlayerPage({ apiUrl }: { apiUrl: string }) {
         <Games state={games} view={view} provisional={provisional} gamesInFormat={gamesInFormat} linkTo={linkTo} go={go} />
         <Rivals state={rivals} compare={runId === null ? null : { apiUrl, runId, format: view.format }} />
       </div>
+
+      <PositionSeatStats
+        state={seats}
+        format={view.format}
+        includeUnrated={includeUnrated}
+        onToggleUnrated={() => setIncludeUnrated(!includeUnrated)}
+      />
     </>
   );
 }
@@ -617,7 +617,11 @@ function PositionSeatStats({
           <div className="position-banner-metric">
             <span className="banner-metric-label">Analyzed Games:</span>
             <strong>{overall.total_games}</strong>
-            <span className="banner-metric-sub">({overall.total_wins} wins · {overall.win_rate.toFixed(1)}%)</span>
+            <span className="banner-metric-sub">
+              ({overall.total_wins} {overall.total_wins === 1 ? 'win' : 'wins'}
+              {overall.total_draws > 0 ? ` · ${overall.total_draws} ${overall.total_draws === 1 ? 'draw' : 'draws'}` : ''}
+              {' '}· {overall.win_rate.toFixed(1)}%)
+            </span>
           </div>
           <div className="position-banner-metric">
             <span className="banner-metric-label">Avg Culture:</span>
@@ -660,6 +664,7 @@ function PositionSeatStats({
               <th scope="col">Turn Order</th>
               <th scope="col">Games</th>
               <th scope="col">Wins</th>
+              <th scope="col">Draws</th>
               <th scope="col">Win %</th>
               <th scope="col">Δ vs Format</th>
               <th scope="col">Avg Culture</th>
@@ -667,10 +672,10 @@ function PositionSeatStats({
             </tr>
           </thead>
           <tbody>
-            <Waiting load={state} what="position statistics" form="row" colSpan={7} />
+            <Waiting load={state} what="position statistics" form="row" colSpan={8} />
             {data !== null && groups.length === 0 && (
               <tr>
-                <td colSpan={7} className="cell-empty">
+                <td colSpan={8} className="cell-empty">
                   No recorded games in this format.
                 </td>
               </tr>
@@ -678,10 +683,12 @@ function PositionSeatStats({
             {groups.map((group) => (
               <>
                 <tr key={`header-${group.player_count}`} className="format-group-row">
-                  <td colSpan={7} className="format-group-cell">
+                  <td colSpan={8} className="format-group-cell">
                     <strong>{group.player_count}-Player Tables</strong>
                     <span className="group-meta">
-                      {' '}— {group.total_games} games · {group.total_wins} wins ({group.win_rate.toFixed(1)}% win rate) · Avg Culture: {group.avg_culture.toFixed(1)}
+                      {' '}— {group.total_games} games · {group.total_wins} wins
+                      {group.total_draws > 0 ? ` · ${group.total_draws} ${group.total_draws === 1 ? 'draw' : 'draws'}` : ''}
+                      {' '}({group.win_rate.toFixed(1)}% win rate) · Avg Culture: {group.avg_culture.toFixed(1)}
                     </span>
                   </td>
                 </tr>
@@ -694,6 +701,7 @@ function PositionSeatStats({
                       </td>
                       <td>{row.games}</td>
                       <td>{row.wins}</td>
+                      <td>{row.draws}</td>
                       <td>
                         <strong>{row.games > 0 ? `${row.win_rate.toFixed(1)}%` : '—'}</strong>
                       </td>

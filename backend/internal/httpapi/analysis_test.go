@@ -210,7 +210,7 @@ func TestSeatAnalysisReturnsStatsAndCacheControl(t *testing.T) {
 	if got := rec.Header().Get("Cache-Control"); got != cacheRun {
 		t.Errorf("Cache-Control = %q, want %q", got, cacheRun)
 	}
-	want := `{"groups":[{"player_count":2,"seats":[{"games":10,"places":[{"count":6,"place":1,"rate":60},{"count":4,"place":2,"rate":40}],"seat":1,"win_rate":60,"wins":6}],"total_games":10}],"run_id":7,"tier":"grandmaster"}`
+	want := `{"groups":[{"player_count":2,"seats":[{"draws":0,"games":10,"places":[{"count":6,"place":1,"rate":60},{"count":4,"place":2,"rate":40}],"seat":1,"win_rate":60,"wins":6}],"total_games":10}],"run_id":7,"tier":"grandmaster"}`
 	if got := strings.TrimSpace(rec.Body.String()); got != want {
 		t.Errorf("GET /v1/runs/7/analysis/seats = %s\nwant %s", got, want)
 	}

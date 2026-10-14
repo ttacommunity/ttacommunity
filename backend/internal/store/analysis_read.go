@@ -293,6 +293,7 @@ type SeatWinrateRow struct {
 	Seat    int
 	Games   int
 	Wins    int
+	Draws   int
 	WinRate float64
 	Places  []SeatPlaceRate
 }
@@ -336,17 +337,29 @@ func (r *RatingsReader) SeatAnalysis(ctx context.Context, run int64, format int,
 				END
 			)
 		),
-		seat_data AS (
+		seat_game_data AS (
 			SELECT 
 				fg.player_count,
 				coalesce(s.starting_position + 1, s.seat) AS seat,
 				s.place,
-				count(*) AS count
+				count(*) FILTER (WHERE s2.place = 1) AS p1_count
 			FROM filtered_games fg
 			JOIN seats s ON s.game_id = fg.game_id
-			GROUP BY fg.player_count, coalesce(s.starting_position + 1, s.seat), s.place
+			JOIN seats s2 ON s2.game_id = fg.game_id
+			GROUP BY fg.player_count, fg.game_id, coalesce(s.starting_position + 1, s.seat), s.place
+		),
+		seat_data AS (
+			SELECT 
+				player_count,
+				seat,
+				place,
+				count(*) AS count,
+				count(*) FILTER (WHERE place = 1 AND p1_count = 1) AS outright_wins,
+				count(*) FILTER (WHERE place = 1 AND p1_count > 1) AS draws
+			FROM seat_game_data
+			GROUP BY player_count, seat, place
 		)
-		SELECT player_count, seat, place, count
+		SELECT player_count, seat, place, count, outright_wins, draws
 		FROM seat_data
 		ORDER BY player_count, seat, place`
 
@@ -355,10 +368,16 @@ func (r *RatingsReader) SeatAnalysis(ctx context.Context, run int64, format int,
 		return nil, fmt.Errorf("reading run %d's seat analysis: %w", run, err)
 	}
 
-	var pc, seat, place, count int
+	var pc, seat, place, count, outrightWins, draws int
 	counts := map[[3]int]int{}
-	_, err = pgx.ForEachRow(rows, []any{&pc, &seat, &place, &count}, func() error {
+	seatOutrightWins := map[[2]int]int{}
+	seatDraws := map[[2]int]int{}
+	_, err = pgx.ForEachRow(rows, []any{&pc, &seat, &place, &count, &outrightWins, &draws}, func() error {
 		counts[[3]int{pc, seat, place}] = count
+		if place == 1 {
+			seatOutrightWins[[2]int{pc, seat}] = outrightWins
+			seatDraws[[2]int{pc, seat}] = draws
+		}
 		return nil
 	})
 	if err != nil {
@@ -386,7 +405,8 @@ func (r *RatingsReader) SeatAnalysis(ctx context.Context, run int64, format int,
 			for p := 1; p <= pc; p++ {
 				seatGames += counts[[3]int{pc, s, p}]
 			}
-			wins := counts[[3]int{pc, s, 1}]
+			wins := seatOutrightWins[[2]int{pc, s}]
+			draws := seatDraws[[2]int{pc, s}]
 			winRate := 0.0
 			if seatGames > 0 {
 				winRate = round.To(float64(wins)/float64(seatGames)*100.0, 2)
@@ -408,6 +428,7 @@ func (r *RatingsReader) SeatAnalysis(ctx context.Context, run int64, format int,
 				Seat:    s,
 				Games:   seatGames,
 				Wins:    wins,
+				Draws:   draws,
 				WinRate: winRate,
 				Places:  places,
 			})

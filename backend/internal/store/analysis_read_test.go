@@ -235,16 +235,20 @@ func TestSeatAnalysisGroupsByPlayerCountAndFiltersByTier(t *testing.T) {
 
 	addGame(t, pool, run, "2025-01-01", "Cup 1", Seat{"gm1", 100}, Seat{"gm2", 90})
 	addGame(t, pool, run, "2025-01-02", "Cup 2", Seat{"m1", 90}, Seat{"m2", 100})
+	addGame(t, pool, run, "2025-01-03", "Cup 3", Seat{"m1", 95}, Seat{"m2", 95})
 
 	gotAll, err := r.SeatAnalysis(ctx, run, 2, "all")
 	if err != nil {
 		t.Fatalf("SeatAnalysis(all): %v", err)
 	}
-	if len(gotAll) != 1 || gotAll[0].TotalGames != 2 {
-		t.Fatalf("SeatAnalysis(all) = %+v, want 1 group with 2 total games", gotAll)
+	if len(gotAll) != 1 || gotAll[0].TotalGames != 3 {
+		t.Fatalf("SeatAnalysis(all) = %+v, want 1 group with 3 total games", gotAll)
 	}
-	if gotAll[0].Seats[0].Wins != 1 || gotAll[0].Seats[0].WinRate != 50.0 {
-		t.Errorf("Seat 1 win rate = %v, want 50.0", gotAll[0].Seats[0].WinRate)
+	if gotAll[0].Seats[0].Wins != 1 || gotAll[0].Seats[0].Draws != 1 || gotAll[0].Seats[0].WinRate != 33.33 {
+		t.Errorf("Seat 1 = %+v, want Wins 1, Draws 1, WinRate 33.33", gotAll[0].Seats[0])
+	}
+	if gotAll[0].Seats[1].Wins != 1 || gotAll[0].Seats[1].Draws != 1 || gotAll[0].Seats[1].WinRate != 33.33 {
+		t.Errorf("Seat 2 = %+v, want Wins 1, Draws 1, WinRate 33.33", gotAll[0].Seats[1])
 	}
 
 	gotGM, err := r.SeatAnalysis(ctx, run, 2, "grandmaster")
@@ -254,7 +258,7 @@ func TestSeatAnalysisGroupsByPlayerCountAndFiltersByTier(t *testing.T) {
 	if len(gotGM) != 1 || gotGM[0].TotalGames != 1 {
 		t.Fatalf("SeatAnalysis(grandmaster) = %+v, want 1 game", gotGM)
 	}
-	if gotGM[0].Seats[0].Wins != 1 || gotGM[0].Seats[0].WinRate != 100.0 {
+	if gotGM[0].Seats[0].Wins != 1 || gotGM[0].Seats[0].Draws != 0 || gotGM[0].Seats[0].WinRate != 100.0 {
 		t.Errorf("GM Seat 1 win rate = %v, want 100.0", gotGM[0].Seats[0].WinRate)
 	}
 
@@ -262,10 +266,13 @@ func TestSeatAnalysisGroupsByPlayerCountAndFiltersByTier(t *testing.T) {
 	if err != nil {
 		t.Fatalf("SeatAnalysis(master): %v", err)
 	}
-	if len(gotM) != 1 || gotM[0].TotalGames != 1 {
-		t.Fatalf("SeatAnalysis(master) = %+v, want 1 game", gotM)
+	if len(gotM) != 1 || gotM[0].TotalGames != 2 {
+		t.Fatalf("SeatAnalysis(master) = %+v, want 2 games", gotM)
 	}
-	if gotM[0].Seats[1].Wins != 1 || gotM[0].Seats[1].WinRate != 100.0 {
-		t.Errorf("Master Seat 2 win rate = %v, want 100.0", gotM[0].Seats[1].WinRate)
+	if gotM[0].Seats[0].Wins != 0 || gotM[0].Seats[0].Draws != 1 || gotM[0].Seats[0].WinRate != 0.0 {
+		t.Errorf("Master Seat 1 = %+v, want Wins 0, Draws 1, WinRate 0.0", gotM[0].Seats[0])
+	}
+	if gotM[0].Seats[1].Wins != 1 || gotM[0].Seats[1].Draws != 1 || gotM[0].Seats[1].WinRate != 50.0 {
+		t.Errorf("Master Seat 2 = %+v, want Wins 1, Draws 1, WinRate 50.0", gotM[0].Seats[1])
 	}
 }

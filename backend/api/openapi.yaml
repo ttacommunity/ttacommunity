@@ -3585,7 +3585,7 @@ components:
             $ref: "#/components/schemas/SeatWinrateRow"
     SeatWinrateRow:
       type: object
-      required: [seat, games, wins, win_rate, places]
+      required: [seat, games, wins, draws, win_rate, places]
       properties:
         seat:
           description: 1-indexed turn position (Seat 1 = starting player)
@@ -3595,6 +3595,10 @@ components:
         games:
           type: integer
         wins:
+          description: Outright wins (sole 1st place finishes)
+          type: integer
+        draws:
+          description: Tied games for 1st place
           type: integer
         win_rate:
           description: Win rate as a percentage rounded to two decimals
@@ -3640,11 +3644,13 @@ components:
           $ref: "#/components/schemas/PlayerSeatOverview"
     PlayerSeatOverview:
       type: object
-      required: [total_games, total_wins, win_rate, avg_culture, strongest_seat, weakest_seat]
+      required: [total_games, total_wins, total_draws, win_rate, avg_culture, strongest_seat, weakest_seat]
       properties:
         total_games:
           type: integer
         total_wins:
+          type: integer
+        total_draws:
           type: integer
         win_rate:
           type: number
@@ -3676,7 +3682,7 @@ components:
           format: double
     PlayerSeatGroup:
       type: object
-      required: [player_count, total_games, total_wins, win_rate, avg_culture, seats]
+      required: [player_count, total_games, total_wins, total_draws, win_rate, avg_culture, seats]
       properties:
         player_count:
           type: integer
@@ -3685,6 +3691,8 @@ components:
         total_games:
           type: integer
         total_wins:
+          type: integer
+        total_draws:
           type: integer
         win_rate:
           type: number
@@ -3698,7 +3706,7 @@ components:
             $ref: "#/components/schemas/PlayerSeatRow"
     PlayerSeatRow:
       type: object
-      required: [seat, games, wins, win_rate, delta_win_rate, avg_culture, places]
+      required: [seat, games, wins, draws, win_rate, delta_win_rate, avg_culture, places]
       properties:
         seat:
           description: 1-indexed turn position (Seat 1 = starting player)
@@ -3708,6 +3716,10 @@ components:
         games:
           type: integer
         wins:
+          description: Outright wins (sole 1st place finishes)
+          type: integer
+        draws:
+          description: Tied games for 1st place
           type: integer
         win_rate:
           type: number

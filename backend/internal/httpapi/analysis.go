@@ -220,6 +220,7 @@ func (s *server) GetSeatAnalysis(ctx context.Context, req GetSeatAnalysisRequest
 				Seat:    row.Seat,
 				Games:   row.Games,
 				Wins:    row.Wins,
+				Draws:   row.Draws,
 				WinRate: row.WinRate,
 				Places:  make([]SeatPlaceRate, 0, len(row.Places)),
 			}

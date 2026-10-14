@@ -150,7 +150,8 @@ export default function SeatAnalysisPage({ apiUrl }: { apiUrl: string }) {
                     <tr>
                       <th scope="col" className="seat-col-order">Turn Order</th>
                       <th scope="col" className="seat-col-num">Matches</th>
-                      <th scope="col" className="seat-col-num">Wins (1st)</th>
+                      <th scope="col" className="seat-col-num">Wins</th>
+                      <th scope="col" className="seat-col-num">Draws</th>
                       <th scope="col" className="seat-col-num">Win Rate</th>
                       <th scope="col" className="seat-col-num">Delta vs Parity</th>
                       {Array.from({ length: pc }, (_, idx) => (
@@ -169,6 +170,7 @@ export default function SeatAnalysisPage({ apiUrl }: { apiUrl: string }) {
                           <td className="seat-cell-order">{SEAT_NAMES[s.seat] ?? `Seat ${s.seat}`}</td>
                           <td className="seat-col-num">{count(s.games)}</td>
                           <td className="seat-cell-wins">{count(s.wins)}</td>
+                          <td className="seat-col-num">{count(s.draws)}</td>
                           <td className="seat-cell-rate">
                             {s.win_rate.toFixed(2)}%
                           </td>

@@ -367,6 +367,7 @@ func (s *server) GetPlayerSeats(ctx context.Context, req GetPlayerSeatsRequestOb
 		Overall: PlayerSeatOverview{
 			TotalGames: stats.Overall.TotalGames,
 			TotalWins:  stats.Overall.TotalWins,
+			TotalDraws: stats.Overall.TotalDraws,
 			WinRate:    stats.Overall.WinRate,
 			AvgCulture: stats.Overall.AvgCulture,
 		},
@@ -394,6 +395,7 @@ func (s *server) GetPlayerSeats(ctx context.Context, req GetPlayerSeatsRequestOb
 			PlayerCount: g.PlayerCount,
 			TotalGames:  g.TotalGames,
 			TotalWins:   g.TotalWins,
+			TotalDraws:  g.TotalDraws,
 			WinRate:     g.WinRate,
 			AvgCulture:  g.AvgCulture,
 			Seats:       make([]PlayerSeatRow, 0, len(g.Seats)),
@@ -403,6 +405,7 @@ func (s *server) GetPlayerSeats(ctx context.Context, req GetPlayerSeatsRequestOb
 				Seat:         row.Seat,
 				Games:        row.Games,
 				Wins:         row.Wins,
+				Draws:        row.Draws,
 				WinRate:      row.WinRate,
 				DeltaWinRate: row.DeltaWinRate,
 				AvgCulture:   row.AvgCulture,

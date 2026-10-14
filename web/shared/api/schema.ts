@@ -2112,7 +2112,10 @@ export interface components {
             /** @description 1-indexed turn position (Seat 1 = starting player) */
             seat: number;
             games: number;
+            /** @description Outright wins (sole 1st place finishes) */
             wins: number;
+            /** @description Tied games for 1st place */
+            draws: number;
             /**
              * Format: double
              * @description Win rate as a percentage rounded to two decimals
@@ -2143,6 +2146,7 @@ export interface components {
         PlayerSeatOverview: {
             total_games: number;
             total_wins: number;
+            total_draws: number;
             /** Format: double */
             win_rate: number;
             /** Format: double */
@@ -2165,6 +2169,7 @@ export interface components {
             player_count: number;
             total_games: number;
             total_wins: number;
+            total_draws: number;
             /** Format: double */
             win_rate: number;
             /** Format: double */
@@ -2175,7 +2180,10 @@ export interface components {
             /** @description 1-indexed turn position (Seat 1 = starting player) */
             seat: number;
             games: number;
+            /** @description Outright wins (sole 1st place finishes) */
             wins: number;
+            /** @description Tied games for 1st place */
+            draws: number;
             /** Format: double */
             win_rate: number;
             /**
