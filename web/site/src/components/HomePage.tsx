@@ -4,13 +4,12 @@ import {
   currentRun,
   leaderboard,
   catalogue,
-  catalogueTournament,
+  recentPodiums,
   type Run,
   type LeaderboardRow,
-  type CatalogueEntry,
 } from '@ttac/shared/ratings';
 import { rankPool, inactiveCutoff, DEFAULT_VIEW } from '../lib/leaderboard-view';
-import { placeNames, seasonName } from '../lib/catalogue-view';
+import { podiumCard, seasonName, type PodiumCard } from '../lib/catalogue-view';
 import { waitingText } from '../lib/waiting';
 
 import {
@@ -25,22 +24,11 @@ import PlayerLink from './PlayerLink';
 import { type SearchPlayer } from './SearchBox';
 import './HomePage.css';
 
-interface ConcludedTournament {
-  slug: string;
-  name: string;
-  seasonLabel: string;
-  seasonWord: string;
-  finished: string;
-  champion: string | null;
-  runnerUp: string | null;
-  third: string | null;
-}
-
 interface HomeData {
   run: Run;
   top20Players: LeaderboardRow[];
   allLeaderboardRows: LeaderboardRow[];
-  recentTournaments: ConcludedTournament[];
+  recentTournaments: PodiumCard[];
   availableTournaments: AvailableTournament[];
 }
 
@@ -143,9 +131,10 @@ export default function HomePage({ apiUrl }: { apiUrl: string }) {
   useEffect(() => {
     currentRun(apiUrl)
       .then(async (run) => {
-        const [board, cat] = await Promise.all([
+        const [board, cat, podiums] = await Promise.all([
           leaderboard(apiUrl, run.run_id, 'glicko2_daneo', 0).catch(() => null),
           catalogue(apiUrl, run.run_id).catch(() => null),
+          recentPodiums(apiUrl, run.run_id).catch(() => null),
         ]);
 
         const rawRows = board ? board.players : [];
@@ -153,61 +142,14 @@ export default function HomePage({ apiUrl }: { apiUrl: string }) {
         const activeRanked = rankPool(rawRows, DEFAULT_VIEW, undefined, inactiveCutoff(run.last_game));
         const top20 = activeRanked.slice(0, 20);
 
-        // Process recent tournaments with recorded podiums from catalogue
-        const recentTournaments: ConcludedTournament[] = [];
-        const availableTournaments: AvailableTournament[] = [];
-
-        if (cat) {
-          for (const t of cat.tournaments) {
-            availableTournaments.push({ slug: t.slug, name: t.name });
-          }
-
-          // Sort tournaments by last_game descending to fetch the freshest active circuits
-          const sortedTournaments = [...cat.tournaments].sort((a, b) => b.last_game.localeCompare(a.last_game));
-          const featuredTournaments = sortedTournaments.slice(0, 12);
-          const detailed = await Promise.all(
-            featuredTournaments.map((t: CatalogueEntry) =>
-              catalogueTournament(apiUrl, run.run_id, t.slug).catch(() => null),
-            ),
-          );
-
-          for (const item of detailed) {
-            if (!item) continue;
-            // Scan seasons with podiums in reverse (newest first)
-            for (let i = item.seasons.length - 1; i >= 0; i--) {
-              const s = item.seasons[i];
-              if (s && s.podium && s.podium.length > 0) {
-                const champNames = placeNames(s.podium, 1);
-                const runnerNames = placeNames(s.podium, 2);
-                const thirdNames = placeNames(s.podium, 3);
-                const finishedDate = s.last_game ?? s.podium[0]?.finished ?? '';
-
-                recentTournaments.push({
-                  slug: item.slug,
-                  name: item.name,
-                  seasonLabel: s.label,
-                  seasonWord: item.season_name || 'Season',
-                  finished: finishedDate,
-                  champion: champNames[0]?.name ?? null,
-                  runnerUp: runnerNames[0]?.name ?? null,
-                  third: thirdNames[0]?.name ?? null,
-                });
-                break; // Take the latest concluded season for this tournament
-              }
-            }
-          }
-          // Sort by finished date descending
-          recentTournaments.sort((a, b) => b.finished.localeCompare(a.finished));
-        }
-
         setLoad({
           kind: 'ready',
           data: {
             run,
             top20Players: top20,
             allLeaderboardRows: rawRows,
-            recentTournaments: recentTournaments.slice(0, 8),
-            availableTournaments,
+            recentTournaments: podiums ? podiums.podiums.map(podiumCard) : [],
+            availableTournaments: cat ? cat.tournaments.map((t) => ({ slug: t.slug, name: t.name })) : [],
           },
         });
       })

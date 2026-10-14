@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { catalogueHref, cgeYears, entryRows, hasPodiums, gameStateLabel, gameWhere, outcomeNote, placeLabel, placeNames, plural, seasonName, shownName, spanYears, stageName, tournamentParam, seasonDates, activeYears, regulationsBox } from './catalogue-view';
+import { catalogueHref, cgeYears, entryRows, hasPodiums, gameStateLabel, gameWhere, outcomeNote, placeLabel, placeNames, plural, podiumCard, seasonName, shownName, spanYears, stageName, tournamentParam, seasonDates, activeYears, regulationsBox } from './catalogue-view';
 
 describe('tournamentParam', () => {
   it('takes a slug from the address', () => {
@@ -118,6 +118,23 @@ describe('placeNames', () => {
   });
   it('leaves the final out when there is only one', () => {
     expect(placeNames([at(1, 'ann', 'Final')], 1)).toEqual([{ name: 'ann', final: '' }]);
+  });
+});
+
+describe('podiumCard', () => {
+  const at = (place: number, name: string, final = '') => ({ place, name, final, finished: '2025-01-01', source: '' });
+  it("gives a recent podium's card: its season and the first name at each place", () => {
+    const podium = [at(1, 'ann', 'Odd Games'), at(1, 'cat', 'Even Games'), at(2, 'bob', 'Odd Games')];
+    expect(podiumCard({ slug: 'wimbledon', name: 'Wimbledon', season: '2024', season_name: 'Year', finished: '2025-02-24', podium })).toEqual({
+      slug: 'wimbledon',
+      name: 'Wimbledon',
+      seasonLabel: '2024',
+      seasonWord: 'Year',
+      finished: '2025-02-24',
+      champion: 'ann',
+      runnerUp: 'bob',
+      third: null,
+    });
   });
 });
 

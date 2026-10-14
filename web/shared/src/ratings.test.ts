@@ -7,6 +7,7 @@ import {
   hallOfFame,
   catalogue,
   catalogueTournament,
+  recentPodiums,
   agreement,
   seatAnalysis,
   calibration,
@@ -226,6 +227,13 @@ describe('tournament pages', () => {
       'https://api.example/v1/runs/5/catalogue/a%2Fb',
     ]);
     expect(f.calls.every((c) => c.init?.credentials === 'omit')).toBe(true);
+  });
+
+  it('ask for the recent podiums without credentials', async () => {
+    const f = fakeFetch(200, '{}');
+    await recentPodiums('https://api.example', 5, f.fetch);
+    expect(f.calls.map((c) => c.url)).toEqual(['https://api.example/v1/runs/5/podiums']);
+    expect(f.calls[0]?.init?.credentials).toBe('omit');
   });
 
   it('ask for a page of games with only the filters chosen', async () => {

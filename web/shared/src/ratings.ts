@@ -71,6 +71,8 @@ export type EditionRules = components['schemas']['EditionRules'];
 export type CatalogueGame = components['schemas']['CatalogueGame'];
 export type GameSeat = components['schemas']['GameSeat'];
 export type PodiumPlace = components['schemas']['PodiumPlace'];
+export type RecentPodiums = components['schemas']['RecentPodiums'];
+export type RecentPodium = components['schemas']['RecentPodium'];
 export type CGETournament = components['schemas']['CGETournament'];
 
 /** An error response from the API, carrying its status and message. */
@@ -295,6 +297,11 @@ export async function catalogue(base: string, run: number, fetchFn: typeof fetch
 /** Returns one tournament's seasons in order, each with its stages and recorded podium. */
 export async function catalogueTournament(base: string, run: number, slug: string, fetchFn: typeof fetch = fetch): Promise<CatalogueTournament> {
   return get<CatalogueTournament>(fetchFn, base, `/v1/runs/${run}/catalogue/${encodeURIComponent(slug)}`);
+}
+
+/** Returns the latest podiums of the tournaments played last, those finished last first, as the home page shows them. */
+export async function recentPodiums(base: string, run: number, fetchFn: typeof fetch = fetch): Promise<RecentPodiums> {
+  return get<RecentPodiums>(fetchFn, base, `/v1/runs/${run}/podiums`);
 }
 
 /** Which of a tournament's games to ask for: empty filters do not narrow; player keeps one player's games, coded those with a replay code. */
