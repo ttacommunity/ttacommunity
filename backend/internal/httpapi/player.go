@@ -425,4 +425,3 @@ func (s *server) GetPlayerSeats(ctx context.Context, req GetPlayerSeatsRequestOb
 		Headers: GetPlayerSeats200ResponseHeaders{CacheControl: cacheRun},
 	}, nil
 }
-

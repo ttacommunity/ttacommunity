@@ -746,4 +746,3 @@ func TestPlayerSeats(t *testing.T) {
 		t.Errorf("all games total: games %d, wins %d; want 3, 2", allStats.Overall.TotalGames, allStats.Overall.TotalWins)
 	}
 }
-

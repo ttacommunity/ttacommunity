@@ -724,11 +724,11 @@ func (r *RatingsReader) PlayerSeats(ctx context.Context, run int64, asked string
 	}
 
 	type rawRow struct {
-		playerCount int
-		seat        int
-		games       int
-		wins        int
-		avgCulture  float64
+		playerCount    int
+		seat           int
+		games          int
+		wins           int
+		avgCulture     float64
 		p1, p2, p3, p4 int
 	}
 

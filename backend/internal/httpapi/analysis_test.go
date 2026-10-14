@@ -14,9 +14,9 @@ import (
 
 type fakeAnalysis struct {
 	fakeRatings
-	calib    []store.CalibrationRow
-	ratings  []store.ModelRating
-	active   map[string]bool
+	calib      []store.CalibrationRow
+	ratings    []store.ModelRating
+	active     map[string]bool
 	compared   []store.ComparedPlayer
 	activity   store.Activity
 	seatGroups []store.SeatStatsGroup
@@ -236,4 +236,3 @@ func TestSeatAnalysisRefuse(t *testing.T) {
 		t.Errorf("GET /v1/runs/9/analysis/seats for an unknown run: %d, want 404", rec.Code)
 	}
 }
-

@@ -15,16 +15,16 @@ import (
 
 type fakePlayers struct {
 	fakeRatings
-	player  store.Player
-	hist    []store.HistoryPoint
-	page    store.MatchPage
-	rivals  []store.Rival
-	rated   map[string]store.Rated
-	err     error
-	asked   string
-	format  int
-	pageNo  int
-	ratedAs string
+	player    store.Player
+	hist      []store.HistoryPoint
+	page      store.MatchPage
+	rivals    []store.Rival
+	rated     map[string]store.Rated
+	err       error
+	asked     string
+	format    int
+	pageNo    int
+	ratedAs   string
 	seatStats store.PlayerSeatStats
 	unrated   bool
 }
@@ -421,4 +421,3 @@ func TestPlayerSeats(t *testing.T) {
 		t.Errorf("GET seats bad run = %d, want 400", rec.Code)
 	}
 }
-

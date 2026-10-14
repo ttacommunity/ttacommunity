@@ -269,4 +269,3 @@ func TestSeatAnalysisGroupsByPlayerCountAndFiltersByTier(t *testing.T) {
 		t.Errorf("Master Seat 2 win rate = %v, want 100.0", gotM[0].Seats[1].WinRate)
 	}
 }
-
