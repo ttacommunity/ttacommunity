@@ -1920,6 +1920,29 @@ type PreviousRating struct {
 	Rd      float64 `json:"rd"`
 }
 
+// RecentPodium A tournament season's podium
+type RecentPodium struct {
+	// Finished The season's last game, or its podium's finish when it has no games
+	Finished openapi_types.Date `json:"finished"`
+
+	// Name The tournament's name
+	Name   string        `json:"name"`
+	Podium []PodiumPlace `json:"podium"`
+
+	// Season The season's label, as the catalogue gives it
+	Season string `json:"season"`
+
+	// SeasonName What the tournament calls a season ("Season" unless set)
+	SeasonName string `json:"season_name"`
+	Slug       string `json:"slug"`
+}
+
+// RecentPodiums defines model for RecentPodiums.
+type RecentPodiums struct {
+	Podiums []RecentPodium `json:"podiums"`
+	RunId   int64          `json:"run_id"`
+}
+
 // Rival defines model for Rival.
 type Rival struct {
 	Draws  int    `json:"draws"`
@@ -2821,6 +2844,9 @@ type ServerInterface interface {
 	// GetPlayerVersus The latest games two players played together
 	// (GET /v1/runs/{run}/players/{name}/versus/{other})
 	GetPlayerVersus(w http.ResponseWriter, r *http.Request, run RunId, name PlayerName, other string)
+	// GetRecentPodiums The latest podiums, for the home page
+	// (GET /v1/runs/{run}/podiums)
+	GetRecentPodiums(w http.ResponseWriter, r *http.Request, run RunId)
 	// GetHallOfFame The Hall of Fame overview
 	// (GET /v1/runs/{run}/tournaments)
 	GetHallOfFame(w http.ResponseWriter, r *http.Request, run RunId)
@@ -4759,6 +4785,32 @@ func (siw *ServerInterfaceWrapper) GetPlayerVersus(w http.ResponseWriter, r *htt
 	handler.ServeHTTP(w, r)
 }
 
+// GetRecentPodiums operation middleware
+func (siw *ServerInterfaceWrapper) GetRecentPodiums(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "run" -------------
+	var run RunId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "run", r.PathValue("run"), &run, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "integer", Format: "int64", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "run", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetRecentPodiums(w, r, run)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // GetHallOfFame operation middleware
 func (siw *ServerInterfaceWrapper) GetHallOfFame(w http.ResponseWriter, r *http.Request) {
 
@@ -5058,6 +5110,7 @@ func HandlerWithOptions(si ServerInterface, options StdHTTPServerOptions) http.H
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/v1/runs/{run}/catalogue", wrapper.GetCatalogue)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/v1/runs/{run}/catalogue/{tournament}", wrapper.GetCatalogueTournament)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/v1/runs/{run}/catalogue/{tournament}/games", wrapper.GetCatalogueGames)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/v1/runs/{run}/podiums", wrapper.GetRecentPodiums)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/v1/community/editions", wrapper.GetCommunityEditions)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/v1/runs/{run}/community/{edition}", wrapper.GetCommunityLeaderboard)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/v1/admin/me", wrapper.GetAdminMe)
@@ -8829,6 +8882,66 @@ func (response GetPlayerVersus404JSONResponse) VisitGetPlayerVersusResponse(w ht
 	return err
 }
 
+type GetRecentPodiumsRequestObject struct {
+	Run RunId `json:"run"`
+}
+
+type GetRecentPodiumsResponseObject interface {
+	VisitGetRecentPodiumsResponse(w http.ResponseWriter) error
+}
+
+type GetRecentPodiums200ResponseHeaders struct {
+	CacheControl string
+}
+
+type GetRecentPodiums200JSONResponse struct {
+	Body    RecentPodiums
+	Headers GetRecentPodiums200ResponseHeaders
+}
+
+func (response GetRecentPodiums200JSONResponse) VisitGetRecentPodiumsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetRecentPodiums400JSONResponse struct{ BadRequestJSONResponse }
+
+func (response GetRecentPodiums400JSONResponse) VisitGetRecentPodiumsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetRecentPodiums404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response GetRecentPodiums404JSONResponse) VisitGetRecentPodiumsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
 type GetHallOfFameRequestObject struct {
 	Run RunId `json:"run"`
 }
@@ -9245,6 +9358,9 @@ type StrictServerInterface interface {
 	// GetPlayerVersus The latest games two players played together
 	// (GET /v1/runs/{run}/players/{name}/versus/{other})
 	GetPlayerVersus(ctx context.Context, request GetPlayerVersusRequestObject) (GetPlayerVersusResponseObject, error)
+	// GetRecentPodiums The latest podiums, for the home page
+	// (GET /v1/runs/{run}/podiums)
+	GetRecentPodiums(ctx context.Context, request GetRecentPodiumsRequestObject) (GetRecentPodiumsResponseObject, error)
 	// GetHallOfFame The Hall of Fame overview
 	// (GET /v1/runs/{run}/tournaments)
 	GetHallOfFame(ctx context.Context, request GetHallOfFameRequestObject) (GetHallOfFameResponseObject, error)
@@ -10842,6 +10958,32 @@ func (sh *strictHandler) GetPlayerVersus(w http.ResponseWriter, r *http.Request,
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(GetPlayerVersusResponseObject); ok {
 		if err := validResponse.VisitGetPlayerVersusResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// GetRecentPodiums operation middleware
+func (sh *strictHandler) GetRecentPodiums(w http.ResponseWriter, r *http.Request, run RunId) {
+	var request GetRecentPodiumsRequestObject
+
+	request.Run = run
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.GetRecentPodiums(ctx, request.(GetRecentPodiumsRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetRecentPodiums")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(GetRecentPodiumsResponseObject); ok {
+		if err := validResponse.VisitGetRecentPodiumsResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {

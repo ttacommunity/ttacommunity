@@ -641,6 +641,29 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/runs/{run}/podiums": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The latest podiums, for the home page
+         * @description Of the twelve tournaments the site shows that were played most
+         *     recently, each one's latest season with a podium, the eight finished
+         *     last first. Each podium is as the tournament's catalogue page gives
+         *     it. Cached for five minutes.
+         */
+        get: operations["getRecentPodiums"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/community/editions": {
         parameters: {
             query?: never;
@@ -2377,6 +2400,27 @@ export interface components {
             /** @description The tournaments on CGE's site the site shows (rated, or made visible), newest first */
             cge_tournaments: components["schemas"]["CGETournament"][];
         };
+        RecentPodiums: {
+            /** Format: int64 */
+            run_id: number;
+            podiums: components["schemas"]["RecentPodium"][];
+        };
+        /** @description A tournament season's podium */
+        RecentPodium: {
+            slug: string;
+            /** @description The tournament's name */
+            name: string;
+            /** @description The season's label, as the catalogue gives it */
+            season: string;
+            /** @description What the tournament calls a season ("Season" unless set) */
+            season_name: string;
+            /**
+             * Format: date
+             * @description The season's last game, or its podium's finish when it has no games
+             */
+            finished: string;
+            podium: components["schemas"]["PodiumPlace"][];
+        };
         /** @description A stage of a season; label "" is the season's only or main stage */
         CatalogueStage: components["schemas"]["GameSpan"] & {
             label: string;
@@ -3518,6 +3562,32 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["CatalogueGames"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    getRecentPodiums: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A published run's id, from `/v1/runs/current` */
+                run: components["parameters"]["RunId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The podiums, finished last first */
+            200: {
+                headers: {
+                    "Cache-Control": components["headers"]["CacheControl"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RecentPodiums"];
                 };
             };
             400: components["responses"]["BadRequest"];

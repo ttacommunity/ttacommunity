@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"slices"
+	"strings"
 	"testing"
 	"time"
 
@@ -714,6 +715,100 @@ func TestCatalogueTournamentTakesItsKindFromTheDatabase(t *testing.T) {
 	if got, err := r.CatalogueTournament(ctx, run, "wimbledon"); err != nil || !got.Ladder {
 		t.Errorf("wimbledon made a ladder: ladder = %v, %v; want a ladder", got.Ladder, err)
 	}
+}
+
+func TestRecentPodiumsGivesEachTournamentsLatestSeasonWithAPodium(t *testing.T) {
+	pool := migrated(t)
+	ctx := context.Background()
+	run := publishedRun(t, pool)
+	placedOn(t, pool, map[string]time.Time{
+		"Wimbledon 2023 stage 1":                  day("2023-07-15"),
+		"Wimbledon 2024 Stage 1 - group 1 game 1": day("2024-07-01"),
+		"Intermezzo S23 - Grandmaster game 1":     day("2023-09-02"),
+		"Intermezzo S24 - Grandmaster game 1":     day("2024-01-02"),
+		"International S2 g1":                     day("2017-10-06"),
+	})
+	if _, err := ReplacePodiums(ctx, pool, []tournamentcsv.Podium{
+		{Cup: "wimbledon", Season: "2023", Place: 1, Player: "ann", Source: "CGE", Finished: day("2023-07-20")},
+		{Cup: "international", Season: "3", Place: 1, Player: "ann", Source: "CGE", Finished: day("2018-02-01")},
+	}); err != nil {
+		t.Fatalf("ReplacePodiums: %v", err)
+	}
+	if _, err := pool.Exec(ctx, `INSERT INTO tournament_standings (run_id, series, season, division, group_label, player_name, place, points, games, placings)
+		VALUES ($1, 'intermezzo', 23, 'Grandmaster', 'Grandmaster', 'ann', 2, 12, 6, '{}'),
+		       ($1, 'intermezzo', 24, 'Grandmaster', 'Grandmaster', 'ann', 1, 20, 6, '{}')`, run); err != nil {
+		t.Fatalf("adding standings: %v", err)
+	}
+	if err := NewAdminStore(pool).AddSeason(ctx, "international", "3"); err != nil {
+		t.Fatalf("AddSeason: %v", err)
+	}
+
+	withSpans(t, pool, run)
+	got, err := NewRatingsReader(asReader(t, pool)).RecentPodiums(ctx, run, 12, 8)
+	if err != nil {
+		t.Fatalf("RecentPodiums: %v", err)
+	}
+	want := []string{
+		"intermezzo 24 2024-01-02 ann",
+		"wimbledon 2023 2023-07-15 ann",
+		"international 3 2018-02-01 ann",
+	}
+	if diff := cmp.Diff(want, podiumLines(got)); diff != "" {
+		t.Errorf("recent podiums, finished last first: the league's standings, wimbledon's 2023 as 2024 has none, "+
+			"and a season without games finished when its podium was (-want +got):\n%s", diff)
+	}
+}
+
+func TestRecentPodiumsLooksAtTheMostRecentlyPlayedTournamentsOnly(t *testing.T) {
+	pool := migrated(t)
+	ctx := context.Background()
+	run := publishedRun(t, pool)
+	placedOn(t, pool, map[string]time.Time{
+		"Wimbledon 2023 stage 1":                  day("2023-07-15"),
+		"Wimbledon 2024 Stage 1 - group 1 game 1": day("2024-07-01"),
+		"Intermezzo S24 - Grandmaster game 1":     day("2024-01-02"),
+	})
+	if _, err := ReplacePodiums(ctx, pool, []tournamentcsv.Podium{
+		{Cup: "wimbledon", Season: "2023", Place: 1, Player: "ann", Source: "CGE", Finished: day("2023-07-20")},
+		{Cup: "intermezzo", Season: "24", Place: 1, Player: "ann", Source: "CGE", Finished: day("2024-01-02")},
+	}); err != nil {
+		t.Fatalf("ReplacePodiums: %v", err)
+	}
+	withSpans(t, pool, run)
+	r := NewRatingsReader(asReader(t, pool))
+
+	tests := []struct {
+		name          string
+		played, shown int
+		want          []string
+	}{
+		{"only the most recently played tournament", 1, 8, []string{"wimbledon 2023 2023-07-15 ann"}},
+		{"only the latest finished podium", 2, 1, []string{"intermezzo 24 2024-01-02 ann"}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := r.RecentPodiums(ctx, run, tt.played, tt.shown)
+			if err != nil {
+				t.Fatalf("RecentPodiums(%d, %d): %v", tt.played, tt.shown, err)
+			}
+			if diff := cmp.Diff(tt.want, podiumLines(got)); diff != "" {
+				t.Errorf("RecentPodiums(%d, %d) (-want +got):\n%s", tt.played, tt.shown, diff)
+			}
+		})
+	}
+}
+
+// podiumLines gives each recent podium as "slug season finished names".
+func podiumLines(ps []RecentPodium) []string {
+	var got []string
+	for _, p := range ps {
+		var names []string
+		for _, place := range p.Podium {
+			names = append(names, place.Name)
+		}
+		got = append(got, fmt.Sprintf("%s %s %s %s", p.Slug, p.Season, p.Finished.Format(time.DateOnly), strings.Join(names, ",")))
+	}
+	return got
 }
 
 // podiums returns each season's podium, in order.

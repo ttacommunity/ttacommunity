@@ -199,6 +199,60 @@ func (r *RatingsReader) Catalogue(ctx context.Context, run int64) (CatalogueView
 	return got, nil
 }
 
+// RecentPodium is one season's podium, as its tournament's catalogue page gives it.
+type RecentPodium struct {
+	Slug, Name, Season string
+	// SeasonName is what the tournament calls its seasons, empty for the default.
+	SeasonName string
+	Finished   time.Time
+	Podium     []PodiumPlace
+}
+
+// RecentPodiums returns, of the played tournaments the catalogue shows that were played most recently, each one's
+// latest season with a podium, the shown that finished last first, for a published run. A season finishes on its
+// last game, or when its podium does if it has no games.
+func (r *RatingsReader) RecentPodiums(ctx context.Context, run int64, played, shown int) ([]RecentPodium, error) {
+	if err := r.requirePublished(ctx, run); err != nil {
+		return nil, err
+	}
+	rows, err := r.pool.Query(ctx, `
+		SELECT t.slug FROM catalogue_spans s JOIN series t USING (series_id)
+		WHERE s.run_id = $1 AND s.tournament_id IS NULL
+		  AND (t.visible OR EXISTS (SELECT 1 FROM ranking_series rt WHERE rt.series_id = t.series_id))
+		ORDER BY s.last_game DESC, t.name, t.slug LIMIT $2`, run, played)
+	if err != nil {
+		return nil, fmt.Errorf("reading the tournaments played last: %w", err)
+	}
+	slugs, err := pgx.CollectRows(rows, pgx.RowTo[string])
+	if err != nil {
+		return nil, fmt.Errorf("reading the tournaments played last: %w", err)
+	}
+	tournaments, _, err := r.seasonsWithPodiums(ctx, run, slugs)
+	if err != nil {
+		return nil, fmt.Errorf("reading recent podiums: %w", err)
+	}
+	got := []RecentPodium{}
+	for _, slug := range slugs {
+		t, ok := tournaments[slug]
+		if !ok {
+			continue
+		}
+		for _, s := range slices.Backward(t.Seasons) {
+			if len(s.Podium) == 0 {
+				continue
+			}
+			finished := s.Span.Last
+			if s.Span.Games == 0 {
+				finished = s.Podium[0].Finished
+			}
+			got = append(got, RecentPodium{Slug: slug, Name: t.Name, Season: s.Label, SeasonName: t.SeasonName, Finished: finished, Podium: s.Podium})
+			break
+		}
+	}
+	slices.SortStableFunc(got, func(a, b RecentPodium) int { return b.Finished.Compare(a.Finished) })
+	return got[:min(shown, len(got))], nil
+}
+
 // CatalogueTournament returns a tournament's seasons in order of their first
 // game, each with its stages (in the same order) and its recorded podium,
 // for a published run, counted as the run counted them. A tournament without
@@ -210,46 +264,23 @@ func (r *RatingsReader) CatalogueTournament(ctx context.Context, run int64, slug
 	fail := func(what string, err error) (CatalogueTournament, error) {
 		return CatalogueTournament{}, fmt.Errorf("reading %s's %s: %w", slug, what, err)
 	}
-	got := CatalogueTournament{Slug: slug, Seasons: []CatalogueSeason{}, TopTierWins: []LadderWin{}}
-	var top []string
-	err := r.pool.QueryRow(ctx, "SELECT kind = 'ladder', top_divisions, tournament_noun, stage_noun FROM series WHERE slug = $1", slug).
-		Scan(&got.Ladder, &top, &got.SeasonName, &got.StageName)
-	if err != nil && !errors.Is(err, pgx.ErrNoRows) {
-		return fail("kind", err)
-	}
-	rows, err := r.pool.Query(ctx, `
-		SELECT t.name, s.tournament_id, se.label, s.games, s.players, s.first_game, s.last_game
-		FROM catalogue_spans s JOIN series t USING (series_id) JOIN tournaments se ON se.tournament_id = s.tournament_id
-		WHERE s.run_id = $2 AND t.slug = $1 AND s.stage_id IS NULL
-		  AND (t.visible OR EXISTS (SELECT 1 FROM ranking_series rt WHERE rt.series_id = t.series_id))
-		ORDER BY s.first_game, se.label`, slug, run)
+	tournaments, seasonIDs, err := r.seasonsWithPodiums(ctx, run, []string{slug})
 	if err != nil {
 		return fail("seasons", err)
 	}
-	var ids []int64
-	got.Seasons, err = pgx.CollectRows(rows, func(row pgx.CollectableRow) (CatalogueSeason, error) {
-		s := CatalogueSeason{InChampions: true, Stages: []CatalogueStage{}, Podium: []PodiumPlace{}, CGE: []CGELink{}}
-		var id int64
-		err := row.Scan(&got.Name, &id, &s.Label, &s.Span.Games, &s.Span.Players, &s.Span.First, &s.Span.Last)
-		ids = append(ids, id)
-		return s, err
-	})
-	if err != nil {
-		return fail("seasons", err)
-	}
-	if err := r.addSeasonsWithoutGames(ctx, slug, &got, &ids); err != nil {
-		return fail("seasons without games", err)
-	}
-	if len(got.Seasons) == 0 {
+	t, ok := tournaments[slug]
+	if !ok {
 		return CatalogueTournament{}, ErrTournamentNotFound
 	}
+	got, ids := *t, seasonIDs[slug]
+	got.TopTierWins = []LadderWin{}
 	bySeason := make(map[int64]int, len(ids))
 	byLabel := make(map[string]int, len(ids))
 	for i, id := range ids {
 		bySeason[id], byLabel[got.Seasons[i].Label] = i, i
 	}
 
-	rows, err = r.pool.Query(ctx, `SELECT se.label FROM tournaments se JOIN series t USING (series_id)
+	rows, err := r.pool.Query(ctx, `SELECT se.label FROM tournaments se JOIN series t USING (series_id)
 		WHERE t.slug = $1 AND NOT se.in_champions`, slug)
 	if err != nil {
 		return fail("champion seasons", err)
@@ -286,82 +317,6 @@ func (r *RatingsReader) CatalogueTournament(ctx context.Context, run int64, slug
 	}
 
 	rows, err = r.pool.Query(ctx, `
-		SELECT season, place, player_name, final, finished, source
-		FROM tournament_cup_podiums WHERE cup = $1 ORDER BY season, final, place`, slug)
-	if err != nil {
-		return fail("podiums", err)
-	}
-	var label string
-	var p PodiumPlace
-	cupPodium := map[int]bool{}
-	_, err = pgx.ForEachRow(rows, []any{&label, &p.Place, &p.Name, &p.Final, &p.Finished, &p.Source}, func() error {
-		if i, ok := byLabel[label]; ok {
-			got.Seasons[i].Podium = append(got.Seasons[i].Podium, p)
-			cupPodium[i] = true
-		}
-		return nil
-	})
-	if err != nil {
-		return fail("podiums", err)
-	}
-
-	// A league's podium: its recorded placements, else the run's top-division standings.
-	rows, err = r.pool.Query(ctx, `
-		WITH official AS (
-			SELECT season, place, player_name, source FROM tournament_official_placements
-			WHERE series = $1 AND division = ANY($3) AND place <= 3),
-		derived AS (
-			SELECT season, place, player_name, division || ' standings' AS source FROM tournament_standings
-			WHERE run_id = $2 AND series = $1 AND division = ANY($3) AND place <= 3
-			  AND season NOT IN (SELECT season FROM official))
-		SELECT season::text, place, player_name, source FROM (SELECT * FROM official UNION ALL SELECT * FROM derived) p
-		ORDER BY season, place, player_name`, slug, run, top)
-	if err != nil {
-		return fail("league podiums", err)
-	}
-	// A league's seasons are numbered; one labelled "2022 (Age A)" is found by its number, a "2023 Play Off" is not.
-	byNumber := make(map[string]int, len(got.Seasons))
-	for i, s := range got.Seasons {
-		if n := leadingNumber.FindString(s.Label); n != "" && (s.Label == n || strings.HasPrefix(s.Label, n+" (")) {
-			byNumber[n] = i
-		}
-	}
-	_, err = pgx.ForEachRow(rows, []any{&label, &p.Place, &p.Name, &p.Source}, func() error {
-		if i, ok := byNumber[label]; ok && !cupPodium[i] {
-			p.Final, p.Finished = "", got.Seasons[i].Span.Last
-			got.Seasons[i].Podium = append(got.Seasons[i].Podium, p)
-		}
-		return nil
-	})
-	if err != nil {
-		return fail("league podiums", err)
-	}
-
-	// A podium set in admin replaces the season's recorded or derived one.
-	rows, err = r.pool.Query(ctx, `
-		SELECT season, place, player_name, CASE WHEN note = '' THEN 'Set in admin' ELSE 'Set in admin: ' || note END
-		FROM tournament_podium_overrides WHERE tournament = $1 ORDER BY season, place`, slug)
-	if err != nil {
-		return fail("admin podiums", err)
-	}
-	set := map[int]bool{}
-	_, err = pgx.ForEachRow(rows, []any{&label, &p.Place, &p.Name, &p.Source}, func() error {
-		i, ok := byLabel[label]
-		if !ok {
-			return nil
-		}
-		if !set[i] {
-			got.Seasons[i].Podium, set[i] = nil, true
-		}
-		p.Final, p.Finished = "", got.Seasons[i].Span.Last
-		got.Seasons[i].Podium = append(got.Seasons[i].Podium, p)
-		return nil
-	})
-	if err != nil {
-		return fail("admin podiums", err)
-	}
-
-	rows, err = r.pool.Query(ctx, `
 		WITH g AS (
 			SELECT s.label, gr.cge_tournament AS ct, gr.cge_stage_number AS cs
 			FROM groups gr
@@ -382,6 +337,7 @@ func (r *RatingsReader) CatalogueTournament(ctx context.Context, run int64, slug
 	if err != nil {
 		return fail("CGE pages", err)
 	}
+	var label string
 	var link CGELink
 	_, err = pgx.ForEachRow(rows, []any{&label, &link.Tournament, &link.Season}, func() error {
 		if i, ok := byLabel[label]; ok {
@@ -498,35 +454,187 @@ func (r *RatingsReader) CatalogueTournament(ctx context.Context, run int64, slug
 	return got, nil
 }
 
-// addSeasonsWithoutGames adds the tournament's seasons that have no games yet (admin can add one, to carry
-// its note), each before the first season with a higher leading number, or last.
-func (r *RatingsReader) addSeasonsWithoutGames(ctx context.Context, slug string, got *CatalogueTournament, ids *[]int64) error {
+// seasonsWithPodiums returns each of slugs that has a season as a CatalogueTournament with its name, kind, nouns
+// and seasons in order, each with its span and podium; and each one's season ids, in the same order.
+func (r *RatingsReader) seasonsWithPodiums(ctx context.Context, run int64, slugs []string) (map[string]*CatalogueTournament, map[string][]int64, error) {
+	got := map[string]*CatalogueTournament{}
+	ids := map[string][]int64{}
+	tournament := func(slug, name string) *CatalogueTournament {
+		t, ok := got[slug]
+		if !ok {
+			t = &CatalogueTournament{Slug: slug, Seasons: []CatalogueSeason{}}
+			got[slug] = t
+		}
+		t.Name = name
+		return t
+	}
 	rows, err := r.pool.Query(ctx, `
-		SELECT t.name, se.tournament_id, se.label FROM series t JOIN tournaments se USING (series_id)
-		WHERE t.slug = $1 AND NOT EXISTS (
+		SELECT t.slug, t.name, s.tournament_id, se.label, s.games, s.players, s.first_game, s.last_game
+		FROM catalogue_spans s JOIN series t USING (series_id) JOIN tournaments se ON se.tournament_id = s.tournament_id
+		WHERE s.run_id = $2 AND t.slug = ANY($1) AND s.stage_id IS NULL
+		  AND (t.visible OR EXISTS (SELECT 1 FROM ranking_series rt WHERE rt.series_id = t.series_id))
+		ORDER BY t.slug, s.first_game, se.label`, slugs, run)
+	if err != nil {
+		return nil, nil, fmt.Errorf("reading seasons: %w", err)
+	}
+	var slug, name, label string
+	var id int64
+	var span GameSpan
+	_, err = pgx.ForEachRow(rows, []any{&slug, &name, &id, &label, &span.Games, &span.Players, &span.First, &span.Last}, func() error {
+		t := tournament(slug, name)
+		t.Seasons = append(t.Seasons, newSeason(label, span))
+		ids[slug] = append(ids[slug], id)
+		return nil
+	})
+	if err != nil {
+		return nil, nil, fmt.Errorf("reading seasons: %w", err)
+	}
+
+	// A season with no games yet (admin can add one, to carry its note) goes before the first season with a higher
+	// leading number, or last.
+	rows, err = r.pool.Query(ctx, `
+		SELECT t.slug, t.name, se.tournament_id, se.label FROM series t JOIN tournaments se USING (series_id)
+		WHERE t.slug = ANY($1) AND NOT EXISTS (
 			SELECT 1 FROM stages st JOIN groups gr USING (stage_id) JOIN games m USING (group_id)
 			WHERE st.tournament_id = se.tournament_id)
-		ORDER BY se.tournament_id`, slug)
+		ORDER BY t.slug, se.tournament_id`, slugs)
 	if err != nil {
-		return err
+		return nil, nil, fmt.Errorf("reading seasons without games: %w", err)
 	}
-	var name, label string
-	var id int64
-	_, err = pgx.ForEachRow(rows, []any{&name, &id, &label}, func() error {
-		got.Name = name
-		at := len(got.Seasons)
+	_, err = pgx.ForEachRow(rows, []any{&slug, &name, &id, &label}, func() error {
+		t := tournament(slug, name)
+		at := len(t.Seasons)
 		if n, err := strconv.Atoi(leadingNumber.FindString(label)); err == nil {
-			for i, s := range got.Seasons {
+			for i, s := range t.Seasons {
 				if m, err := strconv.Atoi(leadingNumber.FindString(s.Label)); err == nil && m > n {
 					at = i
 					break
 				}
 			}
 		}
-		s := CatalogueSeason{Label: label, InChampions: true, Stages: []CatalogueStage{}, Podium: []PodiumPlace{}, CGE: []CGELink{}}
-		got.Seasons = slices.Insert(got.Seasons, at, s)
-		*ids = slices.Insert(*ids, at, id)
+		t.Seasons = slices.Insert(t.Seasons, at, newSeason(label, GameSpan{}))
+		ids[slug] = slices.Insert(ids[slug], at, id)
 		return nil
 	})
-	return err
+	if err != nil {
+		return nil, nil, fmt.Errorf("reading seasons without games: %w", err)
+	}
+
+	rows, err = r.pool.Query(ctx, "SELECT slug, kind = 'ladder', tournament_noun, stage_noun FROM series WHERE slug = ANY($1)", slugs)
+	if err != nil {
+		return nil, nil, fmt.Errorf("reading kinds: %w", err)
+	}
+	var ladder bool
+	var seasonName, stageName string
+	_, err = pgx.ForEachRow(rows, []any{&slug, &ladder, &seasonName, &stageName}, func() error {
+		if t, ok := got[slug]; ok {
+			t.Ladder, t.SeasonName, t.StageName = ladder, seasonName, stageName
+		}
+		return nil
+	})
+	if err != nil {
+		return nil, nil, fmt.Errorf("reading kinds: %w", err)
+	}
+	if err := r.addPodiums(ctx, run, slugs, got); err != nil {
+		return nil, nil, err
+	}
+	return got, ids, nil
+}
+
+// newSeason returns a season with its label and span, before its stages, podium and CGE pages are added.
+func newSeason(label string, span GameSpan) CatalogueSeason {
+	return CatalogueSeason{Label: label, InChampions: true, Span: span, Stages: []CatalogueStage{}, Podium: []PodiumPlace{}, CGE: []CGELink{}}
+}
+
+// addPodiums gives each season in got its podium: the recorded cup podium, else its league's recorded
+// top-division placements, else the run's top-division standings; a podium set in admin replaces any of them.
+func (r *RatingsReader) addPodiums(ctx context.Context, run int64, slugs []string, got map[string]*CatalogueTournament) error {
+	byLabel := map[string]map[string]int{}
+	byNumber := map[string]map[string]int{}
+	for slug, t := range got {
+		byLabel[slug], byNumber[slug] = map[string]int{}, map[string]int{}
+		for i, s := range t.Seasons {
+			byLabel[slug][s.Label] = i
+			// A league's seasons are numbered; one labelled "2022 (Age A)" is found by its number, a "2023 Play Off" is not.
+			if n := leadingNumber.FindString(s.Label); n != "" && (s.Label == n || strings.HasPrefix(s.Label, n+" (")) {
+				byNumber[slug][n] = i
+			}
+		}
+	}
+	season := func(index map[string]map[string]int, slug, key string) *CatalogueSeason {
+		if i, ok := index[slug][key]; ok {
+			return &got[slug].Seasons[i]
+		}
+		return nil
+	}
+
+	rows, err := r.pool.Query(ctx, `
+		SELECT cup, season, place, player_name, final, finished, source
+		FROM tournament_cup_podiums WHERE cup = ANY($1) ORDER BY cup, season, final, place`, slugs)
+	if err != nil {
+		return fmt.Errorf("reading podiums: %w", err)
+	}
+	var slug, label string
+	var p PodiumPlace
+	cup := map[*CatalogueSeason]bool{}
+	_, err = pgx.ForEachRow(rows, []any{&slug, &label, &p.Place, &p.Name, &p.Final, &p.Finished, &p.Source}, func() error {
+		if s := season(byLabel, slug, label); s != nil {
+			s.Podium = append(s.Podium, p)
+			cup[s] = true
+		}
+		return nil
+	})
+	if err != nil {
+		return fmt.Errorf("reading podiums: %w", err)
+	}
+
+	rows, err = r.pool.Query(ctx, `
+		WITH official AS (
+			SELECT o.series, o.season, o.place, o.player_name, o.source
+			FROM tournament_official_placements o JOIN series t ON t.slug = o.series
+			WHERE o.series = ANY($1) AND o.division = ANY(t.top_divisions) AND o.place <= 3),
+		derived AS (
+			SELECT d.series, d.season, d.place, d.player_name, d.division || ' standings' AS source
+			FROM tournament_standings d JOIN series t ON t.slug = d.series
+			WHERE d.run_id = $2 AND d.series = ANY($1) AND d.division = ANY(t.top_divisions) AND d.place <= 3
+			  AND NOT EXISTS (SELECT 1 FROM official o WHERE o.series = d.series AND o.season = d.season))
+		SELECT series, season::text, place, player_name, source FROM (SELECT * FROM official UNION ALL SELECT * FROM derived) p
+		ORDER BY series, season, place, player_name`, slugs, run)
+	if err != nil {
+		return fmt.Errorf("reading league podiums: %w", err)
+	}
+	_, err = pgx.ForEachRow(rows, []any{&slug, &label, &p.Place, &p.Name, &p.Source}, func() error {
+		if s := season(byNumber, slug, label); s != nil && !cup[s] {
+			p.Final, p.Finished = "", s.Span.Last
+			s.Podium = append(s.Podium, p)
+		}
+		return nil
+	})
+	if err != nil {
+		return fmt.Errorf("reading league podiums: %w", err)
+	}
+
+	rows, err = r.pool.Query(ctx, `
+		SELECT tournament, season, place, player_name, CASE WHEN note = '' THEN 'Set in admin' ELSE 'Set in admin: ' || note END
+		FROM tournament_podium_overrides WHERE tournament = ANY($1) ORDER BY tournament, season, place`, slugs)
+	if err != nil {
+		return fmt.Errorf("reading admin podiums: %w", err)
+	}
+	set := map[*CatalogueSeason]bool{}
+	_, err = pgx.ForEachRow(rows, []any{&slug, &label, &p.Place, &p.Name, &p.Source}, func() error {
+		s := season(byLabel, slug, label)
+		if s == nil {
+			return nil
+		}
+		if !set[s] {
+			s.Podium, set[s] = nil, true
+		}
+		p.Final, p.Finished = "", s.Span.Last
+		s.Podium = append(s.Podium, p)
+		return nil
+	})
+	if err != nil {
+		return fmt.Errorf("reading admin podiums: %w", err)
+	}
+	return nil
 }
