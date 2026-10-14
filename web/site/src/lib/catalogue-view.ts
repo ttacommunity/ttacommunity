@@ -1,4 +1,6 @@
-/** The Tournaments page: which tournament the address asks for, its links, and how its figures are written. */
+/** The Tournaments page: which tournament the address asks for, its links, how its figures are written, and its games as table rows. */
+import type { CatalogueGame } from '@ttac/shared/ratings';
+import type { GameRow } from './games-table';
 
 // The API's pattern for a tournament in a path.
 const SLUG = /^[a-z][a-z0-9_]{0,63}$/;
@@ -71,6 +73,20 @@ export function shownName(name: string, rated: boolean): string {
 /** gameWhere writes where a game sits in its season: "Stage 2 · Lower 17 · game 5", leaving out what the game's name lacks. */
 export function gameWhere(g: { stage: string; group: string; game: number | null }): string {
   return [g.stage, g.group, g.game === null ? '' : `game ${g.game}`].filter((part) => part !== '').join(' · ');
+}
+
+/** catalogueGameRow turns a tournament's game into a games-table row: its season, where it was played, each seat linked with its score and how it ended, and its state. */
+export function catalogueGameRow(g: CatalogueGame, seasonWord: string): GameRow {
+  return {
+    key: String(g.match_id),
+    date: g.date,
+    context: seasonName(g.season, seasonWord),
+    where: gameWhere(g),
+    tag: gameStateLabel(g.state, g.rated),
+    unplayed: g.state !== 'played',
+    seats: g.seats.map((s) => ({ label: s.name, link: s.name, detail: '', score: s.score, note: outcomeNote(s.outcome) })),
+    code: g.replay_code,
+  };
 }
 
 /** outcomeNote marks a seat that did not finish: "resigned" or "timed out"; "" otherwise. */

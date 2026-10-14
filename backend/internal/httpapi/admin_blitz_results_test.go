@@ -137,11 +137,11 @@ func TestAnOrganiserRecordsGamesAndRulings(t *testing.T) {
 	}
 	var standings []string
 	for _, s := range ed.Standings {
-		standings = append(standings, fmt.Sprintf("%d:%s %g %d %d %g %s", s.Rank, s.Name, s.Points, s.Games, s.Byes, s.OpponentsPoints, s.Status))
+		standings = append(standings, fmt.Sprintf("%d:%s %g %d %d %g %s", s.Rank, s.Name, s.Points, s.Games, s.Byes, s.Buchholz, s.Status))
 	}
-	// Ann won; bob and Dee drew and are tied on every count but the draw from the seed; Cy lost.
+	// Ann won; bob and Dee drew by ruling, no game played, and are tied on every count but the draw from the seed; Cy lost.
 	if len(standings) != 4 || standings[0] != "1:Ann 1 1 0 0 active" || standings[3] != "4:Cy 0 1 0 1 active" ||
-		!strings.HasSuffix(standings[1], " 0.5 1 0 0.5 active") || !strings.HasSuffix(standings[2], " 0.5 1 0 0.5 active") {
+		!strings.HasSuffix(standings[1], " 0.5 0 0 0.5 active") || !strings.HasSuffix(standings[2], " 0.5 0 0 0.5 active") {
 		t.Errorf("standings = %q, want Ann first, bob and Dee on a half, Cy last", standings)
 	}
 }

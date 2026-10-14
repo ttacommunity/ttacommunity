@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { byeTakers, canDeleteRound, entrantButtons, partnersFor, leftUnpaired, pairCounts, reconcilePending, replaceableSide, canPair, decidedOnly, nextRound, openRound, pairAction, rulingChoices, newestFirst, samePairs, shownAfter, undecided, unpaired, unsavedMatch, zoneGapLabel, type AdminBlitzRound } from './blitz-rounds';
+import { byeTakers, canDeleteRound, entrantButtons, partnersFor, leftUnpaired, pairCounts, reconcilePending, replaceableSide, canPair, decidedOnly, nextRound, openRound, pairAction, rulingChoices, rulingLabel, newestFirst, samePairs, shownAfter, undecided, unpaired, unsavedMatch, zoneGapLabel, type AdminBlitzRound } from './blitz-rounds';
 
 const round = (id: number, number: number, published: boolean, matches: AdminBlitzRound['matches']): AdminBlitzRound => ({
   id,
@@ -124,6 +124,20 @@ describe('rulingChoices', () => {
     ['a knockout match, which needs a winner', 'knockout', ['a', 'b']],
   ] as const)('offers %s', (_name, kind, want) => {
     expect(rulingChoices(kind)).toEqual(want);
+  });
+});
+
+describe('rulingLabel', () => {
+  it.each([
+    ['a win with no game, a forfeit by the other', 'a', false, 'Cy forfeits: Ann wins'],
+    ['the other win with no game', 'b', false, 'Ann forfeits: Cy wins'],
+    ['a draw with no game', 'draw', false, 'Draw: neither at fault'],
+    ['a double loss with no game', 'double_loss', false, 'Both lose: both at fault'],
+    ['a win overruling a game', 'a', true, 'Ann wins'],
+    ['a draw overruling a game', 'draw', true, 'A draw'],
+    ['a double loss overruling a game', 'double_loss', true, 'Both lose'],
+  ] as const)('names %s', (_name, result, played, want) => {
+    expect(rulingLabel(result, 'Ann', 'Cy', played)).toBe(want);
   });
 });
 

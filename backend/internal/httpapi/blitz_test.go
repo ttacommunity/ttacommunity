@@ -86,9 +86,10 @@ func TestTheSiteListsBlitzEditionsAndTheirEntrants(t *testing.T) {
 	if strings.Contains(rec.Body.String(), "alt account") {
 		t.Errorf("the site's edition carries the ruling's reason: %s", rec.Body)
 	}
+	// bob beat Ann in a game, so he goes first despite the lower Buchholz; round 2 is unplayed for both.
 	wantStandings := []BlitzStanding{
-		{Rank: 1, Name: "bob", Country: nil, Points: 1, Games: 1, Byes: 0, OpponentsPoints: 1, Status: "active"},
-		{Rank: 2, Name: "Ann", Country: &de, Points: 1, Games: 1, Byes: 1, OpponentsPoints: 1, Status: "active"},
+		{Rank: 1, Name: "bob", Country: nil, Points: 1, Games: 1, Byes: 0, Buchholz: 2, Status: "active"},
+		{Rank: 2, Name: "Ann", Country: &de, Points: 1, Games: 1, Byes: 1, Buchholz: 2.5, Status: "active"},
 	}
 	if diff := cmp.Diff(wantStandings, ed.Standings); diff != "" {
 		t.Errorf("standings (-want +got):\n%s", diff)
@@ -144,5 +145,38 @@ func TestTheSiteShowsTheKnockoutWithSeedsAndTheChampion(t *testing.T) {
 	final := got.Rounds[1]
 	if m := final.Matches[0]; final.Kind != "knockout" || m.ASeed == nil || *m.ASeed != 1 || m.BSeed == nil || *m.BSeed != 2 {
 		t.Errorf("the final = %+v, want kind knockout, Ann seeded 1 and bob 2", final)
+	}
+}
+
+func TestTheSiteStandingsTellAForfeitFromAGame(t *testing.T) {
+	tests := []struct {
+		name string
+		game *int64
+		want float64
+	}{
+		{"a ruling with no game is a forfeit: the loser's dummy has the loser's own score", nil, 0},
+		{"a ruling over a played game counts as that game", new(int64(500)), 1},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			bob := int64(8)
+			at := time.Date(2026, 10, 12, 12, 0, 0, 0, time.UTC)
+			ed := store.BlitzEdition{
+				BlitzEditionRow: store.BlitzEditionRow{Slug: "us_open", Name: "US Open", Edition: "2026", Format: store.DefaultBlitzFormat, Entrants: 2, Round: new(1)},
+				Entrants:        []store.BlitzEntrant{{ID: 7, Name: "Ann", Zone: "UTC", Status: "active"}, {ID: 8, Name: "bob", Zone: "UTC", Status: "active"}},
+				Rounds: []store.BlitzRound{{ID: 101, Number: 1, Kind: "swiss", PublishedAt: &at,
+					Matches: []store.BlitzMatch{{ID: 1, A: 7, B: &bob, Result: "b", GameID: tt.game, Ruling: "ruled", DecidedAt: &at}}}},
+			}
+			rec, _ := serve(t, &fakeRatings{run: store.PublishedRun{ID: 7}, blitzEdition: &ed}, "/v1/blitz/us_open/2026")
+			var got BlitzEdition
+			if err := json.Unmarshal(rec.Body.Bytes(), &got); err != nil || rec.Code != http.StatusOK {
+				t.Fatalf("GET /v1/blitz/us_open/2026 = %d %s", rec.Code, rec.Body)
+			}
+			for _, s := range got.Standings {
+				if s.Name == "Ann" && s.Buchholz != tt.want {
+					t.Errorf("Ann's Buchholz = %g, want %g", s.Buchholz, tt.want)
+				}
+			}
+		})
 	}
 }

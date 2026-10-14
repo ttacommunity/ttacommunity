@@ -1,4 +1,4 @@
-/** A row of buttons choosing one value, in one of upstream's looks: its format bar, raised buttons, the year banner or the view toggle. */
+/** A row of buttons choosing one value, in one of upstream's looks: its format bar, raised buttons, the year banner, the view toggle or the records tabs. */
 import type { ReactNode } from 'react';
 
 export interface Option<T> {
@@ -9,11 +9,11 @@ export interface Option<T> {
   title?: string;
 }
 
-/** The look of each upstream page: bar (leaderboard), raised (player pages), banner (year banner), view (community). */
-export type Look = 'bar' | 'raised' | 'banner' | 'view';
+/** The look of each upstream page: bar (leaderboard), raised (player pages), banner (year banner), view (community), records (achievements' tabs). */
+export type Look = 'bar' | 'raised' | 'banner' | 'view' | 'records';
 
-const GROUP: Record<Look, string> = { bar: 'format-bar-group', raised: 'format-bar-group', banner: 'reset-btn-group', view: 'view-toggle-bar' };
-const BUTTON: Record<Look, string> = { bar: 'format-btn', raised: 'format-btn raised', banner: 'reset-btn', view: 'view-btn' };
+const GROUP: Record<Look, string> = { bar: 'format-bar-group', raised: 'format-bar-group', banner: 'reset-btn-group', view: 'view-toggle-bar', records: 'ach-tabs' };
+const BUTTON: Record<Look, string> = { bar: 'format-btn', raised: 'format-btn raised', banner: 'reset-btn', view: 'view-btn', records: 'records-tab-btn' };
 
 interface Props<T> {
   label: string;

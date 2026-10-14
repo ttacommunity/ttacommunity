@@ -11,7 +11,10 @@
     "./ratings": "./src/ratings.ts",
     "./blitz": "./src/blitz.ts",
     "./styles/*": "./styles/*",
-    "./Segmented": "./src/Segmented.tsx"
+    "./Segmented": "./src/Segmented.tsx",
+    "./SubTabs": "./src/SubTabs.tsx",
+    "./BackLink": "./src/BackLink.tsx",
+    "./tabs": "./src/tabs.ts"
   },
   "devDependencies": {
     "openapi-typescript": "7.13.0",

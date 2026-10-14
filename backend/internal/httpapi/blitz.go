@@ -34,17 +34,18 @@ func playedGame(m store.BlitzMatch) *BlitzPlayedGame {
 		BCulture: m.Game.B.Culture, BOutcome: BlitzOutcome(m.Game.B.Outcome)}
 }
 
-// played is a match as the blitz package sees it; B is 0 for a bye.
-func played(m store.BlitzMatch) blitz.Played {
-	p := blitz.Played{A: m.A, Result: blitz.Result(m.Result)}
+// played is a match of round as the blitz package sees it; B is 0 for a bye, and a result with no game is a
+// forfeit.
+func played(round int, m store.BlitzMatch) blitz.Played {
+	p := blitz.Played{Round: round, A: m.A, Result: blitz.Result(m.Result), Forfeit: m.Result != "" && m.GameID == nil}
 	if m.B != nil {
 		p.B = *m.B
 	}
 	return p
 }
 
-// swissStandings ranks an edition's entrants, pending ones aside, by its Swiss rounds' results and its tiebreak
-// seed. The knockout's results never count: the standings after the last Swiss round are its seeds.
+// swissStandings ranks an edition's entrants, pending ones aside, by its published Swiss rounds' results and its
+// tiebreak seed. The knockout's results never count: the standings after the last Swiss round are its seeds.
 func swissStandings(ed store.BlitzEdition) []blitz.Standing {
 	var entrants []blitz.Entrant
 	for _, e := range ed.Entrants {
@@ -54,14 +55,14 @@ func swissStandings(ed store.BlitzEdition) []blitz.Standing {
 	}
 	var matches []blitz.Played
 	for _, r := range ed.Rounds {
-		if r.Kind == "knockout" {
+		if r.Kind == "knockout" || r.PublishedAt == nil {
 			continue
 		}
 		for _, m := range r.Matches {
-			matches = append(matches, played(m))
+			matches = append(matches, played(r.Number, m))
 		}
 	}
-	return blitz.Standings(entrants, matches, uint64(ed.TiebreakSeed))
+	return blitz.Standings(entrants, matches, ed.Format.SwissRounds, uint64(ed.TiebreakSeed))
 }
 
 // blitzStandings is the edition's standings as the API sends them.
@@ -78,7 +79,7 @@ func blitzStandings(ed store.BlitzEdition) []BlitzStanding {
 			status = "dropped"
 		}
 		out = append(out, BlitzStanding{Rank: s.Rank, Name: names[s.ID], Country: nullableText(countries[s.ID]), Points: s.Points, Games: s.Games,
-			Byes: s.Byes, OpponentsPoints: s.OpponentsPoints, Status: BlitzStandingStatus(status)})
+			Byes: s.Byes, Buchholz: s.Buchholz, Status: BlitzStandingStatus(status)})
 	}
 	return out
 }

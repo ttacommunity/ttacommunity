@@ -12,6 +12,7 @@ import {
   type PlayerMatrix,
   type TitleCode,
 } from '@ttac/shared/ratings';
+import BackLink from '@ttac/shared/BackLink';
 import { Flag } from './PlayerMarks';
 import * as show from '../lib/leaderboard-display';
 import { DEFAULT_VIEW, type Engine } from '../lib/leaderboard-view';
@@ -347,9 +348,7 @@ function Header({ player, format }: { player: Player; format: Format }) {
         </div>
       </div>
       <div className="matrix-header-links">
-        <a href={back} className="btn-antique">
-          « Return to Profile
-        </a>
+        <BackLink href={back}>Return to Profile</BackLink>
         <a href={achievementsHref(player.name)} className="btn-antique">
           🏆 Achievements »
         </a>

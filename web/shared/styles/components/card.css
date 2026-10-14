@@ -47,3 +47,8 @@
   line-height: 1.5;
   color: var(--text-muted);
 }
+
+/* A header's BackLink: first, top left above the title, on every width. */
+.header-back {
+  margin-bottom: 1rem;
+}

@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { editionHref, editionParams, ratingText, splitRounds } from './blitz';
+import type { components } from '@ttac/shared/api';
+import { blitzGames, editionHref, editionParams, editionViews, ratingText, roundOptions, splitRounds } from './blitz';
 
 describe('splitRounds', () => {
   it('puts the Swiss rounds newest first and the knockout rounds in bracket order, first to final', () => {
@@ -41,5 +42,86 @@ describe('ratingText', () => {
     [null, '–'],
   ])('shows %s as %s', (rating, want) => {
     expect(ratingText(rating)).toBe(want);
+  });
+});
+
+describe('editionViews', () => {
+  it.each([
+    ['nothing published: the players only', [], ['players']],
+    ['a Swiss round published: the standings first, then the pairings and the players', [{ kind: 'swiss' }], ['standings', 'pairings', 'players']],
+    ['the knockout begun: the same three', [{ kind: 'swiss' }, { kind: 'knockout' }], ['standings', 'pairings', 'players']],
+  ] as const)('offers %s', (_name, rounds, want) => {
+    expect(editionViews(rounds)).toEqual(want);
+  });
+});
+
+type Round = components['schemas']['BlitzRound'];
+type Match = components['schemas']['BlitzPublicMatch'];
+
+const format = { swiss_rounds: 8, knockout_size: 8 };
+const match = (a: string, b: string | null, extra: Partial<Match> = {}): Match => ({ a, a_rating: null, a_seed: null, b, b_rating: null, b_seed: null, result: null, game: null, ruled: false, ...extra });
+const played = (code: string, finishedAt: string) => ({ share_code: code, a_culture: 250, a_outcome: 'finished' as const, b_culture: 0, b_outcome: 'timed_out' as const, finished_at: finishedAt });
+const round = (number: number, matches: Match[]): Round => ({ number, kind: 'swiss', published_at: '2026-10-12T12:00:00Z', matches });
+const rounds = [
+  round(2, [
+    match('Ann', 'Cy', { a_rating: 1712.4, result: 'a', game: played('ABCD1234', '2026-10-14T23:30:00Z') }),
+    match('Dee', 'Eve', { result: 'b', ruled: true }),
+    match('Fay', 'Gus'),
+    match('Hal', null),
+  ]),
+  round(1, [match('Ann', 'Dee', { result: 'a', game: played('EFGH5678', '2026-10-07T20:00:00Z') })]),
+];
+const all = { round: null, player: '', coded: false, page: 1 };
+
+describe('blitzGames', () => {
+  it('turns a played match into a row: its date in the zone, round, game number, rated players linked with their ratings, the scores, how it ended and the code', () => {
+    expect(blitzGames(rounds, format, all, 'Australia/Sydney').rows[0]).toEqual({
+      key: '2-1',
+      date: '2026-10-15',
+      context: 'Round 2',
+      where: 'Game 1',
+      tag: '',
+      unplayed: false,
+      seats: [
+        { label: 'Ann', link: 'Ann', detail: '(1712)', score: 250, note: '' },
+        { label: 'Cy', link: null, detail: '', score: 0, note: 'timed out' },
+      ],
+      code: 'ABCD1234',
+    });
+  });
+  it.each([
+    ['a forfeit, not played', 1, ['', 'Eve won by forfeit', true, null]],
+    ['a match to be played', 2, ['', 'To be played', false, null]],
+    ['a bye, not played', 3, ['', 'Bye', true, null]],
+  ] as const)('tags %s', (_name, i, want) => {
+    const row = blitzGames(rounds, format, all, 'UTC').rows[i];
+    expect([row.date, row.tag, row.unplayed, row.code]).toEqual(want);
+  });
+  it.each([
+    ['every round, in the order given', all, ['2-1', '2-2', '2-3', '2-4', '1-1'], 4, 2],
+    ['one round', { ...all, round: 1 }, ['1-1'], 1, 1],
+    ['one player', { ...all, player: 'Dee' }, ['2-2', '1-1'], 2, 1],
+    ['games with a code', { ...all, coded: true }, ['2-1', '1-1'], 2, 2],
+  ] as const)('narrows to %s, counting the games (byes aside) and those with a code', (_name, filter, keys, games, coded) => {
+    const got = blitzGames(rounds, format, filter, 'UTC');
+    expect([got.rows.map((r) => r.key), got.games, got.coded]).toEqual([keys, games, coded]);
+  });
+  it('pages the rows', () => {
+    const many = [round(1, Array.from({ length: 60 }, (_, i) => match(`P${i}`, `Q${i}`)))];
+    const got = blitzGames(many, format, { ...all, page: 2 }, 'UTC');
+    expect([got.rows.length, got.page, got.pages]).toEqual([10, 2, 2]);
+  });
+  it('names knockout players with their seeds', () => {
+    const final = { number: 9, kind: 'knockout' as const, published_at: '2026-12-01T12:00:00Z', matches: [match('Ann', 'Cy', { a_seed: 1, b_seed: 2 })] };
+    expect(blitzGames([final], { swiss_rounds: 8, knockout_size: 2 }, all, 'UTC').rows[0].seats.map((s) => s.label)).toEqual(['(1) Ann', '(2) Cy']);
+  });
+});
+
+describe('roundOptions', () => {
+  it('names each round, in the order given', () => {
+    expect(roundOptions(rounds, format)).toEqual([
+      { value: 2, label: 'Round 2' },
+      { value: 1, label: 'Round 1' },
+    ]);
   });
 });

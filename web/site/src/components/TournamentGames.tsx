@@ -1,16 +1,13 @@
 /** A tournament's games, newest first, narrowed by season, stage and group, with one-click replay codes. */
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { catalogueGames, type CatalogueGames, type CatalogueSeason, type GamesFilter } from '@ttac/shared/ratings';
-import { gameStateLabel, gameWhere, outcomeNote, plural, seasonName, stageName } from '../lib/catalogue-view';
-import { pickPlayer } from '../lib/leaderboard-view';
-import SearchBox from './SearchBox';
-import PlayerLink from './PlayerLink';
+import { catalogueGameRow, plural, seasonName, stageName } from '../lib/catalogue-view';
+import { gamesTag } from '../lib/games-table';
+import GamesTable, { GamesPages } from './GamesTable';
+import PlayerPicker from './PlayerPicker';
 import Waiting from './Waiting';
 
 type Load = { kind: 'loading' } | { kind: 'error'; message: string } | { kind: 'ready'; data: CatalogueGames };
-
-const count = (n: number) => n.toLocaleString('en-US');
-const score = (n: number) => (Number.isInteger(n) ? String(n) : n.toFixed(1));
 
 /** TournamentGames lists one tournament's games for a run, with filters that follow its seasons and stages; pick chooses a season from outside. */
 export default function TournamentGames({
@@ -61,16 +58,12 @@ export default function TournamentGames({
     <div className="panel-card games-panel" ref={panel}>
       <div className="panel-header panel-header-split">
         <h2 className="panel-header-title">Games</h2>
-        {data !== null && (
-          <span className="panel-tag">
-            {count(data.total)} games{filter.coded ? ' with a replay code' : ` · ${count(data.coded)} with a replay code`}
-          </span>
-        )}
+        {data !== null && <span className="panel-tag">{gamesTag(data.total, data.coded, filter.coded === true)}</span>}
       </div>
       <div className="games-filters">
         <label>
           <span>{seasonWord}</span>
-          <select id="games-season" value={filter.season ?? ''} onChange={(e) => narrow({ season: e.target.value, stage: '', group: '' })}>
+          <select className="input-antique" id="games-season" value={filter.season ?? ''} onChange={(e) => narrow({ season: e.target.value, stage: '', group: '' })}>
             <option value="">All {plural(seasonWord).toLowerCase()}</option>
             {seasons.map((s) => (
               <option key={s.label} value={s.label}>
@@ -82,7 +75,7 @@ export default function TournamentGames({
         {stages.length > 0 && (
           <label>
             <span>{stageWord}</span>
-            <select id="games-stage" value={filter.stage ?? ''} onChange={(e) => narrow({ stage: e.target.value, group: '' })}>
+            <select className="input-antique" id="games-stage" value={filter.stage ?? ''} onChange={(e) => narrow({ stage: e.target.value, group: '' })}>
               <option value="">All {plural(stageWord).toLowerCase()}</option>
               {stages.map((st) => (
                 <option key={st.label} value={st.label}>
@@ -95,7 +88,7 @@ export default function TournamentGames({
         {data !== null && data.groups.length > 0 && (
           <label>
             <span>Group</span>
-            <select id="games-group" value={filter.group ?? ''} onChange={(e) => narrow({ group: e.target.value })}>
+            <select className="input-antique" id="games-group" value={filter.group ?? ''} onChange={(e) => narrow({ group: e.target.value })}>
               <option value="">All groups</option>
               {data.groups.map((g) => (
                 <option key={g} value={g}>
@@ -106,7 +99,7 @@ export default function TournamentGames({
           </label>
         )}
         <PlayerPicker players={players} value={filter.player ?? ''} onPick={(player) => narrow({ player })} />
-        <label className="games-coded">
+        <label className="games-coded check-inline">
           <input id="games-coded" type="checkbox" checked={filter.coded === true} onChange={(e) => narrow({ coded: e.target.checked })} />
           <span>Only games with a replay code</span>
         </label>
@@ -115,110 +108,14 @@ export default function TournamentGames({
         Replay codes come from CGE's tournament pages, so not every game has one: older games and those we have not matched to CGE yet show none. Click a code to
         copy it.
       </p>
-      <div className="trophy-table-container games-table">
-        <table className="trophy-table">
-          <caption className="records-intro">The games these filters keep, newest first</caption>
-          <thead>
-            <tr>
-              <th className="col-center">Date</th>
-              <th>{seasonWord}</th>
-              <th>Game</th>
-              <th>Players &amp; scores</th>
-              <th>Replay code</th>
-            </tr>
-          </thead>
-          <tbody>
-            <Waiting load={load} what="the games" form="row" colSpan={5} />
-            {data !== null && data.games.length === 0 && (
-              <tr>
-                <td colSpan={5} className="cell-muted">
-                  No games match these filters.
-                </td>
-              </tr>
-            )}
-            {data?.games.map((g) => (
-              <tr key={g.match_id} className={g.state !== 'played' ? 'game-never-played' : undefined}>
-                <td className="cell-date">{g.date}</td>
-                <td className="cell-muted">{seasonName(g.season, seasonWord)}</td>
-                <td>
-                  {gameWhere(g)}
-                  {gameStateLabel(g.state, g.rated) !== '' && <span className="panel-tag game-state">{gameStateLabel(g.state, g.rated)}</span>}
-                </td>
-                <td>
-                  <div className="game-seats">
-                    {g.seats.map((s, i) => (
-                      <span key={`${s.name}-${i}`} className="game-seat">
-                        <PlayerLink name={s.name} /> {score(s.score)}
-                        {outcomeNote(s.outcome) !== '' && <span className="game-outcome"> ({outcomeNote(s.outcome)})</span>}
-                      </span>
-                    ))}
-                  </div>
-                </td>
-                <td>{g.replay_code === null ? <span className="cell-muted">—</span> : <ReplayCode code={g.replay_code} />}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-      {data !== null && data.pages > 1 && (
-        <div className="games-pages">
-          <button type="button" className="btn-antique" disabled={data.page <= 1} onClick={() => narrow({ page: data.page - 1 })}>
-            ‹ Newer
-          </button>
-          <span>
-            Page {count(data.page)} of {count(data.pages)}
-          </span>
-          <button type="button" className="btn-antique" disabled={data.page >= data.pages} onClick={() => narrow({ page: data.page + 1 })}>
-            Older ›
-          </button>
-        </div>
-      )}
+      <GamesTable
+        caption="The games these filters keep, newest first"
+        context={seasonWord}
+        rows={data?.games.map((g) => catalogueGameRow(g, seasonWord)) ?? []}
+        waiting={data === null ? <Waiting load={load} what="the games" form="row" colSpan={5} /> : undefined}
+        empty="No games match these filters."
+      />
+      {data !== null && <GamesPages page={data.page} pages={data.pages} onPage={(page) => narrow({ page })} />}
     </div>
-  );
-}
-
-/** PlayerPicker narrows the games to one player: a name typed in full, the top suggestion for part of one, or a suggestion picked. */
-function PlayerPicker({ players, value, onPick }: { players: string[]; value: string; onPick: (player: string) => void }) {
-  const [missed, setMissed] = useState(false);
-  const names = useMemo(() => players.map((name) => ({ name })), [players]);
-  const search = (term: string) => {
-    const name = term === '' ? '' : pickPlayer(players, term);
-    setMissed(name === null);
-    if (name !== null) onPick(name);
-  };
-  return (
-    <div className="games-player">
-      <span>Player</span>
-      <SearchBox players={names} value={value} onSearch={search} />
-      {missed && (
-        <span className="games-player-missed" role="status">
-          No player matches
-        </span>
-      )}
-    </div>
-  );
-}
-
-/** ReplayCode is a replay code that copies itself when clicked. */
-function ReplayCode({ code }: { code: string }) {
-  const [note, setNote] = useState('');
-  const copy = () => {
-    const done = (text: string) => {
-      setNote(text);
-      setTimeout(() => setNote(''), 1500);
-    };
-    if (!navigator.clipboard) return done('Select to copy');
-    navigator.clipboard.writeText(code).then(
-      () => done('Copied'),
-      () => done('Select to copy'),
-    );
-  };
-  return (
-    <button type="button" className="game-code" onClick={copy} title="Copy the replay code" aria-label={`Copy replay code ${code}`}>
-      <code>{code}</code>
-      <span className="game-code-note" aria-live="polite">
-        {note}
-      </span>
-    </button>
   );
 }

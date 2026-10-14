@@ -2389,7 +2389,8 @@ paths:
         Audited. The Origin must be the admin site. A ruling awards the match
         to one player, calls it a draw or a double loss, with its reason; a
         knockout match's ruling names who goes through. A game the match already has stays, overruled;
-        recording the game again puts its result back.
+        recording the game again puts its result back. With no game, the ruling
+        is a forfeit: an unplayed round in the standings.
       parameters:
         - $ref: "#/components/parameters/AdminTournamentSlug"
         - $ref: "#/components/parameters/BlitzEditionLabel"
@@ -3531,7 +3532,10 @@ components:
           items:
             $ref: "#/components/schemas/BlitzRound"
         standings:
-          description: By rank; dropped players last
+          description: |
+            By rank: points, then FIDE's Swiss tie-breaks (Direct Encounter,
+            then Buchholz), then a draw fixed for the edition; dropped players
+            last. Only the published Swiss rounds count
           type: array
           items:
             $ref: "#/components/schemas/BlitzStanding"
@@ -3624,7 +3628,7 @@ components:
     BlitzStanding:
       description: One row of the standings
       type: object
-      required: [rank, name, country, points, games, byes, opponents_points, status]
+      required: [rank, name, country, points, games, byes, buchholz, status]
       properties:
         rank:
           type: integer
@@ -3639,12 +3643,17 @@ components:
           type: number
           format: double
         games:
-          description: Matches decided, byes aside
+          description: Games played (finished, resigned or timed out); forfeits and byes aside
           type: integer
         byes:
           type: integer
-        opponents_points:
-          description: The sum of the points of everyone met in a decided match
+        buchholz:
+          description: |
+            Buchholz, as FIDE's tie-break regulations for Swiss tournaments
+            define it: the sum of the opponents' scores. An unplayed round (a
+            bye, a forfeit, a round not paired) counts as a game against a
+            dummy with the player's own score, and an opponent's rounds after
+            dropping out count as draws
           type: number
           format: double
         status:

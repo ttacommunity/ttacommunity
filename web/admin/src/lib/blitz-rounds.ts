@@ -40,6 +40,12 @@ export function rulingChoices(kind: AdminBlitzRound['kind']): NonNullable<AdminB
   return kind === 'knockout' ? ['a', 'b'] : ['a', 'b', 'draw', 'double_loss'];
 }
 
+/** rulingLabel names a ruling's result for the organiser: with no game played, as the forfeit it is; over a played game, as the result it gives instead. */
+export function rulingLabel(result: NonNullable<AdminBlitzMatch['result']>, a: string, b: string, played: boolean): string {
+  if (played) return { a: `${a} wins`, b: `${b} wins`, draw: 'A draw', double_loss: 'Both lose' }[result];
+  return { a: `${b} forfeits: ${a} wins`, b: `${a} forfeits: ${b} wins`, draw: 'Draw: neither at fault', double_loss: 'Both lose: both at fault' }[result];
+}
+
 /** newestFirst orders rounds by number, the latest first. */
 export function newestFirst(rounds: readonly AdminBlitzRound[]): AdminBlitzRound[] {
   return [...rounds].sort((a, b) => b.number - a.number);

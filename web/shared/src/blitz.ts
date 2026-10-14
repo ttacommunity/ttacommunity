@@ -21,7 +21,7 @@ function drawnGame(g: BlitzPlayedGame): boolean {
   return g.a_outcome === 'finished' && g.b_outcome === 'finished' && g.a_culture === g.b_culture;
 }
 
-/** resultSummary says how a match ended: "bye", "" while undecided, else who won (or a draw, or a double loss), the score, "by ruling" when the organisers decided it, and who went through as the higher seed when a knockout game was drawn. */
+/** resultSummary says how a match ended: "bye", "" while undecided, else who won (or a draw, or a double loss), the score, "by ruling" when the organisers overruled a game, "by forfeit" when they decided it with no game played, and who went through as the higher seed when a knockout game was drawn. */
 export function resultSummary(m: MatchResultView): string {
   if (m.b === null) return 'bye';
   if (m.result === null) return '';
@@ -30,7 +30,18 @@ export function resultSummary(m: MatchResultView): string {
     return `Draw ${scoreText(m, m.game)}: ${m.result === 'a' ? m.a : m.b} through as the higher seed`;
   }
   if (!m.ruled) return m.game === null ? who : `${who} ${scoreText(m, m.game)}`;
-  return m.game === null ? `${who} by ruling` : `${who} by ruling (game ${scoreText(m, m.game)})`;
+  if (m.game !== null) return `${who} by ruling (game ${scoreText(m, m.game)})`;
+  return { a: `${m.a} won by forfeit`, b: `${m.b} won by forfeit`, draw: 'Draw by ruling', double_loss: 'Both forfeited' }[m.result];
+}
+
+/** resultTag tags a match in a games table, where the scores tell a played game's result: "Bye", "To be played", who went through a drawn knockout game as the higher seed, a ruling over a game, or a forfeit (no game played); '' otherwise. */
+export function resultTag(m: MatchResultView): string {
+  if (m.b === null) return 'Bye';
+  if (m.result === null) return 'To be played';
+  const winner = m.result === 'a' ? m.a : m.result === 'b' ? m.b : null;
+  if (!m.ruled) return m.game !== null && drawnGame(m.game) && winner !== null ? `${winner} through as the higher seed` : '';
+  if (m.game !== null) return { a: `${m.a} won`, b: `${m.b} won`, draw: 'Draw', double_loss: 'Double loss' }[m.result] + ' by ruling';
+  return { a: `${m.a} won by forfeit`, b: `${m.b} won by forfeit`, draw: 'Draw by ruling', double_loss: 'Both forfeited' }[m.result];
 }
 
 /** offsetLabel shows an offset the API sends (+02:00) as UTC+2, UTC-4 or UTC+5:30; UTC for none, '' for unknown. */

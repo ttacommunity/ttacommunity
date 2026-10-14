@@ -218,9 +218,15 @@ the match again corrects that one game. The match keeps the result (a win,
 a draw or a double loss) and, when the organisers decided it instead, their
 ruling and its reason (a ruling may overrule a played game). The next round
 is paired only once every match has a result. The standings are computed
-on read (`internal/blitz`, the same for admin and the site): points, then
-CGE's tiebreaks, which are the games among tied players who have all met,
-their opponents' points, and a draw from the edition's seed. For this the
+on read from the published Swiss rounds (`internal/blitz`, the same for
+admin and the site): points, then the tie-breaks of
+[FIDE's regulations](https://handbook.fide.com/chapter/TieBreakRegulations032026)
+for Swiss tournaments, Direct Encounter (Article 6) and then Buchholz
+(8.1), with unplayed rounds counted as Article 16 says (a bye, a forfeit or
+a round not paired is a game against a dummy with the player's own score; an
+opponent's rounds after dropping out count as draws), and last a draw from
+the edition's seed. A result the organisers ruled with no game played is a
+forfeit; a resignation or timeout is a played game. For this the
 admin login may insert and update games, seats, players and stages; it
 still cannot delete games, players or runs, and the api refuses to start
 if it could.

@@ -177,7 +177,7 @@ func nextKnockout(ed store.BlitzEdition) ([]store.BlitzMatch, error) {
 		var winners []int64
 		var open []string
 		for _, m := range matches {
-			if w, ok := blitz.Winner(played(m)); ok {
+			if w, ok := blitz.Winner(played(last.Number, m)); ok {
 				winners = append(winners, w)
 				seedOf[m.A], seedOf[*m.B] = *m.SeedA, *m.SeedB
 			} else {

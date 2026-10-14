@@ -352,10 +352,10 @@ func TestTheByeGoesByTheStandingsNotTheRatings(t *testing.T) {
 	f := &fakeAdmins{}
 	roundOnePublished(f)
 	at := time.Date(2026, 10, 15, 9, 0, 0, 0, time.UTC)
-	// Ann and Cy both lost; bob beat Dee and then dropped. Dee's opponent scored, so Dee places above Ann and Cy,
-	// though Dee is the one without a rating.
+	// Ann and Cy both forfeited; bob beat Dee in a game and then dropped. Dee's opponent scored, so Dee's Buchholz
+	// places Dee above Ann and Cy, though Dee is the one without a rating.
 	f.rounds[0].Matches[0].Result, f.rounds[0].Matches[0].DecidedAt, f.rounds[0].Matches[0].Ruling = "double_loss", &at, "no-show"
-	f.rounds[0].Matches[1].Result, f.rounds[0].Matches[1].DecidedAt, f.rounds[0].Matches[1].Ruling = "a", &at, "ruled"
+	f.rounds[0].Matches[1].Result, f.rounds[0].Matches[1].DecidedAt, f.rounds[0].Matches[1].GameID = "a", &at, new(int64(500))
 	f.entrants[2].Status = "dropped"
 	ratings := &fakeRatings{run: store.PublishedRun{ID: 7}, rated: map[string]store.Rated{"Ann": {Rating: 1700}, "Cy": {Rating: 1650}}}
 	rec := adminDoWith(t, ratings, f, org, http.MethodPost, "/v1/admin/blitz/us_open/2026/rounds", site, `{"timezone": true}`)
@@ -366,6 +366,24 @@ func TestTheByeGoesByTheStandingsNotTheRatings(t *testing.T) {
 	for _, m := range round.Matches {
 		if m.B == nil && m.A != 7 && m.A != 8 {
 			t.Errorf("the bye went to entrant %d, want Ann (7) or Cy (8), the lowest in the standings", m.A)
+		}
+	}
+}
+
+func TestAdminStandingsCountOnlyPublishedRounds(t *testing.T) {
+	const site, org = "https://ttac-admin.example", "222222222222222222"
+	f := &fakeAdmins{}
+	roundOnePublished(f)
+	cy := int64(8)
+	f.rounds = append(f.rounds, store.BlitzRound{ID: 102, Number: 2, Kind: "swiss", Matches: []store.BlitzMatch{{ID: 1020, A: 7, B: &cy}, {ID: 1021, A: 9}}})
+	rec := adminDoWith(t, &fakeRatings{run: store.PublishedRun{ID: 7}}, f, org, http.MethodGet, "/v1/admin/blitz/us_open/2026", site, "")
+	var ed AdminBlitzEdition
+	if err := json.Unmarshal(rec.Body.Bytes(), &ed); err != nil || rec.Code != http.StatusOK {
+		t.Fatalf("GET edition = %d %s", rec.Code, rec.Body)
+	}
+	for _, s := range ed.Standings {
+		if s.Name == "bob" && (s.Points != 0 || s.Byes != 0) {
+			t.Errorf("bob = %g points and %d byes, want none from the draft round's bye", s.Points, s.Byes)
 		}
 	}
 }

@@ -1627,7 +1627,8 @@ export interface paths {
          * @description Audited. The Origin must be the admin site. A ruling awards the match
          *     to one player, calls it a draw or a double loss, with its reason; a
          *     knockout match's ruling names who goes through. A game the match already has stays, overruled;
-         *     recording the game again puts its result back.
+         *     recording the game again puts its result back. With no game, the ruling
+         *     is a forfeit: an unplayed round in the standings.
          */
         put: operations["putAdminBlitzMatchRuling"];
         post?: never;
@@ -2128,7 +2129,11 @@ export interface components {
             entrants: components["schemas"]["BlitzEntrant"][];
             /** @description The published rounds, first first */
             rounds: components["schemas"]["BlitzRound"][];
-            /** @description By rank; dropped players last */
+            /**
+             * @description By rank: points, then FIDE's Swiss tie-breaks (Direct Encounter,
+             *     then Buchholz), then a draw fixed for the edition; dropped players
+             *     last. Only the published Swiss rounds count
+             */
             standings: components["schemas"]["BlitzStanding"][];
         };
         /** @description A published round as the site shows it */
@@ -2198,14 +2203,18 @@ export interface components {
              * @description A win 1, a draw a half, a bye 1
              */
             points: number;
-            /** @description Matches decided, byes aside */
+            /** @description Games played (finished, resigned or timed out); forfeits and byes aside */
             games: number;
             byes: number;
             /**
              * Format: double
-             * @description The sum of the points of everyone met in a decided match
+             * @description Buchholz, as FIDE's tie-break regulations for Swiss tournaments
+             *     define it: the sum of the opponents' scores. An unplayed round (a
+             *     bye, a forfeit, a round not paired) counts as a game against a
+             *     dummy with the player's own score, and an opponent's rounds after
+             *     dropping out count as draws
              */
-            opponents_points: number;
+            buchholz: number;
             /**
              * @description Dropped players come last
              * @enum {string}

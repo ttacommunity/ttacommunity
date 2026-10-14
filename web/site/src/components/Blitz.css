@@ -51,11 +51,6 @@
 .blitz-table a {
   color: var(--accent-gold);
 }
-.blitz-back {
-  display: inline-block;
-  margin-bottom: 0.75rem;
-  color: var(--text-muted);
-}
 .blitz-round {
   margin-top: 1.25rem;
 }

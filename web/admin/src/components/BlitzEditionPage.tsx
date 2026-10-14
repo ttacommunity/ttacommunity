@@ -1,6 +1,8 @@
 /** A blitz edition's page, in three tabs: its format and rounds (paired, changed by hand, published, their results recorded), its entrants (searched for and added, edited, dropped, removed), and the standings. */
 import { Fragment, useEffect, useState, type FormEvent } from 'react';
 import Segmented from '@ttac/shared/Segmented';
+import BackLink from '@ttac/shared/BackLink';
+import SubTabs from '@ttac/shared/SubTabs';
 import { formatLabel, offsetLabel, resultSummary, roundShown, roundSummary, roundTitle, seededName } from '@ttac/shared/blitz';
 import { formatInstant } from '@ttac/shared/time';
 import { adminRequest, firstError, type AdminBlitzEdition, type AdminMe, type BlitzEntrantIds, type Load } from '../lib/admin-api';
@@ -11,7 +13,7 @@ import { emptyGameForm, gameRecordFrom, type BlitzStanding, type GameForm } from
 import { entrantToAdd, wildcardChoices, type PersonChoice, type PersonDetails } from '../lib/person-form';
 import { countryNames, type Country } from '../lib/countries';
 import { clockIn, type Region } from '../lib/zones';
-import { asChanges, byeTakers, canDeleteRound, decidedOnly, entrantButtons, leftUnpaired, newestFirst, openRound, pairAction, pairCounts, partnersFor, reconcilePending, replaceableSide, rulingChoices, samePairs, shownAfter, unpaired, unsavedMatch, zoneGapLabel, type AdminBlitzMatch, type AdminBlitzRound, type Pending } from '../lib/blitz-rounds';
+import { asChanges, byeTakers, canDeleteRound, decidedOnly, entrantButtons, leftUnpaired, newestFirst, openRound, pairAction, pairCounts, partnersFor, reconcilePending, replaceableSide, rulingChoices, rulingLabel, samePairs, shownAfter, unpaired, unsavedMatch, zoneGapLabel, type AdminBlitzMatch, type AdminBlitzRound, type Pending } from '../lib/blitz-rounds';
 import AdminHeader from './AdminHeader';
 import CountryPick from './CountryPick';
 import InfoTip from './InfoTip';
@@ -71,9 +73,9 @@ export default function BlitzEditionPage() {
         {ed.kind === 'ready' && at !== null && (
           <>
             <section className="rating-card admin-card page-header" aria-labelledby="page-title">
-              <p className="muted">
-                <a href="/#blitz">← Blitz tournaments</a>
-              </p>
+              <div className="header-back">
+                <BackLink href="/#blitz">Blitz tournaments</BackLink>
+              </div>
               <h2 id="page-title" className="tournament-title">
                 {ed.data.name} {ed.data.edition}
               </h2>
@@ -250,11 +252,11 @@ function RoundsPanel({ at, ed, regions, onReload, say }: Props) {
       <div className="admin-add">
         {swiss && (
           <>
-            <label className="setting-inline">
+            <label className="setting-inline check-inline">
               <input type="checkbox" checked={criteria.timezone} onChange={(e) => setCriteria({ ...criteria, timezone: e.target.checked })} />
               Time-zone fit
             </label>
-            <label className="setting-inline">
+            <label className="setting-inline check-inline">
               <input type="checkbox" checked={criteria.rating} onChange={(e) => setCriteria({ ...criteria, rating: e.target.checked })} />
               Closest ratings
             </label>
@@ -627,7 +629,7 @@ function AddEntrantPanel({ at, ed, regions, countries, onReload, say }: Props) {
         onSubmit={enter}
         refresh={ed}
       >
-        <label className="setting-inline">
+        <label className="setting-inline check-inline">
           <input type="checkbox" checked={pending} onChange={(e) => setPending(e.target.checked)} />
           Not confirmed yet
         </label>
@@ -638,34 +640,39 @@ function AddEntrantPanel({ at, ed, regions, countries, onReload, say }: Props) {
 
 type View = 'rounds' | 'entrants' | 'standings';
 
-/** EditionTabs shows one of the format and rounds, the entrants (with the form to add one first) or the standings, chosen by its tabs. Every tab stays mounted, so what is half done in one is kept while another is shown. */
+/** EditionTabs shows one of the format and rounds, the entrants (with the form to add one first) or the standings, chosen by its tabs, the site's sub tabs. */
 function EditionTabs(props: Props) {
-  const [view, setView] = useState<View>('rounds');
+  const [view, setView] = useState<View | null>(null);
   return (
     <section className="rating-card admin-card" aria-label="Rounds, entrants and standings">
-      <div className="format-bar">
-        <Segmented<View>
-          label="Show"
-          options={[
-            { value: 'rounds', label: 'Rounds' },
-            { value: 'entrants', label: 'Entrants' },
-            { value: 'standings', label: 'Standings' },
-          ]}
-          value={view}
-          onChange={setView}
-        />
-      </div>
-      <div hidden={view !== 'rounds'}>
-        <FormatPanel {...props} />
-        <RoundsPanel {...props} />
-      </div>
-      <div hidden={view !== 'entrants'}>
-        <AddEntrantPanel {...props} />
-        <EntrantsPanel {...props} />
-      </div>
-      <div hidden={view !== 'standings'}>
-        <StandingsPanel standings={props.ed.standings} />
-      </div>
+      <SubTabs<View>
+        label="Show"
+        tabs={[
+          {
+            value: 'rounds',
+            label: 'Rounds',
+            panel: (
+              <>
+                <FormatPanel {...props} />
+                <RoundsPanel {...props} />
+              </>
+            ),
+          },
+          {
+            value: 'entrants',
+            label: 'Entrants',
+            panel: (
+              <>
+                <AddEntrantPanel {...props} />
+                <EntrantsPanel {...props} />
+              </>
+            ),
+          },
+          { value: 'standings', label: 'Standings', panel: <StandingsPanel standings={props.ed.standings} /> },
+        ]}
+        chosen={view}
+        onChoose={setView}
+      />
     </section>
   );
 }
@@ -874,7 +881,7 @@ function ResultForm({ at, round, match, nameOf, regions, zone, onZone, onDone, o
             <select className="input-antique" value={ruling.result} onChange={(e) => setRuling({ ...ruling, result: e.target.value as typeof ruling.result })}>
               {choices.map((c) => (
                 <option key={c} value={c}>
-                  {{ a: `${seededName(a, match.a_seed)} wins`, b: `${seededName(b, match.b_seed)} wins`, draw: 'a draw', double_loss: 'both lose' }[c]}
+                  {rulingLabel(c, seededName(a, match.a_seed), seededName(b, match.b_seed), match.game !== null)}
                 </option>
               ))}
             </select>
@@ -998,13 +1005,14 @@ function ReplaceForm({ at, round, match, out, ed, nameOf, onDone, onCancel }: Re
   );
 }
 
-/** StandingsPanel shows the standings as the site does: rank, points, games, byes and opponents' points, dropped players last. */
+/** StandingsPanel shows the standings as the site does: rank, points, games played, byes and Buchholz, dropped players last. */
 function StandingsPanel({ standings }: { standings: BlitzStanding[] }) {
   return (
     <>
       <p className="muted">
-        A win is 1 point, a draw a half, a bye 1. Players on equal points who have all met are ordered by the games among
-        them, then by their opponents&apos; points, then by a draw fixed for the edition.
+        A win is 1 point, a draw a half, a bye 1. Ties are broken by the Swiss tie-breaks: Direct Encounter (the games
+        among the tied players), then Buchholz (the sum of the opponents&apos; scores; a bye, a forfeit or a missed round
+        counts as a game against an opponent on the player&apos;s own score), then a draw fixed for the edition.
       </p>
       {standings.length === 0 && <p className="muted">Nobody to rank yet.</p>}
       {standings.length > 0 && (
@@ -1016,9 +1024,9 @@ function StandingsPanel({ standings }: { standings: BlitzStanding[] }) {
                 <th scope="col">Rank</th>
                 <th scope="col">Player</th>
                 <th scope="col">Points</th>
-                <th scope="col">Games</th>
+                <th scope="col">Played</th>
                 <th scope="col">Byes</th>
-                <th scope="col">Opponents&apos; points</th>
+                <th scope="col">Buchholz</th>
               </tr>
             </thead>
             <tbody>
@@ -1032,7 +1040,7 @@ function StandingsPanel({ standings }: { standings: BlitzStanding[] }) {
                   <td>{s.points}</td>
                   <td>{s.games}</td>
                   <td>{s.byes}</td>
-                  <td>{s.opponents_points}</td>
+                  <td>{s.buchholz}</td>
                 </tr>
               ))}
             </tbody>

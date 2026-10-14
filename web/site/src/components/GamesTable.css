@@ -1,0 +1,137 @@
+/* A games table wherever games are listed: its filters, rows, one-click replay codes and pages. */
+.games-filters {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 0.75rem 1rem;
+  margin-bottom: 1rem;
+}
+
+.games-filters label,
+.games-player {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  min-width: 0;
+  font-size: var(--size-label);
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.games-filters select {
+  max-width: 100%;
+  text-transform: none;
+  letter-spacing: 0;
+}
+
+.games-filters .games-coded {
+  flex-direction: row;
+  gap: 0.4rem;
+  text-transform: none;
+  letter-spacing: 0;
+  font-size: var(--size-label);
+  color: var(--text-main);
+}
+
+.trophy-table-container.games-table {
+  max-height: none;
+}
+
+.game-seats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem 0.9rem;
+}
+
+.game-seat a {
+  color: #f7dfa5;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.game-seat-name {
+  color: #f7dfa5;
+  font-weight: 600;
+}
+
+.game-seat a:hover {
+  color: var(--accent-gold);
+}
+
+.game-outcome {
+  color: var(--text-muted);
+  font-size: 0.85rem;
+}
+
+.game-never-played td {
+  opacity: 0.7;
+}
+
+.game-state {
+  display: inline-block;
+  margin-left: 0.5rem;
+}
+
+.game-code {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0;
+  border: none;
+  background: none;
+  cursor: pointer;
+  font-family: var(--font-stats);
+}
+
+.game-code code {
+  padding: 0.15rem 0.4rem;
+  border: 1px solid var(--border-subtle);
+  border-radius: 3px;
+  background: #120c08cc;
+  color: var(--accent-gold-soft);
+  font-family: monospace;
+  font-size: 0.85rem;
+  letter-spacing: 0.5px;
+}
+
+.game-code:hover code,
+.game-code:focus-visible code {
+  border-color: var(--accent-gold);
+}
+
+.game-code:focus-visible {
+  outline: 2px solid var(--accent-gold);
+  outline-offset: 2px;
+}
+
+.game-code-note {
+  color: var(--accent-gold);
+  font-size: 0.8rem;
+}
+
+.games-pages {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  align-items: center;
+  gap: 0.75rem;
+  margin-top: 1rem;
+  color: var(--text-muted);
+  font-family: var(--font-stats);
+}
+
+.games-pages .btn-antique:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.games-player .search-form {
+  margin: 0;
+  text-transform: none;
+  letter-spacing: 0;
+}
+
+.games-player-missed {
+  text-transform: none;
+}

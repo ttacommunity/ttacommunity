@@ -1283,7 +1283,9 @@ type BlitzEdition struct {
 	// Rounds The published rounds, first first
 	Rounds []BlitzRound `json:"rounds"`
 
-	// Standings By rank; dropped players last
+	// Standings By rank: points, then FIDE's Swiss tie-breaks (Direct Encounter,
+	// then Buchholz), then a draw fixed for the edition; dropped players
+	// last. Only the published Swiss rounds count
 	Standings  []BlitzStanding `json:"standings"`
 	Tournament string          `json:"tournament"`
 }
@@ -1480,17 +1482,20 @@ type BlitzRuling struct {
 
 // BlitzStanding One row of the standings
 type BlitzStanding struct {
-	Byes int `json:"byes"`
+	// Buchholz Buchholz, as FIDE's tie-break regulations for Swiss tournaments
+	// define it: the sum of the opponents' scores. An unplayed round (a
+	// bye, a forfeit, a round not paired) counts as a game against a
+	// dummy with the player's own score, and an opponent's rounds after
+	// dropping out count as draws
+	Buchholz float64 `json:"buchholz"`
+	Byes     int     `json:"byes"`
 
 	// Country A two-letter country code, null for none
 	Country *string `json:"country"`
 
-	// Games Matches decided, byes aside
+	// Games Games played (finished, resigned or timed out); forfeits and byes aside
 	Games int    `json:"games"`
 	Name  string `json:"name"`
-
-	// OpponentsPoints The sum of the points of everyone met in a decided match
-	OpponentsPoints float64 `json:"opponents_points"`
 
 	// Points A win 1, a draw a half, a bye 1
 	Points float64 `json:"points"`

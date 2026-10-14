@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { formatLabel, knockoutStage, offsetLabel, reachedLabel, resultSummary, roundShown, roundSummary, roundTitle, seededName, zoneLabel, type BlitzPlayedGame } from './blitz';
+import { formatLabel, knockoutStage, offsetLabel, reachedLabel, resultSummary, resultTag, roundShown, roundSummary, roundTitle, seededName, zoneLabel, type BlitzPlayedGame } from './blitz';
 
 const game = (aCulture: number, bCulture: number, aOutcome: BlitzPlayedGame['a_outcome'] = 'finished', bOutcome: BlitzPlayedGame['b_outcome'] = 'finished'): BlitzPlayedGame => ({
   share_code: 'ABCD1234',
@@ -20,8 +20,9 @@ describe('resultSummary', () => {
     ['a drawn knockout game, the higher seed through', { a: 'Ann', b: 'Cy', result: 'b', game: game(180, 180), ruled: false }, 'Draw 180–180: Cy through as the higher seed'],
     ['a resignation', { a: 'Ann', b: 'Cy', result: 'a', game: game(250, 0, 'finished', 'resigned'), ruled: false }, 'Ann won 250–0, Cy resigned'],
     ['a time-out', { a: 'Ann', b: 'Cy', result: 'b', game: game(0, 180, 'timed_out'), ruled: false }, 'Cy won 0–180, Ann timed out'],
-    ['a ruling', { a: 'Ann', b: 'Cy', result: 'b', game: null, ruled: true }, 'Cy won by ruling'],
-    ['a double loss', { a: 'Ann', b: 'Cy', result: 'double_loss', game: null, ruled: true }, 'Double loss by ruling'],
+    ['a ruling with no game, a forfeit', { a: 'Ann', b: 'Cy', result: 'b', game: null, ruled: true }, 'Cy won by forfeit'],
+    ['a double loss with no game', { a: 'Ann', b: 'Cy', result: 'double_loss', game: null, ruled: true }, 'Both forfeited'],
+    ['a drawn ruling with no game', { a: 'Ann', b: 'Cy', result: 'draw', game: null, ruled: true }, 'Draw by ruling'],
     ['a ruling over a game', { a: 'Ann', b: 'Cy', result: 'draw', game: game(250, 200), ruled: true }, 'Draw by ruling (game 250–200)'],
   ] as const)('summarises %s', (_name, m, want) => {
     expect(resultSummary(m)).toBe(want);
@@ -119,5 +120,20 @@ describe('roundShown', () => {
     ['an earlier round, shown by its button', 2, new Set([2]), true],
   ])('shows %s: %s', (_name, round, toggled, want) => {
     expect(roundShown(round, 3, toggled)).toBe(want);
+  });
+});
+
+describe('resultTag', () => {
+  it.each([
+    ['a bye', { a: 'Ann', b: null, result: null, game: null, ruled: false }, 'Bye'],
+    ['an undecided match', { a: 'Ann', b: 'Cy', result: null, game: null, ruled: false }, 'To be played'],
+    ['a played game, which its scores tell', { a: 'Ann', b: 'Cy', result: 'a', game: game(250, 200), ruled: false }, ''],
+    ['a drawn knockout game', { a: 'Ann', b: 'Cy', result: 'b', game: game(180, 180), ruled: false }, 'Cy through as the higher seed'],
+    ['a forfeit', { a: 'Ann', b: 'Cy', result: 'b', game: null, ruled: true }, 'Cy won by forfeit'],
+    ['both forfeiting', { a: 'Ann', b: 'Cy', result: 'double_loss', game: null, ruled: true }, 'Both forfeited'],
+    ['a draw with no game', { a: 'Ann', b: 'Cy', result: 'draw', game: null, ruled: true }, 'Draw by ruling'],
+    ['a ruling over a game', { a: 'Ann', b: 'Cy', result: 'a', game: game(200, 250), ruled: true }, 'Ann won by ruling'],
+  ] as const)('tags %s', (_name, m, want) => {
+    expect(resultTag(m)).toBe(want);
   });
 });
