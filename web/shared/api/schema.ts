@@ -69,7 +69,7 @@ export interface paths {
          * Every rated player in one model and format, in rank order
          * @description A published run's ratings never change, but each row also carries the
          *     player's details as they are now (country), so this is cached for five
-         *     minutes.
+         *     minutes. Players whose CGE accounts are deleted or banned are left out.
          */
         get: operations["getLeaderboard"];
         put?: never;
@@ -95,7 +95,8 @@ export interface paths {
          *     year, with that year's record or the career up to it (`stats_view`),
          *     "active" meaning played that year, and no minimum opponents by
          *     default. Rows carry player details as they are now, so this is
-         *     cached for five minutes.
+         *     cached for five minutes. Players whose CGE accounts are deleted or
+         *     banned are left out.
          */
         get: operations["getLeaderboardCsv"];
         put?: never;
@@ -142,8 +143,9 @@ export interface paths {
          * @description The player's ratings in the ten continuous and season-reset models,
          *     each format, with their title, career peak, country and game counts.
          *     A name that matches no player exactly is looked up ignoring case,
-         *     if only one player matches. Country and titles can change without a
-         *     new run, so this is cached for five minutes.
+         *     if only one player matches. Players whose CGE accounts are deleted
+         *     or banned return 404. Country and titles can change without a new
+         *     run, so this is cached for five minutes.
          */
         get: operations["getPlayer"];
         put?: never;
@@ -1701,6 +1703,10 @@ export interface components {
             /** @description Seat order */
             seats: components["schemas"]["Seat"][];
         };
+        /**
+         * @description One player of a game. A player whose CGE account is deleted or banned
+         *     is masked as "Deleted player".
+         */
         Seat: {
             name: string;
             /** Format: double */
@@ -2348,6 +2354,10 @@ export interface components {
             /** @description Highest score first */
             seats: components["schemas"]["GameSeat"][];
         };
+        /**
+         * @description One player of a game. A player whose CGE account is deleted or banned
+         *     is masked as "Deleted player".
+         */
         GameSeat: {
             name: string;
             /** Format: double */

@@ -139,6 +139,29 @@ func (r *RatingsReader) CatalogueGames(ctx context.Context, run int64, slug stri
 	if err != nil {
 		return fail("games", err)
 	}
+	var seatNames []string
+	seen := map[string]bool{}
+	for _, g := range got.Games {
+		for _, s := range g.Seats {
+			if !seen[s.Name] {
+				seen[s.Name] = true
+				seatNames = append(seatNames, s.Name)
+			}
+		}
+	}
+	hidden, err := r.maskHiddenNames(ctx, seatNames)
+	if err != nil {
+		return fail("hidden players", err)
+	}
+	if len(hidden) > 0 {
+		for i := range got.Games {
+			for j := range got.Games[i].Seats {
+				if hidden[got.Games[i].Seats[j].Name] {
+					got.Games[i].Seats[j].Name = DeletedPlayer
+				}
+			}
+		}
+	}
 	return got, nil
 }
 

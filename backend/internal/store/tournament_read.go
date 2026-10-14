@@ -112,6 +112,9 @@ func (r *RatingsReader) TournamentSeries(ctx context.Context, run int64, series 
 	if err != nil {
 		return fail("game records", err)
 	}
+	if err := r.maskGameRecords(ctx, got.GameRecords); err != nil {
+		return fail("game records", err)
+	}
 	return got, r.markWorldChampions(ctx, run, got.GameRecords)
 }
 
@@ -128,6 +131,42 @@ func (r *RatingsReader) markWorldChampions(ctx context.Context, run int64, games
 	}
 	for i := range games {
 		games[i].WorldChampion = slices.Contains(champions, games[i].Name)
+	}
+	return nil
+}
+
+// maskGameRecords replaces the names of winners and opponents whose players are deleted or banned with DeletedPlayer.
+func (r *RatingsReader) maskGameRecords(ctx context.Context, games []GameRecord) error {
+	var names []string
+	seen := map[string]bool{}
+	for _, g := range games {
+		if !seen[g.Name] {
+			seen[g.Name] = true
+			names = append(names, g.Name)
+		}
+		for _, o := range g.Opponents {
+			if !seen[o.Name] {
+				seen[o.Name] = true
+				names = append(names, o.Name)
+			}
+		}
+	}
+	hidden, err := r.maskHiddenNames(ctx, names)
+	if err != nil {
+		return err
+	}
+	if len(hidden) == 0 {
+		return nil
+	}
+	for i := range games {
+		if hidden[games[i].Name] {
+			games[i].Name = DeletedPlayer
+		}
+		for j := range games[i].Opponents {
+			if hidden[games[i].Opponents[j].Name] {
+				games[i].Opponents[j].Name = DeletedPlayer
+			}
+		}
 	}
 	return nil
 }
@@ -319,11 +358,12 @@ func (r *RatingsReader) CommunityLeaderboard(ctx context.Context, run int64, edi
 		                 WHERE c.edition = s.edition AND c.player_name = s.player_name), '{}')
 		FROM community_standings s
 		LEFT JOIN LATERAL (
-		    SELECT name, country_code FROM players WHERE lower(name) = lower(s.player_name)
+		    SELECT player_id, name, country_code FROM players WHERE lower(name) = lower(s.player_name)
 		    ORDER BY name = s.player_name DESC, name LIMIT 1
 		) p ON true
 		LEFT JOIN player_titles t ON t.run_id = $1 AND t.player_name = p.name
 		WHERE s.edition = $2
+		  AND `+notHiddenPlayer+`
 		ORDER BY s.rank, s.points DESC, s.sheet_row`, run, edition)
 	if err != nil {
 		return nil, fmt.Errorf("reading the community leaderboard %s: %w", edition, err)

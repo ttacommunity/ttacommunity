@@ -288,3 +288,35 @@ func TestCatalogueGamesMarksWhichGamesAreRated(t *testing.T) {
 		t.Errorf("a game of a tournament in no ranking is rated: %v", got)
 	}
 }
+
+func TestCatalogueGamesMasksDeletedAndBannedSeats(t *testing.T) {
+	pool := migrated(t)
+	ctx := context.Background()
+	run := publishedRun(t, pool)
+	placedOn(t, pool, map[string]time.Time{"Wimbledon 2024 Stage 1 - group 1 game 1": day("2024-07-01")})
+	setSeats(t, pool, "%game 1", Seat{"ann", 100}, Seat{"bob", 80})
+	for _, q := range []string{
+		"INSERT INTO player_accounts (cge_user, player_id, name, deleted) SELECT 1, player_id, 'ann', true FROM players WHERE name = 'ann'",
+		"INSERT INTO player_accounts (cge_user, player_id, name, banned) SELECT 2, player_id, 'bob', true FROM players WHERE name = 'bob'",
+	} {
+		if _, err := pool.Exec(ctx, q); err != nil {
+			t.Fatalf("setting up player account: %v", err)
+		}
+	}
+
+	r := NewRatingsReader(asReader(t, pool))
+	got, err := r.CatalogueGames(ctx, run, "wimbledon", CatalogueGamesFilter{})
+	if err != nil {
+		t.Fatalf("CatalogueGames: %v", err)
+	}
+	if len(got.Games) != 1 {
+		t.Fatalf("games count = %d, want 1", len(got.Games))
+	}
+	wantSeats := []GameSeat{
+		{Name: "Deleted player", Score: 100},
+		{Name: "Deleted player", Score: 80},
+	}
+	if diff := cmp.Diff(wantSeats, got.Games[0].Seats); diff != "" {
+		t.Errorf("masked seats (-want +got):\n%s", diff)
+	}
+}

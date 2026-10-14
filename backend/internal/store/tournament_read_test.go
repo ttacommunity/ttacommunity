@@ -381,3 +381,29 @@ func TestCommunityLeaderboardGivesAnEditionWithPlayersCountriesAndTitles(t *test
 		t.Errorf("CommunityLeaderboard(2024) =\n%s\nwant\n%s", strings.Join(lines, "\n"), strings.Join(want, "\n"))
 	}
 }
+
+func TestCommunityLeaderboardExcludesDeletedAndBannedPlayers(t *testing.T) {
+	pool := migrated(t)
+	r := NewRatingsReader(asReader(t, pool))
+	ctx := context.Background()
+	run := publishedRun(t, pool)
+	addPlayers(t, pool, "ann", "bob", "dan")
+	for _, q := range []string{
+		"INSERT INTO player_accounts (cge_user, player_id, name, deleted) SELECT 1, player_id, 'ann', true FROM players WHERE name = 'ann'",
+		"INSERT INTO player_accounts (cge_user, player_id, name, banned) SELECT 2, player_id, 'bob', true FROM players WHERE name = 'bob'",
+		"INSERT INTO player_accounts (cge_user, player_id, name) SELECT 3, player_id, 'dan' FROM players WHERE name = 'dan'",
+		"INSERT INTO community_standings VALUES ('2024', 1, 1, 'ann', 7000, 10, 's'), ('2024', 2, 2, 'bob', 6000, 10, 's'), ('2024', 3, 3, 'dan', 5000, 10, 's')",
+	} {
+		if _, err := pool.Exec(ctx, q); err != nil {
+			t.Fatalf("setting up community standings or accounts: %v", err)
+		}
+	}
+
+	got, err := r.CommunityLeaderboard(ctx, run, "2024")
+	if err != nil {
+		t.Fatalf("CommunityLeaderboard: %v", err)
+	}
+	if len(got) != 1 || got[0].Name != "dan" {
+		t.Errorf("CommunityLeaderboard = %+v, want only dan (ann and bob excluded)", got)
+	}
+}

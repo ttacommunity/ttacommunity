@@ -160,6 +160,38 @@ func TestLeaderboard(t *testing.T) {
 	}
 }
 
+func TestLeaderboardExcludesDeletedAndBannedPlayers(t *testing.T) {
+	pool := migrated(t)
+	r := NewRatingsReader(asReader(t, pool))
+	ctx := context.Background()
+	at := time.Date(2026, 9, 27, 4, 0, 0, 0, time.UTC)
+	run := addRun(t, pool, "complete", at)
+	addPlayers(t, pool, "ann", "bob", "cat")
+	addRating(t, pool, run, "glicko2_daneo", 0, "ann", ptr(1), 1900)
+	addRating(t, pool, run, "glicko2_daneo", 0, "bob", ptr(2), 1700)
+	addRating(t, pool, run, "glicko2_daneo", 0, "cat", ptr(3), 1500)
+	for _, q := range []string{
+		"INSERT INTO player_accounts (cge_user, player_id, name, deleted) SELECT 1, player_id, 'ann', true FROM players WHERE name = 'ann'",
+		"INSERT INTO player_accounts (cge_user, player_id, name, banned) SELECT 2, player_id, 'bob', true FROM players WHERE name = 'bob'",
+	} {
+		if _, err := pool.Exec(ctx, q); err != nil {
+			t.Fatalf("setting up player account: %v", err)
+		}
+	}
+
+	got, err := r.Leaderboard(ctx, run, "glicko2_daneo", 0)
+	if err != nil {
+		t.Fatalf("Leaderboard: %v", err)
+	}
+	var names []string
+	for _, p := range got {
+		names = append(names, p.Name)
+	}
+	if want := []string{"cat"}; !slices.Equal(names, want) {
+		t.Errorf("Leaderboard names = %q, want %q (ann and bob omitted)", names, want)
+	}
+}
+
 func TestLeaderboardServesOnlyPublishedRuns(t *testing.T) {
 	pool := migrated(t)
 	r := NewRatingsReader(asReader(t, pool))

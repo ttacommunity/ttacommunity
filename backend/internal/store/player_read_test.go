@@ -99,6 +99,32 @@ func TestPlayerFindsANameExactlyOrByAUniqueCase(t *testing.T) {
 	}
 }
 
+func TestPlayerHidesDeletedAndBannedAccounts(t *testing.T) {
+	pool := migrated(t)
+	r := NewRatingsReader(asReader(t, pool))
+	ctx := context.Background()
+	run := publishedRun(t, pool)
+	addPlayers(t, pool, "ann", "bob", "dan")
+	for _, q := range []string{
+		"INSERT INTO player_accounts (cge_user, player_id, name, deleted) SELECT 1, player_id, 'ann', true FROM players WHERE name = 'ann'",
+		"INSERT INTO player_accounts (cge_user, player_id, name, banned) SELECT 2, player_id, 'bob', true FROM players WHERE name = 'bob'",
+		"INSERT INTO player_accounts (cge_user, player_id, name) SELECT 3, player_id, 'dan' FROM players WHERE name = 'dan'",
+	} {
+		if _, err := pool.Exec(ctx, q); err != nil {
+			t.Fatalf("setting up player account: %v", err)
+		}
+	}
+
+	for _, name := range []string{"ann", "bob"} {
+		if _, err := r.Player(ctx, run, name); !errors.Is(err, ErrPlayerNotFound) {
+			t.Errorf("Player(%q) = %v, want ErrPlayerNotFound", name, err)
+		}
+	}
+	if got, err := r.Player(ctx, run, "dan"); err != nil || got.Name != "dan" {
+		t.Errorf("Player(dan) = %q, %v; want dan", got.Name, err)
+	}
+}
+
 func TestPlayerGivesRatingsGamesAndDetails(t *testing.T) {
 	pool := migrated(t)
 	r := NewRatingsReader(asReader(t, pool))
@@ -241,6 +267,35 @@ func TestPlayerMatchesPagesTheRunsGamesNewestFirst(t *testing.T) {
 	_, none, err := r.PlayerMatches(ctx, run, "ann", 4, 1)
 	if err != nil || none.Total != 0 || none.Pages != 1 || none.Page != 1 || len(none.Matches) != 0 {
 		t.Errorf("4P games = %+v, %v; want none, on page 1 of 1", none, err)
+	}
+}
+
+func TestPlayerMatchesMasksDeletedAndBannedSeats(t *testing.T) {
+	pool := migrated(t)
+	r := NewRatingsReader(asReader(t, pool))
+	ctx := context.Background()
+	run := publishedRun(t, pool)
+	addPlayers(t, pool, "ann", "bob", "cy")
+	for _, q := range []string{
+		"INSERT INTO player_accounts (cge_user, player_id, name, deleted) SELECT 1, player_id, 'bob', true FROM players WHERE name = 'bob'",
+		"INSERT INTO player_accounts (cge_user, player_id, name, banned) SELECT 2, player_id, 'cy', true FROM players WHERE name = 'cy'",
+	} {
+		if _, err := pool.Exec(ctx, q); err != nil {
+			t.Fatalf("setting up player account: %v", err)
+		}
+	}
+	addGame(t, pool, run, "2024-01-15", "Trio", Seat{"ann", 9}, Seat{"bob", 7}, Seat{"cy", 3})
+
+	_, mp, err := r.PlayerMatches(ctx, run, "ann", 0, 1)
+	if err != nil {
+		t.Fatalf("PlayerMatches: %v", err)
+	}
+	if len(mp.Matches) != 1 {
+		t.Fatalf("matches count = %d, want 1", len(mp.Matches))
+	}
+	wantSeats := []Seat{{"ann", 9}, {"Deleted player", 7}, {"Deleted player", 3}}
+	if diff := cmp.Diff(wantSeats, mp.Matches[0].Seats); diff != "" {
+		t.Errorf("masked seats (-want +got):\n%s", diff)
 	}
 }
 

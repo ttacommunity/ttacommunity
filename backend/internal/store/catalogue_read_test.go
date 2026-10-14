@@ -666,6 +666,39 @@ func TestCatalogueTournamentGivesItsHighestWinningScores(t *testing.T) {
 	}
 }
 
+func TestCatalogueTournamentMasksDeletedAndBannedSeats(t *testing.T) {
+	pool := migrated(t)
+	run := publishedRun(t, pool)
+	placedOn(t, pool, map[string]time.Time{
+		"Wimbledon 2024 Stage 1 - group 1 game 1": day("2024-07-01"),
+	})
+	setSeats(t, pool, "%game 1", Seat{"ann", 120}, Seat{"bob", 80})
+	ctx := context.Background()
+	for _, q := range []string{
+		"INSERT INTO player_accounts (cge_user, player_id, name, deleted) SELECT 1, player_id, 'ann', true FROM players WHERE name = 'ann'",
+		"INSERT INTO player_accounts (cge_user, player_id, name, banned) SELECT 2, player_id, 'bob', true FROM players WHERE name = 'bob'",
+	} {
+		if _, err := pool.Exec(ctx, q); err != nil {
+			t.Fatalf("setting up player account: %v", err)
+		}
+	}
+
+	withSpans(t, pool, run)
+	got, err := NewRatingsReader(asReader(t, pool)).CatalogueTournament(ctx, run, "wimbledon")
+	if err != nil {
+		t.Fatalf("CatalogueTournament: %v", err)
+	}
+	want := []GameRecord{
+		{Name: "Deleted player", Score: 120, Opponents: []Seat{{Name: "Deleted player", Score: 80}}, Tournament: "Wimbledon 2024 Stage 1 - group 1 game 1", Date: day("2024-07-01")},
+	}
+	if diff := cmp.Diff(want, got.GameRecords); diff != "" {
+		t.Errorf("masked game records (-want +got):\n%s", diff)
+	}
+	if slices.Contains(got.Players, "ann") || slices.Contains(got.Players, "bob") {
+		t.Errorf("got.Players = %v, want deleted/banned players excluded from suggestions", got.Players)
+	}
+}
+
 func TestCatalogueTournamentTakesItsKindFromTheDatabase(t *testing.T) {
 	pool := migrated(t)
 	ctx := context.Background()
