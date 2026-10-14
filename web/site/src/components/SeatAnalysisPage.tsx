@@ -98,14 +98,14 @@ export default function SeatAnalysisPage({ apiUrl }: { apiUrl: string }) {
         </div>
       </div>
 
-      <div className="card-head" style={{ marginTop: '1.5rem', marginBottom: '0.75rem' }}>
+      <div className="card-head seat-filter-head">
         <h3>Filter by Player Strength &amp; Match Format</h3>
       </div>
 
-      <div className="eval-table-card" style={{ marginBottom: '1.5rem' }}>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+      <div className="eval-table-card seat-filter-card">
+        <div className="seat-filter-stack">
           <div>
-            <div style={{ fontSize: '0.82rem', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '0.35rem' }}>Skill Tier (Glicko-D Table Average):</div>
+            <div className="seat-filter-label">Skill Tier (Glicko-D Table Average):</div>
             <Segmented
               label="Skill Tier"
               options={TIER_OPTIONS}
@@ -115,7 +115,7 @@ export default function SeatAnalysisPage({ apiUrl }: { apiUrl: string }) {
             />
           </div>
           <div>
-            <div style={{ fontSize: '0.82rem', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '0.35rem' }}>Format:</div>
+            <div className="seat-filter-label">Format:</div>
             <Segmented
               label="Player Count"
               options={FORMAT_OPTIONS}
@@ -127,7 +127,7 @@ export default function SeatAnalysisPage({ apiUrl }: { apiUrl: string }) {
         </div>
       </div>
 
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem', marginBottom: '2rem' }}>
+      <div className="seat-groups-stack">
         {data.groups.map((group: SeatStatsGroup) => {
           const pc = group.player_count;
           const parity = (100 / pc).toFixed(2);
@@ -137,7 +137,7 @@ export default function SeatAnalysisPage({ apiUrl }: { apiUrl: string }) {
                 <h3>
                   {pc}-Player Matches &bull; {count(group.total_games)} games
                 </h3>
-                <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>
+                <span className="seat-parity-note">
                   Expected Parity: {parity}% per seat
                 </span>
               </div>
@@ -148,13 +148,13 @@ export default function SeatAnalysisPage({ apiUrl }: { apiUrl: string }) {
                   </caption>
                   <thead>
                     <tr>
-                      <th scope="col" style={{ width: '22%' }}>Turn Order</th>
-                      <th scope="col" style={{ textAlign: 'right' }}>Matches</th>
-                      <th scope="col" style={{ textAlign: 'right' }}>Wins (1st)</th>
-                      <th scope="col" style={{ textAlign: 'right' }}>Win Rate</th>
-                      <th scope="col" style={{ textAlign: 'right' }}>Delta vs Parity</th>
+                      <th scope="col" className="seat-col-order">Turn Order</th>
+                      <th scope="col" className="seat-col-num">Matches</th>
+                      <th scope="col" className="seat-col-num">Wins (1st)</th>
+                      <th scope="col" className="seat-col-num">Win Rate</th>
+                      <th scope="col" className="seat-col-num">Delta vs Parity</th>
                       {Array.from({ length: pc }, (_, idx) => (
-                        <th key={idx + 1} scope="col" style={{ textAlign: 'right' }}>
+                        <th key={idx + 1} scope="col" className="seat-col-num">
                           {idx + 1 === 1 ? '1st Place' : idx + 1 === 2 ? '2nd Place' : idx + 1 === 3 ? '3rd Place' : '4th Place'}
                         </th>
                       ))}
@@ -163,16 +163,16 @@ export default function SeatAnalysisPage({ apiUrl }: { apiUrl: string }) {
                   <tbody>
                     {group.seats.map((s: SeatWinrateRow) => {
                       const delta = seatDelta(s.win_rate, pc);
-                      const deltaColor = delta > 0 ? 'var(--accent-green, #4ade80)' : delta < 0 ? 'var(--accent-red, #ef5350)' : 'var(--text-muted)';
+                      const deltaClass = delta > 0 ? 'delta-pos' : delta < 0 ? 'delta-neg' : 'delta-zero';
                       return (
                         <tr key={s.seat}>
-                          <td style={{ fontWeight: 600 }}>{SEAT_NAMES[s.seat] ?? `Seat ${s.seat}`}</td>
-                          <td style={{ textAlign: 'right' }}>{count(s.games)}</td>
-                          <td style={{ textAlign: 'right', fontWeight: 600 }}>{count(s.wins)}</td>
-                          <td style={{ textAlign: 'right', fontWeight: 700, color: 'var(--accent-gold)' }}>
+                          <td className="seat-cell-order">{SEAT_NAMES[s.seat] ?? `Seat ${s.seat}`}</td>
+                          <td className="seat-col-num">{count(s.games)}</td>
+                          <td className="seat-cell-wins">{count(s.wins)}</td>
+                          <td className="seat-cell-rate">
                             {s.win_rate.toFixed(2)}%
                           </td>
-                          <td style={{ textAlign: 'right', fontWeight: 600, color: deltaColor }}>
+                          <td className={`seat-cell-delta ${deltaClass}`}>
                             {seatDeltaText(delta)}
                           </td>
                           {Array.from({ length: pc }, (_, idx) => {
@@ -181,9 +181,9 @@ export default function SeatAnalysisPage({ apiUrl }: { apiUrl: string }) {
                             const rate = p ? p.rate.toFixed(2) : '0.00';
                             const pCount = p ? count(p.count) : '0';
                             return (
-                              <td key={placeNum} style={{ textAlign: 'right' }}>
+                              <td key={placeNum} className="seat-col-num">
                                 <span>{rate}%</span>{' '}
-                                <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>({pCount})</span>
+                                <span className="seat-place-count">({pCount})</span>
                               </td>
                             );
                           })}
