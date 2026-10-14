@@ -4,6 +4,7 @@ package store
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"testing"
 	"time"
@@ -274,5 +275,50 @@ func TestSeatAnalysisGroupsByPlayerCountAndFiltersByTier(t *testing.T) {
 	}
 	if gotM[0].Seats[1].Wins != 1 || gotM[0].Seats[1].Draws != 1 || gotM[0].Seats[1].WinRate != 50.0 {
 		t.Errorf("Master Seat 2 = %+v, want Wins 1, Draws 1, WinRate 50.0", gotM[0].Seats[1])
+	}
+}
+
+func TestSeatAnalysisIsComputedOncePerRun(t *testing.T) {
+	pool := migrated(t)
+	r := NewRatingsReader(asReader(t, pool))
+	ctx := context.Background()
+	run := publishedRun(t, pool)
+	addPlayers(t, pool, "gm1", "gm2")
+	addRating(t, pool, run, "glicko2_daneo", 0, "gm1", ptr(1), 1700)
+	addRating(t, pool, run, "glicko2_daneo", 0, "gm2", ptr(2), 1700)
+	game := addGame(t, pool, run, "2025-01-01", "Cup 1", Seat{"gm1", 100}, Seat{"gm2", 90})
+
+	if _, err := r.SeatAnalysis(ctx, run, 2, "all"); err != nil {
+		t.Fatalf("SeatAnalysis(2, all): %v", err)
+	}
+	if _, err := pool.Exec(ctx, "UPDATE seats SET place = 3 - place WHERE game_id = $1", game); err != nil {
+		t.Fatalf("swapping the places: %v", err)
+	}
+	got, err := r.SeatAnalysis(ctx, run, 0, "grandmaster")
+	if err != nil {
+		t.Fatalf("SeatAnalysis(0, grandmaster): %v", err)
+	}
+	if len(got) != 3 {
+		t.Fatalf("SeatAnalysis(0, grandmaster) has %d groups, want 3", len(got))
+	}
+	if w := got[0].Seats[0].Wins; w != 1 {
+		t.Errorf("seat 1's wins = %d, want 1, as counted before the places were swapped", w)
+	}
+}
+
+func TestSeatAnalysisRefusesARunUnpublishedSinceItWasComputed(t *testing.T) {
+	pool := migrated(t)
+	r := NewRatingsReader(asReader(t, pool))
+	ctx := context.Background()
+	run := publishedRun(t, pool)
+
+	if _, err := r.SeatAnalysis(ctx, run, 0, "all"); err != nil {
+		t.Fatalf("SeatAnalysis: %v", err)
+	}
+	if _, err := pool.Exec(ctx, "UPDATE rating_runs SET published_at = NULL WHERE run_id = $1", run); err != nil {
+		t.Fatalf("unpublishing run %d: %v", run, err)
+	}
+	if _, err := r.SeatAnalysis(ctx, run, 0, "all"); !errors.Is(err, ErrRunNotFound) {
+		t.Errorf("SeatAnalysis after unpublishing = %v, want ErrRunNotFound", err)
 	}
 }

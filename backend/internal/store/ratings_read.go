@@ -100,12 +100,13 @@ type HistoryRow struct {
 
 // RatingsReader reads published ratings through a read-only pool.
 type RatingsReader struct {
-	pool *pgxpool.Pool
+	pool  *pgxpool.Pool
+	seats *seatCache
 }
 
 // NewRatingsReader returns a reader over pool, which should act as ratings_read.
 func NewRatingsReader(pool *pgxpool.Pool) *RatingsReader {
-	return &RatingsReader{pool: pool}
+	return &RatingsReader{pool: pool, seats: &seatCache{runs: map[int64]map[string]seatCounts{}}}
 }
 
 // Ping returns an error if the database does not answer.
