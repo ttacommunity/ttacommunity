@@ -29,6 +29,89 @@ func blitzWithEntrants(t *testing.T) (*AdminStore, *RatingsReader, []int64) {
 	return a, NewRatingsReader(asReader(t, pool)), ids
 }
 
+// markDropped marks an entrant dropped directly, for a test of what a dropped entrant does rather than of dropping.
+func markDropped(t *testing.T, a *AdminStore, id int64) {
+	t.Helper()
+	if _, err := a.pool.Exec(context.Background(), "UPDATE blitz_entries SET status = 'dropped' WHERE entry_id = $1", id); err != nil {
+		t.Fatalf("marking entrant %d dropped: %v", id, err)
+	}
+}
+
+func TestOnlyAnEntrantWhoHasPlayedIsDropped(t *testing.T) {
+	a, _, ids := blitzWithEntrants(t)
+	ctx := context.Background()
+	more, err := a.AddBlitzEntrants(ctx, "us_open", "2026", []BlitzEntrant{{Name: "Eve", Zone: "UTC"}, {Name: "Fay", Zone: "UTC", Status: "pending"}})
+	if err != nil {
+		t.Fatalf("AddBlitzEntrants: %v", err)
+	}
+	ann, bob, cy, dee, eve, fay := ids[0], ids[1], ids[2], ids[3], more[0], more[1]
+	r1, err := a.AddBlitzRound(ctx, "us_open", "2026", BlitzRound{Seed: 1, Matches: []BlitzMatch{{A: ann, B: &bob}, {A: cy, B: &dee}, {A: eve}}})
+	if err != nil {
+		t.Fatalf("AddBlitzRound: %v", err)
+	}
+	drop := func(id int64) error {
+		dropped := "dropped"
+		return a.SetBlitzEntrant(ctx, "us_open", "2026", id, BlitzEntrantChange{Status: &dropped})
+	}
+	if err := drop(eve); !errors.Is(err, ErrBlitzEntrantNotPlayed) {
+		t.Errorf("dropping Eve, a bye in a draft = %v, want ErrBlitzEntrantNotPlayed", err)
+	}
+	if err := a.PublishBlitzRound(ctx, "us_open", "2026", r1.ID); err != nil {
+		t.Fatalf("PublishBlitzRound: %v", err)
+	}
+	if err := a.RecordBlitzRuling(ctx, "us_open", "2026", r1.Matches[0].ID, "a", "Bob did not show"); err != nil {
+		t.Fatalf("RecordBlitzRuling: %v", err)
+	}
+	tests := []struct {
+		name string
+		id   int64
+		want error
+	}{
+		{"Bob, whose match has a result", bob, nil},
+		{"Eve, with a bye in a published round", eve, nil},
+		{"Cy, paired but not yet played", cy, ErrBlitzEntrantNotPlayed},
+		{"Fay, not confirmed and in no round", fay, ErrBlitzEntrantNotPlayed},
+	}
+	for _, tt := range tests {
+		if err := drop(tt.id); !errors.Is(err, tt.want) {
+			t.Errorf("dropping %s = %v, want %v", tt.name, err, tt.want)
+		}
+	}
+	active := "active"
+	if err := a.SetBlitzEntrant(ctx, "us_open", "2026", bob, BlitzEntrantChange{Status: &active}); err != nil {
+		t.Errorf("reinstating Bob: %v", err)
+	}
+}
+
+func TestAnEntrantWhoHasNotPlayedIsRemovedFromTheirRound(t *testing.T) {
+	a, _, ids := blitzWithEntrants(t)
+	ctx := context.Background()
+	more, err := a.AddBlitzEntrants(ctx, "us_open", "2026", []BlitzEntrant{{Name: "Eve", Zone: "UTC"}})
+	if err != nil {
+		t.Fatalf("AddBlitzEntrants: %v", err)
+	}
+	ann, bob, cy, dee, eve := ids[0], ids[1], ids[2], ids[3], more[0]
+	if _, err := a.AddBlitzRound(ctx, "us_open", "2026", BlitzRound{Seed: 1, Matches: []BlitzMatch{{A: ann, B: &bob}, {A: cy, B: &dee}, {A: eve}}}); err != nil {
+		t.Fatalf("AddBlitzRound: %v", err)
+	}
+	for _, id := range []int64{bob, eve} {
+		if err := a.RemoveBlitzEntrant(ctx, "us_open", "2026", id); err != nil {
+			t.Fatalf("removing entrant %d, paired in a draft: %v", id, err)
+		}
+	}
+	ed, err := a.BlitzEdition(ctx, "us_open", "2026")
+	if err != nil {
+		t.Fatalf("BlitzEdition: %v", err)
+	}
+	want := []string{fmt.Sprintf("round 1 swiss published=false: %d-%d", cy, dee)}
+	if diff := cmp.Diff(want, roundLines(ed.Rounds)); diff != "" {
+		t.Errorf("round 1 once Bob and Eve are removed, Ann left unpaired (-want +got):\n%s", diff)
+	}
+	if len(ed.Entrants) != 3 {
+		t.Errorf("entrants = %d, want Ann, Cy and Dee", len(ed.Entrants))
+	}
+}
+
 func roundLines(rounds []BlitzRound) []string {
 	var out []string
 	for _, r := range rounds {
@@ -105,8 +188,8 @@ func TestBlitzRoundsAreMadePublishedAndListed(t *testing.T) {
 	if ed, err = a.BlitzEdition(ctx, "us_open", "2026"); err != nil || len(ed.Rounds) != 1 {
 		t.Errorf("rounds after deleting the draft = %v, %v; want round 1 alone", roundLines(ed.Rounds), err)
 	}
-	if err := a.RemoveBlitzEntrant(ctx, "us_open", "2026", ann); !errors.Is(err, ErrBlitzEntrantInRound) {
-		t.Errorf("removing an entrant who played a round = %v, want ErrBlitzEntrantInRound", err)
+	if err := a.RemoveBlitzEntrant(ctx, "us_open", "2026", ann); !errors.Is(err, ErrBlitzEntrantPlayed) {
+		t.Errorf("removing an entrant who played a round = %v, want ErrBlitzEntrantPlayed", err)
 	}
 }
 
@@ -114,10 +197,7 @@ func TestBlitzRoundMatchesAreCheckedAndChanged(t *testing.T) {
 	a, _, ids := blitzWithEntrants(t)
 	ctx := context.Background()
 	ann, bob, cy, dee := ids[0], ids[1], ids[2], ids[3]
-	dropped := "dropped"
-	if err := a.SetBlitzEntrant(ctx, "us_open", "2026", dee, BlitzEntrantChange{Status: &dropped}); err != nil {
-		t.Fatalf("dropping Dee: %v", err)
-	}
+	markDropped(t, a, dee)
 	r1, err := a.AddBlitzRound(ctx, "us_open", "2026", BlitzRound{Seed: 1, Matches: []BlitzMatch{{A: ann, B: &bob}, {A: cy}}})
 	if err != nil {
 		t.Fatalf("AddBlitzRound: %v", err)

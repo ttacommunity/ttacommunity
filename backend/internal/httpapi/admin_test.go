@@ -38,6 +38,11 @@ type fakeAdmins struct {
 	rounds   []store.BlitzRound
 	// members are the community's (admin_members_test.go).
 	members []store.Member
+	// added is every entrant AddBlitzEntrants was given; candidates is what BlitzCandidates finds, and searched
+	// what it was asked (admin_blitz_test.go).
+	added      []store.BlitzEntrant
+	candidates []store.Candidate
+	searched   string
 }
 
 // fakeRuns are runs 4 (complete, published third, after a roll back), 5 (complete, published first),

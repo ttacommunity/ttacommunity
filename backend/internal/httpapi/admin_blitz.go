@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"unicode/utf8"
 
 	"ttacommunity/backend/internal/blitz"
 	"ttacommunity/backend/internal/store"
@@ -15,12 +16,15 @@ import (
 // blitzModel is the rating model shown beside an entrant, in the 2-player format.
 const blitzModel = "glicko2_daneo"
 
-// zoneProblem says what is wrong with a time zone, or "" when it is an IANA name.
+// peopleFound is how many people a search for whom to add or enter finds.
+const peopleFound = 5
+
+// zoneProblem says what is wrong with a time zone, or "" when it is an IANA name, a region or Unknown.
 func zoneProblem(zone string) string {
 	if blitz.ValidZone(zone) {
 		return ""
 	}
-	return fmt.Sprintf("not a time zone: %q (use an IANA name such as Europe/Berlin)", zone)
+	return fmt.Sprintf("not a time zone: %q (use an IANA name such as Europe/Berlin, a region such as US East, or Unknown)", zone)
 }
 
 // blitzEditionKey names an edition in the audit.
@@ -151,11 +155,14 @@ func (s *server) PostAdminBlitzEntrants(ctx context.Context, req PostAdminBlitzE
 		if in.MemberID == 0 && in.Name == "" {
 			return PostAdminBlitzEntrants400JSONResponse{badRequest400(fmt.Sprintf("row %d: a member or a name", i+1))}, nil
 		}
-		zone, msg := memberZone(e.Zone)
-		if msg != "" {
-			return PostAdminBlitzEntrants400JSONResponse{badRequest400(fmt.Sprintf("row %d: %s", i+1, msg))}, nil
+		// A member entered by id keeps their zone unless one is given; a new one is Unknown until known.
+		if e.Zone != nil || in.MemberID == 0 {
+			zone, msg := memberZone(e.Zone)
+			if msg != "" {
+				return PostAdminBlitzEntrants400JSONResponse{badRequest400(fmt.Sprintf("row %d: %s", i+1, msg))}, nil
+			}
+			in.Zone = zone
 		}
-		in.Zone = zone
 		for field, given := range map[*string]*string{&in.DiscordName: e.DiscordName, &in.Email: e.Email, &in.Country: e.Country} {
 			if given != nil {
 				*field = *given
@@ -215,6 +222,8 @@ func (s *server) PatchAdminBlitzEntrant(ctx context.Context, req PatchAdminBlitz
 		return PatchAdminBlitzEntrant404JSONResponse{notFound404("no such blitz edition")}, nil
 	case errors.Is(err, store.ErrNoBlitzEntrant):
 		return PatchAdminBlitzEntrant404JSONResponse{notFound404("no such entrant")}, nil
+	case errors.Is(err, store.ErrBlitzEntrantNotPlayed):
+		return PatchAdminBlitzEntrant409JSONResponse{conflict409(err.Error())}, nil
 	case err != nil:
 		return nil, err
 	}
@@ -234,7 +243,7 @@ func (s *server) DeleteAdminBlitzEntrant(ctx context.Context, req DeleteAdminBli
 		return DeleteAdminBlitzEntrant404JSONResponse{notFound404("no such blitz edition")}, nil
 	case errors.Is(err, store.ErrNoBlitzEntrant):
 		return DeleteAdminBlitzEntrant404JSONResponse{notFound404("no such entrant")}, nil
-	case errors.Is(err, store.ErrBlitzEntrantInRound):
+	case errors.Is(err, store.ErrBlitzEntrantPlayed), errors.Is(err, store.ErrBlitzEntrantInKnockout):
 		return DeleteAdminBlitzEntrant409JSONResponse{conflict409(err.Error())}, nil
 	case err != nil:
 		return nil, err
@@ -243,4 +252,70 @@ func (s *server) DeleteAdminBlitzEntrant(ctx context.Context, req DeleteAdminBli
 		return nil, err
 	}
 	return DeleteAdminBlitzEntrant204Response{}, nil
+}
+
+func (s *server) GetAdminBlitzCandidates(ctx context.Context, req GetAdminBlitzCandidatesRequestObject) (GetAdminBlitzCandidatesResponseObject, error) {
+	if !tournamentSlug.MatchString(req.Tournament) {
+		return GetAdminBlitzCandidates400JSONResponse{badRequest400("bad parameter: tournament")}, nil
+	}
+	q, ok := searchText(req.Params.Q)
+	if !ok {
+		return GetAdminBlitzCandidates400JSONResponse{badRequest400("a search of 2 to 100 characters")}, nil
+	}
+	found, err := s.admins.BlitzCandidates(ctx, req.Tournament, req.Edition, q, peopleFound)
+	switch {
+	case errors.Is(err, store.ErrNoBlitzEdition):
+		return GetAdminBlitzCandidates404JSONResponse{notFound404("no such blitz edition")}, nil
+	case err != nil:
+		return nil, err
+	}
+	return GetAdminBlitzCandidates200JSONResponse{Body: candidatesOut(found), Headers: GetAdminBlitzCandidates200ResponseHeaders{CacheControl: cacheNone}}, nil
+}
+
+func (s *server) GetAdminRegions(context.Context, GetAdminRegionsRequestObject) (GetAdminRegionsResponseObject, error) {
+	out := []Region{{Name: blitz.Unknown}}
+	for _, r := range blitz.Regions {
+		offset, err := blitz.Offset(r.Name, s.now())
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, Region{Name: r.Name, Zone: r.Zone, UtcOffset: offset})
+	}
+	return GetAdminRegions200JSONResponse{Body: out, Headers: GetAdminRegions200ResponseHeaders{CacheControl: cacheNone}}, nil
+}
+
+func (s *server) GetAdminCountries(context.Context, GetAdminCountriesRequestObject) (GetAdminCountriesResponseObject, error) {
+	return GetAdminCountries200JSONResponse{Body: store.CountryCodes(), Headers: GetAdminCountries200ResponseHeaders{CacheControl: cacheNone}}, nil
+}
+
+func (s *server) GetAdminPeople(ctx context.Context, req GetAdminPeopleRequestObject) (GetAdminPeopleResponseObject, error) {
+	q, ok := searchText(req.Params.Q)
+	if !ok {
+		return GetAdminPeople400JSONResponse{badRequest400("a search of 2 to 100 characters")}, nil
+	}
+	found, err := s.admins.People(ctx, q, peopleFound)
+	if err != nil {
+		return nil, err
+	}
+	return GetAdminPeople200JSONResponse{Body: candidatesOut(found), Headers: GetAdminPeople200ResponseHeaders{CacheControl: cacheNone}}, nil
+}
+
+// searchText is a search's text, trimmed, and whether it is 2 to 100 characters long.
+func searchText(q string) (string, bool) {
+	q = strings.TrimSpace(q)
+	n := utf8.RuneCountInString(q)
+	return q, n >= 2 && n <= 100
+}
+
+// candidatesOut is the people found as the API sends them.
+func candidatesOut(found []store.Candidate) []Candidate {
+	out := make([]Candidate, len(found))
+	for i, c := range found {
+		out[i] = Candidate{Name: c.Name, Player: c.Player, DiscordName: c.DiscordName, Email: c.Email,
+			Country: nullableText(c.Country), Zone: nullableText(c.Zone), Banned: c.Banned}
+		if c.MemberID > 0 {
+			out[i].Member = &c.MemberID
+		}
+	}
+	return out
 }

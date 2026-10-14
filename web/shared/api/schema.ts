@@ -952,6 +952,70 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/admin/countries": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The countries a member may have (admins and organisers)
+         * @description ISO 3166-1's two-letter codes and XK for Kosovo, in order.
+         */
+        get: operations["getAdminCountries"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/people": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The five members and players the ratings know who best match a name (admins and organisers)
+         * @description Every member, banned ones marked, and the players the ratings know
+         *     who are no member yet, whose username or ratings spelling holds q in
+         *     any case. The name itself comes first, then names starting with q,
+         *     then the rest; members before players, then by name.
+         */
+        get: operations["getAdminPeople"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/regions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The zones a member may have besides an IANA one (admins and organisers)
+         * @description Unknown, then the regions west to east. A region keeps the time of
+         *     one of its cities, for pairing by time zone; Unknown pairs as UTC.
+         */
+        get: operations["getAdminRegions"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/admin/export": {
         parameters: {
             query?: never;
@@ -1345,11 +1409,34 @@ export interface paths {
         /**
          * Add entrants to a blitz edition, all or none
          * @description Audited. The Origin must be the admin site. A time zone is an IANA
-         *     name (Europe/Berlin). A name the ratings know is kept in their
+         *     name (Europe/Berlin), a region or Unknown. A name the ratings know is kept in their
          *     spelling. A name already entered, in any case, refuses the whole
          *     list and is named.
          */
         post: operations["postAdminBlitzEntrants"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/blitz/{tournament}/{edition}/candidates": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The five people who best match a name, of those who could be entered in an edition
+         * @description Members not in the edition, and players the ratings know who are no
+         *     member yet, whose username or ratings spelling holds q in any case.
+         *     The name itself comes first, then names starting with q, then the
+         *     rest; members before players, then by name.
+         */
+        get: operations["getAdminBlitzCandidates"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -1417,12 +1504,15 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Propose a fresh pairing of a round, without saving it
-         * @description Everyone active now is paired as for a new round, by the criteria
-         *     given; a match of the round that already has a result is kept and
-         *     its players are left out. Nothing is written: the proposal's new
-         *     matches have no id. Save it with PUT matches. A knockout round follows
-         *     the bracket and is refused.
+         * Propose a pairing of a round's unpaired players, without saving it
+         * @description Everyone active and in no kept match is paired as for a new round, by
+         *     the criteria given. The matches named in keep stay as they are, and
+         *     so does a match of the round that already has a result; without
+         *     keep, everyone else is paired again. A kept bye goes back into the
+         *     pairing when an odd number is left over, and one player left over
+         *     gets the bye. Nothing is written: the proposal's new matches have no
+         *     id. Save it with PUT matches. A knockout round follows the bracket
+         *     and is refused.
          */
         post: operations["postAdminBlitzRoundPairing"];
         delete?: never;
@@ -1501,6 +1591,29 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/admin/blitz/{tournament}/{edition}/rounds/{round}/matches/{match}/replacement": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Replace a knockout player who dropped
+         * @description Audited. The Origin must be the admin site. In a knockout match
+         *     without a result, an active entrant not in the round (the round's
+         *     reserve, or a wildcard) takes the place of a player who dropped,
+         *     keeping their slot and seed. A Swiss round is paired again instead.
+         */
+        put: operations["putAdminBlitzMatchReplacement"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/admin/blitz/{tournament}/{edition}/rounds/{round}/matches/{match}/ruling": {
         parameters: {
             query?: never;
@@ -1535,16 +1648,21 @@ export interface paths {
         put?: never;
         post?: never;
         /**
-         * Remove an entrant added by mistake
-         * @description Audited. The Origin must be the admin site. An entrant a round names,
-         *     draft or published, is refused: unpair them first, or drop them.
+         * Remove an entrant who has not played
+         * @description Audited. The Origin must be the admin site. An entrant who has not
+         *     played comes out of the Swiss matches they are paired in, draft or
+         *     published, leaving their opponent unpaired. One who has played is
+         *     refused (drop them instead), and so is one in a knockout match (the
+         *     bracket needs them: delete that round instead).
          */
         delete: operations["deleteAdminBlitzEntrant"];
         options?: never;
         head?: never;
         /**
          * Change an entrant's Discord name, time zone or status (active or dropped)
-         * @description Audited. The Origin must be the admin site.
+         * @description Audited. The Origin must be the admin site. Only an entrant who has
+         *     played (a match with a result, or a bye in a published round) is
+         *     dropped; one who has not is removed instead.
          */
         patch: operations["patchAdminBlitzEntrant"];
         trace?: never;
@@ -1989,9 +2107,9 @@ export interface components {
             name: string;
             /** @description A two-letter country code, null for none */
             country: string | null;
-            /** @description The IANA time zone */
+            /** @description The IANA time zone (Europe/Berlin), a region (US East) until it is known, or Unknown */
             zone: string;
-            /** @description The zone's offset from UTC now, as +02:00 */
+            /** @description The zone's offset from UTC now, as +02:00 (a region's is its city's); empty for Unknown */
             utc_offset: string;
             /**
              * Format: double
@@ -2058,8 +2176,11 @@ export interface components {
             /** Format: double */
             b_culture: number;
             b_outcome: components["schemas"]["BlitzOutcome"];
-            /** Format: date */
-            played_on: string;
+            /**
+             * Format: date-time
+             * @description When the game finished, in UTC
+             */
+            finished_at: string;
         };
         /**
          * @description How a player's game ended
@@ -2097,6 +2218,15 @@ export interface components {
             timezone: boolean;
             /** @default false */
             rating: boolean;
+        };
+        /** @description The criteria to pair by, as for a new round, and the matches to keep as they are */
+        BlitzPairing: {
+            /** @default true */
+            timezone: boolean;
+            /** @default false */
+            rating: boolean;
+            /** @description Matches that stay as they are; everyone active and in none of them is paired */
+            keep?: components["schemas"]["BlitzMatchChange"][];
         };
         /** @description A match by entrant ids; b is null for the bye. The gaps are as the entrants are now */
         AdminBlitzMatch: {
@@ -2143,17 +2273,33 @@ export interface components {
              */
             published_at: string | null;
             matches: components["schemas"]["AdminBlitzMatch"][];
+            /**
+             * Format: int64
+             * @description For a knockout round, the entrant who replaces a player who
+             *     dropped: the best Swiss place among active entrants not in the
+             *     round. Null for a Swiss round, or with nobody left.
+             */
+            reserve: number | null;
+        };
+        /** @description Who drops out of a knockout match, and who takes their place, by entrant id */
+        BlitzReplacement: {
+            /** Format: int64 */
+            out: number;
+            /** Format: int64 */
+            in: number;
         };
         BlitzRoundMatches: {
-            matches: {
-                /** Format: int64 */
-                a: number;
-                /**
-                 * Format: int64
-                 * @description Left out for the bye
-                 */
-                b?: number;
-            }[];
+            matches: components["schemas"]["BlitzMatchChange"][];
+        };
+        /** @description A match by entrant ids, b left out for the bye */
+        BlitzMatchChange: {
+            /** Format: int64 */
+            a: number;
+            /**
+             * Format: int64
+             * @description Left out for the bye
+             */
+            b?: number;
         };
         /** @description One edition of a blitz tournament as admin's list shows it */
         AdminBlitzEditionRow: {
@@ -2225,9 +2371,9 @@ export interface components {
             email: string;
             /** @description A two-letter country code, null for none */
             country: string | null;
-            /** @description The IANA time zone */
+            /** @description The IANA time zone (Europe/Berlin), a region (US East) until it is known, or Unknown */
             zone: string;
-            /** @description The zone's offset from UTC now, as +02:00 */
+            /** @description The zone's offset from UTC now, as +02:00 (a region's is its city's); empty for Unknown */
             utc_offset: string;
             banned: boolean;
             ban_reason: string;
@@ -2245,7 +2391,7 @@ export interface components {
             email?: string;
             /** @description A two-letter country code */
             country?: string;
-            /** @description An IANA time zone, such as Europe/Berlin; UTC until known */
+            /** @description An IANA time zone (Europe/Berlin), a region (US East) from GET /v1/admin/regions, or Unknown, the default */
             zone?: string;
         };
         /** @description What to change; a field left out stays as it is */
@@ -2266,13 +2412,20 @@ export interface components {
         MemberBan: {
             reason: string;
         };
-        /** @description A played game, with the share code, each side as the match names them, and the day played */
+        /** @description A played game, with the share code, each side as the match names them, and when it finished */
         BlitzGameRecord: {
             share_code: string;
             a: components["schemas"]["BlitzGameSide"];
             b: components["schemas"]["BlitzGameSide"];
-            /** Format: date */
-            played_on: string;
+            /**
+             * Format: date
+             * @description The day it finished, on the clocks of zone
+             */
+            finished_on: string;
+            /** @description The time it finished, as 21:30 on the clocks of zone */
+            finished_time: string;
+            /** @description An IANA time zone, a region (US East) or Unknown (UTC), whose clocks the day and time are on */
+            zone: string;
         };
         BlitzGameSide: {
             /**
@@ -2286,7 +2439,10 @@ export interface components {
             result: components["schemas"]["BlitzResult"];
             reason: string;
         };
-        /** @description A member to enter, by id, or by TTA username with the details a new member needs when the name is not a member yet */
+        /**
+         * @description A member to enter: by id, any details given (not empty) saved on the member, or by TTA username with the
+         *     details a new member needs when the name is not a member yet
+         */
         NewBlitzEntrant: {
             /** Format: int64 */
             member?: number;
@@ -2295,13 +2451,42 @@ export interface components {
             email?: string;
             /** @description A two-letter country code */
             country?: string;
-            /** @description An IANA time zone, such as Europe/Berlin; UTC until known */
+            /** @description An IANA time zone (Europe/Berlin), a region (US East) from GET /v1/admin/regions, or Unknown, the default */
             zone?: string;
             /**
              * @description Active unless given; pending for someone not yet confirmed
              * @enum {string}
              */
             status?: "pending" | "active";
+        };
+        /** @description Someone admin may add or enter, a member or a player the ratings know, with what is known of them */
+        Candidate: {
+            /**
+             * Format: int64
+             * @description The member's id, null for a player the ratings know who is no member yet
+             */
+            member: number | null;
+            /** @description The TTA username, or the ratings' spelling for a player who is no member */
+            name: string;
+            /** @description The ratings' spelling of the name, empty for a member the ratings do not know */
+            player: string;
+            discord_name: string;
+            email: string;
+            /** @description A two-letter country code, null for none */
+            country: string | null;
+            /** @description The member's zone, null for a player who is no member */
+            zone: string | null;
+            /** @description A banned member, who cannot be entered */
+            banned: boolean;
+        };
+        /** @description A zone a member may have besides an IANA one */
+        Region: {
+            /** @description The region's name (US East), or Unknown */
+            name: string;
+            /** @description The IANA zone whose time the region keeps; empty for Unknown */
+            zone: string;
+            /** @description Its offset from UTC now, as -04:00; empty for Unknown */
+            utc_offset: string;
         };
         NewBlitzEntrants: {
             entrants: components["schemas"]["NewBlitzEntrant"][];
@@ -4817,6 +5002,79 @@ export interface operations {
             404: components["responses"]["NotFound"];
         };
     };
+    getAdminCountries: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The codes */
+            200: {
+                headers: {
+                    "Cache-Control": components["headers"]["CacheControl"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": string[];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    getAdminPeople: {
+        parameters: {
+            query: {
+                /** @description Part of a name, at least two characters */
+                q: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Up to five, best first */
+            200: {
+                headers: {
+                    "Cache-Control": components["headers"]["CacheControl"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Candidate"][];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    getAdminRegions: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Unknown, then the regions */
+            200: {
+                headers: {
+                    "Cache-Control": components["headers"]["CacheControl"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Region"][];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
     getAdminExport: {
         parameters: {
             query?: never;
@@ -5527,6 +5785,39 @@ export interface operations {
             409: components["responses"]["Conflict"];
         };
     };
+    getAdminBlitzCandidates: {
+        parameters: {
+            query: {
+                /** @description Part of a name, at least two characters */
+                q: string;
+            };
+            header?: never;
+            path: {
+                /** @description The tournament's slug */
+                tournament: components["parameters"]["AdminTournamentSlug"];
+                /** @description The edition's label, as admin lists it (a season) */
+                edition: components["parameters"]["BlitzEditionLabel"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Up to five, best first */
+            200: {
+                headers: {
+                    "Cache-Control": components["headers"]["CacheControl"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Candidate"][];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
     postAdminBlitzRound: {
         parameters: {
             query?: never;
@@ -5605,7 +5896,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["NewBlitzRound"];
+                "application/json": components["schemas"]["BlitzPairing"];
             };
         };
         responses: {
@@ -5721,6 +6012,40 @@ export interface operations {
             409: components["responses"]["Conflict"];
         };
     };
+    putAdminBlitzMatchReplacement: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The tournament's slug */
+                tournament: components["parameters"]["AdminTournamentSlug"];
+                /** @description The edition's label, as admin lists it (a season) */
+                edition: components["parameters"]["BlitzEditionLabel"];
+                round: components["parameters"]["BlitzRoundId"];
+                match: components["parameters"]["BlitzMatchId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BlitzReplacement"];
+            };
+        };
+        responses: {
+            /** @description Replaced */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+        };
+    };
     putAdminBlitzMatchRuling: {
         parameters: {
             query?: never;
@@ -5812,6 +6137,7 @@ export interface operations {
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
         };
     };
 }

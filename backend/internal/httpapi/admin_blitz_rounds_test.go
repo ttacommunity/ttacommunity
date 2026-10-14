@@ -215,6 +215,55 @@ func TestAProposedPairingKeepsDecidedMatchesAndWritesNothing(t *testing.T) {
 	}
 }
 
+func TestAProposedPairingKeepsTheMatchesNamedAndPairsTheRest(t *testing.T) {
+	const site, org = "https://ttac-admin.example", "222222222222222222"
+	deeDropped := func(f *fakeAdmins) {
+		roundOnePublished(f)
+		f.entrants[3].Status = "dropped"
+	}
+	annBeatCy := func(f *fakeAdmins) {
+		roundOnePublished(f)
+		at := time.Date(2026, 10, 15, 9, 0, 0, 0, time.UTC)
+		f.rounds[0].Matches[0].Result, f.rounds[0].Matches[0].DecidedAt, f.rounds[0].Matches[0].Ruling = "a", &at, "ruled"
+	}
+	tests := []struct {
+		name  string
+		setup func(*fakeAdmins)
+		body  string
+		want  string
+	}{
+		{"nothing kept pairs everyone again", roundOnePublished, `{}`, "7-8,9-10"},
+		{"a kept pair stays and the rest are paired", roundOnePublished, `{"keep": [{"a": 7, "b": 9}]}`, "7-9,8-10"},
+		{"everyone kept changes nothing", roundOnePublished, `{"keep": [{"a": 7, "b": 9}, {"a": 8, "b": 10}]}`, "7-9,8-10"},
+		{"a kept bye is paired when one is left over", roundOnePublished, `{"keep": [{"a": 7, "b": 9}, {"a": 8}]}`, "7-9,8-10"},
+		{"the one left over gets the bye", deeDropped, `{"keep": [{"a": 7, "b": 9}]}`, "7-9,bye:8"},
+		{"a decided match named in keep stays once", annBeatCy, `{"keep": [{"a": 7, "b": 8}]}`, "7-8,9-10"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			f := &fakeAdmins{}
+			tt.setup(f)
+			rec := adminDoWith(t, &fakeRatings{run: store.PublishedRun{ID: 7}}, f, org, http.MethodPost, "/v1/admin/blitz/us_open/2026/rounds/101/pairing", site, tt.body)
+			var round AdminBlitzRound
+			if err := json.Unmarshal(rec.Body.Bytes(), &round); err != nil || rec.Code != http.StatusOK {
+				t.Fatalf("POST pairing %s = %d %s, want 200", tt.body, rec.Code, rec.Body)
+			}
+			var pairs []string
+			for _, m := range round.Matches {
+				if m.B == nil {
+					pairs = append(pairs, fmt.Sprintf("bye:%d", m.A))
+				} else {
+					pairs = append(pairs, fmt.Sprintf("%d-%d", min(m.A, *m.B), max(m.A, *m.B)))
+				}
+			}
+			slices.Sort(pairs)
+			if got := strings.Join(pairs, ","); got != tt.want {
+				t.Errorf("POST pairing %s = %s, want %s", tt.body, got, tt.want)
+			}
+		})
+	}
+}
+
 func TestTheNextRoundIsPairedOnPoints(t *testing.T) {
 	const site, org = "https://ttac-admin.example", "222222222222222222"
 	f := &fakeAdmins{}
@@ -273,8 +322,13 @@ func TestBlitzRoundChangesAreRefusedWhenTheyShouldBe(t *testing.T) {
 		{"deleting an unknown round", draft, http.MethodDelete, "/v1/admin/blitz/us_open/2026/rounds/5", site, "", http.StatusNotFound},
 		{"pairing while a result is missing", oneDecided, http.MethodPost, "/v1/admin/blitz/us_open/2026/rounds", site, `{}`, http.StatusConflict},
 		{"leaving out a decided match", oneDecided, http.MethodPut, "/v1/admin/blitz/us_open/2026/rounds/101/matches", site, `{"matches": [{"a": 9, "b": 10}]}`, http.StatusBadRequest},
-		{"removing an entrant a round names", roundOnePublished, http.MethodDelete, "/v1/admin/blitz/us_open/2026/entrants/7", site, "", http.StatusConflict},
+		{"removing an entrant who has played", swissDone, http.MethodDelete, "/v1/admin/blitz/us_open/2026/entrants/7", site, "", http.StatusConflict},
+		{"removing a wildcard in a knockout match", wildcardInFinal, http.MethodDelete, "/v1/admin/blitz/us_open/2026/entrants/11", site, "", http.StatusConflict},
 		{"deleting a round with a result", oneDecided, http.MethodDelete, "/v1/admin/blitz/us_open/2026/rounds/101", site, "", http.StatusConflict},
+		{"keeping an unknown entrant", roundOnePublished, http.MethodPost, "/v1/admin/blitz/us_open/2026/rounds/101/pairing", site, `{"keep": [{"a": 99, "b": 7}]}`, http.StatusBadRequest},
+		{"keeping a dropped entrant", func(f *fakeAdmins) { roundOnePublished(f); f.entrants[3].Status = "dropped" }, http.MethodPost, "/v1/admin/blitz/us_open/2026/rounds/101/pairing", site, `{"keep": [{"a": 9, "b": 10}]}`, http.StatusBadRequest},
+		{"keeping someone twice", roundOnePublished, http.MethodPost, "/v1/admin/blitz/us_open/2026/rounds/101/pairing", site, `{"keep": [{"a": 7, "b": 8}, {"a": 8}]}`, http.StatusBadRequest},
+		{"keeping a player of a decided match elsewhere", oneDecided, http.MethodPost, "/v1/admin/blitz/us_open/2026/rounds/101/pairing", site, `{"keep": [{"a": 7, "b": 9}]}`, http.StatusBadRequest},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

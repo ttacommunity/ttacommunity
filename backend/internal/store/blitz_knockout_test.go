@@ -59,7 +59,7 @@ func TestABlitzKnockoutIsPlayedToAChampion(t *testing.T) {
 	}
 	drawn := func(code string) BlitzGame {
 		return BlitzGame{ShareCode: code, A: BlitzSide{Culture: 120, Outcome: "finished"}, B: BlitzSide{Culture: 120, Outcome: "finished"},
-			Played: time.Date(2026, 12, 9, 0, 0, 0, 0, time.UTC)}
+			Finished: time.Date(2026, 12, 9, 20, 0, 0, 0, time.UTC)}
 	}
 	if err := a.RecordBlitzGame(ctx, "us_open", "2026", semi.Matches[1].ID, drawn("KO-DRAW-1")); err != nil {
 		t.Fatalf("RecordBlitzGame(a drawn semi-final): %v", err)
@@ -121,5 +121,88 @@ func TestABlitzKnockoutIsPlayedToAChampion(t *testing.T) {
 	}
 	if _, err := a.AddBlitzRound(ctx, "us_open", "2026", BlitzRound{Kind: "knockout", Seed: 4, Matches: []BlitzMatch{ko(ann, bob, 0, 1, 4)}}); !errors.Is(err, ErrBlitzFinished) {
 		t.Errorf("a round after the final = %v, want ErrBlitzFinished", err)
+	}
+}
+
+func TestADroppedKnockoutPlayerIsReplaced(t *testing.T) {
+	a, _, ids := blitzWithEntrants(t)
+	ctx := context.Background()
+	more, err := a.AddBlitzEntrants(ctx, "us_open", "2026", []BlitzEntrant{{Name: "Eve", Zone: "UTC"}})
+	if err != nil {
+		t.Fatalf("AddBlitzEntrants: %v", err)
+	}
+	ann, bob, cy, dee, eve := ids[0], ids[1], ids[2], ids[3], more[0]
+	if err := a.SetBlitzFormat(ctx, "us_open", "2026", BlitzFormat{SwissRounds: 1, KnockoutSize: 2}); err != nil {
+		t.Fatalf("SetBlitzFormat: %v", err)
+	}
+	swiss, err := a.AddBlitzRound(ctx, "us_open", "2026", BlitzRound{Seed: 1, Matches: []BlitzMatch{{A: ann, B: &bob}, {A: cy, B: &dee}, {A: eve}}})
+	if err != nil {
+		t.Fatalf("AddBlitzRound(swiss): %v", err)
+	}
+	if err := a.PublishBlitzRound(ctx, "us_open", "2026", swiss.ID); err != nil {
+		t.Fatalf("PublishBlitzRound(swiss): %v", err)
+	}
+	for _, m := range swiss.Matches[:2] {
+		if err := a.RecordBlitzRuling(ctx, "us_open", "2026", m.ID, "a", "ruled"); err != nil {
+			t.Fatalf("RecordBlitzRuling(swiss): %v", err)
+		}
+	}
+	final, err := a.AddBlitzRound(ctx, "us_open", "2026", BlitzRound{Kind: "knockout", Seed: 2, Matches: []BlitzMatch{{A: ann, B: &cy, Slot: new(0), SeedA: new(1), SeedB: new(2)}}})
+	if err != nil {
+		t.Fatalf("AddBlitzRound(final): %v", err)
+	}
+	if err := a.PublishBlitzRound(ctx, "us_open", "2026", final.ID); err != nil {
+		t.Fatalf("PublishBlitzRound(final): %v", err)
+	}
+	markDropped(t, a, cy)
+	markDropped(t, a, dee)
+	replace := func(roundID, matchID, out, in int64) error {
+		return a.ReplaceBlitzPlayer(ctx, "us_open", "2026", roundID, matchID, out, in)
+	}
+	match := final.Matches[0].ID
+	tests := []struct {
+		name                  string
+		round, match, out, in int64
+		want                  error
+	}{
+		{"in a Swiss round", swiss.ID, swiss.Matches[0].ID, bob, eve, ErrBlitzNotKnockout},
+		{"in a match of another round", final.ID, swiss.Matches[0].ID, cy, eve, ErrNoBlitzMatch},
+		{"someone not in the match", final.ID, match, bob, eve, ErrBadBlitzMatch},
+		{"someone who has not dropped", final.ID, match, ann, eve, ErrBlitzNotDropped},
+		{"with someone in the round", final.ID, match, cy, ann, ErrBadBlitzMatch},
+		{"with someone who dropped", final.ID, match, cy, dee, ErrBadBlitzMatch},
+	}
+	for _, tt := range tests {
+		if err := replace(tt.round, tt.match, tt.out, tt.in); !errors.Is(err, tt.want) {
+			t.Errorf("replacing %s = %v, want %v", tt.name, err, tt.want)
+		}
+	}
+	if err := replace(final.ID, match, cy, eve); err != nil {
+		t.Fatalf("replacing Cy, who dropped, with Eve: %v", err)
+	}
+	ed, err := a.BlitzEdition(ctx, "us_open", "2026")
+	if err != nil {
+		t.Fatalf("BlitzEdition: %v", err)
+	}
+	if m := matchOf(t, ed, match); m.A != ann || m.B == nil || *m.B != eve || *m.Slot != 0 || *m.SeedA != 1 || *m.SeedB != 2 {
+		t.Errorf("the final = %d v %v (slot %d, seeds %d v %d), want Ann v Eve in Cy's slot and seed", m.A, m.B, *m.Slot, *m.SeedA, *m.SeedB)
+	}
+	gus, err := a.AddBlitzEntrants(ctx, "us_open", "2026", []BlitzEntrant{{Name: "Gus", Zone: "UTC"}})
+	if err != nil {
+		t.Fatalf("AddBlitzEntrants(Gus): %v", err)
+	}
+	markDropped(t, a, eve)
+	if err := replace(final.ID, match, eve, gus[0]); err != nil {
+		t.Fatalf("replacing Eve with Gus, who has not played: %v", err)
+	}
+	if err := a.RemoveBlitzEntrant(ctx, "us_open", "2026", gus[0]); !errors.Is(err, ErrBlitzEntrantInKnockout) {
+		t.Errorf("removing Gus from the final = %v, want ErrBlitzEntrantInKnockout", err)
+	}
+	if err := a.RecordBlitzRuling(ctx, "us_open", "2026", match, "a", "ruled"); err != nil {
+		t.Fatalf("RecordBlitzRuling(final): %v", err)
+	}
+	markDropped(t, a, ann)
+	if err := replace(final.ID, match, ann, bob); !errors.Is(err, ErrBlitzMatchDecided) {
+		t.Errorf("replacing in a match with a result = %v, want ErrBlitzMatchDecided", err)
 	}
 }

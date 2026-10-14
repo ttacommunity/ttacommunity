@@ -2,7 +2,7 @@
 import { useEffect, useState } from 'react';
 import { RatingsApiError, blitzEdition, blitzEditions, type BlitzEdition, type BlitzEditions } from '@ttac/shared/ratings';
 import type { components } from '@ttac/shared/api';
-import { formatLabel, reachedLabel, resultSummary, roundTitle, seededName, zoneLabel, type BlitzFormat } from '@ttac/shared/blitz';
+import { formatLabel, reachedLabel, resultSummary, roundShown, roundSummary, roundTitle, seededName, zoneLabel, type BlitzFormat } from '@ttac/shared/blitz';
 import { editionHref, editionParams, ratingText, splitRounds } from '../lib/blitz';
 import { catalogueHref } from '../lib/catalogue-view';
 import { Flag } from './PlayerMarks';
@@ -95,6 +95,9 @@ function BlitzList({ apiUrl }: { apiUrl: string }) {
 
 function EditionPage({ apiUrl, slug, edition }: { apiUrl: string; slug: string; edition: string }) {
   const [load, setLoad] = useState<Load<BlitzEdition>>({ kind: 'loading' });
+  // toggled holds the rounds whose Show or Hide button was pressed: only the latest Swiss and the latest knockout
+  // round show their matches until then.
+  const [toggled, setToggled] = useState<ReadonlySet<number>>(new Set());
   useEffect(() => {
     blitzEdition(apiUrl, slug, edition)
       .then((data) => setLoad({ kind: 'ready', data }))
@@ -122,6 +125,7 @@ function EditionPage({ apiUrl, slug, edition }: { apiUrl: string; slug: string; 
   const { swiss, knockout } = splitRounds(ed.rounds);
   const latest = ed.rounds.length === 0 ? null : Math.max(...ed.rounds.map((r) => r.number));
   const countryOf = new Map(ed.standings.map((s) => [s.name, s.country]));
+  const toggle = (n: number) => setToggled((t) => (t.has(n) ? new Set([...t].filter((x) => x !== n)) : new Set([...t, n])));
   return (
     <>
       <div className="tournaments-header">
@@ -160,7 +164,13 @@ function EditionPage({ apiUrl, slug, edition }: { apiUrl: string; slug: string; 
             through.
           </p>
           {knockout.map((r) => (
-            <RoundTable key={r.number} round={r} format={ed.format} />
+            <RoundTable
+              key={r.number}
+              round={r}
+              format={ed.format}
+              shown={roundShown(r.number, knockout[knockout.length - 1].number, toggled)}
+              onToggle={() => toggle(r.number)}
+            />
           ))}
         </section>
       )}
@@ -228,7 +238,13 @@ function EditionPage({ apiUrl, slug, edition }: { apiUrl: string; slug: string; 
             A recorded game is on the <a href={catalogueHref(ed.tournament)}>tournament&apos;s page</a> too.
           </p>
           {swiss.map((r) => (
-            <RoundTable key={r.number} round={r} format={ed.format} />
+            <RoundTable
+              key={r.number}
+              round={r}
+              format={ed.format}
+              shown={roundShown(r.number, swiss[0].number, toggled)}
+              onToggle={() => toggle(r.number)}
+            />
           ))}
         </section>
       )}
@@ -278,43 +294,54 @@ function EditionPage({ apiUrl, slug, edition }: { apiUrl: string; slug: string; 
 }
 
 /** RoundTable shows one round's pairings and results, knockout players with their seeds. */
-function RoundTable({ round: r, format }: { round: BlitzRound; format: BlitzFormat }) {
+type RoundTableProps = { round: BlitzRound; format: BlitzFormat; shown: boolean; onToggle: () => void };
+
+/** RoundTable shows a round's title and summary, and its matches while shown. */
+function RoundTable({ round: r, format, shown, onToggle }: RoundTableProps) {
   const title = roundTitle(r.number, format);
   return (
     <div className="blitz-round">
       <h3>{title}</h3>
-      <div className="blitz-table-wrap">
-        <table className="blitz-table">
-          <caption>{title}: pairings and results</caption>
-          <thead>
-            <tr>
-              <th scope="col">Player</th>
-              <th scope="col" className="num">
-                Rating
-              </th>
-              <th scope="col">Opponent</th>
-              <th scope="col" className="num">
-                Rating
-              </th>
-              <th scope="col">Result</th>
-            </tr>
-          </thead>
-          <tbody>
-            {r.matches.map((m) => (
-              <tr key={`${m.a}-${m.b ?? 'bye'}`}>
-                <th scope="row">{seededName(m.a, m.a_seed)}</th>
-                <td className="num">{ratingText(m.a_rating)}</td>
-                <td>{m.b === null ? <em>bye</em> : seededName(m.b, m.b_seed)}</td>
-                <td className="num">{m.b === null ? '' : ratingText(m.b_rating)}</td>
-                <td>
-                  {m.b === null ? '' : m.result === null ? <span className="muted">to be played</span> : resultSummary(m)}
-                  {m.game !== null && <span className="blitz-note">{m.game.share_code}</span>}
-                </td>
+      <p className="blitz-round-summary">
+        <span className="muted">{roundSummary(r.matches)}</span>
+        <button type="button" className="btn-antique blitz-round-toggle" aria-expanded={shown} onClick={onToggle}>
+          {shown ? 'Hide matches' : 'Show matches'}
+        </button>
+      </p>
+      {shown && (
+        <div className="blitz-table-wrap">
+          <table className="blitz-table">
+            <caption>{title}: pairings and results</caption>
+            <thead>
+              <tr>
+                <th scope="col">Player</th>
+                <th scope="col" className="num">
+                  Rating
+                </th>
+                <th scope="col">Opponent</th>
+                <th scope="col" className="num">
+                  Rating
+                </th>
+                <th scope="col">Result</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+            </thead>
+            <tbody>
+              {r.matches.map((m) => (
+                <tr key={`${m.a}-${m.b ?? 'bye'}`}>
+                  <th scope="row">{seededName(m.a, m.a_seed)}</th>
+                  <td className="num">{ratingText(m.a_rating)}</td>
+                  <td>{m.b === null ? <em>bye</em> : seededName(m.b, m.b_seed)}</td>
+                  <td className="num">{m.b === null ? '' : ratingText(m.b_rating)}</td>
+                  <td>
+                    {m.b === null ? '' : m.result === null ? <span className="muted">to be played</span> : resultSummary(m)}
+                    {m.game !== null && <span className="blitz-note">{m.game.share_code}</span>}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
     </div>
   );
 }

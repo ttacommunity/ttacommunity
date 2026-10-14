@@ -65,15 +65,18 @@ export const addBlitzEntrants = (slug: string, edition: string, entrants: Schema
 /** setBlitzEntrant changes an entrant's Discord name, time zone or status. */
 export const setBlitzEntrant = (slug: string, edition: string, id: number, change: Schemas['BlitzEntrantChange']) =>
   to(`${blitz(slug, edition)}/entrants/${id}`, 'PATCH', change);
+/** replaceBlitzPlayer puts an entrant in the place of a knockout player who dropped. */
+export const replaceBlitzPlayer = (slug: string, edition: string, round: number, match: number, replacement: Schemas['BlitzReplacement']) =>
+  to(`${blitz(slug, edition)}/rounds/${round}/matches/${match}/replacement`, 'PUT', replacement);
 /** removeBlitzEntrant removes an entrant added by mistake. */
 export const removeBlitzEntrant = (slug: string, edition: string, id: number) => to(`${blitz(slug, edition)}/entrants/${id}`, 'DELETE');
 /** setBlitzFormat sets an edition's Swiss rounds and knockout size. */
 export const setBlitzFormat = (slug: string, edition: string, format: Schemas['BlitzFormat']) => to(blitz(slug, edition), 'PATCH', format);
 /** pairBlitzRound pairs the edition's next round as a draft, by the criteria given. */
 export const pairBlitzRound = (slug: string, edition: string, criteria: Schemas['NewBlitzRound']) => to(`${blitz(slug, edition)}/rounds`, 'POST', criteria);
-/** proposeBlitzPairing asks for a fresh pairing of a round, kept decided matches included, without saving it. */
-export const proposeBlitzPairing = (slug: string, edition: string, round: number, criteria: Schemas['NewBlitzRound']) =>
-  to(`${blitz(slug, edition)}/rounds/${round}/pairing`, 'POST', criteria);
+/** proposeBlitzPairing asks for a round with the matches in keep (and those with a result) as they are and everyone else paired, without saving it. */
+export const proposeBlitzPairing = (slug: string, edition: string, round: number, pairing: Schemas['BlitzPairing']) =>
+  to(`${blitz(slug, edition)}/rounds/${round}/pairing`, 'POST', pairing);
 /** setBlitzRoundMatches replaces a round's matches, as paired by hand. */
 export const setBlitzRoundMatches = (slug: string, edition: string, round: number, matches: Schemas['BlitzRoundMatches']['matches']) =>
   to(`${blitz(slug, edition)}/rounds/${round}/matches`, 'PUT', { matches });

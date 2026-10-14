@@ -157,7 +157,7 @@ func TestAnOrganiserAddsListsAndChangesMembers(t *testing.T) {
 	us, de, cge := "US", "DE", 501
 	want := []AdminMember{
 		{Id: 101, Name: "bob", Player: "Bob", CgeUser: &cge, Email: "bob@example.test", Country: &us, Zone: "America/New_York", UtcOffset: "-04:00", BanReason: "", CreatedAt: time.Date(2026, 10, 12, 9, 0, 0, 0, time.UTC)},
-		{Id: 102, Name: "Ann", DiscordName: "ann#1", Country: &de, Zone: "UTC", UtcOffset: "+00:00", CreatedAt: time.Date(2026, 10, 12, 9, 0, 0, 0, time.UTC)},
+		{Id: 102, Name: "Ann", DiscordName: "ann#1", Country: &de, Zone: "Unknown", UtcOffset: "", CreatedAt: time.Date(2026, 10, 12, 9, 0, 0, 0, time.UTC)},
 	}
 	if diff := cmp.Diff(want, members); diff != "" {
 		t.Errorf("members (-want +got):\n%s", diff)

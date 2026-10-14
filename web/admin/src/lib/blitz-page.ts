@@ -1,4 +1,4 @@
-/** The blitz edition page's decisions: the edition the address names, and the players' view. */
+/** The blitz edition page's decisions: the edition the address names, its address, and advice on its format. */
 import type { components } from '@ttac/shared/api';
 
 type Schemas = components['schemas'];
@@ -19,7 +19,17 @@ export function editionHref(slug: string, edition: string): string {
   return `/blitz/?t=${encodeURIComponent(slug)}&e=${encodeURIComponent(edition)}`;
 }
 
-/** playersView is what players will see of the entrants: the active ones, without Discord names or emails. */
-export function playersView(entrants: readonly AdminBlitzEntrant[]): Pick<AdminBlitzEntrant, 'name' | 'country' | 'zone' | 'utc_offset' | 'rating'>[] {
-  return entrants.filter((e) => e.status === 'active').map(({ name, country, zone, utc_offset, rating }) => ({ name, country, zone, utc_offset, rating }));
+/** formatAdvice is the most Swiss rounds the active entrants can always be paired for without a repeat (half of them,
+ * rounded down, at least one), and warnings for a format past it or a knockout larger than the field. A warning only:
+ * late entrants and wildcards raise the limit. */
+export function formatAdvice(format: { swiss_rounds: number; knockout_size: number }, active: number): { limit: number; warnings: string[] } {
+  const limit = Math.max(1, Math.floor(active / 2));
+  const warnings: string[] = [];
+  if (format.swiss_rounds > limit) {
+    warnings.push(
+      `${format.swiss_rounds} Swiss rounds is more than ${active} active entrants can always be paired for: past ${limit}, someone may have to meet an opponent again, and Pair refuses that. Late entrants or wildcards raise the limit.`,
+    );
+  }
+  if (format.knockout_size > active) warnings.push(`The knockout takes the top ${format.knockout_size}, and ${active} entrants are active.`);
+  return { limit, warnings };
 }

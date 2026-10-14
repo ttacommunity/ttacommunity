@@ -70,8 +70,21 @@ var ErrBlitzKnockoutFixed = errors.New("a knockout round follows the bracket: de
 // ErrBlitzFinished means the edition's final has a winner: there is no next round.
 var ErrBlitzFinished = errors.New("the edition is finished")
 
-// ErrBlitzEntrantInRound means an entrant in a round cannot be removed: drop them instead.
-var ErrBlitzEntrantInRound = errors.New("the entrant is in a round: drop them instead of removing them")
+// ErrBlitzEntrantPlayed means an entrant who has played cannot be removed: drop them instead.
+var ErrBlitzEntrantPlayed = errors.New("the entrant has played: drop them instead of removing them")
+
+// ErrBlitzEntrantInKnockout means an entrant in a knockout match still to play cannot be removed: the bracket needs
+// them. The round is deleted and paired again instead.
+var ErrBlitzEntrantInKnockout = errors.New("the entrant is in a knockout match: delete that round to take them out")
+
+// ErrBlitzNotKnockout means a player was replaced in a Swiss round: a Swiss round is paired again instead.
+var ErrBlitzNotKnockout = errors.New("only a knockout player is replaced: pair a Swiss round again instead")
+
+// ErrBlitzNotDropped means a player was replaced who has not dropped.
+var ErrBlitzNotDropped = errors.New("only a player who dropped is replaced: drop them first")
+
+// ErrBlitzEntrantNotPlayed means an entrant who has not played cannot be dropped: remove them instead.
+var ErrBlitzEntrantNotPlayed = errors.New("the entrant has not played yet: remove them instead (unpair them first)")
 
 // blitzRounds reads an edition's rounds with their matches, every round or the published ones only.
 func blitzRounds(ctx context.Context, db conn, public bool, slug, edition string) ([]BlitzRound, error) {
@@ -99,7 +112,8 @@ func blitzRounds(ctx context.Context, db conn, public bool, slug, edition string
 	}
 	matches, err := db.Query(ctx, `
 		SELECT m.round_id, m.match_id, m.entry_a, m.entry_b, m.slot, m.seed_a, m.seed_b, coalesce(m.result, ''), m.game_id, m.ruling, m.decided_at,
-		       coalesce(g.share_code, ''), g.date, sa.culture, coalesce(sa.outcome, ''), sb.culture, coalesce(sb.outcome, '')
+		       coalesce(g.share_code, ''), coalesce(g.finished_at, g.date::timestamp AT TIME ZONE 'UTC'), sa.culture, coalesce(sa.outcome, ''),
+		       sb.culture, coalesce(sb.outcome, '')
 		FROM blitz_matches m
 		LEFT JOIN games g ON g.game_id = m.game_id
 		LEFT JOIN seats sa ON sa.game_id = m.game_id AND sa.seat = 1
@@ -111,10 +125,10 @@ func blitzRounds(ctx context.Context, db conn, public bool, slug, edition string
 	var roundID int64
 	var m BlitzMatch
 	var g BlitzGame
-	var played *time.Time
+	var finished *time.Time
 	var cultureA, cultureB *float64
 	if _, err := pgx.ForEachRow(matches, []any{&roundID, &m.ID, &m.A, &m.B, &m.Slot, &m.SeedA, &m.SeedB, &m.Result, &m.GameID, &m.Ruling, &m.DecidedAt,
-		&g.ShareCode, &played, &cultureA, &g.A.Outcome, &cultureB, &g.B.Outcome}, func() error {
+		&g.ShareCode, &finished, &cultureA, &g.A.Outcome, &cultureB, &g.B.Outcome}, func() error {
 		i := slices.IndexFunc(rounds, func(r BlitzRound) bool { return r.ID == roundID })
 		got := BlitzMatch{ID: m.ID, A: m.A, Result: m.Result, Ruling: m.Ruling}
 		if m.B != nil {
@@ -126,8 +140,8 @@ func blitzRounds(ctx context.Context, db conn, public bool, slug, edition string
 		if m.GameID != nil {
 			got.GameID = new(*m.GameID)
 			game := BlitzGame{ShareCode: g.ShareCode, A: BlitzSide{Outcome: g.A.Outcome}, B: BlitzSide{Outcome: g.B.Outcome}}
-			if played != nil {
-				game.Played = *played
+			if finished != nil {
+				game.Finished = *finished
 			}
 			if cultureA != nil && cultureB != nil {
 				game.A.Culture, game.B.Culture = *cultureA, *cultureB
@@ -435,6 +449,71 @@ func (a *AdminStore) DeleteBlitzRound(ctx context.Context, slug, edition string,
 		}
 		if _, err := tx.Exec(ctx, "DELETE FROM blitz_rounds WHERE round_id = $1", roundID); err != nil {
 			return fmt.Errorf("deleting round %d: %w", roundID, err)
+		}
+		return nil
+	})
+}
+
+// ReplaceBlitzPlayer puts in, an active entrant not in the round, in the place of out, a player who dropped, in a
+// knockout match without a result, keeping out's slot and seed. It returns ErrNoBlitzEdition, ErrNoBlitzRound,
+// ErrNoBlitzMatch, ErrBlitzNotKnockout, ErrBlitzMatchDecided, ErrBlitzNotDropped, or ErrBadBlitzMatch naming
+// whom it cannot take.
+func (a *AdminStore) ReplaceBlitzPlayer(ctx context.Context, slug, edition string, roundID, matchID, out, in int64) error {
+	return pgx.BeginFunc(ctx, a.pool, func(tx pgx.Tx) error {
+		edID, err := blitzEditionID(ctx, tx, slug, edition)
+		if err != nil {
+			return err
+		}
+		kind, err := blitzRoundKind(ctx, tx, edID, roundID)
+		if err != nil {
+			return err
+		}
+		if kind != "knockout" {
+			return ErrBlitzNotKnockout
+		}
+		var entryA int64
+		var entryB *int64
+		var result *string
+		err = tx.QueryRow(ctx, "SELECT entry_a, entry_b, result FROM blitz_matches WHERE match_id = $1 AND round_id = $2 FOR UPDATE",
+			matchID, roundID).Scan(&entryA, &entryB, &result)
+		if errors.Is(err, pgx.ErrNoRows) {
+			return ErrNoBlitzMatch
+		}
+		if err != nil {
+			return fmt.Errorf("replacing a player of match %d: %w", matchID, err)
+		}
+		if result != nil {
+			return ErrBlitzMatchDecided
+		}
+		if out != entryA && (entryB == nil || out != *entryB) {
+			return fmt.Errorf("%w: the player replaced is not in the match", ErrBadBlitzMatch)
+		}
+		var outStatus string
+		if err := tx.QueryRow(ctx, "SELECT status FROM blitz_entries WHERE entry_id = $1", out).Scan(&outStatus); err != nil {
+			return fmt.Errorf("replacing a player of match %d: %w", matchID, err)
+		}
+		if outStatus != "dropped" {
+			return ErrBlitzNotDropped
+		}
+		var name string
+		var takes bool
+		err = tx.QueryRow(ctx, `
+			SELECT m.tta_name, e.status = 'active' AND NOT EXISTS (SELECT 1 FROM blitz_matches x WHERE x.round_id = $3 AND (x.entry_a = $1 OR x.entry_b = $1))
+			FROM blitz_entries e JOIN members m USING (member_id) WHERE e.entry_id = $1 AND e.tournament_id = $2`, in, edID, roundID).Scan(&name, &takes)
+		if errors.Is(err, pgx.ErrNoRows) {
+			return fmt.Errorf("%w: entrant %d", ErrBadBlitzMatch, in)
+		}
+		if err != nil {
+			return fmt.Errorf("replacing a player of match %d: %w", matchID, err)
+		}
+		if !takes {
+			return fmt.Errorf("%w: %s", ErrBadBlitzMatch, name)
+		}
+		if _, err := tx.Exec(ctx, `
+			UPDATE blitz_matches SET entry_a = CASE WHEN entry_a = $2 THEN $3 ELSE entry_a END,
+			                         entry_b = CASE WHEN entry_b = $2 THEN $3 ELSE entry_b END
+			WHERE match_id = $1`, matchID, out, in); err != nil {
+			return fmt.Errorf("replacing a player of match %d: %w", matchID, err)
 		}
 		return nil
 	})

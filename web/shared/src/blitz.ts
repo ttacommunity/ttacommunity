@@ -1,4 +1,4 @@
-/** What both sites say about a blitz tournament: a zone's offset, a format, the zones a select offers, how a match's result reads, and how a round and a seeded player are named. */
+/** What both sites say about a blitz tournament: a zone's offset, a format, how a match's result reads, how a folded round is summed up, and how a round and a seeded player are named. */
 import type { components } from '../api/schema';
 
 export type BlitzFormat = components['schemas']['BlitzFormat'];
@@ -49,17 +49,25 @@ export function zoneLabel(zone: string, offset: string): string {
   return o === '' ? zone : `${o} · ${zone}`;
 }
 
+/** roundSummary sums a round up for when it is folded away: its games, how many have a result, and its bye. */
+export function roundSummary(matches: readonly { b: unknown; result: unknown }[]): string {
+  const games = matches.filter((m) => m.b !== null);
+  if (matches.length === 0) return 'no matches';
+  const played = games.filter((m) => m.result !== null).length;
+  const done = played === games.length ? 'all played' : played === 0 ? 'none played' : `${played} played`;
+  const bye = games.length < matches.length ? ', and a bye' : '';
+  return `${games.length} ${games.length === 1 ? 'game' : 'games'}, ${done}${bye}`;
+}
+
+/** roundShown says whether a round's matches show: the newest round's unless its button hid them, an earlier one's only once its button showed them. toggled holds the round numbers whose button was pressed. */
+export function roundShown(round: number, newest: number, toggled: ReadonlySet<number>): boolean {
+  return (round === newest) !== toggled.has(round);
+}
+
 /** formatLabel describes an edition's format in words. */
 export function formatLabel(f: BlitzFormat): string {
   const swiss = `${f.swiss_rounds} Swiss round${f.swiss_rounds === 1 ? '' : 's'}`;
   return f.knockout_size === 0 ? `${swiss}, no knockout` : `${swiss}, then a top-${f.knockout_size} knockout`;
-}
-
-/** zoneOptions lists the zones a select offers: UTC first, then known in order, with current added when missing. */
-export function zoneOptions(known: readonly string[], current: string): string[] {
-  const rest = known.filter((z) => z !== 'UTC');
-  if (current !== '' && current !== 'UTC' && !rest.includes(current)) rest.push(current);
-  return ['UTC', ...rest.sort()];
 }
 
 /** knockoutStage names a knockout round by how many still play in it (Final, Semi-finals, Quarter-finals, Round of 16), or null for a round outside the knockout. */

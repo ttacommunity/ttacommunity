@@ -39,10 +39,10 @@ func (s *server) GetAdminMembers(ctx context.Context, _ GetAdminMembersRequestOb
 	return GetAdminMembers200JSONResponse{Body: out, Headers: GetAdminMembers200ResponseHeaders{CacheControl: cacheNone}}, nil
 }
 
-// memberZone checks a zone given for a member, UTC when none, and says what is wrong with it.
+// memberZone checks a zone given for a member, Unknown when none, and says what is wrong with it.
 func memberZone(zone *string) (string, string) {
 	if zone == nil {
-		return "UTC", ""
+		return blitz.Unknown, ""
 	}
 	z := strings.TrimSpace(*zone)
 	return z, zoneProblem(z)

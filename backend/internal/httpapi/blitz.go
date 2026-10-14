@@ -6,8 +6,6 @@ import (
 	"context"
 	"errors"
 
-	openapi_types "github.com/oapi-codegen/runtime/types"
-
 	"ttacommunity/backend/internal/blitz"
 	"ttacommunity/backend/internal/store"
 )
@@ -31,7 +29,7 @@ func playedGame(m store.BlitzMatch) *BlitzPlayedGame {
 	if m.Game == nil {
 		return nil
 	}
-	return &BlitzPlayedGame{ShareCode: m.Game.ShareCode, PlayedOn: openapi_types.Date{Time: m.Game.Played},
+	return &BlitzPlayedGame{ShareCode: m.Game.ShareCode, FinishedAt: m.Game.Finished.UTC(),
 		ACulture: m.Game.A.Culture, AOutcome: BlitzOutcome(m.Game.A.Outcome),
 		BCulture: m.Game.B.Culture, BOutcome: BlitzOutcome(m.Game.B.Outcome)}
 }

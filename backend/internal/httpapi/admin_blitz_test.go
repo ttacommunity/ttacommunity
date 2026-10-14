@@ -6,12 +6,14 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"regexp"
 	"slices"
 	"strings"
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
 
+	"ttacommunity/backend/internal/blitz"
 	"ttacommunity/backend/internal/store"
 )
 
@@ -100,6 +102,7 @@ func (f *fakeAdmins) AddBlitzEntrants(_ context.Context, slug, edition string, e
 	if slug != "us_open" || edition != "2026" {
 		return nil, store.ErrNoBlitzEdition
 	}
+	f.added = append(f.added, entrants...)
 	var ids, names = []int64{}, []string{}
 	for _, e := range entrants {
 		if e.MemberID > 0 {
@@ -136,12 +139,15 @@ func (f *fakeAdmins) SetBlitzEntrant(_ context.Context, slug, edition string, id
 	if slug != "us_open" || edition != "2026" {
 		return store.ErrNoBlitzEdition
 	}
-	if c.Status != nil && *c.Status != "active" && *c.Status != "dropped" {
+	if c.Status != nil && !slices.Contains([]string{"pending", "active", "dropped"}, *c.Status) {
 		return store.ErrBadBlitzStatus
 	}
 	for i := range f.blitzEntrants() {
 		if f.entrants[i].ID != id {
 			continue
+		}
+		if c.Status != nil && *c.Status == "dropped" && !f.played(id) {
+			return store.ErrBlitzEntrantNotPlayed
 		}
 		var changed []string
 		if c.Status != nil {
@@ -170,16 +176,37 @@ func (f *fakeAdmins) SetBlitzEntrant(_ context.Context, slug, edition string, id
 	return store.ErrNoBlitzEntrant
 }
 
+// played says whether an entrant has a match with a result, or a bye in a published round.
+func (f *fakeAdmins) played(id int64) bool {
+	for _, r := range f.rounds {
+		for _, m := range r.Matches {
+			if (m.A == id || (m.B != nil && *m.B == id)) && (m.Result != "" || (m.B == nil && r.PublishedAt != nil)) {
+				return true
+			}
+		}
+	}
+	return false
+}
+
 func (f *fakeAdmins) RemoveBlitzEntrant(_ context.Context, slug, edition string, id int64) error {
 	if slug != "us_open" || edition != "2026" {
 		return store.ErrNoBlitzEdition
 	}
-	for _, r := range f.rounds {
+	if f.played(id) {
+		return store.ErrBlitzEntrantPlayed
+	}
+	for ri, r := range f.rounds {
+		var kept []store.BlitzMatch
 		for _, m := range r.Matches {
-			if m.A == id || (m.B != nil && *m.B == id) {
-				return store.ErrBlitzEntrantInRound
+			named := m.A == id || (m.B != nil && *m.B == id)
+			if named && r.Kind == "knockout" {
+				return store.ErrBlitzEntrantInKnockout
+			}
+			if !named {
+				kept = append(kept, m)
 			}
 		}
+		f.rounds[ri].Matches = kept
 	}
 	for i, e := range f.blitzEntrants() {
 		if e.ID == id {
@@ -189,6 +216,91 @@ func (f *fakeAdmins) RemoveBlitzEntrant(_ context.Context, slug, edition string,
 		}
 	}
 	return store.ErrNoBlitzEntrant
+}
+
+func (f *fakeAdmins) BlitzCandidates(_ context.Context, slug, edition, q string, limit int) ([]store.Candidate, error) {
+	if slug != "us_open" || edition != "2026" {
+		return nil, store.ErrNoBlitzEdition
+	}
+	f.searched = fmt.Sprintf("%s %s %q %d", slug, edition, q, limit)
+	return f.candidates, nil
+}
+
+func TestAnOrganiserFindsWhomToEnter(t *testing.T) {
+	const org = "222222222222222222"
+	f := &fakeAdmins{candidates: []store.Candidate{
+		{Name: "Ann", Player: "Ann", Country: "GB"},
+		{MemberID: 101, Name: "anna", DiscordName: "anna#1", Zone: "US East", Banned: true},
+	}}
+	rec := adminDoAs(t, f, org, http.MethodGet, "/v1/admin/blitz/us_open/2026/candidates?q=%20an%20", "", "")
+	if rec.Code != http.StatusOK {
+		t.Fatalf("GET candidates = %d %s, want 200", rec.Code, rec.Body)
+	}
+	wantJSON(t, rec.Body.Bytes(), "0", `{"member": null, "name": "Ann", "player": "Ann", "country": "GB", "zone": null, "banned": false}`)
+	wantJSON(t, rec.Body.Bytes(), "1", `{"member": 101, "name": "anna", "discord_name": "anna#1", "country": null, "zone": "US East", "banned": true}`)
+	if want := `us_open 2026 "an" 5`; f.searched != want {
+		t.Errorf("searched = %s, want %s", f.searched, want)
+	}
+}
+
+func (f *fakeAdmins) People(_ context.Context, q string, limit int) ([]store.Candidate, error) {
+	f.searched = fmt.Sprintf("%q %d", q, limit)
+	return f.candidates, nil
+}
+
+func TestAnOrganiserFindsPeople(t *testing.T) {
+	f := &fakeAdmins{candidates: []store.Candidate{{MemberID: 101, Name: "anna", Zone: "Unknown"}}}
+	rec := adminDoAs(t, f, "222222222222222222", http.MethodGet, "/v1/admin/people?q=%20an%20", "", "")
+	if rec.Code != http.StatusOK {
+		t.Fatalf("GET people = %d %s, want 200", rec.Code, rec.Body)
+	}
+	wantJSON(t, rec.Body.Bytes(), "0", `{"member": 101, "name": "anna", "zone": "Unknown"}`)
+	if want := `"an" 5`; f.searched != want {
+		t.Errorf("searched = %s, want %s", f.searched, want)
+	}
+	for _, q := range []string{"?q=a", "", "?q=" + strings.Repeat("x", 101)} {
+		if rec := adminDoAs(t, f, "222222222222222222", http.MethodGet, "/v1/admin/people"+q, "", ""); rec.Code != http.StatusBadRequest {
+			t.Errorf("GET people%s = %d, want 400", q, rec.Code)
+		}
+	}
+}
+
+func TestAdminListsTheRegionsAfterUnknown(t *testing.T) {
+	rec := adminDoAs(t, &fakeAdmins{}, "222222222222222222", http.MethodGet, "/v1/admin/regions", "", "")
+	var got []Region
+	if err := json.Unmarshal(rec.Body.Bytes(), &got); err != nil || rec.Code != http.StatusOK || len(got) != len(blitz.Regions)+1 {
+		t.Fatalf("GET regions = %d %s, want Unknown and %d regions", rec.Code, rec.Body, len(blitz.Regions))
+	}
+	if want := (Region{Name: blitz.Unknown}); got[0] != want {
+		t.Errorf("first = %+v, want %+v", got[0], want)
+	}
+	first := blitz.Regions[0]
+	if got[1].Name != first.Name || got[1].Zone != first.Zone || !regexp.MustCompile(`^[+-]\d\d:\d\d$`).MatchString(got[1].UtcOffset) {
+		t.Errorf("second = %+v, want %s keeping %s's time, with its offset", got[1], first.Name, first.Zone)
+	}
+}
+
+func TestAdminListsTheCountriesAMemberMayHave(t *testing.T) {
+	rec := adminDoAs(t, &fakeAdmins{}, "222222222222222222", http.MethodGet, "/v1/admin/countries", "", "")
+	var got []string
+	if err := json.Unmarshal(rec.Body.Bytes(), &got); err != nil || rec.Code != http.StatusOK {
+		t.Fatalf("GET countries = %d %s, want 200", rec.Code, rec.Body)
+	}
+	if diff := cmp.Diff(store.CountryCodes(), got); diff != "" {
+		t.Errorf("countries (-want +got):\n%s", diff)
+	}
+}
+
+func TestEnteringAMemberPassesOnOnlyTheDetailsGiven(t *testing.T) {
+	f := &fakeAdmins{members: []store.Member{{ID: 101, Name: "bob", Zone: "UTC"}}}
+	body := `{"entrants": [{"member": 101, "email": "bob@example.test"}, {"name": "dee"}]}`
+	if rec := adminDoAs(t, f, "222222222222222222", http.MethodPost, "/v1/admin/blitz/us_open/2026/entrants", "https://ttac-admin.example", body); rec.Code != http.StatusCreated {
+		t.Fatalf("POST entrants = %d %s, want 201", rec.Code, rec.Body)
+	}
+	want := []store.BlitzEntrant{{MemberID: 101, Email: "bob@example.test"}, {Name: "dee", Zone: blitz.Unknown}}
+	if diff := cmp.Diff(want, f.added); diff != "" {
+		t.Errorf("entrants given to the store, a member's zone left alone and a new one's Unknown (-want +got):\n%s", diff)
+	}
 }
 
 func TestAnOrganiserFillsABlitzEdition(t *testing.T) {
@@ -230,7 +342,7 @@ func TestAnOrganiserFillsABlitzEdition(t *testing.T) {
 	}
 
 	for _, step := range []struct{ method, path, body string }{
-		{http.MethodPatch, "/v1/admin/blitz/us_open/2026/entrants/8", `{"status": "dropped"}`},
+		{http.MethodPatch, "/v1/admin/blitz/us_open/2026/entrants/8", `{"status": "pending"}`},
 		{http.MethodPatch, "/v1/admin/blitz/us_open/2026", `{"swiss_rounds": 6, "knockout_size": 4}`},
 		{http.MethodDelete, "/v1/admin/blitz/us_open/2026/entrants/8", ""},
 	} {
@@ -238,7 +350,7 @@ func TestAnOrganiserFillsABlitzEdition(t *testing.T) {
 			t.Errorf("%s %s = %d %s, want 204", step.method, step.path, rec.Code, rec.Body)
 		}
 	}
-	if want := "add entrants bob,cy|set entrant 8 status=dropped|format 6/4|remove entrant 8"; strings.Join(f.notes, "|") != want {
+	if want := "add entrants bob,cy|set entrant 8 status=pending|format 6/4|remove entrant 8"; strings.Join(f.notes, "|") != want {
 		t.Errorf("changes = %q, want %q", f.notes, want)
 	}
 	want := []string{"blitz.entrants.add us_open/2026", "blitz.entrant.set 8", "blitz.format us_open/2026", "blitz.entrant.remove 8"}
@@ -267,10 +379,16 @@ func TestBlitzChangesAreRefusedWhenTheyShouldBe(t *testing.T) {
 		{"nothing to change", http.MethodPatch, "/v1/admin/blitz/us_open/2026/entrants/7", site, `{}`, http.StatusBadRequest, ""},
 		{"a status that is not active or dropped", http.MethodPatch, "/v1/admin/blitz/us_open/2026/entrants/7", site, `{"status": "gone"}`, http.StatusBadRequest, ""},
 		{"a zone change to a non-zone", http.MethodPatch, "/v1/admin/blitz/us_open/2026/entrants/7", site, `{"zone": "GMT+2"}`, http.StatusBadRequest, "GMT+2"},
+		{"dropping an entrant who has not played", http.MethodPatch, "/v1/admin/blitz/us_open/2026/entrants/7", site, `{"status": "dropped"}`, http.StatusConflict, "remove them"},
 		{"changing an unknown entrant", http.MethodPatch, "/v1/admin/blitz/us_open/2026/entrants/99", site, `{"status": "dropped"}`, http.StatusNotFound, ""},
 		{"removing an unknown entrant", http.MethodDelete, "/v1/admin/blitz/us_open/2026/entrants/99", site, "", http.StatusNotFound, ""},
 		{"a knockout of three", http.MethodPatch, "/v1/admin/blitz/us_open/2026", site, `{"swiss_rounds": 8, "knockout_size": 3}`, http.StatusBadRequest, ""},
 		{"a format for an unknown edition", http.MethodPatch, "/v1/admin/blitz/us_open/2027", site, `{"swiss_rounds": 8, "knockout_size": 8}`, http.StatusNotFound, ""},
+		{"a search of one letter", http.MethodGet, "/v1/admin/blitz/us_open/2026/candidates?q=%20a%20", "", "", http.StatusBadRequest, ""},
+		{"a search of nothing", http.MethodGet, "/v1/admin/blitz/us_open/2026/candidates", "", "", http.StatusBadRequest, ""},
+		{"a search too long", http.MethodGet, "/v1/admin/blitz/us_open/2026/candidates?q=" + strings.Repeat("x", 101), "", "", http.StatusBadRequest, ""},
+		{"candidates for an unknown edition", http.MethodGet, "/v1/admin/blitz/us_open/2027/candidates?q=ann", "", "", http.StatusNotFound, ""},
+		{"candidates for a bad slug", http.MethodGet, "/v1/admin/blitz/Bad!/2026/candidates?q=ann", "", "", http.StatusBadRequest, ""},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

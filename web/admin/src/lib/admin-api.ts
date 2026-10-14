@@ -17,6 +17,7 @@ export type AdminBlitzEdition = components['schemas']['AdminBlitzEdition'];
 export type BlitzEntrantIds = components['schemas']['BlitzEntrantIds'];
 export type AdminMember = components['schemas']['AdminMember'];
 export type MemberAdded = components['schemas']['MemberAdded'];
+export type MemberChange = components['schemas']['MemberChange'];
 
 /** AdminResult is an answer's data, or why the request was refused. */
 export type AdminResult<T> = { ok: true; data: T } | { ok: false; status: number; message: string };

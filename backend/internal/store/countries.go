@@ -1,9 +1,19 @@
 // The countries a member may have: ISO 3166-1's two-letter codes, and XK for Kosovo. The site has a flag for each.
 package store
 
-import "strings"
+import (
+	"slices"
+	"strings"
+)
 
 var countries = map[string]bool{}
+
+// CountryCodes lists the codes a member's country may be, in order.
+func CountryCodes() []string {
+	codes := strings.Fields(countryCodes)
+	slices.Sort(codes)
+	return codes
+}
 
 func init() {
 	for _, code := range strings.Fields(countryCodes) {

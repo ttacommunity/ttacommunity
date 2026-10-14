@@ -190,16 +190,29 @@ A blitz tournament is an ordinary tournament whose series has the **Blitz**
 setting: organisers run it from admin's Blitz tab, a round a week, in the
 format CGE's US Open uses (Swiss rounds, then a knockout). Admin holds each
 edition's format and tiebreak seed (`blitz_editions`), its entrants
-(`blitz_entries`: TTA username, Discord name, IANA time zone; pending,
-active or dropped), added one at a time with a username the ratings know
-kept in their spelling, and its rounds (`blitz_rounds`, `blitz_matches`):
+(`blitz_entries`: a member; pending, active or dropped), added one at a
+time by searching the members and the players the ratings know (a player
+who is no member yet becomes one, in the ratings' spelling), and its rounds (`blitz_rounds`, `blitz_matches`):
 paired by the api (`internal/blitz`: equal points, never the same opponent
 twice, the best time-zone fit within a score group, the bye to the lowest
-in the standings without one), changed by hand, then published.
+in the standings without one), changed by hand, then published. A Swiss
+pairing never repeats: when the score groups leave players who have all
+met, the whole field is searched for a round without a repeat, and a round
+that cannot avoid one is refused (fewer Swiss rounds then go on to the
+knockout). Admin warns when the Swiss rounds pass half the active entrants,
+the most that can always be paired. Pairing a
+round already made pairs only the players it leaves out, keeping the rest
+as they are, so a late entrant joins a round still in play. An entrant who
+has played (a result, or a bye in a published round) and withdraws is
+dropped: their results stand and they are not paired again. One who has
+not played is removed instead, coming out of the Swiss round they are
+paired in and leaving their opponent for Pair to fill in.
 
 **A result is a game.** A played game is written to `games` and `seats`
 under the edition's stage "Round N", from an `import_batches` row of
-source `admin`, so the tournament's page shows it at once and a later CGE
+source `admin`, with the time it finished (entered on the clocks of a zone
+or region, stored in UTC; its `date` is that time's UTC day, as for the
+games CGE's data brings), so the tournament's page shows it at once and a later CGE
 extract load matches it by share code instead of adding a copy; recording
 the match again corrects that one game. The match keeps the result (a win,
 a draw or a double loss) and, when the organisers decided it instead, their
@@ -220,7 +233,10 @@ in slot k of the next round. It also keeps its players' seeds, their
 places in the Swiss standings when the knockout began, so a later
 correction to a Swiss result never moves the bracket. A knockout round
 follows the bracket, so it is never changed by hand, and it may repeat a
-Swiss pairing. A knockout match needs a winner: a drawn game stays a draw
+Swiss pairing; the one exception is a player who dropped from a match still
+to play, whom the round's reserve (the best Swiss place among active
+entrants not in it) or a wildcard (an entrant, or anyone entered on the
+spot) replaces in the same slot with the same seed. A knockout match needs a winner: a drawn game stays a draw
 as a game and sends the higher seed through, and a ruling there names the
 winner. The standings count the Swiss rounds only. The champion is
 the winner of the published final, worked out on read; once the knockout
@@ -251,7 +267,8 @@ A member also carries a Discord name, an email (so organisers can reach
 players who have no Discord), a country (one of ISO 3166's two-letter
 codes, or XK for Kosovo; the site has a flag for each, from
 [Flagpedia](https://flagpedia.net), whose flags are public domain), a time
-zone, and a
+zone (an IANA zone; until that is known, a region such as US East, which
+keeps one of its cities' time, or Unknown, paired as UTC), and a
 **community ban** with its reason, which stops them being entered in an
 edition and leaves their games and ratings alone. Admins and organisers
 add and edit members; bans and removals are admins' only, and a member in

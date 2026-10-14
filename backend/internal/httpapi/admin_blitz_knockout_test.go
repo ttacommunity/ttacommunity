@@ -1,10 +1,12 @@
 package httpapi
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 	"time"
 
@@ -202,5 +204,145 @@ func TestTheKnockoutsSeedsAreFixedWhenItBegins(t *testing.T) {
 	}
 	if m := ed.Rounds[1].Matches[0]; m.ASeed == nil || *m.ASeed != 1 || m.BSeed == nil || *m.BSeed != 4 {
 		t.Errorf("Ann v Dee's seeds = %s v %s, want 1 v 4 as the knockout began", seedText(m.ASeed), seedText(m.BSeed))
+	}
+}
+
+// finalPaired gives the fake a one-round Swiss with a knockout of two: Ann (7) drew with Cy (8), bob (9) beat Dee
+// (10), so the Swiss places are bob, Ann, Cy, Dee; the final, bob v Ann, is published and not yet played.
+func finalPaired(f *fakeAdmins) {
+	roundOnePublished(f)
+	f.format = store.BlitzFormat{SwissRounds: 1, KnockoutSize: 2}
+	at := time.Date(2026, 10, 15, 9, 0, 0, 0, time.UTC)
+	for i, r := range []string{"draw", "a"} {
+		f.rounds[0].Matches[i].Result, f.rounds[0].Matches[i].DecidedAt, f.rounds[0].Matches[i].Ruling = r, &at, "ruled"
+	}
+	ann := int64(7)
+	f.rounds = append(f.rounds, store.BlitzRound{ID: 102, Number: 2, Kind: "knockout", Seed: 2, PublishedAt: &at,
+		Matches: []store.BlitzMatch{{ID: 1020, A: 9, B: &ann, Slot: new(0), SeedA: new(1), SeedB: new(2)}}})
+}
+
+// wildcardInFinal is finalPaired with Eve (11), entered after the Swiss round, in bob's place in the final.
+func wildcardInFinal(f *fakeAdmins) {
+	finalPaired(f)
+	f.entrants = append(f.entrants, store.BlitzEntrant{ID: 11, MemberID: 1011, Name: "Eve", Zone: "UTC", Status: "active"})
+	f.rounds[1].Matches[0].A = 11
+}
+
+func TestAKnockoutRoundNamesTheBestSwissSeedNotInIt(t *testing.T) {
+	cy, dee := int64(8), int64(10)
+	tests := []struct {
+		name    string
+		dropped []int
+		want    *int64
+	}{
+		{"the best Swiss place outside the final", nil, &cy},
+		{"past one who dropped", []int{1}, &dee},
+		{"nobody when everyone outside dropped", []int{1, 3}, nil},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			f := &fakeAdmins{}
+			finalPaired(f)
+			for _, i := range tt.dropped {
+				f.entrants[i].Status = "dropped"
+			}
+			rec := adminDoWith(t, &fakeRatings{run: store.PublishedRun{ID: 7}}, f, "222222222222222222", http.MethodGet, "/v1/admin/blitz/us_open/2026", "", "")
+			var ed AdminBlitzEdition
+			if err := json.Unmarshal(rec.Body.Bytes(), &ed); err != nil || rec.Code != http.StatusOK {
+				t.Fatalf("GET edition = %d %s", rec.Code, rec.Body)
+			}
+			for _, r := range ed.Rounds {
+				got := r.Reserve
+				switch {
+				case r.Kind == "swiss" && got != nil:
+					t.Errorf("round 1, Swiss: reserve %d, want none", *got)
+				case r.Kind == "knockout" && (got == nil) != (tt.want == nil), r.Kind == "knockout" && got != nil && *got != *tt.want:
+					t.Errorf("the final's reserve = %s, want %s", seedText64(got), seedText64(tt.want))
+				}
+			}
+		})
+	}
+}
+
+// seedText64 shows an entrant id for a failure message, or "none".
+func seedText64(id *int64) string {
+	if id == nil {
+		return "none"
+	}
+	return fmt.Sprint(*id)
+}
+
+// ReplaceBlitzPlayer swaps out for in in a match of the fake's latest knockout round, refusing as the store does
+// for the cases the tests use: a Swiss round, an active player out, and someone in the round in.
+func (f *fakeAdmins) ReplaceBlitzPlayer(_ context.Context, slug, edition string, roundID, matchID, out, in int64) error {
+	if slug != "us_open" || edition != "2026" {
+		return store.ErrNoBlitzEdition
+	}
+	for ri, r := range f.rounds {
+		if r.ID != roundID {
+			continue
+		}
+		if r.Kind != "knockout" {
+			return store.ErrBlitzNotKnockout
+		}
+		for mi, m := range r.Matches {
+			if m.ID != matchID {
+				continue
+			}
+			for _, e := range f.blitzEntrants() {
+				if e.ID == out && e.Status != "dropped" {
+					return store.ErrBlitzNotDropped
+				}
+			}
+			for _, x := range r.Matches {
+				if x.A == in || (x.B != nil && *x.B == in) {
+					return fmt.Errorf("%w: entrant %d", store.ErrBadBlitzMatch, in)
+				}
+			}
+			if m.A == out {
+				f.rounds[ri].Matches[mi].A = in
+			} else {
+				f.rounds[ri].Matches[mi].B = new(in)
+			}
+			f.notes = append(f.notes, fmt.Sprintf("replace %d: %d for %d", matchID, in, out))
+			return nil
+		}
+		return store.ErrNoBlitzMatch
+	}
+	return store.ErrNoBlitzRound
+}
+
+func TestAKnockoutPlayerWhoDroppedIsReplaced(t *testing.T) {
+	const site, org = "https://ttac-admin.example", "222222222222222222"
+	path := "/v1/admin/blitz/us_open/2026/rounds/102/matches/1020/replacement"
+	tests := []struct {
+		name, path, body string
+		want             int
+		wantSaid         string
+	}{
+		{"Ann, who dropped, by Cy", path, `{"out": 7, "in": 8}`, http.StatusNoContent, ""},
+		{"a player who has not dropped", path, `{"out": 9, "in": 8}`, http.StatusConflict, "drop them first"},
+		{"with someone in the round", path, `{"out": 7, "in": 9}`, http.StatusBadRequest, ""},
+		{"in a Swiss round", "/v1/admin/blitz/us_open/2026/rounds/101/matches/1010/replacement", `{"out": 7, "in": 10}`, http.StatusConflict, "Swiss"},
+		{"in an unknown match", "/v1/admin/blitz/us_open/2026/rounds/102/matches/99/replacement", `{"out": 7, "in": 8}`, http.StatusNotFound, ""},
+		{"with no one named", path, `{"out": 7}`, http.StatusBadRequest, ""},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			f := &fakeAdmins{}
+			finalPaired(f)
+			f.entrants[0].Status = "dropped"
+			rec := adminDoAs(t, f, org, http.MethodPut, tt.path, site, tt.body)
+			if rec.Code != tt.want || !strings.Contains(rec.Body.String(), tt.wantSaid) {
+				t.Errorf("PUT %s %s = %d %s, want %d naming %q", tt.path, tt.body, rec.Code, rec.Body, tt.want, tt.wantSaid)
+			}
+			wantNotes, wantAudits := "", 0
+			if tt.want == http.StatusNoContent {
+				wantNotes, wantAudits = "replace 1020: 8 for 7", 1
+			}
+			if strings.Join(f.notes, "|") != wantNotes || len(f.audits) != wantAudits {
+				t.Errorf("changes = %q, audits %q; want %q and %d", f.notes, f.audits, wantNotes, wantAudits)
+			}
+		})
 	}
 }

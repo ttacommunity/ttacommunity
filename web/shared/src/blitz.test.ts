@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { formatLabel, knockoutStage, offsetLabel, reachedLabel, resultSummary, roundTitle, seededName, zoneLabel, zoneOptions, type BlitzPlayedGame } from './blitz';
+import { formatLabel, knockoutStage, offsetLabel, reachedLabel, resultSummary, roundShown, roundSummary, roundTitle, seededName, zoneLabel, type BlitzPlayedGame } from './blitz';
 
 const game = (aCulture: number, bCulture: number, aOutcome: BlitzPlayedGame['a_outcome'] = 'finished', bOutcome: BlitzPlayedGame['b_outcome'] = 'finished'): BlitzPlayedGame => ({
   share_code: 'ABCD1234',
@@ -7,7 +7,7 @@ const game = (aCulture: number, bCulture: number, aOutcome: BlitzPlayedGame['a_o
   a_outcome: aOutcome,
   b_culture: bCulture,
   b_outcome: bOutcome,
-  played_on: '2026-10-14',
+  finished_at: '2026-10-14T19:30:00Z',
 });
 
 describe('resultSummary', () => {
@@ -59,21 +59,6 @@ describe('formatLabel', () => {
   });
 });
 
-describe('zoneOptions', () => {
-  it('puts UTC first, the rest in order, and the current zone in when the list lacks it', () => {
-    expect(zoneOptions(['Europe/Berlin', 'UTC', 'America/New_York'], 'Asia/Tokyo')).toEqual([
-      'UTC',
-      'America/New_York',
-      'Asia/Tokyo',
-      'Europe/Berlin',
-    ]);
-  });
-  it('does not repeat a current zone the list has, nor an empty one', () => {
-    expect(zoneOptions(['Europe/Berlin'], 'Europe/Berlin')).toEqual(['UTC', 'Europe/Berlin']);
-    expect(zoneOptions(['Europe/Berlin'], '')).toEqual(['UTC', 'Europe/Berlin']);
-  });
-});
-
 describe('knockoutStage and roundTitle', () => {
   const usOpen = { swiss_rounds: 8, knockout_size: 8 };
   it.each([
@@ -110,5 +95,29 @@ describe('reachedLabel', () => {
     ['a finished edition', 11, 'Ann', 'Finished: champion Ann'],
   ])('says how far %s has got', (_name, round, champion, want) => {
     expect(reachedLabel(round, usOpen, champion)).toBe(want);
+  });
+});
+
+describe('roundSummary', () => {
+  const game = (result: string | null) => ({ b: 'Bob', result });
+  const bye = { b: null, result: null };
+  it.each([
+    ['every game played, and the bye', [game('a'), game('draw'), bye], '2 games, all played, and a bye'],
+    ['some still to play', [game('a'), game(null), game(null)], '3 games, 1 played'],
+    ['none played', [game(null)], '1 game, none played'],
+    ['no matches', [], 'no matches'],
+  ])('sums up %s', (_name, matches, want) => {
+    expect(roundSummary(matches)).toBe(want);
+  });
+});
+
+describe('roundShown', () => {
+  it.each([
+    ['the newest round, untouched', 3, new Set<number>(), true],
+    ['an earlier round, untouched', 2, new Set<number>(), false],
+    ['the newest round, hidden by its button', 3, new Set([3]), false],
+    ['an earlier round, shown by its button', 2, new Set([2]), true],
+  ])('shows %s: %s', (_name, round, toggled, want) => {
+    expect(roundShown(round, 3, toggled)).toBe(want);
   });
 });

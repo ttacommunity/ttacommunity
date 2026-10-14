@@ -72,12 +72,18 @@ type Admins interface {
 	// AddBlitzEntrants adds every entrant or none, and returns their ids in order.
 	AddBlitzEntrants(ctx context.Context, slug, edition string, entrants []store.BlitzEntrant) ([]int64, error)
 	SetBlitzEntrant(ctx context.Context, slug, edition string, id int64, c store.BlitzEntrantChange) error
+	// People finds up to limit members and ratings players whose name holds q, best first; BlitzCandidates those
+	// of them not in the edition.
+	People(ctx context.Context, q string, limit int) ([]store.Candidate, error)
+	BlitzCandidates(ctx context.Context, slug, edition, q string, limit int) ([]store.Candidate, error)
 	RemoveBlitzEntrant(ctx context.Context, slug, edition string, id int64) error
 	// AddBlitzRound makes the edition's next round as a draft and returns it with its ids and number.
 	AddBlitzRound(ctx context.Context, slug, edition string, r store.BlitzRound) (store.BlitzRound, error)
 	SetBlitzRoundMatches(ctx context.Context, slug, edition string, roundID int64, matches []store.BlitzMatch) error
 	PublishBlitzRound(ctx context.Context, slug, edition string, roundID int64) error
 	DeleteBlitzRound(ctx context.Context, slug, edition string, roundID int64) error
+	// ReplaceBlitzPlayer puts an active entrant not in the knockout round in the place of a player who dropped.
+	ReplaceBlitzPlayer(ctx context.Context, slug, edition string, roundID, matchID, out, in int64) error
 	// RecordBlitzGame records or corrects the game a match was played as; RecordBlitzRuling decides it by ruling.
 	RecordBlitzGame(ctx context.Context, slug, edition string, matchID int64, g store.BlitzGame) error
 	RecordBlitzRuling(ctx context.Context, slug, edition string, matchID int64, result, reason string) error

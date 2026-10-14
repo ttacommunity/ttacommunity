@@ -22,11 +22,11 @@ type BlitzSide struct {
 	Outcome string
 }
 
-// BlitzGame is a played game as recorded: the share code, each side as the match names them, and the day played.
+// BlitzGame is a played game as recorded: the share code, each side as the match names them, and when it finished.
 type BlitzGame struct {
 	ShareCode string
 	A, B      BlitzSide
-	Played    time.Time
+	Finished  time.Time
 }
 
 // ErrNoBlitzMatch means no match of the edition has that id.
@@ -68,7 +68,7 @@ var blitzOutcomes = []string{"finished", "resigned", "timed_out"}
 // validBlitzGame trims the share code and reports whether the game is within bounds.
 func validBlitzGame(g *BlitzGame) bool {
 	g.ShareCode = strings.TrimSpace(g.ShareCode)
-	if g.ShareCode == "" || utf8.RuneCountInString(g.ShareCode) > 32 || g.Played.IsZero() {
+	if g.ShareCode == "" || utf8.RuneCountInString(g.ShareCode) > 32 || g.Finished.IsZero() {
 		return false
 	}
 	for _, s := range []BlitzSide{g.A, g.B} {
@@ -233,7 +233,8 @@ func (a *AdminStore) RecordBlitzGame(ctx context.Context, slug, edition string, 
 			return err
 		}
 		name := fmt.Sprintf("%s %s Round %d", m.SeriesName, edition, m.Round)
-		date := g.Played.UTC().Truncate(24 * time.Hour)
+		// A game's day is its finish's day in UTC, as for the games CGE's data brings.
+		date := g.Finished.UTC().Truncate(24 * time.Hour)
 		gameID := m.GameID
 		if gameID == nil {
 			var batch int64
@@ -242,9 +243,9 @@ func (a *AdminStore) RecordBlitzGame(ctx context.Context, slug, edition string, 
 			}
 			gameID = new(int64)
 			if err := tx.QueryRow(ctx, `
-				INSERT INTO games (batch_id, source_file, source_line, name, date, share_code, state, group_id)
-				VALUES ($1, $2, 0, $3, $4, $5, 'played', $6) RETURNING game_id`,
-				batch, fmt.Sprintf("blitz match %d", matchID), name, date, g.ShareCode, groupID).Scan(gameID); err != nil {
+				INSERT INTO games (batch_id, source_file, source_line, name, date, finished_at, share_code, state, group_id)
+				VALUES ($1, $2, 0, $3, $4, $5, $6, 'played', $7) RETURNING game_id`,
+				batch, fmt.Sprintf("blitz match %d", matchID), name, date, g.Finished, g.ShareCode, groupID).Scan(gameID); err != nil {
 				return fmt.Errorf("recording a game: %w", err)
 			}
 			for seat, s := range []struct {
@@ -260,8 +261,8 @@ func (a *AdminStore) RecordBlitzGame(ctx context.Context, slug, edition string, 
 				}
 			}
 		} else {
-			if _, err := tx.Exec(ctx, "UPDATE games SET share_code = $2, date = $3, name = $4, group_id = $5 WHERE game_id = $1",
-				*gameID, g.ShareCode, date, name, groupID); err != nil {
+			if _, err := tx.Exec(ctx, "UPDATE games SET share_code = $2, date = $3, finished_at = $4, name = $5, group_id = $6 WHERE game_id = $1",
+				*gameID, g.ShareCode, date, g.Finished, name, groupID); err != nil {
 				return fmt.Errorf("correcting a game: %w", err)
 			}
 			for seat, s := range []struct {

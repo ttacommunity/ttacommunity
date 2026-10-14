@@ -81,7 +81,32 @@ func (s *server) adminBlitzRound(r store.BlitzRound, ed store.BlitzEdition, rate
 		}
 		out.Matches[i] = am
 	}
+	if r.Kind == "knockout" {
+		out.Reserve = knockoutReserve(r, ed)
+	}
 	return out
+}
+
+// knockoutReserve is who replaces a knockout player who dropped: the best Swiss place among the active entrants not
+// in the round, or nil for nobody.
+func knockoutReserve(r store.BlitzRound, ed store.BlitzEdition) *int64 {
+	in := map[int64]bool{}
+	for _, m := range r.Matches {
+		in[m.A] = true
+		if m.B != nil {
+			in[*m.B] = true
+		}
+	}
+	active := map[int64]bool{}
+	for _, e := range ed.Entrants {
+		active[e.ID] = e.Status == "active"
+	}
+	for _, st := range swissStandings(ed) {
+		if active[st.ID] && !in[st.ID] {
+			return new(st.ID)
+		}
+	}
+	return nil
 }
 
 // pairingPlayers turns the edition's active entrants into what the pairing needs, as of now, leaving out the
@@ -333,8 +358,57 @@ func (s *server) DeleteAdminBlitzRound(ctx context.Context, req DeleteAdminBlitz
 	return DeleteAdminBlitzRound204Response{}, nil
 }
 
-// PostAdminBlitzRoundPairing proposes a fresh pairing of a round: its decided matches kept, everyone else active
-// paired again as for a new round. Nothing is written and nothing audited.
+// keptMatches is what a proposed pairing keeps of a round: every match with a result, then each match in keep (the
+// saved one when the round has that pair), and who is in them. A kept match naming someone not active, or anyone
+// twice, is refused with ErrBadBlitzMatch.
+func keptMatches(entrants []store.BlitzEntrant, round store.BlitzRound, keep []BlitzMatchChange) ([]store.BlitzMatch, map[int64]bool, error) {
+	key := func(a int64, b *int64) [2]int64 {
+		if b == nil {
+			return [2]int64{a, 0}
+		}
+		return [2]int64{a, *b}
+	}
+	saved := map[[2]int64]store.BlitzMatch{}
+	var kept []store.BlitzMatch
+	busy := map[int64]bool{}
+	for _, m := range round.Matches {
+		saved[key(m.A, m.B)] = m
+		if m.Result != "" {
+			kept = append(kept, m)
+			busy[m.A] = true
+			if m.B != nil {
+				busy[*m.B] = true
+			}
+		}
+	}
+	active, names := map[int64]bool{}, map[int64]string{}
+	for _, e := range entrants {
+		active[e.ID], names[e.ID] = e.Status == "active", e.Name
+	}
+	for _, k := range keep {
+		m, ok := saved[key(k.A, k.B)]
+		if ok && m.Result != "" {
+			continue
+		}
+		if !ok {
+			m = store.BlitzMatch{A: k.A, B: k.B}
+		}
+		for _, id := range []*int64{&k.A, k.B} {
+			if id == nil {
+				continue
+			}
+			if !active[*id] || busy[*id] {
+				return nil, nil, fmt.Errorf("%w: %s", store.ErrBadBlitzMatch, cmp.Or(names[*id], fmt.Sprint("entrant ", *id)))
+			}
+			busy[*id] = true
+		}
+		kept = append(kept, m)
+	}
+	return kept, busy, nil
+}
+
+// PostAdminBlitzRoundPairing proposes a pairing of a round: its decided matches and the matches in keep stay, and
+// everyone else active is paired as for a new round. Nothing is written and nothing audited.
 func (s *server) PostAdminBlitzRoundPairing(ctx context.Context, req PostAdminBlitzRoundPairingRequestObject) (PostAdminBlitzRoundPairingResponseObject, error) {
 	if !tournamentSlug.MatchString(req.Tournament) {
 		return PostAdminBlitzRoundPairing400JSONResponse{badRequest400("bad parameter: tournament")}, nil
@@ -369,33 +443,43 @@ func (s *server) PostAdminBlitzRoundPairing(ctx context.Context, req PostAdminBl
 	if err != nil {
 		return nil, err
 	}
-	proposal := store.BlitzRound{ID: round.ID, Number: round.Number, Kind: round.Kind, Timezone: criteria.Timezone, Rating: criteria.Rating, PublishedAt: round.PublishedAt}
-	busy := map[int64]bool{}
-	for _, m := range round.Matches {
-		if m.Result != "" {
-			proposal.Matches = append(proposal.Matches, m)
-			busy[m.A] = true
-			if m.B != nil {
-				busy[*m.B] = true
-			}
-		}
+	var keep []BlitzMatchChange
+	if req.Body != nil && req.Body.Keep != nil {
+		keep = *req.Body.Keep
 	}
-	now := s.now()
-	seed := uint64(now.UnixNano())
-	proposal.Seed = int64(seed)
-	paired, err := blitz.Pair(pairingPlayers(ed, rated, now, round.ID, busy), criteria, seed)
-	if errors.Is(err, blitz.ErrTooFew) || errors.Is(err, blitz.ErrNoPairing) {
+	kept, busy, err := keptMatches(ed.Entrants, *round, keep)
+	if err != nil {
 		return PostAdminBlitzRoundPairing400JSONResponse{badRequest400(err.Error())}, nil
 	}
-	if err != nil {
-		return nil, err
+	proposal := store.BlitzRound{ID: round.ID, Number: round.Number, Kind: round.Kind, Timezone: criteria.Timezone, Rating: criteria.Rating, PublishedAt: round.PublishedAt, Matches: kept}
+	now := s.now()
+	free := pairingPlayers(ed, rated, now, round.ID, busy)
+	if i := slices.IndexFunc(proposal.Matches, func(m store.BlitzMatch) bool { return m.B == nil }); i >= 0 && len(free)%2 == 1 {
+		delete(busy, proposal.Matches[i].A)
+		proposal.Matches = slices.Delete(proposal.Matches, i, i+1)
+		free = pairingPlayers(ed, rated, now, round.ID, busy)
 	}
-	for _, m := range paired.Matches {
-		b := m.B
-		proposal.Matches = append(proposal.Matches, store.BlitzMatch{A: m.A, B: &b})
-	}
-	if paired.Bye != nil {
-		proposal.Matches = append(proposal.Matches, store.BlitzMatch{A: *paired.Bye})
+	seed := uint64(now.UnixNano())
+	proposal.Seed = int64(seed)
+	switch len(free) {
+	case 0:
+	case 1:
+		proposal.Matches = append(proposal.Matches, store.BlitzMatch{A: free[0].ID})
+	default:
+		paired, err := blitz.Pair(free, criteria, seed)
+		if errors.Is(err, blitz.ErrNoPairing) {
+			return PostAdminBlitzRoundPairing400JSONResponse{badRequest400(err.Error())}, nil
+		}
+		if err != nil {
+			return nil, err
+		}
+		for _, m := range paired.Matches {
+			b := m.B
+			proposal.Matches = append(proposal.Matches, store.BlitzMatch{A: m.A, B: &b})
+		}
+		if paired.Bye != nil {
+			proposal.Matches = append(proposal.Matches, store.BlitzMatch{A: *paired.Bye})
+		}
 	}
 	return PostAdminBlitzRoundPairing200JSONResponse{Body: s.adminBlitzRound(proposal, ed, rated, now), Headers: PostAdminBlitzRoundPairing200ResponseHeaders{CacheControl: cacheNone}}, nil
 }

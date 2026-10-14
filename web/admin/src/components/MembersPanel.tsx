@@ -1,18 +1,15 @@
-/** The Members tab: the community's people, listed, added and edited by admins and organisers; banned, unbanned and removed by admins. */
+/** The Members tab: the community's people, listed and searched, added and edited by admins and organisers; banned, unbanned and removed by admins. */
 import { useEffect, useState, type FormEvent } from 'react';
-import { offsetLabel, zoneOptions } from '@ttac/shared/blitz';
-import { adminRequest, type AdminMe, type AdminMember, type Load, type MemberAdded } from '../lib/admin-api';
+import { offsetLabel } from '@ttac/shared/blitz';
+import { adminRequest, type AdminMe, type AdminMember, type Load, type MemberAdded, type MemberChange } from '../lib/admin-api';
 import * as req from '../lib/admin-requests';
-import { isCountryCode, type MemberChange } from '../lib/members';
-
-/** knownZones is every IANA zone the browser knows, or none in one that cannot say. */
-function knownZones(): string[] {
-  try {
-    return Intl.supportedValuesOf('timeZone');
-  } catch {
-    return [];
-  }
-}
+import { countryNames, type Country } from '../lib/countries';
+import { membersMatching } from '../lib/member-filter';
+import { memberToAdd, type PersonDetails } from '../lib/person-form';
+import type { Region } from '../lib/zones';
+import CountryPick from './CountryPick';
+import PersonForm from './PersonForm';
+import ZonePick from './ZonePick';
 
 type Draft = { name: string; discord_name: string; email: string; country: string; zone: string; cge_user: string };
 
@@ -25,14 +22,18 @@ export default function MembersPanel({ role }: { role: AdminMe['role'] }) {
   const [members, setMembers] = useState<Load<AdminMember[]>>({ kind: 'loading' });
   const [message, setMessage] = useState('');
   const [editing, setEditing] = useState<{ id: number } & Draft | null>(null);
-  const [form, setForm] = useState<Draft>({ name: '', discord_name: '', email: '', country: '', zone: 'UTC', cge_user: '' });
-  const [known] = useState(knownZones);
+  const [regions, setRegions] = useState<Region[]>([]);
+  const [countries, setCountries] = useState<Country[]>([]);
+  const [search, setSearch] = useState('');
+  const shown = members.kind === 'ready' ? membersMatching(members.data, search) : [];
   const load = async () => {
     const r = await adminRequest<AdminMember[]>('/api/members', {});
     setMembers(r.ok ? { kind: 'ready', data: r.data } : { kind: 'error', message: r.message });
   };
   useEffect(() => {
     void load();
+    void adminRequest<Region[]>('/api/regions', {}).then((r) => (r.ok ? setRegions(r.data) : setMessage(r.message)));
+    void adminRequest<string[]>('/api/countries', {}).then((r) => (r.ok ? setCountries(countryNames(r.data)) : setMessage(r.message)));
   }, []);
   const run = async (r: req.Request, done: string) => {
     const res = await req.send(r);
@@ -40,25 +41,16 @@ export default function MembersPanel({ role }: { role: AdminMe['role'] }) {
     await load();
     return res.ok;
   };
-  const add = async (e: FormEvent) => {
-    e.preventDefault();
-    if (!isCountryCode(form.country)) {
-      setMessage('A country is a two-letter code, such as DE.');
-      return;
-    }
-    const r = await req.send<MemberAdded>(req.addMember({ name: form.name, discord_name: form.discord_name, email: form.email, country: form.country.trim(), zone: form.zone }));
-    setMessage(r.ok ? `Added ${form.name.trim()}.` : r.message);
-    if (r.ok) setForm({ ...form, name: '', discord_name: '', email: '', country: '' });
+  const add = async (details: PersonDetails) => {
+    const r = await req.send<MemberAdded>(req.addMember(memberToAdd(details)));
+    setMessage(r.ok ? `Added ${details.name.trim()}.` : r.message);
     await load();
+    return r.ok;
   };
   const save = async (e: FormEvent) => {
     e.preventDefault();
     if (editing === null) return;
-    if (!isCountryCode(editing.country)) {
-      setMessage('A country is a two-letter code, such as DE.');
-      return;
-    }
-    const change: MemberChange = { name: editing.name, discord_name: editing.discord_name, email: editing.email, country: editing.country.trim(), zone: editing.zone };
+    const change: MemberChange = { name: editing.name, discord_name: editing.discord_name, email: editing.email, country: editing.country, zone: editing.zone };
     if (editing.cge_user.trim() !== '') change.cge_user = Number(editing.cge_user);
     if (await run(req.setMember(editing.id, change), 'Saved.')) setEditing(null);
   };
@@ -85,144 +77,135 @@ export default function MembersPanel({ role }: { role: AdminMe['role'] }) {
           {message}
         </p>
       )}
-      {members.kind === 'loading' && <p className="muted">Loading…</p>}
-      {members.kind === 'error' && (
-        <p className="row-error" role="alert">
-          {members.message}
-        </p>
-      )}
-      {members.kind === 'ready' && members.data.length === 0 && <p className="muted">No members yet. Add them below.</p>}
-      {members.kind === 'ready' && members.data.length > 0 && (
-        <div className="table-responsive">
-          <table className="leaderboard-table admin-table">
-            <caption className="visually-hidden">Every member</caption>
-            <thead>
-              <tr>
-                <th scope="col">Username</th>
-                <th scope="col">CGE id</th>
-                <th scope="col">Discord</th>
-                <th scope="col">Email</th>
-                <th scope="col">Country</th>
-                <th scope="col">Time zone</th>
-                <th scope="col">In</th>
-                <th scope="col">
-                  <span className="visually-hidden">Actions</span>
-                </th>
-              </tr>
-            </thead>
-            <tbody>
-              {members.data.map((m) =>
-                editing?.id === m.id ? (
-                  <tr key={m.id}>
-                    <th scope="row">
-                      <input className="input-antique" aria-label={`Username of ${m.name}`} value={editing.name} maxLength={100} onChange={(e) => setEditing({ ...editing, name: e.target.value })} />
-                    </th>
-                    <td>
-                      <input className="input-antique" aria-label={`CGE id of ${m.name}`} inputMode="numeric" value={editing.cge_user} onChange={(e) => setEditing({ ...editing, cge_user: e.target.value })} />
-                    </td>
-                    <td>
-                      <input className="input-antique" aria-label={`Discord name of ${m.name}`} value={editing.discord_name} maxLength={100} onChange={(e) => setEditing({ ...editing, discord_name: e.target.value })} />
-                    </td>
-                    <td>
-                      <input className="input-antique" aria-label={`Email of ${m.name}`} type="email" value={editing.email} maxLength={254} onChange={(e) => setEditing({ ...editing, email: e.target.value })} />
-                    </td>
-                    <td>
-                      <input className="input-antique" aria-label={`Country of ${m.name}`} value={editing.country} maxLength={2} onChange={(e) => setEditing({ ...editing, country: e.target.value })} />
-                    </td>
-                    <td>
-                      <select className="input-antique" aria-label={`Time zone of ${m.name}`} value={editing.zone} onChange={(e) => setEditing({ ...editing, zone: e.target.value })}>
-                        {zoneOptions(known, editing.zone).map((z) => (
-                          <option key={z} value={z}>
-                            {z}
-                          </option>
-                        ))}
-                      </select>
-                    </td>
-                    <td>{m.entries}</td>
-                    <td className="run-buttons">
-                      <button type="button" className="btn-antique" onClick={(e) => void save(e)}>
-                        Save
-                      </button>
-                      <button type="button" className="btn-antique" onClick={() => setEditing(null)}>
-                        Cancel
-                      </button>
-                    </td>
-                  </tr>
-                ) : (
-                  <tr key={m.id} className={m.banned ? 'row-error' : ''}>
-                    <th scope="row">
-                      {m.name}
-                      {m.player !== '' && m.player !== m.name && <span className="row-detail muted">{m.player} in the ratings</span>}
-                      {m.player === '' && <span className="row-detail muted">not in the ratings</span>}
-                      {m.banned && <span className="row-detail">banned: {m.ban_reason}</span>}
-                    </th>
-                    <td>{m.cge_user ?? ''}</td>
-                    <td>{m.discord_name}</td>
-                    <td>{m.email}</td>
-                    <td>{m.country ?? ''}</td>
-                    <td>
-                      {m.zone} <span className="muted">{offsetLabel(m.utc_offset)}</span>
-                    </td>
-                    <td>{m.entries}</td>
-                    <td className="run-buttons">
-                      <button type="button" className="btn-antique" onClick={() => setEditing({ id: m.id, ...draftOf(m) })}>
-                        Edit
-                      </button>
-                      {role === 'admin' && !m.banned && (
-                        <button type="button" className="btn-antique" onClick={() => ban(m)}>
-                          Ban
-                        </button>
-                      )}
-                      {role === 'admin' && m.banned && (
-                        <button type="button" className="btn-antique" onClick={() => void run(req.unbanMember(m.id), `${m.name} is no longer banned.`)}>
-                          Unban
-                        </button>
-                      )}
-                      {role === 'admin' && (
-                        <button type="button" className="btn-antique" onClick={() => remove(m)}>
-                          Remove
-                        </button>
-                      )}
-                    </td>
-                  </tr>
-                ),
-              )}
-            </tbody>
-          </table>
-        </div>
-      )}
-      <form className="admin-add" onSubmit={(e) => void add(e)}>
+      <div className="admin-subsection">
         <h3>Add a member</h3>
-        <label>
-          Username
-          <input className="input-antique" value={form.name} maxLength={100} required onChange={(e) => setForm({ ...form, name: e.target.value })} />
-        </label>
-        <label>
-          Discord name
-          <input className="input-antique" value={form.discord_name} maxLength={100} onChange={(e) => setForm({ ...form, discord_name: e.target.value })} />
-        </label>
-        <label>
-          Email
-          <input className="input-antique" type="email" value={form.email} maxLength={254} onChange={(e) => setForm({ ...form, email: e.target.value })} />
-        </label>
-        <label>
-          Country
-          <input className="input-antique" value={form.country} maxLength={2} placeholder="DE" onChange={(e) => setForm({ ...form, country: e.target.value })} />
-        </label>
-        <label>
-          Time zone
-          <select className="input-antique" value={form.zone} onChange={(e) => setForm({ ...form, zone: e.target.value })}>
-            {zoneOptions(known, form.zone).map((z) => (
-              <option key={z} value={z}>
-                {z}
-              </option>
-            ))}
-          </select>
-        </label>
-        <button type="submit" className="btn-antique" disabled={form.name.trim() === ''}>
-          Add
-        </button>
-      </form>
+        <PersonForm searchBase="/api/people" taken={{ entered: [], membersTaken: true }} regions={regions} countries={countries} submitLabel="Add" onSubmit={add} refresh={members} />
+      </div>
+      <div className="admin-subsection">
+        <h3>Every member</h3>
+        {members.kind === 'loading' && <p className="muted">Loading…</p>}
+        {members.kind === 'error' && (
+          <p className="row-error" role="alert">
+            {members.message}
+          </p>
+        )}
+        {members.kind === 'ready' && members.data.length === 0 && <p className="muted">No members yet.</p>}
+        {members.kind === 'ready' && members.data.length > 0 && (
+          <div className="admin-add member-search">
+            <label>
+              Search
+              <input
+                className="input-antique"
+                type="search"
+                value={search}
+                placeholder="Name, Discord, email or country"
+                title="Separate several names with commas."
+                autoComplete="off"
+                onChange={(e) => setSearch(e.target.value)}
+              />
+            </label>
+            {shown.length < members.data.length && (
+              <span className="muted pick-note" role="status">
+                {shown.length} of {members.data.length} members
+              </span>
+            )}
+          </div>
+        )}
+        {members.kind === 'ready' && members.data.length > 0 && shown.length === 0 && <p className="muted">Nobody matches.</p>}
+        {members.kind === 'ready' && shown.length > 0 && (
+          <div className="table-responsive">
+            <table className="leaderboard-table admin-table">
+              <caption className="visually-hidden">{shown.length < members.data.length ? 'The members matching the search' : 'Every member'}</caption>
+              <thead>
+                <tr>
+                  <th scope="col">Username</th>
+                  <th scope="col">CGE id</th>
+                  <th scope="col">Discord</th>
+                  <th scope="col">Email</th>
+                  <th scope="col">Country</th>
+                  <th scope="col">Time zone</th>
+                  <th scope="col">In</th>
+                  <th scope="col">
+                    <span className="visually-hidden">Actions</span>
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                {shown.map((m) =>
+                  editing?.id === m.id ? (
+                    <tr key={m.id}>
+                      <th scope="row">
+                        <input className="input-antique" aria-label={`Username of ${m.name}`} value={editing.name} maxLength={100} onChange={(e) => setEditing({ ...editing, name: e.target.value })} />
+                      </th>
+                      <td>
+                        <input className="input-antique" aria-label={`CGE id of ${m.name}`} inputMode="numeric" value={editing.cge_user} onChange={(e) => setEditing({ ...editing, cge_user: e.target.value })} />
+                      </td>
+                      <td>
+                        <input className="input-antique" aria-label={`Discord name of ${m.name}`} value={editing.discord_name} maxLength={100} onChange={(e) => setEditing({ ...editing, discord_name: e.target.value })} />
+                      </td>
+                      <td>
+                        <input className="input-antique" aria-label={`Email of ${m.name}`} type="email" value={editing.email} maxLength={254} onChange={(e) => setEditing({ ...editing, email: e.target.value })} />
+                      </td>
+                      <td>
+                        <CountryPick label={`Country of ${m.name}`} hideLabel countries={countries} value={editing.country} onChange={(country) => setEditing({ ...editing, country })} />
+                      </td>
+                      <td>
+                        <ZonePick label={`Time zone of ${m.name}`} hideLabel regions={regions} value={editing.zone} onChange={(zone) => setEditing({ ...editing, zone })} />
+                      </td>
+                      <td>{m.entries}</td>
+                      <td className="run-buttons">
+                        <button type="button" className="btn-antique" onClick={(e) => void save(e)}>
+                          Save
+                        </button>
+                        <button type="button" className="btn-antique" onClick={() => setEditing(null)}>
+                          Cancel
+                        </button>
+                      </td>
+                    </tr>
+                  ) : (
+                    <tr key={m.id} className={m.banned ? 'row-error' : ''}>
+                      <th scope="row">
+                        {m.name}
+                        {m.player !== '' && m.player !== m.name && <span className="row-detail muted">{m.player} in the ratings</span>}
+                        {m.player === '' && <span className="row-detail muted">not in the ratings</span>}
+                        {m.banned && <span className="row-detail">banned: {m.ban_reason}</span>}
+                      </th>
+                      <td>{m.cge_user ?? ''}</td>
+                      <td>{m.discord_name}</td>
+                      <td>{m.email}</td>
+                      <td>{m.country ?? ''}</td>
+                      <td>
+                        {m.zone} <span className="muted">{offsetLabel(m.utc_offset)}</span>
+                      </td>
+                      <td>{m.entries}</td>
+                      <td className="run-buttons">
+                        <button type="button" className="btn-antique" onClick={() => setEditing({ id: m.id, ...draftOf(m) })}>
+                          Edit
+                        </button>
+                        {role === 'admin' && !m.banned && (
+                          <button type="button" className="btn-antique" onClick={() => ban(m)}>
+                            Ban
+                          </button>
+                        )}
+                        {role === 'admin' && m.banned && (
+                          <button type="button" className="btn-antique" onClick={() => void run(req.unbanMember(m.id), `${m.name} is no longer banned.`)}>
+                            Unban
+                          </button>
+                        )}
+                        {role === 'admin' && (
+                          <button type="button" className="btn-antique" onClick={() => remove(m)}>
+                            Remove
+                          </button>
+                        )}
+                      </td>
+                    </tr>
+                  ),
+                )}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
     </section>
   );
 }

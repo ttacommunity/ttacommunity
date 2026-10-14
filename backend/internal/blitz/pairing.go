@@ -1,8 +1,10 @@
-// Pairing a Swiss round: players on the same points meet, never the same opponent twice, and within a score
-// group the pairs are the best time-zone fit (then the closest ratings, when asked), with chance deciding the rest.
+// Pairing a Swiss round: players on the same points meet, never the same opponent twice (a round that cannot avoid
+// it is refused), and within a score group the pairs are the best time-zone fit (then the closest ratings, when
+// asked), with chance deciding the rest.
 package blitz
 
 import (
+	"cmp"
 	"errors"
 	"math"
 	"math/bits"
@@ -30,13 +32,11 @@ type Criteria struct {
 	Timezone, Rating bool
 }
 
-// Match is one pairing, with its zone gap in minutes and rating gap, and Repeat when they have met before (only
-// when nothing else was possible).
+// Match is one pairing, with its zone gap in minutes and rating gap.
 type Match struct {
 	A, B      int64
 	ZoneGap   int
 	RatingGap float64
-	Repeat    bool
 }
 
 // Round is a pairing of everyone: the matches, and the bye when the count is odd.
@@ -48,8 +48,8 @@ type Round struct {
 // ErrTooFew means fewer than two players to pair.
 var ErrTooFew = errors.New("a round needs at least two players")
 
-// ErrNoPairing means no way to pair the players, even repeating opponents.
-var ErrNoPairing = errors.New("these players cannot be paired")
+// ErrNoPairing means no round pairs every player without someone meeting an opponent again.
+var ErrNoPairing = errors.New("no round pairs everyone without someone meeting an opponent again: lower the Swiss rounds in Format to go on to the knockout")
 
 // unratedAs is the rating an unrated player is given for a rating gap.
 const unratedAs = 1500
@@ -67,22 +67,17 @@ func ZoneGap(a, b int) int {
 	return min(d, 1440-d)
 }
 
-// Pair pairs the players for a round. The seed makes the same players give the same round.
+// Pair pairs the players for a round, never two who have met before. The seed makes the same players give the
+// same round. It returns ErrNoPairing when no round pairs everyone without a repeat.
 func Pair(players []Player, c Criteria, seed uint64) (Round, error) {
 	if len(players) < 2 {
 		return Round{}, ErrTooFew
 	}
 	rng := rand.New(rand.NewPCG(seed, seed^0x9E3779B97F4A7C15))
 	ranked := rank(players, rng)
-	var round Round
-	if len(ranked)%2 == 1 {
-		i := byeIndex(ranked)
-		round.Bye = new(ranked[i].ID)
-		ranked = slices.Delete(ranked, i, i+1)
-	}
 	jitter := map[[2]int64]float64{}
-	cost := func(a, b Player, repeats bool) float64 {
-		if !repeats && met(a, b) {
+	cost := func(a, b Player) float64 {
+		if met(a, b) {
 			return math.Inf(1)
 		}
 		key := [2]int64{min(a.ID, b.ID), max(a.ID, b.ID)}
@@ -98,28 +93,90 @@ func Pair(players []Player, c Criteria, seed uint64) (Round, error) {
 		}
 		return v + jitter[key]
 	}
+	if len(ranked)%2 == 0 {
+		if m, ok := pairField(ranked, cost); ok {
+			return Round{Matches: m}, nil
+		}
+		return Round{}, ErrNoPairing
+	}
+	// The bye goes to the lowest-ranked player without one, unless only another choice lets everyone else be paired.
+	for _, i := range byeOrder(ranked) {
+		if m, ok := pairField(slices.Delete(slices.Clone(ranked), i, i+1), cost); ok {
+			return Round{Matches: m, Bye: new(ranked[i].ID)}, nil
+		}
+	}
+	return Round{}, ErrNoPairing
+}
 
+// pairField pairs an even field without a repeat: score group by score group, the odd one or anyone a group cannot
+// place floating down to the next, and, when the last of them cannot be paired, by a search across the whole field.
+func pairField(field []Player, cost func(a, b Player) float64) ([]Match, bool) {
+	var out []Match
 	var carry []Player
-	for _, group := range scoreGroups(ranked) {
+	for _, group := range scoreGroups(field) {
 		pool := append(carry, group...)
 		carry = nil
 		if len(pool)%2 == 1 {
 			carry, pool = []Player{pool[len(pool)-1]}, pool[:len(pool)-1]
 		}
-		if m, ok := matching(pool, func(a, b Player) float64 { return cost(a, b, false) }); ok {
-			round.Matches = append(round.Matches, m...)
+		if m, ok := matching(pool, cost); ok {
+			out = append(out, m...)
 		} else {
 			carry = append(pool, carry...)
 		}
 	}
-	if len(carry) > 0 {
-		m, ok := matching(carry, func(a, b Player) float64 { return cost(a, b, true) })
-		if !ok {
-			return Round{}, ErrNoPairing
-		}
-		round.Matches = append(round.Matches, m...)
+	if len(carry) == 0 {
+		return out, true
 	}
-	return round, nil
+	if m, ok := matching(carry, cost); ok {
+		return append(out, m...), true
+	}
+	return withoutRepeats(field, cost)
+}
+
+// searchSteps bounds the search across a whole field, so a field that cannot be paired is refused in good time.
+const searchSteps = 1_000_000
+
+// withoutRepeats pairs a ranked even field so nobody meets an opponent again: the best-ranked player left takes the
+// cheapest partner they have not met, backing up at a dead end. ok is false when no such round exists, or none is
+// found within searchSteps.
+func withoutRepeats(field []Player, cost func(a, b Player) float64) ([]Match, bool) {
+	used := make([]bool, len(field))
+	var out []Match
+	steps := 0
+	var place func() bool
+	place = func() bool {
+		i := slices.Index(used, false)
+		if i < 0 {
+			return true
+		}
+		if steps++; steps > searchSteps {
+			return false
+		}
+		used[i] = true
+		var partners []int
+		for j := i + 1; j < len(field); j++ {
+			if !used[j] && !math.IsInf(cost(field[i], field[j]), 1) {
+				partners = append(partners, j)
+			}
+		}
+		slices.SortStableFunc(partners, func(x, y int) int { return cmp.Compare(cost(field[i], field[x]), cost(field[i], field[y])) })
+		for _, j := range partners {
+			used[j] = true
+			out = append(out, match(field[i], field[j]))
+			if place() {
+				return true
+			}
+			out = out[:len(out)-1]
+			used[j] = false
+		}
+		used[i] = false
+		return false
+	}
+	if !place() {
+		return nil, false
+	}
+	return out, true
 }
 
 // rank orders players by points, then by their place in the standings where both have one, then by rating with
@@ -163,14 +220,20 @@ func rank(players []Player, rng *rand.Rand) []Player {
 	return ranked
 }
 
-// byeIndex is the lowest-ranked player who has not had a bye, or the lowest when everyone has.
-func byeIndex(ranked []Player) int {
+// byeOrder lists who may take the bye, the first choice first: the players without one from the lowest-ranked up,
+// or everyone from the lowest up when all have had one.
+func byeOrder(ranked []Player) []int {
+	var fresh, all []int
 	for i := len(ranked) - 1; i >= 0; i-- {
+		all = append(all, i)
 		if !ranked[i].HadBye {
-			return i
+			fresh = append(fresh, i)
 		}
 	}
-	return len(ranked) - 1
+	if len(fresh) > 0 {
+		return fresh
+	}
+	return all
 }
 
 // scoreGroups splits ranked players into runs of equal points, highest first.
@@ -201,7 +264,7 @@ func ratingGap(a, b Player) float64 {
 }
 
 func match(a, b Player) Match {
-	return Match{A: a.ID, B: b.ID, ZoneGap: ZoneGap(a.Offset, b.Offset), RatingGap: ratingGap(a, b), Repeat: met(a, b)}
+	return Match{A: a.ID, B: b.ID, ZoneGap: ZoneGap(a.Offset, b.Offset), RatingGap: ratingGap(a, b)}
 }
 
 // matching pairs an even pool at the least total cost: exactly for a small pool, else greedily from the top.

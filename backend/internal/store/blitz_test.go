@@ -120,10 +120,8 @@ func TestBlitzEntrantsAreAddedChangedAndRemoved(t *testing.T) {
 		t.Errorf("counts = in %d pending %d out %d, want 2, 1 and 0", ed.BlitzEditionRow.Entrants, ed.Pending, ed.Dropped)
 	}
 
-	dropped, zone := "dropped", "Europe/London"
-	if err := a.SetBlitzEntrant(ctx, "us_open", "2026", ids[1], BlitzEntrantChange{Status: &dropped}); err != nil {
-		t.Fatalf("SetBlitzEntrant(dropped): %v", err)
-	}
+	zone := "Europe/London"
+	markDropped(t, a, ids[1])
 	if err := a.SetBlitzEntrant(ctx, "us_open", "2026", ids[0], BlitzEntrantChange{Zone: &zone}); err != nil {
 		t.Fatalf("SetBlitzEntrant(zone): %v", err)
 	}
@@ -281,5 +279,121 @@ func TestThePublicRoleCannotReadADiscordName(t *testing.T) {
 	}
 	if _, err := reader.Exec(ctx, "SELECT entry_id, tournament_id, member_id, status, joined_at FROM blitz_entries"); err != nil {
 		t.Errorf("ratings_read reading an entry's columns: %v, want nil", err)
+	}
+}
+
+// candidatesFixture adds to blitzFixture the players Ann (GB), Annabel, Annette, Annika, Hannah and Joanna, the
+// members anna, Annette (that player), Annika (entered in us_open 2026) and Bea (banned).
+func candidatesFixture(t *testing.T) (*pgxpool.Pool, *AdminStore) {
+	t.Helper()
+	pool, a := blitzFixture(t)
+	ctx := context.Background()
+	if _, err := pool.Exec(ctx, `INSERT INTO players (name, country_code) VALUES ('Ann', 'GB'), ('Annabel', NULL), ('Annette', NULL),
+		('Annika', NULL), ('Hannah', NULL), ('Joanna', NULL)`); err != nil {
+		t.Fatalf("adding players: %v", err)
+	}
+	for _, m := range []Member{{Name: "anna", Zone: "Unknown"}, {Name: "annette", Email: "annette@example.test", Zone: "US East"}, {Name: "Bea", Zone: "UTC"}} {
+		if _, err := a.AddMember(ctx, m); err != nil {
+			t.Fatalf("AddMember(%s): %v", m.Name, err)
+		}
+	}
+	if _, err := a.AddBlitzEntrants(ctx, "us_open", "2026", []BlitzEntrant{{Name: "Annika", Zone: "Unknown"}}); err != nil {
+		t.Fatalf("entering Annika: %v", err)
+	}
+	members, err := a.Members(ctx)
+	if err != nil {
+		t.Fatalf("Members: %v", err)
+	}
+	for _, m := range members {
+		if m.Name == "Bea" {
+			if err := a.BanMember(ctx, m.ID, "Abusive in Discord"); err != nil {
+				t.Fatalf("BanMember: %v", err)
+			}
+		}
+	}
+	return pool, a
+}
+
+func candidateLines(found []Candidate) []string {
+	var out []string
+	for _, c := range found {
+		line := c.Name
+		if c.MemberID > 0 {
+			line += " (member)"
+		}
+		if c.Banned {
+			line += " banned"
+		}
+		out = append(out, line)
+	}
+	return out
+}
+
+func TestBlitzCandidatesAreTheBestFiveNotYetEntered(t *testing.T) {
+	_, a := candidatesFixture(t)
+	tests := []struct {
+		name, edition, q string
+		want             []string
+	}{
+		{"the name itself, then names starting with it, members first, then the rest", "2026", "ann", []string{"Ann", "anna (member)", "Annette (member)", "Annabel", "Hannah"}},
+		{"any case", "2026", "ANNA", []string{"anna (member)", "Annabel", "Hannah", "Joanna"}},
+		{"a banned member, marked", "2026", "bea", []string{"Bea (member) banned"}},
+		{"a member entered in another edition", "2025", "annik", []string{"Annika (member)"}},
+		{"a member entered in this one", "2026", "annik", nil},
+		{"nobody", "2026", "zz", nil},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := a.BlitzCandidates(context.Background(), "us_open", tt.edition, tt.q, 5)
+			if err != nil {
+				t.Fatalf("BlitzCandidates(%q): %v", tt.q, err)
+			}
+			if diff := cmp.Diff(tt.want, candidateLines(got)); diff != "" {
+				t.Errorf("BlitzCandidates(%q) (-want +got):\n%s", tt.q, diff)
+			}
+		})
+	}
+}
+
+func TestBlitzCandidatesCarryWhatIsKnownOfThem(t *testing.T) {
+	_, a := candidatesFixture(t)
+	ctx := context.Background()
+	got, err := a.BlitzCandidates(ctx, "us_open", "2026", "Ann", 2)
+	if err != nil {
+		t.Fatalf("BlitzCandidates: %v", err)
+	}
+	want := []Candidate{
+		{Name: "Ann", Player: "Ann", Country: "GB"},
+		{Name: "anna", Zone: "Unknown"},
+	}
+	if diff := cmp.Diff(want, got, cmpopts.IgnoreFields(Candidate{}, "MemberID")); diff != "" {
+		t.Errorf("a player and a member found (-want +got):\n%s", diff)
+	}
+	if got, err = a.BlitzCandidates(ctx, "us_open", "2026", "annette", 1); err != nil || len(got) != 1 || got[0].Player != "Annette" || got[0].Email != "annette@example.test" || got[0].Zone != "US East" {
+		t.Errorf("BlitzCandidates(annette) = %+v, %v; want the member with the player's spelling, email and zone", got, err)
+	}
+	if _, err := a.BlitzCandidates(ctx, "us_open", "2027", "ann", 5); !errors.Is(err, ErrNoBlitzEdition) {
+		t.Errorf("BlitzCandidates for an unknown edition = %v, want ErrNoBlitzEdition", err)
+	}
+}
+
+func TestPeopleAreTheBestFiveOfEveryMemberAndPlayer(t *testing.T) {
+	_, a := candidatesFixture(t)
+	tests := []struct {
+		q    string
+		want []string
+	}{
+		{"annik", []string{"Annika (member)"}},
+		{"ann", []string{"Ann", "anna (member)", "Annette (member)", "Annika (member)", "Annabel"}},
+		{"bea", []string{"Bea (member) banned"}},
+	}
+	for _, tt := range tests {
+		got, err := a.People(context.Background(), tt.q, 5)
+		if err != nil {
+			t.Fatalf("People(%q): %v", tt.q, err)
+		}
+		if diff := cmp.Diff(tt.want, candidateLines(got)); diff != "" {
+			t.Errorf("People(%q), members entered anywhere included (-want +got):\n%s", tt.q, diff)
+		}
 	}
 }

@@ -201,3 +201,28 @@ func TestLinkMembersAttachesAccountsAndFollowsRenames(t *testing.T) {
 		t.Errorf("LinkMembers again = %+v, %v; want nothing to do", linked, err)
 	}
 }
+
+func TestEnteringAMemberSavesTheDetailsGiven(t *testing.T) {
+	_, a := blitzFixture(t)
+	ctx := context.Background()
+	ann, err := a.AddMember(ctx, Member{Name: "Ann", DiscordName: "ann#1", Zone: "Unknown"})
+	if err != nil {
+		t.Fatalf("AddMember: %v", err)
+	}
+	long := BlitzEntrant{MemberID: ann, DiscordName: strings.Repeat("x", 101)}
+	if _, err := a.AddBlitzEntrants(ctx, "us_open", "2026", []BlitzEntrant{long}); !errors.Is(err, ErrBadMember) {
+		t.Fatalf("entering Ann with a long Discord name = %v, want ErrBadMember", err)
+	}
+	given := BlitzEntrant{MemberID: ann, Email: "ann@example.test", Country: "de", Zone: "Europe Central"}
+	if _, err := a.AddBlitzEntrants(ctx, "us_open", "2026", []BlitzEntrant{given}); err != nil {
+		t.Fatalf("entering Ann with her details: %v", err)
+	}
+	got, err := a.Members(ctx)
+	if err != nil {
+		t.Fatalf("Members: %v", err)
+	}
+	want := []string{`Ann cge=- player="" discord="ann#1" email="ann@example.test" "DE" Europe Central banned=no in=1`}
+	if diff := cmp.Diff(want, memberLines(got)); diff != "" {
+		t.Errorf("Ann once entered, the details given saved and the rest kept (-want +got):\n%s", diff)
+	}
+}

@@ -84,3 +84,15 @@
   font-family: var(--font-heading);
   font-size: 1.15rem;
 }
+/* A round's summary, and the button that shows or hides its matches (only the latest shows them at first). */
+.blitz-round-summary {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.6rem;
+  margin: 0 0 0.6rem;
+}
+.blitz-round-toggle {
+  padding: 0.3rem 0.8rem;
+  font-size: 0.85rem;
+}

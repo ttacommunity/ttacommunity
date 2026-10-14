@@ -112,21 +112,60 @@ func TestPairNeverRepeatsAnOpponentWhileItCan(t *testing.T) {
 		t.Fatalf("matches = %v, want two", pairs(got))
 	}
 	for _, m := range got.Matches {
-		if m.Repeat || m.ZoneGap != 360 {
-			t.Errorf("match %d-%d: repeat %v, zone gap %d; want a fresh cross-zone pair (gap 360)", m.A, m.B, m.Repeat, m.ZoneGap)
+		if m.ZoneGap != 360 {
+			t.Errorf("match %d-%d: zone gap %d; want a fresh cross-zone pair (gap 360)", m.A, m.B, m.ZoneGap)
+		}
+	}
+	if r := repeats(players, got); len(r) > 0 {
+		t.Errorf("repeats %v, want none", r)
+	}
+}
+
+// repeats lists a round's matches between players who have met before.
+func repeats(players []blitz.Player, r blitz.Round) []string {
+	met := map[[2]int64]bool{}
+	for _, p := range players {
+		for _, o := range p.Opponents {
+			met[[2]int64{min(p.ID, o), max(p.ID, o)}] = true
+		}
+	}
+	var out []string
+	for _, m := range r.Matches {
+		if met[[2]int64{min(m.A, m.B), max(m.A, m.B)}] {
+			out = append(out, fmt.Sprintf("%d-%d", m.A, m.B))
+		}
+	}
+	return out
+}
+
+func TestPairFindsARoundWithoutRepeatsTheScoreGroupsMiss(t *testing.T) {
+	// The leaders 1 and 2 could meet, but then 3 and 4, who have met, would be left: only 1-3 and 2-4 (or 1-4 and
+	// 2-3) pair everyone without a repeat.
+	players := []blitz.Player{rated(1, 0, 1500, 2), rated(2, 0, 1500, 2), rated(3, 0, 1500, 0), rated(4, 0, 1500, 0)}
+	players[2].Opponents, players[3].Opponents = []int64{4}, []int64{3}
+	for seed := uint64(1); seed <= 5; seed++ {
+		got, err := blitz.Pair(players, blitz.Criteria{Timezone: true}, seed)
+		if err != nil {
+			t.Fatalf("Pair(seed %d): %v", seed, err)
+		}
+		if r := repeats(players, got); len(r) > 0 || len(got.Matches) != 2 {
+			t.Errorf("seed %d: %v, repeats %v; want two fresh pairs", seed, pairs(got), r)
 		}
 	}
 }
 
-func TestPairRepeatsAnOpponentOnlyWhenNothingElseIsPossible(t *testing.T) {
-	players := []blitz.Player{rated(1, 0, 1500, 0), rated(2, 0, 1500, 0)}
-	players[0].Opponents, players[1].Opponents = []int64{2}, []int64{1}
-	got, err := blitz.Pair(players, blitz.Criteria{}, 1)
-	if err != nil {
-		t.Fatalf("Pair: %v", err)
+func TestPairRefusesARoundThatWouldRepeatAnOpponent(t *testing.T) {
+	// Four players who have all met: every pairing repeats.
+	players := []blitz.Player{rated(1, 0, 1500, 0), rated(2, 0, 1500, 0), rated(3, 0, 1500, 0), rated(4, 0, 1500, 0)}
+	for i := range players {
+		for j := range players {
+			if i != j {
+				players[i].Opponents = append(players[i].Opponents, players[j].ID)
+			}
+		}
 	}
-	if len(got.Matches) != 1 || !got.Matches[0].Repeat {
-		t.Errorf("matches = %+v, want the one possible pair, marked as a repeat", got.Matches)
+	if got, err := blitz.Pair(players, blitz.Criteria{}, 1); !errors.Is(err, blitz.ErrNoPairing) {
+		t.Errorf("Pair = %v, %v; want ErrNoPairing", pairs(got), err)
 	}
 }
 
