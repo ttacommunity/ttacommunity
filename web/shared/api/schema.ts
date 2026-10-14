@@ -641,6 +641,27 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/community/editions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Visible editions of the community leaderboard
+         * @description Every edition of the community leaderboard the site shows, in sort order.
+         *     Cached for five minutes.
+         */
+        get: operations["getCommunityEditions"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/runs/{run}/community/{edition}": {
         parameters: {
             query?: never;
@@ -652,6 +673,7 @@ export interface paths {
          * An edition of the community leaderboard
          * @description The community leaderboard's standings as its maintainer publishes
          *     them (rank, total points, events played, and each event's points),
+         *     its dynamic categories, summary groups and champion,
          *     with each player's country and the run's title where the name is a
          *     player here, matched ignoring case. Best rank first. Cached for five
          *     minutes.
@@ -965,6 +987,51 @@ export interface paths {
         options?: never;
         head?: never;
         patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/community/editions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Every edition of the community leaderboard
+         * @description Every edition of the community leaderboard, visible or not, for maintainers to edit.
+         *     Never cached.
+         */
+        get: operations["getAdminCommunityEditions"];
+        put?: never;
+        /**
+         * Create a new edition of the community leaderboard
+         * @description Adds an edition of the community leaderboard with its metadata. Audited.
+         */
+        post: operations["postAdminCommunityEdition"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/community/editions/{edition}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Edit an edition of the community leaderboard
+         * @description Changes an edition's name, title, badge, maintainer note, counting events, or visibility. Audited.
+         */
+        patch: operations["patchAdminCommunityEdition"];
         trace?: never;
     };
     "/v1/admin/runs": {
@@ -2161,15 +2228,74 @@ export interface components {
             /** @description A career total, not one season or tournament */
             career: boolean;
         };
-        /**
-         * @description An edition of the community leaderboard (race26 is the 2026 race)
-         * @enum {string}
-         */
-        CommunityEdition: "2026" | "2025" | "2024" | "race26";
+        /** @description An edition of the community leaderboard (slug identifier) */
+        CommunityEdition: string;
+        CommunityEditionInfo: {
+            id: string;
+            name: string;
+            title: string;
+            short: string;
+            badge: string;
+            year: number;
+            wc: string;
+            wc_desc: string;
+            maintainer: string;
+            maintainer_note: string;
+        };
+        CommunityEventColumn: {
+            id: string;
+            name: string;
+            short: string;
+            max_pts: number;
+            desc?: string;
+        };
+        CommunityCategory: {
+            category: string;
+            badge_class: string;
+            columns: components["schemas"]["CommunityEventColumn"][];
+        };
+        CommunitySummaryGroup: {
+            id: string;
+            name: string;
+            short: string;
+            cols: string[];
+            max_pts: number;
+            badge_class: string;
+            desc: string;
+        };
+        CommunityEditionItem: {
+            slug: string;
+            name: string;
+            title: string;
+            short_name: string;
+            badge: string;
+            maintainer: string;
+            maintainer_note: string;
+            year: number;
+            counting_events: number;
+            visible: boolean;
+            sort_order: number;
+        };
+        CommunityEditionPatch: {
+            name?: string;
+            title?: string;
+            short_name?: string;
+            badge?: string;
+            maintainer?: string;
+            maintainer_note?: string;
+            year?: number;
+            counting_events?: number;
+            visible?: boolean;
+            sort_order?: number;
+        };
         CommunityLeaderboard: {
             /** Format: int64 */
             run_id: number;
             edition: components["schemas"]["CommunityEdition"];
+            info: components["schemas"]["CommunityEditionInfo"];
+            categories: components["schemas"]["CommunityCategory"][];
+            summary: components["schemas"]["CommunitySummaryGroup"][];
+            counting_events: number;
             rows: components["schemas"]["CommunityRow"][];
         };
         CommunityRow: {
@@ -3390,6 +3516,27 @@ export interface operations {
             404: components["responses"]["NotFound"];
         };
     };
+    getCommunityEditions: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The visible editions */
+            200: {
+                headers: {
+                    "Cache-Control": components["headers"]["CacheControl"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CommunityEditionItem"][];
+                };
+            };
+        };
+    };
     getCommunityLeaderboard: {
         parameters: {
             query?: never;
@@ -3960,6 +4107,81 @@ export interface operations {
             404: components["responses"]["NotFound"];
         };
     };
+    getAdminCommunityEditions: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description All editions */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CommunityEditionItem"][];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    postAdminCommunityEdition: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CommunityEditionItem"];
+            };
+        };
+        responses: {
+            /** @description Created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    patchAdminCommunityEdition: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                edition: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CommunityEditionPatch"];
+            };
+        };
+        responses: {
+            /** @description Changed */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
     getAdminRuns: {
         parameters: {
             query?: never;
@@ -4166,7 +4388,6 @@ export const titleCodeValues: ReadonlyArray<FlattenedDeepRequired<components>["s
 export const calibrationRowModeValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["CalibrationRow"]["mode"]> = ["standard", "walk_forward"];
 export const seatAnalysisTierValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["SeatAnalysis"]["tier"]> = ["all", "grandmaster", "master", "advanced", "intermediate", "beginner"];
 export const tournamentRecordMedalValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["TournamentRecord"]["medal"]> = ["gold", "silver", "bronze"];
-export const communityEditionValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["CommunityEdition"]> = ["2026", "2025", "2024", "race26"];
 export const communityRowTitleValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["CommunityRow"]["title"]> = ["WC", "SGM", "WCS", "WCB", "GM", "M", "P", "G", "S", "B", "W"];
 export const catalogueGameStateValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["CatalogueGame"]["state"]> = ["played", "never_played", "unconfirmed"];
 export const gameSeatOutcomeValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["GameSeat"]["outcome"]> = ["finished", "resigned", "timed_out"];

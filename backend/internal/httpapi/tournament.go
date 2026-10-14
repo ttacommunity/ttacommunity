@@ -2,6 +2,7 @@ package httpapi
 
 import (
 	"context"
+	"strings"
 
 	openapi_types "github.com/oapi-codegen/runtime/types"
 
@@ -127,20 +128,83 @@ func (s *server) GetPlayerAchievements(ctx context.Context, req GetPlayerAchieve
 
 // GetCommunityLeaderboard returns an edition of the community leaderboard.
 func (s *server) GetCommunityLeaderboard(ctx context.Context, req GetCommunityLeaderboardRequestObject) (GetCommunityLeaderboardResponseObject, error) {
+	editionSlug := strings.TrimSpace(req.Edition)
 	switch {
 	case req.Run < 1:
 		return GetCommunityLeaderboard400JSONResponse{badRequestBody("bad parameter: run")}, nil
-	case !req.Edition.Valid():
+	case editionSlug == "":
 		return GetCommunityLeaderboard400JSONResponse{badRequestBody("unknown edition")}, nil
 	}
-	rows, err := s.ratings.CommunityLeaderboard(ctx, req.Run, string(req.Edition))
+	layout, err := s.ratings.CommunityLeaderboardLayout(ctx, req.Run, editionSlug)
 	if nf, ok := notFound(err); ok {
 		return GetCommunityLeaderboard404JSONResponse{nf}, nil
 	}
 	if err != nil {
 		return nil, err
 	}
-	body := CommunityLeaderboard{RunId: req.Run, Edition: req.Edition, Rows: make([]CommunityRow, 0, len(rows))}
+	rows, err := s.ratings.CommunityLeaderboard(ctx, req.Run, editionSlug)
+	if nf, ok := notFound(err); ok {
+		return GetCommunityLeaderboard404JSONResponse{nf}, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+
+	body := CommunityLeaderboard{
+		RunId:          req.Run,
+		Edition:        req.Edition,
+		CountingEvents: layout.CountingEvents,
+		Info: CommunityEditionInfo{
+			Id:             layout.Info.ID,
+			Name:           layout.Info.Name,
+			Title:          layout.Info.Title,
+			Short:          layout.Info.Short,
+			Badge:          layout.Info.Badge,
+			Year:           layout.Info.Year,
+			Wc:             layout.Info.WC,
+			WcDesc:         layout.Info.WCDesc,
+			Maintainer:     layout.Info.Maintainer,
+			MaintainerNote: layout.Info.MaintainerNote,
+		},
+		Categories: make([]CommunityCategory, 0, len(layout.Categories)),
+		Summary:    make([]CommunitySummaryGroup, 0, len(layout.Summary)),
+		Rows:       make([]CommunityRow, 0, len(rows)),
+	}
+
+	for _, c := range layout.Categories {
+		cols := make([]CommunityEventColumn, 0, len(c.Columns))
+		for _, col := range c.Columns {
+			var desc *string
+			if col.Desc != "" {
+				desc = &col.Desc
+			}
+			cols = append(cols, CommunityEventColumn{
+				Id:     col.ID,
+				Name:   col.Name,
+				Short:  col.Short,
+				MaxPts: col.MaxPts,
+				Desc:   desc,
+			})
+		}
+		body.Categories = append(body.Categories, CommunityCategory{
+			Category:   c.Category,
+			BadgeClass: c.BadgeClass,
+			Columns:    cols,
+		})
+	}
+
+	for _, sm := range layout.Summary {
+		body.Summary = append(body.Summary, CommunitySummaryGroup{
+			Id:         sm.ID,
+			Name:       sm.Name,
+			Short:      sm.Short,
+			Cols:       append([]string{}, sm.Cols...),
+			MaxPts:     sm.MaxPts,
+			BadgeClass: sm.BadgeClass,
+			Desc:       sm.Desc,
+		})
+	}
+
 	for _, r := range rows {
 		row := CommunityRow{Rank: r.Rank, Name: r.Name, Country: r.Country, Points: r.Points, Events: r.Events, Scores: r.Scores}
 		if row.Scores == nil {
@@ -154,6 +218,34 @@ func (s *server) GetCommunityLeaderboard(ctx context.Context, req GetCommunityLe
 	}
 	return GetCommunityLeaderboard200JSONResponse{
 		Body: body, Headers: GetCommunityLeaderboard200ResponseHeaders{CacheControl: cacheRun},
+	}, nil
+}
+
+// GetCommunityEditions returns all visible community leaderboard editions for the site.
+func (s *server) GetCommunityEditions(ctx context.Context, _ GetCommunityEditionsRequestObject) (GetCommunityEditionsResponseObject, error) {
+	editions, err := s.ratings.CommunityEditions(ctx)
+	if err != nil {
+		return nil, err
+	}
+	body := make([]CommunityEditionItem, 0, len(editions))
+	for _, e := range editions {
+		body = append(body, CommunityEditionItem{
+			Slug:           e.Slug,
+			Name:           e.Name,
+			Title:          e.Title,
+			ShortName:      e.ShortName,
+			Badge:          e.Badge,
+			Maintainer:     e.Maintainer,
+			MaintainerNote: e.MaintainerNote,
+			Year:           e.Year,
+			CountingEvents: e.CountingEvents,
+			Visible:        e.Visible,
+			SortOrder:      e.SortOrder,
+		})
+	}
+	return GetCommunityEditions200JSONResponse{
+		Body:    body,
+		Headers: GetCommunityEditions200ResponseHeaders{CacheControl: cacheCurrent},
 	}, nil
 }
 

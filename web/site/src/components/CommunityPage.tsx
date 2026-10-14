@@ -1,6 +1,13 @@
-/** The community leaderboard page, as upstream's: an edition's standings, best-8 highlights, and tournament or event columns. */
+/** The community leaderboard page: standings, dynamic best-N highlights, and tournament or event columns. */
 import { useEffect, useState } from 'react';
-import { communityLeaderboard, currentRun, type CommunityEdition, type CommunityRow } from '@ttac/shared/ratings';
+import {
+  communityEditions,
+  communityLeaderboard,
+  currentRun,
+  type CommunityEditionItem,
+  type CommunityLeaderboard as LeaderboardData,
+  type CommunityRow,
+} from '@ttac/shared/ratings';
 import { Flag } from './PlayerMarks';
 import {
   countingColumns,
@@ -12,7 +19,6 @@ import {
   whole,
   type CommunityView,
 } from '../lib/community';
-import { EDITIONS, type Edition } from '../lib/community-editions';
 import { titleName } from '../lib/leaderboard-display';
 import './CommunityPage.css';
 import Segmented from '@ttac/shared/Segmented';
@@ -21,16 +27,12 @@ import PlayerLink from './PlayerLink';
 import Waiting from './Waiting';
 import Pager from './Pager';
 
-type Load = { kind: 'loading' } | { kind: 'error'; message: string } | { kind: 'ready'; rows: CommunityRow[] };
+type Load =
+  | { kind: 'loading' }
+  | { kind: 'error'; message: string }
+  | { kind: 'ready'; data: LeaderboardData; editions: CommunityEditionItem[] };
 
-const PILLS: { edition: CommunityEdition; text: string; tip: string }[] = [
-  { edition: '2026', text: '⭐ 2026 (Rolling Q2)', tip: 'Active rolling 4-season championship circuit' },
-  { edition: '2025', text: '🏆 2025 Final Archive', tip: 'Official final standings for Season 2025' },
-  { edition: '2024', text: '📜 2024 Final Archive', tip: 'Official final standings for Season 2024' },
-  { edition: 'race26', text: '🏁 2026 Race Tracker', tip: 'Live seasonal points race for calendar year 2026' },
-];
-
-/** href is the page's address for a view, as upstream's links carry edition, view, search and page. */
+/** href is the page's address for a view, carrying edition, view, search and page. */
 function href(view: CommunityView, change: Partial<CommunityView>): string {
   const v = { ...view, ...change };
   const q = new URLSearchParams({ edition: v.edition, view: v.view });
@@ -53,68 +55,83 @@ function Score({ value, counting, tip }: { value: number | undefined | null; cou
   );
 }
 
-function Hero({ edition, view, rows }: { edition: Edition; view: CommunityView; rows: CommunityRow[] }) {
-  const top = rows[0];
-  const events = edition.categories.reduce((n, c) => n + c.columns.length, 0);
+function Hero({
+  data,
+  editions,
+  view,
+}: {
+  data: LeaderboardData;
+  editions: CommunityEditionItem[];
+  view: CommunityView;
+}) {
+  const top = data.rows[0];
+  const events = data.categories.reduce((n, c) => n + c.columns.length, 0);
+  const info = data.info;
+
   return (
     <div className="comm-hero">
       <h1 className="comm-title">Community Standard Leaderboard</h1>
-      <div className="comm-subtitle">{edition.info.title}</div>
+      <div className="comm-subtitle">{info.title || info.name}</div>
       <div className="maintainer-card">
-        <div className="maintainer-badge">🛡️ Circuit Maintainer</div>
+        <div className="maintainer-badge">{info.badge || '🛡️ Circuit Maintainer'}</div>
         <div className="maintainer-desc">
           This official leaderboard is curated and maintained by{' '}
           <strong>
-            <PlayerLink name="wolvs">Wolvs</PlayerLink>
+            <PlayerLink name={info.maintainer}>{info.maintainer}</PlayerLink>
           </strong>{' '}
-          • Tracking tournament finishes under the official Best-8 system.
+          • {info.maintainer_note}
         </div>
       </div>
       <div className="edition-selector-bar">
         <span className="edition-label">📅 Leaderboard Edition:</span>
         <div className="edition-pills">
-          {PILLS.map((p) => (
+          {editions.map((e) => (
             <a
-              key={p.edition}
-              href={href(view, { edition: p.edition })}
-              className={`edition-pill${view.edition === p.edition ? ' active' : ''}`}
-              title={p.tip}
+              key={e.slug}
+              href={href(view, { edition: e.slug })}
+              className={`edition-pill${view.edition === e.slug ? ' active' : ''}`}
+              title={e.title}
             >
-              {p.text}
+              {e.badge ? `${e.badge} ` : ''}
+              {e.short_name || e.name}
             </a>
           ))}
         </div>
       </div>
       <div className="comm-stats-grid">
         <div className="stat-tile">
-          <div className="stat-tile-num">{rows.length.toLocaleString('en-US')}</div>
+          <div className="stat-tile-num">{data.rows.length.toLocaleString('en-US')}</div>
           <div className="stat-tile-label">Ranked Competitors</div>
         </div>
         <div className="stat-tile">
           <div className="stat-tile-num">{events}</div>
-          <div className="stat-tile-label">Tracked Events ({editionFacts(edition).tiers} Tiers)</div>
+          <div className="stat-tile-label">Tracked Events ({data.categories.length} Tiers)</div>
         </div>
         <div className="stat-tile">
           <div className="stat-tile-num">
-            <PlayerLink name={top?.name ?? 'wolvs'} className="comm-top-link" />
+            <PlayerLink name={top?.name ?? '—'} className="comm-top-link" />
           </div>
-          <div className="stat-tile-label">#1 Rank ({whole(top?.points ?? 6320)} pts)</div>
+          <div className="stat-tile-label">#1 Rank ({whole(top?.points ?? 0)} pts)</div>
         </div>
         <div className="stat-tile">
           <div className="stat-tile-num">
-            <PlayerLink name={edition.info.wc} className="comm-wc-link">
-              <span className="badge badge-wc comm-wc-badge">WC</span> {edition.info.wc}
-            </PlayerLink>
+            {info.wc ? (
+              <PlayerLink name={info.wc} className="comm-wc-link">
+                <span className="badge badge-wc comm-wc-badge">WC</span> {info.wc}
+              </PlayerLink>
+            ) : (
+              <span className="comm-muted">—</span>
+            )}
           </div>
-          <div className="stat-tile-label">Reigning World Champion</div>
+          <div className="stat-tile-label">{info.wc_desc || 'Reigning World Champion'}</div>
         </div>
       </div>
     </div>
   );
 }
 
-function Explainers({ edition }: { edition: Edition }) {
-  const facts = editionFacts(edition);
+function Explainers({ data }: { data: LeaderboardData }) {
+  const facts = editionFacts(data);
   const count = facts.counting;
   return (
     <div className="explainer-cards">
@@ -197,9 +214,13 @@ function Controls({ view, slots, names }: { view: CommunityView; slots: number; 
   );
 }
 
-function Table({ edition, view, rows }: { edition: Edition; view: CommunityView; rows: CommunityRow[] }) {
-  const columns = edition.categories.flatMap((c) => c.columns);
+function Table({ data, view, rows }: { data: LeaderboardData; view: CommunityView; rows: CommunityRow[] }) {
+  const columns = data.categories.flatMap((c) => c.columns);
+  const sheetOrder = columns.map((c) => c.id);
   const standard = view.view === 'standard';
+  const count = data.counting_events ?? 8;
+  const wcName = data.info.wc;
+
   return (
     <div className={`table-wrapper${standard ? '' : ' expanded-view'}`}>
       <table className="comm-table">
@@ -209,9 +230,9 @@ function Table({ edition, view, rows }: { edition: Edition; view: CommunityView;
               Leaderboard Standings
             </th>
             {standard ? (
-              <th colSpan={edition.summary.length}>Tournament Categories (Sum of Events)</th>
+              <th colSpan={data.summary.length}>Tournament Categories (Sum of Events)</th>
             ) : (
-              edition.categories.map((c) => (
+              data.categories.map((c) => (
                 <th key={c.category} colSpan={c.columns.length}>
                   {c.category}
                 </th>
@@ -225,13 +246,13 @@ function Table({ edition, view, rows }: { edition: Edition; view: CommunityView;
             <th>Total Pts</th>
             <th>Tourneys</th>
             {standard
-              ? edition.summary.map((t) => (
+              ? data.summary.map((t) => (
                   <th key={t.id} title={`${t.name} (${t.desc})`}>
                     {t.short}
                   </th>
                 ))
               : columns.map((c) => (
-                  <th key={c.id} title={`${c.name} (Max: ${c.maxPts} pts)`}>
+                  <th key={c.id} title={`${c.name} (Max: ${c.max_pts} pts)`}>
                     {c.short}
                   </th>
                 ))}
@@ -246,10 +267,9 @@ function Table({ edition, view, rows }: { edition: Edition; view: CommunityView;
             </tr>
           ) : (
             rows.map((r) => {
-              const count = edition.countingEvents ?? 8;
-              const counting = countingColumns(r.scores, edition.sheetOrder, count);
-              const sums = tournamentSums(r.scores, edition.summary, counting);
-              const mark = titleMark(r, edition);
+              const counting = countingColumns(r.scores, sheetOrder, count);
+              const sums = tournamentSums(r.scores, data.summary, counting);
+              const mark = titleMark(r, wcName);
               return (
                 <tr key={r.name}>
                   <td className="sticky-col-rank">
@@ -273,7 +293,7 @@ function Table({ edition, view, rows }: { edition: Edition; view: CommunityView;
                   </td>
                   <td className="comm-muted">{r.events}</td>
                   {standard
-                    ? edition.summary.map((t) => {
+                    ? data.summary.map((t) => {
                         const s = sums[t.id];
                         const tip = s
                           ? `${t.name} Sum: ${whole(s.sum)} pts (${s.counting ? `contributes to Top-${count} total` : `dropped beyond Top-${count}`})`
@@ -316,19 +336,29 @@ export default function CommunityPage({ apiUrl }: { apiUrl: string }) {
 
   useEffect(() => {
     let stale = false;
-    currentRun(apiUrl)
-      .then((run) => communityLeaderboard(apiUrl, run.run_id, view.edition))
-      .then((got) => !stale && setState({ kind: 'ready', rows: got.rows }))
-      .catch((e: unknown) => !stale && setState({ kind: 'error', message: e instanceof Error ? e.message : String(e) }));
+    Promise.all([
+      communityEditions(apiUrl),
+      currentRun(apiUrl).then((run) => communityLeaderboard(apiUrl, run.run_id, view.edition)),
+    ])
+      .then(([editions, data]) => {
+        if (!stale) {
+          setState({ kind: 'ready', data, editions });
+        }
+      })
+      .catch((e: unknown) => {
+        if (!stale) {
+          setState({ kind: 'error', message: e instanceof Error ? e.message : String(e) });
+        }
+      });
     return () => {
       stale = true;
     };
   }, [apiUrl, view.edition]);
 
-  const edition = EDITIONS[view.edition];
   if (state.kind !== 'ready') return <Waiting load={state} what="the community leaderboard" />;
 
-  const found = view.search ? state.rows.filter((r) => matchesSearch(r.name, view.search)) : state.rows;
+  const data = state.data;
+  const found = view.search ? data.rows.filter((r) => matchesSearch(r.name, view.search)) : data.rows;
   const total = Math.max(1, Math.ceil(found.length / view.perPage));
   const page = Math.min(view.page, total);
   const shown = found.slice((page - 1) * view.perPage, page * view.perPage);
@@ -336,9 +366,13 @@ export default function CommunityPage({ apiUrl }: { apiUrl: string }) {
 
   return (
     <div className="community-page">
-      <Hero edition={edition} view={onPage} rows={state.rows} />
-      <Explainers edition={edition} />
-      <Controls view={onPage} slots={editionFacts(edition).slots} names={state.rows.map((r) => ({ name: r.name, country: r.country }))} />
+      <Hero data={data} editions={state.editions} view={onPage} />
+      <Explainers data={data} />
+      <Controls
+        view={onPage}
+        slots={editionFacts(data).slots}
+        names={data.rows.map((r) => ({ name: r.name, country: r.country }))}
+      />
       <div className="results-counter-card">
         <div>
           Showing <strong className="comm-count-shown">{shown.length}</strong> of{' '}
@@ -349,15 +383,15 @@ export default function CommunityPage({ apiUrl }: { apiUrl: string }) {
           Mode:{' '}
           <strong className="comm-mode">
             {view.view === 'standard'
-              ? `Tournament Sums (${editionFacts(edition).tournaments} Tournaments)`
-              : `All ${editionFacts(edition).slots} Period Columns`}
+              ? `Tournament Sums (${editionFacts(data).tournaments} Tournaments)`
+              : `All ${editionFacts(data).slots} Period Columns`}
           </strong>
         </div>
       </div>
       <div className="scroll-hint comm-scroll-hint">
         <span>Swipe table horizontally for full community ranking ➔</span>
       </div>
-      <Table edition={edition} view={onPage} rows={shown} />
+      <Table data={data} view={onPage} rows={shown} />
       {total > 1 && (
         <Pager
           page={page}

@@ -36,7 +36,7 @@ func badRequestBody(msg string) BadRequestJSONResponse {
 
 // notFound returns the 404 body for a store error that means one, or false.
 func notFound(err error) (NotFoundJSONResponse, bool) {
-	if !errors.Is(err, store.ErrRunNotFound) && !errors.Is(err, store.ErrPlayerNotFound) && !errors.Is(err, store.ErrTournamentNotFound) {
+	if !errors.Is(err, store.ErrRunNotFound) && !errors.Is(err, store.ErrPlayerNotFound) && !errors.Is(err, store.ErrTournamentNotFound) && !errors.Is(err, store.ErrNoCommunityEdition) {
 		return NotFoundJSONResponse{}, false
 	}
 	return NotFoundJSONResponse{Body: Error{Error: err.Error()}, Headers: NotFoundResponseHeaders{CacheControl: cacheNone}}, true

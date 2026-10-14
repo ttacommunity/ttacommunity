@@ -43,7 +43,7 @@ var ExportTables = []string{
 	"series", "tournaments", "stages", "groups", "group_members", "settings",
 	"games", "seats",
 	"rankings", "ranking_series", "cge_tournaments", "cge_tournament_moderators", "cge_standings",
-	"community_points", "community_quarters", "community_ladders", "community_scores", "community_standings",
+	"community_editions", "community_points", "community_quarters", "community_ladders", "community_scores", "community_standings",
 	"tournament_career_honours", "tournament_cup_podiums", "tournament_finish_dates",
 	"tournament_group_divisions", "tournament_ladder_wins", "tournament_official_placements",
 	"tournament_season_corrections", "tournament_season_notes",
@@ -303,8 +303,8 @@ func checkInputTables(ctx context.Context, tx pgx.Tx) error {
 
 // checkEmpty refuses a database holding any run or input, other than the rankings the migrations seed.
 // seededTables are the input tables the migrations fill: the community ranking, and the first tournament cards,
-// regulations and stories.
-var seededTables = []string{"rankings", "tournament_cards", "tournament_regulations", "tournament_stories"}
+// regulations and stories, and default community editions.
+var seededTables = []string{"rankings", "tournament_cards", "tournament_regulations", "tournament_stories", "community_editions"}
 
 func checkEmpty(ctx context.Context, tx pgx.Tx) error {
 	for _, t := range append([]string{"rating_runs"}, ExportTables...) {

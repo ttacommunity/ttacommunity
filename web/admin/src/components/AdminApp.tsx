@@ -15,6 +15,7 @@ import DataCard from './DataCard';
 import StandingsCheckPanel from './StandingsCheckPanel';
 import TitlesPanel from './TitlesPanel';
 import BadgesPanel from './BadgesPanel';
+import CommunityPanel from './CommunityPanel';
 import './AdminApp.css';
 
 /** Tournaments lists the top-level tournaments and groups, rated or unrated, with New group. */
@@ -76,6 +77,8 @@ function panel(p: Panel, myName: string): ReactNode {
   switch (p) {
     case 'tournaments':
       return <Tournaments />;
+    case 'community':
+      return <CommunityPanel />;
     case 'data':
       return <DataCard />;
     case 'runs':

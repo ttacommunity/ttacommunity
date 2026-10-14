@@ -63,6 +63,9 @@ type Admins interface {
 	StopRun(ctx context.Context) ([]string, error)
 	// EngineGoing reports whether an engine Job has not finished, or returns enginejob.ErrNotSetUp.
 	EngineGoing(ctx context.Context) (bool, error)
+	AdminCommunityEditions(ctx context.Context) ([]store.CommunityEdition, error)
+	SetCommunityEdition(ctx context.Context, slug string, c store.CommunityEditionChange) error
+	CreateCommunityEdition(ctx context.Context, e store.CommunityEdition) error
 }
 
 type adminKey struct{}

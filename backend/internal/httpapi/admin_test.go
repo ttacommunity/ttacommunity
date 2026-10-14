@@ -474,6 +474,27 @@ func (f *fakeAdmins) SetNote(_ context.Context, slug, season, stage, note string
 	return nil
 }
 
+func (f *fakeAdmins) AdminCommunityEditions(_ context.Context) ([]store.CommunityEdition, error) {
+	return []store.CommunityEdition{{
+		Slug: "race26", Name: "Race to 2026", Title: "Race to 2026 Title", ShortName: "Race26",
+		Badge: "⭐ Community", Maintainer: "wolvs", MaintainerNote: "Note", Year: 2026,
+		CountingEvents: 8, Visible: true, SortOrder: 1,
+	}}, nil
+}
+
+func (f *fakeAdmins) SetCommunityEdition(_ context.Context, slug string, c store.CommunityEditionChange) error {
+	if slug != "race26" {
+		return store.ErrNoCommunityEdition
+	}
+	f.notes = append(f.notes, "community_edition "+slug)
+	return nil
+}
+
+func (f *fakeAdmins) CreateCommunityEdition(_ context.Context, e store.CommunityEdition) error {
+	f.notes = append(f.notes, "create_community_edition "+e.Slug)
+	return nil
+}
+
 func (*fakeAdmins) Verify(_ context.Context, token string) (access.Identity, error) {
 	if len(token) > 5 && token[:5] == "good-" {
 		return access.Identity{DiscordID: token[5:]}, nil
