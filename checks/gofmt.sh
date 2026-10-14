@@ -6,6 +6,10 @@ set -uo pipefail
 
 cd "$(git rev-parse --show-toplevel)" || exit 1
 if [ $# -gt 0 ]; then
+  if ! git rev-parse --verify --quiet "$1^{commit}" >/dev/null; then
+    printf 'REFUSED: no commit %s to compare with (git fetch origin)\n' "$1" >&2
+    exit 1
+  fi
   mapfile -d '' files < <(git diff --cached --name-only -z --diff-filter=ACM "$1" -- '*.go')
 else
   mapfile -d '' files < <(git diff --cached --name-only -z --diff-filter=ACM -- '*.go')

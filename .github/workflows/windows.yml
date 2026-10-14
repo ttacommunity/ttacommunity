@@ -1,5 +1,5 @@
 # Manual: run the Windows scripts on GitHub's Windows runner, in Windows
-# PowerShell 5.1 as a contributor's machine has it: install, then every test.
+# PowerShell 5.1 as a contributor's machine has it: install, then everything CI runs that Windows can.
 
 name: windows
 
@@ -23,5 +23,6 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+          fetch-depth: 0
       - run: scripts\install.ps1
-      - run: scripts\test.ps1
+      - run: scripts\ci.ps1

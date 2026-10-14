@@ -131,11 +131,12 @@ scripts/ci.sh      # everything CI runs, in the same order
 
 ```powershell
 scripts\test.ps1   # the same tests, against the local Postgres
+scripts\ci.ps1     # what CI runs, all but the few it lists
 ```
 
 CI runs `scripts/ci.sh` unchanged, one job per area, so a green run here
 means a green pipeline. Each script ends by listing what it did not cover.
-The `windows` workflow runs `install.ps1` and `test.ps1` on GitHub's Windows
+The `windows` workflow runs `install.ps1` and `ci.ps1` on GitHub's Windows
 runner when started by hand.
 
 With Windows 11's **Smart App Control** on, Go's tests fail at random with
