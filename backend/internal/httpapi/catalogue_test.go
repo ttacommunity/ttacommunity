@@ -12,12 +12,20 @@ import (
 
 type fakeCatalogue struct {
 	fakeRatings
-	view       store.CatalogueView
-	tournament store.CatalogueTournament
-	games      store.CatalogueGames
-	err        error
-	gotSlug    string
-	gotFilter  store.CatalogueGamesFilter
+	view                store.CatalogueView
+	tournament          store.CatalogueTournament
+	games               store.CatalogueGames
+	podiums             []store.RecentPodium
+	err                 error
+	gotSlug             string
+	gotFilter           store.CatalogueGamesFilter
+	gotPlayed, gotShown int
+}
+
+func (f *fakeCatalogue) RecentPodiums(_ context.Context, run int64, played, shown int) ([]store.RecentPodium, error) {
+	f.calls++
+	f.gotRun, f.gotPlayed, f.gotShown = run, played, shown
+	return f.podiums, f.err
 }
 
 func (f *fakeCatalogue) CatalogueGames(_ context.Context, run int64, slug string, filter store.CatalogueGamesFilter) (store.CatalogueGames, error) {
@@ -111,6 +119,35 @@ func TestCatalogueTournament(t *testing.T) {
 	}
 }
 
+func TestRecentPodiums(t *testing.T) {
+	finished, _ := time.Parse(time.DateOnly, "2025-02-24")
+	f := &fakeCatalogue{podiums: []store.RecentPodium{
+		{Slug: "wimbledon", Name: "Wimbledon", Season: "2024", Finished: finished,
+			Podium: []store.PodiumPlace{{Place: 1, Name: "sora", Finished: finished, Source: "CGE"}}},
+		{Slug: "slow_burn", Name: "Slow Burn", Season: "3", SeasonName: "Edition", Finished: finished, Podium: []store.PodiumPlace{}},
+	}}
+	rec, _ := serve(t, f, "/v1/runs/7/podiums")
+	if rec.Code != http.StatusOK {
+		t.Fatalf("GET podiums = %d %s", rec.Code, rec.Body)
+	}
+	body := rec.Body.Bytes()
+	wantJSON(t, body, "run_id", `7`)
+	wantJSON(t, body, "podiums.0", `{"slug":"wimbledon","name":"Wimbledon","season":"2024","season_name":"Season","finished":"2025-02-24",
+		"podium":[{"final":"","finished":"2025-02-24","name":"sora","place":1,"source":"CGE"}]}`)
+	wantJSON(t, body, "podiums.1.season_name", `"Edition"`)
+	if rec.Header().Get("Cache-Control") != "public, max-age=300" || f.gotRun != 7 || f.gotPlayed != 12 || f.gotShown != 8 {
+		t.Errorf("GET podiums: Cache-Control %q; asked run %d for %d of the %d played last, want 8 of 12",
+			rec.Header().Get("Cache-Control"), f.gotRun, f.gotShown, f.gotPlayed)
+	}
+}
+
+func TestRecentPodiumsEmptyIsAnArray(t *testing.T) {
+	rec, _ := serve(t, &fakeCatalogue{}, "/v1/runs/7/podiums")
+	if !strings.Contains(rec.Body.String(), `"podiums":[]`) {
+		t.Errorf("GET no podiums: %s, want an empty array", rec.Body.String())
+	}
+}
+
 func TestCatalogueTournamentNamesItsSeasonsAndStages(t *testing.T) {
 	for _, tt := range []struct {
 		name, season, stage, wantSeason, wantStage string
@@ -164,6 +201,7 @@ func TestCatalogueGamesDefaultsAndEmpty(t *testing.T) {
 func TestCatalogueRefusals(t *testing.T) {
 	for path, msg := range map[string]string{
 		"/v1/runs/0/catalogue":                                                   "bad parameter: run",
+		"/v1/runs/0/podiums":                                                     "bad parameter: run",
 		"/v1/runs/0/catalogue/wimbledon":                                         "bad parameter: run",
 		"/v1/runs/7/catalogue/Wimbledon":                                         "bad parameter: tournament",
 		"/v1/runs/7/catalogue/9cup":                                              "bad parameter: tournament",
@@ -181,6 +219,7 @@ func TestCatalogueRefusals(t *testing.T) {
 	}
 	for path, err := range map[string]error{
 		"/v1/runs/9/catalogue":                 store.ErrRunNotFound,
+		"/v1/runs/9/podiums":                   store.ErrRunNotFound,
 		"/v1/runs/9/catalogue/wimbledon":       store.ErrRunNotFound,
 		"/v1/runs/7/catalogue/snail_cup":       store.ErrTournamentNotFound,
 		"/v1/runs/7/catalogue/snail_cup/games": store.ErrTournamentNotFound,

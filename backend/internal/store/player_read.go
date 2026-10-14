@@ -674,41 +674,33 @@ func (r *RatingsReader) PlayerSeats(ctx context.Context, run int64, asked string
 		return PlayerSeatStats{}, err
 	}
 
-	var gameFilter string
-	var args []any
+	// The player's seats come first, so only their games are read: the run's rated ones, or every played one.
+	mine := `
+			SELECT pm.player_count, s.game_id, s.starting_position, s.seat, s.place, s.culture
+			FROM seats s
+			CROSS JOIN LATERAL (SELECT player_count FROM pairwise_matches
+				WHERE run_id = $1 AND match_id = s.game_id LIMIT 1) pm
+			WHERE s.player_name = $2`
+	args := []any{run, name}
 	if unrated {
-		gameFilter = `
-			SELECT gl.game_id, gl.player_count
-			FROM game_lines gl
-			WHERE gl.state = 'played'`
+		mine = `
+			SELECT (SELECT count(*) FROM seats o WHERE o.game_id = s.game_id) AS player_count,
+				s.game_id, s.starting_position, s.seat, s.place, s.culture
+			FROM seats s JOIN games g ON g.game_id = s.game_id AND g.state = 'played'
+			WHERE s.player_name = $1`
 		args = []any{name}
-	} else {
-		gameFilter = `
-			SELECT DISTINCT match_id AS game_id, player_count
-			FROM pairwise_matches
-			WHERE run_id = $1`
-		args = []any{run, name}
-	}
-
-	nameParam := "$1"
-	if !unrated {
-		nameParam = "$2"
 	}
 
 	query := `
-		WITH valid_games AS (` + gameFilter + `),
+		WITH mine AS (` + mine + `),
 		player_seats AS (
-			SELECT 
-				vg.player_count,
-				coalesce(s.starting_position + 1, s.seat) AS seat,
-				s.place,
-				s.culture,
-				count(*) FILTER (WHERE s2.place = 1) AS p1_count
-			FROM valid_games vg
-			JOIN seats s ON s.game_id = vg.game_id
-			JOIN seats s2 ON s2.game_id = vg.game_id
-			WHERE s.player_name = ` + nameParam + `
-			GROUP BY vg.player_count, vg.game_id, coalesce(s.starting_position + 1, s.seat), s.place, s.culture
+			SELECT
+				m.player_count,
+				coalesce(m.starting_position + 1, m.seat) AS seat,
+				m.place,
+				m.culture,
+				(SELECT count(*) FROM seats o WHERE o.game_id = m.game_id AND o.place = 1) AS p1_count
+			FROM mine m
 		)
 		SELECT 
 			player_count,

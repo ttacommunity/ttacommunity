@@ -166,6 +166,10 @@ func (f *fakeRatings) CatalogueGames(context.Context, int64, string, store.Catal
 	panic("not faked")
 }
 
+func (f *fakeRatings) RecentPodiums(context.Context, int64, int, int) ([]store.RecentPodium, error) {
+	panic("not faked")
+}
+
 func (f *fakeRatings) PlayerAchievements(context.Context, int64, string) (string, *store.AchievementSummary, []store.TournamentRecord, error) {
 	panic("not faked")
 }

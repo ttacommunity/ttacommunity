@@ -98,6 +98,7 @@ type CatalogueReads interface {
 	Catalogue(ctx context.Context, run int64) (store.CatalogueView, error)
 	CatalogueTournament(ctx context.Context, run int64, slug string) (store.CatalogueTournament, error)
 	CatalogueGames(ctx context.Context, run int64, slug string, f store.CatalogueGamesFilter) (store.CatalogueGames, error)
+	RecentPodiums(ctx context.Context, run int64, played, shown int) ([]store.RecentPodium, error)
 }
 
 // Requests records each answered request: its route pattern, status code and how long it took.

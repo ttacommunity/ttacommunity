@@ -61,7 +61,10 @@ load job) → **import batch** (validated; duplicates, renamed players and junk
 are matched or *refused*, never silently kept) → **run**, started from admin
 (the api creates a Job from the engine's CronJob) or by hand → **published**
 from admin once its checks pass (a one-row switch) → the API serves it, and
-Cloudflare caches each response until the next publish.
+Cloudflare caches each response until the next publish. The seat analysis,
+which reads every seat of a run, is computed on the run's first request and
+kept in the api's memory, so a corrected result shows there from the next run
+(or the api's next restart).
 
 ### Rating runs
 

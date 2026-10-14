@@ -52,6 +52,34 @@ func (s *server) GetCatalogue(ctx context.Context, req GetCatalogueRequestObject
 	return GetCatalogue200JSONResponse{Body: body, Headers: GetCatalogue200ResponseHeaders{CacheControl: cacheRun}}, nil
 }
 
+// GetRecentPodiums returns the latest podiums of the twelve tournaments played last, the eight finished last first.
+func (s *server) GetRecentPodiums(ctx context.Context, req GetRecentPodiumsRequestObject) (GetRecentPodiumsResponseObject, error) {
+	if req.Run < 1 {
+		return GetRecentPodiums400JSONResponse{badRequestBody("bad parameter: run")}, nil
+	}
+	podiums, err := s.ratings.RecentPodiums(ctx, req.Run, 12, 8)
+	if nf, ok := notFound(err); ok {
+		return GetRecentPodiums404JSONResponse{nf}, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	body := RecentPodiums{RunId: req.Run, Podiums: make([]RecentPodium, 0, len(podiums))}
+	for _, p := range podiums {
+		out := RecentPodium{
+			Slug: p.Slug, Name: p.Name, Season: p.Season, SeasonName: cmp.Or(p.SeasonName, "Season"),
+			Finished: openapi_types.Date{Time: p.Finished}, Podium: make([]PodiumPlace, 0, len(p.Podium)),
+		}
+		for _, place := range p.Podium {
+			out.Podium = append(out.Podium, PodiumPlace{
+				Place: place.Place, Name: place.Name, Final: place.Final, Finished: openapi_types.Date{Time: place.Finished}, Source: place.Source,
+			})
+		}
+		body.Podiums = append(body.Podiums, out)
+	}
+	return GetRecentPodiums200JSONResponse{Body: body, Headers: GetRecentPodiums200ResponseHeaders{CacheControl: cacheRun}}, nil
+}
+
 // GetCatalogueTournament returns one tournament's seasons, stages and podiums.
 func (s *server) GetCatalogueTournament(ctx context.Context, req GetCatalogueTournamentRequestObject) (GetCatalogueTournamentResponseObject, error) {
 	switch {

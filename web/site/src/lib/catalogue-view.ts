@@ -84,6 +84,40 @@ export function placeNames(podium: { place: number; name: string; final: string 
   return podium.filter((p) => p.place === place).map((p) => ({ name: p.name, final: several ? p.final : '' }));
 }
 
+/** A recent podium as the home page shows it: its tournament, season and the first name at each place. */
+export interface PodiumCard {
+  slug: string;
+  name: string;
+  seasonLabel: string;
+  seasonWord: string;
+  finished: string;
+  champion: string | null;
+  runnerUp: string | null;
+  third: string | null;
+}
+
+/** podiumCard gives a recent podium's card for the home page. */
+export function podiumCard(p: {
+  slug: string;
+  name: string;
+  season: string;
+  season_name: string;
+  finished: string;
+  podium: { place: number; name: string; final: string }[];
+}): PodiumCard {
+  const first = (place: number) => placeNames(p.podium, place)[0]?.name ?? null;
+  return {
+    slug: p.slug,
+    name: p.name,
+    seasonLabel: p.season,
+    seasonWord: p.season_name,
+    finished: p.finished,
+    champion: first(1),
+    runnerUp: first(2),
+    third: first(3),
+  };
+}
+
 /** entryRows gives a tournament card's figures: its years, seasons, games and players. */
 export function entryRows(t: { first_game: string; last_game: string; seasons: number; games: number; players: number }): [string, string][] {
   const n = (x: number) => x.toLocaleString('en-US');

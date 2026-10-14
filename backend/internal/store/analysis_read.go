@@ -3,6 +3,7 @@ package store
 import (
 	"context"
 	"fmt"
+	"sync"
 	"time"
 
 	"github.com/jackc/pgx/v5"
@@ -305,85 +306,103 @@ type SeatPlaceRate struct {
 	Rate  float64
 }
 
-// SeatAnalysis returns seat statistics grouped by player count (2P, 3P, 4P) and filtered by skill tier.
+// seatTiers are the skill tiers SeatAnalysis filters by, "all" first.
+var seatTiers = []string{"all", "grandmaster", "master", "advanced", "intermediate", "beginner"}
+
+// seatCounts is one tier's games by player count, seat and place, and its outright wins and draws by player count and seat.
+type seatCounts struct {
+	places      map[[3]int]int
+	wins, draws map[[2]int]int
+}
+
+// seatCache holds each run's seat counts by tier, from the run's first request while the api runs.
+type seatCache struct {
+	mu   sync.Mutex
+	runs map[int64]map[string]seatCounts
+}
+
+// SeatAnalysis returns seat statistics grouped by player count (2P, 3P, 4P) and filtered by skill tier
+// (an unknown tier counts as "all").
 func (r *RatingsReader) SeatAnalysis(ctx context.Context, run int64, format int, tier string) ([]SeatStatsGroup, error) {
 	if err := r.requirePublished(ctx, run); err != nil {
 		return nil, err
 	}
-	query := `
+	tiers, err := r.seatCountsOf(ctx, run)
+	if err != nil {
+		return nil, err
+	}
+	counts, ok := tiers[tier]
+	if !ok {
+		counts = tiers["all"]
+	}
+	return seatGroups(counts, format), nil
+}
+
+// seatCountsOf returns run's seat counts for every tier in seatTiers, reading them in one query on the run's
+// first request and from memory after: every tier and format of the page then answers without the database.
+func (r *RatingsReader) seatCountsOf(ctx context.Context, run int64) (map[string]seatCounts, error) {
+	r.seats.mu.Lock()
+	defer r.seats.mu.Unlock()
+	if tiers, ok := r.seats.runs[run]; ok {
+		return tiers, nil
+	}
+	rows, err := r.pool.Query(ctx, `
 		WITH games_in_run AS (
 			SELECT DISTINCT match_id AS game_id, player_count
 			FROM pairwise_matches
-			WHERE run_id = $1 AND ($2 = 0 OR player_count = $2)
+			WHERE run_id = $1
 		),
-		game_averages AS (
-			SELECT g.game_id, g.player_count, avg(r.rating) AS avg_rating
+		seat_rows AS (
+			SELECT g.player_count, coalesce(s.starting_position + 1, s.seat) AS seat, s.place,
+				avg(r.rating) OVER game AS avg_rating,
+				count(*) FILTER (WHERE s.place = 1) OVER game AS winners
 			FROM games_in_run g
 			JOIN seats s ON s.game_id = g.game_id
-			JOIN player_ratings r ON r.run_id = $1 AND r.model_type = 'glicko2_daneo' AND r.player_count = 0 AND r.player_name = s.player_name
-			GROUP BY g.game_id, g.player_count
-		),
-		filtered_games AS (
-			SELECT game_id, player_count
-			FROM game_averages
-			WHERE (
-				CASE $3
-					WHEN 'grandmaster' THEN avg_rating >= 1750
-					WHEN 'master' THEN avg_rating >= 1625 AND avg_rating < 1750
-					WHEN 'advanced' THEN avg_rating >= 1500 AND avg_rating < 1625
-					WHEN 'intermediate' THEN avg_rating >= 1375 AND avg_rating < 1500
-					WHEN 'beginner' THEN avg_rating < 1375
-					ELSE true
-				END
-			)
-		),
-		seat_game_data AS (
-			SELECT 
-				fg.player_count,
-				coalesce(s.starting_position + 1, s.seat) AS seat,
-				s.place,
-				count(*) FILTER (WHERE s2.place = 1) AS p1_count
-			FROM filtered_games fg
-			JOIN seats s ON s.game_id = fg.game_id
-			JOIN seats s2 ON s2.game_id = fg.game_id
-			GROUP BY fg.player_count, fg.game_id, coalesce(s.starting_position + 1, s.seat), s.place
-		),
-		seat_data AS (
-			SELECT 
-				player_count,
-				seat,
-				place,
-				count(*) AS count,
-				count(*) FILTER (WHERE place = 1 AND p1_count = 1) AS outright_wins,
-				count(*) FILTER (WHERE place = 1 AND p1_count > 1) AS draws
-			FROM seat_game_data
-			GROUP BY player_count, seat, place
+			LEFT JOIN player_ratings r ON r.run_id = $1 AND r.model_type = 'glicko2_daneo' AND r.player_count = 0 AND r.player_name = s.player_name
+			WINDOW game AS (PARTITION BY s.game_id)
 		)
-		SELECT player_count, seat, place, count, outright_wins, draws
-		FROM seat_data
-		ORDER BY player_count, seat, place`
-
-	rows, err := r.pool.Query(ctx, query, run, format, tier)
+		SELECT
+			CASE
+				WHEN avg_rating >= 1750 THEN 'grandmaster'
+				WHEN avg_rating >= 1625 THEN 'master'
+				WHEN avg_rating >= 1500 THEN 'advanced'
+				WHEN avg_rating >= 1375 THEN 'intermediate'
+				ELSE 'beginner'
+			END,
+			player_count, seat, place, count(*),
+			count(*) FILTER (WHERE place = 1 AND winners = 1),
+			count(*) FILTER (WHERE place = 1 AND winners > 1)
+		FROM seat_rows
+		WHERE avg_rating IS NOT NULL -- a game with no rated player has no tier
+		GROUP BY 1, 2, 3, 4`, run)
 	if err != nil {
 		return nil, fmt.Errorf("reading run %d's seat analysis: %w", run, err)
 	}
 
+	tiers := make(map[string]seatCounts, len(seatTiers))
+	for _, t := range seatTiers {
+		tiers[t] = seatCounts{places: map[[3]int]int{}, wins: map[[2]int]int{}, draws: map[[2]int]int{}}
+	}
+	var tier string
 	var pc, seat, place, count, outrightWins, draws int
-	counts := map[[3]int]int{}
-	seatOutrightWins := map[[2]int]int{}
-	seatDraws := map[[2]int]int{}
-	_, err = pgx.ForEachRow(rows, []any{&pc, &seat, &place, &count, &outrightWins, &draws}, func() error {
-		counts[[3]int{pc, seat, place}] = count
-		if place == 1 {
-			seatOutrightWins[[2]int{pc, seat}] = outrightWins
-			seatDraws[[2]int{pc, seat}] = draws
+	_, err = pgx.ForEachRow(rows, []any{&tier, &pc, &seat, &place, &count, &outrightWins, &draws}, func() error {
+		for _, c := range []seatCounts{tiers[tier], tiers["all"]} {
+			c.places[[3]int{pc, seat, place}] += count
+			c.wins[[2]int{pc, seat}] += outrightWins
+			c.draws[[2]int{pc, seat}] += draws
 		}
 		return nil
 	})
 	if err != nil {
 		return nil, fmt.Errorf("reading run %d's seat analysis: %w", run, err)
 	}
+	r.seats.runs[run] = tiers
+	return tiers, nil
+}
 
+// seatGroups returns counts' groups for format: one per player count, or that format's alone.
+func seatGroups(c seatCounts, format int) []SeatStatsGroup {
+	counts, seatOutrightWins, seatDraws := c.places, c.wins, c.draws
 	playerCounts := []int{2, 3, 4}
 	if format == 2 || format == 3 || format == 4 {
 		playerCounts = []int{format}
@@ -435,5 +454,5 @@ func (r *RatingsReader) SeatAnalysis(ctx context.Context, run int64, format int,
 		}
 		groups = append(groups, group)
 	}
-	return groups, nil
+	return groups
 }

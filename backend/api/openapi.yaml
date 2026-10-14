@@ -901,6 +901,31 @@ paths:
           $ref: "#/components/responses/BadRequest"
         "404":
           $ref: "#/components/responses/NotFound"
+  /v1/runs/{run}/podiums:
+    get:
+      operationId: getRecentPodiums
+      summary: The latest podiums, for the home page
+      description: |
+        Of the twelve tournaments the site shows that were played most
+        recently, each one's latest season with a podium, the eight finished
+        last first. Each podium is as the tournament's catalogue page gives
+        it. Cached for five minutes.
+      parameters:
+        - $ref: "#/components/parameters/RunId"
+      responses:
+        "200":
+          description: The podiums, finished last first
+          headers:
+            Cache-Control:
+              $ref: "#/components/headers/CacheControl"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RecentPodiums"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "404":
+          $ref: "#/components/responses/NotFound"
   /v1/community/editions:
     get:
       operationId: getCommunityEditions
@@ -4088,6 +4113,41 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/CGETournament"
+    RecentPodiums:
+      type: object
+      required: [run_id, podiums]
+      properties:
+        run_id:
+          type: integer
+          format: int64
+        podiums:
+          type: array
+          items:
+            $ref: "#/components/schemas/RecentPodium"
+    RecentPodium:
+      description: A tournament season's podium
+      type: object
+      required: [slug, name, season, season_name, finished, podium]
+      properties:
+        slug:
+          type: string
+        name:
+          description: The tournament's name
+          type: string
+        season:
+          description: The season's label, as the catalogue gives it
+          type: string
+        season_name:
+          description: What the tournament calls a season ("Season" unless set)
+          type: string
+        finished:
+          description: The season's last game, or its podium's finish when it has no games
+          type: string
+          format: date
+        podium:
+          type: array
+          items:
+            $ref: "#/components/schemas/PodiumPlace"
     CatalogueStage:
       description: A stage of a season; label "" is the season's only or main stage
       allOf:
