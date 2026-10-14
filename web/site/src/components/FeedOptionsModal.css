@@ -1,0 +1,269 @@
+/* FeedOptionsModal styling: dialog, tournament/division rows, player chips, action buttons */
+
+.feed-options-modal {
+  border: 1.5px solid var(--border-subtle);
+  border-radius: 10px;
+  background: radial-gradient(circle at 50% 10%, rgba(212, 175, 55, 0.05), transparent 75%),
+              linear-gradient(180deg, var(--surface-card) 0%, var(--surface-panel) 100%);
+  color: var(--text-soft);
+  padding: 0;
+  width: min(92vw, 680px);
+  max-height: 85vh;
+  box-shadow: 0 20px 60px var(--shadow-deep);
+  outline: none;
+}
+
+.feed-options-modal::backdrop {
+  background: rgba(10, 7, 5, 0.78);
+  backdrop-filter: blur(3px);
+}
+
+.feed-modal-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1.1rem 1.4rem;
+  border-bottom: 1px solid var(--border-faint);
+  background: rgba(18, 12, 8, 0.4);
+}
+
+.feed-modal-title {
+  margin: 0;
+  font-family: var(--font-heading);
+  font-size: 1.2rem;
+  color: var(--accent-gold-bright);
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.feed-modal-close {
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  font-size: 1.5rem;
+  line-height: 1;
+  cursor: pointer;
+  padding: 0.2rem 0.4rem;
+  border-radius: 4px;
+  transition: all 0.15s ease;
+}
+
+.feed-modal-close:hover {
+  color: var(--accent-gold-bright);
+  background: var(--gold-wash-faint);
+}
+
+.feed-modal-body {
+  padding: 1.25rem 1.4rem;
+  overflow-y: auto;
+  max-height: calc(85vh - 140px);
+  display: flex;
+  flex-direction: column;
+  gap: 1.4rem;
+}
+
+.feed-modal-intro {
+  margin: 0;
+  font-size: 0.88rem;
+  color: var(--text-muted);
+  line-height: 1.45;
+}
+
+.feed-modal-section {
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+}
+
+.feed-section-heading {
+  margin: 0;
+  font-family: var(--font-subheading);
+  font-size: 0.96rem;
+  font-weight: 700;
+  color: var(--text-bright);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.feed-section-hint {
+  font-size: 0.75rem;
+  font-weight: normal;
+  color: var(--text-muted);
+  font-family: var(--font-sans);
+}
+
+/* Tournaments List in Modal */
+.feed-tournaments-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.feed-tourney-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.55rem 0.8rem;
+  background: var(--surface-inset);
+  border: 1px solid var(--border-faint);
+  border-radius: 6px;
+  transition: border-color 0.15s ease;
+}
+
+.feed-tourney-row:hover {
+  border-color: var(--border-subtle);
+}
+
+.feed-tourney-info {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-grow: 1;
+  min-width: 0;
+}
+
+.feed-tourney-name {
+  font-family: var(--font-subheading);
+  font-weight: 700;
+  color: var(--accent-gold-bright);
+  font-size: 0.9rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.feed-tourney-controls {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-shrink: 0;
+}
+
+.feed-division-select {
+  padding: 0.3rem 0.6rem;
+  background: var(--surface-card);
+  border: 1px solid var(--border-subtle);
+  border-radius: 4px;
+  color: var(--text-bright);
+  font-family: var(--font-stats);
+  font-size: 0.8rem;
+  cursor: pointer;
+  max-width: 170px;
+}
+
+.feed-division-select:focus {
+  outline: none;
+  border-color: var(--accent-gold);
+}
+
+.feed-row-remove {
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  font-size: 0.95rem;
+  cursor: pointer;
+  padding: 0.2rem 0.4rem;
+  border-radius: 4px;
+  transition: all 0.15s ease;
+  line-height: 1;
+}
+
+.feed-row-remove:hover {
+  color: var(--loss);
+  background: rgba(220, 38, 38, 0.12);
+}
+
+.feed-add-tourney-row {
+  margin-top: 0.25rem;
+}
+
+.feed-add-tourney-select {
+  width: 100%;
+  padding: 0.45rem 0.75rem;
+  background: var(--surface-inset);
+  border: 1px dashed var(--border-subtle);
+  border-radius: 6px;
+  color: var(--accent-gold);
+  font-family: var(--font-stats);
+  font-size: 0.84rem;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.feed-add-tourney-select:hover {
+  border-color: var(--accent-gold);
+  background: var(--gold-wash-faint);
+}
+
+/* Modal Footer */
+.feed-modal-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  padding: 1rem 1.4rem;
+  border-top: 1px solid var(--border-faint);
+  background: rgba(18, 12, 8, 0.4);
+}
+
+.feed-footer-left,
+.feed-footer-right {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+.feed-btn-reset {
+  padding: 0.4rem 0.75rem;
+  background: transparent;
+  border: 1px solid var(--border-subtle);
+  border-radius: 4px;
+  color: var(--text-soft);
+  font-family: var(--font-stats);
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.feed-btn-reset:hover {
+  border-color: var(--accent-gold);
+  color: var(--accent-gold-bright);
+}
+
+.feed-btn-cancel {
+  padding: 0.4rem 0.85rem;
+  background: transparent;
+  border: 1px solid var(--border-subtle);
+  border-radius: 4px;
+  color: var(--text-muted);
+  font-family: var(--font-stats);
+  font-size: 0.82rem;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.feed-btn-cancel:hover {
+  color: var(--text-bright);
+  border-color: var(--text-soft);
+}
+
+.feed-btn-apply {
+  padding: 0.4rem 1.1rem;
+  font-size: 0.85rem;
+}
+
+.feed-empty-hint-small {
+  padding: 0.6rem 0.8rem;
+  background: var(--surface-inset);
+  border: 1px dashed var(--border-faint);
+  border-radius: 6px;
+  font-size: 0.82rem;
+  color: var(--text-muted);
+  text-align: center;
+}

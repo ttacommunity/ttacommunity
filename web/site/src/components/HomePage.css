@@ -350,10 +350,67 @@
   flex-grow: 1;
 }
 
+.feed-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.feed-options-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.2rem 0.65rem;
+  background: var(--surface-inset);
+  border: 1px solid var(--border-subtle);
+  border-radius: 4px;
+  color: var(--accent-gold);
+  font-family: var(--font-stats);
+  font-size: 0.76rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.feed-options-btn:hover {
+  border-color: var(--accent-gold-bright);
+  background: var(--gold-wash-faint);
+  color: var(--accent-gold-bright);
+}
+
+.feed-filter-inline-btn {
+  padding: 0.35rem 0.75rem;
+  font-size: 0.78rem;
+  white-space: nowrap;
+}
+
 .reset-top-btn {
   padding: 0.35rem 0.75rem;
   font-size: 0.78rem;
   white-space: nowrap;
+}
+
+.filter-active-tags-row {
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+  width: 100%;
+}
+
+.filter-tags-scroll {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  max-height: 120px;
+  overflow-y: auto;
+  padding: 0.2rem 0;
+}
+
+.filter-quick-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
 }
 
 .player-tags-container {
@@ -379,6 +436,12 @@
   font-weight: 600;
 }
 
+.tourney-filter-tag {
+  background: rgba(212, 175, 55, 0.08);
+  border-color: rgba(212, 175, 55, 0.5);
+  color: var(--text-bright);
+}
+
 .player-tag-remove {
   background: none;
   border: none;
@@ -392,6 +455,17 @@
 
 .player-tag-remove:hover {
   color: var(--loss);
+}
+
+.badge-division {
+  background: rgba(168, 85, 247, 0.15);
+  border: 1px solid rgba(168, 85, 247, 0.35);
+  color: #c084fc;
+  font-family: var(--font-stats);
+  font-weight: 700;
+  font-size: 0.72rem;
+  padding: 0.1rem 0.45rem;
+  border-radius: 4px;
 }
 
 /* Spoiler Toggles */
@@ -433,6 +507,7 @@
 
 /* Feed Match Item */
 .feed-match-item {
+
   display: flex;
   flex-direction: column;
   gap: 0.5rem;

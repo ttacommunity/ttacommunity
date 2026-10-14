@@ -17,12 +17,14 @@ type fakeAnalysis struct {
 	calib    []store.CalibrationRow
 	ratings  []store.ModelRating
 	active   map[string]bool
-	compared []store.ComparedPlayer
-	activity store.Activity
-	err      error
+	compared   []store.ComparedPlayer
+	activity   store.Activity
+	seatGroups []store.SeatStatsGroup
+	err        error
 
 	gotTerms  []string
 	gotCutoff time.Time
+	gotTier   string
 }
 
 func (f *fakeAnalysis) ComparedPlayers(_ context.Context, run int64, format int, terms []string) ([]store.ComparedPlayer, error) {
@@ -52,6 +54,12 @@ func (f *fakeAnalysis) AnalysisRatings(_ context.Context, run int64, format int)
 func (f *fakeAnalysis) ActivePlayers(_ context.Context, run int64) (map[string]bool, error) {
 	f.gotRun = run
 	return f.active, f.err
+}
+
+func (f *fakeAnalysis) SeatAnalysis(_ context.Context, run int64, format int, tier string) ([]store.SeatStatsGroup, error) {
+	f.calls++
+	f.gotRun, f.gotFmt, f.gotTier = run, format, tier
+	return f.seatGroups, f.err
 }
 
 func TestCalibrationParsesEachRowsBins(t *testing.T) {
@@ -179,3 +187,53 @@ func TestComparedPlayersAndActivityRefuse(t *testing.T) {
 		}
 	}
 }
+
+func TestSeatAnalysisReturnsStatsAndCacheControl(t *testing.T) {
+	f := &fakeAnalysis{seatGroups: []store.SeatStatsGroup{{
+		PlayerCount: 2,
+		TotalGames:  10,
+		Seats: []store.SeatWinrateRow{{
+			Seat:    1,
+			Games:   10,
+			Wins:    6,
+			WinRate: 60.0,
+			Places: []store.SeatPlaceRate{
+				{Place: 1, Count: 6, Rate: 60.0},
+				{Place: 2, Count: 4, Rate: 40.0},
+			},
+		}},
+	}}}
+	rec, _ := serve(t, f, "/v1/runs/7/analysis/seats?tier=grandmaster&format=2")
+	if rec.Code != http.StatusOK {
+		t.Fatalf("GET /v1/runs/7/analysis/seats: %d, want 200", rec.Code)
+	}
+	if got := rec.Header().Get("Cache-Control"); got != cacheRun {
+		t.Errorf("Cache-Control = %q, want %q", got, cacheRun)
+	}
+	want := `{"groups":[{"player_count":2,"seats":[{"games":10,"places":[{"count":6,"place":1,"rate":60},{"count":4,"place":2,"rate":40}],"seat":1,"win_rate":60,"wins":6}],"total_games":10}],"run_id":7,"tier":"grandmaster"}`
+	if got := strings.TrimSpace(rec.Body.String()); got != want {
+		t.Errorf("GET /v1/runs/7/analysis/seats = %s\nwant %s", got, want)
+	}
+	if f.gotRun != 7 || f.gotFmt != 2 || f.gotTier != "grandmaster" {
+		t.Errorf("SeatAnalysis called with run=%d, fmt=%d, tier=%q; want 7, 2, 'grandmaster'", f.gotRun, f.gotFmt, f.gotTier)
+	}
+}
+
+func TestSeatAnalysisRefuse(t *testing.T) {
+	for path, msg := range map[string]string{
+		"/v1/runs/0/analysis/seats":                   "bad parameter: run",
+		"/v1/runs/7/analysis/seats?format=5":          "unknown format",
+		"/v1/runs/7/analysis/seats?tier=unknown_tier": "bad parameter: tier",
+	} {
+		f := &fakeAnalysis{}
+		rec, _ := serve(t, f, path)
+		if rec.Code != http.StatusBadRequest || !strings.Contains(rec.Body.String(), msg) || f.calls != 0 {
+			t.Errorf("GET %s: %d %s (store calls %d), want 400 %q", path, rec.Code, rec.Body.String(), f.calls, msg)
+		}
+	}
+	rec, _ := serve(t, &fakeAnalysis{err: store.ErrRunNotFound}, "/v1/runs/9/analysis/seats")
+	if rec.Code != http.StatusNotFound {
+		t.Errorf("GET /v1/runs/9/analysis/seats for an unknown run: %d, want 404", rec.Code)
+	}
+}
+

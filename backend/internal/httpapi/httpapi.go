@@ -64,6 +64,7 @@ type PlayerReads interface {
 	PlayerCareer(ctx context.Context, run int64, name string, format int) (string, []store.CareerYear, []store.ModelPeak, error)
 	Versus(ctx context.Context, run int64, name, other string) (string, string, []store.PlayerMatch, error)
 	PlayerMatrix(ctx context.Context, run int64, name string, format int, year *int) (string, []store.MatrixCell, error)
+	PlayerSeats(ctx context.Context, run int64, name string, unrated bool) (store.PlayerSeatStats, error)
 }
 
 // YearReads are year.go's reads, and csv.go's for one year.
@@ -79,6 +80,7 @@ type AnalysisReads interface {
 	ActivePlayers(ctx context.Context, run int64) (map[string]bool, error)
 	ComparedPlayers(ctx context.Context, run int64, format int, terms []string) ([]store.ComparedPlayer, error)
 	Activity(ctx context.Context, run int64, inactiveOnOrBefore time.Time) (store.Activity, error)
+	SeatAnalysis(ctx context.Context, run int64, format int, tier string) ([]store.SeatStatsGroup, error)
 }
 
 // TournamentReads are tournament.go's reads.

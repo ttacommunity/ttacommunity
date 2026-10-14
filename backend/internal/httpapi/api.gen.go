@@ -373,6 +373,36 @@ func (e Model) Valid() bool {
 	}
 }
 
+// Defines values for SeatAnalysisTier.
+const (
+	SeatAnalysisTierAdvanced     SeatAnalysisTier = "advanced"
+	SeatAnalysisTierAll          SeatAnalysisTier = "all"
+	SeatAnalysisTierBeginner     SeatAnalysisTier = "beginner"
+	SeatAnalysisTierGrandmaster  SeatAnalysisTier = "grandmaster"
+	SeatAnalysisTierIntermediate SeatAnalysisTier = "intermediate"
+	SeatAnalysisTierMaster       SeatAnalysisTier = "master"
+)
+
+// Valid indicates whether the value is a known member of the SeatAnalysisTier enum.
+func (e SeatAnalysisTier) Valid() bool {
+	switch e {
+	case SeatAnalysisTierAdvanced:
+		return true
+	case SeatAnalysisTierAll:
+		return true
+	case SeatAnalysisTierBeginner:
+		return true
+	case SeatAnalysisTierGrandmaster:
+		return true
+	case SeatAnalysisTierIntermediate:
+		return true
+	case SeatAnalysisTierMaster:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for Series.
 const (
 	GrandSlams    Series = "grand_slams"
@@ -544,21 +574,51 @@ func (e TrophyRowTitle) Valid() bool {
 	}
 }
 
+// Defines values for GetSeatAnalysisParamsTier.
+const (
+	GetSeatAnalysisParamsTierAdvanced     GetSeatAnalysisParamsTier = "advanced"
+	GetSeatAnalysisParamsTierAll          GetSeatAnalysisParamsTier = "all"
+	GetSeatAnalysisParamsTierBeginner     GetSeatAnalysisParamsTier = "beginner"
+	GetSeatAnalysisParamsTierGrandmaster  GetSeatAnalysisParamsTier = "grandmaster"
+	GetSeatAnalysisParamsTierIntermediate GetSeatAnalysisParamsTier = "intermediate"
+	GetSeatAnalysisParamsTierMaster       GetSeatAnalysisParamsTier = "master"
+)
+
+// Valid indicates whether the value is a known member of the GetSeatAnalysisParamsTier enum.
+func (e GetSeatAnalysisParamsTier) Valid() bool {
+	switch e {
+	case GetSeatAnalysisParamsTierAdvanced:
+		return true
+	case GetSeatAnalysisParamsTierAll:
+		return true
+	case GetSeatAnalysisParamsTierBeginner:
+		return true
+	case GetSeatAnalysisParamsTierGrandmaster:
+		return true
+	case GetSeatAnalysisParamsTierIntermediate:
+		return true
+	case GetSeatAnalysisParamsTierMaster:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for GetLeaderboardCsvParamsStatus.
 const (
-	Active   GetLeaderboardCsvParamsStatus = "active"
-	All      GetLeaderboardCsvParamsStatus = "all"
-	Inactive GetLeaderboardCsvParamsStatus = "inactive"
+	GetLeaderboardCsvParamsStatusActive   GetLeaderboardCsvParamsStatus = "active"
+	GetLeaderboardCsvParamsStatusAll      GetLeaderboardCsvParamsStatus = "all"
+	GetLeaderboardCsvParamsStatusInactive GetLeaderboardCsvParamsStatus = "inactive"
 )
 
 // Valid indicates whether the value is a known member of the GetLeaderboardCsvParamsStatus enum.
 func (e GetLeaderboardCsvParamsStatus) Valid() bool {
 	switch e {
-	case Active:
+	case GetLeaderboardCsvParamsStatusActive:
 		return true
-	case All:
+	case GetLeaderboardCsvParamsStatusAll:
 		return true
-	case Inactive:
+	case GetLeaderboardCsvParamsStatusInactive:
 		return true
 	default:
 		return false
@@ -1707,6 +1767,60 @@ type PlayerRivals struct {
 	RunId  int64   `json:"run_id"`
 }
 
+// PlayerSeatDelta defines model for PlayerSeatDelta.
+type PlayerSeatDelta struct {
+	// DeltaWinRate Difference in percentage points between this seat winrate and the format overall winrate
+	DeltaWinRate float64 `json:"delta_win_rate"`
+	PlayerCount  int     `json:"player_count"`
+	Seat         int     `json:"seat"`
+	WinRate      float64 `json:"win_rate"`
+}
+
+// PlayerSeatGroup defines model for PlayerSeatGroup.
+type PlayerSeatGroup struct {
+	AvgCulture  float64         `json:"avg_culture"`
+	PlayerCount int             `json:"player_count"`
+	Seats       []PlayerSeatRow `json:"seats"`
+	TotalGames  int             `json:"total_games"`
+	TotalWins   int             `json:"total_wins"`
+	WinRate     float64         `json:"win_rate"`
+}
+
+// PlayerSeatOverview defines model for PlayerSeatOverview.
+type PlayerSeatOverview struct {
+	AvgCulture    float64          `json:"avg_culture"`
+	StrongestSeat *PlayerSeatDelta `json:"strongest_seat"`
+	TotalGames    int              `json:"total_games"`
+	TotalWins     int              `json:"total_wins"`
+	WeakestSeat   *PlayerSeatDelta `json:"weakest_seat"`
+	WinRate       float64          `json:"win_rate"`
+}
+
+// PlayerSeatRow defines model for PlayerSeatRow.
+type PlayerSeatRow struct {
+	AvgCulture float64 `json:"avg_culture"`
+
+	// DeltaWinRate Win rate minus group overall win rate
+	DeltaWinRate float64         `json:"delta_win_rate"`
+	Games        int             `json:"games"`
+	Places       []SeatPlaceRate `json:"places"`
+
+	// Seat 1-indexed turn position (Seat 1 = starting player)
+	Seat    int     `json:"seat"`
+	WinRate float64 `json:"win_rate"`
+	Wins    int     `json:"wins"`
+}
+
+// PlayerSeatStats defines model for PlayerSeatStats.
+type PlayerSeatStats struct {
+	// Groups Seat statistics grouped by format (2P, 3P, 4P)
+	Groups  []PlayerSeatGroup  `json:"groups"`
+	Name    string             `json:"name"`
+	Overall PlayerSeatOverview `json:"overall"`
+	RunId   int64              `json:"run_id"`
+	Unrated bool               `json:"unrated"`
+}
+
 // PlayerVersus defines model for PlayerVersus.
 type PlayerVersus struct {
 	Matches []VersusMatch `json:"matches"`
@@ -1869,6 +1983,50 @@ type SeasonSpan struct {
 type Seat struct {
 	Name  string  `json:"name"`
 	Score float64 `json:"score"`
+}
+
+// SeatAnalysis defines model for SeatAnalysis.
+type SeatAnalysis struct {
+	// Groups Seat statistics grouped by player count (2P, 3P, 4P)
+	Groups []SeatStatsGroup `json:"groups"`
+	RunId  int64            `json:"run_id"`
+	Tier   SeatAnalysisTier `json:"tier"`
+}
+
+// SeatAnalysisTier defines model for SeatAnalysis.Tier.
+type SeatAnalysisTier string
+
+// SeatPlaceRate defines model for SeatPlaceRate.
+type SeatPlaceRate struct {
+	Count int `json:"count"`
+
+	// Place 1-indexed placement finish (1 = 1st place)
+	Place int `json:"place"`
+
+	// Rate Placement rate as a percentage rounded to two decimals
+	Rate float64 `json:"rate"`
+}
+
+// SeatStatsGroup defines model for SeatStatsGroup.
+type SeatStatsGroup struct {
+	PlayerCount int              `json:"player_count"`
+	Seats       []SeatWinrateRow `json:"seats"`
+	TotalGames  int              `json:"total_games"`
+}
+
+// SeatWinrateRow defines model for SeatWinrateRow.
+type SeatWinrateRow struct {
+	Games int `json:"games"`
+
+	// Places Detailed placement breakdown (1st, 2nd, 3rd, 4th)
+	Places []SeatPlaceRate `json:"places"`
+
+	// Seat 1-indexed turn position (Seat 1 = starting player)
+	Seat int `json:"seat"`
+
+	// WinRate Win rate as a percentage rounded to two decimals
+	WinRate float64 `json:"win_rate"`
+	Wins    int     `json:"wins"`
 }
 
 // Series A tournament series
@@ -2278,6 +2436,18 @@ type GetComparedPlayersParams struct {
 	Search *string `form:"search,omitempty" json:"search,omitempty"`
 }
 
+// GetSeatAnalysisParams defines parameters for GetSeatAnalysis.
+type GetSeatAnalysisParams struct {
+	// Tier Skill tier of the table based on Glicko-D rating
+	Tier *GetSeatAnalysisParamsTier `form:"tier,omitempty" json:"tier,omitempty"`
+
+	// Format Player count format (0 for all formats, or 2, 3, 4)
+	Format *Format `form:"format,omitempty" json:"format,omitempty"`
+}
+
+// GetSeatAnalysisParamsTier defines parameters for GetSeatAnalysis.
+type GetSeatAnalysisParamsTier string
+
 // GetCatalogueGamesParams defines parameters for GetCatalogueGames.
 type GetCatalogueGamesParams struct {
 	Season *string `form:"season,omitempty" json:"season,omitempty"`
@@ -2367,6 +2537,12 @@ type GetPlayerMatrixParams struct {
 // GetPlayerRivalsParams defines parameters for GetPlayerRivals.
 type GetPlayerRivalsParams struct {
 	Format *Format `form:"format,omitempty" json:"format,omitempty"`
+}
+
+// GetPlayerSeatsParams defines parameters for GetPlayerSeats.
+type GetPlayerSeatsParams struct {
+	// Unrated Whether to include unrated/exhibition matches alongside rated tournament games
+	Unrated *bool `form:"unrated,omitempty" json:"unrated,omitempty"`
 }
 
 // GetYearLeaderboardParams defines parameters for GetYearLeaderboard.
@@ -2512,6 +2688,9 @@ type ServerInterface interface {
 	// GetComparedPlayers Players across every model
 	// (GET /v1/runs/{run}/analysis/players)
 	GetComparedPlayers(w http.ResponseWriter, r *http.Request, run RunId, params GetComparedPlayersParams)
+	// GetSeatAnalysis Win rates and placement per seat by player count and skill tier
+	// (GET /v1/runs/{run}/analysis/seats)
+	GetSeatAnalysis(w http.ResponseWriter, r *http.Request, run RunId, params GetSeatAnalysisParams)
 	// GetCatalogue Every tournament with games
 	// (GET /v1/runs/{run}/catalogue)
 	GetCatalogue(w http.ResponseWriter, r *http.Request, run RunId)
@@ -2554,6 +2733,9 @@ type ServerInterface interface {
 	// GetPlayerRivals The player's record against each opponent
 	// (GET /v1/runs/{run}/players/{name}/rivals)
 	GetPlayerRivals(w http.ResponseWriter, r *http.Request, run RunId, name PlayerName, params GetPlayerRivalsParams)
+	// GetPlayerSeats One player's performance broken down by starting position and player count
+	// (GET /v1/runs/{run}/players/{name}/seats)
+	GetPlayerSeats(w http.ResponseWriter, r *http.Request, run RunId, name PlayerName, params GetPlayerSeatsParams)
 	// GetPlayerVersus The latest games two players played together
 	// (GET /v1/runs/{run}/players/{name}/versus/{other})
 	GetPlayerVersus(w http.ResponseWriter, r *http.Request, run RunId, name PlayerName, other string)
@@ -3410,6 +3592,61 @@ func (siw *ServerInterfaceWrapper) GetComparedPlayers(w http.ResponseWriter, r *
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.GetComparedPlayers(w, r, run, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetSeatAnalysis operation middleware
+func (siw *ServerInterfaceWrapper) GetSeatAnalysis(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "run" -------------
+	var run RunId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "run", r.PathValue("run"), &run, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "integer", Format: "int64", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "run", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params GetSeatAnalysisParams
+
+	// ------------- Optional query parameter "tier" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "tier", r.URL.Query(), &params.Tier, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "tier"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "tier", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "format" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "format", r.URL.Query(), &params.Format, runtime.BindQueryParameterOptions{Type: "integer", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "format"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "format", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetSeatAnalysis(w, r, run, params)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -4277,6 +4514,57 @@ func (siw *ServerInterfaceWrapper) GetPlayerRivals(w http.ResponseWriter, r *htt
 	handler.ServeHTTP(w, r)
 }
 
+// GetPlayerSeats operation middleware
+func (siw *ServerInterfaceWrapper) GetPlayerSeats(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "run" -------------
+	var run RunId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "run", r.PathValue("run"), &run, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "integer", Format: "int64", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "run", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "name" -------------
+	var name PlayerName
+
+	err = runtime.BindStyledParameterWithOptions("simple", "name", r.PathValue("name"), &name, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "name", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params GetPlayerSeatsParams
+
+	// ------------- Optional query parameter "unrated" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "unrated", r.URL.Query(), &params.Unrated, runtime.BindQueryParameterOptions{Type: "boolean", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "unrated"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "unrated", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetPlayerSeats(w, r, run, name, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // GetPlayerVersus operation middleware
 func (siw *ServerInterfaceWrapper) GetPlayerVersus(w http.ResponseWriter, r *http.Request) {
 
@@ -4606,6 +4894,7 @@ func HandlerWithOptions(si ServerInterface, options StdHTTPServerOptions) http.H
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/v1/runs/{run}/players/{name}/achievements", wrapper.GetPlayerAchievements)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/v1/runs/{run}/players/{name}/versus/{other}", wrapper.GetPlayerVersus)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/v1/runs/{run}/players/{name}/matrix", wrapper.GetPlayerMatrix)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/v1/runs/{run}/players/{name}/seats", wrapper.GetPlayerSeats)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/v1/runs/{run}/years", wrapper.GetYears)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/v1/runs/{run}/years/{year}/leaderboard", wrapper.GetYearLeaderboard)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/v1/runs/{run}/analysis/calibration", wrapper.GetCalibration)
@@ -4613,6 +4902,7 @@ func HandlerWithOptions(si ServerInterface, options StdHTTPServerOptions) http.H
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/v1/runs/{run}/analysis/agreement", wrapper.GetAgreement)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/v1/runs/{run}/analysis/players", wrapper.GetComparedPlayers)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/v1/runs/{run}/analysis/activity", wrapper.GetActivity)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/v1/runs/{run}/analysis/seats", wrapper.GetSeatAnalysis)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/v1/runs/{run}/tournaments", wrapper.GetHallOfFame)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/v1/runs/{run}/tournaments/{series}", wrapper.GetTournamentSeries)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/v1/runs/{run}/catalogue", wrapper.GetCatalogue)
@@ -7117,6 +7407,67 @@ func (response GetComparedPlayers404JSONResponse) VisitGetComparedPlayersRespons
 	return err
 }
 
+type GetSeatAnalysisRequestObject struct {
+	Run    RunId `json:"run"`
+	Params GetSeatAnalysisParams
+}
+
+type GetSeatAnalysisResponseObject interface {
+	VisitGetSeatAnalysisResponse(w http.ResponseWriter) error
+}
+
+type GetSeatAnalysis200ResponseHeaders struct {
+	CacheControl string
+}
+
+type GetSeatAnalysis200JSONResponse struct {
+	Body    SeatAnalysis
+	Headers GetSeatAnalysis200ResponseHeaders
+}
+
+func (response GetSeatAnalysis200JSONResponse) VisitGetSeatAnalysisResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetSeatAnalysis400JSONResponse struct{ BadRequestJSONResponse }
+
+func (response GetSeatAnalysis400JSONResponse) VisitGetSeatAnalysisResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetSeatAnalysis404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response GetSeatAnalysis404JSONResponse) VisitGetSeatAnalysisResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
 type GetCatalogueRequestObject struct {
 	Run RunId `json:"run"`
 }
@@ -7982,6 +8333,68 @@ func (response GetPlayerRivals404JSONResponse) VisitGetPlayerRivalsResponse(w ht
 	return err
 }
 
+type GetPlayerSeatsRequestObject struct {
+	Run    RunId      `json:"run"`
+	Name   PlayerName `json:"name"`
+	Params GetPlayerSeatsParams
+}
+
+type GetPlayerSeatsResponseObject interface {
+	VisitGetPlayerSeatsResponse(w http.ResponseWriter) error
+}
+
+type GetPlayerSeats200ResponseHeaders struct {
+	CacheControl string
+}
+
+type GetPlayerSeats200JSONResponse struct {
+	Body    PlayerSeatStats
+	Headers GetPlayerSeats200ResponseHeaders
+}
+
+func (response GetPlayerSeats200JSONResponse) VisitGetPlayerSeatsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetPlayerSeats400JSONResponse struct{ BadRequestJSONResponse }
+
+func (response GetPlayerSeats400JSONResponse) VisitGetPlayerSeatsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetPlayerSeats404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response GetPlayerSeats404JSONResponse) VisitGetPlayerSeatsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
 type GetPlayerVersusRequestObject struct {
 	Run   RunId      `json:"run"`
 	Name  PlayerName `json:"name"`
@@ -8397,6 +8810,9 @@ type StrictServerInterface interface {
 	// GetComparedPlayers Players across every model
 	// (GET /v1/runs/{run}/analysis/players)
 	GetComparedPlayers(ctx context.Context, request GetComparedPlayersRequestObject) (GetComparedPlayersResponseObject, error)
+	// GetSeatAnalysis Win rates and placement per seat by player count and skill tier
+	// (GET /v1/runs/{run}/analysis/seats)
+	GetSeatAnalysis(ctx context.Context, request GetSeatAnalysisRequestObject) (GetSeatAnalysisResponseObject, error)
 	// GetCatalogue Every tournament with games
 	// (GET /v1/runs/{run}/catalogue)
 	GetCatalogue(ctx context.Context, request GetCatalogueRequestObject) (GetCatalogueResponseObject, error)
@@ -8439,6 +8855,9 @@ type StrictServerInterface interface {
 	// GetPlayerRivals The player's record against each opponent
 	// (GET /v1/runs/{run}/players/{name}/rivals)
 	GetPlayerRivals(ctx context.Context, request GetPlayerRivalsRequestObject) (GetPlayerRivalsResponseObject, error)
+	// GetPlayerSeats One player's performance broken down by starting position and player count
+	// (GET /v1/runs/{run}/players/{name}/seats)
+	GetPlayerSeats(ctx context.Context, request GetPlayerSeatsRequestObject) (GetPlayerSeatsResponseObject, error)
 	// GetPlayerVersus The latest games two players played together
 	// (GET /v1/runs/{run}/players/{name}/versus/{other})
 	GetPlayerVersus(ctx context.Context, request GetPlayerVersusRequestObject) (GetPlayerVersusResponseObject, error)
@@ -9468,6 +9887,33 @@ func (sh *strictHandler) GetComparedPlayers(w http.ResponseWriter, r *http.Reque
 	}
 }
 
+// GetSeatAnalysis operation middleware
+func (sh *strictHandler) GetSeatAnalysis(w http.ResponseWriter, r *http.Request, run RunId, params GetSeatAnalysisParams) {
+	var request GetSeatAnalysisRequestObject
+
+	request.Run = run
+	request.Params = params
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.GetSeatAnalysis(ctx, request.(GetSeatAnalysisRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetSeatAnalysis")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(GetSeatAnalysisResponseObject); ok {
+		if err := validResponse.VisitGetSeatAnalysisResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
 // GetCatalogue operation middleware
 func (sh *strictHandler) GetCatalogue(w http.ResponseWriter, r *http.Request, run RunId) {
 	var request GetCatalogueRequestObject
@@ -9844,6 +10290,34 @@ func (sh *strictHandler) GetPlayerRivals(w http.ResponseWriter, r *http.Request,
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(GetPlayerRivalsResponseObject); ok {
 		if err := validResponse.VisitGetPlayerRivalsResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// GetPlayerSeats operation middleware
+func (sh *strictHandler) GetPlayerSeats(w http.ResponseWriter, r *http.Request, run RunId, name PlayerName, params GetPlayerSeatsParams) {
+	var request GetPlayerSeatsRequestObject
+
+	request.Run = run
+	request.Name = name
+	request.Params = params
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.GetPlayerSeats(ctx, request.(GetPlayerSeatsRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetPlayerSeats")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(GetPlayerSeatsResponseObject); ok {
+		if err := validResponse.VisitGetPlayerSeatsResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {

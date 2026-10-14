@@ -187,3 +187,27 @@ export function runYears(first: string | null, last: string | null): [number, nu
   if (first === null || last === null) return null;
   return [Number(first.slice(0, 4)), Number(last.slice(0, 4))];
 }
+
+/** seatName returns a readable turn order label for seat number. */
+export function seatName(seat: number): string {
+  switch (seat) {
+    case 1:
+      return 'Seat 1 (Starting)';
+    case 2:
+      return 'Seat 2';
+    case 3:
+      return 'Seat 3';
+    case 4:
+      return 'Seat 4';
+    default:
+      return `Seat ${seat}`;
+  }
+}
+
+/** seatDeltaClass returns the CSS class for a winrate delta: positive (green), negative (red), or neutral. */
+export function seatDeltaClass(delta: number): 'delta-pos' | 'delta-neg' | 'delta-zero' {
+  if (delta > 0) return 'delta-pos';
+  if (delta < 0) return 'delta-neg';
+  return 'delta-zero';
+}
+

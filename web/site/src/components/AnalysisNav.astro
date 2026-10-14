@@ -1,7 +1,7 @@
 ---
 /** The analysis pages' subpage nav, with each page's own labels as upstream has them. */
 interface Props {
-  page: 'overview' | 'movers' | 'activity';
+  page: 'overview' | 'movers' | 'activity' | 'seats';
 }
 
 const { page } = Astro.props;
@@ -9,6 +9,7 @@ const plain = page === 'activity';
 const links = [
   { id: 'overview', href: '/ratings/analysis/', label: plain ? 'Overview & Calibration' : '📈 Overview & Calibration' },
   { id: 'movers', href: '/ratings/analysis/movers/', label: plain ? 'Multi-Engine Comparison' : '⚖ Multi-Engine Player Comparison' },
+  { id: 'seats', href: '/ratings/analysis/seats/', label: plain ? 'Turn Order & Seats' : '🎲 Turn Order & Seats' },
   { id: 'activity', href: '/ratings/analysis/activity/', label: plain ? 'Activity & Demographics' : '🌎 Activity & Demographics' },
 ];
 ---

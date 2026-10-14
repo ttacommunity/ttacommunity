@@ -450,6 +450,40 @@ paths:
           $ref: "#/components/responses/BadRequest"
         "404":
           $ref: "#/components/responses/NotFound"
+  /v1/runs/{run}/players/{name}/seats:
+    get:
+      operationId: getPlayerSeats
+      summary: One player's performance broken down by starting position and player count
+      description: |
+        The player's win rate, average culture score, and placement distribution
+        per seat (turn order 1 to 4) grouped across 2-player, 3-player, and
+        4-player games, plus comparative deltas against their overall performance.
+        By default returns rated games only; setting unrated=true includes all
+        played tournament and exhibition matches. Cached for five minutes.
+      parameters:
+        - $ref: "#/components/parameters/RunId"
+        - $ref: "#/components/parameters/PlayerName"
+        - name: unrated
+          in: query
+          required: false
+          description: Whether to include unrated/exhibition matches alongside rated tournament games
+          schema:
+            type: boolean
+            default: false
+      responses:
+        "200":
+          description: The player's seat statistics
+          headers:
+            Cache-Control:
+              $ref: "#/components/headers/CacheControl"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PlayerSeatStats"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "404":
+          $ref: "#/components/responses/NotFound"
   /v1/runs/{run}/years:
     get:
       operationId: getYears
@@ -638,6 +672,46 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Activity"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /v1/runs/{run}/analysis/seats:
+    get:
+      operationId: getSeatAnalysis
+      summary: Win rates and placement per seat by player count and skill tier
+      description: |
+        Empirical win rates and placement distributions per starting seat
+        (turn order) across 2-player, 3-player, and 4-player games, filterable
+        by Glicko-D skill tier (grandmaster, master, advanced, intermediate,
+        beginner, or all). Cached for five minutes.
+      parameters:
+        - $ref: "#/components/parameters/RunId"
+        - name: tier
+          in: query
+          required: false
+          description: Skill tier of the table based on Glicko-D rating
+          schema:
+            type: string
+            enum: [all, grandmaster, master, advanced, intermediate, beginner]
+            default: all
+        - name: format
+          in: query
+          required: false
+          description: Player count format (0 for all formats, or 2, 3, 4)
+          schema:
+            $ref: "#/components/schemas/Format"
+            default: 0
+      responses:
+        "200":
+          description: Seat statistics by player count
+          headers:
+            Cache-Control:
+              $ref: "#/components/headers/CacheControl"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SeatAnalysis"
         "400":
           $ref: "#/components/responses/BadRequest"
         "404":
@@ -3383,6 +3457,175 @@ components:
         all:
           type: number
           format: double
+    SeatAnalysis:
+      type: object
+      required: [run_id, tier, groups]
+      properties:
+        run_id:
+          type: integer
+          format: int64
+        tier:
+          type: string
+          enum: [all, grandmaster, master, advanced, intermediate, beginner]
+        groups:
+          description: Seat statistics grouped by player count (2P, 3P, 4P)
+          type: array
+          items:
+            $ref: "#/components/schemas/SeatStatsGroup"
+    SeatStatsGroup:
+      type: object
+      required: [player_count, total_games, seats]
+      properties:
+        player_count:
+          type: integer
+          minimum: 2
+          maximum: 4
+        total_games:
+          type: integer
+        seats:
+          type: array
+          items:
+            $ref: "#/components/schemas/SeatWinrateRow"
+    SeatWinrateRow:
+      type: object
+      required: [seat, games, wins, win_rate, places]
+      properties:
+        seat:
+          description: 1-indexed turn position (Seat 1 = starting player)
+          type: integer
+          minimum: 1
+          maximum: 4
+        games:
+          type: integer
+        wins:
+          type: integer
+        win_rate:
+          description: Win rate as a percentage rounded to two decimals
+          type: number
+          format: double
+        places:
+          description: Detailed placement breakdown (1st, 2nd, 3rd, 4th)
+          type: array
+          items:
+            $ref: "#/components/schemas/SeatPlaceRate"
+    SeatPlaceRate:
+      type: object
+      required: [place, count, rate]
+      properties:
+        place:
+          description: 1-indexed placement finish (1 = 1st place)
+          type: integer
+          minimum: 1
+          maximum: 4
+        count:
+          type: integer
+        rate:
+          description: Placement rate as a percentage rounded to two decimals
+          type: number
+          format: double
+    PlayerSeatStats:
+      type: object
+      required: [run_id, name, unrated, groups, overall]
+      properties:
+        run_id:
+          type: integer
+          format: int64
+        name:
+          type: string
+        unrated:
+          type: boolean
+        groups:
+          description: Seat statistics grouped by format (2P, 3P, 4P)
+          type: array
+          items:
+            $ref: "#/components/schemas/PlayerSeatGroup"
+        overall:
+          $ref: "#/components/schemas/PlayerSeatOverview"
+    PlayerSeatOverview:
+      type: object
+      required: [total_games, total_wins, win_rate, avg_culture, strongest_seat, weakest_seat]
+      properties:
+        total_games:
+          type: integer
+        total_wins:
+          type: integer
+        win_rate:
+          type: number
+          format: double
+        avg_culture:
+          type: number
+          format: double
+        strongest_seat:
+          $ref: "#/components/schemas/PlayerSeatDelta"
+          nullable: true
+        weakest_seat:
+          $ref: "#/components/schemas/PlayerSeatDelta"
+          nullable: true
+    PlayerSeatDelta:
+      type: object
+      nullable: true
+      required: [player_count, seat, win_rate, delta_win_rate]
+      properties:
+        player_count:
+          type: integer
+        seat:
+          type: integer
+        win_rate:
+          type: number
+          format: double
+        delta_win_rate:
+          description: Difference in percentage points between this seat winrate and the format overall winrate
+          type: number
+          format: double
+    PlayerSeatGroup:
+      type: object
+      required: [player_count, total_games, total_wins, win_rate, avg_culture, seats]
+      properties:
+        player_count:
+          type: integer
+          minimum: 2
+          maximum: 4
+        total_games:
+          type: integer
+        total_wins:
+          type: integer
+        win_rate:
+          type: number
+          format: double
+        avg_culture:
+          type: number
+          format: double
+        seats:
+          type: array
+          items:
+            $ref: "#/components/schemas/PlayerSeatRow"
+    PlayerSeatRow:
+      type: object
+      required: [seat, games, wins, win_rate, delta_win_rate, avg_culture, places]
+      properties:
+        seat:
+          description: 1-indexed turn position (Seat 1 = starting player)
+          type: integer
+          minimum: 1
+          maximum: 4
+        games:
+          type: integer
+        wins:
+          type: integer
+        win_rate:
+          type: number
+          format: double
+        delta_win_rate:
+          description: Win rate minus group overall win rate
+          type: number
+          format: double
+        avg_culture:
+          type: number
+          format: double
+        places:
+          type: array
+          items:
+            $ref: "#/components/schemas/SeatPlaceRate"
     ModelPair:
       type: object
       required: [a, b, pearson, spearman]

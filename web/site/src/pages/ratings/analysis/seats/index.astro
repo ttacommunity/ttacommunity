@@ -1,0 +1,21 @@
+---
+import { PUBLIC_API_URL } from 'astro:env/client';
+import SiteLayout from '../../../../layouts/SiteLayout.astro';
+import AnalysisNav from '../../../../components/AnalysisNav.astro';
+import SeatAnalysisPage from '../../../../components/SeatAnalysisPage';
+import '../../../../components/AnalysisPage.css';
+---
+<SiteLayout title="Turn Order & Seat Advantage | Through the Ages" description="Empirical win rates and placement distributions per starting turn position across 2-player, 3-player, and 4-player games, filterable by skill tier.">
+  <AnalysisNav page="seats" />
+
+  <div class="analysis-hero-card hero-snug">
+    <div>
+      <h1 class="analysis-hero-title">Turn Order &amp; Starting Seat Advantage</h1>
+      <p class="analysis-hero-desc">
+        Empirical win rates and finishing placement distributions per starting seat across <strong>2-Player</strong>, <strong>3-Player</strong>, and <strong>4-Player</strong> matches, filterable across Glicko-D skill tiers.
+      </p>
+    </div>
+  </div>
+
+  <SeatAnalysisPage client:only="react" apiUrl={PUBLIC_API_URL} />
+</SiteLayout>

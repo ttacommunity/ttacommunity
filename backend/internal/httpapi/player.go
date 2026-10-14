@@ -344,3 +344,85 @@ func compareDesc(a, b float64) int {
 	}
 	return 0
 }
+
+// GetPlayerSeats returns a player's seat statistics across formats.
+func (s *server) GetPlayerSeats(ctx context.Context, req GetPlayerSeatsRequestObject) (GetPlayerSeatsResponseObject, error) {
+	if msg := playerRefusal(req.Run, req.Name, N0); msg != "" {
+		return GetPlayerSeats400JSONResponse{badRequestBody(msg)}, nil
+	}
+	unrated := req.Params.Unrated != nil && *req.Params.Unrated
+	stats, err := s.ratings.PlayerSeats(ctx, req.Run, req.Name, unrated)
+	if nf, ok := notFound(err); ok {
+		return GetPlayerSeats404JSONResponse{nf}, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+
+	body := PlayerSeatStats{
+		RunId:   req.Run,
+		Name:    stats.Name,
+		Unrated: stats.Unrated,
+		Groups:  make([]PlayerSeatGroup, 0, len(stats.Groups)),
+		Overall: PlayerSeatOverview{
+			TotalGames: stats.Overall.TotalGames,
+			TotalWins:  stats.Overall.TotalWins,
+			WinRate:    stats.Overall.WinRate,
+			AvgCulture: stats.Overall.AvgCulture,
+		},
+	}
+
+	if stats.Overall.StrongestSeat != nil {
+		body.Overall.StrongestSeat = &PlayerSeatDelta{
+			PlayerCount:  stats.Overall.StrongestSeat.PlayerCount,
+			Seat:         stats.Overall.StrongestSeat.Seat,
+			WinRate:      stats.Overall.StrongestSeat.WinRate,
+			DeltaWinRate: stats.Overall.StrongestSeat.DeltaWinRate,
+		}
+	}
+	if stats.Overall.WeakestSeat != nil {
+		body.Overall.WeakestSeat = &PlayerSeatDelta{
+			PlayerCount:  stats.Overall.WeakestSeat.PlayerCount,
+			Seat:         stats.Overall.WeakestSeat.Seat,
+			WinRate:      stats.Overall.WeakestSeat.WinRate,
+			DeltaWinRate: stats.Overall.WeakestSeat.DeltaWinRate,
+		}
+	}
+
+	for _, g := range stats.Groups {
+		group := PlayerSeatGroup{
+			PlayerCount: g.PlayerCount,
+			TotalGames:  g.TotalGames,
+			TotalWins:   g.TotalWins,
+			WinRate:     g.WinRate,
+			AvgCulture:  g.AvgCulture,
+			Seats:       make([]PlayerSeatRow, 0, len(g.Seats)),
+		}
+		for _, row := range g.Seats {
+			sr := PlayerSeatRow{
+				Seat:         row.Seat,
+				Games:        row.Games,
+				Wins:         row.Wins,
+				WinRate:      row.WinRate,
+				DeltaWinRate: row.DeltaWinRate,
+				AvgCulture:   row.AvgCulture,
+				Places:       make([]SeatPlaceRate, 0, len(row.Places)),
+			}
+			for _, p := range row.Places {
+				sr.Places = append(sr.Places, SeatPlaceRate{
+					Place: p.Place,
+					Count: p.Count,
+					Rate:  p.Rate,
+				})
+			}
+			group.Seats = append(group.Seats, sr)
+		}
+		body.Groups = append(body.Groups, group)
+	}
+
+	return GetPlayerSeats200JSONResponse{
+		Body:    body,
+		Headers: GetPlayerSeats200ResponseHeaders{CacheControl: cacheRun},
+	}, nil
+}
+

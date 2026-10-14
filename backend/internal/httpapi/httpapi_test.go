@@ -86,6 +86,10 @@ func (f *fakeRatings) PlayerCareer(context.Context, int64, string, int) (string,
 	return "", nil, nil, nil
 }
 
+func (f *fakeRatings) PlayerSeats(context.Context, int64, string, bool) (store.PlayerSeatStats, error) {
+	return store.PlayerSeatStats{}, nil
+}
+
 func (f *fakeRatings) Calibration(context.Context, int64) ([]store.CalibrationRow, error) {
 	return nil, nil
 }
@@ -104,6 +108,10 @@ func (f *fakeRatings) ComparedPlayers(context.Context, int64, int, []string) ([]
 
 func (f *fakeRatings) Activity(context.Context, int64, time.Time) (store.Activity, error) {
 	return store.Activity{}, nil
+}
+
+func (f *fakeRatings) SeatAnalysis(context.Context, int64, int, string) ([]store.SeatStatsGroup, error) {
+	return nil, nil
 }
 
 func (f *fakeRatings) YearBoard(context.Context, int64, int, string, int) (store.YearBoard, error) {

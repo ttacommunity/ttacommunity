@@ -6,6 +6,8 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5"
+
+	"ttacommunity/backend/internal/round"
 )
 
 // CalibrationRow is how well one model predicted games in one format, over
@@ -277,4 +279,140 @@ func (r *RatingsReader) Activity(ctx context.Context, run int64, inactiveOnOrBef
 		return a, fmt.Errorf("reading run %d's countries: %w", run, err)
 	}
 	return a, nil
+}
+
+// SeatStatsGroup is seat statistics for one player count (2, 3, 4).
+type SeatStatsGroup struct {
+	PlayerCount int
+	TotalGames  int
+	Seats       []SeatWinrateRow
+}
+
+// SeatWinrateRow is performance for one starting seat.
+type SeatWinrateRow struct {
+	Seat    int
+	Games   int
+	Wins    int
+	WinRate float64
+	Places  []SeatPlaceRate
+}
+
+// SeatPlaceRate is placement rate for one finish position.
+type SeatPlaceRate struct {
+	Place int
+	Count int
+	Rate  float64
+}
+
+// SeatAnalysis returns seat statistics grouped by player count (2P, 3P, 4P) and filtered by skill tier.
+func (r *RatingsReader) SeatAnalysis(ctx context.Context, run int64, format int, tier string) ([]SeatStatsGroup, error) {
+	if err := r.requirePublished(ctx, run); err != nil {
+		return nil, err
+	}
+	query := `
+		WITH games_in_run AS (
+			SELECT DISTINCT match_id AS game_id, player_count
+			FROM pairwise_matches
+			WHERE run_id = $1 AND ($2 = 0 OR player_count = $2)
+		),
+		game_averages AS (
+			SELECT g.game_id, g.player_count, avg(r.rating) AS avg_rating
+			FROM games_in_run g
+			JOIN seats s ON s.game_id = g.game_id
+			JOIN player_ratings r ON r.run_id = $1 AND r.model_type = 'glicko2_daneo' AND r.player_count = 0 AND r.player_name = s.player_name
+			GROUP BY g.game_id, g.player_count
+		),
+		filtered_games AS (
+			SELECT game_id, player_count
+			FROM game_averages
+			WHERE (
+				CASE $3
+					WHEN 'grandmaster' THEN avg_rating >= 1750
+					WHEN 'master' THEN avg_rating >= 1625 AND avg_rating < 1750
+					WHEN 'advanced' THEN avg_rating >= 1500 AND avg_rating < 1625
+					WHEN 'intermediate' THEN avg_rating >= 1375 AND avg_rating < 1500
+					WHEN 'beginner' THEN avg_rating < 1375
+					ELSE true
+				END
+			)
+		),
+		seat_data AS (
+			SELECT 
+				fg.player_count,
+				coalesce(s.starting_position + 1, s.seat) AS seat,
+				s.place,
+				count(*) AS count
+			FROM filtered_games fg
+			JOIN seats s ON s.game_id = fg.game_id
+			GROUP BY fg.player_count, coalesce(s.starting_position + 1, s.seat), s.place
+		)
+		SELECT player_count, seat, place, count
+		FROM seat_data
+		ORDER BY player_count, seat, place`
+
+	rows, err := r.pool.Query(ctx, query, run, format, tier)
+	if err != nil {
+		return nil, fmt.Errorf("reading run %d's seat analysis: %w", run, err)
+	}
+
+	var pc, seat, place, count int
+	counts := map[[3]int]int{}
+	_, err = pgx.ForEachRow(rows, []any{&pc, &seat, &place, &count}, func() error {
+		counts[[3]int{pc, seat, place}] = count
+		return nil
+	})
+	if err != nil {
+		return nil, fmt.Errorf("reading run %d's seat analysis: %w", run, err)
+	}
+
+	playerCounts := []int{2, 3, 4}
+	if format == 2 || format == 3 || format == 4 {
+		playerCounts = []int{format}
+	}
+
+	groups := make([]SeatStatsGroup, 0, len(playerCounts))
+	for _, pc := range playerCounts {
+		totalGames := 0
+		for p := 1; p <= pc; p++ {
+			totalGames += counts[[3]int{pc, 1, p}]
+		}
+		group := SeatStatsGroup{
+			PlayerCount: pc,
+			TotalGames:  totalGames,
+			Seats:       make([]SeatWinrateRow, 0, pc),
+		}
+		for s := 1; s <= pc; s++ {
+			seatGames := 0
+			for p := 1; p <= pc; p++ {
+				seatGames += counts[[3]int{pc, s, p}]
+			}
+			wins := counts[[3]int{pc, s, 1}]
+			winRate := 0.0
+			if seatGames > 0 {
+				winRate = round.To(float64(wins)/float64(seatGames)*100.0, 2)
+			}
+			places := make([]SeatPlaceRate, 0, pc)
+			for p := 1; p <= pc; p++ {
+				placeCount := counts[[3]int{pc, s, p}]
+				rate := 0.0
+				if seatGames > 0 {
+					rate = round.To(float64(placeCount)/float64(seatGames)*100.0, 2)
+				}
+				places = append(places, SeatPlaceRate{
+					Place: p,
+					Count: placeCount,
+					Rate:  rate,
+				})
+			}
+			group.Seats = append(group.Seats, SeatWinrateRow{
+				Seat:    s,
+				Games:   seatGames,
+				Wins:    wins,
+				WinRate: winRate,
+				Places:  places,
+			})
+		}
+		groups = append(groups, group)
+	}
+	return groups, nil
 }
