@@ -352,33 +352,28 @@ func (r *RatingsReader) seatCountsOf(ctx context.Context, run int64) (map[string
 			FROM pairwise_matches
 			WHERE run_id = $1
 		),
-		game_tiers AS (
-			SELECT g.game_id, g.player_count,
-				CASE
-					WHEN avg(r.rating) >= 1750 THEN 'grandmaster'
-					WHEN avg(r.rating) >= 1625 THEN 'master'
-					WHEN avg(r.rating) >= 1500 THEN 'advanced'
-					WHEN avg(r.rating) >= 1375 THEN 'intermediate'
-					ELSE 'beginner'
-				END AS tier
+		seat_rows AS (
+			SELECT g.player_count, coalesce(s.starting_position + 1, s.seat) AS seat, s.place,
+				avg(r.rating) OVER game AS avg_rating,
+				count(*) FILTER (WHERE s.place = 1) OVER game AS winners
 			FROM games_in_run g
 			JOIN seats s ON s.game_id = g.game_id
-			JOIN player_ratings r ON r.run_id = $1 AND r.model_type = 'glicko2_daneo' AND r.player_count = 0 AND r.player_name = s.player_name
-			GROUP BY g.game_id, g.player_count
-		),
-		tied_games AS (
-			SELECT s.game_id
-			FROM game_tiers gt
-			JOIN seats s ON s.game_id = gt.game_id AND s.place = 1
-			GROUP BY s.game_id
-			HAVING count(*) > 1
+			LEFT JOIN player_ratings r ON r.run_id = $1 AND r.model_type = 'glicko2_daneo' AND r.player_count = 0 AND r.player_name = s.player_name
+			WINDOW game AS (PARTITION BY s.game_id)
 		)
-		SELECT gt.tier, gt.player_count, coalesce(s.starting_position + 1, s.seat), s.place, count(*),
-			count(*) FILTER (WHERE s.place = 1 AND t.game_id IS NULL),
-			count(*) FILTER (WHERE s.place = 1 AND t.game_id IS NOT NULL)
-		FROM game_tiers gt
-		JOIN seats s ON s.game_id = gt.game_id
-		LEFT JOIN tied_games t ON t.game_id = gt.game_id
+		SELECT
+			CASE
+				WHEN avg_rating >= 1750 THEN 'grandmaster'
+				WHEN avg_rating >= 1625 THEN 'master'
+				WHEN avg_rating >= 1500 THEN 'advanced'
+				WHEN avg_rating >= 1375 THEN 'intermediate'
+				ELSE 'beginner'
+			END,
+			player_count, seat, place, count(*),
+			count(*) FILTER (WHERE place = 1 AND winners = 1),
+			count(*) FILTER (WHERE place = 1 AND winners > 1)
+		FROM seat_rows
+		WHERE avg_rating IS NOT NULL -- a game with no rated player has no tier
 		GROUP BY 1, 2, 3, 4`, run)
 	if err != nil {
 		return nil, fmt.Errorf("reading run %d's seat analysis: %w", run, err)
