@@ -199,30 +199,6 @@ func (e CatalogueGameState) Valid() bool {
 	}
 }
 
-// Defines values for CommunityEdition.
-const (
-	N2024  CommunityEdition = "2024"
-	N2025  CommunityEdition = "2025"
-	N2026  CommunityEdition = "2026"
-	Race26 CommunityEdition = "race26"
-)
-
-// Valid indicates whether the value is a known member of the CommunityEdition enum.
-func (e CommunityEdition) Valid() bool {
-	switch e {
-	case N2024:
-		return true
-	case N2025:
-		return true
-	case N2026:
-		return true
-	case Race26:
-		return true
-	default:
-		return false
-	}
-}
-
 // Defines values for CommunityRowTitle.
 const (
 	CommunityRowTitleB   CommunityRowTitle = "B"
@@ -1219,15 +1195,79 @@ type Champion struct {
 	Reigning bool `json:"reigning"`
 }
 
-// CommunityEdition An edition of the community leaderboard (race26 is the 2026 race)
-type CommunityEdition string
+// CommunityCategory defines model for CommunityCategory.
+type CommunityCategory struct {
+	BadgeClass string                 `json:"badge_class"`
+	Category   string                 `json:"category"`
+	Columns    []CommunityEventColumn `json:"columns"`
+}
+
+// CommunityEdition An edition of the community leaderboard (slug identifier)
+type CommunityEdition = string
+
+// CommunityEditionInfo defines model for CommunityEditionInfo.
+type CommunityEditionInfo struct {
+	Badge          string `json:"badge"`
+	Id             string `json:"id"`
+	Maintainer     string `json:"maintainer"`
+	MaintainerNote string `json:"maintainer_note"`
+	Name           string `json:"name"`
+	Short          string `json:"short"`
+	Title          string `json:"title"`
+	Wc             string `json:"wc"`
+	WcDesc         string `json:"wc_desc"`
+	Year           int    `json:"year"`
+}
+
+// CommunityEditionItem defines model for CommunityEditionItem.
+type CommunityEditionItem struct {
+	Badge          string `json:"badge"`
+	CountingEvents int    `json:"counting_events"`
+	Maintainer     string `json:"maintainer"`
+	MaintainerNote string `json:"maintainer_note"`
+	Name           string `json:"name"`
+	ShortName      string `json:"short_name"`
+	Slug           string `json:"slug"`
+	SortOrder      int    `json:"sort_order"`
+	Title          string `json:"title"`
+	Visible        bool   `json:"visible"`
+	Year           int    `json:"year"`
+}
+
+// CommunityEditionPatch defines model for CommunityEditionPatch.
+type CommunityEditionPatch struct {
+	Badge          *string `json:"badge,omitempty"`
+	CountingEvents *int    `json:"counting_events,omitempty"`
+	Maintainer     *string `json:"maintainer,omitempty"`
+	MaintainerNote *string `json:"maintainer_note,omitempty"`
+	Name           *string `json:"name,omitempty"`
+	ShortName      *string `json:"short_name,omitempty"`
+	SortOrder      *int    `json:"sort_order,omitempty"`
+	Title          *string `json:"title,omitempty"`
+	Visible        *bool   `json:"visible,omitempty"`
+	Year           *int    `json:"year,omitempty"`
+}
+
+// CommunityEventColumn defines model for CommunityEventColumn.
+type CommunityEventColumn struct {
+	Desc   *string `json:"desc,omitempty"`
+	Id     string  `json:"id"`
+	MaxPts int     `json:"max_pts"`
+	Name   string  `json:"name"`
+	Short  string  `json:"short"`
+}
 
 // CommunityLeaderboard defines model for CommunityLeaderboard.
 type CommunityLeaderboard struct {
-	// Edition An edition of the community leaderboard (race26 is the 2026 race)
-	Edition CommunityEdition `json:"edition"`
-	Rows    []CommunityRow   `json:"rows"`
-	RunId   int64            `json:"run_id"`
+	Categories     []CommunityCategory `json:"categories"`
+	CountingEvents int                 `json:"counting_events"`
+
+	// Edition An edition of the community leaderboard (slug identifier)
+	Edition CommunityEdition        `json:"edition"`
+	Info    CommunityEditionInfo    `json:"info"`
+	Rows    []CommunityRow          `json:"rows"`
+	RunId   int64                   `json:"run_id"`
+	Summary []CommunitySummaryGroup `json:"summary"`
 }
 
 // CommunityRow defines model for CommunityRow.
@@ -1249,6 +1289,17 @@ type CommunityRow struct {
 
 // CommunityRowTitle The run's title for the player, null when none or not a player here
 type CommunityRowTitle string
+
+// CommunitySummaryGroup defines model for CommunitySummaryGroup.
+type CommunitySummaryGroup struct {
+	BadgeClass string   `json:"badge_class"`
+	Cols       []string `json:"cols"`
+	Desc       string   `json:"desc"`
+	Id         string   `json:"id"`
+	MaxPts     int      `json:"max_pts"`
+	Name       string   `json:"name"`
+	Short      string   `json:"short"`
+}
 
 // ComparedPlayer defines model for ComparedPlayer.
 type ComparedPlayer struct {
@@ -2562,6 +2613,12 @@ type PostAdminBadgeJSONRequestBody = BadgeSetting
 // PutAdminBadgeJSONRequestBody defines body for PutAdminBadge for application/json ContentType.
 type PutAdminBadgeJSONRequestBody = BadgeSetting
 
+// PostAdminCommunityEditionJSONRequestBody defines body for PostAdminCommunityEdition for application/json ContentType.
+type PostAdminCommunityEditionJSONRequestBody = CommunityEditionItem
+
+// PatchAdminCommunityEditionJSONRequestBody defines body for PatchAdminCommunityEdition for application/json ContentType.
+type PatchAdminCommunityEditionJSONRequestBody = CommunityEditionPatch
+
 // PatchAdminRunJSONRequestBody defines body for PatchAdminRun for application/json ContentType.
 type PatchAdminRunJSONRequestBody = RunProtection
 
@@ -2609,6 +2666,15 @@ type ServerInterface interface {
 	// PutAdminBadge Change a badge's label and description, and who holds it when players are given (admins only)
 	// (PUT /v1/admin/badges/{badge})
 	PutAdminBadge(w http.ResponseWriter, r *http.Request, badge AdminBadgeId)
+	// GetAdminCommunityEditions Every edition of the community leaderboard
+	// (GET /v1/admin/community/editions)
+	GetAdminCommunityEditions(w http.ResponseWriter, r *http.Request)
+	// PostAdminCommunityEdition Create a new edition of the community leaderboard
+	// (POST /v1/admin/community/editions)
+	PostAdminCommunityEdition(w http.ResponseWriter, r *http.Request)
+	// PatchAdminCommunityEdition Edit an edition of the community leaderboard
+	// (PATCH /v1/admin/community/editions/{edition})
+	PatchAdminCommunityEdition(w http.ResponseWriter, r *http.Request, edition string)
 	// GetAdminData The loaded data at a glance
 	// (GET /v1/admin/data)
 	GetAdminData(w http.ResponseWriter, r *http.Request)
@@ -2672,6 +2738,9 @@ type ServerInterface interface {
 	// PatchAdminSeason Change a season's settings, notes or podium
 	// (PATCH /v1/admin/tournaments/{tournament}/seasons/{season})
 	PatchAdminSeason(w http.ResponseWriter, r *http.Request, tournament AdminTournamentSlug, season AdminSeasonLabel)
+	// GetCommunityEditions Visible editions of the community leaderboard
+	// (GET /v1/community/editions)
+	GetCommunityEditions(w http.ResponseWriter, r *http.Request)
 	// GetCurrentRun The run the site shows now
 	// (GET /v1/runs/current)
 	GetCurrentRun(w http.ResponseWriter, r *http.Request)
@@ -2929,6 +2998,60 @@ func (siw *ServerInterfaceWrapper) PutAdminBadge(w http.ResponseWriter, r *http.
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.PutAdminBadge(w, r, badge)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetAdminCommunityEditions operation middleware
+func (siw *ServerInterfaceWrapper) GetAdminCommunityEditions(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetAdminCommunityEditions(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// PostAdminCommunityEdition operation middleware
+func (siw *ServerInterfaceWrapper) PostAdminCommunityEdition(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.PostAdminCommunityEdition(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// PatchAdminCommunityEdition operation middleware
+func (siw *ServerInterfaceWrapper) PatchAdminCommunityEdition(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "edition" -------------
+	var edition string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "edition", r.PathValue("edition"), &edition, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "edition", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.PatchAdminCommunityEdition(w, r, edition)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -3389,6 +3512,20 @@ func (siw *ServerInterfaceWrapper) PatchAdminSeason(w http.ResponseWriter, r *ht
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.PatchAdminSeason(w, r, tournament, season)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetCommunityEditions operation middleware
+func (siw *ServerInterfaceWrapper) GetCommunityEditions(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetCommunityEditions(w, r)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -4910,6 +5047,7 @@ func HandlerWithOptions(si ServerInterface, options StdHTTPServerOptions) http.H
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/v1/runs/{run}/catalogue", wrapper.GetCatalogue)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/v1/runs/{run}/catalogue/{tournament}", wrapper.GetCatalogueTournament)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/v1/runs/{run}/catalogue/{tournament}/games", wrapper.GetCatalogueGames)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/v1/community/editions", wrapper.GetCommunityEditions)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/v1/runs/{run}/community/{edition}", wrapper.GetCommunityLeaderboard)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/v1/admin/me", wrapper.GetAdminMe)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/v1/admin/tournaments", wrapper.GetAdminTournaments)
@@ -4932,6 +5070,9 @@ func HandlerWithOptions(si ServerInterface, options StdHTTPServerOptions) http.H
 	m.HandleFunc(http.MethodDelete+" "+options.BaseURL+"/v1/admin/tournaments/{tournament}/seasons/{season}", wrapper.DeleteAdminSeason)
 	m.HandleFunc(http.MethodPatch+" "+options.BaseURL+"/v1/admin/tournaments/{tournament}/seasons/{season}", wrapper.PatchAdminSeason)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/v1/admin/tournaments/{tournament}/seasons", wrapper.PostAdminSeason)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/v1/admin/community/editions", wrapper.GetAdminCommunityEditions)
+	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/v1/admin/community/editions", wrapper.PostAdminCommunityEdition)
+	m.HandleFunc(http.MethodPatch+" "+options.BaseURL+"/v1/admin/community/editions/{edition}", wrapper.PatchAdminCommunityEdition)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/v1/admin/runs", wrapper.GetAdminRuns)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/v1/admin/runs", wrapper.PostAdminRun)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/v1/admin/runs/stop", wrapper.PostAdminRunStop)
@@ -5558,6 +5699,195 @@ func (response PutAdminBadge409JSONResponse) VisitPutAdminBadgeResponse(w http.R
 	w.Header().Set("Content-Type", "application/json")
 	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
 	w.WriteHeader(409)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetAdminCommunityEditionsRequestObject struct {
+}
+
+type GetAdminCommunityEditionsResponseObject interface {
+	VisitGetAdminCommunityEditionsResponse(w http.ResponseWriter) error
+}
+
+type GetAdminCommunityEditions200JSONResponse []CommunityEditionItem
+
+func (response GetAdminCommunityEditions200JSONResponse) VisitGetAdminCommunityEditionsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetAdminCommunityEditions401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response GetAdminCommunityEditions401JSONResponse) VisitGetAdminCommunityEditionsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetAdminCommunityEditions403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response GetAdminCommunityEditions403JSONResponse) VisitGetAdminCommunityEditionsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PostAdminCommunityEditionRequestObject struct {
+	Body *PostAdminCommunityEditionJSONRequestBody
+}
+
+type PostAdminCommunityEditionResponseObject interface {
+	VisitPostAdminCommunityEditionResponse(w http.ResponseWriter) error
+}
+
+type PostAdminCommunityEdition201Response struct {
+}
+
+func (response PostAdminCommunityEdition201Response) VisitPostAdminCommunityEditionResponse(w http.ResponseWriter) error {
+	w.WriteHeader(201)
+	return nil
+}
+
+type PostAdminCommunityEdition400JSONResponse struct{ BadRequestJSONResponse }
+
+func (response PostAdminCommunityEdition400JSONResponse) VisitPostAdminCommunityEditionResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PostAdminCommunityEdition401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response PostAdminCommunityEdition401JSONResponse) VisitPostAdminCommunityEditionResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PostAdminCommunityEdition403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response PostAdminCommunityEdition403JSONResponse) VisitPostAdminCommunityEditionResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PatchAdminCommunityEditionRequestObject struct {
+	Edition string `json:"edition"`
+	Body    *PatchAdminCommunityEditionJSONRequestBody
+}
+
+type PatchAdminCommunityEditionResponseObject interface {
+	VisitPatchAdminCommunityEditionResponse(w http.ResponseWriter) error
+}
+
+type PatchAdminCommunityEdition204Response struct {
+}
+
+func (response PatchAdminCommunityEdition204Response) VisitPatchAdminCommunityEditionResponse(w http.ResponseWriter) error {
+	w.WriteHeader(204)
+	return nil
+}
+
+type PatchAdminCommunityEdition400JSONResponse struct{ BadRequestJSONResponse }
+
+func (response PatchAdminCommunityEdition400JSONResponse) VisitPatchAdminCommunityEditionResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PatchAdminCommunityEdition401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response PatchAdminCommunityEdition401JSONResponse) VisitPatchAdminCommunityEditionResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PatchAdminCommunityEdition403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response PatchAdminCommunityEdition403JSONResponse) VisitPatchAdminCommunityEditionResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PatchAdminCommunityEdition404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response PatchAdminCommunityEdition404JSONResponse) VisitPatchAdminCommunityEditionResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(404)
 	_, err := buf.WriteTo(w)
 	return err
 }
@@ -7058,6 +7388,35 @@ func (response PatchAdminSeason404JSONResponse) VisitPatchAdminSeasonResponse(w 
 	w.Header().Set("Content-Type", "application/json")
 	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
 	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetCommunityEditionsRequestObject struct {
+}
+
+type GetCommunityEditionsResponseObject interface {
+	VisitGetCommunityEditionsResponse(w http.ResponseWriter) error
+}
+
+type GetCommunityEditions200ResponseHeaders struct {
+	CacheControl string
+}
+
+type GetCommunityEditions200JSONResponse struct {
+	Body    []CommunityEditionItem
+	Headers GetCommunityEditions200ResponseHeaders
+}
+
+func (response GetCommunityEditions200JSONResponse) VisitGetCommunityEditionsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(200)
 	_, err := buf.WriteTo(w)
 	return err
 }
@@ -8731,6 +9090,15 @@ type StrictServerInterface interface {
 	// PutAdminBadge Change a badge's label and description, and who holds it when players are given (admins only)
 	// (PUT /v1/admin/badges/{badge})
 	PutAdminBadge(ctx context.Context, request PutAdminBadgeRequestObject) (PutAdminBadgeResponseObject, error)
+	// GetAdminCommunityEditions Every edition of the community leaderboard
+	// (GET /v1/admin/community/editions)
+	GetAdminCommunityEditions(ctx context.Context, request GetAdminCommunityEditionsRequestObject) (GetAdminCommunityEditionsResponseObject, error)
+	// PostAdminCommunityEdition Create a new edition of the community leaderboard
+	// (POST /v1/admin/community/editions)
+	PostAdminCommunityEdition(ctx context.Context, request PostAdminCommunityEditionRequestObject) (PostAdminCommunityEditionResponseObject, error)
+	// PatchAdminCommunityEdition Edit an edition of the community leaderboard
+	// (PATCH /v1/admin/community/editions/{edition})
+	PatchAdminCommunityEdition(ctx context.Context, request PatchAdminCommunityEditionRequestObject) (PatchAdminCommunityEditionResponseObject, error)
 	// GetAdminData The loaded data at a glance
 	// (GET /v1/admin/data)
 	GetAdminData(ctx context.Context, request GetAdminDataRequestObject) (GetAdminDataResponseObject, error)
@@ -8794,6 +9162,9 @@ type StrictServerInterface interface {
 	// PatchAdminSeason Change a season's settings, notes or podium
 	// (PATCH /v1/admin/tournaments/{tournament}/seasons/{season})
 	PatchAdminSeason(ctx context.Context, request PatchAdminSeasonRequestObject) (PatchAdminSeasonResponseObject, error)
+	// GetCommunityEditions Visible editions of the community leaderboard
+	// (GET /v1/community/editions)
+	GetCommunityEditions(ctx context.Context, request GetCommunityEditionsRequestObject) (GetCommunityEditionsResponseObject, error)
 	// GetCurrentRun The run the site shows now
 	// (GET /v1/runs/current)
 	GetCurrentRun(ctx context.Context, request GetCurrentRunRequestObject) (GetCurrentRunResponseObject, error)
@@ -9154,6 +9525,94 @@ func (sh *strictHandler) PutAdminBadge(w http.ResponseWriter, r *http.Request, b
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(PutAdminBadgeResponseObject); ok {
 		if err := validResponse.VisitPutAdminBadgeResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// GetAdminCommunityEditions operation middleware
+func (sh *strictHandler) GetAdminCommunityEditions(w http.ResponseWriter, r *http.Request) {
+	var request GetAdminCommunityEditionsRequestObject
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.GetAdminCommunityEditions(ctx, request.(GetAdminCommunityEditionsRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetAdminCommunityEditions")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(GetAdminCommunityEditionsResponseObject); ok {
+		if err := validResponse.VisitGetAdminCommunityEditionsResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// PostAdminCommunityEdition operation middleware
+func (sh *strictHandler) PostAdminCommunityEdition(w http.ResponseWriter, r *http.Request) {
+	var request PostAdminCommunityEditionRequestObject
+
+	var body PostAdminCommunityEditionJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.PostAdminCommunityEdition(ctx, request.(PostAdminCommunityEditionRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "PostAdminCommunityEdition")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(PostAdminCommunityEditionResponseObject); ok {
+		if err := validResponse.VisitPostAdminCommunityEditionResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// PatchAdminCommunityEdition operation middleware
+func (sh *strictHandler) PatchAdminCommunityEdition(w http.ResponseWriter, r *http.Request, edition string) {
+	var request PatchAdminCommunityEditionRequestObject
+
+	request.Edition = edition
+
+	var body PatchAdminCommunityEditionJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.PatchAdminCommunityEdition(ctx, request.(PatchAdminCommunityEditionRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "PatchAdminCommunityEdition")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(PatchAdminCommunityEditionResponseObject); ok {
+		if err := validResponse.VisitPatchAdminCommunityEditionResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {
@@ -9725,6 +10184,30 @@ func (sh *strictHandler) PatchAdminSeason(w http.ResponseWriter, r *http.Request
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(PatchAdminSeasonResponseObject); ok {
 		if err := validResponse.VisitPatchAdminSeasonResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// GetCommunityEditions operation middleware
+func (sh *strictHandler) GetCommunityEditions(w http.ResponseWriter, r *http.Request) {
+	var request GetCommunityEditionsRequestObject
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.GetCommunityEditions(ctx, request.(GetCommunityEditionsRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetCommunityEditions")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(GetCommunityEditionsResponseObject); ok {
+		if err := validResponse.VisitGetCommunityEditionsResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {

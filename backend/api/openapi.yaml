@@ -901,6 +901,25 @@ paths:
           $ref: "#/components/responses/BadRequest"
         "404":
           $ref: "#/components/responses/NotFound"
+  /v1/community/editions:
+    get:
+      operationId: getCommunityEditions
+      summary: Visible editions of the community leaderboard
+      description: |
+        Every edition of the community leaderboard the site shows, in sort order.
+        Cached for five minutes.
+      responses:
+        "200":
+          description: The visible editions
+          headers:
+            Cache-Control:
+              $ref: "#/components/headers/CacheControl"
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/CommunityEditionItem"
   /v1/runs/{run}/community/{edition}:
     get:
       operationId: getCommunityLeaderboard
@@ -908,6 +927,7 @@ paths:
       description: |
         The community leaderboard's standings as its maintainer publishes
         them (rank, total points, events played, and each event's points),
+        its dynamic categories, summary groups and champion,
         with each player's country and the run's title where the name is a
         player here, matched ignoring case. Best rank first. Cached for five
         minutes.
@@ -1413,6 +1433,78 @@ paths:
       responses:
         "204":
           description: Added
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /v1/admin/community/editions:
+    get:
+      operationId: getAdminCommunityEditions
+      tags: [admin]
+      summary: Every edition of the community leaderboard
+      description: |
+        Every edition of the community leaderboard, visible or not, for maintainers to edit.
+        Never cached.
+      responses:
+        "200":
+          description: All editions
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/CommunityEditionItem"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+    post:
+      operationId: postAdminCommunityEdition
+      tags: [admin]
+      summary: Create a new edition of the community leaderboard
+      description: |
+        Adds an edition of the community leaderboard with its metadata. Audited.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CommunityEditionItem"
+      responses:
+        "201":
+          description: Created
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+  /v1/admin/community/editions/{edition}:
+    patch:
+      operationId: patchAdminCommunityEdition
+      tags: [admin]
+      summary: Edit an edition of the community leaderboard
+      description: |
+        Changes an edition's name, title, badge, maintainer note, counting events, or visibility. Audited.
+      parameters:
+        - name: edition
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CommunityEditionPatch"
+      responses:
+        "204":
+          description: Changed
         "400":
           $ref: "#/components/responses/BadRequest"
         "401":
@@ -3712,18 +3804,148 @@ components:
           description: A career total, not one season or tournament
           type: boolean
     CommunityEdition:
-      description: An edition of the community leaderboard (race26 is the 2026 race)
+      description: An edition of the community leaderboard (slug identifier)
       type: string
-      enum: ["2026", "2025", "2024", race26]
+    CommunityEditionInfo:
+      type: object
+      required: [id, name, title, short, badge, year, wc, wc_desc, maintainer, maintainer_note]
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        title:
+          type: string
+        short:
+          type: string
+        badge:
+          type: string
+        year:
+          type: integer
+        wc:
+          type: string
+        wc_desc:
+          type: string
+        maintainer:
+          type: string
+        maintainer_note:
+          type: string
+    CommunityEventColumn:
+      type: object
+      required: [id, name, short, max_pts]
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        short:
+          type: string
+        max_pts:
+          type: integer
+        desc:
+          type: string
+    CommunityCategory:
+      type: object
+      required: [category, badge_class, columns]
+      properties:
+        category:
+          type: string
+        badge_class:
+          type: string
+        columns:
+          type: array
+          items:
+            $ref: "#/components/schemas/CommunityEventColumn"
+    CommunitySummaryGroup:
+      type: object
+      required: [id, name, short, cols, max_pts, badge_class, desc]
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        short:
+          type: string
+        cols:
+          type: array
+          items:
+            type: string
+        max_pts:
+          type: integer
+        badge_class:
+          type: string
+        desc:
+          type: string
+    CommunityEditionItem:
+      type: object
+      required: [slug, name, title, short_name, badge, maintainer, maintainer_note, year, counting_events, visible, sort_order]
+      properties:
+        slug:
+          type: string
+        name:
+          type: string
+        title:
+          type: string
+        short_name:
+          type: string
+        badge:
+          type: string
+        maintainer:
+          type: string
+        maintainer_note:
+          type: string
+        year:
+          type: integer
+        counting_events:
+          type: integer
+        visible:
+          type: boolean
+        sort_order:
+          type: integer
+    CommunityEditionPatch:
+      type: object
+      properties:
+        name:
+          type: string
+        title:
+          type: string
+        short_name:
+          type: string
+        badge:
+          type: string
+        maintainer:
+          type: string
+        maintainer_note:
+          type: string
+        year:
+          type: integer
+        counting_events:
+          type: integer
+        visible:
+          type: boolean
+        sort_order:
+          type: integer
     CommunityLeaderboard:
       type: object
-      required: [run_id, edition, rows]
+      required: [run_id, edition, info, categories, summary, counting_events, rows]
       properties:
         run_id:
           type: integer
           format: int64
         edition:
           $ref: "#/components/schemas/CommunityEdition"
+        info:
+          $ref: "#/components/schemas/CommunityEditionInfo"
+        categories:
+          type: array
+          items:
+            $ref: "#/components/schemas/CommunityCategory"
+        summary:
+          type: array
+          items:
+            $ref: "#/components/schemas/CommunitySummaryGroup"
+        counting_events:
+          type: integer
         rows:
           type: array
           items:

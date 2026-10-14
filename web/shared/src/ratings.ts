@@ -57,6 +57,7 @@ export type PlayerAchievements = components['schemas']['PlayerAchievements'];
 export type AchievementSummary = NonNullable<components['schemas']['AchievementSummary']>;
 export type TournamentRecord = components['schemas']['TournamentRecord'];
 export type CommunityEdition = components['schemas']['CommunityEdition'];
+export type CommunityEditionItem = components['schemas']['CommunityEditionItem'];
 export type CommunityLeaderboard = components['schemas']['CommunityLeaderboard'];
 export type CommunityRow = components['schemas']['CommunityRow'];
 export type Catalogue = components['schemas']['Catalogue'];
@@ -345,5 +346,13 @@ export async function communityLeaderboard(
   edition: CommunityEdition,
   fetchFn: typeof fetch = fetch,
 ): Promise<CommunityLeaderboard> {
-  return get<CommunityLeaderboard>(fetchFn, base, `/v1/runs/${run}/community/${edition}`);
+  return get<CommunityLeaderboard>(fetchFn, base, `/v1/runs/${run}/community/${encodeURIComponent(edition)}`);
+}
+
+/** Returns all visible editions of the community leaderboard. */
+export async function communityEditions(
+  base: string,
+  fetchFn: typeof fetch = fetch,
+): Promise<CommunityEditionItem[]> {
+  return get<CommunityEditionItem[]>(fetchFn, base, '/v1/community/editions');
 }

@@ -146,6 +146,14 @@ func (f *fakeRatings) CommunityLeaderboard(context.Context, int64, string) ([]st
 	panic("not faked")
 }
 
+func (f *fakeRatings) CommunityLeaderboardLayout(context.Context, int64, string) (store.CommunityEditionLayout, error) {
+	panic("not faked")
+}
+
+func (f *fakeRatings) CommunityEditions(context.Context) ([]store.CommunityEdition, error) {
+	return []store.CommunityEdition{}, nil
+}
+
 func (f *fakeRatings) Catalogue(context.Context, int64) (store.CatalogueView, error) {
 	panic("not faked")
 }

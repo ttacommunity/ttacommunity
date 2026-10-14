@@ -93,3 +93,10 @@ export const publishRun = (run: number) => to(`/api/runs/${run}/publish`, 'POST'
 export const protectRun = (run: number, on: boolean) => to(`/api/runs/${run}`, 'PATCH', { protected: on });
 /** deleteRun deletes a run and its results. */
 export const deleteRun = (run: number) => to(`/api/runs/${run}`, 'DELETE');
+
+/** createCommunityEdition makes a new community leaderboard edition. */
+export const createCommunityEdition = (body: Schemas['CommunityEditionItem']) =>
+  to('/api/community/editions', 'POST', body);
+/** setCommunityEdition updates an edition of the community leaderboard. */
+export const setCommunityEdition = (slug: string, patch: Schemas['CommunityEditionPatch']) =>
+  to(`/api/community/editions/${encodeURIComponent(slug)}`, 'PATCH', patch);

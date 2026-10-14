@@ -1,18 +1,19 @@
-/** The community leaderboard page's logic, as upstream's route: the edition and view, the best 8, tournament sums and the title mark. */
-import type { CommunityEdition, CommunityRow } from '@ttac/shared/ratings';
-import type { Edition, Tournament } from './community-editions';
+import type {
+  CommunityLeaderboard,
+  CommunityRow,
+} from '@ttac/shared/ratings';
 
 export type CommunityViewMode = 'standard' | 'expanded';
 
 export interface CommunityView {
-  edition: CommunityEdition;
+  edition: string;
   view: CommunityViewMode;
   search: string;
   page: number;
   perPage: number;
 }
 
-const ALIASES: Record<string, CommunityEdition> = {
+const ALIASES: Record<string, string> = {
   '2026': '2026', q2_2026: '2026', current: '2026',
   '2025': '2025', y2025: '2025',
   '2024': '2024', y2024: '2024',
@@ -20,14 +21,14 @@ const ALIASES: Record<string, CommunityEdition> = {
 }; // prettier-ignore
 
 /** parseCommunityView reads the page's address as upstream's route reads its query. */
-export function parseCommunityView(params: URLSearchParams): CommunityView {
-  const raw = (params.get('edition') ?? params.get('year') ?? '2026').trim().toLowerCase();
+export function parseCommunityView(params: URLSearchParams, defaultEdition = '2026'): CommunityView {
+  const raw = (params.get('edition') ?? params.get('year') ?? defaultEdition).trim().toLowerCase();
   const view = (params.get('view') ?? 'standard').toLowerCase();
   const per = (params.get('per_page') ?? '50').trim();
   const perNumber = parseInt(per, 10);
   const pageNumber = parseInt((params.get('page') ?? '1').trim(), 10);
   return {
-    edition: ALIASES[raw] ?? '2026',
+    edition: ALIASES[raw] ?? raw,
     view: view === 'expanded' ? 'expanded' : 'standard',
     search: (params.get('q') ?? '').trim(),
     page: isNaN(pageNumber) ? 1 : Math.max(1, pageNumber),
@@ -46,7 +47,7 @@ export function countingColumns(scores: Record<string, number>, sheetOrder: read
 /** tournamentSums returns each tournament's positive points and whether one of its events counts; null when none. */
 export function tournamentSums(
   scores: Record<string, number>,
-  summary: readonly Tournament[],
+  summary: CommunityLeaderboard['summary'],
   counting: readonly string[],
 ): Record<string, { sum: number; counting: boolean } | null> {
   const got: Record<string, { sum: number; counting: boolean } | null> = {};
@@ -60,8 +61,8 @@ export function tournamentSums(
 }
 
 /** titleMark is the title column: WC for a World Champion or the edition's champion, else the player's title, if any. */
-export function titleMark(row: CommunityRow, edition: Edition): CommunityRow['title'] {
-  if (row.title === 'WC' || row.name.toLowerCase() === edition.info.wc.toLowerCase()) return 'WC';
+export function titleMark(row: CommunityRow, wcName = ''): CommunityRow['title'] {
+  if (row.title === 'WC' || (wcName !== '' && row.name.toLowerCase() === wcName.toLowerCase())) return 'WC';
   return row.title;
 }
 
@@ -74,16 +75,16 @@ function codesOf(ids: string[]): string {
 }
 
 /** editionFacts returns an edition's event slots, tiers and tournaments, and each tier's columns and maximum points. */
-export function editionFacts(edition: Edition) {
+export function editionFacts(data: Pick<CommunityLeaderboard, 'categories' | 'summary' | 'counting_events'>) {
   const pts = (n: number) => n.toLocaleString('en-US');
-  const count = edition.countingEvents ?? 8;
+  const count = data.counting_events ?? 8;
   return {
     counting: count,
-    slots: edition.categories.reduce((n, c) => n + c.columns.length, 0),
-    tiers: edition.categories.length,
-    tournaments: edition.summary.length,
-    lines: edition.categories.map((c) => {
-      const max = c.columns.map((x) => x.maxPts);
+    slots: data.categories.reduce((n, c) => n + c.columns.length, 0),
+    tiers: data.categories.length,
+    tournaments: data.summary.length,
+    lines: data.categories.map((c) => {
+      const max = c.columns.map((x) => x.max_pts);
       const [lo, hi] = [Math.min(...max), Math.max(...max)];
       return {
         name: c.category,

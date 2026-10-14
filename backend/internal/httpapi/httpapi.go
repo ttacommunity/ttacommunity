@@ -89,6 +89,8 @@ type TournamentReads interface {
 	HallOfFame(ctx context.Context, run int64) (store.HallOfFame, error)
 	PlayerAchievements(ctx context.Context, run int64, name string) (string, *store.AchievementSummary, []store.TournamentRecord, error)
 	CommunityLeaderboard(ctx context.Context, run int64, edition string) ([]store.CommunityRow, error)
+	CommunityLeaderboardLayout(ctx context.Context, run int64, slug string) (store.CommunityEditionLayout, error)
+	CommunityEditions(ctx context.Context) ([]store.CommunityEdition, error)
 }
 
 // CatalogueReads are catalogue.go's reads.
