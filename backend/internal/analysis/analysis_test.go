@@ -93,13 +93,44 @@ func TestAgreeLeavesOutPlayersUnderFifteenOpponentsInAnyModel(t *testing.T) {
 	}
 }
 
-func TestAgreeRanksWithinSampleRegardlessOfExternalRank(t *testing.T) {
-	rows := fixture()
-	initial := Agree(rows)
-	rank := 1
-	rows = append(rows, store.ModelRating{Player: "outsider", Model: "glicko2_daneo", Rating: 3000, Rank: &rank, Opponents: 25})
-	after := Agree(rows)
-	if !slices.Equal(initial.Top, after.Top) || !slices.Equal(initial.Weakest, after.Weakest) {
-		t.Errorf("correlations changed after adding outsider: got %+v, want %+v", after, initial)
+func TestAgreeRanksWithinSampleRegardlessOfStoredRank(t *testing.T) {
+	// Every model orders a, b, c alike; whr's stored ranks have gaps, as when players outside the sample sit between.
+	var rows []store.ModelRating
+	for _, m := range store.PlayerPageModels {
+		for i, p := range []string{"a", "b", "c"} {
+			rank := i + 1
+			if m == "whr" {
+				rank = 1 + 4*i
+			}
+			rows = append(rows, store.ModelRating{Player: p, Model: m, Rating: 1600 - 50*float64(i), Rank: &rank, Opponents: 20})
+		}
+	}
+	got := Agree(rows)
+	for _, pair := range slices.Concat(got.Top, got.Weakest) {
+		if pair.Spearman != 1 {
+			t.Errorf("%s v %s Spearman = %v, want 1 for models that order the sample alike", pair.A, pair.B, pair.Spearman)
+		}
+	}
+}
+
+func TestAgreeTiedRatingsShareTheirRank(t *testing.T) {
+	// Three players: a and b tie in every model but one, where c moves between them.
+	var rows []store.ModelRating
+	for _, m := range store.PlayerPageModels {
+		ratings := map[string]float64{"a": 1600, "b": 1600, "c": 1500}
+		if m == "whr" {
+			ratings = map[string]float64{"a": 1600, "b": 1500, "c": 1550}
+		}
+		for p, r := range ratings {
+			rows = append(rows, store.ModelRating{Player: p, Model: m, Rating: r, Opponents: 20})
+		}
+	}
+	got := Agree(rows)
+	// Ranks 1, 1, 3 against 1, 3, 2: d² = 0 + 4 + 1 = 5, so Spearman is 1 - 6·5/(3·8) = -0.25.
+	if len(got.Weakest) == 0 || got.Weakest[len(got.Weakest)-1].Spearman != -0.25 {
+		t.Errorf("weakest = %+v, want the pair with whr at Spearman -0.25 (ties sharing rank 1)", got.Weakest)
+	}
+	if got.Top[0].Spearman != 1 {
+		t.Errorf("top = %+v, want models with identical ranks at Spearman 1", got.Top)
 	}
 }

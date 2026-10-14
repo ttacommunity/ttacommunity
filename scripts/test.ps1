@@ -42,7 +42,7 @@ Run-Step infra/build-notifier 'build notifier: tests' { npm test }
 Write-Host "`nNot covered here:"
 Write-Host '  - Go race detector (needs a C compiler on Windows; Linux CI runs it)'
 Write-Host '  - engine: slow tests, and the SIGTERM stop (Windows has no catchable SIGTERM)'
-Write-Host '  - lint, type checks, site builds and checks/: scripts/ci.sh, in CI'
+Write-Host '  - lint, type checks, site builds and checks/: scripts\ci.ps1 runs them'
 if ($failures.Count -gt 0) {
     Write-Host "`n$($failures.Count) step(s) FAILED: $($failures -join ', ')" -ForegroundColor Red
     exit 1

@@ -35,6 +35,7 @@ scripts\install.ps1                         # mise, Go, Node, uv, PostgreSQL 18 
 scripts\ratings-db.ps1 ..\ttac-ratings-data\baseline   # load the data
 scripts\dev.ps1                             # api :8080, site :4321, admin :4322
 scripts\test.ps1                            # every test
+scripts\ci.ps1                              # everything CI runs that Windows can
 ```
 
 ```bash
@@ -102,10 +103,31 @@ Both private to the `ttacommunity` organisation; ask a maintainer for access.
 - **Vertical slices**: storage → API → page for one user need, deployable on
   its own. A change that only adds a layer is not a slice. A story brings its
   own migration
+- **A rule about players applies wherever a player's name is returned.**
+  List those responses from `backend/api/openapi.yaml` and check each,
+  boards and records included
+- **A new allowed value goes everywhere values are checked**: the spec's
+  enum, Go, TypeScript and the database's CHECK constraints (a
+  migration). Search for an existing value to find them all
+  (`git grep -n "'SGM'"`), and test that the store accepts the new one
+- **A move that should change nothing proves it.** Save the API's JSON
+  for every case before and after, and compare
 - **Ask before building when something is unclear.** A question answered
   mid-implementation is a guess
 - **Everything in this repo is public**, including comments and commit
   messages
+
+### Speed
+
+- **Make it as efficient as you reasonably can**, so the project runs
+  well wherever it is hosted, small servers included. A host can be
+  several times slower than your machine, and production logs every
+  request over 1 s. A route over 0.1 s on your machine is too slow
+- **Know the sizes**: about 4,100 players, 205,000 games, 577,000 seats
+  and 414,000 rated pairs per run. Code that scans every player for each
+  player takes seconds here: sort once, use a map, or let Postgres do it
+- **A page makes a handful of requests.** Ask the API for what the page
+  shows, not for everything to filter in the browser
 
 ### Comments: less comment than code
 
@@ -139,9 +161,14 @@ Both private to the `ttacommunity` organisation; ask a maintainer for access.
   is a reason to change the code. Prefer simple stubs to mocks, test through
   the public interface
   ([anti-patterns](https://quii.gitbook.io/learn-go-with-tests/meta/anti-patterns))
+- **Never loosen a test to make it pass.** Dropping an assertion, a
+  status code or a "refused requests never reach the store" check
+  changes what is tested: name it in the PR
 - **Test data is invented.** Never a real Discord id, handle, email or TTA
   username, and never a slice of real match data. Use ids like
   `100000000000000001`
+- **Invented names in code too.** No real player as a test name, a
+  default or a fallback, however well known
 - **Coverage is a prompt to look, never a target.** `scripts/ci.sh` prints
   Go's. The engine's and web's are run by hand when you want them (commands
   under Engine and Web), and add no dependency. A low number is not a
@@ -158,12 +185,36 @@ Both private to the `ttacommunity` organisation; ask a maintainer for access.
 - **Never log personal data**: no Discord id, handle, email, TTA username or
   IP, at any level. Log the matched route (`r.Pattern`), never the path
 - **Fail closed.** Missing config, an empty audience, a missing role: refuse
-  to start, never default to open
+  to start, never default to open. An unknown id, slug or edition is a 404,
+  never a page built from defaults
 - **Never render data as HTML** in the sites: no `set:html`,
   `dangerouslySetInnerHTML` or `innerHTML` with API data. Player names are
   scraped. A check fails CI on these
 - **Verify a control by using it.** A header, a CSP, a permission check: prove
   it with a real request or a test that would fail without it
+
+## Before you push
+
+Run these in order and report each in the PR's **How to test it**. An
+agent runs them itself.
+
+1. **Run CI's checks**: `scripts\ci.ps1` (Linux, macOS: `scripts/ci.sh`).
+   Red means something to fix before pushing
+2. **See each new test fail.** Commit your change, then put the code it
+   tests back as on `main` (`git checkout main -- <file>`), run the test
+   and see it fail, and restore yours (`git checkout HEAD -- <file>`).
+   A test that passes on `main`'s code tests nothing
+3. **Time it on the full data.** With the baseline loaded, time each
+   route you added or changed:
+   `curl.exe -s -o NUL -w "%{time_total}\n" http://127.0.0.1:8080/v1/…`
+   (Linux, macOS: `curl -s -o /dev/null -w …`). Over 0.1 s is too slow
+   (see "Speed"). Open each page you changed and count its API requests
+   in the browser's network tab
+4. **Read your own diff.** Every file in `git diff main...HEAD --stat` is
+   explained in **What it does**. A migration, an `openapi.yaml` change
+   and a change to what an existing page shows are always named
+5. **Walk the issue's "Done when"** line by line and say how each is met.
+   If something is not done, write `Part of #<n>`, not `Closes #<n>`
 
 ## Go (`backend/`)
 
@@ -192,7 +243,9 @@ Both private to the `ttacommunity` organisation; ask a maintainer for access.
 - Times are `timestamptz` in UTC plus an IANA zone name per player, never an
   offset. Test a DST change in both hemispheres
 - `gofmt`, `go vet` and `go tool staticcheck ./...` must be clean;
-  `scripts/ci.sh` runs all three. staticcheck and govulncheck are `tool`
+  `scripts/ci.sh` and `scripts\ci.ps1` run all three. The pre-commit hook
+  checks staged Go with gofmt, and refuses when gofmt is not on PATH (in
+  PowerShell, dot-source `scripts\env.ps1` first). staticcheck and govulncheck are `tool`
   lines in `go.mod`, so they build with the project's Go. Fix the code rather than add a `//lint:ignore`; one that is truly
   needed says why on the same line
 
@@ -279,7 +332,8 @@ Both private to the `ttacommunity` organisation; ask a maintainer for access.
 
 ## Git and pull requests
 
-- Branch from the latest `main`; never commit to `main` directly
+- Branch from the latest `main`; never commit to `main` directly. The
+  pre-push hook refuses a push to `main`
 - **Work on an issue starts from it**: `gh issue develop <n> --base main
   --checkout` (or "Create a branch" on the issue) makes a branch linked to
   it. End the PR's **What it does** with `Closes #<n>`, so merging to `main`
@@ -289,8 +343,19 @@ Both private to the `ttacommunity` organisation; ask a maintainer for access.
   `Add sign-in with Discord to the API`. No AI or tool attribution trailers
 - **Pull requests have two sections only**: **What it does** and **How to
   test it** (commands and URLs). Merging needs a maintainer
+- **One issue per pull request.** Work for another issue goes on its own
+  branch. A side fix rides along only when **What it does** names it
+- **No `WIP` commits reach `main`.** Fold fix-ups, such as formatting or
+  a forgotten file, into the commit they fix before the image build
+- **In PowerShell, backticks are escapes**, so `--body "…"` loses its
+  code formatting. Write the description to a file and pass
+  `gh pr create --body-file pr.md`
+- **Review your own PR before merging**, as a reviewer would: the steps
+  in "Before you push", then each changed function against the input
+  that would break it
 - **CI runs `scripts/ci.sh`**, one job per area (go, engine, web, checks),
-  plus secret and code scanning. If it passes locally it should pass in CI.
+  plus secret and code scanning. If it passes locally it should pass in CI;
+  `scripts\ci.ps1` runs the same checks on Windows, all but the few it lists.
   Locally, red means something to fix: what only CI can check (our private
   images without `read:packages`, a branch's `deploy/` pins) is listed under
   "Not covered here" instead. Green is not the whole story: say what the

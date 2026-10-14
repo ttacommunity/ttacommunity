@@ -10,6 +10,6 @@ The short version:
 1. Start from an issue: open one through a form, or pick one. Ask when
    something is unclear, before building
 2. Branch from `main` and write the failing test first
-3. Run `scripts/ci.sh` before you push (`scripts\test.ps1` on Windows)
+3. Run `scripts/ci.sh` before you push (`scripts\ci.ps1` on Windows)
 4. Open a pull request with two sections, **What it does** and **How to
    test it**. A maintainer reviews and merges it
