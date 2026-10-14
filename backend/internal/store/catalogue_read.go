@@ -470,6 +470,9 @@ func (r *RatingsReader) CatalogueTournament(ctx context.Context, run int64, slug
 	if got.GameRecords, err = pgx.CollectRows(rows, scanGameRecord); err != nil {
 		return fail("game records", err)
 	}
+	if err := r.maskGameRecords(ctx, got.GameRecords); err != nil {
+		return fail("game records", err)
+	}
 	if err := r.markWorldChampions(ctx, run, got.GameRecords); err != nil {
 		return fail("game records", err)
 	}
@@ -479,11 +482,13 @@ func (r *RatingsReader) CatalogueTournament(ctx context.Context, run int64, slug
 
 	// Every player of the shown tournament, for a search box's suggestions.
 	rows, err = r.pool.Query(ctx, `
-		SELECT DISTINCT p.player_name
-		FROM games g JOIN seats p USING (game_id) JOIN groups gr USING (group_id) JOIN stages st USING (stage_id)
-		JOIN tournaments s USING (tournament_id) JOIN series t USING (series_id)
+		SELECT DISTINCT p.name
+		FROM games g JOIN seats s USING (game_id) JOIN players p USING (player_id)
+		JOIN groups gr USING (group_id) JOIN stages st USING (stage_id)
+		JOIN tournaments se USING (tournament_id) JOIN series t USING (series_id)
 		WHERE t.slug = $1 AND (t.visible OR EXISTS (SELECT 1 FROM ranking_series rt WHERE rt.series_id = t.series_id))
-		ORDER BY p.player_name`, slug)
+		  AND `+notHiddenPlayer+`
+		ORDER BY p.name`, slug)
 	if err != nil {
 		return fail("players", err)
 	}

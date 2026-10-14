@@ -127,6 +127,7 @@ func (r *RatingsReader) YearBoard(ctx context.Context, run int64, year int, mode
 		LEFT JOIN LATERAL (SELECT rating, rd, c_rating FROM rating_history
 			WHERE run_id = $1 AND model_type = $2 AND player_count = $3 AND player_name = h.player_name AND period_date <= $6
 			ORDER BY period_date DESC LIMIT 1) prev ON true
+		WHERE `+notHiddenPlayer+`
 		ORDER BY h.c_rating DESC, h.player_name`, run, model, format, b.Snapshot, year, b.Previous)
 	if err != nil {
 		return YearBoard{}, fmt.Errorf("reading run %d's %d board: %w", run, year, err)

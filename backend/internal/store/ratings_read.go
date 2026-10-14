@@ -182,6 +182,7 @@ func (r *RatingsReader) Leaderboard(ctx context.Context, run int64, model string
 		LEFT JOIN player_titles t ON t.run_id = r.run_id AND t.player_name = r.player_name
 		LEFT JOIN player_peak_titles k ON k.run_id = r.run_id AND k.player_name = r.player_name
 		WHERE r.run_id = $1 AND r.model_type = $2 AND r.player_count = $3
+		  AND `+notHiddenPlayer+`
 		ORDER BY r.rank NULLS LAST, r.player_name`, run, model, format)
 	if err != nil {
 		return nil, fmt.Errorf("reading run %d's %s leaderboard: %w", run, model, err)

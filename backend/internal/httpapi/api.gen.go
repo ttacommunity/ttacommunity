@@ -1346,7 +1346,8 @@ type GameRecord struct {
 	WorldChampion bool    `json:"world_champion"`
 }
 
-// GameSeat defines model for GameSeat.
+// GameSeat One player of a game. A player whose CGE account is deleted or banned
+// is masked as "Deleted player".
 type GameSeat struct {
 	Name string `json:"name"`
 
@@ -1865,7 +1866,8 @@ type SeasonSpan struct {
 	Players   int                 `json:"players"`
 }
 
-// Seat defines model for Seat.
+// Seat One player of a game. A player whose CGE account is deleted or banned
+// is masked as "Deleted player".
 type Seat struct {
 	Name  string  `json:"name"`
 	Score float64 `json:"score"`
