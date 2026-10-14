@@ -17,6 +17,9 @@ import {
   rankModels,
   shownInTable,
   type AnalysisFilters,
+  seatDelta,
+  seatDeltaText,
+  SEAT_TIERS,
 } from './analysis';
 
 const row = (model: CalibrationRow['model'], brier: number, ece: number, extra: Partial<CalibrationRow> = {}): CalibrationRow => ({
@@ -207,3 +210,32 @@ describe('announceFormat and onFormat', () => {
     expect(heard).toEqual([2]);
   });
 });
+
+describe('seat helpers', () => {
+  it('calculates seat advantage delta relative to parity', () => {
+    expect(seatDelta(50.26, 2)).toBe(0.26);
+    expect(seatDelta(27.47, 4)).toBe(2.47);
+    expect(seatDelta(22.61, 4)).toBe(-2.39);
+    expect(seatDelta(33.33, 3)).toBe(0);
+    expect(seatDelta(0, 0)).toBe(0);
+  });
+
+  it('formats seat advantage delta with explicit sign and two decimals', () => {
+    expect(seatDeltaText(2.47)).toBe('+2.47%');
+    expect(seatDeltaText(-2.39)).toBe('-2.39%');
+    expect(seatDeltaText(0)).toBe('0.00%');
+  });
+
+  it('provides the 6 expected skill tiers', () => {
+    expect(SEAT_TIERS).toHaveLength(6);
+    expect(SEAT_TIERS.map((t) => t.value)).toEqual([
+      'all',
+      'grandmaster',
+      'master',
+      'advanced',
+      'intermediate',
+      'beginner',
+    ]);
+  });
+});
+

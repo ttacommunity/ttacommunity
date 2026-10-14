@@ -703,3 +703,46 @@ func TestPlayerGivesTheirBadges(t *testing.T) {
 		t.Errorf("badges (-want +got):\n%s", diff)
 	}
 }
+
+func TestPlayerSeats(t *testing.T) {
+	pool := migrated(t)
+	r := NewRatingsReader(asReader(t, pool))
+	ctx := context.Background()
+	run := publishedRun(t, pool)
+
+	addPlayers(t, pool, "ann", "bob", "cyd")
+	// 2P game (rated): ann seat 1 wins
+	addGame(t, pool, run, "2026-01-01", "Dual 1", Seat{"ann", 150}, Seat{"bob", 100})
+	// 2P game (rated): ann seat 2 loses
+	addGame(t, pool, run, "2026-01-02", "Dual 2", Seat{"bob", 120}, Seat{"ann", 110})
+
+	// 3P unrated game (run=0): ann seat 1 wins
+	addGame(t, pool, 0, "2026-01-03", "Exhibition", Seat{"ann", 200}, Seat{"bob", 150}, Seat{"cyd", 100})
+
+	// 1. Rated only
+	ratedStats, err := r.PlayerSeats(ctx, run, "ann", false)
+	if err != nil {
+		t.Fatalf("PlayerSeats(rated): %v", err)
+	}
+	if ratedStats.Overall.TotalGames != 2 || ratedStats.Overall.TotalWins != 1 {
+		t.Errorf("rated total: games %d, wins %d; want 2, 1", ratedStats.Overall.TotalGames, ratedStats.Overall.TotalWins)
+	}
+	if ratedStats.Overall.WinRate != 50.0 {
+		t.Errorf("rated winrate: %f; want 50.0", ratedStats.Overall.WinRate)
+	}
+	if ratedStats.Overall.StrongestSeat == nil || ratedStats.Overall.StrongestSeat.Seat != 1 {
+		t.Errorf("strongest seat: %v; want seat 1", ratedStats.Overall.StrongestSeat)
+	}
+	if ratedStats.Overall.WeakestSeat == nil || ratedStats.Overall.WeakestSeat.Seat != 2 {
+		t.Errorf("weakest seat: %v; want seat 2", ratedStats.Overall.WeakestSeat)
+	}
+
+	// 2. Unrated included
+	allStats, err := r.PlayerSeats(ctx, run, "ann", true)
+	if err != nil {
+		t.Fatalf("PlayerSeats(unrated): %v", err)
+	}
+	if allStats.Overall.TotalGames != 3 || allStats.Overall.TotalWins != 2 {
+		t.Errorf("all games total: games %d, wins %d; want 3, 2", allStats.Overall.TotalGames, allStats.Overall.TotalWins)
+	}
+}

@@ -15,16 +15,24 @@ import (
 
 type fakePlayers struct {
 	fakeRatings
-	player  store.Player
-	hist    []store.HistoryPoint
-	page    store.MatchPage
-	rivals  []store.Rival
-	rated   map[string]store.Rated
-	err     error
-	asked   string
-	format  int
-	pageNo  int
-	ratedAs string
+	player    store.Player
+	hist      []store.HistoryPoint
+	page      store.MatchPage
+	rivals    []store.Rival
+	rated     map[string]store.Rated
+	err       error
+	asked     string
+	format    int
+	pageNo    int
+	ratedAs   string
+	seatStats store.PlayerSeatStats
+	unrated   bool
+}
+
+func (f *fakePlayers) PlayerSeats(_ context.Context, run int64, name string, unrated bool) (store.PlayerSeatStats, error) {
+	f.calls++
+	f.gotRun, f.asked, f.unrated = run, name, unrated
+	return f.seatStats, f.err
 }
 
 func (f *fakePlayers) Player(_ context.Context, run int64, name string) (store.Player, error) {
@@ -354,5 +362,62 @@ func TestPlayerSendsTheirBadges(t *testing.T) {
 	rec, _ := serve(t, f, "/v1/runs/7/players/ann")
 	if body := rec.Body.String(); !strings.Contains(body, `"badges":[{"description":"","label":"TD"}]`) {
 		t.Errorf("player = %s, want the TD badge", rec.Body)
+	}
+}
+
+func TestPlayerSeats(t *testing.T) {
+	f := &fakePlayers{
+		seatStats: store.PlayerSeatStats{
+			Name:    "Ann",
+			Unrated: false,
+			Overall: store.PlayerSeatOverview{
+				TotalGames: 10, TotalWins: 5, WinRate: 50.0, AvgCulture: 180.5,
+				StrongestSeat: &store.PlayerSeatDelta{PlayerCount: 2, Seat: 1, WinRate: 60.0, DeltaWinRate: 10.0},
+				WeakestSeat:   &store.PlayerSeatDelta{PlayerCount: 2, Seat: 2, WinRate: 40.0, DeltaWinRate: -10.0},
+			},
+			Groups: []store.PlayerSeatGroup{
+				{
+					PlayerCount: 2, TotalGames: 10, TotalWins: 5, WinRate: 50.0, AvgCulture: 180.5,
+					Seats: []store.PlayerSeatRow{
+						{
+							Seat: 1, Games: 5, Wins: 3, WinRate: 60.0, DeltaWinRate: 10.0, AvgCulture: 185.0,
+							Places: []store.SeatPlaceRate{{Place: 1, Count: 3, Rate: 60.0}, {Place: 2, Count: 2, Rate: 40.0}},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	rec, _ := serve(t, f, "/v1/runs/7/players/ann/seats")
+	if rec.Code != http.StatusOK || rec.Header().Get("Cache-Control") != "public, max-age=300" {
+		t.Errorf("GET seats: %d, %q; want 200, five minutes", rec.Code, rec.Header().Get("Cache-Control"))
+	}
+	if f.gotRun != 7 || f.asked != "ann" || f.unrated != false {
+		t.Errorf("store asked for run %d, %q, unrated %v; want 7, ann, false", f.gotRun, f.asked, f.unrated)
+	}
+	if !strings.Contains(rec.Body.String(), `"strongest_seat":{"delta_win_rate":10,"player_count":2,"seat":1,"win_rate":60}`) {
+		t.Errorf("body missing strongest seat: %s", rec.Body.String())
+	}
+
+	// With unrated=true
+	rec, _ = serve(t, f, "/v1/runs/7/players/ann/seats?unrated=true")
+	if rec.Code != http.StatusOK {
+		t.Errorf("GET seats unrated: %d", rec.Code)
+	}
+	if f.unrated != true {
+		t.Errorf("store asked unrated = %v, want true", f.unrated)
+	}
+
+	// 404 for unknown player
+	rec, _ = serve(t, &fakePlayers{err: store.ErrPlayerNotFound}, "/v1/runs/7/players/ghost/seats")
+	if rec.Code != http.StatusNotFound {
+		t.Errorf("GET seats unknown player = %d, want 404", rec.Code)
+	}
+
+	// 400 for bad run
+	rec, _ = serve(t, f, "/v1/runs/0/players/ann/seats")
+	if rec.Code != http.StatusBadRequest {
+		t.Errorf("GET seats bad run = %d, want 400", rec.Code)
 	}
 }

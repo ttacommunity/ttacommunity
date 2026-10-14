@@ -227,3 +227,36 @@ export function sortCountries<T extends CountryRatings & { rank: number }>(rows:
   }
   return [...rows].sort((a, b) => dir * ((a[col] ?? 0) - (b[col] ?? 0)));
 }
+
+export type SeatTier = 'all' | 'grandmaster' | 'master' | 'advanced' | 'intermediate' | 'beginner';
+
+export interface SeatTierOption {
+  value: SeatTier;
+  label: string;
+  tooltip: string;
+}
+
+export const SEAT_TIERS: readonly SeatTierOption[] = [
+  { value: 'all', label: 'All Skill Levels', tooltip: 'All matches regardless of rating' },
+  { value: 'grandmaster', label: '👑 Grandmaster', tooltip: 'Elite tables (Table Glicko-D avg ≥ 1750)' },
+  { value: 'master', label: '🎖️ Master', tooltip: 'Master tables (Table Glicko-D avg 1625–1749)' },
+  { value: 'advanced', label: '⚔️ Advanced', tooltip: 'Advanced tables (Table Glicko-D avg 1500–1624)' },
+  { value: 'intermediate', label: '🛡️ Intermediate', tooltip: 'Intermediate tables (Table Glicko-D avg 1375–1499)' },
+  { value: 'beginner', label: '🌱 Beginner', tooltip: 'Beginner tables (Table Glicko-D avg < 1375)' },
+];
+
+/** seatDelta returns the seat advantage delta in percentage points relative to equal probability (100 / playerCount). */
+export function seatDelta(winRate: number, playerCount: number): number {
+  if (playerCount <= 0) return 0;
+  const parity = 100 / playerCount;
+  const rounded = Number((winRate - parity).toFixed(2));
+  return Object.is(rounded, -0) ? 0 : rounded;
+}
+
+
+/** seatDeltaText formats the delta with explicit sign and two decimal places (e.g. "+2.47%"). */
+export function seatDeltaText(delta: number): string {
+  const sign = delta > 0 ? '+' : '';
+  return `${sign}${delta.toFixed(2)}%`;
+}
+

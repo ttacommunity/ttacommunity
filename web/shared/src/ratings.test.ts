@@ -8,6 +8,7 @@ import {
   catalogue,
   catalogueTournament,
   agreement,
+  seatAnalysis,
   calibration,
   comparedPlayers,
   currentRun,
@@ -22,6 +23,7 @@ import {
   playerAchievements,
   playerCareer,
   playerMatrix,
+  playerSeats,
   playerRivals,
   playerVersus,
   yearLeaderboard,
@@ -127,6 +129,8 @@ describe('player routes', () => {
     await playerVersus('https://api.example', 5, 'Ann', 'b/c', f.fetch);
     await playerMatrix('https://api.example', 5, 'Ann', 3, null, f.fetch);
     await playerMatrix('https://api.example', 5, 'Ann', 0, 2024, f.fetch);
+    await playerSeats('https://api.example', 5, 'Ann', false, f.fetch);
+    await playerSeats('https://api.example', 5, 'Ann', true, f.fetch);
 
     expect(f.calls.map((c) => c.url)).toEqual([
       'https://api.example/v1/runs/5/players/a%2Fb%20c%3F',
@@ -137,6 +141,8 @@ describe('player routes', () => {
       'https://api.example/v1/runs/5/players/Ann/versus/b%2Fc',
       'https://api.example/v1/runs/5/players/Ann/matrix?format=3',
       'https://api.example/v1/runs/5/players/Ann/matrix?format=0&year=2024',
+      'https://api.example/v1/runs/5/players/Ann/seats',
+      'https://api.example/v1/runs/5/players/Ann/seats?unrated=true',
     ]);
     expect(f.calls.every((c) => c.init?.credentials === 'omit')).toBe(true);
   });
@@ -182,10 +188,12 @@ describe('analysis pages', () => {
     await comparedPlayers('https://api.example', 5, 'alder440, IT', 3, f.fetch);
     await comparedPlayers('https://api.example', 5, '', 0, f.fetch);
     await activity('https://api.example', 5, f.fetch);
+    await seatAnalysis('https://api.example', 5, 'grandmaster', 2, f.fetch);
     expect(f.calls.map((c) => c.url)).toEqual([
       'https://api.example/v1/runs/5/analysis/players?format=3&search=alder440%2C+IT',
       'https://api.example/v1/runs/5/analysis/players?format=0',
       'https://api.example/v1/runs/5/analysis/activity',
+      'https://api.example/v1/runs/5/analysis/seats?tier=grandmaster&format=2',
     ]);
     expect(f.calls.every((c) => c.init?.credentials === 'omit')).toBe(true);
   });

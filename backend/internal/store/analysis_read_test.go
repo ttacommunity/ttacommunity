@@ -220,3 +220,52 @@ func countryText(cs []CountryRatings) string {
 	}
 	return fmt.Sprint(out)
 }
+
+func TestSeatAnalysisGroupsByPlayerCountAndFiltersByTier(t *testing.T) {
+	pool := migrated(t)
+	r := NewRatingsReader(asReader(t, pool))
+	ctx := context.Background()
+	run := publishedRun(t, pool)
+
+	addPlayers(t, pool, "gm1", "gm2", "m1", "m2")
+	addRating(t, pool, run, "glicko2_daneo", 0, "gm1", ptr(1), 1700)
+	addRating(t, pool, run, "glicko2_daneo", 0, "gm2", ptr(2), 1700)
+	addRating(t, pool, run, "glicko2_daneo", 0, "m1", ptr(3), 1550)
+	addRating(t, pool, run, "glicko2_daneo", 0, "m2", ptr(4), 1550)
+
+	addGame(t, pool, run, "2025-01-01", "Cup 1", Seat{"gm1", 100}, Seat{"gm2", 90})
+	addGame(t, pool, run, "2025-01-02", "Cup 2", Seat{"m1", 90}, Seat{"m2", 100})
+
+	gotAll, err := r.SeatAnalysis(ctx, run, 2, "all")
+	if err != nil {
+		t.Fatalf("SeatAnalysis(all): %v", err)
+	}
+	if len(gotAll) != 1 || gotAll[0].TotalGames != 2 {
+		t.Fatalf("SeatAnalysis(all) = %+v, want 1 group with 2 total games", gotAll)
+	}
+	if gotAll[0].Seats[0].Wins != 1 || gotAll[0].Seats[0].WinRate != 50.0 {
+		t.Errorf("Seat 1 win rate = %v, want 50.0", gotAll[0].Seats[0].WinRate)
+	}
+
+	gotGM, err := r.SeatAnalysis(ctx, run, 2, "grandmaster")
+	if err != nil {
+		t.Fatalf("SeatAnalysis(grandmaster): %v", err)
+	}
+	if len(gotGM) != 1 || gotGM[0].TotalGames != 1 {
+		t.Fatalf("SeatAnalysis(grandmaster) = %+v, want 1 game", gotGM)
+	}
+	if gotGM[0].Seats[0].Wins != 1 || gotGM[0].Seats[0].WinRate != 100.0 {
+		t.Errorf("GM Seat 1 win rate = %v, want 100.0", gotGM[0].Seats[0].WinRate)
+	}
+
+	gotM, err := r.SeatAnalysis(ctx, run, 2, "master")
+	if err != nil {
+		t.Fatalf("SeatAnalysis(master): %v", err)
+	}
+	if len(gotM) != 1 || gotM[0].TotalGames != 1 {
+		t.Fatalf("SeatAnalysis(master) = %+v, want 1 game", gotM)
+	}
+	if gotM[0].Seats[1].Wins != 1 || gotM[0].Seats[1].WinRate != 100.0 {
+		t.Errorf("Master Seat 2 win rate = %v, want 100.0", gotM[0].Seats[1].WinRate)
+	}
+}

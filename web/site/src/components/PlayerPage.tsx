@@ -8,6 +8,7 @@ import {
   playerHistory,
   playerMatches,
   playerRivals,
+  playerSeats,
   type Format,
   type Player,
   type PlayerAchievements,
@@ -15,6 +16,7 @@ import {
   type PlayerHistory,
   type PlayerMatches,
   type PlayerRivals,
+  type PlayerSeatStats,
 } from '@ttac/shared/ratings';
 import CareerBox from './CareerBox';
 import { ExtraBadges, Flag } from './PlayerMarks';
@@ -32,6 +34,8 @@ import {
   formatCards,
   score,
   signedDelta,
+  seatName,
+  seatDeltaClass,
   visibleRivals,
   RIVALS_SHOWN,
   type PlayerView,
@@ -137,6 +141,11 @@ export default function PlayerPage({ apiUrl }: { apiUrl: string }) {
     `${runId}|${name}`,
     runId === null ? null : () => playerAchievements(apiUrl, runId, name),
   );
+  const [includeUnrated, setIncludeUnrated] = useState(false);
+  const seats = useLoad<PlayerSeatStats>(
+    `${runId}|${name}|${includeUnrated}`,
+    runId === null ? null : () => playerSeats(apiUrl, runId, name, includeUnrated),
+  );
 
   useEffect(() => {
     document.title = `${view.name || 'Player'} - Player Profile | Through the Ages`;
@@ -180,6 +189,13 @@ export default function PlayerPage({ apiUrl }: { apiUrl: string }) {
         career={career.kind === 'ready' ? career.data : null}
         summary={achievements.kind === 'ready' ? achievements.data.summary : null}
         format={view.format}
+      />
+
+      <PositionSeatStats
+        state={seats}
+        format={view.format}
+        includeUnrated={includeUnrated}
+        onToggleUnrated={() => setIncludeUnrated(!includeUnrated)}
       />
 
       <FormatCards player={p} view={view} linkTo={linkTo} />
@@ -557,3 +573,166 @@ function Rivals({ state, compare }: { state: Load<PlayerRivals>; compare: Compar
     </div>
   );
 }
+
+function PositionSeatStats({
+  state,
+  format,
+  includeUnrated,
+  onToggleUnrated,
+}: {
+  state: Load<PlayerSeatStats>;
+  format: Format;
+  includeUnrated: boolean;
+  onToggleUnrated: () => void;
+}) {
+  const data = state.kind === 'ready' ? state.data : null;
+  const groups = data ? (format === 0 ? data.groups : data.groups.filter((g) => g.player_count === format)) : [];
+  const overall = data?.overall;
+
+  return (
+    <div className="rating-card position-seat-card">
+      <div className="position-seat-head">
+        <div className="position-head-title">
+          <h3>
+            <span aria-hidden="true">🎲</span> Position &amp; Turn Order Performance
+          </h3>
+          <span className="position-head-subtitle">
+            Win rates, average culture scores, and finishing placement distributions by starting seat.
+          </span>
+        </div>
+        <div className="position-filter-toggle">
+          <button
+            type="button"
+            className={`btn-antique unrated-toggle-btn ${includeUnrated ? 'active' : ''}`}
+            onClick={onToggleUnrated}
+            title={includeUnrated ? 'Showing all tournament and exhibition games' : 'Showing rated games only'}
+          >
+            {includeUnrated ? '🌐 Filter: All Games' : '🏆 Filter: Rated Games Only'}
+          </button>
+        </div>
+      </div>
+
+      {overall && overall.total_games > 0 && (
+        <div className="position-delta-banner">
+          <div className="position-banner-metric">
+            <span className="banner-metric-label">Analyzed Games:</span>
+            <strong>{overall.total_games}</strong>
+            <span className="banner-metric-sub">({overall.total_wins} wins · {overall.win_rate.toFixed(1)}%)</span>
+          </div>
+          <div className="position-banner-metric">
+            <span className="banner-metric-label">Avg Culture:</span>
+            <strong>{overall.avg_culture.toFixed(1)}</strong>
+          </div>
+          {overall.strongest_seat && (
+            <div className="position-banner-metric strongest-metric">
+              <span className="banner-metric-label">Strongest Position:</span>
+              <strong className="delta-pos">
+                {overall.strongest_seat.player_count}P {seatName(overall.strongest_seat.seat)}
+              </strong>
+              <span className="delta-tag delta-pos">
+                {overall.strongest_seat.delta_win_rate >= 0 ? '+' : ''}
+                {overall.strongest_seat.delta_win_rate.toFixed(1)}% vs Format
+              </span>
+            </div>
+          )}
+          {overall.weakest_seat && (
+            <div className="position-banner-metric weakest-metric">
+              <span className="banner-metric-label">Toughest Position:</span>
+              <strong className="delta-neg">
+                {overall.weakest_seat.player_count}P {seatName(overall.weakest_seat.seat)}
+              </strong>
+              <span className="delta-tag delta-neg">
+                {overall.weakest_seat.delta_win_rate >= 0 ? '+' : ''}
+                {overall.weakest_seat.delta_win_rate.toFixed(1)}% vs Format
+              </span>
+            </div>
+          )}
+        </div>
+      )}
+
+      <ScrollTable hint="seat statistics">
+        <table className="data-table position-seat-table">
+          <caption className="visually-hidden">
+            Position and turn order win rates and placement breakdown for {data?.name ?? 'player'}
+          </caption>
+          <thead>
+            <tr>
+              <th scope="col">Turn Order</th>
+              <th scope="col">Games</th>
+              <th scope="col">Wins</th>
+              <th scope="col">Win %</th>
+              <th scope="col">Δ vs Format</th>
+              <th scope="col">Avg Culture</th>
+              <th scope="col">Finishing Distribution (1st / 2nd / 3rd / 4th)</th>
+            </tr>
+          </thead>
+          <tbody>
+            <Waiting load={state} what="position statistics" form="row" colSpan={7} />
+            {data !== null && groups.length === 0 && (
+              <tr>
+                <td colSpan={7} className="cell-empty">
+                  No recorded games in this format.
+                </td>
+              </tr>
+            )}
+            {groups.map((group) => (
+              <>
+                <tr key={`header-${group.player_count}`} className="format-group-row">
+                  <td colSpan={7} className="format-group-cell">
+                    <strong>{group.player_count}-Player Tables</strong>
+                    <span className="group-meta">
+                      {' '}— {group.total_games} games · {group.total_wins} wins ({group.win_rate.toFixed(1)}% win rate) · Avg Culture: {group.avg_culture.toFixed(1)}
+                    </span>
+                  </td>
+                </tr>
+                {group.seats.map((row) => {
+                  const deltaClass = seatDeltaClass(row.delta_win_rate);
+                  return (
+                    <tr key={`${group.player_count}-${row.seat}`}>
+                      <td className="seat-cell">
+                        <strong>{seatName(row.seat)}</strong>
+                      </td>
+                      <td>{row.games}</td>
+                      <td>{row.wins}</td>
+                      <td>
+                        <strong>{row.games > 0 ? `${row.win_rate.toFixed(1)}%` : '—'}</strong>
+                      </td>
+                      <td>
+                        {row.games > 0 ? (
+                          <span className={`seat-delta-badge ${deltaClass}`}>
+                            {row.delta_win_rate > 0 ? '+' : ''}
+                            {row.delta_win_rate.toFixed(1)}%
+                          </span>
+                        ) : (
+                          '—'
+                        )}
+                      </td>
+                      <td className="cell-culture">
+                        {row.games > 0 ? row.avg_culture.toFixed(1) : '—'}
+                      </td>
+                      <td className="places-cell">
+                        <div className="places-bars">
+                          {row.places.map((p) => (
+                            <span
+                              key={p.place}
+                              className={`place-rate-pill place-pill-${p.place}`}
+                              title={`${p.place}${p.place === 1 ? 'st' : p.place === 2 ? 'nd' : p.place === 3 ? 'rd' : 'th'} place: ${p.count} times (${p.rate.toFixed(1)}%)`}
+                            >
+                              <span className="pill-place">{p.place}:</span> {p.count}{' '}
+                              <span className="pill-pct">({p.rate.toFixed(0)}%)</span>
+                            </span>
+                          ))}
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </>
+            ))}
+          </tbody>
+        </table>
+      </ScrollTable>
+    </div>
+  );
+}
+

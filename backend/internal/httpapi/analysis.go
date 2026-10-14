@@ -181,3 +181,59 @@ func (s *server) GetActivity(ctx context.Context, req GetActivityRequestObject) 
 	}
 	return GetActivity200JSONResponse{Body: body, Headers: GetActivity200ResponseHeaders{CacheControl: cacheRun}}, nil
 }
+
+// GetSeatAnalysis returns empirical win rates and placement distributions per starting seat.
+func (s *server) GetSeatAnalysis(ctx context.Context, req GetSeatAnalysisRequestObject) (GetSeatAnalysisResponseObject, error) {
+	format := formatOr(req.Params.Format)
+	if msg := analysisRefusal(req.Run, format); msg != "" {
+		return GetSeatAnalysis400JSONResponse{badRequestBody(msg)}, nil
+	}
+	tier := "all"
+	if req.Params.Tier != nil {
+		if !req.Params.Tier.Valid() {
+			return GetSeatAnalysis400JSONResponse{badRequestBody("bad parameter: tier")}, nil
+		}
+		tier = string(*req.Params.Tier)
+	}
+
+	groups, err := s.ratings.SeatAnalysis(ctx, req.Run, int(format), tier)
+	if nf, ok := notFound(err); ok {
+		return GetSeatAnalysis404JSONResponse{nf}, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+
+	body := SeatAnalysis{
+		RunId:  req.Run,
+		Tier:   SeatAnalysisTier(tier),
+		Groups: make([]SeatStatsGroup, 0, len(groups)),
+	}
+	for _, g := range groups {
+		sg := SeatStatsGroup{
+			PlayerCount: g.PlayerCount,
+			TotalGames:  g.TotalGames,
+			Seats:       make([]SeatWinrateRow, 0, len(g.Seats)),
+		}
+		for _, row := range g.Seats {
+			sr := SeatWinrateRow{
+				Seat:    row.Seat,
+				Games:   row.Games,
+				Wins:    row.Wins,
+				WinRate: row.WinRate,
+				Places:  make([]SeatPlaceRate, 0, len(row.Places)),
+			}
+			for _, p := range row.Places {
+				sr.Places = append(sr.Places, SeatPlaceRate{
+					Place: p.Place,
+					Count: p.Count,
+					Rate:  p.Rate,
+				})
+			}
+			sg.Seats = append(sg.Seats, sr)
+		}
+		body.Groups = append(body.Groups, sg)
+	}
+
+	return GetSeatAnalysis200JSONResponse{Body: body, Headers: GetSeatAnalysis200ResponseHeaders{CacheControl: cacheRun}}, nil
+}

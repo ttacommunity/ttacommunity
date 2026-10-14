@@ -35,6 +35,16 @@ export type ComparedPlayers = components['schemas']['ComparedPlayers'];
 export type ComparedPlayer = components['schemas']['ComparedPlayer'];
 export type Activity = components['schemas']['Activity'];
 export type CountryRatings = components['schemas']['CountryRatings'];
+export type SeatAnalysis = components['schemas']['SeatAnalysis'];
+export type SeatStatsGroup = components['schemas']['SeatStatsGroup'];
+export type SeatWinrateRow = components['schemas']['SeatWinrateRow'];
+export type SeatPlaceRate = components['schemas']['SeatPlaceRate'];
+export type SeatAnalysisTier = components['schemas']['SeatAnalysis']['tier'];
+export type PlayerSeatStats = components['schemas']['PlayerSeatStats'];
+export type PlayerSeatGroup = components['schemas']['PlayerSeatGroup'];
+export type PlayerSeatRow = components['schemas']['PlayerSeatRow'];
+export type PlayerSeatOverview = components['schemas']['PlayerSeatOverview'];
+export type PlayerSeatDelta = components['schemas']['PlayerSeatDelta'];
 export type Series = components['schemas']['Series'];
 export type TournamentSeries = components['schemas']['TournamentSeries'];
 export type TrophyRow = components['schemas']['TrophyRow'];
@@ -197,6 +207,18 @@ export async function playerMatrix(
   return get<PlayerMatrix>(fetchFn, base, playerPath(run, name, `/matrix?${query}`));
 }
 
+/** Returns a player's seat statistics across formats, for rated games or all games. */
+export async function playerSeats(
+  base: string,
+  run: number,
+  name: string,
+  unrated: boolean = false,
+  fetchFn: typeof fetch = fetch,
+): Promise<PlayerSeatStats> {
+  const query = unrated ? '?unrated=true' : '';
+  return get<PlayerSeatStats>(fetchFn, base, playerPath(run, name, `/seats${query}`));
+}
+
 /** Returns the years a run's ratings cover, newest first, and which have a World Champion. */
 export async function years(base: string, run: number, fetchFn: typeof fetch = fetch): Promise<Years> {
   return get<Years>(fetchFn, base, `/v1/runs/${run}/years`);
@@ -240,6 +262,18 @@ export async function comparedPlayers(base: string, run: number, search: string,
 /** Returns a run's active players, games per format, titles and leading countries. */
 export async function activity(base: string, run: number, fetchFn: typeof fetch = fetch): Promise<Activity> {
   return get<Activity>(fetchFn, base, `/v1/runs/${run}/analysis/activity`);
+}
+
+/** Returns seat win rates and placement rates grouped by player count and filtered by skill tier. */
+export async function seatAnalysis(
+  base: string,
+  run: number,
+  tier: SeatAnalysisTier = 'all',
+  format: Format = 0,
+  fetchFn: typeof fetch = fetch,
+): Promise<SeatAnalysis> {
+  const query = new URLSearchParams({ tier, format: String(format) });
+  return get<SeatAnalysis>(fetchFn, base, `/v1/runs/${run}/analysis/seats?${query}`);
 }
 
 /** Returns what a tournament series' Hall of Fame page shows: counts, trophyboard, best seasons and games. */

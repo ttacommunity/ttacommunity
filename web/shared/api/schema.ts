@@ -319,6 +319,30 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/runs/{run}/players/{name}/seats": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * One player's performance broken down by starting position and player count
+         * @description The player's win rate, average culture score, and placement distribution
+         *     per seat (turn order 1 to 4) grouped across 2-player, 3-player, and
+         *     4-player games, plus comparative deltas against their overall performance.
+         *     By default returns rated games only; setting unrated=true includes all
+         *     played tournament and exhibition matches. Cached for five minutes.
+         */
+        get: operations["getPlayerSeats"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/runs/{run}/years": {
         parameters: {
             query?: never;
@@ -469,6 +493,29 @@ export interface paths {
          *     Cached for five minutes.
          */
         get: operations["getActivity"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/runs/{run}/analysis/seats": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Win rates and placement per seat by player count and skill tier
+         * @description Empirical win rates and placement distributions per starting seat
+         *     (turn order) across 2-player, 3-player, and 4-player games, filterable
+         *     by Glicko-D skill tier (grandmaster, master, advanced, intermediate,
+         *     beginner, or all). Cached for five minutes.
+         */
+        get: operations["getSeatAnalysis"];
         put?: never;
         post?: never;
         delete?: never;
@@ -1981,6 +2028,98 @@ export interface components {
             /** Format: double */
             all: number;
         };
+        SeatAnalysis: {
+            /** Format: int64 */
+            run_id: number;
+            /** @enum {string} */
+            tier: "all" | "grandmaster" | "master" | "advanced" | "intermediate" | "beginner";
+            /** @description Seat statistics grouped by player count (2P, 3P, 4P) */
+            groups: components["schemas"]["SeatStatsGroup"][];
+        };
+        SeatStatsGroup: {
+            player_count: number;
+            total_games: number;
+            seats: components["schemas"]["SeatWinrateRow"][];
+        };
+        SeatWinrateRow: {
+            /** @description 1-indexed turn position (Seat 1 = starting player) */
+            seat: number;
+            games: number;
+            wins: number;
+            /**
+             * Format: double
+             * @description Win rate as a percentage rounded to two decimals
+             */
+            win_rate: number;
+            /** @description Detailed placement breakdown (1st, 2nd, 3rd, 4th) */
+            places: components["schemas"]["SeatPlaceRate"][];
+        };
+        SeatPlaceRate: {
+            /** @description 1-indexed placement finish (1 = 1st place) */
+            place: number;
+            count: number;
+            /**
+             * Format: double
+             * @description Placement rate as a percentage rounded to two decimals
+             */
+            rate: number;
+        };
+        PlayerSeatStats: {
+            /** Format: int64 */
+            run_id: number;
+            name: string;
+            unrated: boolean;
+            /** @description Seat statistics grouped by format (2P, 3P, 4P) */
+            groups: components["schemas"]["PlayerSeatGroup"][];
+            overall: components["schemas"]["PlayerSeatOverview"];
+        };
+        PlayerSeatOverview: {
+            total_games: number;
+            total_wins: number;
+            /** Format: double */
+            win_rate: number;
+            /** Format: double */
+            avg_culture: number;
+            strongest_seat: components["schemas"]["PlayerSeatDelta"];
+            weakest_seat: components["schemas"]["PlayerSeatDelta"];
+        };
+        PlayerSeatDelta: {
+            player_count: number;
+            seat: number;
+            /** Format: double */
+            win_rate: number;
+            /**
+             * Format: double
+             * @description Difference in percentage points between this seat winrate and the format overall winrate
+             */
+            delta_win_rate: number;
+        } | null;
+        PlayerSeatGroup: {
+            player_count: number;
+            total_games: number;
+            total_wins: number;
+            /** Format: double */
+            win_rate: number;
+            /** Format: double */
+            avg_culture: number;
+            seats: components["schemas"]["PlayerSeatRow"][];
+        };
+        PlayerSeatRow: {
+            /** @description 1-indexed turn position (Seat 1 = starting player) */
+            seat: number;
+            games: number;
+            wins: number;
+            /** Format: double */
+            win_rate: number;
+            /**
+             * Format: double
+             * @description Win rate minus group overall win rate
+             */
+            delta_win_rate: number;
+            /** Format: double */
+            avg_culture: number;
+            places: components["schemas"]["SeatPlaceRate"][];
+        };
         ModelPair: {
             a: components["schemas"]["Model"];
             b: components["schemas"]["Model"];
@@ -2853,6 +2992,37 @@ export interface operations {
             404: components["responses"]["NotFound"];
         };
     };
+    getPlayerSeats: {
+        parameters: {
+            query?: {
+                /** @description Whether to include unrated/exhibition matches alongside rated tournament games */
+                unrated?: boolean;
+            };
+            header?: never;
+            path: {
+                /** @description A published run's id, from `/v1/runs/current` */
+                run: components["parameters"]["RunId"];
+                /** @description The player's name, as the leaderboard gives it */
+                name: components["parameters"]["PlayerName"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The player's seat statistics */
+            200: {
+                headers: {
+                    "Cache-Control": components["headers"]["CacheControl"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PlayerSeatStats"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            404: components["responses"]["NotFound"];
+        };
+    };
     getYears: {
         parameters: {
             query?: never;
@@ -3041,6 +3211,37 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Activity"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    getSeatAnalysis: {
+        parameters: {
+            query?: {
+                /** @description Skill tier of the table based on Glicko-D rating */
+                tier?: "all" | "grandmaster" | "master" | "advanced" | "intermediate" | "beginner";
+                /** @description Player count format (0 for all formats, or 2, 3, 4) */
+                format?: components["schemas"]["Format"];
+            };
+            header?: never;
+            path: {
+                /** @description A published run's id, from `/v1/runs/current` */
+                run: components["parameters"]["RunId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Seat statistics by player count */
+            200: {
+                headers: {
+                    "Cache-Control": components["headers"]["CacheControl"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SeatAnalysis"];
                 };
             };
             400: components["responses"]["BadRequest"];
@@ -3950,6 +4151,7 @@ export const pathsV1RunsRunLeaderboardCsvGetParametersQueryStatusValues: Readonl
 export const pathsV1RunsRunLeaderboardCsvGetParametersQuerySortValues: ReadonlyArray<FlattenedDeepRequired<paths>["/v1/runs/{run}/leaderboard.csv"]["get"]["parameters"]["query"]["sort"]> = ["rank", "name", "c_rating", "rating", "opps", "win_rate", "last_played"];
 export const pathsV1RunsRunLeaderboardCsvGetParametersQueryOrderValues: ReadonlyArray<FlattenedDeepRequired<paths>["/v1/runs/{run}/leaderboard.csv"]["get"]["parameters"]["query"]["order"]> = ["asc", "desc"];
 export const pathsV1RunsRunLeaderboardCsvGetParametersQueryStats_viewValues: ReadonlyArray<FlattenedDeepRequired<paths>["/v1/runs/{run}/leaderboard.csv"]["get"]["parameters"]["query"]["stats_view"]> = ["season", "career"];
+export const pathsV1RunsRunAnalysisSeatsGetParametersQueryTierValues: ReadonlyArray<FlattenedDeepRequired<paths>["/v1/runs/{run}/analysis/seats"]["get"]["parameters"]["query"]["tier"]> = ["all", "grandmaster", "master", "advanced", "intermediate", "beginner"];
 export const adminRunStatusValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["AdminRun"]["status"]> = ["running", "complete", "failed"];
 export const standingDifferenceKindValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["StandingDifference"]["kind"]> = ["games", "places", "places_after_a_timeout", "not_held", "not_on_cge"];
 export const adminTitleValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["AdminTitle"]> = ["SGM", "WCS", "WCB", "GM", "M", "P", "G", "S", "B", "W", ""];
@@ -3962,6 +4164,7 @@ export const modelValues: ReadonlyArray<FlattenedDeepRequired<components>["schem
 export const formatValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["Format"]> = [0, 2, 3, 4];
 export const titleCodeValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["TitleCode"]> = ["WC", "SGM", "WCS", "WCB", "GM", "M", "P", "G", "S", "B", "W"];
 export const calibrationRowModeValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["CalibrationRow"]["mode"]> = ["standard", "walk_forward"];
+export const seatAnalysisTierValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["SeatAnalysis"]["tier"]> = ["all", "grandmaster", "master", "advanced", "intermediate", "beginner"];
 export const tournamentRecordMedalValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["TournamentRecord"]["medal"]> = ["gold", "silver", "bronze"];
 export const communityEditionValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["CommunityEdition"]> = ["2026", "2025", "2024", "race26"];
 export const communityRowTitleValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["CommunityRow"]["title"]> = ["WC", "SGM", "WCS", "WCB", "GM", "M", "P", "G", "S", "B", "W"];

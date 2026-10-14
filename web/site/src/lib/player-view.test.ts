@@ -15,6 +15,8 @@ import {
   score,
   signedDelta,
   runYears,
+  seatName,
+  seatDeltaClass,
   visibleRivals,
 } from './player-view';
 
@@ -261,3 +263,20 @@ describe('runYears', () => {
     expect(runYears('2017-03-04', null)).toBeNull();
   });
 });
+
+describe('seat helpers', () => {
+  it('formats seat labels clearly', () => {
+    expect(seatName(1)).toBe('Seat 1 (Starting)');
+    expect(seatName(2)).toBe('Seat 2');
+    expect(seatName(3)).toBe('Seat 3');
+    expect(seatName(4)).toBe('Seat 4');
+    expect(seatName(5)).toBe('Seat 5');
+  });
+
+  it('classifies seat delta', () => {
+    expect(seatDeltaClass(3.5)).toBe('delta-pos');
+    expect(seatDeltaClass(-2.1)).toBe('delta-neg');
+    expect(seatDeltaClass(0)).toBe('delta-zero');
+  });
+});
+
