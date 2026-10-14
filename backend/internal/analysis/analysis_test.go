@@ -103,3 +103,25 @@ func TestAgreeRanksWithinSampleRegardlessOfExternalRank(t *testing.T) {
 		t.Errorf("correlations changed after adding outsider: got %+v, want %+v", after, initial)
 	}
 }
+
+func TestAgreeTiedRatingsShareTheirRank(t *testing.T) {
+	// Three players: a and b tie in every model but one, where c moves between them.
+	var rows []store.ModelRating
+	for _, m := range store.PlayerPageModels {
+		ratings := map[string]float64{"a": 1600, "b": 1600, "c": 1500}
+		if m == "whr" {
+			ratings = map[string]float64{"a": 1600, "b": 1500, "c": 1550}
+		}
+		for p, r := range ratings {
+			rows = append(rows, store.ModelRating{Player: p, Model: m, Rating: r, Opponents: 20})
+		}
+	}
+	got := Agree(rows)
+	// Ranks 1, 1, 3 against 1, 3, 2: d² = 0 + 4 + 1 = 5, so Spearman is 1 - 6·5/(3·8) = -0.25.
+	if len(got.Weakest) == 0 || got.Weakest[len(got.Weakest)-1].Spearman != -0.25 {
+		t.Errorf("weakest = %+v, want the pair with whr at Spearman -0.25 (ties sharing rank 1)", got.Weakest)
+	}
+	if got.Top[0].Spearman != 1 {
+		t.Errorf("top = %+v, want models with identical ranks at Spearman 1", got.Top)
+	}
+}

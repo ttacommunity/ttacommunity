@@ -3,6 +3,7 @@
 package analysis
 
 import (
+	"cmp"
 	"fmt"
 	"math"
 	"slices"
@@ -111,33 +112,26 @@ func Agree(ratings []store.ModelRating) Agreement {
 		return a
 	}
 
-	ranks := map[string]map[string]int{}
-	for _, m := range models {
-		ranks[m] = map[string]int{}
-		for _, p := range players {
-			rank := 1
-			rp := by[p][m]
-			for _, q := range players {
-				if by[q][m] > rp {
-					rank++
-				}
-			}
-			ranks[m][p] = rank
+	// One slice per model, players in the same order in each.
+	values, ranks := make([][]float64, len(models)), make([][]int, len(models))
+	for i, m := range models {
+		values[i] = make([]float64, len(players))
+		for k, p := range players {
+			values[i][k] = by[p][m]
 		}
+		ranks[i] = competitionRanks(values[i])
 	}
 
 	var pairs []Pair
 	for i, m1 := range models {
-		for _, m2 := range models[i+1:] {
-			v1, v2 := make([]float64, len(players)), make([]float64, len(players))
+		for j := i + 1; j < len(models); j++ {
 			var d2 float64
-			for k, p := range players {
-				v1[k], v2[k] = by[p][m1], by[p][m2]
-				d := float64(ranks[m1][p] - ranks[m2][p])
+			for k := range players {
+				d := float64(ranks[i][k] - ranks[j][k])
 				d2 += d * d
 			}
 			n := float64(len(players))
-			pairs = append(pairs, Pair{A: m1, B: m2, Pearson: round.To(pearson(v1, v2), 4), Spearman: round.To(1-6*d2/(n*(n*n-1)), 4)})
+			pairs = append(pairs, Pair{A: m1, B: models[j], Pearson: round.To(pearson(values[i], values[j]), 4), Spearman: round.To(1-6*d2/(n*(n*n-1)), 4)})
 		}
 	}
 	slices.SortStableFunc(pairs, func(x, y Pair) int {
@@ -152,6 +146,25 @@ func Agree(ratings []store.ModelRating) Agreement {
 	a.Top = pairs[:min(4, len(pairs))]
 	a.Weakest = pairs[max(0, len(pairs)-4):]
 	return a
+}
+
+// competitionRanks ranks each rating, highest first: equal ratings share the
+// rank of their first, and the next rating skips the places they took.
+func competitionRanks(ratings []float64) []int {
+	order := make([]int, len(ratings))
+	for i := range order {
+		order[i] = i
+	}
+	slices.SortStableFunc(order, func(a, b int) int { return cmp.Compare(ratings[b], ratings[a]) })
+	ranks := make([]int, len(ratings))
+	rank := 1
+	for pos, i := range order {
+		if pos > 0 && ratings[i] != ratings[order[pos-1]] {
+			rank = pos + 1
+		}
+		ranks[i] = rank
+	}
+	return ranks
 }
 
 func pearson(x, y []float64) float64 {
