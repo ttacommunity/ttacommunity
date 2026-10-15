@@ -697,6 +697,25 @@ func TestYearBoardRefusesAYearWithoutHistory(t *testing.T) {
 	}
 }
 
+func TestYearBoardRefusesAYearOutsideTheRunsGames(t *testing.T) {
+	pool := migrated(t)
+	r := NewRatingsReader(asReader(t, pool))
+	ctx := context.Background()
+	run := publishedRun(t, pool)
+	if _, err := pool.Exec(ctx, "UPDATE rating_runs SET first_game = '2024-01-05', last_game = '2024-12-20' WHERE run_id = $1", run); err != nil {
+		t.Fatalf("recording run %d's games: %v", run, err)
+	}
+	addHistory(t, pool, run, "glicko2_std", 0, "ann", "2024-12-31", 1600)
+	addHistory(t, pool, run, "whr", 0, "ann", "2019-12-31", 1500)
+
+	if _, err := r.YearBoard(ctx, run, 2019, "glicko2_std", 0); !errors.Is(err, ErrNoHistory) {
+		t.Errorf("YearBoard(2019) of a run whose games are all in 2024: err = %v, want ErrNoHistory", err)
+	}
+	if _, err := r.YearBoard(ctx, run, 2024, "glicko2_std", 0); err != nil {
+		t.Errorf("YearBoard(2024): %v", err)
+	}
+}
+
 func TestYearBoardNamesTheReigningChampionInTheRunsLatestYear(t *testing.T) {
 	pool := migrated(t)
 	r := NewRatingsReader(asReader(t, pool))

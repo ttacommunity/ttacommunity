@@ -63,7 +63,9 @@ func (r *RatingsReader) YearBoard(ctx context.Context, run int64, year int, mode
 			(SELECT max(period_date) FROM rating_history
 			 WHERE run_id = $1 AND model_type = $2 AND player_count = $3
 				AND period_date >= make_date($4::int, 1, 1) AND period_date < make_date($4::int + 1, 1, 1)),
-			(SELECT max(period_date) FROM rating_history WHERE run_id = $1 AND extract(year FROM period_date) = $4)),
+			(SELECT max(period_date) FROM rating_history WHERE run_id = $1 AND extract(year FROM period_date) = $4
+				AND EXISTS (SELECT 1 FROM rating_runs WHERE run_id = $1 -- no scan for a year outside the run's games
+					AND $4 BETWEEN coalesce(extract(year FROM first_game), $4) AND coalesce(extract(year FROM last_game), $4)))),
 			(SELECT max(period_date) FROM rating_history
 			 WHERE run_id = $1 AND model_type = $2 AND player_count = $3
 				AND period_date >= make_date($4::int - 1, 1, 1) AND period_date < make_date($4::int, 1, 1)),
