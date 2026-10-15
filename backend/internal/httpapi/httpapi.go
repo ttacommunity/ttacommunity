@@ -41,6 +41,13 @@ type Ratings interface {
 	AnalysisReads
 	TournamentReads
 	CatalogueReads
+	BlitzReads
+}
+
+// BlitzReads are the site's blitz tournament reads: the shown editions, and one with its active entrants.
+type BlitzReads interface {
+	BlitzEditions(ctx context.Context) ([]store.BlitzEditionRow, error)
+	BlitzEdition(ctx context.Context, slug, edition string) (store.BlitzEdition, error)
 }
 
 // RunReads are the reads every area shares: whether the database answers, the run the site shows, a run's last game.
@@ -117,7 +124,7 @@ type Requests interface {
 // reported to requests, timed by now, and logged when slower than slowRequest.
 func NewMux(ratings Ratings, admins Admins, log *slog.Logger, requests Requests, now func() time.Time) http.Handler {
 	mux := http.NewServeMux()
-	registerRoutes(mux, ratings, admins, log)
+	registerRoutes(mux, ratings, admins, log, now)
 	// limitBodies needs the server's own writer, so it sits outside observe's.
 	routed := recoverPanics(routeAdmin(publicCORS(mux), adminGate(mux, admins, log)), mux, log)
 	return withRequestID(withDeadline(limitBodies(observe(routed, mux, requests, now, log)), requestDeadline))
@@ -179,8 +186,8 @@ func (w *statusWriter) Unwrap() http.ResponseWriter {
 	return w.ResponseWriter
 }
 
-func registerRoutes(router ServeMux, ratings Ratings, admins Admins, log *slog.Logger) {
-	strict := NewStrictHandlerWithOptions(&server{ratings: ratings, admins: admins, log: log, agreement: runcache.New[Format, analysis.Agreement]()}, nil, StrictHTTPServerOptions{
+func registerRoutes(router ServeMux, ratings Ratings, admins Admins, log *slog.Logger, now func() time.Time) {
+	strict := NewStrictHandlerWithOptions(&server{ratings: ratings, admins: admins, log: log, agreement: runcache.New[Format, analysis.Agreement](), now: now}, nil, StrictHTTPServerOptions{
 		RequestErrorHandlerFunc:  badRequest,
 		ResponseErrorHandlerFunc: internalError(log),
 	})
@@ -328,6 +335,8 @@ type server struct {
 	admins    Admins
 	log       *slog.Logger
 	agreement *runcache.Cache[Format, analysis.Agreement]
+	// now is the clock, for what depends on the time of the request (a time zone's offset today).
+	now func() time.Time
 }
 
 // GetHealthz reports that the process is up. It checks no dependency, so a

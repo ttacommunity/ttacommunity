@@ -51,4 +51,13 @@
   --surface-card: rgba(28, 18, 12, 0.95);
   --surface-well: rgba(20, 13, 9, 0.98);
   --surface-field: rgba(14, 9, 6, 0.95);
+  /* The height of a text field, select or button in a row of them, so the row lines up. */
+  --control-height: 2.2rem;
+}
+
+/* Phones get upstream's 40px tap height for fields. */
+@media (max-width: 768px) {
+  :root {
+    --control-height: 40px;
+  }
 }

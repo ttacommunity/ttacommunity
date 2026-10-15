@@ -1,13 +1,14 @@
 /** A tournament's settings page in admin: its address, and the settings it edits. */
 import type { AdminResult, AdminTournament, AdminTournamentRow, Load } from './admin-api';
 
-export type Setting = 'visible' | 'rated' | 'community';
+export type Setting = 'visible' | 'rated' | 'community' | 'blitz';
 
 /** SETTINGS are a tournament's on/off settings, in the order admin shows them. */
 export const SETTINGS: { key: Setting; label: string; short: string; hint: string }[] = [
   { key: 'visible', label: 'Shown', short: 'Shown', hint: 'Shown on the site even when not rated' },
   { key: 'rated', label: 'Rated', short: 'Rated', hint: 'In the community ratings, from the next engine run' },
   { key: 'community', label: 'Community leaderboard', short: 'Community', hint: 'Counted in the overall community leaderboard' },
+  { key: 'blitz', label: 'Blitz', short: 'Blitz', hint: 'Run from admin as a blitz tournament: its editions, entrants, weekly pairings and results are on the Blitz tab' },
 ];
 
 // The API's pattern for a tournament in a path.

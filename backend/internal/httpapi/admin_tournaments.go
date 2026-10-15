@@ -68,7 +68,7 @@ func (s *server) GetAdminTournament(ctx context.Context, req GetAdminTournamentR
 	}
 	out := AdminTournament{Slug: t.Slug, Name: t.Name, OriginalName: t.OriginalName, Parent: t.Parent, Description: t.Description,
 		IsGroup: t.IsGroup, Games: t.Games, FirstGame: dateOf(t.FirstGame), LastGame: dateOf(t.LastGame), Kind: TournamentKind(t.Kind),
-		TopDivisions: append([]string{}, t.TopDivisions...), Visible: t.Visible, Rated: t.Rated, Community: t.Community,
+		TopDivisions: append([]string{}, t.TopDivisions...), Visible: t.Visible, Rated: t.Rated, Community: t.Community, Blitz: t.Blitz,
 		Points2p: append(PlacePoints{}, t.Points[2]...), Points3p: append(PlacePoints{}, t.Points[3]...),
 		Points4p: append(PlacePoints{}, t.Points[4]...), SeasonName: t.SeasonName, StageName: t.StageName, Card: tournamentCard(t.Card),
 		Stories: storyList(t.Stories), RatedPlayerCounts: append([]int{}, t.RatedPlayerCounts...), Regulations: t.Regulations,
@@ -78,8 +78,8 @@ func (s *server) GetAdminTournament(ctx context.Context, req GetAdminTournamentR
 
 // tournamentSettings returns the store's settings from a patch, and whether it asks for any of them.
 func tournamentSettings(b *TournamentSettings) (store.TournamentSettings, bool) {
-	settings := store.TournamentSettings{Visible: b.Visible, Rated: b.Rated, Community: b.Community, SeasonName: b.SeasonName,
-		StageName: b.StageName, Parent: b.Parent, Description: b.Description, Name: b.Name}
+	settings := store.TournamentSettings{Visible: b.Visible, Rated: b.Rated, Community: b.Community, Blitz: b.Blitz,
+		SeasonName: b.SeasonName, StageName: b.StageName, Parent: b.Parent, Description: b.Description, Name: b.Name}
 	if b.RatedPlayerCounts != nil {
 		settings.RatedPlayerCounts = *b.RatedPlayerCounts
 	}
@@ -97,7 +97,7 @@ func tournamentSettings(b *TournamentSettings) (store.TournamentSettings, bool) 
 			settings.Points[players] = append([]float64{}, *points...)
 		}
 	}
-	asked := b.Visible != nil || b.Rated != nil || b.Community != nil || b.RatedPlayerCounts != nil || b.Kind != nil ||
+	asked := b.Visible != nil || b.Rated != nil || b.Community != nil || b.Blitz != nil || b.RatedPlayerCounts != nil || b.Kind != nil ||
 		b.TopDivisions != nil || settings.Points != nil || b.SeasonName != nil || b.StageName != nil || b.Parent != nil ||
 		b.Description != nil || b.Name != nil
 	return settings, asked

@@ -991,6 +991,44 @@ paths:
           $ref: "#/components/responses/BadRequest"
         "404":
           $ref: "#/components/responses/NotFound"
+  /v1/blitz:
+    get:
+      operationId: getBlitzEditions
+      summary: Every edition of the blitz tournaments shown on the site
+      description: |
+        Blitz tournaments are run from admin, a round a week, so this answer
+        changes as organisers work: it is cached for a minute.
+      responses:
+        "200":
+          description: The editions, by tournament name, newest edition first
+          headers:
+            Cache-Control:
+              $ref: "#/components/headers/CacheControl"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BlitzEditions"
+  /v1/blitz/{tournament}/{edition}:
+    get:
+      operationId: getBlitzEdition
+      summary: A blitz edition's format and the entrants still in
+      parameters:
+        - $ref: "#/components/parameters/AdminTournamentSlug"
+        - $ref: "#/components/parameters/BlitzEditionLabel"
+      responses:
+        "200":
+          description: The edition
+          headers:
+            Cache-Control:
+              $ref: "#/components/headers/CacheControl"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BlitzEdition"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "404":
+          $ref: "#/components/responses/NotFound"
   /v1/admin/me:
     get:
       operationId: getAdminMe
@@ -1178,6 +1216,234 @@ paths:
           $ref: "#/components/responses/Forbidden"
         "404":
           $ref: "#/components/responses/NotFound"
+  /v1/admin/members:
+    get:
+      operationId: getAdminMembers
+      tags: [admin]
+      summary: The community's members, by name (admins and organisers)
+      description: |
+        Everyone who takes part in anything we run, keyed by their TTA
+        username, with the CGE account and ratings player attached as they
+        become known, how to reach them, their country and zone, and any
+        community ban.
+      responses:
+        "200":
+          description: The members, by name without case
+          headers:
+            Cache-Control:
+              $ref: "#/components/headers/CacheControl"
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/AdminMember"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+    post:
+      operationId: postAdminMember
+      tags: [admin]
+      summary: Add a member (admins and organisers)
+      description: |
+        Audited. The Origin must be the admin site. A username a CGE account
+        or the ratings know takes their spelling and their ids. A person
+        already a member, by username in any case or by that account, is
+        refused and named.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/NewMember"
+      responses:
+        "201":
+          description: Added
+          headers:
+            Cache-Control:
+              $ref: "#/components/headers/CacheControl"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MemberAdded"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "409":
+          $ref: "#/components/responses/Conflict"
+  /v1/admin/members/{member}:
+    patch:
+      operationId: patchAdminMember
+      tags: [admin]
+      summary: Change a member's details (admins and organisers)
+      description: Audited. The Origin must be the admin site. A field left out stays as it is.
+      parameters:
+        - $ref: "#/components/parameters/MemberId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/MemberChange"
+      responses:
+        "204":
+          description: Saved
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+    delete:
+      operationId: deleteAdminMember
+      tags: [admin]
+      summary: Remove a member added by mistake (admins only)
+      description: Audited. The Origin must be the admin site. A member in an edition cannot be removed.
+      parameters:
+        - $ref: "#/components/parameters/MemberId"
+      responses:
+        "204":
+          description: Removed
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+  /v1/admin/members/{member}/ban:
+    put:
+      operationId: putAdminMemberBan
+      tags: [admin]
+      summary: Ban a member from taking part, with a reason (admins only)
+      description: Audited. The Origin must be the admin site. A banned member cannot be entered in an edition; their games and ratings are untouched.
+      parameters:
+        - $ref: "#/components/parameters/MemberId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/MemberBan"
+      responses:
+        "204":
+          description: Banned
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    delete:
+      operationId: deleteAdminMemberBan
+      tags: [admin]
+      summary: Lift a member's ban (admins only)
+      description: Audited. The Origin must be the admin site.
+      parameters:
+        - $ref: "#/components/parameters/MemberId"
+      responses:
+        "204":
+          description: Unbanned
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /v1/admin/countries:
+    get:
+      operationId: getAdminCountries
+      tags: [admin]
+      summary: The countries a member may have (admins and organisers)
+      description: ISO 3166-1's two-letter codes and XK for Kosovo, in order.
+      responses:
+        "200":
+          description: The codes
+          headers:
+            Cache-Control:
+              $ref: "#/components/headers/CacheControl"
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: string
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+  /v1/admin/people:
+    get:
+      operationId: getAdminPeople
+      tags: [admin]
+      summary: The five members and players the ratings know who best match a name (admins and organisers)
+      description: |
+        Every member, banned ones marked, and the players the ratings know
+        who are no member yet, whose username or ratings spelling holds q in
+        any case. The name itself comes first, then names starting with q,
+        then the rest; members before players, then by name.
+      parameters:
+        - name: q
+          in: query
+          required: true
+          description: Part of a name, at least two characters
+          schema:
+            type: string
+            minLength: 2
+            maxLength: 100
+      responses:
+        "200":
+          description: Up to five, best first
+          headers:
+            Cache-Control:
+              $ref: "#/components/headers/CacheControl"
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Candidate"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+  /v1/admin/regions:
+    get:
+      operationId: getAdminRegions
+      tags: [admin]
+      summary: The zones a member may have besides an IANA one (admins and organisers)
+      description: |
+        Unknown, then the regions west to east. A region keeps the time of
+        one of its cities, for pairing by time zone; Unknown pairs as UTC.
+      responses:
+        "200":
+          description: Unknown, then the regions
+          headers:
+            Cache-Control:
+              $ref: "#/components/headers/CacheControl"
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Region"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
   /v1/admin/export:
     get:
       operationId: getAdminExport
@@ -1721,8 +1987,653 @@ paths:
           $ref: "#/components/responses/Forbidden"
         "404":
           $ref: "#/components/responses/NotFound"
+  /v1/admin/blitz:
+    get:
+      operationId: getAdminBlitzEditions
+      tags: [admin]
+      summary: Every edition of every series marked Blitz, with how many entrants are in and dropped
+      responses:
+        "200":
+          description: The editions, by tournament name, newest edition first
+          headers:
+            Cache-Control:
+              $ref: "#/components/headers/CacheControl"
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/AdminBlitzEditionRow"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+  /v1/admin/blitz/{tournament}/{edition}:
+    get:
+      operationId: getAdminBlitzEdition
+      tags: [admin]
+      summary: A blitz edition's format and every entrant, Discord names included
+      parameters:
+        - $ref: "#/components/parameters/AdminTournamentSlug"
+        - $ref: "#/components/parameters/BlitzEditionLabel"
+      responses:
+        "200":
+          description: The edition
+          headers:
+            Cache-Control:
+              $ref: "#/components/headers/CacheControl"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminBlitzEdition"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    patch:
+      operationId: patchAdminBlitzEdition
+      tags: [admin]
+      summary: Set a blitz edition's format
+      description: Audited. The Origin must be the admin site. Refused once the knockout has a round.
+      parameters:
+        - $ref: "#/components/parameters/AdminTournamentSlug"
+        - $ref: "#/components/parameters/BlitzEditionLabel"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/BlitzFormat"
+      responses:
+        "204":
+          description: Saved
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+  /v1/admin/blitz/{tournament}/{edition}/entrants:
+    post:
+      operationId: postAdminBlitzEntrants
+      tags: [admin]
+      summary: Add entrants to a blitz edition, all or none
+      description: |
+        Audited. The Origin must be the admin site. A time zone is an IANA
+        name (Europe/Berlin), a region or Unknown. A name the ratings know is kept in their
+        spelling. A name already entered, in any case, refuses the whole
+        list and is named.
+      parameters:
+        - $ref: "#/components/parameters/AdminTournamentSlug"
+        - $ref: "#/components/parameters/BlitzEditionLabel"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/NewBlitzEntrants"
+      responses:
+        "201":
+          description: Added
+          headers:
+            Cache-Control:
+              $ref: "#/components/headers/CacheControl"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BlitzEntrantIds"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+  /v1/admin/blitz/{tournament}/{edition}/candidates:
+    get:
+      operationId: getAdminBlitzCandidates
+      tags: [admin]
+      summary: The five people who best match a name, of those who could be entered in an edition
+      description: |
+        Members not in the edition, and players the ratings know who are no
+        member yet, whose username or ratings spelling holds q in any case.
+        The name itself comes first, then names starting with q, then the
+        rest; members before players, then by name.
+      parameters:
+        - $ref: "#/components/parameters/AdminTournamentSlug"
+        - $ref: "#/components/parameters/BlitzEditionLabel"
+        - name: q
+          in: query
+          required: true
+          description: Part of a name, at least two characters
+          schema:
+            type: string
+            minLength: 2
+            maxLength: 100
+      responses:
+        "200":
+          description: Up to five, best first
+          headers:
+            Cache-Control:
+              $ref: "#/components/headers/CacheControl"
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Candidate"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /v1/admin/blitz/{tournament}/{edition}/rounds:
+    post:
+      operationId: postAdminBlitzRound
+      tags: [admin]
+      summary: Pair the edition's next round as a draft
+      description: |
+        Audited. The Origin must be the admin site. Everyone active is
+        paired on equal points where possible, never with an opponent they
+        have met; within a score group the pairs are the best time-zone fit
+        (and the closest ratings, when asked), chance deciding the rest. With
+        an odd count the lowest in the standings without a bye gets it. After
+        the last Swiss round it pairs the knockout instead: first the top of
+        the standings, 1 v 8, 2 v 7… for eight, then each round's winners,
+        neighbouring matches meeting, until the final; the criteria do not
+        apply. Refused while a draft exists, a match so far has no result or
+        a knockout match no winner, the knockout lacks players, or the
+        edition is finished.
+      parameters:
+        - $ref: "#/components/parameters/AdminTournamentSlug"
+        - $ref: "#/components/parameters/BlitzEditionLabel"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/NewBlitzRound"
+      responses:
+        "201":
+          description: The draft round
+          headers:
+            Cache-Control:
+              $ref: "#/components/headers/CacheControl"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminBlitzRound"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+  /v1/admin/blitz/{tournament}/{edition}/rounds/{round}:
+    delete:
+      operationId: deleteAdminBlitzRound
+      tags: [admin]
+      summary: Delete the latest round while nothing in it is played
+      description: |
+        Audited. The Origin must be the admin site. Only the latest round,
+        draft or published, and only while none of its matches has a result.
+      parameters:
+        - $ref: "#/components/parameters/AdminTournamentSlug"
+        - $ref: "#/components/parameters/BlitzEditionLabel"
+        - $ref: "#/components/parameters/BlitzRoundId"
+      responses:
+        "204":
+          description: Deleted
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+  /v1/admin/blitz/{tournament}/{edition}/rounds/{round}/pairing:
+    post:
+      operationId: postAdminBlitzRoundPairing
+      tags: [admin]
+      summary: Propose a pairing of a round's unpaired players, without saving it
+      description: |
+        Everyone active and in no kept match is paired as for a new round, by
+        the criteria given. The matches named in keep stay as they are, and
+        so does a match of the round that already has a result; without
+        keep, everyone else is paired again. A kept bye goes back into the
+        pairing when an odd number is left over, and one player left over
+        gets the bye. Nothing is written: the proposal's new matches have no
+        id. Save it with PUT matches. A knockout round follows the bracket
+        and is refused.
+      parameters:
+        - $ref: "#/components/parameters/AdminTournamentSlug"
+        - $ref: "#/components/parameters/BlitzEditionLabel"
+        - $ref: "#/components/parameters/BlitzRoundId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/BlitzPairing"
+      responses:
+        "200":
+          description: The round as it would be
+          headers:
+            Cache-Control:
+              $ref: "#/components/headers/CacheControl"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminBlitzRound"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+  /v1/admin/blitz/{tournament}/{edition}/rounds/{round}/matches:
+    put:
+      operationId: putAdminBlitzRoundMatches
+      tags: [admin]
+      summary: Replace a round's matches, as paired by hand
+      description: |
+        Audited. The Origin must be the admin site. A match names two active
+        entrants, or one for the bye; nobody twice; never a pair that has met.
+        A round may be left incomplete until it is published. A knockout round
+        follows the bracket and is refused.
+      parameters:
+        - $ref: "#/components/parameters/AdminTournamentSlug"
+        - $ref: "#/components/parameters/BlitzEditionLabel"
+        - $ref: "#/components/parameters/BlitzRoundId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/BlitzRoundMatches"
+      responses:
+        "204":
+          description: Saved
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+  /v1/admin/blitz/{tournament}/{edition}/rounds/{round}/publish:
+    post:
+      operationId: postAdminBlitzRoundPublish
+      tags: [admin]
+      summary: Publish a round, once everyone active is in it exactly once
+      description: Audited. The Origin must be the admin site. Publishing again changes nothing.
+      parameters:
+        - $ref: "#/components/parameters/AdminTournamentSlug"
+        - $ref: "#/components/parameters/BlitzEditionLabel"
+        - $ref: "#/components/parameters/BlitzRoundId"
+      responses:
+        "204":
+          description: Published
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+  /v1/admin/blitz/{tournament}/{edition}/rounds/{round}/matches/{match}/game:
+    put:
+      operationId: putAdminBlitzMatchGame
+      tags: [admin]
+      summary: Record the game a match was played as, or correct it
+      description: |
+        Audited. The Origin must be the admin site. The game is written under
+        the edition's "Round N" stage with a seat for each player, so the
+        tournament's page shows it at once; recording the match again changes
+        that one game. The higher culture wins and equal cultures draw; a
+        resigned or timed-out player loses with culture 0; a drawn knockout
+        game stays a draw as a game and sends the higher seed through. A share
+        code already on another game is refused, naming it. The match's ruling, if any, is
+        cleared.
+      parameters:
+        - $ref: "#/components/parameters/AdminTournamentSlug"
+        - $ref: "#/components/parameters/BlitzEditionLabel"
+        - $ref: "#/components/parameters/BlitzRoundId"
+        - $ref: "#/components/parameters/BlitzMatchId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/BlitzGameRecord"
+      responses:
+        "204":
+          description: Recorded
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+  /v1/admin/blitz/{tournament}/{edition}/rounds/{round}/matches/{match}/replacement:
+    put:
+      operationId: putAdminBlitzMatchReplacement
+      tags: [admin]
+      summary: Replace a knockout player who dropped
+      description: |
+        Audited. The Origin must be the admin site. In a knockout match
+        without a result, an active entrant not in the round (the round's
+        reserve, or a wildcard) takes the place of a player who dropped,
+        keeping their slot and seed. A Swiss round is paired again instead.
+      parameters:
+        - $ref: "#/components/parameters/AdminTournamentSlug"
+        - $ref: "#/components/parameters/BlitzEditionLabel"
+        - $ref: "#/components/parameters/BlitzRoundId"
+        - $ref: "#/components/parameters/BlitzMatchId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/BlitzReplacement"
+      responses:
+        "204":
+          description: Replaced
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+  /v1/admin/blitz/{tournament}/{edition}/rounds/{round}/matches/{match}/ruling:
+    put:
+      operationId: putAdminBlitzMatchRuling
+      tags: [admin]
+      summary: Decide a match by the organisers' ruling
+      description: |
+        Audited. The Origin must be the admin site. A ruling awards the match
+        to one player, calls it a draw or a double loss, with its reason; a
+        knockout match's ruling names who goes through. A game the match already has stays, overruled;
+        recording the game again puts its result back. With no game, the ruling
+        is a forfeit: an unplayed round in the standings.
+      parameters:
+        - $ref: "#/components/parameters/AdminTournamentSlug"
+        - $ref: "#/components/parameters/BlitzEditionLabel"
+        - $ref: "#/components/parameters/BlitzRoundId"
+        - $ref: "#/components/parameters/BlitzMatchId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/BlitzRuling"
+      responses:
+        "204":
+          description: Recorded
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /v1/admin/blitz/{tournament}/{edition}/entrants/{entrant}:
+    patch:
+      operationId: patchAdminBlitzEntrant
+      tags: [admin]
+      summary: Change an entrant's Discord name, time zone or status (active or dropped)
+      description: |
+        Audited. The Origin must be the admin site. Only an entrant who has
+        played (a match with a result, or a bye in a published round) is
+        dropped; one who has not is removed instead.
+      parameters:
+        - $ref: "#/components/parameters/AdminTournamentSlug"
+        - $ref: "#/components/parameters/BlitzEditionLabel"
+        - $ref: "#/components/parameters/BlitzEntrantId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/BlitzEntrantChange"
+      responses:
+        "204":
+          description: Saved
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+    delete:
+      operationId: deleteAdminBlitzEntrant
+      tags: [admin]
+      summary: Remove an entrant who has not played
+      description: |
+        Audited. The Origin must be the admin site. An entrant who has not
+        played comes out of the Swiss matches they are paired in, draft or
+        published, leaving their opponent unpaired. One who has played is
+        refused (drop them instead), and so is one in a knockout match (the
+        bracket needs them: delete that round instead).
+      parameters:
+        - $ref: "#/components/parameters/AdminTournamentSlug"
+        - $ref: "#/components/parameters/BlitzEditionLabel"
+        - $ref: "#/components/parameters/BlitzEntrantId"
+      responses:
+        "204":
+          description: Removed
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+  /v1/admin/blitz/{tournament}/{edition}/organisers:
+    post:
+      operationId: postAdminBlitzOrganiser
+      tags: [admin]
+      summary: Add a member as an organiser of a blitz edition
+      description: |
+        Audited. The Origin must be the admin site. Every round's Discord
+        thread messages tell players to ping the organisers. Adding one
+        again changes nothing.
+      parameters:
+        - $ref: "#/components/parameters/AdminTournamentSlug"
+        - $ref: "#/components/parameters/BlitzEditionLabel"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/BlitzOrganiserAdd"
+      responses:
+        "204":
+          description: Added
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /v1/admin/blitz/{tournament}/{edition}/organisers/{member}:
+    delete:
+      operationId: deleteAdminBlitzOrganiser
+      tags: [admin]
+      summary: Stop a member organising a blitz edition
+      description: Audited. The Origin must be the admin site.
+      parameters:
+        - $ref: "#/components/parameters/AdminTournamentSlug"
+        - $ref: "#/components/parameters/BlitzEditionLabel"
+        - $ref: "#/components/parameters/MemberId"
+      responses:
+        "204":
+          description: Removed
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /v1/admin/blitz/{tournament}/{edition}/rounds/{round}/deadline:
+    put:
+      operationId: putAdminBlitzRoundDeadline
+      tags: [admin]
+      summary: Set the deadline to play a round by, draft or published
+      description: |
+        Audited. The Origin must be the admin site. Setting it again
+        replaces it, until every game of the round has a result: then it
+        is refused.
+      parameters:
+        - $ref: "#/components/parameters/AdminTournamentSlug"
+        - $ref: "#/components/parameters/BlitzEditionLabel"
+        - $ref: "#/components/parameters/BlitzRoundId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/BlitzDeadlineSet"
+      responses:
+        "204":
+          description: Saved
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+  /v1/admin/blitz/{tournament}/{edition}/rounds/{round}/threads:
+    get:
+      operationId: getAdminBlitzRoundThreads
+      tags: [admin]
+      summary: Download a round's Discord threads as text to paste
+      description: |
+        Audited, as it holds Discord names. For every game with two players,
+        numbered as the site numbers them: the thread's title (Round 3 ·
+        Game 1 · Ann vs Bob, by TTA username, at most 100 characters), then
+        the welcome message mentioning both players and the organisers by
+        Discord username, with the round's deadline as a Discord timestamp.
+        A Discord name that cannot be a username shows as @???, for the
+        organiser to fill in. Any round once paired, draft or published;
+        refused while the round has no deadline, the edition no organiser,
+        or the round no game.
+      parameters:
+        - $ref: "#/components/parameters/AdminTournamentSlug"
+        - $ref: "#/components/parameters/BlitzEditionLabel"
+        - $ref: "#/components/parameters/BlitzRoundId"
+      responses:
+        "200":
+          description: The threads, as plain text
+          headers:
+            Cache-Control:
+              $ref: "#/components/headers/CacheControl"
+            Content-Disposition:
+              required: true
+              schema:
+                type: string
+          content:
+            text/plain:
+              schema:
+                type: string
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
 components:
   parameters:
+    BlitzEditionLabel:
+      name: edition
+      in: path
+      required: true
+      description: The edition's label, as admin lists it (a season)
+      schema:
+        type: string
+        minLength: 1
+        maxLength: 64
+    BlitzEntrantId:
+      name: entrant
+      in: path
+      required: true
+      schema:
+        type: integer
+        format: int64
+        minimum: 1
+    BlitzRoundId:
+      name: round
+      in: path
+      required: true
+      schema:
+        type: integer
+        format: int64
+        minimum: 1
+    BlitzMatchId:
+      name: match
+      in: path
+      required: true
+      schema:
+        type: integer
+        format: int64
+        minimum: 1
+    MemberId:
+      name: member
+      in: path
+      required: true
+      schema:
+        type: integer
+        format: int64
+        minimum: 1
     AdminBadgeId:
       name: badge
       in: path
@@ -2260,7 +3171,7 @@ components:
           enum: [admin, organiser]
     AdminTournament:
       type: object
-      required: [slug, name, original_name, kind, top_divisions, points_2p, points_3p, points_4p, season_name, stage_name, visible, rated, community, card, stories, regulations, cge_regulations, rated_player_counts, seasons, parent, description, is_group, games, first_game, last_game]
+      required: [slug, name, original_name, kind, top_divisions, points_2p, points_3p, points_4p, season_name, stage_name, visible, rated, community, blitz, card, stories, regulations, cge_regulations, rated_player_counts, seasons, parent, description, is_group, games, first_game, last_game]
       properties:
         original_name:
           description: The name it came in with, kept when it is renamed
@@ -2335,6 +3246,9 @@ components:
           type: boolean
         community:
           description: Counted in the overall community leaderboard
+          type: boolean
+        blitz:
+          description: Run from admin as a blitz tournament
           type: boolean
         seasons:
           type: array
@@ -2425,7 +3339,7 @@ components:
       x-enum-varnames: [KindLeague, KindCup, KindLadder, KindSeries, KindGroup]
     AdminTournamentRow:
       type: object
-      required: [slug, name, kind, parent, is_group, description, cge_about, visible, rated, community, games, first_game, last_game]
+      required: [slug, name, kind, parent, is_group, description, cge_about, visible, rated, community, blitz, games, first_game, last_game]
       properties:
         slug:
           type: string
@@ -2449,6 +3363,8 @@ components:
         rated:
           type: boolean
         community:
+          type: boolean
+        blitz:
           type: boolean
         games:
           type: integer
@@ -2595,6 +3511,9 @@ components:
           type: boolean
         community:
           type: boolean
+        blitz:
+          description: Run from admin as a blitz tournament, a round a week, with its entrants, pairings, results and standings
+          type: boolean
         points_2p:
           $ref: "#/components/schemas/PlacePoints"
         points_3p:
@@ -2634,6 +3553,830 @@ components:
       properties:
         status:
           type: string
+    BlitzFormat:
+      description: How a blitz edition runs, Swiss rounds and then a knockout of that many players (0 for none)
+      type: object
+      additionalProperties: false
+      required: [swiss_rounds, knockout_size]
+      properties:
+        swiss_rounds:
+          type: integer
+          minimum: 1
+          maximum: 30
+        knockout_size:
+          description: 0, 2, 4, 8, 16 or 32
+          type: integer
+          minimum: 0
+          maximum: 32
+    BlitzEditionRow:
+      description: One edition of a blitz tournament as the site's list shows it
+      type: object
+      required: [tournament, name, edition, format, entrants, round, champion]
+      properties:
+        champion:
+          description: The winner of the knockout's final, by username; null until the final has a winner
+          type: string
+          nullable: true
+        round:
+          description: The latest published round's number, null before the first is published
+          type: integer
+          nullable: true
+        tournament:
+          description: The tournament's slug
+          type: string
+        name:
+          description: The tournament's name
+          type: string
+        edition:
+          description: The edition's label
+          type: string
+        format:
+          $ref: "#/components/schemas/BlitzFormat"
+        entrants:
+          description: How many entrants are still in
+          type: integer
+    BlitzEditions:
+      type: object
+      required: [editions]
+      properties:
+        editions:
+          type: array
+          items:
+            $ref: "#/components/schemas/BlitzEditionRow"
+    BlitzEntrant:
+      description: An entrant as the site shows them
+      type: object
+      required: [name, country, zone, utc_offset, rating]
+      properties:
+        name:
+          description: The member's TTA username
+          type: string
+        country:
+          description: A two-letter country code, null for none
+          type: string
+          nullable: true
+        zone:
+          description: The IANA time zone (Europe/Berlin), a region (US East) until it is known, or Unknown
+          type: string
+        utc_offset:
+          description: The zone's offset from UTC now, as +02:00 (a region's is its city's); empty for Unknown
+          type: string
+        rating:
+          description: The 2-player rating in the current run, null when unrated
+          type: number
+          format: double
+          nullable: true
+    BlitzEdition:
+      description: A blitz edition for the site, with the entrants still in, the published rounds and the standings
+      type: object
+      required: [tournament, name, edition, format, entrants, rounds, standings, champion]
+      properties:
+        champion:
+          description: The winner of the knockout's final, by username; null until the final has a winner
+          type: string
+          nullable: true
+        tournament:
+          type: string
+        name:
+          type: string
+        edition:
+          type: string
+        format:
+          $ref: "#/components/schemas/BlitzFormat"
+        entrants:
+          type: array
+          items:
+            $ref: "#/components/schemas/BlitzEntrant"
+        rounds:
+          description: The published rounds, first first
+          type: array
+          items:
+            $ref: "#/components/schemas/BlitzRound"
+        standings:
+          description: |
+            By rank: points, then FIDE's Swiss tie-breaks (Direct Encounter,
+            then Buchholz), then a draw fixed for the edition; dropped players
+            last. Only the published Swiss rounds count
+          type: array
+          items:
+            $ref: "#/components/schemas/BlitzStanding"
+    BlitzRound:
+      description: A published round as the site shows it
+      type: object
+      required: [number, kind, published_at, matches]
+      properties:
+        number:
+          type: integer
+        kind:
+          description: A Swiss round, or a knockout round (its matches in bracket order)
+          type: string
+          enum: [swiss, knockout]
+        published_at:
+          type: string
+          format: date-time
+        matches:
+          type: array
+          items:
+            $ref: "#/components/schemas/BlitzPublicMatch"
+    BlitzPublicMatch:
+      description: Who plays whom and how it ended; b is null for the bye
+      type: object
+      required: [a, a_rating, a_seed, b, b_rating, b_seed, result, game, ruled]
+      properties:
+        a_seed:
+          description: In a knockout match, a's seed, their place in the Swiss standings when the knockout began; null in a Swiss round
+          type: integer
+          nullable: true
+        b_seed:
+          description: In a knockout match, b's seed, their place in the Swiss standings when the knockout began; null in a Swiss round
+          type: integer
+          nullable: true
+        a:
+          type: string
+        a_rating:
+          type: number
+          format: double
+          nullable: true
+        b:
+          type: string
+          nullable: true
+        b_rating:
+          type: number
+          format: double
+          nullable: true
+        result:
+          description: Null until the match is decided (a bye never is)
+          allOf:
+            - $ref: "#/components/schemas/BlitzResult"
+          nullable: true
+        game:
+          description: The game played, null for none recorded
+          allOf:
+            - $ref: "#/components/schemas/BlitzPlayedGame"
+          nullable: true
+        ruled:
+          description: Whether the result is the organisers' ruling rather than the game's outcome
+          type: boolean
+    BlitzResult:
+      description: Who won, a draw, or a double loss
+      type: string
+      enum: [a, b, draw, double_loss]
+    BlitzPlayedGame:
+      description: A played game as recorded, each side as the match names them
+      type: object
+      required: [share_code, a_culture, a_outcome, b_culture, b_outcome, finished_at]
+      properties:
+        share_code:
+          type: string
+        a_culture:
+          type: number
+          format: double
+        a_outcome:
+          $ref: "#/components/schemas/BlitzOutcome"
+        b_culture:
+          type: number
+          format: double
+        b_outcome:
+          $ref: "#/components/schemas/BlitzOutcome"
+        finished_at:
+          description: When the game finished, in UTC
+          type: string
+          format: date-time
+    BlitzOutcome:
+      description: How a player's game ended
+      type: string
+      enum: [finished, resigned, timed_out]
+    BlitzStanding:
+      description: One row of the standings
+      type: object
+      required: [rank, name, country, points, games, byes, buchholz, status]
+      properties:
+        rank:
+          type: integer
+        name:
+          type: string
+        country:
+          description: A two-letter country code, null for none
+          type: string
+          nullable: true
+        points:
+          description: A win 1, a draw a half, a bye 1
+          type: number
+          format: double
+        games:
+          description: Games played (finished, resigned or timed out); forfeits and byes aside
+          type: integer
+        byes:
+          type: integer
+        buchholz:
+          description: |
+            Buchholz, as FIDE's tie-break regulations for Swiss tournaments
+            define it: the sum of the opponents' scores. An unplayed round (a
+            bye, a forfeit, a round not paired) counts as a game against a
+            dummy with the player's own score, and an opponent's rounds after
+            dropping out count as draws
+          type: number
+          format: double
+        status:
+          description: Dropped players come last
+          type: string
+          enum: [active, dropped]
+    NewBlitzRound:
+      description: The criteria to pair by; the time zone fit is on unless turned off
+      type: object
+      additionalProperties: false
+      properties:
+        timezone:
+          type: boolean
+          default: true
+        rating:
+          type: boolean
+          default: false
+    BlitzPairing:
+      description: The criteria to pair by, as for a new round, and the matches to keep as they are
+      type: object
+      additionalProperties: false
+      properties:
+        timezone:
+          type: boolean
+          default: true
+        rating:
+          type: boolean
+          default: false
+        keep:
+          description: Matches that stay as they are; everyone active and in none of them is paired
+          type: array
+          maxItems: 500
+          items:
+            $ref: "#/components/schemas/BlitzMatchChange"
+    AdminBlitzMatch:
+      description: A match by entrant ids; b is null for the bye. The gaps are as the entrants are now
+      type: object
+      required: [id, a, b, slot, a_seed, b_seed, zone_gap_minutes, rating_gap, repeat, result, game, ruling, decided_at]
+      properties:
+        slot:
+          description: A knockout match's place in the bracket, from 0; the winners of slots 2k and 2k+1 meet in slot k next. Null in a Swiss round
+          type: integer
+          nullable: true
+        a_seed:
+          description: In a knockout match, a's seed, their place in the Swiss standings when the knockout began; null in a Swiss round
+          type: integer
+          nullable: true
+        b_seed:
+          description: In a knockout match, b's seed, their place in the Swiss standings when the knockout began; null in a Swiss round
+          type: integer
+          nullable: true
+        id:
+          type: integer
+          format: int64
+        a:
+          type: integer
+          format: int64
+        b:
+          type: integer
+          format: int64
+          nullable: true
+        zone_gap_minutes:
+          type: integer
+        rating_gap:
+          description: Null when either is unrated, or for the bye
+          type: number
+          format: double
+          nullable: true
+        repeat:
+          description: Whether the two have met in another round
+          type: boolean
+        result:
+          description: Null until the match is decided
+          allOf:
+            - $ref: "#/components/schemas/BlitzResult"
+          nullable: true
+        game:
+          description: The game played, null for none recorded
+          allOf:
+            - $ref: "#/components/schemas/BlitzPlayedGame"
+          nullable: true
+        ruling:
+          description: The organisers' reason when the result is their ruling, else empty
+          type: string
+        decided_at:
+          type: string
+          format: date-time
+          nullable: true
+    AdminBlitzRound:
+      type: object
+      required: [id, number, kind, timezone, rating, published_at, deadline, matches, reserve]
+      properties:
+        id:
+          type: integer
+          format: int64
+        number:
+          type: integer
+        kind:
+          type: string
+          enum: [swiss, knockout]
+        timezone:
+          type: boolean
+        rating:
+          type: boolean
+        published_at:
+          description: Null for a draft
+          type: string
+          format: date-time
+          nullable: true
+        deadline:
+          description: The deadline to play by, null until set
+          allOf:
+            - $ref: "#/components/schemas/BlitzDeadline"
+          nullable: true
+        matches:
+          type: array
+          items:
+            $ref: "#/components/schemas/AdminBlitzMatch"
+        reserve:
+          description: |
+            For a knockout round, the entrant who replaces a player who
+            dropped: the best Swiss place among active entrants not in the
+            round. Null for a Swiss round, or with nobody left.
+          type: integer
+          format: int64
+          nullable: true
+    BlitzReplacement:
+      description: Who drops out of a knockout match, and who takes their place, by entrant id
+      type: object
+      additionalProperties: false
+      required: [out, in]
+      properties:
+        out:
+          type: integer
+          format: int64
+        in:
+          type: integer
+          format: int64
+    BlitzRoundMatches:
+      type: object
+      additionalProperties: false
+      required: [matches]
+      properties:
+        matches:
+          type: array
+          maxItems: 500
+          items:
+            $ref: "#/components/schemas/BlitzMatchChange"
+    BlitzMatchChange:
+      description: A match by entrant ids, b left out for the bye
+      type: object
+      additionalProperties: false
+      required: [a]
+      properties:
+        a:
+          type: integer
+          format: int64
+        b:
+          description: Left out for the bye
+          type: integer
+          format: int64
+    AdminBlitzEditionRow:
+      description: One edition of a blitz tournament as admin's list shows it
+      type: object
+      required: [tournament, name, edition, format, entrants, pending, dropped, round, champion]
+      properties:
+        champion:
+          description: The winner of the knockout's final, by username; null until the final has a winner
+          type: string
+          nullable: true
+        round:
+          description: The latest published round's number, null before the first is published
+          type: integer
+          nullable: true
+        tournament:
+          type: string
+        name:
+          type: string
+        edition:
+          type: string
+        format:
+          $ref: "#/components/schemas/BlitzFormat"
+        entrants:
+          description: How many entrants are still in
+          type: integer
+        pending:
+          description: How many are named but not yet confirmed
+          type: integer
+        dropped:
+          description: How many have dropped out
+          type: integer
+    AdminBlitzEntrant:
+      type: object
+      required: [id, member, name, player, discord_name, email, country, zone, utc_offset, rating, status]
+      properties:
+        id:
+          type: integer
+          format: int64
+        member:
+          description: The member entered
+          type: integer
+          format: int64
+        name:
+          description: The member's TTA username
+          type: string
+        player:
+          description: The ratings' spelling of the name, empty for a player the ratings do not know
+          type: string
+        discord_name:
+          type: string
+        email:
+          type: string
+        country:
+          type: string
+          nullable: true
+        zone:
+          type: string
+        utc_offset:
+          type: string
+        rating:
+          type: number
+          format: double
+          nullable: true
+        status:
+          description: Pending is named but not confirmed, neither paired nor shown on the site
+          type: string
+          enum: [pending, active, dropped]
+    AdminBlitzEdition:
+      type: object
+      required: [tournament, name, edition, format, entrants, rounds, standings, champion, organisers]
+      properties:
+        organisers:
+          description: The members the Discord thread messages tell players to ping, in the order added
+          type: array
+          items:
+            $ref: "#/components/schemas/AdminBlitzOrganiser"
+        champion:
+          description: The winner of the knockout's final, by username; null until the final has a winner
+          type: string
+          nullable: true
+        tournament:
+          type: string
+        name:
+          type: string
+        edition:
+          type: string
+        format:
+          $ref: "#/components/schemas/BlitzFormat"
+        entrants:
+          description: Every entrant, in sign-up order, dropped ones included
+          type: array
+          items:
+            $ref: "#/components/schemas/AdminBlitzEntrant"
+        rounds:
+          description: Every round, first first, drafts included
+          type: array
+          items:
+            $ref: "#/components/schemas/AdminBlitzRound"
+        standings:
+          description: By rank, as the site shows them; dropped players last
+          type: array
+          items:
+            $ref: "#/components/schemas/BlitzStanding"
+    AdminMember:
+      description: A member of the community as admin sees them
+      type: object
+      required: [id, name, player, cge_user, discord_name, email, country, zone, utc_offset, banned, ban_reason, banned_at, entries, created_at]
+      properties:
+        id:
+          type: integer
+          format: int64
+        name:
+          description: The TTA username as in the app
+          type: string
+        player:
+          description: The ratings' spelling of the name, empty for a player the ratings do not know
+          type: string
+        cge_user:
+          description: The CGE account's id, null until known
+          type: integer
+          nullable: true
+        discord_name:
+          type: string
+        email:
+          type: string
+        country:
+          description: A two-letter country code, null for none
+          type: string
+          nullable: true
+        zone:
+          description: The IANA time zone (Europe/Berlin), a region (US East) until it is known, or Unknown
+          type: string
+        utc_offset:
+          description: The zone's offset from UTC now, as +02:00 (a region's is its city's); empty for Unknown
+          type: string
+        banned:
+          type: boolean
+        ban_reason:
+          type: string
+        banned_at:
+          type: string
+          format: date-time
+          nullable: true
+        entries:
+          description: How many editions the member is in
+          type: integer
+        created_at:
+          type: string
+          format: date-time
+    NewMember:
+      type: object
+      additionalProperties: false
+      required: [name]
+      properties:
+        name:
+          description: The TTA username as in the app
+          type: string
+          minLength: 1
+          maxLength: 100
+        discord_name:
+          type: string
+          maxLength: 100
+        email:
+          type: string
+          maxLength: 254
+        country:
+          description: A two-letter country code
+          type: string
+          maxLength: 2
+        zone:
+          description: An IANA time zone (Europe/Berlin), a region (US East) from GET /v1/admin/regions, or Unknown, the default
+          type: string
+          minLength: 1
+          maxLength: 64
+    MemberChange:
+      description: What to change; a field left out stays as it is
+      type: object
+      additionalProperties: false
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 100
+        discord_name:
+          type: string
+          maxLength: 100
+        email:
+          type: string
+          maxLength: 254
+        country:
+          description: A two-letter country code, or empty for none
+          type: string
+          maxLength: 2
+        zone:
+          type: string
+          minLength: 1
+          maxLength: 64
+        cge_user:
+          description: The CGE account's id, which the data must know; 0 unlinks it
+          type: integer
+          minimum: 0
+    MemberAdded:
+      type: object
+      required: [id]
+      properties:
+        id:
+          type: integer
+          format: int64
+    MemberBan:
+      type: object
+      additionalProperties: false
+      required: [reason]
+      properties:
+        reason:
+          type: string
+          minLength: 1
+          maxLength: 1000
+    AdminBlitzOrganiser:
+      description: A member who organises an edition
+      type: object
+      required: [member, name, discord_name]
+      properties:
+        member:
+          type: integer
+          format: int64
+        name:
+          description: The TTA username
+          type: string
+        discord_name:
+          description: Empty when not known
+          type: string
+    BlitzOrganiserAdd:
+      description: The member to add as an organiser
+      type: object
+      additionalProperties: false
+      required: [member]
+      properties:
+        member:
+          type: integer
+          format: int64
+          minimum: 1
+    BlitzDeadline:
+      description: A deadline, and the time zone it was set in
+      type: object
+      required: [at, zone]
+      properties:
+        at:
+          type: string
+          format: date-time
+        zone:
+          description: An IANA time zone, a region (US East) or Unknown (UTC)
+          type: string
+    BlitzDeadlineSet:
+      description: A deadline as a day and a time on the clocks of a time zone
+      type: object
+      additionalProperties: false
+      required: [day, time, zone]
+      properties:
+        day:
+          type: string
+          format: date
+        time:
+          description: As 12:00 on the clocks of zone
+          type: string
+          pattern: "^([01][0-9]|2[0-3]):[0-5][0-9]$"
+        zone:
+          description: An IANA time zone, a region (US East) or Unknown (UTC), whose clocks the day and time are on
+          type: string
+          minLength: 1
+          maxLength: 64
+    BlitzGameRecord:
+      description: A played game, with the share code, each side as the match names them, and when it finished
+      type: object
+      additionalProperties: false
+      required: [share_code, a, b, finished_on, finished_time, zone]
+      properties:
+        share_code:
+          type: string
+          minLength: 1
+          maxLength: 32
+        a:
+          $ref: "#/components/schemas/BlitzGameSide"
+        b:
+          $ref: "#/components/schemas/BlitzGameSide"
+        finished_on:
+          description: The day it finished, on the clocks of zone
+          type: string
+          format: date
+        finished_time:
+          description: The time it finished, as 21:30 on the clocks of zone
+          type: string
+          pattern: "^([01][0-9]|2[0-3]):[0-5][0-9]$"
+        zone:
+          description: An IANA time zone, a region (US East) or Unknown (UTC), whose clocks the day and time are on
+          type: string
+          minLength: 1
+          maxLength: 64
+    BlitzGameSide:
+      type: object
+      additionalProperties: false
+      required: [culture, outcome]
+      properties:
+        culture:
+          description: Ignored (0) for a player who resigned or timed out
+          type: number
+          format: double
+          minimum: 0
+        outcome:
+          $ref: "#/components/schemas/BlitzOutcome"
+    BlitzRuling:
+      type: object
+      additionalProperties: false
+      required: [result, reason]
+      properties:
+        result:
+          $ref: "#/components/schemas/BlitzResult"
+        reason:
+          type: string
+          minLength: 1
+          maxLength: 1000
+    NewBlitzEntrant:
+      description: |
+        A member to enter: by id, any details given (not empty) saved on the member, or by TTA username with the
+        details a new member needs when the name is not a member yet
+      type: object
+      additionalProperties: false
+      properties:
+        member:
+          type: integer
+          format: int64
+          minimum: 1
+        name:
+          type: string
+          minLength: 1
+          maxLength: 100
+        discord_name:
+          type: string
+          maxLength: 100
+        email:
+          type: string
+          maxLength: 254
+        country:
+          description: A two-letter country code
+          type: string
+          maxLength: 2
+        zone:
+          description: An IANA time zone (Europe/Berlin), a region (US East) from GET /v1/admin/regions, or Unknown, the default
+          type: string
+          minLength: 1
+          maxLength: 64
+        status:
+          description: Active unless given; pending for someone not yet confirmed
+          type: string
+          enum: [pending, active]
+    Candidate:
+      description: Someone admin may add or enter, a member or a player the ratings know, with what is known of them
+      type: object
+      required: [member, name, player, discord_name, email, country, zone, banned]
+      properties:
+        member:
+          description: The member's id, null for a player the ratings know who is no member yet
+          type: integer
+          format: int64
+          nullable: true
+        name:
+          description: The TTA username, or the ratings' spelling for a player who is no member
+          type: string
+        player:
+          description: The ratings' spelling of the name, empty for a member the ratings do not know
+          type: string
+        discord_name:
+          type: string
+        email:
+          type: string
+        country:
+          description: A two-letter country code, null for none
+          type: string
+          nullable: true
+        zone:
+          description: The member's zone, null for a player who is no member
+          type: string
+          nullable: true
+        banned:
+          description: A banned member, who cannot be entered
+          type: boolean
+    Region:
+      description: A zone a member may have besides an IANA one
+      type: object
+      required: [name, zone, utc_offset]
+      properties:
+        name:
+          description: The region's name (US East), or Unknown
+          type: string
+        zone:
+          description: The IANA zone whose time the region keeps; empty for Unknown
+          type: string
+        utc_offset:
+          description: Its offset from UTC now, as -04:00; empty for Unknown
+          type: string
+    NewBlitzEntrants:
+      type: object
+      additionalProperties: false
+      required: [entrants]
+      properties:
+        entrants:
+          type: array
+          minItems: 1
+          maxItems: 500
+          items:
+            $ref: "#/components/schemas/NewBlitzEntrant"
+    BlitzEntrantIds:
+      type: object
+      required: [ids]
+      properties:
+        ids:
+          description: The new entrants' ids, in the order given
+          type: array
+          items:
+            type: integer
+            format: int64
+    BlitzEntrantChange:
+      description: What to change, the entrant's status or the member's details; a field left out stays as it is
+      type: object
+      additionalProperties: false
+      properties:
+        discord_name:
+          type: string
+          maxLength: 100
+        email:
+          type: string
+          maxLength: 254
+        country:
+          description: A two-letter country code, or empty for none
+          type: string
+          maxLength: 2
+        zone:
+          type: string
+          minLength: 1
+          maxLength: 64
+        status:
+          type: string
+          enum: [pending, active, dropped]
     Error:
       type: object
       required: [error]

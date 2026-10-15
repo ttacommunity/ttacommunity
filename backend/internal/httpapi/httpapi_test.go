@@ -22,9 +22,13 @@ import (
 )
 
 type fakeRatings struct {
-	run      store.PublishedRun
-	runErr   error
-	lastGame *time.Time
+	// blitzEdition, when set, is what BlitzEdition answers for us_open 2026 (blitz_test.go).
+	blitzEdition *store.BlitzEdition
+	run          store.PublishedRun
+	runErr       error
+	lastGame     *time.Time
+	// rated is what RatingsOf answers, by name.
+	rated    map[string]store.Rated
 	board    []store.LeaderboardRow
 	boardErr error
 	pingErr  error
@@ -78,8 +82,14 @@ func (f *fakeRatings) PlayerMatches(context.Context, int64, string, int, int) (s
 	return "", store.MatchPage{}, nil
 }
 
-func (f *fakeRatings) RatingsOf(context.Context, int64, string, int, []string) (map[string]store.Rated, error) {
-	return nil, nil
+func (f *fakeRatings) RatingsOf(_ context.Context, _ int64, _ string, _ int, names []string) (map[string]store.Rated, error) {
+	got := map[string]store.Rated{}
+	for _, n := range names {
+		if r, ok := f.rated[n]; ok {
+			got[n] = r
+		}
+	}
+	return got, nil
 }
 
 func (f *fakeRatings) HiddenNames(context.Context, []string) (map[string]bool, error) {
@@ -191,6 +201,7 @@ type readsOnly struct {
 	AnalysisReads
 	TournamentReads
 	CatalogueReads
+	BlitzReads
 }
 
 type observed struct {
@@ -257,7 +268,7 @@ func TestRoutesMatchTheSpec(t *testing.T) {
 		}
 	}
 	router := &recordingRouter{ServeMux: http.NewServeMux()}
-	registerRoutes(router, &fakeRatings{}, nil, slog.New(slog.DiscardHandler))
+	registerRoutes(router, &fakeRatings{}, nil, slog.New(slog.DiscardHandler), stepClock(time.Millisecond))
 
 	slices.Sort(want)
 	slices.Sort(router.patterns)

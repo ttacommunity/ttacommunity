@@ -1,4 +1,4 @@
-/** The admin page: the site's header with admin's tabs (tournaments, data and rating runs, titles and badges, admins). */
+/** The admin page: the site's header with admin's tabs (tournaments, blitz, data and rating runs, titles and badges, admins). */
 import { Fragment, useEffect, useState, type ReactNode } from 'react';
 import Segmented from '@ttac/shared/Segmented';
 import { adminRequest, type AdminMe, type AdminTournamentRow, type Load } from '../lib/admin-api';
@@ -16,6 +16,8 @@ import StandingsCheckPanel from './StandingsCheckPanel';
 import TitlesPanel from './TitlesPanel';
 import BadgesPanel from './BadgesPanel';
 import CommunityPanel from './CommunityPanel';
+import BlitzPanel from './BlitzPanel';
+import MembersPanel from './MembersPanel';
 import './AdminApp.css';
 
 /** Tournaments lists the top-level tournaments and groups, rated or unrated, with New group. */
@@ -72,13 +74,17 @@ function Tournaments() {
   );
 }
 
-/** panel draws one of admin's panels; myName is who is signed in, for the admin list. */
-function panel(p: Panel, myName: string): ReactNode {
+/** panel draws one of admin's panels; myName and role are who is signed in, for the admin and members lists. */
+function panel(p: Panel, myName: string, role: AdminMe['role']): ReactNode {
   switch (p) {
     case 'tournaments':
       return <Tournaments />;
     case 'community':
       return <CommunityPanel />;
+    case 'blitz':
+      return <BlitzPanel />;
+    case 'members':
+      return <MembersPanel role={role} />;
     case 'data':
       return <DataCard />;
     case 'runs':
@@ -120,7 +126,7 @@ export default function AdminApp() {
               Signed in as <strong>{me.data.name}</strong> ({me.data.role})
             </p>
             {panelsFor(tab, me.data.role).map((p) => (
-              <Fragment key={p}>{panel(p, me.data.name)}</Fragment>
+              <Fragment key={p}>{panel(p, me.data.name, me.data.role)}</Fragment>
             ))}
           </>
         )}

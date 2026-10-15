@@ -1,0 +1,10 @@
+---
+/** The Blitz section: every blitz tournament, or one edition (?t=&e=) with its players. */
+import { PUBLIC_API_URL } from 'astro:env/client';
+import SiteLayout from '../../layouts/SiteLayout.astro';
+import BlitzPage from '../../components/BlitzPage';
+import '../../components/HallOfFame.css';
+---
+<SiteLayout title="Blitz | Through the Ages community" description="The community's blitz tournaments: who is in, the weekly pairings, results and standings.">
+  <BlitzPage client:only="react" apiUrl={PUBLIC_API_URL} />
+</SiteLayout>

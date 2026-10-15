@@ -88,7 +88,10 @@ func loadCGEExtract(dir, settingsDir, pairsFile string, apply bool) error {
 			applied = &got
 		}
 		reportCGEExtract(os.Stdout, plan, in.Extract.Refused, applied)
-		return nil
+		if !apply {
+			return nil
+		}
+		return linkMembers(ctx, pool)
 	})
 }
 

@@ -58,6 +58,59 @@ const FLAGS: Record<SeasonFlag, 'rated' | 'in_champions' | 'in_community'> = {
 export const setSeasonFlag = (slug: string, label: string, flag: SeasonFlag, on: boolean) =>
   to(season(slug, label), 'PATCH', { [FLAGS[flag]]: on });
 
+const blitz = (slug: string, edition: string) => `/api/blitz/${slug}/${encodeURIComponent(edition)}`;
+/** addBlitzEntrants adds entrants to an edition, all or none. */
+export const addBlitzEntrants = (slug: string, edition: string, entrants: Schemas['NewBlitzEntrant'][]) =>
+  to(`${blitz(slug, edition)}/entrants`, 'POST', { entrants });
+/** setBlitzEntrant changes an entrant's Discord name, time zone or status. */
+export const setBlitzEntrant = (slug: string, edition: string, id: number, change: Schemas['BlitzEntrantChange']) =>
+  to(`${blitz(slug, edition)}/entrants/${id}`, 'PATCH', change);
+/** replaceBlitzPlayer puts an entrant in the place of a knockout player who dropped. */
+export const replaceBlitzPlayer = (slug: string, edition: string, round: number, match: number, replacement: Schemas['BlitzReplacement']) =>
+  to(`${blitz(slug, edition)}/rounds/${round}/matches/${match}/replacement`, 'PUT', replacement);
+/** removeBlitzEntrant removes an entrant added by mistake. */
+export const removeBlitzEntrant = (slug: string, edition: string, id: number) => to(`${blitz(slug, edition)}/entrants/${id}`, 'DELETE');
+/** setBlitzFormat sets an edition's Swiss rounds and knockout size. */
+export const setBlitzFormat = (slug: string, edition: string, format: Schemas['BlitzFormat']) => to(blitz(slug, edition), 'PATCH', format);
+/** pairBlitzRound pairs the edition's next round as a draft, by the criteria given. */
+export const pairBlitzRound = (slug: string, edition: string, criteria: Schemas['NewBlitzRound']) => to(`${blitz(slug, edition)}/rounds`, 'POST', criteria);
+/** proposeBlitzPairing asks for a round with the matches in keep (and those with a result) as they are and everyone else paired, without saving it. */
+export const proposeBlitzPairing = (slug: string, edition: string, round: number, pairing: Schemas['BlitzPairing']) =>
+  to(`${blitz(slug, edition)}/rounds/${round}/pairing`, 'POST', pairing);
+/** setBlitzRoundMatches replaces a round's matches, as paired by hand. */
+export const setBlitzRoundMatches = (slug: string, edition: string, round: number, matches: Schemas['BlitzRoundMatches']['matches']) =>
+  to(`${blitz(slug, edition)}/rounds/${round}/matches`, 'PUT', { matches });
+/** publishBlitzRound makes a round public. */
+export const publishBlitzRound = (slug: string, edition: string, round: number) => to(`${blitz(slug, edition)}/rounds/${round}/publish`, 'POST');
+/** setBlitzRoundDeadline sets the deadline to play a round by, as a day and a time on the clocks of a zone. */
+export const setBlitzRoundDeadline = (slug: string, edition: string, round: number, deadline: Schemas['BlitzDeadlineSet']) =>
+  to(`${blitz(slug, edition)}/rounds/${round}/deadline`, 'PUT', deadline);
+/** blitzThreadsPath is where a round's Discord threads download. */
+export const blitzThreadsPath = (slug: string, edition: string, round: number) => `${blitz(slug, edition)}/rounds/${round}/threads`;
+/** addBlitzOrganiser makes a member an organiser of the edition. */
+export const addBlitzOrganiser = (slug: string, edition: string, member: number) => to(`${blitz(slug, edition)}/organisers`, 'POST', { member });
+/** removeBlitzOrganiser stops a member organising the edition. */
+export const removeBlitzOrganiser = (slug: string, edition: string, member: number) => to(`${blitz(slug, edition)}/organisers/${member}`, 'DELETE');
+/** deleteBlitzRound removes a draft round. */
+export const deleteBlitzRound = (slug: string, edition: string, round: number) => to(`${blitz(slug, edition)}/rounds/${round}`, 'DELETE');
+/** recordBlitzGame records, or corrects, the game a match was played as. */
+export const recordBlitzGame = (slug: string, edition: string, round: number, match: number, game: Schemas['BlitzGameRecord']) =>
+  to(`${blitz(slug, edition)}/rounds/${round}/matches/${match}/game`, 'PUT', game);
+/** recordBlitzRuling decides a match by the organisers' ruling. */
+export const recordBlitzRuling = (slug: string, edition: string, round: number, match: number, ruling: Schemas['BlitzRuling']) =>
+  to(`${blitz(slug, edition)}/rounds/${round}/matches/${match}/ruling`, 'PUT', ruling);
+
+/** addMember adds a member of the community. */
+export const addMember = (member: Schemas['NewMember']) => to('/api/members', 'POST', member);
+/** setMember changes a member's details. */
+export const setMember = (id: number, change: Schemas['MemberChange']) => to(`/api/members/${id}`, 'PATCH', change);
+/** removeMember removes a member added by mistake. */
+export const removeMember = (id: number) => to(`/api/members/${id}`, 'DELETE');
+/** banMember bans a member from taking part, with a reason. */
+export const banMember = (id: number, reason: string) => to(`/api/members/${id}/ban`, 'PUT', { reason });
+/** unbanMember lifts a member's ban. */
+export const unbanMember = (id: number) => to(`/api/members/${id}/ban`, 'DELETE');
+
 /** setAdmin adds or changes an admin. */
 export const setAdmin = (id: string, name: string, role: string) => to(`/api/admins/${id}`, 'PUT', { name, role });
 /** removeAdmin removes an admin. */

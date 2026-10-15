@@ -24,6 +24,20 @@ describe('admin requests', () => {
     ['a season\'s rating', req.setSeasonFlag('worlds', '2024', 'rated', false), '/api/tournaments/worlds/seasons/2024', 'PATCH', { rated: false }],
     ['a season among the champions', req.setSeasonFlag('worlds', '2024', 'champions', true), '/api/tournaments/worlds/seasons/2024', 'PATCH', { in_champions: true }],
     ['a season in the community leaderboard', req.setSeasonFlag('worlds', '2024', 'community', false), '/api/tournaments/worlds/seasons/2024', 'PATCH', { in_community: false }],
+    // Blitz tournaments
+    ['entrants to add, to an edition to escape', req.addBlitzEntrants('us_open', 'Season 1', [{ name: 'a', discord_name: 'b', zone: 'UTC' }]), '/api/blitz/us_open/Season%201/entrants', 'POST', { entrants: [{ name: 'a', discord_name: 'b', zone: 'UTC' }] }],
+    ['an entrant dropped', req.setBlitzEntrant('us_open', '2026', 7, { status: 'dropped' }), '/api/blitz/us_open/2026/entrants/7', 'PATCH', { status: 'dropped' }],
+    ['removing an entrant', req.removeBlitzEntrant('us_open', '2026', 7), '/api/blitz/us_open/2026/entrants/7', 'DELETE', undefined],
+    ['replacing a knockout player', req.replaceBlitzPlayer('us_open', '2026', 102, 1020, { out: 7, in: 11 }), '/api/blitz/us_open/2026/rounds/102/matches/1020/replacement', 'PUT', { out: 7, in: 11 }],
+    ['a blitz format', req.setBlitzFormat('us_open', '2026', { swiss_rounds: 6, knockout_size: 4 }), '/api/blitz/us_open/2026', 'PATCH', { swiss_rounds: 6, knockout_size: 4 }],
+    ['pairing a round', req.pairBlitzRound('us_open', '2026', { timezone: true, rating: false }), '/api/blitz/us_open/2026/rounds', 'POST', { timezone: true, rating: false }],
+    ["a round's unpaired players", req.proposeBlitzPairing('us_open', '2026', 101, { timezone: true, rating: false, keep: [{ a: 7, b: 8 }] }), '/api/blitz/us_open/2026/rounds/101/pairing', 'POST', { timezone: true, rating: false, keep: [{ a: 7, b: 8 }] }],
+    ["a round's matches by hand", req.setBlitzRoundMatches('us_open', '2026', 101, [{ a: 7, b: 8 }, { a: 9 }]), '/api/blitz/us_open/2026/rounds/101/matches', 'PUT', { matches: [{ a: 7, b: 8 }, { a: 9 }] }],
+    ['publishing a round', req.publishBlitzRound('us_open', '2026', 101), '/api/blitz/us_open/2026/rounds/101/publish', 'POST', undefined],
+    ['deleting a draft round', req.deleteBlitzRound('us_open', '2026', 101), '/api/blitz/us_open/2026/rounds/101', 'DELETE', undefined],
+    ["a round's deadline", req.setBlitzRoundDeadline('us_open', '2026', 101, { day: '2026-10-19', time: '12:00', zone: 'UTC' }), '/api/blitz/us_open/2026/rounds/101/deadline', 'PUT', { day: '2026-10-19', time: '12:00', zone: 'UTC' }],
+    ['an organiser added', req.addBlitzOrganiser('us_open', '2026', 21), '/api/blitz/us_open/2026/organisers', 'POST', { member: 21 }],
+    ['an organiser removed', req.removeBlitzOrganiser('us_open', '2026', 21), '/api/blitz/us_open/2026/organisers/21', 'DELETE', undefined],
     // Admins, badges, titles
     ['an admin', req.setAdmin('100000000000000001', 'Ann', 'organiser'), '/api/admins/100000000000000001', 'PUT', { name: 'Ann', role: 'organiser' }],
     ['removing an admin', req.removeAdmin('100000000000000001'), '/api/admins/100000000000000001', 'DELETE', undefined],
@@ -43,5 +57,11 @@ describe('admin requests', () => {
     ['deleting a run', req.deleteRun(12), '/api/runs/12', 'DELETE', undefined],
   ])('sends %s', (_, got, path, method, json) => {
     expect(got).toEqual({ path, init: { method, json } });
+  });
+});
+
+describe('blitzThreadsPath', () => {
+  it("is a round's threads, under an edition to escape", () => {
+    expect(req.blitzThreadsPath('us_open', 'Season 1', 101)).toBe('/api/blitz/us_open/Season%201/rounds/101/threads');
   });
 });

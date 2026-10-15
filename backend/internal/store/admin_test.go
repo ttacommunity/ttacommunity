@@ -66,9 +66,9 @@ func TestThePublicReaderCannotReadAdminsOrTheAudit(t *testing.T) {
 	}
 }
 
-func TestTheAdminLoginCannotChangeGamesOrRuns(t *testing.T) {
+func TestTheAdminLoginCannotDeleteGamesPlayersOrRuns(t *testing.T) {
 	admin := asAdminLogin(t, migrated(t))
-	for _, q := range []string{"DELETE FROM games", "DELETE FROM rating_runs", "UPDATE players SET name = name", "CREATE TABLE x (y int)"} {
+	for _, q := range []string{"DELETE FROM games", "TRUNCATE games", "DELETE FROM players", "DELETE FROM rating_runs", "CREATE TABLE x (y int)"} {
 		if _, err := admin.Exec(context.Background(), q); err == nil {
 			t.Errorf("ratings_admin ran %q, want permission denied", q)
 		}
@@ -82,6 +82,29 @@ func TestCheckLimitsAcceptsTheAdminLoginAndRefusesTheOwner(t *testing.T) {
 	}
 	if err := NewAdminStore(pool).CheckLimits(context.Background()); !errors.Is(err, ErrAdminTooStrong) {
 		t.Errorf("CheckLimits as the owner = %v, want ErrAdminTooStrong", err)
+	}
+}
+
+func TestCheckLimitsRefusesALoginThatCanDeleteOrCreate(t *testing.T) {
+	tests := []struct {
+		name, grant string
+	}{
+		{"delete games", "GRANT DELETE ON games TO ratings_admin"},
+		{"truncate games", "GRANT TRUNCATE ON games TO ratings_admin"},
+		{"delete players", "GRANT DELETE ON players TO ratings_admin"},
+		{"delete runs", "GRANT DELETE ON rating_runs TO ratings_admin"},
+		{"create tables", "GRANT CREATE ON SCHEMA public TO ratings_admin"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			pool := migrated(t)
+			if _, err := pool.Exec(context.Background(), tt.grant); err != nil {
+				t.Fatalf("%s: %v", tt.grant, err)
+			}
+			if err := NewAdminStore(asAdminLogin(t, pool)).CheckLimits(context.Background()); !errors.Is(err, ErrAdminTooStrong) {
+				t.Errorf("CheckLimits after %q = %v, want ErrAdminTooStrong", tt.grant, err)
+			}
+		})
 	}
 }
 

@@ -32,6 +32,19 @@ type fakeAdmins struct {
 	engine string
 	// deleted receives each run DeleteRun removes, from the handler's background delete.
 	deleted chan int64
+	// entrants, format and rounds are the blitz edition us_open 2026's (admin_blitz_test.go, admin_blitz_rounds_test.go).
+	entrants []store.BlitzEntrant
+	format   store.BlitzFormat
+	rounds   []store.BlitzRound
+	// organisers are us_open 2026's (admin_blitz_threads_test.go).
+	organisers []store.BlitzOrganiser
+	// members are the community's (admin_members_test.go).
+	members []store.Member
+	// added is every entrant AddBlitzEntrants was given; candidates is what BlitzCandidates finds, and searched
+	// what it was asked (admin_blitz_test.go).
+	added      []store.BlitzEntrant
+	candidates []store.Candidate
+	searched   string
 }
 
 // fakeRuns are runs 4 (complete, published third, after a roll back), 5 (complete, published first),
@@ -142,7 +155,8 @@ func (*fakeAdmins) Tournament(_ context.Context, slug string) (store.AdminTourna
 	if slug != "worlds" {
 		return store.AdminTournament{}, store.ErrNoTournament
 	}
-	return store.AdminTournament{Slug: "worlds", Name: "World Championship", Rated: true, Regulations: "Mine.", CGERegulations: "CGE's.",
+	return store.AdminTournament{Slug: "worlds", Name: "World Championship", Visible: true, Rated: true, Community: true, Blitz: true,
+		Regulations: "Mine.", CGERegulations: "CGE's.",
 		Card: store.Card{Icon: "🏆", Tagline: "Annual World Championship", Summary: "The pinnacle.", Subtitle: "4-Player", Cadence: "Annual"},
 		Kind: "cup", OriginalName: "World Championships", Points: map[int][]float64{2: nil, 3: {5, 2, 0}, 4: {6, 3, 1, 0}}, StageName: "Round",
 		Stories:           []store.Story{{Player: "alder440", Badge: "Reigning World Champion", Title: "2025", Text: "Won."}},
@@ -590,6 +604,12 @@ func adminDo(t *testing.T, admins Admins, method, path, origin, body string) *ht
 
 func adminDoAs(t *testing.T, admins Admins, who, method, path, origin, body string) *httptest.ResponseRecorder {
 	t.Helper()
+	return adminDoWith(t, &fakeRatings{}, admins, who, method, path, origin, body)
+}
+
+// adminDoWith is adminDoAs for a route that also reads ratings.
+func adminDoWith(t *testing.T, ratings Ratings, admins Admins, who, method, path, origin, body string) *httptest.ResponseRecorder {
+	t.Helper()
 	req := httptest.NewRequest(method, path, strings.NewReader(body))
 	req.Header.Set("Cf-Access-Jwt-Assertion", "good-"+who)
 	req.Header.Set("Content-Type", "application/json")
@@ -597,7 +617,7 @@ func adminDoAs(t *testing.T, admins Admins, who, method, path, origin, body stri
 		req.Header.Set("Origin", origin)
 	}
 	rec := httptest.NewRecorder()
-	newMux(&fakeRatings{}, admins, slog.New(slog.DiscardHandler)).ServeHTTP(rec, req)
+	newMux(ratings, admins, slog.New(slog.DiscardHandler)).ServeHTTP(rec, req)
 	return rec
 }
 
@@ -617,6 +637,8 @@ func TestAdminChangesRefuseAnotherOriginOrABadRequest(t *testing.T) {
 		{"a long season note", http.MethodPatch, "/v1/admin/tournaments/worlds/seasons/2025", "https://ttac-admin.example", `{"note": "` + strings.Repeat("x", 2001) + `"}`, http.StatusBadRequest},
 		{"a long season label", http.MethodPatch, "/v1/admin/tournaments/worlds/seasons/" + strings.Repeat("x", 65), "https://ttac-admin.example", `{"note": "x"}`, http.StatusBadRequest},
 		{"a season change from another site", http.MethodPatch, "/v1/admin/tournaments/worlds/seasons/2025", "https://evil.example", `{"note": "x"}`, http.StatusForbidden},
+		{"a deadline from another site", http.MethodPut, "/v1/admin/blitz/us_open/2026/rounds/101/deadline", "https://evil.example", `{"day": "2026-10-19", "time": "12:00", "zone": "UTC"}`, http.StatusForbidden},
+		{"an organiser from another site", http.MethodPost, "/v1/admin/blitz/us_open/2026/organisers", "https://evil.example", `{"member": 21}`, http.StatusForbidden},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

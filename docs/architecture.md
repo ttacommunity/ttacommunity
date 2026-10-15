@@ -2,7 +2,8 @@
 
 How the pieces fit together, what the ratings database holds, and where the
 trust boundaries are. **Built:** the ratings site, its public API, admin,
-the data load job and the engine. **Planned:** Tournaments, TTA Pulse,
+the data load job and the engine; blitz tournaments' entrants (their
+pairings, results and standings are being built). **Planned:** Tournaments, TTA Pulse,
 player sign-in, the worker's timed jobs and the app database; they are
 drawn dashed below and marked *(planned)* in the text.
 
@@ -11,7 +12,7 @@ drawn dashed below and marked *(planned)* in the text.
 ```mermaid
 flowchart LR
     subgraph cf["Cloudflare"]
-        site["site (Astro, static)<br/>ttacommunity.*: /ratings, /tournaments, /pulse"]
+        site["site (Astro, static)<br/>ttacommunity.*: /ratings, /blitz, /tournaments, /pulse"]
         admin["admin (Astro + Worker proxy)<br/>ttac-admin.*"]
         access["Access + Discord OIDC Worker<br/>(admin only)"]
     end
@@ -161,8 +162,9 @@ Patterns that hold across the schema:
 - **The export is the import.** Every input table (Games, Catalogue and
   recorded facts, admin's settings) is exported as CSV with a manifest
   (`go run ./cmd/load -export`, or **Download all data** in admin) and
-  restored whole by `-restore`. Personal data (`admins`, `admin_audit`) and
-  `refused_rows` are left out, and a test enforces it
+  restored whole by `-restore`. Personal data (`admins`, `admin_audit`, the
+  blitz tables with their Discord names) and `refused_rows` are left out,
+  and a test enforces it
 - **Roles:** `ratings` owns the schema (load job, engine); `ratings_read`
   may only `SELECT` (the api's public routes); `ratings_admin` may write
   only admin's tables (the api's admin routes)
@@ -181,6 +183,107 @@ script in the browser), and HTML with classes or small components where a
 page needs styled boxes or tables. A new page is a new file.
 Interactive parts write maths the same way, as TeX, through a small
 `<Tex>` component that runs the same KaTeX in the browser.
+
+### Blitz tournaments
+
+A blitz tournament is an ordinary tournament whose series has the **Blitz**
+setting: organisers run it from admin's Blitz tab, a round a week, in the
+format CGE's US Open uses (Swiss rounds, then a knockout). Admin holds each
+edition's format and tiebreak seed (`blitz_editions`), its entrants
+(`blitz_entries`: a member; pending, active or dropped), added one at a
+time by searching the members and the players the ratings know (a player
+who is no member yet becomes one, in the ratings' spelling), and its rounds (`blitz_rounds`, `blitz_matches`):
+paired by the api (`internal/blitz`: equal points, never the same opponent
+twice, the best time-zone fit within a score group, the bye to the lowest
+in the standings without one), changed by hand, then published. A Swiss
+pairing never repeats: when the score groups leave players who have all
+met, the whole field is searched for a round without a repeat, and a round
+that cannot avoid one is refused (fewer Swiss rounds then go on to the
+knockout). Admin warns when the Swiss rounds pass half the active entrants,
+the most that can always be paired. Pairing a
+round already made pairs only the players it leaves out, keeping the rest
+as they are, so a late entrant joins a round still in play. An entrant who
+has played (a result, or a bye in a published round) and withdraws is
+dropped: their results stand and they are not paired again. One who has
+not played is removed instead, coming out of the Swiss round they are
+paired in and leaving their opponent for Pair to fill in.
+
+**A result is a game.** A played game is written to `games` and `seats`
+under the edition's stage "Round N", from an `import_batches` row of
+source `admin`, with the time it finished (entered on the clocks of a zone
+or region, stored in UTC; its `date` is that time's UTC day, as for the
+games CGE's data brings), so the tournament's page shows it at once and a later CGE
+extract load matches it by share code instead of adding a copy; recording
+the match again corrects that one game. The match keeps the result (a win,
+a draw or a double loss) and, when the organisers decided it instead, their
+ruling and its reason (a ruling may overrule a played game). The next round
+is paired only once every match has a result. The standings are computed
+on read from the published Swiss rounds (`internal/blitz`, the same for
+admin and the site): points, then the tie-breaks of
+[FIDE's regulations](https://handbook.fide.com/chapter/TieBreakRegulations032026)
+for Swiss tournaments, Direct Encounter (Article 6) and then Buchholz
+(8.1), with unplayed rounds counted as Article 16 says (a bye, a forfeit or
+a round not paired is a game against a dummy with the player's own score; an
+opponent's rounds after dropping out count as draws), and last a draw from
+the edition's seed. A result the organisers ruled with no game played is a
+forfeit; a resignation or timeout is a played game. For this the
+admin login may insert and update games, seats, players and stages; it
+still cannot delete games, players or runs, and the api refuses to start
+if it could.
+
+**The knockout** follows the last Swiss round, and the same Pair makes it:
+the top of the standings, the best seed against the worst, then each
+round's winners until the final. Each knockout match keeps its place in
+the bracket (`blitz_matches.slot`): the winners of slots 2k and 2k+1 meet
+in slot k of the next round. It also keeps its players' seeds, their
+places in the Swiss standings when the knockout began, so a later
+correction to a Swiss result never moves the bracket. A knockout round
+follows the bracket, so it is never changed by hand, and it may repeat a
+Swiss pairing; the one exception is a player who dropped from a match still
+to play, whom the round's reserve (the best Swiss place among active
+entrants not in it) or a wildcard (an entrant, or anyone entered on the
+spot) replaces in the same slot with the same seed. A knockout match needs a winner: a drawn game stays a draw
+as a game and sends the higher seed through, and a ruling there names the
+winner. The standings count the Swiss rounds only. The champion is
+the winner of the published final, worked out on read; once the knockout
+has a round, the edition's format no longer changes.
+
+The site's `/blitz` shows the editions, each one's knockout and champion,
+its standings, the published Swiss pairings with their results, and who is
+in, each with their country's flag. A ruling's reason stays in admin.
+
+Blitz belongs to the root site, not to the ratings: the header on the home
+page and `/blitz` lists the root site's sections (Ratings, Blitz), and
+everything under `/ratings/` keeps the ratings' own menu and footer.
+
+### Members
+
+Everyone who takes part in anything the community runs is a **member**
+(`members`), apart from the ratings' `players`, which the engine's data
+alone defines. A member is keyed by their TTA username exactly as in the
+app, unique without case; the CGE account (`cge_user`) and ratings player
+(`player_id`) are attached as they become known. Adding a member whose
+name a CGE account or the ratings know takes their spelling and their ids;
+after every data load the load job matches members to the accounts and
+players it brought by name, and renames a member with an account to that
+account's current name, so a CGE rename follows through. Admin may enter a
+CGE id by hand. The ratings never make or change a player from a member.
+
+A member also carries a Discord name, an email (so organisers can reach
+players who have no Discord), a country (one of ISO 3166's two-letter
+codes, or XK for Kosovo; the site has a flag for each, from
+[Flagpedia](https://flagpedia.net), whose flags are public domain), a time
+zone (an IANA zone; until that is known, a region such as US East, which
+keeps one of its cities' time, or Unknown, paired as UTC), and a
+**community ban** with its reason, which stops them being entered in an
+edition and leaves their games and ratings alone. Admins and organisers
+add and edit members; bans and removals are admins' only, and a member in
+an edition cannot be removed. Blitz entrants are members: an entry holds
+only the edition, the status and a `member_id`.
+
+**Personal data never leaves admin**: the public role has no `SELECT` on a
+member's Discord id or name, email or ban, so no public route can read
+them, and the export leaves `members` and the blitz tables out.
 
 ### Tournaments: data, not code
 

@@ -305,7 +305,7 @@ func TestExportZipHoldsTheSameExportAndTheAdminLoginCanTakeIt(t *testing.T) {
 }
 
 // personalColumns are the columns that hold personal data, which the export never holds.
-var personalColumns = []string{"discord_id", "email", "ip", "ip_address", "session_id"}
+var personalColumns = []string{"discord_id", "discord_name", "email", "ip", "ip_address", "session_id"}
 
 func TestExportHoldsNoPersonalDataOrLoadHistory(t *testing.T) {
 	ctx := context.Background()
@@ -315,6 +315,9 @@ func TestExportHoldsNoPersonalDataOrLoadHistory(t *testing.T) {
 		`INSERT INTO admin_audit (discord_id, action, target) VALUES ('111111111111111111', 'run.start', 'community')`,
 		`INSERT INTO refused_rows (batch_id, source_file, source_line, reason, fields)
 		 SELECT batch_id, 'm.csv', 9, 'standings_row', '{"a refused line"}' FROM import_batches LIMIT 1`,
+		`INSERT INTO blitz_editions (tournament_id, swiss_rounds, knockout_size) SELECT tournament_id, 8, 8 FROM tournaments LIMIT 1`,
+		`INSERT INTO members (tta_name, discord_name, email) VALUES ('Ann', 'ann#1111', 'ann@example.test')`,
+		`INSERT INTO blitz_entries (tournament_id, member_id) SELECT tournament_id, (SELECT member_id FROM members) FROM blitz_editions`,
 	} {
 		if _, err := pool.Exec(ctx, q); err != nil {
 			t.Fatalf("filling: %v", err)
@@ -325,7 +328,7 @@ func TestExportHoldsNoPersonalDataOrLoadHistory(t *testing.T) {
 		t.Fatalf("Export: %v", err)
 	}
 	for name, body := range readDir(t, dir) {
-		for _, left := range []string{"admins.csv", "admin_audit.csv", "refused_rows.csv"} {
+		for _, left := range []string{"admins.csv", "admin_audit.csv", "refused_rows.csv", "members.csv", "blitz_editions.csv", "blitz_entries.csv", "blitz_rounds.csv", "blitz_matches.csv"} {
 			if name == left {
 				t.Errorf("the export holds %s", name)
 			}
@@ -338,6 +341,9 @@ func TestExportHoldsNoPersonalDataOrLoadHistory(t *testing.T) {
 		}
 		if strings.Contains(string(body), "111111111111111111") {
 			t.Errorf("%s holds an admin's Discord id", name)
+		}
+		if strings.Contains(string(body), "ann#1111") {
+			t.Errorf("%s holds an entrant's Discord name", name)
 		}
 	}
 }

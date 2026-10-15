@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { catalogueHref, cgeYears, entryRows, hasPodiums, gameStateLabel, gameWhere, outcomeNote, placeLabel, placeNames, plural, podiumCard, seasonName, shownName, spanYears, stageName, tournamentParam, seasonDates, activeYears, regulationsBox } from './catalogue-view';
+import type { CatalogueGame } from '@ttac/shared/ratings';
+import { catalogueGameRow, catalogueHref, cgeYears, entryRows, hasPodiums, gameStateLabel, gameWhere, outcomeNote, placeLabel, placeNames, plural, podiumCard, seasonName, shownName, spanYears, stageName, tournamentParam, seasonDates, activeYears, regulationsBox } from './catalogue-view';
 
 describe('tournamentParam', () => {
   it('takes a slug from the address', () => {
@@ -204,3 +205,40 @@ describe('regulationsBox', () => {
   });
 });
 
+
+describe('catalogueGameRow', () => {
+  const game: CatalogueGame = {
+    match_id: 7,
+    date: '2026-05-31',
+    season: '2026',
+    stage: 'Stage 5',
+    group: 'group 1',
+    game: 1,
+    state: 'played',
+    rated: true,
+    replay_code: 'COJOSAPOMA',
+    seats: [
+      { name: 'Ann', score: 235, outcome: 'finished' },
+      { name: 'Cy', score: 0, outcome: 'resigned' },
+    ],
+  };
+  it('turns a played game into a row: its season, where it was, each seat linked with its score and how it ended, the code', () => {
+    expect(catalogueGameRow(game, 'Season')).toEqual({
+      key: '7',
+      date: '2026-05-31',
+      context: 'Season 2026',
+      where: 'Stage 5 · group 1 · game 1',
+      tag: '',
+      unplayed: false,
+      seats: [
+        { label: 'Ann', link: 'Ann', detail: '', score: 235, note: '' },
+        { label: 'Cy', link: 'Cy', detail: '', score: 0, note: 'resigned' },
+      ],
+      code: 'COJOSAPOMA',
+    });
+  });
+  it('marks a game never played, with its label', () => {
+    const row = catalogueGameRow({ ...game, state: 'never_played', rated: false, replay_code: null }, 'Season');
+    expect([row.unplayed, row.tag, row.code]).toEqual([true, 'Never played', null]);
+  });
+});

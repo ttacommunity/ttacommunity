@@ -74,6 +74,10 @@ export type PodiumPlace = components['schemas']['PodiumPlace'];
 export type RecentPodiums = components['schemas']['RecentPodiums'];
 export type RecentPodium = components['schemas']['RecentPodium'];
 export type CGETournament = components['schemas']['CGETournament'];
+export type BlitzEditions = components['schemas']['BlitzEditions'];
+export type BlitzEditionRow = components['schemas']['BlitzEditionRow'];
+export type BlitzEdition = components['schemas']['BlitzEdition'];
+export type BlitzEntrant = components['schemas']['BlitzEntrant'];
 
 /** An error response from the API, carrying its status and message. */
 export class RatingsApiError extends Error {
@@ -356,6 +360,16 @@ export async function catalogueGames(base: string, run: number, slug: string, fi
 }
 
 // Public routes take no credentials, so none are ever sent.
+/** Returns every edition of the blitz tournaments shown on the site. */
+export async function blitzEditions(base: string, fetchFn: typeof fetch = fetch): Promise<BlitzEditions> {
+  return get<BlitzEditions>(fetchFn, base, '/v1/blitz');
+}
+
+/** Returns a blitz edition's format and the entrants still in. */
+export async function blitzEdition(base: string, slug: string, edition: string, fetchFn: typeof fetch = fetch): Promise<BlitzEdition> {
+  return get<BlitzEdition>(fetchFn, base, `/v1/blitz/${encodeURIComponent(slug)}/${encodeURIComponent(edition)}`);
+}
+
 async function get<T>(fetchFn: typeof fetch, base: string, path: string): Promise<T> {
   const res = await fetchFn(base.replace(/\/+$/, '') + path, { credentials: 'omit' });
   if (!res.ok) {

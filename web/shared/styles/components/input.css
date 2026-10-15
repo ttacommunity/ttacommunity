@@ -20,6 +20,20 @@ select.input-antique {
   cursor: pointer;
 }
 
+/* Text fields and selects share one height, so a row of them lines up; upstream's filter boxes keep their own. */
+input.input-antique:not(.filter-input),
+select.input-antique {
+  height: var(--control-height);
+}
+
+/* A checkbox in a row of fields, centred on them. */
+.check-inline {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  min-height: var(--control-height);
+}
+
 /* A box that narrows a table as you type, upstream's filters on the player and achievements pages. */
 .input-antique.filter-input {
   padding: 0.4rem 0.8rem;
