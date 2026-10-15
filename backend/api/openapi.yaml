@@ -966,8 +966,10 @@ paths:
         them (rank, total points, events played, and each event's points),
         its dynamic categories, summary groups and champion,
         with each player's country and the run's title where the name is a
-        player here, matched ignoring case. Best rank first. Cached for five
-        minutes.
+        player here, matched ignoring case. Best rank first. The columns are
+        the events its rows have points in, each with the most its points
+        table gives. An edition admin has not shown is not found. Cached for
+        five minutes.
       parameters:
         - $ref: "#/components/parameters/RunId"
         - name: edition
@@ -3872,8 +3874,12 @@ components:
         year:
           type: integer
         wc:
+          description: |
+            The World Champion reigning in the edition's year, "" for none, or
+            "Deleted player" when their CGE account is deleted or banned
           type: string
         wc_desc:
+          description: What the champion is, such as "Reigning World Champion (2025)"; "" for none
           type: string
         maintainer:
           type: string
@@ -3890,7 +3896,9 @@ components:
         short:
           type: string
         max_pts:
+          description: The most points the event's points table gives in the edition's year; null when no table is held
           type: integer
+          nullable: true
         desc:
           type: string
     CommunityCategory:
@@ -3920,7 +3928,9 @@ components:
           items:
             type: string
         max_pts:
+          description: The sum of its columns' most points; null when any column's is unknown
           type: integer
+          nullable: true
         badge_class:
           type: string
         desc:

@@ -52,7 +52,7 @@ type CommunityEventColumn struct {
 	ID     string `json:"id"`
 	Name   string `json:"name"`
 	Short  string `json:"short"`
-	MaxPts int    `json:"max_pts"`
+	MaxPts *int   `json:"max_pts"`
 	Desc   string `json:"desc,omitempty"`
 }
 
@@ -69,7 +69,7 @@ type CommunityTournamentSummary struct {
 	Name       string   `json:"name"`
 	Short      string   `json:"short"`
 	Cols       []string `json:"cols"`
-	MaxPts     int      `json:"max_pts"`
+	MaxPts     *int     `json:"max_pts"`
 	BadgeClass string   `json:"badge_class"`
 	Desc       string   `json:"desc"`
 }
@@ -204,30 +204,21 @@ func (a *AdminStore) CreateCommunityEdition(ctx context.Context, e CommunityEdit
 }
 
 // CommunityLeaderboardLayout builds the dynamic layout (categories, columns, max points, summary, reigning WC)
-// from the database for an edition in a published run.
+// from the database for an edition in a published run: a column for each event its rows have points in. An
+// unknown edition, or one admin has not shown, is ErrNoCommunityEdition.
 func (r *RatingsReader) CommunityLeaderboardLayout(ctx context.Context, run int64, slug string) (CommunityEditionLayout, error) {
 	var layout CommunityEditionLayout
 	var ed CommunityEdition
 	err := r.pool.QueryRow(ctx, `
 		SELECT slug, name, title, short_name, badge, maintainer, maintainer_note, year, counting_events, visible, sort_order
-		FROM community_editions WHERE slug = $1`, slug).Scan(
+		FROM community_editions WHERE slug = $1 AND visible`, slug).Scan(
 		&ed.Slug, &ed.Name, &ed.Title, &ed.ShortName, &ed.Badge,
 		&ed.Maintainer, &ed.MaintainerNote, &ed.Year, &ed.CountingEvents,
 		&ed.Visible, &ed.SortOrder)
 	if errors.Is(err, pgx.ErrNoRows) {
-		ed = CommunityEdition{
-			Slug:           slug,
-			Name:           slug,
-			Title:          fmt.Sprintf("Official Community Leaderboard • %s", slug),
-			ShortName:      slug,
-			Badge:          "⭐ Community",
-			Maintainer:     "wolvs",
-			MaintainerNote: "Tracking tournament finishes under the official Best-8 system.",
-			Year:           2026,
-			CountingEvents: 8,
-			Visible:        true,
-		}
-	} else if err != nil {
+		return layout, ErrNoCommunityEdition
+	}
+	if err != nil {
 		return layout, fmt.Errorf("reading edition config %s: %w", slug, err)
 	}
 
@@ -242,72 +233,36 @@ func (r *RatingsReader) CommunityLeaderboardLayout(ctx context.Context, run int6
 		Maintainer:     ed.Maintainer,
 		MaintainerNote: ed.MaintainerNote,
 	}
-
-	// 1. Determine the reigning World Champion as of this edition.
-	cutoffYear := ed.Year
-	var wcName string
-	var wcSeason string
-	err = r.pool.QueryRow(ctx, `
-		SELECT player_name, season FROM tournament_records
-		WHERE run_id = $1 AND tournament = 'World Championship' AND medal = 'gold'
-		  AND substring(season from '^[0-9]+')::int <= $2
-		ORDER BY substring(season from '^[0-9]+')::int DESC LIMIT 1`, run, cutoffYear).Scan(&wcName, &wcSeason)
-	if err == nil && wcName != "" {
-		layout.Info.WC = wcName
-		layout.Info.WCDesc = fmt.Sprintf("Reigning World Champion (%s)", wcSeason)
-	} else {
-		err = r.pool.QueryRow(ctx, `
-			SELECT player_name, substring(season from '^[0-9]+')
-			FROM tournament_cup_podiums
-			WHERE cup = 'worlds' AND place = 1
-			ORDER BY finished DESC LIMIT 1`).Scan(&wcName, &wcSeason)
-		if err == nil && wcName != "" {
-			layout.Info.WC = wcName
-			layout.Info.WCDesc = fmt.Sprintf("World Champion (%s)", wcSeason)
-		} else {
-			layout.Info.WC = "a440"
-			layout.Info.WCDesc = "Reigning World Champion (2025)"
-		}
+	if layout.Info.WC, layout.Info.WCDesc, err = r.editionChampion(ctx, run, ed.Year); err != nil {
+		return layout, fmt.Errorf("reading edition %s's champion: %w", ed.Slug, err)
 	}
 
-	// 2. Discover all events present in this edition.
-	dbEdition := ed.Slug
-	if ed.Slug == "2026" {
-		var hasRolling bool
-		_ = r.pool.QueryRow(ctx, "SELECT EXISTS(SELECT 1 FROM community_edition_points WHERE run_id = $1 AND edition = 'rolling 2026 Q2')", run).Scan(&hasRolling)
-		if hasRolling {
-			dbEdition = "rolling 2026 Q2"
-		}
-	} else if ed.Slug == "race26" {
-		dbEdition = "2026"
-	}
-
-	rows, err := r.pool.Query(ctx, `
-		SELECT event, max(points)::int
-		FROM (
-			SELECT event, points FROM community_edition_points WHERE run_id = $1 AND edition = $2
-			UNION ALL
-			SELECT event, score AS points FROM community_scores WHERE edition = $3
-		) ev
-		GROUP BY event`, run, dbEdition, ed.Slug)
+	// 1. The events its rows have points in, each with the most its points table gives.
+	rows, err := r.pool.Query(ctx, "SELECT DISTINCT event FROM community_scores WHERE edition = $1", ed.Slug)
 	if err != nil {
 		return layout, fmt.Errorf("reading events for edition %s: %w", ed.Slug, err)
 	}
-	defer rows.Close()
-
-	eventMax := map[string]int{}
-	var presentEvents []string
-	for rows.Next() {
-		var ev string
-		var maxPts int
-		if err := rows.Scan(&ev, &maxPts); err != nil {
-			return layout, err
-		}
-		eventMax[ev] = maxPts
-		presentEvents = append(presentEvents, ev)
+	presentEvents, err := pgx.CollectRows(rows, pgx.RowTo[string])
+	if err != nil {
+		return layout, fmt.Errorf("reading events for edition %s: %w", ed.Slug, err)
+	}
+	rows, err = r.pool.Query(ctx, `
+		SELECT s.community_code, p.from_edition, max(p.points)
+		FROM community_points p JOIN series s ON s.slug = p.tournament
+		WHERE s.community_code IS NOT NULL GROUP BY 1, 2`)
+	if err != nil {
+		return layout, fmt.Errorf("reading the points tables: %w", err)
+	}
+	tables, err := pgx.CollectRows(rows, pgx.RowToStructByPos[pointsTable])
+	if err != nil {
+		return layout, fmt.Errorf("reading the points tables: %w", err)
+	}
+	eventMax := map[string]*int{}
+	for _, ev := range presentEvents {
+		eventMax[ev] = eventMaximum(ev, ed.Year, tables)
 	}
 
-	// 3. Order events by the canonical sheet order:
+	// 2. Order events by the canonical sheet order:
 	columnsOrder := []string{"wrld", "ic", "im", "rl", "wmbl", "aus", "surv", "snail", "sl", "ml", "eif", "qd", "ldrb"}
 	sheetColRank := func(code string) (int, int, string) {
 		kind, rest, _ := strings.Cut(code, "_")
@@ -333,26 +288,26 @@ func (r *RatingsReader) CommunityLeaderboardLayout(ctx context.Context, run int6
 
 	layout.SheetOrder = presentEvents
 
-	// 4. Assemble Categories and Columns
+	// 3. Assemble Categories and Columns
 	categoryBuilders := []struct {
 		category   string
 		badgeClass string
 		prefix     string
-		nameFmt    func(code string, max int) (name, short, desc string)
+		nameFmt    func(code string) (name, short, desc string)
 	}{
 		{
 			category:   "World Championship",
 			badgeClass: "badge-wc",
 			prefix:     "wrld",
-			nameFmt: func(code string, max int) (string, string, string) {
-				return "World Championship", "Worlds", fmt.Sprintf("World Championship (won by %s)", layout.Info.WC)
+			nameFmt: func(code string) (string, string, string) {
+				return "World Championship", "Worlds", worldsDesc(layout.Info.WC)
 			},
 		},
 		{
 			category:   "International Championship (4-Player League)",
 			badgeClass: "badge-gm",
 			prefix:     "ic",
-			nameFmt: func(code string, max int) (string, string, string) {
+			nameFmt: func(code string) (string, string, string) {
 				_, s, _ := strings.Cut(code, "_")
 				return fmt.Sprintf("International Season %s", s), fmt.Sprintf("IC %s", s), ""
 			},
@@ -361,7 +316,7 @@ func (r *RatingsReader) CommunityLeaderboardLayout(ctx context.Context, run int6
 			category:   "Intermezzo Championship (3-Player League)",
 			badgeClass: "badge-m",
 			prefix:     "im",
-			nameFmt: func(code string, max int) (string, string, string) {
+			nameFmt: func(code string) (string, string, string) {
 				_, s, _ := strings.Cut(code, "_")
 				return fmt.Sprintf("Intermezzo Season %s", s), fmt.Sprintf("IM %s", s), ""
 			},
@@ -370,7 +325,7 @@ func (r *RatingsReader) CommunityLeaderboardLayout(ctx context.Context, run int6
 			category:   "Royal League (2-Player League)",
 			badgeClass: "badge-p",
 			prefix:     "rl",
-			nameFmt: func(code string, max int) (string, string, string) {
+			nameFmt: func(code string) (string, string, string) {
 				_, s, _ := strings.Cut(code, "_")
 				return fmt.Sprintf("Royal League Season %s", s), fmt.Sprintf("RL %s", s), ""
 			},
@@ -379,7 +334,7 @@ func (r *RatingsReader) CommunityLeaderboardLayout(ctx context.Context, run int6
 			category:   "Grand Slams & Major Opens",
 			badgeClass: "badge-g",
 			prefix:     "wmbl|aus|snail",
-			nameFmt: func(code string, max int) (string, string, string) {
+			nameFmt: func(code string) (string, string, string) {
 				switch code {
 				case "wmbl":
 					return "Wimbledon Open", "Wimbledon", ""
@@ -396,7 +351,7 @@ func (r *RatingsReader) CommunityLeaderboardLayout(ctx context.Context, run int6
 			category:   "Competitive Ladders",
 			badgeClass: "badge-rank",
 			prefix:     "sl|ml",
-			nameFmt: func(code string, max int) (string, string, string) {
+			nameFmt: func(code string) (string, string, string) {
 				switch code {
 				case "sl":
 					return "Sodium Ladder", "Sodium", ""
@@ -411,7 +366,7 @@ func (r *RatingsReader) CommunityLeaderboardLayout(ctx context.Context, run int6
 			category:   "Invitational & Rapid Cups",
 			badgeClass: "badge-rank",
 			prefix:     "eif|qd|ldrb|surv",
-			nameFmt: func(code string, max int) (string, string, string) {
+			nameFmt: func(code string) (string, string, string) {
 				switch code {
 				case "eif":
 					return "Eiffel Tower Cup", "Eiffel", ""
@@ -440,22 +395,12 @@ func (r *RatingsReader) CommunityLeaderboardLayout(ctx context.Context, run int6
 				}
 			}
 			if matches {
-				maxPts := eventMax[ev]
-				if maxPts <= 0 {
-					if ev == "wrld" {
-						maxPts = 2500
-					} else if ev == "qd" {
-						maxPts = 600
-					} else {
-						maxPts = 1000
-					}
-				}
-				name, short, desc := b.nameFmt(ev, maxPts)
+				name, short, desc := b.nameFmt(ev)
 				catCols = append(catCols, CommunityEventColumn{
 					ID:     ev,
 					Name:   name,
 					Short:  short,
-					MaxPts: maxPts,
+					MaxPts: eventMax[ev],
 					Desc:   desc,
 				})
 			}
@@ -469,7 +414,7 @@ func (r *RatingsReader) CommunityLeaderboardLayout(ctx context.Context, run int6
 		}
 	}
 
-	// 5. Build Summary list (Standard View)
+	// 4. Build Summary list (Standard View)
 	summaryGroups := []struct {
 		id         string
 		name       string
@@ -478,7 +423,7 @@ func (r *RatingsReader) CommunityLeaderboardLayout(ctx context.Context, run int6
 		descFmt    func(cols []string) string
 	}{
 		{"wrld", "World Championship", "Worlds", "badge-wc", func(cols []string) string {
-			return fmt.Sprintf("World Championship (won by %s)", layout.Info.WC)
+			return worldsDesc(layout.Info.WC)
 		}},
 		{"ic", "International (4P)", "International (4P)", "badge-gm", func(cols []string) string {
 			return formatRangeDesc("International", cols)
@@ -502,21 +447,15 @@ func (r *RatingsReader) CommunityLeaderboardLayout(ctx context.Context, run int6
 
 	for _, sg := range summaryGroups {
 		var cols []string
-		sumMax := 0
+		sumMax := new(int)
 		for _, ev := range presentEvents {
 			if ev == sg.id || strings.HasPrefix(ev, sg.id+"_") {
 				cols = append(cols, ev)
-				maxPts := eventMax[ev]
-				if maxPts <= 0 {
-					if ev == "wrld" {
-						maxPts = 2500
-					} else if ev == "qd" {
-						maxPts = 600
-					} else {
-						maxPts = 1000
-					}
+				if eventMax[ev] == nil || sumMax == nil {
+					sumMax = nil
+				} else {
+					*sumMax += *eventMax[ev]
 				}
-				sumMax += maxPts
 			}
 		}
 		if len(cols) > 0 {
@@ -533,6 +472,87 @@ func (r *RatingsReader) CommunityLeaderboardLayout(ctx context.Context, run int6
 	}
 
 	return layout, nil
+}
+
+// editionChampion returns the World Champion reigning in year and what they are: the run's latest gold up to
+// that year, else the latest recorded podium's winner up to it, else "" for none. A hidden one is DeletedPlayer.
+func (r *RatingsReader) editionChampion(ctx context.Context, run int64, year int) (string, string, error) {
+	var name, season string
+	err := r.pool.QueryRow(ctx, `
+		SELECT player_name, season FROM tournament_records
+		WHERE run_id = $1 AND tournament = 'World Championship' AND medal = 'gold'
+		  AND substring(season from '^[0-9]+')::int <= $2
+		ORDER BY substring(season from '^[0-9]+')::int DESC LIMIT 1`, run, year).Scan(&name, &season)
+	desc := "Reigning World Champion (%s)"
+	if errors.Is(err, pgx.ErrNoRows) {
+		err = r.pool.QueryRow(ctx, `
+			SELECT player_name, substring(season from '^[0-9]+') FROM tournament_cup_podiums
+			WHERE cup = 'worlds' AND place = 1 AND substring(season from '^[0-9]+')::int <= $1
+			ORDER BY finished DESC LIMIT 1`, year).Scan(&name, &season)
+		desc = "World Champion (%s)"
+	}
+	if errors.Is(err, pgx.ErrNoRows) {
+		return "", "", nil
+	}
+	if err != nil {
+		return "", "", err
+	}
+	if err := r.maskNames(ctx, []*string{&name}); err != nil {
+		return "", "", err
+	}
+	return name, fmt.Sprintf(desc, season), nil
+}
+
+// worldsDesc describes the World Championship's column, with its champion when there is one.
+func worldsDesc(champion string) string {
+	if champion == "" {
+		return "World Championship"
+	}
+	return fmt.Sprintf("World Championship (won by %s)", champion)
+}
+
+// pointsTable is a series' community points table from an edition on: its column code ("ic_{}" adds the
+// season) and the most points it gives.
+type pointsTable struct {
+	Code string
+	From int
+	Top  int
+}
+
+// eventMaximum returns the most points an event's table gives in year: the latest table from or before it, else
+// the earliest, as the engine picks one; nil for an event no table's code matches.
+func eventMaximum(event string, year int, tables []pointsTable) *int {
+	var picked *pointsTable
+	for i, t := range tables {
+		if !codeMatches(t.Code, event) {
+			continue
+		}
+		switch {
+		case picked == nil,
+			t.From <= year && (picked.From > year || t.From > picked.From),
+			t.From > year && picked.From > year && t.From < picked.From:
+			picked = &tables[i]
+		}
+	}
+	if picked == nil {
+		return nil
+	}
+	return &picked.Top
+}
+
+// codeMatches reports whether event is a column of code: code itself, or with a season number for "ic_{}" or
+// "rl_{:02d}".
+func codeMatches(code, event string) bool {
+	prefix, seasonal := strings.CutSuffix(code, "_{}")
+	if !seasonal {
+		prefix, seasonal = strings.CutSuffix(code, "_{:02d}")
+	}
+	if !seasonal {
+		return event == code
+	}
+	season, ok := strings.CutPrefix(event, prefix+"_")
+	_, err := strconv.Atoi(season)
+	return ok && season != "" && err == nil
 }
 
 func formatRangeDesc(prefix string, cols []string) string {

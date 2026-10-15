@@ -1214,9 +1214,14 @@ type CommunityEditionInfo struct {
 	Name           string `json:"name"`
 	Short          string `json:"short"`
 	Title          string `json:"title"`
-	Wc             string `json:"wc"`
-	WcDesc         string `json:"wc_desc"`
-	Year           int    `json:"year"`
+
+	// Wc The World Champion reigning in the edition's year, "" for none, or
+	// "Deleted player" when their CGE account is deleted or banned
+	Wc string `json:"wc"`
+
+	// WcDesc What the champion is, such as "Reigning World Champion (2025)"; "" for none
+	WcDesc string `json:"wc_desc"`
+	Year   int    `json:"year"`
 }
 
 // CommunityEditionItem defines model for CommunityEditionItem.
@@ -1250,11 +1255,13 @@ type CommunityEditionPatch struct {
 
 // CommunityEventColumn defines model for CommunityEventColumn.
 type CommunityEventColumn struct {
-	Desc   *string `json:"desc,omitempty"`
-	Id     string  `json:"id"`
-	MaxPts int     `json:"max_pts"`
-	Name   string  `json:"name"`
-	Short  string  `json:"short"`
+	Desc *string `json:"desc,omitempty"`
+	Id   string  `json:"id"`
+
+	// MaxPts The most points the event's points table gives in the edition's year; null when no table is held
+	MaxPts *int   `json:"max_pts"`
+	Name   string `json:"name"`
+	Short  string `json:"short"`
 }
 
 // CommunityLeaderboard defines model for CommunityLeaderboard.
@@ -1296,9 +1303,11 @@ type CommunitySummaryGroup struct {
 	Cols       []string `json:"cols"`
 	Desc       string   `json:"desc"`
 	Id         string   `json:"id"`
-	MaxPts     int      `json:"max_pts"`
-	Name       string   `json:"name"`
-	Short      string   `json:"short"`
+
+	// MaxPts The sum of its columns' most points; null when any column's is unknown
+	MaxPts *int   `json:"max_pts"`
+	Name   string `json:"name"`
+	Short  string `json:"short"`
 }
 
 // ComparedPlayer defines model for ComparedPlayer.

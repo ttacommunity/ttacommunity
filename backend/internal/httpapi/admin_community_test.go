@@ -27,7 +27,7 @@ func TestAdminCommunityEditionPostAndPatch(t *testing.T) {
 	f := &fakeAdmins{}
 
 	// POST new edition
-	postPayload := `{"slug":"race27","name":"Race to 2027","title":"Official 2027","short_name":"Race27","badge":"⭐ Community","maintainer":"wolvs","maintainer_note":"Note","year":2027,"counting_events":8,"visible":true,"sort_order":2}`
+	postPayload := `{"slug":"race27","name":"Race to 2027","title":"Official 2027","short_name":"Race27","badge":"⭐ Community","maintainer":"dee","maintainer_note":"Note","year":2027,"counting_events":8,"visible":true,"sort_order":2}`
 	rec := adminDoAs(t, f, owner, http.MethodPost, "/v1/admin/community/editions", site, postPayload)
 	if rec.Code != http.StatusCreated {
 		t.Fatalf("POST /v1/admin/community/editions: got status %d, want 201: %s", rec.Code, rec.Body.String())

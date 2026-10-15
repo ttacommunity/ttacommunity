@@ -710,8 +710,10 @@ export interface paths {
          *     them (rank, total points, events played, and each event's points),
          *     its dynamic categories, summary groups and champion,
          *     with each player's country and the run's title where the name is a
-         *     player here, matched ignoring case. Best rank first. Cached for five
-         *     minutes.
+         *     player here, matched ignoring case. Best rank first. The columns are
+         *     the events its rows have points in, each with the most its points
+         *     table gives. An edition admin has not shown is not found. Cached for
+         *     five minutes.
          */
         get: operations["getCommunityLeaderboard"];
         put?: never;
@@ -2280,7 +2282,12 @@ export interface components {
             short: string;
             badge: string;
             year: number;
+            /**
+             * @description The World Champion reigning in the edition's year, "" for none, or
+             *     "Deleted player" when their CGE account is deleted or banned
+             */
             wc: string;
+            /** @description What the champion is, such as "Reigning World Champion (2025)"; "" for none */
             wc_desc: string;
             maintainer: string;
             maintainer_note: string;
@@ -2289,7 +2296,8 @@ export interface components {
             id: string;
             name: string;
             short: string;
-            max_pts: number;
+            /** @description The most points the event's points table gives in the edition's year; null when no table is held */
+            max_pts: number | null;
             desc?: string;
         };
         CommunityCategory: {
@@ -2302,7 +2310,8 @@ export interface components {
             name: string;
             short: string;
             cols: string[];
-            max_pts: number;
+            /** @description The sum of its columns' most points; null when any column's is unknown */
+            max_pts: number | null;
             badge_class: string;
             desc: string;
         };

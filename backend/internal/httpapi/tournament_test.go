@@ -231,30 +231,30 @@ func (f *fakeCommunity) CommunityEditions(_ context.Context) ([]store.CommunityE
 }
 
 func TestCommunityLeaderboard(t *testing.T) {
-	pl, gm := "PL", "SGM"
+	pl, gm, most := "PL", "SGM", 1600
 	f := &fakeCommunity{
 		layout: store.CommunityEditionLayout{
 			Info: store.CommunityEditionInfo{
 				ID: "race26", Name: "Race to 2026", Title: "Race to 2026 Title", Short: "Race26",
 				Badge: "⭐ Community", Year: 2026, WC: "p1", WCDesc: "Reigning World Champion (2025)",
-				Maintainer: "wolvs", MaintainerNote: "Note",
+				Maintainer: "dee", MaintainerNote: "Note",
 			},
 			CountingEvents: 8,
 			Categories: []store.CommunityCategory{{
 				Category: "World Championship", BadgeClass: "badge-gold",
-				Columns: []store.CommunityEventColumn{{ID: "wrld", Name: "World Championship", Short: "WC", MaxPts: 1600}},
+				Columns: []store.CommunityEventColumn{{ID: "wrld", Name: "World Championship", Short: "WC", MaxPts: &most}},
 			}},
 			Summary: []store.CommunityTournamentSummary{{
-				ID: "wc_sum", Name: "World Championship", Short: "WC", Cols: []string{"wrld"}, MaxPts: 1600, BadgeClass: "badge-gold", Desc: "WC",
+				ID: "wc_sum", Name: "World Championship", Short: "WC", Cols: []string{"wrld"}, BadgeClass: "badge-gold", Desc: "WC",
 			}},
 		},
 		rows: []store.CommunityRow{
 			{Rank: 1, Name: "ann", Country: &pl, Title: &gm, Points: 7657, Events: 11, Scores: map[string]float64{"wrld": 1600, "ic_24": 1000}},
-			{Rank: 2, Name: "Marten Fisher", Points: 6687.5, Events: 13, Scores: map[string]float64{}},
+			{Rank: 2, Name: "bob", Points: 6687.5, Events: 13, Scores: map[string]float64{}},
 		},
 	}
 	rec, _ := serve(t, f, "/v1/runs/7/community/race26")
-	want := `{"categories":[{"badge_class":"badge-gold","category":"World Championship","columns":[{"id":"wrld","max_pts":1600,"name":"World Championship","short":"WC"}]}],"counting_events":8,"edition":"race26","info":{"badge":"⭐ Community","id":"race26","maintainer":"wolvs","maintainer_note":"Note","name":"Race to 2026","short":"Race26","title":"Race to 2026 Title","wc":"p1","wc_desc":"Reigning World Champion (2025)","year":2026},"rows":[{"country":"PL","events":11,"name":"ann","points":7657,"rank":1,"scores":{"ic_24":1000,"wrld":1600},"title":"SGM"},{"country":null,"events":13,"name":"Marten Fisher","points":6687.5,"rank":2,"scores":{},"title":null}],"run_id":7,"summary":[{"badge_class":"badge-gold","cols":["wrld"],"desc":"WC","id":"wc_sum","max_pts":1600,"name":"World Championship","short":"WC"}]}`
+	want := `{"categories":[{"badge_class":"badge-gold","category":"World Championship","columns":[{"id":"wrld","max_pts":1600,"name":"World Championship","short":"WC"}]}],"counting_events":8,"edition":"race26","info":{"badge":"⭐ Community","id":"race26","maintainer":"dee","maintainer_note":"Note","name":"Race to 2026","short":"Race26","title":"Race to 2026 Title","wc":"p1","wc_desc":"Reigning World Champion (2025)","year":2026},"rows":[{"country":"PL","events":11,"name":"ann","points":7657,"rank":1,"scores":{"ic_24":1000,"wrld":1600},"title":"SGM"},{"country":null,"events":13,"name":"bob","points":6687.5,"rank":2,"scores":{},"title":null}],"run_id":7,"summary":[{"badge_class":"badge-gold","cols":["wrld"],"desc":"WC","id":"wc_sum","max_pts":null,"name":"World Championship","short":"WC"}]}`
 	if got := strings.TrimSpace(rec.Body.String()); rec.Code != http.StatusOK || got != want {
 		t.Errorf("GET community: %d %s\nwant 200 %s", rec.Code, got, want)
 	}
@@ -267,12 +267,12 @@ func TestCommunityEditions(t *testing.T) {
 	f := &fakeCommunity{
 		editions: []store.CommunityEdition{{
 			Slug: "race26", Name: "Race to 2026", Title: "Race to 2026 Title", ShortName: "Race26",
-			Badge: "⭐ Community", Maintainer: "wolvs", MaintainerNote: "Note", Year: 2026,
+			Badge: "⭐ Community", Maintainer: "dee", MaintainerNote: "Note", Year: 2026,
 			CountingEvents: 8, Visible: true, SortOrder: 1,
 		}},
 	}
 	rec, _ := serve(t, f, "/v1/community/editions")
-	want := `[{"badge":"⭐ Community","counting_events":8,"maintainer":"wolvs","maintainer_note":"Note","name":"Race to 2026","short_name":"Race26","slug":"race26","sort_order":1,"title":"Race to 2026 Title","visible":true,"year":2026}]`
+	want := `[{"badge":"⭐ Community","counting_events":8,"maintainer":"dee","maintainer_note":"Note","name":"Race to 2026","short_name":"Race26","slug":"race26","sort_order":1,"title":"Race to 2026 Title","visible":true,"year":2026}]`
 	if got := strings.TrimSpace(rec.Body.String()); rec.Code != http.StatusOK || got != want {
 		t.Errorf("GET /v1/community/editions: %d %s\nwant 200 %s", rec.Code, got, want)
 	}
@@ -282,15 +282,24 @@ func TestCommunityEditions(t *testing.T) {
 }
 
 func TestCommunityLeaderboardRefusals(t *testing.T) {
-	f := &fakeCommunity{}
-	for path, msg := range map[string]string{
-		"/v1/runs/0/community/2024": "bad parameter: run",
-		"/v1/runs/7/community/2019": "no such community edition",
-	} {
-		rec, _ := serve(t, f, path)
-		if got := strings.TrimSpace(rec.Body.String()); !strings.Contains(got, msg) {
-			t.Errorf("GET %s: %d %s, want %q", path, rec.Code, got, msg)
-		}
+	tests := []struct {
+		name, path, msg string
+		code            int
+	}{
+		{"a bad run", "/v1/runs/0/community/2024", "bad parameter: run", http.StatusBadRequest},
+		{"an unknown edition", "/v1/runs/7/community/2019", "no such community edition", http.StatusNotFound},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			f := &fakeCommunity{}
+			rec, _ := serve(t, f, tt.path)
+			if got := strings.TrimSpace(rec.Body.String()); rec.Code != tt.code || !strings.Contains(got, tt.msg) {
+				t.Errorf("GET %s: %d %s, want %d %q", tt.path, rec.Code, got, tt.code, tt.msg)
+			}
+			if f.calls != 0 {
+				t.Errorf("GET %s read the leaderboard %d times, want none", tt.path, f.calls)
+			}
+		})
 	}
 	rec, _ := serve(t, &fakeCommunity{err: store.ErrRunNotFound}, "/v1/runs/9/community/2024")
 	if rec.Code != http.StatusNotFound || rec.Header().Get("Cache-Control") != "no-store" {

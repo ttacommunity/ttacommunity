@@ -10,8 +10,10 @@ import {
 } from '@ttac/shared/ratings';
 import { Flag } from './PlayerMarks';
 import {
+  columnTitle,
   countingColumns,
   editionFacts,
+  editionLabel,
   matchesSearch,
   parseCommunityView,
   titleMark,
@@ -92,8 +94,7 @@ function Hero({
               className={`edition-pill${view.edition === e.slug ? ' active' : ''}`}
               title={e.title}
             >
-              {e.badge ? `${e.badge} ` : ''}
-              {e.short_name || e.name}
+              {editionLabel(e)}
             </a>
           ))}
         </div>
@@ -169,7 +170,7 @@ function Explainers({ data }: { data: LeaderboardData }) {
               <strong>
                 {t.name} (<code>{t.codes}</code>)
               </strong>
-              : {t.maxPts} pts max{t.each ? ' each' : ''}
+              {t.maxPts !== null && `: ${t.maxPts} pts max${t.each ? ' each' : ''}`}
             </li>
           ))}
         </ul>
@@ -252,7 +253,7 @@ function Table({ data, view, rows }: { data: LeaderboardData; view: CommunityVie
                   </th>
                 ))
               : columns.map((c) => (
-                  <th key={c.id} title={`${c.name} (Max: ${c.max_pts} pts)`}>
+                  <th key={c.id} title={columnTitle(c)}>
                     {c.short}
                   </th>
                 ))}
