@@ -66,3 +66,20 @@ func TestSetTitleRefusesWhatAdminCannotSet(t *testing.T) {
 		t.Errorf("overrides after only refusals = %+v", got)
 	}
 }
+
+func TestSetTitleSavesEveryTitleAdminOffers(t *testing.T) {
+	pool := migrated(t)
+	ctx := context.Background()
+	addPlayers(t, pool, "Ann")
+	a := NewAdminStore(asAdminLogin(t, pool))
+	for _, title := range AdminTitles {
+		t.Run("title "+title, func(t *testing.T) {
+			if err := a.SetTitle(ctx, TitleOverride{Name: "Ann", Title: title, Reason: "r"}); err != nil {
+				t.Fatalf("SetTitle(%q): %v", title, err)
+			}
+			if got, err := a.TitleOverrides(ctx); err != nil || len(got) != 1 || got[0].Title != title {
+				t.Errorf("overrides after SetTitle(%q) = %+v, %v", title, got, err)
+			}
+		})
+	}
+}
