@@ -137,6 +137,7 @@ type ComparedRating struct {
 // ComparedPlayers returns up to 15 players whose name contains a term or
 // whose country is one, ignoring case, strongest first by GlickoD's all-format
 // C rating; with no terms, the DefaultCompared players who exist, in order.
+// Players with a deleted or banned CGE account are left out.
 func (r *RatingsReader) ComparedPlayers(ctx context.Context, run int64, format int, terms []string) ([]ComparedPlayer, error) {
 	if err := r.requirePublished(ctx, run); err != nil {
 		return nil, err
@@ -147,13 +148,14 @@ func (r *RatingsReader) ComparedPlayers(ctx context.Context, run int64, format i
 		LEFT JOIN player_ratings g ON g.run_id = $1 AND g.player_name = p.name AND g.model_type = 'glicko2_daneo' AND g.player_count = 0
 		WHERE EXISTS (SELECT 1 FROM unnest($2::text[]) term
 			WHERE strpos(lower(p.name), lower(term)) > 0 OR lower(p.country_code) = lower(term))
+		  AND ` + notHiddenPlayer + `
 		ORDER BY g.c_rating DESC NULLS LAST, p.name LIMIT 15`
 	args := []any{run, terms}
 	if len(terms) == 0 {
 		query = `
 			SELECT p.name, p.country_code, t.title FROM players p
 			LEFT JOIN player_titles t ON t.run_id = $1 AND t.player_name = p.name
-			WHERE p.name = ANY($2) ORDER BY array_position($2, p.name)`
+			WHERE p.name = ANY($2) AND ` + notHiddenPlayer + ` ORDER BY array_position($2, p.name)`
 		args = []any{run, DefaultCompared}
 	}
 	rows, err := r.pool.Query(ctx, query, args...)

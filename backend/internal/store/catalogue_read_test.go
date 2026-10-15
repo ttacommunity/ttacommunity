@@ -828,3 +828,131 @@ func cgeLinks(c CatalogueTournament) [][]CGELink {
 	}
 	return got
 }
+
+func TestCatalogueTournamentMasksHiddenPlayersOnPodiums(t *testing.T) {
+	pool := migrated(t)
+	ctx := context.Background()
+	run := publishedRun(t, pool)
+	placedOn(t, pool, map[string]time.Time{
+		"Wimbledon 2023 stage 1":                  day("2023-07-15"),
+		"Wimbledon 2024 Stage 1 - group 1 game 1": day("2024-07-01"),
+	})
+	addPlayers(t, pool, "cat", "dan")
+	hideAccount(t, pool, "ann", "deleted")
+	hideAccount(t, pool, "dan", "banned")
+	if _, err := ReplacePodiums(ctx, pool, []tournamentcsv.Podium{
+		{Cup: "wimbledon", Season: "2023", Place: 1, Player: "ann", Source: "CGE", Finished: day("2023-07-20")},
+		{Cup: "wimbledon", Season: "2023", Place: 2, Player: "cat", Source: "CGE", Finished: day("2023-07-20")},
+	}); err != nil {
+		t.Fatalf("ReplacePodiums: %v", err)
+	}
+	if err := NewAdminStore(pool).SetPodium(ctx, "wimbledon", "2024", []PodiumEntry{{Place: 1, Name: "DAN"}, {Place: 2, Name: "cat"}}, ""); err != nil {
+		t.Fatalf("SetPodium: %v", err)
+	}
+
+	withSpans(t, pool, run)
+	got, err := NewRatingsReader(asReader(t, pool)).CatalogueTournament(ctx, run, "wimbledon")
+	if err != nil {
+		t.Fatalf("CatalogueTournament: %v", err)
+	}
+	if diff := cmp.Diff([][]string{{"Deleted player", "cat"}, {"Deleted player", "cat"}}, podiumNames(got.Seasons)); diff != "" {
+		t.Errorf("podiums, ann (deleted) and dan (banned, set in admin as DAN) masked (-want +got):\n%s", diff)
+	}
+}
+
+func TestCatalogueTournamentLeavesOutHiddenPlayersTopTierWinsAndStories(t *testing.T) {
+	pool := migrated(t)
+	ctx := context.Background()
+	run := publishedRun(t, pool)
+	placedOn(t, pool, map[string]time.Time{"Mercurial Season 20 - 3-Neon 2 game 4": day("2024-03-01")})
+	addPlayers(t, pool, "cat")
+	hideAccount(t, pool, "ann", "deleted")
+	src := "the organisers' Hall of Fame"
+	if _, err := ReplaceLadderWins(ctx, pool, []tournamentcsv.LadderWins{
+		{Ladder: "mercurial_ladder", Player: "ann", Wins: 4, Source: src},
+		{Ladder: "mercurial_ladder", Player: "cat", Wins: 1, Source: src},
+	}); err != nil {
+		t.Fatalf("ReplaceLadderWins: %v", err)
+	}
+	if err := NewAdminStore(pool).SetStories(ctx, "mercurial_ladder", []Story{
+		{Player: "Ann", Title: "First", Text: "A story."}, {Player: "cat", Title: "Second", Text: "Another."},
+	}); err != nil {
+		t.Fatalf("SetStories: %v", err)
+	}
+
+	withSpans(t, pool, run)
+	got, err := NewRatingsReader(asReader(t, pool)).CatalogueTournament(ctx, run, "mercurial_ladder")
+	if err != nil {
+		t.Fatalf("CatalogueTournament: %v", err)
+	}
+	if len(got.TopTierWins) != 1 || got.TopTierWins[0].Name != "cat" {
+		t.Errorf("top-tier wins = %+v, want cat's only: ann's account is deleted", got.TopTierWins)
+	}
+	if len(got.Stories) != 1 || got.Stories[0].Player != "cat" {
+		t.Errorf("stories = %+v, want cat's only: ann's (written as Ann) left out", got.Stories)
+	}
+}
+
+func TestRecentPodiumsMasksHiddenPlayers(t *testing.T) {
+	pool := migrated(t)
+	ctx := context.Background()
+	run := publishedRun(t, pool)
+	placedOn(t, pool, map[string]time.Time{"Wimbledon 2023 stage 1": day("2023-07-15")})
+	addPlayers(t, pool, "cat")
+	hideAccount(t, pool, "ann", "banned")
+	if _, err := ReplacePodiums(ctx, pool, []tournamentcsv.Podium{
+		{Cup: "wimbledon", Season: "2023", Place: 1, Player: "ann", Source: "CGE", Finished: day("2023-07-20")},
+		{Cup: "wimbledon", Season: "2023", Place: 2, Player: "cat", Source: "CGE", Finished: day("2023-07-20")},
+	}); err != nil {
+		t.Fatalf("ReplacePodiums: %v", err)
+	}
+
+	withSpans(t, pool, run)
+	got, err := NewRatingsReader(asReader(t, pool)).RecentPodiums(ctx, run, 12, 8)
+	if err != nil {
+		t.Fatalf("RecentPodiums: %v", err)
+	}
+	if diff := cmp.Diff([]string{"wimbledon 2023 2023-07-15 Deleted player,cat"}, podiumLines(got)); diff != "" {
+		t.Errorf("recent podiums, ann's account banned (-want +got):\n%s", diff)
+	}
+}
+
+// podiumNames returns the names on each season's podium, in order.
+func podiumNames(seasons []CatalogueSeason) [][]string {
+	var got [][]string
+	for _, s := range seasons {
+		var names []string
+		for _, p := range s.Podium {
+			names = append(names, p.Name)
+		}
+		got = append(got, names)
+	}
+	return got
+}
+
+func TestCatalogueMasksAHiddenOrganiser(t *testing.T) {
+	pool := migrated(t)
+	run := publishedRun(t, pool)
+	placedOn(t, pool, map[string]time.Time{"Wimbledon 2024 Stage 1 - group 1 game 1": day("2024-07-01")})
+	addPlayers(t, pool, "cat")
+	hideAccount(t, pool, "cat", "banned")
+	addCGETournaments(t, pool,
+		tournamentcsv.CGETournament{ID: 4991, Name: "Wimbledon 2024", Status: "finished", Organiser: "Cat",
+			Created: date("2024-06-01"), Finished: date("2025-02-24"), Tournament: "wimbledon", Season: "2024"},
+		tournamentcsv.CGETournament{ID: 4992, Name: "Wimbledon 2025", Status: "running", Organiser: "dan",
+			Created: date("2025-06-01"), Tournament: "wimbledon", Season: "2025"},
+	)
+
+	withSpans(t, pool, run)
+	view, err := NewRatingsReader(asReader(t, pool)).Catalogue(context.Background(), run)
+	if err != nil {
+		t.Fatalf("Catalogue: %v", err)
+	}
+	var organisers []string
+	for _, c := range view.CGE {
+		organisers = append(organisers, c.Organiser)
+	}
+	if want := []string{"dan", "Deleted player"}; !slices.Equal(organisers, want) {
+		t.Errorf("organisers = %q, want %q: cat's account is banned (named Cat)", organisers, want)
+	}
+}

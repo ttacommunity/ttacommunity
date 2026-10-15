@@ -150,6 +150,7 @@ type EditionRules struct {
 // the rankings it is in, and CGE's shown tournaments, newest first, for a
 // published run. Shown is rated or made visible; the games are counted as the
 // run counted them (its catalogue spans), and unplaced games count nowhere.
+// An organiser with a deleted or banned CGE account is named DeletedPlayer.
 func (r *RatingsReader) Catalogue(ctx context.Context, run int64) (CatalogueView, error) {
 	if err := r.requirePublished(ctx, run); err != nil {
 		return CatalogueView{}, err
@@ -194,6 +195,13 @@ func (r *RatingsReader) Catalogue(ctx context.Context, run int64) (CatalogueView
 		return c, row.Scan(&c.ID, &c.Name, &c.Status, &c.Organiser, &c.Started, &c.Finished, &c.Tournament, &c.Rated)
 	})
 	if err != nil {
+		return CatalogueView{}, fmt.Errorf("reading CGE's catalogue: %w", err)
+	}
+	organisers := make([]*string, len(got.CGE))
+	for i := range got.CGE {
+		organisers[i] = &got.CGE[i].Organiser
+	}
+	if err := r.maskNames(ctx, organisers); err != nil {
 		return CatalogueView{}, fmt.Errorf("reading CGE's catalogue: %w", err)
 	}
 	return got, nil
@@ -376,7 +384,8 @@ func (r *RatingsReader) CatalogueTournament(ctx context.Context, run int64, slug
 
 	rows, err = r.pool.Query(ctx, `
 		SELECT player_name, wins::float8, source FROM tournament_ladder_wins
-		WHERE ladder = $1 ORDER BY wins DESC, player_name`, slug)
+		WHERE ladder = $1 AND NOT `+hiddenName("player_name")+`
+		ORDER BY wins DESC, player_name`, slug)
 	if err != nil {
 		return fail("top-tier wins", err)
 	}
@@ -432,7 +441,7 @@ func (r *RatingsReader) CatalogueTournament(ctx context.Context, run int64, slug
 	if err := r.markWorldChampions(ctx, run, got.GameRecords); err != nil {
 		return fail("game records", err)
 	}
-	if got.Stories, err = stories(ctx, r.pool, slug); err != nil {
+	if got.Stories, err = r.shownStories(ctx, slug); err != nil {
 		return fail("stories", err)
 	}
 
@@ -452,6 +461,24 @@ func (r *RatingsReader) CatalogueTournament(ctx context.Context, run int64, slug
 		return fail("players", err)
 	}
 	return got, nil
+}
+
+// shownStories returns a tournament's stories in their order, without those about a player with a deleted or
+// banned CGE account.
+func (r *RatingsReader) shownStories(ctx context.Context, slug string) ([]Story, error) {
+	all, err := stories(ctx, r.pool, slug)
+	if err != nil {
+		return nil, err
+	}
+	players := make([]string, len(all))
+	for i, s := range all {
+		players[i] = s.Player
+	}
+	hidden, err := r.maskHiddenNames(ctx, players)
+	if err != nil {
+		return nil, err
+	}
+	return slices.DeleteFunc(all, func(s Story) bool { return hidden[s.Player] }), nil
 }
 
 // seasonsWithPodiums returns each of slugs that has a season as a CatalogueTournament with its name, kind, nouns
@@ -548,6 +575,7 @@ func newSeason(label string, span GameSpan) CatalogueSeason {
 
 // addPodiums gives each season in got its podium: the recorded cup podium, else its league's recorded
 // top-division placements, else the run's top-division standings; a podium set in admin replaces any of them.
+// A player with a deleted or banned CGE account is named DeletedPlayer.
 func (r *RatingsReader) addPodiums(ctx context.Context, run int64, slugs []string, got map[string]*CatalogueTournament) error {
 	byLabel := map[string]map[string]int{}
 	byNumber := map[string]map[string]int{}
@@ -635,6 +663,17 @@ func (r *RatingsReader) addPodiums(ctx context.Context, run int64, slugs []strin
 	})
 	if err != nil {
 		return fmt.Errorf("reading admin podiums: %w", err)
+	}
+	var names []*string
+	for _, t := range got {
+		for i := range t.Seasons {
+			for j := range t.Seasons[i].Podium {
+				names = append(names, &t.Seasons[i].Podium[j].Name)
+			}
+		}
+	}
+	if err := r.maskNames(ctx, names); err != nil {
+		return fmt.Errorf("reading podiums: %w", err)
 	}
 	return nil
 }

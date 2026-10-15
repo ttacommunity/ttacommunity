@@ -748,3 +748,39 @@ func TestPlayerSeats(t *testing.T) {
 		t.Errorf("all games total: games %d, wins %d, draws %d; want 4, 2, 1", allStats.Overall.TotalGames, allStats.Overall.TotalWins, allStats.Overall.TotalDraws)
 	}
 }
+
+func TestPlayerRivalsLeavesOutHiddenPlayers(t *testing.T) {
+	pool := migrated(t)
+	ctx := context.Background()
+	run := publishedRun(t, pool)
+	addGame(t, pool, run, "2025-01-01", "Cup", Seat{"ann", 9}, Seat{"bob", 5}, Seat{"cat", 3})
+	addGame(t, pool, run, "2025-01-02", "Cup", Seat{"ann", 9}, Seat{"bob", 5})
+	hideAccount(t, pool, "bob", "banned")
+
+	_, got, err := NewRatingsReader(asReader(t, pool)).PlayerRivals(ctx, run, "ann", 0)
+	if err != nil {
+		t.Fatalf("PlayerRivals: %v", err)
+	}
+	if len(got) != 1 || got[0].Name != "cat" {
+		t.Errorf("PlayerRivals(ann) = %+v, want cat only: bob's account is banned", got)
+	}
+}
+
+func TestYearBoardMasksHiddenChampions(t *testing.T) {
+	pool := migrated(t)
+	ctx := context.Background()
+	run := publishedRun(t, pool)
+	addGame(t, pool, run, "2025-06-01", "Cup", Seat{"ann", 9}, Seat{"cat", 5})
+	addHistory(t, pool, run, "glicko2_std", 0, "cat", "2025-06-30", 1600)
+	addYearlyTitle(t, pool, run, "ann", 2025, "WC")
+	addYearlyTitle(t, pool, run, "cat", 2025, "WC")
+	hideAccount(t, pool, "ann", "deleted")
+
+	got, err := NewRatingsReader(asReader(t, pool)).YearBoard(ctx, run, 2025, "glicko2_std", 0)
+	if err != nil {
+		t.Fatalf("YearBoard: %v", err)
+	}
+	if want := "[{Deleted player false} {cat false}]"; fmt.Sprint(got.Champions) != want {
+		t.Errorf("2025 champions = %v, want %s: ann's account is deleted", got.Champions, want)
+	}
+}

@@ -25,6 +25,14 @@ const notHiddenPlayer = `NOT EXISTS (
 	WHERE pa.player_id = p.player_id AND (pa.deleted OR pa.banned)
 )`
 
+// hiddenName is true when the name in column is, ignoring case, a player with any deleted or banned CGE account.
+func hiddenName(column string) string {
+	return `EXISTS (
+	SELECT 1 FROM players hp JOIN player_accounts pa USING (player_id)
+	WHERE lower(hp.name) = lower(` + column + `) AND (pa.deleted OR pa.banned)
+)`
+}
+
 // PlayerPageModels are the models the player page shows: each engine,
 // continuous and with a season reset.
 var PlayerPageModels = []string{
@@ -313,7 +321,7 @@ func (r *RatingsReader) RatingsOf(ctx context.Context, run int64, model string, 
 
 // PlayerRivals returns the stored name and a player's record against the
 // 200 opponents they met most in a format (0 is all), most games first, then
-// most wins.
+// most wins. Opponents with a deleted or banned CGE account are left out.
 func (r *RatingsReader) PlayerRivals(ctx context.Context, run int64, asked string, format int) (string, []Rival, error) {
 	name, err := r.resolve(ctx, run, asked)
 	if err != nil {
@@ -330,6 +338,7 @@ func (r *RatingsReader) PlayerRivals(ctx context.Context, run int64, asked strin
 			count(*) FILTER (WHERE outcome = 0), count(*) FILTER (WHERE outcome = 0.5)
 		FROM mine
 		GROUP BY opponent
+		HAVING NOT `+hiddenName("opponent")+`
 		ORDER BY 2 DESC, 3 DESC, opponent
 		LIMIT 200`, run, name, format)
 	if err != nil {
@@ -853,15 +862,13 @@ func (r *RatingsReader) PlayerSeats(ctx context.Context, run int64, asked string
 	return stats, nil
 }
 
-// maskHiddenNames returns the subset of names whose CGE accounts are deleted or banned.
+// maskHiddenNames returns the subset of names whose players, matched ignoring case, have a deleted or banned
+// CGE account.
 func (r *RatingsReader) maskHiddenNames(ctx context.Context, names []string) (map[string]bool, error) {
 	if len(names) == 0 {
 		return nil, nil
 	}
-	rows, err := r.pool.Query(ctx, `
-		SELECT DISTINCT p.name FROM players p
-		JOIN player_accounts pa USING (player_id)
-		WHERE p.name = ANY($1) AND (pa.deleted OR pa.banned)`, names)
+	rows, err := r.pool.Query(ctx, `SELECT DISTINCT n FROM unnest($1::text[]) n WHERE `+hiddenName("n"), names)
 	if err != nil {
 		return nil, fmt.Errorf("checking hidden players: %w", err)
 	}
@@ -877,6 +884,24 @@ func (r *RatingsReader) maskHiddenNames(ctx context.Context, names []string) (ma
 		set[n] = true
 	}
 	return set, nil
+}
+
+// maskNames replaces each of names whose player has a deleted or banned CGE account with DeletedPlayer.
+func (r *RatingsReader) maskNames(ctx context.Context, names []*string) error {
+	list := make([]string, len(names))
+	for i, n := range names {
+		list[i] = *n
+	}
+	hidden, err := r.maskHiddenNames(ctx, list)
+	if err != nil {
+		return err
+	}
+	for _, n := range names {
+		if hidden[*n] {
+			*n = DeletedPlayer
+		}
+	}
+	return nil
 }
 
 // maskMatchSeats replaces the names of seats whose players are deleted or banned with DeletedPlayer.

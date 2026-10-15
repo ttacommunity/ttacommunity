@@ -407,3 +407,72 @@ func TestCommunityLeaderboardExcludesDeletedAndBannedPlayers(t *testing.T) {
 		t.Errorf("CommunityLeaderboard = %+v, want only dan (ann and bob excluded)", got)
 	}
 }
+
+func TestHallOfFameLeavesOutHiddenPlayers(t *testing.T) {
+	pool := migrated(t)
+	ctx := context.Background()
+	run := publishedRun(t, pool)
+	addPlayers(t, pool, "ann", "bob", "cat")
+	hideAccount(t, pool, "ann", "deleted")
+	hideAccount(t, pool, "bob", "banned")
+	if _, err := pool.Exec(ctx, `INSERT INTO tournament_legends VALUES
+		($1, 1, 'ann', 1, 0, 0, 0, 1, 0, 0), ($1, 2, 'BOB', 1, 0, 0, 0, 1, 0, 0), ($1, 3, 'cat', 0, 1, 0, 0, 1, 0, 0)`, run); err != nil {
+		t.Fatalf("adding legends: %v", err)
+	}
+	board := []string{"ann", "bob", "g01", "g02", "g03", "g04", "g05", "g06", "g07", "g08", "g09", "g10"}
+	for i, name := range board {
+		_, err := pool.Exec(ctx, `INSERT INTO tournament_boards (run_id, series, player_name, points, position)
+			VALUES ($1, 'grand_slams', $2, 0, $3), ($1, 'ladders', $2, 0, $3)`, run, name, i+1)
+		if err != nil {
+			t.Fatalf("adding board rows: %v", err)
+		}
+	}
+
+	got, err := NewRatingsReader(asReader(t, pool)).HallOfFame(ctx, run)
+	if err != nil {
+		t.Fatalf("HallOfFame: %v", err)
+	}
+	if len(got.Legends) != 1 || got.Legends[0].Name != "cat" {
+		t.Errorf("legends = %+v, want cat only: ann's account is deleted, bob's banned (named BOB)", got.Legends)
+	}
+	for what, rows := range map[string][]TrophyRow{"grand slams": got.GrandSlams, "ladders": got.Ladders} {
+		if len(rows) != 10 || rows[0].Name != "g01" || rows[9].Name != "g10" {
+			t.Errorf("%s = %+v, want g01 to g10: ten rows without ann and bob", what, rows)
+		}
+	}
+}
+
+func TestTournamentSeriesHidesHiddenPlayers(t *testing.T) {
+	pool := migrated(t)
+	ctx := context.Background()
+	run := publishedRun(t, pool)
+	addPlayers(t, pool, "ann", "cat")
+	hideAccount(t, pool, "ann", "deleted")
+	addPeakTitle(t, pool, run, "ann", "WC", 2024)
+	for i, name := range []string{"ann", "cat"} {
+		if _, err := pool.Exec(ctx, `INSERT INTO tournament_boards (run_id, series, player_name, points, position)
+			VALUES ($1, 'international', $2, 0, $3)`, run, name, i+1); err != nil {
+			t.Fatalf("adding %s's board row: %v", name, err)
+		}
+		if _, err := pool.Exec(ctx, `INSERT INTO tournament_season_records
+			VALUES ($1, 'international', 30, 'Grandmaster', $2, $3, 7, '{3,1,1,0}', '2025-07-31', $4)`,
+			run, name, float64(30-i), i+1); err != nil {
+			t.Fatalf("adding %s's season: %v", name, err)
+		}
+	}
+
+	got, err := NewRatingsReader(asReader(t, pool)).TournamentSeries(ctx, run, "international")
+	if err != nil {
+		t.Fatalf("TournamentSeries: %v", err)
+	}
+	if len(got.Board) != 1 || got.Board[0].Name != "cat" {
+		t.Errorf("board = %+v, want cat only: ann's account is deleted", got.Board)
+	}
+	var seasons []string
+	for _, s := range got.SeasonRecords {
+		seasons = append(seasons, fmt.Sprintf("%s %v %g", s.Name, s.WorldChampion, s.Points))
+	}
+	if want := []string{"Deleted player false 30", "cat false 29"}; !slices.Equal(seasons, want) {
+		t.Errorf("season records = %q, want %q: ann's season kept, its name and crown masked", seasons, want)
+	}
+}
