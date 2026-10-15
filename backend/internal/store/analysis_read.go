@@ -3,7 +3,6 @@ package store
 import (
 	"context"
 	"fmt"
-	"sync"
 	"time"
 
 	"github.com/jackc/pgx/v5"
@@ -317,12 +316,6 @@ type seatCounts struct {
 	wins, draws map[[2]int]int
 }
 
-// seatCache holds each run's seat counts by tier, from the run's first request while the api runs.
-type seatCache struct {
-	mu   sync.Mutex
-	runs map[int64]map[string]seatCounts
-}
-
 // SeatAnalysis returns seat statistics grouped by player count (2P, 3P, 4P) and filtered by skill tier
 // (an unknown tier counts as "all").
 func (r *RatingsReader) SeatAnalysis(ctx context.Context, run int64, format int, tier string) ([]SeatStatsGroup, error) {
@@ -340,14 +333,17 @@ func (r *RatingsReader) SeatAnalysis(ctx context.Context, run int64, format int,
 	return seatGroups(counts, format), nil
 }
 
-// seatCountsOf returns run's seat counts for every tier in seatTiers, reading them in one query on the run's
-// first request and from memory after: every tier and format of the page then answers without the database.
+// seatCountsOf returns run's seat counts for every tier in seatTiers, reading them on the run's first request
+// and from memory after, while it is one of the latest runs asked for: every tier and format of the page then
+// answers without the database.
 func (r *RatingsReader) seatCountsOf(ctx context.Context, run int64) (map[string]seatCounts, error) {
-	r.seats.mu.Lock()
-	defer r.seats.mu.Unlock()
-	if tiers, ok := r.seats.runs[run]; ok {
-		return tiers, nil
-	}
+	return r.seats.Get(run, struct{}{}, func() (map[string]seatCounts, error) {
+		return r.readSeatCounts(ctx, run)
+	})
+}
+
+// readSeatCounts reads run's seat counts for every tier in seatTiers, in one query.
+func (r *RatingsReader) readSeatCounts(ctx context.Context, run int64) (map[string]seatCounts, error) {
 	rows, err := r.pool.Query(ctx, `
 		WITH games_in_run AS (
 			SELECT DISTINCT match_id AS game_id, player_count
@@ -398,7 +394,6 @@ func (r *RatingsReader) seatCountsOf(ctx context.Context, run int64) (map[string
 	if err != nil {
 		return nil, fmt.Errorf("reading run %d's seat analysis: %w", run, err)
 	}
-	r.seats.runs[run] = tiers
 	return tiers, nil
 }
 
