@@ -1,5 +1,5 @@
 /** A player's page for the current run, as upstream's: ratings by model, history chart, games and rivals. */
-import { useCallback, useEffect, useState, type MouseEvent, type ReactNode } from 'react';
+import { Fragment, useCallback, useEffect, useState, type MouseEvent, type ReactNode } from 'react';
 import {
   currentRun,
   player as fetchPlayer,
@@ -681,8 +681,8 @@ function PositionSeatStats({
               </tr>
             )}
             {groups.map((group) => (
-              <>
-                <tr key={`header-${group.player_count}`} className="format-group-row">
+              <Fragment key={group.player_count}>
+                <tr className="format-group-row">
                   <td colSpan={8} className="format-group-cell">
                     <strong>{group.player_count}-Player Tables</strong>
                     <span className="group-meta">
@@ -735,7 +735,7 @@ function PositionSeatStats({
                     </tr>
                   );
                 })}
-              </>
+              </Fragment>
             ))}
           </tbody>
         </table>
