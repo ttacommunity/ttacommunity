@@ -3,10 +3,10 @@ import type { CareerYear, Format, Player, TitleCode, VersusMatch } from '@ttac/s
 
 type Peak = Player['peak'];
 
-/** Upstream's bonus for the best title held in a year. */
+/** The bonus for the best title held in a year: upstream's, with the World Championship's silver (WCS) and bronze (WCB). */
 const TITLE_BONUS: Record<TitleCode, number> = { WC: 150, SGM: 100, WCS: 85, WCB: 70, GM: 60, M: 40, P: 25, G: 15, S: 5, B: 0, W: -5 };
 
-/** Upstream's ranking of titles, best first. */
+/** The ranking of titles, best first: upstream's, with WCS and WCB after SGM. */
 const TITLE_ORDER: Record<TitleCode, number> = { WC: 0, SGM: 1, WCS: 2, WCB: 3, GM: 4, M: 5, P: 6, G: 7, S: 8, B: 9, W: 10 };
 
 /** A scored career year, with the title the box shows for it. */
