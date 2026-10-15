@@ -122,7 +122,8 @@ Both private to the `ttacommunity` organisation; ask a maintainer for access.
 - **Make it as efficient as you reasonably can**, so the project runs
   well wherever it is hosted, small servers included. A host can be
   several times slower than your machine, and production logs every
-  request over 1 s. A route over 0.1 s on your machine is too slow
+  request over 1 s. Aim for under 0.1 s a route on your machine; over
+  0.5 s is too slow. Past 0.1 s, speed a route up only where it pays
 - **Know the sizes**: about 4,100 players, 205,000 games, 577,000 seats
   and 414,000 rated pairs per run. Code that scans every player for each
   player takes seconds here: sort once, use a map, or let Postgres do it
@@ -213,8 +214,8 @@ agent runs them itself.
 3. **Time it on the full data.** With the baseline loaded, time each
    route you added or changed:
    `curl.exe -s -o NUL -w "%{time_total}\n" http://127.0.0.1:8080/v1/…`
-   (Linux, macOS: `curl -s -o /dev/null -w …`). Over 0.1 s is too slow
-   (see "Speed"). Open each page you changed and count its API requests
+   (Linux, macOS: `curl -s -o /dev/null -w …`). Aim for under 0.1 s;
+   over 0.5 s is too slow (see "Speed"). Open each page you changed and count its API requests
    in the browser's network tab
 4. **Read your own diff.** Every file in `git diff main...HEAD --stat` is
    explained in **What it does**. A migration, an `openapi.yaml` change
