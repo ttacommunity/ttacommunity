@@ -14,6 +14,7 @@ import {
   countingColumns,
   editionFacts,
   editionLabel,
+  editionToShow,
   matchesSearch,
   parseCommunityView,
   titleMark,
@@ -337,10 +338,12 @@ export default function CommunityPage({ apiUrl }: { apiUrl: string }) {
 
   useEffect(() => {
     let stale = false;
-    Promise.all([
-      communityEditions(apiUrl),
-      currentRun(apiUrl).then((run) => communityLeaderboard(apiUrl, run.run_id, view.edition)),
-    ])
+    Promise.all([communityEditions(apiUrl), currentRun(apiUrl)])
+      .then(async ([editions, run]) => {
+        const edition = editionToShow(view.edition, editions);
+        if (edition === null) throw new Error('no community edition is shown');
+        return [editions, await communityLeaderboard(apiUrl, run.run_id, edition)] as const;
+      })
       .then(([editions, data]) => {
         if (!stale) {
           setState({ kind: 'ready', data, editions });
@@ -363,7 +366,7 @@ export default function CommunityPage({ apiUrl }: { apiUrl: string }) {
   const total = Math.max(1, Math.ceil(found.length / view.perPage));
   const page = Math.min(view.page, total);
   const shown = found.slice((page - 1) * view.perPage, page * view.perPage);
-  const onPage = { ...view, page };
+  const onPage = { ...view, page, edition: data.edition };
 
   return (
     <div className="community-page">

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { CommunityLeaderboard, CommunityRow } from '@ttac/shared/ratings';
-import { columnTitle, countingColumns, editionFacts, editionLabel, parseCommunityView, titleMark, tournamentSums } from './community';
+import { columnTitle, countingColumns, editionFacts, editionLabel, editionToShow, parseCommunityView, titleMark, tournamentSums } from './community';
 
 const row = (r: Partial<CommunityRow>): CommunityRow => ({
   rank: 1, name: 'ann', country: null, title: null, points: 0, events: 0, scores: {}, ...r,
@@ -37,6 +37,13 @@ describe('parseCommunityView', () => {
     ['1999', '1999'],
   ])("reads edition name %s as %s", (edition, want) => {
     expect(parseCommunityView(new URLSearchParams({ edition })).edition).toBe(want);
+  });
+
+  it.each([
+    ['no edition', ''],
+    ['the current one', 'edition=current'],
+  ])('leaves the edition to admin with %s', (_, query) => {
+    expect(parseCommunityView(new URLSearchParams(query)).edition).toBe('');
   });
 
   it('keeps 10 to 200 rows a page, all as 2000, and the standard view unless expanded', () => {
@@ -116,5 +123,16 @@ describe('editionLabel', () => {
     ['its name without a short one', { name: '2025 Final Archive', short_name: '', badge: '🏆 2025 Final' }, '2025 Final Archive'],
   ] as const)('labels an edition with %s, once', (_, edition, want) => {
     expect(editionLabel(edition)).toBe(want);
+  });
+});
+
+describe('editionToShow', () => {
+  const editions = [{ slug: 'first' }, { slug: 'second' }];
+  it.each([
+    ['the edition asked for', 'second', editions, 'second'],
+    ["admin's first edition when none is asked for", '', editions, 'first'],
+    ['none when admin shows none', '', [], null],
+  ] as const)('shows %s', (_, asked, list, want) => {
+    expect(editionToShow(asked, list)).toBe(want);
   });
 });

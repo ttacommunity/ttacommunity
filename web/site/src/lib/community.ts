@@ -17,15 +17,16 @@ export interface CommunityView {
 }
 
 const ALIASES: Record<string, string> = {
-  '2026': '2026', q2_2026: '2026', current: '2026',
+  current: '',
+  '2026': '2026', q2_2026: '2026',
   '2025': '2025', y2025: '2025',
   '2024': '2024', y2024: '2024',
   race26: 'race26', race: 'race26', race2026: 'race26', '2026race': 'race26',
 }; // prettier-ignore
 
-/** parseCommunityView reads the page's address as upstream's route reads its query. */
-export function parseCommunityView(params: URLSearchParams, defaultEdition = '2026'): CommunityView {
-  const raw = (params.get('edition') ?? params.get('year') ?? defaultEdition).trim().toLowerCase();
+/** parseCommunityView reads the page's address as upstream's route reads its query; edition "" leaves it to admin. */
+export function parseCommunityView(params: URLSearchParams): CommunityView {
+  const raw = (params.get('edition') ?? params.get('year') ?? '').trim().toLowerCase();
   const view = (params.get('view') ?? 'standard').toLowerCase();
   const per = (params.get('per_page') ?? '50').trim();
   const perNumber = parseInt(per, 10);
@@ -37,6 +38,11 @@ export function parseCommunityView(params: URLSearchParams, defaultEdition = '20
     page: isNaN(pageNumber) ? 1 : Math.max(1, pageNumber),
     perPage: per === 'all' ? 2000 : isNaN(perNumber) ? 50 : Math.max(10, Math.min(200, perNumber)),
   };
+}
+
+/** editionToShow returns the edition asked for, else the first that admin shows, in admin's order; null for none. */
+export function editionToShow(asked: string, editions: readonly Pick<CommunityEditionItem, 'slug'>[]): string | null {
+  return asked || (editions[0]?.slug ?? null);
 }
 
 /** countingColumns returns a player's best events, equal scores in the sheet's column order. */
