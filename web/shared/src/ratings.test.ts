@@ -21,6 +21,7 @@ import {
   playerMatches,
   communityLeaderboard,
   errorFields,
+  titleName,
   playerAchievements,
   playerCareer,
   playerMatrix,
@@ -257,5 +258,20 @@ describe('errorFields', () => {
     ['fields that are not strings', { error: 404, request_id: ['x'] }, undefined, undefined],
   ])('%s', (_, body, error, requestId) => {
     expect(errorFields(body)).toEqual({ error, requestId });
+  });
+});
+
+describe('titleName', () => {
+  it.each([
+    ['WC', 'World Champion'],
+    ['GM', 'Grandmaster'],
+    ['M', 'Master'],
+    ['P', 'Platinum'],
+    ['G', 'Gold'],
+    ['S', 'Silver'],
+    ['B', 'Bronze'],
+    ['W', 'Wood'],
+  ] as const)('names %s as upstream does', (code, name) => {
+    expect(titleName(code)).toBe(name);
   });
 });

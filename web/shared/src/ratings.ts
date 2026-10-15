@@ -86,6 +86,25 @@ export class RatingsApiError extends Error {
   }
 }
 
+const titleNames: Record<TitleCode, string> = {
+  WC: 'World Champion',
+  SGM: 'Super GM',
+  WCS: 'WCS Silver',
+  WCB: 'WCS Bronze',
+  GM: 'Grandmaster',
+  M: 'Master',
+  P: 'Platinum',
+  G: 'Gold',
+  S: 'Silver',
+  B: 'Bronze',
+  W: 'Wood',
+};
+
+/** titleName returns a title's full name, as the site and admin show it. */
+export function titleName(code: TitleCode): string {
+  return titleNames[code];
+}
+
 /** An error answer's message and request id, each undefined when the body lacks it as a string. */
 export type ErrorFields = { error: string | undefined; requestId: string | undefined };
 

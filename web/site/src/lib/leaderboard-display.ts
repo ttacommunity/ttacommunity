@@ -1,5 +1,5 @@
 /** How the leaderboard shows models, formats and numbers, in upstream's wording and precision. */
-import type { Format, Model, TitleCode } from '@ttac/shared/ratings';
+import { titleName, type Format, type Model, type TitleCode } from '@ttac/shared/ratings';
 
 const formatNames: Record<Format, string> = { 0: 'All Formats', 2: '2-Player (Duel)', 3: '3-Player', 4: '4-Player' };
 
@@ -77,24 +77,7 @@ export function winRate(value: number): string {
   return `${value.toFixed(1)}%`;
 }
 
-const titleNames: Record<TitleCode, string> = {
-  WC: 'World Champion',
-  SGM: 'Super GM',
-  WCS: 'WCS Silver',
-  WCB: 'WCS Bronze',
-  GM: 'Grandmaster',
-  M: 'Master',
-  P: 'Platinum',
-  G: 'Gold',
-  S: 'Silver',
-  B: 'Bronze',
-  W: 'Wood',
-};
-
-/** titleName returns a title's full name, shown when the run gave no reason. */
-export function titleName(code: TitleCode): string {
-  return titleNames[code];
-}
+export { titleName };
 
 /** A title badge as shown: its code (its colour), the text on it and the hover text. */
 export type TitleBadgeView = { code: TitleCode; text: string; hover: string };
