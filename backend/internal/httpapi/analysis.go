@@ -63,20 +63,30 @@ func (s *server) GetDistribution(ctx context.Context, req GetDistributionRequest
 	return GetDistribution200JSONResponse{Body: body, Headers: GetDistribution200ResponseHeaders{CacheControl: cacheRun}}, nil
 }
 
-// GetAgreement returns the closest and furthest pairs of the page models, in one format.
+// GetAgreement returns the closest and furthest pairs of the page models, in one format, computed on a run
+// and format's first request and kept while the run is one of the latest asked for.
 func (s *server) GetAgreement(ctx context.Context, req GetAgreementRequestObject) (GetAgreementResponseObject, error) {
 	format := formatOr(req.Params.Format)
 	if msg := analysisRefusal(req.Run, format); msg != "" {
 		return GetAgreement400JSONResponse{badRequestBody(msg)}, nil
 	}
-	ratings, err := s.ratings.AnalysisRatings(ctx, req.Run, int(format))
+	var a analysis.Agreement
+	err := s.ratings.CheckPublished(ctx, req.Run)
+	if err == nil {
+		a, err = s.agreement.Get(req.Run, format, func() (analysis.Agreement, error) {
+			ratings, err := s.ratings.AnalysisRatings(ctx, req.Run, int(format))
+			if err != nil {
+				return analysis.Agreement{}, err
+			}
+			return analysis.Agree(ratings), nil
+		})
+	}
 	if nf, ok := notFound(err); ok {
 		return GetAgreement404JSONResponse{nf}, nil
 	}
 	if err != nil {
 		return nil, err
 	}
-	a := analysis.Agree(ratings)
 	pairs := func(ps []analysis.Pair) []ModelPair {
 		out := make([]ModelPair, 0, len(ps))
 		for _, p := range ps {

@@ -277,6 +277,11 @@ func (r *RatingsReader) History(ctx context.Context, run int64, model string, fo
 }
 
 // requirePublished returns ErrRunNotFound unless run is complete and published.
+// CheckPublished returns ErrRunNotFound unless run is complete and published, for answers kept outside the store.
+func (r *RatingsReader) CheckPublished(ctx context.Context, run int64) error {
+	return r.requirePublished(ctx, run)
+}
+
 func (r *RatingsReader) requirePublished(ctx context.Context, run int64) error {
 	var published bool
 	err := r.pool.QueryRow(ctx, `

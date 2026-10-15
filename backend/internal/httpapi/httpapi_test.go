@@ -102,6 +102,10 @@ func (f *fakeRatings) AnalysisRatings(context.Context, int64, int) ([]store.Mode
 	return nil, nil
 }
 
+func (f *fakeRatings) CheckPublished(context.Context, int64) error {
+	return nil
+}
+
 func (f *fakeRatings) ActivePlayers(context.Context, int64) (map[string]bool, error) {
 	return nil, nil
 }

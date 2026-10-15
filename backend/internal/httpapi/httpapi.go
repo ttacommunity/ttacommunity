@@ -18,6 +18,8 @@ import (
 
 	openapi_types "github.com/oapi-codegen/runtime/types"
 
+	"ttacommunity/backend/internal/analysis"
+	"ttacommunity/backend/internal/runcache"
 	"ttacommunity/backend/internal/store"
 )
 
@@ -77,6 +79,7 @@ type YearReads interface {
 // AnalysisReads are analysis.go's reads.
 type AnalysisReads interface {
 	Calibration(ctx context.Context, run int64) ([]store.CalibrationRow, error)
+	CheckPublished(ctx context.Context, run int64) error
 	AnalysisRatings(ctx context.Context, run int64, format int) ([]store.ModelRating, error)
 	ActivePlayers(ctx context.Context, run int64) (map[string]bool, error)
 	ComparedPlayers(ctx context.Context, run int64, format int, terms []string) ([]store.ComparedPlayer, error)
@@ -177,7 +180,7 @@ func (w *statusWriter) Unwrap() http.ResponseWriter {
 }
 
 func registerRoutes(router ServeMux, ratings Ratings, admins Admins, log *slog.Logger) {
-	strict := NewStrictHandlerWithOptions(&server{ratings: ratings, admins: admins, log: log}, nil, StrictHTTPServerOptions{
+	strict := NewStrictHandlerWithOptions(&server{ratings: ratings, admins: admins, log: log, agreement: runcache.New[Format, analysis.Agreement]()}, nil, StrictHTTPServerOptions{
 		RequestErrorHandlerFunc:  badRequest,
 		ResponseErrorHandlerFunc: internalError(log),
 	})
@@ -321,9 +324,10 @@ func writeErrorBody(w http.ResponseWriter, code int, body Error) {
 }
 
 type server struct {
-	ratings Ratings
-	admins  Admins
-	log     *slog.Logger
+	ratings   Ratings
+	admins    Admins
+	log       *slog.Logger
+	agreement *runcache.Cache[Format, analysis.Agreement]
 }
 
 // GetHealthz reports that the process is up. It checks no dependency, so a

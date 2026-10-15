@@ -116,6 +116,29 @@ func TestCurrentRun(t *testing.T) {
 	}
 }
 
+func TestCheckPublishedRefusesARunNotPublished(t *testing.T) {
+	pool := migrated(t)
+	r := NewRatingsReader(asReader(t, pool))
+	ctx := context.Background()
+	at := time.Date(2026, 9, 27, 4, 0, 0, 0, time.UTC)
+	tests := []struct {
+		name string
+		run  int64
+		want error
+	}{
+		{"published", addRun(t, pool, "complete", at), nil},
+		{"complete, not published", addRun(t, pool, "complete", time.Time{}), ErrRunNotFound},
+		{"unknown", 999999, ErrRunNotFound},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if err := r.CheckPublished(ctx, tt.run); !errors.Is(err, tt.want) {
+				t.Errorf("CheckPublished of the %s run = %v, want %v", tt.name, err, tt.want)
+			}
+		})
+	}
+}
+
 func TestLeaderboard(t *testing.T) {
 	pool := migrated(t)
 	r := NewRatingsReader(asReader(t, pool))
