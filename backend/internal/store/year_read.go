@@ -61,12 +61,14 @@ func (r *RatingsReader) YearBoard(ctx context.Context, run int64, year int, mode
 	err := r.pool.QueryRow(ctx, `
 		SELECT coalesce(
 			(SELECT max(period_date) FROM rating_history
-			 WHERE run_id = $1 AND model_type = $2 AND player_count = $3 AND extract(year FROM period_date) = $4),
+			 WHERE run_id = $1 AND model_type = $2 AND player_count = $3
+				AND period_date >= make_date($4::int, 1, 1) AND period_date < make_date($4::int + 1, 1, 1)),
 			(SELECT max(period_date) FROM rating_history WHERE run_id = $1 AND extract(year FROM period_date) = $4)),
 			(SELECT max(period_date) FROM rating_history
-			 WHERE run_id = $1 AND model_type = $2 AND player_count = $3 AND extract(year FROM period_date) = $4 - 1),
+			 WHERE run_id = $1 AND model_type = $2 AND player_count = $3
+				AND period_date >= make_date($4::int - 1, 1, 1) AND period_date < make_date($4::int, 1, 1)),
 			(SELECT count(DISTINCT match_id) FROM pairwise_matches
-			 WHERE run_id = $1 AND extract(year FROM date) = $4)`,
+			 WHERE run_id = $1 AND date >= make_date($4::int, 1, 1) AND date < make_date($4::int + 1, 1, 1))`,
 		run, model, format, year).Scan(&snapshot, &b.Previous, &b.Games)
 	if err != nil {
 		return YearBoard{}, fmt.Errorf("finding run %d's %d periods: %w", run, year, err)
