@@ -4,14 +4,15 @@ import { panelsFor, tabFrom, tabsFor } from './admin-tabs';
 describe('admin tabs', () => {
   it.each([
     ['admin', ['tournaments', 'community', 'data', 'titles', 'admins']],
-    ['organiser', ['tournaments', 'community', 'data']],
+    ['organiser', ['tournaments', 'data']],
   ] as const)('shows %s its tabs', (role, want) => {
     expect(tabsFor(role).map((t) => t.key)).toEqual(want);
   });
 
   it.each([
     ['#titles', 'admin', 'titles'],
-    ['#community', 'organiser', 'community'],
+    ['#community', 'admin', 'community'],
+    ['#community', 'organiser', 'tournaments'],
     ['', 'admin', 'tournaments'],
     ['#nonsense', 'admin', 'tournaments'],
     ['#runs', 'admin', 'data'],
