@@ -244,7 +244,8 @@ func (r *RatingsReader) PlayerHistory(ctx context.Context, run int64, asked stri
 
 // PlayerMatches returns the stored name and one page of the games run rated
 // for a player in a format (0 is all), newest first. A page past the last
-// gives the last.
+// gives the last. Seats keep their stored names, for rating estimates: the
+// caller masks the HiddenNames before answering.
 func (r *RatingsReader) PlayerMatches(ctx context.Context, run int64, asked string, format, page int) (string, MatchPage, error) {
 	name, err := r.resolve(ctx, run, asked)
 	if err != nil {
@@ -272,9 +273,6 @@ func (r *RatingsReader) PlayerMatches(ctx context.Context, run int64, asked stri
 	mp.Matches, err = pgx.CollectRows(rows, scanMatch)
 	if err != nil {
 		return "", MatchPage{}, fmt.Errorf("reading a player's games in run %d: %w", run, err)
-	}
-	if err := r.maskMatchSeats(ctx, mp.Matches); err != nil {
-		return "", MatchPage{}, err
 	}
 	return name, mp, nil
 }
@@ -862,9 +860,9 @@ func (r *RatingsReader) PlayerSeats(ctx context.Context, run int64, asked string
 	return stats, nil
 }
 
-// maskHiddenNames returns the subset of names whose players, matched ignoring case, have a deleted or banned
-// CGE account.
-func (r *RatingsReader) maskHiddenNames(ctx context.Context, names []string) (map[string]bool, error) {
+// HiddenNames returns the subset of names whose players, matched ignoring case, have a deleted or banned
+// CGE account: the names a public answer shows as DeletedPlayer or leaves out.
+func (r *RatingsReader) HiddenNames(ctx context.Context, names []string) (map[string]bool, error) {
 	if len(names) == 0 {
 		return nil, nil
 	}
@@ -892,7 +890,7 @@ func (r *RatingsReader) maskNames(ctx context.Context, names []*string) error {
 	for i, n := range names {
 		list[i] = *n
 	}
-	hidden, err := r.maskHiddenNames(ctx, list)
+	hidden, err := r.HiddenNames(ctx, list)
 	if err != nil {
 		return err
 	}
@@ -916,7 +914,7 @@ func (r *RatingsReader) maskMatchSeats(ctx context.Context, matches []PlayerMatc
 			}
 		}
 	}
-	hidden, err := r.maskHiddenNames(ctx, names)
+	hidden, err := r.HiddenNames(ctx, names)
 	if err != nil {
 		return err
 	}

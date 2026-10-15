@@ -163,7 +163,7 @@ func (r *RatingsReader) maskGameRecords(ctx context.Context, games []GameRecord)
 			}
 		}
 	}
-	hidden, err := r.maskHiddenNames(ctx, names)
+	hidden, err := r.HiddenNames(ctx, names)
 	if err != nil {
 		return err
 	}

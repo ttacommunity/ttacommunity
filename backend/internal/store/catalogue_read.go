@@ -474,7 +474,7 @@ func (r *RatingsReader) shownStories(ctx context.Context, slug string) ([]Story,
 	for i, s := range all {
 		players[i] = s.Player
 	}
-	hidden, err := r.maskHiddenNames(ctx, players)
+	hidden, err := r.HiddenNames(ctx, players)
 	if err != nil {
 		return nil, err
 	}
