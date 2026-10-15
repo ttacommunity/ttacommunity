@@ -681,12 +681,14 @@ func (r *RatingsReader) PlayerSeats(ctx context.Context, run int64, asked string
 		return PlayerSeatStats{}, err
 	}
 
-	// The player's seats come first, so only their games are read: the run's rated ones, or every played one.
+	// Only the player's own rows are read: their seats, and their pairs in the run for the games rated, or every played game.
 	mine := `
-			SELECT pm.player_count, s.game_id, s.starting_position, s.seat, s.place, s.culture
+			SELECT r.player_count, s.game_id, s.starting_position, s.seat, s.place, s.culture
 			FROM seats s
-			CROSS JOIN LATERAL (SELECT player_count FROM pairwise_matches
-				WHERE run_id = $1 AND match_id = s.game_id LIMIT 1) pm
+			JOIN (SELECT match_id, player_count FROM pairwise_matches WHERE run_id = $1 AND player_a = $2
+				UNION
+				SELECT match_id, player_count FROM pairwise_matches WHERE run_id = $1 AND player_b = $2) r
+				ON r.match_id = s.game_id
 			WHERE s.player_name = $2`
 	args := []any{run, name}
 	if unrated {
