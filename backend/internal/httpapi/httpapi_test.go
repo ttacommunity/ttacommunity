@@ -82,6 +82,10 @@ func (f *fakeRatings) RatingsOf(context.Context, int64, string, int, []string) (
 	return nil, nil
 }
 
+func (f *fakeRatings) HiddenNames(context.Context, []string) (map[string]bool, error) {
+	return nil, nil
+}
+
 func (f *fakeRatings) PlayerCareer(context.Context, int64, string, int) (string, []store.CareerYear, []store.ModelPeak, error) {
 	return "", nil, nil, nil
 }

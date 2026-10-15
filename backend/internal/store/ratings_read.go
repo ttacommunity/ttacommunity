@@ -222,7 +222,7 @@ func (r *RatingsReader) Leaderboard(ctx context.Context, run int64, model string
 // History returns the snapshot of the latest period on or before at (the first
 // period when at is earlier), for a published run, model and format, and its date.
 // Without at, it uses the run's previous period, the one before its last. Only the
-// players in that snapshot are in it.
+// players in that snapshot are in it, less those with a deleted or banned CGE account.
 func (r *RatingsReader) History(ctx context.Context, run int64, model string, format int, at *time.Time) (time.Time, []HistoryRow, error) {
 	if err := r.requirePublished(ctx, run); err != nil {
 		return time.Time{}, nil, err
@@ -258,6 +258,7 @@ func (r *RatingsReader) History(ctx context.Context, run int64, model string, fo
 		SELECT player_name, rating, rd, c_rating
 		FROM rating_history
 		WHERE run_id = $1 AND model_type = $2 AND player_count = $3 AND period_date = $4
+		  AND NOT `+hiddenName("player_name")+`
 		ORDER BY player_name`, run, model, format, on)
 	if err != nil {
 		return time.Time{}, nil, fmt.Errorf("reading run %d's %s history: %w", run, model, err)

@@ -117,7 +117,8 @@ func (s *server) GetPlayerHistory(ctx context.Context, req GetPlayerHistoryReque
 }
 
 // GetPlayerMatches returns one page of a player's games, each placed and
-// with the rating change the player page estimates for it.
+// with the rating change the player page estimates for it. A seat whose
+// player is hidden is named DeletedPlayer once its rating has been used.
 func (s *server) GetPlayerMatches(ctx context.Context, req GetPlayerMatchesRequestObject) (GetPlayerMatchesResponseObject, error) {
 	format := formatOr(req.Params.Format)
 	model, page := Glicko2Daneo, 1
@@ -166,6 +167,10 @@ func (s *server) GetPlayerMatches(ctx context.Context, req GetPlayerMatchesReque
 	if err != nil {
 		return nil, err
 	}
+	hidden, err := s.ratings.HiddenNames(ctx, names)
+	if err != nil {
+		return nil, err
+	}
 	lookup := func(n string) (ratingdelta.Rating, bool) {
 		r, ok := rated[n]
 		return ratingdelta.Rating{Rating: r.Rating, RD: r.RD}, ok
@@ -186,7 +191,11 @@ func (s *server) GetPlayerMatches(ctx context.Context, req GetPlayerMatchesReque
 			}
 		}
 		for _, seat := range m.Seats {
-			pm.Seats = append(pm.Seats, Seat{Name: seat.Name, Score: seat.Score})
+			shown := seat.Name
+			if hidden[shown] {
+				shown = store.DeletedPlayer
+			}
+			pm.Seats = append(pm.Seats, Seat{Name: shown, Score: seat.Score})
 		}
 		dseats := make([]ratingdelta.Seat, 0, len(byScore))
 		for _, seat := range byScore {

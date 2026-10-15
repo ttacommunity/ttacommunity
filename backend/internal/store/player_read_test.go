@@ -6,6 +6,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"maps"
 	"slices"
 	"testing"
 	"time"
@@ -270,32 +271,18 @@ func TestPlayerMatchesPagesTheRunsGamesNewestFirst(t *testing.T) {
 	}
 }
 
-func TestPlayerMatchesMasksDeletedAndBannedSeats(t *testing.T) {
+func TestHiddenNamesFindsDeletedAndBannedAccountsIgnoringCase(t *testing.T) {
 	pool := migrated(t)
-	r := NewRatingsReader(asReader(t, pool))
-	ctx := context.Background()
-	run := publishedRun(t, pool)
 	addPlayers(t, pool, "ann", "bob", "cy")
-	for _, q := range []string{
-		"INSERT INTO player_accounts (cge_user, player_id, name, deleted) SELECT 1, player_id, 'bob', true FROM players WHERE name = 'bob'",
-		"INSERT INTO player_accounts (cge_user, player_id, name, banned) SELECT 2, player_id, 'cy', true FROM players WHERE name = 'cy'",
-	} {
-		if _, err := pool.Exec(ctx, q); err != nil {
-			t.Fatalf("setting up player account: %v", err)
-		}
-	}
-	addGame(t, pool, run, "2024-01-15", "Trio", Seat{"ann", 9}, Seat{"bob", 7}, Seat{"cy", 3})
+	hideAccount(t, pool, "bob", "deleted")
+	hideAccount(t, pool, "cy", "banned")
 
-	_, mp, err := r.PlayerMatches(ctx, run, "ann", 0, 1)
+	got, err := NewRatingsReader(asReader(t, pool)).HiddenNames(context.Background(), []string{"ann", "BOB", "cy", "nobody"})
 	if err != nil {
-		t.Fatalf("PlayerMatches: %v", err)
+		t.Fatalf("HiddenNames: %v", err)
 	}
-	if len(mp.Matches) != 1 {
-		t.Fatalf("matches count = %d, want 1", len(mp.Matches))
-	}
-	wantSeats := []Seat{{"ann", 9}, {"Deleted player", 7}, {"Deleted player", 3}}
-	if diff := cmp.Diff(wantSeats, mp.Matches[0].Seats); diff != "" {
-		t.Errorf("masked seats (-want +got):\n%s", diff)
+	if want := map[string]bool{"BOB": true, "cy": true}; !maps.Equal(got, want) {
+		t.Errorf("HiddenNames = %v, want %v", got, want)
 	}
 }
 
@@ -746,5 +733,41 @@ func TestPlayerSeats(t *testing.T) {
 	}
 	if allStats.Overall.TotalGames != 4 || allStats.Overall.TotalWins != 2 || allStats.Overall.TotalDraws != 1 {
 		t.Errorf("all games total: games %d, wins %d, draws %d; want 4, 2, 1", allStats.Overall.TotalGames, allStats.Overall.TotalWins, allStats.Overall.TotalDraws)
+	}
+}
+
+func TestPlayerRivalsLeavesOutHiddenPlayers(t *testing.T) {
+	pool := migrated(t)
+	ctx := context.Background()
+	run := publishedRun(t, pool)
+	addGame(t, pool, run, "2025-01-01", "Cup", Seat{"ann", 9}, Seat{"bob", 5}, Seat{"cat", 3})
+	addGame(t, pool, run, "2025-01-02", "Cup", Seat{"ann", 9}, Seat{"bob", 5})
+	hideAccount(t, pool, "bob", "banned")
+
+	_, got, err := NewRatingsReader(asReader(t, pool)).PlayerRivals(ctx, run, "ann", 0)
+	if err != nil {
+		t.Fatalf("PlayerRivals: %v", err)
+	}
+	if len(got) != 1 || got[0].Name != "cat" {
+		t.Errorf("PlayerRivals(ann) = %+v, want cat only: bob's account is banned", got)
+	}
+}
+
+func TestYearBoardMasksHiddenChampions(t *testing.T) {
+	pool := migrated(t)
+	ctx := context.Background()
+	run := publishedRun(t, pool)
+	addGame(t, pool, run, "2025-06-01", "Cup", Seat{"ann", 9}, Seat{"cat", 5})
+	addHistory(t, pool, run, "glicko2_std", 0, "cat", "2025-06-30", 1600)
+	addYearlyTitle(t, pool, run, "ann", 2025, "WC")
+	addYearlyTitle(t, pool, run, "cat", 2025, "WC")
+	hideAccount(t, pool, "ann", "deleted")
+
+	got, err := NewRatingsReader(asReader(t, pool)).YearBoard(ctx, run, 2025, "glicko2_std", 0)
+	if err != nil {
+		t.Fatalf("YearBoard: %v", err)
+	}
+	if want := "[{Deleted player false} {cat false}]"; fmt.Sprint(got.Champions) != want {
+		t.Errorf("2025 champions = %v, want %s: ann's account is deleted", got.Champions, want)
 	}
 }

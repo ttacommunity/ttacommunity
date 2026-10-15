@@ -8,8 +8,8 @@ import {
   type Run,
   type LeaderboardRow,
 } from '@ttac/shared/ratings';
-import { rankPool, inactiveCutoff, DEFAULT_VIEW } from '../lib/leaderboard-view';
 import { podiumCard, seasonName, type PodiumCard } from '../lib/catalogue-view';
+import { seatRankClass, settled, type Section } from '../lib/home-view';
 import { waitingText } from '../lib/waiting';
 
 import {
@@ -26,10 +26,9 @@ import './HomePage.css';
 
 interface HomeData {
   run: Run;
-  top20Players: LeaderboardRow[];
-  allLeaderboardRows: LeaderboardRow[];
-  recentTournaments: PodiumCard[];
-  availableTournaments: AvailableTournament[];
+  players: Section<LeaderboardRow[]>;
+  recentTournaments: Section<PodiumCard[]>;
+  availableTournaments: Section<AvailableTournament[]>;
 }
 
 
@@ -44,39 +43,6 @@ function formatDate(iso: string | null | undefined): string {
 
 function scoreFormatted(n: number) {
   return Number.isInteger(n) ? String(n) : n.toFixed(1);
-}
-
-/** Rank class for color-grading match participants when revealed.
- * 2p: Gold -> Gray
- * 3p: Gold, Silver, Bronze
- * 4p+: Gold, Silver, Bronze, Gray
- */
-function getPlayerRankClass(score: number, allScores: number[]): string {
-  if (allScores.length < 2) return 'rank-gold';
-  const sorted = [...allScores].sort((a, b) => b - a);
-  const maxScore = sorted[0];
-  const minScore = sorted[sorted.length - 1];
-
-  if (maxScore === minScore) return 'rank-gold';
-  if (score === maxScore) return 'rank-gold';
-
-  const n = allScores.length;
-  if (n === 2) {
-    return 'rank-gray';
-  }
-
-  if (n === 3) {
-    const rank = sorted.indexOf(score) + 1;
-    if (rank === 2) return 'rank-silver';
-    return 'rank-bronze';
-  }
-
-  // 4p+
-  if (score === minScore) return 'rank-gray';
-  const rank = sorted.indexOf(score) + 1;
-  if (rank === 2) return 'rank-silver';
-  if (rank === 3) return 'rank-bronze';
-  return 'rank-gray';
 }
 
 /** One-click copyable replay code */
@@ -110,8 +76,7 @@ export default function HomePage({ apiUrl }: { apiUrl: string }) {
   // Feed configuration and match state
   const [feedSettings, setFeedSettings] = useState<FeedSettings>(DEFAULT_FEED_SETTINGS);
   const [showOptionsModal, setShowOptionsModal] = useState(false);
-  const [feedMatches, setFeedMatches] = useState<FeedMatch[]>([]);
-  const [matchesLoading, setMatchesLoading] = useState(false);
+  const [feedMatches, setFeedMatches] = useState<Section<FeedMatch[]>>({ kind: 'loading' });
 
   // Spoilers state
   const [globalMatchSpoilers, setGlobalMatchSpoilers] = useState(false); // false = hidden, true = revealed
@@ -131,27 +96,12 @@ export default function HomePage({ apiUrl }: { apiUrl: string }) {
   useEffect(() => {
     currentRun(apiUrl)
       .then(async (run) => {
-        const [board, cat, podiums] = await Promise.all([
-          leaderboard(apiUrl, run.run_id, 'glicko2_daneo', 0).catch(() => null),
-          catalogue(apiUrl, run.run_id).catch(() => null),
-          recentPodiums(apiUrl, run.run_id).catch(() => null),
+        const [players, tournaments, podiums] = await Promise.all([
+          settled(leaderboard(apiUrl, run.run_id, 'glicko2_daneo', 0).then((b) => b.players)),
+          settled(catalogue(apiUrl, run.run_id).then((c) => c.tournaments.map((t) => ({ slug: t.slug, name: t.name })))),
+          settled(recentPodiums(apiUrl, run.run_id).then((p) => p.podiums.map(podiumCard))),
         ]);
-
-        const rawRows = board ? board.players : [];
-        // Apply default active view filter: active status, min opponents 30, with proper 12-month cutoff
-        const activeRanked = rankPool(rawRows, DEFAULT_VIEW, undefined, inactiveCutoff(run.last_game));
-        const top20 = activeRanked.slice(0, 20);
-
-        setLoad({
-          kind: 'ready',
-          data: {
-            run,
-            top20Players: top20,
-            allLeaderboardRows: rawRows,
-            recentTournaments: podiums ? podiums.podiums.map(podiumCard) : [],
-            availableTournaments: cat ? cat.tournaments.map((t) => ({ slug: t.slug, name: t.name })) : [],
-          },
-        });
+        setLoad({ kind: 'ready', data: { run, players, recentTournaments: podiums, availableTournaments: tournaments } });
       })
       .catch((e: unknown) => {
         setLoad({ kind: 'error', message: e instanceof Error ? e.message : String(e) });
@@ -160,24 +110,13 @@ export default function HomePage({ apiUrl }: { apiUrl: string }) {
 
   // 2. Query matches whenever run or feedSettings changes
   useEffect(() => {
-    if (load.kind !== 'ready') {
-      setFeedMatches([]);
-      return;
-    }
+    if (load.kind !== 'ready') return;
     const runId = load.data.run.run_id;
     let live = true;
-    setMatchesLoading(true);
-
-    fetchFeedMatches(apiUrl, runId, feedSettings, 8)
-      .then((matches) => {
-        if (live) {
-          setFeedMatches(matches);
-          setMatchesLoading(false);
-        }
-      })
-      .catch(() => {
-        if (live) setMatchesLoading(false);
-      });
+    setFeedMatches({ kind: 'loading' });
+    void settled(fetchFeedMatches(apiUrl, runId, feedSettings, 8)).then((matches) => {
+      if (live) setFeedMatches(matches);
+    });
 
     return () => {
       live = false;
@@ -189,8 +128,8 @@ export default function HomePage({ apiUrl }: { apiUrl: string }) {
 
   // Player search options for adding custom contenders
   const searchCandidates: SearchPlayer[] = useMemo(() => {
-    if (!data) return [];
-    return data.allLeaderboardRows.map((r) => ({
+    if (data?.players.kind !== 'ready') return [];
+    return data.players.data.map((r) => ({
       name: r.name,
       country: r.country,
       title: r.title,
@@ -393,6 +332,13 @@ export default function HomePage({ apiUrl }: { apiUrl: string }) {
               <p className="feed-card-intro">
                 Recently finished tournament matches featuring your selected divisions and competitors.
               </p>
+              {[waitingText(data.availableTournaments, 'the tournaments to choose from'), waitingText(data.players, 'the players to choose from')]
+                .filter((problem) => problem !== null)
+                .map((problem) => (
+                  <p key={problem} className="feed-sub-loading" role="alert">
+                    {problem}
+                  </p>
+                ))}
 
               {/* Feed Filter Toolbar */}
               <div className="player-filter-toolbar">
@@ -452,14 +398,14 @@ export default function HomePage({ apiUrl }: { apiUrl: string }) {
 
               {/* Matches List */}
               <div className="feed-list">
-                {matchesLoading ? (
-                  <div className="feed-sub-loading">Loading recent matches…</div>
-                ) : feedMatches.length === 0 ? (
+                {feedMatches.kind !== 'ready' ? (
+                  <div className="feed-sub-loading">{waitingText(feedMatches, 'recent matches')}</div>
+                ) : feedMatches.data.length === 0 ? (
                   <div className="feed-empty-hint">
                     No recent matches found for the chosen filters. Try adjusting your selections with the Options button above.
                   </div>
                 ) : (
-                  feedMatches.map((m) => {
+                  feedMatches.data.map((m) => {
                     const isRevealed = globalMatchSpoilers || revealedMatchIds.has(m.matchId);
                     const matchScores = m.seats.map((st) => st.score);
                     return (
@@ -476,7 +422,7 @@ export default function HomePage({ apiUrl }: { apiUrl: string }) {
                         <div className="match-seats-row">
                           <div className="match-seats-content">
                             {m.seats.map((s, idx) => {
-                              const rankClass = isRevealed ? getPlayerRankClass(s.score, matchScores) : '';
+                              const rankClass = isRevealed ? seatRankClass(s.score, matchScores) : '';
                               return (
                                 <span key={s.name} className={`match-seat ${rankClass}`.trim()}>
                                   <PlayerLink
@@ -536,10 +482,12 @@ export default function HomePage({ apiUrl }: { apiUrl: string }) {
               </p>
 
               <div className="feed-list">
-                {data.recentTournaments.length === 0 ? (
+                {data.recentTournaments.kind !== 'ready' ? (
+                  <div className="feed-sub-loading">{waitingText(data.recentTournaments, 'the recent tournaments')}</div>
+                ) : data.recentTournaments.data.length === 0 ? (
                   <div className="feed-empty-hint">No recent tournament podiums recorded.</div>
                 ) : (
-                  data.recentTournaments.map((t) => {
+                  data.recentTournaments.data.map((t) => {
                     const key = `${t.slug}-${t.seasonLabel}`;
                     const isRevealed = globalTourneySpoilers || revealedTourneyKeys.has(key);
                     return (
@@ -699,7 +647,7 @@ export default function HomePage({ apiUrl }: { apiUrl: string }) {
         <FeedOptionsModal
           apiUrl={apiUrl}
           runId={data.run.run_id}
-          availableTournaments={data.availableTournaments}
+          availableTournaments={data.availableTournaments.kind === 'ready' ? data.availableTournaments.data : []}
           searchPlayers={searchCandidates}
           settings={feedSettings}
           onSave={(next) => {

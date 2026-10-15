@@ -1,8 +1,9 @@
-/** Community leaderboard editions management for admins and organisers. */
+/** Community leaderboard editions management, for admins. */
 import { useEffect, useState, type FormEvent } from 'react';
 import type { components } from '@ttac/shared/api';
 import * as req from '../lib/admin-requests';
 import { adminRequest } from '../lib/admin-api';
+import { newEdition } from '../lib/community-editions';
 
 type CommunityEditionItem = components['schemas']['CommunityEditionItem'];
 
@@ -181,19 +182,7 @@ export default function CommunityPanel() {
   const [list, setList] = useState<CommunityEditionItem[] | null>(null);
   const [message, setMessage] = useState('');
   const [creating, setCreating] = useState(false);
-  const [newForm, setNewForm] = useState<CommunityEditionItem>({
-    slug: '',
-    name: '',
-    title: '',
-    short_name: '',
-    badge: '⭐ Community',
-    maintainer: 'wolvs',
-    maintainer_note: 'Tracking tournament finishes under the official Best-8 system.',
-    year: new Date().getFullYear(),
-    counting_events: 8,
-    visible: true,
-    sort_order: 10,
-  });
+  const [newForm, setNewForm] = useState<CommunityEditionItem>(newEdition([], new Date().getFullYear()));
 
   const load = async () => {
     const r = await adminRequest<CommunityEditionItem[]>('/api/community/editions', {});
@@ -214,19 +203,7 @@ export default function CommunityPanel() {
     setMessage(r.ok ? `Created edition ${newForm.slug}.` : r.message);
     if (r.ok) {
       setCreating(false);
-      setNewForm({
-        slug: '',
-        name: '',
-        title: '',
-        short_name: '',
-        badge: '⭐ Community',
-        maintainer: 'wolvs',
-        maintainer_note: 'Tracking tournament finishes under the official Best-8 system.',
-        year: new Date().getFullYear(),
-        counting_events: 8,
-        visible: true,
-        sort_order: 10,
-      });
+      setNewForm(newEdition([], new Date().getFullYear()));
       await load();
     }
   };
@@ -244,7 +221,10 @@ export default function CommunityPanel() {
         <button
           type="button"
           className="btn-antique"
-          onClick={() => setCreating(!creating)}
+          onClick={() => {
+            if (!creating) setNewForm(newEdition(list ?? [], new Date().getFullYear()));
+            setCreating(!creating);
+          }}
           aria-expanded={creating}
         >
           {creating ? 'Cancel' : 'New edition'}

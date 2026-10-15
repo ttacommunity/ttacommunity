@@ -120,7 +120,8 @@ export interface paths {
          *     period when `at` is earlier), as the original site compares against:
          *     the players in that snapshot, each with their rating then. Without
          *     `at`, the run's previous period, the one before its last. The answer's
-         *     date is the snapshot's. Cached for five minutes.
+         *     date is the snapshot's. Players whose CGE accounts are deleted or
+         *     banned are left out. Cached for five minutes.
          */
         get: operations["getHistory"];
         put?: never;
@@ -212,7 +213,8 @@ export interface paths {
         /**
          * The player's record against each opponent
          * @description Wins, losses and draws against the 200 opponents the player has met
-         *     most, in one format (0 is all). Cached for five minutes.
+         *     most, in one format (0 is all). Opponents whose CGE accounts are
+         *     deleted or banned are left out. Cached for five minutes.
          */
         get: operations["getPlayerRivals"];
         put?: never;
@@ -373,8 +375,9 @@ export interface paths {
          *     model's when this one has none that year), for the players rated
          *     on it, best conservative rating first, as upstream's archive shows
          *     them. Each carries the player's record that year and up to it, and
-         *     their rating on the previous year's last period. Cached for five
-         *     minutes.
+         *     their rating on the previous year's last period. Players whose CGE
+         *     accounts are deleted or banned are left out of the board and named
+         *     "Deleted player" among the champions. Cached for five minutes.
          */
         get: operations["getYearLeaderboard"];
         put?: never;
@@ -467,7 +470,8 @@ export interface paths {
          * @description Up to 15 players matching a search, strongest first by GlickoD's
          *     conservative rating, or upstream's six default players in its order
          *     when there is no search, each with their rating in every continuous
-         *     and season-reset model for one format. Cached for five minutes.
+         *     and season-reset model for one format. Players whose CGE accounts are
+         *     deleted or banned are left out. Cached for five minutes.
          */
         get: operations["getComparedPlayers"];
         put?: never;
@@ -537,7 +541,8 @@ export interface paths {
          *     and medals across the four major circuits (World Championship,
          *     International, Intermezzo, Royal League), and the first ten rows of
          *     the Grand Slams and Ladders boards, as the original site's overview
-         *     shows them. Cached for five minutes.
+         *     shows them. Players whose CGE accounts are deleted or banned are left
+         *     out. Cached for five minutes.
          */
         get: operations["getHallOfFame"];
         put?: never;
@@ -560,7 +565,9 @@ export interface paths {
          * @description The series' game and season counts, its top division's trophyboard
          *     (each medallist's podiums, most golds first, then silvers, bronzes
          *     and career points), and the ten best top-division seasons and games
-         *     as upstream's page ranks them. Cached for five minutes.
+         *     as upstream's page ranks them. A player whose CGE account is deleted
+         *     or banned is left off the trophyboard and named "Deleted player" in
+         *     the seasons and games. Cached for five minutes.
          */
         get: operations["getTournamentSeries"];
         put?: never;
@@ -582,9 +589,10 @@ export interface paths {
          * Every tournament with games
          * @description Each tournament the site shows (rated, or made visible though not
          *     rated) that has placed games: its seasons, games, players and first
-         *     and last game; and CGE's tournaments the site shows. Games come from the
-         *     tournament catalogue, which can grow without a new run, so this is
-         *     cached for five minutes.
+         *     and last game; and CGE's tournaments the site shows. An organiser whose
+         *     CGE account is deleted or banned is named "Deleted player". Games come
+         *     from the tournament catalogue, which can grow without a new run, so
+         *     this is cached for five minutes.
          */
         get: operations["getCatalogue"];
         put?: never;
@@ -606,7 +614,10 @@ export interface paths {
          * One tournament's seasons, stages and podiums
          * @description The tournament's seasons in order of their first game, each with its
          *     stages and its recorded podium. A hidden tournament (not rated, not
-         *     made visible) is not found. Cached for five minutes.
+         *     made visible) is not found. A player whose CGE account is deleted or
+         *     banned is named "Deleted player" on podiums and in games, and left out
+         *     of the top-tier wins, the stories and the player list. Cached for five
+         *     minutes.
          */
         get: operations["getCatalogueTournament"];
         put?: never;
@@ -653,7 +664,8 @@ export interface paths {
          * @description Of the twelve tournaments the site shows that were played most
          *     recently, each one's latest season with a podium, the eight finished
          *     last first. Each podium is as the tournament's catalogue page gives
-         *     it. Cached for five minutes.
+         *     it, a player whose CGE account is deleted or banned named "Deleted
+         *     player". Cached for five minutes.
          */
         get: operations["getRecentPodiums"];
         put?: never;
@@ -698,8 +710,10 @@ export interface paths {
          *     them (rank, total points, events played, and each event's points),
          *     its dynamic categories, summary groups and champion,
          *     with each player's country and the run's title where the name is a
-         *     player here, matched ignoring case. Best rank first. Cached for five
-         *     minutes.
+         *     player here, matched ignoring case. Best rank first. The columns are
+         *     the events its rows have points in, each with the most its points
+         *     table gives. An edition admin has not shown is not found. Cached for
+         *     five minutes.
          */
         get: operations["getCommunityLeaderboard"];
         put?: never;
@@ -2268,7 +2282,12 @@ export interface components {
             short: string;
             badge: string;
             year: number;
+            /**
+             * @description The World Champion reigning in the edition's year, "" for none, or
+             *     "Deleted player" when their CGE account is deleted or banned
+             */
             wc: string;
+            /** @description What the champion is, such as "Reigning World Champion (2025)"; "" for none */
             wc_desc: string;
             maintainer: string;
             maintainer_note: string;
@@ -2277,7 +2296,8 @@ export interface components {
             id: string;
             name: string;
             short: string;
-            max_pts: number;
+            /** @description The most points the event's points table gives in the edition's year; null when no table is held */
+            max_pts: number | null;
             desc?: string;
         };
         CommunityCategory: {
@@ -2290,7 +2310,8 @@ export interface components {
             name: string;
             short: string;
             cols: string[];
-            max_pts: number;
+            /** @description The sum of its columns' most points; null when any column's is unknown */
+            max_pts: number | null;
             badge_class: string;
             desc: string;
         };

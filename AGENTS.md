@@ -122,12 +122,19 @@ Both private to the `ttacommunity` organisation; ask a maintainer for access.
 - **Make it as efficient as you reasonably can**, so the project runs
   well wherever it is hosted, small servers included. A host can be
   several times slower than your machine, and production logs every
-  request over 1 s. A route over 0.1 s on your machine is too slow
+  request over 1 s. Aim for under 0.1 s a route on your machine; over
+  0.5 s is too slow. Past 0.1 s, speed a route up only where it pays
 - **Know the sizes**: about 4,100 players, 205,000 games, 577,000 seats
   and 414,000 rated pairs per run. Code that scans every player for each
   player takes seconds here: sort once, use a map, or let Postgres do it
-- **A page makes a handful of requests.** Ask the API for what the page
-  shows, not for everything to filter in the browser
+- **A page makes a handful of requests, each once.** Ask the API for what
+  the page shows, not for everything to filter in the browser. Data
+  several parts of a page need, such as the current run, comes from one
+  shared request, never one per component: the browser's cache does not
+  merge them everywhere. We fetch without a framework, so the client
+  deduplicates requests, caches responses and avoids waterfalls itself,
+  as [React's docs](https://react.dev/learn/synchronizing-with-effects#what-are-good-alternatives-to-data-fetching-in-effects)
+  advise
 
 ### Comments: less comment than code
 
@@ -207,8 +214,8 @@ agent runs them itself.
 3. **Time it on the full data.** With the baseline loaded, time each
    route you added or changed:
    `curl.exe -s -o NUL -w "%{time_total}\n" http://127.0.0.1:8080/v1/…`
-   (Linux, macOS: `curl -s -o /dev/null -w …`). Over 0.1 s is too slow
-   (see "Speed"). Open each page you changed and count its API requests
+   (Linux, macOS: `curl -s -o /dev/null -w …`). Aim for under 0.1 s;
+   over 0.5 s is too slow (see "Speed"). Open each page you changed and count its API requests
    in the browser's network tab
 4. **Read your own diff.** Every file in `git diff main...HEAD --stat` is
    explained in **What it does**. A migration, an `openapi.yaml` change

@@ -6,6 +6,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"slices"
 	"testing"
 	"time"
 
@@ -320,5 +321,40 @@ func TestSeatAnalysisRefusesARunUnpublishedSinceItWasComputed(t *testing.T) {
 	}
 	if _, err := r.SeatAnalysis(ctx, run, 0, "all"); !errors.Is(err, ErrRunNotFound) {
 		t.Errorf("SeatAnalysis after unpublishing = %v, want ErrRunNotFound", err)
+	}
+}
+
+func TestComparedPlayersLeavesOutHiddenPlayers(t *testing.T) {
+	pool := migrated(t)
+	r := NewRatingsReader(asReader(t, pool))
+	ctx := context.Background()
+	run := publishedRun(t, pool)
+	first, second := DefaultCompared[0], DefaultCompared[1]
+	addPlayers(t, pool, "anna", "hanna", first, second)
+	hideAccount(t, pool, "anna", "deleted")
+	hideAccount(t, pool, first, "deleted")
+
+	tests := []struct {
+		name  string
+		terms []string
+		want  []string
+	}{
+		{"a search", []string{"ann"}, []string{"hanna"}},
+		{"the default players", nil, []string{second}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := r.ComparedPlayers(ctx, run, 0, tt.terms)
+			if err != nil {
+				t.Fatalf("ComparedPlayers(%q): %v", tt.terms, err)
+			}
+			var names []string
+			for _, p := range got {
+				names = append(names, p.Name)
+			}
+			if !slices.Equal(names, tt.want) {
+				t.Errorf("ComparedPlayers(%q) = %q, want %q: anna and %s are hidden", tt.terms, names, tt.want, first)
+			}
+		})
 	}
 }

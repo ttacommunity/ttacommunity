@@ -48,7 +48,9 @@ type YearBoard struct {
 // conservative rating first, with each player's record that year and up to
 // it, and their last rating up to the previous year's last period. Snapshot is
 // the model's last period that year (another model's period if this one has
-// none that year). A year with no history is ErrNoHistory.
+// none that year). A year with no history is ErrNoHistory. Players with a
+// deleted or banned CGE account are left out, and named DeletedPlayer among
+// the champions.
 func (r *RatingsReader) YearBoard(ctx context.Context, run int64, year int, model string, format int) (YearBoard, error) {
 	if err := r.requirePublished(ctx, run); err != nil {
 		return YearBoard{}, err
@@ -91,6 +93,13 @@ func (r *RatingsReader) YearBoard(ctx context.Context, run int64, year int, mode
 		return c, err
 	})
 	if err != nil {
+		return YearBoard{}, fmt.Errorf("reading run %d's %d champions: %w", run, year, err)
+	}
+	champions := make([]*string, len(b.Champions))
+	for i := range b.Champions {
+		champions[i] = &b.Champions[i].Name
+	}
+	if err := r.maskNames(ctx, champions); err != nil {
 		return YearBoard{}, fmt.Errorf("reading run %d's %d champions: %w", run, year, err)
 	}
 

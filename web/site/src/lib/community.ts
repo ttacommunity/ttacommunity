@@ -1,7 +1,10 @@
 import type {
+  CommunityEditionItem,
   CommunityLeaderboard,
   CommunityRow,
 } from '@ttac/shared/ratings';
+
+type EventColumn = CommunityLeaderboard['categories'][number]['columns'][number];
 
 export type CommunityViewMode = 'standard' | 'expanded';
 
@@ -14,15 +17,16 @@ export interface CommunityView {
 }
 
 const ALIASES: Record<string, string> = {
-  '2026': '2026', q2_2026: '2026', current: '2026',
+  current: '',
+  '2026': '2026', q2_2026: '2026',
   '2025': '2025', y2025: '2025',
   '2024': '2024', y2024: '2024',
   race26: 'race26', race: 'race26', race2026: 'race26', '2026race': 'race26',
 }; // prettier-ignore
 
-/** parseCommunityView reads the page's address as upstream's route reads its query. */
-export function parseCommunityView(params: URLSearchParams, defaultEdition = '2026'): CommunityView {
-  const raw = (params.get('edition') ?? params.get('year') ?? defaultEdition).trim().toLowerCase();
+/** parseCommunityView reads the page's address as upstream's route reads its query; edition "" leaves it to admin. */
+export function parseCommunityView(params: URLSearchParams): CommunityView {
+  const raw = (params.get('edition') ?? params.get('year') ?? '').trim().toLowerCase();
   const view = (params.get('view') ?? 'standard').toLowerCase();
   const per = (params.get('per_page') ?? '50').trim();
   const perNumber = parseInt(per, 10);
@@ -34,6 +38,11 @@ export function parseCommunityView(params: URLSearchParams, defaultEdition = '20
     page: isNaN(pageNumber) ? 1 : Math.max(1, pageNumber),
     perPage: per === 'all' ? 2000 : isNaN(perNumber) ? 50 : Math.max(10, Math.min(200, perNumber)),
   };
+}
+
+/** editionToShow returns the edition asked for, else the first that admin shows, in admin's order; null for none. */
+export function editionToShow(asked: string, editions: readonly Pick<CommunityEditionItem, 'slug'>[]): string | null {
+  return asked || (editions[0]?.slug ?? null);
 }
 
 /** countingColumns returns a player's best events, equal scores in the sheet's column order. */
@@ -74,7 +83,18 @@ function codesOf(ids: string[]): string {
   return ids.join(', ');
 }
 
-/** editionFacts returns an edition's event slots, tiers and tournaments, and each tier's columns and maximum points. */
+/** columnTitle names an event's column, with the most points it gives when that is known. */
+export function columnTitle(c: EventColumn): string {
+  return c.max_pts === null ? c.name : `${c.name} (Max: ${c.max_pts} pts)`;
+}
+
+/** editionLabel is an edition's label in the edition picker: its short name, else its name. */
+export function editionLabel(e: Pick<CommunityEditionItem, 'name' | 'short_name'>): string {
+  return e.short_name || e.name;
+}
+
+/** editionFacts returns an edition's event slots, tiers and tournaments, and each tier's columns and maximum
+ * points (null when a column's is unknown). */
 export function editionFacts(data: Pick<CommunityLeaderboard, 'categories' | 'summary' | 'counting_events'>) {
   const pts = (n: number) => n.toLocaleString('en-US');
   const count = data.counting_events ?? 8;
@@ -85,11 +105,12 @@ export function editionFacts(data: Pick<CommunityLeaderboard, 'categories' | 'su
     tournaments: data.summary.length,
     lines: data.categories.map((c) => {
       const max = c.columns.map((x) => x.max_pts);
-      const [lo, hi] = [Math.min(...max), Math.max(...max)];
+      const known = max.filter((m) => m !== null);
+      const [lo, hi] = [Math.min(...known), Math.max(...known)];
       return {
         name: c.category,
         codes: codesOf(c.columns.map((x) => x.id)),
-        maxPts: lo === hi ? pts(hi) : `${pts(lo)}–${pts(hi)}`,
+        maxPts: known.length < max.length ? null : lo === hi ? pts(hi) : `${pts(lo)}–${pts(hi)}`,
         each: c.columns.length > 1,
       };
     }),

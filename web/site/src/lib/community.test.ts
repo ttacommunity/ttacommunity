@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { CommunityLeaderboard, CommunityRow } from '@ttac/shared/ratings';
-import { countingColumns, editionFacts, parseCommunityView, titleMark, tournamentSums } from './community';
+import { columnTitle, countingColumns, editionFacts, editionLabel, editionToShow, parseCommunityView, titleMark, tournamentSums } from './community';
 
 const row = (r: Partial<CommunityRow>): CommunityRow => ({
   rank: 1, name: 'ann', country: null, title: null, points: 0, events: 0, scores: {}, ...r,
@@ -37,6 +37,13 @@ describe('parseCommunityView', () => {
     ['1999', '1999'],
   ])("reads edition name %s as %s", (edition, want) => {
     expect(parseCommunityView(new URLSearchParams({ edition })).edition).toBe(want);
+  });
+
+  it.each([
+    ['no edition', ''],
+    ['the current one', 'edition=current'],
+  ])('leaves the edition to admin with %s', (_, query) => {
+    expect(parseCommunityView(new URLSearchParams(query)).edition).toBe('');
   });
 
   it('keeps 10 to 200 rows a page, all as 2000, and the standard view unless expanded', () => {
@@ -90,5 +97,42 @@ describe('editionFacts', () => {
     expect(tiers[0]).toEqual({ name: 'World Championship', codes: 'wrld', maxPts: '2,500', each: false });
     expect(tiers[1]).toEqual({ name: 'International Championship', codes: 'ic_24–27', maxPts: '1,000', each: true });
     expect(tiers[2]).toEqual({ name: 'Invitational Cups', codes: 'eif, qd', maxPts: '600–1,000', each: true });
+  });
+
+  it('gives no maximum for a tier with a column whose maximum is unknown', () => {
+    const unknown = {
+      ...sampleLayout,
+      categories: [{ category: 'Cups', badge_class: 'b', columns: [{ id: 'eif', name: 'E', short: 'E', max_pts: 1000 }, { id: 'qd', name: 'Q', short: 'Q', max_pts: null }] }],
+    };
+    expect(editionFacts(unknown).lines[0]?.maxPts).toBeNull();
+  });
+});
+
+describe('columnTitle', () => {
+  it.each([
+    ['a known maximum', 2500, 'World Championship (Max: 2500 pts)'],
+    ['an unknown one', null, 'World Championship'],
+  ] as const)('names the column with %s', (_, max, want) => {
+    expect(columnTitle({ id: 'wrld', name: 'World Championship', short: 'WC', max_pts: max })).toBe(want);
+  });
+});
+
+describe('editionLabel', () => {
+  it.each([
+    ['its short name', { name: '2025 Final Archive', short_name: '2025 Final', badge: '🏆 2025 Final' }, '2025 Final'],
+    ['its name without a short one', { name: '2025 Final Archive', short_name: '', badge: '🏆 2025 Final' }, '2025 Final Archive'],
+  ] as const)('labels an edition with %s, once', (_, edition, want) => {
+    expect(editionLabel(edition)).toBe(want);
+  });
+});
+
+describe('editionToShow', () => {
+  const editions = [{ slug: 'first' }, { slug: 'second' }];
+  it.each([
+    ['the edition asked for', 'second', editions, 'second'],
+    ["admin's first edition when none is asked for", '', editions, 'first'],
+    ['none when admin shows none', '', [], null],
+  ] as const)('shows %s', (_, asked, list, want) => {
+    expect(editionToShow(asked, list)).toBe(want);
   });
 });

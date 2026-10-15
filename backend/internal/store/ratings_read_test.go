@@ -533,3 +533,22 @@ func TestEveryReaderRefusesAnUnpublishedRun(t *testing.T) {
 		}
 	}
 }
+
+func TestHistoryLeavesOutHiddenPlayers(t *testing.T) {
+	pool := migrated(t)
+	r := NewRatingsReader(asReader(t, pool))
+	run := publishedRun(t, pool)
+	addPlayers(t, pool, "ann", "cat")
+	hideAccount(t, pool, "ann", "deleted")
+	addHistory(t, pool, run, "glicko2_daneo", 0, "ann", "2026-03-31", 1600)
+	addHistory(t, pool, run, "glicko2_daneo", 0, "cat", "2026-03-31", 1500)
+
+	at := day("2026-04-01")
+	_, rows, err := r.History(context.Background(), run, "glicko2_daneo", 0, &at)
+	if err != nil {
+		t.Fatalf("History: %v", err)
+	}
+	if len(rows) != 1 || rows[0].Name != "cat" {
+		t.Errorf("History = %+v, want cat only: ann's account is deleted", rows)
+	}
+}

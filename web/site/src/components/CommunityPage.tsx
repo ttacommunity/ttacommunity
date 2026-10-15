@@ -10,8 +10,11 @@ import {
 } from '@ttac/shared/ratings';
 import { Flag } from './PlayerMarks';
 import {
+  columnTitle,
   countingColumns,
   editionFacts,
+  editionLabel,
+  editionToShow,
   matchesSearch,
   parseCommunityView,
   titleMark,
@@ -92,8 +95,7 @@ function Hero({
               className={`edition-pill${view.edition === e.slug ? ' active' : ''}`}
               title={e.title}
             >
-              {e.badge ? `${e.badge} ` : ''}
-              {e.short_name || e.name}
+              {editionLabel(e)}
             </a>
           ))}
         </div>
@@ -169,7 +171,7 @@ function Explainers({ data }: { data: LeaderboardData }) {
               <strong>
                 {t.name} (<code>{t.codes}</code>)
               </strong>
-              : {t.maxPts} pts max{t.each ? ' each' : ''}
+              {t.maxPts !== null && `: ${t.maxPts} pts max${t.each ? ' each' : ''}`}
             </li>
           ))}
         </ul>
@@ -252,7 +254,7 @@ function Table({ data, view, rows }: { data: LeaderboardData; view: CommunityVie
                   </th>
                 ))
               : columns.map((c) => (
-                  <th key={c.id} title={`${c.name} (Max: ${c.max_pts} pts)`}>
+                  <th key={c.id} title={columnTitle(c)}>
                     {c.short}
                   </th>
                 ))}
@@ -336,10 +338,12 @@ export default function CommunityPage({ apiUrl }: { apiUrl: string }) {
 
   useEffect(() => {
     let stale = false;
-    Promise.all([
-      communityEditions(apiUrl),
-      currentRun(apiUrl).then((run) => communityLeaderboard(apiUrl, run.run_id, view.edition)),
-    ])
+    Promise.all([communityEditions(apiUrl), currentRun(apiUrl)])
+      .then(async ([editions, run]) => {
+        const edition = editionToShow(view.edition, editions);
+        if (edition === null) throw new Error('no community edition is shown');
+        return [editions, await communityLeaderboard(apiUrl, run.run_id, edition)] as const;
+      })
       .then(([editions, data]) => {
         if (!stale) {
           setState({ kind: 'ready', data, editions });
@@ -362,7 +366,7 @@ export default function CommunityPage({ apiUrl }: { apiUrl: string }) {
   const total = Math.max(1, Math.ceil(found.length / view.perPage));
   const page = Math.min(view.page, total);
   const shown = found.slice((page - 1) * view.perPage, page * view.perPage);
-  const onPage = { ...view, page };
+  const onPage = { ...view, page, edition: data.edition };
 
   return (
     <div className="community-page">

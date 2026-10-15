@@ -59,7 +59,9 @@ const recordsShown = 10
 // TournamentSeries returns a published run's results for a series: its game
 // and edition counts, its board in the engine's order, and the ten best
 // top-division seasons (points, then wins, then first seen) and games the
-// engine marked for records (winner's score, then load order).
+// engine marked for records (winner's score, then load order). A player with
+// a deleted or banned CGE account is left off the board, and named
+// DeletedPlayer, without a crown, in the records.
 func (r *RatingsReader) TournamentSeries(ctx context.Context, run int64, series string) (TournamentSeries, error) {
 	if err := r.requirePublished(ctx, run); err != nil {
 		return TournamentSeries{}, err
@@ -97,6 +99,16 @@ func (r *RatingsReader) TournamentSeries(ctx context.Context, run int64, series 
 	})
 	if err != nil {
 		return fail("season records", err)
+	}
+	names := make([]*string, len(got.SeasonRecords))
+	for i := range got.SeasonRecords {
+		names[i] = &got.SeasonRecords[i].Name
+	}
+	if err := r.maskNames(ctx, names); err != nil {
+		return fail("season records", err)
+	}
+	for i := range got.SeasonRecords {
+		got.SeasonRecords[i].WorldChampion = got.SeasonRecords[i].WorldChampion && got.SeasonRecords[i].Name != DeletedPlayer
 	}
 
 	rows, err = r.pool.Query(ctx, `
@@ -151,7 +163,7 @@ func (r *RatingsReader) maskGameRecords(ctx context.Context, games []GameRecord)
 			}
 		}
 	}
-	hidden, err := r.maskHiddenNames(ctx, names)
+	hidden, err := r.HiddenNames(ctx, names)
 	if err != nil {
 		return err
 	}
@@ -172,14 +184,14 @@ func (r *RatingsReader) maskGameRecords(ctx context.Context, games []GameRecord)
 }
 
 // board returns a series' board in the engine's order, its first limit rows
-// if limit is not nil.
+// if limit is not nil, without players who have a deleted or banned CGE account.
 func (r *RatingsReader) board(ctx context.Context, run int64, series string, limit *int) ([]TrophyRow, error) {
 	rows, err := r.pool.Query(ctx, `
 		SELECT b.player_name, p.player_name IS NOT NULL, b.title, b.gold, b.silver, b.bronze,
 		       b.details, b.games, b.wins, b.win_rate
 		FROM tournament_boards b
 		LEFT JOIN player_peak_titles p ON p.run_id = b.run_id AND p.player_name = b.player_name AND p.peak_title = 'WC'
-		WHERE b.run_id = $1 AND b.series = $2
+		WHERE b.run_id = $1 AND b.series = $2 AND NOT `+hiddenName("b.player_name")+`
 		ORDER BY b.position
 		LIMIT $3`, run, series, limit)
 	if err != nil {
@@ -218,7 +230,8 @@ const hubBoardRows = 10
 
 // HallOfFame returns a published run's Hall of Fame overview: every series'
 // counts, the all-time major circuits table in the engine's order, and the
-// first ten rows of the Grand Slams and Ladders boards.
+// first ten rows of the Grand Slams and Ladders boards, all without players
+// who have a deleted or banned CGE account.
 func (r *RatingsReader) HallOfFame(ctx context.Context, run int64) (HallOfFame, error) {
 	if err := r.requirePublished(ctx, run); err != nil {
 		return HallOfFame{}, err
@@ -243,7 +256,8 @@ func (r *RatingsReader) HallOfFame(ctx context.Context, run int64) (HallOfFame, 
 		       l.intermezzo_titles, l.royal_league_titles, l.gold, l.silver, l.bronze
 		FROM tournament_legends l
 		LEFT JOIN player_peak_titles p ON p.run_id = l.run_id AND p.player_name = l.player_name AND p.peak_title = 'WC'
-		WHERE l.run_id = $1 ORDER BY l.position`, run)
+		WHERE l.run_id = $1 AND NOT `+hiddenName("l.player_name")+`
+		ORDER BY l.position`, run)
 	if err != nil {
 		return fail("legends", err)
 	}

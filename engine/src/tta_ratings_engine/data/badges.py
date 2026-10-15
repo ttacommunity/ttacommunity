@@ -358,8 +358,9 @@ def badge_titles(rows, cutoff_date, champions, records, overrides) -> Titles:
     """Returns the titles the games, World Championship podiums, records and admin's overrides give.
 
     rows are the played games newest first (tournament, date as YYYY-MM-DD, players, and the series and division
-    the run recorded); cutoff_date (YYYY-MM-DD) starts the active window; champions are (player, title year) or
-    (player, season, place) for podiums; records are the run's season records; overrides are admin's titles ('' takes one away).
+    the run recorded); cutoff_date (YYYY-MM-DD) starts the active window; champions are the World Championship's
+    podiums as world_podiums gives them, (player, season, place); records are the run's season records; overrides are
+    admin's titles ('' takes one away).
     """
     player_best: dict[str, dict[str, Any]] = {}
     player_career_best: dict[str, dict[str, Any]] = {}
@@ -417,30 +418,13 @@ def badge_titles(rows, cutoff_date, champions, records, overrides) -> Titles:
             ):
                 player_career_best[p] = {"tier": tier, "year": yr, "date": d_str}
 
-    # Normalize champions/podiums: allow list of (player, season) or (player, season, place)
-    world_champ_list: list[tuple[str, int]] = []
-    world_silver_list: list[tuple[str, int]] = []
-    world_bronze_list: list[tuple[str, int]] = []
-    for item in champions:
-        if len(item) == 2:
-            p, yr = item
-            world_champ_list.append((p, yr))
-        elif len(item) == 3:
-            p, yr, pl = item
-            if pl == 1:
-                world_champ_list.append((p, yr))
-            elif pl == 2:
-                world_silver_list.append((p, yr))
-            elif pl == 3:
-                world_bronze_list.append((p, yr))
-
+    world_champ_list = [(p, yr) for p, yr, place in champions if place == 1]
+    # A player on several podiums keeps the best: WC over WCS over WCB
     career_worlds = {}
-    for p, yr in world_bronze_list:
-        career_worlds[p] = ("WCB", yr)
-    for p, yr in world_silver_list:
-        career_worlds[p] = ("WCS", yr)
-    for p, yr in world_champ_list:
-        career_worlds[p] = ("WC", yr)
+    for title, wanted in (("WCB", 3), ("WCS", 2), ("WC", 1)):
+        for p, yr, place in champions:
+            if place == wanted:
+                career_worlds[p] = (title, yr)
 
     active_sgm, career_sgm = _super_gm(records, cutoff_date)
 

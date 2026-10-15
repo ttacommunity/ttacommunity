@@ -6,7 +6,7 @@ export type TabKey = 'tournaments' | 'community' | 'data' | 'titles' | 'admins';
 /** TABS are admin's tabs in order; adminOnly ones an organiser does not see. */
 export const TABS: { key: TabKey; label: string; adminOnly: boolean }[] = [
   { key: 'tournaments', label: 'Tournaments', adminOnly: false },
-  { key: 'community', label: 'Community', adminOnly: false },
+  { key: 'community', label: 'Community', adminOnly: true },
   { key: 'data', label: 'Data', adminOnly: false },
   { key: 'titles', label: 'Titles & badges', adminOnly: true },
   { key: 'admins', label: 'Admins', adminOnly: true },

@@ -149,7 +149,7 @@ func (r *RatingsReader) CatalogueGames(ctx context.Context, run int64, slug stri
 			}
 		}
 	}
-	hidden, err := r.maskHiddenNames(ctx, seatNames)
+	hidden, err := r.HiddenNames(ctx, seatNames)
 	if err != nil {
 		return fail("hidden players", err)
 	}

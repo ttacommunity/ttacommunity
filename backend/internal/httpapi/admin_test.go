@@ -477,7 +477,7 @@ func (f *fakeAdmins) SetNote(_ context.Context, slug, season, stage, note string
 func (f *fakeAdmins) AdminCommunityEditions(_ context.Context) ([]store.CommunityEdition, error) {
 	return []store.CommunityEdition{{
 		Slug: "race26", Name: "Race to 2026", Title: "Race to 2026 Title", ShortName: "Race26",
-		Badge: "⭐ Community", Maintainer: "wolvs", MaintainerNote: "Note", Year: 2026,
+		Badge: "⭐ Community", Maintainer: "dee", MaintainerNote: "Note", Year: 2026,
 		CountingEvents: 8, Visible: true, SortOrder: 1,
 	}}, nil
 }

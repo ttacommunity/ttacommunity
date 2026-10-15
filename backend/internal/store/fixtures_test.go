@@ -174,6 +174,18 @@ func addPlayers(t *testing.T, pool *pgxpool.Pool, names ...string) {
 	}
 }
 
+// hideAccount gives the player name a CGE account marked how, "deleted" or "banned", which hides them on the site.
+func hideAccount(t *testing.T, pool *pgxpool.Pool, name, how string) {
+	t.Helper()
+	tag, err := pool.Exec(context.Background(), `
+		INSERT INTO player_accounts (cge_user, player_id, name, deleted, banned)
+		SELECT (SELECT coalesce(max(cge_user), 0) + 1 FROM player_accounts), player_id, name, $2 = 'deleted', $2 = 'banned'
+		FROM players WHERE name = $1`, name, how)
+	if err != nil || tag.RowsAffected() != 1 {
+		t.Fatalf("marking %s's account %s: %v (%d rows)", name, how, err, tag.RowsAffected())
+	}
+}
+
 func addRating(t *testing.T, pool *pgxpool.Pool, run int64, model string, format int, name string, rank *int, cRating float64) {
 	t.Helper()
 	_, err := pool.Exec(context.Background(), `

@@ -3,33 +3,14 @@ import { useEffect, useState, type FormEvent } from 'react';
 import type { components } from '@ttac/shared/api';
 import * as req from '../lib/admin-requests';
 import { adminRequest } from '../lib/admin-api';
+import { ADMIN_TITLES, titleLabel, type AdminTitle } from '../lib/titles';
 
 type TitleOverride = components['schemas']['TitleOverride'];
-type Title = TitleOverride['title'];
-
-const TITLES: { value: Title; label: string }[] = [
-  { value: 'SGM', label: 'Super Grandmaster (SGM)' },
-  { value: 'WCS', label: 'World Championship Silver (WCS)' },
-  { value: 'WCB', label: 'World Championship Bronze (WCB)' },
-  { value: 'GM', label: 'Grandmaster (GM)' },
-  { value: 'M', label: 'Master (M)' },
-  { value: 'P', label: 'Platinum (P)' },
-  { value: 'G', label: 'Gold (G)' },
-  { value: 'S', label: 'Silver (S)' },
-  { value: 'B', label: 'Bronze (B)' },
-  { value: 'W', label: 'Wood (W)' },
-  { value: '', label: 'No title' },
-];
-
-function titleLabel(t: Title): string {
-  return TITLES.find((x) => x.value === t)?.label ?? t;
-}
-
 /** TitlesPanel lists the titles set in admin, and sets or removes one. */
 export default function TitlesPanel() {
   const [list, setList] = useState<TitleOverride[] | null>(null);
   const [message, setMessage] = useState('');
-  const [form, setForm] = useState({ name: '', title: 'GM' as Title, reason: '' });
+  const [form, setForm] = useState({ name: '', title: 'GM' as AdminTitle, reason: '' });
 
   const load = async () => {
     const r = await adminRequest<TitleOverride[]>('/api/titles', {});
@@ -109,10 +90,10 @@ export default function TitlesPanel() {
         </label>
         <label>
           Title
-          <select className="input-antique" value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value as Title })}>
-            {TITLES.map((t) => (
-              <option key={t.value} value={t.value}>
-                {t.label}
+          <select className="input-antique" value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value as AdminTitle })}>
+            {ADMIN_TITLES.map((t) => (
+              <option key={t} value={t}>
+                {titleLabel(t)}
               </option>
             ))}
           </select>

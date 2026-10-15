@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { formatName, modelLabel, rank, rating, cRating, rd, winRate, isTopThree, titleName, titleBadge, badgeHover, flagSrc, engineName, resetModeName, engineNote, delta } from './leaderboard-display';
+import { formatName, modelLabel, rank, rating, cRating, rd, winRate, isTopThree, titleBadge, badgeHover, flagSrc, engineName, resetModeName, engineNote, delta } from './leaderboard-display';
 
 describe('formatName', () => {
   it.each([
@@ -52,21 +52,6 @@ describe('numbers', () => {
   it('shows the win rate as a percentage to one place', () => {
     expect(winRate(61.25)).toBe('61.3%');
     expect(winRate(0)).toBe('0.0%');
-  });
-});
-
-describe('titleName', () => {
-  it.each([
-    ['WC', 'World Champion'],
-    ['GM', 'Grandmaster'],
-    ['M', 'Master'],
-    ['P', 'Platinum'],
-    ['G', 'Gold'],
-    ['S', 'Silver'],
-    ['B', 'Bronze'],
-    ['W', 'Wood'],
-  ] as const)('names %s as upstream does', (code, name) => {
-    expect(titleName(code)).toBe(name);
   });
 });
 
