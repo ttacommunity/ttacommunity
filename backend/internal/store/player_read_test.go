@@ -584,6 +584,7 @@ func TestYearBoardTakesEveryPlayersLastRatingOfTheYear(t *testing.T) {
 	addHistory(t, pool, run, "glicko2_std", 0, "cy", "2025-01-31", 1800)
 	addHistory(t, pool, run, "whr", 0, "cy", "2024-12-31", 1900)
 	addYearlyTitle(t, pool, run, "bob", 2024, "WC")
+	withYearRecords(t, pool, run)
 
 	got, err := r.YearBoard(ctx, run, 2024, "glicko2_std", 0)
 	if err != nil {
@@ -624,6 +625,68 @@ func TestYearBoardTakesEveryPlayersLastRatingOfTheYear(t *testing.T) {
 	}
 }
 
+func TestYearBoardCountsTheRecordsTheRunRecorded(t *testing.T) {
+	pool := migrated(t)
+	r := NewRatingsReader(asReader(t, pool))
+	ctx := context.Background()
+	run := publishedRun(t, pool)
+	addPlayers(t, pool, "ann", "bob")
+	addGame(t, pool, run, "2023-05-01", "Cup", Seat{"ann", 9}, Seat{"bob", 5})
+	addGame(t, pool, run, "2024-03-01", "Cup", Seat{"ann", 9}, Seat{"bob", 5})
+	addHistory(t, pool, run, "glicko2_std", 0, "ann", "2024-12-31", 1600)
+	withYearRecords(t, pool, run)
+	if _, err := pool.Exec(ctx, "UPDATE pairwise_matches SET outcome_a = 0 WHERE run_id = $1", run); err != nil {
+		t.Fatalf("turning the run's pairs into losses: %v", err)
+	}
+
+	got, err := r.YearBoard(ctx, run, 2024, "glicko2_std", 0)
+	if err != nil {
+		t.Fatalf("YearBoard: %v", err)
+	}
+	if len(got.Rows) != 1 {
+		t.Fatalf("%d rows, want ann's: %+v", len(got.Rows), got.Rows)
+	}
+	if ann := got.Rows[0]; ann.Season != (Record{Opponents: 1, Wins: 1}) || ann.Career != (Record{Opponents: 2, Wins: 2}) {
+		t.Errorf("ann's season %+v, career %+v; want 1 win and 2 wins, as the run recorded them", ann.Season, ann.Career)
+	}
+}
+
+func TestYearBoardCountsEachFormatsGames(t *testing.T) {
+	pool := migrated(t)
+	r := NewRatingsReader(asReader(t, pool))
+	ctx := context.Background()
+	run := publishedRun(t, pool)
+	addPlayers(t, pool, "ann", "bob", "cy")
+	addGame(t, pool, run, "2024-03-01", "Cup", Seat{"ann", 9}, Seat{"bob", 5})
+	addGame(t, pool, run, "2024-04-01", "Cup", Seat{"ann", 9}, Seat{"bob", 5}, Seat{"cy", 7})
+	for _, format := range []int{0, 2, 3} {
+		addHistory(t, pool, run, "glicko2_std", format, "ann", "2024-12-31", 1600)
+	}
+	withYearRecords(t, pool, run)
+
+	tests := []struct {
+		name      string
+		format    int
+		opponents int
+	}{
+		{"every format", 0, 3},
+		{"two players", 2, 1},
+		{"three players", 3, 2},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := r.YearBoard(ctx, run, 2024, "glicko2_std", tt.format)
+			if err != nil || len(got.Rows) != 1 {
+				t.Fatalf("YearBoard(format %d) = %+v, %v; want ann's row", tt.format, got.Rows, err)
+			}
+			if ann := got.Rows[0]; ann.Season.Opponents != tt.opponents || ann.Career.Opponents != tt.opponents {
+				t.Errorf("format %d: ann's season %+v, career %+v; want %d opponents in both",
+					tt.format, ann.Season, ann.Career, tt.opponents)
+			}
+		})
+	}
+}
+
 func TestYearBoardRefusesAYearWithoutHistory(t *testing.T) {
 	pool := migrated(t)
 	r := NewRatingsReader(asReader(t, pool))
@@ -631,6 +694,25 @@ func TestYearBoardRefusesAYearWithoutHistory(t *testing.T) {
 	addHistory(t, pool, run, "glicko2_std", 0, "ann", "2024-12-31", 1600)
 	if _, err := r.YearBoard(context.Background(), run, 2019, "glicko2_std", 0); !errors.Is(err, ErrNoHistory) {
 		t.Errorf("YearBoard(2019): err = %v, want ErrNoHistory", err)
+	}
+}
+
+func TestYearBoardRefusesAYearOutsideTheRunsGames(t *testing.T) {
+	pool := migrated(t)
+	r := NewRatingsReader(asReader(t, pool))
+	ctx := context.Background()
+	run := publishedRun(t, pool)
+	if _, err := pool.Exec(ctx, "UPDATE rating_runs SET first_game = '2024-01-05', last_game = '2024-12-20' WHERE run_id = $1", run); err != nil {
+		t.Fatalf("recording run %d's games: %v", run, err)
+	}
+	addHistory(t, pool, run, "glicko2_std", 0, "ann", "2024-12-31", 1600)
+	addHistory(t, pool, run, "whr", 0, "ann", "2019-12-31", 1500)
+
+	if _, err := r.YearBoard(ctx, run, 2019, "glicko2_std", 0); !errors.Is(err, ErrNoHistory) {
+		t.Errorf("YearBoard(2019) of a run whose games are all in 2024: err = %v, want ErrNoHistory", err)
+	}
+	if _, err := r.YearBoard(ctx, run, 2024, "glicko2_std", 0); err != nil {
+		t.Errorf("YearBoard(2024): %v", err)
 	}
 }
 

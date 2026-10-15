@@ -61,12 +61,16 @@ func (r *RatingsReader) YearBoard(ctx context.Context, run int64, year int, mode
 	err := r.pool.QueryRow(ctx, `
 		SELECT coalesce(
 			(SELECT max(period_date) FROM rating_history
-			 WHERE run_id = $1 AND model_type = $2 AND player_count = $3 AND extract(year FROM period_date) = $4),
-			(SELECT max(period_date) FROM rating_history WHERE run_id = $1 AND extract(year FROM period_date) = $4)),
+			 WHERE run_id = $1 AND model_type = $2 AND player_count = $3
+				AND period_date >= make_date($4::int, 1, 1) AND period_date < make_date($4::int + 1, 1, 1)),
+			(SELECT max(period_date) FROM rating_history WHERE run_id = $1 AND extract(year FROM period_date) = $4
+				AND EXISTS (SELECT 1 FROM rating_runs WHERE run_id = $1 -- no scan for a year outside the run's games
+					AND $4 BETWEEN coalesce(extract(year FROM first_game), $4) AND coalesce(extract(year FROM last_game), $4)))),
 			(SELECT max(period_date) FROM rating_history
-			 WHERE run_id = $1 AND model_type = $2 AND player_count = $3 AND extract(year FROM period_date) = $4 - 1),
+			 WHERE run_id = $1 AND model_type = $2 AND player_count = $3
+				AND period_date >= make_date($4::int - 1, 1, 1) AND period_date < make_date($4::int, 1, 1)),
 			(SELECT count(DISTINCT match_id) FROM pairwise_matches
-			 WHERE run_id = $1 AND extract(year FROM date) = $4)`,
+			 WHERE run_id = $1 AND date >= make_date($4::int, 1, 1) AND date < make_date($4::int + 1, 1, 1))`,
 		run, model, format, year).Scan(&snapshot, &b.Previous, &b.Games)
 	if err != nil {
 		return YearBoard{}, fmt.Errorf("finding run %d's %d periods: %w", run, year, err)
@@ -104,22 +108,15 @@ func (r *RatingsReader) YearBoard(ctx context.Context, run int64, year int, mode
 	}
 
 	rows, err = r.pool.Query(ctx, `
-		WITH mine AS (
-			SELECT player_a AS name, outcome_a AS outcome, date FROM pairwise_matches
-			WHERE run_id = $1 AND ($3 = 0 OR player_count = $3) AND extract(year FROM date) <= $5
-			UNION ALL
-			SELECT player_b, 1 - outcome_a, date FROM pairwise_matches
-			WHERE run_id = $1 AND ($3 = 0 OR player_count = $3) AND extract(year FROM date) <= $5),
-		rec AS (
-			SELECT name,
-				count(*) FILTER (WHERE extract(year FROM date) = $5) AS s_opps,
-				count(*) FILTER (WHERE extract(year FROM date) = $5 AND outcome = 1) AS s_wins,
-				count(*) FILTER (WHERE extract(year FROM date) = $5 AND outcome = 0) AS s_losses,
-				count(*) FILTER (WHERE extract(year FROM date) = $5 AND outcome = 0.5) AS s_draws,
-				max(date) FILTER (WHERE extract(year FROM date) = $5) AS last_played,
-				count(*) AS c_opps, count(*) FILTER (WHERE outcome = 1) AS c_wins,
-				count(*) FILTER (WHERE outcome = 0) AS c_losses, count(*) FILTER (WHERE outcome = 0.5) AS c_draws
-			FROM mine GROUP BY name)
+		WITH rec AS (
+			SELECT player_name AS name,
+				sum(opponents) FILTER (WHERE year = $5) AS s_opps, sum(wins) FILTER (WHERE year = $5) AS s_wins,
+				sum(losses) FILTER (WHERE year = $5) AS s_losses, sum(draws) FILTER (WHERE year = $5) AS s_draws,
+				max(last_played) FILTER (WHERE year = $5) AS last_played,
+				sum(opponents) AS c_opps, sum(wins) AS c_wins, sum(losses) AS c_losses, sum(draws) AS c_draws
+			FROM player_year_records
+			WHERE run_id = $1 AND ($3 = 0 OR player_count = $3) AND year <= $5
+			GROUP BY player_name)
 		SELECT h.player_name, h.rating, h.rd, h.c_rating, p.country_code, t.title, t.title_count, t.badge_reason,
 			k.peak_title, k.peak_year,
 			coalesce(rec.s_opps, 0), coalesce(rec.s_wins, 0), coalesce(rec.s_losses, 0), coalesce(rec.s_draws, 0),

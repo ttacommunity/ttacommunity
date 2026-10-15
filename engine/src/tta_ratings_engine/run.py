@@ -25,6 +25,7 @@ from tta_ratings_engine.data.community import derive_community
 from tta_ratings_engine.data.db import connect
 from tta_ratings_engine.data.pairwise import expand_pairwise
 from tta_ratings_engine.data.tournaments import derive_tournaments
+from tta_ratings_engine.data.year_records import derive_year_records
 from tta_ratings_engine.models.evaluation.standard_eval import (
     run_standard_calibration_all,
 )
@@ -105,6 +106,7 @@ RESULT_TABLES = [
     "tournament_achievements",
     "tournament_records",
     "catalogue_spans",
+    "player_year_records",
 ]
 
 
@@ -123,6 +125,7 @@ RECOMPUTED_TABLES = [
     "tournament_games", "tournament_standings", "tournament_boards", "tournament_season_records",
     "tournament_series", "tournament_legends", "tournament_achievements", "tournament_records",
     "community_event_points", "community_edition_points", "community_rankings", "catalogue_spans",
+    "player_year_records",
 ]  # fmt: skip
 
 
@@ -416,6 +419,7 @@ def _compute(conn, run_id, formats, log):
         derive_tournaments(**on_run)
         derive_community(**on_run)
         derive_catalogue(**on_run)
+        derive_year_records(**on_run)
         progress.advance("tournaments", STEP_COST["tournaments", None], "tournaments")
 
         progress.working_on("titles")
@@ -488,6 +492,7 @@ def _run_task(url, run_id, kind, fmt, name):
             derive_tournaments(**on_run)
             derive_community(**on_run)
             derive_catalogue(**on_run)
+            derive_year_records(**on_run)
             derive_tournament_badges(**on_run)
         else:
             raise ValueError(f"unknown engine task: {kind}")

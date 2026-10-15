@@ -156,6 +156,18 @@ func withSpans(t *testing.T, pool *pgxpool.Pool, run int64) {
 	}
 }
 
+// withYearRecords records run's player records by format and year from its pairs so far, as the engine does in a run.
+func withYearRecords(t *testing.T, pool *pgxpool.Pool, run int64) {
+	t.Helper()
+	ctx := context.Background()
+	if _, err := pool.Exec(ctx, "DELETE FROM player_year_records WHERE run_id = $1", run); err != nil {
+		t.Fatalf("clearing run %d's year records: %v", run, err)
+	}
+	if _, err := pool.Exec(ctx, "SELECT derive_player_year_records($1)", run); err != nil {
+		t.Fatalf("deriving run %d's year records: %v", run, err)
+	}
+}
+
 func makeCurrent(t *testing.T, pool *pgxpool.Pool, run int64) {
 	t.Helper()
 	_, err := pool.Exec(context.Background(),

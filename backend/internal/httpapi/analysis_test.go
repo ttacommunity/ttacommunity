@@ -4,7 +4,9 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"log/slog"
 	"net/http"
+	"net/http/httptest"
 	"strings"
 	"testing"
 	"time"
@@ -21,10 +23,12 @@ type fakeAnalysis struct {
 	activity   store.Activity
 	seatGroups []store.SeatStatsGroup
 	err        error
+	published  error
 
-	gotTerms  []string
-	gotCutoff time.Time
-	gotTier   string
+	ratingReads int
+	gotTerms    []string
+	gotCutoff   time.Time
+	gotTier     string
 }
 
 func (f *fakeAnalysis) ComparedPlayers(_ context.Context, run int64, format int, terms []string) ([]store.ComparedPlayer, error) {
@@ -45,9 +49,19 @@ func (f *fakeAnalysis) Calibration(_ context.Context, run int64) ([]store.Calibr
 	return f.calib, f.err
 }
 
+func (f *fakeAnalysis) CheckPublished(_ context.Context, run int64) error {
+	f.calls++
+	f.gotRun = run
+	return f.published
+}
+
 func (f *fakeAnalysis) AnalysisRatings(_ context.Context, run int64, format int) ([]store.ModelRating, error) {
 	f.calls++
+	f.ratingReads++
 	f.gotRun, f.gotFmt = run, format
+	if f.published != nil {
+		return nil, f.published
+	}
 	return f.ratings, f.err
 }
 
@@ -100,6 +114,41 @@ func TestDistributionAndAgreementComputeFromTheRunsRatings(t *testing.T) {
 	rec, _ = serve(t, &fakeAnalysis{ratings: ratings}, "/v1/runs/7/analysis/agreement")
 	if got := strings.TrimSpace(rec.Body.String()); got != `{"format":0,"run_id":7,"sample":0,"top":[],"weakest":[]}` {
 		t.Errorf("GET agreement with one player: %s", got)
+	}
+}
+
+func TestAgreementIsKeptForEachRunAndFormat(t *testing.T) {
+	f := &fakeAnalysis{}
+	mux := newMux(f, nil, slog.New(slog.DiscardHandler))
+	for _, path := range []string{
+		"/v1/runs/7/analysis/agreement?format=2", "/v1/runs/7/analysis/agreement?format=2",
+		"/v1/runs/7/analysis/agreement?format=3", "/v1/runs/7/analysis/agreement?format=3",
+	} {
+		rec := httptest.NewRecorder()
+		mux.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, path, nil))
+		if rec.Code != http.StatusOK {
+			t.Fatalf("GET %s: %d %s", path, rec.Code, rec.Body.String())
+		}
+	}
+	if f.ratingReads != 2 {
+		t.Errorf("formats 2 and 3, each asked twice, read the ratings %d times, want 2", f.ratingReads)
+	}
+}
+
+func TestAgreementRefusesARunUnpublishedSinceItWasKept(t *testing.T) {
+	f := &fakeAnalysis{}
+	mux := newMux(f, nil, slog.New(slog.DiscardHandler))
+	get := func() int {
+		rec := httptest.NewRecorder()
+		mux.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/v1/runs/7/analysis/agreement", nil))
+		return rec.Code
+	}
+	if code := get(); code != http.StatusOK {
+		t.Fatalf("GET agreement: %d, want 200", code)
+	}
+	f.published = store.ErrRunNotFound
+	if code := get(); code != http.StatusNotFound {
+		t.Errorf("GET agreement after the run was unpublished: %d, want 404", code)
 	}
 }
 
