@@ -284,6 +284,7 @@
 .home-feed-card {
   display: flex;
   flex-direction: column;
+  min-width: 0;
   padding: 1.5rem;
   background: var(--surface-well);
   border: 1px solid var(--border-subtle);
@@ -293,6 +294,7 @@
 
 .feed-card-header {
   display: flex;
+  flex-wrap: wrap;
   justify-content: space-between;
   align-items: center;
   gap: 0.5rem;
@@ -352,6 +354,7 @@
 
 .feed-header-actions {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: 0.5rem;
 }
@@ -569,6 +572,7 @@
 
 .match-seats-row {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
   gap: 0.75rem;
@@ -580,6 +584,7 @@
   display: flex;
   align-items: center;
   flex-wrap: wrap;
+  min-width: 0;
   gap: 0.4rem;
   font-size: 0.88rem;
 }
@@ -782,6 +787,7 @@
 
 .tourney-podium-wrap {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
   gap: 0.75rem;
@@ -794,6 +800,7 @@
   flex-direction: column;
   gap: 0.35rem;
   flex-grow: 1;
+  min-width: 0;
 }
 
 .tourney-podium-content.podium-censored-mask {
@@ -803,6 +810,8 @@
 
 .podium-censored-pill {
   display: inline-block;
+  min-width: 0;
+  overflow: hidden;
   background: rgba(229, 169, 60, 0.12);
   color: var(--border-subtle);
   border-radius: 4px;
