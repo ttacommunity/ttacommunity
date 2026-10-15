@@ -117,9 +117,20 @@ export function errorFields(body: unknown): ErrorFields {
   };
 }
 
-/** Returns the run the site shows now. */
-export async function currentRun(base: string, fetchFn: typeof fetch = fetch): Promise<Run> {
-  return get<Run>(fetchFn, base, '/v1/runs/current');
+// One answer per page for every caller, as browsers do not all merge identical requests from their cache.
+const currentRuns = new WeakMap<typeof fetch, Map<string, Promise<Run>>>();
+
+/** Returns the run the site shows now, asking the API once per page for every caller; a failure is asked again. */
+export function currentRun(base: string, fetchFn: typeof fetch = fetch): Promise<Run> {
+  const byBase = currentRuns.get(fetchFn) ?? new Map<string, Promise<Run>>();
+  currentRuns.set(fetchFn, byBase);
+  let run = byBase.get(base);
+  if (run === undefined) {
+    run = get<Run>(fetchFn, base, '/v1/runs/current');
+    byBase.set(base, run);
+    run.catch(() => byBase.delete(base));
+  }
+  return run;
 }
 
 /** Returns every rated player in one published run, model and format, in rank order. */

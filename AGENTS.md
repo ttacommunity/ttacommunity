@@ -126,8 +126,14 @@ Both private to the `ttacommunity` organisation; ask a maintainer for access.
 - **Know the sizes**: about 4,100 players, 205,000 games, 577,000 seats
   and 414,000 rated pairs per run. Code that scans every player for each
   player takes seconds here: sort once, use a map, or let Postgres do it
-- **A page makes a handful of requests.** Ask the API for what the page
-  shows, not for everything to filter in the browser
+- **A page makes a handful of requests, each once.** Ask the API for what
+  the page shows, not for everything to filter in the browser. Data
+  several parts of a page need, such as the current run, comes from one
+  shared request, never one per component: the browser's cache does not
+  merge them everywhere. We fetch without a framework, so the client
+  deduplicates requests, caches responses and avoids waterfalls itself,
+  as [React's docs](https://react.dev/learn/synchronizing-with-effects#what-are-good-alternatives-to-data-fetching-in-effects)
+  advise
 
 ### Comments: less comment than code
 

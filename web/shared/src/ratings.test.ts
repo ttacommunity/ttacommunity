@@ -78,6 +78,29 @@ describe('currentRun', () => {
     expect(err).toMatchObject({ status: 500, message: expect.stringContaining('0123456789abcdef') });
   });
 
+  it('asks once for every caller on the page', async () => {
+    const f = fakeFetch(200, '{"run_id":5,"published_at":"2026-09-27T04:52:18Z"}');
+    const [a, b] = await Promise.all([currentRun('https://api.example', f.fetch), currentRun('https://api.example', f.fetch)]);
+    await currentRun('https://api.example', f.fetch);
+
+    expect(a).toEqual(b);
+    expect(f.calls).toHaveLength(1);
+  });
+
+  it('asks again after a failure', async () => {
+    let status = 500;
+    const calls: string[] = [];
+    const fetchFn = (async (input: RequestInfo | URL) => {
+      calls.push(String(input));
+      return new Response(status === 200 ? '{"run_id":5,"published_at":"2026-09-27T04:52:18Z"}' : '{"error":"down"}', { status });
+    }) as typeof fetch;
+
+    await expect(currentRun('https://api.example', fetchFn)).rejects.toBeInstanceOf(RatingsApiError);
+    status = 200;
+    await expect(currentRun('https://api.example', fetchFn)).resolves.toMatchObject({ run_id: 5 });
+    expect(calls).toHaveLength(2);
+  });
+
   it('raises a plain message when the error body is not JSON', async () => {
     const f = fakeFetch(502, '<html>Bad gateway</html>');
     const err = await currentRun('https://api.example', f.fetch).catch((e: unknown) => e);
