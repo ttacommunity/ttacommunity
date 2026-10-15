@@ -2,6 +2,7 @@
 import {
   catalogueGames,
   playerMatches,
+  RatingsApiError,
   type CatalogueGame,
   type PlayerMatch,
 } from '@ttac/shared/ratings';
@@ -109,26 +110,31 @@ export async function fetchTournamentDivisions(
   return PREMIER_DIVISIONS[slug] ?? [];
 }
 
-/** Fetches and combines games for all configured tournaments/divisions and players. */
+/** skipMissing gives no games for a source the API does not know, such as a saved player since gone, and passes any other failure on. */
+function skipMissing(e: unknown): FeedMatch[] {
+  if (e instanceof RatingsApiError && e.status === 404) return [];
+  throw e;
+}
+
+/** Fetches and combines games for all configured tournaments/divisions and players; a source that fails, other than
+ * one the API does not know, fails it. */
 export async function fetchFeedMatches(
   apiUrl: string,
   runId: number,
   settings: FeedSettings,
   limit = 8,
+  fetchFn: typeof fetch = fetch,
 ): Promise<FeedMatch[]> {
   const tourneyPromises = settings.tournaments.map((t) =>
-    catalogueGames(apiUrl, runId, t.slug, {
-      group: t.division || undefined,
-      page: 1,
-    })
+    catalogueGames(apiUrl, runId, t.slug, { group: t.division || undefined, page: 1 }, fetchFn)
       .then((res) => res.games.map((g) => catalogueGameToFeedMatch(g, t.name)))
-      .catch(() => [] as FeedMatch[]),
+      .catch(skipMissing),
   );
 
   const playerPromises = settings.players.slice(0, 12).map((player) =>
-    playerMatches(apiUrl, runId, player, 0, 'glicko2_daneo', 1)
+    playerMatches(apiUrl, runId, player, 0, 'glicko2_daneo', 1, fetchFn)
       .then((res) => res.matches.map(playerMatchToFeedMatch))
-      .catch(() => [] as FeedMatch[]),
+      .catch(skipMissing),
   );
 
   const results = await Promise.all([...tourneyPromises, ...playerPromises]);
