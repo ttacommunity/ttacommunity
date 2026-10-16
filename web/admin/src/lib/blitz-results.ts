@@ -30,10 +30,9 @@ function culture(text: string, outcome: BlitzOutcome): number | null {
   return Number.isFinite(n) && n >= 0 ? n : null;
 }
 
-/** gameRecordFrom turns the form into the request body, or says what is missing: the share code, a culture for each finished player, the day, time and zone it finished, and at least one player who finished. */
+/** gameRecordFrom turns the form into the request body (the share code may be left empty), or says what is missing: a culture for each finished player, the day, time and zone it finished, and at least one player who finished. */
 export function gameRecordFrom(f: GameForm): { ok: true; body: BlitzGameRecord } | { ok: false; message: string } {
   const share_code = f.share_code.trim();
-  if (share_code === '') return { ok: false, message: 'The share code is needed.' };
   const a = culture(f.a_culture, f.a_outcome);
   const b = culture(f.b_culture, f.b_outcome);
   if (a === null || b === null) return { ok: false, message: 'A finished player needs a culture of 0 or more.' };

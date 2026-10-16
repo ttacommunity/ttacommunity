@@ -93,6 +93,11 @@ type Admins interface {
 	// RecordBlitzGame records or corrects the game a match was played as; RecordBlitzRuling decides it by ruling.
 	RecordBlitzGame(ctx context.Context, slug, edition string, matchID int64, g store.BlitzGame) error
 	RecordBlitzRuling(ctx context.Context, slug, edition string, matchID int64, result, reason string) error
+	// ResetBlitzResult and ResetBlitzRound undo a match's or the latest round's results, games and all;
+	// ResetBlitzEdition starts the edition again from its entrants.
+	ResetBlitzResult(ctx context.Context, slug, edition string, matchID int64) error
+	ResetBlitzRound(ctx context.Context, slug, edition string, roundID int64) error
+	ResetBlitzEdition(ctx context.Context, slug, edition string) error
 	// AddBlitzOrganiser and RemoveBlitzOrganiser change who the edition's Discord threads tell players to ping;
 	// SetBlitzRoundDeadline sets the deadline a round's threads give.
 	AddBlitzOrganiser(ctx context.Context, slug, edition string, member int64) error

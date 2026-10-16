@@ -150,6 +150,18 @@ export function entrantActions(e: Entrant, ed: Omit<Edition, 'entrants'>): Entra
   return { action: hasPlayed(e.id, ed.rounds) ? 'drop' : 'remove', skip: skippableRound(ed) };
 }
 
+/** resetsOf is what can be reset in rounds: the latest round (its id), when it has a result, and its matches with one; nothing otherwise. */
+export function resetsOf(rounds: readonly AdminBlitzRound[]): { round: number | null; matches: number[] } {
+  const latest = newestFirst(rounds)[0];
+  const matches = latest === undefined ? [] : latest.matches.filter((m) => m.b !== null && m.result !== null).map((m) => m.id);
+  return { round: matches.length > 0 && latest !== undefined ? latest.id : null, matches };
+}
+
+/** canResetEdition says whether an edition has anything for a reset to undo: a round, a dropped entrant or a skip. */
+export function canResetEdition(ed: { rounds: readonly unknown[]; entrants: readonly Pick<AdminBlitzEntrant, 'status' | 'skips'>[] }): boolean {
+  return ed.rounds.length > 0 || ed.entrants.some((e) => e.status === 'dropped' || e.skips.length > 0);
+}
+
 /** outcome is how a decided match went for one of its players. */
 function outcome(m: AdminBlitzMatch, id: number): string {
   if (m.result === 'draw') return 'drew';

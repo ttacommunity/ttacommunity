@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { byeTakers, canDeleteRound, entrantActions, entrantState, partnersFor, leftUnpaired, pairCounts, reconcilePending, replaceableSide, canPair, decidedOnly, nextRound, openRound, pairAction, rulingChoices, rulingLabel, newestFirst, samePairs, shownAfter, undecided, unpaired, unsavedMatch, zoneGapLabel, type AdminBlitzRound } from './blitz-rounds';
+import { byeTakers, canDeleteRound, canResetEdition, entrantActions, entrantState, resetsOf, partnersFor, leftUnpaired, pairCounts, reconcilePending, replaceableSide, canPair, decidedOnly, nextRound, openRound, pairAction, rulingChoices, rulingLabel, newestFirst, samePairs, shownAfter, undecided, unpaired, unsavedMatch, zoneGapLabel, type AdminBlitzRound } from './blitz-rounds';
 
 const round = (id: number, number: number, published: boolean, matches: AdminBlitzRound['matches']): AdminBlitzRound => ({
   id,
@@ -232,6 +232,27 @@ describe('entrantActions', () => {
     ['no Skip when the knockout is next', entrant(1), swissDone, { action: 'drop', skip: null }],
   ])('%s', (_name, e, ed, want) => {
     expect(entrantActions(e, ed)).toEqual(want);
+  });
+});
+
+describe('resetsOf', () => {
+  it.each([
+    ['nothing before any round', [], { round: null, matches: [] }],
+    ['the latest round and its decided matches, byes aside', [round(1, 1, true, [match(1, 1, 2, 'a')]), round(2, 2, true, [match(2, 1, 3, 'b'), match(3, 2, 4), match(4, 5, null)])], { round: 2, matches: [2] }],
+    ['nothing while the latest round has no result', [round(1, 1, true, [match(1, 1, 2, 'a')]), round(2, 2, false, [match(2, 1, 3)])], { round: null, matches: [] }],
+  ])('offers %s', (_name, rounds, want) => {
+    expect(resetsOf(rounds)).toEqual(want);
+  });
+});
+
+describe('canResetEdition', () => {
+  it.each([
+    ['a round', [round(1, 1, false, [])], [entrant(1)], true],
+    ['a dropped entrant', [], [entrant(1, 'dropped')], true],
+    ['a skip', [], [entrant(1, 'active', [1])], true],
+    ['entrants alone', [], [entrant(1), entrant(2)], false],
+  ])('is %s worth a reset', (_name, rounds, entrants, want) => {
+    expect(canResetEdition({ rounds, entrants })).toBe(want);
   });
 });
 

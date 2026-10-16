@@ -14,7 +14,7 @@ import { deadlineForm, deadlineLabel, deadlineLocked, organiserChoices, organise
 import { entrantToAdd, wildcardChoices, type PersonChoice, type PersonDetails } from '../lib/person-form';
 import { countryNames, type Country } from '../lib/countries';
 import { clockIn, type Region } from '../lib/zones';
-import { asChanges, byeTakers, canDeleteRound, decidedOnly, entrantActions, entrantState, leftUnpaired, newestFirst, openRound, pairAction, pairCounts, partnersFor, reconcilePending, replaceableSide, rulingChoices, rulingLabel, samePairs, shownAfter, unpaired, unsavedMatch, zoneGapLabel, type AdminBlitzMatch, type AdminBlitzRound, type Pending } from '../lib/blitz-rounds';
+import { asChanges, byeTakers, canDeleteRound, canResetEdition, decidedOnly, resetsOf, entrantActions, entrantState, leftUnpaired, newestFirst, openRound, pairAction, pairCounts, partnersFor, reconcilePending, replaceableSide, rulingChoices, rulingLabel, samePairs, shownAfter, unpaired, unsavedMatch, zoneGapLabel, type AdminBlitzMatch, type AdminBlitzRound, type Pending } from '../lib/blitz-rounds';
 import AdminHeader from './AdminHeader';
 import CountryPick from './CountryPick';
 import InfoTip from './InfoTip';
@@ -231,6 +231,26 @@ function RoundsPanel({ at, ed, regions, onReload, say }: Props) {
     setPending(null);
     void run(req.deleteBlitzRound(at.slug, at.edition, r.id), `${title} deleted.`);
   };
+  const resets = resetsOf(ed.rounds);
+  const resetResult = (r: AdminBlitzRound, m: AdminBlitzMatch) => {
+    if (!window.confirm(`Reset ${nameOf(m.a)} v ${nameOf(m.b as number)}? Its result, ruling and game go, as if never played.`)) return;
+    setRecording(null);
+    void run(req.resetBlitzResult(at.slug, at.edition, r.id, m.id), `${nameOf(m.a)} v ${nameOf(m.b as number)} reset.`);
+  };
+  const resetRound = (r: AdminBlitzRound) => {
+    const title = roundTitle(r.number, ed.format);
+    if (!window.confirm(`Reset every result of ${title}? Its results, rulings and games go; the pairing stays, and can then be deleted.`)) return;
+    setRecording(null);
+    void run(req.resetBlitzRound(at.slug, at.edition, r.id), `${title}'s results reset.`);
+  };
+  const resetEdition = () => {
+    const games = ed.rounds.flatMap((r) => r.matches).filter((m) => m.game !== null).length;
+    const what = `${ed.rounds.length} round${ed.rounds.length === 1 ? '' : 's'} and ${games} recorded game${games === 1 ? '' : 's'}`;
+    if (!window.confirm(`Reset ${ed.name} ${ed.edition}? This deletes ${what}, puts every dropped player back in and clears every skip. Entrants, organisers, format, points and thread text stay. It cannot be undone.`)) return;
+    setPending(null);
+    setRecording(null);
+    void run(req.resetBlitzEdition(at.slug, at.edition), `${ed.name} ${ed.edition} reset: pair round 1 again.`);
+  };
   const swiss = (open?.kind ?? (action.kind === 'next' ? action.round.kind : null)) === 'swiss';
   // choose offers the players given, the unpaired ones a pick may take.
   const choose = (value: string, set: (v: string) => void, label: string, players: readonly AdminBlitzEntrant[]) => (
@@ -324,6 +344,14 @@ function RoundsPanel({ at, ed, regions, onReload, say }: Props) {
             <button type="button" className="btn-antique btn-settings" aria-expanded={shown(r)} onClick={() => toggleRound(r.number)}>
               {shown(r) ? 'Hide matches' : 'Show matches'}
             </button>
+            {resets.round === r.id && !changed(r) && (
+              <>
+                {' '}
+                <button type="button" className="btn-antique btn-settings" onClick={() => resetRound(r)}>
+                  Reset results
+                </button>
+              </>
+            )}
           </p>
           <RoundThreads at={at} ed={ed} round={r} regions={regions} unsaved={changed(r)} onReload={onReload} say={say} />
           {shown(r) && (
@@ -397,6 +425,11 @@ function RoundsPanel({ at, ed, regions, onReload, say }: Props) {
                                   {m.result === null ? 'Record' : 'Correct'}
                                 </button>
                               )}
+                              {resets.matches.includes(m.id) && !changed(r) && (
+                                <button type="button" className="btn-antique" onClick={() => resetResult(r, m)}>
+                                  Reset
+                                </button>
+                              )}
                               {r.id === open?.id && r.kind === 'swiss' && m.result === null && (
                                 <button type="button" className="btn-antique" onClick={() => unpair(r, i)}>
                                   Unpair
@@ -468,6 +501,19 @@ function RoundsPanel({ at, ed, regions, onReload, say }: Props) {
           )}
         </div>
       ))}
+      {canResetEdition(ed) && (
+        <div className="admin-subsection">
+          <h3>Reset the tournament</h3>
+          <p className="muted">
+            Starts the edition again from its entrants: every round, result and game goes, every dropped player is in
+            again and every skip goes. Entrants and their details, organisers, format, points and thread text stay.
+            To undo less, reset a round&apos;s results (latest round only), then delete the round.
+          </p>
+          <button type="button" className="btn-antique" onClick={resetEdition}>
+            Reset {ed.name} {ed.edition}
+          </button>
+        </div>
+      )}
     </div>
   );
 }
@@ -1119,7 +1165,7 @@ function ResultForm({ at, round, match, nameOf, regions, zone, onZone, onDone, o
         <>
           <div className="result-row">
             <label>
-              Share code
+              Share code, if any
               <input className="input-antique" value={game.share_code} maxLength={32} onChange={(e) => setGame({ ...game, share_code: e.target.value })} />
             </label>
           </div>

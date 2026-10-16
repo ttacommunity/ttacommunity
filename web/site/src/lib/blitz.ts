@@ -52,9 +52,14 @@ export function blitzGames(rounds: readonly BlitzRound[], format: BlitzFormat, f
   const kept = rounds
     .filter((r) => filter.round === null || r.number === filter.round)
     .flatMap((r) => r.matches.map((m, i) => ({ r, m, i })))
-    .filter(({ m }) => (filter.player === '' || m.a === filter.player || m.b === filter.player) && (!filter.coded || m.game !== null));
+    .filter(({ m }) => (filter.player === '' || m.a === filter.player || m.b === filter.player) && (!filter.coded || coded(m)));
   const rows = kept.map(({ r, m, i }) => blitzRow(r.number, i + 1, m, format, day));
-  return { ...pageOf(rows, filter.page), games: kept.filter(({ m }) => m.b !== null).length, coded: kept.filter(({ m }) => m.game !== null).length };
+  return { ...pageOf(rows, filter.page), games: kept.filter(({ m }) => m.b !== null).length, coded: kept.filter(({ m }) => coded(m)).length };
+}
+
+/** coded says whether a match's game was recorded with a replay code. */
+function coded(m: BlitzMatch): boolean {
+  return m.game !== null && m.game.share_code !== '';
 }
 
 /** blitzRow is game number n of a round as a games-table row: rated players linked with their ratings, seeds in the knockout. */
@@ -77,7 +82,7 @@ function blitzRow(round: number, n: number, m: BlitzMatch, format: BlitzFormat, 
     tag: resultTag(m),
     unplayed: m.b === null || (m.result !== null && g === null),
     seats,
-    code: g?.share_code ?? null,
+    code: g === null || g.share_code === '' ? null : g.share_code,
   };
 }
 

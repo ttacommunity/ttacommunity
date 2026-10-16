@@ -155,7 +155,7 @@ func TestBlitzGamesThatCannotBeRecorded(t *testing.T) {
 		{"an unknown match", 999, game, ErrNoBlitzMatch},
 		{"a bye", bye.ID, game, ErrBlitzBye},
 		{"a code already on another game", matches[1], BlitzGame{ShareCode: "ABCD1234", A: finished(180), B: finished(170), Finished: finishedAt}, &BlitzShareCodeError{}},
-		{"no code", matches[1], BlitzGame{A: finished(180), B: finished(170), Finished: finishedAt}, ErrBadBlitzGame},
+		{"a code over 32 characters", matches[1], BlitzGame{ShareCode: strings.Repeat("X", 33), A: finished(180), B: finished(170), Finished: finishedAt}, ErrBadBlitzGame},
 		{"an outcome that is not finished, resigned or timed out", matches[1], BlitzGame{ShareCode: "EFGH5678", A: finished(180), B: BlitzSide{Outcome: "lost"}, Finished: finishedAt}, ErrBadBlitzGame},
 		{"a negative culture", matches[1], BlitzGame{ShareCode: "EFGH5678", A: finished(-1), B: finished(170), Finished: finishedAt}, ErrBadBlitzGame},
 		{"neither player finished", matches[1], BlitzGame{ShareCode: "EFGH5678", A: BlitzSide{Outcome: "resigned"}, B: BlitzSide{Outcome: "timed_out"}, Finished: finishedAt}, ErrBadBlitzGame},
@@ -179,6 +179,29 @@ func TestBlitzGamesThatCannotBeRecorded(t *testing.T) {
 	var games int
 	if err := a.pool.QueryRow(ctx, "SELECT count(*) FROM games").Scan(&games); err != nil || games != 1 {
 		t.Errorf("games after the refusals = %d, %v; want the one recorded", games, err)
+	}
+}
+
+func TestAGameNeedsNoShareCode(t *testing.T) {
+	a, _, _, matches := blitzRoundOne(t)
+	ctx := context.Background()
+	for _, m := range matches {
+		if err := a.RecordBlitzGame(ctx, "us_open", "2026", m, BlitzGame{ShareCode: " ", A: finished(250), B: finished(200), Finished: finishedAt}); err != nil {
+			t.Fatalf("RecordBlitzGame(match %d) with no code: %v", m, err)
+		}
+	}
+	ed, err := a.BlitzEdition(ctx, "us_open", "2026")
+	if err != nil {
+		t.Fatalf("BlitzEdition: %v", err)
+	}
+	for _, id := range matches {
+		if m := matchOf(t, ed, id); m.Game == nil || m.Game.ShareCode != "" || m.Result != "a" {
+			t.Errorf("match %d = %q, want won by A with a game and no code", id, resultLine(m))
+		}
+	}
+	var none int
+	if err := a.pool.QueryRow(ctx, "SELECT count(*) FROM games WHERE share_code IS NULL").Scan(&none); err != nil || none != 2 {
+		t.Errorf("games stored without a code = %d, %v; want 2", none, err)
 	}
 }
 

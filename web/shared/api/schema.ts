@@ -1579,12 +1579,83 @@ export interface paths {
          *     tournament's page shows it at once; recording the match again changes
          *     that one game. The higher culture wins and equal cultures draw; a
          *     resigned or timed-out player loses with culture 0; a drawn knockout
-         *     game stays a draw as a game and sends the higher seed through. A share
-         *     code already on another game is refused, naming it. The match's ruling, if any, is
+         *     game stays a draw as a game and sends the higher seed through. The
+         *     share code may be empty, for a game without one; one already on
+         *     another game is refused, naming it. The match's ruling, if any, is
          *     cleared.
          */
         put: operations["putAdminBlitzMatchGame"];
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/blitz/{tournament}/{edition}/rounds/{round}/matches/{match}/result": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Reset a match's result, as if never played
+         * @description Audited. The Origin must be the admin site. Only in the latest
+         *     round: the result, ruling and game go (with the game's seats, and
+         *     the "Round N" stage once it holds no game). Resetting it again
+         *     changes nothing. A game a ratings run includes is refused: record it
+         *     again to correct it.
+         */
+        delete: operations["deleteAdminBlitzMatchResult"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/blitz/{tournament}/{edition}/rounds/{round}/results": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Reset every result of the latest round, its pairing kept
+         * @description Audited. The Origin must be the admin site. Every result, ruling and
+         *     game of the latest round goes, as a match's reset does; the round and
+         *     its matches stay, so it can then be deleted and the round before
+         *     reset in turn.
+         */
+        delete: operations["deleteAdminBlitzRoundResults"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/blitz/{tournament}/{edition}/reset": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Start an edition again from its entrants
+         * @description Audited. The Origin must be the admin site. Every round, result and
+         *     game goes, every dropped entrant is in again and every skip goes.
+         *     The entrants and their details, the organisers, format, points and
+         *     thread text stay. A game a ratings run includes is refused.
+         */
+        post: operations["postAdminBlitzReset"];
         delete?: never;
         options?: never;
         head?: never;
@@ -2693,6 +2764,7 @@ export interface components {
         };
         /** @description A played game, with the share code, each side as the match names them, and when it finished */
         BlitzGameRecord: {
+            /** @description Empty for a game without one */
             share_code: string;
             a: components["schemas"]["BlitzGameSide"];
             b: components["schemas"]["BlitzGameSide"];
@@ -6284,6 +6356,90 @@ export interface operations {
                 content?: never;
             };
             400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+        };
+    };
+    deleteAdminBlitzMatchResult: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The tournament's slug */
+                tournament: components["parameters"]["AdminTournamentSlug"];
+                /** @description The edition's label, as admin lists it (a season) */
+                edition: components["parameters"]["BlitzEditionLabel"];
+                round: components["parameters"]["BlitzRoundId"];
+                match: components["parameters"]["BlitzMatchId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Reset */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+        };
+    };
+    deleteAdminBlitzRoundResults: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The tournament's slug */
+                tournament: components["parameters"]["AdminTournamentSlug"];
+                /** @description The edition's label, as admin lists it (a season) */
+                edition: components["parameters"]["BlitzEditionLabel"];
+                round: components["parameters"]["BlitzRoundId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Reset */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+        };
+    };
+    postAdminBlitzReset: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The tournament's slug */
+                tournament: components["parameters"]["AdminTournamentSlug"];
+                /** @description The edition's label, as admin lists it (a season) */
+                edition: components["parameters"]["BlitzEditionLabel"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Reset */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];

@@ -10,12 +10,15 @@ describe('gameRecordFrom', () => {
       body: { share_code: 'ABCD1234', a: { culture: 250, outcome: 'finished' }, b: { culture: 200, outcome: 'finished' }, finished_on: '2026-10-14', finished_time: '21:30', zone: 'Europe Central' },
     });
   });
+  it('sends no share code for a game without one', () => {
+    const r = gameRecordFrom({ ...form, share_code: ' ' });
+    expect(r.ok && r.body.share_code).toBe('');
+  });
   it('sends 0 for a player who resigned or timed out, whatever was typed', () => {
     const r = gameRecordFrom({ ...form, b_culture: '190', b_outcome: 'resigned' });
     expect(r.ok && r.body.b).toEqual({ culture: 0, outcome: 'resigned' });
   });
   it.each([
-    ['no share code', { ...form, share_code: ' ' }, 'share code'],
     ['a culture that is not a number', { ...form, a_culture: 'lots' }, 'culture'],
     ['a negative culture', { ...form, b_culture: '-1' }, 'culture'],
     ['an empty culture for a finished player', { ...form, a_culture: '' }, 'culture'],

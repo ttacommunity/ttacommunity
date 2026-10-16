@@ -106,6 +106,11 @@ describe('blitzGames', () => {
     const got = blitzGames(rounds, format, filter, 'UTC');
     expect([got.rows.map((r) => r.key), got.games, got.coded]).toEqual([keys, games, coded]);
   });
+  it('shows a game recorded without a code with none, and leaves it out of those with a code', () => {
+    const uncoded = [round(1, [match('Ann', 'Dee', { result: 'a', game: played('', '2026-10-07T20:00:00Z') })])];
+    const got = blitzGames(uncoded, format, all, 'UTC');
+    expect([got.rows[0].code, got.coded, blitzGames(uncoded, format, { ...all, coded: true }, 'UTC').rows.length]).toEqual([null, 0, 0]);
+  });
   it('pages the rows', () => {
     const many = [round(1, Array.from({ length: 60 }, (_, i) => match(`P${i}`, `Q${i}`)))];
     const got = blitzGames(many, format, { ...all, page: 2 }, 'UTC');

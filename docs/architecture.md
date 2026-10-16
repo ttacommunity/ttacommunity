@@ -217,8 +217,13 @@ under the edition's stage "Round N", from an `import_batches` row of
 source `admin`, with the time it finished (entered on the clocks of a zone
 or region, stored in UTC; its `date` is that time's UTC day, as for the
 games CGE's data brings), so the tournament's page shows it at once and a later CGE
-extract load matches it by share code instead of adding a copy; recording
-the match again corrects that one game. The match keeps the result (a win,
+extract load matches it by share code instead of adding a copy (a game
+recorded without a code has nothing to match it by); recording
+the match again corrects that one game. A result in the latest round can
+be reset, a match's or the whole round's: the game goes with its seats and
+batch, through `delete_blitz_game`, since the admin login cannot delete
+games itself. Resetting the edition removes every round and game and puts
+everyone back in. A game a ratings run includes is never deleted. The match keeps the result (a win,
 a draw or a double loss) and, when the organisers decided it instead, their
 ruling and its reason (a ruling may overrule a played game). The next round
 is paired only once every match has a result. The standings are computed

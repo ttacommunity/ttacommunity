@@ -74,6 +74,13 @@ export const removeBlitzEntrant = (slug: string, edition: string, id: number) =>
 export const skipBlitzRound = (slug: string, edition: string, id: number) => to(`${blitz(slug, edition)}/entrants/${id}/skip`, 'POST');
 /** unskipBlitzRound undoes an entrant's skip of a round not yet published. */
 export const unskipBlitzRound = (slug: string, edition: string, id: number) => to(`${blitz(slug, edition)}/entrants/${id}/skip`, 'DELETE');
+/** resetBlitzResult undoes a match's result in the latest round, game and all. */
+export const resetBlitzResult = (slug: string, edition: string, round: number, match: number) =>
+  to(`${blitz(slug, edition)}/rounds/${round}/matches/${match}/result`, 'DELETE');
+/** resetBlitzRound undoes every result of the latest round, its pairing kept. */
+export const resetBlitzRound = (slug: string, edition: string, round: number) => to(`${blitz(slug, edition)}/rounds/${round}/results`, 'DELETE');
+/** resetBlitzEdition starts an edition again from its entrants. */
+export const resetBlitzEdition = (slug: string, edition: string) => to(`${blitz(slug, edition)}/reset`, 'POST');
 /** setBlitzFormat sets an edition's Swiss rounds and knockout size. */
 export const setBlitzFormat = (slug: string, edition: string, format: Schemas['BlitzFormat']) => to(blitz(slug, edition), 'PATCH', format);
 /** setBlitzPoints sets what each outcome of an edition is worth. */
