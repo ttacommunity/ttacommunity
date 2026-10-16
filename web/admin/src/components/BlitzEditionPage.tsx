@@ -81,7 +81,7 @@ export default function BlitzEditionPage() {
                 {ed.data.name} {ed.data.edition}
               </h2>
               <p className="muted">
-                {formatLabel(ed.data.format)}. {count('active')} in, {count('pending')} pending, {count('dropped')} dropped.
+                {formatLabel(ed.data.format)}. {count('active')} in, {count('dropped')} dropped.
                 {ed.data.champion !== null && (
                   <>
                     {' '}
@@ -503,10 +503,10 @@ function EntrantsPanel({ at, ed, regions, countries, onReload, say }: Props) {
     <div className="admin-subsection">
       <h3>Entrants</h3>
       <p className="muted">
-        A name the ratings know is shown in their spelling, with the 2-player rating of the current run. Pending
-        players are named but not confirmed: neither paired nor shown on the site until you confirm them. Drop someone
-        who withdrew once they have played: their results stand and they are not paired again. Remove someone who has
-        not played: they come out of the round they are paired in.
+        A name the ratings know is shown in their spelling, with the 2-player rating of the current run. Everyone
+        entered is on the site at once. Drop someone who withdrew once they have played: their results stand and they
+        are not paired again. Remove someone who has not played, such as a sign-up who did not confirm: they come out
+        of the round they are paired in.
       </p>
       {ed.entrants.length === 0 && <p className="muted">No entrants yet.</p>}
       {ed.entrants.length > 0 && (
@@ -579,11 +579,6 @@ function EntrantsPanel({ at, ed, regions, countries, onReload, say }: Props) {
                       <button type="button" className="btn-antique" onClick={() => setEditing({ id: e.id, discord_name: e.discord_name, email: e.email, country: e.country ?? '', zone: e.zone })}>
                         Edit
                       </button>
-                      {buttons(e).confirm && (
-                        <button type="button" className="btn-antique" onClick={() => void change(e, 'active')}>
-                          Confirm
-                        </button>
-                      )}
                       {buttons(e).drop !== null && (
                         <button type="button" className="btn-antique" onClick={() => void change(e, e.status === 'dropped' ? 'active' : 'dropped')}>
                           {buttons(e).drop === 'reinstate' ? 'Reinstate' : 'Drop'}
@@ -608,9 +603,8 @@ function EntrantsPanel({ at, ed, regions, countries, onReload, say }: Props) {
 
 /** AddEntrantPanel enters someone found by searching the members not yet entered and the players the ratings know, or someone new by the name typed. Their details fill in where known; what the form then holds is saved on them. */
 function AddEntrantPanel({ at, ed, regions, countries, onReload, say }: Props) {
-  const [pending, setPending] = useState(false);
   const enter = async (details: PersonDetails) => {
-    const r = await req.send<BlitzEntrantIds>(req.addBlitzEntrants(at.slug, at.edition, [entrantToAdd(details, pending)]));
+    const r = await req.send<BlitzEntrantIds>(req.addBlitzEntrants(at.slug, at.edition, [entrantToAdd(details)]));
     say(r.ok ? `Entered ${details.name.trim()}.` : r.message);
     if (r.ok) await onReload();
     return r.ok;
@@ -630,12 +624,7 @@ function AddEntrantPanel({ at, ed, regions, countries, onReload, say }: Props) {
         submitLabel="Add"
         onSubmit={enter}
         refresh={ed}
-      >
-        <label className="setting-inline check-inline">
-          <input type="checkbox" checked={pending} onChange={(e) => setPending(e.target.checked)} />
-          Not confirmed yet
-        </label>
-      </PersonForm>
+      />
     </div>
   );
 }
@@ -1182,7 +1171,7 @@ function ReplaceForm({ at, round, match, out, ed, nameOf, onDone, onCancel }: Re
     if (how === 'wildcard' && picked !== null) {
       if (picked.key.startsWith('entrant ')) id = Number(picked.key.slice('entrant '.length));
       else {
-        const added = await req.send<BlitzEntrantIds>(req.addBlitzEntrants(at.slug, at.edition, [entrantToAdd(picked.fill, false)]));
+        const added = await req.send<BlitzEntrantIds>(req.addBlitzEntrants(at.slug, at.edition, [entrantToAdd(picked.fill)]));
         if (!added.ok) {
           setError(added.message);
           return;

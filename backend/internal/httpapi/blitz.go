@@ -49,14 +49,12 @@ func played(round int, m store.BlitzMatch) blitz.Played {
 	return p
 }
 
-// swissStandings ranks an edition's entrants, pending ones aside, by its published Swiss rounds' results, as its
-// points score them, and its tiebreak seed. The knockout's results never count: the standings after the last Swiss round are its seeds.
+// swissStandings ranks an edition's entrants by its published Swiss rounds' results, as its points score them,
+// and its tiebreak seed. The knockout's results never count: the standings after the last Swiss round are its seeds.
 func swissStandings(ed store.BlitzEdition) []blitz.Standing {
 	var entrants []blitz.Entrant
 	for _, e := range ed.Entrants {
-		if e.Status != "pending" {
-			entrants = append(entrants, blitz.Entrant{ID: e.ID, Dropped: e.Status == "dropped"})
-		}
+		entrants = append(entrants, blitz.Entrant{ID: e.ID, Dropped: e.Status == "dropped"})
 	}
 	var matches []blitz.Played
 	for _, r := range ed.Rounds {

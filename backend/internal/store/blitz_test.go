@@ -11,6 +11,7 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"ttacommunity/backend/internal/blitz"
@@ -96,7 +97,7 @@ func TestBlitzEntrantsAreAddedChangedAndRemoved(t *testing.T) {
 	ids, err := a.AddBlitzEntrants(ctx, "us_open", "2026", []BlitzEntrant{
 		{Name: " Ann ", DiscordName: "ann#1", Zone: "Europe/Berlin"},
 		{Name: "bob", Zone: "America/New_York"},
-		{Name: "Cy", Zone: "UTC", Status: "pending"},
+		{Name: "Cy", Zone: "UTC"},
 	})
 	if err != nil || len(ids) != 3 {
 		t.Fatalf("AddBlitzEntrants = %v, %v; want three ids", ids, err)
@@ -108,7 +109,7 @@ func TestBlitzEntrantsAreAddedChangedAndRemoved(t *testing.T) {
 	want := []BlitzEntrant{
 		{ID: ids[0], Name: "Ann", Player: "", DiscordName: "ann#1", Zone: "Europe/Berlin", Status: "active"},
 		{ID: ids[1], Name: "Bob", Player: "Bob", DiscordName: "", Zone: "America/New_York", Status: "active"},
-		{ID: ids[2], Name: "Cy", Player: "", DiscordName: "", Zone: "UTC", Status: "pending"},
+		{ID: ids[2], Name: "Cy", Player: "", DiscordName: "", Zone: "UTC", Status: "active"},
 	}
 	if diff := cmp.Diff(want, ed.Entrants, cmpopts.IgnoreFields(BlitzEntrant{}, "MemberID")); diff != "" {
 		t.Errorf("admin's entrants (-want +got):\n%s", diff)
@@ -118,8 +119,8 @@ func TestBlitzEntrantsAreAddedChangedAndRemoved(t *testing.T) {
 			t.Errorf("entrant %s has no member", e.Name)
 		}
 	}
-	if ed.BlitzEditionRow.Entrants != 2 || ed.Pending != 1 || ed.Dropped != 0 {
-		t.Errorf("counts = in %d pending %d out %d, want 2, 1 and 0", ed.BlitzEditionRow.Entrants, ed.Pending, ed.Dropped)
+	if ed.BlitzEditionRow.Entrants != 3 || ed.Dropped != 0 {
+		t.Errorf("counts = in %d out %d, want 3 and 0", ed.BlitzEditionRow.Entrants, ed.Dropped)
 	}
 
 	zone := "Europe/London"
@@ -135,12 +136,16 @@ func TestBlitzEntrantsAreAddedChangedAndRemoved(t *testing.T) {
 	if err != nil {
 		t.Fatalf("the site's BlitzEdition: %v", err)
 	}
-	wantPublic := []BlitzEntrant{{ID: ids[0], Name: "Ann", Zone: "Europe/London", Status: "active"}, {ID: ids[1], Name: "Bob", Player: "Bob", Zone: "America/New_York", Status: "dropped"}}
-	if diff := cmp.Diff(wantPublic, public.Entrants, cmpopts.IgnoreFields(BlitzEntrant{}, "MemberID")); diff != "" {
-		t.Errorf("the site's entrants, dropped included and pending left out (-want +got):\n%s", diff)
+	wantPublic := []BlitzEntrant{
+		{ID: ids[0], Name: "Ann", Zone: "Europe/London", Status: "active"},
+		{ID: ids[1], Name: "Bob", Player: "Bob", Zone: "America/New_York", Status: "dropped"},
+		{ID: ids[2], Name: "Cy", Zone: "UTC", Status: "active"},
 	}
-	if public.BlitzEditionRow.Entrants != 1 || public.Dropped != 1 {
-		t.Errorf("the site's counts = in %d out %d, want 1 and 1", public.BlitzEditionRow.Entrants, public.Dropped)
+	if diff := cmp.Diff(wantPublic, public.Entrants, cmpopts.IgnoreFields(BlitzEntrant{}, "MemberID")); diff != "" {
+		t.Errorf("the site's entrants, everyone entered, without Discord names (-want +got):\n%s", diff)
+	}
+	if public.BlitzEditionRow.Entrants != 2 || public.Dropped != 1 {
+		t.Errorf("the site's counts = in %d out %d, want 2 and 1", public.BlitzEditionRow.Entrants, public.Dropped)
 	}
 
 	if err := a.RemoveBlitzEntrant(ctx, "us_open", "2026", ids[0]); err != nil {
@@ -166,7 +171,6 @@ func TestBlitzEntrantsAreRefusedWhenTheyShouldBe(t *testing.T) {
 		{"a long Discord name", "us_open", "2026", nil, []BlitzEntrant{{Name: "Ann", DiscordName: strings.Repeat("x", 101), Zone: "UTC"}}, ErrBadMember, ""},
 		{"no zone", "us_open", "2026", nil, []BlitzEntrant{{Name: "Ann"}}, ErrBadMember, ""},
 		{"an unknown member", "us_open", "2026", nil, []BlitzEntrant{{MemberID: 999}}, ErrNoMember, ""},
-		{"a status that is not one", "us_open", "2026", nil, []BlitzEntrant{{Name: "Ann", Zone: "UTC", Status: "gone"}}, ErrBadBlitzStatus, ""},
 		{"a name twice in the list", "us_open", "2026", nil, []BlitzEntrant{{Name: "Ann", Zone: "UTC"}, {Name: "ann", Zone: "UTC"}}, &BlitzEntrantExistsError{}, "Ann"},
 		{"a name already entered", "us_open", "2026", []BlitzEntrant{{Name: "Ann", Zone: "UTC"}}, []BlitzEntrant{{Name: "ANN", Zone: "UTC"}, {Name: "Cy", Zone: "UTC"}}, &BlitzEntrantExistsError{}, "Ann"},
 	}
@@ -205,7 +209,7 @@ func TestBlitzEntrantChangesAreRefusedWhenTheyShouldBe(t *testing.T) {
 	if err != nil {
 		t.Fatalf("AddBlitzEntrants: %v", err)
 	}
-	gone, blank, long := "gone", " ", strings.Repeat("x", 101)
+	gone, pending, blank, long := "gone", "pending", " ", strings.Repeat("x", 101)
 	tests := []struct {
 		name    string
 		edition string
@@ -214,6 +218,7 @@ func TestBlitzEntrantChangesAreRefusedWhenTheyShouldBe(t *testing.T) {
 		want    error
 	}{
 		{"a status that is not active or dropped", "2026", ids[0], BlitzEntrantChange{Status: &gone}, ErrBadBlitzStatus},
+		{"pending, no longer a status", "2026", ids[0], BlitzEntrantChange{Status: &pending}, ErrBadBlitzStatus},
 		{"an empty zone", "2026", ids[0], BlitzEntrantChange{Zone: &blank}, ErrBadMember},
 		{"a long Discord name", "2026", ids[0], BlitzEntrantChange{DiscordName: &long}, ErrBadMember},
 		{"a country that is not a code", "2026", ids[0], BlitzEntrantChange{Country: &long}, ErrBadMember},
@@ -493,5 +498,46 @@ func TestTheDatabaseRefusesPointsOutOfRangeOrOrder(t *testing.T) {
 				t.Errorf("err = %v, want %s to refuse it", err, tt.constraint)
 			}
 		})
+	}
+}
+
+func TestTheMigrationTakesPendingEntrantsOut(t *testing.T) {
+	pool := newDB(t)
+	ctx := context.Background()
+	if err := migrateRatingsTo(ctx, pool, 23); err != nil {
+		t.Fatalf("migrateRatingsTo(23): %v", err)
+	}
+	for _, q := range []string{
+		`INSERT INTO series (slug, name, blitz) VALUES ('us_open', 'US Open', true)`,
+		`INSERT INTO tournaments (series_id, label) SELECT series_id, '2026' FROM series`,
+		`INSERT INTO blitz_editions (tournament_id, swiss_rounds, knockout_size) SELECT tournament_id, 8, 8 FROM tournaments`,
+		`INSERT INTO members (tta_name) VALUES ('Ann'), ('Bob'), ('Cy')`,
+		`INSERT INTO blitz_entries (tournament_id, member_id, status)
+		 SELECT tournament_id, member_id, CASE tta_name WHEN 'Ann' THEN 'active' ELSE 'pending' END FROM tournaments, members`,
+		`INSERT INTO blitz_rounds (tournament_id, number, seed) SELECT tournament_id, 1, 1 FROM tournaments`,
+		`INSERT INTO blitz_matches (round_id, entry_a, entry_b)
+		 SELECT round_id, (SELECT entry_id FROM blitz_entries JOIN members USING (member_id) WHERE tta_name = 'Ann'),
+		        (SELECT entry_id FROM blitz_entries JOIN members USING (member_id) WHERE tta_name = 'Bob') FROM blitz_rounds`,
+	} {
+		if _, err := pool.Exec(ctx, q); err != nil {
+			t.Fatalf("building the old shape: %v\n%s", err, q)
+		}
+	}
+	if err := migrateRatingsTo(ctx, pool, 24); err != nil {
+		t.Fatalf("migrateRatingsTo(24): %v", err)
+	}
+	rows, err := pool.Query(ctx, "SELECT m.tta_name || ' ' || x.status FROM blitz_entries x JOIN members m USING (member_id) ORDER BY 1")
+	if err != nil {
+		t.Fatalf("reading the entrants: %v", err)
+	}
+	got, err := pgx.CollectRows(rows, pgx.RowTo[string])
+	if err != nil {
+		t.Fatalf("reading the entrants: %v", err)
+	}
+	if diff := cmp.Diff([]string{"Ann active", "Bob active"}, got); diff != "" {
+		t.Errorf("entrants once pending goes: Cy, in no match, deleted; Bob, paired, in (-want +got):\n%s", diff)
+	}
+	if _, err := pool.Exec(ctx, "UPDATE blitz_entries SET status = 'pending'"); err == nil {
+		t.Errorf("the database took an entrant back to pending")
 	}
 }

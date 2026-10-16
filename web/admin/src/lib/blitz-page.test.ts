@@ -33,7 +33,7 @@ describe('formatAdvice', () => {
 
 describe('editionFormatWarnings', () => {
   const active = { status: 'active' };
-  const field = [active, active, active, { status: 'dropped' }, { status: 'pending' }];
+  const field = [active, active, active, { status: 'dropped' }];
   it.each([
     ['nothing to warn of', { swiss_rounds: 1, knockout_size: 0 }, field, [{ kind: 'swiss' }], []],
     [

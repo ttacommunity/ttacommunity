@@ -4040,7 +4040,7 @@ components:
     AdminBlitzEditionRow:
       description: One edition of a blitz tournament as admin's list shows it
       type: object
-      required: [tournament, name, edition, format, entrants, pending, dropped, round, champion]
+      required: [tournament, name, edition, format, entrants, dropped, round, champion]
       properties:
         champion:
           description: The winner of the knockout's final, by username; null until the final has a winner
@@ -4060,9 +4060,6 @@ components:
           $ref: "#/components/schemas/BlitzFormat"
         entrants:
           description: How many entrants are still in
-          type: integer
-        pending:
-          description: How many are named but not yet confirmed
           type: integer
         dropped:
           description: How many have dropped out
@@ -4100,9 +4097,9 @@ components:
           format: double
           nullable: true
         status:
-          description: Pending is named but not confirmed, neither paired nor shown on the site
+          description: Active is in; dropped is out of the rounds still to come, their results kept
           type: string
-          enum: [pending, active, dropped]
+          enum: [active, dropped]
     AdminBlitzEdition:
       type: object
       required: [tournament, name, edition, format, points, fide_points, entrants, rounds, standings, champion, organisers, thread_text]
@@ -4479,10 +4476,6 @@ components:
           type: string
           minLength: 1
           maxLength: 64
-        status:
-          description: Active unless given; pending for someone not yet confirmed
-          type: string
-          enum: [pending, active]
     Candidate:
       description: Someone admin may add or enter, a member or a player the ratings know, with what is known of them
       type: object
@@ -4570,7 +4563,7 @@ components:
           maxLength: 64
         status:
           type: string
-          enum: [pending, active, dropped]
+          enum: [active, dropped]
     Error:
       type: object
       required: [error]

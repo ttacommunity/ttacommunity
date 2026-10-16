@@ -2472,8 +2472,6 @@ export interface components {
             format: components["schemas"]["BlitzFormat"];
             /** @description How many entrants are still in */
             entrants: number;
-            /** @description How many are named but not yet confirmed */
-            pending: number;
             /** @description How many have dropped out */
             dropped: number;
         };
@@ -2497,10 +2495,10 @@ export interface components {
             /** Format: double */
             rating: number | null;
             /**
-             * @description Pending is named but not confirmed, neither paired nor shown on the site
+             * @description Active is in; dropped is out of the rounds still to come, their results kept
              * @enum {string}
              */
-            status: "pending" | "active" | "dropped";
+            status: "active" | "dropped";
         };
         AdminBlitzEdition: {
             points: components["schemas"]["BlitzPoints"];
@@ -2697,11 +2695,6 @@ export interface components {
             country?: string;
             /** @description An IANA time zone (Europe/Berlin), a region (US East) from GET /v1/admin/regions, or Unknown, the default */
             zone?: string;
-            /**
-             * @description Active unless given; pending for someone not yet confirmed
-             * @enum {string}
-             */
-            status?: "pending" | "active";
         };
         /** @description Someone admin may add or enter, a member or a player the ratings know, with what is known of them */
         Candidate: {
@@ -2747,7 +2740,7 @@ export interface components {
             country?: string;
             zone?: string;
             /** @enum {string} */
-            status?: "pending" | "active" | "dropped";
+            status?: "active" | "dropped";
         };
         Error: {
             error: string;
@@ -6650,9 +6643,8 @@ export const blitzResultValues: ReadonlyArray<FlattenedDeepRequired<components>[
 export const blitzOutcomeValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["BlitzOutcome"]> = ["finished", "resigned", "timed_out"];
 export const blitzStandingStatusValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["BlitzStanding"]["status"]> = ["active", "dropped"];
 export const adminBlitzRoundKindValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["AdminBlitzRound"]["kind"]> = ["swiss", "knockout"];
-export const adminBlitzEntrantStatusValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["AdminBlitzEntrant"]["status"]> = ["pending", "active", "dropped"];
-export const newBlitzEntrantStatusValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["NewBlitzEntrant"]["status"]> = ["pending", "active"];
-export const blitzEntrantChangeStatusValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["BlitzEntrantChange"]["status"]> = ["pending", "active", "dropped"];
+export const adminBlitzEntrantStatusValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["AdminBlitzEntrant"]["status"]> = ["active", "dropped"];
+export const blitzEntrantChangeStatusValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["BlitzEntrantChange"]["status"]> = ["active", "dropped"];
 export const modelValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["Model"]> = ["glicko2_daneo", "glicko2_daneo_softer", "glicko2_std", "glicko2_std_softer", "glicko2_std_retro", "glicko2_std_softer_retro", "glicko2_mp", "glicko2_mp_softer", "glicko2_mp_retro", "glicko2_mp_softer_retro", "glicko2_adapt", "glicko2_adapt_softer", "glicko2_adapt_retro", "glicko2_adapt_softer_retro", "whr", "whr_softer"];
 export const formatValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["Format"]> = [0, 2, 3, 4];
 export const titleCodeValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["TitleCode"]> = ["WC", "SGM", "WCS", "WCB", "GM", "M", "P", "G", "S", "B", "W"];

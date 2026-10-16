@@ -44,8 +44,6 @@ func (f *fakeAdmins) blitzRow() store.BlitzEditionRow {
 		switch e.Status {
 		case "dropped":
 			row.Dropped++
-		case "pending":
-			row.Pending++
 		default:
 			row.Entrants++
 		}
@@ -141,9 +139,7 @@ func (f *fakeAdmins) AddBlitzEntrants(_ context.Context, slug, edition string, e
 		if e.MemberID == 0 {
 			e.MemberID = 1000 + e.ID
 		}
-		if e.Status == "" {
-			e.Status = "active"
-		}
+		e.Status = "active"
 		f.entrants = append(f.entrants, e)
 		ids, names = append(ids, e.ID), append(names, e.Name)
 	}
@@ -155,7 +151,7 @@ func (f *fakeAdmins) SetBlitzEntrant(_ context.Context, slug, edition string, id
 	if slug != "us_open" || edition != "2026" {
 		return store.ErrNoBlitzEdition
 	}
-	if c.Status != nil && !slices.Contains([]string{"pending", "active", "dropped"}, *c.Status) {
+	if c.Status != nil && !slices.Contains([]string{"active", "dropped"}, *c.Status) {
 		return store.ErrBadBlitzStatus
 	}
 	for i := range f.blitzEntrants() {
@@ -333,7 +329,7 @@ func TestAnOrganiserFillsABlitzEdition(t *testing.T) {
 		t.Fatalf("GET blitz = %d %s, want us_open 2026 with one entrant", rec.Code, rec.Body)
 	}
 
-	rec = do(http.MethodPost, "/v1/admin/blitz/us_open/2026/entrants", site, `{"entrants": [{"name": "bob", "discord_name": "bobby", "zone": " America/New_York "}, {"name": "cy", "zone": "UTC", "status": "pending"}]}`)
+	rec = do(http.MethodPost, "/v1/admin/blitz/us_open/2026/entrants", site, `{"entrants": [{"name": "bob", "discord_name": "bobby", "zone": " America/New_York "}, {"name": "cy", "zone": "UTC"}]}`)
 	var ids BlitzEntrantIds
 	if err := json.Unmarshal(rec.Body.Bytes(), &ids); err != nil || rec.Code != http.StatusCreated || len(ids.Ids) != 2 || ids.Ids[0] != 8 {
 		t.Fatalf("POST entrants = %d %s, want 201 with ids 8 and 9", rec.Code, rec.Body)
@@ -348,7 +344,7 @@ func TestAnOrganiserFillsABlitzEdition(t *testing.T) {
 	wantEntrants := []AdminBlitzEntrant{
 		{Id: 7, Member: 0, Name: "Ann", Player: "Ann", DiscordName: "ann#1", Zone: "Europe/Berlin", UtcOffset: "+02:00", Rating: &ann, Status: "active"},
 		{Id: 8, Member: 1008, Name: "bob", Player: "", DiscordName: "bobby", Zone: "America/New_York", UtcOffset: "-04:00", Rating: nil, Status: "active"},
-		{Id: 9, Member: 1009, Name: "cy", Player: "", DiscordName: "", Zone: "UTC", UtcOffset: "+00:00", Rating: nil, Status: "pending"},
+		{Id: 9, Member: 1009, Name: "cy", Player: "", DiscordName: "", Zone: "UTC", UtcOffset: "+00:00", Rating: nil, Status: "active"},
 	}
 	if diff := cmp.Diff(wantEntrants, ed.Entrants); diff != "" {
 		t.Errorf("entrants (-want +got):\n%s", diff)
@@ -358,7 +354,7 @@ func TestAnOrganiserFillsABlitzEdition(t *testing.T) {
 	}
 
 	for _, step := range []struct{ method, path, body string }{
-		{http.MethodPatch, "/v1/admin/blitz/us_open/2026/entrants/8", `{"status": "pending"}`},
+		{http.MethodPatch, "/v1/admin/blitz/us_open/2026/entrants/8", `{"zone": "UTC"}`},
 		{http.MethodPatch, "/v1/admin/blitz/us_open/2026", `{"swiss_rounds": 6, "knockout_size": 4}`},
 		{http.MethodDelete, "/v1/admin/blitz/us_open/2026/entrants/8", ""},
 	} {
@@ -366,7 +362,7 @@ func TestAnOrganiserFillsABlitzEdition(t *testing.T) {
 			t.Errorf("%s %s = %d %s, want 204", step.method, step.path, rec.Code, rec.Body)
 		}
 	}
-	if want := "add entrants bob,cy|set entrant 8 status=pending|format 6/4|remove entrant 8"; strings.Join(f.notes, "|") != want {
+	if want := "add entrants bob,cy|set entrant 8 zone=UTC|format 6/4|remove entrant 8"; strings.Join(f.notes, "|") != want {
 		t.Errorf("changes = %q, want %q", f.notes, want)
 	}
 	want := []string{"blitz.entrants.add us_open/2026", "blitz.entrant.set 8", "blitz.format us_open/2026", "blitz.entrant.remove 8"}
@@ -394,6 +390,7 @@ func TestBlitzChangesAreRefusedWhenTheyShouldBe(t *testing.T) {
 		{"an empty name", http.MethodPost, "/v1/admin/blitz/us_open/2026/entrants", site, `{"entrants": [{"name": "", "zone": "UTC"}]}`, http.StatusBadRequest, ""},
 		{"nothing to change", http.MethodPatch, "/v1/admin/blitz/us_open/2026/entrants/7", site, `{}`, http.StatusBadRequest, ""},
 		{"a status that is not active or dropped", http.MethodPatch, "/v1/admin/blitz/us_open/2026/entrants/7", site, `{"status": "gone"}`, http.StatusBadRequest, ""},
+		{"pending, no longer a status", http.MethodPatch, "/v1/admin/blitz/us_open/2026/entrants/7", site, `{"status": "pending"}`, http.StatusBadRequest, ""},
 		{"a zone change to a non-zone", http.MethodPatch, "/v1/admin/blitz/us_open/2026/entrants/7", site, `{"zone": "GMT+2"}`, http.StatusBadRequest, "GMT+2"},
 		{"dropping an entrant who has not played", http.MethodPatch, "/v1/admin/blitz/us_open/2026/entrants/7", site, `{"status": "dropped"}`, http.StatusConflict, "remove them"},
 		{"changing an unknown entrant", http.MethodPatch, "/v1/admin/blitz/us_open/2026/entrants/99", site, `{"status": "dropped"}`, http.StatusNotFound, ""},

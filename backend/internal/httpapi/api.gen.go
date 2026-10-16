@@ -23,7 +23,6 @@ import (
 const (
 	AdminBlitzEntrantStatusActive  AdminBlitzEntrantStatus = "active"
 	AdminBlitzEntrantStatusDropped AdminBlitzEntrantStatus = "dropped"
-	AdminBlitzEntrantStatusPending AdminBlitzEntrantStatus = "pending"
 )
 
 // Valid indicates whether the value is a known member of the AdminBlitzEntrantStatus enum.
@@ -32,8 +31,6 @@ func (e AdminBlitzEntrantStatus) Valid() bool {
 	case AdminBlitzEntrantStatusActive:
 		return true
 	case AdminBlitzEntrantStatusDropped:
-		return true
-	case AdminBlitzEntrantStatusPending:
 		return true
 	default:
 		return false
@@ -203,7 +200,6 @@ func (e AdminTitle) Valid() bool {
 const (
 	BlitzEntrantChangeStatusActive  BlitzEntrantChangeStatus = "active"
 	BlitzEntrantChangeStatusDropped BlitzEntrantChangeStatus = "dropped"
-	BlitzEntrantChangeStatusPending BlitzEntrantChangeStatus = "pending"
 )
 
 // Valid indicates whether the value is a known member of the BlitzEntrantChangeStatus enum.
@@ -212,8 +208,6 @@ func (e BlitzEntrantChangeStatus) Valid() bool {
 	case BlitzEntrantChangeStatusActive:
 		return true
 	case BlitzEntrantChangeStatusDropped:
-		return true
-	case BlitzEntrantChangeStatusPending:
 		return true
 	default:
 		return false
@@ -484,24 +478,6 @@ func (e Model) Valid() bool {
 	case Whr:
 		return true
 	case WhrSofter:
-		return true
-	default:
-		return false
-	}
-}
-
-// Defines values for NewBlitzEntrantStatus.
-const (
-	NewBlitzEntrantStatusActive  NewBlitzEntrantStatus = "active"
-	NewBlitzEntrantStatusPending NewBlitzEntrantStatus = "pending"
-)
-
-// Valid indicates whether the value is a known member of the NewBlitzEntrantStatus enum.
-func (e NewBlitzEntrantStatus) Valid() bool {
-	switch e {
-	case NewBlitzEntrantStatusActive:
-		return true
-	case NewBlitzEntrantStatusPending:
 		return true
 	default:
 		return false
@@ -920,9 +896,6 @@ type AdminBlitzEditionRow struct {
 	Format BlitzFormat `json:"format"`
 	Name   string      `json:"name"`
 
-	// Pending How many are named but not yet confirmed
-	Pending int `json:"pending"`
-
 	// Round The latest published round's number, null before the first is published
 	Round      *int   `json:"round"`
 	Tournament string `json:"tournament"`
@@ -945,13 +918,13 @@ type AdminBlitzEntrant struct {
 	Player string   `json:"player"`
 	Rating *float64 `json:"rating"`
 
-	// Status Pending is named but not confirmed, neither paired nor shown on the site
+	// Status Active is in; dropped is out of the rounds still to come, their results kept
 	Status    AdminBlitzEntrantStatus `json:"status"`
 	UtcOffset string                  `json:"utc_offset"`
 	Zone      string                  `json:"zone"`
 }
 
-// AdminBlitzEntrantStatus Pending is named but not confirmed, neither paired nor shown on the site
+// AdminBlitzEntrantStatus Active is in; dropped is out of the rounds still to come, their results kept
 type AdminBlitzEntrantStatus string
 
 // AdminBlitzMatch A match by entrant ids; b is null for the bye. The gaps are as the entrants are now
@@ -2373,15 +2346,9 @@ type NewBlitzEntrant struct {
 	Member      *int64  `json:"member,omitempty"`
 	Name        *string `json:"name,omitempty"`
 
-	// Status Active unless given; pending for someone not yet confirmed
-	Status *NewBlitzEntrantStatus `json:"status,omitempty"`
-
 	// Zone An IANA time zone (Europe/Berlin), a region (US East) from GET /v1/admin/regions, or Unknown, the default
 	Zone *string `json:"zone,omitempty"`
 }
-
-// NewBlitzEntrantStatus Active unless given; pending for someone not yet confirmed
-type NewBlitzEntrantStatus string
 
 // NewBlitzEntrants defines model for NewBlitzEntrants.
 type NewBlitzEntrants struct {

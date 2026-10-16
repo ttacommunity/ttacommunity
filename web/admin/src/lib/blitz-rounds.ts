@@ -126,14 +126,13 @@ export function hasPlayed(id: number, rounds: readonly AdminBlitzRound[]): boole
   return rounds.some((r) => r.matches.some((m) => (m.a === id || m.b === id) && (m.result !== null || (m.b === null && r.published_at !== null))));
 }
 
-/** EntrantButtons are the buttons an entrant's row shows: Confirm, Drop or Reinstate, and Remove. */
-export type EntrantButtons = { confirm: boolean; drop: 'drop' | 'reinstate' | null; remove: 'remove' | null };
+/** EntrantButtons are the buttons an entrant's row shows: Drop or Reinstate, and Remove. */
+export type EntrantButtons = { drop: 'drop' | 'reinstate' | null; remove: 'remove' | null };
 
-/** entrantButtons decides an entrant's buttons: Confirm while pending; Reinstate once dropped, and Drop only for one who has played; Remove only for one who has not (it takes them out of their round). */
+/** entrantButtons decides an entrant's buttons: Reinstate once dropped, and Drop only for one who has played; Remove only for one who has not (it takes them out of their round). */
 export function entrantButtons(e: { id: number; status: AdminBlitzEntrant['status'] }, rounds: readonly AdminBlitzRound[]): EntrantButtons {
   const played = hasPlayed(e.id, rounds);
   return {
-    confirm: e.status === 'pending',
     drop: e.status === 'dropped' ? 'reinstate' : e.status === 'active' && played ? 'drop' : null,
     remove: played ? null : 'remove',
   };

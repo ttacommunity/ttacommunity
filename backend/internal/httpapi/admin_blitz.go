@@ -66,7 +66,7 @@ func (s *server) adminBlitzEntrant(e store.BlitzEntrant, rated map[string]store.
 }
 
 func adminBlitzEditionRow(r store.BlitzEditionRow) AdminBlitzEditionRow {
-	return AdminBlitzEditionRow{Tournament: r.Slug, Name: r.Name, Edition: r.Edition, Entrants: r.Entrants, Pending: r.Pending, Dropped: r.Dropped,
+	return AdminBlitzEditionRow{Tournament: r.Slug, Name: r.Name, Edition: r.Edition, Entrants: r.Entrants, Dropped: r.Dropped,
 		Round: r.Round, Champion: r.Champion, Format: BlitzFormat{SwissRounds: r.Format.SwissRounds, KnockoutSize: r.Format.KnockoutSize}}
 }
 
@@ -175,9 +175,6 @@ func (s *server) PostAdminBlitzEntrants(ctx context.Context, req PostAdminBlitzE
 				*field = *given
 			}
 		}
-		if e.Status != nil {
-			in.Status = string(*e.Status)
-		}
 		entrants[i] = in
 	}
 	ids, err := s.admins.AddBlitzEntrants(ctx, req.Tournament, req.Edition, entrants)
@@ -186,7 +183,7 @@ func (s *server) PostAdminBlitzEntrants(ctx context.Context, req PostAdminBlitzE
 	switch {
 	case errors.As(err, &exists), errors.As(err, &member), errors.Is(err, store.ErrMemberBanned):
 		return PostAdminBlitzEntrants409JSONResponse{conflict409(err.Error())}, nil
-	case errors.Is(err, store.ErrBadBlitzEntrant), errors.Is(err, store.ErrBadMember), errors.Is(err, store.ErrBadBlitzStatus):
+	case errors.Is(err, store.ErrBadBlitzEntrant), errors.Is(err, store.ErrBadMember):
 		return PostAdminBlitzEntrants400JSONResponse{badRequest400(err.Error())}, nil
 	case errors.Is(err, store.ErrNoBlitzEdition):
 		return PostAdminBlitzEntrants404JSONResponse{notFound404("no such blitz edition")}, nil

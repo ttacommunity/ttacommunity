@@ -219,13 +219,13 @@ describe('entrantButtons', () => {
     round(2, 2, false, [match(4, 6, null)]),
   ];
   it.each([
-    ['Drop for one who played', entrant(1), { confirm: false, drop: 'drop', remove: null }],
-    ['Reinstate for one who dropped', entrant(2, 'dropped'), { confirm: false, drop: 'reinstate', remove: null }],
-    ['Remove for one paired who has not played', entrant(3), { confirm: false, drop: null, remove: 'remove' }],
-    ['Drop for a bye in a published round', entrant(5), { confirm: false, drop: 'drop', remove: null }],
-    ['Remove for a bye in a draft', entrant(6), { confirm: false, drop: null, remove: 'remove' }],
-    ['Confirm and Remove for one not confirmed', { ...entrant(7), status: 'pending' as const }, { confirm: true, drop: null, remove: 'remove' }],
-    ['Reinstate and Remove for one who dropped before playing', entrant(8, 'dropped'), { confirm: false, drop: 'reinstate', remove: 'remove' }],
+    ['Drop for one who played', entrant(1), { drop: 'drop', remove: null }],
+    ['Reinstate for one who dropped', entrant(2, 'dropped'), { drop: 'reinstate', remove: null }],
+    ['Remove for one paired who has not played', entrant(3), { drop: null, remove: 'remove' }],
+    ['Drop for a bye in a published round', entrant(5), { drop: 'drop', remove: null }],
+    ['Remove for a bye in a draft', entrant(6), { drop: null, remove: 'remove' }],
+    ['Remove for one entered after the pairing', entrant(7), { drop: null, remove: 'remove' }],
+    ['Reinstate and Remove for one who dropped before playing', entrant(8, 'dropped'), { drop: 'reinstate', remove: 'remove' }],
   ])('%s', (_name, e, want) => {
     expect(entrantButtons(e, rounds)).toEqual(want);
   });
@@ -277,7 +277,7 @@ describe('reconcilePending', () => {
 });
 
 describe('pairCounts', () => {
-  const entrants = [entrant(1), entrant(2), entrant(3), entrant(4), entrant(5, 'dropped'), { ...entrant(6), status: 'pending' as const }, entrant(7)];
+  const entrants = [entrant(1), entrant(2), entrant(3), entrant(4), entrant(5, 'dropped'), entrant(7)];
   it.each([
     ['the players in a match or with the bye, and the active ones left out', [match(1, 1, 2), match(2, 3, null)], { paired: 3, unpaired: 2 }],
     ['nobody paired', [], { paired: 0, unpaired: 5 }],

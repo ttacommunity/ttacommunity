@@ -190,8 +190,8 @@ A blitz tournament is an ordinary tournament whose series has the **Blitz**
 setting: organisers run it from admin's Blitz tab, a round a week, in the
 format CGE's US Open uses (Swiss rounds, then a knockout). Admin holds each
 edition's format and tiebreak seed (`blitz_editions`), its entrants
-(`blitz_entries`: a member; pending, active or dropped), added one at a
-time by searching the members and the players the ratings know (a player
+(`blitz_entries`: a member, in or dropped, shown on the site once
+entered), added one at a time by searching the members and the players the ratings know (a player
 who is no member yet becomes one, in the ratings' spelling), and its rounds (`blitz_rounds`, `blitz_matches`):
 paired by the api (`internal/blitz`: equal points, never the same opponent
 twice, the best time-zone fit within a score group, the bye to the lowest
