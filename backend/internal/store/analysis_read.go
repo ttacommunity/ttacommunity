@@ -347,17 +347,27 @@ func (r *RatingsReader) seatCountsOf(ctx context.Context, run int64) (map[string
 func (r *RatingsReader) readSeatCounts(ctx context.Context, run int64) (map[string]seatCounts, error) {
 	rows, err := r.pool.Query(ctx, `
 		WITH games_in_run AS (
-			SELECT DISTINCT match_id AS game_id, player_count
-			FROM pairwise_matches
-			WHERE run_id = $1
+			SELECT match_id AS game_id, date, player_count
+			FROM (
+				SELECT match_id, date, player_count,
+					row_number() OVER (PARTITION BY match_id) AS rn
+				FROM pairwise_matches
+				WHERE run_id = $1
+			) x
+			WHERE rn = 1
 		),
 		seat_rows AS (
 			SELECT g.player_count, coalesce(s.starting_position + 1, s.seat) AS seat, s.place,
-				avg(r.rating) OVER game AS avg_rating,
+				avg(coalesce(rh.rating, 1500.0)) OVER game AS avg_rating,
 				count(*) FILTER (WHERE s.place = 1) OVER game AS winners
 			FROM games_in_run g
 			JOIN seats s ON s.game_id = g.game_id
-			LEFT JOIN player_ratings r ON r.run_id = $1 AND r.model_type = 'glicko2_daneo' AND r.player_count = 0 AND r.player_name = s.player_name
+			LEFT JOIN LATERAL (
+				SELECT rating FROM rating_history h
+				WHERE h.run_id = $1 AND h.model_type = 'glicko2_daneo' AND h.player_count = 0
+				  AND h.player_name = s.player_name AND h.period_date <= g.date
+				ORDER BY h.period_date DESC LIMIT 1
+			) rh ON true
 			WINDOW game AS (PARTITION BY s.game_id)
 		)
 		SELECT
@@ -373,7 +383,6 @@ func (r *RatingsReader) readSeatCounts(ctx context.Context, run int64) (map[stri
 			count(*) FILTER (WHERE place = 1 AND winners > 1),
 			coalesce(sum(CASE WHEN place = 1 THEN 1.0::float8 / winners ELSE 0 END), 0)::float8
 		FROM seat_rows
-		WHERE avg_rating IS NOT NULL -- a game with no rated player has no tier
 		GROUP BY 1, 2, 3, 4`, run)
 	if err != nil {
 		return nil, fmt.Errorf("reading run %d's seat analysis: %w", run, err)

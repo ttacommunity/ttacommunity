@@ -699,7 +699,7 @@ paths:
         - name: tier
           in: query
           required: false
-          description: Skill tier of the table based on Glicko-D rating
+          description: Skill tier of the table based on average Glicko-D rating when played
           schema:
             type: string
             enum: [all, grandmaster, master, advanced, intermediate, beginner]

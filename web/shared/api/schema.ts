@@ -4701,7 +4701,7 @@ export interface operations {
     getSeatAnalysis: {
         parameters: {
             query?: {
-                /** @description Skill tier of the table based on Glicko-D rating */
+                /** @description Skill tier of the table based on average Glicko-D rating when played */
                 tier?: "all" | "grandmaster" | "master" | "advanced" | "intermediate" | "beginner";
                 /** @description Player count format (0 for all formats, or 2, 3, 4) */
                 format?: components["schemas"]["Format"];
