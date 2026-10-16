@@ -99,6 +99,7 @@ func (s *server) GetAdminBlitzEdition(ctx context.Context, req GetAdminBlitzEdit
 	}
 	row := adminBlitzEditionRow(ed.BlitzEditionRow)
 	body := AdminBlitzEdition{Tournament: row.Tournament, Name: row.Name, Edition: row.Edition, Format: row.Format, Champion: row.Champion,
+		Points: blitzPoints(ed.Points), FidePoints: ed.Points == blitz.FIDEScoring,
 		Entrants: make([]AdminBlitzEntrant, len(ed.Entrants)), Rounds: make([]AdminBlitzRound, len(ed.Rounds)), Standings: blitzStandings(ed),
 		Organisers: make([]AdminBlitzOrganiser, len(ed.Organisers))}
 	for i, o := range ed.Organisers {
@@ -324,4 +325,50 @@ func candidatesOut(found []store.Candidate) []Candidate {
 		}
 	}
 	return out
+}
+
+func (s *server) PutAdminBlitzPoints(ctx context.Context, req PutAdminBlitzPointsRequestObject) (PutAdminBlitzPointsResponseObject, error) {
+	me, _ := adminFrom(ctx)
+	if !tournamentSlug.MatchString(req.Tournament) {
+		return PutAdminBlitzPoints404JSONResponse{notFound404("no such blitz edition")}, nil
+	}
+	if req.Body == nil {
+		return PutAdminBlitzPoints400JSONResponse{badRequest400("the points: win, draw, loss, forfeit_win, forfeit_loss, bye and skip")}, nil
+	}
+	b := req.Body
+	points := blitz.Scoring{Win: b.Win, Draw: b.Draw, Loss: b.Loss, ForfeitWin: b.ForfeitWin, ForfeitLoss: b.ForfeitLoss, Bye: b.Bye, Skip: b.Skip}
+	if err := blitz.CheckScoring(points); err != nil {
+		return PutAdminBlitzPoints400JSONResponse{badRequest400(err.Error())}, nil
+	}
+	switch err := s.admins.SetBlitzPoints(ctx, req.Tournament, req.Edition, points); {
+	case errors.Is(err, store.ErrBlitzPointsLocked):
+		return PutAdminBlitzPoints409JSONResponse{conflict409(err.Error())}, nil
+	case errors.Is(err, store.ErrNoBlitzEdition):
+		return PutAdminBlitzPoints404JSONResponse{notFound404("no such blitz edition")}, nil
+	case err != nil:
+		return nil, err
+	}
+	if err := s.admins.Audit(ctx, me.DiscordID, "blitz.points", blitzEditionKey(req.Tournament, req.Edition), req.Body); err != nil {
+		return nil, err
+	}
+	return PutAdminBlitzPoints204Response{}, nil
+}
+
+func (s *server) DeleteAdminBlitzPoints(ctx context.Context, req DeleteAdminBlitzPointsRequestObject) (DeleteAdminBlitzPointsResponseObject, error) {
+	me, _ := adminFrom(ctx)
+	if !tournamentSlug.MatchString(req.Tournament) {
+		return DeleteAdminBlitzPoints404JSONResponse{notFound404("no such blitz edition")}, nil
+	}
+	switch err := s.admins.SetBlitzPoints(ctx, req.Tournament, req.Edition, blitz.FIDEScoring); {
+	case errors.Is(err, store.ErrBlitzPointsLocked):
+		return DeleteAdminBlitzPoints409JSONResponse{conflict409(err.Error())}, nil
+	case errors.Is(err, store.ErrNoBlitzEdition):
+		return DeleteAdminBlitzPoints404JSONResponse{notFound404("no such blitz edition")}, nil
+	case err != nil:
+		return nil, err
+	}
+	if err := s.admins.Audit(ctx, me.DiscordID, "blitz.points.reset", blitzEditionKey(req.Tournament, req.Edition), nil); err != nil {
+		return nil, err
+	}
+	return DeleteAdminBlitzPoints204Response{}, nil
 }

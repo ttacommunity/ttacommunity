@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { editionFormatWarnings, editionHref, editionParams, formatAdvice } from './blitz-page';
+import { editionFormatWarnings, editionHref, editionParams, formatAdvice, pointsChanged, pointsForm, pointsFrom, pointsSummary } from './blitz-page';
 
 describe('editionParams', () => {
   it.each([
@@ -49,5 +49,35 @@ describe('editionFormatWarnings', () => {
     ['none once the knockout has started', { swiss_rounds: 8, knockout_size: 8 }, field, [{ kind: 'swiss' }, { kind: 'knockout' }], []],
   ])('gives %s', (_name, format, entrants, rounds, want) => {
     expect(editionFormatWarnings({ format, entrants, rounds })).toEqual(want);
+  });
+});
+
+const FIDE = { win: 1, draw: 0.5, loss: 0, forfeit_win: 1, forfeit_loss: 0, bye: 1, skip: 0 };
+
+describe('pointsSummary', () => {
+  it.each([
+    ["FIDE's", FIDE, true, "FIDE's: win 1, draw ½, loss 0, forfeit win 1, forfeit loss 0, bye 1, skip 0"],
+    ["the edition's own", { ...FIDE, win: 3, draw: 1, bye: 3 }, false, "This edition's: win 3, draw 1, loss 0, forfeit win 1, forfeit loss 0, bye 3, skip 0"],
+  ])('%s', (_, points, fide, want) => {
+    expect(pointsSummary(points, fide)).toBe(want);
+  });
+});
+
+describe('pointsChanged', () => {
+  it.each([
+    ['nothing', FIDE, false],
+    ['one outcome', { ...FIDE, skip: 0.5 }, true],
+    ['another', { ...FIDE, forfeit_win: 0 }, true],
+  ])('%s', (_, form, want) => {
+    expect(pointsChanged(form, FIDE)).toBe(want);
+  });
+});
+
+describe('pointsForm and pointsFrom', () => {
+  it('fills the form with the points and reads it back', () => {
+    expect(pointsFrom(pointsForm(FIDE))).toEqual(FIDE);
+  });
+  it('reads what was typed as numbers', () => {
+    expect(pointsFrom({ ...pointsForm(FIDE), win: '2.5', draw: ' 1 ' })).toEqual({ ...FIDE, win: 2.5, draw: 1 });
   });
 });

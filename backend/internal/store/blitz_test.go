@@ -12,6 +12,8 @@ import (
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
 	"github.com/jackc/pgx/v5/pgxpool"
+
+	"ttacommunity/backend/internal/blitz"
 )
 
 // blitzFixture gives a migrated database with the blitz series us_open (editions 2026 and 2025), the series worlds
@@ -395,5 +397,101 @@ func TestPeopleAreTheBestFiveOfEveryMemberAndPlayer(t *testing.T) {
 		if diff := cmp.Diff(tt.want, candidateLines(got)); diff != "" {
 			t.Errorf("People(%q), members entered anywhere included (-want +got):\n%s", tt.q, diff)
 		}
+	}
+}
+
+func TestAnEditionScoresByThePointsLastSet(t *testing.T) {
+	a, reader, _ := blitzWithEntrants(t)
+	ctx := context.Background()
+	points := func(edition string) blitz.Scoring {
+		t.Helper()
+		ed, err := a.BlitzEdition(ctx, "us_open", edition)
+		if err != nil {
+			t.Fatalf("BlitzEdition(%s): %v", edition, err)
+		}
+		return ed.Points
+	}
+	if got := points("2025"); got != blitz.FIDEScoring {
+		t.Errorf("points of an edition never set up = %+v, want FIDE's", got)
+	}
+	if got := points("2026"); got != blitz.FIDEScoring {
+		t.Errorf("points of an edition with entrants = %+v, want FIDE's", got)
+	}
+	ours := blitz.Scoring{Win: 3, Draw: 1.5, Loss: 0.5, ForfeitWin: 2, ForfeitLoss: 0, Bye: 2.5, Skip: 10}
+	if err := a.SetBlitzPoints(ctx, "us_open", "2026", ours); err != nil {
+		t.Fatalf("SetBlitzPoints: %v", err)
+	}
+	if got := points("2026"); got != ours {
+		t.Errorf("points for admin = %+v, want %+v", got, ours)
+	}
+	if ed, err := reader.BlitzEdition(ctx, "us_open", "2026"); err != nil || ed.Points != ours {
+		t.Errorf("points for the site = %+v, %v; want %+v", ed.Points, err, ours)
+	}
+	if err := a.SetBlitzPoints(ctx, "us_open", "2027", ours); !errors.Is(err, ErrNoBlitzEdition) {
+		t.Errorf("SetBlitzPoints(an unknown edition) = %v, want ErrNoBlitzEdition", err)
+	}
+}
+
+func TestThePointsLockOnceTheKnockoutHasARound(t *testing.T) {
+	a, _, ids := blitzWithEntrants(t)
+	ctx := context.Background()
+	if err := a.SetBlitzFormat(ctx, "us_open", "2026", BlitzFormat{SwissRounds: 1, KnockoutSize: 4}); err != nil {
+		t.Fatalf("SetBlitzFormat: %v", err)
+	}
+	swiss, err := a.AddBlitzRound(ctx, "us_open", "2026", BlitzRound{Seed: 1, Matches: []BlitzMatch{{A: ids[0], B: &ids[1]}, {A: ids[2], B: &ids[3]}}})
+	if err != nil {
+		t.Fatalf("AddBlitzRound(swiss): %v", err)
+	}
+	if err := a.PublishBlitzRound(ctx, "us_open", "2026", swiss.ID); err != nil {
+		t.Fatalf("PublishBlitzRound(swiss): %v", err)
+	}
+	for _, m := range swiss.Matches {
+		if err := a.RecordBlitzRuling(ctx, "us_open", "2026", m.ID, "a", "ruled"); err != nil {
+			t.Fatalf("RecordBlitzRuling(swiss): %v", err)
+		}
+	}
+	ko := func(a, b int64, slot, seedA, seedB int) BlitzMatch {
+		return BlitzMatch{A: a, B: &b, Slot: new(slot), SeedA: new(seedA), SeedB: new(seedB)}
+	}
+	semi, err := a.AddBlitzRound(ctx, "us_open", "2026", BlitzRound{Kind: "knockout", Seed: 2, Matches: []BlitzMatch{ko(ids[0], ids[3], 0, 1, 4), ko(ids[2], ids[1], 1, 2, 3)}})
+	if err != nil {
+		t.Fatalf("AddBlitzRound(semi-finals): %v", err)
+	}
+	ours := blitz.Scoring{Win: 3, Draw: 1, ForfeitWin: 3, Bye: 3}
+	if err := a.SetBlitzPoints(ctx, "us_open", "2026", ours); !errors.Is(err, ErrBlitzPointsLocked) {
+		t.Errorf("SetBlitzPoints with the knockout paired = %v, want ErrBlitzPointsLocked", err)
+	}
+	if err := a.DeleteBlitzRound(ctx, "us_open", "2026", semi.ID); err != nil {
+		t.Fatalf("DeleteBlitzRound(semi-finals): %v", err)
+	}
+	if err := a.SetBlitzPoints(ctx, "us_open", "2026", ours); err != nil {
+		t.Errorf("SetBlitzPoints once the knockout is deleted = %v, want nil", err)
+	}
+}
+
+func TestTheDatabaseRefusesPointsOutOfRangeOrOrder(t *testing.T) {
+	_, a := blitzFixture(t)
+	with := func(change func(*blitz.Scoring)) blitz.Scoring {
+		s := blitz.FIDEScoring
+		change(&s)
+		return s
+	}
+	tests := []struct {
+		name, constraint string
+		points           blitz.Scoring
+	}{
+		{"a win over 10", "blitz_editions_points_win_check", with(func(s *blitz.Scoring) { s.Win = 10.5 })},
+		{"a skip below 0", "blitz_editions_points_skip_check", with(func(s *blitz.Scoring) { s.Skip = -1 })},
+		{"a bye of a quarter", "blitz_editions_points_bye_check", with(func(s *blitz.Scoring) { s.Bye = 0.25 })},
+		{"a forfeit loss of a quarter", "blitz_editions_points_forfeit_loss_check", with(func(s *blitz.Scoring) { s.ForfeitLoss = 0.25 })},
+		{"a draw above a win", "blitz_editions_points_order_check", with(func(s *blitz.Scoring) { s.Draw = 1.5 })},
+		{"a loss above a draw", "blitz_editions_points_order_check", with(func(s *blitz.Scoring) { s.Loss = 1 })},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if err := a.SetBlitzPoints(context.Background(), "us_open", "2026", tt.points); err == nil || !strings.Contains(err.Error(), tt.constraint) {
+				t.Errorf("err = %v, want %s to refuse it", err, tt.constraint)
+			}
+		})
 	}
 }

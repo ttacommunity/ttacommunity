@@ -3,6 +3,7 @@ package httpapi
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"strings"
 	"testing"
@@ -10,13 +11,14 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 
+	"ttacommunity/backend/internal/blitz"
 	"ttacommunity/backend/internal/store"
 )
 
 // The fake's shown blitz edition is us_open 2026 with Ann (known to the ratings) and bob (not) still in.
 
 func (f *fakeRatings) BlitzEditions(context.Context) ([]store.BlitzEditionRow, error) {
-	return []store.BlitzEditionRow{{Slug: "us_open", Name: "US Open", Edition: "2026", Format: store.DefaultBlitzFormat, Entrants: 2, Round: new(2)}}, nil
+	return []store.BlitzEditionRow{{Slug: "us_open", Name: "US Open", Edition: "2026", Format: store.DefaultBlitzFormat, Points: blitz.FIDEScoring, Entrants: 2, Round: new(2)}}, nil
 }
 
 func (f *fakeRatings) BlitzEdition(ctx context.Context, slug, edition string) (store.BlitzEdition, error) {
@@ -123,7 +125,7 @@ func TestTheSiteShowsTheKnockoutWithSeedsAndTheChampion(t *testing.T) {
 	bob := int64(8)
 	at := time.Date(2026, 12, 21, 12, 0, 0, 0, time.UTC)
 	ed := store.BlitzEdition{
-		BlitzEditionRow: store.BlitzEditionRow{Slug: "us_open", Name: "US Open", Edition: "2026", Format: store.BlitzFormat{SwissRounds: 1, KnockoutSize: 2},
+		BlitzEditionRow: store.BlitzEditionRow{Slug: "us_open", Name: "US Open", Edition: "2026", Format: store.BlitzFormat{SwissRounds: 1, KnockoutSize: 2}, Points: blitz.FIDEScoring,
 			Entrants: 2, Round: new(2), Champion: new("bob")},
 		Entrants: []store.BlitzEntrant{{ID: 7, Name: "Ann", Zone: "UTC", Status: "active"}, {ID: 8, Name: "bob", Zone: "UTC", Status: "active"}},
 		Rounds: []store.BlitzRound{
@@ -162,7 +164,7 @@ func TestTheSiteStandingsTellAForfeitFromAGame(t *testing.T) {
 			bob := int64(8)
 			at := time.Date(2026, 10, 12, 12, 0, 0, 0, time.UTC)
 			ed := store.BlitzEdition{
-				BlitzEditionRow: store.BlitzEditionRow{Slug: "us_open", Name: "US Open", Edition: "2026", Format: store.DefaultBlitzFormat, Entrants: 2, Round: new(1)},
+				BlitzEditionRow: store.BlitzEditionRow{Slug: "us_open", Name: "US Open", Edition: "2026", Format: store.DefaultBlitzFormat, Points: blitz.FIDEScoring, Entrants: 2, Round: new(1)},
 				Entrants:        []store.BlitzEntrant{{ID: 7, Name: "Ann", Zone: "UTC", Status: "active"}, {ID: 8, Name: "bob", Zone: "UTC", Status: "active"}},
 				Rounds: []store.BlitzRound{{ID: 101, Number: 1, Kind: "swiss", PublishedAt: &at,
 					Matches: []store.BlitzMatch{{ID: 1, A: 7, B: &bob, Result: "b", GameID: tt.game, Ruling: "ruled", DecidedAt: &at}}}},
@@ -175,6 +177,43 @@ func TestTheSiteStandingsTellAForfeitFromAGame(t *testing.T) {
 			for _, s := range got.Standings {
 				if s.Name == "Ann" && s.Buchholz != tt.want {
 					t.Errorf("Ann's Buchholz = %g, want %g", s.Buchholz, tt.want)
+				}
+			}
+		})
+	}
+}
+
+func TestTheSiteScoresByTheEditionsPoints(t *testing.T) {
+	tests := []struct {
+		name     string
+		points   blitz.Scoring
+		wantFIDE bool
+		wantBob  float64
+	}{
+		{"FIDE's", blitz.FIDEScoring, true, 1},
+		{"the edition's own", blitz.Scoring{Win: 3, Draw: 1, ForfeitWin: 3, Bye: 3}, false, 3},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ratings := &fakeRatings{run: store.PublishedRun{ID: 7}}
+			ed, _ := ratings.BlitzEdition(context.Background(), "us_open", "2026")
+			ed.Points = tt.points
+			ratings.blitzEdition = &ed
+			rec, _ := serve(t, ratings, "/v1/blitz/us_open/2026")
+			if rec.Code != http.StatusOK {
+				t.Fatalf("GET /v1/blitz/us_open/2026 = %d %s", rec.Code, rec.Body)
+			}
+			p := tt.points
+			wantJSON(t, rec.Body.Bytes(), "points", fmt.Sprintf(`{"win": %g, "draw": %g, "loss": %g, "forfeit_win": %g, "forfeit_loss": %g, "bye": %g, "skip": %g}`,
+				p.Win, p.Draw, p.Loss, p.ForfeitWin, p.ForfeitLoss, p.Bye, p.Skip))
+			wantJSON(t, rec.Body.Bytes(), "fide_points", fmt.Sprint(tt.wantFIDE))
+			var got BlitzEdition
+			if err := json.Unmarshal(rec.Body.Bytes(), &got); err != nil {
+				t.Fatal(err)
+			}
+			for _, s := range got.Standings {
+				if s.Name == "bob" && s.Points != tt.wantBob {
+					t.Errorf("bob, who won round 1's game = %g points, want %g", s.Points, tt.wantBob)
 				}
 			}
 		})

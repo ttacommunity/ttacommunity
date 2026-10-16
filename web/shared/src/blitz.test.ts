@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { formatLabel, knockoutStage, offsetLabel, reachedLabel, resultSummary, resultTag, roundShown, roundSummary, roundTitle, seededName, zoneLabel, type BlitzPlayedGame } from './blitz';
+import { formatLabel, knockoutStage, offsetLabel, pointsList, pointsText, reachedLabel, resultSummary, resultTag, roundShown, roundSummary, roundTitle, scoringSentence, seededName, zoneLabel, type BlitzPlayedGame } from './blitz';
 
 const game = (aCulture: number, bCulture: number, aOutcome: BlitzPlayedGame['a_outcome'] = 'finished', bOutcome: BlitzPlayedGame['b_outcome'] = 'finished'): BlitzPlayedGame => ({
   share_code: 'ABCD1234',
@@ -135,5 +135,35 @@ describe('resultTag', () => {
     ['a ruling over a game', { a: 'Ann', b: 'Cy', result: 'a', game: game(200, 250), ruled: true }, 'Ann won by ruling'],
   ] as const)('tags %s', (_name, m, want) => {
     expect(resultTag(m)).toBe(want);
+  });
+});
+
+const FIDE = { win: 1, draw: 0.5, loss: 0, forfeit_win: 1, forfeit_loss: 0, bye: 1, skip: 0 };
+const OURS = { win: 3, draw: 1.5, loss: 0.5, forfeit_win: 1, forfeit_loss: 0, bye: 2.5, skip: 10 };
+
+describe('pointsText', () => {
+  it.each([
+    [0, '0'],
+    [0.5, '½'],
+    [1, '1'],
+    [2.5, '2½'],
+    [10, '10'],
+  ])('writes %s as %s', (n, want) => {
+    expect(pointsText(n)).toBe(want);
+  });
+});
+
+describe('pointsList', () => {
+  it('lists every outcome in order', () => {
+    expect(pointsList(OURS)).toBe('win 3, draw 1½, loss ½, forfeit win 1, forfeit loss 0, bye 2½, skip 10');
+  });
+});
+
+describe('scoringSentence', () => {
+  it.each([
+    ["FIDE's, as the site has always said", FIDE, true, 'A win is 1 point, a draw a half, a bye 1.'],
+    ["the edition's own, every outcome", OURS, false, "This edition's points: win 3, draw 1½, loss ½, forfeit win 1, forfeit loss 0, bye 2½, skip 10."],
+  ])('%s', (_, points, fide, want) => {
+    expect(scoringSentence(points, fide)).toBe(want);
   });
 });

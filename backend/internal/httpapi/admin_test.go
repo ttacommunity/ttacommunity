@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"ttacommunity/backend/internal/access"
+	"ttacommunity/backend/internal/blitz"
 	"ttacommunity/backend/internal/enginejob"
 	"ttacommunity/backend/internal/store"
 )
@@ -32,9 +33,11 @@ type fakeAdmins struct {
 	engine string
 	// deleted receives each run DeleteRun removes, from the handler's background delete.
 	deleted chan int64
-	// entrants, format and rounds are the blitz edition us_open 2026's (admin_blitz_test.go, admin_blitz_rounds_test.go).
+	// entrants, format, points (FIDE's while zero) and rounds are the blitz edition us_open 2026's
+	// (admin_blitz_test.go, admin_blitz_rounds_test.go).
 	entrants []store.BlitzEntrant
 	format   store.BlitzFormat
+	points   blitz.Scoring
 	rounds   []store.BlitzRound
 	// organisers and threadText are us_open 2026's (admin_blitz_threads_test.go).
 	organisers []store.BlitzOrganiser
@@ -642,6 +645,8 @@ func TestAdminChangesRefuseAnotherOriginOrABadRequest(t *testing.T) {
 		{"an organiser from another site", http.MethodPost, "/v1/admin/blitz/us_open/2026/organisers", "https://evil.example", `{"member": 21}`, http.StatusForbidden},
 		{"a thread text from another site", http.MethodPut, "/v1/admin/blitz/us_open/2026/thread-text", "https://evil.example", `{"message": "Hi {players}.", "no_discord": "{name}."}`, http.StatusForbidden},
 		{"a thread text reset from another site", http.MethodDelete, "/v1/admin/blitz/us_open/2026/thread-text", "https://evil.example", "", http.StatusForbidden},
+		{"points from another site", http.MethodPut, "/v1/admin/blitz/us_open/2026/points", "https://evil.example", `{"win": 3, "draw": 1, "loss": 0, "forfeit_win": 3, "forfeit_loss": 0, "bye": 3, "skip": 0}`, http.StatusForbidden},
+		{"a points reset from another site", http.MethodDelete, "/v1/admin/blitz/us_open/2026/points", "https://evil.example", "", http.StatusForbidden},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

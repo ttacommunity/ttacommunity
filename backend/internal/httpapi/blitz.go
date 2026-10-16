@@ -15,6 +15,11 @@ func blitzEditionRow(r store.BlitzEditionRow) BlitzEditionRow {
 		Format: BlitzFormat{SwissRounds: r.Format.SwissRounds, KnockoutSize: r.Format.KnockoutSize}}
 }
 
+// blitzPoints is an edition's points as the API sends them.
+func blitzPoints(p blitz.Scoring) BlitzPoints {
+	return BlitzPoints{Win: p.Win, Draw: p.Draw, Loss: p.Loss, ForfeitWin: p.ForfeitWin, ForfeitLoss: p.ForfeitLoss, Bye: p.Bye, Skip: p.Skip}
+}
+
 // blitzResult is a match's result as the API sends it, nil until decided.
 func blitzResult(m store.BlitzMatch) *BlitzResult {
 	if m.Result == "" {
@@ -44,8 +49,8 @@ func played(round int, m store.BlitzMatch) blitz.Played {
 	return p
 }
 
-// swissStandings ranks an edition's entrants, pending ones aside, by its published Swiss rounds' results and its
-// tiebreak seed. The knockout's results never count: the standings after the last Swiss round are its seeds.
+// swissStandings ranks an edition's entrants, pending ones aside, by its published Swiss rounds' results, as its
+// points score them, and its tiebreak seed. The knockout's results never count: the standings after the last Swiss round are its seeds.
 func swissStandings(ed store.BlitzEdition) []blitz.Standing {
 	var entrants []blitz.Entrant
 	for _, e := range ed.Entrants {
@@ -62,7 +67,7 @@ func swissStandings(ed store.BlitzEdition) []blitz.Standing {
 			matches = append(matches, played(r.Number, m))
 		}
 	}
-	return blitz.Standings(entrants, matches, ed.Format.SwissRounds, uint64(ed.TiebreakSeed))
+	return blitz.Standings(entrants, matches, ed.Format.SwissRounds, uint64(ed.TiebreakSeed), ed.Points)
 }
 
 // blitzStandings is the edition's standings as the API sends them.
@@ -113,6 +118,7 @@ func (s *server) GetBlitzEdition(ctx context.Context, req GetBlitzEditionRequest
 	}
 	row := blitzEditionRow(ed.BlitzEditionRow)
 	body := BlitzEdition{Tournament: row.Tournament, Name: row.Name, Edition: row.Edition, Format: row.Format,
+		Points: blitzPoints(ed.Points), FidePoints: ed.Points == blitz.FIDEScoring,
 		Entrants: []BlitzEntrant{}, Rounds: make([]BlitzRound, len(ed.Rounds)), Standings: blitzStandings(ed), Champion: row.Champion}
 	for _, e := range ed.Entrants {
 		if e.Status != "active" {

@@ -3,12 +3,12 @@ import { Fragment, useEffect, useState, type FormEvent, type ReactNode } from 'r
 import Segmented from '@ttac/shared/Segmented';
 import BackLink from '@ttac/shared/BackLink';
 import SubTabs from '@ttac/shared/SubTabs';
-import { formatLabel, offsetLabel, resultSummary, roundShown, roundSummary, roundTitle, seededName } from '@ttac/shared/blitz';
+import { formatLabel, offsetLabel, resultSummary, roundShown, roundSummary, roundTitle, scoringSentence, seededName } from '@ttac/shared/blitz';
 import { formatInstant } from '@ttac/shared/time';
 import { adminDownload, adminRequest, firstError, type AdminBlitzEdition, type AdminMe, type BlitzEntrantIds, type Load } from '../lib/admin-api';
 import * as req from '../lib/admin-requests';
 import { tabsFor } from '../lib/admin-tabs';
-import { editionFormatWarnings, editionParams, formatAdvice, type AdminBlitzEntrant } from '../lib/blitz-page';
+import { editionFormatWarnings, editionParams, formatAdvice, pointsChanged, pointsForm, pointsFrom, pointsSummary, type AdminBlitzEntrant, type PointsForm } from '../lib/blitz-page';
 import { emptyGameForm, gameRecordFrom, type BlitzStanding, type GameForm } from '../lib/blitz-results';
 import { deadlineForm, deadlineLabel, deadlineLocked, organiserChoices, organisersSummary, threadTextSavable, threadTextSummary, threadsBlocker, threadsFileName, type DeadlineForm, type ThreadText } from '../lib/blitz-threads';
 import { entrantToAdd, wildcardChoices, type PersonChoice, type PersonDetails } from '../lib/person-form';
@@ -658,6 +658,9 @@ function EditionTabs(props: Props) {
                 <SettingsSection title="Format" summary={formatLabel(props.ed.format)} what="format" whileHidden={<FormatWarnings warnings={editionFormatWarnings(props.ed)} />}>
                   <FormatPanel {...props} />
                 </SettingsSection>
+                <SettingsSection title="Points" summary={pointsSummary(props.ed.points, props.ed.fide_points)} what="points">
+                  <PointsPanel key={JSON.stringify(props.ed.points)} {...props} />
+                </SettingsSection>
                 <SettingsSection title="Organisers" summary={organisersSummary(props.ed.organisers)} what="organisers">
                   <OrganisersPanel {...props} />
                 </SettingsSection>
@@ -678,7 +681,7 @@ function EditionTabs(props: Props) {
               </>
             ),
           },
-          { value: 'standings', label: 'Standings', panel: <StandingsPanel standings={props.ed.standings} /> },
+          { value: 'standings', label: 'Standings', panel: <StandingsPanel standings={props.ed.standings} scoring={scoringSentence(props.ed.points, props.ed.fide_points)} /> },
         ]}
         chosen={view}
         onChoose={setView}
@@ -857,6 +860,67 @@ function RoundThreads({ at, ed, round, regions, unsaved, onReload, say }: RoundT
           </button>
         </form>
       )}
+    </>
+  );
+}
+
+// The points form's fields, in the order the summary lists them.
+const POINT_FIELDS: { key: keyof PointsForm; label: string }[] = [
+  { key: 'win', label: 'Win' },
+  { key: 'draw', label: 'Draw' },
+  { key: 'loss', label: 'Loss' },
+  { key: 'forfeit_win', label: 'Forfeit win' },
+  { key: 'forfeit_loss', label: 'Forfeit loss' },
+  { key: 'bye', label: 'Bye' },
+  { key: 'skip', label: 'Skip' },
+];
+
+/** PointsPanel sets what each outcome of the edition is worth, and resets them to FIDE's, until the knockout has a round. Keyed by the saved points, so a save or reset starts the form again from them. */
+function PointsPanel({ at, ed, onReload, say }: Props) {
+  const [form, setForm] = useState<PointsForm>(pointsForm(ed.points));
+  const locked = ed.rounds.some((r) => r.kind === 'knockout');
+  const send = async (r: req.Request, done: string) => {
+    const res = await req.send(r);
+    say(res.ok ? done : res.message);
+    await onReload();
+  };
+  const save = (e: FormEvent) => {
+    e.preventDefault();
+    void send(req.setBlitzPoints(at.slug, at.edition, pointsFrom(form)), 'Points saved.');
+  };
+  return (
+    <>
+      <p className="muted">
+        0 to 10 in halves. The standings, the next pairing and the bye follow at once; rounds already paired stay. A ruled draw scores as a draw, and &ldquo;both
+        lose&rdquo; as a forfeit loss each.
+      </p>
+      {locked && <p className="muted">The knockout has started: the points no longer change.</p>}
+      <form className="admin-add" onSubmit={save}>
+        {POINT_FIELDS.map((f) => (
+          <label key={f.key}>
+            {f.label}
+            <input
+              className="input-antique"
+              type="number"
+              min={0}
+              max={10}
+              step={0.5}
+              required
+              disabled={locked}
+              value={form[f.key]}
+              onChange={(e) => setForm({ ...form, [f.key]: e.target.value })}
+            />
+          </label>
+        ))}
+        <button type="submit" className="btn-antique" disabled={locked || !pointsChanged(pointsFrom(form), ed.points)}>
+          Save
+        </button>
+        {!ed.fide_points && (
+          <button type="button" className="btn-antique" disabled={locked} onClick={() => void send(req.resetBlitzPoints(at.slug, at.edition), "Points back to FIDE's.")}>
+            Reset to FIDE&apos;s
+          </button>
+        )}
+      </form>
     </>
   );
 }
@@ -1183,12 +1247,12 @@ function ReplaceForm({ at, round, match, out, ed, nameOf, onDone, onCancel }: Re
   );
 }
 
-/** StandingsPanel shows the standings as the site does: rank, points, games played, byes and Buchholz, dropped players last. */
-function StandingsPanel({ standings }: { standings: BlitzStanding[] }) {
+/** StandingsPanel shows the standings as the site does: how the edition scores, then rank, points, games played, byes and Buchholz, dropped players last. */
+function StandingsPanel({ standings, scoring }: { standings: BlitzStanding[]; scoring: string }) {
   return (
     <>
       <p className="muted">
-        A win is 1 point, a draw a half, a bye 1. Ties are broken by the Swiss tie-breaks: Direct Encounter (the games
+        {scoring} Ties are broken by the Swiss tie-breaks: Direct Encounter (the games
         among the tied players), then Buchholz (the sum of the opponents&apos; scores; a bye, a forfeit or a missed round
         counts as a game against an opponent on the player&apos;s own score), then a draw fixed for the edition.
       </p>

@@ -2518,6 +2518,56 @@ paths:
           $ref: "#/components/responses/Forbidden"
         "404":
           $ref: "#/components/responses/NotFound"
+  /v1/admin/blitz/{tournament}/{edition}/points:
+    put:
+      operationId: putAdminBlitzPoints
+      tags: [admin]
+      summary: Set what each outcome is worth in a blitz edition
+      description: |
+        Audited. The Origin must be the admin site. The standings, the
+        next pairing's score groups and the bye follow at once; rounds
+        already paired stay. Refused once the knockout has a round.
+      parameters:
+        - $ref: "#/components/parameters/AdminTournamentSlug"
+        - $ref: "#/components/parameters/BlitzEditionLabel"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/BlitzPoints"
+      responses:
+        "204":
+          description: Saved
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+    delete:
+      operationId: deleteAdminBlitzPoints
+      tags: [admin]
+      summary: Reset a blitz edition's points to FIDE's
+      description: Audited. The Origin must be the admin site. Refused once the knockout has a round.
+      parameters:
+        - $ref: "#/components/parameters/AdminTournamentSlug"
+        - $ref: "#/components/parameters/BlitzEditionLabel"
+      responses:
+        "204":
+          description: Reset
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
   /v1/admin/blitz/{tournament}/{edition}/thread-text:
     put:
       operationId: putAdminBlitzThreadText
@@ -3675,8 +3725,13 @@ components:
     BlitzEdition:
       description: A blitz edition for the site, with the entrants still in, the published rounds and the standings
       type: object
-      required: [tournament, name, edition, format, entrants, rounds, standings, champion]
+      required: [tournament, name, edition, format, points, fide_points, entrants, rounds, standings, champion]
       properties:
+        points:
+          $ref: "#/components/schemas/BlitzPoints"
+        fide_points:
+          description: True when the points are FIDE's
+          type: boolean
         champion:
           description: The winner of the knockout's final, by username; null until the final has a winner
           type: string
@@ -3806,7 +3861,7 @@ components:
           type: string
           nullable: true
         points:
-          description: A win 1, a draw a half, a bye 1
+          description: As the edition's points score each result and bye (FIDE's by default)
           type: number
           format: double
         games:
@@ -4050,8 +4105,13 @@ components:
           enum: [pending, active, dropped]
     AdminBlitzEdition:
       type: object
-      required: [tournament, name, edition, format, entrants, rounds, standings, champion, organisers, thread_text]
+      required: [tournament, name, edition, format, points, fide_points, entrants, rounds, standings, champion, organisers, thread_text]
       properties:
+        points:
+          $ref: "#/components/schemas/BlitzPoints"
+        fide_points:
+          description: True when the points are FIDE's, so Reset has nothing to do
+          type: boolean
         organisers:
           description: The members the Discord thread messages tell players to ping, in the order added
           type: array
@@ -4200,6 +4260,61 @@ components:
           type: string
           minLength: 1
           maxLength: 1000
+    BlitzPoints:
+      description: |
+        What each outcome is worth in an edition's standings, 0 to 10 in
+        halves, a win at least a draw and a draw at least a loss. FIDE's
+        by default: win 1, draw 0.5, loss 0, a forfeit as a win or a loss,
+        the bye 1 and a skipped round 0. A ruled draw scores as a draw; a
+        "both lose" ruling is a forfeit loss each.
+      type: object
+      additionalProperties: false
+      required: [win, draw, loss, forfeit_win, forfeit_loss, bye, skip]
+      properties:
+        win:
+          type: number
+          format: double
+          minimum: 0
+          maximum: 10
+          multipleOf: 0.5
+        draw:
+          type: number
+          format: double
+          minimum: 0
+          maximum: 10
+          multipleOf: 0.5
+        loss:
+          type: number
+          format: double
+          minimum: 0
+          maximum: 10
+          multipleOf: 0.5
+        forfeit_win:
+          type: number
+          format: double
+          minimum: 0
+          maximum: 10
+          multipleOf: 0.5
+        forfeit_loss:
+          type: number
+          format: double
+          minimum: 0
+          maximum: 10
+          multipleOf: 0.5
+        bye:
+          description: The pairing's bye
+          type: number
+          format: double
+          minimum: 0
+          maximum: 10
+          multipleOf: 0.5
+        skip:
+          description: A round the player asked to sit out
+          type: number
+          format: double
+          minimum: 0
+          maximum: 10
+          multipleOf: 0.5
     AdminBlitzThreadText:
       description: What the edition's Discord thread messages say, its own text or the default
       type: object

@@ -1,4 +1,4 @@
-// Blitz tournaments: which series are blitz, each edition's format (Swiss rounds, then a knockout) and its
+// Blitz tournaments: which series are blitz, each edition's format (Swiss rounds, then a knockout), points and
 // entrants, read for admin with Discord names and for the site without them.
 package store
 
@@ -10,6 +10,8 @@ import (
 	"strings"
 
 	"github.com/jackc/pgx/v5"
+
+	"ttacommunity/backend/internal/blitz"
 )
 
 // BlitzFormat is how an edition runs: Swiss rounds, then a knockout of that many players (0 for none).
@@ -28,6 +30,8 @@ type BlitzEditionRow struct {
 	Format                     BlitzFormat
 	Entrants, Pending, Dropped int
 	TiebreakSeed               int64
+	// Points are what each outcome is worth, FIDE's until admin sets them.
+	Points blitz.Scoring
 	// Round is the latest published round's number, nil before the first is published.
 	Round *int
 	// Champion is the winner of the published final, by username: nil until the final has a winner.
@@ -71,6 +75,9 @@ var ErrBadBlitzFormat = errors.New("a blitz format is 1 to 30 Swiss rounds and a
 // ErrBlitzFormatLocked means the format cannot change once the knockout has a round.
 var ErrBlitzFormatLocked = errors.New("the format cannot change once the knockout has started")
 
+// ErrBlitzPointsLocked means the points cannot change once the knockout has a round.
+var ErrBlitzPointsLocked = errors.New("the points cannot change once the knockout has started")
+
 // ErrBadBlitzEntrant means an entrant without a name or a time zone, or a name or Discord name over 100 characters.
 var ErrBadBlitzEntrant = errors.New("an entrant has a name and a Discord name of at most 100 characters, and a time zone")
 
@@ -106,8 +113,11 @@ func blitzChampion(ctx context.Context, tx pgx.Tx, edID int64) (*string, error) 
 // blitzEditionRows lists blitz editions, the series' hidden ones too unless public, narrowed to one edition when
 // slug is given. Newest edition first within a series.
 func blitzEditionRows(ctx context.Context, db conn, public bool, slug, edition string) ([]BlitzEditionRow, error) {
+	fide := blitz.FIDEScoring
 	rows, err := db.Query(ctx, `
 		SELECT s.slug, s.name, t.label, coalesce(e.swiss_rounds, $4), coalesce(e.knockout_size, $5),
+		       coalesce(e.points_win, $6), coalesce(e.points_draw, $7), coalesce(e.points_loss, $8), coalesce(e.points_forfeit_win, $9),
+		       coalesce(e.points_forfeit_loss, $10), coalesce(e.points_bye, $11), coalesce(e.points_skip, $12),
 		       (SELECT count(*) FROM blitz_entries x WHERE x.tournament_id = t.tournament_id AND x.status = 'active')::int,
 		       (SELECT count(*) FROM blitz_entries x WHERE x.tournament_id = t.tournament_id AND x.status = 'pending')::int,
 		       (SELECT count(*) FROM blitz_entries x WHERE x.tournament_id = t.tournament_id AND x.status = 'dropped')::int,
@@ -118,13 +128,16 @@ func blitzEditionRows(ctx context.Context, db conn, public bool, slug, edition s
 		LEFT JOIN blitz_editions e ON e.tournament_id = t.tournament_id
 		WHERE s.blitz AND (s.visible OR NOT $1) AND ($2 = '' OR (s.slug = $2 AND t.label = $3))
 		ORDER BY s.name, coalesce(substring(t.label FROM '^[0-9]+')::int, -1) DESC, t.label DESC`,
-		public, slug, edition, DefaultBlitzFormat.SwissRounds, DefaultBlitzFormat.KnockoutSize)
+		public, slug, edition, DefaultBlitzFormat.SwissRounds, DefaultBlitzFormat.KnockoutSize, fide.Win, fide.Draw, fide.Loss, fide.ForfeitWin,
+		fide.ForfeitLoss, fide.Bye, fide.Skip)
 	if err != nil {
 		return nil, fmt.Errorf("listing blitz editions: %w", err)
 	}
 	out, err := pgx.CollectRows(rows, func(row pgx.CollectableRow) (BlitzEditionRow, error) {
 		var r BlitzEditionRow
-		return r, row.Scan(&r.Slug, &r.Name, &r.Edition, &r.Format.SwissRounds, &r.Format.KnockoutSize, &r.Entrants, &r.Pending, &r.Dropped, &r.TiebreakSeed, &r.Round, &r.Champion)
+		p := &r.Points
+		return r, row.Scan(&r.Slug, &r.Name, &r.Edition, &r.Format.SwissRounds, &r.Format.KnockoutSize, &p.Win, &p.Draw, &p.Loss, &p.ForfeitWin,
+			&p.ForfeitLoss, &p.Bye, &p.Skip, &r.Entrants, &r.Pending, &r.Dropped, &r.TiebreakSeed, &r.Round, &r.Champion)
 	})
 	if err != nil {
 		return nil, fmt.Errorf("listing blitz editions: %w", err)
@@ -231,16 +244,46 @@ func (a *AdminStore) SetBlitzFormat(ctx context.Context, slug, edition string, f
 		if err != nil {
 			return err
 		}
-		var started bool
-		if err := tx.QueryRow(ctx, "SELECT EXISTS (SELECT 1 FROM blitz_rounds WHERE tournament_id = $1 AND kind = 'knockout')", id).Scan(&started); err != nil {
+		switch started, err := knockoutStarted(ctx, tx, id); {
+		case err != nil:
 			return fmt.Errorf("setting %s %s's format: %w", slug, edition, err)
-		}
-		if started {
+		case started:
 			return ErrBlitzFormatLocked
 		}
 		if _, err := tx.Exec(ctx, "UPDATE blitz_editions SET swiss_rounds = $2, knockout_size = $3 WHERE tournament_id = $1",
 			id, f.SwissRounds, f.KnockoutSize); err != nil {
 			return fmt.Errorf("setting %s %s's format: %w", slug, edition, err)
+		}
+		return nil
+	})
+}
+
+// knockoutStarted says whether edition id's knockout has a round, draft or published.
+func knockoutStarted(ctx context.Context, tx pgx.Tx, id int64) (bool, error) {
+	var started bool
+	err := tx.QueryRow(ctx, "SELECT EXISTS (SELECT 1 FROM blitz_rounds WHERE tournament_id = $1 AND kind = 'knockout')", id).Scan(&started)
+	return started, err
+}
+
+// SetBlitzPoints sets what each outcome of an edition is worth (checked by the caller) until its knockout has a
+// round, or returns ErrBlitzPointsLocked or ErrNoBlitzEdition.
+func (a *AdminStore) SetBlitzPoints(ctx context.Context, slug, edition string, s blitz.Scoring) error {
+	return pgx.BeginFunc(ctx, a.pool, func(tx pgx.Tx) error {
+		id, err := blitzEditionID(ctx, tx, slug, edition)
+		if err != nil {
+			return err
+		}
+		switch started, err := knockoutStarted(ctx, tx, id); {
+		case err != nil:
+			return fmt.Errorf("setting %s %s's points: %w", slug, edition, err)
+		case started:
+			return ErrBlitzPointsLocked
+		}
+		if _, err := tx.Exec(ctx, `
+			UPDATE blitz_editions SET points_win = $2, points_draw = $3, points_loss = $4, points_forfeit_win = $5,
+			       points_forfeit_loss = $6, points_bye = $7, points_skip = $8
+			WHERE tournament_id = $1`, id, s.Win, s.Draw, s.Loss, s.ForfeitWin, s.ForfeitLoss, s.Bye, s.Skip); err != nil {
+			return fmt.Errorf("setting %s %s's points: %w", slug, edition, err)
 		}
 		return nil
 	})

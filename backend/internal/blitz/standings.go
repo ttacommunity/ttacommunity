@@ -1,10 +1,14 @@
-// The standings of a Swiss tournament: points from results and byes, then the tie-breaks of FIDE's Swiss rules
-// (Direct Encounter, then Buchholz with its handling of unplayed rounds), then a draw from a seed.
+// The standings of a Swiss tournament: points from results and byes as the edition scores them (FIDE's by default),
+// then the tie-breaks of FIDE's Swiss rules (Direct Encounter, then Buchholz with its handling of unplayed rounds),
+// then a draw from a seed.
 package blitz
 
 import (
 	"cmp"
+	"errors"
+	"fmt"
 	"maps"
+	"math"
 	"math/rand/v2"
 	"slices"
 )
@@ -48,24 +52,52 @@ type Standing struct {
 	Dropped     bool
 }
 
-// points is what each side of a result takes: win 1, draw a half, loss or double loss 0.
-func points(r Result) (a, b float64) {
-	switch r {
-	case WinA:
-		return 1, 0
-	case WinB:
-		return 0, 1
-	case Draw:
-		return 0.5, 0.5
+// Scoring is what each outcome is worth, in points: a game won, drawn or lost (a ruled draw is a draw), a win or
+// loss by forfeit (a "both lose" ruling is a forfeit loss each), a pairing-allocated bye and a skipped round.
+type Scoring struct{ Win, Draw, Loss, ForfeitWin, ForfeitLoss, Bye, Skip float64 }
+
+// FIDEScoring is FIDE's: win 1, draw a half, loss 0, a forfeit as a win or a loss, the bye as a win (C.04.1
+// Article 3) and a known absence 0 (C.04.2 3.3).
+var FIDEScoring = Scoring{Win: 1, Draw: 0.5, Loss: 0, ForfeitWin: 1, ForfeitLoss: 0, Bye: 1, Skip: 0}
+
+// CheckScoring returns why a scoring cannot be used, nil when it can: a value outside 0 to 10 or not in halves, or
+// a win worth less than a draw or a draw less than a loss.
+func CheckScoring(s Scoring) error {
+	for _, v := range []float64{s.Win, s.Draw, s.Loss, s.ForfeitWin, s.ForfeitLoss, s.Bye, s.Skip} {
+		if v < 0 || v > 10 || v*2 != math.Trunc(v*2) {
+			return fmt.Errorf("points are 0 to 10, in halves, not %v", v)
+		}
 	}
-	return 0, 0
+	if s.Win < s.Draw || s.Draw < s.Loss {
+		return errors.New("a win is worth at least a draw, and a draw at least a loss")
+	}
+	return nil
 }
 
-// Standings ranks the entrants by points (a win 1, a draw a half, a bye 1), then by the tie-breaks of FIDE's
-// regulations for Swiss tournaments: Direct Encounter, then Buchholz, with unplayed rounds as its Article 16 has
-// them (rounds is the tournament's number of Swiss rounds); then by a draw from the seed, the same every time.
+// points is what each side of a match takes under the scoring, and whether each lost it.
+func (s Scoring) points(m Played) (a, b float64, lostA, lostB bool) {
+	switch {
+	case m.Result == DoubleLoss:
+		return s.ForfeitLoss, s.ForfeitLoss, true, true
+	case m.Result == Draw:
+		return s.Draw, s.Draw, false, false
+	case m.Result == WinA && m.Forfeit:
+		return s.ForfeitWin, s.ForfeitLoss, false, true
+	case m.Result == WinA:
+		return s.Win, s.Loss, false, true
+	case m.Result == WinB && m.Forfeit:
+		return s.ForfeitLoss, s.ForfeitWin, true, false
+	case m.Result == WinB:
+		return s.Loss, s.Win, true, false
+	}
+	return 0, 0, false, false
+}
+
+// Standings ranks the entrants by points, as the scoring values each result and bye, then by the tie-breaks of
+// FIDE's regulations for Swiss tournaments: Direct Encounter, then Buchholz, with unplayed rounds as its Article 16
+// has them (rounds is the tournament's number of Swiss rounds); then by a draw from the seed, the same every time.
 // Dropped players come last, their points kept. Ranks run 1, 2, 3…: a tie the draw broke reads like any other.
-func Standings(entrants []Entrant, matches []Played, rounds int, seed uint64) []Standing {
+func Standings(entrants []Entrant, matches []Played, rounds int, seed uint64, scoring Scoring) []Standing {
 	rows := map[int64]*Standing{}
 	for _, e := range entrants {
 		rows[e.ID] = &Standing{ID: e.ID, Dropped: e.Dropped}
@@ -83,7 +115,7 @@ func Standings(entrants []Entrant, matches []Played, rounds int, seed uint64) []
 		}
 		a, b := rows[m.A], rows[m.B]
 		if m.B == 0 && a != nil {
-			a.Points++
+			a.Points += scoring.Bye
 			a.Byes++
 			paired[m.A][m.Round] = true
 			continue
@@ -95,11 +127,11 @@ func Standings(entrants []Entrant, matches []Played, rounds int, seed uint64) []
 		if m.Result == Undecided {
 			continue
 		}
-		pa, pb := points(m.Result)
+		pa, pb, lostA, lostB := scoring.points(m)
 		a.Points += pa
 		b.Points += pb
 		if m.Forfeit {
-			lostByForfeit[m.A][m.Round], lostByForfeit[m.B][m.Round] = pa == 0, pb == 0
+			lostByForfeit[m.A][m.Round], lostByForfeit[m.B][m.Round] = lostA, lostB
 			continue
 		}
 		a.Games++
@@ -120,7 +152,7 @@ func Standings(entrants []Entrant, matches []Played, rounds int, seed uint64) []
 			case !paired[id][r]:
 				missed[id]++
 				if onlyUnplayedAfter {
-					adjusted[id] += 0.5
+					adjusted[id] += scoring.Draw
 				}
 			case !lostByForfeit[id][r]:
 				onlyUnplayedAfter = false
@@ -130,7 +162,7 @@ func Standings(entrants []Entrant, matches []Played, rounds int, seed uint64) []
 
 	// Buchholz: each opponent's adjusted score; an unplayed round counts as a dummy with the player's own score, at
 	// most the opponent's adjusted score for a forfeit, and a draw in every round for a bye or missed round.
-	most := 0.5 * float64(rounds)
+	most := scoring.Draw * float64(rounds)
 	for _, m := range matches {
 		a, b := rows[m.A], rows[m.B]
 		switch {

@@ -72,6 +72,10 @@ export const replaceBlitzPlayer = (slug: string, edition: string, round: number,
 export const removeBlitzEntrant = (slug: string, edition: string, id: number) => to(`${blitz(slug, edition)}/entrants/${id}`, 'DELETE');
 /** setBlitzFormat sets an edition's Swiss rounds and knockout size. */
 export const setBlitzFormat = (slug: string, edition: string, format: Schemas['BlitzFormat']) => to(blitz(slug, edition), 'PATCH', format);
+/** setBlitzPoints sets what each outcome of an edition is worth. */
+export const setBlitzPoints = (slug: string, edition: string, points: Schemas['BlitzPoints']) => to(`${blitz(slug, edition)}/points`, 'PUT', points);
+/** resetBlitzPoints puts FIDE's points back. */
+export const resetBlitzPoints = (slug: string, edition: string) => to(`${blitz(slug, edition)}/points`, 'DELETE');
 /** pairBlitzRound pairs the edition's next round as a draft, by the criteria given. */
 export const pairBlitzRound = (slug: string, edition: string, criteria: Schemas['NewBlitzRound']) => to(`${blitz(slug, edition)}/rounds`, 'POST', criteria);
 /** proposeBlitzPairing asks for a round with the matches in keep (and those with a result) as they are and everyone else paired, without saving it. */

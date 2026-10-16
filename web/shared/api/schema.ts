@@ -1710,6 +1710,32 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/admin/blitz/{tournament}/{edition}/points": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Set what each outcome is worth in a blitz edition
+         * @description Audited. The Origin must be the admin site. The standings, the
+         *     next pairing's score groups and the bye follow at once; rounds
+         *     already paired stay. Refused once the knockout has a round.
+         */
+        put: operations["putAdminBlitzPoints"];
+        post?: never;
+        /**
+         * Reset a blitz edition's points to FIDE's
+         * @description Audited. The Origin must be the admin site. Refused once the knockout has a round.
+         */
+        delete: operations["deleteAdminBlitzPoints"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/admin/blitz/{tournament}/{edition}/thread-text": {
         parameters: {
             query?: never;
@@ -2239,6 +2265,9 @@ export interface components {
         };
         /** @description A blitz edition for the site, with the entrants still in, the published rounds and the standings */
         BlitzEdition: {
+            points: components["schemas"]["BlitzPoints"];
+            /** @description True when the points are FIDE's */
+            fide_points: boolean;
             /** @description The winner of the knockout's final, by username; null until the final has a winner */
             champion: string | null;
             tournament: string;
@@ -2319,7 +2348,7 @@ export interface components {
             country: string | null;
             /**
              * Format: double
-             * @description A win 1, a draw a half, a bye 1
+             * @description As the edition's points score each result and bye (FIDE's by default)
              */
             points: number;
             /** @description Games played (finished, resigned or timed out); forfeits and byes aside */
@@ -2474,6 +2503,9 @@ export interface components {
             status: "pending" | "active" | "dropped";
         };
         AdminBlitzEdition: {
+            points: components["schemas"]["BlitzPoints"];
+            /** @description True when the points are FIDE's, so Reset has nothing to do */
+            fide_points: boolean;
             /** @description The members the Discord thread messages tell players to ping, in the order added */
             organisers: components["schemas"]["AdminBlitzOrganiser"][];
             thread_text: components["schemas"]["AdminBlitzThreadText"];
@@ -2544,6 +2576,35 @@ export interface components {
         };
         MemberBan: {
             reason: string;
+        };
+        /**
+         * @description What each outcome is worth in an edition's standings, 0 to 10 in
+         *     halves, a win at least a draw and a draw at least a loss. FIDE's
+         *     by default: win 1, draw 0.5, loss 0, a forfeit as a win or a loss,
+         *     the bye 1 and a skipped round 0. A ruled draw scores as a draw; a
+         *     "both lose" ruling is a forfeit loss each.
+         */
+        BlitzPoints: {
+            /** Format: double */
+            win: number;
+            /** Format: double */
+            draw: number;
+            /** Format: double */
+            loss: number;
+            /** Format: double */
+            forfeit_win: number;
+            /** Format: double */
+            forfeit_loss: number;
+            /**
+             * Format: double
+             * @description The pairing's bye
+             */
+            bye: number;
+            /**
+             * Format: double
+             * @description A round the player asked to sit out
+             */
+            skip: number;
         };
         /** @description What the edition's Discord thread messages say, its own text or the default */
         AdminBlitzThreadText: {
@@ -6379,6 +6440,65 @@ export interface operations {
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
+        };
+    };
+    putAdminBlitzPoints: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The tournament's slug */
+                tournament: components["parameters"]["AdminTournamentSlug"];
+                /** @description The edition's label, as admin lists it (a season) */
+                edition: components["parameters"]["BlitzEditionLabel"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BlitzPoints"];
+            };
+        };
+        responses: {
+            /** @description Saved */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+        };
+    };
+    deleteAdminBlitzPoints: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The tournament's slug */
+                tournament: components["parameters"]["AdminTournamentSlug"];
+                /** @description The edition's label, as admin lists it (a season) */
+                edition: components["parameters"]["BlitzEditionLabel"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Reset */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
         };
     };
     putAdminBlitzThreadText: {
