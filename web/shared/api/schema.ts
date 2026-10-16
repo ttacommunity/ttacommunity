@@ -3823,7 +3823,7 @@ export interface components {
              * @description A never-played game had no player; an unconfirmed one has a result in doubt. Neither is rated
              * @enum {string}
              */
-            state: "played" | "never_played" | "unconfirmed";
+            state: "played" | "never_played" | "unconfirmed" | "running" | "prepared";
             replay_code: string | null;
             /** @description Highest score first */
             seats: components["schemas"]["GameSeat"][];
@@ -4845,6 +4845,8 @@ export interface operations {
                 player?: string;
                 /** @description Only games with a replay code */
                 coded?: boolean;
+                /** @description Only games in this state */
+                state?: "played" | "never_played" | "unconfirmed" | "running" | "prepared";
                 page?: number;
             };
             header?: never;
@@ -6890,6 +6892,7 @@ export const pathsV1RunsRunLeaderboardCsvGetParametersQuerySortValues: ReadonlyA
 export const pathsV1RunsRunLeaderboardCsvGetParametersQueryOrderValues: ReadonlyArray<FlattenedDeepRequired<paths>["/v1/runs/{run}/leaderboard.csv"]["get"]["parameters"]["query"]["order"]> = ["asc", "desc"];
 export const pathsV1RunsRunLeaderboardCsvGetParametersQueryStats_viewValues: ReadonlyArray<FlattenedDeepRequired<paths>["/v1/runs/{run}/leaderboard.csv"]["get"]["parameters"]["query"]["stats_view"]> = ["season", "career"];
 export const pathsV1RunsRunAnalysisSeatsGetParametersQueryTierValues: ReadonlyArray<FlattenedDeepRequired<paths>["/v1/runs/{run}/analysis/seats"]["get"]["parameters"]["query"]["tier"]> = ["all", "grandmaster", "master", "advanced", "intermediate", "beginner"];
+export const pathsV1RunsRunCatalogueTournamentGamesGetParametersQueryStateValues: ReadonlyArray<FlattenedDeepRequired<paths>["/v1/runs/{run}/catalogue/{tournament}/games"]["get"]["parameters"]["query"]["state"]> = ["played", "never_played", "unconfirmed", "running", "prepared"];
 export const adminRunStatusValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["AdminRun"]["status"]> = ["running", "complete", "failed"];
 export const standingDifferenceKindValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["StandingDifference"]["kind"]> = ["games", "places", "places_after_a_timeout", "not_held", "not_on_cge"];
 export const adminTitleValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["AdminTitle"]> = ["SGM", "WCS", "WCB", "GM", "M", "P", "G", "S", "B", "W", ""];
@@ -6912,7 +6915,7 @@ export const calibrationRowModeValues: ReadonlyArray<FlattenedDeepRequired<compo
 export const seatAnalysisTierValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["SeatAnalysis"]["tier"]> = ["all", "grandmaster", "master", "advanced", "intermediate", "beginner"];
 export const tournamentRecordMedalValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["TournamentRecord"]["medal"]> = ["gold", "silver", "bronze"];
 export const communityRowTitleValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["CommunityRow"]["title"]> = ["WC", "SGM", "WCS", "WCB", "GM", "M", "P", "G", "S", "B", "W"];
-export const catalogueGameStateValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["CatalogueGame"]["state"]> = ["played", "never_played", "unconfirmed"];
+export const catalogueGameStateValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["CatalogueGame"]["state"]> = ["played", "never_played", "unconfirmed", "running", "prepared"];
 export const gameSeatOutcomeValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["GameSeat"]["outcome"]> = ["finished", "resigned", "timed_out"];
 export const seriesValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["Series"]> = ["international", "intermezzo", "royal_league", "worlds", "grand_slams", "ladders"];
 export const trophyRowTitleValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["TrophyRow"]["title"]> = ["WC", "GM", "M"];

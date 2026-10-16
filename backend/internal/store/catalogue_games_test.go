@@ -320,3 +320,25 @@ func TestCatalogueGamesMasksDeletedAndBannedSeats(t *testing.T) {
 		t.Errorf("masked seats (-want +got):\n%s", diff)
 	}
 }
+
+func TestCatalogueGamesNarrowsByState(t *testing.T) {
+	pool := migrated(t)
+	ctx := context.Background()
+	run := publishedRun(t, pool)
+	placedOn(t, pool, map[string]time.Time{
+		"Intermezzo S24 - Bronze 1 game 1": day("2024-01-02"),
+		"Intermezzo S24 - Bronze 1 game 2": day("2024-01-09"),
+		"Intermezzo S24 - Bronze 1 game 3": day("2024-01-09"),
+	})
+	setGameState(t, pool, "Intermezzo S24 - Bronze 1 game 2", "never_played")
+	setGameState(t, pool, "Intermezzo S24 - Bronze 1 game 3", "unconfirmed")
+	r := NewRatingsReader(asReader(t, pool))
+
+	got, err := r.CatalogueGames(ctx, run, "intermezzo", CatalogueGamesFilter{State: "played"})
+	if err != nil {
+		t.Fatalf("CatalogueGames: %v", err)
+	}
+	if len(got.Games) != 1 || got.Total != 1 || got.Games[0].State != "played" {
+		t.Fatalf("games = %+v, want only 1 played game", got.Games)
+	}
+}

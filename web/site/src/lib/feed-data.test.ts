@@ -141,4 +141,65 @@ describe('fetchFeedMatches', () => {
     const got = fetchFeedMatches('https://api.example', 5, { tournaments: [], players: ['ann', 'bob'] }, 8, answering({ ann: 200, bob: 500 }));
     await expect(got).rejects.toMatchObject({ status: 500 });
   });
+
+  it('only includes finished played games from tournaments', async () => {
+    const mockFetch = (async (input: RequestInfo | URL) => {
+      const url = String(input);
+      expect(url).toContain('state=played');
+      const body = {
+        total: 3,
+        page: 1,
+        pages: 1,
+        groups: ['Emperor'],
+        games: [
+          {
+            match_id: 201,
+            date: '2026-10-01',
+            season: 'Season 10',
+            stage: '',
+            group: 'Emperor',
+            game: 1,
+            state: 'played',
+            replay_code: null,
+            rated: true,
+            seats: [{ name: 'ann', score: 100 }, { name: 'bob', score: 80 }],
+          },
+          {
+            match_id: 202,
+            date: '2026-10-02',
+            season: 'Season 10',
+            stage: '',
+            group: 'Emperor',
+            game: 2,
+            state: 'running',
+            replay_code: null,
+            rated: false,
+            seats: [{ name: 'ann', score: 0 }, { name: 'bob', score: 0 }],
+          },
+          {
+            match_id: 203,
+            date: '2026-10-03',
+            season: 'Season 10',
+            stage: '',
+            group: 'Emperor',
+            game: 3,
+            state: 'played',
+            replay_code: null,
+            rated: true,
+            seats: [{ name: 'cat', score: 50 }],
+          },
+        ],
+      };
+      return new Response(JSON.stringify(body), { status: 200 });
+    }) as typeof fetch;
+
+    const got = await fetchFeedMatches(
+      'https://api.example',
+      5,
+      { tournaments: [{ slug: 'royal_league', name: 'Royal League', division: 'Emperor' }], players: [] },
+      8,
+      mockFetch,
+    );
+    expect(got.map((m) => m.matchId)).toEqual([201]);
+  });
 });

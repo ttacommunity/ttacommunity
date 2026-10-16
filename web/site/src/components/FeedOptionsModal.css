@@ -160,6 +160,25 @@
   border-color: var(--accent-gold);
 }
 
+.feed-btn-add-division {
+  padding: 0.28rem 0.55rem;
+  background: transparent;
+  border: 1px dashed var(--border-subtle);
+  border-radius: 4px;
+  color: var(--accent-gold);
+  font-family: var(--font-stats);
+  font-size: 0.78rem;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.15s ease;
+}
+
+.feed-btn-add-division:hover {
+  border-color: var(--accent-gold);
+  background: var(--gold-wash-faint);
+  color: var(--accent-gold-bright);
+}
+
 .feed-row-remove {
   background: transparent;
   border: none;

@@ -110,6 +110,11 @@ export async function fetchTournamentDivisions(
   return PREMIER_DIVISIONS[slug] ?? [];
 }
 
+/** isFinishedCatalogueGame checks that a game is completed (state is 'played' and has at least two seats). */
+export function isFinishedCatalogueGame(g: CatalogueGame): boolean {
+  return g.state === 'played' && Array.isArray(g.seats) && g.seats.length >= 2;
+}
+
 /** skipMissing gives no games for a source the API does not know, such as a saved player since gone, and passes any other failure on. */
 function skipMissing(e: unknown): FeedMatch[] {
   if (e instanceof RatingsApiError && e.status === 404) return [];
@@ -126,8 +131,8 @@ export async function fetchFeedMatches(
   fetchFn: typeof fetch = fetch,
 ): Promise<FeedMatch[]> {
   const tourneyPromises = settings.tournaments.map((t) =>
-    catalogueGames(apiUrl, runId, t.slug, { group: t.division || undefined, page: 1 }, fetchFn)
-      .then((res) => res.games.map((g) => catalogueGameToFeedMatch(g, t.name)))
+    catalogueGames(apiUrl, runId, t.slug, { group: t.division || undefined, state: 'played', page: 1 }, fetchFn)
+      .then((res) => res.games.filter(isFinishedCatalogueGame).map((g) => catalogueGameToFeedMatch(g, t.name)))
       .catch(skipMissing),
   );
 

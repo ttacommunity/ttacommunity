@@ -168,6 +168,12 @@ func (s *server) GetCatalogueGames(ctx context.Context, req GetCatalogueGamesReq
 	if req.Params.Coded != nil {
 		f.Coded = *req.Params.Coded
 	}
+	if req.Params.State != nil {
+		if !req.Params.State.Valid() {
+			return GetCatalogueGames400JSONResponse{badRequestBody("bad parameter: state")}, nil
+		}
+		f.State = string(*req.Params.State)
+	}
 	if req.Params.Page != nil {
 		f.Page = *req.Params.Page
 	}

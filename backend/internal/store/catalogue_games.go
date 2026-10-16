@@ -18,11 +18,12 @@ const catalogueGamesPage = 50
 
 // CatalogueGamesFilter narrows a tournament's games. Empty fields do not
 // narrow; Player keeps games with that player (any case), Coded games with a
-// replay code. Page counts from 1.
+// replay code, State games in that state. Page counts from 1.
 type CatalogueGamesFilter struct {
 	Season, Stage, Group string
 	Player               string
 	Coded                bool
+	State                string
 	Page                 int
 }
 
@@ -107,8 +108,8 @@ func (r *RatingsReader) CatalogueGames(ctx context.Context, run int64, slug stri
 
 	if err := r.pool.QueryRow(ctx, `
 		SELECT count(*) FILTER (WHERE NOT $6 OR code <> ''), count(*) FILTER (WHERE code <> '')
-		FROM (`+shownGames+`) g WHERE ($5 = '' OR group_label = $5)`,
-		slug, f.Season, f.Stage, f.Player, f.Group, f.Coded).Scan(&got.Total, &got.Coded); err != nil {
+		FROM (`+shownGames+`) g WHERE ($5 = '' OR group_label = $5) AND ($7 = '' OR state = $7)`,
+		slug, f.Season, f.Stage, f.Player, f.Group, f.Coded, f.State).Scan(&got.Total, &got.Coded); err != nil {
 		return fail("game count", err)
 	}
 	got.Pages = max(1, (got.Total+catalogueGamesPage-1)/catalogueGamesPage)
@@ -118,10 +119,10 @@ func (r *RatingsReader) CatalogueGames(ctx context.Context, run int64, slug stri
 		SELECT g.match_id, g.date, g.season, g.stage, g.group_label, g.game, g.state, g.code, g.rated,
 		       g.players, g.cultures, g.places, g.outcomes
 		FROM (`+shownGames+`) g
-		WHERE ($5 = '' OR g.group_label = $5) AND (NOT $6 OR g.code <> '')
-		ORDER BY g.date DESC, g.season, g.stage, g.group_label, g.game DESC, g.match_id
+		WHERE ($5 = '' OR g.group_label = $5) AND (NOT $6 OR g.code <> '') AND ($9 = '' OR g.state = $9)
+		ORDER BY g.date DESC, g.season, g.stage, g.group_label, g.game DESC, g.match_id DESC
 		LIMIT $7 OFFSET $8`,
-		slug, f.Season, f.Stage, f.Player, f.Group, f.Coded, catalogueGamesPage, (got.Page-1)*catalogueGamesPage)
+		slug, f.Season, f.Stage, f.Player, f.Group, f.Coded, catalogueGamesPage, (got.Page-1)*catalogueGamesPage, f.State)
 	if err != nil {
 		return fail("games", err)
 	}

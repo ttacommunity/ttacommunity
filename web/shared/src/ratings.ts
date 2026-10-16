@@ -347,13 +347,14 @@ export interface GamesFilter {
   group?: string;
   player?: string;
   coded?: boolean;
+  state?: string;
   page: number;
 }
 
 /** Returns one page of a tournament's games, newest first, narrowed by the filter. */
 export async function catalogueGames(base: string, run: number, slug: string, filter: GamesFilter, fetchFn: typeof fetch = fetch): Promise<CatalogueGames> {
   const query = new URLSearchParams({ page: String(filter.page) });
-  for (const key of ['season', 'stage', 'group', 'player'] as const) {
+  for (const key of ['season', 'stage', 'group', 'player', 'state'] as const) {
     const value = filter[key];
     if (value !== undefined && value !== '') query.set(key, value);
   }

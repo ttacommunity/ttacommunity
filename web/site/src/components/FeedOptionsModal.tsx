@@ -72,8 +72,10 @@ export default function FeedOptionsModal({
     const tourney = availableTournaments.find((t) => t.slug === slug);
     if (!tourney) return;
 
-    // Default to the first available division if known
-    const defaultDiv = PREMIER_DIVISIONS[slug]?.[0] || '';
+    // Pick the first unused division or premier division default
+    const used = new Set(staged.tournaments.filter((t) => t.slug === slug).map((t) => t.division ?? ''));
+    const divisions = divisionsMap[slug] || PREMIER_DIVISIONS[slug] || [];
+    const defaultDiv = divisions.find((d) => !used.has(d)) ?? PREMIER_DIVISIONS[slug]?.[0] ?? '';
     const newEntry: TournamentFeedFilter = {
       slug: tourney.slug,
       name: tourney.name,
@@ -86,18 +88,22 @@ export default function FeedOptionsModal({
     }));
   };
 
-  const removeTournament = (slug: string) => {
+  const addDivision = (slug: string) => {
+    addTournament(slug);
+  };
+
+  const removeTournament = (index: number) => {
     setStaged((prev) => ({
       ...prev,
-      tournaments: prev.tournaments.filter((t) => t.slug !== slug),
+      tournaments: prev.tournaments.filter((_, i) => i !== index),
     }));
   };
 
-  const changeDivision = (slug: string, division: string) => {
+  const changeDivision = (index: number, division: string) => {
     setStaged((prev) => ({
       ...prev,
-      tournaments: prev.tournaments.map((t) =>
-        t.slug === slug ? { ...t, division } : t,
+      tournaments: prev.tournaments.map((t, i) =>
+        i === index ? { ...t, division } : t,
       ),
     }));
   };
@@ -132,11 +138,6 @@ export default function FeedOptionsModal({
     onSave(staged);
     dialogRef.current?.close();
   };
-
-  // Tournaments not yet added
-  const remainingTournaments = availableTournaments.filter(
-    (a) => !staged.tournaments.some((t) => t.slug === a.slug),
-  );
 
   return (
     <dialog
@@ -175,12 +176,12 @@ export default function FeedOptionsModal({
             {staged.tournaments.length === 0 ? (
               <div className="feed-empty-hint-small">No tournaments selected. Add one below or reset to premier.</div>
             ) : (
-              staged.tournaments.map((t) => {
+              staged.tournaments.map((t, idx) => {
                 const divisions = divisionsMap[t.slug] || [];
                 const isLoading = loadingDivisions[t.slug];
 
                 return (
-                  <div key={t.slug} className="feed-tourney-row">
+                  <div key={`${t.slug}-${t.division || 'all'}-${idx}`} className="feed-tourney-row">
                     <div className="feed-tourney-info">
                       <span className="feed-tourney-name" title={t.name}>
                         {t.name}
@@ -191,7 +192,7 @@ export default function FeedOptionsModal({
                       <select
                         className="feed-division-select"
                         value={t.division ?? ''}
-                        onChange={(e) => changeDivision(t.slug, e.target.value)}
+                        onChange={(e) => changeDivision(idx, e.target.value)}
                         aria-label={`Division for ${t.name}`}
                       >
                         <option value="">All Divisions</option>
@@ -210,10 +211,19 @@ export default function FeedOptionsModal({
 
                       <button
                         type="button"
+                        className="feed-btn-add-division"
+                        onClick={() => addDivision(t.slug)}
+                        title={`Add another division for ${t.name}`}
+                      >
+                        + Division
+                      </button>
+
+                      <button
+                        type="button"
                         className="feed-row-remove"
-                        onClick={() => removeTournament(t.slug)}
-                        title={`Remove ${t.name}`}
-                        aria-label={`Remove ${t.name}`}
+                        onClick={() => removeTournament(idx)}
+                        title={`Remove ${t.name}${t.division ? ` (${t.division})` : ''}`}
+                        aria-label={`Remove ${t.name}${t.division ? ` (${t.division})` : ''}`}
                       >
                         ✕
                       </button>
@@ -223,7 +233,7 @@ export default function FeedOptionsModal({
               })
             )}
 
-            {remainingTournaments.length > 0 && (
+            {availableTournaments.length > 0 && (
               <div className="feed-add-tourney-row">
                 <select
                   className="feed-add-tourney-select"
@@ -234,8 +244,8 @@ export default function FeedOptionsModal({
                   }}
                   aria-label="Add tournament to feed"
                 >
-                  <option value="" disabled>+ Add Tournament to Feed…</option>
-                  {remainingTournaments.map((item) => (
+                  <option value="" disabled>+ Add Tournament / Division to Feed…</option>
+                  {availableTournaments.map((item) => (
                     <option key={item.slug} value={item.slug}>
                       {item.name}
                     </option>

@@ -36,14 +36,21 @@ export function sanitizeFeedSettings(data: unknown): FeedSettings {
   const rawPlayers = Array.isArray(obj.players) ? obj.players : [];
 
   const tournaments: TournamentFeedFilter[] = [];
+  const seen = new Set<string>();
   for (const t of rawTournaments) {
     if (t && typeof t === 'object' && typeof (t as { slug?: unknown }).slug === 'string') {
       const item = t as Record<string, unknown>;
-      tournaments.push({
-        slug: String(item.slug),
-        name: typeof item.name === 'string' ? item.name : String(item.slug),
-        division: typeof item.division === 'string' ? item.division : '',
-      });
+      const slug = String(item.slug);
+      const division = typeof item.division === 'string' ? item.division : '';
+      const key = `${slug}::${division}`;
+      if (!seen.has(key)) {
+        seen.add(key);
+        tournaments.push({
+          slug,
+          name: typeof item.name === 'string' ? item.name : slug,
+          division,
+        });
+      }
     }
   }
 
