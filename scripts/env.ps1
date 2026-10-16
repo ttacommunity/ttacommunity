@@ -29,11 +29,26 @@ if ($userPg -and (Test-Path (Join-Path $userPg 'pgdata\PG_VERSION'))) {
     if ($env:PATH -notlike "*$userBin*") { $env:PATH = "$userBin;$env:PATH" }
     pg_ctl status | Out-Null
     if ($LASTEXITCODE -ne 0) {
+        $pidFile = Join-Path $env:PGDATA 'postmaster.pid'
+        if (Test-Path $pidFile) {
+            $rawPid = (Get-Content $pidFile -TotalCount 1).Trim()
+            if ($rawPid -match '^\d+$' -and -not (Get-Process -Id ([int]$rawPid) -ErrorAction SilentlyContinue)) {
+                Remove-Item $pidFile -Force -ErrorAction SilentlyContinue
+            }
+        }
         # Not `pg_ctl start | Out-Null`: the server inherits the pipe, and the
         # pipe stays open until the server stops. Start it detached, then poll.
         $log = Join-Path $userPg 'postgres.log'
-        Start-Process -FilePath (Join-Path $userBin 'pg_ctl.exe') -WindowStyle Hidden `
-            -ArgumentList 'start', '-D', "`"$env:PGDATA`"", '-l', "`"$log`""
+        $pgCtlExe = Join-Path $userBin 'pg_ctl.exe'
+        $cmd = "`"$pgCtlExe`" start -D `"$env:PGDATA`" -l `"$log`""
+        $started = $false
+        try {
+            $res = Invoke-CimMethod -ClassName Win32_Process -MethodName Create -Arguments @{ CommandLine = $cmd } -ErrorAction Stop
+            if ($res.ReturnValue -eq 0) { $started = $true }
+        } catch {}
+        if (-not $started) {
+            Start-Process -FilePath $pgCtlExe -WindowStyle Hidden -ArgumentList 'start', '-D', "`"$env:PGDATA`"", '-l', "`"$log`""
+        }
         for ($i = 0; $i -lt 60; $i++) {
             Start-Sleep -Seconds 1
             pg_ctl status | Out-Null
