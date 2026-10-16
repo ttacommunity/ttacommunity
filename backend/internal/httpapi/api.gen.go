@@ -1015,10 +1015,10 @@ type AdminBlitzThreadText struct {
 	// Edited True when the edition has its own text, false for the default
 	Edited bool `json:"edited"`
 
-	// Message The welcome message, with {players} and {deadline}
+	// Message The welcome message, where {players} and {deadline} are filled in
 	Message string `json:"message"`
 
-	// NoDiscord The sentence for a player without a Discord username, with {name}
+	// NoDiscord The sentence for a player without a Discord username, where {name} is filled in
 	NoDiscord string `json:"no_discord"`
 }
 
@@ -1562,10 +1562,11 @@ type BlitzStanding struct {
 // BlitzStandingStatus Dropped players come last
 type BlitzStandingStatus string
 
-// BlitzThreadTextSet An edition's own thread text. The message must hold {players} and
-// may hold {deadline}; the no-Discord sentence must hold {name}. Any
-// other placeholder in braces is refused. Surrounding spaces are
-// trimmed.
+// BlitzThreadTextSet An edition's own thread text, written as typed, surrounding spaces
+// trimmed. In the message, {players} becomes the game's players and
+// {deadline} the round's deadline; in the no-Discord sentence, {name}
+// becomes the player's TTA username. Each is optional, and an empty
+// part is left out of the threads.
 type BlitzThreadTextSet struct {
 	Message   string `json:"message"`
 	NoDiscord string `json:"no_discord"`

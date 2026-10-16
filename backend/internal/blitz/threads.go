@@ -5,7 +5,6 @@ package blitz
 import (
 	"fmt"
 	"regexp"
-	"slices"
 	"strings"
 	"time"
 	"unicode/utf8"
@@ -20,8 +19,9 @@ type ThreadGame struct {
 	A, B   Person
 }
 
-// ThreadText is what an edition's thread messages say. Message welcomes a game's players, {players}, and may give
-// the deadline, {deadline}; NoDiscord follows it for each player without a Discord username, {name}.
+// ThreadText is what an edition's thread messages say, each part optional. Message welcomes a game's players: any
+// {players} becomes them and any {deadline} the deadline. NoDiscord follows it for each player without a Discord
+// username, any {name} becoming theirs. Anything else is written as typed.
 type ThreadText struct{ Message, NoDiscord string }
 
 // DefaultThreadText is an edition's thread text until admin sets one.
@@ -45,31 +45,13 @@ type Threads struct {
 // Thread texts' longest, in characters, leaving room in Discord's 2,000 for the names and the moderators.
 const threadMessageMax, noDiscordMax = 1500, 300
 
-// placeholder finds anything in braces, so a misspelt placeholder is refused rather than pasted as typed.
-var placeholder = regexp.MustCompile(`\{[^{}]*\}`)
-
-// CheckThreadText returns why a thread text cannot be used, nil when it can: a part too long, without the
-// placeholder it needs, or with one it cannot use.
+// CheckThreadText returns why a thread text cannot be used, nil when it can: a part too long.
 func CheckThreadText(t ThreadText) error {
-	if err := checkTextPart("the message", t.Message, threadMessageMax, "{players}", "{deadline}"); err != nil {
-		return err
+	if n := utf8.RuneCountInString(t.Message); n > threadMessageMax {
+		return fmt.Errorf("the message is at most %d characters, not %d", threadMessageMax, n)
 	}
-	return checkTextPart("the no-Discord sentence", t.NoDiscord, noDiscordMax, "{name}")
-}
-
-// checkTextPart refuses a part of a thread text over max characters, without its first placeholder, or with one
-// not among them.
-func checkTextPart(part, text string, max int, placeholders ...string) error {
-	if n := utf8.RuneCountInString(text); n > max {
-		return fmt.Errorf("%s is at most %d characters, not %d", part, max, n)
-	}
-	if !strings.Contains(text, placeholders[0]) {
-		return fmt.Errorf("%s must hold %s", part, placeholders[0])
-	}
-	for _, p := range placeholder.FindAllString(text, -1) {
-		if !slices.Contains(placeholders, p) {
-			return fmt.Errorf("%s can use only %s, not %s", part, strings.Join(placeholders, " and "), p)
-		}
+	if n := utf8.RuneCountInString(t.NoDiscord); n > noDiscordMax {
+		return fmt.Errorf("the no-Discord sentence is at most %d characters, not %d", noDiscordMax, n)
 	}
 	return nil
 }
@@ -174,20 +156,23 @@ func threadTitle(round string, g ThreadGame) string {
 }
 
 // ThreadsText writes a round's threads, a block per game between --- lines: its title, then the edition's
-// message and whom to ping, then the no-Discord sentence for each player without a username. A blank line parts
-// the blocks. The deadline is a Discord timestamp, shown to each reader on their own clock.
+// message and whom to ping, then the no-Discord sentence for each player without a username, an empty part left
+// out. A blank line parts the blocks. The deadline is a Discord timestamp, shown to each reader on their own clock.
 func ThreadsText(t Threads) string {
 	deadline := fmt.Sprintf("<t:%d:F>", t.Deadline.Unix())
-	ping := " If the game did not finish, or there are any issues with scheduling or otherwise, please ping " + moderators(t.Organisers) + ".\n"
+	ping := "If the game did not finish, or there are any issues with scheduling or otherwise, please ping " + moderators(t.Organisers) + ".\n"
 	var out strings.Builder
 	for i, g := range t.Games {
 		if i > 0 {
 			out.WriteString("\n")
 		}
-		message := strings.NewReplacer("{players}", mention(g.A)+", "+mention(g.B), "{deadline}", deadline).Replace(t.Text.Message)
-		fmt.Fprintf(&out, "---\n%s\n---\n%s%s", threadTitle(t.Round, g), message, ping)
+		fmt.Fprintf(&out, "---\n%s\n---\n", threadTitle(t.Round, g))
+		if t.Text.Message != "" {
+			out.WriteString(strings.NewReplacer("{players}", mention(g.A)+", "+mention(g.B), "{deadline}", deadline).Replace(t.Text.Message) + " ")
+		}
+		out.WriteString(ping)
 		for _, p := range []Person{g.A, g.B} {
-			if _, ok := username(p.Discord); !ok {
+			if _, ok := username(p.Discord); !ok && t.Text.NoDiscord != "" {
 				out.WriteString(strings.ReplaceAll(t.Text.NoDiscord, "{name}", p.Name) + "\n")
 			}
 		}

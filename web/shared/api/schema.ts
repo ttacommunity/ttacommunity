@@ -1768,8 +1768,8 @@ export interface paths {
          * @description Audited, as it holds Discord names. A block per game with two
          *     players, numbered as the site numbers them, between --- lines: the
          *     thread's title (Round 3 · Game 1 · Ann vs Bob, by TTA username, at
-         *     most 100 characters), then the edition's message with {players}
-         *     mentioned by Discord username and {deadline} as a Discord
+         *     most 100 characters), then the edition's message with any {players}
+         *     mentioned by Discord username and any {deadline} as a Discord
          *     timestamp, then whom to ping: the organisers by Discord username.
          *     A player whose Discord name cannot be a username is named by TTA
          *     username, and the edition's no-Discord sentence follows for them;
@@ -2547,18 +2547,19 @@ export interface components {
         };
         /** @description What the edition's Discord thread messages say, its own text or the default */
         AdminBlitzThreadText: {
-            /** @description The welcome message, with {players} and {deadline} */
+            /** @description The welcome message, where {players} and {deadline} are filled in */
             message: string;
-            /** @description The sentence for a player without a Discord username, with {name} */
+            /** @description The sentence for a player without a Discord username, where {name} is filled in */
             no_discord: string;
             /** @description True when the edition has its own text, false for the default */
             edited: boolean;
         };
         /**
-         * @description An edition's own thread text. The message must hold {players} and
-         *     may hold {deadline}; the no-Discord sentence must hold {name}. Any
-         *     other placeholder in braces is refused. Surrounding spaces are
-         *     trimmed.
+         * @description An edition's own thread text, written as typed, surrounding spaces
+         *     trimmed. In the message, {players} becomes the game's players and
+         *     {deadline} the round's deadline; in the no-Discord sentence, {name}
+         *     becomes the player's TTA username. Each is optional, and an empty
+         *     part is left out of the threads.
          */
         BlitzThreadTextSet: {
             message: string;

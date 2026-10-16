@@ -59,11 +59,9 @@ export function deadlineLocked(round: { matches: readonly { b: unknown; result: 
 /** ThreadText is an edition's thread text: the welcome message and the sentence for a player without Discord. */
 export type ThreadText = { message: string; no_discord: string };
 
-/** threadTextSavable says whether the thread text form can be saved: both parts written, and one changed from the saved text once trimmed, as the API trims it. The API checks the placeholders. */
+/** threadTextSavable says whether the thread text form can be saved: a part changed from the saved text once trimmed, as the API trims it. Either part may be empty. */
 export function threadTextSavable(form: ThreadText, saved: ThreadText): boolean {
-  const message = form.message.trim();
-  const noDiscord = form.no_discord.trim();
-  return message !== '' && noDiscord !== '' && (message !== saved.message || noDiscord !== saved.no_discord);
+  return form.message.trim() !== saved.message || form.no_discord.trim() !== saved.no_discord;
 }
 
 /** organisersSummary sums up the edition's organisers while they are hidden: their names in the order added, or None yet. */

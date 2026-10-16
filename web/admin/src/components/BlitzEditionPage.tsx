@@ -760,8 +760,9 @@ function ThreadTextPanel({ at, ed, onReload, say }: Props) {
   return (
     <>
       <p className="muted">
-        Each game&apos;s Discord thread starts with the message: {'{players}'} becomes the two players, by Discord username (their TTA username without one), and {'{deadline}'} the
-        round&apos;s deadline, on each reader&apos;s clock. Whom to ping follows it, then the sentence for each player without Discord, {'{name}'} being their TTA username.
+        Each game&apos;s Discord thread starts with the message, then whom to ping, then the sentence for each player without Discord. Wherever they appear, {'{players}'} becomes
+        the two players, by Discord username (their TTA username without one), {'{deadline}'} the round&apos;s deadline, on each reader&apos;s clock, and {'{name}'} the TTA
+        username of the player without Discord. Leave a box empty to leave it out.
       </p>
       <div className="note-box">
         <label htmlFor="thread-message">Message</label>

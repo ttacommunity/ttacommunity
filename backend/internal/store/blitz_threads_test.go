@@ -206,14 +206,14 @@ func TestAnEditionKeepsTheThreadTextLastSetUntilReset(t *testing.T) {
 	if got := threadText(t, a); got != nil {
 		t.Fatalf("thread text of a new edition = %+v, want none", got)
 	}
-	first, last := BlitzThreadText{Message: "Hi {players}.", NoDiscord: "{name}."}, BlitzThreadText{Message: "Play {players}!", NoDiscord: "Friend {name}."}
+	first, last := BlitzThreadText{Message: "Hi {players}.", NoDiscord: "{name}."}, BlitzThreadText{}
 	for _, text := range []BlitzThreadText{first, last} {
 		if err := a.SetBlitzThreadText(ctx, "us_open", "2026", text); err != nil {
 			t.Fatalf("SetBlitzThreadText(%+v): %v", text, err)
 		}
 	}
 	if got := threadText(t, a); got == nil || *got != last {
-		t.Errorf("thread text after setting it twice = %+v, want %+v", got, last)
+		t.Errorf("thread text after setting it, then empty = %+v, want %+v", got, last)
 	}
 	for range 2 {
 		if err := a.ResetBlitzThreadText(ctx, "us_open", "2026"); err != nil {
@@ -232,9 +232,7 @@ func TestTheThreadTextOfAnUnknownEditionIsRefused(t *testing.T) {
 		name string
 		op   func() error
 	}{
-		{"setting it", func() error {
-			return a.SetBlitzThreadText(ctx, "us_open", "2027", BlitzThreadText{Message: "Hi {players}.", NoDiscord: "{name}."})
-		}},
+		{"setting it", func() error { return a.SetBlitzThreadText(ctx, "us_open", "2027", BlitzThreadText{Message: "Hi."}) }},
 		{"resetting it", func() error { return a.ResetBlitzThreadText(ctx, "us_open", "2027") }},
 	}
 	for _, tt := range tests {
@@ -252,8 +250,8 @@ func TestTheDatabaseRefusesAThreadTextTooLong(t *testing.T) {
 		name, constraint string
 		text             BlitzThreadText
 	}{
-		{"a message over 1,500 characters", "blitz_thread_texts_message_check", BlitzThreadText{Message: strings.Repeat("é", 1501), NoDiscord: "{name}."}},
-		{"a no-Discord sentence over 300 characters", "blitz_thread_texts_no_discord_check", BlitzThreadText{Message: "Hi {players}.", NoDiscord: strings.Repeat("é", 301)}},
+		{"a message over 1,500 characters", "blitz_thread_texts_message_check", BlitzThreadText{Message: strings.Repeat("é", 1501)}},
+		{"a no-Discord sentence over 300 characters", "blitz_thread_texts_no_discord_check", BlitzThreadText{NoDiscord: strings.Repeat("é", 301)}},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

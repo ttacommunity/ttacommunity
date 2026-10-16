@@ -160,28 +160,45 @@ func TestThreadsTextShortensATitleToDiscordsLimit(t *testing.T) {
 	}
 }
 
-func TestCheckThreadTextRefusesATextThatCannotBeFilledIn(t *testing.T) {
-	sentence := blitz.DefaultThreadText.NoDiscord
+func TestThreadsTextFillsInOnlyWhatTheTextHolds(t *testing.T) {
+	const ping = "If the game did not finish, or there are any issues with scheduling or otherwise, please ping the moderator Carol (@carol).\n"
+	tests := []struct {
+		name               string
+		message, noDiscord string
+		discordB           string
+		want               string
+	}{
+		{"an empty message", "", "{name}.", "bob", ping},
+		{"an empty sentence, for a player without Discord", "Hi {players}.", "", "", "Hi @ann, Bob. " + ping},
+		{"no placeholders", "Hi.", "No Discord here.", "", "Hi. " + ping + "No Discord here.\n"},
+		{"a misspelt placeholder, left as typed", "Hi {player} by {deadine}.", "{nmae}.", "", "Hi {player} by {deadine}. " + ping + "{nmae}.\n"},
+		{"another part's placeholder, left as typed", "Hi {name}.", "{players}.", "", "Hi {name}. " + ping + "{players}.\n"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			text := blitz.ThreadText{Message: tt.message, NoDiscord: tt.noDiscord}
+			got := blitz.ThreadsText(oneGame(blitz.Person{Name: "Ann", Discord: "ann"}, blitz.Person{Name: "Bob", Discord: tt.discordB}, text))
+			if want := "---\nRound 1 · Game 1 · Ann vs Bob\n---\n" + tt.want + "---\n"; got != want {
+				t.Errorf("text %+v: ThreadsText =\n%s\nwant\n%s", text, got, want)
+			}
+		})
+	}
+}
+
+func TestCheckThreadTextRefusesOnlyATextTooLong(t *testing.T) {
 	tests := []struct {
 		name      string
 		text      blitz.ThreadText
 		wantError string
 	}{
 		{"the default", blitz.DefaultThreadText, ""},
-		{"players twice, no deadline", blitz.ThreadText{Message: "Hi {players}. Bye {players}.", NoDiscord: sentence}, ""},
-		{"lone braces", blitz.ThreadText{Message: "Hi } {players} :-{", NoDiscord: sentence}, ""},
-		{"a message of 1,500 characters", blitz.ThreadText{Message: strings.Repeat("é", 1491) + "{players}", NoDiscord: sentence}, ""},
-		{"a sentence of 300 characters", blitz.ThreadText{Message: "Hi {players}.", NoDiscord: strings.Repeat("é", 294) + "{name}"}, ""},
-		{"no message", blitz.ThreadText{NoDiscord: sentence}, "{players}"},
-		{"a message without {players}", blitz.ThreadText{Message: "Play by {deadline}.", NoDiscord: sentence}, "{players}"},
-		{"a misspelt placeholder", blitz.ThreadText{Message: "Hi {players}, by {deadine}.", NoDiscord: sentence}, "{deadine}"},
-		{"a placeholder with spaces", blitz.ThreadText{Message: "Hi { players }{players}.", NoDiscord: sentence}, "{ players }"},
-		{"{name} in the message", blitz.ThreadText{Message: "Hi {players} and {name}.", NoDiscord: sentence}, "{name}"},
-		{"a message of 1,501 characters", blitz.ThreadText{Message: strings.Repeat("é", 1492) + "{players}", NoDiscord: sentence}, "1500"},
-		{"no sentence", blitz.ThreadText{Message: "Hi {players}."}, "{name}"},
-		{"a sentence without {name}", blitz.ThreadText{Message: "Hi {players}.", NoDiscord: "Friend them in the app."}, "{name}"},
-		{"{players} in the sentence", blitz.ThreadText{Message: "Hi {players}.", NoDiscord: "{name} and {players}"}, "{players}"},
-		{"a sentence of 301 characters", blitz.ThreadText{Message: "Hi {players}.", NoDiscord: strings.Repeat("é", 295) + "{name}"}, "300"},
+		{"nothing at all", blitz.ThreadText{}, ""},
+		{"no placeholders", blitz.ThreadText{Message: "Hi.", NoDiscord: "No Discord here."}, ""},
+		{"a misspelt placeholder", blitz.ThreadText{Message: "Hi {player}.", NoDiscord: "{nmae}"}, ""},
+		{"a message of 1,500 characters", blitz.ThreadText{Message: strings.Repeat("é", 1500)}, ""},
+		{"a sentence of 300 characters", blitz.ThreadText{NoDiscord: strings.Repeat("é", 300)}, ""},
+		{"a message of 1,501 characters", blitz.ThreadText{Message: strings.Repeat("é", 1501)}, "1500"},
+		{"a sentence of 301 characters", blitz.ThreadText{NoDiscord: strings.Repeat("é", 301)}, "300"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

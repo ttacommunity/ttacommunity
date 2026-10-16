@@ -193,17 +193,38 @@ func TestAnOrganiserSetsTheEditionsThreadTextThenResetsIt(t *testing.T) {
 	}
 }
 
+func TestAThreadTextIsSavedAsTyped(t *testing.T) {
+	tests := []struct {
+		name, body string
+		want       store.BlitzThreadText
+	}{
+		{"both empty", `{"message": "", "no_discord": ""}`, store.BlitzThreadText{}},
+		{"only spaces", `{"message": "  \n", "no_discord": " "}`, store.BlitzThreadText{}},
+		{"no placeholders", `{"message": "Hi.", "no_discord": "No Discord here."}`, store.BlitzThreadText{Message: "Hi.", NoDiscord: "No Discord here."}},
+		{"misspelt placeholders", `{"message": "Hi {player}.", "no_discord": "{nmae}."}`, store.BlitzThreadText{Message: "Hi {player}.", NoDiscord: "{nmae}."}},
+		{"no sentence given", `{"message": "Hi {players}."}`, store.BlitzThreadText{Message: "Hi {players}."}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			f := threadsFixture()
+			if rec := adminDo(t, f, http.MethodPut, "/v1/admin/blitz/us_open/2026/thread-text", "https://ttac-admin.example", tt.body); rec.Code != http.StatusNoContent {
+				t.Fatalf("PUT thread-text %s = %d %s, want 204", tt.body, rec.Code, rec.Body)
+			}
+			if f.threadText == nil || *f.threadText != tt.want {
+				t.Errorf("PUT thread-text %s saved %+v, want %+v", tt.body, f.threadText, tt.want)
+			}
+		})
+	}
+}
+
 func TestABadThreadTextIsRefused(t *testing.T) {
 	const path = "/v1/admin/blitz/us_open/2026/thread-text"
 	tests := []struct {
 		name, method, path, body string
 		want                     int
 	}{
-		{"a message without {players}", http.MethodPut, path, `{"message": "Hi.", "no_discord": "{name}."}`, http.StatusBadRequest},
-		{"a misspelt placeholder", http.MethodPut, path, `{"message": "Hi {player}.", "no_discord": "{name}."}`, http.StatusBadRequest},
-		{"a sentence without {name}", http.MethodPut, path, `{"message": "Hi {players}.", "no_discord": "Friend them."}`, http.StatusBadRequest},
-		{"no sentence", http.MethodPut, path, `{"message": "Hi {players}."}`, http.StatusBadRequest},
-		{"a message too long", http.MethodPut, path, `{"message": "{players}` + strings.Repeat("x", 1492) + `", "no_discord": "{name}."}`, http.StatusBadRequest},
+		{"a message too long", http.MethodPut, path, `{"message": "` + strings.Repeat("x", 1501) + `", "no_discord": ""}`, http.StatusBadRequest},
+		{"a sentence too long", http.MethodPut, path, `{"message": "", "no_discord": "` + strings.Repeat("x", 301) + `"}`, http.StatusBadRequest},
 		{"setting an unknown edition's", http.MethodPut, "/v1/admin/blitz/us_open/2027/thread-text", `{"message": "Hi {players}.", "no_discord": "{name}."}`, http.StatusNotFound},
 		{"resetting an unknown edition's", http.MethodDelete, "/v1/admin/blitz/us_open/2027/thread-text", "", http.StatusNotFound},
 	}

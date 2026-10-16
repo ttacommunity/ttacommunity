@@ -84,10 +84,13 @@ describe('threadTextSavable', () => {
     ['only spaces added around it', { message: ' Hi {players}.\n', no_discord: '{name}. ' }, false],
     ['a new message', { ...saved, message: 'Hello {players}.' }, true],
     ['a new no-Discord sentence', { ...saved, no_discord: 'Friend {name}.' }, true],
-    ['an empty message', { ...saved, message: '  ' }, false],
-    ['an empty sentence', { ...saved, no_discord: '' }, false],
+    ['the message emptied', { ...saved, message: '  ' }, true],
+    ['the sentence emptied', { ...saved, no_discord: '' }, true],
   ])('%s', (_, form, want) => {
     expect(threadTextSavable(form, saved)).toBe(want);
+  });
+  it('is not savable when an empty text stays empty', () => {
+    expect(threadTextSavable({ message: ' ', no_discord: '' }, { message: '', no_discord: '' })).toBe(false);
   });
 });
 
