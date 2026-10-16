@@ -1,5 +1,5 @@
 /** A blitz edition's page, in three tabs: its format and rounds (paired, changed by hand, published, their results recorded), its entrants (searched for and added, edited, dropped, removed), and the standings. */
-import { Fragment, useEffect, useState, type FormEvent } from 'react';
+import { Fragment, useEffect, useState, type FormEvent, type ReactNode } from 'react';
 import Segmented from '@ttac/shared/Segmented';
 import BackLink from '@ttac/shared/BackLink';
 import SubTabs from '@ttac/shared/SubTabs';
@@ -10,7 +10,7 @@ import * as req from '../lib/admin-requests';
 import { tabsFor } from '../lib/admin-tabs';
 import { editionParams, formatAdvice, type AdminBlitzEntrant } from '../lib/blitz-page';
 import { emptyGameForm, gameRecordFrom, type BlitzStanding, type GameForm } from '../lib/blitz-results';
-import { deadlineForm, deadlineLabel, deadlineLocked, organiserChoices, threadTextSavable, threadsBlocker, threadsFileName, type DeadlineForm, type ThreadText } from '../lib/blitz-threads';
+import { deadlineForm, deadlineLabel, deadlineLocked, organiserChoices, organisersSummary, threadTextSavable, threadTextSummary, threadsBlocker, threadsFileName, type DeadlineForm, type ThreadText } from '../lib/blitz-threads';
 import { entrantToAdd, wildcardChoices, type PersonChoice, type PersonDetails } from '../lib/person-form';
 import { countryNames, type Country } from '../lib/countries';
 import { clockIn, type Region } from '../lib/zones';
@@ -655,9 +655,15 @@ function EditionTabs(props: Props) {
             label: 'Rounds',
             panel: (
               <>
-                <FormatPanel {...props} />
-                <OrganisersPanel {...props} />
-                <ThreadTextPanel key={`${props.ed.thread_text.message}\n${props.ed.thread_text.no_discord}`} {...props} />
+                <SettingsSection title="Format" summary={formatLabel(props.ed.format)} what="format">
+                  <FormatPanel {...props} />
+                </SettingsSection>
+                <SettingsSection title="Organisers" summary={organisersSummary(props.ed.organisers)} what="organisers">
+                  <OrganisersPanel {...props} />
+                </SettingsSection>
+                <SettingsSection title="Thread text" summary={threadTextSummary(props.ed.thread_text)} what="thread text">
+                  <ThreadTextPanel key={`${props.ed.thread_text.message}\n${props.ed.thread_text.no_discord}`} {...props} />
+                </SettingsSection>
                 <RoundsPanel {...props} />
               </>
             ),
@@ -681,6 +687,23 @@ function EditionTabs(props: Props) {
   );
 }
 
+/** SettingsSection is one of the edition's settings under its heading: a summary, and a button that shows or hides the setting, hidden at first. Hidden, it stays mounted, so what is half typed is kept. */
+function SettingsSection({ title, summary, what, children }: { title: string; summary: string; what: string; children: ReactNode }) {
+  const [shown, setShown] = useState(false);
+  return (
+    <div className="admin-subsection">
+      <h3>{title}</h3>
+      <p className="season-summary">
+        <span className="muted">{summary}</span>{' '}
+        <button type="button" className="btn-antique btn-settings" aria-expanded={shown} onClick={() => setShown(!shown)}>
+          {shown ? `Hide ${what}` : `Show ${what}`}
+        </button>
+      </p>
+      <div hidden={!shown}>{children}</div>
+    </div>
+  );
+}
+
 /** OrganisersPanel lists the members every round's Discord threads tell players to ping, removes one, and adds a member found by their username. */
 function OrganisersPanel({ at, ed, onReload, say }: Props) {
   const [typed, setTyped] = useState('');
@@ -693,8 +716,7 @@ function OrganisersPanel({ at, ed, onReload, say }: Props) {
     await onReload();
   };
   return (
-    <div className="admin-subsection">
-      <h3>Organisers</h3>
+    <>
       <p className="muted">Each game&apos;s Discord thread tells its players to ping them, by Discord username.</p>
       {ed.organisers.length === 0 && <p className="muted">None yet.</p>}
       {ed.organisers.length > 0 && (
@@ -722,7 +744,7 @@ function OrganisersPanel({ at, ed, onReload, say }: Props) {
           }}
         />
       </div>
-    </div>
+    </>
   );
 }
 
@@ -736,8 +758,7 @@ function ThreadTextPanel({ at, ed, onReload, say }: Props) {
     await onReload();
   };
   return (
-    <div className="admin-subsection">
-      <h3>Thread text</h3>
+    <>
       <p className="muted">
         Each game&apos;s Discord thread starts with the message: {'{players}'} becomes the two players, by Discord username (their TTA username without one), and {'{deadline}'} the
         round&apos;s deadline, on each reader&apos;s clock. Whom to ping follows it, then the sentence for each player without Discord, {'{name}'} being their TTA username.
@@ -748,7 +769,7 @@ function ThreadTextPanel({ at, ed, onReload, say }: Props) {
       </div>
       <div className="note-box">
         <label htmlFor="thread-no-discord">For a player without Discord</label>
-        <textarea id="thread-no-discord" className="regulations-text" rows={2} maxLength={300} value={form.no_discord} onChange={(e) => setForm({ ...form, no_discord: e.target.value })} />
+        <textarea id="thread-no-discord" className="regulations-text" rows={3} maxLength={300} value={form.no_discord} onChange={(e) => setForm({ ...form, no_discord: e.target.value })} />
       </div>
       <div className="note-actions">
         <button type="button" className="btn-antique" disabled={!threadTextSavable(form, saved)} onClick={() => void send(req.setBlitzThreadText(at.slug, at.edition, form), 'Thread text saved.')}>
@@ -760,7 +781,7 @@ function ThreadTextPanel({ at, ed, onReload, say }: Props) {
           </button>
         )}
       </div>
-    </div>
+    </>
   );
 }
 
@@ -841,8 +862,7 @@ function FormatPanel({ at, ed, onReload, say }: Props) {
     await onReload();
   };
   return (
-    <div className="admin-subsection">
-      <h3>Format</h3>
+    <>
       {locked && <p className="muted">The knockout has started: the format no longer changes.</p>}
       <form className="admin-add" onSubmit={(e) => void save(e)}>
         <label>
@@ -881,7 +901,7 @@ function FormatPanel({ at, ed, onReload, say }: Props) {
             {w}
           </p>
         ))}
-    </div>
+    </>
   );
 }
 

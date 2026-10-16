@@ -1,4 +1,4 @@
-/** What admin decides about a round's Discord threads: whether they can be downloaded yet, the file's name, the round's deadline as a form and a label, and when the edition's thread text can be saved. */
+/** What admin decides about a round's Discord threads: whether they can be downloaded yet, the file's name, the round's deadline as a form and a label, when the edition's thread text can be saved, and the summaries of its organisers and text. */
 import type { Candidate } from './person-form';
 import { clockIn, type Region } from './zones';
 
@@ -64,4 +64,14 @@ export function threadTextSavable(form: ThreadText, saved: ThreadText): boolean 
   const message = form.message.trim();
   const noDiscord = form.no_discord.trim();
   return message !== '' && noDiscord !== '' && (message !== saved.message || noDiscord !== saved.no_discord);
+}
+
+/** organisersSummary sums up the edition's organisers while they are hidden: their names in the order added, or None yet. */
+export function organisersSummary(organisers: readonly { name: string }[]): string {
+  return organisers.length === 0 ? 'None yet' : organisers.map((o) => o.name).join(', ');
+}
+
+/** threadTextSummary sums up the edition's thread text while it is hidden: the default, or the edition's own. */
+export function threadTextSummary(text: { edited: boolean }): string {
+  return text.edited ? "This edition's own text" : 'The default text';
 }

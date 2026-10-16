@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { deadlineForm, deadlineLabel, deadlineLocked, organiserChoices, threadTextSavable, threadsBlocker, threadsFileName } from './blitz-threads';
+import { deadlineForm, deadlineLabel, deadlineLocked, organiserChoices, organisersSummary, threadTextSavable, threadTextSummary, threadsBlocker, threadsFileName } from './blitz-threads';
 import type { Candidate } from './person-form';
 import type { Region } from './zones';
 
@@ -88,5 +88,24 @@ describe('threadTextSavable', () => {
     ['an empty sentence', { ...saved, no_discord: '' }, false],
   ])('%s', (_, form, want) => {
     expect(threadTextSavable(form, saved)).toBe(want);
+  });
+});
+
+describe('organisersSummary', () => {
+  it.each([
+    ['none', [], 'None yet'],
+    ['one', [{ name: 'Carol' }], 'Carol'],
+    ['several, in order', [{ name: 'Dave' }, { name: 'Carol' }], 'Dave, Carol'],
+  ])('%s', (_, organisers, want) => {
+    expect(organisersSummary(organisers)).toBe(want);
+  });
+});
+
+describe('threadTextSummary', () => {
+  it.each([
+    ['the default', false, 'The default text'],
+    ["the edition's own", true, "This edition's own text"],
+  ])('%s', (_, edited, want) => {
+    expect(threadTextSummary({ edited })).toBe(want);
   });
 });
