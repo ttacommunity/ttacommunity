@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { deadlineForm, deadlineLabel, deadlineLocked, organiserChoices, threadsBlocker, threadsFileName } from './blitz-threads';
+import { deadlineForm, deadlineLabel, deadlineLocked, organiserChoices, threadTextSavable, threadsBlocker, threadsFileName } from './blitz-threads';
 import type { Candidate } from './person-form';
 import type { Region } from './zones';
 
@@ -74,5 +74,19 @@ describe('deadlineLocked', () => {
     ['no matches yet', [], false],
   ])('%s', (_, matches, want) => {
     expect(deadlineLocked({ matches })).toBe(want);
+  });
+});
+
+describe('threadTextSavable', () => {
+  const saved = { message: 'Hi {players}.', no_discord: '{name}.' };
+  it.each([
+    ['unchanged', saved, false],
+    ['only spaces added around it', { message: ' Hi {players}.\n', no_discord: '{name}. ' }, false],
+    ['a new message', { ...saved, message: 'Hello {players}.' }, true],
+    ['a new no-Discord sentence', { ...saved, no_discord: 'Friend {name}.' }, true],
+    ['an empty message', { ...saved, message: '  ' }, false],
+    ['an empty sentence', { ...saved, no_discord: '' }, false],
+  ])('%s', (_, form, want) => {
+    expect(threadTextSavable(form, saved)).toBe(want);
   });
 });

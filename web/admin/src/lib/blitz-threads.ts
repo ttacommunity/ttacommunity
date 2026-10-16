@@ -1,4 +1,4 @@
-/** What admin decides about a round's Discord threads: whether they can be downloaded yet, the file's name, and the round's deadline as a form and a label. */
+/** What admin decides about a round's Discord threads: whether they can be downloaded yet, the file's name, the round's deadline as a form and a label, and when the edition's thread text can be saved. */
 import type { Candidate } from './person-form';
 import { clockIn, type Region } from './zones';
 
@@ -54,4 +54,14 @@ export function organiserChoices(found: readonly Candidate[], organisers: readon
 export function deadlineLocked(round: { matches: readonly { b: unknown; result: unknown }[] }): boolean {
   const games = round.matches.filter((m) => m.b !== null);
   return games.length > 0 && games.every((m) => m.result !== null);
+}
+
+/** ThreadText is an edition's thread text: the welcome message and the sentence for a player without Discord. */
+export type ThreadText = { message: string; no_discord: string };
+
+/** threadTextSavable says whether the thread text form can be saved: both parts written, and one changed from the saved text once trimmed, as the API trims it. The API checks the placeholders. */
+export function threadTextSavable(form: ThreadText, saved: ThreadText): boolean {
+  const message = form.message.trim();
+  const noDiscord = form.no_discord.trim();
+  return message !== '' && noDiscord !== '' && (message !== saved.message || noDiscord !== saved.no_discord);
 }

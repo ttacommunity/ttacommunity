@@ -93,6 +93,9 @@ type Admins interface {
 	AddBlitzOrganiser(ctx context.Context, slug, edition string, member int64) error
 	RemoveBlitzOrganiser(ctx context.Context, slug, edition string, member int64) error
 	SetBlitzRoundDeadline(ctx context.Context, slug, edition string, roundID int64, at time.Time, zone string) error
+	// SetBlitzThreadText replaces what the edition's thread messages say; ResetBlitzThreadText puts back the default.
+	SetBlitzThreadText(ctx context.Context, slug, edition string, t store.BlitzThreadText) error
+	ResetBlitzThreadText(ctx context.Context, slug, edition string) error
 	// The community's members: listed, added (returning the id), changed, banned and unbanned, removed.
 	Members(ctx context.Context) ([]store.Member, error)
 	AddMember(ctx context.Context, m store.Member) (int64, error)

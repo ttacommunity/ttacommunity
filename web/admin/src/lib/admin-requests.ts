@@ -91,6 +91,11 @@ export const blitzThreadsPath = (slug: string, edition: string, round: number) =
 export const addBlitzOrganiser = (slug: string, edition: string, member: number) => to(`${blitz(slug, edition)}/organisers`, 'POST', { member });
 /** removeBlitzOrganiser stops a member organising the edition. */
 export const removeBlitzOrganiser = (slug: string, edition: string, member: number) => to(`${blitz(slug, edition)}/organisers/${member}`, 'DELETE');
+/** setBlitzThreadText saves what the edition's Discord thread messages say, trimmed. */
+export const setBlitzThreadText = (slug: string, edition: string, text: Schemas['BlitzThreadTextSet']) =>
+  to(`${blitz(slug, edition)}/thread-text`, 'PUT', { message: text.message.trim(), no_discord: text.no_discord.trim() });
+/** resetBlitzThreadText puts the default thread text back. */
+export const resetBlitzThreadText = (slug: string, edition: string) => to(`${blitz(slug, edition)}/thread-text`, 'DELETE');
 /** deleteBlitzRound removes a draft round. */
 export const deleteBlitzRound = (slug: string, edition: string, round: number) => to(`${blitz(slug, edition)}/rounds/${round}`, 'DELETE');
 /** recordBlitzGame records, or corrects, the game a match was played as. */

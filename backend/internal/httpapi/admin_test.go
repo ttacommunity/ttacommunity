@@ -36,8 +36,9 @@ type fakeAdmins struct {
 	entrants []store.BlitzEntrant
 	format   store.BlitzFormat
 	rounds   []store.BlitzRound
-	// organisers are us_open 2026's (admin_blitz_threads_test.go).
+	// organisers and threadText are us_open 2026's (admin_blitz_threads_test.go).
 	organisers []store.BlitzOrganiser
+	threadText *store.BlitzThreadText
 	// members are the community's (admin_members_test.go).
 	members []store.Member
 	// added is every entrant AddBlitzEntrants was given; candidates is what BlitzCandidates finds, and searched
@@ -639,6 +640,8 @@ func TestAdminChangesRefuseAnotherOriginOrABadRequest(t *testing.T) {
 		{"a season change from another site", http.MethodPatch, "/v1/admin/tournaments/worlds/seasons/2025", "https://evil.example", `{"note": "x"}`, http.StatusForbidden},
 		{"a deadline from another site", http.MethodPut, "/v1/admin/blitz/us_open/2026/rounds/101/deadline", "https://evil.example", `{"day": "2026-10-19", "time": "12:00", "zone": "UTC"}`, http.StatusForbidden},
 		{"an organiser from another site", http.MethodPost, "/v1/admin/blitz/us_open/2026/organisers", "https://evil.example", `{"member": 21}`, http.StatusForbidden},
+		{"a thread text from another site", http.MethodPut, "/v1/admin/blitz/us_open/2026/thread-text", "https://evil.example", `{"message": "Hi {players}.", "no_discord": "{name}."}`, http.StatusForbidden},
+		{"a thread text reset from another site", http.MethodDelete, "/v1/admin/blitz/us_open/2026/thread-text", "https://evil.example", "", http.StatusForbidden},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

@@ -1,10 +1,11 @@
-// Discord threads for a round: each game's thread title and the welcome message mentioning its players and the
-// edition's organisers, as text an organiser pastes into Discord by hand.
+// Discord threads for a round: each game's thread title and the edition's welcome message mentioning its players
+// and organisers, as text an organiser pastes into Discord by hand.
 package blitz
 
 import (
 	"fmt"
 	"regexp"
+	"slices"
 	"strings"
 	"time"
 	"unicode/utf8"
@@ -19,19 +20,64 @@ type ThreadGame struct {
 	A, B   Person
 }
 
-// Threads is what a round's threads say: the round's title (RoundTitle), the deadline to play by, the organisers
-// to ping and the games, byes left out.
+// ThreadText is what an edition's thread messages say. Message welcomes a game's players, {players}, and may give
+// the deadline, {deadline}; NoDiscord follows it for each player without a Discord username, {name}.
+type ThreadText struct{ Message, NoDiscord string }
+
+// DefaultThreadText is an edition's thread text until admin sets one.
+var DefaultThreadText = ThreadText{
+	Message: "Welcome {players}. In this thread you can schedule your game with your opponent. " +
+		"Please schedule and play your game by {deadline}, then post the replay code or the outcome here.",
+	NoDiscord: "{name} is one of the few people that doesn't have access to Discord but wanted to play, " +
+		"you can send them a friend request in the TTA app to set up a game instead.",
+}
+
+// Threads is what a round's threads say: the round's title (RoundTitle), the deadline to play by, the edition's
+// text, the organisers to ping and the games, byes left out.
 type Threads struct {
 	Round      string
 	Deadline   time.Time
+	Text       ThreadText
 	Organisers []Person
 	Games      []ThreadGame
+}
+
+// Thread texts' longest, in characters, leaving room in Discord's 2,000 for the names and the moderators.
+const threadMessageMax, noDiscordMax = 1500, 300
+
+// placeholder finds anything in braces, so a misspelt placeholder is refused rather than pasted as typed.
+var placeholder = regexp.MustCompile(`\{[^{}]*\}`)
+
+// CheckThreadText returns why a thread text cannot be used, nil when it can: a part too long, without the
+// placeholder it needs, or with one it cannot use.
+func CheckThreadText(t ThreadText) error {
+	if err := checkTextPart("the message", t.Message, threadMessageMax, "{players}", "{deadline}"); err != nil {
+		return err
+	}
+	return checkTextPart("the no-Discord sentence", t.NoDiscord, noDiscordMax, "{name}")
+}
+
+// checkTextPart refuses a part of a thread text over max characters, without its first placeholder, or with one
+// not among them.
+func checkTextPart(part, text string, max int, placeholders ...string) error {
+	if n := utf8.RuneCountInString(text); n > max {
+		return fmt.Errorf("%s is at most %d characters, not %d", part, max, n)
+	}
+	if !strings.Contains(text, placeholders[0]) {
+		return fmt.Errorf("%s must hold %s", part, placeholders[0])
+	}
+	for _, p := range placeholder.FindAllString(text, -1) {
+		if !slices.Contains(placeholders, p) {
+			return fmt.Errorf("%s can use only %s, not %s", part, strings.Join(placeholders, " and "), p)
+		}
+	}
+	return nil
 }
 
 // threadTitleMax is the longest thread name Discord takes, in characters.
 const threadTitleMax = 100
 
-// missingUsername stands in for a Discord username nobody gave, for the organiser to fill in before pasting.
+// missingUsername stands in for an organiser's Discord username nobody gave, for them to fill in before pasting.
 const missingUsername = "@???"
 
 // usernameChars is what a Discord username is made of: 2 to 32 lowercase letters, digits, _ and . (never two
@@ -60,12 +106,12 @@ func username(discord string) (string, bool) {
 	return u, usernameChars.MatchString(u) && !strings.Contains(u, "..")
 }
 
-// mention writes a player as Discord mentions them, or the placeholder followed by their TTA name.
+// mention writes a player as Discord mentions them, or by their TTA name without a username.
 func mention(p Person) string {
 	if u, ok := username(p.Discord); ok {
 		return "@" + u
 	}
-	return missingUsername + " (" + p.Name + ")"
+	return p.Name
 }
 
 // organiser writes an organiser as "Carol (@carol)", the placeholder in the brackets without a username.
@@ -127,18 +173,25 @@ func threadTitle(round string, g ThreadGame) string {
 	return head + name(a, cutA) + " vs " + name(b, cutB)
 }
 
-// ThreadsText writes a round's threads: per game its title, then its welcome message, then a blank line between
-// games. The deadline is a Discord timestamp, shown to each reader on their own clock.
+// ThreadsText writes a round's threads, a block per game between --- lines: its title, then the edition's
+// message and whom to ping, then the no-Discord sentence for each player without a username. A blank line parts
+// the blocks. The deadline is a Discord timestamp, shown to each reader on their own clock.
 func ThreadsText(t Threads) string {
+	deadline := fmt.Sprintf("<t:%d:F>", t.Deadline.Unix())
+	ping := " If the game did not finish, or there are any issues with scheduling or otherwise, please ping " + moderators(t.Organisers) + ".\n"
 	var out strings.Builder
 	for i, g := range t.Games {
 		if i > 0 {
 			out.WriteString("\n")
 		}
-		fmt.Fprintf(&out, "%s\nWelcome %s, %s. In this thread you can schedule your game with your opponent. "+
-			"Please schedule and play your game by <t:%d:F>, then post the replay code or the outcome here. "+
-			"If the game did not finish, or there are any issues with scheduling or otherwise, please ping %s.\n",
-			threadTitle(t.Round, g), mention(g.A), mention(g.B), t.Deadline.Unix(), moderators(t.Organisers))
+		message := strings.NewReplacer("{players}", mention(g.A)+", "+mention(g.B), "{deadline}", deadline).Replace(t.Text.Message)
+		fmt.Fprintf(&out, "---\n%s\n---\n%s%s", threadTitle(t.Round, g), message, ping)
+		for _, p := range []Person{g.A, g.B} {
+			if _, ok := username(p.Discord); !ok {
+				out.WriteString(strings.ReplaceAll(t.Text.NoDiscord, "{name}", p.Name) + "\n")
+			}
+		}
+		out.WriteString("---\n")
 	}
 	return out.String()
 }

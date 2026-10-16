@@ -2518,6 +2518,49 @@ paths:
           $ref: "#/components/responses/Forbidden"
         "404":
           $ref: "#/components/responses/NotFound"
+  /v1/admin/blitz/{tournament}/{edition}/thread-text:
+    put:
+      operationId: putAdminBlitzThreadText
+      tags: [admin]
+      summary: Set what a blitz edition's Discord thread messages say
+      description: Audited. The Origin must be the admin site. Replaces the edition's text, or the default.
+      parameters:
+        - $ref: "#/components/parameters/AdminTournamentSlug"
+        - $ref: "#/components/parameters/BlitzEditionLabel"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/BlitzThreadTextSet"
+      responses:
+        "204":
+          description: Saved
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    delete:
+      operationId: deleteAdminBlitzThreadText
+      tags: [admin]
+      summary: Reset a blitz edition's Discord thread messages to the default text
+      description: Audited. The Origin must be the admin site. An edition already on the default stays on it.
+      parameters:
+        - $ref: "#/components/parameters/AdminTournamentSlug"
+        - $ref: "#/components/parameters/BlitzEditionLabel"
+      responses:
+        "204":
+          description: Reset
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
   /v1/admin/blitz/{tournament}/{edition}/rounds/{round}/deadline:
     put:
       operationId: putAdminBlitzRoundDeadline
@@ -2556,13 +2599,16 @@ paths:
       tags: [admin]
       summary: Download a round's Discord threads as text to paste
       description: |
-        Audited, as it holds Discord names. For every game with two players,
-        numbered as the site numbers them: the thread's title (Round 3 ·
-        Game 1 · Ann vs Bob, by TTA username, at most 100 characters), then
-        the welcome message mentioning both players and the organisers by
-        Discord username, with the round's deadline as a Discord timestamp.
-        A Discord name that cannot be a username shows as @???, for the
-        organiser to fill in. Any round once paired, draft or published;
+        Audited, as it holds Discord names. A block per game with two
+        players, numbered as the site numbers them, between --- lines: the
+        thread's title (Round 3 · Game 1 · Ann vs Bob, by TTA username, at
+        most 100 characters), then the edition's message with {players}
+        mentioned by Discord username and {deadline} as a Discord
+        timestamp, then whom to ping: the organisers by Discord username.
+        A player whose Discord name cannot be a username is named by TTA
+        username, and the edition's no-Discord sentence follows for them;
+        an organiser's shows as @???, for the organiser to fill in. A blank
+        line parts the blocks. Any round once paired, draft or published;
         refused while the round has no deadline, the edition no organiser,
         or the round no game.
       parameters:
@@ -4004,13 +4050,15 @@ components:
           enum: [pending, active, dropped]
     AdminBlitzEdition:
       type: object
-      required: [tournament, name, edition, format, entrants, rounds, standings, champion, organisers]
+      required: [tournament, name, edition, format, entrants, rounds, standings, champion, organisers, thread_text]
       properties:
         organisers:
           description: The members the Discord thread messages tell players to ping, in the order added
           type: array
           items:
             $ref: "#/components/schemas/AdminBlitzOrganiser"
+        thread_text:
+          $ref: "#/components/schemas/AdminBlitzThreadText"
         champion:
           description: The winner of the knockout's final, by username; null until the final has a winner
           type: string
@@ -4152,6 +4200,38 @@ components:
           type: string
           minLength: 1
           maxLength: 1000
+    AdminBlitzThreadText:
+      description: What the edition's Discord thread messages say, its own text or the default
+      type: object
+      required: [message, no_discord, edited]
+      properties:
+        message:
+          description: The welcome message, with {players} and {deadline}
+          type: string
+        no_discord:
+          description: The sentence for a player without a Discord username, with {name}
+          type: string
+        edited:
+          description: True when the edition has its own text, false for the default
+          type: boolean
+    BlitzThreadTextSet:
+      description: |
+        An edition's own thread text. The message must hold {players} and
+        may hold {deadline}; the no-Discord sentence must hold {name}. Any
+        other placeholder in braces is refused. Surrounding spaces are
+        trimmed.
+      type: object
+      additionalProperties: false
+      required: [message, no_discord]
+      properties:
+        message:
+          type: string
+          minLength: 1
+          maxLength: 1500
+        no_discord:
+          type: string
+          minLength: 1
+          maxLength: 300
     AdminBlitzOrganiser:
       description: A member who organises an edition
       type: object

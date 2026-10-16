@@ -1710,6 +1710,30 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/admin/blitz/{tournament}/{edition}/thread-text": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Set what a blitz edition's Discord thread messages say
+         * @description Audited. The Origin must be the admin site. Replaces the edition's text, or the default.
+         */
+        put: operations["putAdminBlitzThreadText"];
+        post?: never;
+        /**
+         * Reset a blitz edition's Discord thread messages to the default text
+         * @description Audited. The Origin must be the admin site. An edition already on the default stays on it.
+         */
+        delete: operations["deleteAdminBlitzThreadText"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/admin/blitz/{tournament}/{edition}/rounds/{round}/deadline": {
         parameters: {
             query?: never;
@@ -1741,13 +1765,16 @@ export interface paths {
         };
         /**
          * Download a round's Discord threads as text to paste
-         * @description Audited, as it holds Discord names. For every game with two players,
-         *     numbered as the site numbers them: the thread's title (Round 3 ·
-         *     Game 1 · Ann vs Bob, by TTA username, at most 100 characters), then
-         *     the welcome message mentioning both players and the organisers by
-         *     Discord username, with the round's deadline as a Discord timestamp.
-         *     A Discord name that cannot be a username shows as @???, for the
-         *     organiser to fill in. Any round once paired, draft or published;
+         * @description Audited, as it holds Discord names. A block per game with two
+         *     players, numbered as the site numbers them, between --- lines: the
+         *     thread's title (Round 3 · Game 1 · Ann vs Bob, by TTA username, at
+         *     most 100 characters), then the edition's message with {players}
+         *     mentioned by Discord username and {deadline} as a Discord
+         *     timestamp, then whom to ping: the organisers by Discord username.
+         *     A player whose Discord name cannot be a username is named by TTA
+         *     username, and the edition's no-Discord sentence follows for them;
+         *     an organiser's shows as @???, for the organiser to fill in. A blank
+         *     line parts the blocks. Any round once paired, draft or published;
          *     refused while the round has no deadline, the edition no organiser,
          *     or the round no game.
          */
@@ -2449,6 +2476,7 @@ export interface components {
         AdminBlitzEdition: {
             /** @description The members the Discord thread messages tell players to ping, in the order added */
             organisers: components["schemas"]["AdminBlitzOrganiser"][];
+            thread_text: components["schemas"]["AdminBlitzThreadText"];
             /** @description The winner of the knockout's final, by username; null until the final has a winner */
             champion: string | null;
             tournament: string;
@@ -2516,6 +2544,25 @@ export interface components {
         };
         MemberBan: {
             reason: string;
+        };
+        /** @description What the edition's Discord thread messages say, its own text or the default */
+        AdminBlitzThreadText: {
+            /** @description The welcome message, with {players} and {deadline} */
+            message: string;
+            /** @description The sentence for a player without a Discord username, with {name} */
+            no_discord: string;
+            /** @description True when the edition has its own text, false for the default */
+            edited: boolean;
+        };
+        /**
+         * @description An edition's own thread text. The message must hold {players} and
+         *     may hold {deadline}; the no-Discord sentence must hold {name}. Any
+         *     other placeholder in braces is refused. Surrounding spaces are
+         *     trimmed.
+         */
+        BlitzThreadTextSet: {
+            message: string;
+            no_discord: string;
         };
         /** @description A member who organises an edition */
         AdminBlitzOrganiser: {
@@ -6322,6 +6369,63 @@ export interface operations {
         requestBody?: never;
         responses: {
             /** @description Removed */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    putAdminBlitzThreadText: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The tournament's slug */
+                tournament: components["parameters"]["AdminTournamentSlug"];
+                /** @description The edition's label, as admin lists it (a season) */
+                edition: components["parameters"]["BlitzEditionLabel"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BlitzThreadTextSet"];
+            };
+        };
+        responses: {
+            /** @description Saved */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    deleteAdminBlitzThreadText: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The tournament's slug */
+                tournament: components["parameters"]["AdminTournamentSlug"];
+                /** @description The edition's label, as admin lists it (a season) */
+                edition: components["parameters"]["BlitzEditionLabel"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Reset */
             204: {
                 headers: {
                     [name: string]: unknown;

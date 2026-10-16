@@ -104,6 +104,8 @@ func (s *server) GetAdminBlitzEdition(ctx context.Context, req GetAdminBlitzEdit
 	for i, o := range ed.Organisers {
 		body.Organisers[i] = AdminBlitzOrganiser{Member: o.MemberID, Name: o.Name, DiscordName: o.DiscordName}
 	}
+	text, edited := threadText(ed)
+	body.ThreadText = AdminBlitzThreadText{Message: text.Message, NoDiscord: text.NoDiscord, Edited: edited}
 	for i, e := range ed.Entrants {
 		body.Entrants[i] = s.adminBlitzEntrant(e, rated)
 	}

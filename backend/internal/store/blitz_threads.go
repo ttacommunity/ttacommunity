@@ -1,5 +1,5 @@
-// Blitz threads: each edition's organisers, whom every round's Discord thread messages tell players to ping, and
-// each round's deadline to play by.
+// Blitz threads: each edition's organisers, whom every round's Discord thread messages tell players to ping, the
+// edition's own text for those messages, and each round's deadline to play by.
 package store
 
 import (
@@ -16,6 +16,9 @@ type BlitzOrganiser struct {
 	MemberID          int64
 	Name, DiscordName string
 }
+
+// BlitzThreadText is an edition's own text for its thread messages, placeholders and all (checked by the caller).
+type BlitzThreadText struct{ Message, NoDiscord string }
 
 // ErrNoBlitzOrganiser means the member does not organise the edition.
 var ErrNoBlitzOrganiser = errors.New("not an organiser of the edition")
@@ -79,6 +82,54 @@ func (a *AdminStore) RemoveBlitzOrganiser(ctx context.Context, slug, edition str
 		}
 		if tag.RowsAffected() == 0 {
 			return ErrNoBlitzOrganiser
+		}
+		return nil
+	})
+}
+
+// blitzThreadText reads an edition's own thread text, nil while it has none; only admin's login may.
+func blitzThreadText(ctx context.Context, db conn, slug, edition string) (*BlitzThreadText, error) {
+	var t BlitzThreadText
+	err := db.QueryRow(ctx, `
+		SELECT x.message, x.no_discord
+		FROM blitz_thread_texts x JOIN tournaments t USING (tournament_id) JOIN series s USING (series_id)
+		WHERE s.slug = $1 AND t.label = $2`, slug, edition).Scan(&t.Message, &t.NoDiscord)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, fmt.Errorf("reading %s %s's thread text: %w", slug, edition, err)
+	}
+	return &t, nil
+}
+
+// SetBlitzThreadText replaces the edition's thread text, or returns ErrNoBlitzEdition.
+func (a *AdminStore) SetBlitzThreadText(ctx context.Context, slug, edition string, t BlitzThreadText) error {
+	return pgx.BeginFunc(ctx, a.pool, func(tx pgx.Tx) error {
+		id, err := blitzEditionID(ctx, tx, slug, edition)
+		if err != nil {
+			return err
+		}
+		if _, err := tx.Exec(ctx, `
+			INSERT INTO blitz_thread_texts (tournament_id, message, no_discord) VALUES ($1, $2, $3)
+			ON CONFLICT (tournament_id) DO UPDATE SET message = excluded.message, no_discord = excluded.no_discord`,
+			id, t.Message, t.NoDiscord); err != nil {
+			return fmt.Errorf("setting %s %s's thread text: %w", slug, edition, err)
+		}
+		return nil
+	})
+}
+
+// ResetBlitzThreadText takes the edition's own thread text away, so its threads use the default, or returns
+// ErrNoBlitzEdition.
+func (a *AdminStore) ResetBlitzThreadText(ctx context.Context, slug, edition string) error {
+	return pgx.BeginFunc(ctx, a.pool, func(tx pgx.Tx) error {
+		id, err := blitzEditionID(ctx, tx, slug, edition)
+		if err != nil {
+			return err
+		}
+		if _, err := tx.Exec(ctx, "DELETE FROM blitz_thread_texts WHERE tournament_id = $1", id); err != nil {
+			return fmt.Errorf("resetting %s %s's thread text: %w", slug, edition, err)
 		}
 		return nil
 	})

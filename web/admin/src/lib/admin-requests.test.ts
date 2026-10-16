@@ -38,6 +38,8 @@ describe('admin requests', () => {
     ["a round's deadline", req.setBlitzRoundDeadline('us_open', '2026', 101, { day: '2026-10-19', time: '12:00', zone: 'UTC' }), '/api/blitz/us_open/2026/rounds/101/deadline', 'PUT', { day: '2026-10-19', time: '12:00', zone: 'UTC' }],
     ['an organiser added', req.addBlitzOrganiser('us_open', '2026', 21), '/api/blitz/us_open/2026/organisers', 'POST', { member: 21 }],
     ['an organiser removed', req.removeBlitzOrganiser('us_open', '2026', 21), '/api/blitz/us_open/2026/organisers/21', 'DELETE', undefined],
+    ['a thread text, trimmed', req.setBlitzThreadText('us_open', '2026', { message: ' Hi {players}.\n', no_discord: ' {name}. ' }), '/api/blitz/us_open/2026/thread-text', 'PUT', { message: 'Hi {players}.', no_discord: '{name}.' }],
+    ['the default thread text again', req.resetBlitzThreadText('us_open', '2026'), '/api/blitz/us_open/2026/thread-text', 'DELETE', undefined],
     // Admins, badges, titles
     ['an admin', req.setAdmin('100000000000000001', 'Ann', 'organiser'), '/api/admins/100000000000000001', 'PUT', { name: 'Ann', role: 'organiser' }],
     ['removing an admin', req.removeAdmin('100000000000000001'), '/api/admins/100000000000000001', 'DELETE', undefined],

@@ -10,7 +10,7 @@ import * as req from '../lib/admin-requests';
 import { tabsFor } from '../lib/admin-tabs';
 import { editionParams, formatAdvice, type AdminBlitzEntrant } from '../lib/blitz-page';
 import { emptyGameForm, gameRecordFrom, type BlitzStanding, type GameForm } from '../lib/blitz-results';
-import { deadlineForm, deadlineLabel, deadlineLocked, organiserChoices, threadsBlocker, threadsFileName, type DeadlineForm } from '../lib/blitz-threads';
+import { deadlineForm, deadlineLabel, deadlineLocked, organiserChoices, threadTextSavable, threadsBlocker, threadsFileName, type DeadlineForm, type ThreadText } from '../lib/blitz-threads';
 import { entrantToAdd, wildcardChoices, type PersonChoice, type PersonDetails } from '../lib/person-form';
 import { countryNames, type Country } from '../lib/countries';
 import { clockIn, type Region } from '../lib/zones';
@@ -657,6 +657,7 @@ function EditionTabs(props: Props) {
               <>
                 <FormatPanel {...props} />
                 <OrganisersPanel {...props} />
+                <ThreadTextPanel key={`${props.ed.thread_text.message}\n${props.ed.thread_text.no_discord}`} {...props} />
                 <RoundsPanel {...props} />
               </>
             ),
@@ -720,6 +721,44 @@ function OrganisersPanel({ at, ed, onReload, say }: Props) {
             if (c !== undefined && !c.disabled) void change(req.addBlitzOrganiser(at.slug, at.edition, Number(c.key)), `${c.label} organises it now.`);
           }}
         />
+      </div>
+    </div>
+  );
+}
+
+/** ThreadTextPanel edits what each game's Discord thread says, the welcome message and the sentence for a player without Discord, and resets it to the default. Keyed by the saved text, so a save or reset starts the form again from it. */
+function ThreadTextPanel({ at, ed, onReload, say }: Props) {
+  const saved = ed.thread_text;
+  const [form, setForm] = useState<ThreadText>({ message: saved.message, no_discord: saved.no_discord });
+  const send = async (r: req.Request, done: string) => {
+    const res = await req.send(r);
+    say(res.ok ? done : res.message);
+    await onReload();
+  };
+  return (
+    <div className="admin-subsection">
+      <h3>Thread text</h3>
+      <p className="muted">
+        Each game&apos;s Discord thread starts with the message: {'{players}'} becomes the two players, by Discord username (their TTA username without one), and {'{deadline}'} the
+        round&apos;s deadline, on each reader&apos;s clock. Whom to ping follows it, then the sentence for each player without Discord, {'{name}'} being their TTA username.
+      </p>
+      <div className="note-box">
+        <label htmlFor="thread-message">Message</label>
+        <textarea id="thread-message" className="regulations-text" rows={5} maxLength={1500} value={form.message} onChange={(e) => setForm({ ...form, message: e.target.value })} />
+      </div>
+      <div className="note-box">
+        <label htmlFor="thread-no-discord">For a player without Discord</label>
+        <textarea id="thread-no-discord" className="regulations-text" rows={2} maxLength={300} value={form.no_discord} onChange={(e) => setForm({ ...form, no_discord: e.target.value })} />
+      </div>
+      <div className="note-actions">
+        <button type="button" className="btn-antique" disabled={!threadTextSavable(form, saved)} onClick={() => void send(req.setBlitzThreadText(at.slug, at.edition, form), 'Thread text saved.')}>
+          Save
+        </button>
+        {saved.edited && (
+          <button type="button" className="btn-antique" onClick={() => void send(req.resetBlitzThreadText(at.slug, at.edition), 'Thread text back to the default.')}>
+            Reset to default
+          </button>
+        )}
       </div>
     </div>
   );
