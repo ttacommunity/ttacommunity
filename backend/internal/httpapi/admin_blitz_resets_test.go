@@ -11,7 +11,7 @@ import (
 	"ttacommunity/backend/internal/store"
 )
 
-// fakeLatest returns ErrBlitzNotLatest unless round number is the fake's latest; a game id of 666 is in a ratings run.
+// fakeLatest returns ErrBlitzNotLatest unless round number is the fake's latest.
 func (f *fakeAdmins) fakeLatest(number int) error {
 	if number != len(f.rounds) {
 		return store.ErrBlitzNotLatest
@@ -33,9 +33,6 @@ func (f *fakeAdmins) ResetBlitzResult(_ context.Context, slug, edition string, i
 				return err
 			}
 		}
-	}
-	if m.GameID != nil && *m.GameID == 666 {
-		return store.ErrBlitzGameInRun
 	}
 	m.Result, m.GameID, m.Game, m.Ruling, m.DecidedAt = "", nil, nil, "", nil
 	f.notes = append(f.notes, fmt.Sprintf("reset match %d", id))
@@ -102,10 +99,6 @@ func TestResetsAreRefusedWhenTheyShouldBe(t *testing.T) {
 		roundOneDecided(f)
 		f.rounds = append(f.rounds, store.BlitzRound{ID: 102, Number: 2, Kind: "swiss", Matches: []store.BlitzMatch{{ID: 1020, A: 7, B: new(int64(9))}, {ID: 1021, A: 8}}})
 	}
-	inRun := func(f *fakeAdmins) {
-		roundOneDecided(f)
-		f.rounds[0].Matches[0].GameID = new(int64(666))
-	}
 	tests := []struct {
 		name, method, path, origin string
 		setup                      func(*fakeAdmins)
@@ -115,7 +108,6 @@ func TestResetsAreRefusedWhenTheyShouldBe(t *testing.T) {
 		{"a result of an earlier round", http.MethodDelete, "/v1/admin/blitz/us_open/2026/rounds/101/matches/1010/result", site, twoRounds, http.StatusConflict},
 		{"an earlier round", http.MethodDelete, "/v1/admin/blitz/us_open/2026/rounds/101/results", site, twoRounds, http.StatusConflict},
 		{"a bye", http.MethodDelete, "/v1/admin/blitz/us_open/2026/rounds/102/matches/1021/result", site, twoRounds, http.StatusConflict},
-		{"a game in a ratings run", http.MethodDelete, "/v1/admin/blitz/us_open/2026/rounds/101/matches/1010/result", site, inRun, http.StatusConflict},
 		{"an unknown match", http.MethodDelete, "/v1/admin/blitz/us_open/2026/rounds/101/matches/99/result", site, roundOneDecided, http.StatusNotFound},
 		{"an unknown round", http.MethodDelete, "/v1/admin/blitz/us_open/2026/rounds/99/results", site, roundOneDecided, http.StatusNotFound},
 		{"an unknown edition", http.MethodPost, "/v1/admin/blitz/us_open/2027/reset", site, roundOneDecided, http.StatusNotFound},

@@ -166,37 +166,56 @@ func TestAnEditionIsResetToItsEntrants(t *testing.T) {
 	}
 }
 
-func TestAGameInARatingsRunIsNotReset(t *testing.T) {
-	pool, a := blitzFixture(t)
-	ctx := context.Background()
-	ids, err := a.AddBlitzEntrants(ctx, "us_open", "2026", []BlitzEntrant{{Name: "Ann", Zone: "UTC"}, {Name: "Bob", Zone: "UTC"}})
-	if err != nil {
-		t.Fatalf("AddBlitzEntrants: %v", err)
+func TestAGameInARatingsRunIsResetToo(t *testing.T) {
+	tests := []struct {
+		name  string
+		reset func(a *AdminStore, match, round int64) error
+	}{
+		{"the result", func(a *AdminStore, match, _ int64) error {
+			return a.ResetBlitzResult(context.Background(), "us_open", "2026", match)
+		}},
+		{"the round", func(a *AdminStore, _, round int64) error {
+			return a.ResetBlitzRound(context.Background(), "us_open", "2026", round)
+		}},
+		{"the edition", func(a *AdminStore, _, _ int64) error {
+			return a.ResetBlitzEdition(context.Background(), "us_open", "2026")
+		}},
 	}
-	r, err := a.AddBlitzRound(ctx, "us_open", "2026", BlitzRound{Seed: 1, Matches: []BlitzMatch{{A: ids[0], B: &ids[1]}}})
-	if err != nil {
-		t.Fatalf("AddBlitzRound: %v", err)
-	}
-	matches := []int64{r.Matches[0].ID}
-	if err := a.RecordBlitzGame(ctx, "us_open", "2026", matches[0], BlitzGame{ShareCode: "ABCD1234", A: finished(250), B: finished(200), Finished: finishedAt}); err != nil {
-		t.Fatalf("RecordBlitzGame: %v", err)
-	}
-	ed, err := a.BlitzEdition(ctx, "us_open", "2026")
-	if err != nil {
-		t.Fatalf("BlitzEdition: %v", err)
-	}
-	classifyGame(t, pool, publishedRun(t, pool), *matchOf(t, ed, matches[0]).GameID, classified{season: 2026, nameSeason: 2026})
-	for name, reset := range map[string]func() error{
-		"the result":  func() error { return a.ResetBlitzResult(ctx, "us_open", "2026", matches[0]) },
-		"the round":   func() error { return a.ResetBlitzRound(ctx, "us_open", "2026", roundID(t, a, 1)) },
-		"the edition": func() error { return a.ResetBlitzEdition(ctx, "us_open", "2026") },
-	} {
-		if err := reset(); !errors.Is(err, ErrBlitzGameInRun) {
-			t.Errorf("resetting %s = %v, want ErrBlitzGameInRun", name, err)
-		}
-	}
-	if g, _, _, _ := playedRows(t, a); g != 1 {
-		t.Errorf("games after the refused resets = %d, want the one kept", g)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			pool, a := blitzFixture(t)
+			ctx := context.Background()
+			ids, err := a.AddBlitzEntrants(ctx, "us_open", "2026", []BlitzEntrant{{Name: "Ann", Zone: "UTC"}, {Name: "Bob", Zone: "UTC"}})
+			if err != nil {
+				t.Fatalf("AddBlitzEntrants: %v", err)
+			}
+			r, err := a.AddBlitzRound(ctx, "us_open", "2026", BlitzRound{Seed: 1, Matches: []BlitzMatch{{A: ids[0], B: &ids[1]}}})
+			if err != nil {
+				t.Fatalf("AddBlitzRound: %v", err)
+			}
+			if err := a.RecordBlitzGame(ctx, "us_open", "2026", r.Matches[0].ID, BlitzGame{ShareCode: "ABCD1234", A: finished(250), B: finished(200), Finished: finishedAt}); err != nil {
+				t.Fatalf("RecordBlitzGame: %v", err)
+			}
+			ed, err := a.BlitzEdition(ctx, "us_open", "2026")
+			if err != nil {
+				t.Fatalf("BlitzEdition: %v", err)
+			}
+			game, run := *matchOf(t, ed, r.Matches[0].ID).GameID, publishedRun(t, pool)
+			classifyGame(t, pool, run, game, classified{season: 2026, nameSeason: 2026})
+			if _, err := pool.Exec(ctx, `
+				INSERT INTO pairwise_matches (run_id, match_id, date, tournament, player_count, player_a, player_b, score_a, score_b, outcome_a, weight, glicko_eligible)
+				VALUES ($1, $2, '2026-10-15', 'US Open', 2, 'Ann', 'Bob', 250, 200, 1, 1, false)`, run, game); err != nil {
+				t.Fatalf("pairing the game in the run: %v", err)
+			}
+			if err := tt.reset(a, r.Matches[0].ID, r.ID); err != nil {
+				t.Fatalf("resetting %s: %v", tt.name, err)
+			}
+			var left int
+			if err := pool.QueryRow(ctx, `
+				SELECT (SELECT count(*) FROM games) + (SELECT count(*) FROM tournament_games) + (SELECT count(*) FROM pairwise_matches)`).Scan(&left); err != nil || left != 0 {
+				t.Errorf("the game and the run's rows for it after the reset = %d, %v; want none", left, err)
+			}
+		})
 	}
 }
 

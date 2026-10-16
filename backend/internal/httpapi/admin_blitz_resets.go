@@ -19,7 +19,7 @@ func (s *server) DeleteAdminBlitzMatchResult(ctx context.Context, req DeleteAdmi
 		return DeleteAdminBlitzMatchResult404JSONResponse{notFound404("no such blitz edition")}, nil
 	case errors.Is(err, store.ErrNoBlitzMatch):
 		return DeleteAdminBlitzMatchResult404JSONResponse{notFound404("no such match")}, nil
-	case errors.Is(err, store.ErrBlitzBye), errors.Is(err, store.ErrBlitzNotLatest), errors.Is(err, store.ErrBlitzGameInRun):
+	case errors.Is(err, store.ErrBlitzBye), errors.Is(err, store.ErrBlitzNotLatest):
 		return DeleteAdminBlitzMatchResult409JSONResponse{conflict409(err.Error())}, nil
 	case err != nil:
 		return nil, err
@@ -40,7 +40,7 @@ func (s *server) DeleteAdminBlitzRoundResults(ctx context.Context, req DeleteAdm
 		return DeleteAdminBlitzRoundResults404JSONResponse{notFound404("no such blitz edition")}, nil
 	case errors.Is(err, store.ErrNoBlitzRound):
 		return DeleteAdminBlitzRoundResults404JSONResponse{notFound404("no such round")}, nil
-	case errors.Is(err, store.ErrBlitzNotLatest), errors.Is(err, store.ErrBlitzGameInRun):
+	case errors.Is(err, store.ErrBlitzNotLatest):
 		return DeleteAdminBlitzRoundResults409JSONResponse{conflict409(err.Error())}, nil
 	case err != nil:
 		return nil, err
@@ -59,8 +59,6 @@ func (s *server) PostAdminBlitzReset(ctx context.Context, req PostAdminBlitzRese
 	switch err := s.admins.ResetBlitzEdition(ctx, req.Tournament, req.Edition); {
 	case errors.Is(err, store.ErrNoBlitzEdition):
 		return PostAdminBlitzReset404JSONResponse{notFound404("no such blitz edition")}, nil
-	case errors.Is(err, store.ErrBlitzGameInRun):
-		return PostAdminBlitzReset409JSONResponse{conflict409(err.Error())}, nil
 	case err != nil:
 		return nil, err
 	}

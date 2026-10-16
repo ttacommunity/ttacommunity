@@ -1607,8 +1607,8 @@ export interface paths {
          * @description Audited. The Origin must be the admin site. Only in the latest
          *     round: the result, ruling and game go (with the game's seats, and
          *     the "Round N" stage once it holds no game). Resetting it again
-         *     changes nothing. A game a ratings run includes is refused: record it
-         *     again to correct it.
+         *     changes nothing. A ratings run that included the game loses its
+         *     rows for it; make a run again to bring its pages up to date.
          */
         delete: operations["deleteAdminBlitzMatchResult"];
         options?: never;
@@ -1653,7 +1653,8 @@ export interface paths {
          * @description Audited. The Origin must be the admin site. Every round, result and
          *     game goes, every dropped entrant is in again and every skip goes.
          *     The entrants and their details, the organisers, format, points and
-         *     thread text stay. A game a ratings run includes is refused.
+         *     thread text stay. Ratings runs lose their rows for the games, as a
+         *     match's reset does.
          */
         post: operations["postAdminBlitzReset"];
         delete?: never;

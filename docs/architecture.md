@@ -223,7 +223,8 @@ the match again corrects that one game. A result in the latest round can
 be reset, a match's or the whole round's: the game goes with its seats and
 batch, through `delete_blitz_game`, since the admin login cannot delete
 games itself. Resetting the edition removes every round and game and puts
-everyone back in. A game a ratings run includes is never deleted. The match keeps the result (a win,
+everyone back in. A ratings run that included a game reset loses its rows
+for it, and is made again to bring its pages up to date. The match keeps the result (a win,
 a draw or a double loss) and, when the organisers decided it instead, their
 ruling and its reason (a ruling may overrule a played game). The next round
 is paired only once every match has a result. The standings are computed

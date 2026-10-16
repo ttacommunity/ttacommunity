@@ -13,9 +13,6 @@ import (
 // ErrBlitzNotLatest means a result is reset only in the edition's latest round.
 var ErrBlitzNotLatest = errors.New("only the latest round's results can be reset: reset and delete the rounds after it first")
 
-// ErrBlitzGameInRun means a game a ratings run includes cannot be deleted: record it again to correct it.
-var ErrBlitzGameInRun = errors.New("a ratings run includes the game, so it cannot be reset: record it again to correct it")
-
 // latestRound returns ErrBlitzNotLatest unless round number is edition edID's latest.
 func latestRound(ctx context.Context, tx pgx.Tx, edID int64, number int) error {
 	var latest int
@@ -28,19 +25,9 @@ func latestRound(ctx context.Context, tx pgx.Tx, edID int64, number int) error {
 	return nil
 }
 
-// dropBlitzGames deletes games an edition's matches no longer hold, through delete_blitz_game: their seats, and the
-// import batches, group members, groups and "Round N" stages they leave empty. It returns ErrBlitzGameInRun when a
-// ratings run includes one of them.
+// dropBlitzGames deletes games an edition's matches no longer hold, through delete_blitz_game: their seats, the rows
+// ratings runs keep for them, and the import batches, group members, groups and "Round N" stages they leave empty.
 func dropBlitzGames(ctx context.Context, tx pgx.Tx, games []int64) error {
-	var inRun bool
-	if err := tx.QueryRow(ctx, `
-		SELECT EXISTS (SELECT 1 FROM tournament_games WHERE match_id = ANY($1)) OR EXISTS (SELECT 1 FROM pairwise_matches WHERE match_id = ANY($1))`,
-		games).Scan(&inRun); err != nil {
-		return fmt.Errorf("checking the runs for the games: %w", err)
-	}
-	if inRun {
-		return ErrBlitzGameInRun
-	}
 	for _, id := range games {
 		if _, err := tx.Exec(ctx, "SELECT delete_blitz_game($1)", id); err != nil {
 			return fmt.Errorf("deleting game %d: %w", id, err)
@@ -66,8 +53,8 @@ func undecide(ctx context.Context, tx pgx.Tx, where string, value int64) ([]int6
 }
 
 // ResetBlitzResult undoes a match's result in the edition's latest round: no result, ruling or game, as if never
-// played; resetting it again changes nothing. It returns ErrNoBlitzEdition, ErrNoBlitzMatch, ErrBlitzBye,
-// ErrBlitzNotLatest or ErrBlitzGameInRun.
+// played; resetting it again changes nothing. It returns ErrNoBlitzEdition, ErrNoBlitzMatch, ErrBlitzBye or
+// ErrBlitzNotLatest.
 func (a *AdminStore) ResetBlitzResult(ctx context.Context, slug, edition string, matchID int64) error {
 	return pgx.BeginFunc(ctx, a.pool, func(tx pgx.Tx) error {
 		edID, err := blitzEditionID(ctx, tx, slug, edition)
@@ -93,7 +80,7 @@ func (a *AdminStore) ResetBlitzResult(ctx context.Context, slug, edition string,
 }
 
 // ResetBlitzRound undoes every result in the edition's latest round, its pairing kept (so it can then be deleted).
-// It returns ErrNoBlitzEdition, ErrNoBlitzRound, ErrBlitzNotLatest or ErrBlitzGameInRun.
+// It returns ErrNoBlitzEdition, ErrNoBlitzRound or ErrBlitzNotLatest.
 func (a *AdminStore) ResetBlitzRound(ctx context.Context, slug, edition string, roundID int64) error {
 	return pgx.BeginFunc(ctx, a.pool, func(tx pgx.Tx) error {
 		edID, err := blitzEditionID(ctx, tx, slug, edition)
@@ -116,8 +103,7 @@ func (a *AdminStore) ResetBlitzRound(ctx context.Context, slug, edition string, 
 }
 
 // ResetBlitzEdition starts an edition again: every round, result and game goes, every dropped entrant is in again and
-// every skip goes. Entrants, organisers, format, points and thread text stay. It returns ErrNoBlitzEdition or
-// ErrBlitzGameInRun.
+// every skip goes. Entrants, organisers, format, points and thread text stay. It returns ErrNoBlitzEdition.
 func (a *AdminStore) ResetBlitzEdition(ctx context.Context, slug, edition string) error {
 	return pgx.BeginFunc(ctx, a.pool, func(tx pgx.Tx) error {
 		edID, err := blitzEditionID(ctx, tx, slug, edition)
