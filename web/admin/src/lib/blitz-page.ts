@@ -1,6 +1,7 @@
-/** The blitz edition page's decisions: the edition the address names, its address, advice on its format, and its points summed up and changed. */
+/** The blitz edition page's decisions: the edition the address names, its address, advice on its format, its points summed up and changed, and its settings summed up. */
 import type { components } from '@ttac/shared/api';
-import { pointsList, type BlitzPoints } from '@ttac/shared/blitz';
+import { formatLabel, pointsList, type BlitzPoints } from '@ttac/shared/blitz';
+import { organisersSummary, threadTextSummary } from './blitz-threads';
 
 type Schemas = components['schemas'];
 export type AdminBlitzEntrant = Schemas['AdminBlitzEntrant'];
@@ -35,13 +36,13 @@ export function formatAdvice(format: { swiss_rounds: number; knockout_size: numb
   return { limit, warnings };
 }
 
-/** editionFormatWarnings are formatAdvice's warnings for an edition's saved format and active entrants, shown while its Format is hidden: none once the knockout has started, when the format no longer changes. */
+/** editionFormatWarnings are formatAdvice's warnings for an edition's saved format and active entrants, shown with its settings summed up: none once the knockout has started, when the format no longer changes. */
 export function editionFormatWarnings(ed: { format: { swiss_rounds: number; knockout_size: number }; entrants: readonly { status: string }[]; rounds: readonly { kind: string }[] }): string[] {
   if (ed.rounds.some((r) => r.kind === 'knockout')) return [];
   return formatAdvice(ed.format, ed.entrants.filter((e) => e.status === 'active').length).warnings;
 }
 
-/** pointsSummary sums up an edition's points while they are hidden: FIDE's or its own, with every outcome. */
+/** pointsSummary sums up an edition's points among its settings: FIDE's or its own, with every outcome. */
 export function pointsSummary(points: BlitzPoints, fide: boolean): string {
   return `${fide ? "FIDE's" : "This edition's"}: ${pointsList(points)}`;
 }
@@ -62,4 +63,20 @@ export function pointsForm(p: BlitzPoints): PointsForm {
 /** pointsFrom reads the points form as the points to save; the API refuses what is out of range. */
 export function pointsFrom(f: PointsForm): BlitzPoints {
   return { win: Number(f.win), draw: Number(f.draw), loss: Number(f.loss), forfeit_win: Number(f.forfeit_win), forfeit_loss: Number(f.forfeit_loss), bye: Number(f.bye), skip: Number(f.skip) };
+}
+
+/** settingsRows sums up an edition's settings while they are not being edited: format, points, organisers and thread text, in that order. */
+export function settingsRows(ed: {
+  format: { swiss_rounds: number; knockout_size: number };
+  points: BlitzPoints;
+  fide_points: boolean;
+  organisers: readonly { name: string }[];
+  thread_text: { edited: boolean };
+}): { key: string; value: string }[] {
+  return [
+    { key: 'Format', value: formatLabel(ed.format) },
+    { key: 'Points', value: pointsSummary(ed.points, ed.fide_points) },
+    { key: 'Organisers', value: organisersSummary(ed.organisers) },
+    { key: 'Thread text', value: threadTextSummary(ed.thread_text) },
+  ];
 }

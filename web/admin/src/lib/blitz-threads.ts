@@ -64,12 +64,12 @@ export function threadTextSavable(form: ThreadText, saved: ThreadText): boolean 
   return form.message.trim() !== saved.message || form.no_discord.trim() !== saved.no_discord;
 }
 
-/** organisersSummary sums up the edition's organisers while they are hidden: their names in the order added, or None yet. */
+/** organisersSummary sums up the edition's organisers among its settings: their names in the order added, or None yet. */
 export function organisersSummary(organisers: readonly { name: string }[]): string {
   return organisers.length === 0 ? 'None yet' : organisers.map((o) => o.name).join(', ');
 }
 
-/** threadTextSummary sums up the edition's thread text while it is hidden: the default, or the edition's own. */
+/** threadTextSummary sums up the edition's thread text among its settings: the default, or the edition's own. */
 export function threadTextSummary(text: { edited: boolean }): string {
   return text.edited ? "This edition's own text" : 'The default text';
 }

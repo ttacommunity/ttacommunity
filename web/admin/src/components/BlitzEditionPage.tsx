@@ -1,5 +1,5 @@
 /** A blitz edition's page, in three tabs: its format and rounds (paired, changed by hand, published, their results recorded), its entrants (searched for and added, edited, dropped, removed), and the standings. */
-import { Fragment, useEffect, useState, type FormEvent, type ReactNode } from 'react';
+import { Fragment, useEffect, useState, type FormEvent } from 'react';
 import Segmented from '@ttac/shared/Segmented';
 import BackLink from '@ttac/shared/BackLink';
 import SubTabs from '@ttac/shared/SubTabs';
@@ -8,9 +8,9 @@ import { formatInstant } from '@ttac/shared/time';
 import { adminDownload, adminRequest, firstError, type AdminBlitzEdition, type AdminMe, type BlitzEntrantIds, type Load } from '../lib/admin-api';
 import * as req from '../lib/admin-requests';
 import { tabsFor } from '../lib/admin-tabs';
-import { editionFormatWarnings, editionParams, formatAdvice, pointsChanged, pointsForm, pointsFrom, pointsSummary, type AdminBlitzEntrant, type PointsForm } from '../lib/blitz-page';
+import { editionFormatWarnings, editionParams, formatAdvice, pointsChanged, pointsForm, pointsFrom, settingsRows, type AdminBlitzEntrant, type PointsForm } from '../lib/blitz-page';
 import { emptyGameForm, gameRecordFrom, type BlitzStanding, type GameForm } from '../lib/blitz-results';
-import { deadlineForm, deadlineLabel, deadlineLocked, organiserChoices, organisersSummary, threadTextSavable, threadTextSummary, threadsBlocker, threadsFileName, type DeadlineForm, type ThreadText } from '../lib/blitz-threads';
+import { deadlineForm, deadlineLabel, deadlineLocked, organiserChoices, threadTextSavable, threadsBlocker, threadsFileName, type DeadlineForm, type ThreadText } from '../lib/blitz-threads';
 import { entrantToAdd, wildcardChoices, type PersonChoice, type PersonDetails } from '../lib/person-form';
 import { countryNames, type Country } from '../lib/countries';
 import { clockIn, type Region } from '../lib/zones';
@@ -723,18 +723,7 @@ function EditionTabs(props: Props) {
             label: 'Rounds',
             panel: (
               <>
-                <SettingsSection title="Format" summary={formatLabel(props.ed.format)} what="format" whileHidden={<FormatWarnings warnings={editionFormatWarnings(props.ed)} />}>
-                  <FormatPanel {...props} />
-                </SettingsSection>
-                <SettingsSection title="Points" summary={pointsSummary(props.ed.points, props.ed.fide_points)} what="points">
-                  <PointsPanel key={JSON.stringify(props.ed.points)} {...props} />
-                </SettingsSection>
-                <SettingsSection title="Organisers" summary={organisersSummary(props.ed.organisers)} what="organisers">
-                  <OrganisersPanel {...props} />
-                </SettingsSection>
-                <SettingsSection title="Thread text" summary={threadTextSummary(props.ed.thread_text)} what="thread text">
-                  <ThreadTextPanel key={`${props.ed.thread_text.message}\n${props.ed.thread_text.no_discord}`} {...props} />
-                </SettingsSection>
+                <EditionSettings {...props} />
                 <RoundsPanel {...props} />
               </>
             ),
@@ -758,20 +747,40 @@ function EditionTabs(props: Props) {
   );
 }
 
-/** SettingsSection is one of the edition's settings under its heading: a summary, and a button that shows or hides the setting, hidden at first, with whileHidden below the summary until it is shown. Hidden, the setting stays mounted, so what is half typed is kept. */
-function SettingsSection({ title, summary, what, whileHidden, children }: { title: string; summary: string; what: string; whileHidden?: ReactNode; children: ReactNode }) {
-  const [shown, setShown] = useState(false);
+/** EditionSettings sums up the edition's settings in a list, with the format's warnings, under one Edit settings button in its header that opens every setting's form together. Each form saves on its own; closed, the forms stay mounted, so what is half typed is kept. */
+function EditionSettings(props: Props) {
+  const [editing, setEditing] = useState(false);
   return (
     <div className="admin-subsection">
-      <h3>{title}</h3>
-      <p className="season-summary">
-        <span className="muted">{summary}</span>{' '}
-        <button type="button" className="btn-antique btn-settings" aria-expanded={shown} onClick={() => setShown(!shown)}>
-          {shown ? `Hide ${what}` : `Show ${what}`}
+      <div className="settings-head">
+        <h3>Settings</h3>
+        <button type="button" className="btn-antique btn-settings" aria-expanded={editing} aria-controls="edition-settings-forms" onClick={() => setEditing(!editing)}>
+          {editing ? 'Close settings' : 'Edit settings'}
         </button>
-      </p>
-      {!shown && whileHidden}
-      <div hidden={!shown}>{children}</div>
+      </div>
+      {!editing && (
+        <>
+          <dl className="settings-list">
+            {settingsRows(props.ed).map((r) => (
+              <div key={r.key}>
+                <dt>{r.key}</dt>
+                <dd>{r.value}</dd>
+              </div>
+            ))}
+          </dl>
+          <FormatWarnings warnings={editionFormatWarnings(props.ed)} />
+        </>
+      )}
+      <div id="edition-settings-forms" className="settings-forms" hidden={!editing}>
+        <h4>Format</h4>
+        <FormatPanel {...props} />
+        <h4>Points</h4>
+        <PointsPanel key={JSON.stringify(props.ed.points)} {...props} />
+        <h4>Organisers</h4>
+        <OrganisersPanel {...props} />
+        <h4>Thread text</h4>
+        <ThreadTextPanel key={`${props.ed.thread_text.message}\n${props.ed.thread_text.no_discord}`} {...props} />
+      </div>
     </div>
   );
 }

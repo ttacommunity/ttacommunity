@@ -495,7 +495,8 @@
   border-top: 1px solid var(--border-subtle);
 }
 .round-block h3,
-.admin-subsection > h3 {
+.admin-subsection > h3,
+.settings-head h3 {
   margin-bottom: 0.5rem;
   font-family: var(--font-heading);
   font-size: 1rem;
@@ -687,4 +688,51 @@
 .format-warning {
   margin-top: 0.4rem;
   color: var(--accent-gold-light);
+}
+
+/* A blitz edition's settings: summed up in a list under one Edit settings button, or every setting's form open. */
+.settings-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.6rem;
+  margin-bottom: 0.5rem;
+}
+.settings-head h3 {
+  margin: 0;
+}
+.settings-list {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: 0.35rem 1.25rem;
+  margin: 0 0 0.6rem;
+}
+.settings-list > div {
+  display: contents;
+}
+.settings-list dt {
+  color: var(--text-soft);
+}
+.settings-list dd {
+  margin: 0;
+  color: var(--text-main);
+}
+.settings-forms h4 {
+  margin: 1rem 0 0.4rem;
+  font-family: var(--font-heading);
+  font-size: 0.9rem;
+  color: var(--accent-gold);
+}
+.settings-forms h4:first-child {
+  margin-top: 0.25rem;
+}
+@media (max-width: 600px) {
+  .settings-list {
+    grid-template-columns: 1fr;
+    gap: 0.1rem;
+  }
+  .settings-list dd {
+    margin-bottom: 0.4rem;
+  }
 }
