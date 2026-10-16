@@ -70,8 +70,23 @@ export const replaceBlitzPlayer = (slug: string, edition: string, round: number,
   to(`${blitz(slug, edition)}/rounds/${round}/matches/${match}/replacement`, 'PUT', replacement);
 /** removeBlitzEntrant removes an entrant added by mistake. */
 export const removeBlitzEntrant = (slug: string, edition: string, id: number) => to(`${blitz(slug, edition)}/entrants/${id}`, 'DELETE');
+/** skipBlitzRound has an entrant sit out the next Swiss round. */
+export const skipBlitzRound = (slug: string, edition: string, id: number) => to(`${blitz(slug, edition)}/entrants/${id}/skip`, 'POST');
+/** unskipBlitzRound undoes an entrant's skip of a round not yet published. */
+export const unskipBlitzRound = (slug: string, edition: string, id: number) => to(`${blitz(slug, edition)}/entrants/${id}/skip`, 'DELETE');
+/** resetBlitzResult undoes a match's result in the latest round, game and all. */
+export const resetBlitzResult = (slug: string, edition: string, round: number, match: number) =>
+  to(`${blitz(slug, edition)}/rounds/${round}/matches/${match}/result`, 'DELETE');
+/** resetBlitzRound undoes every result of the latest round, its pairing kept. */
+export const resetBlitzRound = (slug: string, edition: string, round: number) => to(`${blitz(slug, edition)}/rounds/${round}/results`, 'DELETE');
+/** resetBlitzEdition starts an edition again from its entrants. */
+export const resetBlitzEdition = (slug: string, edition: string) => to(`${blitz(slug, edition)}/reset`, 'POST');
 /** setBlitzFormat sets an edition's Swiss rounds and knockout size. */
 export const setBlitzFormat = (slug: string, edition: string, format: Schemas['BlitzFormat']) => to(blitz(slug, edition), 'PATCH', format);
+/** setBlitzPoints sets what each outcome of an edition is worth. */
+export const setBlitzPoints = (slug: string, edition: string, points: Schemas['BlitzPoints']) => to(`${blitz(slug, edition)}/points`, 'PUT', points);
+/** resetBlitzPoints puts FIDE's points back. */
+export const resetBlitzPoints = (slug: string, edition: string) => to(`${blitz(slug, edition)}/points`, 'DELETE');
 /** pairBlitzRound pairs the edition's next round as a draft, by the criteria given. */
 export const pairBlitzRound = (slug: string, edition: string, criteria: Schemas['NewBlitzRound']) => to(`${blitz(slug, edition)}/rounds`, 'POST', criteria);
 /** proposeBlitzPairing asks for a round with the matches in keep (and those with a result) as they are and everyone else paired, without saving it. */
@@ -91,6 +106,11 @@ export const blitzThreadsPath = (slug: string, edition: string, round: number) =
 export const addBlitzOrganiser = (slug: string, edition: string, member: number) => to(`${blitz(slug, edition)}/organisers`, 'POST', { member });
 /** removeBlitzOrganiser stops a member organising the edition. */
 export const removeBlitzOrganiser = (slug: string, edition: string, member: number) => to(`${blitz(slug, edition)}/organisers/${member}`, 'DELETE');
+/** setBlitzThreadText saves what the edition's Discord thread messages say, trimmed. */
+export const setBlitzThreadText = (slug: string, edition: string, text: Schemas['BlitzThreadTextSet']) =>
+  to(`${blitz(slug, edition)}/thread-text`, 'PUT', { message: text.message.trim(), no_discord: text.no_discord.trim() });
+/** resetBlitzThreadText puts the default thread text back. */
+export const resetBlitzThreadText = (slug: string, edition: string) => to(`${blitz(slug, edition)}/thread-text`, 'DELETE');
 /** deleteBlitzRound removes a draft round. */
 export const deleteBlitzRound = (slug: string, edition: string, round: number) => to(`${blitz(slug, edition)}/rounds/${round}`, 'DELETE');
 /** recordBlitzGame records, or corrects, the game a match was played as. */

@@ -67,7 +67,7 @@ type Edition = { entrants: readonly AdminBlitzEntrant[]; rounds: readonly AdminB
 export function pairAction(ed: Edition, shown: readonly AdminBlitzMatch[] | null): PairAction {
   const open = openRound(ed.rounds);
   if (open !== null) {
-    const left = unpaired(ed.entrants, { matches: shown ?? open.matches });
+    const left = unpaired(ed.entrants, { number: open.number, matches: shown ?? open.matches });
     return open.kind === 'swiss' && left.length > 0 ? { kind: 'fill', round: open.id } : { kind: 'none' };
   }
   const next = nextRound(ed.rounds, ed.format, ed.champion);
@@ -126,17 +126,64 @@ export function hasPlayed(id: number, rounds: readonly AdminBlitzRound[]): boole
   return rounds.some((r) => r.matches.some((m) => (m.a === id || m.b === id) && (m.result !== null || (m.b === null && r.published_at !== null))));
 }
 
-/** EntrantButtons are the buttons an entrant's row shows: Confirm, Drop or Reinstate, and Remove. */
-export type EntrantButtons = { confirm: boolean; drop: 'drop' | 'reinstate' | null; remove: 'remove' | null };
+type Entrant = Pick<AdminBlitzEntrant, 'id' | 'status' | 'skips'>;
 
-/** entrantButtons decides an entrant's buttons: Confirm while pending; Reinstate once dropped, and Drop only for one who has played; Remove only for one who has not (it takes them out of their round). */
-export function entrantButtons(e: { id: number; status: AdminBlitzEntrant['status'] }, rounds: readonly AdminBlitzRound[]): EntrantButtons {
-  const played = hasPlayed(e.id, rounds);
-  return {
-    confirm: e.status === 'pending',
-    drop: e.status === 'dropped' ? 'reinstate' : e.status === 'active' && played ? 'drop' : null,
-    remove: played ? null : 'remove',
-  };
+/** skippingRound is the round an entrant skips that is not yet published, the next one; null for none. */
+export function skippingRound(e: Pick<AdminBlitzEntrant, 'skips'>, rounds: readonly AdminBlitzRound[]): number | null {
+  return e.skips.find((n) => !rounds.some((r) => r.number === n && r.published_at !== null)) ?? null;
+}
+
+/** skippableRound is the round Skip would leave someone out of: the draft, else the next round; null when that is not a Swiss round. */
+export function skippableRound(ed: Omit<Edition, 'entrants'>): number | null {
+  const draft = ed.rounds.find((r) => r.published_at === null);
+  if (draft !== undefined) return draft.kind === 'swiss' ? draft.number : null;
+  const next = nextRound(ed.rounds, ed.format, ed.champion);
+  return next?.kind === 'swiss' ? next.number : null;
+}
+
+/** EntrantActions are an entrant row's actions: the one for the tournament, and the round Skip would skip (null for no Skip). */
+export type EntrantActions = { action: 'remove' | 'drop' | 'reinstate'; skip: number | null };
+
+/** entrantActions decides an entrant's row: Reinstate for one dropped or skipping the next round, else Drop for one who has played, else Remove (it takes them out of their round); and Skip for one in and not skipping, while the next round is Swiss. */
+export function entrantActions(e: Entrant, ed: Omit<Edition, 'entrants'>): EntrantActions {
+  if (e.status === 'dropped' || skippingRound(e, ed.rounds) !== null) return { action: 'reinstate', skip: null };
+  return { action: hasPlayed(e.id, ed.rounds) ? 'drop' : 'remove', skip: skippableRound(ed) };
+}
+
+/** resetsOf is what can be reset in rounds: the latest round (its id), when it has a result, and its matches with one; nothing otherwise. */
+export function resetsOf(rounds: readonly AdminBlitzRound[]): { round: number | null; matches: number[] } {
+  const latest = newestFirst(rounds)[0];
+  const matches = latest === undefined ? [] : latest.matches.filter((m) => m.b !== null && m.result !== null).map((m) => m.id);
+  return { round: matches.length > 0 && latest !== undefined ? latest.id : null, matches };
+}
+
+/** canResetEdition says whether an edition has anything for a reset to undo: a round, a dropped entrant or a skip. */
+export function canResetEdition(ed: { rounds: readonly unknown[]; entrants: readonly Pick<AdminBlitzEntrant, 'status' | 'skips'>[] }): boolean {
+  return ed.rounds.length > 0 || ed.entrants.some((e) => e.status === 'dropped' || e.skips.length > 0);
+}
+
+/** outcome is how a decided match went for one of its players. */
+function outcome(m: AdminBlitzMatch, id: number): string {
+  if (m.result === 'draw') return 'drew';
+  if (m.result === 'double_loss') return 'both lost';
+  return (m.result === 'a') === (m.a === id) ? 'won' : 'lost';
+}
+
+/** entrantState is an entrant's Status: Dropped, or the newest round's state with the opponent ("R2: won v Bob", "R2: bye", "R2: skipping", "R2: not paired"), marked (draft) while unpublished, and a later round they skip; In before any round. */
+export function entrantState(e: Entrant, rounds: readonly AdminBlitzRound[], nameOf: (id: number) => string): string {
+  if (e.status === 'dropped') return 'Dropped';
+  const latest = newestFirst(rounds)[0];
+  const skipping = skippingRound(e, rounds);
+  if (latest === undefined) return skipping === null ? 'In' : `R${skipping}: skipping`;
+  const m = latest.matches.find((x) => x.a === e.id || x.b === e.id);
+  const draft = latest.published_at === null;
+  let state: string;
+  if (m !== undefined && m.b === null) state = 'bye';
+  else if (m !== undefined) state = `${m.result === null ? 'paired' : outcome(m, e.id)} v ${nameOf(m.a === e.id ? (m.b as number) : m.a)}`;
+  else if (e.skips.includes(latest.number)) state = draft ? 'skipping' : 'skipped';
+  else state = latest.kind === 'knockout' ? 'not in the knockout' : 'not paired';
+  const later = skipping !== null && skipping > latest.number ? ` · skips R${skipping}` : '';
+  return `R${latest.number}: ${state}${draft ? ' (draft)' : ''}${later}`;
 }
 
 /** leftUnpaired lists whom removing an entrant leaves unpaired: their opponents in the matches still to play, oldest round first. */
@@ -154,14 +201,16 @@ export function replaceableSide(m: AdminBlitzMatch, round: AdminBlitzRound, entr
   return dropped(m.b) ? m.b : null;
 }
 
-/** unpaired lists the active entrants a round leaves out, in sign-up order. */
-export function unpaired(entrants: readonly AdminBlitzEntrant[], round: { matches: readonly AdminBlitzMatch[] }): AdminBlitzEntrant[] {
+type RoundMatches = { number: number; matches: readonly AdminBlitzMatch[] };
+
+/** unpaired lists the active entrants a round leaves out who are not skipping it, in sign-up order. */
+export function unpaired(entrants: readonly AdminBlitzEntrant[], round: RoundMatches): AdminBlitzEntrant[] {
   const paired = new Set<number>();
   for (const m of round.matches) {
     paired.add(m.a);
     if (m.b !== null) paired.add(m.b);
   }
-  return entrants.filter((e) => e.status === 'active' && !paired.has(e.id));
+  return entrants.filter((e) => e.status === 'active' && !paired.has(e.id) && !e.skips.includes(round.number));
 }
 
 /** partnersFor lists whom a player may be paired with by hand in a Swiss round: the unpaired players but them and anyone they met in another Swiss round (a pairing never repeats); everyone unpaired for nobody picked. */
@@ -182,10 +231,11 @@ export function byeTakers(free: readonly AdminBlitzEntrant[], rounds: readonly A
   return fresh.length > 0 ? fresh : [...free];
 }
 
-/** pairCounts counts a round's players: those in a match or with the bye, and the active entrants it leaves out. */
-export function pairCounts(entrants: readonly AdminBlitzEntrant[], matches: readonly AdminBlitzMatch[]): { paired: number; unpaired: number } {
-  const paired = new Set(matches.flatMap((m) => (m.b === null ? [m.a] : [m.a, m.b])));
-  return { paired: paired.size, unpaired: unpaired(entrants, { matches }).length };
+/** pairCounts counts a round's players: those in a match or with the bye, the active entrants it leaves out, and those skipping it. */
+export function pairCounts(entrants: readonly AdminBlitzEntrant[], round: RoundMatches): { paired: number; unpaired: number; skipping: number } {
+  const paired = new Set(round.matches.flatMap((m) => (m.b === null ? [m.a] : [m.a, m.b])));
+  const skipping = entrants.filter((e) => e.status === 'active' && e.skips.includes(round.number)).length;
+  return { paired: paired.size, unpaired: unpaired(entrants, round).length, skipping };
 }
 
 /** asChanges turns matches into what the API takes back: entrant ids, b left out for the bye. */

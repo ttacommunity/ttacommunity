@@ -1,4 +1,4 @@
-/** The Blitz section's decisions: which edition the address names, its address, how a rating reads, which rounds are the pairings and which the bracket, an edition's tabs, and its games as table rows. */
+/** The Blitz section's decisions: which edition the address names, its address, how a rating reads, which rounds are the pairings and which the bracket, an edition's tabs, its games as table rows, and who sat a round out. */
 import type { components } from '@ttac/shared/api';
 import { resultTag, roundTitle, seededName, type BlitzFormat } from '@ttac/shared/blitz';
 import { outcomeNote } from './catalogue-view';
@@ -52,9 +52,14 @@ export function blitzGames(rounds: readonly BlitzRound[], format: BlitzFormat, f
   const kept = rounds
     .filter((r) => filter.round === null || r.number === filter.round)
     .flatMap((r) => r.matches.map((m, i) => ({ r, m, i })))
-    .filter(({ m }) => (filter.player === '' || m.a === filter.player || m.b === filter.player) && (!filter.coded || m.game !== null));
+    .filter(({ m }) => (filter.player === '' || m.a === filter.player || m.b === filter.player) && (!filter.coded || coded(m)));
   const rows = kept.map(({ r, m, i }) => blitzRow(r.number, i + 1, m, format, day));
-  return { ...pageOf(rows, filter.page), games: kept.filter(({ m }) => m.b !== null).length, coded: kept.filter(({ m }) => m.game !== null).length };
+  return { ...pageOf(rows, filter.page), games: kept.filter(({ m }) => m.b !== null).length, coded: kept.filter(({ m }) => coded(m)).length };
+}
+
+/** coded says whether a match's game was recorded with a replay code. */
+function coded(m: BlitzMatch): boolean {
+  return m.game !== null && m.game.share_code !== '';
 }
 
 /** blitzRow is game number n of a round as a games-table row: rated players linked with their ratings, seeds in the knockout. */
@@ -77,8 +82,13 @@ function blitzRow(round: number, n: number, m: BlitzMatch, format: BlitzFormat, 
     tag: resultTag(m),
     unplayed: m.b === null || (m.result !== null && g === null),
     seats,
-    code: g?.share_code ?? null,
+    code: g === null || g.share_code === '' ? null : g.share_code,
   };
+}
+
+/** notPlaying lists who sat out rounds, narrowed to one round (null for every round), in the order given: each round's title and names; a round nobody sat out is left out. */
+export function notPlaying(rounds: readonly BlitzRound[], round: number | null, format: BlitzFormat): { round: string; names: string[] }[] {
+  return rounds.filter((r) => (round === null || r.number === round) && r.skipped.length > 0).map((r) => ({ round: roundTitle(r.number, format), names: r.skipped }));
 }
 
 /** roundOptions names each of rounds for the Round filter, in the order given. */

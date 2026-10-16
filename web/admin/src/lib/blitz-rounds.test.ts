@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { byeTakers, canDeleteRound, entrantButtons, partnersFor, leftUnpaired, pairCounts, reconcilePending, replaceableSide, canPair, decidedOnly, nextRound, openRound, pairAction, rulingChoices, rulingLabel, newestFirst, samePairs, shownAfter, undecided, unpaired, unsavedMatch, zoneGapLabel, type AdminBlitzRound } from './blitz-rounds';
+import { byeTakers, canDeleteRound, canResetEdition, entrantActions, entrantState, resetsOf, partnersFor, leftUnpaired, pairCounts, reconcilePending, replaceableSide, canPair, decidedOnly, nextRound, openRound, pairAction, rulingChoices, rulingLabel, newestFirst, samePairs, shownAfter, undecided, unpaired, unsavedMatch, zoneGapLabel, type AdminBlitzRound } from './blitz-rounds';
 
 const round = (id: number, number: number, published: boolean, matches: AdminBlitzRound['matches']): AdminBlitzRound => ({
   id,
@@ -28,7 +28,7 @@ const match = (id: number, a: number, b: number | null, result: 'a' | 'b' | 'dra
   ruling: result === null ? '' : 'ruled',
   decided_at: result === null ? null : '2026-10-15T09:00:00Z',
 });
-const entrant = (id: number, status: 'active' | 'dropped' = 'active') => ({
+const entrant = (id: number, status: 'active' | 'dropped' = 'active', skips: number[] = []) => ({
   id,
   member: 1000 + id,
   name: `p${id}`,
@@ -40,6 +40,7 @@ const entrant = (id: number, status: 'active' | 'dropped' = 'active') => ({
   utc_offset: '+00:00',
   rating: null,
   status,
+  skips,
 });
 
 describe('canPair', () => {
@@ -185,9 +186,9 @@ describe('pairAction', () => {
 });
 
 describe('unpaired', () => {
-  it('lists the active entrants the round leaves out', () => {
-    const entrants = [entrant(1), entrant(2), entrant(3), entrant(4, 'dropped'), entrant(5)];
-    expect(unpaired(entrants, round(9, 1, false, [match(1, 1, 2), match(2, 5, null)])).map((e) => e.id)).toEqual([3]);
+  it('lists the active entrants the round leaves out, not those skipping it', () => {
+    const entrants = [entrant(1), entrant(2), entrant(3), entrant(4, 'dropped'), entrant(5), entrant(6, 'active', [1]), entrant(7, 'active', [2])];
+    expect(unpaired(entrants, round(9, 1, false, [match(1, 1, 2), match(2, 5, null)])).map((e) => e.id)).toEqual([3, 7]);
   });
 });
 
@@ -213,21 +214,73 @@ describe('decidedOnly', () => {
   });
 });
 
-describe('entrantButtons', () => {
-  const rounds = [
-    round(1, 1, true, [match(1, 1, 2, 'a'), match(2, 3, 4), match(3, 5, null)]),
-    round(2, 2, false, [match(4, 6, null)]),
-  ];
+describe('entrantActions', () => {
+  const format = { swiss_rounds: 8, knockout_size: 8 };
+  const draft = { rounds: [round(1, 1, true, [match(1, 1, 2, 'a'), match(2, 3, 4), match(3, 5, null)]), round(2, 2, false, [match(4, 6, null)])], format, champion: null };
+  const played = { rounds: [round(1, 1, true, [match(1, 1, 2, 'a'), match(2, 3, 4, 'b')])], format, champion: null };
+  const swissDone = { rounds: [round(1, 1, true, [match(1, 1, 2, 'a')])], format: { swiss_rounds: 1, knockout_size: 2 }, champion: null };
   it.each([
-    ['Drop for one who played', entrant(1), { confirm: false, drop: 'drop', remove: null }],
-    ['Reinstate for one who dropped', entrant(2, 'dropped'), { confirm: false, drop: 'reinstate', remove: null }],
-    ['Remove for one paired who has not played', entrant(3), { confirm: false, drop: null, remove: 'remove' }],
-    ['Drop for a bye in a published round', entrant(5), { confirm: false, drop: 'drop', remove: null }],
-    ['Remove for a bye in a draft', entrant(6), { confirm: false, drop: null, remove: 'remove' }],
-    ['Confirm and Remove for one not confirmed', { ...entrant(7), status: 'pending' as const }, { confirm: true, drop: null, remove: 'remove' }],
-    ['Reinstate and Remove for one who dropped before playing', entrant(8, 'dropped'), { confirm: false, drop: 'reinstate', remove: 'remove' }],
-  ])('%s', (_name, e, want) => {
-    expect(entrantButtons(e, rounds)).toEqual(want);
+    ['Drop for one who played, and Skip the draft', entrant(1), draft, { action: 'drop', skip: 2 }],
+    ['Reinstate alone for one who dropped', entrant(2, 'dropped'), draft, { action: 'reinstate', skip: null }],
+    ['Remove for one paired who has not played', entrant(3), draft, { action: 'remove', skip: 2 }],
+    ['Drop for a bye in a published round', entrant(5), draft, { action: 'drop', skip: 2 }],
+    ['Remove for a bye in a draft', entrant(6), draft, { action: 'remove', skip: 2 }],
+    ['Skip the round after the latest once it is published', entrant(1), played, { action: 'drop', skip: 2 }],
+    ['Reinstate alone for one skipping the next round', entrant(1, 'active', [2]), played, { action: 'reinstate', skip: null }],
+    ['Drop again once the round skipped is published', entrant(1, 'active', [1]), played, { action: 'drop', skip: 2 }],
+    ['Remove, and Skip round 1, before any round', entrant(9), { rounds: [], format, champion: null }, { action: 'remove', skip: 1 }],
+    ['no Skip when the knockout is next', entrant(1), swissDone, { action: 'drop', skip: null }],
+  ])('%s', (_name, e, ed, want) => {
+    expect(entrantActions(e, ed)).toEqual(want);
+  });
+});
+
+describe('resetsOf', () => {
+  it.each([
+    ['nothing before any round', [], { round: null, matches: [] }],
+    ['the latest round and its decided matches, byes aside', [round(1, 1, true, [match(1, 1, 2, 'a')]), round(2, 2, true, [match(2, 1, 3, 'b'), match(3, 2, 4), match(4, 5, null)])], { round: 2, matches: [2] }],
+    ['nothing while the latest round has no result', [round(1, 1, true, [match(1, 1, 2, 'a')]), round(2, 2, false, [match(2, 1, 3)])], { round: null, matches: [] }],
+  ])('offers %s', (_name, rounds, want) => {
+    expect(resetsOf(rounds)).toEqual(want);
+  });
+});
+
+describe('canResetEdition', () => {
+  it.each([
+    ['a round', [round(1, 1, false, [])], [entrant(1)], true],
+    ['a dropped entrant', [], [entrant(1, 'dropped')], true],
+    ['a skip', [], [entrant(1, 'active', [1])], true],
+    ['entrants alone', [], [entrant(1), entrant(2)], false],
+  ])('is %s worth a reset', (_name, rounds, entrants, want) => {
+    expect(canResetEdition({ rounds, entrants })).toBe(want);
+  });
+});
+
+describe('entrantState', () => {
+  const ko = { ...match(9, 1, 3, 'b'), slot: 0, a_seed: 1, b_seed: 2 };
+  const one = round(1, 1, true, [match(1, 1, 2, 'a'), match(2, 3, 4, 'draw'), match(3, 5, null), match(4, 7, 8, 'double_loss')]);
+  const two = round(2, 2, true, [match(5, 1, 3), match(6, 2, 4, 'b')]);
+  const draftTwo = round(2, 2, false, [match(5, 1, 3)]);
+  const nameOf = (id: number) => `p${id}`;
+  it.each([
+    ['no round yet', entrant(1), [], 'In'],
+    ['dropped', entrant(2, 'dropped'), [one], 'Dropped'],
+    ['won', entrant(1), [one], 'R1: won v p2'],
+    ['lost', entrant(2), [one], 'R1: lost v p1'],
+    ['drew', entrant(4), [one], 'R1: drew v p3'],
+    ['both lost', entrant(8), [one], 'R1: both lost v p7'],
+    ['a bye', entrant(5), [one], 'R1: bye'],
+    ['not paired', entrant(6), [one], 'R1: not paired'],
+    ['skipped a published round', entrant(6, 'active', [1]), [one], 'R1: skipped'],
+    ['paired, in the newest round', entrant(1), [one, two], 'R2: paired v p3'],
+    ['a draft, marked', entrant(1), [one, draftTwo], 'R2: paired v p3 (draft)'],
+    ['skipping the draft', entrant(2, 'active', [2]), [one, draftTwo], 'R2: skipping (draft)'],
+    ['skipping a round not yet paired', entrant(2, 'active', [2]), [one], 'R1: lost v p1 · skips R2'],
+    ['skipping round 1 before any round', entrant(1, 'active', [1]), [], 'R1: skipping'],
+    ['out of the knockout', entrant(2), [one, knockout(3, 3, true, [ko])], 'R3: not in the knockout'],
+    ['in the knockout', entrant(3), [one, knockout(3, 3, true, [ko])], 'R3: won v p1'],
+  ])('%s', (_name, e, rounds, want) => {
+    expect(entrantState(e, rounds, nameOf)).toBe(want);
   });
 });
 
@@ -277,13 +330,13 @@ describe('reconcilePending', () => {
 });
 
 describe('pairCounts', () => {
-  const entrants = [entrant(1), entrant(2), entrant(3), entrant(4), entrant(5, 'dropped'), { ...entrant(6), status: 'pending' as const }, entrant(7)];
+  const entrants = [entrant(1), entrant(2), entrant(3), entrant(4), entrant(5, 'dropped'), entrant(7), entrant(8, 'active', [1])];
   it.each([
-    ['the players in a match or with the bye, and the active ones left out', [match(1, 1, 2), match(2, 3, null)], { paired: 3, unpaired: 2 }],
-    ['nobody paired', [], { paired: 0, unpaired: 5 }],
-    ['everyone paired', [match(1, 1, 2), match(2, 3, 4), match(3, 7, null)], { paired: 5, unpaired: 0 }],
+    ['the players in a match or with the bye, the active ones left out, and those skipping', [match(1, 1, 2), match(2, 3, null)], { paired: 3, unpaired: 2, skipping: 1 }],
+    ['nobody paired', [], { paired: 0, unpaired: 5, skipping: 1 }],
+    ['everyone paired', [match(1, 1, 2), match(2, 3, 4), match(3, 7, null)], { paired: 5, unpaired: 0, skipping: 1 }],
   ])('counts %s', (_name, matches, want) => {
-    expect(pairCounts(entrants, matches)).toEqual(want);
+    expect(pairCounts(entrants, { number: 1, matches })).toEqual(want);
   });
 });
 

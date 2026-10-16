@@ -54,9 +54,9 @@ function details(f: PersonDetails): Pick<NewMember, 'discord_name' | 'email' | '
 }
 
 /** entrantToAdd is what the form sends to enter someone: the member by id, else the name, with every detail filled in. */
-export function entrantToAdd(f: PersonDetails, pending: boolean): NewBlitzEntrant {
+export function entrantToAdd(f: PersonDetails): NewBlitzEntrant {
   const who = f.member !== null ? { member: f.member } : { name: f.name.trim() };
-  return { ...who, ...details(f), status: pending ? 'pending' : 'active' };
+  return { ...who, ...details(f) };
 }
 
 /** memberToAdd is what the form sends to add a member: the name, with every detail filled in. */

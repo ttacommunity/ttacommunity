@@ -189,3 +189,85 @@ func TestSetBlitzRoundDeadlineRefusesARoundItCannotFind(t *testing.T) {
 		})
 	}
 }
+
+// threadText reads us_open 2026's own thread text for admin, nil while it has none.
+func threadText(t *testing.T, a *AdminStore) *BlitzThreadText {
+	t.Helper()
+	ed, err := a.BlitzEdition(context.Background(), "us_open", "2026")
+	if err != nil {
+		t.Fatalf("BlitzEdition: %v", err)
+	}
+	return ed.ThreadText
+}
+
+func TestAnEditionKeepsTheThreadTextLastSetUntilReset(t *testing.T) {
+	_, a := blitzFixture(t)
+	ctx := context.Background()
+	if got := threadText(t, a); got != nil {
+		t.Fatalf("thread text of a new edition = %+v, want none", got)
+	}
+	first, last := BlitzThreadText{Message: "Hi {players}.", NoDiscord: "{name}."}, BlitzThreadText{}
+	for _, text := range []BlitzThreadText{first, last} {
+		if err := a.SetBlitzThreadText(ctx, "us_open", "2026", text); err != nil {
+			t.Fatalf("SetBlitzThreadText(%+v): %v", text, err)
+		}
+	}
+	if got := threadText(t, a); got == nil || *got != last {
+		t.Errorf("thread text after setting it, then empty = %+v, want %+v", got, last)
+	}
+	for range 2 {
+		if err := a.ResetBlitzThreadText(ctx, "us_open", "2026"); err != nil {
+			t.Fatalf("ResetBlitzThreadText: %v", err)
+		}
+	}
+	if got := threadText(t, a); got != nil {
+		t.Errorf("thread text after a reset = %+v, want none", got)
+	}
+}
+
+func TestTheThreadTextOfAnUnknownEditionIsRefused(t *testing.T) {
+	_, a := blitzFixture(t)
+	ctx := context.Background()
+	tests := []struct {
+		name string
+		op   func() error
+	}{
+		{"setting it", func() error { return a.SetBlitzThreadText(ctx, "us_open", "2027", BlitzThreadText{Message: "Hi."}) }},
+		{"resetting it", func() error { return a.ResetBlitzThreadText(ctx, "us_open", "2027") }},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if err := tt.op(); !errors.Is(err, ErrNoBlitzEdition) {
+				t.Errorf("err = %v, want ErrNoBlitzEdition", err)
+			}
+		})
+	}
+}
+
+func TestTheDatabaseRefusesAThreadTextTooLong(t *testing.T) {
+	_, a := blitzFixture(t)
+	tests := []struct {
+		name, constraint string
+		text             BlitzThreadText
+	}{
+		{"a message over 1,500 characters", "blitz_thread_texts_message_check", BlitzThreadText{Message: strings.Repeat("é", 1501)}},
+		{"a no-Discord sentence over 300 characters", "blitz_thread_texts_no_discord_check", BlitzThreadText{NoDiscord: strings.Repeat("é", 301)}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if err := a.SetBlitzThreadText(context.Background(), "us_open", "2026", tt.text); err == nil || !strings.Contains(err.Error(), tt.constraint) {
+				t.Errorf("err = %v, want %s to refuse it", err, tt.constraint)
+			}
+			if got := threadText(t, a); got != nil {
+				t.Errorf("thread text after a refused save = %+v, want none", got)
+			}
+		})
+	}
+}
+
+func TestThePublicRoleCannotReadTheThreadText(t *testing.T) {
+	pool, _ := blitzFixture(t)
+	if _, err := asReader(t, pool).Exec(context.Background(), "SELECT message FROM blitz_thread_texts"); err == nil || !strings.Contains(err.Error(), "permission denied") {
+		t.Errorf("ratings_read reading blitz_thread_texts = %v, want permission denied", err)
+	}
+}

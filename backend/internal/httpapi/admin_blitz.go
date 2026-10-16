@@ -58,7 +58,10 @@ func (s *server) adminBlitzEntrant(e store.BlitzEntrant, rated map[string]store.
 	// A stored zone was checked on the way in, so an error here is an unknown later zone: shown with no offset.
 	offset, _ := blitz.Offset(e.Zone, s.now())
 	out := AdminBlitzEntrant{Id: e.ID, Member: e.MemberID, Name: e.Name, Player: e.Player, DiscordName: e.DiscordName, Email: e.Email,
-		Country: nullableText(e.Country), Zone: e.Zone, UtcOffset: offset, Status: AdminBlitzEntrantStatus(e.Status)}
+		Country: nullableText(e.Country), Zone: e.Zone, UtcOffset: offset, Status: AdminBlitzEntrantStatus(e.Status), Skips: []int{}}
+	if e.Skips != nil {
+		out.Skips = e.Skips
+	}
 	if r, ok := rated[e.Player]; ok {
 		out.Rating = &r.Rating
 	}
@@ -66,7 +69,7 @@ func (s *server) adminBlitzEntrant(e store.BlitzEntrant, rated map[string]store.
 }
 
 func adminBlitzEditionRow(r store.BlitzEditionRow) AdminBlitzEditionRow {
-	return AdminBlitzEditionRow{Tournament: r.Slug, Name: r.Name, Edition: r.Edition, Entrants: r.Entrants, Pending: r.Pending, Dropped: r.Dropped,
+	return AdminBlitzEditionRow{Tournament: r.Slug, Name: r.Name, Edition: r.Edition, Entrants: r.Entrants, Dropped: r.Dropped,
 		Round: r.Round, Champion: r.Champion, Format: BlitzFormat{SwissRounds: r.Format.SwissRounds, KnockoutSize: r.Format.KnockoutSize}}
 }
 
@@ -99,11 +102,14 @@ func (s *server) GetAdminBlitzEdition(ctx context.Context, req GetAdminBlitzEdit
 	}
 	row := adminBlitzEditionRow(ed.BlitzEditionRow)
 	body := AdminBlitzEdition{Tournament: row.Tournament, Name: row.Name, Edition: row.Edition, Format: row.Format, Champion: row.Champion,
+		Points: blitzPoints(ed.Points), FidePoints: ed.Points == blitz.FIDEScoring,
 		Entrants: make([]AdminBlitzEntrant, len(ed.Entrants)), Rounds: make([]AdminBlitzRound, len(ed.Rounds)), Standings: blitzStandings(ed),
 		Organisers: make([]AdminBlitzOrganiser, len(ed.Organisers))}
 	for i, o := range ed.Organisers {
 		body.Organisers[i] = AdminBlitzOrganiser{Member: o.MemberID, Name: o.Name, DiscordName: o.DiscordName}
 	}
+	text, edited := threadText(ed)
+	body.ThreadText = AdminBlitzThreadText{Message: text.Message, NoDiscord: text.NoDiscord, Edited: edited}
 	for i, e := range ed.Entrants {
 		body.Entrants[i] = s.adminBlitzEntrant(e, rated)
 	}
@@ -172,9 +178,6 @@ func (s *server) PostAdminBlitzEntrants(ctx context.Context, req PostAdminBlitzE
 				*field = *given
 			}
 		}
-		if e.Status != nil {
-			in.Status = string(*e.Status)
-		}
 		entrants[i] = in
 	}
 	ids, err := s.admins.AddBlitzEntrants(ctx, req.Tournament, req.Edition, entrants)
@@ -183,7 +186,7 @@ func (s *server) PostAdminBlitzEntrants(ctx context.Context, req PostAdminBlitzE
 	switch {
 	case errors.As(err, &exists), errors.As(err, &member), errors.Is(err, store.ErrMemberBanned):
 		return PostAdminBlitzEntrants409JSONResponse{conflict409(err.Error())}, nil
-	case errors.Is(err, store.ErrBadBlitzEntrant), errors.Is(err, store.ErrBadMember), errors.Is(err, store.ErrBadBlitzStatus):
+	case errors.Is(err, store.ErrBadBlitzEntrant), errors.Is(err, store.ErrBadMember):
 		return PostAdminBlitzEntrants400JSONResponse{badRequest400(err.Error())}, nil
 	case errors.Is(err, store.ErrNoBlitzEdition):
 		return PostAdminBlitzEntrants404JSONResponse{notFound404("no such blitz edition")}, nil
@@ -226,7 +229,7 @@ func (s *server) PatchAdminBlitzEntrant(ctx context.Context, req PatchAdminBlitz
 		return PatchAdminBlitzEntrant404JSONResponse{notFound404("no such blitz edition")}, nil
 	case errors.Is(err, store.ErrNoBlitzEntrant):
 		return PatchAdminBlitzEntrant404JSONResponse{notFound404("no such entrant")}, nil
-	case errors.Is(err, store.ErrBlitzEntrantNotPlayed):
+	case errors.Is(err, store.ErrBlitzEntrantNotPlayed), errors.Is(err, store.ErrBlitzEntrantSkipping):
 		return PatchAdminBlitzEntrant409JSONResponse{conflict409(err.Error())}, nil
 	case err != nil:
 		return nil, err
@@ -322,4 +325,50 @@ func candidatesOut(found []store.Candidate) []Candidate {
 		}
 	}
 	return out
+}
+
+func (s *server) PutAdminBlitzPoints(ctx context.Context, req PutAdminBlitzPointsRequestObject) (PutAdminBlitzPointsResponseObject, error) {
+	me, _ := adminFrom(ctx)
+	if !tournamentSlug.MatchString(req.Tournament) {
+		return PutAdminBlitzPoints404JSONResponse{notFound404("no such blitz edition")}, nil
+	}
+	if req.Body == nil {
+		return PutAdminBlitzPoints400JSONResponse{badRequest400("the points: win, draw, loss, forfeit_win, forfeit_loss, bye and skip")}, nil
+	}
+	b := req.Body
+	points := blitz.Scoring{Win: b.Win, Draw: b.Draw, Loss: b.Loss, ForfeitWin: b.ForfeitWin, ForfeitLoss: b.ForfeitLoss, Bye: b.Bye, Skip: b.Skip}
+	if err := blitz.CheckScoring(points); err != nil {
+		return PutAdminBlitzPoints400JSONResponse{badRequest400(err.Error())}, nil
+	}
+	switch err := s.admins.SetBlitzPoints(ctx, req.Tournament, req.Edition, points); {
+	case errors.Is(err, store.ErrBlitzPointsLocked):
+		return PutAdminBlitzPoints409JSONResponse{conflict409(err.Error())}, nil
+	case errors.Is(err, store.ErrNoBlitzEdition):
+		return PutAdminBlitzPoints404JSONResponse{notFound404("no such blitz edition")}, nil
+	case err != nil:
+		return nil, err
+	}
+	if err := s.admins.Audit(ctx, me.DiscordID, "blitz.points", blitzEditionKey(req.Tournament, req.Edition), req.Body); err != nil {
+		return nil, err
+	}
+	return PutAdminBlitzPoints204Response{}, nil
+}
+
+func (s *server) DeleteAdminBlitzPoints(ctx context.Context, req DeleteAdminBlitzPointsRequestObject) (DeleteAdminBlitzPointsResponseObject, error) {
+	me, _ := adminFrom(ctx)
+	if !tournamentSlug.MatchString(req.Tournament) {
+		return DeleteAdminBlitzPoints404JSONResponse{notFound404("no such blitz edition")}, nil
+	}
+	switch err := s.admins.SetBlitzPoints(ctx, req.Tournament, req.Edition, blitz.FIDEScoring); {
+	case errors.Is(err, store.ErrBlitzPointsLocked):
+		return DeleteAdminBlitzPoints409JSONResponse{conflict409(err.Error())}, nil
+	case errors.Is(err, store.ErrNoBlitzEdition):
+		return DeleteAdminBlitzPoints404JSONResponse{notFound404("no such blitz edition")}, nil
+	case err != nil:
+		return nil, err
+	}
+	if err := s.admins.Audit(ctx, me.DiscordID, "blitz.points.reset", blitzEditionKey(req.Tournament, req.Edition), nil); err != nil {
+		return nil, err
+	}
+	return DeleteAdminBlitzPoints204Response{}, nil
 }

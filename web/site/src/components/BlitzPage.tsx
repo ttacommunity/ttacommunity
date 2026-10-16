@@ -2,10 +2,10 @@
 import { useEffect, useState, type ReactNode } from 'react';
 import { RatingsApiError, blitzEdition, blitzEditions, type BlitzEdition, type BlitzEditions } from '@ttac/shared/ratings';
 import type { components } from '@ttac/shared/api';
-import { formatLabel, reachedLabel, zoneLabel } from '@ttac/shared/blitz';
+import { formatLabel, reachedLabel, scoringSentence, zoneLabel } from '@ttac/shared/blitz';
 import BackLink from '@ttac/shared/BackLink';
 import SubTabs from '@ttac/shared/SubTabs';
-import { blitzGames, editionHref, editionParams, editionViews, ratingText, roundOptions, splitRounds, type BlitzGamesFilter, type EditionView } from '../lib/blitz';
+import { blitzGames, editionHref, editionParams, editionViews, notPlaying, ratingText, roundOptions, splitRounds, type BlitzGamesFilter, type EditionView } from '../lib/blitz';
 import { gamesTag } from '../lib/games-table';
 import GamesTable, { GamesPages } from './GamesTable';
 import PlayerPicker from './PlayerPicker';
@@ -130,7 +130,7 @@ function EditionPage({ apiUrl, slug, edition }: { apiUrl: string; slug: string; 
   const latest = ed.rounds.length === 0 ? null : Math.max(...ed.rounds.map((r) => r.number));
   const countryOf = new Map(ed.standings.map((s) => [s.name, s.country]));
   const panels: Record<EditionView, { label: string; panel: ReactNode }> = {
-    standings: { label: 'Standings', panel: <StandingsPanel standings={ed.standings} /> },
+    standings: { label: 'Standings', panel: <StandingsPanel standings={ed.standings} scoring={scoringSentence(ed.points, ed.fide_points)} /> },
     pairings: { label: 'Pairings', panel: <PairingsPanel ed={ed} swiss={swiss} /> },
     players: { label: 'Players', panel: <PlayersPanel entrants={ed.entrants} /> },
   };
@@ -189,15 +189,15 @@ function EditionPage({ apiUrl, slug, edition }: { apiUrl: string; slug: string; 
   );
 }
 
-/** StandingsPanel shows the standings, with how ties are broken. */
-function StandingsPanel({ standings }: { standings: BlitzStanding[] }) {
+/** StandingsPanel shows the standings, with how the edition scores and how ties are broken. */
+function StandingsPanel({ standings, scoring }: { standings: BlitzStanding[]; scoring: string }) {
   return (
     <section aria-labelledby="blitz-standings">
       <h2 id="blitz-standings" className="rating-card-heading">
         Standings
       </h2>
       <p className="blitz-intro">
-        A win is 1 point, a draw a half, a bye 1. Ties are broken by the Swiss tie-breaks: Direct Encounter (the games
+        {scoring} Ties are broken by the Swiss tie-breaks: Direct Encounter (the games
         among the tied players), then Buchholz (the sum of the opponents&apos; scores; a bye, a forfeit or a missed round
         counts as a game against an opponent on the player&apos;s own score), then a draw fixed for the edition.
       </p>
@@ -333,6 +333,11 @@ function PairingsPanel({ ed, swiss }: { ed: BlitzEdition; swiss: BlitzRound[] })
       </p>
       <GamesTable caption="The games these filters keep, latest round first" context="Round" rows={games.rows} empty="No games match these filters." />
       <GamesPages page={games.page} pages={games.pages} onPage={(page) => narrow({ page })} />
+      {notPlaying(swiss, filter.round, ed.format).map((r) => (
+        <p key={r.round} className="blitz-intro">
+          Not playing in {r.round}: {r.names.join(', ')}.
+        </p>
+      ))}
     </section>
   );
 }

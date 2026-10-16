@@ -2,6 +2,7 @@ package httpapi
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"log/slog"
 	"net/http"
@@ -11,6 +12,7 @@ import (
 	"testing"
 	"time"
 
+	"ttacommunity/backend/internal/blitz"
 	"ttacommunity/backend/internal/store"
 )
 
@@ -39,6 +41,24 @@ func (f *fakeAdmins) RemoveBlitzOrganiser(_ context.Context, slug, edition strin
 	}
 	f.organisers = slices.Delete(f.organisers, i, i+1)
 	f.notes = append(f.notes, fmt.Sprintf("not organiser %d", member))
+	return nil
+}
+
+func (f *fakeAdmins) SetBlitzThreadText(_ context.Context, slug, edition string, t store.BlitzThreadText) error {
+	if slug != "us_open" || edition != "2026" {
+		return store.ErrNoBlitzEdition
+	}
+	f.threadText = &t
+	f.notes = append(f.notes, "thread text "+t.Message+" / "+t.NoDiscord)
+	return nil
+}
+
+func (f *fakeAdmins) ResetBlitzThreadText(_ context.Context, slug, edition string) error {
+	if slug != "us_open" || edition != "2026" {
+		return store.ErrNoBlitzEdition
+	}
+	f.threadText = nil
+	f.notes = append(f.notes, "thread text reset")
 	return nil
 }
 
@@ -100,10 +120,10 @@ func TestAnOrganiserDownloadsADraftRoundsThreadsOnceItHasADeadlineAndOrganisers(
 	}
 	body := rec.Body.String()
 	for _, want := range []string{
-		"Round 1 · Game 1 · Ann vs Cy\nWelcome @ann_tta, @??? (Cy). ",
-		"Round 1 · Game 3 · bob vs Dee\nWelcome @bobplays, @??? (Dee). ",
+		"---\nRound 1 · Game 1 · Ann vs Cy\n---\nWelcome @ann_tta, Cy. ",
+		"---\nRound 1 · Game 3 · bob vs Dee\n---\nWelcome @bobplays, Dee. ",
 		"by <t:1792411200:F>, then",
-		"please ping the moderator Carol (@carol_tta).\n",
+		"please ping the moderator Carol (@carol_tta).\nCy is one of the few people that doesn't have access to Discord",
 	} {
 		if !strings.Contains(body, want) {
 			t.Errorf("threads =\n%s\nwant them to hold %q", body, want)
@@ -128,6 +148,98 @@ func TestTheEditionShowsItsOrganisersAndEachRoundsDeadline(t *testing.T) {
 	}
 	wantJSON(t, rec.Body.Bytes(), "organisers", `[{"member": 21, "name": "Carol", "discord_name": "carol_tta"}]`)
 	wantJSON(t, rec.Body.Bytes(), "rounds.0.deadline", `{"at": "2026-10-19T12:00:00Z", "zone": "Europe/London"}`)
+}
+
+// threadTextJSON is an edition's thread_text as the API writes it.
+func threadTextJSON(t *testing.T, message, noDiscord string, edited bool) string {
+	t.Helper()
+	b, err := json.Marshal(map[string]any{"message": message, "no_discord": noDiscord, "edited": edited})
+	if err != nil {
+		t.Fatal(err)
+	}
+	return string(b)
+}
+
+func TestAnOrganiserSetsTheEditionsThreadTextThenResetsIt(t *testing.T) {
+	const site, org = "https://ttac-admin.example", "222222222222222222"
+	f := threadsFixture()
+	f.organisers = []store.BlitzOrganiser{{MemberID: 21, Name: "Carol", DiscordName: "carol_tta"}}
+	f.rounds[0].Deadline, f.rounds[0].DeadlineZone = at("2026-10-19T12:00:00Z"), "Europe/London"
+	do := func(method, path, body string, want int) string {
+		t.Helper()
+		rec := adminDoAs(t, f, org, method, path, site, body)
+		if rec.Code != want {
+			t.Fatalf("%s %s = %d %s, want %d", method, path, rec.Code, rec.Body, want)
+		}
+		return rec.Body.String()
+	}
+	byDefault := threadTextJSON(t, blitz.DefaultThreadText.Message, blitz.DefaultThreadText.NoDiscord, false)
+	wantJSON(t, []byte(do(http.MethodGet, "/v1/admin/blitz/us_open/2026", "", http.StatusOK)), "thread_text", byDefault)
+
+	do(http.MethodPut, "/v1/admin/blitz/us_open/2026/thread-text", `{"message": "  Hi {players}, by {deadline}.\n", "no_discord": " Friend {name} in the app. "}`, http.StatusNoContent)
+	wantJSON(t, []byte(do(http.MethodGet, "/v1/admin/blitz/us_open/2026", "", http.StatusOK)), "thread_text",
+		threadTextJSON(t, "Hi {players}, by {deadline}.", "Friend {name} in the app.", true))
+	threads := do(http.MethodGet, "/v1/admin/blitz/us_open/2026/rounds/101/threads", "", http.StatusOK)
+	if want := "---\nRound 1 · Game 1 · Ann vs Cy\n---\nHi @ann_tta, Cy, by <t:1792411200:F>. If the game did not finish, or there are any issues " +
+		"with scheduling or otherwise, please ping the moderator Carol (@carol_tta).\nFriend Cy in the app.\n---\n"; !strings.Contains(threads, want) {
+		t.Errorf("threads =\n%s\nwant them to hold %q", threads, want)
+	}
+
+	do(http.MethodDelete, "/v1/admin/blitz/us_open/2026/thread-text", "", http.StatusNoContent)
+	wantJSON(t, []byte(do(http.MethodGet, "/v1/admin/blitz/us_open/2026", "", http.StatusOK)), "thread_text", byDefault)
+	want := []string{org + " blitz.thread_text us_open/2026", org + " blitz.round.threads 101", org + " blitz.thread_text.reset us_open/2026"}
+	if !slices.Equal(f.audits, want) {
+		t.Errorf("audits = %q, want %q", f.audits, want)
+	}
+}
+
+func TestAThreadTextIsSavedAsTyped(t *testing.T) {
+	tests := []struct {
+		name, body string
+		want       store.BlitzThreadText
+	}{
+		{"both empty", `{"message": "", "no_discord": ""}`, store.BlitzThreadText{}},
+		{"only spaces", `{"message": "  \n", "no_discord": " "}`, store.BlitzThreadText{}},
+		{"no placeholders", `{"message": "Hi.", "no_discord": "No Discord here."}`, store.BlitzThreadText{Message: "Hi.", NoDiscord: "No Discord here."}},
+		{"misspelt placeholders", `{"message": "Hi {player}.", "no_discord": "{nmae}."}`, store.BlitzThreadText{Message: "Hi {player}.", NoDiscord: "{nmae}."}},
+		{"no sentence given", `{"message": "Hi {players}."}`, store.BlitzThreadText{Message: "Hi {players}."}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			f := threadsFixture()
+			if rec := adminDo(t, f, http.MethodPut, "/v1/admin/blitz/us_open/2026/thread-text", "https://ttac-admin.example", tt.body); rec.Code != http.StatusNoContent {
+				t.Fatalf("PUT thread-text %s = %d %s, want 204", tt.body, rec.Code, rec.Body)
+			}
+			if f.threadText == nil || *f.threadText != tt.want {
+				t.Errorf("PUT thread-text %s saved %+v, want %+v", tt.body, f.threadText, tt.want)
+			}
+		})
+	}
+}
+
+func TestABadThreadTextIsRefused(t *testing.T) {
+	const path = "/v1/admin/blitz/us_open/2026/thread-text"
+	tests := []struct {
+		name, method, path, body string
+		want                     int
+	}{
+		{"a message too long", http.MethodPut, path, `{"message": "` + strings.Repeat("x", 1501) + `", "no_discord": ""}`, http.StatusBadRequest},
+		{"a sentence too long", http.MethodPut, path, `{"message": "", "no_discord": "` + strings.Repeat("x", 301) + `"}`, http.StatusBadRequest},
+		{"setting an unknown edition's", http.MethodPut, "/v1/admin/blitz/us_open/2027/thread-text", `{"message": "Hi {players}.", "no_discord": "{name}."}`, http.StatusNotFound},
+		{"resetting an unknown edition's", http.MethodDelete, "/v1/admin/blitz/us_open/2027/thread-text", "", http.StatusNotFound},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			f := threadsFixture()
+			rec := adminDo(t, f, tt.method, tt.path, "https://ttac-admin.example", tt.body)
+			if rec.Code != tt.want {
+				t.Errorf("%s %s %s = %d %s, want %d", tt.method, tt.path, tt.body, rec.Code, rec.Body, tt.want)
+			}
+			if len(f.notes)+len(f.audits) != 0 {
+				t.Errorf("a refused thread text still changed something: %q %q", f.notes, f.audits)
+			}
+		})
+	}
 }
 
 func TestThreadsAreRefusedUntilTheRoundCanHaveThem(t *testing.T) {

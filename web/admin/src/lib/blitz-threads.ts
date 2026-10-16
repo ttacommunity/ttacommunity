@@ -1,4 +1,4 @@
-/** What admin decides about a round's Discord threads: whether they can be downloaded yet, the file's name, and the round's deadline as a form and a label. */
+/** What admin decides about a round's Discord threads: whether they can be downloaded yet, the file's name, the round's deadline as a form and a label, when the edition's thread text can be saved, and the summaries of its organisers and text. */
 import type { Candidate } from './person-form';
 import { clockIn, type Region } from './zones';
 
@@ -54,4 +54,22 @@ export function organiserChoices(found: readonly Candidate[], organisers: readon
 export function deadlineLocked(round: { matches: readonly { b: unknown; result: unknown }[] }): boolean {
   const games = round.matches.filter((m) => m.b !== null);
   return games.length > 0 && games.every((m) => m.result !== null);
+}
+
+/** ThreadText is an edition's thread text: the welcome message and the sentence for a player without Discord. */
+export type ThreadText = { message: string; no_discord: string };
+
+/** threadTextSavable says whether the thread text form can be saved: a part changed from the saved text once trimmed, as the API trims it. Either part may be empty. */
+export function threadTextSavable(form: ThreadText, saved: ThreadText): boolean {
+  return form.message.trim() !== saved.message || form.no_discord.trim() !== saved.no_discord;
+}
+
+/** organisersSummary sums up the edition's organisers among its settings: their names in the order added, or None yet. */
+export function organisersSummary(organisers: readonly { name: string }[]): string {
+  return organisers.length === 0 ? 'None yet' : organisers.map((o) => o.name).join(', ');
+}
+
+/** threadTextSummary sums up the edition's thread text among its settings: the default, or the edition's own. */
+export function threadTextSummary(text: { edited: boolean }): string {
+  return text.edited ? "This edition's own text" : 'The default text';
 }

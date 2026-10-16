@@ -22,7 +22,8 @@ type BlitzSide struct {
 	Outcome string
 }
 
-// BlitzGame is a played game as recorded: the share code, each side as the match names them, and when it finished.
+// BlitzGame is a played game as recorded: the share code ("" for none), each side as the match names them, and when
+// it finished.
 type BlitzGame struct {
 	ShareCode string
 	A, B      BlitzSide
@@ -36,7 +37,7 @@ var ErrNoBlitzMatch = errors.New("no such match")
 var ErrBlitzBye = errors.New("a bye has no result")
 
 // ErrBadBlitzGame means a game outside what can be recorded.
-var ErrBadBlitzGame = errors.New("a game has a share code of at most 32 characters, each player's culture (0 or more) and " +
+var ErrBadBlitzGame = errors.New("a game has a share code of at most 32 characters (or none), each player's culture (0 or more) and " +
 	"outcome (finished, resigned or timed_out), at least one of them finished, and the day it was played")
 
 // ErrBadBlitzRuling means a ruling outside what can be recorded.
@@ -65,10 +66,10 @@ var blitzResults = []string{"a", "b", "draw", "double_loss"}
 
 var blitzOutcomes = []string{"finished", "resigned", "timed_out"}
 
-// validBlitzGame trims the share code and reports whether the game is within bounds.
+// validBlitzGame trims the share code ("" for none) and reports whether the game is within bounds.
 func validBlitzGame(g *BlitzGame) bool {
 	g.ShareCode = strings.TrimSpace(g.ShareCode)
-	if g.ShareCode == "" || utf8.RuneCountInString(g.ShareCode) > 32 || g.Finished.IsZero() {
+	if utf8.RuneCountInString(g.ShareCode) > 32 || g.Finished.IsZero() {
 		return false
 	}
 	for _, s := range []BlitzSide{g.A, g.B} {
@@ -214,7 +215,7 @@ func (a *AdminStore) RecordBlitzGame(ctx context.Context, slug, edition string, 
 			}
 		}
 		var other int64
-		switch err := tx.QueryRow(ctx, "SELECT game_id FROM games WHERE share_code = $1 AND game_id IS DISTINCT FROM $2", g.ShareCode, m.GameID).Scan(&other); {
+		switch err := tx.QueryRow(ctx, "SELECT game_id FROM games WHERE share_code = nullif($1, '') AND game_id IS DISTINCT FROM $2", g.ShareCode, m.GameID).Scan(&other); {
 		case err == nil:
 			return &BlitzShareCodeError{GameID: other}
 		case !errors.Is(err, pgx.ErrNoRows):
@@ -244,7 +245,7 @@ func (a *AdminStore) RecordBlitzGame(ctx context.Context, slug, edition string, 
 			gameID = new(int64)
 			if err := tx.QueryRow(ctx, `
 				INSERT INTO games (batch_id, source_file, source_line, name, date, finished_at, share_code, state, group_id)
-				VALUES ($1, $2, 0, $3, $4, $5, $6, 'played', $7) RETURNING game_id`,
+				VALUES ($1, $2, 0, $3, $4, $5, nullif($6, ''), 'played', $7) RETURNING game_id`,
 				batch, fmt.Sprintf("blitz match %d", matchID), name, date, g.Finished, g.ShareCode, groupID).Scan(gameID); err != nil {
 				return fmt.Errorf("recording a game: %w", err)
 			}
@@ -261,7 +262,7 @@ func (a *AdminStore) RecordBlitzGame(ctx context.Context, slug, edition string, 
 				}
 			}
 		} else {
-			if _, err := tx.Exec(ctx, "UPDATE games SET share_code = $2, date = $3, finished_at = $4, name = $5, group_id = $6 WHERE game_id = $1",
+			if _, err := tx.Exec(ctx, "UPDATE games SET share_code = nullif($2, ''), date = $3, finished_at = $4, name = $5, group_id = $6 WHERE game_id = $1",
 				*gameID, g.ShareCode, date, g.Finished, name, groupID); err != nil {
 				return fmt.Errorf("correcting a game: %w", err)
 			}

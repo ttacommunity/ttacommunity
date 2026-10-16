@@ -2319,8 +2319,9 @@ paths:
         tournament's page shows it at once; recording the match again changes
         that one game. The higher culture wins and equal cultures draw; a
         resigned or timed-out player loses with culture 0; a drawn knockout
-        game stays a draw as a game and sends the higher seed through. A share
-        code already on another game is refused, naming it. The match's ruling, if any, is
+        game stays a draw as a game and sends the higher seed through. The
+        share code may be empty, for a game without one; one already on
+        another game is refused, naming it. The match's ruling, if any, is
         cleared.
       parameters:
         - $ref: "#/components/parameters/AdminTournamentSlug"
@@ -2338,6 +2339,83 @@ paths:
           description: Recorded
         "400":
           $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+  /v1/admin/blitz/{tournament}/{edition}/rounds/{round}/matches/{match}/result:
+    delete:
+      operationId: deleteAdminBlitzMatchResult
+      tags: [admin]
+      summary: Reset a match's result, as if never played
+      description: |
+        Audited. The Origin must be the admin site. Only in the latest
+        round: the result, ruling and game go (with the game's seats, and
+        the "Round N" stage once it holds no game). Resetting it again
+        changes nothing. A ratings run that included the game loses its
+        rows for it; make a run again to bring its pages up to date.
+      parameters:
+        - $ref: "#/components/parameters/AdminTournamentSlug"
+        - $ref: "#/components/parameters/BlitzEditionLabel"
+        - $ref: "#/components/parameters/BlitzRoundId"
+        - $ref: "#/components/parameters/BlitzMatchId"
+      responses:
+        "204":
+          description: Reset
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+  /v1/admin/blitz/{tournament}/{edition}/rounds/{round}/results:
+    delete:
+      operationId: deleteAdminBlitzRoundResults
+      tags: [admin]
+      summary: Reset every result of the latest round, its pairing kept
+      description: |
+        Audited. The Origin must be the admin site. Every result, ruling and
+        game of the latest round goes, as a match's reset does; the round and
+        its matches stay, so it can then be deleted and the round before
+        reset in turn.
+      parameters:
+        - $ref: "#/components/parameters/AdminTournamentSlug"
+        - $ref: "#/components/parameters/BlitzEditionLabel"
+        - $ref: "#/components/parameters/BlitzRoundId"
+      responses:
+        "204":
+          description: Reset
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+  /v1/admin/blitz/{tournament}/{edition}/reset:
+    post:
+      operationId: postAdminBlitzReset
+      tags: [admin]
+      summary: Start an edition again from its entrants
+      description: |
+        Audited. The Origin must be the admin site. Every round, result and
+        game goes, every dropped entrant is in again and every skip goes.
+        The entrants and their details, the organisers, format, points and
+        thread text stay. Ratings runs lose their rows for the games, as a
+        match's reset does.
+      parameters:
+        - $ref: "#/components/parameters/AdminTournamentSlug"
+        - $ref: "#/components/parameters/BlitzEditionLabel"
+      responses:
+        "204":
+          description: Reset
         "401":
           $ref: "#/components/responses/Unauthorized"
         "403":
@@ -2421,7 +2499,8 @@ paths:
       description: |
         Audited. The Origin must be the admin site. Only an entrant who has
         played (a match with a result, or a bye in a published round) is
-        dropped; one who has not is removed instead.
+        dropped; one who has not is removed instead. One skipping the next
+        round is reinstated first.
       parameters:
         - $ref: "#/components/parameters/AdminTournamentSlug"
         - $ref: "#/components/parameters/BlitzEditionLabel"
@@ -2462,6 +2541,64 @@ paths:
       responses:
         "204":
           description: Removed
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+  /v1/admin/blitz/{tournament}/{edition}/entrants/{entrant}/skip:
+    post:
+      operationId: postAdminBlitzSkip
+      tags: [admin]
+      summary: Have an entrant sit out the next Swiss round
+      description: |
+        Audited. The Origin must be the admin site. The next round is the
+        draft, or else the one after the latest; it must be a Swiss round.
+        The entrant is left out of its pairing and scores the edition's skip
+        points for it, then is paired again in the rounds after. When it is
+        a draft, they come out of their match in it, leaving their opponent
+        unpaired; a match with a result there is refused. A dropped entrant
+        is refused (they play no round). Skipping again changes nothing.
+      parameters:
+        - $ref: "#/components/parameters/AdminTournamentSlug"
+        - $ref: "#/components/parameters/BlitzEditionLabel"
+        - $ref: "#/components/parameters/BlitzEntrantId"
+      responses:
+        "201":
+          description: Skipping
+          headers:
+            Cache-Control:
+              $ref: "#/components/headers/CacheControl"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BlitzSkip"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+    delete:
+      operationId: deleteAdminBlitzSkip
+      tags: [admin]
+      summary: Undo an entrant's skip of a round not yet published
+      description: |
+        Audited. The Origin must be the admin site. The entrant plays the
+        round after all: Pair takes them in, or they are paired by hand when
+        it is a draft. The skip of a published round stays.
+      parameters:
+        - $ref: "#/components/parameters/AdminTournamentSlug"
+        - $ref: "#/components/parameters/BlitzEditionLabel"
+        - $ref: "#/components/parameters/BlitzEntrantId"
+      responses:
+        "204":
+          description: Undone
         "401":
           $ref: "#/components/responses/Unauthorized"
         "403":
@@ -2518,6 +2655,99 @@ paths:
           $ref: "#/components/responses/Forbidden"
         "404":
           $ref: "#/components/responses/NotFound"
+  /v1/admin/blitz/{tournament}/{edition}/points:
+    put:
+      operationId: putAdminBlitzPoints
+      tags: [admin]
+      summary: Set what each outcome is worth in a blitz edition
+      description: |
+        Audited. The Origin must be the admin site. The standings, the
+        next pairing's score groups and the bye follow at once; rounds
+        already paired stay. Refused once the knockout has a round.
+      parameters:
+        - $ref: "#/components/parameters/AdminTournamentSlug"
+        - $ref: "#/components/parameters/BlitzEditionLabel"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/BlitzPoints"
+      responses:
+        "204":
+          description: Saved
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+    delete:
+      operationId: deleteAdminBlitzPoints
+      tags: [admin]
+      summary: Reset a blitz edition's points to FIDE's
+      description: Audited. The Origin must be the admin site. Refused once the knockout has a round.
+      parameters:
+        - $ref: "#/components/parameters/AdminTournamentSlug"
+        - $ref: "#/components/parameters/BlitzEditionLabel"
+      responses:
+        "204":
+          description: Reset
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+  /v1/admin/blitz/{tournament}/{edition}/thread-text:
+    put:
+      operationId: putAdminBlitzThreadText
+      tags: [admin]
+      summary: Set what a blitz edition's Discord thread messages say
+      description: Audited. The Origin must be the admin site. Replaces the edition's text, or the default.
+      parameters:
+        - $ref: "#/components/parameters/AdminTournamentSlug"
+        - $ref: "#/components/parameters/BlitzEditionLabel"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/BlitzThreadTextSet"
+      responses:
+        "204":
+          description: Saved
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    delete:
+      operationId: deleteAdminBlitzThreadText
+      tags: [admin]
+      summary: Reset a blitz edition's Discord thread messages to the default text
+      description: Audited. The Origin must be the admin site. An edition already on the default stays on it.
+      parameters:
+        - $ref: "#/components/parameters/AdminTournamentSlug"
+        - $ref: "#/components/parameters/BlitzEditionLabel"
+      responses:
+        "204":
+          description: Reset
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
   /v1/admin/blitz/{tournament}/{edition}/rounds/{round}/deadline:
     put:
       operationId: putAdminBlitzRoundDeadline
@@ -2556,13 +2786,16 @@ paths:
       tags: [admin]
       summary: Download a round's Discord threads as text to paste
       description: |
-        Audited, as it holds Discord names. For every game with two players,
-        numbered as the site numbers them: the thread's title (Round 3 ·
-        Game 1 · Ann vs Bob, by TTA username, at most 100 characters), then
-        the welcome message mentioning both players and the organisers by
-        Discord username, with the round's deadline as a Discord timestamp.
-        A Discord name that cannot be a username shows as @???, for the
-        organiser to fill in. Any round once paired, draft or published;
+        Audited, as it holds Discord names. A block per game with two
+        players, numbered as the site numbers them, between --- lines: the
+        thread's title (Round 3 · Game 1 · Ann vs Bob, by TTA username, at
+        most 100 characters), then the edition's message with any {players}
+        mentioned by Discord username and any {deadline} as a Discord
+        timestamp, then whom to ping: the organisers by Discord username.
+        A player whose Discord name cannot be a username is named by TTA
+        username, and the edition's no-Discord sentence follows for them;
+        an organiser's shows as @???, for the organiser to fill in. A blank
+        line parts the blocks. Any round once paired, draft or published;
         refused while the round has no deadline, the edition no organiser,
         or the round no game.
       parameters:
@@ -3629,8 +3862,13 @@ components:
     BlitzEdition:
       description: A blitz edition for the site, with the entrants still in, the published rounds and the standings
       type: object
-      required: [tournament, name, edition, format, entrants, rounds, standings, champion]
+      required: [tournament, name, edition, format, points, fide_points, entrants, rounds, standings, champion]
       properties:
+        points:
+          $ref: "#/components/schemas/BlitzPoints"
+        fide_points:
+          description: True when the points are FIDE's
+          type: boolean
         champion:
           description: The winner of the knockout's final, by username; null until the final has a winner
           type: string
@@ -3663,8 +3901,13 @@ components:
     BlitzRound:
       description: A published round as the site shows it
       type: object
-      required: [number, kind, published_at, matches]
+      required: [number, kind, published_at, matches, skipped]
       properties:
+        skipped:
+          description: Who sat the round out, by username, in sign-up order
+          type: array
+          items:
+            type: string
         number:
           type: integer
         kind:
@@ -3760,7 +4003,7 @@ components:
           type: string
           nullable: true
         points:
-          description: A win 1, a draw a half, a bye 1
+          description: As the edition's points score each result and bye (FIDE's by default)
           type: number
           format: double
         games:
@@ -3939,7 +4182,7 @@ components:
     AdminBlitzEditionRow:
       description: One edition of a blitz tournament as admin's list shows it
       type: object
-      required: [tournament, name, edition, format, entrants, pending, dropped, round, champion]
+      required: [tournament, name, edition, format, entrants, dropped, round, champion]
       properties:
         champion:
           description: The winner of the knockout's final, by username; null until the final has a winner
@@ -3960,15 +4203,12 @@ components:
         entrants:
           description: How many entrants are still in
           type: integer
-        pending:
-          description: How many are named but not yet confirmed
-          type: integer
         dropped:
           description: How many have dropped out
           type: integer
     AdminBlitzEntrant:
       type: object
-      required: [id, member, name, player, discord_name, email, country, zone, utc_offset, rating, status]
+      required: [id, member, name, player, discord_name, email, country, zone, utc_offset, rating, status, skips]
       properties:
         id:
           type: integer
@@ -3999,18 +4239,30 @@ components:
           format: double
           nullable: true
         status:
-          description: Pending is named but not confirmed, neither paired nor shown on the site
+          description: Active is in; dropped is out of the rounds still to come, their results kept
           type: string
-          enum: [pending, active, dropped]
+          enum: [active, dropped]
+        skips:
+          description: The rounds they skip or skipped, in order; one not yet published is the next round, which can be undone
+          type: array
+          items:
+            type: integer
     AdminBlitzEdition:
       type: object
-      required: [tournament, name, edition, format, entrants, rounds, standings, champion, organisers]
+      required: [tournament, name, edition, format, points, fide_points, entrants, rounds, standings, champion, organisers, thread_text]
       properties:
+        points:
+          $ref: "#/components/schemas/BlitzPoints"
+        fide_points:
+          description: True when the points are FIDE's, so Reset has nothing to do
+          type: boolean
         organisers:
           description: The members the Discord thread messages tell players to ping, in the order added
           type: array
           items:
             $ref: "#/components/schemas/AdminBlitzOrganiser"
+        thread_text:
+          $ref: "#/components/schemas/AdminBlitzThreadText"
         champion:
           description: The winner of the knockout's final, by username; null until the final has a winner
           type: string
@@ -4152,6 +4404,92 @@ components:
           type: string
           minLength: 1
           maxLength: 1000
+    BlitzPoints:
+      description: |
+        What each outcome is worth in an edition's standings, 0 to 10 in
+        halves, a win at least a draw and a draw at least a loss. FIDE's
+        by default: win 1, draw 0.5, loss 0, a forfeit as a win or a loss,
+        the bye 1 and a skipped round 0. A ruled draw scores as a draw; a
+        "both lose" ruling is a forfeit loss each.
+      type: object
+      additionalProperties: false
+      required: [win, draw, loss, forfeit_win, forfeit_loss, bye, skip]
+      properties:
+        win:
+          type: number
+          format: double
+          minimum: 0
+          maximum: 10
+          multipleOf: 0.5
+        draw:
+          type: number
+          format: double
+          minimum: 0
+          maximum: 10
+          multipleOf: 0.5
+        loss:
+          type: number
+          format: double
+          minimum: 0
+          maximum: 10
+          multipleOf: 0.5
+        forfeit_win:
+          type: number
+          format: double
+          minimum: 0
+          maximum: 10
+          multipleOf: 0.5
+        forfeit_loss:
+          type: number
+          format: double
+          minimum: 0
+          maximum: 10
+          multipleOf: 0.5
+        bye:
+          description: The pairing's bye
+          type: number
+          format: double
+          minimum: 0
+          maximum: 10
+          multipleOf: 0.5
+        skip:
+          description: A round the player asked to sit out
+          type: number
+          format: double
+          minimum: 0
+          maximum: 10
+          multipleOf: 0.5
+    AdminBlitzThreadText:
+      description: What the edition's Discord thread messages say, its own text or the default
+      type: object
+      required: [message, no_discord, edited]
+      properties:
+        message:
+          description: The welcome message, where {players} and {deadline} are filled in
+          type: string
+        no_discord:
+          description: The sentence for a player without a Discord username, where {name} is filled in
+          type: string
+        edited:
+          description: True when the edition has its own text, false for the default
+          type: boolean
+    BlitzThreadTextSet:
+      description: |
+        An edition's own thread text, written as typed, surrounding spaces
+        trimmed. In the message, {players} becomes the game's players and
+        {deadline} the round's deadline; in the no-Discord sentence, {name}
+        becomes the player's TTA username. Each is optional, and an empty
+        part is left out of the threads.
+      type: object
+      additionalProperties: false
+      required: [message, no_discord]
+      properties:
+        message:
+          type: string
+          maxLength: 1500
+        no_discord:
+          type: string
+          maxLength: 300
     AdminBlitzOrganiser:
       description: A member who organises an edition
       type: object
@@ -4212,8 +4550,8 @@ components:
       required: [share_code, a, b, finished_on, finished_time, zone]
       properties:
         share_code:
+          description: Empty for a game without one
           type: string
-          minLength: 1
           maxLength: 32
         a:
           $ref: "#/components/schemas/BlitzGameSide"
@@ -4285,10 +4623,6 @@ components:
           type: string
           minLength: 1
           maxLength: 64
-        status:
-          description: Active unless given; pending for someone not yet confirmed
-          type: string
-          enum: [pending, active]
     Candidate:
       description: Someone admin may add or enter, a member or a player the ratings know, with what is known of them
       type: object
@@ -4345,6 +4679,13 @@ components:
           maxItems: 500
           items:
             $ref: "#/components/schemas/NewBlitzEntrant"
+    BlitzSkip:
+      type: object
+      required: [round]
+      properties:
+        round:
+          description: The number of the round skipped
+          type: integer
     BlitzEntrantIds:
       type: object
       required: [ids]
@@ -4376,7 +4717,7 @@ components:
           maxLength: 64
         status:
           type: string
-          enum: [pending, active, dropped]
+          enum: [active, dropped]
     Error:
       type: object
       required: [error]

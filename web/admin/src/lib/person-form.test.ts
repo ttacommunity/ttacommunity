@@ -48,11 +48,10 @@ const form = (f: Partial<PersonDetails>): PersonDetails => ({ ...emptyPerson, ..
 
 describe('entrantToAdd', () => {
   it.each([
-    ['a member by id, with the details given', form({ member: 101, name: 'anna', discord_name: ' anna#1 ', zone: 'US East' }), false, { member: 101, discord_name: 'anna#1', zone: 'US East', status: 'active' }],
-    ['someone new by name, their zone Unknown', form({ name: ' Zed ', email: 'zed@example.test', country: ' nz ' }), false, { name: 'Zed', email: 'zed@example.test', country: 'nz', zone: 'Unknown', status: 'active' }],
-    ['not confirmed yet', form({ name: 'Zed' }), true, { name: 'Zed', zone: 'Unknown', status: 'pending' }],
-  ])('%s', (_, f, pending, want) => {
-    expect(entrantToAdd(f, pending)).toEqual(want);
+    ['a member by id, with the details given', form({ member: 101, name: 'anna', discord_name: ' anna#1 ', zone: 'US East' }), { member: 101, discord_name: 'anna#1', zone: 'US East' }],
+    ['someone new by name, their zone Unknown', form({ name: ' Zed ', email: 'zed@example.test', country: ' nz ' }), { name: 'Zed', email: 'zed@example.test', country: 'nz', zone: 'Unknown' }],
+  ])('%s', (_, f, want) => {
+    expect(entrantToAdd(f)).toEqual(want);
   });
 });
 

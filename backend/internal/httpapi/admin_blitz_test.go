@@ -10,6 +10,7 @@ import (
 	"slices"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/google/go-cmp/cmp"
 
@@ -27,9 +28,12 @@ func (f *fakeAdmins) blitzEntrants() []store.BlitzEntrant {
 }
 
 func (f *fakeAdmins) blitzRow() store.BlitzEditionRow {
-	row := store.BlitzEditionRow{Slug: "us_open", Name: "US Open", Edition: "2026", Format: store.DefaultBlitzFormat}
+	row := store.BlitzEditionRow{Slug: "us_open", Name: "US Open", Edition: "2026", Format: store.DefaultBlitzFormat, Points: blitz.FIDEScoring}
 	if f.format != (store.BlitzFormat{}) {
 		row.Format = f.format
+	}
+	if f.points != (blitz.Scoring{}) {
+		row.Points = f.points
 	}
 	for _, r := range f.rounds {
 		if r.PublishedAt != nil && (row.Round == nil || r.Number > *row.Round) {
@@ -40,8 +44,6 @@ func (f *fakeAdmins) blitzRow() store.BlitzEditionRow {
 		switch e.Status {
 		case "dropped":
 			row.Dropped++
-		case "pending":
-			row.Pending++
 		default:
 			row.Entrants++
 		}
@@ -80,7 +82,7 @@ func (f *fakeAdmins) BlitzEdition(_ context.Context, slug, edition string) (stor
 	if slug != "us_open" || edition != "2026" {
 		return store.BlitzEdition{}, store.ErrNoBlitzEdition
 	}
-	return store.BlitzEdition{BlitzEditionRow: f.blitzRow(), Entrants: f.blitzEntrants(), Rounds: slices.Clone(f.rounds), Organisers: slices.Clone(f.organisers)}, nil
+	return store.BlitzEdition{BlitzEditionRow: f.blitzRow(), Entrants: f.blitzEntrants(), Rounds: slices.Clone(f.rounds), Organisers: slices.Clone(f.organisers), ThreadText: f.threadText}, nil
 }
 
 func (f *fakeAdmins) SetBlitzFormat(_ context.Context, slug, edition string, format store.BlitzFormat) error {
@@ -95,6 +97,18 @@ func (f *fakeAdmins) SetBlitzFormat(_ context.Context, slug, edition string, for
 	}
 	f.format = format
 	f.notes = append(f.notes, fmt.Sprintf("format %d/%d", format.SwissRounds, format.KnockoutSize))
+	return nil
+}
+
+func (f *fakeAdmins) SetBlitzPoints(_ context.Context, slug, edition string, points blitz.Scoring) error {
+	if slug != "us_open" || edition != "2026" {
+		return store.ErrNoBlitzEdition
+	}
+	if slices.ContainsFunc(f.rounds, func(r store.BlitzRound) bool { return r.Kind == "knockout" }) {
+		return store.ErrBlitzPointsLocked
+	}
+	f.points = points
+	f.notes = append(f.notes, fmt.Sprintf("points %g/%g/%g/%g/%g/%g/%g", points.Win, points.Draw, points.Loss, points.ForfeitWin, points.ForfeitLoss, points.Bye, points.Skip))
 	return nil
 }
 
@@ -125,9 +139,7 @@ func (f *fakeAdmins) AddBlitzEntrants(_ context.Context, slug, edition string, e
 		if e.MemberID == 0 {
 			e.MemberID = 1000 + e.ID
 		}
-		if e.Status == "" {
-			e.Status = "active"
-		}
+		e.Status = "active"
 		f.entrants = append(f.entrants, e)
 		ids, names = append(ids, e.ID), append(names, e.Name)
 	}
@@ -139,7 +151,7 @@ func (f *fakeAdmins) SetBlitzEntrant(_ context.Context, slug, edition string, id
 	if slug != "us_open" || edition != "2026" {
 		return store.ErrNoBlitzEdition
 	}
-	if c.Status != nil && !slices.Contains([]string{"pending", "active", "dropped"}, *c.Status) {
+	if c.Status != nil && !slices.Contains([]string{"active", "dropped"}, *c.Status) {
 		return store.ErrBadBlitzStatus
 	}
 	for i := range f.blitzEntrants() {
@@ -148,6 +160,9 @@ func (f *fakeAdmins) SetBlitzEntrant(_ context.Context, slug, edition string, id
 		}
 		if c.Status != nil && *c.Status == "dropped" && !f.played(id) {
 			return store.ErrBlitzEntrantNotPlayed
+		}
+		if c.Status != nil && *c.Status == "dropped" && slices.Contains(f.entrants[i].Skips, f.nextFakeRound()) {
+			return store.ErrBlitzEntrantSkipping
 		}
 		var changed []string
 		if c.Status != nil {
@@ -317,7 +332,7 @@ func TestAnOrganiserFillsABlitzEdition(t *testing.T) {
 		t.Fatalf("GET blitz = %d %s, want us_open 2026 with one entrant", rec.Code, rec.Body)
 	}
 
-	rec = do(http.MethodPost, "/v1/admin/blitz/us_open/2026/entrants", site, `{"entrants": [{"name": "bob", "discord_name": "bobby", "zone": " America/New_York "}, {"name": "cy", "zone": "UTC", "status": "pending"}]}`)
+	rec = do(http.MethodPost, "/v1/admin/blitz/us_open/2026/entrants", site, `{"entrants": [{"name": "bob", "discord_name": "bobby", "zone": " America/New_York "}, {"name": "cy", "zone": "UTC"}]}`)
 	var ids BlitzEntrantIds
 	if err := json.Unmarshal(rec.Body.Bytes(), &ids); err != nil || rec.Code != http.StatusCreated || len(ids.Ids) != 2 || ids.Ids[0] != 8 {
 		t.Fatalf("POST entrants = %d %s, want 201 with ids 8 and 9", rec.Code, rec.Body)
@@ -330,9 +345,9 @@ func TestAnOrganiserFillsABlitzEdition(t *testing.T) {
 	}
 	ann := 1700.0
 	wantEntrants := []AdminBlitzEntrant{
-		{Id: 7, Member: 0, Name: "Ann", Player: "Ann", DiscordName: "ann#1", Zone: "Europe/Berlin", UtcOffset: "+02:00", Rating: &ann, Status: "active"},
-		{Id: 8, Member: 1008, Name: "bob", Player: "", DiscordName: "bobby", Zone: "America/New_York", UtcOffset: "-04:00", Rating: nil, Status: "active"},
-		{Id: 9, Member: 1009, Name: "cy", Player: "", DiscordName: "", Zone: "UTC", UtcOffset: "+00:00", Rating: nil, Status: "pending"},
+		{Id: 7, Member: 0, Name: "Ann", Player: "Ann", DiscordName: "ann#1", Zone: "Europe/Berlin", UtcOffset: "+02:00", Rating: &ann, Status: "active", Skips: []int{}},
+		{Id: 8, Member: 1008, Name: "bob", Player: "", DiscordName: "bobby", Zone: "America/New_York", UtcOffset: "-04:00", Rating: nil, Status: "active", Skips: []int{}},
+		{Id: 9, Member: 1009, Name: "cy", Player: "", DiscordName: "", Zone: "UTC", UtcOffset: "+00:00", Rating: nil, Status: "active", Skips: []int{}},
 	}
 	if diff := cmp.Diff(wantEntrants, ed.Entrants); diff != "" {
 		t.Errorf("entrants (-want +got):\n%s", diff)
@@ -342,7 +357,7 @@ func TestAnOrganiserFillsABlitzEdition(t *testing.T) {
 	}
 
 	for _, step := range []struct{ method, path, body string }{
-		{http.MethodPatch, "/v1/admin/blitz/us_open/2026/entrants/8", `{"status": "pending"}`},
+		{http.MethodPatch, "/v1/admin/blitz/us_open/2026/entrants/8", `{"zone": "UTC"}`},
 		{http.MethodPatch, "/v1/admin/blitz/us_open/2026", `{"swiss_rounds": 6, "knockout_size": 4}`},
 		{http.MethodDelete, "/v1/admin/blitz/us_open/2026/entrants/8", ""},
 	} {
@@ -350,7 +365,7 @@ func TestAnOrganiserFillsABlitzEdition(t *testing.T) {
 			t.Errorf("%s %s = %d %s, want 204", step.method, step.path, rec.Code, rec.Body)
 		}
 	}
-	if want := "add entrants bob,cy|set entrant 8 status=pending|format 6/4|remove entrant 8"; strings.Join(f.notes, "|") != want {
+	if want := "add entrants bob,cy|set entrant 8 zone=UTC|format 6/4|remove entrant 8"; strings.Join(f.notes, "|") != want {
 		t.Errorf("changes = %q, want %q", f.notes, want)
 	}
 	want := []string{"blitz.entrants.add us_open/2026", "blitz.entrant.set 8", "blitz.format us_open/2026", "blitz.entrant.remove 8"}
@@ -378,6 +393,7 @@ func TestBlitzChangesAreRefusedWhenTheyShouldBe(t *testing.T) {
 		{"an empty name", http.MethodPost, "/v1/admin/blitz/us_open/2026/entrants", site, `{"entrants": [{"name": "", "zone": "UTC"}]}`, http.StatusBadRequest, ""},
 		{"nothing to change", http.MethodPatch, "/v1/admin/blitz/us_open/2026/entrants/7", site, `{}`, http.StatusBadRequest, ""},
 		{"a status that is not active or dropped", http.MethodPatch, "/v1/admin/blitz/us_open/2026/entrants/7", site, `{"status": "gone"}`, http.StatusBadRequest, ""},
+		{"pending, no longer a status", http.MethodPatch, "/v1/admin/blitz/us_open/2026/entrants/7", site, `{"status": "pending"}`, http.StatusBadRequest, ""},
 		{"a zone change to a non-zone", http.MethodPatch, "/v1/admin/blitz/us_open/2026/entrants/7", site, `{"zone": "GMT+2"}`, http.StatusBadRequest, "GMT+2"},
 		{"dropping an entrant who has not played", http.MethodPatch, "/v1/admin/blitz/us_open/2026/entrants/7", site, `{"status": "dropped"}`, http.StatusConflict, "remove them"},
 		{"changing an unknown entrant", http.MethodPatch, "/v1/admin/blitz/us_open/2026/entrants/99", site, `{"status": "dropped"}`, http.StatusNotFound, ""},
@@ -402,6 +418,98 @@ func TestBlitzChangesAreRefusedWhenTheyShouldBe(t *testing.T) {
 			}
 			if len(f.notes)+len(f.audits) != 0 {
 				t.Errorf("a refused change still changed something: %q %q", f.notes, f.audits)
+			}
+		})
+	}
+}
+
+func TestAnOrganiserSetsTheEditionsPointsThenResetsThem(t *testing.T) {
+	const site, org = "https://ttac-admin.example", "222222222222222222"
+	f := &fakeAdmins{}
+	roundOnePublished(f)
+	at := time.Date(2026, 10, 15, 9, 0, 0, 0, time.UTC)
+	f.rounds[0].Matches[1].Result, f.rounds[0].Matches[1].DecidedAt, f.rounds[0].Matches[1].GameID = "a", &at, new(int64(500))
+	do := func(method, path, body string, want int) []byte {
+		t.Helper()
+		rec := adminDoAs(t, f, org, method, path, site, body)
+		if rec.Code != want {
+			t.Fatalf("%s %s = %d %s, want %d", method, path, rec.Code, rec.Body, want)
+		}
+		return rec.Body.Bytes()
+	}
+	bobs := func(body []byte) float64 {
+		t.Helper()
+		var ed AdminBlitzEdition
+		if err := json.Unmarshal(body, &ed); err != nil {
+			t.Fatal(err)
+		}
+		for _, s := range ed.Standings {
+			if s.Name == "bob" {
+				return s.Points
+			}
+		}
+		return -1
+	}
+	const fide = `{"win": 1, "draw": 0.5, "loss": 0, "forfeit_win": 1, "forfeit_loss": 0, "bye": 1, "skip": 0}`
+	const ours = `{"win": 3, "draw": 1, "loss": 0, "forfeit_win": 2.5, "forfeit_loss": 0, "bye": 3, "skip": 0.5}`
+	body := do(http.MethodGet, "/v1/admin/blitz/us_open/2026", "", http.StatusOK)
+	wantJSON(t, body, "points", fide)
+	wantJSON(t, body, "fide_points", "true")
+
+	do(http.MethodPut, "/v1/admin/blitz/us_open/2026/points", ours, http.StatusNoContent)
+	body = do(http.MethodGet, "/v1/admin/blitz/us_open/2026", "", http.StatusOK)
+	wantJSON(t, body, "points", ours)
+	wantJSON(t, body, "fide_points", "false")
+	if got := bobs(body); got != 3 {
+		t.Errorf("bob, who won round 1's game = %g points, want the edition's 3", got)
+	}
+
+	do(http.MethodDelete, "/v1/admin/blitz/us_open/2026/points", "", http.StatusNoContent)
+	body = do(http.MethodGet, "/v1/admin/blitz/us_open/2026", "", http.StatusOK)
+	wantJSON(t, body, "points", fide)
+	if got := bobs(body); got != 1 {
+		t.Errorf("bob after the reset = %g points, want FIDE's 1", got)
+	}
+	want := []string{org + " blitz.points us_open/2026", org + " blitz.points.reset us_open/2026"}
+	if !slices.Equal(f.audits, want) {
+		t.Errorf("audits = %q, want %q", f.audits, want)
+	}
+}
+
+func TestBadPointsAreRefused(t *testing.T) {
+	const path = "/v1/admin/blitz/us_open/2026/points"
+	points := func(win, draw, loss, bye float64) string {
+		return fmt.Sprintf(`{"win": %g, "draw": %g, "loss": %g, "forfeit_win": 1, "forfeit_loss": 0, "bye": %g, "skip": 0}`, win, draw, loss, bye)
+	}
+	knockout := func(f *fakeAdmins) {
+		f.rounds = append(f.rounds, store.BlitzRound{ID: 109, Number: 9, Kind: "knockout"})
+	}
+	tests := []struct {
+		name, method, path, body string
+		change                   func(*fakeAdmins)
+		want                     int
+	}{
+		{"a win over 10", http.MethodPut, path, points(10.5, 0.5, 0, 1), nil, http.StatusBadRequest},
+		{"a quarter", http.MethodPut, path, points(1, 0.5, 0, 0.25), nil, http.StatusBadRequest},
+		{"a draw above a win", http.MethodPut, path, points(1, 1.5, 0, 1), nil, http.StatusBadRequest},
+		{"points with the knockout paired", http.MethodPut, path, points(3, 1, 0, 3), knockout, http.StatusConflict},
+		{"a reset with the knockout paired", http.MethodDelete, path, "", knockout, http.StatusConflict},
+		{"an unknown edition's points", http.MethodPut, "/v1/admin/blitz/us_open/2027/points", points(3, 1, 0, 3), nil, http.StatusNotFound},
+		{"an unknown edition's reset", http.MethodDelete, "/v1/admin/blitz/us_open/2027/points", "", nil, http.StatusNotFound},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			f := &fakeAdmins{}
+			roundOnePublished(f)
+			if tt.change != nil {
+				tt.change(f)
+			}
+			rec := adminDo(t, f, tt.method, tt.path, "https://ttac-admin.example", tt.body)
+			if rec.Code != tt.want {
+				t.Errorf("%s %s %s = %d %s, want %d", tt.method, tt.path, tt.body, rec.Code, rec.Body, tt.want)
+			}
+			if len(f.notes)+len(f.audits) != 0 {
+				t.Errorf("refused points still changed something: %q %q", f.notes, f.audits)
 			}
 		})
 	}

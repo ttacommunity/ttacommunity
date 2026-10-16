@@ -114,7 +114,7 @@ func knockoutReserve(r store.BlitzRound, ed store.BlitzEdition) *int64 {
 
 // pairingPlayers turns the edition's active entrants into what the pairing needs, as of now, leaving out the
 // round named by except (0 for none: a new round) when counting points, places, opponents and byes, and the
-// entrants in busy.
+// entrants in busy (already paired, or skipping the round).
 func pairingPlayers(ed store.BlitzEdition, rated map[string]store.Rated, now time.Time, except int64, busy map[int64]bool) []blitz.Player {
 	var others []store.BlitzRound
 	for _, r := range ed.Rounds {
@@ -233,18 +233,23 @@ func (s *server) PostAdminBlitzRound(ctx context.Context, req PostAdminBlitzRoun
 	if slices.ContainsFunc(ed.Rounds, func(r store.BlitzRound) bool { return r.PublishedAt == nil }) {
 		return PostAdminBlitzRound409JSONResponse{conflict409(store.ErrBlitzDraftExists.Error())}, nil
 	}
-	swissMade := 0
+	swissMade, next := 0, 1
 	for _, r := range ed.Rounds {
 		if r.Kind != "knockout" {
 			swissMade++
 		}
+		next = max(next, r.Number+1)
 	}
 	now := s.now()
 	seed := uint64(now.UnixNano())
 	var round store.BlitzRound
 	switch {
 	case swissMade < ed.Format.SwissRounds:
-		paired, err := blitz.Pair(pairingPlayers(ed, rated, now, 0, nil), criteria, seed)
+		busy := map[int64]bool{}
+		for _, e := range skippers(ed.Entrants, next) {
+			busy[e.ID] = true
+		}
+		paired, err := blitz.Pair(pairingPlayers(ed, rated, now, 0, busy), criteria, seed)
 		if errors.Is(err, blitz.ErrTooFew) || errors.Is(err, blitz.ErrNoPairing) {
 			return PostAdminBlitzRound400JSONResponse{badRequest400(err.Error())}, nil
 		}
@@ -362,8 +367,8 @@ func (s *server) DeleteAdminBlitzRound(ctx context.Context, req DeleteAdminBlitz
 }
 
 // keptMatches is what a proposed pairing keeps of a round: every match with a result, then each match in keep (the
-// saved one when the round has that pair), and who is in them. A kept match naming someone not active, or anyone
-// twice, is refused with ErrBadBlitzMatch.
+// saved one when the round has that pair), and who is in them. A kept match naming someone not active, skipping the
+// round, or anyone twice, is refused with ErrBadBlitzMatch.
 func keptMatches(entrants []store.BlitzEntrant, round store.BlitzRound, keep []BlitzMatchChange) ([]store.BlitzMatch, map[int64]bool, error) {
 	key := func(a int64, b *int64) [2]int64 {
 		if b == nil {
@@ -386,7 +391,7 @@ func keptMatches(entrants []store.BlitzEntrant, round store.BlitzRound, keep []B
 	}
 	active, names := map[int64]bool{}, map[int64]string{}
 	for _, e := range entrants {
-		active[e.ID], names[e.ID] = e.Status == "active", e.Name
+		active[e.ID], names[e.ID] = e.Status == "active" && !slices.Contains(e.Skips, round.Number), e.Name
 	}
 	for _, k := range keep {
 		m, ok := saved[key(k.A, k.B)]
@@ -453,6 +458,9 @@ func (s *server) PostAdminBlitzRoundPairing(ctx context.Context, req PostAdminBl
 	kept, busy, err := keptMatches(ed.Entrants, *round, keep)
 	if err != nil {
 		return PostAdminBlitzRoundPairing400JSONResponse{badRequest400(err.Error())}, nil
+	}
+	for _, e := range skippers(ed.Entrants, round.Number) {
+		busy[e.ID] = true
 	}
 	proposal := store.BlitzRound{ID: round.ID, Number: round.Number, Kind: round.Kind, Timezone: criteria.Timezone, Rating: criteria.Rating, PublishedAt: round.PublishedAt, Matches: kept}
 	now := s.now()

@@ -40,11 +40,11 @@ func markDropped(t *testing.T, a *AdminStore, id int64) {
 func TestOnlyAnEntrantWhoHasPlayedIsDropped(t *testing.T) {
 	a, _, ids := blitzWithEntrants(t)
 	ctx := context.Background()
-	more, err := a.AddBlitzEntrants(ctx, "us_open", "2026", []BlitzEntrant{{Name: "Eve", Zone: "UTC"}, {Name: "Fay", Zone: "UTC", Status: "pending"}})
+	more, err := a.AddBlitzEntrants(ctx, "us_open", "2026", []BlitzEntrant{{Name: "Eve", Zone: "UTC"}})
 	if err != nil {
 		t.Fatalf("AddBlitzEntrants: %v", err)
 	}
-	ann, bob, cy, dee, eve, fay := ids[0], ids[1], ids[2], ids[3], more[0], more[1]
+	ann, bob, cy, dee, eve := ids[0], ids[1], ids[2], ids[3], more[0]
 	r1, err := a.AddBlitzRound(ctx, "us_open", "2026", BlitzRound{Seed: 1, Matches: []BlitzMatch{{A: ann, B: &bob}, {A: cy, B: &dee}, {A: eve}}})
 	if err != nil {
 		t.Fatalf("AddBlitzRound: %v", err)
@@ -62,6 +62,11 @@ func TestOnlyAnEntrantWhoHasPlayedIsDropped(t *testing.T) {
 	if err := a.RecordBlitzRuling(ctx, "us_open", "2026", r1.Matches[0].ID, "a", "Bob did not show"); err != nil {
 		t.Fatalf("RecordBlitzRuling: %v", err)
 	}
+	late, err := a.AddBlitzEntrants(ctx, "us_open", "2026", []BlitzEntrant{{Name: "Fay", Zone: "UTC"}})
+	if err != nil {
+		t.Fatalf("AddBlitzEntrants(Fay): %v", err)
+	}
+	fay := late[0]
 	tests := []struct {
 		name string
 		id   int64
@@ -70,7 +75,7 @@ func TestOnlyAnEntrantWhoHasPlayedIsDropped(t *testing.T) {
 		{"Bob, whose match has a result", bob, nil},
 		{"Eve, with a bye in a published round", eve, nil},
 		{"Cy, paired but not yet played", cy, ErrBlitzEntrantNotPlayed},
-		{"Fay, not confirmed and in no round", fay, ErrBlitzEntrantNotPlayed},
+		{"Fay, entered after round 1 and in no round", fay, ErrBlitzEntrantNotPlayed},
 	}
 	for _, tt := range tests {
 		if err := drop(tt.id); !errors.Is(err, tt.want) {

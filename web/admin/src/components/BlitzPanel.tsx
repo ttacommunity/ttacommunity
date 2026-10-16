@@ -38,7 +38,6 @@ export default function BlitzPanel() {
                 <th scope="col">Format</th>
                 <th scope="col">Reached</th>
                 <th scope="col">In</th>
-                <th scope="col">Pending</th>
                 <th scope="col">Dropped</th>
               </tr>
             </thead>
@@ -54,7 +53,6 @@ export default function BlitzPanel() {
                   <td>{formatLabel(r.format)}</td>
                   <td>{reachedLabel(r.round, r.format, r.champion)}</td>
                   <td>{r.entrants}</td>
-                  <td>{r.pending}</td>
                   <td>{r.dropped}</td>
                 </tr>
               ))}

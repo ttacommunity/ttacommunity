@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"ttacommunity/backend/internal/access"
+	"ttacommunity/backend/internal/blitz"
 	"ttacommunity/backend/internal/store"
 )
 
@@ -78,6 +79,10 @@ type Admins interface {
 	People(ctx context.Context, q string, limit int) ([]store.Candidate, error)
 	BlitzCandidates(ctx context.Context, slug, edition, q string, limit int) ([]store.Candidate, error)
 	RemoveBlitzEntrant(ctx context.Context, slug, edition string, id int64) error
+	// SkipBlitzRound has an entrant sit out the next Swiss round and returns its number; UnskipBlitzRound undoes a
+	// skip of a round not yet published.
+	SkipBlitzRound(ctx context.Context, slug, edition string, id int64) (int, error)
+	UnskipBlitzRound(ctx context.Context, slug, edition string, id int64) error
 	// AddBlitzRound makes the edition's next round as a draft and returns it with its ids and number.
 	AddBlitzRound(ctx context.Context, slug, edition string, r store.BlitzRound) (store.BlitzRound, error)
 	SetBlitzRoundMatches(ctx context.Context, slug, edition string, roundID int64, matches []store.BlitzMatch) error
@@ -88,11 +93,21 @@ type Admins interface {
 	// RecordBlitzGame records or corrects the game a match was played as; RecordBlitzRuling decides it by ruling.
 	RecordBlitzGame(ctx context.Context, slug, edition string, matchID int64, g store.BlitzGame) error
 	RecordBlitzRuling(ctx context.Context, slug, edition string, matchID int64, result, reason string) error
+	// ResetBlitzResult and ResetBlitzRound undo a match's or the latest round's results, games and all;
+	// ResetBlitzEdition starts the edition again from its entrants.
+	ResetBlitzResult(ctx context.Context, slug, edition string, matchID int64) error
+	ResetBlitzRound(ctx context.Context, slug, edition string, roundID int64) error
+	ResetBlitzEdition(ctx context.Context, slug, edition string) error
 	// AddBlitzOrganiser and RemoveBlitzOrganiser change who the edition's Discord threads tell players to ping;
 	// SetBlitzRoundDeadline sets the deadline a round's threads give.
 	AddBlitzOrganiser(ctx context.Context, slug, edition string, member int64) error
 	RemoveBlitzOrganiser(ctx context.Context, slug, edition string, member int64) error
 	SetBlitzRoundDeadline(ctx context.Context, slug, edition string, roundID int64, at time.Time, zone string) error
+	// SetBlitzPoints sets what each outcome of the edition is worth.
+	SetBlitzPoints(ctx context.Context, slug, edition string, points blitz.Scoring) error
+	// SetBlitzThreadText replaces what the edition's thread messages say; ResetBlitzThreadText puts back the default.
+	SetBlitzThreadText(ctx context.Context, slug, edition string, t store.BlitzThreadText) error
+	ResetBlitzThreadText(ctx context.Context, slug, edition string) error
 	// The community's members: listed, added (returning the id), changed, banned and unbanned, removed.
 	Members(ctx context.Context) ([]store.Member, error)
 	AddMember(ctx context.Context, m store.Member) (int64, error)

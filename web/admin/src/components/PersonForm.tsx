@@ -1,5 +1,5 @@
 /** The person form, for adding a member or entering someone in an edition: a search of the members and the players the ratings know, picking one filling in their details, or someone new added by the name typed. */
-import { useState, type FormEvent, type ReactNode } from 'react';
+import { useState, type FormEvent } from 'react';
 import type { Country } from '../lib/countries';
 import { emptyPerson, personChoices, type PersonChoice, type PersonDetails, type Taken } from '../lib/person-form';
 import type { Region } from '../lib/zones';
@@ -19,12 +19,10 @@ type Props = {
   onSubmit: (details: PersonDetails) => Promise<boolean>;
   /** refresh changes when the search should ask again, as when someone was just added. */
   refresh: unknown;
-  /** children are more fields, shown before the button. */
-  children?: ReactNode;
 };
 
 /** PersonForm searches as usePeopleSearch does; the details stay off until someone is picked. */
-export default function PersonForm({ searchBase, taken, regions, countries, submitLabel, onSubmit, refresh, children }: Props) {
+export default function PersonForm({ searchBase, taken, regions, countries, submitLabel, onSubmit, refresh }: Props) {
   const [typed, setTyped] = useState('');
   const [picked, setPicked] = useState<PersonChoice | null>(null);
   const [details, setDetails] = useState<PersonDetails>(emptyPerson);
@@ -70,7 +68,6 @@ export default function PersonForm({ searchBase, taken, regions, countries, subm
       </label>
       <CountryPick label="Country" countries={countries} value={details.country} disabled={picked === null} onChange={(country) => setDetails({ ...details, country })} />
       <ZonePick label="Time zone" regions={regions} value={details.zone} disabled={picked === null} onChange={(zone) => setDetails({ ...details, zone })} />
-      {children}
       <button type="submit" className="btn-antique" disabled={picked === null}>
         {submitLabel}
       </button>

@@ -190,8 +190,8 @@ A blitz tournament is an ordinary tournament whose series has the **Blitz**
 setting: organisers run it from admin's Blitz tab, a round a week, in the
 format CGE's US Open uses (Swiss rounds, then a knockout). Admin holds each
 edition's format and tiebreak seed (`blitz_editions`), its entrants
-(`blitz_entries`: a member; pending, active or dropped), added one at a
-time by searching the members and the players the ratings know (a player
+(`blitz_entries`: a member, in or dropped, shown on the site once
+entered), added one at a time by searching the members and the players the ratings know (a player
 who is no member yet becomes one, in the ratings' spelling), and its rounds (`blitz_rounds`, `blitz_matches`):
 paired by the api (`internal/blitz`: equal points, never the same opponent
 twice, the best time-zone fit within a score group, the bye to the lowest
@@ -206,15 +206,25 @@ as they are, so a late entrant joins a round still in play. An entrant who
 has played (a result, or a bye in a published round) and withdraws is
 dropped: their results stand and they are not paired again. One who has
 not played is removed instead, coming out of the Swiss round they are
-paired in and leaving their opponent for Pair to fill in.
+paired in and leaving their opponent for Pair to fill in. An entrant may
+skip the next Swiss round (`blitz_skips`, by round number, so the round can
+be deleted and paired again without them): they are left out of its
+pairing and score the edition's skip points for it, and the site lists
+them under the round.
 
 **A result is a game.** A played game is written to `games` and `seats`
 under the edition's stage "Round N", from an `import_batches` row of
 source `admin`, with the time it finished (entered on the clocks of a zone
 or region, stored in UTC; its `date` is that time's UTC day, as for the
 games CGE's data brings), so the tournament's page shows it at once and a later CGE
-extract load matches it by share code instead of adding a copy; recording
-the match again corrects that one game. The match keeps the result (a win,
+extract load matches it by share code instead of adding a copy (a game
+recorded without a code has nothing to match it by); recording
+the match again corrects that one game. A result in the latest round can
+be reset, a match's or the whole round's: the game goes with its seats and
+batch, through `delete_blitz_game`, since the admin login cannot delete
+games itself. Resetting the edition removes every round and game and puts
+everyone back in. A ratings run that included a game reset loses its rows
+for it, and is made again to bring its pages up to date. The match keeps the result (a win,
 a draw or a double loss) and, when the organisers decided it instead, their
 ruling and its reason (a ruling may overrule a played game). The next round
 is paired only once every match has a result. The standings are computed

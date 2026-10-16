@@ -1,9 +1,10 @@
-/** What both sites say about a blitz tournament: a zone's offset, a format, how a match's result reads, how a folded round is summed up, and how a round and a seeded player are named. */
+/** What both sites say about a blitz tournament: a zone's offset, a format, its points, how a match's result reads, how a folded round is summed up, and how a round and a seeded player are named. */
 import type { components } from '../api/schema';
 
 export type BlitzFormat = components['schemas']['BlitzFormat'];
 export type BlitzResult = components['schemas']['BlitzResult'];
 export type BlitzPlayedGame = components['schemas']['BlitzPlayedGame'];
+export type BlitzPoints = components['schemas']['BlitzPoints'];
 
 /** MatchResultView is what a match's result line needs: both names (b null for the bye), the result, the game played and whether it was ruled. */
 export type MatchResultView = { a: string; b: string | null; result: BlitzResult | null; game: BlitzPlayedGame | null; ruled: boolean };
@@ -79,6 +80,32 @@ export function roundShown(round: number, newest: number, toggled: ReadonlySet<n
 export function formatLabel(f: BlitzFormat): string {
   const swiss = `${f.swiss_rounds} Swiss round${f.swiss_rounds === 1 ? '' : 's'}`;
   return f.knockout_size === 0 ? `${swiss}, no knockout` : `${swiss}, then a top-${f.knockout_size} knockout`;
+}
+
+/** pointsText writes points in halves as a player reads them: 0, ½, 1, 2½. */
+export function pointsText(n: number): string {
+  const whole = Math.floor(n);
+  if (n === whole) return String(n);
+  return whole === 0 ? '½' : `${whole}½`;
+}
+
+/** pointsList lists what each outcome is worth: "win 3, draw 1, loss 0, forfeit win 3, forfeit loss 0, bye 3, skip 0". */
+export function pointsList(p: BlitzPoints): string {
+  const outcomes: [string, number][] = [
+    ['win', p.win],
+    ['draw', p.draw],
+    ['loss', p.loss],
+    ['forfeit win', p.forfeit_win],
+    ['forfeit loss', p.forfeit_loss],
+    ['bye', p.bye],
+    ['skip', p.skip],
+  ];
+  return outcomes.map(([name, n]) => `${name} ${pointsText(n)}`).join(', ');
+}
+
+/** scoringSentence says how the standings score: FIDE's in the words the site has always used, an edition's own with every outcome. */
+export function scoringSentence(p: BlitzPoints, fide: boolean): string {
+  return fide ? 'A win is 1 point, a draw a half, a bye 1.' : `This edition's points: ${pointsList(p)}.`;
 }
 
 /** knockoutStage names a knockout round by how many still play in it (Final, Semi-finals, Quarter-finals, Round of 16), or null for a round outside the knockout. */

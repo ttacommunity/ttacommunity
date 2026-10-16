@@ -11,6 +11,7 @@ import (
 	"testing"
 	"time"
 
+	"ttacommunity/backend/internal/blitz"
 	"ttacommunity/backend/internal/store"
 )
 
@@ -367,6 +368,46 @@ func TestTheByeGoesByTheStandingsNotTheRatings(t *testing.T) {
 		if m.B == nil && m.A != 7 && m.A != 8 {
 			t.Errorf("the bye went to entrant %d, want Ann (7) or Cy (8), the lowest in the standings", m.A)
 		}
+	}
+}
+
+func TestTheByeGoesByTheEditionsPoints(t *testing.T) {
+	const site, org = "https://ttac-admin.example", "222222222222222222"
+	forfeitHalf := blitz.FIDEScoring
+	forfeitHalf.ForfeitLoss = 0.5
+	tests := []struct {
+		name   string
+		points blitz.Scoring
+		want   int64
+	}{
+		// Cy lost by forfeit and Dee a game: tied on 0, Cy's Buchholz is the lower.
+		{"FIDE's", blitz.FIDEScoring, 8},
+		{"a forfeit loss worth a half", forfeitHalf, 10},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			f := &fakeAdmins{}
+			fourEntered(f)
+			ids, _ := f.AddBlitzEntrants(context.Background(), "us_open", "2026", []store.BlitzEntrant{{Name: "Eve", Zone: "Europe/London"}})
+			f.notes = nil
+			cy, dee := int64(8), int64(10)
+			at := time.Date(2026, 10, 12, 12, 0, 0, 0, time.UTC)
+			f.rounds = []store.BlitzRound{{ID: 101, Number: 1, Kind: "swiss", Seed: 1, PublishedAt: &at, Matches: []store.BlitzMatch{
+				{ID: 1010, A: 7, B: &cy, Result: "a", Ruling: "no-show", DecidedAt: &at},
+				{ID: 1011, A: 9, B: &dee, Result: "a", GameID: new(int64(500)), DecidedAt: &at},
+				{ID: 1012, A: ids[0]}}}}
+			f.points = tt.points
+			rec := adminDoWith(t, &fakeRatings{run: store.PublishedRun{ID: 7}}, f, org, http.MethodPost, "/v1/admin/blitz/us_open/2026/rounds", site, `{"timezone": true}`)
+			var round AdminBlitzRound
+			if err := json.Unmarshal(rec.Body.Bytes(), &round); err != nil || rec.Code != http.StatusCreated {
+				t.Fatalf("POST rounds = %d %s, want round 2", rec.Code, rec.Body)
+			}
+			for _, m := range round.Matches {
+				if m.B == nil && m.A != tt.want {
+					t.Errorf("the bye went to entrant %d, want %d, the lowest by the edition's points", m.A, tt.want)
+				}
+			}
+		})
 	}
 }
 
