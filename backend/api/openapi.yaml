@@ -5734,7 +5734,7 @@ components:
           description: Tied games for 1st place
           type: integer
         win_rate:
-          description: Win rate as a percentage rounded to two decimals
+          description: Win rate as a percentage rounded to two decimals (ties for 1st count as 1/k of a win)
           type: number
           format: double
         places:

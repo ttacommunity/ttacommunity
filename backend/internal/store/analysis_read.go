@@ -310,10 +310,11 @@ type SeatPlaceRate struct {
 // seatTiers are the skill tiers SeatAnalysis filters by, "all" first.
 var seatTiers = []string{"all", "grandmaster", "master", "advanced", "intermediate", "beginner"}
 
-// seatCounts is one tier's games by player count, seat and place, and its outright wins and draws by player count and seat.
+// seatCounts is one tier's games by player count, seat and place, its outright wins and draws, and its fractional win shares.
 type seatCounts struct {
 	places      map[[3]int]int
 	wins, draws map[[2]int]int
+	winShares   map[[2]int]float64
 }
 
 // SeatAnalysis returns seat statistics grouped by player count (2P, 3P, 4P) and filtered by skill tier
@@ -369,7 +370,8 @@ func (r *RatingsReader) readSeatCounts(ctx context.Context, run int64) (map[stri
 			END,
 			player_count, seat, place, count(*),
 			count(*) FILTER (WHERE place = 1 AND winners = 1),
-			count(*) FILTER (WHERE place = 1 AND winners > 1)
+			count(*) FILTER (WHERE place = 1 AND winners > 1),
+			coalesce(sum(CASE WHEN place = 1 THEN 1.0::float8 / winners ELSE 0 END), 0)::float8
 		FROM seat_rows
 		WHERE avg_rating IS NOT NULL -- a game with no rated player has no tier
 		GROUP BY 1, 2, 3, 4`, run)
@@ -379,15 +381,22 @@ func (r *RatingsReader) readSeatCounts(ctx context.Context, run int64) (map[stri
 
 	tiers := make(map[string]seatCounts, len(seatTiers))
 	for _, t := range seatTiers {
-		tiers[t] = seatCounts{places: map[[3]int]int{}, wins: map[[2]int]int{}, draws: map[[2]int]int{}}
+		tiers[t] = seatCounts{
+			places:    map[[3]int]int{},
+			wins:      map[[2]int]int{},
+			draws:     map[[2]int]int{},
+			winShares: map[[2]int]float64{},
+		}
 	}
 	var tier string
 	var pc, seat, place, count, outrightWins, draws int
-	_, err = pgx.ForEachRow(rows, []any{&tier, &pc, &seat, &place, &count, &outrightWins, &draws}, func() error {
+	var winShares float64
+	_, err = pgx.ForEachRow(rows, []any{&tier, &pc, &seat, &place, &count, &outrightWins, &draws, &winShares}, func() error {
 		for _, c := range []seatCounts{tiers[tier], tiers["all"]} {
 			c.places[[3]int{pc, seat, place}] += count
 			c.wins[[2]int{pc, seat}] += outrightWins
 			c.draws[[2]int{pc, seat}] += draws
+			c.winShares[[2]int{pc, seat}] += winShares
 		}
 		return nil
 	})
@@ -399,7 +408,7 @@ func (r *RatingsReader) readSeatCounts(ctx context.Context, run int64) (map[stri
 
 // seatGroups returns counts' groups for format: one per player count, or that format's alone.
 func seatGroups(c seatCounts, format int) []SeatStatsGroup {
-	counts, seatOutrightWins, seatDraws := c.places, c.wins, c.draws
+	counts, seatOutrightWins, seatDraws, seatWinShares := c.places, c.wins, c.draws, c.winShares
 	playerCounts := []int{2, 3, 4}
 	if format == 2 || format == 3 || format == 4 {
 		playerCounts = []int{format}
@@ -423,9 +432,10 @@ func seatGroups(c seatCounts, format int) []SeatStatsGroup {
 			}
 			wins := seatOutrightWins[[2]int{pc, s}]
 			draws := seatDraws[[2]int{pc, s}]
+			winShares := seatWinShares[[2]int{pc, s}]
 			winRate := 0.0
 			if seatGames > 0 {
-				winRate = round.To(float64(wins)/float64(seatGames)*100.0, 2)
+				winRate = round.To(winShares/float64(seatGames)*100.0, 2)
 			}
 			places := make([]SeatPlaceRate, 0, pc)
 			for p := 1; p <= pc; p++ {

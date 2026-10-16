@@ -3430,7 +3430,7 @@ export interface components {
             draws: number;
             /**
              * Format: double
-             * @description Win rate as a percentage rounded to two decimals
+             * @description Win rate as a percentage rounded to two decimals (ties for 1st count as 1/k of a win)
              */
             win_rate: number;
             /** @description Detailed placement breakdown (1st, 2nd, 3rd, 4th) */

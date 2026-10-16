@@ -246,11 +246,11 @@ func TestSeatAnalysisGroupsByPlayerCountAndFiltersByTier(t *testing.T) {
 	if len(gotAll) != 1 || gotAll[0].TotalGames != 3 {
 		t.Fatalf("SeatAnalysis(all) = %+v, want 1 group with 3 total games", gotAll)
 	}
-	if gotAll[0].Seats[0].Wins != 1 || gotAll[0].Seats[0].Draws != 1 || gotAll[0].Seats[0].WinRate != 33.33 {
-		t.Errorf("Seat 1 = %+v, want Wins 1, Draws 1, WinRate 33.33", gotAll[0].Seats[0])
+	if gotAll[0].Seats[0].Wins != 1 || gotAll[0].Seats[0].Draws != 1 || gotAll[0].Seats[0].WinRate != 50.0 {
+		t.Errorf("Seat 1 = %+v, want Wins 1, Draws 1, WinRate 50.0", gotAll[0].Seats[0])
 	}
-	if gotAll[0].Seats[1].Wins != 1 || gotAll[0].Seats[1].Draws != 1 || gotAll[0].Seats[1].WinRate != 33.33 {
-		t.Errorf("Seat 2 = %+v, want Wins 1, Draws 1, WinRate 33.33", gotAll[0].Seats[1])
+	if gotAll[0].Seats[1].Wins != 1 || gotAll[0].Seats[1].Draws != 1 || gotAll[0].Seats[1].WinRate != 50.0 {
+		t.Errorf("Seat 2 = %+v, want Wins 1, Draws 1, WinRate 50.0", gotAll[0].Seats[1])
 	}
 
 	gotGM, err := r.SeatAnalysis(ctx, run, 2, "grandmaster")
@@ -271,11 +271,56 @@ func TestSeatAnalysisGroupsByPlayerCountAndFiltersByTier(t *testing.T) {
 	if len(gotM) != 1 || gotM[0].TotalGames != 2 {
 		t.Fatalf("SeatAnalysis(master) = %+v, want 2 games", gotM)
 	}
-	if gotM[0].Seats[0].Wins != 0 || gotM[0].Seats[0].Draws != 1 || gotM[0].Seats[0].WinRate != 0.0 {
-		t.Errorf("Master Seat 1 = %+v, want Wins 0, Draws 1, WinRate 0.0", gotM[0].Seats[0])
+	if gotM[0].Seats[0].Wins != 0 || gotM[0].Seats[0].Draws != 1 || gotM[0].Seats[0].WinRate != 25.0 {
+		t.Errorf("Master Seat 1 = %+v, want Wins 0, Draws 1, WinRate 25.0", gotM[0].Seats[0])
 	}
-	if gotM[0].Seats[1].Wins != 1 || gotM[0].Seats[1].Draws != 1 || gotM[0].Seats[1].WinRate != 50.0 {
-		t.Errorf("Master Seat 2 = %+v, want Wins 1, Draws 1, WinRate 50.0", gotM[0].Seats[1])
+	if gotM[0].Seats[1].Wins != 1 || gotM[0].Seats[1].Draws != 1 || gotM[0].Seats[1].WinRate != 75.0 {
+		t.Errorf("Master Seat 2 = %+v, want Wins 1, Draws 1, WinRate 75.0", gotM[0].Seats[1])
+	}
+}
+
+func TestSeatAnalysisFractionalWinSharesForMultiwayTies(t *testing.T) {
+	pool := migrated(t)
+	r := NewRatingsReader(asReader(t, pool))
+	ctx := context.Background()
+	run := publishedRun(t, pool)
+
+	addPlayers(t, pool, "p1", "p2", "p3", "p4")
+	addRating(t, pool, run, "glicko2_daneo", 0, "p1", ptr(1), 1600)
+	addRating(t, pool, run, "glicko2_daneo", 0, "p2", ptr(2), 1600)
+	addRating(t, pool, run, "glicko2_daneo", 0, "p3", ptr(3), 1600)
+	addRating(t, pool, run, "glicko2_daneo", 0, "p4", ptr(4), 1600)
+
+	// 3-player game: 3-way tie for 1st place -> each gets 1/3 win share (33.33% win rate)
+	addGame(t, pool, run, "2025-01-01", "Cup 3P", Seat{"p1", 100}, Seat{"p2", 100}, Seat{"p3", 100})
+
+	// 4-player game: 4-way tie for 1st place -> each gets 1/4 win share (25.0% win rate)
+	addGame(t, pool, run, "2025-01-02", "Cup 4P", Seat{"p1", 100}, Seat{"p2", 100}, Seat{"p3", 100}, Seat{"p4", 100})
+
+	got3P, err := r.SeatAnalysis(ctx, run, 3, "all")
+	if err != nil {
+		t.Fatalf("SeatAnalysis(3P): %v", err)
+	}
+	if len(got3P) != 1 || got3P[0].TotalGames != 1 {
+		t.Fatalf("got3P = %+v, want 1 group with 1 game", got3P)
+	}
+	for i, s := range got3P[0].Seats {
+		if s.Wins != 0 || s.Draws != 1 || s.WinRate != 33.33 {
+			t.Errorf("3P Seat %d = %+v, want Wins 0, Draws 1, WinRate 33.33", i+1, s)
+		}
+	}
+
+	got4P, err := r.SeatAnalysis(ctx, run, 4, "all")
+	if err != nil {
+		t.Fatalf("SeatAnalysis(4P): %v", err)
+	}
+	if len(got4P) != 1 || got4P[0].TotalGames != 1 {
+		t.Fatalf("got4P = %+v, want 1 group with 1 game", got4P)
+	}
+	for i, s := range got4P[0].Seats {
+		if s.Wins != 0 || s.Draws != 1 || s.WinRate != 25.0 {
+			t.Errorf("4P Seat %d = %+v, want Wins 0, Draws 1, WinRate 25.0", i+1, s)
+		}
 	}
 }
 
