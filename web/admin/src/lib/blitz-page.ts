@@ -33,3 +33,9 @@ export function formatAdvice(format: { swiss_rounds: number; knockout_size: numb
   if (format.knockout_size > active) warnings.push(`The knockout takes the top ${format.knockout_size}, and ${active} entrants are active.`);
   return { limit, warnings };
 }
+
+/** editionFormatWarnings are formatAdvice's warnings for an edition's saved format and active entrants, shown while its Format is hidden: none once the knockout has started, when the format no longer changes. */
+export function editionFormatWarnings(ed: { format: { swiss_rounds: number; knockout_size: number }; entrants: readonly { status: string }[]; rounds: readonly { kind: string }[] }): string[] {
+  if (ed.rounds.some((r) => r.kind === 'knockout')) return [];
+  return formatAdvice(ed.format, ed.entrants.filter((e) => e.status === 'active').length).warnings;
+}

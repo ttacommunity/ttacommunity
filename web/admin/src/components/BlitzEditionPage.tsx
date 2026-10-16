@@ -8,7 +8,7 @@ import { formatInstant } from '@ttac/shared/time';
 import { adminDownload, adminRequest, firstError, type AdminBlitzEdition, type AdminMe, type BlitzEntrantIds, type Load } from '../lib/admin-api';
 import * as req from '../lib/admin-requests';
 import { tabsFor } from '../lib/admin-tabs';
-import { editionParams, formatAdvice, type AdminBlitzEntrant } from '../lib/blitz-page';
+import { editionFormatWarnings, editionParams, formatAdvice, type AdminBlitzEntrant } from '../lib/blitz-page';
 import { emptyGameForm, gameRecordFrom, type BlitzStanding, type GameForm } from '../lib/blitz-results';
 import { deadlineForm, deadlineLabel, deadlineLocked, organiserChoices, organisersSummary, threadTextSavable, threadTextSummary, threadsBlocker, threadsFileName, type DeadlineForm, type ThreadText } from '../lib/blitz-threads';
 import { entrantToAdd, wildcardChoices, type PersonChoice, type PersonDetails } from '../lib/person-form';
@@ -655,7 +655,7 @@ function EditionTabs(props: Props) {
             label: 'Rounds',
             panel: (
               <>
-                <SettingsSection title="Format" summary={formatLabel(props.ed.format)} what="format">
+                <SettingsSection title="Format" summary={formatLabel(props.ed.format)} what="format" whileHidden={<FormatWarnings warnings={editionFormatWarnings(props.ed)} />}>
                   <FormatPanel {...props} />
                 </SettingsSection>
                 <SettingsSection title="Organisers" summary={organisersSummary(props.ed.organisers)} what="organisers">
@@ -687,8 +687,8 @@ function EditionTabs(props: Props) {
   );
 }
 
-/** SettingsSection is one of the edition's settings under its heading: a summary, and a button that shows or hides the setting, hidden at first. Hidden, it stays mounted, so what is half typed is kept. */
-function SettingsSection({ title, summary, what, children }: { title: string; summary: string; what: string; children: ReactNode }) {
+/** SettingsSection is one of the edition's settings under its heading: a summary, and a button that shows or hides the setting, hidden at first, with whileHidden below the summary until it is shown. Hidden, the setting stays mounted, so what is half typed is kept. */
+function SettingsSection({ title, summary, what, whileHidden, children }: { title: string; summary: string; what: string; whileHidden?: ReactNode; children: ReactNode }) {
   const [shown, setShown] = useState(false);
   return (
     <div className="admin-subsection">
@@ -699,9 +699,19 @@ function SettingsSection({ title, summary, what, children }: { title: string; su
           {shown ? `Hide ${what}` : `Show ${what}`}
         </button>
       </p>
+      {!shown && whileHidden}
       <div hidden={!shown}>{children}</div>
     </div>
   );
+}
+
+/** FormatWarnings shows warnings about a format, one note each. */
+function FormatWarnings({ warnings }: { warnings: readonly string[] }) {
+  return warnings.map((w) => (
+    <p key={w} className="format-warning" role="note">
+      {w}
+    </p>
+  ));
 }
 
 /** OrganisersPanel lists the members every round's Discord threads tell players to ping, removes one, and adds a member found by their username. */
@@ -896,12 +906,7 @@ function FormatPanel({ at, ed, onReload, say }: Props) {
           Up to {advice.limit} Swiss {advice.limit === 1 ? 'round' : 'rounds'} can always be paired without anyone meeting twice.
         </p>
       )}
-      {!locked &&
-        advice.warnings.map((w) => (
-          <p key={w} className="format-warning" role="note">
-            {w}
-          </p>
-        ))}
+      {!locked && <FormatWarnings warnings={advice.warnings} />}
     </>
   );
 }

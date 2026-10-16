@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { editionHref, editionParams, formatAdvice } from './blitz-page';
+import { editionFormatWarnings, editionHref, editionParams, formatAdvice } from './blitz-page';
 
 describe('editionParams', () => {
   it.each([
@@ -28,5 +28,26 @@ describe('formatAdvice', () => {
     ['at least one round for a tiny field', { swiss_rounds: 1, knockout_size: 0 }, 1, 1, []],
   ])('gives %s', (_name, format, active, limit, warnings) => {
     expect(formatAdvice(format, active)).toEqual({ limit, warnings });
+  });
+});
+
+describe('editionFormatWarnings', () => {
+  const active = { status: 'active' };
+  const field = [active, active, active, { status: 'dropped' }, { status: 'pending' }];
+  it.each([
+    ['nothing to warn of', { swiss_rounds: 1, knockout_size: 0 }, field, [{ kind: 'swiss' }], []],
+    [
+      'the saved format, for the active entrants only',
+      { swiss_rounds: 8, knockout_size: 8 },
+      field,
+      [],
+      [
+        '8 Swiss rounds is more than 3 active entrants can always be paired for: past 1, someone may have to meet an opponent again, and Pair refuses that. Late entrants or wildcards raise the limit.',
+        'The knockout takes the top 8, and 3 entrants are active.',
+      ],
+    ],
+    ['none once the knockout has started', { swiss_rounds: 8, knockout_size: 8 }, field, [{ kind: 'swiss' }, { kind: 'knockout' }], []],
+  ])('gives %s', (_name, format, entrants, rounds, want) => {
+    expect(editionFormatWarnings({ format, entrants, rounds })).toEqual(want);
   });
 });
