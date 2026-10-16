@@ -1,4 +1,4 @@
-/** The Blitz section's decisions: which edition the address names, its address, how a rating reads, which rounds are the pairings and which the bracket, an edition's tabs, and its games as table rows. */
+/** The Blitz section's decisions: which edition the address names, its address, how a rating reads, which rounds are the pairings and which the bracket, an edition's tabs, its games as table rows, and who sat a round out. */
 import type { components } from '@ttac/shared/api';
 import { resultTag, roundTitle, seededName, type BlitzFormat } from '@ttac/shared/blitz';
 import { outcomeNote } from './catalogue-view';
@@ -79,6 +79,11 @@ function blitzRow(round: number, n: number, m: BlitzMatch, format: BlitzFormat, 
     seats,
     code: g?.share_code ?? null,
   };
+}
+
+/** notPlaying lists who sat out rounds, narrowed to one round (null for every round), in the order given: each round's title and names; a round nobody sat out is left out. */
+export function notPlaying(rounds: readonly BlitzRound[], round: number | null, format: BlitzFormat): { round: string; names: string[] }[] {
+  return rounds.filter((r) => (round === null || r.number === round) && r.skipped.length > 0).map((r) => ({ round: roundTitle(r.number, format), names: r.skipped }));
 }
 
 /** roundOptions names each of rounds for the Round filter, in the order given. */

@@ -55,8 +55,8 @@ var ExportTables = []string{
 // and what they did (Discord ids; a new database adds its admins with
 // load -add-admin), the rows a load refused (load history, which no view
 // needs), the community's members (Discord names, emails) and blitz tournaments' editions, entrants, organisers,
-// thread texts and rounds, which reference them.
-var NotExported = []string{"refused_rows", "admins", "admin_audit", "members", "blitz_editions", "blitz_entries", "blitz_organisers", "blitz_thread_texts", "blitz_rounds", "blitz_matches"}
+// thread texts, rounds and skips, which reference them.
+var NotExported = []string{"refused_rows", "admins", "admin_audit", "members", "blitz_editions", "blitz_entries", "blitz_organisers", "blitz_thread_texts", "blitz_rounds", "blitz_matches", "blitz_skips"}
 
 // Manifest describes an export: the schema it was taken at and each table's file.
 type Manifest struct {

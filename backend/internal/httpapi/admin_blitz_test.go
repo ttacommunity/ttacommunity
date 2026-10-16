@@ -161,6 +161,9 @@ func (f *fakeAdmins) SetBlitzEntrant(_ context.Context, slug, edition string, id
 		if c.Status != nil && *c.Status == "dropped" && !f.played(id) {
 			return store.ErrBlitzEntrantNotPlayed
 		}
+		if c.Status != nil && *c.Status == "dropped" && slices.Contains(f.entrants[i].Skips, f.nextFakeRound()) {
+			return store.ErrBlitzEntrantSkipping
+		}
 		var changed []string
 		if c.Status != nil {
 			f.entrants[i].Status = *c.Status
@@ -342,9 +345,9 @@ func TestAnOrganiserFillsABlitzEdition(t *testing.T) {
 	}
 	ann := 1700.0
 	wantEntrants := []AdminBlitzEntrant{
-		{Id: 7, Member: 0, Name: "Ann", Player: "Ann", DiscordName: "ann#1", Zone: "Europe/Berlin", UtcOffset: "+02:00", Rating: &ann, Status: "active"},
-		{Id: 8, Member: 1008, Name: "bob", Player: "", DiscordName: "bobby", Zone: "America/New_York", UtcOffset: "-04:00", Rating: nil, Status: "active"},
-		{Id: 9, Member: 1009, Name: "cy", Player: "", DiscordName: "", Zone: "UTC", UtcOffset: "+00:00", Rating: nil, Status: "active"},
+		{Id: 7, Member: 0, Name: "Ann", Player: "Ann", DiscordName: "ann#1", Zone: "Europe/Berlin", UtcOffset: "+02:00", Rating: &ann, Status: "active", Skips: []int{}},
+		{Id: 8, Member: 1008, Name: "bob", Player: "", DiscordName: "bobby", Zone: "America/New_York", UtcOffset: "-04:00", Rating: nil, Status: "active", Skips: []int{}},
+		{Id: 9, Member: 1009, Name: "cy", Player: "", DiscordName: "", Zone: "UTC", UtcOffset: "+00:00", Rating: nil, Status: "active", Skips: []int{}},
 	}
 	if diff := cmp.Diff(wantEntrants, ed.Entrants); diff != "" {
 		t.Errorf("entrants (-want +got):\n%s", diff)

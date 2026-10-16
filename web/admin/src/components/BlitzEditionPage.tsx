@@ -14,7 +14,7 @@ import { deadlineForm, deadlineLabel, deadlineLocked, organiserChoices, organise
 import { entrantToAdd, wildcardChoices, type PersonChoice, type PersonDetails } from '../lib/person-form';
 import { countryNames, type Country } from '../lib/countries';
 import { clockIn, type Region } from '../lib/zones';
-import { asChanges, byeTakers, canDeleteRound, decidedOnly, entrantButtons, leftUnpaired, newestFirst, openRound, pairAction, pairCounts, partnersFor, reconcilePending, replaceableSide, rulingChoices, rulingLabel, samePairs, shownAfter, unpaired, unsavedMatch, zoneGapLabel, type AdminBlitzMatch, type AdminBlitzRound, type Pending } from '../lib/blitz-rounds';
+import { asChanges, byeTakers, canDeleteRound, decidedOnly, entrantActions, entrantState, leftUnpaired, newestFirst, openRound, pairAction, pairCounts, partnersFor, reconcilePending, replaceableSide, rulingChoices, rulingLabel, samePairs, shownAfter, unpaired, unsavedMatch, zoneGapLabel, type AdminBlitzMatch, type AdminBlitzRound, type Pending } from '../lib/blitz-rounds';
 import AdminHeader from './AdminHeader';
 import CountryPick from './CountryPick';
 import InfoTip from './InfoTip';
@@ -177,8 +177,8 @@ function RoundsPanel({ at, ed, regions, onReload, say }: Props) {
     setPending(shown === null ? null : { round: r.id, matches: shown });
   };
   const action = pairAction(ed, open === null ? null : shownOf(open));
-  const free = open === null ? [] : unpaired(ed.entrants, { matches: shownOf(open) });
-  const counts = pairCounts(ed.entrants, open === null ? [] : shownOf(open));
+  const free = open === null ? [] : unpaired(ed.entrants, { number: open.number, matches: shownOf(open) });
+  const counts = pairCounts(ed.entrants, open === null ? { number: 0, matches: [] } : { number: open.number, matches: shownOf(open) });
   // openSwiss is the round whose counts and unpaired players show; listingUnpaired, while its Unpaired view is chosen.
   const openSwiss = (r: AdminBlitzRound) => r.id === open?.id && r.kind === 'swiss';
   const listingUnpaired = (r: AdminBlitzRound) => openSwiss(r) && roundView === 'unpaired';
@@ -331,7 +331,7 @@ function RoundsPanel({ at, ed, regions, onReload, say }: Props) {
               {openSwiss(r) && (
                 <>
                   <p className="muted round-counts">
-                    {counts.paired} paired · {counts.unpaired} unpaired
+                    {counts.paired} paired · {counts.unpaired} unpaired{counts.skipping > 0 && ` · ${counts.skipping} skipping`}
                   </p>
                   <div className="format-bar round-view">
                     <Segmented<RoundView>
@@ -472,13 +472,31 @@ function RoundsPanel({ at, ed, regions, onReload, say }: Props) {
   );
 }
 
-/** EntrantsPanel lists every entrant with what admin knows of them, and edits, drops, reinstates or removes one. */
+/** EntrantsPanel lists every entrant with what admin knows of them and where they stand in the newest round, and edits one, or removes, drops, reinstates one or has them skip the next round. */
 function EntrantsPanel({ at, ed, regions, countries, onReload, say }: Props) {
-  const buttons = (e: AdminBlitzEntrant) => entrantButtons(e, ed.rounds);
+  const actions = (e: AdminBlitzEntrant) => entrantActions(e, ed);
+  const nameOf = (id: number) => ed.entrants.find((x) => x.id === id)?.name ?? `entrant ${id}`;
   const [editing, setEditing] = useState<{ id: number; discord_name: string; email: string; country: string; zone: string } | null>(null);
   const change = async (e: AdminBlitzEntrant, status: AdminBlitzEntrant['status']) => {
     const r = await req.send(req.setBlitzEntrant(at.slug, at.edition, e.id, { status }));
-    say(r.ok ? `${e.name} is ${status}.` : r.message);
+    say(r.ok ? `${e.name} is ${status === 'active' ? 'in again' : 'dropped'}.` : r.message);
+    await onReload();
+  };
+  const reinstate = async (e: AdminBlitzEntrant) => {
+    if (e.status === 'dropped') {
+      await change(e, 'active');
+      return;
+    }
+    const r = await req.send(req.unskipBlitzRound(at.slug, at.edition, e.id));
+    say(r.ok ? `${e.name} plays the next round after all.` : r.message);
+    await onReload();
+  };
+  const skip = async (e: AdminBlitzEntrant, round: number) => {
+    const left = leftUnpaired(e.id, ed.rounds.filter((r) => r.number === round)).map(nameOf);
+    const unpaired = left.length === 0 ? '' : ` ${left.join(' and ')} will be unpaired.`;
+    if (!window.confirm(`${e.name} skips round ${round}, scoring the edition's skip points for it?${unpaired}`)) return;
+    const r = await req.send(req.skipBlitzRound(at.slug, at.edition, e.id));
+    say(r.ok ? `${e.name} skips round ${round}.${left.length === 0 ? '' : ` ${left.join(' and ')} ${left.length === 1 ? 'is' : 'are'} unpaired now: Pair fills them in.`}` : r.message);
     await onReload();
   };
   const save = async (e: FormEvent) => {
@@ -506,7 +524,9 @@ function EntrantsPanel({ at, ed, regions, countries, onReload, say }: Props) {
         A name the ratings know is shown in their spelling, with the 2-player rating of the current run. Everyone
         entered is on the site at once. Drop someone who withdrew once they have played: their results stand and they
         are not paired again. Remove someone who has not played, such as a sign-up who did not confirm: they come out
-        of the round they are paired in.
+        of the round they are paired in. Skip leaves someone out of the next Swiss round only, scoring the
+        edition&apos;s skip points for it (out of a draft too, leaving their opponent unpaired); Reinstate undoes it until
+        that round is published. Skips counts the rounds skipped, the next one included.
       </p>
       {ed.entrants.length === 0 && <p className="muted">No entrants yet.</p>}
       {ed.entrants.length > 0 && (
@@ -522,6 +542,7 @@ function EntrantsPanel({ at, ed, regions, countries, onReload, say }: Props) {
                 <th scope="col">Time zone</th>
                 <th scope="col">Rating</th>
                 <th scope="col">Status</th>
+                <th scope="col">Skips</th>
                 <th scope="col">
                   <span className="visually-hidden">Actions</span>
                 </th>
@@ -551,7 +572,8 @@ function EntrantsPanel({ at, ed, regions, countries, onReload, say }: Props) {
                       <ZonePick label={`Time zone of ${e.name}`} hideLabel regions={regions} value={editing.zone} onChange={(zone) => setEditing({ ...editing, zone })} />
                     </td>
                     <td>{e.rating === null ? '–' : Math.round(e.rating)}</td>
-                    <td>{e.status}</td>
+                    <td>{entrantState(e, ed.rounds, nameOf)}</td>
+                    <td>{e.skips.length}</td>
                     <td className="run-buttons">
                       <button type="button" className="btn-antique" onClick={(ev) => void save(ev)}>
                         Save
@@ -574,19 +596,30 @@ function EntrantsPanel({ at, ed, regions, countries, onReload, say }: Props) {
                       {e.zone} <span className="muted">{offsetLabel(e.utc_offset)}</span>
                     </td>
                     <td>{e.rating === null ? '–' : Math.round(e.rating)}</td>
-                    <td>{e.status}</td>
+                    <td>{entrantState(e, ed.rounds, nameOf)}</td>
+                    <td>{e.skips.length}</td>
                     <td className="run-buttons">
                       <button type="button" className="btn-antique" onClick={() => setEditing({ id: e.id, discord_name: e.discord_name, email: e.email, country: e.country ?? '', zone: e.zone })}>
                         Edit
                       </button>
-                      {buttons(e).drop !== null && (
-                        <button type="button" className="btn-antique" onClick={() => void change(e, e.status === 'dropped' ? 'active' : 'dropped')}>
-                          {buttons(e).drop === 'reinstate' ? 'Reinstate' : 'Drop'}
+                      {actions(e).action === 'reinstate' && (
+                        <button type="button" className="btn-antique" onClick={() => void reinstate(e)}>
+                          Reinstate
                         </button>
                       )}
-                      {buttons(e).remove !== null && (
+                      {actions(e).action === 'drop' && (
+                        <button type="button" className="btn-antique" onClick={() => void change(e, 'dropped')}>
+                          Drop
+                        </button>
+                      )}
+                      {actions(e).action === 'remove' && (
                         <button type="button" className="btn-antique" onClick={() => void remove(e)}>
                           Remove
+                        </button>
+                      )}
+                      {actions(e).skip !== null && (
+                        <button type="button" className="btn-antique" onClick={() => void skip(e, actions(e).skip as number)}>
+                          Skip R{actions(e).skip}
                         </button>
                       )}
                     </td>

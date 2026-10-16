@@ -79,6 +79,10 @@ type Admins interface {
 	People(ctx context.Context, q string, limit int) ([]store.Candidate, error)
 	BlitzCandidates(ctx context.Context, slug, edition, q string, limit int) ([]store.Candidate, error)
 	RemoveBlitzEntrant(ctx context.Context, slug, edition string, id int64) error
+	// SkipBlitzRound has an entrant sit out the next Swiss round and returns its number; UnskipBlitzRound undoes a
+	// skip of a round not yet published.
+	SkipBlitzRound(ctx context.Context, slug, edition string, id int64) (int, error)
+	UnskipBlitzRound(ctx context.Context, slug, edition string, id int64) error
 	// AddBlitzRound makes the edition's next round as a draft and returns it with its ids and number.
 	AddBlitzRound(ctx context.Context, slug, edition string, r store.BlitzRound) (store.BlitzRound, error)
 	SetBlitzRoundMatches(ctx context.Context, slug, edition string, roundID int64, matches []store.BlitzMatch) error

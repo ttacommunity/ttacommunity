@@ -58,7 +58,10 @@ func (s *server) adminBlitzEntrant(e store.BlitzEntrant, rated map[string]store.
 	// A stored zone was checked on the way in, so an error here is an unknown later zone: shown with no offset.
 	offset, _ := blitz.Offset(e.Zone, s.now())
 	out := AdminBlitzEntrant{Id: e.ID, Member: e.MemberID, Name: e.Name, Player: e.Player, DiscordName: e.DiscordName, Email: e.Email,
-		Country: nullableText(e.Country), Zone: e.Zone, UtcOffset: offset, Status: AdminBlitzEntrantStatus(e.Status)}
+		Country: nullableText(e.Country), Zone: e.Zone, UtcOffset: offset, Status: AdminBlitzEntrantStatus(e.Status), Skips: []int{}}
+	if e.Skips != nil {
+		out.Skips = e.Skips
+	}
 	if r, ok := rated[e.Player]; ok {
 		out.Rating = &r.Rating
 	}
@@ -226,7 +229,7 @@ func (s *server) PatchAdminBlitzEntrant(ctx context.Context, req PatchAdminBlitz
 		return PatchAdminBlitzEntrant404JSONResponse{notFound404("no such blitz edition")}, nil
 	case errors.Is(err, store.ErrNoBlitzEntrant):
 		return PatchAdminBlitzEntrant404JSONResponse{notFound404("no such entrant")}, nil
-	case errors.Is(err, store.ErrBlitzEntrantNotPlayed):
+	case errors.Is(err, store.ErrBlitzEntrantNotPlayed), errors.Is(err, store.ErrBlitzEntrantSkipping):
 		return PatchAdminBlitzEntrant409JSONResponse{conflict409(err.Error())}, nil
 	case err != nil:
 		return nil, err

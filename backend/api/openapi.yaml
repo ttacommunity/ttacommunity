@@ -2421,7 +2421,8 @@ paths:
       description: |
         Audited. The Origin must be the admin site. Only an entrant who has
         played (a match with a result, or a bye in a published round) is
-        dropped; one who has not is removed instead.
+        dropped; one who has not is removed instead. One skipping the next
+        round is reinstated first.
       parameters:
         - $ref: "#/components/parameters/AdminTournamentSlug"
         - $ref: "#/components/parameters/BlitzEditionLabel"
@@ -2462,6 +2463,64 @@ paths:
       responses:
         "204":
           description: Removed
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+  /v1/admin/blitz/{tournament}/{edition}/entrants/{entrant}/skip:
+    post:
+      operationId: postAdminBlitzSkip
+      tags: [admin]
+      summary: Have an entrant sit out the next Swiss round
+      description: |
+        Audited. The Origin must be the admin site. The next round is the
+        draft, or else the one after the latest; it must be a Swiss round.
+        The entrant is left out of its pairing and scores the edition's skip
+        points for it, then is paired again in the rounds after. When it is
+        a draft, they come out of their match in it, leaving their opponent
+        unpaired; a match with a result there is refused. A dropped entrant
+        is refused (they play no round). Skipping again changes nothing.
+      parameters:
+        - $ref: "#/components/parameters/AdminTournamentSlug"
+        - $ref: "#/components/parameters/BlitzEditionLabel"
+        - $ref: "#/components/parameters/BlitzEntrantId"
+      responses:
+        "201":
+          description: Skipping
+          headers:
+            Cache-Control:
+              $ref: "#/components/headers/CacheControl"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BlitzSkip"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+    delete:
+      operationId: deleteAdminBlitzSkip
+      tags: [admin]
+      summary: Undo an entrant's skip of a round not yet published
+      description: |
+        Audited. The Origin must be the admin site. The entrant plays the
+        round after all: Pair takes them in, or they are paired by hand when
+        it is a draft. The skip of a published round stays.
+      parameters:
+        - $ref: "#/components/parameters/AdminTournamentSlug"
+        - $ref: "#/components/parameters/BlitzEditionLabel"
+        - $ref: "#/components/parameters/BlitzEntrantId"
+      responses:
+        "204":
+          description: Undone
         "401":
           $ref: "#/components/responses/Unauthorized"
         "403":
@@ -3764,8 +3823,13 @@ components:
     BlitzRound:
       description: A published round as the site shows it
       type: object
-      required: [number, kind, published_at, matches]
+      required: [number, kind, published_at, matches, skipped]
       properties:
+        skipped:
+          description: Who sat the round out, by username, in sign-up order
+          type: array
+          items:
+            type: string
         number:
           type: integer
         kind:
@@ -4066,7 +4130,7 @@ components:
           type: integer
     AdminBlitzEntrant:
       type: object
-      required: [id, member, name, player, discord_name, email, country, zone, utc_offset, rating, status]
+      required: [id, member, name, player, discord_name, email, country, zone, utc_offset, rating, status, skips]
       properties:
         id:
           type: integer
@@ -4100,6 +4164,11 @@ components:
           description: Active is in; dropped is out of the rounds still to come, their results kept
           type: string
           enum: [active, dropped]
+        skips:
+          description: The rounds they skip or skipped, in order; one not yet published is the next round, which can be undone
+          type: array
+          items:
+            type: integer
     AdminBlitzEdition:
       type: object
       required: [tournament, name, edition, format, points, fide_points, entrants, rounds, standings, champion, organisers, thread_text]
@@ -4532,6 +4601,13 @@ components:
           maxItems: 500
           items:
             $ref: "#/components/schemas/NewBlitzEntrant"
+    BlitzSkip:
+      type: object
+      required: [round]
+      properties:
+        round:
+          description: The number of the round skipped
+          type: integer
     BlitzEntrantIds:
       type: object
       required: [ids]

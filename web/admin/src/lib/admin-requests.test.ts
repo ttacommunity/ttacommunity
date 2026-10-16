@@ -28,6 +28,8 @@ describe('admin requests', () => {
     ['entrants to add, to an edition to escape', req.addBlitzEntrants('us_open', 'Season 1', [{ name: 'a', discord_name: 'b', zone: 'UTC' }]), '/api/blitz/us_open/Season%201/entrants', 'POST', { entrants: [{ name: 'a', discord_name: 'b', zone: 'UTC' }] }],
     ['an entrant dropped', req.setBlitzEntrant('us_open', '2026', 7, { status: 'dropped' }), '/api/blitz/us_open/2026/entrants/7', 'PATCH', { status: 'dropped' }],
     ['removing an entrant', req.removeBlitzEntrant('us_open', '2026', 7), '/api/blitz/us_open/2026/entrants/7', 'DELETE', undefined],
+    ['an entrant skipping the next round', req.skipBlitzRound('us_open', '2026', 7), '/api/blitz/us_open/2026/entrants/7/skip', 'POST', undefined],
+    ['undoing a skip', req.unskipBlitzRound('us_open', '2026', 7), '/api/blitz/us_open/2026/entrants/7/skip', 'DELETE', undefined],
     ['replacing a knockout player', req.replaceBlitzPlayer('us_open', '2026', 102, 1020, { out: 7, in: 11 }), '/api/blitz/us_open/2026/rounds/102/matches/1020/replacement', 'PUT', { out: 7, in: 11 }],
     ['a blitz format', req.setBlitzFormat('us_open', '2026', { swiss_rounds: 6, knockout_size: 4 }), '/api/blitz/us_open/2026', 'PATCH', { swiss_rounds: 6, knockout_size: 4 }],
     ["an edition's points", req.setBlitzPoints('us_open', '2026', { win: 3, draw: 1, loss: 0, forfeit_win: 3, forfeit_loss: 0, bye: 3, skip: 0 }), '/api/blitz/us_open/2026/points', 'PUT', { win: 3, draw: 1, loss: 0, forfeit_win: 3, forfeit_loss: 0, bye: 3, skip: 0 }],

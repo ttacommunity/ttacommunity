@@ -144,7 +144,7 @@ func (a *AdminStore) SetBlitzRoundDeadline(ctx context.Context, slug, edition st
 		if err != nil {
 			return err
 		}
-		if _, err := blitzRoundKind(ctx, tx, id, roundID); err != nil {
+		if _, _, err := blitzRoundOf(ctx, tx, id, roundID); err != nil {
 			return err
 		}
 		var games, decided int

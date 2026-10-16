@@ -918,6 +918,9 @@ type AdminBlitzEntrant struct {
 	Player string   `json:"player"`
 	Rating *float64 `json:"rating"`
 
+	// Skips The rounds they skip or skipped, in order; one not yet published is the next round, which can be undone
+	Skips []int `json:"skips"`
+
 	// Status Active is in; dropped is out of the rounds still to come, their results kept
 	Status    AdminBlitzEntrantStatus `json:"status"`
 	UtcOffset string                  `json:"utc_offset"`
@@ -1527,6 +1530,9 @@ type BlitzRound struct {
 	Matches     []BlitzPublicMatch `json:"matches"`
 	Number      int                `json:"number"`
 	PublishedAt time.Time          `json:"published_at"`
+
+	// Skipped Who sat the round out, by username, in sign-up order
+	Skipped []string `json:"skipped"`
 }
 
 // BlitzRoundKind A Swiss round, or a knockout round (its matches in bracket order)
@@ -1543,6 +1549,12 @@ type BlitzRuling struct {
 
 	// Result Who won, a draw, or a double loss
 	Result BlitzResult `json:"result"`
+}
+
+// BlitzSkip defines model for BlitzSkip.
+type BlitzSkip struct {
+	// Round The number of the round skipped
+	Round int `json:"round"`
 }
 
 // BlitzStanding One row of the standings
@@ -3540,6 +3552,12 @@ type ServerInterface interface {
 	// PatchAdminBlitzEntrant Change an entrant's Discord name, time zone or status (active or dropped)
 	// (PATCH /v1/admin/blitz/{tournament}/{edition}/entrants/{entrant})
 	PatchAdminBlitzEntrant(w http.ResponseWriter, r *http.Request, tournament AdminTournamentSlug, edition BlitzEditionLabel, entrant BlitzEntrantId)
+	// DeleteAdminBlitzSkip Undo an entrant's skip of a round not yet published
+	// (DELETE /v1/admin/blitz/{tournament}/{edition}/entrants/{entrant}/skip)
+	DeleteAdminBlitzSkip(w http.ResponseWriter, r *http.Request, tournament AdminTournamentSlug, edition BlitzEditionLabel, entrant BlitzEntrantId)
+	// PostAdminBlitzSkip Have an entrant sit out the next Swiss round
+	// (POST /v1/admin/blitz/{tournament}/{edition}/entrants/{entrant}/skip)
+	PostAdminBlitzSkip(w http.ResponseWriter, r *http.Request, tournament AdminTournamentSlug, edition BlitzEditionLabel, entrant BlitzEntrantId)
 	// PostAdminBlitzOrganiser Add a member as an organiser of a blitz edition
 	// (POST /v1/admin/blitz/{tournament}/{edition}/organisers)
 	PostAdminBlitzOrganiser(w http.ResponseWriter, r *http.Request, tournament AdminTournamentSlug, edition BlitzEditionLabel)
@@ -4214,6 +4232,94 @@ func (siw *ServerInterfaceWrapper) PatchAdminBlitzEntrant(w http.ResponseWriter,
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.PatchAdminBlitzEntrant(w, r, tournament, edition, entrant)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// DeleteAdminBlitzSkip operation middleware
+func (siw *ServerInterfaceWrapper) DeleteAdminBlitzSkip(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "tournament" -------------
+	var tournament AdminTournamentSlug
+
+	err = runtime.BindStyledParameterWithOptions("simple", "tournament", r.PathValue("tournament"), &tournament, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "tournament", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "edition" -------------
+	var edition BlitzEditionLabel
+
+	err = runtime.BindStyledParameterWithOptions("simple", "edition", r.PathValue("edition"), &edition, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "edition", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "entrant" -------------
+	var entrant BlitzEntrantId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "entrant", r.PathValue("entrant"), &entrant, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "integer", Format: "int64", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "entrant", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.DeleteAdminBlitzSkip(w, r, tournament, edition, entrant)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// PostAdminBlitzSkip operation middleware
+func (siw *ServerInterfaceWrapper) PostAdminBlitzSkip(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "tournament" -------------
+	var tournament AdminTournamentSlug
+
+	err = runtime.BindStyledParameterWithOptions("simple", "tournament", r.PathValue("tournament"), &tournament, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "tournament", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "edition" -------------
+	var edition BlitzEditionLabel
+
+	err = runtime.BindStyledParameterWithOptions("simple", "edition", r.PathValue("edition"), &edition, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "edition", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "entrant" -------------
+	var entrant BlitzEntrantId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "entrant", r.PathValue("entrant"), &entrant, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "integer", Format: "int64", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "entrant", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.PostAdminBlitzSkip(w, r, tournament, edition, entrant)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -7268,6 +7374,8 @@ func HandlerWithOptions(si ServerInterface, options StdHTTPServerOptions) http.H
 	m.HandleFunc(http.MethodPut+" "+options.BaseURL+"/v1/admin/blitz/{tournament}/{edition}/rounds/{round}/matches/{match}/ruling", wrapper.PutAdminBlitzMatchRuling)
 	m.HandleFunc(http.MethodDelete+" "+options.BaseURL+"/v1/admin/blitz/{tournament}/{edition}/entrants/{entrant}", wrapper.DeleteAdminBlitzEntrant)
 	m.HandleFunc(http.MethodPatch+" "+options.BaseURL+"/v1/admin/blitz/{tournament}/{edition}/entrants/{entrant}", wrapper.PatchAdminBlitzEntrant)
+	m.HandleFunc(http.MethodDelete+" "+options.BaseURL+"/v1/admin/blitz/{tournament}/{edition}/entrants/{entrant}/skip", wrapper.DeleteAdminBlitzSkip)
+	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/v1/admin/blitz/{tournament}/{edition}/entrants/{entrant}/skip", wrapper.PostAdminBlitzSkip)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/v1/admin/blitz/{tournament}/{edition}/organisers", wrapper.PostAdminBlitzOrganiser)
 	m.HandleFunc(http.MethodDelete+" "+options.BaseURL+"/v1/admin/blitz/{tournament}/{edition}/organisers/{member}", wrapper.DeleteAdminBlitzOrganiser)
 	m.HandleFunc(http.MethodDelete+" "+options.BaseURL+"/v1/admin/blitz/{tournament}/{edition}/points", wrapper.DeleteAdminBlitzPoints)
@@ -8501,6 +8609,176 @@ func (response PatchAdminBlitzEntrant404JSONResponse) VisitPatchAdminBlitzEntran
 type PatchAdminBlitzEntrant409JSONResponse struct{ ConflictJSONResponse }
 
 func (response PatchAdminBlitzEntrant409JSONResponse) VisitPatchAdminBlitzEntrantResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(409)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DeleteAdminBlitzSkipRequestObject struct {
+	Tournament AdminTournamentSlug `json:"tournament"`
+	Edition    BlitzEditionLabel   `json:"edition"`
+	Entrant    BlitzEntrantId      `json:"entrant"`
+}
+
+type DeleteAdminBlitzSkipResponseObject interface {
+	VisitDeleteAdminBlitzSkipResponse(w http.ResponseWriter) error
+}
+
+type DeleteAdminBlitzSkip204Response struct {
+}
+
+func (response DeleteAdminBlitzSkip204Response) VisitDeleteAdminBlitzSkipResponse(w http.ResponseWriter) error {
+	w.WriteHeader(204)
+	return nil
+}
+
+type DeleteAdminBlitzSkip401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response DeleteAdminBlitzSkip401JSONResponse) VisitDeleteAdminBlitzSkipResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DeleteAdminBlitzSkip403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response DeleteAdminBlitzSkip403JSONResponse) VisitDeleteAdminBlitzSkipResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DeleteAdminBlitzSkip404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response DeleteAdminBlitzSkip404JSONResponse) VisitDeleteAdminBlitzSkipResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DeleteAdminBlitzSkip409JSONResponse struct{ ConflictJSONResponse }
+
+func (response DeleteAdminBlitzSkip409JSONResponse) VisitDeleteAdminBlitzSkipResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(409)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PostAdminBlitzSkipRequestObject struct {
+	Tournament AdminTournamentSlug `json:"tournament"`
+	Edition    BlitzEditionLabel   `json:"edition"`
+	Entrant    BlitzEntrantId      `json:"entrant"`
+}
+
+type PostAdminBlitzSkipResponseObject interface {
+	VisitPostAdminBlitzSkipResponse(w http.ResponseWriter) error
+}
+
+type PostAdminBlitzSkip201ResponseHeaders struct {
+	CacheControl string
+}
+
+type PostAdminBlitzSkip201JSONResponse struct {
+	Body    BlitzSkip
+	Headers PostAdminBlitzSkip201ResponseHeaders
+}
+
+func (response PostAdminBlitzSkip201JSONResponse) VisitPostAdminBlitzSkipResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(201)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PostAdminBlitzSkip401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response PostAdminBlitzSkip401JSONResponse) VisitPostAdminBlitzSkipResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PostAdminBlitzSkip403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response PostAdminBlitzSkip403JSONResponse) VisitPostAdminBlitzSkipResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PostAdminBlitzSkip404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response PostAdminBlitzSkip404JSONResponse) VisitPostAdminBlitzSkipResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PostAdminBlitzSkip409JSONResponse struct{ ConflictJSONResponse }
+
+func (response PostAdminBlitzSkip409JSONResponse) VisitPostAdminBlitzSkipResponse(w http.ResponseWriter) error {
 
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
@@ -14090,6 +14368,12 @@ type StrictServerInterface interface {
 	// PatchAdminBlitzEntrant Change an entrant's Discord name, time zone or status (active or dropped)
 	// (PATCH /v1/admin/blitz/{tournament}/{edition}/entrants/{entrant})
 	PatchAdminBlitzEntrant(ctx context.Context, request PatchAdminBlitzEntrantRequestObject) (PatchAdminBlitzEntrantResponseObject, error)
+	// DeleteAdminBlitzSkip Undo an entrant's skip of a round not yet published
+	// (DELETE /v1/admin/blitz/{tournament}/{edition}/entrants/{entrant}/skip)
+	DeleteAdminBlitzSkip(ctx context.Context, request DeleteAdminBlitzSkipRequestObject) (DeleteAdminBlitzSkipResponseObject, error)
+	// PostAdminBlitzSkip Have an entrant sit out the next Swiss round
+	// (POST /v1/admin/blitz/{tournament}/{edition}/entrants/{entrant}/skip)
+	PostAdminBlitzSkip(ctx context.Context, request PostAdminBlitzSkipRequestObject) (PostAdminBlitzSkipResponseObject, error)
 	// PostAdminBlitzOrganiser Add a member as an organiser of a blitz edition
 	// (POST /v1/admin/blitz/{tournament}/{edition}/organisers)
 	PostAdminBlitzOrganiser(ctx context.Context, request PostAdminBlitzOrganiserRequestObject) (PostAdminBlitzOrganiserResponseObject, error)
@@ -14819,6 +15103,62 @@ func (sh *strictHandler) PatchAdminBlitzEntrant(w http.ResponseWriter, r *http.R
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(PatchAdminBlitzEntrantResponseObject); ok {
 		if err := validResponse.VisitPatchAdminBlitzEntrantResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// DeleteAdminBlitzSkip operation middleware
+func (sh *strictHandler) DeleteAdminBlitzSkip(w http.ResponseWriter, r *http.Request, tournament AdminTournamentSlug, edition BlitzEditionLabel, entrant BlitzEntrantId) {
+	var request DeleteAdminBlitzSkipRequestObject
+
+	request.Tournament = tournament
+	request.Edition = edition
+	request.Entrant = entrant
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.DeleteAdminBlitzSkip(ctx, request.(DeleteAdminBlitzSkipRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "DeleteAdminBlitzSkip")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(DeleteAdminBlitzSkipResponseObject); ok {
+		if err := validResponse.VisitDeleteAdminBlitzSkipResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// PostAdminBlitzSkip operation middleware
+func (sh *strictHandler) PostAdminBlitzSkip(w http.ResponseWriter, r *http.Request, tournament AdminTournamentSlug, edition BlitzEditionLabel, entrant BlitzEntrantId) {
+	var request PostAdminBlitzSkipRequestObject
+
+	request.Tournament = tournament
+	request.Edition = edition
+	request.Entrant = entrant
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.PostAdminBlitzSkip(ctx, request.(PostAdminBlitzSkipRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "PostAdminBlitzSkip")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(PostAdminBlitzSkipResponseObject); ok {
+		if err := validResponse.VisitPostAdminBlitzSkipResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {

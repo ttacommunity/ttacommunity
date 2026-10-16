@@ -1663,9 +1663,42 @@ export interface paths {
          * Change an entrant's Discord name, time zone or status (active or dropped)
          * @description Audited. The Origin must be the admin site. Only an entrant who has
          *     played (a match with a result, or a bye in a published round) is
-         *     dropped; one who has not is removed instead.
+         *     dropped; one who has not is removed instead. One skipping the next
+         *     round is reinstated first.
          */
         patch: operations["patchAdminBlitzEntrant"];
+        trace?: never;
+    };
+    "/v1/admin/blitz/{tournament}/{edition}/entrants/{entrant}/skip": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Have an entrant sit out the next Swiss round
+         * @description Audited. The Origin must be the admin site. The next round is the
+         *     draft, or else the one after the latest; it must be a Swiss round.
+         *     The entrant is left out of its pairing and scores the edition's skip
+         *     points for it, then is paired again in the rounds after. When it is
+         *     a draft, they come out of their match in it, leaving their opponent
+         *     unpaired; a match with a result there is refused. A dropped entrant
+         *     is refused (they play no round). Skipping again changes nothing.
+         */
+        post: operations["postAdminBlitzSkip"];
+        /**
+         * Undo an entrant's skip of a round not yet published
+         * @description Audited. The Origin must be the admin site. The entrant plays the
+         *     round after all: Pair takes them in, or they are paired by hand when
+         *     it is a draft. The skip of a published round stays.
+         */
+        delete: operations["deleteAdminBlitzSkip"];
+        options?: never;
+        head?: never;
+        patch?: never;
         trace?: never;
     };
     "/v1/admin/blitz/{tournament}/{edition}/organisers": {
@@ -2286,6 +2319,8 @@ export interface components {
         };
         /** @description A published round as the site shows it */
         BlitzRound: {
+            /** @description Who sat the round out, by username, in sign-up order */
+            skipped: string[];
             number: number;
             /**
              * @description A Swiss round, or a knockout round (its matches in bracket order)
@@ -2499,6 +2534,8 @@ export interface components {
              * @enum {string}
              */
             status: "active" | "dropped";
+            /** @description The rounds they skip or skipped, in order; one not yet published is the next round, which can be undone */
+            skips: number[];
         };
         AdminBlitzEdition: {
             points: components["schemas"]["BlitzPoints"];
@@ -2727,6 +2764,10 @@ export interface components {
         };
         NewBlitzEntrants: {
             entrants: components["schemas"]["NewBlitzEntrant"][];
+        };
+        BlitzSkip: {
+            /** @description The number of the round skipped */
+            round: number;
         };
         BlitzEntrantIds: {
             /** @description The new entrants' ids, in the order given */
@@ -6371,6 +6412,65 @@ export interface operations {
                 content?: never;
             };
             400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+        };
+    };
+    postAdminBlitzSkip: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The tournament's slug */
+                tournament: components["parameters"]["AdminTournamentSlug"];
+                /** @description The edition's label, as admin lists it (a season) */
+                edition: components["parameters"]["BlitzEditionLabel"];
+                entrant: components["parameters"]["BlitzEntrantId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Skipping */
+            201: {
+                headers: {
+                    "Cache-Control": components["headers"]["CacheControl"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BlitzSkip"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+        };
+    };
+    deleteAdminBlitzSkip: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The tournament's slug */
+                tournament: components["parameters"]["AdminTournamentSlug"];
+                /** @description The edition's label, as admin lists it (a season) */
+                edition: components["parameters"]["BlitzEditionLabel"];
+                entrant: components["parameters"]["BlitzEntrantId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Undone */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];

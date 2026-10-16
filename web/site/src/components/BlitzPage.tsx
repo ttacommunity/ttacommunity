@@ -5,7 +5,7 @@ import type { components } from '@ttac/shared/api';
 import { formatLabel, reachedLabel, scoringSentence, zoneLabel } from '@ttac/shared/blitz';
 import BackLink from '@ttac/shared/BackLink';
 import SubTabs from '@ttac/shared/SubTabs';
-import { blitzGames, editionHref, editionParams, editionViews, ratingText, roundOptions, splitRounds, type BlitzGamesFilter, type EditionView } from '../lib/blitz';
+import { blitzGames, editionHref, editionParams, editionViews, notPlaying, ratingText, roundOptions, splitRounds, type BlitzGamesFilter, type EditionView } from '../lib/blitz';
 import { gamesTag } from '../lib/games-table';
 import GamesTable, { GamesPages } from './GamesTable';
 import PlayerPicker from './PlayerPicker';
@@ -333,6 +333,11 @@ function PairingsPanel({ ed, swiss }: { ed: BlitzEdition; swiss: BlitzRound[] })
       </p>
       <GamesTable caption="The games these filters keep, latest round first" context="Round" rows={games.rows} empty="No games match these filters." />
       <GamesPages page={games.page} pages={games.pages} onPage={(page) => narrow({ page })} />
+      {notPlaying(swiss, filter.round, ed.format).map((r) => (
+        <p key={r.round} className="blitz-intro">
+          Not playing in {r.round}: {r.names.join(', ')}.
+        </p>
+      ))}
     </section>
   );
 }

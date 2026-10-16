@@ -298,6 +298,35 @@ func TestBuchholzUsesTheEditionsPoints(t *testing.T) {
 	}
 }
 
+func TestASkippedRoundScoresTheSkipPoints(t *testing.T) {
+	skipOne := blitz.FIDEScoring
+	skipOne.Skip = 1
+	twoRounds := []blitz.Played{game(1, 1, 2, blitz.WinA), game(1, 3, 4, blitz.WinA), game(2, 3, 1, blitz.WinA), bye(2, 4)}
+	threeRounds := append(slices.Clone(twoRounds), game(3, 1, 4, blitz.WinA), game(3, 3, 2, blitz.WinA))
+	tests := []struct {
+		name             string
+		scoring          blitz.Scoring
+		matches          []blitz.Played
+		of               int64
+		points, buchholz float64
+	}{
+		{"FIDE's skip scores nothing, and counts for Buchholz as a dummy on the player's score", blitz.FIDEScoring, threeRounds, 2, 0, 5},
+		{"the edition's skip points", skipOne, threeRounds, 2, 1, 6},
+		{"an opponent's skip counts as it scored once they play again", skipOne, threeRounds, 1, 2, 5},
+		{"an opponent's skip in the latest round counts as a draw instead", skipOne, twoRounds, 1, 1, 2.5},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			entrants := []blitz.Entrant{{ID: 1}, {ID: 2, Skipped: []int{2}}, {ID: 3}, {ID: 4}}
+			for _, s := range blitz.Standings(entrants, tt.matches, 4, 1, tt.scoring) {
+				if s.ID == tt.of && (s.Points != tt.points || s.Buchholz != tt.buchholz) {
+					t.Errorf("player %d: points %g, Buchholz %g; want %g and %g", s.ID, s.Points, s.Buchholz, tt.points, tt.buchholz)
+				}
+			}
+		})
+	}
+}
+
 func TestCheckScoringRefusesPointsOutOfRangeOrOrder(t *testing.T) {
 	with := func(change func(*blitz.Scoring)) blitz.Scoring {
 		s := blitz.FIDEScoring

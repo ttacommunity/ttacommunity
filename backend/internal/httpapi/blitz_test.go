@@ -183,6 +183,29 @@ func TestTheSiteStandingsTellAForfeitFromAGame(t *testing.T) {
 	}
 }
 
+func TestTheSiteListsWhoSkippedEachRound(t *testing.T) {
+	ratings := &fakeRatings{run: store.PublishedRun{ID: 7}}
+	ed, _ := ratings.BlitzEdition(context.Background(), "us_open", "2026")
+	ed.Points.Skip = 0.5
+	ed.Entrants = append(ed.Entrants, store.BlitzEntrant{ID: 9, MemberID: 1009, Name: "Cy", Zone: "UTC", Status: "active", Skips: []int{1, 2}})
+	ratings.blitzEdition = &ed
+	rec, _ := serve(t, ratings, "/v1/blitz/us_open/2026")
+	if rec.Code != http.StatusOK {
+		t.Fatalf("GET /v1/blitz/us_open/2026 = %d %s", rec.Code, rec.Body)
+	}
+	wantJSON(t, rec.Body.Bytes(), "rounds.0.skipped", `["Cy"]`)
+	wantJSON(t, rec.Body.Bytes(), "rounds.1.skipped", `["Cy"]`)
+	var got BlitzEdition
+	if err := json.Unmarshal(rec.Body.Bytes(), &got); err != nil {
+		t.Fatal(err)
+	}
+	for _, s := range got.Standings {
+		if s.Name == "Cy" && s.Points != 1 {
+			t.Errorf("Cy, who skipped both rounds = %g points, want the edition's 0.5 for each", s.Points)
+		}
+	}
+}
+
 func TestTheSiteScoresByTheEditionsPoints(t *testing.T) {
 	tests := []struct {
 		name     string

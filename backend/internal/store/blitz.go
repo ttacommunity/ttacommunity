@@ -40,11 +40,13 @@ type BlitzEditionRow struct {
 
 // BlitzEntrant is one sign-up: a member in an edition. Name, Player (the ratings' spelling, "" for a player
 // they do not know), DiscordName, Email, Zone and Country are the member's; DiscordName and Email are "" when
-// read for the site. Status is active (in) or dropped; an entrant is added active. To add one, give MemberID
-// (with any details to save on the member), or a Name with the details a new member needs.
+// read for the site. Status is active (in) or dropped; an entrant is added active. Skips are the rounds they
+// skip or skipped, in order (for the site, the published ones). To add one, give MemberID (with any details to
+// save on the member), or a Name with the details a new member needs.
 type BlitzEntrant struct {
 	ID, MemberID                                            int64
 	Name, Player, DiscordName, Email, Zone, Country, Status string
+	Skips                                                   []int
 }
 
 // BlitzEdition is an edition with its entrants, in sign-up order, its rounds (the published ones, for the site)
@@ -174,6 +176,13 @@ func blitzEdition(ctx context.Context, db conn, public bool, slug, edition strin
 	})
 	if err != nil {
 		return BlitzEdition{}, fmt.Errorf("reading %s %s's entrants: %w", slug, edition, err)
+	}
+	skips, err := blitzSkips(ctx, db, public, slug, edition)
+	if err != nil {
+		return BlitzEdition{}, err
+	}
+	for i := range got.Entrants {
+		got.Entrants[i].Skips = skips[got.Entrants[i].ID]
 	}
 	if got.Rounds, err = blitzRounds(ctx, db, public, slug, edition); err != nil {
 		return BlitzEdition{}, err
@@ -451,8 +460,9 @@ func (a *AdminStore) BlitzCandidates(ctx context.Context, slug, edition, q strin
 }
 
 // SetBlitzEntrant changes an entrant's status, or the member's Discord name, email, zone or country, or returns
-// ErrNoBlitzEdition, ErrNoBlitzEntrant, ErrBadBlitzStatus, ErrBadMember, or ErrBlitzEntrantNotPlayed for dropping
-// someone with no result and no bye in a published round.
+// ErrNoBlitzEdition, ErrNoBlitzEntrant, ErrBadBlitzStatus, ErrBadMember, or, for dropping, ErrBlitzEntrantNotPlayed
+// for someone with no result and no bye in a published round and ErrBlitzEntrantSkipping for someone skipping the
+// next round.
 func (a *AdminStore) SetBlitzEntrant(ctx context.Context, slug, edition string, id int64, c BlitzEntrantChange) error {
 	if c.Status != nil && !slices.Contains(blitzStatuses, *c.Status) {
 		return ErrBadBlitzStatus
@@ -475,6 +485,12 @@ func (a *AdminStore) SetBlitzEntrant(ctx context.Context, slug, edition string, 
 				if known {
 					return ErrBlitzEntrantNotPlayed
 				}
+			}
+			switch skipping, err := skippingNext(ctx, tx, edID, id); {
+			case err != nil:
+				return err
+			case skipping:
+				return ErrBlitzEntrantSkipping
 			}
 		}
 		var memberID int64

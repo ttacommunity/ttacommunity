@@ -5,6 +5,7 @@ package httpapi
 import (
 	"context"
 	"errors"
+	"slices"
 
 	"ttacommunity/backend/internal/blitz"
 	"ttacommunity/backend/internal/store"
@@ -49,21 +50,41 @@ func played(round int, m store.BlitzMatch) blitz.Played {
 	return p
 }
 
-// swissStandings ranks an edition's entrants by its published Swiss rounds' results, as its points score them,
-// and its tiebreak seed. The knockout's results never count: the standings after the last Swiss round are its seeds.
-func swissStandings(ed store.BlitzEdition) []blitz.Standing {
-	var entrants []blitz.Entrant
-	for _, e := range ed.Entrants {
-		entrants = append(entrants, blitz.Entrant{ID: e.ID, Dropped: e.Status == "dropped"})
+// skippers are the entrants who skip round number, in sign-up order.
+func skippers(entrants []store.BlitzEntrant, number int) []store.BlitzEntrant {
+	var out []store.BlitzEntrant
+	for _, e := range entrants {
+		if slices.Contains(e.Skips, number) {
+			out = append(out, e)
+		}
 	}
+	return out
+}
+
+// swissStandings ranks an edition's entrants by its published Swiss rounds' results and skips, as its points score
+// them, and its tiebreak seed. The knockout's results never count: the standings after the last Swiss round are its
+// seeds.
+func swissStandings(ed store.BlitzEdition) []blitz.Standing {
 	var matches []blitz.Played
+	published := map[int]bool{}
 	for _, r := range ed.Rounds {
 		if r.Kind == "knockout" || r.PublishedAt == nil {
 			continue
 		}
+		published[r.Number] = true
 		for _, m := range r.Matches {
 			matches = append(matches, played(r.Number, m))
 		}
+	}
+	var entrants []blitz.Entrant
+	for _, e := range ed.Entrants {
+		var skipped []int
+		for _, n := range e.Skips {
+			if published[n] {
+				skipped = append(skipped, n)
+			}
+		}
+		entrants = append(entrants, blitz.Entrant{ID: e.ID, Dropped: e.Status == "dropped", Skipped: skipped})
 	}
 	return blitz.Standings(entrants, matches, ed.Format.SwissRounds, uint64(ed.TiebreakSeed), ed.Points)
 }
@@ -141,7 +162,10 @@ func (s *server) GetBlitzEdition(ctx context.Context, req GetBlitzEditionRequest
 		return nil
 	}
 	for i, r := range ed.Rounds {
-		pr := BlitzRound{Number: r.Number, Kind: BlitzRoundKind(r.Kind), Matches: make([]BlitzPublicMatch, len(r.Matches))}
+		pr := BlitzRound{Number: r.Number, Kind: BlitzRoundKind(r.Kind), Matches: make([]BlitzPublicMatch, len(r.Matches)), Skipped: []string{}}
+		for _, e := range skippers(ed.Entrants, r.Number) {
+			pr.Skipped = append(pr.Skipped, e.Name)
+		}
 		if r.PublishedAt != nil {
 			pr.PublishedAt = *r.PublishedAt
 		}

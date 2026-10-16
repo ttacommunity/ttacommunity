@@ -70,6 +70,10 @@ export const replaceBlitzPlayer = (slug: string, edition: string, round: number,
   to(`${blitz(slug, edition)}/rounds/${round}/matches/${match}/replacement`, 'PUT', replacement);
 /** removeBlitzEntrant removes an entrant added by mistake. */
 export const removeBlitzEntrant = (slug: string, edition: string, id: number) => to(`${blitz(slug, edition)}/entrants/${id}`, 'DELETE');
+/** skipBlitzRound has an entrant sit out the next Swiss round. */
+export const skipBlitzRound = (slug: string, edition: string, id: number) => to(`${blitz(slug, edition)}/entrants/${id}/skip`, 'POST');
+/** unskipBlitzRound undoes an entrant's skip of a round not yet published. */
+export const unskipBlitzRound = (slug: string, edition: string, id: number) => to(`${blitz(slug, edition)}/entrants/${id}/skip`, 'DELETE');
 /** setBlitzFormat sets an edition's Swiss rounds and knockout size. */
 export const setBlitzFormat = (slug: string, edition: string, format: Schemas['BlitzFormat']) => to(blitz(slug, edition), 'PATCH', format);
 /** setBlitzPoints sets what each outcome of an edition is worth. */

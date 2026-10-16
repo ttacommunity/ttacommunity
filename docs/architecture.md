@@ -206,7 +206,11 @@ as they are, so a late entrant joins a round still in play. An entrant who
 has played (a result, or a bye in a published round) and withdraws is
 dropped: their results stand and they are not paired again. One who has
 not played is removed instead, coming out of the Swiss round they are
-paired in and leaving their opponent for Pair to fill in.
+paired in and leaving their opponent for Pair to fill in. An entrant may
+skip the next Swiss round (`blitz_skips`, by round number, so the round can
+be deleted and paired again without them): they are left out of its
+pairing and score the edition's skip points for it, and the site lists
+them under the round.
 
 **A result is a game.** A played game is written to `games` and `seats`
 under the edition's stage "Round N", from an `import_batches` row of

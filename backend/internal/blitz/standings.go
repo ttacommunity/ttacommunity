@@ -1,6 +1,6 @@
-// The standings of a Swiss tournament: points from results and byes as the edition scores them (FIDE's by default),
-// then the tie-breaks of FIDE's Swiss rules (Direct Encounter, then Buchholz with its handling of unplayed rounds),
-// then a draw from a seed.
+// The standings of a Swiss tournament: points from results, byes and skipped rounds as the edition scores them
+// (FIDE's by default), then the tie-breaks of FIDE's Swiss rules (Direct Encounter, then Buchholz with its handling
+// of unplayed rounds), then a draw from a seed.
 package blitz
 
 import (
@@ -27,10 +27,11 @@ const (
 // Results are the results a match can have.
 var Results = []Result{WinA, WinB, Draw, DoubleLoss}
 
-// Entrant is who the standings rank, and whether they have dropped out.
+// Entrant is who the standings rank, whether they have dropped out, and the rounds they skipped.
 type Entrant struct {
 	ID      int64
 	Dropped bool
+	Skipped []int
 }
 
 // Played is a match as the standings see it: its round, who met whom, how it ended, and whether it was a forfeit
@@ -93,14 +94,17 @@ func (s Scoring) points(m Played) (a, b float64, lostA, lostB bool) {
 	return 0, 0, false, false
 }
 
-// Standings ranks the entrants by points, as the scoring values each result and bye, then by the tie-breaks of
-// FIDE's regulations for Swiss tournaments: Direct Encounter, then Buchholz, with unplayed rounds as its Article 16
-// has them (rounds is the tournament's number of Swiss rounds); then by a draw from the seed, the same every time.
+// Standings ranks the entrants by points, as the scoring values each result, bye and skipped round, then by the
+// tie-breaks of FIDE's regulations for Swiss tournaments: Direct Encounter, then Buchholz, with unplayed rounds as its
+// Article 16 has them (rounds is the tournament's number of Swiss rounds); then by a draw from the seed, the same
+// every time.
 // Dropped players come last, their points kept. Ranks run 1, 2, 3…: a tie the draw broke reads like any other.
 func Standings(entrants []Entrant, matches []Played, rounds int, seed uint64, scoring Scoring) []Standing {
 	rows := map[int64]*Standing{}
+	skipped := map[int64][]int{}
 	for _, e := range entrants {
-		rows[e.ID] = &Standing{ID: e.ID, Dropped: e.Dropped}
+		rows[e.ID] = &Standing{ID: e.ID, Dropped: e.Dropped, Points: scoring.Skip * float64(len(e.Skipped))}
+		skipped[e.ID] = e.Skipped
 	}
 	paired := map[int64]map[int]bool{}
 	lostByForfeit := map[int64]map[int]bool{}
@@ -141,8 +145,8 @@ func Standings(entrants []Entrant, matches []Played, rounds int, seed uint64, sc
 	}
 	slices.Sort(played)
 
-	// An unpaired round is a zero-point bye. For the opponents' Buchholz it counts as a draw when only more such
-	// rounds or forfeit losses follow it (as after dropping out), else as the zero it scored.
+	// An unpaired round is a zero-point bye, or a skip worth the skip points. For the opponents' Buchholz it counts as
+	// a draw when only more such rounds or forfeit losses follow it (as after dropping out), else as what it scored.
 	missed, adjusted := map[int64]int{}, map[int64]float64{}
 	for id, row := range rows {
 		adjusted[id] = row.Points
@@ -151,7 +155,9 @@ func Standings(entrants []Entrant, matches []Played, rounds int, seed uint64, sc
 			switch {
 			case !paired[id][r]:
 				missed[id]++
-				if onlyUnplayedAfter {
+				if onlyUnplayedAfter && slices.Contains(skipped[id], r) {
+					adjusted[id] += scoring.Draw - scoring.Skip
+				} else if onlyUnplayedAfter {
 					adjusted[id] += scoring.Draw
 				}
 			case !lostByForfeit[id][r]:
