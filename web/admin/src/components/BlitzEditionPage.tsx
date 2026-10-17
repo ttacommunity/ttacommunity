@@ -760,7 +760,7 @@ function EditionSettings(props: Props) {
       </div>
       {!editing && (
         <>
-          <dl className="settings-list">
+          <dl className="settings-summary">
             {settingsRows(props.ed).map((r) => (
               <div key={r.key}>
                 <dt>{r.key}</dt>
