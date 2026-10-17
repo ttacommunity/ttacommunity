@@ -607,6 +607,29 @@
 .result-row .setting-inline {
   display: flex;
 }
+/* A ruling's results as radio buttons, one per line, each name wrapping beside its button rather than running off a phone. */
+.ruling-choices {
+  display: grid;
+  gap: 0.4rem;
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  color: var(--text-main);
+}
+.ruling-choices legend {
+  margin-bottom: 0.25rem;
+  padding: 0;
+  color: var(--text-soft);
+  font-size: 0.85rem;
+}
+.ruling-choices .setting-inline {
+  align-items: flex-start;
+}
+.ruling-choices input[type='radio'] {
+  flex: none;
+  margin-top: 0;
+}
 .form-row .result-form {
   position: sticky;
   left: 0;

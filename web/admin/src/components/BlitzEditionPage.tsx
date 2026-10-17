@@ -1207,22 +1207,23 @@ function ResultForm({ at, round, match, nameOf, regions, zone, onZone, onDone, o
         </>
       )}
       {kind === 'ruling' && (
-        <div className="result-row">
-          <label>
-            Ruling
-            <select className="input-antique" value={ruling.result} onChange={(e) => setRuling({ ...ruling, result: e.target.value as typeof ruling.result })}>
-              {choices.map((c) => (
-                <option key={c} value={c}>
-                  {rulingLabel(c, seededName(a, match.a_seed), seededName(b, match.b_seed), match.game !== null)}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label>
-            Reason
-            <input className="input-antique" value={ruling.reason} maxLength={1000} onChange={(e) => setRuling({ ...ruling, reason: e.target.value })} />
-          </label>
-        </div>
+        <>
+          <fieldset className="ruling-choices">
+            <legend>Ruling</legend>
+            {choices.map((c) => (
+              <label key={c} className="setting-inline">
+                <input type="radio" name={`ruling-${match.id}`} checked={ruling.result === c} onChange={() => setRuling({ ...ruling, result: c })} />
+                {rulingLabel(c, seededName(a, match.a_seed), seededName(b, match.b_seed), match.game !== null)}
+              </label>
+            ))}
+          </fieldset>
+          <div className="result-row">
+            <label>
+              Reason
+              <input className="input-antique" value={ruling.reason} maxLength={1000} onChange={(e) => setRuling({ ...ruling, reason: e.target.value })} />
+            </label>
+          </div>
+        </>
       )}
       <Notice outcome={refusal} onClose={() => setRefusal(null)} />
       <div className="result-row">
