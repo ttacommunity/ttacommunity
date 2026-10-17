@@ -1,21 +1,24 @@
 /** Titles set by hand, for admins: each replaces the engine's derived title from the next rating run. */
-import { useEffect, useState, type FormEvent } from 'react';
+import { Fragment, useEffect, useState, type FormEvent } from 'react';
 import type { components } from '@ttac/shared/api';
 import * as req from '../lib/admin-requests';
 import { adminRequest } from '../lib/admin-api';
+import { loadFailure, outcomeOf, shownAt, type Outcome } from '../lib/outcome';
+import Notice, { NoticeRow } from './Notice';
 import { ADMIN_TITLES, titleLabel, type AdminTitle } from '../lib/titles';
 
 type TitleOverride = components['schemas']['TitleOverride'];
 /** TitlesPanel lists the titles set in admin, and sets or removes one. */
 export default function TitlesPanel() {
   const [list, setList] = useState<TitleOverride[] | null>(null);
-  const [message, setMessage] = useState('');
+  const [outcome, setOutcome] = useState<Outcome | null>(null);
+  const close = () => setOutcome(null);
   const [form, setForm] = useState({ name: '', title: 'GM' as AdminTitle, reason: '' });
 
   const load = async () => {
     const r = await adminRequest<TitleOverride[]>('/api/titles', {});
     if (r.ok) setList(r.data);
-    else setMessage(r.message);
+    else setOutcome(loadFailure(r.message, 'titles'));
   };
   useEffect(() => {
     void load();
@@ -25,14 +28,14 @@ export default function TitlesPanel() {
     e.preventDefault();
     const name = form.name.trim();
     const r = await req.send(req.setTitle(name, form.title, form.reason));
-    setMessage(r.ok ? `Saved ${name}: ${titleLabel(form.title)}. It shows from the next rating run.` : r.message);
+    setOutcome(outcomeOf(r, `Saved ${name}: ${titleLabel(form.title)}. It shows from the next rating run.`, 'set title'));
     if (r.ok) setForm({ name: '', title: 'GM', reason: '' });
     await load();
   };
   const remove = async (o: TitleOverride) => {
     if (!window.confirm(`Remove the title set for ${o.name}? The next run derives it again.`)) return;
     const r = await req.send(req.clearTitle(o.name));
-    setMessage(r.ok ? `Removed ${o.name}'s title. The next run derives it again.` : r.message);
+    setOutcome(outcomeOf(r, `Removed ${o.name}'s title. The next run derives it again.`, `title ${o.name}`, 'titles'));
     await load();
   };
 
@@ -45,11 +48,7 @@ export default function TitlesPanel() {
         A title set here replaces the one the engine derives, from the next rating run. A player still needs a tournament
         game in the last 12 months to show a badge. World Champion comes from the World Championship's podium.
       </p>
-      {message !== '' && (
-        <p className="admin-message" role="status">
-          {message}
-        </p>
-      )}
+      <Notice outcome={shownAt(outcome, 'titles')} onClose={close} />
       {list !== null && list.length > 0 && (
         <div className="table-responsive">
           <table className="leaderboard-table admin-table">
@@ -66,16 +65,19 @@ export default function TitlesPanel() {
             </thead>
             <tbody>
               {list.map((o) => (
-                <tr key={o.name}>
-                  <th scope="row">{o.name}</th>
-                  <td>{titleLabel(o.title)}</td>
-                  <td>{o.reason}</td>
-                  <td>
-                    <button type="button" className="btn-antique" onClick={() => void remove(o)}>
-                      Remove
-                    </button>
-                  </td>
-                </tr>
+                <Fragment key={o.name}>
+                  <tr>
+                    <th scope="row">{o.name}</th>
+                    <td>{titleLabel(o.title)}</td>
+                    <td>{o.reason}</td>
+                    <td>
+                      <button type="button" className="btn-antique" onClick={() => void remove(o)}>
+                        Remove
+                      </button>
+                    </td>
+                  </tr>
+                  <NoticeRow outcome={shownAt(outcome, `title ${o.name}`)} columns={4} onClose={close} />
+                </Fragment>
               ))}
             </tbody>
           </table>
@@ -106,6 +108,7 @@ export default function TitlesPanel() {
           Set title
         </button>
       </form>
+      <Notice outcome={shownAt(outcome, 'set title')} onClose={close} />
     </section>
   );
 }

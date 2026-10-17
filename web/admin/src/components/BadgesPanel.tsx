@@ -4,36 +4,39 @@ import { useEffect, useState, type FormEvent } from 'react';
 import type { components } from '@ttac/shared/api';
 import * as req from '../lib/admin-requests';
 import { adminRequest } from '../lib/admin-api';
+import { loadFailure, outcomeOf, refused, shownAt, succeeded, type Outcome } from '../lib/outcome';
+import Notice from './Notice';
 
 type AdminBadge = components['schemas']['AdminBadge'];
 
-/** BadgeRow is one badge: its label and description to edit, its holders, and a box to give it to someone. */
-function BadgeRow({ badge, onReload, say }: { badge: AdminBadge; onReload: () => Promise<void>; say: (m: string) => void }) {
+/** BadgeRow is one badge: its label and description to edit, its holders, a box to give it to someone, and what became of the last change to it. */
+function BadgeRow({ badge, onReload, outcome, say }: { badge: AdminBadge; onReload: () => Promise<void>; outcome: Outcome | null; say: (o: Outcome | null) => void }) {
+  const at = `badge ${badge.id}`;
   const [label, setLabel] = useState(badge.label);
   const [description, setDescription] = useState(badge.description);
   const [player, setPlayer] = useState('');
   const save = async () => {
     const r = await req.send(req.setBadge(badge.id, label, description));
-    say(r.ok ? `Saved ${label.trim()}.` : r.message);
+    say(outcomeOf(r, `Saved ${label.trim()}.`, at));
     await onReload();
   };
   const remove = async () => {
     if (!window.confirm(`Remove the ${badge.label} badge from everyone who holds it?`)) return;
     const r = await req.send(req.removeBadge(badge.id));
-    say(r.ok ? `Removed the ${badge.label} badge.` : r.message);
+    say(outcomeOf(r, `Removed the ${badge.label} badge.`, at, 'badges'));
     await onReload();
   };
   const give = async (e: FormEvent) => {
     e.preventDefault();
     const name = player.trim();
     const r = await req.send(req.giveBadge(badge, name));
-    say(r.ok ? `Gave ${name} the ${badge.label} badge.` : r.message);
+    say(outcomeOf(r, `Gave ${name} the ${badge.label} badge.`, at));
     if (r.ok) setPlayer('');
     await onReload();
   };
   const take = async (name: string) => {
     const r = await req.send(req.takeBadge(badge, name));
-    say(r.ok ? `Took the ${badge.label} badge from ${name}.` : r.message);
+    say(outcomeOf(r, `Took the ${badge.label} badge from ${name}.`, at));
     await onReload();
   };
   const id = `badge-${badge.id}`;
@@ -83,6 +86,7 @@ function BadgeRow({ badge, onReload, say }: { badge: AdminBadge; onReload: () =>
           Give
         </button>
       </form>
+      <Notice outcome={shownAt(outcome, at)} onClose={() => say(null)} />
     </div>
   );
 }
@@ -90,13 +94,13 @@ function BadgeRow({ badge, onReload, say }: { badge: AdminBadge; onReload: () =>
 /** BadgesPanel lists the badges and makes new ones. */
 export default function BadgesPanel() {
   const [list, setList] = useState<AdminBadge[] | null>(null);
-  const [message, setMessage] = useState('');
+  const [outcome, setOutcome] = useState<Outcome | null>(null);
   const [form, setForm] = useState({ label: '', description: '' });
 
   const load = async () => {
     const r = await adminRequest<AdminBadge[]>('/api/badges', {});
     if (r.ok) setList(r.data);
-    else setMessage(r.message);
+    else setOutcome(loadFailure(r.message, 'badges'));
   };
   useEffect(() => {
     void load();
@@ -105,7 +109,7 @@ export default function BadgesPanel() {
   const add = async (e: FormEvent) => {
     e.preventDefault();
     const r = await req.send<AdminBadge>(req.addBadge(form.label, form.description));
-    setMessage(r.ok ? `Made the ${r.data.label} badge. Give it to players below.` : r.message);
+    setOutcome(r.ok ? succeeded(`Made the ${r.data.label} badge. Give it to players below.`, 'make badge') : refused(r.message, 'make badge'));
     if (r.ok) setForm({ label: '', description: '' });
     await load();
   };
@@ -119,12 +123,8 @@ export default function BadgesPanel() {
         Badges the engine cannot know, such as Organiser. A badge shows beside the player's title on the leaderboard and their
         page within five minutes, with no rating run.
       </p>
-      {message !== '' && (
-        <p className="admin-message" role="status">
-          {message}
-        </p>
-      )}
-      {list?.map((b) => <BadgeRow key={`${b.id}-${b.label}-${b.description}`} badge={b} onReload={load} say={setMessage} />)}
+      <Notice outcome={shownAt(outcome, 'badges')} onClose={() => setOutcome(null)} />
+      {list?.map((b) => <BadgeRow key={`${b.id}-${b.label}-${b.description}`} badge={b} onReload={load} outcome={outcome} say={setOutcome} />)}
       {list !== null && list.length === 0 && <p className="muted">No badges yet.</p>}
       <form className="admin-add" onSubmit={(e) => void add(e)}>
         <h3>Make a badge</h3>
@@ -140,6 +140,7 @@ export default function BadgesPanel() {
           Make badge
         </button>
       </form>
+      <Notice outcome={shownAt(outcome, 'make badge')} onClose={() => setOutcome(null)} />
     </section>
   );
 }

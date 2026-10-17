@@ -3,16 +3,21 @@ import { cardChanged } from '../lib/admin-edits';
 import { useState } from 'react';
 import * as req from '../lib/admin-requests';
 import type { AdminTournament } from '../lib/admin-api';
+import { refusalOf, type Outcome } from '../lib/outcome';
+import Notice from './Notice';
 
 /** CardSettings edits how the tournament presents itself on its card and its page's header. */
 export default function CardSettings({ t, onReload }: { t: AdminTournament; onReload: () => Promise<void> }) {
   const [card, setCard] = useState(t.card);
   const [status, setStatus] = useState('');
+  const [refusal, setRefusal] = useState<Outcome | null>(null);
   const changed = cardChanged(t.card, card);
   const save = async () => {
     setStatus('Saving…');
+    setRefusal(null);
     const r = await req.send(req.setCard(t.slug, card));
-    setStatus(r.ok ? 'Saved. The cards and the tournament page show it at once.' : r.message);
+    setStatus(r.ok ? 'Saved. The cards and the tournament page show it at once.' : '');
+    setRefusal(refusalOf(r));
     if (r.ok) await onReload();
   };
   return (
@@ -78,6 +83,7 @@ export default function CardSettings({ t, onReload }: { t: AdminTournament; onRe
           {status}
         </span>
       </div>
+      <Notice outcome={refusal} onClose={() => setRefusal(null)} />
     </section>
   );
 }

@@ -1,8 +1,10 @@
 /** The admin list, for admins: who is in admin and their role, with adding, changing and removing. */
 import { isDiscordId } from '../lib/admin-edits';
-import { useEffect, useState, type FormEvent } from 'react';
+import { Fragment, useEffect, useState, type FormEvent } from 'react';
 import * as req from '../lib/admin-requests';
 import { adminRequest, type AdminPerson } from '../lib/admin-api';
+import { loadFailure, outcomeOf, refused, shownAt, type Outcome } from '../lib/outcome';
+import Notice, { NoticeRow } from './Notice';
 
 type Role = AdminPerson['role'];
 const ROLES: { value: Role; label: string }[] = [
@@ -13,38 +15,39 @@ const ROLES: { value: Role; label: string }[] = [
 /** AdminList shows everyone in admin; myName is the signed-in admin. Admin always keeps one admin (the API refuses otherwise). */
 export default function AdminList({ myName }: { myName: string }) {
   const [people, setPeople] = useState<AdminPerson[] | null>(null);
-  const [message, setMessage] = useState('');
+  const [outcome, setOutcome] = useState<Outcome | null>(null);
+  const close = () => setOutcome(null);
   const [form, setForm] = useState({ id: '', name: '', role: 'organiser' as Role });
 
   const load = async () => {
     const r = await adminRequest<AdminPerson[]>('/api/admins', {});
     if (r.ok) setPeople(r.data);
-    else setMessage(r.message);
+    else setOutcome(loadFailure(r.message, 'admins'));
   };
   useEffect(() => {
     void load();
   }, []);
 
-  const save = async (id: string, name: string, role: Role) => {
-    setMessage('');
+  const save = async (id: string, name: string, role: Role, at: string) => {
+    setOutcome(null);
     const r = await req.send(req.setAdmin(id, name, role));
-    setMessage(r.ok ? `Saved ${name} as ${role}.` : r.message);
+    setOutcome(outcomeOf(r, `Saved ${name} as ${role}.`, at));
     await load();
     return r.ok;
   };
   const remove = async (p: AdminPerson) => {
     if (!window.confirm(`Take ${p.name} out of admin?`)) return;
     const r = await req.send(req.removeAdmin(p.discord_id));
-    setMessage(r.ok ? `Removed ${p.name}. Their sign-in lasts until it ends or is revoked in Cloudflare Access.` : r.message);
+    setOutcome(outcomeOf(r, `Removed ${p.name}. Their sign-in lasts until it ends or is revoked in Cloudflare Access.`, `admin ${p.discord_id}`, 'admins'));
     await load();
   };
   const add = async (e: FormEvent) => {
     e.preventDefault();
     if (!isDiscordId(form.id)) {
-      setMessage('A Discord id is the number in Discord under Copy User ID (Developer Mode).');
+      setOutcome(refused('A Discord id is the number in Discord under Copy User ID (Developer Mode).', 'add admin'));
       return;
     }
-    if (await save(form.id.trim(), form.name.trim(), form.role)) setForm({ id: '', name: '', role: 'organiser' });
+    if (await save(form.id.trim(), form.name.trim(), form.role, 'add admin')) setForm({ id: '', name: '', role: 'organiser' });
   };
 
   return (
@@ -56,11 +59,7 @@ export default function AdminList({ myName }: { myName: string }) {
         Admins can do everything here; organisers can edit tournaments. Someone also needs to be allowed in the Cloudflare
         Access policy to sign in.
       </p>
-      {message !== '' && (
-        <p className="admin-message" role="status">
-          {message}
-        </p>
-      )}
+      <Notice outcome={shownAt(outcome, 'admins')} onClose={close} />
       {people !== null && (
         <div className="table-responsive">
           <table className="leaderboard-table admin-table">
@@ -77,31 +76,34 @@ export default function AdminList({ myName }: { myName: string }) {
               {people.map((p) => {
                 const me = p.name === myName;
                 return (
-                  <tr key={p.discord_id}>
-                    <th scope="row">
-                      {p.name}
-                      {me && <span className="muted"> (you)</span>}
-                    </th>
-                    <td className="admin-id">{p.discord_id}</td>
-                    <td>
-                      <select className="input-antique"
-                        aria-label={`Role: ${p.name}`}
-                        value={p.role}
-                        onChange={(e) => void save(p.discord_id, p.name, e.target.value as Role)}
-                      >
-                        {ROLES.map((r) => (
-                          <option key={r.value} value={r.value}>
-                            {r.label}
-                          </option>
-                        ))}
-                      </select>
-                    </td>
-                    <td>
-                      <button type="button" className="btn-antique" onClick={() => void remove(p)}>
-                        {me ? 'Remove me' : 'Remove'}
-                      </button>
-                    </td>
-                  </tr>
+                  <Fragment key={p.discord_id}>
+                    <tr>
+                      <th scope="row">
+                        {p.name}
+                        {me && <span className="muted"> (you)</span>}
+                      </th>
+                      <td className="admin-id">{p.discord_id}</td>
+                      <td>
+                        <select className="input-antique"
+                          aria-label={`Role: ${p.name}`}
+                          value={p.role}
+                          onChange={(e) => void save(p.discord_id, p.name, e.target.value as Role, `admin ${p.discord_id}`)}
+                        >
+                          {ROLES.map((r) => (
+                            <option key={r.value} value={r.value}>
+                              {r.label}
+                            </option>
+                          ))}
+                        </select>
+                      </td>
+                      <td>
+                        <button type="button" className="btn-antique" onClick={() => void remove(p)}>
+                          {me ? 'Remove me' : 'Remove'}
+                        </button>
+                      </td>
+                    </tr>
+                    <NoticeRow outcome={shownAt(outcome, `admin ${p.discord_id}`)} columns={4} onClose={close} />
+                  </Fragment>
                 );
               })}
             </tbody>
@@ -132,6 +134,7 @@ export default function AdminList({ myName }: { myName: string }) {
           Add
         </button>
       </form>
+      <Notice outcome={shownAt(outcome, 'add admin')} onClose={close} />
     </section>
   );
 }

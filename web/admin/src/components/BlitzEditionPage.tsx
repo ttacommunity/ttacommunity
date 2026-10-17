@@ -14,10 +14,12 @@ import { deadlineForm, deadlineLabel, deadlineLocked, organiserChoices, threadTe
 import { entrantToAdd, wildcardChoices, type PersonChoice, type PersonDetails } from '../lib/person-form';
 import { countryNames, type Country } from '../lib/countries';
 import { clockIn, type Region } from '../lib/zones';
+import { loadFailure, outcomeOf, refused, shownAt, succeeded, type Outcome } from '../lib/outcome';
 import { asChanges, byeTakers, canDeleteRound, canResetEdition, decidedOnly, resetsOf, entrantActions, entrantState, leftUnpaired, newestFirst, openRound, pairAction, pairCounts, partnersFor, reconcilePending, replaceableSide, rulingChoices, rulingLabel, samePairs, shownAfter, unpaired, unsavedMatch, zoneGapLabel, type AdminBlitzMatch, type AdminBlitzRound, type Pending } from '../lib/blitz-rounds';
 import AdminHeader from './AdminHeader';
 import CountryPick from './CountryPick';
 import InfoTip from './InfoTip';
+import Notice, { NoticeRow } from './Notice';
 import PageError from './PageError';
 import PersonForm from './PersonForm';
 import PickBox from './PickBox';
@@ -28,7 +30,8 @@ import './AdminApp.css';
 const KNOCKOUTS = [0, 2, 4, 8, 16, 32];
 
 type Edition = { slug: string; edition: string };
-type Props = { at: Edition; ed: AdminBlitzEdition; regions: readonly Region[]; countries: readonly Country[]; onReload: () => Promise<void>; say: (message: string) => void };
+/** say shows an action's outcome at its place on the page, replacing the last one; null closes it. */
+type Props = { at: Edition; ed: AdminBlitzEdition; regions: readonly Region[]; countries: readonly Country[]; onReload: () => Promise<void>; outcome: Outcome | null; say: (o: Outcome | null) => void };
 
 /** BlitzEditionPage loads who is signed in, the edition the address names (?t=&e=), the regions a zone may be and the countries, then its tabs. */
 export default function BlitzEditionPage() {
@@ -37,7 +40,7 @@ export default function BlitzEditionPage() {
   const [regions, setRegions] = useState<Region[]>([]);
   const [countries, setCountries] = useState<Country[]>([]);
   const [at, setAt] = useState<Edition | null>(null);
-  const [message, setMessage] = useState('');
+  const [outcome, setOutcome] = useState<Outcome | null>(null);
   // The address is read once mounted: the page is prerendered, where there is no window.
   const load = async () => {
     const named = editionParams(new URLSearchParams(window.location.search));
@@ -53,8 +56,8 @@ export default function BlitzEditionPage() {
     void adminRequest<AdminMe>('/api/me', {}).then((r) =>
       setMe(r.ok ? { kind: 'ready', data: r.data } : { kind: 'error', message: r.message }),
     );
-    void adminRequest<Region[]>('/api/regions', {}).then((r) => (r.ok ? setRegions(r.data) : setMessage(r.message)));
-    void adminRequest<string[]>('/api/countries', {}).then((r) => (r.ok ? setCountries(countryNames(r.data)) : setMessage(r.message)));
+    void adminRequest<Region[]>('/api/regions', {}).then((r) => (r.ok ? setRegions(r.data) : setOutcome(loadFailure(r.message, 'page'))));
+    void adminRequest<string[]>('/api/countries', {}).then((r) => (r.ok ? setCountries(countryNames(r.data)) : setOutcome(loadFailure(r.message, 'page'))));
     void load();
   }, []);
   const error = firstError(me, ed);
@@ -90,12 +93,8 @@ export default function BlitzEditionPage() {
                 )}
               </p>
             </section>
-            {message !== '' && (
-              <p className="admin-message" role="status">
-                {message}
-              </p>
-            )}
-            <EditionTabs at={at} ed={ed.data} regions={regions} countries={countries} onReload={load} say={setMessage} />
+            <Notice outcome={shownAt(outcome, 'page')} />
+            <EditionTabs at={at} ed={ed.data} regions={regions} countries={countries} onReload={load} outcome={outcome} say={setOutcome} />
           </>
         )}
       </main>
@@ -145,7 +144,7 @@ function UnpairedList({ round, players }: { round: number; players: readonly Adm
 }
 
 /** RoundsPanel pairs rounds, changes the open one by hand and publishes it, and shows every round newest first, each match's result recorded in a row below it. */
-function RoundsPanel({ at, ed, regions, onReload, say }: Props) {
+function RoundsPanel({ at, ed, regions, onReload, outcome, say }: Props) {
   const [criteria, setCriteria] = useState({ timezone: true, rating: false });
   const [pick, setPick] = useState({ a: '', b: '', bye: '' });
   const [recording, setRecording] = useState<number | null>(null);
@@ -182,26 +181,27 @@ function RoundsPanel({ at, ed, regions, onReload, say }: Props) {
   // openSwiss is the round whose counts and unpaired players show; listingUnpaired, while its Unpaired view is chosen.
   const openSwiss = (r: AdminBlitzRound) => r.id === open?.id && r.kind === 'swiss';
   const listingUnpaired = (r: AdminBlitzRound) => openSwiss(r) && roundView === 'unpaired';
-  const run = async (r: req.Request, done: string) => {
+  const close = () => say(null);
+  const run = async (r: req.Request, done: string, where: string, doneAt = where) => {
     const res = await req.send(r);
-    say(res.ok ? done : res.message);
+    say(outcomeOf(res, done, where, doneAt));
     await onReload();
     return res.ok;
   };
   const pair = async () => {
     if (action.kind === 'next') {
-      await run(req.pairBlitzRound(at.slug, at.edition, criteria), `${roundTitle(action.round.number, ed.format)} paired as a draft.`);
+      await run(req.pairBlitzRound(at.slug, at.edition, criteria), `${roundTitle(action.round.number, ed.format)} paired as a draft.`, 'rounds');
       return;
     }
     if (action.kind !== 'fill' || open === null) return;
     const res = await req.send<AdminBlitzRound>(req.proposeBlitzPairing(at.slug, at.edition, open.id, { ...criteria, keep: asChanges(shownOf(open)) }));
     if (!res.ok) {
-      say(res.message);
+      say(refused(res.message, 'rounds'));
       return;
     }
     const same = shownAfter(open.matches, res.data.matches) === null;
     setShown(open, res.data.matches);
-    say(same ? 'Paired as saved: nothing to update.' : `Paired. Not saved yet: ${open.published_at === null ? 'publish' : 'update'} it, or discard.`);
+    say(succeeded(same ? 'Paired as saved: nothing to update.' : `Paired. Not saved yet: ${open.published_at === null ? 'publish' : 'update'} it, or discard.`, 'rounds'));
   };
   const addPair = (r: AdminBlitzRound) => {
     const a = Number(pick.a);
@@ -219,29 +219,29 @@ function RoundsPanel({ at, ed, regions, onReload, say }: Props) {
   const unpair = (r: AdminBlitzRound, i: number) => setShown(r, shownOf(r).filter((_, j) => j !== i));
   const changed = (r: AdminBlitzRound) => pending !== null && pending.round === r.id && !samePairs(r.matches, pending.matches);
   const save = async (r: AdminBlitzRound) => {
-    if (changed(r) && !(await run(req.setBlitzRoundMatches(at.slug, at.edition, r.id, asChanges(shownOf(r))), 'Saved.'))) return;
+    if (changed(r) && !(await run(req.setBlitzRoundMatches(at.slug, at.edition, r.id, asChanges(shownOf(r))), 'Saved.', 'rounds'))) return;
     setPending(null);
-    if (r.published_at === null) await run(req.publishBlitzRound(at.slug, at.edition, r.id), `${roundTitle(r.number, ed.format)} published.`);
-    else if (changed(r)) say(`${roundTitle(r.number, ed.format)} updated: the site shows it now.`);
+    if (r.published_at === null) await run(req.publishBlitzRound(at.slug, at.edition, r.id), `${roundTitle(r.number, ed.format)} published.`, 'rounds');
+    else if (changed(r)) say(succeeded(`${roundTitle(r.number, ed.format)} updated: the site shows it now.`, 'rounds'));
   };
   const remove = (r: AdminBlitzRound) => {
     const title = roundTitle(r.number, ed.format);
     const what = r.published_at === null ? `the draft of ${title}` : `${title}, published but not yet played`;
     if (!window.confirm(`Delete ${what}? Pair again afterwards.`)) return;
     setPending(null);
-    void run(req.deleteBlitzRound(at.slug, at.edition, r.id), `${title} deleted.`);
+    void run(req.deleteBlitzRound(at.slug, at.edition, r.id), `${title} deleted.`, 'rounds');
   };
   const resets = resetsOf(ed.rounds);
   const resetResult = (r: AdminBlitzRound, m: AdminBlitzMatch) => {
     if (!window.confirm(`Reset ${nameOf(m.a)} v ${nameOf(m.b as number)}? Its result, ruling and game go, as if never played.`)) return;
     setRecording(null);
-    void run(req.resetBlitzResult(at.slug, at.edition, r.id, m.id), `${nameOf(m.a)} v ${nameOf(m.b as number)} reset.`);
+    void run(req.resetBlitzResult(at.slug, at.edition, r.id, m.id), `${nameOf(m.a)} v ${nameOf(m.b as number)} reset.`, `match ${m.id}`);
   };
   const resetRound = (r: AdminBlitzRound) => {
     const title = roundTitle(r.number, ed.format);
     if (!window.confirm(`Reset every result of ${title}? Its results, rulings and games go; the pairing stays, and can then be deleted.`)) return;
     setRecording(null);
-    void run(req.resetBlitzRound(at.slug, at.edition, r.id), `${title}'s results reset.`);
+    void run(req.resetBlitzRound(at.slug, at.edition, r.id), `${title}'s results reset.`, `round ${r.id}`);
   };
   const resetEdition = () => {
     const games = ed.rounds.flatMap((r) => r.matches).filter((m) => m.game !== null).length;
@@ -249,7 +249,7 @@ function RoundsPanel({ at, ed, regions, onReload, say }: Props) {
     if (!window.confirm(`Reset ${ed.name} ${ed.edition}? This deletes ${what}, puts every dropped player back in and clears every skip. Entrants, organisers, format, points and thread text stay. It cannot be undone.`)) return;
     setPending(null);
     setRecording(null);
-    void run(req.resetBlitzEdition(at.slug, at.edition), `${ed.name} ${ed.edition} reset: pair round 1 again.`);
+    void run(req.resetBlitzEdition(at.slug, at.edition), `${ed.name} ${ed.edition} reset: pair round 1 again.`, 'reset edition', 'rounds');
   };
   const swiss = (open?.kind ?? (action.kind === 'next' ? action.round.kind : null)) === 'swiss';
   // choose offers the players given, the unpaired ones a pick may take.
@@ -314,6 +314,7 @@ function RoundsPanel({ at, ed, regions, onReload, say }: Props) {
           </span>
         )}
       </div>
+      <Notice outcome={shownAt(outcome, 'rounds')} onClose={close} />
       {open !== null && open.kind === 'swiss' && free.length > 0 && (
         <>
           <div className="admin-add">
@@ -354,6 +355,7 @@ function RoundsPanel({ at, ed, regions, onReload, say }: Props) {
             )}
           </p>
           <RoundThreads at={at} ed={ed} round={r} regions={regions} unsaved={changed(r)} onReload={onReload} say={say} />
+          <Notice outcome={shownAt(outcome, `round ${r.id}`)} onClose={close} />
           {shown(r) && (
             <>
               {openSwiss(r) && (
@@ -463,7 +465,7 @@ function RoundsPanel({ at, ed, regions, onReload, say }: Props) {
                                   onZone={setResultZone}
                                   onDone={async (message) => {
                                     setRecording(null);
-                                    say(message);
+                                    say(succeeded(message, `match ${m.id}`));
                                     await onReload();
                                   }}
                                   onCancel={() => setRecording(null)}
@@ -483,7 +485,7 @@ function RoundsPanel({ at, ed, regions, onReload, say }: Props) {
                                   nameOf={nameOf}
                                   onDone={async (message) => {
                                     setReplacing(null);
-                                    say(message);
+                                    say(succeeded(message, `match ${m.id}`));
                                     await onReload();
                                   }}
                                   onCancel={() => setReplacing(null)}
@@ -491,6 +493,7 @@ function RoundsPanel({ at, ed, regions, onReload, say }: Props) {
                               </td>
                             </tr>
                           )}
+                          <NoticeRow outcome={shownAt(outcome, `match ${m.id}`)} columns={8} onClose={close} />
                         </Fragment>
                       ))}
                     </tbody>
@@ -512,6 +515,7 @@ function RoundsPanel({ at, ed, regions, onReload, say }: Props) {
           <button type="button" className="btn-antique" onClick={resetEdition}>
             Reset {ed.name} {ed.edition}
           </button>
+          <Notice outcome={shownAt(outcome, 'reset edition')} onClose={close} />
         </div>
       )}
     </div>
@@ -519,13 +523,13 @@ function RoundsPanel({ at, ed, regions, onReload, say }: Props) {
 }
 
 /** EntrantsPanel lists every entrant with what admin knows of them and where they stand in the newest round, and edits one, or removes, drops, reinstates one or has them skip the next round. */
-function EntrantsPanel({ at, ed, regions, countries, onReload, say }: Props) {
+function EntrantsPanel({ at, ed, regions, countries, onReload, outcome, say }: Props) {
   const actions = (e: AdminBlitzEntrant) => entrantActions(e, ed);
   const nameOf = (id: number) => ed.entrants.find((x) => x.id === id)?.name ?? `entrant ${id}`;
   const [editing, setEditing] = useState<{ id: number; discord_name: string; email: string; country: string; zone: string } | null>(null);
   const change = async (e: AdminBlitzEntrant, status: AdminBlitzEntrant['status']) => {
     const r = await req.send(req.setBlitzEntrant(at.slug, at.edition, e.id, { status }));
-    say(r.ok ? `${e.name} is ${status === 'active' ? 'in again' : 'dropped'}.` : r.message);
+    say(outcomeOf(r, `${e.name} is ${status === 'active' ? 'in again' : 'dropped'}.`, `entrant ${e.id}`));
     await onReload();
   };
   const reinstate = async (e: AdminBlitzEntrant) => {
@@ -534,7 +538,7 @@ function EntrantsPanel({ at, ed, regions, countries, onReload, say }: Props) {
       return;
     }
     const r = await req.send(req.unskipBlitzRound(at.slug, at.edition, e.id));
-    say(r.ok ? `${e.name} plays the next round after all.` : r.message);
+    say(outcomeOf(r, `${e.name} plays the next round after all.`, `entrant ${e.id}`));
     await onReload();
   };
   const skip = async (e: AdminBlitzEntrant, round: number) => {
@@ -542,7 +546,7 @@ function EntrantsPanel({ at, ed, regions, countries, onReload, say }: Props) {
     const unpaired = left.length === 0 ? '' : ` ${left.join(' and ')} will be unpaired.`;
     if (!window.confirm(`${e.name} skips round ${round}, scoring the edition's skip points for it?${unpaired}`)) return;
     const r = await req.send(req.skipBlitzRound(at.slug, at.edition, e.id));
-    say(r.ok ? `${e.name} skips round ${round}.${left.length === 0 ? '' : ` ${left.join(' and ')} ${left.length === 1 ? 'is' : 'are'} unpaired now: Pair fills them in.`}` : r.message);
+    say(outcomeOf(r, `${e.name} skips round ${round}.${left.length === 0 ? '' : ` ${left.join(' and ')} ${left.length === 1 ? 'is' : 'are'} unpaired now: Pair fills them in.`}`, `entrant ${e.id}`));
     await onReload();
   };
   const save = async (e: FormEvent) => {
@@ -551,7 +555,7 @@ function EntrantsPanel({ at, ed, regions, countries, onReload, say }: Props) {
     const r = await req.send(
       req.setBlitzEntrant(at.slug, at.edition, editing.id, { discord_name: editing.discord_name, email: editing.email, country: editing.country, zone: editing.zone }),
     );
-    say(r.ok ? 'Saved.' : r.message);
+    say(outcomeOf(r, 'Saved.', `entrant ${editing.id}`));
     if (r.ok) setEditing(null);
     await onReload();
   };
@@ -560,7 +564,7 @@ function EntrantsPanel({ at, ed, regions, countries, onReload, say }: Props) {
     const unpaired = left.length === 0 ? '' : ` ${left.join(' and ')} will be unpaired.`;
     if (!window.confirm(`Remove ${e.name} from the edition?${unpaired}`)) return;
     const r = await req.send(req.removeBlitzEntrant(at.slug, at.edition, e.id));
-    say(r.ok ? `Removed ${e.name}.${left.length === 0 ? '' : ` ${left.join(' and ')} ${left.length === 1 ? 'is' : 'are'} unpaired now: Pair fills them in.`}` : r.message);
+    say(outcomeOf(r, `Removed ${e.name}.${left.length === 0 ? '' : ` ${left.join(' and ')} ${left.length === 1 ? 'is' : 'are'} unpaired now: Pair fills them in.`}`, `entrant ${e.id}`, 'entrants'));
     await onReload();
   };
   return (
@@ -574,6 +578,7 @@ function EntrantsPanel({ at, ed, regions, countries, onReload, say }: Props) {
         edition&apos;s skip points for it (out of a draft too, leaving their opponent unpaired); Reinstate undoes it until
         that round is published. Skips counts the rounds skipped, the next one included.
       </p>
+      <Notice outcome={shownAt(outcome, 'entrants')} onClose={() => say(null)} />
       {ed.entrants.length === 0 && <p className="muted">No entrants yet.</p>}
       {ed.entrants.length > 0 && (
         <div className="table-responsive">
@@ -595,83 +600,86 @@ function EntrantsPanel({ at, ed, regions, countries, onReload, say }: Props) {
               </tr>
             </thead>
             <tbody>
-              {ed.entrants.map((e) =>
-                editing?.id === e.id ? (
-                  <tr key={e.id}>
-                    <th scope="row">{e.name}</th>
-                    <td>
-                      <input
-                        className="input-antique"
-                        aria-label={`Discord username of ${e.name}`}
-                        value={editing.discord_name}
-                        maxLength={100}
-                        onChange={(ev) => setEditing({ ...editing, discord_name: ev.target.value })}
-                      />
-                    </td>
-                    <td>
-                      <input className="input-antique" aria-label={`Email of ${e.name}`} type="email" value={editing.email} maxLength={254} onChange={(ev) => setEditing({ ...editing, email: ev.target.value })} />
-                    </td>
-                    <td>
-                      <CountryPick label={`Country of ${e.name}`} hideLabel countries={countries} value={editing.country} onChange={(country) => setEditing({ ...editing, country })} />
-                    </td>
-                    <td>
-                      <ZonePick label={`Time zone of ${e.name}`} hideLabel regions={regions} value={editing.zone} onChange={(zone) => setEditing({ ...editing, zone })} />
-                    </td>
-                    <td>{e.rating === null ? '–' : Math.round(e.rating)}</td>
-                    <td>{entrantState(e, ed.rounds, nameOf)}</td>
-                    <td>{e.skips.length}</td>
-                    <td className="run-buttons">
-                      <button type="button" className="btn-antique" onClick={(ev) => void save(ev)}>
-                        Save
-                      </button>
-                      <button type="button" className="btn-antique" onClick={() => setEditing(null)}>
-                        Cancel
-                      </button>
-                    </td>
-                  </tr>
-                ) : (
-                  <tr key={e.id}>
-                    <th scope="row">
-                      {e.name}
-                      {e.player === '' && <span className="row-detail muted">not in the ratings</span>}
-                    </th>
-                    <td>{e.discord_name}</td>
-                    <td>{e.email}</td>
-                    <td>{e.country ?? ''}</td>
-                    <td>
-                      {e.zone} <span className="muted">{offsetLabel(e.utc_offset)}</span>
-                    </td>
-                    <td>{e.rating === null ? '–' : Math.round(e.rating)}</td>
-                    <td>{entrantState(e, ed.rounds, nameOf)}</td>
-                    <td>{e.skips.length}</td>
-                    <td className="run-buttons">
-                      <button type="button" className="btn-antique" onClick={() => setEditing({ id: e.id, discord_name: e.discord_name, email: e.email, country: e.country ?? '', zone: e.zone })}>
-                        Edit
-                      </button>
-                      {actions(e).action === 'reinstate' && (
-                        <button type="button" className="btn-antique" onClick={() => void reinstate(e)}>
-                          Reinstate
+              {ed.entrants.map((e) => (
+                <Fragment key={e.id}>
+                  {editing?.id === e.id ? (
+                    <tr>
+                      <th scope="row">{e.name}</th>
+                      <td>
+                        <input
+                          className="input-antique"
+                          aria-label={`Discord username of ${e.name}`}
+                          value={editing.discord_name}
+                          maxLength={100}
+                          onChange={(ev) => setEditing({ ...editing, discord_name: ev.target.value })}
+                        />
+                      </td>
+                      <td>
+                        <input className="input-antique" aria-label={`Email of ${e.name}`} type="email" value={editing.email} maxLength={254} onChange={(ev) => setEditing({ ...editing, email: ev.target.value })} />
+                      </td>
+                      <td>
+                        <CountryPick label={`Country of ${e.name}`} hideLabel countries={countries} value={editing.country} onChange={(country) => setEditing({ ...editing, country })} />
+                      </td>
+                      <td>
+                        <ZonePick label={`Time zone of ${e.name}`} hideLabel regions={regions} value={editing.zone} onChange={(zone) => setEditing({ ...editing, zone })} />
+                      </td>
+                      <td>{e.rating === null ? '–' : Math.round(e.rating)}</td>
+                      <td>{entrantState(e, ed.rounds, nameOf)}</td>
+                      <td>{e.skips.length}</td>
+                      <td className="run-buttons">
+                        <button type="button" className="btn-antique" onClick={(ev) => void save(ev)}>
+                          Save
                         </button>
-                      )}
-                      {actions(e).action === 'drop' && (
-                        <button type="button" className="btn-antique" onClick={() => void change(e, 'dropped')}>
-                          Drop
+                        <button type="button" className="btn-antique" onClick={() => setEditing(null)}>
+                          Cancel
                         </button>
-                      )}
-                      {actions(e).action === 'remove' && (
-                        <button type="button" className="btn-antique" onClick={() => void remove(e)}>
-                          Remove
+                      </td>
+                    </tr>
+                  ) : (
+                    <tr>
+                      <th scope="row">
+                        {e.name}
+                        {e.player === '' && <span className="row-detail muted">not in the ratings</span>}
+                      </th>
+                      <td>{e.discord_name}</td>
+                      <td>{e.email}</td>
+                      <td>{e.country ?? ''}</td>
+                      <td>
+                        {e.zone} <span className="muted">{offsetLabel(e.utc_offset)}</span>
+                      </td>
+                      <td>{e.rating === null ? '–' : Math.round(e.rating)}</td>
+                      <td>{entrantState(e, ed.rounds, nameOf)}</td>
+                      <td>{e.skips.length}</td>
+                      <td className="run-buttons">
+                        <button type="button" className="btn-antique" onClick={() => setEditing({ id: e.id, discord_name: e.discord_name, email: e.email, country: e.country ?? '', zone: e.zone })}>
+                          Edit
                         </button>
-                      )}
-                      {actions(e).skip !== null && (
-                        <button type="button" className="btn-antique" onClick={() => void skip(e, actions(e).skip as number)}>
-                          Skip R{actions(e).skip}
-                        </button>
-                      )}
-                    </td>
-                  </tr>
-                ),
-              )}
+                        {actions(e).action === 'reinstate' && (
+                          <button type="button" className="btn-antique" onClick={() => void reinstate(e)}>
+                            Reinstate
+                          </button>
+                        )}
+                        {actions(e).action === 'drop' && (
+                          <button type="button" className="btn-antique" onClick={() => void change(e, 'dropped')}>
+                            Drop
+                          </button>
+                        )}
+                        {actions(e).action === 'remove' && (
+                          <button type="button" className="btn-antique" onClick={() => void remove(e)}>
+                            Remove
+                          </button>
+                        )}
+                        {actions(e).skip !== null && (
+                          <button type="button" className="btn-antique" onClick={() => void skip(e, actions(e).skip as number)}>
+                            Skip R{actions(e).skip}
+                          </button>
+                        )}
+                      </td>
+                    </tr>
+                  )}
+                  <NoticeRow outcome={shownAt(outcome, `entrant ${e.id}`)} columns={9} onClose={() => say(null)} />
+                </Fragment>
+              ))}
             </tbody>
           </table>
         </div>
@@ -681,10 +689,10 @@ function EntrantsPanel({ at, ed, regions, countries, onReload, say }: Props) {
 }
 
 /** AddEntrantPanel enters someone found by searching the members not yet entered and the players the ratings know, or someone new by the name typed. Their details fill in where known; what the form then holds is saved on them. */
-function AddEntrantPanel({ at, ed, regions, countries, onReload, say }: Props) {
+function AddEntrantPanel({ at, ed, regions, countries, onReload, outcome, say }: Props) {
   const enter = async (details: PersonDetails) => {
     const r = await req.send<BlitzEntrantIds>(req.addBlitzEntrants(at.slug, at.edition, [entrantToAdd(details)]));
-    say(r.ok ? `Entered ${details.name.trim()}.` : r.message);
+    say(outcomeOf(r, `Entered ${details.name.trim()}.`, 'add entrant'));
     if (r.ok) await onReload();
     return r.ok;
   };
@@ -704,6 +712,7 @@ function AddEntrantPanel({ at, ed, regions, countries, onReload, say }: Props) {
         onSubmit={enter}
         refresh={ed}
       />
+      <Notice outcome={shownAt(outcome, 'add entrant')} onClose={() => say(null)} />
     </div>
   );
 }
@@ -795,13 +804,13 @@ function FormatWarnings({ warnings }: { warnings: readonly string[] }) {
 }
 
 /** OrganisersPanel lists the members every round's Discord threads tell players to ping, removes one, and adds a member found by their username. */
-function OrganisersPanel({ at, ed, onReload, say }: Props) {
+function OrganisersPanel({ at, ed, onReload, outcome, say }: Props) {
   const [typed, setTyped] = useState('');
   const found = usePeopleSearch('/api/people', typed, false, ed);
   const choices = organiserChoices(found, ed.organisers);
   const change = async (r: req.Request, done: string) => {
     const res = await req.send(r);
-    say(res.ok ? done : res.message);
+    say(outcomeOf(res, done, 'organisers'));
     if (res.ok) setTyped('');
     await onReload();
   };
@@ -834,17 +843,18 @@ function OrganisersPanel({ at, ed, onReload, say }: Props) {
           }}
         />
       </div>
+      <Notice outcome={shownAt(outcome, 'organisers')} onClose={() => say(null)} />
     </>
   );
 }
 
 /** ThreadTextPanel edits what each game's Discord thread says, the welcome message and the sentence for a player without Discord, and resets it to the default. Keyed by the saved text, so a save or reset starts the form again from it. */
-function ThreadTextPanel({ at, ed, onReload, say }: Props) {
+function ThreadTextPanel({ at, ed, onReload, outcome, say }: Props) {
   const saved = ed.thread_text;
   const [form, setForm] = useState<ThreadText>({ message: saved.message, no_discord: saved.no_discord });
   const send = async (r: req.Request, done: string) => {
     const res = await req.send(r);
-    say(res.ok ? done : res.message);
+    say(outcomeOf(res, done, 'thread text'));
     await onReload();
   };
   return (
@@ -872,6 +882,7 @@ function ThreadTextPanel({ at, ed, onReload, say }: Props) {
           </button>
         )}
       </div>
+      <Notice outcome={shownAt(outcome, 'thread text')} onClose={() => say(null)} />
     </>
   );
 }
@@ -886,14 +897,14 @@ function RoundThreads({ at, ed, round, regions, unsaved, onReload, say }: RoundT
     e.preventDefault();
     if (form === null) return;
     const r = await req.send(req.setBlitzRoundDeadline(at.slug, at.edition, round.id, form));
-    say(r.ok ? `${roundTitle(round.number, ed.format)}: deadline saved.` : r.message);
+    say(outcomeOf(r, `${roundTitle(round.number, ed.format)}: deadline saved.`, `round ${round.id}`));
     if (r.ok) setForm(null);
     await onReload();
   };
   const download = async () => {
     const r = await adminDownload(req.blitzThreadsPath(at.slug, at.edition, round.id));
     if (!r.ok) {
-      say(r.message);
+      say(refused(r.message, `round ${round.id}`));
       return;
     }
     const url = URL.createObjectURL(r.data);
@@ -902,7 +913,7 @@ function RoundThreads({ at, ed, round, regions, unsaved, onReload, say }: RoundT
     a.download = threadsFileName(at.slug, at.edition, round.number);
     a.click();
     URL.revokeObjectURL(url);
-    say(`${roundTitle(round.number, ed.format)}: Discord threads downloaded.`);
+    say(succeeded(`${roundTitle(round.number, ed.format)}: Discord threads downloaded.`, `round ${round.id}`));
   };
   return (
     <>
@@ -953,12 +964,12 @@ const POINT_FIELDS: { key: keyof PointsForm; label: string }[] = [
 ];
 
 /** PointsPanel sets what each outcome of the edition is worth, and resets them to FIDE's, until the knockout has a round. Keyed by the saved points, so a save or reset starts the form again from them. */
-function PointsPanel({ at, ed, onReload, say }: Props) {
+function PointsPanel({ at, ed, onReload, outcome, say }: Props) {
   const [form, setForm] = useState<PointsForm>(pointsForm(ed.points));
   const locked = ed.rounds.some((r) => r.kind === 'knockout');
   const send = async (r: req.Request, done: string) => {
     const res = await req.send(r);
-    say(res.ok ? done : res.message);
+    say(outcomeOf(res, done, 'points'));
     await onReload();
   };
   const save = (e: FormEvent) => {
@@ -998,19 +1009,20 @@ function PointsPanel({ at, ed, onReload, say }: Props) {
           </button>
         )}
       </form>
+      <Notice outcome={shownAt(outcome, 'points')} onClose={() => say(null)} />
     </>
   );
 }
 
 /** FormatPanel sets the edition's Swiss rounds and knockout size. */
-function FormatPanel({ at, ed, onReload, say }: Props) {
+function FormatPanel({ at, ed, onReload, outcome, say }: Props) {
   const [format, setFormat] = useState(ed.format);
   const locked = ed.rounds.some((r) => r.kind === 'knockout');
   const advice = formatAdvice(format, ed.entrants.filter((e) => e.status === 'active').length);
   const save = async (e: FormEvent) => {
     e.preventDefault();
     const r = await req.send(req.setBlitzFormat(at.slug, at.edition, format));
-    say(r.ok ? `Format saved: ${formatLabel(format)}.` : r.message);
+    say(outcomeOf(r, `Format saved: ${formatLabel(format)}.`, 'format'));
     await onReload();
   };
   return (
@@ -1042,6 +1054,7 @@ function FormatPanel({ at, ed, onReload, say }: Props) {
           Save
         </button>
       </form>
+      <Notice outcome={shownAt(outcome, 'format')} onClose={() => say(null)} />
       {!locked && (
         <p className="muted round-hint">
           Up to {advice.limit} Swiss {advice.limit === 1 ? 'round' : 'rounds'} can always be paired without anyone meeting twice.
@@ -1095,7 +1108,7 @@ type ResultFormProps = {
 
 /** ResultForm records a match's result: the game played (share code, each player's outcome and culture, when it finished and in which time zone), or the organisers' ruling with its reason. A refusal shows in the form. */
 function ResultForm({ at, round, match, nameOf, regions, zone, onZone, onDone, onCancel }: ResultFormProps) {
-  const [error, setError] = useState('');
+  const [refusal, setRefusal] = useState<Outcome | null>(null);
   const [kind, setKind] = useState<'game' | 'ruling'>(match.ruling !== '' ? 'ruling' : 'game');
   const [game, setGame] = useState<GameForm>(() => formFromGame(match, zone, regions));
   const choices = rulingChoices(round.kind);
@@ -1107,12 +1120,12 @@ function ResultForm({ at, round, match, nameOf, regions, zone, onZone, onDone, o
     if (kind === 'game') {
       const r = gameRecordFrom(game);
       if (!r.ok) {
-        setError(r.message);
+        setRefusal(refused(r.message, ''));
         return;
       }
       const res = await req.send(req.recordBlitzGame(at.slug, at.edition, round.id, match.id, r.body));
       if (!res.ok) {
-        setError(res.message);
+        setRefusal(refused(res.message, ''));
         return;
       }
       onZone(r.body.zone);
@@ -1120,12 +1133,12 @@ function ResultForm({ at, round, match, nameOf, regions, zone, onZone, onDone, o
       return;
     }
     if (ruling.reason.trim() === '') {
-      setError('A ruling needs a reason.');
+      setRefusal(refused('A ruling needs a reason.', ''));
       return;
     }
     const res = await req.send(req.recordBlitzRuling(at.slug, at.edition, round.id, match.id, ruling));
     if (res.ok) await onDone(`${a} v ${b} ruled.`);
-    else setError(res.message);
+    else setRefusal(refused(res.message, ''));
   };
   // side is one player's row: how their game ended, then their culture (0 for one who resigned or timed out).
   const side = (who: 'a' | 'b', name: string) => (
@@ -1211,11 +1224,7 @@ function ResultForm({ at, round, match, nameOf, regions, zone, onZone, onDone, o
           </label>
         </div>
       )}
-      {error !== '' && (
-        <p className="row-error form-error" role="alert">
-          {error}
-        </p>
-      )}
+      <Notice outcome={refusal} onClose={() => setRefusal(null)} />
       <div className="result-row">
         <button type="submit" className="btn-antique">
           Save
@@ -1246,7 +1255,7 @@ function ReplaceForm({ at, round, match, out, ed, nameOf, onDone, onCancel }: Re
   const [how, setHow] = useState<'reserve' | 'wildcard'>(reserve !== null ? 'reserve' : 'wildcard');
   const [typed, setTyped] = useState('');
   const [picked, setPicked] = useState<PersonChoice | null>(null);
-  const [error, setError] = useState('');
+  const [refusal, setRefusal] = useState<Outcome | null>(null);
   const found = usePeopleSearch(`/api/blitz/${at.slug}/${encodeURIComponent(at.edition)}/candidates`, typed, picked !== null, ed);
   const inRound = new Set(round.matches.flatMap((m) => (m.b === null ? [m.a] : [m.a, m.b])));
   const outsiders = ed.entrants.filter((e) => e.status === 'active' && !inRound.has(e.id)).map((e) => ({ id: e.id, name: e.name }));
@@ -1261,7 +1270,7 @@ function ReplaceForm({ at, round, match, out, ed, nameOf, onDone, onCancel }: Re
       else {
         const added = await req.send<BlitzEntrantIds>(req.addBlitzEntrants(at.slug, at.edition, [entrantToAdd(picked.fill)]));
         if (!added.ok) {
-          setError(added.message);
+          setRefusal(refused(added.message, ''));
           return;
         }
         id = added.data.ids[0];
@@ -1271,7 +1280,7 @@ function ReplaceForm({ at, round, match, out, ed, nameOf, onDone, onCancel }: Re
     const name = how === 'reserve' ? nameOf(id) : (picked?.fill.name ?? nameOf(id));
     const res = await req.send(req.replaceBlitzPlayer(at.slug, at.edition, round.id, match.id, { out, in: id }));
     if (res.ok) await onDone(`${name} takes ${nameOf(out)}'s place.`);
-    else setError(res.message);
+    else setRefusal(refused(res.message, ''));
   };
   return (
     <form className="result-form" onSubmit={(e) => void submit(e)}>
@@ -1307,11 +1316,7 @@ function ReplaceForm({ at, round, match, out, ed, nameOf, onDone, onCancel }: Re
           {picked !== null && <span className="muted pick-note">{picked.detail}</span>}
         </div>
       )}
-      {error !== '' && (
-        <p className="row-error form-error" role="alert">
-          {error}
-        </p>
-      )}
+      <Notice outcome={refusal} onClose={() => setRefusal(null)} />
       <div className="result-row">
         <button type="submit" className="btn-antique" disabled={how === 'wildcard' && picked === null}>
           Replace

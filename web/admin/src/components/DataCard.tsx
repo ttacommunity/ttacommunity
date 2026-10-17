@@ -2,6 +2,8 @@
 import { useEffect, useState } from 'react';
 import type { components } from '@ttac/shared/api';
 import { adminDownload, adminRequest, exportFileName } from '../lib/admin-api';
+import { refusalOf, type Outcome } from '../lib/outcome';
+import Notice, { LoadNotice } from './Notice';
 
 type DataSummary = components['schemas']['DataSummary'];
 
@@ -12,11 +14,14 @@ export default function DataCard() {
   const [d, setD] = useState<DataSummary | null>(null);
   const [message, setMessage] = useState('');
   const [download, setDownload] = useState('');
+  const [refusal, setRefusal] = useState<Outcome | null>(null);
   const takeExport = async () => {
     setDownload('Preparing the download…');
+    setRefusal(null);
     const r = await adminDownload('/api/export');
+    setRefusal(refusalOf(r));
     if (!r.ok) {
-      setDownload(r.message);
+      setDownload('');
       return;
     }
     const url = URL.createObjectURL(r.data);
@@ -36,11 +41,7 @@ export default function DataCard() {
       <h2 id="data-heading" className="rating-card-heading">
         Data
       </h2>
-      {message !== '' && (
-        <p className="row-error" role="alert">
-          {message}
-        </p>
-      )}
+      {message !== '' && <LoadNotice message={message} />}
       {d === null && message === '' && <p className="muted">Loading…</p>}
       {d !== null && (
         <>
@@ -79,6 +80,7 @@ export default function DataCard() {
               {download}
             </span>
           </div>
+          <Notice outcome={refusal} onClose={() => setRefusal(null)} />
           {d.unplaced > 0 && (
             <p className="row-error" role="alert">
               {count(d.unplaced)} {d.unplaced === 1 ? 'game is' : 'games are'} in no tournament. A rating run will not start

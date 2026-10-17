@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react';
 import { formatLabel, reachedLabel } from '@ttac/shared/blitz';
 import { adminRequest, type AdminBlitzEditionRow, type Load } from '../lib/admin-api';
 import { editionHref } from '../lib/blitz-page';
+import { LoadNotice } from './Notice';
 
 export default function BlitzPanel() {
   const [rows, setRows] = useState<Load<AdminBlitzEditionRow[]>>({ kind: 'loading' });
@@ -21,11 +22,7 @@ export default function BlitzPanel() {
         players, rounds and results.
       </p>
       {rows.kind === 'loading' && <p className="muted">Loading…</p>}
-      {rows.kind === 'error' && (
-        <p className="row-error" role="alert">
-          {rows.message}
-        </p>
-      )}
+      {rows.kind === 'error' && <LoadNotice message={rows.message} />}
       {rows.kind === 'ready' && rows.data.length === 0 && <p className="muted">No tournament has the Blitz setting yet.</p>}
       {rows.kind === 'ready' && rows.data.length > 0 && (
         <div className="table-responsive">

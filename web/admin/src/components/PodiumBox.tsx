@@ -3,6 +3,8 @@ import { useState } from 'react';
 import * as req from '../lib/admin-requests';
 import { podiumNoteStart, podiumRequest, podiumStart, type PodiumEntry } from '../lib/podium';
 import { fieldId } from '../lib/tournament-page';
+import { refusalOf, type Outcome } from '../lib/outcome';
+import Notice from './Notice';
 
 const PLACES = ['1st', '2nd', '3rd'];
 
@@ -36,19 +38,24 @@ export default function PodiumBox({
   const [names, setNames] = useState(start.names);
   const [note, setNote] = useState(podiumNoteStart(savedNote, start.origin));
   const [status, setStatus] = useState('');
+  const [refusal, setRefusal] = useState<Outcome | null>(null);
   const id = fieldId('podium', slug, season);
   const save = async () => {
     const body = podiumRequest(names, note);
     if (body === null) return;
     setStatus('Saving…');
+    setRefusal(null);
     const r = await req.send(req.setPodium(slug, season, body));
-    setStatus(r.ok ? 'Saved. Titles follow at the next run.' : r.message);
+    setStatus(r.ok ? 'Saved. Titles follow at the next run.' : '');
+    setRefusal(refusalOf(r));
     if (r.ok) await onReload();
   };
   const clear = async () => {
     setStatus('Removing…');
+    setRefusal(null);
     const r = await req.send(req.clearPodium(slug, season));
-    setStatus(r.ok ? 'Removed. The recorded or derived podium shows again.' : r.message);
+    setStatus(r.ok ? 'Removed. The recorded or derived podium shows again.' : '');
+    setRefusal(refusalOf(r));
     if (r.ok) await onReload();
   };
   return (
@@ -86,6 +93,7 @@ export default function PodiumBox({
           {status}
         </span>
       </div>
+      <Notice outcome={refusal} onClose={() => setRefusal(null)} />
     </fieldset>
   );
 }

@@ -3,6 +3,8 @@ import { isRemoval, textChanged } from '../lib/admin-edits';
 import { useState } from 'react';
 import * as req from '../lib/admin-requests';
 import { fieldId } from '../lib/tournament-page';
+import { refusalOf, type Outcome } from '../lib/outcome';
+import Notice from './Notice';
 
 /** NoteBox edits the note shown beside a season (stage '') or one of its stages. */
 export default function NoteBox({
@@ -23,16 +25,19 @@ export default function NoteBox({
   const [text, setText] = useState(initial);
   const [saved, setSaved] = useState(initial);
   const [status, setStatus] = useState('');
+  const [refusal, setRefusal] = useState<Outcome | null>(null);
   const id = fieldId('note', slug, season, stage);
   const save = async () => {
     setStatus('Saving…');
+    setRefusal(null);
     const r = await req.send(req.setNote(slug, season, stage, text));
+    setRefusal(refusalOf(r));
     if (r.ok) {
       setSaved(text.trim());
       setStatus(isRemoval(text) ? 'Removed' : 'Saved');
       onSaved?.();
     } else {
-      setStatus(r.message);
+      setStatus('');
     }
   };
   return (
@@ -50,6 +55,7 @@ export default function NoteBox({
           {status}
         </span>
       </div>
+      <Notice outcome={refusal} onClose={() => setRefusal(null)} />
     </div>
   );
 }

@@ -1,5 +1,5 @@
 ---
-/** The page shell both admin pages use; each page's island draws the site's header and its main content. */
+/** The page shell every admin page uses: each page's island draws the site's header and its main content, and Notice reads outcomes out from the live regions at the end. */
 import '@ttac/shared/styles/theme.css';
 
 interface Props {
@@ -20,5 +20,7 @@ const { title, description } = Astro.props;
   </head>
   <body>
     <slot />
+    <div id="notice-status" class="visually-hidden" role="status"></div>
+    <div id="notice-alert" class="visually-hidden" role="alert"></div>
   </body>
 </html>

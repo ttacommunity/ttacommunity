@@ -7,6 +7,7 @@ import { listed } from '../lib/tournament-groups';
 import { settingsHref } from '../lib/tournament-page';
 import AdminHeader from './AdminHeader';
 import PageError from './PageError';
+import { LoadNotice } from './Notice';
 import NewGroupForm from './NewGroupForm';
 import TournamentTable from './TournamentTable';
 import AdminList from './AdminList';
@@ -57,7 +58,7 @@ function Tournaments() {
       </div>
       {making && <NewGroupForm />}
       {tournaments.kind === 'loading' && <p className="muted">Loading tournaments…</p>}
-      {tournaments.kind === 'error' && <p className="row-error" role="alert">{tournaments.message}</p>}
+      {tournaments.kind === 'error' && <LoadNotice message={tournaments.message} />}
       {tournaments.kind === 'ready' && (
         <TournamentTable
           rows={listed(tournaments.data, rated)}
