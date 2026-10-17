@@ -4,6 +4,8 @@ import * as req from '../lib/admin-requests';
 import type { AdminTournamentRow } from '../lib/admin-api';
 import { newGroupBody } from '../lib/tournament-groups';
 import { settingsHref } from '../lib/tournament-page';
+import { refusalOf, type Outcome } from '../lib/outcome';
+import Notice from './Notice';
 
 type Kind = AdminTournamentRow['kind'];
 
@@ -21,16 +23,19 @@ export default function NewGroupForm() {
   const [name, setName] = useState('');
   const [kind, setKind] = useState<Kind>('series');
   const [status, setStatus] = useState('');
+  const [refusal, setRefusal] = useState<Outcome | null>(null);
   const make = async (e: FormEvent) => {
     e.preventDefault();
     const body = newGroupBody(name, kind);
     if (body === null) return;
     setStatus('Making…');
+    setRefusal(null);
     const r = await req.send<{ slug: string }>(req.newGroup(body));
+    setRefusal(refusalOf(r));
     if (r.ok) {
       window.location.href = settingsHref(r.data.slug);
     } else {
-      setStatus(r.message);
+      setStatus('');
     }
   };
   return (
@@ -58,6 +63,7 @@ export default function NewGroupForm() {
           {status}
         </span>
       </p>
+      <Notice outcome={refusal} onClose={() => setRefusal(null)} />
     </form>
   );
 }

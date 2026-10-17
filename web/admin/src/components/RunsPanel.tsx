@@ -1,7 +1,9 @@
 /** Rating runs, for admins: start one, watch its progress, compare and publish it, and protect or delete old ones. */
-import { useEffect, useState } from 'react';
+import { Fragment, useEffect, useState } from 'react';
 import * as req from '../lib/admin-requests';
 import { adminRequest, type AdminRun, type RunChanges, type StartedRun } from '../lib/admin-api';
+import { loadFailure, outcomeOf, refusalOf, refused, shownAt, succeeded, type Outcome } from '../lib/outcome';
+import Notice, { LoadNotice, NoticeRow } from './Notice';
 import { awaitStartedRun, canDelete, keepPolling, parseProgress, publishVerb, runGoing, runLabel, runSize, shownRuns } from '../lib/runs-view';
 
 const POLL_MS = 5000;
@@ -34,7 +36,7 @@ function Changes({ run }: { run: number }) {
   useEffect(() => {
     void adminRequest<RunChanges>(`/api/runs/${run}/changes`, {}).then((r) => (r.ok ? setC(r.data) : setMessage(r.message)));
   }, [run]);
-  if (message !== '') return <p className="row-error">{message}</p>;
+  if (message !== '') return <LoadNotice message={message} />;
   if (c === null) return <p className="muted">Comparing…</p>;
   return (
     <div className="run-changes">
@@ -77,7 +79,8 @@ function Changes({ run }: { run: number }) {
 /** RunsPanel lists the runs and polls while one is going, or just after one was started. */
 export default function RunsPanel() {
   const [runs, setRuns] = useState<AdminRun[] | null>(null);
-  const [message, setMessage] = useState('');
+  const [outcome, setOutcome] = useState<Outcome | null>(null);
+  const close = () => setOutcome(null);
   const [waitingUntil, setWaitingUntil] = useState(0);
   const [comparing, setComparing] = useState<number | null>(null);
   const [all, setAll] = useState(false);
@@ -85,7 +88,7 @@ export default function RunsPanel() {
   const load = async () => {
     const r = await adminRequest<AdminRun[]>('/api/runs', {});
     if (r.ok) setRuns(r.data);
-    else setMessage(r.message);
+    else setOutcome(loadFailure(r.message, 'runs'));
   };
   const going = runs !== null && runGoing(runs);
   const changing = runs !== null && keepPolling(runs, waitingUntil, Date.now());
@@ -100,43 +103,43 @@ export default function RunsPanel() {
 
   const start = async () => {
     if (!window.confirm('Start a rating run now? It usually takes 20 to 40 minutes, and is not shown on the site until you publish it.')) return;
-    setMessage('');
+    setOutcome(null);
     const r = await req.send<StartedRun>(req.startRun());
     if (!r.ok) {
-      setMessage(r.message);
+      setOutcome(refused(r.message, 'runs'));
       return;
     }
-    setMessage(`Started ${r.data.job}. Its run appears here once the engine connects.`);
+    setOutcome(succeeded(`Started ${r.data.job}. Its run appears here once the engine connects.`, 'runs'));
     setWaitingUntil(awaitStartedRun(Date.now()));
   };
   const stop = async (run: AdminRun) => {
     if (!window.confirm(`Stop run ${run.id}? It is marked failed, and its work so far is not kept.`)) return;
-    setMessage('');
+    setOutcome(null);
     const r = await req.send(req.stopRun());
-    setMessage(r.ok ? `Stopping run ${run.id}. It shows as failed once the engine has ended.` : r.message);
+    setOutcome(outcomeOf(r, `Stopping run ${run.id}. It shows as failed once the engine has ended.`, 'runs'));
     await load();
   };
   const publish = async (run: AdminRun) => {
     const verb = publishVerb(runs ?? [], run);
     if (!window.confirm(`${verb} run ${run.id}? The site shows it at once.`)) return;
-    setMessage('');
+    setOutcome(null);
     const r = await req.send(req.publishRun(run.id));
-    setMessage(r.ok ? `Run ${run.id} is now the one the site shows.` : r.message);
+    setOutcome(outcomeOf(r, `Run ${run.id} is now the one the site shows.`, `run ${run.id}`));
     await load();
   };
 
   const protect = async (run: AdminRun, on: boolean) => {
-    setMessage('');
+    setOutcome(null);
     const r = await req.send(req.protectRun(run.id, on));
-    if (!r.ok) setMessage(r.message);
+    setOutcome(refusalOf(r, `run ${run.id}`));
     await load();
   };
   const remove = async (run: AdminRun) => {
     const size = runSize(run);
     if (!window.confirm(`Delete run ${run.id}${size === '' ? '' : ` (${size})`} and every result of it? This cannot be undone.`)) return;
-    setMessage('');
+    setOutcome(null);
     const r = await req.send(req.deleteRun(run.id));
-    setMessage(r.ok ? `Deleting run ${run.id}. It disappears from this list once it is gone.` : r.message);
+    setOutcome(outcomeOf(r, `Deleting run ${run.id}. It disappears from this list once it is gone.`, `run ${run.id}`, 'runs'));
     await load();
   };
 
@@ -155,11 +158,7 @@ export default function RunsPanel() {
           {going ? 'A run is going' : 'Start a run now'}
         </button>
       </div>
-      {message !== '' && (
-        <p className="admin-message" role="status">
-          {message}
-        </p>
-      )}
+      <Notice outcome={shownAt(outcome, 'runs')} onClose={close} />
       {runs
         ?.filter((r) => r.status === 'running')
         .map((r) => (
@@ -189,15 +188,17 @@ export default function RunsPanel() {
             </thead>
             <tbody>
               {shown.map((r) => (
-                <RunRow
-                  key={r.id}
-                  run={r}
-                  comparing={comparing === r.id}
-                  onCompare={() => setComparing(comparing === r.id ? null : r.id)}
-                  onPublish={() => void publish(r)}
-                  onProtect={(on) => void protect(r, on)}
-                  onDelete={() => void remove(r)}
-                />
+                <Fragment key={r.id}>
+                  <RunRow
+                    run={r}
+                    comparing={comparing === r.id}
+                    onCompare={() => setComparing(comparing === r.id ? null : r.id)}
+                    onPublish={() => void publish(r)}
+                    onProtect={(on) => void protect(r, on)}
+                    onDelete={() => void remove(r)}
+                  />
+                  <NoticeRow outcome={shownAt(outcome, `run ${r.id}`)} columns={8} onClose={close} />
+                </Fragment>
               ))}
             </tbody>
           </table>

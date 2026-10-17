@@ -3,6 +3,8 @@ import { useState } from 'react';
 import * as req from '../lib/admin-requests';
 import type { AdminTournamentRow, TournamentBrief } from '../lib/admin-api';
 import { moveChoices } from '../lib/tournament-groups';
+import { refusalOf, type Outcome } from '../lib/outcome';
+import Notice from './Notice';
 
 /** MoveButton moves t into a group from all, or out of every group, then calls onReload. */
 export default function MoveButton({
@@ -16,12 +18,15 @@ export default function MoveButton({
 }) {
   const [open, setOpen] = useState(false);
   const [status, setStatus] = useState('');
+  const [refusal, setRefusal] = useState<Outcome | null>(null);
   const choices = moveChoices(all, t.slug);
   const move = async (parent: string) => {
     setStatus('Moving…');
+    setRefusal(null);
     const r = await req.send(req.moveInto(t.slug, parent));
+    setRefusal(refusalOf(r));
     if (!r.ok) {
-      setStatus(r.message);
+      setStatus('');
       return;
     }
     await onReload();
@@ -60,6 +65,7 @@ export default function MoveButton({
       <span className="note-status" role="status">
         {status}
       </span>
+      <Notice outcome={refusal} onClose={() => setRefusal(null)} />
     </span>
   );
 }

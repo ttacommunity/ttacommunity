@@ -142,9 +142,66 @@
 .rating-card.admin-card + .rating-card.admin-card {
   margin-top: 1.5rem;
 }
-.admin-message {
-  margin-bottom: 1rem;
-  color: var(--accent-gold-light);
+/* An action's outcome beside it (Notice): its word in colour on a dark panel, bordered green when done, red when not. */
+.notice {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+  margin: 0.6rem 0;
+  padding: 0.5rem 0.75rem;
+  border: 1px solid var(--border-subtle);
+  border-left: 4px solid var(--win);
+  border-radius: 6px;
+  background: var(--surface-well);
+  color: var(--text-main);
+  font-family: var(--font-body);
+  font-size: var(--size-body-short);
+  text-align: left;
+  white-space: normal;
+  scroll-margin: 5.5rem 0 1rem;
+}
+.notice-refused,
+.notice-failed {
+  border-left-color: var(--loss);
+}
+.notice-body {
+  flex: 1;
+  min-width: 0;
+}
+.notice-heading,
+.notice-text {
+  display: block;
+}
+.notice-heading {
+  color: var(--win);
+}
+.notice-refused .notice-heading,
+.notice-failed .notice-heading {
+  color: var(--loss);
+}
+.notice-close {
+  min-width: 1.5rem;
+  min-height: 1.5rem;
+  padding: 0 0.3rem;
+  border: 0;
+  background: none;
+  color: var(--text-soft);
+  font-size: 1.25rem;
+  line-height: 1;
+  cursor: pointer;
+}
+.notice-close:hover {
+  color: var(--text-main);
+}
+/* A notice under a table row stays whole and in view while a wide table scrolls sideways: as wide as the table's visible part, less the cell's padding. */
+.admin-main .table-responsive {
+  container-type: inline-size;
+}
+.notice-row .notice {
+  position: sticky;
+  left: 0;
+  max-width: calc(100cqi - 2rem);
+  margin: 0;
 }
 .admin-id {
   font-family: var(--font-stats);
@@ -527,6 +584,7 @@
    row, it stays in view while the table scrolls sideways on a phone. */
 .result-form {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: 0.75rem;
 }
 .result-form h3 {
@@ -549,13 +607,33 @@
 .result-row .setting-inline {
   display: flex;
 }
+/* A ruling's results as radio buttons, one per line, each name wrapping beside its button rather than running off a phone. */
+.ruling-choices {
+  display: grid;
+  gap: 0.4rem;
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  color: var(--text-main);
+}
+.ruling-choices legend {
+  margin-bottom: 0.25rem;
+  padding: 0;
+  color: var(--text-soft);
+  font-size: 0.85rem;
+}
+.ruling-choices .setting-inline {
+  align-items: flex-start;
+}
+.ruling-choices input[type='radio'] {
+  flex: none;
+  margin-top: 0;
+}
 .form-row .result-form {
   position: sticky;
   left: 0;
   max-width: calc(100vw - 4rem);
-}
-.form-error {
-  width: 100%;
 }
 /* A field offering choices as you type (PickBox): the list opens under it, over what follows. */
 .pick-field {
@@ -702,19 +780,19 @@
 .settings-head h3 {
   margin: 0;
 }
-.settings-list {
+.settings-summary {
   display: grid;
   grid-template-columns: max-content 1fr;
   gap: 0.35rem 1.25rem;
   margin: 0 0 0.6rem;
 }
-.settings-list > div {
+.settings-summary > div {
   display: contents;
 }
-.settings-list dt {
+.settings-summary dt {
   color: var(--text-soft);
 }
-.settings-list dd {
+.settings-summary dd {
   margin: 0;
   color: var(--text-main);
 }
@@ -728,11 +806,11 @@
   margin-top: 0.25rem;
 }
 @media (max-width: 600px) {
-  .settings-list {
+  .settings-summary {
     grid-template-columns: 1fr;
     gap: 0.1rem;
   }
-  .settings-list dd {
+  .settings-summary dd {
     margin-bottom: 0.4rem;
   }
 }

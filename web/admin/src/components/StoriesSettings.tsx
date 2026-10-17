@@ -3,6 +3,8 @@ import { addedStory, canAddStory, editedStory, movedStory, removedStory, stories
 import { useState } from 'react';
 import * as req from '../lib/admin-requests';
 import type { AdminTournament } from '../lib/admin-api';
+import { refusalOf, type Outcome } from '../lib/outcome';
+import Notice from './Notice';
 
 type Story = AdminTournament['stories'][number];
 
@@ -10,13 +12,16 @@ type Story = AdminTournament['stories'][number];
 export default function StoriesSettings({ t, onReload }: { t: AdminTournament; onReload: () => Promise<void> }) {
   const [list, setList] = useState<Story[]>(t.stories);
   const [status, setStatus] = useState('');
+  const [refusal, setRefusal] = useState<Outcome | null>(null);
   const changed = storiesChanged(t.stories, list);
   const set = (i: number, field: keyof Story, value: string) => setList(editedStory(list, i, field, value));
   const move = (i: number, by: number) => setList(movedStory(list, i, by));
   const save = async () => {
     setStatus('Saving…');
+    setRefusal(null);
     const r = await req.send(req.setStories(t.slug, list));
-    setStatus(r.ok ? 'Saved. The tournament page shows them at once.' : r.message);
+    setStatus(r.ok ? 'Saved. The tournament page shows them at once.' : '');
+    setRefusal(refusalOf(r));
     if (r.ok) await onReload();
   };
   return (
@@ -85,6 +90,7 @@ export default function StoriesSettings({ t, onReload }: { t: AdminTournament; o
           {status}
         </span>
       </div>
+      <Notice outcome={refusal} onClose={() => setRefusal(null)} />
     </section>
   );
 }

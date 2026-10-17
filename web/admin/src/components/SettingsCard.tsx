@@ -1,7 +1,9 @@
 /** A tournament's settings, each saved at once. */
-import { useState } from 'react';
+import { Fragment, useState } from 'react';
 import * as req from '../lib/admin-requests';
 import type { AdminTournament } from '../lib/admin-api';
+import { refusalOf, refused, shownAt, type Outcome } from '../lib/outcome';
+import Notice from './Notice';
 import {
   divisionList,
   divisionsChanged,
@@ -14,28 +16,27 @@ import {
   toggledCounts,
 } from '../lib/tournament-page';
 
-/** SettingsCard switches a tournament's settings, saving each at once. */
+/** SettingsCard switches a tournament's settings, saving each at once; a refusal shows under the setting refused. */
 export default function SettingsCard({ t, onChange }: { t: AdminTournament; onChange: (t: AdminTournament) => void }) {
-  const [error, setError] = useState('');
+  const [refusal, setRefusal] = useState<Outcome | null>(null);
+  const notice = (at: string) => <Notice outcome={shownAt(refusal, at)} onClose={() => setRefusal(null)} />;
   const [divisions, setDivisions] = useState(divisionText(t.top_divisions));
   const [points, setPoints] = useState({ 2: pointsText(t.points_2p), 3: pointsText(t.points_3p), 4: pointsText(t.points_4p) });
   const [levels, setLevels] = useState({ season_name: t.season_name, stage_name: t.stage_name });
   const scoring = scoringPatch(points, t);
   const levelChange = levelNamesPatch(levels, t);
   // Shows the change at once, and puts the tournament back if the API refuses it.
-  const patch = async (change: Partial<AdminTournament>) => {
-    setError('');
+  const patch = async (change: Partial<AdminTournament>, at: string) => {
+    setRefusal(null);
     onChange({ ...t, ...change });
     const r = await req.send(req.setTournament(t.slug, change));
-    if (!r.ok) {
-      onChange(t);
-      setError(r.message);
-    }
+    setRefusal(refusalOf(r, at));
+    if (!r.ok) onChange(t);
   };
   const setCount = (n: number, on: boolean) => {
     const next = toggledCounts(t.rated_player_counts, n, on);
-    if (next === null) setError('At least one player count stays rated; to rate none, untick Rated above.');
-    else void patch({ rated_player_counts: next });
+    if (next === null) setRefusal(refused('At least one player count stays rated; to rate none, untick Rated above.', 'rated counts'));
+    else void patch({ rated_player_counts: next }, 'rated counts');
   };
   return (
     <section className="rating-card admin-card" aria-labelledby="settings-heading">
@@ -45,18 +46,21 @@ export default function SettingsCard({ t, onChange }: { t: AdminTournament; onCh
       <p className="muted">Changes save at once and are recorded with your name. Rating changes apply from the next engine run.</p>
       <div className="settings-list">
         {SETTINGS.map((s) => (
-          <div key={s.key} className="setting">
-            <input
-              id={`setting-${s.key}`}
-              type="checkbox"
-              checked={t[s.key]}
-              onChange={(e) => void patch({ [s.key]: e.target.checked })}
-            />
-            <label htmlFor={`setting-${s.key}`}>
-              <strong>{s.label}</strong>
-              <span className="muted"> · {s.hint}</span>
-            </label>
-          </div>
+          <Fragment key={s.key}>
+            <div className="setting">
+              <input
+                id={`setting-${s.key}`}
+                type="checkbox"
+                checked={t[s.key]}
+                onChange={(e) => void patch({ [s.key]: e.target.checked }, s.key)}
+              />
+              <label htmlFor={`setting-${s.key}`}>
+                <strong>{s.label}</strong>
+                <span className="muted"> · {s.hint}</span>
+              </label>
+            </div>
+            {notice(s.key)}
+          </Fragment>
         ))}
         <fieldset className="setting-counts">
           <legend>
@@ -75,17 +79,19 @@ export default function SettingsCard({ t, onChange }: { t: AdminTournament; onCh
             </label>
           ))}
         </fieldset>
+        {notice('rated counts')}
         <div className="setting">
           <label htmlFor="setting-kind">
             <strong>Kind</strong>
             <span className="muted"> · A league's podium is its top divisions' standings; a ladder has none</span>
           </label>{' '}
-          <select className="input-antique" id="setting-kind" value={t.kind} onChange={(e) => void patch({ kind: e.target.value as AdminTournament['kind'] })}>
+          <select className="input-antique" id="setting-kind" value={t.kind} onChange={(e) => void patch({ kind: e.target.value as AdminTournament['kind'] }, 'kind')}>
             <option value="league">League</option>
             <option value="cup">Cup</option>
             <option value="ladder">Ladder</option>
           </select>
         </div>
+        {notice('kind')}
         {t.kind === 'league' && (
           <div className="setting">
             <label htmlFor="setting-top">
@@ -96,13 +102,14 @@ export default function SettingsCard({ t, onChange }: { t: AdminTournament; onCh
             <button
               type="button"
               className="btn-antique"
-              onClick={() => void patch({ top_divisions: divisionList(divisions) })}
+              onClick={() => void patch({ top_divisions: divisionList(divisions) }, 'top divisions')}
               disabled={!divisionsChanged(divisions, t.top_divisions)}
             >
               Save
             </button>
           </div>
         )}
+        {notice('top divisions')}
         <fieldset className="setting-counts">
           <legend>
             <strong>Points per place</strong>
@@ -126,7 +133,7 @@ export default function SettingsCard({ t, onChange }: { t: AdminTournament; onCh
             type="button"
             className="btn-antique"
             onClick={() => {
-              if (scoring !== null) void patch(scoring);
+              if (scoring !== null) void patch(scoring, 'points');
             }}
             disabled={!patchReady(scoring)}
           >
@@ -134,6 +141,7 @@ export default function SettingsCard({ t, onChange }: { t: AdminTournament; onCh
           </button>
           {scoring === null && <span className="muted"> One number per place, never higher for a worse place</span>}
         </fieldset>
+        {notice('points')}
         <fieldset className="setting-counts">
           <legend>
             <strong>Words on its pages</strong>
@@ -163,19 +171,15 @@ export default function SettingsCard({ t, onChange }: { t: AdminTournament; onCh
             type="button"
             className="btn-antique"
             onClick={() => {
-              if (levelChange !== null) void patch(levelChange);
+              if (levelChange !== null) void patch(levelChange, 'levels');
             }}
             disabled={!patchReady(levelChange)}
           >
             Save
           </button>
         </fieldset>
+        {notice('levels')}
       </div>
-      {error !== '' && (
-        <p className="row-error" role="alert">
-          {error}
-        </p>
-      )}
     </section>
   );
 }

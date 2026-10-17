@@ -4,7 +4,9 @@ import * as req from '../lib/admin-requests';
 import type { AdminTournamentRow, TournamentBrief } from '../lib/admin-api';
 import { candidatesFor, groupChange, membersOf, toggled } from '../lib/tournament-groups';
 import { opensSettings, settingsHref } from '../lib/tournament-page';
+import { refusalOf, type Outcome } from '../lib/outcome';
 import MoveButton from './MoveButton';
+import Notice from './Notice';
 import { GROUP_KINDS } from './NewGroupForm';
 import TournamentTable from './TournamentTable';
 
@@ -17,13 +19,16 @@ function GroupSettings({ g, all, onReload }: { g: TournamentBrief; all: readonly
   const [kind, setKind] = useState<Kind>(g.kind);
   const [description, setDescription] = useState(g.description);
   const [status, setStatus] = useState('');
+  const [refusal, setRefusal] = useState<Outcome | null>(null);
   const change = groupChange(g, { name, kind, description });
   const save = async () => {
     setStatus('Saving…');
+    setRefusal(null);
     if (change === null) return;
     const r = await req.send(req.setTournament(g.slug, change));
+    setRefusal(refusalOf(r));
     if (!r.ok) {
-      setStatus(r.message);
+      setStatus('');
       return;
     }
     await onReload();
@@ -63,6 +68,7 @@ function GroupSettings({ g, all, onReload }: { g: TournamentBrief; all: readonly
               {status}
             </span>
           </p>
+          <Notice outcome={refusal} onClose={() => setRefusal(null)} />
           <p>
             <MoveButton t={g} all={all} onReload={onReload} />
           </p>
@@ -79,16 +85,20 @@ function Members({ g, all, onReload }: { g: TournamentBrief; all: readonly Admin
   const [chosen, setChosen] = useState<string[]>([]);
   const [everyType, setEveryType] = useState(false);
   const [status, setStatus] = useState('');
+  const [refusal, setRefusal] = useState<Outcome | null>(null);
   const start = () => {
     setChosen(members.map((m) => m.slug));
     setStatus('');
+    setRefusal(null);
     setModifying(true);
   };
   const done = async () => {
     setStatus('Saving…');
+    setRefusal(null);
     const r = await req.send(req.setMembers(g.slug, chosen));
+    setRefusal(refusalOf(r));
     if (!r.ok) {
-      setStatus(r.message);
+      setStatus('');
       return;
     }
     await onReload();
@@ -143,6 +153,7 @@ function Members({ g, all, onReload }: { g: TournamentBrief; all: readonly Admin
               {chosen.length} chosen{status !== '' && ` · ${status}`}
             </span>
           </p>
+          <Notice outcome={refusal} onClose={() => setRefusal(null)} />
           <TournamentTable
             rows={candidatesFor(all, g.slug, everyType)}
             all={all}

@@ -3,6 +3,8 @@ import { isRemoval, regulationsSavable, regulationsSource, regulationsStart } fr
 import { useState } from 'react';
 import * as req from '../lib/admin-requests';
 import type { AdminTournament } from '../lib/admin-api';
+import { refusalOf, type Outcome } from '../lib/outcome';
+import Notice from './Notice';
 
 // What the card says of the regulations the site shows now.
 const REGULATIONS_SHOWN = {
@@ -15,12 +17,15 @@ const REGULATIONS_SHOWN = {
 export default function RegulationsCard({ t, onReload }: { t: AdminTournament; onReload: () => Promise<void> }) {
   const [text, setText] = useState(regulationsStart(t.regulations, t.cge_regulations));
   const [status, setStatus] = useState('');
+  const [refusal, setRefusal] = useState<Outcome | null>(null);
   const source = regulationsSource(t.regulations, t.cge_regulations);
   const save = async (value: string) => {
     setStatus('Saving…');
+    setRefusal(null);
     const r = await req.send(req.setRegulations(t.slug, value));
+    setRefusal(refusalOf(r));
     if (!r.ok) {
-      setStatus(r.message);
+      setStatus('');
       return;
     }
     setStatus(isRemoval(value) ? "Removed. The site shows CGE's text again." : 'Saved. The site shows it at once.');
@@ -62,6 +67,7 @@ export default function RegulationsCard({ t, onReload }: { t: AdminTournament; o
           {status}
         </span>
       </div>
+      <Notice outcome={refusal} onClose={() => setRefusal(null)} />
     </section>
   );
 }

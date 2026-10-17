@@ -1,6 +1,8 @@
 /** CGE's standings tables checked against our games: the totals, and each player who differs. */
 import { useState } from 'react';
 import { adminRequest } from '../lib/admin-api';
+import { refusalOf, type Outcome } from '../lib/outcome';
+import Notice from './Notice';
 import { DEFAULT_KINDS, checkSummary, differenceRows, type Kind, type StandingsCheck } from '../lib/standings-check';
 
 const count = (n: number) => n.toLocaleString();
@@ -9,11 +11,14 @@ const count = (n: number) => n.toLocaleString();
 export default function StandingsCheckPanel() {
   const [check, setCheck] = useState<StandingsCheck | null>(null);
   const [status, setStatus] = useState('');
+  const [refusal, setRefusal] = useState<Outcome | null>(null);
   const [shown, setShown] = useState<ReadonlySet<Kind>>(DEFAULT_KINDS);
   const run = async () => {
     setStatus('Checking every stage…');
+    setRefusal(null);
     const r = await adminRequest<StandingsCheck>('/api/standings-check', {});
-    setStatus(r.ok ? '' : r.message);
+    setStatus('');
+    setRefusal(refusalOf(r));
     if (r.ok) setCheck(r.data);
   };
   const toggle = (kind: Kind) => {
@@ -41,6 +46,7 @@ export default function StandingsCheckPanel() {
           {status}
         </span>
       </div>
+      <Notice outcome={refusal} onClose={() => setRefusal(null)} />
       {summary !== null && (
         <>
           <p>

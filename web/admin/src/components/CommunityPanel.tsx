@@ -4,6 +4,8 @@ import type { components } from '@ttac/shared/api';
 import * as req from '../lib/admin-requests';
 import { adminRequest } from '../lib/admin-api';
 import { newEdition } from '../lib/community-editions';
+import { loadFailure, outcomeOf, shownAt, type Outcome } from '../lib/outcome';
+import Notice from './Notice';
 
 type CommunityEditionItem = components['schemas']['CommunityEditionItem'];
 
@@ -20,16 +22,19 @@ interface EditFormState {
   sort_order: number;
 }
 
-/** EditionRow renders an edition's fields with inline editing and save button. */
+/** EditionRow renders an edition's fields with inline editing and save button, and what became of the last change to it. */
 function EditionRow({
   edition,
   onReload,
+  outcome,
   say,
 }: {
   edition: CommunityEditionItem;
   onReload: () => Promise<void>;
-  say: (m: string) => void;
+  outcome: Outcome | null;
+  say: (o: Outcome | null) => void;
 }) {
+  const at = `edition ${edition.slug}`;
   const [editing, setEditing] = useState(false);
   const [form, setForm] = useState<EditFormState>({
     name: edition.name,
@@ -47,7 +52,7 @@ function EditionRow({
   const save = async (e: FormEvent) => {
     e.preventDefault();
     const r = await req.send(req.setCommunityEdition(edition.slug, form));
-    say(r.ok ? `Saved edition ${edition.slug}.` : r.message);
+    say(outcomeOf(r, `Saved edition ${edition.slug}.`, at));
     if (r.ok) {
       setEditing(false);
       await onReload();
@@ -57,7 +62,7 @@ function EditionRow({
   const toggleVisible = async () => {
     const next = !edition.visible;
     const r = await req.send(req.setCommunityEdition(edition.slug, { visible: next }));
-    say(r.ok ? `Edition ${edition.slug} is now ${next ? 'visible' : 'hidden'}.` : r.message);
+    say(outcomeOf(r, `Edition ${edition.slug} is now ${next ? 'visible' : 'hidden'}.`, at));
     if (r.ok) await onReload();
   };
 
@@ -173,6 +178,7 @@ function EditionRow({
           </button>
         </form>
       )}
+      <Notice outcome={shownAt(outcome, at)} onClose={() => say(null)} />
     </div>
   );
 }
@@ -180,7 +186,7 @@ function EditionRow({
 /** CommunityPanel allows listing, editing and creating community leaderboard editions. */
 export default function CommunityPanel() {
   const [list, setList] = useState<CommunityEditionItem[] | null>(null);
-  const [message, setMessage] = useState('');
+  const [outcome, setOutcome] = useState<Outcome | null>(null);
   const [creating, setCreating] = useState(false);
   const [newForm, setNewForm] = useState<CommunityEditionItem>(newEdition([], new Date().getFullYear()));
 
@@ -189,7 +195,7 @@ export default function CommunityPanel() {
     if (r.ok) {
       setList(r.data);
     } else {
-      setMessage(r.message);
+      setOutcome(loadFailure(r.message, 'editions'));
     }
   };
 
@@ -200,7 +206,7 @@ export default function CommunityPanel() {
   const create = async (e: FormEvent) => {
     e.preventDefault();
     const r = await req.send(req.createCommunityEdition(newForm));
-    setMessage(r.ok ? `Created edition ${newForm.slug}.` : r.message);
+    setOutcome(outcomeOf(r, `Created edition ${newForm.slug}.`, 'new edition'));
     if (r.ok) {
       setCreating(false);
       setNewForm(newEdition([], new Date().getFullYear()));
@@ -324,11 +330,8 @@ export default function CommunityPanel() {
         </form>
       )}
 
-      {message !== '' && (
-        <p className="row-error" role="alert">
-          {message}
-        </p>
-      )}
+      <Notice outcome={shownAt(outcome, 'new edition')} onClose={() => setOutcome(null)} />
+      <Notice outcome={shownAt(outcome, 'editions')} />
 
       {list === null ? (
         <p className="muted">Loading editions…</p>
@@ -336,7 +339,7 @@ export default function CommunityPanel() {
         <p className="muted">No editions configured yet.</p>
       ) : (
         list.map((e) => (
-          <EditionRow key={e.slug} edition={e} onReload={load} say={setMessage} />
+          <EditionRow key={e.slug} edition={e} onReload={load} outcome={outcome} say={setOutcome} />
         ))
       )}
     </section>

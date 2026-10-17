@@ -4,7 +4,9 @@ import * as req from '../lib/admin-requests';
 import type { AdminTournament } from '../lib/admin-api';
 import { seasonSummary, stageRows } from '../lib/season-counts';
 import { fieldId, hasPenalty, renamedFrom, toggled } from '../lib/tournament-page';
+import { refusalOf, shownAt, type Outcome } from '../lib/outcome';
 import NoteBox from './NoteBox';
+import Notice from './Notice';
 import PenaltyBox from './PenaltyBox';
 import PodiumBox from './PodiumBox';
 import StagesTable from './StagesTable';
@@ -12,31 +14,33 @@ import StagesTable from './StagesTable';
 /** SeasonsCard lists a tournament's seasons with their counts, settings, notes and podiums, each season's stages on
  * demand, and adds or removes a season without games. */
 export default function SeasonsCard({ t, onReload }: { t: AdminTournament; onReload: () => Promise<void> }) {
-  const [error, setError] = useState('');
+  const [refusal, setRefusal] = useState<Outcome | null>(null);
+  const close = () => setRefusal(null);
   const [shown, setShown] = useState<string[]>([]);
   const toggle = (label: string) => setShown((s) => toggled(s, label));
   const [newSeason, setNewSeason] = useState('');
   const addSeason = async (e: FormEvent) => {
     e.preventDefault();
-    setError('');
+    setRefusal(null);
     const r = await req.send(req.addSeason(t.slug, newSeason));
+    setRefusal(refusalOf(r, 'add season'));
     if (r.ok) {
       setNewSeason('');
       await onReload();
-    } else setError(r.message);
+    }
   };
   const setFlag = async (label: string, flag: req.SeasonFlag, on: boolean) => {
-    setError('');
+    setRefusal(null);
     const r = await req.send(req.setSeasonFlag(t.slug, label, flag, on));
+    setRefusal(refusalOf(r, `season ${label}`));
     if (r.ok) await onReload();
-    else setError(r.message);
   };
   const removeSeason = async (label: string) => {
     if (!window.confirm(`Remove ${t.name} season ${label} and its notes?`)) return;
-    setError('');
+    setRefusal(null);
     const r = await req.send(req.removeSeason(t.slug, label));
+    setRefusal(refusalOf(r, `season ${label}`));
     if (r.ok) await onReload();
-    else setError(r.message);
   };
   return (
     <section className="rating-card admin-card" aria-labelledby="seasons-heading">
@@ -52,11 +56,7 @@ export default function SeasonsCard({ t, onReload }: { t: AdminTournament; onRel
           Add season
         </button>
       </form>
-      {error !== '' && (
-        <p className="row-error" role="alert">
-          {error}
-        </p>
-      )}
+      <Notice outcome={shownAt(refusal, 'add season')} onClose={close} />
       {t.seasons.length === 0 && <p className="muted">No seasons yet.</p>}
       {t.seasons.map((se) => {
         const sum = seasonSummary(se);
@@ -115,6 +115,7 @@ export default function SeasonsCard({ t, onReload }: { t: AdminTournament; onRel
                 </button>
               </div>
             )}
+            <Notice outcome={shownAt(refusal, `season ${se.label}`)} onClose={close} />
             {hasPenalty(t.kind, se.label) && <PenaltyBox slug={t.slug} season={se.label} initial={se.timeout_penalty} />}
             <NoteBox slug={t.slug} season={se.label} stage="" initial={se.note} />
             <PodiumBox
