@@ -5,7 +5,6 @@ import {
   player as fetchPlayer,
   playerCareer,
   playerMatrix,
-  type Format,
   type MatrixCell,
   type Player,
   type PlayerCareer,
@@ -17,19 +16,17 @@ import { Flag } from './PlayerMarks';
 import * as show from '../lib/leaderboard-display';
 import { DEFAULT_VIEW, type Engine } from '../lib/leaderboard-view';
 import { careerPeakYear, scoreYears, wcLabel } from '../lib/career';
-import { matrixParams, pageModel, parseMatrixView, playerHref, type MatrixView } from '../lib/player-view';
+import { matrixParams, pageModel, parseMatrixView, profileHref, type MatrixView } from '../lib/player-view';
 import { achievementsHref } from '../lib/achievements';
 import { recall, remember } from '../lib/remembered';
 import './PlayerPage.css';
 import './MatrixPage.css';
 import Tex from './Tex';
-import Segmented from '@ttac/shared/Segmented';
 import ScrollTable from './ScrollTable';
+import ViewSelectors from './ViewSelectors';
 import Waiting from './Waiting';
 
 type Load<T> = { kind: 'loading' } | { kind: 'error'; message: string } | { kind: 'ready'; data: T };
-
-const FORMATS: Format[] = [0, 2, 3, 4];
 
 const ROWS: { engine: Engine; name: string; note: ReactNode; className: string }[] = [
   { engine: 'glicko2_daneo', name: '👑 GlickoD', note: 'φ^(N-2) MP decomposition & 15-game re-calibration', className: 'row-daneo' },
@@ -80,14 +77,14 @@ function TitleBadge({ code, card }: { code: TitleCode; card?: boolean }) {
   return <span className={`badge badge-small badge-${code.toLowerCase()}`}>{show.titleName(code)}</span>;
 }
 
-/** Shows the player named in the address; format and year are part of it, so a view can be shared. */
+/** Shows the player named in the address; model, reset mode, format and year are part of it, so a view can be shared. */
 export default function MatrixPage({ apiUrl }: { apiUrl: string }) {
   const [view, setView] = useState<MatrixView>(readView);
   const [run, setRun] = useState<Load<number>>({ kind: 'loading' });
 
   const go = useCallback((next: MatrixView) => {
     window.history.pushState(null, '', `?${matrixParams(next)}`);
-    remember(window.localStorage, { ...DEFAULT_VIEW, ...recall(window.localStorage), format: next.format });
+    remember(window.localStorage, { ...DEFAULT_VIEW, ...recall(window.localStorage), reset: next.reset, format: next.format });
     setView(next);
   }, []);
   const linkTo = (next: MatrixView) => ({
@@ -136,29 +133,26 @@ export default function MatrixPage({ apiUrl }: { apiUrl: string }) {
 
   return (
     <>
-      <Header player={p} format={format} />
+      <Header player={p} view={view} />
 
-      <div className="format-bar matrix-formats">
-        <Segmented
-          label="Format"
-          look="raised"
-          options={FORMATS.map((f) => ({ value: f, label: show.formatName(f) }))}
-          value={format}
-          link={(f) => linkTo({ ...view, format: f })}
-        />
-      </div>
-
-      <nav className="year-filter-bar" aria-label="Snapshot year">
-        <span className="year-filter-label">Snapshot Filter:</span>
-        <a {...linkTo({ ...view, year: null })} className={year === null ? 'year-pill active' : 'year-pill'}>
-          All-Time (Live)
-        </a>
-        {years.map((y) => (
-          <a key={y.year} {...linkTo({ ...view, year: y.year })} className={year === y.year ? 'year-pill active' : 'year-pill'}>
-            {y.year}
+      <ViewSelectors
+        reset={view.reset}
+        format={format}
+        linkReset={(reset) => linkTo({ ...view, reset })}
+        linkFormat={(f) => linkTo({ ...view, format: f })}
+      >
+        <nav className="view-bar" aria-label="Snapshot year">
+          <span className="view-bar-label">Snapshot Filter:</span>
+          <a {...linkTo({ ...view, year: null })} className={year === null ? 'year-pill active' : 'year-pill'}>
+            All-Time (Live)
           </a>
-        ))}
-      </nav>
+          {years.map((y) => (
+            <a key={y.year} {...linkTo({ ...view, year: y.year })} className={year === y.year ? 'year-pill active' : 'year-pill'}>
+              {y.year}
+            </a>
+          ))}
+        </nav>
+      </ViewSelectors>
 
       {best !== null && (
         <div className="peak-year-card">
@@ -322,9 +316,9 @@ function Message({ children }: { children: ReactNode }) {
   return <div className="rating-card waiting-message">{children}</div>;
 }
 
-function Header({ player, format }: { player: Player; format: Format }) {
+function Header({ player, view }: { player: Player; view: MatrixView }) {
   const wc = wcLabel(player.title, player.peak);
-  const back = `${playerHref(player.name)}&format=${format}`;
+  const { format } = view;
   return (
     <div className="matrix-header-card">
       <div>
@@ -349,7 +343,7 @@ function Header({ player, format }: { player: Player; format: Format }) {
         </div>
       </div>
       <div className="matrix-header-links">
-        <BackLink href={back}>Return to Profile</BackLink>
+        <BackLink href={profileHref(player.name, view)}>Return to Profile</BackLink>
         <a href={achievementsHref(player.name)} className="btn-antique">
           🏆 Achievements »
         </a>

@@ -155,7 +155,7 @@ export function firstSort(key: RivalKey): boolean {
   return key === 'name';
 }
 
-/** What the reader has chosen on a player's matrix page; the model and reset mode come from the player page. */
+/** What the reader has chosen on a player's matrix page; the engine comes from the player page. */
 export interface MatrixView {
   name: string;
   engine: Engine;
@@ -182,6 +182,11 @@ export function matrixParams(view: MatrixView): URLSearchParams {
 /** matrixHref returns the address of a player's matrix page in the player page's model, reset mode and format. */
 export function matrixHref(name: string, view: Pick<PlayerView, 'engine' | 'reset' | 'format'>): string {
   return `/ratings/player/matrix/?${matrixParams({ name, engine: view.engine, reset: view.reset, format: view.format, year: null })}`;
+}
+
+/** profileHref returns the address of a player's page in the matrix page's model, reset mode and format. */
+export function profileHref(name: string, view: Pick<MatrixView, 'engine' | 'reset' | 'format'>): string {
+  return `/ratings/player/?${playerParams({ name, engine: view.engine, reset: view.reset, format: view.format, matchPage: 1 })}`;
 }
 
 /** runYears returns the years of a run's first and last games, or null when either is missing. */

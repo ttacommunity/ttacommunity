@@ -11,6 +11,7 @@ import {
   parsePlayerView,
   playerHref,
   playerParams,
+  profileHref,
   ratingIn,
   score,
   signedDelta,
@@ -269,6 +270,12 @@ describe('matrix page address', () => {
   it("links to the matrix in the player page's model, reset mode and format", () => {
     expect(matrixHref('Ann', { engine: 'whr', reset: 'softer', format: 2 })).toBe(
       '/ratings/player/matrix/?name=Ann&model=whr&format=2&reset_mode=softer',
+    );
+  });
+
+  it("links back to the player page in the matrix's model, reset mode and format", () => {
+    expect(profileHref('Ann', { engine: 'whr', reset: 'softer', format: 2 })).toBe(
+      '/ratings/player/?name=Ann&model=whr&format=2&reset_mode=softer',
     );
   });
 });
