@@ -233,12 +233,14 @@ export interface paths {
             cookie?: never;
         };
         /**
-         * One player's record each year and each model's peak, for the career box
+         * One player's record each year and their peak in one model, for the career box
          * @description The player's record in each calendar year of one format (every
          *     format together when that format has none), with the year's highest
-         *     rating in any model and the title the run derived for that year; and
-         *     each continuous model's peak rating, when it was, and the player's
-         *     rank among that month's ratings. Cached for five minutes.
+         *     and last rating in `model` and the title the run derived for that
+         *     year; and the player's peak rating in `model`, when it was, and
+         *     their rank that month by conservative rating, as the leaderboard
+         *     ranks. Only the player page's models are accepted. Cached for five
+         *     minutes.
          */
         get: operations["getPlayerCareer"];
         put?: never;
@@ -3114,10 +3116,11 @@ export interface components {
             run_id: number;
             name: string;
             format: components["schemas"]["Format"];
+            model: components["schemas"]["Model"];
             /** @description Oldest first */
             years: components["schemas"]["CareerYear"][];
-            /** @description GlickoD, Standard, MP-Weighted, Adaptive-T, WHR, for those with history */
-            peaks: components["schemas"]["ModelPeak"][];
+            /** @description The player's peak in `model` and the format; none without history there */
+            peak: components["schemas"]["CareerPeak"] | null;
         };
         CareerYear: {
             year: number;
@@ -3132,12 +3135,12 @@ export interface components {
             win_rate: number;
             /**
              * Format: double
-             * @description The year's highest rating in any model's history, to 0.1
+             * @description The year's highest rating in `model`, to 0.1
              */
             peak_rating: number | null;
             /**
              * Format: double
-             * @description Glicko-2 Standard's last rating that year, to 0.1, as upstream shows it
+             * @description The last rating that year in `model`, to 0.1
              */
             year_end_rating: number | null;
             /** @description Opponents from the first year to the end of this one */
@@ -3153,14 +3156,13 @@ export interface components {
             /** @description The best title the run derived for the player that year */
             title: components["schemas"]["TitleCode"] | null;
         };
-        ModelPeak: {
-            model: components["schemas"]["Model"];
+        CareerPeak: {
             /**
              * Format: double
-             * @description The highest rating, to 0.1
+             * @description The highest rating, to 0.1; the first period with it when tied
              */
             rating: number;
-            /** @description 1 + how many ratings that period were higher */
+            /** @description 1 + how many players rated that period had a higher conservative rating than the player */
             rank: number;
             /** Format: date */
             date: string;
@@ -4355,6 +4357,7 @@ export interface operations {
         parameters: {
             query?: {
                 format?: components["parameters"]["Format"];
+                model?: components["parameters"]["Model"];
             };
             header?: never;
             path: {

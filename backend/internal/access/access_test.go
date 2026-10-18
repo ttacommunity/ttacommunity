@@ -234,7 +234,7 @@ func TestNewVerifierRefusesDevUserOutsideALocalDevelopmentSetup(t *testing.T) {
 		name string
 		edit func(*Config)
 	}{
-		{"the admin site's https origin", func(c *Config) { c.Origin = "https://ttac-admin.unstableunicorn.dev" }},
+		{"the admin site's https origin", func(c *Config) { c.Origin = "https://admin.example.ttacommunity.org" }},
 		{"no origin", func(c *Config) { c.Origin = "" }},
 		{"a localhost origin", func(c *Config) { c.Origin = "http://localhost:4322" }},
 		{"a dev user that is not a Discord id", func(c *Config) { c.DevUser = "not-a-discord-id" }},

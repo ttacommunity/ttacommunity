@@ -123,22 +123,34 @@
   object-fit: cover;
 }
 
-.profile-selectors {
+.view-selectors {
   display: flex;
   flex-direction: column;
-  align-items: center;
   gap: 0.5rem;
-  margin: 0 auto 2rem;
+  margin-bottom: 1.5rem;
 }
 
-.format-bar.profile-bar {
-  justify-content: center;
+/* One full-width bar of the player and matrix pages' choices, as upstream's matrix draws its snapshot filter. */
+.view-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
   gap: 0.4rem;
-  width: fit-content;
   margin: 0;
+  padding: 0.4rem 0.75rem;
+  background: var(--surface-inset);
+  border: 1px solid var(--border-subtle);
+  border-radius: 6px;
 }
 
-.profile-bar-label,
+.view-bar-label {
+  margin-right: 0.35rem;
+  font-family: var(--font-heading);
+  font-size: 0.8rem;
+  color: var(--accent-gold);
+  text-transform: uppercase;
+}
+
 .chart-toggle-label {
   margin-right: 0.25rem;
   font-family: var(--font-heading);
@@ -677,22 +689,19 @@
     word-break: break-word;
   }
 
-  .format-bar.profile-bar {
+  .view-bar {
     flex-wrap: nowrap;
-    justify-content: flex-start;
-    width: 100%;
-    max-width: 100%;
-    padding: 0.4rem 0.5rem;
+    padding: 0.5rem;
     overflow-x: auto;
     scrollbar-width: none;
     -webkit-overflow-scrolling: touch;
   }
 
-  .format-bar.profile-bar::-webkit-scrollbar {
+  .view-bar::-webkit-scrollbar {
     display: none;
   }
 
-  .format-bar.profile-bar > * {
+  .view-bar > * {
     flex-shrink: 0;
   }
 

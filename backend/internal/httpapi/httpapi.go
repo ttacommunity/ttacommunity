@@ -71,7 +71,7 @@ type PlayerReads interface {
 	RatingsOf(ctx context.Context, run int64, model string, format int, names []string) (map[string]store.Rated, error)
 	HiddenNames(ctx context.Context, names []string) (map[string]bool, error)
 	PlayerRivals(ctx context.Context, run int64, name string, format int) (string, []store.Rival, error)
-	PlayerCareer(ctx context.Context, run int64, name string, format int) (string, []store.CareerYear, []store.ModelPeak, error)
+	PlayerCareer(ctx context.Context, run int64, name string, format int, model string) (string, []store.CareerYear, *store.CareerPeak, error)
 	Versus(ctx context.Context, run int64, name, other string) (string, string, []store.PlayerMatch, error)
 	PlayerMatrix(ctx context.Context, run int64, name string, format int, year *int) (string, []store.MatrixCell, error)
 	PlayerSeats(ctx context.Context, run int64, name string, unrated bool) (store.PlayerSeatStats, error)

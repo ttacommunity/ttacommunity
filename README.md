@@ -28,7 +28,7 @@ coding agents: [`AGENTS.md`](AGENTS.md).
 | `deploy/` | What the home cluster runs (Flux applies it from `main`) | Kubernetes YAML |
 | `scripts/` | Install, run, test and CI entry points; `.ps1` twins for Windows | Bash, PowerShell |
 | `checks/` | Repo checks: secrets, digests, comment density, no raw HTML | Bash |
-| `docs/` | Architecture, user journeys | Markdown |
+| `docs/` | Architecture | Markdown |
 
 ## Develop
 

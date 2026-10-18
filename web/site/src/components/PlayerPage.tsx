@@ -22,8 +22,9 @@ import CareerBox from './CareerBox';
 import { ExtraBadges, Flag } from './PlayerMarks';
 import RatingChart from './RatingChart';
 import VersusDialog from './VersusDialog';
+import ViewSelectors from './ViewSelectors';
 import * as show from '../lib/leaderboard-display';
-import { DEFAULT_VIEW, type ResetMode } from '../lib/leaderboard-view';
+import { DEFAULT_VIEW } from '../lib/leaderboard-view';
 import {
   firstSort,
   isProvisional,
@@ -45,7 +46,6 @@ import {
 import { achievementsHref } from '../lib/achievements';
 import { recall, remember } from '../lib/remembered';
 import './PlayerPage.css';
-import Segmented from '@ttac/shared/Segmented';
 import FilterInput from './FilterInput';
 import PlayerLink from './PlayerLink';
 import ScrollTable from './ScrollTable';
@@ -53,16 +53,6 @@ import Waiting from './Waiting';
 import Pager from './Pager';
 
 type Load<T> = { kind: 'loading' } | { kind: 'error'; message: string } | { kind: 'ready'; data: T };
-
-const FORMATS: Format[] = [0, 2, 3, 4];
-const RESET_MODES: { value: ResetMode; name: string; desc: string }[] = [
-  {
-    value: 'continuous',
-    name: 'Continuous (Career)',
-    desc: 'Standard uninterrupted career rating trajectory across all tournament history',
-  },
-  { value: 'softer', name: 'Season Reset', desc: 'Gentle annual reset balancing career achievement with current season form' },
-];
 
 function readView(): PlayerView {
   return parsePlayerView(new URLSearchParams(window.location.search), recall(window.localStorage));
@@ -134,8 +124,8 @@ export default function PlayerPage({ apiUrl }: { apiUrl: string }) {
     runId === null ? null : () => playerRivals(apiUrl, runId, name, format),
   );
   const career = useLoad<PlayerCareer>(
-    `${runId}|${name}|${format}`,
-    runId === null ? null : () => playerCareer(apiUrl, runId, name, format),
+    `${runId}|${name}|${format}|${model}`,
+    runId === null ? null : () => playerCareer(apiUrl, runId, name, format, model),
   );
   const achievements = useLoad<PlayerAchievements>(
     `${runId}|${name}`,
@@ -163,32 +153,18 @@ export default function PlayerPage({ apiUrl }: { apiUrl: string }) {
     <>
       <Header player={p} view={view} provisional={provisional} gamesInFormat={gamesInFormat} />
 
-      <div className="profile-selectors">
-        <Segmented
-          label="Reset mode"
-          look="raised"
-          groupClass="format-bar profile-bar"
-          prefix={<span className="profile-bar-label">Reset Mode:</span>}
-          options={RESET_MODES.map((m) => ({ value: m.value, label: m.name, tooltip: m.desc }))}
-          value={view.reset}
-          link={(reset) => linkTo({ ...view, reset, matchPage: 1 })}
-        />
-        <Segmented
-          label="Format"
-          look="raised"
-          groupClass="format-bar profile-bar"
-          prefix={<span className="profile-bar-label">Format:</span>}
-          options={FORMATS.map((f) => ({ value: f, label: show.formatName(f), tooltip: `View rating and history for ${show.formatName(f)}` }))}
-          value={view.format}
-          link={(format) => linkTo({ ...view, format, matchPage: 1 })}
-        />
-      </div>
+      <ViewSelectors
+        reset={view.reset}
+        format={view.format}
+        linkReset={(reset) => linkTo({ ...view, reset, matchPage: 1 })}
+        linkFormat={(format) => linkTo({ ...view, format, matchPage: 1 })}
+      />
 
       <CareerBox
         player={p}
         career={career.kind === 'ready' ? career.data : null}
         summary={achievements.kind === 'ready' ? achievements.data.summary : null}
-        format={view.format}
+        view={view}
       />
 
       <FormatCards player={p} view={view} linkTo={linkTo} />
@@ -274,7 +250,7 @@ function Header({
         <a href={achievementsHref(player.name)} className="btn-tournament-achievements">
           <span aria-hidden="true">🏆</span> Tournament Achievements »
         </a>
-        <a href={matrixHref(player.name, view.format)} className="btn-tournament-achievements btn-matrix">
+        <a href={matrixHref(player.name, view)} className="btn-tournament-achievements btn-matrix">
           <span aria-hidden="true">📊</span> Comparison Matrix &amp; Career Years »
         </a>
         <a href={`/ratings/?${board}`} className="home-circle-btn" data-tooltip="Return to Competitive Leaderboard">

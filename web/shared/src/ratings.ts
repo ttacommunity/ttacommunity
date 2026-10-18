@@ -208,15 +208,17 @@ export async function playerRivals(
   return get<PlayerRivals>(fetchFn, base, playerPath(run, name, `/rivals?format=${format}`));
 }
 
-/** Returns a player's record each year and each continuous model's peak, in one format. */
+/** Returns a player's record each year and their peak, in one format and model. */
 export async function playerCareer(
   base: string,
   run: number,
   name: string,
   format: Format,
+  model: Model,
   fetchFn: typeof fetch = fetch,
 ): Promise<PlayerCareer> {
-  return get<PlayerCareer>(fetchFn, base, playerPath(run, name, `/career?format=${format}`));
+  const query = new URLSearchParams({ format: String(format), model });
+  return get<PlayerCareer>(fetchFn, base, playerPath(run, name, `/career?${query}`));
 }
 
 /** Returns the latest games two players played together, with where each finished. */

@@ -47,30 +47,6 @@
   font-size: var(--size-button);
 }
 
-.format-bar.matrix-formats {
-  margin-bottom: 1rem;
-}
-
-.year-filter-bar {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 0.4rem;
-  margin-bottom: 1.5rem;
-  padding: 0.4rem 0.75rem;
-  background: var(--surface-inset);
-  border: 1px solid var(--border-subtle);
-  border-radius: 6px;
-}
-
-.year-filter-label {
-  margin-right: 0.35rem;
-  font-family: var(--font-heading);
-  font-size: 0.8rem;
-  color: var(--accent-gold);
-  text-transform: uppercase;
-}
-
 .peak-year-card {
   display: flex;
   flex-wrap: wrap;
@@ -412,21 +388,5 @@
   .peak-year-badge {
     padding: 0.5rem;
     font-size: 2rem;
-  }
-
-  .year-filter-bar {
-    flex-wrap: nowrap;
-    padding: 0.5rem;
-    overflow-x: auto;
-    scrollbar-width: none;
-    -webkit-overflow-scrolling: touch;
-  }
-
-  .year-filter-bar::-webkit-scrollbar {
-    display: none;
-  }
-
-  .year-filter-bar > * {
-    flex-shrink: 0;
   }
 }

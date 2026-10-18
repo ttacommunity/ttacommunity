@@ -544,7 +544,7 @@ func TestEveryReaderRefusesAnUnpublishedRun(t *testing.T) {
 			return err
 		},
 		"PlayerRivals": func() error { _, _, err := r.PlayerRivals(ctx, run, "Ann", 0); return err },
-		"PlayerCareer": func() error { _, _, _, err := r.PlayerCareer(ctx, run, "Ann", 0); return err },
+		"PlayerCareer": func() error { _, _, _, err := r.PlayerCareer(ctx, run, "Ann", 0, "glicko2_daneo"); return err },
 		"Versus":       func() error { _, _, _, err := r.Versus(ctx, run, "Ann", "Bob"); return err },
 		"PlayerMatrix": func() error { _, _, err := r.PlayerMatrix(ctx, run, "Ann", 0, nil); return err },
 		"PlayerSeats":  func() error { _, err := r.PlayerSeats(ctx, run, "Ann", false); return err },

@@ -11,6 +11,7 @@ import {
   parsePlayerView,
   playerHref,
   playerParams,
+  profileHref,
   ratingIn,
   score,
   signedDelta,
@@ -235,9 +236,21 @@ describe('visibleRivals', () => {
 });
 
 describe('matrix page address', () => {
-  it('reads the name, format and year, falling back to the remembered format', () => {
-    expect(parseMatrixView(new URLSearchParams('name=Ann&format=3&year=2024'), {})).toEqual({ name: 'Ann', format: 3, year: 2024 });
-    expect(parseMatrixView(new URLSearchParams('name=Ann'), { format: 2 })).toEqual({ name: 'Ann', format: 2, year: null });
+  it('reads the name, model, reset mode, format and year, falling back to the remembered choices', () => {
+    expect(parseMatrixView(new URLSearchParams('name=Ann&model=glicko2_std&format=3&reset_mode=softer&year=2024'), {})).toEqual({
+      name: 'Ann',
+      engine: 'glicko2_std',
+      reset: 'softer',
+      format: 3,
+      year: 2024,
+    });
+    expect(parseMatrixView(new URLSearchParams('name=Ann'), { format: 2, reset: 'softer' })).toEqual({
+      name: 'Ann',
+      engine: 'glicko2_daneo',
+      reset: 'softer',
+      format: 2,
+      year: null,
+    });
   });
 
   it('ignores a year that is not a whole number from 2000 to 2100', () => {
@@ -246,10 +259,24 @@ describe('matrix page address', () => {
     }
   });
 
-  it('writes the format always and the year when chosen', () => {
-    expect(matrixParams({ name: 'Ann B', format: 0, year: null }).toString()).toBe('name=Ann+B&format=0');
-    expect(matrixParams({ name: 'Ann', format: 4, year: 2019 }).toString()).toBe('name=Ann&format=4&year=2019');
-    expect(matrixHref('Ann', 2)).toBe('/ratings/player/matrix/?name=Ann&format=2');
+  it('writes the model, format and reset mode always and the year when chosen', () => {
+    const view = { name: 'Ann B', engine: 'glicko2_daneo', reset: 'continuous', format: 0, year: null } as const;
+    expect(matrixParams(view).toString()).toBe('name=Ann+B&model=glicko2_daneo&format=0&reset_mode=continuous');
+    expect(matrixParams({ ...view, name: 'Ann', format: 4, year: 2019 }).toString()).toBe(
+      'name=Ann&model=glicko2_daneo&format=4&reset_mode=continuous&year=2019',
+    );
+  });
+
+  it("links to the matrix in the player page's model, reset mode and format", () => {
+    expect(matrixHref('Ann', { engine: 'whr', reset: 'softer', format: 2 })).toBe(
+      '/ratings/player/matrix/?name=Ann&model=whr&format=2&reset_mode=softer',
+    );
+  });
+
+  it("links back to the player page in the matrix's model, reset mode and format", () => {
+    expect(profileHref('Ann', { engine: 'whr', reset: 'softer', format: 2 })).toBe(
+      '/ratings/player/?name=Ann&model=whr&format=2&reset_mode=softer',
+    );
   });
 });
 

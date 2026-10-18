@@ -332,17 +332,20 @@ paths:
   /v1/runs/{run}/players/{name}/career:
     get:
       operationId: getPlayerCareer
-      summary: One player's record each year and each model's peak, for the career box
+      summary: One player's record each year and their peak in one model, for the career box
       description: |
         The player's record in each calendar year of one format (every
         format together when that format has none), with the year's highest
-        rating in any model and the title the run derived for that year; and
-        each continuous model's peak rating, when it was, and the player's
-        rank among that month's ratings. Cached for five minutes.
+        and last rating in `model` and the title the run derived for that
+        year; and the player's peak rating in `model`, when it was, and
+        their rank that month by conservative rating, as the leaderboard
+        ranks. Only the player page's models are accepted. Cached for five
+        minutes.
       parameters:
         - $ref: "#/components/parameters/RunId"
         - $ref: "#/components/parameters/PlayerName"
         - $ref: "#/components/parameters/Format"
+        - $ref: "#/components/parameters/Model"
       responses:
         "200":
           description: The player's career
@@ -5150,7 +5153,7 @@ components:
           format: double
     PlayerCareer:
       type: object
-      required: [run_id, name, format, years, peaks]
+      required: [run_id, name, format, model, years, peak]
       properties:
         run_id:
           type: integer
@@ -5159,16 +5162,18 @@ components:
           type: string
         format:
           $ref: "#/components/schemas/Format"
+        model:
+          $ref: "#/components/schemas/Model"
         years:
           description: Oldest first
           type: array
           items:
             $ref: "#/components/schemas/CareerYear"
-        peaks:
-          description: GlickoD, Standard, MP-Weighted, Adaptive-T, WHR, for those with history
-          type: array
-          items:
-            $ref: "#/components/schemas/ModelPeak"
+        peak:
+          description: The player's peak in `model` and the format; none without history there
+          nullable: true
+          allOf:
+            - $ref: "#/components/schemas/CareerPeak"
     CareerYear:
       type: object
       required: [year, opponents, wins, losses, draws, win_rate, peak_rating, title, year_end_rating, career_opponents, career_wins, career_losses, career_draws, career_win_rate]
@@ -5188,12 +5193,12 @@ components:
           type: number
           format: double
         peak_rating:
-          description: The year's highest rating in any model's history, to 0.1
+          description: The year's highest rating in `model`, to 0.1
           type: number
           format: double
           nullable: true
         year_end_rating:
-          description: Glicko-2 Standard's last rating that year, to 0.1, as upstream shows it
+          description: The last rating that year in `model`, to 0.1
           type: number
           format: double
           nullable: true
@@ -5215,18 +5220,16 @@ components:
           nullable: true
           allOf:
             - $ref: "#/components/schemas/TitleCode"
-    ModelPeak:
+    CareerPeak:
       type: object
-      required: [model, rating, rank, date]
+      required: [rating, rank, date]
       properties:
-        model:
-          $ref: "#/components/schemas/Model"
         rating:
-          description: The highest rating, to 0.1
+          description: The highest rating, to 0.1; the first period with it when tied
           type: number
           format: double
         rank:
-          description: 1 + how many ratings that period were higher
+          description: 1 + how many players rated that period had a higher conservative rating than the player
           type: integer
         date:
           type: string

@@ -1,9 +1,9 @@
 /** Upstream's career box: medal counts, the honour roll or a summary sentence, accolades and the peak career season. */
-import type { AchievementSummary, Format, Player, PlayerCareer, TitleCode } from '@ttac/shared/ratings';
+import type { AchievementSummary, Player, PlayerCareer, TitleCode } from '@ttac/shared/ratings';
 import { honorRoll, totalTitles } from '../lib/achievements';
 import * as show from '../lib/leaderboard-display';
 import { careerPeakYear, isPeakHigher } from '../lib/career';
-import { matrixHref } from '../lib/player-view';
+import { matrixHref, type PlayerView } from '../lib/player-view';
 
 function SeasonBadge({ code }: { code: TitleCode }) {
   if (code === 'SGM') return <span className="badge badge-inline badge-season badge-sgm">👑 GM</span>;
@@ -15,14 +15,14 @@ export default function CareerBox({
   player,
   career,
   summary,
-  format,
+  view,
 }: {
   player: Player;
   career: PlayerCareer | null;
   summary: AchievementSummary | null;
-  format: Format;
+  view: PlayerView;
 }) {
-  const games = player.games.find((g) => g.format === format)?.games ?? 0;
+  const games = player.games.find((g) => g.format === view.format)?.games ?? 0;
   const season = career === null ? null : careerPeakYear(career.years, player.peak);
   const { title, peak } = player;
 
@@ -120,7 +120,7 @@ export default function CareerBox({
                 </div>
               </div>
             </div>
-            <a href={matrixHref(player.name, format)} className="career-matrix-link">
+            <a href={matrixHref(player.name, view)} className="career-matrix-link">
               View Year-by-Year Matrix »
             </a>
           </div>

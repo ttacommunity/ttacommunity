@@ -150,7 +150,7 @@ describe('player routes', () => {
     await playerHistory('https://api.example', 5, 'Ann', 3, f.fetch);
     await playerMatches('https://api.example', 5, 'Ann', 0, 'whr_softer', 2, f.fetch);
     await playerRivals('https://api.example', 5, 'Ann', 4, f.fetch);
-    await playerCareer('https://api.example', 5, 'Ann', 2, f.fetch);
+    await playerCareer('https://api.example', 5, 'Ann', 2, 'glicko2_daneo_softer', f.fetch);
     await playerVersus('https://api.example', 5, 'Ann', 'b/c', f.fetch);
     await playerMatrix('https://api.example', 5, 'Ann', 3, null, f.fetch);
     await playerMatrix('https://api.example', 5, 'Ann', 0, 2024, f.fetch);
@@ -162,7 +162,7 @@ describe('player routes', () => {
       'https://api.example/v1/runs/5/players/Ann/history?format=3',
       'https://api.example/v1/runs/5/players/Ann/matches?format=0&model=whr_softer&page=2',
       'https://api.example/v1/runs/5/players/Ann/rivals?format=4',
-      'https://api.example/v1/runs/5/players/Ann/career?format=2',
+      'https://api.example/v1/runs/5/players/Ann/career?format=2&model=glicko2_daneo_softer',
       'https://api.example/v1/runs/5/players/Ann/versus/b%2Fc',
       'https://api.example/v1/runs/5/players/Ann/matrix?format=3',
       'https://api.example/v1/runs/5/players/Ann/matrix?format=0&year=2024',
