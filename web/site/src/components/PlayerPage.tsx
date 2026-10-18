@@ -134,8 +134,8 @@ export default function PlayerPage({ apiUrl }: { apiUrl: string }) {
     runId === null ? null : () => playerRivals(apiUrl, runId, name, format),
   );
   const career = useLoad<PlayerCareer>(
-    `${runId}|${name}|${format}`,
-    runId === null ? null : () => playerCareer(apiUrl, runId, name, format),
+    `${runId}|${name}|${format}|${model}`,
+    runId === null ? null : () => playerCareer(apiUrl, runId, name, format, model),
   );
   const achievements = useLoad<PlayerAchievements>(
     `${runId}|${name}`,
@@ -188,7 +188,7 @@ export default function PlayerPage({ apiUrl }: { apiUrl: string }) {
         player={p}
         career={career.kind === 'ready' ? career.data : null}
         summary={achievements.kind === 'ready' ? achievements.data.summary : null}
-        format={view.format}
+        view={view}
       />
 
       <FormatCards player={p} view={view} linkTo={linkTo} />
@@ -274,7 +274,7 @@ function Header({
         <a href={achievementsHref(player.name)} className="btn-tournament-achievements">
           <span aria-hidden="true">🏆</span> Tournament Achievements »
         </a>
-        <a href={matrixHref(player.name, view.format)} className="btn-tournament-achievements btn-matrix">
+        <a href={matrixHref(player.name, view)} className="btn-tournament-achievements btn-matrix">
           <span aria-hidden="true">📊</span> Comparison Matrix &amp; Career Years »
         </a>
         <a href={`/ratings/?${board}`} className="home-circle-btn" data-tooltip="Return to Competitive Leaderboard">

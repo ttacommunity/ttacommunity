@@ -17,7 +17,7 @@ import { Flag } from './PlayerMarks';
 import * as show from '../lib/leaderboard-display';
 import { DEFAULT_VIEW, type Engine } from '../lib/leaderboard-view';
 import { careerPeakYear, scoreYears, wcLabel } from '../lib/career';
-import { matrixParams, parseMatrixView, playerHref, type MatrixView } from '../lib/player-view';
+import { matrixParams, pageModel, parseMatrixView, playerHref, type MatrixView } from '../lib/player-view';
 import { achievementsHref } from '../lib/achievements';
 import { recall, remember } from '../lib/remembered';
 import './PlayerPage.css';
@@ -110,10 +110,11 @@ export default function MatrixPage({ apiUrl }: { apiUrl: string }) {
 
   const runId = run.kind === 'ready' && view.name !== '' ? run.data : null;
   const { name, format, year } = view;
+  const model = pageModel(view.engine, view.reset);
   const profile = useLoad<Player>(`${runId}|${name}`, runId === null ? null : () => fetchPlayer(apiUrl, runId, name));
   const career = useLoad<PlayerCareer>(
-    `${runId}|${name}|${format}`,
-    runId === null ? null : () => playerCareer(apiUrl, runId, name, format),
+    `${runId}|${name}|${format}|${model}`,
+    runId === null ? null : () => playerCareer(apiUrl, runId, name, format, model),
   );
   const matrix = useLoad<PlayerMatrix>(
     `${runId}|${name}|${format}|${year}`,

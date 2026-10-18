@@ -259,17 +259,18 @@ func intp(n int) *int { return &n }
 type fakeCareer struct {
 	fakePlayers
 	years  []store.CareerYear
-	peaks  []store.ModelPeak
+	peak   *store.CareerPeak
+	model  string
 	shared []store.PlayerMatch
 	other  string
 	cells  []store.MatrixCell
 	year   *int
 }
 
-func (f *fakeCareer) PlayerCareer(_ context.Context, run int64, name string, format int) (string, []store.CareerYear, []store.ModelPeak, error) {
+func (f *fakeCareer) PlayerCareer(_ context.Context, run int64, name string, format int, model string) (string, []store.CareerYear, *store.CareerPeak, error) {
 	f.calls++
-	f.gotRun, f.asked, f.format = run, name, format
-	return "Ann", f.years, f.peaks, f.err
+	f.gotRun, f.asked, f.format, f.model = run, name, format, model
+	return "Ann", f.years, f.peak, f.err
 }
 
 func (f *fakeCareer) PlayerMatrix(_ context.Context, run int64, name string, format int, year *int) (string, []store.MatrixCell, error) {
@@ -293,10 +294,10 @@ func TestPlayerCareer(t *testing.T) {
 				CareerOpponents: 3, CareerWins: 1, CareerLosses: 1, CareerDraws: 1},
 			{Year: 2025, Opponents: 3, Wins: 2, Losses: 1, CareerOpponents: 6, CareerWins: 3, CareerLosses: 2, CareerDraws: 1},
 		},
-		peaks: []store.ModelPeak{{Model: "whr", Rating: 2060.8, Rank: 2, Date: time.Date(2026, 8, 22, 0, 0, 0, 0, time.UTC)}},
+		peak: &store.CareerPeak{Rating: 2060.8, Rank: 2, Date: time.Date(2026, 8, 22, 0, 0, 0, 0, time.UTC)},
 	}
-	rec, _ := serve(t, f, "/v1/runs/7/players/ann/career?format=3")
-	want := `{"format":3,"name":"Ann","peaks":[{"date":"2026-08-22","model":"whr","rank":2,"rating":2060.8}],"run_id":7,"years":[` +
+	rec, _ := serve(t, f, "/v1/runs/7/players/ann/career?format=3&model=glicko2_std_softer")
+	want := `{"format":3,"model":"glicko2_std_softer","name":"Ann","peak":{"date":"2026-08-22","rank":2,"rating":2060.8},"run_id":7,"years":[` +
 		`{"career_draws":1,"career_losses":1,"career_opponents":3,"career_win_rate":50,"career_wins":1,` +
 		`"draws":1,"losses":1,"opponents":3,"peak_rating":1990.5,"title":"GM","win_rate":50,"wins":1,"year":2024,"year_end_rating":1901.5},` +
 		`{"career_draws":1,"career_losses":2,"career_opponents":6,"career_win_rate":58.3,"career_wins":3,` +
@@ -304,8 +305,15 @@ func TestPlayerCareer(t *testing.T) {
 	if got := strings.TrimSpace(rec.Body.String()); rec.Code != http.StatusOK || got != want {
 		t.Errorf("GET career: %d %s\nwant 200 %s", rec.Code, got, want)
 	}
-	if rec.Header().Get("Cache-Control") != "public, max-age=300" || f.format != 3 || f.asked != "ann" {
-		t.Errorf("GET career: Cache-Control %q, asked %q format %d; want five minutes, ann, 3", rec.Header().Get("Cache-Control"), f.asked, f.format)
+	if rec.Header().Get("Cache-Control") != "public, max-age=300" || f.format != 3 || f.asked != "ann" || f.model != "glicko2_std_softer" {
+		t.Errorf("GET career: Cache-Control %q, asked %q format %d model %q; want five minutes, ann, 3, glicko2_std_softer",
+			rec.Header().Get("Cache-Control"), f.asked, f.format, f.model)
+	}
+
+	plain := &fakeCareer{}
+	rec, _ = serve(t, plain, "/v1/runs/7/players/ann/career")
+	if got := strings.TrimSpace(rec.Body.String()); plain.model != "glicko2_daneo" || !strings.Contains(got, `"model":"glicko2_daneo","name":"Ann","peak":null`) {
+		t.Errorf("GET career without a model: asked the store for %q, got %s; want glicko2_daneo and no peak", plain.model, got)
 	}
 }
 
@@ -331,10 +339,12 @@ func TestPlayerVersusPlacesBothPlayers(t *testing.T) {
 func TestCareerAndVersusRefuseAndAnswerNotFound(t *testing.T) {
 	long := strings.Repeat("b", 201)
 	for path, want := range map[string]string{
-		"/v1/runs/7/players/ann/career?format=5":   "unknown format",
-		"/v1/runs/0/players/ann/career":            "bad parameter: run",
-		"/v1/runs/7/players/ann/versus/" + long:    "bad parameter: other",
-		"/v1/runs/7/players/" + long + "/versus/b": "bad parameter: name",
+		"/v1/runs/7/players/ann/career?format=5":                "unknown format",
+		"/v1/runs/0/players/ann/career":                         "bad parameter: run",
+		"/v1/runs/7/players/ann/career?model=whr_retro":         "unknown model",
+		"/v1/runs/7/players/ann/career?model=glicko2_std_retro": "unknown model",
+		"/v1/runs/7/players/ann/versus/" + long:                 "bad parameter: other",
+		"/v1/runs/7/players/" + long + "/versus/b":              "bad parameter: name",
 	} {
 		f := &fakeCareer{}
 		rec, _ := serve(t, f, path)

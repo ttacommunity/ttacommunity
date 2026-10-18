@@ -367,55 +367,75 @@ func TestPlayerCareerGivesEachYearsRecordPeakAndTitle(t *testing.T) {
 	addHistory(t, pool, run, "whr_softer", 0, "ann", "2024-04-30", 1700)
 	addHistory(t, pool, run, "glicko2_std", 2, "ann", "2024-04-30", 1900)
 
-	name, years, _, err := r.PlayerCareer(ctx, run, "ANN", 0)
+	name, years, _, err := r.PlayerCareer(ctx, run, "ANN", 0, "glicko2_daneo")
 	if err != nil {
 		t.Fatalf("PlayerCareer: %v", err)
 	}
-	peak2024 := 1790.0
+	peak2024 := 1690.0
 	want := []CareerYear{
 		{Year: 2024, Opponents: 3, Wins: 1, Losses: 1, Draws: 1, PeakRating: &peak2024, Title: ptr("GM")},
 		{Year: 2025, Opponents: 1, Losses: 1},
 	}
 	if name != "ann" || fmt.Sprint(deref(years)) != fmt.Sprint(deref(want)) {
-		t.Errorf("PlayerCareer(ANN, 0) = %q, %v; want ann, %v", name, deref(years), deref(want))
+		t.Errorf("PlayerCareer(ANN, 0, glicko2_daneo) = %q, %v; want ann, %v (GlickoD's peak, not WHR's)", name, deref(years), deref(want))
 	}
 
-	_, duels, _, err := r.PlayerCareer(ctx, run, "ann", 2)
+	_, duels, _, err := r.PlayerCareer(ctx, run, "ann", 2, "glicko2_std")
 	if err != nil || len(duels) != 2 || duels[0].Opponents != 1 || duels[0].PeakRating == nil || *duels[0].PeakRating != 1990 {
 		t.Errorf("PlayerCareer(ann, 2) = %v, %v; want 2P years, peak from 2P history", deref(duels), err)
 	}
-	_, fours, _, err := r.PlayerCareer(ctx, run, "ann", 4)
+	_, fours, _, err := r.PlayerCareer(ctx, run, "ann", 4, "glicko2_std")
 	if err != nil || len(fours) != 2 || fours[0].Opponents != 3 || fours[0].PeakRating != nil {
 		t.Errorf("PlayerCareer(ann, 4) = %v, %v; want all formats' years, no 4P peak", deref(fours), err)
 	}
 }
 
-func TestPlayerCareerGivesEachEnginesPeakAndItsRankThatMonth(t *testing.T) {
+func addHistoryRow(t *testing.T, pool *pgxpool.Pool, run int64, model string, format int, name, period string, rating, cRating float64) {
+	t.Helper()
+	_, err := pool.Exec(context.Background(), `
+		INSERT INTO rating_history (run_id, model_type, player_count, player_name, period_date, rating, rd, c_rating)
+		VALUES ($1, $2, $3, $4, $5, $6, 30, $7)`, run, model, format, name, period, rating, cRating)
+	if err != nil {
+		t.Fatalf("adding %s's history at %s: %v", name, period, err)
+	}
+}
+
+func TestPlayerCareerGivesTheModelsPeakRankedByConservativeRating(t *testing.T) {
 	pool := migrated(t)
 	r := NewRatingsReader(asReader(t, pool))
 	ctx := context.Background()
 	run := publishedRun(t, pool)
 	addPlayers(t, pool, "ann")
-	addHistory(t, pool, run, "glicko2_std", 0, "ann", "2024-01-31", 1700)
-	addHistory(t, pool, run, "glicko2_std", 0, "ann", "2024-02-29", 1800.04)
-	addHistory(t, pool, run, "glicko2_std", 0, "ann", "2024-03-31", 1800)
-	addHistory(t, pool, run, "glicko2_std", 0, "bob", "2024-02-29", 1850)
-	addHistory(t, pool, run, "glicko2_std", 0, "cy", "2024-02-29", 1500)
-	addHistory(t, pool, run, "glicko2_std", 0, "dee", "2024-03-31", 2000)
-	addHistory(t, pool, run, "whr", 0, "ann", "2024-01-31", 1600)
-	addHistory(t, pool, run, "glicko2_std_softer", 0, "ann", "2024-01-31", 2500)
+	addHistoryRow(t, pool, run, "glicko2_std", 0, "ann", "2024-01-31", 1790, 1700)
+	addHistoryRow(t, pool, run, "glicko2_std", 0, "ann", "2024-02-29", 1890.04, 1800)
+	addHistoryRow(t, pool, run, "glicko2_std", 0, "ann", "2024-03-31", 1890, 1810)
+	addHistoryRow(t, pool, run, "glicko2_std", 0, "bob", "2024-02-29", 1940, 1850)
+	addHistoryRow(t, pool, run, "glicko2_std", 0, "cy", "2024-02-29", 1950, 1700)
+	addHistoryRow(t, pool, run, "glicko2_std", 0, "dee", "2024-02-29", 1850, 1820)
+	addHistoryRow(t, pool, run, "glicko2_std", 0, "eve", "2024-03-31", 2100, 2000)
+	addHistoryRow(t, pool, run, "glicko2_std", 2, "ann", "2024-02-29", 3000, 2900)
+	addHistoryRow(t, pool, run, "whr", 0, "ann", "2024-01-31", 2500, 2400)
 
-	_, _, peaks, err := r.PlayerCareer(ctx, run, "ann", 0)
-	if err != nil {
-		t.Fatalf("PlayerCareer: %v", err)
+	tests := []struct {
+		name  string
+		model string
+		want  *CareerPeak
+	}{
+		// The peak is compared rounded, so February's 1890.04 ties March's 1890 and comes first.
+		{"bob and dee rank above by conservative rating, cy does not", "glicko2_std", &CareerPeak{Rating: 1890, Rank: 3, Date: day("2024-02-29")}},
+		{"another model has its own peak", "whr", &CareerPeak{Rating: 2500, Rank: 1, Date: day("2024-01-31")}},
+		{"no history in the model", "glicko2_adapt", nil},
 	}
-	// Ratings are the history's c_rating + 90; the peak is compared rounded, as upstream does, so ann outranks herself.
-	want := []ModelPeak{
-		{Model: "glicko2_std", Rating: 1890, Rank: 3, Date: day("2024-02-29")},
-		{Model: "whr", Rating: 1690, Rank: 1, Date: day("2024-01-31")},
-	}
-	if fmt.Sprint(peaks) != fmt.Sprint(want) {
-		t.Errorf("peaks = %v, want %v", peaks, want)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			_, _, got, err := r.PlayerCareer(ctx, run, "ann", 0, tt.model)
+			if err != nil {
+				t.Fatalf("PlayerCareer(ann, 0, %s): %v", tt.model, err)
+			}
+			if fmt.Sprint(got) != fmt.Sprint(tt.want) {
+				t.Errorf("PlayerCareer(ann, 0, %s) peak = %+v, want %+v", tt.model, got, tt.want)
+			}
+		})
 	}
 }
 
@@ -465,7 +485,7 @@ func deref(years []CareerYear) []string {
 	return out
 }
 
-func TestPlayerCareerAddsTheRunningRecordAndStandardsYearEnd(t *testing.T) {
+func TestPlayerCareerAddsTheRunningRecord(t *testing.T) {
 	pool := migrated(t)
 	r := NewRatingsReader(asReader(t, pool))
 	ctx := context.Background()
@@ -474,11 +494,8 @@ func TestPlayerCareerAddsTheRunningRecordAndStandardsYearEnd(t *testing.T) {
 	addGame(t, pool, run, "2024-03-01", "Cup", Seat{"ann", 9}, Seat{"bob", 5})
 	addGame(t, pool, run, "2024-04-01", "Cup", Seat{"ann", 5}, Seat{"bob", 5}, Seat{"cy", 7})
 	addGame(t, pool, run, "2025-02-01", "Cup", Seat{"bob", 9}, Seat{"ann", 5})
-	addHistory(t, pool, run, "glicko2_std", 0, "ann", "2024-04-30", 1600)
-	addHistory(t, pool, run, "glicko2_std", 0, "ann", "2024-12-31", 1610.04)
-	addHistory(t, pool, run, "whr", 0, "ann", "2025-12-31", 1700)
 
-	_, years, _, err := r.PlayerCareer(ctx, run, "ann", 0)
+	_, years, _, err := r.PlayerCareer(ctx, run, "ann", 0, "glicko2_daneo")
 	if err != nil {
 		t.Fatalf("PlayerCareer: %v", err)
 	}
@@ -492,12 +509,47 @@ func TestPlayerCareerAddsTheRunningRecordAndStandardsYearEnd(t *testing.T) {
 	if y25.CareerOpponents != 4 || y25.CareerWins != 1 || y25.CareerLosses != 2 || y25.CareerDraws != 1 {
 		t.Errorf("2025 career = %d/%d/%d/%d, want 4/1/2/1", y25.CareerOpponents, y25.CareerWins, y25.CareerLosses, y25.CareerDraws)
 	}
-	if y24.YearEnd == nil || *y24.YearEnd != 1700 {
-		t.Errorf("2024 year end = %v, want Standard's last rating that year, 1700", y24.YearEnd)
+}
+
+func TestPlayerCareerGivesTheModelsYearEnd(t *testing.T) {
+	pool := migrated(t)
+	r := NewRatingsReader(asReader(t, pool))
+	ctx := context.Background()
+	run := publishedRun(t, pool)
+	addPlayers(t, pool, "ann", "bob")
+	addGame(t, pool, run, "2024-03-01", "Cup", Seat{"ann", 9}, Seat{"bob", 5})
+	addGame(t, pool, run, "2025-02-01", "Cup", Seat{"bob", 9}, Seat{"ann", 5})
+	addHistory(t, pool, run, "glicko2_std", 0, "ann", "2024-04-30", 1600)
+	addHistory(t, pool, run, "glicko2_std", 0, "ann", "2024-12-31", 1610.04)
+	addHistory(t, pool, run, "whr", 0, "ann", "2025-12-31", 1700)
+
+	tests := []struct {
+		model          string
+		want24, want25 string
+	}{
+		{"glicko2_std", "1700", "-"},
+		{"whr", "-", "1790"},
 	}
-	if y25.YearEnd != nil {
-		t.Errorf("2025 year end = %v, want none (only WHR has 2025)", *y25.YearEnd)
+	for _, tt := range tests {
+		t.Run(tt.model, func(t *testing.T) {
+			_, years, _, err := r.PlayerCareer(ctx, run, "ann", 0, tt.model)
+			if err != nil || len(years) != 2 {
+				t.Fatalf("PlayerCareer(ann, 0, %s) = %d years, %v; want 2", tt.model, len(years), err)
+			}
+			got24, got25 := yearEnd(years[0]), yearEnd(years[1])
+			if got24 != tt.want24 || got25 != tt.want25 {
+				t.Errorf("PlayerCareer(ann, 0, %s) year ends = %s, %s; want %s, %s", tt.model, got24, got25, tt.want24, tt.want25)
+			}
+		})
 	}
+}
+
+// yearEnd prints a year's last rating, or - without one.
+func yearEnd(y CareerYear) string {
+	if y.YearEnd == nil {
+		return "-"
+	}
+	return fmt.Sprint(*y.YearEnd)
 }
 
 func TestPlayerMatrixGivesTheLiveRatings(t *testing.T) {

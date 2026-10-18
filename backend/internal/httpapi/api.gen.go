@@ -1682,6 +1682,17 @@ type Candidate struct {
 	Zone *string `json:"zone"`
 }
 
+// CareerPeak defines model for CareerPeak.
+type CareerPeak struct {
+	Date openapi_types.Date `json:"date"`
+
+	// Rank 1 + how many players rated that period had a higher conservative rating than the player
+	Rank int `json:"rank"`
+
+	// Rating The highest rating, to 0.1; the first period with it when tied
+	Rating float64 `json:"rating"`
+}
+
 // CareerYear defines model for CareerYear.
 type CareerYear struct {
 	CareerDraws  int `json:"career_draws"`
@@ -1697,7 +1708,7 @@ type CareerYear struct {
 	Losses        int     `json:"losses"`
 	Opponents     int     `json:"opponents"`
 
-	// PeakRating The year's highest rating in any model's history, to 0.1
+	// PeakRating The year's highest rating in `model`, to 0.1
 	PeakRating *float64 `json:"peak_rating"`
 
 	// Title The best title the run derived for the player that year
@@ -1708,7 +1719,7 @@ type CareerYear struct {
 	Wins    int     `json:"wins"`
 	Year    int     `json:"year"`
 
-	// YearEndRating Glicko-2 Standard's last rating that year, to 0.1, as upstream shows it
+	// YearEndRating The last rating that year in `model`, to 0.1
 	YearEndRating *float64 `json:"year_end_rating"`
 }
 
@@ -2335,21 +2346,6 @@ type ModelPair struct {
 	Spearman float64 `json:"spearman"`
 }
 
-// ModelPeak defines model for ModelPeak.
-type ModelPeak struct {
-	Date openapi_types.Date `json:"date"`
-
-	// Model The rating model. `_softer` models reset gently each season, and
-	// `_retro` models start from a retrospectively calibrated prior.
-	Model Model `json:"model"`
-
-	// Rank 1 + how many ratings that period were higher
-	Rank int `json:"rank"`
-
-	// Rating The highest rating, to 0.1
-	Rating float64 `json:"rating"`
-}
-
 // NewBlitzEntrant A member to enter: by id, any details given (not empty) saved on the member, or by TTA username with the
 // details a new member needs when the name is not a member yet
 type NewBlitzEntrant struct {
@@ -2464,10 +2460,14 @@ type PlayerAchievements struct {
 type PlayerCareer struct {
 	// Format Players per game. 0 is every format together
 	Format Format `json:"format"`
-	Name   string `json:"name"`
 
-	// Peaks GlickoD, Standard, MP-Weighted, Adaptive-T, WHR, for those with history
-	Peaks []ModelPeak `json:"peaks"`
+	// Model The rating model. `_softer` models reset gently each season, and
+	// `_retro` models start from a retrospectively calibrated prior.
+	Model Model  `json:"model"`
+	Name  string `json:"name"`
+
+	// Peak The player's peak in `model` and the format; none without history there
+	Peak  *CareerPeak `json:"peak"`
 	RunId int64       `json:"run_id"`
 
 	// Years Oldest first
@@ -3386,6 +3386,7 @@ type GetLeaderboardCsvParamsStatsView string
 // GetPlayerCareerParams defines parameters for GetPlayerCareer.
 type GetPlayerCareerParams struct {
 	Format *Format `form:"format,omitempty" json:"format,omitempty"`
+	Model  *Model  `form:"model,omitempty" json:"model,omitempty"`
 }
 
 // GetPlayerHistoryParams defines parameters for GetPlayerHistory.
@@ -3773,7 +3774,7 @@ type ServerInterface interface {
 	// GetPlayerAchievements One player's tournament achievements, for their achievements page
 	// (GET /v1/runs/{run}/players/{name}/achievements)
 	GetPlayerAchievements(w http.ResponseWriter, r *http.Request, run RunId, name PlayerName)
-	// GetPlayerCareer One player's record each year and each model's peak, for the career box
+	// GetPlayerCareer One player's record each year and their peak in one model, for the career box
 	// (GET /v1/runs/{run}/players/{name}/career)
 	GetPlayerCareer(w http.ResponseWriter, r *http.Request, run RunId, name PlayerName, params GetPlayerCareerParams)
 	// GetPlayerHistory One player's rating at the end of every period, for the chart
@@ -6779,6 +6780,19 @@ func (siw *ServerInterfaceWrapper) GetPlayerCareer(w http.ResponseWriter, r *htt
 			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "format"})
 		} else {
 			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "format", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "model" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "model", r.URL.Query(), &params.Model, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "model"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "model", Err: err})
 		}
 		return
 	}
@@ -14967,7 +14981,7 @@ type StrictServerInterface interface {
 	// GetPlayerAchievements One player's tournament achievements, for their achievements page
 	// (GET /v1/runs/{run}/players/{name}/achievements)
 	GetPlayerAchievements(ctx context.Context, request GetPlayerAchievementsRequestObject) (GetPlayerAchievementsResponseObject, error)
-	// GetPlayerCareer One player's record each year and each model's peak, for the career box
+	// GetPlayerCareer One player's record each year and their peak in one model, for the career box
 	// (GET /v1/runs/{run}/players/{name}/career)
 	GetPlayerCareer(ctx context.Context, request GetPlayerCareerRequestObject) (GetPlayerCareerResponseObject, error)
 	// GetPlayerHistory One player's rating at the end of every period, for the chart

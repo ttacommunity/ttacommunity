@@ -241,13 +241,21 @@ func (s *server) GetPlayerRivals(ctx context.Context, req GetPlayerRivalsRequest
 	}, nil
 }
 
-// GetPlayerCareer returns a player's record each year and each model's peak.
+// GetPlayerCareer returns a player's record each year and their peak in one model.
 func (s *server) GetPlayerCareer(ctx context.Context, req GetPlayerCareerRequestObject) (GetPlayerCareerResponseObject, error) {
 	format := formatOr(req.Params.Format)
-	if msg := playerRefusal(req.Run, req.Name, format); msg != "" {
+	model := Glicko2Daneo
+	if req.Params.Model != nil {
+		model = *req.Params.Model
+	}
+	msg := playerRefusal(req.Run, req.Name, format)
+	if msg == "" && !slices.Contains(store.PlayerPageModels, string(model)) {
+		msg = "unknown model"
+	}
+	if msg != "" {
 		return GetPlayerCareer400JSONResponse{badRequestBody(msg)}, nil
 	}
-	name, years, peaks, err := s.ratings.PlayerCareer(ctx, req.Run, req.Name, int(format))
+	name, years, peak, err := s.ratings.PlayerCareer(ctx, req.Run, req.Name, int(format), string(model))
 	if nf, ok := notFound(err); ok {
 		return GetPlayerCareer404JSONResponse{nf}, nil
 	}
@@ -255,7 +263,7 @@ func (s *server) GetPlayerCareer(ctx context.Context, req GetPlayerCareerRequest
 		return nil, err
 	}
 
-	body := PlayerCareer{RunId: req.Run, Name: name, Format: format, Years: []CareerYear{}, Peaks: []ModelPeak{}}
+	body := PlayerCareer{RunId: req.Run, Name: name, Format: format, Model: model, Years: []CareerYear{}}
 	for _, y := range years {
 		// Upstream stores the yearly win rate rounded by SQLite.
 		rate := (float64(y.Wins) + 0.5*float64(y.Draws)) / float64(max(1, y.Opponents)) * 100
@@ -272,8 +280,8 @@ func (s *server) GetPlayerCareer(ctx context.Context, req GetPlayerCareerRequest
 		}
 		body.Years = append(body.Years, cy)
 	}
-	for _, p := range peaks {
-		body.Peaks = append(body.Peaks, ModelPeak{Model: Model(p.Model), Rating: p.Rating, Rank: p.Rank, Date: openapi_types.Date{Time: p.Date}})
+	if peak != nil {
+		body.Peak = &CareerPeak{Rating: peak.Rating, Rank: peak.Rank, Date: openapi_types.Date{Time: peak.Date}}
 	}
 	return GetPlayerCareer200JSONResponse{Body: body, Headers: GetPlayerCareer200ResponseHeaders{CacheControl: cacheRun}}, nil
 }

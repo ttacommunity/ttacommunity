@@ -155,31 +155,33 @@ export function firstSort(key: RivalKey): boolean {
   return key === 'name';
 }
 
-/** What the reader has chosen on a player's matrix page. */
+/** What the reader has chosen on a player's matrix page; the model and reset mode come from the player page. */
 export interface MatrixView {
   name: string;
+  engine: Engine;
+  reset: ResetMode;
   format: Format;
   year: number | null;
 }
 
-/** parseMatrixView reads the matrix page's choices, the format falling back to the remembered one. */
+/** parseMatrixView reads the matrix page's choices, falling back to the remembered ones. */
 export function parseMatrixView(params: URLSearchParams, remembered: Remembered): MatrixView {
-  const { format } = parseView(params, remembered);
+  const { engine, reset, format } = parseView(params, remembered);
   const y = params.get('year') ?? '';
   const year = /^\d{4}$/.test(y) && Number(y) >= 2000 && Number(y) <= 2100 ? Number(y) : null;
-  return { name: params.get('name') ?? '', format, year };
+  return { name: params.get('name') ?? '', engine, reset, format, year };
 }
 
 /** matrixParams writes the matrix page's choices, the year only when one is chosen. */
 export function matrixParams(view: MatrixView): URLSearchParams {
-  const p = new URLSearchParams({ name: view.name, format: String(view.format) });
+  const p = new URLSearchParams({ name: view.name, model: view.engine, format: String(view.format), reset_mode: view.reset });
   if (view.year !== null) p.set('year', String(view.year));
   return p;
 }
 
-/** matrixHref returns the address of a player's matrix page in a format. */
-export function matrixHref(name: string, format: Format): string {
-  return `/ratings/player/matrix/?${matrixParams({ name, format, year: null })}`;
+/** matrixHref returns the address of a player's matrix page in the player page's model, reset mode and format. */
+export function matrixHref(name: string, view: Pick<PlayerView, 'engine' | 'reset' | 'format'>): string {
+  return `/ratings/player/matrix/?${matrixParams({ name, engine: view.engine, reset: view.reset, format: view.format, year: null })}`;
 }
 
 /** runYears returns the years of a run's first and last games, or null when either is missing. */

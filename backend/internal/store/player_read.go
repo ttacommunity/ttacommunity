@@ -353,9 +353,6 @@ func (r *RatingsReader) PlayerRivals(ctx context.Context, run int64, asked strin
 	return name, rivals, nil
 }
 
-// peakEngines are the continuous models whose peaks the career box shows, in its order.
-var peakEngines = []string{"glicko2_daneo", "glicko2_std", "glicko2_mp", "glicko2_adapt", "whr"}
-
 // sharedGames is how many of two players' shared games Versus returns.
 const sharedGames = 100
 
@@ -376,21 +373,18 @@ type MatrixCell struct {
 	Rank                *int
 }
 
-// ModelPeak is a model's highest rating for a player, when it was, and the
-// player's rank that month.
-type ModelPeak struct {
-	Model  string
+// CareerPeak is a player's highest rating in one model, when it was, and
+// their rank that month.
+type CareerPeak struct {
 	Rating float64
 	Rank   int
 	Date   time.Time
 }
 
 // PlayerCareer returns the stored name, a player's record in each year of a
-// format (all formats when the format has none), and each continuous model's
-// peak, as upstream's career box computes them: a year's peak rating is the
-// highest in any model's history that year; a model's peak is its highest
-// rating rounded to 0.1, ranked by raw rating among that month's history.
-func (r *RatingsReader) PlayerCareer(ctx context.Context, run int64, asked string, format int) (string, []CareerYear, []ModelPeak, error) {
+// format (all formats when the format has none), and their peak in model, or
+// nil without history there.
+func (r *RatingsReader) PlayerCareer(ctx context.Context, run int64, asked string, format int, model string) (string, []CareerYear, *CareerPeak, error) {
 	name, err := r.resolve(ctx, run, asked)
 	if err != nil {
 		return "", nil, nil, err
@@ -403,29 +397,16 @@ func (r *RatingsReader) PlayerCareer(ctx context.Context, run int64, asked strin
 		return "", nil, nil, err
 	}
 
-	rows, err := r.pool.Query(ctx, `
-		SELECT extract(year FROM period_date)::int, max(rating)
-		FROM rating_history
-		WHERE run_id = $1 AND player_name = $2 AND player_count = $3
-		GROUP BY 1`, run, name, format)
+	yearPeak, yearEnd, peak, err := r.modelPeaks(ctx, run, name, format, model)
 	if err != nil {
-		return "", nil, nil, fmt.Errorf("reading a player's yearly peaks in run %d: %w", run, err)
-	}
-	yearPeak := map[int]float64{}
-	for rows.Next() {
-		var y int
-		var peak float64
-		if err := rows.Scan(&y, &peak); err != nil {
-			return "", nil, nil, fmt.Errorf("reading a player's yearly peaks in run %d: %w", run, err)
-		}
-		yearPeak[y] = round.Tenth(peak)
-	}
-	if err := rows.Err(); err != nil {
-		return "", nil, nil, fmt.Errorf("reading a player's yearly peaks in run %d: %w", run, err)
+		return "", nil, nil, err
 	}
 	for i := range years {
 		if p, ok := yearPeak[years[i].Year]; ok {
 			years[i].PeakRating = &p
+		}
+		if e, ok := yearEnd[years[i].Year]; ok {
+			years[i].YearEnd = &e
 		}
 		prev := CareerYear{}
 		if i > 0 {
@@ -436,39 +417,53 @@ func (r *RatingsReader) PlayerCareer(ctx context.Context, run int64, asked strin
 		years[i].CareerLosses = prev.CareerLosses + years[i].Losses
 		years[i].CareerDraws = prev.CareerDraws + years[i].Draws
 	}
+	return name, years, peak, nil
+}
 
-	// Upstream's year-end rating is Glicko-2 Standard's, whichever model is chosen.
-	rows, err = r.pool.Query(ctx, `
-		SELECT DISTINCT ON (extract(year FROM period_date)) extract(year FROM period_date)::int, rating
-		FROM rating_history
-		WHERE run_id = $1 AND player_name = $2 AND player_count = $3 AND model_type = 'glicko2_std'
-		ORDER BY extract(year FROM period_date), period_date DESC`, run, name, format)
+// modelPeaks reads a player's history in one model and format, all to 0.1:
+// each year's highest and last rating, and the career peak (the first period
+// with the highest), ranked by conservative rating among that period's
+// ratings. The peak is nil without history.
+func (r *RatingsReader) modelPeaks(ctx context.Context, run int64, name string, format int, model string) (map[int]float64, map[int]float64, *CareerPeak, error) {
+	rows, err := r.pool.Query(ctx, `
+		SELECT period_date, rating, c_rating FROM rating_history
+		WHERE run_id = $1 AND model_type = $2 AND player_count = $3 AND player_name = $4
+		ORDER BY period_date`, run, model, format, name)
 	if err != nil {
-		return "", nil, nil, fmt.Errorf("reading a player's year-end ratings in run %d: %w", run, err)
+		return nil, nil, nil, fmt.Errorf("reading a player's history in run %d: %w", run, err)
 	}
-	yearEnd := map[int]float64{}
+	yearPeak, yearEnd := map[int]float64{}, map[int]float64{}
+	var peak *CareerPeak
+	var peakC float64
 	for rows.Next() {
-		var y int
-		var rating float64
-		if err := rows.Scan(&y, &rating); err != nil {
-			return "", nil, nil, fmt.Errorf("reading a player's year-end ratings in run %d: %w", run, err)
+		var date time.Time
+		var rating, c float64
+		if err := rows.Scan(&date, &rating, &c); err != nil {
+			return nil, nil, nil, fmt.Errorf("reading a player's history in run %d: %w", run, err)
 		}
-		yearEnd[y] = round.Tenth(rating)
+		rating = round.Tenth(rating)
+		if p, ok := yearPeak[date.Year()]; !ok || rating > p {
+			yearPeak[date.Year()] = rating
+		}
+		yearEnd[date.Year()] = rating
+		if peak == nil || rating > peak.Rating {
+			peak, peakC = &CareerPeak{Rating: rating, Date: date}, c
+		}
 	}
 	if err := rows.Err(); err != nil {
-		return "", nil, nil, fmt.Errorf("reading a player's year-end ratings in run %d: %w", run, err)
+		return nil, nil, nil, fmt.Errorf("reading a player's history in run %d: %w", run, err)
 	}
-	for i := range years {
-		if e, ok := yearEnd[years[i].Year]; ok {
-			years[i].YearEnd = &e
-		}
+	if peak == nil {
+		return yearPeak, yearEnd, nil, nil
 	}
-
-	peaks, err := r.modelPeaks(ctx, run, name, format)
+	err = r.pool.QueryRow(ctx, `
+		SELECT count(*) + 1 FROM rating_history
+		WHERE run_id = $1 AND model_type = $2 AND player_count = $3 AND period_date = $4 AND c_rating > $5`,
+		run, model, format, peak.Date, peakC).Scan(&peak.Rank)
 	if err != nil {
-		return "", nil, nil, err
+		return nil, nil, nil, fmt.Errorf("ranking a player's peak in run %d: %w", run, err)
 	}
-	return name, years, peaks, nil
+	return yearPeak, yearEnd, peak, nil
 }
 
 func (r *RatingsReader) careerYears(ctx context.Context, run int64, name string, format int) ([]CareerYear, error) {
@@ -499,49 +494,6 @@ func (r *RatingsReader) careerYears(ctx context.Context, run int64, name string,
 		return nil, fmt.Errorf("reading a player's years in run %d: %w", run, err)
 	}
 	return years, nil
-}
-
-// modelPeaks finds each continuous model's peak: the first period with the
-// highest rating rounded to 0.1, and 1 + how many ratings that period beat it.
-func (r *RatingsReader) modelPeaks(ctx context.Context, run int64, name string, format int) ([]ModelPeak, error) {
-	rows, err := r.pool.Query(ctx, `
-		SELECT model_type, period_date, rating FROM rating_history
-		WHERE run_id = $1 AND player_name = $2 AND player_count = $3 AND model_type = ANY($4)
-		ORDER BY period_date`, run, name, format, peakEngines)
-	if err != nil {
-		return nil, fmt.Errorf("reading a player's peaks in run %d: %w", run, err)
-	}
-	best := map[string]ModelPeak{}
-	for rows.Next() {
-		var p ModelPeak
-		if err := rows.Scan(&p.Model, &p.Date, &p.Rating); err != nil {
-			return nil, fmt.Errorf("reading a player's peaks in run %d: %w", run, err)
-		}
-		p.Rating = round.Tenth(p.Rating)
-		if b, ok := best[p.Model]; !ok || p.Rating > b.Rating {
-			best[p.Model] = p
-		}
-	}
-	if err := rows.Err(); err != nil {
-		return nil, fmt.Errorf("reading a player's peaks in run %d: %w", run, err)
-	}
-
-	peaks := []ModelPeak{}
-	for _, model := range peakEngines {
-		p, ok := best[model]
-		if !ok {
-			continue
-		}
-		err := r.pool.QueryRow(ctx, `
-			SELECT count(*) + 1 FROM rating_history
-			WHERE run_id = $1 AND model_type = $2 AND player_count = $3 AND period_date = $4 AND rating > $5`,
-			run, model, format, p.Date, p.Rating).Scan(&p.Rank)
-		if err != nil {
-			return nil, fmt.Errorf("ranking a player's %s peak in run %d: %w", model, run, err)
-		}
-		peaks = append(peaks, p)
-	}
-	return peaks, nil
 }
 
 // Versus returns both stored names and the latest 100 games run rated with

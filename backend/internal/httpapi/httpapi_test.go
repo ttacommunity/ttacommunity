@@ -96,7 +96,7 @@ func (f *fakeRatings) HiddenNames(context.Context, []string) (map[string]bool, e
 	return nil, nil
 }
 
-func (f *fakeRatings) PlayerCareer(context.Context, int64, string, int) (string, []store.CareerYear, []store.ModelPeak, error) {
+func (f *fakeRatings) PlayerCareer(context.Context, int64, string, int, string) (string, []store.CareerYear, *store.CareerPeak, error) {
 	return "", nil, nil, nil
 }
 
