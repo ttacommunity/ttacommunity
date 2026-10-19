@@ -1,5 +1,6 @@
 /** A tournament's seasons: counts, settings, notes and podiums. */
 import { useState, type FormEvent } from 'react';
+import { useDialog } from '@ttac/shared/Dialog';
 import * as req from '../lib/admin-requests';
 import type { AdminTournament } from '../lib/admin-api';
 import { seasonSummary, stageRows } from '../lib/season-counts';
@@ -16,6 +17,7 @@ import StagesTable from './StagesTable';
 export default function SeasonsCard({ t, onReload }: { t: AdminTournament; onReload: () => Promise<void> }) {
   const [refusal, setRefusal] = useState<Outcome | null>(null);
   const close = () => setRefusal(null);
+  const dialog = useDialog();
   const [shown, setShown] = useState<string[]>([]);
   const toggle = (label: string) => setShown((s) => toggled(s, label));
   const [newSeason, setNewSeason] = useState('');
@@ -36,7 +38,8 @@ export default function SeasonsCard({ t, onReload }: { t: AdminTournament; onRel
     if (r.ok) await onReload();
   };
   const removeSeason = async (label: string) => {
-    if (!window.confirm(`Remove ${t.name} season ${label} and its notes?`)) return;
+    const sure = await dialog.confirm({ heading: `Remove ${t.name} season ${label}?`, text: 'Its notes go with it.', action: 'Remove season', final: true });
+    if (!sure) return;
     setRefusal(null);
     const r = await req.send(req.removeSeason(t.slug, label));
     setRefusal(refusalOf(r, `season ${label}`));
@@ -44,6 +47,7 @@ export default function SeasonsCard({ t, onReload }: { t: AdminTournament; onRel
   };
   return (
     <section className="rating-card admin-card" aria-labelledby="seasons-heading">
+      {dialog.element}
       <h2 id="seasons-heading" className="rating-card-heading">
         Seasons
       </h2>

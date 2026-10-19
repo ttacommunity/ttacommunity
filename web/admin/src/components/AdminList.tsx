@@ -1,6 +1,7 @@
 /** The admin list, for admins: who is in admin and their role, with adding, changing and removing. */
 import { isDiscordId } from '../lib/admin-edits';
 import { Fragment, useEffect, useState, type FormEvent } from 'react';
+import { useDialog } from '@ttac/shared/Dialog';
 import * as req from '../lib/admin-requests';
 import { adminRequest, type AdminPerson } from '../lib/admin-api';
 import { loadFailure, outcomeOf, refused, shownAt, type Outcome } from '../lib/outcome';
@@ -17,6 +18,7 @@ export default function AdminList({ myName }: { myName: string }) {
   const [people, setPeople] = useState<AdminPerson[] | null>(null);
   const [outcome, setOutcome] = useState<Outcome | null>(null);
   const close = () => setOutcome(null);
+  const dialog = useDialog();
   const [form, setForm] = useState({ id: '', name: '', role: 'organiser' as Role });
 
   const load = async () => {
@@ -36,7 +38,7 @@ export default function AdminList({ myName }: { myName: string }) {
     return r.ok;
   };
   const remove = async (p: AdminPerson) => {
-    if (!window.confirm(`Take ${p.name} out of admin?`)) return;
+    if (!(await dialog.confirm({ heading: `Take ${p.name} out of admin?`, action: 'Take out' }))) return;
     const r = await req.send(req.removeAdmin(p.discord_id));
     setOutcome(outcomeOf(r, `Removed ${p.name}. Their sign-in lasts until it ends or is revoked in Cloudflare Access.`, `admin ${p.discord_id}`, 'admins'));
     await load();
@@ -52,6 +54,7 @@ export default function AdminList({ myName }: { myName: string }) {
 
   return (
     <section className="rating-card admin-card" aria-labelledby="admins-heading">
+      {dialog.element}
       <h2 id="admins-heading" className="rating-card-heading">
         Admins
       </h2>

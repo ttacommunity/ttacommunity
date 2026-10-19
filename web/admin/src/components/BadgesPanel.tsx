@@ -2,6 +2,7 @@
 import { badgeChanged } from '../lib/admin-edits';
 import { useEffect, useState, type FormEvent } from 'react';
 import type { components } from '@ttac/shared/api';
+import { useDialog } from '@ttac/shared/Dialog';
 import * as req from '../lib/admin-requests';
 import { adminRequest } from '../lib/admin-api';
 import { loadFailure, outcomeOf, refused, shownAt, succeeded, type Outcome } from '../lib/outcome';
@@ -15,13 +16,20 @@ function BadgeRow({ badge, onReload, outcome, say }: { badge: AdminBadge; onRelo
   const [label, setLabel] = useState(badge.label);
   const [description, setDescription] = useState(badge.description);
   const [player, setPlayer] = useState('');
+  const dialog = useDialog();
   const save = async () => {
     const r = await req.send(req.setBadge(badge.id, label, description));
     say(outcomeOf(r, `Saved ${label.trim()}.`, at));
     await onReload();
   };
   const remove = async () => {
-    if (!window.confirm(`Remove the ${badge.label} badge from everyone who holds it?`)) return;
+    const sure = await dialog.confirm({
+      heading: `Remove the ${badge.label} badge?`,
+      text: 'It is taken from everyone who holds it.',
+      action: 'Remove badge',
+      final: true,
+    });
+    if (!sure) return;
     const r = await req.send(req.removeBadge(badge.id));
     say(outcomeOf(r, `Removed the ${badge.label} badge.`, at, 'badges'));
     await onReload();
@@ -42,6 +50,7 @@ function BadgeRow({ badge, onReload, outcome, say }: { badge: AdminBadge; onRelo
   const id = `badge-${badge.id}`;
   return (
     <div className="badge-row">
+      {dialog.element}
       <div className="admin-add">
         <label>
           Label

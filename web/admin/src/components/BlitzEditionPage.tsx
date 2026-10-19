@@ -2,6 +2,7 @@
 import { Fragment, useEffect, useState, type FormEvent } from 'react';
 import Segmented from '@ttac/shared/Segmented';
 import BackLink from '@ttac/shared/BackLink';
+import { useDialog } from '@ttac/shared/Dialog';
 import SubTabs from '@ttac/shared/SubTabs';
 import { formatLabel, offsetLabel, resultSummary, roundShown, roundSummary, roundTitle, scoringSentence, seededName } from '@ttac/shared/blitz';
 import { formatInstant } from '@ttac/shared/time';
@@ -146,6 +147,7 @@ function UnpairedList({ round, players }: { round: number; players: readonly Adm
 /** RoundsPanel pairs rounds, changes the open one by hand and publishes it, and shows every round newest first, each match's result recorded in a row below it. */
 function RoundsPanel({ at, ed, regions, onReload, outcome, say }: Props) {
   const [criteria, setCriteria] = useState({ timezone: true, rating: false });
+  const dialog = useDialog();
   const [pick, setPick] = useState({ a: '', b: '', bye: '' });
   const [recording, setRecording] = useState<number | null>(null);
   const [replacing, setReplacing] = useState<number | null>(null);
@@ -224,32 +226,45 @@ function RoundsPanel({ at, ed, regions, onReload, outcome, say }: Props) {
     if (r.published_at === null) await run(req.publishBlitzRound(at.slug, at.edition, r.id), `${roundTitle(r.number, ed.format)} published.`, 'rounds');
     else if (changed(r)) say(succeeded(`${roundTitle(r.number, ed.format)} updated: the site shows it now.`, 'rounds'));
   };
-  const remove = (r: AdminBlitzRound) => {
+  const remove = async (r: AdminBlitzRound) => {
     const title = roundTitle(r.number, ed.format);
     const what = r.published_at === null ? `the draft of ${title}` : `${title}, published but not yet played`;
-    if (!window.confirm(`Delete ${what}? Pair again afterwards.`)) return;
+    if (!(await dialog.confirm({ heading: `Delete ${what}?`, text: 'Pair again afterwards.', action: 'Delete round', final: true }))) return;
     setPending(null);
-    void run(req.deleteBlitzRound(at.slug, at.edition, r.id), `${title} deleted.`, 'rounds');
+    await run(req.deleteBlitzRound(at.slug, at.edition, r.id), `${title} deleted.`, 'rounds');
   };
   const resets = resetsOf(ed.rounds);
-  const resetResult = (r: AdminBlitzRound, m: AdminBlitzMatch) => {
-    if (!window.confirm(`Reset ${nameOf(m.a)} v ${nameOf(m.b as number)}? Its result, ruling and game go, as if never played.`)) return;
+  const resetResult = async (r: AdminBlitzRound, m: AdminBlitzMatch) => {
+    const pair = `${nameOf(m.a)} v ${nameOf(m.b as number)}`;
+    if (!(await dialog.confirm({ heading: `Reset ${pair}?`, text: 'Its result, ruling and game go, as if never played.', action: 'Reset game', final: true }))) return;
     setRecording(null);
-    void run(req.resetBlitzResult(at.slug, at.edition, r.id, m.id), `${nameOf(m.a)} v ${nameOf(m.b as number)} reset.`, `match ${m.id}`);
+    await run(req.resetBlitzResult(at.slug, at.edition, r.id, m.id), `${pair} reset.`, `match ${m.id}`);
   };
-  const resetRound = (r: AdminBlitzRound) => {
+  const resetRound = async (r: AdminBlitzRound) => {
     const title = roundTitle(r.number, ed.format);
-    if (!window.confirm(`Reset every result of ${title}? Its results, rulings and games go; the pairing stays, and can then be deleted.`)) return;
+    const sure = await dialog.confirm({
+      heading: `Reset every result of ${title}?`,
+      text: 'Its results, rulings and games go; the pairing stays, and can then be deleted.',
+      action: 'Reset round',
+      final: true,
+    });
+    if (!sure) return;
     setRecording(null);
-    void run(req.resetBlitzRound(at.slug, at.edition, r.id), `${title}'s results reset.`, `round ${r.id}`);
+    await run(req.resetBlitzRound(at.slug, at.edition, r.id), `${title}'s results reset.`, `round ${r.id}`);
   };
-  const resetEdition = () => {
+  const resetEdition = async () => {
     const games = ed.rounds.flatMap((r) => r.matches).filter((m) => m.game !== null).length;
     const what = `${ed.rounds.length} round${ed.rounds.length === 1 ? '' : 's'} and ${games} recorded game${games === 1 ? '' : 's'}`;
-    if (!window.confirm(`Reset ${ed.name} ${ed.edition}? This deletes ${what}, puts every dropped player back in and clears every skip. Entrants, organisers, format, points and thread text stay. It cannot be undone.`)) return;
+    const sure = await dialog.confirm({
+      heading: `Reset ${ed.name} ${ed.edition}?`,
+      text: `This deletes ${what}, puts every dropped player back in and clears every skip. Entrants, organisers, format, points and thread text stay. It cannot be undone.`,
+      action: 'Reset edition',
+      final: true,
+    });
+    if (!sure) return;
     setPending(null);
     setRecording(null);
-    void run(req.resetBlitzEdition(at.slug, at.edition), `${ed.name} ${ed.edition} reset: pair round 1 again.`, 'reset edition', 'rounds');
+    await run(req.resetBlitzEdition(at.slug, at.edition), `${ed.name} ${ed.edition} reset: pair round 1 again.`, 'reset edition', 'rounds');
   };
   const swiss = (open?.kind ?? (action.kind === 'next' ? action.round.kind : null)) === 'swiss';
   // choose offers the players given, the unpaired ones a pick may take.
@@ -268,6 +283,7 @@ function RoundsPanel({ at, ed, regions, onReload, outcome, say }: Props) {
   );
   return (
     <div className="admin-subsection">
+      {dialog.element}
       <h3>Rounds</h3>
       <p className="muted">Pair each round, change it by hand, publish it, then record its results.</p>
       <div className="admin-add">
@@ -303,7 +319,7 @@ function RoundsPanel({ at, ed, regions, onReload, outcome, say }: Props) {
         )}
         {open !== null && canDeleteRound(open) && (
           <span className="with-tip">
-            <button type="button" className="btn-antique" onClick={() => remove(open)}>
+            <button type="button" className="btn-antique" onClick={() => void remove(open)}>
               {open.published_at === null ? 'Delete draft' : 'Delete round'}
             </button>
             <InfoTip label="When to delete a round">
@@ -348,7 +364,7 @@ function RoundsPanel({ at, ed, regions, onReload, outcome, say }: Props) {
             {resets.round === r.id && !changed(r) && (
               <>
                 {' '}
-                <button type="button" className="btn-antique btn-settings" onClick={() => resetRound(r)}>
+                <button type="button" className="btn-antique btn-settings" onClick={() => void resetRound(r)}>
                   Reset results
                 </button>
               </>
@@ -428,7 +444,7 @@ function RoundsPanel({ at, ed, regions, onReload, outcome, say }: Props) {
                                 </button>
                               )}
                               {resets.matches.includes(m.id) && !changed(r) && (
-                                <button type="button" className="btn-antique" onClick={() => resetResult(r, m)}>
+                                <button type="button" className="btn-antique" onClick={() => void resetResult(r, m)}>
                                   Reset
                                 </button>
                               )}
@@ -512,7 +528,7 @@ function RoundsPanel({ at, ed, regions, onReload, outcome, say }: Props) {
             again and every skip goes. Entrants and their details, organisers, format, points and thread text stay.
             To undo less, reset a round&apos;s results (latest round only), then delete the round.
           </p>
-          <button type="button" className="btn-antique" onClick={resetEdition}>
+          <button type="button" className="btn-antique" onClick={() => void resetEdition()}>
             Reset {ed.name} {ed.edition}
           </button>
           <Notice outcome={shownAt(outcome, 'reset edition')} onClose={close} />
@@ -526,6 +542,7 @@ function RoundsPanel({ at, ed, regions, onReload, outcome, say }: Props) {
 function EntrantsPanel({ at, ed, regions, countries, onReload, outcome, say }: Props) {
   const actions = (e: AdminBlitzEntrant) => entrantActions(e, ed);
   const nameOf = (id: number) => ed.entrants.find((x) => x.id === id)?.name ?? `entrant ${id}`;
+  const dialog = useDialog();
   const [editing, setEditing] = useState<{ id: number; discord_name: string; email: string; country: string; zone: string } | null>(null);
   const change = async (e: AdminBlitzEntrant, status: AdminBlitzEntrant['status']) => {
     const r = await req.send(req.setBlitzEntrant(at.slug, at.edition, e.id, { status }));
@@ -544,7 +561,7 @@ function EntrantsPanel({ at, ed, regions, countries, onReload, outcome, say }: P
   const skip = async (e: AdminBlitzEntrant, round: number) => {
     const left = leftUnpaired(e.id, ed.rounds.filter((r) => r.number === round)).map(nameOf);
     const unpaired = left.length === 0 ? '' : ` ${left.join(' and ')} will be unpaired.`;
-    if (!window.confirm(`${e.name} skips round ${round}, scoring the edition's skip points for it?${unpaired}`)) return;
+    if (!(await dialog.confirm({ heading: `${e.name} skips round ${round}?`, text: `They score the edition's skip points for it.${unpaired}`, action: 'Skip' }))) return;
     const r = await req.send(req.skipBlitzRound(at.slug, at.edition, e.id));
     say(outcomeOf(r, `${e.name} skips round ${round}.${left.length === 0 ? '' : ` ${left.join(' and ')} ${left.length === 1 ? 'is' : 'are'} unpaired now: Pair fills them in.`}`, `entrant ${e.id}`));
     await onReload();
@@ -562,13 +579,15 @@ function EntrantsPanel({ at, ed, regions, countries, onReload, outcome, say }: P
   const remove = async (e: AdminBlitzEntrant) => {
     const left = leftUnpaired(e.id, ed.rounds).map((id) => ed.entrants.find((x) => x.id === id)?.name ?? `entrant ${id}`);
     const unpaired = left.length === 0 ? '' : ` ${left.join(' and ')} will be unpaired.`;
-    if (!window.confirm(`Remove ${e.name} from the edition?${unpaired}`)) return;
+    const sure = await dialog.confirm({ heading: `Remove ${e.name} from the edition?`, text: unpaired === '' ? undefined : unpaired.trim(), action: 'Remove', final: true });
+    if (!sure) return;
     const r = await req.send(req.removeBlitzEntrant(at.slug, at.edition, e.id));
     say(outcomeOf(r, `Removed ${e.name}.${left.length === 0 ? '' : ` ${left.join(' and ')} ${left.length === 1 ? 'is' : 'are'} unpaired now: Pair fills them in.`}`, `entrant ${e.id}`, 'entrants'));
     await onReload();
   };
   return (
     <div className="admin-subsection">
+      {dialog.element}
       <h3>Entrants</h3>
       <p className="muted">
         A name the ratings know is shown in their spelling, with the 2-player rating of the current run. Everyone
