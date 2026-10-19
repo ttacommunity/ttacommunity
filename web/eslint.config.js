@@ -9,4 +9,6 @@ export default tseslint.config(
   ...astro.configs.recommended,
   ...astro.configs['jsx-a11y-strict'],
   { files: ['**/*.tsx'], ...jsxA11y.configs.strict },
+  // Warnings and questions use the site's own dialog (@ttac/shared/Dialog), never the browser's boxes.
+  { rules: { 'no-alert': 'error' } },
 );
