@@ -3343,7 +3343,7 @@ type GetComparedPlayersParams struct {
 
 // GetSeatAnalysisParams defines parameters for GetSeatAnalysis.
 type GetSeatAnalysisParams struct {
-	// Tier Skill tier of the table based on Glicko-D rating
+	// Tier Skill tier of the table based on average Glicko-D rating when played
 	Tier *GetSeatAnalysisParamsTier `form:"tier,omitempty" json:"tier,omitempty"`
 
 	// Format Player count format (0 for all formats, or 2, 3, 4)

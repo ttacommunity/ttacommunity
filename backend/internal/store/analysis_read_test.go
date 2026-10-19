@@ -324,6 +324,50 @@ func TestSeatAnalysisFractionalWinSharesForMultiwayTies(t *testing.T) {
 	}
 }
 
+func TestSeatAnalysisUsesRatingWhenPlayedToDetermineTier(t *testing.T) {
+	pool := migrated(t)
+	r := NewRatingsReader(asReader(t, pool))
+	ctx := context.Background()
+	run := publishedRun(t, pool)
+
+	addPlayers(t, pool, "rising1", "rising2")
+	// End-of-run ratings: 1800 (GM tier)
+	addRating(t, pool, run, "glicko2_daneo", 0, "rising1", ptr(1), 1800)
+	addRating(t, pool, run, "rising2", 0, "rising2", ptr(2), 1800)
+
+	// Historical rating as of 2024-01-01: 1400 (Intermediate tier)
+	addHistory(t, pool, run, "glicko2_daneo", 0, "rising1", "2024-01-01", 1400)
+	addHistory(t, pool, run, "glicko2_daneo", 0, "rising2", "2024-01-01", 1400)
+
+	// Game played on 2024-01-15 (between the 1400 snapshot and later evolution)
+	addGame(t, pool, run, "2024-01-15", "Early Duel", Seat{"rising1", 100}, Seat{"rising2", 90})
+
+	// Historical rating evolves to 1800 by 2025-06-01
+	addHistory(t, pool, run, "glicko2_daneo", 0, "rising1", "2025-06-01", 1800)
+	addHistory(t, pool, run, "glicko2_daneo", 0, "rising2", "2025-06-01", 1800)
+
+	// Game played on 2025-06-15 (at GM level)
+	addGame(t, pool, run, "2025-06-15", "Late Duel", Seat{"rising1", 100}, Seat{"rising2", 90})
+
+	// Check grandmaster tier: should ONLY contain the 2025 game (1 game), NOT the 2024 game
+	gmGroups, err := r.SeatAnalysis(ctx, run, 2, "grandmaster")
+	if err != nil {
+		t.Fatalf("SeatAnalysis(grandmaster): %v", err)
+	}
+	if len(gmGroups) != 1 || gmGroups[0].TotalGames != 1 {
+		t.Fatalf("gmGroups = %+v, want exactly 1 game played when players were GM tier", gmGroups)
+	}
+
+	// Check intermediate tier: should contain the 2024 game (1 game)
+	interGroups, err := r.SeatAnalysis(ctx, run, 2, "intermediate")
+	if err != nil {
+		t.Fatalf("SeatAnalysis(intermediate): %v", err)
+	}
+	if len(interGroups) != 1 || interGroups[0].TotalGames != 1 {
+		t.Fatalf("interGroups = %+v, want exactly 1 game played when players were Intermediate tier", interGroups)
+	}
+}
+
 func TestSeatAnalysisIsComputedOncePerRun(t *testing.T) {
 	pool := migrated(t)
 	r := NewRatingsReader(asReader(t, pool))
