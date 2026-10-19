@@ -1,12 +1,13 @@
 /** The site's own dialog for a warning or a question, opened as a modal: the page behind is inert, Escape cancels, and focus goes back to what opened it. */
-import { useCallback, useEffect, useId, useRef, useState, type SubmitEvent } from 'react';
+import { useCallback, useEffect, useId, useRef, useState, type RefObject, type SubmitEvent } from 'react';
 import { answerOf, firstFocus, hasField, type Focus, type Question, type TextQuestion } from './question';
 
 export type { Question, TextQuestion } from './question';
 
-/** Dialog shows a question until it is answered or cancelled, then calls onDone with the answer, or null for Cancel and Escape. */
-function Dialog({ question: q, onDone }: { question: Question | TextQuestion; onDone: (answer: string | null) => void }) {
-  const box = useRef<HTMLDialogElement>(null);
+type Answer = (answer: string | null) => void;
+
+/** Dialog shows a question in box until it is answered or cancelled, then calls onDone with the answer, or null for Cancel and Escape. */
+function Dialog({ question: q, box, onDone }: { question: Question | TextQuestion; box: RefObject<HTMLDialogElement | null>; onDone: Answer }) {
   const controls = { field: useRef<HTMLInputElement>(null), cancel: useRef<HTMLButtonElement>(null), action: useRef<HTMLButtonElement>(null) } satisfies Record<Focus, unknown>;
   const answer = useRef<string | null>(null);
   const [text, setText] = useState('');
@@ -17,8 +18,10 @@ function Dialog({ question: q, onDone }: { question: Question | TextQuestion; on
     box.current?.showModal();
     controls[focus].current?.focus();
   }, []);
+  // Its events stop here: React would pass them up to a form or dialog the element is rendered in.
   const submit = (e: SubmitEvent) => {
     e.preventDefault();
+    e.stopPropagation();
     const a = answerOf(q, text);
     if (a === null) {
       setBlank(true);
@@ -35,7 +38,11 @@ function Dialog({ question: q, onDone }: { question: Question | TextQuestion; on
       role="alertdialog"
       aria-labelledby={`${id}-heading`}
       aria-describedby={q.text === undefined ? undefined : `${id}-text`}
-      onClose={() => onDone(answer.current)}
+      onCancel={(e) => e.stopPropagation()}
+      onClose={(e) => {
+        e.stopPropagation();
+        onDone(answer.current);
+      }}
     >
       <form onSubmit={submit} noValidate>
         <h2 id={`${id}-heading`} className="site-dialog-heading">
@@ -61,7 +68,10 @@ function Dialog({ question: q, onDone }: { question: Question | TextQuestion; on
               autoComplete="off"
               aria-invalid={blank}
               aria-describedby={blank ? `${id}-blank` : undefined}
-              onChange={(e) => setText(e.target.value)}
+              onChange={(e) => {
+                setText(e.target.value);
+                setBlank(false);
+              }}
             />
           </label>
         )}
@@ -83,32 +93,35 @@ function Dialog({ question: q, onDone }: { question: Question | TextQuestion; on
   );
 }
 
-interface Open {
-  key: number;
-  question: Question | TextQuestion;
-  done: (answer: string | null) => void;
-}
-
 /**
  * useDialog gives a component its dialog. confirm resolves true once the action is chosen; ask resolves the typed
  * answer, trimmed, or null when cancelled. Render element once, anywhere in the component: it opens above the page.
+ * A question not answered (element not rendered, another question asked, the component gone) is answered as cancelled.
  */
 export function useDialog() {
-  const [open, setOpen] = useState<Open | null>(null);
+  const [open, setOpen] = useState<{ key: number; question: Question | TextQuestion } | null>(null);
   const opened = useRef(0);
-  const show = useCallback((question: Question | TextQuestion, done: Open['done']) => setOpen({ key: ++opened.current, question, done }), []);
+  const box = useRef<HTMLDialogElement>(null);
+  const waiting = useRef<Answer | null>(null);
+  const answer = useCallback<Answer>((a) => {
+    const done = waiting.current;
+    waiting.current = null;
+    setOpen(null);
+    done?.(a);
+  }, []);
+  const show = useCallback((question: Question | TextQuestion, done: Answer) => {
+    waiting.current?.(null);
+    waiting.current = done;
+    setOpen({ key: ++opened.current, question });
+  }, []);
+  useEffect(() => {
+    if (open === null || box.current !== null) return;
+    console.error('useDialog: element is not rendered, so the question is answered as cancelled');
+    answer(null);
+  }, [open, answer]);
+  useEffect(() => () => waiting.current?.(null), []);
   const confirm = useCallback((question: Question) => new Promise<boolean>((resolve) => show(question, (a) => resolve(a !== null))), [show]);
   const ask = useCallback((question: TextQuestion) => new Promise<string | null>((resolve) => show(question, resolve)), [show]);
-  const element =
-    open === null ? null : (
-      <Dialog
-        key={open.key}
-        question={open.question}
-        onDone={(a) => {
-          setOpen(null);
-          open.done(a);
-        }}
-      />
-    );
+  const element = open === null ? null : <Dialog key={open.key} question={open.question} box={box} onDone={answer} />;
   return { confirm, ask, element };
 }
