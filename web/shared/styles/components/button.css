@@ -28,3 +28,22 @@
   color: var(--accent-gold-bright);
   transform: translateY(-1px);
 }
+
+/* An action that cannot be undone, such as deleting a run: crimson where the antique button is gold. */
+.btn-antique.btn-danger {
+  background: linear-gradient(180deg, #5c1716 0%, #2a0908 100%);
+  border-color: var(--loss);
+  box-shadow:
+    0 3px 8px var(--shadow-deep),
+    inset 0 1px 0 rgba(239, 83, 80, 0.35);
+  color: var(--text-bright);
+}
+
+.btn-antique.btn-danger:hover {
+  background: linear-gradient(180deg, #7a1f1e 0%, var(--accent-crimson) 100%);
+  border-color: #ff8a80;
+  box-shadow:
+    0 4px 14px rgba(239, 83, 80, 0.4),
+    inset 0 1px 0 rgba(255, 138, 128, 0.5);
+  color: var(--text-bright);
+}
