@@ -111,19 +111,19 @@ func (e AdminRoleRole) Valid() bool {
 
 // Defines values for AdminRunStatus.
 const (
-	Complete AdminRunStatus = "complete"
-	Failed   AdminRunStatus = "failed"
-	Running  AdminRunStatus = "running"
+	AdminRunStatusComplete AdminRunStatus = "complete"
+	AdminRunStatusFailed   AdminRunStatus = "failed"
+	AdminRunStatusRunning  AdminRunStatus = "running"
 )
 
 // Valid indicates whether the value is a known member of the AdminRunStatus enum.
 func (e AdminRunStatus) Valid() bool {
 	switch e {
-	case Complete:
+	case AdminRunStatusComplete:
 		return true
-	case Failed:
+	case AdminRunStatusFailed:
 		return true
-	case Running:
+	case AdminRunStatusRunning:
 		return true
 	default:
 		return false
@@ -315,19 +315,25 @@ func (e CalibrationRowMode) Valid() bool {
 
 // Defines values for CatalogueGameState.
 const (
-	NeverPlayed CatalogueGameState = "never_played"
-	Played      CatalogueGameState = "played"
-	Unconfirmed CatalogueGameState = "unconfirmed"
+	CatalogueGameStateNeverPlayed CatalogueGameState = "never_played"
+	CatalogueGameStatePlayed      CatalogueGameState = "played"
+	CatalogueGameStatePrepared    CatalogueGameState = "prepared"
+	CatalogueGameStateRunning     CatalogueGameState = "running"
+	CatalogueGameStateUnconfirmed CatalogueGameState = "unconfirmed"
 )
 
 // Valid indicates whether the value is a known member of the CatalogueGameState enum.
 func (e CatalogueGameState) Valid() bool {
 	switch e {
-	case NeverPlayed:
+	case CatalogueGameStateNeverPlayed:
 		return true
-	case Played:
+	case CatalogueGameStatePlayed:
 		return true
-	case Unconfirmed:
+	case CatalogueGameStatePrepared:
+		return true
+	case CatalogueGameStateRunning:
+		return true
+	case CatalogueGameStateUnconfirmed:
 		return true
 	default:
 		return false
@@ -709,6 +715,33 @@ func (e GetSeatAnalysisParamsTier) Valid() bool {
 	case GetSeatAnalysisParamsTierIntermediate:
 		return true
 	case GetSeatAnalysisParamsTierMaster:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for GetCatalogueGamesParamsState.
+const (
+	GetCatalogueGamesParamsStateNeverPlayed GetCatalogueGamesParamsState = "never_played"
+	GetCatalogueGamesParamsStatePlayed      GetCatalogueGamesParamsState = "played"
+	GetCatalogueGamesParamsStatePrepared    GetCatalogueGamesParamsState = "prepared"
+	GetCatalogueGamesParamsStateRunning     GetCatalogueGamesParamsState = "running"
+	GetCatalogueGamesParamsStateUnconfirmed GetCatalogueGamesParamsState = "unconfirmed"
+)
+
+// Valid indicates whether the value is a known member of the GetCatalogueGamesParamsState enum.
+func (e GetCatalogueGamesParamsState) Valid() bool {
+	switch e {
+	case GetCatalogueGamesParamsStateNeverPlayed:
+		return true
+	case GetCatalogueGamesParamsStatePlayed:
+		return true
+	case GetCatalogueGamesParamsStatePrepared:
+		return true
+	case GetCatalogueGamesParamsStateRunning:
+		return true
+	case GetCatalogueGamesParamsStateUnconfirmed:
 		return true
 	default:
 		return false
@@ -3331,8 +3364,14 @@ type GetCatalogueGamesParams struct {
 
 	// Coded Only games with a replay code
 	Coded *bool `form:"coded,omitempty" json:"coded,omitempty"`
-	Page  *int  `form:"page,omitempty" json:"page,omitempty"`
+
+	// State Only games in this state
+	State *GetCatalogueGamesParamsState `form:"state,omitempty" json:"state,omitempty"`
+	Page  *int                          `form:"page,omitempty" json:"page,omitempty"`
 }
+
+// GetCatalogueGamesParamsState defines parameters for GetCatalogueGames.
+type GetCatalogueGamesParamsState string
 
 // GetHistoryParams defines parameters for GetHistory.
 type GetHistoryParams struct {
@@ -6329,6 +6368,19 @@ func (siw *ServerInterfaceWrapper) GetCatalogueGames(w http.ResponseWriter, r *h
 			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "coded"})
 		} else {
 			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "coded", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "state" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "state", r.URL.Query(), &params.State, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "state"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "state", Err: err})
 		}
 		return
 	}

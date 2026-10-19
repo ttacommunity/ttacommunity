@@ -136,10 +136,12 @@ export default function HomePage({ apiUrl }: { apiUrl: string }) {
     }));
   }, [data]);
 
-  const removeTournamentFilter = (slug: string) => {
+  const removeTournamentFilter = (slug: string, division?: string) => {
     const next: FeedSettings = {
       ...feedSettings,
-      tournaments: feedSettings.tournaments.filter((t) => t.slug !== slug),
+      tournaments: feedSettings.tournaments.filter(
+        (t) => !(t.slug === slug && (t.division ?? '') === (division ?? '')),
+      ),
     };
     setFeedSettings(next);
     if (typeof window !== 'undefined' && window.localStorage) {
@@ -367,17 +369,17 @@ export default function HomePage({ apiUrl }: { apiUrl: string }) {
               <div className="player-filter-toolbar">
                 <div className="filter-active-tags-row">
                   <div className="filter-tags-scroll" aria-label="Active feed filters">
-                    {feedSettings.tournaments.map((t) => (
-                      <span key={t.slug} className="player-filter-tag tourney-filter-tag">
+                    {feedSettings.tournaments.map((t, idx) => (
+                      <span key={`${t.slug}-${t.division || 'all'}-${idx}`} className="player-filter-tag tourney-filter-tag">
                         <span className="player-tag-name">
                           🏛️ {t.name}{t.division ? ` · ${t.division}` : ''}
                         </span>
                         <button
                           type="button"
                           className="player-tag-remove"
-                          onClick={() => removeTournamentFilter(t.slug)}
-                          title={`Remove ${t.name} from feed`}
-                          aria-label={`Remove ${t.name}`}
+                          onClick={() => removeTournamentFilter(t.slug, t.division)}
+                          title={`Remove ${t.name}${t.division ? ` (${t.division})` : ''} from feed`}
+                          aria-label={`Remove ${t.name}${t.division ? ` (${t.division})` : ''}`}
                         >
                           ✕
                         </button>

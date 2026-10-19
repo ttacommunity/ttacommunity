@@ -171,7 +171,7 @@ func TestCatalogueGames(t *testing.T) {
 			Seats: []store.GameSeat{{Name: "alder440", Score: 112, Outcome: "finished"}, {Name: "kittiwake", Score: -5, Outcome: "timed_out"}}},
 		{ID: 8, Date: d, Season: "2024", Stage: "Stage 7", State: "never_played", Seats: []store.GameSeat{{Name: "ann", Score: 0}}},
 	}}}
-	rec, _ := serve(t, f, "/v1/runs/7/catalogue/wimbledon/games?season=2024&stage=Stage+7&group=Final&player=alder440&coded=true&page=2")
+	rec, _ := serve(t, f, "/v1/runs/7/catalogue/wimbledon/games?season=2024&stage=Stage+7&group=Final&player=alder440&coded=true&state=played&page=2")
 	want := `{"coded":1,"games":[` +
 		`{"date":"2025-02-24","game":1,"group":"Final","match_id":9,"rated":false,"replay_code":"HEKANUJIMA","season":"2024",` +
 		`"seats":[{"name":"alder440","outcome":"finished","score":112},{"name":"kittiwake","outcome":"timed_out","score":-5}],"stage":"Stage 7","state":"played"},` +
@@ -181,7 +181,7 @@ func TestCatalogueGames(t *testing.T) {
 	if got := strings.TrimSpace(rec.Body.String()); rec.Code != http.StatusOK || got != want {
 		t.Errorf("GET games: %d %s\nwant 200 %s", rec.Code, got, want)
 	}
-	wantFilter := store.CatalogueGamesFilter{Season: "2024", Stage: "Stage 7", Group: "Final", Player: "alder440", Coded: true, Page: 2}
+	wantFilter := store.CatalogueGamesFilter{Season: "2024", Stage: "Stage 7", Group: "Final", Player: "alder440", Coded: true, State: "played", Page: 2}
 	if rec.Header().Get("Cache-Control") != "public, max-age=300" || f.gotRun != 7 || f.gotSlug != "wimbledon" || f.gotFilter != wantFilter {
 		t.Errorf("GET games: Cache-Control %q; asked run %d, %q, %+v", rec.Header().Get("Cache-Control"), f.gotRun, f.gotSlug, f.gotFilter)
 	}
@@ -208,6 +208,7 @@ func TestCatalogueRefusals(t *testing.T) {
 		"/v1/runs/0/catalogue/wimbledon/games":                                   "bad parameter: run",
 		"/v1/runs/7/catalogue/Wimbledon/games":                                   "bad parameter: tournament",
 		"/v1/runs/7/catalogue/wimbledon/games?page=0":                            "bad parameter: page",
+		"/v1/runs/7/catalogue/wimbledon/games?state=invalid":                     "bad parameter: state",
 		"/v1/runs/7/catalogue/wimbledon/games?season=" + strings.Repeat("x", 65): "bad parameter: season",
 		"/v1/runs/7/catalogue/wimbledon/games?player=" + strings.Repeat("x", 65): "bad parameter: player",
 	} {

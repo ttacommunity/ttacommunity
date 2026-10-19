@@ -63,6 +63,21 @@ describe('feed-settings', () => {
     });
   });
 
+  it('allows multiple divisions of the same tournament while deduplicating exact matches', () => {
+    const multi = sanitizeFeedSettings({
+      tournaments: [
+        { slug: 'royal_league', name: 'Royal League', division: 'Emperor' },
+        { slug: 'royal_league', name: 'Royal League', division: 'King 1' },
+        { slug: 'royal_league', name: 'Royal League', division: 'Emperor' }, // duplicate
+      ],
+      players: [],
+    });
+    expect(multi.tournaments).toEqual([
+      { slug: 'royal_league', name: 'Royal League', division: 'Emperor' },
+      { slug: 'royal_league', name: 'Royal League', division: 'King 1' },
+    ]);
+  });
+
   it('gracefully handles storage errors (e.g. quota or blocked access)', () => {
     const failingStorage = {
       getItem: () => {
