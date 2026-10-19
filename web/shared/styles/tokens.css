@@ -12,6 +12,11 @@
   --accent-gold-deep: #b87c1c;
   --gradient-gold: linear-gradient(135deg, #e5a93c 0%, #b87c1c 100%);
   --accent-crimson: #8e1e1d;
+  /* The crimson button's gradient stops (top, bottom, top on hover) and its light edge on hover. */
+  --crimson-top: #5c1716;
+  --crimson-bottom: #2a0908;
+  --crimson-hover: #7a1f1e;
+  --loss-light: #ff8a80;
   --text-main: #f3e5c8;
   --text-soft: #cfbeab;
   --text-muted: #a89880;

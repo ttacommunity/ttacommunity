@@ -31,19 +31,19 @@
 
 /* An action that cannot be undone, such as deleting a run: crimson where the antique button is gold. */
 .btn-antique.btn-danger {
-  background: linear-gradient(180deg, #5c1716 0%, #2a0908 100%);
+  background: linear-gradient(180deg, var(--crimson-top) 0%, var(--crimson-bottom) 100%);
   border-color: var(--loss);
   box-shadow:
     0 3px 8px var(--shadow-deep),
-    inset 0 1px 0 rgba(239, 83, 80, 0.35);
+    inset 0 1px 0 color-mix(in srgb, var(--loss) 35%, transparent);
   color: var(--text-bright);
 }
 
 .btn-antique.btn-danger:hover {
-  background: linear-gradient(180deg, #7a1f1e 0%, var(--accent-crimson) 100%);
-  border-color: #ff8a80;
+  background: linear-gradient(180deg, var(--crimson-hover) 0%, var(--accent-crimson) 100%);
+  border-color: var(--loss-light);
   box-shadow:
-    0 4px 14px rgba(239, 83, 80, 0.4),
-    inset 0 1px 0 rgba(255, 138, 128, 0.5);
+    0 4px 14px color-mix(in srgb, var(--loss) 40%, transparent),
+    inset 0 1px 0 color-mix(in srgb, var(--loss-light) 50%, transparent);
   color: var(--text-bright);
 }
