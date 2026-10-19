@@ -1,6 +1,7 @@
 /** The Members tab: the community's people, listed and searched, added and edited by admins and organisers; banned, unbanned and removed by admins. */
 import { Fragment, useEffect, useState, type FormEvent } from 'react';
 import { offsetLabel } from '@ttac/shared/blitz';
+import { useDialog } from '@ttac/shared/Dialog';
 import { adminRequest, type AdminMe, type AdminMember, type Load, type MemberAdded, type MemberChange } from '../lib/admin-api';
 import * as req from '../lib/admin-requests';
 import { countryNames, type Country } from '../lib/countries';
@@ -24,6 +25,7 @@ export default function MembersPanel({ role }: { role: AdminMe['role'] }) {
   const [members, setMembers] = useState<Load<AdminMember[]>>({ kind: 'loading' });
   const [outcome, setOutcome] = useState<Outcome | null>(null);
   const close = () => setOutcome(null);
+  const dialog = useDialog();
   const [editing, setEditing] = useState<{ id: number } & Draft | null>(null);
   const [regions, setRegions] = useState<Region[]>([]);
   const [countries, setCountries] = useState<Country[]>([]);
@@ -57,16 +59,29 @@ export default function MembersPanel({ role }: { role: AdminMe['role'] }) {
     if (editing.cge_user.trim() !== '') change.cge_user = Number(editing.cge_user);
     if (await run(req.setMember(editing.id, change), 'Saved.', `member ${editing.id}`)) setEditing(null);
   };
-  const ban = (m: AdminMember) => {
-    const reason = window.prompt(`Ban ${m.name} from taking part. The reason:`);
-    if (reason === null || reason.trim() === '') return;
-    void run(req.banMember(m.id, reason), `${m.name} is banned.`, `member ${m.id}`);
+  const ban = async (m: AdminMember) => {
+    const reason = await dialog.ask({
+      heading: `Ban ${m.name}?`,
+      text: 'A banned member cannot be entered in an edition; their games and ratings stay.',
+      field: 'The reason',
+      required: true,
+      maxLength: 1000,
+      action: 'Ban',
+    });
+    if (reason !== null) await run(req.banMember(m.id, reason), `${m.name} is banned.`, `member ${m.id}`);
   };
-  const remove = (m: AdminMember) => {
-    if (window.confirm(`Remove ${m.name}? Only for a mistaken entry; a member in an edition cannot be removed.`)) void run(req.removeMember(m.id), `Removed ${m.name}.`, `member ${m.id}`, 'members');
+  const remove = async (m: AdminMember) => {
+    const sure = await dialog.confirm({
+      heading: `Remove ${m.name}?`,
+      text: 'Only for a mistaken entry: a member in an edition cannot be removed.',
+      action: 'Remove',
+      final: true,
+    });
+    if (sure) await run(req.removeMember(m.id), `Removed ${m.name}.`, `member ${m.id}`, 'members');
   };
   return (
     <section className="rating-card admin-card" aria-labelledby="members-heading">
+      {dialog.element}
       <h2 id="members-heading" className="rating-card-heading">
         Members
       </h2>
@@ -180,7 +195,7 @@ export default function MembersPanel({ role }: { role: AdminMe['role'] }) {
                             Edit
                           </button>
                           {role === 'admin' && !m.banned && (
-                            <button type="button" className="btn-antique" onClick={() => ban(m)}>
+                            <button type="button" className="btn-antique" onClick={() => void ban(m)}>
                               Ban
                             </button>
                           )}
@@ -190,7 +205,7 @@ export default function MembersPanel({ role }: { role: AdminMe['role'] }) {
                             </button>
                           )}
                           {role === 'admin' && (
-                            <button type="button" className="btn-antique" onClick={() => remove(m)}>
+                            <button type="button" className="btn-antique" onClick={() => void remove(m)}>
                               Remove
                             </button>
                           )}

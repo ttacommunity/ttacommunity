@@ -14,6 +14,7 @@
     "./Segmented": "./src/Segmented.tsx",
     "./SubTabs": "./src/SubTabs.tsx",
     "./BackLink": "./src/BackLink.tsx",
+    "./Dialog": "./src/Dialog.tsx",
     "./tabs": "./src/tabs.ts"
   },
   "devDependencies": {

@@ -1,5 +1,6 @@
 /** Rating runs, for admins: start one, watch its progress, compare and publish it, and protect or delete old ones. */
 import { Fragment, useEffect, useState } from 'react';
+import { useDialog } from '@ttac/shared/Dialog';
 import * as req from '../lib/admin-requests';
 import { adminRequest, type AdminRun, type RunChanges, type StartedRun } from '../lib/admin-api';
 import { loadFailure, outcomeOf, refusalOf, refused, shownAt, succeeded, type Outcome } from '../lib/outcome';
@@ -81,6 +82,7 @@ export default function RunsPanel() {
   const [runs, setRuns] = useState<AdminRun[] | null>(null);
   const [outcome, setOutcome] = useState<Outcome | null>(null);
   const close = () => setOutcome(null);
+  const dialog = useDialog();
   const [waitingUntil, setWaitingUntil] = useState(0);
   const [comparing, setComparing] = useState<number | null>(null);
   const [all, setAll] = useState(false);
@@ -102,7 +104,12 @@ export default function RunsPanel() {
   }, [changing, waitingUntil]);
 
   const start = async () => {
-    if (!window.confirm('Start a rating run now? It usually takes 20 to 40 minutes, and is not shown on the site until you publish it.')) return;
+    const sure = await dialog.confirm({
+      heading: 'Start a rating run now?',
+      text: 'It usually takes 20 to 40 minutes, and is not shown on the site until you publish it.',
+      action: 'Start run',
+    });
+    if (!sure) return;
     setOutcome(null);
     const r = await req.send<StartedRun>(req.startRun());
     if (!r.ok) {
@@ -113,7 +120,8 @@ export default function RunsPanel() {
     setWaitingUntil(awaitStartedRun(Date.now()));
   };
   const stop = async (run: AdminRun) => {
-    if (!window.confirm(`Stop run ${run.id}? It is marked failed, and its work so far is not kept.`)) return;
+    const sure = await dialog.confirm({ heading: `Stop run ${run.id}?`, text: 'It is marked failed, and its work so far is not kept.', action: 'Stop run', final: true });
+    if (!sure) return;
     setOutcome(null);
     const r = await req.send(req.stopRun());
     setOutcome(outcomeOf(r, `Stopping run ${run.id}. It shows as failed once the engine has ended.`, 'runs'));
@@ -121,7 +129,7 @@ export default function RunsPanel() {
   };
   const publish = async (run: AdminRun) => {
     const verb = publishVerb(runs ?? [], run);
-    if (!window.confirm(`${verb} run ${run.id}? The site shows it at once.`)) return;
+    if (!(await dialog.confirm({ heading: `${verb} run ${run.id}?`, text: 'The site shows it at once.', action: `${verb} run ${run.id}` }))) return;
     setOutcome(null);
     const r = await req.send(req.publishRun(run.id));
     setOutcome(outcomeOf(r, `Run ${run.id} is now the one the site shows.`, `run ${run.id}`));
@@ -136,7 +144,13 @@ export default function RunsPanel() {
   };
   const remove = async (run: AdminRun) => {
     const size = runSize(run);
-    if (!window.confirm(`Delete run ${run.id}${size === '' ? '' : ` (${size})`} and every result of it? This cannot be undone.`)) return;
+    const sure = await dialog.confirm({
+      heading: `Delete run ${run.id}${size === '' ? '' : ` (${size})`}?`,
+      text: 'Every result of it is deleted too. This cannot be undone.',
+      action: 'Delete run',
+      final: true,
+    });
+    if (!sure) return;
     setOutcome(null);
     const r = await req.send(req.deleteRun(run.id));
     setOutcome(outcomeOf(r, `Deleting run ${run.id}. It disappears from this list once it is gone.`, `run ${run.id}`, 'runs'));
@@ -146,6 +160,7 @@ export default function RunsPanel() {
   const shown = runs === null ? [] : shownRuns(runs, all, SHOWN);
   return (
     <section className="rating-card admin-card" aria-labelledby="runs-heading">
+      {dialog.element}
       <h2 id="runs-heading" className="rating-card-heading">
         Rating runs
       </h2>

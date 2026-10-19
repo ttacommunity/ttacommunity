@@ -1,6 +1,7 @@
 /** Titles set by hand, for admins: each replaces the engine's derived title from the next rating run. */
 import { Fragment, useEffect, useState, type FormEvent } from 'react';
 import type { components } from '@ttac/shared/api';
+import { useDialog } from '@ttac/shared/Dialog';
 import * as req from '../lib/admin-requests';
 import { adminRequest } from '../lib/admin-api';
 import { loadFailure, outcomeOf, shownAt, type Outcome } from '../lib/outcome';
@@ -13,6 +14,7 @@ export default function TitlesPanel() {
   const [list, setList] = useState<TitleOverride[] | null>(null);
   const [outcome, setOutcome] = useState<Outcome | null>(null);
   const close = () => setOutcome(null);
+  const dialog = useDialog();
   const [form, setForm] = useState({ name: '', title: 'GM' as AdminTitle, reason: '' });
 
   const load = async () => {
@@ -33,7 +35,7 @@ export default function TitlesPanel() {
     await load();
   };
   const remove = async (o: TitleOverride) => {
-    if (!window.confirm(`Remove the title set for ${o.name}? The next run derives it again.`)) return;
+    if (!(await dialog.confirm({ heading: `Remove the title set for ${o.name}?`, text: 'The next run derives it again.', action: 'Remove' }))) return;
     const r = await req.send(req.clearTitle(o.name));
     setOutcome(outcomeOf(r, `Removed ${o.name}'s title. The next run derives it again.`, `title ${o.name}`, 'titles'));
     await load();
@@ -41,6 +43,7 @@ export default function TitlesPanel() {
 
   return (
     <section className="rating-card admin-card" aria-labelledby="titles-heading">
+      {dialog.element}
       <h2 id="titles-heading" className="rating-card-heading">
         Player titles
       </h2>
