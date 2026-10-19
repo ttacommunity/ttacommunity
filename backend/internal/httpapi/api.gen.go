@@ -2897,7 +2897,7 @@ type SeatWinrateRow struct {
 	// Seat 1-indexed turn position (Seat 1 = starting player)
 	Seat int `json:"seat"`
 
-	// WinRate Win rate as a percentage rounded to two decimals
+	// WinRate Win rate as a percentage rounded to two decimals (ties for 1st count as 1/k of a win)
 	WinRate float64 `json:"win_rate"`
 
 	// Wins Outright wins (sole 1st place finishes)
