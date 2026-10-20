@@ -49,6 +49,20 @@ spec:
         runAsGroup: 65532
         seccompProfile:
           type: RuntimeDefault
+      # Any worker with a workload-size, unstableserver included; never the control plane or wsl-laptop.
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+              - matchExpressions:
+                  - key: workload-size
+                    operator: In
+                    values: [large, medium, small]
+      tolerations:
+        - key: workload-class
+          operator: Equal
+          value: amd64-opt-in
+          effect: NoSchedule
       topologySpreadConstraints:
         - maxSkew: 1
           topologyKey: kubernetes.io/hostname
@@ -132,3 +146,15 @@ spec:
               port: http
             initialDelaySeconds: 5
             periodSeconds: 30
+---
+# A node drain leaves at least one api running.
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: api
+  namespace: ttacommunity
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app: api
