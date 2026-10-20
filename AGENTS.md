@@ -57,6 +57,12 @@ scripts/ci.sh            # everything CI runs, in CI's order
 - **Postgres startup**: `scripts\env.ps1` starts Postgres if stopped. After a
   restart or crash recovery, wait for `pg_isready` before connecting if queries
   report "the database system is starting up"
+- **psql: connect with a URL from `.env`**, as the scripts do, never
+  `-U`/`-h`/`-p` alone: the local servers need a password, and psql waits
+  at a prompt for one. With `-X -w` it never prompts or reads a `psqlrc`:
+  `psql -X -w $env:RATINGS_DATABASE_URL -c "…"` after `. scripts\env.ps1`
+  (bash: `set -a; . ./.env; set +a; psql -X -w "$RATINGS_DATABASE_URL" -c "…"`).
+  Agents always pass `-w`, so a missing password is an error, not a hang
 - **Data is never in this repo.** The maintainers keep a baseline export (every
   input table, no personal data) in a private repo in the ttacommunity
   organization: `ttac-ratings-data` (`git@github.com:ttacommunity/ttac-ratings-data.git`).
