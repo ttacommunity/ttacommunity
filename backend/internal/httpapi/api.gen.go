@@ -55,6 +55,24 @@ func (e AdminBlitzRoundKind) Valid() bool {
 	}
 }
 
+// Defines values for AdminLoginLinkedHow.
+const (
+	AdminLoginLinkedHowApproved AdminLoginLinkedHow = "approved"
+	AdminLoginLinkedHowMatch    AdminLoginLinkedHow = "match"
+)
+
+// Valid indicates whether the value is a known member of the AdminLoginLinkedHow enum.
+func (e AdminLoginLinkedHow) Valid() bool {
+	switch e {
+	case AdminLoginLinkedHowApproved:
+		return true
+	case AdminLoginLinkedHowMatch:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for AdminMeRole.
 const (
 	AdminMeRoleAdmin     AdminMeRole = "admin"
@@ -430,6 +448,39 @@ func (e GameSeatOutcome) Valid() bool {
 	}
 }
 
+// Defines values for LoginProvider.
+const (
+	Discord LoginProvider = "discord"
+)
+
+// Valid indicates whether the value is a known member of the LoginProvider enum.
+func (e LoginProvider) Valid() bool {
+	switch e {
+	case Discord:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for MeAdminRole.
+const (
+	MeAdminRoleAdmin     MeAdminRole = "admin"
+	MeAdminRoleOrganiser MeAdminRole = "organiser"
+)
+
+// Valid indicates whether the value is a known member of the MeAdminRole enum.
+func (e MeAdminRole) Valid() bool {
+	switch e {
+	case MeAdminRoleAdmin:
+		return true
+	case MeAdminRoleOrganiser:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for Model.
 const (
 	Glicko2Adapt            Model = "glicko2_adapt"
@@ -484,6 +535,27 @@ func (e Model) Valid() bool {
 	case Whr:
 		return true
 	case WhrSofter:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for MyLinkRequestStatus.
+const (
+	MyLinkRequestStatusApproved MyLinkRequestStatus = "approved"
+	MyLinkRequestStatusPending  MyLinkRequestStatus = "pending"
+	MyLinkRequestStatusRefused  MyLinkRequestStatus = "refused"
+)
+
+// Valid indicates whether the value is a known member of the MyLinkRequestStatus enum.
+func (e MyLinkRequestStatus) Valid() bool {
+	switch e {
+	case MyLinkRequestStatusApproved:
+		return true
+	case MyLinkRequestStatusPending:
+		return true
+	case MyLinkRequestStatusRefused:
 		return true
 	default:
 		return false
@@ -1040,6 +1112,63 @@ type AdminBlitzThreadText struct {
 	// NoDiscord The sentence for a player without a Discord username, where {name} is filled in
 	NoDiscord string `json:"no_discord"`
 }
+
+// AdminLinkRefused A sign-in's last request to be linked, when it was refused and neither a new request nor a link has followed
+type AdminLinkRefused struct {
+	// Name The TTA username asked for
+	Name string `json:"name"`
+
+	// Reason The reason the player was shown; may be empty
+	Reason string `json:"reason"`
+}
+
+// AdminLinkRequest A request waiting for an answer, with the country and zone the player gave, and the member its name names
+// now (empty when approving adds one) with what is recorded for them, to compare
+type AdminLinkRequest struct {
+	// Country The country the player gave, empty for none
+	Country string `json:"country"`
+	Id      int64  `json:"id"`
+	Member  string `json:"member"`
+
+	// MemberCountry That member's recorded country, empty for none
+	MemberCountry string `json:"member_country"`
+
+	// MemberDiscord That member's recorded Discord name, to compare with the sign-in's
+	MemberDiscord string `json:"member_discord"`
+
+	// MemberZone That member's recorded time zone, empty when approving adds the member
+	MemberZone  string    `json:"member_zone"`
+	Name        string    `json:"name"`
+	RequestedAt time.Time `json:"requested_at"`
+
+	// Zone The time zone the player gave, empty for none
+	Zone string `json:"zone"`
+}
+
+// AdminLogin A way a player signs in, as admin sees it
+type AdminLogin struct {
+	// AutoLink Off once an admin unlinked it, so it is not linked by its Discord name again
+	AutoLink    bool   `json:"auto_link"`
+	DisplayName string `json:"display_name"`
+	Id          int64  `json:"id"`
+
+	// LinkedHow By their recorded Discord name, or by an approved request; null when not linked
+	LinkedHow *AdminLoginLinkedHow `json:"linked_how"`
+
+	// Member The linked member's TTA username, empty when not linked
+	Member   string `json:"member"`
+	MemberId *int64 `json:"member_id"`
+
+	// Provider Where a player signs in
+	Provider   LoginProvider     `json:"provider"`
+	Refused    *AdminLinkRefused `json:"refused"`
+	Request    *AdminLinkRequest `json:"request"`
+	SignedInAt time.Time         `json:"signed_in_at"`
+	Username   string            `json:"username"`
+}
+
+// AdminLoginLinkedHow By their recorded Discord name, or by an approved request; null when not linked
+type AdminLoginLinkedHow string
 
 // AdminMe defines model for AdminMe.
 type AdminMe struct {
@@ -2327,6 +2456,30 @@ type Legend struct {
 	WorldTitles         int    `json:"world_titles"`
 }
 
+// LinkApproved defines model for LinkApproved.
+type LinkApproved struct {
+	// Created Whether the member was added for this request
+	Created bool `json:"created"`
+
+	// Member The member linked
+	Member string `json:"member"`
+}
+
+// LinkRefusal defines model for LinkRefusal.
+type LinkRefusal struct {
+	// Reason Shown to the player; may be empty
+	Reason string `json:"reason"`
+}
+
+// LinkRequestAsk defines model for LinkRequestAsk.
+type LinkRequestAsk struct {
+	// Name The TTA username, as in the app
+	Name string `json:"name"`
+}
+
+// LoginProvider Where a player signs in
+type LoginProvider string
+
 // MatrixCell defines model for MatrixCell.
 type MatrixCell struct {
 	CRating float64 `json:"c_rating"`
@@ -2338,6 +2491,30 @@ type MatrixCell struct {
 	Rating float64 `json:"rating"`
 	Rd     float64 `json:"rd"`
 }
+
+// Me The signed-in player: where they signed in and their names there, the member they are linked to (null until
+// linked), their latest request to be linked (null if none), and their role in admin (null if none)
+type Me struct {
+	AdminRole *MeAdminRole `json:"admin_role"`
+
+	// Country Their country as a two-letter ISO code, or null; the member's once linked, until then the one they gave
+	Country *string `json:"country"`
+
+	// DisplayName Empty when they have none
+	DisplayName string    `json:"display_name"`
+	Member      *MyMember `json:"member"`
+
+	// Provider Where a player signs in
+	Provider LoginProvider  `json:"provider"`
+	Request  *MyLinkRequest `json:"request"`
+	Username string         `json:"username"`
+
+	// Zone Their time zone (IANA, a region such as US East, or Unknown); the member's once linked, until then the one they gave
+	Zone string `json:"zone"`
+}
+
+// MeAdminRole defines model for Me.AdminRole.
+type MeAdminRole string
 
 // MemberAdded defines model for MemberAdded.
 type MemberAdded struct {
@@ -2377,6 +2554,43 @@ type ModelPair struct {
 	B        Model   `json:"b"`
 	Pearson  float64 `json:"pearson"`
 	Spearman float64 `json:"spearman"`
+}
+
+// MyDetailsChange defines model for MyDetailsChange.
+type MyDetailsChange struct {
+	// Country Two-letter ISO code; empty clears it
+	Country *string `json:"country,omitempty"`
+
+	// Zone An IANA time zone, a region (US East) or Unknown
+	Zone *string `json:"zone,omitempty"`
+}
+
+// MyLinkRequest A request to be linked to a TTA username, and its answer
+type MyLinkRequest struct {
+	Name string `json:"name"`
+
+	// Reason Why it was refused, empty when no reason was given
+	Reason      string              `json:"reason"`
+	RequestedAt time.Time           `json:"requested_at"`
+	Status      MyLinkRequestStatus `json:"status"`
+}
+
+// MyLinkRequestStatus defines model for MyLinkRequest.Status.
+type MyLinkRequestStatus string
+
+// MyMember The member a signed-in player is linked to
+type MyMember struct {
+	// BanReason Why, as the admin gave it; empty when not banned
+	BanReason string `json:"ban_reason"`
+
+	// Banned Banned from taking part in the events we host; they may still sign in
+	Banned bool `json:"banned"`
+
+	// Name The TTA username
+	Name string `json:"name"`
+
+	// Player The name on the ratings pages, empty when they have no rated games
+	Player string `json:"player"`
 }
 
 // NewBlitzEntrant A member to enter: by id, any details given (not empty) saved on the member, or by TTA username with the
@@ -3276,6 +3490,12 @@ type BlitzRoundId = int64
 // DiscordID defines model for DiscordID.
 type DiscordID = string
 
+// LinkRequestId defines model for LinkRequestId.
+type LinkRequestId = int64
+
+// LoginId defines model for LoginId.
+type LoginId = int64
+
 // MemberId defines model for MemberId.
 type MemberId = int64
 
@@ -3300,8 +3520,14 @@ type NoPublishedRun = Error
 // NotFound defines model for NotFound.
 type NotFound = Error
 
+// NotFromSite defines model for NotFromSite.
+type NotFromSite = Error
+
 // NotSetUp defines model for NotSetUp.
 type NotSetUp = Error
+
+// SignedOut defines model for SignedOut.
+type SignedOut = Error
 
 // Unauthorized defines model for Unauthorized.
 type Unauthorized = Error
@@ -3321,6 +3547,19 @@ type GetAdminPeopleParams struct {
 // GetAdminRunChangesParams defines parameters for GetAdminRunChanges.
 type GetAdminRunChangesParams struct {
 	Against *int64 `form:"against,omitempty" json:"against,omitempty"`
+}
+
+// StartDiscordSignInParams defines parameters for StartDiscordSignIn.
+type StartDiscordSignInParams struct {
+	// Return The site path, with any query, to come back to, such as /ratings/player/?name=ann; anything else comes back to /account/
+	Return *string `form:"return,omitempty" json:"return,omitempty"`
+}
+
+// FinishDiscordSignInParams defines parameters for FinishDiscordSignIn.
+type FinishDiscordSignInParams struct {
+	Code  *string `form:"code,omitempty" json:"code,omitempty"`
+	State *string `form:"state,omitempty" json:"state,omitempty"`
+	Error *string `form:"error,omitempty" json:"error,omitempty"`
 }
 
 // GetAgreementParams defines parameters for GetAgreement.
@@ -3517,6 +3756,9 @@ type PostAdminCommunityEditionJSONRequestBody = CommunityEditionItem
 // PatchAdminCommunityEditionJSONRequestBody defines body for PatchAdminCommunityEdition for application/json ContentType.
 type PatchAdminCommunityEditionJSONRequestBody = CommunityEditionPatch
 
+// PutAdminLinkRefusalJSONRequestBody defines body for PutAdminLinkRefusal for application/json ContentType.
+type PutAdminLinkRefusalJSONRequestBody = LinkRefusal
+
 // PostAdminMemberJSONRequestBody defines body for PostAdminMember for application/json ContentType.
 type PostAdminMemberJSONRequestBody = NewMember
 
@@ -3543,6 +3785,12 @@ type PostAdminSeasonJSONRequestBody = NewSeason
 
 // PatchAdminSeasonJSONRequestBody defines body for PatchAdminSeason for application/json ContentType.
 type PatchAdminSeasonJSONRequestBody = SeasonChange
+
+// PatchMyDetailsJSONRequestBody defines body for PatchMyDetails for application/json ContentType.
+type PatchMyDetailsJSONRequestBody = MyDetailsChange
+
+// PutMyLinkRequestJSONRequestBody defines body for PutMyLinkRequest for application/json ContentType.
+type PutMyLinkRequestJSONRequestBody = LinkRequestAsk
 
 // ServerInterface represents all server handlers.
 type ServerInterface interface {
@@ -3678,6 +3926,21 @@ type ServerInterface interface {
 	// GetAdminExport Download every input table as a zip (admins and organisers)
 	// (GET /v1/admin/export)
 	GetAdminExport(w http.ResponseWriter, r *http.Request)
+	// PutAdminLinkApproval Approve a request to be linked (admins and organisers)
+	// (PUT /v1/admin/link-requests/{link_request}/approval)
+	PutAdminLinkApproval(w http.ResponseWriter, r *http.Request, linkRequest LinkRequestId)
+	// PutAdminLinkRefusal Refuse a request to be linked, with a reason the player sees (admins and organisers)
+	// (PUT /v1/admin/link-requests/{link_request}/refusal)
+	PutAdminLinkRefusal(w http.ResponseWriter, r *http.Request, linkRequest LinkRequestId)
+	// GetAdminLogins Players' sign-ins, those waiting for a link first (admins and organisers)
+	// (GET /v1/admin/logins)
+	GetAdminLogins(w http.ResponseWriter, r *http.Request)
+	// DeleteAdminLogin Remove a sign-in, its sessions and requests (admins only)
+	// (DELETE /v1/admin/logins/{login})
+	DeleteAdminLogin(w http.ResponseWriter, r *http.Request, login LoginId)
+	// DeleteAdminLoginMember Unlink a sign-in from its member (admins and organisers)
+	// (DELETE /v1/admin/logins/{login}/member)
+	DeleteAdminLoginMember(w http.ResponseWriter, r *http.Request, login LoginId)
 	// GetAdminMe Who is signed in to admin, and in which role
 	// (GET /v1/admin/me)
 	GetAdminMe(w http.ResponseWriter, r *http.Request)
@@ -3759,6 +4022,15 @@ type ServerInterface interface {
 	// PatchAdminSeason Change a season's settings, notes or podium
 	// (PATCH /v1/admin/tournaments/{tournament}/seasons/{season})
 	PatchAdminSeason(w http.ResponseWriter, r *http.Request, tournament AdminTournamentSlug, season AdminSeasonLabel)
+	// StartDiscordSignIn Start signing in with Discord
+	// (GET /v1/auth/discord)
+	StartDiscordSignIn(w http.ResponseWriter, r *http.Request, params StartDiscordSignInParams)
+	// FinishDiscordSignIn Where Discord sends the player back
+	// (GET /v1/auth/discord/callback)
+	FinishDiscordSignIn(w http.ResponseWriter, r *http.Request, params FinishDiscordSignInParams)
+	// SignOut Sign out on this browser
+	// (POST /v1/auth/sign-out)
+	SignOut(w http.ResponseWriter, r *http.Request)
 	// GetBlitzEditions Every edition of the blitz tournaments shown on the site
 	// (GET /v1/blitz)
 	GetBlitzEditions(w http.ResponseWriter, r *http.Request)
@@ -3768,6 +4040,21 @@ type ServerInterface interface {
 	// GetCommunityEditions Visible editions of the community leaderboard
 	// (GET /v1/community/editions)
 	GetCommunityEditions(w http.ResponseWriter, r *http.Request)
+	// GetCountries The countries a player may give as theirs
+	// (GET /v1/countries)
+	GetCountries(w http.ResponseWriter, r *http.Request)
+	// DeleteMe Delete the signed-in player's account
+	// (DELETE /v1/me)
+	DeleteMe(w http.ResponseWriter, r *http.Request)
+	// GetMe The signed-in player
+	// (GET /v1/me)
+	GetMe(w http.ResponseWriter, r *http.Request)
+	// PatchMyDetails Change your own country and time zone
+	// (PATCH /v1/me/details)
+	PatchMyDetails(w http.ResponseWriter, r *http.Request)
+	// PutMyLinkRequest Ask to be linked to a TTA username
+	// (PUT /v1/me/link-request)
+	PutMyLinkRequest(w http.ResponseWriter, r *http.Request)
 	// GetCurrentRun The run the site shows now
 	// (GET /v1/runs/current)
 	GetCurrentRun(w http.ResponseWriter, r *http.Request)
@@ -5302,6 +5589,124 @@ func (siw *ServerInterfaceWrapper) GetAdminExport(w http.ResponseWriter, r *http
 	handler.ServeHTTP(w, r)
 }
 
+// PutAdminLinkApproval operation middleware
+func (siw *ServerInterfaceWrapper) PutAdminLinkApproval(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "link_request" -------------
+	var linkRequest LinkRequestId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "link_request", r.PathValue("link_request"), &linkRequest, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "integer", Format: "int64", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "link_request", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.PutAdminLinkApproval(w, r, linkRequest)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// PutAdminLinkRefusal operation middleware
+func (siw *ServerInterfaceWrapper) PutAdminLinkRefusal(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "link_request" -------------
+	var linkRequest LinkRequestId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "link_request", r.PathValue("link_request"), &linkRequest, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "integer", Format: "int64", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "link_request", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.PutAdminLinkRefusal(w, r, linkRequest)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetAdminLogins operation middleware
+func (siw *ServerInterfaceWrapper) GetAdminLogins(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetAdminLogins(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// DeleteAdminLogin operation middleware
+func (siw *ServerInterfaceWrapper) DeleteAdminLogin(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "login" -------------
+	var login LoginId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "login", r.PathValue("login"), &login, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "integer", Format: "int64", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "login", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.DeleteAdminLogin(w, r, login)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// DeleteAdminLoginMember operation middleware
+func (siw *ServerInterfaceWrapper) DeleteAdminLoginMember(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "login" -------------
+	var login LoginId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "login", r.PathValue("login"), &login, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "integer", Format: "int64", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "login", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.DeleteAdminLoginMember(w, r, login)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // GetAdminMe operation middleware
 func (siw *ServerInterfaceWrapper) GetAdminMe(w http.ResponseWriter, r *http.Request) {
 
@@ -5913,6 +6318,112 @@ func (siw *ServerInterfaceWrapper) PatchAdminSeason(w http.ResponseWriter, r *ht
 	handler.ServeHTTP(w, r)
 }
 
+// StartDiscordSignIn operation middleware
+func (siw *ServerInterfaceWrapper) StartDiscordSignIn(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params StartDiscordSignInParams
+
+	// ------------- Optional query parameter "return" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "return", r.URL.Query(), &params.Return, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "return"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "return", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.StartDiscordSignIn(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// FinishDiscordSignIn operation middleware
+func (siw *ServerInterfaceWrapper) FinishDiscordSignIn(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params FinishDiscordSignInParams
+
+	// ------------- Optional query parameter "code" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "code", r.URL.Query(), &params.Code, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "code"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "code", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "state" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "state", r.URL.Query(), &params.State, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "state"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "state", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "error" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "error", r.URL.Query(), &params.Error, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "error"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "error", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.FinishDiscordSignIn(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// SignOut operation middleware
+func (siw *ServerInterfaceWrapper) SignOut(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.SignOut(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // GetBlitzEditions operation middleware
 func (siw *ServerInterfaceWrapper) GetBlitzEditions(w http.ResponseWriter, r *http.Request) {
 
@@ -5967,6 +6478,76 @@ func (siw *ServerInterfaceWrapper) GetCommunityEditions(w http.ResponseWriter, r
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.GetCommunityEditions(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetCountries operation middleware
+func (siw *ServerInterfaceWrapper) GetCountries(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetCountries(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// DeleteMe operation middleware
+func (siw *ServerInterfaceWrapper) DeleteMe(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.DeleteMe(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetMe operation middleware
+func (siw *ServerInterfaceWrapper) GetMe(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetMe(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// PatchMyDetails operation middleware
+func (siw *ServerInterfaceWrapper) PatchMyDetails(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.PatchMyDetails(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// PutMyLinkRequest operation middleware
+func (siw *ServerInterfaceWrapper) PutMyLinkRequest(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.PutMyLinkRequest(w, r)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -7546,6 +8127,14 @@ func HandlerWithOptions(si ServerInterface, options StdHTTPServerOptions) http.H
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/v1/runs/{run}/community/{edition}", wrapper.GetCommunityLeaderboard)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/v1/blitz", wrapper.GetBlitzEditions)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/v1/blitz/{tournament}/{edition}", wrapper.GetBlitzEdition)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/v1/countries", wrapper.GetCountries)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/v1/auth/discord", wrapper.StartDiscordSignIn)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/v1/auth/discord/callback", wrapper.FinishDiscordSignIn)
+	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/v1/auth/sign-out", wrapper.SignOut)
+	m.HandleFunc(http.MethodDelete+" "+options.BaseURL+"/v1/me", wrapper.DeleteMe)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/v1/me", wrapper.GetMe)
+	m.HandleFunc(http.MethodPut+" "+options.BaseURL+"/v1/me/link-request", wrapper.PutMyLinkRequest)
+	m.HandleFunc(http.MethodPatch+" "+options.BaseURL+"/v1/me/details", wrapper.PatchMyDetails)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/v1/admin/me", wrapper.GetAdminMe)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/v1/admin/tournaments", wrapper.GetAdminTournaments)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/v1/admin/tournaments", wrapper.PostAdminGroup)
@@ -7614,6 +8203,11 @@ func HandlerWithOptions(si ServerInterface, options StdHTTPServerOptions) http.H
 	m.HandleFunc(http.MethodPut+" "+options.BaseURL+"/v1/admin/blitz/{tournament}/{edition}/thread-text", wrapper.PutAdminBlitzThreadText)
 	m.HandleFunc(http.MethodPut+" "+options.BaseURL+"/v1/admin/blitz/{tournament}/{edition}/rounds/{round}/deadline", wrapper.PutAdminBlitzRoundDeadline)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/v1/admin/blitz/{tournament}/{edition}/rounds/{round}/threads", wrapper.GetAdminBlitzRoundThreads)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/v1/admin/logins", wrapper.GetAdminLogins)
+	m.HandleFunc(http.MethodDelete+" "+options.BaseURL+"/v1/admin/logins/{login}", wrapper.DeleteAdminLogin)
+	m.HandleFunc(http.MethodDelete+" "+options.BaseURL+"/v1/admin/logins/{login}/member", wrapper.DeleteAdminLoginMember)
+	m.HandleFunc(http.MethodPut+" "+options.BaseURL+"/v1/admin/link-requests/{link_request}/approval", wrapper.PutAdminLinkApproval)
+	m.HandleFunc(http.MethodPut+" "+options.BaseURL+"/v1/admin/link-requests/{link_request}/refusal", wrapper.PutAdminLinkRefusal)
 
 	return m
 }
@@ -7663,6 +8257,8 @@ type NotFoundJSONResponse struct {
 	Headers NotFoundResponseHeaders
 }
 
+type NotFromSiteJSONResponse Error
+
 type NotSetUpResponseHeaders struct {
 	CacheControl string
 }
@@ -7670,6 +8266,15 @@ type NotSetUpJSONResponse struct {
 	Body Error
 
 	Headers NotSetUpResponseHeaders
+}
+
+type SignedOutResponseHeaders struct {
+	CacheControl string
+}
+type SignedOutJSONResponse struct {
+	Body Error
+
+	Headers SignedOutResponseHeaders
 }
 
 type UnauthorizedResponseHeaders struct {
@@ -11024,6 +11629,354 @@ func (response GetAdminExport403JSONResponse) VisitGetAdminExportResponse(w http
 	return err
 }
 
+type PutAdminLinkApprovalRequestObject struct {
+	LinkRequest LinkRequestId `json:"link_request"`
+}
+
+type PutAdminLinkApprovalResponseObject interface {
+	VisitPutAdminLinkApprovalResponse(w http.ResponseWriter) error
+}
+
+type PutAdminLinkApproval200ResponseHeaders struct {
+	CacheControl string
+}
+
+type PutAdminLinkApproval200JSONResponse struct {
+	Body    LinkApproved
+	Headers PutAdminLinkApproval200ResponseHeaders
+}
+
+func (response PutAdminLinkApproval200JSONResponse) VisitPutAdminLinkApprovalResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PutAdminLinkApproval401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response PutAdminLinkApproval401JSONResponse) VisitPutAdminLinkApprovalResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PutAdminLinkApproval403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response PutAdminLinkApproval403JSONResponse) VisitPutAdminLinkApprovalResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PutAdminLinkApproval404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response PutAdminLinkApproval404JSONResponse) VisitPutAdminLinkApprovalResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PutAdminLinkApproval409JSONResponse struct{ ConflictJSONResponse }
+
+func (response PutAdminLinkApproval409JSONResponse) VisitPutAdminLinkApprovalResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(409)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PutAdminLinkRefusalRequestObject struct {
+	LinkRequest LinkRequestId `json:"link_request"`
+	Body        *PutAdminLinkRefusalJSONRequestBody
+}
+
+type PutAdminLinkRefusalResponseObject interface {
+	VisitPutAdminLinkRefusalResponse(w http.ResponseWriter) error
+}
+
+type PutAdminLinkRefusal204Response struct {
+}
+
+func (response PutAdminLinkRefusal204Response) VisitPutAdminLinkRefusalResponse(w http.ResponseWriter) error {
+	w.WriteHeader(204)
+	return nil
+}
+
+type PutAdminLinkRefusal400JSONResponse struct{ BadRequestJSONResponse }
+
+func (response PutAdminLinkRefusal400JSONResponse) VisitPutAdminLinkRefusalResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PutAdminLinkRefusal401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response PutAdminLinkRefusal401JSONResponse) VisitPutAdminLinkRefusalResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PutAdminLinkRefusal403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response PutAdminLinkRefusal403JSONResponse) VisitPutAdminLinkRefusalResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PutAdminLinkRefusal404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response PutAdminLinkRefusal404JSONResponse) VisitPutAdminLinkRefusalResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetAdminLoginsRequestObject struct {
+}
+
+type GetAdminLoginsResponseObject interface {
+	VisitGetAdminLoginsResponse(w http.ResponseWriter) error
+}
+
+type GetAdminLogins200ResponseHeaders struct {
+	CacheControl string
+}
+
+type GetAdminLogins200JSONResponse struct {
+	Body    []AdminLogin
+	Headers GetAdminLogins200ResponseHeaders
+}
+
+func (response GetAdminLogins200JSONResponse) VisitGetAdminLoginsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetAdminLogins401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response GetAdminLogins401JSONResponse) VisitGetAdminLoginsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetAdminLogins403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response GetAdminLogins403JSONResponse) VisitGetAdminLoginsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DeleteAdminLoginRequestObject struct {
+	Login LoginId `json:"login"`
+}
+
+type DeleteAdminLoginResponseObject interface {
+	VisitDeleteAdminLoginResponse(w http.ResponseWriter) error
+}
+
+type DeleteAdminLogin204Response struct {
+}
+
+func (response DeleteAdminLogin204Response) VisitDeleteAdminLoginResponse(w http.ResponseWriter) error {
+	w.WriteHeader(204)
+	return nil
+}
+
+type DeleteAdminLogin401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response DeleteAdminLogin401JSONResponse) VisitDeleteAdminLoginResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DeleteAdminLogin403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response DeleteAdminLogin403JSONResponse) VisitDeleteAdminLoginResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DeleteAdminLogin404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response DeleteAdminLogin404JSONResponse) VisitDeleteAdminLoginResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DeleteAdminLoginMemberRequestObject struct {
+	Login LoginId `json:"login"`
+}
+
+type DeleteAdminLoginMemberResponseObject interface {
+	VisitDeleteAdminLoginMemberResponse(w http.ResponseWriter) error
+}
+
+type DeleteAdminLoginMember204Response struct {
+}
+
+func (response DeleteAdminLoginMember204Response) VisitDeleteAdminLoginMemberResponse(w http.ResponseWriter) error {
+	w.WriteHeader(204)
+	return nil
+}
+
+type DeleteAdminLoginMember401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response DeleteAdminLoginMember401JSONResponse) VisitDeleteAdminLoginMemberResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DeleteAdminLoginMember403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response DeleteAdminLoginMember403JSONResponse) VisitDeleteAdminLoginMemberResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DeleteAdminLoginMember404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response DeleteAdminLoginMember404JSONResponse) VisitDeleteAdminLoginMemberResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
 type GetAdminMeRequestObject struct {
 }
 
@@ -12989,6 +13942,113 @@ func (response PatchAdminSeason404JSONResponse) VisitPatchAdminSeasonResponse(w 
 	return err
 }
 
+type StartDiscordSignInRequestObject struct {
+	Params StartDiscordSignInParams
+}
+
+type StartDiscordSignInResponseObject interface {
+	VisitStartDiscordSignInResponse(w http.ResponseWriter) error
+}
+
+type StartDiscordSignIn302ResponseHeaders struct {
+	CacheControl string
+	Location     string
+}
+
+type StartDiscordSignIn302Response struct {
+	Headers StartDiscordSignIn302ResponseHeaders
+}
+
+func (response StartDiscordSignIn302Response) VisitStartDiscordSignInResponse(w http.ResponseWriter) error {
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.Header().Set("Location", fmt.Sprint(response.Headers.Location))
+	w.WriteHeader(302)
+	return nil
+}
+
+type StartDiscordSignIn503JSONResponse struct{ NotSetUpJSONResponse }
+
+func (response StartDiscordSignIn503JSONResponse) VisitStartDiscordSignInResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(503)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type FinishDiscordSignInRequestObject struct {
+	Params FinishDiscordSignInParams
+}
+
+type FinishDiscordSignInResponseObject interface {
+	VisitFinishDiscordSignInResponse(w http.ResponseWriter) error
+}
+
+type FinishDiscordSignIn302ResponseHeaders struct {
+	CacheControl string
+	Location     string
+}
+
+type FinishDiscordSignIn302Response struct {
+	Headers FinishDiscordSignIn302ResponseHeaders
+}
+
+func (response FinishDiscordSignIn302Response) VisitFinishDiscordSignInResponse(w http.ResponseWriter) error {
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.Header().Set("Location", fmt.Sprint(response.Headers.Location))
+	w.WriteHeader(302)
+	return nil
+}
+
+type FinishDiscordSignIn503JSONResponse struct{ NotSetUpJSONResponse }
+
+func (response FinishDiscordSignIn503JSONResponse) VisitFinishDiscordSignInResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(503)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type SignOutRequestObject struct {
+}
+
+type SignOutResponseObject interface {
+	VisitSignOutResponse(w http.ResponseWriter) error
+}
+
+type SignOut204Response struct {
+}
+
+func (response SignOut204Response) VisitSignOutResponse(w http.ResponseWriter) error {
+	w.WriteHeader(204)
+	return nil
+}
+
+type SignOut403JSONResponse struct{ NotFromSiteJSONResponse }
+
+func (response SignOut403JSONResponse) VisitSignOutResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
 type GetBlitzEditionsRequestObject struct {
 }
 
@@ -13104,6 +14164,258 @@ func (response GetCommunityEditions200JSONResponse) VisitGetCommunityEditionsRes
 	w.Header().Set("Content-Type", "application/json")
 	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
 	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetCountriesRequestObject struct {
+}
+
+type GetCountriesResponseObject interface {
+	VisitGetCountriesResponse(w http.ResponseWriter) error
+}
+
+type GetCountries200ResponseHeaders struct {
+	CacheControl string
+}
+
+type GetCountries200JSONResponse struct {
+	Body    []string
+	Headers GetCountries200ResponseHeaders
+}
+
+func (response GetCountries200JSONResponse) VisitGetCountriesResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DeleteMeRequestObject struct {
+}
+
+type DeleteMeResponseObject interface {
+	VisitDeleteMeResponse(w http.ResponseWriter) error
+}
+
+type DeleteMe204Response struct {
+}
+
+func (response DeleteMe204Response) VisitDeleteMeResponse(w http.ResponseWriter) error {
+	w.WriteHeader(204)
+	return nil
+}
+
+type DeleteMe401JSONResponse struct{ SignedOutJSONResponse }
+
+func (response DeleteMe401JSONResponse) VisitDeleteMeResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DeleteMe403JSONResponse struct{ NotFromSiteJSONResponse }
+
+func (response DeleteMe403JSONResponse) VisitDeleteMeResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetMeRequestObject struct {
+}
+
+type GetMeResponseObject interface {
+	VisitGetMeResponse(w http.ResponseWriter) error
+}
+
+type GetMe200ResponseHeaders struct {
+	CacheControl string
+}
+
+type GetMe200JSONResponse struct {
+	Body    Me
+	Headers GetMe200ResponseHeaders
+}
+
+func (response GetMe200JSONResponse) VisitGetMeResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetMe401JSONResponse struct{ SignedOutJSONResponse }
+
+func (response GetMe401JSONResponse) VisitGetMeResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PatchMyDetailsRequestObject struct {
+	Body *PatchMyDetailsJSONRequestBody
+}
+
+type PatchMyDetailsResponseObject interface {
+	VisitPatchMyDetailsResponse(w http.ResponseWriter) error
+}
+
+type PatchMyDetails204Response struct {
+}
+
+func (response PatchMyDetails204Response) VisitPatchMyDetailsResponse(w http.ResponseWriter) error {
+	w.WriteHeader(204)
+	return nil
+}
+
+type PatchMyDetails400JSONResponse struct{ BadRequestJSONResponse }
+
+func (response PatchMyDetails400JSONResponse) VisitPatchMyDetailsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PatchMyDetails401JSONResponse struct{ SignedOutJSONResponse }
+
+func (response PatchMyDetails401JSONResponse) VisitPatchMyDetailsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PatchMyDetails403JSONResponse struct{ NotFromSiteJSONResponse }
+
+func (response PatchMyDetails403JSONResponse) VisitPatchMyDetailsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PutMyLinkRequestRequestObject struct {
+	Body *PutMyLinkRequestJSONRequestBody
+}
+
+type PutMyLinkRequestResponseObject interface {
+	VisitPutMyLinkRequestResponse(w http.ResponseWriter) error
+}
+
+type PutMyLinkRequest204Response struct {
+}
+
+func (response PutMyLinkRequest204Response) VisitPutMyLinkRequestResponse(w http.ResponseWriter) error {
+	w.WriteHeader(204)
+	return nil
+}
+
+type PutMyLinkRequest400JSONResponse struct{ BadRequestJSONResponse }
+
+func (response PutMyLinkRequest400JSONResponse) VisitPutMyLinkRequestResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PutMyLinkRequest401JSONResponse struct{ SignedOutJSONResponse }
+
+func (response PutMyLinkRequest401JSONResponse) VisitPutMyLinkRequestResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PutMyLinkRequest403JSONResponse struct{ NotFromSiteJSONResponse }
+
+func (response PutMyLinkRequest403JSONResponse) VisitPutMyLinkRequestResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PutMyLinkRequest409JSONResponse struct{ ConflictJSONResponse }
+
+func (response PutMyLinkRequest409JSONResponse) VisitPutMyLinkRequestResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(409)
 	_, err := buf.WriteTo(w)
 	return err
 }
@@ -14942,6 +16254,21 @@ type StrictServerInterface interface {
 	// GetAdminExport Download every input table as a zip (admins and organisers)
 	// (GET /v1/admin/export)
 	GetAdminExport(ctx context.Context, request GetAdminExportRequestObject) (GetAdminExportResponseObject, error)
+	// PutAdminLinkApproval Approve a request to be linked (admins and organisers)
+	// (PUT /v1/admin/link-requests/{link_request}/approval)
+	PutAdminLinkApproval(ctx context.Context, request PutAdminLinkApprovalRequestObject) (PutAdminLinkApprovalResponseObject, error)
+	// PutAdminLinkRefusal Refuse a request to be linked, with a reason the player sees (admins and organisers)
+	// (PUT /v1/admin/link-requests/{link_request}/refusal)
+	PutAdminLinkRefusal(ctx context.Context, request PutAdminLinkRefusalRequestObject) (PutAdminLinkRefusalResponseObject, error)
+	// GetAdminLogins Players' sign-ins, those waiting for a link first (admins and organisers)
+	// (GET /v1/admin/logins)
+	GetAdminLogins(ctx context.Context, request GetAdminLoginsRequestObject) (GetAdminLoginsResponseObject, error)
+	// DeleteAdminLogin Remove a sign-in, its sessions and requests (admins only)
+	// (DELETE /v1/admin/logins/{login})
+	DeleteAdminLogin(ctx context.Context, request DeleteAdminLoginRequestObject) (DeleteAdminLoginResponseObject, error)
+	// DeleteAdminLoginMember Unlink a sign-in from its member (admins and organisers)
+	// (DELETE /v1/admin/logins/{login}/member)
+	DeleteAdminLoginMember(ctx context.Context, request DeleteAdminLoginMemberRequestObject) (DeleteAdminLoginMemberResponseObject, error)
 	// GetAdminMe Who is signed in to admin, and in which role
 	// (GET /v1/admin/me)
 	GetAdminMe(ctx context.Context, request GetAdminMeRequestObject) (GetAdminMeResponseObject, error)
@@ -15023,6 +16350,15 @@ type StrictServerInterface interface {
 	// PatchAdminSeason Change a season's settings, notes or podium
 	// (PATCH /v1/admin/tournaments/{tournament}/seasons/{season})
 	PatchAdminSeason(ctx context.Context, request PatchAdminSeasonRequestObject) (PatchAdminSeasonResponseObject, error)
+	// StartDiscordSignIn Start signing in with Discord
+	// (GET /v1/auth/discord)
+	StartDiscordSignIn(ctx context.Context, request StartDiscordSignInRequestObject) (StartDiscordSignInResponseObject, error)
+	// FinishDiscordSignIn Where Discord sends the player back
+	// (GET /v1/auth/discord/callback)
+	FinishDiscordSignIn(ctx context.Context, request FinishDiscordSignInRequestObject) (FinishDiscordSignInResponseObject, error)
+	// SignOut Sign out on this browser
+	// (POST /v1/auth/sign-out)
+	SignOut(ctx context.Context, request SignOutRequestObject) (SignOutResponseObject, error)
 	// GetBlitzEditions Every edition of the blitz tournaments shown on the site
 	// (GET /v1/blitz)
 	GetBlitzEditions(ctx context.Context, request GetBlitzEditionsRequestObject) (GetBlitzEditionsResponseObject, error)
@@ -15032,6 +16368,21 @@ type StrictServerInterface interface {
 	// GetCommunityEditions Visible editions of the community leaderboard
 	// (GET /v1/community/editions)
 	GetCommunityEditions(ctx context.Context, request GetCommunityEditionsRequestObject) (GetCommunityEditionsResponseObject, error)
+	// GetCountries The countries a player may give as theirs
+	// (GET /v1/countries)
+	GetCountries(ctx context.Context, request GetCountriesRequestObject) (GetCountriesResponseObject, error)
+	// DeleteMe Delete the signed-in player's account
+	// (DELETE /v1/me)
+	DeleteMe(ctx context.Context, request DeleteMeRequestObject) (DeleteMeResponseObject, error)
+	// GetMe The signed-in player
+	// (GET /v1/me)
+	GetMe(ctx context.Context, request GetMeRequestObject) (GetMeResponseObject, error)
+	// PatchMyDetails Change your own country and time zone
+	// (PATCH /v1/me/details)
+	PatchMyDetails(ctx context.Context, request PatchMyDetailsRequestObject) (PatchMyDetailsResponseObject, error)
+	// PutMyLinkRequest Ask to be linked to a TTA username
+	// (PUT /v1/me/link-request)
+	PutMyLinkRequest(ctx context.Context, request PutMyLinkRequestRequestObject) (PutMyLinkRequestResponseObject, error)
 	// GetCurrentRun The run the site shows now
 	// (GET /v1/runs/current)
 	GetCurrentRun(ctx context.Context, request GetCurrentRunRequestObject) (GetCurrentRunResponseObject, error)
@@ -16451,6 +17802,141 @@ func (sh *strictHandler) GetAdminExport(w http.ResponseWriter, r *http.Request) 
 	}
 }
 
+// PutAdminLinkApproval operation middleware
+func (sh *strictHandler) PutAdminLinkApproval(w http.ResponseWriter, r *http.Request, linkRequest LinkRequestId) {
+	var request PutAdminLinkApprovalRequestObject
+
+	request.LinkRequest = linkRequest
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.PutAdminLinkApproval(ctx, request.(PutAdminLinkApprovalRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "PutAdminLinkApproval")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(PutAdminLinkApprovalResponseObject); ok {
+		if err := validResponse.VisitPutAdminLinkApprovalResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// PutAdminLinkRefusal operation middleware
+func (sh *strictHandler) PutAdminLinkRefusal(w http.ResponseWriter, r *http.Request, linkRequest LinkRequestId) {
+	var request PutAdminLinkRefusalRequestObject
+
+	request.LinkRequest = linkRequest
+
+	var body PutAdminLinkRefusalJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.PutAdminLinkRefusal(ctx, request.(PutAdminLinkRefusalRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "PutAdminLinkRefusal")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(PutAdminLinkRefusalResponseObject); ok {
+		if err := validResponse.VisitPutAdminLinkRefusalResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// GetAdminLogins operation middleware
+func (sh *strictHandler) GetAdminLogins(w http.ResponseWriter, r *http.Request) {
+	var request GetAdminLoginsRequestObject
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.GetAdminLogins(ctx, request.(GetAdminLoginsRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetAdminLogins")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(GetAdminLoginsResponseObject); ok {
+		if err := validResponse.VisitGetAdminLoginsResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// DeleteAdminLogin operation middleware
+func (sh *strictHandler) DeleteAdminLogin(w http.ResponseWriter, r *http.Request, login LoginId) {
+	var request DeleteAdminLoginRequestObject
+
+	request.Login = login
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.DeleteAdminLogin(ctx, request.(DeleteAdminLoginRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "DeleteAdminLogin")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(DeleteAdminLoginResponseObject); ok {
+		if err := validResponse.VisitDeleteAdminLoginResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// DeleteAdminLoginMember operation middleware
+func (sh *strictHandler) DeleteAdminLoginMember(w http.ResponseWriter, r *http.Request, login LoginId) {
+	var request DeleteAdminLoginMemberRequestObject
+
+	request.Login = login
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.DeleteAdminLoginMember(ctx, request.(DeleteAdminLoginMemberRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "DeleteAdminLoginMember")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(DeleteAdminLoginMemberResponseObject); ok {
+		if err := validResponse.VisitDeleteAdminLoginMemberResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
 // GetAdminMe operation middleware
 func (sh *strictHandler) GetAdminMe(w http.ResponseWriter, r *http.Request) {
 	var request GetAdminMeRequestObject
@@ -17197,6 +18683,82 @@ func (sh *strictHandler) PatchAdminSeason(w http.ResponseWriter, r *http.Request
 	}
 }
 
+// StartDiscordSignIn operation middleware
+func (sh *strictHandler) StartDiscordSignIn(w http.ResponseWriter, r *http.Request, params StartDiscordSignInParams) {
+	var request StartDiscordSignInRequestObject
+
+	request.Params = params
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.StartDiscordSignIn(ctx, request.(StartDiscordSignInRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "StartDiscordSignIn")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(StartDiscordSignInResponseObject); ok {
+		if err := validResponse.VisitStartDiscordSignInResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// FinishDiscordSignIn operation middleware
+func (sh *strictHandler) FinishDiscordSignIn(w http.ResponseWriter, r *http.Request, params FinishDiscordSignInParams) {
+	var request FinishDiscordSignInRequestObject
+
+	request.Params = params
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.FinishDiscordSignIn(ctx, request.(FinishDiscordSignInRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "FinishDiscordSignIn")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(FinishDiscordSignInResponseObject); ok {
+		if err := validResponse.VisitFinishDiscordSignInResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// SignOut operation middleware
+func (sh *strictHandler) SignOut(w http.ResponseWriter, r *http.Request) {
+	var request SignOutRequestObject
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.SignOut(ctx, request.(SignOutRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "SignOut")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(SignOutResponseObject); ok {
+		if err := validResponse.VisitSignOutResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
 // GetBlitzEditions operation middleware
 func (sh *strictHandler) GetBlitzEditions(w http.ResponseWriter, r *http.Request) {
 	var request GetBlitzEditionsRequestObject
@@ -17265,6 +18827,140 @@ func (sh *strictHandler) GetCommunityEditions(w http.ResponseWriter, r *http.Req
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(GetCommunityEditionsResponseObject); ok {
 		if err := validResponse.VisitGetCommunityEditionsResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// GetCountries operation middleware
+func (sh *strictHandler) GetCountries(w http.ResponseWriter, r *http.Request) {
+	var request GetCountriesRequestObject
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.GetCountries(ctx, request.(GetCountriesRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetCountries")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(GetCountriesResponseObject); ok {
+		if err := validResponse.VisitGetCountriesResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// DeleteMe operation middleware
+func (sh *strictHandler) DeleteMe(w http.ResponseWriter, r *http.Request) {
+	var request DeleteMeRequestObject
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.DeleteMe(ctx, request.(DeleteMeRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "DeleteMe")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(DeleteMeResponseObject); ok {
+		if err := validResponse.VisitDeleteMeResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// GetMe operation middleware
+func (sh *strictHandler) GetMe(w http.ResponseWriter, r *http.Request) {
+	var request GetMeRequestObject
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.GetMe(ctx, request.(GetMeRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetMe")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(GetMeResponseObject); ok {
+		if err := validResponse.VisitGetMeResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// PatchMyDetails operation middleware
+func (sh *strictHandler) PatchMyDetails(w http.ResponseWriter, r *http.Request) {
+	var request PatchMyDetailsRequestObject
+
+	var body PatchMyDetailsJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.PatchMyDetails(ctx, request.(PatchMyDetailsRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "PatchMyDetails")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(PatchMyDetailsResponseObject); ok {
+		if err := validResponse.VisitPatchMyDetailsResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// PutMyLinkRequest operation middleware
+func (sh *strictHandler) PutMyLinkRequest(w http.ResponseWriter, r *http.Request) {
+	var request PutMyLinkRequestRequestObject
+
+	var body PutMyLinkRequestJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.PutMyLinkRequest(ctx, request.(PutMyLinkRequestRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "PutMyLinkRequest")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(PutMyLinkRequestResponseObject); ok {
+		if err := validResponse.VisitPutMyLinkRequestResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {

@@ -115,6 +115,13 @@ type Admins interface {
 	BanMember(ctx context.Context, id int64, reason string) error
 	UnbanMember(ctx context.Context, id int64) error
 	RemoveMember(ctx context.Context, id int64) error
+	// Players' sign-ins: listed with their pending requests, a request approved (linking the member it names, added
+	// when new) or refused with a reason, a sign-in unlinked from its member or removed.
+	Logins(ctx context.Context) ([]store.LoginRow, error)
+	ApproveLink(ctx context.Context, request int64, now time.Time) (store.LinkApproved, error)
+	RefuseLink(ctx context.Context, request int64, reason string, now time.Time) error
+	UnlinkLogin(ctx context.Context, login int64) error
+	RemoveLogin(ctx context.Context, login int64) error
 }
 
 type adminKey struct{}

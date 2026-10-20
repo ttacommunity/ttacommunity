@@ -1053,6 +1053,201 @@ paths:
           $ref: "#/components/responses/BadRequest"
         "404":
           $ref: "#/components/responses/NotFound"
+  /v1/countries:
+    get:
+      operationId: getCountries
+      tags: [players]
+      summary: The countries a player may give as theirs
+      description: ISO 3166-1's two-letter codes and XK for Kosovo, in order. Cached for a day.
+      responses:
+        "200":
+          description: The codes
+          headers:
+            Cache-Control:
+              $ref: "#/components/headers/CacheControl"
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: string
+  /v1/auth/discord:
+    get:
+      operationId: startDiscordSignIn
+      tags: [players]
+      summary: Start signing in with Discord
+      description: |
+        Opened as a page, not fetched: sends the browser to Discord, asking
+        only for the identify scope, with a state and a PKCE challenge whose
+        verifier waits in a short-lived cookie for the callback. A player who
+        has authorized the app before is not asked again. Never cached.
+      parameters:
+        - name: return
+          in: query
+          required: false
+          description: The site path, with any query, to come back to, such as /ratings/player/?name=ann; anything else comes back to /account/
+          schema:
+            type: string
+            maxLength: 300
+      responses:
+        "302":
+          description: To Discord
+          headers:
+            Location:
+              $ref: "#/components/headers/Location"
+            Cache-Control:
+              $ref: "#/components/headers/CacheControl"
+        "503":
+          $ref: "#/components/responses/NotSetUp"
+  /v1/auth/discord/callback:
+    get:
+      operationId: finishDiscordSignIn
+      tags: [players]
+      summary: Where Discord sends the player back
+      description: |
+        Checks the state against the cookie, exchanges the code with its
+        verifier, and reads who signed in. Their login is recorded, linked to
+        the one member whose recorded Discord name is their username when
+        there is one, and a session starts: an opaque cookie on this host,
+        HttpOnly, Secure and SameSite=Lax. Anything wrong, a declined consent
+        included, leaves them signed out. Either way the browser goes back to
+        the site: a returning player to the path asked for with signin=ok; a
+        first sign-in to /account/ with signin=first, and anything that did
+        not finish to /account/ with signin=failed, with that path as back.
+        A banned member signs in like anyone, and /v1/me says they are
+        banned.
+      parameters:
+        - name: code
+          in: query
+          required: false
+          schema:
+            type: string
+            maxLength: 200
+        - name: state
+          in: query
+          required: false
+          schema:
+            type: string
+            maxLength: 200
+        - name: error
+          in: query
+          required: false
+          schema:
+            type: string
+            maxLength: 200
+      responses:
+        "302":
+          description: Back to the site, signed in or not
+          headers:
+            Location:
+              $ref: "#/components/headers/Location"
+            Cache-Control:
+              $ref: "#/components/headers/CacheControl"
+        "503":
+          $ref: "#/components/responses/NotSetUp"
+  /v1/auth/sign-out:
+    post:
+      operationId: signOut
+      tags: [players]
+      summary: Sign out on this browser
+      description: |
+        The session is deleted, not just its cookie. Signing out when not
+        signed in is no error. The Origin must be the site.
+      responses:
+        "204":
+          description: Signed out
+        "403":
+          $ref: "#/components/responses/NotFromSite"
+  /v1/me:
+    get:
+      operationId: getMe
+      tags: [players]
+      summary: The signed-in player
+      description: |
+        Fetched with credentials from the site, whose origin alone may read
+        it. Where they signed in and their names there, the member they are
+        linked to, their latest request to be linked, and whether they are an
+        admin or organiser. Never cached.
+      responses:
+        "200":
+          description: The signed-in player
+          headers:
+            Cache-Control:
+              $ref: "#/components/headers/CacheControl"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Me"
+        "401":
+          $ref: "#/components/responses/SignedOut"
+    delete:
+      operationId: deleteMe
+      tags: [players]
+      summary: Delete the signed-in player's account
+      description: |
+        Deletes their sign-in, every session and every request to be
+        linked, clears the Discord name, country and time zone of the member
+        they are linked to (so a new sign-in is not linked by that name), and
+        signs this browser out. The member, their games and
+        ratings stay. Audited by ids alone. The Origin must be the site.
+      responses:
+        "204":
+          description: Deleted and signed out
+        "401":
+          $ref: "#/components/responses/SignedOut"
+        "403":
+          $ref: "#/components/responses/NotFromSite"
+  /v1/me/link-request:
+    put:
+      operationId: putMyLinkRequest
+      tags: [players]
+      summary: Ask to be linked to a TTA username
+      description: |
+        For a player not linked to a member yet. An admin or organiser
+        answers; asking again while waiting replaces the name. The Origin must
+        be the site.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LinkRequestAsk"
+      responses:
+        "204":
+          description: Waiting for an answer
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/SignedOut"
+        "403":
+          $ref: "#/components/responses/NotFromSite"
+        "409":
+          $ref: "#/components/responses/Conflict"
+  /v1/me/details:
+    patch:
+      operationId: patchMyDetails
+      tags: [players]
+      summary: Change your own country and time zone
+      description: |
+        A linked player's are their member's. Before that they are kept with
+        the sign-in, shown to whoever answers the request to be linked, and
+        moved to the member by the link. A field left out stays as it is; an
+        empty country clears it. The Origin must be the site.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/MyDetailsChange"
+      responses:
+        "204":
+          description: Saved
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/SignedOut"
+        "403":
+          $ref: "#/components/responses/NotFromSite"
   /v1/admin/me:
     get:
       operationId: getAdminMe
@@ -1330,7 +1525,9 @@ paths:
       operationId: deleteAdminMember
       tags: [admin]
       summary: Remove a member added by mistake (admins only)
-      description: Audited. The Origin must be the admin site. A member in an edition cannot be removed.
+      description: |
+        Audited. The Origin must be the admin site. A member in an edition, or one a player's sign-in is linked to
+        (unlink it first), cannot be removed.
       parameters:
         - $ref: "#/components/parameters/MemberId"
       responses:
@@ -2848,6 +3045,123 @@ paths:
           $ref: "#/components/responses/NotFound"
         "409":
           $ref: "#/components/responses/Conflict"
+  /v1/admin/logins:
+    get:
+      operationId: getAdminLogins
+      tags: [admin]
+      summary: Players' sign-ins, those waiting for a link first (admins and organisers)
+      description: |
+        Each way a player has signed in, with the member it is linked to and
+        how, and a request waiting for an answer with the member its name
+        names now and that member's recorded Discord name, to compare.
+      responses:
+        "200":
+          description: The sign-ins
+          headers:
+            Cache-Control:
+              $ref: "#/components/headers/CacheControl"
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/AdminLogin"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+  /v1/admin/logins/{login}:
+    delete:
+      operationId: deleteAdminLogin
+      tags: [admin]
+      summary: Remove a sign-in, its sessions and requests (admins only)
+      description: Audited. The Origin must be the admin site. The player is signed out everywhere.
+      parameters:
+        - $ref: "#/components/parameters/LoginId"
+      responses:
+        "204":
+          description: Removed
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /v1/admin/logins/{login}/member:
+    delete:
+      operationId: deleteAdminLoginMember
+      tags: [admin]
+      summary: Unlink a sign-in from its member (admins and organisers)
+      description: |
+        Audited. The Origin must be the admin site. The player stays signed
+        in, unlinked, and is not linked by Discord name again.
+      parameters:
+        - $ref: "#/components/parameters/LoginId"
+      responses:
+        "204":
+          description: Unlinked
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /v1/admin/link-requests/{link_request}/approval:
+    put:
+      operationId: putAdminLinkApproval
+      tags: [admin]
+      summary: Approve a request to be linked (admins and organisers)
+      description: |
+        Audited. The Origin must be the admin site. The sign-in is linked to
+        the member the name names, by username in any case or by the CGE
+        account or ratings player of that name; a name no member has becomes
+        a member. Refused for a member linked to another sign-in of the same
+        kind. A banned member may be linked: the ban keeps them out of events.
+      parameters:
+        - $ref: "#/components/parameters/LinkRequestId"
+      responses:
+        "200":
+          description: Linked
+          headers:
+            Cache-Control:
+              $ref: "#/components/headers/CacheControl"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LinkApproved"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+  /v1/admin/link-requests/{link_request}/refusal:
+    put:
+      operationId: putAdminLinkRefusal
+      tags: [admin]
+      summary: Refuse a request to be linked, with a reason the player sees (admins and organisers)
+      description: Audited. The Origin must be the admin site. The player may ask again.
+      parameters:
+        - $ref: "#/components/parameters/LinkRequestId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LinkRefusal"
+      responses:
+        "204":
+          description: Refused
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
 components:
   parameters:
     BlitzEditionLabel:
@@ -2877,6 +3191,22 @@ components:
         minimum: 1
     BlitzMatchId:
       name: match
+      in: path
+      required: true
+      schema:
+        type: integer
+        format: int64
+        minimum: 1
+    LoginId:
+      name: login
+      in: path
+      required: true
+      schema:
+        type: integer
+        format: int64
+        minimum: 1
+    LinkRequestId:
+      name: link_request
       in: path
       required: true
       schema:
@@ -2978,7 +3308,26 @@ components:
       required: true
       schema:
         type: string
+    Location:
+      required: true
+      schema:
+        type: string
   responses:
+    SignedOut:
+      description: Not signed in, or the session has ended
+      headers:
+        Cache-Control:
+          $ref: "#/components/headers/CacheControl"
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+    NotFromSite:
+      description: A change that did not come from the site
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
     Conflict:
       description: The change cannot be made in the current state, such as a run already going
       headers:
@@ -6694,3 +7043,198 @@ components:
           type: integer
         bronze:
           type: integer
+    Me:
+      description: |
+        The signed-in player: where they signed in and their names there, the member they are linked to (null until
+        linked), their latest request to be linked (null if none), and their role in admin (null if none)
+      type: object
+      required: [provider, username, display_name, member, request, admin_role, country, zone]
+      properties:
+        provider:
+          $ref: "#/components/schemas/LoginProvider"
+        country:
+          description: Their country as a two-letter ISO code, or null; the member's once linked, until then the one they gave
+          type: string
+          nullable: true
+        zone:
+          description: Their time zone (IANA, a region such as US East, or Unknown); the member's once linked, until then the one they gave
+          type: string
+        username:
+          type: string
+        display_name:
+          description: Empty when they have none
+          type: string
+        member:
+          allOf:
+            - $ref: "#/components/schemas/MyMember"
+          nullable: true
+        request:
+          allOf:
+            - $ref: "#/components/schemas/MyLinkRequest"
+          nullable: true
+        admin_role:
+          type: string
+          enum: [admin, organiser]
+          nullable: true
+    LoginProvider:
+      description: Where a player signs in
+      type: string
+      enum: [discord]
+    MyMember:
+      description: The member a signed-in player is linked to
+      type: object
+      required: [name, player, banned, ban_reason]
+      properties:
+        name:
+          description: The TTA username
+          type: string
+        player:
+          description: The name on the ratings pages, empty when they have no rated games
+          type: string
+        banned:
+          description: Banned from taking part in the events we host; they may still sign in
+          type: boolean
+        ban_reason:
+          description: Why, as the admin gave it; empty when not banned
+          type: string
+    MyLinkRequest:
+      description: A request to be linked to a TTA username, and its answer
+      type: object
+      required: [name, status, reason, requested_at]
+      properties:
+        name:
+          type: string
+        status:
+          type: string
+          enum: [pending, approved, refused]
+        reason:
+          description: Why it was refused, empty when no reason was given
+          type: string
+        requested_at:
+          type: string
+          format: date-time
+    LinkRequestAsk:
+      type: object
+      additionalProperties: false
+      required: [name]
+      properties:
+        name:
+          description: The TTA username, as in the app
+          type: string
+          minLength: 1
+          maxLength: 100
+    MyDetailsChange:
+      type: object
+      additionalProperties: false
+      properties:
+        country:
+          description: Two-letter ISO code; empty clears it
+          type: string
+          maxLength: 2
+        zone:
+          description: An IANA time zone, a region (US East) or Unknown
+          type: string
+          minLength: 1
+          maxLength: 64
+    AdminLogin:
+      description: A way a player signs in, as admin sees it
+      type: object
+      required: [id, provider, username, display_name, member_id, member, linked_how, signed_in_at, auto_link, request, refused]
+      properties:
+        id:
+          type: integer
+          format: int64
+        provider:
+          $ref: "#/components/schemas/LoginProvider"
+        username:
+          type: string
+        display_name:
+          type: string
+        member_id:
+          type: integer
+          format: int64
+          nullable: true
+        member:
+          description: The linked member's TTA username, empty when not linked
+          type: string
+        linked_how:
+          description: By their recorded Discord name, or by an approved request; null when not linked
+          type: string
+          enum: [match, approved]
+          nullable: true
+        signed_in_at:
+          type: string
+          format: date-time
+        auto_link:
+          description: Off once an admin unlinked it, so it is not linked by its Discord name again
+          type: boolean
+        request:
+          allOf:
+            - $ref: "#/components/schemas/AdminLinkRequest"
+          nullable: true
+        refused:
+          allOf:
+            - $ref: "#/components/schemas/AdminLinkRefused"
+          nullable: true
+    AdminLinkRefused:
+      description: A sign-in's last request to be linked, when it was refused and neither a new request nor a link has followed
+      type: object
+      required: [name, reason]
+      properties:
+        name:
+          description: The TTA username asked for
+          type: string
+        reason:
+          description: The reason the player was shown; may be empty
+          type: string
+    AdminLinkRequest:
+      description: |
+        A request waiting for an answer, with the country and zone the player gave, and the member its name names
+        now (empty when approving adds one) with what is recorded for them, to compare
+      type: object
+      required: [id, name, country, zone, member, member_discord, member_country, member_zone, requested_at]
+      properties:
+        id:
+          type: integer
+          format: int64
+        name:
+          type: string
+        country:
+          description: The country the player gave, empty for none
+          type: string
+        zone:
+          description: The time zone the player gave, empty for none
+          type: string
+        member:
+          type: string
+        member_discord:
+          description: That member's recorded Discord name, to compare with the sign-in's
+          type: string
+        member_country:
+          description: That member's recorded country, empty for none
+          type: string
+        member_zone:
+          description: That member's recorded time zone, empty when approving adds the member
+          type: string
+        requested_at:
+          type: string
+          format: date-time
+    LinkApproved:
+      type: object
+      required: [member, created]
+      properties:
+        member:
+          description: The member linked
+          type: string
+        created:
+          description: Whether the member was added for this request
+          type: boolean
+    LinkRefusal:
+      type: object
+      additionalProperties: false
+      required: [reason]
+      properties:
+        reason:
+          description: Shown to the player; may be empty
+          type: string
+          maxLength: 500

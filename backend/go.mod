@@ -9,6 +9,7 @@ require (
 	github.com/oapi-codegen/runtime v1.7.0
 	github.com/pressly/goose/v3 v3.28.0
 	github.com/prometheus/client_golang v1.25.0
+	golang.org/x/oauth2 v0.37.0
 	gopkg.in/yaml.v3 v3.0.1
 )
 

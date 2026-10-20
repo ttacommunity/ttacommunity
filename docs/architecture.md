@@ -3,8 +3,9 @@
 How the pieces fit together, what the ratings database holds, and where the
 trust boundaries are. **Built:** the ratings site, its public API, admin,
 the data load job and the engine; blitz tournaments' entrants (their
-pairings, results and standings are being built). **Planned:** Tournaments, TTA Pulse,
-player sign-in, the worker's timed jobs and the app database; they are
+pairings, results and standings are being built); player sign-in with
+Discord. **Planned:** Tournaments, TTA Pulse, other ways to sign in,
+the worker's timed jobs and the app database; they are
 drawn dashed below and marked *(planned)* in the text.
 
 ## Pieces
@@ -35,7 +36,7 @@ flowchart LR
     worker -.-> adb
     worker -.->|games, results| cge["CGE API"]
     worker -.->|bot DMs| discord["Discord"]
-    api -.->|player sign-in| discord
+    api -->|player sign-in| discord
     api -.-> adb
     classDef planned stroke-dasharray: 5 5
     class worker,adb planned
@@ -43,7 +44,7 @@ flowchart LR
 
 | Piece | Role | Writes to |
 |---|---|---|
-| **api** | Public ratings reads (cacheable, by run), and **admin routes that accept only a valid admin-app Access JWT** (audience-pinned, fail closed), reached through admin's Worker. Starts engine runs as Kubernetes Jobs. *(Planned: player sign-in with Discord, Tournaments and Pulse actions.)* | Ratings DB: admin's edits, runs started and published, through a role that can write only those |
+| **api** | Public ratings reads (cacheable, by run), and **admin routes that accept only a valid admin-app Access JWT** (audience-pinned, fail closed), reached through admin's Worker. Starts engine runs as Kubernetes Jobs. **Player sign-in** with Discord: server-side sessions, and the signed-in player's own routes, fetched by the site alone with credentials. *(Planned: Tournaments and Pulse actions.)* | Ratings DB: admin's edits, runs started and published, through a role that can write only those; players' sign-ins, sessions and requests, through a third |
 | **engine** | Reads the games, computes every model and the tournament results, and writes a **new run**. It never overwrites a published one | Ratings DB: the run's result tables |
 | **load** (`cmd/load`) | The data load job, run by hand: restores a baseline export, loads match CSVs, CGE's games and recorded facts, applies migrations, exports. It validates every row and records what it refuses | Ratings DB input tables |
 | **site, admin** | Astro, built and hosted by Cloudflare from `main` (previews from `dev`). One public site with sections, and admin on its own host behind Access. Types generated from the OpenAPI spec | nothing |
@@ -52,8 +53,10 @@ flowchart LR
 **Separate roles per purpose.** Public routes read the ratings DB through a
 `SELECT`-only login, so a bug in a public endpoint cannot write ratings.
 Admin's writes go through a second login that can change only what admin
-edits. The app DB *(planned)* holds players, sessions and matches, apart
-from the ratings.
+edits, and sign-in's through a third that can change only players'
+sign-ins, sessions and requests, and a linked member's own country and zone.
+They live in the ratings DB beside the members they link to. The app DB
+*(planned)* holds matches, apart from the ratings.
 
 ## Data flow for ratings
 
@@ -163,13 +166,16 @@ Patterns that hold across the schema:
   recorded facts, admin's settings) is exported as CSV with a manifest
   (`go run ./cmd/load -export`, or **Download all data** in admin) and
   restored whole by `-restore`. Personal data (`admins`, `admin_audit`, the
-  blitz tables with their Discord names) and `refused_rows` are left out,
-  and a test enforces it
+  blitz tables with their Discord names, players' sign-ins, sessions and
+  requests) and `refused_rows` are left out, and a test enforces it
 - **Roles:** `ratings` owns the schema (load job, engine); `ratings_read`
   may only `SELECT` (the api's public routes); `ratings_admin` may write
-  only admin's tables (the api's admin routes)
+  only admin's tables (the api's admin routes); `ratings_player` may write
+  only sign-ins, sessions, requests to be linked and a linked member's
+  country and zone (the api's player routes). The api checks each login's
+  limits when it starts, and refuses to serve with one that can do more
 
-The **app database** *(planned)* will hold players, sessions, tournament
+The **app database** *(planned)* will hold tournament
 matches, the Pulse queue and the notification outbox, with its own
 migrations in `backend/migrations/app/`.
 
@@ -292,8 +298,36 @@ an edition cannot be removed. Blitz entrants are members: an entry holds
 only the edition, the status and a `member_id`.
 
 **Personal data never leaves admin**: the public role has no `SELECT` on a
-member's Discord id or name, email or ban, so no public route can read
-them, and the export leaves `members` and the blitz tables out.
+member's Discord name, email or ban, so no public route can read them, and
+the export leaves `members` and the blitz tables out.
+
+### Player sign-in
+
+A player signs in on the site with Discord (scope `identify`: their id,
+username and display name, never their email). Each way a player signs in
+is a **login** (`logins`): the provider, its id for them, their names
+there, and the member it is linked to. A login is linked to a member in
+one of two ways:
+
+- **By the recorded Discord name**: at sign-in, a login not yet linked is
+  linked to the one member whose recorded Discord name is its username
+  (ignoring case and a leading @), unless that member is banned or already
+  has a Discord login
+- **By approval**: otherwise the player asks to be linked to their TTA
+  username (`link_requests`), and an admin or organiser approves it
+  (linking the member that name names, or adding one) or refuses it with a
+  reason the player sees
+
+A login an admin unlinks is not linked by name again. A banned member's
+login cannot sign in. Sessions (`player_sessions`) are server-side: the
+browser holds an opaque token in a cookie on the API host, and the database
+only its hash; a session ends at sign-out or after 30 days unused. A
+player sets their own country and time zone: on their member once linked,
+until then on the login, where whoever answers the request sees them, and
+the link moves them to the member. A first sign-in opens the account page
+to add these details; later ones go straight back to the page signed in
+from. A signed-in admin or
+organiser is shown the way to admin, which still checks Access.
 
 ### Tournaments: data, not code
 
@@ -375,13 +409,19 @@ TTA community server and email via `mail-relay`.
   our own OIDC Worker; the api verifies the Access JWT on every admin
   request, and an admin's role (admin, organiser) is checked there. The
   public site and API need no sign-in
-- **Player sign-in proves a Discord identity** *(planned)*. A TTA username
-  is a *claim* until it is confirmed by email to the address CGE holds.
-  Unverified players cannot act on CGE matches.
+- **Player sign-in proves a Discord identity**: the authorization code
+  flow with `state` and PKCE; anything wrong leaves the player signed out.
+  The session cookie is opaque, host-only, `HttpOnly`, `Secure` and
+  `SameSite=Lax`, and the Discord token is not kept. **The TTA username is
+  linked by name or by approval** (above), not proven: a proof by email to
+  the address CGE holds waits on CGE's API.
+- **The player routes answer the site alone**: CORS with credentials for
+  the site's exact origin, never `*`, and never cached.
 - **CSRF:** the sites and the API are same-site, so `SameSite` does not
   protect. Every state-changing request checks `Origin`.
-- **Egress:** default-deny. The api reaches only Cloudflare Access's
-  signing keys and the Kubernetes API (to start engine Jobs); the worker
+- **Egress:** default-deny. The api reaches only public HTTPS (Cloudflare
+  Access's signing keys, Discord's OAuth) and the Kubernetes API (to start
+  engine Jobs); the worker
   *(planned)* will reach CGE and Discord. RFC1918 ranges are excluded.
 - **Personal data** (Discord id and handle, optional email, TTA username,
   timezone) is **never logged at any level**. A reported error is found by

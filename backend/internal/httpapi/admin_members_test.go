@@ -116,7 +116,11 @@ func (f *fakeAdmins) UnbanMember(_ context.Context, id int64) error {
 	return nil
 }
 
+// RemoveMember refuses member 103 as linked to a sign-in.
 func (f *fakeAdmins) RemoveMember(_ context.Context, id int64) error {
+	if id == 103 {
+		return store.ErrMemberSignedIn
+	}
 	for i, m := range f.members {
 		if m.ID != id {
 			continue
@@ -228,6 +232,7 @@ func TestMemberChangesAreRefusedWhenTheyShouldBe(t *testing.T) {
 		{"a ban without a reason", http.MethodPut, "/v1/admin/members/102/ban", site, `{"reason": " "}`, http.StatusBadRequest, ""},
 		{"banning an unknown member", http.MethodPut, "/v1/admin/members/999/ban", site, `{"reason": "x"}`, http.StatusNotFound, ""},
 		{"removing an unknown member", http.MethodDelete, "/v1/admin/members/999", site, "", http.StatusNotFound, ""},
+		{"removing a member a sign-in is linked to", http.MethodDelete, "/v1/admin/members/103", site, "", http.StatusConflict, "unlink it first"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

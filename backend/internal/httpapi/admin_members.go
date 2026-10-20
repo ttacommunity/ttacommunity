@@ -117,7 +117,7 @@ func (s *server) DeleteAdminMember(ctx context.Context, req DeleteAdminMemberReq
 		return DeleteAdminMember403JSONResponse{forbidden("only admins remove members")}, err
 	}
 	switch err := s.admins.RemoveMember(ctx, req.Member); {
-	case errors.Is(err, store.ErrMemberInUse):
+	case errors.Is(err, store.ErrMemberInUse), errors.Is(err, store.ErrMemberSignedIn):
 		return DeleteAdminMember409JSONResponse{conflict409(err.Error())}, nil
 	case errors.Is(err, store.ErrNoMember):
 		return DeleteAdminMember404JSONResponse{notFound404("no such member")}, nil

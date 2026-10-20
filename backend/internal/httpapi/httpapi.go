@@ -29,6 +29,7 @@ import (
 const (
 	cacheRun     = "public, max-age=300"
 	cacheCurrent = "public, max-age=60"
+	cacheDay     = "public, max-age=86400"
 	cacheNone    = "no-store"
 )
 
@@ -119,14 +120,16 @@ type Requests interface {
 }
 
 // NewMux returns the API's handler with every route in the spec registered. Admin routes go through
-// the admin gate, without CORS; with admins nil they refuse every request. A panic answers 500.
-// Every response carries an X-Request-Id, which a 500's body and log line repeat. Each request is
-// reported to requests, timed by now, and logged when slower than slowRequest.
-func NewMux(ratings Ratings, admins Admins, log *slog.Logger, requests Requests, now func() time.Time) http.Handler {
+// the admin gate, without CORS; with admins nil they refuse every request. Sign-in routes go through
+// their own gate, with CORS for the site alone; with signIns nil they refuse every request. A panic
+// answers 500. Every response carries an X-Request-Id, which a 500's body and log line repeat. Each
+// request is reported to requests, timed by now, and logged when slower than slowRequest.
+func NewMux(ratings Ratings, admins Admins, signIns SignIns, log *slog.Logger, requests Requests, now func() time.Time) http.Handler {
 	mux := http.NewServeMux()
-	registerRoutes(mux, ratings, admins, log, now)
+	registerRoutes(mux, ratings, admins, signIns, log, now)
 	// limitBodies needs the server's own writer, so it sits outside observe's.
-	routed := recoverPanics(routeAdmin(publicCORS(mux), adminGate(mux, admins, log)), mux, log)
+	public := routeSignIns(publicCORS(mux), signInGate(mux, signIns, now, log))
+	routed := recoverPanics(routeAdmin(public, adminGate(mux, admins, log)), mux, log)
 	return withRequestID(withDeadline(limitBodies(observe(routed, mux, requests, now, log)), requestDeadline))
 }
 
@@ -186,16 +189,17 @@ func (w *statusWriter) Unwrap() http.ResponseWriter {
 	return w.ResponseWriter
 }
 
-func registerRoutes(router ServeMux, ratings Ratings, admins Admins, log *slog.Logger, now func() time.Time) {
-	strict := NewStrictHandlerWithOptions(&server{ratings: ratings, admins: admins, log: log, agreement: runcache.New[Format, analysis.Agreement](), now: now}, nil, StrictHTTPServerOptions{
+func registerRoutes(router ServeMux, ratings Ratings, admins Admins, signIns SignIns, log *slog.Logger, now func() time.Time) {
+	srv := &server{ratings: ratings, admins: admins, signIns: signIns, log: log, agreement: runcache.New[Format, analysis.Agreement](), now: now}
+	strict := NewStrictHandlerWithOptions(srv, nil, StrictHTTPServerOptions{
 		RequestErrorHandlerFunc:  badRequest,
 		ResponseErrorHandlerFunc: internalError(log),
 	})
 	HandlerWithOptions(strict, StdHTTPServerOptions{BaseRouter: router, ErrorHandlerFunc: badRequest})
 }
 
-// publicCORS lets any site read the API. No route accepts credentials yet;
-// signed-in routes will need an exact origin allowlist instead.
+// publicCORS lets any site read the public API, without credentials. The sign-in
+// routes have their own gate, which allows the site alone, with credentials.
 func publicCORS(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Access-Control-Allow-Origin", "*")
@@ -333,6 +337,7 @@ func writeErrorBody(w http.ResponseWriter, code int, body Error) {
 type server struct {
 	ratings   Ratings
 	admins    Admins
+	signIns   SignIns
 	log       *slog.Logger
 	agreement *runcache.Cache[Format, analysis.Agreement]
 	// now is the clock, for what depends on the time of the request (a time zone's offset today).

@@ -781,6 +781,176 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/countries": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The countries a player may give as theirs
+         * @description ISO 3166-1's two-letter codes and XK for Kosovo, in order. Cached for a day.
+         */
+        get: operations["getCountries"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/auth/discord": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Start signing in with Discord
+         * @description Opened as a page, not fetched: sends the browser to Discord, asking
+         *     only for the identify scope, with a state and a PKCE challenge whose
+         *     verifier waits in a short-lived cookie for the callback. A player who
+         *     has authorized the app before is not asked again. Never cached.
+         */
+        get: operations["startDiscordSignIn"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/auth/discord/callback": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Where Discord sends the player back
+         * @description Checks the state against the cookie, exchanges the code with its
+         *     verifier, and reads who signed in. Their login is recorded, linked to
+         *     the one member whose recorded Discord name is their username when
+         *     there is one, and a session starts: an opaque cookie on this host,
+         *     HttpOnly, Secure and SameSite=Lax. Anything wrong, a declined consent
+         *     included, leaves them signed out. Either way the browser goes back to
+         *     the site: a returning player to the path asked for with signin=ok; a
+         *     first sign-in to /account/ with signin=first, and anything that did
+         *     not finish to /account/ with signin=failed, with that path as back.
+         *     A banned member signs in like anyone, and /v1/me says they are
+         *     banned.
+         */
+        get: operations["finishDiscordSignIn"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/auth/sign-out": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Sign out on this browser
+         * @description The session is deleted, not just its cookie. Signing out when not
+         *     signed in is no error. The Origin must be the site.
+         */
+        post: operations["signOut"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/me": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The signed-in player
+         * @description Fetched with credentials from the site, whose origin alone may read
+         *     it. Where they signed in and their names there, the member they are
+         *     linked to, their latest request to be linked, and whether they are an
+         *     admin or organiser. Never cached.
+         */
+        get: operations["getMe"];
+        put?: never;
+        post?: never;
+        /**
+         * Delete the signed-in player's account
+         * @description Deletes their sign-in, every session and every request to be
+         *     linked, clears the Discord name, country and time zone of the member
+         *     they are linked to (so a new sign-in is not linked by that name), and
+         *     signs this browser out. The member, their games and
+         *     ratings stay. Audited by ids alone. The Origin must be the site.
+         */
+        delete: operations["deleteMe"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/me/link-request": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Ask to be linked to a TTA username
+         * @description For a player not linked to a member yet. An admin or organiser
+         *     answers; asking again while waiting replaces the name. The Origin must
+         *     be the site.
+         */
+        put: operations["putMyLinkRequest"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/me/details": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Change your own country and time zone
+         * @description A linked player's are their member's. Before that they are kept with
+         *     the sign-in, shown to whoever answers the request to be linked, and
+         *     moved to the member by the link. A field left out stays as it is; an
+         *     empty country clears it. The Origin must be the site.
+         */
+        patch: operations["patchMyDetails"];
+        trace?: never;
+    };
     "/v1/admin/me": {
         parameters: {
             query?: never;
@@ -935,7 +1105,8 @@ export interface paths {
         post?: never;
         /**
          * Remove a member added by mistake (admins only)
-         * @description Audited. The Origin must be the admin site. A member in an edition cannot be removed.
+         * @description Audited. The Origin must be the admin site. A member in an edition, or one a player's sign-in is linked to
+         *     (unlink it first), cannot be removed.
          */
         delete: operations["deleteAdminMember"];
         options?: never;
@@ -1930,6 +2101,113 @@ export interface paths {
          */
         get: operations["getAdminBlitzRoundThreads"];
         put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/logins": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Players' sign-ins, those waiting for a link first (admins and organisers)
+         * @description Each way a player has signed in, with the member it is linked to and
+         *     how, and a request waiting for an answer with the member its name
+         *     names now and that member's recorded Discord name, to compare.
+         */
+        get: operations["getAdminLogins"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/logins/{login}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Remove a sign-in, its sessions and requests (admins only)
+         * @description Audited. The Origin must be the admin site. The player is signed out everywhere.
+         */
+        delete: operations["deleteAdminLogin"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/logins/{login}/member": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Unlink a sign-in from its member (admins and organisers)
+         * @description Audited. The Origin must be the admin site. The player stays signed
+         *     in, unlinked, and is not linked by Discord name again.
+         */
+        delete: operations["deleteAdminLoginMember"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/link-requests/{link_request}/approval": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Approve a request to be linked (admins and organisers)
+         * @description Audited. The Origin must be the admin site. The sign-in is linked to
+         *     the member the name names, by username in any case or by the CGE
+         *     account or ratings player of that name; a name no member has becomes
+         *     a member. Refused for a member linked to another sign-in of the same
+         *     kind. A banned member may be linked: the ban keeps them out of events.
+         */
+        put: operations["putAdminLinkApproval"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/link-requests/{link_request}/refusal": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Refuse a request to be linked, with a reason the player sees (admins and organisers)
+         * @description Audited. The Origin must be the admin site. The player may ask again.
+         */
+        put: operations["putAdminLinkRefusal"];
         post?: never;
         delete?: never;
         options?: never;
@@ -3969,8 +4247,143 @@ export interface components {
             silver: number;
             bronze: number;
         };
+        /**
+         * @description The signed-in player: where they signed in and their names there, the member they are linked to (null until
+         *     linked), their latest request to be linked (null if none), and their role in admin (null if none)
+         */
+        Me: {
+            provider: components["schemas"]["LoginProvider"];
+            /** @description Their country as a two-letter ISO code, or null; the member's once linked, until then the one they gave */
+            country: string | null;
+            /** @description Their time zone (IANA, a region such as US East, or Unknown); the member's once linked, until then the one they gave */
+            zone: string;
+            username: string;
+            /** @description Empty when they have none */
+            display_name: string;
+            member: components["schemas"]["MyMember"] | null;
+            request: components["schemas"]["MyLinkRequest"] | null;
+            /** @enum {string|null} */
+            admin_role: "admin" | "organiser" | null;
+        };
+        /**
+         * @description Where a player signs in
+         * @enum {string}
+         */
+        LoginProvider: "discord";
+        /** @description The member a signed-in player is linked to */
+        MyMember: {
+            /** @description The TTA username */
+            name: string;
+            /** @description The name on the ratings pages, empty when they have no rated games */
+            player: string;
+            /** @description Banned from taking part in the events we host; they may still sign in */
+            banned: boolean;
+            /** @description Why, as the admin gave it; empty when not banned */
+            ban_reason: string;
+        };
+        /** @description A request to be linked to a TTA username, and its answer */
+        MyLinkRequest: {
+            name: string;
+            /** @enum {string} */
+            status: "pending" | "approved" | "refused";
+            /** @description Why it was refused, empty when no reason was given */
+            reason: string;
+            /** Format: date-time */
+            requested_at: string;
+        };
+        LinkRequestAsk: {
+            /** @description The TTA username, as in the app */
+            name: string;
+        };
+        MyDetailsChange: {
+            /** @description Two-letter ISO code; empty clears it */
+            country?: string;
+            /** @description An IANA time zone, a region (US East) or Unknown */
+            zone?: string;
+        };
+        /** @description A way a player signs in, as admin sees it */
+        AdminLogin: {
+            /** Format: int64 */
+            id: number;
+            provider: components["schemas"]["LoginProvider"];
+            username: string;
+            display_name: string;
+            /** Format: int64 */
+            member_id: number | null;
+            /** @description The linked member's TTA username, empty when not linked */
+            member: string;
+            /**
+             * @description By their recorded Discord name, or by an approved request; null when not linked
+             * @enum {string|null}
+             */
+            linked_how: "match" | "approved" | null;
+            /** Format: date-time */
+            signed_in_at: string;
+            /** @description Off once an admin unlinked it, so it is not linked by its Discord name again */
+            auto_link: boolean;
+            request: components["schemas"]["AdminLinkRequest"] | null;
+            refused: components["schemas"]["AdminLinkRefused"] | null;
+        };
+        /** @description A sign-in's last request to be linked, when it was refused and neither a new request nor a link has followed */
+        AdminLinkRefused: {
+            /** @description The TTA username asked for */
+            name: string;
+            /** @description The reason the player was shown; may be empty */
+            reason: string;
+        };
+        /**
+         * @description A request waiting for an answer, with the country and zone the player gave, and the member its name names
+         *     now (empty when approving adds one) with what is recorded for them, to compare
+         */
+        AdminLinkRequest: {
+            /** Format: int64 */
+            id: number;
+            name: string;
+            /** @description The country the player gave, empty for none */
+            country: string;
+            /** @description The time zone the player gave, empty for none */
+            zone: string;
+            member: string;
+            /** @description That member's recorded Discord name, to compare with the sign-in's */
+            member_discord: string;
+            /** @description That member's recorded country, empty for none */
+            member_country: string;
+            /** @description That member's recorded time zone, empty when approving adds the member */
+            member_zone: string;
+            /** Format: date-time */
+            requested_at: string;
+        };
+        LinkApproved: {
+            /** @description The member linked */
+            member: string;
+            /** @description Whether the member was added for this request */
+            created: boolean;
+        };
+        LinkRefusal: {
+            /** @description Shown to the player; may be empty */
+            reason: string;
+        };
     };
     responses: {
+        /** @description Not signed in, or the session has ended */
+        SignedOut: {
+            headers: {
+                "Cache-Control": components["headers"]["CacheControl"];
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["Error"];
+            };
+        };
+        /** @description A change that did not come from the site */
+        NotFromSite: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["Error"];
+            };
+        };
         /** @description The change cannot be made in the current state, such as a run already going */
         Conflict: {
             headers: {
@@ -4048,6 +4461,8 @@ export interface components {
         BlitzEntrantId: number;
         BlitzRoundId: number;
         BlitzMatchId: number;
+        LoginId: number;
+        LinkRequestId: number;
         MemberId: number;
         AdminBadgeId: number;
         /** @description The player's name, as the leaderboard gives it */
@@ -4070,6 +4485,7 @@ export interface components {
     requestBodies: never;
     headers: {
         CacheControl: string;
+        Location: string;
     };
     pathItems: never;
 }
@@ -5032,6 +5448,188 @@ export interface operations {
             };
             400: components["responses"]["BadRequest"];
             404: components["responses"]["NotFound"];
+        };
+    };
+    getCountries: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The codes */
+            200: {
+                headers: {
+                    "Cache-Control": components["headers"]["CacheControl"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": string[];
+                };
+            };
+        };
+    };
+    startDiscordSignIn: {
+        parameters: {
+            query?: {
+                /** @description The site path, with any query, to come back to, such as /ratings/player/?name=ann; anything else comes back to /account/ */
+                return?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description To Discord */
+            302: {
+                headers: {
+                    Location: components["headers"]["Location"];
+                    "Cache-Control": components["headers"]["CacheControl"];
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            503: components["responses"]["NotSetUp"];
+        };
+    };
+    finishDiscordSignIn: {
+        parameters: {
+            query?: {
+                code?: string;
+                state?: string;
+                error?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Back to the site, signed in or not */
+            302: {
+                headers: {
+                    Location: components["headers"]["Location"];
+                    "Cache-Control": components["headers"]["CacheControl"];
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            503: components["responses"]["NotSetUp"];
+        };
+    };
+    signOut: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Signed out */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            403: components["responses"]["NotFromSite"];
+        };
+    };
+    getMe: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The signed-in player */
+            200: {
+                headers: {
+                    "Cache-Control": components["headers"]["CacheControl"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Me"];
+                };
+            };
+            401: components["responses"]["SignedOut"];
+        };
+    };
+    deleteMe: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Deleted and signed out */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["SignedOut"];
+            403: components["responses"]["NotFromSite"];
+        };
+    };
+    putMyLinkRequest: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["LinkRequestAsk"];
+            };
+        };
+        responses: {
+            /** @description Waiting for an answer */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["SignedOut"];
+            403: components["responses"]["NotFromSite"];
+            409: components["responses"]["Conflict"];
+        };
+    };
+    patchMyDetails: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MyDetailsChange"];
+            };
+        };
+        responses: {
+            /** @description Saved */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["SignedOut"];
+            403: components["responses"]["NotFromSite"];
         };
     };
     getAdminMe: {
@@ -6916,6 +7514,130 @@ export interface operations {
             409: components["responses"]["Conflict"];
         };
     };
+    getAdminLogins: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The sign-ins */
+            200: {
+                headers: {
+                    "Cache-Control": components["headers"]["CacheControl"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminLogin"][];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    deleteAdminLogin: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                login: components["parameters"]["LoginId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Removed */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    deleteAdminLoginMember: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                login: components["parameters"]["LoginId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Unlinked */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    putAdminLinkApproval: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                link_request: components["parameters"]["LinkRequestId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Linked */
+            200: {
+                headers: {
+                    "Cache-Control": components["headers"]["CacheControl"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LinkApproved"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+        };
+    };
+    putAdminLinkRefusal: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                link_request: components["parameters"]["LinkRequestId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["LinkRefusal"];
+            };
+        };
+        responses: {
+            /** @description Refused */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
 }
 type FlattenedDeepRequired<T> = {
     [K in keyof T]-?: FlattenedDeepRequired<T[K] extends unknown[] | undefined | null ? Extract<T[K], unknown[]>[number] : T[K]>;
@@ -6957,3 +7679,7 @@ export const catalogueGameStateValues: ReadonlyArray<FlattenedDeepRequired<compo
 export const gameSeatOutcomeValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["GameSeat"]["outcome"]> = ["finished", "resigned", "timed_out"];
 export const seriesValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["Series"]> = ["international", "intermezzo", "royal_league", "worlds", "grand_slams", "ladders"];
 export const trophyRowTitleValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["TrophyRow"]["title"]> = ["WC", "GM", "M"];
+export const meAdmin_roleValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["Me"]["admin_role"]> = ["admin", "organiser"];
+export const loginProviderValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["LoginProvider"]> = ["discord"];
+export const myLinkRequestStatusValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["MyLinkRequest"]["status"]> = ["pending", "approved", "refused"];
+export const adminLoginLinked_howValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["AdminLogin"]["linked_how"]> = ["match", "approved"];
