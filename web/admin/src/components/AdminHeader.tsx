@@ -3,8 +3,8 @@ import { useEffect, useRef, useState } from 'react';
 import homeButton from '@ttac/shared/styles/img/home-button.webp';
 import type { TABS, TabKey } from '../lib/admin-tabs';
 
-/** AdminHeader links each of tabs (current marked) to admin's home; on phones they open from the menu button. */
-export default function AdminHeader({ tabs, current }: { tabs: typeof TABS; current: TabKey | null }) {
+/** AdminHeader links each of tabs (current marked, with its count when counts has one) to admin's home; on phones they open from the menu button. */
+export default function AdminHeader({ tabs, current, counts = {} }: { tabs: typeof TABS; current: TabKey | null; counts?: Partial<Record<TabKey, number>> }) {
   const [open, setOpen] = useState(false);
   const backdrop = useRef<HTMLDivElement>(null);
   useEffect(() => {
@@ -59,6 +59,14 @@ export default function AdminHeader({ tabs, current }: { tabs: typeof TABS; curr
               onClick={() => setOpen(false)}
             >
               {t.label}
+              {counts[t.key] !== undefined && (
+                <>
+                  <span className="count-badge" aria-hidden="true">
+                    {counts[t.key]}
+                  </span>
+                  <span className="visually-hidden">, {counts[t.key]} waiting</span>
+                </>
+              )}
             </a>
           ))}
         </nav>

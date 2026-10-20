@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { panelsFor, tabFrom, tabsFor } from './admin-tabs';
+import { panelsFor, tabCounts, tabFrom, tabsFor } from './admin-tabs';
 
 describe('admin tabs', () => {
   it.each([
@@ -19,6 +19,7 @@ describe('admin tabs', () => {
     ['#admins', 'organiser', 'tournaments'],
     ['#data', 'organiser', 'data'],
     ['#blitz', 'organiser', 'blitz'],
+    ['#signins', 'organiser', 'members'],
   ] as const)('opens %s for an %s on %s', (hash, role, want) => {
     expect(tabFrom(hash, role)).toBe(want);
   });
@@ -35,5 +36,12 @@ describe('admin tabs', () => {
     ['admins', 'admin', ['admins']],
   ] as const)('shows the %s tab to an %s as its panels', (tab, role, want) => {
     expect(panelsFor(tab, role)).toEqual(want);
+  });
+
+  it.each([
+    ['requests waiting', 2, { members: 2 }],
+    ['none waiting', 0, {}],
+  ] as const)('counts on the tabs: %s', (_name, waiting, want) => {
+    expect(tabCounts(waiting)).toEqual(want);
   });
 });

@@ -1,17 +1,19 @@
-/** The Members tab: the community's people, listed and searched, added and edited by admins and organisers; banned, unbanned and removed by admins. */
+/** The Members tab: the community's people, listed and searched, added and edited by admins and organisers; banned, unbanned and removed by admins. Players' sign-ins sit with them: requests to be linked first, each member's linked sign-in, then those linked to no one. */
 import { Fragment, useEffect, useState, type FormEvent } from 'react';
 import { offsetLabel } from '@ttac/shared/blitz';
 import { useDialog } from '@ttac/shared/Dialog';
-import { adminRequest, type AdminMe, type AdminMember, type Load, type MemberAdded, type MemberChange } from '../lib/admin-api';
+import { adminRequest, type AdminLogin, type AdminMe, type AdminMember, type Load, type MemberAdded, type MemberChange } from '../lib/admin-api';
 import * as req from '../lib/admin-requests';
 import { countryNames, type Country } from '../lib/countries';
 import { membersMatching } from '../lib/member-filter';
 import { loadFailure, outcomeOf, shownAt, type Outcome } from '../lib/outcome';
 import { memberToAdd, type PersonDetails } from '../lib/person-form';
+import { howLinked, signInGroups } from '../lib/sign-ins';
 import type { Region } from '../lib/zones';
 import CountryPick from './CountryPick';
 import Notice, { LoadNotice, NoticeRow } from './Notice';
 import PersonForm from './PersonForm';
+import { UnlinkedSignIns, WaitingRequests, who } from './SignIns';
 import ZonePick from './ZonePick';
 
 type Draft = { name: string; discord_name: string; email: string; country: string; zone: string; cge_user: string };
@@ -21,7 +23,24 @@ function draftOf(m: AdminMember): Draft {
   return { name: m.name, discord_name: m.discord_name, email: m.email, country: m.country ?? '', zone: m.zone, cge_user: m.cge_user === null ? '' : String(m.cge_user) };
 }
 
-export default function MembersPanel({ role }: { role: AdminMe['role'] }) {
+/** SignedInAs shows the sign-in linked to a member: its Discord name, how it was linked and when it was last used. */
+function SignedInAs({ login }: { login: AdminLogin | undefined }) {
+  if (login === undefined) return <span className="muted">—</span>;
+  const day = new Date(login.signed_in_at).toLocaleDateString(undefined, { day: 'numeric', month: 'short' });
+  return (
+    <>
+      {who(login)}
+      <span className="row-detail muted">
+        {howLinked(login)} · last in {day}
+      </span>
+    </>
+  );
+}
+
+type Props = { role: AdminMe['role']; logins: Load<AdminLogin[]>; reloadLogins: () => Promise<void> };
+
+/** MembersPanel lists the members with their sign-ins; logins are admin's, loaded once for the tab's count too. */
+export default function MembersPanel({ role, logins, reloadLogins }: Props) {
   const [members, setMembers] = useState<Load<AdminMember[]>>({ kind: 'loading' });
   const [outcome, setOutcome] = useState<Outcome | null>(null);
   const close = () => setOutcome(null);
@@ -31,6 +50,7 @@ export default function MembersPanel({ role }: { role: AdminMe['role'] }) {
   const [countries, setCountries] = useState<Country[]>([]);
   const [search, setSearch] = useState('');
   const shown = members.kind === 'ready' ? membersMatching(members.data, search) : [];
+  const signIns = signInGroups(logins.kind === 'ready' ? logins.data : []);
   const load = async () => {
     const r = await adminRequest<AdminMember[]>('/api/members', {});
     setMembers(r.ok ? { kind: 'ready', data: r.data } : { kind: 'error', message: r.message });
@@ -40,6 +60,22 @@ export default function MembersPanel({ role }: { role: AdminMe['role'] }) {
     void adminRequest<Region[]>('/api/regions', {}).then((r) => (r.ok ? setRegions(r.data) : setOutcome(loadFailure(r.message, 'add member'))));
     void adminRequest<string[]>('/api/countries', {}).then((r) => (r.ok ? setCountries(countryNames(r.data)) : setOutcome(loadFailure(r.message, 'add member'))));
   }, []);
+  // after reloads what answering a request or unlinking changes: the sign-ins, and a member added or given details.
+  const after = async () => {
+    await Promise.all([load(), reloadLogins()]);
+  };
+  const unlink = async (m: AdminMember) => {
+    const l = signIns.byMember.get(m.id);
+    if (l === undefined) return;
+    const sure = await dialog.confirm({
+      heading: `Unlink ${l.username} from ${m.name}?`,
+      text: 'They stay signed in, unlinked, and are not linked by Discord name again.',
+      action: 'Unlink',
+    });
+    if (!sure) return;
+    setOutcome(outcomeOf(await req.send(req.unlinkLogin(l.id)), `Unlinked ${l.username} from ${m.name}.`, `member ${m.id}`));
+    await after();
+  };
   const run = async (r: req.Request, done: string, at: string, doneAt = at) => {
     const res = await req.send(r);
     setOutcome(outcomeOf(res, done, at, doneAt));
@@ -89,7 +125,10 @@ export default function MembersPanel({ role }: { role: AdminMe['role'] }) {
         Everyone who takes part in anything we run, by their TTA username as in the app. A name the ratings or a CGE
         account know is linked to them, and the link fills itself in as games are loaded. A banned member cannot be
         entered in an edition; their games and ratings stay. Organisers reach players by Discord username or email.
+        Players sign in on the site with Discord and ask to be linked to their username: one whose Discord username is
+        the Discord name recorded for exactly one member is linked at once; the rest wait at the top of this page.
       </p>
+      <WaitingRequests logins={logins} waiting={signIns.waiting} outcome={outcome} say={setOutcome} after={after} />
       <div className="admin-subsection">
         <h3>Add a member</h3>
         <PersonForm searchBase="/api/people" taken={{ entered: [], membersTaken: true }} regions={regions} countries={countries} submitLabel="Add" onSubmit={add} refresh={members} />
@@ -132,6 +171,7 @@ export default function MembersPanel({ role }: { role: AdminMe['role'] }) {
                   <th scope="col">Username</th>
                   <th scope="col">CGE id</th>
                   <th scope="col">Discord</th>
+                  <th scope="col">Signed in as</th>
                   <th scope="col">Email</th>
                   <th scope="col">Country</th>
                   <th scope="col">Time zone</th>
@@ -154,6 +194,9 @@ export default function MembersPanel({ role }: { role: AdminMe['role'] }) {
                         </td>
                         <td>
                           <input className="input-antique" aria-label={`Discord username of ${m.name}`} value={editing.discord_name} maxLength={100} onChange={(e) => setEditing({ ...editing, discord_name: e.target.value })} />
+                        </td>
+                        <td>
+                          <SignedInAs login={signIns.byMember.get(m.id)} />
                         </td>
                         <td>
                           <input className="input-antique" aria-label={`Email of ${m.name}`} type="email" value={editing.email} maxLength={254} onChange={(e) => setEditing({ ...editing, email: e.target.value })} />
@@ -184,6 +227,9 @@ export default function MembersPanel({ role }: { role: AdminMe['role'] }) {
                         </th>
                         <td>{m.cge_user ?? ''}</td>
                         <td>{m.discord_name}</td>
+                        <td>
+                          <SignedInAs login={signIns.byMember.get(m.id)} />
+                        </td>
                         <td>{m.email}</td>
                         <td>{m.country ?? ''}</td>
                         <td>
@@ -194,6 +240,11 @@ export default function MembersPanel({ role }: { role: AdminMe['role'] }) {
                           <button type="button" className="btn-antique" onClick={() => setEditing({ id: m.id, ...draftOf(m) })}>
                             Edit
                           </button>
+                          {signIns.byMember.has(m.id) && (
+                            <button type="button" className="btn-antique" onClick={() => void unlink(m)}>
+                              Unlink
+                            </button>
+                          )}
                           {role === 'admin' && !m.banned && (
                             <button type="button" className="btn-antique" onClick={() => void ban(m)}>
                               Ban
@@ -212,7 +263,7 @@ export default function MembersPanel({ role }: { role: AdminMe['role'] }) {
                         </td>
                       </tr>
                     )}
-                    <NoticeRow outcome={shownAt(outcome, `member ${m.id}`)} columns={8} onClose={close} />
+                    <NoticeRow outcome={shownAt(outcome, `member ${m.id}`)} columns={9} onClose={close} />
                   </Fragment>
                 ))}
               </tbody>
@@ -220,6 +271,9 @@ export default function MembersPanel({ role }: { role: AdminMe['role'] }) {
           </div>
         )}
       </div>
+      {(signIns.unlinked.length > 0 || shownAt(outcome, 'unlinked') !== null) && (
+        <UnlinkedSignIns unlinked={signIns.unlinked} role={role} outcome={outcome} say={setOutcome} after={after} />
+      )}
     </section>
   );
 }
