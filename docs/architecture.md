@@ -84,12 +84,10 @@ A run records its **cause**: the engine version and a fingerprint of the
 input matches. A few recent runs are kept, so two can be compared before
 one is published.
 
-**Games on the same day are processed in a fixed order**, because dates carry
-no time and GlickoD sets a newcomer's starting rating from their first 15
-games. The engine uses the order of the original site's match file: games
-grouped by tournament (Royal League, Worlds, Mercurial…, by name prefix), each
-group by date, and the groups by their first date. With it, the ratings
-match the original site's engine on the same games.
+**Games on the same day are processed in chronological order**, because
+GlickoD sets a newcomer's starting rating from their first 15 games. The engine
+orders games by date, then by CGE's finish time (`finished_at`) when known,
+breaking ties and pre-CGE games (date only) by load order (`match_id`).
 
 **Tournament results** (standings, podiums, Hall of Fame, each player's
 achievements) are derived by the engine from matches and the tournament

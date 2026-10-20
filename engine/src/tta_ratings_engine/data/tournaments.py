@@ -16,7 +16,7 @@ from typing import Any, NamedTuple
 
 from tta_ratings_engine.data.achievements import player_achievements, player_records
 from tta_ratings_engine.data.db import DictConnection, require_running
-from tta_ratings_engine.data.match_order import assembled_order
+from tta_ratings_engine.data.match_order import match_order
 from tta_ratings_engine.data.seats import SEAT_COLUMNS, Seat, by_place, seats_of
 from tta_ratings_engine.data.series_pages import (
     grand_slams_board,
@@ -571,7 +571,7 @@ def derive_tournaments(*, conn: DictConnection, run_id: int) -> None:
         require_running(conn, run_id)
         rules, final = series_rules(conn)
         rows = conn.execute(
-            f"SELECT m.game_id AS match_id, m.name AS tournament, m.date, m.player_count, {SEAT_COLUMNS}, "
+            f"SELECT m.game_id AS match_id, m.name AS tournament, m.date, m.finished_at, m.player_count, {SEAT_COLUMNS}, "
             "m.group_name AS group_label, t.slug AS catalogue_slug, t.name AS catalogue_name, "
             "se.label AS catalogue_season, st.label AS catalogue_stage "
             "FROM game_lines m LEFT JOIN stages st ON st.stage_id = m.stage_id "
@@ -682,7 +682,7 @@ def derive_tournaments(*, conn: DictConnection, run_id: int) -> None:
             for a in player_achievements(boards, world_places)
         ]  # fmt: skip
         player_record_rows = player_records(
-            rows=assembled_order(rows),
+            rows=match_order(rows),
             top_divisions={
                 s: rules[s].top_divisions
                 for s in (holder(conn, "international"), holder(conn, "intermezzo"))

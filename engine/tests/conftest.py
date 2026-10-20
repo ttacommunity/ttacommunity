@@ -135,6 +135,7 @@ def add_match(conn):
     def add(
         *players,
         day=date(2024, 1, 1),
+        finished_at=None,
         tournament="T",
         eligible=True,
         placed="rated",
@@ -142,13 +143,14 @@ def add_match(conn):
         group="",
     ):
         match_id = conn.execute(
-            "INSERT INTO games (batch_id, source_file, source_line, name, date, glicko_eligible, group_id, state) "
-            "VALUES (%s, 'test.csv', %s, %s, %s, %s, %s, %s) RETURNING game_id",
+            "INSERT INTO games (batch_id, source_file, source_line, name, date, finished_at, glicko_eligible, group_id, state) "
+            "VALUES (%s, 'test.csv', %s, %s, %s, %s, %s, %s, %s) RETURNING game_id",
             (
                 batch,
                 next(line),
                 tournament,
                 day,
+                finished_at,
                 eligible,
                 group_in(conn, placed, group) if placed else None,
                 state,
