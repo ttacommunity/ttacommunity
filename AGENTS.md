@@ -379,6 +379,11 @@ agent runs them itself.
   change was *not* tested against
 - Image builds: add the `images` label to a pull request once the code is
   final; it builds `sha-<commit>` images to pin in `deploy/`
+- **A squash or rebase merge needs a repin.** The pins name a commit on
+  the branch, which they leave out of `main`, so `checks/deploy-current.sh`
+  fails `main`'s CI. After the merge, pin the `sha-<main's new commit>`
+  images that `main`'s push builds, in a pull request of its own. A merge
+  commit keeps the branch's commits and needs none
 - **Issues** open through a form: Bug, Data (a wrong or missing game, score
   or result), Feature, Decision, Task. Label the area: `ratings`,
   `tournaments`, `site`, `admin`, `build` (CI, checks, images) or `infra`
