@@ -311,6 +311,23 @@ func TestHealthz(t *testing.T) {
 	}
 }
 
+func TestRobotsTxtKeepsCrawlersOffPlayersOnly(t *testing.T) {
+	ratings := &fakeRatings{}
+	rec := httptest.NewRecorder()
+	newMux(ratings, nil, slog.New(slog.DiscardHandler)).ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/robots.txt", nil))
+
+	if rec.Code != http.StatusOK || !strings.HasPrefix(rec.Header().Get("Content-Type"), "text/plain") {
+		t.Fatalf("GET /robots.txt: %d %q, want 200 text/plain", rec.Code, rec.Header().Get("Content-Type"))
+	}
+	lines := strings.Split(rec.Body.String(), "\n")
+	if !slices.Contains(lines, "Disallow: /v1/runs/*/players/") || slices.Contains(lines, "Disallow: /") {
+		t.Errorf("GET /robots.txt: body = %q, want only the player routes disallowed", rec.Body.String())
+	}
+	if ratings.calls != 0 {
+		t.Errorf("GET /robots.txt: touched the database %d times, want 0", ratings.calls)
+	}
+}
+
 func TestReadyz(t *testing.T) {
 	tests := []struct {
 		name     string
