@@ -1,9 +1,10 @@
 ---
 /** The page shell every site page uses: upstream's header and footer around the page's content, with the nav of the page's area (the ratings, or the root site). */
 import '@ttac/shared/styles/theme.css';
-import { PUBLIC_ADMIN_URL } from 'astro:env/client';
+import { PUBLIC_API_URL } from 'astro:env/client';
 import homeButton from '@ttac/shared/styles/img/home-button.webp';
 import { areaOf, currentSection, sectionsFor } from '../lib/nav';
+import NavAccount from '../components/NavAccount';
 
 interface Props {
   title: string;
@@ -50,7 +51,7 @@ const current = currentSection(Astro.url.pathname);
               {s.label}
             </a>
           ))}
-          <a href={PUBLIC_ADMIN_URL} class="nav-webmaster">⚙️ Webmaster</a>
+          <NavAccount client:only="react" apiUrl={PUBLIC_API_URL} current={Astro.url.pathname.startsWith('/account/')} />
         </nav>
       </div>
     </header>
@@ -64,7 +65,7 @@ const current = currentSection(Astro.url.pathname);
         <p><strong>Through the Ages Rating Engine</strong> -- Powered by Glicko-2 and Coulom Whole-History Rating.</p>
         <p class="footer-small">
           Data from competitive online TTA tournaments<span class="run-facts"></span>. &bull;
-          <a href={PUBLIC_ADMIN_URL}>Designed and built by DANeo, with huge contribution by UnstableUnicorn</a>
+          Designed and built by DANeo, with huge contribution by UnstableUnicorn
         </p>
       </div>
     </footer>

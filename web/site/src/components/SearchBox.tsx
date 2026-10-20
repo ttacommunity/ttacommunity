@@ -18,6 +18,10 @@ interface Props {
   placeholder?: string;
   /** Fills the width it is given, for long names. */
   wide?: boolean;
+  /** Fill mode: one name, a field of the page's own form; onChange gets each edit and the name picked, and nothing is searched. */
+  onChange?: (text: string) => void;
+  /** The input's id, for the page's own label. */
+  id?: string;
 }
 
 /** flagEmoji turns a country code into its flag emoji, as upstream's suggestions show it. */
@@ -48,7 +52,10 @@ export default function SearchBox({
   inputClassName = 'input-antique',
   placeholder = 'Search player ...',
   wide = false,
+  onChange,
+  id,
 }: Props) {
+  const fill = onChange !== undefined;
   const field = name !== undefined;
   const input = useRef<HTMLInputElement>(null);
   const [text, setText] = useState(value);
@@ -61,6 +68,12 @@ export default function SearchBox({
   useEffect(() => setText(value), [value]);
 
   const pick = (name: string) => {
+    if (fill) {
+      setText(name);
+      setOpen(false);
+      onChange(name);
+      return;
+    }
     const parts = text.split(',');
     parts[parts.length - 1] = parts.length > 1 ? ` ${name}` : name;
     const term = parts.join(',').trim();
@@ -92,11 +105,12 @@ export default function SearchBox({
       <input
         type="text"
         ref={input}
+        id={id}
         name={name}
         className={inputClassName}
         placeholder={placeholder}
-        title="Separate multiple names with commas."
-        aria-label="Search player"
+        title={fill ? undefined : 'Separate multiple names with commas.'}
+        aria-label={id === undefined ? 'Search player' : undefined}
         autoComplete="off"
         enterKeyHint="search"
         role="combobox"
@@ -106,6 +120,7 @@ export default function SearchBox({
         value={text}
         onChange={(e) => {
           setText(e.target.value);
+          onChange?.(e.target.value);
           setOpen(true);
           setActive(-1);
         }}
@@ -113,7 +128,7 @@ export default function SearchBox({
         onBlur={() => setOpen(false)}
         onKeyDown={onKeyDown}
       />
-      {!field && (
+      {!field && !fill && (
         <button type="submit" className="search-submit" title="Search" aria-label="Search">
           🔍
         </button>
@@ -154,7 +169,7 @@ export default function SearchBox({
       )}
     </div>
   );
-  if (field) return box;
+  if (field || fill) return box;
   return (
     <form
       className="search-form"

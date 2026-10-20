@@ -1,0 +1,137 @@
+/* The account page: one card with the ways to sign in, or the player's link request or details. */
+
+.account-card {
+  max-width: 40rem;
+  margin: 0 auto 1.5rem;
+  padding: 1.5rem 1.75rem;
+  color: var(--text-main);
+  line-height: 1.6;
+}
+.account-card .rating-card-heading {
+  margin: 0 0 0.75rem;
+}
+.account-muted {
+  color: var(--text-muted);
+  font-size: var(--size-body-short);
+}
+.account-ways {
+  margin: 0 0 1rem;
+  padding: 0;
+  list-style: none;
+}
+.account-ways li + li {
+  margin-top: 1rem;
+}
+.account-ways .account-muted {
+  margin: 0.4rem 0 0;
+}
+.account-subheading {
+  margin: 1.25rem 0 0.25rem;
+  font-family: var(--font-subheading);
+  font-size: var(--size-subheading);
+  color: var(--accent-gold);
+}
+.account-form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin-top: 1rem;
+}
+.account-form label {
+  color: var(--text-soft);
+  font-size: var(--size-body-short);
+}
+.account-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem;
+}
+.account-row .input-antique {
+  flex: 1 1 14rem;
+  min-width: 0;
+}
+.account-problem {
+  margin: 0;
+  color: var(--loss);
+}
+/* A button that cannot be used now looks it, and does not light up, as in admin. */
+.account-form .btn-antique:disabled,
+.account-form .btn-antique:disabled:hover {
+  opacity: 0.45;
+  cursor: not-allowed;
+  background: linear-gradient(180deg, #2e1d13 0%, #170d08 100%);
+  border-color: var(--accent-gold);
+  box-shadow: none;
+  color: var(--text-muted);
+  transform: none;
+}
+/* What a save did, as admin shows an action's outcome: its word in colour on a dark panel, bordered green when done, red when not. */
+.account-outcome {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+  margin-top: 0.25rem;
+  padding: 0.5rem 0.75rem;
+  border: 1px solid var(--border-subtle);
+  border-left: 4px solid var(--win);
+  border-radius: 6px;
+  background: var(--surface-well);
+  font-size: var(--size-body-short);
+  scroll-margin: 5.5rem 0 1rem;
+}
+.account-outcome > div {
+  flex: 1;
+  min-width: 0;
+}
+.account-outcome-heading,
+.account-outcome-text {
+  display: block;
+}
+.account-outcome-heading {
+  color: var(--win);
+}
+.account-outcome-refused {
+  border-left-color: var(--loss);
+}
+.account-outcome-refused .account-outcome-heading {
+  color: var(--loss);
+}
+.account-outcome-close {
+  min-width: 1.5rem;
+  min-height: 1.5rem;
+  padding: 0 0.3rem;
+  border: 0;
+  background: none;
+  color: var(--text-soft);
+  font-size: 1.25rem;
+  line-height: 1;
+  cursor: pointer;
+}
+.account-outcome-close:hover {
+  color: var(--text-main);
+}
+.account-notice-failed {
+  border-color: var(--accent-crimson);
+}
+.account-ban {
+  display: flex;
+  flex-direction: column;
+  margin: 0.75rem 0;
+  padding: 0.5rem 0.75rem;
+  border: 1px solid var(--border-subtle);
+  border-left: 4px solid var(--loss);
+  border-radius: 6px;
+  background: var(--surface-well);
+}
+.account-ban-heading {
+  color: var(--loss);
+}
+.account-sign-out {
+  margin-top: 1.5rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--border-subtle);
+}
+.account-back {
+  text-decoration: none;
+}
