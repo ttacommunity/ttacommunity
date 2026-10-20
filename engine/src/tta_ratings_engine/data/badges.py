@@ -17,12 +17,26 @@ Implements the official badge award rules:
 """
 
 import re
-from datetime import date
+from datetime import UTC, date, datetime
 from typing import Any, NamedTuple
 
 from dateutil.relativedelta import relativedelta
 
 from tta_ratings_engine.data.db import DictConnection, require_running
+
+_EPOCH = datetime.min.replace(tzinfo=UTC)
+
+
+def _finish_key(dt: Any) -> datetime:
+    """Returns dt as a UTC datetime, or the epoch when missing."""
+    if dt is None:
+        return _EPOCH
+    if isinstance(dt, datetime):
+        if dt.tzinfo is None:
+            return dt.replace(tzinfo=UTC)
+        return dt.astimezone(UTC)
+    return _EPOCH
+
 
 # Tournament division tier rankings (1 = Highest / GM, 2 = M, 3 = P, 4 = G, 5 = S, 6 = B, 7 = W)
 TIER_TITLE_MAP = {1: "GM", 2: "M", 3: "P", 4: "G", 5: "S", 6: "B", 7: "W"}
@@ -281,11 +295,12 @@ def derive_tournament_badges(*, conn: DictConnection, run_id: int) -> dict[str, 
         # All tournament matches, with the division the run recorded for a name that has none
         rows = conn.execute(
             """
-            SELECT m.name AS tournament, to_char(m.date, 'YYYY-MM-DD') AS date, m.players, tg.series, tg.division
+            SELECT m.game_id, m.name AS tournament, to_char(m.date, 'YYYY-MM-DD') AS date,
+                   m.finished_at, m.players, tg.series, tg.division
             FROM game_lines m
             LEFT JOIN tournament_games tg ON tg.match_id = m.game_id AND tg.run_id = %s
             WHERE m.state = 'played'
-            ORDER BY m.date DESC
+            ORDER BY m.date DESC, m.finished_at DESC NULLS LAST, m.game_id DESC
         """,
             (run_id,),
         ).fetchall()
@@ -382,6 +397,12 @@ def badge_titles(rows, cutoff_date, champions, records, overrides) -> Titles:
 
         participants = list(r["players"])
 
+        game_key = (
+            d_str,
+            _finish_key(r.get("finished_at")),
+            r.get("game_id") or r.get("match_id") or 0,
+        )
+
         for p in participants:
             if not p:
                 continue
@@ -395,13 +416,14 @@ def badge_titles(rows, cutoff_date, champions, records, overrides) -> Titles:
                     or tier < player_best[p]["tier"]
                     or (
                         tier == player_best[p]["tier"]
-                        and d_str > player_best[p]["date"]
+                        and game_key > player_best[p]["key"]
                     )
                 ):
                     player_best[p] = {
                         "tier": tier,
                         "tournament": tourney,
                         "date": d_str,
+                        "key": game_key,
                         "reason": parse_badge_reason(tourney, tier),
                     }
 
@@ -413,10 +435,15 @@ def badge_titles(rows, cutoff_date, champions, records, overrides) -> Titles:
                 or tier < player_career_best[p]["tier"]
                 or (
                     tier == player_career_best[p]["tier"]
-                    and d_str > player_career_best[p]["date"]
+                    and game_key > player_career_best[p]["key"]
                 )
             ):
-                player_career_best[p] = {"tier": tier, "year": yr, "date": d_str}
+                player_career_best[p] = {
+                    "tier": tier,
+                    "year": yr,
+                    "date": d_str,
+                    "key": game_key,
+                }
 
     world_champ_list = [(p, yr) for p, yr, place in champions if place == 1]
     # A player on several podiums keeps the best: WC over WCS over WCB

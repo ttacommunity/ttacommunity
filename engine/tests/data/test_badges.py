@@ -1,4 +1,4 @@
-from datetime import date
+from datetime import UTC, date, datetime
 
 import pytest
 
@@ -69,7 +69,15 @@ def test_royal_league_reasons_name_the_lower_ranks():
 CUTOFF = "2023-06-01"  # a year before the newest game, 2024-06-01
 
 
-def game(day, tournament, *players, series=None, division=None):
+def game(
+    day,
+    tournament,
+    *players,
+    series=None,
+    division=None,
+    finished_at=None,
+    game_id=0,
+):
     """Returns a played game as badge_titles reads it."""
     return {
         "tournament": tournament,
@@ -77,6 +85,8 @@ def game(day, tournament, *players, series=None, division=None):
         "players": list(players),
         "series": series,
         "division": division,
+        "finished_at": finished_at,
+        "game_id": game_id,
     }
 
 
@@ -500,3 +510,70 @@ def test_the_reigning_champion_comes_from_admin_then_recorded_then_the_runs_fina
     got = titles(conn, run_id)
     assert got["pipit4"][0] == "WC"
     assert got.get("alder440", ("",))[0] != "WC"
+
+
+def test_same_day_games_pick_later_reason_by_finish_time():
+    g1 = game(
+        "2024-06-01",
+        "International S35 - Bronze 28",
+        "Ann",
+        "Bob",
+        finished_at=datetime(2024, 6, 1, 10, 0, tzinfo=UTC),
+        game_id=1,
+    )
+    g2 = game(
+        "2024-06-01",
+        "RL_s09 - Count D",
+        "Ann",
+        "Cat",
+        finished_at=datetime(2024, 6, 1, 15, 0, tzinfo=UTC),
+        game_id=2,
+    )
+    t1 = badge_titles([g1, g2], CUTOFF, [], [], [])
+    assert t1.active["Ann"]["badge_reason"] == "Played in Royal League Count Season 9"
+
+    t2 = badge_titles([g2, g1], CUTOFF, [], [], [])
+    assert t2.active["Ann"]["badge_reason"] == "Played in Royal League Count Season 9"
+
+
+def test_same_day_games_tiebreak_by_game_id_when_finish_time_equal_or_missing():
+    g1 = game(
+        "2024-06-01",
+        "International S35 - Bronze 28",
+        "Ann",
+        "Bob",
+        game_id=10,
+    )
+    g2 = game(
+        "2024-06-01",
+        "RL_s09 - Count D",
+        "Ann",
+        "Cat",
+        game_id=20,
+    )
+    t1 = badge_titles([g1, g2], CUTOFF, [], [], [])
+    assert t1.active["Ann"]["badge_reason"] == "Played in Royal League Count Season 9"
+
+    t2 = badge_titles([g2, g1], CUTOFF, [], [], [])
+    assert t2.active["Ann"]["badge_reason"] == "Played in Royal League Count Season 9"
+
+
+def test_derive_tournament_badges_picks_later_same_day_game(conn, add_match, run_id):
+    add_match(
+        ("Ann", 10),
+        ("Bob", 5),
+        day=date(2024, 6, 1),
+        finished_at=datetime(2024, 6, 1, 10, 0, tzinfo=UTC),
+        tournament="International S35 - Bronze 28",
+    )
+    add_match(
+        ("Ann", 10),
+        ("Cat", 5),
+        day=date(2024, 6, 1),
+        finished_at=datetime(2024, 6, 1, 15, 0, tzinfo=UTC),
+        tournament="RL_s09 - Count D",
+    )
+
+    derive_tournament_badges(conn=conn, run_id=run_id)
+    got = titles(conn, run_id)
+    assert got["Ann"][2] == "Played in Royal League Count Season 9"
