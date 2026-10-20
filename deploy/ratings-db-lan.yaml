@@ -11,7 +11,8 @@ metadata:
 spec:
   type: NodePort
   # Keeps the client's address, so the policy below can match it. Connect to
-  # unstableserver, where the pod runs; other nodes drop the traffic.
+  # the node the pod runs on (unstableserver unless it failed over); other
+  # nodes drop the traffic.
   externalTrafficPolicy: Local
   selector:
     app: ratings-db

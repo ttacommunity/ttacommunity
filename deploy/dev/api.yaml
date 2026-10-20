@@ -47,6 +47,20 @@ spec:
         runAsGroup: 65532
         seccompProfile:
           type: RuntimeDefault
+      # Any worker with a workload-size, unstableserver included; never the control plane or wsl-laptop.
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+              - matchExpressions:
+                  - key: workload-size
+                    operator: In
+                    values: [large, medium, small]
+      tolerations:
+        - key: workload-class
+          operator: Equal
+          value: amd64-opt-in
+          effect: NoSchedule
       # Applies the ratings migrations to ratings_dev before the api starts, as its owner (goose's lock serialises pods).
       initContainers:
         - name: migrate

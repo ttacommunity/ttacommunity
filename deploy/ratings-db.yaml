@@ -46,13 +46,36 @@ spec:
       labels:
         app: ratings-db
     spec:
-      nodeSelector:
-        kubernetes.io/hostname: unstableserver
+      # On the large node when it is up; on a medium node (its volume has replicas there) when it is not.
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+              - matchExpressions:
+                  - key: workload-size
+                    operator: In
+                    values: [large, medium]
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: 100
+              preference:
+                matchExpressions:
+                  - key: kubernetes.io/hostname
+                    operator: In
+                    values: [unstableserver]
       tolerations:
         - key: workload-class
           operator: Equal
           value: amd64-opt-in
           effect: NoSchedule
+        # Give up a dead node after a minute, not the default five.
+        - key: node.kubernetes.io/unreachable
+          operator: Exists
+          effect: NoExecute
+          tolerationSeconds: 60
+        - key: node.kubernetes.io/not-ready
+          operator: Exists
+          effect: NoExecute
+          tolerationSeconds: 60
       automountServiceAccountToken: false
       securityContext:
         runAsNonRoot: true
