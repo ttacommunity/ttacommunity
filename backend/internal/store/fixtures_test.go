@@ -114,6 +114,22 @@ func asAdminLogin(t *testing.T, pool *pgxpool.Pool) *pgxpool.Pool {
 	return admin
 }
 
+// asPlayerLogin returns a pool on the same database acting as ratings_player, as the API's player login does.
+func asPlayerLogin(t *testing.T, pool *pgxpool.Pool) *pgxpool.Pool {
+	t.Helper()
+	cfg := pool.Config().Copy()
+	cfg.AfterConnect = func(ctx context.Context, c *pgx.Conn) error {
+		_, err := c.Exec(ctx, "SET ROLE ratings_player")
+		return err
+	}
+	player, err := pgxpool.NewWithConfig(context.Background(), cfg)
+	if err != nil {
+		t.Fatalf("opening a ratings_player pool: %v", err)
+	}
+	t.Cleanup(player.Close)
+	return player
+}
+
 func day(s string) time.Time {
 	d, err := time.Parse(time.DateOnly, s)
 	if err != nil {
