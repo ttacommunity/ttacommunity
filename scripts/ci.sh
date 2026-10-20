@@ -179,8 +179,10 @@ if need corepack "the web workspace"; then
   cd "$ROOT/infra/access-oidc" || exit 1
   run npm ci --omit=dev --ignore-scripts --no-audit --no-fund --silent
   run npm test
-  # The build notifier's tests need nothing installed.
+  # The build notifier's and the mail forwarder's tests need nothing installed.
   cd "$ROOT/infra/build-notifier" || exit 1
+  run npm test
+  cd "$ROOT/infra/mail-forward" || exit 1
   run npm test
   cd "$ROOT" || exit 1
 fi

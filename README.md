@@ -680,6 +680,15 @@ A new public hostname is added to that rule first.
 `ttac-auth` needs one runtime secret, `DISCORD_CLIENT_SECRET`, set under the
 Worker's Variables and Secrets (not its build variables).
 
+`ttac-mail-forward` (`infra/mail-forward`) is the Email Worker that Email
+Routing's rules for support@ and privacy@ send mail to; it forwards each
+message to every address in its secret `FORWARD_TO` (comma-separated, each a
+verified Email Routing destination). It has no route and no build trigger: a
+maintainer deploys it by hand, from that folder, with `npx wrangler deploy`,
+and sets the secret with `printf %s '<addresses>' | npx wrangler secret put
+FORWARD_TO`. A new address the site gives out is a routing rule to this
+Worker, and a line in its `ROUTED` list.
+
 **`ttac-admin` is only reachable through Cloudflare Access.** Its Access
 application must exist before its domain is declared, and it covers
 `*.admin.ttacommunity.org` before previews are turned on: `dev`'s
