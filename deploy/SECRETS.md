@@ -16,9 +16,27 @@ Pipe values in; never use `--from-literal`, which leaves them in shell history.
 | `ratings-dev-engine` | `database-url` | `engine-dev`, `api-dev`'s `migrate` init container | The dev engine's connection URL, as `ratings_dev`, owner of `ratings_dev` only; the dev api's init container applies the migrations with it |
 | `ratings-dev-api` | `password`, `database-url` | `api-dev`, `scripts/seed-dev-db.sh` | The dev api's read-only `ratings_dev_api` login |
 | `ratings-dev-admin` | `password`, `database-url` | `api-dev` | The dev api's admin login `ratings_dev_admin_api`, a member of `ratings_admin` (writes only what admin edits) |
+| `ratings-dev-player` | `password`, `database-url` | `api-dev` | The dev api's player login `ratings_dev_player_api`, a member of `ratings_player` |
+| `discord-signin` | `client-secret` | `api-dev` | The client secret of the players' Discord application, whose id is `DISCORD_CLIENT_ID` in `api.yaml` (not the Access sign-in Worker's app) |
 | `ttac-api-tunnel` | `credentials.json` | `ttac-api-tunnel` | The `ttac-api` tunnel's credentials (below, "The tunnels") |
 | `ttac-api-dev-tunnel` | `credentials.json` | `ttac-api-dev-tunnel` | The `ttac-api-dev` tunnel's credentials (below) |
-| `ttacommunity-git-auth`, **in `flux-system`** | `username`, `password` | Flux | Reads this repo. Deploy token `flux-git-read`, `read_repository` only |
+| `ttacommunity-github-app`, **in `flux-system`** | `githubAppID`, `githubAppInstallationID`, `githubAppPrivateKey` | Flux | Reads this repo as the GitHub App `ttacommunity-flux` (contents and metadata, read only). The cluster's maintainers hold it |
+
+`gitlab-registry` (registry.gitlab.com) is left from before the move to
+GitHub and used by nothing: delete it.
+
+## If one is lost
+
+None needs keeping in a password manager: each is either made new on a
+rebuild or reissued by the service it comes from.
+
+| Secret | How it comes back |
+|---|---|
+| `ratings-db`, `ratings-engine` | **New on a rebuild**, before the database's first start (below). On the running database, Postgres keeps the old password whatever the Secret says: set a new one with `ALTER ROLE ratings PASSWORD …` inside the pod, then replace both Secrets |
+| `ratings-api`, `ratings-admin`, and the `ratings-dev-*` logins | **New on a rebuild**, or at any time: a new password with `ALTER ROLE`, then the Secret (below) |
+| `discord-signin` | **Reissued** from Discord's developer portal (Reset Secret) |
+| `ttac-api-tunnel`, `ttac-api-dev-tunnel` | **Reissued**: a new tunnel on the Cloudflare account (below, "The tunnels") |
+| `ghcr`, `ttacommunity-github-app` | **Reissued** by the cluster's maintainers, who issued them |
 
 ## Creating them
 
@@ -85,6 +103,44 @@ The api's admin login is made the same way, with `ratings_admin_api` for
 `ratings_dev_admin_api`, `ratings` for `ratings_dev` in the URL, and Secret
 `ratings-admin`. Only listed logins may connect to `ratings`, so its SQL also
 has `GRANT CONNECT ON DATABASE ratings TO ratings_admin_api;`.
+
+### Player sign-in
+
+The player logins are made as the admin ones are. The role `ratings_player`
+is per server, and the migration that grants to it can create it only when
+the migrating login may create roles, so make it here first. For dev:
+
+```sh
+ns=(-n ttacommunity)
+umask 077
+pw=$(openssl rand -hex 24); printf %s "$pw" > /dev/shm/pw
+printf 'postgres://ratings_dev_player_api:%s@ratings-db:5432/ratings_dev?sslmode=disable' "$pw" > /dev/shm/url
+unset pw
+{ cat /dev/shm/pw; echo; cat <<'SQL'; } | kubectl "${ns[@]}" exec -i deploy/ratings-db -- \
+  sh -c 'read -r PW; psql -q -v ON_ERROR_STOP=1 -v pw="$PW" -U ratings -d postgres'
+DO $$ BEGIN CREATE ROLE ratings_player NOLOGIN; EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+DO $$ BEGIN CREATE ROLE ratings_dev_player_api LOGIN; EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+SELECT format('ALTER ROLE ratings_dev_player_api PASSWORD %L', :'pw') \gexec
+GRANT ratings_player TO ratings_dev_player_api;
+SQL
+kubectl "${ns[@]}" create secret generic ratings-dev-player \
+  --from-file=password=/dev/shm/pw --from-file=database-url=/dev/shm/url
+rm /dev/shm/pw /dev/shm/url
+```
+
+Production's is the same with `ratings_player_api`, `ratings` for
+`ratings_dev` in the URL, Secret `ratings-player`, and
+`GRANT CONNECT ON DATABASE ratings TO ratings_player_api;`.
+
+`discord-signin` is the players' application's client secret, from
+Discord's developer portal (the application's OAuth2 page, Reset Secret).
+Its redirects must include each api's `/v1/auth/discord/callback`:
+
+```sh
+read -rsp 'Discord client secret: ' secret; echo
+printf %s "$secret" | kubectl -n ttacommunity create secret generic discord-signin --from-file=client-secret=/dev/stdin
+unset secret
+```
 
 `ghcr` holds a **machine account's classic token with `read:packages` only**
 (a personal token would tie the cluster to one person):
