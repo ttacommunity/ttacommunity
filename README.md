@@ -658,6 +658,7 @@ Build variables, set in each site Worker's build settings:
 |---|---|---|---|
 | `PUBLIC_API_URL` | `ttacommunity`, `ttacommunity-dev` | `https://api.ttacommunity.org`; on `dev`, `https://api-dev.ttacommunity.org` | Where the browser reads ratings, and the CSP's `connect-src`. Sent to the browser, so never a secret |
 | `PUBLIC_ADMIN_URL` | `ttacommunity`, `ttacommunity-dev` | `https://admin.ttacommunity.org`; on `dev`, `https://dev.admin.ttacommunity.org` | Where the header, footer and home page link to admin |
+| `PUBLIC_TURNSTILE_SITEKEY` | `ttacommunity`, `ttacommunity-dev` | `0x4AAAAAAFeTS4FLImf-aXyC` (the widget "ttacommunity email sign-in") | The email form's Turnstile widget. Public. Without it the build uses Cloudflare's test key, whose tokens the api refuses: email sign-in fails closed |
 | `SITE_NOINDEX` | `ttacommunity-dev` | `1` | Adds `X-Robots-Tag: noindex`, so the dev site is never indexed |
 | `NODE_VERSION` | the site Workers and admin | the `node` version in `mise.toml` | The build image's default is older |
 | `PNPM_VERSION` | the site Workers and admin | the pnpm version in `web/package.json` | The build image does not read `packageManager` |

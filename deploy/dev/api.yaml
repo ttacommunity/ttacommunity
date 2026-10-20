@@ -133,6 +133,22 @@ spec:
                 secretKeyRef:
                   name: discord-signin
                   key: client-secret
+            # Email sign-in: Resend sends the links from noreply@, the email names where to write, and
+            # Turnstile guards the form. The api refuses to start with only some of these.
+            - name: EMAIL_FROM
+              value: "TTA Community <noreply@ttacommunity.org>"
+            - name: EMAIL_SUPPORT
+              value: support@ttacommunity.org
+            - name: RESEND_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: email-signin
+                  key: resend-api-key
+            - name: TURNSTILE_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: turnstile-signin
+                  key: secret
           resources:
             requests:
               cpu: 25m

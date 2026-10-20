@@ -19,6 +19,8 @@ Pipe values in; never use `--from-literal`, which leaves them in shell history.
 | `ratings-player` | `password`, `database-url` | `api` | The api's player login `ratings_player_api`, a member of `ratings_player` (sign-ins, sessions, requests to be linked, a member's own country and zone) |
 | `ratings-dev-player` | `password`, `database-url` | `api-dev` | The dev api's player login `ratings_dev_player_api`, a member of `ratings_player` |
 | `discord-signin` | `client-secret` | `api`, `api-dev` | The client secret of the players' Discord application, whose id is `DISCORD_CLIENT_ID` in `api.yaml` (not the Access sign-in Worker's app) |
+| `email-signin` | `resend-api-key` | `api`, `api-dev` | Resend's API key for the sign-in emails: sending access, restricted to ttacommunity.org |
+| `turnstile-signin` | `secret` | `api`, `api-dev` | The secret of the Turnstile widget "ttacommunity email sign-in", whose sitekey is the site's `PUBLIC_TURNSTILE_SITEKEY` (README) |
 | `ttac-api-tunnel` | `credentials.json` | `ttac-api-tunnel` | The `ttac-api` tunnel's credentials (below, "The tunnels") |
 | `ttac-api-dev-tunnel` | `credentials.json` | `ttac-api-dev-tunnel` | The `ttac-api-dev` tunnel's credentials (below) |
 | `ttacommunity-github-app`, **in `flux-system`** | `githubAppID`, `githubAppInstallationID`, `githubAppPrivateKey` | Flux | Reads this repo as the GitHub App `ttacommunity-flux` (contents and metadata, read only). The cluster's maintainers hold it |
@@ -33,6 +35,8 @@ rebuild or reissued by the service it comes from.
 | `ratings-db`, `ratings-engine` | **New on a rebuild**, before the database's first start (below). On the running database, Postgres keeps the old password whatever the Secret says: set a new one with `ALTER ROLE ratings PASSWORD …` inside the pod, then replace both Secrets |
 | `ratings-api`, `ratings-admin`, `ratings-player`, and the `ratings-dev-*` logins | **New on a rebuild**, or at any time: a new password with `ALTER ROLE`, then the Secret (below) |
 | `discord-signin` | **Reissued** from Discord's developer portal (Reset Secret) |
+| `email-signin` | **Reissued**: a new key in Resend's dashboard (API Keys: sending access, domain ttacommunity.org), then delete the old one |
+| `turnstile-signin` | **Reissued**: `cf turnstile widgets rotate-secret <sitekey>`, piped straight into the Secret as below |
 | `ttac-api-tunnel`, `ttac-api-dev-tunnel` | **Reissued**: a new tunnel on the Cloudflare account (below, "The tunnels") |
 | `ghcr`, `ttacommunity-github-app` | **Reissued** by the cluster's maintainers, who issued them |
 
@@ -138,6 +142,25 @@ Its redirects must include each api's `/v1/auth/discord/callback`:
 read -rsp 'Discord client secret: ' secret; echo
 printf %s "$secret" | kubectl -n ttacommunity create secret generic discord-signin --from-file=client-secret=/dev/stdin
 unset secret
+```
+
+`email-signin` is a Resend API key with sending access only, restricted to
+the domain ttacommunity.org (Resend's dashboard, API Keys):
+
+```sh
+read -rsp 'Resend API key: ' key; echo
+printf %s "$key" | kubectl -n ttacommunity create secret generic email-signin --from-file=resend-api-key=/dev/stdin
+unset key
+```
+
+`turnstile-signin` is the Turnstile widget's secret. The widget is made once
+with `cf turnstile widgets create`, hostnames ttacommunity.org and
+dev.ttacommunity.org; a lost secret is rotated. Pipe the answer's `secret`
+straight into the Secret, never to the screen:
+
+```sh
+cf turnstile widgets rotate-secret <sitekey> | python3 -c 'import json,sys; d=json.load(sys.stdin); print(d.get("result", d)["secret"], end="")' \
+  | kubectl -n ttacommunity create secret generic turnstile-signin --from-file=secret=/dev/stdin --dry-run=client -o yaml | kubectl apply -f -
 ```
 
 `ghcr` holds a **machine account's classic token with `read:packages` only**
