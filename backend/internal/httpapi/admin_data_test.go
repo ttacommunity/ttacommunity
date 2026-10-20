@@ -75,7 +75,7 @@ func (*brokenExport) ExportZip(_ context.Context, w io.Writer) error {
 func TestAnExportThatFailsPartWayIsAborted(t *testing.T) {
 	var logs bytes.Buffer
 	requests := &recordedRequests{}
-	srv := httptest.NewServer(NewMux(&fakeRatings{}, &brokenExport{}, slog.New(slog.NewJSONHandler(&logs, nil)), requests, stepClock(time.Millisecond)))
+	srv := httptest.NewServer(NewMux(&fakeRatings{}, &brokenExport{}, nil, slog.New(slog.NewJSONHandler(&logs, nil)), requests, stepClock(time.Millisecond)))
 	req, _ := http.NewRequest(http.MethodGet, srv.URL+"/v1/admin/export", nil)
 	req.Header.Set("Cf-Access-Jwt-Assertion", "good-111111111111111111")
 

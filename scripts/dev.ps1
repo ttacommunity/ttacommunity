@@ -10,8 +10,8 @@ $have = & $names (Join-Path $root '.env')
 $missing = @(& $names (Join-Path $root '.env.example') | Where-Object { $_ -notin $have })
 if ($missing) { Write-Warning "dev.ps1: .env has no $($missing -join ', '), which .env.example sets; copy those lines across" }
 
-# The api's read-only and admin logins, joining the roles migrations 00004
-# and 00029 grant to. Created or updated as the database's owner.
+# The api's read-only, admin and player logins, joining the roles the
+# migrations grant to. Created or updated as the database's owner.
 $sql = @"
 DO `$`$ BEGIN CREATE ROLE ratings_read NOLOGIN; EXCEPTION WHEN duplicate_object THEN NULL; END `$`$;
 DO `$`$ BEGIN CREATE ROLE ratings_api LOGIN; EXCEPTION WHEN duplicate_object THEN NULL; END `$`$;
@@ -21,8 +21,12 @@ DO `$`$ BEGIN CREATE ROLE ratings_admin NOLOGIN; EXCEPTION WHEN duplicate_object
 DO `$`$ BEGIN CREATE ROLE ratings_admin_api LOGIN; EXCEPTION WHEN duplicate_object THEN NULL; END `$`$;
 SELECT format('ALTER ROLE ratings_admin_api PASSWORD %L', :'admin_pw') \gexec
 GRANT ratings_admin TO ratings_admin_api;
+DO `$`$ BEGIN CREATE ROLE ratings_player NOLOGIN; EXCEPTION WHEN duplicate_object THEN NULL; END `$`$;
+DO `$`$ BEGIN CREATE ROLE ratings_player_api LOGIN; EXCEPTION WHEN duplicate_object THEN NULL; END `$`$;
+SELECT format('ALTER ROLE ratings_player_api PASSWORD %L', :'player_pw') \gexec
+GRANT ratings_player TO ratings_player_api;
 "@
-$sql | psql -X -q -v ON_ERROR_STOP=1 -v "read_pw=$env:RATINGS_READ_DB_PASSWORD" -v "admin_pw=$env:RATINGS_ADMIN_DB_PASSWORD" $env:RATINGS_DATABASE_URL
+$sql | psql -X -q -v ON_ERROR_STOP=1 -v "read_pw=$env:RATINGS_READ_DB_PASSWORD" -v "admin_pw=$env:RATINGS_ADMIN_DB_PASSWORD" -v "player_pw=$env:RATINGS_PLAYER_DB_PASSWORD" $env:RATINGS_DATABASE_URL
 if ($LASTEXITCODE -ne 0) { throw 'dev.ps1: could not create the api logins (is the Postgres service running?)' }
 
 $env:COREPACK_ENABLE_DOWNLOAD_PROMPT = '0'

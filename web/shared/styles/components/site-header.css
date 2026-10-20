@@ -145,8 +145,7 @@
   display: block;
 }
 
-.nav-mobile-header,
-.nav-webmaster {
+.nav-mobile-header {
   display: none;
 }
 
@@ -271,11 +270,4 @@
     font-weight: 700;
   }
 
-  .site-header nav .nav-webmaster {
-    display: flex;
-    margin-top: 0.5rem;
-    padding-top: 0.85rem;
-    border-top: 1px dashed var(--border-subtle);
-    color: var(--text-muted);
-  }
 }

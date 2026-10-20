@@ -73,7 +73,7 @@ spec:
       # Applies the ratings migrations before the api starts, as the database's owner (goose's lock serialises pods).
       initContainers:
         - name: migrate
-          image: ghcr.io/ttacommunity/ttacommunity/api:sha-453c662d@sha256:c21d0e10fc3ac3433292b15309d03e2db34144d00bf0ce709ecd77a576ef4044
+          image: ghcr.io/ttacommunity/ttacommunity/api:sha-9fa2f24e@sha256:1241d20c74f5b31927f93c2889e52f27e3ed020cbe506483c745e341a6656184
           args: [-migrate]
           env:
             - name: RATINGS_DATABASE_URL
@@ -94,7 +94,7 @@ spec:
               drop: [ALL]
       containers:
         - name: api
-          image: ghcr.io/ttacommunity/ttacommunity/api:sha-453c662d@sha256:c21d0e10fc3ac3433292b15309d03e2db34144d00bf0ce709ecd77a576ef4044
+          image: ghcr.io/ttacommunity/ttacommunity/api:sha-9fa2f24e@sha256:1241d20c74f5b31927f93c2889e52f27e3ed020cbe506483c745e341a6656184
           ports:
             - name: http
               containerPort: 8080
@@ -124,6 +124,24 @@ spec:
               value: 385c7c2eee5489fc256c2aadfc1299c1a79ce78b9b712523026ffb92bf757f82
             - name: ADMIN_ORIGIN
               value: https://admin.ttacommunity.org
+            # Player sign-in: its login, the site it returns to, this api's public origin for Discord's
+            # callback, and the players' Discord app (not the one Access signs admins in with).
+            - name: RATINGS_PLAYER_DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: ratings-player
+                  key: database-url
+            - name: SITE_ORIGIN
+              value: https://ttacommunity.org
+            - name: API_ORIGIN
+              value: https://api.ttacommunity.org
+            - name: DISCORD_CLIENT_ID
+              value: "1561606415443955752"
+            - name: DISCORD_CLIENT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: discord-signin
+                  key: client-secret
           resources:
             requests:
               cpu: 25m

@@ -19,9 +19,12 @@ export function tabsFor(role: Role): typeof TABS {
   return TABS.filter((t) => role === 'admin' || !t.adminOnly);
 }
 
-/** tabFrom returns the tab the address's hash names, when role sees it, else Tournaments; #runs, now in Data, opens Data. */
+// Tabs folded into others: their old addresses open where they went.
+const MOVED: Record<string, string> = { '#runs': '#data', '#signins': '#members' };
+
+/** tabFrom returns the tab the address's hash names, when role sees it, else Tournaments; #runs opens Data and #signins Members, where they went. */
 export function tabFrom(hash: string, role: Role): TabKey {
-  const named = hash === '#runs' ? '#data' : hash;
+  const named = MOVED[hash] ?? hash;
   return tabsFor(role).find((t) => `#${t.key}` === named)?.key ?? 'tournaments';
 }
 
@@ -32,4 +35,9 @@ export function panelsFor(tab: TabKey, role: Role): Panel[] {
   if (tab === 'data') return role === 'admin' ? ['data', 'runs', 'standings'] : ['data', 'standings'];
   if (tab === 'titles') return ['titles', 'badges'];
   return [tab];
+}
+
+/** tabCounts are the numbers beside tabs: on Members, the requests to be linked waiting for an answer, when there are any. */
+export function tabCounts(waiting: number): Partial<Record<TabKey, number>> {
+  return waiting > 0 ? { members: waiting } : {};
 }

@@ -55,8 +55,9 @@ var ExportTables = []string{
 // and what they did (Discord ids; a new database adds its admins with
 // load -add-admin), the rows a load refused (load history, which no view
 // needs), the community's members (Discord names, emails) and blitz tournaments' editions, entrants, organisers,
-// thread texts, rounds and skips, which reference them.
-var NotExported = []string{"refused_rows", "admins", "admin_audit", "members", "blitz_editions", "blitz_entries", "blitz_organisers", "blitz_thread_texts", "blitz_rounds", "blitz_matches", "blitz_skips"}
+// thread texts, rounds and skips, which reference them, and players' sign-ins, sessions and requests to be linked.
+var NotExported = []string{"refused_rows", "admins", "admin_audit", "members", "blitz_editions", "blitz_entries", "blitz_organisers", "blitz_thread_texts", "blitz_rounds", "blitz_matches", "blitz_skips",
+	"logins", "link_requests", "player_sessions"}
 
 // Manifest describes an export: the schema it was taken at and each table's file.
 type Manifest struct {
@@ -272,14 +273,13 @@ func restoreTable(ctx context.Context, tx pgx.Tx, dir string, t ExportedTable) e
 
 // checkInputTables refuses a database whose input tables (those without a
 // run_id, other than goose's and rating_runs) are not exactly ExportTables
-// and NotExported.
+// and NotExported. It reads the catalog, which lists tables the login cannot read too.
 func checkInputTables(ctx context.Context, tx pgx.Tx) error {
 	rows, err := tx.Query(ctx, `
-		SELECT t.table_name FROM information_schema.tables t
-		WHERE t.table_schema = 'public' AND t.table_type = 'BASE TABLE'
-		  AND t.table_name NOT IN ('goose_db_version', 'rating_runs')
-		  AND NOT EXISTS (SELECT 1 FROM information_schema.columns c
-		                  WHERE c.table_schema = 'public' AND c.table_name = t.table_name AND c.column_name = 'run_id')
+		SELECT c.relname::text FROM pg_class c
+		WHERE c.relnamespace = 'public'::regnamespace AND c.relkind IN ('r', 'p')
+		  AND c.relname NOT IN ('goose_db_version', 'rating_runs')
+		  AND NOT EXISTS (SELECT 1 FROM pg_attribute a WHERE a.attrelid = c.oid AND a.attname = 'run_id' AND NOT a.attisdropped)
 		ORDER BY 1`)
 	if err != nil {
 		return fmt.Errorf("listing input tables: %w", err)
