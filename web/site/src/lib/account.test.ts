@@ -93,6 +93,7 @@ describe('waysIn', () => {
     const got = waysIn(me);
     expect(got.ways.map((w) => w.label)).toEqual(labels);
     expect(got.ways.map((w) => w.removable)).toEqual(removable);
+    expect(got.ways.map((w) => w.changeable)).toEqual(got.ways.map((w) => w.provider === 'email'));
     expect(got.canAdd).toEqual(canAdd);
   });
 });

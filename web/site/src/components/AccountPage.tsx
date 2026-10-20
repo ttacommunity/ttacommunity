@@ -438,10 +438,11 @@ function SaveNotice({ outcome, onClose }: { outcome: SaveOutcome | null; onClose
   );
 }
 
-/** WaysIn lists the ways into the account, each removable while another remains, and adds Discord or an email address. */
+/** WaysIn lists the ways into the account, each removable while another remains, adds Discord or an email address, and changes the email address. */
 function WaysIn({ apiUrl, me, refresh }: { apiUrl: string; me: Me; refresh: () => void }) {
   const { ways, canAdd } = waysIn(me);
   const dialog = useDialog();
+  const [changing, setChanging] = useState(false);
   const [address, setAddress] = useState('');
   const [said, setSaid] = useState<{ ok: boolean; text: string } | null>(null);
   const [busy, setBusy] = useState(false);
@@ -457,8 +458,12 @@ function WaysIn({ apiUrl, me, refresh }: { apiUrl: string; me: Me; refresh: () =
     setBusy(true);
     const done = await addEmail(apiUrl, address);
     setBusy(false);
-    setSaid(done.ok ? { ok: true, text: `Check your inbox: open the link sent to ${address.trim()} within the hour to add it.` } : { ok: false, text: done.message });
-    if (done.ok) setAddress('');
+    const sent = `Check your inbox: open the link sent to ${address.trim()} within the hour to ${changing ? 'change to it' : 'add it'}.`;
+    setSaid(done.ok ? { ok: true, text: sent } : { ok: false, text: done.message });
+    if (done.ok) {
+      setAddress('');
+      setChanging(false);
+    }
   };
   return (
     <div className="account-form">
@@ -468,6 +473,11 @@ function WaysIn({ apiUrl, me, refresh }: { apiUrl: string; me: Me; refresh: () =
         {ways.map((w) => (
           <li key={w.provider} className="account-row">
             <span className="account-way">{w.label}</span>
+            {w.changeable && !changing && (
+              <button type="button" className="btn-antique" onClick={() => setChanging(true)}>
+                Change
+              </button>
+            )}
             {w.removable && (
               <button type="button" className="btn-antique" onClick={() => void remove(w.provider, w.label)}>
                 Remove
@@ -483,10 +493,16 @@ function WaysIn({ apiUrl, me, refresh }: { apiUrl: string; me: Me; refresh: () =
           </a>
         </div>
       )}
-      {canAdd.email && (
+      {(canAdd.email || changing) && (
         <form className="account-form" onSubmit={(e) => void add(e)}>
-          <label htmlFor="account-add-email">Add an email address to enable signing in using email.</label>
-          <p className="account-muted">It also enables Admins and Organisers to contact you for events you sign up for if you don't have Discord.</p>
+          {changing ? (
+            <label htmlFor="account-add-email">Your new email address. We email it a link: opening it changes your address, and the old one stops signing you in.</label>
+          ) : (
+            <>
+              <label htmlFor="account-add-email">Add an email address to enable signing in using email.</label>
+              <p className="account-muted">It also enables Admins and Organisers to contact you for events you sign up for if you don't have Discord.</p>
+            </>
+          )}
           <div className="account-row">
             <input
               id="account-add-email"
@@ -499,8 +515,13 @@ function WaysIn({ apiUrl, me, refresh }: { apiUrl: string; me: Me; refresh: () =
               onChange={(e) => setAddress(e.target.value)}
             />
             <button type="submit" className="btn-antique" disabled={busy || address.trim() === ''}>
-              {busy ? 'Sending…' : 'Email me a link to add it'}
+              {busy ? 'Sending…' : changing ? 'Email me a link to change it' : 'Email me a link to add it'}
             </button>
+            {changing && (
+              <button type="button" className="btn-antique" onClick={() => setChanging(false)}>
+                Cancel
+              </button>
+            )}
           </div>
         </form>
       )}

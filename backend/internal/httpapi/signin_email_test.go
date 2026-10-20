@@ -14,7 +14,7 @@ import (
 )
 
 // The fake's email sign-in: many@ is over its limit, taken@ has an account of its own, bounce@ cannot be mailed;
-// account 9 has Discord alone and an email way in already; Turnstile passes "pass" and cannot be asked for "down".
+// account 9 has Discord alone; Turnstile passes "pass" and cannot be asked for "down".
 
 func (f *fakeSignIns) EmailReady() bool { return !f.emailOff }
 
@@ -24,8 +24,6 @@ func (f *fakeSignIns) NewEmailLink(_ context.Context, address string, account *i
 		return store.ErrTooManyLinks
 	case account != nil && address == "taken@example.test":
 		return store.ErrLoginTaken
-	case account != nil && *account == 9:
-		return store.ErrHasLoginOfKind
 	}
 	f.links[string(hash)] = store.EmailSignIn{Back: back, Added: account != nil}
 	return nil
@@ -188,7 +186,6 @@ func TestAddingAnEmailAsAnotherWayIn(t *testing.T) {
 		{"signed in", `{"email":"Player@example.test"}`, 7, true, http.StatusNoContent, true},
 		{"signed out", `{"email":"player@example.test"}`, 7, false, http.StatusUnauthorized, false},
 		{"an address with an account of its own", `{"email":"taken@example.test"}`, 7, true, http.StatusConflict, false},
-		{"an account with an email already", `{"email":"player@example.test"}`, 9, true, http.StatusConflict, false},
 		{"not an address", `{"email":"player"}`, 7, true, http.StatusBadRequest, false},
 	}
 	for _, tt := range tests {

@@ -239,34 +239,34 @@ func loginNames(a Account) string {
 	return strings.Join(out, " ")
 }
 
-func TestAddingAnEmailIsRefused(t *testing.T) {
-	tests := []struct {
-		name  string
-		setup func(t *testing.T, p *PlayerStore, account int64)
-		want  error
-	}{
-		{"an address with an account of its own", func(t *testing.T, p *PlayerStore, _ int64) {
-			emailSignedIn(t, p, "player@example.test", "other")
-		}, ErrLoginTaken},
-		{"an account that has an email already", func(t *testing.T, p *PlayerStore, account int64) {
-			ctx := context.Background()
-			if err := p.NewEmailLink(ctx, "first@example.test", &account, "/account/", tokenHash("first"), signInAt); err != nil {
-				t.Fatalf("NewEmailLink(first): %v", err)
-			}
-			if _, err := p.UseEmailLink(ctx, tokenHash("first"), tokenHash("first-session"), signInAt); err != nil {
-				t.Fatalf("UseEmailLink(first): %v", err)
-			}
-		}, ErrHasLoginOfKind},
+func TestAddingAnEmailWithAnAccountOfItsOwnIsRefused(t *testing.T) {
+	_, _, p := playersFixture(t)
+	d := signedIn(t, p, discordID("100000000000000001", "player_one", ""), "discord")
+	emailSignedIn(t, p, "player@example.test", "other")
+	if err := p.NewEmailLink(context.Background(), "player@example.test", &d.ID, "/account/", tokenHash("add"), signInAt); !errors.Is(err, ErrLoginTaken) {
+		t.Errorf("NewEmailLink to add an address with its own account = %v, want ErrLoginTaken", err)
 	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			_, _, p := playersFixture(t)
-			d := signedIn(t, p, discordID("100000000000000001", "player_one", ""), "discord")
-			tt.setup(t, p, d.ID)
-			if err := p.NewEmailLink(context.Background(), "player@example.test", &d.ID, "/account/", tokenHash("add"), signInAt); !errors.Is(err, tt.want) {
-				t.Errorf("NewEmailLink to add = %v, want %v", err, tt.want)
-			}
-		})
+}
+
+func TestAPlayerChangesTheirEmailAddress(t *testing.T) {
+	_, _, p := playersFixture(t)
+	ctx := context.Background()
+	old := emailSignedIn(t, p, "old@example.test", "session")
+	if err := p.NewEmailLink(ctx, "new@example.test", &old.ID, "/account/", tokenHash("change"), signInAt); err != nil {
+		t.Fatalf("NewEmailLink to change: %v", err)
+	}
+	if _, err := p.UseEmailLink(ctx, tokenHash("change"), tokenHash("new-session"), signInAt); err != nil {
+		t.Fatalf("UseEmailLink to change: %v", err)
+	}
+	kept, err := p.Session(ctx, tokenHash("session"), signInAt)
+	if err != nil || kept.ID != old.ID || loginNames(kept) != "email:new@example.test" {
+		t.Errorf("the first session after the change = %+v, %v; want account %d by new@ alone", kept, err, old.ID)
+	}
+	if again := emailSignedIn(t, p, "new@example.test", "later"); again.ID != old.ID {
+		t.Errorf("signing in by the new address: account %d, want %d", again.ID, old.ID)
+	}
+	if other := emailSignedIn(t, p, "old@example.test", "old-again"); other.ID == old.ID {
+		t.Errorf("signing in by the old address reached account %d, want a new account", other.ID)
 	}
 }
 

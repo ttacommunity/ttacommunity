@@ -58,15 +58,15 @@ export function signedInAs(me: Me): { heading: string; detail: string } {
   return { heading: `Signed in with Discord as ${me.display_name || me.username}`, detail: me.display_name === '' ? '' : `Discord username: ${me.username}` };
 }
 
-/** WayIn is one way into the account as the page lists it, and whether it may be removed: only while another remains. */
-export type WayIn = { provider: Provider; label: string; removable: boolean };
+/** WayIn is one way into the account as the page lists it, whether it may be removed (only while another remains), and whether it may be changed (an email address, for a new one). */
+export type WayIn = { provider: Provider; label: string; removable: boolean; changeable: boolean };
 
 /** waysIn lists the account's ways in, and which kinds may be added. */
 export function waysIn(me: Me): { ways: WayIn[]; canAdd: Record<Provider, boolean> } {
   const removable = me.logins.length > 1;
   const ways = me.logins.map((l) => {
     const name = l.display_name === '' || l.display_name === l.username ? l.username : `${l.username} (${l.display_name})`;
-    return { provider: l.provider, label: `${l.provider === 'discord' ? 'Discord' : 'Email'}: ${name}`, removable };
+    return { provider: l.provider, label: `${l.provider === 'discord' ? 'Discord' : 'Email'}: ${name}`, removable, changeable: l.provider === 'email' };
   });
   const has = (p: Provider) => me.logins.some((l) => l.provider === p);
   return { ways, canAdd: { discord: !has('discord'), email: !has('email') } };
@@ -121,7 +121,7 @@ export function signInNotice(params: URLSearchParams): SignInNotice | null {
     case 'added':
       return { kind: 'added', text: 'Discord is added: you can sign in with it from now on.' };
     case 'email-added':
-      return { kind: 'added', text: 'Your email address is added: you can sign in with a link sent to it from now on.' };
+      return { kind: 'added', text: 'Your email address is saved: you can sign in with a link sent to it from now on.' };
     case 'taken':
       return {
         kind: 'failed',
@@ -299,7 +299,7 @@ export function saveOutcome(asked: Done | null, details: Done | null): SaveOutco
   return refused('Nothing to save.');
 }
 
-/** addEmail emails a link that adds the address to the signed-in player's account. */
+/** addEmail emails a link that adds the address to the signed-in player's account, in place of any it has. */
 export function addEmail(base: string, email: string, fetchFn: typeof fetch = fetch): Promise<Done> {
   return change(fetchFn, base, 'POST', '/v1/me/logins/email', { email: email.trim() });
 }

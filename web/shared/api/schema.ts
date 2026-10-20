@@ -896,8 +896,8 @@ export interface paths {
          * Open an emailed link
          * @description Posted by the site's /account/email/ page with the link's token, when
          *     the player asks: a mail scanner opening the link spends nothing. The
-         *     link signs in by its address, or adds it to the account it was sent
-         *     for, and a session starts as for Discord. A first sign-in, an
+         *     link signs in by its address, or adds it to (or changes it on) the
+         *     account it was sent for, and a session starts as for Discord. A first sign-in, an
          *     address linked to the one member whose recorded email it is, and a
          *     banned member are as for Discord. The Origin must be the site.
          */
@@ -1015,12 +1015,12 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Email a link that adds the address as another way in
+         * Email a link that adds the address as a way in, or changes the account's address
          * @description For a signed-in player, linked or not. Opening the link adds the
-         *     address to their account, with no new approval. Refused for an
-         *     address that has an account of its own here, or when the account has
-         *     an email way in already (remove it first). The limits are the
-         *     sign-in links'. The Origin must be the site.
+         *     address to their account, with no new approval, or puts it in place
+         *     of the address the account had; its sessions stay signed in. Refused
+         *     for an address that has an account of its own here. The limits are
+         *     the sign-in links'. The Origin must be the site.
          */
         post: operations["postMyEmailLogin"];
         delete?: never;

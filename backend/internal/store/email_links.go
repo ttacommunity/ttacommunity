@@ -35,7 +35,7 @@ var ErrLinkNotValid = errors.New("the link has expired or has been used")
 // ErrLoginTaken means the way in belongs to another account.
 var ErrLoginTaken = errors.New("that way in has an account of its own")
 
-// ErrHasLoginOfKind means the account has a way in of that kind already.
+// ErrHasLoginOfKind means the account has another Discord account already.
 var ErrHasLoginOfKind = errors.New("the account has a way in of that kind already")
 
 // EmailSignIn is what opening a link did: a first sign-in, or an address added to an account, and the site path
@@ -56,9 +56,9 @@ func EmailAddress(s string) (string, error) {
 }
 
 // NewEmailLink records a link to address, whose token hashes to tokenHash, sent at now and opened within the hour,
-// coming back to back: to sign in, or with account set to add the address to it. It replaces any link to the
-// address not yet used, and forgets links over two days old. It returns ErrBadAddress, ErrTooManyLinks, or, to
-// add, ErrLoginTaken or ErrHasLoginOfKind.
+// coming back to back: to sign in, or with account set to add the address to it, in place of any it has. It
+// replaces any link to the address not yet used, and forgets links over two days old. It returns ErrBadAddress,
+// ErrTooManyLinks, or, to add, ErrLoginTaken.
 func (s *PlayerStore) NewEmailLink(ctx context.Context, address string, account *int64, back string, tokenHash []byte, now time.Time) error {
 	address, err := EmailAddress(address)
 	if err != nil {
@@ -98,9 +98,9 @@ func (s *PlayerStore) NewEmailLink(ctx context.Context, address string, account 
 	})
 }
 
-// UseEmailLink opens the link whose token hashes to linkHash at now, once: it signs in by its address, or adds the
+// UseEmailLink opens the link whose token hashes to linkHash at now, once: it signs in by its address, or gives the
 // address to the account it was sent for, and starts a session whose token hashes to sessionHash. It returns
-// ErrLinkNotValid, or, to add, ErrLoginTaken or ErrHasLoginOfKind.
+// ErrLinkNotValid, or, to add, ErrLoginTaken.
 func (s *PlayerStore) UseEmailLink(ctx context.Context, linkHash, sessionHash []byte, now time.Time) (EmailSignIn, error) {
 	var out EmailSignIn
 	err := pgx.BeginFunc(ctx, s.pool, func(tx pgx.Tx) error {

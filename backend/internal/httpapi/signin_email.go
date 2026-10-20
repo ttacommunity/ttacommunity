@@ -22,7 +22,6 @@ const (
 	linkOK linkSent = iota
 	linkTooMany
 	linkTaken
-	linkHasKind
 	linkNotSent
 )
 
@@ -35,8 +34,6 @@ func (s *server) sendLink(ctx context.Context, address string, account *int64, b
 		return linkTooMany, nil
 	case errors.Is(err, store.ErrLoginTaken):
 		return linkTaken, nil
-	case errors.Is(err, store.ErrHasLoginOfKind):
-		return linkHasKind, nil
 	case err != nil:
 		return 0, err
 	}
@@ -59,7 +56,6 @@ const (
 	emailNotSetUp = "signing in by email is not set up here"
 	emailNotSent  = "the email could not be sent: try again later"
 	takenMessage  = "that email address has an account of its own here: sign in with it and delete that account, then add it"
-	hasKindEmail  = "your account has an email address already: remove it first"
 )
 
 func (s *server) SendEmailSignIn(ctx context.Context, req SendEmailSignInRequestObject) (SendEmailSignInResponseObject, error) {
@@ -119,8 +115,6 @@ func (s *server) FinishEmailSignIn(ctx context.Context, req FinishEmailSignInReq
 		return FinishEmailSignIn410JSONResponse{Body: Error{Error: err.Error()}, Headers: FinishEmailSignIn410ResponseHeaders{CacheControl: cacheNone}}, nil
 	case errors.Is(err, store.ErrLoginTaken):
 		return FinishEmailSignIn409JSONResponse{conflict409(takenMessage)}, nil
-	case errors.Is(err, store.ErrHasLoginOfKind):
-		return FinishEmailSignIn409JSONResponse{conflict409(hasKindEmail)}, nil
 	case err != nil:
 		return nil, err
 	}
@@ -157,8 +151,6 @@ func (s *server) PostMyEmailLogin(ctx context.Context, req PostMyEmailLoginReque
 		return PostMyEmailLogin429JSONResponse{tooMany429()}, nil
 	case sent == linkTaken:
 		return PostMyEmailLogin409JSONResponse{conflict409(takenMessage)}, nil
-	case sent == linkHasKind:
-		return PostMyEmailLogin409JSONResponse{conflict409(hasKindEmail)}, nil
 	case sent == linkNotSent:
 		return PostMyEmailLogin503JSONResponse{notSetUp503(emailNotSent)}, nil
 	}

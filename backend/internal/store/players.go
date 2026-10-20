@@ -222,14 +222,15 @@ func newLogin(ctx context.Context, tx pgx.Tx, id Identity, now time.Time) (login
 	return login, account, nil
 }
 
-// canAddLogin returns ErrLoginTaken when id signs in to another account, or ErrHasLoginOfKind when account has a
-// way in of id's kind already. Adding id again to its own account is no error.
+// canAddLogin returns ErrLoginTaken when id signs in to another account, or ErrHasLoginOfKind when account has
+// another Discord account. Adding id again to its own account is no error, and a new email address replaces the
+// account's old one.
 func canAddLogin(ctx context.Context, tx pgx.Tx, account int64, id Identity) error {
 	var owner *int64
 	var hasKind bool
 	err := tx.QueryRow(ctx, `
 		SELECT (SELECT account_id FROM logins WHERE provider = $2 AND subject = $3),
-			EXISTS (SELECT FROM logins WHERE account_id = $1 AND provider = $2 AND subject <> $3)`,
+			EXISTS (SELECT FROM logins WHERE account_id = $1 AND provider = $2 AND subject <> $3 AND provider <> 'email')`,
 		account, id.Provider, id.Subject).Scan(&owner, &hasKind)
 	if err != nil {
 		return fmt.Errorf("checking a way in to add: %w", err)
@@ -243,8 +244,8 @@ func canAddLogin(ctx context.Context, tx pgx.Tx, account int64, id Identity) err
 	return nil
 }
 
-// addLogin adds id to account at now as another way in, linking the account by it as SignIn does, and returns the
-// login. It returns ErrLoginTaken or ErrHasLoginOfKind.
+// addLogin adds id to account at now as another way in, or for an email address in place of the account's old one,
+// linking the account by it as SignIn does, and returns the login. It returns ErrLoginTaken or ErrHasLoginOfKind.
 func addLogin(ctx context.Context, tx pgx.Tx, account int64, id Identity, now time.Time) (int64, error) {
 	if _, err := tx.Exec(ctx, "SELECT FROM accounts WHERE account_id = $1 FOR UPDATE", account); err != nil {
 		return 0, fmt.Errorf("reading an account: %w", err)
@@ -253,6 +254,16 @@ func addLogin(ctx context.Context, tx pgx.Tx, account int64, id Identity, now ti
 		return 0, err
 	}
 	var login int64
+	if id.Provider == "email" {
+		err := tx.QueryRow(ctx, "UPDATE logins SET subject = $2, username = $2 WHERE account_id = $1 AND provider = 'email' RETURNING login_id",
+			account, id.Subject).Scan(&login)
+		if err == nil {
+			return login, autoLink(ctx, tx, account, id, now)
+		}
+		if !errors.Is(err, pgx.ErrNoRows) {
+			return 0, fmt.Errorf("changing an email address: %w", err)
+		}
+	}
 	err := tx.QueryRow(ctx, `
 		INSERT INTO logins (account_id, provider, subject, username, display_name, created_at, signed_in_at)
 		VALUES ($1, $2, $3, $4, $5, $6, $6)

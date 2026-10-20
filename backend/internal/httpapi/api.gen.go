@@ -4165,7 +4165,7 @@ type ServerInterface interface {
 	// PutMyLinkRequest Ask to be linked to a TTA username
 	// (PUT /v1/me/link-request)
 	PutMyLinkRequest(w http.ResponseWriter, r *http.Request)
-	// PostMyEmailLogin Email a link that adds the address as another way in
+	// PostMyEmailLogin Email a link that adds the address as a way in, or changes the account's address
 	// (POST /v1/me/logins/email)
 	PostMyEmailLogin(w http.ResponseWriter, r *http.Request)
 	// DeleteMyLogin Remove one of your ways in
@@ -16965,7 +16965,7 @@ type StrictServerInterface interface {
 	// PutMyLinkRequest Ask to be linked to a TTA username
 	// (PUT /v1/me/link-request)
 	PutMyLinkRequest(ctx context.Context, request PutMyLinkRequestRequestObject) (PutMyLinkRequestResponseObject, error)
-	// PostMyEmailLogin Email a link that adds the address as another way in
+	// PostMyEmailLogin Email a link that adds the address as a way in, or changes the account's address
 	// (POST /v1/me/logins/email)
 	PostMyEmailLogin(ctx context.Context, request PostMyEmailLoginRequestObject) (PostMyEmailLoginResponseObject, error)
 	// DeleteMyLogin Remove one of your ways in
