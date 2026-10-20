@@ -345,6 +345,15 @@ func (s *server) GetHealthz(context.Context, GetHealthzRequestObject) (GetHealth
 	return GetHealthz200JSONResponse{Status: "ok"}, nil
 }
 
+// robotsTxt keeps crawlers off the player routes, which every crawled player
+// page calls several times; the site's pages stay crawlable.
+const robotsTxt = "User-agent: *\nDisallow: /v1/runs/*/players/\n"
+
+// GetRobotsTxt answers the rules for search crawlers.
+func (s *server) GetRobotsTxt(context.Context, GetRobotsTxtRequestObject) (GetRobotsTxtResponseObject, error) {
+	return GetRobotsTxt200TextResponse{Body: robotsTxt, Headers: GetRobotsTxt200ResponseHeaders{CacheControl: cacheRun}}, nil
+}
+
 // GetReadyz reports whether the ratings database answers, without saying why
 // it does not.
 func (s *server) GetReadyz(ctx context.Context, _ GetReadyzRequestObject) (GetReadyzResponseObject, error) {

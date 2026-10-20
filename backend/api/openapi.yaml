@@ -19,6 +19,20 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Health"
+  /robots.txt:
+    get:
+      operationId: getRobotsTxt
+      summary: Rules for search crawlers, which keep them off the player routes
+      responses:
+        "200":
+          description: The robots.txt file
+          headers:
+            Cache-Control:
+              $ref: "#/components/headers/CacheControl"
+          content:
+            text/plain:
+              schema:
+                type: string
   /readyz:
     get:
       operationId: getReadyz
