@@ -70,6 +70,10 @@ scripts/ci.sh            # everything CI runs, in CI's order
   `127.0.0.1:…`, and it is not in Kubernetes. Add the admin once:
   `go run ./cmd/load -add-admin 100000000000000001 -name "Local admin" -role admin`.
   An older `.env` may say `API_ADDR=:8080`: change it to `127.0.0.1:8080`
+- **Player sign-in in local dev**: with `DISCORD_DEV_USER` set in `.env`,
+  "Sign in with Discord" on the site signs you in at once as that invented
+  Discord account, with no Discord app. The api refuses it on the same
+  terms as `ADMIN_DEV_USER`, and when `DISCORD_CLIENT_ID` is set
 - **A local database from before 2026-10-06** (schema numbered past 1) does
   not take the new schema: rebuild it from the baseline (README, "Rebuild a
   database from scratch")

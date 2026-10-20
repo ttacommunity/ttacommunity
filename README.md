@@ -124,7 +124,10 @@ admin, and the token `dev-<id>` is admin `<id>` (to try another role). Add
 that admin once, `go run ./cmd/load -add-admin 100000000000000001 -name
 "Local admin" -role admin`. The api refuses `ADMIN_DEV_USER` unless
 `ADMIN_ORIGIN` and `API_ADDR` are `127.0.0.1` and it runs outside
-Kubernetes, so it can never open a deployed admin.
+Kubernetes, so it can never open a deployed admin. `DISCORD_DEV_USER` does
+the same for players' sign-in: "Sign in with Discord" signs you in at once
+as that invented Discord account, with no Discord app. The api refuses it
+on the same terms, and when a Discord app is set.
 
 ### 5. Test it
 

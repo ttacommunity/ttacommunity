@@ -39,6 +39,13 @@ services:
       ACCESS_TEAM: ${ACCESS_TEAM:?set ACCESS_TEAM in .env}
       ACCESS_AUD: ${ACCESS_AUD:?set ACCESS_AUD in .env}
       ADMIN_ORIGIN: ${ADMIN_ORIGIN:?set ADMIN_ORIGIN in .env}
+      RATINGS_PLAYER_DATABASE_URL: postgres://ratings_player_api:${RATINGS_PLAYER_DB_PASSWORD:?set RATINGS_PLAYER_DB_PASSWORD in .env}@ratings-db:5432/ratings?sslmode=disable
+      SITE_ORIGIN: ${SITE_ORIGIN:?set SITE_ORIGIN in .env}
+      API_ORIGIN: ${API_ORIGIN:?set API_ORIGIN in .env}
+      # The Discord stand-in is for native runs only: here, a Discord app from .env, or a placeholder that starts the
+      # api with sign-in failing at Discord.
+      DISCORD_CLIENT_ID: ${DISCORD_CLIENT_ID:-100000000000000099}
+      DISCORD_CLIENT_SECRET: ${DISCORD_CLIENT_SECRET:-local-only-no-discord-app}
       APP_DATABASE_URL: postgres://app:${APP_DB_PASSWORD}@app-db:5432/app?sslmode=disable
     ports: ["127.0.0.1:8080:8080", "127.0.0.1:8081:8081"]
     depends_on:
