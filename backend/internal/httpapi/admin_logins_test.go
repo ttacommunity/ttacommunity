@@ -32,7 +32,7 @@ func (f *fakeAdmins) ApproveLink(_ context.Context, request int64, _ time.Time) 
 		f.notes = append(f.notes, "approve 20")
 		return store.LinkApproved{Member: "Bob", Created: true}, nil
 	case 22:
-		return store.LinkApproved{}, store.ErrMemberHasLogin
+		return store.LinkApproved{}, store.ErrMemberHasAccount
 	}
 	return store.LinkApproved{}, store.ErrNoRequest
 }

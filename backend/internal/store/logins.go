@@ -1,5 +1,5 @@
-// Admin's side of player sign-in: the logins with their pending requests, approving or refusing a request, and
-// unlinking or removing a login. The player's side is in players.go.
+// Admin's side of player sign-in: the logins with their accounts' pending requests, approving or refusing a request,
+// and unlinking a login's account or removing a login. The player's side is in players.go.
 package store
 
 import (
@@ -15,8 +15,8 @@ import (
 	"ttacommunity/backend/internal/blitz"
 )
 
-// LoginRow is a login as admin lists it: where it signs in and its names there, the member it is linked to and
-// how, when it last signed in, and its pending request.
+// LoginRow is a login as admin lists it: where it signs in and its names there, the member its account is linked
+// to and how, when it last signed in, and its account's pending request.
 type LoginRow struct {
 	ID          int64
 	Provider    string
@@ -26,13 +26,13 @@ type LoginRow struct {
 	Member      string
 	LinkedHow   string
 	SignedInAt  time.Time
-	// AutoLink is off once an admin unlinked it: it is not linked by Discord name again.
+	// AutoLink is off once an admin unlinked its account: it is not linked by Discord name again.
 	AutoLink bool
 	Request  *PendingRequest
 	Refused  *RefusedRequest
 }
 
-// RefusedRequest is a login's last request when it was refused and nothing has followed: no new request, no link.
+// RefusedRequest is an account's last request when it was refused and nothing has followed: no new request, no link.
 type RefusedRequest struct {
 	Name   string
 	Reason string
@@ -64,25 +64,26 @@ var ErrNoRequest = errors.New("no such request waiting")
 // ErrNoLogin means no login has that id.
 var ErrNoLogin = errors.New("no such login")
 
-// ErrMemberHasLogin means the member is linked to another login of the same kind.
-var ErrMemberHasLogin = errors.New("the member already has a login of that kind")
+// ErrMemberHasAccount means another account is linked to the member.
+var ErrMemberHasAccount = errors.New("the member is linked to another account")
 
 // ErrBadReason means a refusal's reason is over 500 characters.
 var ErrBadReason = errors.New("a reason has at most 500 characters")
 
 // Logins lists every login: those not linked with a pending request first, oldest request first, then by username.
-// A request made before its login was linked by Discord name no longer waits.
+// A request made before its account was linked by Discord name no longer waits.
 func (a *AdminStore) Logins(ctx context.Context) ([]LoginRow, error) {
 	rows, err := a.pool.Query(ctx, `
-		SELECT l.login_id, l.provider, l.username, l.display_name, l.member_id, coalesce(m.tta_name, ''),
-			coalesce(l.linked_how, ''), l.signed_in_at, l.auto_link, r.request_id, r.tta_name, r.requested_at,
-			coalesce(l.country_code, ''), coalesce(l.zone, ''), last.tta_name, last.reason
+		SELECT l.login_id, l.provider, l.username, l.display_name, a.member_id, coalesce(m.tta_name, ''),
+			coalesce(a.linked_how, ''), l.signed_in_at, a.auto_link, r.request_id, r.tta_name, r.requested_at,
+			coalesce(a.country_code, ''), coalesce(a.zone, ''), last.tta_name, last.reason
 		FROM logins l
-		LEFT JOIN members m ON m.member_id = l.member_id
-		LEFT JOIN link_requests r ON r.login_id = l.login_id AND r.status = 'pending' AND l.member_id IS NULL
+		JOIN accounts a USING (account_id)
+		LEFT JOIN members m ON m.member_id = a.member_id
+		LEFT JOIN link_requests r ON r.account_id = a.account_id AND r.status = 'pending' AND a.member_id IS NULL
 		LEFT JOIN LATERAL (SELECT tta_name, reason, status FROM link_requests
-		                   WHERE login_id = l.login_id ORDER BY request_id DESC LIMIT 1) last
-		       ON last.status = 'refused' AND l.member_id IS NULL
+		                   WHERE account_id = a.account_id ORDER BY request_id DESC LIMIT 1) last
+		       ON last.status = 'refused' AND a.member_id IS NULL
 		ORDER BY r.requested_at NULLS LAST, lower(l.username), l.login_id`)
 	if err != nil {
 		return nil, fmt.Errorf("listing logins: %w", err)
@@ -142,19 +143,20 @@ func namedMember(ctx context.Context, c conn, name string) (Member, bool, error)
 	return m, true, nil
 }
 
-// ApproveLink links a pending request's login, at now, to the member its name names, adding that member (with the
-// login's Discord name, zone Unknown) when there is none, and moves the country and zone the player gave to it. It returns ErrNoRequest, ErrAlreadyLinked,
-// or ErrMemberHasLogin when the member is linked to another login of the same kind.
+// ApproveLink links a pending request's account, at now, to the member its name names, adding that member (with
+// the account's Discord name, zone Unknown) when there is none, and moves the country and zone the player gave to it.
+// It returns ErrNoRequest, ErrAlreadyLinked, or ErrMemberHasAccount when another account is linked to the member.
 func (a *AdminStore) ApproveLink(ctx context.Context, request int64, now time.Time) (LinkApproved, error) {
 	var out LinkApproved
 	err := pgx.BeginFunc(ctx, a.pool, func(tx pgx.Tx) error {
-		var login int64
-		var name, provider, username string
+		var account int64
+		var name, discordName string
 		var linked bool
 		err := tx.QueryRow(ctx, `
-			SELECT r.login_id, r.tta_name, l.provider, l.username, l.member_id IS NOT NULL
-			FROM link_requests r JOIN logins l USING (login_id)
-			WHERE r.request_id = $1 AND r.status = 'pending' FOR UPDATE OF r, l`, request).Scan(&login, &name, &provider, &username, &linked)
+			SELECT r.account_id, r.tta_name, coalesce(d.username, ''), a.member_id IS NOT NULL
+			FROM link_requests r JOIN accounts a USING (account_id)
+			LEFT JOIN logins d ON d.account_id = a.account_id AND d.provider = 'discord'
+			WHERE r.request_id = $1 AND r.status = 'pending' FOR UPDATE OF r, a`, request).Scan(&account, &name, &discordName, &linked)
 		if errors.Is(err, pgx.ErrNoRows) {
 			return ErrNoRequest
 		}
@@ -169,10 +171,7 @@ func (a *AdminStore) ApproveLink(ctx context.Context, request int64, now time.Ti
 			return err
 		}
 		if !found {
-			add := Member{Name: name, Zone: blitz.Unknown}
-			if provider == "discord" {
-				add.DiscordName = username
-			}
+			add := Member{Name: name, DiscordName: discordName, Zone: blitz.Unknown}
 			if !validMember(&add) {
 				return ErrBadMember
 			}
@@ -185,16 +184,16 @@ func (a *AdminStore) ApproveLink(ctx context.Context, request int64, now time.Ti
 			out.Created = true
 		}
 		var taken bool
-		if err := tx.QueryRow(ctx, "SELECT EXISTS (SELECT FROM logins WHERE member_id = $1 AND provider = $2)", m.ID, provider).Scan(&taken); err != nil {
-			return fmt.Errorf("checking the member's logins: %w", err)
+		if err := tx.QueryRow(ctx, "SELECT EXISTS (SELECT FROM accounts WHERE member_id = $1)", m.ID).Scan(&taken); err != nil {
+			return fmt.Errorf("checking the member's account: %w", err)
 		}
 		if taken {
-			return ErrMemberHasLogin
+			return ErrMemberHasAccount
 		}
-		if _, err := tx.Exec(ctx, "UPDATE logins SET member_id = $2, linked_how = 'approved', linked_at = $3 WHERE login_id = $1", login, m.ID, now); err != nil {
-			return fmt.Errorf("linking a login: %w", err)
+		if _, err := tx.Exec(ctx, "UPDATE accounts SET member_id = $2, linked_how = 'approved', linked_at = $3 WHERE account_id = $1", account, m.ID, now); err != nil {
+			return fmt.Errorf("linking an account: %w", err)
 		}
-		if err := moveLoginDetails(ctx, tx, login); err != nil {
+		if err := moveAccountDetails(ctx, tx, account); err != nil {
 			return err
 		}
 		if _, err := tx.Exec(ctx, "UPDATE link_requests SET status = 'approved', decided_at = $2 WHERE request_id = $1", request, now); err != nil {
@@ -224,10 +223,12 @@ func (a *AdminStore) RefuseLink(ctx context.Context, request int64, reason strin
 	return nil
 }
 
-// UnlinkLogin takes a login's member away, keeping the sign-in, and stops it being linked by Discord name again.
-// It returns ErrNoLogin.
+// UnlinkLogin takes the member away from a login's account, keeping its sign-ins, and stops it being linked by
+// Discord name again. It returns ErrNoLogin.
 func (a *AdminStore) UnlinkLogin(ctx context.Context, login int64) error {
-	tag, err := a.pool.Exec(ctx, "UPDATE logins SET member_id = NULL, linked_how = NULL, linked_at = NULL, auto_link = false WHERE login_id = $1", login)
+	tag, err := a.pool.Exec(ctx, `
+		UPDATE accounts SET member_id = NULL, linked_how = NULL, linked_at = NULL, auto_link = false
+		WHERE account_id = (SELECT account_id FROM logins WHERE login_id = $1)`, login)
 	if err != nil {
 		return fmt.Errorf("unlinking a login: %w", err)
 	}
@@ -237,14 +238,21 @@ func (a *AdminStore) UnlinkLogin(ctx context.Context, login int64) error {
 	return nil
 }
 
-// RemoveLogin deletes a login with its sessions and requests. It returns ErrNoLogin.
+// RemoveLogin deletes a login with its sessions, and its account with the account's requests when no other login
+// is left in it. It returns ErrNoLogin.
 func (a *AdminStore) RemoveLogin(ctx context.Context, login int64) error {
-	tag, err := a.pool.Exec(ctx, "DELETE FROM logins WHERE login_id = $1", login)
-	if err != nil {
-		return fmt.Errorf("removing a login: %w", err)
-	}
-	if tag.RowsAffected() == 0 {
-		return ErrNoLogin
-	}
-	return nil
+	return pgx.BeginFunc(ctx, a.pool, func(tx pgx.Tx) error {
+		var account int64
+		err := tx.QueryRow(ctx, "DELETE FROM logins WHERE login_id = $1 RETURNING account_id", login).Scan(&account)
+		if errors.Is(err, pgx.ErrNoRows) {
+			return ErrNoLogin
+		}
+		if err != nil {
+			return fmt.Errorf("removing a login: %w", err)
+		}
+		if _, err := tx.Exec(ctx, "DELETE FROM accounts a WHERE account_id = $1 AND NOT EXISTS (SELECT FROM logins WHERE account_id = a.account_id)", account); err != nil {
+			return fmt.Errorf("removing an empty account: %w", err)
+		}
+		return nil
+	})
 }

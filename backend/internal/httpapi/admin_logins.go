@@ -40,7 +40,7 @@ func (s *server) PutAdminLinkApproval(ctx context.Context, req PutAdminLinkAppro
 	switch {
 	case errors.Is(err, store.ErrNoRequest):
 		return PutAdminLinkApproval404JSONResponse{notFound404("no such request waiting for an answer")}, nil
-	case errors.Is(err, store.ErrAlreadyLinked), errors.Is(err, store.ErrMemberHasLogin),
+	case errors.Is(err, store.ErrAlreadyLinked), errors.Is(err, store.ErrMemberHasAccount),
 		errors.Is(err, store.ErrBadMember):
 		return PutAdminLinkApproval409JSONResponse{conflict409(err.Error())}, nil
 	case err != nil:

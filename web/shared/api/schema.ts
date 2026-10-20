@@ -894,11 +894,11 @@ export interface paths {
         post?: never;
         /**
          * Delete the signed-in player's account
-         * @description Deletes their sign-in, every session and every request to be
-         *     linked, clears the Discord name, country and time zone of the member
-         *     they are linked to (so a new sign-in is not linked by that name), and
-         *     signs this browser out. The member, their games and
-         *     ratings stay. Audited by ids alone. The Origin must be the site.
+         * @description Deletes their account, every way they sign in, every session and
+         *     every request to be linked, clears the Discord name, country and time
+         *     zone of the member they are linked to (so a new sign-in is not linked
+         *     by that name), and signs this browser out. The member, their games
+         *     and ratings stay. Audited by ids alone. The Origin must be the site.
          */
         delete: operations["deleteMe"];
         options?: never;
@@ -2141,8 +2141,10 @@ export interface paths {
         put?: never;
         post?: never;
         /**
-         * Remove a sign-in, its sessions and requests (admins only)
-         * @description Audited. The Origin must be the admin site. The player is signed out everywhere.
+         * Remove a sign-in and its sessions, and its account when no other sign-in is left (admins only)
+         * @description Audited. The Origin must be the admin site. The player is signed out
+         *     of every session this sign-in started. Removing an account's last
+         *     sign-in removes the account and its requests.
          */
         delete: operations["deleteAdminLogin"];
         options?: never;
@@ -2162,8 +2164,9 @@ export interface paths {
         post?: never;
         /**
          * Unlink a sign-in from its member (admins and organisers)
-         * @description Audited. The Origin must be the admin site. The player stays signed
-         *     in, unlinked, and is not linked by Discord name again.
+         * @description Audited. The Origin must be the admin site. Unlinks the account the
+         *     sign-in belongs to: the player stays signed in, unlinked, and is not
+         *     linked by Discord name again.
          */
         delete: operations["deleteAdminLoginMember"];
         options?: never;
@@ -2184,8 +2187,8 @@ export interface paths {
          * @description Audited. The Origin must be the admin site. The sign-in is linked to
          *     the member the name names, by username in any case or by the CGE
          *     account or ratings player of that name; a name no member has becomes
-         *     a member. Refused for a member linked to another sign-in of the same
-         *     kind. A banned member may be linked: the ban keeps them out of events.
+         *     a member. Refused for a member linked to another account. A banned
+         *     member may be linked: the ban keeps them out of events.
          */
         put: operations["putAdminLinkApproval"];
         post?: never;

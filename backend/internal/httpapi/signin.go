@@ -20,11 +20,11 @@ import (
 	"ttacommunity/backend/internal/store"
 )
 
-// SignIns signs players in with Discord and keeps their sessions, members and requests.
+// SignIns signs players in with Discord and keeps their accounts, sessions, members and requests.
 type SignIns interface {
 	// SignIn reports whether this was the account's first sign-in.
 	SignIn(ctx context.Context, id store.Identity, tokenHash []byte, now time.Time) (bool, error)
-	Session(ctx context.Context, tokenHash []byte, now time.Time) (store.Login, error)
+	Session(ctx context.Context, tokenHash []byte, now time.Time) (store.Account, error)
 	SignOut(ctx context.Context, tokenHash []byte) error
 	// DeleteAccount deletes the account whose session hashes to tokenHash; an ended session is store.ErrNoSession.
 	DeleteAccount(ctx context.Context, tokenHash []byte, now time.Time) error
@@ -59,7 +59,7 @@ func fetchedBySite(path string) bool {
 
 type (
 	sessionKey struct{}
-	loginKey   struct{}
+	accountKey struct{}
 	flowKey    struct{}
 )
 
@@ -127,15 +127,15 @@ func signInGate(next http.Handler, signIns SignIns, now func() time.Time, log *s
 			serverError(w, r)
 			return
 		}
-		next.ServeHTTP(w, r.WithContext(context.WithValue(ctx, loginKey{}, login)))
+		next.ServeHTTP(w, r.WithContext(context.WithValue(ctx, accountKey{}, login)))
 	})
 }
 
-// loginFrom returns the login signInGate found for this request.
-func loginFrom(ctx context.Context) (store.Login, error) {
-	l, ok := ctx.Value(loginKey{}).(store.Login)
+// accountFrom returns the account signInGate found for this request.
+func accountFrom(ctx context.Context) (store.Account, error) {
+	l, ok := ctx.Value(accountKey{}).(store.Account)
 	if !ok {
-		return store.Login{}, errors.New("a /v1/me route reached without the sign-in gate")
+		return store.Account{}, errors.New("a /v1/me route reached without the sign-in gate")
 	}
 	return l, nil
 }
@@ -304,7 +304,7 @@ func (s *server) SignOut(ctx context.Context, _ SignOutRequestObject) (SignOutRe
 }
 
 func (s *server) GetMe(ctx context.Context, _ GetMeRequestObject) (GetMeResponseObject, error) {
-	l, err := loginFrom(ctx)
+	l, err := accountFrom(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -336,7 +336,7 @@ func (s *server) DeleteMe(ctx context.Context, _ DeleteMeRequestObject) (DeleteM
 }
 
 func (s *server) PutMyLinkRequest(ctx context.Context, req PutMyLinkRequestRequestObject) (PutMyLinkRequestResponseObject, error) {
-	l, err := loginFrom(ctx)
+	l, err := accountFrom(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -356,7 +356,7 @@ func (s *server) PutMyLinkRequest(ctx context.Context, req PutMyLinkRequestReque
 }
 
 func (s *server) PatchMyDetails(ctx context.Context, req PatchMyDetailsRequestObject) (PatchMyDetailsResponseObject, error) {
-	l, err := loginFrom(ctx)
+	l, err := accountFrom(ctx)
 	if err != nil {
 		return nil, err
 	}
