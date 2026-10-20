@@ -130,7 +130,8 @@ metadata:
   namespace: ttacommunity
 spec:
   # Admin requests are verified against Cloudflare Access's signing keys, fetched
-  # over HTTPS from the team domain: any public address on 443, RFC1918 excluded.
+  # over HTTPS from the team domain, and player sign-in exchanges its code with
+  # Discord: any public address on 443, RFC1918 excluded.
   podSelector:
     matchLabels:
       app: api-dev

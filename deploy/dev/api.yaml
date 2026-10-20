@@ -115,6 +115,24 @@ spec:
               value: 385c7c2eee5489fc256c2aadfc1299c1a79ce78b9b712523026ffb92bf757f82
             - name: ADMIN_ORIGIN
               value: https://dev.admin.ttacommunity.org
+            # Player sign-in: its login, the site it returns to, this api's public origin for Discord's
+            # callback, and the players' Discord app (not the one Access signs admins in with).
+            - name: RATINGS_PLAYER_DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: ratings-dev-player
+                  key: database-url
+            - name: SITE_ORIGIN
+              value: https://dev.ttacommunity.org
+            - name: API_ORIGIN
+              value: https://api-dev.ttacommunity.org
+            - name: DISCORD_CLIENT_ID
+              value: "1561606415443955752"
+            - name: DISCORD_CLIENT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: discord-signin
+                  key: client-secret
           resources:
             requests:
               cpu: 25m
