@@ -1,0 +1,10 @@
+---
+/** The page an emailed sign-in link opens; the token stays in the fragment, which no server sees. */
+import { PUBLIC_API_URL } from 'astro:env/client';
+import SiteLayout from '../../../layouts/SiteLayout.astro';
+import EmailLinkPage from '../../../components/EmailLinkPage';
+import '../../../components/HallOfFame.css';
+---
+<SiteLayout title="Finish signing in | Through the Ages community" description="Finish signing in with the link from your email.">
+  <EmailLinkPage client:only="react" apiUrl={PUBLIC_API_URL} />
+</SiteLayout>

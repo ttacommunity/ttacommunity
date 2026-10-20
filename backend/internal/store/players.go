@@ -32,8 +32,9 @@ type Identity struct {
 // reason.
 type Account struct {
 	ID int64
-	// LoginID is the login this session signed in by.
+	// LoginID is the login this session signed in by; Logins are every way into the account, by provider.
 	LoginID     int64
+	Logins      []LoginName
 	Provider    string
 	Username    string
 	DisplayName string
@@ -44,6 +45,13 @@ type Account struct {
 	Zone        string
 	Banned      bool
 	BanReason   string
+}
+
+// LoginName is a way into an account: its provider and the names there.
+type LoginName struct {
+	Provider    string `json:"provider"`
+	Username    string `json:"username"`
+	DisplayName string `json:"display_name"`
 }
 
 // LinkedMember is the member an account is linked to: their TTA username, and the ratings' spelling when they have
@@ -61,6 +69,9 @@ type LinkRequest struct {
 	Reason      string
 	RequestedAt time.Time
 }
+
+// ErrLastLogin means a player cannot remove their only way in: Delete account removes it with the account.
+var ErrLastLogin = errors.New("the only way in cannot be removed")
 
 // ErrNoSession means the session is unknown or has ended.
 var ErrNoSession = errors.New("no such session")
@@ -114,33 +125,70 @@ func (s *PlayerStore) CheckLimits(ctx context.Context) error {
 
 // SignIn records id's sign-in at now: a new login with an account of its own, or a known one with its names brought
 // up to date, and reports whether the login is new. An account not linked yet, and not unlinked by an admin, is
-// linked to the one member whose recorded Discord name is id's username (ignoring case and a leading @), when no
-// other account is linked to that member. It then starts a session whose token hashes to tokenHash.
+// linked to the one member whose recorded Discord name or email matches the sign-in, when no other account is
+// linked to that member. It then starts a session whose token hashes to tokenHash.
 func (s *PlayerStore) SignIn(ctx context.Context, id Identity, tokenHash []byte, now time.Time) (bool, error) {
 	var first bool
 	err := pgx.BeginFunc(ctx, s.pool, func(tx pgx.Tx) error {
-		login, account, err := knownLogin(ctx, tx, id, now)
-		if err != nil {
-			return err
-		}
-		if login == 0 {
-			first = true
-			if login, account, err = newLogin(ctx, tx, id, now); err != nil {
-				return err
-			}
-		}
-		if id.Provider == "discord" {
-			if err := linkByDiscordName(ctx, tx, account, id.Username, now); err != nil {
-				return err
-			}
-		}
-		if _, err := tx.Exec(ctx, "INSERT INTO player_sessions (token_hash, login_id, created_at, expires_at) VALUES ($1, $2, $3, $4)",
-			tokenHash, login, now, now.Add(SessionLife)); err != nil {
-			return fmt.Errorf("starting a session: %w", err)
-		}
-		return nil
+		var err error
+		first, err = signIn(ctx, tx, id, tokenHash, now)
+		return err
 	})
 	return first, err
+}
+
+// signIn is SignIn inside tx.
+func signIn(ctx context.Context, tx pgx.Tx, id Identity, tokenHash []byte, now time.Time) (bool, error) {
+	login, account, err := knownLogin(ctx, tx, id, now)
+	if err != nil {
+		return false, err
+	}
+	first := login == 0
+	if first {
+		if login, account, err = newLogin(ctx, tx, id, now); err != nil {
+			return false, err
+		}
+	}
+	if err := autoLink(ctx, tx, account, id, now); err != nil {
+		return false, err
+	}
+	return first, startSession(ctx, tx, login, tokenHash, now)
+}
+
+// startSession starts a session at now for login, whose token hashes to tokenHash.
+func startSession(ctx context.Context, tx pgx.Tx, login int64, tokenHash []byte, now time.Time) error {
+	if _, err := tx.Exec(ctx, "INSERT INTO player_sessions (token_hash, login_id, created_at, expires_at) VALUES ($1, $2, $3, $4)",
+		tokenHash, login, now, now.Add(SessionLife)); err != nil {
+		return fmt.Errorf("starting a session: %w", err)
+	}
+	return nil
+}
+
+// autoLink links account at now by id's Discord name or email address, as SignIn describes.
+func autoLink(ctx context.Context, tx pgx.Tx, account int64, id Identity, now time.Time) error {
+	linked := false
+	switch id.Provider {
+	case "discord":
+		tag, err := tx.Exec(ctx, `
+			UPDATE accounts a SET member_id = m.member_id, linked_how = 'match', linked_at = $3
+			FROM (SELECT member_id FROM members
+			      WHERE lower(ltrim(btrim(discord_name), '@')) = lower($2)) m
+			WHERE a.account_id = $1 AND a.member_id IS NULL AND a.auto_link
+			  AND (SELECT count(*) FROM members WHERE lower(ltrim(btrim(discord_name), '@')) = lower($2)) = 1
+			  AND NOT EXISTS (SELECT FROM accounts o WHERE o.member_id = m.member_id)`, account, id.Username, now)
+		if err != nil {
+			return fmt.Errorf("linking a sign-in by Discord name: %w", err)
+		}
+		linked = tag.RowsAffected() > 0
+	case "email":
+		if err := tx.QueryRow(ctx, "SELECT link_by_email($1, $2)", account, now).Scan(&linked); err != nil {
+			return fmt.Errorf("linking a sign-in by email: %w", err)
+		}
+	}
+	if !linked {
+		return nil
+	}
+	return moveAccountDetails(ctx, tx, account)
 }
 
 // knownLogin brings the names of id's login up to date and records its sign-in at now, returning the login and its
@@ -174,23 +222,86 @@ func newLogin(ctx context.Context, tx pgx.Tx, id Identity, now time.Time) (login
 	return login, account, nil
 }
 
-// linkByDiscordName links account at now to the one member whose recorded Discord name is username, when the
-// account is not linked, was not unlinked by an admin, and no other account is linked to that member.
-func linkByDiscordName(ctx context.Context, tx pgx.Tx, account int64, username string, now time.Time) error {
-	tag, err := tx.Exec(ctx, `
-		UPDATE accounts a SET member_id = m.member_id, linked_how = 'match', linked_at = $3
-		FROM (SELECT member_id FROM members
-		      WHERE lower(ltrim(btrim(discord_name), '@')) = lower($2)) m
-		WHERE a.account_id = $1 AND a.member_id IS NULL AND a.auto_link
-		  AND (SELECT count(*) FROM members WHERE lower(ltrim(btrim(discord_name), '@')) = lower($2)) = 1
-		  AND NOT EXISTS (SELECT FROM accounts o WHERE o.member_id = m.member_id)`, account, username, now)
+// canAddLogin returns ErrLoginTaken when id signs in to another account, or ErrHasLoginOfKind when account has a
+// way in of id's kind already. Adding id again to its own account is no error.
+func canAddLogin(ctx context.Context, tx pgx.Tx, account int64, id Identity) error {
+	var owner *int64
+	var hasKind bool
+	err := tx.QueryRow(ctx, `
+		SELECT (SELECT account_id FROM logins WHERE provider = $2 AND subject = $3),
+			EXISTS (SELECT FROM logins WHERE account_id = $1 AND provider = $2 AND subject <> $3)`,
+		account, id.Provider, id.Subject).Scan(&owner, &hasKind)
 	if err != nil {
-		return fmt.Errorf("linking a sign-in by Discord name: %w", err)
+		return fmt.Errorf("checking a way in to add: %w", err)
 	}
-	if tag.RowsAffected() == 0 {
+	switch {
+	case owner != nil && *owner != account:
+		return ErrLoginTaken
+	case hasKind:
+		return ErrHasLoginOfKind
+	}
+	return nil
+}
+
+// addLogin adds id to account at now as another way in, linking the account by it as SignIn does, and returns the
+// login. It returns ErrLoginTaken or ErrHasLoginOfKind.
+func addLogin(ctx context.Context, tx pgx.Tx, account int64, id Identity, now time.Time) (int64, error) {
+	if _, err := tx.Exec(ctx, "SELECT FROM accounts WHERE account_id = $1 FOR UPDATE", account); err != nil {
+		return 0, fmt.Errorf("reading an account: %w", err)
+	}
+	if err := canAddLogin(ctx, tx, account, id); err != nil {
+		return 0, err
+	}
+	var login int64
+	err := tx.QueryRow(ctx, `
+		INSERT INTO logins (account_id, provider, subject, username, display_name, created_at, signed_in_at)
+		VALUES ($1, $2, $3, $4, $5, $6, $6)
+		ON CONFLICT (provider, subject) DO UPDATE SET username = excluded.username, display_name = excluded.display_name
+		RETURNING login_id`, account, id.Provider, id.Subject, id.Username, id.DisplayName, now).Scan(&login)
+	if err != nil {
+		return 0, fmt.Errorf("adding a way in: %w", err)
+	}
+	return login, autoLink(ctx, tx, account, id, now)
+}
+
+// AddDiscord adds the Discord account id, at now, to the account whose session hashes to tokenHash. It returns
+// ErrNoSession, ErrLoginTaken or ErrHasLoginOfKind.
+func (s *PlayerStore) AddDiscord(ctx context.Context, tokenHash []byte, id Identity, now time.Time) error {
+	return pgx.BeginFunc(ctx, s.pool, func(tx pgx.Tx) error {
+		var account int64
+		err := tx.QueryRow(ctx, `
+			SELECT l.account_id FROM player_sessions s JOIN logins l USING (login_id) WHERE s.token_hash = $1 AND s.expires_at > $2`,
+			tokenHash, now).Scan(&account)
+		if errors.Is(err, pgx.ErrNoRows) {
+			return ErrNoSession
+		}
+		if err != nil {
+			return fmt.Errorf("reading a session: %w", err)
+		}
+		_, err = addLogin(ctx, tx, account, id, now)
+		return err
+	})
+}
+
+// RemoveOwnLogin removes the way in of kind provider from the account whose session hashes to tokenHash, at now.
+// This browser's session moves to a way in that remains; others started by the removed one end. It returns
+// ErrNoSession, ErrNoLogin when the account has no such way in, or ErrLastLogin for its only one.
+func (s *PlayerStore) RemoveOwnLogin(ctx context.Context, tokenHash []byte, provider string, now time.Time) error {
+	var got string
+	if err := s.pool.QueryRow(ctx, "SELECT remove_own_login($1, $2, $3)", tokenHash, provider, now).Scan(&got); err != nil {
+		return fmt.Errorf("removing a way in: %w", err)
+	}
+	switch got {
+	case "removed":
 		return nil
+	case "signed-out":
+		return ErrNoSession
+	case "none":
+		return ErrNoLogin
+	case "last":
+		return ErrLastLogin
 	}
-	return moveAccountDetails(ctx, tx, account)
+	return fmt.Errorf("removing a way in: unexpected %q", got)
 }
 
 // Session returns the account whose session hashes to tokenHash at now, renewing a session not renewed for a day.
@@ -208,7 +319,9 @@ func (s *PlayerStore) Session(ctx context.Context, tokenHash []byte, now time.Ti
 			coalesce(CASE WHEN m.member_id IS NULL THEN ac.country_code ELSE m.country_code END, ''),
 			CASE WHEN m.member_id IS NULL THEN coalesce(ac.zone, 'Unknown') ELSE m.zone END,
 			coalesce(m.banned, false), coalesce(m.ban_reason, ''), coalesce(r.tta_name, ''), coalesce(r.status, ''), coalesce(r.reason, ''), r.requested_at,
-			coalesce(a.role, '')
+			coalesce(a.role, ''),
+			(SELECT json_agg(json_build_object('provider', provider, 'username', username, 'display_name', display_name) ORDER BY provider)
+			 FROM logins WHERE account_id = ac.account_id)
 		FROM player_sessions s
 		JOIN logins l USING (login_id)
 		JOIN accounts ac USING (account_id)
@@ -220,7 +333,7 @@ func (s *PlayerStore) Session(ctx context.Context, tokenHash []byte, now time.Ti
 		LEFT JOIN admins a ON a.discord_id = d.subject
 		WHERE s.token_hash = $1`, tokenHash).Scan(&l.ID, &l.LoginID, &l.Provider, &l.Username, &l.DisplayName, &expires,
 		&memberID, &member.Name, &member.Player, &l.Country, &l.Zone, &l.Banned, &l.BanReason,
-		&request.Name, &request.Status, &request.Reason, &requested, &l.AdminRole)
+		&request.Name, &request.Status, &request.Reason, &requested, &l.AdminRole, &l.Logins)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return Account{}, ErrNoSession
 	}

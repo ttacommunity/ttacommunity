@@ -1080,8 +1080,16 @@ paths:
         Opened as a page, not fetched: sends the browser to Discord, asking
         only for the identify scope, with a state and a PKCE challenge whose
         verifier waits in a short-lived cookie for the callback. A player who
-        has authorized the app before is not asked again. Never cached.
+        has authorized the app before is not asked again. With add, a
+        signed-in player adds Discord to their account as another way in.
+        Never cached.
       parameters:
+        - name: add
+          in: query
+          required: false
+          description: Add Discord to the signed-in player's account, rather than sign in
+          schema:
+            type: boolean
         - name: return
           in: query
           required: false
@@ -1115,7 +1123,10 @@ paths:
         first sign-in to /account/ with signin=first, and anything that did
         not finish to /account/ with signin=failed, with that path as back.
         A banned member signs in like anyone, and /v1/me says they are
-        banned.
+        banned. Adding Discord comes back to /account/ with signin=added, or
+        signin=taken when that Discord account has an account of its own
+        here, signin=has-kind when the account has another Discord already,
+        or signin=failed (signed out meanwhile included).
       parameters:
         - name: code
           in: query
@@ -1143,6 +1154,79 @@ paths:
               $ref: "#/components/headers/Location"
             Cache-Control:
               $ref: "#/components/headers/CacheControl"
+        "503":
+          $ref: "#/components/responses/NotSetUp"
+  /v1/auth/email:
+    post:
+      operationId: sendEmailSignIn
+      tags: [players]
+      summary: Email a sign-in link
+      description: |
+        Fetched by the site, after a Turnstile check. Emails the address a
+        link to the site's /account/email/ page, which may be opened once,
+        within the hour; a newer link replaces it. The answer is the same
+        whether or not the address has signed in before. At most 5 links a
+        day to one address, and 90 a day in all. The Origin must be the site.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/EmailSignInAsk"
+      responses:
+        "204":
+          description: Sent
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "403":
+          $ref: "#/components/responses/NotFromSite"
+        "429":
+          $ref: "#/components/responses/TooManyLinks"
+        "503":
+          $ref: "#/components/responses/NotSetUp"
+  /v1/auth/email/finish:
+    post:
+      operationId: finishEmailSignIn
+      tags: [players]
+      summary: Open an emailed link
+      description: |
+        Posted by the site's /account/email/ page with the link's token, when
+        the player asks: a mail scanner opening the link spends nothing. The
+        link signs in by its address, or adds it to the account it was sent
+        for, and a session starts as for Discord. A first sign-in, an
+        address linked to the one member whose recorded email it is, and a
+        banned member are as for Discord. The Origin must be the site.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/EmailSignInToken"
+      responses:
+        "200":
+          description: Signed in
+          headers:
+            Cache-Control:
+              $ref: "#/components/headers/CacheControl"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EmailSignedIn"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "403":
+          $ref: "#/components/responses/NotFromSite"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "410":
+          description: The link is unknown, has been used or replaced, or is over an hour old
+          headers:
+            Cache-Control:
+              $ref: "#/components/headers/CacheControl"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
         "503":
           $ref: "#/components/responses/NotSetUp"
   /v1/auth/sign-out:
@@ -1248,6 +1332,65 @@ paths:
           $ref: "#/components/responses/SignedOut"
         "403":
           $ref: "#/components/responses/NotFromSite"
+  /v1/me/logins/email:
+    post:
+      operationId: postMyEmailLogin
+      tags: [players]
+      summary: Email a link that adds the address as another way in
+      description: |
+        For a signed-in player, linked or not. Opening the link adds the
+        address to their account, with no new approval. Refused for an
+        address that has an account of its own here, or when the account has
+        an email way in already (remove it first). The limits are the
+        sign-in links'. The Origin must be the site.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/EmailLoginAsk"
+      responses:
+        "204":
+          description: Sent
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/SignedOut"
+        "403":
+          $ref: "#/components/responses/NotFromSite"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "429":
+          $ref: "#/components/responses/TooManyLinks"
+        "503":
+          $ref: "#/components/responses/NotSetUp"
+  /v1/me/logins/{provider}:
+    delete:
+      operationId: deleteMyLogin
+      tags: [players]
+      summary: Remove one of your ways in
+      description: |
+        Refused for the only one: Delete account removes it with the
+        account. Signed in by the way removed, this browser stays signed in
+        by one that remains; other sessions it started end. The Origin must
+        be the site.
+      parameters:
+        - name: provider
+          in: path
+          required: true
+          schema:
+            $ref: "#/components/schemas/LoginProvider"
+      responses:
+        "204":
+          description: Removed
+        "401":
+          $ref: "#/components/responses/SignedOut"
+        "403":
+          $ref: "#/components/responses/NotFromSite"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
   /v1/admin/me:
     get:
       operationId: getAdminMe
@@ -3045,18 +3188,19 @@ paths:
           $ref: "#/components/responses/NotFound"
         "409":
           $ref: "#/components/responses/Conflict"
-  /v1/admin/logins:
+  /v1/admin/accounts:
     get:
-      operationId: getAdminLogins
+      operationId: getAdminAccounts
       tags: [admin]
-      summary: Players' sign-ins, those waiting for a link first (admins and organisers)
+      summary: Players' accounts, those waiting for a link first (admins and organisers)
       description: |
-        Each way a player has signed in, with the member it is linked to and
-        how, and a request waiting for an answer with the member its name
-        names now and that member's recorded Discord name, to compare.
+        Each account with every way it signs in, the member it is linked to
+        and how, and a request waiting for an answer with the member its name
+        names now and that member's recorded Discord name and email, to
+        compare.
       responses:
         "200":
-          description: The sign-ins
+          description: The accounts
           headers:
             Cache-Control:
               $ref: "#/components/headers/CacheControl"
@@ -3065,22 +3209,19 @@ paths:
               schema:
                 type: array
                 items:
-                  $ref: "#/components/schemas/AdminLogin"
+                  $ref: "#/components/schemas/AdminAccount"
         "401":
           $ref: "#/components/responses/Unauthorized"
         "403":
           $ref: "#/components/responses/Forbidden"
-  /v1/admin/logins/{login}:
+  /v1/admin/accounts/{account}:
     delete:
-      operationId: deleteAdminLogin
+      operationId: deleteAdminAccount
       tags: [admin]
-      summary: Remove a sign-in and its sessions, and its account when no other sign-in is left (admins only)
-      description: |
-        Audited. The Origin must be the admin site. The player is signed out
-        of every session this sign-in started. Removing an account's last
-        sign-in removes the account and its requests.
+      summary: Remove an account with its ways in, sessions and requests (admins only)
+      description: Audited. The Origin must be the admin site. The player is signed out everywhere.
       parameters:
-        - $ref: "#/components/parameters/LoginId"
+        - $ref: "#/components/parameters/AccountId"
       responses:
         "204":
           description: Removed
@@ -3090,17 +3231,17 @@ paths:
           $ref: "#/components/responses/Forbidden"
         "404":
           $ref: "#/components/responses/NotFound"
-  /v1/admin/logins/{login}/member:
+  /v1/admin/accounts/{account}/member:
     delete:
-      operationId: deleteAdminLoginMember
+      operationId: deleteAdminAccountMember
       tags: [admin]
-      summary: Unlink a sign-in from its member (admins and organisers)
+      summary: Unlink an account from its member (admins and organisers)
       description: |
-        Audited. The Origin must be the admin site. Unlinks the account the
-        sign-in belongs to: the player stays signed in, unlinked, and is not
-        linked by Discord name again.
+        Audited. The Origin must be the admin site. The player stays signed
+        in, unlinked, and is not linked by a recorded Discord name or email
+        again.
       parameters:
-        - $ref: "#/components/parameters/LoginId"
+        - $ref: "#/components/parameters/AccountId"
       responses:
         "204":
           description: Unlinked
@@ -3116,7 +3257,7 @@ paths:
       tags: [admin]
       summary: Approve a request to be linked (admins and organisers)
       description: |
-        Audited. The Origin must be the admin site. The sign-in is linked to
+        Audited. The Origin must be the admin site. The account is linked to
         the member the name names, by username in any case or by the CGE
         account or ratings player of that name; a name no member has becomes
         a member. Refused for a member linked to another account. A banned
@@ -3201,8 +3342,8 @@ components:
         type: integer
         format: int64
         minimum: 1
-    LoginId:
-      name: login
+    AccountId:
+      name: account
       in: path
       required: true
       schema:
@@ -3334,6 +3475,15 @@ components:
             $ref: "#/components/schemas/Error"
     Conflict:
       description: The change cannot be made in the current state, such as a run already going
+      headers:
+        Cache-Control:
+          $ref: "#/components/headers/CacheControl"
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+    TooManyLinks:
+      description: Too many sign-in links sent, to this address or in all, in the last day; try again later
       headers:
         Cache-Control:
           $ref: "#/components/headers/CacheControl"
@@ -7049,13 +7199,19 @@ components:
           type: integer
     Me:
       description: |
-        The signed-in player: where they signed in and their names there, the member they are linked to (null until
-        linked), their latest request to be linked (null if none), and their role in admin (null if none)
+        The signed-in player: where this session signed in and their names there, every way into their account, the
+        member they are linked to (null until linked), their latest request to be linked (null if none), and their
+        role in admin (null if none)
       type: object
-      required: [provider, username, display_name, member, request, admin_role, country, zone]
+      required: [provider, username, display_name, logins, member, request, admin_role, country, zone]
       properties:
         provider:
           $ref: "#/components/schemas/LoginProvider"
+        logins:
+          description: Every way into the account, by provider
+          type: array
+          items:
+            $ref: "#/components/schemas/MyLogin"
         country:
           description: Their country as a two-letter ISO code, or null; the member's once linked, until then the one they gave
           type: string
@@ -7083,7 +7239,68 @@ components:
     LoginProvider:
       description: Where a player signs in
       type: string
-      enum: [discord]
+      enum: [discord, email]
+    MyLogin:
+      description: A way into the signed-in player's account
+      type: object
+      required: [provider, username, display_name]
+      properties:
+        provider:
+          $ref: "#/components/schemas/LoginProvider"
+        username:
+          description: The Discord username, or the email address
+          type: string
+        display_name:
+          description: Empty when they have none
+          type: string
+    EmailSignInAsk:
+      type: object
+      additionalProperties: false
+      required: [email, turnstile]
+      properties:
+        email:
+          type: string
+          minLength: 1
+          maxLength: 254
+        turnstile:
+          description: The Turnstile widget's token
+          type: string
+          minLength: 1
+          maxLength: 2048
+        return:
+          description: The site path, with any query, to come back to; anything else comes back to /account/
+          type: string
+          maxLength: 300
+    EmailLoginAsk:
+      type: object
+      additionalProperties: false
+      required: [email]
+      properties:
+        email:
+          type: string
+          minLength: 1
+          maxLength: 254
+    EmailSignInToken:
+      type: object
+      additionalProperties: false
+      required: [token]
+      properties:
+        token:
+          description: The token from the link
+          type: string
+          minLength: 1
+          maxLength: 100
+    EmailSignedIn:
+      type: object
+      required: [outcome, back]
+      properties:
+        outcome:
+          description: A first sign-in, a returning one, or the address added to the account
+          type: string
+          enum: [first, ok, added]
+        back:
+          description: The site path to go back to
+          type: string
     MyMember:
       description: The member a signed-in player is linked to
       type: object
@@ -7140,20 +7357,19 @@ components:
           type: string
           minLength: 1
           maxLength: 64
-    AdminLogin:
-      description: A way a player signs in, as admin sees it
+    AdminAccount:
+      description: A player's account, as admin sees it
       type: object
-      required: [id, provider, username, display_name, member_id, member, linked_how, signed_in_at, auto_link, request, refused]
+      required: [id, logins, member_id, member, linked_how, signed_in_at, auto_link, request, refused]
       properties:
         id:
           type: integer
           format: int64
-        provider:
-          $ref: "#/components/schemas/LoginProvider"
-        username:
-          type: string
-        display_name:
-          type: string
+        logins:
+          description: Every way into the account, by provider
+          type: array
+          items:
+            $ref: "#/components/schemas/AdminAccountLogin"
         member_id:
           type: integer
           format: int64
@@ -7162,15 +7378,16 @@ components:
           description: The linked member's TTA username, empty when not linked
           type: string
         linked_how:
-          description: By their recorded Discord name, or by an approved request; null when not linked
+          description: By a recorded Discord name or email, or by an approved request; null when not linked
           type: string
           enum: [match, approved]
           nullable: true
         signed_in_at:
+          description: The latest sign-in by any way in
           type: string
           format: date-time
         auto_link:
-          description: Off once an admin unlinked it, so it is not linked by its Discord name again
+          description: Off once an admin unlinked it, so it is not linked by a recorded Discord name or email again
           type: boolean
         request:
           allOf:
@@ -7180,8 +7397,23 @@ components:
           allOf:
             - $ref: "#/components/schemas/AdminLinkRefused"
           nullable: true
+    AdminAccountLogin:
+      description: A way into an account
+      type: object
+      required: [provider, username, display_name, signed_in_at]
+      properties:
+        provider:
+          $ref: "#/components/schemas/LoginProvider"
+        username:
+          description: The Discord username, or the email address
+          type: string
+        display_name:
+          type: string
+        signed_in_at:
+          type: string
+          format: date-time
     AdminLinkRefused:
-      description: A sign-in's last request to be linked, when it was refused and neither a new request nor a link has followed
+      description: An account's last request to be linked, when it was refused and neither a new request nor a link has followed
       type: object
       required: [name, reason]
       properties:
@@ -7196,7 +7428,7 @@ components:
         A request waiting for an answer, with the country and zone the player gave, and the member its name names
         now (empty when approving adds one) with what is recorded for them, to compare
       type: object
-      required: [id, name, country, zone, member, member_discord, member_country, member_zone, requested_at]
+      required: [id, name, country, zone, member, member_discord, member_email, member_country, member_zone, requested_at]
       properties:
         id:
           type: integer
@@ -7212,7 +7444,10 @@ components:
         member:
           type: string
         member_discord:
-          description: That member's recorded Discord name, to compare with the sign-in's
+          description: That member's recorded Discord name, to compare with the account's
+          type: string
+        member_email:
+          description: That member's recorded email, to compare with the account's
           type: string
         member_country:
           description: That member's recorded country, empty for none

@@ -2,18 +2,18 @@
 import { Fragment, useEffect, useState, type FormEvent } from 'react';
 import { offsetLabel } from '@ttac/shared/blitz';
 import { useDialog } from '@ttac/shared/Dialog';
-import { adminRequest, type AdminLogin, type AdminMe, type AdminMember, type Load, type MemberAdded, type MemberChange } from '../lib/admin-api';
+import { adminRequest, type AdminAccount, type AdminMe, type AdminMember, type Load, type MemberAdded, type MemberChange } from '../lib/admin-api';
 import * as req from '../lib/admin-requests';
 import { countryNames, type Country } from '../lib/countries';
 import { membersMatching } from '../lib/member-filter';
 import { loadFailure, outcomeOf, shownAt, type Outcome } from '../lib/outcome';
 import { memberToAdd, type PersonDetails } from '../lib/person-form';
-import { howLinked, signInGroups } from '../lib/sign-ins';
+import { howLinked, signInGroups, who } from '../lib/sign-ins';
 import type { Region } from '../lib/zones';
 import CountryPick from './CountryPick';
 import Notice, { LoadNotice, NoticeRow } from './Notice';
 import PersonForm from './PersonForm';
-import { UnlinkedSignIns, WaitingRequests, who } from './SignIns';
+import { UnlinkedSignIns, WaitingRequests } from './SignIns';
 import ZonePick from './ZonePick';
 
 type Draft = { name: string; discord_name: string; email: string; country: string; zone: string; cge_user: string };
@@ -23,8 +23,8 @@ function draftOf(m: AdminMember): Draft {
   return { name: m.name, discord_name: m.discord_name, email: m.email, country: m.country ?? '', zone: m.zone, cge_user: m.cge_user === null ? '' : String(m.cge_user) };
 }
 
-/** SignedInAs shows the sign-in linked to a member: its Discord name, how it was linked and when it was last used. */
-function SignedInAs({ login }: { login: AdminLogin | undefined }) {
+/** SignedInAs shows the account linked to a member: its ways in, how it was linked and when it was last used. */
+function SignedInAs({ login }: { login: AdminAccount | undefined }) {
   if (login === undefined) return <span className="muted">—</span>;
   const day = new Date(login.signed_in_at).toLocaleDateString(undefined, { day: 'numeric', month: 'short' });
   return (
@@ -37,10 +37,10 @@ function SignedInAs({ login }: { login: AdminLogin | undefined }) {
   );
 }
 
-type Props = { role: AdminMe['role']; logins: Load<AdminLogin[]>; reloadLogins: () => Promise<void> };
+type Props = { role: AdminMe['role']; accounts: Load<AdminAccount[]>; reloadAccounts: () => Promise<void> };
 
-/** MembersPanel lists the members with their sign-ins; logins are admin's, loaded once for the tab's count too. */
-export default function MembersPanel({ role, logins, reloadLogins }: Props) {
+/** MembersPanel lists the members with their players' accounts, loaded once for the tab's count too. */
+export default function MembersPanel({ role, accounts, reloadAccounts }: Props) {
   const [members, setMembers] = useState<Load<AdminMember[]>>({ kind: 'loading' });
   const [outcome, setOutcome] = useState<Outcome | null>(null);
   const close = () => setOutcome(null);
@@ -50,7 +50,7 @@ export default function MembersPanel({ role, logins, reloadLogins }: Props) {
   const [countries, setCountries] = useState<Country[]>([]);
   const [search, setSearch] = useState('');
   const shown = members.kind === 'ready' ? membersMatching(members.data, search) : [];
-  const signIns = signInGroups(logins.kind === 'ready' ? logins.data : []);
+  const signIns = signInGroups(accounts.kind === 'ready' ? accounts.data : []);
   const load = async () => {
     const r = await adminRequest<AdminMember[]>('/api/members', {});
     setMembers(r.ok ? { kind: 'ready', data: r.data } : { kind: 'error', message: r.message });
@@ -62,18 +62,18 @@ export default function MembersPanel({ role, logins, reloadLogins }: Props) {
   }, []);
   // after reloads what answering a request or unlinking changes: the sign-ins, and a member added or given details.
   const after = async () => {
-    await Promise.all([load(), reloadLogins()]);
+    await Promise.all([load(), reloadAccounts()]);
   };
   const unlink = async (m: AdminMember) => {
     const l = signIns.byMember.get(m.id);
     if (l === undefined) return;
     const sure = await dialog.confirm({
-      heading: `Unlink ${l.username} from ${m.name}?`,
-      text: 'They stay signed in, unlinked, and are not linked by Discord name again.',
+      heading: `Unlink ${who(l)} from ${m.name}?`,
+      text: 'They stay signed in, unlinked, and are not linked by Discord name or email again.',
       action: 'Unlink',
     });
     if (!sure) return;
-    setOutcome(outcomeOf(await req.send(req.unlinkLogin(l.id)), `Unlinked ${l.username} from ${m.name}.`, `member ${m.id}`));
+    setOutcome(outcomeOf(await req.send(req.unlinkAccount(l.id)), `Unlinked ${who(l)} from ${m.name}.`, `member ${m.id}`));
     await after();
   };
   const run = async (r: req.Request, done: string, at: string, doneAt = at) => {
@@ -128,7 +128,7 @@ export default function MembersPanel({ role, logins, reloadLogins }: Props) {
         Players sign in on the site with Discord and ask to be linked to their username: one whose Discord username is
         the Discord name recorded for exactly one member is linked at once; the rest wait at the top of this page.
       </p>
-      <WaitingRequests logins={logins} waiting={signIns.waiting} outcome={outcome} say={setOutcome} after={after} />
+      <WaitingRequests accounts={accounts} waiting={signIns.waiting} outcome={outcome} say={setOutcome} after={after} />
       <div className="admin-subsection">
         <h3>Add a member</h3>
         <PersonForm searchBase="/api/people" taken={{ entered: [], membersTaken: true }} regions={regions} countries={countries} submitLabel="Add" onSubmit={add} refresh={members} />

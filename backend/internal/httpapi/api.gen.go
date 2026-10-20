@@ -19,6 +19,24 @@ import (
 	openapi_types "github.com/oapi-codegen/runtime/types"
 )
 
+// Defines values for AdminAccountLinkedHow.
+const (
+	AdminAccountLinkedHowApproved AdminAccountLinkedHow = "approved"
+	AdminAccountLinkedHowMatch    AdminAccountLinkedHow = "match"
+)
+
+// Valid indicates whether the value is a known member of the AdminAccountLinkedHow enum.
+func (e AdminAccountLinkedHow) Valid() bool {
+	switch e {
+	case AdminAccountLinkedHowApproved:
+		return true
+	case AdminAccountLinkedHowMatch:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for AdminBlitzEntrantStatus.
 const (
 	AdminBlitzEntrantStatusActive  AdminBlitzEntrantStatus = "active"
@@ -49,24 +67,6 @@ func (e AdminBlitzRoundKind) Valid() bool {
 	case AdminBlitzRoundKindKnockout:
 		return true
 	case AdminBlitzRoundKindSwiss:
-		return true
-	default:
-		return false
-	}
-}
-
-// Defines values for AdminLoginLinkedHow.
-const (
-	AdminLoginLinkedHowApproved AdminLoginLinkedHow = "approved"
-	AdminLoginLinkedHowMatch    AdminLoginLinkedHow = "match"
-)
-
-// Valid indicates whether the value is a known member of the AdminLoginLinkedHow enum.
-func (e AdminLoginLinkedHow) Valid() bool {
-	switch e {
-	case AdminLoginLinkedHowApproved:
-		return true
-	case AdminLoginLinkedHowMatch:
 		return true
 	default:
 		return false
@@ -403,6 +403,27 @@ func (e CommunityRowTitle) Valid() bool {
 	}
 }
 
+// Defines values for EmailSignedInOutcome.
+const (
+	Added EmailSignedInOutcome = "added"
+	First EmailSignedInOutcome = "first"
+	Ok    EmailSignedInOutcome = "ok"
+)
+
+// Valid indicates whether the value is a known member of the EmailSignedInOutcome enum.
+func (e EmailSignedInOutcome) Valid() bool {
+	switch e {
+	case Added:
+		return true
+	case First:
+		return true
+	case Ok:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for Format.
 const (
 	N0 Format = 0
@@ -451,12 +472,15 @@ func (e GameSeatOutcome) Valid() bool {
 // Defines values for LoginProvider.
 const (
 	Discord LoginProvider = "discord"
+	Email   LoginProvider = "email"
 )
 
 // Valid indicates whether the value is a known member of the LoginProvider enum.
 func (e LoginProvider) Valid() bool {
 	switch e {
 	case Discord:
+		return true
+	case Email:
 		return true
 	default:
 		return false
@@ -938,6 +962,43 @@ type Activity struct {
 	Titles []TitlePlayers `json:"titles"`
 }
 
+// AdminAccount A player's account, as admin sees it
+type AdminAccount struct {
+	// AutoLink Off once an admin unlinked it, so it is not linked by a recorded Discord name or email again
+	AutoLink bool  `json:"auto_link"`
+	Id       int64 `json:"id"`
+
+	// LinkedHow By a recorded Discord name or email, or by an approved request; null when not linked
+	LinkedHow *AdminAccountLinkedHow `json:"linked_how"`
+
+	// Logins Every way into the account, by provider
+	Logins []AdminAccountLogin `json:"logins"`
+
+	// Member The linked member's TTA username, empty when not linked
+	Member   string            `json:"member"`
+	MemberId *int64            `json:"member_id"`
+	Refused  *AdminLinkRefused `json:"refused"`
+	Request  *AdminLinkRequest `json:"request"`
+
+	// SignedInAt The latest sign-in by any way in
+	SignedInAt time.Time `json:"signed_in_at"`
+}
+
+// AdminAccountLinkedHow By a recorded Discord name or email, or by an approved request; null when not linked
+type AdminAccountLinkedHow string
+
+// AdminAccountLogin A way into an account
+type AdminAccountLogin struct {
+	DisplayName string `json:"display_name"`
+
+	// Provider Where a player signs in
+	Provider   LoginProvider `json:"provider"`
+	SignedInAt time.Time     `json:"signed_in_at"`
+
+	// Username The Discord username, or the email address
+	Username string `json:"username"`
+}
+
 // AdminBadge defines model for AdminBadge.
 type AdminBadge struct {
 	Description string `json:"description"`
@@ -1113,7 +1174,7 @@ type AdminBlitzThreadText struct {
 	NoDiscord string `json:"no_discord"`
 }
 
-// AdminLinkRefused A sign-in's last request to be linked, when it was refused and neither a new request nor a link has followed
+// AdminLinkRefused An account's last request to be linked, when it was refused and neither a new request nor a link has followed
 type AdminLinkRefused struct {
 	// Name The TTA username asked for
 	Name string `json:"name"`
@@ -1133,8 +1194,11 @@ type AdminLinkRequest struct {
 	// MemberCountry That member's recorded country, empty for none
 	MemberCountry string `json:"member_country"`
 
-	// MemberDiscord That member's recorded Discord name, to compare with the sign-in's
+	// MemberDiscord That member's recorded Discord name, to compare with the account's
 	MemberDiscord string `json:"member_discord"`
+
+	// MemberEmail That member's recorded email, to compare with the account's
+	MemberEmail string `json:"member_email"`
 
 	// MemberZone That member's recorded time zone, empty when approving adds the member
 	MemberZone  string    `json:"member_zone"`
@@ -1144,31 +1208,6 @@ type AdminLinkRequest struct {
 	// Zone The time zone the player gave, empty for none
 	Zone string `json:"zone"`
 }
-
-// AdminLogin A way a player signs in, as admin sees it
-type AdminLogin struct {
-	// AutoLink Off once an admin unlinked it, so it is not linked by its Discord name again
-	AutoLink    bool   `json:"auto_link"`
-	DisplayName string `json:"display_name"`
-	Id          int64  `json:"id"`
-
-	// LinkedHow By their recorded Discord name, or by an approved request; null when not linked
-	LinkedHow *AdminLoginLinkedHow `json:"linked_how"`
-
-	// Member The linked member's TTA username, empty when not linked
-	Member   string `json:"member"`
-	MemberId *int64 `json:"member_id"`
-
-	// Provider Where a player signs in
-	Provider   LoginProvider     `json:"provider"`
-	Refused    *AdminLinkRefused `json:"refused"`
-	Request    *AdminLinkRequest `json:"request"`
-	SignedInAt time.Time         `json:"signed_in_at"`
-	Username   string            `json:"username"`
-}
-
-// AdminLoginLinkedHow By their recorded Discord name, or by an approved request; null when not linked
-type AdminLoginLinkedHow string
 
 // AdminMe defines model for AdminMe.
 type AdminMe struct {
@@ -2249,6 +2288,40 @@ type EditionRules struct {
 	Url           string `json:"url"`
 }
 
+// EmailLoginAsk defines model for EmailLoginAsk.
+type EmailLoginAsk struct {
+	Email string `json:"email"`
+}
+
+// EmailSignInAsk defines model for EmailSignInAsk.
+type EmailSignInAsk struct {
+	Email string `json:"email"`
+
+	// Return The site path, with any query, to come back to; anything else comes back to /account/
+	Return *string `json:"return,omitempty"`
+
+	// Turnstile The Turnstile widget's token
+	Turnstile string `json:"turnstile"`
+}
+
+// EmailSignInToken defines model for EmailSignInToken.
+type EmailSignInToken struct {
+	// Token The token from the link
+	Token string `json:"token"`
+}
+
+// EmailSignedIn defines model for EmailSignedIn.
+type EmailSignedIn struct {
+	// Back The site path to go back to
+	Back string `json:"back"`
+
+	// Outcome A first sign-in, a returning one, or the address added to the account
+	Outcome EmailSignedInOutcome `json:"outcome"`
+}
+
+// EmailSignedInOutcome A first sign-in, a returning one, or the address added to the account
+type EmailSignedInOutcome string
+
 // EngineDistribution defines model for EngineDistribution.
 type EngineDistribution struct {
 	ActiveMean float64 `json:"active_mean"`
@@ -2492,8 +2565,9 @@ type MatrixCell struct {
 	Rd     float64 `json:"rd"`
 }
 
-// Me The signed-in player: where they signed in and their names there, the member they are linked to (null until
-// linked), their latest request to be linked (null if none), and their role in admin (null if none)
+// Me The signed-in player: where this session signed in and their names there, every way into their account, the
+// member they are linked to (null until linked), their latest request to be linked (null if none), and their
+// role in admin (null if none)
 type Me struct {
 	AdminRole *MeAdminRole `json:"admin_role"`
 
@@ -2501,8 +2575,11 @@ type Me struct {
 	Country *string `json:"country"`
 
 	// DisplayName Empty when they have none
-	DisplayName string    `json:"display_name"`
-	Member      *MyMember `json:"member"`
+	DisplayName string `json:"display_name"`
+
+	// Logins Every way into the account, by provider
+	Logins []MyLogin `json:"logins"`
+	Member *MyMember `json:"member"`
 
 	// Provider Where a player signs in
 	Provider LoginProvider  `json:"provider"`
@@ -2577,6 +2654,18 @@ type MyLinkRequest struct {
 
 // MyLinkRequestStatus defines model for MyLinkRequest.Status.
 type MyLinkRequestStatus string
+
+// MyLogin A way into the signed-in player's account
+type MyLogin struct {
+	// DisplayName Empty when they have none
+	DisplayName string `json:"display_name"`
+
+	// Provider Where a player signs in
+	Provider LoginProvider `json:"provider"`
+
+	// Username The Discord username, or the email address
+	Username string `json:"username"`
+}
 
 // MyMember The member a signed-in player is linked to
 type MyMember struct {
@@ -3460,6 +3549,9 @@ type Years struct {
 	Years []YearEntry `json:"years"`
 }
 
+// AccountId defines model for AccountId.
+type AccountId = int64
+
 // AdminBadgeId defines model for AdminBadgeId.
 type AdminBadgeId = int64
 
@@ -3492,9 +3584,6 @@ type DiscordID = string
 
 // LinkRequestId defines model for LinkRequestId.
 type LinkRequestId = int64
-
-// LoginId defines model for LoginId.
-type LoginId = int64
 
 // MemberId defines model for MemberId.
 type MemberId = int64
@@ -3529,6 +3618,9 @@ type NotSetUp = Error
 // SignedOut defines model for SignedOut.
 type SignedOut = Error
 
+// TooManyLinks defines model for TooManyLinks.
+type TooManyLinks = Error
+
 // Unauthorized defines model for Unauthorized.
 type Unauthorized = Error
 
@@ -3551,6 +3643,9 @@ type GetAdminRunChangesParams struct {
 
 // StartDiscordSignInParams defines parameters for StartDiscordSignIn.
 type StartDiscordSignInParams struct {
+	// Add Add Discord to the signed-in player's account, rather than sign in
+	Add *bool `form:"add,omitempty" json:"add,omitempty"`
+
 	// Return The site path, with any query, to come back to, such as /ratings/player/?name=ann; anything else comes back to /account/
 	Return *string `form:"return,omitempty" json:"return,omitempty"`
 }
@@ -3786,11 +3881,20 @@ type PostAdminSeasonJSONRequestBody = NewSeason
 // PatchAdminSeasonJSONRequestBody defines body for PatchAdminSeason for application/json ContentType.
 type PatchAdminSeasonJSONRequestBody = SeasonChange
 
+// SendEmailSignInJSONRequestBody defines body for SendEmailSignIn for application/json ContentType.
+type SendEmailSignInJSONRequestBody = EmailSignInAsk
+
+// FinishEmailSignInJSONRequestBody defines body for FinishEmailSignIn for application/json ContentType.
+type FinishEmailSignInJSONRequestBody = EmailSignInToken
+
 // PatchMyDetailsJSONRequestBody defines body for PatchMyDetails for application/json ContentType.
 type PatchMyDetailsJSONRequestBody = MyDetailsChange
 
 // PutMyLinkRequestJSONRequestBody defines body for PutMyLinkRequest for application/json ContentType.
 type PutMyLinkRequestJSONRequestBody = LinkRequestAsk
+
+// PostMyEmailLoginJSONRequestBody defines body for PostMyEmailLogin for application/json ContentType.
+type PostMyEmailLoginJSONRequestBody = EmailLoginAsk
 
 // ServerInterface represents all server handlers.
 type ServerInterface interface {
@@ -3803,6 +3907,15 @@ type ServerInterface interface {
 	// GetRobotsTxt Rules for search crawlers, which keep them off the player routes
 	// (GET /robots.txt)
 	GetRobotsTxt(w http.ResponseWriter, r *http.Request)
+	// GetAdminAccounts Players' accounts, those waiting for a link first (admins and organisers)
+	// (GET /v1/admin/accounts)
+	GetAdminAccounts(w http.ResponseWriter, r *http.Request)
+	// DeleteAdminAccount Remove an account with its ways in, sessions and requests (admins only)
+	// (DELETE /v1/admin/accounts/{account})
+	DeleteAdminAccount(w http.ResponseWriter, r *http.Request, account AccountId)
+	// DeleteAdminAccountMember Unlink an account from its member (admins and organisers)
+	// (DELETE /v1/admin/accounts/{account}/member)
+	DeleteAdminAccountMember(w http.ResponseWriter, r *http.Request, account AccountId)
 	// GetAdminAdmins Everyone in admin, with their role (admins only)
 	// (GET /v1/admin/admins)
 	GetAdminAdmins(w http.ResponseWriter, r *http.Request)
@@ -3932,15 +4045,6 @@ type ServerInterface interface {
 	// PutAdminLinkRefusal Refuse a request to be linked, with a reason the player sees (admins and organisers)
 	// (PUT /v1/admin/link-requests/{link_request}/refusal)
 	PutAdminLinkRefusal(w http.ResponseWriter, r *http.Request, linkRequest LinkRequestId)
-	// GetAdminLogins Players' sign-ins, those waiting for a link first (admins and organisers)
-	// (GET /v1/admin/logins)
-	GetAdminLogins(w http.ResponseWriter, r *http.Request)
-	// DeleteAdminLogin Remove a sign-in and its sessions, and its account when no other sign-in is left (admins only)
-	// (DELETE /v1/admin/logins/{login})
-	DeleteAdminLogin(w http.ResponseWriter, r *http.Request, login LoginId)
-	// DeleteAdminLoginMember Unlink a sign-in from its member (admins and organisers)
-	// (DELETE /v1/admin/logins/{login}/member)
-	DeleteAdminLoginMember(w http.ResponseWriter, r *http.Request, login LoginId)
 	// GetAdminMe Who is signed in to admin, and in which role
 	// (GET /v1/admin/me)
 	GetAdminMe(w http.ResponseWriter, r *http.Request)
@@ -4028,6 +4132,12 @@ type ServerInterface interface {
 	// FinishDiscordSignIn Where Discord sends the player back
 	// (GET /v1/auth/discord/callback)
 	FinishDiscordSignIn(w http.ResponseWriter, r *http.Request, params FinishDiscordSignInParams)
+	// SendEmailSignIn Email a sign-in link
+	// (POST /v1/auth/email)
+	SendEmailSignIn(w http.ResponseWriter, r *http.Request)
+	// FinishEmailSignIn Open an emailed link
+	// (POST /v1/auth/email/finish)
+	FinishEmailSignIn(w http.ResponseWriter, r *http.Request)
 	// SignOut Sign out on this browser
 	// (POST /v1/auth/sign-out)
 	SignOut(w http.ResponseWriter, r *http.Request)
@@ -4055,6 +4165,12 @@ type ServerInterface interface {
 	// PutMyLinkRequest Ask to be linked to a TTA username
 	// (PUT /v1/me/link-request)
 	PutMyLinkRequest(w http.ResponseWriter, r *http.Request)
+	// PostMyEmailLogin Email a link that adds the address as another way in
+	// (POST /v1/me/logins/email)
+	PostMyEmailLogin(w http.ResponseWriter, r *http.Request)
+	// DeleteMyLogin Remove one of your ways in
+	// (DELETE /v1/me/logins/{provider})
+	DeleteMyLogin(w http.ResponseWriter, r *http.Request, provider LoginProvider)
 	// GetCurrentRun The run the site shows now
 	// (GET /v1/runs/current)
 	GetCurrentRun(w http.ResponseWriter, r *http.Request)
@@ -4183,6 +4299,72 @@ func (siw *ServerInterfaceWrapper) GetRobotsTxt(w http.ResponseWriter, r *http.R
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.GetRobotsTxt(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetAdminAccounts operation middleware
+func (siw *ServerInterfaceWrapper) GetAdminAccounts(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetAdminAccounts(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// DeleteAdminAccount operation middleware
+func (siw *ServerInterfaceWrapper) DeleteAdminAccount(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "account" -------------
+	var account AccountId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "account", r.PathValue("account"), &account, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "integer", Format: "int64", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "account", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.DeleteAdminAccount(w, r, account)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// DeleteAdminAccountMember operation middleware
+func (siw *ServerInterfaceWrapper) DeleteAdminAccountMember(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "account" -------------
+	var account AccountId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "account", r.PathValue("account"), &account, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "integer", Format: "int64", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "account", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.DeleteAdminAccountMember(w, r, account)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -5641,72 +5823,6 @@ func (siw *ServerInterfaceWrapper) PutAdminLinkRefusal(w http.ResponseWriter, r 
 	handler.ServeHTTP(w, r)
 }
 
-// GetAdminLogins operation middleware
-func (siw *ServerInterfaceWrapper) GetAdminLogins(w http.ResponseWriter, r *http.Request) {
-
-	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.GetAdminLogins(w, r)
-	}))
-
-	for _, middleware := range siw.HandlerMiddlewares {
-		handler = middleware(handler)
-	}
-
-	handler.ServeHTTP(w, r)
-}
-
-// DeleteAdminLogin operation middleware
-func (siw *ServerInterfaceWrapper) DeleteAdminLogin(w http.ResponseWriter, r *http.Request) {
-
-	var err error
-	_ = err
-
-	// ------------- Path parameter "login" -------------
-	var login LoginId
-
-	err = runtime.BindStyledParameterWithOptions("simple", "login", r.PathValue("login"), &login, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "integer", Format: "int64", ValueIsUnescaped: true})
-	if err != nil {
-		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "login", Err: err})
-		return
-	}
-
-	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.DeleteAdminLogin(w, r, login)
-	}))
-
-	for _, middleware := range siw.HandlerMiddlewares {
-		handler = middleware(handler)
-	}
-
-	handler.ServeHTTP(w, r)
-}
-
-// DeleteAdminLoginMember operation middleware
-func (siw *ServerInterfaceWrapper) DeleteAdminLoginMember(w http.ResponseWriter, r *http.Request) {
-
-	var err error
-	_ = err
-
-	// ------------- Path parameter "login" -------------
-	var login LoginId
-
-	err = runtime.BindStyledParameterWithOptions("simple", "login", r.PathValue("login"), &login, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "integer", Format: "int64", ValueIsUnescaped: true})
-	if err != nil {
-		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "login", Err: err})
-		return
-	}
-
-	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.DeleteAdminLoginMember(w, r, login)
-	}))
-
-	for _, middleware := range siw.HandlerMiddlewares {
-		handler = middleware(handler)
-	}
-
-	handler.ServeHTTP(w, r)
-}
-
 // GetAdminMe operation middleware
 func (siw *ServerInterfaceWrapper) GetAdminMe(w http.ResponseWriter, r *http.Request) {
 
@@ -6327,6 +6443,19 @@ func (siw *ServerInterfaceWrapper) StartDiscordSignIn(w http.ResponseWriter, r *
 	// Parameter object where we will unmarshal all parameters from the context
 	var params StartDiscordSignInParams
 
+	// ------------- Optional query parameter "add" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "add", r.URL.Query(), &params.Add, runtime.BindQueryParameterOptions{Type: "boolean", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "add"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "add", Err: err})
+		}
+		return
+	}
+
 	// ------------- Optional query parameter "return" -------------
 
 	err = runtime.BindQueryParameterWithOptions("form", true, false, "return", r.URL.Query(), &params.Return, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
@@ -6401,6 +6530,34 @@ func (siw *ServerInterfaceWrapper) FinishDiscordSignIn(w http.ResponseWriter, r 
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.FinishDiscordSignIn(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// SendEmailSignIn operation middleware
+func (siw *ServerInterfaceWrapper) SendEmailSignIn(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.SendEmailSignIn(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// FinishEmailSignIn operation middleware
+func (siw *ServerInterfaceWrapper) FinishEmailSignIn(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.FinishEmailSignIn(w, r)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -6548,6 +6705,46 @@ func (siw *ServerInterfaceWrapper) PutMyLinkRequest(w http.ResponseWriter, r *ht
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.PutMyLinkRequest(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// PostMyEmailLogin operation middleware
+func (siw *ServerInterfaceWrapper) PostMyEmailLogin(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.PostMyEmailLogin(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// DeleteMyLogin operation middleware
+func (siw *ServerInterfaceWrapper) DeleteMyLogin(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "provider" -------------
+	var provider LoginProvider
+
+	err = runtime.BindStyledParameterWithOptions("simple", "provider", r.PathValue("provider"), &provider, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "provider", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.DeleteMyLogin(w, r, provider)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -8130,11 +8327,15 @@ func HandlerWithOptions(si ServerInterface, options StdHTTPServerOptions) http.H
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/v1/countries", wrapper.GetCountries)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/v1/auth/discord", wrapper.StartDiscordSignIn)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/v1/auth/discord/callback", wrapper.FinishDiscordSignIn)
+	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/v1/auth/email", wrapper.SendEmailSignIn)
+	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/v1/auth/email/finish", wrapper.FinishEmailSignIn)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/v1/auth/sign-out", wrapper.SignOut)
 	m.HandleFunc(http.MethodDelete+" "+options.BaseURL+"/v1/me", wrapper.DeleteMe)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/v1/me", wrapper.GetMe)
 	m.HandleFunc(http.MethodPut+" "+options.BaseURL+"/v1/me/link-request", wrapper.PutMyLinkRequest)
 	m.HandleFunc(http.MethodPatch+" "+options.BaseURL+"/v1/me/details", wrapper.PatchMyDetails)
+	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/v1/me/logins/email", wrapper.PostMyEmailLogin)
+	m.HandleFunc(http.MethodDelete+" "+options.BaseURL+"/v1/me/logins/{provider}", wrapper.DeleteMyLogin)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/v1/admin/me", wrapper.GetAdminMe)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/v1/admin/tournaments", wrapper.GetAdminTournaments)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/v1/admin/tournaments", wrapper.PostAdminGroup)
@@ -8203,9 +8404,9 @@ func HandlerWithOptions(si ServerInterface, options StdHTTPServerOptions) http.H
 	m.HandleFunc(http.MethodPut+" "+options.BaseURL+"/v1/admin/blitz/{tournament}/{edition}/thread-text", wrapper.PutAdminBlitzThreadText)
 	m.HandleFunc(http.MethodPut+" "+options.BaseURL+"/v1/admin/blitz/{tournament}/{edition}/rounds/{round}/deadline", wrapper.PutAdminBlitzRoundDeadline)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/v1/admin/blitz/{tournament}/{edition}/rounds/{round}/threads", wrapper.GetAdminBlitzRoundThreads)
-	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/v1/admin/logins", wrapper.GetAdminLogins)
-	m.HandleFunc(http.MethodDelete+" "+options.BaseURL+"/v1/admin/logins/{login}", wrapper.DeleteAdminLogin)
-	m.HandleFunc(http.MethodDelete+" "+options.BaseURL+"/v1/admin/logins/{login}/member", wrapper.DeleteAdminLoginMember)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/v1/admin/accounts", wrapper.GetAdminAccounts)
+	m.HandleFunc(http.MethodDelete+" "+options.BaseURL+"/v1/admin/accounts/{account}", wrapper.DeleteAdminAccount)
+	m.HandleFunc(http.MethodDelete+" "+options.BaseURL+"/v1/admin/accounts/{account}/member", wrapper.DeleteAdminAccountMember)
 	m.HandleFunc(http.MethodPut+" "+options.BaseURL+"/v1/admin/link-requests/{link_request}/approval", wrapper.PutAdminLinkApproval)
 	m.HandleFunc(http.MethodPut+" "+options.BaseURL+"/v1/admin/link-requests/{link_request}/refusal", wrapper.PutAdminLinkRefusal)
 
@@ -8275,6 +8476,15 @@ type SignedOutJSONResponse struct {
 	Body Error
 
 	Headers SignedOutResponseHeaders
+}
+
+type TooManyLinksResponseHeaders struct {
+	CacheControl string
+}
+type TooManyLinksJSONResponse struct {
+	Body Error
+
+	Headers TooManyLinksResponseHeaders
 }
 
 type UnauthorizedResponseHeaders struct {
@@ -8381,6 +8591,187 @@ func (response GetRobotsTxt200TextResponse) VisitGetRobotsTxtResponse(w http.Res
 	w.WriteHeader(200)
 
 	_, err := w.Write([]byte(fmt.Sprint(response.Body)))
+	return err
+}
+
+type GetAdminAccountsRequestObject struct {
+}
+
+type GetAdminAccountsResponseObject interface {
+	VisitGetAdminAccountsResponse(w http.ResponseWriter) error
+}
+
+type GetAdminAccounts200ResponseHeaders struct {
+	CacheControl string
+}
+
+type GetAdminAccounts200JSONResponse struct {
+	Body    []AdminAccount
+	Headers GetAdminAccounts200ResponseHeaders
+}
+
+func (response GetAdminAccounts200JSONResponse) VisitGetAdminAccountsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetAdminAccounts401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response GetAdminAccounts401JSONResponse) VisitGetAdminAccountsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetAdminAccounts403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response GetAdminAccounts403JSONResponse) VisitGetAdminAccountsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DeleteAdminAccountRequestObject struct {
+	Account AccountId `json:"account"`
+}
+
+type DeleteAdminAccountResponseObject interface {
+	VisitDeleteAdminAccountResponse(w http.ResponseWriter) error
+}
+
+type DeleteAdminAccount204Response struct {
+}
+
+func (response DeleteAdminAccount204Response) VisitDeleteAdminAccountResponse(w http.ResponseWriter) error {
+	w.WriteHeader(204)
+	return nil
+}
+
+type DeleteAdminAccount401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response DeleteAdminAccount401JSONResponse) VisitDeleteAdminAccountResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DeleteAdminAccount403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response DeleteAdminAccount403JSONResponse) VisitDeleteAdminAccountResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DeleteAdminAccount404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response DeleteAdminAccount404JSONResponse) VisitDeleteAdminAccountResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DeleteAdminAccountMemberRequestObject struct {
+	Account AccountId `json:"account"`
+}
+
+type DeleteAdminAccountMemberResponseObject interface {
+	VisitDeleteAdminAccountMemberResponse(w http.ResponseWriter) error
+}
+
+type DeleteAdminAccountMember204Response struct {
+}
+
+func (response DeleteAdminAccountMember204Response) VisitDeleteAdminAccountMemberResponse(w http.ResponseWriter) error {
+	w.WriteHeader(204)
+	return nil
+}
+
+type DeleteAdminAccountMember401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response DeleteAdminAccountMember401JSONResponse) VisitDeleteAdminAccountMemberResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DeleteAdminAccountMember403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response DeleteAdminAccountMember403JSONResponse) VisitDeleteAdminAccountMemberResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DeleteAdminAccountMember404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response DeleteAdminAccountMember404JSONResponse) VisitDeleteAdminAccountMemberResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
 	return err
 }
 
@@ -11796,187 +12187,6 @@ func (response PutAdminLinkRefusal404JSONResponse) VisitPutAdminLinkRefusalRespo
 	return err
 }
 
-type GetAdminLoginsRequestObject struct {
-}
-
-type GetAdminLoginsResponseObject interface {
-	VisitGetAdminLoginsResponse(w http.ResponseWriter) error
-}
-
-type GetAdminLogins200ResponseHeaders struct {
-	CacheControl string
-}
-
-type GetAdminLogins200JSONResponse struct {
-	Body    []AdminLogin
-	Headers GetAdminLogins200ResponseHeaders
-}
-
-func (response GetAdminLogins200JSONResponse) VisitGetAdminLoginsResponse(w http.ResponseWriter) error {
-
-	var buf bytes.Buffer
-	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
-		return err
-	}
-	w.Header().Set("Content-Type", "application/json")
-	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
-	w.WriteHeader(200)
-	_, err := buf.WriteTo(w)
-	return err
-}
-
-type GetAdminLogins401JSONResponse struct{ UnauthorizedJSONResponse }
-
-func (response GetAdminLogins401JSONResponse) VisitGetAdminLoginsResponse(w http.ResponseWriter) error {
-
-	var buf bytes.Buffer
-	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
-		return err
-	}
-	w.Header().Set("Content-Type", "application/json")
-	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
-	w.WriteHeader(401)
-	_, err := buf.WriteTo(w)
-	return err
-}
-
-type GetAdminLogins403JSONResponse struct{ ForbiddenJSONResponse }
-
-func (response GetAdminLogins403JSONResponse) VisitGetAdminLoginsResponse(w http.ResponseWriter) error {
-
-	var buf bytes.Buffer
-	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
-		return err
-	}
-	w.Header().Set("Content-Type", "application/json")
-	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
-	w.WriteHeader(403)
-	_, err := buf.WriteTo(w)
-	return err
-}
-
-type DeleteAdminLoginRequestObject struct {
-	Login LoginId `json:"login"`
-}
-
-type DeleteAdminLoginResponseObject interface {
-	VisitDeleteAdminLoginResponse(w http.ResponseWriter) error
-}
-
-type DeleteAdminLogin204Response struct {
-}
-
-func (response DeleteAdminLogin204Response) VisitDeleteAdminLoginResponse(w http.ResponseWriter) error {
-	w.WriteHeader(204)
-	return nil
-}
-
-type DeleteAdminLogin401JSONResponse struct{ UnauthorizedJSONResponse }
-
-func (response DeleteAdminLogin401JSONResponse) VisitDeleteAdminLoginResponse(w http.ResponseWriter) error {
-
-	var buf bytes.Buffer
-	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
-		return err
-	}
-	w.Header().Set("Content-Type", "application/json")
-	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
-	w.WriteHeader(401)
-	_, err := buf.WriteTo(w)
-	return err
-}
-
-type DeleteAdminLogin403JSONResponse struct{ ForbiddenJSONResponse }
-
-func (response DeleteAdminLogin403JSONResponse) VisitDeleteAdminLoginResponse(w http.ResponseWriter) error {
-
-	var buf bytes.Buffer
-	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
-		return err
-	}
-	w.Header().Set("Content-Type", "application/json")
-	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
-	w.WriteHeader(403)
-	_, err := buf.WriteTo(w)
-	return err
-}
-
-type DeleteAdminLogin404JSONResponse struct{ NotFoundJSONResponse }
-
-func (response DeleteAdminLogin404JSONResponse) VisitDeleteAdminLoginResponse(w http.ResponseWriter) error {
-
-	var buf bytes.Buffer
-	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
-		return err
-	}
-	w.Header().Set("Content-Type", "application/json")
-	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
-	w.WriteHeader(404)
-	_, err := buf.WriteTo(w)
-	return err
-}
-
-type DeleteAdminLoginMemberRequestObject struct {
-	Login LoginId `json:"login"`
-}
-
-type DeleteAdminLoginMemberResponseObject interface {
-	VisitDeleteAdminLoginMemberResponse(w http.ResponseWriter) error
-}
-
-type DeleteAdminLoginMember204Response struct {
-}
-
-func (response DeleteAdminLoginMember204Response) VisitDeleteAdminLoginMemberResponse(w http.ResponseWriter) error {
-	w.WriteHeader(204)
-	return nil
-}
-
-type DeleteAdminLoginMember401JSONResponse struct{ UnauthorizedJSONResponse }
-
-func (response DeleteAdminLoginMember401JSONResponse) VisitDeleteAdminLoginMemberResponse(w http.ResponseWriter) error {
-
-	var buf bytes.Buffer
-	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
-		return err
-	}
-	w.Header().Set("Content-Type", "application/json")
-	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
-	w.WriteHeader(401)
-	_, err := buf.WriteTo(w)
-	return err
-}
-
-type DeleteAdminLoginMember403JSONResponse struct{ ForbiddenJSONResponse }
-
-func (response DeleteAdminLoginMember403JSONResponse) VisitDeleteAdminLoginMemberResponse(w http.ResponseWriter) error {
-
-	var buf bytes.Buffer
-	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
-		return err
-	}
-	w.Header().Set("Content-Type", "application/json")
-	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
-	w.WriteHeader(403)
-	_, err := buf.WriteTo(w)
-	return err
-}
-
-type DeleteAdminLoginMember404JSONResponse struct{ NotFoundJSONResponse }
-
-func (response DeleteAdminLoginMember404JSONResponse) VisitDeleteAdminLoginMemberResponse(w http.ResponseWriter) error {
-
-	var buf bytes.Buffer
-	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
-		return err
-	}
-	w.Header().Set("Content-Type", "application/json")
-	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
-	w.WriteHeader(404)
-	_, err := buf.WriteTo(w)
-	return err
-}
-
 type GetAdminMeRequestObject struct {
 }
 
@@ -14020,6 +14230,192 @@ func (response FinishDiscordSignIn503JSONResponse) VisitFinishDiscordSignInRespo
 	return err
 }
 
+type SendEmailSignInRequestObject struct {
+	Body *SendEmailSignInJSONRequestBody
+}
+
+type SendEmailSignInResponseObject interface {
+	VisitSendEmailSignInResponse(w http.ResponseWriter) error
+}
+
+type SendEmailSignIn204Response struct {
+}
+
+func (response SendEmailSignIn204Response) VisitSendEmailSignInResponse(w http.ResponseWriter) error {
+	w.WriteHeader(204)
+	return nil
+}
+
+type SendEmailSignIn400JSONResponse struct{ BadRequestJSONResponse }
+
+func (response SendEmailSignIn400JSONResponse) VisitSendEmailSignInResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type SendEmailSignIn403JSONResponse struct{ NotFromSiteJSONResponse }
+
+func (response SendEmailSignIn403JSONResponse) VisitSendEmailSignInResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type SendEmailSignIn429JSONResponse struct{ TooManyLinksJSONResponse }
+
+func (response SendEmailSignIn429JSONResponse) VisitSendEmailSignInResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(429)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type SendEmailSignIn503JSONResponse struct{ NotSetUpJSONResponse }
+
+func (response SendEmailSignIn503JSONResponse) VisitSendEmailSignInResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(503)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type FinishEmailSignInRequestObject struct {
+	Body *FinishEmailSignInJSONRequestBody
+}
+
+type FinishEmailSignInResponseObject interface {
+	VisitFinishEmailSignInResponse(w http.ResponseWriter) error
+}
+
+type FinishEmailSignIn200ResponseHeaders struct {
+	CacheControl string
+}
+
+type FinishEmailSignIn200JSONResponse struct {
+	Body    EmailSignedIn
+	Headers FinishEmailSignIn200ResponseHeaders
+}
+
+func (response FinishEmailSignIn200JSONResponse) VisitFinishEmailSignInResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type FinishEmailSignIn400JSONResponse struct{ BadRequestJSONResponse }
+
+func (response FinishEmailSignIn400JSONResponse) VisitFinishEmailSignInResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type FinishEmailSignIn403JSONResponse struct{ NotFromSiteJSONResponse }
+
+func (response FinishEmailSignIn403JSONResponse) VisitFinishEmailSignInResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type FinishEmailSignIn409JSONResponse struct{ ConflictJSONResponse }
+
+func (response FinishEmailSignIn409JSONResponse) VisitFinishEmailSignInResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(409)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type FinishEmailSignIn410ResponseHeaders struct {
+	CacheControl string
+}
+
+type FinishEmailSignIn410JSONResponse struct {
+	Body    Error
+	Headers FinishEmailSignIn410ResponseHeaders
+}
+
+func (response FinishEmailSignIn410JSONResponse) VisitFinishEmailSignInResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(410)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type FinishEmailSignIn503JSONResponse struct{ NotSetUpJSONResponse }
+
+func (response FinishEmailSignIn503JSONResponse) VisitFinishEmailSignInResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(503)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
 type SignOutRequestObject struct {
 }
 
@@ -14408,6 +14804,186 @@ func (response PutMyLinkRequest403JSONResponse) VisitPutMyLinkRequestResponse(w 
 type PutMyLinkRequest409JSONResponse struct{ ConflictJSONResponse }
 
 func (response PutMyLinkRequest409JSONResponse) VisitPutMyLinkRequestResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(409)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PostMyEmailLoginRequestObject struct {
+	Body *PostMyEmailLoginJSONRequestBody
+}
+
+type PostMyEmailLoginResponseObject interface {
+	VisitPostMyEmailLoginResponse(w http.ResponseWriter) error
+}
+
+type PostMyEmailLogin204Response struct {
+}
+
+func (response PostMyEmailLogin204Response) VisitPostMyEmailLoginResponse(w http.ResponseWriter) error {
+	w.WriteHeader(204)
+	return nil
+}
+
+type PostMyEmailLogin400JSONResponse struct{ BadRequestJSONResponse }
+
+func (response PostMyEmailLogin400JSONResponse) VisitPostMyEmailLoginResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PostMyEmailLogin401JSONResponse struct{ SignedOutJSONResponse }
+
+func (response PostMyEmailLogin401JSONResponse) VisitPostMyEmailLoginResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PostMyEmailLogin403JSONResponse struct{ NotFromSiteJSONResponse }
+
+func (response PostMyEmailLogin403JSONResponse) VisitPostMyEmailLoginResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PostMyEmailLogin409JSONResponse struct{ ConflictJSONResponse }
+
+func (response PostMyEmailLogin409JSONResponse) VisitPostMyEmailLoginResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(409)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PostMyEmailLogin429JSONResponse struct{ TooManyLinksJSONResponse }
+
+func (response PostMyEmailLogin429JSONResponse) VisitPostMyEmailLoginResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(429)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PostMyEmailLogin503JSONResponse struct{ NotSetUpJSONResponse }
+
+func (response PostMyEmailLogin503JSONResponse) VisitPostMyEmailLoginResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(503)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DeleteMyLoginRequestObject struct {
+	Provider LoginProvider `json:"provider"`
+}
+
+type DeleteMyLoginResponseObject interface {
+	VisitDeleteMyLoginResponse(w http.ResponseWriter) error
+}
+
+type DeleteMyLogin204Response struct {
+}
+
+func (response DeleteMyLogin204Response) VisitDeleteMyLoginResponse(w http.ResponseWriter) error {
+	w.WriteHeader(204)
+	return nil
+}
+
+type DeleteMyLogin401JSONResponse struct{ SignedOutJSONResponse }
+
+func (response DeleteMyLogin401JSONResponse) VisitDeleteMyLoginResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DeleteMyLogin403JSONResponse struct{ NotFromSiteJSONResponse }
+
+func (response DeleteMyLogin403JSONResponse) VisitDeleteMyLoginResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DeleteMyLogin404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response DeleteMyLogin404JSONResponse) VisitDeleteMyLoginResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DeleteMyLogin409JSONResponse struct{ ConflictJSONResponse }
+
+func (response DeleteMyLogin409JSONResponse) VisitDeleteMyLoginResponse(w http.ResponseWriter) error {
 
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
@@ -16131,6 +16707,15 @@ type StrictServerInterface interface {
 	// GetRobotsTxt Rules for search crawlers, which keep them off the player routes
 	// (GET /robots.txt)
 	GetRobotsTxt(ctx context.Context, request GetRobotsTxtRequestObject) (GetRobotsTxtResponseObject, error)
+	// GetAdminAccounts Players' accounts, those waiting for a link first (admins and organisers)
+	// (GET /v1/admin/accounts)
+	GetAdminAccounts(ctx context.Context, request GetAdminAccountsRequestObject) (GetAdminAccountsResponseObject, error)
+	// DeleteAdminAccount Remove an account with its ways in, sessions and requests (admins only)
+	// (DELETE /v1/admin/accounts/{account})
+	DeleteAdminAccount(ctx context.Context, request DeleteAdminAccountRequestObject) (DeleteAdminAccountResponseObject, error)
+	// DeleteAdminAccountMember Unlink an account from its member (admins and organisers)
+	// (DELETE /v1/admin/accounts/{account}/member)
+	DeleteAdminAccountMember(ctx context.Context, request DeleteAdminAccountMemberRequestObject) (DeleteAdminAccountMemberResponseObject, error)
 	// GetAdminAdmins Everyone in admin, with their role (admins only)
 	// (GET /v1/admin/admins)
 	GetAdminAdmins(ctx context.Context, request GetAdminAdminsRequestObject) (GetAdminAdminsResponseObject, error)
@@ -16260,15 +16845,6 @@ type StrictServerInterface interface {
 	// PutAdminLinkRefusal Refuse a request to be linked, with a reason the player sees (admins and organisers)
 	// (PUT /v1/admin/link-requests/{link_request}/refusal)
 	PutAdminLinkRefusal(ctx context.Context, request PutAdminLinkRefusalRequestObject) (PutAdminLinkRefusalResponseObject, error)
-	// GetAdminLogins Players' sign-ins, those waiting for a link first (admins and organisers)
-	// (GET /v1/admin/logins)
-	GetAdminLogins(ctx context.Context, request GetAdminLoginsRequestObject) (GetAdminLoginsResponseObject, error)
-	// DeleteAdminLogin Remove a sign-in and its sessions, and its account when no other sign-in is left (admins only)
-	// (DELETE /v1/admin/logins/{login})
-	DeleteAdminLogin(ctx context.Context, request DeleteAdminLoginRequestObject) (DeleteAdminLoginResponseObject, error)
-	// DeleteAdminLoginMember Unlink a sign-in from its member (admins and organisers)
-	// (DELETE /v1/admin/logins/{login}/member)
-	DeleteAdminLoginMember(ctx context.Context, request DeleteAdminLoginMemberRequestObject) (DeleteAdminLoginMemberResponseObject, error)
 	// GetAdminMe Who is signed in to admin, and in which role
 	// (GET /v1/admin/me)
 	GetAdminMe(ctx context.Context, request GetAdminMeRequestObject) (GetAdminMeResponseObject, error)
@@ -16356,6 +16932,12 @@ type StrictServerInterface interface {
 	// FinishDiscordSignIn Where Discord sends the player back
 	// (GET /v1/auth/discord/callback)
 	FinishDiscordSignIn(ctx context.Context, request FinishDiscordSignInRequestObject) (FinishDiscordSignInResponseObject, error)
+	// SendEmailSignIn Email a sign-in link
+	// (POST /v1/auth/email)
+	SendEmailSignIn(ctx context.Context, request SendEmailSignInRequestObject) (SendEmailSignInResponseObject, error)
+	// FinishEmailSignIn Open an emailed link
+	// (POST /v1/auth/email/finish)
+	FinishEmailSignIn(ctx context.Context, request FinishEmailSignInRequestObject) (FinishEmailSignInResponseObject, error)
 	// SignOut Sign out on this browser
 	// (POST /v1/auth/sign-out)
 	SignOut(ctx context.Context, request SignOutRequestObject) (SignOutResponseObject, error)
@@ -16383,6 +16965,12 @@ type StrictServerInterface interface {
 	// PutMyLinkRequest Ask to be linked to a TTA username
 	// (PUT /v1/me/link-request)
 	PutMyLinkRequest(ctx context.Context, request PutMyLinkRequestRequestObject) (PutMyLinkRequestResponseObject, error)
+	// PostMyEmailLogin Email a link that adds the address as another way in
+	// (POST /v1/me/logins/email)
+	PostMyEmailLogin(ctx context.Context, request PostMyEmailLoginRequestObject) (PostMyEmailLoginResponseObject, error)
+	// DeleteMyLogin Remove one of your ways in
+	// (DELETE /v1/me/logins/{provider})
+	DeleteMyLogin(ctx context.Context, request DeleteMyLoginRequestObject) (DeleteMyLoginResponseObject, error)
 	// GetCurrentRun The run the site shows now
 	// (GET /v1/runs/current)
 	GetCurrentRun(ctx context.Context, request GetCurrentRunRequestObject) (GetCurrentRunResponseObject, error)
@@ -16573,6 +17161,82 @@ func (sh *strictHandler) GetRobotsTxt(w http.ResponseWriter, r *http.Request) {
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(GetRobotsTxtResponseObject); ok {
 		if err := validResponse.VisitGetRobotsTxtResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// GetAdminAccounts operation middleware
+func (sh *strictHandler) GetAdminAccounts(w http.ResponseWriter, r *http.Request) {
+	var request GetAdminAccountsRequestObject
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.GetAdminAccounts(ctx, request.(GetAdminAccountsRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetAdminAccounts")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(GetAdminAccountsResponseObject); ok {
+		if err := validResponse.VisitGetAdminAccountsResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// DeleteAdminAccount operation middleware
+func (sh *strictHandler) DeleteAdminAccount(w http.ResponseWriter, r *http.Request, account AccountId) {
+	var request DeleteAdminAccountRequestObject
+
+	request.Account = account
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.DeleteAdminAccount(ctx, request.(DeleteAdminAccountRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "DeleteAdminAccount")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(DeleteAdminAccountResponseObject); ok {
+		if err := validResponse.VisitDeleteAdminAccountResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// DeleteAdminAccountMember operation middleware
+func (sh *strictHandler) DeleteAdminAccountMember(w http.ResponseWriter, r *http.Request, account AccountId) {
+	var request DeleteAdminAccountMemberRequestObject
+
+	request.Account = account
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.DeleteAdminAccountMember(ctx, request.(DeleteAdminAccountMemberRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "DeleteAdminAccountMember")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(DeleteAdminAccountMemberResponseObject); ok {
+		if err := validResponse.VisitDeleteAdminAccountMemberResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {
@@ -17861,82 +18525,6 @@ func (sh *strictHandler) PutAdminLinkRefusal(w http.ResponseWriter, r *http.Requ
 	}
 }
 
-// GetAdminLogins operation middleware
-func (sh *strictHandler) GetAdminLogins(w http.ResponseWriter, r *http.Request) {
-	var request GetAdminLoginsRequestObject
-
-	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
-		return sh.ssi.GetAdminLogins(ctx, request.(GetAdminLoginsRequestObject))
-	}
-	for _, middleware := range sh.middlewares {
-		handler = middleware(handler, "GetAdminLogins")
-	}
-
-	response, err := handler(r.Context(), w, r, request)
-
-	if err != nil {
-		sh.options.ResponseErrorHandlerFunc(w, r, err)
-	} else if validResponse, ok := response.(GetAdminLoginsResponseObject); ok {
-		if err := validResponse.VisitGetAdminLoginsResponse(w); err != nil {
-			sh.options.ResponseErrorHandlerFunc(w, r, err)
-		}
-	} else if response != nil {
-		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
-	}
-}
-
-// DeleteAdminLogin operation middleware
-func (sh *strictHandler) DeleteAdminLogin(w http.ResponseWriter, r *http.Request, login LoginId) {
-	var request DeleteAdminLoginRequestObject
-
-	request.Login = login
-
-	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
-		return sh.ssi.DeleteAdminLogin(ctx, request.(DeleteAdminLoginRequestObject))
-	}
-	for _, middleware := range sh.middlewares {
-		handler = middleware(handler, "DeleteAdminLogin")
-	}
-
-	response, err := handler(r.Context(), w, r, request)
-
-	if err != nil {
-		sh.options.ResponseErrorHandlerFunc(w, r, err)
-	} else if validResponse, ok := response.(DeleteAdminLoginResponseObject); ok {
-		if err := validResponse.VisitDeleteAdminLoginResponse(w); err != nil {
-			sh.options.ResponseErrorHandlerFunc(w, r, err)
-		}
-	} else if response != nil {
-		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
-	}
-}
-
-// DeleteAdminLoginMember operation middleware
-func (sh *strictHandler) DeleteAdminLoginMember(w http.ResponseWriter, r *http.Request, login LoginId) {
-	var request DeleteAdminLoginMemberRequestObject
-
-	request.Login = login
-
-	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
-		return sh.ssi.DeleteAdminLoginMember(ctx, request.(DeleteAdminLoginMemberRequestObject))
-	}
-	for _, middleware := range sh.middlewares {
-		handler = middleware(handler, "DeleteAdminLoginMember")
-	}
-
-	response, err := handler(r.Context(), w, r, request)
-
-	if err != nil {
-		sh.options.ResponseErrorHandlerFunc(w, r, err)
-	} else if validResponse, ok := response.(DeleteAdminLoginMemberResponseObject); ok {
-		if err := validResponse.VisitDeleteAdminLoginMemberResponse(w); err != nil {
-			sh.options.ResponseErrorHandlerFunc(w, r, err)
-		}
-	} else if response != nil {
-		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
-	}
-}
-
 // GetAdminMe operation middleware
 func (sh *strictHandler) GetAdminMe(w http.ResponseWriter, r *http.Request) {
 	var request GetAdminMeRequestObject
@@ -18735,6 +19323,68 @@ func (sh *strictHandler) FinishDiscordSignIn(w http.ResponseWriter, r *http.Requ
 	}
 }
 
+// SendEmailSignIn operation middleware
+func (sh *strictHandler) SendEmailSignIn(w http.ResponseWriter, r *http.Request) {
+	var request SendEmailSignInRequestObject
+
+	var body SendEmailSignInJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.SendEmailSignIn(ctx, request.(SendEmailSignInRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "SendEmailSignIn")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(SendEmailSignInResponseObject); ok {
+		if err := validResponse.VisitSendEmailSignInResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// FinishEmailSignIn operation middleware
+func (sh *strictHandler) FinishEmailSignIn(w http.ResponseWriter, r *http.Request) {
+	var request FinishEmailSignInRequestObject
+
+	var body FinishEmailSignInJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.FinishEmailSignIn(ctx, request.(FinishEmailSignInRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "FinishEmailSignIn")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(FinishEmailSignInResponseObject); ok {
+		if err := validResponse.VisitFinishEmailSignInResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
 // SignOut operation middleware
 func (sh *strictHandler) SignOut(w http.ResponseWriter, r *http.Request) {
 	var request SignOutRequestObject
@@ -18961,6 +19611,63 @@ func (sh *strictHandler) PutMyLinkRequest(w http.ResponseWriter, r *http.Request
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(PutMyLinkRequestResponseObject); ok {
 		if err := validResponse.VisitPutMyLinkRequestResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// PostMyEmailLogin operation middleware
+func (sh *strictHandler) PostMyEmailLogin(w http.ResponseWriter, r *http.Request) {
+	var request PostMyEmailLoginRequestObject
+
+	var body PostMyEmailLoginJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.PostMyEmailLogin(ctx, request.(PostMyEmailLoginRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "PostMyEmailLogin")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(PostMyEmailLoginResponseObject); ok {
+		if err := validResponse.VisitPostMyEmailLoginResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// DeleteMyLogin operation middleware
+func (sh *strictHandler) DeleteMyLogin(w http.ResponseWriter, r *http.Request, provider LoginProvider) {
+	var request DeleteMyLoginRequestObject
+
+	request.Provider = provider
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.DeleteMyLogin(ctx, request.(DeleteMyLoginRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "DeleteMyLogin")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(DeleteMyLoginResponseObject); ok {
+		if err := validResponse.VisitDeleteMyLoginResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {

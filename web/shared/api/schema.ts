@@ -813,7 +813,9 @@ export interface paths {
          * @description Opened as a page, not fetched: sends the browser to Discord, asking
          *     only for the identify scope, with a state and a PKCE challenge whose
          *     verifier waits in a short-lived cookie for the callback. A player who
-         *     has authorized the app before is not asked again. Never cached.
+         *     has authorized the app before is not asked again. With add, a
+         *     signed-in player adds Discord to their account as another way in.
+         *     Never cached.
          */
         get: operations["startDiscordSignIn"];
         put?: never;
@@ -843,11 +845,63 @@ export interface paths {
          *     first sign-in to /account/ with signin=first, and anything that did
          *     not finish to /account/ with signin=failed, with that path as back.
          *     A banned member signs in like anyone, and /v1/me says they are
-         *     banned.
+         *     banned. Adding Discord comes back to /account/ with signin=added, or
+         *     signin=taken when that Discord account has an account of its own
+         *     here, signin=has-kind when the account has another Discord already,
+         *     or signin=failed (signed out meanwhile included).
          */
         get: operations["finishDiscordSignIn"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/auth/email": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Email a sign-in link
+         * @description Fetched by the site, after a Turnstile check. Emails the address a
+         *     link to the site's /account/email/ page, which may be opened once,
+         *     within the hour; a newer link replaces it. The answer is the same
+         *     whether or not the address has signed in before. At most 5 links a
+         *     day to one address, and 90 a day in all. The Origin must be the site.
+         */
+        post: operations["sendEmailSignIn"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/auth/email/finish": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Open an emailed link
+         * @description Posted by the site's /account/email/ page with the link's token, when
+         *     the player asks: a mail scanner opening the link spends nothing. The
+         *     link signs in by its address, or adds it to the account it was sent
+         *     for, and a session starts as for Discord. A first sign-in, an
+         *     address linked to the one member whose recorded email it is, and a
+         *     banned member are as for Discord. The Origin must be the site.
+         */
+        post: operations["finishEmailSignIn"];
         delete?: never;
         options?: never;
         head?: never;
@@ -949,6 +1003,53 @@ export interface paths {
          *     empty country clears it. The Origin must be the site.
          */
         patch: operations["patchMyDetails"];
+        trace?: never;
+    };
+    "/v1/me/logins/email": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Email a link that adds the address as another way in
+         * @description For a signed-in player, linked or not. Opening the link adds the
+         *     address to their account, with no new approval. Refused for an
+         *     address that has an account of its own here, or when the account has
+         *     an email way in already (remove it first). The limits are the
+         *     sign-in links'. The Origin must be the site.
+         */
+        post: operations["postMyEmailLogin"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/me/logins/{provider}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Remove one of your ways in
+         * @description Refused for the only one: Delete account removes it with the
+         *     account. Signed in by the way removed, this browser stays signed in
+         *     by one that remains; other sessions it started end. The Origin must
+         *     be the site.
+         */
+        delete: operations["deleteMyLogin"];
+        options?: never;
+        head?: never;
+        patch?: never;
         trace?: never;
     };
     "/v1/admin/me": {
@@ -2108,7 +2209,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/v1/admin/logins": {
+    "/v1/admin/accounts": {
         parameters: {
             query?: never;
             header?: never;
@@ -2116,12 +2217,13 @@ export interface paths {
             cookie?: never;
         };
         /**
-         * Players' sign-ins, those waiting for a link first (admins and organisers)
-         * @description Each way a player has signed in, with the member it is linked to and
-         *     how, and a request waiting for an answer with the member its name
-         *     names now and that member's recorded Discord name, to compare.
+         * Players' accounts, those waiting for a link first (admins and organisers)
+         * @description Each account with every way it signs in, the member it is linked to
+         *     and how, and a request waiting for an answer with the member its name
+         *     names now and that member's recorded Discord name and email, to
+         *     compare.
          */
-        get: operations["getAdminLogins"];
+        get: operations["getAdminAccounts"];
         put?: never;
         post?: never;
         delete?: never;
@@ -2130,7 +2232,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/v1/admin/logins/{login}": {
+    "/v1/admin/accounts/{account}": {
         parameters: {
             query?: never;
             header?: never;
@@ -2141,18 +2243,16 @@ export interface paths {
         put?: never;
         post?: never;
         /**
-         * Remove a sign-in and its sessions, and its account when no other sign-in is left (admins only)
-         * @description Audited. The Origin must be the admin site. The player is signed out
-         *     of every session this sign-in started. Removing an account's last
-         *     sign-in removes the account and its requests.
+         * Remove an account with its ways in, sessions and requests (admins only)
+         * @description Audited. The Origin must be the admin site. The player is signed out everywhere.
          */
-        delete: operations["deleteAdminLogin"];
+        delete: operations["deleteAdminAccount"];
         options?: never;
         head?: never;
         patch?: never;
         trace?: never;
     };
-    "/v1/admin/logins/{login}/member": {
+    "/v1/admin/accounts/{account}/member": {
         parameters: {
             query?: never;
             header?: never;
@@ -2163,12 +2263,12 @@ export interface paths {
         put?: never;
         post?: never;
         /**
-         * Unlink a sign-in from its member (admins and organisers)
-         * @description Audited. The Origin must be the admin site. Unlinks the account the
-         *     sign-in belongs to: the player stays signed in, unlinked, and is not
-         *     linked by Discord name again.
+         * Unlink an account from its member (admins and organisers)
+         * @description Audited. The Origin must be the admin site. The player stays signed
+         *     in, unlinked, and is not linked by a recorded Discord name or email
+         *     again.
          */
-        delete: operations["deleteAdminLoginMember"];
+        delete: operations["deleteAdminAccountMember"];
         options?: never;
         head?: never;
         patch?: never;
@@ -2184,7 +2284,7 @@ export interface paths {
         get?: never;
         /**
          * Approve a request to be linked (admins and organisers)
-         * @description Audited. The Origin must be the admin site. The sign-in is linked to
+         * @description Audited. The Origin must be the admin site. The account is linked to
          *     the member the name names, by username in any case or by the CGE
          *     account or ratings player of that name; a name no member has becomes
          *     a member. Refused for a member linked to another account. A banned
@@ -4251,11 +4351,14 @@ export interface components {
             bronze: number;
         };
         /**
-         * @description The signed-in player: where they signed in and their names there, the member they are linked to (null until
-         *     linked), their latest request to be linked (null if none), and their role in admin (null if none)
+         * @description The signed-in player: where this session signed in and their names there, every way into their account, the
+         *     member they are linked to (null until linked), their latest request to be linked (null if none), and their
+         *     role in admin (null if none)
          */
         Me: {
             provider: components["schemas"]["LoginProvider"];
+            /** @description Every way into the account, by provider */
+            logins: components["schemas"]["MyLogin"][];
             /** @description Their country as a two-letter ISO code, or null; the member's once linked, until then the one they gave */
             country: string | null;
             /** @description Their time zone (IANA, a region such as US East, or Unknown); the member's once linked, until then the one they gave */
@@ -4272,7 +4375,38 @@ export interface components {
          * @description Where a player signs in
          * @enum {string}
          */
-        LoginProvider: "discord";
+        LoginProvider: "discord" | "email";
+        /** @description A way into the signed-in player's account */
+        MyLogin: {
+            provider: components["schemas"]["LoginProvider"];
+            /** @description The Discord username, or the email address */
+            username: string;
+            /** @description Empty when they have none */
+            display_name: string;
+        };
+        EmailSignInAsk: {
+            email: string;
+            /** @description The Turnstile widget's token */
+            turnstile: string;
+            /** @description The site path, with any query, to come back to; anything else comes back to /account/ */
+            return?: string;
+        };
+        EmailLoginAsk: {
+            email: string;
+        };
+        EmailSignInToken: {
+            /** @description The token from the link */
+            token: string;
+        };
+        EmailSignedIn: {
+            /**
+             * @description A first sign-in, a returning one, or the address added to the account
+             * @enum {string}
+             */
+            outcome: "first" | "ok" | "added";
+            /** @description The site path to go back to */
+            back: string;
+        };
         /** @description The member a signed-in player is linked to */
         MyMember: {
             /** @description The TTA username */
@@ -4304,30 +4438,41 @@ export interface components {
             /** @description An IANA time zone, a region (US East) or Unknown */
             zone?: string;
         };
-        /** @description A way a player signs in, as admin sees it */
-        AdminLogin: {
+        /** @description A player's account, as admin sees it */
+        AdminAccount: {
             /** Format: int64 */
             id: number;
-            provider: components["schemas"]["LoginProvider"];
-            username: string;
-            display_name: string;
+            /** @description Every way into the account, by provider */
+            logins: components["schemas"]["AdminAccountLogin"][];
             /** Format: int64 */
             member_id: number | null;
             /** @description The linked member's TTA username, empty when not linked */
             member: string;
             /**
-             * @description By their recorded Discord name, or by an approved request; null when not linked
+             * @description By a recorded Discord name or email, or by an approved request; null when not linked
              * @enum {string|null}
              */
             linked_how: "match" | "approved" | null;
-            /** Format: date-time */
+            /**
+             * Format: date-time
+             * @description The latest sign-in by any way in
+             */
             signed_in_at: string;
-            /** @description Off once an admin unlinked it, so it is not linked by its Discord name again */
+            /** @description Off once an admin unlinked it, so it is not linked by a recorded Discord name or email again */
             auto_link: boolean;
             request: components["schemas"]["AdminLinkRequest"] | null;
             refused: components["schemas"]["AdminLinkRefused"] | null;
         };
-        /** @description A sign-in's last request to be linked, when it was refused and neither a new request nor a link has followed */
+        /** @description A way into an account */
+        AdminAccountLogin: {
+            provider: components["schemas"]["LoginProvider"];
+            /** @description The Discord username, or the email address */
+            username: string;
+            display_name: string;
+            /** Format: date-time */
+            signed_in_at: string;
+        };
+        /** @description An account's last request to be linked, when it was refused and neither a new request nor a link has followed */
         AdminLinkRefused: {
             /** @description The TTA username asked for */
             name: string;
@@ -4347,8 +4492,10 @@ export interface components {
             /** @description The time zone the player gave, empty for none */
             zone: string;
             member: string;
-            /** @description That member's recorded Discord name, to compare with the sign-in's */
+            /** @description That member's recorded Discord name, to compare with the account's */
             member_discord: string;
+            /** @description That member's recorded email, to compare with the account's */
+            member_email: string;
             /** @description That member's recorded country, empty for none */
             member_country: string;
             /** @description That member's recorded time zone, empty when approving adds the member */
@@ -4389,6 +4536,16 @@ export interface components {
         };
         /** @description The change cannot be made in the current state, such as a run already going */
         Conflict: {
+            headers: {
+                "Cache-Control": components["headers"]["CacheControl"];
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["Error"];
+            };
+        };
+        /** @description Too many sign-in links sent, to this address or in all, in the last day; try again later */
+        TooManyLinks: {
             headers: {
                 "Cache-Control": components["headers"]["CacheControl"];
                 [name: string]: unknown;
@@ -4464,7 +4621,7 @@ export interface components {
         BlitzEntrantId: number;
         BlitzRoundId: number;
         BlitzMatchId: number;
-        LoginId: number;
+        AccountId: number;
         LinkRequestId: number;
         MemberId: number;
         AdminBadgeId: number;
@@ -5477,6 +5634,8 @@ export interface operations {
     startDiscordSignIn: {
         parameters: {
             query?: {
+                /** @description Add Discord to the signed-in player's account, rather than sign in */
+                add?: boolean;
                 /** @description The site path, with any query, to come back to, such as /ratings/player/?name=ann; anything else comes back to /account/ */
                 return?: string;
             };
@@ -5519,6 +5678,71 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+            503: components["responses"]["NotSetUp"];
+        };
+    };
+    sendEmailSignIn: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["EmailSignInAsk"];
+            };
+        };
+        responses: {
+            /** @description Sent */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            400: components["responses"]["BadRequest"];
+            403: components["responses"]["NotFromSite"];
+            429: components["responses"]["TooManyLinks"];
+            503: components["responses"]["NotSetUp"];
+        };
+    };
+    finishEmailSignIn: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["EmailSignInToken"];
+            };
+        };
+        responses: {
+            /** @description Signed in */
+            200: {
+                headers: {
+                    "Cache-Control": components["headers"]["CacheControl"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EmailSignedIn"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            403: components["responses"]["NotFromSite"];
+            409: components["responses"]["Conflict"];
+            /** @description The link is unknown, has been used or replaced, or is over an hour old */
+            410: {
+                headers: {
+                    "Cache-Control": components["headers"]["CacheControl"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
             };
             503: components["responses"]["NotSetUp"];
         };
@@ -5633,6 +5857,58 @@ export interface operations {
             400: components["responses"]["BadRequest"];
             401: components["responses"]["SignedOut"];
             403: components["responses"]["NotFromSite"];
+        };
+    };
+    postMyEmailLogin: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["EmailLoginAsk"];
+            };
+        };
+        responses: {
+            /** @description Sent */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["SignedOut"];
+            403: components["responses"]["NotFromSite"];
+            409: components["responses"]["Conflict"];
+            429: components["responses"]["TooManyLinks"];
+            503: components["responses"]["NotSetUp"];
+        };
+    };
+    deleteMyLogin: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                provider: components["schemas"]["LoginProvider"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Removed */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["SignedOut"];
+            403: components["responses"]["NotFromSite"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
         };
     };
     getAdminMe: {
@@ -7517,7 +7793,7 @@ export interface operations {
             409: components["responses"]["Conflict"];
         };
     };
-    getAdminLogins: {
+    getAdminAccounts: {
         parameters: {
             query?: never;
             header?: never;
@@ -7526,26 +7802,26 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description The sign-ins */
+            /** @description The accounts */
             200: {
                 headers: {
                     "Cache-Control": components["headers"]["CacheControl"];
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["AdminLogin"][];
+                    "application/json": components["schemas"]["AdminAccount"][];
                 };
             };
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["Forbidden"];
         };
     };
-    deleteAdminLogin: {
+    deleteAdminAccount: {
         parameters: {
             query?: never;
             header?: never;
             path: {
-                login: components["parameters"]["LoginId"];
+                account: components["parameters"]["AccountId"];
             };
             cookie?: never;
         };
@@ -7563,12 +7839,12 @@ export interface operations {
             404: components["responses"]["NotFound"];
         };
     };
-    deleteAdminLoginMember: {
+    deleteAdminAccountMember: {
         parameters: {
             query?: never;
             header?: never;
             path: {
-                login: components["parameters"]["LoginId"];
+                account: components["parameters"]["AccountId"];
             };
             cookie?: never;
         };
@@ -7683,6 +7959,7 @@ export const gameSeatOutcomeValues: ReadonlyArray<FlattenedDeepRequired<componen
 export const seriesValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["Series"]> = ["international", "intermezzo", "royal_league", "worlds", "grand_slams", "ladders"];
 export const trophyRowTitleValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["TrophyRow"]["title"]> = ["WC", "GM", "M"];
 export const meAdmin_roleValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["Me"]["admin_role"]> = ["admin", "organiser"];
-export const loginProviderValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["LoginProvider"]> = ["discord"];
+export const loginProviderValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["LoginProvider"]> = ["discord", "email"];
+export const emailSignedInOutcomeValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["EmailSignedIn"]["outcome"]> = ["first", "ok", "added"];
 export const myLinkRequestStatusValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["MyLinkRequest"]["status"]> = ["pending", "approved", "refused"];
-export const adminLoginLinked_howValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["AdminLogin"]["linked_how"]> = ["match", "approved"];
+export const adminAccountLinked_howValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["AdminAccount"]["linked_how"]> = ["match", "approved"];

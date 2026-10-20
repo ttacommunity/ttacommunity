@@ -10,6 +10,15 @@
 .account-card .rating-card-heading {
   margin: 0 0 0.75rem;
 }
+/* An email address is one long word: it breaks anywhere rather than widen the page on a phone. */
+.account-card .rating-card-heading,
+.account-card strong,
+.account-way {
+  overflow-wrap: anywhere;
+}
+.account-way {
+  min-width: 0;
+}
 .account-muted {
   color: var(--text-muted);
   font-size: var(--size-body-short);

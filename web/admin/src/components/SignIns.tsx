@@ -1,16 +1,11 @@
-/** Players' sign-ins on the Members tab: requests to be linked, approved or refused by admins and organisers, and sign-ins linked to no one, removed by admins. */
+/** Players' accounts on the Members tab: requests to be linked, approved or refused by admins and organisers, and accounts linked to no one, removed by admins. */
 import { Fragment } from 'react';
 import { useDialog } from '@ttac/shared/Dialog';
-import type { AdminLogin, AdminMe, LinkApproved, Load } from '../lib/admin-api';
+import type { AdminAccount, AdminMe, LinkApproved, Load } from '../lib/admin-api';
 import * as req from '../lib/admin-requests';
 import { outcomeOf, shownAt, type Outcome } from '../lib/outcome';
-import { detailsHint, requestHint, standing } from '../lib/sign-ins';
+import { detailsHint, requestHint, standing, who } from '../lib/sign-ins';
 import Notice, { LoadNotice, NoticeRow } from './Notice';
-
-/** who names a sign-in: its Discord username, with the display name when it differs. */
-export function who(l: AdminLogin): string {
-  return l.display_name === '' || l.display_name === l.username ? l.username : `${l.username} (${l.display_name})`;
-}
 
 /** when shows an instant in the viewer's zone, as admin's tables do. */
 function when(iso: string): string {
@@ -21,18 +16,18 @@ function when(iso: string): string {
 type Said = { outcome: Outcome | null; say: (o: Outcome | null) => void; after: () => Promise<void> };
 
 /** WaitingRequests lists the requests to be linked, oldest first, for an admin or organiser to approve or refuse. */
-export function WaitingRequests({ logins, waiting, outcome, say, after }: { logins: Load<unknown>; waiting: AdminLogin[] } & Said) {
+export function WaitingRequests({ accounts, waiting, outcome, say, after }: { accounts: Load<unknown>; waiting: AdminAccount[] } & Said) {
   const close = () => say(null);
   const dialog = useDialog();
-  const approve = async (l: AdminLogin, request: number) => {
+  const approve = async (l: AdminAccount, request: number) => {
     const r = await req.send<LinkApproved>(req.approveLink(request));
-    const done = r.ok ? `Linked ${l.username} to ${r.data.member}${r.data.created ? ', a new member' : ''}.` : '';
-    say(outcomeOf(r, done, `login ${l.id}`, 'waiting'));
+    const done = r.ok ? `Linked ${who(l)} to ${r.data.member}${r.data.created ? ', a new member' : ''}.` : '';
+    say(outcomeOf(r, done, `account ${l.id}`, 'waiting'));
     await after();
   };
-  const refuse = async (l: AdminLogin, request: number) => {
+  const refuse = async (l: AdminAccount, request: number) => {
     const reason = await dialog.ask({
-      heading: `Refuse ${l.username}'s request?`,
+      heading: `Refuse ${who(l)}'s request?`,
       text: 'They see the reason, and may ask again.',
       field: 'The reason',
       required: false,
@@ -40,7 +35,7 @@ export function WaitingRequests({ logins, waiting, outcome, say, after }: { logi
       action: 'Refuse',
     });
     if (reason === null) return;
-    say(outcomeOf(await req.send(req.refuseLink(request, reason)), `Refused ${l.username}'s request.`, `login ${l.id}`, 'waiting'));
+    say(outcomeOf(await req.send(req.refuseLink(request, reason)), `Refused ${who(l)}'s request.`, `account ${l.id}`, 'waiting'));
     await after();
   };
   return (
@@ -52,16 +47,16 @@ export function WaitingRequests({ logins, waiting, outcome, say, after }: { logi
       </h3>
       <p className="muted">Check a request is really that player before approving it.</p>
       <Notice outcome={shownAt(outcome, 'waiting')} onClose={close} />
-      {logins.kind === 'loading' && <p className="muted">Loading…</p>}
-      {logins.kind === 'error' && <LoadNotice message={logins.message} />}
-      {logins.kind === 'ready' && waiting.length === 0 && <p className="muted">No requests waiting.</p>}
+      {accounts.kind === 'loading' && <p className="muted">Loading…</p>}
+      {accounts.kind === 'error' && <LoadNotice message={accounts.message} />}
+      {accounts.kind === 'ready' && waiting.length === 0 && <p className="muted">No requests waiting.</p>}
       {waiting.length > 0 && (
         <div className="table-responsive">
           <table className="leaderboard-table admin-table">
             <caption className="visually-hidden">Requests to be linked, oldest first</caption>
             <thead>
               <tr>
-                <th scope="col">Discord</th>
+                <th scope="col">Signs in with</th>
                 <th scope="col">Asks to be</th>
                 <th scope="col">Asked</th>
                 <th scope="col">
@@ -79,7 +74,7 @@ export function WaitingRequests({ logins, waiting, outcome, say, after }: { logi
                       <th scope="row">{who(l)}</th>
                       <td>
                         {r.name}
-                        <span className="row-detail muted">{requestHint(r, l.username).text}</span>
+                        <span className="row-detail muted">{requestHint(r, l).text}</span>
                         <span className="row-detail muted">{detailsHint(r).text}</span>
                       </td>
                       <td>{when(r.requested_at)}</td>
@@ -92,7 +87,7 @@ export function WaitingRequests({ logins, waiting, outcome, say, after }: { logi
                         </button>
                       </td>
                     </tr>
-                    <NoticeRow outcome={shownAt(outcome, `login ${l.id}`)} columns={4} onClose={close} />
+                    <NoticeRow outcome={shownAt(outcome, `account ${l.id}`)} columns={4} onClose={close} />
                   </Fragment>
                 );
               })}
@@ -104,19 +99,19 @@ export function WaitingRequests({ logins, waiting, outcome, say, after }: { logi
   );
 }
 
-/** UnlinkedSignIns lists the sign-ins linked to no one and not waiting: never asked, or refused; an admin may remove one. */
-export function UnlinkedSignIns({ unlinked, role, outcome, say, after }: { unlinked: AdminLogin[]; role: AdminMe['role'] } & Said) {
+/** UnlinkedSignIns lists the accounts linked to no one and not waiting: never asked, or refused; an admin may remove one. */
+export function UnlinkedSignIns({ unlinked, role, outcome, say, after }: { unlinked: AdminAccount[]; role: AdminMe['role'] } & Said) {
   const close = () => say(null);
   const dialog = useDialog();
-  const remove = async (l: AdminLogin) => {
+  const remove = async (l: AdminAccount) => {
     const sure = await dialog.confirm({
-      heading: `Remove ${l.username}'s sign-in?`,
-      text: 'They are signed out everywhere, and their requests go.',
+      heading: `Remove ${who(l)}'s account?`,
+      text: 'Every way they sign in goes; they are signed out everywhere, and their requests go.',
       action: 'Remove',
       final: true,
     });
     if (!sure) return;
-    say(outcomeOf(await req.send(req.removeLogin(l.id)), `Removed ${l.username}'s sign-in.`, `login ${l.id}`, 'unlinked'));
+    say(outcomeOf(await req.send(req.removeAccount(l.id)), `Removed ${who(l)}'s account.`, `account ${l.id}`, 'unlinked'));
     await after();
   };
   return (
@@ -128,10 +123,10 @@ export function UnlinkedSignIns({ unlinked, role, outcome, say, after }: { unlin
       {unlinked.length > 0 && (
         <div className="table-responsive">
           <table className="leaderboard-table admin-table">
-            <caption className="visually-hidden">Sign-ins not linked to a member</caption>
+            <caption className="visually-hidden">Accounts not linked to a member</caption>
             <thead>
               <tr>
-                <th scope="col">Discord</th>
+                <th scope="col">Signs in with</th>
                 <th scope="col">Where it stands</th>
                 <th scope="col">Last signed in</th>
                 <th scope="col">
@@ -159,7 +154,7 @@ export function UnlinkedSignIns({ unlinked, role, outcome, say, after }: { unlin
                         )}
                       </td>
                     </tr>
-                    <NoticeRow outcome={shownAt(outcome, `login ${l.id}`)} columns={4} onClose={close} />
+                    <NoticeRow outcome={shownAt(outcome, `account ${l.id}`)} columns={4} onClose={close} />
                   </Fragment>
                 );
               })}

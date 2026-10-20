@@ -1,9 +1,11 @@
-/** The account page: how to sign in; once signed in, asking to be linked to a TTA username, or, linked, the player's own country and zone and any ban; signing out, and deleting the account. A first sign-in lands here, with the way back to the page it started from. */
+/** The account page: how to sign in, with Discord or an emailed link; once signed in, the ways in (added or removed), asking to be linked to a TTA username, or, linked, the player's own country and zone and any ban; signing out, and deleting the account. A first sign-in lands here, with the way back to the page it started from. */
 import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { useDialog } from '@ttac/shared/Dialog';
 import { currentRun, leaderboard } from '@ttac/shared/ratings';
 import {
   accountState,
+  addDiscordHref,
+  addEmail,
   askToBeLinked,
   backLabel,
   backPath,
@@ -18,12 +20,15 @@ import {
   fetchMe,
   isFirstSignIn,
   rememberSignedIn,
+  removeWayIn,
   saveOutcome,
   sharedMe,
+  signedInAs,
   signInHref,
   signInNotice,
   signOut,
   suggestedCountry,
+  waysIn,
   withoutSignInParam,
   zoneOptions,
   type AccountState,
@@ -33,17 +38,19 @@ import {
   type Me,
   type SaveOutcome,
 } from '../lib/account';
+import { sendEmailLink } from '../lib/email-sign-in';
 import { DEFAULT_VIEW, modelOf } from '../lib/leaderboard-view';
 import SearchBox, { type SearchPlayer } from './SearchBox';
+import Turnstile from './Turnstile';
 import Waiting from './Waiting';
 import './Account.css';
 
 type Load = { kind: 'loading' } | { kind: 'error'; message: string } | { kind: 'ready'; me: Me | null };
 
-type Props = { apiUrl: string; adminUrl: string };
+type Props = { apiUrl: string; adminUrl: string; turnstileSitekey: string };
 
 /** AccountPage asks who is signed in and shows what they can do next. */
-export default function AccountPage({ apiUrl, adminUrl }: Props) {
+export default function AccountPage({ apiUrl, adminUrl, turnstileSitekey }: Props) {
   const [params] = useState(() => new URLSearchParams(window.location.search));
   const notice = signInNotice(params);
   const first = isFirstSignIn(params);
@@ -80,7 +87,16 @@ export default function AccountPage({ apiUrl, adminUrl }: Props) {
       {load.kind !== 'ready' ? (
         <Waiting load={load} what="your account" />
       ) : (
-        <Account apiUrl={apiUrl} adminUrl={adminUrl} me={load.me} state={accountState(load.me)} first={first} back={back} refresh={refresh} />
+        <Account
+          apiUrl={apiUrl}
+          adminUrl={adminUrl}
+          turnstileSitekey={turnstileSitekey}
+          me={load.me}
+          state={accountState(load.me)}
+          first={first}
+          back={back}
+          refresh={refresh}
+        />
       )}
     </>
   );
@@ -88,18 +104,19 @@ export default function AccountPage({ apiUrl, adminUrl }: Props) {
 
 type AccountProps = Props & { me: Me | null; state: AccountState; first: boolean; back: string | null; refresh: () => void };
 
-function Account({ apiUrl, adminUrl, me, state, first, back, refresh }: AccountProps) {
-  if (me === null || state.kind === 'signed-out') return <SignIn apiUrl={apiUrl} back={back} />;
+function Account({ apiUrl, adminUrl, turnstileSitekey, me, state, first, back, refresh }: AccountProps) {
+  if (me === null || state.kind === 'signed-out') return <SignIn apiUrl={apiUrl} turnstileSitekey={turnstileSitekey} back={back} />;
+  const who = signedInAs(me);
   return (
     <section className="rating-card account-card" aria-labelledby="account-who">
       <h2 id="account-who" className="rating-card-heading">
-        {first ? 'Welcome, ' : 'Signed in with Discord as '}
-        {me.display_name || me.username}
+        {first ? `Welcome, ${me.display_name || me.username}` : who.heading}
       </h2>
-      {me.display_name !== '' && <p className="account-muted">Discord username: {me.username}</p>}
+      {who.detail !== '' && <p className="account-muted">{who.detail}</p>}
       {first && <p>You are signed in. Add your details now, or go back and add them any time from this page.</p>}
       {state.kind === 'linked' ? <Linked adminUrl={adminUrl} state={state} /> : <LinkStatus state={state} />}
       <Details apiUrl={apiUrl} me={me} state={state} back={back} refresh={refresh} />
+      <WaysIn apiUrl={apiUrl} me={me} refresh={refresh} />
       <SignOut apiUrl={apiUrl} state={state} />
     </section>
   );
@@ -115,7 +132,8 @@ function BackLink({ back, changed, saved }: { back: string | null; changed: bool
   );
 }
 
-function SignIn({ apiUrl, back }: { apiUrl: string; back: string | null }) {
+function SignIn({ apiUrl, turnstileSitekey, back }: { apiUrl: string; turnstileSitekey: string; back: string | null }) {
+  const returnTo = back ?? window.location.pathname;
   return (
     <section className="rating-card account-card" aria-labelledby="account-sign-in">
       <h2 id="account-sign-in" className="rating-card-heading">
@@ -123,17 +141,105 @@ function SignIn({ apiUrl, back }: { apiUrl: string; back: string | null }) {
       </h2>
       <ul className="account-ways">
         <li>
-          <a className="btn-antique" href={signInHref(apiUrl, back ?? window.location.pathname)}>
+          <a className="btn-antique" href={signInHref(apiUrl, returnTo)}>
             Sign in with Discord
           </a>
-          <p className="account-muted">Needs a Discord account.</p>
+          <p className="account-muted">Needs a Discord account. The TTA community, its events and its tournaments are organised on Discord, so we recommend it.</p>
+        </li>
+        <li>
+          <EmailSignIn apiUrl={apiUrl} turnstileSitekey={turnstileSitekey} back={returnTo} />
         </li>
       </ul>
       <p className="account-muted">
-        Signing in tells us only your Discord username and display name: never your email or your servers. Then you link it to your TTA username, and
-        an admin or organiser checks it is you. <a href="/privacy/">What we keep, and how to have it removed</a>.
+        Discord tells us only your username and display name: never your email or your servers. By email, we keep your address, to send your links. Then
+        you link your sign-in to your TTA username, and an admin or organiser checks it is you. <a href="/privacy/">What we keep, and how to have it removed</a>
+        .
       </p>
     </section>
+  );
+}
+
+/** EmailSignIn is the way in for players without Discord: a button that opens the form (an address and Turnstile's check, loaded only then), then a link to the inbox. */
+function EmailSignIn({ apiUrl, turnstileSitekey, back }: { apiUrl: string; turnstileSitekey: string; back: string }) {
+  const [open, setOpen] = useState(false);
+  const [address, setAddress] = useState('');
+  const [token, setToken] = useState('');
+  const [round, setRound] = useState(0);
+  const [sentTo, setSentTo] = useState('');
+  const [problem, setProblem] = useState('');
+  const [busy, setBusy] = useState(false);
+  const send = async (e: FormEvent) => {
+    e.preventDefault();
+    setBusy(true);
+    setProblem('');
+    const done = await sendEmailLink(apiUrl, address, token, back);
+    setBusy(false);
+    setRound((r) => r + 1);
+    if (done.ok) setSentTo(address.trim());
+    else setProblem(done.message);
+  };
+  if (sentTo !== '') {
+    return (
+      <div role="status">
+        <p>
+          Check your inbox: a sign-in link is on its way to <strong>{sentTo}</strong>. It works once, within the hour.
+        </p>
+        <button type="button" className="btn-antique" onClick={() => setSentTo('')}>
+          Send another
+        </button>
+      </div>
+    );
+  }
+  return (
+    <>
+      <button type="button" className="btn-antique" aria-expanded={open} aria-controls="account-email-form" onClick={() => setOpen((o) => !o)}>
+        Sign in with email
+      </button>
+      <p className="account-muted">For players without Discord: we email you a link that signs you in.</p>
+      {open && <EmailForm address={address} setAddress={setAddress} token={token} setToken={setToken} round={round} busy={busy} problem={problem} turnstileSitekey={turnstileSitekey} send={send} />}
+    </>
+  );
+}
+
+type EmailFormProps = {
+  address: string;
+  setAddress: (a: string) => void;
+  token: string;
+  setToken: (t: string) => void;
+  round: number;
+  busy: boolean;
+  problem: string;
+  turnstileSitekey: string;
+  send: (e: FormEvent) => Promise<void>;
+};
+
+/** EmailForm asks for the address, with Turnstile's check, once the player opens it. */
+function EmailForm({ address, setAddress, token, setToken, round, busy, problem, turnstileSitekey, send }: EmailFormProps) {
+  return (
+    <form id="account-email-form" className="account-form" onSubmit={(e) => void send(e)}>
+      <label htmlFor="account-email">Your email address</label>
+      <input
+        id="account-email"
+        className="input-antique"
+        type="email"
+        autoComplete="email"
+        required
+        maxLength={254}
+        value={address}
+        onChange={(e) => setAddress(e.target.value)}
+      />
+      <Turnstile sitekey={turnstileSitekey} round={round} onToken={setToken} />
+      <div className="account-row">
+        <button type="submit" className="btn-antique" disabled={busy || token === '' || address.trim() === ''}>
+          {busy ? 'Sending…' : 'Email me a sign-in link'}
+        </button>
+      </div>
+      {problem !== '' && (
+        <p className="account-problem" role="alert">
+          {problem}
+        </p>
+      )}
+    </form>
   );
 }
 
@@ -328,6 +434,81 @@ function SaveNotice({ outcome, onClose }: { outcome: SaveOutcome | null; onClose
       <button type="button" className="account-outcome-close" aria-label="Close" onClick={onClose}>
         ×
       </button>
+    </div>
+  );
+}
+
+/** WaysIn lists the ways into the account, each removable while another remains, and adds Discord or an email address. */
+function WaysIn({ apiUrl, me, refresh }: { apiUrl: string; me: Me; refresh: () => void }) {
+  const { ways, canAdd } = waysIn(me);
+  const dialog = useDialog();
+  const [address, setAddress] = useState('');
+  const [said, setSaid] = useState<{ ok: boolean; text: string } | null>(null);
+  const [busy, setBusy] = useState(false);
+  const remove = async (provider: (typeof ways)[number]['provider'], label: string) => {
+    const sure = await dialog.confirm({ heading: `Remove ${label}?`, text: 'You will no longer sign in that way. You can add it again later.', action: 'Remove' });
+    if (!sure) return;
+    const done = await removeWayIn(apiUrl, provider);
+    setSaid(done.ok ? { ok: true, text: `Removed ${label}.` } : { ok: false, text: done.message });
+    if (done.ok) refresh();
+  };
+  const add = async (e: FormEvent) => {
+    e.preventDefault();
+    setBusy(true);
+    const done = await addEmail(apiUrl, address);
+    setBusy(false);
+    setSaid(done.ok ? { ok: true, text: `Check your inbox: open the link sent to ${address.trim()} within the hour to add it.` } : { ok: false, text: done.message });
+    if (done.ok) setAddress('');
+  };
+  return (
+    <div className="account-form">
+      {dialog.element}
+      <h3 className="account-subheading">Ways you sign in</h3>
+      <ul className="account-ways">
+        {ways.map((w) => (
+          <li key={w.provider} className="account-row">
+            <span className="account-way">{w.label}</span>
+            {w.removable && (
+              <button type="button" className="btn-antique" onClick={() => void remove(w.provider, w.label)}>
+                Remove
+              </button>
+            )}
+          </li>
+        ))}
+      </ul>
+      {canAdd.discord && (
+        <div className="account-row">
+          <a className="btn-antique" href={addDiscordHref(apiUrl)}>
+            Add Discord
+          </a>
+        </div>
+      )}
+      {canAdd.email && (
+        <form className="account-form" onSubmit={(e) => void add(e)}>
+          <label htmlFor="account-add-email">Add an email address to enable signing in using email.</label>
+          <p className="account-muted">It also enables Admins and Organisers to contact you for events you sign up for if you don't have Discord.</p>
+          <div className="account-row">
+            <input
+              id="account-add-email"
+              className="input-antique"
+              type="email"
+              autoComplete="email"
+              required
+              maxLength={254}
+              value={address}
+              onChange={(e) => setAddress(e.target.value)}
+            />
+            <button type="submit" className="btn-antique" disabled={busy || address.trim() === ''}>
+              {busy ? 'Sending…' : 'Email me a link to add it'}
+            </button>
+          </div>
+        </form>
+      )}
+      {said !== null && (
+        <p className={said.ok ? undefined : 'account-problem'} role={said.ok ? 'status' : 'alert'}>
+          {said.text}
+        </p>
+      )}
     </div>
   );
 }

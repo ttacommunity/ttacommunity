@@ -7,6 +7,7 @@ import { ZONE_COUNTRIES } from './zone-countries';
 
 export type Me = components['schemas']['Me'];
 export type MyMember = components['schemas']['MyMember'];
+type Provider = Me['provider'];
 type AdminRole = Me['admin_role'];
 
 /** AccountState is what the account page shows: signed out; signed in but not linked, waiting for an answer, or refused; or linked to a member. */
@@ -33,24 +34,52 @@ export function banNotice(state: AccountState): { reason: string } | null {
   return state.kind === 'linked' && state.member.banned ? { reason: state.member.ban_reason } : null;
 }
 
-/** deleteQuestion asks before deleting the account, which cannot be undone, saying what goes: the sign-in, and a linked member's country and zone. */
+/** deleteQuestion asks before deleting the account, which cannot be undone, saying what goes: every way in, and a linked member's country and zone. */
 export function deleteQuestion(state: AccountState): Question {
   const text =
     state.kind === 'linked'
-      ? `Your sign-in goes, with every session, and the Discord name, country and time zone on ${state.member.name} are cleared. ${state.member.name}'s games and ratings stay. This cannot be undone.`
-      : 'Your sign-in goes, with every session, your requests to be linked and the details you gave. This cannot be undone.';
+      ? `Every way you sign in goes, with every session, and the Discord name, country and time zone on ${state.member.name} are cleared. ${state.member.name}'s games and ratings stay. This cannot be undone.`
+      : 'Every way you sign in goes, with every session, your requests to be linked and the details you gave. This cannot be undone.';
   return { heading: 'Delete your account?', text, action: 'Delete account', final: true };
 }
 
-/** navLabel is the nav's account link: Sign in, a member's TTA username, or the name they signed in with. */
+/** navLabel is the nav's account link: Sign in, a member's TTA username, or their Discord name; never an email address, which the page would show to anyone looking. */
 export function navLabel(me: Me | null): string {
   if (me === null) return 'Sign in';
-  return me.member?.name ?? (me.display_name || me.username);
+  if (me.member !== null) return me.member.name;
+  if (me.provider === 'discord') return me.display_name || me.username;
+  const discord = me.logins.find((l) => l.provider === 'discord');
+  return discord === undefined ? 'Your account' : discord.display_name || discord.username;
+}
+
+/** signedInAs heads the account page: how this browser signed in and as whom, with the Discord username under a display name. */
+export function signedInAs(me: Me): { heading: string; detail: string } {
+  if (me.provider === 'email') return { heading: `Signed in by email as ${me.username}`, detail: '' };
+  return { heading: `Signed in with Discord as ${me.display_name || me.username}`, detail: me.display_name === '' ? '' : `Discord username: ${me.username}` };
+}
+
+/** WayIn is one way into the account as the page lists it, and whether it may be removed: only while another remains. */
+export type WayIn = { provider: Provider; label: string; removable: boolean };
+
+/** waysIn lists the account's ways in, and which kinds may be added. */
+export function waysIn(me: Me): { ways: WayIn[]; canAdd: Record<Provider, boolean> } {
+  const removable = me.logins.length > 1;
+  const ways = me.logins.map((l) => {
+    const name = l.display_name === '' || l.display_name === l.username ? l.username : `${l.username} (${l.display_name})`;
+    return { provider: l.provider, label: `${l.provider === 'discord' ? 'Discord' : 'Email'}: ${name}`, removable };
+  });
+  const has = (p: Provider) => me.logins.some((l) => l.provider === p);
+  return { ways, canAdd: { discord: !has('discord'), email: !has('email') } };
 }
 
 /** signInHref opens the api's Discord sign-in, which comes back to the page at back. */
 export function signInHref(apiUrl: string, back: string): string {
   return `${apiUrl.replace(/\/+$/, '')}/v1/auth/discord?${new URLSearchParams({ return: back })}`;
+}
+
+/** addDiscordHref opens the api's Discord sign-in to add Discord to the signed-in account, which comes back to the account page. */
+export function addDiscordHref(apiUrl: string): string {
+  return `${apiUrl.replace(/\/+$/, '')}/v1/auth/discord?add=true`;
 }
 
 const ACCOUNT = '/account/';
@@ -79,16 +108,27 @@ export function backLabel(changed: boolean, saved: boolean): string {
   return changed ? 'Back without saving' : 'Back';
 }
 
-/** SignInNotice is what the account page says on arriving: a sign-in that did not finish, or an account just deleted. */
-export type SignInNotice = { kind: 'failed' | 'deleted'; text: string };
+/** SignInNotice is what the account page says on arriving: a sign-in or an addition that did not finish, a way in added, or an account just deleted. */
+export type SignInNotice = { kind: 'failed' | 'deleted' | 'added'; text: string };
 
-/** signInNotice reads the address the browser arrived at: a sign-in that did not finish, an account just deleted, or nothing to say. */
+/** signInNotice reads the address the browser arrived at: a sign-in that did not finish, a way in added or refused, an account just deleted, or nothing to say. */
 export function signInNotice(params: URLSearchParams): SignInNotice | null {
   switch (params.get('signin')) {
     case 'failed':
       return { kind: 'failed', text: 'Signing in did not finish. Try again.' };
     case 'deleted':
       return { kind: 'deleted', text: 'Your account is deleted, and this browser is signed out. Sign in again any time to start a new one.' };
+    case 'added':
+      return { kind: 'added', text: 'Discord is added: you can sign in with it from now on.' };
+    case 'email-added':
+      return { kind: 'added', text: 'Your email address is added: you can sign in with a link sent to it from now on.' };
+    case 'taken':
+      return {
+        kind: 'failed',
+        text: 'That Discord account has an account of its own here. To add it, sign in with it and delete that account, then sign in here again and add it.',
+      };
+    case 'has-kind':
+      return { kind: 'failed', text: 'Your account has a Discord account already. Remove it first to add another.' };
   }
   return null;
 }
@@ -165,7 +205,7 @@ export class AccountApiError extends Error {
 }
 
 /** failureMessage reads an error answer's message, with its request id when the api gave one. */
-async function failureMessage(res: Response): Promise<string> {
+export async function failureMessage(res: Response): Promise<string> {
   const { error, requestId } = errorFields(await res.json().catch(() => null));
   return (error ?? `request failed (${res.status})`) + (requestId === undefined ? '' : ` (ref ${requestId})`);
 }
@@ -208,7 +248,8 @@ export async function fetchCountries(base: string, fetchFn: typeof fetch = fetch
 /** Done is how a change went: done, or refused with the api's message. */
 export type Done = { ok: true } | { ok: false; message: string };
 
-async function change(fetchFn: typeof fetch, base: string, method: string, path: string, body?: unknown): Promise<Done> {
+/** change sends a change to the api with the session cookie, answering how it went rather than throwing. */
+export async function change(fetchFn: typeof fetch, base: string, method: string, path: string, body?: unknown): Promise<Done> {
   let res: Response;
   try {
     res = await fetchFn(url(base, path), {
@@ -256,6 +297,16 @@ export function saveOutcome(asked: Done | null, details: Done | null): SaveOutco
   if (asked !== null) return done('Sent your request to be linked.');
   if (details !== null) return done('Saved your country and time zone.');
   return refused('Nothing to save.');
+}
+
+/** addEmail emails a link that adds the address to the signed-in player's account. */
+export function addEmail(base: string, email: string, fetchFn: typeof fetch = fetch): Promise<Done> {
+  return change(fetchFn, base, 'POST', '/v1/me/logins/email', { email: email.trim() });
+}
+
+/** removeWayIn removes one of the signed-in player's ways in. */
+export function removeWayIn(base: string, provider: Provider, fetchFn: typeof fetch = fetch): Promise<Done> {
+  return change(fetchFn, base, 'DELETE', `/v1/me/logins/${provider}`);
 }
 
 /** deleteAccount deletes the signed-in player's account and signs this browser out. */

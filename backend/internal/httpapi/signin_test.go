@@ -31,9 +31,15 @@ type fakeSignIns struct {
 	notes     []string
 	signedOut int
 	deleted   int
+	// emailOff turns email sign-in off; links are the emailed links waiting, mails what was sent.
+	emailOff bool
+	links    map[string]store.EmailSignIn
+	mails    []string
 }
 
-func newFakeSignIns() *fakeSignIns { return &fakeSignIns{sessions: map[string]store.Account{}} }
+func newFakeSignIns() *fakeSignIns {
+	return &fakeSignIns{sessions: map[string]store.Account{}, links: map[string]store.EmailSignIn{}}
+}
 
 func (f *fakeSignIns) SignIn(_ context.Context, id store.Identity, hash []byte, _ time.Time) (bool, error) {
 	f.signedIn = append(f.signedIn, id)

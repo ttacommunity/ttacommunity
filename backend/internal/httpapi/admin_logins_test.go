@@ -11,17 +11,19 @@ import (
 	"ttacommunity/backend/internal/store"
 )
 
-// The fake's sign-ins: login 1 is linked by match to ann; login 2 waits on request 20 for "Bob", which names no
-// member yet; login 4 was refused "Cat". Request 22 is for a member with a Discord login; 99 and
-// login 99 do not exist.
-func (f *fakeAdmins) Logins(context.Context) ([]store.LoginRow, error) {
+// The fake's accounts: account 1 is linked by match to ann, by Discord and email; account 2 waits on request 20 for
+// "Bob", which names no member yet; account 4 was refused "Cat". Request 22 is for a member linked to another
+// account; request 99 and account 99 do not exist.
+func (f *fakeAdmins) Accounts(context.Context) ([]store.AccountRow, error) {
 	ann := int64(3)
-	return []store.LoginRow{
-		{ID: 2, Provider: "discord", Username: "player_two", SignedInAt: time.Date(2026, 10, 18, 12, 0, 0, 0, time.UTC),
-			Request: &store.PendingRequest{ID: 20, Name: "Bob", Country: "NZ", Zone: "Pacific/Auckland", RequestedAt: time.Date(2026, 10, 18, 12, 1, 0, 0, time.UTC)}},
-		{ID: 1, Provider: "discord", Username: "player_one", DisplayName: "Player One", MemberID: &ann, Member: "ann", LinkedHow: "match",
-			SignedInAt: time.Date(2026, 10, 18, 11, 0, 0, 0, time.UTC), AutoLink: true},
-		{ID: 4, Provider: "discord", Username: "player_four", SignedInAt: time.Date(2026, 10, 18, 10, 0, 0, 0, time.UTC),
+	at := time.Date(2026, 10, 18, 12, 0, 0, 0, time.UTC)
+	return []store.AccountRow{
+		{ID: 2, Logins: []store.AccountLogin{{Provider: "discord", Username: "player_two", SignedInAt: at}}, SignedInAt: at,
+			Request: &store.PendingRequest{ID: 20, Name: "Bob", Country: "NZ", Zone: "Pacific/Auckland", MemberEmail: "", RequestedAt: at.Add(time.Minute)}},
+		{ID: 1, Logins: []store.AccountLogin{{Provider: "discord", Username: "player_one", DisplayName: "Player One", SignedInAt: at},
+			{Provider: "email", Username: "player@example.test", SignedInAt: at.Add(time.Hour)}},
+			MemberID: &ann, Member: "ann", LinkedHow: "match", SignedInAt: at.Add(time.Hour), AutoLink: true},
+		{ID: 4, Logins: []store.AccountLogin{{Provider: "email", Username: "four@example.test", SignedInAt: at}}, SignedInAt: at,
 			Refused: &store.RefusedRequest{Name: "Cat", Reason: "Not the same player"}},
 	}, nil
 }
@@ -48,32 +50,36 @@ func (f *fakeAdmins) RefuseLink(_ context.Context, request int64, reason string,
 	return nil
 }
 
-func (f *fakeAdmins) UnlinkLogin(_ context.Context, login int64) error {
-	if login != 1 {
-		return store.ErrNoLogin
+func (f *fakeAdmins) UnlinkAccount(_ context.Context, account int64) error {
+	if account != 1 {
+		return store.ErrNoAccount
 	}
 	f.notes = append(f.notes, "unlink 1")
 	return nil
 }
 
-func (f *fakeAdmins) RemoveLogin(_ context.Context, login int64) error {
-	if login != 1 && login != 2 {
-		return store.ErrNoLogin
+func (f *fakeAdmins) RemoveAccount(_ context.Context, account int64) error {
+	if account != 1 && account != 2 {
+		return store.ErrNoAccount
 	}
-	f.notes = append(f.notes, fmt.Sprint("remove ", login))
+	f.notes = append(f.notes, fmt.Sprint("remove ", account))
 	return nil
 }
 
-func TestAdminListsSignInsWithWhatTheyAsk(t *testing.T) {
-	rec := adminDo(t, &fakeAdmins{}, http.MethodGet, "/v1/admin/logins", "", "")
+func TestAdminListsAccountsWithWhatTheyAsk(t *testing.T) {
+	rec := adminDo(t, &fakeAdmins{}, http.MethodGet, "/v1/admin/accounts", "", "")
 	if rec.Code != http.StatusOK {
-		t.Fatalf("GET logins = %d %s", rec.Code, rec.Body)
+		t.Fatalf("GET accounts = %d %s", rec.Code, rec.Body)
 	}
 	wantJSON(t, rec.Body.Bytes(), "0.request.name", `"Bob"`)
 	wantJSON(t, rec.Body.Bytes(), "0.request.member", `""`)
 	wantJSON(t, rec.Body.Bytes(), "0.request.country", `"NZ"`)
 	wantJSON(t, rec.Body.Bytes(), "0.request.zone", `"Pacific/Auckland"`)
 	wantJSON(t, rec.Body.Bytes(), "0.request.member_zone", `""`)
+	wantJSON(t, rec.Body.Bytes(), "0.request.member_email", `""`)
+	wantJSON(t, rec.Body.Bytes(), "1.logins.0.provider", `"discord"`)
+	wantJSON(t, rec.Body.Bytes(), "1.logins.1.provider", `"email"`)
+	wantJSON(t, rec.Body.Bytes(), "1.logins.1.username", `"player@example.test"`)
 	wantJSON(t, rec.Body.Bytes(), "0.linked_how", `null`)
 	wantJSON(t, rec.Body.Bytes(), "1.member", `"ann"`)
 	wantJSON(t, rec.Body.Bytes(), "1.linked_how", `"match"`)
@@ -92,13 +98,13 @@ func TestAnsweringALinkRequest(t *testing.T) {
 		wantNote                 string
 	}{
 		{"approved", http.MethodPut, "/v1/admin/link-requests/20/approval", "", http.StatusOK, "approve 20"},
-		{"approving a member who has a Discord login", http.MethodPut, "/v1/admin/link-requests/22/approval", "", http.StatusConflict, ""},
+		{"approving a member linked to another account", http.MethodPut, "/v1/admin/link-requests/22/approval", "", http.StatusConflict, ""},
 		{"approving a request not waiting", http.MethodPut, "/v1/admin/link-requests/99/approval", "", http.StatusNotFound, ""},
 		{"refused with a reason", http.MethodPut, "/v1/admin/link-requests/20/refusal", `{"reason":"Message us first"}`, http.StatusNoContent, "refuse 20 Message us first"},
 		{"refused with a long reason", http.MethodPut, "/v1/admin/link-requests/20/refusal", `{"reason":"` + strings.Repeat("x", 501) + `"}`, http.StatusBadRequest, ""},
 		{"refusing a request not waiting", http.MethodPut, "/v1/admin/link-requests/99/refusal", `{"reason":""}`, http.StatusNotFound, ""},
-		{"unlinked", http.MethodDelete, "/v1/admin/logins/1/member", "", http.StatusNoContent, "unlink 1"},
-		{"unlinking a login that is not there", http.MethodDelete, "/v1/admin/logins/99/member", "", http.StatusNotFound, ""},
+		{"unlinked", http.MethodDelete, "/v1/admin/accounts/1/member", "", http.StatusNoContent, "unlink 1"},
+		{"unlinking an account that is not there", http.MethodDelete, "/v1/admin/accounts/99/member", "", http.StatusNotFound, ""},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -120,21 +126,21 @@ func TestAnsweringALinkRequest(t *testing.T) {
 	wantJSON(t, rec.Body.Bytes(), "created", `true`)
 }
 
-func TestOnlyAnAdminRemovesASignIn(t *testing.T) {
+func TestOnlyAnAdminRemovesAnAccount(t *testing.T) {
 	f := &fakeAdmins{}
-	if rec := adminDoAs(t, f, "222222222222222222", http.MethodDelete, "/v1/admin/logins/1", "https://ttac-admin.example", ""); rec.Code != http.StatusForbidden {
-		t.Errorf("an organiser removing a sign-in = %d, want 403", rec.Code)
+	if rec := adminDoAs(t, f, "222222222222222222", http.MethodDelete, "/v1/admin/accounts/1", "https://ttac-admin.example", ""); rec.Code != http.StatusForbidden {
+		t.Errorf("an organiser removing an account = %d, want 403", rec.Code)
 	}
-	if rec := adminDoAs(t, f, "111111111111111111", http.MethodDelete, "/v1/admin/logins/1", "https://ttac-admin.example", ""); rec.Code != http.StatusNoContent {
-		t.Errorf("an admin removing a sign-in = %d %s, want 204", rec.Code, rec.Body)
+	if rec := adminDoAs(t, f, "111111111111111111", http.MethodDelete, "/v1/admin/accounts/1", "https://ttac-admin.example", ""); rec.Code != http.StatusNoContent {
+		t.Errorf("an admin removing an account = %d %s, want 204", rec.Code, rec.Body)
 	}
-	if rec := adminDoAs(t, f, "111111111111111111", http.MethodDelete, "/v1/admin/logins/99", "https://ttac-admin.example", ""); rec.Code != http.StatusNotFound {
-		t.Errorf("removing a sign-in that is not there = %d, want 404", rec.Code)
+	if rec := adminDoAs(t, f, "111111111111111111", http.MethodDelete, "/v1/admin/accounts/99", "https://ttac-admin.example", ""); rec.Code != http.StatusNotFound {
+		t.Errorf("removing an account that is not there = %d, want 404", rec.Code)
 	}
 	if got := strings.Join(f.notes, "|"); got != "remove 1" {
 		t.Errorf("changes = %q, want only the admin's removal", got)
 	}
-	if len(f.audits) != 1 || f.audits[0] != "111111111111111111 login.remove 1" {
+	if len(f.audits) != 1 || f.audits[0] != "111111111111111111 account.remove 1" {
 		t.Errorf("audits = %q, want the admin's removal", f.audits)
 	}
 }

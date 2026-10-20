@@ -31,12 +31,12 @@ func memberID(t *testing.T, a *AdminStore, name string) int64 {
 // pendingRequest returns the id of the pending request of l's account, failing the test when it has none.
 func pendingRequest(t *testing.T, a *AdminStore, l Account) int64 {
 	t.Helper()
-	rows, err := a.Logins(context.Background())
+	rows, err := a.Accounts(context.Background())
 	if err != nil {
-		t.Fatalf("Logins: %v", err)
+		t.Fatalf("Accounts: %v", err)
 	}
 	for _, r := range rows {
-		if r.ID == l.LoginID && r.Request != nil {
+		if r.ID == l.ID && r.Request != nil {
 			return r.Request.ID
 		}
 	}
@@ -180,16 +180,16 @@ func TestLoginsShowARefusalUntilAskedAgainOrLinked(t *testing.T) {
 	l := signedIn(t, p, discordID("100000000000000001", "player_one", ""), "token")
 	refused := func(t *testing.T) *RefusedRequest {
 		t.Helper()
-		rows, err := a.Logins(ctx)
+		rows, err := a.Accounts(ctx)
 		if err != nil {
-			t.Fatalf("Logins: %v", err)
+			t.Fatalf("Accounts: %v", err)
 		}
 		for _, r := range rows {
-			if r.ID == l.LoginID {
+			if r.ID == l.ID {
 				return r.Refused
 			}
 		}
-		t.Fatalf("login %d not listed", l.ID)
+		t.Fatalf("account %d not listed", l.ID)
 		return nil
 	}
 	if got := refused(t); got != nil {
@@ -233,8 +233,8 @@ func TestRemovingAMemberWithASignInSaysToUnlinkItFirst(t *testing.T) {
 	if err := a.RemoveMember(ctx, ann); !errors.Is(err, ErrMemberSignedIn) {
 		t.Errorf("RemoveMember(linked to a sign-in) = %v, want ErrMemberSignedIn", err)
 	}
-	if err := a.UnlinkLogin(ctx, l.LoginID); err != nil {
-		t.Fatalf("UnlinkLogin: %v", err)
+	if err := a.UnlinkAccount(ctx, l.ID); err != nil {
+		t.Fatalf("UnlinkAccount: %v", err)
 	}
 	if err := a.RemoveMember(ctx, ann); err != nil {
 		t.Errorf("RemoveMember(once unlinked) = %v, want nil", err)
@@ -251,18 +251,18 @@ func TestLoginsShowNoRefusalForAnApprovedRequestSinceUnlinked(t *testing.T) {
 	if _, err := a.ApproveLink(ctx, pendingRequest(t, a, l), signInAt); err != nil {
 		t.Fatalf("ApproveLink: %v", err)
 	}
-	if err := a.UnlinkLogin(ctx, l.LoginID); err != nil {
-		t.Fatalf("UnlinkLogin: %v", err)
+	if err := a.UnlinkAccount(ctx, l.ID); err != nil {
+		t.Fatalf("UnlinkAccount: %v", err)
 	}
-	rows, err := a.Logins(ctx)
+	rows, err := a.Accounts(ctx)
 	if err != nil {
-		t.Fatalf("Logins: %v", err)
+		t.Fatalf("Accounts: %v", err)
 	}
 	for _, r := range rows {
-		if r.ID == l.LoginID && r.Refused != nil {
+		if r.ID == l.ID && r.Refused != nil {
 			t.Errorf("approved, then unlinked: refused = %+v, want none", r.Refused)
 		}
-		if r.ID == l.LoginID && r.AutoLink {
+		if r.ID == l.ID && r.AutoLink {
 			t.Errorf("unlinked by an admin: auto link = true, want false")
 		}
 	}
@@ -271,11 +271,11 @@ func TestLoginsShowNoRefusalForAnApprovedRequestSinceUnlinked(t *testing.T) {
 func TestLoginsSayASignInIsLinkedByDiscordNameUntilUnlinked(t *testing.T) {
 	_, a, p := playersFixture(t)
 	l := signedIn(t, p, discordID("100000000000000001", "player_one", ""), "token")
-	rows, err := a.Logins(context.Background())
+	rows, err := a.Accounts(context.Background())
 	if err != nil {
-		t.Fatalf("Logins: %v", err)
+		t.Fatalf("Accounts: %v", err)
 	}
-	if len(rows) != 1 || rows[0].ID != l.LoginID || !rows[0].AutoLink {
+	if len(rows) != 1 || rows[0].ID != l.ID || !rows[0].AutoLink {
 		t.Errorf("a new sign-in: rows = %+v, want it with auto link on", rows)
 	}
 }
@@ -298,13 +298,13 @@ func TestLoginsListsPendingRequestsFirstWithWhatTheyMatch(t *testing.T) {
 	if err := p.SetOwnDetails(ctx, asking.ID, &nz, &auckland); err != nil {
 		t.Fatalf("SetOwnDetails: %v", err)
 	}
-	rows, err := a.Logins(ctx)
+	rows, err := a.Accounts(ctx)
 	if err != nil {
-		t.Fatalf("Logins: %v", err)
+		t.Fatalf("Accounts: %v", err)
 	}
 	var got []string
 	for _, r := range rows {
-		line := fmt.Sprintf("%s %s member=%q how=%q", r.Provider, r.Username, r.Member, r.LinkedHow)
+		line := fmt.Sprintf("%s %s member=%q how=%q", r.Logins[0].Provider, r.Logins[0].Username, r.Member, r.LinkedHow)
 		if r.Request != nil {
 			line += fmt.Sprintf(" asks=%s resolves=%q recorded=%q gave=%q/%q has=%q/%q", r.Request.Name, r.Request.Member, r.Request.MemberDiscord,
 				r.Request.Country, r.Request.Zone, r.Request.MemberCountry, r.Request.MemberZone)
@@ -328,8 +328,8 @@ func TestUnlinkingKeepsTheSignInAndRemovingEndsIt(t *testing.T) {
 		t.Fatalf("AddMember: %v", err)
 	}
 	l := signedIn(t, p, discordID("100000000000000001", "player_one", ""), "token")
-	if err := a.UnlinkLogin(ctx, l.LoginID); err != nil {
-		t.Fatalf("UnlinkLogin: %v", err)
+	if err := a.UnlinkAccount(ctx, l.ID); err != nil {
+		t.Fatalf("UnlinkAccount: %v", err)
 	}
 	if got, err := p.Session(ctx, tokenHash("token"), signInAt); err != nil || got.Member != nil {
 		t.Errorf("after unlinking, member %+v (err %v), want signed in with none", got.Member, err)
@@ -337,19 +337,19 @@ func TestUnlinkingKeepsTheSignInAndRemovingEndsIt(t *testing.T) {
 	if again := signedIn(t, p, discordID("100000000000000001", "player_one", ""), "again"); again.Member != nil {
 		t.Errorf("signing in after an unlink linked %+v again by Discord name, want none", again.Member)
 	}
-	if err := a.RemoveLogin(ctx, l.LoginID); err != nil {
-		t.Fatalf("RemoveLogin: %v", err)
+	if err := a.RemoveAccount(ctx, l.ID); err != nil {
+		t.Fatalf("RemoveAccount: %v", err)
 	}
 	if _, err := p.Session(ctx, tokenHash("token"), signInAt); !errors.Is(err, ErrNoSession) {
 		t.Errorf("after removing, Session = %v, want ErrNoSession", err)
 	}
 	var accounts int
 	if err := pool.QueryRow(ctx, "SELECT count(*) FROM accounts").Scan(&accounts); err != nil || accounts != 0 {
-		t.Errorf("accounts left after removing its only login = %d (%v), want 0", accounts, err)
+		t.Errorf("accounts left after removing it = %d (%v), want 0", accounts, err)
 	}
-	for name, err := range map[string]error{"unlink": a.UnlinkLogin(ctx, l.LoginID), "remove": a.RemoveLogin(ctx, l.LoginID)} {
-		if !errors.Is(err, ErrNoLogin) {
-			t.Errorf("%s a removed login = %v, want ErrNoLogin", name, err)
+	for name, err := range map[string]error{"unlink": a.UnlinkAccount(ctx, l.ID), "remove": a.RemoveAccount(ctx, l.ID)} {
+		if !errors.Is(err, ErrNoAccount) {
+			t.Errorf("%s a removed account = %v, want ErrNoAccount", name, err)
 		}
 	}
 }
@@ -365,9 +365,9 @@ func TestARequestNoLongerWaitsOnceItsSignInIsLinkedByName(t *testing.T) {
 		t.Fatalf("AddMember: %v", err)
 	}
 	signedIn(t, p, discordID("100000000000000001", "player_one", ""), "again")
-	rows, err := a.Logins(ctx)
+	rows, err := a.Accounts(ctx)
 	if err != nil {
-		t.Fatalf("Logins: %v", err)
+		t.Fatalf("Accounts: %v", err)
 	}
 	if len(rows) != 1 || rows[0].Member != "ann" || rows[0].Request != nil {
 		t.Errorf("logins = %+v, want player_one linked to ann with nothing waiting", rows)

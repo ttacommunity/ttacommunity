@@ -1,6 +1,6 @@
-// Player sign-in: signing in with Discord and out, and the signed-in player reading themselves, asking to be linked
-// to a member and setting their own country and zone. /v1/me and sign-out are fetched by the site alone, with
-// credentials; signing in is a page the browser opens.
+// Player sign-in: signing in with Discord (or adding it as another way in) and out, and the signed-in player reading
+// themselves, asking to be linked to a member and setting their own country and zone. /v1/me, sign-out and the
+// email routes are fetched by the site alone, with credentials; signing in with Discord is a page the browser opens.
 package httpapi
 
 import (
@@ -32,9 +32,20 @@ type SignIns interface {
 	SetOwnDetails(ctx context.Context, login int64, country, zone *string) error
 	// SiteOrigin is the site's origin: the only one players' requests may come from, and where sign-in returns.
 	SiteOrigin() string
-	// DiscordAuthURL and DiscordUser start and finish a sign-in with Discord.
+	// DiscordAuthURL and DiscordUser start and finish a sign-in with Discord; AddDiscord adds it to an account.
 	DiscordAuthURL(state, verifier string) string
 	DiscordUser(ctx context.Context, code, verifier string) (discord.User, error)
+	AddDiscord(ctx context.Context, tokenHash []byte, id store.Identity, now time.Time) error
+	// RemoveOwnLogin removes one way into the account whose session hashes to tokenHash.
+	RemoveOwnLogin(ctx context.Context, tokenHash []byte, provider string, now time.Time) error
+	// EmailReady reports whether signing in by email is set up here; the methods after it need it.
+	EmailReady() bool
+	NewEmailLink(ctx context.Context, address string, account *int64, back string, tokenHash []byte, now time.Time) error
+	UseEmailLink(ctx context.Context, linkHash, sessionHash []byte, now time.Time) (store.EmailSignIn, error)
+	// VerifyTurnstile checks the email form's Turnstile token: turnstile.ErrFailed when it did not pass.
+	VerifyTurnstile(ctx context.Context, token string) error
+	// SendSignInLink emails link to address.
+	SendSignInLink(ctx context.Context, address, link string) error
 }
 
 // The cookies: the session's opaque token, and a sign-in's state, verifier and return path until Discord answers.
@@ -54,7 +65,7 @@ func isSignInPath(path string) bool {
 
 // fetchedBySite reports whether a sign-in path is fetched by the site (with CORS) rather than opened as a page.
 func fetchedBySite(path string) bool {
-	return path == "/v1/me" || strings.HasPrefix(path, "/v1/me/") || path == "/v1/auth/sign-out"
+	return path == "/v1/me" || strings.HasPrefix(path, "/v1/me/") || path == "/v1/auth/sign-out" || strings.HasPrefix(path, "/v1/auth/email")
 }
 
 type (
@@ -108,7 +119,7 @@ func signInGate(next http.Handler, signIns SignIns, now func() time.Time, log *s
 			w.WriteHeader(http.StatusNoContent)
 			return
 		}
-		if r.URL.Path == "/v1/auth/sign-out" {
+		if strings.HasPrefix(r.URL.Path, "/v1/auth/") {
 			next.ServeHTTP(w, r.WithContext(ctx))
 			return
 		}
@@ -232,6 +243,9 @@ func accountWith(back, outcome string) string {
 	return accountPath + "?" + q.Encode()
 }
 
+// addMark ends a flow cookie that adds Discord to the signed-in account rather than signing in.
+const addMark = "add"
+
 // newSecret is a random string of 52 characters from A-Z and 2-7: 260 bits, fit for a token or a PKCE verifier.
 func newSecret() string {
 	return rand.Text() + rand.Text()
@@ -240,26 +254,32 @@ func newSecret() string {
 func (s *server) StartDiscordSignIn(_ context.Context, req StartDiscordSignInRequestObject) (StartDiscordSignInResponseObject, error) {
 	state, verifier := newSecret(), newSecret()
 	flow := state + "." + verifier + "." + base64.RawURLEncoding.EncodeToString([]byte(returnPath(req.Params.Return)))
+	if req.Params.Add != nil && *req.Params.Add {
+		flow += "." + addMark
+	}
 	return redirect{to: s.signIns.DiscordAuthURL(state, verifier), cookies: []*http.Cookie{flowCookieWith(flow, int(flowLife.Seconds()))}}, nil
 }
 
-// readFlow takes a flow cookie apart: its state, verifier and return path.
-func readFlow(ctx context.Context) (state, verifier, back string, ok bool) {
+// readFlow takes a flow cookie apart: its state, verifier and return path, and whether it adds Discord.
+func readFlow(ctx context.Context) (state, verifier, back string, add, ok bool) {
 	raw, _ := ctx.Value(flowKey{}).(string)
 	parts := strings.Split(raw, ".")
+	if len(parts) == 4 && parts[3] == addMark {
+		parts, add = parts[:3], true
+	}
 	if len(parts) != 3 || parts[0] == "" || parts[1] == "" {
-		return "", "", accountPath, false
+		return "", "", accountPath, false, false
 	}
 	b, err := base64.RawURLEncoding.DecodeString(parts[2])
 	if err != nil {
-		return "", "", accountPath, false
+		return "", "", accountPath, false, false
 	}
 	p := string(b)
-	return parts[0], parts[1], returnPath(&p), true
+	return parts[0], parts[1], returnPath(&p), add, true
 }
 
 func (s *server) FinishDiscordSignIn(ctx context.Context, req FinishDiscordSignInRequestObject) (FinishDiscordSignInResponseObject, error) {
-	state, verifier, back, ok := readFlow(ctx)
+	state, verifier, back, add, ok := readFlow(ctx)
 	cookies := []*http.Cookie{flowCookieWith("", -1)}
 	// A returning player goes back where they started. The account page welcomes a first sign-in, and says why
 	// another did not finish; both keep the way back.
@@ -280,9 +300,12 @@ func (s *server) FinishDiscordSignIn(ctx context.Context, req FinishDiscordSignI
 		s.log.Info("discord sign-in failed", "err", err)
 		return outcome("failed"), nil
 	}
+	id := store.Identity{Provider: "discord", Subject: u.ID, Username: u.Username, DisplayName: u.DisplayName}
+	if add {
+		return s.addDiscord(ctx, id, cookies), nil
+	}
 	token := newSecret()
-	first, err := s.signIns.SignIn(ctx, store.Identity{Provider: "discord", Subject: u.ID, Username: u.Username, DisplayName: u.DisplayName},
-		hashToken(token), s.now())
+	first, err := s.signIns.SignIn(ctx, id, hashToken(token), s.now())
 	if err != nil {
 		s.log.Error("recording a sign-in failed", "request_id", requestID(ctx), "err", err)
 		return outcome("failed"), nil
@@ -292,6 +315,25 @@ func (s *server) FinishDiscordSignIn(ctx context.Context, req FinishDiscordSignI
 		return outcome("first"), nil
 	}
 	return outcome("ok"), nil
+}
+
+// addDiscord adds id to the signed-in account and goes back to the account page saying how that went.
+func (s *server) addDiscord(ctx context.Context, id store.Identity, cookies []*http.Cookie) redirect {
+	hash, _ := ctx.Value(sessionKey{}).([]byte)
+	err := s.signIns.AddDiscord(ctx, hash, id, s.now())
+	outcome := "added"
+	switch {
+	case errors.Is(err, store.ErrLoginTaken):
+		outcome = "taken"
+	case errors.Is(err, store.ErrHasLoginOfKind):
+		outcome = "has-kind"
+	case errors.Is(err, store.ErrNoSession):
+		outcome = "failed"
+	case err != nil:
+		s.log.Error("adding Discord to an account failed", "request_id", requestID(ctx), "err", err)
+		outcome = "failed"
+	}
+	return redirect{to: s.signIns.SiteOrigin() + withSignIn(accountPath, outcome), cookies: cookies}
 }
 
 func (s *server) SignOut(ctx context.Context, _ SignOutRequestObject) (SignOutResponseObject, error) {
@@ -308,7 +350,11 @@ func (s *server) GetMe(ctx context.Context, _ GetMeRequestObject) (GetMeResponse
 	if err != nil {
 		return nil, err
 	}
-	me := Me{Provider: LoginProvider(l.Provider), Username: l.Username, DisplayName: l.DisplayName, Country: nullableText(l.Country), Zone: l.Zone}
+	me := Me{Provider: LoginProvider(l.Provider), Username: l.Username, DisplayName: l.DisplayName, Country: nullableText(l.Country), Zone: l.Zone,
+		Logins: make([]MyLogin, len(l.Logins))}
+	for i, w := range l.Logins {
+		me.Logins[i] = MyLogin{Provider: LoginProvider(w.Provider), Username: w.Username, DisplayName: w.DisplayName}
+	}
 	if l.Member != nil {
 		me.Member = &MyMember{Name: l.Member.Name, Player: l.Member.Player, Banned: l.Banned, BanReason: l.BanReason}
 	}
