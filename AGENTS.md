@@ -57,6 +57,12 @@ scripts/ci.sh            # everything CI runs, in CI's order
 - **Postgres startup**: `scripts\env.ps1` starts Postgres if stopped. After a
   restart or crash recovery, wait for `pg_isready` before connecting if queries
   report "the database system is starting up"
+- **psql: connect with a URL from `.env`**, as the scripts do, never
+  `-U`/`-h`/`-p` alone: the local servers need a password, and psql waits
+  at a prompt for one. With `-X -w` it never prompts or reads a `psqlrc`:
+  `psql -X -w $env:RATINGS_DATABASE_URL -c "…"` after `. scripts\env.ps1`
+  (bash: `set -a; . ./.env; set +a; psql -X -w "$RATINGS_DATABASE_URL" -c "…"`).
+  Agents always pass `-w`, so a missing password is an error, not a hang
 - **Data is never in this repo.** The maintainers keep a baseline export (every
   input table, no personal data) in a private repo in the ttacommunity
   organization: `ttac-ratings-data` (`git@github.com:ttacommunity/ttac-ratings-data.git`).
@@ -373,6 +379,11 @@ agent runs them itself.
   change was *not* tested against
 - Image builds: add the `images` label to a pull request once the code is
   final; it builds `sha-<commit>` images to pin in `deploy/`
+- **A squash or rebase merge needs a repin.** The pins name a commit on
+  the branch, which they leave out of `main`, so `checks/deploy-current.sh`
+  fails `main`'s CI. After the merge, pin the `sha-<main's new commit>`
+  images that `main`'s push builds, in a pull request of its own. A merge
+  commit keeps the branch's commits and needs none
 - **Issues** open through a form: Bug, Data (a wrong or missing game, score
   or result), Feature, Decision, Task. Label the area: `ratings`,
   `tournaments`, `site`, `admin`, `build` (CI, checks, images) or `infra`
