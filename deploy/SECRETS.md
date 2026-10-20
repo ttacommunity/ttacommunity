@@ -22,9 +22,6 @@ Pipe values in; never use `--from-literal`, which leaves them in shell history.
 | `ttac-api-dev-tunnel` | `credentials.json` | `ttac-api-dev-tunnel` | The `ttac-api-dev` tunnel's credentials (below) |
 | `ttacommunity-github-app`, **in `flux-system`** | `githubAppID`, `githubAppInstallationID`, `githubAppPrivateKey` | Flux | Reads this repo as the GitHub App `ttacommunity-flux` (contents and metadata, read only). The cluster's maintainers hold it |
 
-`gitlab-registry` (registry.gitlab.com) is left from before the move to
-GitHub and used by nothing: delete it.
-
 ## If one is lost
 
 None needs keeping in a password manager: each is either made new on a
