@@ -1,11 +1,27 @@
-"""Orders matches as upstream's scripts/assemble_all_matches.py orders all_matches.csv.
+"""Orders matches chronologically for rating models and newcomer calibration.
 
-The models read a day's games in this order, and GlickoD's calibration takes a newcomer's first 15 games in it,
-so the same order gives the same ratings as upstream. See docs/architecture.md#rating-runs.
+Matches are ordered by date, then by CGE finish time (finished_at) when known,
+with ties and pre-CGE games (date only) broken by match_id (load order).
 """
 
 from collections import defaultdict
+from datetime import UTC, datetime
 from typing import Any
+
+_EPOCH = datetime.min.replace(tzinfo=UTC)
+
+
+def match_order(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Returns rows in chronological order: date, finish time (finished_at), then match_id."""
+    return sorted(
+        rows,
+        key=lambda r: (
+            r["date"],
+            r.get("finished_at") or _EPOCH,
+            r["match_id"],
+        ),
+    )
+
 
 # Upstream's tournament blocks, by name prefix, in its order.
 TOURNAMENT_BLOCKS = [
@@ -36,11 +52,7 @@ def block_of(tournament: str) -> str:
 
 
 def assembled_order(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    """Returns rows (in load order, each with "tournament" and "date") in upstream's assembled order.
-
-    Rows are grouped into blocks, each block is sorted by date (a day's games keep their load order), and the
-    blocks follow one another by their earliest date (blocks starting the same day, in the order first seen).
-    """
+    """Returns rows (in load order, each with "tournament" and "date") in upstream's assembled order."""
     blocks: dict[str, list[dict[str, Any]]] = defaultdict(list)
     for row in rows:
         blocks[block_of(row["tournament"] or "")].append(row)

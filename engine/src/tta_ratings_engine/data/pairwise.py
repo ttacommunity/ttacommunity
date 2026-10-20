@@ -1,7 +1,7 @@
 """Expands every match into the one-on-one results the rating models read."""
 
 from tta_ratings_engine.data.db import DictConnection, require_running
-from tta_ratings_engine.data.match_order import assembled_order
+from tta_ratings_engine.data.match_order import match_order
 
 PAIR_COLUMNS = (
     "run_id, match_id, date, tournament, player_count, "
@@ -15,7 +15,7 @@ def expand_pairwise(conn: DictConnection, run_id: int) -> int:
 
     An N-player match becomes N*(N-1)/2 pairs, each weighted 1/(N-1). The
     better place wins the pair, and a shared place draws; each side's culture is kept with it. Pairs are numbered in
-    upstream's assembled match order (match_order), which the models rely on
+    chronological match order (match_order), which the models rely on
     to order a day's games. Raises RunNotRunning unless the run is running.
     """
     with conn.transaction():
@@ -27,7 +27,8 @@ def _expand(conn, run_id):
     # Only played games whose tournament is in the run's ranking.
     rows = conn.execute(
         """
-        SELECT m.game_id AS match_id, m.name AS tournament, m.date, m.glicko_eligible, m.players, m.places, m.cultures, m.outcomes
+        SELECT m.game_id AS match_id, m.name AS tournament, m.date, m.finished_at, m.glicko_eligible,
+               m.players, m.places, m.cultures, m.outcomes
         FROM game_lines m
         JOIN tournaments s ON s.tournament_id = m.tournament_id
         JOIN series t ON t.series_id = m.series_id
@@ -38,7 +39,7 @@ def _expand(conn, run_id):
         """,
         (run_id,),
     ).fetchall()
-    rows = assembled_order(rows)
+    rows = match_order(rows)
 
     pairwise_to_insert = []
     for row in rows:

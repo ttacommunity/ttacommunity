@@ -1,4 +1,4 @@
-from datetime import date
+from datetime import UTC, date, datetime
 
 import pytest
 
@@ -152,29 +152,38 @@ def test_the_planner_knows_about_the_new_pairs(conn, add_match, run_id):
     assert row["reltuples"] == 3
 
 
-def test_a_days_games_are_numbered_in_upstreams_assembled_order(
+def test_a_days_games_are_ordered_by_finish_time_then_load_order(
     conn, add_match, run_id
 ):
     day = date(2025, 1, 11)
-    add_match(
-        ("Worlds", 1),
-        ("Early", 0),
-        day=date(2024, 3, 1),
-        tournament="Worlds 2024 Stage 1",
+    # Earlier finish time comes first even if loaded later.
+    g1 = add_match(
+        ("Kestrel", 2),
+        ("Robin51", 1),
+        day=day,
+        finished_at=datetime(2025, 1, 11, 20, 0, tzinfo=UTC),
+        tournament="RL_s03",
     )
-    rl = add_match(
-        ("Kestrel", 2), ("Robin51", 1), day=day, tournament="RL_s03 - Knight 2 game 5"
-    )
-    worlds = add_match(
+    g2 = add_match(
         ("Kestrel", 3),
         ("Ibis04", 1),
         day=day,
-        tournament="Worlds 2025 Stage 2 - game 11",
+        finished_at=datetime(2025, 1, 11, 15, 0, tzinfo=UTC),
+        tournament="Worlds 2025",
+    )
+    # Pre-CGE game (finished_at is None) comes before timed games on that date, ordered by match_id.
+    g0 = add_match(
+        ("Kestrel", 4),
+        ("Sparrow", 1),
+        day=day,
+        finished_at=None,
+        tournament="Old Cup",
     )
 
     expand_pairwise(conn, run_id)
-    same_day = [p[0] for p in pairs(conn, run_id) if p[0] in (rl, worlds)]
-    assert same_day == [worlds, rl]
+    same_day = [p[0] for p in pairs(conn, run_id) if p[0] in (g0, g1, g2)]
+    # g0 has no finish time (comes first), g2 finished at 15:00, g1 finished at 20:00
+    assert same_day == [g0, g2, g1]
 
 
 @pytest.mark.parametrize(
