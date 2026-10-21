@@ -57,7 +57,7 @@ func (f *fakeSignIns) SendSignInLink(_ context.Context, address, link string) er
 	return nil
 }
 
-func (f *fakeSignIns) AddDiscord(_ context.Context, hash []byte, id store.Identity, _ time.Time) error {
+func (f *fakeSignIns) AddLogin(_ context.Context, hash []byte, id store.Identity, _ time.Time) error {
 	a, ok := f.sessions[string(hash)]
 	switch {
 	case !ok:

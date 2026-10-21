@@ -1156,6 +1156,87 @@ paths:
               $ref: "#/components/headers/CacheControl"
         "503":
           $ref: "#/components/responses/NotSetUp"
+  /v1/auth/microsoft:
+    get:
+      operationId: startMicrosoftSignIn
+      tags: [players]
+      summary: Start signing in with Microsoft
+      description: |
+        Opened as a page, not fetched: sends the browser to Microsoft, for
+        any personal, work or school account, asking for openid, profile and
+        email, with a state, a PKCE challenge and a nonce whose secrets wait
+        in a short-lived cookie for the callback. With add, a signed-in
+        player adds Microsoft to their account as another way in. 503 when
+        Microsoft sign-in is not set up here. Never cached.
+      parameters:
+        - name: add
+          in: query
+          required: false
+          description: Add Microsoft to the signed-in player's account, rather than sign in
+          schema:
+            type: boolean
+        - name: return
+          in: query
+          required: false
+          description: The site path, with any query, to come back to, such as /ratings/player/?name=ann; anything else comes back to /account/
+          schema:
+            type: string
+            maxLength: 300
+      responses:
+        "302":
+          description: To Microsoft
+          headers:
+            Location:
+              $ref: "#/components/headers/Location"
+            Cache-Control:
+              $ref: "#/components/headers/CacheControl"
+        "503":
+          $ref: "#/components/responses/NotSetUp"
+  /v1/auth/microsoft/callback:
+    get:
+      operationId: finishMicrosoftSignIn
+      tags: [players]
+      summary: Where Microsoft sends the player back
+      description: |
+        Checks the state against the cookie, exchanges the code with its
+        verifier, and checks the ID token: Microsoft's signature, this app's
+        audience, expiry, the nonce, and an issuer naming the token's own
+        tenant. Their login is recorded by Microsoft's id for this app, with
+        their name, and their email only when Microsoft says its domain is
+        verified; the email never links them to a member, but fills a
+        linked member's empty email. A session starts as with Discord, and
+        the browser goes back to the site with the same signin outcomes:
+        ok, first, failed, and when adding, added, taken, has-kind (another
+        Microsoft account already) or failed.
+      parameters:
+        - name: code
+          in: query
+          required: false
+          schema:
+            type: string
+            maxLength: 4000
+        - name: state
+          in: query
+          required: false
+          schema:
+            type: string
+            maxLength: 200
+        - name: error
+          in: query
+          required: false
+          schema:
+            type: string
+            maxLength: 200
+      responses:
+        "302":
+          description: Back to the site, signed in or not
+          headers:
+            Location:
+              $ref: "#/components/headers/Location"
+            Cache-Control:
+              $ref: "#/components/headers/CacheControl"
+        "503":
+          $ref: "#/components/responses/NotSetUp"
   /v1/auth/email:
     post:
       operationId: sendEmailSignIn
@@ -7501,19 +7582,22 @@ components:
     LoginProvider:
       description: Where a player signs in
       type: string
-      enum: [discord, email]
+      enum: [discord, email, microsoft]
     MyLogin:
       description: A way into the signed-in player's account
       type: object
-      required: [provider, username, display_name]
+      required: [provider, username, display_name, email]
       properties:
         provider:
           $ref: "#/components/schemas/LoginProvider"
         username:
-          description: The Discord username, or the email address
+          description: The Discord username, the email address, or the Microsoft account's name (its email, or "Microsoft account", when it has none)
           type: string
         display_name:
           description: Empty when they have none
+          type: string
+        email:
+          description: The address we may write to through this way in, the email login's or the one Microsoft vouches for; empty when none
           type: string
     EmailSignInAsk:
       type: object

@@ -307,8 +307,8 @@ func TestAPlayerAddsDiscordAsASecondWayIn(t *testing.T) {
 			if tt.setup != nil {
 				tt.setup(t, a, p)
 			}
-			if err := p.AddDiscord(ctx, tokenHash("email"), discordID("100000000000000001", "player_one", "One"), signInAt); !errors.Is(err, tt.want) {
-				t.Fatalf("AddDiscord = %v, want %v", err, tt.want)
+			if err := p.AddLogin(ctx, tokenHash("email"), discordID("100000000000000001", "player_one", "One"), signInAt); !errors.Is(err, tt.want) {
+				t.Fatalf("AddLogin = %v, want %v", err, tt.want)
 			}
 			if tt.want != nil {
 				return
@@ -327,8 +327,8 @@ func TestAddingDiscordLinksByDiscordName(t *testing.T) {
 		t.Fatalf("AddMember: %v", err)
 	}
 	emailSignedIn(t, p, "player@example.test", "email")
-	if err := p.AddDiscord(ctx, tokenHash("email"), discordID("100000000000000001", "player_one", ""), signInAt); err != nil {
-		t.Fatalf("AddDiscord: %v", err)
+	if err := p.AddLogin(ctx, tokenHash("email"), discordID("100000000000000001", "player_one", ""), signInAt); err != nil {
+		t.Fatalf("AddLogin: %v", err)
 	}
 	if l, err := p.Session(ctx, tokenHash("email"), signInAt); err != nil || l.Member == nil || l.Member.Name != "ann" {
 		t.Errorf("after adding Discord: member %+v (%v), want ann", l.Member, err)

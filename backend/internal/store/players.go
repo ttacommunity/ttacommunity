@@ -21,9 +21,11 @@ const SessionLife = 30 * 24 * time.Hour
 // sessionRenewal is how often a session in use is renewed, so that a page view is not a write.
 const sessionRenewal = 24 * time.Hour
 
-// Identity is who a provider says signed in: their id there, and their names there.
+// Identity is who a provider says signed in: their id there, their names there, and for Microsoft the email address
+// it vouches for, if any.
 type Identity struct {
 	Provider, Subject, Username, DisplayName string
+	Email                                    string
 }
 
 // Account is a signed-in player as the site shows them: their account, their names where this session signed in,
@@ -47,11 +49,13 @@ type Account struct {
 	BanReason   string
 }
 
-// LoginName is a way into an account: its provider and the names there.
+// LoginName is a way into an account: its provider, the names there, and the address we may write to through it, if
+// any.
 type LoginName struct {
 	Provider    string `json:"provider"`
 	Username    string `json:"username"`
 	DisplayName string `json:"display_name"`
+	Email       string `json:"email"`
 }
 
 // LinkedMember is the member an account is linked to: their TTA username, and the ratings' spelling when they have
@@ -158,6 +162,17 @@ func signIn(ctx context.Context, tx pgx.Tx, id Identity, tokenHash []byte, now t
 	return first, startSession(ctx, tx, login, tokenHash, now)
 }
 
+// contactEmail is the Microsoft email id vouches for, trimmed and lower-cased, or "" for none or one that is not an
+// address.
+func contactEmail(id Identity) string {
+	e := strings.ToLower(strings.TrimSpace(id.Email))
+	if id.Provider != "microsoft" || len(e) > 254 || strings.Count(e, "@") != 1 || strings.ContainsAny(e, " \t\r\n") ||
+		strings.HasPrefix(e, "@") || strings.HasSuffix(e, "@") {
+		return ""
+	}
+	return e
+}
+
 // startSession starts a session at now for login, whose token hashes to tokenHash.
 func startSession(ctx context.Context, tx pgx.Tx, login int64, tokenHash []byte, now time.Time) error {
 	if _, err := tx.Exec(ctx, "INSERT INTO player_sessions (token_hash, login_id, created_at, expires_at) VALUES ($1, $2, $3, $4)",
@@ -210,9 +225,9 @@ func fillMember(ctx context.Context, c conn, account int64) error {
 // account, or zeros when id has not signed in before.
 func knownLogin(ctx context.Context, tx pgx.Tx, id Identity, now time.Time) (login, account int64, err error) {
 	err = tx.QueryRow(ctx, `
-		UPDATE logins SET username = $3, display_name = $4, signed_in_at = $5
+		UPDATE logins SET username = $3, display_name = $4, email = $5, signed_in_at = $6
 		WHERE provider = $1 AND subject = $2
-		RETURNING login_id, account_id`, id.Provider, id.Subject, id.Username, id.DisplayName, now).Scan(&login, &account)
+		RETURNING login_id, account_id`, id.Provider, id.Subject, id.Username, id.DisplayName, contactEmail(id), now).Scan(&login, &account)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return 0, 0, nil
 	}
@@ -228,9 +243,9 @@ func newLogin(ctx context.Context, tx pgx.Tx, id Identity, now time.Time) (login
 		return 0, 0, fmt.Errorf("opening an account: %w", err)
 	}
 	err = tx.QueryRow(ctx, `
-		INSERT INTO logins (account_id, provider, subject, username, display_name, created_at, signed_in_at)
-		VALUES ($1, $2, $3, $4, $5, $6, $6) RETURNING login_id`,
-		account, id.Provider, id.Subject, id.Username, id.DisplayName, now).Scan(&login)
+		INSERT INTO logins (account_id, provider, subject, username, display_name, email, created_at, signed_in_at)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $7) RETURNING login_id`,
+		account, id.Provider, id.Subject, id.Username, id.DisplayName, contactEmail(id), now).Scan(&login)
 	if err != nil {
 		return 0, 0, fmt.Errorf("recording a first sign-in: %w", err)
 	}
@@ -238,7 +253,7 @@ func newLogin(ctx context.Context, tx pgx.Tx, id Identity, now time.Time) (login
 }
 
 // canAddLogin returns ErrLoginTaken when id signs in to another account, or ErrHasLoginOfKind when account has
-// another Discord account. Adding id again to its own account is no error, and a new email address replaces the
+// another Discord or Microsoft account. Adding id again to its own account is no error, and a new email address replaces the
 // account's old one.
 func canAddLogin(ctx context.Context, tx pgx.Tx, account int64, id Identity) error {
 	var owner *int64
@@ -280,19 +295,19 @@ func addLogin(ctx context.Context, tx pgx.Tx, account int64, id Identity, now ti
 		}
 	}
 	err := tx.QueryRow(ctx, `
-		INSERT INTO logins (account_id, provider, subject, username, display_name, created_at, signed_in_at)
-		VALUES ($1, $2, $3, $4, $5, $6, $6)
-		ON CONFLICT (provider, subject) DO UPDATE SET username = excluded.username, display_name = excluded.display_name
-		RETURNING login_id`, account, id.Provider, id.Subject, id.Username, id.DisplayName, now).Scan(&login)
+		INSERT INTO logins (account_id, provider, subject, username, display_name, email, created_at, signed_in_at)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $7)
+		ON CONFLICT (provider, subject) DO UPDATE SET username = excluded.username, display_name = excluded.display_name, email = excluded.email
+		RETURNING login_id`, account, id.Provider, id.Subject, id.Username, id.DisplayName, contactEmail(id), now).Scan(&login)
 	if err != nil {
 		return 0, fmt.Errorf("adding a way in: %w", err)
 	}
 	return login, autoLink(ctx, tx, account, id, now)
 }
 
-// AddDiscord adds the Discord account id, at now, to the account whose session hashes to tokenHash. It returns
-// ErrNoSession, ErrLoginTaken or ErrHasLoginOfKind.
-func (s *PlayerStore) AddDiscord(ctx context.Context, tokenHash []byte, id Identity, now time.Time) error {
+// AddLogin adds the Discord or Microsoft account id, at now, to the account whose session hashes to tokenHash. It
+// returns ErrNoSession, ErrLoginTaken or ErrHasLoginOfKind.
+func (s *PlayerStore) AddLogin(ctx context.Context, tokenHash []byte, id Identity, now time.Time) error {
 	return pgx.BeginFunc(ctx, s.pool, func(tx pgx.Tx) error {
 		var account int64
 		err := tx.QueryRow(ctx, `
@@ -346,8 +361,9 @@ func (s *PlayerStore) Session(ctx context.Context, tokenHash []byte, now time.Ti
 			CASE WHEN m.member_id IS NULL THEN coalesce(ac.zone, 'Unknown') ELSE m.zone END,
 			coalesce(m.banned, false), coalesce(m.ban_reason, ''), coalesce(r.tta_name, ''), coalesce(r.status, ''), coalesce(r.reason, ''), r.requested_at,
 			coalesce(a.role, ''),
-			(SELECT json_agg(json_build_object('provider', provider, 'username', username, 'display_name', display_name) ORDER BY provider)
-			 FROM logins WHERE account_id = ac.account_id)
+			(SELECT json_agg(json_build_object('provider', w.provider, 'username', w.username, 'display_name', w.display_name,
+			                                   'email', CASE w.provider WHEN 'email' THEN w.subject ELSE w.email END) ORDER BY w.provider)
+			 FROM logins w WHERE w.account_id = ac.account_id)
 		FROM player_sessions s
 		JOIN logins l USING (login_id)
 		JOIN accounts ac USING (account_id)

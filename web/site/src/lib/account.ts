@@ -63,7 +63,7 @@ export function signedInAs(me: Me): { heading: string; detail: string } {
 }
 
 /** PROVIDER_NAMES names each way in as the page shows it; a new provider in the api's types will not compile until it is named here. */
-const PROVIDER_NAMES: Record<Provider, string> = { discord: 'Discord', email: 'Email' };
+const PROVIDER_NAMES: Record<Provider, string> = { discord: 'Discord', email: 'Email', microsoft: 'Microsoft' };
 
 /** WayIn is one way into the account as the page lists it, whether it may be removed (only while another remains), and whether it may be changed (an email address, for a new one). */
 export type WayIn = { provider: Provider; label: string; removable: boolean; changeable: boolean };
@@ -76,7 +76,7 @@ export function waysIn(me: Me): { ways: WayIn[]; canAdd: Record<Provider, boolea
     return { provider: l.provider, label: `${PROVIDER_NAMES[l.provider]}: ${name}`, removable, changeable: l.provider === 'email' };
   });
   const has = (p: Provider) => me.logins.some((l) => l.provider === p);
-  return { ways, canAdd: { discord: !has('discord'), email: !has('email') } };
+  return { ways, canAdd: { discord: !has('discord'), email: !has('email'), microsoft: !has('microsoft') } };
 }
 
 /** signInHref opens the api's Discord sign-in, which comes back to the page at back. */

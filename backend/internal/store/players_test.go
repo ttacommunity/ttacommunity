@@ -513,6 +513,10 @@ func TestMigration32MakesEachLoginAnAccountAndItsDownUndoesIt(t *testing.T) {
 	if err := migrateRatingsTo(ctx, pool, 32); err != nil {
 		t.Fatalf("migrateRatingsTo(32): %v", err)
 	}
+	// The store reads today's schema, so the migrations since 32 run before it does.
+	if err := withRatingsMigrations(pool, func(p *goose.Provider) error { _, err := p.Up(ctx); return err }); err != nil {
+		t.Fatalf("migrating up from 32: %v", err)
+	}
 	p := NewPlayerStore(asPlayerLogin(t, pool))
 	one, err := p.Session(ctx, tokenHash("one"), signInAt)
 	if err != nil || one.ID != 40 || one.LoginID != 40 || one.Member == nil || one.Member.Name != "ann" {
@@ -545,5 +549,82 @@ func TestMigration32MakesEachLoginAnAccountAndItsDownUndoesIt(t *testing.T) {
 	want := []string{"player_one|ann|t|-|-", "player_three|-|t|-|-", "player_two|-|f|NZ|Newcomer"}
 	if !slices.Equal(got, want) {
 		t.Errorf("after the Down, logins = %q, want %q", got, want)
+	}
+}
+
+// microsoftID is an invented Microsoft account with the name and verified email given.
+func microsoftID(subject, name, email string) Identity {
+	return Identity{Provider: "microsoft", Subject: subject, Username: name, Email: email}
+}
+
+func TestAMicrosoftSignInKeepsItsNameAndVerifiedEmailCurrent(t *testing.T) {
+	tests := []struct {
+		name, email, wantEmail string
+	}{
+		{"an email", "Player@Example.test ", "player@example.test"},
+		{"no email", "", ""},
+		{"something not an email", "player at example", ""},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			_, _, p := playersFixture(t)
+			first := signedIn(t, p, microsoftID("AAAAAAAAAAAAAAAAAAAAAIkzqFVrSaSaFHy782bbtaQ", "Player One", "first@example.test"), "token-1")
+			again := signedIn(t, p, microsoftID("AAAAAAAAAAAAAAAAAAAAAIkzqFVrSaSaFHy782bbtaQ", "Player Renamed", tt.email), "token-2")
+			if again.ID != first.ID || len(again.Logins) != 1 {
+				t.Fatalf("second sign-in = %+v, want account %d with one way in", again, first.ID)
+			}
+			if got := again.Logins[0]; got.Provider != "microsoft" || got.Username != "Player Renamed" || got.Email != tt.wantEmail {
+				t.Errorf("the way in = %+v, want microsoft, Player Renamed, email %q", got, tt.wantEmail)
+			}
+		})
+	}
+}
+
+func TestAMicrosoftEmailNeverLinksAMember(t *testing.T) {
+	_, a, p := playersFixture(t)
+	if _, err := a.AddMember(context.Background(), Member{Name: "ann", Email: "player@example.test", Zone: "UTC"}); err != nil {
+		t.Fatalf("AddMember: %v", err)
+	}
+	if l := signedIn(t, p, microsoftID("AAAAAAAAAAAAAAAAAAAAAIkzqFVrSaSaFHy782bbtaQ", "Player One", "player@example.test"), "token"); l.Member != nil {
+		t.Errorf("a Microsoft sign-in linked %+v, want no member", l.Member)
+	}
+}
+
+func TestDeletingAnAccountClearsTheMembersEmailWhenItCameFromMicrosoft(t *testing.T) {
+	tests := []struct {
+		name, recorded, want string
+	}{
+		{"filled from Microsoft", "", ""},
+		{"recorded before", "recorded@example.test", "recorded@example.test"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			pool, a, p := playersFixture(t)
+			ctx := context.Background()
+			ann, err := a.AddMember(ctx, Member{Name: "ann", Email: tt.recorded, Zone: "UTC"})
+			if err != nil {
+				t.Fatalf("AddMember: %v", err)
+			}
+			approved(t, a, p, signedIn(t, p, microsoftID("AAAAAAAAAAAAAAAAAAAAAIkzqFVrSaSaFHy782bbtaQ", "Player One", "player@example.test"), "token"), "ann")
+			if err := p.DeleteAccount(ctx, tokenHash("token"), signInAt); err != nil {
+				t.Fatalf("DeleteAccount: %v", err)
+			}
+			if got := rowsOf(t, pool, fmt.Sprintf("SELECT email FROM members WHERE member_id = %d", ann)); len(got) != 1 || got[0] != tt.want {
+				t.Errorf("ann's email = %q, want %q", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestMigration39sDownRemovesMicrosoftSignIns(t *testing.T) {
+	pool, _, p := playersFixture(t)
+	ctx := context.Background()
+	signedIn(t, p, microsoftID("AAAAAAAAAAAAAAAAAAAAAIkzqFVrSaSaFHy782bbtaQ", "Player One", "player@example.test"), "microsoft")
+	signedIn(t, p, discordID("100000000000000001", "player_two", ""), "discord")
+	if err := withRatingsMigrations(pool, func(p *goose.Provider) error { _, err := p.DownTo(ctx, 38); return err }); err != nil {
+		t.Fatalf("migrating down to 38: %v", err)
+	}
+	if got := rowsOf(t, pool, "SELECT l.username FROM accounts a JOIN logins l USING (account_id)"); !slices.Equal(got, []string{"player_two"}) {
+		t.Errorf("after the Down, accounts' ways in = %q, want player_two alone", got)
 	}
 }

@@ -34,8 +34,8 @@ import {
   type Me,
 } from './account';
 
-const discord = { provider: 'discord' as const, username: 'player_one', display_name: '' };
-const email = { provider: 'email' as const, username: 'player@example.test', display_name: '' };
+const discord = { provider: 'discord' as const, username: 'player_one', display_name: '', email: '' };
+const email = { provider: 'email' as const, username: 'player@example.test', display_name: '', email: 'player@example.test' };
 const base: Me = { provider: 'discord', username: 'player_one', display_name: '', logins: [discord], member: null, request: null, admin_role: null, country: null, zone: 'Unknown' };
 const byEmail: Me = { ...base, provider: 'email', username: 'player@example.test', logins: [email] };
 const ann = { name: 'ann', player: 'Ann', banned: false, ban_reason: '' };
@@ -91,15 +91,15 @@ describe('signedInAs', () => {
 
 describe('waysIn', () => {
   it.each([
-    ['Discord alone: email may be added, nothing removed', base, ['Discord: player_one'], [false], { discord: false, email: true }],
+    ['Discord alone: email may be added, nothing removed', base, ['Discord: player_one'], [false], { discord: false, email: true, microsoft: true }],
     [
       'both, each removable',
       { ...base, logins: [{ ...discord, display_name: 'Player One' }, email] },
       ['Discord: player_one (Player One)', 'Email: player@example.test'],
       [true, true],
-      { discord: false, email: false },
+      { discord: false, email: false, microsoft: true },
     ],
-    ['email alone: Discord may be added', byEmail, ['Email: player@example.test'], [false], { discord: true, email: false }],
+    ['email alone: Discord may be added', byEmail, ['Email: player@example.test'], [false], { discord: true, email: false, microsoft: true }],
   ])('%s', (_name, me, labels, removable, canAdd) => {
     const got = waysIn(me);
     expect(got.ways.map((w) => w.label)).toEqual(labels);

@@ -76,3 +76,67 @@ func TestTheDiscordStandInIsOnlyForThisMachine(t *testing.T) {
 		t.Errorf("openSignIns on this machine = %v, want it past the config, failing only to reach the database", err)
 	}
 }
+
+func TestMicrosoftSignInIsOffOrFullySetUp(t *testing.T) {
+	full := map[string]string{
+		"SITE_ORIGIN":                 "https://site.example",
+		"API_ORIGIN":                  "https://api.example",
+		"RATINGS_PLAYER_DATABASE_URL": "postgres://player@127.0.0.1:1/none",
+		"DISCORD_CLIENT_ID":           "100000000000000099",
+		"DISCORD_CLIENT_SECRET":       "test-secret",
+	}
+	tests := []struct {
+		name, id, secret, want string
+	}{
+		{"off", "", "", "player login"},
+		{"set up", "00000000-0000-0000-0000-000000000099", "test-secret", "player login"},
+		{"a client id alone", "00000000-0000-0000-0000-000000000099", "", "MICROSOFT"},
+		{"a secret alone", "", "test-secret", "MICROSOFT"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			env := maps.Clone(full)
+			env["MICROSOFT_CLIENT_ID"], env["MICROSOFT_CLIENT_SECRET"] = tt.id, tt.secret
+			_, _, err := openSignIns(context.Background(), func(k string) string { return env[k] })
+			if err == nil || !strings.Contains(err.Error(), tt.want) {
+				t.Errorf("openSignIns = %v, want an error naming %s", err, tt.want)
+			}
+		})
+	}
+}
+
+func TestTheMicrosoftStandInIsOnlyForThisMachine(t *testing.T) {
+	local := map[string]string{
+		"SITE_ORIGIN":                 "http://127.0.0.1:4321",
+		"API_ORIGIN":                  "http://127.0.0.1:8080",
+		"API_ADDR":                    "127.0.0.1:8080",
+		"RATINGS_PLAYER_DATABASE_URL": "postgres://player@127.0.0.1:1/none",
+		"DISCORD_DEV_USER":            "local_player",
+		"MICROSOFT_DEV_USER":          "Local Player",
+	}
+	tests := []struct {
+		name, key, value string
+	}{
+		{"listening beyond this machine", "API_ADDR", ":8080"},
+		{"in Kubernetes", "KUBERNETES_SERVICE_HOST", "10.0.0.1"},
+		{"a site that is not on this machine", "SITE_ORIGIN", "https://site.example"},
+		{"a Microsoft app as well", "MICROSOFT_CLIENT_ID", "00000000-0000-0000-0000-000000000099"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			env := maps.Clone(local)
+			env[tt.key] = tt.value
+			if tt.key == "MICROSOFT_CLIENT_ID" {
+				env["MICROSOFT_CLIENT_SECRET"] = "test-secret"
+			}
+			_, _, err := openSignIns(context.Background(), func(k string) string { return env[k] })
+			if err == nil || !strings.Contains(err.Error(), "MICROSOFT_DEV_USER") {
+				t.Errorf("openSignIns with %s=%q = %v, want a refusal naming MICROSOFT_DEV_USER", tt.key, tt.value, err)
+			}
+		})
+	}
+	_, _, err := openSignIns(context.Background(), func(k string) string { return local[k] })
+	if err == nil || !strings.Contains(err.Error(), "player login") {
+		t.Errorf("openSignIns on this machine = %v, want it past the config, failing only to reach the database", err)
+	}
+}
