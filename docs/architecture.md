@@ -332,7 +332,9 @@ school (scopes `openid profile email`). The api checks the ID token itself:
 Microsoft's signature, this app's audience, expiry, the nonce, and an issuer
 naming the token's own tenant. The login is keyed by `sub`, Microsoft's id
 for the account in this app alone, and keeps the account's name, and its
-email only when Microsoft says the email's domain is verified (`xms_edov`).
+email when Microsoft vouches for it: a personal account's, which Microsoft
+made it prove, or a work or school account's whose domain its directory
+verified (`xms_edov`).
 That email is for writing to the player: it never links a login to a
 member, though it fills a linked member's empty email like an email
 login's address. Sessions (`player_sessions`) are server-side: the

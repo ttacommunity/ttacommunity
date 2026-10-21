@@ -898,8 +898,9 @@ export interface paths {
          *     verifier, and checks the ID token: Microsoft's signature, this app's
          *     audience, expiry, the nonce, and an issuer naming the token's own
          *     tenant. Their login is recorded by Microsoft's id for this app, with
-         *     their name, and their email only when Microsoft says its domain is
-         *     verified; the email never links them to a member, but fills a
+         *     their name, and their email when Microsoft vouches for it (a
+         *     personal account's, or a work or school account's whose domain is
+         *     verified); the email never links them to a member, but fills a
          *     linked member's empty email. A session starts as with Discord, and
          *     the browser goes back to the site with the same signin outcomes:
          *     ok, first, failed, and when adding, added, taken, has-kind (another

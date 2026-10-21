@@ -24,6 +24,9 @@ import (
 // microsoftAuthority is where Microsoft signs people in, used when Config leaves it empty.
 const microsoftAuthority = "https://login.microsoftonline.com"
 
+// consumers is Microsoft's tenant for personal accounts, which prove their email to Microsoft with a code.
+const consumers = "9188040d-6c67-4c5b-b112-36a304b66dad"
+
 // refetchAfter limits how often an unknown key id makes the client fetch Microsoft's keys again.
 const refetchAfter = 5 * time.Minute
 
@@ -41,8 +44,8 @@ func (c Config) String() string {
 	return fmt.Sprintf("microsoft.Config{ClientID: %s, RedirectURL: %s}", c.ClientID, c.RedirectURL)
 }
 
-// User is who signed in: their id for this app, their name, and their email when Microsoft says its domain is
-// verified (empty otherwise).
+// User is who signed in: their id for this app, their name, and their email when Microsoft vouches for it: a personal
+// account's, or a work or school account's whose domain its directory verified (empty otherwise).
 type User struct {
 	Subject, Name, Email string
 }
@@ -146,7 +149,7 @@ func (c *Client) User(ctx context.Context, code, verifier, nonce string) (User, 
 		return User{}, errors.New("microsoft: the token has no subject")
 	}
 	u := User{Subject: cl.Subject, Name: truncate(strings.TrimSpace(cl.Name), 100)}
-	if cl.Verified == true {
+	if cl.Tenant == consumers || cl.Verified == true {
 		u.Email = cl.Email
 	}
 	return u, nil

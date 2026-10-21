@@ -11,6 +11,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"strings"
 	"testing"
 	"time"
 
@@ -22,8 +23,10 @@ import (
 const (
 	clientID = "00000000-0000-0000-0000-000000000099"
 	tenant   = "00000000-0000-0000-0000-0000000000aa"
-	redirect = "https://api.example.test/v1/auth/microsoft/callback"
-	subject  = "AAAAAAAAAAAAAAAAAAAAAIkzqFVrSaSaFHy782bbtaQ"
+	// consumers is Microsoft's tenant for personal accounts.
+	consumers = "9188040d-6c67-4c5b-b112-36a304b66dad"
+	redirect  = "https://api.example.test/v1/auth/microsoft/callback"
+	subject   = "AAAAAAAAAAAAAAAAAAAAAIkzqFVrSaSaFHy782bbtaQ"
 )
 
 var now = time.Date(2026, 10, 21, 12, 0, 0, 0, time.UTC)
@@ -94,6 +97,12 @@ func claims(issuerBase string) jwt.MapClaims {
 	}
 }
 
+// personal makes c a personal account's: Microsoft's consumer tenant, with the issuer to match.
+func personal(c jwt.MapClaims) {
+	c["iss"] = strings.Replace(c["iss"].(string), tenant, consumers, 1)
+	c["tid"] = consumers
+}
+
 // signed is c signed with key as kid.
 func signed(t *testing.T, c jwt.MapClaims, key *rsa.PrivateKey, kid string) string {
 	t.Helper()
@@ -139,6 +148,8 @@ func TestUserReturnsWhoSignedInWithTheEmailOnlyWhenVerified(t *testing.T) {
 		{"an email said to be unverified", func(c jwt.MapClaims) { c["xms_edov"] = false }, ""},
 		{"verified said as text", func(c jwt.MapClaims) { c["xms_edov"] = "true" }, ""},
 		{"no email", func(c jwt.MapClaims) { delete(c, "email") }, ""},
+		{"a personal account's email, which Microsoft proved", func(c jwt.MapClaims) { personal(c); delete(c, "xms_edov") }, "player@example.test"},
+		{"a personal account with no email", func(c jwt.MapClaims) { personal(c); delete(c, "xms_edov"); delete(c, "email") }, ""},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
