@@ -1,0 +1,91 @@
+---
+tab: game-deltas
+label: 'Game ΔR vs Batch Ratings'
+order: 14
+---
+
+<div class="faq-card">
+  <h3>What is the &Delta;R shown next to each game on the player page?</h3>
+  <div>
+    <p>
+      The &Delta;R (delta rating) shown in a player&rsquo;s game history is an <strong>estimated standalone impact</strong>. It simulates what that single match would be worth in isolation under standard Glicko-2, evaluated against the opponents&rsquo; <em>current</em> ratings today:
+    </p>
+    <ul>
+      <li>Fixed initial uncertainty parameter: $\sigma = 0.03$.</li>
+      <li>System constant: $\tau = 0.3$.</li>
+      <li>Evaluated pairwise against the opponents&rsquo; published ratings in the latest engine run.</li>
+    </ul>
+    <p>
+      This provides an intuitive, immediate sense of game stakes&mdash;for instance, showing that defeating a 2000-rated Grandmaster yields a larger positive &Delta;R than beating a 1500-rated opponent.
+    </p>
+  </div>
+</div>
+
+<div class="faq-card">
+  <h3>Why does &Delta;R differ from actual monthly rating changes?</h3>
+  <div>
+    <p>
+      In competitive Through the Ages rating engines (including Glicko-D and Standard Glicko-2), ratings are <strong>never updated game-by-game</strong>. Instead, all games played in a calendar month are processed together in a single <strong>simultaneous batch update</strong>:
+    </p>
+    <ol>
+      <li>
+        <strong>Simultaneous Batching:</strong> A player who plays 10 games in a month has all 10 outcomes evaluated together against their opponents&rsquo; ratings at the start of the rating period. The order in which games were completed within the month does not distort earlier or later updates.
+      </li>
+      <li>
+        <strong>Non-Linear Diminishing Returns:</strong> Glicko updates are non-linear. The sum of 10 isolated &Delta;R values will almost always differ from the batch rating update. Because rating deviation ($\mathrm{RD}$) decreases as games accumulate, later games in high-volume months contribute incrementally smaller shifts than isolated standalone calculations would suggest.
+      </li>
+      <li>
+        <strong>Evolving Opponent Strength:</strong> When you look at an old match from two years ago, the game&rsquo;s displayed &Delta;R is calculated against opponents&rsquo; <em>current</em> ratings today rather than their historical ratings at the exact moment the match concluded.
+      </li>
+      <li>
+        <strong>Glicko-D Multiplayer Scaling:</strong> The production Glicko-D engine applies Golden Ratio scaling to multi-player games ($\phi/2 \approx 0.809$ in 3-player, $\phi^2/3 \approx 0.873$ in 4-player) and uses calibrated parameter sets that differ from standalone 1v1 Glicko approximations.
+      </li>
+    </ol>
+  </div>
+</div>
+
+<div class="faq-card">
+  <h3>Illustrative Example: Batch Update vs Sum of Deltas</h3>
+  <div>
+    <p>
+      Suppose an established player ($R = 1800$, $\mathrm{RD} = 40$) plays 5 matches in June:
+    </p>
+    <ul>
+      <li>Game 1 vs 1850: Win (&Delta;R estimate: $+7.2$)</li>
+      <li>Game 2 vs 1800: Win (&Delta;R estimate: $+6.0$)</li>
+      <li>Game 3 vs 1750: Win (&Delta;R estimate: $+5.1$)</li>
+      <li>Game 4 vs 1900: Loss (&Delta;R estimate: $-4.8$)</li>
+      <li>Game 5 vs 1820: Win (&Delta;R estimate: $+6.3$)</li>
+    </ul>
+    <p>
+      Summing the individual standalone deltas gives:
+    </p>
+
+    <div class="faq-formula">
+
+$$
+\sum \Delta R = +7.2 + 6.0 + 5.1 - 4.8 + 6.3 = +19.8
+$$
+
+    </div>
+
+    <p>
+      However, when the monthly batch update runs:
+    </p>
+
+    <div class="faq-formula">
+
+$$
+\Delta R_{\mathrm{batch}} = +14.6
+$$
+
+    </div>
+
+    <p>
+      The actual batch update ($+14.6$) is smaller than the naive sum ($+19.8$) because the Glicko variance function accounts for the combined information of all 5 matches simultaneously, compressing the net swing.
+    </p>
+    <p>
+      To see your actual official rating trajectory over time, refer to the <strong>Rating History</strong> chart and month-by-month tables on your player profile.
+    </p>
+  </div>
+</div>
