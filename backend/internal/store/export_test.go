@@ -155,29 +155,42 @@ func TestRestoreRefusesAChangedFile(t *testing.T) {
 	}
 }
 
-func TestRestoreRefusesAnotherSchemaVersion(t *testing.T) {
-	ctx := context.Background()
-	dir := filepath.Join(t.TempDir(), "x")
-	if _, err := Export(ctx, filled(t), dir); err != nil {
-		t.Fatalf("Export: %v", err)
-	}
-	f := filepath.Join(dir, "manifest.json")
-	var m Manifest
-	b, err := os.ReadFile(f)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if err := json.Unmarshal(b, &m); err != nil {
-		t.Fatal(err)
-	}
-	m.SchemaVersion--
-	b, _ = json.Marshal(m)
-	if err := os.WriteFile(f, b, 0o600); err != nil {
-		t.Fatal(err)
-	}
+// writers are the two ways to write a database's inputs to a folder, for tests that hold for both.
+var writers = []struct {
+	name  string
+	write func(context.Context, *pgxpool.Pool, string) (Manifest, error)
+}{
+	{"export", Export},
+	{"backup", Backup},
+}
 
-	if err := Restore(ctx, migrated(t), dir); !errors.Is(err, ErrSchemaMismatch) {
-		t.Errorf("Restore of an older schema = %v, want ErrSchemaMismatch", err)
+func TestRestoreRefusesAnotherSchemaVersion(t *testing.T) {
+	for _, w := range writers {
+		t.Run(w.name, func(t *testing.T) {
+			ctx := context.Background()
+			dir := filepath.Join(t.TempDir(), "x")
+			if _, err := w.write(ctx, filled(t), dir); err != nil {
+				t.Fatalf("%s: %v", w.name, err)
+			}
+			f := filepath.Join(dir, "manifest.json")
+			var m Manifest
+			b, err := os.ReadFile(f)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if err := json.Unmarshal(b, &m); err != nil {
+				t.Fatal(err)
+			}
+			m.SchemaVersion--
+			b, _ = json.Marshal(m)
+			if err := os.WriteFile(f, b, 0o600); err != nil {
+				t.Fatal(err)
+			}
+
+			if err := Restore(ctx, migrated(t), dir); !errors.Is(err, ErrSchemaMismatch) {
+				t.Errorf("Restore of an older schema's %s = %v, want ErrSchemaMismatch", w.name, err)
+			}
+		})
 	}
 }
 
@@ -192,22 +205,26 @@ func TestExportRefusesAFolderThatIsNotEmpty(t *testing.T) {
 	}
 }
 
-func TestExportRefusesAnInputTableItDoesNotKnow(t *testing.T) {
-	pool := filled(t)
-	if _, err := pool.Exec(context.Background(), "CREATE TABLE player_aliases (name text)"); err != nil {
-		t.Fatal(err)
-	}
+func TestExportAndBackupRefuseAnInputTableTheyDoNotKnow(t *testing.T) {
+	for _, w := range writers {
+		t.Run(w.name, func(t *testing.T) {
+			pool := filled(t)
+			if _, err := pool.Exec(context.Background(), "CREATE TABLE player_aliases (name text)"); err != nil {
+				t.Fatal(err)
+			}
 
-	dir := filepath.Join(t.TempDir(), "x")
-	_, err := Export(context.Background(), pool, dir)
-	if !errors.Is(err, ErrUnlistedTable) {
-		t.Errorf("Export with an unlisted table = %v, want ErrUnlistedTable", err)
-	}
-	if err != nil && !strings.Contains(err.Error(), "player_aliases") {
-		t.Errorf("Export with an unlisted table = %v, want it to name player_aliases", err)
-	}
-	if _, err := os.Stat(dir); !os.IsNotExist(err) {
-		t.Errorf("a refused export left %s behind (stat: %v)", dir, err)
+			dir := filepath.Join(t.TempDir(), "x")
+			_, err := w.write(context.Background(), pool, dir)
+			if !errors.Is(err, ErrUnlistedTable) {
+				t.Errorf("%s with an unlisted table = %v, want ErrUnlistedTable", w.name, err)
+			}
+			if err != nil && !strings.Contains(err.Error(), "player_aliases") {
+				t.Errorf("%s with an unlisted table = %v, want it to name player_aliases", w.name, err)
+			}
+			if _, err := os.Stat(dir); !os.IsNotExist(err) {
+				t.Errorf("a refused %s left %s behind (stat: %v)", w.name, dir, err)
+			}
+		})
 	}
 }
 

@@ -56,9 +56,17 @@ var ExportTables = []string{
 // load -add-admin), the rows a load refused (load history, which no view
 // needs), the community's members (Discord names, emails) and blitz tournaments' editions, entrants, organisers,
 // thread texts, rounds and skips, which reference them, and players' accounts, sign-ins, sessions, requests to be
-// linked and emailed links.
+// linked and emailed links. A backup restores them in this order, after ExportTables.
 var NotExported = []string{"refused_rows", "admins", "admin_audit", "members", "blitz_editions", "blitz_entries", "blitz_organisers", "blitz_thread_texts", "blitz_rounds", "blitz_matches", "blitz_skips",
 	"accounts", "logins", "link_requests", "player_sessions", "email_links"}
+
+// NotBackedUp are the input tables a backup leaves out: short-lived sign-in secrets. Players sign in again after a restore.
+var NotBackedUp = []string{"player_sessions", "email_links"}
+
+// BackupTables are every input table but NotBackedUp, in an order a restore can load them. A backup holds personal data.
+var BackupTables = slices.DeleteFunc(append(slices.Clone(ExportTables), NotExported...), func(t string) bool {
+	return slices.Contains(NotBackedUp, t)
+})
 
 // Manifest describes an export: the schema it was taken at and each table's file.
 type Manifest struct {
@@ -80,10 +88,20 @@ const manifestFile = "manifest.json"
 // with a header, rows in a fixed order, from one snapshot, and the manifest.
 // It refuses a database with an input table ExportTables does not name.
 func Export(ctx context.Context, pool *pgxpool.Pool, dir string) (Manifest, error) {
+	return exportToDir(ctx, pool, ExportTables, dir)
+}
+
+// Backup writes every table in BackupTables to dir (created, or empty) as Export does, with the same manifest.
+// It refuses a database with an input table it does not list.
+func Backup(ctx context.Context, pool *pgxpool.Pool, dir string) (Manifest, error) {
+	return exportToDir(ctx, pool, BackupTables, dir)
+}
+
+func exportToDir(ctx context.Context, pool *pgxpool.Pool, tables []string, dir string) (Manifest, error) {
 	if entries, err := os.ReadDir(dir); err == nil && len(entries) > 0 {
 		return Manifest{}, fmt.Errorf("exporting: %s is not empty", dir)
 	}
-	return export(ctx, pool, func(name string) (io.WriteCloser, error) {
+	return export(ctx, pool, tables, func(name string) (io.WriteCloser, error) {
 		if err := os.MkdirAll(dir, 0o700); err != nil {
 			return nil, err
 		}
@@ -94,7 +112,7 @@ func Export(ctx context.Context, pool *pgxpool.Pool, dir string) (Manifest, erro
 // ExportZip writes the same export as Export, as one zip of its files, to w: for a download.
 func ExportZip(ctx context.Context, pool *pgxpool.Pool, w io.Writer) (Manifest, error) {
 	zw := zip.NewWriter(w)
-	m, err := export(ctx, pool, func(name string) (io.WriteCloser, error) {
+	m, err := export(ctx, pool, ExportTables, func(name string) (io.WriteCloser, error) {
 		f, err := zw.Create(name)
 		return nopCloser{f}, err
 	})
@@ -111,8 +129,8 @@ type nopCloser struct{ io.Writer }
 
 func (nopCloser) Close() error { return nil }
 
-// export writes each input table, then the manifest, through create, from one read-only snapshot.
-func export(ctx context.Context, pool *pgxpool.Pool, create func(name string) (io.WriteCloser, error)) (Manifest, error) {
+// export writes each of tables, then the manifest, through create, from one read-only snapshot.
+func export(ctx context.Context, pool *pgxpool.Pool, tables []string, create func(name string) (io.WriteCloser, error)) (Manifest, error) {
 	tx, err := pool.BeginTx(ctx, pgx.TxOptions{IsoLevel: pgx.RepeatableRead, AccessMode: pgx.ReadOnly})
 	if err != nil {
 		return Manifest{}, fmt.Errorf("exporting: %w", err)
@@ -125,7 +143,7 @@ func export(ctx context.Context, pool *pgxpool.Pool, create func(name string) (i
 	if m.SchemaVersion, err = schemaVersion(ctx, tx); err != nil {
 		return Manifest{}, err
 	}
-	for _, table := range ExportTables {
+	for _, table := range tables {
 		t, err := exportTable(ctx, tx, create, table)
 		if err != nil {
 			return Manifest{}, err
@@ -171,9 +189,9 @@ func exportTable(ctx context.Context, tx pgx.Tx, create func(name string) (io.Wr
 	return t, nil
 }
 
-// Restore loads an export into a migrated database that holds no inputs and no
-// runs, in one transaction. It refuses another schema version, a file whose
-// checksum or row count differs from the manifest, or a database with data.
+// Restore loads an export or a backup into a migrated database that holds no
+// inputs and no runs, in one transaction. It refuses another schema version, a
+// file whose checksum or row count differs from the manifest, or a database with data.
 func Restore(ctx context.Context, pool *pgxpool.Pool, dir string) error {
 	b, err := os.ReadFile(filepath.Join(dir, manifestFile))
 	if err != nil {
@@ -183,8 +201,9 @@ func Restore(ctx context.Context, pool *pgxpool.Pool, dir string) error {
 	if err := json.Unmarshal(b, &m); err != nil {
 		return fmt.Errorf("restoring: reading the manifest: %w", err)
 	}
-	if got := tableNames(m); !slices.Equal(got, ExportTables) {
-		return fmt.Errorf("restoring: the manifest names tables %v, want %v", got, ExportTables)
+	tables := tableNames(m)
+	if !slices.Equal(tables, ExportTables) && !slices.Equal(tables, BackupTables) {
+		return fmt.Errorf("restoring: the manifest names tables %v, want an export's %v or a backup's %v", tables, ExportTables, BackupTables)
 	}
 	for _, t := range m.Tables {
 		if err := checkFile(dir, t); err != nil {
@@ -204,7 +223,7 @@ func Restore(ctx context.Context, pool *pgxpool.Pool, dir string) error {
 	if err := checkInputTables(ctx, tx); err != nil {
 		return err
 	}
-	if err := checkEmpty(ctx, tx); err != nil {
+	if err := checkEmpty(ctx, tx, tables); err != nil {
 		return err
 	}
 	// The migrations seed these; the export holds them too.
@@ -218,7 +237,7 @@ func Restore(ctx context.Context, pool *pgxpool.Pool, dir string) error {
 			return err
 		}
 	}
-	if err := resetIdentities(ctx, tx); err != nil {
+	if err := resetIdentities(ctx, tx, tables); err != nil {
 		return err
 	}
 	if err := tx.Commit(ctx); err != nil {
@@ -303,13 +322,13 @@ func checkInputTables(ctx context.Context, tx pgx.Tx) error {
 	return errors.Join(problems...)
 }
 
-// checkEmpty refuses a database holding any run or input, other than the rankings the migrations seed.
+// checkEmpty refuses a database holding any run or a row in tables, other than the rankings the migrations seed.
 // seededTables are the input tables the migrations fill: the community ranking, and the first tournament cards,
 // regulations and stories, and default community editions.
 var seededTables = []string{"rankings", "tournament_cards", "tournament_regulations", "tournament_stories", "community_editions"}
 
-func checkEmpty(ctx context.Context, tx pgx.Tx) error {
-	for _, t := range append([]string{"rating_runs"}, ExportTables...) {
+func checkEmpty(ctx context.Context, tx pgx.Tx, tables []string) error {
+	for _, t := range append([]string{"rating_runs"}, tables...) {
 		if slices.Contains(seededTables, t) {
 			continue
 		}
@@ -324,11 +343,11 @@ func checkEmpty(ctx context.Context, tx pgx.Tx) error {
 	return nil
 }
 
-// resetIdentities moves each input table's identity past the restored ids.
-func resetIdentities(ctx context.Context, tx pgx.Tx) error {
+// resetIdentities moves the identity of each of tables past the restored ids.
+func resetIdentities(ctx context.Context, tx pgx.Tx, tables []string) error {
 	rows, err := tx.Query(ctx, `
 		SELECT table_name, column_name FROM information_schema.columns
-		WHERE table_schema = 'public' AND is_identity = 'YES' AND table_name = ANY($1)`, ExportTables)
+		WHERE table_schema = 'public' AND is_identity = 'YES' AND table_name = ANY($1)`, tables)
 	if err != nil {
 		return fmt.Errorf("restoring: listing identities: %w", err)
 	}
