@@ -42,8 +42,12 @@ for (const to of ROUTED) {
 	})
 }
 
-test('the routed addresses are support@ and privacy@ alone', () => {
-	assert.deepEqual([...ROUTED].sort(), ['privacy@ttacommunity.org', 'support@ttacommunity.org'])
+test('the routed addresses are support@, privacy@ and accounts@ alone', () => {
+	assert.deepEqual([...ROUTED].sort(), [
+		'accounts@ttacommunity.org',
+		'privacy@ttacommunity.org',
+		'support@ttacommunity.org',
+	])
 })
 
 test('mail to an address not routed here is refused, not forwarded', async () => {
