@@ -97,18 +97,16 @@ def parse_royal_league(name: str) -> Parsed | None:
     if not m:
         return None
     group = (m.group(2) or "").strip() or None
-    division = re.sub(r"\s+\d+$", "", group) if group else None
+    division = next(
+        (d for d in RL_DIVISIONS if group and re.search(rf"\b{d}\b", group)),
+        re.sub(r"\s+\d+$", "", group) if group else None,
+    )
     return Parsed(int(m.group(1)), division, group)
 
 
 def _like(name: str, *words: str) -> bool:
     """Reports whether name contains any of words, ignoring case, as SQLite's LIKE."""
     return any(w.lower() in name.lower() for w in words)
-
-
-def _master_division(name: str) -> bool:
-    """Reports whether name is a game of the Master 1 or 2 division; "Grandmaster 1" is not."""
-    return re.search(r"\bMaster [12]\b", name, re.IGNORECASE) is not None
 
 
 def parse_worlds(name: str) -> Parsed | None:
@@ -135,9 +133,9 @@ class Series:
 
     parse: Callable[[str], Parsed | None]
     duel: bool
-    in_records: Callable[[str], bool]
     record_min_games: int
     record_division: str
+    in_records: Callable[[str], bool] | None = None
     season_records: bool = True
     points: dict[int, list[float]] = field(default_factory=dict)
     top_divisions: frozenset[str] = frozenset()
@@ -147,32 +145,18 @@ SERIES = {
     "international": Series(
         parse=parse_international,
         duel=False,
-        in_records=lambda n: (
-            n.lower().startswith("international")
-            and _like(n, "Grandmaster", "Diamond")
-            and not _master_division(n)
-        ),
         record_min_games=6,
         record_division="Grandmaster",
     ),
     "intermezzo": Series(
         parse=parse_intermezzo,
         duel=False,
-        in_records=lambda n: (
-            n.lower().startswith("intermezzo")
-            and _like(n, "Grandmaster", "GM", "Diamond", "Premier")
-            and not _master_division(n)
-        ),
         record_min_games=6,
         record_division="Grandmaster",
     ),
     "royal_league": Series(
         parse=parse_royal_league,
         duel=True,
-        in_records=lambda n: (
-            (re.match(r"RL.", n, re.IGNORECASE) is not None or _like(n, "Royal League"))
-            and _like(n, "Emperor")
-        ),
         record_min_games=5,
         record_division="Emperor",
     ),
@@ -410,7 +394,7 @@ def classify(rows, recorded, corrections, series_rules):
                 "match_id": r["match_id"], "series": series, "season": season,
                 "name_season": parsed.season, "division": None, "group": None,
                 "source": None, "tiebreak": parsed.tiebreak,
-                "in_records": rules.in_records(r["tournament"]),
+                "in_records": rules.in_records(r["tournament"]) if rules.in_records else False,
             }  # fmt: skip
             out.append(g)
             if season is None:
@@ -435,6 +419,10 @@ def classify(rows, recorded, corrections, series_rules):
             k = next(i for i, grp in enumerate(groups) if players[0] in grp)
             label = division if len(groups) == 1 else f"{division} {k + 1}"
             g.update(division=division, group=label, source="recorded")
+    for g in out:
+        rules = series_rules.get(g["series"])
+        if rules and rules.top_divisions and g["division"] is not None:
+            g["in_records"] = g["division"] in rules.top_divisions
     return out
 
 
@@ -615,12 +603,6 @@ def derive_tournaments(*, conn: DictConnection, run_id: int) -> None:
         records = defaultdict(list)
         for g in classified:
             r = by_id[g["match_id"]]
-            # A season without division names has its top division recorded from the organisers' sheet.
-            if (
-                g["source"] == "recorded"
-                and g["division"] in rules[g["series"]].top_divisions
-            ):
-                g["in_records"] = True
             if (
                 g["in_records"]
                 and g["season"] is not None
