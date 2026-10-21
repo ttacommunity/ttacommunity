@@ -95,13 +95,13 @@ func TestFinishingAMicrosoftSignIn(t *testing.T) {
 	}
 }
 
-func TestAMicrosoftLoginIsNamedByItsNameElseItsEmail(t *testing.T) {
+func TestAMicrosoftLoginIsNamedByItsNameNeverItsEmail(t *testing.T) {
 	tests := []struct {
 		code string
 		want store.Identity
 	}{
 		{"good-code", store.Identity{Provider: "microsoft", Subject: "AAAAAAAAAAAAAAAAAAAAAIkzqFVrSaSaFHy782bbtaQ", Username: "Player One", Email: "player@example.test"}},
-		{"nameless-code", store.Identity{Provider: "microsoft", Subject: "AAAAAAAAAAAAAAAAAAAAAIkzqFVrSaSaFHy782bbtaR", Username: "player@example.test", Email: "player@example.test"}},
+		{"nameless-code", store.Identity{Provider: "microsoft", Subject: "AAAAAAAAAAAAAAAAAAAAAIkzqFVrSaSaFHy782bbtaR", Username: "Microsoft account", Email: "player@example.test"}},
 		{"bare-code", store.Identity{Provider: "microsoft", Subject: "AAAAAAAAAAAAAAAAAAAAAIkzqFVrSaSaFHy782bbtaS", Username: "Microsoft account"}},
 	}
 	for _, tt := range tests {
@@ -134,10 +134,10 @@ func TestAddingMicrosoftFromTheAccountPage(t *testing.T) {
 		want     string
 		wantNote string
 	}{
-		{"signed in", 7, true, "/account/?signin=added", "add microsoft Player One"},
-		{"a Microsoft account with an account of its own", 10, true, "/account/?signin=taken", ""},
-		{"an account with another Microsoft account", 9, true, "/account/?signin=has-kind", ""},
-		{"signed out meanwhile", 7, false, "/account/?signin=failed", ""},
+		{"signed in", 7, true, "/account/?signin=added&way=microsoft", "add microsoft Player One"},
+		{"a Microsoft account with an account of its own", 10, true, "/account/?signin=taken&way=microsoft", ""},
+		{"an account with another Microsoft account", 9, true, "/account/?signin=has-kind&way=microsoft", ""},
+		{"signed out meanwhile", 7, false, "/account/?signin=failed&way=microsoft", ""},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

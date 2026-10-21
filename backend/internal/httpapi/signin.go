@@ -395,18 +395,16 @@ func (s *server) FinishMicrosoftSignIn(ctx context.Context, req FinishMicrosoftS
 	}), nil
 }
 
-// microsoftName is what a Microsoft login is called: the account's name, else its email, else "Microsoft account".
+// microsoftName is what a Microsoft login is called: the account's name, else "Microsoft account"; never its email,
+// which the site's nav would show to anyone looking.
 func microsoftName(u microsoft.User) string {
-	switch {
-	case u.Name != "":
+	if u.Name != "" {
 		return u.Name
-	case u.Email != "":
-		return u.Email
 	}
 	return "Microsoft account"
 }
 
-// addLogin adds id to the signed-in account and goes back to the account page saying how that went.
+// addLogin adds id to the signed-in account and goes back to the account page saying how that went, and which way in.
 func (s *server) addLogin(ctx context.Context, id store.Identity, cookies []*http.Cookie) redirect {
 	hash, _ := ctx.Value(sessionKey{}).([]byte)
 	err := s.signIns.AddLogin(ctx, hash, id, s.now())
@@ -422,7 +420,8 @@ func (s *server) addLogin(ctx context.Context, id store.Identity, cookies []*htt
 		s.log.Error("adding a way in failed", "provider", id.Provider, "request_id", requestID(ctx), "err", err)
 		outcome = "failed"
 	}
-	return redirect{to: s.signIns.SiteOrigin() + withSignIn(accountPath, outcome), cookies: cookies}
+	q := url.Values{"signin": {outcome}, "way": {id.Provider}}
+	return redirect{to: s.signIns.SiteOrigin() + accountPath + "?" + q.Encode(), cookies: cookies}
 }
 
 func (s *server) SignOut(ctx context.Context, _ SignOutRequestObject) (SignOutResponseObject, error) {

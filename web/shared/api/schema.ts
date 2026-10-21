@@ -848,7 +848,8 @@ export interface paths {
          *     banned. Adding Discord comes back to /account/ with signin=added, or
          *     signin=taken when that Discord account has an account of its own
          *     here, signin=has-kind when the account has another Discord already,
-         *     or signin=failed (signed out meanwhile included).
+         *     or signin=failed (signed out meanwhile included), each with
+         *     way=discord.
          */
         get: operations["finishDiscordSignIn"];
         put?: never;
@@ -902,7 +903,7 @@ export interface paths {
          *     linked member's empty email. A session starts as with Discord, and
          *     the browser goes back to the site with the same signin outcomes:
          *     ok, first, failed, and when adding, added, taken, has-kind (another
-         *     Microsoft account already) or failed.
+         *     Microsoft account already) or failed, with way=microsoft.
          */
         get: operations["finishMicrosoftSignIn"];
         put?: never;
@@ -4616,7 +4617,7 @@ export interface components {
         /** @description A way into the signed-in player's account */
         MyLogin: {
             provider: components["schemas"]["LoginProvider"];
-            /** @description The Discord username, the email address, or the Microsoft account's name (its email, or "Microsoft account", when it has none) */
+            /** @description The Discord username, the email address, or the Microsoft account's name ("Microsoft account" when it has none) */
             username: string;
             /** @description Empty when they have none */
             display_name: string;
@@ -4705,9 +4706,11 @@ export interface components {
         /** @description A way into an account */
         AdminAccountLogin: {
             provider: components["schemas"]["LoginProvider"];
-            /** @description The Discord username, or the email address */
+            /** @description The Discord username, the email address, or the Microsoft account's name */
             username: string;
             display_name: string;
+            /** @description The address we may write to through this way in, the email login's or the one Microsoft vouches for; empty when none */
+            email: string;
             /** Format: date-time */
             signed_in_at: string;
         };

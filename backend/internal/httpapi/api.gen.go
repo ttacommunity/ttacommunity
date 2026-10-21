@@ -1075,11 +1075,14 @@ type AdminAccountLinkedHow string
 type AdminAccountLogin struct {
 	DisplayName string `json:"display_name"`
 
+	// Email The address we may write to through this way in, the email login's or the one Microsoft vouches for; empty when none
+	Email string `json:"email"`
+
 	// Provider Where a player signs in
 	Provider   LoginProvider `json:"provider"`
 	SignedInAt time.Time     `json:"signed_in_at"`
 
-	// Username The Discord username, or the email address
+	// Username The Discord username, the email address, or the Microsoft account's name
 	Username string `json:"username"`
 }
 
@@ -2828,7 +2831,7 @@ type MyLogin struct {
 	// Provider Where a player signs in
 	Provider LoginProvider `json:"provider"`
 
-	// Username The Discord username, the email address, or the Microsoft account's name (its email, or "Microsoft account", when it has none)
+	// Username The Discord username, the email address, or the Microsoft account's name ("Microsoft account" when it has none)
 	Username string `json:"username"`
 }
 

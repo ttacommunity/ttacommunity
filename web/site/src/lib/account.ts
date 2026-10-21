@@ -33,22 +33,27 @@ export function banNotice(state: AccountState): { reason: string } | null {
   return state.kind === 'linked' && state.member.banned ? { reason: state.member.ban_reason } : null;
 }
 
-/** deleteQuestion asks before deleting the account, which cannot be undone, saying what goes: every way in, and a linked member's country and zone. */
+/** deleteQuestion asks before deleting the account, which cannot be undone, saying what goes: every way in, and a linked member's Discord name, country, zone and an email from the sign-ins. */
 export function deleteQuestion(state: AccountState): Question {
   const text =
     state.kind === 'linked'
-      ? `Every way you sign in goes, with every session, and the Discord name, country and time zone on ${state.member.name} are cleared. ${state.member.name}'s games and ratings stay. This cannot be undone.`
+      ? `Every way you sign in goes, with every session, and the Discord name, country and time zone on ${state.member.name}, and an email address your sign-ins gave it, are cleared. ${state.member.name}'s games and ratings stay. This cannot be undone.`
       : 'Every way you sign in goes, with every session, your requests to be linked and the details you gave. This cannot be undone.';
   return { heading: 'Delete your account?', text, action: 'Delete account', final: true };
 }
 
-/** navLabel is the nav's account link: Sign in, a member's TTA username, or their Discord name; never an email address, which the page would show to anyone looking. */
+/** UNNAMED is what the api calls a Microsoft account that has no name. */
+const UNNAMED = 'Microsoft account';
+
+/** navLabel is the nav's account link: Sign in, a member's TTA username, their Discord name, or their Microsoft account's name; never an email address, which the page would show to anyone looking. */
 export function navLabel(me: Me | null): string {
   if (me === null) return 'Sign in';
   if (me.member !== null) return me.member.name;
   if (me.provider === 'discord') return me.display_name || me.username;
   const discord = me.logins.find((l) => l.provider === 'discord');
-  return discord === undefined ? 'Your account' : discord.display_name || discord.username;
+  if (discord !== undefined) return discord.display_name || discord.username;
+  const microsoft = me.logins.find((l) => l.provider === 'microsoft' && l.username !== UNNAMED);
+  return microsoft === undefined ? 'Your account' : microsoft.username;
 }
 
 /** showsAdminLink says whether the nav offers the way to admin: to admins and organisers, a convenience only, as admin itself is behind Access. */
@@ -59,6 +64,7 @@ export function showsAdminLink(me: Me | null): boolean {
 /** signedInAs heads the account page: how this browser signed in and as whom, with the Discord username under a display name. */
 export function signedInAs(me: Me): { heading: string; detail: string } {
   if (me.provider === 'email') return { heading: `Signed in by email as ${me.username}`, detail: '' };
+  if (me.provider === 'microsoft') return { heading: `Signed in with Microsoft as ${me.username}`, detail: '' };
   return { heading: `Signed in with Discord as ${me.display_name || me.username}`, detail: me.display_name === '' ? '' : `Discord username: ${me.username}` };
 }
 
@@ -72,21 +78,30 @@ export type WayIn = { provider: Provider; label: string; removable: boolean; cha
 export function waysIn(me: Me): { ways: WayIn[]; canAdd: Record<Provider, boolean> } {
   const removable = me.logins.length > 1;
   const ways = me.logins.map((l) => {
-    const name = l.display_name === '' || l.display_name === l.username ? l.username : `${l.username} (${l.display_name})`;
+    const also = l.provider === 'microsoft' ? l.email : l.display_name;
+    const name = also === '' || also === l.username ? l.username : `${l.username} (${also})`;
     return { provider: l.provider, label: `${PROVIDER_NAMES[l.provider]}: ${name}`, removable, changeable: l.provider === 'email' };
   });
   const has = (p: Provider) => me.logins.some((l) => l.provider === p);
   return { ways, canAdd: { discord: !has('discord'), email: !has('email'), microsoft: !has('microsoft') } };
 }
 
-/** signInHref opens the api's Discord sign-in, which comes back to the page at back. */
-export function signInHref(apiUrl: string, back: string): string {
-  return `${apiUrl.replace(/\/+$/, '')}/v1/auth/discord?${new URLSearchParams({ return: back })}`;
+/** Signer is a way in that signs in through its own site: Discord or Microsoft. */
+export type Signer = 'discord' | 'microsoft';
+
+/** signInHref opens the api's sign-in with provider, which comes back to the page at back. */
+export function signInHref(apiUrl: string, provider: Signer, back: string): string {
+  return `${apiUrl.replace(/\/+$/, '')}/v1/auth/${provider}?${new URLSearchParams({ return: back })}`;
 }
 
-/** addDiscordHref opens the api's Discord sign-in to add Discord to the signed-in account, which comes back to the account page. */
-export function addDiscordHref(apiUrl: string): string {
-  return `${apiUrl.replace(/\/+$/, '')}/v1/auth/discord?add=true`;
+/** addWayInHref opens the api's sign-in with provider to add it to the signed-in account, which comes back to the account page. */
+export function addWayInHref(apiUrl: string, provider: Signer): string {
+  return `${apiUrl.replace(/\/+$/, '')}/v1/auth/${provider}?add=true`;
+}
+
+/** needsContact says whether the account gives organisers no way to reach the player: no Discord, and no email from any way in. */
+export function needsContact(me: Me): boolean {
+  return !me.logins.some((l) => l.provider === 'discord' || l.email !== '');
 }
 
 const ACCOUNT = '/account/';
@@ -118,24 +133,25 @@ export function backLabel(changed: boolean, saved: boolean): string {
 /** SignInNotice is what the account page says on arriving: a sign-in or an addition that did not finish, a way in added, or an account just deleted. */
 export type SignInNotice = { kind: 'failed' | 'deleted' | 'added'; text: string };
 
-/** signInNotice reads the address the browser arrived at: a sign-in that did not finish, a way in added or refused, an account just deleted, or nothing to say. */
+/** signInNotice reads the address the browser arrived at: a sign-in that did not finish, a way in added or refused (naming it), an account just deleted, or nothing to say. */
 export function signInNotice(params: URLSearchParams): SignInNotice | null {
+  const way = params.get('way') === 'microsoft' ? 'Microsoft' : 'Discord';
   switch (params.get('signin')) {
     case 'failed':
       return { kind: 'failed', text: 'Signing in did not finish. Try again.' };
     case 'deleted':
       return { kind: 'deleted', text: 'Your account is deleted, and this browser is signed out. Sign in again any time to start a new one.' };
     case 'added':
-      return { kind: 'added', text: 'Discord is added: you can sign in with it from now on.' };
+      return { kind: 'added', text: `${way} is added: you can sign in with it from now on.` };
     case 'email-added':
       return { kind: 'added', text: 'Your email address is saved: you can sign in with a link sent to it from now on.' };
     case 'taken':
       return {
         kind: 'failed',
-        text: 'That Discord account has an account of its own here. To add it, sign in with it and delete that account, then sign in here again and add it.',
+        text: `That ${way} account has an account of its own here. To add it, sign in with it and delete that account, then sign in here again and add it.`,
       };
     case 'has-kind':
-      return { kind: 'failed', text: 'Your account has a Discord account already. Remove it first to add another.' };
+      return { kind: 'failed', text: `Your account has a ${way} account already. Remove it first to add another.` };
   }
   return null;
 }

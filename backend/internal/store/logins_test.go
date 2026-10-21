@@ -580,3 +580,22 @@ func TestAskingForAUsernameNoAccountHoldsIsAccepted(t *testing.T) {
 		}
 	}
 }
+
+func TestLoginsGiveEachWayInsEmail(t *testing.T) {
+	_, a, p := playersFixture(t)
+	signedIn(t, p, microsoftID("AAAAAAAAAAAAAAAAAAAAAIkzqFVrSaSaFHy782bbtaQ", "Player One", "microsoft@example.test"), "microsoft")
+	emailSignedIn(t, p, "player@example.test", "email")
+	signedIn(t, p, discordID("100000000000000001", "player_one", ""), "discord")
+	rows, err := a.Accounts(context.Background())
+	if err != nil {
+		t.Fatalf("Accounts: %v", err)
+	}
+	var got []string
+	for _, r := range rows {
+		got = append(got, r.Logins[0].Provider+" "+r.Logins[0].Email)
+	}
+	slices.Sort(got)
+	if want := []string{"discord ", "email player@example.test", "microsoft microsoft@example.test"}; !slices.Equal(got, want) {
+		t.Errorf("ways in with their emails = %q, want %q", got, want)
+	}
+}

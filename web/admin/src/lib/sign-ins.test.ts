@@ -2,7 +2,13 @@ import { describe, expect, it } from 'vitest';
 import type { AdminAccount } from './admin-api';
 import { detailsHint, howLinked, requestHint, signInGroups, standing, who } from './sign-ins';
 
-const way = (provider: 'discord' | 'email', username: string, display_name = '') => ({ provider, username, display_name, signed_in_at: '2026-10-18T12:00:00Z' });
+const way = (provider: 'discord' | 'email' | 'microsoft', username: string, display_name = '', email = provider === 'email' ? username : '') => ({
+  provider,
+  username,
+  display_name,
+  email,
+  signed_in_at: '2026-10-18T12:00:00Z',
+});
 const login = (id: number, extra: Partial<AdminAccount> = {}): AdminAccount => ({
   id,
   logins: [way('discord', `player_${id}`)],
@@ -32,6 +38,8 @@ describe('requestHint', () => {
   const discord = login(1);
   const email = login(1, { logins: [way('email', 'player@example.test')] });
   const both = login(1, { logins: [way('discord', 'player_1'), way('email', 'player@example.test')] });
+  const microsoft = login(1, { logins: [way('microsoft', 'Player One', '', 'player@example.test')] });
+  const unnamed = login(1, { logins: [way('microsoft', 'Microsoft account')] });
   it.each([
     ['a name no member has: approving adds one', asking('', ''), discord, 'new'],
     ['a member with no Discord name recorded', asking('ann', ''), discord, 'unknown'],
@@ -41,6 +49,9 @@ describe('requestHint', () => {
     ['the recorded email, in another case', asking('ann', '', ' Player@Example.test'), email, 'same'],
     ['another recorded email', asking('ann', '', 'other@example.test'), email, 'differs'],
     ['one of two the same', asking('ann', 'someone_else', 'player@example.test'), both, 'same'],
+    ["Microsoft's email, the recorded one", asking('ann', '', 'player@example.test'), microsoft, 'same'],
+    ["Microsoft's email, another", asking('ann', '', 'other@example.test'), microsoft, 'differs'],
+    ['Microsoft with no email', asking('ann', '', 'player@example.test'), unnamed, 'unknown'],
   ])('%s', (_name, request, account, want) => {
     expect(requestHint(request, account).kind).toBe(want);
   });
@@ -51,6 +62,8 @@ describe('who', () => {
     ['a Discord name alone', login(1), 'player_1'],
     ['with its display name', login(1, { logins: [way('discord', 'player_1', 'Player One')] }), 'player_1 (Player One)'],
     ['Discord and email', login(1, { logins: [way('discord', 'player_1'), way('email', 'player@example.test')] }), 'player_1 · player@example.test'],
+    ['Microsoft, named as such', login(1, { logins: [way('microsoft', 'Player One', '', 'player@example.test')] }), 'Player One (Microsoft)'],
+    ['Microsoft with no name', login(1, { logins: [way('microsoft', 'Microsoft account')] }), 'Microsoft account'],
   ])('%s', (_name, account, want) => {
     expect(who(account)).toBe(want);
   });

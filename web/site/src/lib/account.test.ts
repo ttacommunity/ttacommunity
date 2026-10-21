@@ -9,7 +9,7 @@ import {
   askToBeLinked,
   changeMyDetails,
   countryOptions,
-  addDiscordHref,
+  addWayInHref,
   addEmail,
   deleteAccount,
   deleteQuestion,
@@ -21,6 +21,7 @@ import {
   isFirstSignIn,
   sharedMe,
   navLabel,
+  needsContact,
   showsAdminLink,
   rememberSignedIn,
   saveOutcome,
@@ -38,6 +39,9 @@ const discord = { provider: 'discord' as const, username: 'player_one', display_
 const email = { provider: 'email' as const, username: 'player@example.test', display_name: '', email: 'player@example.test' };
 const base: Me = { provider: 'discord', username: 'player_one', display_name: '', logins: [discord], member: null, request: null, admin_role: null, country: null, zone: 'Unknown' };
 const byEmail: Me = { ...base, provider: 'email', username: 'player@example.test', logins: [email] };
+const microsoft = { provider: 'microsoft' as const, username: 'Player One', display_name: '', email: 'player@example.test' };
+const unnamed = { ...microsoft, username: 'Microsoft account', email: '' };
+const byMicrosoft: Me = { ...base, provider: 'microsoft', username: 'Player One', logins: [microsoft] };
 const ann = { name: 'ann', player: 'Ann', banned: false, ban_reason: '' };
 const asked = (status: 'pending' | 'approved' | 'refused', reason = '') => ({ name: 'ann', status, reason, requested_at: '2026-10-18T12:00:00Z' });
 
@@ -74,6 +78,9 @@ describe('navLabel', () => {
     ['an unlinked sign-in without one', base, 'player_one'],
     ['an unlinked email sign-in, never by its address', byEmail, 'Your account'],
     ['an email sign-in to an account with Discord, by the Discord name', { ...byEmail, logins: [{ ...discord, display_name: 'Player One' }, email] }, 'Player One'],
+    ['a Microsoft sign-in, by its name', byMicrosoft, 'Player One'],
+    ['a Microsoft sign-in with no name', { ...byMicrosoft, username: 'Microsoft account', logins: [unnamed] }, 'Your account'],
+    ['an email sign-in to an account with Microsoft, by its name', { ...byEmail, logins: [email, microsoft] }, 'Player One'],
   ])('%s', (_name, me, want) => {
     expect(navLabel(me)).toBe(want);
   });
@@ -84,6 +91,7 @@ describe('signedInAs', () => {
     ['by Discord, with a display name', { ...base, display_name: 'Player One' }, { heading: 'Signed in with Discord as Player One', detail: 'Discord username: player_one' }],
     ['by Discord, without one', base, { heading: 'Signed in with Discord as player_one', detail: '' }],
     ['by email', byEmail, { heading: 'Signed in by email as player@example.test', detail: '' }],
+    ['by Microsoft', byMicrosoft, { heading: 'Signed in with Microsoft as Player One', detail: '' }],
   ])('%s', (_name, me, want) => {
     expect(signedInAs(me)).toEqual(want);
   });
@@ -100,6 +108,8 @@ describe('waysIn', () => {
       { discord: false, email: false, microsoft: true },
     ],
     ['email alone: Discord may be added', byEmail, ['Email: player@example.test'], [false], { discord: true, email: false, microsoft: true }],
+    ['Microsoft, with the email it gave', byMicrosoft, ['Microsoft: Player One (player@example.test)'], [false], { discord: true, email: true, microsoft: false }],
+    ['Microsoft, with no name or email', { ...byMicrosoft, logins: [unnamed] }, ['Microsoft: Microsoft account'], [false], { discord: true, email: true, microsoft: false }],
   ])('%s', (_name, me, labels, removable, canAdd) => {
     const got = waysIn(me);
     expect(got.ways.map((w) => w.label)).toEqual(labels);
@@ -109,15 +119,32 @@ describe('waysIn', () => {
   });
 });
 
-describe('addDiscordHref', () => {
-  it('opens the api to add Discord, coming back to the account page', () => {
-    expect(addDiscordHref('https://api.example/')).toBe('https://api.example/v1/auth/discord?add=true');
+describe('addWayInHref', () => {
+  it.each([
+    ['discord' as const, 'https://api.example/v1/auth/discord?add=true'],
+    ['microsoft' as const, 'https://api.example/v1/auth/microsoft?add=true'],
+  ])('opens the api to add %s, coming back to the account page', (provider, want) => {
+    expect(addWayInHref('https://api.example/', provider)).toBe(want);
   });
 });
 
 describe('signInHref', () => {
-  it('opens the api, which sends the browser to Discord and back to the page', () => {
-    expect(signInHref('https://api.example/', '/blitz/')).toBe('https://api.example/v1/auth/discord?return=%2Fblitz%2F');
+  it.each([
+    ['discord' as const, 'https://api.example/v1/auth/discord?return=%2Fblitz%2F'],
+    ['microsoft' as const, 'https://api.example/v1/auth/microsoft?return=%2Fblitz%2F'],
+  ])('opens the api, which sends the browser to %s and back to the page', (provider, want) => {
+    expect(signInHref('https://api.example/', provider, '/blitz/')).toBe(want);
+  });
+});
+
+describe('needsContact', () => {
+  it.each([
+    ['Discord', base, false],
+    ['an email way in', byEmail, false],
+    ['Microsoft with an email', byMicrosoft, false],
+    ['Microsoft with none', { ...byMicrosoft, logins: [unnamed] }, true],
+  ])('%s', (_name, me, want) => {
+    expect(needsContact(me)).toBe(want);
   });
 });
 
@@ -134,6 +161,14 @@ describe('signInNotice', () => {
     ['anything else', '?signin=other', null],
   ])('%s', (_name, search, want) => {
     expect(signInNotice(new URLSearchParams(search))?.kind ?? null).toBe(want);
+  });
+  it.each([
+    ['added', 'discord', 'Discord'],
+    ['added', 'microsoft', 'Microsoft'],
+    ['taken', 'microsoft', 'Microsoft'],
+    ['has-kind', 'microsoft', 'Microsoft'],
+  ])('%s names the way in, %s', (outcome, way, name) => {
+    expect(signInNotice(new URLSearchParams({ signin: outcome, way }))?.text).toContain(name);
   });
 });
 

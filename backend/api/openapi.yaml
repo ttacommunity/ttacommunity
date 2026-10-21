@@ -1126,7 +1126,8 @@ paths:
         banned. Adding Discord comes back to /account/ with signin=added, or
         signin=taken when that Discord account has an account of its own
         here, signin=has-kind when the account has another Discord already,
-        or signin=failed (signed out meanwhile included).
+        or signin=failed (signed out meanwhile included), each with
+        way=discord.
       parameters:
         - name: code
           in: query
@@ -1207,7 +1208,7 @@ paths:
         linked member's empty email. A session starts as with Discord, and
         the browser goes back to the site with the same signin outcomes:
         ok, first, failed, and when adding, added, taken, has-kind (another
-        Microsoft account already) or failed.
+        Microsoft account already) or failed, with way=microsoft.
       parameters:
         - name: code
           in: query
@@ -7591,7 +7592,7 @@ components:
         provider:
           $ref: "#/components/schemas/LoginProvider"
         username:
-          description: The Discord username, the email address, or the Microsoft account's name (its email, or "Microsoft account", when it has none)
+          description: The Discord username, the email address, or the Microsoft account's name ("Microsoft account" when it has none)
           type: string
         display_name:
           description: Empty when they have none
@@ -7746,14 +7747,17 @@ components:
     AdminAccountLogin:
       description: A way into an account
       type: object
-      required: [provider, username, display_name, signed_in_at]
+      required: [provider, username, display_name, email, signed_in_at]
       properties:
         provider:
           $ref: "#/components/schemas/LoginProvider"
         username:
-          description: The Discord username, or the email address
+          description: The Discord username, the email address, or the Microsoft account's name
           type: string
         display_name:
+          type: string
+        email:
+          description: The address we may write to through this way in, the email login's or the one Microsoft vouches for; empty when none
           type: string
         signed_in_at:
           type: string

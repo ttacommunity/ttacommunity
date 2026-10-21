@@ -3,9 +3,14 @@ import type { AdminAccount } from './admin-api';
 
 type Request = NonNullable<AdminAccount['request']>;
 
-/** who names an account by its ways in: each Discord username with its display name when it differs, and the email address. */
+/** who names an account by its ways in: each Discord username with its display name when it differs, the email address, and a Microsoft account's name, marked as Microsoft's (its email has its own column). */
 export function who(a: AdminAccount): string {
-  return a.logins.map((l) => (l.display_name === '' || l.display_name === l.username ? l.username : `${l.username} (${l.display_name})`)).join(' · ');
+  return a.logins
+    .map((l) => {
+      if (l.provider === 'microsoft') return l.username === 'Microsoft account' ? l.username : `${l.username} (Microsoft)`;
+      return l.display_name === '' || l.display_name === l.username ? l.username : `${l.username} (${l.display_name})`;
+    })
+    .join(' · ');
 }
 
 /** Hint is what an approver is told: approving adds a member, or how the member's recorded Discord name and email compare with the account's. */
@@ -30,7 +35,7 @@ export function requestHint(r: Request, a: AdminAccount): Hint {
     const same = discordKey(r.member_discord) === discordKey(discord);
     compared.push({ same, text: `recorded Discord name is ${r.member_discord}${same ? ': the same' : `, not ${discord}`}` });
   }
-  const email = a.logins.find((l) => l.provider === 'email')?.username;
+  const email = a.logins.find((l) => l.provider === 'email')?.username ?? a.logins.find((l) => l.email !== '')?.email;
   if (email !== undefined && r.member_email !== '') {
     const same = emailKey(r.member_email) === emailKey(email);
     compared.push({ same, text: `recorded email is ${r.member_email}${same ? ': the same' : `, not ${email}`}` });

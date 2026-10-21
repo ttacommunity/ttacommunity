@@ -19,7 +19,7 @@ func (s *server) GetAdminAccounts(ctx context.Context, _ GetAdminAccountsRequest
 	for i, a := range rows {
 		logins := make([]AdminAccountLogin, len(a.Logins))
 		for j, l := range a.Logins {
-			logins[j] = AdminAccountLogin{Provider: LoginProvider(l.Provider), Username: l.Username, DisplayName: l.DisplayName, SignedInAt: l.SignedInAt}
+			logins[j] = AdminAccountLogin{Provider: LoginProvider(l.Provider), Username: l.Username, DisplayName: l.DisplayName, Email: l.Email, SignedInAt: l.SignedInAt}
 		}
 		out[i] = AdminAccount{Id: a.ID, Logins: logins, MemberId: a.MemberID, Member: a.Member, SignedInAt: a.SignedInAt, AutoLink: a.AutoLink}
 		if a.LinkedHow != "" {
