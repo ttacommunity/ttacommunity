@@ -286,27 +286,7 @@ func TestExportZipHoldsTheSameExportAndTheAdminLoginCanTakeIt(t *testing.T) {
 		t.Fatalf("ExportZip as the admin login: %v", err)
 	}
 
-	zr, err := zip.NewReader(bytes.NewReader(buf.Bytes()), int64(buf.Len()))
-	if err != nil {
-		t.Fatalf("reading the zip: %v", err)
-	}
-	unzipped := filepath.Join(t.TempDir(), "unzipped")
-	if err := os.MkdirAll(unzipped, 0o700); err != nil {
-		t.Fatal(err)
-	}
-	for _, f := range zr.File {
-		r, err := f.Open()
-		if err != nil {
-			t.Fatal(err)
-		}
-		b, err := io.ReadAll(r)
-		if err != nil {
-			t.Fatal(err)
-		}
-		if err := os.WriteFile(filepath.Join(unzipped, f.Name), b, 0o600); err != nil {
-			t.Fatal(err)
-		}
-	}
+	unzipped := unzip(t, buf.Bytes())
 	a, b := readDir(t, dir), readDir(t, unzipped)
 	if len(b) != len(a) {
 		t.Fatalf("the zip holds %d files, the export %d", len(b), len(a))
@@ -319,6 +299,33 @@ func TestExportZipHoldsTheSameExportAndTheAdminLoginCanTakeIt(t *testing.T) {
 	if err := Restore(ctx, migrated(t), unzipped); err != nil {
 		t.Errorf("restoring the unzipped export: %v", err)
 	}
+}
+
+// unzip writes each file in the zip z to a new folder and returns the folder.
+func unzip(t *testing.T, z []byte) string {
+	t.Helper()
+	zr, err := zip.NewReader(bytes.NewReader(z), int64(len(z)))
+	if err != nil {
+		t.Fatalf("reading the zip: %v", err)
+	}
+	dir := filepath.Join(t.TempDir(), "unzipped")
+	if err := os.MkdirAll(dir, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	for _, f := range zr.File {
+		r, err := f.Open()
+		if err != nil {
+			t.Fatal(err)
+		}
+		b, err := io.ReadAll(r)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(filepath.Join(dir, f.Name), b, 0o600); err != nil {
+			t.Fatal(err)
+		}
+	}
+	return dir
 }
 
 // personalColumns are the columns that hold personal data, which the export never holds.

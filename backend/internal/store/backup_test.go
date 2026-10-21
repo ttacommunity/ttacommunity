@@ -188,3 +188,26 @@ func TestTheBackupLoginIsRefusedEverythingElse(t *testing.T) {
 		})
 	}
 }
+
+func TestBackupZipHoldsTheSameBackup(t *testing.T) {
+	ctx := context.Background()
+	pool := withPeople(t, filled(t))
+	dir := filepath.Join(t.TempDir(), "dir")
+	if _, err := Backup(ctx, pool, dir); err != nil {
+		t.Fatalf("Backup: %v", err)
+	}
+	var buf bytes.Buffer
+	if _, err := BackupZip(ctx, pool, &buf); err != nil {
+		t.Fatalf("BackupZip: %v", err)
+	}
+
+	a, b := readDir(t, dir), readDir(t, unzip(t, buf.Bytes()))
+	if len(b) != len(a) {
+		t.Fatalf("the zip holds %d files, the backup %d", len(b), len(a))
+	}
+	for name, want := range a {
+		if !bytes.Equal(b[name], want) {
+			t.Errorf("%s differs between the zip and the backup", name)
+		}
+	}
+}

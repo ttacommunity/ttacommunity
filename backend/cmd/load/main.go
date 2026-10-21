@@ -10,15 +10,18 @@ import (
 	"flag"
 	"fmt"
 	"io"
+	"net/http"
 	"os"
 	"os/signal"
 	"path/filepath"
 	"slices"
 	"strings"
 	"syscall"
+	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
 
+	"ttacommunity/backend/internal/backup"
 	"ttacommunity/backend/internal/countrycsv"
 	"ttacommunity/backend/internal/matchcsv"
 	"ttacommunity/backend/internal/store"
@@ -33,6 +36,7 @@ func main() {
 	facts := flag.String("facts", "", "replace every recorded tournament fact of one kind (divisions, placements, corrections, dates, honours, rules, podiums, cge_tournaments, cge_stages, cge_standings, ladder_wins, season_notes, community, community_scores, community_points, community_quarters or community_ladders) with the CSV file named")
 	export := flag.String("export", "", "write every input table to the directory named (new or empty), one CSV each, with a manifest")
 	backup := flag.String("backup", "", "write every input table but sign-in secrets to the directory named (new or empty), one CSV each, with a manifest: it holds personal data")
+	backupToR2 := flag.Bool("backup-to-r2", false, "put a backup, encrypted with age, in the bucket the BACKUP_ settings name, by way of an encrypted file in $TMPDIR")
 	restore := flag.String("restore", "", "load an export or a backup from the directory named into a new database, after applying the migrations")
 	addAdmin := flag.String("add-admin", "", "add or update the admin with the Discord id named, with -name and -role")
 	adminName := flag.String("name", "", "with -add-admin: the admin's name as admin shows it")
@@ -48,6 +52,7 @@ func main() {
 		fmt.Fprintln(os.Stderr, "usage: load [-reset] <directory of match CSVs>")
 		fmt.Fprintln(os.Stderr, "       load -export <directory>")
 		fmt.Fprintln(os.Stderr, "       load -backup <directory>")
+		fmt.Fprintln(os.Stderr, "       load -backup-to-r2")
 		fmt.Fprintln(os.Stderr, "       load -restore <directory>")
 		fmt.Fprintln(os.Stderr, "       load -export-upstream <file>")
 		fmt.Fprintln(os.Stderr, "       load -check-standings <file>")
@@ -62,7 +67,7 @@ func main() {
 		flag.PrintDefaults()
 	}
 	flag.Parse()
-	one := !*reset && btoi(*migrate)+btoi(*classify)+btoi(*countries)+btoi(*facts != "")+btoi(*export != "")+btoi(*backup != "")+btoi(*restore != "")+btoi(*upstream != "")+btoi(*addAdmin != "")+btoi(*standings != "")+btoi(*cgeExtract != "")+btoi(*inputTables) == 1
+	one := !*reset && btoi(*migrate)+btoi(*classify)+btoi(*countries)+btoi(*facts != "")+btoi(*export != "")+btoi(*backup != "")+btoi(*backupToR2)+btoi(*restore != "")+btoi(*upstream != "")+btoi(*addAdmin != "")+btoi(*standings != "")+btoi(*cgeExtract != "")+btoi(*inputTables) == 1
 	var err error
 	switch {
 	case *inputTables && one && flag.NArg() == 0:
@@ -79,6 +84,8 @@ func main() {
 		err = exportTo(*export, store.Export)
 	case *backup != "" && one && flag.NArg() == 0:
 		err = exportTo(*backup, store.Backup)
+	case *backupToR2 && one && flag.NArg() == 0:
+		err = backupToBucket(time.Now())
 	case *restore != "" && one && flag.NArg() == 0:
 		err = restoreFrom(*restore)
 	case *addAdmin != "" && one && flag.NArg() == 0:
@@ -98,7 +105,7 @@ func main() {
 		err = checkStandings(*standings)
 	case *cgeExtract != "" && *cgeSettings != "" && one && flag.NArg() == 0:
 		err = loadCGEExtract(*cgeExtract, *cgeSettings, *cgePairs, *apply)
-	case !*migrate && !*classify && !*countries && *facts == "" && *export == "" && *backup == "" && *restore == "" && *upstream == "" && *addAdmin == "" && *standings == "" && *cgeExtract == "" && !*inputTables && flag.NArg() == 1:
+	case !*migrate && !*classify && !*countries && *facts == "" && *export == "" && *backup == "" && !*backupToR2 && *restore == "" && *upstream == "" && *addAdmin == "" && *standings == "" && *cgeExtract == "" && !*inputTables && flag.NArg() == 1:
 		err = run(*reset, flag.Arg(0))
 	default:
 		flag.Usage()
@@ -138,6 +145,33 @@ func exportTo(dir string, write func(context.Context, *pgxpool.Pool, string) (st
 			return err
 		}
 		fmt.Printf("wrote schema version %d to %s:\n", m.SchemaVersion, dir)
+		for _, t := range m.Tables {
+			fmt.Printf("  %s: %d\n", t.Table, t.Rows)
+		}
+		return nil
+	})
+}
+
+// backupToBucket puts a backup taken at now, encrypted, in the bucket the BACKUP_ settings name (backup.ConfigFrom),
+// and reports its key, size and each table's rows.
+func backupToBucket(now time.Time) error {
+	cfg, err := backup.ConfigFrom(os.Getenv)
+	if err != nil {
+		return err
+	}
+	return withPool(func(ctx context.Context, pool *pgxpool.Pool) error {
+		key := backup.Key(now)
+		var m store.Manifest
+		size, err := backup.Put(ctx, backup.NewClient(cfg, &http.Client{Timeout: 10 * time.Minute}), cfg, os.TempDir(), key,
+			func(w io.Writer) error {
+				var err error
+				m, err = store.BackupZip(ctx, pool, w)
+				return err
+			})
+		if err != nil {
+			return err
+		}
+		fmt.Printf("backed up schema version %d to %s (%d bytes, encrypted):\n", m.SchemaVersion, key, size)
 		for _, t := range m.Tables {
 			fmt.Printf("  %s: %d\n", t.Table, t.Rows)
 		}

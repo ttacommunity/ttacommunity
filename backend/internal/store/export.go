@@ -111,8 +111,17 @@ func exportToDir(ctx context.Context, pool *pgxpool.Pool, tables []string, dir s
 
 // ExportZip writes the same export as Export, as one zip of its files, to w: for a download.
 func ExportZip(ctx context.Context, pool *pgxpool.Pool, w io.Writer) (Manifest, error) {
+	return exportZip(ctx, pool, ExportTables, w)
+}
+
+// BackupZip writes the same backup as Backup, as one zip of its files, to w: for the backup job.
+func BackupZip(ctx context.Context, pool *pgxpool.Pool, w io.Writer) (Manifest, error) {
+	return exportZip(ctx, pool, BackupTables, w)
+}
+
+func exportZip(ctx context.Context, pool *pgxpool.Pool, tables []string, w io.Writer) (Manifest, error) {
 	zw := zip.NewWriter(w)
-	m, err := export(ctx, pool, ExportTables, func(name string) (io.WriteCloser, error) {
+	m, err := export(ctx, pool, tables, func(name string) (io.WriteCloser, error) {
 		f, err := zw.Create(name)
 		return nopCloser{f}, err
 	})
