@@ -66,6 +66,10 @@ def test_parse_intermezzo(name, want):
         ("RL_3w_tb_s02 Duke game 1", (2, "Duke", "Duke", True)),
         ("RL_tb_s01 game 1", (1, None, None, True)),
         ("RL_s09 - Emperor", (9, "Emperor", "Emperor", False)),
+        (
+            "RL_s04 - Emperor, pl.4-6 game 1",
+            (4, "Emperor", "Emperor, pl.4-6", False),
+        ),
         ("International S3", None),
     ],
 )
@@ -727,6 +731,28 @@ def test_a_recorded_top_division_game_is_a_single_game_record(
     )
     lower = add_match(
         ("dan", 90), ("eve", 80), ("fay", 70), tournament="International S20"
+    )
+
+    derive_tournaments(conn=conn, run_id=run_id)
+
+    got = {r["match_id"]: r["in_records"] for r in games(conn, run_id)}
+    assert (got[top], got[lower]) == (True, False)
+
+
+def test_a_cge_top_division_game_is_a_single_game_record(conn, add_match, run_id):
+    top = add_match(
+        ("ann", 90),
+        ("bob", 80),
+        ("cat", 70),
+        tournament="International S20",
+        group="Grandmaster",
+    )
+    lower = add_match(
+        ("dan", 90),
+        ("eve", 80),
+        ("fay", 70),
+        tournament="International S20",
+        group="Platinum 1",
     )
 
     derive_tournaments(conn=conn, run_id=run_id)
