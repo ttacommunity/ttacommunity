@@ -1,7 +1,7 @@
 ---
 /** The page shell every site page uses: upstream's header and footer around the page's content, with the nav of the page's area (the ratings, or the root site). */
 import '@ttac/shared/styles/theme.css';
-import { PUBLIC_API_URL } from 'astro:env/client';
+import { PUBLIC_ADMIN_URL, PUBLIC_API_URL } from 'astro:env/client';
 import homeButton from '@ttac/shared/styles/img/home-button.webp';
 import { areaOf, currentSection, sectionsFor } from '../lib/nav';
 import NavAccount from '../components/NavAccount';
@@ -51,7 +51,7 @@ const current = currentSection(Astro.url.pathname);
               {s.label}
             </a>
           ))}
-          <NavAccount client:only="react" apiUrl={PUBLIC_API_URL} current={Astro.url.pathname.startsWith('/account/')} />
+          <NavAccount client:only="react" apiUrl={PUBLIC_API_URL} adminUrl={PUBLIC_ADMIN_URL} current={Astro.url.pathname.startsWith('/account/')} />
         </nav>
       </div>
     </header>
@@ -67,6 +67,7 @@ const current = currentSection(Astro.url.pathname);
           Data from competitive online TTA tournaments<span class="run-facts"></span>. &bull;
           Designed and built by DANeo, with huge contribution by UnstableUnicorn
         </p>
+        <p class="footer-small"><a href="/privacy/">Privacy</a> &middot; <a href="mailto:support@ttacommunity.org">Contact</a></p>
       </div>
     </footer>
 
@@ -190,6 +191,9 @@ const current = currentSection(Astro.url.pathname);
 
   .footer-small a {
     color: #887864;
+    /* Underlined, as the same colour as the text would not show they are links. */
+    text-decoration: underline;
+    text-underline-offset: 2px;
   }
 
   .footer-small a:hover {

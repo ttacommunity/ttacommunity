@@ -7,10 +7,12 @@ import (
 	"crypto/sha256"
 	"errors"
 	"fmt"
+	"slices"
 	"testing"
 	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/pressly/goose/v3"
 )
 
 var signInAt = time.Date(2026, 10, 18, 12, 0, 0, 0, time.UTC)
@@ -30,11 +32,15 @@ func discordID(subject, username, display string) Identity {
 func playersFixture(t *testing.T) (*pgxpool.Pool, *AdminStore, *PlayerStore) {
 	t.Helper()
 	pool, a := blitzFixture(t)
+	// Accounts' ids start far from logins', so a test mixing the two up fails.
+	if _, err := pool.Exec(context.Background(), "SELECT setval(pg_get_serial_sequence('accounts', 'account_id'), 1000)"); err != nil {
+		t.Fatalf("moving accounts' ids on: %v", err)
+	}
 	return pool, a, NewPlayerStore(asPlayerLogin(t, pool))
 }
 
 // signedIn signs id in with a session for token, failing the test on an error.
-func signedIn(t *testing.T, p *PlayerStore, id Identity, token string) Login {
+func signedIn(t *testing.T, p *PlayerStore, id Identity, token string) Account {
 	t.Helper()
 	ctx := context.Background()
 	if _, err := p.SignIn(ctx, id, tokenHash(token), signInAt); err != nil {
@@ -79,9 +85,9 @@ func TestSignInLinksTheOneMemberWhoseDiscordNameMatches(t *testing.T) {
 				t.Fatalf("BanMember: %v", err)
 			}
 		}, "ann"},
-		{"the member already has a Discord login", []Member{{Name: "ann", DiscordName: "player_one"}}, func(t *testing.T, a *AdminStore, p *PlayerStore) {
+		{"another account is linked to the member", []Member{{Name: "ann", DiscordName: "player_one"}}, func(t *testing.T, a *AdminStore, p *PlayerStore) {
 			other := signedIn(t, p, discordID("100000000000000009", "other_account", ""), "other")
-			approved(t, a, p, other.ID, "ann")
+			approved(t, a, p, other, "ann")
 		}, ""},
 	}
 	for _, tt := range tests {
@@ -334,7 +340,7 @@ func TestThePlayerLoginCannotChangeWhatIsNotItsOwn(t *testing.T) {
 	_, _, p := playersFixture(t)
 	for _, q := range []string{
 		"DELETE FROM games", "INSERT INTO players (name) VALUES ('x')", "UPDATE members SET tta_name = 'x'",
-		"UPDATE members SET banned = false", "DELETE FROM members", "DELETE FROM logins", "SELECT email FROM members",
+		"UPDATE members SET banned = false", "DELETE FROM members", "DELETE FROM logins", "DELETE FROM accounts", "SELECT email FROM members",
 		"UPDATE admins SET role = 'admin'", "CREATE TABLE x (y int)",
 	} {
 		if _, err := p.pool.Exec(context.Background(), q); err == nil {
@@ -345,7 +351,7 @@ func TestThePlayerLoginCannotChangeWhatIsNotItsOwn(t *testing.T) {
 
 func TestThePublicReaderCannotReadSignIns(t *testing.T) {
 	reader := asReader(t, migrated(t))
-	for _, table := range []string{"logins", "link_requests", "player_sessions"} {
+	for _, table := range []string{"accounts", "logins", "link_requests", "player_sessions"} {
 		if _, err := reader.Exec(context.Background(), "SELECT * FROM "+table); err == nil {
 			t.Errorf("ratings_read read %s, want permission denied", table)
 		}
@@ -369,7 +375,7 @@ func TestCheckLimitsRefusesAPlayerLoginGivenMore(t *testing.T) {
 	for _, grant := range []string{
 		"GRANT INSERT ON games TO ratings_player", "GRANT UPDATE ON players TO ratings_player",
 		"GRANT INSERT ON members TO ratings_player", "GRANT UPDATE (tta_name) ON members TO ratings_player",
-		"GRANT UPDATE (banned) ON members TO ratings_player", "GRANT DELETE ON logins TO ratings_player",
+		"GRANT UPDATE (banned) ON members TO ratings_player", "GRANT DELETE ON logins TO ratings_player", "GRANT DELETE ON accounts TO ratings_player",
 		"GRANT INSERT ON admins TO ratings_player", "GRANT SELECT (email) ON members TO ratings_player",
 		"GRANT CREATE ON SCHEMA public TO ratings_player",
 	} {
@@ -401,9 +407,9 @@ func TestDeletingAnAccountRemovesTheSignInAndClearsItsMembersDetails(t *testing.
 	if _, err := p.Session(ctx, tokenHash("laptop"), signInAt); !errors.Is(err, ErrNoSession) {
 		t.Errorf("the other session = %v, want ErrNoSession", err)
 	}
-	var logins int
-	if err := pool.QueryRow(ctx, "SELECT count(*) FROM logins").Scan(&logins); err != nil || logins != 0 {
-		t.Errorf("logins left = %d (%v), want 0", logins, err)
+	var accounts, logins int
+	if err := pool.QueryRow(ctx, "SELECT (SELECT count(*) FROM accounts), (SELECT count(*) FROM logins)").Scan(&accounts, &logins); err != nil || accounts != 0 || logins != 0 {
+		t.Errorf("accounts and logins left = %d %d (%v), want 0 and 0", accounts, logins, err)
 	}
 	if members, _ := a.Members(ctx); members[0].Country != "" || members[0].Zone != "Unknown" || members[0].DiscordName != "" {
 		t.Errorf("ann's country, zone and Discord name = %q %q %q, want none, Unknown and none", members[0].Country, members[0].Zone, members[0].DiscordName)
@@ -415,8 +421,8 @@ func TestDeletingAnAccountRemovesTheSignInAndClearsItsMembersDetails(t *testing.
 	if err := pool.QueryRow(ctx, "SELECT discord_id, action, target, detail::text FROM admin_audit").Scan(&who, &action, &target, &detail); err != nil {
 		t.Fatalf("reading the audit: %v", err)
 	}
-	if who != "" || action != "login.delete-own" || target != fmt.Sprint(l.ID) || detail != fmt.Sprintf(`{"member": %d}`, ann) {
-		t.Errorf("audit row = %q %q %q %q, want no one, login.delete-own, login %d, member %d", who, action, target, detail, l.ID, ann)
+	if who != "" || action != "account.delete-own" || target != fmt.Sprint(l.ID) || detail != fmt.Sprintf(`{"member": %d}`, ann) {
+		t.Errorf("audit row = %q %q %q %q, want no one, account.delete-own, account %d, member %d", who, action, target, detail, l.ID, ann)
 	}
 }
 
@@ -452,7 +458,7 @@ func TestDeletingAnUnlinkedAccountRemovesItsRequestsAndDetails(t *testing.T) {
 		t.Fatalf("reading the audit: %v", err)
 	}
 	if target != fmt.Sprint(l.ID) || detail != "{}" {
-		t.Errorf("audit row = %q %q, want login %d with no member", target, detail, l.ID)
+		t.Errorf("audit row = %q %q, want account %d with no member", target, detail, l.ID)
 	}
 }
 
@@ -481,5 +487,55 @@ func TestDeletingAnAccountNeedsALiveSession(t *testing.T) {
 				t.Errorf("logins and audit rows = %d %d, want 1 and 0", logins, audits)
 			}
 		})
+	}
+}
+
+func TestMigration32MakesEachLoginAnAccountAndItsDownUndoesIt(t *testing.T) {
+	pool := migrated(t)
+	ctx := context.Background()
+	if err := withRatingsMigrations(pool, func(p *goose.Provider) error { _, err := p.DownTo(ctx, 31); return err }); err != nil {
+		t.Fatalf("migrating down to 31: %v", err)
+	}
+	for _, q := range []string{
+		`INSERT INTO members (tta_name, discord_name, zone) VALUES ('ann', 'player_one', 'UTC')`,
+		`INSERT INTO logins (login_id, provider, subject, username, member_id, linked_how, linked_at, created_at, signed_in_at) OVERRIDING SYSTEM VALUE
+		 SELECT 40, 'discord', '100000000000000001', 'player_one', member_id, 'match', '2026-10-18T01:00:00Z', '2026-10-18T01:00:00Z', '2026-10-18T01:00:00Z' FROM members`,
+		`INSERT INTO logins (login_id, provider, subject, username, auto_link, country_code, zone, created_at, signed_in_at) OVERRIDING SYSTEM VALUE
+		 VALUES (41, 'discord', '100000000000000002', 'player_two', false, 'NZ', 'Pacific/Auckland', '2026-10-18T02:00:00Z', '2026-10-18T02:00:00Z')`,
+		`INSERT INTO link_requests (login_id, tta_name, requested_at) VALUES (41, 'Newcomer', '2026-10-18T02:05:00Z')`,
+		`INSERT INTO player_sessions (token_hash, login_id, created_at, expires_at) VALUES
+		 (sha256('one'), 40, '2026-10-18T01:00:00Z', '2026-11-17T01:00:00Z'), (sha256('two'), 41, '2026-10-18T02:00:00Z', '2026-11-17T02:00:00Z')`,
+	} {
+		if _, err := pool.Exec(ctx, q); err != nil {
+			t.Fatalf("building the old shape: %v\n%s", err, q)
+		}
+	}
+	if err := migrateRatingsTo(ctx, pool, 32); err != nil {
+		t.Fatalf("migrateRatingsTo(32): %v", err)
+	}
+	p := NewPlayerStore(asPlayerLogin(t, pool))
+	one, err := p.Session(ctx, tokenHash("one"), signInAt)
+	if err != nil || one.ID != 40 || one.LoginID != 40 || one.Member == nil || one.Member.Name != "ann" {
+		t.Errorf("player_one's session = %+v (%v), want account 40 linked to ann", one, err)
+	}
+	two, err := p.Session(ctx, tokenHash("two"), signInAt)
+	if err != nil || two.ID != 41 || two.Country != "NZ" || two.Zone != "Pacific/Auckland" || two.Request == nil || two.Request.Name != "Newcomer" {
+		t.Errorf("player_two's session = %+v (%v), want account 41 from NZ asking for Newcomer", two, err)
+	}
+	if got := rowsOf(t, pool, "SELECT concat_ws('|', account_id, auto_link) FROM accounts ORDER BY 1"); !slices.Equal(got, []string{"40|t", "41|f"}) {
+		t.Errorf("accounts = %q, want 40 linking by name and 41 not", got)
+	}
+	if third := signedIn(t, p, discordID("100000000000000003", "player_three", ""), "three"); third.ID <= 41 {
+		t.Errorf("a new account's id = %d, want one after the migrated accounts'", third.ID)
+	}
+
+	if err := withRatingsMigrations(pool, func(p *goose.Provider) error { _, err := p.DownTo(ctx, 31); return err }); err != nil {
+		t.Fatalf("migrating down to 31 again: %v", err)
+	}
+	got := rowsOf(t, pool, `SELECT concat_ws('|', l.username, coalesce(m.tta_name, '-'), l.auto_link, coalesce(l.country_code, '-'), coalesce(r.tta_name, '-'))
+		FROM logins l LEFT JOIN members m USING (member_id) LEFT JOIN link_requests r USING (login_id) ORDER BY 1`)
+	want := []string{"player_one|ann|t|-|-", "player_three|-|t|-|-", "player_two|-|f|NZ|Newcomer"}
+	if !slices.Equal(got, want) {
+		t.Errorf("after the Down, logins = %q, want %q", got, want)
 	}
 }

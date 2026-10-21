@@ -1,7 +1,7 @@
 /** The admin page: the site's header with admin's tabs (tournaments, blitz, members and their sign-ins, data and rating runs, titles and badges, admins). */
 import { Fragment, useEffect, useState, type ReactNode } from 'react';
 import Segmented from '@ttac/shared/Segmented';
-import { adminRequest, type AdminLogin, type AdminMe, type AdminTournamentRow, type Load } from '../lib/admin-api';
+import { adminRequest, type AdminAccount, type AdminMe, type AdminTournamentRow, type Load } from '../lib/admin-api';
 import { panelsFor, tabCounts, tabFrom, tabsFor, type Panel, type TabKey } from '../lib/admin-tabs';
 import { signInGroups } from '../lib/sign-ins';
 import { listed } from '../lib/tournament-groups';
@@ -77,7 +77,7 @@ function Tournaments() {
 }
 
 /** SignIns are players' sign-ins, loaded once for the Members tab and the count beside it. */
-type SignIns = { logins: Load<AdminLogin[]>; reload: () => Promise<void> };
+type SignIns = { accounts: Load<AdminAccount[]>; reload: () => Promise<void> };
 
 /** panel draws one of admin's panels; myName and role are who is signed in, for the admin and members lists. */
 function panel(p: Panel, myName: string, role: AdminMe['role'], signIns: SignIns): ReactNode {
@@ -89,7 +89,7 @@ function panel(p: Panel, myName: string, role: AdminMe['role'], signIns: SignIns
     case 'blitz':
       return <BlitzPanel />;
     case 'members':
-      return <MembersPanel role={role} logins={signIns.logins} reloadLogins={signIns.reload} />;
+      return <MembersPanel role={role} accounts={signIns.accounts} reloadAccounts={signIns.reload} />;
     case 'data':
       return <DataCard />;
     case 'runs':
@@ -109,17 +109,17 @@ function panel(p: Panel, myName: string, role: AdminMe['role'], signIns: SignIns
 export default function AdminApp() {
   const [me, setMe] = useState<Load<AdminMe>>({ kind: 'loading' });
   const [tab, setTab] = useState<TabKey>('tournaments');
-  const [logins, setLogins] = useState<Load<AdminLogin[]>>({ kind: 'loading' });
-  const reloadLogins = async () => {
-    const r = await adminRequest<AdminLogin[]>('/api/logins', {});
-    setLogins(r.ok ? { kind: 'ready', data: r.data } : { kind: 'error', message: r.message });
+  const [accounts, setAccounts] = useState<Load<AdminAccount[]>>({ kind: 'loading' });
+  const reloadAccounts = async () => {
+    const r = await adminRequest<AdminAccount[]>('/api/accounts', {});
+    setAccounts(r.ok ? { kind: 'ready', data: r.data } : { kind: 'error', message: r.message });
   };
-  const waiting = logins.kind === 'ready' ? signInGroups(logins.data).waiting.length : 0;
+  const waiting = accounts.kind === 'ready' ? signInGroups(accounts.data).waiting.length : 0;
   useEffect(() => {
     void adminRequest<AdminMe>('/api/me', {}).then((r) => {
       setMe(r.ok ? { kind: 'ready', data: r.data } : { kind: 'error', message: r.message });
       if (!r.ok) return;
-      void reloadLogins();
+      void reloadAccounts();
       const follow = () => setTab(tabFrom(window.location.hash, r.data.role));
       follow();
       window.addEventListener('hashchange', follow);
@@ -138,7 +138,7 @@ export default function AdminApp() {
               Signed in as <strong>{me.data.name}</strong> ({me.data.role})
             </p>
             {panelsFor(tab, me.data.role).map((p) => (
-              <Fragment key={p}>{panel(p, me.data.name, me.data.role, { logins, reload: reloadLogins })}</Fragment>
+              <Fragment key={p}>{panel(p, me.data.name, me.data.role, { accounts, reload: reloadAccounts })}</Fragment>
             ))}
           </>
         )}

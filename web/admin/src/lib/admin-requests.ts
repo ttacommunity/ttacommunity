@@ -139,10 +139,10 @@ export const removeAdmin = (id: string) => to(`/api/admins/${id}`, 'DELETE');
 export const approveLink = (request: number) => to(`/api/link-requests/${request}/approval`, 'PUT');
 /** refuseLink refuses a player's request to be linked, with a reason they see, trimmed. */
 export const refuseLink = (request: number, reason: string) => to(`/api/link-requests/${request}/refusal`, 'PUT', { reason: reason.trim() });
-/** unlinkLogin unlinks a sign-in from its member. */
-export const unlinkLogin = (login: number) => to(`/api/logins/${login}/member`, 'DELETE');
-/** removeLogin removes a sign-in, signing the player out everywhere. */
-export const removeLogin = (login: number) => to(`/api/logins/${login}`, 'DELETE');
+/** unlinkAccount unlinks a player's account from its member. */
+export const unlinkAccount = (account: number) => to(`/api/accounts/${account}/member`, 'DELETE');
+/** removeAccount removes a player's account with every way in, signing the player out everywhere. */
+export const removeAccount = (account: number) => to(`/api/accounts/${account}`, 'DELETE');
 /** addBadge makes a badge, trimmed. */
 export const addBadge = (label: string, description: string) =>
   to('/api/badges', 'POST', { label: label.trim(), description: description.trim() });

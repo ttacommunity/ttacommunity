@@ -658,6 +658,7 @@ Build variables, set in each site Worker's build settings:
 |---|---|---|---|
 | `PUBLIC_API_URL` | `ttacommunity`, `ttacommunity-dev` | `https://api.ttacommunity.org`; on `dev`, `https://api-dev.ttacommunity.org` | Where the browser reads ratings, and the CSP's `connect-src`. Sent to the browser, so never a secret |
 | `PUBLIC_ADMIN_URL` | `ttacommunity`, `ttacommunity-dev` | `https://admin.ttacommunity.org`; on `dev`, `https://dev.admin.ttacommunity.org` | Where the header, footer and home page link to admin |
+| `PUBLIC_TURNSTILE_SITEKEY` | `ttacommunity`, `ttacommunity-dev` | `0x4AAAAAAFeTS4FLImf-aXyC` (the widget "ttacommunity email sign-in") | The email form's Turnstile widget. Public. Without it the build uses Cloudflare's test key, whose tokens the api refuses: email sign-in fails closed |
 | `SITE_NOINDEX` | `ttacommunity-dev` | `1` | Adds `X-Robots-Tag: noindex`, so the dev site is never indexed |
 | `NODE_VERSION` | the site Workers and admin | the `node` version in `mise.toml` | The build image's default is older |
 | `PNPM_VERSION` | the site Workers and admin | the pnpm version in `web/package.json` | The build image does not read `packageManager` |
@@ -679,6 +680,15 @@ A new public hostname is added to that rule first.
 
 `ttac-auth` needs one runtime secret, `DISCORD_CLIENT_SECRET`, set under the
 Worker's Variables and Secrets (not its build variables).
+
+`ttac-mail-forward` (`infra/mail-forward`) is the Email Worker that Email
+Routing's rules for support@ and privacy@ send mail to; it forwards each
+message to every address in its secret `FORWARD_TO` (comma-separated, each a
+verified Email Routing destination). It has no route and no build trigger: a
+maintainer deploys it by hand, from that folder, with `npx wrangler deploy`,
+and sets the secret with `printf %s '<addresses>' | npx wrangler secret put
+FORWARD_TO`. A new address the site gives out is a routing rule to this
+Worker, and a line in its `ROUTED` list.
 
 **`ttac-admin` is only reachable through Cloudflare Access.** Its Access
 application must exist before its domain is declared, and it covers

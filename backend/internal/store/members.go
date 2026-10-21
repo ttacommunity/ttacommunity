@@ -270,7 +270,7 @@ func (a *AdminStore) RemoveMember(ctx context.Context, id int64) error {
 	tag, err := a.pool.Exec(ctx, "DELETE FROM members WHERE member_id = $1", id)
 	var pgErr *pgconn.PgError
 	if errors.As(err, &pgErr) && pgErr.Code == "23503" { // foreign_key_violation: a sign-in, an entry or an organiser names them
-		if pgErr.ConstraintName == "logins_member_id_fkey" {
+		if pgErr.ConstraintName == "accounts_member_id_fkey" {
 			return ErrMemberSignedIn
 		}
 		return ErrMemberInUse

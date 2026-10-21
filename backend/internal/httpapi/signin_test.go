@@ -25,26 +25,32 @@ const (
 type fakeSignIns struct {
 	// firstTime makes every sign-in the account's first.
 	firstTime bool
-	sessions  map[string]store.Login
+	sessions  map[string]store.Account
 	signedIn  []store.Identity
 	verifier  string
 	notes     []string
 	signedOut int
 	deleted   int
+	// emailOff turns email sign-in off; links are the emailed links waiting, mails what was sent.
+	emailOff bool
+	links    map[string]store.EmailSignIn
+	mails    []string
 }
 
-func newFakeSignIns() *fakeSignIns { return &fakeSignIns{sessions: map[string]store.Login{}} }
+func newFakeSignIns() *fakeSignIns {
+	return &fakeSignIns{sessions: map[string]store.Account{}, links: map[string]store.EmailSignIn{}}
+}
 
 func (f *fakeSignIns) SignIn(_ context.Context, id store.Identity, hash []byte, _ time.Time) (bool, error) {
 	f.signedIn = append(f.signedIn, id)
-	f.sessions[string(hash)] = store.Login{ID: 7, Provider: id.Provider, Username: id.Username, DisplayName: id.DisplayName}
+	f.sessions[string(hash)] = store.Account{ID: 7, Provider: id.Provider, Username: id.Username, DisplayName: id.DisplayName}
 	return f.firstTime, nil
 }
 
-func (f *fakeSignIns) Session(_ context.Context, hash []byte, _ time.Time) (store.Login, error) {
+func (f *fakeSignIns) Session(_ context.Context, hash []byte, _ time.Time) (store.Account, error) {
 	l, ok := f.sessions[string(hash)]
 	if !ok {
-		return store.Login{}, store.ErrNoSession
+		return store.Account{}, store.ErrNoSession
 	}
 	return l, nil
 }
@@ -70,6 +76,8 @@ func (f *fakeSignIns) RequestLink(_ context.Context, login int64, name string, _
 		return store.ErrBadLinkName
 	case login == 8:
 		return store.ErrAlreadyLinked
+	case name == "taken":
+		return store.ErrNameLinked
 	}
 	f.notes = append(f.notes, "request "+name)
 	return nil
@@ -91,6 +99,8 @@ func (f *fakeSignIns) SetOwnDetails(_ context.Context, _ int64, country, zone *s
 }
 
 func (*fakeSignIns) SiteOrigin() string { return siteOrigin }
+
+func (*fakeSignIns) SupportAddress() string { return "support@example.test" }
 
 func (f *fakeSignIns) DiscordAuthURL(state, verifier string) string {
 	f.verifier = verifier
@@ -135,7 +145,7 @@ func cookieNamed(rec *httptest.ResponseRecorder, name string) *http.Cookie {
 }
 
 // sessionFor gives f a session for login and returns its cookie.
-func sessionFor(f *fakeSignIns, token string, login store.Login) *http.Cookie {
+func sessionFor(f *fakeSignIns, token string, login store.Account) *http.Cookie {
 	f.sessions[string(hashToken(token))] = login
 	return &http.Cookie{Name: sessionCookie, Value: token}
 }
@@ -267,7 +277,7 @@ func TestAFirstSignInOpensTheAccountPageWithTheWayBack(t *testing.T) {
 func TestMeAnswersTheSiteAboutItsSession(t *testing.T) {
 	f := newFakeSignIns()
 	org := store.RoleOrganiser
-	linked := sessionFor(f, "linked", store.Login{ID: 8, Provider: "discord", Username: "player_one", DisplayName: "Player One",
+	linked := sessionFor(f, "linked", store.Account{ID: 8, Provider: "discord", Username: "player_one", DisplayName: "Player One",
 		Member:  &store.LinkedMember{ID: 3, Name: "ann", Player: "Ann"},
 		Country: "NZ", Zone: "Pacific/Auckland", Banned: true, BanReason: "Left games unfinished",
 		Request:   &store.LinkRequest{Name: "ann", Status: "approved", RequestedAt: time.Date(2026, 10, 18, 12, 0, 0, 0, time.UTC)},
@@ -327,7 +337,7 @@ func TestPlayerChangesComeOnlyFromTheSite(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			f := newFakeSignIns()
-			rec := playerDo(t, f, tt.method, tt.path, tt.origin, `{"name":"ann"}`, sessionFor(f, "token", store.Login{ID: 7}))
+			rec := playerDo(t, f, tt.method, tt.path, tt.origin, `{"name":"ann"}`, sessionFor(f, "token", store.Account{ID: 7}))
 			if rec.Code != tt.want {
 				t.Errorf("%s %s from %q = %d, want %d", tt.method, tt.path, tt.origin, rec.Code, tt.want)
 			}
@@ -357,17 +367,23 @@ func TestAskingToBeLinked(t *testing.T) {
 		{"an empty name", 7, `{"name":" "}`, http.StatusBadRequest},
 		{"no body", 7, ``, http.StatusBadRequest},
 		{"already linked", 8, `{"name":"ann"}`, http.StatusConflict},
+		{"a name another account holds", 7, `{"name":"taken"}`, http.StatusConflict},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			f := newFakeSignIns()
-			rec := playerDo(t, f, http.MethodPut, "/v1/me/link-request", siteOrigin, tt.body, sessionFor(f, "token", store.Login{ID: tt.login}))
+			rec := playerDo(t, f, http.MethodPut, "/v1/me/link-request", siteOrigin, tt.body, sessionFor(f, "token", store.Account{ID: tt.login}))
 			if rec.Code != tt.want {
 				t.Errorf("PUT /v1/me/link-request %s = %d %s, want %d", tt.body, rec.Code, rec.Body, tt.want)
 			}
 		})
 	}
 	f := newFakeSignIns()
+	rec := playerDo(t, f, http.MethodPut, "/v1/me/link-request", siteOrigin, `{"name":"taken"}`, sessionFor(f, "token", store.Account{ID: 7}))
+	if body := rec.Body.String(); !strings.Contains(body, "linked to another account") || !strings.Contains(body, "support@example.test") {
+		t.Errorf("a name another account holds = %s, want it said, with where to write", body)
+	}
+	f = newFakeSignIns()
 	playerDo(t, f, http.MethodPut, "/v1/me/link-request", siteOrigin, `{"name":"ann"}`)
 	if len(f.notes) != 0 {
 		t.Errorf("a request with no session reached the store: %q", f.notes)
@@ -391,7 +407,7 @@ func TestSettingYourOwnDetails(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			f := newFakeSignIns()
-			rec := playerDo(t, f, http.MethodPatch, "/v1/me/details", siteOrigin, tt.body, sessionFor(f, "token", store.Login{ID: tt.login}))
+			rec := playerDo(t, f, http.MethodPatch, "/v1/me/details", siteOrigin, tt.body, sessionFor(f, "token", store.Account{ID: tt.login}))
 			if rec.Code != tt.want {
 				t.Errorf("PATCH /v1/me/details %s = %d %s, want %d", tt.body, rec.Code, rec.Body, tt.want)
 			}
@@ -404,7 +420,7 @@ func TestSettingYourOwnDetails(t *testing.T) {
 
 func TestSigningOutEndsTheSessionAndClearsItsCookie(t *testing.T) {
 	f := newFakeSignIns()
-	cookie := sessionFor(f, "token", store.Login{ID: 7})
+	cookie := sessionFor(f, "token", store.Account{ID: 7})
 	rec := playerDo(t, f, http.MethodPost, "/v1/auth/sign-out", siteOrigin, "", cookie)
 	if rec.Code != http.StatusNoContent {
 		t.Fatalf("sign-out = %d %s, want 204", rec.Code, rec.Body)
@@ -422,7 +438,7 @@ func TestSigningOutEndsTheSessionAndClearsItsCookie(t *testing.T) {
 
 func TestDeletingYourAccountEndsItAndClearsTheCookie(t *testing.T) {
 	f := newFakeSignIns()
-	rec := playerDo(t, f, http.MethodDelete, "/v1/me", siteOrigin, "", sessionFor(f, "token", store.Login{ID: 7}))
+	rec := playerDo(t, f, http.MethodDelete, "/v1/me", siteOrigin, "", sessionFor(f, "token", store.Account{ID: 7}))
 	if rec.Code != http.StatusNoContent {
 		t.Fatalf("DELETE /v1/me = %d %s, want 204", rec.Code, rec.Body)
 	}
@@ -448,7 +464,7 @@ func TestPlayerRoutesRefuseWhenSignInIsNotSetUp(t *testing.T) {
 
 func TestMeShowsNoMemberOrRequestAsNull(t *testing.T) {
 	f := newFakeSignIns()
-	rec := playerDo(t, f, http.MethodGet, "/v1/me", siteOrigin, "", sessionFor(f, "token", store.Login{ID: 7, Provider: "discord", Username: "player_two"}))
+	rec := playerDo(t, f, http.MethodGet, "/v1/me", siteOrigin, "", sessionFor(f, "token", store.Account{ID: 7, Provider: "discord", Username: "player_two"}))
 	var got map[string]any
 	if err := json.Unmarshal(rec.Body.Bytes(), &got); err != nil {
 		t.Fatalf("GET /v1/me body %s: %v", rec.Body, err)

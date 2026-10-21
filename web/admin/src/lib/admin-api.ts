@@ -18,7 +18,7 @@ export type BlitzEntrantIds = components['schemas']['BlitzEntrantIds'];
 export type AdminMember = components['schemas']['AdminMember'];
 export type MemberAdded = components['schemas']['MemberAdded'];
 export type MemberChange = components['schemas']['MemberChange'];
-export type AdminLogin = components['schemas']['AdminLogin'];
+export type AdminAccount = components['schemas']['AdminAccount'];
 export type LinkApproved = components['schemas']['LinkApproved'];
 
 /** AdminResult is an answer's data, or why the request was refused. */

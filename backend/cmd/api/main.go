@@ -98,6 +98,9 @@ func main() {
 	}
 	defer playerPool.Close()
 	reg.AddPool("ratings_player", playerPool)
+	if os.Getenv("EMAIL_DEV_MAIL") != "" {
+		log.Warn("email sign-in prints its links for local development (EMAIL_DEV_MAIL)")
+	}
 	if os.Getenv("DISCORD_DEV_USER") != "" {
 		log.Warn("Discord sign-in is a stand-in for local development (DISCORD_DEV_USER)")
 	}
@@ -224,11 +227,29 @@ type discordSignIn interface {
 	User(ctx context.Context, code, verifier string) (discord.User, error)
 }
 
-// signInDeps signs players in with Discord, keeps their sessions through the player login, and knows the site.
+// signInDeps signs players in with Discord or an emailed link, keeps their sessions through the player login, and
+// knows the site.
 type signInDeps struct {
 	*store.PlayerStore
 	discord discordSignIn
+	email   emailSignIn
 	site    string
+}
+
+// SupportAddress is where players write with trouble: EMAIL_SUPPORT, or "" when email sign-in is off.
+func (d signInDeps) SupportAddress() string { return d.email.support }
+
+// EmailReady reports whether signing in by email is set up.
+func (d signInDeps) EmailReady() bool { return d.email.ready() }
+
+// VerifyTurnstile checks the email form's Turnstile token.
+func (d signInDeps) VerifyTurnstile(ctx context.Context, token string) error {
+	return d.email.verify.Verify(ctx, token, "email-signin")
+}
+
+// SendSignInLink emails link to address.
+func (d signInDeps) SendSignInLink(ctx context.Context, address, link string) error {
+	return d.email.send(ctx, signInMail(address, link, d.email.support))
 }
 
 // SiteOrigin is the site's origin: the only one players' requests may come from, and where sign-in returns.
@@ -264,7 +285,7 @@ func (d devDiscord) User(_ context.Context, code, _ string) (discord.User, error
 }
 
 // openSignIns builds player sign-in from getenv's SITE_ORIGIN, API_ORIGIN (this api's public origin, for Discord's
-// callback), RATINGS_PLAYER_DATABASE_URL and DISCORD_CLIENT_ID and _SECRET. DISCORD_DEV_USER, instead of the
+// callback), RATINGS_PLAYER_DATABASE_URL, DISCORD_CLIENT_ID and _SECRET, and email's (openEmail). DISCORD_DEV_USER, instead of the
 // Discord app, signs everyone in as that invented account, and only on this machine: API_ADDR and SITE_ORIGIN on
 // 127.0.0.1, outside Kubernetes. Anything missing or wrong, or a player login that can change more than sign-in
 // needs, is an error: sign-in never starts open. It returns sign-in and its pool, for the caller to close.
@@ -299,6 +320,10 @@ func openSignIns(ctx context.Context, getenv func(string) string) (signInDeps, *
 		}
 		dc = c
 	}
+	email, err := openEmail(getenv, site)
+	if err != nil {
+		return signInDeps{}, nil, err
+	}
 	pool, err := store.OpenPool(ctx, dbURL)
 	if err != nil {
 		return signInDeps{}, nil, errors.New("opening the player pool failed")
@@ -308,7 +333,7 @@ func openSignIns(ctx context.Context, getenv func(string) string) (signInDeps, *
 		pool.Close()
 		return signInDeps{}, nil, err
 	}
-	return signInDeps{PlayerStore: p, discord: dc, site: site}, pool, nil
+	return signInDeps{PlayerStore: p, discord: dc, email: email, site: site}, pool, nil
 }
 
 // isOrigin reports whether s is a bare https origin, or http on 127.0.0.1 for local development: no path.

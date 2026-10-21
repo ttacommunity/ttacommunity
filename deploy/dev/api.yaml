@@ -64,7 +64,7 @@ spec:
       # Applies the ratings migrations to ratings_dev before the api starts, as its owner (goose's lock serialises pods).
       initContainers:
         - name: migrate
-          image: ghcr.io/ttacommunity/ttacommunity/api:sha-a1b80428@sha256:6996e12c9dae9c06e11348f4a5d2696944e71733f5174922d08f7d677ae73056
+          image: ghcr.io/ttacommunity/ttacommunity/api:sha-ce24a7b2@sha256:b943caf8c9fb2d83f82906fd706e0c645121b751be12888c8fa18f91b3bf3f6e
           args: [-migrate]
           env:
             - name: RATINGS_DATABASE_URL
@@ -85,7 +85,7 @@ spec:
               drop: [ALL]
       containers:
         - name: api
-          image: ghcr.io/ttacommunity/ttacommunity/api:sha-a1b80428@sha256:6996e12c9dae9c06e11348f4a5d2696944e71733f5174922d08f7d677ae73056
+          image: ghcr.io/ttacommunity/ttacommunity/api:sha-ce24a7b2@sha256:b943caf8c9fb2d83f82906fd706e0c645121b751be12888c8fa18f91b3bf3f6e
           ports:
             - name: http
               containerPort: 8080
@@ -133,6 +133,22 @@ spec:
                 secretKeyRef:
                   name: discord-signin
                   key: client-secret
+            # Email sign-in: Resend sends the links from noreply@, the email names where to write, and
+            # Turnstile guards the form. The api refuses to start with only some of these.
+            - name: EMAIL_FROM
+              value: "TTA Community <noreply@ttacommunity.org>"
+            - name: EMAIL_SUPPORT
+              value: support@ttacommunity.org
+            - name: RESEND_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: email-signin
+                  key: resend-api-key
+            - name: TURNSTILE_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: turnstile-signin
+                  key: secret
           resources:
             requests:
               cpu: 25m

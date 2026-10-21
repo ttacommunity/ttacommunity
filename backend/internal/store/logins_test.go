@@ -28,29 +28,29 @@ func memberID(t *testing.T, a *AdminStore, name string) int64 {
 	return 0
 }
 
-// pendingRequest returns the id of login's pending request, failing the test when it has none.
-func pendingRequest(t *testing.T, a *AdminStore, login int64) int64 {
+// pendingRequest returns the id of the pending request of l's account, failing the test when it has none.
+func pendingRequest(t *testing.T, a *AdminStore, l Account) int64 {
 	t.Helper()
-	rows, err := a.Logins(context.Background())
+	rows, err := a.Accounts(context.Background())
 	if err != nil {
-		t.Fatalf("Logins: %v", err)
+		t.Fatalf("Accounts: %v", err)
 	}
 	for _, r := range rows {
-		if r.ID == login && r.Request != nil {
+		if r.ID == l.ID && r.Request != nil {
 			return r.Request.ID
 		}
 	}
-	t.Fatalf("login %d has no pending request", login)
+	t.Fatalf("account %d has no pending request", l.ID)
 	return 0
 }
 
-// approved has login ask for name, and approves it.
-func approved(t *testing.T, a *AdminStore, p *PlayerStore, login int64, name string) {
+// approved has l's account ask for name, and approves it.
+func approved(t *testing.T, a *AdminStore, p *PlayerStore, l Account, name string) {
 	t.Helper()
-	if err := p.RequestLink(context.Background(), login, name, signInAt); err != nil {
+	if err := p.RequestLink(context.Background(), l.ID, name, signInAt); err != nil {
 		t.Fatalf("RequestLink(%s): %v", name, err)
 	}
-	if _, err := a.ApproveLink(context.Background(), pendingRequest(t, a, login), signInAt); err != nil {
+	if _, err := a.ApproveLink(context.Background(), pendingRequest(t, a, l), signInAt); err != nil {
 		t.Fatalf("ApproveLink(%s): %v", name, err)
 	}
 }
@@ -76,7 +76,7 @@ func TestApprovingARequestLinksTheMemberItNames(t *testing.T) {
 			if err := p.RequestLink(ctx, l.ID, tt.asked, signInAt); err != nil {
 				t.Fatalf("RequestLink: %v", err)
 			}
-			got, err := a.ApproveLink(ctx, pendingRequest(t, a, l.ID), signInAt)
+			got, err := a.ApproveLink(ctx, pendingRequest(t, a, l), signInAt)
 			if err != nil {
 				t.Fatalf("ApproveLink: %v", err)
 			}
@@ -97,7 +97,7 @@ func TestApprovingARequestLinksTheMemberItNames(t *testing.T) {
 func TestApprovingKeepsTheRequestersDiscordNameOnANewMember(t *testing.T) {
 	_, a, p := playersFixture(t)
 	l := signedIn(t, p, discordID("100000000000000001", "player_one", ""), "token")
-	approved(t, a, p, l.ID, "Newcomer")
+	approved(t, a, p, l, "Newcomer")
 	members, err := a.Members(context.Background())
 	if err != nil {
 		t.Fatalf("Members: %v", err)
@@ -110,22 +110,22 @@ func TestApprovingKeepsTheRequestersDiscordNameOnANewMember(t *testing.T) {
 func TestApprovingIsRefused(t *testing.T) {
 	tests := []struct {
 		name  string
-		setup func(t *testing.T, a *AdminStore, p *PlayerStore, login int64) int64 // returns the request to approve
+		setup func(t *testing.T, a *AdminStore, p *PlayerStore, l Account) int64 // returns the request to approve
 		want  error
 	}{
-		{"a request already decided", func(t *testing.T, a *AdminStore, p *PlayerStore, login int64) int64 {
-			r := pendingRequest(t, a, login)
+		{"a request already decided", func(t *testing.T, a *AdminStore, p *PlayerStore, l Account) int64 {
+			r := pendingRequest(t, a, l)
 			if err := a.RefuseLink(context.Background(), r, "", signInAt); err != nil {
 				t.Fatalf("RefuseLink: %v", err)
 			}
 			return r
 		}, ErrNoRequest},
-		{"a request that does not exist", func(*testing.T, *AdminStore, *PlayerStore, int64) int64 { return 999 }, ErrNoRequest},
-		{"a member who has a Discord login", func(t *testing.T, a *AdminStore, p *PlayerStore, login int64) int64 {
+		{"a request that does not exist", func(*testing.T, *AdminStore, *PlayerStore, Account) int64 { return 999 }, ErrNoRequest},
+		{"a member linked to another account", func(t *testing.T, a *AdminStore, p *PlayerStore, l Account) int64 {
 			other := signedIn(t, p, discordID("100000000000000009", "other_account", ""), "other")
-			approved(t, a, p, other.ID, "ann")
-			return pendingRequest(t, a, login)
-		}, ErrMemberHasLogin},
+			approved(t, a, p, other, "ann")
+			return pendingRequest(t, a, l)
+		}, ErrMemberHasAccount},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -138,7 +138,7 @@ func TestApprovingIsRefused(t *testing.T) {
 			if err := p.RequestLink(ctx, l.ID, "ann", signInAt); err != nil {
 				t.Fatalf("RequestLink: %v", err)
 			}
-			if _, err := a.ApproveLink(ctx, tt.setup(t, a, p, l.ID), signInAt); !errors.Is(err, tt.want) {
+			if _, err := a.ApproveLink(ctx, tt.setup(t, a, p, l), signInAt); !errors.Is(err, tt.want) {
 				t.Errorf("ApproveLink = %v, want %v", err, tt.want)
 			}
 			if now, err := p.Session(ctx, tokenHash("token"), signInAt); err != nil || now.Member != nil {
@@ -155,7 +155,7 @@ func TestARefusalsReasonReachesThePlayerWhoMayAskAgain(t *testing.T) {
 	if err := p.RequestLink(ctx, l.ID, "ann", signInAt); err != nil {
 		t.Fatalf("RequestLink: %v", err)
 	}
-	r := pendingRequest(t, a, l.ID)
+	r := pendingRequest(t, a, l)
 	if err := a.RefuseLink(ctx, r, strings.Repeat("x", 501), signInAt); !errors.Is(err, ErrBadReason) {
 		t.Errorf("a 501-character reason = %v, want ErrBadReason", err)
 	}
@@ -180,16 +180,16 @@ func TestLoginsShowARefusalUntilAskedAgainOrLinked(t *testing.T) {
 	l := signedIn(t, p, discordID("100000000000000001", "player_one", ""), "token")
 	refused := func(t *testing.T) *RefusedRequest {
 		t.Helper()
-		rows, err := a.Logins(ctx)
+		rows, err := a.Accounts(ctx)
 		if err != nil {
-			t.Fatalf("Logins: %v", err)
+			t.Fatalf("Accounts: %v", err)
 		}
 		for _, r := range rows {
 			if r.ID == l.ID {
 				return r.Refused
 			}
 		}
-		t.Fatalf("login %d not listed", l.ID)
+		t.Fatalf("account %d not listed", l.ID)
 		return nil
 	}
 	if got := refused(t); got != nil {
@@ -198,7 +198,7 @@ func TestLoginsShowARefusalUntilAskedAgainOrLinked(t *testing.T) {
 	if err := p.RequestLink(ctx, l.ID, "ann", signInAt); err != nil {
 		t.Fatalf("RequestLink: %v", err)
 	}
-	if err := a.RefuseLink(ctx, pendingRequest(t, a, l.ID), "Not the same player", signInAt); err != nil {
+	if err := a.RefuseLink(ctx, pendingRequest(t, a, l), "Not the same player", signInAt); err != nil {
 		t.Fatalf("RefuseLink: %v", err)
 	}
 	if got := refused(t); got == nil || got.Name != "ann" || got.Reason != "Not the same player" {
@@ -210,7 +210,7 @@ func TestLoginsShowARefusalUntilAskedAgainOrLinked(t *testing.T) {
 	if got := refused(t); got != nil {
 		t.Errorf("asked again: refused = %+v, want none while the new request waits", got)
 	}
-	if err := a.RefuseLink(ctx, pendingRequest(t, a, l.ID), "", signInAt); err != nil {
+	if err := a.RefuseLink(ctx, pendingRequest(t, a, l), "", signInAt); err != nil {
 		t.Fatalf("RefuseLink again: %v", err)
 	}
 	if _, err := a.AddMember(ctx, Member{Name: "annie", DiscordName: "player_one", Zone: "UTC"}); err != nil {
@@ -233,8 +233,8 @@ func TestRemovingAMemberWithASignInSaysToUnlinkItFirst(t *testing.T) {
 	if err := a.RemoveMember(ctx, ann); !errors.Is(err, ErrMemberSignedIn) {
 		t.Errorf("RemoveMember(linked to a sign-in) = %v, want ErrMemberSignedIn", err)
 	}
-	if err := a.UnlinkLogin(ctx, l.ID); err != nil {
-		t.Fatalf("UnlinkLogin: %v", err)
+	if err := a.UnlinkAccount(ctx, l.ID); err != nil {
+		t.Fatalf("UnlinkAccount: %v", err)
 	}
 	if err := a.RemoveMember(ctx, ann); err != nil {
 		t.Errorf("RemoveMember(once unlinked) = %v, want nil", err)
@@ -248,15 +248,15 @@ func TestLoginsShowNoRefusalForAnApprovedRequestSinceUnlinked(t *testing.T) {
 	if err := p.RequestLink(ctx, l.ID, "ann", signInAt); err != nil {
 		t.Fatalf("RequestLink: %v", err)
 	}
-	if _, err := a.ApproveLink(ctx, pendingRequest(t, a, l.ID), signInAt); err != nil {
+	if _, err := a.ApproveLink(ctx, pendingRequest(t, a, l), signInAt); err != nil {
 		t.Fatalf("ApproveLink: %v", err)
 	}
-	if err := a.UnlinkLogin(ctx, l.ID); err != nil {
-		t.Fatalf("UnlinkLogin: %v", err)
+	if err := a.UnlinkAccount(ctx, l.ID); err != nil {
+		t.Fatalf("UnlinkAccount: %v", err)
 	}
-	rows, err := a.Logins(ctx)
+	rows, err := a.Accounts(ctx)
 	if err != nil {
-		t.Fatalf("Logins: %v", err)
+		t.Fatalf("Accounts: %v", err)
 	}
 	for _, r := range rows {
 		if r.ID == l.ID && r.Refused != nil {
@@ -271,9 +271,9 @@ func TestLoginsShowNoRefusalForAnApprovedRequestSinceUnlinked(t *testing.T) {
 func TestLoginsSayASignInIsLinkedByDiscordNameUntilUnlinked(t *testing.T) {
 	_, a, p := playersFixture(t)
 	l := signedIn(t, p, discordID("100000000000000001", "player_one", ""), "token")
-	rows, err := a.Logins(context.Background())
+	rows, err := a.Accounts(context.Background())
 	if err != nil {
-		t.Fatalf("Logins: %v", err)
+		t.Fatalf("Accounts: %v", err)
 	}
 	if len(rows) != 1 || rows[0].ID != l.ID || !rows[0].AutoLink {
 		t.Errorf("a new sign-in: rows = %+v, want it with auto link on", rows)
@@ -298,13 +298,13 @@ func TestLoginsListsPendingRequestsFirstWithWhatTheyMatch(t *testing.T) {
 	if err := p.SetOwnDetails(ctx, asking.ID, &nz, &auckland); err != nil {
 		t.Fatalf("SetOwnDetails: %v", err)
 	}
-	rows, err := a.Logins(ctx)
+	rows, err := a.Accounts(ctx)
 	if err != nil {
-		t.Fatalf("Logins: %v", err)
+		t.Fatalf("Accounts: %v", err)
 	}
 	var got []string
 	for _, r := range rows {
-		line := fmt.Sprintf("%s %s member=%q how=%q", r.Provider, r.Username, r.Member, r.LinkedHow)
+		line := fmt.Sprintf("%s %s member=%q how=%q", r.Logins[0].Provider, r.Logins[0].Username, r.Member, r.LinkedHow)
 		if r.Request != nil {
 			line += fmt.Sprintf(" asks=%s resolves=%q recorded=%q gave=%q/%q has=%q/%q", r.Request.Name, r.Request.Member, r.Request.MemberDiscord,
 				r.Request.Country, r.Request.Zone, r.Request.MemberCountry, r.Request.MemberZone)
@@ -322,14 +322,14 @@ func TestLoginsListsPendingRequestsFirstWithWhatTheyMatch(t *testing.T) {
 }
 
 func TestUnlinkingKeepsTheSignInAndRemovingEndsIt(t *testing.T) {
-	_, a, p := playersFixture(t)
+	pool, a, p := playersFixture(t)
 	ctx := context.Background()
 	if _, err := a.AddMember(ctx, Member{Name: "ann", DiscordName: "player_one", Zone: "UTC"}); err != nil {
 		t.Fatalf("AddMember: %v", err)
 	}
 	l := signedIn(t, p, discordID("100000000000000001", "player_one", ""), "token")
-	if err := a.UnlinkLogin(ctx, l.ID); err != nil {
-		t.Fatalf("UnlinkLogin: %v", err)
+	if err := a.UnlinkAccount(ctx, l.ID); err != nil {
+		t.Fatalf("UnlinkAccount: %v", err)
 	}
 	if got, err := p.Session(ctx, tokenHash("token"), signInAt); err != nil || got.Member != nil {
 		t.Errorf("after unlinking, member %+v (err %v), want signed in with none", got.Member, err)
@@ -337,15 +337,19 @@ func TestUnlinkingKeepsTheSignInAndRemovingEndsIt(t *testing.T) {
 	if again := signedIn(t, p, discordID("100000000000000001", "player_one", ""), "again"); again.Member != nil {
 		t.Errorf("signing in after an unlink linked %+v again by Discord name, want none", again.Member)
 	}
-	if err := a.RemoveLogin(ctx, l.ID); err != nil {
-		t.Fatalf("RemoveLogin: %v", err)
+	if err := a.RemoveAccount(ctx, l.ID); err != nil {
+		t.Fatalf("RemoveAccount: %v", err)
 	}
 	if _, err := p.Session(ctx, tokenHash("token"), signInAt); !errors.Is(err, ErrNoSession) {
 		t.Errorf("after removing, Session = %v, want ErrNoSession", err)
 	}
-	for name, err := range map[string]error{"unlink": a.UnlinkLogin(ctx, l.ID), "remove": a.RemoveLogin(ctx, l.ID)} {
-		if !errors.Is(err, ErrNoLogin) {
-			t.Errorf("%s a removed login = %v, want ErrNoLogin", name, err)
+	var accounts int
+	if err := pool.QueryRow(ctx, "SELECT count(*) FROM accounts").Scan(&accounts); err != nil || accounts != 0 {
+		t.Errorf("accounts left after removing it = %d (%v), want 0", accounts, err)
+	}
+	for name, err := range map[string]error{"unlink": a.UnlinkAccount(ctx, l.ID), "remove": a.RemoveAccount(ctx, l.ID)} {
+		if !errors.Is(err, ErrNoAccount) {
+			t.Errorf("%s a removed account = %v, want ErrNoAccount", name, err)
 		}
 	}
 }
@@ -361,9 +365,9 @@ func TestARequestNoLongerWaitsOnceItsSignInIsLinkedByName(t *testing.T) {
 		t.Fatalf("AddMember: %v", err)
 	}
 	signedIn(t, p, discordID("100000000000000001", "player_one", ""), "again")
-	rows, err := a.Logins(ctx)
+	rows, err := a.Accounts(ctx)
 	if err != nil {
-		t.Fatalf("Logins: %v", err)
+		t.Fatalf("Accounts: %v", err)
 	}
 	if len(rows) != 1 || rows[0].Member != "ann" || rows[0].Request != nil {
 		t.Errorf("logins = %+v, want player_one linked to ann with nothing waiting", rows)
@@ -396,7 +400,7 @@ func TestApprovingMovesTheDetailsGivenToTheMember(t *testing.T) {
 					t.Fatalf("SetOwnDetails: %v", err)
 				}
 			}
-			approved(t, a, p, l.ID, tt.asked)
+			approved(t, a, p, l, tt.asked)
 			members, err := a.Members(ctx)
 			if err != nil {
 				t.Fatalf("Members: %v", err)
@@ -428,8 +432,48 @@ func TestApprovingLinksABannedMember(t *testing.T) {
 		t.Fatalf("BanMember: %v", err)
 	}
 	l := signedIn(t, p, discordID("100000000000000002", "player_two", ""), "token")
-	approved(t, a, p, l.ID, "ann")
+	approved(t, a, p, l, "ann")
 	if got := signedIn(t, p, discordID("100000000000000002", "player_two", ""), "again"); got.Member == nil || got.Member.ID != ann || !got.Banned {
 		t.Errorf("after approving: member %+v, banned %v, want ann, banned", got.Member, got.Banned)
+	}
+}
+
+func TestAskingForAUsernameLinkedToAnotherAccountIsRefused(t *testing.T) {
+	tests := []struct {
+		name, linked, asked string
+	}{
+		{"the member's username, in another case", "ann", "ANN"},
+		{"the ratings name of a member added by approval", "bob", "Bob"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			_, a, p := playersFixture(t)
+			ctx := context.Background()
+			if _, err := a.AddMember(ctx, Member{Name: "ann", Zone: "UTC"}); err != nil {
+				t.Fatalf("AddMember: %v", err)
+			}
+			approved(t, a, p, signedIn(t, p, discordID("100000000000000001", "player_one", ""), "first"), tt.linked)
+			second := emailSignedIn(t, p, "player@example.test", "second")
+			if err := p.RequestLink(ctx, second.ID, tt.asked, signInAt); !errors.Is(err, ErrNameLinked) {
+				t.Errorf("RequestLink(%s) = %v, want ErrNameLinked", tt.asked, err)
+			}
+			if got, _ := p.Session(ctx, tokenHash("second"), signInAt); got.Request != nil {
+				t.Errorf("a refused ask left request %+v, want none", got.Request)
+			}
+		})
+	}
+}
+
+func TestAskingForAUsernameNoAccountHoldsIsAccepted(t *testing.T) {
+	_, a, p := playersFixture(t)
+	ctx := context.Background()
+	if _, err := a.AddMember(ctx, Member{Name: "ann", Zone: "UTC"}); err != nil {
+		t.Fatalf("AddMember: %v", err)
+	}
+	l := emailSignedIn(t, p, "player@example.test", "token")
+	for _, name := range []string{"ann", "bob", "Newcomer"} {
+		if err := p.RequestLink(ctx, l.ID, name, signInAt); err != nil {
+			t.Errorf("RequestLink(%s) = %v, want it waiting", name, err)
+		}
 	}
 }

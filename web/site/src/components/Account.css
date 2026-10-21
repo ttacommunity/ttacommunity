@@ -10,6 +10,15 @@
 .account-card .rating-card-heading {
   margin: 0 0 0.75rem;
 }
+/* An email address is one long word: it breaks anywhere rather than widen the page on a phone. */
+.account-card .rating-card-heading,
+.account-card strong,
+.account-way {
+  overflow-wrap: anywhere;
+}
+.account-way {
+  min-width: 0;
+}
 .account-muted {
   color: var(--text-muted);
   font-size: var(--size-body-short);
@@ -24,6 +33,33 @@
 }
 .account-ways .account-muted {
   margin: 0.4rem 0 0;
+}
+.account-note {
+  margin: 0.75rem 0 0;
+}
+/* The sign-in options after Discord: a row of equal buttons, stacked full width on a phone. */
+.account-other-heading {
+  margin: 0 0 0.5rem;
+  font-family: var(--font-body);
+  font-size: var(--size-body-short);
+  font-weight: normal;
+  color: var(--text-soft);
+}
+.account-options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}
+.account-email-panel {
+  margin-top: 0.75rem;
+}
+@media (max-width: 600px) {
+  .account-options {
+    flex-direction: column;
+  }
+  .account-options .btn-antique {
+    width: 100%;
+  }
 }
 .account-subheading {
   margin: 1.25rem 0 0.25rem;

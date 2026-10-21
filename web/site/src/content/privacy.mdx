@@ -21,11 +21,18 @@ and results played in the online app's tournaments.
 
 ## When you sign in
 
-You sign in with your Discord account. Discord tells us your Discord user id, your username and your display
-name, and we keep only those. We never see your email, your password or your servers.
+You sign in with your Discord account, or with a link we email you. Discord tells us your Discord user id, your
+username and your display name, and we keep only those. We never see your password or your servers, nor, through
+Discord, your email.
+
+If you sign in by email, we keep your email address, to send you sign-in links, and so admins and organisers
+can contact you about events you enter. You can change it on your account page. Each link works once, within an
+hour. To limit how many we send, we also keep each address a link went to, and when, for two days. Before
+sending one, Cloudflare's Turnstile checks that a person, not a program, filled in the form. You may add Discord
+or an email address to your account as a second way in, and remove either while the other remains.
 
 You then tell us your TTA username, so we can link your sign-in to you as a player. An admin or organiser checks
-the link, unless an organiser has already recorded your Discord name for that username. You may also give your
+the link, unless an organiser has already recorded your Discord name or email address for that username. You may also give your
 country (for the flag beside your name) and your time zone. Until the link is made they are kept with your
 sign-in, and whoever checks the link sees them.
 
@@ -33,8 +40,9 @@ To keep you signed in, we set one cookie on api.ttacommunity.org: a random token
 and of which we keep only a scrambled copy. While you sign in, a second cookie holds the sign-in's check values
 for ten minutes at most. Your browser also notes that you have signed in, so pages know to ask who you are.
 
-A session ends when you sign out, or after 30 days without use. Your sign-in itself (your Discord id and names,
-and the player it is linked to) stays until you delete your account or ask us to remove it.
+A session ends when you sign out, or after 30 days without use. Your account itself (your Discord id and names,
+your email address if you sign in by email, and the player it is linked to) stays until you delete it or ask us
+to remove it.
 
 ## When you take part
 
@@ -49,20 +57,23 @@ your Discord name, an email if you gave one, your country and time zone, and a c
 
 ## Who else is involved
 
-- **Discord**, when you sign in.
-- **Cloudflare**, which hosts the site and our API and so handles every request.
+- **Discord**, when you sign in with it.
+- **Resend**, which sends our sign-in emails, and so sees your email address and the link.
+- **Cloudflare**, which hosts the site and our API and so handles every request, and runs Turnstile on the email
+  form.
 
 We never sell your data or share it with anyone else.
 
 ## Your choices
 
 - Sign out at any time on [your account page](/account/), where you can also change your country and time zone.
-- Delete your account there too. Your sign-in goes at once, with every session and your requests to be linked,
-  and your Discord name, country and time zone are cleared from your player record. Your TTA username, games and ratings stay:
+- Delete your account there too. Every way you sign in goes at once, with every session and your requests to be
+  linked, and your Discord name, country and time zone are cleared from your player record, with the email
+  address recorded there if it is the one you signed in with. Your TTA username, games and ratings stay:
   they come from results published in the online app. We keep a note that an account was deleted, without your
-  Discord details.
+  Discord details or email address.
 - Write to **privacy@ttacommunity.org** to see what we hold about you, correct it, or have the rest removed. Tell
-  us your TTA username and Discord username; we check it is really you, for example by a message on Discord,
-  before we change anything.
+  us your TTA username and Discord username or email address; we check it is really you, for example by a message
+  on Discord or a reply from that address, before we change anything.
 
 When this page changes, its date changes.

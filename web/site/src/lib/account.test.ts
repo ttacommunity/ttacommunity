@@ -9,13 +9,19 @@ import {
   askToBeLinked,
   changeMyDetails,
   countryOptions,
+  addDiscordHref,
+  addEmail,
   deleteAccount,
   deleteQuestion,
+  removeWayIn,
+  signedInAs,
+  waysIn,
   fetchCountries,
   fetchMe,
   isFirstSignIn,
   sharedMe,
   navLabel,
+  showsAdminLink,
   rememberSignedIn,
   saveOutcome,
   seemsSignedIn,
@@ -28,7 +34,10 @@ import {
   type Me,
 } from './account';
 
-const base: Me = { provider: 'discord', username: 'player_one', display_name: '', member: null, request: null, admin_role: null, country: null, zone: 'Unknown' };
+const discord = { provider: 'discord' as const, username: 'player_one', display_name: '' };
+const email = { provider: 'email' as const, username: 'player@example.test', display_name: '' };
+const base: Me = { provider: 'discord', username: 'player_one', display_name: '', logins: [discord], member: null, request: null, admin_role: null, country: null, zone: 'Unknown' };
+const byEmail: Me = { ...base, provider: 'email', username: 'player@example.test', logins: [email] };
 const ann = { name: 'ann', player: 'Ann', banned: false, ban_reason: '' };
 const asked = (status: 'pending' | 'approved' | 'refused', reason = '') => ({ name: 'ann', status, reason, requested_at: '2026-10-18T12:00:00Z' });
 
@@ -39,11 +48,21 @@ describe('accountState', () => {
     ['a request waiting', { ...base, request: asked('pending') }, { kind: 'waiting', name: 'ann' }],
     ['a refusal with its reason', { ...base, request: asked('refused', 'Message us') }, { kind: 'refused', name: 'ann', reason: 'Message us' }],
     ['an approval later undone', { ...base, request: asked('approved') }, { kind: 'unlinked' }],
-    ['a member who has played', { ...base, member: ann }, { kind: 'linked', member: ann, playerHref: '/ratings/player/?name=Ann', adminRole: null }],
-    ['a member who has not played', { ...base, member: { ...ann, player: '' } }, { kind: 'linked', member: { ...ann, player: '' }, playerHref: null, adminRole: null }],
-    ['an organiser', { ...base, member: ann, admin_role: 'organiser' as const }, { kind: 'linked', member: ann, playerHref: '/ratings/player/?name=Ann', adminRole: 'organiser' }],
+    ['a member who has played', { ...base, member: ann }, { kind: 'linked', member: ann, playerHref: '/ratings/player/?name=Ann' }],
+    ['a member who has not played', { ...base, member: { ...ann, player: '' } }, { kind: 'linked', member: { ...ann, player: '' }, playerHref: null }],
   ])('%s', (_name, me, want) => {
     expect(accountState(me)).toEqual(want);
+  });
+});
+
+describe('showsAdminLink', () => {
+  it.each([
+    ['nobody signed in', null, false],
+    ['a player', base, false],
+    ['an organiser', { ...base, admin_role: 'organiser' as const }, true],
+    ['an admin', { ...base, admin_role: 'admin' as const }, true],
+  ])('%s', (_name, me, want) => {
+    expect(showsAdminLink(me)).toBe(want);
   });
 });
 
@@ -53,8 +72,46 @@ describe('navLabel', () => {
     ['a linked member, by their TTA username', { ...base, display_name: 'Player One', member: ann }, 'ann'],
     ['an unlinked sign-in with a display name', { ...base, display_name: 'Player One' }, 'Player One'],
     ['an unlinked sign-in without one', base, 'player_one'],
+    ['an unlinked email sign-in, never by its address', byEmail, 'Your account'],
+    ['an email sign-in to an account with Discord, by the Discord name', { ...byEmail, logins: [{ ...discord, display_name: 'Player One' }, email] }, 'Player One'],
   ])('%s', (_name, me, want) => {
     expect(navLabel(me)).toBe(want);
+  });
+});
+
+describe('signedInAs', () => {
+  it.each([
+    ['by Discord, with a display name', { ...base, display_name: 'Player One' }, { heading: 'Signed in with Discord as Player One', detail: 'Discord username: player_one' }],
+    ['by Discord, without one', base, { heading: 'Signed in with Discord as player_one', detail: '' }],
+    ['by email', byEmail, { heading: 'Signed in by email as player@example.test', detail: '' }],
+  ])('%s', (_name, me, want) => {
+    expect(signedInAs(me)).toEqual(want);
+  });
+});
+
+describe('waysIn', () => {
+  it.each([
+    ['Discord alone: email may be added, nothing removed', base, ['Discord: player_one'], [false], { discord: false, email: true }],
+    [
+      'both, each removable',
+      { ...base, logins: [{ ...discord, display_name: 'Player One' }, email] },
+      ['Discord: player_one (Player One)', 'Email: player@example.test'],
+      [true, true],
+      { discord: false, email: false },
+    ],
+    ['email alone: Discord may be added', byEmail, ['Email: player@example.test'], [false], { discord: true, email: false }],
+  ])('%s', (_name, me, labels, removable, canAdd) => {
+    const got = waysIn(me);
+    expect(got.ways.map((w) => w.label)).toEqual(labels);
+    expect(got.ways.map((w) => w.removable)).toEqual(removable);
+    expect(got.ways.map((w) => w.changeable)).toEqual(got.ways.map((w) => w.provider === 'email'));
+    expect(got.canAdd).toEqual(canAdd);
+  });
+});
+
+describe('addDiscordHref', () => {
+  it('opens the api to add Discord, coming back to the account page', () => {
+    expect(addDiscordHref('https://api.example/')).toBe('https://api.example/v1/auth/discord?add=true');
   });
 });
 
@@ -70,6 +127,10 @@ describe('signInNotice', () => {
     ['nothing to say', '', null],
     ['one that did not', '?signin=failed', 'failed'],
     ['an account just deleted', '?signin=deleted', 'deleted'],
+    ['Discord added', '?signin=added', 'added'],
+    ['an email added', '?signin=email-added', 'added'],
+    ['a Discord account with an account of its own', '?signin=taken', 'failed'],
+    ['an account with another Discord', '?signin=has-kind', 'failed'],
     ['anything else', '?signin=other', null],
   ])('%s', (_name, search, want) => {
     expect(signInNotice(new URLSearchParams(search))?.kind ?? null).toBe(want);
@@ -201,6 +262,8 @@ describe('the changes a player makes', () => {
     ['changing their details', (f: typeof fetch) => changeMyDetails('https://api.example', { country: 'DE', zone: 'Europe/Berlin' }, f), 'PATCH', '/v1/me/details', { country: 'DE', zone: 'Europe/Berlin' }],
     ['signing out', (f: typeof fetch) => signOut('https://api.example', f), 'POST', '/v1/auth/sign-out', undefined],
     ['deleting their account', (f: typeof fetch) => deleteAccount('https://api.example', f), 'DELETE', '/v1/me', undefined],
+    ['adding an email', (f: typeof fetch) => addEmail('https://api.example', ' Player@example.test ', f), 'POST', '/v1/me/logins/email', { email: 'Player@example.test' }],
+    ['removing a way in', (f: typeof fetch) => removeWayIn('https://api.example', 'discord', f), 'DELETE', '/v1/me/logins/discord', undefined],
   ])('%s sends credentials and JSON', async (_name, call, method, path, body) => {
     const { calls, fetchFn } = recorded(204, null);
     expect(await call(fetchFn)).toEqual({ ok: true });

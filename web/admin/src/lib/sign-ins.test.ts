@@ -1,12 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import type { AdminLogin } from './admin-api';
-import { detailsHint, howLinked, requestHint, signInGroups, standing } from './sign-ins';
+import type { AdminAccount } from './admin-api';
+import { detailsHint, howLinked, requestHint, signInGroups, standing, who } from './sign-ins';
 
-const login = (id: number, extra: Partial<AdminLogin> = {}): AdminLogin => ({
+const way = (provider: 'discord' | 'email', username: string, display_name = '') => ({ provider, username, display_name, signed_in_at: '2026-10-18T12:00:00Z' });
+const login = (id: number, extra: Partial<AdminAccount> = {}): AdminAccount => ({
   id,
-  provider: 'discord',
-  username: `player_${id}`,
-  display_name: '',
+  logins: [way('discord', `player_${id}`)],
   member_id: null,
   member: '',
   linked_how: null,
@@ -16,26 +15,44 @@ const login = (id: number, extra: Partial<AdminLogin> = {}): AdminLogin => ({
   refused: null,
   ...extra,
 });
-const asking = (member: string, memberDiscord: string) => ({
+const asking = (member: string, memberDiscord: string, memberEmail = '') => ({
   id: 20,
   name: 'ann',
   country: '',
   zone: '',
   member,
   member_discord: memberDiscord,
+  member_email: memberEmail,
   member_country: '',
   member_zone: '',
   requested_at: '2026-10-18T12:01:00Z',
 });
 
 describe('requestHint', () => {
+  const discord = login(1);
+  const email = login(1, { logins: [way('email', 'player@example.test')] });
+  const both = login(1, { logins: [way('discord', 'player_1'), way('email', 'player@example.test')] });
   it.each([
-    ['a name no member has: approving adds one', asking('', ''), 'new'],
-    ['a member with no Discord name recorded', asking('ann', ''), 'unknown'],
-    ['the recorded name, in another case and with an @', asking('ann', '@Player_1'), 'same'],
-    ['another recorded name', asking('ann', 'someone_else'), 'differs'],
-  ])('%s', (_name, request, want) => {
-    expect(requestHint(request, 'player_1').kind).toBe(want);
+    ['a name no member has: approving adds one', asking('', ''), discord, 'new'],
+    ['a member with no Discord name recorded', asking('ann', ''), discord, 'unknown'],
+    ['the recorded name, in another case and with an @', asking('ann', '@Player_1'), discord, 'same'],
+    ['another recorded name', asking('ann', 'someone_else'), discord, 'differs'],
+    ['an email sign-in and a member with only a Discord name', asking('ann', 'player_1'), email, 'unknown'],
+    ['the recorded email, in another case', asking('ann', '', ' Player@Example.test'), email, 'same'],
+    ['another recorded email', asking('ann', '', 'other@example.test'), email, 'differs'],
+    ['one of two the same', asking('ann', 'someone_else', 'player@example.test'), both, 'same'],
+  ])('%s', (_name, request, account, want) => {
+    expect(requestHint(request, account).kind).toBe(want);
+  });
+});
+
+describe('who', () => {
+  it.each([
+    ['a Discord name alone', login(1), 'player_1'],
+    ['with its display name', login(1, { logins: [way('discord', 'player_1', 'Player One')] }), 'player_1 (Player One)'],
+    ['Discord and email', login(1, { logins: [way('discord', 'player_1'), way('email', 'player@example.test')] }), 'player_1 · player@example.test'],
+  ])('%s', (_name, account, want) => {
+    expect(who(account)).toBe(want);
   });
 });
 
@@ -64,7 +81,7 @@ describe('standing', () => {
     ['never asked', login(4), { text: 'has not asked to be linked', detail: '' }],
     ['refused with a reason', login(5, { refused: { name: 'cat', reason: 'Not the same player' } }), { text: 'asked for cat, refused', detail: 'Not the same player' }],
     ['refused without one', login(5, { refused: { name: 'cat', reason: '' } }), { text: 'asked for cat, refused', detail: '' }],
-    ['unlinked by an admin', login(6, { auto_link: false }), { text: 'unlinked by an admin', detail: 'not linked by Discord name again' }],
+    ['unlinked by an admin', login(6, { auto_link: false }), { text: 'unlinked by an admin', detail: 'not linked by Discord name or email again' }],
     ['unlinked, then refused', login(6, { auto_link: false, refused: { name: 'cat', reason: '' } }), { text: 'asked for cat, refused', detail: '' }],
   ])('%s', (_name, l, want) => {
     expect(standing(l)).toEqual(want);
@@ -73,7 +90,7 @@ describe('standing', () => {
 
 describe('howLinked', () => {
   it.each([
-    ['by Discord name', 'match', 'linked by Discord name'],
+    ['by a recorded name or email', 'match', 'linked by Discord name or email'],
     ['by approval', 'approved', 'approved'],
     ['not linked', null, ''],
   ] as const)('%s', (_name, how, want) => {

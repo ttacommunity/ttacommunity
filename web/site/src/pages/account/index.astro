@@ -1,10 +1,10 @@
 ---
-/** The account page: signing in, linking a sign-in to a TTA username, a player's own details, signing out. */
-import { PUBLIC_ADMIN_URL, PUBLIC_API_URL } from 'astro:env/client';
+/** The account page: signing in with Discord or by email, linking a sign-in to a TTA username, a player's own details and ways in, signing out. */
+import { PUBLIC_API_URL, PUBLIC_TURNSTILE_SITEKEY } from 'astro:env/client';
 import SiteLayout from '../../layouts/SiteLayout.astro';
 import AccountPage from '../../components/AccountPage';
 import '../../components/HallOfFame.css';
 ---
-<SiteLayout title="Your account | Through the Ages community" description="Sign in, link your sign-in to your TTA username, and set your country and time zone.">
-  <AccountPage client:only="react" apiUrl={PUBLIC_API_URL} adminUrl={PUBLIC_ADMIN_URL} />
+<SiteLayout title="Your account | Through the Ages community" description="Sign in with Discord or by email, link your sign-in to your TTA username, and set your country and time zone.">
+  <AccountPage client:only="react" apiUrl={PUBLIC_API_URL} turnstileSitekey={PUBLIC_TURNSTILE_SITEKEY} />
 </SiteLayout>

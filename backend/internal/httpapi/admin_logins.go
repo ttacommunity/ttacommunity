@@ -1,5 +1,5 @@
-// Admin's view of players' sign-ins: listed, their requests to be linked approved or refused, and a sign-in
-// unlinked from its member by admins and organisers; removed by admins only.
+// Admin's view of players' accounts: listed with their ways in, their requests to be linked approved or refused, and
+// an account unlinked from its member by admins and organisers; removed by admins only.
 package httpapi
 
 import (
@@ -10,28 +10,31 @@ import (
 	"ttacommunity/backend/internal/store"
 )
 
-func (s *server) GetAdminLogins(ctx context.Context, _ GetAdminLoginsRequestObject) (GetAdminLoginsResponseObject, error) {
-	rows, err := s.admins.Logins(ctx)
+func (s *server) GetAdminAccounts(ctx context.Context, _ GetAdminAccountsRequestObject) (GetAdminAccountsResponseObject, error) {
+	rows, err := s.admins.Accounts(ctx)
 	if err != nil {
 		return nil, err
 	}
-	out := make([]AdminLogin, len(rows))
-	for i, l := range rows {
-		out[i] = AdminLogin{Id: l.ID, Provider: LoginProvider(l.Provider), Username: l.Username, DisplayName: l.DisplayName,
-			MemberId: l.MemberID, Member: l.Member, SignedInAt: l.SignedInAt, AutoLink: l.AutoLink}
-		if l.LinkedHow != "" {
-			how := AdminLoginLinkedHow(l.LinkedHow)
+	out := make([]AdminAccount, len(rows))
+	for i, a := range rows {
+		logins := make([]AdminAccountLogin, len(a.Logins))
+		for j, l := range a.Logins {
+			logins[j] = AdminAccountLogin{Provider: LoginProvider(l.Provider), Username: l.Username, DisplayName: l.DisplayName, SignedInAt: l.SignedInAt}
+		}
+		out[i] = AdminAccount{Id: a.ID, Logins: logins, MemberId: a.MemberID, Member: a.Member, SignedInAt: a.SignedInAt, AutoLink: a.AutoLink}
+		if a.LinkedHow != "" {
+			how := AdminAccountLinkedHow(a.LinkedHow)
 			out[i].LinkedHow = &how
 		}
-		if r := l.Request; r != nil {
+		if r := a.Request; r != nil {
 			out[i].Request = &AdminLinkRequest{Id: r.ID, Name: r.Name, Country: r.Country, Zone: r.Zone, Member: r.Member, MemberDiscord: r.MemberDiscord,
-				MemberCountry: r.MemberCountry, MemberZone: r.MemberZone, RequestedAt: r.RequestedAt}
+				MemberEmail: r.MemberEmail, MemberCountry: r.MemberCountry, MemberZone: r.MemberZone, RequestedAt: r.RequestedAt}
 		}
-		if r := l.Refused; r != nil {
+		if r := a.Refused; r != nil {
 			out[i].Refused = &AdminLinkRefused{Name: r.Name, Reason: r.Reason}
 		}
 	}
-	return GetAdminLogins200JSONResponse{Body: out, Headers: GetAdminLogins200ResponseHeaders{CacheControl: cacheNone}}, nil
+	return GetAdminAccounts200JSONResponse{Body: out, Headers: GetAdminAccounts200ResponseHeaders{CacheControl: cacheNone}}, nil
 }
 
 func (s *server) PutAdminLinkApproval(ctx context.Context, req PutAdminLinkApprovalRequestObject) (PutAdminLinkApprovalResponseObject, error) {
@@ -40,7 +43,7 @@ func (s *server) PutAdminLinkApproval(ctx context.Context, req PutAdminLinkAppro
 	switch {
 	case errors.Is(err, store.ErrNoRequest):
 		return PutAdminLinkApproval404JSONResponse{notFound404("no such request waiting for an answer")}, nil
-	case errors.Is(err, store.ErrAlreadyLinked), errors.Is(err, store.ErrMemberHasLogin),
+	case errors.Is(err, store.ErrAlreadyLinked), errors.Is(err, store.ErrMemberHasAccount),
 		errors.Is(err, store.ErrBadMember):
 		return PutAdminLinkApproval409JSONResponse{conflict409(err.Error())}, nil
 	case err != nil:
@@ -73,34 +76,34 @@ func (s *server) PutAdminLinkRefusal(ctx context.Context, req PutAdminLinkRefusa
 	return PutAdminLinkRefusal204Response{}, nil
 }
 
-func (s *server) DeleteAdminLoginMember(ctx context.Context, req DeleteAdminLoginMemberRequestObject) (DeleteAdminLoginMemberResponseObject, error) {
+func (s *server) DeleteAdminAccountMember(ctx context.Context, req DeleteAdminAccountMemberRequestObject) (DeleteAdminAccountMemberResponseObject, error) {
 	me, _ := adminFrom(ctx)
-	if err := s.admins.UnlinkLogin(ctx, req.Login); errors.Is(err, store.ErrNoLogin) {
-		return DeleteAdminLoginMember404JSONResponse{notFound404("no such sign-in")}, nil
+	if err := s.admins.UnlinkAccount(ctx, req.Account); errors.Is(err, store.ErrNoAccount) {
+		return DeleteAdminAccountMember404JSONResponse{notFound404("no such account")}, nil
 	} else if err != nil {
 		return nil, err
 	}
-	if err := s.admins.Audit(ctx, me.DiscordID, "login.unlink", fmt.Sprint(req.Login), nil); err != nil {
+	if err := s.admins.Audit(ctx, me.DiscordID, "account.unlink", fmt.Sprint(req.Account), nil); err != nil {
 		return nil, err
 	}
-	return DeleteAdminLoginMember204Response{}, nil
+	return DeleteAdminAccountMember204Response{}, nil
 }
 
-func (s *server) DeleteAdminLogin(ctx context.Context, req DeleteAdminLoginRequestObject) (DeleteAdminLoginResponseObject, error) {
+func (s *server) DeleteAdminAccount(ctx context.Context, req DeleteAdminAccountRequestObject) (DeleteAdminAccountResponseObject, error) {
 	me, ok, err := adminOnly(ctx)
 	if err != nil {
 		return nil, err
 	}
 	if !ok {
-		return DeleteAdminLogin403JSONResponse{forbidden("only an admin removes a sign-in")}, nil
+		return DeleteAdminAccount403JSONResponse{forbidden("only an admin removes an account")}, nil
 	}
-	if err := s.admins.RemoveLogin(ctx, req.Login); errors.Is(err, store.ErrNoLogin) {
-		return DeleteAdminLogin404JSONResponse{notFound404("no such sign-in")}, nil
+	if err := s.admins.RemoveAccount(ctx, req.Account); errors.Is(err, store.ErrNoAccount) {
+		return DeleteAdminAccount404JSONResponse{notFound404("no such account")}, nil
 	} else if err != nil {
 		return nil, err
 	}
-	if err := s.admins.Audit(ctx, me.DiscordID, "login.remove", fmt.Sprint(req.Login), nil); err != nil {
+	if err := s.admins.Audit(ctx, me.DiscordID, "account.remove", fmt.Sprint(req.Account), nil); err != nil {
 		return nil, err
 	}
-	return DeleteAdminLogin204Response{}, nil
+	return DeleteAdminAccount204Response{}, nil
 }

@@ -1,0 +1,12 @@
+{
+  "name": "ttac-mail-forward",
+  "private": true,
+  "type": "module",
+  "main": "worker.js",
+  "scripts": {
+    "test": "node --test"
+  },
+  "devDependencies": {
+    "wrangler": "4.141.0"
+  }
+}

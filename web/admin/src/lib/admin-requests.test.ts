@@ -53,8 +53,8 @@ describe('admin requests', () => {
     // Players' sign-ins
     ['approving a link request', req.approveLink(20), '/api/link-requests/20/approval', 'PUT', undefined],
     ['refusing one, the reason trimmed', req.refuseLink(20, ' Message us first '), '/api/link-requests/20/refusal', 'PUT', { reason: 'Message us first' }],
-    ['unlinking a sign-in', req.unlinkLogin(3), '/api/logins/3/member', 'DELETE', undefined],
-    ['removing a sign-in', req.removeLogin(3), '/api/logins/3', 'DELETE', undefined],
+    ['unlinking an account', req.unlinkAccount(3), '/api/accounts/3/member', 'DELETE', undefined],
+    ['removing an account', req.removeAccount(3), '/api/accounts/3', 'DELETE', undefined],
     ['a new badge, trimmed', req.addBadge(' Founder ', ' Was there '), '/api/badges', 'POST', { label: 'Founder', description: 'Was there' }],
     ['a badge, trimmed', req.setBadge(7, ' Founder ', ''), '/api/badges/7', 'PUT', { label: 'Founder', description: '' }],
     ['removing a badge', req.removeBadge(7), '/api/badges/7', 'DELETE', undefined],
