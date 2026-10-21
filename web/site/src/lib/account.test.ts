@@ -21,6 +21,7 @@ import {
   isFirstSignIn,
   sharedMe,
   navLabel,
+  showsAdminLink,
   rememberSignedIn,
   saveOutcome,
   seemsSignedIn,
@@ -52,6 +53,17 @@ describe('accountState', () => {
     ['an organiser', { ...base, member: ann, admin_role: 'organiser' as const }, { kind: 'linked', member: ann, playerHref: '/ratings/player/?name=Ann', adminRole: 'organiser' }],
   ])('%s', (_name, me, want) => {
     expect(accountState(me)).toEqual(want);
+  });
+});
+
+describe('showsAdminLink', () => {
+  it.each([
+    ['nobody signed in', null, false],
+    ['a player', base, false],
+    ['an organiser', { ...base, admin_role: 'organiser' as const }, true],
+    ['an admin', { ...base, admin_role: 'admin' as const }, true],
+  ])('%s', (_name, me, want) => {
+    expect(showsAdminLink(me)).toBe(want);
   });
 });
 

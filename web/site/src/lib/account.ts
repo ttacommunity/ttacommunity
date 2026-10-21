@@ -52,6 +52,11 @@ export function navLabel(me: Me | null): string {
   return discord === undefined ? 'Your account' : discord.display_name || discord.username;
 }
 
+/** showsAdminLink says whether the nav offers the way to admin: to admins and organisers, a convenience only, as admin itself is behind Access. */
+export function showsAdminLink(me: Me | null): boolean {
+  return me !== null && me.admin_role !== null;
+}
+
 /** signedInAs heads the account page: how this browser signed in and as whom, with the Discord username under a display name. */
 export function signedInAs(me: Me): { heading: string; detail: string } {
   if (me.provider === 'email') return { heading: `Signed in by email as ${me.username}`, detail: '' };
