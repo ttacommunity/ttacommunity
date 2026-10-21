@@ -6,12 +6,14 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"os"
 	"path/filepath"
 	"slices"
 	"strings"
 	"testing"
 
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -152,5 +154,37 @@ func TestRestoreRefusesAManifestOfOtherTables(t *testing.T) {
 	var n int
 	if err := fresh.QueryRow(ctx, "SELECT count(*) FROM games").Scan(&n); err != nil || n != 0 {
 		t.Errorf("games = %d (%v) after a refused restore, want 0", n, err)
+	}
+}
+
+func TestTheBackupLoginCanTakeABackup(t *testing.T) {
+	ctx := context.Background()
+	pool := withPeople(t, filled(t))
+	dir := filepath.Join(t.TempDir(), "backup")
+	if _, err := Backup(ctx, asBackupLogin(t, pool), dir); err != nil {
+		t.Fatalf("Backup as the backup login: %v", err)
+	}
+	if err := Restore(ctx, migrated(t), dir); err != nil {
+		t.Errorf("restoring the backup login's backup: %v", err)
+	}
+}
+
+func TestTheBackupLoginIsRefusedEverythingElse(t *testing.T) {
+	pool := asBackupLogin(t, withPeople(t, filled(t)))
+	for _, q := range []string{
+		`SELECT * FROM player_sessions`,
+		`SELECT * FROM email_links`,
+		`SELECT * FROM rating_runs`,
+		`INSERT INTO members (tta_name) VALUES ('Eve')`,
+		`UPDATE accounts SET auto_link = false`,
+		`DELETE FROM games`,
+		`TRUNCATE admin_audit`,
+	} {
+		t.Run(q, func(t *testing.T) {
+			_, err := pool.Exec(context.Background(), q)
+			if pgErr := (*pgconn.PgError)(nil); !errors.As(err, &pgErr) || pgErr.Code != "42501" {
+				t.Errorf("%s as the backup login = %v, want permission denied (42501)", q, err)
+			}
+		})
 	}
 }
