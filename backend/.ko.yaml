@@ -7,3 +7,7 @@ builds:
     main: ./cmd/api
     env: [CGO_ENABLED=0]
     flags: [-trimpath]
+  - id: load
+    main: ./cmd/load
+    env: [CGO_ENABLED=0]
+    flags: [-trimpath]

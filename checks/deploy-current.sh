@@ -19,7 +19,7 @@ registry='ghcr.io/ttacommunity/ttacommunity'
 # sources lists the paths image $1 is built from.
 sources() {
   case $1 in
-    api) echo "backend" ;;
+    api | load) echo "backend" ;;
     engine) echo "engine scripts/engine-image.sh" ;;
     *) return 1 ;;
   esac
@@ -28,7 +28,7 @@ sources() {
 # tools lists the mise.toml tools image $1's build installs (.github/workflows/images.yml).
 tools() {
   case $1 in
-    api) echo "go ko crane" ;;
+    api | load) echo "go ko crane" ;;
     engine) echo "uv crane" ;;
   esac
 }

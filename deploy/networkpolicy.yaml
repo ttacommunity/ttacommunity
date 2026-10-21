@@ -131,7 +131,7 @@ spec:
             matchExpressions:
               - key: app
                 operator: In
-                values: [api, engine]
+                values: [api, engine, backup]
       ports:
         - protocol: TCP
           port: 5432
@@ -146,7 +146,7 @@ spec:
     matchExpressions:
       - key: app
         operator: In
-        values: [api, engine]
+        values: [api, engine, backup]
   policyTypes: [Egress]
   egress:
     - to:
@@ -205,3 +205,23 @@ spec:
       ports:
         - protocol: TCP
           port: 6443
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: backup-to-r2
+  namespace: ttacommunity
+spec:
+  # The backup job puts its file in R2, which has no fixed addresses: any public address on 443, RFC1918 excluded.
+  podSelector:
+    matchLabels:
+      app: backup
+  policyTypes: [Egress]
+  egress:
+    - to:
+        - ipBlock:
+            cidr: 0.0.0.0/0
+            except: [10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16, 169.254.0.0/16]
+      ports:
+        - protocol: TCP
+          port: 443

@@ -98,6 +98,22 @@ func asReader(t *testing.T, pool *pgxpool.Pool) *pgxpool.Pool {
 	return reader
 }
 
+// asBackupLogin returns a pool on the same database acting as ratings_backup, as the backup job's login does.
+func asBackupLogin(t *testing.T, pool *pgxpool.Pool) *pgxpool.Pool {
+	t.Helper()
+	cfg := pool.Config().Copy()
+	cfg.AfterConnect = func(ctx context.Context, c *pgx.Conn) error {
+		_, err := c.Exec(ctx, "SET ROLE ratings_backup")
+		return err
+	}
+	backup, err := pgxpool.NewWithConfig(context.Background(), cfg)
+	if err != nil {
+		t.Fatalf("opening a ratings_backup pool: %v", err)
+	}
+	t.Cleanup(backup.Close)
+	return backup
+}
+
 // asAdminLogin returns a pool on the same database acting as ratings_admin, as the API's admin login does.
 func asAdminLogin(t *testing.T, pool *pgxpool.Pool) *pgxpool.Pool {
 	t.Helper()
