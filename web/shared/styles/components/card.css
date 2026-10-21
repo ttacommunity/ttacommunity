@@ -50,5 +50,7 @@
 
 /* A header's BackLink: first, top left above the title, on every width. */
 .header-back {
+  width: 100%;
   margin-bottom: 1rem;
+  text-align: left;
 }

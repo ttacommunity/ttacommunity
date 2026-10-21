@@ -124,6 +124,8 @@
 }
 .comm-search-input {
   flex: 1;
+  height: var(--control-height);
+  box-sizing: border-box;
   background: rgba(10, 7, 5, 0.95);
   border: 1px solid var(--border-subtle);
   color: var(--text-bright);
@@ -141,6 +143,11 @@
 
 /* Premium Search & Action Buttons */
 .btn-search-gold {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: var(--control-height);
+  box-sizing: border-box;
   background: var(--gradient-gold);
   color: var(--text-on-gold);
   font-family: var(--font-heading);
@@ -161,6 +168,11 @@
   transform: translateY(-1px);
 }
 .btn-clear-muted {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: var(--control-height);
+  box-sizing: border-box;
   background: var(--surface-panel);
   color: var(--text-soft);
   border: 1px solid var(--border-subtle);
