@@ -67,6 +67,7 @@ const current = currentSection(Astro.url.pathname);
           Data from competitive online TTA tournaments<span class="run-facts"></span>. &bull;
           Designed and built by DANeo, with huge contribution by UnstableUnicorn
         </p>
+        <p class="footer-small"><a href="/privacy/">Privacy</a> &middot; <a href="mailto:support@ttacommunity.org">Contact</a></p>
       </div>
     </footer>
 
@@ -190,6 +191,9 @@ const current = currentSection(Astro.url.pathname);
 
   .footer-small a {
     color: #887864;
+    /* Underlined, as the same colour as the text would not show they are links. */
+    text-decoration: underline;
+    text-underline-offset: 2px;
   }
 
   .footer-small a:hover {
