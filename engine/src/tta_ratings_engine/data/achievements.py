@@ -88,7 +88,10 @@ def record_key(row) -> tuple[str, str, str]:
             stage,
             row.get("group_label") or stage,
         )
-    return campaign(row["tournament"])
+    tourney, season, division = campaign(row["tournament"])
+    if division == "Division" and row.get("group_label"):
+        division = row["group_label"]
+    return tourney, season, division
 
 
 def campaign(name: str) -> tuple[str, str, str]:
@@ -103,12 +106,12 @@ def campaign(name: str) -> tuple[str, str, str]:
         (
             r"International\s+S(\d+)(?:\s*-\s*(.*))?",
             "International Championship",
-            "Grandmaster",
+            "Division",
         ),
         (
             r"Intermezzo\s+S(\d+)(?:\s*-\s*(.*))?",
             "Intermezzo Championship",
-            "Grandmaster",
+            "Division",
         ),
         (r"RL_s0?(\d+)(?:\s*-\s*(.*))?", "Royal League", "Division"),
     ):
@@ -373,7 +376,7 @@ def _campaign_rows(rows, keys, dates):
             )
             official = keys.get((p, tournament, season))
             if official is not None:
-                if division and division != "Main":
+                if division and division not in ("Main", "Division"):
                     official["division"] = division
                 official["details"] += f" • Record: {w}W - {n - w}L ({pct}% win rate)"
                 if official["finish_date"] in (FALLBACK_DATE, ""):
