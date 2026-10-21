@@ -21,6 +21,8 @@ describe('faqFigures', () => {
       row('glicko2_std', 0, 0.2143, 0.0147),
       row('glicko2_mp', 4, 0.22235, 0.0196),
       row('glicko2_std', 4, 0.224, 0.0324),
+      row('glicko2_daneo_softer', 0, 0.2070, 0.006),
+      row('glicko2_std_softer', 0, 0.2125, 0.0063),
       { ...row('glicko2_mp', 0, 0.1, 0.1), mode: 'standard' as const },
     ];
     const activity = { run_id: 2, active: 1579, inactive: 1910, formats: [], titles: [], countries: [] } satisfies Activity;
@@ -34,6 +36,10 @@ describe('faqFigures', () => {
       'mp.4.ece': '1.96',
       'std.4.brier': '0.2240',
       'std.4.ece': '3.24',
+      'daneo_softer.0.brier': '0.2070',
+      'daneo_softer.0.ece': '0.60',
+      'std_softer.0.brier': '0.2125',
+      'std_softer.0.ece': '0.63',
       players: '1579',
     });
   });

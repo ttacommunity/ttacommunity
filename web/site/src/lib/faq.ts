@@ -23,7 +23,12 @@ export function resolveTab(name: string, tabs: readonly string[]): string | null
   return tabs.includes(tab) ? tab : null;
 }
 
-const FIGURE_MODELS = { mp: 'glicko2_mp', std: 'glicko2_std' } as const;
+const FIGURE_MODELS = {
+  mp: 'glicko2_mp',
+  std: 'glicko2_std',
+  daneo_softer: 'glicko2_daneo_softer',
+  std_softer: 'glicko2_std_softer',
+} as const;
 
 /**
  * faqFigures formats upstream's live FAQ figures from a run's calibration and activity: walk-forward
