@@ -339,3 +339,15 @@ func TestSetCountriesIsAllOrNothing(t *testing.T) {
 		t.Errorf("ann's country after a refused load = %q, want none", *c)
 	}
 }
+
+func TestEverySecurityDefinerFunctionSearchesTheTemporarySchemaLast(t *testing.T) {
+	pool := migrated(t)
+	got := rowsOf(t, pool, `
+		SELECT p.oid::regprocedure::text || ' ' || coalesce(array_to_string(p.proconfig, ','), 'no search_path')
+		FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
+		WHERE n.nspname = 'public' AND p.prosecdef AND NOT coalesce('search_path=public, pg_temp' = ANY (p.proconfig), false)
+		ORDER BY 1`)
+	if len(got) > 0 {
+		t.Errorf("SECURITY DEFINER functions without search_path public, pg_temp: %q", got)
+	}
+}
