@@ -68,6 +68,17 @@
   opacity: 0.7;
 }
 
+/* The signed-in player's own blitz game: a gold edge, and a link to their report box. */
+.game-yours td:first-child {
+  box-shadow: inset 3px 0 0 var(--accent-gold);
+}
+.game-you {
+  display: block;
+  margin-top: 0.25rem;
+  color: var(--accent-gold);
+  font-size: 0.85rem;
+}
+
 .game-state {
   display: inline-block;
   margin-left: 0.5rem;

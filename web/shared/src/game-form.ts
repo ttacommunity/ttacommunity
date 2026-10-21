@@ -1,4 +1,4 @@
-/** The result form's decisions: turning what the organiser typed into the game the API records, or the reason it cannot. */
+/** The game form's decisions, for organisers and players alike: turning what was typed into the game the API records, or the reason it cannot. */
 import type { components } from '@ttac/shared/api';
 
 type Schemas = components['schemas'];
@@ -30,9 +30,10 @@ function culture(text: string, outcome: BlitzOutcome): number | null {
   return Number.isFinite(n) && n >= 0 ? n : null;
 }
 
-/** gameRecordFrom turns the form into the request body (the share code may be left empty), or says what is missing: a culture for each finished player, the day, time and zone it finished, and at least one player who finished. */
-export function gameRecordFrom(f: GameForm): { ok: true; body: BlitzGameRecord } | { ok: false; message: string } {
+/** gameRecordFrom turns the form into the request body (the share code may be left empty unless codeRequired, as for a player's report), or says what is missing: a culture for each finished player, the day, time and zone it finished, and at least one player who finished. */
+export function gameRecordFrom(f: GameForm, { codeRequired = false } = {}): { ok: true; body: BlitzGameRecord } | { ok: false; message: string } {
   const share_code = f.share_code.trim();
+  if (codeRequired && share_code === '') return { ok: false, message: "The game's share code is needed." };
   const a = culture(f.a_culture, f.a_outcome);
   const b = culture(f.b_culture, f.b_outcome);
   if (a === null || b === null) return { ok: false, message: 'A finished player needs a culture of 0 or more.' };

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { components } from '@ttac/shared/api';
-import { blitzGames, editionHref, editionParams, editionViews, notPlaying, ratingText, roundOptions, splitRounds } from './blitz';
+import { blitzGames, editionHref, editionParams, editionViews, notPlaying, ratingText, resultsUpdated, roundOptions, splitRounds } from './blitz';
 
 describe('splitRounds', () => {
   it('puts the Swiss rounds newest first and the knockout rounds in bracket order, first to final', () => {
@@ -98,6 +98,14 @@ describe('blitzGames', () => {
     expect([row.date, row.tag, row.unplayed, row.code]).toEqual(want);
   });
   it.each([
+    ['reported by a player', { reported_by: 'Ann' }, 'Reported by Ann'],
+    ['reported and confirmed', { reported_by: 'Ann', confirmed: true }, 'Reported by Ann, confirmed'],
+    ['entered by an organiser', {}, ''],
+  ] as const)('tags a game %s', (_name, extra, want) => {
+    const reported = [round(1, [match('Ann', 'Cy', { result: 'a', game: played('REP-1', '2026-10-14T23:30:00Z'), ...extra })])];
+    expect(blitzGames(reported, format, all, 'UTC').rows[0].tag).toBe(want);
+  });
+  it.each([
     ['every round, in the order given', all, ['2-1', '2-2', '2-3', '2-4', '1-1'], 4, 2],
     ['one round', { ...all, round: 1 }, ['1-1'], 1, 1],
     ['one player', { ...all, player: 'Dee' }, ['2-2', '1-1'], 2, 1],
@@ -139,5 +147,23 @@ describe('roundOptions', () => {
       { value: 2, label: 'Round 2' },
       { value: 1, label: 'Round 1' },
     ]);
+  });
+});
+
+describe('resultsUpdated', () => {
+  it.each([
+    ['a result recorded', '2026-10-14T19:30:00Z', 'Results last updated 14 Oct 2026, 21:30 (Europe/Berlin).'],
+    ['no result yet', null, ''],
+  ])('%s', (_name, at, want) => {
+    expect(resultsUpdated(at, 'Europe/Berlin')).toBe(want);
+  });
+});
+
+describe("blitzGames' row of the signed-in player's game", () => {
+  it.each([
+    ['their game in the latest round', { round: 2, a: 'Fay', label: 'Your game: report it' }, ['', '', 'Your game: report it', '']],
+    ['no game of theirs', null, ['', '', '', '']],
+  ] as const)('%s', (_name, you, want) => {
+    expect(blitzGames(rounds, format, { ...all, round: 2 }, 'UTC', you).rows.map((r) => r.you ?? '')).toEqual(want);
   });
 });

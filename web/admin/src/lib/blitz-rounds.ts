@@ -40,6 +40,15 @@ export function rulingChoices(kind: AdminBlitzRound['kind']): NonNullable<AdminB
   return kind === 'knockout' ? ['a', 'b'] : ['a', 'b', 'draw', 'double_loss'];
 }
 
+/** reportNote says how players reported a match's game: who reported it, who confirmed or flagged it and why, and whether an organiser resolved it; '' for an organiser's entry. */
+export function reportNote(m: AdminBlitzMatch, nameOf: (id: number) => string): string {
+  if (m.reported_by === null || m.report === null) return '';
+  const opponent = nameOf(m.reported_by === m.a ? (m.b ?? 0) : m.a);
+  const flag = m.flag_reason === '' ? '' : `, flagged by ${opponent}: “${m.flag_reason}”`;
+  const said = `Reported by ${nameOf(m.reported_by)}`;
+  return { reported: said, confirmed: `${said}, confirmed by ${opponent}`, flagged: said + flag, resolved: `${said}${flag}; resolved` }[m.report];
+}
+
 /** rulingLabel names a ruling's result for the organiser: with no game played, as the forfeit it is; over a played game, as the result it gives instead. */
 export function rulingLabel(result: NonNullable<AdminBlitzMatch['result']>, a: string, b: string, played: boolean): string {
   if (played) return { a: `${a} wins`, b: `${b} wins`, draw: 'A draw', double_loss: 'Both lose' }[result];

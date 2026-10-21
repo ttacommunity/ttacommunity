@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { byeTakers, canDeleteRound, canResetEdition, entrantActions, entrantState, resetsOf, partnersFor, leftUnpaired, pairCounts, reconcilePending, replaceableSide, canPair, decidedOnly, nextRound, openRound, pairAction, rulingChoices, rulingLabel, newestFirst, samePairs, shownAfter, undecided, unpaired, unsavedMatch, zoneGapLabel, type AdminBlitzRound } from './blitz-rounds';
+import { byeTakers, canDeleteRound, canResetEdition, entrantActions, entrantState, resetsOf, partnersFor, leftUnpaired, pairCounts, reconcilePending, replaceableSide, canPair, decidedOnly, nextRound, openRound, pairAction, reportNote, rulingChoices, rulingLabel, newestFirst, samePairs, shownAfter, undecided, unpaired, unsavedMatch, zoneGapLabel, type AdminBlitzRound } from './blitz-rounds';
 
 const round = (id: number, number: number, published: boolean, matches: AdminBlitzRound['matches']): AdminBlitzRound => ({
   id,
@@ -365,5 +365,19 @@ describe('partnersFor and byeTakers', () => {
     ['everyone when all have had one', [entrant(3)], [3]],
   ])('bye: %s', (_name, players, want) => {
     expect(byeTakers(players, rounds, 3).map((e) => e.id)).toEqual(want);
+  });
+});
+
+describe('reportNote', () => {
+  const nameOf = (id: number) => ({ 1: 'Ann', 2: 'Bob' })[id] ?? '?';
+  it.each([
+    ["an organiser's entry", {}, ''],
+    ['reported', { reported_by: 1, report: 'reported' }, 'Reported by Ann'],
+    ['confirmed', { reported_by: 1, report: 'confirmed' }, 'Reported by Ann, confirmed by Bob'],
+    ['flagged', { reported_by: 1, report: 'flagged', flag_reason: 'I won' }, 'Reported by Ann, flagged by Bob: “I won”'],
+    ['resolved from a flag', { reported_by: 1, report: 'resolved', flag_reason: 'I won' }, 'Reported by Ann, flagged by Bob: “I won”; resolved'],
+    ['resolved without a flag', { reported_by: 2, report: 'resolved' }, 'Reported by Bob; resolved'],
+  ] as const)('%s', (_name, extra, want) => {
+    expect(reportNote({ ...match(7, 1, 2, 'a'), ...extra }, nameOf)).toBe(want);
   });
 });

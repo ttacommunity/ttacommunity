@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { gameRecordFrom, type GameForm } from './blitz-results';
+import { gameRecordFrom, type GameForm } from './game-form';
 
 const form: GameForm = { share_code: ' ABCD1234 ', a_culture: '250', a_outcome: 'finished', b_culture: '200', b_outcome: 'finished', finished_on: '2026-10-14', finished_time: '21:30', zone: 'Europe Central' };
 
@@ -9,6 +9,11 @@ describe('gameRecordFrom', () => {
       ok: true,
       body: { share_code: 'ABCD1234', a: { culture: 250, outcome: 'finished' }, b: { culture: 200, outcome: 'finished' }, finished_on: '2026-10-14', finished_time: '21:30', zone: 'Europe Central' },
     });
+  });
+  it('refuses a game without a share code when one is required', () => {
+    const r = gameRecordFrom({ ...form, share_code: ' ' }, { codeRequired: true });
+    expect(!r.ok && r.message).toContain('share code');
+    expect(gameRecordFrom(form, { codeRequired: true }).ok).toBe(true);
   });
   it('sends no share code for a game without one', () => {
     const r = gameRecordFrom({ ...form, share_code: ' ' });

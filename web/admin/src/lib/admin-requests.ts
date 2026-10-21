@@ -116,6 +116,8 @@ export const deleteBlitzRound = (slug: string, edition: string, round: number) =
 /** recordBlitzGame records, or corrects, the game a match was played as. */
 export const recordBlitzGame = (slug: string, edition: string, round: number, match: number, game: Schemas['BlitzGameRecord']) =>
   to(`${blitz(slug, edition)}/rounds/${round}/matches/${match}/game`, 'PUT', game);
+/** keepBlitzReport resolves a flagged report by keeping its result. */
+export const keepBlitzReport = (slug: string, edition: string, round: number, match: number) => to(`${blitz(slug, edition)}/rounds/${round}/matches/${match}/keep`, 'POST');
 /** recordBlitzRuling decides a match by the organisers' ruling. */
 export const recordBlitzRuling = (slug: string, edition: string, round: number, match: number, ruling: Schemas['BlitzRuling']) =>
   to(`${blitz(slug, edition)}/rounds/${round}/matches/${match}/ruling`, 'PUT', ruling);

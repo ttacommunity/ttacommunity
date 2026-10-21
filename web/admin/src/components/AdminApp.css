@@ -507,6 +507,10 @@
   font-weight: normal;
   font-size: 0.85em;
 }
+/* A player's flag waiting for an organiser stands out from the other notes under a result. */
+.row-detail.row-flagged {
+  color: var(--loss);
+}
 .row-dates {
   white-space: nowrap;
 }

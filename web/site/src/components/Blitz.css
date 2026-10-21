@@ -91,3 +91,31 @@
   padding: 0.3rem 0.8rem;
   font-size: 0.85rem;
 }
+/* The player's own game: its card lands below the sticky header when the pairings link to it, its buttons, and the
+   report form a row at a time, wrapping on a phone. */
+.your-game {
+  scroll-margin-top: 5.5rem;
+}
+.report-form {
+  display: grid;
+  gap: 0.75rem;
+}
+.report-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 0.75rem;
+}
+.report-row label {
+  display: grid;
+  gap: 0.25rem;
+  color: var(--text-soft);
+  font-size: var(--size-body-short);
+}
+.report-said {
+  margin: 0.75rem 0 0;
+  color: var(--text-soft);
+}
+.report-said.report-refused {
+  color: var(--loss);
+}

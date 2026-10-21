@@ -10,13 +10,13 @@ import { adminDownload, adminRequest, firstError, type AdminBlitzEdition, type A
 import * as req from '../lib/admin-requests';
 import { tabsFor } from '../lib/admin-tabs';
 import { editionFormatWarnings, editionParams, formatAdvice, pointsChanged, pointsForm, pointsFrom, settingsRows, type AdminBlitzEntrant, type PointsForm } from '../lib/blitz-page';
-import { emptyGameForm, gameRecordFrom, type BlitzStanding, type GameForm } from '../lib/blitz-results';
+import { emptyGameForm, gameRecordFrom, type BlitzStanding, type GameForm } from '@ttac/shared/game-form';
 import { deadlineForm, deadlineLabel, deadlineLocked, organiserChoices, threadTextSavable, threadsBlocker, threadsFileName, type DeadlineForm, type ThreadText } from '../lib/blitz-threads';
 import { entrantToAdd, wildcardChoices, type PersonChoice, type PersonDetails } from '../lib/person-form';
 import { countryNames, type Country } from '../lib/countries';
 import { clockIn, type Region } from '../lib/zones';
 import { loadFailure, outcomeOf, refused, shownAt, succeeded, type Outcome } from '../lib/outcome';
-import { asChanges, byeTakers, canDeleteRound, canResetEdition, decidedOnly, resetsOf, entrantActions, entrantState, leftUnpaired, newestFirst, openRound, pairAction, pairCounts, partnersFor, reconcilePending, replaceableSide, rulingChoices, rulingLabel, samePairs, shownAfter, unpaired, unsavedMatch, zoneGapLabel, type AdminBlitzMatch, type AdminBlitzRound, type Pending } from '../lib/blitz-rounds';
+import { asChanges, byeTakers, canDeleteRound, canResetEdition, decidedOnly, resetsOf, entrantActions, entrantState, leftUnpaired, newestFirst, openRound, pairAction, pairCounts, partnersFor, reconcilePending, replaceableSide, reportNote, rulingChoices, rulingLabel, samePairs, shownAfter, unpaired, unsavedMatch, zoneGapLabel, type AdminBlitzMatch, type AdminBlitzRound, type Pending } from '../lib/blitz-rounds';
 import AdminHeader from './AdminHeader';
 import CountryPick from './CountryPick';
 import InfoTip from './InfoTip';
@@ -240,6 +240,11 @@ function RoundsPanel({ at, ed, regions, onReload, outcome, say }: Props) {
     setRecording(null);
     await run(req.resetBlitzResult(at.slug, at.edition, r.id, m.id), `${pair} reset.`, `match ${m.id}`);
   };
+  const keepReport = async (r: AdminBlitzRound, m: AdminBlitzMatch) => {
+    const pair = `${nameOf(m.a)} v ${nameOf(m.b as number)}`;
+    if (!(await dialog.confirm({ heading: `Keep the reported result of ${pair}?`, text: 'The flag is resolved and the result stays as reported. Players still cannot change it; Reset opens it to them again.', action: 'Keep result' }))) return;
+    await run(req.keepBlitzReport(at.slug, at.edition, r.id, m.id), `${pair}: report kept.`, `match ${m.id}`);
+  };
   const resetRound = async (r: AdminBlitzRound) => {
     const title = roundTitle(r.number, ed.format);
     const sure = await dialog.confirm({
@@ -428,6 +433,7 @@ function RoundsPanel({ at, ed, regions, onReload, outcome, say }: Props) {
                             <td>
                               {m.b !== null && m.result === null ? <span className="muted">not yet</span> : summary(m)}
                               {m.ruling !== '' && <span className="row-detail muted">{m.ruling}</span>}
+                              {reportNote(m, nameOf) !== '' && <span className={m.report === 'flagged' ? 'row-detail row-flagged' : 'row-detail muted'}>{reportNote(m, nameOf)}</span>}
                             </td>
                             <td className="run-buttons">
                               {m.b !== null && m.id !== 0 && !changed(r) && (
@@ -441,6 +447,11 @@ function RoundsPanel({ at, ed, regions, onReload, outcome, say }: Props) {
                                   }}
                                 >
                                   {m.result === null ? 'Record' : 'Correct'}
+                                </button>
+                              )}
+                              {m.report === 'flagged' && !changed(r) && (
+                                <button type="button" className="btn-antique" onClick={() => void keepReport(r, m)}>
+                                  Keep
                                 </button>
                               )}
                               {resets.matches.includes(m.id) && !changed(r) && (

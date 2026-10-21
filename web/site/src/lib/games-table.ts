@@ -4,7 +4,7 @@
 export type GameSeat = { label: string; link: string | null; detail: string; score: number | null; note: string };
 
 /** GameRow is one game: its date ('' for none), what it belongs to (a season, a round), where it was played, a state to tag it with, whether it went unplayed, its seats and its replay code. */
-export type GameRow = { key: string; date: string; context: string; where: string; tag: string; unplayed: boolean; seats: GameSeat[]; code: string | null };
+export type GameRow = { key: string; date: string; context: string; where: string; tag: string; unplayed: boolean; seats: GameSeat[]; code: string | null; you?: string };
 
 /** GAMES_PER_PAGE is how many games a page shows, as the API pages a tournament's games. */
 export const GAMES_PER_PAGE = 50;

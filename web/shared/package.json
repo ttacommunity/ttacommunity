@@ -10,6 +10,7 @@
     "./api": "./api/schema.ts",
     "./ratings": "./src/ratings.ts",
     "./blitz": "./src/blitz.ts",
+    "./game-form": "./src/game-form.ts",
     "./styles/*": "./styles/*",
     "./Segmented": "./src/Segmented.tsx",
     "./SubTabs": "./src/SubTabs.tsx",
