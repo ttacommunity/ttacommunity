@@ -215,47 +215,77 @@ def test_player_records_list_a_champions_seasons_as_upstream(records):
     assert records["ann"] == [
         record(1, "World Championship", "2024", "Championship Final", "1 / 4", "Gold Medal & World Title", "gold",
                "Through the Ages World Championship 2024 Winner & Reigning World Champion", "2024-12-15"),
-        record(2, "International Championship", "Career (2 seasons)", "Grandmaster / Hall of Fame",
+        record(3, "International Championship", "Career (2 seasons)", "Grandmaster / Hall of Fame",
                "1x 1st, 1x 2nd, 0x 3rd", "45 pts", "gold", "Participated in 2 seasons, total score: 45 pts",
                "Career / All-Time", career=True),
-        record(3, "International Championship", "Season 29", "Grandmaster", "1 / 3", "25 pts", "gold",
+        record(4, "International Championship", "Season 29", "Grandmaster", "1 / 3", "25 pts", "gold",
                "Season 29 International Championship Standing (1 of 3)", "2026-01-01"),
-        record(4, "International Championship", "Season 30", "Grandmaster", "1 / 3", "20 pts", "gold",
-               "Season 30 International Championship Standing (1 of 3) • Record: 1W - 1L (50.0% win rate)",
+        record(5, "International Championship", "Season 30", "Grandmaster", "2 / 3", "20 pts", "silver",
+               "Season 30 International Championship Standing (2 of 3) • Record: 1W - 1L (50.0% win rate)",
                "2025-08-14"),
-        record(13, "Quick and Dirty (Q&D)", "Career Trophy Hall of Fame", "Championship",
+        record(14, "Quick and Dirty (Q&D)", "Career Trophy Hall of Fame", "Championship",
                "2 Gold, 0 Silver, 1 Bronze", "3 Medals", "gold",
                "Q&D Hall of Fame Medalist: 2x Gold, 0x Silver, 1x Bronze", "Career / All-Time", career=True),
-        record(14, "TCL Round 31", "Tournament", "Main", "1 / 2", "80 pts", None,
+        record(15, "TCL Round 31", "Tournament", "Main", "1 / 2", "80 pts", None,
                "Competed in Main: 1 matches played, 1 victories (100.0% win rate)", "2024-01-02"),
     ]  # fmt: skip
 
 
-def test_player_records_break_a_season_tie_by_the_sheets_order(records):
-    s30 = [r for r in records["bob"] if r["season"] == "Season 30"]
-    assert s30 == [
-        record(7, "International Championship", "Season 30", "Grandmaster", "2 / 3", "20 pts", "silver",
+def test_player_records_break_a_season_tie_by_standings_place(records):
+    s30_bob = [r for r in records["bob"] if r["season"] == "Season 30"]
+    assert s30_bob == [
+        record(8, "International Championship", "Season 30", "Grandmaster", "1 / 3", "20 pts", "gold",
+               "Season 30 International Championship Standing (1 of 3) • Record: 1W - 1L (50.0% win rate)",
+               "2025-08-14"),
+    ]  # fmt: skip
+    s30_ann = [r for r in records["ann"] if r["season"] == "Season 30"]
+    assert s30_ann == [
+        record(5, "International Championship", "Season 30", "Grandmaster", "2 / 3", "20 pts", "silver",
                "Season 30 International Championship Standing (2 of 3) • Record: 1W - 1L (50.0% win rate)",
                "2025-08-14"),
     ]  # fmt: skip
 
 
+def test_player_records_worlds_podium_silver_and_bronze(records):
+    worlds_bob = [r for r in records["bob"] if r["tournament"] == "World Championship"]
+    assert worlds_bob == [
+        record(2, "World Championship", "2025", "Championship Final", "2 / 4", "Silver Medal & Vice-Champion", "silver",
+               "Through the Ages World Championship 2025 Runner-up & Vice-Champion", "2026-01-01"),
+    ]  # fmt: skip
+
+
 def test_player_records_rank_other_groups_by_wins_as_upstream(records):
     assert records["dan"] == [
-        record(12, "Royal League", "Season 1", "Emperor", "2 / 8", "Silver Medal", "silver",
+        record(13, "Royal League", "Season 1", "Emperor", "2 / 8", "Silver Medal", "silver",
                "Royal League Emperor Division Runner-up (Season 1)", "2024-08-11"),
-        record(15, "TCL Round 31", "Tournament", "Main", "2 / 2", "60 pts", None,
+        record(16, "TCL Round 31", "Tournament", "Main", "2 / 2", "60 pts", None,
                "Competed in Main: 1 matches played, 0 victories (0.0% win rate)", "2024-01-02"),
-        record(16, "International Championship", "Season 30", "Master 1", "1 / 4", "2W - 0L (100.0%)", None,
+        record(17, "International Championship", "Season 30", "Master 1", "1 / 4", "2W - 0L (100.0%)", None,
                "Competed in Master 1: 2 matches played, 2 victories (100.0% win rate)", "2025-08-14"),
     ]  # fmt: skip
     assert [(r["position"], r["placement"], r["medal"]) for r in records["fay"]] == [
-        (18, "2 / 4", None)
+        (19, "2 / 4", None)
     ]
     assert (
         records["cat"][-1]["details"]
         == "Royal League Emperor Division Winner (Season 1)"
     )
+
+
+def test_achievement_season_rows_agree_with_tournament_boards(records):
+    for name in ("ann", "bob", "cat", "dan"):
+        seasons = [r for r in records[name] if not r["career"]]
+        golds = sum(1 for r in seasons if r["medal"] == "gold")
+        silvers = sum(1 for r in seasons if r["medal"] == "silver")
+        bronzes = sum(1 for r in seasons if r["medal"] == "bronze")
+        if name == "ann":
+            assert (golds, silvers, bronzes) == (2, 1, 0)
+        elif name == "bob":
+            assert (golds, silvers, bronzes) == (1, 2, 0)
+        elif name == "cat":
+            assert (golds, silvers, bronzes) == (1, 0, 2)
+        elif name == "dan":
+            assert (golds, silvers, bronzes) == (0, 1, 0)
 
 
 def test_player_records_write_each_honour_series_in_upstreams_order():
