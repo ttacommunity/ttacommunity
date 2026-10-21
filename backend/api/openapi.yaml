@@ -4890,8 +4890,11 @@ components:
     AdminBlitzEditionRow:
       description: One edition of a blitz tournament as admin's list shows it
       type: object
-      required: [tournament, name, edition, format, entrants, dropped, round, champion]
+      required: [tournament, name, edition, format, entrants, dropped, round, champion, flagged]
       properties:
+        flagged:
+          description: How many players' reports are flagged and waiting for an organiser
+          type: integer
         champion:
           description: The winner of the knockout's final, by username; null until the final has a winner
           type: string

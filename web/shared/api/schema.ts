@@ -3103,6 +3103,8 @@ export interface components {
         };
         /** @description One edition of a blitz tournament as admin's list shows it */
         AdminBlitzEditionRow: {
+            /** @description How many players' reports are flagged and waiting for an organiser */
+            flagged: number;
             /** @description The winner of the knockout's final, by username; null until the final has a winner */
             champion: string | null;
             /** @description The latest published round's number, null before the first is published */

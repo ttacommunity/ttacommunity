@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { byeTakers, canDeleteRound, canResetEdition, entrantActions, entrantState, resetsOf, partnersFor, leftUnpaired, pairCounts, reconcilePending, replaceableSide, canPair, decidedOnly, nextRound, openRound, pairAction, reportNote, rulingChoices, rulingLabel, newestFirst, samePairs, shownAfter, undecided, unpaired, unsavedMatch, zoneGapLabel, type AdminBlitzRound } from './blitz-rounds';
+import { byeTakers, canDeleteRound, canResetEdition, entrantActions, entrantState, resetsOf, partnersFor, leftUnpaired, pairCounts, reconcilePending, replaceableSide, canPair, decidedOnly, nextRound, openRound, pairAction, flaggedMatches, reportNote, rulingChoices, rulingLabel, newestFirst, samePairs, shownAfter, undecided, unpaired, unsavedMatch, zoneGapLabel, type AdminBlitzRound } from './blitz-rounds';
 
 const round = (id: number, number: number, published: boolean, matches: AdminBlitzRound['matches']): AdminBlitzRound => ({
   id,
@@ -379,5 +379,14 @@ describe('reportNote', () => {
     ['resolved without a flag', { reported_by: 2, report: 'resolved' }, 'Reported by Bob; resolved'],
   ] as const)('%s', (_name, extra, want) => {
     expect(reportNote({ ...match(7, 1, 2, 'a'), ...extra }, nameOf)).toBe(want);
+  });
+});
+
+describe('flaggedMatches', () => {
+  it('lists the flagged matches, oldest round first, with their round', () => {
+    const flagged = (id: number) => ({ ...match(id, 1, 2, 'a'), reported_by: 1, report: 'flagged' as const, flag_reason: 'wrong' });
+    const rounds = [round(12, 2, true, [flagged(21), match(22, 3, 4, 'a')]), round(11, 1, true, [flagged(11), { ...match(12, 3, 4, 'b'), reported_by: 3, report: 'resolved' as const }])];
+    expect(flaggedMatches(rounds).map((f) => `${f.round.number}:${f.match.id}`)).toEqual(['1:11', '2:21']);
+    expect(flaggedMatches([round(11, 1, true, [match(12, 3, 4, 'b')])])).toEqual([]);
   });
 });

@@ -29,7 +29,9 @@ type BlitzEditionRow struct {
 	Slug, Name, Edition string
 	Format              BlitzFormat
 	Entrants, Dropped   int
-	TiebreakSeed        int64
+	// Flagged counts the players' reports flagged and waiting for an organiser.
+	Flagged      int
+	TiebreakSeed int64
 	// Points are what each outcome is worth, FIDE's until admin sets them.
 	Points blitz.Scoring
 	// Round is the latest published round's number, nil before the first is published; PairedRound is the latest
@@ -126,6 +128,7 @@ func blitzEditionRows(ctx context.Context, db conn, public bool, slug, edition s
 		       coalesce(e.tiebreak_seed, 0),
 		       (SELECT max(r.number) FROM blitz_rounds r WHERE r.tournament_id = t.tournament_id AND r.published_at IS NOT NULL),
 		       (SELECT max(r.number) FROM blitz_rounds r WHERE r.tournament_id = t.tournament_id),
+		       (SELECT count(*) FROM blitz_rounds r JOIN blitz_matches m USING (round_id) WHERE r.tournament_id = t.tournament_id AND m.report = 'flagged')::int,
 		       `+blitzChampionOf+`
 		FROM series s JOIN tournaments t USING (series_id)
 		LEFT JOIN blitz_editions e ON e.tournament_id = t.tournament_id
@@ -140,7 +143,7 @@ func blitzEditionRows(ctx context.Context, db conn, public bool, slug, edition s
 		var r BlitzEditionRow
 		p := &r.Points
 		return r, row.Scan(&r.Slug, &r.Name, &r.Edition, &r.Format.SwissRounds, &r.Format.KnockoutSize, &p.Win, &p.Draw, &p.Loss, &p.ForfeitWin,
-			&p.ForfeitLoss, &p.Bye, &p.Skip, &r.Entrants, &r.Dropped, &r.TiebreakSeed, &r.Round, &r.PairedRound, &r.Champion)
+			&p.ForfeitLoss, &p.Bye, &p.Skip, &r.Entrants, &r.Dropped, &r.TiebreakSeed, &r.Round, &r.PairedRound, &r.Flagged, &r.Champion)
 	})
 	if err != nil {
 		return nil, fmt.Errorf("listing blitz editions: %w", err)

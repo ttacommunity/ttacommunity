@@ -37,7 +37,7 @@ export function panelsFor(tab: TabKey, role: Role): Panel[] {
   return [tab];
 }
 
-/** tabCounts are the numbers beside tabs: on Members, the requests to be linked waiting for an answer, when there are any. */
-export function tabCounts(waiting: number): Partial<Record<TabKey, number>> {
-  return waiting > 0 ? { members: waiting } : {};
+/** tabCounts are the numbers beside tabs, when there are any: on Members, the requests to be linked waiting for an answer; on Blitz, the players' reports flagged for an organiser. */
+export function tabCounts(waiting: number, flagged: number): Partial<Record<TabKey, number>> {
+  return { ...(waiting > 0 ? { members: waiting } : {}), ...(flagged > 0 ? { blitz: flagged } : {}) };
 }

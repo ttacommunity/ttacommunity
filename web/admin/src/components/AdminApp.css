@@ -557,7 +557,8 @@
 }
 .round-block h3,
 .admin-subsection > h3,
-.settings-head h3 {
+.settings-head h3,
+.flagged-results > h3 {
   margin-bottom: 0.5rem;
   font-family: var(--font-heading);
   font-size: 1rem;

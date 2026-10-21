@@ -39,9 +39,11 @@ describe('admin tabs', () => {
   });
 
   it.each([
-    ['requests waiting', 2, { members: 2 }],
-    ['none waiting', 0, {}],
-  ] as const)('counts on the tabs: %s', (_name, waiting, want) => {
-    expect(tabCounts(waiting)).toEqual(want);
+    ['requests waiting', 2, 0, { members: 2 }],
+    ['reports flagged', 0, 3, { blitz: 3 }],
+    ['both', 1, 1, { members: 1, blitz: 1 }],
+    ['none waiting', 0, 0, {}],
+  ] as const)('counts on the tabs: %s', (_name, waiting, flagged, want) => {
+    expect(tabCounts(waiting, flagged)).toEqual(want);
   });
 });

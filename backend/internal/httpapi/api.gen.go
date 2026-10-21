@@ -1139,6 +1139,9 @@ type AdminBlitzEditionRow struct {
 	// Entrants How many entrants are still in
 	Entrants int `json:"entrants"`
 
+	// Flagged How many players' reports are flagged and waiting for an organiser
+	Flagged int `json:"flagged"`
+
 	// Format How a blitz edition runs, Swiss rounds and then a knockout of that many players (0 for none)
 	Format BlitzFormat `json:"format"`
 	Name   string      `json:"name"`

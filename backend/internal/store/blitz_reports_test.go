@@ -504,3 +504,39 @@ func TestAnEditionSaysWhenTheNextRoundIsPairedBeforeItIsPublished(t *testing.T) 
 		t.Errorf("round %v, paired %v; want 1 published and 2 paired", ed.Round, ed.PairedRound)
 	}
 }
+
+func TestAdminsEditionListCountsTheFlaggedReports(t *testing.T) {
+	a, p, _, _, matches := reportsFixture(t)
+	ctx := context.Background()
+	count := func() int {
+		rows, err := a.BlitzEditions(ctx)
+		if err != nil {
+			t.Fatalf("BlitzEditions: %v", err)
+		}
+		for _, r := range rows {
+			if r.Slug == "us_open" && r.Edition == "2026" {
+				return r.Flagged
+			}
+		}
+		t.Fatal("no us_open 2026 in the list")
+		return 0
+	}
+	if err := p.ReportBlitzGame(ctx, tokenHash("ann"), "us_open", "2026", matches[0], reported("REP-1"), reportsAt); err != nil {
+		t.Fatalf("ReportBlitzGame: %v", err)
+	}
+	if got := count(); got != 0 {
+		t.Errorf("flagged before a flag = %d, want 0", got)
+	}
+	if err := p.FlagBlitzResult(ctx, tokenHash("bob"), "us_open", "2026", matches[0], "wrong", reportsAt); err != nil {
+		t.Fatalf("FlagBlitzResult: %v", err)
+	}
+	if got := count(); got != 1 {
+		t.Errorf("flagged = %d, want 1", got)
+	}
+	if err := a.KeepBlitzReport(ctx, "us_open", "2026", matches[0]); err != nil {
+		t.Fatalf("KeepBlitzReport: %v", err)
+	}
+	if got := count(); got != 0 {
+		t.Errorf("flagged once resolved = %d, want 0", got)
+	}
+}

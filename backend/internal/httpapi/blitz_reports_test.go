@@ -281,6 +281,7 @@ func TestAnOrganiserSeesAFlagAndKeepsTheReport(t *testing.T) {
 	m.Result, m.GameID, m.DecidedAt, m.ReportedBy, m.Report, m.FlagReason = "a", &game, &at, &ann, "flagged", "I won"
 	m.Game = &store.BlitzGame{ShareCode: "REP-1", A: store.BlitzSide{Culture: 50, Outcome: "finished"}, B: store.BlitzSide{Culture: 40, Outcome: "finished"}, Finished: at}
 
+	wantJSON(t, adminDo(t, f, http.MethodGet, "/v1/admin/blitz", site, "").Body.Bytes(), "0.flagged", `1`)
 	rec := adminDo(t, f, http.MethodGet, "/v1/admin/blitz/us_open/2026", site, "")
 	wantJSON(t, rec.Body.Bytes(), "rounds.0.matches.0.reported_by", `7`)
 	wantJSON(t, rec.Body.Bytes(), "rounds.0.matches.0.report", `"flagged"`)
