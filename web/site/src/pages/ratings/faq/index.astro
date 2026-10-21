@@ -46,7 +46,7 @@ const tabClass: Record<string, string> = { 'gold-standard': 'tab-gold', 'recalib
 </SiteLayout>
 
 <script>
-  import { agreement, calibration, currentRun } from '@ttac/shared/ratings';
+  import { activity, calibration, currentRun } from '@ttac/shared/ratings';
   import { faqFigures, resolveTab } from '../../../lib/faq';
 
   const buttons = [...document.querySelectorAll<HTMLButtonElement>('.faq-tab-btn')];
@@ -79,9 +79,9 @@ const tabClass: Record<string, string> = { 'gold-standard': 'tab-gold', 'recalib
 
   const api = document.querySelector<HTMLElement>('.faq-container')?.dataset.apiUrl ?? '';
   currentRun(api)
-    .then((r) => Promise.all([calibration(api, r.run_id), agreement(api, r.run_id, 0).catch(() => null), r]))
-    .then(([c, a, r]) => {
-      const figures = faqFigures(c.rows, a, r);
+    .then((r) => Promise.all([calibration(api, r.run_id), activity(api, r.run_id).catch(() => null), r]))
+    .then(([c, act, r]) => {
+      const figures = faqFigures(c.rows, act, r);
       document.querySelectorAll<HTMLElement>('[data-faq-figure]').forEach((el) => {
         const value = figures[el.dataset.faqFigure ?? ''];
         if (value !== undefined) el.textContent = value;

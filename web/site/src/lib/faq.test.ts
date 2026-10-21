@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import type { Agreement, CalibrationRow } from '@ttac/shared/ratings';
+import type { Activity, CalibrationRow } from '@ttac/shared/ratings';
 import { FAQ_ALIASES, faqFigures, resolveTab } from './faq';
 
 const row = (model: CalibrationRow['model'], format: CalibrationRow['format'], brier: number, ece: number, matches = 1000): CalibrationRow => ({
@@ -23,8 +23,8 @@ describe('faqFigures', () => {
       row('glicko2_std', 4, 0.224, 0.0324),
       { ...row('glicko2_mp', 0, 0.1, 0.1), mode: 'standard' as const },
     ];
-    const agreement = { run_id: 2, format: 0, sample: 3151, top: [], weakest: [] } satisfies Agreement;
-    expect(faqFigures(rows, agreement)).toEqual({
+    const activity = { run_id: 2, active: 1579, inactive: 1910, formats: [], titles: [], countries: [] } satisfies Activity;
+    expect(faqFigures(rows, activity)).toEqual({
       'mp.0.brier': '0.2141',
       'mp.0.ece': '1.15',
       'mp.0.matches': '308,863',
@@ -34,7 +34,7 @@ describe('faqFigures', () => {
       'mp.4.ece': '1.96',
       'std.4.brier': '0.2240',
       'std.4.ece': '3.24',
-      players: '3151',
+      players: '1579',
     });
   });
 
