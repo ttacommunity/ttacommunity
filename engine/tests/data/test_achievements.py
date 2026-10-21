@@ -45,7 +45,11 @@ def medals(player, gold=0, silver=0, bronze=0):
         ),
         (
             "International S20 g4",
-            ("International Championship", "Season 20", "Grandmaster"),
+            ("International Championship", "Season 20", "Division"),
+        ),
+        (
+            "Intermezzo S3 - game 2",
+            ("Intermezzo Championship", "Season 3", "Division"),
         ),
         (
             "Intermezzo S24 - Platinum 1 game 2",
@@ -400,3 +404,32 @@ def test_slow_burn_records_take_its_edition_and_stage_from_the_catalogue():
         ("Slow Burn 2 (2026)", "Season 1", "group 4"),
     }
     assert {r["medal"] for r in got} == {None}
+
+
+def test_player_records_unnamed_international_season_does_not_award_gold_or_grandmaster():
+    rows = [
+        match("International S14", ("ann", 90), ("bob", 80), ("cat", 70), ("dan", 60),
+              day=date(2021, 5, 1), match_id=1),
+        match("International S14", ("ann", 85), ("bob", 80), ("cat", 70), ("dan", 60),
+              day=date(2021, 5, 2), match_id=2),
+        match("International S14", ("ann", 95), ("bob", 80), ("cat", 70), ("dan", 60),
+              day=date(2021, 5, 3), match_id=3),
+        match("International S14", ("ann", 90), ("bob", 80), ("cat", 70), ("dan", 60),
+              day=date(2021, 5, 4), match_id=4),
+        match("International S14", ("ann", 92), ("bob", 80), ("cat", 70), ("dan", 60),
+              day=date(2021, 5, 5), match_id=5),
+    ]  # fmt: skip
+    got = player_records(
+        rows=rows,
+        top_divisions=TOP,
+        standings={},
+        official={},
+        boards={},
+        honours=[],
+        dates={},
+    )
+    ann_rec = next(r for r in got if r["player_name"] == "ann")
+    assert ann_rec["tournament"] == "International Championship"
+    assert ann_rec["season"] == "Season 14"
+    assert ann_rec["division"] == "Division"
+    assert ann_rec["medal"] is None

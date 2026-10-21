@@ -248,7 +248,7 @@ def test_an_older_top_division_win_is_a_super_gm_peak():
             season_record(
                 "Cat", ic, "Season 20", "Grandmaster", "1 / 7", "gold", "2022-12-04"
             ),
-            # upstream counts a campaign row too, whatever group it ranked first in
+            # lower-division group wins (e.g. 1 / 735 campaign bucket) must not award Super GM
             season_record(
                 "Dan", ic, "Season 14", "Grandmaster", "1 / 735", "gold", "2021-03-02"
             ),
@@ -262,7 +262,7 @@ def test_an_older_top_division_win_is_a_super_gm_peak():
     )
 
     assert t.active == {}
-    assert t.peaks == {"Cat": ("SGM", 2022), "Dan": ("SGM", 2021)}
+    assert t.peaks == {"Cat": ("SGM", 2022)}
 
 
 def test_records_add_super_gm_years_and_untitled_seasons():

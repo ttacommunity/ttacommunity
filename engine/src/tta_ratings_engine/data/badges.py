@@ -520,6 +520,12 @@ def badge_titles(rows, cutoff_date, champions, records, overrides) -> Titles:
     return Titles(derived_data, peaks, yearly)
 
 
+def _is_top_division_win(r) -> bool:
+    """Reports whether a tournament record represents a verified premier/top-division win."""
+    m = re.match(r"1\s*/\s*(\d+)", r.get("placement", ""))
+    return not (m and int(m.group(1)) > 31)
+
+
 def _super_gm(records, cutoff_date):
     """Returns the Super GM wins in the records: each player's latest within the
     active window, and their latest ever, with its year and badge reason.
@@ -531,6 +537,7 @@ def _super_gm(records, cutoff_date):
             won
             and r["tournament"] in SGM_TOURNAMENTS
             and r["division"] in SGM_DIVISIONS
+            and _is_top_division_win(r)
         ):
             continue
         p, finish = r["player_name"], r["finish_date"]
@@ -563,6 +570,7 @@ def _record_years(records):
             r["tournament"] in SGM_TOURNAMENTS
             and r["division"] in SGM_DIVISIONS
             and won
+            and _is_top_division_win(r)
         ):
             got[key] = "SGM"
         elif key not in got:
