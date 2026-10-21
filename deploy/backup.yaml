@@ -1,0 +1,97 @@
+# The nightly backup: every input table, personal data included, encrypted with
+# age to the maintainers' public key and put in the R2 bucket ttac-backups
+# (docs/architecture.md#backups). A run by hand:
+#   kubectl -n ttacommunity create job --from=cronjob/backup backup-manual-1
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: backup
+  namespace: ttacommunity
+spec:
+  schedule: "0 3 * * *"
+  timeZone: Etc/UTC
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      backoffLimit: 2
+      activeDeadlineSeconds: 1800
+      template:
+        metadata:
+          labels:
+            app: backup
+        spec:
+          # A new pod's first connection can be refused before the NetworkPolicy admits it; a restart keeps the pod.
+          restartPolicy: OnFailure
+          affinity:
+            nodeAffinity:
+              requiredDuringSchedulingIgnoredDuringExecution:
+                nodeSelectorTerms:
+                  - matchExpressions:
+                      - key: workload-size
+                        operator: In
+                        values: [large, medium, small]
+          tolerations:
+            - key: workload-class
+              operator: Equal
+              value: amd64-opt-in
+              effect: NoSchedule
+          automountServiceAccountToken: false
+          imagePullSecrets:
+            - name: ghcr
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 65532
+            runAsGroup: 65532
+            seccompProfile:
+              type: RuntimeDefault
+          containers:
+            - name: backup
+              image: ghcr.io/ttacommunity/ttacommunity/load:sha-dff6ea24@sha256:00be9f5c8b44c0aa703f2f7ba6f85aa834ccff0fcada3aab74f1020012b0dfa8
+              args: [-backup-to-r2]
+              env:
+                - name: RATINGS_DATABASE_URL
+                  valueFrom:
+                    secretKeyRef:
+                      name: ratings-backup
+                      key: database-url
+                - name: BACKUP_AGE_RECIPIENT
+                  value: age1chparhxyn3kvlr245t8u9zvm9agar9v995dyptuygepuvmeujazqkre4r9
+                - name: BACKUP_BUCKET
+                  value: ttac-backups
+                - name: BACKUP_ENDPOINT
+                  valueFrom:
+                    secretKeyRef:
+                      name: backup-r2
+                      key: endpoint
+                - name: BACKUP_ACCESS_KEY_ID
+                  valueFrom:
+                    secretKeyRef:
+                      name: backup-r2
+                      key: access-key-id
+                - name: BACKUP_SECRET_ACCESS_KEY
+                  valueFrom:
+                    secretKeyRef:
+                      name: backup-r2
+                      key: secret-access-key
+                - name: TMPDIR
+                  value: /tmp
+              resources:
+                requests:
+                  cpu: 100m
+                  memory: 64Mi
+                limits:
+                  memory: 256Mi
+              securityContext:
+                allowPrivilegeEscalation: false
+                readOnlyRootFilesystem: true
+                capabilities:
+                  drop: [ALL]
+              volumeMounts:
+                - name: tmp
+                  mountPath: /tmp
+          volumes:
+            - name: tmp
+              emptyDir:
+                sizeLimit: 1Gi

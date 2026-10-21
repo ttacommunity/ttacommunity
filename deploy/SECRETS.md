@@ -21,6 +21,8 @@ Pipe values in; never use `--from-literal`, which leaves them in shell history.
 | `discord-signin` | `client-secret` | `api`, `api-dev` | The client secret of the players' Discord application, whose id is `DISCORD_CLIENT_ID` in `api.yaml` (not the Access sign-in Worker's app) |
 | `email-signin` | `resend-api-key` | `api`, `api-dev` | Resend's API key for the sign-in emails: sending access, restricted to ttacommunity.org |
 | `turnstile-signin` | `secret` | `api`, `api-dev` | The secret of the Turnstile widget "ttacommunity email sign-in", whose sitekey is the site's `PUBLIC_TURNSTILE_SITEKEY` (README) |
+| `ratings-backup` | `password`, `database-url` | `backup` | The backup job's login `ratings_backup_job`, a member of `ratings_backup` (reads the backed-up tables, writes nothing) |
+| `backup-r2` | `endpoint`, `access-key-id`, `secret-access-key` | `backup` | The R2 bucket `ttac-backups`: the account's S3 endpoint, and an R2 token that can write objects in that bucket only |
 | `ttac-api-tunnel` | `credentials.json` | `ttac-api-tunnel` | The `ttac-api` tunnel's credentials (below, "The tunnels") |
 | `ttac-api-dev-tunnel` | `credentials.json` | `ttac-api-dev-tunnel` | The `ttac-api-dev` tunnel's credentials (below) |
 | `ttacommunity-github-app`, **in `flux-system`** | `githubAppID`, `githubAppInstallationID`, `githubAppPrivateKey` | Flux | Reads this repo as the GitHub App `ttacommunity-flux` (contents and metadata, read only). The cluster's maintainers hold it |
@@ -38,6 +40,8 @@ rebuild or reissued by the service it comes from.
 | `email-signin` | **Reissued**: a new key in Resend's dashboard (API Keys: sending access, domain ttacommunity.org), then delete the old one |
 | `turnstile-signin` | **Reissued**: `cf turnstile widgets rotate-secret <sitekey>`, piped straight into the Secret as below |
 | `ttac-api-tunnel`, `ttac-api-dev-tunnel` | **Reissued**: a new tunnel on the Cloudflare account (below, "The tunnels") |
+| `ratings-backup` | **New on a rebuild**, or at any time: a new password with `ALTER ROLE`, then the Secret (below, "Backups") |
+| `backup-r2` | **Reissued**: a new R2 token for the bucket, then the Secret (below, "Backups"); delete the old token |
 | `ghcr`, `ttacommunity-github-app` | **Reissued** by the cluster's maintainers, who issued them |
 
 ## Creating them
@@ -173,6 +177,31 @@ printf '{"auths":{"ghcr.io":{"auth":"%s"}}}' "$(printf '%s:%s' "$user" "$token" 
   kubectl -n ttacommunity create secret generic ghcr \
     --type=kubernetes.io/dockerconfigjson --from-file=.dockerconfigjson=/dev/stdin
 unset token
+```
+
+### Backups
+
+The backup job's login is made as the player logins are, with the role
+`ratings_backup` (made by its migration when the migrating login may create
+roles, so make it here first):
+
+```sh
+ns=(-n ttacommunity)
+umask 077
+pw=$(openssl rand -hex 24); printf %s "$pw" > /dev/shm/pw
+printf 'postgres://ratings_backup_job:%s@ratings-db:5432/ratings?sslmode=disable' "$pw" > /dev/shm/url
+unset pw
+{ cat /dev/shm/pw; echo; cat <<'SQL'; } | kubectl "${ns[@]}" exec -i deploy/ratings-db -- \
+  sh -c 'read -r PW; psql -q -v ON_ERROR_STOP=1 -v pw="$PW" -U ratings -d postgres'
+DO $$ BEGIN CREATE ROLE ratings_backup NOLOGIN; EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+DO $$ BEGIN CREATE ROLE ratings_backup_job LOGIN; EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+SELECT format('ALTER ROLE ratings_backup_job PASSWORD %L', :'pw') \gexec
+GRANT ratings_backup TO ratings_backup_job;
+GRANT CONNECT ON DATABASE ratings TO ratings_backup_job;
+SQL
+kubectl "${ns[@]}" create secret generic ratings-backup \
+  --from-file=password=/dev/shm/pw --from-file=database-url=/dev/shm/url
+rm /dev/shm/pw /dev/shm/url
 ```
 
 ### The tunnels
