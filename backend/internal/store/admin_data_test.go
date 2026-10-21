@@ -54,3 +54,23 @@ func TestDataSummaryOfAnEmptyDatabase(t *testing.T) {
 		t.Errorf("summary = %+v, want nothing", got)
 	}
 }
+
+func TestTheLastLoadIsOurLatestImportNotAGameEnteredByHand(t *testing.T) {
+	pool := migrated(t)
+	ctx := context.Background()
+	for _, q := range []string{
+		"INSERT INTO import_batches (source, created_at) VALUES ('load', '2026-10-01T00:00:00Z')",
+		"INSERT INTO import_batches (source, created_at) VALUES ('admin', '2026-10-02T00:00:00Z'), ('player', '2026-10-03T00:00:00Z')",
+	} {
+		if _, err := pool.Exec(ctx, q); err != nil {
+			t.Fatalf("%s: %v", q, err)
+		}
+	}
+	got, err := NewAdminStore(asAdminLogin(t, pool)).DataSummary(ctx)
+	if err != nil {
+		t.Fatalf("DataSummary: %v", err)
+	}
+	if want := time.Date(2026, 10, 1, 0, 0, 0, 0, time.UTC); got.LastLoad == nil || !got.LastLoad.Equal(want) {
+		t.Errorf("last load = %v, want the load's %v", got.LastLoad, want)
+	}
+}

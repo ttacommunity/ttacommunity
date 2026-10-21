@@ -10,8 +10,9 @@ import (
 )
 
 // DataSummary is what admin's Data card shows. Games are played games; NeverPlayed are kept but not rated;
-// Unplaced are games in no tournament, which stop a rating run; LastLoadRefused are the rows the latest load
-// refused. The times are nil before anything is loaded.
+// Unplaced are games in no tournament, which stop a rating run; LastLoad is the load job's latest import (games
+// entered in admin or by players aside), and LastLoadRefused the rows it refused. The times are nil before anything
+// is loaded.
 type DataSummary struct {
 	Games, NeverPlayed, Unplaced, Players int
 	LatestGame                            *time.Time
@@ -28,8 +29,8 @@ func (a *AdminStore) DataSummary(ctx context.Context) (DataSummary, error) {
 		       count(*) FILTER (WHERE group_id IS NULL),
 		       (SELECT count(*) FROM players),
 		       max(date) FILTER (WHERE state = 'played'),
-		       (SELECT max(created_at) FROM import_batches),
-		       (SELECT count(*) FROM refused_rows WHERE batch_id = (SELECT max(batch_id) FROM import_batches))
+		       (SELECT max(created_at) FROM import_batches WHERE source = 'load'),
+		       (SELECT count(*) FROM refused_rows WHERE batch_id = (SELECT max(batch_id) FROM import_batches WHERE source = 'load'))
 		FROM games`).Scan(&d.Games, &d.NeverPlayed, &d.Unplaced, &d.Players, &d.LatestGame, &d.LastLoad, &d.LastLoadRefused)
 	if err != nil {
 		return DataSummary{}, fmt.Errorf("summarising the data: %w", err)
