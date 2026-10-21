@@ -971,8 +971,9 @@ export interface paths {
         /**
          * Ask to be linked to a TTA username
          * @description For a player not linked to a member yet. An admin or organiser
-         *     answers; asking again while waiting replaces the name. The Origin must
-         *     be the site.
+         *     answers; asking again while waiting replaces the name. Refused at
+         *     once (409, saying what to do) when the member the name names is
+         *     linked to another account. The Origin must be the site.
          */
         put: operations["putMyLinkRequest"];
         post?: never;

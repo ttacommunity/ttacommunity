@@ -236,6 +236,9 @@ type signInDeps struct {
 	site    string
 }
 
+// SupportAddress is where players write with trouble: EMAIL_SUPPORT, or "" when email sign-in is off.
+func (d signInDeps) SupportAddress() string { return d.email.support }
+
 // EmailReady reports whether signing in by email is set up.
 func (d signInDeps) EmailReady() bool { return d.email.ready() }
 

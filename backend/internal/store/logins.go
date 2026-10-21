@@ -138,17 +138,14 @@ func (a *AdminStore) Accounts(ctx context.Context) ([]AccountRow, error) {
 	return got, nil
 }
 
-// namedMember finds the member a TTA username names: by username without case, or by the ratings player or CGE
-// account of that name, as adding a member resolves it. It returns the member's id, name, Discord name, country,
-// zone, email and ban. The email is read only by admin's login.
+// namedMember finds the member a TTA username names (the database's named_member: by username without case, or by
+// the ratings player or CGE account of that name, as adding a member resolves it). It returns the member's id,
+// name, Discord name, country, zone, email and ban. The email is read only by admin's login.
 func namedMember(ctx context.Context, c conn, name string) (Member, bool, error) {
 	var m Member
 	err := c.QueryRow(ctx, `
 		SELECT m.member_id, m.tta_name, m.discord_name, coalesce(m.country_code, ''), m.zone, m.email, m.banned FROM members m
-		WHERE lower(m.tta_name) = lower($1)
-		   OR m.player_id = (SELECT player_id FROM players WHERE lower(name) = lower($1) ORDER BY player_id LIMIT 1)
-		   OR m.cge_user = (SELECT cge_user FROM player_accounts WHERE lower(name) = lower($1) AND NOT deleted ORDER BY cge_user LIMIT 1)
-		ORDER BY m.member_id LIMIT 1`, name).Scan(&m.ID, &m.Name, &m.DiscordName, &m.Country, &m.Zone, &m.Email, &m.Banned)
+		WHERE m.member_id = named_member($1)`, name).Scan(&m.ID, &m.Name, &m.DiscordName, &m.Country, &m.Zone, &m.Email, &m.Banned)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return Member{}, false, nil
 	}

@@ -32,6 +32,8 @@ type SignIns interface {
 	SetOwnDetails(ctx context.Context, login int64, country, zone *string) error
 	// SiteOrigin is the site's origin: the only one players' requests may come from, and where sign-in returns.
 	SiteOrigin() string
+	// SupportAddress is where players write with trouble, or "" when none is set.
+	SupportAddress() string
 	// DiscordAuthURL and DiscordUser start and finish a sign-in with Discord; AddDiscord adds it to an account.
 	DiscordAuthURL(state, verifier string) string
 	DiscordUser(ctx context.Context, code, verifier string) (discord.User, error)
@@ -202,6 +204,16 @@ func sessionCookieWith(token string, maxAge int) *http.Cookie {
 // flowCookieWith is the cookie a sign-in keeps its state, verifier and return path in until Discord answers.
 func flowCookieWith(value string, maxAge int) *http.Cookie {
 	return &http.Cookie{Name: flowCookie, Value: value, Path: flowPath, MaxAge: maxAge, HttpOnly: true, Secure: true, SameSite: http.SameSiteLaxMode}
+}
+
+// nameLinkedMessage tells a player the TTA username they asked for has an account already, and what to do.
+func nameLinkedMessage(support string) string {
+	msg := "Sorry, this TTA username is already linked to another account. If that is you, sign in with that account; " +
+		"you can add this way of signing in to it there, then delete this one."
+	if support != "" {
+		msg += " If you think this is a mistake, write to " + support + "."
+	}
+	return msg
 }
 
 // accountPath is the account page, where a sign-in returns when it has nowhere else to go.
@@ -395,6 +407,8 @@ func (s *server) PutMyLinkRequest(ctx context.Context, req PutMyLinkRequestReque
 		return PutMyLinkRequest400JSONResponse{badRequest400(err.Error())}, nil
 	case errors.Is(err, store.ErrAlreadyLinked):
 		return PutMyLinkRequest409JSONResponse{conflict409("you are linked to a member already")}, nil
+	case errors.Is(err, store.ErrNameLinked):
+		return PutMyLinkRequest409JSONResponse{conflict409(nameLinkedMessage(s.signIns.SupportAddress()))}, nil
 	case err != nil:
 		return nil, err
 	}

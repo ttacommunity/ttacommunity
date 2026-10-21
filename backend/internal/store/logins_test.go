@@ -437,3 +437,43 @@ func TestApprovingLinksABannedMember(t *testing.T) {
 		t.Errorf("after approving: member %+v, banned %v, want ann, banned", got.Member, got.Banned)
 	}
 }
+
+func TestAskingForAUsernameLinkedToAnotherAccountIsRefused(t *testing.T) {
+	tests := []struct {
+		name, linked, asked string
+	}{
+		{"the member's username, in another case", "ann", "ANN"},
+		{"the ratings name of a member added by approval", "bob", "Bob"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			_, a, p := playersFixture(t)
+			ctx := context.Background()
+			if _, err := a.AddMember(ctx, Member{Name: "ann", Zone: "UTC"}); err != nil {
+				t.Fatalf("AddMember: %v", err)
+			}
+			approved(t, a, p, signedIn(t, p, discordID("100000000000000001", "player_one", ""), "first"), tt.linked)
+			second := emailSignedIn(t, p, "player@example.test", "second")
+			if err := p.RequestLink(ctx, second.ID, tt.asked, signInAt); !errors.Is(err, ErrNameLinked) {
+				t.Errorf("RequestLink(%s) = %v, want ErrNameLinked", tt.asked, err)
+			}
+			if got, _ := p.Session(ctx, tokenHash("second"), signInAt); got.Request != nil {
+				t.Errorf("a refused ask left request %+v, want none", got.Request)
+			}
+		})
+	}
+}
+
+func TestAskingForAUsernameNoAccountHoldsIsAccepted(t *testing.T) {
+	_, a, p := playersFixture(t)
+	ctx := context.Background()
+	if _, err := a.AddMember(ctx, Member{Name: "ann", Zone: "UTC"}); err != nil {
+		t.Fatalf("AddMember: %v", err)
+	}
+	l := emailSignedIn(t, p, "player@example.test", "token")
+	for _, name := range []string{"ann", "bob", "Newcomer"} {
+		if err := p.RequestLink(ctx, l.ID, name, signInAt); err != nil {
+			t.Errorf("RequestLink(%s) = %v, want it waiting", name, err)
+		}
+	}
+}

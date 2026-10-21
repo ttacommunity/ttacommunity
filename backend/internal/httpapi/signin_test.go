@@ -76,6 +76,8 @@ func (f *fakeSignIns) RequestLink(_ context.Context, login int64, name string, _
 		return store.ErrBadLinkName
 	case login == 8:
 		return store.ErrAlreadyLinked
+	case name == "taken":
+		return store.ErrNameLinked
 	}
 	f.notes = append(f.notes, "request "+name)
 	return nil
@@ -97,6 +99,8 @@ func (f *fakeSignIns) SetOwnDetails(_ context.Context, _ int64, country, zone *s
 }
 
 func (*fakeSignIns) SiteOrigin() string { return siteOrigin }
+
+func (*fakeSignIns) SupportAddress() string { return "support@example.test" }
 
 func (f *fakeSignIns) DiscordAuthURL(state, verifier string) string {
 	f.verifier = verifier
@@ -363,6 +367,7 @@ func TestAskingToBeLinked(t *testing.T) {
 		{"an empty name", 7, `{"name":" "}`, http.StatusBadRequest},
 		{"no body", 7, ``, http.StatusBadRequest},
 		{"already linked", 8, `{"name":"ann"}`, http.StatusConflict},
+		{"a name another account holds", 7, `{"name":"taken"}`, http.StatusConflict},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -374,6 +379,11 @@ func TestAskingToBeLinked(t *testing.T) {
 		})
 	}
 	f := newFakeSignIns()
+	rec := playerDo(t, f, http.MethodPut, "/v1/me/link-request", siteOrigin, `{"name":"taken"}`, sessionFor(f, "token", store.Account{ID: 7}))
+	if body := rec.Body.String(); !strings.Contains(body, "linked to another account") || !strings.Contains(body, "support@example.test") {
+		t.Errorf("a name another account holds = %s, want it said, with where to write", body)
+	}
+	f = newFakeSignIns()
 	playerDo(t, f, http.MethodPut, "/v1/me/link-request", siteOrigin, `{"name":"ann"}`)
 	if len(f.notes) != 0 {
 		t.Errorf("a request with no session reached the store: %q", f.notes)

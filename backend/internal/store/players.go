@@ -79,6 +79,9 @@ var ErrNoSession = errors.New("no such session")
 // ErrAlreadyLinked means the account is linked to a member already.
 var ErrAlreadyLinked = errors.New("the account is linked to a member already")
 
+// ErrNameLinked means the member a TTA username names is linked to another account already.
+var ErrNameLinked = errors.New("that TTA username is linked to another account already")
+
 // ErrBadLinkName means a TTA username asked for is empty or over 100 characters.
 var ErrBadLinkName = errors.New("a TTA username has 1 to 100 characters")
 
@@ -393,7 +396,8 @@ func (s *PlayerStore) DeleteAccount(ctx context.Context, tokenHash []byte, now t
 }
 
 // RequestLink asks at now for account to be linked to the TTA username name, replacing a request still pending.
-// It returns ErrBadLinkName, or ErrAlreadyLinked when the account has a member.
+// It returns ErrBadLinkName, ErrAlreadyLinked when the account has a member, or ErrNameLinked when the member the
+// name names is linked to another account.
 func (s *PlayerStore) RequestLink(ctx context.Context, account int64, name string, now time.Time) error {
 	name = strings.TrimSpace(name)
 	if name == "" || utf8.RuneCountInString(name) > 100 {
@@ -406,6 +410,13 @@ func (s *PlayerStore) RequestLink(ctx context.Context, account int64, name strin
 		}
 		if linked {
 			return ErrAlreadyLinked
+		}
+		var elsewhere bool
+		if err := tx.QueryRow(ctx, "SELECT name_linked_elsewhere($1, $2)", name, account).Scan(&elsewhere); err != nil {
+			return fmt.Errorf("checking who holds a name: %w", err)
+		}
+		if elsewhere {
+			return ErrNameLinked
 		}
 		tag, err := tx.Exec(ctx, "UPDATE link_requests SET tta_name = $2, requested_at = $3 WHERE account_id = $1 AND status = 'pending'", account, name, now)
 		if err != nil {
