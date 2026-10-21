@@ -8,7 +8,7 @@ check=$PWD/checks/deploy-current.sh
 work=$(mktemp -d)
 trap 'rm -rf "$work"' EXIT
 
-# repo creates a repo whose deploy/ pins both images at its first commit, and prints its path.
+# repo creates a repo whose deploy/ pins every image at its first commit, and prints its path.
 repo() {
   local dir=$work/$1
   mkdir -p "$dir/checks" "$dir/deploy" "$dir/backend" "$dir/engine" "$dir/scripts"
@@ -25,6 +25,7 @@ repo() {
   cat >"$dir/deploy/engine.yaml" <<EOF
 image: ghcr.io/ttacommunity/ttacommunity/engine:sha-$sha
 image: ghcr.io/ttacommunity/ttacommunity/api:sha-$sha
+image: ghcr.io/ttacommunity/ttacommunity/load:sha-$sha
 EOF
   git -C "$dir" add -A
   git -C "$dir" -c user.name=test -c user.email=test@example.invalid commit -q -m pin
@@ -39,6 +40,8 @@ cases=(
   "uv|s/^uv = .*/uv = \"2.0.0\"/|mise.toml|1|engine"
   "crane|s/^crane = .*/crane = \"2.0.0\"/|mise.toml|1|api"
   "backend-code|s/main/other/|backend/main.go|1|api"
+  "backend-code-load|s/main/other/|backend/main.go|1|load"
+  "go-load|s/^go = .*/go = \"2.0.0\"/|mise.toml|1|load"
   "engine-code|s/1/2/|engine/engine.py|1|engine"
 )
 
