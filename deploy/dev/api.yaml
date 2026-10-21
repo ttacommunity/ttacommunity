@@ -133,6 +133,15 @@ spec:
                 secretKeyRef:
                   name: discord-signin
                   key: client-secret
+            # Microsoft sign-in, for any personal, work or school account: the app "TTA Community" in its own
+            # Entra tenant. The api refuses to start with only one of these.
+            - name: MICROSOFT_CLIENT_ID
+              value: c709d82a-eb5a-420d-b5e0-99ef97f491c3
+            - name: MICROSOFT_CLIENT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: microsoft-signin
+                  key: client-secret
             # Email sign-in: Resend sends the links from noreply@, the email names where to write, and
             # Turnstile guards the form. The api refuses to start with only some of these.
             - name: EMAIL_FROM

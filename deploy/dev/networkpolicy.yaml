@@ -131,8 +131,9 @@ metadata:
 spec:
   # Admin requests are verified against Cloudflare Access's signing keys, fetched
   # over HTTPS from the team domain, player sign-in exchanges its code with
-  # Discord, and email sign-in calls Resend and Turnstile: any public address on
-  # 443, RFC1918 excluded.
+  # Discord or Microsoft (and fetches Microsoft's signing keys), and email
+  # sign-in calls Resend and Turnstile: any public address on 443, RFC1918
+  # excluded.
   podSelector:
     matchLabels:
       app: api-dev
