@@ -27,6 +27,9 @@ const match = (id: number, a: number, b: number | null, result: 'a' | 'b' | 'dra
   game: null,
   ruling: result === null ? '' : 'ruled',
   decided_at: result === null ? null : '2026-10-15T09:00:00Z',
+  reported_by: null,
+  report: null,
+  flag_reason: '',
 });
 const entrant = (id: number, status: 'active' | 'dropped' = 'active', skips: number[] = []) => ({
   id,
@@ -58,7 +61,7 @@ describe('canPair', () => {
 
 describe('unsavedMatch and samePairs', () => {
   it('makes a match with no id, no gaps and no result', () => {
-    expect(unsavedMatch(1, 2)).toEqual({ id: 0, a: 1, b: 2, slot: null, a_seed: null, b_seed: null, zone_gap_minutes: 0, rating_gap: null, repeat: false, result: null, game: null, ruling: '', decided_at: null });
+    expect(unsavedMatch(1, 2)).toEqual({ id: 0, a: 1, b: 2, slot: null, a_seed: null, b_seed: null, zone_gap_minutes: 0, rating_gap: null, repeat: false, result: null, game: null, ruling: '', decided_at: null, reported_by: null, report: null, flag_reason: '' });
     expect(unsavedMatch(3, null).b).toBe(null);
   });
   it.each([

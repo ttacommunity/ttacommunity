@@ -1053,6 +1053,96 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/me/blitz/{tournament}/{edition}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Your match in a blitz edition's latest round, and what you may do with it
+         * @description For a signed-in player linked to a member entered in a shown edition:
+         *     their match in the latest round once it is published, as it stands
+         *     now, with the opponent's flag if any. Null for anyone else, and
+         *     before the round is published. Never cached.
+         */
+        get: operations["getMyBlitzMatch"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/me/blitz/{tournament}/{edition}/matches/{match}/game": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Report your match's game, or correct your report
+         * @description Audited. The Origin must be the site. For a player of the match in
+         *     the latest round: it counts at once. The share code is required.
+         *     Reporting again corrects it, until the opponent confirms or flags
+         *     it. Refused once an organiser has entered or ruled the match, when
+         *     the opponent reported it, and once the next round is paired.
+         */
+        put: operations["putMyBlitzGame"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/me/blitz/{tournament}/{edition}/matches/{match}/confirm": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Confirm your opponent's report
+         * @description Audited. The Origin must be the site. Players can no longer change
+         *     the result; a mistake found later goes to the organisers.
+         */
+        post: operations["postMyBlitzConfirm"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/me/blitz/{tournament}/{edition}/matches/{match}/flag": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Flag your opponent's report as wrong
+         * @description Audited. The Origin must be the site. Players can no longer change
+         *     the result; admin shows the flag and its reason until an organiser
+         *     resolves it.
+         */
+        post: operations["postMyBlitzFlag"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/admin/me": {
         parameters: {
             query?: never;
@@ -1874,7 +1964,8 @@ export interface paths {
          *     game stays a draw as a game and sends the higher seed through. The
          *     share code may be empty, for a game without one; one already on
          *     another game is refused, naming it. The match's ruling, if any, is
-         *     cleared.
+         *     cleared. A player's report it replaces is resolved: players can no
+         *     longer change it.
          */
         put: operations["putAdminBlitzMatchGame"];
         post?: never;
@@ -1898,8 +1989,9 @@ export interface paths {
          * Reset a match's result, as if never played
          * @description Audited. The Origin must be the admin site. Only in the latest
          *     round: the result, ruling and game go (with the game's seats, and
-         *     the "Round N" stage once it holds no game). Resetting it again
-         *     changes nothing. A ratings run that included the game loses its
+         *     the "Round N" stage once it holds no game), with a player's report,
+         *     so the players may report it again. Resetting it again changes
+         *     nothing. A ratings run that included the game loses its
          *     rows for it; make a run again to bring its pages up to date.
          */
         delete: operations["deleteAdminBlitzMatchResult"];
@@ -1992,10 +2084,33 @@ export interface paths {
          *     to one player, calls it a draw or a double loss, with its reason; a
          *     knockout match's ruling names who goes through. A game the match already has stays, overruled;
          *     recording the game again puts its result back. With no game, the ruling
-         *     is a forfeit: an unplayed round in the standings.
+         *     is a forfeit: an unplayed round in the standings. A player's report
+         *     it overrules is resolved: players can no longer change it.
          */
         put: operations["putAdminBlitzMatchRuling"];
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/blitz/{tournament}/{edition}/rounds/{round}/matches/{match}/keep": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Resolve a flagged report by keeping its result
+         * @description Audited. The Origin must be the admin site. The result stays as the
+         *     player reported it, and players still cannot change it; resetting
+         *     the match opens it to them again.
+         */
+        post: operations["postAdminBlitzMatchKeep"];
         delete?: never;
         options?: never;
         head?: never;
@@ -2771,6 +2886,11 @@ export interface components {
         };
         /** @description A blitz edition for the site, with the entrants still in, the published rounds and the standings */
         BlitzEdition: {
+            /**
+             * Format: date-time
+             * @description When the latest result in a published round was recorded; null before the first
+             */
+            results_updated_at: string | null;
             points: components["schemas"]["BlitzPoints"];
             /** @description True when the points are FIDE's */
             fide_points: boolean;
@@ -2806,6 +2926,10 @@ export interface components {
         };
         /** @description Who plays whom and how it ended; b is null for the bye */
         BlitzPublicMatch: {
+            /** @description The player who reported the game, by username; null when an organiser entered it or no one has */
+            reported_by: string | null;
+            /** @description Whether the opponent confirmed the reported game */
+            confirmed: boolean;
             /** @description In a knockout match, a's seed, their place in the Swiss standings when the knockout began; null in a Swiss round */
             a_seed: number | null;
             /** @description In a knockout match, b's seed, their place in the Swiss standings when the knockout began; null in a Swiss round */
@@ -2895,6 +3019,15 @@ export interface components {
         };
         /** @description A match by entrant ids; b is null for the bye. The gaps are as the entrants are now */
         AdminBlitzMatch: {
+            /**
+             * Format: int64
+             * @description The entrant who reported the game; null when no player did
+             */
+            reported_by: number | null;
+            /** @description Null when no player reported the game */
+            report: components["schemas"]["BlitzReport"] | null;
+            /** @description The opponent's reason when they flagged the report, kept once resolved; else empty */
+            flag_reason: string;
             /** @description A knockout match's place in the bracket, from 0; the winners of slots 2k and 2k+1 meet in slot k next. Null in a Swiss round */
             slot: number | null;
             /** @description In a knockout match, a's seed, their place in the Swiss standings when the knockout began; null in a Swiss round */
@@ -3187,6 +3320,53 @@ export interface components {
              */
             culture: number;
             outcome: components["schemas"]["BlitzOutcome"];
+        };
+        BlitzFlag: {
+            /** @description What is wrong with the reported result */
+            reason: string;
+        };
+        /**
+         * @description Where a player's report stands: reported (the reporter may still
+         *     correct it), confirmed by the opponent, flagged by the opponent, or
+         *     resolved by an organiser
+         * @enum {string}
+         */
+        BlitzReport: "reported" | "confirmed" | "flagged" | "resolved";
+        MyBlitz: {
+            match: components["schemas"]["MyBlitzMatch"] | null;
+        };
+        /** @description A signed-in player's match, sides as the match names them, and what they may do with it now */
+        MyBlitzMatch: {
+            /** Format: int64 */
+            id: number;
+            round: number;
+            a: string;
+            /** @description Null for the bye */
+            b: string | null;
+            /**
+             * @description Which side the player is
+             * @enum {string}
+             */
+            me: "a" | "b";
+            result: components["schemas"]["BlitzResult"] | null;
+            game: components["schemas"]["BlitzPlayedGame"] | null;
+            /** @description Whether the result is the organisers' ruling */
+            ruled: boolean;
+            /** @description Null when no player reported the game */
+            report: components["schemas"]["BlitzReport"] | null;
+            /**
+             * @description Which side reported the game; null when no player did
+             * @enum {string|null}
+             */
+            reported_by: "a" | "b" | null;
+            /** @description The opponent's reason when the report was flagged, else empty */
+            flag_reason: string;
+            /**
+             * @description What the player may do now: report (or correct their report),
+             *     confirm or flag the opponent's report. Empty once players can no
+             *     longer change it
+             */
+            actions: ("report" | "confirm" | "flag")[];
         };
         BlitzRuling: {
             result: components["schemas"]["BlitzResult"];
@@ -4528,6 +4708,19 @@ export interface components {
         };
         /** @description A change that did not come from the site */
         NotFromSite: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["Error"];
+            };
+        };
+        /**
+         * @description A change that did not come from the site, or a player who may not
+         *     change this match: not linked to a member, banned, or not one of its
+         *     players
+         */
+        NotYourMatch: {
             headers: {
                 [name: string]: unknown;
             };
@@ -5908,6 +6101,129 @@ export interface operations {
             };
             401: components["responses"]["SignedOut"];
             403: components["responses"]["NotFromSite"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+        };
+    };
+    getMyBlitzMatch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The tournament's slug */
+                tournament: components["parameters"]["AdminTournamentSlug"];
+                /** @description The edition's label, as admin lists it (a season) */
+                edition: components["parameters"]["BlitzEditionLabel"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The match, or null */
+            200: {
+                headers: {
+                    "Cache-Control": components["headers"]["CacheControl"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MyBlitz"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["SignedOut"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    putMyBlitzGame: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The tournament's slug */
+                tournament: components["parameters"]["AdminTournamentSlug"];
+                /** @description The edition's label, as admin lists it (a season) */
+                edition: components["parameters"]["BlitzEditionLabel"];
+                match: components["parameters"]["BlitzMatchId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BlitzGameRecord"];
+            };
+        };
+        responses: {
+            /** @description Recorded */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["SignedOut"];
+            403: components["responses"]["NotYourMatch"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+        };
+    };
+    postMyBlitzConfirm: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The tournament's slug */
+                tournament: components["parameters"]["AdminTournamentSlug"];
+                /** @description The edition's label, as admin lists it (a season) */
+                edition: components["parameters"]["BlitzEditionLabel"];
+                match: components["parameters"]["BlitzMatchId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Confirmed */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["SignedOut"];
+            403: components["responses"]["NotYourMatch"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+        };
+    };
+    postMyBlitzFlag: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The tournament's slug */
+                tournament: components["parameters"]["AdminTournamentSlug"];
+                /** @description The edition's label, as admin lists it (a season) */
+                edition: components["parameters"]["BlitzEditionLabel"];
+                match: components["parameters"]["BlitzMatchId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BlitzFlag"];
+            };
+        };
+        responses: {
+            /** @description Flagged */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["SignedOut"];
+            403: components["responses"]["NotYourMatch"];
             404: components["responses"]["NotFound"];
             409: components["responses"]["Conflict"];
         };
@@ -7435,6 +7751,35 @@ export interface operations {
             404: components["responses"]["NotFound"];
         };
     };
+    postAdminBlitzMatchKeep: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The tournament's slug */
+                tournament: components["parameters"]["AdminTournamentSlug"];
+                /** @description The edition's label, as admin lists it (a season) */
+                edition: components["parameters"]["BlitzEditionLabel"];
+                round: components["parameters"]["BlitzRoundId"];
+                match: components["parameters"]["BlitzMatchId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Kept */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+        };
+    };
     deleteAdminBlitzEntrant: {
         parameters: {
             query?: never;
@@ -7947,6 +8292,10 @@ export const blitzOutcomeValues: ReadonlyArray<FlattenedDeepRequired<components>
 export const blitzStandingStatusValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["BlitzStanding"]["status"]> = ["active", "dropped"];
 export const adminBlitzRoundKindValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["AdminBlitzRound"]["kind"]> = ["swiss", "knockout"];
 export const adminBlitzEntrantStatusValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["AdminBlitzEntrant"]["status"]> = ["active", "dropped"];
+export const blitzReportValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["BlitzReport"]> = ["reported", "confirmed", "flagged", "resolved"];
+export const myBlitzMatchMeValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["MyBlitzMatch"]["me"]> = ["a", "b"];
+export const myBlitzMatchReported_byValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["MyBlitzMatch"]["reported_by"]> = ["a", "b"];
+export const myBlitzMatchActionsValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["MyBlitzMatch"]["actions"]> = ["report", "confirm", "flag"];
 export const blitzEntrantChangeStatusValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["BlitzEntrantChange"]["status"]> = ["active", "dropped"];
 export const modelValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["Model"]> = ["glicko2_daneo", "glicko2_daneo_softer", "glicko2_std", "glicko2_std_softer", "glicko2_std_retro", "glicko2_std_softer_retro", "glicko2_mp", "glicko2_mp_softer", "glicko2_mp_retro", "glicko2_mp_softer_retro", "glicko2_adapt", "glicko2_adapt_softer", "glicko2_adapt_retro", "glicko2_adapt_softer_retro", "whr", "whr_softer"];
 export const formatValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["Format"]> = [0, 2, 3, 4];

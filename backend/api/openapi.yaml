@@ -1392,6 +1392,124 @@ paths:
           $ref: "#/components/responses/NotFound"
         "409":
           $ref: "#/components/responses/Conflict"
+  /v1/me/blitz/{tournament}/{edition}:
+    get:
+      operationId: getMyBlitzMatch
+      tags: [players]
+      summary: Your match in a blitz edition's latest round, and what you may do with it
+      description: |
+        For a signed-in player linked to a member entered in a shown edition:
+        their match in the latest round once it is published, as it stands
+        now, with the opponent's flag if any. Null for anyone else, and
+        before the round is published. Never cached.
+      parameters:
+        - $ref: "#/components/parameters/AdminTournamentSlug"
+        - $ref: "#/components/parameters/BlitzEditionLabel"
+      responses:
+        "200":
+          description: The match, or null
+          headers:
+            Cache-Control:
+              $ref: "#/components/headers/CacheControl"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MyBlitz"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/SignedOut"
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /v1/me/blitz/{tournament}/{edition}/matches/{match}/game:
+    put:
+      operationId: putMyBlitzGame
+      tags: [players]
+      summary: Report your match's game, or correct your report
+      description: |
+        Audited. The Origin must be the site. For a player of the match in
+        the latest round: it counts at once. The share code is required.
+        Reporting again corrects it, until the opponent confirms or flags
+        it. Refused once an organiser has entered or ruled the match, when
+        the opponent reported it, and once the next round is paired.
+      parameters:
+        - $ref: "#/components/parameters/AdminTournamentSlug"
+        - $ref: "#/components/parameters/BlitzEditionLabel"
+        - $ref: "#/components/parameters/BlitzMatchId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/BlitzGameRecord"
+      responses:
+        "204":
+          description: Recorded
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/SignedOut"
+        "403":
+          $ref: "#/components/responses/NotYourMatch"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+  /v1/me/blitz/{tournament}/{edition}/matches/{match}/confirm:
+    post:
+      operationId: postMyBlitzConfirm
+      tags: [players]
+      summary: Confirm your opponent's report
+      description: |
+        Audited. The Origin must be the site. Players can no longer change
+        the result; a mistake found later goes to the organisers.
+      parameters:
+        - $ref: "#/components/parameters/AdminTournamentSlug"
+        - $ref: "#/components/parameters/BlitzEditionLabel"
+        - $ref: "#/components/parameters/BlitzMatchId"
+      responses:
+        "204":
+          description: Confirmed
+        "401":
+          $ref: "#/components/responses/SignedOut"
+        "403":
+          $ref: "#/components/responses/NotYourMatch"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+  /v1/me/blitz/{tournament}/{edition}/matches/{match}/flag:
+    post:
+      operationId: postMyBlitzFlag
+      tags: [players]
+      summary: Flag your opponent's report as wrong
+      description: |
+        Audited. The Origin must be the site. Players can no longer change
+        the result; admin shows the flag and its reason until an organiser
+        resolves it.
+      parameters:
+        - $ref: "#/components/parameters/AdminTournamentSlug"
+        - $ref: "#/components/parameters/BlitzEditionLabel"
+        - $ref: "#/components/parameters/BlitzMatchId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/BlitzFlag"
+      responses:
+        "204":
+          description: Flagged
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/SignedOut"
+        "403":
+          $ref: "#/components/responses/NotYourMatch"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
   /v1/admin/me:
     get:
       operationId: getAdminMe
@@ -2687,7 +2805,8 @@ paths:
         game stays a draw as a game and sends the higher seed through. The
         share code may be empty, for a game without one; one already on
         another game is refused, naming it. The match's ruling, if any, is
-        cleared.
+        cleared. A player's report it replaces is resolved: players can no
+        longer change it.
       parameters:
         - $ref: "#/components/parameters/AdminTournamentSlug"
         - $ref: "#/components/parameters/BlitzEditionLabel"
@@ -2720,8 +2839,9 @@ paths:
       description: |
         Audited. The Origin must be the admin site. Only in the latest
         round: the result, ruling and game go (with the game's seats, and
-        the "Round N" stage once it holds no game). Resetting it again
-        changes nothing. A ratings run that included the game loses its
+        the "Round N" stage once it holds no game), with a player's report,
+        so the players may report it again. Resetting it again changes
+        nothing. A ratings run that included the game loses its
         rows for it; make a run again to bring its pages up to date.
       parameters:
         - $ref: "#/components/parameters/AdminTournamentSlug"
@@ -2833,7 +2953,8 @@ paths:
         to one player, calls it a draw or a double loss, with its reason; a
         knockout match's ruling names who goes through. A game the match already has stays, overruled;
         recording the game again puts its result back. With no game, the ruling
-        is a forfeit: an unplayed round in the standings.
+        is a forfeit: an unplayed round in the standings. A player's report
+        it overrules is resolved: players can no longer change it.
       parameters:
         - $ref: "#/components/parameters/AdminTournamentSlug"
         - $ref: "#/components/parameters/BlitzEditionLabel"
@@ -2856,6 +2977,31 @@ paths:
           $ref: "#/components/responses/Forbidden"
         "404":
           $ref: "#/components/responses/NotFound"
+  /v1/admin/blitz/{tournament}/{edition}/rounds/{round}/matches/{match}/keep:
+    post:
+      operationId: postAdminBlitzMatchKeep
+      tags: [admin]
+      summary: Resolve a flagged report by keeping its result
+      description: |
+        Audited. The Origin must be the admin site. The result stays as the
+        player reported it, and players still cannot change it; resetting
+        the match opens it to them again.
+      parameters:
+        - $ref: "#/components/parameters/AdminTournamentSlug"
+        - $ref: "#/components/parameters/BlitzEditionLabel"
+        - $ref: "#/components/parameters/BlitzRoundId"
+        - $ref: "#/components/parameters/BlitzMatchId"
+      responses:
+        "204":
+          description: Kept
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
   /v1/admin/blitz/{tournament}/{edition}/entrants/{entrant}:
     patch:
       operationId: patchAdminBlitzEntrant
@@ -3470,6 +3616,15 @@ components:
             $ref: "#/components/schemas/Error"
     NotFromSite:
       description: A change that did not come from the site
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+    NotYourMatch:
+      description: |
+        A change that did not come from the site, or a player who may not
+        change this match: not linked to a member, banned, or not one of its
+        players
       content:
         application/json:
           schema:
@@ -4390,8 +4545,13 @@ components:
     BlitzEdition:
       description: A blitz edition for the site, with the entrants still in, the published rounds and the standings
       type: object
-      required: [tournament, name, edition, format, points, fide_points, entrants, rounds, standings, champion]
+      required: [tournament, name, edition, format, points, fide_points, entrants, rounds, standings, champion, results_updated_at]
       properties:
+        results_updated_at:
+          description: When the latest result in a published round was recorded; null before the first
+          type: string
+          format: date-time
+          nullable: true
         points:
           $ref: "#/components/schemas/BlitzPoints"
         fide_points:
@@ -4452,8 +4612,15 @@ components:
     BlitzPublicMatch:
       description: Who plays whom and how it ended; b is null for the bye
       type: object
-      required: [a, a_rating, a_seed, b, b_rating, b_seed, result, game, ruled]
+      required: [a, a_rating, a_seed, b, b_rating, b_seed, result, game, ruled, reported_by, confirmed]
       properties:
+        reported_by:
+          description: The player who reported the game, by username; null when an organiser entered it or no one has
+          type: string
+          nullable: true
+        confirmed:
+          description: Whether the opponent confirmed the reported game
+          type: boolean
         a_seed:
           description: In a knockout match, a's seed, their place in the Swiss standings when the knockout began; null in a Swiss round
           type: integer
@@ -4583,8 +4750,21 @@ components:
     AdminBlitzMatch:
       description: A match by entrant ids; b is null for the bye. The gaps are as the entrants are now
       type: object
-      required: [id, a, b, slot, a_seed, b_seed, zone_gap_minutes, rating_gap, repeat, result, game, ruling, decided_at]
+      required: [id, a, b, slot, a_seed, b_seed, zone_gap_minutes, rating_gap, repeat, result, game, ruling, decided_at, reported_by, report, flag_reason]
       properties:
+        reported_by:
+          description: The entrant who reported the game; null when no player did
+          type: integer
+          format: int64
+          nullable: true
+        report:
+          description: Null when no player reported the game
+          allOf:
+            - $ref: "#/components/schemas/BlitzReport"
+          nullable: true
+        flag_reason:
+          description: The opponent's reason when they flagged the report, kept once resolved; else empty
+          type: string
         slot:
           description: A knockout match's place in the bracket, from 0; the winners of slots 2k and 2k+1 meet in slot k next. Null in a Swiss round
           type: integer
@@ -5110,6 +5290,84 @@ components:
           minimum: 0
         outcome:
           $ref: "#/components/schemas/BlitzOutcome"
+    BlitzFlag:
+      type: object
+      additionalProperties: false
+      required: [reason]
+      properties:
+        reason:
+          description: What is wrong with the reported result
+          type: string
+          minLength: 1
+          maxLength: 500
+    BlitzReport:
+      description: |
+        Where a player's report stands: reported (the reporter may still
+        correct it), confirmed by the opponent, flagged by the opponent, or
+        resolved by an organiser
+      type: string
+      enum: [reported, confirmed, flagged, resolved]
+    MyBlitz:
+      type: object
+      required: [match]
+      properties:
+        match:
+          allOf:
+            - $ref: "#/components/schemas/MyBlitzMatch"
+          nullable: true
+    MyBlitzMatch:
+      description: A signed-in player's match, sides as the match names them, and what they may do with it now
+      type: object
+      required: [id, round, a, b, me, result, game, ruled, report, reported_by, flag_reason, actions]
+      properties:
+        id:
+          type: integer
+          format: int64
+        round:
+          type: integer
+        a:
+          type: string
+        b:
+          description: Null for the bye
+          type: string
+          nullable: true
+        me:
+          description: Which side the player is
+          type: string
+          enum: [a, b]
+        result:
+          allOf:
+            - $ref: "#/components/schemas/BlitzResult"
+          nullable: true
+        game:
+          allOf:
+            - $ref: "#/components/schemas/BlitzPlayedGame"
+          nullable: true
+        ruled:
+          description: Whether the result is the organisers' ruling
+          type: boolean
+        report:
+          description: Null when no player reported the game
+          allOf:
+            - $ref: "#/components/schemas/BlitzReport"
+          nullable: true
+        reported_by:
+          description: Which side reported the game; null when no player did
+          type: string
+          enum: [a, b]
+          nullable: true
+        flag_reason:
+          description: The opponent's reason when the report was flagged, else empty
+          type: string
+        actions:
+          description: |
+            What the player may do now: report (or correct their report),
+            confirm or flag the opponent's report. Empty once players can no
+            longer change it
+          type: array
+          items:
+            type: string
+            enum: [report, confirm, flag]
     BlitzRuling:
       type: object
       additionalProperties: false

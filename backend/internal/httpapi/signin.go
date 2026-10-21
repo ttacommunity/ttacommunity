@@ -30,6 +30,11 @@ type SignIns interface {
 	DeleteAccount(ctx context.Context, tokenHash []byte, now time.Time) error
 	RequestLink(ctx context.Context, login int64, name string, now time.Time) error
 	SetOwnDetails(ctx context.Context, login int64, country, zone *string) error
+	// ReportBlitzGame, ConfirmBlitzResult and FlagBlitzResult are a player's report of their own blitz match, and the
+	// opponent's answer to it, as the session hashing to tokenHash.
+	ReportBlitzGame(ctx context.Context, tokenHash []byte, slug, edition string, matchID int64, g store.BlitzGame, now time.Time) error
+	ConfirmBlitzResult(ctx context.Context, tokenHash []byte, slug, edition string, matchID int64, now time.Time) error
+	FlagBlitzResult(ctx context.Context, tokenHash []byte, slug, edition string, matchID int64, reason string, now time.Time) error
 	// SiteOrigin is the site's origin: the only one players' requests may come from, and where sign-in returns.
 	SiteOrigin() string
 	// SupportAddress is where players write with trouble, or "" when none is set.

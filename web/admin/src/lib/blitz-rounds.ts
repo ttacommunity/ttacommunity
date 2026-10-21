@@ -76,7 +76,7 @@ export function pairAction(ed: Edition, shown: readonly AdminBlitzMatch[] | null
 
 /** unsavedMatch is a match as proposed or made by hand and not yet saved: no id, no gaps, no result. */
 export function unsavedMatch(a: number, b: number | null): AdminBlitzMatch {
-  return { id: 0, a, b, slot: null, a_seed: null, b_seed: null, zone_gap_minutes: 0, rating_gap: null, repeat: false, result: null, game: null, ruling: '', decided_at: null };
+  return { id: 0, a, b, slot: null, a_seed: null, b_seed: null, zone_gap_minutes: 0, rating_gap: null, repeat: false, result: null, game: null, ruling: '', decided_at: null, reported_by: null, report: null, flag_reason: '' };
 }
 
 /** pairKey names a pairing by its two players, whichever way round, the bye as "bye". */

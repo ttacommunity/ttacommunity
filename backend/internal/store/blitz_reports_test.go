@@ -484,3 +484,23 @@ func TestMigration35sDownKeepsAReportedGameAsAdmins(t *testing.T) {
 		t.Errorf("games with the reported code after the reset = %q, want none", got)
 	}
 }
+
+func TestAnEditionSaysWhenTheNextRoundIsPairedBeforeItIsPublished(t *testing.T) {
+	a, _, reader, _, matches := reportsFixture(t)
+	ctx := context.Background()
+	for _, m := range matches {
+		if err := a.RecordBlitzRuling(ctx, "us_open", "2026", m, "a", "ruled"); err != nil {
+			t.Fatalf("RecordBlitzRuling: %v", err)
+		}
+	}
+	if _, err := a.AddBlitzRound(ctx, "us_open", "2026", BlitzRound{Seed: 8}); err != nil {
+		t.Fatalf("AddBlitzRound(2): %v", err)
+	}
+	ed, err := reader.BlitzEdition(ctx, "us_open", "2026")
+	if err != nil {
+		t.Fatalf("BlitzEdition: %v", err)
+	}
+	if ed.Round == nil || *ed.Round != 1 || ed.PairedRound == nil || *ed.PairedRound != 2 {
+		t.Errorf("round %v, paired %v; want 1 published and 2 paired", ed.Round, ed.PairedRound)
+	}
+}

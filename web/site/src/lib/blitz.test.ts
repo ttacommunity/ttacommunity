@@ -59,7 +59,7 @@ type Round = components['schemas']['BlitzRound'];
 type Match = components['schemas']['BlitzPublicMatch'];
 
 const format = { swiss_rounds: 8, knockout_size: 8 };
-const match = (a: string, b: string | null, extra: Partial<Match> = {}): Match => ({ a, a_rating: null, a_seed: null, b, b_rating: null, b_seed: null, result: null, game: null, ruled: false, ...extra });
+const match = (a: string, b: string | null, extra: Partial<Match> = {}): Match => ({ a, a_rating: null, a_seed: null, b, b_rating: null, b_seed: null, result: null, game: null, ruled: false, reported_by: null, confirmed: false, ...extra });
 const played = (code: string, finishedAt: string) => ({ share_code: code, a_culture: 250, a_outcome: 'finished' as const, b_culture: 0, b_outcome: 'timed_out' as const, finished_at: finishedAt });
 const round = (number: number, matches: Match[], skipped: string[] = []): Round => ({ number, kind: 'swiss', published_at: '2026-10-12T12:00:00Z', matches, skipped });
 const rounds = [
