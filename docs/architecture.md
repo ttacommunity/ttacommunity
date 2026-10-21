@@ -174,7 +174,10 @@ Patterns that hold across the schema:
   do, such as reporting their own blitz game, is a `SECURITY DEFINER`
   function granted to `ratings_player` alone, which checks the session and
   that format's rules before it writes; the shared writer behind it,
-  `write_game`, is granted to nobody. The api checks each login's limits
+  `write_game`, is granted to nobody. A linked member's empty Discord name
+  and email are filled from their account's sign-ins
+  (`fill_member_from_logins`, for both the player and admin logins); what
+  the member has is never replaced. The api checks each login's limits
   when it starts, and refuses to serve with one that can do more
 
 The **app database** *(planned)* will hold tournament

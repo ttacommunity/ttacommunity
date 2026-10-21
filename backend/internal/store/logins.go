@@ -156,8 +156,8 @@ func namedMember(ctx context.Context, c conn, name string) (Member, bool, error)
 }
 
 // ApproveLink links a pending request's account, at now, to the member its name names, adding that member (with
-// the account's Discord name and email address, zone Unknown) when there is none, and moves the country and zone the player gave to it.
-// It returns ErrNoRequest, ErrAlreadyLinked, or ErrMemberHasAccount when another account is linked to the member.
+// the account's Discord name and email address, zone Unknown) when there is none, moves the country and zone the
+// player gave to it, and fills a Discord name or email the member lacks from the account's logins. It returns ErrNoRequest, ErrAlreadyLinked, or ErrMemberHasAccount when another account is linked to the member.
 func (a *AdminStore) ApproveLink(ctx context.Context, request int64, now time.Time) (LinkApproved, error) {
 	var out LinkApproved
 	err := pgx.BeginFunc(ctx, a.pool, func(tx pgx.Tx) error {
@@ -207,6 +207,9 @@ func (a *AdminStore) ApproveLink(ctx context.Context, request int64, now time.Ti
 			return fmt.Errorf("linking an account: %w", err)
 		}
 		if err := moveAccountDetails(ctx, tx, account); err != nil {
+			return err
+		}
+		if err := fillMember(ctx, tx, account); err != nil {
 			return err
 		}
 		if _, err := tx.Exec(ctx, "UPDATE link_requests SET status = 'approved', decided_at = $2 WHERE request_id = $1", request, now); err != nil {

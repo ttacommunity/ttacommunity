@@ -525,8 +525,16 @@ func TestMigration32MakesEachLoginAnAccountAndItsDownUndoesIt(t *testing.T) {
 	if got := rowsOf(t, pool, "SELECT concat_ws('|', account_id, auto_link) FROM accounts ORDER BY 1"); !slices.Equal(got, []string{"40|t", "41|f"}) {
 		t.Errorf("accounts = %q, want 40 linking by name and 41 not", got)
 	}
-	if third := signedIn(t, p, discordID("100000000000000003", "player_three", ""), "three"); third.ID <= 41 {
-		t.Errorf("a new account's id = %d, want one after the migrated accounts'", third.ID)
+	var third int64
+	if err := pool.QueryRow(ctx, `
+		WITH a AS (INSERT INTO accounts (created_at) VALUES ('2026-10-18T03:00:00Z') RETURNING account_id)
+		INSERT INTO logins (account_id, provider, subject, username, created_at, signed_in_at)
+		SELECT account_id, 'discord', '100000000000000003', 'player_three', '2026-10-18T03:00:00Z', '2026-10-18T03:00:00Z' FROM a
+		RETURNING account_id`).Scan(&third); err != nil {
+		t.Fatalf("opening a new account: %v", err)
+	}
+	if third <= 41 {
+		t.Errorf("a new account's id = %d, want one after the migrated accounts'", third)
 	}
 
 	if err := withRatingsMigrations(pool, func(p *goose.Provider) error { _, err := p.DownTo(ctx, 31); return err }); err != nil {

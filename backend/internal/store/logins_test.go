@@ -6,10 +6,12 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"slices"
 	"strings"
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
+	"github.com/pressly/goose/v3"
 )
 
 // memberID returns the id of the member named name, failing the test when there is none.
@@ -104,6 +106,89 @@ func TestApprovingKeepsTheRequestersDiscordNameOnANewMember(t *testing.T) {
 	}
 	if len(members) != 1 || members[0].DiscordName != "player_one" || members[0].Zone != "Unknown" {
 		t.Errorf("members = %+v, want Newcomer with Discord name player_one and zone Unknown", members)
+	}
+}
+
+func TestALinkedMembersMissingDiscordNameAndEmailComeFromTheirLogins(t *testing.T) {
+	addEmail := func(t *testing.T, p *PlayerStore, account int64, address string) {
+		t.Helper()
+		ctx := context.Background()
+		if err := p.NewEmailLink(ctx, address, &account, "/account/", tokenHash("add-"+address), signInAt); err != nil {
+			t.Fatalf("NewEmailLink to add %s: %v", address, err)
+		}
+		if _, err := p.UseEmailLink(ctx, tokenHash("add-"+address), tokenHash("added-"+address), signInAt); err != nil {
+			t.Fatalf("UseEmailLink to add %s: %v", address, err)
+		}
+	}
+	tests := []struct {
+		name                  string
+		member                Member
+		link                  func(t *testing.T, a *AdminStore, p *PlayerStore)
+		wantDiscord, wantMail string
+	}{
+		{"approved, with both ways in", Member{Name: "ann", Zone: "UTC"}, func(t *testing.T, a *AdminStore, p *PlayerStore) {
+			l := signedIn(t, p, discordID("100000000000000001", "player_one", ""), "token")
+			addEmail(t, p, l.ID, "player@example.test")
+			approved(t, a, p, l, "ann")
+		}, "player_one", "player@example.test"},
+		{"approved, keeping what the member has", Member{Name: "ann", DiscordName: "ann_elsewhere", Email: "ann@example.test", Zone: "UTC"}, func(t *testing.T, a *AdminStore, p *PlayerStore) {
+			l := signedIn(t, p, discordID("100000000000000001", "player_one", ""), "token")
+			addEmail(t, p, l.ID, "player@example.test")
+			approved(t, a, p, l, "ann")
+		}, "ann_elsewhere", "ann@example.test"},
+		{"linked by email, Discord added after", Member{Name: "ann", Email: "player@example.test", Zone: "UTC"}, func(t *testing.T, a *AdminStore, p *PlayerStore) {
+			emailSignedIn(t, p, "player@example.test", "email")
+			if err := p.AddDiscord(context.Background(), tokenHash("email"), discordID("100000000000000001", "player_one", ""), signInAt); err != nil {
+				t.Fatalf("AddDiscord: %v", err)
+			}
+		}, "player_one", "player@example.test"},
+		{"linked by Discord name, email added after", Member{Name: "ann", DiscordName: "player_one", Zone: "UTC"}, func(t *testing.T, a *AdminStore, p *PlayerStore) {
+			l := signedIn(t, p, discordID("100000000000000001", "player_one", ""), "token")
+			addEmail(t, p, l.ID, "player@example.test")
+		}, "player_one", "player@example.test"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			_, a, p := playersFixture(t)
+			if _, err := a.AddMember(context.Background(), tt.member); err != nil {
+				t.Fatalf("AddMember: %v", err)
+			}
+			tt.link(t, a, p)
+			members, err := a.Members(context.Background())
+			if err != nil {
+				t.Fatalf("Members: %v", err)
+			}
+			if len(members) != 1 || members[0].DiscordName != tt.wantDiscord || members[0].Email != tt.wantMail {
+				t.Errorf("members = %+v, want ann with Discord name %q and email %q", members, tt.wantDiscord, tt.wantMail)
+			}
+		})
+	}
+}
+
+func TestMigration37FillsTheMembersLinkedAlready(t *testing.T) {
+	pool := migrated(t)
+	ctx := context.Background()
+	if err := withRatingsMigrations(pool, func(p *goose.Provider) error { _, err := p.DownTo(ctx, 36); return err }); err != nil {
+		t.Fatalf("migrating down to 36: %v", err)
+	}
+	for _, q := range []string{
+		`INSERT INTO members (tta_name, zone) VALUES ('ann', 'UTC'), ('bob', 'UTC')`,
+		`INSERT INTO accounts (member_id, linked_how, linked_at, created_at)
+		 SELECT member_id, 'approved', '2026-10-18T01:00:00Z', '2026-10-18T01:00:00Z' FROM members WHERE tta_name = 'ann'`,
+		`INSERT INTO accounts (created_at) VALUES ('2026-10-18T01:00:00Z')`,
+		`INSERT INTO logins (account_id, provider, subject, username, created_at, signed_in_at)
+		 SELECT account_id, 'discord', '10000000000000000' || account_id % 10, 'player_' || account_id, created_at, created_at FROM accounts`,
+	} {
+		if _, err := pool.Exec(ctx, q); err != nil {
+			t.Fatalf("building the old shape: %v\n%s", err, q)
+		}
+	}
+	if err := migrateRatingsTo(ctx, pool, 37); err != nil {
+		t.Fatalf("migrateRatingsTo(37): %v", err)
+	}
+	got := rowsOf(t, pool, "SELECT tta_name || '|' || (discord_name LIKE 'player_%') FROM members ORDER BY 1")
+	if want := []string{"ann|true", "bob|false"}; !slices.Equal(got, want) {
+		t.Errorf("members with a Discord name = %q, want %q", got, want)
 	}
 }
 
