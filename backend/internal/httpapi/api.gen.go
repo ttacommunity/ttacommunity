@@ -495,8 +495,9 @@ func (e GameSeatOutcome) Valid() bool {
 
 // Defines values for LoginProvider.
 const (
-	Discord LoginProvider = "discord"
-	Email   LoginProvider = "email"
+	Discord   LoginProvider = "discord"
+	Email     LoginProvider = "email"
+	Microsoft LoginProvider = "microsoft"
 )
 
 // Valid indicates whether the value is a known member of the LoginProvider enum.
@@ -505,6 +506,8 @@ func (e LoginProvider) Valid() bool {
 	case Discord:
 		return true
 	case Email:
+		return true
+	case Microsoft:
 		return true
 	default:
 		return false
@@ -1072,11 +1075,14 @@ type AdminAccountLinkedHow string
 type AdminAccountLogin struct {
 	DisplayName string `json:"display_name"`
 
+	// Email The address we may write to through this way in, the email login's or the one Microsoft vouches for; empty when none
+	Email string `json:"email"`
+
 	// Provider Where a player signs in
 	Provider   LoginProvider `json:"provider"`
 	SignedInAt time.Time     `json:"signed_in_at"`
 
-	// Username The Discord username, or the email address
+	// Username The Discord username, the email address, or the Microsoft account's name
 	Username string `json:"username"`
 }
 
@@ -2819,10 +2825,13 @@ type MyLogin struct {
 	// DisplayName Empty when they have none
 	DisplayName string `json:"display_name"`
 
+	// Email The address we may write to through this way in, the email login's or the one Microsoft vouches for; empty when none
+	Email string `json:"email"`
+
 	// Provider Where a player signs in
 	Provider LoginProvider `json:"provider"`
 
-	// Username The Discord username, or the email address
+	// Username The Discord username, the email address, or the Microsoft account's name ("Microsoft account" when it has none)
 	Username string `json:"username"`
 }
 
@@ -3819,6 +3828,22 @@ type FinishDiscordSignInParams struct {
 	Error *string `form:"error,omitempty" json:"error,omitempty"`
 }
 
+// StartMicrosoftSignInParams defines parameters for StartMicrosoftSignIn.
+type StartMicrosoftSignInParams struct {
+	// Add Add Microsoft to the signed-in player's account, rather than sign in
+	Add *bool `form:"add,omitempty" json:"add,omitempty"`
+
+	// Return The site path, with any query, to come back to, such as /ratings/player/?name=ann; anything else comes back to /account/
+	Return *string `form:"return,omitempty" json:"return,omitempty"`
+}
+
+// FinishMicrosoftSignInParams defines parameters for FinishMicrosoftSignIn.
+type FinishMicrosoftSignInParams struct {
+	Code  *string `form:"code,omitempty" json:"code,omitempty"`
+	State *string `form:"state,omitempty" json:"state,omitempty"`
+	Error *string `form:"error,omitempty" json:"error,omitempty"`
+}
+
 // GetAgreementParams defines parameters for GetAgreement.
 type GetAgreementParams struct {
 	Format *Format `form:"format,omitempty" json:"format,omitempty"`
@@ -4309,6 +4334,12 @@ type ServerInterface interface {
 	// FinishEmailSignIn Open an emailed link
 	// (POST /v1/auth/email/finish)
 	FinishEmailSignIn(w http.ResponseWriter, r *http.Request)
+	// StartMicrosoftSignIn Start signing in with Microsoft
+	// (GET /v1/auth/microsoft)
+	StartMicrosoftSignIn(w http.ResponseWriter, r *http.Request, params StartMicrosoftSignInParams)
+	// FinishMicrosoftSignIn Where Microsoft sends the player back
+	// (GET /v1/auth/microsoft/callback)
+	FinishMicrosoftSignIn(w http.ResponseWriter, r *http.Request, params FinishMicrosoftSignInParams)
 	// SignOut Sign out on this browser
 	// (POST /v1/auth/sign-out)
 	SignOut(w http.ResponseWriter, r *http.Request)
@@ -6803,6 +6834,111 @@ func (siw *ServerInterfaceWrapper) FinishEmailSignIn(w http.ResponseWriter, r *h
 	handler.ServeHTTP(w, r)
 }
 
+// StartMicrosoftSignIn operation middleware
+func (siw *ServerInterfaceWrapper) StartMicrosoftSignIn(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params StartMicrosoftSignInParams
+
+	// ------------- Optional query parameter "add" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "add", r.URL.Query(), &params.Add, runtime.BindQueryParameterOptions{Type: "boolean", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "add"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "add", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "return" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "return", r.URL.Query(), &params.Return, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "return"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "return", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.StartMicrosoftSignIn(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// FinishMicrosoftSignIn operation middleware
+func (siw *ServerInterfaceWrapper) FinishMicrosoftSignIn(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params FinishMicrosoftSignInParams
+
+	// ------------- Optional query parameter "code" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "code", r.URL.Query(), &params.Code, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "code"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "code", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "state" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "state", r.URL.Query(), &params.State, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "state"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "state", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "error" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "error", r.URL.Query(), &params.Error, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "error"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "error", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.FinishMicrosoftSignIn(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // SignOut operation middleware
 func (siw *ServerInterfaceWrapper) SignOut(w http.ResponseWriter, r *http.Request) {
 
@@ -8730,6 +8866,8 @@ func HandlerWithOptions(si ServerInterface, options StdHTTPServerOptions) http.H
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/v1/countries", wrapper.GetCountries)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/v1/auth/discord", wrapper.StartDiscordSignIn)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/v1/auth/discord/callback", wrapper.FinishDiscordSignIn)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/v1/auth/microsoft", wrapper.StartMicrosoftSignIn)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/v1/auth/microsoft/callback", wrapper.FinishMicrosoftSignIn)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/v1/auth/email", wrapper.SendEmailSignIn)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/v1/auth/email/finish", wrapper.FinishEmailSignIn)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/v1/auth/sign-out", wrapper.SignOut)
@@ -14905,6 +15043,84 @@ func (response FinishEmailSignIn503JSONResponse) VisitFinishEmailSignInResponse(
 	return err
 }
 
+type StartMicrosoftSignInRequestObject struct {
+	Params StartMicrosoftSignInParams
+}
+
+type StartMicrosoftSignInResponseObject interface {
+	VisitStartMicrosoftSignInResponse(w http.ResponseWriter) error
+}
+
+type StartMicrosoftSignIn302ResponseHeaders struct {
+	CacheControl string
+	Location     string
+}
+
+type StartMicrosoftSignIn302Response struct {
+	Headers StartMicrosoftSignIn302ResponseHeaders
+}
+
+func (response StartMicrosoftSignIn302Response) VisitStartMicrosoftSignInResponse(w http.ResponseWriter) error {
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.Header().Set("Location", fmt.Sprint(response.Headers.Location))
+	w.WriteHeader(302)
+	return nil
+}
+
+type StartMicrosoftSignIn503JSONResponse struct{ NotSetUpJSONResponse }
+
+func (response StartMicrosoftSignIn503JSONResponse) VisitStartMicrosoftSignInResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(503)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type FinishMicrosoftSignInRequestObject struct {
+	Params FinishMicrosoftSignInParams
+}
+
+type FinishMicrosoftSignInResponseObject interface {
+	VisitFinishMicrosoftSignInResponse(w http.ResponseWriter) error
+}
+
+type FinishMicrosoftSignIn302ResponseHeaders struct {
+	CacheControl string
+	Location     string
+}
+
+type FinishMicrosoftSignIn302Response struct {
+	Headers FinishMicrosoftSignIn302ResponseHeaders
+}
+
+func (response FinishMicrosoftSignIn302Response) VisitFinishMicrosoftSignInResponse(w http.ResponseWriter) error {
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.Header().Set("Location", fmt.Sprint(response.Headers.Location))
+	w.WriteHeader(302)
+	return nil
+}
+
+type FinishMicrosoftSignIn503JSONResponse struct{ NotSetUpJSONResponse }
+
+func (response FinishMicrosoftSignIn503JSONResponse) VisitFinishMicrosoftSignInResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(503)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
 type SignOutRequestObject struct {
 }
 
@@ -17769,6 +17985,12 @@ type StrictServerInterface interface {
 	// FinishEmailSignIn Open an emailed link
 	// (POST /v1/auth/email/finish)
 	FinishEmailSignIn(ctx context.Context, request FinishEmailSignInRequestObject) (FinishEmailSignInResponseObject, error)
+	// StartMicrosoftSignIn Start signing in with Microsoft
+	// (GET /v1/auth/microsoft)
+	StartMicrosoftSignIn(ctx context.Context, request StartMicrosoftSignInRequestObject) (StartMicrosoftSignInResponseObject, error)
+	// FinishMicrosoftSignIn Where Microsoft sends the player back
+	// (GET /v1/auth/microsoft/callback)
+	FinishMicrosoftSignIn(ctx context.Context, request FinishMicrosoftSignInRequestObject) (FinishMicrosoftSignInResponseObject, error)
 	// SignOut Sign out on this browser
 	// (POST /v1/auth/sign-out)
 	SignOut(ctx context.Context, request SignOutRequestObject) (SignOutResponseObject, error)
@@ -20250,6 +20472,58 @@ func (sh *strictHandler) FinishEmailSignIn(w http.ResponseWriter, r *http.Reques
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(FinishEmailSignInResponseObject); ok {
 		if err := validResponse.VisitFinishEmailSignInResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// StartMicrosoftSignIn operation middleware
+func (sh *strictHandler) StartMicrosoftSignIn(w http.ResponseWriter, r *http.Request, params StartMicrosoftSignInParams) {
+	var request StartMicrosoftSignInRequestObject
+
+	request.Params = params
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.StartMicrosoftSignIn(ctx, request.(StartMicrosoftSignInRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "StartMicrosoftSignIn")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(StartMicrosoftSignInResponseObject); ok {
+		if err := validResponse.VisitStartMicrosoftSignInResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// FinishMicrosoftSignIn operation middleware
+func (sh *strictHandler) FinishMicrosoftSignIn(w http.ResponseWriter, r *http.Request, params FinishMicrosoftSignInParams) {
+	var request FinishMicrosoftSignInRequestObject
+
+	request.Params = params
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.FinishMicrosoftSignIn(ctx, request.(FinishMicrosoftSignInRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "FinishMicrosoftSignIn")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(FinishMicrosoftSignInResponseObject); ok {
+		if err := validResponse.VisitFinishMicrosoftSignInResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {

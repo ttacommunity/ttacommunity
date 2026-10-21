@@ -848,9 +848,65 @@ export interface paths {
          *     banned. Adding Discord comes back to /account/ with signin=added, or
          *     signin=taken when that Discord account has an account of its own
          *     here, signin=has-kind when the account has another Discord already,
-         *     or signin=failed (signed out meanwhile included).
+         *     or signin=failed (signed out meanwhile included), each with
+         *     way=discord.
          */
         get: operations["finishDiscordSignIn"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/auth/microsoft": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Start signing in with Microsoft
+         * @description Opened as a page, not fetched: sends the browser to Microsoft, for
+         *     any personal, work or school account, asking for openid, profile and
+         *     email, with a state, a PKCE challenge and a nonce whose secrets wait
+         *     in a short-lived cookie for the callback. With add, a signed-in
+         *     player adds Microsoft to their account as another way in. 503 when
+         *     Microsoft sign-in is not set up here. Never cached.
+         */
+        get: operations["startMicrosoftSignIn"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/auth/microsoft/callback": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Where Microsoft sends the player back
+         * @description Checks the state against the cookie, exchanges the code with its
+         *     verifier, and checks the ID token: Microsoft's signature, this app's
+         *     audience, expiry, the nonce, and an issuer naming the token's own
+         *     tenant. Their login is recorded by Microsoft's id for this app, with
+         *     their name, and their email when Microsoft vouches for it (a
+         *     personal account's, or a work or school account's whose domain is
+         *     verified); the email never links them to a member, but fills a
+         *     linked member's empty email. A session starts as with Discord, and
+         *     the browser goes back to the site with the same signin outcomes:
+         *     ok, first, failed, and when adding, added, taken, has-kind (another
+         *     Microsoft account already) or failed, with way=microsoft.
+         */
+        get: operations["finishMicrosoftSignIn"];
         put?: never;
         post?: never;
         delete?: never;
@@ -4558,14 +4614,16 @@ export interface components {
          * @description Where a player signs in
          * @enum {string}
          */
-        LoginProvider: "discord" | "email";
+        LoginProvider: "discord" | "email" | "microsoft";
         /** @description A way into the signed-in player's account */
         MyLogin: {
             provider: components["schemas"]["LoginProvider"];
-            /** @description The Discord username, or the email address */
+            /** @description The Discord username, the email address, or the Microsoft account's name ("Microsoft account" when it has none) */
             username: string;
             /** @description Empty when they have none */
             display_name: string;
+            /** @description The address we may write to through this way in, the email login's or the one Microsoft vouches for; empty when none */
+            email: string;
         };
         EmailSignInAsk: {
             email: string;
@@ -4649,9 +4707,11 @@ export interface components {
         /** @description A way into an account */
         AdminAccountLogin: {
             provider: components["schemas"]["LoginProvider"];
-            /** @description The Discord username, or the email address */
+            /** @description The Discord username, the email address, or the Microsoft account's name */
             username: string;
             display_name: string;
+            /** @description The address we may write to through this way in, the email login's or the one Microsoft vouches for; empty when none */
+            email: string;
             /** Format: date-time */
             signed_in_at: string;
         };
@@ -5854,6 +5914,57 @@ export interface operations {
         };
     };
     finishDiscordSignIn: {
+        parameters: {
+            query?: {
+                code?: string;
+                state?: string;
+                error?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Back to the site, signed in or not */
+            302: {
+                headers: {
+                    Location: components["headers"]["Location"];
+                    "Cache-Control": components["headers"]["CacheControl"];
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            503: components["responses"]["NotSetUp"];
+        };
+    };
+    startMicrosoftSignIn: {
+        parameters: {
+            query?: {
+                /** @description Add Microsoft to the signed-in player's account, rather than sign in */
+                add?: boolean;
+                /** @description The site path, with any query, to come back to, such as /ratings/player/?name=ann; anything else comes back to /account/ */
+                return?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description To Microsoft */
+            302: {
+                headers: {
+                    Location: components["headers"]["Location"];
+                    "Cache-Control": components["headers"]["CacheControl"];
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            503: components["responses"]["NotSetUp"];
+        };
+    };
+    finishMicrosoftSignIn: {
         parameters: {
             query?: {
                 code?: string;
@@ -8311,7 +8422,7 @@ export const gameSeatOutcomeValues: ReadonlyArray<FlattenedDeepRequired<componen
 export const seriesValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["Series"]> = ["international", "intermezzo", "royal_league", "worlds", "grand_slams", "ladders"];
 export const trophyRowTitleValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["TrophyRow"]["title"]> = ["WC", "GM", "M"];
 export const meAdmin_roleValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["Me"]["admin_role"]> = ["admin", "organiser"];
-export const loginProviderValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["LoginProvider"]> = ["discord", "email"];
+export const loginProviderValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["LoginProvider"]> = ["discord", "email", "microsoft"];
 export const emailSignedInOutcomeValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["EmailSignedIn"]["outcome"]> = ["first", "ok", "added"];
 export const myLinkRequestStatusValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["MyLinkRequest"]["status"]> = ["pending", "approved", "refused"];
 export const adminAccountLinked_howValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["AdminAccount"]["linked_how"]> = ["match", "approved"];

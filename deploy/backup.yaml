@@ -48,7 +48,7 @@ spec:
               type: RuntimeDefault
           containers:
             - name: backup
-              image: ghcr.io/ttacommunity/ttacommunity/load:sha-4839916c@sha256:7475e65d26b348f66cdfe719d9b8eed6398a6620daab9a598ed4d95f3011e370
+              image: ghcr.io/ttacommunity/ttacommunity/load:sha-5c78b95a@sha256:1c8706fcda4781c997ecb752bec1d3149b1c754e5866fde3b3a9c0d30219251c
               args: [-backup-to-r2]
               env:
                 - name: RATINGS_DATABASE_URL

@@ -1,4 +1,4 @@
-// The Email Worker that Email Routing's rules for support@ and privacy@ send mail to, forwarding it to every
+// The Email Worker that Email Routing's rules for support@, privacy@ and accounts@ send mail to, forwarding it to every
 // maintainer. FORWARD_TO, their addresses, is a Worker secret, never here.
 {
   "name": "ttac-mail-forward",

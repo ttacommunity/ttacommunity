@@ -57,7 +57,7 @@ func (f *fakeSignIns) SendSignInLink(_ context.Context, address, link string) er
 	return nil
 }
 
-func (f *fakeSignIns) AddDiscord(_ context.Context, hash []byte, id store.Identity, _ time.Time) error {
+func (f *fakeSignIns) AddLogin(_ context.Context, hash []byte, id store.Identity, _ time.Time) error {
 	a, ok := f.sessions[string(hash)]
 	switch {
 	case !ok:
@@ -253,10 +253,10 @@ func TestAddingDiscordFromTheAccountPage(t *testing.T) {
 		want     string
 		wantNote string
 	}{
-		{"signed in", 7, true, "/account/?signin=added", "add discord player_one"},
-		{"a Discord account with an account of its own", 10, true, "/account/?signin=taken", ""},
-		{"an account with another Discord", 9, true, "/account/?signin=has-kind", ""},
-		{"signed out meanwhile", 7, false, "/account/?signin=failed", ""},
+		{"signed in", 7, true, "/account/?signin=added&way=discord", "add discord player_one"},
+		{"a Discord account with an account of its own", 10, true, "/account/?signin=taken&way=discord", ""},
+		{"an account with another Discord", 9, true, "/account/?signin=has-kind&way=discord", ""},
+		{"signed out meanwhile", 7, false, "/account/?signin=failed&way=discord", ""},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

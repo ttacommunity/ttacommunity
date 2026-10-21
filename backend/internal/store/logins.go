@@ -30,11 +30,12 @@ type AccountRow struct {
 	Refused  *RefusedRequest
 }
 
-// AccountLogin is a way into an account as admin sees it.
+// AccountLogin is a way into an account as admin sees it, with the address we may write to through it, if any.
 type AccountLogin struct {
 	Provider    string    `json:"provider"`
 	Username    string    `json:"username"`
 	DisplayName string    `json:"display_name"`
+	Email       string    `json:"email"`
 	SignedInAt  time.Time `json:"signed_in_at"`
 }
 
@@ -89,6 +90,7 @@ func (a *AdminStore) Accounts(ctx context.Context) ([]AccountRow, error) {
 			coalesce(a.country_code, ''), coalesce(a.zone, ''), last.tta_name, last.reason
 		FROM accounts a
 		JOIN LATERAL (SELECT json_agg(json_build_object('provider', provider, 'username', username, 'display_name', display_name,
+		                                                'email', CASE provider WHEN 'email' THEN subject ELSE email END,
 		                                                'signed_in_at', signed_in_at) ORDER BY provider) AS logins,
 		                     max(signed_in_at) AS signed_in_at, min(lower(username)) AS first_name
 		              FROM logins WHERE account_id = a.account_id) w ON true

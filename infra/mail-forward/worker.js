@@ -1,7 +1,11 @@
-// Forwards mail to the site's addresses (support@ and privacy@) to every maintainer, through Email Routing.
+// Forwards mail to the site's addresses (support@, privacy@ and accounts@) to every maintainer, through Email Routing.
 
 /** The addresses an Email Routing rule sends here; mail to any other is refused. */
-export const ROUTED = new Set(['support@ttacommunity.org', 'privacy@ttacommunity.org'])
+export const ROUTED = new Set([
+	'support@ttacommunity.org',
+	'privacy@ttacommunity.org',
+	'accounts@ttacommunity.org',
+])
 
 /** destinations reads the FORWARD_TO secret: the maintainers' addresses, comma-separated, each verified in Email Routing. */
 export function destinations(env) {

@@ -138,13 +138,31 @@ func TestALinkedMembersMissingDiscordNameAndEmailComeFromTheirLogins(t *testing.
 		}, "ann_elsewhere", "ann@example.test"},
 		{"linked by email, Discord added after", Member{Name: "ann", Email: "player@example.test", Zone: "UTC"}, func(t *testing.T, a *AdminStore, p *PlayerStore) {
 			emailSignedIn(t, p, "player@example.test", "email")
-			if err := p.AddDiscord(context.Background(), tokenHash("email"), discordID("100000000000000001", "player_one", ""), signInAt); err != nil {
-				t.Fatalf("AddDiscord: %v", err)
+			if err := p.AddLogin(context.Background(), tokenHash("email"), discordID("100000000000000001", "player_one", ""), signInAt); err != nil {
+				t.Fatalf("AddLogin: %v", err)
 			}
 		}, "player_one", "player@example.test"},
 		{"linked by Discord name, email added after", Member{Name: "ann", DiscordName: "player_one", Zone: "UTC"}, func(t *testing.T, a *AdminStore, p *PlayerStore) {
 			l := signedIn(t, p, discordID("100000000000000001", "player_one", ""), "token")
 			addEmail(t, p, l.ID, "player@example.test")
+		}, "player_one", "player@example.test"},
+		{"approved, with Microsoft's email", Member{Name: "ann", Zone: "UTC"}, func(t *testing.T, a *AdminStore, p *PlayerStore) {
+			approved(t, a, p, signedIn(t, p, microsoftID("AAAAAAAAAAAAAAAAAAAAAIkzqFVrSaSaFHy782bbtaQ", "Player One", "player@example.test"), "token"), "ann")
+		}, "", "player@example.test"},
+		{"approved, Microsoft with no email", Member{Name: "ann", Zone: "UTC"}, func(t *testing.T, a *AdminStore, p *PlayerStore) {
+			approved(t, a, p, signedIn(t, p, microsoftID("AAAAAAAAAAAAAAAAAAAAAIkzqFVrSaSaFHy782bbtaQ", "Player One", ""), "token"), "ann")
+		}, "", ""},
+		{"approved, an email way in before Microsoft's", Member{Name: "ann", Zone: "UTC"}, func(t *testing.T, a *AdminStore, p *PlayerStore) {
+			l := signedIn(t, p, microsoftID("AAAAAAAAAAAAAAAAAAAAAIkzqFVrSaSaFHy782bbtaQ", "Player One", "microsoft@example.test"), "token")
+			addEmail(t, p, l.ID, "player@example.test")
+			approved(t, a, p, l, "ann")
+		}, "", "player@example.test"},
+		{"approved with Discord, Microsoft added after", Member{Name: "ann", Zone: "UTC"}, func(t *testing.T, a *AdminStore, p *PlayerStore) {
+			l := signedIn(t, p, discordID("100000000000000001", "player_one", ""), "token")
+			approved(t, a, p, l, "ann")
+			if err := p.AddLogin(context.Background(), tokenHash("token"), microsoftID("AAAAAAAAAAAAAAAAAAAAAIkzqFVrSaSaFHy782bbtaQ", "Player One", "player@example.test"), signInAt); err != nil {
+				t.Fatalf("AddLogin: %v", err)
+			}
 		}, "player_one", "player@example.test"},
 	}
 	for _, tt := range tests {
@@ -560,5 +578,24 @@ func TestAskingForAUsernameNoAccountHoldsIsAccepted(t *testing.T) {
 		if err := p.RequestLink(ctx, l.ID, name, signInAt); err != nil {
 			t.Errorf("RequestLink(%s) = %v, want it waiting", name, err)
 		}
+	}
+}
+
+func TestLoginsGiveEachWayInsEmail(t *testing.T) {
+	_, a, p := playersFixture(t)
+	signedIn(t, p, microsoftID("AAAAAAAAAAAAAAAAAAAAAIkzqFVrSaSaFHy782bbtaQ", "Player One", "microsoft@example.test"), "microsoft")
+	emailSignedIn(t, p, "player@example.test", "email")
+	signedIn(t, p, discordID("100000000000000001", "player_one", ""), "discord")
+	rows, err := a.Accounts(context.Background())
+	if err != nil {
+		t.Fatalf("Accounts: %v", err)
+	}
+	var got []string
+	for _, r := range rows {
+		got = append(got, r.Logins[0].Provider+" "+r.Logins[0].Email)
+	}
+	slices.Sort(got)
+	if want := []string{"discord ", "email player@example.test", "microsoft microsoft@example.test"}; !slices.Equal(got, want) {
+		t.Errorf("ways in with their emails = %q, want %q", got, want)
 	}
 }

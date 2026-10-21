@@ -37,6 +37,9 @@ type fakeSignIns struct {
 	mails    []string
 	// reportErr, when set, is what blitz reports, confirmations and flags answer (blitz_reports_test.go).
 	reportErr error
+	// microsoftOff turns Microsoft sign-in off; nonce is the one its last authorize URL carried.
+	microsoftOff bool
+	nonce        string
 }
 
 func newFakeSignIns() *fakeSignIns {

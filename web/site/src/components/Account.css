@@ -50,6 +50,10 @@
   flex-wrap: wrap;
   gap: 0.75rem;
 }
+.account-options > * {
+  min-height: 2.75rem;
+  justify-content: center;
+}
 .account-email-panel {
   margin-top: 0.75rem;
 }
@@ -170,4 +174,13 @@
 }
 .account-back {
   text-decoration: none;
+}
+/* Microsoft's logo, unaltered, beside its words on our own button, as its branding guidelines allow. */
+.account-options img {
+  flex: none;
+}
+.account-contact {
+  margin: 0.75rem 0 0;
+  padding: 0.5rem 0.75rem;
+  border-left: 3px solid var(--accent-gold);
 }

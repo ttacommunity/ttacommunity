@@ -682,7 +682,8 @@ A new public hostname is added to that rule first.
 Worker's Variables and Secrets (not its build variables).
 
 `ttac-mail-forward` (`infra/mail-forward`) is the Email Worker that Email
-Routing's rules for support@ and privacy@ send mail to; it forwards each
+Routing's rules for support@, privacy@ and accounts@ (the shared login for
+outside services) send mail to; it forwards each
 message to every address in its secret `FORWARD_TO` (comma-separated, each a
 verified Email Routing destination). It has no route and no build trigger: a
 maintainer deploys it by hand, from that folder, with `npx wrangler deploy`,

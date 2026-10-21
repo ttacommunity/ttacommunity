@@ -21,7 +21,7 @@ func (f *fakeAdmins) Accounts(context.Context) ([]store.AccountRow, error) {
 		{ID: 2, Logins: []store.AccountLogin{{Provider: "discord", Username: "player_two", SignedInAt: at}}, SignedInAt: at,
 			Request: &store.PendingRequest{ID: 20, Name: "Bob", Country: "NZ", Zone: "Pacific/Auckland", MemberEmail: "", RequestedAt: at.Add(time.Minute)}},
 		{ID: 1, Logins: []store.AccountLogin{{Provider: "discord", Username: "player_one", DisplayName: "Player One", SignedInAt: at},
-			{Provider: "email", Username: "player@example.test", SignedInAt: at.Add(time.Hour)}},
+			{Provider: "email", Username: "player@example.test", Email: "player@example.test", SignedInAt: at.Add(time.Hour)}},
 			MemberID: &ann, Member: "ann", LinkedHow: "match", SignedInAt: at.Add(time.Hour), AutoLink: true},
 		{ID: 4, Logins: []store.AccountLogin{{Provider: "email", Username: "four@example.test", SignedInAt: at}}, SignedInAt: at,
 			Refused: &store.RefusedRequest{Name: "Cat", Reason: "Not the same player"}},
@@ -80,6 +80,7 @@ func TestAdminListsAccountsWithWhatTheyAsk(t *testing.T) {
 	wantJSON(t, rec.Body.Bytes(), "1.logins.0.provider", `"discord"`)
 	wantJSON(t, rec.Body.Bytes(), "1.logins.1.provider", `"email"`)
 	wantJSON(t, rec.Body.Bytes(), "1.logins.1.username", `"player@example.test"`)
+	wantJSON(t, rec.Body.Bytes(), "1.logins.1.email", `"player@example.test"`)
 	wantJSON(t, rec.Body.Bytes(), "0.linked_how", `null`)
 	wantJSON(t, rec.Body.Bytes(), "1.member", `"ann"`)
 	wantJSON(t, rec.Body.Bytes(), "1.linked_how", `"match"`)

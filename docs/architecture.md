@@ -4,7 +4,7 @@ How the pieces fit together, what the ratings database holds, and where the
 trust boundaries are. **Built:** the ratings site, its public API, admin,
 the data load job and the engine; blitz tournaments' entrants (their
 pairings, results and standings are being built); player sign-in with
-Discord. **Planned:** Tournaments, TTA Pulse, other ways to sign in,
+Discord, an emailed link or Microsoft. **Planned:** Tournaments, TTA Pulse, other ways to sign in,
 the worker's timed jobs and the app database; they are
 drawn dashed below and marked *(planned)* in the text.
 
@@ -37,6 +37,7 @@ flowchart LR
     worker -.->|games, results| cge["CGE API"]
     worker -.->|bot DMs| discord["Discord"]
     api -->|player sign-in| discord
+    api -->|player sign-in| microsoft["Microsoft"]
     api -.-> adb
     classDef planned stroke-dasharray: 5 5
     class worker,adb planned
@@ -324,7 +325,19 @@ one of two ways:
   reason the player sees
 
 A login an admin unlinks is not linked by name again. A banned member's
-login cannot sign in. Sessions (`player_sessions`) are server-side: the
+login cannot sign in.
+
+A player can also sign in with **any Microsoft account**, personal, work or
+school (scopes `openid profile email`). The api checks the ID token itself:
+Microsoft's signature, this app's audience, expiry, the nonce, and an issuer
+naming the token's own tenant. The login is keyed by `sub`, Microsoft's id
+for the account in this app alone, and keeps the account's name, and its
+email when Microsoft vouches for it: a personal account's, which Microsoft
+made it prove, or a work or school account's whose domain its directory
+verified (`xms_edov`).
+That email is for writing to the player: it never links a login to a
+member, though it fills a linked member's empty email like an email
+login's address. Sessions (`player_sessions`) are server-side: the
 browser holds an opaque token in a cookie on the API host, and the database
 only its hash; a session ends at sign-out or after 30 days unused. A
 player sets their own country and time zone: on their member once linked,
