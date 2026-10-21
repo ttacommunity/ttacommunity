@@ -170,8 +170,12 @@ Patterns that hold across the schema:
   may only `SELECT` (the api's public routes); `ratings_admin` may write
   only admin's tables (the api's admin routes); `ratings_player` may write
   only sign-ins, sessions, requests to be linked and a linked member's
-  country and zone (the api's player routes). The api checks each login's
-  limits when it starts, and refuses to serve with one that can do more
+  country and zone (the api's player routes). Anything more a player may
+  do, such as reporting their own blitz game, is a `SECURITY DEFINER`
+  function granted to `ratings_player` alone, which checks the session and
+  that format's rules before it writes; the shared writer behind it,
+  `write_game`, is granted to nobody. The api checks each login's limits
+  when it starts, and refuses to serve with one that can do more
 
 The **app database** *(planned)* will hold tournament
 matches, the Pulse queue and the notification outbox, with its own

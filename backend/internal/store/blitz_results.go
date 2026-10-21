@@ -64,6 +64,9 @@ func (e *BlitzShareCodeError) Error() string {
 
 var blitzResults = []string{"a", "b", "draw", "double_loss"}
 
+// resolvesReport is the SET clause by which an organiser's game or ruling resolves a player's report, if any.
+const resolvesReport = "report = CASE WHEN report IS NULL THEN NULL ELSE 'resolved' END"
+
 var blitzOutcomes = []string{"finished", "resigned", "timed_out"}
 
 // validBlitzGame trims the share code ("" for none) and reports whether the game is within bounds.
@@ -282,7 +285,8 @@ func (a *AdminStore) RecordBlitzGame(ctx context.Context, slug, edition string, 
 		if _, err := tx.Exec(ctx, "INSERT INTO group_members (group_id, player_id) VALUES ($1, $2), ($1, $3) ON CONFLICT DO NOTHING", groupID, playerA, playerB); err != nil {
 			return fmt.Errorf("recording a game's players: %w", err)
 		}
-		if _, err := tx.Exec(ctx, "UPDATE blitz_matches SET result = $2, game_id = $3, ruling = '', decided_at = now() WHERE match_id = $1", matchID, result, *gameID); err != nil {
+		if _, err := tx.Exec(ctx, "UPDATE blitz_matches SET result = $2, game_id = $3, ruling = '', decided_at = now(), "+resolvesReport+" WHERE match_id = $1",
+			matchID, result, *gameID); err != nil {
 			return fmt.Errorf("recording a result: %w", err)
 		}
 		return nil
@@ -312,7 +316,8 @@ func (a *AdminStore) RecordBlitzRuling(ctx context.Context, slug, edition string
 		if m.Kind == "knockout" && result != "a" && result != "b" {
 			return ErrBlitzKnockoutWinner
 		}
-		if _, err := tx.Exec(ctx, "UPDATE blitz_matches SET result = $2, ruling = $3, decided_at = now() WHERE match_id = $1", matchID, result, reason); err != nil {
+		if _, err := tx.Exec(ctx, "UPDATE blitz_matches SET result = $2, ruling = $3, decided_at = now(), "+resolvesReport+" WHERE match_id = $1",
+			matchID, result, reason); err != nil {
 			return fmt.Errorf("recording a ruling: %w", err)
 		}
 		return nil
