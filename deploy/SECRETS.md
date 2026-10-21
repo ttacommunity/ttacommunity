@@ -22,7 +22,7 @@ Pipe values in; never use `--from-literal`, which leaves them in shell history.
 | `email-signin` | `resend-api-key` | `api`, `api-dev` | Resend's API key for the sign-in emails: sending access, restricted to ttacommunity.org |
 | `turnstile-signin` | `secret` | `api`, `api-dev` | The secret of the Turnstile widget "ttacommunity email sign-in", whose sitekey is the site's `PUBLIC_TURNSTILE_SITEKEY` (README) |
 | `ratings-backup` | `password`, `database-url` | `backup` | The backup job's login `ratings_backup_job`, a member of `ratings_backup` (reads the backed-up tables, writes nothing) |
-| `backup-r2` | `endpoint`, `access-key-id`, `secret-access-key` | `backup` | The R2 bucket `ttac-backups`: the account's S3 endpoint, and an R2 token that can write objects in that bucket only |
+| `backup-r2` | `endpoint`, `access-key-id`, `secret-access-key` | `backup` | The R2 bucket `ttacommunity-backup` (EU jurisdiction): the account's EU S3 endpoint, and an R2 token that can write objects in that bucket only |
 | `ttac-api-tunnel` | `credentials.json` | `ttac-api-tunnel` | The `ttac-api` tunnel's credentials (below, "The tunnels") |
 | `ttac-api-dev-tunnel` | `credentials.json` | `ttac-api-dev-tunnel` | The `ttac-api-dev` tunnel's credentials (below) |
 | `ttacommunity-github-app`, **in `flux-system`** | `githubAppID`, `githubAppInstallationID`, `githubAppPrivateKey` | Flux | Reads this repo as the GitHub App `ttacommunity-flux` (contents and metadata, read only). The cluster's maintainers hold it |
@@ -202,6 +202,24 @@ SQL
 kubectl "${ns[@]}" create secret generic ratings-backup \
   --from-file=password=/dev/shm/pw --from-file=database-url=/dev/shm/url
 rm /dev/shm/pw /dev/shm/url
+```
+
+`backup-r2` holds an R2 token made in the dashboard (R2, Manage API tokens:
+Object Read & Write, applied to `ttacommunity-backup` only; `cf` cannot make
+account tokens) and the bucket's EU endpoint. In a terminal, with the token's
+keys at the prompts:
+
+```sh
+ns=(-n ttacommunity)
+umask 077
+read -rsp 'R2 Access Key ID: ' id; echo; printf %s "$id" > /dev/shm/r2-id
+read -rsp 'R2 Secret Access Key: ' sk; echo; printf %s "$sk" > /dev/shm/r2-sk
+unset id sk
+account=$(cf auth whoami | jq -r '.accounts[0].id')   # run in this repo: its cf profile is the project's account
+printf 'https://%s.eu.r2.cloudflarestorage.com' "$account" > /dev/shm/r2-ep
+kubectl "${ns[@]}" create secret generic backup-r2 \
+  --from-file=endpoint=/dev/shm/r2-ep --from-file=access-key-id=/dev/shm/r2-id --from-file=secret-access-key=/dev/shm/r2-sk
+rm /dev/shm/r2-id /dev/shm/r2-sk /dev/shm/r2-ep
 ```
 
 ### The tunnels

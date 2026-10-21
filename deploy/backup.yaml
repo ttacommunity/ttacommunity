@@ -1,5 +1,5 @@
 # The nightly backup: every input table, personal data included, encrypted with
-# age to the maintainers' public key and put in the R2 bucket ttac-backups
+# age to the maintainers' public key and put in the R2 bucket ttacommunity-backup
 # (docs/architecture.md#backups). A run by hand:
 #   kubectl -n ttacommunity create job --from=cronjob/backup backup-manual-1
 apiVersion: batch/v1
@@ -59,7 +59,7 @@ spec:
                 - name: BACKUP_AGE_RECIPIENT
                   value: age1chparhxyn3kvlr245t8u9zvm9agar9v995dyptuygepuvmeujazqkre4r9
                 - name: BACKUP_BUCKET
-                  value: ttac-backups
+                  value: ttacommunity-backup
                 - name: BACKUP_ENDPOINT
                   valueFrom:
                     secretKeyRef:
