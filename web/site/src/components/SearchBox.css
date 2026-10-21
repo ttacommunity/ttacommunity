@@ -14,14 +14,21 @@
 
 .search-input-wrapper .input-antique {
   width: 230px;
-  padding: 0.4rem 2rem 0.4rem 0.65rem;
+  padding: 0.4rem 2.2rem 0.4rem 0.65rem;
   font-size: 0.88rem;
 }
 
 .search-submit {
   position: absolute;
-  right: 6px;
-  padding: 2px 4px;
+  top: 50%;
+  right: 2px;
+  transform: translateY(-50%);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 36px;
+  min-height: 36px;
+  padding: 0;
   background: transparent;
   border: none;
   color: var(--accent-gold);

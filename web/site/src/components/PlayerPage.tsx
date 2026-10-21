@@ -19,6 +19,7 @@ import {
   type PlayerSeatStats,
 } from '@ttac/shared/ratings';
 import CareerBox from './CareerBox';
+import BackLink from '@ttac/shared/BackLink';
 import { ExtraBadges, Flag } from './PlayerMarks';
 import RatingChart from './RatingChart';
 import VersusDialog from './VersusDialog';
@@ -205,6 +206,9 @@ function Header({
   const board = new URLSearchParams({ model: view.engine, format: String(view.format) });
   return (
     <div className="profile-header">
+      <div className="header-back">
+        <BackLink href={`/ratings/?${board}`}>Competitive Leaderboard</BackLink>
+      </div>
       <div className="player-identity">
         <div className="player-identity-name">
           {t !== null && (
@@ -252,9 +256,6 @@ function Header({
         </a>
         <a href={matrixHref(player.name, view)} className="btn-tournament-achievements btn-matrix">
           <span aria-hidden="true">📊</span> Comparison Matrix &amp; Career Years »
-        </a>
-        <a href={`/ratings/?${board}`} className="home-circle-btn" data-tooltip="Return to Competitive Leaderboard">
-          <img src="/img/home-button-circle.webp" alt="Leaderboard" className="home-btn-img" width={58} height={58} />
         </a>
       </div>
     </div>

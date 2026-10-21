@@ -197,6 +197,8 @@
   display: inline-flex;
   align-items: center;
   gap: 0.45rem;
+  height: var(--control-height);
+  box-sizing: border-box;
   padding: 0.4rem 0.85rem;
   background: rgba(28, 19, 13, 0.9);
   border: 1px solid var(--border-subtle);

@@ -321,6 +321,9 @@ function Header({ player, view }: { player: Player; view: MatrixView }) {
   const { format } = view;
   return (
     <div className="matrix-header-card">
+      <div className="header-back">
+        <BackLink href={profileHref(player.name, view)}>Return to Profile</BackLink>
+      </div>
       <div>
         <div className="matrix-identity">
           <Flag country={player.country} />
@@ -343,7 +346,6 @@ function Header({ player, view }: { player: Player; view: MatrixView }) {
         </div>
       </div>
       <div className="matrix-header-links">
-        <BackLink href={profileHref(player.name, view)}>Return to Profile</BackLink>
         <a href={achievementsHref(player.name)} className="btn-antique">
           🏆 Achievements »
         </a>

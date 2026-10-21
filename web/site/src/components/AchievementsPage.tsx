@@ -26,8 +26,9 @@ import {
 } from '../lib/achievements';
 import './PlayerPage.css';
 import './AchievementsPage.css';
+import BackLink from '@ttac/shared/BackLink';
+import { playerHref } from '../lib/player-view';
 import FilterInput from './FilterInput';
-import PlayerLink from './PlayerLink';
 import ScrollTable from './ScrollTable';
 import Waiting from './Waiting';
 
@@ -87,6 +88,9 @@ function Header({ player }: { player: Player }) {
   const badge = titleBadge(player.title, player.peak);
   return (
     <div className="achievements-header">
+      <div className="header-back">
+        <BackLink href={playerHref(player.name)}>Player Profile</BackLink>
+      </div>
       <div className="player-identity">
         <div className="ach-identity-name">
           {badge && (
@@ -115,14 +119,6 @@ function Header({ player }: { player: Player }) {
             </>
           )}
         </div>
-      </div>
-      <div className="ach-links">
-        <PlayerLink name={player.name} className="btn-back-profile">
-          « Back to Player Profile
-        </PlayerLink>
-        <a href="/ratings/" className="home-circle-btn" title="Return to Competitive Leaderboard">
-          <img src="/img/home-button-circle.webp" alt="Leaderboard" className="home-btn-img" width={58} height={58} />
-        </a>
       </div>
     </div>
   );

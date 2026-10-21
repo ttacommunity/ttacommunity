@@ -16,6 +16,10 @@
   text-align: center;
 }
 
+.profile-header .header-back {
+  margin-bottom: 0;
+}
+
 .player-identity,
 .player-identity-name {
   display: flex;
@@ -94,33 +98,6 @@
   justify-content: center;
   gap: 1rem;
   margin-top: 0.25rem;
-}
-
-.home-circle-btn {
-  position: relative;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 58px;
-  height: 58px;
-  border-radius: 50%;
-  text-decoration: none;
-  transition:
-    transform 0.2s ease,
-    filter 0.2s ease;
-}
-
-.home-circle-btn:hover {
-  transform: scale(1.08);
-  filter: drop-shadow(0 0 10px rgba(229, 169, 60, 0.8));
-}
-
-.home-btn-img {
-  display: block;
-  width: 58px;
-  height: 58px;
-  border-radius: 50%;
-  object-fit: cover;
 }
 
 .view-selectors {
@@ -357,8 +334,16 @@
 }
 
 .chart-toggle .format-btn {
+  min-height: 28px;
   padding: 0.2rem 0.6rem;
   font-size: 0.78rem;
+}
+
+@media (pointer: coarse), (max-width: 640px) {
+  .chart-toggle .format-btn {
+    min-height: 36px;
+    padding: 0.35rem 0.75rem;
+  }
 }
 
 @media (max-width: 768px) {
@@ -610,6 +595,10 @@
   border: 1px solid var(--border-subtle);
   border-radius: 4px;
   color: var(--text-main);
+  padding: 0.35rem 0.6rem;
+  font-size: 0.85rem;
+  height: var(--control-height);
+  box-sizing: border-box;
 }
 
 .rivals-controls {
@@ -619,13 +608,10 @@
   gap: 0.5rem;
 }
 
-.rivals-controls select {
-  padding: 0.35rem 0.6rem;
-  font-size: 0.85rem;
-}
-
 .rival-filter {
   width: 180px;
+  height: var(--control-height);
+  box-sizing: border-box;
 }
 
 .sort-head {

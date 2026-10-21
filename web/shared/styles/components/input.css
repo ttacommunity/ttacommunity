@@ -20,10 +20,11 @@ select.input-antique {
   cursor: pointer;
 }
 
-/* Text fields and selects share one height, so a row of them lines up; upstream's filter boxes keep their own. */
-input.input-antique:not(.filter-input),
+/* Text fields and selects share one height, so a row of them lines up neatly. */
+input.input-antique,
 select.input-antique {
   height: var(--control-height);
+  box-sizing: border-box;
 }
 
 /* A checkbox in a row of fields, centred on them. */
