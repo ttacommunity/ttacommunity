@@ -40,6 +40,20 @@ export function rulingChoices(kind: AdminBlitzRound['kind']): NonNullable<AdminB
   return kind === 'knockout' ? ['a', 'b'] : ['a', 'b', 'draw', 'double_loss'];
 }
 
+/** flaggedMatches lists the matches whose reports a player flagged, waiting for an organiser, oldest round first, each with its round. */
+export function flaggedMatches(rounds: readonly AdminBlitzRound[]): { round: AdminBlitzRound; match: AdminBlitzMatch }[] {
+  return [...rounds].sort((a, b) => a.number - b.number).flatMap((round) => round.matches.filter((m) => m.report === 'flagged').map((match) => ({ round, match })));
+}
+
+/** reportNote says how players reported a match's game: who reported it, who confirmed or flagged it and why, and whether an organiser resolved it; '' for an organiser's entry. */
+export function reportNote(m: AdminBlitzMatch, nameOf: (id: number) => string): string {
+  if (m.reported_by === null || m.report === null) return '';
+  const opponent = nameOf(m.reported_by === m.a ? (m.b ?? 0) : m.a);
+  const flag = m.flag_reason === '' ? '' : `, flagged by ${opponent}: “${m.flag_reason}”`;
+  const said = `Reported by ${nameOf(m.reported_by)}`;
+  return { reported: said, confirmed: `${said}, confirmed by ${opponent}`, flagged: said + flag, resolved: `${said}${flag}; resolved` }[m.report];
+}
+
 /** rulingLabel names a ruling's result for the organiser: with no game played, as the forfeit it is; over a played game, as the result it gives instead. */
 export function rulingLabel(result: NonNullable<AdminBlitzMatch['result']>, a: string, b: string, played: boolean): string {
   if (played) return { a: `${a} wins`, b: `${b} wins`, draw: 'A draw', double_loss: 'Both lose' }[result];
@@ -76,7 +90,7 @@ export function pairAction(ed: Edition, shown: readonly AdminBlitzMatch[] | null
 
 /** unsavedMatch is a match as proposed or made by hand and not yet saved: no id, no gaps, no result. */
 export function unsavedMatch(a: number, b: number | null): AdminBlitzMatch {
-  return { id: 0, a, b, slot: null, a_seed: null, b_seed: null, zone_gap_minutes: 0, rating_gap: null, repeat: false, result: null, game: null, ruling: '', decided_at: null };
+  return { id: 0, a, b, slot: null, a_seed: null, b_seed: null, zone_gap_minutes: 0, rating_gap: null, repeat: false, result: null, game: null, ruling: '', decided_at: null, reported_by: null, report: null, flag_reason: '' };
 }
 
 /** pairKey names a pairing by its two players, whichever way round, the bye as "bye". */

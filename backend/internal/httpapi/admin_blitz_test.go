@@ -39,6 +39,11 @@ func (f *fakeAdmins) blitzRow() store.BlitzEditionRow {
 		if r.PublishedAt != nil && (row.Round == nil || r.Number > *row.Round) {
 			row.Round = new(r.Number)
 		}
+		for _, m := range r.Matches {
+			if m.Report == "flagged" {
+				row.Flagged++
+			}
+		}
 	}
 	for _, e := range f.blitzEntrants() {
 		switch e.Status {

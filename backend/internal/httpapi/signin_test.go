@@ -35,6 +35,8 @@ type fakeSignIns struct {
 	emailOff bool
 	links    map[string]store.EmailSignIn
 	mails    []string
+	// reportErr, when set, is what blitz reports, confirmations and flags answer (blitz_reports_test.go).
+	reportErr error
 }
 
 func newFakeSignIns() *fakeSignIns {

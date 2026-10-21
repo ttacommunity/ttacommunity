@@ -45,6 +45,12 @@ export default function BlitzPanel() {
                     <a href={editionHref(r.tournament, r.edition)}>
                       {r.name} {r.edition}
                     </a>
+                    {r.flagged > 0 && (
+                      <span className="count-badge">
+                        {r.flagged}
+                        <span className="visually-hidden"> flagged</span>
+                      </span>
+                    )}
                   </th>
                   <td>{r.edition}</td>
                   <td>{formatLabel(r.format)}</td>

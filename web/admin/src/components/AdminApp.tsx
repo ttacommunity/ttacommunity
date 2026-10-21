@@ -1,7 +1,7 @@
 /** The admin page: the site's header with admin's tabs (tournaments, blitz, members and their sign-ins, data and rating runs, titles and badges, admins). */
 import { Fragment, useEffect, useState, type ReactNode } from 'react';
 import Segmented from '@ttac/shared/Segmented';
-import { adminRequest, type AdminAccount, type AdminMe, type AdminTournamentRow, type Load } from '../lib/admin-api';
+import { adminRequest, type AdminAccount, type AdminBlitzEditionRow, type AdminMe, type AdminTournamentRow, type Load } from '../lib/admin-api';
 import { panelsFor, tabCounts, tabFrom, tabsFor, type Panel, type TabKey } from '../lib/admin-tabs';
 import { signInGroups } from '../lib/sign-ins';
 import { listed } from '../lib/tournament-groups';
@@ -115,11 +115,14 @@ export default function AdminApp() {
     setAccounts(r.ok ? { kind: 'ready', data: r.data } : { kind: 'error', message: r.message });
   };
   const waiting = accounts.kind === 'ready' ? signInGroups(accounts.data).waiting.length : 0;
+  // flagged counts the players' reports waiting for an organiser, across every blitz edition, for the Blitz tab.
+  const [flagged, setFlagged] = useState(0);
   useEffect(() => {
     void adminRequest<AdminMe>('/api/me', {}).then((r) => {
       setMe(r.ok ? { kind: 'ready', data: r.data } : { kind: 'error', message: r.message });
       if (!r.ok) return;
       void reloadAccounts();
+      void adminRequest<AdminBlitzEditionRow[]>('/api/blitz', {}).then((b) => b.ok && setFlagged(b.data.reduce((n, e) => n + e.flagged, 0)));
       const follow = () => setTab(tabFrom(window.location.hash, r.data.role));
       follow();
       window.addEventListener('hashchange', follow);
@@ -128,7 +131,7 @@ export default function AdminApp() {
 
   return (
     <>
-      <AdminHeader tabs={me.kind === 'ready' ? tabsFor(me.data.role) : []} current={me.kind === 'ready' ? tab : null} counts={tabCounts(waiting)} />
+      <AdminHeader tabs={me.kind === 'ready' ? tabsFor(me.data.role) : []} current={me.kind === 'ready' ? tab : null} counts={tabCounts(waiting, flagged)} />
       <main className="admin-main">
         {me.kind === 'loading' && <p className="muted">Loading…</p>}
         {me.kind === 'error' && <PageError message={me.message} />}

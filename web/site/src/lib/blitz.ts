@@ -1,6 +1,7 @@
-/** The Blitz section's decisions: which edition the address names, its address, how a rating reads, which rounds are the pairings and which the bracket, an edition's tabs, its games as table rows, and who sat a round out. */
+/** The Blitz section's decisions: which edition the address names, its address, how a rating reads, which rounds are the pairings and which the bracket, an edition's tabs, its games as table rows, who sat a round out, and when results last changed. */
 import type { components } from '@ttac/shared/api';
 import { resultTag, roundTitle, seededName, type BlitzFormat } from '@ttac/shared/blitz';
+import { formatInstant } from '@ttac/shared/time';
 import { outcomeNote } from './catalogue-view';
 import { pageOf, type GameRow, type GameSeat } from './games-table';
 
@@ -46,15 +47,27 @@ export function editionViews(rounds: readonly { kind: 'swiss' | 'knockout' }[]):
 /** BlitzGamesFilter narrows an edition's games: one round (null for every round), one player ('' for all), only those with a replay code, and the page. */
 export type BlitzGamesFilter = { round: number | null; player: string; coded: boolean; page: number };
 
-/** blitzGames lists the matches of rounds, in the order given, as games-table rows narrowed by filter, with dates on the clocks of zone: one page of them, the page and pages, and how many games (byes aside) and how many with a replay code the filter keeps. */
-export function blitzGames(rounds: readonly BlitzRound[], format: BlitzFormat, filter: BlitzGamesFilter, zone: string) {
+/** YourRow names the signed-in player's game, by its round and first player, and what its row says to them. */
+export type YourRow = { round: number; a: string; label: string };
+
+/** blitzGames lists the matches of rounds, in the order given, as games-table rows narrowed by filter, with dates on the clocks of zone, the signed-in player's game marked: one page of them, the page and pages, and how many games (byes aside) and how many with a replay code the filter keeps. */
+export function blitzGames(rounds: readonly BlitzRound[], format: BlitzFormat, filter: BlitzGamesFilter, zone: string, you: YourRow | null = null) {
   const day = new Intl.DateTimeFormat('en-CA', { timeZone: zone, year: 'numeric', month: '2-digit', day: '2-digit' });
   const kept = rounds
     .filter((r) => filter.round === null || r.number === filter.round)
     .flatMap((r) => r.matches.map((m, i) => ({ r, m, i })))
     .filter(({ m }) => (filter.player === '' || m.a === filter.player || m.b === filter.player) && (!filter.coded || coded(m)));
-  const rows = kept.map(({ r, m, i }) => blitzRow(r.number, i + 1, m, format, day));
+  const rows = kept.map(({ r, m, i }) => {
+    const row = blitzRow(r.number, i + 1, m, format, day);
+    return you !== null && r.number === you.round && m.a === you.a ? { ...row, you: you.label } : row;
+  });
   return { ...pageOf(rows, filter.page), games: kept.filter(({ m }) => m.b !== null).length, coded: kept.filter(({ m }) => coded(m)).length };
+}
+
+/** reportTag says who reported a match's game, and whether the opponent confirmed it; '' for an organiser's entry. */
+function reportTag(m: BlitzMatch): string {
+  if (m.reported_by === null) return '';
+  return m.confirmed ? `Reported by ${m.reported_by}, confirmed` : `Reported by ${m.reported_by}`;
 }
 
 /** coded says whether a match's game was recorded with a replay code. */
@@ -62,7 +75,7 @@ function coded(m: BlitzMatch): boolean {
   return m.game !== null && m.game.share_code !== '';
 }
 
-/** blitzRow is game number n of a round as a games-table row: rated players linked with their ratings, seeds in the knockout. */
+/** blitzRow is game number n of a round as a games-table row: rated players linked with their ratings, seeds in the knockout, and who reported the game. */
 function blitzRow(round: number, n: number, m: BlitzMatch, format: BlitzFormat, day: Intl.DateTimeFormat): GameRow {
   const g = m.game;
   const seat = (name: string, rating: number | null, seed: number | null, score: number | null, note: string): GameSeat => ({
@@ -79,7 +92,7 @@ function blitzRow(round: number, n: number, m: BlitzMatch, format: BlitzFormat, 
     date: g === null ? '' : day.format(new Date(g.finished_at)),
     context: roundTitle(round, format),
     where: `Game ${n}`,
-    tag: resultTag(m),
+    tag: [resultTag(m), reportTag(m)].filter((t) => t !== '').join(' · '),
     unplayed: m.b === null || (m.result !== null && g === null),
     seats,
     code: g === null || g.share_code === '' ? null : g.share_code,
@@ -94,4 +107,9 @@ export function notPlaying(rounds: readonly BlitzRound[], round: number | null, 
 /** roundOptions names each of rounds for the Round filter, in the order given. */
 export function roundOptions(rounds: readonly { number: number }[], format: BlitzFormat): { value: number; label: string }[] {
   return rounds.map((r) => ({ value: r.number, label: roundTitle(r.number, format) }));
+}
+
+/** resultsUpdated says when the edition's latest result was recorded, on the clocks of zone; '' before the first. */
+export function resultsUpdated(at: string | null, zone: string): string {
+  return at === null ? '' : `Results last updated ${formatInstant(at, zone)}.`;
 }

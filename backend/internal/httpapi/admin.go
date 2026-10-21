@@ -93,6 +93,8 @@ type Admins interface {
 	// RecordBlitzGame records or corrects the game a match was played as; RecordBlitzRuling decides it by ruling.
 	RecordBlitzGame(ctx context.Context, slug, edition string, matchID int64, g store.BlitzGame) error
 	RecordBlitzRuling(ctx context.Context, slug, edition string, matchID int64, result, reason string) error
+	// KeepBlitzReport resolves a flagged report by keeping its result.
+	KeepBlitzReport(ctx context.Context, slug, edition string, matchID int64) error
 	// ResetBlitzResult and ResetBlitzRound undo a match's or the latest round's results, games and all;
 	// ResetBlitzEdition starts the edition again from its entrants.
 	ResetBlitzResult(ctx context.Context, slug, edition string, matchID int64) error

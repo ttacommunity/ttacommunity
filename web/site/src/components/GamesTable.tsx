@@ -1,4 +1,4 @@
-/** A games table, the same wherever games are listed: date, what each game belongs to, where it was played, the players and scores, a replay code to copy, and pages. */
+/** A games table, the same wherever games are listed: date, what each game belongs to, where it was played, the players and scores, a replay code to copy, and pages; a blitz edition marks the signed-in player's game. */
 import { useState, type ReactNode } from 'react';
 import type { GameRow } from '../lib/games-table';
 import PlayerLink from './PlayerLink';
@@ -33,12 +33,17 @@ export default function GamesTable({ caption, context, rows, waiting, empty }: {
             </tr>
           )}
           {rows.map((r) => (
-            <tr key={r.key} className={r.unplayed ? 'game-never-played' : undefined}>
+            <tr key={r.key} className={[r.unplayed ? 'game-never-played' : '', r.you === undefined ? '' : 'game-yours'].join(' ').trim() || undefined}>
               <td className="cell-date">{r.date === '' ? <span className="cell-muted">—</span> : r.date}</td>
               <td className="cell-muted">{r.context}</td>
               <td>
                 {r.where}
                 {r.tag !== '' && <span className="panel-tag game-state">{r.tag}</span>}
+                {r.you !== undefined && (
+                  <a className="game-you" href="#your-game">
+                    {r.you}
+                  </a>
+                )}
               </td>
               <td>
                 <div className="game-seats">

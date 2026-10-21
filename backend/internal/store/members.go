@@ -53,7 +53,7 @@ var ErrNoMember = errors.New("no such member")
 var ErrBadMember = errors.New("a member has a TTA username of at most 100 characters and a time zone, a Discord name of at most 100, " +
 	"an email of at most 254, a country as its two-letter ISO code (NZ), and a ban reason of at most 1000")
 
-// ErrMemberBanned means a banned member was entered in an edition.
+// ErrMemberBanned means a banned member was entered in an edition, or reported a game.
 var ErrMemberBanned = errors.New("the member is banned")
 
 // ErrMemberInUse means a member in an edition, as an entrant or an organiser, cannot be removed: take them out of it instead.

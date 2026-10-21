@@ -65,7 +65,7 @@ func (s *server) adminBlitzRound(r store.BlitzRound, ed store.BlitzEdition, rate
 	}
 	for i, m := range r.Matches {
 		am := AdminBlitzMatch{Id: m.ID, A: m.A, B: m.B, Slot: m.Slot, ASeed: m.SeedA, BSeed: m.SeedB, Result: blitzResult(m), Game: playedGame(m),
-			Ruling: m.Ruling, DecidedAt: m.DecidedAt}
+			Ruling: m.Ruling, DecidedAt: m.DecidedAt, ReportedBy: m.ReportedBy, Report: blitzReport(m), FlagReason: m.FlagReason}
 		if m.B != nil {
 			a, b := byID[m.A], byID[*m.B]
 			oa, _ := blitz.OffsetMinutes(a.Zone, now)

@@ -1,11 +1,14 @@
-/** The Blitz section: every blitz edition, or one edition (?t=&e=) with its knockout and champion, then tabs for its standings, its Swiss games (the games list's table) and the entrants still in. */
+/** The Blitz section: every blitz edition, or one edition (?t=&e=) with the signed-in player's own game, its knockout and champion, then tabs for its standings, its Swiss games (the games list's table) and the entrants still in. */
 import { useEffect, useState, type ReactNode } from 'react';
 import { RatingsApiError, blitzEdition, blitzEditions, type BlitzEdition, type BlitzEditions } from '@ttac/shared/ratings';
 import type { components } from '@ttac/shared/api';
 import { formatLabel, reachedLabel, scoringSentence, zoneLabel } from '@ttac/shared/blitz';
 import BackLink from '@ttac/shared/BackLink';
 import SubTabs from '@ttac/shared/SubTabs';
-import { blitzGames, editionHref, editionParams, editionViews, notPlaying, ratingText, roundOptions, splitRounds, type BlitzGamesFilter, type EditionView } from '../lib/blitz';
+import { blitzGames, editionHref, editionParams, editionViews, notPlaying, ratingText, resultsUpdated, roundOptions, splitRounds, type BlitzGamesFilter, type EditionView } from '../lib/blitz';
+import BlitzReport from './BlitzReport';
+import { yourRow, type MyBlitzMatch } from '../lib/blitz-report';
+import type { YourRow } from '../lib/blitz';
 import { gamesTag } from '../lib/games-table';
 import GamesTable, { GamesPages } from './GamesTable';
 import PlayerPicker from './PlayerPicker';
@@ -102,11 +105,14 @@ function BlitzList({ apiUrl }: { apiUrl: string }) {
 function EditionPage({ apiUrl, slug, edition }: { apiUrl: string; slug: string; edition: string }) {
   const [load, setLoad] = useState<Load<BlitzEdition>>({ kind: 'loading' });
   const [view, setView] = useState<EditionView | null>(null);
+  // Asked again after the player reports, so their result shows once the api's cache lets it.
+  const [asked, setAsked] = useState(0);
+  const [mine, setMine] = useState<MyBlitzMatch | null>(null);
   useEffect(() => {
     blitzEdition(apiUrl, slug, edition)
       .then((data) => setLoad({ kind: 'ready', data }))
       .catch((e: unknown) => setLoad(failed(e)));
-  }, [apiUrl, slug, edition]);
+  }, [apiUrl, slug, edition, asked]);
   if (load.kind === 'missing') {
     return (
       <>
@@ -131,7 +137,7 @@ function EditionPage({ apiUrl, slug, edition }: { apiUrl: string; slug: string; 
   const countryOf = new Map(ed.standings.map((s) => [s.name, s.country]));
   const panels: Record<EditionView, { label: string; panel: ReactNode }> = {
     standings: { label: 'Standings', panel: <StandingsPanel standings={ed.standings} scoring={scoringSentence(ed.points, ed.fide_points)} /> },
-    pairings: { label: 'Pairings', panel: <PairingsPanel ed={ed} swiss={swiss} /> },
+    pairings: { label: 'Pairings', panel: <PairingsPanel ed={ed} swiss={swiss} you={yourRow(mine)} /> },
     players: { label: 'Players', panel: <PlayersPanel entrants={ed.entrants} /> },
   };
   return (
@@ -144,9 +150,10 @@ function EditionPage({ apiUrl, slug, edition }: { apiUrl: string; slug: string; 
           <span>⚡</span> {ed.name} {ed.edition}
         </h1>
         <div className="tournaments-subtitle">
-          {formatLabel(ed.format)}. {reachedLabel(latest, ed.format, ed.champion)}.
+          {formatLabel(ed.format)}. {reachedLabel(latest, ed.format, ed.champion)}. {resultsUpdated(ed.results_updated_at, viewerZone())}
         </div>
       </div>
+      <BlitzReport apiUrl={apiUrl} slug={slug} edition={edition} onChanged={() => setAsked((n) => n + 1)} onMatch={setMine} />
       {ed.rounds.length === 0 && (
         <section className="rating-card blitz-card" aria-labelledby="blitz-not-started">
           <h2 id="blitz-not-started" className="rating-card-heading">
@@ -177,7 +184,7 @@ function EditionPage({ apiUrl, slug, edition }: { apiUrl: string; slug: string; 
           <GamesTable
             caption="The knockout's games, first round to final"
             context="Round"
-            rows={blitzGames(knockout, ed.format, { round: null, player: '', coded: false, page: 1 }, viewerZone()).rows}
+            rows={blitzGames(knockout, ed.format, { round: null, player: '', coded: false, page: 1 }, viewerZone(), yourRow(mine)).rows}
             empty="No knockout games yet."
           />
         </section>
@@ -295,12 +302,12 @@ function viewerZone(): string {
   return Intl.DateTimeFormat().resolvedOptions().timeZone;
 }
 
-/** PairingsPanel lists the Swiss rounds' games as the games list does: narrowed by round (the latest at first), player and replay code, a page at a time. */
-function PairingsPanel({ ed, swiss }: { ed: BlitzEdition; swiss: BlitzRound[] }) {
+/** PairingsPanel lists the Swiss rounds' games as the games list does: narrowed by round (the latest at first), player and replay code, a page at a time, the signed-in player's game marked. */
+function PairingsPanel({ ed, swiss, you }: { ed: BlitzEdition; swiss: BlitzRound[]; you: YourRow | null }) {
   const [filter, setFilter] = useState<BlitzGamesFilter>({ round: swiss[0]?.number ?? null, player: '', coded: false, page: 1 });
   const narrow = (next: Partial<BlitzGamesFilter>) => setFilter((f) => ({ ...f, ...next, page: next.page ?? 1 }));
   const zone = viewerZone();
-  const games = blitzGames(swiss, ed.format, filter, zone);
+  const games = blitzGames(swiss, ed.format, filter, zone, you);
   return (
     <section aria-labelledby="blitz-rounds">
       <div className="panel-header panel-header-split">

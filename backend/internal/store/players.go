@@ -167,7 +167,8 @@ func startSession(ctx context.Context, tx pgx.Tx, login int64, tokenHash []byte,
 	return nil
 }
 
-// autoLink links account at now by id's Discord name or email address, as SignIn describes.
+// autoLink links account at now by id's Discord name or email address, as SignIn describes, and fills its member's
+// missing Discord name and email from its logins, linked now or before.
 func autoLink(ctx context.Context, tx pgx.Tx, account int64, id Identity, now time.Time) error {
 	linked := false
 	switch id.Provider {
@@ -188,10 +189,21 @@ func autoLink(ctx context.Context, tx pgx.Tx, account int64, id Identity, now ti
 			return fmt.Errorf("linking a sign-in by email: %w", err)
 		}
 	}
-	if !linked {
-		return nil
+	if linked {
+		if err := moveAccountDetails(ctx, tx, account); err != nil {
+			return err
+		}
 	}
-	return moveAccountDetails(ctx, tx, account)
+	return fillMember(ctx, tx, account)
+}
+
+// fillMember gives the member account is linked to, if any, the Discord name and email of its logins where the
+// member has none.
+func fillMember(ctx context.Context, c conn, account int64) error {
+	if _, err := c.Exec(ctx, "SELECT fill_member_from_logins($1)", account); err != nil {
+		return fmt.Errorf("filling a member's details from their logins: %w", err)
+	}
+	return nil
 }
 
 // knownLogin brings the names of id's login up to date and records its sign-in at now, returning the login and its

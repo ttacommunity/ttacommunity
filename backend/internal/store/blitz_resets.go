@@ -46,7 +46,7 @@ func undecide(ctx context.Context, tx pgx.Tx, where string, value int64) ([]int6
 	if err != nil {
 		return nil, fmt.Errorf("finding the games: %w", err)
 	}
-	if _, err := tx.Exec(ctx, "UPDATE blitz_matches m SET result = NULL, game_id = NULL, ruling = '', decided_at = NULL WHERE "+where, value); err != nil {
+	if _, err := tx.Exec(ctx, "UPDATE blitz_matches m SET result = NULL, game_id = NULL, ruling = '', decided_at = NULL, reported_by = NULL, report = NULL, flag_reason = '' WHERE "+where, value); err != nil {
 		return nil, fmt.Errorf("clearing the results: %w", err)
 	}
 	return games, nil

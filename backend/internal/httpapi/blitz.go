@@ -1,5 +1,5 @@
 // The site's blitz tournaments: the shown editions, and an edition's entrants still in, its published rounds
-// with their results, and its standings; never a Discord name or a ruling's reason.
+// with their results and who reported them, and its standings; never a Discord name, a ruling's reason or a flag.
 package httpapi
 
 import (
@@ -171,7 +171,14 @@ func (s *server) GetBlitzEdition(ctx context.Context, req GetBlitzEditionRequest
 		}
 		for j, m := range r.Matches {
 			a := named[m.A]
-			pm := BlitzPublicMatch{A: a.Name, ARating: rating(a), Result: blitzResult(m), Game: playedGame(m), Ruled: m.Ruling != ""}
+			pm := BlitzPublicMatch{A: a.Name, ARating: rating(a), Result: blitzResult(m), Game: playedGame(m), Ruled: m.Ruling != "",
+				Confirmed: m.Report == "confirmed"}
+			if m.ReportedBy != nil {
+				pm.ReportedBy = new(named[*m.ReportedBy].Name)
+			}
+			if m.DecidedAt != nil && (body.ResultsUpdatedAt == nil || m.DecidedAt.After(*body.ResultsUpdatedAt)) {
+				body.ResultsUpdatedAt = new(m.DecidedAt.UTC())
+			}
 			pm.ASeed, pm.BSeed = m.SeedA, m.SeedB
 			if m.B != nil {
 				b := named[*m.B]

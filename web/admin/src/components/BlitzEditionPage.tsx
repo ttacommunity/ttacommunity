@@ -10,13 +10,13 @@ import { adminDownload, adminRequest, firstError, type AdminBlitzEdition, type A
 import * as req from '../lib/admin-requests';
 import { tabsFor } from '../lib/admin-tabs';
 import { editionFormatWarnings, editionParams, formatAdvice, pointsChanged, pointsForm, pointsFrom, settingsRows, type AdminBlitzEntrant, type PointsForm } from '../lib/blitz-page';
-import { emptyGameForm, gameRecordFrom, type BlitzStanding, type GameForm } from '../lib/blitz-results';
+import { emptyGameForm, gameRecordFrom, type BlitzStanding, type GameForm } from '@ttac/shared/game-form';
 import { deadlineForm, deadlineLabel, deadlineLocked, organiserChoices, threadTextSavable, threadsBlocker, threadsFileName, type DeadlineForm, type ThreadText } from '../lib/blitz-threads';
 import { entrantToAdd, wildcardChoices, type PersonChoice, type PersonDetails } from '../lib/person-form';
 import { countryNames, type Country } from '../lib/countries';
 import { clockIn, type Region } from '../lib/zones';
 import { loadFailure, outcomeOf, refused, shownAt, succeeded, type Outcome } from '../lib/outcome';
-import { asChanges, byeTakers, canDeleteRound, canResetEdition, decidedOnly, resetsOf, entrantActions, entrantState, leftUnpaired, newestFirst, openRound, pairAction, pairCounts, partnersFor, reconcilePending, replaceableSide, rulingChoices, rulingLabel, samePairs, shownAfter, unpaired, unsavedMatch, zoneGapLabel, type AdminBlitzMatch, type AdminBlitzRound, type Pending } from '../lib/blitz-rounds';
+import { asChanges, byeTakers, canDeleteRound, canResetEdition, decidedOnly, resetsOf, entrantActions, entrantState, leftUnpaired, newestFirst, openRound, flaggedMatches, pairAction, pairCounts, partnersFor, reconcilePending, replaceableSide, reportNote, rulingChoices, rulingLabel, samePairs, shownAfter, unpaired, unsavedMatch, zoneGapLabel, type AdminBlitzMatch, type AdminBlitzRound, type Pending } from '../lib/blitz-rounds';
 import AdminHeader from './AdminHeader';
 import CountryPick from './CountryPick';
 import InfoTip from './InfoTip';
@@ -95,11 +95,113 @@ export default function BlitzEditionPage() {
               </p>
             </section>
             <Notice outcome={shownAt(outcome, 'page')} />
+            <FlaggedResults at={at} ed={ed.data} regions={regions} onReload={load} outcome={outcome} say={setOutcome} />
             <EditionTabs at={at} ed={ed.data} regions={regions} countries={countries} onReload={load} outcome={outcome} say={setOutcome} />
           </>
         )}
       </main>
     </>
+  );
+}
+
+/** FlaggedResults lists the players' reports flagged for an organiser, with a count, as Members lists the requests waiting: each one kept as reported, corrected in place, or reset for the players to report again; it says when none is flagged. */
+function FlaggedResults({ at, ed, regions, onReload, outcome, say }: Omit<Props, 'countries'>) {
+  const dialog = useDialog();
+  const [correcting, setCorrecting] = useState<number | null>(null);
+  const [resultZone, setResultZone] = useState(viewerZone);
+  const flagged = flaggedMatches(ed.rounds);
+  const resets = resetsOf(ed.rounds);
+  const byId = new Map(ed.entrants.map((e) => [e.id, e]));
+  const nameOf = (id: number) => byId.get(id)?.name ?? `entrant ${id}`;
+  const pairOf = (m: AdminBlitzMatch) => `${nameOf(m.a)} v ${nameOf(m.b as number)}`;
+  const run = async (r: req.Request, done: string) => {
+    say(outcomeOf(await req.send(r), done, 'flagged'));
+    await onReload();
+  };
+  const keep = async (r: AdminBlitzRound, m: AdminBlitzMatch) => {
+    const sure = await dialog.confirm({ heading: `Keep the reported result of ${pairOf(m)}?`, text: 'The flag is resolved and the result stays as reported. Players still cannot change it; Reset opens it to them again.', action: 'Keep result' });
+    if (sure) await run(req.keepBlitzReport(at.slug, at.edition, r.id, m.id), `${pairOf(m)}: report kept.`);
+  };
+  const reset = async (r: AdminBlitzRound, m: AdminBlitzMatch) => {
+    const sure = await dialog.confirm({ heading: `Reset ${pairOf(m)}?`, text: 'Its result and game go, as if never played; the players can report it again.', action: 'Reset game', final: true });
+    if (sure) await run(req.resetBlitzResult(at.slug, at.edition, r.id, m.id), `${pairOf(m)} reset: the players can report it again.`);
+  };
+  return (
+    <section className="rating-card admin-card flagged-results" aria-labelledby="flagged-title">
+      {dialog.element}
+      <h3 id="flagged-title">
+        Flagged results
+        {flagged.length > 0 && <span className="count-badge">{flagged.length}</span>}
+      </h3>
+      <p className="muted">A player says their opponent&apos;s report is wrong. Ask both on Discord, then keep it, correct it or reset it.</p>
+      <Notice outcome={shownAt(outcome, 'flagged')} onClose={() => say(null)} />
+      {flagged.length === 0 && <p className="muted">No reports flagged.</p>}
+      {flagged.length > 0 && (
+        <div className="table-responsive">
+          <table className="leaderboard-table admin-table">
+            <caption className="visually-hidden">Reports flagged by a player, oldest round first</caption>
+            <thead>
+              <tr>
+                <th scope="col">Round</th>
+                <th scope="col">Game</th>
+                <th scope="col">Reported result</th>
+                <th scope="col">
+                  <span className="visually-hidden">Actions</span>
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              {flagged.map(({ round: r, match: m }) => (
+                <Fragment key={m.id}>
+                  <tr>
+                    <td>{roundTitle(r.number, ed.format)}</td>
+                    <th scope="row">{pairOf(m)}</th>
+                    <td>
+                      {resultSummary({ a: nameOf(m.a), b: nameOf(m.b as number), result: m.result, game: m.game, ruled: m.ruling !== '' })}
+                      <span className="row-detail row-flagged">{reportNote(m, nameOf)}</span>
+                    </td>
+                    <td className="run-buttons">
+                      <button type="button" className="btn-antique" onClick={() => void keep(r, m)}>
+                        Keep
+                      </button>
+                      <button type="button" className="btn-antique" aria-expanded={correcting === m.id} onClick={() => setCorrecting(correcting === m.id ? null : m.id)}>
+                        Correct
+                      </button>
+                      {resets.matches.includes(m.id) && (
+                        <button type="button" className="btn-antique" onClick={() => void reset(r, m)}>
+                          Reset
+                        </button>
+                      )}
+                    </td>
+                  </tr>
+                  {correcting === m.id && (
+                    <tr className="form-row">
+                      <td colSpan={4}>
+                        <ResultForm
+                          at={at}
+                          round={r}
+                          match={m}
+                          nameOf={nameOf}
+                          regions={regions}
+                          zone={resultZone}
+                          onZone={setResultZone}
+                          onDone={async (message) => {
+                            setCorrecting(null);
+                            say(succeeded(message, 'flagged'));
+                            await onReload();
+                          }}
+                          onCancel={() => setCorrecting(null)}
+                        />
+                      </td>
+                    </tr>
+                  )}
+                </Fragment>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </section>
   );
 }
 
@@ -239,6 +341,11 @@ function RoundsPanel({ at, ed, regions, onReload, outcome, say }: Props) {
     if (!(await dialog.confirm({ heading: `Reset ${pair}?`, text: 'Its result, ruling and game go, as if never played.', action: 'Reset game', final: true }))) return;
     setRecording(null);
     await run(req.resetBlitzResult(at.slug, at.edition, r.id, m.id), `${pair} reset.`, `match ${m.id}`);
+  };
+  const keepReport = async (r: AdminBlitzRound, m: AdminBlitzMatch) => {
+    const pair = `${nameOf(m.a)} v ${nameOf(m.b as number)}`;
+    if (!(await dialog.confirm({ heading: `Keep the reported result of ${pair}?`, text: 'The flag is resolved and the result stays as reported. Players still cannot change it; Reset opens it to them again.', action: 'Keep result' }))) return;
+    await run(req.keepBlitzReport(at.slug, at.edition, r.id, m.id), `${pair}: report kept.`, `match ${m.id}`);
   };
   const resetRound = async (r: AdminBlitzRound) => {
     const title = roundTitle(r.number, ed.format);
@@ -428,6 +535,7 @@ function RoundsPanel({ at, ed, regions, onReload, outcome, say }: Props) {
                             <td>
                               {m.b !== null && m.result === null ? <span className="muted">not yet</span> : summary(m)}
                               {m.ruling !== '' && <span className="row-detail muted">{m.ruling}</span>}
+                              {reportNote(m, nameOf) !== '' && <span className={m.report === 'flagged' ? 'row-detail row-flagged' : 'row-detail muted'}>{reportNote(m, nameOf)}</span>}
                             </td>
                             <td className="run-buttons">
                               {m.b !== null && m.id !== 0 && !changed(r) && (
@@ -441,6 +549,11 @@ function RoundsPanel({ at, ed, regions, onReload, outcome, say }: Props) {
                                   }}
                                 >
                                   {m.result === null ? 'Record' : 'Correct'}
+                                </button>
+                              )}
+                              {m.report === 'flagged' && !changed(r) && (
+                                <button type="button" className="btn-antique" onClick={() => void keepReport(r, m)}>
+                                  Keep
                                 </button>
                               )}
                               {resets.matches.includes(m.id) && !changed(r) && (

@@ -69,7 +69,7 @@ func (s *server) adminBlitzEntrant(e store.BlitzEntrant, rated map[string]store.
 }
 
 func adminBlitzEditionRow(r store.BlitzEditionRow) AdminBlitzEditionRow {
-	return AdminBlitzEditionRow{Tournament: r.Slug, Name: r.Name, Edition: r.Edition, Entrants: r.Entrants, Dropped: r.Dropped,
+	return AdminBlitzEditionRow{Tournament: r.Slug, Name: r.Name, Edition: r.Edition, Entrants: r.Entrants, Dropped: r.Dropped, Flagged: r.Flagged,
 		Round: r.Round, Champion: r.Champion, Format: BlitzFormat{SwissRounds: r.Format.SwissRounds, KnockoutSize: r.Format.KnockoutSize}}
 }
 
