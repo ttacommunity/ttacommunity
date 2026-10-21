@@ -199,52 +199,119 @@ def _pct(wins: int, games: int) -> float:
 
 
 def _worlds_rows(official, dates):
-    champions = sorted((season, p["player_name"]) for (series, season, _), placed in official.items()
-                       if series == "worlds" for p in placed if p["place"] == 1)  # fmt: skip
-    reigning = max((s for s, _ in champions), default=None)
+    champions = {
+        season: p["player_name"]
+        for (series, season, _), placed in official.items()
+        if series == "worlds"
+        for p in placed
+        if p["place"] == 1
+    }
+    reigning = max(champions.keys(), default=None)
     rows, keys = [], {}
-    for year, p in champions:
-        title = "Reigning World Champion" if year == reigning else "World Champion"
-        rec = {"player_name": p, "tournament": "World Championship", "season": str(year),
-               "division": "Championship Final", "placement": "1 / 4", "points": "Gold Medal & World Title",
-               "medal": "gold", "details": f"Through the Ages World Championship {year} Winner & {title}",
-               "finish_date": dates.get(("worlds", year), FALLBACK_DATE), "career": False}  # fmt: skip
-        rows.append(rec)
-        for key in ((p, "World Championship", str(year)), (p, f"World Championship {year}", "Championship"),
-                    (p, f"World Championship {year}", str(year))):  # fmt: skip
-            keys[key] = rec
+    finals = sorted(
+        (
+            (season, placed)
+            for (series, season, _), placed in official.items()
+            if series == "worlds"
+        ),
+        key=lambda sp: sp[0],
+    )
+    for year, placed in finals:
+        for p in sorted(placed, key=lambda x: x["place"]):
+            place = p["place"]
+            name = p["player_name"]
+            if place == 1:
+                title = (
+                    "Reigning World Champion" if year == reigning else "World Champion"
+                )
+                points = "Gold Medal & World Title"
+                medal = "gold"
+                details = f"Through the Ages World Championship {year} Winner & {title}"
+            elif place == 2:
+                points = "Silver Medal & Vice-Champion"
+                medal = "silver"
+                details = f"Through the Ages World Championship {year} Runner-up & Vice-Champion"
+            elif place == 3:
+                points = "Bronze Medal"
+                medal = "bronze"
+                details = f"Through the Ages World Championship {year} 3rd Place"
+            else:
+                points = ""
+                medal = None
+                details = f"Through the Ages World Championship {year} 4th Place"
+            rec = {
+                "player_name": name,
+                "tournament": "World Championship",
+                "season": str(year),
+                "division": "Championship Final",
+                "placement": f"{place} / 4",
+                "points": points,
+                "medal": medal,
+                "details": details,
+                "finish_date": dates.get(("worlds", year), FALLBACK_DATE),
+                "career": False,
+            }
+            rows.append(rec)
+            for key in (
+                (name, "World Championship", str(year)),
+                (name, f"World Championship {year}", "Championship"),
+                (name, f"World Championship {year}", str(year)),
+            ):
+                keys[key] = rec
     return rows, keys
 
 
 def _sheet_rows(series, top, standings, official, boards, dates):
-    """Returns a league's rows as upstream reads them from the organisers' sheet:
-    a career row and one row per top-division season for each player.
+    """Returns a league's rows: a career row and one row per top-division season for each player.
 
-    A season ranks its players by points, a tie in the sheet's order (most
-    golds, silvers, bronzes, then career points).
+    A season ranks its players by their verified division standings place, so rows agree with medal boards.
     """
     tournament, career_division, standing = SHEETS[series]
-    seasons = defaultdict(dict)
-    for (s, season, division), placed in {**standings, **official}.items():
+    season_recs = {}
+    seasons = defaultdict(list)
+    combined = {**standings, **official}
+    for (s, season, division), placed in sorted(combined.items()):
         if s == series and division in top:
+            total = len(placed)
             for p in placed:
-                seasons[season][p["player_name"]] = p["points"] or 0.0
+                name = p["player_name"]
+                seasons[season].append(name)
+                rank = p["place"]
+                points = p["points"] or 0.0
+                details = f"Season {season} {standing} ({rank} of {total})"
+                if p.get("games") and p.get("placings"):
+                    wins = p["placings"][0]
+                    n = p["games"]
+                    pct = _pct(wins, n)
+                    details += f" • Record: {wins}W - {n - wins}L ({pct}% win rate)"
+                rec = {
+                    "player_name": name,
+                    "tournament": tournament,
+                    "season": f"Season {season}",
+                    "division": "Grandmaster",
+                    "placement": f"{rank} / {total}",
+                    "points": f"{points:g} pts",
+                    "medal": _medal(rank),
+                    "details": details,
+                    "finish_date": dates.get((series, season), FALLBACK_DATE),
+                    "career": False,
+                }
+                season_recs[(name, season)] = rec
+
     career = defaultdict(
         lambda: {"gold": 0, "silver": 0, "bronze": 0, "points": 0.0, "seasons": 0}
     )
-    for season, scores in seasons.items():
-        for p, points in scores.items():
-            career[p]["points"] += points
-            career[p]["seasons"] += 1
+    for (name, season), rec in season_recs.items():
+        pts = rec["points"].split()[0] if rec["points"] else "0"
+        try:
+            career[name]["points"] += float(pts)
+        except ValueError:
+            pass
+        career[name]["seasons"] += 1
     for b in boards.get(series, []):
         career[b["player_name"]].update({m: b[m] for m in PLACES})
     order = sorted(career, key=lambda p: (-career[p]["gold"], -career[p]["silver"], -career[p]["bronze"],
                                           -career[p]["points"], p))  # fmt: skip
-    ranks = {}
-    for season, scores in seasons.items():
-        ranked = sorted((p for p in order if p in scores), key=lambda p: -scores[p])
-        for rank, p in enumerate(ranked, start=1):
-            ranks[(p, season)] = (rank, len(ranked), scores[p])
 
     rows, keys = [], {}
     for p in order:
@@ -257,11 +324,7 @@ def _sheet_rows(series, top, standings, official, boards, dates):
                      "details": f"Participated in {c['seasons']} seasons, total score: {c['points']:g} pts",
                      "finish_date": CAREER, "career": True})  # fmt: skip
         for season in sorted(s for s in seasons if p in seasons[s]):
-            rank, total, points = ranks[(p, season)]
-            rec = {"player_name": p, "tournament": tournament, "season": f"Season {season}",
-                   "division": "Grandmaster", "placement": f"{rank} / {total}", "points": f"{points:g} pts",
-                   "medal": _medal(rank), "details": f"Season {season} {standing} ({rank} of {total})",
-                   "finish_date": dates.get((series, season), FALLBACK_DATE), "career": False}  # fmt: skip
+            rec = season_recs[(p, season)]
             rows.append(rec)
             keys[(p, tournament, f"Season {season}")] = rec
     return rows, keys
@@ -367,18 +430,15 @@ def _campaign_rows(rows, keys, dates):
             else:
                 placement = f"{ranks.get(p, 1)} / {size}"
                 points = f"{w}W - {n - w}L ({pct}%)"
-            medal = (
-                "gold"
-                if placement.startswith("1 /")
-                and (n >= 5 or size >= 4)
-                and is_top_division(tournament, division)
-                else None
-            )
+            medal = None
             official = keys.get((p, tournament, season))
             if official is not None:
                 if division and division not in ("Main", "Division"):
                     official["division"] = division
-                official["details"] += f" • Record: {w}W - {n - w}L ({pct}% win rate)"
+                if "Record:" not in official["details"]:
+                    official["details"] += (
+                        f" • Record: {w}W - {n - w}L ({pct}% win rate)"
+                    )
                 if official["finish_date"] in (FALLBACK_DATE, ""):
                     official["finish_date"] = finish
                 continue
