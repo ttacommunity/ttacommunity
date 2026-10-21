@@ -345,7 +345,11 @@ function Games({
               <th>Tournament</th>
               <th>Type</th>
               <th>Place</th>
-              <th>ΔR</th>
+              <th scope="col" data-tooltip="Estimated Game Rating Delta: An approximate standalone Glicko update against opponents' current ratings today. Does not represent the actual monthly batch rating change (see FAQ).">
+                <a href="/ratings/faq/#game-deltas" className="th-link">
+                  ΔR <span className="delta-info-icon" aria-hidden="true">ⓘ</span>
+                </a>
+              </th>
               <th>Replay</th>
               <th>Participants &amp; Scores</th>
             </tr>
@@ -409,7 +413,15 @@ function Games({
 
 function GameDelta({ value }: { value: number | null }) {
   const kind = value === null || value === 0 ? '' : value > 0 ? ' up' : ' down';
-  return <span className={`game-delta${kind}`}>{signedDelta(value)}</span>;
+  const tip =
+    value === null
+      ? 'Unrated match or insufficient opponent rating data'
+      : `Estimated standalone impact: ${signedDelta(value)} against opponents' current ratings today (see FAQ for why this differs from monthly batch ratings)`;
+  return (
+    <span className={`game-delta${kind}`} data-tooltip={tip}>
+      {signedDelta(value)}
+    </span>
+  );
 }
 
 function Replay({ code }: { code: string | null }) {
