@@ -8,7 +8,6 @@ import { ZONE_COUNTRIES } from './zone-countries';
 export type Me = components['schemas']['Me'];
 export type MyMember = components['schemas']['MyMember'];
 type Provider = Me['provider'];
-type AdminRole = Me['admin_role'];
 
 /** AccountState is what the account page shows: signed out; signed in but not linked, waiting for an answer, or refused; or linked to a member. */
 export type AccountState =
@@ -16,13 +15,13 @@ export type AccountState =
   | { kind: 'unlinked' }
   | { kind: 'waiting'; name: string }
   | { kind: 'refused'; name: string; reason: string }
-  | { kind: 'linked'; member: MyMember; playerHref: string | null; adminRole: AdminRole };
+  | { kind: 'linked'; member: MyMember; playerHref: string | null };
 
 /** accountState reads who is signed in into what the account page shows. */
 export function accountState(me: Me | null): AccountState {
   if (me === null) return { kind: 'signed-out' };
   if (me.member !== null) {
-    return { kind: 'linked', member: me.member, playerHref: me.member.player === '' ? null : playerHref(me.member.player), adminRole: me.admin_role };
+    return { kind: 'linked', member: me.member, playerHref: me.member.player === '' ? null : playerHref(me.member.player) };
   }
   if (me.request?.status === 'pending') return { kind: 'waiting', name: me.request.name };
   if (me.request?.status === 'refused') return { kind: 'refused', name: me.request.name, reason: me.request.reason };
@@ -63,6 +62,9 @@ export function signedInAs(me: Me): { heading: string; detail: string } {
   return { heading: `Signed in with Discord as ${me.display_name || me.username}`, detail: me.display_name === '' ? '' : `Discord username: ${me.username}` };
 }
 
+/** PROVIDER_NAMES names each way in as the page shows it; a new provider in the api's types will not compile until it is named here. */
+const PROVIDER_NAMES: Record<Provider, string> = { discord: 'Discord', email: 'Email' };
+
 /** WayIn is one way into the account as the page lists it, whether it may be removed (only while another remains), and whether it may be changed (an email address, for a new one). */
 export type WayIn = { provider: Provider; label: string; removable: boolean; changeable: boolean };
 
@@ -71,7 +73,7 @@ export function waysIn(me: Me): { ways: WayIn[]; canAdd: Record<Provider, boolea
   const removable = me.logins.length > 1;
   const ways = me.logins.map((l) => {
     const name = l.display_name === '' || l.display_name === l.username ? l.username : `${l.username} (${l.display_name})`;
-    return { provider: l.provider, label: `${l.provider === 'discord' ? 'Discord' : 'Email'}: ${name}`, removable, changeable: l.provider === 'email' };
+    return { provider: l.provider, label: `${PROVIDER_NAMES[l.provider]}: ${name}`, removable, changeable: l.provider === 'email' };
   });
   const has = (p: Provider) => me.logins.some((l) => l.provider === p);
   return { ways, canAdd: { discord: !has('discord'), email: !has('email') } };

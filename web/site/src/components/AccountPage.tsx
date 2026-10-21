@@ -47,10 +47,10 @@ import './Account.css';
 
 type Load = { kind: 'loading' } | { kind: 'error'; message: string } | { kind: 'ready'; me: Me | null };
 
-type Props = { apiUrl: string; adminUrl: string; turnstileSitekey: string };
+type Props = { apiUrl: string; turnstileSitekey: string };
 
 /** AccountPage asks who is signed in and shows what they can do next. */
-export default function AccountPage({ apiUrl, adminUrl, turnstileSitekey }: Props) {
+export default function AccountPage({ apiUrl, turnstileSitekey }: Props) {
   const [params] = useState(() => new URLSearchParams(window.location.search));
   const notice = signInNotice(params);
   const first = isFirstSignIn(params);
@@ -89,7 +89,6 @@ export default function AccountPage({ apiUrl, adminUrl, turnstileSitekey }: Prop
       ) : (
         <Account
           apiUrl={apiUrl}
-          adminUrl={adminUrl}
           turnstileSitekey={turnstileSitekey}
           me={load.me}
           state={accountState(load.me)}
@@ -104,7 +103,7 @@ export default function AccountPage({ apiUrl, adminUrl, turnstileSitekey }: Prop
 
 type AccountProps = Props & { me: Me | null; state: AccountState; first: boolean; back: string | null; refresh: () => void };
 
-function Account({ apiUrl, adminUrl, turnstileSitekey, me, state, first, back, refresh }: AccountProps) {
+function Account({ apiUrl, turnstileSitekey, me, state, first, back, refresh }: AccountProps) {
   if (me === null || state.kind === 'signed-out') return <SignIn apiUrl={apiUrl} turnstileSitekey={turnstileSitekey} back={back} />;
   const who = signedInAs(me);
   return (
@@ -114,7 +113,7 @@ function Account({ apiUrl, adminUrl, turnstileSitekey, me, state, first, back, r
       </h2>
       {who.detail !== '' && <p className="account-muted">{who.detail}</p>}
       {first && <p>You are signed in. Add your details now, or go back and add them any time from this page.</p>}
-      {state.kind === 'linked' ? <Linked adminUrl={adminUrl} state={state} /> : <LinkStatus state={state} />}
+      {state.kind === 'linked' ? <Linked state={state} /> : <LinkStatus state={state} />}
       <Details apiUrl={apiUrl} me={me} state={state} back={back} refresh={refresh} />
       <WaysIn apiUrl={apiUrl} me={me} refresh={refresh} />
       <SignOut apiUrl={apiUrl} state={state} />
@@ -134,10 +133,11 @@ function BackLink({ back, changed, saved }: { back: string | null; changed: bool
 
 function SignIn({ apiUrl, turnstileSitekey, back }: { apiUrl: string; turnstileSitekey: string; back: string | null }) {
   const returnTo = back ?? window.location.pathname;
+  const [emailOpen, setEmailOpen] = useState(false);
   return (
     <section className="rating-card account-card" aria-labelledby="account-sign-in">
       <h2 id="account-sign-in" className="rating-card-heading">
-        Sign in
+        Sign in or create an account
       </h2>
       <ul className="account-ways">
         <li>
@@ -147,21 +147,36 @@ function SignIn({ apiUrl, turnstileSitekey, back }: { apiUrl: string; turnstileS
           <p className="account-muted">Needs a Discord account. The TTA community, its events and its tournaments are organised on Discord, so we recommend it.</p>
         </li>
         <li>
-          <EmailSignIn apiUrl={apiUrl} turnstileSitekey={turnstileSitekey} back={returnTo} />
+          <h3 className="account-other-heading">Other sign-in options</h3>
+          <div className="account-options">
+            <button
+              type="button"
+              className="btn-antique"
+              aria-expanded={emailOpen}
+              aria-controls="account-email-panel"
+              onClick={() => setEmailOpen((o) => !o)}
+            >
+              Sign in with email
+            </button>
+          </div>
+          {emailOpen && <EmailSignIn apiUrl={apiUrl} turnstileSitekey={turnstileSitekey} back={returnTo} />}
         </li>
       </ul>
-      <p className="account-muted">
-        Discord tells us only your username and display name: never your email or your servers. By email, we keep your address, to send your links. Then
-        you link your sign-in to your TTA username, and an admin or organiser checks it is you. <a href="/privacy/">What we keep, and how to have it removed</a>
-        .
+      <p className="account-note">New here? Your account is created the first time you sign in, however you do it.</p>
+      <p className="account-note account-muted">
+        Trouble signing in, or lost access to your sign-in methods? Write to <a href="mailto:support@ttacommunity.org">support@ttacommunity.org</a> and
+        we&apos;ll help you back in.
+      </p>
+      <p className="account-note account-muted">
+        We only keep the minimal information needed for signing in and linking your account. For more about what we keep, see our{' '}
+        <a href="/privacy/">privacy page</a>.
       </p>
     </section>
   );
 }
 
-/** EmailSignIn is the way in for players without Discord: a button that opens the form (an address and Turnstile's check, loaded only then), then a link to the inbox. */
+/** EmailSignIn is the panel the email option opens: what it does, the form (an address and Turnstile's check, loaded only now), then a link to the inbox. */
 function EmailSignIn({ apiUrl, turnstileSitekey, back }: { apiUrl: string; turnstileSitekey: string; back: string }) {
-  const [open, setOpen] = useState(false);
   const [address, setAddress] = useState('');
   const [token, setToken] = useState('');
   const [round, setRound] = useState(0);
@@ -180,7 +195,7 @@ function EmailSignIn({ apiUrl, turnstileSitekey, back }: { apiUrl: string; turns
   };
   if (sentTo !== '') {
     return (
-      <div role="status">
+      <div id="account-email-panel" className="account-email-panel" role="status">
         <p>
           Check your inbox: a sign-in link is on its way to <strong>{sentTo}</strong>. It works once, within the hour.
         </p>
@@ -191,13 +206,20 @@ function EmailSignIn({ apiUrl, turnstileSitekey, back }: { apiUrl: string; turns
     );
   }
   return (
-    <>
-      <button type="button" className="btn-antique" aria-expanded={open} aria-controls="account-email-form" onClick={() => setOpen((o) => !o)}>
-        Sign in with email
-      </button>
-      <p className="account-muted">For players without Discord: we email you a link that signs you in.</p>
-      {open && <EmailForm address={address} setAddress={setAddress} token={token} setToken={setToken} round={round} busy={busy} problem={problem} turnstileSitekey={turnstileSitekey} send={send} />}
-    </>
+    <div id="account-email-panel" className="account-email-panel">
+      <p className="account-muted">We email you a link that signs you in.</p>
+      <EmailForm
+        address={address}
+        setAddress={setAddress}
+        token={token}
+        setToken={setToken}
+        round={round}
+        busy={busy}
+        problem={problem}
+        turnstileSitekey={turnstileSitekey}
+        send={send}
+      />
+    </div>
   );
 }
 
@@ -216,7 +238,7 @@ type EmailFormProps = {
 /** EmailForm asks for the address, with Turnstile's check, once the player opens it. */
 function EmailForm({ address, setAddress, token, setToken, round, busy, problem, turnstileSitekey, send }: EmailFormProps) {
   return (
-    <form id="account-email-form" className="account-form" onSubmit={(e) => void send(e)}>
+    <form className="account-form" onSubmit={(e) => void send(e)}>
       <label htmlFor="account-email">Your email address</label>
       <input
         id="account-email"
@@ -257,8 +279,8 @@ function displayNames(): Intl.DisplayNames | null {
   }
 }
 
-/** Linked says which member the player is linked to, with their player page and, for admins and organisers, the way to admin. */
-function Linked({ adminUrl, state }: { adminUrl: string; state: Extract<AccountState, { kind: 'linked' }> }) {
+/** Linked says which member the player is linked to, with their player page. */
+function Linked({ state }: { state: Extract<AccountState, { kind: 'linked' }> }) {
   return (
     <>
       <p>
@@ -271,11 +293,6 @@ function Linked({ adminUrl, state }: { adminUrl: string; state: Extract<AccountS
         )}
       </p>
       <Banned state={state} />
-      {state.adminRole !== null && (
-        <p>
-          You are {state.adminRole === 'admin' ? 'an admin' : 'an organiser'}: <a href={adminUrl}>open admin</a>.
-        </p>
-      )}
     </>
   );
 }

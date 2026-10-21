@@ -48,9 +48,8 @@ describe('accountState', () => {
     ['a request waiting', { ...base, request: asked('pending') }, { kind: 'waiting', name: 'ann' }],
     ['a refusal with its reason', { ...base, request: asked('refused', 'Message us') }, { kind: 'refused', name: 'ann', reason: 'Message us' }],
     ['an approval later undone', { ...base, request: asked('approved') }, { kind: 'unlinked' }],
-    ['a member who has played', { ...base, member: ann }, { kind: 'linked', member: ann, playerHref: '/ratings/player/?name=Ann', adminRole: null }],
-    ['a member who has not played', { ...base, member: { ...ann, player: '' } }, { kind: 'linked', member: { ...ann, player: '' }, playerHref: null, adminRole: null }],
-    ['an organiser', { ...base, member: ann, admin_role: 'organiser' as const }, { kind: 'linked', member: ann, playerHref: '/ratings/player/?name=Ann', adminRole: 'organiser' }],
+    ['a member who has played', { ...base, member: ann }, { kind: 'linked', member: ann, playerHref: '/ratings/player/?name=Ann' }],
+    ['a member who has not played', { ...base, member: { ...ann, player: '' } }, { kind: 'linked', member: { ...ann, player: '' }, playerHref: null }],
   ])('%s', (_name, me, want) => {
     expect(accountState(me)).toEqual(want);
   });
