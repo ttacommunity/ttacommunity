@@ -25,6 +25,7 @@ Pipe values in; never use `--from-literal`, which leaves them in shell history.
 | `turnstile-signin` | `secret` | `api`, `api-dev` | The secret of the Turnstile widget "ttacommunity email sign-in", whose sitekey is the site's `PUBLIC_TURNSTILE_SITEKEY` (README) |
 | `ratings-backup` | `password`, `database-url` | `backup`'s `backup` init container | The backup job's login `ratings_backup_job`, a member of `ratings_backup` (reads the backed-up tables, writes nothing) |
 | `backup-r2` | `endpoint`, `access-key-id`, `secret-access-key` | `backup`'s `upload` container (rclone) | The R2 bucket `ttacommunity-backup` (EU jurisdiction): the account's EU S3 endpoint, and an R2 token that can write objects in that bucket only |
+| `backup-config-r2` | `endpoint`, `access-key-id`, `secret-access-key` | `scripts/backup-config.sh` and `.ps1`, run by a maintainer; no pod | The R2 bucket `ttacommunity-config-backup` (EU): the EU endpoint and an R2 token that can write objects in that bucket only. The job's token cannot reach this bucket, nor this one the job's |
 | `ttac-api-tunnel` | `credentials.json` | `ttac-api-tunnel` | The `ttac-api` tunnel's credentials (below, "The tunnels") |
 | `ttac-api-dev-tunnel` | `credentials.json` | `ttac-api-dev-tunnel` | The `ttac-api-dev` tunnel's credentials (below) |
 | `ttacommunity-github-app`, **in `flux-system`** | `githubAppID`, `githubAppInstallationID`, `githubAppPrivateKey` | Flux | Reads this repo as the GitHub App `ttacommunity-flux` (contents and metadata, read only). The cluster's maintainers hold it |
@@ -32,7 +33,11 @@ Pipe values in; never use `--from-literal`, which leaves them in shell history.
 ## If one is lost
 
 None needs keeping in a password manager: each is either made new on a
-rebuild or reissued by the service it comes from.
+rebuild or reissued by the service it comes from. There is also an encrypted
+copy of every Secret here in the R2 bucket `ttacommunity-config-backup`, made
+by `scripts/backup-config.sh` (or `.ps1`) after a change; a holder of the
+backup key restores them all at once (README, "Back up the Secrets and
+Cloudflare's settings"). Reissuing is for when that copy is stale or lost.
 
 | Secret | How it comes back |
 |---|---|
@@ -45,7 +50,7 @@ rebuild or reissued by the service it comes from.
 | `turnstile-signin` | **Reissued**: `cf turnstile widgets rotate-secret <sitekey>`, piped straight into the Secret as below |
 | `ttac-api-tunnel`, `ttac-api-dev-tunnel` | **Reissued**: a new tunnel on the Cloudflare account (below, "The tunnels") |
 | `ratings-backup` | **New on a rebuild**, or at any time: a new password with `ALTER ROLE`, then the Secret (below, "Backups") |
-| `backup-r2` | **Reissued**: a new R2 token for the bucket, then the Secret (below, "Backups"); delete the old token |
+| `backup-r2`, `backup-config-r2` | **Reissued**: a new R2 token for the bucket, then the Secret (below, "Backups"); delete the old token |
 | `ghcr`, `ttacommunity-github-app` | **Reissued** by the cluster's maintainers, who issued them |
 
 ## Creating them
@@ -247,6 +252,11 @@ kubectl "${ns[@]}" create secret generic backup-r2 \
   --from-file=endpoint=/dev/shm/r2-ep --from-file=access-key-id=/dev/shm/r2-id --from-file=secret-access-key=/dev/shm/r2-sk
 rm /dev/shm/r2-id /dev/shm/r2-sk /dev/shm/r2-ep
 ```
+
+`backup-config-r2` is made the same way, with a token applied to
+`ttacommunity-config-backup` only, and `backup-config-r2` for `backup-r2` in
+the last command. No pod mounts it: `scripts/backup-config.sh` reads it when
+a maintainer runs the script.
 
 ### The tunnels
 

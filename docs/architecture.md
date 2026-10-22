@@ -475,6 +475,66 @@ TTA community server and email via `mail-relay`.
   personal data" ([Cloudflare Web
   Analytics](https://developers.cloudflare.com/web-analytics/about/))
 
+## Backups
+
+Three things exist in one place only, and each has an encrypted copy in a
+Cloudflare R2 bucket of the project's own, in the EU. Every copy is
+encrypted with [age](https://age-encryption.org) to the maintainers' public
+key before it leaves the machine that made it; the private key is held by
+the maintainers alone, outside the cluster and the repository. A bucket lock
+refuses deletion of any copy younger than 29 days, whatever token asks.
+
+- **The ratings database's inputs**: every input table (the same tables the
+  export holds, plus the ones that carry personal data), nightly, by a
+  CronJob in the cluster to the bucket `ttacommunity-backup`, with a login
+  that can only read those tables and a token that can only write that
+  bucket. A lifecycle rule deletes a copy after 30 days, so a deleted
+  account is gone from backups within a month. Rating runs are not backed
+  up: the engine recomputes them from the inputs.
+- **The Kubernetes Secrets** of the `ttacommunity` namespace: the database
+  logins, the sign-in and R2 keys, the tunnel credentials.
+- **The Cloudflare settings that are not in git** (below).
+
+The last two go to the bucket `ttacommunity-config-backup`, by
+`scripts/backup-config.sh` (or its `.ps1` twin), which a maintainer runs
+after changing a Secret or a Cloudflare setting. It exports each as JSON in
+memory, uploads it only when its SHA-256 differs from the newest copy's
+(the fingerprint is stored as the copy's metadata), and never writes
+anything unencrypted to disk. Its token can write that bucket only, and
+no pod holds it; the nightly job's token cannot reach this bucket. Nothing
+here is personal data, so these copies are kept (there is no deletion rule).
+Restoring the Secrets is one command for a key holder:
+`age -d -i <key> secrets/<time>.json.age | kubectl apply --dry-run=server -f -`,
+then the same without `--dry-run`.
+
+### What only Cloudflare holds
+
+The Workers and their custom domains are in git (`wrangler.jsonc`), and so
+are the tunnel's routes (`deploy/cloudflare-tunnel.yaml`). The rest lives in
+the Cloudflare account, and the export holds it under these keys. A
+setting comes back from the export by hand in the dashboard, or with
+Cloudflare's `cf` CLI where it can write:
+
+| Setting | In the export | Comes back by |
+|---|---|---|
+| The Zero Trust organization (team domain, session defaults) | `organization` | `cf zero-trust organizations update` |
+| Access applications: admin's, its hostname, session length and allowed identity provider | `access_applications` | `cf zero-trust access applications create --body` |
+| Access policies: who may sign in to admin (ids and roles, hence encrypted) | `access_policies` | `cf zero-trust access policies create --body`, then the application's policy list |
+| Access groups and service tokens (none in use) | `access_groups`, `access_service_tokens` | the same family of commands |
+| Identity providers: the Discord sign-in Worker as an OIDC provider | `identity_providers` | `cf zero-trust identity-providers create --body`; its client secret is not exported, so set a new one on the `ttac-auth` Worker and here (README, "Admin") |
+| DNS records of the zone | `dns_records` | `cf dns records create` per record |
+| Rulesets: the hostname allowlist (WAF custom rule), the API rate limit, the cache rule | `rulesets.<id>` | `cf rulesets account-rulesets phases update <phase> -z <zone> --body` |
+| Turnstile widgets | `turnstile_widgets` | `cf turnstile widgets create`; the new secret is rotated into the `turnstile-signin` Secret (`deploy/SECRETS.md`) and the sitekey into the site's build variables |
+| Email Routing: its state, the rules, the catch-all rule, the destination addresses | `email_routing` | `cf email-routing enable`, `rules create`, `addresses create` (each destination verifies by email again) |
+| Workers Builds: each Worker's build configuration, its triggers, their build variables | `workers`, `builds`, `build_triggers`, `build_variables` | the GitHub connection in the dashboard, then `cf builds triggers create --body` per trigger and `cf builds triggers environment-variables upsert`; a variable marked secret has no value in the export: set it again (README, "The sites and the sign-in worker") |
+| R2 buckets: each bucket's lifecycle and lock rules | `r2_buckets` | `cf r2 buckets create`, `lifecycle update`, `locks update` |
+
+Not exported, so reissued by hand: every Worker secret (`ttac-auth`'s
+Discord client secret, `ttac-mail-forward`'s addresses, the build
+notifier's webhooks), the R2 tokens, and the GitHub repository connection
+Workers Builds uses. `deploy/SECRETS.md` and the README say where each is
+set.
+
 ## What it sits on
 
 A home k3s cluster: four Pi 4s (arm64) and two amd64 machines, with
