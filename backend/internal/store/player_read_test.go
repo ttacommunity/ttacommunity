@@ -198,7 +198,7 @@ func TestPlayerHistoryGivesThePageModelsOldestFirst(t *testing.T) {
 	addPlayers(t, pool, "ann")
 	addHistory(t, pool, run, "glicko2_daneo", 0, "ann", "2025-02-28", 1810)
 	addHistory(t, pool, run, "glicko2_daneo", 0, "ann", "2025-01-31", 1800)
-	addHistory(t, pool, run, "whr_softer", 0, "ann", "2025-01-31", 1700)
+	addHistory(t, pool, run, "glicko2_daneo_softer", 0, "ann", "2025-01-31", 1700)
 	addHistory(t, pool, run, "glicko2_daneo", 2, "ann", "2025-01-31", 1600)
 	addHistory(t, pool, run, "glicko2_std_retro", 0, "ann", "2025-01-31", 1500)
 	addHistory(t, pool, run, "glicko2_daneo", 0, "bob", "2025-01-31", 1400)
@@ -210,7 +210,7 @@ func TestPlayerHistoryGivesThePageModelsOldestFirst(t *testing.T) {
 	want := []HistoryPoint{
 		{Model: "glicko2_daneo", Date: day("2025-01-31"), Rating: 1890, CRating: 1800},
 		{Model: "glicko2_daneo", Date: day("2025-02-28"), Rating: 1900, CRating: 1810},
-		{Model: "whr_softer", Date: day("2025-01-31"), Rating: 1790, CRating: 1700},
+		{Model: "glicko2_daneo_softer", Date: day("2025-01-31"), Rating: 1790, CRating: 1700},
 	}
 	if name != "ann" || fmt.Sprint(got) != fmt.Sprint(want) {
 		t.Errorf("PlayerHistory(ANN, 0) = %q, %v; want ann, %v", name, got, want)
@@ -417,7 +417,7 @@ func TestPlayerCareerGivesEachYearsRecordPeakAndTitle(t *testing.T) {
 	addYearlyTitle(t, pool, run, "ann", 2024, "GM")
 	addYearlyTitle(t, pool, other, "ann", 2025, "M")
 	addHistory(t, pool, run, "glicko2_daneo", 0, "ann", "2024-03-31", 1600)
-	addHistory(t, pool, run, "whr_softer", 0, "ann", "2024-04-30", 1700)
+	addHistory(t, pool, run, "glicko2_daneo_softer", 0, "ann", "2024-04-30", 1700)
 	addHistory(t, pool, run, "glicko2_std", 2, "ann", "2024-04-30", 1900)
 
 	name, years, _, err := r.PlayerCareer(ctx, run, "ANN", 0, "glicko2_daneo")
@@ -467,7 +467,7 @@ func TestPlayerCareerGivesTheModelsPeakRankedByConservativeRating(t *testing.T) 
 	addHistoryRow(t, pool, run, "glicko2_std", 0, "dee", "2024-02-29", 1850, 1820)
 	addHistoryRow(t, pool, run, "glicko2_std", 0, "eve", "2024-03-31", 2100, 2000)
 	addHistoryRow(t, pool, run, "glicko2_std", 2, "ann", "2024-02-29", 3000, 2900)
-	addHistoryRow(t, pool, run, "whr", 0, "ann", "2024-01-31", 2500, 2400)
+	addHistoryRow(t, pool, run, "glicko2_daneo_softer", 0, "ann", "2024-01-31", 2500, 2400)
 
 	tests := []struct {
 		name  string
@@ -476,7 +476,7 @@ func TestPlayerCareerGivesTheModelsPeakRankedByConservativeRating(t *testing.T) 
 	}{
 		// The peak is compared rounded, so February's 1890.04 ties March's 1890 and comes first.
 		{"bob and dee rank above by conservative rating, cy does not", "glicko2_std", &CareerPeak{Rating: 1890, Rank: 3, Date: day("2024-02-29")}},
-		{"another model has its own peak", "whr", &CareerPeak{Rating: 2500, Rank: 1, Date: day("2024-01-31")}},
+		{"another model has its own peak", "glicko2_daneo_softer", &CareerPeak{Rating: 2500, Rank: 1, Date: day("2024-01-31")}},
 		{"no history in the model", "glicko2_adapt", nil},
 	}
 	for _, tt := range tests {
@@ -574,14 +574,14 @@ func TestPlayerCareerGivesTheModelsYearEnd(t *testing.T) {
 	addGame(t, pool, run, "2025-02-01", "Cup", Seat{"bob", 9}, Seat{"ann", 5})
 	addHistory(t, pool, run, "glicko2_std", 0, "ann", "2024-04-30", 1600)
 	addHistory(t, pool, run, "glicko2_std", 0, "ann", "2024-12-31", 1610.04)
-	addHistory(t, pool, run, "whr", 0, "ann", "2025-12-31", 1700)
+	addHistory(t, pool, run, "glicko2_daneo_softer", 0, "ann", "2025-12-31", 1700)
 
 	tests := []struct {
 		model          string
 		want24, want25 string
 	}{
 		{"glicko2_std", "1700", "-"},
-		{"whr", "-", "1790"},
+		{"glicko2_daneo_softer", "-", "1790"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.model, func(t *testing.T) {
@@ -612,7 +612,7 @@ func TestPlayerMatrixGivesTheLiveRatings(t *testing.T) {
 	run := publishedRun(t, pool)
 	addPlayers(t, pool, "ann")
 	addRating(t, pool, run, "glicko2_daneo", 0, "ann", ptr(4), 1800.04)
-	addRating(t, pool, run, "whr_softer", 0, "ann", nil, 1700)
+	addRating(t, pool, run, "glicko2_daneo_softer", 0, "ann", nil, 1700)
 	addRating(t, pool, run, "glicko2_std_retro", 0, "ann", ptr(1), 1900)
 	addRating(t, pool, run, "glicko2_daneo", 2, "ann", ptr(2), 1500)
 
@@ -623,7 +623,7 @@ func TestPlayerMatrixGivesTheLiveRatings(t *testing.T) {
 	// addRating stores rating = c + 100 and RD 50.
 	want := []MatrixCell{
 		{Model: "glicko2_daneo", Rating: 1900, RD: 50, CRating: 1800, Rank: ptr(4)},
-		{Model: "whr_softer", Rating: 1800, RD: 50, CRating: 1700},
+		{Model: "glicko2_daneo_softer", Rating: 1800, RD: 50, CRating: 1700},
 	}
 	if name != "ann" || fmt.Sprint(cellText(cells)) != fmt.Sprint(cellText(want)) {
 		t.Errorf("PlayerMatrix(ANN, 0) = %q, %v; want ann, %v", name, cellText(cells), cellText(want))
@@ -640,8 +640,8 @@ func TestPlayerMatrixTakesEachModelsLastPeriodOfTheYear(t *testing.T) {
 	addHistory(t, pool, run, "glicko2_std", 0, "ann", "2024-12-31", 1600)
 	addHistory(t, pool, run, "glicko2_std", 0, "bob", "2024-12-31", 1650)
 	addHistory(t, pool, run, "glicko2_std", 0, "bob", "2025-01-31", 1700)
-	addHistory(t, pool, run, "whr", 0, "ann", "2024-06-30", 1400)
-	addHistory(t, pool, run, "whr", 0, "bob", "2024-12-31", 1450)
+	addHistory(t, pool, run, "glicko2_daneo_softer", 0, "ann", "2024-06-30", 1400)
+	addHistory(t, pool, run, "glicko2_daneo_softer", 0, "bob", "2024-12-31", 1450)
 
 	year := 2024
 	_, cells, err := r.PlayerMatrix(ctx, run, "ann", 0, &year)
@@ -687,7 +687,7 @@ func TestYearBoardTakesEveryPlayersLastRatingOfTheYear(t *testing.T) {
 	addHistory(t, pool, run, "glicko2_std", 0, "bob", "2024-12-31", 1650)
 	addHistory(t, pool, run, "glicko2_std", 0, "cy", "2024-03-31", 1700)
 	addHistory(t, pool, run, "glicko2_std", 0, "cy", "2025-01-31", 1800)
-	addHistory(t, pool, run, "whr", 0, "cy", "2024-12-31", 1900)
+	addHistory(t, pool, run, "glicko2_daneo_softer", 0, "cy", "2024-12-31", 1900)
 	addYearlyTitle(t, pool, run, "bob", 2024, "WC")
 	withYearRecords(t, pool, run)
 
@@ -811,7 +811,7 @@ func TestYearBoardRefusesAYearOutsideTheRunsGames(t *testing.T) {
 		t.Fatalf("recording run %d's games: %v", run, err)
 	}
 	addHistory(t, pool, run, "glicko2_std", 0, "ann", "2024-12-31", 1600)
-	addHistory(t, pool, run, "whr", 0, "ann", "2019-12-31", 1500)
+	addHistory(t, pool, run, "glicko2_daneo_softer", 0, "ann", "2019-12-31", 1500)
 
 	if _, err := r.YearBoard(ctx, run, 2019, "glicko2_std", 0); !errors.Is(err, ErrNoHistory) {
 		t.Errorf("YearBoard(2019) of a run whose games are all in 2024: err = %v, want ErrNoHistory", err)

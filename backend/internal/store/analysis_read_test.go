@@ -29,15 +29,15 @@ func TestCalibrationGivesTheAggregatedRowsOfBothModes(t *testing.T) {
 		}
 	}
 	add("standard_calibration", run, "glicko2_daneo", 0, "AGGREGATED", 0.21)
-	add("walk_forward_calibration", run, "whr", 3, "AGGREGATED", 0.22)
-	add("walk_forward_calibration", run, "whr", 3, "2024-01", 0.30)
+	add("walk_forward_calibration", run, "glicko2_std", 3, "AGGREGATED", 0.22)
+	add("walk_forward_calibration", run, "glicko2_std", 3, "2024-01", 0.30)
 	add("standard_calibration", other, "glicko2_daneo", 0, "AGGREGATED", 0.40)
 
 	got, err := r.Calibration(ctx, run)
 	if err != nil {
 		t.Fatalf("Calibration: %v", err)
 	}
-	want := `[{standard glicko2_daneo 0 100 0.21 0.01 0.6 64.5 {"counts": [1, 2]}} {walk_forward whr 3 100 0.22 0.01 0.6 64.5 {"counts": [1, 2]}}]`
+	want := `[{standard glicko2_daneo 0 100 0.21 0.01 0.6 64.5 {"counts": [1, 2]}} {walk_forward glicko2_std 3 100 0.22 0.01 0.6 64.5 {"counts": [1, 2]}}]`
 	if s := fmt.Sprint(calibText(got)); s != want {
 		t.Errorf("Calibration = %s\nwant %s", s, want)
 	}
@@ -57,7 +57,7 @@ func TestAnalysisRatingsGivesThePageModelsInAFormat(t *testing.T) {
 	run := publishedRun(t, pool)
 	addPlayers(t, pool, "ann")
 	addRating(t, pool, run, "glicko2_daneo", 0, "ann", ptr(1), 1800)
-	addRating(t, pool, run, "whr_softer", 0, "ann", ptr(2), 1700)
+	addRating(t, pool, run, "glicko2_daneo_softer", 0, "ann", ptr(2), 1700)
 	addRating(t, pool, run, "glicko2_std_retro", 0, "ann", ptr(1), 1900)
 	addRating(t, pool, run, "glicko2_daneo", 2, "ann", ptr(1), 1500)
 
@@ -65,7 +65,7 @@ func TestAnalysisRatingsGivesThePageModelsInAFormat(t *testing.T) {
 	if err != nil {
 		t.Fatalf("AnalysisRatings: %v", err)
 	}
-	if len(ratings) != 2 || ratings[0].Model != "glicko2_daneo" || ratings[1].Model != "whr_softer" || ratings[0].Opponents != 9 {
+	if len(ratings) != 2 || ratings[0].Model != "glicko2_daneo" || ratings[1].Model != "glicko2_daneo_softer" || ratings[0].Opponents != 9 {
 		t.Errorf("ratings = %+v, want ann's two page-model ratings in format 0", ratings)
 	}
 }
@@ -137,7 +137,7 @@ func TestComparedPlayersDefaultsToUpstreamsSixInItsOrderWithTheirRatings(t *test
 	run := publishedRun(t, pool)
 	first, middle, last := DefaultCompared[0], DefaultCompared[3], DefaultCompared[5]
 	addPlayers(t, pool, last, middle, first, "someone")
-	addRating(t, pool, run, "whr", 3, middle, ptr(4), 1800)
+	addRating(t, pool, run, "glicko2_std", 3, middle, ptr(4), 1800)
 	addRating(t, pool, run, "glicko2_daneo", 3, middle, nil, 1900)
 	addRating(t, pool, run, "glicko2_std_retro", 3, middle, ptr(1), 1950)
 	addRating(t, pool, run, "glicko2_daneo", 0, middle, ptr(1), 1850)
@@ -155,7 +155,7 @@ func TestComparedPlayersDefaultsToUpstreamsSixInItsOrderWithTheirRatings(t *test
 	}
 	want := []ComparedRating{
 		{Model: "glicko2_daneo", Rating: 2000, RD: 50, CRating: 1900, Opponents: 9, WinRate: 58.3},
-		{Model: "whr", Rank: ptr(4), Rating: 1900, RD: 50, CRating: 1800, Opponents: 9, WinRate: 58.3},
+		{Model: "glicko2_std", Rank: ptr(4), Rating: 1900, RD: 50, CRating: 1800, Opponents: 9, WinRate: 58.3},
 	}
 	if diff := cmp.Diff(want, got[1].Ratings); diff != "" {
 		t.Errorf("%s's ratings, format 3 only and no retro model (-want +got):\n%s", middle, diff)

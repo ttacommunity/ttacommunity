@@ -148,11 +148,7 @@ func (s *server) GetPlayerMatches(ctx context.Context, req GetPlayerMatchesReque
 		return nil, err
 	}
 
-	// The page estimates WHR with GlickoD's update, on GlickoD's ratings.
 	engine, softer := strings.CutSuffix(string(model), "_softer")
-	if engine == "whr" {
-		engine = "glicko2_daneo"
-	}
 	ratedAs := engine
 	if softer {
 		ratedAs += "_softer"

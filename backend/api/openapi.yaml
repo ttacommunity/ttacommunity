@@ -288,9 +288,8 @@ paths:
       description: |
         The games the run rated for the player, in one format (0 is all).
         Each carries an estimate of what it is worth to the player's rating
-        today: one rating update from the run's final ratings in `model`
-        (WHR is estimated with GlickoD's update). A page past the last gives
-        the last. Cached for five minutes.
+        today: one rating update from the run's final ratings in `model`. A
+        page past the last gives the last. Cached for five minutes.
       parameters:
         - $ref: "#/components/parameters/RunId"
         - $ref: "#/components/parameters/PlayerName"
@@ -5769,27 +5768,16 @@ components:
           nullable: true
     Model:
       description: |
-        The rating model. `_softer` models reset gently each season, and
-        `_retro` models start from a retrospectively calibrated prior.
+        The rating model: Glicko-D, continuous (`glicko2_daneo`) or reset
+        gently each season (`glicko2_daneo_softer`), or standard Glicko-2
+        (`glicko2_std`), the benchmark. The other models of upstream's site
+        were retired in 2026-10 and are refused.
       type: string
       default: glicko2_daneo
       enum:
         - glicko2_daneo
         - glicko2_daneo_softer
         - glicko2_std
-        - glicko2_std_softer
-        - glicko2_std_retro
-        - glicko2_std_softer_retro
-        - glicko2_mp
-        - glicko2_mp_softer
-        - glicko2_mp_retro
-        - glicko2_mp_softer_retro
-        - glicko2_adapt
-        - glicko2_adapt_softer
-        - glicko2_adapt_retro
-        - glicko2_adapt_softer_retro
-        - whr
-        - whr_softer
     Format:
       description: Players per game. 0 is every format together
       type: integer

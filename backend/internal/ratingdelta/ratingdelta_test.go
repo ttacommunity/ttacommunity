@@ -46,8 +46,6 @@ func TestUpdateMatchesTheEngine(t *testing.T) {
 				got = Update(player, games, tt.Tau, false)
 			case "weighted":
 				got = Update(player, games, tt.Tau, true)
-			case "adaptive":
-				got = UpdateAdaptive(player, games, tt.Tau)
 			default:
 				t.Fatalf("unknown kind %q", tt.Kind)
 			}
@@ -94,20 +92,12 @@ func TestDelta(t *testing.T) {
 			want: Update(at("me"), []Game{{at("alice"), 0, golden3, 3}, {at("bob"), 1, golden3, 3}}, 0.3, true),
 		},
 		{
-			name: "WHR is shown with GlickoD's update", engine: "whr", me: "me", seats: threeSeats,
+			name: "GlickoD's season reset is rated as GlickoD", engine: "glicko2_daneo_softer", me: "me", seats: threeSeats,
 			want: Update(at("me"), []Game{{at("alice"), 0, golden3, 3}, {at("bob"), 1, golden3, 3}}, 0.3, true),
-		},
-		{
-			name: "MP weights by one over the opponents", engine: "glicko2_mp", me: "me", seats: threeSeats,
-			want: Update(at("me"), []Game{{at("alice"), 0, 0.5, 3}, {at("bob"), 1, 0.5, 3}}, 0.3, true),
 		},
 		{
 			name: "Standard ignores weights", engine: "glicko2_std", me: "me", seats: threeSeats,
 			want: Update(at("me"), []Game{{at("alice"), 0, 1, 3}, {at("bob"), 1, 1, 3}}, 0.3, false),
-		},
-		{
-			name: "Adaptive-T uses the adaptive update", engine: "glicko2_adapt", me: "me", seats: threeSeats,
-			want: UpdateAdaptive(at("me"), []Game{{at("alice"), 0, 0.5, 3}, {at("bob"), 1, 0.5, 3}}, 0.3),
 		},
 		{
 			name: "an equal score is a draw", engine: "glicko2_std", me: "me", seats: []Seat{{"me", 100}, {"alice", 100}},

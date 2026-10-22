@@ -207,9 +207,8 @@ export interface paths {
          * One player's games, newest first, 30 to a page
          * @description The games the run rated for the player, in one format (0 is all).
          *     Each carries an estimate of what it is worth to the player's rating
-         *     today: one rating update from the run's final ratings in `model`
-         *     (WHR is estimated with GlickoD's update). A page past the last gives
-         *     the last. Cached for five minutes.
+         *     today: one rating update from the run's final ratings in `model`. A
+         *     page past the last gives the last. Cached for five minutes.
          */
         get: operations["getPlayerMatches"];
         put?: never;
@@ -3630,12 +3629,14 @@ export interface components {
             last_game: string | null;
         };
         /**
-         * @description The rating model. `_softer` models reset gently each season, and
-         *     `_retro` models start from a retrospectively calibrated prior.
+         * @description The rating model: Glicko-D, continuous (`glicko2_daneo`) or reset
+         *     gently each season (`glicko2_daneo_softer`), or standard Glicko-2
+         *     (`glicko2_std`), the benchmark. The other models of upstream's site
+         *     were retired in 2026-10 and are refused.
          * @default glicko2_daneo
          * @enum {string}
          */
-        Model: "glicko2_daneo" | "glicko2_daneo_softer" | "glicko2_std" | "glicko2_std_softer" | "glicko2_std_retro" | "glicko2_std_softer_retro" | "glicko2_mp" | "glicko2_mp_softer" | "glicko2_mp_retro" | "glicko2_mp_softer_retro" | "glicko2_adapt" | "glicko2_adapt_softer" | "glicko2_adapt_retro" | "glicko2_adapt_softer_retro" | "whr" | "whr_softer";
+        Model: "glicko2_daneo" | "glicko2_daneo_softer" | "glicko2_std";
         /**
          * @description Players per game. 0 is every format together
          * @default 0
@@ -8703,7 +8704,7 @@ export const myBlitzMatchMeValues: ReadonlyArray<FlattenedDeepRequired<component
 export const myBlitzMatchReported_byValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["MyBlitzMatch"]["reported_by"]> = ["a", "b"];
 export const myBlitzMatchActionsValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["MyBlitzMatch"]["actions"]> = ["report", "confirm", "flag"];
 export const blitzEntrantChangeStatusValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["BlitzEntrantChange"]["status"]> = ["active", "dropped"];
-export const modelValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["Model"]> = ["glicko2_daneo", "glicko2_daneo_softer", "glicko2_std", "glicko2_std_softer", "glicko2_std_retro", "glicko2_std_softer_retro", "glicko2_mp", "glicko2_mp_softer", "glicko2_mp_retro", "glicko2_mp_softer_retro", "glicko2_adapt", "glicko2_adapt_softer", "glicko2_adapt_retro", "glicko2_adapt_softer_retro", "whr", "whr_softer"];
+export const modelValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["Model"]> = ["glicko2_daneo", "glicko2_daneo_softer", "glicko2_std"];
 export const formatValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["Format"]> = [0, 2, 3, 4];
 export const titleCodeValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["TitleCode"]> = ["WC", "SGM", "WCS", "WCB", "GM", "M", "P", "G", "S", "B", "W"];
 export const calibrationRowModeValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["CalibrationRow"]["mode"]> = ["standard", "walk_forward"];

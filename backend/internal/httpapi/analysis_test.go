@@ -79,12 +79,12 @@ func (f *fakeAnalysis) SeatAnalysis(_ context.Context, run int64, format int, ti
 func TestCalibrationParsesEachRowsBins(t *testing.T) {
 	loss, acc := 0.61, 64.2
 	f := &fakeAnalysis{calib: []store.CalibrationRow{{
-		Mode: "walk_forward", Model: "whr_softer", Format: 3, Matches: 900, Brier: 0.2134, ECE: 0.0123, LogLoss: &loss, Accuracy: &acc,
+		Mode: "walk_forward", Model: "glicko2_daneo_softer", Format: 3, Matches: 900, Brier: 0.2134, ECE: 0.0123, LogLoss: &loss, Accuracy: &acc,
 		Bins: []byte(`{"labels": ["50-55%"], "ideal": [0.525], "preds": [0.52], "actuals": [0.53], "counts": [900]}`),
 	}}}
 	rec, _ := serve(t, f, "/v1/runs/7/analysis/calibration")
 	want := `{"rows":[{"accuracy":64.2,"bins":{"actuals":[0.53],"counts":[900],"ideal":[0.525],"labels":["50-55%"],"preds":[0.52]},` +
-		`"brier":0.2134,"ece":0.0123,"format":3,"log_loss":0.61,"matches":900,"mode":"walk_forward","model":"whr_softer"}],"run_id":7}`
+		`"brier":0.2134,"ece":0.0123,"format":3,"log_loss":0.61,"matches":900,"mode":"walk_forward","model":"glicko2_daneo_softer"}],"run_id":7}`
 	if got := strings.TrimSpace(rec.Body.String()); rec.Code != http.StatusOK || got != want {
 		t.Errorf("GET calibration: %d %s\nwant 200 %s", rec.Code, got, want)
 	}
@@ -92,7 +92,7 @@ func TestCalibrationParsesEachRowsBins(t *testing.T) {
 		t.Errorf("GET calibration: Cache-Control %q", rec.Header().Get("Cache-Control"))
 	}
 
-	bad := &fakeAnalysis{calib: []store.CalibrationRow{{Mode: "standard", Model: "whr", Bins: []byte(`{"counts": "x"}`)}}}
+	bad := &fakeAnalysis{calib: []store.CalibrationRow{{Mode: "standard", Model: "glicko2_std", Bins: []byte(`{"counts": "x"}`)}}}
 	if rec, _ := serve(t, bad, "/v1/runs/7/analysis/calibration"); rec.Code != http.StatusInternalServerError {
 		t.Errorf("GET calibration with unreadable bins: %d, want 500", rec.Code)
 	}
@@ -100,14 +100,14 @@ func TestCalibrationParsesEachRowsBins(t *testing.T) {
 
 func TestDistributionAndAgreementComputeFromTheRunsRatings(t *testing.T) {
 	rank := 1
-	ratings := []store.ModelRating{{Player: "ann", Model: "whr", Rating: 1650, Rank: &rank, Opponents: 20}}
+	ratings := []store.ModelRating{{Player: "ann", Model: "glicko2_std", Rating: 1650, Rank: &rank, Opponents: 20}}
 	f := &fakeAnalysis{ratings: ratings, active: map[string]bool{"ann": true}}
 	rec, _ := serve(t, f, "/v1/runs/7/analysis/distribution?format=2")
 	var d Distribution
 	if err := json.Unmarshal(rec.Body.Bytes(), &d); err != nil || rec.Code != http.StatusOK {
 		t.Fatalf("GET distribution: %d %s", rec.Code, rec.Body.String())
 	}
-	if f.gotFmt != 2 || d.Format != 2 || len(d.Engines) != 5 || d.Engines[4].Model != Whr || d.Engines[4].Counts[6] != 1 || d.Engines[4].ActiveMean != 1650 {
+	if f.gotFmt != 2 || d.Format != 2 || len(d.Engines) != 2 || d.Engines[1].Model != Glicko2Std || d.Engines[1].Counts[6] != 1 || d.Engines[1].ActiveMean != 1650 {
 		t.Errorf("distribution = %+v (format asked %d)", d, f.gotFmt)
 	}
 
@@ -174,12 +174,12 @@ func TestAnalysisRoutesRefuseAndAnswerNotFound(t *testing.T) {
 func TestComparedPlayersSplitsTheSearchAndRoundsAsUpstream(t *testing.T) {
 	rank, pl, gm := 3, "PL", "GM"
 	f := &fakeAnalysis{compared: []store.ComparedPlayer{{Name: "ann", Country: &pl, Title: &gm, Ratings: []store.ComparedRating{
-		{Model: "whr_softer", Rank: &rank, Rating: 1812.25, RD: 45.349, CRating: 1721.35, Opponents: 40, WinRate: 61.25},
+		{Model: "glicko2_daneo_softer", Rank: &rank, Rating: 1812.25, RD: 45.349, CRating: 1721.35, Opponents: 40, WinRate: 61.25},
 		{Model: "glicko2_std", Rating: 1500.04, RD: 350, CRating: 800, Opponents: 1, WinRate: 0},
 	}}}}
 	rec, _ := serve(t, f, "/v1/runs/7/analysis/players?format=3&search=%20Ann%20,,PL")
 	want := `{"format":3,"players":[{"country":"PL","name":"ann","ratings":[` +
-		`{"c_rating":1721.3,"model":"whr_softer","opponents":40,"rank":3,"rating":1812.2,"rd":45.3,"win_rate":61.25},` +
+		`{"c_rating":1721.3,"model":"glicko2_daneo_softer","opponents":40,"rank":3,"rating":1812.2,"rd":45.3,"win_rate":61.25},` +
 		`{"c_rating":800,"model":"glicko2_std","opponents":1,"rank":null,"rating":1500,"rd":350,"win_rate":0}],"title":"GM"}],"run_id":7}`
 	if got := strings.TrimSpace(rec.Body.String()); rec.Code != http.StatusOK || got != want {
 		t.Errorf("GET players: %d %s\nwant 200 %s", rec.Code, got, want)
