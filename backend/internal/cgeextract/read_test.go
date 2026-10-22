@@ -76,7 +76,6 @@ func TestReadRefusesRowsThatDoNotFit(t *testing.T) {
 		{"a resigned seat with a positive score", row(5, 1, "ann", "2", "12.0", "resigned"), BadScore},
 		{"a timed-out seat with a standing", row(5, 1, "ann", "2", "", "timed out"), BadStanding},
 		{"a finished seat without a standing", row(5, 1, "ann", "", "181.0", "finished"), BadStanding},
-		{"a seat with no player", row(5, 0, "", "", "", "timed out"), NoPlayer},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -88,6 +87,22 @@ func TestReadRefusesRowsThatDoNotFit(t *testing.T) {
 				t.Errorf("seats %d, refused %+v; want line 2 refused as %s", len(got.Seats), got.Refused, tt.want)
 			}
 		})
+	}
+}
+
+func TestReadKeepsSeatsCGEHoldsNoAccountFor(t *testing.T) {
+	empty := row(5, 0, "", "", "", "timed out")
+	got, err := Read("x.csv", strings.NewReader(header+row(5, 1, "ann", "1", "181.0", "finished")+empty+empty))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(got.Seats) != 3 || len(got.Refused) != 0 {
+		t.Fatalf("seats %d, refused %+v; want ann and two seats with no player", len(got.Seats), got.Refused)
+	}
+	for _, s := range got.Seats[1:] {
+		if s.PlayerID != 0 || s.PlayerName != "" || s.FinishStatus != TimedOut {
+			t.Errorf("seat = %+v, want no player, timed out", s)
+		}
 	}
 }
 

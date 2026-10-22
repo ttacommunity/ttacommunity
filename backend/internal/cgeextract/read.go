@@ -31,7 +31,6 @@ const (
 	BadScore    Reason = "bad_score"
 	BadStanding Reason = "bad_standing"
 	BadRow      Reason = "bad_row"
-	NoPlayer    Reason = "no_player"
 	Duplicate   Reason = "duplicate"
 )
 
@@ -72,8 +71,9 @@ var states = []string{"finished", "running", "prepared", "cancelled"}
 var statuses = map[string]string{"finished": Finished, "resigned": Resigned, "timed out": TimedOut, "": ""}
 
 // Read reads the extract named file. A row that does not fit is refused with its reason; a seat seen on an
-// earlier line (the same game and player) is refused as a duplicate. It returns an error only for a file it
-// cannot read or whose header is not Header.
+// earlier line (the same game and player) is refused as a duplicate. A seat CGE holds no account for (player 0,
+// no name) is kept, with no player. It returns an error only for a file it cannot read or whose header is not
+// Header.
 func Read(file string, r io.Reader) (Extract, error) {
 	cr := csv.NewReader(r)
 	cr.FieldsPerRecord = -1
@@ -99,7 +99,7 @@ func Read(file string, r io.Reader) (Extract, error) {
 		}
 		got.Rows++
 		seat, t, st, why := parse(rec)
-		if why == "" && seen[[2]int{seat.SessionID, seat.PlayerID}] {
+		if why == "" && seat.PlayerID != 0 && seen[[2]int{seat.SessionID, seat.PlayerID}] {
 			why = Duplicate
 		}
 		if why != "" {
@@ -124,7 +124,7 @@ func parse(rec []string) (Seat, Tournament, Stage, Reason) {
 		"player_id", "starting_position", "players_in_game"} {
 		n, err := strconv.Atoi(f(name))
 		if name == "player_id" && err == nil && n == 0 && f("player_name") == "" {
-			return Seat{}, Tournament{}, Stage{}, NoPlayer // a seat CGE holds no account for
+			continue // a seat CGE holds no account for
 		}
 		if err != nil || n < 0 || (n == 0 && name != "starting_position") {
 			return Seat{}, Tournament{}, Stage{}, BadID

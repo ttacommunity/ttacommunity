@@ -71,17 +71,38 @@ func TestMatchFindsEachCGEGamesCopyOfOurs(t *testing.T) {
 	}
 }
 
+// noPlayer is a seat CGE holds no account for: an empty seat that timed out.
+func noPlayer() Seat { return Seat{FinishStatus: TimedOut} }
+
 func TestMatchAddsWhatOnlyCGEHasAndHoldsBackPossibleCopies(t *testing.T) {
 	series := map[int]int64{19: 7}
-	cge := []Game{
-		cgeGame(100, 19, "CODEAAAA", cgeSeat(1, 200), cgeSeat(2, 150)),
-		cgeGame(101, 19, "CODEBBBB", cgeSeat(3, 120), cgeSeat(4, 110)),
+	tests := []struct {
+		name     string
+		cge      Game
+		ours     OurGame
+		wantHeld bool
+	}{
+		// Ours holds ann and bob's game with a score typed differently: a possible copy, not a match.
+		{"the same players, a score typed differently", cgeGame(100, 19, "CODEAAAA", cgeSeat(1, 200), cgeSeat(2, 150)),
+			ours(1, 7, "", seat("ann", 200), seat("bob", 15)), true},
+		// Ours scored cy's timed-out seat 0, which CGE holds no account for.
+		{"a seat with no player may be one of ours", cgeGame(100, 19, "CODEAAAA", cgeSeat(1, 200), cgeSeat(2, 150), noPlayer()),
+			ours(1, 7, "", seat("ann", 200), seat("bob", 150), seat("cy", 0)), true},
+		{"not two of ours for one seat with no player", cgeGame(100, 19, "CODEAAAA", cgeSeat(1, 200), noPlayer()),
+			ours(1, 7, "", seat("ann", 200), seat("bob", 0), seat("cy", 0)), false},
 	}
-	// Ours holds ann and bob's game with a score typed differently: a possible copy, not a match.
-	got := Match(cge, []OurGame{ours(1, 7, "", seat("ann", 200), seat("bob", 15))}, names, series, nil)
-
-	if !slices.Equal(got.Added, []int{101}) || !slices.Equal(got.HeldBack, []int{100}) || !slices.Equal(got.OursOnly, []int64{1}) {
-		t.Errorf("added %v, held back %v, ours only %v; want 101, 100 and our game 1", got.Added, got.HeldBack, got.OursOnly)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			other := cgeGame(101, 19, "CODEBBBB", cgeSeat(3, 120), cgeSeat(4, 110))
+			got := Match([]Game{tt.cge, other}, []OurGame{tt.ours}, names, series, nil)
+			wantAdded, wantHeld := []int{101}, []int{100}
+			if !tt.wantHeld {
+				wantAdded, wantHeld = []int{100, 101}, nil
+			}
+			if !slices.Equal(got.Added, wantAdded) || !slices.Equal(got.HeldBack, wantHeld) || !slices.Equal(got.OursOnly, []int64{1}) {
+				t.Errorf("added %v, held back %v, ours only %v; want %v, %v and our game 1", got.Added, got.HeldBack, got.OursOnly, wantAdded, wantHeld)
+			}
+		})
 	}
 }
 
@@ -103,6 +124,29 @@ func TestMatchSeatsPairsEachCGESeatWithOurs(t *testing.T) {
 			map[int]int{1: 0, 2: 1, 3: 2}, nil},
 		{"the one seat left on each side", []OurSeat{{Seat: 1, Name: "ann"}, {Seat: 2, Name: "bob"}, {Seat: 3, Name: "old name", Score: -5}},
 			map[int]int{1: 0, 2: 1, 3: 2}, nil},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			pairs, missing := MatchSeats(g, tt.ours, names)
+			if !mapsEqual(pairs, tt.wantPairs) || !slices.Equal(missing, tt.wantMissing) {
+				t.Errorf("pairs %v, missing %v; want %v, %v", pairs, missing, tt.wantPairs, tt.wantMissing)
+			}
+		})
+	}
+}
+
+func TestMatchSeatsPairsASeatWithNoPlayerWithTheOneLeftOfOurs(t *testing.T) {
+	g := cgeGame(100, 19, "CODEAAAA", cgeSeat(1, 200), cgeSeat(2, 150), noPlayer())
+	tests := []struct {
+		name        string
+		ours        []OurSeat
+		wantPairs   map[int]int
+		wantMissing []int
+	}{
+		{"our third seat takes it", []OurSeat{{Seat: 1, Name: "ann"}, {Seat: 2, Name: "bob"}, {Seat: 3, Name: "cy", Score: 0}},
+			map[int]int{1: 0, 2: 1, 3: 2}, nil},
+		{"it is missing when ours has two seats", []OurSeat{{Seat: 1, Name: "ann"}, {Seat: 2, Name: "bob"}},
+			map[int]int{1: 0, 2: 1}, []int{2}},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
