@@ -176,7 +176,10 @@ Patterns that hold across the schema:
   do, such as reporting their own blitz game, is a `SECURITY DEFINER`
   function granted to `ratings_player` alone, which checks the session and
   that format's rules before it writes; the shared writer behind it,
-  `write_game`, is granted to nobody. A linked member's empty Discord name
+  `write_game`, is granted to nobody. Reading is the same: a player sees
+  everything kept about them (`GET /v1/me/data`), and the member fields the
+  login cannot select, such as the email, come through `own_member`, which
+  returns the session's own member and no other. A linked member's empty Discord name
   and email are filled from their account's sign-ins
   (`fill_member_from_logins`, for both the player and admin logins); what
   the member has is never replaced. The api checks each login's limits

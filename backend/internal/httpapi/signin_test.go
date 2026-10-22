@@ -40,6 +40,8 @@ type fakeSignIns struct {
 	// microsoftOff and googleOff turn their sign-in off; nonce is the one the last authorize URL carried.
 	microsoftOff, googleOff bool
 	nonce                   string
+	// kept is what KeptData answers for any live session.
+	kept store.KeptData
 }
 
 func newFakeSignIns() *fakeSignIns {
@@ -58,6 +60,13 @@ func (f *fakeSignIns) Session(_ context.Context, hash []byte, _ time.Time) (stor
 		return store.Account{}, store.ErrNoSession
 	}
 	return l, nil
+}
+
+func (f *fakeSignIns) KeptData(_ context.Context, hash []byte, _ time.Time) (store.KeptData, error) {
+	if _, ok := f.sessions[string(hash)]; !ok {
+		return store.KeptData{}, store.ErrNoSession
+	}
+	return f.kept, nil
 }
 
 func (f *fakeSignIns) SignOut(_ context.Context, hash []byte) error {
@@ -478,6 +487,65 @@ func TestMeShowsNoMemberOrRequestAsNull(t *testing.T) {
 		if v, ok := got[k]; !ok || v != nil {
 			t.Errorf("%s = %v (present %v), want null", k, v, ok)
 		}
+	}
+}
+
+func TestMyDataAnswersWithEverythingKept(t *testing.T) {
+	f := newFakeSignIns()
+	at := time.Date(2026, 10, 18, 12, 0, 0, 0, time.UTC)
+	later, cge := at.Add(time.Hour), 501
+	f.kept = store.KeptData{
+		Account: store.KeptAccount{CreatedAt: at, LinkedHow: "approved", LinkedAt: &later, AutoLink: true},
+		Logins: []store.KeptLogin{{Provider: "discord", Subject: "100000000000000001", Username: "player_one", DisplayName: "Player One",
+			CreatedAt: at, SignedInAt: later}},
+		Member: &store.Member{Name: "Ann", CGEUser: &cge, Player: "Ann", DiscordName: "player_one", Email: "ann@example.test",
+			Country: "NZ", Zone: "Pacific/Auckland", Banned: true, BanReason: "Abusive", BannedAt: &later, CreatedAt: at},
+		Requests:   []store.KeptRequest{{Name: "Ann", Status: "approved", RequestedAt: at, DecidedAt: &later}},
+		Sessions:   []store.KeptSession{{Provider: "discord", CreatedAt: at, Ends: at.Add(store.SessionLife), ThisBrowser: true}},
+		EmailLinks: []store.KeptEmailLink{{Address: "ann@example.test", ReturnPath: "/account", CreatedAt: at, ExpiresAt: later, KeptUntil: at.Add(48 * time.Hour)}},
+	}
+	rec := playerDo(t, f, http.MethodGet, "/v1/me/data", siteOrigin, "", sessionFor(f, "token", store.Account{ID: 7}))
+	if rec.Code != http.StatusOK || rec.Header().Get("Cache-Control") != cacheNone {
+		t.Fatalf("GET /v1/me/data = %d %s, Cache-Control %q; want 200, %q", rec.Code, rec.Body, rec.Header().Get("Cache-Control"), cacheNone)
+	}
+	for path, want := range map[string]string{
+		"account.created_at":       `"2026-10-18T12:00:00Z"`,
+		"account.country":          `null`,
+		"account.linked_how":       `"approved"`,
+		"account.linked_at":        `"2026-10-18T13:00:00Z"`,
+		"account.auto_link":        `true`,
+		"logins.0.id":              `"100000000000000001"`,
+		"logins.0.signed_in_at":    `"2026-10-18T13:00:00Z"`,
+		"member.email":             `"ann@example.test"`,
+		"member.cge_user":          `501`,
+		"member.country":           `"NZ"`,
+		"member.banned_at":         `"2026-10-18T13:00:00Z"`,
+		"requests.0.decided_at":    `"2026-10-18T13:00:00Z"`,
+		"sessions.0.ends_at":       `"2026-11-17T12:00:00Z"`,
+		"sessions.0.this_browser":  `true`,
+		"email_links.0.used_at":    `null`,
+		"email_links.0.kept_until": `"2026-10-20T12:00:00Z"`,
+	} {
+		wantJSON(t, rec.Body.Bytes(), path, want)
+	}
+}
+
+func TestMyDataShowsNoLinkAsNull(t *testing.T) {
+	f := newFakeSignIns()
+	f.kept = store.KeptData{Account: store.KeptAccount{CreatedAt: time.Date(2026, 10, 18, 12, 0, 0, 0, time.UTC), Country: "NZ", Zone: "Pacific/Auckland"}}
+	rec := playerDo(t, f, http.MethodGet, "/v1/me/data", siteOrigin, "", sessionFor(f, "token", store.Account{ID: 7}))
+	for path, want := range map[string]string{
+		"member": `null`, "account.linked_how": `null`, "account.linked_at": `null`, "account.zone": `"Pacific/Auckland"`,
+		"logins": `[]`, "requests": `[]`, "sessions": `[]`, "email_links": `[]`,
+	} {
+		wantJSON(t, rec.Body.Bytes(), path, want)
+	}
+}
+
+func TestMyDataNeedsASession(t *testing.T) {
+	f := newFakeSignIns()
+	if rec := playerDo(t, f, http.MethodGet, "/v1/me/data", siteOrigin, ""); rec.Code != http.StatusUnauthorized {
+		t.Errorf("GET /v1/me/data signed out = %d %s, want 401", rec.Code, rec.Body)
 	}
 }
 

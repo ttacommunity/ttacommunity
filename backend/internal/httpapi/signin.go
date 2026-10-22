@@ -29,6 +29,8 @@ type SignIns interface {
 	// SignIn reports whether this was the account's first sign-in.
 	SignIn(ctx context.Context, id store.Identity, tokenHash []byte, now time.Time) (bool, error)
 	Session(ctx context.Context, tokenHash []byte, now time.Time) (store.Account, error)
+	// KeptData is everything kept about the player whose session it is.
+	KeptData(ctx context.Context, tokenHash []byte, now time.Time) (store.KeptData, error)
 	SignOut(ctx context.Context, tokenHash []byte) error
 	// DeleteAccount deletes the account whose session hashes to tokenHash; an ended session is store.ErrNoSession.
 	DeleteAccount(ctx context.Context, tokenHash []byte, now time.Time) error
@@ -485,6 +487,46 @@ func (s *server) GetMe(ctx context.Context, _ GetMeRequestObject) (GetMeResponse
 		me.AdminRole = &role
 	}
 	return GetMe200JSONResponse{Body: me, Headers: GetMe200ResponseHeaders{CacheControl: cacheNone}}, nil
+}
+
+func (s *server) GetMyData(ctx context.Context, _ GetMyDataRequestObject) (GetMyDataResponseObject, error) {
+	hash, _ := ctx.Value(sessionKey{}).([]byte)
+	k, err := s.signIns.KeptData(ctx, hash, s.now())
+	if errors.Is(err, store.ErrNoSession) {
+		return GetMyData401JSONResponse{SignedOutJSONResponse{Body: Error{Error: "not signed in"}, Headers: SignedOutResponseHeaders{CacheControl: cacheNone}}}, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	a := k.Account
+	d := MyData{
+		Account: MyDataAccount{CreatedAt: a.CreatedAt, Country: nullableText(a.Country), Zone: nullableText(a.Zone), LinkedAt: a.LinkedAt, AutoLink: a.AutoLink},
+		Logins:  make([]MyDataLogin, len(k.Logins)), Requests: make([]MyDataRequest, len(k.Requests)),
+		Sessions: make([]MyDataSession, len(k.Sessions)), EmailLinks: make([]MyDataEmailLink, len(k.EmailLinks)),
+	}
+	if a.LinkedHow != "" {
+		how := MyDataAccountLinkedHow(a.LinkedHow)
+		d.Account.LinkedHow = &how
+	}
+	for i, l := range k.Logins {
+		d.Logins[i] = MyDataLogin{Provider: LoginProvider(l.Provider), Id: l.Subject, Username: l.Username, DisplayName: l.DisplayName,
+			Email: l.Email, CreatedAt: l.CreatedAt, SignedInAt: l.SignedInAt}
+	}
+	if m := k.Member; m != nil {
+		d.Member = &MyDataMember{Name: m.Name, CgeUser: m.CGEUser, Player: m.Player, DiscordName: m.DiscordName, Email: m.Email,
+			Country: nullableText(m.Country), Zone: m.Zone, Banned: m.Banned, BanReason: m.BanReason, BannedAt: m.BannedAt, CreatedAt: m.CreatedAt}
+	}
+	for i, r := range k.Requests {
+		d.Requests[i] = MyDataRequest{Name: r.Name, Status: MyDataRequestStatus(r.Status), Reason: r.Reason, RequestedAt: r.RequestedAt, DecidedAt: r.DecidedAt}
+	}
+	for i, x := range k.Sessions {
+		d.Sessions[i] = MyDataSession{Provider: LoginProvider(x.Provider), CreatedAt: x.CreatedAt, EndsAt: x.Ends, ThisBrowser: x.ThisBrowser}
+	}
+	for i, l := range k.EmailLinks {
+		d.EmailLinks[i] = MyDataEmailLink{Address: l.Address, ReturnPath: l.ReturnPath, CreatedAt: l.CreatedAt, ExpiresAt: l.ExpiresAt,
+			UsedAt: l.UsedAt, KeptUntil: l.KeptUntil}
+	}
+	return GetMyData200JSONResponse{Body: d, Headers: GetMyData200ResponseHeaders{CacheControl: cacheNone}}, nil
 }
 
 func (s *server) DeleteMe(ctx context.Context, _ DeleteMeRequestObject) (DeleteMeResponseObject, error) {

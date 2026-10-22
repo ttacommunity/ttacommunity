@@ -1448,6 +1448,30 @@ paths:
           $ref: "#/components/responses/SignedOut"
         "403":
           $ref: "#/components/responses/NotFromSite"
+  /v1/me/data:
+    get:
+      operationId: getMyData
+      tags: [players]
+      summary: Everything we keep about the signed-in player
+      description: |
+        Fetched with credentials from the site, whose origin alone may read
+        it. Their account, every way in with its id there, the member they
+        are linked to with every field it holds, their requests to be linked,
+        their sessions and their emailed sign-in links. Sessions that have
+        ended and links past the time they are kept are removed first, so
+        the answer is exactly what is kept. Never cached.
+      responses:
+        "200":
+          description: Everything we keep about them
+          headers:
+            Cache-Control:
+              $ref: "#/components/headers/CacheControl"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MyData"
+        "401":
+          $ref: "#/components/responses/SignedOut"
   /v1/me/link-request:
     put:
       operationId: putMyLinkRequest
@@ -7782,6 +7806,192 @@ components:
           description: Why it was refused, empty when no reason was given
           type: string
         requested_at:
+          type: string
+          format: date-time
+    MyData:
+      description: Everything we keep about the signed-in player
+      type: object
+      required: [account, logins, member, requests, sessions, email_links]
+      properties:
+        account:
+          $ref: "#/components/schemas/MyDataAccount"
+        logins:
+          description: Every way into the account, by provider
+          type: array
+          items:
+            $ref: "#/components/schemas/MyDataLogin"
+        member:
+          allOf:
+            - $ref: "#/components/schemas/MyDataMember"
+          nullable: true
+        requests:
+          description: Every request to be linked, latest first
+          type: array
+          items:
+            $ref: "#/components/schemas/MyDataRequest"
+        sessions:
+          description: Every session, oldest first
+          type: array
+          items:
+            $ref: "#/components/schemas/MyDataSession"
+        email_links:
+          description: The sign-in links emailed for the account or to its email address, kept 48 hours, oldest first
+          type: array
+          items:
+            $ref: "#/components/schemas/MyDataEmailLink"
+    MyDataAccount:
+      description: The account itself
+      type: object
+      required: [created_at, country, zone, linked_how, linked_at, auto_link]
+      properties:
+        created_at:
+          type: string
+          format: date-time
+        country:
+          description: The country given before a link, as a two-letter ISO code; null when none (a link moves it to the member)
+          type: string
+          nullable: true
+        zone:
+          description: The time zone given before a link; null when none (a link moves it to the member)
+          type: string
+          nullable: true
+        linked_how:
+          description: How the account was linked to its member, by a matching Discord name or email or by an approved request; null when not linked
+          type: string
+          enum: [match, approved]
+          nullable: true
+        linked_at:
+          type: string
+          format: date-time
+          nullable: true
+        auto_link:
+          description: Whether a sign-in may link the account by a matching Discord name or email; off once an admin unlinked it
+          type: boolean
+    MyDataLogin:
+      description: A way into the account, with everything kept about it
+      type: object
+      required: [provider, id, username, display_name, email, created_at, signed_in_at]
+      properties:
+        provider:
+          $ref: "#/components/schemas/LoginProvider"
+        id:
+          description: Its id for the player there; Discord's user id, Microsoft's id for this site, Google's account id, or the email address
+          type: string
+        username:
+          type: string
+        display_name:
+          description: Empty when they have none
+          type: string
+        email:
+          description: The address Microsoft or Google vouched for; empty when none
+          type: string
+        created_at:
+          type: string
+          format: date-time
+        signed_in_at:
+          description: When it was last used to sign in
+          type: string
+          format: date-time
+    MyDataMember:
+      description: The member the account is linked to, with every field it holds
+      type: object
+      required: [name, cge_user, player, discord_name, email, country, zone, banned, ban_reason, banned_at, created_at]
+      properties:
+        name:
+          description: The TTA username
+          type: string
+        cge_user:
+          description: The CGE user number; null when not known
+          type: integer
+          nullable: true
+        player:
+          description: The name on the ratings pages, empty when they have no rated games
+          type: string
+        discord_name:
+          description: The Discord name recorded, by an admin or from a sign-in; empty when none
+          type: string
+        email:
+          description: The email recorded, by an admin or from a sign-in; empty when none
+          type: string
+        country:
+          description: A two-letter ISO code, or null
+          type: string
+          nullable: true
+        zone:
+          type: string
+        banned:
+          type: boolean
+        ban_reason:
+          description: Empty when not banned
+          type: string
+        banned_at:
+          type: string
+          format: date-time
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+    MyDataRequest:
+      description: A request to be linked, and its answer
+      type: object
+      required: [name, status, reason, requested_at, decided_at]
+      properties:
+        name:
+          type: string
+        status:
+          type: string
+          enum: [pending, approved, refused]
+        reason:
+          description: Why it was refused, empty when no reason was given
+          type: string
+        requested_at:
+          type: string
+          format: date-time
+        decided_at:
+          type: string
+          format: date-time
+          nullable: true
+    MyDataSession:
+      description: A session, which ends and is removed 30 days after its last use
+      type: object
+      required: [provider, created_at, ends_at, this_browser]
+      properties:
+        provider:
+          $ref: "#/components/schemas/LoginProvider"
+        created_at:
+          type: string
+          format: date-time
+        ends_at:
+          description: When it ends and is removed, unless used before then
+          type: string
+          format: date-time
+        this_browser:
+          description: Whether it is the session asking
+          type: boolean
+    MyDataEmailLink:
+      description: An emailed sign-in link
+      type: object
+      required: [address, return_path, created_at, expires_at, used_at, kept_until]
+      properties:
+        address:
+          type: string
+        return_path:
+          description: The site's page it returns to
+          type: string
+        created_at:
+          description: When it was sent
+          type: string
+          format: date-time
+        expires_at:
+          description: Until when it works
+          type: string
+          format: date-time
+        used_at:
+          type: string
+          format: date-time
+          nullable: true
+        kept_until:
+          description: When it is removed
           type: string
           format: date-time
     LinkRequestAsk:
