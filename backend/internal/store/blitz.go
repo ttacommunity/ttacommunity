@@ -407,16 +407,19 @@ type Candidate struct {
 
 // candidates finds up to limit members and players the ratings know who are no member, whose name, or ratings
 // spelling, holds q in any case; members of the edition editionID are left out (none for 0). The name itself comes
-// first, then names starting with q, then the rest; members before players, then by name.
+// first, then names starting with q, then the rest; people with an account or in an edition before the rest, then
+// by name.
 func candidates(ctx context.Context, db conn, editionID int64, q string, limit int) ([]Candidate, error) {
 	rows, err := db.Query(ctx, `
 		WITH people AS (
 			SELECT m.member_id, m.tta_name AS name, coalesce(p.name, '') AS player, m.discord_name, m.email,
-			       coalesce(m.country_code, '') AS country, m.zone, m.banned
+			       coalesce(m.country_code, '') AS country, m.zone, m.banned,
+			       EXISTS (SELECT 1 FROM accounts a WHERE a.member_id = m.member_id)
+			         OR EXISTS (SELECT 1 FROM blitz_entries e WHERE e.member_id = m.member_id) AS known
 			FROM members m LEFT JOIN players p ON p.player_id = m.player_id
 			WHERE NOT EXISTS (SELECT 1 FROM blitz_entries e WHERE e.tournament_id = $1 AND e.member_id = m.member_id)
 			UNION ALL
-			SELECT 0, p.name, p.name, '', '', coalesce(p.country_code, ''), '', false
+			SELECT 0, p.name, p.name, '', '', '', '', false, false
 			FROM players p
 			WHERE NOT EXISTS (SELECT 1 FROM members m WHERE m.player_id = p.player_id OR lower(m.tta_name) = lower(p.name))
 		)
@@ -425,7 +428,7 @@ func candidates(ctx context.Context, db conn, editionID int64, q string, limit i
 		ORDER BY CASE WHEN lower($2) IN (lower(name), lower(player)) THEN 0
 		              WHEN starts_with(lower(name), lower($2)) OR starts_with(lower(player), lower($2)) THEN 1
 		              ELSE 2 END,
-		         member_id = 0, lower(name), member_id
+		         NOT known, lower(name), member_id
 		LIMIT $3`, editionID, q, limit)
 	if err != nil {
 		return nil, fmt.Errorf("finding people: %w", err)

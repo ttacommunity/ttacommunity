@@ -289,41 +289,70 @@ func TestNewDBIsolatesTests(t *testing.T) {
 	}
 }
 
+// countryOf reads the country of the member linked to the player named: nil for no member or no country.
 func countryOf(t *testing.T, pool *pgxpool.Pool, name string) *string {
 	t.Helper()
 	var c *string
-	if err := pool.QueryRow(context.Background(), "SELECT country_code FROM players WHERE name = $1", name).Scan(&c); err != nil {
+	err := pool.QueryRow(context.Background(),
+		"SELECT m.country_code FROM members m JOIN players p ON p.player_id = m.player_id WHERE p.name = $1", name).Scan(&c)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return nil
+	}
+	if err != nil {
 		t.Fatalf("reading %s's country: %v", name, err)
 	}
 	return c
 }
 
-func TestSetCountriesUpdatesKnownPlayersOnly(t *testing.T) {
-	pool := migrated(t)
-	ctx := context.Background()
-	addPlayers(t, pool, "ann", "bob", "Ann")
-
-	got, err := SetCountries(ctx, pool, map[string]string{"ann": "PL", "ghost": "DE"})
-	if err != nil {
-		t.Fatalf("SetCountries: %v", err)
+func TestSetCountriesWritesMembersThatHaveNotSignedIn(t *testing.T) {
+	const linkedAnn = "INSERT INTO members (tta_name, player_id, country_code, zone) SELECT 'ann', player_id, 'DE', 'UTC' FROM players WHERE name = 'ann'"
+	tests := []struct {
+		name      string
+		before    []string
+		countries map[string]string
+		want      CountriesSet
+		members   []string
+	}{
+		{"a player with no member gets one, in the ratings' spelling, with nothing else known",
+			nil, map[string]string{"ann": "PL", "ghost": "DE"}, CountriesSet{Set: 1, Unknown: 1},
+			[]string{"ann|ann|PL|Unknown||"}},
+		{"the member linked to the player takes the country, replacing an earlier one",
+			[]string{linkedAnn}, map[string]string{"ann": "PL"}, CountriesSet{Set: 1},
+			[]string{"ann|ann|PL|UTC||"}},
+		{"a member of that name in any case is linked to the player and takes it",
+			[]string{"INSERT INTO members (tta_name, discord_name, zone) VALUES ('ANN', 'player_one', 'UTC')"},
+			map[string]string{"ann": "PL"}, CountriesSet{Set: 1},
+			[]string{"ANN|ann|PL|UTC|player_one|"}},
+		{"a member a sign-in is linked to keeps their own country",
+			[]string{linkedAnn, "INSERT INTO accounts (member_id, linked_how, linked_at, created_at) SELECT member_id, 'match', now(), now() FROM members"},
+			map[string]string{"ann": "PL"}, CountriesSet{Kept: 1},
+			[]string{"ann|ann|DE|UTC||"}},
+		{"a name that is a player in another case only is not that player",
+			nil, map[string]string{"Ann": "PL"}, CountriesSet{Unknown: 1}, nil},
 	}
-	if want := (CountriesSet{Set: 1, Unknown: 1}); got != want {
-		t.Errorf("SetCountries = %+v, want %+v", got, want)
-	}
-	if c := countryOf(t, pool, "ann"); c == nil || *c != "PL" {
-		t.Errorf("ann's country = %v, want PL", c)
-	}
-	for _, name := range []string{"bob", "Ann"} {
-		if c := countryOf(t, pool, name); c != nil {
-			t.Errorf("%s's country = %q, want none", name, *c)
-		}
-	}
-
-	if _, err := SetCountries(ctx, pool, map[string]string{"ann": "DE"}); err != nil {
-		t.Fatalf("SetCountries again: %v", err)
-	}
-	if c := countryOf(t, pool, "ann"); c == nil || *c != "DE" {
-		t.Errorf("ann's country after a second load = %v, want DE", c)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			pool := migrated(t)
+			ctx := context.Background()
+			addPlayers(t, pool, "ann", "bob")
+			for _, q := range tt.before {
+				if _, err := pool.Exec(ctx, q); err != nil {
+					t.Fatalf("%s: %v", q, err)
+				}
+			}
+			got, err := SetCountries(ctx, pool, tt.countries)
+			if err != nil {
+				t.Fatalf("SetCountries(%v): %v", tt.countries, err)
+			}
+			if got != tt.want {
+				t.Errorf("SetCountries(%v) = %+v, want %+v", tt.countries, got, tt.want)
+			}
+			members := rowsOf(t, pool, `SELECT concat_ws('|', m.tta_name, coalesce(p.name, ''), coalesce(m.country_code, ''), m.zone, m.discord_name, m.email)
+				FROM members m LEFT JOIN players p ON p.player_id = m.player_id ORDER BY 1`)
+			if !slices.Equal(members, tt.members) {
+				t.Errorf("members after SetCountries(%v) = %q, want %q", tt.countries, members, tt.members)
+			}
+		})
 	}
 }
 

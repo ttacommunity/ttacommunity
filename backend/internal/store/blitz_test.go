@@ -289,16 +289,14 @@ func TestThePublicRoleCannotReadADiscordName(t *testing.T) {
 	}
 }
 
-// candidatesFixture adds to blitzFixture the players Ann (GB), Annabel, Annette, Annika, Hannah and Joanna, the
-// members anna, Annette (that player), Annika (entered in us_open 2026) and Bea (banned).
+// candidatesFixture adds to blitzFixture the players Ann (GB, so a member from the data), Annabel, Annette, Annika,
+// Hannah and Joanna, the members anna, Annette (that player), Annika (entered in us_open 2026) and Bea (banned).
 func candidatesFixture(t *testing.T) (*pgxpool.Pool, *AdminStore) {
 	t.Helper()
 	pool, a := blitzFixture(t)
 	ctx := context.Background()
-	if _, err := pool.Exec(ctx, `INSERT INTO players (name, country_code) VALUES ('Ann', 'GB'), ('Annabel', NULL), ('Annette', NULL),
-		('Annika', NULL), ('Hannah', NULL), ('Joanna', NULL)`); err != nil {
-		t.Fatalf("adding players: %v", err)
-	}
+	addPlayers(t, pool, "Ann", "Annabel", "Annette", "Annika", "Hannah", "Joanna")
+	setCountries(t, pool, map[string]string{"Ann": "GB"})
 	for _, m := range []Member{{Name: "anna", Zone: "Unknown"}, {Name: "annette", Email: "annette@example.test", Zone: "US East"}, {Name: "Bea", Zone: "UTC"}} {
 		if _, err := a.AddMember(ctx, m); err != nil {
 			t.Fatalf("AddMember(%s): %v", m.Name, err)
@@ -342,7 +340,8 @@ func TestBlitzCandidatesAreTheBestFiveNotYetEntered(t *testing.T) {
 		name, edition, q string
 		want             []string
 	}{
-		{"the name itself, then names starting with it, members first, then the rest", "2026", "ann", []string{"Ann", "anna (member)", "Annette (member)", "Annabel", "Hannah"}},
+		{"the name itself, then names starting with it, people with an account or in an edition first, then the rest", "2026", "ann",
+			[]string{"Ann (member)", "anna (member)", "Annabel", "Annette (member)", "Hannah"}},
 		{"any case", "2026", "ANNA", []string{"anna (member)", "Annabel", "Hannah", "Joanna"}},
 		{"a banned member, marked", "2026", "bea", []string{"Bea (member) banned"}},
 		{"a member entered in another edition", "2025", "annik", []string{"Annika (member)"}},
@@ -370,11 +369,11 @@ func TestBlitzCandidatesCarryWhatIsKnownOfThem(t *testing.T) {
 		t.Fatalf("BlitzCandidates: %v", err)
 	}
 	want := []Candidate{
-		{Name: "Ann", Player: "Ann", Country: "GB"},
+		{Name: "Ann", Player: "Ann", Country: "GB", Zone: "Unknown"},
 		{Name: "anna", Zone: "Unknown"},
 	}
 	if diff := cmp.Diff(want, got, cmpopts.IgnoreFields(Candidate{}, "MemberID")); diff != "" {
-		t.Errorf("a player and a member found (-want +got):\n%s", diff)
+		t.Errorf("a member from the data and one added found (-want +got):\n%s", diff)
 	}
 	if got, err = a.BlitzCandidates(ctx, "us_open", "2026", "annette", 1); err != nil || len(got) != 1 || got[0].Player != "Annette" || got[0].Email != "annette@example.test" || got[0].Zone != "US East" {
 		t.Errorf("BlitzCandidates(annette) = %+v, %v; want the member with the player's spelling, email and zone", got, err)
@@ -391,7 +390,7 @@ func TestPeopleAreTheBestFiveOfEveryMemberAndPlayer(t *testing.T) {
 		want []string
 	}{
 		{"annik", []string{"Annika (member)"}},
-		{"ann", []string{"Ann", "anna (member)", "Annette (member)", "Annika (member)", "Annabel"}},
+		{"ann", []string{"Ann (member)", "Annika (member)", "anna (member)", "Annabel", "Annette (member)"}},
 		{"bea", []string{"Bea (member) banned"}},
 	}
 	for _, tt := range tests {

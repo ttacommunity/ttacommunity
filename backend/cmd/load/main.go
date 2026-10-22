@@ -30,7 +30,7 @@ import (
 func main() {
 	reset := flag.Bool("reset", false, "delete every match, refusal and rating run first")
 	migrate := flag.Bool("migrate", false, "only apply the ratings migrations, and load nothing")
-	countries := flag.Bool("countries", false, "set players' countries from the CSV files named, a later file winning")
+	countries := flag.Bool("countries", false, "set players' countries, on their members, from the CSV files named, a later file winning; a player who has signed in keeps their own")
 	classify := flag.Bool("classify", false, "only place unplaced games in the tournament catalogue, by their names")
 	facts := flag.String("facts", "", "replace every recorded tournament fact of one kind (divisions, placements, corrections, dates, honours, rules, podiums, cge_tournaments, cge_stages, cge_standings, ladder_wins, season_notes, community, community_scores, community_points, community_quarters or community_ladders) with the CSV file named")
 	export := flag.String("export", "", "write every input table to the directory named (new or empty), one CSV each, with a manifest")
@@ -415,6 +415,7 @@ func reportCountries(w io.Writer, files []string, res countrycsv.Result, set sto
 	fmt.Fprintf(w, "files: %s\n", strings.Join(files, ", "))
 	fmt.Fprintf(w, "rows read: %d\n", res.Rows)
 	fmt.Fprintf(w, "countries set: %d\n", set.Set)
+	fmt.Fprintf(w, "signed in, kept their own: %d\n", set.Kept)
 	fmt.Fprintf(w, "not a player: %d\n", set.Unknown)
 	fmt.Fprintf(w, "no country: %d\n", res.None)
 	fmt.Fprintf(w, "refused: %d\n", len(res.Refused))
