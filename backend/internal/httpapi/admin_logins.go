@@ -49,7 +49,7 @@ func (s *server) PutAdminLinkApproval(ctx context.Context, req PutAdminLinkAppro
 	case err != nil:
 		return nil, err
 	}
-	if err := s.admins.Audit(ctx, me.DiscordID, "link.approve", fmt.Sprint(req.LinkRequest), got); err != nil {
+	if err := s.admins.Audit(ctx, me.DiscordID, "link.approve", fmt.Sprint(req.LinkRequest), map[string]any{"member": got.MemberID, "created": got.Created}); err != nil {
 		return nil, err
 	}
 	return PutAdminLinkApproval200JSONResponse{Body: LinkApproved{Member: got.Member, Created: got.Created},

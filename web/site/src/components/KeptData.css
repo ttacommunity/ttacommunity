@@ -1,0 +1,115 @@
+/* "Data we keep": the account page's dialog of everything kept about the player. */
+.kept-modal {
+  width: calc(100% - 2rem);
+  max-width: 44rem;
+  max-height: 88vh;
+  margin: auto;
+  padding: 0;
+  background: var(--bg-dark);
+  border: 2px solid var(--accent-gold);
+  border-radius: 8px;
+  box-shadow: 0 8px 32px var(--shadow-deep);
+  color: var(--text-main);
+}
+.kept-modal[open] {
+  display: flex;
+  flex-direction: column;
+}
+.kept-modal::backdrop {
+  background: rgba(0, 0, 0, 0.85);
+}
+.kept-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 1rem 1.25rem;
+  border-bottom: 1px solid var(--border-subtle);
+}
+.kept-head h2 {
+  margin: 0;
+  font-family: var(--font-heading);
+  font-size: var(--size-card-title);
+  color: var(--accent-gold);
+}
+.kept-close {
+  min-width: 2.75rem;
+  min-height: 2.75rem;
+  background: transparent;
+  border: none;
+  font-size: 1.8rem;
+  line-height: 1;
+  color: var(--accent-gold);
+  cursor: pointer;
+}
+.kept-body {
+  flex: 1;
+  padding: 1rem 1.25rem 1.5rem;
+  overflow-y: auto;
+  line-height: 1.5;
+}
+.kept-intro,
+.kept-rule {
+  margin: 0 0 0.75rem;
+  color: var(--text-muted);
+  font-size: var(--size-body-short);
+}
+.kept-group {
+  margin-top: 1.25rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--border-subtle);
+}
+.kept-group h3 {
+  margin: 0 0 0.25rem;
+  font-family: var(--font-subheading);
+  font-size: var(--size-subheading);
+  color: var(--accent-gold);
+}
+.kept-list {
+  margin: 0 0 1rem;
+}
+.kept-list h4 {
+  margin: 0 0 0.4rem;
+  font-family: var(--font-subheading);
+  font-size: var(--size-body);
+  font-weight: normal;
+  color: var(--text-soft);
+  overflow-wrap: anywhere;
+}
+.kept-this h4 {
+  color: var(--accent-gold-light);
+}
+.kept-list dl {
+  margin: 0;
+}
+.kept-fact {
+  display: grid;
+  grid-template-columns: minmax(9rem, 14rem) 1fr;
+  gap: 0.15rem 1rem;
+  padding: 0.3rem 0;
+  border-bottom: 1px solid var(--gold-wash-faint);
+  font-size: var(--size-body-short);
+}
+.kept-fact dt {
+  color: var(--text-muted);
+}
+.kept-fact dd {
+  margin: 0;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.kept-note {
+  display: block;
+  color: var(--text-muted);
+  font-size: var(--size-label);
+}
+@media (max-width: 600px) {
+  .kept-modal {
+    width: 100%;
+    max-height: 100%;
+    border-radius: 0;
+  }
+  .kept-fact {
+    grid-template-columns: 1fr;
+  }
+}

@@ -195,7 +195,16 @@ func (s *server) PostAdminBlitzEntrants(ctx context.Context, req PostAdminBlitzE
 	case err != nil:
 		return nil, err
 	}
-	if err := s.admins.Audit(ctx, me.DiscordID, "blitz.entrants.add", blitzEditionKey(req.Tournament, req.Edition), req.Body); err != nil {
+	bodies := make([]any, len(req.Body.Entrants))
+	for i, e := range req.Body.Entrants {
+		bodies[i] = e
+	}
+	set, err := fieldsSet(bodies...)
+	if err != nil {
+		return nil, err
+	}
+	detail := map[string]any{"entrants": len(bodies), "set": set}
+	if err := s.admins.Audit(ctx, me.DiscordID, "blitz.entrants.add", blitzEditionKey(req.Tournament, req.Edition), detail); err != nil {
 		return nil, err
 	}
 	return PostAdminBlitzEntrants201JSONResponse{Body: BlitzEntrantIds{Ids: ids}, Headers: PostAdminBlitzEntrants201ResponseHeaders{CacheControl: cacheNone}}, nil
@@ -234,7 +243,11 @@ func (s *server) PatchAdminBlitzEntrant(ctx context.Context, req PatchAdminBlitz
 	case err != nil:
 		return nil, err
 	}
-	if err := s.admins.Audit(ctx, me.DiscordID, "blitz.entrant.set", fmt.Sprint(req.Entrant), req.Body); err != nil {
+	set, err := fieldsSet(req.Body)
+	if err != nil {
+		return nil, err
+	}
+	if err := s.admins.Audit(ctx, me.DiscordID, "blitz.entrant.set", fmt.Sprint(req.Entrant), map[string][]string{"set": set}); err != nil {
 		return nil, err
 	}
 	return PatchAdminBlitzEntrant204Response{}, nil

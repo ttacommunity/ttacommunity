@@ -153,7 +153,7 @@ The tables fall into five groups:
 | **Catalogue and recorded facts** | Series, tournaments, stages and groups with their settings; what counts towards which ranking; and what games cannot say: official placements, divisions, podium and title overrides, rules, notes, cards, regulations, stories, CGE's own standings, community points | `series`, `tournaments`, `stages`, `groups`, `settings`, `rankings`, `ranking_series`, `cge_tournaments`, `tournament_official_placements`, `tournament_cards`, `community_scores`, `badges` | load job, admin |
 | **Runs** | One row per computation: its ranking, engine version, input fingerprint, status, progress, whether it is protected; and which run each ranking publishes | `rating_runs`, `run_progress`, `current_run` | engine, admin |
 | **Run results** | Everything a run computes, each row keyed by `run_id`: ratings and history per model and format, the 1v1 pairs, each player's record per format and year, calibration, titles, tournament standings, boards, records and achievements, the community leaderboard | `player_ratings`, `rating_history`, `pairwise_matches`, `player_year_records`, `player_titles`, `tournament_standings`, `tournament_records`, `community_rankings` | engine |
-| **Admin** | Who may use admin and with which role; an audit of every admin change | `admins`, `admin_audit` | admin |
+| **Admin** | Who may use admin and with which role; an audit of every admin change, which names members by id and a change by the fields it set, never a member's details | `admins`, `admin_audit` | admin |
 
 Patterns that hold across the schema:
 
@@ -176,7 +176,10 @@ Patterns that hold across the schema:
   do, such as reporting their own blitz game, is a `SECURITY DEFINER`
   function granted to `ratings_player` alone, which checks the session and
   that format's rules before it writes; the shared writer behind it,
-  `write_game`, is granted to nobody. A linked member's empty Discord name
+  `write_game`, is granted to nobody. Reading is the same: a player sees
+  everything kept about them (`GET /v1/me/data`), and the member fields the
+  login cannot select, such as the email, come through `own_member`, which
+  returns the session's own member and no other. A linked member's empty Discord name
   and email are filled from their account's sign-ins
   (`fill_member_from_logins`, for both the player and admin logins); what
   the member has is never replaced. The api checks each login's limits

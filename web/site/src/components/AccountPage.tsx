@@ -1,4 +1,4 @@
-/** The account page: how to sign in, with Discord, an emailed link, Microsoft or Google; once signed in, the ways in (added or removed), asking to be linked to a TTA username, or, linked, the player's own country and zone and any ban; signing out, and deleting the account. A first sign-in lands here, with the way back to the page it started from. */
+/** The account page: how to sign in, with Discord, an emailed link, Microsoft or Google; once signed in, the ways in (added or removed), asking to be linked to a TTA username, or, linked, the player's own country and zone and any ban; the data we keep, signing out, and deleting the account. A first sign-in lands here, with the way back to the page it started from. */
 import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { useDialog } from '@ttac/shared/Dialog';
 import { currentRun, leaderboard } from '@ttac/shared/ratings';
@@ -41,6 +41,7 @@ import {
 } from '../lib/account';
 import { sendEmailLink } from '../lib/email-sign-in';
 import { DEFAULT_VIEW, modelOf } from '../lib/leaderboard-view';
+import KeptData from './KeptData';
 import SearchBox, { type SearchPlayer } from './SearchBox';
 import Turnstile from './Turnstile';
 import Waiting from './Waiting';
@@ -117,7 +118,7 @@ function Account({ apiUrl, turnstileSitekey, me, state, first, back, refresh }: 
       {state.kind === 'linked' ? <Linked state={state} /> : <LinkStatus state={state} />}
       <Details apiUrl={apiUrl} me={me} state={state} back={back} refresh={refresh} />
       <WaysIn apiUrl={apiUrl} me={me} refresh={refresh} />
-      <SignOut apiUrl={apiUrl} state={state} />
+      <SignOut apiUrl={apiUrl} state={state} zone={me.zone} />
     </section>
   );
 }
@@ -584,8 +585,8 @@ function WaysIn({ apiUrl, me, refresh }: { apiUrl: string; me: Me; refresh: () =
   );
 }
 
-/** SignOut signs this browser out, or, once confirmed, deletes the account and signs out everywhere. */
-function SignOut({ apiUrl, state }: { apiUrl: string; state: AccountState }) {
+/** SignOut shows what we keep, signs this browser out, or, once confirmed, deletes the account and signs out everywhere. */
+function SignOut({ apiUrl, state, zone }: { apiUrl: string; state: AccountState; zone: string }) {
   const [problem, setProblem] = useState('');
   const dialog = useDialog();
   const leave = async (end: () => Promise<Done>, to: string) => {
@@ -603,6 +604,7 @@ function SignOut({ apiUrl, state }: { apiUrl: string; state: AccountState }) {
   return (
     <div className="account-sign-out account-row">
       {dialog.element}
+      <KeptData apiUrl={apiUrl} savedZone={zone} />
       <button type="button" className="btn-antique" onClick={() => void leave(() => signOut(apiUrl), '/account/')}>
         Sign out
       </button>

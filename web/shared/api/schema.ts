@@ -1074,6 +1074,31 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/me/data": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Everything we keep about the signed-in player
+         * @description Fetched with credentials from the site, whose origin alone may read
+         *     it. Their account, every way in with its id there, the member they
+         *     are linked to with every field it holds, their requests to be linked,
+         *     their sessions and their emailed sign-in links. Sessions that have
+         *     ended and links past the time they are kept are removed first, so
+         *     the answer is exactly what is kept. Never cached.
+         */
+        get: operations["getMyData"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/me/link-request": {
         parameters: {
             query?: never;
@@ -4739,6 +4764,128 @@ export interface components {
             /** Format: date-time */
             requested_at: string;
         };
+        /** @description Everything we keep about the signed-in player */
+        MyData: {
+            account: components["schemas"]["MyDataAccount"];
+            /** @description Every way into the account, by provider */
+            logins: components["schemas"]["MyDataLogin"][];
+            member: components["schemas"]["MyDataMember"] | null;
+            /** @description Every request to be linked, latest first */
+            requests: components["schemas"]["MyDataRequest"][];
+            /** @description Every session, oldest first */
+            sessions: components["schemas"]["MyDataSession"][];
+            /** @description The sign-in links emailed for the account or to its email address, kept 48 hours, oldest first */
+            email_links: components["schemas"]["MyDataEmailLink"][];
+        };
+        /** @description The account itself */
+        MyDataAccount: {
+            /** Format: date-time */
+            created_at: string;
+            /** @description The country given before a link, as a two-letter ISO code; null when none (a link moves it to the member) */
+            country: string | null;
+            /** @description The time zone given before a link; null when none (a link moves it to the member) */
+            zone: string | null;
+            /**
+             * @description How the account was linked to its member, by a matching Discord name or email or by an approved request; null when not linked
+             * @enum {string|null}
+             */
+            linked_how: "match" | "approved" | null;
+            /** Format: date-time */
+            linked_at: string | null;
+            /** @description Whether a sign-in may link the account by a matching Discord name or email; off once an admin unlinked it */
+            auto_link: boolean;
+        };
+        /** @description A way into the account, with everything kept about it */
+        MyDataLogin: {
+            provider: components["schemas"]["LoginProvider"];
+            /** @description Its id for the player there; Discord's user id, Microsoft's id for this site, Google's account id, or the email address */
+            id: string;
+            username: string;
+            /** @description Empty when they have none */
+            display_name: string;
+            /** @description The address Microsoft or Google vouched for; empty when none */
+            email: string;
+            /** Format: date-time */
+            created_at: string;
+            /**
+             * Format: date-time
+             * @description When it was last used to sign in
+             */
+            signed_in_at: string;
+        };
+        /** @description The member the account is linked to, with every field it holds */
+        MyDataMember: {
+            /** @description The TTA username */
+            name: string;
+            /** @description The CGE user number; null when not known */
+            cge_user: number | null;
+            /** @description The name on the ratings pages, empty when they have no rated games */
+            player: string;
+            /** @description The Discord name recorded, by an admin or from a sign-in; empty when none */
+            discord_name: string;
+            /** @description The email recorded, by an admin or from a sign-in; empty when none */
+            email: string;
+            /** @description Whether deleting the account clears the email, as it does one of the account's ways in gave; the Discord name, country and zone are always cleared, the rest always stays */
+            email_cleared: boolean;
+            /** @description A two-letter ISO code, or null */
+            country: string | null;
+            zone: string;
+            banned: boolean;
+            /** @description Empty when not banned */
+            ban_reason: string;
+            /** Format: date-time */
+            banned_at: string | null;
+            /** Format: date-time */
+            created_at: string;
+        };
+        /** @description A request to be linked, and its answer */
+        MyDataRequest: {
+            name: string;
+            /** @enum {string} */
+            status: "pending" | "approved" | "refused";
+            /** @description Why it was refused, empty when no reason was given */
+            reason: string;
+            /** Format: date-time */
+            requested_at: string;
+            /** Format: date-time */
+            decided_at: string | null;
+        };
+        /** @description A session, which ends and is removed 30 days after its last use */
+        MyDataSession: {
+            provider: components["schemas"]["LoginProvider"];
+            /** Format: date-time */
+            created_at: string;
+            /**
+             * Format: date-time
+             * @description When it ends and is removed, unless used before then
+             */
+            ends_at: string;
+            /** @description Whether it is the session asking */
+            this_browser: boolean;
+        };
+        /** @description An emailed sign-in link */
+        MyDataEmailLink: {
+            address: string;
+            /** @description The site's page it returns to */
+            return_path: string;
+            /**
+             * Format: date-time
+             * @description When it was sent
+             */
+            created_at: string;
+            /**
+             * Format: date-time
+             * @description Until when it works
+             */
+            expires_at: string;
+            /** Format: date-time */
+            used_at: string | null;
+            /**
+             * Format: date-time
+             * @description When it is removed
+             */
+            kept_until: string;
+        };
         LinkRequestAsk: {
             /** @description The TTA username, as in the app */
             name: string;
@@ -6234,6 +6381,28 @@ export interface operations {
             };
             401: components["responses"]["SignedOut"];
             403: components["responses"]["NotFromSite"];
+        };
+    };
+    getMyData: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Everything we keep about them */
+            200: {
+                headers: {
+                    "Cache-Control": components["headers"]["CacheControl"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MyData"];
+                };
+            };
+            401: components["responses"]["SignedOut"];
         };
     };
     putMyLinkRequest: {
@@ -8546,4 +8715,6 @@ export const meAdmin_roleValues: ReadonlyArray<FlattenedDeepRequired<components>
 export const loginProviderValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["LoginProvider"]> = ["discord", "email", "microsoft", "google"];
 export const emailSignedInOutcomeValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["EmailSignedIn"]["outcome"]> = ["first", "ok", "added"];
 export const myLinkRequestStatusValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["MyLinkRequest"]["status"]> = ["pending", "approved", "refused"];
+export const myDataAccountLinked_howValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["MyDataAccount"]["linked_how"]> = ["match", "approved"];
+export const myDataRequestStatusValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["MyDataRequest"]["status"]> = ["pending", "approved", "refused"];
 export const adminAccountLinked_howValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["AdminAccount"]["linked_how"]> = ["match", "approved"];

@@ -7,11 +7,16 @@ const UTC_INSTANT = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(:\d{2}(\.\d+)?)?Z$/;
  * Throws RangeError for an unknown zone or an instant that is not UTC.
  */
 export function formatInstant(instant: string, timeZone: string): string {
+  return `${formatTime(instant, timeZone)} (${timeZone})`;
+}
+
+/** Formats a UTC ISO instant in an IANA zone without naming it, e.g. "1 Jul 2026, 13:00", for a view that names the zone once. Throws as formatInstant does. */
+export function formatTime(instant: string, timeZone: string): string {
   const date = new Date(instant);
   if (!UTC_INSTANT.test(instant) || Number.isNaN(date.getTime())) {
     throw new RangeError(`not a UTC instant: ${instant}`);
   }
-  const shown = new Intl.DateTimeFormat('en-GB', {
+  return new Intl.DateTimeFormat('en-GB', {
     timeZone,
     day: 'numeric',
     month: 'short',
@@ -20,5 +25,4 @@ export function formatInstant(instant: string, timeZone: string): string {
     minute: '2-digit',
     hourCycle: 'h23',
   }).format(date);
-  return `${shown} (${timeZone})`;
 }

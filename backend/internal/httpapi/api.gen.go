@@ -652,6 +652,45 @@ func (e MyBlitzMatchReportedBy) Valid() bool {
 	}
 }
 
+// Defines values for MyDataAccountLinkedHow.
+const (
+	MyDataAccountLinkedHowApproved MyDataAccountLinkedHow = "approved"
+	MyDataAccountLinkedHowMatch    MyDataAccountLinkedHow = "match"
+)
+
+// Valid indicates whether the value is a known member of the MyDataAccountLinkedHow enum.
+func (e MyDataAccountLinkedHow) Valid() bool {
+	switch e {
+	case MyDataAccountLinkedHowApproved:
+		return true
+	case MyDataAccountLinkedHowMatch:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for MyDataRequestStatus.
+const (
+	MyDataRequestStatusApproved MyDataRequestStatus = "approved"
+	MyDataRequestStatusPending  MyDataRequestStatus = "pending"
+	MyDataRequestStatusRefused  MyDataRequestStatus = "refused"
+)
+
+// Valid indicates whether the value is a known member of the MyDataRequestStatus enum.
+func (e MyDataRequestStatus) Valid() bool {
+	switch e {
+	case MyDataRequestStatusApproved:
+		return true
+	case MyDataRequestStatusPending:
+		return true
+	case MyDataRequestStatusRefused:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for MyLinkRequestStatus.
 const (
 	MyLinkRequestStatusApproved MyLinkRequestStatus = "approved"
@@ -2811,6 +2850,143 @@ type MyBlitzMatchMe string
 // MyBlitzMatchReportedBy Which side reported the game; null when no player did
 type MyBlitzMatchReportedBy string
 
+// MyData Everything we keep about the signed-in player
+type MyData struct {
+	// Account The account itself
+	Account MyDataAccount `json:"account"`
+
+	// EmailLinks The sign-in links emailed for the account or to its email address, kept 48 hours, oldest first
+	EmailLinks []MyDataEmailLink `json:"email_links"`
+
+	// Logins Every way into the account, by provider
+	Logins []MyDataLogin `json:"logins"`
+	Member *MyDataMember `json:"member"`
+
+	// Requests Every request to be linked, latest first
+	Requests []MyDataRequest `json:"requests"`
+
+	// Sessions Every session, oldest first
+	Sessions []MyDataSession `json:"sessions"`
+}
+
+// MyDataAccount The account itself
+type MyDataAccount struct {
+	// AutoLink Whether a sign-in may link the account by a matching Discord name or email; off once an admin unlinked it
+	AutoLink bool `json:"auto_link"`
+
+	// Country The country given before a link, as a two-letter ISO code; null when none (a link moves it to the member)
+	Country   *string    `json:"country"`
+	CreatedAt time.Time  `json:"created_at"`
+	LinkedAt  *time.Time `json:"linked_at"`
+
+	// LinkedHow How the account was linked to its member, by a matching Discord name or email or by an approved request; null when not linked
+	LinkedHow *MyDataAccountLinkedHow `json:"linked_how"`
+
+	// Zone The time zone given before a link; null when none (a link moves it to the member)
+	Zone *string `json:"zone"`
+}
+
+// MyDataAccountLinkedHow How the account was linked to its member, by a matching Discord name or email or by an approved request; null when not linked
+type MyDataAccountLinkedHow string
+
+// MyDataEmailLink An emailed sign-in link
+type MyDataEmailLink struct {
+	Address string `json:"address"`
+
+	// CreatedAt When it was sent
+	CreatedAt time.Time `json:"created_at"`
+
+	// ExpiresAt Until when it works
+	ExpiresAt time.Time `json:"expires_at"`
+
+	// KeptUntil When it is removed
+	KeptUntil time.Time `json:"kept_until"`
+
+	// ReturnPath The site's page it returns to
+	ReturnPath string     `json:"return_path"`
+	UsedAt     *time.Time `json:"used_at"`
+}
+
+// MyDataLogin A way into the account, with everything kept about it
+type MyDataLogin struct {
+	CreatedAt time.Time `json:"created_at"`
+
+	// DisplayName Empty when they have none
+	DisplayName string `json:"display_name"`
+
+	// Email The address Microsoft or Google vouched for; empty when none
+	Email string `json:"email"`
+
+	// Id Its id for the player there; Discord's user id, Microsoft's id for this site, Google's account id, or the email address
+	Id string `json:"id"`
+
+	// Provider Where a player signs in
+	Provider LoginProvider `json:"provider"`
+
+	// SignedInAt When it was last used to sign in
+	SignedInAt time.Time `json:"signed_in_at"`
+	Username   string    `json:"username"`
+}
+
+// MyDataMember The member the account is linked to, with every field it holds
+type MyDataMember struct {
+	// BanReason Empty when not banned
+	BanReason string     `json:"ban_reason"`
+	Banned    bool       `json:"banned"`
+	BannedAt  *time.Time `json:"banned_at"`
+
+	// CgeUser The CGE user number; null when not known
+	CgeUser *int `json:"cge_user"`
+
+	// Country A two-letter ISO code, or null
+	Country   *string   `json:"country"`
+	CreatedAt time.Time `json:"created_at"`
+
+	// DiscordName The Discord name recorded, by an admin or from a sign-in; empty when none
+	DiscordName string `json:"discord_name"`
+
+	// Email The email recorded, by an admin or from a sign-in; empty when none
+	Email string `json:"email"`
+
+	// EmailCleared Whether deleting the account clears the email, as it does one of the account's ways in gave; the Discord name, country and zone are always cleared, the rest always stays
+	EmailCleared bool `json:"email_cleared"`
+
+	// Name The TTA username
+	Name string `json:"name"`
+
+	// Player The name on the ratings pages, empty when they have no rated games
+	Player string `json:"player"`
+	Zone   string `json:"zone"`
+}
+
+// MyDataRequest A request to be linked, and its answer
+type MyDataRequest struct {
+	DecidedAt *time.Time `json:"decided_at"`
+	Name      string     `json:"name"`
+
+	// Reason Why it was refused, empty when no reason was given
+	Reason      string              `json:"reason"`
+	RequestedAt time.Time           `json:"requested_at"`
+	Status      MyDataRequestStatus `json:"status"`
+}
+
+// MyDataRequestStatus defines model for MyDataRequest.Status.
+type MyDataRequestStatus string
+
+// MyDataSession A session, which ends and is removed 30 days after its last use
+type MyDataSession struct {
+	CreatedAt time.Time `json:"created_at"`
+
+	// EndsAt When it ends and is removed, unless used before then
+	EndsAt time.Time `json:"ends_at"`
+
+	// Provider Where a player signs in
+	Provider LoginProvider `json:"provider"`
+
+	// ThisBrowser Whether it is the session asking
+	ThisBrowser bool `json:"this_browser"`
+}
+
 // MyDetailsChange defines model for MyDetailsChange.
 type MyDetailsChange struct {
 	// Country Two-letter ISO code; empty clears it
@@ -4408,6 +4584,9 @@ type ServerInterface interface {
 	// PutMyBlitzGame Report your match's game, or correct your report
 	// (PUT /v1/me/blitz/{tournament}/{edition}/matches/{match}/game)
 	PutMyBlitzGame(w http.ResponseWriter, r *http.Request, tournament AdminTournamentSlug, edition BlitzEditionLabel, match BlitzMatchId)
+	// GetMyData Everything we keep about the signed-in player
+	// (GET /v1/me/data)
+	GetMyData(w http.ResponseWriter, r *http.Request)
 	// PatchMyDetails Change your own country and time zone
 	// (PATCH /v1/me/details)
 	PatchMyDetails(w http.ResponseWriter, r *http.Request)
@@ -7365,6 +7544,20 @@ func (siw *ServerInterfaceWrapper) PutMyBlitzGame(w http.ResponseWriter, r *http
 	handler.ServeHTTP(w, r)
 }
 
+// GetMyData operation middleware
+func (siw *ServerInterfaceWrapper) GetMyData(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetMyData(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // PatchMyDetails operation middleware
 func (siw *ServerInterfaceWrapper) PatchMyDetails(w http.ResponseWriter, r *http.Request) {
 
@@ -9015,6 +9208,7 @@ func HandlerWithOptions(si ServerInterface, options StdHTTPServerOptions) http.H
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/v1/auth/sign-out", wrapper.SignOut)
 	m.HandleFunc(http.MethodDelete+" "+options.BaseURL+"/v1/me", wrapper.DeleteMe)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/v1/me", wrapper.GetMe)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/v1/me/data", wrapper.GetMyData)
 	m.HandleFunc(http.MethodPut+" "+options.BaseURL+"/v1/me/link-request", wrapper.PutMyLinkRequest)
 	m.HandleFunc(http.MethodPatch+" "+options.BaseURL+"/v1/me/details", wrapper.PatchMyDetails)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/v1/me/logins/email", wrapper.PostMyEmailLogin)
@@ -15945,6 +16139,50 @@ func (response PutMyBlitzGame409JSONResponse) VisitPutMyBlitzGameResponse(w http
 	return err
 }
 
+type GetMyDataRequestObject struct {
+}
+
+type GetMyDataResponseObject interface {
+	VisitGetMyDataResponse(w http.ResponseWriter) error
+}
+
+type GetMyData200ResponseHeaders struct {
+	CacheControl string
+}
+
+type GetMyData200JSONResponse struct {
+	Body    MyData
+	Headers GetMyData200ResponseHeaders
+}
+
+func (response GetMyData200JSONResponse) VisitGetMyDataResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetMyData401JSONResponse struct{ SignedOutJSONResponse }
+
+func (response GetMyData401JSONResponse) VisitGetMyDataResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
 type PatchMyDetailsRequestObject struct {
 	Body *PatchMyDetailsJSONRequestBody
 }
@@ -18250,6 +18488,9 @@ type StrictServerInterface interface {
 	// PutMyBlitzGame Report your match's game, or correct your report
 	// (PUT /v1/me/blitz/{tournament}/{edition}/matches/{match}/game)
 	PutMyBlitzGame(ctx context.Context, request PutMyBlitzGameRequestObject) (PutMyBlitzGameResponseObject, error)
+	// GetMyData Everything we keep about the signed-in player
+	// (GET /v1/me/data)
+	GetMyData(ctx context.Context, request GetMyDataRequestObject) (GetMyDataResponseObject, error)
 	// PatchMyDetails Change your own country and time zone
 	// (PATCH /v1/me/details)
 	PatchMyDetails(ctx context.Context, request PatchMyDetailsRequestObject) (PatchMyDetailsResponseObject, error)
@@ -21098,6 +21339,30 @@ func (sh *strictHandler) PutMyBlitzGame(w http.ResponseWriter, r *http.Request, 
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(PutMyBlitzGameResponseObject); ok {
 		if err := validResponse.VisitPutMyBlitzGameResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// GetMyData operation middleware
+func (sh *strictHandler) GetMyData(w http.ResponseWriter, r *http.Request) {
+	var request GetMyDataRequestObject
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.GetMyData(ctx, request.(GetMyDataRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetMyData")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(GetMyDataResponseObject); ok {
+		if err := validResponse.VisitGetMyDataResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {

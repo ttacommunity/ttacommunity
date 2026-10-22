@@ -183,6 +183,48 @@ func TestAnOrganiserAddsListsAndChangesMembers(t *testing.T) {
 	}
 }
 
+func TestAuditsKeepWhichFieldsAChangeSetNotTheirValues(t *testing.T) {
+	tests := []struct {
+		name, method, path, body string
+		action, detail           string
+	}{
+		{"adding a member", http.MethodPost, "/v1/admin/members",
+			`{"name": "Ann", "discord_name": "ann_d", "email": "ann@example.test", "country": "NZ", "zone": "UTC"}`,
+			"member.add", `{"set": ["country", "discord_name", "email", "name", "zone"]}`},
+		{"changing a member", http.MethodPatch, "/v1/admin/members/101", `{"email": "new@example.test", "cge_user": 777}`,
+			"member.set", `{"set": ["cge_user", "email"]}`},
+		{"entering players", http.MethodPost, "/v1/admin/blitz/us_open/2026/entrants",
+			`{"entrants": [{"member": 101, "email": "bob@example.test"}, {"name": "dee", "discord_name": "dee_d"}]}`,
+			"blitz.entrants.add", `{"entrants": 2, "set": ["discord_name", "email", "member", "name"]}`},
+		{"changing an entrant", http.MethodPatch, "/v1/admin/blitz/us_open/2026/entrants/7", `{"discord_name": "ann_d", "email": "ann@example.test"}`,
+			"blitz.entrant.set", `{"set": ["discord_name", "email"]}`},
+		{"approving a link", http.MethodPut, "/v1/admin/link-requests/20/approval", "",
+			"link.approve", `{"member": 1020, "created": true}`},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			f := &fakeAdmins{members: []store.Member{{ID: 101, Name: "bob", Zone: "UTC"}}}
+			rec := adminDoAs(t, f, "111111111111111111", tt.method, tt.path, "https://ttac-admin.example", tt.body)
+			if rec.Code >= 300 || len(f.audits) != 1 {
+				t.Fatalf("%s %s = %d %s, audits %q; want it done and audited once", tt.method, tt.path, rec.Code, rec.Body, f.audits)
+			}
+			if want := "111111111111111111 " + tt.action; !strings.HasPrefix(f.audits[0], want+" ") {
+				t.Errorf("audit = %q, want %s", f.audits[0], want)
+			}
+			var got, want any
+			if err := json.Unmarshal([]byte(f.details[0]), &got); err != nil {
+				t.Fatalf("audit detail %q: %v", f.details[0], err)
+			}
+			if err := json.Unmarshal([]byte(tt.detail), &want); err != nil {
+				t.Fatalf("the expected detail %q: %v", tt.detail, err)
+			}
+			if diff := cmp.Diff(want, got); diff != "" {
+				t.Errorf("audit detail (-want +got):\n%s", diff)
+			}
+		})
+	}
+}
+
 func TestAnAdminBansAndRemovesMembers(t *testing.T) {
 	const site, owner = "https://ttac-admin.example", "111111111111111111"
 	f := &fakeAdmins{members: []store.Member{{ID: 101, Name: "bob", Zone: "UTC", Entries: 1}, {ID: 102, Name: "Ann", Zone: "UTC"}}}

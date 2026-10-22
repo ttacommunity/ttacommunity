@@ -173,8 +173,12 @@ func contactEmail(id Identity) string {
 	return e
 }
 
-// startSession starts a session at now for login, whose token hashes to tokenHash.
+// startSession starts a session at now for login, whose token hashes to tokenHash, and removes every session that
+// has ended.
 func startSession(ctx context.Context, tx pgx.Tx, login int64, tokenHash []byte, now time.Time) error {
+	if _, err := tx.Exec(ctx, "DELETE FROM player_sessions WHERE expires_at <= $1", now); err != nil {
+		return fmt.Errorf("removing ended sessions: %w", err)
+	}
 	if _, err := tx.Exec(ctx, "INSERT INTO player_sessions (token_hash, login_id, created_at, expires_at) VALUES ($1, $2, $3, $4)",
 		tokenHash, login, now, now.Add(SessionLife)); err != nil {
 		return fmt.Errorf("starting a session: %w", err)

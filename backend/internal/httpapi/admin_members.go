@@ -4,13 +4,36 @@ package httpapi
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
+	"maps"
+	"slices"
 	"strings"
 
 	"ttacommunity/backend/internal/blitz"
 	"ttacommunity/backend/internal/store"
 )
+
+// fieldsSet is what the audit keeps of a change to members or entrants: the names of the fields the bodies set, never
+// their values, which are personal details an account's deletion must not leave behind.
+func fieldsSet(bodies ...any) ([]string, error) {
+	set := map[string]bool{}
+	for _, b := range bodies {
+		j, err := json.Marshal(b)
+		if err != nil {
+			return nil, err
+		}
+		var fields map[string]json.RawMessage
+		if err := json.Unmarshal(j, &fields); err != nil {
+			return nil, err
+		}
+		for k := range fields {
+			set[k] = true
+		}
+	}
+	return slices.Sorted(maps.Keys(set)), nil
+}
 
 // nullableText is a string for a nullable field: nil for "".
 func nullableText(s string) *string {
@@ -73,7 +96,11 @@ func (s *server) PostAdminMember(ctx context.Context, req PostAdminMemberRequest
 	case err != nil:
 		return nil, err
 	}
-	if err := s.admins.Audit(ctx, me.DiscordID, "member.add", fmt.Sprint(id), req.Body); err != nil {
+	set, err := fieldsSet(req.Body)
+	if err != nil {
+		return nil, err
+	}
+	if err := s.admins.Audit(ctx, me.DiscordID, "member.add", fmt.Sprint(id), map[string][]string{"set": set}); err != nil {
 		return nil, err
 	}
 	return PostAdminMember201JSONResponse{Body: MemberAdded{Id: id}, Headers: PostAdminMember201ResponseHeaders{CacheControl: cacheNone}}, nil
@@ -105,7 +132,11 @@ func (s *server) PatchAdminMember(ctx context.Context, req PatchAdminMemberReque
 	case err != nil:
 		return nil, err
 	}
-	if err := s.admins.Audit(ctx, me.DiscordID, "member.set", fmt.Sprint(req.Member), req.Body); err != nil {
+	set, err := fieldsSet(req.Body)
+	if err != nil {
+		return nil, err
+	}
+	if err := s.admins.Audit(ctx, me.DiscordID, "member.set", fmt.Sprint(req.Member), map[string][]string{"set": set}); err != nil {
 		return nil, err
 	}
 	return PatchAdminMember204Response{}, nil
