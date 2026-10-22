@@ -158,12 +158,16 @@ func (s *server) GetPlayerMatches(ctx context.Context, req GetPlayerMatchesReque
 		ratedAs += "_softer"
 	}
 	names := []string{name}
+	var queries []store.PlayerAt
 	for _, m := range mp.Matches {
+		month := m.Date.Format("2006-01")
+		queries = append(queries, store.PlayerAt{Name: name, Month: month})
 		for _, seat := range m.Seats {
 			names = append(names, seat.Name)
+			queries = append(queries, store.PlayerAt{Name: seat.Name, Month: month})
 		}
 	}
-	rated, err := s.ratings.RatingsOf(ctx, req.Run, ratedAs, int(format), names)
+	historical, err := s.ratings.HistoricalRatingsOf(ctx, req.Run, ratedAs, int(format), queries)
 	if err != nil {
 		return nil, err
 	}
@@ -171,13 +175,10 @@ func (s *server) GetPlayerMatches(ctx context.Context, req GetPlayerMatchesReque
 	if err != nil {
 		return nil, err
 	}
-	lookup := func(n string) (ratingdelta.Rating, bool) {
-		r, ok := rated[n]
-		return ratingdelta.Rating{Rating: r.Rating, RD: r.RD}, ok
-	}
 
 	matches := make([]PlayerMatch, 0, len(mp.Matches))
 	for _, m := range mp.Matches {
+		month := m.Date.Format("2006-01")
 		byScore := slices.Clone(m.Seats)
 		slices.SortStableFunc(byScore, func(a, b store.Seat) int { return compareDesc(a.Score, b.Score) })
 		pm := PlayerMatch{
@@ -200,6 +201,10 @@ func (s *server) GetPlayerMatches(ctx context.Context, req GetPlayerMatchesReque
 		dseats := make([]ratingdelta.Seat, 0, len(byScore))
 		for _, seat := range byScore {
 			dseats = append(dseats, ratingdelta.Seat{Name: seat.Name, Score: seat.Score})
+		}
+		lookup := func(n string) (ratingdelta.Rating, bool) {
+			r, ok := historical[store.PlayerAt{Name: n, Month: month}]
+			return ratingdelta.Rating{Rating: r.Rating, RD: r.RD}, ok
 		}
 		if d, ok := ratingdelta.Delta(engine, name, m.PlayerCount, dseats, lookup); ok {
 			pm.RatingDelta = &d

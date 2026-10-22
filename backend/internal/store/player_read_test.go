@@ -309,6 +309,59 @@ func TestRatingsOfGivesTheNamedPlayersInOneModelAndFormat(t *testing.T) {
 	}
 }
 
+func addHistoryWithRD(t *testing.T, pool *pgxpool.Pool, run int64, model string, format int, name string, periodDate string, rating, rd float64) {
+	t.Helper()
+	ctx := context.Background()
+	_, err := pool.Exec(ctx, `
+		INSERT INTO rating_history (run_id, model_type, player_count, player_name, period_date, rating, rd, c_rating)
+		VALUES ($1, $2, $3, $4, $5, $6::float8, $7::float8, $6::float8 - 3 * $7::float8)
+		ON CONFLICT (run_id, model_type, player_count, player_name, period_date) DO UPDATE
+		SET rating = EXCLUDED.rating, rd = EXCLUDED.rd, c_rating = EXCLUDED.c_rating`,
+		run, model, format, name, periodDate, rating, rd)
+	if err != nil {
+		t.Fatalf("inserting rating_history: %v", err)
+	}
+}
+
+func TestHistoricalRatingsOfReturnsRatingsBeforeRequestedMonth(t *testing.T) {
+	pool := migrated(t)
+	r := NewRatingsReader(asReader(t, pool))
+	ctx := context.Background()
+	run := publishedRun(t, pool)
+	other := publishedRun(t, pool)
+
+	addHistoryWithRD(t, pool, run, "glicko2_daneo", 0, "ann", "2024-01-20", 1600, 80)
+	addHistoryWithRD(t, pool, run, "glicko2_daneo", 0, "ann", "2024-03-25", 1700, 60)
+	addHistoryWithRD(t, pool, run, "glicko2_daneo", 0, "ann", "2024-05-20", 1800, 50)
+	addHistoryWithRD(t, pool, run, "glicko2_daneo", 0, "bob", "2024-04-15", 1900, 40)
+	addHistoryWithRD(t, pool, run, "glicko2_daneo", 2, "ann", "2024-03-25", 1200, 30)
+	addHistoryWithRD(t, pool, other, "glicko2_daneo", 0, "ann", "2024-03-25", 1300, 30)
+
+	queries := []PlayerAt{
+		{Name: "ann", Month: "2024-02"},
+		{Name: "ann", Month: "2024-04"},
+		{Name: "ann", Month: "2024-06"},
+		{Name: "ann", Month: "2024-01"},
+		{Name: "bob", Month: "2024-03"},
+		{Name: "bob", Month: "2024-05"},
+		{Name: "nobody", Month: "2024-05"},
+	}
+
+	got, err := r.HistoricalRatingsOf(ctx, run, "glicko2_daneo", 0, queries)
+	if err != nil {
+		t.Fatalf("HistoricalRatingsOf: %v", err)
+	}
+	want := map[PlayerAt]Rated{
+		{Name: "ann", Month: "2024-02"}: {Rating: 1600, RD: 80},
+		{Name: "ann", Month: "2024-04"}: {Rating: 1700, RD: 60},
+		{Name: "ann", Month: "2024-06"}: {Rating: 1800, RD: 50},
+		{Name: "bob", Month: "2024-05"}: {Rating: 1900, RD: 40},
+	}
+	if fmt.Sprint(got) != fmt.Sprint(want) {
+		t.Errorf("HistoricalRatingsOf = %v, want %v", got, want)
+	}
+}
+
 func TestPlayerRivalsCountsEachOpponentsRecord(t *testing.T) {
 	pool := migrated(t)
 	r := NewRatingsReader(asReader(t, pool))

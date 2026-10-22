@@ -346,7 +346,7 @@ function Games({
               <th>Tournament</th>
               <th>Type</th>
               <th>Place</th>
-              <th scope="col" data-tooltip="Estimated Game Rating Delta: An approximate standalone Glicko update against opponents' current ratings today. Does not represent the actual monthly batch rating change (see FAQ).">
+              <th scope="col" data-tooltip="Estimated Game Rating Delta: An approximate standalone Glicko update against pre-month baseline ratings. Does not represent the actual monthly batch rating change (see FAQ).">
                 <a href="/ratings/faq/#game-deltas" className="th-link">
                   ΔR <span className="delta-info-icon" aria-hidden="true">ⓘ</span>
                 </a>

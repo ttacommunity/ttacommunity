@@ -8,15 +8,16 @@ order: 14
   <h3>What is the &Delta;R shown next to each game on the player page?</h3>
   <div>
     <p>
-      The &Delta;R (delta rating) shown in a player&rsquo;s game history is an <strong>estimated standalone impact</strong>. It simulates what that single match would be worth in isolation under standard Glicko-2, evaluated against the opponents&rsquo; <em>current</em> ratings today:
+      The &Delta;R (delta rating) shown in a player&rsquo;s game history is an <strong>estimated standalone impact</strong>. It simulates what that single match would be worth in isolation under Glicko-2 with Golden Ratio multiplayer scaling, evaluated against both players&rsquo; historical pre-month ratings entering the month of the match:
     </p>
     <ul>
       <li>Fixed initial uncertainty parameter: $\sigma = 0.03$.</li>
       <li>System constant: $\tau = 0.3$.</li>
-      <li>Evaluated pairwise against the opponents&rsquo; published ratings in the latest engine run.</li>
+      <li>Evaluated pairwise against pre-month ratings from <code>rating_history</code> (or unrated $1500 \pm 350$ for newcomers prior to their first month).</li>
+      <li>Scaled by Golden Ratio multiplayer game weights ($\phi/2 \approx 0.809$ in 3-player, $\phi^2/3 \approx 0.873$ in 4-player).</li>
     </ul>
     <p>
-      This provides an intuitive, immediate sense of game stakes&mdash;for instance, showing that defeating a 2000-rated Grandmaster yields a larger positive &Delta;R than beating a 1500-rated opponent.
+      This provides an intuitive, immediate sense of game stakes&mdash;for instance, showing that defeating a 2000-rated Grandmaster yields a larger positive &Delta;R than beating a 1500-rated opponent, and showing the large rating swings characteristic of early provisional games.
     </p>
   </div>
 </div>
@@ -33,12 +34,6 @@ order: 14
       </li>
       <li>
         <strong>Non-Linear Diminishing Returns:</strong> Glicko updates are non-linear. The sum of 10 isolated &Delta;R values will almost always differ from the batch rating update. Because rating deviation ($\mathrm{RD}$) decreases as games accumulate, later games in high-volume months contribute incrementally smaller shifts than isolated standalone calculations would suggest.
-      </li>
-      <li>
-        <strong>Evolving Opponent Strength:</strong> When you look at an old match from two years ago, the game&rsquo;s displayed &Delta;R is calculated against opponents&rsquo; <em>current</em> ratings today rather than their historical ratings at the exact moment the match concluded.
-      </li>
-      <li>
-        <strong>Glicko-D Multiplayer Scaling:</strong> The production Glicko-D engine applies Golden Ratio scaling to multi-player games ($\phi/2 \approx 0.809$ in 3-player, $\phi^2/3 \approx 0.873$ in 4-player) and uses calibrated parameter sets that differ from standalone 1v1 Glicko approximations.
       </li>
     </ol>
   </div>

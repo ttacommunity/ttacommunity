@@ -3185,7 +3185,7 @@ type PlayerMatch struct {
 	Placement   int `json:"placement"`
 	PlayerCount int `json:"player_count"`
 
-	// RatingDelta What the game is worth to the player's rating today, to 0.1
+	// RatingDelta What the game is worth to the player's rating from its pre-month baseline, to 0.1
 	RatingDelta *float64 `json:"rating_delta"`
 	ReplayCode  *string  `json:"replay_code"`
 

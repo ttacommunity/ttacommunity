@@ -543,6 +543,10 @@ func TestEveryReaderRefusesAnUnpublishedRun(t *testing.T) {
 			_, err := r.RatingsOf(ctx, run, "glicko2_daneo", 0, []string{"Ann"})
 			return err
 		},
+		"HistoricalRatingsOf": func() error {
+			_, err := r.HistoricalRatingsOf(ctx, run, "glicko2_daneo", 0, []PlayerAt{{Name: "Ann", Month: "2024-05"}})
+			return err
+		},
 		"PlayerRivals": func() error { _, _, err := r.PlayerRivals(ctx, run, "Ann", 0); return err },
 		"PlayerCareer": func() error { _, _, _, err := r.PlayerCareer(ctx, run, "Ann", 0, "glicko2_daneo"); return err },
 		"Versus":       func() error { _, _, _, err := r.Versus(ctx, run, "Ann", "Bob"); return err },

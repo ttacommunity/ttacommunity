@@ -15,19 +15,20 @@ import (
 
 type fakePlayers struct {
 	fakeRatings
-	player    store.Player
-	hist      []store.HistoryPoint
-	page      store.MatchPage
-	rivals    []store.Rival
-	rated     map[string]store.Rated
-	hidden    map[string]bool
-	err       error
-	asked     string
-	format    int
-	pageNo    int
-	ratedAs   string
-	seatStats store.PlayerSeatStats
-	unrated   bool
+	player     store.Player
+	hist       []store.HistoryPoint
+	page       store.MatchPage
+	rivals     []store.Rival
+	rated      map[string]store.Rated
+	historical map[store.PlayerAt]store.Rated
+	hidden     map[string]bool
+	err        error
+	asked      string
+	format     int
+	pageNo     int
+	ratedAs    string
+	seatStats  store.PlayerSeatStats
+	unrated    bool
 }
 
 func (f *fakePlayers) PlayerSeats(_ context.Context, run int64, name string, unrated bool) (store.PlayerSeatStats, error) {
@@ -58,6 +59,21 @@ func (f *fakePlayers) RatingsOf(_ context.Context, _ int64, model string, format
 	f.ratedAs = model
 	f.format = format
 	return f.rated, nil
+}
+
+func (f *fakePlayers) HistoricalRatingsOf(_ context.Context, _ int64, model string, format int, at []store.PlayerAt) (map[store.PlayerAt]store.Rated, error) {
+	f.ratedAs = model
+	f.format = format
+	if f.historical != nil {
+		return f.historical, nil
+	}
+	got := map[store.PlayerAt]store.Rated{}
+	for _, p := range at {
+		if r, ok := f.rated[p.Name]; ok {
+			got[p] = r
+		}
+	}
+	return got, nil
 }
 
 func (f *fakePlayers) HiddenNames(context.Context, []string) (map[string]bool, error) {
@@ -225,6 +241,57 @@ func TestPlayerMatchesEstimatesWithAHiddenOpponentsRatingAndMasksTheName(t *test
 	want, _ := ratingdelta.Delta("glicko2_daneo", "Ann", 2, []ratingdelta.Seat{{Name: "cy", Score: 90}, {Name: "Ann", Score: 70}}, lookup)
 	if m.RatingDelta == nil || *m.RatingDelta != want {
 		t.Errorf("rating delta = %v, want %v: estimated against cy's rating, not an unrated player's", m.RatingDelta, want)
+	}
+}
+
+func TestPlayerMatchesUsesHistoricalRatingsAcrossDifferentMonths(t *testing.T) {
+	d1 := time.Date(2024, 5, 15, 0, 0, 0, 0, time.UTC)
+	d2 := time.Date(2026, 8, 20, 0, 0, 0, 0, time.UTC)
+	f := &fakePlayers{
+		page: store.MatchPage{
+			Page: 1, Pages: 1, Total: 2,
+			Matches: []store.PlayerMatch{
+				{ID: 2, Tournament: "Cup2", Date: d2, PlayerCount: 2, Seats: []store.Seat{{Name: "Ann", Score: 90}, {Name: "bob", Score: 70}}},
+				{ID: 1, Tournament: "Cup1", Date: d1, PlayerCount: 2, Seats: []store.Seat{{Name: "Ann", Score: 90}, {Name: "bob", Score: 70}}},
+			},
+		},
+		historical: map[store.PlayerAt]store.Rated{
+			{Name: "Ann", Month: "2026-08"}: {Rating: 1800, RD: 45},
+			{Name: "bob", Month: "2026-08"}: {Rating: 1900, RD: 35},
+			{Name: "bob", Month: "2024-05"}: {Rating: 1700, RD: 60},
+		},
+	}
+	rec, _ := serve(t, f, "/v1/runs/7/players/ann/matches")
+	if rec.Code != http.StatusOK {
+		t.Fatalf("GET matches: %d", rec.Code)
+	}
+	var got PlayerMatches
+	if err := json.Unmarshal(rec.Body.Bytes(), &got); err != nil || len(got.Matches) != 2 {
+		t.Fatalf("decoding matches: %v, len = %d", err, len(got.Matches))
+	}
+	m2 := got.Matches[0]
+	m1 := got.Matches[1]
+	if m2.RatingDelta == nil || m1.RatingDelta == nil {
+		t.Fatalf("expected rating deltas, got nil: m1=%v, m2=%v", m1.RatingDelta, m2.RatingDelta)
+	}
+	if *m1.RatingDelta <= *m2.RatingDelta {
+		t.Errorf("expected early game delta (%v) > established game delta (%v)", *m1.RatingDelta, *m2.RatingDelta)
+	}
+	lookup1 := func(n string) (ratingdelta.Rating, bool) {
+		r, ok := f.historical[store.PlayerAt{Name: n, Month: "2024-05"}]
+		return ratingdelta.Rating{Rating: r.Rating, RD: r.RD}, ok
+	}
+	want1, _ := ratingdelta.Delta("glicko2_daneo", "Ann", 2, []ratingdelta.Seat{{Name: "Ann", Score: 90}, {Name: "bob", Score: 70}}, lookup1)
+	if *m1.RatingDelta != want1 {
+		t.Errorf("m1 delta = %v, want %v", *m1.RatingDelta, want1)
+	}
+	lookup2 := func(n string) (ratingdelta.Rating, bool) {
+		r, ok := f.historical[store.PlayerAt{Name: n, Month: "2026-08"}]
+		return ratingdelta.Rating{Rating: r.Rating, RD: r.RD}, ok
+	}
+	want2, _ := ratingdelta.Delta("glicko2_daneo", "Ann", 2, []ratingdelta.Seat{{Name: "Ann", Score: 90}, {Name: "bob", Score: 70}}, lookup2)
+	if *m2.RatingDelta != want2 {
+		t.Errorf("m2 delta = %v, want %v", *m2.RatingDelta, want2)
 	}
 }
 
