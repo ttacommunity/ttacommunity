@@ -1,6 +1,6 @@
 /** Upstream's player page in the browser: its address, options, chart series and rivals table. */
 import type { Format, Model, Player, PlayerHistory, PlayerRating, Rival } from '@ttac/shared/ratings';
-import { ENGINES, parseView, type Engine, type Remembered, type ResetMode } from './leaderboard-view';
+import { ENGINES, parseView, resetApplies, type Engine, type Remembered, type ResetMode } from './leaderboard-view';
 
 /** Below this many games in a format an active player is provisional. */
 const PROVISIONAL_BELOW = 15;
@@ -42,9 +42,9 @@ export function playerParams(view: PlayerView): URLSearchParams {
   return p;
 }
 
-/** pageModel returns the stored model for an engine and reset mode. The player page has no retro prior. */
+/** pageModel returns the stored model for an engine and reset mode: the season reset is GlickoD's alone. */
 export function pageModel(engine: Engine, reset: ResetMode): Model {
-  return `${engine}${reset === 'softer' ? '_softer' : ''}` as Model;
+  return `${engine}${reset === 'softer' && resetApplies(engine) ? '_softer' : ''}` as Model;
 }
 
 /** ratingIn returns the player's rating in a model and format, if they have one. */

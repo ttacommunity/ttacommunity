@@ -537,58 +537,19 @@ func (e MeAdminRole) Valid() bool {
 
 // Defines values for Model.
 const (
-	Glicko2Adapt            Model = "glicko2_adapt"
-	Glicko2AdaptRetro       Model = "glicko2_adapt_retro"
-	Glicko2AdaptSofter      Model = "glicko2_adapt_softer"
-	Glicko2AdaptSofterRetro Model = "glicko2_adapt_softer_retro"
-	Glicko2Daneo            Model = "glicko2_daneo"
-	Glicko2DaneoSofter      Model = "glicko2_daneo_softer"
-	Glicko2Mp               Model = "glicko2_mp"
-	Glicko2MpRetro          Model = "glicko2_mp_retro"
-	Glicko2MpSofter         Model = "glicko2_mp_softer"
-	Glicko2MpSofterRetro    Model = "glicko2_mp_softer_retro"
-	Glicko2Std              Model = "glicko2_std"
-	Glicko2StdRetro         Model = "glicko2_std_retro"
-	Glicko2StdSofter        Model = "glicko2_std_softer"
-	Glicko2StdSofterRetro   Model = "glicko2_std_softer_retro"
-	Whr                     Model = "whr"
-	WhrSofter               Model = "whr_softer"
+	Glicko2Daneo       Model = "glicko2_daneo"
+	Glicko2DaneoSofter Model = "glicko2_daneo_softer"
+	Glicko2Std         Model = "glicko2_std"
 )
 
 // Valid indicates whether the value is a known member of the Model enum.
 func (e Model) Valid() bool {
 	switch e {
-	case Glicko2Adapt:
-		return true
-	case Glicko2AdaptRetro:
-		return true
-	case Glicko2AdaptSofter:
-		return true
-	case Glicko2AdaptSofterRetro:
-		return true
 	case Glicko2Daneo:
 		return true
 	case Glicko2DaneoSofter:
 		return true
-	case Glicko2Mp:
-		return true
-	case Glicko2MpRetro:
-		return true
-	case Glicko2MpSofter:
-		return true
-	case Glicko2MpSofterRetro:
-		return true
 	case Glicko2Std:
-		return true
-	case Glicko2StdRetro:
-		return true
-	case Glicko2StdSofter:
-		return true
-	case Glicko2StdSofterRetro:
-		return true
-	case Whr:
-		return true
-	case WhrSofter:
 		return true
 	default:
 		return false
@@ -2023,8 +1984,10 @@ type CalibrationRow struct {
 	Matches int                `json:"matches"`
 	Mode    CalibrationRowMode `json:"mode"`
 
-	// Model The rating model. `_softer` models reset gently each season, and
-	// `_retro` models start from a retrospectively calibrated prior.
+	// Model The rating model: Glicko-D, continuous (`glicko2_daneo`) or reset
+	// gently each season (`glicko2_daneo_softer`), or standard Glicko-2
+	// (`glicko2_std`), the benchmark. The other models of upstream's site
+	// were retired in 2026-10 and are refused.
 	Model Model `json:"model"`
 }
 
@@ -2388,8 +2351,10 @@ type ComparedPlayers struct {
 type ComparedRating struct {
 	CRating float64 `json:"c_rating"`
 
-	// Model The rating model. `_softer` models reset gently each season, and
-	// `_retro` models start from a retrospectively calibrated prior.
+	// Model The rating model: Glicko-D, continuous (`glicko2_daneo`) or reset
+	// gently each season (`glicko2_daneo_softer`), or standard Glicko-2
+	// (`glicko2_std`), the benchmark. The other models of upstream's site
+	// were retired in 2026-10 and are refused.
 	Model     Model   `json:"model"`
 	Opponents int     `json:"opponents"`
 	Rank      *int    `json:"rank"`
@@ -2499,8 +2464,10 @@ type EngineDistribution struct {
 	Counts     []int   `json:"counts"`
 	Mean       float64 `json:"mean"`
 
-	// Model The rating model. `_softer` models reset gently each season, and
-	// `_retro` models start from a retrospectively calibrated prior.
+	// Model The rating model: Glicko-D, continuous (`glicko2_daneo`) or reset
+	// gently each season (`glicko2_daneo_softer`), or standard Glicko-2
+	// (`glicko2_std`), the benchmark. The other models of upstream's site
+	// were retired in 2026-10 and are refused.
 	Model Model `json:"model"`
 }
 
@@ -2603,8 +2570,10 @@ type History struct {
 	// Format Players per game. 0 is every format together
 	Format Format `json:"format"`
 
-	// Model The rating model. `_softer` models reset gently each season, and
-	// `_retro` models start from a retrospectively calibrated prior.
+	// Model The rating model: Glicko-D, continuous (`glicko2_daneo`) or reset
+	// gently each season (`glicko2_daneo_softer`), or standard Glicko-2
+	// (`glicko2_std`), the benchmark. The other models of upstream's site
+	// were retired in 2026-10 and are refused.
 	Model   Model        `json:"model"`
 	Players []HistoryRow `json:"players"`
 	RunId   int64        `json:"run_id"`
@@ -2627,8 +2596,10 @@ type HistoryRow struct {
 
 // HistorySeries defines model for HistorySeries.
 type HistorySeries struct {
-	// Model The rating model. `_softer` models reset gently each season, and
-	// `_retro` models start from a retrospectively calibrated prior.
+	// Model The rating model: Glicko-D, continuous (`glicko2_daneo`) or reset
+	// gently each season (`glicko2_daneo_softer`), or standard Glicko-2
+	// (`glicko2_std`), the benchmark. The other models of upstream's site
+	// were retired in 2026-10 and are refused.
 	Model Model `json:"model"`
 
 	// Points Oldest first
@@ -2647,8 +2618,10 @@ type Leaderboard struct {
 	// Format Players per game. 0 is every format together
 	Format Format `json:"format"`
 
-	// Model The rating model. `_softer` models reset gently each season, and
-	// `_retro` models start from a retrospectively calibrated prior.
+	// Model The rating model: Glicko-D, continuous (`glicko2_daneo`) or reset
+	// gently each season (`glicko2_daneo_softer`), or standard Glicko-2
+	// (`glicko2_std`), the benchmark. The other models of upstream's site
+	// were retired in 2026-10 and are refused.
 	Model   Model            `json:"model"`
 	Players []LeaderboardRow `json:"players"`
 	RunId   int64            `json:"run_id"`
@@ -2728,8 +2701,10 @@ type LoginProvider string
 type MatrixCell struct {
 	CRating float64 `json:"c_rating"`
 
-	// Model The rating model. `_softer` models reset gently each season, and
-	// `_retro` models start from a retrospectively calibrated prior.
+	// Model The rating model: Glicko-D, continuous (`glicko2_daneo`) or reset
+	// gently each season (`glicko2_daneo_softer`), or standard Glicko-2
+	// (`glicko2_std`), the benchmark. The other models of upstream's site
+	// were retired in 2026-10 and are refused.
 	Model  Model   `json:"model"`
 	Rank   *int    `json:"rank"`
 	Rating float64 `json:"rating"`
@@ -2787,18 +2762,24 @@ type MemberChange struct {
 	Zone        *string `json:"zone,omitempty"`
 }
 
-// Model The rating model. `_softer` models reset gently each season, and
-// `_retro` models start from a retrospectively calibrated prior.
+// Model The rating model: Glicko-D, continuous (`glicko2_daneo`) or reset
+// gently each season (`glicko2_daneo_softer`), or standard Glicko-2
+// (`glicko2_std`), the benchmark. The other models of upstream's site
+// were retired in 2026-10 and are refused.
 type Model string
 
 // ModelPair defines model for ModelPair.
 type ModelPair struct {
-	// A The rating model. `_softer` models reset gently each season, and
-	// `_retro` models start from a retrospectively calibrated prior.
+	// A The rating model: Glicko-D, continuous (`glicko2_daneo`) or reset
+	// gently each season (`glicko2_daneo_softer`), or standard Glicko-2
+	// (`glicko2_std`), the benchmark. The other models of upstream's site
+	// were retired in 2026-10 and are refused.
 	A Model `json:"a"`
 
-	// B The rating model. `_softer` models reset gently each season, and
-	// `_retro` models start from a retrospectively calibrated prior.
+	// B The rating model: Glicko-D, continuous (`glicko2_daneo`) or reset
+	// gently each season (`glicko2_daneo_softer`), or standard Glicko-2
+	// (`glicko2_std`), the benchmark. The other models of upstream's site
+	// were retired in 2026-10 and are refused.
 	B        Model   `json:"b"`
 	Pearson  float64 `json:"pearson"`
 	Spearman float64 `json:"spearman"`
@@ -3154,8 +3135,10 @@ type PlayerCareer struct {
 	// Format Players per game. 0 is every format together
 	Format Format `json:"format"`
 
-	// Model The rating model. `_softer` models reset gently each season, and
-	// `_retro` models start from a retrospectively calibrated prior.
+	// Model The rating model: Glicko-D, continuous (`glicko2_daneo`) or reset
+	// gently each season (`glicko2_daneo_softer`), or standard Glicko-2
+	// (`glicko2_std`), the benchmark. The other models of upstream's site
+	// were retired in 2026-10 and are refused.
 	Model Model  `json:"model"`
 	Name  string `json:"name"`
 
@@ -3200,8 +3183,10 @@ type PlayerMatches struct {
 	Format  Format        `json:"format"`
 	Matches []PlayerMatch `json:"matches"`
 
-	// Model The rating model. `_softer` models reset gently each season, and
-	// `_retro` models start from a retrospectively calibrated prior.
+	// Model The rating model: Glicko-D, continuous (`glicko2_daneo`) or reset
+	// gently each season (`glicko2_daneo_softer`), or standard Glicko-2
+	// (`glicko2_std`), the benchmark. The other models of upstream's site
+	// were retired in 2026-10 and are refused.
 	Model Model  `json:"model"`
 	Name  string `json:"name"`
 	Page  int    `json:"page"`
@@ -3232,8 +3217,10 @@ type PlayerRating struct {
 	// Format Players per game. 0 is every format together
 	Format Format `json:"format"`
 
-	// Model The rating model. `_softer` models reset gently each season, and
-	// `_retro` models start from a retrospectively calibrated prior.
+	// Model The rating model: Glicko-D, continuous (`glicko2_daneo`) or reset
+	// gently each season (`glicko2_daneo_softer`), or standard Glicko-2
+	// (`glicko2_std`), the benchmark. The other models of upstream's site
+	// were retired in 2026-10 and are refused.
 	Model     Model   `json:"model"`
 	Opponents int     `json:"opponents"`
 	Rank      *int    `json:"rank"`
@@ -3853,8 +3840,10 @@ type YearLeaderboard struct {
 	// Games Games the run rated that year, in every format
 	Games int `json:"games"`
 
-	// Model The rating model. `_softer` models reset gently each season, and
-	// `_retro` models start from a retrospectively calibrated prior.
+	// Model The rating model: Glicko-D, continuous (`glicko2_daneo`) or reset
+	// gently each season (`glicko2_daneo_softer`), or standard Glicko-2
+	// (`glicko2_std`), the benchmark. The other models of upstream's site
+	// were retired in 2026-10 and are refused.
 	Model   Model     `json:"model"`
 	Players []YearRow `json:"players"`
 

@@ -40,7 +40,7 @@ describe('defaults', () => {
   it('are upstream defaults', () => {
     expect(PER_PAGE).toBe(50);
     expect(DEFAULT_VIEW).toEqual({
-      engine: 'glicko2_daneo', reset: 'continuous', retro: false, format: 0, status: 'active', title: null,
+      engine: 'glicko2_daneo', reset: 'continuous', format: 0, status: 'active', title: null,
       minOpps: 30, delta: 'none', search: '', sort: 'rank', order: 'asc', page: 1, year: null, stats: 'season',
     });
   });
@@ -49,39 +49,39 @@ describe('defaults', () => {
 describe('parseView and viewParams', () => {
   it('reads upstream parameter names', () => {
     const got = parseView(
-      new URLSearchParams('model=glicko2_std&reset_mode=softer&retro=1&format=3&status=all&title=GM&min_opps=5&delta=month&search=ann&sort=opps&order=desc&page=4'),
+      new URLSearchParams('model=glicko2_std&reset_mode=softer&format=3&status=all&title=GM&min_opps=5&delta=month&search=ann&sort=opps&order=desc&page=4'),
       {},
     );
     expect(got).toEqual({
-      engine: 'glicko2_std', reset: 'softer', retro: true, format: 3, status: 'all', title: 'GM',
+      engine: 'glicko2_std', reset: 'softer', format: 3, status: 'all', title: 'GM',
       minOpps: 5, delta: 'month', search: 'ann', sort: 'opps', order: 'desc', page: 4, year: null, stats: 'season',
     });
   });
 
   it('falls back to remembered choices, then defaults, for missing or unknown values', () => {
     const got = parseView(new URLSearchParams('model=elo&format=7&status=x&title=Q&min_opps=-3&delta=baseline&sort=x&order=x&page=0'), {
-      engine: 'whr', reset: 'softer', retro: true, format: 2,
+      engine: 'glicko2_std', reset: 'softer', format: 2,
     });
-    expect(got).toEqual({ ...DEFAULT_VIEW, engine: 'whr', reset: 'softer', retro: true, format: 2 });
+    expect(got).toEqual({ ...DEFAULT_VIEW, engine: 'glicko2_std', reset: 'softer', format: 2 });
   });
 
   it('lets the URL win over remembered choices', () => {
-    expect(parseView(new URLSearchParams('model=glicko2_mp&format=0'), { engine: 'whr', format: 2 })).toMatchObject({
-      engine: 'glicko2_mp',
+    expect(parseView(new URLSearchParams('model=glicko2_std&format=0'), { engine: 'glicko2_daneo', format: 2 })).toMatchObject({
+      engine: 'glicko2_std',
       format: 0,
     });
   });
 
   it('writes only what differs from the defaults, and reads back the same view', () => {
     expect(viewParams(DEFAULT_VIEW).toString()).toBe('');
-    const v = view({ engine: 'glicko2_adapt', status: 'inactive', minOpps: 0, delta: 'year', search: 'a, b', page: 2 });
-    expect(viewParams(v).toString()).toBe('model=glicko2_adapt&status=inactive&min_opps=0&delta=year&search=a%2C+b&page=2');
+    const v = view({ engine: 'glicko2_std', status: 'inactive', minOpps: 0, delta: 'year', search: 'a, b', page: 2 });
+    expect(viewParams(v).toString()).toBe('model=glicko2_std&status=inactive&min_opps=0&delta=year&search=a%2C+b&page=2');
     expect(parseView(viewParams(v), {})).toEqual(v);
   });
 
   it('always names the engine, reset mode and format in an explicit link, so memory cannot change it', () => {
-    expect(viewParams(DEFAULT_VIEW, true).toString()).toBe('model=glicko2_daneo&reset_mode=continuous&retro=0&format=0');
-    expect(parseView(viewParams(DEFAULT_VIEW, true), { engine: 'whr', reset: 'softer', retro: true, format: 2 })).toEqual(DEFAULT_VIEW);
+    expect(viewParams(DEFAULT_VIEW, true).toString()).toBe('model=glicko2_daneo&reset_mode=continuous&format=0');
+    expect(parseView(viewParams(DEFAULT_VIEW, true), { engine: 'glicko2_std', reset: 'softer', format: 2 })).toEqual(DEFAULT_VIEW);
   });
 });
 
@@ -89,11 +89,9 @@ describe('modelOf', () => {
   it.each([
     [{}, 'glicko2_daneo'],
     [{ reset: 'softer' }, 'glicko2_daneo_softer'],
-    [{ retro: true }, 'glicko2_daneo'],
-    [{ engine: 'glicko2_std', retro: true }, 'glicko2_std_retro'],
-    [{ engine: 'glicko2_mp', reset: 'softer', retro: true }, 'glicko2_mp_softer_retro'],
-    [{ engine: 'whr', reset: 'softer', retro: true }, 'whr_softer'],
-  ] as const)('composes %o into %s, as upstream', (v, model) => {
+    [{ engine: 'glicko2_std' }, 'glicko2_std'],
+    [{ engine: 'glicko2_std', reset: 'softer' }, 'glicko2_std'],
+  ] as const)('composes %o into %s: engine, then the season reset GlickoD alone has', (v, model) => {
     expect(modelOf(view(v as Partial<View>))).toBe(model);
   });
 });
@@ -220,7 +218,7 @@ describe('hasOptions and hasFilters', () => {
     expect(hasOptions(view())).toBe(false);
     expect(hasOptions(view({ reset: 'softer' }))).toBe(true);
     expect(hasOptions(view({ minOpps: 10 }))).toBe(true);
-    expect(hasFilters(view({ engine: 'whr' }))).toBe(false);
+    expect(hasFilters(view({ engine: 'glicko2_std' }))).toBe(false);
     expect(hasFilters(view({ search: 'a' }))).toBe(true);
     expect(hasOptions(view({ delta: 'month' }))).toBe(true);
     expect(hasFilters(view({ delta: 'month' }))).toBe(true);
@@ -308,9 +306,9 @@ describe('rankChange', () => {
 
 describe('csvUrl', () => {
   it('asks the API for the table as shown', () => {
-    const v = view({ engine: 'glicko2_std', reset: 'softer', format: 2, title: 'GM', search: 'a, b', sort: 'opps', order: 'desc', page: 3 });
+    const v = view({ engine: 'glicko2_daneo', reset: 'softer', format: 2, title: 'GM', search: 'a, b', sort: 'opps', order: 'desc', page: 3 });
     expect(csvUrl('https://api.example/', 7, v, false)).toBe(
-      'https://api.example/v1/runs/7/leaderboard.csv?model=glicko2_std_softer&format=2&status=active&min_opps=30&title=GM&search=a%2C+b&sort=opps&order=desc',
+      'https://api.example/v1/runs/7/leaderboard.csv?model=glicko2_daneo_softer&format=2&status=active&min_opps=30&title=GM&search=a%2C+b&sort=opps&order=desc',
     );
   });
 

@@ -26,10 +26,7 @@ var titleNames = map[string]string{
 	"WC": "World Champion", "SGM": "Super GM", "GM": "Grandmaster", "M": "Master", "P": "Platinum", "G": "Gold", "S": "Silver", "B": "Bronze", "W": "Wood",
 }
 
-var engineNames = map[string]string{
-	"glicko2_daneo": "GlickoD", "glicko2_std": "Glicko-2 Standard", "glicko2_mp": "Glicko-2 MP-Weighted",
-	"glicko2_adapt": "Glicko-2 Adaptive-T", "whr": "Whole-History Rating",
-}
+var engineNames = map[string]string{"glicko2_daneo": "GlickoD", "glicko2_std": "Glicko-2 Standard"}
 
 var formatNames = map[Format]string{N0: "All Formats", N2: "2-Player (Duel)", N3: "3-Player", N4: "4-Player"}
 
@@ -163,7 +160,7 @@ var resetNames = map[string]string{"continuous": "Continuous (Career)", "softer"
 
 // splitModel returns a stored model's engine and its reset mode.
 func splitModel(model string) (engine, reset string) {
-	engine, reset = strings.TrimSuffix(model, "_retro"), "continuous"
+	engine, reset = model, "continuous"
 	if e, ok := strings.CutSuffix(engine, "_softer"); ok {
 		engine, reset = e, "softer"
 	}

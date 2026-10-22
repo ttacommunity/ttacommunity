@@ -18,6 +18,7 @@ import (
 
 	"gopkg.in/yaml.v3"
 
+	"ttacommunity/backend/internal/analysis"
 	"ttacommunity/backend/internal/store"
 )
 
@@ -287,6 +288,38 @@ func TestRoutesMatchTheSpec(t *testing.T) {
 	}
 }
 
+func TestTheModelsTheSiteNamesAreTheOnesTheEngineComputes(t *testing.T) {
+	raw, err := os.ReadFile("../../api/openapi.yaml")
+	if err != nil {
+		t.Fatalf("reading the spec: %v", err)
+	}
+	var spec struct {
+		Components struct {
+			Schemas struct {
+				Model struct {
+					Enum []string `yaml:"enum"`
+				} `yaml:"Model"`
+			} `yaml:"schemas"`
+		} `yaml:"components"`
+	}
+	if err := yaml.Unmarshal(raw, &spec); err != nil {
+		t.Fatalf("parsing the spec: %v", err)
+	}
+	computed := []string{"glicko2_daneo", "glicko2_daneo_softer", "glicko2_std"}
+	if got := spec.Components.Schemas.Model.Enum; !slices.Equal(got, computed) {
+		t.Errorf("the spec's models = %q, want the engine's %q", got, computed)
+	}
+	for name, list := range map[string][]string{
+		"CompareModels": store.CompareModels, "PlayerPageModels": store.PlayerPageModels, "analysis.Engines": analysis.Engines,
+	} {
+		for _, m := range list {
+			if !slices.Contains(computed, m) {
+				t.Errorf("%s names %q, which the engine no longer computes", name, m)
+			}
+		}
+	}
+}
+
 func TestHealthz(t *testing.T) {
 	tests := []struct {
 		name     string
@@ -457,11 +490,11 @@ func TestLeaderboard(t *testing.T) {
 				`"win_rate":58.3,"wins":7}],"run_id":7}`,
 		},
 		{
-			name: "model and format chosen", path: "/v1/runs/7/leaderboard?model=whr_softer&format=2",
+			name: "model and format chosen", path: "/v1/runs/7/leaderboard?model=glicko2_daneo_softer&format=2",
 			ratings:  &fakeRatings{},
 			wantCode: http.StatusOK, wantCache: "public, max-age=300",
-			wantCall: true, wantModel: "whr_softer", wantFmt: 2,
-			wantBody: `{"format":2,"model":"whr_softer","players":[],"run_id":7}`,
+			wantCall: true, wantModel: "glicko2_daneo_softer", wantFmt: 2,
+			wantBody: `{"format":2,"model":"glicko2_daneo_softer","players":[],"run_id":7}`,
 		},
 		{
 			name: "unknown model", path: "/v1/runs/7/leaderboard?model=elo",
@@ -540,7 +573,7 @@ func TestPublicRoutesAllowAnyOriginWithoutCredentials(t *testing.T) {
 
 func TestErrorsLogTheRouteNotThePath(t *testing.T) {
 	ratings := &fakeRatings{boardErr: errors.New("boom")}
-	_, logs := serve(t, ratings, "/v1/runs/7/leaderboard?model=whr")
+	_, logs := serve(t, ratings, "/v1/runs/7/leaderboard?model=glicko2_std")
 
 	var entry map[string]any
 	if err := json.Unmarshal([]byte(logs), &entry); err != nil {
@@ -552,7 +585,7 @@ func TestErrorsLogTheRouteNotThePath(t *testing.T) {
 	if !strings.Contains(logs, "boom") {
 		t.Errorf("log %q does not carry the error", logs)
 	}
-	if strings.Contains(logs, "/v1/runs/7") || strings.Contains(logs, "model=whr") {
+	if strings.Contains(logs, "/v1/runs/7") || strings.Contains(logs, "model=glicko2_std") {
 		t.Errorf("log %q carries the request path", logs)
 	}
 }
@@ -890,10 +923,10 @@ func TestHistory(t *testing.T) {
 		wantBody  string
 	}{
 		{
-			name: "a date", path: "/v1/runs/7/history?model=whr&format=2&at=2026-05-01",
+			name: "a date", path: "/v1/runs/7/history?model=glicko2_std&format=2&at=2026-05-01",
 			ratings:  &fakeRatings{hist: rows, histAt: may},
 			wantCode: http.StatusOK, wantCache: "public, max-age=300", wantAt: &may,
-			wantBody: `{"at":"2026-05-01","format":2,"model":"whr","players":[{"c_rating":1598.5,"name":"ann","rating":1690,"rd":30.5}],"run_id":7}`,
+			wantBody: `{"at":"2026-05-01","format":2,"model":"glicko2_std","players":[{"c_rating":1598.5,"name":"ann","rating":1690,"rd":30.5}],"run_id":7}`,
 		},
 		{
 			name: "no date means the previous period", path: "/v1/runs/7/history",
@@ -952,7 +985,7 @@ func TestLeaderboardCSV(t *testing.T) {
 		{Name: "retired", Rating: 1900, RD: 50, CRating: 1750, Opponents: 40, WinRate: 50, LastPlayed: &old},
 	}
 	f := &fakeRatings{board: rows}
-	rec, _ := serve(t, f, "/v1/runs/7/leaderboard.csv?model=glicko2_std_softer&format=2")
+	rec, _ := serve(t, f, "/v1/runs/7/leaderboard.csv?model=glicko2_daneo_softer&format=2")
 
 	if rec.Code != http.StatusOK {
 		t.Fatalf("code = %d, want 200: %s", rec.Code, rec.Body.String())
@@ -960,20 +993,20 @@ func TestLeaderboardCSV(t *testing.T) {
 	for header, want := range map[string]string{
 		"Content-Type":        "text/csv",
 		"Cache-Control":       "public, max-age=300",
-		"Content-Disposition": `attachment; filename="tta_ratings_glicko2_std_2p_softer_live_active.csv"`,
+		"Content-Disposition": `attachment; filename="tta_ratings_glicko2_daneo_2p_softer_live_active.csv"`,
 	} {
 		if got := rec.Header().Get(header); got != want {
 			t.Errorf("%s = %q, want %q", header, got, want)
 		}
 	}
-	if f.gotMod != "glicko2_std_softer" || f.gotFmt != 2 {
-		t.Errorf("store asked for %s/%d, want glicko2_std_softer/2", f.gotMod, f.gotFmt)
+	if f.gotMod != "glicko2_daneo_softer" || f.gotFmt != 2 {
+		t.Errorf("store asked for %s/%d, want glicko2_daneo_softer/2", f.gotMod, f.gotFmt)
 	}
 	want := "\ufeffRank,Player,Country,Title,Title_Name,Badge_Reason,Peak_Title,Peak_Year,Rating,RD,Conservative_Rating," +
 		"Matches,Wins,Losses,Draws,Win_Rate,Status,Last_Played,Model,Format,Reset_Mode,Season\r\n" +
 		"1,Grebe,RU,GM,Grandmaster,Played in Royal League Emperor Season 9,World Champion,2026,1979.19,20.15,1918.76," +
-		"775,551,218,6,71.5%,Active,2026-08-28,Glicko-2 Standard,2-Player (Duel),Season Reset,Live / All-Time\r\n" +
-		`2,"'-odd, ""quoted""",,,,,,,1500.00,50.00,1350.00,40,0,0,0,50.0%,Active,2026-08-28,Glicko-2 Standard,2-Player (Duel),Season Reset,Live / All-Time` + "\r\n"
+		"775,551,218,6,71.5%,Active,2026-08-28,GlickoD,2-Player (Duel),Season Reset,Live / All-Time\r\n" +
+		`2,"'-odd, ""quoted""",,,,,,,1500.00,50.00,1350.00,40,0,0,0,50.0%,Active,2026-08-28,GlickoD,2-Player (Duel),Season Reset,Live / All-Time` + "\r\n"
 	if got := rec.Body.String(); got != want {
 		t.Errorf("body =\n%q\nwant\n%q", got, want)
 	}

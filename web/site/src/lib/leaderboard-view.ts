@@ -19,7 +19,7 @@ export const MIN_OPPONENTS = 30;
 /** Below this many opponents an active player is provisional. */
 const PROVISIONAL_BELOW = 15;
 
-export const ENGINES = ['glicko2_daneo', 'glicko2_std', 'glicko2_mp', 'glicko2_adapt', 'whr'] as const;
+export const ENGINES = ['glicko2_daneo', 'glicko2_std'] as const;
 export type Engine = (typeof ENGINES)[number];
 export type ResetMode = 'continuous' | 'softer';
 export type Status = 'active' | 'all' | 'inactive';
@@ -52,7 +52,6 @@ const TITLES: readonly TitleCode[] = ['GM', 'M', 'P', 'G', 'SGM', 'WC', 'WCS', '
 export interface View {
   engine: Engine;
   reset: ResetMode;
-  retro: boolean;
   format: Format;
   status: Status;
   title: TitleCode | null;
@@ -69,12 +68,11 @@ export interface View {
 }
 
 /** The choices remembered between visits, as upstream's session remembers them. */
-export type Remembered = Partial<Pick<View, 'engine' | 'reset' | 'retro' | 'format'>>;
+export type Remembered = Partial<Pick<View, 'engine' | 'reset' | 'format'>>;
 
 export const DEFAULT_VIEW: View = {
   engine: 'glicko2_daneo',
   reset: 'continuous',
-  retro: false,
   format: 0,
   status: 'active',
   title: null,
@@ -108,14 +106,12 @@ function whole(value: string | null, min: number): number | undefined {
 /** parseView reads a view from upstream's parameters, then remembered choices, then the defaults. */
 export function parseView(params: URLSearchParams, remembered: Remembered): View {
   const get = (k: string) => params.get(k);
-  const retro = get('retro');
   const order = oneOf<Order>(['asc', 'desc'], get('order'));
   const y = get('year') ?? '';
   const year = /^\d{4}$/.test(y) && Number(y) >= 2000 && Number(y) <= 2100 ? Number(y) : null;
   return {
     engine: oneOf(ENGINES, get('model')) ?? remembered.engine ?? DEFAULT_VIEW.engine,
     reset: oneOf<ResetMode>(['continuous', 'softer'], get('reset_mode')) ?? remembered.reset ?? DEFAULT_VIEW.reset,
-    retro: retro === '1' ? true : retro === '0' ? false : (remembered.retro ?? DEFAULT_VIEW.retro),
     format: oneOf(FORMATS, get('format')) ?? remembered.format ?? DEFAULT_VIEW.format,
     status: oneOf(STATUSES, get('status')) ?? DEFAULT_VIEW.status,
     title: oneOf(TITLES, get('title')) ?? null,
@@ -136,11 +132,10 @@ export function parseView(params: URLSearchParams, remembered: Remembered): View
  */
 export function viewParams(view: View, explicit = false): URLSearchParams {
   const p = new URLSearchParams();
-  const remembered = new Set(['model', 'reset_mode', 'retro', 'format']);
+  const remembered = new Set(['model', 'reset_mode', 'format']);
   const put = (k: string, v: string, d: string) => (v !== d || (explicit && remembered.has(k))) && p.set(k, v);
   put('model', view.engine, DEFAULT_VIEW.engine);
   put('reset_mode', view.reset, DEFAULT_VIEW.reset);
-  put('retro', view.retro ? '1' : '0', '0');
   put('format', String(view.format), String(DEFAULT_VIEW.format));
   put('status', view.status, DEFAULT_VIEW.status);
   put('title', view.title ?? '', '');
@@ -155,16 +150,15 @@ export function viewParams(view: View, explicit = false): URLSearchParams {
   return p;
 }
 
-/** retroApplies reports whether the engine has the retrospective-prior variant. */
-export function retroApplies(engine: Engine): boolean {
-  return engine !== 'glicko2_daneo' && engine !== 'whr';
+/** resetApplies reports whether the engine has a season-reset model: GlickoD alone does. */
+export function resetApplies(engine: Engine): boolean {
+  return engine === 'glicko2_daneo';
 }
 
-/** modelOf returns the stored model a view reads: engine, then season reset, then the retro prior. */
+/** modelOf returns the stored model a view reads: the engine, with the season reset where the engine has one. */
 export function modelOf(view: View): Model {
-  const softer = view.reset === 'softer' ? '_softer' : '';
-  const retro = view.retro && retroApplies(view.engine) ? '_retro' : '';
-  return `${view.engine}${softer}${retro}` as Model;
+  const softer = view.reset === 'softer' && resetApplies(view.engine) ? '_softer' : '';
+  return `${view.engine}${softer}` as Model;
 }
 
 const byName = (a: { name: string }, b: { name: string }) => (a.name < b.name ? -1 : a.name > b.name ? 1 : 0);

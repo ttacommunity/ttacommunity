@@ -149,12 +149,6 @@ def compute_gaussian_phi_scaling(
     return alpha_mult, lambda_mult
 
 
-from tta_ratings_engine.models.glicko2.adaptive_t import (
-    ADAPTIVE_T_PARAMS,
-    update_rating_adaptive,
-)
-
-
 def compute_player_thresholds(
     rows: list[Any], standard_threshold: int = 15, inactivity_days: int = 365
 ) -> dict[str, int]:
@@ -222,7 +216,7 @@ def compute_glicko2_ratings(
     run, replacing any it had, in one committed transaction.
 
     player_count: 0 for all matches, or 2, 3, 4 for specific format.
-    engine: 'glicko2_std', 'glicko2_mp', 'glicko2_adapt', or 'glicko2_daneo'.
+    engine: 'glicko2_std', 'glicko2_mp' or 'glicko2_daneo'.
     If engine is None: uses 'glicko2_mp' if weighted else 'glicko2_std'.
     reset_mode: 'continuous' (default career), 'softer' (gentle reset: RD x1.45, 11.8% tier reversion),
                 'soft' (golden ratio phi RD inflation + 23.6% tier mean reversion),
@@ -401,22 +395,16 @@ def compute_glicko2_ratings(
                         p_thresh = player_thresholds.get(p_name, calibration_threshold)
 
                         def run_update_p1(r_cur, items):
-                            if base_model == "glicko2_adapt":
-                                enc4 = [(it[0], it[1], it[2], it[3]) for it in items]
-                                return update_rating_adaptive(
-                                    r_cur, enc4, tau=tau, params_dict=ADAPTIVE_T_PARAMS
-                                )
-                            else:
-                                enc3 = [(it[0], it[1], it[2]) for it in items]
-                                return update_rating(
-                                    r_cur,
-                                    enc3,
-                                    tau=tau,
-                                    weighted=(
-                                        base_model in ("glicko2_mp", "glicko2_daneo")
-                                        or weighted
-                                    ),
-                                )
+                            enc3 = [(it[0], it[1], it[2]) for it in items]
+                            return update_rating(
+                                r_cur,
+                                enc3,
+                                tau=tau,
+                                weighted=(
+                                    base_model in ("glicko2_mp", "glicko2_daneo")
+                                    or weighted
+                                ),
+                            )
 
                         # 1. Update ratings_p1_discovery for player's personal discovery path
                         if (
@@ -668,22 +656,15 @@ def compute_glicko2_ratings(
             for p_name, enc_list in player_encounters.items():
 
                 def run_update_p2(r_cur, items):
-                    if base_model == "glicko2_adapt":
-                        enc4 = [(it[0], it[1], it[2], it[3]) for it in items]
-                        return update_rating_adaptive(
-                            r_cur, enc4, tau=tau, params_dict=ADAPTIVE_T_PARAMS
-                        )
-                    else:
-                        enc3 = [(it[0], it[1], it[2]) for it in items]
-                        return update_rating(
-                            r_cur,
-                            enc3,
-                            tau=tau,
-                            weighted=(
-                                base_model in ("glicko2_mp", "glicko2_daneo")
-                                or weighted
-                            ),
-                        )
+                    enc3 = [(it[0], it[1], it[2]) for it in items]
+                    return update_rating(
+                        r_cur,
+                        enc3,
+                        tau=tau,
+                        weighted=(
+                            base_model in ("glicko2_mp", "glicko2_daneo") or weighted
+                        ),
+                    )
 
                 if retro_calibrated:
                     prev_games = len(games_played_p2[p_name])

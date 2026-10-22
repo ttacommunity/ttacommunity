@@ -108,11 +108,8 @@ func (r *RatingsReader) ActivePlayers(ctx context.Context, run int64) (map[strin
 	return active, nil
 }
 
-// CompareModels are the models upstream's player comparison shows, in its order.
-var CompareModels = []string{
-	"glicko2_daneo", "glicko2_daneo_softer", "glicko2_std", "glicko2_std_softer", "glicko2_mp",
-	"glicko2_mp_softer", "glicko2_adapt", "glicko2_adapt_softer", "whr", "whr_softer",
-}
+// CompareModels are the models the player comparison shows, in its order: the ones the engine computes.
+var CompareModels = []string{"glicko2_daneo", "glicko2_daneo_softer", "glicko2_std"}
 
 // DefaultCompared are the players upstream compares when nothing is searched, in the order its page shows them.
 var DefaultCompared = []string{"Genghisip", "Martin_Pecheur", "Weidenbaum", "a440", "pv4", "saru"}

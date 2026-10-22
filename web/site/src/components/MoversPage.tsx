@@ -13,13 +13,6 @@ const ROWS: Record<string, { engine: string; reset: string; className: string }>
   glicko2_daneo: { engine: '👑 GlickoD (Dynamic)', reset: 'Continuous', className: 'comp-daneo' },
   glicko2_daneo_softer: { engine: '👑 GlickoD (Dynamic)', reset: 'Season Reset', className: 'comp-daneo-reset' },
   glicko2_std: { engine: 'Glicko-2 Standard', reset: 'Continuous', className: '' },
-  glicko2_std_softer: { engine: 'Glicko-2 Standard', reset: 'Season Reset', className: 'comp-reset' },
-  glicko2_mp: { engine: 'Glicko-2 MP-Weighted', reset: 'Continuous', className: '' },
-  glicko2_mp_softer: { engine: 'Glicko-2 MP-Weighted', reset: 'Season Reset', className: 'comp-reset' },
-  glicko2_adapt: { engine: 'Glicko-2 Adaptive-T', reset: 'Continuous', className: '' },
-  glicko2_adapt_softer: { engine: 'Glicko-2 Adaptive-T', reset: 'Season Reset', className: 'comp-reset' },
-  whr: { engine: 'Whole-History Rating (WHR)', reset: 'Continuous', className: '' },
-  whr_softer: { engine: 'Whole-History Rating (WHR)', reset: 'Season Reset', className: 'comp-reset' },
 };
 
 const FORMATS: Format[] = [0, 2, 3, 4];

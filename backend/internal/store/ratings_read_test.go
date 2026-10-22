@@ -151,7 +151,7 @@ func TestLeaderboard(t *testing.T) {
 	addRating(t, pool, run, "glicko2_daneo", 0, "unranked", nil, 1000)
 	addRating(t, pool, run, "glicko2_daneo", 0, "bob", ptr(2), 1700)
 	addRating(t, pool, run, "glicko2_daneo", 2, "duel-only", ptr(1), 2000)
-	addRating(t, pool, run, "whr", 0, "whr-only", ptr(1), 2000)
+	addRating(t, pool, run, "glicko2_std", 0, "whr-only", ptr(1), 2000)
 	other := addRun(t, pool, "complete", at)
 	addRating(t, pool, other, "glicko2_daneo", 0, "other-run", ptr(1), 2000)
 
@@ -331,7 +331,7 @@ func TestHistoryGivesTheSnapshotOnOrBeforeADateAsUpstream(t *testing.T) {
 	addHistory(t, pool, run, "glicko2_daneo", 0, "ann", "2026-05-31", 1700)
 	addHistory(t, pool, run, "glicko2_daneo", 0, "bob", "2026-05-31", 1400)
 	addHistory(t, pool, run, "glicko2_daneo", 2, "ann", "2026-04-30", 9999)
-	addHistory(t, pool, run, "whr", 0, "ann", "2026-04-30", 9999)
+	addHistory(t, pool, run, "glicko2_std", 0, "ann", "2026-04-30", 9999)
 
 	at := day("2026-05-01")
 	gotAt, rows, err := r.History(ctx, run, "glicko2_daneo", 0, &at)

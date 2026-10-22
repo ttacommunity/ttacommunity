@@ -13,7 +13,7 @@ import (
 )
 
 // Engines are the continuous models the distribution shows.
-var Engines = []string{"glicko2_daneo", "glicko2_std", "glicko2_mp", "glicko2_adapt", "whr"}
+var Engines = []string{"glicko2_daneo", "glicko2_std"}
 
 // binStart, binWidth and bins are upstream's histogram: 100-point bins from 1000 to 2100.
 const (

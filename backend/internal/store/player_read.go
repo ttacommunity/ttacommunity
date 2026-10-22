@@ -33,12 +33,9 @@ func hiddenName(column string) string {
 )`
 }
 
-// PlayerPageModels are the models the player page shows: each engine,
-// continuous and with a season reset.
-var PlayerPageModels = []string{
-	"glicko2_daneo", "glicko2_daneo_softer", "glicko2_std", "glicko2_std_softer", "glicko2_mp",
-	"glicko2_mp_softer", "glicko2_adapt", "glicko2_adapt_softer", "whr", "whr_softer",
-}
+// PlayerPageModels are the models the player page shows: the ones the engine computes, Glicko-D continuous and
+// with a season reset, and standard Glicko-2.
+var PlayerPageModels = []string{"glicko2_daneo", "glicko2_daneo_softer", "glicko2_std"}
 
 // gamesPerPage is how many games one page of a player's games holds.
 const gamesPerPage = 30

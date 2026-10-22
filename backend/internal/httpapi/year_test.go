@@ -119,16 +119,16 @@ func yearCSVBoard() store.YearBoard {
 
 func TestLeaderboardCSVForAYear(t *testing.T) {
 	f := &fakeYears{board: yearCSVBoard()}
-	rec, _ := serve(t, readsOnly{YearReads: f}, "/v1/runs/7/leaderboard.csv?year=2024&model=whr&format=2")
-	if rec.Code != http.StatusOK || f.year != 2024 || f.gotMod != "whr" || f.gotFmt != 2 {
+	rec, _ := serve(t, readsOnly{YearReads: f}, "/v1/runs/7/leaderboard.csv?year=2024&model=glicko2_std&format=2")
+	if rec.Code != http.StatusOK || f.year != 2024 || f.gotMod != "glicko2_std" || f.gotFmt != 2 {
 		t.Fatalf("GET year CSV: %d; asked %d %s %d", rec.Code, f.year, f.gotMod, f.gotFmt)
 	}
 	lines := strings.Split(strings.TrimSpace(strings.TrimPrefix(rec.Body.String(), "\xef\xbb\xbf")), "\r\n")
-	want := "1,ann,,,,,,,1690.00,30.00,1600.00,3,0,2,1,16.7%,Active,2024-12-20,Whole-History Rating,2-Player (Duel),Continuous (Career),2024"
+	want := "1,ann,,,,,,,1690.00,30.00,1600.00,3,0,2,1,16.7%,Active,2024-12-20,Glicko-2 Standard,2-Player (Duel),Continuous (Career),2024"
 	if len(lines) != 2 || lines[1] != want {
 		t.Errorf("year CSV rows = %q\nwant the header and %q (bob did not play in 2024)", lines, want)
 	}
-	if got := rec.Header().Get("Content-Disposition"); got != `attachment; filename="tta_ratings_whr_2p_continuous_2024_active.csv"` {
+	if got := rec.Header().Get("Content-Disposition"); got != `attachment; filename="tta_ratings_glicko2_std_2p_continuous_2024_active.csv"` {
 		t.Errorf("Content-Disposition = %q", got)
 	}
 

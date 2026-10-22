@@ -23,18 +23,13 @@ export function resolveTab(name: string, tabs: readonly string[]): string | null
   return tabs.includes(tab) ? tab : null;
 }
 
-const FIGURE_MODELS = {
-  mp: 'glicko2_mp',
-  std: 'glicko2_std',
-  daneo_softer: 'glicko2_daneo_softer',
-  std_softer: 'glicko2_std_softer',
-} as const;
+// The retired models' figures (mp, std_softer) are no longer computed: the FAQ keeps its fallback text for them.
+const FIGURE_MODELS = { std: 'glicko2_std', daneo_softer: 'glicko2_daneo_softer' } as const;
 
 /**
  * faqFigures formats upstream's live FAQ figures from a run's calibration and activity: walk-forward
- * Brier (4 places) and ECE (percent, 2 places) for MP and Standard in all formats and 4-player, MP's games
- * evaluated, the active players, and the run's games, players and years. A figure without data
- * is left out.
+ * Brier (4 places) and ECE (percent, 2 places) for Standard in all formats and 4-player and GlickoD's season
+ * reset, the active players, and the run's games, players and years. A figure without data is left out.
  */
 export function faqFigures(rows: readonly CalibrationRow[], activity: Activity | null, run?: Run): Record<string, string> {
   const out: Record<string, string> = {};
@@ -44,7 +39,6 @@ export function faqFigures(rows: readonly CalibrationRow[], activity: Activity |
       if (r === undefined) continue;
       out[`${short}.${format}.brier`] = r.brier.toFixed(4);
       out[`${short}.${format}.ece`] = (r.ece * 100).toFixed(2);
-      if (short === 'mp' && format === 0) out['mp.0.matches'] = r.matches.toLocaleString('en-US');
     }
   }
   if (activity?.active != null) out.players = String(activity.active);

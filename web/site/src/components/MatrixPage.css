@@ -295,16 +295,6 @@
   color: var(--accent-gold-light);
 }
 
-/* Adaptive-T's row: upstream's green. */
-.row-adapt .matrix-engine-name,
-.row-adapt .matrix-val-primary,
-.row-adapt .matrix-val-meta strong {
-  color: #4ade80;
-}
-
-.row-adapt .matrix-val-c {
-  color: #22c55e;
-}
 
 .career-history-table {
   width: 100%;

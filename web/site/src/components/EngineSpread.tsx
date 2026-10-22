@@ -13,10 +13,7 @@ type Load = { kind: 'loading' } | { kind: 'error'; message: string } | { kind: '
 
 const BARS: { model: Model; label: string; badge: string; short: string; className: string; fill: string; line: string }[] = [
   { model: 'glicko2_daneo', label: '👑 GlickoD', badge: '👑 GlickoD', short: 'GlickoD', className: 'mean-daneo', fill: 'rgba(229, 169, 60, 0.7)', line: '#e5a93c' },
-  { model: 'glicko2_adapt', label: 'Glicko-2 Adaptive-T', badge: 'G2 Adapt', short: 'Adapt', className: 'mean-adapt', fill: 'rgba(34, 197, 94, 0.55)', line: '#22c55e' },
-  { model: 'glicko2_mp', label: 'Glicko-2 MP-Weighted', badge: 'G2 MP', short: 'MP', className: 'mean-mp', fill: 'rgba(239, 83, 80, 0.55)', line: '#ef5350' },
   { model: 'glicko2_std', label: 'Glicko-2 Standard', badge: 'G2 Std', short: 'Std', className: 'mean-std', fill: 'rgba(255, 202, 40, 0.5)', line: '#ffca28' },
-  { model: 'whr', label: 'Whole-History Rating', badge: 'WHR', short: 'WHR', className: 'mean-whr', fill: 'rgba(41, 182, 246, 0.5)', line: '#29b6f6' },
 ];
 
 /** means returns each bar's all-player and active-player mean, 1500 for an engine the answer lacks. */

@@ -17,10 +17,6 @@ describe('modelLabel', () => {
     ['glicko2_daneo', 'GlickoD'],
     ['glicko2_daneo_softer', 'GlickoD · Season Reset'],
     ['glicko2_std', 'Glicko-2 Standard'],
-    ['glicko2_std_retro', 'Glicko-2 Standard · 15G Retro'],
-    ['glicko2_mp_softer_retro', 'Glicko-2 MP-Weighted · Season Reset · 15G Retro'],
-    ['glicko2_adapt', 'Glicko-2 Adaptive-T'],
-    ['whr_softer', 'Whole-History Rating · Season Reset'],
   ] as const)('labels %s with upstream engine and mode names', (model, label) => {
     expect(modelLabel(model)).toBe(label);
   });
@@ -65,8 +61,7 @@ describe('engineName and resetModeName', () => {
   it.each([
     ['glicko2_daneo', 'GlickoD', 'Continuous (Career)'],
     ['glicko2_daneo_softer', 'GlickoD', 'Season Reset'],
-    ['glicko2_std_softer_retro', 'Glicko-2 Standard', 'Season Reset'],
-    ['whr', 'Whole-History Rating', 'Continuous (Career)'],
+    ['glicko2_std', 'Glicko-2 Standard', 'Continuous (Career)'],
   ] as const)('splits %s into upstream engine and reset mode names', (model, engine, mode) => {
     expect(engineName(model)).toBe(engine);
     expect(resetModeName(model)).toBe(mode);
@@ -76,10 +71,8 @@ describe('engineName and resetModeName', () => {
 describe('engineNote', () => {
   it.each([
     ['glicko2_daneo', ''],
-    ['glicko2_std_softer', 'Standard 1v1 naive baseline'],
-    ['glicko2_mp', 'Multiplayer fractional weighting — variance-calibrated'],
-    ['glicko2_adapt_retro', 'Adaptive temperature scaling'],
-    ['whr', 'Whole-History Rating retrospective MAP'],
+    ['glicko2_daneo_softer', ''],
+    ['glicko2_std', 'Standard 1v1 naive baseline'],
   ] as const)('gives %s upstream note %j', (model, note) => {
     expect(engineNote(model)).toBe(note);
   });

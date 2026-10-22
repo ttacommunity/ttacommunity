@@ -2,7 +2,7 @@
 import { useEffect, useState } from 'react';
 import type { TitleCode, YearEntry } from '@ttac/shared/ratings';
 import { engineName } from '../lib/leaderboard-display';
-import { DEFAULT_VIEW, ENGINES, defaultMinOpps, retroApplies, type DeltaWindow, type Engine, type ResetMode, type Status, type View } from '../lib/leaderboard-view';
+import { DEFAULT_VIEW, ENGINES, defaultMinOpps, resetApplies, type DeltaWindow, type Engine, type ResetMode, type Status, type View } from '../lib/leaderboard-view';
 import Segmented from '@ttac/shared/Segmented';
 
 /** A link to a view: a real address, followed in place. */
@@ -11,9 +11,6 @@ export type LinkTo = (view: View) => { href: string; onClick: (e: React.MouseEve
 const engineTips: Record<Engine, string> = {
   glicko2_daneo: '👑 GlickoD: φ^(N-2) multiplayer decomposition and 15-game emergent prior re-calibration.',
   glicko2_std: 'Standard naive 1v1 pairwise baseline without multiplayer calibration.',
-  glicko2_mp: '1/(N-1) scaling of 3P/4P matches.',
-  glicko2_adapt: 'Adaptive temperature scaling T(P,N).',
-  whr: 'Rémi Coulom Whole-History Rating',
 };
 
 const resetModes: [ResetMode, string, string][] = [
@@ -40,9 +37,9 @@ interface Props {
   onClose: () => void;
 }
 
-/** archiveView is where upstream's archive pills go: the year, keeping the model, prior and format, other filters reset. */
+/** archiveView is where upstream's archive pills go: the year, keeping the model and format, other filters reset. */
 function archiveView(view: View, year: number | null): View {
-  return { ...DEFAULT_VIEW, engine: view.engine, reset: view.reset, retro: view.retro, format: view.format, year, minOpps: defaultMinOpps(year) };
+  return { ...DEFAULT_VIEW, engine: view.engine, reset: view.reset, format: view.format, year, minOpps: defaultMinOpps(year) };
 }
 
 /** OptionsDrawer shows every option; choosing one goes to that view at page 1. */
@@ -114,34 +111,17 @@ export default function OptionsDrawer({ view, titles, years, downloads, linkTo, 
         />
       </div>
 
-      <div>
-        <div className="options-group-title">
-          <span>⚙️ Season Reset Mode</span>
-        </div>
-        <Segmented
-          label="Season reset mode"
-          look="banner"
-          options={resetModes.map(([id, name, tip]) => ({ value: id, label: name, tooltip: tip }))}
-          value={view.reset}
-          link={(reset) => linkTo(at({ reset }))}
-        />
-      </div>
-
-      {retroApplies(view.engine) && (
+      {resetApplies(view.engine) && (
         <div>
           <div className="options-group-title">
-            <span>🎯 Prior Calibration Lever</span>
+            <span>⚙️ Season Reset Mode</span>
           </div>
           <Segmented
-            label="Prior calibration"
+            label="Season reset mode"
             look="banner"
-            groupClass="reset-btn-group prior"
-            options={[
-              { value: 'standard', label: 'Standard (1500)' },
-              { value: 'retro', label: '15G Retro (★)' },
-            ]}
-            value={view.retro ? 'retro' : 'standard'}
-            link={(v) => linkTo(at({ retro: v === 'retro' }))}
+            options={resetModes.map(([id, name, tip]) => ({ value: id, label: name, tooltip: tip }))}
+            value={view.reset}
+            link={(reset) => linkTo(at({ reset }))}
           />
         </div>
       )}

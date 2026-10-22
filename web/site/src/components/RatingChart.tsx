@@ -22,9 +22,6 @@ type Curve = 'expected' | 'conservative';
 const LINES: Record<Engine, { name: string; color: string; fill: string; width: number; point: number; tension: number }> = {
   glicko2_daneo: { name: '👑 GlickoD', color: '#c084fc', fill: 'rgba(168, 85, 247, 0.15)', width: 2.5, point: 1.5, tension: 0.1 },
   glicko2_std: { name: 'Glicko-2 Standard', color: '#e5a93c', fill: 'rgba(229, 169, 60, 0.1)', width: 2, point: 1, tension: 0.1 },
-  glicko2_mp: { name: 'Glicko-2 MP-Weighted', color: '#8e1e1d', fill: 'rgba(142, 30, 29, 0.1)', width: 2, point: 1, tension: 0.1 },
-  glicko2_adapt: { name: 'Glicko-2 Adaptive-T', color: '#22c55e', fill: 'rgba(34, 197, 94, 0.1)', width: 2, point: 1, tension: 0.1 },
-  whr: { name: 'Whole-History Rating', color: '#4fc3f7', fill: 'rgba(79, 195, 247, 0.1)', width: 2, point: 1, tension: 0.2 },
 };
 
 function Toggle<T extends string>({

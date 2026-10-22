@@ -19,10 +19,10 @@ function memory(): Storage {
 const broken = { getItem: () => { throw new Error('denied'); }, setItem: () => { throw new Error('denied'); } } as unknown as Storage;
 
 describe('remember and recall', () => {
-  it('keeps the engine, reset mode, retro prior and format, and nothing else', () => {
+  it('keeps the engine, reset mode, and format, and nothing else', () => {
     const store = memory();
-    remember(store, { ...DEFAULT_VIEW, engine: 'whr', reset: 'softer', retro: true, format: 3, search: 'ann', page: 4 });
-    expect(recall(store)).toEqual({ engine: 'whr', reset: 'softer', retro: true, format: 3 });
+    remember(store, { ...DEFAULT_VIEW, engine: 'glicko2_std', reset: 'softer', format: 3, search: 'ann', page: 4 });
+    expect(recall(store)).toEqual({ engine: 'glicko2_std', reset: 'softer', format: 3 });
   });
 
   it('recalls nothing from an empty or unreadable store, or a value it does not understand', () => {

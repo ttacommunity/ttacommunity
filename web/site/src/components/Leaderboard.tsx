@@ -266,7 +266,6 @@ export default function Leaderboard({ apiUrl }: { apiUrl: string }) {
                   ...DEFAULT_VIEW,
                   engine: view.engine,
                   reset: view.reset,
-                  retro: view.retro,
                   format: view.format,
                   year: view.year,
                   stats: view.stats,

@@ -15,7 +15,6 @@ import {
   titleLabel,
   type CountryRatings,
   rankModels,
-  shownInTable,
   type AnalysisFilters,
   seatDelta,
   seatDeltaText,
@@ -36,10 +35,8 @@ const row = (model: CalibrationRow['model'], brier: number, ece: number, extra: 
 });
 
 describe('MODELS', () => {
-  it("lists upstream's 16 models in its order", () => {
-    expect(MODELS).toHaveLength(16);
-    expect(MODELS.slice(0, 3).map((m) => m.key)).toEqual(['glicko2_daneo', 'glicko2_daneo_softer', 'glicko2_adapt']);
-    expect(MODELS.at(-1)?.key).toBe('whr_softer');
+  it('lists the three models a run computes, GlickoD first', () => {
+    expect(MODELS.map((m) => m.key)).toEqual(['glicko2_daneo', 'glicko2_daneo_softer', 'glicko2_std']);
   });
 });
 
@@ -56,11 +53,11 @@ describe('compositeScore', () => {
 
 describe('rankModels', () => {
   it('ranks the chosen mode and format by composite score, with the favourite rates from the bins', () => {
-    const rows = [row('whr', 0.2, 0.02), row('glicko2_std', 0.19, 0.02), row('glicko2_std', 0.1, 0, { mode: 'walk_forward' })];
+    const rows = [row('glicko2_daneo_softer', 0.2, 0.02), row('glicko2_std', 0.19, 0.02), row('glicko2_std', 0.1, 0, { mode: 'walk_forward' })];
     const ranked = rankModels(rows, 'standard', 0);
-    expect(ranked).toHaveLength(16);
+    expect(ranked).toHaveLength(3);
     expect(ranked[0]).toMatchObject({ key: 'glicko2_std', rank: 1, brier: 0.19, ecePct: 2 });
-    expect(ranked[1]).toMatchObject({ key: 'whr', rank: 2 });
+    expect(ranked[1]).toMatchObject({ key: 'glicko2_daneo_softer', rank: 2 });
     // Predicted 0.5·1 + 0.9·3 = 3.2 over 4 = 80.0%; actual 0.6 + 2.4 = 3.0 over 4 = 75.0%
     expect(ranked[0]).toMatchObject({ pSollPct: 80, pIstPct: 75, pDeltaPct: -5 });
   });
@@ -72,28 +69,12 @@ describe('rankModels', () => {
 });
 
 describe('filters', () => {
-  const defaults: AnalysisFilters = {
-    engines: new Set(['glicko2_daneo', 'glicko2_mp', 'glicko2_adapt', 'glicko2_std', 'whr']),
-    resets: new Set(['continuous']),
-    prior: 'standard',
-  };
+  const defaults: AnalysisFilters = { engines: new Set(['glicko2_daneo', 'glicko2_std']), resets: new Set(['continuous']) };
 
-  it("draws upstream's default curves: continuous, standard prior, GlickoD and WHR whatever the prior", () => {
-    expect(activeModels(defaults)).toEqual(['glicko2_daneo', 'glicko2_adapt', 'glicko2_mp', 'glicko2_std', 'whr']);
-    expect(activeModels({ ...defaults, prior: 'retro' })).toEqual([
-      'glicko2_daneo',
-      'glicko2_adapt_retro',
-      'glicko2_mp_retro',
-      'glicko2_std_retro',
-      'whr',
-    ]);
-  });
-
-  it('lists in the table every model the prior allows, active or not', () => {
-    const shown = MODELS.filter((m) => shownInTable(m, defaults)).map((m) => m.key);
-    expect(shown).toContain('glicko2_std_softer');
-    expect(shown).toContain('glicko2_daneo');
-    expect(shown).not.toContain('glicko2_std_retro');
+  it("draws upstream's default curves, the continuous models, and the season reset when asked", () => {
+    expect(activeModels(defaults)).toEqual(['glicko2_daneo', 'glicko2_std']);
+    expect(activeModels({ ...defaults, resets: new Set(['continuous', 'softer']) })).toEqual(['glicko2_daneo', 'glicko2_daneo_softer', 'glicko2_std']);
+    expect(activeModels({ ...defaults, engines: new Set(['glicko2_std']), resets: new Set(['softer']) })).toEqual([]);
   });
 
   it("colours ECE as upstream: under 1.5% good, under 2.5% fair", () => {
@@ -116,8 +97,7 @@ describe('agreementName', () => {
   it.each([
     ['glicko2_daneo', 'GlickoD'],
     ['glicko2_daneo_softer', 'GlickoD (Season Reset)'],
-    ['glicko2_adapt', 'G2 Adapt (Career)'],
-    ['whr_softer', 'WHR (Season Reset)'],
+    ['glicko2_std', 'G2 Std (Career)'],
   ] as const)("names %s %s, as upstream's agreement cards do", (model, want) => {
     expect(agreementName(model)).toBe(want);
   });

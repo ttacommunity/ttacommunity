@@ -95,7 +95,7 @@ func TestPlayer(t *testing.T) {
 		Peak:  &store.Peak{Code: "WC"},
 		Games: map[int]int{0: 5, 3: 5},
 		Ratings: []store.PlayerRating{
-			{Model: "whr_softer", Format: 3, Rank: intp(4), Rating: 1800, RD: 40, CRating: 1680, Opponents: 12, WinRate: 55.5},
+			{Model: "glicko2_daneo_softer", Format: 3, Rank: intp(4), Rating: 1800, RD: 40, CRating: 1680, Opponents: 12, WinRate: 55.5},
 		},
 	}}
 	rec, _ := serve(t, f, "/v1/runs/7/players/ann")
@@ -104,7 +104,7 @@ func TestPlayer(t *testing.T) {
 	}
 	want := `{"country":"PL","games":[{"format":0,"games":5},{"format":2,"games":0},{"format":3,"games":5},{"format":4,"games":0}],` +
 		`"last_played":"2026-08-31","name":"Ann","newest_game":"2026-08-31","peak":{"code":"WC","year":null},` +
-		`"ratings":[{"c_rating":1680,"format":3,"model":"whr_softer","opponents":12,"rank":4,"rating":1800,"rd":40,"win_rate":55.5}],` +
+		`"ratings":[{"c_rating":1680,"format":3,"model":"glicko2_daneo_softer","opponents":12,"rank":4,"rating":1800,"rd":40,"win_rate":55.5}],` +
 		`"run_id":7,"title":{"code":"GM","count":2,"reason":"Royal League"}}`
 	if got := strings.TrimSpace(rec.Body.String()); got != want {
 		t.Errorf("GET player: body = %s\nwant %s", got, want)
@@ -163,12 +163,12 @@ func TestPlayerHistoryGroupsPointsByModel(t *testing.T) {
 	f := &fakePlayers{hist: []store.HistoryPoint{
 		{Model: "glicko2_daneo", Date: jan, Rating: 1800, CRating: 1700},
 		{Model: "glicko2_daneo", Date: feb, Rating: 1810, CRating: 1715},
-		{Model: "whr", Date: jan, Rating: 1900, CRating: 1850},
+		{Model: "glicko2_std", Date: jan, Rating: 1900, CRating: 1850},
 	}}
 	rec, _ := serve(t, f, "/v1/runs/7/players/ann/history?format=2")
 	want := `{"format":2,"name":"Ann","run_id":7,"series":[` +
 		`{"model":"glicko2_daneo","points":[{"c_rating":1700,"date":"2025-01-31","rating":1800},{"c_rating":1715,"date":"2025-02-28","rating":1810}]},` +
-		`{"model":"whr","points":[{"c_rating":1850,"date":"2025-01-31","rating":1900}]}]}`
+		`{"model":"glicko2_std","points":[{"c_rating":1850,"date":"2025-01-31","rating":1900}]}]}`
 	if got := strings.TrimSpace(rec.Body.String()); rec.Code != http.StatusOK || got != want {
 		t.Errorf("GET history: %d %s\nwant 200 %s", rec.Code, got, want)
 	}
@@ -187,7 +187,7 @@ func TestPlayerMatchesPlacesAndEstimates(t *testing.T) {
 		}},
 		rated: map[string]store.Rated{"Ann": {Rating: 1800, RD: 45}, "bob": {Rating: 1900, RD: 35}},
 	}
-	rec, _ := serve(t, f, "/v1/runs/7/players/ann/matches?format=3&model=whr_softer&page=2")
+	rec, _ := serve(t, f, "/v1/runs/7/players/ann/matches?format=3&model=glicko2_daneo_softer&page=2")
 	if rec.Code != http.StatusOK || rec.Header().Get("Cache-Control") != "public, max-age=300" {
 		t.Fatalf("GET matches: %d, %q; want 200, five minutes", rec.Code, rec.Header().Get("Cache-Control"))
 	}
@@ -199,7 +199,7 @@ func TestPlayerMatchesPlacesAndEstimates(t *testing.T) {
 	if err := json.Unmarshal(rec.Body.Bytes(), &got); err != nil {
 		t.Fatalf("decoding: %v", err)
 	}
-	if got.Name != "Ann" || got.Model != WhrSofter || got.Page != 2 || got.Pages != 3 || got.Total != 61 || len(got.Matches) != 1 {
+	if got.Name != "Ann" || got.Model != Glicko2DaneoSofter || got.Page != 2 || got.Pages != 3 || got.Total != 61 || len(got.Matches) != 1 {
 		t.Fatalf("GET matches = %+v", got)
 	}
 	m := got.Matches[0]
@@ -363,8 +363,8 @@ func TestPlayerCareer(t *testing.T) {
 		},
 		peak: &store.CareerPeak{Rating: 2060.8, Rank: 2, Date: time.Date(2026, 8, 22, 0, 0, 0, 0, time.UTC)},
 	}
-	rec, _ := serve(t, f, "/v1/runs/7/players/ann/career?format=3&model=glicko2_std_softer")
-	want := `{"format":3,"model":"glicko2_std_softer","name":"Ann","peak":{"date":"2026-08-22","rank":2,"rating":2060.8},"run_id":7,"years":[` +
+	rec, _ := serve(t, f, "/v1/runs/7/players/ann/career?format=3&model=glicko2_daneo_softer")
+	want := `{"format":3,"model":"glicko2_daneo_softer","name":"Ann","peak":{"date":"2026-08-22","rank":2,"rating":2060.8},"run_id":7,"years":[` +
 		`{"career_draws":1,"career_losses":1,"career_opponents":3,"career_win_rate":50,"career_wins":1,` +
 		`"draws":1,"losses":1,"opponents":3,"peak_rating":1990.5,"title":"GM","win_rate":50,"wins":1,"year":2024,"year_end_rating":1901.5},` +
 		`{"career_draws":1,"career_losses":2,"career_opponents":6,"career_win_rate":58.3,"career_wins":3,` +
@@ -372,8 +372,8 @@ func TestPlayerCareer(t *testing.T) {
 	if got := strings.TrimSpace(rec.Body.String()); rec.Code != http.StatusOK || got != want {
 		t.Errorf("GET career: %d %s\nwant 200 %s", rec.Code, got, want)
 	}
-	if rec.Header().Get("Cache-Control") != "public, max-age=300" || f.format != 3 || f.asked != "ann" || f.model != "glicko2_std_softer" {
-		t.Errorf("GET career: Cache-Control %q, asked %q format %d model %q; want five minutes, ann, 3, glicko2_std_softer",
+	if rec.Header().Get("Cache-Control") != "public, max-age=300" || f.format != 3 || f.asked != "ann" || f.model != "glicko2_daneo_softer" {
+		t.Errorf("GET career: Cache-Control %q, asked %q format %d model %q; want five minutes, ann, 3, glicko2_daneo_softer",
 			rec.Header().Get("Cache-Control"), f.asked, f.format, f.model)
 	}
 
@@ -430,11 +430,11 @@ func TestCareerAndVersusRefuseAndAnswerNotFound(t *testing.T) {
 func TestPlayerMatrix(t *testing.T) {
 	f := &fakeCareer{cells: []store.MatrixCell{
 		{Model: "glicko2_daneo", Rating: 2000, RD: 27.2, CRating: 1918.5, Rank: intp(3)},
-		{Model: "whr_softer", Rating: 2050.1, RD: 12, CRating: 2014.1},
+		{Model: "glicko2_daneo_softer", Rating: 2050.1, RD: 12, CRating: 2014.1},
 	}}
 	rec, _ := serve(t, f, "/v1/runs/7/players/ann/matrix?format=2&year=2024")
 	want := `{"cells":[{"c_rating":1918.5,"model":"glicko2_daneo","rank":3,"rating":2000,"rd":27.2},` +
-		`{"c_rating":2014.1,"model":"whr_softer","rank":null,"rating":2050.1,"rd":12}],"format":2,"name":"Ann","run_id":7,"year":2024}`
+		`{"c_rating":2014.1,"model":"glicko2_daneo_softer","rank":null,"rating":2050.1,"rd":12}],"format":2,"name":"Ann","run_id":7,"year":2024}`
 	if got := strings.TrimSpace(rec.Body.String()); rec.Code != http.StatusOK || got != want {
 		t.Errorf("GET matrix: %d %s\nwant 200 %s", rec.Code, got, want)
 	}

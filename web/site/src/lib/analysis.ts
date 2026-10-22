@@ -4,9 +4,8 @@ import type { Activity, CalibrationRow, CountryRatings, Format, TitleCode } from
 
 export type { CountryRatings };
 
-export type Family = 'glicko2_daneo' | 'glicko2_adapt' | 'glicko2_mp' | 'glicko2_std' | 'whr';
+export type Family = 'glicko2_daneo' | 'glicko2_std';
 export type Reset = 'continuous' | 'softer';
-export type Prior = 'all' | 'standard' | 'retro';
 export type EvalMode = CalibrationRow['mode'];
 
 export interface ModelInfo {
@@ -35,20 +34,7 @@ const m = (
 export const MODELS: readonly ModelInfo[] = [
   m('glicko2_daneo', 'GlickoD (Continuous)', 'glicko2_daneo', 'continuous', true, '#8b5cf6', 'rgba(139, 92, 246, 0.25)', '★ The Premier Flagship — Golden ratio multiplayer information decomposition (φ^(N-2)), 15-game re-calibration, and bilateral composite variance.'),
   m('glicko2_daneo_softer', 'GlickoD (Season Reset)', 'glicko2_daneo', 'softer', true, '#a855f7', 'rgba(168, 85, 247, 0.25)', '★ Peak Statistical & Competitive Harmony — Golden Ratio decomposition with Season Reset (α ≈ 1.45, λ ≈ 0.12), 15-game re-calibration, and all-time record 0.24% ECE.'),
-  m('glicko2_adapt', 'Glicko-2 Adaptive-T (Continuous)', 'glicko2_adapt', 'continuous', false, '#4ade80', 'rgba(74, 222, 128, 0.2)', '★ Gold Standard Calibration — Empirical format temperature scaling T(P, N) eliminates tail overconfidence and aligns with m=1 diagonal.'),
-  m('glicko2_adapt_softer', 'Glicko-2 Adaptive-T (Season Reset)', 'glicko2_adapt', 'softer', false, '#10b981', 'rgba(16, 185, 129, 0.2)', '★ High Calibration Fidelity — Format-specific temperature T(P, N) combined with optimal annual Season Reset.'),
-  m('glicko2_adapt_retro', 'Glicko-2 Adaptive-T (Continuous + Retro Prior)', 'glicko2_adapt', 'continuous', true, '#34d399', 'rgba(52, 211, 153, 0.25)', '★ High Precision Retro Career — 15-game emergent baseline combined with continuous temperature scaling.'),
-  m('glicko2_adapt_softer_retro', 'Glicko-2 Adaptive-T (Season Reset + Retro Prior)', 'glicko2_adapt', 'softer', true, '#059669', 'rgba(5, 150, 105, 0.25)', '★ Peak Statistical Power — 15-game emergent prior eliminates newcomer distortion with Season Reset.'),
-  m('glicko2_mp', 'Glicko-2 MP-Weighted (Continuous)', 'glicko2_mp', 'continuous', false, '#ef5350', 'rgba(239, 83, 80, 0.2)', '★ Optimal Multiplayer Balance — Fractional variance weighting (w=1/(N-1)) eliminates overconfidence in 3P/4P tables.'),
-  m('glicko2_mp_softer', 'Glicko-2 MP-Weighted (Season Reset)', 'glicko2_mp', 'softer', false, '#fb923c', 'rgba(251, 146, 60, 0.2)', '★ Calibrated MP Turnover — Fractional multiplayer variance weighting with gentle season decay.'),
-  m('glicko2_mp_retro', 'Glicko-2 MP-Weighted (Continuous + Retro Prior)', 'glicko2_mp', 'continuous', true, '#f97316', 'rgba(249, 115, 22, 0.25)', '★ Career MP Retro Accuracy — Unbroken career multiplayer weighting with emergent priors.'),
-  m('glicko2_mp_softer_retro', 'Glicko-2 MP-Weighted (Season Reset + Retro Prior)', 'glicko2_mp', 'softer', true, '#ea580c', 'rgba(234, 88, 12, 0.25)', '★ Multiplayer Retro Precision — Fractional 1/(N-1) variance with stabilized 15-game prior and Season Reset.'),
   m('glicko2_std', 'Glicko-2 Standard (Continuous)', 'glicko2_std', 'continuous', false, '#ffca28', 'rgba(255, 202, 40, 0.2)', '★ High Forward Responsiveness — Standard pairwise Elo dynamics; classical odometer benchmark.'),
-  m('glicko2_std_softer', 'Glicko-2 Standard (Season Reset)', 'glicko2_std', 'softer', false, '#facc15', 'rgba(250, 204, 21, 0.2)', '★ Gentle Annual Turnover — Standard pairwise Elo with Season Reset tier reversion.'),
-  m('glicko2_std_retro', 'Glicko-2 Standard (Continuous + Retro Prior)', 'glicko2_std', 'continuous', true, '#fde047', 'rgba(253, 224, 71, 0.25)', '★ Career Pairwise Retro Benchmark — Continuous pairwise Elo dynamics initialized from emergent priors.'),
-  m('glicko2_std_softer_retro', 'Glicko-2 Standard (Season Reset + Retro Prior)', 'glicko2_std', 'softer', true, '#eab308', 'rgba(234, 179, 8, 0.25)', '★ Standard Elo with Retro Prior — High pairwise fidelity with calibrated 15-game emergent baseline and Season Reset.'),
-  m('whr', 'Whole-History Rating (Continuous)', 'whr', 'continuous', false, '#29b6f6', 'rgba(41, 182, 246, 0.2)', '★ Retrospective Global Optimum — Exceptional in-sample fit across the global graph; exhibits boundary volatility at frontier.'),
-  m('whr_softer', 'Whole-History Rating (Season Reset)', 'whr', 'softer', false, '#38bdf8', 'rgba(56, 189, 248, 0.2)', '★ Retrospective Season Reset — Balanced multi-year graph smoothing with annual boundary stabilization.'),
 ];
 
 const clamp = (x: number) => Math.max(0, Math.min(1, x));
@@ -115,26 +101,15 @@ export function rankModels(rows: readonly CalibrationRow[], mode: EvalMode, form
   return ranked.sort((a, b) => b.composite - a.composite).map((x, i) => ({ ...x, rank: i + 1 }));
 }
 
-/** The analysis selector's engine, reset and prior filters. */
+/** The analysis selector's engine and reset filters. */
 export interface AnalysisFilters {
   engines: ReadonlySet<Family>;
   resets: ReadonlySet<Reset>;
-  prior: Prior;
 }
 
-/** priorAllows applies the prior lever; GlickoD and WHR have no retro variant, so it never hides them. */
-function priorAllows(info: ModelInfo, prior: Prior): boolean {
-  return info.family === 'glicko2_daneo' || info.family === 'whr' || prior === 'all' || (prior === 'retro') === info.retro;
-}
-
-/** activeModels are the curves drawn: the chosen engines and reset modes, as the prior lever allows. */
+/** activeModels are the curves drawn: the chosen engines in the chosen reset modes. The table lists every model, drawn ones highlighted. */
 export function activeModels(f: AnalysisFilters): ModelInfo['key'][] {
-  return MODELS.filter((i) => f.engines.has(i.family) && f.resets.has(i.reset) && priorAllows(i, f.prior)).map((i) => i.key);
-}
-
-/** shownInTable is upstream's table rule: every model the prior lever allows, drawn or not (drawn ones are highlighted). */
-export function shownInTable(info: ModelInfo, f: AnalysisFilters): boolean {
-  return priorAllows(info, f.prior) || activeModels(f).includes(info.key);
+  return MODELS.filter((i) => f.engines.has(i.family) && f.resets.has(i.reset)).map((i) => i.key);
 }
 
 /** eceClass is upstream's colour for an ECE percentage. */
@@ -153,13 +128,7 @@ export function parseAnalysisParams(params: URLSearchParams, remembered: { forma
   return { mode: m === 'walk_forward' ? 'walk_forward' : 'standard', format };
 }
 
-const AGREEMENT_FAMILY: Record<Family, string> = {
-  glicko2_daneo: 'GlickoD',
-  glicko2_std: 'G2 Std',
-  glicko2_mp: 'G2 MP',
-  glicko2_adapt: 'G2 Adapt',
-  whr: 'WHR',
-};
+const AGREEMENT_FAMILY: Record<Family, string> = { glicko2_daneo: 'GlickoD', glicko2_std: 'G2 Std' };
 
 /** agreementName is a model's name on upstream's agreement cards. */
 export function agreementName(key: ModelInfo['key']): string {

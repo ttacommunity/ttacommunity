@@ -111,18 +111,18 @@ describe('currentRun', () => {
 
 describe('leaderboard', () => {
   it('asks for one run, model and format without credentials', async () => {
-    const body = '{"run_id":5,"model":"whr","format":2,"players":[]}';
+    const body = '{"run_id":5,"model":"glicko2_std","format":2,"players":[]}';
     const f = fakeFetch(200, body);
-    const board = await leaderboard('https://api.example', 5, 'whr', 2, f.fetch);
+    const board = await leaderboard('https://api.example', 5, 'glicko2_std', 2, f.fetch);
 
     expect(board).toEqual(JSON.parse(body));
-    expect(f.calls[0]?.url).toBe('https://api.example/v1/runs/5/leaderboard?model=whr&format=2');
+    expect(f.calls[0]?.url).toBe('https://api.example/v1/runs/5/leaderboard?model=glicko2_std&format=2');
     expect(f.calls[0]?.init?.credentials).toBe('omit');
   });
 
   it("raises the API's message for a run that is not published", async () => {
     const f = fakeFetch(404, '{"error":"no published rating run has this id"}');
-    const err = await leaderboard('https://api.example', 9, 'whr', 0, f.fetch).catch((e: unknown) => e);
+    const err = await leaderboard('https://api.example', 9, 'glicko2_std', 0, f.fetch).catch((e: unknown) => e);
 
     expect(err).toMatchObject({ status: 404, message: 'no published rating run has this id' });
   });
@@ -130,13 +130,13 @@ describe('leaderboard', () => {
 
 describe('history', () => {
   it('asks for a date, or for the previous period without one', async () => {
-    const f = fakeFetch(200, '{"run_id":5,"model":"whr","format":2,"at":"2026-05-01","players":[]}');
-    const got = await history('https://api.example', 5, 'whr', 2, '2026-05-01', f.fetch);
+    const f = fakeFetch(200, '{"run_id":5,"model":"glicko2_std","format":2,"at":"2026-05-01","players":[]}');
+    const got = await history('https://api.example', 5, 'glicko2_std', 2, '2026-05-01', f.fetch);
     await history('https://api.example', 5, 'glicko2_daneo', 0, null, f.fetch);
 
     expect(got.at).toBe('2026-05-01');
     expect(f.calls.map((c) => c.url)).toEqual([
-      'https://api.example/v1/runs/5/history?model=whr&format=2&at=2026-05-01',
+      'https://api.example/v1/runs/5/history?model=glicko2_std&format=2&at=2026-05-01',
       'https://api.example/v1/runs/5/history?model=glicko2_daneo&format=0',
     ]);
     expect(f.calls[0]?.init?.credentials).toBe('omit');
@@ -148,7 +148,7 @@ describe('player routes', () => {
     const f = fakeFetch(200, '{}');
     await player('https://api.example', 5, 'a/b c?', f.fetch);
     await playerHistory('https://api.example', 5, 'Ann', 3, f.fetch);
-    await playerMatches('https://api.example', 5, 'Ann', 0, 'whr_softer', 2, f.fetch);
+    await playerMatches('https://api.example', 5, 'Ann', 0, 'glicko2_daneo_softer', 2, f.fetch);
     await playerRivals('https://api.example', 5, 'Ann', 4, f.fetch);
     await playerCareer('https://api.example', 5, 'Ann', 2, 'glicko2_daneo_softer', f.fetch);
     await playerVersus('https://api.example', 5, 'Ann', 'b/c', f.fetch);
@@ -160,7 +160,7 @@ describe('player routes', () => {
     expect(f.calls.map((c) => c.url)).toEqual([
       'https://api.example/v1/runs/5/players/a%2Fb%20c%3F',
       'https://api.example/v1/runs/5/players/Ann/history?format=3',
-      'https://api.example/v1/runs/5/players/Ann/matches?format=0&model=whr_softer&page=2',
+      'https://api.example/v1/runs/5/players/Ann/matches?format=0&model=glicko2_daneo_softer&page=2',
       'https://api.example/v1/runs/5/players/Ann/rivals?format=4',
       'https://api.example/v1/runs/5/players/Ann/career?format=2&model=glicko2_daneo_softer',
       'https://api.example/v1/runs/5/players/Ann/versus/b%2Fc',
@@ -183,10 +183,10 @@ describe('year routes', () => {
   it('ask for the years and one year\'s board without credentials', async () => {
     const f = fakeFetch(200, '{}');
     await years('https://api.example', 5, f.fetch);
-    await yearLeaderboard('https://api.example', 5, 2024, 'whr_softer', 3, f.fetch);
+    await yearLeaderboard('https://api.example', 5, 2024, 'glicko2_daneo_softer', 3, f.fetch);
     expect(f.calls.map((c) => c.url)).toEqual([
       'https://api.example/v1/runs/5/years',
-      'https://api.example/v1/runs/5/years/2024/leaderboard?model=whr_softer&format=3',
+      'https://api.example/v1/runs/5/years/2024/leaderboard?model=glicko2_daneo_softer&format=3',
     ]);
     expect(f.calls.every((c) => c.init?.credentials === 'omit')).toBe(true);
   });

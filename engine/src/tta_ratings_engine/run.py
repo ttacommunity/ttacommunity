@@ -33,7 +33,6 @@ from tta_ratings_engine.models.evaluation.walk_forward import (
     run_walk_forward_evaluation,
 )
 from tta_ratings_engine.models.glicko2.calculator import compute_glicko2_ratings
-from tta_ratings_engine.models.whr.calculator import compute_whr_ratings
 from tta_ratings_engine.progress import Heartbeat, Progress
 
 FORMATS = [0, 2, 3, 4]
@@ -52,29 +51,15 @@ STEP_COST = {
 }  # fmt: skip
 
 _g2 = compute_glicko2_ratings
-_whr = functools.partial(compute_whr_ratings, max_iter=6, tol=1e-3, verbose=False)
 _softer = {"reset_mode": "softer"}
-_retro = {"retro_calibrated": True}
 
-# Upstream's pipeline models plus its retro variants: what the site shows.
+# The models a run computes: Glicko-D, continuous and with a season reset, which the site shows, and standard
+# Glicko-2 as the benchmark (the country stats read it). The other variants were retired in 2026-10.
 MODELS = [
     ("glicko2_daneo", _g2, {"engine": "glicko2_daneo"}),
     ("glicko2_daneo_softer", _g2, {"engine": "glicko2_daneo", **_softer}),
     ("glicko2_std", _g2, {"weighted": False}),
-    ("glicko2_std_retro", _g2, {"weighted": False, **_retro}),
-    ("glicko2_std_softer", _g2, {"weighted": False, **_softer}),
-    ("glicko2_std_softer_retro", _g2, {"weighted": False, **_softer, **_retro}),
-    ("glicko2_mp", _g2, {"weighted": True}),
-    ("glicko2_mp_retro", _g2, {"weighted": True, **_retro}),
-    ("glicko2_mp_softer", _g2, {"weighted": True, **_softer}),
-    ("glicko2_mp_softer_retro", _g2, {"weighted": True, **_softer, **_retro}),
-    ("glicko2_adapt", _g2, {"engine": "glicko2_adapt"}),
-    ("glicko2_adapt_retro", _g2, {"engine": "glicko2_adapt", **_retro}),
-    ("glicko2_adapt_softer", _g2, {"engine": "glicko2_adapt", **_softer}),
-    ("glicko2_adapt_softer_retro", _g2, {"engine": "glicko2_adapt", **_softer, **_retro}),
-    ("whr", _whr, {}),
-    ("whr_softer", _whr, _softer),
-]  # fmt: skip
+]
 MODEL_TYPES = [name for name, _, _ in MODELS]
 
 

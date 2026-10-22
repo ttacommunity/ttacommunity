@@ -7,10 +7,6 @@ import json
 import os
 from pathlib import Path
 
-from tta_ratings_engine.models.glicko2.adaptive_t import (
-    ADAPTIVE_T_PARAMS,
-    update_rating_adaptive,
-)
 from tta_ratings_engine.models.glicko2.engine import Rating, update_rating
 
 CASES = (
@@ -91,51 +87,16 @@ INPUTS = [
         "player": [1800, 45, 0.03],
         "matches": [[1900, 35, 0.03, 0.0, 0.5, 3], [1600, 80, 0.03, 1.0, 0.5, 3]],
     },
-    {
-        "name": "adaptive 2P upset loss",
-        "kind": "adaptive",
-        "tau": 0.3,
-        "player": [2050, 30, 0.03],
-        "matches": [[1500, 120, 0.03, 0.0, 1.0, 2]],
-    },
-    {
-        "name": "adaptive 3P",
-        "kind": "adaptive",
-        "tau": 0.3,
-        "player": [1600, 100, 0.03],
-        "matches": [[1650, 80, 0.03, 1.0, 0.5, 3], [1550, 90, 0.03, 0.5, 0.5, 3]],
-    },
-    {
-        "name": "adaptive 4P, newcomer",
-        "kind": "adaptive",
-        "tau": 0.3,
-        "player": [1500, 350, 0.03],
-        "matches": [
-            [1800, 40, 0.03, 0.0, 1 / 3, 4],
-            [1700, 60, 0.03, 1.0, 1 / 3, 4],
-            [1600, 200, 0.03, 1.0, 1 / 3, 4],
-        ],
-    },
 ]
 
 
 def compute(case: dict) -> list[float]:
     """Returns [rating, rd, sigma] after the case's update, by the engine's code."""
     player = Rating(*case["player"])
-    if case["kind"] == "adaptive":
-        matches = [
-            (Rating(r, rd, s), out, w, n) for r, rd, s, out, w, n in case["matches"]
-        ]
-        got = update_rating_adaptive(
-            player, matches, tau=case["tau"], params_dict=ADAPTIVE_T_PARAMS
-        )
-    else:
-        matches = [
-            (Rating(r, rd, s), out, w) for r, rd, s, out, w, _ in case["matches"]
-        ]
-        got = update_rating(
-            player, matches, tau=case["tau"], weighted=case["kind"] == "weighted"
-        )
+    matches = [(Rating(r, rd, s), out, w) for r, rd, s, out, w, _ in case["matches"]]
+    got = update_rating(
+        player, matches, tau=case["tau"], weighted=case["kind"] == "weighted"
+    )
     return [got.rating, got.rd, got.sigma]
 
 

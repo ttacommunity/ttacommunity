@@ -33,14 +33,14 @@ describe('playerHref', () => {
 
 describe('parsePlayerView', () => {
   it('reads the name, upstream options and the games page', () => {
-    const p = new URLSearchParams('name=Ann&model=whr&reset_mode=softer&format=3&match_page=4');
-    expect(parsePlayerView(p, {})).toEqual({ name: 'Ann', engine: 'whr', reset: 'softer', format: 3, matchPage: 4 });
+    const p = new URLSearchParams('name=Ann&model=glicko2_std&reset_mode=softer&format=3&match_page=4');
+    expect(parsePlayerView(p, {})).toEqual({ name: 'Ann', engine: 'glicko2_std', reset: 'softer', format: 3, matchPage: 4 });
   });
 
   it('falls back to remembered choices, then the defaults', () => {
-    expect(parsePlayerView(new URLSearchParams('name=Ann'), { engine: 'glicko2_mp', format: 2 })).toEqual({
+    expect(parsePlayerView(new URLSearchParams('name=Ann'), { engine: 'glicko2_std', format: 2 })).toEqual({
       name: 'Ann',
-      engine: 'glicko2_mp',
+      engine: 'glicko2_std',
       reset: 'continuous',
       format: 2,
       matchPage: 1,
@@ -71,9 +71,10 @@ describe('playerParams', () => {
 });
 
 describe('pageModel', () => {
-  it('adds the season reset to the engine and never the retro prior', () => {
+  it('adds the season reset to GlickoD, which Standard does not have', () => {
     expect(pageModel('glicko2_daneo', 'continuous')).toBe('glicko2_daneo');
-    expect(pageModel('whr', 'softer')).toBe('whr_softer');
+    expect(pageModel('glicko2_daneo', 'softer')).toBe('glicko2_daneo_softer');
+    expect(pageModel('glicko2_std', 'softer')).toBe('glicko2_std');
   });
 });
 
@@ -92,7 +93,7 @@ const player = (games: number, last: string | null, newest: string | null): Play
     { format: 4, games: 0 },
   ],
   ratings: [
-    { model: 'glicko2_std_softer', format: 2, rank: 5, rating: 1700, rd: 60, c_rating: 1520, opponents: 20, win_rate: 50 },
+    { model: 'glicko2_daneo_softer', format: 2, rank: 5, rating: 1700, rd: 60, c_rating: 1520, opponents: 20, win_rate: 50 },
   ],
 });
 
@@ -114,7 +115,7 @@ describe('isProvisional', () => {
 describe('ratingIn', () => {
   it('finds the rating for a model and format, or none', () => {
     const p = player(3, null, null);
-    expect(ratingIn(p, 'glicko2_std_softer', 2)?.rank).toBe(5);
+    expect(ratingIn(p, 'glicko2_daneo_softer', 2)?.rank).toBe(5);
     expect(ratingIn(p, 'glicko2_std', 2)).toBeUndefined();
   });
 });
@@ -153,7 +154,7 @@ describe('chartData', () => {
           { date: '2025-01-31', rating: 1800, c_rating: 1690 },
         ],
       },
-      { model: 'whr_softer', points: [{ date: '2024-12-31', rating: 1500.55, c_rating: 1400 }] },
+      { model: 'glicko2_daneo_softer', points: [{ date: '2024-12-31', rating: 1500.55, c_rating: 1400 }] },
     ],
   };
 
@@ -161,13 +162,13 @@ describe('chartData', () => {
     const got = chartData(history, 'continuous', 'expected');
     expect(got.labels).toEqual(['2024-12-31', '2025-01-31', '2025-02-28']);
     expect(got.series.glicko2_daneo).toEqual([null, 1800, 1810]);
-    expect(got.series.whr).toEqual([null, null, null]);
+    expect(got.series.glicko2_std).toEqual([null, null, null]);
   });
 
-  it('reads the season-reset models and the conservative curve', () => {
+  it('reads the season-reset models and the conservative curve; Standard has no season reset', () => {
     const got = chartData(history, 'softer', 'conservative');
-    expect(got.series.whr).toEqual([1400, null, null]);
-    expect(got.series.glicko2_daneo).toEqual([null, null, null]);
+    expect(got.series.glicko2_daneo).toEqual([1400, null, null]);
+    expect(got.series.glicko2_std).toEqual([null, null, null]);
   });
 });
 
@@ -268,14 +269,14 @@ describe('matrix page address', () => {
   });
 
   it("links to the matrix in the player page's model, reset mode and format", () => {
-    expect(matrixHref('Ann', { engine: 'whr', reset: 'softer', format: 2 })).toBe(
-      '/ratings/player/matrix/?name=Ann&model=whr&format=2&reset_mode=softer',
+    expect(matrixHref('Ann', { engine: 'glicko2_std', reset: 'softer', format: 2 })).toBe(
+      '/ratings/player/matrix/?name=Ann&model=glicko2_std&format=2&reset_mode=softer',
     );
   });
 
   it("links back to the player page in the matrix's model, reset mode and format", () => {
-    expect(profileHref('Ann', { engine: 'whr', reset: 'softer', format: 2 })).toBe(
-      '/ratings/player/?name=Ann&model=whr&format=2&reset_mode=softer',
+    expect(profileHref('Ann', { engine: 'glicko2_std', reset: 'softer', format: 2 })).toBe(
+      '/ratings/player/?name=Ann&model=glicko2_std&format=2&reset_mode=softer',
     );
   });
 });

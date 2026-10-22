@@ -11,10 +11,8 @@ import {
   eceClass,
   parseAnalysisParams,
   rankModels,
-  shownInTable,
   type EvalMode,
   type Family,
-  type Prior,
   type Reset,
 } from '../lib/analysis';
 import { recall } from '../lib/remembered';
@@ -24,7 +22,7 @@ import Waiting from './Waiting';
 
 Chart.register(LineController, LineElement, PointElement, LinearScale, CategoryScale, Legend, Tooltip);
 
-const ALL_ENGINES: Family[] = ['glicko2_daneo', 'glicko2_mp', 'glicko2_adapt', 'glicko2_std', 'whr'];
+const ALL_ENGINES: Family[] = ['glicko2_daneo', 'glicko2_std'];
 const ALL_RESETS: Reset[] = ['continuous', 'softer'];
 const BIN_LABELS = ['50-55%', '55-60%', '60-65%', '65-70%', '70-75%', '75-80%', '80-85%', '85-90%', '90-95%', '95-100%'];
 const FORMATS: { value: Format; label: string }[] = [
@@ -35,10 +33,7 @@ const FORMATS: { value: Format; label: string }[] = [
 ];
 const FAMILY_BUTTONS: { family: Family; label: string; className: string }[] = [
   { family: 'glicko2_daneo', label: '👑 GlickoD', className: 'family-daneo' },
-  { family: 'glicko2_mp', label: 'G2 MP', className: 'family-mp' },
-  { family: 'glicko2_adapt', label: 'G2 Adapt', className: 'family-adapt' },
   { family: 'glicko2_std', label: 'G2 Std', className: 'family-std' },
-  { family: 'whr', label: 'WHR', className: 'family-whr' },
 ];
 
 type Load = { kind: 'loading' } | { kind: 'error'; message: string } | { kind: 'ready'; data: Calibration };
@@ -73,7 +68,6 @@ export default function CalibrationPanel({ apiUrl }: { apiUrl: string }) {
   const [format, setFormat] = useState<Format>(initial.format);
   const [engines, setEngines] = useState<ReadonlySet<Family>>(new Set(ALL_ENGINES));
   const [resets, setResets] = useState<ReadonlySet<Reset>>(new Set<Reset>(['continuous']));
-  const [prior, setPrior] = useState<Prior>('standard');
   const [load, setLoad] = useState<Load>({ kind: 'loading' });
   const canvas = useRef<HTMLCanvasElement>(null);
   const chart = useRef<Chart<'line'> | null>(null);
@@ -85,7 +79,7 @@ export default function CalibrationPanel({ apiUrl }: { apiUrl: string }) {
       .catch((e: unknown) => setLoad({ kind: 'error', message: e instanceof Error ? e.message : String(e) }));
   }, [apiUrl]);
 
-  const filters = useMemo(() => ({ engines, resets, prior }), [engines, resets, prior]);
+  const filters = useMemo(() => ({ engines, resets }), [engines, resets]);
   const active = useMemo(() => new Set(activeModels(filters)), [filters]);
   const rows = load.kind === 'ready' ? load.data.rows : [];
   const ranked = useMemo(() => rankModels(rows, mode, format), [rows, mode, format]);
@@ -178,7 +172,6 @@ export default function CalibrationPanel({ apiUrl }: { apiUrl: string }) {
   const resetAll = () => {
     setEngines(new Set(ALL_ENGINES));
     setResets(new Set<Reset>(['continuous']));
-    setPrior('standard');
     setMode('standard');
     setFormat(0);
   };
@@ -245,9 +238,7 @@ export default function CalibrationPanel({ apiUrl }: { apiUrl: string }) {
               </thead>
               <tbody>
                 {ready &&
-                  ranked
-                    .filter((rm) => shownInTable(rm, filters))
-                    .map((rm) => (
+                  ranked.map((rm) => (
                       <tr key={rm.key} className={`ranked-eval-row model-${rm.key}${active.has(rm.key) ? ' active-highlight' : ''}`}>
                         <td className="rank-cell">#{rm.rank}</td>
                         <td>
@@ -331,21 +322,6 @@ export default function CalibrationPanel({ apiUrl }: { apiUrl: string }) {
               </Toggle>
               <Toggle active={resets.has('softer')} onClick={() => setResets(toggled(resets, 'softer', ALL_RESETS))}>
                 Season Reset
-              </Toggle>
-            </div>
-          </div>
-
-          <div role="group" aria-label="Prior Calibration Lever">
-            <div className="opt-section-title">⚡ Prior Calibration Lever</div>
-            <div className="opt-btn-grid">
-              <Toggle active={prior === 'all'} onClick={() => setPrior('all')} tip="Show both standard and retro-calibrated priors">
-                All Priors
-              </Toggle>
-              <Toggle active={prior === 'standard'} onClick={() => setPrior('standard')} tip="Standard initial priors (1500 / 350 RD)">
-                Standard (1500)
-              </Toggle>
-              <Toggle active={prior === 'retro'} onClick={() => setPrior('retro')} tip="Two-pass 15-game emergent calibration with initial freeze (Option A)">
-                15G Retro (★)
               </Toggle>
             </div>
           </div>

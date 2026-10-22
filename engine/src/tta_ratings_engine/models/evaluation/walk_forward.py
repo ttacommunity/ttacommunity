@@ -10,10 +10,6 @@ import psycopg
 from psycopg.types.json import Jsonb
 
 from tta_ratings_engine.data.db import load_pairs, require_running
-from tta_ratings_engine.models.glicko2.adaptive_t import (
-    calibrated_expectation,
-    update_rating_adaptive,
-)
 from tta_ratings_engine.models.glicko2.calculator import (
     CALIBRATED_SIGMA,
     CALIBRATED_TAU,
@@ -27,9 +23,6 @@ from tta_ratings_engine.models.glicko2.calculator import (
 )
 from tta_ratings_engine.models.glicko2.engine import GLICKO2_SCALE as G2_SCALE
 from tta_ratings_engine.models.glicko2.engine import Rating, update_rating
-from tta_ratings_engine.models.whr.engine import (
-    WHREngine,
-)
 
 BIN_LABELS = [
     "50-55%",
@@ -47,25 +40,12 @@ IDEAL_POINTS = [0.525, 0.575, 0.625, 0.675, 0.725, 0.775, 0.825, 0.875, 0.925, 0
 BIN_EDGES = np.linspace(0.5, 1.0, 11)
 NUM_BINS = len(BIN_LABELS)
 
-ALL_16_MODELS = [
+# The models a run evaluates: the ones run.py computes.
+ALL_MODELS = [
     "glicko2_daneo",
     "glicko2_daneo_softer",
     "glicko2_std",
-    "glicko2_std_retro",
-    "glicko2_std_softer",
-    "glicko2_std_softer_retro",
-    "glicko2_mp",
-    "glicko2_mp_retro",
-    "glicko2_mp_softer",
-    "glicko2_mp_softer_retro",
-    "glicko2_adapt",
-    "glicko2_adapt_retro",
-    "glicko2_adapt_softer",
-    "glicko2_adapt_softer_retro",
-    "whr",
-    "whr_softer",
 ]
-ALL_12_MODELS = ALL_16_MODELS  # Alias for backward compatibility
 
 
 def is_retro(m: str) -> bool:
@@ -77,12 +57,8 @@ def get_fam(m: str) -> str:
     """Extracts the underlying engine family."""
     if "daneo" in m:
         return "daneo"
-    if "adapt" in m:
-        return "adapt"
     if "mp" in m:
         return "mp"
-    if "whr" in m:
-        return "whr"
     return "std"
 
 
@@ -221,12 +197,11 @@ def run_walk_forward_evaluation(
             )
 
         if models_filter:
-            models = [m for m in ALL_16_MODELS if m in models_filter]
+            models = [m for m in ALL_MODELS if m in models_filter]
         else:
-            models = ALL_16_MODELS
+            models = ALL_MODELS
 
-        g2_models = [m for m in models if "whr" not in m]
-        has_whr = any("whr" in m for m in models)
+        g2_models = list(models)
 
         # -------------------------------------------------------------
         # PASS 1: Emergent priors for retrospective calibration (Option A)
@@ -272,12 +247,7 @@ def run_walk_forward_evaluation(
                         tot_g = len(games_p1[p_name])
 
                         def run_up_p1(r_cur, items, fam=fam):
-                            if fam == "adapt":
-                                enc4 = [(it[0], it[1], it[2], it[3]) for it in items]
-                                return update_rating_adaptive(
-                                    r_cur, enc4, tau=CALIBRATED_TAU
-                                )
-                            elif fam in ("daneo", "mp"):
+                            if fam in ("daneo", "mp"):
                                 enc3 = [(it[0], it[1], it[2]) for it in items]
                                 return update_rating(
                                     r_cur, enc3, tau=CALIBRATED_TAU, weighted=True
@@ -337,7 +307,6 @@ def run_walk_forward_evaluation(
                 )
 
         games_played_p2 = {m: defaultdict(set) for m in g2_models}
-        whr = WHREngine() if has_whr else None
 
         def apply_annual_resets(prev_y: str, cur_y: str):
             if prev_y is not None and cur_y != prev_y:
@@ -423,16 +392,6 @@ def run_walk_forward_evaluation(
             prev_year = cur_year
 
             m_rows = month_matches[m]
-            if has_whr:
-                for r in m_rows:
-                    whr.add_game(
-                        r["date"],
-                        r["player_a"],
-                        r["player_b"],
-                        r["outcome_a"],
-                        r["weight"],
-                    )
-
             encounters = {m_key: defaultdict(list) for m_key in g2_models}
             for r in m_rows:
                 pa, pb, out = r["player_a"], r["player_b"], r["outcome_a"]
@@ -468,10 +427,7 @@ def run_walk_forward_evaluation(
                 act = set(encounters[m_key].keys())
 
                 def run_up_burn(r_cur, items, fam=fam):
-                    if fam == "adapt":
-                        enc4 = [(it[0], it[1], it[2], it[3]) for it in items]
-                        return update_rating_adaptive(r_cur, enc4, tau=CALIBRATED_TAU)
-                    elif fam in ("daneo", "mp"):
+                    if fam in ("daneo", "mp"):
                         enc3 = [(it[0], it[1], it[2]) for it in items]
                         return update_rating(
                             r_cur, enc3, tau=CALIBRATED_TAU, weighted=True
@@ -518,12 +474,6 @@ def run_walk_forward_evaluation(
                             r_cur.rating, min(350.0, phi_new * G2_SCALE), r_cur.sigma
                         )
 
-        # Fit WHR burn-in
-        if has_whr and burn_in_months:
-            whr.fit(max_iter=6, tol=1e-3, verbose=False)
-            if verbose:
-                print("Burn-in complete.")
-
         # Data collection for evaluation
         monthly_results = defaultdict(dict)
         overall_preds = {m: [] for m in models}
@@ -562,14 +512,9 @@ def run_walk_forward_evaluation(
                         else r_map[pb]
                     )
 
-                    if fam == "adapt":
-                        p_val = calibrated_expectation(
-                            ra.mu, rb.mu, rb.phi, player_count=m_pcount, phi_a=ra.phi
-                        )
-                    else:
-                        c = math.sqrt(ra.phi**2 + rb.phi**2)
-                        g_rd = 1.0 / math.sqrt(1.0 + 3.0 * (c**2) / (math.pi**2))
-                        p_val = 1.0 / (1.0 + math.exp(-g_rd * (ra.mu - rb.mu)))
+                    c = math.sqrt(ra.phi**2 + rb.phi**2)
+                    g_rd = 1.0 / math.sqrt(1.0 + 3.0 * (c**2) / (math.pi**2))
+                    p_val = 1.0 / (1.0 + math.exp(-g_rd * (ra.mu - rb.mu)))
 
                     if p_val >= 0.5:
                         month_preds[m_key].append(p_val)
@@ -577,39 +522,6 @@ def run_walk_forward_evaluation(
                     else:
                         month_preds[m_key].append(1.0 - p_val)
                         month_actuals[m_key].append(1.0 - out)
-
-                # WHR predictions strictly prior to observing month tm
-                if has_whr:
-                    cur_a = whr.get_current_rating(pa)
-                    cur_b = whr.get_current_rating(pb)
-                    raw_a = cur_a[0] if cur_a else 1500.0
-                    raw_b = cur_b[0] if cur_b else 1500.0
-
-                    if "whr" in models:
-                        p_whr = 1.0 / (1.0 + 10.0 ** (-(raw_a - raw_b) / 400.0))
-                        if p_whr >= 0.5:
-                            month_preds["whr"].append(p_whr)
-                            month_actuals["whr"].append(out)
-                        else:
-                            month_preds["whr"].append(1.0 - p_whr)
-                            month_actuals["whr"].append(1.0 - out)
-
-                    if "whr_softer" in models:
-                        r_softer_a = (
-                            1.0 - RESET_LAMBDA_SOFTER
-                        ) * raw_a + RESET_LAMBDA_SOFTER * get_tier_mean(raw_a)
-                        r_softer_b = (
-                            1.0 - RESET_LAMBDA_SOFTER
-                        ) * raw_b + RESET_LAMBDA_SOFTER * get_tier_mean(raw_b)
-                        p_softer = 1.0 / (
-                            1.0 + 10.0 ** (-(r_softer_a - r_softer_b) / 400.0)
-                        )
-                        if p_softer >= 0.5:
-                            month_preds["whr_softer"].append(p_softer)
-                            month_actuals["whr_softer"].append(out)
-                        else:
-                            month_preds["whr_softer"].append(1.0 - p_softer)
-                            month_actuals["whr_softer"].append(1.0 - out)
 
             # Record monthly metrics
             for m in models:
@@ -620,12 +532,7 @@ def run_walk_forward_evaluation(
 
             if verbose and (idx % 6 == 0 or idx == len(eval_months) - 1):
                 stat_parts = []
-                for sample_m in [
-                    "glicko2_daneo",
-                    "glicko2_std_retro",
-                    "glicko2_std",
-                    "whr",
-                ]:
+                for sample_m in ALL_MODELS:
                     if sample_m in monthly_results[tm]:
                         stat_parts.append(
                             f"{sample_m}: {monthly_results[tm][sample_m]['brier']:.4f}"
@@ -636,17 +543,6 @@ def run_walk_forward_evaluation(
                 )
 
             # (B) Incremental Online Update for month tm matches
-            if has_whr:
-                for r in m_matches:
-                    whr.add_game(
-                        r["date"],
-                        r["player_a"],
-                        r["player_b"],
-                        r["outcome_a"],
-                        r["weight"],
-                    )
-                whr.fit(max_iter=3, tol=1e-3, verbose=False)
-
             encounters = {m_key: defaultdict(list) for m_key in g2_models}
             for r in m_matches:
                 pa, pb, out = r["player_a"], r["player_b"], r["outcome_a"]
@@ -682,10 +578,7 @@ def run_walk_forward_evaluation(
                 act = set(encounters[m_key].keys())
 
                 def run_up_eval(r_cur, items, fam=fam):
-                    if fam == "adapt":
-                        enc4 = [(it[0], it[1], it[2], it[3]) for it in items]
-                        return update_rating_adaptive(r_cur, enc4, tau=CALIBRATED_TAU)
-                    elif fam in ("daneo", "mp"):
+                    if fam in ("daneo", "mp"):
                         enc3 = [(it[0], it[1], it[2]) for it in items]
                         return update_rating(
                             r_cur, enc3, tau=CALIBRATED_TAU, weighted=True

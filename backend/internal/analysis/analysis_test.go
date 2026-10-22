@@ -8,9 +8,10 @@ import (
 	"ttacommunity/backend/internal/store"
 )
 
-// fixture is five players rated in all ten page models, each model shifted a
-// little so they disagree, plus two WHR-only players at the histogram's edges.
-// The expected numbers were computed with numpy, as upstream computes them.
+// fixture is five players rated in every page model, each model shifted a
+// little so they disagree, plus two players rated in standard Glicko-2 alone
+// at the histogram's edges. The expected numbers were computed with numpy, as
+// upstream computes them, and GlickoD against Standard checked by hand.
 func fixture() []store.ModelRating {
 	var rows []store.ModelRating
 	for i, m := range store.PlayerPageModels {
@@ -29,8 +30,8 @@ func fixture() []store.ModelRating {
 		}
 	}
 	rows = append(rows,
-		store.ModelRating{Player: "edge", Model: "whr", Rating: 2100, Opponents: 20},
-		store.ModelRating{Player: "below", Model: "whr", Rating: 999, Opponents: 20})
+		store.ModelRating{Player: "edge", Model: "glicko2_std", Rating: 2100, Opponents: 20},
+		store.ModelRating{Player: "below", Model: "glicko2_std", Rating: 999, Opponents: 20})
 	return rows
 }
 
@@ -44,10 +45,8 @@ func TestDistributeCountsAndAveragesAsNumpy(t *testing.T) {
 		mean, active float64
 	}{
 		"glicko2_daneo": {[]int{0, 0, 0, 0, 1, 1, 0, 1, 1, 0, 1}, 1714.0, 1714.0},
-		"glicko2_std":   {[]int{0, 0, 0, 0, 1, 0, 2, 0, 1, 1, 0}, 1693.2, 1756.5},
-		"glicko2_mp":    {[]int{0, 0, 0, 0, 1, 0, 0, 2, 1, 1, 0}, 1756.8, 1799.0},
-		"glicko2_adapt": {[]int{0, 0, 0, 0, 1, 1, 0, 1, 0, 1, 1}, 1736.0, 1736.0},
-		"whr":           {[]int{0, 0, 0, 0, 1, 0, 2, 0, 0, 2, 1}, 1667.9, 1778.5},
+		// The edge player's 2100 falls in the last bin; 999 is below the first, but both count in the mean.
+		"glicko2_std": {[]int{0, 0, 0, 0, 1, 0, 2, 0, 1, 1, 1}, 1652.1, 1756.5},
 	}
 	for m, w := range want {
 		if !slices.Equal(got.Counts[m], w.counts) || got.Means[m] != w.mean || got.ActiveMeans[m] != w.active {
@@ -59,7 +58,7 @@ func TestDistributeCountsAndAveragesAsNumpy(t *testing.T) {
 
 func TestDistributeDefaultsTo1500WithoutRatings(t *testing.T) {
 	got := Distribute(nil, nil)
-	if got.Means["whr"] != 1500 || got.ActiveMeans["glicko2_std"] != 1500 || !slices.Equal(got.Counts["whr"], make([]int, 11)) {
+	if got.Means["glicko2_daneo"] != 1500 || got.ActiveMeans["glicko2_std"] != 1500 || !slices.Equal(got.Counts["glicko2_daneo"], make([]int, 11)) {
 		t.Errorf("empty distribution = %+v", got)
 	}
 }
@@ -69,14 +68,14 @@ func TestAgreeRanksPairsAsUpstream(t *testing.T) {
 	if got.Sample != 5 {
 		t.Errorf("sample = %d, want the 5 players rated in every model", got.Sample)
 	}
+	// Three models make three pairs, so the top and the weakest are the same pairs from each end. GlickoD's season
+	// reset swaps two neighbours of the five: one Spearman step of 0.1.
 	top := []Pair{
-		{"glicko2_daneo", "glicko2_std", 0.9601, 1.0}, {"glicko2_daneo", "glicko2_std_softer", 0.9582, 1.0},
-		{"glicko2_daneo", "glicko2_mp", 0.9552, 1.0}, {"glicko2_daneo", "glicko2_mp_softer", 1.0, 1.0},
+		{"glicko2_daneo", "glicko2_std", 0.9601, 1.0}, {"glicko2_daneo", "glicko2_daneo_softer", 0.9631, 0.9},
+		{"glicko2_daneo_softer", "glicko2_std", 0.8996, 0.9},
 	}
-	weak := []Pair{
-		{"glicko2_mp_softer", "glicko2_adapt_softer", 0.9683, 0.9}, {"glicko2_adapt", "glicko2_adapt_softer", 0.9683, 0.9},
-		{"glicko2_adapt_softer", "whr", 0.9138, 0.9}, {"glicko2_adapt_softer", "whr_softer", 0.9558, 0.9},
-	}
+	// The weakest are the last four of the same order: with three pairs, the top again.
+	weak := top
 	if !slices.Equal(got.Top, top) || !slices.Equal(got.Weakest, weak) {
 		t.Errorf("top %v\nwant %v\nweakest %v\nwant %v", got.Top, top, got.Weakest, weak)
 	}
@@ -89,17 +88,17 @@ func TestAgreeLeavesOutPlayersUnderFifteenOpponentsInAnyModel(t *testing.T) {
 		t.Errorf("sample = %d, want 4 once p0 has 14 opponents in one model", got.Sample)
 	}
 	if got := Agree(rows[:5]); got.Sample != 0 || len(got.Top) != 0 {
-		t.Errorf("one model only: %+v, want no one rated in all ten", got)
+		t.Errorf("one model only: %+v, want no one rated in every model", got)
 	}
 }
 
 func TestAgreeRanksWithinSampleRegardlessOfStoredRank(t *testing.T) {
-	// Every model orders a, b, c alike; whr's stored ranks have gaps, as when players outside the sample sit between.
+	// Every model orders a, b, c alike; Standard's stored ranks have gaps, as when players outside the sample sit between.
 	var rows []store.ModelRating
 	for _, m := range store.PlayerPageModels {
 		for i, p := range []string{"a", "b", "c"} {
 			rank := i + 1
-			if m == "whr" {
+			if m == "glicko2_std" {
 				rank = 1 + 4*i
 			}
 			rows = append(rows, store.ModelRating{Player: p, Model: m, Rating: 1600 - 50*float64(i), Rank: &rank, Opponents: 20})
@@ -118,7 +117,7 @@ func TestAgreeTiedRatingsShareTheirRank(t *testing.T) {
 	var rows []store.ModelRating
 	for _, m := range store.PlayerPageModels {
 		ratings := map[string]float64{"a": 1600, "b": 1600, "c": 1500}
-		if m == "whr" {
+		if m == "glicko2_std" {
 			ratings = map[string]float64{"a": 1600, "b": 1500, "c": 1550}
 		}
 		for p, r := range ratings {
@@ -128,7 +127,7 @@ func TestAgreeTiedRatingsShareTheirRank(t *testing.T) {
 	got := Agree(rows)
 	// Ranks 1, 1, 3 against 1, 3, 2: d² = 0 + 4 + 1 = 5, so Spearman is 1 - 6·5/(3·8) = -0.25.
 	if len(got.Weakest) == 0 || got.Weakest[len(got.Weakest)-1].Spearman != -0.25 {
-		t.Errorf("weakest = %+v, want the pair with whr at Spearman -0.25 (ties sharing rank 1)", got.Weakest)
+		t.Errorf("weakest = %+v, want the pair with Standard at Spearman -0.25 (ties sharing rank 1)", got.Weakest)
 	}
 	if got.Top[0].Spearman != 1 {
 		t.Errorf("top = %+v, want models with identical ranks at Spearman 1", got.Top)
