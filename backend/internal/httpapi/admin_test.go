@@ -26,6 +26,8 @@ type fakeAdmins struct {
 	settings []store.TournamentSettings
 	notes    []string
 	audits   []string
+	// details is each audit's detail, as JSON.
+	details  []string
 	startErr error
 	stopErr  error
 	// engine is what EngineGoing answers: "" for a run going, "ended" for none, "unset" for not set up,
@@ -530,8 +532,13 @@ func (*fakeAdmins) Admin(_ context.Context, id string) (store.Admin, error) {
 	return store.Admin{}, store.ErrNotAdmin
 }
 
-func (f *fakeAdmins) Audit(_ context.Context, id, action, target string, _ any) error {
+func (f *fakeAdmins) Audit(_ context.Context, id, action, target string, detail any) error {
+	b, err := json.Marshal(detail)
+	if err != nil {
+		return err
+	}
 	f.audits = append(f.audits, id+" "+action+" "+target)
+	f.details = append(f.details, string(b))
 	return nil
 }
 

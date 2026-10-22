@@ -14,6 +14,7 @@ import (
 	"github.com/google/go-cmp/cmp/cmpopts"
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/pressly/goose/v3"
 )
 
 // keptColumns is every column of a table about a player: what "Data we keep" on the account page shows it as, or
@@ -318,5 +319,45 @@ func TestOwnMemberAnswersOnlyALiveSession(t *testing.T) {
 				t.Errorf("own_member rows = %d, want %d", n, tt.want)
 			}
 		})
+	}
+}
+
+func TestMigration42KeepsOnlyFieldNamesInMemberAudits(t *testing.T) {
+	pool := migrated(t)
+	ctx := context.Background()
+	if err := withRatingsMigrations(pool, func(p *goose.Provider) error { _, err := p.DownTo(ctx, 41); return err }); err != nil {
+		t.Fatalf("migrating down to 41: %v", err)
+	}
+	for _, q := range []string{
+		`INSERT INTO members (tta_name, zone) VALUES ('Ann', 'UTC')`,
+		`INSERT INTO admin_audit (discord_id, action, target, detail) VALUES
+			('111111111111111111', 'member.add', '7', '{"name": "Ann", "discord_name": "ann_d", "email": "ann@example.test", "country": "NZ", "zone": "UTC"}'),
+			('111111111111111111', 'member.set', '7', '{"email": "new@example.test", "cge_user": 501}'),
+			('111111111111111111', 'blitz.entrants.add', 'us_open/2026', '{"entrants": [{"name": "Ann", "email": "ann@example.test"}, {"member": 7, "zone": "UTC"}]}'),
+			('111111111111111111', 'blitz.entrant.set', '3', '{"discord_name": "ann_d", "status": "dropped"}'),
+			('111111111111111111', 'link.approve', '4', '{"Member": "ann", "Created": false}'),
+			('111111111111111111', 'link.approve', '5', '{"Member": "Removed Since", "Created": true}'),
+			('111111111111111111', 'member.ban', '7', '{"reason": "Abusive"}')`,
+	} {
+		if _, err := pool.Exec(ctx, q); err != nil {
+			t.Fatalf("building the old shape: %v\n%s", err, q)
+		}
+	}
+	if err := migrateRatingsTo(ctx, pool, 42); err != nil {
+		t.Fatalf("migrateRatingsTo(42): %v", err)
+	}
+	ann := rowsOf(t, pool, "SELECT member_id::text FROM members WHERE tta_name = 'Ann'")
+	got := rowsOf(t, pool, "SELECT action || ' ' || target || ' ' || detail::text FROM admin_audit ORDER BY audit_id")
+	want := []string{
+		`member.add 7 {"set": ["country", "discord_name", "email", "name", "zone"]}`,
+		`member.set 7 {"set": ["cge_user", "email"]}`,
+		`blitz.entrants.add us_open/2026 {"set": ["email", "member", "name", "zone"], "entrants": 2}`,
+		`blitz.entrant.set 3 {"set": ["discord_name", "status"]}`,
+		`link.approve 4 {"member": ` + strings.Join(ann, "") + `, "created": false}`,
+		`link.approve 5 {"member": null, "created": true}`,
+		`member.ban 7 {"reason": "Abusive"}`,
+	}
+	if diff := cmp.Diff(want, got); diff != "" {
+		t.Errorf("audit after the migration (-want +got):\n%s", diff)
 	}
 }

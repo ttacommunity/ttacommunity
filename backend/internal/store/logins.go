@@ -62,8 +62,9 @@ type PendingRequest struct {
 
 // LinkApproved is what approving did: the member linked, and whether it was added for the request.
 type LinkApproved struct {
-	Member  string
-	Created bool
+	MemberID int64
+	Member   string
+	Created  bool
 }
 
 // ErrNoRequest means no request with that id is waiting for an answer.
@@ -217,7 +218,7 @@ func (a *AdminStore) ApproveLink(ctx context.Context, request int64, now time.Ti
 		if _, err := tx.Exec(ctx, "UPDATE link_requests SET status = 'approved', decided_at = $2 WHERE request_id = $1", request, now); err != nil {
 			return fmt.Errorf("approving a request: %w", err)
 		}
-		out.Member = m.Name
+		out.MemberID, out.Member = m.ID, m.Name
 		return nil
 	})
 	return out, err

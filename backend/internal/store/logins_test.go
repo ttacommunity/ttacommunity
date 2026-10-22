@@ -89,6 +89,9 @@ func TestApprovingARequestLinksTheMemberItNames(t *testing.T) {
 			if err != nil {
 				t.Fatalf("Session: %v", err)
 			}
+			if now.Member != nil && got.MemberID != now.Member.ID {
+				t.Errorf("ApproveLink(%s) member id = %d, want the linked member's, %d", tt.asked, got.MemberID, now.Member.ID)
+			}
 			if now.Member == nil || now.Member.Name != tt.wantMember || now.Request == nil || now.Request.Status != "approved" {
 				t.Errorf("after approval, member %+v and request %+v, want %s and approved", now.Member, now.Request, tt.wantMember)
 			}
