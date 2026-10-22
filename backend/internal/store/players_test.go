@@ -207,6 +207,33 @@ func TestSignOutEndsOnlyThatSession(t *testing.T) {
 	}
 }
 
+func TestASignInRemovesEveryEndedSession(t *testing.T) {
+	pool, _, p := playersFixture(t)
+	ctx := context.Background()
+	for _, s := range []struct {
+		id    Identity
+		token string
+		at    time.Time
+	}{
+		{discordID("100000000000000001", "player_one", ""), "ended", signInAt},
+		{discordID("100000000000000002", "player_two", ""), "live", signInAt.Add(10 * 24 * time.Hour)},
+		{discordID("100000000000000003", "player_three", ""), "new", signInAt.Add(SessionLife + time.Minute)},
+	} {
+		if _, err := p.SignIn(ctx, s.id, tokenHash(s.token), s.at); err != nil {
+			t.Fatalf("SignIn(%s): %v", s.token, err)
+		}
+	}
+	for token, want := range map[string]int{"ended": 0, "live": 1, "new": 1} {
+		var n int
+		if err := pool.QueryRow(ctx, "SELECT count(*) FROM player_sessions WHERE token_hash = $1", tokenHash(token)).Scan(&n); err != nil {
+			t.Fatalf("counting %s: %v", token, err)
+		}
+		if n != want {
+			t.Errorf("sessions %q = %d, want %d", token, n, want)
+		}
+	}
+}
+
 func TestAnUnlinkedLoginRequestsAName(t *testing.T) {
 	_, _, p := playersFixture(t)
 	ctx := context.Background()
