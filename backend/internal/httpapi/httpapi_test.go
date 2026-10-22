@@ -92,6 +92,16 @@ func (f *fakeRatings) RatingsOf(_ context.Context, _ int64, _ string, _ int, nam
 	return got, nil
 }
 
+func (f *fakeRatings) HistoricalRatingsOf(_ context.Context, _ int64, _ string, _ int, at []store.PlayerAt) (map[store.PlayerAt]store.Rated, error) {
+	got := map[store.PlayerAt]store.Rated{}
+	for _, a := range at {
+		if r, ok := f.rated[a.Name]; ok {
+			got[a] = r
+		}
+	}
+	return got, nil
+}
+
 func (f *fakeRatings) HiddenNames(context.Context, []string) (map[string]bool, error) {
 	return nil, nil
 }

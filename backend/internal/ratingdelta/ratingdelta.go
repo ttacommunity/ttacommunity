@@ -1,5 +1,5 @@
 // Package ratingdelta repeats the ratings site's estimate of what one game is
-// worth to a player: a single Glicko-2 update from the run's final ratings.
+// worth to a player: a single Glicko-2 update from pre-month baseline ratings.
 // Update and UpdateAdaptive copy the engine's math; testdata pins them to it.
 package ratingdelta
 
@@ -158,8 +158,8 @@ func update(player Rating, games []Game, tau float64, term func(mu float64, gm G
 	return Rating{Rating: newMu*scale + defaultRating, RD: rd, Sigma: newSigma}
 }
 
-// Delta returns what one game would change me's rating by today, rounded to
-// 0.1 as the page shows it, with ratings from rating (unrated players count as
+// Delta returns what one game would change me's rating by from pre-month baseline ratings,
+// rounded to 0.1 as the page shows it, with ratings from rating (unrated players count as
 // 1500 ± 350). Weights follow the match's playerCount. WHR is shown with
 // GlickoD's update. It returns false for a game me did not play against anyone.
 func Delta(engine, me string, playerCount int, seats []Seat, rating func(name string) (Rating, bool)) (float64, bool) {

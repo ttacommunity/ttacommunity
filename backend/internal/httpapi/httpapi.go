@@ -70,6 +70,7 @@ type PlayerReads interface {
 	PlayerHistory(ctx context.Context, run int64, name string, format int) (string, []store.HistoryPoint, error)
 	PlayerMatches(ctx context.Context, run int64, name string, format, page int) (string, store.MatchPage, error)
 	RatingsOf(ctx context.Context, run int64, model string, format int, names []string) (map[string]store.Rated, error)
+	HistoricalRatingsOf(ctx context.Context, run int64, model string, format int, at []store.PlayerAt) (map[store.PlayerAt]store.Rated, error)
 	HiddenNames(ctx context.Context, names []string) (map[string]bool, error)
 	PlayerRivals(ctx context.Context, run int64, name string, format int) (string, []store.Rival, error)
 	PlayerCareer(ctx context.Context, run int64, name string, format int, model string) (string, []store.CareerYear, *store.CareerPeak, error)

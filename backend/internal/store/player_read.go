@@ -103,6 +103,12 @@ type Rated struct {
 	Rating, RD float64
 }
 
+// PlayerAt is a player's name and month (in "YYYY-MM" format).
+type PlayerAt struct {
+	Name  string
+	Month string
+}
+
 // Rival is a player's record against one opponent.
 type Rival struct {
 	Name                       string
@@ -313,6 +319,61 @@ func (r *RatingsReader) RatingsOf(ctx context.Context, run int64, model string, 
 	}
 	if err := rows.Err(); err != nil {
 		return nil, fmt.Errorf("reading ratings in run %d: %w", run, err)
+	}
+	return got, nil
+}
+
+// HistoricalRatingsOf returns the ratings of the named players at the start of each
+// requested month (strictly before period_date in that month) in a published run's
+// model and format. If a player had no rating before that month, they are absent from the map.
+func (r *RatingsReader) HistoricalRatingsOf(ctx context.Context, run int64, model string, format int, at []PlayerAt) (map[PlayerAt]Rated, error) {
+	if len(at) == 0 {
+		return map[PlayerAt]Rated{}, nil
+	}
+	if err := r.requirePublished(ctx, run); err != nil {
+		return nil, err
+	}
+	seen := make(map[PlayerAt]bool, len(at))
+	var names []string
+	var monthStarts []string
+	for _, p := range at {
+		if seen[p] || p.Name == "" || p.Month == "" {
+			continue
+		}
+		seen[p] = true
+		names = append(names, p.Name)
+		monthStarts = append(monthStarts, p.Month+"-01")
+	}
+	if len(names) == 0 {
+		return map[PlayerAt]Rated{}, nil
+	}
+	rows, err := r.pool.Query(ctx, `
+		SELECT u.name, to_char(u.month_start, 'YYYY-MM'), h.rating, h.rd
+		FROM (
+			SELECT DISTINCT unnest($4::text[]) AS name, unnest($5::date[]) AS month_start
+		) u
+		JOIN LATERAL (
+			SELECT rating, rd
+			FROM rating_history
+			WHERE run_id = $1 AND model_type = $2 AND player_count = $3
+			  AND player_name = u.name AND period_date < u.month_start
+			ORDER BY period_date DESC
+			LIMIT 1
+		) h ON true`, run, model, format, names, monthStarts)
+	if err != nil {
+		return nil, fmt.Errorf("reading historical ratings in run %d: %w", run, err)
+	}
+	got := make(map[PlayerAt]Rated, len(seen))
+	for rows.Next() {
+		var name, month string
+		var p Rated
+		if err := rows.Scan(&name, &month, &p.Rating, &p.RD); err != nil {
+			return nil, fmt.Errorf("reading historical ratings in run %d: %w", run, err)
+		}
+		got[PlayerAt{Name: name, Month: month}] = p
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("reading historical ratings in run %d: %w", run, err)
 	}
 	return got, nil
 }

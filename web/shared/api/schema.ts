@@ -3808,7 +3808,7 @@ export interface components {
             replay_code: string | null;
             /**
              * Format: double
-             * @description What the game is worth to the player's rating today, to 0.1
+             * @description What the game is worth to the player's rating from its pre-month baseline, to 0.1
              */
             rating_delta: number | null;
             /** @description Seat order */

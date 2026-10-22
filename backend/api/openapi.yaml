@@ -6091,7 +6091,7 @@ components:
           type: string
           nullable: true
         rating_delta:
-          description: What the game is worth to the player's rating today, to 0.1
+          description: What the game is worth to the player's rating from its pre-month baseline, to 0.1
           type: number
           format: double
           nullable: true
