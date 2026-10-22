@@ -17,8 +17,8 @@ from tta_ratings_engine.models.glicko2.calculator import (
     INACTIVITY_DRIFT_PER_MONTH,
     RESET_ALPHA_SOFTER,
     RESET_LAMBDA_SOFTER,
+    PlayerThresholds,
     compute_decoupled_scaling,
-    compute_player_thresholds,
     get_tier_mean,
 )
 from tta_ratings_engine.models.glicko2.engine import GLICKO2_SCALE as G2_SCALE
@@ -151,11 +151,13 @@ def run_walk_forward_evaluation(
     run_id: int,
     on_month: Callable[[str], None] | None = None,
 ) -> dict[str, Any]:
-    """Executes a monthly expanding-window walk-forward evaluation across all 16 models.
+    """Executes a monthly expanding-window walk-forward evaluation across the run's models.
 
-    Reads the run's pairs and replaces the format's results in the run, in one
-    committed transaction. Calls on_month with each evaluated 'YYYY-MM' when it
-    is done. Raises RunNotRunning before any work unless the run is running.
+    Each month is predicted from the games before it alone, retro priors and
+    thresholds included. Reads the run's pairs and replaces the format's
+    results in the run, in one committed transaction. Calls on_month with each
+    evaluated 'YYYY-MM' when it is done. Raises RunNotRunning before any work
+    unless the run is running.
     """
     with conn.transaction():
         require_running(conn, run_id)
@@ -172,11 +174,6 @@ def run_walk_forward_evaluation(
 
         if verbose:
             print(f"Loaded {len(rows)} eligible pairwise matches.")
-
-        # Compute dynamic player calibration thresholds (15 games, or max k if inactive > 1 year)
-        player_thresholds = compute_player_thresholds(
-            rows, standard_threshold=15, inactivity_days=365
-        )
 
         # Group matches by calendar month YYYY-MM
         month_matches = defaultdict(list)
@@ -203,110 +200,136 @@ def run_walk_forward_evaluation(
 
         g2_models = list(models)
 
-        # -------------------------------------------------------------
-        # PASS 1: Emergent priors for retrospective calibration (Option A)
-        # -------------------------------------------------------------
+        # Every month is predicted from the months before it alone: the
+        # thresholds, the retro families' emergent priors (pass 1) and the
+        # models' ratings (pass 2) all advance one month at a time, over
+        # the games seen so far.
+        player_thresholds = PlayerThresholds(standard_threshold=15, inactivity_days=365)
+
         families_retro = {get_fam(m) for m in g2_models if is_retro(m)}
-        calibrated_priors = {fam: {} for fam in families_retro}
+        calibrated_priors: dict[str, dict[str, Rating]] = {
+            fam: {} for fam in families_retro
+        }
+        ratings_p1 = {
+            fam: defaultdict(lambda: Rating(1500.0, 350.0, CALIBRATED_SIGMA))
+            for fam in families_retro
+        }
+        games_p1 = {fam: defaultdict(set) for fam in families_retro}
 
-        if families_retro:
-            if verbose:
-                print(
-                    f"Executing Pass 1: Discovering 15-game emergent priors for {len(families_retro)} engine families..."
-                )
-            for fam in families_retro:
-                ratings_p1 = defaultdict(
-                    lambda: Rating(1500.0, 350.0, CALIBRATED_SIGMA)
-                )
-                games_p1 = defaultdict(set)
-                for m in sorted_months:
-                    p1_matches = month_matches[m]
-                    p1_enc = defaultdict(list)
-                    for r in p1_matches:
-                        pa, pb, out = r["player_a"], r["player_b"], r["outcome_a"]
-                        mid = r["match_id"] if "match_id" in r else (r["date"], pa, pb)
-                        p_cnt = r.get("player_count", player_count)
-                        if fam == "daneo":
-                            w = GOLDEN_MP_WEIGHTS.get(p_cnt, 1.0)
-                        elif fam == "mp":
-                            w = r["weight"]
-                        else:
-                            w = 1.0
-                        p1_enc[pa].append((ratings_p1[pb], out, w, p_cnt, mid))
-                        p1_enc[pb].append((ratings_p1[pa], 1.0 - out, w, p_cnt, mid))
-
-                    p1_act = set(p1_enc.keys())
-                    for p_name, enc_list in p1_enc.items():
-                        prev_g = len(games_p1[p_name])
-                        distinct_new = []
-                        for it in enc_list:
-                            mid = it[4]
-                            if mid not in games_p1[p_name]:
-                                games_p1[p_name].add(mid)
-                                distinct_new.append(mid)
-                        tot_g = len(games_p1[p_name])
-
-                        def run_up_p1(r_cur, items, fam=fam):
-                            if fam in ("daneo", "mp"):
-                                enc3 = [(it[0], it[1], it[2]) for it in items]
-                                return update_rating(
-                                    r_cur, enc3, tau=CALIBRATED_TAU, weighted=True
-                                )
-                            else:
-                                enc3 = [(it[0], it[1], it[2]) for it in items]
-                                return update_rating(
-                                    r_cur, enc3, tau=CALIBRATED_TAU, weighted=False
-                                )
-
-                        p_thresh = player_thresholds.get(p_name, 15)
-                        if (
-                            prev_g < p_thresh
-                            and tot_g >= p_thresh
-                            and p_name not in calibrated_priors[fam]
-                        ):
-                            needed = p_thresh - prev_g
-                            mids_up = set(distinct_new[:needed])
-                            enc_up = [it for it in enc_list if it[4] in mids_up]
-                            enc_after = [it for it in enc_list if it[4] not in mids_up]
-                            r_at_k = run_up_p1(ratings_p1[p_name], enc_up)
-                            calibrated_priors[fam][p_name] = Rating(
-                                r_at_k.rating, r_at_k.rd, r_at_k.sigma
-                            )
-                            ratings_p1[p_name] = (
-                                run_up_p1(r_at_k, enc_after) if enc_after else r_at_k
-                            )
-                        else:
-                            ratings_p1[p_name] = run_up_p1(ratings_p1[p_name], enc_list)
-
-                    for p_name in list(ratings_p1.keys()):
-                        if p_name not in p1_act and ratings_p1[p_name].rd < 350.0:
-                            r_cur = ratings_p1[p_name]
-                            phi_new = (
-                                r_cur.phi**2 + INACTIVITY_DRIFT_PER_MONTH**2
-                            ) ** 0.5
-                            ratings_p1[p_name] = Rating(
-                                r_cur.rating,
-                                min(350.0, phi_new * G2_SCALE),
-                                r_cur.sigma,
-                            )
-
-        # -------------------------------------------------------------
-        # PASS 2: Walk-Forward Expanding Evaluation Loop
-        # -------------------------------------------------------------
-        g2_ratings = {}
+        g2_ratings: dict[str, dict[str, Rating]] = {}
         for m in g2_models:
-            fam = get_fam(m)
             if is_retro(m):
-                g2_ratings[m] = {
-                    p: Rating(r.rating, r.rd, r.sigma)
-                    for p, r in calibrated_priors[fam].items()
-                }
+                g2_ratings[m] = {}
             else:
                 g2_ratings[m] = defaultdict(
                     lambda: Rating(1500.0, 350.0, CALIBRATED_SIGMA)
                 )
-
         games_played_p2 = {m: defaultdict(set) for m in g2_models}
+
+        def weight_of(fam, r, p_cnt):
+            if fam == "daneo":
+                return GOLDEN_MP_WEIGHTS.get(p_cnt, 1.0)
+            if fam == "mp":
+                return r["weight"]
+            return 1.0
+
+        def run_up(fam, r_cur, items):
+            enc3 = [(it[0], it[1], it[2]) for it in items]
+            return update_rating(
+                r_cur, enc3, tau=CALIBRATED_TAU, weighted=fam in ("daneo", "mp")
+            )
+
+        def drift_inactive(r_map, active):
+            for p in list(r_map.keys()):
+                if p not in active and r_map[p].rd < 350.0:
+                    r_cur = r_map[p]
+                    phi_new = (r_cur.phi**2 + INACTIVITY_DRIFT_PER_MONTH**2) ** 0.5
+                    r_map[p] = Rating(
+                        r_cur.rating, min(350.0, phi_new * G2_SCALE), r_cur.sigma
+                    )
+
+        def encounters_of(m_rows, fam, r_map, retro):
+            enc = defaultdict(list)
+            for r in m_rows:
+                pa, pb, out = r["player_a"], r["player_b"], r["outcome_a"]
+                mid = r["match_id"] if "match_id" in r else (r["date"], pa, pb)
+                p_cnt = r.get("player_count", player_count)
+                ra = r_map.get(pa, Rating(1500.0, 350.0, CALIBRATED_SIGMA)) if retro else r_map[pa]  # fmt: skip
+                rb = r_map.get(pb, Rating(1500.0, 350.0, CALIBRATED_SIGMA)) if retro else r_map[pb]  # fmt: skip
+                w = weight_of(fam, r, p_cnt)
+                enc[pa].append((rb, out, w, p_cnt, mid))
+                enc[pb].append((ra, 1.0 - out, w, p_cnt, mid))
+            return enc
+
+        def count_games(gp, p_name, enc_list):
+            """Adds the player's new games to gp; returns (games before, games after, the new ids)."""
+            prev_g = len(gp[p_name])
+            distinct_new = []
+            for it in enc_list:
+                if it[4] not in gp[p_name]:
+                    gp[p_name].add(it[4])
+                    distinct_new.append(it[4])
+            return prev_g, len(gp[p_name]), distinct_new
+
+        def discover_priors(m_rows):
+            """Pass 1 for one month: a retro family's prior is a player's rating at their threshold game."""
+            for fam in families_retro:
+                r_map, gp, priors = (
+                    ratings_p1[fam],
+                    games_p1[fam],
+                    calibrated_priors[fam],
+                )
+                enc = encounters_of(m_rows, fam, r_map, False)
+                for p_name, enc_list in enc.items():
+                    prev_g, tot_g, distinct_new = count_games(gp, p_name, enc_list)
+                    p_thresh = player_thresholds.get(p_name, 15)
+                    if prev_g < p_thresh <= tot_g and p_name not in priors:
+                        mids_up = set(distinct_new[: (p_thresh - prev_g)])
+                        enc_up = [it for it in enc_list if it[4] in mids_up]
+                        enc_after = [it for it in enc_list if it[4] not in mids_up]
+                        r_at_k = run_up(fam, r_map[p_name], enc_up)
+                        priors[p_name] = Rating(r_at_k.rating, r_at_k.rd, r_at_k.sigma)
+                        r_map[p_name] = (
+                            run_up(fam, r_at_k, enc_after) if enc_after else r_at_k
+                        )
+                    else:
+                        r_map[p_name] = run_up(fam, r_map[p_name], enc_list)
+                drift_inactive(r_map, set(enc.keys()))
+
+        def update_month(m_rows):
+            """Pass 2 for one month: each model's ratings after the month's games.
+
+            A retro model rates a player as the standard model does until the
+            family's prior for them is found, which stands in for the games up
+            to the threshold from then on.
+            """
+            for m_key in g2_models:
+                r_map, fam, retro = g2_ratings[m_key], get_fam(m_key), is_retro(m_key)
+                gp = games_played_p2[m_key]
+                enc = encounters_of(m_rows, fam, r_map, retro)
+                for p_name, enc_list in enc.items():
+                    if not retro:
+                        r_map[p_name] = run_up(fam, r_map[p_name], enc_list)
+                        continue
+                    prev_g, tot_g, distinct_new = count_games(gp, p_name, enc_list)
+                    cur_r = r_map.get(p_name, Rating(1500.0, 350.0, CALIBRATED_SIGMA))
+                    p_thresh = player_thresholds.get(p_name, 15)
+                    prior = calibrated_priors[fam].get(p_name)
+                    if prior is not None and prev_g < p_thresh <= tot_g:
+                        mids_up = set(distinct_new[: (p_thresh - prev_g)])
+                        enc_after = [it for it in enc_list if it[4] not in mids_up]
+                        cur_r = Rating(prior.rating, prior.rd, prior.sigma)
+                        r_map[p_name] = run_up(fam, cur_r, enc_after) if enc_after else cur_r  # fmt: skip
+                    else:
+                        r_map[p_name] = run_up(fam, cur_r, enc_list)
+                drift_inactive(r_map, set(enc.keys()))
+
+        def advance_month(m):
+            """Takes in month m's games: thresholds, then pass 1, then pass 2."""
+            m_rows = month_matches[m]
+            player_thresholds.add(m_rows)
+            discover_priors(m_rows)
+            update_month(m_rows)
 
         def apply_annual_resets(prev_y: str, cur_y: str):
             if prev_y is not None and cur_y != prev_y:
@@ -390,89 +413,7 @@ def run_walk_forward_evaluation(
             cur_year = m[:4]
             apply_annual_resets(prev_year, cur_year)
             prev_year = cur_year
-
-            m_rows = month_matches[m]
-            encounters = {m_key: defaultdict(list) for m_key in g2_models}
-            for r in m_rows:
-                pa, pb, out = r["player_a"], r["player_b"], r["outcome_a"]
-                mid = r["match_id"] if "match_id" in r else (r["date"], pa, pb)
-                m_pcount = r.get("player_count", player_count)
-
-                for m_key in g2_models:
-                    r_map = g2_ratings[m_key]
-                    fam = get_fam(m_key)
-                    ra = (
-                        r_map.get(pa, Rating(1500.0, 350.0, CALIBRATED_SIGMA))
-                        if is_retro(m_key)
-                        else r_map[pa]
-                    )
-                    rb = (
-                        r_map.get(pb, Rating(1500.0, 350.0, CALIBRATED_SIGMA))
-                        if is_retro(m_key)
-                        else r_map[pb]
-                    )
-                    if fam == "daneo":
-                        w = GOLDEN_MP_WEIGHTS.get(m_pcount, 1.0)
-                    elif fam == "mp":
-                        w = r["weight"]
-                    else:
-                        w = 1.0
-                    encounters[m_key][pa].append((rb, out, w, m_pcount, mid))
-                    encounters[m_key][pb].append((ra, 1.0 - out, w, m_pcount, mid))
-
-            for m_key in g2_models:
-                r_map = g2_ratings[m_key]
-                fam = get_fam(m_key)
-                gp = games_played_p2[m_key]
-                act = set(encounters[m_key].keys())
-
-                def run_up_burn(r_cur, items, fam=fam):
-                    if fam in ("daneo", "mp"):
-                        enc3 = [(it[0], it[1], it[2]) for it in items]
-                        return update_rating(
-                            r_cur, enc3, tau=CALIBRATED_TAU, weighted=True
-                        )
-                    else:
-                        enc3 = [(it[0], it[1], it[2]) for it in items]
-                        return update_rating(
-                            r_cur, enc3, tau=CALIBRATED_TAU, weighted=False
-                        )
-
-                for p_name, enc_list in encounters[m_key].items():
-                    if is_retro(m_key):
-                        prev_g = len(gp[p_name])
-                        distinct_new = []
-                        for it in enc_list:
-                            mid = it[4]
-                            if mid not in gp[p_name]:
-                                gp[p_name].add(mid)
-                                distinct_new.append(mid)
-                        tot_g = len(gp[p_name])
-                        cur_r = r_map.get(
-                            p_name, Rating(1500.0, 350.0, CALIBRATED_SIGMA)
-                        )
-                        p_thresh = player_thresholds.get(p_name, 15)
-                        if p_name not in calibrated_priors[fam]:
-                            r_map[p_name] = run_up_burn(cur_r, enc_list)
-                        elif tot_g <= p_thresh:
-                            pass
-                        elif prev_g < p_thresh and tot_g > p_thresh:
-                            mids_up = set(distinct_new[: (p_thresh - prev_g)])
-                            enc_after = [it for it in enc_list if it[4] not in mids_up]
-                            if enc_after:
-                                r_map[p_name] = run_up_burn(cur_r, enc_after)
-                        else:
-                            r_map[p_name] = run_up_burn(cur_r, enc_list)
-                    else:
-                        r_map[p_name] = run_up_burn(r_map[p_name], enc_list)
-
-                for p in list(r_map.keys()):
-                    if p not in act and r_map[p].rd < 350.0:
-                        r_cur = r_map[p]
-                        phi_new = (r_cur.phi**2 + INACTIVITY_DRIFT_PER_MONTH**2) ** 0.5
-                        r_map[p] = Rating(
-                            r_cur.rating, min(350.0, phi_new * G2_SCALE), r_cur.sigma
-                        )
+            advance_month(m)
 
         # Data collection for evaluation
         monthly_results = defaultdict(dict)
@@ -495,12 +436,10 @@ def run_walk_forward_evaluation(
 
             for r in m_matches:
                 pa, pb, out = r["player_a"], r["player_b"], r["outcome_a"]
-                m_pcount = r.get("player_count", player_count)
 
                 # Glicko-2 models predictions
                 for m_key in g2_models:
                     r_map = g2_ratings[m_key]
-                    fam = get_fam(m_key)
                     ra = (
                         r_map.get(pa, Rating(1500.0, 350.0, CALIBRATED_SIGMA))
                         if is_retro(m_key)
@@ -543,87 +482,7 @@ def run_walk_forward_evaluation(
                 )
 
             # (B) Incremental Online Update for month tm matches
-            encounters = {m_key: defaultdict(list) for m_key in g2_models}
-            for r in m_matches:
-                pa, pb, out = r["player_a"], r["player_b"], r["outcome_a"]
-                mid = r["match_id"] if "match_id" in r else (r["date"], pa, pb)
-                m_pcount = r.get("player_count", player_count)
-
-                for m_key in g2_models:
-                    r_map = g2_ratings[m_key]
-                    fam = get_fam(m_key)
-                    ra = (
-                        r_map.get(pa, Rating(1500.0, 350.0, CALIBRATED_SIGMA))
-                        if is_retro(m_key)
-                        else r_map[pa]
-                    )
-                    rb = (
-                        r_map.get(pb, Rating(1500.0, 350.0, CALIBRATED_SIGMA))
-                        if is_retro(m_key)
-                        else r_map[pb]
-                    )
-                    if fam == "daneo":
-                        w = GOLDEN_MP_WEIGHTS.get(m_pcount, 1.0)
-                    elif fam == "mp":
-                        w = r["weight"]
-                    else:
-                        w = 1.0
-                    encounters[m_key][pa].append((rb, out, w, m_pcount, mid))
-                    encounters[m_key][pb].append((ra, 1.0 - out, w, m_pcount, mid))
-
-            for m_key in g2_models:
-                r_map = g2_ratings[m_key]
-                fam = get_fam(m_key)
-                gp = games_played_p2[m_key]
-                act = set(encounters[m_key].keys())
-
-                def run_up_eval(r_cur, items, fam=fam):
-                    if fam in ("daneo", "mp"):
-                        enc3 = [(it[0], it[1], it[2]) for it in items]
-                        return update_rating(
-                            r_cur, enc3, tau=CALIBRATED_TAU, weighted=True
-                        )
-                    else:
-                        enc3 = [(it[0], it[1], it[2]) for it in items]
-                        return update_rating(
-                            r_cur, enc3, tau=CALIBRATED_TAU, weighted=False
-                        )
-
-                for p_name, enc_list in encounters[m_key].items():
-                    if is_retro(m_key):
-                        prev_g = len(gp[p_name])
-                        distinct_new = []
-                        for it in enc_list:
-                            mid = it[4]
-                            if mid not in gp[p_name]:
-                                gp[p_name].add(mid)
-                                distinct_new.append(mid)
-                        tot_g = len(gp[p_name])
-                        cur_r = r_map.get(
-                            p_name, Rating(1500.0, 350.0, CALIBRATED_SIGMA)
-                        )
-                        p_thresh = player_thresholds.get(p_name, 15)
-                        if p_name not in calibrated_priors[fam]:
-                            r_map[p_name] = run_up_eval(cur_r, enc_list)
-                        elif tot_g <= p_thresh:
-                            pass
-                        elif prev_g < p_thresh and tot_g > p_thresh:
-                            mids_up = set(distinct_new[: (p_thresh - prev_g)])
-                            enc_after = [it for it in enc_list if it[4] not in mids_up]
-                            if enc_after:
-                                r_map[p_name] = run_up_eval(cur_r, enc_after)
-                        else:
-                            r_map[p_name] = run_up_eval(cur_r, enc_list)
-                    else:
-                        r_map[p_name] = run_up_eval(r_map[p_name], enc_list)
-
-                for p in list(r_map.keys()):
-                    if p not in act and r_map[p].rd < 350.0:
-                        r_cur = r_map[p]
-                        phi_new = (r_cur.phi**2 + INACTIVITY_DRIFT_PER_MONTH**2) ** 0.5
-                        r_map[p] = Rating(
-                            r_cur.rating, min(350.0, phi_new * G2_SCALE), r_cur.sigma
-                        )
+            advance_month(tm)
 
             if on_month:
                 on_month(tm)

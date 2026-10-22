@@ -61,6 +61,42 @@ def test_walk_forward_synthetic_leak_free(conn, add_match, run_id):
     assert res["aggregated"]["glicko2_daneo"]["matches"] == 1
 
 
+@pytest.mark.parametrize(
+    ("games", "months_after"),
+    [
+        pytest.param(15, 0, id="fifteen games reach the prior"),
+        pytest.param(5, 14, id="five games then a year away lower the threshold"),
+    ],
+)
+def test_a_players_first_month_is_predicted_without_their_later_games(
+    conn, add_match, run_id, games, months_after
+):
+    """Alice is strong from burn-in; Newbie, unknown until 2022-02, then beats her every game."""
+    for day in range(1, 6):
+        add_match(("Alice", 100), ("Bob", 50), day=date(2022, 1, day))
+    for day in range(1, games + 1):
+        add_match(("Newbie", 100), ("Alice", 50), day=date(2022, 2, day))
+    for i in range(months_after):
+        year, month = divmod(2022 * 12 + 2 + i, 12)
+        add_match(("Alice", 100), ("Bob", 50), day=date(year, month + 1, 1))
+    expand_pairwise(conn, run_id)
+
+    res = run_walk_forward_evaluation(
+        player_count=2,
+        start_eval_month="2022-02",
+        verbose=False,
+        conn=conn,
+        run_id=run_id,
+    )
+
+    first_month = res["monthly"]["2022-02"]
+    assert {m: first_month[m]["accuracy"] for m in first_month} == {
+        "glicko2_daneo": 0.0,
+        "glicko2_daneo_softer": 0.0,
+        "glicko2_std": 0.0,
+    }
+
+
 def test_results_are_stored_in_the_run_per_model_and_month(conn, add_match, run_id):
     seed(add_match)
     expand_pairwise(conn, run_id)
