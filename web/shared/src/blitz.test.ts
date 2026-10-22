@@ -1,13 +1,37 @@
 import { describe, expect, it } from 'vitest';
-import { formatLabel, knockoutStage, offsetLabel, pointsList, pointsText, reachedLabel, resultSummary, resultTag, roundShown, roundSummary, roundTitle, scoringSentence, seededName, zoneLabel, type BlitzPlayedGame } from './blitz';
+import { formatLabel, knockoutStage, offsetLabel, pointsList, pointsText, reachedLabel, resultSummary, resultTag, roundShown, roundSummary, roundTitle, scoringSentence, seededName, turnMark, turnOrder, zoneLabel, type BlitzPlayedGame } from './blitz';
 
 const game = (aCulture: number, bCulture: number, aOutcome: BlitzPlayedGame['a_outcome'] = 'finished', bOutcome: BlitzPlayedGame['b_outcome'] = 'finished'): BlitzPlayedGame => ({
   share_code: 'ABCD1234',
   a_culture: aCulture,
   a_outcome: aOutcome,
+  a_turn: 1,
   b_culture: bCulture,
   b_outcome: bOutcome,
+  b_turn: 2,
   finished_at: '2026-10-14T19:30:00Z',
+});
+
+describe('turnMark', () => {
+  it.each([
+    [1, 'P1'],
+    [2, 'P2'],
+    [null, 'P?'],
+  ] as const)('marks turn %s as %s', (turn, want) => {
+    expect(turnMark(turn)).toBe(want);
+  });
+});
+
+describe('turnOrder', () => {
+  it.each([
+    ['the first side first', { a: 'Ann', b: 'Cy', result: 'a', game: game(250, 200), ruled: false }, 'Turn order: P1 Ann, P2 Cy'],
+    ['the second side first', { a: 'Ann', b: 'Cy', result: 'a', game: { ...game(250, 200), a_turn: 2, b_turn: 1 }, ruled: false }, 'Turn order: P1 Cy, P2 Ann'],
+    ['a game recorded without it', { a: 'Ann', b: 'Cy', result: 'a', game: { ...game(250, 200), a_turn: null, b_turn: null }, ruled: false }, 'Turn order unknown'],
+    ['no game', { a: 'Ann', b: 'Cy', result: 'b', game: null, ruled: true }, ''],
+    ['a bye', { a: 'Ann', b: null, result: null, game: null, ruled: false }, ''],
+  ] as const)('says %s', (_name, m, want) => {
+    expect(turnOrder(m)).toBe(want);
+  });
 });
 
 describe('resultSummary', () => {

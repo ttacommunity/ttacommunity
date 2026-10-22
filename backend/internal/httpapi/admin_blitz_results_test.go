@@ -56,7 +56,7 @@ func (f *fakeAdmins) RecordBlitzGame(_ context.Context, slug, edition string, id
 	at := time.Date(2026, 10, 15, 9, 0, 0, 0, time.UTC)
 	gameID := int64(500 + id)
 	m.Result, m.GameID, m.Game, m.Ruling, m.DecidedAt = result, &gameID, &g, "", &at
-	f.notes = append(f.notes, fmt.Sprintf("game on %d: %s %g/%s %g/%s", id, g.ShareCode, g.A.Culture, g.A.Outcome, g.B.Culture, g.B.Outcome))
+	f.notes = append(f.notes, fmt.Sprintf("game on %d: %s %g/%s/turn %d %g/%s/turn %d", id, g.ShareCode, g.A.Culture, g.A.Outcome, g.A.Turn, g.B.Culture, g.B.Outcome, g.B.Turn))
 	return nil
 }
 
@@ -102,7 +102,7 @@ func TestAnOrganiserRecordsGamesAndRulings(t *testing.T) {
 	}
 
 	rec := do(http.MethodPut, "/v1/admin/blitz/us_open/2026/rounds/101/matches/1010/game",
-		`{"share_code": "ABCD1234", "a": {"culture": 250, "outcome": "finished"}, "b": {"culture": 200, "outcome": "resigned"}, "finished_on": "2026-10-14", "finished_time": "21:30", "zone": "Europe Central"}`)
+		`{"share_code": "ABCD1234", "a": {"culture": 250, "outcome": "finished", "turn": 2}, "b": {"culture": 200, "outcome": "resigned", "turn": 1}, "finished_on": "2026-10-14", "finished_time": "21:30", "zone": "Europe Central"}`)
 	if rec.Code != http.StatusNoContent {
 		t.Fatalf("PUT game = %d %s, want 204", rec.Code, rec.Body)
 	}
@@ -110,7 +110,7 @@ func TestAnOrganiserRecordsGamesAndRulings(t *testing.T) {
 	if rec.Code != http.StatusNoContent {
 		t.Fatalf("PUT ruling = %d %s, want 204", rec.Code, rec.Body)
 	}
-	if want := "game on 1010: ABCD1234 250/finished 200/resigned|ruling on 1011: draw Neither could find a time"; strings.Join(f.notes, "|") != want {
+	if want := "game on 1010: ABCD1234 250/finished/turn 2 200/resigned/turn 1|ruling on 1011: draw Neither could find a time"; strings.Join(f.notes, "|") != want {
 		t.Errorf("changes = %q, want %q", f.notes, want)
 	}
 	for i, w := range []string{"blitz.match.game 1010", "blitz.match.ruling 1011"} {
@@ -125,7 +125,7 @@ func TestAnOrganiserRecordsGamesAndRulings(t *testing.T) {
 	}
 	body := rec.Body.Bytes()
 	wantJSON(t, body, "rounds.0.matches.0.result", `"a"`)
-	wantJSON(t, body, "rounds.0.matches.0.game", `{"share_code": "ABCD1234", "a_culture": 250, "a_outcome": "finished", "b_culture": 200, "b_outcome": "resigned", "finished_at": "2026-10-14T19:30:00Z"}`)
+	wantJSON(t, body, "rounds.0.matches.0.game", `{"share_code": "ABCD1234", "a_culture": 250, "a_outcome": "finished", "a_turn": 2, "b_culture": 200, "b_outcome": "resigned", "b_turn": 1, "finished_at": "2026-10-14T19:30:00Z"}`)
 	wantJSON(t, body, "rounds.0.matches.0.ruling", `""`)
 	wantJSON(t, body, "rounds.0.matches.0.decided_at", `"2026-10-15T09:00:00Z"`)
 	wantJSON(t, body, "rounds.0.matches.1.result", `"draw"`)

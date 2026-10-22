@@ -135,8 +135,8 @@ func (s *server) PutMyBlitzGame(ctx context.Context, req PutMyBlitzGameRequestOb
 	}
 	hash, _ := ctx.Value(sessionKey{}).([]byte)
 	g := store.BlitzGame{ShareCode: req.Body.ShareCode, Finished: finished,
-		A: store.BlitzSide{Culture: req.Body.A.Culture, Outcome: string(req.Body.A.Outcome)},
-		B: store.BlitzSide{Culture: req.Body.B.Culture, Outcome: string(req.Body.B.Outcome)}}
+		A: store.BlitzSide{Culture: req.Body.A.Culture, Outcome: string(req.Body.A.Outcome), Turn: req.Body.A.Turn},
+		B: store.BlitzSide{Culture: req.Body.B.Culture, Outcome: string(req.Body.B.Outcome), Turn: req.Body.B.Turn}}
 	err = s.signIns.ReportBlitzGame(ctx, hash, req.Tournament, req.Edition, req.Match, g, s.now())
 	switch code, msg := reportRefusal(err); code {
 	case 0:

@@ -15,11 +15,12 @@ import (
 	"github.com/jackc/pgx/v5"
 )
 
-// BlitzSide is one player's side of a played game: the culture, and how it ended (finished, resigned or
-// timed_out).
+// BlitzSide is one player's side of a played game: the culture, how it ended (finished, resigned or timed_out),
+// and their turn (1 for the player who went first; 0 when unknown).
 type BlitzSide struct {
 	Culture float64
 	Outcome string
+	Turn    int
 }
 
 // BlitzGame is a played game as recorded: the share code ("" for none), each side as the match names them, and when
@@ -37,8 +38,9 @@ var ErrNoBlitzMatch = errors.New("no such match")
 var ErrBlitzBye = errors.New("a bye has no result")
 
 // ErrBadBlitzGame means a game outside what can be recorded.
-var ErrBadBlitzGame = errors.New("a game has a share code of at most 32 characters (or none), each player's culture (0 or more) and " +
-	"outcome (finished, resigned or timed_out), at least one of them finished, and the day it was played")
+var ErrBadBlitzGame = errors.New("a game has a share code of at most 32 characters (or none), each player's culture (0 or more), " +
+	"outcome (finished, resigned or timed_out) and turn (1 for who went first, each turn once), at least one of them finished, " +
+	"and the day it was played")
 
 // ErrBadBlitzRuling means a ruling outside what can be recorded.
 var ErrBadBlitzRuling = errors.New("a ruling is a, b, draw or double_loss, with a reason of at most 1000 characters")
@@ -69,14 +71,24 @@ const resolvesReport = "report = CASE WHEN report IS NULL THEN NULL ELSE 'resolv
 
 var blitzOutcomes = []string{"finished", "resigned", "timed_out"}
 
-// validBlitzGame trims the share code ("" for none) and reports whether the game is within bounds.
+// validBlitzGame trims the share code ("" for none) and reports whether the game is within bounds, its players'
+// turns 1 to N, each once.
 func validBlitzGame(g *BlitzGame) bool {
 	g.ShareCode = strings.TrimSpace(g.ShareCode)
 	if utf8.RuneCountInString(g.ShareCode) > 32 || g.Finished.IsZero() {
 		return false
 	}
-	for _, s := range []BlitzSide{g.A, g.B} {
+	sides := []BlitzSide{g.A, g.B}
+	turns := make([]int, len(sides))
+	for i, s := range sides {
 		if s.Culture < 0 || !slices.Contains(blitzOutcomes, s.Outcome) {
+			return false
+		}
+		turns[i] = s.Turn
+	}
+	slices.Sort(turns)
+	for i, t := range turns {
+		if t != i+1 {
 			return false
 		}
 	}
@@ -259,8 +271,9 @@ func (a *AdminStore) RecordBlitzGame(ctx context.Context, slug, edition string, 
 				place  int
 			}{{playerA, nameA, sideA, placeA}, {playerB, nameB, sideB, placeB}} {
 				if _, err := tx.Exec(ctx, `
-					INSERT INTO seats (game_id, seat, player_id, player_name, outcome, culture, place) VALUES ($1, $2, $3, $4, $5, $6, $7)`,
-					*gameID, seat+1, s.player, s.name, s.side.Outcome, s.side.Culture, s.place); err != nil {
+					INSERT INTO seats (game_id, seat, player_id, player_name, outcome, culture, place, starting_position)
+					VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+					*gameID, seat+1, s.player, s.name, s.side.Outcome, s.side.Culture, s.place, s.side.Turn-1); err != nil {
 					return fmt.Errorf("recording a game's seats: %w", err)
 				}
 			}
@@ -276,8 +289,9 @@ func (a *AdminStore) RecordBlitzGame(ctx context.Context, slug, edition string, 
 				place  int
 			}{{playerA, nameA, sideA, placeA}, {playerB, nameB, sideB, placeB}} {
 				if _, err := tx.Exec(ctx, `
-					UPDATE seats SET player_id = $3, player_name = $4, outcome = $5, culture = $6, place = $7 WHERE game_id = $1 AND seat = $2`,
-					*gameID, seat+1, s.player, s.name, s.side.Outcome, s.side.Culture, s.place); err != nil {
+					UPDATE seats SET player_id = $3, player_name = $4, outcome = $5, culture = $6, place = $7, starting_position = $8
+					WHERE game_id = $1 AND seat = $2`,
+					*gameID, seat+1, s.player, s.name, s.side.Outcome, s.side.Culture, s.place, s.side.Turn-1); err != nil {
 					return fmt.Errorf("correcting a game's seats: %w", err)
 				}
 			}

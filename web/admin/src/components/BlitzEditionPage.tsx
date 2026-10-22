@@ -4,13 +4,13 @@ import Segmented from '@ttac/shared/Segmented';
 import BackLink from '@ttac/shared/BackLink';
 import { useDialog } from '@ttac/shared/Dialog';
 import SubTabs from '@ttac/shared/SubTabs';
-import { formatLabel, offsetLabel, resultSummary, roundShown, roundSummary, roundTitle, scoringSentence, seededName } from '@ttac/shared/blitz';
+import { formatLabel, offsetLabel, resultSummary, roundShown, roundSummary, roundTitle, scoringSentence, seededName, turnMark, turnOrder } from '@ttac/shared/blitz';
 import { formatInstant } from '@ttac/shared/time';
 import { adminDownload, adminRequest, firstError, type AdminBlitzEdition, type AdminMe, type BlitzEntrantIds, type Load } from '../lib/admin-api';
 import * as req from '../lib/admin-requests';
 import { tabsFor } from '../lib/admin-tabs';
 import { editionFormatWarnings, editionParams, formatAdvice, pointsChanged, pointsForm, pointsFrom, settingsRows, type AdminBlitzEntrant, type PointsForm } from '../lib/blitz-page';
-import { emptyGameForm, gameRecordFrom, type BlitzStanding, type GameForm } from '@ttac/shared/game-form';
+import { chooseTurn, emptyGameForm, gameRecordFrom, TURNS, type BlitzStanding, type GameForm } from '@ttac/shared/game-form';
 import { deadlineForm, deadlineLabel, deadlineLocked, organiserChoices, threadTextSavable, threadsBlocker, threadsFileName, type DeadlineForm, type ThreadText } from '../lib/blitz-threads';
 import { entrantToAdd, wildcardChoices, type PersonChoice, type PersonDetails } from '../lib/person-form';
 import { countryNames, type Country } from '../lib/countries';
@@ -114,6 +114,7 @@ function FlaggedResults({ at, ed, regions, onReload, outcome, say }: Omit<Props,
   const byId = new Map(ed.entrants.map((e) => [e.id, e]));
   const nameOf = (id: number) => byId.get(id)?.name ?? `entrant ${id}`;
   const pairOf = (m: AdminBlitzMatch) => `${nameOf(m.a)} v ${nameOf(m.b as number)}`;
+  const view = (m: AdminBlitzMatch) => ({ a: nameOf(m.a), b: nameOf(m.b as number), result: m.result, game: m.game, ruled: m.ruling !== '' });
   const run = async (r: req.Request, done: string) => {
     say(outcomeOf(await req.send(r), done, 'flagged'));
     await onReload();
@@ -157,7 +158,8 @@ function FlaggedResults({ at, ed, regions, onReload, outcome, say }: Omit<Props,
                     <td>{roundTitle(r.number, ed.format)}</td>
                     <th scope="row">{pairOf(m)}</th>
                     <td>
-                      {resultSummary({ a: nameOf(m.a), b: nameOf(m.b as number), result: m.result, game: m.game, ruled: m.ruling !== '' })}
+                      {resultSummary(view(m))}
+                      {turnOrder(view(m)) !== '' && <span className="row-detail muted">{turnOrder(view(m))}</span>}
                       <span className="row-detail row-flagged">{reportNote(m, nameOf)}</span>
                     </td>
                     <td className="run-buttons">
@@ -264,7 +266,7 @@ function RoundsPanel({ at, ed, regions, onReload, outcome, say }: Props) {
   const [zone] = useState(viewerZone);
   const byId = new Map(ed.entrants.map((e) => [e.id, e]));
   const nameOf = (id: number) => byId.get(id)?.name ?? `entrant ${id}`;
-  const summary = (m: AdminBlitzMatch) => resultSummary({ a: nameOf(m.a), b: m.b === null ? null : nameOf(m.b), result: m.result, game: m.game, ruled: m.ruling !== '' });
+  const view = (m: AdminBlitzMatch) => ({ a: nameOf(m.a), b: m.b === null ? null : nameOf(m.b), result: m.result, game: m.game, ruled: m.ruling !== '' });
   const ratingOf = (id: number) => {
     const r = byId.get(id)?.rating ?? null;
     return r === null ? '–' : String(Math.round(r));
@@ -533,7 +535,8 @@ function RoundsPanel({ at, ed, regions, onReload, outcome, say }: Props) {
                               {m.repeat && <span className="row-detail">met before</span>}
                             </td>
                             <td>
-                              {m.b !== null && m.result === null ? <span className="muted">not yet</span> : summary(m)}
+                              {m.b !== null && m.result === null ? <span className="muted">not yet</span> : resultSummary(view(m))}
+                              {turnOrder(view(m)) !== '' && <span className="row-detail muted">{turnOrder(view(m))}</span>}
                               {m.ruling !== '' && <span className="row-detail muted">{m.ruling}</span>}
                               {reportNote(m, nameOf) !== '' && <span className={m.report === 'flagged' ? 'row-detail row-flagged' : 'row-detail muted'}>{reportNote(m, nameOf)}</span>}
                             </td>
@@ -1211,8 +1214,10 @@ function formFromGame(m: AdminBlitzMatch, zone: string, regions: readonly Region
     share_code: m.game.share_code,
     a_culture: String(m.game.a_culture),
     a_outcome: m.game.a_outcome,
+    a_turn: m.game.a_turn,
     b_culture: String(m.game.b_culture),
     b_outcome: m.game.b_outcome,
+    b_turn: m.game.b_turn,
     finished_on: day,
     finished_time: clock,
     zone,
@@ -1238,7 +1243,7 @@ type ResultFormProps = {
   onCancel: () => void;
 };
 
-/** ResultForm records a match's result: the game played (share code, each player's outcome and culture, when it finished and in which time zone), or the organisers' ruling with its reason. A refusal shows in the form. */
+/** ResultForm records a match's result: the game played (share code, each player's outcome, culture and turn, when it finished and in which time zone), or the organisers' ruling with its reason. A refusal shows in the form. */
 function ResultForm({ at, round, match, nameOf, regions, zone, onZone, onDone, onCancel }: ResultFormProps) {
   const [refusal, setRefusal] = useState<Outcome | null>(null);
   const [kind, setKind] = useState<'game' | 'ruling'>(match.ruling !== '' ? 'ruling' : 'game');
@@ -1272,7 +1277,7 @@ function ResultForm({ at, round, match, nameOf, regions, zone, onZone, onDone, o
     if (res.ok) await onDone(`${a} v ${b} ruled.`);
     else setRefusal(refused(res.message, ''));
   };
-  // side is one player's row: how their game ended, then their culture (0 for one who resigned or timed out).
+  // side is one player's row: how their game ended, their culture (0 for one who resigned or timed out), then their turn.
   const side = (who: 'a' | 'b', name: string) => (
     <div className="result-row">
       <label>
@@ -1297,6 +1302,22 @@ function ResultForm({ at, round, match, nameOf, regions, zone, onZone, onDone, o
           disabled={game[`${who}_outcome`] !== 'finished'}
           onChange={(e) => setGame({ ...game, [`${who}_culture`]: e.target.value })}
         />
+      </label>
+      <label>
+        {name}&apos;s turn
+        <select className="input-antique" value={game[`${who}_turn`] ?? ''} onChange={(e) => setGame(chooseTurn(game, who, Number(e.target.value)))}>
+          {game[`${who}_turn`] === null && (
+            <option value="" disabled>
+              –
+            </option>
+          )}
+          {TURNS.map((t) => (
+            <option key={t} value={t}>
+              {turnMark(t)}
+              {t === 1 ? ' (went first)' : ''}
+            </option>
+          ))}
+        </select>
       </label>
     </div>
   );

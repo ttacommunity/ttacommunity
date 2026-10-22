@@ -16,7 +16,7 @@ const match = (extra: Partial<MyBlitzMatch> = {}): MyBlitzMatch => ({
   actions: ['report'],
   ...extra,
 });
-const game = { share_code: 'REP-1', a_culture: 50, a_outcome: 'finished', b_culture: 40, b_outcome: 'finished', finished_at: '2026-10-14T19:30:00Z' } as const;
+const game = { share_code: 'REP-1', a_culture: 50, a_outcome: 'finished', a_turn: 2, b_culture: 40, b_outcome: 'finished', b_turn: 1, finished_at: '2026-10-14T19:30:00Z' } as const;
 const reported = (by: 'a' | 'b', report: MyBlitzMatch['report'], extra: Partial<MyBlitzMatch> = {}) => match({ result: 'a', game, report, reported_by: by, actions: [], ...extra });
 
 describe('myMatchStatus', () => {
@@ -48,13 +48,15 @@ describe('flagQuestion', () => {
 
 describe('formFor', () => {
   it("starts a new report empty, today, in the player's zone", () => {
-    expect(formFor(match(), 'Europe/Berlin', '2026-10-14')).toMatchObject({ share_code: '', a_culture: '', finished_on: '2026-10-14', finished_time: '', zone: 'Europe/Berlin' });
+    expect(formFor(match(), 'Europe/Berlin', '2026-10-14')).toMatchObject({ share_code: '', a_culture: '', a_turn: null, b_turn: null, finished_on: '2026-10-14', finished_time: '', zone: 'Europe/Berlin' });
   });
   it("fills a correction from the game reported, on the player's clocks", () => {
     expect(formFor(reported('b', 'reported'), 'Europe/Berlin', '2026-10-20')).toMatchObject({
       share_code: 'REP-1',
       a_culture: '50',
+      a_turn: 2,
       b_culture: '40',
+      b_turn: 1,
       finished_on: '2026-10-14',
       finished_time: '21:30',
     });
@@ -76,7 +78,7 @@ describe('the requests', () => {
     expect(await fetchMyMatch('https://api.example', 'us_open', '2026', answering(401, { error: 'not signed in' }))).toBeNull();
   });
   it.each([
-    ['a report', (f: typeof fetch) => reportGame('https://api.example', 'us_open', '2026', 21, { share_code: 'REP-1', a: { culture: 50, outcome: 'finished' }, b: { culture: 40, outcome: 'finished' }, finished_on: '2026-10-14', finished_time: '21:30', zone: 'UTC' }, f), 'PUT', '/game'],
+    ['a report', (f: typeof fetch) => reportGame('https://api.example', 'us_open', '2026', 21, { share_code: 'REP-1', a: { culture: 50, outcome: 'finished', turn: 2 }, b: { culture: 40, outcome: 'finished', turn: 1 }, finished_on: '2026-10-14', finished_time: '21:30', zone: 'UTC' }, f), 'PUT', '/game'],
     ['a confirmation', (f: typeof fetch) => confirmReport('https://api.example', 'us_open', '2026', 21, f), 'POST', '/confirm'],
     ['a flag', (f: typeof fetch) => flagReport('https://api.example', 'us_open', '2026', 21, 'I won', f), 'POST', '/flag'],
   ])('sends %s with the session and answers a refusal with its message', async (_name, send, method, end) => {
@@ -89,10 +91,10 @@ describe('the requests', () => {
 
 describe('yourRow', () => {
   it.each([
-    ['to report', match(), { round: 3, a: 'Ann', label: 'Your game: report it' }],
-    ['their own report', reported('b', 'reported', { actions: ['report'] }), { round: 3, a: 'Ann', label: 'Your game: correct it' }],
-    ["the opponent's report", reported('a', 'reported', { actions: ['confirm', 'flag'] }), { round: 3, a: 'Ann', label: 'Your game: confirm or flag it' }],
-    ['nothing to do', reported('a', 'confirmed'), { round: 3, a: 'Ann', label: 'Your game' }],
+    ['to report', match(), { round: 3, sideA: 'Ann', label: 'Your game: report it' }],
+    ['their own report', reported('b', 'reported', { actions: ['report'] }), { round: 3, sideA: 'Ann', label: 'Your game: correct it' }],
+    ["the opponent's report", reported('a', 'reported', { actions: ['confirm', 'flag'] }), { round: 3, sideA: 'Ann', label: 'Your game: confirm or flag it' }],
+    ['nothing to do', reported('a', 'confirmed'), { round: 3, sideA: 'Ann', label: 'Your game' }],
   ])('%s', (_name, m, want) => {
     expect(yourRow(m)).toEqual(want);
   });

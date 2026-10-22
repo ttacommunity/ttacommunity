@@ -25,8 +25,8 @@ func (s *server) PutAdminBlitzMatchGame(ctx context.Context, req PutAdminBlitzMa
 		return PutAdminBlitzMatchGame400JSONResponse{badRequest400(err.Error())}, nil
 	}
 	g := store.BlitzGame{ShareCode: req.Body.ShareCode, Finished: finished,
-		A: store.BlitzSide{Culture: req.Body.A.Culture, Outcome: string(req.Body.A.Outcome)},
-		B: store.BlitzSide{Culture: req.Body.B.Culture, Outcome: string(req.Body.B.Outcome)}}
+		A: store.BlitzSide{Culture: req.Body.A.Culture, Outcome: string(req.Body.A.Outcome), Turn: req.Body.A.Turn},
+		B: store.BlitzSide{Culture: req.Body.B.Culture, Outcome: string(req.Body.B.Outcome), Turn: req.Body.B.Turn}}
 	err = s.admins.RecordBlitzGame(ctx, req.Tournament, req.Edition, req.Match, g)
 	var taken *store.BlitzShareCodeError
 	switch {

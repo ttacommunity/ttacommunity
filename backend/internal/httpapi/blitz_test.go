@@ -63,6 +63,9 @@ func TestTheSiteListsBlitzEditionsAndTheirEntrants(t *testing.T) {
 	if err := json.Unmarshal(rec.Body.Bytes(), &ed); err != nil || rec.Code != http.StatusOK {
 		t.Fatalf("GET /v1/blitz/us_open/2026 = %d %s", rec.Code, rec.Body)
 	}
+	if got := rec.Header().Get("Cache-Control"); got != cacheNone {
+		t.Errorf("the edition's Cache-Control = %q, want %q: its results change as they are recorded", got, cacheNone)
+	}
 	ann := 1700.0
 	de := "DE"
 	want := []BlitzEntrant{

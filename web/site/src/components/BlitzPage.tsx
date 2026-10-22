@@ -105,7 +105,7 @@ function BlitzList({ apiUrl }: { apiUrl: string }) {
 function EditionPage({ apiUrl, slug, edition }: { apiUrl: string; slug: string; edition: string }) {
   const [load, setLoad] = useState<Load<BlitzEdition>>({ kind: 'loading' });
   const [view, setView] = useState<EditionView | null>(null);
-  // Asked again after the player reports, so their result shows once the api's cache lets it.
+  // Asked again after the player reports, so their result shows at once.
   const [asked, setAsked] = useState(0);
   const [mine, setMine] = useState<MyBlitzMatch | null>(null);
   useEffect(() => {

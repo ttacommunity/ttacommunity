@@ -60,7 +60,7 @@ type Match = components['schemas']['BlitzPublicMatch'];
 
 const format = { swiss_rounds: 8, knockout_size: 8 };
 const match = (a: string, b: string | null, extra: Partial<Match> = {}): Match => ({ a, a_rating: null, a_seed: null, b, b_rating: null, b_seed: null, result: null, game: null, ruled: false, reported_by: null, confirmed: false, ...extra });
-const played = (code: string, finishedAt: string) => ({ share_code: code, a_culture: 250, a_outcome: 'finished' as const, b_culture: 0, b_outcome: 'timed_out' as const, finished_at: finishedAt });
+const played = (code: string, finishedAt: string) => ({ share_code: code, a_culture: 250, a_outcome: 'finished' as const, a_turn: 1, b_culture: 0, b_outcome: 'timed_out' as const, b_turn: 2, finished_at: finishedAt });
 const round = (number: number, matches: Match[], skipped: string[] = []): Round => ({ number, kind: 'swiss', published_at: '2026-10-12T12:00:00Z', matches, skipped });
 const rounds = [
   round(2, [
@@ -74,7 +74,7 @@ const rounds = [
 const all = { round: null, player: '', coded: false, page: 1 };
 
 describe('blitzGames', () => {
-  it('turns a played match into a row: its date in the zone, round, game number, rated players linked with their ratings, the scores, how it ended and the code', () => {
+  it('turns a played match into a row: its date in the zone, round, game number, rated players linked with their ratings and turns, the scores, how it ended and the code', () => {
     expect(blitzGames(rounds, format, all, 'Australia/Sydney').rows[0]).toEqual({
       key: '2-1',
       date: '2026-10-15',
@@ -83,11 +83,23 @@ describe('blitzGames', () => {
       tag: '',
       unplayed: false,
       seats: [
-        { label: 'Ann', link: 'Ann', detail: '(1712)', score: 250, note: '' },
-        { label: 'Cy', link: null, detail: '', score: 0, note: 'timed out' },
+        { label: 'Ann', link: 'Ann', detail: '(1712) P1', score: 250, note: '' },
+        { label: 'Cy', link: null, detail: 'P2', score: 0, note: 'timed out' },
       ],
       code: 'ABCD1234',
     });
+  });
+  it.each([
+    ['the first side first', 1, 2, ['P1', 'P2']],
+    ['the second side first', 2, 1, ['P2', 'P1']],
+    ['a game recorded without them', null, null, ['P?', 'P?']],
+  ] as const)("marks each player's turn, %s, in the match's order", (_name, aTurn, bTurn, want) => {
+    const game = { ...played('TURN-1', '2026-10-14T23:30:00Z'), a_turn: aTurn, b_turn: bTurn };
+    const marked = [round(1, [match('Ann', 'Cy', { result: 'a', game })])];
+    expect(blitzGames(marked, format, all, 'UTC').rows[0].seats.map((s) => s.detail)).toEqual(want);
+  });
+  it('marks no turns on a match with no game', () => {
+    expect(blitzGames(rounds, format, all, 'UTC').rows[2].seats.map((s) => s.detail)).toEqual(['', '']);
   });
   it.each([
     ['a forfeit, not played', 1, ['', 'Eve won by forfeit', true, null]],
@@ -161,7 +173,7 @@ describe('resultsUpdated', () => {
 
 describe("blitzGames' row of the signed-in player's game", () => {
   it.each([
-    ['their game in the latest round', { round: 2, a: 'Fay', label: 'Your game: report it' }, ['', '', 'Your game: report it', '']],
+    ['their game in the latest round', { round: 2, sideA: 'Fay', label: 'Your game: report it' }, ['', '', 'Your game: report it', '']],
     ['no game of theirs', null, ['', '', '', '']],
   ] as const)('%s', (_name, you, want) => {
     expect(blitzGames(rounds, format, { ...all, round: 2 }, 'UTC', you).rows.map((r) => r.you ?? '')).toEqual(want);

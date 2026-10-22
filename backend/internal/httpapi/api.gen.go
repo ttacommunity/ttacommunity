@@ -1720,7 +1720,7 @@ type BlitzFormat struct {
 	SwissRounds  int `json:"swiss_rounds"`
 }
 
-// BlitzGameRecord A played game, with the share code, each side as the match names them, and when it finished
+// BlitzGameRecord A played game, with the share code, each side as the match names them (with their turn), and when it finished
 type BlitzGameRecord struct {
 	A BlitzGameSide `json:"a"`
 	B BlitzGameSide `json:"b"`
@@ -1745,6 +1745,10 @@ type BlitzGameSide struct {
 
 	// Outcome How a player's game ended
 	Outcome BlitzOutcome `json:"outcome"`
+
+	// Turn The player's place in the turn order, 1 for the player who went
+	// first. A game's players take 1 to N, each once
+	Turn int `json:"turn"`
 }
 
 // BlitzMatchChange A match by entrant ids, b left out for the bye
@@ -1777,10 +1781,16 @@ type BlitzPlayedGame struct {
 
 	// AOutcome How a player's game ended
 	AOutcome BlitzOutcome `json:"a_outcome"`
-	BCulture float64      `json:"b_culture"`
+
+	// ATurn a's place in the turn order, 1 for the player who went first; null when it was not recorded
+	ATurn    *int    `json:"a_turn"`
+	BCulture float64 `json:"b_culture"`
 
 	// BOutcome How a player's game ended
 	BOutcome BlitzOutcome `json:"b_outcome"`
+
+	// BTurn b's place in the turn order, 1 for the player who went first; null when it was not recorded
+	BTurn *int `json:"b_turn"`
 
 	// FinishedAt When the game finished, in UTC
 	FinishedAt time.Time `json:"finished_at"`

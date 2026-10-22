@@ -26,7 +26,7 @@ func TestAResultIsResetAsIfNeverPlayed(t *testing.T) {
 	a, _, _, matches := blitzRoundOne(t)
 	ctx := context.Background()
 	annBob, cyDee := matches[0], matches[1]
-	if err := a.RecordBlitzGame(ctx, "us_open", "2026", annBob, BlitzGame{ShareCode: "ABCD1234", A: finished(250), B: finished(200), Finished: finishedAt}); err != nil {
+	if err := a.RecordBlitzGame(ctx, "us_open", "2026", annBob, BlitzGame{ShareCode: "ABCD1234", A: finished(250, 1), B: finished(200, 2), Finished: finishedAt}); err != nil {
 		t.Fatalf("RecordBlitzGame: %v", err)
 	}
 	if err := a.RecordBlitzRuling(ctx, "us_open", "2026", cyDee, "a", "Dee did not show"); err != nil {
@@ -53,7 +53,7 @@ func TestAResultIsResetAsIfNeverPlayed(t *testing.T) {
 			t.Errorf("ResetBlitzResult(Cy v Dee), a ruling, then nothing to undo: %v", err)
 		}
 	}
-	if err := a.RecordBlitzGame(ctx, "us_open", "2026", annBob, BlitzGame{ShareCode: "ABCD1234", A: finished(180), B: finished(200), Finished: finishedAt}); err != nil {
+	if err := a.RecordBlitzGame(ctx, "us_open", "2026", annBob, BlitzGame{ShareCode: "ABCD1234", A: finished(180, 1), B: finished(200, 2), Finished: finishedAt}); err != nil {
 		t.Errorf("recording Ann v Bob again with the code reset: %v", err)
 	}
 }
@@ -62,7 +62,7 @@ func TestARoundsResultsAreResetTogether(t *testing.T) {
 	a, _, _, matches := blitzRoundOne(t)
 	ctx := context.Background()
 	for i, m := range matches {
-		if err := a.RecordBlitzGame(ctx, "us_open", "2026", m, BlitzGame{ShareCode: []string{"ABCD1234", ""}[i], A: finished(250), B: finished(200), Finished: finishedAt}); err != nil {
+		if err := a.RecordBlitzGame(ctx, "us_open", "2026", m, BlitzGame{ShareCode: []string{"ABCD1234", ""}[i], A: finished(250, 1), B: finished(200, 2), Finished: finishedAt}); err != nil {
 			t.Fatalf("RecordBlitzGame: %v", err)
 		}
 	}
@@ -126,7 +126,7 @@ func TestOnlyTheLatestRoundIsReset(t *testing.T) {
 func TestAnEditionIsResetToItsEntrants(t *testing.T) {
 	a, _, ids, matches := blitzRoundOne(t)
 	ctx := context.Background()
-	if err := a.RecordBlitzGame(ctx, "us_open", "2026", matches[0], BlitzGame{ShareCode: "ABCD1234", A: finished(250), B: finished(200), Finished: finishedAt}); err != nil {
+	if err := a.RecordBlitzGame(ctx, "us_open", "2026", matches[0], BlitzGame{ShareCode: "ABCD1234", A: finished(250, 1), B: finished(200, 2), Finished: finishedAt}); err != nil {
 		t.Fatalf("RecordBlitzGame: %v", err)
 	}
 	if err := a.RecordBlitzRuling(ctx, "us_open", "2026", matches[1], "a", "Dee did not show"); err != nil {
@@ -193,7 +193,7 @@ func TestAGameInARatingsRunIsResetToo(t *testing.T) {
 			if err != nil {
 				t.Fatalf("AddBlitzRound: %v", err)
 			}
-			if err := a.RecordBlitzGame(ctx, "us_open", "2026", r.Matches[0].ID, BlitzGame{ShareCode: "ABCD1234", A: finished(250), B: finished(200), Finished: finishedAt}); err != nil {
+			if err := a.RecordBlitzGame(ctx, "us_open", "2026", r.Matches[0].ID, BlitzGame{ShareCode: "ABCD1234", A: finished(250, 1), B: finished(200, 2), Finished: finishedAt}); err != nil {
 				t.Fatalf("RecordBlitzGame: %v", err)
 			}
 			ed, err := a.BlitzEdition(ctx, "us_open", "2026")
@@ -230,7 +230,7 @@ func TestTheAdminLoginDeletesOnlyBlitzGamesNoMatchHolds(t *testing.T) {
 	if err != nil {
 		t.Fatalf("AddBlitzRound: %v", err)
 	}
-	if err := a.RecordBlitzGame(ctx, "us_open", "2026", r.Matches[0].ID, BlitzGame{A: finished(250), B: finished(200), Finished: finishedAt}); err != nil {
+	if err := a.RecordBlitzGame(ctx, "us_open", "2026", r.Matches[0].ID, BlitzGame{A: finished(250, 1), B: finished(200, 2), Finished: finishedAt}); err != nil {
 		t.Fatalf("RecordBlitzGame: %v", err)
 	}
 	var held int64
