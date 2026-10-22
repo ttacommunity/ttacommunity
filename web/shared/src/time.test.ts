@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { formatInstant } from './time';
+import { formatInstant, formatTime } from './time';
 
 describe('formatInstant', () => {
   it.each([
@@ -22,5 +22,18 @@ describe('formatInstant', () => {
     ['garbage', 'tomorrow'],
   ])('refuses %s', (_name, instant) => {
     expect(() => formatInstant(instant, 'Europe/London')).toThrow(RangeError);
+  });
+});
+
+describe('formatTime', () => {
+  it.each([
+    ['Sydney after the clocks go forward', '2026-10-05T12:00:00Z', 'Australia/Sydney', '5 Oct 2026, 23:00'],
+    ['Berlin, with the fraction Go sends', '2026-10-20T12:02:35.005172Z', 'Europe/Berlin', '20 Oct 2026, 14:02'],
+  ])('shows %s without its zone', (_name, instant, zone, want) => {
+    expect(formatTime(instant, zone)).toBe(want);
+  });
+
+  it('refuses an instant that is not UTC', () => {
+    expect(() => formatTime('2026-10-20T23:02:35+11:00', 'Australia/Sydney')).toThrow(RangeError);
   });
 });
