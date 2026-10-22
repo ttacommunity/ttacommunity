@@ -47,25 +47,12 @@ IDEAL_POINTS = [0.525, 0.575, 0.625, 0.675, 0.725, 0.775, 0.825, 0.875, 0.925, 0
 BIN_EDGES = np.linspace(0.5, 1.0, 11)
 NUM_BINS = len(BIN_LABELS)
 
-ALL_16_MODELS = [
+# The models a run evaluates: the ones run.py computes.
+ALL_MODELS = [
     "glicko2_daneo",
     "glicko2_daneo_softer",
     "glicko2_std",
-    "glicko2_std_retro",
-    "glicko2_std_softer",
-    "glicko2_std_softer_retro",
-    "glicko2_mp",
-    "glicko2_mp_retro",
-    "glicko2_mp_softer",
-    "glicko2_mp_softer_retro",
-    "glicko2_adapt",
-    "glicko2_adapt_retro",
-    "glicko2_adapt_softer",
-    "glicko2_adapt_softer_retro",
-    "whr",
-    "whr_softer",
 ]
-ALL_12_MODELS = ALL_16_MODELS  # Alias for backward compatibility
 
 
 def is_retro(m: str) -> bool:
@@ -221,9 +208,9 @@ def run_walk_forward_evaluation(
             )
 
         if models_filter:
-            models = [m for m in ALL_16_MODELS if m in models_filter]
+            models = [m for m in ALL_MODELS if m in models_filter]
         else:
-            models = ALL_16_MODELS
+            models = ALL_MODELS
 
         g2_models = [m for m in models if "whr" not in m]
         has_whr = any("whr" in m for m in models)

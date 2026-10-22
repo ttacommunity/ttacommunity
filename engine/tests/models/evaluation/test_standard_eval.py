@@ -46,7 +46,7 @@ def test_calibration_is_stored_in_the_run_and_nowhere_else(conn, add_match, run_
 
     run_standard_calibration_all(
         verbose=False,
-        model_filter=["glicko2_std", "whr"],
+        model_filter=["glicko2_std", "glicko2_daneo"],
         formats=[2],
         conn=conn,
         run_id=run_id,
@@ -56,7 +56,7 @@ def test_calibration_is_stored_in_the_run_and_nowhere_else(conn, add_match, run_
     assert [
         (r["model_type"], r["player_count"], r["period_month"], r["matches_evaluated"])
         for r in rows
-    ] == [("glicko2_std", 2, "AGGREGATED", 3), ("whr", 2, "AGGREGATED", 3)]
+    ] == [("glicko2_daneo", 2, "AGGREGATED", 3), ("glicko2_std", 2, "AGGREGATED", 3)]
     assert len(rows[0]["bin_data"]["labels"]) == 10
     assert set(ENGINE_DIR.rglob("*.json")) == before
     assert not (ENGINE_DIR / "data").exists()

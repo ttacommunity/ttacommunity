@@ -15,13 +15,7 @@ from tta_ratings_engine import run as runner
 from tta_ratings_engine.data.db import connect
 from tta_ratings_engine.run import FORMATS, MODEL_TYPES, STEP_COST, main, run
 
-SIXTEEN = {
-    "glicko2_daneo", "glicko2_daneo_softer",
-    "glicko2_std", "glicko2_std_retro", "glicko2_std_softer", "glicko2_std_softer_retro",
-    "glicko2_mp", "glicko2_mp_retro", "glicko2_mp_softer", "glicko2_mp_softer_retro",
-    "glicko2_adapt", "glicko2_adapt_retro", "glicko2_adapt_softer", "glicko2_adapt_softer_retro",
-    "whr", "whr_softer",
-}  # fmt: skip
+KEPT = {"glicko2_daneo", "glicko2_daneo_softer", "glicko2_std"}
 
 
 def boom(**_):
@@ -64,8 +58,8 @@ def current(conn):
     return row and row["run_id"]
 
 
-def test_the_model_list_is_the_sixteen_calibration_models():
-    assert set(MODEL_TYPES) == SIXTEEN
+def test_the_model_list_is_glicko_d_both_ways_and_standard_glicko2():
+    assert set(MODEL_TYPES) == KEPT
 
 
 def test_a_run_writes_every_result_and_completes(conn, add_match):
@@ -78,8 +72,8 @@ def test_a_run_writes_every_result_and_completes(conn, add_match):
     types = conn.execute(
         "SELECT DISTINCT model_type FROM player_ratings WHERE run_id = %s", (run_id,)
     ).fetchall()
-    assert {r["model_type"] for r in types} == SIXTEEN
-    assert count(conn, "standard_calibration", run_id) == 16 * 2
+    assert {r["model_type"] for r in types} == KEPT
+    assert count(conn, "standard_calibration", run_id) == 3 * 2
     assert count(conn, "walk_forward_calibration", run_id) > 0
     assert count(conn, "player_titles", run_id) == 2
     assert count(conn, "pairwise_matches", run_id) == 10
@@ -221,9 +215,9 @@ def test_progress_counts_every_step_up_front(conn, add_match):
     run(conn, "v-test", formats=[0, 2], log=lines.append)
 
     progress = [line for line in lines if line.startswith("[")]
-    # pairs + 16 models x 2 formats + tournaments + titles + 16 calibrations x 2
+    # pairs + 3 models x 2 formats + tournaments + titles + 3 calibrations x 2
     # + walk-forward months (2 + 2)
-    assert progress[-1].startswith("[71/71] ")
+    assert progress[-1].startswith("[19/19] ")
 
 
 def test_a_failure_marks_the_run_failed_and_is_raised(conn, add_match, monkeypatch):
@@ -427,9 +421,9 @@ def test_a_parallel_run_counts_every_task_up_front(conn, db_url, add_match):
     run(conn, "v-test", formats=[0, 2], log=lines.append, workers=2, url=db_url)
 
     progress = [line for line in lines if line.startswith("[")]
-    # pairs + 16 models x 2 formats + tournaments + titles + 16 calibrations x 2
+    # pairs + 3 models x 2 formats + tournaments + titles + 3 calibrations x 2
     # + one walk-forward per format
-    assert progress[-1].startswith("[69/69] ")
+    assert progress[-1].startswith("[17/17] ")
 
 
 def test_a_parallel_run_needs_the_database_url(conn, add_match):

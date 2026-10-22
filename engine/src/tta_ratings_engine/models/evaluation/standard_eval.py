@@ -556,23 +556,11 @@ def run_standard_calibration_all(
     if formats is None:
         formats = [0, 2, 3, 4]
 
+    # The models a run computes (run.py's MODELS): model, MP-weighted, reset mode, engine, retro-calibrated.
     model_configs = [
         ("glicko2_daneo", None, "continuous", "glicko2_daneo", True),
         ("glicko2_daneo_softer", None, "softer", "glicko2_daneo", True),
         ("glicko2_std", False, "continuous", "glicko2_std", False),
-        ("glicko2_std_retro", False, "continuous", "glicko2_std", True),
-        ("glicko2_std_softer", False, "softer", "glicko2_std", False),
-        ("glicko2_std_softer_retro", False, "softer", "glicko2_std", True),
-        ("glicko2_mp", True, "continuous", "glicko2_mp", False),
-        ("glicko2_mp_retro", True, "continuous", "glicko2_mp", True),
-        ("glicko2_mp_softer", True, "softer", "glicko2_mp", False),
-        ("glicko2_mp_softer_retro", True, "softer", "glicko2_mp", True),
-        ("glicko2_adapt", None, "continuous", "glicko2_adapt", False),
-        ("glicko2_adapt_retro", None, "continuous", "glicko2_adapt", True),
-        ("glicko2_adapt_softer", None, "softer", "glicko2_adapt", False),
-        ("glicko2_adapt_softer_retro", None, "softer", "glicko2_adapt", True),
-        ("whr", None, "continuous", "whr", False),
-        ("whr_softer", None, "softer", "whr", False),
     ]
 
     with conn.transaction():

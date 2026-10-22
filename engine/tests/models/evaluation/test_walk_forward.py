@@ -58,7 +58,7 @@ def test_walk_forward_synthetic_leak_free(conn, add_match, run_id):
 
     assert "2022-02" in res["eval_months"]
     assert res["aggregated"]["glicko2_std"]["matches"] == 1
-    assert res["aggregated"]["whr"]["matches"] == 1
+    assert res["aggregated"]["glicko2_daneo"]["matches"] == 1
 
 
 def test_results_are_stored_in_the_run_per_model_and_month(conn, add_match, run_id):
@@ -91,7 +91,7 @@ def test_evaluating_again_replaces_the_runs_rows(conn, add_match, run_id):
         "player_count": 2,
         "start_eval_month": "2022-02",
         "verbose": False,
-        "models_filter": ["whr"],
+        "models_filter": ["glicko2_daneo"],
     }
 
     run_walk_forward_evaluation(**args, conn=conn, run_id=run_id)
