@@ -1,1 +1,1 @@
-"""TTA Glicko-2 & WHR Rating System."""
+"""TTA Glicko-2 Rating System."""

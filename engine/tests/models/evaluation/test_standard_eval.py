@@ -8,7 +8,6 @@ from tta_ratings_engine.data.db import RunNotRunning
 from tta_ratings_engine.data.pairwise import expand_pairwise
 from tta_ratings_engine.models.evaluation.standard_eval import (
     evaluate_standard_glicko2,
-    evaluate_standard_whr,
     run_standard_calibration_all,
 )
 
@@ -81,9 +80,8 @@ def test_evaluation_reads_only_the_runs_pairs(conn, add_match, run_id):
     expand_pairwise(conn, later)
 
     g = evaluate_standard_glicko2(player_count=2, conn=conn, run_id=run_id)
-    w = evaluate_standard_whr(player_count=2, conn=conn, run_id=run_id)
 
-    assert (g["matches"], w["matches"]) == (3, 3)
+    assert g["matches"] == 3
 
 
 def test_a_finished_run_is_never_written_to(conn, add_match, run_id):

@@ -21,9 +21,9 @@ run.
 
 | Here, under `src/tta_ratings_engine/` | Upstream, under `src/` | Changes |
 |---|---|---|
-| `models/glicko2/engine.py`, `adaptive_t.py`, `models/whr/engine.py`, `solver.py` | same | Import lines only |
-| `models/glicko2/calculator.py`, `models/whr/calculator.py` | same | Read the run's pairs and write the run's ratings and history. Linted and formatted |
-| `models/evaluation/` | same | The same, for calibration. `standard_eval.py` no longer writes a JSON cache, and walk-forward reports each month as it finishes. The command-line entry points are gone: `run.py` replaces them |
+| `models/glicko2/engine.py` | same | Import lines only. Upstream's `adaptive_t.py` and `models/whr/` (Adaptive-T and WHR) were retired with engine 1.4.0 |
+| `models/glicko2/calculator.py` | same | Read the run's pairs and write the run's ratings and history. Linted and formatted; the Adaptive-T branches are gone |
+| `models/evaluation/` | same | The same, for calibration. `standard_eval.py` no longer writes a JSON cache, and walk-forward reports each month as it finishes; both evaluate only the models a run computes. The command-line entry points are gone: `run.py` replaces them |
 | `data/badges.py` | same | Titles go into the run's `player_titles`, not onto `players` |
 | `data/pairwise.py` | `data/loader.py` | Reads `matches` from the database instead of a CSV, and carries `glicko_eligible` into each pair. The expansion is upstream's |
 | `data/tournaments.py` | `data/hall_of_fame.py`, `data/parse_tournaments.py` | Reads the matches and the recorded facts instead of spreadsheets: each game's series, season and division, group standings by each league's rules, the league trophyboards and upstream's seasonal records |
@@ -112,6 +112,6 @@ it afterwards. No match data is needed, and none is kept in this repository.
 matches. A full run on real data is never part of CI.
 
 `tests/` mirrors the package: the tests for
-`src/tta_ratings_engine/models/whr/engine.py` are in
-`tests/models/whr/test_engine.py`. pytest runs in `importlib` import mode, so
+`src/tta_ratings_engine/models/glicko2/engine.py` are in
+`tests/models/glicko2/test_engine.py`. pytest runs in `importlib` import mode, so
 two test files can share a name in different folders.

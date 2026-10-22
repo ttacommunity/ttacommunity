@@ -1,8 +1,8 @@
 """Standard (in-sample match-time) calibration and predictive benchmark engine.
 
 Evaluates match-by-match predicted win probability versus actual game outcomes
-for all 9 rating engine variants (Glicko-2 Std, Glicko-2 MP, WHR across Continuous,
-Soft Reset, and Hard Reset modes) across formats (All, 2P, 3P, 4P).
+for the models a run computes (Glicko-D continuous and with a season reset, and
+standard Glicko-2) across formats (All, 2P, 3P, 4P).
 """
 
 import math
@@ -15,10 +15,6 @@ from psycopg.types.json import Jsonb
 from tta_ratings_engine.data.db import load_pairs, require_running
 from tta_ratings_engine.models.evaluation.walk_forward import (
     compute_metrics_from_preds,
-)
-from tta_ratings_engine.models.glicko2.adaptive_t import (
-    calibrated_expectation,
-    update_rating_adaptive,
 )
 from tta_ratings_engine.models.glicko2.calculator import (
     CALIBRATED_SIGMA,
@@ -37,11 +33,6 @@ from tta_ratings_engine.models.glicko2.calculator import (
 )
 from tta_ratings_engine.models.glicko2.engine import GLICKO2_SCALE as G2_SCALE
 from tta_ratings_engine.models.glicko2.engine import Rating, update_rating
-from tta_ratings_engine.models.whr.engine import (
-    DEFAULT_RATING,
-    GLICKO2_SCALE,
-    WHREngine,
-)
 
 
 def evaluate_standard_glicko2(
@@ -187,22 +178,16 @@ def evaluate_standard_glicko2(
                     p_thresh = player_thresholds.get(p_name, calibration_threshold)
 
                     def run_update_p1(r_cur, items):
-                        if base_model == "glicko2_adapt":
-                            enc4 = [(it[0], it[1], it[2], it[3]) for it in items]
-                            return update_rating_adaptive(
-                                r_cur, enc4, tau=CALIBRATED_TAU
-                            )
-                        else:
-                            enc3 = [(it[0], it[1], it[2]) for it in items]
-                            return update_rating(
-                                r_cur,
-                                enc3,
-                                tau=CALIBRATED_TAU,
-                                weighted=(
-                                    base_model in ("glicko2_mp", "glicko2_daneo")
-                                    or weighted
-                                ),
-                            )
+                        enc3 = [(it[0], it[1], it[2]) for it in items]
+                        return update_rating(
+                            r_cur,
+                            enc3,
+                            tau=CALIBRATED_TAU,
+                            weighted=(
+                                base_model in ("glicko2_mp", "glicko2_daneo")
+                                or weighted
+                            ),
+                        )
 
                     if (
                         prev_games < p_thresh
@@ -355,14 +340,9 @@ def evaluate_standard_glicko2(
                 rb = get_current_rating(pb)
                 m_pcount = m.get("player_count", player_count)
 
-                if base_model == "glicko2_adapt":
-                    exp_prob = calibrated_expectation(
-                        ra.mu, rb.mu, rb.phi, player_count=m_pcount, phi_a=ra.phi
-                    )
-                else:
-                    c = math.sqrt(ra.phi**2 + rb.phi**2)
-                    g_rd = 1.0 / math.sqrt(1.0 + 3.0 * (c**2) / (math.pi**2))
-                    exp_prob = 1.0 / (1.0 + math.exp(-g_rd * (ra.mu - rb.mu)))
+                c = math.sqrt(ra.phi**2 + rb.phi**2)
+                g_rd = 1.0 / math.sqrt(1.0 + 3.0 * (c**2) / (math.pi**2))
+                exp_prob = 1.0 / (1.0 + math.exp(-g_rd * (ra.mu - rb.mu)))
 
                 if exp_prob >= 0.5:
                     preds.append(exp_prob)
@@ -396,20 +376,15 @@ def evaluate_standard_glicko2(
             for p_name, enc_list in player_encounters.items():
 
                 def run_update_p2(r_cur, items):
-                    if base_model == "glicko2_adapt":
-                        enc4 = [(it[0], it[1], it[2], it[3]) for it in items]
-                        return update_rating_adaptive(r_cur, enc4, tau=CALIBRATED_TAU)
-                    else:
-                        enc3 = [(it[0], it[1], it[2]) for it in items]
-                        return update_rating(
-                            r_cur,
-                            enc3,
-                            tau=CALIBRATED_TAU,
-                            weighted=(
-                                base_model in ("glicko2_mp", "glicko2_daneo")
-                                or weighted
-                            ),
-                        )
+                    enc3 = [(it[0], it[1], it[2]) for it in items]
+                    return update_rating(
+                        r_cur,
+                        enc3,
+                        tau=CALIBRATED_TAU,
+                        weighted=(
+                            base_model in ("glicko2_mp", "glicko2_daneo") or weighted
+                        ),
+                    )
 
                 if retro_calibrated:
                     prev_games = len(games_played_p2[p_name])
@@ -464,80 +439,6 @@ def evaluate_standard_glicko2(
         return compute_metrics_from_preds(preds, actuals)
 
 
-def evaluate_standard_whr(
-    reset_mode: str = "continuous",
-    player_count: int = 0,
-    *,
-    conn: psycopg.Connection,
-    run_id: int,
-) -> dict[str, Any]:
-    """Runs retrospective match-time prediction evaluation for WHR on the run's pairs."""
-    with conn.transaction():
-        rows = load_pairs(conn, run_id, player_count)
-
-        whr = WHREngine()
-        for r in rows:
-            whr.add_game(
-                r["date"], r["player_a"], r["player_b"], r["outcome_a"], r["weight"]
-            )
-
-        whr.fit(max_iter=6, tol=1e-3, verbose=False)
-
-        preds = []
-        actuals = []
-
-        phi = 1.61803398875
-        (1.0 - 1.0 / phi) * (1.0 / phi)
-        1.0 / phi
-
-        for r in rows:
-            pa, pb = r["player_a"], r["player_b"]
-            d_str = r["date"][:10]
-            out_a = r["outcome_a"]
-
-            res_a = whr.get_rating_on_date(pa, d_str)
-            res_b = whr.get_rating_on_date(pb, d_str)
-
-            ra = res_a[0] if res_a else DEFAULT_RATING
-            rb = res_b[0] if res_b else DEFAULT_RATING
-
-            if reset_mode == "softer":
-                ra = (
-                    1.0 - RESET_LAMBDA_SOFTER
-                ) * ra + RESET_LAMBDA_SOFTER * get_tier_mean(ra)
-                rb = (
-                    1.0 - RESET_LAMBDA_SOFTER
-                ) * rb + RESET_LAMBDA_SOFTER * get_tier_mean(rb)
-            elif reset_mode == "soft":
-                ra = (1.0 - RESET_LAMBDA_SOFT) * ra + RESET_LAMBDA_SOFT * get_tier_mean(
-                    ra
-                )
-                rb = (1.0 - RESET_LAMBDA_SOFT) * rb + RESET_LAMBDA_SOFT * get_tier_mean(
-                    rb
-                )
-            elif reset_mode == "amplified":
-                ra = (1.0 - RESET_LAMBDA_HARD) * ra + RESET_LAMBDA_HARD * get_tier_mean(
-                    ra
-                )
-                rb = (1.0 - RESET_LAMBDA_HARD) * rb + RESET_LAMBDA_HARD * get_tier_mean(
-                    rb
-                )
-
-            mu_a = (ra - DEFAULT_RATING) / GLICKO2_SCALE
-            mu_b = (rb - DEFAULT_RATING) / GLICKO2_SCALE
-
-            exp_prob = 1.0 / (1.0 + math.exp(-(mu_a - mu_b)))
-
-            if exp_prob >= 0.5:
-                preds.append(exp_prob)
-                actuals.append(out_a)
-            else:
-                preds.append(1.0 - exp_prob)
-                actuals.append(1.0 - out_a)
-
-        return compute_metrics_from_preds(preds, actuals)
-
-
 def run_standard_calibration_all(
     verbose: bool = True,
     model_filter: list[str] | None = None,
@@ -579,24 +480,12 @@ def run_standard_calibration_all(
                     print(f"  Evaluating {m_type} ({fmt_label})...")
 
                 on_run = {"conn": conn, "run_id": run_id}
-                if eng_base == "whr":
-                    res = evaluate_standard_whr(
-                        reset_mode=reset_m, player_count=fmt, **on_run
-                    )
-                elif eng_base == "glicko2_daneo":
+                if eng_base == "glicko2_daneo":
                     res = evaluate_standard_glicko2(
                         engine="glicko2_daneo",
                         reset_mode=reset_m,
                         player_count=fmt,
                         retro_calibrated=True,
-                        **on_run,
-                    )
-                elif eng_base == "glicko2_adapt":
-                    res = evaluate_standard_glicko2(
-                        engine="glicko2_adapt",
-                        reset_mode=reset_m,
-                        player_count=fmt,
-                        retro_calibrated=is_retro,
                         **on_run,
                     )
                 else:

@@ -173,8 +173,8 @@ def test_a_step_timed_elsewhere_counts_its_own_seconds_to_its_phase(clock, lines
     p = progress(3, clock, lines)
     clock.now = 100
 
-    p.advance("whr 2p", phase="models 2p", seconds=12.5)
-    p.advance("whr 3p", phase="models 3p", seconds=40.0)
+    p.advance("glicko2_std 2p", phase="models 2p", seconds=12.5)
+    p.advance("glicko2_std 3p", phase="models 3p", seconds=40.0)
     p.advance("glicko2_std 2p", phase="models 2p", seconds=7.5)
     lines.clear()
     p.summary()
