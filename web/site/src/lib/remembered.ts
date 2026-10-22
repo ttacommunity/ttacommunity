@@ -2,12 +2,11 @@
 import { DEFAULT_VIEW, parseView, viewParams, type Remembered, type View } from './leaderboard-view';
 
 const KEY = 'ttac.leaderboard';
-const PARAMS = { engine: 'model', reset: 'reset_mode', retro: 'retro', format: 'format' } as const;
+const PARAMS = { engine: 'model', reset: 'reset_mode', format: 'format' } as const;
 
-/** remember saves the view's engine, reset mode, retro prior and format; a refusing store is ignored. */
+/** remember saves the view's engine, reset mode and format; a refusing store is ignored. */
 export function remember(store: Storage, view: View): void {
-  const all = viewParams({ ...DEFAULT_VIEW, engine: view.engine, reset: view.reset, retro: view.retro, format: view.format });
-  all.set('retro', view.retro ? '1' : '0');
+  const all = viewParams({ ...DEFAULT_VIEW, engine: view.engine, reset: view.reset, format: view.format }, true);
   try {
     store.setItem(KEY, all.toString());
   } catch {
@@ -29,7 +28,7 @@ export function recall(store: Storage): Remembered {
   for (const [field, param] of Object.entries(PARAMS) as [keyof typeof PARAMS, string][]) {
     const raw = params.get(param);
     const value = parsed[field];
-    if (raw !== null && String(field === 'retro' ? (value ? '1' : '0') : value) === raw) Object.assign(got, { [field]: value });
+    if (raw !== null && String(value) === raw) Object.assign(got, { [field]: value });
   }
   return got;
 }

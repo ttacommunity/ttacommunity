@@ -17,35 +17,26 @@ const row = (model: CalibrationRow['model'], format: CalibrationRow['format'], b
 describe('faqFigures', () => {
   it("formats the walk-forward figures as upstream's FAQ: Brier to 4 places, ECE as a percentage to 2", () => {
     const rows = [
-      row('glicko2_mp', 0, 0.21406, 0.011549, 308863),
       row('glicko2_std', 0, 0.2143, 0.0147),
-      row('glicko2_mp', 4, 0.22235, 0.0196),
       row('glicko2_std', 4, 0.224, 0.0324),
       row('glicko2_daneo_softer', 0, 0.2070, 0.006),
-      row('glicko2_std_softer', 0, 0.2125, 0.0063),
-      { ...row('glicko2_mp', 0, 0.1, 0.1), mode: 'standard' as const },
+      row('glicko2_daneo', 0, 0.2050, 0.005),
+      { ...row('glicko2_std', 0, 0.1, 0.1), mode: 'standard' as const },
     ];
     const activity = { run_id: 2, active: 1579, inactive: 1910, formats: [], titles: [], countries: [] } satisfies Activity;
     expect(faqFigures(rows, activity)).toEqual({
-      'mp.0.brier': '0.2141',
-      'mp.0.ece': '1.15',
-      'mp.0.matches': '308,863',
       'std.0.brier': '0.2143',
       'std.0.ece': '1.47',
-      'mp.4.brier': '0.2223',
-      'mp.4.ece': '1.96',
       'std.4.brier': '0.2240',
       'std.4.ece': '3.24',
       'daneo_softer.0.brier': '0.2070',
       'daneo_softer.0.ece': '0.60',
-      'std_softer.0.brier': '0.2125',
-      'std_softer.0.ece': '0.63',
       players: '1579',
     });
   });
 
-  it('leaves out a figure whose row is missing, so the page keeps its fallback', () => {
-    expect(faqFigures([row('glicko2_mp', 0, 0.2, 0.01)], null)).toEqual({ 'mp.0.brier': '0.2000', 'mp.0.ece': '1.00', 'mp.0.matches': '1,000' });
+  it('leaves out a figure whose row is missing, so the page keeps its fallback (the retired models always do)', () => {
+    expect(faqFigures([row('glicko2_std', 0, 0.2, 0.01)], null)).toEqual({ 'std.0.brier': '0.2000', 'std.0.ece': '1.00' });
   });
 });
 

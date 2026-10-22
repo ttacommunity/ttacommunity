@@ -21,7 +21,6 @@ import { achievementsHref } from '../lib/achievements';
 import { recall, remember } from '../lib/remembered';
 import './PlayerPage.css';
 import './MatrixPage.css';
-import Tex from './Tex';
 import ScrollTable from './ScrollTable';
 import ViewSelectors from './ViewSelectors';
 import Waiting from './Waiting';
@@ -31,18 +30,6 @@ type Load<T> = { kind: 'loading' } | { kind: 'error'; message: string } | { kind
 const ROWS: { engine: Engine; name: string; note: ReactNode; className: string }[] = [
   { engine: 'glicko2_daneo', name: '👑 GlickoD', note: 'φ^(N-2) MP decomposition & 15-game re-calibration', className: 'row-daneo' },
   { engine: 'glicko2_std', name: 'Glicko-2 Standard', note: 'Naive 1v1 pairwise baseline', className: '' },
-  { engine: 'glicko2_mp', name: 'Glicko-2 MP-Weighted', note: 'Coulom fractional w=1/(N-1)', className: '' },
-  {
-    engine: 'glicko2_adapt',
-    name: 'Glicko-2 Adaptive-T',
-    note: (
-      <>
-        Format-specific temperature <Tex tex="T(P, N)" />
-      </>
-    ),
-    className: 'row-adapt',
-  },
-  { engine: 'whr', name: 'Whole-History Rating (WHR)', note: 'Retrospective Brownian MAP', className: '' },
 ];
 
 function readView(): MatrixView {

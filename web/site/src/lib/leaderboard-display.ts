@@ -3,35 +3,24 @@ import { titleName, type Format, type Model, type TitleCode } from '@ttac/shared
 
 const formatNames: Record<Format, string> = { 0: 'All Formats', 2: '2-Player (Duel)', 3: '3-Player', 4: '4-Player' };
 
-const engineNames: Record<string, string> = {
-  glicko2_daneo: 'GlickoD',
-  glicko2_std: 'Glicko-2 Standard',
-  glicko2_mp: 'Glicko-2 MP-Weighted',
-  glicko2_adapt: 'Glicko-2 Adaptive-T',
-  whr: 'Whole-History Rating',
-};
+const engineNames: Record<string, string> = { glicko2_daneo: 'GlickoD', glicko2_std: 'Glicko-2 Standard' };
 
 /** formatName returns upstream's name for a format. */
 export function formatName(format: Format): string {
   return formatNames[format];
 }
 
-/** engineName returns upstream's name for a model's engine, without its reset mode or prior. */
+/** engineName returns upstream's name for a model's engine, without its reset mode. */
 export function engineName(model: Model): string {
-  const engine = model.replace(/(_softer)?(_retro)?$/, '');
+  const engine = model.replace(/_softer$/, '');
   return engineNames[engine] ?? engine;
 }
 
-const engineNotes: Record<string, string> = {
-  glicko2_std: 'Standard 1v1 naive baseline',
-  glicko2_mp: 'Multiplayer fractional weighting — variance-calibrated',
-  glicko2_adapt: 'Adaptive temperature scaling',
-  whr: 'Whole-History Rating retrospective MAP',
-};
+const engineNotes: Record<string, string> = { glicko2_std: 'Standard 1v1 naive baseline' };
 
 /** engineNote returns upstream's short description of a model's engine, or '' for GlickoD. */
 export function engineNote(model: Model): string {
-  return engineNotes[model.replace(/(_softer)?(_retro)?$/, '')] ?? '';
+  return engineNotes[model.replace(/_softer$/, '')] ?? '';
 }
 
 /** resetModeName returns upstream's name for a model's season reset mode. */
@@ -39,11 +28,10 @@ export function resetModeName(model: Model): string {
   return model.includes('_softer') ? 'Season Reset' : 'Continuous (Career)';
 }
 
-/** modelLabel names a model by its engine, then its reset mode and prior when they are not the defaults. */
+/** modelLabel names a model by its engine, then its reset mode when it is not the default. */
 export function modelLabel(model: Model): string {
   const parts = [engineName(model)];
   if (model.includes('_softer')) parts.push('Season Reset');
-  if (model.endsWith('_retro')) parts.push('15G Retro');
   return parts.join(' · ');
 }
 
