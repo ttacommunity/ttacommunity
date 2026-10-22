@@ -17,6 +17,7 @@ import (
 	"path/filepath"
 	"slices"
 	"strconv"
+	"strings"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -36,10 +37,10 @@ var ErrUnlistedTable = errors.New("the input tables differ from the export's lis
 // ExportTables are the tables that hold inputs, in an order a restore can
 // load them (a table after those it refers to): what a new database needs
 // for the engine to recompute every view. An export may be shared, so it
-// holds no personal data. Every other table holds a run's results, which the
-// engine computes again, or is in NotExported.
+// holds no personal data: of members, only the columns in exportColumns. Every other table holds a run's results,
+// which the engine computes again, or is in NotExported.
 var ExportTables = []string{
-	"import_batches", "players", "player_accounts",
+	"import_batches", "players", "player_accounts", "members",
 	"series", "tournaments", "stages", "groups", "group_members", "settings",
 	"games", "seats",
 	"rankings", "ranking_series", "cge_tournaments", "cge_tournament_moderators", "cge_standings",
@@ -51,13 +52,18 @@ var ExportTables = []string{
 	"badges", "player_badges", "tournament_cards", "tournament_stories",
 }
 
+// exportColumns are the columns an export writes of a table it does not hold whole; a backup holds every column.
+// Of a member: the name, its ids and the country, which the site shows beside the name; never the Discord name,
+// email, zone or ban.
+var exportColumns = map[string][]string{"members": {"member_id", "tta_name", "cge_user", "player_id", "country_code"}}
+
 // NotExported are the input tables an export leaves out: who the admins are
 // and what they did (Discord ids; a new database adds its admins with
 // load -add-admin), the rows a load refused (load history, which no view
-// needs), the community's members (Discord names, emails) and blitz tournaments' editions, entrants, organisers,
-// thread texts, rounds and skips, which reference them, and players' accounts, sign-ins, sessions, requests to be
-// linked and emailed links. A backup restores them in this order, after ExportTables.
-var NotExported = []string{"refused_rows", "admins", "admin_audit", "members", "blitz_editions", "blitz_entries", "blitz_organisers", "blitz_thread_texts", "blitz_rounds", "blitz_matches", "blitz_skips",
+// needs), blitz tournaments' editions, entrants, organisers, thread texts, rounds and skips, which reference the
+// members, and players' accounts, sign-ins, sessions, requests to be linked and emailed links. A backup restores
+// them in this order, after ExportTables.
+var NotExported = []string{"refused_rows", "admins", "admin_audit", "blitz_editions", "blitz_entries", "blitz_organisers", "blitz_thread_texts", "blitz_rounds", "blitz_matches", "blitz_skips",
 	"accounts", "logins", "link_requests", "player_sessions", "email_links"}
 
 // NotBackedUp are the input tables a backup leaves out: short-lived sign-in secrets. Players sign in again after a restore.
@@ -74,12 +80,14 @@ type Manifest struct {
 	Tables        []ExportedTable `json:"tables"`
 }
 
-// ExportedTable is one table's file in an export, with its row count and SHA-256.
+// ExportedTable is one table's file in an export, with its row count and SHA-256, and its columns when the file
+// holds only some of them.
 type ExportedTable struct {
-	Table  string `json:"table"`
-	File   string `json:"file"`
-	Rows   int64  `json:"rows"`
-	SHA256 string `json:"sha256"`
+	Table   string   `json:"table"`
+	File    string   `json:"file"`
+	Columns []string `json:"columns,omitempty"`
+	Rows    int64    `json:"rows"`
+	SHA256  string   `json:"sha256"`
 }
 
 const manifestFile = "manifest.json"
@@ -88,20 +96,20 @@ const manifestFile = "manifest.json"
 // with a header, rows in a fixed order, from one snapshot, and the manifest.
 // It refuses a database with an input table ExportTables does not name.
 func Export(ctx context.Context, pool *pgxpool.Pool, dir string) (Manifest, error) {
-	return exportToDir(ctx, pool, ExportTables, dir)
+	return exportToDir(ctx, pool, ExportTables, exportColumns, dir)
 }
 
-// Backup writes every table in BackupTables to dir (created, or empty) as Export does, with the same manifest.
-// It refuses a database with an input table it does not list.
+// Backup writes every table in BackupTables, whole, to dir (created, or empty) as Export does, with the same
+// manifest. It refuses a database with an input table it does not list.
 func Backup(ctx context.Context, pool *pgxpool.Pool, dir string) (Manifest, error) {
-	return exportToDir(ctx, pool, BackupTables, dir)
+	return exportToDir(ctx, pool, BackupTables, nil, dir)
 }
 
-func exportToDir(ctx context.Context, pool *pgxpool.Pool, tables []string, dir string) (Manifest, error) {
+func exportToDir(ctx context.Context, pool *pgxpool.Pool, tables []string, columns map[string][]string, dir string) (Manifest, error) {
 	if entries, err := os.ReadDir(dir); err == nil && len(entries) > 0 {
 		return Manifest{}, fmt.Errorf("exporting: %s is not empty", dir)
 	}
-	return export(ctx, pool, tables, func(name string) (io.WriteCloser, error) {
+	return export(ctx, pool, tables, columns, func(name string) (io.WriteCloser, error) {
 		if err := os.MkdirAll(dir, 0o700); err != nil {
 			return nil, err
 		}
@@ -111,17 +119,17 @@ func exportToDir(ctx context.Context, pool *pgxpool.Pool, tables []string, dir s
 
 // ExportZip writes the same export as Export, as one zip of its files, to w: for a download.
 func ExportZip(ctx context.Context, pool *pgxpool.Pool, w io.Writer) (Manifest, error) {
-	return exportZip(ctx, pool, ExportTables, w)
+	return exportZip(ctx, pool, ExportTables, exportColumns, w)
 }
 
 // BackupZip writes the same backup as Backup, as one zip of its files, to w: for the backup job.
 func BackupZip(ctx context.Context, pool *pgxpool.Pool, w io.Writer) (Manifest, error) {
-	return exportZip(ctx, pool, BackupTables, w)
+	return exportZip(ctx, pool, BackupTables, nil, w)
 }
 
-func exportZip(ctx context.Context, pool *pgxpool.Pool, tables []string, w io.Writer) (Manifest, error) {
+func exportZip(ctx context.Context, pool *pgxpool.Pool, tables []string, columns map[string][]string, w io.Writer) (Manifest, error) {
 	zw := zip.NewWriter(w)
-	m, err := export(ctx, pool, tables, func(name string) (io.WriteCloser, error) {
+	m, err := export(ctx, pool, tables, columns, func(name string) (io.WriteCloser, error) {
 		f, err := zw.Create(name)
 		return nopCloser{f}, err
 	})
@@ -138,8 +146,9 @@ type nopCloser struct{ io.Writer }
 
 func (nopCloser) Close() error { return nil }
 
-// export writes each of tables, then the manifest, through create, from one read-only snapshot.
-func export(ctx context.Context, pool *pgxpool.Pool, tables []string, create func(name string) (io.WriteCloser, error)) (Manifest, error) {
+// export writes each of tables (only the columns named for it, if any), then the manifest, through create, from one
+// read-only snapshot.
+func export(ctx context.Context, pool *pgxpool.Pool, tables []string, columns map[string][]string, create func(name string) (io.WriteCloser, error)) (Manifest, error) {
 	tx, err := pool.BeginTx(ctx, pgx.TxOptions{IsoLevel: pgx.RepeatableRead, AccessMode: pgx.ReadOnly})
 	if err != nil {
 		return Manifest{}, fmt.Errorf("exporting: %w", err)
@@ -153,7 +162,7 @@ func export(ctx context.Context, pool *pgxpool.Pool, tables []string, create fun
 		return Manifest{}, err
 	}
 	for _, table := range tables {
-		t, err := exportTable(ctx, tx, create, table)
+		t, err := exportTable(ctx, tx, create, table, columns[table])
 		if err != nil {
 			return Manifest{}, err
 		}
@@ -177,8 +186,9 @@ func export(ctx context.Context, pool *pgxpool.Pool, tables []string, create fun
 	return m, nil
 }
 
-func exportTable(ctx context.Context, tx pgx.Tx, create func(name string) (io.WriteCloser, error), table string) (ExportedTable, error) {
-	t := ExportedTable{Table: table, File: table + ".csv"}
+// exportTable writes one table through create: every column, or only columns when given.
+func exportTable(ctx context.Context, tx pgx.Tx, create func(name string) (io.WriteCloser, error), table string, columns []string) (ExportedTable, error) {
+	t := ExportedTable{Table: table, File: table + ".csv", Columns: columns}
 	f, err := create(t.File)
 	if err != nil {
 		return t, fmt.Errorf("exporting %s: %w", table, err)
@@ -187,7 +197,7 @@ func exportTable(ctx context.Context, tx pgx.Tx, create func(name string) (io.Wr
 	h := sha256.New()
 	name := pgx.Identifier{table}.Sanitize()
 	tag, err := tx.Conn().PgConn().CopyTo(ctx, io.MultiWriter(f, h),
-		fmt.Sprintf(`COPY (SELECT * FROM %s t ORDER BY t::text COLLATE "C") TO STDOUT WITH (FORMAT csv, HEADER)`, name))
+		fmt.Sprintf(`COPY (SELECT %s FROM %s t ORDER BY t::text COLLATE "C") TO STDOUT WITH (FORMAT csv, HEADER)`, columnList(columns), name))
 	if err != nil {
 		return t, fmt.Errorf("exporting %s: %w", table, err)
 	}
@@ -255,6 +265,18 @@ func Restore(ctx context.Context, pool *pgxpool.Pool, dir string) error {
 	return nil
 }
 
+// columnList quotes columns for SQL, comma-separated; * for none.
+func columnList(columns []string) string {
+	if len(columns) == 0 {
+		return "*"
+	}
+	quoted := make([]string, len(columns))
+	for i, c := range columns {
+		quoted[i] = pgx.Identifier{c}.Sanitize()
+	}
+	return strings.Join(quoted, ", ")
+}
+
 func tableNames(m Manifest) []string {
 	names := make([]string, len(m.Tables))
 	for i, t := range m.Tables {
@@ -289,8 +311,11 @@ func restoreTable(ctx context.Context, tx pgx.Tx, dir string, t ExportedTable) e
 		return fmt.Errorf("restoring: %w", err)
 	}
 	defer f.Close()
-	tag, err := tx.Conn().PgConn().CopyFrom(ctx, f,
-		fmt.Sprintf("COPY %s FROM STDIN WITH (FORMAT csv, HEADER MATCH)", pgx.Identifier{t.Table}.Sanitize()))
+	target := pgx.Identifier{t.Table}.Sanitize()
+	if len(t.Columns) > 0 {
+		target += " (" + columnList(t.Columns) + ")"
+	}
+	tag, err := tx.Conn().PgConn().CopyFrom(ctx, f, fmt.Sprintf("COPY %s FROM STDIN WITH (FORMAT csv, HEADER MATCH)", target))
 	if err != nil {
 		return fmt.Errorf("restoring %s: %w", t.File, err)
 	}

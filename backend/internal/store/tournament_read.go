@@ -367,14 +367,15 @@ func (r *RatingsReader) CommunityLeaderboard(ctx context.Context, run int64, edi
 		return nil, err
 	}
 	rows, err := r.pool.Query(ctx, `
-		SELECT s.rank, s.player_name, p.country_code, t.title, s.points, s.events,
+		SELECT s.rank, s.player_name, m.country_code, t.title, s.points, s.events,
 		       coalesce((SELECT jsonb_object_agg(c.event, c.score) FROM community_scores c
 		                 WHERE c.edition = s.edition AND c.player_name = s.player_name), '{}')
 		FROM community_standings s
 		LEFT JOIN LATERAL (
-		    SELECT player_id, name, country_code FROM players WHERE lower(name) = lower(s.player_name)
+		    SELECT player_id, name FROM players WHERE lower(name) = lower(s.player_name)
 		    ORDER BY name = s.player_name DESC, name LIMIT 1
 		) p ON true
+		LEFT JOIN members m ON m.player_id = p.player_id
 		LEFT JOIN player_titles t ON t.run_id = $1 AND t.player_name = p.name
 		WHERE s.edition = $2
 		  AND `+notHiddenPlayer+`

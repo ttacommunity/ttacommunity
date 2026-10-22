@@ -11,6 +11,7 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/pressly/goose/v3"
 )
 
 // memberLines writes members as "name cge=<id> player=<name> discord=<name> email=<email> <country> <zone> banned=<reason> in=<n>".
@@ -199,6 +200,50 @@ func TestLinkMembersAttachesAccountsAndFollowsRenames(t *testing.T) {
 	}
 	if linked, err = LinkMembers(ctx, pool); err != nil || linked != (Linked{}) {
 		t.Errorf("LinkMembers again = %+v, %v; want nothing to do", linked, err)
+	}
+}
+
+func TestMigration43MovesEachPlayersCountryToTheirMemberAndItsDownCopiesItBack(t *testing.T) {
+	pool := migrated(t)
+	ctx := context.Background()
+	if err := withRatingsMigrations(pool, func(p *goose.Provider) error { _, err := p.DownTo(ctx, 42); return err }); err != nil {
+		t.Fatalf("migrating down to 42: %v", err)
+	}
+	for _, q := range []string{
+		"INSERT INTO players (name, country_code) VALUES ('ann', 'PL'), ('bob', 'DE'), ('cat', NULL), ('dan', 'FR'), ('eve', 'AU')",
+		"INSERT INTO members (tta_name, player_id, zone) SELECT 'ann', player_id, 'UTC' FROM players WHERE name = 'ann'",
+		"INSERT INTO members (tta_name, discord_name, zone) VALUES ('BOB', 'player_two', 'UTC')",
+		"INSERT INTO members (tta_name, player_id, country_code, zone) SELECT 'eve', player_id, 'NZ', 'UTC' FROM players WHERE name = 'eve'",
+	} {
+		if _, err := pool.Exec(ctx, q); err != nil {
+			t.Fatalf("building the old shape: %v\n%s", err, q)
+		}
+	}
+	if err := migrateRatingsTo(ctx, pool, 43); err != nil {
+		t.Fatalf("migrateRatingsTo(43): %v", err)
+	}
+	members := func() []string {
+		return rowsOf(t, pool, `SELECT concat_ws('|', m.tta_name, coalesce(p.name, '-'), coalesce(m.country_code, '-'), m.zone, m.discord_name)
+			FROM members m LEFT JOIN players p ON p.player_id = m.player_id ORDER BY lower(m.tta_name)`)
+	}
+	want := []string{"ann|ann|PL|UTC|", "BOB|bob|DE|UTC|player_two", "dan|dan|FR|Unknown|", "eve|eve|NZ|UTC|"}
+	if diff := cmp.Diff(want, members()); diff != "" {
+		t.Errorf("members after the migration (-want +got):\n%s", diff)
+	}
+	var column bool
+	if err := pool.QueryRow(ctx, "SELECT EXISTS (SELECT FROM information_schema.columns WHERE table_name = 'players' AND column_name = 'country_code')").Scan(&column); err != nil || column {
+		t.Errorf("players.country_code after the migration: exists = %v (%v), want gone", column, err)
+	}
+
+	if err := withRatingsMigrations(pool, func(p *goose.Provider) error { _, err := p.DownTo(ctx, 42); return err }); err != nil {
+		t.Fatalf("migrating down to 42 again: %v", err)
+	}
+	players := rowsOf(t, pool, "SELECT concat_ws('|', name, coalesce(country_code, '-')) FROM players ORDER BY name")
+	if diff := cmp.Diff([]string{"ann|PL", "bob|DE", "cat|-", "dan|FR", "eve|NZ"}, players); diff != "" {
+		t.Errorf("players after the Down, each with their member's country (-want +got):\n%s", diff)
+	}
+	if diff := cmp.Diff(want, members()); diff != "" {
+		t.Errorf("members after the Down, all kept (-want +got):\n%s", diff)
 	}
 }
 

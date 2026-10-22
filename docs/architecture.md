@@ -166,8 +166,11 @@ Patterns that hold across the schema:
   recorded facts, admin's settings) is exported as CSV with a manifest
   (`go run ./cmd/load -export`, or **Download all data** in admin) and
   restored whole by `-restore`. Personal data (`admins`, `admin_audit`, the
-  blitz tables with their Discord names, players' sign-ins, sessions and
-  requests) and `refused_rows` are left out, and a test enforces it
+  blitz tables, players' sign-ins, sessions and requests) and
+  `refused_rows` are left out, and of `members` only the name, its ids and
+  the country are written (the manifest names the columns); a test
+  enforces it. A backup (`-backup`, the nightly job) holds every input
+  table whole, members included, and is encrypted
 - **Roles:** `ratings` owns the schema (load job, engine); `ratings_read`
   may only `SELECT` (the api's public routes); `ratings_admin` may write
   only admin's tables (the api's admin routes); `ratings_player` may write
@@ -298,6 +301,9 @@ after every data load the load job matches members to the accounts and
 players it brought by name, and renames a member with an account to that
 account's current name, so a CGE rename follows through. Admin may enter a
 CGE id by hand. The ratings never make or change a player from a member.
+A player's country lives on their member alone: the load job's countries
+step adds a member for a player who has none, every page's flag is the
+member's, and a player who has signed in sets or clears their own.
 
 A member also carries a Discord name, an email (so organisers can reach
 players who have no Discord), a country (one of ISO 3166's two-letter

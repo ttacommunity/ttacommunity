@@ -83,7 +83,7 @@ func TestReportCountriesCountsAndNamesNoPlayer(t *testing.T) {
 			{File: "r.csv", Line: 7, Reason: countrycsv.BadCode},
 		},
 	}
-	set := store.CountriesSet{Set: 1, Unknown: 1}
+	set := store.CountriesSet{Set: 1, Kept: 2, Unknown: 1}
 
 	var b strings.Builder
 	reportCountries(&b, []string{"r.csv", "o.csv"}, res, set)
@@ -93,6 +93,7 @@ func TestReportCountriesCountsAndNamesNoPlayer(t *testing.T) {
 		"files: r.csv, o.csv",
 		"rows read: 9",
 		"countries set: 1",
+		"signed in, kept their own: 2",
 		"not a player: 1",
 		"no country: 4",
 		"refused: 3",

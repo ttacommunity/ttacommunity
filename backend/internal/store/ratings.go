@@ -77,15 +77,18 @@ func ResetRatings(ctx context.Context, pool *pgxpool.Pool) error {
 	return MigrateRatings(ctx, pool)
 }
 
-// CountriesSet counts what SetCountries did: players given a country, and
-// names that are not players.
+// CountriesSet counts what SetCountries did: members given a country, members a sign-in is linked to and so left
+// with their own, and names that are not players.
 type CountriesSet struct {
 	Set     int
+	Kept    int
 	Unknown int
 }
 
-// SetCountries sets each named player's country, in one transaction. A name
-// that is not a player is counted, not added.
+// SetCountries sets each named player's country on their member, in one transaction: the member linked to the
+// player, else one of that name in any case (linked to the player now), else a new member in the ratings' spelling
+// with nothing else known. A member a sign-in is linked to keeps their own country, and a name that is not a player
+// is counted, not added.
 func SetCountries(ctx context.Context, pool *pgxpool.Pool, countries map[string]string) (CountriesSet, error) {
 	names := make([]string, 0, len(countries))
 	codes := make([]string, 0, len(countries))
@@ -93,15 +96,42 @@ func SetCountries(ctx context.Context, pool *pgxpool.Pool, countries map[string]
 		names = append(names, n)
 		codes = append(codes, c)
 	}
-	tag, err := pool.Exec(ctx, `
-		UPDATE players p SET country_code = c.code
-		FROM unnest($1::text[], $2::text[]) AS c(name, code)
-		WHERE p.name = c.name`, names, codes)
+	const named = "FROM players p JOIN unnest($1::text[], $2::text[]) AS c(name, code) ON p.name = c.name"
+	const signedIn = "EXISTS (SELECT 1 FROM accounts a WHERE a.member_id = m.member_id)"
+	var got CountriesSet
+	err := pgx.BeginFunc(ctx, pool, func(tx pgx.Tx) error {
+		var players int
+		if err := tx.QueryRow(ctx, "SELECT count(*) "+named, names, codes).Scan(&players); err != nil {
+			return fmt.Errorf("counting the players named: %w", err)
+		}
+		got.Unknown = len(countries) - players
+		if _, err := tx.Exec(ctx, `
+			UPDATE members m SET player_id = p.player_id `+named+`
+			WHERE m.player_id IS NULL AND lower(m.tta_name) = lower(p.name)
+			  AND NOT EXISTS (SELECT 1 FROM members o WHERE o.player_id = p.player_id)`, names, codes); err != nil {
+			return fmt.Errorf("linking members of the names: %w", err)
+		}
+		if err := tx.QueryRow(ctx, "SELECT count(*) "+named+" JOIN members m ON m.player_id = p.player_id WHERE "+signedIn, names, codes).Scan(&got.Kept); err != nil {
+			return fmt.Errorf("counting members signed in: %w", err)
+		}
+		set, err := tx.Exec(ctx, "UPDATE members m SET country_code = c.code "+named+" WHERE m.player_id = p.player_id AND NOT "+signedIn, names, codes)
+		if err != nil {
+			return fmt.Errorf("setting members' countries: %w", err)
+		}
+		added, err := tx.Exec(ctx, `
+			INSERT INTO members (tta_name, player_id, country_code)
+			SELECT p.name, p.player_id, c.code `+named+`
+			WHERE NOT EXISTS (SELECT 1 FROM members m WHERE m.player_id = p.player_id)`, names, codes)
+		if err != nil {
+			return fmt.Errorf("adding members for countries: %w", err)
+		}
+		got.Set = int(set.RowsAffected() + added.RowsAffected())
+		return nil
+	})
 	if err != nil {
-		return CountriesSet{}, fmt.Errorf("setting countries: %w", err)
+		return CountriesSet{}, err
 	}
-	set := int(tag.RowsAffected())
-	return CountriesSet{Set: set, Unknown: len(countries) - set}, nil
+	return got, nil
 }
 
 // LoadMatches writes one load's matches and refusals, and adds their players,

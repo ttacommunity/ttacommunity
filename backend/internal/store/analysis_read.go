@@ -142,17 +142,19 @@ func (r *RatingsReader) ComparedPlayers(ctx context.Context, run int64, format i
 		return nil, err
 	}
 	query := `
-		SELECT p.name, p.country_code, t.title FROM players p
+		SELECT p.name, m.country_code, t.title FROM players p
+		LEFT JOIN members m ON m.player_id = p.player_id
 		LEFT JOIN player_titles t ON t.run_id = $1 AND t.player_name = p.name
 		LEFT JOIN player_ratings g ON g.run_id = $1 AND g.player_name = p.name AND g.model_type = 'glicko2_daneo' AND g.player_count = 0
 		WHERE EXISTS (SELECT 1 FROM unnest($2::text[]) term
-			WHERE strpos(lower(p.name), lower(term)) > 0 OR lower(p.country_code) = lower(term))
+			WHERE strpos(lower(p.name), lower(term)) > 0 OR lower(m.country_code) = lower(term))
 		  AND ` + notHiddenPlayer + `
 		ORDER BY g.c_rating DESC NULLS LAST, p.name LIMIT 15`
 	args := []any{run, terms}
 	if len(terms) == 0 {
 		query = `
-			SELECT p.name, p.country_code, t.title FROM players p
+			SELECT p.name, m.country_code, t.title FROM players p
+			LEFT JOIN members m ON m.player_id = p.player_id
 			LEFT JOIN player_titles t ON t.run_id = $1 AND t.player_name = p.name
 			WHERE p.name = ANY($2) AND ` + notHiddenPlayer + ` ORDER BY array_position($2, p.name)`
 		args = []any{run, DefaultCompared}
@@ -264,16 +266,17 @@ func (r *RatingsReader) Activity(ctx context.Context, run int64, inactiveOnOrBef
 	}
 
 	rows, err = r.pool.Query(ctx, `
-		SELECT p.country_code, count(DISTINCT p.name),
+		SELECT m.country_code, count(DISTINCT p.name),
 			avg(s.rating) FILTER (WHERE t.title = 'GM'),
 			avg(s.rating) FILTER (WHERE t.title IN ('GM', 'M')),
 			avg(s.rating) FILTER (WHERE t.title IN ('GM', 'M', 'P')),
 			avg(s.rating)
-		FROM players p
+		FROM members m
+		JOIN players p ON p.player_id = m.player_id
 		JOIN player_ratings s ON s.run_id = $1 AND s.player_name = p.name AND s.model_type = 'glicko2_std' AND s.player_count = 0
 		LEFT JOIN player_titles t ON t.run_id = $1 AND t.player_name = p.name
-		WHERE p.country_code IS NOT NULL
-		GROUP BY p.country_code ORDER BY 2 DESC, 1 DESC LIMIT 15`, run)
+		WHERE m.country_code IS NOT NULL
+		GROUP BY m.country_code ORDER BY 2 DESC, 1 DESC LIMIT 15`, run)
 	if err == nil {
 		a.Countries, err = pgx.CollectRows(rows, pgx.RowToStructByPos[CountryRatings])
 	}

@@ -159,9 +159,10 @@ func (r *RatingsReader) Player(ctx context.Context, run int64, asked string) (Pl
 	var title, reason, peak *string
 	var count, peakYear *int
 	err = r.pool.QueryRow(ctx, `
-		SELECT p.country_code, t.title, t.title_count, t.badge_reason, k.peak_title, k.peak_year,
+		SELECT m.country_code, t.title, t.title_count, t.badge_reason, k.peak_title, k.peak_year,
 			(SELECT max(date) FROM pairwise_matches WHERE run_id = $1)
 		FROM players p
+		LEFT JOIN members m ON m.player_id = p.player_id
 		LEFT JOIN player_titles t ON t.run_id = $1 AND t.player_name = p.name
 		LEFT JOIN player_peak_titles k ON k.run_id = $1 AND k.player_name = p.name
 		WHERE p.name = $2`, run, name).Scan(&p.Country, &title, &count, &reason, &peak, &peakYear, &p.NewestGame)

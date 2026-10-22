@@ -47,6 +47,8 @@ func filled(t *testing.T) *pgxpool.Pool {
 		`INSERT INTO tournament_season_notes (tournament, season, stage, note, source)
 		 VALUES ('worlds', '2023 Play Off', '', 'A line
 		 and another', 's')`,
+		`INSERT INTO members (tta_name, cge_user, player_id, discord_name, email, country_code, zone)
+		 SELECT 'swift', cge_user, player_id, 'swift#2222', 'swift@example.test', 'NZ', 'Pacific/Auckland' FROM player_accounts WHERE cge_user = 42`,
 	} {
 		if _, err := pool.Exec(ctx, q); err != nil {
 			t.Fatalf("filling: %v", err)
@@ -54,6 +56,9 @@ func filled(t *testing.T) *pgxpool.Pool {
 	}
 	return pool
 }
+
+// memberPublicColumns are the columns of members an export holds: what the site shows beside a name.
+const memberPublicColumns = "member_id,tta_name,cge_user,player_id,country_code"
 
 func readDir(t *testing.T, dir string) map[string][]byte {
 	t.Helper()
@@ -99,6 +104,24 @@ func TestRestoreGivesBackExactlyWhatWasExported(t *testing.T) {
 	}
 	if _, err := fresh.Exec(ctx, `INSERT INTO import_batches (source) VALUES ('load')`); err != nil {
 		t.Errorf("a new row after restore: %v (identity not moved past the restored ids)", err)
+	}
+	members := rowsOf(t, fresh, "SELECT concat_ws('|', cge_user, country_code, discord_name, email, zone) FROM members")
+	if want := []string{"42|NZ|||Unknown"}; !slices.Equal(members, want) {
+		t.Errorf("members after the restore = %q, want %q: the flag back, nothing personal", members, want)
+	}
+	if _, err := fresh.Exec(ctx, "INSERT INTO members (tta_name) VALUES ('newcomer')"); err != nil {
+		t.Errorf("a new member after restore: %v (identity not moved past the restored ids)", err)
+	}
+}
+
+func TestBackupHoldsMembersWhole(t *testing.T) {
+	dir := filepath.Join(t.TempDir(), "backup")
+	if _, err := Backup(context.Background(), filled(t), dir); err != nil {
+		t.Fatalf("Backup: %v", err)
+	}
+	body := string(readDir(t, dir)["members.csv"])
+	if !strings.Contains(body, "swift@example.test") || !strings.HasPrefix(body, "member_id,tta_name,cge_user,player_id,discord_name,email,country_code,zone,") {
+		t.Errorf("the backup's members.csv:\n%s\nwant every column, the email too", body)
 	}
 }
 
@@ -341,7 +364,7 @@ func TestExportHoldsNoPersonalDataOrLoadHistory(t *testing.T) {
 		 SELECT batch_id, 'm.csv', 9, 'standings_row', '{"a refused line"}' FROM import_batches LIMIT 1`,
 		`INSERT INTO blitz_editions (tournament_id, swiss_rounds, knockout_size) SELECT tournament_id, 8, 8 FROM tournaments LIMIT 1`,
 		`INSERT INTO members (tta_name, discord_name, email) VALUES ('Ann', 'ann#1111', 'ann@example.test')`,
-		`INSERT INTO blitz_entries (tournament_id, member_id) SELECT tournament_id, (SELECT member_id FROM members) FROM blitz_editions`,
+		`INSERT INTO blitz_entries (tournament_id, member_id) SELECT tournament_id, (SELECT member_id FROM members WHERE tta_name = 'Ann') FROM blitz_editions`,
 	} {
 		if _, err := pool.Exec(ctx, q); err != nil {
 			t.Fatalf("filling: %v", err)
@@ -351,8 +374,12 @@ func TestExportHoldsNoPersonalDataOrLoadHistory(t *testing.T) {
 	if _, err := Export(ctx, pool, dir); err != nil {
 		t.Fatalf("Export: %v", err)
 	}
-	for name, body := range readDir(t, dir) {
-		for _, left := range []string{"admins.csv", "admin_audit.csv", "refused_rows.csv", "members.csv", "blitz_editions.csv", "blitz_entries.csv", "blitz_rounds.csv", "blitz_matches.csv"} {
+	files := readDir(t, dir)
+	if header := strings.SplitN(string(files["members.csv"]), "\n", 2)[0]; header != memberPublicColumns {
+		t.Errorf("the export's members.csv has the columns %q, want %q: a name, its ids and a flag, as the site shows", header, memberPublicColumns)
+	}
+	for name, body := range files {
+		for _, left := range []string{"admins.csv", "admin_audit.csv", "refused_rows.csv", "blitz_editions.csv", "blitz_entries.csv", "blitz_rounds.csv", "blitz_matches.csv"} {
 			if name == left {
 				t.Errorf("the export holds %s", name)
 			}

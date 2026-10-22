@@ -1404,10 +1404,11 @@ export interface paths {
         };
         /**
          * The community's members, by name (admins and organisers)
-         * @description Everyone who takes part in anything we run, keyed by their TTA
-         *     username, with the CGE account and ratings player attached as they
-         *     become known, how to reach them, their country and zone, and any
-         *     community ban.
+         * @description Everyone who takes part in anything we run, and every player given a
+         *     country from our data, keyed by their TTA username, with the CGE
+         *     account and ratings player attached as they become known, how to
+         *     reach them, their country and zone, and any community ban. A
+         *     player's country lives here alone: every page's flag is the member's.
          */
         get: operations["getAdminMembers"];
         put?: never;
@@ -1506,7 +1507,8 @@ export interface paths {
          * @description Every member, banned ones marked, and the players the ratings know
          *     who are no member yet, whose username or ratings spelling holds q in
          *     any case. The name itself comes first, then names starting with q,
-         *     then the rest; members before players, then by name.
+         *     then the rest; people with an account or entered in an edition before
+         *     the rest, then by name.
          */
         get: operations["getAdminPeople"];
         put?: never;
@@ -1954,7 +1956,8 @@ export interface paths {
          * @description Members not in the edition, and players the ratings know who are no
          *     member yet, whose username or ratings spelling holds q in any case.
          *     The name itself comes first, then names starting with q, then the
-         *     rest; members before players, then by name.
+         *     rest; people with an account or entered in an edition before the
+         *     rest, then by name.
          */
         get: operations["getAdminBlitzCandidates"];
         put?: never;

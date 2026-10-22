@@ -117,7 +117,7 @@ func (r *RatingsReader) YearBoard(ctx context.Context, run int64, year int, mode
 			FROM player_year_records
 			WHERE run_id = $1 AND ($3 = 0 OR player_count = $3) AND year <= $5
 			GROUP BY player_name)
-		SELECT h.player_name, h.rating, h.rd, h.c_rating, p.country_code, t.title, t.title_count, t.badge_reason,
+		SELECT h.player_name, h.rating, h.rd, h.c_rating, m.country_code, t.title, t.title_count, t.badge_reason,
 			k.peak_title, k.peak_year,
 			coalesce(rec.s_opps, 0), coalesce(rec.s_wins, 0), coalesce(rec.s_losses, 0), coalesce(rec.s_draws, 0),
 			rec.last_played,
@@ -127,6 +127,7 @@ func (r *RatingsReader) YearBoard(ctx context.Context, run int64, year int, mode
 			WHERE run_id = $1 AND model_type = $2 AND player_count = $3 AND period_date <= $4 AND extract(year FROM period_date) = $5
 			ORDER BY player_name, period_date DESC) h
 		LEFT JOIN players p ON p.name = h.player_name
+		LEFT JOIN members m ON m.player_id = p.player_id
 		LEFT JOIN player_titles t ON t.run_id = $1 AND t.player_name = h.player_name
 		LEFT JOIN player_peak_titles k ON k.run_id = $1 AND k.player_name = h.player_name
 		LEFT JOIN rec ON rec.name = h.player_name

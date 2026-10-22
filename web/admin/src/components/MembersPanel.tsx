@@ -5,7 +5,7 @@ import { useDialog } from '@ttac/shared/Dialog';
 import { adminRequest, type AdminAccount, type AdminMe, type AdminMember, type Load, type MemberAdded, type MemberChange } from '../lib/admin-api';
 import * as req from '../lib/admin-requests';
 import { countryNames, type Country } from '../lib/countries';
-import { membersMatching } from '../lib/member-filter';
+import { DEFAULT_STATUSES, MEMBER_STATUSES, membersMatching, membersWithStatus, type MemberStatus } from '../lib/member-filter';
 import { loadFailure, outcomeOf, shownAt, type Outcome } from '../lib/outcome';
 import { memberToAdd, type PersonDetails } from '../lib/person-form';
 import { howLinked, signInGroups, who } from '../lib/sign-ins';
@@ -49,8 +49,16 @@ export default function MembersPanel({ role, accounts, reloadAccounts }: Props) 
   const [regions, setRegions] = useState<Region[]>([]);
   const [countries, setCountries] = useState<Country[]>([]);
   const [search, setSearch] = useState('');
-  const shown = members.kind === 'ready' ? membersMatching(members.data, search) : [];
+  const [statuses, setStatuses] = useState<ReadonlySet<MemberStatus>>(DEFAULT_STATUSES);
   const signIns = signInGroups(accounts.kind === 'ready' ? accounts.data : []);
+  const listed = members.kind === 'ready' ? membersWithStatus(members.data, statuses, new Set(signIns.byMember.keys())) : [];
+  const shown = membersMatching(listed, search);
+  const toggle = (s: MemberStatus) =>
+    setStatuses((prev) => {
+      const next = new Set(prev);
+      if (!next.delete(s)) next.add(s);
+      return next;
+    });
   const load = async () => {
     const r = await adminRequest<AdminMember[]>('/api/members', {});
     setMembers(r.ok ? { kind: 'ready', data: r.data } : { kind: 'error', message: r.message });
@@ -140,6 +148,16 @@ export default function MembersPanel({ role, accounts, reloadAccounts }: Props) 
         {members.kind === 'loading' && <p className="muted">Loading…</p>}
         {members.kind === 'error' && <LoadNotice message={members.message} />}
         {members.kind === 'ready' && members.data.length === 0 && <p className="muted">No members yet.</p>}
+        {members.kind === 'ready' && members.data.length > 0 && (
+          <fieldset className="check-kinds">
+            <legend>Show</legend>
+            {MEMBER_STATUSES.map(({ status, label }) => (
+              <label key={status}>
+                <input type="checkbox" checked={statuses.has(status)} onChange={() => toggle(status)} /> {label}
+              </label>
+            ))}
+          </fieldset>
+        )}
         {members.kind === 'ready' && members.data.length > 0 && (
           <div className="admin-add member-search">
             <label>
