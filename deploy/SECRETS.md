@@ -22,8 +22,8 @@ Pipe values in; never use `--from-literal`, which leaves them in shell history.
 | `microsoft-signin` | `client-secret` | `api`, `api-dev` | The client secret of the players' Microsoft app "TTA Community" (Entra tenant "TTA Community", owned by accounts@ttacommunity.org), whose id is `MICROSOFT_CLIENT_ID` in `api.yaml`. **Expires 2028-10-20**: issue the next one before then |
 | `email-signin` | `resend-api-key` | `api`, `api-dev` | Resend's API key for the sign-in emails: sending access, restricted to ttacommunity.org |
 | `turnstile-signin` | `secret` | `api`, `api-dev` | The secret of the Turnstile widget "ttacommunity email sign-in", whose sitekey is the site's `PUBLIC_TURNSTILE_SITEKEY` (README) |
-| `ratings-backup` | `password`, `database-url` | `backup` | The backup job's login `ratings_backup_job`, a member of `ratings_backup` (reads the backed-up tables, writes nothing) |
-| `backup-r2` | `endpoint`, `access-key-id`, `secret-access-key` | `backup` | The R2 bucket `ttacommunity-backup` (EU jurisdiction): the account's EU S3 endpoint, and an R2 token that can write objects in that bucket only |
+| `ratings-backup` | `password`, `database-url` | `backup`'s `backup` init container | The backup job's login `ratings_backup_job`, a member of `ratings_backup` (reads the backed-up tables, writes nothing) |
+| `backup-r2` | `endpoint`, `access-key-id`, `secret-access-key` | `backup`'s `upload` container (rclone) | The R2 bucket `ttacommunity-backup` (EU jurisdiction): the account's EU S3 endpoint, and an R2 token that can write objects in that bucket only |
 | `ttac-api-tunnel` | `credentials.json` | `ttac-api-tunnel` | The `ttac-api` tunnel's credentials (below, "The tunnels") |
 | `ttac-api-dev-tunnel` | `credentials.json` | `ttac-api-dev-tunnel` | The `ttac-api-dev` tunnel's credentials (below) |
 | `ttacommunity-github-app`, **in `flux-system`** | `githubAppID`, `githubAppInstallationID`, `githubAppPrivateKey` | Flux | Reads this repo as the GitHub App `ttacommunity-flux` (contents and metadata, read only). The cluster's maintainers hold it |
