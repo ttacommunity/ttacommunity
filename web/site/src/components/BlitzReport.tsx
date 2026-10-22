@@ -1,7 +1,8 @@
 /** The signed-in player's own match in an edition's latest round: where it stands, and reporting its game, correcting their report, or confirming or flagging the opponent's. Nothing for a visitor or a player with no match there. */
 import { useCallback, useEffect, useState, type FormEvent } from 'react';
 import { useDialog } from '@ttac/shared/Dialog';
-import { gameRecordFrom, type GameForm } from '@ttac/shared/game-form';
+import { turnMark, turnOrder } from '@ttac/shared/blitz';
+import { chooseTurn, gameRecordFrom, TURNS, type GameForm } from '@ttac/shared/game-form';
 import { browserStorage, seemsSignedIn, sharedMe } from '../lib/account';
 import { confirmReport, fetchMyMatch, flagQuestion, flagReport, formFor, myMatchStatus, reportGame, type MyBlitzMatch } from '../lib/blitz-report';
 
@@ -96,8 +97,25 @@ export default function BlitzReport({ apiUrl, slug, edition, onChanged, onMatch 
             onChange={(e) => setForm({ ...form, [`${who}_culture`]: e.target.value })}
           />
         </label>
+        <label>
+          {names[who]}&apos;s turn
+          <select className="input-antique" value={form[`${who}_turn`] ?? ''} onChange={(e) => setForm(chooseTurn(form, who, Number(e.target.value)))}>
+            {form[`${who}_turn`] === null && (
+              <option value="" disabled>
+                –
+              </option>
+            )}
+            {TURNS.map((t) => (
+              <option key={t} value={t}>
+                {turnMark(t)}
+                {t === 1 ? ' (went first)' : ''}
+              </option>
+            ))}
+          </select>
+        </label>
       </div>
     );
+  const order = turnOrder(match);
   return (
     <section id="your-game" className="rating-card blitz-card your-game" aria-labelledby="blitz-my-game">
       <h2 id="blitz-my-game" className="rating-card-heading">
@@ -105,6 +123,7 @@ export default function BlitzReport({ apiUrl, slug, edition, onChanged, onMatch 
       </h2>
       <p className="blitz-intro">
         {match.b === null ? `${names[match.me]}: bye` : `${match.a} v ${match.b}`}. {myMatchStatus(match)}
+        {order !== '' && ` ${order}.`}
       </p>
       {form === null && (
         <div className="report-row">

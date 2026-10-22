@@ -1,4 +1,4 @@
-/** What both sites say about a blitz tournament: a zone's offset, a format, its points, how a match's result reads, how a folded round is summed up, and how a round and a seeded player are named. */
+/** What both sites say about a blitz tournament: a zone's offset, a format, its points, how a match's result and turn order read, how a folded round is summed up, and how a round and a seeded player are named. */
 import type { components } from '../api/schema';
 
 export type BlitzFormat = components['schemas']['BlitzFormat'];
@@ -43,6 +43,23 @@ export function resultTag(m: MatchResultView): string {
   if (!m.ruled) return m.game !== null && drawnGame(m.game) && winner !== null ? `${winner} through as the higher seed` : '';
   if (m.game !== null) return { a: `${m.a} won`, b: `${m.b} won`, draw: 'Draw', double_loss: 'Double loss' }[m.result] + ' by ruling';
   return { a: `${m.a} won by forfeit`, b: `${m.b} won by forfeit`, draw: 'Draw by ruling', double_loss: 'Both forfeited' }[m.result];
+}
+
+/** turnMark marks a player's turn: P1 for who went first, P? when it was not recorded. */
+export function turnMark(turn: number | null): string {
+  return turn === null ? 'P?' : `P${turn}`;
+}
+
+/** turnOrder says who played in which turn ("Turn order: P1 Cy, P2 Ann"), that it is unknown, or '' with no game. */
+export function turnOrder(m: MatchResultView): string {
+  const g = m.game;
+  if (g === null || m.b === null) return '';
+  if (g.a_turn === null || g.b_turn === null) return 'Turn order unknown';
+  const players = [
+    { name: m.a, turn: g.a_turn },
+    { name: m.b, turn: g.b_turn },
+  ].sort((x, y) => x.turn - y.turn);
+  return 'Turn order: ' + players.map((p) => `${turnMark(p.turn)} ${p.name}`).join(', ');
 }
 
 /** offsetLabel shows an offset the API sends (+02:00) as UTC+2, UTC-4 or UTC+5:30; UTC for none, '' for unknown. */

@@ -108,8 +108,10 @@ export function formFor(m: MyBlitzMatch, zone: string, today: string): GameForm 
     share_code: m.game.share_code,
     a_culture: String(m.game.a_culture),
     a_outcome: m.game.a_outcome,
+    a_turn: m.game.a_turn,
     b_culture: String(m.game.b_culture),
     b_outcome: m.game.b_outcome,
+    b_turn: m.game.b_turn,
     ...(at === null ? {} : { finished_on: at.day, finished_time: at.clock }),
   };
 }
@@ -124,5 +126,5 @@ export function yourRow(m: MyBlitzMatch | null): YourRow | null {
         ? 'Your game: correct it'
         : 'Your game: report it'
       : 'Your game';
-  return { round: m.round, a: m.a, label };
+  return { round: m.round, sideA: m.a, label };
 }
