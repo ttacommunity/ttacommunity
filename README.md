@@ -304,8 +304,11 @@ of it does not resolve. Copy the files in instead.
 
 Players' countries come from CSV files with a `Player` and a `Code` column
 (an ISO 3166-1 alpha-2 code, or `-` for none), such as the original site's
-ratings export. Load them after the matches; a later file wins, and names
-that are not players are counted and skipped:
+ratings export. A country lives on the player's member (added for them if
+they have none): every page's flag is the member's, and a player who has
+signed in sets their own. Load the files after the matches; a later file
+wins, a player who has signed in keeps their own country, and names that
+are not players are counted and skipped:
 
 ```bash
 cd backend && set -a && . ../.env && set +a
@@ -370,7 +373,10 @@ tournament catalogue and every recorded fact) as one CSV each, with a
 `manifest.json` of the schema version, row counts and SHA-256s. Ratings are
 not in it: the engine computes them again. **An export holds no personal
 data, so it can be shared:** who the admins are, the audit of what they did,
-and the rows a load refused are left out. Keep exports outside the repo.
+players' sign-ins, the blitz tables and the rows a load refused are left
+out, and of a member only the name, its ids and the country (what the site
+shows beside the name; the manifest names the columns). Keep exports
+outside the repo.
 
 ```bash
 go run ./cmd/load -export <new or empty folder>
