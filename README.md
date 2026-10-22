@@ -475,8 +475,9 @@ uv run python -m tta_ratings_engine.run
 
 In PowerShell: `. scripts\env.ps1; cd engine; uv run python -m tta_ratings_engine.run`.
 
-A full run of every model and format takes about 20 minutes and 1 GB of
-memory on a desktop, and logs its progress and time left as it goes. It is
+A full run of every model and format takes about 3 minutes on a desktop
+(the 16-model runs before engine 1.4.0 took 20), and logs its progress and
+time left as it goes. It is
 not published until you add `--make-current`. The options and
 what a run writes are in [`engine/README.md`](engine/README.md).
 

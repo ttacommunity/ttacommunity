@@ -54,11 +54,13 @@ set -a; . ../.env; set +a
 uv run python -m tta_ratings_engine.run
 ```
 
-A run computes the 16 models upstream's site shows, for all formats together
-and for 2, 3 and 4 players, then tournament results and titles, then the
-standard and walk-forward calibration: about 20 minutes and 1 GB of memory on
-a desktop. The run's input fingerprint covers the matches and every recorded
-tournament fact.
+A run computes three models (`MODELS` in `run.py`): Glicko-D continuous and
+with a season reset, which the site shows, and standard Glicko-2 as the
+benchmark; for all formats together and for 2, 3 and 4 players, then
+tournament results and titles, then the standard and walk-forward
+calibration: about 3 minutes on a desktop (the 16 models of engine 1.3.0 and
+before, upstream's full set, took 20). The run's input fingerprint covers the
+matches and every recorded tournament fact.
 
 It logs progress, elapsed time and the time left every 30 seconds, and a
 "still on" line when one step runs longer. The time left weighs each step by
