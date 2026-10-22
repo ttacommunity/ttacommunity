@@ -86,8 +86,8 @@ func (s *PlayerStore) ReportBlitzGame(ctx context.Context, tokenHash []byte, slu
 	}
 	result, a, b, placeA, placeB := blitzOutcome(g)
 	sides, err := json.Marshal([]map[string]any{
-		{"outcome": a.Outcome, "culture": a.Culture, "place": placeA},
-		{"outcome": b.Outcome, "culture": b.Culture, "place": placeB},
+		{"outcome": a.Outcome, "culture": a.Culture, "place": placeA, "position": a.Turn - 1},
+		{"outcome": b.Outcome, "culture": b.Culture, "place": placeB, "position": b.Turn - 1},
 	})
 	if err != nil {
 		return fmt.Errorf("reporting a game: %w", err)

@@ -33,7 +33,7 @@ func reportsFixture(t *testing.T) (*AdminStore, *PlayerStore, *RatingsReader, []
 
 // reported is a game a player reports: a share code, a 50–40 finish.
 func reported(code string) BlitzGame {
-	return BlitzGame{ShareCode: code, A: finished(50), B: finished(40), Finished: finishedAt}
+	return BlitzGame{ShareCode: code, A: finished(50, 1), B: finished(40, 2), Finished: finishedAt}
 }
 
 // matchNow reads match id of the edition as the site sees it.
@@ -77,7 +77,7 @@ func TestAPlayersReportCountsAtOnceAndTheyMayCorrectIt(t *testing.T) {
 	}
 	first := *m.GameID
 
-	corrected := BlitzGame{ShareCode: "REP-2", A: finished(40), B: finished(55), Finished: finishedAt}
+	corrected := BlitzGame{ShareCode: "REP-2", A: finished(40, 1), B: finished(55, 2), Finished: finishedAt}
 	if err := p.ReportBlitzGame(ctx, tokenHash("ann"), "us_open", "2026", matches[0], corrected, reportsAt); err != nil {
 		t.Fatalf("ReportBlitzGame(a correction): %v", err)
 	}
@@ -150,8 +150,9 @@ func TestReportsAreRefused(t *testing.T) {
 		{name: "another edition", edition: "2025", want: ErrNoBlitzEdition},
 		{name: "no such match", match: -1, want: ErrNoBlitzMatch},
 		{name: "someone else's match", match: 1, want: ErrNotYourMatch},
-		{name: "no share code", game: BlitzGame{A: finished(50), B: finished(40), Finished: finishedAt}, want: ErrBlitzShareCodeNeeded},
-		{name: "a game out of bounds", game: BlitzGame{ShareCode: "X", A: finished(-1), B: finished(40), Finished: finishedAt}, want: ErrBadBlitzGame},
+		{name: "no share code", game: BlitzGame{A: finished(50, 1), B: finished(40, 2), Finished: finishedAt}, want: ErrBlitzShareCodeNeeded},
+		{name: "a game out of bounds", game: BlitzGame{ShareCode: "X", A: finished(-1, 1), B: finished(40, 2), Finished: finishedAt}, want: ErrBadBlitzGame},
+		{name: "no turn order", game: BlitzGame{ShareCode: "X", A: finished(50, 0), B: finished(40, 0), Finished: finishedAt}, want: ErrBadBlitzGame},
 		{name: "the next round is paired", before: func(t *testing.T, a *AdminStore, p *PlayerStore, matches []int64) {
 			for _, m := range matches {
 				if err := a.RecordBlitzRuling(context.Background(), "us_open", "2026", m, "a", "ruled"); err != nil {
@@ -278,7 +279,7 @@ func TestAnOrganiserResolvesAFlagAndItStaysLocked(t *testing.T) {
 		result  string
 	}{
 		{"corrected", func(a *AdminStore, match int64) error {
-			return a.RecordBlitzGame(context.Background(), "us_open", "2026", match, BlitzGame{ShareCode: "REP-1", A: finished(30), B: finished(60), Finished: finishedAt})
+			return a.RecordBlitzGame(context.Background(), "us_open", "2026", match, BlitzGame{ShareCode: "REP-1", A: finished(30, 1), B: finished(60, 2), Finished: finishedAt})
 		}, "b"},
 		{"ruled", func(a *AdminStore, match int64) error {
 			return a.RecordBlitzRuling(context.Background(), "us_open", "2026", match, "draw", "both right")
@@ -385,7 +386,7 @@ func TestADrawnKnockoutReportSendsTheHigherSeedThrough(t *testing.T) {
 	if err := a.PublishBlitzRound(ctx, "us_open", "2026", final.ID); err != nil {
 		t.Fatalf("PublishBlitzRound(final): %v", err)
 	}
-	drawn := BlitzGame{ShareCode: "KO-1", A: finished(90), B: finished(90), Finished: finishedAt}
+	drawn := BlitzGame{ShareCode: "KO-1", A: finished(90, 1), B: finished(90, 2), Finished: finishedAt}
 	if err := p.ReportBlitzGame(ctx, tokenHash("bob"), "us_open", "2026", final.Matches[0].ID, drawn, reportsAt); err != nil {
 		t.Fatalf("ReportBlitzGame(final): %v", err)
 	}
@@ -450,6 +451,56 @@ func TestThePlayerLoginWritesGamesOnlyThroughItsFunctions(t *testing.T) {
 		if _, err := player.Exec(ctx, q); err == nil || !strings.Contains(err.Error(), "permission denied") {
 			t.Errorf("ratings_player ran %q: %v, want permission denied", q, err)
 		}
+	}
+}
+
+func TestTheDatabaseRefusesABrokenTurnOrder(t *testing.T) {
+	a, _, reader, _, matches := reportsFixture(t)
+	player := asPlayerLogin(t, a.pool.(*pgxpool.Pool))
+	ctx := context.Background()
+	const won, lost = `{"outcome": "finished", "culture": 50, "place": 1`, `{"outcome": "finished", "culture": 40, "place": 2`
+	tests := []struct{ name, sides string }{
+		{"no positions", "[" + won + "}, " + lost + "}]"},
+		{"one position missing", "[" + won + `, "position": 0}, ` + lost + "}]"},
+		{"both first", "[" + won + `, "position": 0}, ` + lost + `, "position": 0}]`},
+		{"a position past the game's players", "[" + won + `, "position": 0}, ` + lost + `, "position": 2}]`},
+		{"a position before the first", "[" + won + `, "position": -1}, ` + lost + `, "position": 0}]`},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var got string
+			err := player.QueryRow(ctx, "SELECT report_blitz_game($1, $2, 'us_open', '2026', $3, 'BAD-1', $4, 'a', $5)",
+				tokenHash("ann"), reportsAt, matches[0], finishedAt, tt.sides).Scan(&got)
+			if err == nil || !strings.Contains(err.Error(), "turn order") {
+				t.Errorf("report_blitz_game(%s) = %q, %v; want refused for its turn order", tt.sides, got, err)
+			}
+			if m := matchNow(t, reader, matches[0]); m.Game != nil {
+				t.Errorf("the match after a refused report = %q, want no game", resultLine(m))
+			}
+		})
+	}
+}
+
+func TestMigration41sDownTakesAGameWithoutTurnOrderAgain(t *testing.T) {
+	a, _, _, _, _ := reportsFixture(t)
+	ctx := context.Background()
+	cfg := a.pool.(*pgxpool.Pool).Config().Copy()
+	cfg.AfterConnect = nil // the owner migrates, not the admin login
+	pool, err := pgxpool.NewWithConfig(ctx, cfg)
+	if err != nil {
+		t.Fatalf("opening the owner's pool: %v", err)
+	}
+	t.Cleanup(pool.Close)
+	if err := withRatingsMigrations(pool, func(p *goose.Provider) error { _, err := p.DownTo(ctx, 40); return err }); err != nil {
+		t.Fatalf("migrating down to 40: %v", err)
+	}
+	var written *int64
+	if err := pool.QueryRow(ctx, `
+		SELECT w.written FROM tournaments t JOIN series s USING (series_id),
+		     write_game(t.tournament_id, 'Round 1', 'US Open 2026 Round 1', $1, 'DOWN-1', 'admin', 'blitz match 1',
+		                '[{"name": "Ann", "outcome": "finished", "culture": 50, "place": 1}, {"name": "Bob", "outcome": "finished", "culture": 40, "place": 2}]', NULL) w
+		WHERE s.slug = 'us_open' AND t.label = '2026'`, finishedAt).Scan(&written); err != nil || written == nil {
+		t.Errorf("write_game without positions after the Down = %v, %v; want a game written", written, err)
 	}
 }
 

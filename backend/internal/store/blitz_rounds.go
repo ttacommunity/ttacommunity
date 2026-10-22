@@ -122,7 +122,8 @@ func blitzRounds(ctx context.Context, db conn, public bool, slug, edition string
 	matches, err := db.Query(ctx, `
 		SELECT m.round_id, m.match_id, m.entry_a, m.entry_b, m.slot, m.seed_a, m.seed_b, coalesce(m.result, ''), m.game_id, m.ruling, m.decided_at,
 		       coalesce(g.share_code, ''), coalesce(g.finished_at, g.date::timestamp AT TIME ZONE 'UTC'), sa.culture, coalesce(sa.outcome, ''),
-		       sb.culture, coalesce(sb.outcome, ''), m.reported_by, coalesce(m.report, ''), m.flag_reason
+		       coalesce(sa.starting_position + 1, 0), sb.culture, coalesce(sb.outcome, ''), coalesce(sb.starting_position + 1, 0),
+		       m.reported_by, coalesce(m.report, ''), m.flag_reason
 		FROM blitz_matches m
 		LEFT JOIN games g ON g.game_id = m.game_id
 		LEFT JOIN seats sa ON sa.game_id = m.game_id AND sa.seat = 1
@@ -137,7 +138,7 @@ func blitzRounds(ctx context.Context, db conn, public bool, slug, edition string
 	var finished *time.Time
 	var cultureA, cultureB *float64
 	if _, err := pgx.ForEachRow(matches, []any{&roundID, &m.ID, &m.A, &m.B, &m.Slot, &m.SeedA, &m.SeedB, &m.Result, &m.GameID, &m.Ruling, &m.DecidedAt,
-		&g.ShareCode, &finished, &cultureA, &g.A.Outcome, &cultureB, &g.B.Outcome, &m.ReportedBy, &m.Report, &m.FlagReason}, func() error {
+		&g.ShareCode, &finished, &cultureA, &g.A.Outcome, &g.A.Turn, &cultureB, &g.B.Outcome, &g.B.Turn, &m.ReportedBy, &m.Report, &m.FlagReason}, func() error {
 		i := slices.IndexFunc(rounds, func(r BlitzRound) bool { return r.ID == roundID })
 		got := BlitzMatch{ID: m.ID, A: m.A, Result: m.Result, Ruling: m.Ruling, Report: m.Report, FlagReason: m.FlagReason}
 		if m.ReportedBy != nil {
@@ -151,7 +152,7 @@ func blitzRounds(ctx context.Context, db conn, public bool, slug, edition string
 		}
 		if m.GameID != nil {
 			got.GameID = new(*m.GameID)
-			game := BlitzGame{ShareCode: g.ShareCode, A: BlitzSide{Outcome: g.A.Outcome}, B: BlitzSide{Outcome: g.B.Outcome}}
+			game := BlitzGame{ShareCode: g.ShareCode, A: BlitzSide{Outcome: g.A.Outcome, Turn: g.A.Turn}, B: BlitzSide{Outcome: g.B.Outcome, Turn: g.B.Turn}}
 			if finished != nil {
 				game.Finished = *finished
 			}

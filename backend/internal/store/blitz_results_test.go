@@ -6,9 +6,12 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"slices"
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 // blitzRoundOne is blitzWithEntrants with round 1 published: Ann v Bob, Cy v Dee. It returns the admin store,
@@ -27,7 +30,10 @@ func blitzRoundOne(t *testing.T) (*AdminStore, *RatingsReader, []int64, []int64)
 	return a, reader, ids, []int64{r.Matches[0].ID, r.Matches[1].ID}
 }
 
-func finished(culture float64) BlitzSide { return BlitzSide{Culture: culture, Outcome: "finished"} }
+// finished is a side that finished on culture, playing turn (1 for first).
+func finished(culture float64, turn int) BlitzSide {
+	return BlitzSide{Culture: culture, Outcome: "finished", Turn: turn}
+}
 
 // finishedAt is late on 14 October in New York: 15 October in UTC.
 var finishedAt = time.Date(2026, 10, 14, 23, 30, 0, 0, time.FixedZone("EDT", -4*3600))
@@ -62,7 +68,7 @@ func TestBlitzGamesAreRecordedCorrectedAndRead(t *testing.T) {
 	a, reader, _, matches := blitzRoundOne(t)
 	ctx := context.Background()
 	annBob, cyDee := matches[0], matches[1]
-	if err := a.RecordBlitzGame(ctx, "us_open", "2026", annBob, BlitzGame{ShareCode: "ABCD1234", A: finished(250), B: finished(200), Finished: finishedAt}); err != nil {
+	if err := a.RecordBlitzGame(ctx, "us_open", "2026", annBob, BlitzGame{ShareCode: "ABCD1234", A: finished(250, 1), B: finished(200, 2), Finished: finishedAt}); err != nil {
 		t.Fatalf("RecordBlitzGame: %v", err)
 	}
 	ed, err := a.BlitzEdition(ctx, "us_open", "2026")
@@ -96,13 +102,13 @@ func TestBlitzGamesAreRecordedCorrectedAndRead(t *testing.T) {
 	}
 
 	// A correction changes the one game: Bob wins now, then equal cultures draw, with no second game row.
-	if err := a.RecordBlitzGame(ctx, "us_open", "2026", annBob, BlitzGame{ShareCode: "ABCD1234", A: finished(250), B: finished(260), Finished: finishedAt}); err != nil {
+	if err := a.RecordBlitzGame(ctx, "us_open", "2026", annBob, BlitzGame{ShareCode: "ABCD1234", A: finished(250, 1), B: finished(260, 2), Finished: finishedAt}); err != nil {
 		t.Fatalf("RecordBlitzGame(correction): %v", err)
 	}
 	if ed, _ = a.BlitzEdition(ctx, "us_open", "2026"); resultLine(matchOf(t, ed, annBob)) != "b game=ABCD1234 250/finished 260/finished on 2026-10-15T03:30:00Z" {
 		t.Errorf("after the correction: %q, want Bob's win", resultLine(matchOf(t, ed, annBob)))
 	}
-	if err := a.RecordBlitzGame(ctx, "us_open", "2026", annBob, BlitzGame{ShareCode: "ABCD1234", A: finished(250), B: finished(250), Finished: finishedAt}); err != nil {
+	if err := a.RecordBlitzGame(ctx, "us_open", "2026", annBob, BlitzGame{ShareCode: "ABCD1234", A: finished(250, 1), B: finished(250, 2), Finished: finishedAt}); err != nil {
 		t.Fatalf("RecordBlitzGame(draw): %v", err)
 	}
 	ed, _ = a.BlitzEdition(ctx, "us_open", "2026")
@@ -118,7 +124,7 @@ func TestBlitzGamesAreRecordedCorrectedAndRead(t *testing.T) {
 	}
 
 	// A resigned player loses with culture 0 and the second place, whatever was typed.
-	if err := a.RecordBlitzGame(ctx, "us_open", "2026", cyDee, BlitzGame{ShareCode: "EFGH5678", A: finished(180), B: BlitzSide{Culture: 190, Outcome: "resigned"}, Finished: finishedAt}); err != nil {
+	if err := a.RecordBlitzGame(ctx, "us_open", "2026", cyDee, BlitzGame{ShareCode: "EFGH5678", A: finished(180, 1), B: BlitzSide{Culture: 190, Outcome: "resigned", Turn: 2}, Finished: finishedAt}); err != nil {
 		t.Fatalf("RecordBlitzGame(resigned): %v", err)
 	}
 	public, err := reader.BlitzEdition(ctx, "us_open", "2026")
@@ -127,6 +133,70 @@ func TestBlitzGamesAreRecordedCorrectedAndRead(t *testing.T) {
 	}
 	if got := resultLine(matchOf(t, public, cyDee)); got != "a game=EFGH5678 180/finished 0/resigned on 2026-10-15T03:30:00Z" {
 		t.Errorf("the site's Cy v Dee = %q, want Cy's win with Dee at 0, resigned", got)
+	}
+}
+
+// turnLine writes the turns of a match's game as "a=<turn> b=<turn>", 0 for unknown.
+func turnLine(m BlitzMatch) string {
+	if m.Game == nil {
+		return "no game"
+	}
+	return fmt.Sprintf("a=%d b=%d", m.Game.A.Turn, m.Game.B.Turn)
+}
+
+func TestABlitzGameKeepsItsTurnOrder(t *testing.T) {
+	ctx := context.Background()
+	tests := []struct {
+		name   string
+		record func(a *AdminStore, p *PlayerStore, match int64, g BlitzGame) error
+	}{
+		{"recorded by an organiser", func(a *AdminStore, _ *PlayerStore, match int64, g BlitzGame) error {
+			return a.RecordBlitzGame(ctx, "us_open", "2026", match, g)
+		}},
+		{"reported by a player", func(_ *AdminStore, p *PlayerStore, match int64, g BlitzGame) error {
+			return p.ReportBlitzGame(ctx, tokenHash("ann"), "us_open", "2026", match, g, reportsAt)
+		}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			a, p, reader, _, matches := reportsFixture(t)
+			annBob := matches[0]
+			if err := tt.record(a, p, annBob, BlitzGame{ShareCode: "TURN-1", A: finished(50, 2), B: finished(40, 1), Finished: finishedAt}); err != nil {
+				t.Fatalf("recording Bob first: %v", err)
+			}
+			m := matchNow(t, reader, annBob)
+			if got := turnLine(m); got != "a=2 b=1" {
+				t.Errorf("the turns with Bob first = %q, want a=2 b=1", got)
+			}
+			line := rowsOf(t, a.pool.(*pgxpool.Pool), fmt.Sprintf("SELECT array_to_string(players, ' ') FROM game_lines WHERE game_id = %d", *m.GameID))
+			if !slices.Equal(line, []string{"Bob Ann"}) {
+				t.Errorf("the game's line = %q, want Bob listed first", line)
+			}
+			if err := tt.record(a, p, annBob, BlitzGame{ShareCode: "TURN-1", A: finished(50, 1), B: finished(40, 2), Finished: finishedAt}); err != nil {
+				t.Fatalf("correcting to Ann first: %v", err)
+			}
+			if got := turnLine(matchNow(t, reader, annBob)); got != "a=1 b=2" {
+				t.Errorf("the turns once corrected = %q, want a=1 b=2", got)
+			}
+		})
+	}
+}
+
+func TestAGameRecordedWithoutTurnOrderReadsAsUnknown(t *testing.T) {
+	a, reader, _, matches := blitzRoundOne(t)
+	ctx := context.Background()
+	if err := a.RecordBlitzGame(ctx, "us_open", "2026", matches[0], BlitzGame{ShareCode: "OLD-1", A: finished(250, 1), B: finished(200, 2), Finished: finishedAt}); err != nil {
+		t.Fatalf("RecordBlitzGame: %v", err)
+	}
+	if _, err := a.pool.Exec(ctx, "UPDATE seats SET starting_position = NULL WHERE game_id = (SELECT game_id FROM games WHERE share_code = 'OLD-1')"); err != nil {
+		t.Fatalf("forgetting the turn order: %v", err)
+	}
+	ed, err := reader.BlitzEdition(ctx, "us_open", "2026")
+	if err != nil {
+		t.Fatalf("BlitzEdition: %v", err)
+	}
+	if got := turnLine(matchOf(t, ed, matches[0])); got != "a=0 b=0" {
+		t.Errorf("the turns of a game without them = %q, want a=0 b=0", got)
 	}
 }
 
@@ -142,10 +212,10 @@ func TestBlitzGamesThatCannotBeRecorded(t *testing.T) {
 		t.Fatalf("AddBlitzRound: %v", err)
 	}
 	matches, bye := []int64{r1.Matches[0].ID, r1.Matches[1].ID}, r1.Matches[2]
-	if err := a.RecordBlitzGame(ctx, "us_open", "2026", matches[0], BlitzGame{ShareCode: "ABCD1234", A: finished(250), B: finished(200), Finished: finishedAt}); err != nil {
+	if err := a.RecordBlitzGame(ctx, "us_open", "2026", matches[0], BlitzGame{ShareCode: "ABCD1234", A: finished(250, 1), B: finished(200, 2), Finished: finishedAt}); err != nil {
 		t.Fatalf("RecordBlitzGame: %v", err)
 	}
-	game := BlitzGame{ShareCode: "EFGH5678", A: finished(180), B: finished(170), Finished: finishedAt}
+	game := BlitzGame{ShareCode: "EFGH5678", A: finished(180, 1), B: finished(170, 2), Finished: finishedAt}
 	tests := []struct {
 		name  string
 		match int64
@@ -154,12 +224,17 @@ func TestBlitzGamesThatCannotBeRecorded(t *testing.T) {
 	}{
 		{"an unknown match", 999, game, ErrNoBlitzMatch},
 		{"a bye", bye.ID, game, ErrBlitzBye},
-		{"a code already on another game", matches[1], BlitzGame{ShareCode: "ABCD1234", A: finished(180), B: finished(170), Finished: finishedAt}, &BlitzShareCodeError{}},
-		{"a code over 32 characters", matches[1], BlitzGame{ShareCode: strings.Repeat("X", 33), A: finished(180), B: finished(170), Finished: finishedAt}, ErrBadBlitzGame},
-		{"an outcome that is not finished, resigned or timed out", matches[1], BlitzGame{ShareCode: "EFGH5678", A: finished(180), B: BlitzSide{Outcome: "lost"}, Finished: finishedAt}, ErrBadBlitzGame},
-		{"a negative culture", matches[1], BlitzGame{ShareCode: "EFGH5678", A: finished(-1), B: finished(170), Finished: finishedAt}, ErrBadBlitzGame},
-		{"neither player finished", matches[1], BlitzGame{ShareCode: "EFGH5678", A: BlitzSide{Outcome: "resigned"}, B: BlitzSide{Outcome: "timed_out"}, Finished: finishedAt}, ErrBadBlitzGame},
-		{"no day played", matches[1], BlitzGame{ShareCode: "EFGH5678", A: finished(180), B: finished(170)}, ErrBadBlitzGame},
+		{"a code already on another game", matches[1], BlitzGame{ShareCode: "ABCD1234", A: finished(180, 1), B: finished(170, 2), Finished: finishedAt}, &BlitzShareCodeError{}},
+		{"a code over 32 characters", matches[1], BlitzGame{ShareCode: strings.Repeat("X", 33), A: finished(180, 1), B: finished(170, 2), Finished: finishedAt}, ErrBadBlitzGame},
+		{"an outcome that is not finished, resigned or timed out", matches[1], BlitzGame{ShareCode: "EFGH5678", A: finished(180, 1), B: BlitzSide{Outcome: "lost", Turn: 2}, Finished: finishedAt}, ErrBadBlitzGame},
+		{"a negative culture", matches[1], BlitzGame{ShareCode: "EFGH5678", A: finished(-1, 1), B: finished(170, 2), Finished: finishedAt}, ErrBadBlitzGame},
+		{"neither player finished", matches[1], BlitzGame{ShareCode: "EFGH5678", A: BlitzSide{Outcome: "resigned", Turn: 1}, B: BlitzSide{Outcome: "timed_out", Turn: 2}, Finished: finishedAt}, ErrBadBlitzGame},
+		{"no day played", matches[1], BlitzGame{ShareCode: "EFGH5678", A: finished(180, 1), B: finished(170, 2)}, ErrBadBlitzGame},
+		{"no turn order", matches[1], BlitzGame{ShareCode: "EFGH5678", A: finished(180, 0), B: finished(170, 0), Finished: finishedAt}, ErrBadBlitzGame},
+		{"one player's turn missing", matches[1], BlitzGame{ShareCode: "EFGH5678", A: finished(180, 1), B: finished(170, 0), Finished: finishedAt}, ErrBadBlitzGame},
+		{"both first", matches[1], BlitzGame{ShareCode: "EFGH5678", A: finished(180, 1), B: finished(170, 1), Finished: finishedAt}, ErrBadBlitzGame},
+		{"a turn past the game's players", matches[1], BlitzGame{ShareCode: "EFGH5678", A: finished(180, 1), B: finished(170, 3), Finished: finishedAt}, ErrBadBlitzGame},
+		{"a turn before the first", matches[1], BlitzGame{ShareCode: "EFGH5678", A: finished(180, -1), B: finished(170, 1), Finished: finishedAt}, ErrBadBlitzGame},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -186,7 +261,7 @@ func TestAGameNeedsNoShareCode(t *testing.T) {
 	a, _, _, matches := blitzRoundOne(t)
 	ctx := context.Background()
 	for _, m := range matches {
-		if err := a.RecordBlitzGame(ctx, "us_open", "2026", m, BlitzGame{ShareCode: " ", A: finished(250), B: finished(200), Finished: finishedAt}); err != nil {
+		if err := a.RecordBlitzGame(ctx, "us_open", "2026", m, BlitzGame{ShareCode: " ", A: finished(250, 1), B: finished(200, 2), Finished: finishedAt}); err != nil {
 			t.Fatalf("RecordBlitzGame(match %d) with no code: %v", m, err)
 		}
 	}
@@ -221,7 +296,7 @@ func TestBlitzRulingsDecideAMatch(t *testing.T) {
 	}
 
 	// A ruling may overrule a played game, which stays; recording the game again puts its result back.
-	if err := a.RecordBlitzGame(ctx, "us_open", "2026", annBob, BlitzGame{ShareCode: "ABCD1234", A: finished(250), B: finished(200), Finished: finishedAt}); err != nil {
+	if err := a.RecordBlitzGame(ctx, "us_open", "2026", annBob, BlitzGame{ShareCode: "ABCD1234", A: finished(250, 1), B: finished(200, 2), Finished: finishedAt}); err != nil {
 		t.Fatalf("RecordBlitzGame: %v", err)
 	}
 	if err := a.RecordBlitzRuling(ctx, "us_open", "2026", annBob, "b", "Ann used a banned account"); err != nil {
@@ -231,7 +306,7 @@ func TestBlitzRulingsDecideAMatch(t *testing.T) {
 	if got := resultLine(matchOf(t, ed, annBob)); got != "b game=ABCD1234 250/finished 200/finished on 2026-10-15T03:30:00Z ruling=Ann used a banned account" {
 		t.Errorf("the overruled game = %q, want Bob's win by ruling with the game kept", got)
 	}
-	if err := a.RecordBlitzGame(ctx, "us_open", "2026", annBob, BlitzGame{ShareCode: "ABCD1234", A: finished(250), B: finished(200), Finished: finishedAt}); err != nil {
+	if err := a.RecordBlitzGame(ctx, "us_open", "2026", annBob, BlitzGame{ShareCode: "ABCD1234", A: finished(250, 1), B: finished(200, 2), Finished: finishedAt}); err != nil {
 		t.Fatalf("RecordBlitzGame(again): %v", err)
 	}
 	if ed, _ = a.BlitzEdition(ctx, "us_open", "2026"); resultLine(matchOf(t, ed, annBob)) != "a game=ABCD1234 250/finished 200/finished on 2026-10-15T03:30:00Z" {
@@ -263,7 +338,7 @@ func TestBlitzRoundsWaitForResultsAndKeepDecidedMatches(t *testing.T) {
 	if _, err := a.AddBlitzRound(ctx, "us_open", "2026", next); !errors.Is(err, ErrBlitzRoundUndecided) || !containsAll(err.Error(), "Ann", "Bob", "Cy", "Dee") {
 		t.Errorf("round 2 before any result = %v, want ErrBlitzRoundUndecided naming both matches", err)
 	}
-	if err := a.RecordBlitzGame(ctx, "us_open", "2026", matches[0], BlitzGame{ShareCode: "ABCD1234", A: finished(250), B: finished(200), Finished: finishedAt}); err != nil {
+	if err := a.RecordBlitzGame(ctx, "us_open", "2026", matches[0], BlitzGame{ShareCode: "ABCD1234", A: finished(250, 1), B: finished(200, 2), Finished: finishedAt}); err != nil {
 		t.Fatalf("RecordBlitzGame: %v", err)
 	}
 	if _, err := a.AddBlitzRound(ctx, "us_open", "2026", next); !errors.Is(err, ErrBlitzRoundUndecided) || containsAll(err.Error(), "Ann") {

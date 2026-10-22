@@ -1197,7 +1197,8 @@ export interface paths {
         /**
          * Report your match's game, or correct your report
          * @description Audited. The Origin must be the site. For a player of the match in
-         *     the latest round: it counts at once. The share code is required.
+         *     the latest round: it counts at once. The share code and each
+         *     player's turn are required.
          *     Reporting again corrects it, until the opponent confirms or flags
          *     it. Refused once an organiser has entered or ruled the match, when
          *     the opponent reported it, and once the next round is paired.
@@ -2069,7 +2070,9 @@ export interface paths {
          * @description Audited. The Origin must be the admin site. The game is written under
          *     the edition's "Round N" stage with a seat for each player, so the
          *     tournament's page shows it at once; recording the match again changes
-         *     that one game. The higher culture wins and equal cultures draw; a
+         *     that one game, turn order included: each player's turn is required,
+         *     also to add it to a game recorded without one. The higher culture
+         *     wins and equal cultures draw; a
          *     resigned or timed-out player loses with culture 0; a drawn knockout
          *     game stays a draw as a game and sends the higher seed through. The
          *     share code may be empty, for a game without one; one already on
@@ -3068,9 +3071,13 @@ export interface components {
             /** Format: double */
             a_culture: number;
             a_outcome: components["schemas"]["BlitzOutcome"];
+            /** @description a's place in the turn order, 1 for the player who went first; null when it was not recorded */
+            a_turn: number | null;
             /** Format: double */
             b_culture: number;
             b_outcome: components["schemas"]["BlitzOutcome"];
+            /** @description b's place in the turn order, 1 for the player who went first; null when it was not recorded */
+            b_turn: number | null;
             /**
              * Format: date-time
              * @description When the game finished, in UTC
@@ -3409,7 +3416,7 @@ export interface components {
             /** @description An IANA time zone, a region (US East) or Unknown (UTC), whose clocks the day and time are on */
             zone: string;
         };
-        /** @description A played game, with the share code, each side as the match names them, and when it finished */
+        /** @description A played game, with the share code, each side as the match names them (with their turn), and when it finished */
         BlitzGameRecord: {
             /** @description Empty for a game without one */
             share_code: string;
@@ -3432,6 +3439,11 @@ export interface components {
              */
             culture: number;
             outcome: components["schemas"]["BlitzOutcome"];
+            /**
+             * @description The player's place in the turn order, 1 for the player who went
+             *     first. A game's players take 1 to N, each once
+             */
+            turn: number;
         };
         BlitzFlag: {
             /** @description What is wrong with the reported result */

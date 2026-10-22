@@ -36,8 +36,16 @@ func playedGame(m store.BlitzMatch) *BlitzPlayedGame {
 		return nil
 	}
 	return &BlitzPlayedGame{ShareCode: m.Game.ShareCode, FinishedAt: m.Game.Finished.UTC(),
-		ACulture: m.Game.A.Culture, AOutcome: BlitzOutcome(m.Game.A.Outcome),
-		BCulture: m.Game.B.Culture, BOutcome: BlitzOutcome(m.Game.B.Outcome)}
+		ACulture: m.Game.A.Culture, AOutcome: BlitzOutcome(m.Game.A.Outcome), ATurn: turnOf(m.Game.A),
+		BCulture: m.Game.B.Culture, BOutcome: BlitzOutcome(m.Game.B.Outcome), BTurn: turnOf(m.Game.B)}
+}
+
+// turnOf is a side's turn, nil when it was not recorded.
+func turnOf(s store.BlitzSide) *int {
+	if s.Turn == 0 {
+		return nil
+	}
+	return &s.Turn
 }
 
 // played is a match of round as the blitz package sees it; B is 0 for a bye, and a result with no game is a

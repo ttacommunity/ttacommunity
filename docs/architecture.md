@@ -232,7 +232,11 @@ or region, stored in UTC; its `date` is that time's UTC day, as for the
 games CGE's data brings), so the tournament's page shows it at once and a later CGE
 extract load matches it by share code instead of adding a copy (a game
 recorded without a code has nothing to match it by); recording
-the match again corrects that one game. A result in the latest round can
+the match again corrects that one game. Every result gives each player's
+turn, stored as the seat's `starting_position` (0 for who went first), so
+game lines and seat figures follow the order they played in; a game
+recorded before turn order was asked for has none, and counts in pairing
+order until an organiser adds it. A result in the latest round can
 be reset, a match's or the whole round's: the game goes with its seats and
 batch, through `delete_blitz_game`, since the admin login cannot delete
 games itself. Resetting the edition removes every round and game and puts

@@ -58,7 +58,7 @@ func TestABlitzKnockoutIsPlayedToAChampion(t *testing.T) {
 		t.Fatalf("RecordBlitzRuling(an upset): %v", err)
 	}
 	drawn := func(code string) BlitzGame {
-		return BlitzGame{ShareCode: code, A: BlitzSide{Culture: 120, Outcome: "finished"}, B: BlitzSide{Culture: 120, Outcome: "finished"},
+		return BlitzGame{ShareCode: code, A: finished(120, 1), B: finished(120, 2),
 			Finished: time.Date(2026, 12, 9, 20, 0, 0, 0, time.UTC)}
 	}
 	if err := a.RecordBlitzGame(ctx, "us_open", "2026", semi.Matches[1].ID, drawn("KO-DRAW-1")); err != nil {

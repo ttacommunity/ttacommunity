@@ -1592,7 +1592,8 @@ paths:
       summary: Report your match's game, or correct your report
       description: |
         Audited. The Origin must be the site. For a player of the match in
-        the latest round: it counts at once. The share code is required.
+        the latest round: it counts at once. The share code and each
+        player's turn are required.
         Reporting again corrects it, until the opponent confirms or flags
         it. Refused once an organiser has entered or ruled the match, when
         the opponent reported it, and once the next round is paired.
@@ -2964,7 +2965,9 @@ paths:
         Audited. The Origin must be the admin site. The game is written under
         the edition's "Round N" stage with a seat for each player, so the
         tournament's page shows it at once; recording the match again changes
-        that one game. The higher culture wins and equal cultures draw; a
+        that one game, turn order included: each player's turn is required,
+        also to add it to a game recorded without one. The higher culture
+        wins and equal cultures draw; a
         resigned or timed-out player loses with culture 0; a drawn knockout
         game stays a draw as a game and sends the higher seed through. The
         share code may be empty, for a game without one; one already on
@@ -4826,7 +4829,7 @@ components:
     BlitzPlayedGame:
       description: A played game as recorded, each side as the match names them
       type: object
-      required: [share_code, a_culture, a_outcome, b_culture, b_outcome, finished_at]
+      required: [share_code, a_culture, a_outcome, a_turn, b_culture, b_outcome, b_turn, finished_at]
       properties:
         share_code:
           type: string
@@ -4835,11 +4838,19 @@ components:
           format: double
         a_outcome:
           $ref: "#/components/schemas/BlitzOutcome"
+        a_turn:
+          description: a's place in the turn order, 1 for the player who went first; null when it was not recorded
+          type: integer
+          nullable: true
         b_culture:
           type: number
           format: double
         b_outcome:
           $ref: "#/components/schemas/BlitzOutcome"
+        b_turn:
+          description: b's place in the turn order, 1 for the player who went first; null when it was not recorded
+          type: integer
+          nullable: true
         finished_at:
           description: When the game finished, in UTC
           type: string
@@ -5419,7 +5430,7 @@ components:
           minLength: 1
           maxLength: 64
     BlitzGameRecord:
-      description: A played game, with the share code, each side as the match names them, and when it finished
+      description: A played game, with the share code, each side as the match names them (with their turn), and when it finished
       type: object
       additionalProperties: false
       required: [share_code, a, b, finished_on, finished_time, zone]
@@ -5448,7 +5459,7 @@ components:
     BlitzGameSide:
       type: object
       additionalProperties: false
-      required: [culture, outcome]
+      required: [culture, outcome, turn]
       properties:
         culture:
           description: Ignored (0) for a player who resigned or timed out
@@ -5457,6 +5468,13 @@ components:
           minimum: 0
         outcome:
           $ref: "#/components/schemas/BlitzOutcome"
+        turn:
+          description: |
+            The player's place in the turn order, 1 for the player who went
+            first. A game's players take 1 to N, each once
+          type: integer
+          minimum: 1
+          maximum: 4
     BlitzFlag:
       type: object
       additionalProperties: false
