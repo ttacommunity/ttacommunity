@@ -4,21 +4,18 @@ package microsoft
 
 import (
 	"context"
-	"crypto/rsa"
-	"encoding/base64"
-	"encoding/json"
 	"errors"
 	"fmt"
-	"math/big"
 	"net/http"
 	"regexp"
 	"strings"
-	"sync"
 	"time"
 	"unicode/utf8"
 
 	"github.com/golang-jwt/jwt/v5"
 	"golang.org/x/oauth2"
+
+	"ttacommunity/backend/internal/jwks"
 )
 
 // microsoftAuthority is where Microsoft signs people in, used when Config leaves it empty.
@@ -26,9 +23,6 @@ const microsoftAuthority = "https://login.microsoftonline.com"
 
 // consumers is Microsoft's tenant for personal accounts, which prove their email to Microsoft with a code.
 const consumers = "9188040d-6c67-4c5b-b112-36a304b66dad"
-
-// refetchAfter limits how often an unknown key id makes the client fetch Microsoft's keys again.
-const refetchAfter = 5 * time.Minute
 
 // Config is the Microsoft app players sign in through, and where Microsoft sends them back.
 type Config struct {
@@ -54,12 +48,9 @@ type User struct {
 type Client struct {
 	oauth     oauth2.Config
 	authority string
+	keys      *jwks.Keys
 	http      *http.Client
 	now       func() time.Time
-
-	mu      sync.Mutex
-	keys    map[string]*rsa.PublicKey
-	fetched time.Time
 }
 
 var tenantID = regexp.MustCompile(`^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$`)
@@ -93,9 +84,9 @@ func New(cfg Config, hc *http.Client, now func() time.Time) (*Client, error) {
 			},
 		},
 		authority: cfg.Authority,
+		keys:      jwks.New(cfg.Authority+"/common/discovery/v2.0/keys", hc, now),
 		http:      hc,
 		now:       now,
-		keys:      map[string]*rsa.PublicKey{},
 	}, nil
 }
 
@@ -129,7 +120,7 @@ func (c *Client) User(ctx context.Context, code, verifier, nonce string) (User, 
 	var cl idClaims
 	_, err = jwt.ParseWithClaims(raw, &cl, func(t *jwt.Token) (any, error) {
 		kid, _ := t.Header["kid"].(string)
-		return c.key(ctx, kid)
+		return c.keys.Key(ctx, kid)
 	},
 		jwt.WithValidMethods([]string{"RS256"}),
 		jwt.WithAudience(c.oauth.ClientID),
@@ -153,69 +144,6 @@ func (c *Client) User(ctx context.Context, code, verifier, nonce string) (User, 
 		u.Email = cl.Email
 	}
 	return u, nil
-}
-
-// key returns Microsoft's signing key with this id, fetching the keys when it is unknown and they were not fetched
-// lately.
-func (c *Client) key(ctx context.Context, kid string) (*rsa.PublicKey, error) {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-	if k, ok := c.keys[kid]; ok {
-		return k, nil
-	}
-	if !c.fetched.IsZero() && c.now().Sub(c.fetched) < refetchAfter {
-		return nil, errors.New("unknown signing key")
-	}
-	keys, err := c.fetch(ctx)
-	c.fetched = c.now()
-	if err != nil {
-		return nil, err
-	}
-	c.keys = keys
-	if k, ok := keys[kid]; ok {
-		return k, nil
-	}
-	return nil, errors.New("unknown signing key")
-}
-
-// fetch reads Microsoft's RSA signing keys.
-func (c *Client) fetch(ctx context.Context) (map[string]*rsa.PublicKey, error) {
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, c.authority+"/common/discovery/v2.0/keys", nil)
-	if err != nil {
-		return nil, fmt.Errorf("fetching signing keys: %w", err)
-	}
-	resp, err := c.http.Do(req)
-	if err != nil {
-		return nil, fmt.Errorf("fetching signing keys: %w", err)
-	}
-	defer resp.Body.Close()
-	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("fetching signing keys: status %d", resp.StatusCode)
-	}
-	var body struct {
-		Keys []struct {
-			Kid, Kty, N, E string
-		} `json:"keys"`
-	}
-	if err := json.NewDecoder(http.MaxBytesReader(nil, resp.Body, 1<<20)).Decode(&body); err != nil {
-		return nil, fmt.Errorf("reading signing keys: %w", err)
-	}
-	keys := map[string]*rsa.PublicKey{}
-	for _, k := range body.Keys {
-		if k.Kty != "RSA" || k.Kid == "" {
-			continue
-		}
-		n, errN := base64.RawURLEncoding.DecodeString(k.N)
-		e, errE := base64.RawURLEncoding.DecodeString(k.E)
-		if errN != nil || errE != nil || len(e) == 0 || len(e) > 4 {
-			continue
-		}
-		keys[k.Kid] = &rsa.PublicKey{N: new(big.Int).SetBytes(n), E: int(new(big.Int).SetBytes(e).Int64())}
-	}
-	if len(keys) == 0 {
-		return nil, errors.New("fetching signing keys: none usable")
-	}
-	return keys, nil
 }
 
 // truncate cuts s to at most n characters.
