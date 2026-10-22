@@ -1,6 +1,6 @@
 # The nightly backup: every input table, personal data included, encrypted with
-# age to the maintainers' public key and put in the R2 bucket ttacommunity-backup
-# (docs/architecture.md#backups). A run by hand:
+# age to the maintainers' public key by load, then put in the R2 bucket
+# ttacommunity-backup by rclone (docs/architecture.md#backups). A run by hand:
 #   kubectl -n ttacommunity create job --from=cronjob/backup backup-manual-1
 apiVersion: batch/v1
 kind: CronJob
@@ -46,10 +46,11 @@ spec:
             runAsGroup: 65532
             seccompProfile:
               type: RuntimeDefault
-          containers:
+          # load writes the encrypted file to /backup; only then does rclone put it in the bucket. Each holds one credential.
+          initContainers:
             - name: backup
-              image: ghcr.io/ttacommunity/ttacommunity/load:sha-5c78b95a@sha256:1c8706fcda4781c997ecb752bec1d3149b1c754e5866fde3b3a9c0d30219251c
-              args: [-backup-to-r2]
+              image: ghcr.io/ttacommunity/ttacommunity/load:sha-0118ccd5@sha256:2787cb2636effa7e2e8b0f5fb54515ecde92680574d3acff0fbb8dbfebfe1ecf
+              args: [-backup-to, /backup]
               env:
                 - name: RATINGS_DATABASE_URL
                   valueFrom:
@@ -58,25 +59,6 @@ spec:
                       key: database-url
                 - name: BACKUP_AGE_RECIPIENT
                   value: age1chparhxyn3kvlr245t8u9zvm9agar9v995dyptuygepuvmeujazqkre4r9
-                - name: BACKUP_BUCKET
-                  value: ttacommunity-backup
-                - name: BACKUP_ENDPOINT
-                  valueFrom:
-                    secretKeyRef:
-                      name: backup-r2
-                      key: endpoint
-                - name: BACKUP_ACCESS_KEY_ID
-                  valueFrom:
-                    secretKeyRef:
-                      name: backup-r2
-                      key: access-key-id
-                - name: BACKUP_SECRET_ACCESS_KEY
-                  valueFrom:
-                    secretKeyRef:
-                      name: backup-r2
-                      key: secret-access-key
-                - name: TMPDIR
-                  value: /tmp
               resources:
                 requests:
                   cpu: 100m
@@ -89,9 +71,56 @@ spec:
                 capabilities:
                   drop: [ALL]
               volumeMounts:
+                - name: backup
+                  mountPath: /backup
+          containers:
+            - name: upload
+              image: docker.io/rclone/rclone:1.75.2@sha256:2687085f718d3c628f7fdfb77c52a1d344332aed543110bb88088f2c70d43eb5
+              # --immutable never replaces an object; an R2 token for one bucket cannot create buckets.
+              args: [copy, /backup, "r2:ttacommunity-backup/ratings", --include, "*.zip.age", --immutable, --no-traverse, --s3-no-check-bucket, -v]
+              env:
+                - name: RCLONE_CONFIG_R2_TYPE
+                  value: s3
+                - name: RCLONE_CONFIG_R2_PROVIDER
+                  value: Cloudflare
+                - name: RCLONE_CONFIG_R2_ENDPOINT
+                  valueFrom:
+                    secretKeyRef:
+                      name: backup-r2
+                      key: endpoint
+                - name: RCLONE_CONFIG_R2_ACCESS_KEY_ID
+                  valueFrom:
+                    secretKeyRef:
+                      name: backup-r2
+                      key: access-key-id
+                - name: RCLONE_CONFIG_R2_SECRET_ACCESS_KEY
+                  valueFrom:
+                    secretKeyRef:
+                      name: backup-r2
+                      key: secret-access-key
+                - name: HOME
+                  value: /tmp
+              resources:
+                requests:
+                  cpu: 50m
+                  memory: 32Mi
+                limits:
+                  memory: 256Mi
+              securityContext:
+                allowPrivilegeEscalation: false
+                readOnlyRootFilesystem: true
+                capabilities:
+                  drop: [ALL]
+              volumeMounts:
+                - name: backup
+                  mountPath: /backup
+                  readOnly: true
                 - name: tmp
                   mountPath: /tmp
           volumes:
-            - name: tmp
+            - name: backup
               emptyDir:
                 sizeLimit: 1Gi
+            - name: tmp
+              emptyDir:
+                sizeLimit: 64Mi
