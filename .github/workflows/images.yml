@@ -33,6 +33,7 @@ env:
 jobs:
   api:
     runs-on: ${{ vars.RUNNER_AMD64 || 'ubuntu-24.04' }}
+    timeout-minutes: 15 # a build takes 4; a step killed at the runner's memory limit otherwise waits for hours
     container: docker.io/library/debian:trixie-slim@sha256:a99cfc517144bc59b1978475ec53b46ecabec7e43635402ee5b77cc54cd1b20a
     if: github.event_name != 'pull_request' || contains(github.event.pull_request.labels.*.name, 'images')
     permissions:
@@ -68,6 +69,7 @@ jobs:
 
   engine:
     runs-on: ${{ vars.RUNNER_AMD64 || 'ubuntu-24.04' }}
+    timeout-minutes: 15
     container: docker.io/library/debian:trixie-slim@sha256:a99cfc517144bc59b1978475ec53b46ecabec7e43635402ee5b77cc54cd1b20a
     if: github.event_name != 'pull_request' || contains(github.event.pull_request.labels.*.name, 'images')
     permissions:
