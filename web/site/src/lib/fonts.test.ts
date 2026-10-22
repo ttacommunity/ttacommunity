@@ -52,6 +52,7 @@ describe('googleCssUrl', () => {
       'Marcellus',
       'Source Serif 4:ital,wght@0,400;0,600;0,700;1,400;1,600;1,700',
       'Inter:wght@400;500;600;700',
+      'Google Sans:wght@500',
     ]);
     expect(url.searchParams.get('display')).toBe('swap');
   });

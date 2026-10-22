@@ -1,4 +1,4 @@
-/** The account page: how to sign in, with Discord, an emailed link or Microsoft; once signed in, the ways in (added or removed), asking to be linked to a TTA username, or, linked, the player's own country and zone and any ban; signing out, and deleting the account. A first sign-in lands here, with the way back to the page it started from. */
+/** The account page: how to sign in, with Discord, an emailed link, Microsoft or Google; once signed in, the ways in (added or removed), asking to be linked to a TTA username, or, linked, the player's own country and zone and any ban; signing out, and deleting the account. A first sign-in lands here, with the way back to the page it started from. */
 import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { useDialog } from '@ttac/shared/Dialog';
 import { currentRun, leaderboard } from '@ttac/shared/ratings';
@@ -163,8 +163,14 @@ function SignIn({ apiUrl, turnstileSitekey, back }: { apiUrl: string; turnstileS
               <img src="/img/microsoft-logo.svg" alt="" width="21" height="21" />
               Sign in with Microsoft
             </a>
+            <a className="btn-google" href={signInHref(apiUrl, 'google', returnTo)}>
+              <img src="/img/google-logo.svg" alt="" width="20" height="20" />
+              Sign in with Google
+            </a>
           </div>
-          <p className="account-muted">Email needs only an inbox: we send a link each time. Microsoft takes any personal, work or school account.</p>
+          <p className="account-muted">
+            Email needs only an inbox: we send a link each time. Microsoft takes any personal, work or school account, and Google any Google account.
+          </p>
           {emailOpen && <EmailSignIn apiUrl={apiUrl} turnstileSitekey={turnstileSitekey} back={returnTo} />}
         </li>
       </ul>
@@ -461,7 +467,7 @@ function SaveNotice({ outcome, onClose }: { outcome: SaveOutcome | null; onClose
   );
 }
 
-/** WaysIn lists the ways into the account, each removable while another remains, adds Discord, Microsoft or an email address, changes the email address, and asks for one when nobody could reach the player. */
+/** WaysIn lists the ways into the account, each removable while another remains, adds Discord, Microsoft, Google or an email address, changes the email address, and asks for one when nobody could reach the player. */
 function WaysIn({ apiUrl, me, refresh }: { apiUrl: string; me: Me; refresh: () => void }) {
   const { ways, canAdd } = waysIn(me);
   const dialog = useDialog();
@@ -509,7 +515,7 @@ function WaysIn({ apiUrl, me, refresh }: { apiUrl: string; me: Me; refresh: () =
           </li>
         ))}
       </ul>
-      {(canAdd.discord || canAdd.microsoft) && (
+      {(canAdd.discord || canAdd.microsoft || canAdd.google) && (
         <div className="account-row">
           {canAdd.discord && (
             <a className="btn-antique" href={addWayInHref(apiUrl, 'discord')}>
@@ -519,6 +525,12 @@ function WaysIn({ apiUrl, me, refresh }: { apiUrl: string; me: Me; refresh: () =
           {canAdd.microsoft && (
             <a className="btn-antique" href={addWayInHref(apiUrl, 'microsoft')}>
               Add Microsoft
+            </a>
+          )}
+          {canAdd.google && (
+            <a className="btn-google" href={addWayInHref(apiUrl, 'google')}>
+              <img src="/img/google-logo.svg" alt="" width="20" height="20" />
+              Add sign-in with Google
             </a>
           )}
         </div>
@@ -536,7 +548,9 @@ function WaysIn({ apiUrl, me, refresh }: { apiUrl: string; me: Me; refresh: () =
           ) : (
             <>
               <label htmlFor="account-add-email">Add an email address to enable signing in using email.</label>
-              <p className="account-muted">It also enables Admins and Organisers to contact you for events you sign up for if you don't have Discord.</p>
+              {!needsContact(me) && (
+                <p className="account-muted">It also enables Admins and Organisers to contact you for events you sign up for if you don't have Discord.</p>
+              )}
             </>
           )}
           <div className="account-row">

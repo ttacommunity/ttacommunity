@@ -83,6 +83,9 @@ describe('navLabel', () => {
     ['a Microsoft sign-in, by its name', byMicrosoft, 'Player One'],
     ['a Microsoft sign-in with no name', { ...byMicrosoft, username: 'Microsoft account', logins: [unnamed] }, 'Your account'],
     ['an email sign-in to an account with Microsoft, by its name', { ...byEmail, logins: [email, microsoft] }, 'Player One'],
+    ['a Google sign-in, by its name', byGoogle, 'Player One'],
+    ['a Google sign-in with no name', { ...byGoogle, username: 'Google account', logins: [{ ...google, username: 'Google account' }] }, 'Your account'],
+    ['an email sign-in to an account with Google, by its name', { ...byEmail, logins: [email, google] }, 'Player One'],
   ])('%s', (_name, me, want) => {
     expect(navLabel(me)).toBe(want);
   });
@@ -94,6 +97,7 @@ describe('signedInAs', () => {
     ['by Discord, without one', base, { heading: 'Signed in with Discord as player_one', detail: '' }],
     ['by email', byEmail, { heading: 'Signed in by email as player@example.test', detail: '' }],
     ['by Microsoft', byMicrosoft, { heading: 'Signed in with Microsoft as Player One', detail: '' }],
+    ['by Google', byGoogle, { heading: 'Signed in with Google as Player One', detail: '' }],
   ])('%s', (_name, me, want) => {
     expect(signedInAs(me)).toEqual(want);
   });
@@ -133,6 +137,7 @@ describe('addWayInHref', () => {
   it.each([
     ['discord' as const, 'https://api.example/v1/auth/discord?add=true'],
     ['microsoft' as const, 'https://api.example/v1/auth/microsoft?add=true'],
+    ['google' as const, 'https://api.example/v1/auth/google?add=true'],
   ])('opens the api to add %s, coming back to the account page', (provider, want) => {
     expect(addWayInHref('https://api.example/', provider)).toBe(want);
   });
@@ -142,6 +147,7 @@ describe('signInHref', () => {
   it.each([
     ['discord' as const, 'https://api.example/v1/auth/discord?return=%2Fblitz%2F'],
     ['microsoft' as const, 'https://api.example/v1/auth/microsoft?return=%2Fblitz%2F'],
+    ['google' as const, 'https://api.example/v1/auth/google?return=%2Fblitz%2F'],
   ])('opens the api, which sends the browser to %s and back to the page', (provider, want) => {
     expect(signInHref('https://api.example/', provider, '/blitz/')).toBe(want);
   });
@@ -153,6 +159,8 @@ describe('needsContact', () => {
     ['an email way in', byEmail, false],
     ['Microsoft with an email', byMicrosoft, false],
     ['Microsoft with none', { ...byMicrosoft, logins: [unnamed] }, true],
+    ['Google with an email', byGoogle, false],
+    ['Google with none', { ...byGoogle, logins: [{ ...google, email: '' }] }, true],
   ])('%s', (_name, me, want) => {
     expect(needsContact(me)).toBe(want);
   });
@@ -177,6 +185,9 @@ describe('signInNotice', () => {
     ['added', 'microsoft', 'Microsoft'],
     ['taken', 'microsoft', 'Microsoft'],
     ['has-kind', 'microsoft', 'Microsoft'],
+    ['added', 'google', 'Google'],
+    ['taken', 'google', 'Google'],
+    ['has-kind', 'google', 'Google'],
   ])('%s names the way in, %s', (outcome, way, name) => {
     expect(signInNotice(new URLSearchParams({ signin: outcome, way }))?.text).toContain(name);
   });
