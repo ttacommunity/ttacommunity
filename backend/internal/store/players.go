@@ -21,8 +21,8 @@ const SessionLife = 30 * 24 * time.Hour
 // sessionRenewal is how often a session in use is renewed, so that a page view is not a write.
 const sessionRenewal = 24 * time.Hour
 
-// Identity is who a provider says signed in: their id there, their names there, and for Microsoft the email address
-// it vouches for, if any.
+// Identity is who a provider says signed in: their id there, their names there, and for Microsoft or Google the email
+// address it vouches for, if any.
 type Identity struct {
 	Provider, Subject, Username, DisplayName string
 	Email                                    string
@@ -162,11 +162,11 @@ func signIn(ctx context.Context, tx pgx.Tx, id Identity, tokenHash []byte, now t
 	return first, startSession(ctx, tx, login, tokenHash, now)
 }
 
-// contactEmail is the Microsoft email id vouches for, trimmed and lower-cased, or "" for none or one that is not an
-// address.
+// contactEmail is the Microsoft or Google email id vouches for, trimmed and lower-cased, or "" for none or one that is
+// not an address.
 func contactEmail(id Identity) string {
 	e := strings.ToLower(strings.TrimSpace(id.Email))
-	if id.Provider != "microsoft" || len(e) > 254 || strings.Count(e, "@") != 1 || strings.ContainsAny(e, " \t\r\n") ||
+	if (id.Provider != "microsoft" && id.Provider != "google") || len(e) > 254 || strings.Count(e, "@") != 1 || strings.ContainsAny(e, " \t\r\n") ||
 		strings.HasPrefix(e, "@") || strings.HasSuffix(e, "@") {
 		return ""
 	}
@@ -253,8 +253,8 @@ func newLogin(ctx context.Context, tx pgx.Tx, id Identity, now time.Time) (login
 }
 
 // canAddLogin returns ErrLoginTaken when id signs in to another account, or ErrHasLoginOfKind when account has
-// another Discord or Microsoft account. Adding id again to its own account is no error, and a new email address replaces the
-// account's old one.
+// another Discord, Microsoft or Google account. Adding id again to its own account is no error, and a new email address
+// replaces the account's old one.
 func canAddLogin(ctx context.Context, tx pgx.Tx, account int64, id Identity) error {
 	var owner *int64
 	var hasKind bool
@@ -305,8 +305,8 @@ func addLogin(ctx context.Context, tx pgx.Tx, account int64, id Identity, now ti
 	return login, autoLink(ctx, tx, account, id, now)
 }
 
-// AddLogin adds the Discord or Microsoft account id, at now, to the account whose session hashes to tokenHash. It
-// returns ErrNoSession, ErrLoginTaken or ErrHasLoginOfKind.
+// AddLogin adds the Discord, Microsoft or Google account id, at now, to the account whose session hashes to
+// tokenHash. It returns ErrNoSession, ErrLoginTaken or ErrHasLoginOfKind.
 func (s *PlayerStore) AddLogin(ctx context.Context, tokenHash []byte, id Identity, now time.Time) error {
 	return pgx.BeginFunc(ctx, s.pool, func(tx pgx.Tx) error {
 		var account int64

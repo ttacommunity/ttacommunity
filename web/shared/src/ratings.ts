@@ -17,7 +17,6 @@ export type Rival = components['schemas']['Rival'];
 export type PlayerRivals = components['schemas']['PlayerRivals'];
 export type PlayerCareer = components['schemas']['PlayerCareer'];
 export type CareerYear = components['schemas']['CareerYear'];
-export type ModelPeak = components['schemas']['ModelPeak'];
 export type PlayerVersus = components['schemas']['PlayerVersus'];
 export type VersusMatch = components['schemas']['VersusMatch'];
 export type PlayerMatrix = components['schemas']['PlayerMatrix'];

@@ -42,6 +42,8 @@ const byEmail: Me = { ...base, provider: 'email', username: 'player@example.test
 const microsoft = { provider: 'microsoft' as const, username: 'Player One', display_name: '', email: 'player@example.test' };
 const unnamed = { ...microsoft, username: 'Microsoft account', email: '' };
 const byMicrosoft: Me = { ...base, provider: 'microsoft', username: 'Player One', logins: [microsoft] };
+const google = { provider: 'google' as const, username: 'Player One', display_name: '', email: 'player@example.test' };
+const byGoogle: Me = { ...base, provider: 'google', username: 'Player One', logins: [google] };
 const ann = { name: 'ann', player: 'Ann', banned: false, ban_reason: '' };
 const asked = (status: 'pending' | 'approved' | 'refused', reason = '') => ({ name: 'ann', status, reason, requested_at: '2026-10-18T12:00:00Z' });
 
@@ -81,6 +83,9 @@ describe('navLabel', () => {
     ['a Microsoft sign-in, by its name', byMicrosoft, 'Player One'],
     ['a Microsoft sign-in with no name', { ...byMicrosoft, username: 'Microsoft account', logins: [unnamed] }, 'Your account'],
     ['an email sign-in to an account with Microsoft, by its name', { ...byEmail, logins: [email, microsoft] }, 'Player One'],
+    ['a Google sign-in, by its name', byGoogle, 'Player One'],
+    ['a Google sign-in with no name', { ...byGoogle, username: 'Google account', logins: [{ ...google, username: 'Google account' }] }, 'Your account'],
+    ['an email sign-in to an account with Google, by its name', { ...byEmail, logins: [email, google] }, 'Player One'],
   ])('%s', (_name, me, want) => {
     expect(navLabel(me)).toBe(want);
   });
@@ -92,6 +97,7 @@ describe('signedInAs', () => {
     ['by Discord, without one', base, { heading: 'Signed in with Discord as player_one', detail: '' }],
     ['by email', byEmail, { heading: 'Signed in by email as player@example.test', detail: '' }],
     ['by Microsoft', byMicrosoft, { heading: 'Signed in with Microsoft as Player One', detail: '' }],
+    ['by Google', byGoogle, { heading: 'Signed in with Google as Player One', detail: '' }],
   ])('%s', (_name, me, want) => {
     expect(signedInAs(me)).toEqual(want);
   });
@@ -99,17 +105,25 @@ describe('signedInAs', () => {
 
 describe('waysIn', () => {
   it.each([
-    ['Discord alone: email may be added, nothing removed', base, ['Discord: player_one'], [false], { discord: false, email: true, microsoft: true }],
+    ['Discord alone: email may be added, nothing removed', base, ['Discord: player_one'], [false], { discord: false, email: true, microsoft: true, google: true }],
     [
       'both, each removable',
       { ...base, logins: [{ ...discord, display_name: 'Player One' }, email] },
       ['Discord: player_one (Player One)', 'Email: player@example.test'],
       [true, true],
-      { discord: false, email: false, microsoft: true },
+      { discord: false, email: false, microsoft: true, google: true },
     ],
-    ['email alone: Discord may be added', byEmail, ['Email: player@example.test'], [false], { discord: true, email: false, microsoft: true }],
-    ['Microsoft, with the email it gave', byMicrosoft, ['Microsoft: Player One (player@example.test)'], [false], { discord: true, email: true, microsoft: false }],
-    ['Microsoft, with no name or email', { ...byMicrosoft, logins: [unnamed] }, ['Microsoft: Microsoft account'], [false], { discord: true, email: true, microsoft: false }],
+    ['email alone: Discord may be added', byEmail, ['Email: player@example.test'], [false], { discord: true, email: false, microsoft: true, google: true }],
+    ['Microsoft, with the email it gave', byMicrosoft, ['Microsoft: Player One (player@example.test)'], [false], { discord: true, email: true, microsoft: false, google: true }],
+    ['Microsoft, with no name or email', { ...byMicrosoft, logins: [unnamed] }, ['Microsoft: Microsoft account'], [false], { discord: true, email: true, microsoft: false, google: true }],
+    ['Google, with the email it gave', byGoogle, ['Google: Player One (player@example.test)'], [false], { discord: true, email: true, microsoft: true, google: false }],
+    [
+      'Google, with no name or email',
+      { ...byGoogle, logins: [{ ...google, username: 'Google account', email: '' }] },
+      ['Google: Google account'],
+      [false],
+      { discord: true, email: true, microsoft: true, google: false },
+    ],
   ])('%s', (_name, me, labels, removable, canAdd) => {
     const got = waysIn(me);
     expect(got.ways.map((w) => w.label)).toEqual(labels);
@@ -123,6 +137,7 @@ describe('addWayInHref', () => {
   it.each([
     ['discord' as const, 'https://api.example/v1/auth/discord?add=true'],
     ['microsoft' as const, 'https://api.example/v1/auth/microsoft?add=true'],
+    ['google' as const, 'https://api.example/v1/auth/google?add=true'],
   ])('opens the api to add %s, coming back to the account page', (provider, want) => {
     expect(addWayInHref('https://api.example/', provider)).toBe(want);
   });
@@ -132,6 +147,7 @@ describe('signInHref', () => {
   it.each([
     ['discord' as const, 'https://api.example/v1/auth/discord?return=%2Fblitz%2F'],
     ['microsoft' as const, 'https://api.example/v1/auth/microsoft?return=%2Fblitz%2F'],
+    ['google' as const, 'https://api.example/v1/auth/google?return=%2Fblitz%2F'],
   ])('opens the api, which sends the browser to %s and back to the page', (provider, want) => {
     expect(signInHref('https://api.example/', provider, '/blitz/')).toBe(want);
   });
@@ -143,6 +159,8 @@ describe('needsContact', () => {
     ['an email way in', byEmail, false],
     ['Microsoft with an email', byMicrosoft, false],
     ['Microsoft with none', { ...byMicrosoft, logins: [unnamed] }, true],
+    ['Google with an email', byGoogle, false],
+    ['Google with none', { ...byGoogle, logins: [{ ...google, email: '' }] }, true],
   ])('%s', (_name, me, want) => {
     expect(needsContact(me)).toBe(want);
   });
@@ -167,6 +185,9 @@ describe('signInNotice', () => {
     ['added', 'microsoft', 'Microsoft'],
     ['taken', 'microsoft', 'Microsoft'],
     ['has-kind', 'microsoft', 'Microsoft'],
+    ['added', 'google', 'Google'],
+    ['taken', 'google', 'Google'],
+    ['has-kind', 'google', 'Google'],
   ])('%s names the way in, %s', (outcome, way, name) => {
     expect(signInNotice(new URLSearchParams({ signin: outcome, way }))?.text).toContain(name);
   });

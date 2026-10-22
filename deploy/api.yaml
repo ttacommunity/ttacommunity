@@ -73,7 +73,7 @@ spec:
       # Applies the ratings migrations before the api starts, as the database's owner (goose's lock serialises pods).
       initContainers:
         - name: migrate
-          image: ghcr.io/ttacommunity/ttacommunity/api:sha-0118ccd5@sha256:e6d8744874d0355fc75660dc437f8abd23f0bbf51878ab522ae431fc3c2ec5e6
+          image: ghcr.io/ttacommunity/ttacommunity/api:sha-37e6f21d@sha256:e7fcc7f97662b6ef7c8a60955422b69648b334cde410889487e48b11600bf4b8
           args: [-migrate]
           env:
             - name: RATINGS_DATABASE_URL
@@ -94,7 +94,7 @@ spec:
               drop: [ALL]
       containers:
         - name: api
-          image: ghcr.io/ttacommunity/ttacommunity/api:sha-0118ccd5@sha256:e6d8744874d0355fc75660dc437f8abd23f0bbf51878ab522ae431fc3c2ec5e6
+          image: ghcr.io/ttacommunity/ttacommunity/api:sha-37e6f21d@sha256:e7fcc7f97662b6ef7c8a60955422b69648b334cde410889487e48b11600bf4b8
           ports:
             - name: http
               containerPort: 8080
@@ -150,6 +150,15 @@ spec:
               valueFrom:
                 secretKeyRef:
                   name: microsoft-signin
+                  key: client-secret
+            # Google sign-in: the Web client of the Google Cloud project "TTA Community". The api refuses to start
+            # with only one of these.
+            - name: GOOGLE_CLIENT_ID
+              value: 666346564260-p8dq22hf4tik20i8oh6jsb3vodk308jc.apps.googleusercontent.com
+            - name: GOOGLE_CLIENT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: google-signin
                   key: client-secret
             # Email sign-in: Resend sends the links from noreply@, the email names where to write, and
             # Turnstile guards the form. The api refuses to start with only some of these.

@@ -9,6 +9,9 @@ export type Me = components['schemas']['Me'];
 export type MyMember = components['schemas']['MyMember'];
 type Provider = Me['provider'];
 
+/** PROVIDER_NAMES names each way in as the page shows it; a new provider in the api's types will not compile until it is named here. */
+const PROVIDER_NAMES: Record<Provider, string> = { discord: 'Discord', email: 'Email', microsoft: 'Microsoft', google: 'Google' };
+
 /** AccountState is what the account page shows: signed out; signed in but not linked, waiting for an answer, or refused; or linked to a member. */
 export type AccountState =
   | { kind: 'signed-out' }
@@ -42,18 +45,15 @@ export function deleteQuestion(state: AccountState): Question {
   return { heading: 'Delete your account?', text, action: 'Delete account', final: true };
 }
 
-/** UNNAMED is what the api calls a Microsoft account that has no name. */
-const UNNAMED = 'Microsoft account';
-
-/** navLabel is the nav's account link: Sign in, a member's TTA username, their Discord name, or their Microsoft account's name; never an email address, which the page would show to anyone looking. */
+/** navLabel is the nav's account link: Sign in, a member's TTA username, their Discord name, or their Microsoft or Google account's name; never an email address, which the page would show to anyone looking. */
 export function navLabel(me: Me | null): string {
   if (me === null) return 'Sign in';
   if (me.member !== null) return me.member.name;
   if (me.provider === 'discord') return me.display_name || me.username;
   const discord = me.logins.find((l) => l.provider === 'discord');
   if (discord !== undefined) return discord.display_name || discord.username;
-  const microsoft = me.logins.find((l) => l.provider === 'microsoft' && l.username !== UNNAMED);
-  return microsoft === undefined ? 'Your account' : microsoft.username;
+  const named = me.logins.find((l) => (l.provider === 'microsoft' || l.provider === 'google') && l.username !== `${PROVIDER_NAMES[l.provider]} account`);
+  return named === undefined ? 'Your account' : named.username;
 }
 
 /** showsAdminLink says whether the nav offers the way to admin: to admins and organisers, a convenience only, as admin itself is behind Access. */
@@ -64,12 +64,10 @@ export function showsAdminLink(me: Me | null): boolean {
 /** signedInAs heads the account page: how this browser signed in and as whom, with the Discord username under a display name. */
 export function signedInAs(me: Me): { heading: string; detail: string } {
   if (me.provider === 'email') return { heading: `Signed in by email as ${me.username}`, detail: '' };
-  if (me.provider === 'microsoft') return { heading: `Signed in with Microsoft as ${me.username}`, detail: '' };
+  if (me.provider === 'microsoft' || me.provider === 'google') return { heading: `Signed in with ${PROVIDER_NAMES[me.provider]} as ${me.username}`, detail: '' };
   return { heading: `Signed in with Discord as ${me.display_name || me.username}`, detail: me.display_name === '' ? '' : `Discord username: ${me.username}` };
 }
 
-/** PROVIDER_NAMES names each way in as the page shows it; a new provider in the api's types will not compile until it is named here. */
-const PROVIDER_NAMES: Record<Provider, string> = { discord: 'Discord', email: 'Email', microsoft: 'Microsoft' };
 
 /** WayIn is one way into the account as the page lists it, whether it may be removed (only while another remains), and whether it may be changed (an email address, for a new one). */
 export type WayIn = { provider: Provider; label: string; removable: boolean; changeable: boolean };
@@ -78,16 +76,16 @@ export type WayIn = { provider: Provider; label: string; removable: boolean; cha
 export function waysIn(me: Me): { ways: WayIn[]; canAdd: Record<Provider, boolean> } {
   const removable = me.logins.length > 1;
   const ways = me.logins.map((l) => {
-    const also = l.provider === 'microsoft' ? l.email : l.display_name;
+    const also = l.provider === 'microsoft' || l.provider === 'google' ? l.email : l.display_name;
     const name = also === '' || also === l.username ? l.username : `${l.username} (${also})`;
     return { provider: l.provider, label: `${PROVIDER_NAMES[l.provider]}: ${name}`, removable, changeable: l.provider === 'email' };
   });
   const has = (p: Provider) => me.logins.some((l) => l.provider === p);
-  return { ways, canAdd: { discord: !has('discord'), email: !has('email'), microsoft: !has('microsoft') } };
+  return { ways, canAdd: { discord: !has('discord'), email: !has('email'), microsoft: !has('microsoft'), google: !has('google') } };
 }
 
-/** Signer is a way in that signs in through its own site: Discord or Microsoft. */
-export type Signer = 'discord' | 'microsoft';
+/** Signer is a way in that signs in through its own site: Discord, Microsoft or Google. */
+export type Signer = 'discord' | 'microsoft' | 'google';
 
 /** signInHref opens the api's sign-in with provider, which comes back to the page at back. */
 export function signInHref(apiUrl: string, provider: Signer, back: string): string {
@@ -135,7 +133,8 @@ export type SignInNotice = { kind: 'failed' | 'deleted' | 'added'; text: string 
 
 /** signInNotice reads the address the browser arrived at: a sign-in that did not finish, a way in added or refused (naming it), an account just deleted, or nothing to say. */
 export function signInNotice(params: URLSearchParams): SignInNotice | null {
-  const way = params.get('way') === 'microsoft' ? 'Microsoft' : 'Discord';
+  const named = params.get('way');
+  const way = named === 'microsoft' || named === 'google' ? PROVIDER_NAMES[named] : 'Discord';
   switch (params.get('signin')) {
     case 'failed':
       return { kind: 'failed', text: 'Signing in did not finish. Try again.' };

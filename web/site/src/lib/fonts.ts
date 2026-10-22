@@ -9,12 +9,13 @@ export interface FontFamily {
   subsets: string[];
 }
 
-/** FONTS are upstream's fonts, at the weights and styles the site uses. */
+/** FONTS are upstream's fonts, at the weights and styles the site uses, and Google Sans for the Sign in with Google button, as Google's branding asks. */
 export const FONTS: FontFamily[] = [
   { family: 'Cinzel', axes: ':wght@500;700;900', subsets: ['latin'] },
   { family: 'Marcellus', axes: '', subsets: ['latin'] },
   { family: 'Source Serif 4', axes: ':ital,wght@0,400;0,600;0,700;1,400;1,600;1,700', subsets: ['latin', 'latin-ext'] },
   { family: 'Inter', axes: ':wght@400;500;600;700', subsets: ['latin', 'latin-ext'] },
+  { family: 'Google Sans', axes: ':wght@500', subsets: ['latin'] },
 ];
 
 /** A face as Google serves it: one family, style, weight and subset, in one file. */

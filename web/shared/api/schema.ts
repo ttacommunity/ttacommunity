@@ -915,6 +915,60 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/auth/google": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Start signing in with Google
+         * @description Opened as a page, not fetched: sends the browser to Google, asking
+         *     for openid, email and profile, with a state, a PKCE challenge and a
+         *     nonce whose secrets wait in a short-lived cookie for the callback.
+         *     With add, a signed-in player adds Google to their account as
+         *     another way in. 503 when Google sign-in is not set up here. Never
+         *     cached.
+         */
+        get: operations["startGoogleSignIn"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/auth/google/callback": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Where Google sends the player back
+         * @description Checks the state against the cookie, exchanges the code with its
+         *     verifier, and checks the ID token: Google's signature, this app's
+         *     audience, expiry, the nonce, and Google as its issuer. Their login
+         *     is recorded by their Google id, with their name, and their email
+         *     when Google has verified it; the email never links them to a
+         *     member, but fills a linked member's empty email. A session starts
+         *     as with Discord, and the browser goes back to the site with the
+         *     same signin outcomes: ok, first, failed, and when adding, added,
+         *     taken, has-kind (another Google account already) or failed, with
+         *     way=google.
+         */
+        get: operations["finishGoogleSignIn"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/auth/email": {
         parameters: {
             query?: never;
@@ -4614,15 +4668,15 @@ export interface components {
          * @description Where a player signs in
          * @enum {string}
          */
-        LoginProvider: "discord" | "email" | "microsoft";
+        LoginProvider: "discord" | "email" | "microsoft" | "google";
         /** @description A way into the signed-in player's account */
         MyLogin: {
             provider: components["schemas"]["LoginProvider"];
-            /** @description The Discord username, the email address, or the Microsoft account's name ("Microsoft account" when it has none) */
+            /** @description The Discord username, the email address, or the Microsoft or Google account's name ("Microsoft account" or "Google account" when it has none) */
             username: string;
             /** @description Empty when they have none */
             display_name: string;
-            /** @description The address we may write to through this way in, the email login's or the one Microsoft vouches for; empty when none */
+            /** @description The address we may write to through this way in, the email login's or the one Microsoft or Google vouches for; empty when none */
             email: string;
         };
         EmailSignInAsk: {
@@ -4707,10 +4761,10 @@ export interface components {
         /** @description A way into an account */
         AdminAccountLogin: {
             provider: components["schemas"]["LoginProvider"];
-            /** @description The Discord username, the email address, or the Microsoft account's name */
+            /** @description The Discord username, the email address, or the Microsoft or Google account's name */
             username: string;
             display_name: string;
-            /** @description The address we may write to through this way in, the email login's or the one Microsoft vouches for; empty when none */
+            /** @description The address we may write to through this way in, the email login's or the one Microsoft or Google vouches for; empty when none */
             email: string;
             /** Format: date-time */
             signed_in_at: string;
@@ -5965,6 +6019,57 @@ export interface operations {
         };
     };
     finishMicrosoftSignIn: {
+        parameters: {
+            query?: {
+                code?: string;
+                state?: string;
+                error?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Back to the site, signed in or not */
+            302: {
+                headers: {
+                    Location: components["headers"]["Location"];
+                    "Cache-Control": components["headers"]["CacheControl"];
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            503: components["responses"]["NotSetUp"];
+        };
+    };
+    startGoogleSignIn: {
+        parameters: {
+            query?: {
+                /** @description Add Google to the signed-in player's account, rather than sign in */
+                add?: boolean;
+                /** @description The site path, with any query, to come back to, such as /ratings/player/?name=ann; anything else comes back to /account/ */
+                return?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description To Google */
+            302: {
+                headers: {
+                    Location: components["headers"]["Location"];
+                    "Cache-Control": components["headers"]["CacheControl"];
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            503: components["responses"]["NotSetUp"];
+        };
+    };
+    finishGoogleSignIn: {
         parameters: {
             query?: {
                 code?: string;
@@ -8422,7 +8527,7 @@ export const gameSeatOutcomeValues: ReadonlyArray<FlattenedDeepRequired<componen
 export const seriesValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["Series"]> = ["international", "intermezzo", "royal_league", "worlds", "grand_slams", "ladders"];
 export const trophyRowTitleValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["TrophyRow"]["title"]> = ["WC", "GM", "M"];
 export const meAdmin_roleValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["Me"]["admin_role"]> = ["admin", "organiser"];
-export const loginProviderValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["LoginProvider"]> = ["discord", "email", "microsoft"];
+export const loginProviderValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["LoginProvider"]> = ["discord", "email", "microsoft", "google"];
 export const emailSignedInOutcomeValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["EmailSignedIn"]["outcome"]> = ["first", "ok", "added"];
 export const myLinkRequestStatusValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["MyLinkRequest"]["status"]> = ["pending", "approved", "refused"];
 export const adminAccountLinked_howValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["AdminAccount"]["linked_how"]> = ["match", "approved"];

@@ -164,6 +164,21 @@ func TestALinkedMembersMissingDiscordNameAndEmailComeFromTheirLogins(t *testing.
 				t.Fatalf("AddLogin: %v", err)
 			}
 		}, "player_one", "player@example.test"},
+		{"approved, with Google's email", Member{Name: "ann", Zone: "UTC"}, func(t *testing.T, a *AdminStore, p *PlayerStore) {
+			approved(t, a, p, signedIn(t, p, googleID("100000000000000000001", "Player One", "player@example.test"), "token"), "ann")
+		}, "", "player@example.test"},
+		{"approved, an email way in before Google's", Member{Name: "ann", Zone: "UTC"}, func(t *testing.T, a *AdminStore, p *PlayerStore) {
+			l := signedIn(t, p, googleID("100000000000000000001", "Player One", "google@example.test"), "token")
+			addEmail(t, p, l.ID, "player@example.test")
+			approved(t, a, p, l, "ann")
+		}, "", "player@example.test"},
+		{"approved, Microsoft's email before Google's", Member{Name: "ann", Zone: "UTC"}, func(t *testing.T, a *AdminStore, p *PlayerStore) {
+			l := signedIn(t, p, googleID("100000000000000000001", "Player One", "google@example.test"), "token")
+			if err := p.AddLogin(context.Background(), tokenHash("token"), microsoftID("AAAAAAAAAAAAAAAAAAAAAIkzqFVrSaSaFHy782bbtaQ", "Player One", "microsoft@example.test"), signInAt); err != nil {
+				t.Fatalf("AddLogin: %v", err)
+			}
+			approved(t, a, p, l, "ann")
+		}, "", "microsoft@example.test"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -584,6 +599,7 @@ func TestAskingForAUsernameNoAccountHoldsIsAccepted(t *testing.T) {
 func TestLoginsGiveEachWayInsEmail(t *testing.T) {
 	_, a, p := playersFixture(t)
 	signedIn(t, p, microsoftID("AAAAAAAAAAAAAAAAAAAAAIkzqFVrSaSaFHy782bbtaQ", "Player One", "microsoft@example.test"), "microsoft")
+	signedIn(t, p, googleID("100000000000000000001", "Player One", "google@example.test"), "google")
 	emailSignedIn(t, p, "player@example.test", "email")
 	signedIn(t, p, discordID("100000000000000001", "player_one", ""), "discord")
 	rows, err := a.Accounts(context.Background())
@@ -595,7 +611,7 @@ func TestLoginsGiveEachWayInsEmail(t *testing.T) {
 		got = append(got, r.Logins[0].Provider+" "+r.Logins[0].Email)
 	}
 	slices.Sort(got)
-	if want := []string{"discord ", "email player@example.test", "microsoft microsoft@example.test"}; !slices.Equal(got, want) {
+	if want := []string{"discord ", "email player@example.test", "google google@example.test", "microsoft microsoft@example.test"}; !slices.Equal(got, want) {
 		t.Errorf("ways in with their emails = %q, want %q", got, want)
 	}
 }

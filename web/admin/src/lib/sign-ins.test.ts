@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import type { AdminAccount } from './admin-api';
 import { detailsHint, howLinked, requestHint, signInGroups, standing, who } from './sign-ins';
 
-const way = (provider: 'discord' | 'email' | 'microsoft', username: string, display_name = '', email = provider === 'email' ? username : '') => ({
+const way = (provider: 'discord' | 'email' | 'microsoft' | 'google', username: string, display_name = '', email = provider === 'email' ? username : '') => ({
   provider,
   username,
   display_name,
@@ -40,6 +40,7 @@ describe('requestHint', () => {
   const both = login(1, { logins: [way('discord', 'player_1'), way('email', 'player@example.test')] });
   const microsoft = login(1, { logins: [way('microsoft', 'Player One', '', 'player@example.test')] });
   const unnamed = login(1, { logins: [way('microsoft', 'Microsoft account')] });
+  const google = login(1, { logins: [way('google', 'Player One', '', 'player@example.test')] });
   it.each([
     ['a name no member has: approving adds one', asking('', ''), discord, 'new'],
     ['a member with no Discord name recorded', asking('ann', ''), discord, 'unknown'],
@@ -52,6 +53,8 @@ describe('requestHint', () => {
     ["Microsoft's email, the recorded one", asking('ann', '', 'player@example.test'), microsoft, 'same'],
     ["Microsoft's email, another", asking('ann', '', 'other@example.test'), microsoft, 'differs'],
     ['Microsoft with no email', asking('ann', '', 'player@example.test'), unnamed, 'unknown'],
+    ["Google's email, the recorded one", asking('ann', '', 'player@example.test'), google, 'same'],
+    ["Google's email, another", asking('ann', '', 'other@example.test'), google, 'differs'],
   ])('%s', (_name, request, account, want) => {
     expect(requestHint(request, account).kind).toBe(want);
   });
@@ -64,6 +67,8 @@ describe('who', () => {
     ['Discord and email', login(1, { logins: [way('discord', 'player_1'), way('email', 'player@example.test')] }), 'player_1 · player@example.test'],
     ['Microsoft, named as such', login(1, { logins: [way('microsoft', 'Player One', '', 'player@example.test')] }), 'Player One (Microsoft)'],
     ['Microsoft with no name', login(1, { logins: [way('microsoft', 'Microsoft account')] }), 'Microsoft account'],
+    ['Google, named as such', login(1, { logins: [way('google', 'Player One', '', 'player@example.test')] }), 'Player One (Google)'],
+    ['Google with no name', login(1, { logins: [way('google', 'Google account')] }), 'Google account'],
   ])('%s', (_name, account, want) => {
     expect(who(account)).toBe(want);
   });

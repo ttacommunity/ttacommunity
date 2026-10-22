@@ -1,7 +1,7 @@
-// Player sign-in: signing in with Discord or Microsoft (or adding one as another way in) and out, and the signed-in player reading
-// themselves, asking to be linked to a member and setting their own country and zone. /v1/me, sign-out and the
-// email routes are fetched by the site alone, with credentials; signing in with Discord or Microsoft is a page the
-// browser opens.
+// Player sign-in: signing in with Discord, Microsoft or Google (or adding one as another way in) and out, and the
+// signed-in player reading themselves, asking to be linked to a member and setting their own country and zone. /v1/me,
+// sign-out and the email routes are fetched by the site alone, with credentials; signing in with Discord, Microsoft or
+// Google is a page the browser opens.
 package httpapi
 
 import (
@@ -18,11 +18,13 @@ import (
 	"time"
 
 	"ttacommunity/backend/internal/discord"
+	"ttacommunity/backend/internal/google"
 	"ttacommunity/backend/internal/microsoft"
 	"ttacommunity/backend/internal/store"
 )
 
-// SignIns signs players in with Discord, Microsoft or email, and keeps their accounts, sessions, members and requests.
+// SignIns signs players in with Discord, Microsoft, Google or email, and keeps their accounts, sessions, members and
+// requests.
 type SignIns interface {
 	// SignIn reports whether this was the account's first sign-in.
 	SignIn(ctx context.Context, id store.Identity, tokenHash []byte, now time.Time) (bool, error)
@@ -49,7 +51,12 @@ type SignIns interface {
 	MicrosoftReady() bool
 	MicrosoftAuthURL(state, verifier, nonce string) string
 	MicrosoftUser(ctx context.Context, code, verifier, nonce string) (microsoft.User, error)
-	// AddLogin adds a Discord or Microsoft account to the account whose session hashes to tokenHash.
+	// GoogleReady reports whether signing in with Google is set up here; GoogleAuthURL and GoogleUser start and
+	// finish one.
+	GoogleReady() bool
+	GoogleAuthURL(state, verifier, nonce string) string
+	GoogleUser(ctx context.Context, code, verifier, nonce string) (google.User, error)
+	// AddLogin adds a Discord, Microsoft or Google account to the account whose session hashes to tokenHash.
 	AddLogin(ctx context.Context, tokenHash []byte, id store.Identity, now time.Time) error
 	// RemoveOwnLogin removes one way into the account whose session hashes to tokenHash.
 	RemoveOwnLogin(ctx context.Context, tokenHash []byte, provider string, now time.Time) error
@@ -63,13 +70,14 @@ type SignIns interface {
 	SendSignInLink(ctx context.Context, address, link string) error
 }
 
-// The cookies: the session's opaque token, and a sign-in's state, verifier and return path until Discord or
-// Microsoft answers, on that provider's path.
+// The cookies: the session's opaque token, and a sign-in's state, verifier and return path until Discord, Microsoft
+// or Google answers, on that provider's path.
 const (
 	sessionCookie = "ttac_session"
 	flowCookie    = "ttac_signin"
 	discordPath   = "/v1/auth/discord"
 	microsoftPath = "/v1/auth/microsoft"
+	googlePath    = "/v1/auth/google"
 	flowLife      = 10 * time.Minute
 	// cookieLife outlasts any session: the session itself ends after store.SessionLife unused.
 	cookieLife = 400 * 24 * time.Hour
@@ -199,6 +207,8 @@ func (r redirect) VisitStartDiscordSignInResponse(w http.ResponseWriter) error  
 func (r redirect) VisitFinishDiscordSignInResponse(w http.ResponseWriter) error   { return r.visit(w) }
 func (r redirect) VisitStartMicrosoftSignInResponse(w http.ResponseWriter) error  { return r.visit(w) }
 func (r redirect) VisitFinishMicrosoftSignInResponse(w http.ResponseWriter) error { return r.visit(w) }
+func (r redirect) VisitStartGoogleSignInResponse(w http.ResponseWriter) error     { return r.visit(w) }
+func (r redirect) VisitFinishGoogleSignInResponse(w http.ResponseWriter) error    { return r.visit(w) }
 
 // signedOut answers a sign-out or a deleted account, clearing the session cookie.
 type signedOut struct{}
@@ -305,16 +315,25 @@ func (s *server) StartDiscordSignIn(_ context.Context, req StartDiscordSignInReq
 
 func (s *server) StartMicrosoftSignIn(_ context.Context, req StartMicrosoftSignInRequestObject) (StartMicrosoftSignInResponseObject, error) {
 	if !s.signIns.MicrosoftReady() {
-		return StartMicrosoftSignIn503JSONResponse{microsoftNotSetUp()}, nil
+		return StartMicrosoftSignIn503JSONResponse{notSetUp("Microsoft")}, nil
 	}
 	return startFlow(microsoftPath, req.Params.Return, req.Params.Add, func(state, verifier string) string {
 		return s.signIns.MicrosoftAuthURL(state, verifier, nonceFor(verifier))
 	}), nil
 }
 
-// microsoftNotSetUp answers a Microsoft route on an api without Microsoft sign-in.
-func microsoftNotSetUp() NotSetUpJSONResponse {
-	return NotSetUpJSONResponse{Body: Error{Error: "signing in with Microsoft is not set up here"}, Headers: NotSetUpResponseHeaders{CacheControl: cacheNone}}
+func (s *server) StartGoogleSignIn(_ context.Context, req StartGoogleSignInRequestObject) (StartGoogleSignInResponseObject, error) {
+	if !s.signIns.GoogleReady() {
+		return StartGoogleSignIn503JSONResponse{notSetUp("Google")}, nil
+	}
+	return startFlow(googlePath, req.Params.Return, req.Params.Add, func(state, verifier string) string {
+		return s.signIns.GoogleAuthURL(state, verifier, nonceFor(verifier))
+	}), nil
+}
+
+// notSetUp answers a route of provider, such as Microsoft, on an api without sign-in with it.
+func notSetUp(provider string) NotSetUpJSONResponse {
+	return NotSetUpJSONResponse{Body: Error{Error: "signing in with " + provider + " is not set up here"}, Headers: NotSetUpResponseHeaders{CacheControl: cacheNone}}
 }
 
 // readFlow takes a flow cookie apart: its state, verifier and return path, and whether it adds to an account.
@@ -386,22 +405,33 @@ func (s *server) FinishDiscordSignIn(ctx context.Context, req FinishDiscordSignI
 
 func (s *server) FinishMicrosoftSignIn(ctx context.Context, req FinishMicrosoftSignInRequestObject) (FinishMicrosoftSignInResponseObject, error) {
 	if !s.signIns.MicrosoftReady() {
-		return FinishMicrosoftSignIn503JSONResponse{microsoftNotSetUp()}, nil
+		return FinishMicrosoftSignIn503JSONResponse{notSetUp("Microsoft")}, nil
 	}
 	p := req.Params
 	return s.finishFlow(ctx, "microsoft", microsoftPath, p.Code, p.State, p.Error, func(code, verifier string) (store.Identity, error) {
 		u, err := s.signIns.MicrosoftUser(ctx, code, verifier, nonceFor(verifier))
-		return store.Identity{Provider: "microsoft", Subject: u.Subject, Username: microsoftName(u), Email: u.Email}, err
+		return store.Identity{Provider: "microsoft", Subject: u.Subject, Username: accountName(u.Name, "Microsoft"), Email: u.Email}, err
 	}), nil
 }
 
-// microsoftName is what a Microsoft login is called: the account's name, else "Microsoft account"; never its email,
-// which the site's nav would show to anyone looking.
-func microsoftName(u microsoft.User) string {
-	if u.Name != "" {
-		return u.Name
+func (s *server) FinishGoogleSignIn(ctx context.Context, req FinishGoogleSignInRequestObject) (FinishGoogleSignInResponseObject, error) {
+	if !s.signIns.GoogleReady() {
+		return FinishGoogleSignIn503JSONResponse{notSetUp("Google")}, nil
 	}
-	return "Microsoft account"
+	p := req.Params
+	return s.finishFlow(ctx, "google", googlePath, p.Code, p.State, p.Error, func(code, verifier string) (store.Identity, error) {
+		u, err := s.signIns.GoogleUser(ctx, code, verifier, nonceFor(verifier))
+		return store.Identity{Provider: "google", Subject: u.Subject, Username: accountName(u.Name, "Google"), Email: u.Email}, err
+	}), nil
+}
+
+// accountName is what a Microsoft or Google login is called: the account's name, else "<provider> account"; never its
+// email, which the site's nav would show to anyone looking.
+func accountName(name, provider string) string {
+	if name != "" {
+		return name
+	}
+	return provider + " account"
 }
 
 // addLogin adds id to the signed-in account and goes back to the account page saying how that went, and which way in.

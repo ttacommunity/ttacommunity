@@ -3,11 +3,14 @@ import type { AdminAccount } from './admin-api';
 
 type Request = NonNullable<AdminAccount['request']>;
 
-/** who names an account by its ways in: each Discord username with its display name when it differs, the email address, and a Microsoft account's name, marked as Microsoft's (its email has its own column). */
+/** who names an account by its ways in: each Discord username with its display name when it differs, the email address, and a Microsoft or Google account's name, marked as whose it is (its email has its own column). */
 export function who(a: AdminAccount): string {
   return a.logins
     .map((l) => {
-      if (l.provider === 'microsoft') return l.username === 'Microsoft account' ? l.username : `${l.username} (Microsoft)`;
+      if (l.provider === 'microsoft' || l.provider === 'google') {
+        const provider = l.provider === 'microsoft' ? 'Microsoft' : 'Google';
+        return l.username === `${provider} account` ? l.username : `${l.username} (${provider})`;
+      }
       return l.display_name === '' || l.display_name === l.username ? l.username : `${l.username} (${l.display_name})`;
     })
     .join(' · ');

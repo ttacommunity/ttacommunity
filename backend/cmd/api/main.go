@@ -22,6 +22,7 @@ import (
 	"ttacommunity/backend/internal/access"
 	"ttacommunity/backend/internal/discord"
 	"ttacommunity/backend/internal/enginejob"
+	"ttacommunity/backend/internal/google"
 	"ttacommunity/backend/internal/httpapi"
 	"ttacommunity/backend/internal/metrics"
 	"ttacommunity/backend/internal/microsoft"
@@ -107,6 +108,9 @@ func main() {
 	}
 	if os.Getenv("MICROSOFT_DEV_USER") != "" {
 		log.Warn("Microsoft sign-in is a stand-in for local development (MICROSOFT_DEV_USER)")
+	}
+	if os.Getenv("GOOGLE_DEV_USER") != "" {
+		log.Warn("Google sign-in is a stand-in for local development (GOOGLE_DEV_USER)")
 	}
 
 	ln, err := net.Listen("tcp", addr)
@@ -237,12 +241,19 @@ type microsoftSignIn interface {
 	User(ctx context.Context, code, verifier, nonce string) (microsoft.User, error)
 }
 
-// signInDeps signs players in with Discord, Microsoft (nil when off) or an emailed link, keeps their sessions
-// through the player login, and knows the site.
+// googleSignIn starts and finishes sign-ins with Google, or with devGoogle standing in for it.
+type googleSignIn interface {
+	AuthCodeURL(state, verifier, nonce string) string
+	User(ctx context.Context, code, verifier, nonce string) (google.User, error)
+}
+
+// signInDeps signs players in with Discord, Microsoft or Google (each nil when off) or an emailed link, keeps their
+// sessions through the player login, and knows the site.
 type signInDeps struct {
 	*store.PlayerStore
 	discord   discordSignIn
 	microsoft microsoftSignIn
+	google    googleSignIn
 	email     emailSignIn
 	site      string
 }
@@ -258,6 +269,19 @@ func (d signInDeps) MicrosoftAuthURL(state, verifier, nonce string) string {
 // MicrosoftUser finishes a sign-in with the code Microsoft sent back.
 func (d signInDeps) MicrosoftUser(ctx context.Context, code, verifier, nonce string) (microsoft.User, error) {
 	return d.microsoft.User(ctx, code, verifier, nonce)
+}
+
+// GoogleReady reports whether signing in with Google is set up.
+func (d signInDeps) GoogleReady() bool { return d.google != nil }
+
+// GoogleAuthURL is where a sign-in sends the browser to Google.
+func (d signInDeps) GoogleAuthURL(state, verifier, nonce string) string {
+	return d.google.AuthCodeURL(state, verifier, nonce)
+}
+
+// GoogleUser finishes a sign-in with the code Google sent back.
+func (d signInDeps) GoogleUser(ctx context.Context, code, verifier, nonce string) (google.User, error) {
+	return d.google.User(ctx, code, verifier, nonce)
 }
 
 // SupportAddress is where players write with trouble: EMAIL_SUPPORT, or "" when email sign-in is off.
@@ -309,8 +333,8 @@ func (d devDiscord) User(_ context.Context, code, _ string) (discord.User, error
 }
 
 // openSignIns builds player sign-in from getenv's SITE_ORIGIN, API_ORIGIN (this api's public origin, for the
-// callbacks), RATINGS_PLAYER_DATABASE_URL, DISCORD_CLIENT_ID and _SECRET, Microsoft's (openMicrosoft) and email's
-// (openEmail). DISCORD_DEV_USER, instead of the
+// callbacks), RATINGS_PLAYER_DATABASE_URL, DISCORD_CLIENT_ID and _SECRET, Microsoft's (openMicrosoft), Google's
+// (openGoogle) and email's (openEmail). DISCORD_DEV_USER, instead of the
 // Discord app, signs everyone in as that invented account, and only on this machine: API_ADDR and SITE_ORIGIN on
 // 127.0.0.1, outside Kubernetes. Anything missing or wrong, or a player login that can change more than sign-in
 // needs, is an error: sign-in never starts open. It returns sign-in and its pool, for the caller to close.
@@ -327,6 +351,10 @@ func openSignIns(ctx context.Context, getenv func(string) string) (signInDeps, *
 		return signInDeps{}, nil, errors.New("RATINGS_PLAYER_DATABASE_URL is not set")
 	}
 	ms, err := openMicrosoft(getenv, site, api)
+	if err != nil {
+		return signInDeps{}, nil, err
+	}
+	gg, err := openGoogle(getenv, site, api)
 	if err != nil {
 		return signInDeps{}, nil, err
 	}
@@ -362,7 +390,7 @@ func openSignIns(ctx context.Context, getenv func(string) string) (signInDeps, *
 		pool.Close()
 		return signInDeps{}, nil, err
 	}
-	return signInDeps{PlayerStore: p, discord: dc, microsoft: ms, email: email, site: site}, pool, nil
+	return signInDeps{PlayerStore: p, discord: dc, microsoft: ms, google: gg, email: email, site: site}, pool, nil
 }
 
 // openMicrosoft builds Microsoft sign-in from getenv's MICROSOFT_CLIENT_ID and _SECRET, both or neither: neither
@@ -405,6 +433,48 @@ func (d devMicrosoft) User(_ context.Context, code, _, _ string) (microsoft.User
 	h := fnv.New64a()
 	h.Write([]byte(d.name))
 	return microsoft.User{Subject: fmt.Sprintf("dev-%016x", h.Sum64()), Name: d.name, Email: d.email}, nil
+}
+
+// openGoogle builds Google sign-in from getenv's GOOGLE_CLIENT_ID and _SECRET, both or neither: neither leaves it off
+// (nil). GOOGLE_DEV_USER, instead of the Google app, signs everyone in as that invented account, with GOOGLE_DEV_EMAIL
+// as its verified email if set, on this machine alone, as DISCORD_DEV_USER.
+func openGoogle(getenv func(string) string, site, api string) (googleSignIn, error) {
+	id, secret := getenv("GOOGLE_CLIENT_ID"), getenv("GOOGLE_CLIENT_SECRET")
+	if dev := getenv("GOOGLE_DEV_USER"); dev != "" {
+		if !strings.HasPrefix(getenv("API_ADDR"), "127.0.0.1:") || getenv("KUBERNETES_SERVICE_HOST") != "" ||
+			!strings.HasPrefix(site, "http://127.0.0.1:") || id != "" {
+			return nil, errors.New("GOOGLE_DEV_USER is for this machine alone: API_ADDR and SITE_ORIGIN on 127.0.0.1, " +
+				"outside Kubernetes, and no Google app")
+		}
+		return devGoogle{api: api, name: dev, email: getenv("GOOGLE_DEV_EMAIL")}, nil
+	}
+	if id == "" && secret == "" {
+		return nil, nil
+	}
+	c, err := google.New(google.Config{ClientID: id, ClientSecret: secret, RedirectURL: api + "/v1/auth/google/callback"},
+		&http.Client{Timeout: 10 * time.Second}, time.Now)
+	if err != nil {
+		return nil, fmt.Errorf("GOOGLE_CLIENT_ID and _SECRET: %w", err)
+	}
+	return c, nil
+}
+
+// devGoogle stands in for Google in local development, as devDiscord does for Discord.
+type devGoogle struct {
+	api, name, email string
+}
+
+func (d devGoogle) AuthCodeURL(state, _, _ string) string {
+	return d.api + "/v1/auth/google/callback?code=dev&state=" + url.QueryEscape(state)
+}
+
+func (d devGoogle) User(_ context.Context, code, _, _ string) (google.User, error) {
+	if code != "dev" {
+		return google.User{}, errors.New("the Google stand-in sent no such code")
+	}
+	h := fnv.New64a()
+	h.Write([]byte(d.name))
+	return google.User{Subject: fmt.Sprintf("dev-%016x", h.Sum64()), Name: d.name, Email: d.email}, nil
 }
 
 // isOrigin reports whether s is a bare https origin, or http on 127.0.0.1 for local development: no path.

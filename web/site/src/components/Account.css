@@ -61,7 +61,8 @@
   .account-options {
     flex-direction: column;
   }
-  .account-options .btn-antique {
+  .account-options .btn-antique,
+  .account-options .btn-google {
     width: 100%;
   }
 }
@@ -177,6 +178,32 @@
 }
 /* Microsoft's logo, unaltered, beside its words on our own button, as its branding guidelines allow. */
 .account-options img {
+  flex: none;
+}
+/* Google's dark theme for its sign-in button, which its branding guidelines require: its colours, font and padding,
+   and its logo unaltered. Hover is Material's 8% state layer. */
+.btn-google {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  min-height: 2.75rem;
+  padding: 0 12px;
+  border: 1px solid #8e918f;
+  border-radius: 4px;
+  background: #131314;
+  color: #e3e3e3;
+  font-family: 'Google Sans', var(--font-stats);
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 20px;
+  text-decoration: none;
+}
+.btn-google:hover {
+  background: color-mix(in srgb, #e3e3e3 8%, #131314);
+  color: #e3e3e3;
+}
+.btn-google img {
   flex: none;
 }
 .account-contact {
