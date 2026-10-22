@@ -151,6 +151,15 @@ spec:
                 secretKeyRef:
                   name: microsoft-signin
                   key: client-secret
+            # Google sign-in: the Web client of the Google Cloud project "TTA Community". The api refuses to start
+            # with only one of these.
+            - name: GOOGLE_CLIENT_ID
+              value: 666346564260-p8dq22hf4tik20i8oh6jsb3vodk308jc.apps.googleusercontent.com
+            - name: GOOGLE_CLIENT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: google-signin
+                  key: client-secret
             # Email sign-in: Resend sends the links from noreply@, the email names where to write, and
             # Turnstile guards the form. The api refuses to start with only some of these.
             - name: EMAIL_FROM

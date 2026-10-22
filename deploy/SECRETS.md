@@ -20,6 +20,7 @@ Pipe values in; never use `--from-literal`, which leaves them in shell history.
 | `ratings-dev-player` | `password`, `database-url` | `api-dev` | The dev api's player login `ratings_dev_player_api`, a member of `ratings_player` |
 | `discord-signin` | `client-secret` | `api`, `api-dev` | The client secret of the players' Discord application, whose id is `DISCORD_CLIENT_ID` in `api.yaml` (not the Access sign-in Worker's app) |
 | `microsoft-signin` | `client-secret` | `api`, `api-dev` | The client secret of the players' Microsoft app "TTA Community" (Entra tenant "TTA Community", owned by accounts@ttacommunity.org), whose id is `MICROSOFT_CLIENT_ID` in `api.yaml`. **Expires 2028-10-20**: issue the next one before then |
+| `google-signin` | `client-secret` | `api`, `api-dev` | The client secret of the players' Google Web client, in the Google Cloud project "TTA Community" (`tta-community`, no organisation; to be owned by accounts@ttacommunity.org), whose id is `GOOGLE_CLIENT_ID` in `api.yaml`. It does not expire, but **Google deletes a client after 6 months without a sign-in** (restorable for 30 days from the project's deleted credentials) |
 | `email-signin` | `resend-api-key` | `api`, `api-dev` | Resend's API key for the sign-in emails: sending access, restricted to ttacommunity.org |
 | `turnstile-signin` | `secret` | `api`, `api-dev` | The secret of the Turnstile widget "ttacommunity email sign-in", whose sitekey is the site's `PUBLIC_TURNSTILE_SITEKEY` (README) |
 | `ratings-backup` | `password`, `database-url` | `backup`'s `backup` init container | The backup job's login `ratings_backup_job`, a member of `ratings_backup` (reads the backed-up tables, writes nothing) |
@@ -39,6 +40,7 @@ rebuild or reissued by the service it comes from.
 | `ratings-api`, `ratings-admin`, `ratings-player`, and the `ratings-dev-*` logins | **New on a rebuild**, or at any time: a new password with `ALTER ROLE`, then the Secret (below) |
 | `discord-signin` | **Reissued** from Discord's developer portal (Reset Secret) |
 | `microsoft-signin` | **Reissued**: a new client secret on the app (entra.microsoft.com, App registrations, Certificates & secrets), then delete the old one |
+| `google-signin` | **Reissued**: add a new secret to the client (Google Auth Platform, Clients; Google shows it only once, so store it as below before closing), then disable and delete the old one |
 | `email-signin` | **Reissued**: a new key in Resend's dashboard (API Keys: sending access, domain ttacommunity.org), then delete the old one |
 | `turnstile-signin` | **Reissued**: `cf turnstile widgets rotate-secret <sitekey>`, piped straight into the Secret as below |
 | `ttac-api-tunnel`, `ttac-api-dev-tunnel` | **Reissued**: a new tunnel on the Cloudflare account (below, "The tunnels") |
@@ -158,6 +160,17 @@ include each api's `/v1/auth/microsoft/callback`:
 ```sh
 read -rsp 'Microsoft client secret: ' secret; echo
 printf %s "$secret" | kubectl -n ttacommunity create secret generic microsoft-signin --from-file=client-secret=/dev/stdin
+unset secret
+```
+
+`google-signin` is the players' Google client's secret (Google Auth Platform,
+Clients, the Web client). The project's audience is External and in
+production, asking only for `openid`, `email` and `profile`, and the
+client's authorised redirect URIs are each api's `/v1/auth/google/callback`:
+
+```sh
+read -rsp 'Google client secret: ' secret; echo
+printf %s "$secret" | kubectl -n ttacommunity create secret generic google-signin --from-file=client-secret=/dev/stdin
 unset secret
 ```
 
