@@ -1036,6 +1036,9 @@ paths:
     get:
       operationId: getBlitzEdition
       summary: A blitz edition's format and the entrants still in
+      description: |
+        Never cached: its results change as players report them and
+        organisers record them, and each change shows on the next request.
       parameters:
         - $ref: "#/components/parameters/AdminTournamentSlug"
         - $ref: "#/components/parameters/BlitzEditionLabel"

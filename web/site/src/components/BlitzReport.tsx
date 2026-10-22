@@ -60,7 +60,7 @@ export default function BlitzReport({ apiUrl, slug, edition, onChanged, onMatch 
       return;
     }
     setBusy(true);
-    await done(await reportGame(apiUrl, slug, edition, match.id, r.body), 'Reported. The standings update within a minute.');
+    await done(await reportGame(apiUrl, slug, edition, match.id, r.body), 'Reported.');
   };
   const confirm = async () => {
     setBusy(true);

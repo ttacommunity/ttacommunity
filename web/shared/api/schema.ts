@@ -771,7 +771,11 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** A blitz edition's format and the entrants still in */
+        /**
+         * A blitz edition's format and the entrants still in
+         * @description Never cached: its results change as players report them and
+         *     organisers record them, and each change shows on the next request.
+         */
         get: operations["getBlitzEdition"];
         put?: never;
         post?: never;

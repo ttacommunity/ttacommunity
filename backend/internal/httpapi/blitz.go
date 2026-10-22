@@ -196,5 +196,5 @@ func (s *server) GetBlitzEdition(ctx context.Context, req GetBlitzEditionRequest
 		}
 		body.Rounds[i] = pr
 	}
-	return GetBlitzEdition200JSONResponse{Body: body, Headers: GetBlitzEdition200ResponseHeaders{CacheControl: cacheCurrent}}, nil
+	return GetBlitzEdition200JSONResponse{Body: body, Headers: GetBlitzEdition200ResponseHeaders{CacheControl: cacheNone}}, nil
 }
