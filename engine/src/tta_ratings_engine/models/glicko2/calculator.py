@@ -149,53 +149,61 @@ def compute_gaussian_phi_scaling(
     return alpha_mult, lambda_mult
 
 
-def compute_player_thresholds(
-    rows: list[Any], standard_threshold: int = 15, inactivity_days: int = 365
-) -> dict[str, int]:
-    """Computes per-player calibration thresholds.
+class PlayerThresholds:
+    """Per-player calibration thresholds over the games added so far.
 
     1. Standard threshold: 15 games.
     2. Second criterion: If a player has < 15 games across their history and has been inactive
        for > 1 year (> 365 days) after their last game, their calibration threshold is set
        to their max game count k.
     """
-    p_total_games = defaultdict(set)
-    p_last_date = {}
-    max_date_str = "1900-01-01"
 
-    for r in rows:
-        d_str = r["date"][:10]
-        max_date_str = max(max_date_str, d_str)
-        mid = (
-            r["match_id"]
-            if "match_id" in r
-            else (r["date"], r["player_a"], r["player_b"])
+    def __init__(self, standard_threshold: int = 15, inactivity_days: int = 365):
+        self.standard_threshold = standard_threshold
+        self.inactivity_days = inactivity_days
+        self.games: dict[str, set[Any]] = defaultdict(set)
+        self.last_date: dict[str, str] = {}
+        self.max_date_str = "1900-01-01"
+
+    def add(self, rows: list[Any]) -> None:
+        """Counts rows' games, in any order, as played."""
+        for r in rows:
+            d_str = r["date"][:10]
+            self.max_date_str = max(self.max_date_str, d_str)
+            mid = (
+                r["match_id"]
+                if "match_id" in r
+                else (r["date"], r["player_a"], r["player_b"])
+            )
+            for p in (r["player_a"], r["player_b"]):
+                self.games[p].add(mid)
+                self.last_date[p] = max(self.last_date.get(p, d_str), d_str)
+
+    def get(self, p_name: str, default: int) -> int:
+        """Returns the player's threshold as of the last game added, or default for a player never seen."""
+        if p_name not in self.games:
+            return default
+        cnt = len(self.games[p_name])
+        if cnt >= self.standard_threshold:
+            return self.standard_threshold
+        max_dt = (
+            date.fromisoformat(self.max_date_str)
+            if self.max_date_str != "1900-01-01"
+            else datetime.now(UTC).date()
         )
-        pa, pb = r["player_a"], r["player_b"]
-        p_total_games[pa].add(mid)
-        p_total_games[pb].add(mid)
-        p_last_date[pa] = max(p_last_date.get(pa, d_str), d_str)
-        p_last_date[pb] = max(p_last_date.get(pb, d_str), d_str)
+        p_dt = date.fromisoformat(self.last_date[p_name])
+        if (max_dt - p_dt).days > self.inactivity_days:
+            return max(1, cnt)
+        return self.standard_threshold
 
-    max_dt = (
-        date.fromisoformat(max_date_str)
-        if max_date_str != "1900-01-01"
-        else datetime.now(UTC).date()
-    )
-    player_thresh = {}
 
-    for p_name, g_set in p_total_games.items():
-        cnt = len(g_set)
-        if cnt >= standard_threshold:
-            player_thresh[p_name] = standard_threshold
-        else:
-            p_dt = date.fromisoformat(p_last_date[p_name])
-            if (max_dt - p_dt).days > inactivity_days:
-                player_thresh[p_name] = max(1, cnt)
-            else:
-                player_thresh[p_name] = standard_threshold
-
-    return player_thresh
+def compute_player_thresholds(
+    rows: list[Any], standard_threshold: int = 15, inactivity_days: int = 365
+) -> dict[str, int]:
+    """Computes every player's calibration threshold (PlayerThresholds) over rows."""
+    thresholds = PlayerThresholds(standard_threshold, inactivity_days)
+    thresholds.add(rows)
+    return {p: thresholds.get(p, standard_threshold) for p in thresholds.games}
 
 
 def compute_glicko2_ratings(

@@ -1,6 +1,32 @@
 import pytest
 
-from tta_ratings_engine.models.glicko2.calculator import get_tier_mean
+from tta_ratings_engine.models.glicko2.calculator import (
+    PlayerThresholds,
+    compute_player_thresholds,
+    get_tier_mean,
+)
+
+
+def pair(a, b, day, match_id):
+    return {"player_a": a, "player_b": b, "date": day, "match_id": match_id}
+
+
+def test_thresholds_follow_the_games_seen_so_far():
+    january = [pair("Ann", "Bob", "2022-01-05", i) for i in range(5)]
+    a_year_on = [pair("Cat", "Dan", "2023-03-01", 99)]
+    thresholds = PlayerThresholds(standard_threshold=15, inactivity_days=365)
+
+    thresholds.add(january)
+    assert thresholds.get("Ann", 15) == 15, "five games and still active"
+    thresholds.add(a_year_on)
+    assert thresholds.get("Ann", 15) == 5, "five games, then a year away"
+    assert thresholds.get("Eve", 15) == 15, "never seen"
+    assert compute_player_thresholds(january + a_year_on) == {
+        "Ann": 5,
+        "Bob": 5,
+        "Cat": 15,
+        "Dan": 15,
+    }
 
 
 def test_tier_regression_rules():

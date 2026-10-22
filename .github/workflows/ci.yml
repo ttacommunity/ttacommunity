@@ -33,6 +33,7 @@ env:
 jobs:
   changes:
     runs-on: ${{ vars.RUNNER_AMD64 || 'ubuntu-24.04' }}
+    timeout-minutes: 20 # the longest job takes 7; a step killed at the runner's memory limit otherwise waits for hours
     container: docker.io/library/debian:trixie-slim@sha256:a99cfc517144bc59b1978475ec53b46ecabec7e43635402ee5b77cc54cd1b20a
     outputs:
       go: ${{ steps.areas.outputs.go }}
@@ -53,6 +54,7 @@ jobs:
     needs: changes
     if: needs.changes.outputs.go == 'true'
     runs-on: ${{ vars.RUNNER_AMD64 || 'ubuntu-24.04' }}
+    timeout-minutes: 20 # the longest job takes 7; a step killed at the runner's memory limit otherwise waits for hours
     container: docker.io/library/debian:trixie-slim@sha256:a99cfc517144bc59b1978475ec53b46ecabec7e43635402ee5b77cc54cd1b20a
     services:
       postgres:
@@ -81,6 +83,7 @@ jobs:
     needs: changes
     if: needs.changes.outputs.engine == 'true'
     runs-on: ${{ vars.RUNNER_AMD64 || 'ubuntu-24.04' }}
+    timeout-minutes: 20 # the longest job takes 7; a step killed at the runner's memory limit otherwise waits for hours
     container: docker.io/library/debian:trixie-slim@sha256:a99cfc517144bc59b1978475ec53b46ecabec7e43635402ee5b77cc54cd1b20a
     services:
       postgres:
@@ -108,6 +111,7 @@ jobs:
     needs: changes
     if: needs.changes.outputs.web == 'true'
     runs-on: ${{ vars.RUNNER_AMD64 || 'ubuntu-24.04' }}
+    timeout-minutes: 20 # the longest job takes 7; a step killed at the runner's memory limit otherwise waits for hours
     container: docker.io/library/debian:trixie-slim@sha256:a99cfc517144bc59b1978475ec53b46ecabec7e43635402ee5b77cc54cd1b20a
     steps:
       - run: apt-get update -qq && apt-get install -y -qq --no-install-recommends bash ca-certificates curl git jq xz-utils >/dev/null
@@ -124,6 +128,7 @@ jobs:
 
   checks:
     runs-on: ${{ vars.RUNNER_AMD64 || 'ubuntu-24.04' }}
+    timeout-minutes: 20 # the longest job takes 7; a step killed at the runner's memory limit otherwise waits for hours
     container: docker.io/library/debian:trixie-slim@sha256:a99cfc517144bc59b1978475ec53b46ecabec7e43635402ee5b77cc54cd1b20a
     permissions:
       contents: read
@@ -149,6 +154,7 @@ jobs:
 
   secrets:
     runs-on: ${{ vars.RUNNER_AMD64 || 'ubuntu-24.04' }}
+    timeout-minutes: 20 # the longest job takes 7; a step killed at the runner's memory limit otherwise waits for hours
     container: docker.io/library/debian:trixie-slim@sha256:a99cfc517144bc59b1978475ec53b46ecabec7e43635402ee5b77cc54cd1b20a
     steps:
       - run: apt-get update -qq && apt-get install -y -qq --no-install-recommends bash ca-certificates curl git xz-utils >/dev/null
@@ -169,6 +175,7 @@ jobs:
 
   sast:
     runs-on: ${{ vars.RUNNER_AMD64 || 'ubuntu-24.04' }}
+    timeout-minutes: 20 # the longest job takes 7; a step killed at the runner's memory limit otherwise waits for hours
     container: docker.io/library/debian:trixie-slim@sha256:a99cfc517144bc59b1978475ec53b46ecabec7e43635402ee5b77cc54cd1b20a
     steps:
       - run: apt-get update -qq && apt-get install -y -qq --no-install-recommends bash ca-certificates curl git xz-utils >/dev/null
