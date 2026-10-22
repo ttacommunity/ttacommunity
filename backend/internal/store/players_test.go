@@ -557,7 +557,23 @@ func microsoftID(subject, name, email string) Identity {
 	return Identity{Provider: "microsoft", Subject: subject, Username: name, Email: email}
 }
 
-func TestAMicrosoftSignInKeepsItsNameAndVerifiedEmailCurrent(t *testing.T) {
+// googleID is an invented Google account with the name and verified email given.
+func googleID(subject, name, email string) Identity {
+	return Identity{Provider: "google", Subject: subject, Username: name, Email: email}
+}
+
+// contactIDs are the providers whose verified email a login keeps as a contact, each with an invented account.
+var contactIDs = []struct {
+	provider string
+	id       func(name, email string) Identity
+}{
+	{"microsoft", func(name, email string) Identity {
+		return microsoftID("AAAAAAAAAAAAAAAAAAAAAIkzqFVrSaSaFHy782bbtaQ", name, email)
+	}},
+	{"google", func(name, email string) Identity { return googleID("100000000000000000001", name, email) }},
+}
+
+func TestASignInKeepsItsNameAndVerifiedEmailCurrent(t *testing.T) {
 	tests := []struct {
 		name, email, wantEmail string
 	}{
@@ -565,54 +581,62 @@ func TestAMicrosoftSignInKeepsItsNameAndVerifiedEmailCurrent(t *testing.T) {
 		{"no email", "", ""},
 		{"something not an email", "player at example", ""},
 	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			_, _, p := playersFixture(t)
-			first := signedIn(t, p, microsoftID("AAAAAAAAAAAAAAAAAAAAAIkzqFVrSaSaFHy782bbtaQ", "Player One", "first@example.test"), "token-1")
-			again := signedIn(t, p, microsoftID("AAAAAAAAAAAAAAAAAAAAAIkzqFVrSaSaFHy782bbtaQ", "Player Renamed", tt.email), "token-2")
-			if again.ID != first.ID || len(again.Logins) != 1 {
-				t.Fatalf("second sign-in = %+v, want account %d with one way in", again, first.ID)
+	for _, c := range contactIDs {
+		for _, tt := range tests {
+			t.Run(c.provider+"/"+tt.name, func(t *testing.T) {
+				_, _, p := playersFixture(t)
+				first := signedIn(t, p, c.id("Player One", "first@example.test"), "token-1")
+				again := signedIn(t, p, c.id("Player Renamed", tt.email), "token-2")
+				if again.ID != first.ID || len(again.Logins) != 1 {
+					t.Fatalf("second sign-in = %+v, want account %d with one way in", again, first.ID)
+				}
+				if got := again.Logins[0]; got.Provider != c.provider || got.Username != "Player Renamed" || got.Email != tt.wantEmail {
+					t.Errorf("the way in = %+v, want %s, Player Renamed, email %q", got, c.provider, tt.wantEmail)
+				}
+			})
+		}
+	}
+}
+
+func TestAContactEmailNeverLinksAMember(t *testing.T) {
+	for _, c := range contactIDs {
+		t.Run(c.provider, func(t *testing.T) {
+			_, a, p := playersFixture(t)
+			if _, err := a.AddMember(context.Background(), Member{Name: "ann", Email: "player@example.test", Zone: "UTC"}); err != nil {
+				t.Fatalf("AddMember: %v", err)
 			}
-			if got := again.Logins[0]; got.Provider != "microsoft" || got.Username != "Player Renamed" || got.Email != tt.wantEmail {
-				t.Errorf("the way in = %+v, want microsoft, Player Renamed, email %q", got, tt.wantEmail)
+			if l := signedIn(t, p, c.id("Player One", "player@example.test"), "token"); l.Member != nil {
+				t.Errorf("a %s sign-in linked %+v, want no member", c.provider, l.Member)
 			}
 		})
 	}
 }
 
-func TestAMicrosoftEmailNeverLinksAMember(t *testing.T) {
-	_, a, p := playersFixture(t)
-	if _, err := a.AddMember(context.Background(), Member{Name: "ann", Email: "player@example.test", Zone: "UTC"}); err != nil {
-		t.Fatalf("AddMember: %v", err)
-	}
-	if l := signedIn(t, p, microsoftID("AAAAAAAAAAAAAAAAAAAAAIkzqFVrSaSaFHy782bbtaQ", "Player One", "player@example.test"), "token"); l.Member != nil {
-		t.Errorf("a Microsoft sign-in linked %+v, want no member", l.Member)
-	}
-}
-
-func TestDeletingAnAccountClearsTheMembersEmailWhenItCameFromMicrosoft(t *testing.T) {
+func TestDeletingAnAccountClearsTheMembersEmailWhenItCameFromASignIn(t *testing.T) {
 	tests := []struct {
 		name, recorded, want string
 	}{
-		{"filled from Microsoft", "", ""},
+		{"filled from the sign-in", "", ""},
 		{"recorded before", "recorded@example.test", "recorded@example.test"},
 	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			pool, a, p := playersFixture(t)
-			ctx := context.Background()
-			ann, err := a.AddMember(ctx, Member{Name: "ann", Email: tt.recorded, Zone: "UTC"})
-			if err != nil {
-				t.Fatalf("AddMember: %v", err)
-			}
-			approved(t, a, p, signedIn(t, p, microsoftID("AAAAAAAAAAAAAAAAAAAAAIkzqFVrSaSaFHy782bbtaQ", "Player One", "player@example.test"), "token"), "ann")
-			if err := p.DeleteAccount(ctx, tokenHash("token"), signInAt); err != nil {
-				t.Fatalf("DeleteAccount: %v", err)
-			}
-			if got := rowsOf(t, pool, fmt.Sprintf("SELECT email FROM members WHERE member_id = %d", ann)); len(got) != 1 || got[0] != tt.want {
-				t.Errorf("ann's email = %q, want %q", got, tt.want)
-			}
-		})
+	for _, c := range contactIDs {
+		for _, tt := range tests {
+			t.Run(c.provider+"/"+tt.name, func(t *testing.T) {
+				pool, a, p := playersFixture(t)
+				ctx := context.Background()
+				ann, err := a.AddMember(ctx, Member{Name: "ann", Email: tt.recorded, Zone: "UTC"})
+				if err != nil {
+					t.Fatalf("AddMember: %v", err)
+				}
+				approved(t, a, p, signedIn(t, p, c.id("Player One", "player@example.test"), "token"), "ann")
+				if err := p.DeleteAccount(ctx, tokenHash("token"), signInAt); err != nil {
+					t.Fatalf("DeleteAccount: %v", err)
+				}
+				if got := rowsOf(t, pool, fmt.Sprintf("SELECT email FROM members WHERE member_id = %d", ann)); len(got) != 1 || got[0] != tt.want {
+					t.Errorf("ann's email = %q, want %q", got, tt.want)
+				}
+			})
+		}
 	}
 }
 
@@ -626,5 +650,23 @@ func TestMigration39sDownRemovesMicrosoftSignIns(t *testing.T) {
 	}
 	if got := rowsOf(t, pool, "SELECT l.username FROM accounts a JOIN logins l USING (account_id)"); !slices.Equal(got, []string{"player_two"}) {
 		t.Errorf("after the Down, accounts' ways in = %q, want player_two alone", got)
+	}
+}
+
+func TestMigration40sDownRemovesGoogleSignIns(t *testing.T) {
+	pool, _, p := playersFixture(t)
+	ctx := context.Background()
+	signedIn(t, p, googleID("100000000000000000001", "Player One", "player@example.test"), "google")
+	signedIn(t, p, microsoftID("AAAAAAAAAAAAAAAAAAAAAIkzqFVrSaSaFHy782bbtaQ", "Player Two", "two@example.test"), "microsoft")
+	signedIn(t, p, discordID("100000000000000003", "player_three", ""), "discord")
+	if err := p.AddLogin(ctx, tokenHash("discord"), googleID("100000000000000000003", "Player Three", ""), signInAt); err != nil {
+		t.Fatalf("AddLogin: %v", err)
+	}
+	if err := withRatingsMigrations(pool, func(p *goose.Provider) error { _, err := p.DownTo(ctx, 39); return err }); err != nil {
+		t.Fatalf("migrating down to 39: %v", err)
+	}
+	got := rowsOf(t, pool, "SELECT l.provider || ' ' || l.username || ' ' || l.email FROM accounts a JOIN logins l USING (account_id) ORDER BY 1")
+	if want := []string{"discord player_three ", "microsoft Player Two two@example.test"}; !slices.Equal(got, want) {
+		t.Errorf("after the Down, accounts' ways in = %q, want %q", got, want)
 	}
 }

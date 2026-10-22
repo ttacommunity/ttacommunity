@@ -187,6 +187,15 @@ func TestUserIsRefused(t *testing.T) {
 			s, _ := jwt.NewWithClaims(jwt.SigningMethodNone, claims(base)).SignedString(jwt.UnsafeAllowNoneSignatureType)
 			return s
 		}},
+		{"Microsoft's key with another algorithm", "good-code", "the-verifier", "the-nonce", func(t *testing.T, base string) string {
+			tok := jwt.NewWithClaims(jwt.SigningMethodPS256, claims(base))
+			tok.Header["kid"] = "key-1"
+			s, err := tok.SignedString(signingKey)
+			if err != nil {
+				t.Fatalf("signing: %v", err)
+			}
+			return s
+		}},
 		{"another app's token", "good-code", "the-verifier", "the-nonce", func(t *testing.T, base string) string {
 			c := claims(base)
 			c["aud"] = "00000000-0000-0000-0000-000000000098"

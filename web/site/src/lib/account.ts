@@ -69,7 +69,7 @@ export function signedInAs(me: Me): { heading: string; detail: string } {
 }
 
 /** PROVIDER_NAMES names each way in as the page shows it; a new provider in the api's types will not compile until it is named here. */
-const PROVIDER_NAMES: Record<Provider, string> = { discord: 'Discord', email: 'Email', microsoft: 'Microsoft' };
+const PROVIDER_NAMES: Record<Provider, string> = { discord: 'Discord', email: 'Email', microsoft: 'Microsoft', google: 'Google' };
 
 /** WayIn is one way into the account as the page lists it, whether it may be removed (only while another remains), and whether it may be changed (an email address, for a new one). */
 export type WayIn = { provider: Provider; label: string; removable: boolean; changeable: boolean };
@@ -78,12 +78,12 @@ export type WayIn = { provider: Provider; label: string; removable: boolean; cha
 export function waysIn(me: Me): { ways: WayIn[]; canAdd: Record<Provider, boolean> } {
   const removable = me.logins.length > 1;
   const ways = me.logins.map((l) => {
-    const also = l.provider === 'microsoft' ? l.email : l.display_name;
+    const also = l.provider === 'microsoft' || l.provider === 'google' ? l.email : l.display_name;
     const name = also === '' || also === l.username ? l.username : `${l.username} (${also})`;
     return { provider: l.provider, label: `${PROVIDER_NAMES[l.provider]}: ${name}`, removable, changeable: l.provider === 'email' };
   });
   const has = (p: Provider) => me.logins.some((l) => l.provider === p);
-  return { ways, canAdd: { discord: !has('discord'), email: !has('email'), microsoft: !has('microsoft') } };
+  return { ways, canAdd: { discord: !has('discord'), email: !has('email'), microsoft: !has('microsoft'), google: !has('google') } };
 }
 
 /** Signer is a way in that signs in through its own site: Discord or Microsoft. */

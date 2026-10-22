@@ -4,7 +4,7 @@ How the pieces fit together, what the ratings database holds, and where the
 trust boundaries are. **Built:** the ratings site, its public API, admin,
 the data load job and the engine; blitz tournaments' entrants (their
 pairings, results and standings are being built); player sign-in with
-Discord, an emailed link or Microsoft. **Planned:** Tournaments, TTA Pulse, other ways to sign in,
+Discord, an emailed link, Microsoft or Google. **Planned:** Tournaments, TTA Pulse, other ways to sign in,
 the worker's timed jobs and the app database; they are
 drawn dashed below and marked *(planned)* in the text.
 
@@ -38,6 +38,7 @@ flowchart LR
     worker -.->|bot DMs| discord["Discord"]
     api -->|player sign-in| discord
     api -->|player sign-in| microsoft["Microsoft"]
+    api -->|player sign-in| google["Google"]
     api -.-> adb
     classDef planned stroke-dasharray: 5 5
     class worker,adb planned
@@ -335,7 +336,12 @@ for the account in this app alone, and keeps the account's name, and its
 email when Microsoft vouches for it: a personal account's, which Microsoft
 made it prove, or a work or school account's whose domain its directory
 verified (`xms_edov`).
-That email is for writing to the player: it never links a login to a
+A player can sign in with **a Google account** the same way (scopes `openid
+email profile`): Google's signature, this app's audience, expiry, the nonce,
+and Google as the issuer. The login is keyed by `sub`, the account's Google
+id, and keeps its name, and its email when Google has verified it
+(`email_verified`).
+Either email is for writing to the player: it never links a login to a
 member, though it fills a linked member's empty email like an email
 login's address. Sessions (`player_sessions`) are server-side: the
 browser holds an opaque token in a cookie on the API host, and the database

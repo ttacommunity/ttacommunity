@@ -42,6 +42,8 @@ const byEmail: Me = { ...base, provider: 'email', username: 'player@example.test
 const microsoft = { provider: 'microsoft' as const, username: 'Player One', display_name: '', email: 'player@example.test' };
 const unnamed = { ...microsoft, username: 'Microsoft account', email: '' };
 const byMicrosoft: Me = { ...base, provider: 'microsoft', username: 'Player One', logins: [microsoft] };
+const google = { provider: 'google' as const, username: 'Player One', display_name: '', email: 'player@example.test' };
+const byGoogle: Me = { ...base, provider: 'google', username: 'Player One', logins: [google] };
 const ann = { name: 'ann', player: 'Ann', banned: false, ban_reason: '' };
 const asked = (status: 'pending' | 'approved' | 'refused', reason = '') => ({ name: 'ann', status, reason, requested_at: '2026-10-18T12:00:00Z' });
 
@@ -99,17 +101,25 @@ describe('signedInAs', () => {
 
 describe('waysIn', () => {
   it.each([
-    ['Discord alone: email may be added, nothing removed', base, ['Discord: player_one'], [false], { discord: false, email: true, microsoft: true }],
+    ['Discord alone: email may be added, nothing removed', base, ['Discord: player_one'], [false], { discord: false, email: true, microsoft: true, google: true }],
     [
       'both, each removable',
       { ...base, logins: [{ ...discord, display_name: 'Player One' }, email] },
       ['Discord: player_one (Player One)', 'Email: player@example.test'],
       [true, true],
-      { discord: false, email: false, microsoft: true },
+      { discord: false, email: false, microsoft: true, google: true },
     ],
-    ['email alone: Discord may be added', byEmail, ['Email: player@example.test'], [false], { discord: true, email: false, microsoft: true }],
-    ['Microsoft, with the email it gave', byMicrosoft, ['Microsoft: Player One (player@example.test)'], [false], { discord: true, email: true, microsoft: false }],
-    ['Microsoft, with no name or email', { ...byMicrosoft, logins: [unnamed] }, ['Microsoft: Microsoft account'], [false], { discord: true, email: true, microsoft: false }],
+    ['email alone: Discord may be added', byEmail, ['Email: player@example.test'], [false], { discord: true, email: false, microsoft: true, google: true }],
+    ['Microsoft, with the email it gave', byMicrosoft, ['Microsoft: Player One (player@example.test)'], [false], { discord: true, email: true, microsoft: false, google: true }],
+    ['Microsoft, with no name or email', { ...byMicrosoft, logins: [unnamed] }, ['Microsoft: Microsoft account'], [false], { discord: true, email: true, microsoft: false, google: true }],
+    ['Google, with the email it gave', byGoogle, ['Google: Player One (player@example.test)'], [false], { discord: true, email: true, microsoft: true, google: false }],
+    [
+      'Google, with no name or email',
+      { ...byGoogle, logins: [{ ...google, username: 'Google account', email: '' }] },
+      ['Google: Google account'],
+      [false],
+      { discord: true, email: true, microsoft: true, google: false },
+    ],
   ])('%s', (_name, me, labels, removable, canAdd) => {
     const got = waysIn(me);
     expect(got.ways.map((w) => w.label)).toEqual(labels);

@@ -497,6 +497,7 @@ func (e GameSeatOutcome) Valid() bool {
 const (
 	Discord   LoginProvider = "discord"
 	Email     LoginProvider = "email"
+	Google    LoginProvider = "google"
 	Microsoft LoginProvider = "microsoft"
 )
 
@@ -506,6 +507,8 @@ func (e LoginProvider) Valid() bool {
 	case Discord:
 		return true
 	case Email:
+		return true
+	case Google:
 		return true
 	case Microsoft:
 		return true
@@ -1075,14 +1078,14 @@ type AdminAccountLinkedHow string
 type AdminAccountLogin struct {
 	DisplayName string `json:"display_name"`
 
-	// Email The address we may write to through this way in, the email login's or the one Microsoft vouches for; empty when none
+	// Email The address we may write to through this way in, the email login's or the one Microsoft or Google vouches for; empty when none
 	Email string `json:"email"`
 
 	// Provider Where a player signs in
 	Provider   LoginProvider `json:"provider"`
 	SignedInAt time.Time     `json:"signed_in_at"`
 
-	// Username The Discord username, the email address, or the Microsoft account's name
+	// Username The Discord username, the email address, or the Microsoft or Google account's name
 	Username string `json:"username"`
 }
 
@@ -2825,13 +2828,13 @@ type MyLogin struct {
 	// DisplayName Empty when they have none
 	DisplayName string `json:"display_name"`
 
-	// Email The address we may write to through this way in, the email login's or the one Microsoft vouches for; empty when none
+	// Email The address we may write to through this way in, the email login's or the one Microsoft or Google vouches for; empty when none
 	Email string `json:"email"`
 
 	// Provider Where a player signs in
 	Provider LoginProvider `json:"provider"`
 
-	// Username The Discord username, the email address, or the Microsoft account's name ("Microsoft account" when it has none)
+	// Username The Discord username, the email address, or the Microsoft or Google account's name ("Microsoft account" or "Google account" when it has none)
 	Username string `json:"username"`
 }
 
@@ -3828,6 +3831,22 @@ type FinishDiscordSignInParams struct {
 	Error *string `form:"error,omitempty" json:"error,omitempty"`
 }
 
+// StartGoogleSignInParams defines parameters for StartGoogleSignIn.
+type StartGoogleSignInParams struct {
+	// Add Add Google to the signed-in player's account, rather than sign in
+	Add *bool `form:"add,omitempty" json:"add,omitempty"`
+
+	// Return The site path, with any query, to come back to, such as /ratings/player/?name=ann; anything else comes back to /account/
+	Return *string `form:"return,omitempty" json:"return,omitempty"`
+}
+
+// FinishGoogleSignInParams defines parameters for FinishGoogleSignIn.
+type FinishGoogleSignInParams struct {
+	Code  *string `form:"code,omitempty" json:"code,omitempty"`
+	State *string `form:"state,omitempty" json:"state,omitempty"`
+	Error *string `form:"error,omitempty" json:"error,omitempty"`
+}
+
 // StartMicrosoftSignInParams defines parameters for StartMicrosoftSignIn.
 type StartMicrosoftSignInParams struct {
 	// Add Add Microsoft to the signed-in player's account, rather than sign in
@@ -4334,6 +4353,12 @@ type ServerInterface interface {
 	// FinishEmailSignIn Open an emailed link
 	// (POST /v1/auth/email/finish)
 	FinishEmailSignIn(w http.ResponseWriter, r *http.Request)
+	// StartGoogleSignIn Start signing in with Google
+	// (GET /v1/auth/google)
+	StartGoogleSignIn(w http.ResponseWriter, r *http.Request, params StartGoogleSignInParams)
+	// FinishGoogleSignIn Where Google sends the player back
+	// (GET /v1/auth/google/callback)
+	FinishGoogleSignIn(w http.ResponseWriter, r *http.Request, params FinishGoogleSignInParams)
 	// StartMicrosoftSignIn Start signing in with Microsoft
 	// (GET /v1/auth/microsoft)
 	StartMicrosoftSignIn(w http.ResponseWriter, r *http.Request, params StartMicrosoftSignInParams)
@@ -6834,6 +6859,111 @@ func (siw *ServerInterfaceWrapper) FinishEmailSignIn(w http.ResponseWriter, r *h
 	handler.ServeHTTP(w, r)
 }
 
+// StartGoogleSignIn operation middleware
+func (siw *ServerInterfaceWrapper) StartGoogleSignIn(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params StartGoogleSignInParams
+
+	// ------------- Optional query parameter "add" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "add", r.URL.Query(), &params.Add, runtime.BindQueryParameterOptions{Type: "boolean", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "add"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "add", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "return" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "return", r.URL.Query(), &params.Return, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "return"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "return", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.StartGoogleSignIn(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// FinishGoogleSignIn operation middleware
+func (siw *ServerInterfaceWrapper) FinishGoogleSignIn(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params FinishGoogleSignInParams
+
+	// ------------- Optional query parameter "code" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "code", r.URL.Query(), &params.Code, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "code"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "code", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "state" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "state", r.URL.Query(), &params.State, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "state"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "state", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "error" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "error", r.URL.Query(), &params.Error, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "error"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "error", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.FinishGoogleSignIn(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // StartMicrosoftSignIn operation middleware
 func (siw *ServerInterfaceWrapper) StartMicrosoftSignIn(w http.ResponseWriter, r *http.Request) {
 
@@ -8868,6 +8998,8 @@ func HandlerWithOptions(si ServerInterface, options StdHTTPServerOptions) http.H
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/v1/auth/discord/callback", wrapper.FinishDiscordSignIn)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/v1/auth/microsoft", wrapper.StartMicrosoftSignIn)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/v1/auth/microsoft/callback", wrapper.FinishMicrosoftSignIn)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/v1/auth/google", wrapper.StartGoogleSignIn)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/v1/auth/google/callback", wrapper.FinishGoogleSignIn)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/v1/auth/email", wrapper.SendEmailSignIn)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/v1/auth/email/finish", wrapper.FinishEmailSignIn)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/v1/auth/sign-out", wrapper.SignOut)
@@ -15043,6 +15175,84 @@ func (response FinishEmailSignIn503JSONResponse) VisitFinishEmailSignInResponse(
 	return err
 }
 
+type StartGoogleSignInRequestObject struct {
+	Params StartGoogleSignInParams
+}
+
+type StartGoogleSignInResponseObject interface {
+	VisitStartGoogleSignInResponse(w http.ResponseWriter) error
+}
+
+type StartGoogleSignIn302ResponseHeaders struct {
+	CacheControl string
+	Location     string
+}
+
+type StartGoogleSignIn302Response struct {
+	Headers StartGoogleSignIn302ResponseHeaders
+}
+
+func (response StartGoogleSignIn302Response) VisitStartGoogleSignInResponse(w http.ResponseWriter) error {
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.Header().Set("Location", fmt.Sprint(response.Headers.Location))
+	w.WriteHeader(302)
+	return nil
+}
+
+type StartGoogleSignIn503JSONResponse struct{ NotSetUpJSONResponse }
+
+func (response StartGoogleSignIn503JSONResponse) VisitStartGoogleSignInResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(503)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type FinishGoogleSignInRequestObject struct {
+	Params FinishGoogleSignInParams
+}
+
+type FinishGoogleSignInResponseObject interface {
+	VisitFinishGoogleSignInResponse(w http.ResponseWriter) error
+}
+
+type FinishGoogleSignIn302ResponseHeaders struct {
+	CacheControl string
+	Location     string
+}
+
+type FinishGoogleSignIn302Response struct {
+	Headers FinishGoogleSignIn302ResponseHeaders
+}
+
+func (response FinishGoogleSignIn302Response) VisitFinishGoogleSignInResponse(w http.ResponseWriter) error {
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.Header().Set("Location", fmt.Sprint(response.Headers.Location))
+	w.WriteHeader(302)
+	return nil
+}
+
+type FinishGoogleSignIn503JSONResponse struct{ NotSetUpJSONResponse }
+
+func (response FinishGoogleSignIn503JSONResponse) VisitFinishGoogleSignInResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(503)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
 type StartMicrosoftSignInRequestObject struct {
 	Params StartMicrosoftSignInParams
 }
@@ -17985,6 +18195,12 @@ type StrictServerInterface interface {
 	// FinishEmailSignIn Open an emailed link
 	// (POST /v1/auth/email/finish)
 	FinishEmailSignIn(ctx context.Context, request FinishEmailSignInRequestObject) (FinishEmailSignInResponseObject, error)
+	// StartGoogleSignIn Start signing in with Google
+	// (GET /v1/auth/google)
+	StartGoogleSignIn(ctx context.Context, request StartGoogleSignInRequestObject) (StartGoogleSignInResponseObject, error)
+	// FinishGoogleSignIn Where Google sends the player back
+	// (GET /v1/auth/google/callback)
+	FinishGoogleSignIn(ctx context.Context, request FinishGoogleSignInRequestObject) (FinishGoogleSignInResponseObject, error)
 	// StartMicrosoftSignIn Start signing in with Microsoft
 	// (GET /v1/auth/microsoft)
 	StartMicrosoftSignIn(ctx context.Context, request StartMicrosoftSignInRequestObject) (StartMicrosoftSignInResponseObject, error)
@@ -20472,6 +20688,58 @@ func (sh *strictHandler) FinishEmailSignIn(w http.ResponseWriter, r *http.Reques
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(FinishEmailSignInResponseObject); ok {
 		if err := validResponse.VisitFinishEmailSignInResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// StartGoogleSignIn operation middleware
+func (sh *strictHandler) StartGoogleSignIn(w http.ResponseWriter, r *http.Request, params StartGoogleSignInParams) {
+	var request StartGoogleSignInRequestObject
+
+	request.Params = params
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.StartGoogleSignIn(ctx, request.(StartGoogleSignInRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "StartGoogleSignIn")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(StartGoogleSignInResponseObject); ok {
+		if err := validResponse.VisitStartGoogleSignInResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// FinishGoogleSignIn operation middleware
+func (sh *strictHandler) FinishGoogleSignIn(w http.ResponseWriter, r *http.Request, params FinishGoogleSignInParams) {
+	var request FinishGoogleSignInRequestObject
+
+	request.Params = params
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.FinishGoogleSignIn(ctx, request.(FinishGoogleSignInRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "FinishGoogleSignIn")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(FinishGoogleSignInResponseObject); ok {
+		if err := validResponse.VisitFinishGoogleSignInResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {
