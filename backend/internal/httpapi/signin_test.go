@@ -500,9 +500,10 @@ func TestMyDataAnswersWithEverythingKept(t *testing.T) {
 			CreatedAt: at, SignedInAt: later}},
 		Member: &store.Member{Name: "Ann", CGEUser: &cge, Player: "Ann", DiscordName: "player_one", Email: "ann@example.test",
 			Country: "NZ", Zone: "Pacific/Auckland", Banned: true, BanReason: "Abusive", BannedAt: &later, CreatedAt: at},
-		Requests:   []store.KeptRequest{{Name: "Ann", Status: "approved", RequestedAt: at, DecidedAt: &later}},
-		Sessions:   []store.KeptSession{{Provider: "discord", CreatedAt: at, Ends: at.Add(store.SessionLife), ThisBrowser: true}},
-		EmailLinks: []store.KeptEmailLink{{Address: "ann@example.test", ReturnPath: "/account", CreatedAt: at, ExpiresAt: later, KeptUntil: at.Add(48 * time.Hour)}},
+		MemberEmailCleared: true,
+		Requests:           []store.KeptRequest{{Name: "Ann", Status: "approved", RequestedAt: at, DecidedAt: &later}},
+		Sessions:           []store.KeptSession{{Provider: "discord", CreatedAt: at, Ends: at.Add(store.SessionLife), ThisBrowser: true}},
+		EmailLinks:         []store.KeptEmailLink{{Address: "ann@example.test", ReturnPath: "/account", CreatedAt: at, ExpiresAt: later, KeptUntil: at.Add(48 * time.Hour)}},
 	}
 	rec := playerDo(t, f, http.MethodGet, "/v1/me/data", siteOrigin, "", sessionFor(f, "token", store.Account{ID: 7}))
 	if rec.Code != http.StatusOK || rec.Header().Get("Cache-Control") != cacheNone {
@@ -518,6 +519,7 @@ func TestMyDataAnswersWithEverythingKept(t *testing.T) {
 		"logins.0.signed_in_at":    `"2026-10-18T13:00:00Z"`,
 		"member.email":             `"ann@example.test"`,
 		"member.cge_user":          `501`,
+		"member.email_cleared":     `true`,
 		"member.country":           `"NZ"`,
 		"member.banned_at":         `"2026-10-18T13:00:00Z"`,
 		"requests.0.decided_at":    `"2026-10-18T13:00:00Z"`,

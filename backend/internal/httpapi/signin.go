@@ -513,7 +513,7 @@ func (s *server) GetMyData(ctx context.Context, _ GetMyDataRequestObject) (GetMy
 			Email: l.Email, CreatedAt: l.CreatedAt, SignedInAt: l.SignedInAt}
 	}
 	if m := k.Member; m != nil {
-		d.Member = &MyDataMember{Name: m.Name, CgeUser: m.CGEUser, Player: m.Player, DiscordName: m.DiscordName, Email: m.Email,
+		d.Member = &MyDataMember{Name: m.Name, CgeUser: m.CGEUser, Player: m.Player, DiscordName: m.DiscordName, Email: m.Email, EmailCleared: k.MemberEmailCleared,
 			Country: nullableText(m.Country), Zone: m.Zone, Banned: m.Banned, BanReason: m.BanReason, BannedAt: m.BannedAt, CreatedAt: m.CreatedAt}
 	}
 	for i, r := range k.Requests {

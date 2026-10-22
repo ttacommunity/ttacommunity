@@ -11,14 +11,16 @@ import (
 	"github.com/jackc/pgx/v5"
 )
 
-// KeptData is everything we keep about one player. Member is nil until the account is linked.
+// KeptData is everything we keep about one player. Member is nil until the account is linked; MemberEmailCleared says
+// whether deleting the account would clear its email, as it does one that a way in gave.
 type KeptData struct {
-	Account    KeptAccount
-	Logins     []KeptLogin
-	Member     *Member
-	Requests   []KeptRequest
-	Sessions   []KeptSession
-	EmailLinks []KeptEmailLink
+	Account            KeptAccount
+	Logins             []KeptLogin
+	Member             *Member
+	MemberEmailCleared bool
+	Requests           []KeptRequest
+	Sessions           []KeptSession
+	EmailLinks         []KeptEmailLink
 }
 
 // KeptAccount is the account itself: when it was made, the country and zone given before a link (empty once linked,
@@ -90,7 +92,7 @@ func (s *PlayerStore) KeptData(ctx context.Context, tokenHash []byte, now time.T
 		if k.Logins, err = keptLogins(ctx, tx, account); err != nil {
 			return err
 		}
-		if k.Member, err = ownMember(ctx, tx, tokenHash, now); err != nil {
+		if k.Member, k.MemberEmailCleared, err = ownMember(ctx, tx, account, tokenHash, now); err != nil {
 			return err
 		}
 		if k.Requests, err = keptRequests(ctx, tx, account); err != nil {
@@ -145,24 +147,28 @@ func keptLogins(ctx context.Context, tx pgx.Tx, account int64) ([]KeptLogin, err
 }
 
 // ownMember is the whole member the session hashing to tokenHash is linked to at now, read through own_member, since
-// the player login cannot read members' emails; nil when it is not linked.
-func ownMember(ctx context.Context, tx pgx.Tx, tokenHash []byte, now time.Time) (*Member, error) {
+// the player login cannot read members' emails, or nil when it is not linked; and whether deleting account would
+// clear the member's email, by delete_own_account's own match against the account's ways in.
+func ownMember(ctx context.Context, tx pgx.Tx, account int64, tokenHash []byte, now time.Time) (*Member, bool, error) {
 	var m Member
 	var country *string
+	var cleared bool
 	err := tx.QueryRow(ctx, `
 		SELECT m.tta_name, m.cge_user, m.player_id, coalesce(p.name, ''), m.discord_name, m.email, m.country_code, m.zone,
-			m.banned, m.ban_reason, m.banned_at, m.created_at
-		FROM own_member($1, $2) m LEFT JOIN players p USING (player_id)`, tokenHash, now).
+			m.banned, m.ban_reason, m.banned_at, m.created_at,
+			lower(btrim(m.email)) IN (SELECT CASE provider WHEN 'email' THEN subject ELSE email END FROM logins
+			                          WHERE account_id = $3 AND provider IN ('email', 'microsoft', 'google'))
+		FROM own_member($1, $2) m LEFT JOIN players p USING (player_id)`, tokenHash, now, account).
 		Scan(&m.Name, &m.CGEUser, &m.PlayerID, &m.Player, &m.DiscordName, &m.Email, &country, &m.Zone,
-			&m.Banned, &m.BanReason, &m.BannedAt, &m.CreatedAt)
+			&m.Banned, &m.BanReason, &m.BannedAt, &m.CreatedAt, &cleared)
 	if errors.Is(err, pgx.ErrNoRows) {
-		return nil, nil
+		return nil, false, nil
 	}
 	if err != nil {
-		return nil, fmt.Errorf("reading the player's own member: %w", err)
+		return nil, false, fmt.Errorf("reading the player's own member: %w", err)
 	}
 	m.Country = orEmpty(country)
-	return &m, nil
+	return &m, cleared, nil
 }
 
 // keptRequests is every request account made to be linked, latest first.

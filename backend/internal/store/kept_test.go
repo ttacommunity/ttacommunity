@@ -172,6 +172,55 @@ func TestKeptDataHoldsEveryDetailOfALinkedAccount(t *testing.T) {
 	}
 }
 
+func TestKeptDataSaysWhetherDeletingTheAccountClearsTheMembersEmail(t *testing.T) {
+	tests := []struct {
+		name   string
+		email  string // the member's, as an admin recorded it
+		add    Identity
+		addVia string // "link" adds add's address as an email way in, "login" adds add as a way in
+		want   bool
+	}{
+		{"an email an admin recorded", "ann@example.test", googleID("100000000000000000002", "Ann", "ann@gmail.example"), "login", false},
+		{"the email way in's address", "", Identity{Provider: "email", Subject: "ann@example.test"}, "link", true},
+		{"the address Google gave", "", googleID("100000000000000000002", "Ann", "ann@gmail.example"), "login", true},
+		{"an admin's, the same as Google's", "ann@gmail.example", googleID("100000000000000000002", "Ann", "ann@gmail.example"), "login", true},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			pool, a, p := playersFixture(t)
+			ctx := context.Background()
+			ann, err := a.AddMember(ctx, Member{Name: "ann", DiscordName: "player_one", Email: tt.email, Zone: "UTC"})
+			if err != nil {
+				t.Fatalf("AddMember: %v", err)
+			}
+			l := signedIn(t, p, discordID("100000000000000001", "player_one", ""), "discord")
+			if tt.addVia == "link" {
+				if err := p.NewEmailLink(ctx, tt.add.Subject, &l.ID, "/account", tokenHash("link"), signInAt); err != nil {
+					t.Fatalf("NewEmailLink: %v", err)
+				}
+				if _, err := p.UseEmailLink(ctx, tokenHash("link"), tokenHash("email"), signInAt); err != nil {
+					t.Fatalf("UseEmailLink: %v", err)
+				}
+			} else if err := p.AddLogin(ctx, tokenHash("discord"), tt.add, signInAt); err != nil {
+				t.Fatalf("AddLogin: %v", err)
+			}
+			if got := keptBy(t, p, "discord").MemberEmailCleared; got != tt.want {
+				t.Errorf("MemberEmailCleared = %v, want %v", got, tt.want)
+			}
+			if err := p.DeleteAccount(ctx, tokenHash("discord"), keptAt); err != nil {
+				t.Fatalf("DeleteAccount: %v", err)
+			}
+			var email string
+			if err := pool.QueryRow(ctx, "SELECT email FROM members WHERE member_id = $1", ann).Scan(&email); err != nil {
+				t.Fatalf("reading the member: %v", err)
+			}
+			if cleared := email == ""; cleared != tt.want {
+				t.Errorf("after Delete account, the member's email = %q; cleared %v, want %v as KeptData said", email, cleared, tt.want)
+			}
+		})
+	}
+}
+
 func TestKeptDataShowsTheDetailsGivenBeforeALink(t *testing.T) {
 	_, _, p := playersFixture(t)
 	ctx := context.Background()

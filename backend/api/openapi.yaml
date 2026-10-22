@@ -7895,7 +7895,7 @@ components:
     MyDataMember:
       description: The member the account is linked to, with every field it holds
       type: object
-      required: [name, cge_user, player, discord_name, email, country, zone, banned, ban_reason, banned_at, created_at]
+      required: [name, cge_user, player, discord_name, email, email_cleared, country, zone, banned, ban_reason, banned_at, created_at]
       properties:
         name:
           description: The TTA username
@@ -7913,6 +7913,9 @@ components:
         email:
           description: The email recorded, by an admin or from a sign-in; empty when none
           type: string
+        email_cleared:
+          description: Whether deleting the account clears the email, as it does one of the account's ways in gave; the Discord name, country and zone are always cleared, the rest always stays
+          type: boolean
         country:
           description: A two-letter ISO code, or null
           type: string

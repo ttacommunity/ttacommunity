@@ -4825,6 +4825,8 @@ export interface components {
             discord_name: string;
             /** @description The email recorded, by an admin or from a sign-in; empty when none */
             email: string;
+            /** @description Whether deleting the account clears the email, as it does one of the account's ways in gave; the Discord name, country and zone are always cleared, the rest always stays */
+            email_cleared: boolean;
             /** @description A two-letter ISO code, or null */
             country: string | null;
             zone: string;
