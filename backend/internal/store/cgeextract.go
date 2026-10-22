@@ -33,7 +33,9 @@ func PlanCGEExtract(ctx context.Context, pool *pgxpool.Pool, x cgeextract.Extrac
 		plan.Names[k] = append(plan.Names[k], account)
 	}
 	for _, s := range x.Seats {
-		addName(s.PlayerName, s.PlayerID)
+		if s.PlayerID != 0 {
+			addName(s.PlayerName, s.PlayerID)
+		}
 	}
 	rows, err := pool.Query(ctx, `
 		SELECT player_name, cge_user FROM seats WHERE cge_user IS NOT NULL

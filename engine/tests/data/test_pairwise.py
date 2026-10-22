@@ -60,6 +60,13 @@ def new_run(conn):
             id="four players, a shared place draws",
         ),
         pytest.param(["A"], [1], [10], [], id="one player, no pairs"),
+        pytest.param(
+            ["A", "Unknown player", "B"],
+            [1, 3, 2],
+            [50, 0, 40],
+            [("A", "B", 50, 40, 1.0, 1.0)],
+            id="a seat CGE holds no account for is nobody's: left out, not counted",
+        ),
     ],
 )
 def test_a_game_is_a_pair_for_each_two_seats_weighted_by_its_size(

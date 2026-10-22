@@ -8,6 +8,9 @@ PAIR_COLUMNS = (
     "player_a, player_b, score_a, score_b, outcome_a, weight, glicko_eligible"
 )
 
+# The player the load job gives a seat CGE holds no account for: nobody, so no pair is rated with it.
+UNKNOWN_PLAYER = "Unknown player"
+
 
 def expand_pairwise(conn: DictConnection, run_id: int) -> int:
     """Rebuilds the run's pairwise_matches from the played matches of its ranking's tournaments, in rated seasons
@@ -79,11 +82,14 @@ def _expand(conn, run_id):
 def pairs_of(players, places, cultures, outcomes=None):
     """Returns a game's pairs, one for each two seats in seat order, as (player_a, player_b, culture_a, culture_b,
     outcome_a, weight): the better place wins (1.0), a shared place draws (0.5), each weighted 1/(N-1).
-    A pair between two players who both timed out is omitted.
+    A pair between two players who both timed out is omitted, and a seat held by nobody (UNKNOWN_PLAYER) is
+    neither paired nor counted.
     """
     if outcomes is None:
         outcomes = [None] * len(players)
-    seats = list(zip(players, places, cultures, outcomes))
+    seats = [
+        s for s in zip(players, places, cultures, outcomes) if s[0] != UNKNOWN_PLAYER
+    ]
     if len(seats) < 2:
         return []
     weight = 1.0 / float(len(seats) - 1)

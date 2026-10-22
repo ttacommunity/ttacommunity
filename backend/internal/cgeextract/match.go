@@ -237,12 +237,15 @@ func key(scores []float64) string {
 
 func sameSeries(a, b int64) bool { return a == 0 || b == 0 || a == b }
 
-// playersFit reports whether each of our seats was played by an account of the CGE game, and ours lacks at most
-// its timed-out seats.
+// playersFit reports whether each of our seats was played by an account of the CGE game (a seat CGE holds no
+// account for may be any one of ours), and ours lacks at most its timed-out seats.
 func playersFit(g Game, o OurGame, names map[string][]int) bool {
-	played := 0
+	played, unknown := 0, 0
 	for _, s := range g.Seats {
-		if s.FinishStatus != TimedOut {
+		switch {
+		case s.PlayerID == 0:
+			unknown++
+		case s.FinishStatus != TimedOut:
 			played++
 		}
 	}
@@ -255,7 +258,10 @@ func playersFit(g Game, o OurGame, names map[string][]int) bool {
 			accounts = []int{s.Account}
 		}
 		if !slices.ContainsFunc(g.Seats, func(c Seat) bool { return slices.Contains(accounts, c.PlayerID) }) {
-			return false
+			if unknown == 0 {
+				return false
+			}
+			unknown--
 		}
 	}
 	return true

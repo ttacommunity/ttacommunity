@@ -275,10 +275,15 @@ and share code; CGE's finish date becomes the game's date), adds the games we
 lack (a CGE tournament we do not link becomes a hidden, unrated series) and
 the settings we lack from the settings files beside it. A game that may be a
 copy of ours is held back; a file of pairs checked by hand (`share_code,
-game_id,reason`) matches them. It prints the plan and writes nothing unless
-given `-apply`; loading the same extract again changes nothing, except that
-it merges a hidden series' stages back into one tournament where an earlier
-load split them:
+game_id,reason`) matches them, and a game an earlier load added for a
+session the file gives to another game of ours is removed as a copy. A seat
+CGE holds no account for (an empty seat that timed out) is kept as the
+player "Unknown player", who is nobody and is never rated; the load counts
+those in rated tournaments, each worth looking up (the older match files
+may hold the player, as for the pair above). It prints the plan and writes
+nothing unless given `-apply`; loading the same extract again changes
+nothing, except that it merges a hidden series' stages back into one
+tournament where an earlier load split them:
 
 ```bash
 cd backend && set -a && . ../.env && set +a

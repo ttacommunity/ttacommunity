@@ -11,7 +11,8 @@ const (
 	TimedOut = "timed_out"
 )
 
-// Seat is one player in one game of the extract, with the game's place in its tournament.
+// Seat is one player in one game of the extract, with the game's place in its tournament. A seat CGE holds no
+// account for has PlayerID 0 and no name.
 type Seat struct {
 	TournamentID, StageID, StageNumber, GroupID, SessionID int
 	TournamentName, GroupName, ShareCode, State            string
