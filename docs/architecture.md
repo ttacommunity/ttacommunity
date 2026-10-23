@@ -507,6 +507,23 @@ Restoring the Secrets is one command for a key holder:
 `age -d -i <key> secrets/<time>.json.age | kubectl apply --dry-run=server -f -`,
 then the same without `--dry-run`.
 
+### When a backup does not happen
+
+The cluster's Prometheus watches the backup CronJobs through
+kube-state-metrics, and its Alertmanager posts to a maintainers' Discord
+channel. A night that works posts nothing. Three alerts, each for the job
+named in it:
+
+| Alert | Fires when | Look at first |
+|---|---|---|
+| failed | the last scheduled run ended without a success and nothing is running (also `KubeJobFailed`, 15 minutes after a Job gives up) | the failed pod's logs: `kubectl -n ttacommunity logs job/<name> --all-containers` |
+| stale | no successful run for 26 hours | whether the CronJob is suspended or the cluster was off; `kubectl -n ttacommunity get cronjob,jobs` |
+| missing | the CronJob is gone from the cluster | Flux: `flux -n flux-system get kustomizations ttacommunity`, and `deploy/kustomization.yaml` |
+
+A run that produced nothing to upload fails too: rclone runs with
+`--error-on-no-transfer`, so an empty night exits 9 instead of green. None of
+this shows that a copy can be decrypted; the monthly restore drill does.
+
 ### What only Cloudflare holds
 
 The Workers and their custom domains are in git (`wrangler.jsonc`), and so
