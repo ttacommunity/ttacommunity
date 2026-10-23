@@ -19,6 +19,7 @@ defaults:
 jobs:
   check:
     runs-on: ${{ vars.RUNNER_AMD64 || 'ubuntu-24.04' }}
+    timeout-minutes: 10 # it takes 1; a step killed at the runner's memory limit otherwise waits for hours
     container: docker.io/library/debian:trixie-slim@sha256:a99cfc517144bc59b1978475ec53b46ecabec7e43635402ee5b77cc54cd1b20a
     env:
       MISE_YES: '1'

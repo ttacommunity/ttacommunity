@@ -27,6 +27,7 @@ env:
 jobs:
   go:
     runs-on: ${{ vars.RUNNER_AMD64 || 'ubuntu-24.04' }}
+    timeout-minutes: 15 # each job takes 2; a step killed at the runner's memory limit otherwise waits for hours
     container: docker.io/library/debian:trixie-slim@sha256:a99cfc517144bc59b1978475ec53b46ecabec7e43635402ee5b77cc54cd1b20a
     env:
       # govulncheck measured 1.2 GB unchecked, under 600 MB with this; a job gets 1 GiB.
@@ -46,6 +47,7 @@ jobs:
 
   engine:
     runs-on: ${{ vars.RUNNER_AMD64 || 'ubuntu-24.04' }}
+    timeout-minutes: 15
     container: docker.io/library/debian:trixie-slim@sha256:a99cfc517144bc59b1978475ec53b46ecabec7e43635402ee5b77cc54cd1b20a
     steps:
       - run: apt-get update -qq && apt-get install -y -qq --no-install-recommends bash ca-certificates curl git xz-utils >/dev/null
@@ -64,6 +66,7 @@ jobs:
 
   web:
     runs-on: ${{ vars.RUNNER_AMD64 || 'ubuntu-24.04' }}
+    timeout-minutes: 15
     container: docker.io/library/debian:trixie-slim@sha256:a99cfc517144bc59b1978475ec53b46ecabec7e43635402ee5b77cc54cd1b20a
     steps:
       - run: apt-get update -qq && apt-get install -y -qq --no-install-recommends bash ca-certificates curl git xz-utils >/dev/null
