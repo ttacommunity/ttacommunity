@@ -713,7 +713,7 @@ preview is `dev.admin.ttacommunity.org`.
 The CronJob `backup-config` (`deploy/backup-config.yaml`) runs at 03:30 UTC:
 `load -backup-config-to` exports the namespace's Secrets and the Cloudflare
 settings that are not in git (Access, DNS, Turnstile, Email Routing, the
-zone's rulesets, Workers Builds, the R2 buckets' rules) as JSON, encrypts
+zone's rulesets, the Workers' names, the R2 buckets' rules) as JSON, encrypts
 each with `age` to the maintainers' key, and rclone puts them in the R2
 bucket `ttacommunity-config-backup` as `secrets/<time>.json.age` and
 `cloudflare/<time>.json.age`. Nothing unencrypted touches a disk. It needs

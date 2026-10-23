@@ -82,7 +82,7 @@ func TestSecretsRefusesABadAnswer(t *testing.T) {
 }
 
 // cloudflare is a fake Cloudflare API: an account with one zone, a two-page DNS list, a two-page (cursor) ruleset
-// list, two Workers of which one has a build, and one R2 bucket. It records which paths were asked for.
+// list, two Workers, and one R2 bucket. It records which paths were asked for.
 func cloudflare(t *testing.T, override func(w http.ResponseWriter, r *http.Request) bool) (*httptest.Server, *[]string) {
 	t.Helper()
 	var asked []string
@@ -127,15 +127,6 @@ func cloudflare(t *testing.T, override func(w http.ResponseWriter, r *http.Reque
 			ok(w, fmt.Sprintf(`{"id":%q,"rules":[{"expression":"true"}]}`, strings.TrimPrefix(r.URL.Path, "/zones/zone1/rulesets/")), "")
 		case "/accounts/acct1/workers/scripts":
 			ok(w, `[{"id":"site","tag":"tag-site"},{"id":"byhand","tag":"tag-byhand"}]`, "")
-		case "/accounts/acct1/builds/workers/tag-site/triggers":
-			ok(w, `[{"trigger_uuid":"trig1","trigger_name":"main"}]`, "")
-		case "/accounts/acct1/builds/workers/tag-site":
-			ok(w, `{"external_script_id":"tag-site","repo_connection":{}}`, "")
-		case "/accounts/acct1/builds/workers/tag-byhand/triggers", "/accounts/acct1/builds/workers/tag-byhand":
-			w.WriteHeader(http.StatusNotFound)
-			fmt.Fprint(w, `{"success":false,"errors":[{"code":10000,"message":"not found"}],"messages":[],"result":null}`)
-		case "/accounts/acct1/builds/triggers/trig1/environment_variables":
-			ok(w, `[{"key":"PUBLIC_API","value":"https://api.example.org"}]`, "")
 		case "/accounts/acct1/r2/buckets":
 			if r.Header.Get("cf-r2-jurisdiction") != "eu" {
 				ok(w, `{"buckets":[]}`, "")
@@ -166,18 +157,20 @@ func TestCloudflareExportsEverySettingWhole(t *testing.T) {
 	if err := json.Unmarshal(got, &export); err != nil {
 		t.Fatalf("Cloudflare: not JSON: %v", err)
 	}
-	for _, key := range []string{"zone", "organization", "access_applications", "access_policies", "access_groups", "access_service_tokens", "identity_providers", "dns_records", "turnstile_widgets", "email_routing", "rulesets", "workers", "builds", "build_triggers", "build_variables", "r2_buckets"} {
+	for _, key := range []string{"zone", "organization", "access_applications", "access_policies", "access_groups", "access_service_tokens", "identity_providers", "dns_records", "turnstile_widgets", "email_routing", "rulesets", "workers", "r2_buckets"} {
 		if _, ok := export[key]; !ok {
 			t.Errorf("export has no %q", key)
 		}
+	}
+	if _, ok := export["builds"]; ok {
+		t.Error("export has builds, which the Builds API refuses an account token for")
 	}
 	checks := []struct {
 		name, path, want string
 	}{
 		{"both DNS pages", "dns_records", `[{"id":"dns1"},{"id":"dns2"},{"id":"dns3"}]`},
 		{"both ruleset pages, zone rulesets only, each fetched whole", "rulesets", `{"rs1":{"id":"rs1","rules":[{"expression":"true"}]},"rs2":{"id":"rs2","rules":[{"expression":"true"}]}}`},
-		{"the Worker built by Cloudflare, not the one deployed by hand", "builds", `{"tag-site":{"external_script_id":"tag-site","repo_connection":{}}}`},
-		{"its trigger's variables", "build_variables", `{"trig1":[{"key":"PUBLIC_API","value":"https://api.example.org"}]}`},
+		{"the Workers", "workers", `[{"id":"site","tag":"tag-site"},{"id":"byhand","tag":"tag-byhand"}]`},
 		{"each EU bucket's lifecycle and locks", "r2_buckets", `{"bucket-a":{"lifecycle":{"rules":[{"id":"delete-after-90-days"}]},"locks":{"rules":[{"id":"keep-29-days"}]}}}`},
 		{"the email routing parts", "email_routing", `{"addresses":[],"catch_all":{"enabled":true},"rules":[],"settings":{"enabled":true}}`},
 		{"the zone's name", "zone", `"example.org"`},
