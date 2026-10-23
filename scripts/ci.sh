@@ -177,7 +177,7 @@ if need corepack "the web workspace"; then
       [ -f "$site/dist/index.html" ] || fail "$site: the build produced no dist/index.html"
       [ -f "$site/dist/_headers" ] || fail "$site: _headers did not reach the output root"
       grep -q '^  Content-Security-Policy:' "$site/dist/_headers" 2>/dev/null || fail "$site: _headers sets no CSP"
-      run node "$ROOT/checks/csp-inline.mjs" "$site/dist"
+      grep -q 'csp-inline\.mjs dist' "$site/package.json" || fail "$site: its build no longer runs checks/csp-inline.mjs"
       want=$(cat "$site/.node-version" 2>/dev/null)
       have=$(node --version | sed 's/^v\([0-9]*\).*/\1/')
       [ "$want" = "$have" ] || fail "$site/.node-version says '$want' but this is Node $have"
