@@ -80,7 +80,7 @@ func leftIn(t *testing.T, dir string) []string {
 func TestWritePutsOneFileEncryptedToTheRecipient(t *testing.T) {
 	id := newIdentity(t)
 	dir := t.TempDir()
-	path, size, err := backup.Write(dir, at, id.Recipient(), func(w io.Writer) error {
+	path, size, err := backup.Write(dir, backup.Name(at), id.Recipient(), func(w io.Writer) error {
 		_, err := io.WriteString(w, "a backup")
 		return err
 	})
@@ -113,7 +113,7 @@ func TestWritePutsOneFileEncryptedToTheRecipient(t *testing.T) {
 func TestWriteLeavesNothingWhenTheBackupFails(t *testing.T) {
 	failed := errors.New("the database went away")
 	dir := t.TempDir()
-	_, _, err := backup.Write(dir, at, newIdentity(t).Recipient(), func(w io.Writer) error {
+	_, _, err := backup.Write(dir, backup.Name(at), newIdentity(t).Recipient(), func(w io.Writer) error {
 		io.WriteString(w, "half a backup")
 		return failed
 	})
@@ -127,7 +127,7 @@ func TestWriteLeavesNothingWhenTheBackupFails(t *testing.T) {
 
 func TestWriteRefusesAFolderThatIsNotThere(t *testing.T) {
 	dir := filepath.Join(t.TempDir(), "missing")
-	if _, _, err := backup.Write(dir, at, newIdentity(t).Recipient(), func(io.Writer) error { return nil }); err == nil {
+	if _, _, err := backup.Write(dir, backup.Name(at), newIdentity(t).Recipient(), func(io.Writer) error { return nil }); err == nil {
 		t.Error("Write to a missing folder: no error")
 	}
 }
