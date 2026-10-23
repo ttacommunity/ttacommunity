@@ -114,8 +114,8 @@ const jurisdiction = "eu"
 const perPage = 50
 
 // Cloudflare reads every setting of the zone's account that is not in git and returns them as one JSON object,
-// keyed as docs/architecture.md lists: Zero Trust, DNS, Turnstile, Email Routing, the zone's rulesets, Workers
-// Builds and R2 bucket rules. Every list is read to its last page, and any read that fails fails the export.
+// keyed as docs/architecture.md lists: Zero Trust, DNS, Turnstile, Email Routing, the zone's rulesets, the Workers
+// and R2 bucket rules. Every list is read to its last page, and any read that fails fails the export.
 func Cloudflare(ctx context.Context, a Account) ([]byte, error) {
 	cf := client{a}
 	zoneID, accountID, err := cf.zone(ctx)
@@ -160,13 +160,6 @@ func Cloudflare(ctx context.Context, a Account) ([]byte, error) {
 	if out["rulesets"], err = cf.rulesets(ctx, zone); err != nil {
 		return nil, err
 	}
-	workers, err := cf.workers(ctx, out["workers"].(json.RawMessage))
-	if err != nil {
-		return nil, err
-	}
-	if out["builds"], out["build_triggers"], out["build_variables"], err = cf.builds(ctx, acct, workers); err != nil {
-		return nil, err
-	}
 	if out["r2_buckets"], err = cf.buckets(ctx, acct); err != nil {
 		return nil, err
 	}
@@ -190,9 +183,6 @@ type envelope struct {
 		Cursor     string `json:"cursor"`
 	} `json:"result_info"`
 }
-
-// errNotFound is a 404: the one answer some reads may treat as "none".
-var errNotFound = errors.New("not found")
 
 // get reads one page at path with query and headers, and returns the envelope. A refused request, an answer that
 // is not JSON and success false are all errors.
@@ -218,9 +208,6 @@ func (c client) get(ctx context.Context, path string, query url.Values, headers 
 	body, err := io.ReadAll(io.LimitReader(resp.Body, 32<<20))
 	if err != nil {
 		return envelope{}, fmt.Errorf("GET %s: reading the answer: %w", path, err)
-	}
-	if resp.StatusCode == http.StatusNotFound {
-		return envelope{}, fmt.Errorf("GET %s: %w", path, errNotFound)
 	}
 	var env envelope
 	if err := json.Unmarshal(body, &env); err != nil {
@@ -339,59 +326,6 @@ func (c client) rulesets(ctx context.Context, zone string) (map[string]json.RawM
 		}
 	}
 	return out, nil
-}
-
-// workers returns the tag of every Worker script in the list, in order.
-func (c client) workers(_ context.Context, list json.RawMessage) ([]string, error) {
-	var scripts []struct {
-		Tag string `json:"tag"`
-	}
-	if err := json.Unmarshal(list, &scripts); err != nil {
-		return nil, errors.New("the Workers list is not a list")
-	}
-	tags := make([]string, 0, len(scripts))
-	for _, s := range scripts {
-		if s.Tag == "" {
-			return nil, errors.New("a Worker in the list has no tag")
-		}
-		tags = append(tags, s.Tag)
-	}
-	return tags, nil
-}
-
-// builds returns, for each Worker tag that Workers Builds knows, its build configuration and its triggers, and for
-// each trigger its variables, each keyed by tag or trigger. A Worker deployed by hand has no configuration (404)
-// and is left out.
-func (c client) builds(ctx context.Context, acct string, tags []string) (map[string]json.RawMessage, map[string]json.RawMessage, map[string]json.RawMessage, error) {
-	builds, triggers, variables := map[string]json.RawMessage{}, map[string]json.RawMessage{}, map[string]json.RawMessage{}
-	for _, tag := range tags {
-		cfg, err := c.read(ctx, acct+"/builds/workers/"+url.PathEscape(tag), false, nil)
-		if errors.Is(err, errNotFound) {
-			continue
-		}
-		if err != nil {
-			return nil, nil, nil, err
-		}
-		builds[tag] = cfg
-		if triggers[tag], err = c.read(ctx, acct+"/builds/workers/"+url.PathEscape(tag)+"/triggers", false, nil); err != nil {
-			return nil, nil, nil, err
-		}
-		var ts []struct {
-			UUID string `json:"trigger_uuid"`
-		}
-		if err := json.Unmarshal(triggers[tag], &ts); err != nil {
-			return nil, nil, nil, errors.New("the build triggers are not a list")
-		}
-		for _, t := range ts {
-			if t.UUID == "" {
-				return nil, nil, nil, errors.New("a build trigger has no uuid")
-			}
-			if variables[t.UUID], err = c.read(ctx, acct+"/builds/triggers/"+url.PathEscape(t.UUID)+"/environment_variables", false, nil); err != nil {
-				return nil, nil, nil, err
-			}
-		}
-	}
-	return builds, triggers, variables, nil
 }
 
 // buckets returns each EU bucket's lifecycle and lock rules, keyed by bucket name.

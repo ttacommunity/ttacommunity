@@ -266,8 +266,11 @@ permissions, all Read, and nothing else:
 
 | On | Permissions |
 |---|---|
-| The whole account | Access: Apps; Access: Policies; Access: Organizations; Access: Identity Providers; Access: Groups; Access: Service Tokens; Turnstile Sites; Email Routing Addresses; Workers CI; Workers Scripts; Workers R2 Storage |
-| Zone `ttacommunity.org` only | DNS; Zone; Email Routing Rules; Zone WAF; Cache Settings |
+| The whole account | Access: Apps; Access: Policies; Access: Organizations; Access: Identity Providers; Access: Groups; Access: Service Tokens; Turnstile Sites; Email Routing Addresses; Workers Scripts; Workers R2 Storage |
+| Zone `ttacommunity.org` only | DNS; Zone; Zone Settings (Email Routing's state); Email Routing Rules; Zone WAF; Cache Settings |
+
+Workers Builds is not exported: its API refuses an account-owned token
+whatever its permissions ("Invalid token"), so "Workers CI Read" buys nothing.
 
 An account-owned token is 53 characters, and `/user/tokens/verify` calls it
 invalid: check it with a read instead (`GET /zones?name=ttacommunity.org`).

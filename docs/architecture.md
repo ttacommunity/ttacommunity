@@ -543,14 +543,15 @@ Cloudflare's `cf` CLI where it can write:
 | Rulesets: the hostname allowlist (WAF custom rule), the API rate limit, the cache rule | `rulesets.<id>` | `cf rulesets account-rulesets phases update <phase> -z <zone> --body` |
 | Turnstile widgets | `turnstile_widgets` | `cf turnstile widgets create`; the new secret is rotated into the `turnstile-signin` Secret (`deploy/SECRETS.md`) and the sitekey into the site's build variables |
 | Email Routing: its state, the rules, the catch-all rule, the destination addresses | `email_routing` | `cf email-routing enable`, `rules create`, `addresses create` (each destination verifies by email again) |
-| Workers Builds: each Worker's build configuration, its triggers, their build variables | `workers`, `builds`, `build_triggers`, `build_variables` | the GitHub connection in the dashboard, then `cf builds triggers create --body` per trigger and `cf builds triggers environment-variables upsert`; a variable marked secret has no value in the export: set it again (README, "The sites and the sign-in worker") |
+| The Workers' names and tags | `workers` | the Workers themselves are deployed from git (`infra/`, `web/`) |
 | R2 buckets: each bucket's lifecycle and lock rules | `r2_buckets` | `cf r2 buckets create`, `lifecycle update`, `locks update` |
 
-Not exported, so reissued by hand: every Worker secret (`ttac-auth`'s
+Not exported, so recreated by hand: every Worker secret (`ttac-auth`'s
 Discord client secret, `ttac-mail-forward`'s addresses, the build
-notifier's webhooks), the R2 tokens, and the GitHub repository connection
-Workers Builds uses. `deploy/SECRETS.md` and the README say where each is
-set.
+notifier's webhooks), the R2 tokens, and Workers Builds as a whole (the
+GitHub repository connection, each Worker's build triggers and their build
+variables), whose API refuses an account-owned token. `deploy/SECRETS.md`
+and the README say where each is set.
 
 ## What it sits on
 
