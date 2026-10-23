@@ -158,8 +158,15 @@ The tables fall into five groups:
 Patterns that hold across the schema:
 
 - **Runs, not overwrites.** A result table never changes a published run's
-  rows; deleting a run deletes its results with it (the foreign keys
-  cascade). A protected run cannot be deleted
+  rows. A protected run cannot be deleted
+- **One partition per run.** Every run result table is partitioned by
+  `run_id` (`<table>_run<id>`): a trigger on `rating_runs` adds a new run's
+  partitions, and `delete_run` drops them, so deleting a run leaves nothing
+  to vacuum. The engine vacuums its run's partitions before the run can be
+  published, so the player pages read a run's pairs and history from their
+  covering per-player indexes alone. A run result table is one with a
+  foreign key to `rating_runs` `ON DELETE CASCADE`; a test fails one that
+  is not partitioned by run
 - **Facts are keyed by name** (tournament or series, season, player), not by
   foreign keys to games, so a recorded fact survives a re-import of the games
 - **The export is the import.** Every input table (Games, Catalogue and
