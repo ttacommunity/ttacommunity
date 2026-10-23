@@ -112,12 +112,13 @@ type Rival struct {
 	Games, Wins, Losses, Draws int
 }
 
-// inPlayerGames keeps the games of game_lines m that run $1 rated for the player named $2. An array, not a join,
-// so the planner reads only those games instead of building the whole view.
-const inPlayerGames = `m.game_id = ANY(ARRAY(
-	SELECT match_id FROM pairwise_matches WHERE run_id = $1 AND player_a = $2
+// playerRunGames selects each game run $1 rated for the player named $2, once, with its date and format as the
+// run took them. A run's own rows are read, not the games: they are few pages, and one game edited after the run
+// keeps what the run rated until the next.
+const playerRunGames = `
+	SELECT match_id, date, player_count FROM pairwise_matches WHERE run_id = $1 AND player_a = $2
 	UNION
-	SELECT match_id FROM pairwise_matches WHERE run_id = $1 AND player_b = $2))`
+	SELECT match_id, date, player_count FROM pairwise_matches WHERE run_id = $1 AND player_b = $2`
 
 // resolve returns the stored name for asked in a published run: the exact
 // name, else the only one equal to it ignoring case. Players with deleted or
@@ -180,9 +181,8 @@ func (r *RatingsReader) Player(ctx context.Context, run int64, asked string) (Pl
 	p.Badges = badges[name]
 
 	rows, err := r.pool.Query(ctx, `
-		SELECT m.player_count, count(*), max(m.date)
-		FROM game_lines m WHERE `+inPlayerGames+`
-		GROUP BY m.player_count`, run, name)
+		SELECT player_count, count(*), max(date) FROM (`+playerRunGames+`) mine
+		GROUP BY player_count`, run, name)
 	if err != nil {
 		return Player{}, fmt.Errorf("counting a player's games in run %d: %w", run, err)
 	}
@@ -248,19 +248,18 @@ func (r *RatingsReader) PlayerHistory(ctx context.Context, run int64, asked stri
 }
 
 // PlayerMatches returns the stored name and one page of the games run rated
-// for a player in a format (0 is all), newest first. A page past the last
-// gives the last. Seats keep their stored names, for rating estimates: the
-// caller masks the HiddenNames before answering.
+// for a player in a format (0 is all), newest first, each with the date and
+// format the run took. A page past the last gives the last. Seats keep their
+// stored names, for rating estimates: the caller masks the HiddenNames before
+// answering.
 func (r *RatingsReader) PlayerMatches(ctx context.Context, run int64, asked string, format, page int) (string, MatchPage, error) {
 	name, err := r.resolve(ctx, run, asked)
 	if err != nil {
 		return "", MatchPage{}, err
 	}
-	const inFormat = ` WHERE ` + inPlayerGames + ` AND ($3 = 0 OR m.player_count = $3)`
+	const mine = `(` + playerRunGames + `) mine WHERE $3 = 0 OR player_count = $3`
 	var mp MatchPage
-	err = r.pool.QueryRow(ctx, `
-		SELECT count(*) FROM game_lines m`+inFormat,
-		run, name, format).Scan(&mp.Total)
+	err = r.pool.QueryRow(ctx, `SELECT count(*) FROM `+mine, run, name, format).Scan(&mp.Total)
 	if err != nil {
 		return "", MatchPage{}, fmt.Errorf("counting a player's games in run %d: %w", run, err)
 	}
@@ -268,18 +267,55 @@ func (r *RatingsReader) PlayerMatches(ctx context.Context, run int64, asked stri
 	mp.Page = min(max(page, 1), mp.Pages)
 
 	rows, err := r.pool.Query(ctx, `
-		SELECT m.game_id, m.name, m.date, m.player_count, m.share_code, m.players, m.cultures
-		FROM game_lines m`+inFormat+`
-		ORDER BY m.date DESC, m.game_id DESC
+		SELECT match_id, date, player_count FROM `+mine+`
+		ORDER BY date DESC, match_id DESC
 		LIMIT $4 OFFSET $5`, run, name, format, gamesPerPage, (mp.Page-1)*gamesPerPage)
 	if err != nil {
-		return "", MatchPage{}, fmt.Errorf("reading a player's games in run %d: %w", run, err)
+		return "", MatchPage{}, fmt.Errorf("paging a player's games in run %d: %w", run, err)
 	}
-	mp.Matches, err = pgx.CollectRows(rows, scanMatch)
+	rated, err := pgx.CollectRows(rows, func(row pgx.CollectableRow) (PlayerMatch, error) {
+		var m PlayerMatch
+		err := row.Scan(&m.ID, &m.Date, &m.PlayerCount)
+		return m, err
+	})
+	if err != nil {
+		return "", MatchPage{}, fmt.Errorf("paging a player's games in run %d: %w", run, err)
+	}
+	mp.Matches, err = r.gamesAsRated(ctx, rated)
 	if err != nil {
 		return "", MatchPage{}, fmt.Errorf("reading a player's games in run %d: %w", run, err)
 	}
 	return name, mp, nil
+}
+
+// gamesAsRated returns the games named by rated, in its order, with their tournament, replay code and seats,
+// and the date and format rated gives.
+func (r *RatingsReader) gamesAsRated(ctx context.Context, rated []PlayerMatch) ([]PlayerMatch, error) {
+	ids := make([]int64, len(rated))
+	for i, m := range rated {
+		ids[i] = m.ID
+	}
+	rows, err := r.pool.Query(ctx, `
+		SELECT m.game_id, m.name, m.date, m.player_count, m.share_code, m.players, m.cultures
+		FROM game_lines m WHERE m.game_id = ANY($1)`, ids)
+	if err != nil {
+		return nil, err
+	}
+	games, err := pgx.CollectRows(rows, scanMatch)
+	if err != nil {
+		return nil, err
+	}
+	byID := make(map[int64]PlayerMatch, len(games))
+	for _, g := range games {
+		byID[g.ID] = g
+	}
+	out := make([]PlayerMatch, 0, len(rated))
+	for _, m := range rated {
+		g := byID[m.ID]
+		g.ID, g.Date, g.PlayerCount = m.ID, m.Date, m.PlayerCount
+		out = append(out, g)
+	}
+	return out, nil
 }
 
 // scanMatch reads a game and its seats, in the order they were recorded.

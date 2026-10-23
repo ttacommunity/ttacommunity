@@ -271,6 +271,44 @@ func TestPlayerMatchesPagesTheRunsGamesNewestFirst(t *testing.T) {
 	}
 }
 
+func TestPlayerTakesGamesAsTheRunRatedThem(t *testing.T) {
+	pool := migrated(t)
+	r := NewRatingsReader(asReader(t, pool))
+	ctx := context.Background()
+	run := publishedRun(t, pool)
+	addPlayers(t, pool, "ann", "bob", "cy")
+	addGame(t, pool, run, "2025-01-05", "Duel", Seat{"ann", 9}, Seat{"bob", 5})
+	fixed := addGame(t, pool, run, "2025-01-10", "Trio", Seat{"ann", 9}, Seat{"bob", 5}, Seat{"cy", 1})
+	if _, err := pool.Exec(ctx, "UPDATE games SET date = '2025-03-01' WHERE game_id = $1", fixed); err != nil {
+		t.Fatalf("moving the game after the run: %v", err)
+	}
+	if _, err := pool.Exec(ctx, "DELETE FROM seats WHERE game_id = $1 AND player_name = 'cy'", fixed); err != nil {
+		t.Fatalf("removing a seat after the run: %v", err)
+	}
+
+	p, err := r.Player(ctx, run, "ann")
+	if err != nil {
+		t.Fatalf("Player: %v", err)
+	}
+	if want := map[int]int{0: 2, 2: 1, 3: 1}; fmt.Sprint(p.Games) != fmt.Sprint(want) {
+		t.Errorf("games = %v, want %v (the run's formats)", p.Games, want)
+	}
+	if p.LastPlayed == nil || !p.LastPlayed.Equal(day("2025-01-10")) {
+		t.Errorf("last played = %v, want the run's 2025-01-10", p.LastPlayed)
+	}
+
+	_, page, err := r.PlayerMatches(ctx, run, "ann", 3, 1)
+	if err != nil {
+		t.Fatalf("PlayerMatches: %v", err)
+	}
+	if page.Total != 1 || len(page.Matches) != 1 || page.Matches[0].ID != fixed {
+		t.Fatalf("3P games = %+v, want the trio as the run rated it", page)
+	}
+	if m := page.Matches[0]; !m.Date.Equal(day("2025-01-10")) || m.PlayerCount != 3 {
+		t.Errorf("trio = %v, %dP; want the run's 2025-01-10, 3P", m.Date, m.PlayerCount)
+	}
+}
+
 func TestHiddenNamesFindsDeletedAndBannedAccountsIgnoringCase(t *testing.T) {
 	pool := migrated(t)
 	addPlayers(t, pool, "ann", "bob", "cy")
