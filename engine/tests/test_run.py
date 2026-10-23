@@ -740,7 +740,7 @@ def run_tables(conn):
         r["t"]
         for r in conn.execute(
             "SELECT conrelid::regclass::text AS t FROM pg_constraint "
-            "WHERE confrelid = 'rating_runs'::regclass AND contype = 'f' AND confdeltype = 'c'"
+            "WHERE confrelid = 'rating_runs'::regclass AND contype = 'f' AND confdeltype = 'c' AND conparentid = 0"
         ).fetchall()
     ]
 
@@ -773,14 +773,13 @@ def recorded_bytes(conn, run_id):
 
 
 def table_bytes(conn, table, run_id):
-    """Returns the bytes of the run's rows in table, and with its share of the table's indexes."""
+    """Returns the bytes of the run's rows in table, and what the run's partition of it takes on disk."""
     r = conn.execute(
-        f"SELECT coalesce(sum(pg_column_size(t.*)), 0) AS b, count(*) AS n, "
-        f"(SELECT count(*) FROM {table}) AS total, pg_indexes_size(%s::regclass) AS idx "
+        f"SELECT coalesce(sum(pg_column_size(t.*)), 0) AS b, pg_total_relation_size(%s::regclass) AS disk "
         f"FROM {table} t WHERE run_id = %s",
-        (table, run_id),
+        (f"{table}_run{run_id}", run_id),
     ).fetchone()
-    return r["b"], r["b"] + (r["idx"] * r["n"] // r["total"] if r["total"] else 0)
+    return r["b"], r["disk"]
 
 
 @pytest.mark.parametrize("kind", ["full", "tournaments only"])
@@ -973,24 +972,19 @@ def test_ratings_converge_on_true_strength(
 
 def manual_vacuums(conn, table):
     conn.execute("SELECT pg_stat_clear_snapshot()")
-    return conn.execute(
+    row = conn.execute(
         "SELECT vacuum_count FROM pg_stat_user_tables WHERE relname = %s", (table,)
-    ).fetchone()["vacuum_count"]
+    ).fetchone()
+    return row and row["vacuum_count"]
 
 
 @pytest.mark.parametrize("kind", ["full", "tournaments only"])
-def test_a_run_vacuums_the_tables_player_pages_read_by_index_only(
-    conn, add_match, kind
-):
+def test_a_run_vacuums_its_partition_of_every_run_table(conn, add_match, kind):
     season(add_match)
-    before = {
-        t: manual_vacuums(conn, t) for t in ("pairwise_matches", "rating_history")
-    }
-    run(conn, "v1", formats=[2], log=lambda _: None, make_current=True)
+    run_id = run(conn, "v1", formats=[2], log=lambda _: None, make_current=True)
     if kind == "tournaments only":
-        before = {t: manual_vacuums(conn, t) for t in before}
-        run(conn, "v2", tournaments_only=True, log=lambda _: None)
+        run_id = run(conn, "v2", tournaments_only=True, log=lambda _: None)
 
-    assert {t: manual_vacuums(conn, t) for t in before} == {
-        t: n + 1 for t, n in before.items()
+    assert {t: manual_vacuums(conn, f"{t}_run{run_id}") for t in run_tables(conn)} == {
+        t: 1 for t in run_tables(conn)
     }

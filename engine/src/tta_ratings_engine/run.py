@@ -17,6 +17,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 
 import psycopg
+from psycopg import sql
 from psycopg.types.json import Jsonb
 
 from tta_ratings_engine.data.badges import derive_tournament_badges
@@ -94,6 +95,13 @@ RESULT_TABLES = [
     "player_year_records",
 ]
 
+
+# A run's partition of each run table (the trigger on rating_runs adds them), as t, and the table, as parent.
+RUN_PARTITIONS = (
+    "SELECT c.relname AS t, i.inhparent::regclass::text AS parent "
+    "FROM pg_class c JOIN pg_inherits i ON i.inhrelid = c.oid "
+    "WHERE c.relispartition AND pg_get_expr(c.relpartbound, c.oid) = format('FOR VALUES IN (%%L)', %s::bigint)"
+)
 
 # What a completed run records about its input, for the site's header and footer.
 RUN_STATS = ["games", "players", "pairs", "first_game", "last_game", "result_rows"]
@@ -319,7 +327,7 @@ def run(
         log(f"run {run_id}: failed")
         raise
 
-    _vacuum_player_tables(conn)
+    _vacuum_run(conn, run_id)
     with conn.transaction():
         _record_stats(conn, run_id)
         _record_rows(conn, run_id)
@@ -613,11 +621,11 @@ def _recompute_tournaments(conn, run_id, source, log):
     progress.summary()
 
 
-def _vacuum_player_tables(conn):
-    """Vacuums and analyses the tables player pages read from their indexes alone, so a new run's rows are
-    marked visible to those reads before the run can be published. Runs outside a transaction."""
-    for table in ("pairwise_matches", "rating_history"):
-        conn.execute(f"VACUUM (ANALYZE) {table}")
+def _vacuum_run(conn, run_id):
+    """Vacuums and analyses the run's partition of each run table, so player pages read its rows from their
+    indexes alone, planned with fresh statistics, before the run can be published. Runs outside a transaction."""
+    for r in conn.execute(RUN_PARTITIONS, (run_id,)).fetchall():
+        conn.execute(sql.SQL("VACUUM (ANALYZE) {}").format(sql.Identifier(r["t"])))
 
 
 def _record_stats(conn, run_id):
@@ -638,20 +646,17 @@ def _record_stats(conn, run_id):
 
 
 def _record_rows(conn, run_id):
-    """Records the run's rows in each table whose rows go with their run, their bytes, and with the run's share
-    of the tables' indexes what it takes on disk, for admin's sizes."""
-    tables = conn.execute(
-        "SELECT conrelid::regclass::text AS t FROM pg_constraint "
-        "WHERE confrelid = 'rating_runs'::regclass AND contype = 'f' AND confdeltype = 'c'"
-    ).fetchall()
+    """Records the run's rows in each run table, their bytes, and what its partitions take on disk with their
+    indexes, for admin's sizes."""
     sizes = {
-        r["t"]: conn.execute(
-            f"SELECT count(*) AS n, coalesce(sum(pg_column_size(t.*)), 0) AS b, "
-            f"(SELECT count(*) FROM {r['t']}) AS total, pg_indexes_size(%s::regclass) AS idx "
-            f"FROM {r['t']} t WHERE run_id = %s",
-            (r["t"], run_id),
+        p["parent"]: conn.execute(
+            sql.SQL(
+                "SELECT count(*) AS n, coalesce(sum(pg_column_size(t.*)), 0) AS b, "
+                "pg_total_relation_size(%s::regclass) AS disk FROM {} t"
+            ).format(sql.Identifier(p["t"])),
+            (p["t"],),
         ).fetchone()
-        for r in tables
+        for p in conn.execute(RUN_PARTITIONS, (run_id,)).fetchall()
     }
     conn.execute(
         "UPDATE rating_runs SET result_rows = %s, result_bytes = %s, disk_bytes = %s "
@@ -659,10 +664,7 @@ def _record_rows(conn, run_id):
         (
             Jsonb({t: s["n"] for t, s in sizes.items()}),
             sum(s["b"] for s in sizes.values()),
-            sum(
-                s["b"] + (s["idx"] * s["n"] // s["total"] if s["total"] else 0)
-                for s in sizes.values()
-            ),
+            sum(s["disk"] for s in sizes.values()),
             run_id,
         ),
     )
