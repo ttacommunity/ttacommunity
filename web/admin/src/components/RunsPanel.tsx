@@ -132,7 +132,7 @@ export default function RunsPanel() {
     const sure = await dialog.confirm({ heading: `Stop run ${run.id}?`, text: 'It is marked failed, and its work so far is not kept.', action: 'Stop run', final: true });
     if (!sure) return;
     setOutcome(null);
-    const r = await req.send(req.stopRun());
+    const r = await req.send(req.stopRun(run.id));
     setOutcome(outcomeOf(r, `Stopping run ${run.id}. It shows as failed once the engine has ended.`, 'runs'));
     await load();
   };

@@ -65,7 +65,7 @@ describe('admin requests', () => {
     ['clearing a title', req.clearTitle('ann'), '/api/titles/ann', 'DELETE', undefined],
     // Rating runs
     ['starting a run', req.startRun(), '/api/runs', 'POST', undefined],
-    ['stopping a run', req.stopRun(), '/api/runs/stop', 'POST', undefined],
+    ['stopping a run', req.stopRun(45), '/api/runs/45/stop', 'POST', undefined],
     ['publishing a run', req.publishRun(12), '/api/runs/12/publish', 'POST', undefined],
     ['protecting a run', req.protectRun(12, true), '/api/runs/12', 'PATCH', { protected: true }],
     ['deleting a run', req.deleteRun(12), '/api/runs/12', 'DELETE', undefined],

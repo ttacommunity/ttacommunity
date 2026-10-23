@@ -2544,26 +2544,6 @@ paths:
           $ref: "#/components/responses/Conflict"
         "503":
           $ref: "#/components/responses/NotSetUp"
-  /v1/admin/runs/stop:
-    post:
-      operationId: postAdminRunStop
-      tags: [admin]
-      summary: Stop the rating run that is going (admins only)
-      description: >
-        Deletes the engine's Job. The engine marks its run failed, with the
-        progress line "stopped", as it ends. Audited. The Origin must be the
-        admin site.
-      responses:
-        "204":
-          description: Stopping
-        "401":
-          $ref: "#/components/responses/Unauthorized"
-        "403":
-          $ref: "#/components/responses/Forbidden"
-        "409":
-          $ref: "#/components/responses/Conflict"
-        "503":
-          $ref: "#/components/responses/NotSetUp"
   /v1/admin/runs/{run}:
     patch:
       operationId: patchAdminRun
@@ -2629,6 +2609,29 @@ paths:
           $ref: "#/components/responses/NotFound"
         "409":
           $ref: "#/components/responses/Conflict"
+  /v1/admin/runs/{run}/stop:
+    post:
+      operationId: postAdminRunStop
+      tags: [admin]
+      summary: Stop the rating run that is going (admins only)
+      description: >
+        Deletes the engine's Job. The engine marks its run failed, with the
+        progress line "stopped", as it ends. Refused unless the run named is
+        the one going, so a stop confirmed for a run that has since ended
+        stops nothing. Audited. The Origin must be the admin site.
+      parameters:
+        - $ref: "#/components/parameters/AdminRunId"
+      responses:
+        "204":
+          description: Stopping
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "503":
+          $ref: "#/components/responses/NotSetUp"
   /v1/admin/runs/{run}/changes:
     get:
       operationId: getAdminRunChanges

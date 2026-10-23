@@ -1798,26 +1798,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/v1/admin/runs/stop": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Stop the rating run that is going (admins only)
-         * @description Deletes the engine's Job. The engine marks its run failed, with the progress line "stopped", as it ends. Audited. The Origin must be the admin site.
-         */
-        post: operations["postAdminRunStop"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/v1/admin/runs/{run}": {
         parameters: {
             query?: never;
@@ -1856,6 +1836,26 @@ export interface paths {
          * @description Audited. The Origin must be the admin site.
          */
         post: operations["postAdminRunPublish"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/runs/{run}/stop": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Stop the rating run that is going (admins only)
+         * @description Deletes the engine's Job. The engine marks its run failed, with the progress line "stopped", as it ends. Refused unless the run named is the one going, so a stop confirmed for a run that has since ended stops nothing. Audited. The Origin must be the admin site.
+         */
+        post: operations["postAdminRunStop"];
         delete?: never;
         options?: never;
         head?: never;
@@ -7540,28 +7540,6 @@ export interface operations {
             503: components["responses"]["NotSetUp"];
         };
     };
-    postAdminRunStop: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Stopping */
-            204: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            401: components["responses"]["Unauthorized"];
-            403: components["responses"]["Forbidden"];
-            409: components["responses"]["Conflict"];
-            503: components["responses"]["NotSetUp"];
-        };
-    };
     deleteAdminRun: {
         parameters: {
             query?: never;
@@ -7639,6 +7617,31 @@ export interface operations {
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
             409: components["responses"]["Conflict"];
+        };
+    };
+    postAdminRunStop: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Any run's id, published or not */
+                run: components["parameters"]["AdminRunId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Stopping */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            409: components["responses"]["Conflict"];
+            503: components["responses"]["NotSetUp"];
         };
     };
     getAdminRunChanges: {

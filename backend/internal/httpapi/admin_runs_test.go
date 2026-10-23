@@ -57,10 +57,12 @@ func TestRunChangesAreRefusedWhenTheyShouldBe(t *testing.T) {
 		{"publishing a running run", owner, http.MethodPost, "/v1/admin/runs/9/publish", site, nil, http.StatusConflict},
 		{"publishing no run", owner, http.MethodPost, "/v1/admin/runs/99/publish", site, nil, http.StatusNotFound},
 		{"publishing from another site", owner, http.MethodPost, "/v1/admin/runs/8/publish", "https://evil.example", nil, http.StatusForbidden},
-		{"an organiser stops a run", org, http.MethodPost, "/v1/admin/runs/stop", site, nil, http.StatusForbidden},
-		{"a stop from another site", owner, http.MethodPost, "/v1/admin/runs/stop", "https://evil.example", nil, http.StatusForbidden},
-		{"a stop with nothing going", owner, http.MethodPost, "/v1/admin/runs/stop", site, enginejob.ErrNotRunning, http.StatusConflict},
-		{"a stop where runs are not set up", owner, http.MethodPost, "/v1/admin/runs/stop", site, enginejob.ErrNotSetUp, http.StatusServiceUnavailable},
+		{"an organiser stops a run", org, http.MethodPost, "/v1/admin/runs/9/stop", site, nil, http.StatusForbidden},
+		{"a stop from another site", owner, http.MethodPost, "/v1/admin/runs/9/stop", "https://evil.example", nil, http.StatusForbidden},
+		{"a stop of a run that is not the one going", owner, http.MethodPost, "/v1/admin/runs/8/stop", site, nil, http.StatusConflict},
+		{"a stop of no run", owner, http.MethodPost, "/v1/admin/runs/99/stop", site, nil, http.StatusConflict},
+		{"a stop with nothing going", owner, http.MethodPost, "/v1/admin/runs/9/stop", site, enginejob.ErrNotRunning, http.StatusConflict},
+		{"a stop where runs are not set up", owner, http.MethodPost, "/v1/admin/runs/9/stop", site, enginejob.ErrNotSetUp, http.StatusServiceUnavailable},
 		{"an organiser deletes a run", org, http.MethodDelete, "/v1/admin/runs/8", site, nil, http.StatusForbidden},
 		{"a delete from another site", owner, http.MethodDelete, "/v1/admin/runs/8", "https://evil.example", nil, http.StatusForbidden},
 		{"deleting a protected run", owner, http.MethodDelete, "/v1/admin/runs/4", site, nil, http.StatusConflict},
@@ -121,7 +123,7 @@ func TestRunChangesCompareWithThePublishedRunUnlessAsked(t *testing.T) {
 func TestAnAdminStopsTheRunThatIsGoing(t *testing.T) {
 	const owner = "111111111111111111"
 	f := &fakeAdmins{}
-	if rec := adminDoAs(t, f, owner, http.MethodPost, "/v1/admin/runs/stop", "https://ttac-admin.example", ""); rec.Code != http.StatusNoContent {
+	if rec := adminDoAs(t, f, owner, http.MethodPost, "/v1/admin/runs/9/stop", "https://ttac-admin.example", ""); rec.Code != http.StatusNoContent {
 		t.Fatalf("POST stop = %d %s, want 204", rec.Code, rec.Body)
 	}
 	if strings.Join(f.notes, "|") != "stop" || strings.Join(f.audits, "|") != owner+" run.stop engine-dev-admin-x7k2p" {
