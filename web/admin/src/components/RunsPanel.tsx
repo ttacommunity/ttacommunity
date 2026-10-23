@@ -197,6 +197,7 @@ export default function RunsPanel() {
                 <th scope="col" className="run-wide">Games</th>
                 <th scope="col" className="run-wide">Players</th>
                 <th scope="col">Size</th>
+                <th scope="col" className="run-wide">Engine</th>
                 <th scope="col">Protect</th>
                 <th scope="col">Actions</th>
               </tr>
@@ -212,7 +213,7 @@ export default function RunsPanel() {
                     onProtect={(on) => void protect(r, on)}
                     onDelete={() => void remove(r)}
                   />
-                  <NoticeRow outcome={shownAt(outcome, `run ${r.id}`)} columns={8} onClose={close} />
+                  <NoticeRow outcome={shownAt(outcome, `run ${r.id}`)} columns={9} onClose={close} />
                 </Fragment>
               ))}
             </tbody>
@@ -259,6 +260,7 @@ function RunRow({
       <td className="run-wide">{run.games > 0 ? run.games.toLocaleString() : ''}</td>
       <td className="run-wide">{run.players > 0 ? run.players.toLocaleString() : ''}</td>
       <td>{runSize(run)}</td>
+      <td className="run-wide">{run.engine_version}</td>
       <td>
         <input
           type="checkbox"
