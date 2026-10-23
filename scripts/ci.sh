@@ -265,7 +265,7 @@ printf '\n\033[1mNot covered here:\033[0m\n'
 for item in "${not_covered[@]}" \
   "Cloudflare's own Workers build (check its build log after a merge to main)" \
   "container images: built by the CI image jobs, not by this script" \
-  "gitleaks and semgrep: their own CI jobs (secrets, sast)"; do
+  "gitleaks and semgrep: steps of CI's checks job, after this script"; do
   echo "  - $item"
 done
 

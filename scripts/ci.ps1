@@ -74,7 +74,7 @@ Write-Host "`nNot covered here:"
 Write-Host '  - Go race detector and the engine''s slow tests: Linux CI runs them'
 Write-Host "  - deploy/'s pins and env values, image digests, workflows and shellcheck: CI runs them"
 Write-Host '  - gofmt on Go files this branch does not change: main is clean, CI checks every file'
-Write-Host '  - gitleaks and semgrep: their own CI jobs (secrets, sast)'
+Write-Host '  - gitleaks and semgrep: steps of CI''s checks job, after scripts/ci.sh'
 if ($failures.Count -gt 0) {
     Write-Host "`n$($failures.Count) step(s) FAILED: $($failures -join ', ')" -ForegroundColor Red
     exit 1

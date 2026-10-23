@@ -128,7 +128,7 @@ jobs:
           mise trust && mise install node
       - run: PATH="$HOME/.local/share/mise/shims:$PATH" bash scripts/ci.sh --only web
 
-  # The jobs below need no area but wait for the gate, so it takes the first free runner.
+  # The checks and both scanners share one job, so the gate and four jobs fit the pool's four runners.
   checks:
     needs: changes
     if: ${{ !cancelled() }}
@@ -143,59 +143,27 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-          # deploy-current.sh reads the commits deploy/'s images were built from.
+          # deploy-current.sh reads the commits deploy/'s images were built from; gitleaks scans them all.
           fetch-depth: 0
       - name: tools
         env:
           GITHUB_TOKEN: ${{ github.token }}
         run: |
           scripts/install-mise.sh /usr/local/bin
-          mise trust && mise install shellcheck actionlint zizmor powershell kustomize yq
-      - env:
+          mise trust && mise install shellcheck actionlint zizmor powershell kustomize yq gitleaks uv pipx:semgrep
+      - name: checks
+        env:
           GITHUB_TOKEN: ${{ github.token }}
           GH_TOKEN: ${{ github.token }}
           PR_DRAFT: ${{ github.event.pull_request.draft }}
         run: PATH="$HOME/.local/share/mise/shims:$PATH" bash scripts/ci.sh --only checks
-
-  secrets:
-    needs: changes
-    if: ${{ !cancelled() }}
-    runs-on: ${{ vars.RUNNER_AMD64 || 'ubuntu-24.04' }}
-    timeout-minutes: 20 # the longest job takes 7; a step killed at the runner's memory limit otherwise waits for hours
-    container: docker.io/library/debian:trixie-slim@sha256:a99cfc517144bc59b1978475ec53b46ecabec7e43635402ee5b77cc54cd1b20a
-    steps:
-      - run: apt-get update -qq && apt-get install -y -qq --no-install-recommends bash ca-certificates curl git xz-utils >/dev/null
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
-          fetch-depth: 0
-      - name: tools
-        env:
-          GITHUB_TOKEN: ${{ github.token }}
-        run: |
-          scripts/install-mise.sh /usr/local/bin
-          mise trust && mise install gitleaks
       # gitleaks passes "0 commits scanned" when git fails, so require a scan.
-      - run: |
+      - name: secrets
+        if: ${{ !cancelled() }}
+        run: |
           PATH="$HOME/.local/share/mise/shims:$PATH" gitleaks git --redact --no-banner --no-color . 2>&1 | tee "$RUNNER_TEMP/gitleaks.log"
           grep -qE ' [1-9][0-9]* commits scanned' "$RUNNER_TEMP/gitleaks.log"
-
-  sast:
-    needs: changes
-    if: ${{ !cancelled() }}
-    runs-on: ${{ vars.RUNNER_AMD64 || 'ubuntu-24.04' }}
-    timeout-minutes: 20 # the longest job takes 7; a step killed at the runner's memory limit otherwise waits for hours
-    container: docker.io/library/debian:trixie-slim@sha256:a99cfc517144bc59b1978475ec53b46ecabec7e43635402ee5b77cc54cd1b20a
-    steps:
-      - run: apt-get update -qq && apt-get install -y -qq --no-install-recommends bash ca-certificates curl git xz-utils >/dev/null
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
-      - name: tools
-        env:
-          GITHUB_TOKEN: ${{ github.token }}
-        run: |
-          scripts/install-mise.sh /usr/local/bin
-          mise trust && mise install uv pipx:semgrep
       # Reports without blocking, as GitLab's SAST did; findings are triaged by hand.
-      - run: PATH="$HOME/.local/share/mise/shims:$PATH" semgrep scan --config p/default --metrics off
+      - name: sast
+        if: ${{ !cancelled() }}
+        run: PATH="$HOME/.local/share/mise/shims:$PATH" semgrep scan --config p/default --metrics off
