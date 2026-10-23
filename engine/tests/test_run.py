@@ -167,15 +167,12 @@ def test_a_run_writes_tournament_results(conn, add_match):
 )
 def test_a_recorded_fact_changes_the_input_fingerprint(conn, add_match, fact):
     season(add_match)
-    first = run(conn, "v1", formats=[2], log=lambda _: None)
+    ranking = conn.execute("SELECT community_ranking() AS id").fetchone()["id"]
+    first = runner.input_fingerprint(conn, ranking)
     conn.execute(fact)
     conn.commit()
-    second = run(conn, "v1", formats=[2], log=lambda _: None)
 
-    assert (
-        the_run(conn, second)["input_fingerprint"]
-        != the_run(conn, first)["input_fingerprint"]
-    )
+    assert runner.input_fingerprint(conn, ranking) != first
 
 
 def test_a_run_is_not_published_unless_asked(conn, add_match):
