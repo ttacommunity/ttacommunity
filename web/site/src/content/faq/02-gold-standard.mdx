@@ -32,7 +32,7 @@ order: 2
     </li>
   </ul>
   <p>
-    Returning to sequential Glicko-2 with these empirical insights, GlickoD is built upon <strong>two core pillars</strong>:
+    Returning to sequential Glicko-2 with these empirical insights, GlickoD is built upon <strong>three core pillars</strong>:
   </p>
   <ol class="faq-list faq-steps">
     <li>
@@ -40,6 +40,9 @@ order: 2
     </li>
     <li>
       <strong>Golden Ratio ($\phi$) Multiplayer Information Decomposition:</strong> Winning a 4-player game is neither 3 independent duels (naive Glicko) nor 1 duel (Coulom fractional scaling). GlickoD deploys Golden Ratio information scaling $W(N) = \phi^{N-2}$ ($w_N = \frac{\phi^{N-2}}{N-1}$), giving $\approx 1.618$ effective match equivalents for 3-player and $\approx 2.618$ for 4-player games, accurately capturing table evidence without inflating certainty.
+    </li>
+    <li>
+      <strong>Bilateral Composite Variance ($c = \sqrt{\phi_A^2 + \phi_B^2}$):</strong> In match prediction, performance difference variance is $\text{Var}(\Theta_A - \Theta_B) = \phi_A^2 + \phi_B^2$. GlickoD applies full bilateral composite variance shrinkage $g(c)$, preventing overconfidence whenever either competitor has elevated rating uncertainty.
     </li>
   </ol>
   <p>

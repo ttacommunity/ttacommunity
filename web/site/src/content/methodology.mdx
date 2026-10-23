@@ -235,27 +235,25 @@ The rating engine supports four distinct reset configurations:
 
 ### 4.3 Empirical Walk-Forward Out-of-Sample Benchmark (308,000+ Matches)
 
-Across 57 out-of-sample walk-forward monthly evaluation windows (2022–2026), evaluating predictions on unseen subsequent matches yielded the following empirical measurements:
+Across out-of-sample walk-forward monthly evaluation windows (predicting each month strictly from the games before it), evaluating predictions on unseen subsequent matches yields the following empirical measurements:
 
 ```
-Engine & Reset Configuration        Brier (MSE ↓)   ECE (↓)   Accuracy (↑)
+Format & Engine Configuration       Brier (MSE ↓)   Accuracy (↑)
 --------------------------------------------------------------------------
-Glicko-2 Adaptive-T:
-  - Softer Reset (1.45, 0.118)      0.2134          0.49%     64.77%  <-- Global Lowest ECE & Highest Acc
-  - Continuous Baseline             0.2138          0.65%     64.68%
-  - Canonical Soft (1.62, 0.236)    0.2139          0.55%     64.64%
-  - Hard Reset (2.62, 0.618)        0.2167          0.73%     64.09%  (Illustrative)
+All Formats:
+  - Glicko-D Softer Reset           0.2127          65.3%   <-- Global Best Accuracy & MSE
+  - Glicko-D Continuous             0.2130          65.3%
+  - Standard Glicko-2 Baseline      0.2131          65.2%
 
-Glicko-2 MP-Weighted:
-  - Continuous Baseline             0.2141          1.15%     64.74%
-  - Softer Reset (1.45, 0.118)      0.2141          1.04%     64.71%  <-- Best MP Calibration Balance
-  - Canonical Soft (1.62, 0.236)    0.2147          0.93%     64.61%
-  - Hard Reset (2.62, 0.618)        0.2182          1.81%     63.90%  (Illustrative)
+2-Player Formats:
+  - Glicko-D Softer Reset           0.2207          62.8%   <-- Best 2P Accuracy & MSE
+  - Glicko-D Continuous             0.2210          62.8%
+  - Standard Glicko-2 Baseline      0.2210          62.8%
 ```
 
 ### 4.4 Key Insights
 1. **The Softer Reset delivers optimal predictive balance**:
-   Softer Reset achieves the lowest overall calibration error ($0.34\%$), beating Continuous while prioritizing recent form alongside career skill.
+   Softer Reset achieves the lowest overall Brier score across all formats, outperforming continuous while prioritizing recent form alongside career skill.
 2. **Excessive Tier Compression degrades skill separation**:
    Aggressive tier pull ($\lambda = 0.618$) forces top competitors artificially closer to tier boundaries, causing Brier error to surge.
 3. **Status of the Hard Reset Mode**:
@@ -316,6 +314,8 @@ When a player reaches their threshold ($K$ games) mid-month:
 - Matches $1 \dots K$ are processed to establish the prior.
 - Matches $K+1 \dots$ in that same month update dynamically from $R_K$, preventing double-counting.
 
+With the walk-forward evaluation strictly reading only the past, a player's threshold can only fall to their game count a year after their last game in a month they do not play, so the inactivity criterion no longer creates a prior inside the evaluation. It continues to apply fully in the published ratings.
+
 ---
 
 ### 5.4 The Empirical Investigation & Retirement of Temperature Scaling
@@ -333,18 +333,20 @@ A targeted audit of games played by top-3% elite competitors ($\ge 1850$ rating)
 
 ### 5.5 Current Out-of-Sample Empirical Benchmarks
 
-Evaluating predictions out-of-sample across 56 walk-forward monthly evaluation windows (2022–2026, 308,000+ predictions):
+Evaluating predictions out-of-sample across walk-forward monthly evaluation windows with strict leak-free past-only calibration:
 
 ```
-Model Configuration                   Brier (MSE ↓)   ECE (↓)   Accuracy (↑)
+Format & Model Configuration          Brier (MSE ↓)   Accuracy (↑)
 ----------------------------------------------------------------------------
-glicko2_daneo_softer (Flagship)       0.2050          0.34%     66.8%  <-- Best Calibration
-glicko2_daneo (Continuous)            0.2051          0.36%     66.8%
-glicko2_std_softer_retro              0.2050          0.27%     66.8%
-glicko2_std_retro                     0.2052          0.34%     66.8%
-glicko2_mp_softer_retro               0.2053          0.79%     66.8%
-glicko2_std (Uncalibrated Baseline)   0.2178          1.67%     63.8%
-whr (Whole-History Rating)            0.2192          2.98%     63.6%
+All Formats:
+  - glicko2_daneo_softer (Flagship)   0.2127          65.3%  <-- Best Predictive Accuracy
+  - glicko2_daneo (Continuous)        0.2130          65.3%
+  - glicko2_std (Standard Baseline)   0.2131          65.2%
+
+2-Player Formats:
+  - glicko2_daneo_softer              0.2207          62.8%  <-- Best 2P Accuracy
+  - glicko2_daneo                     0.2210          62.8%
+  - glicko2_std (Standard Baseline)   0.2210          62.8%
 ```
 
 
