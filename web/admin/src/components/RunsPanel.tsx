@@ -5,7 +5,7 @@ import * as req from '../lib/admin-requests';
 import { adminRequest, type AdminRun, type RunChanges, type StartedRun } from '../lib/admin-api';
 import { loadFailure, outcomeOf, refusalOf, refused, shownAt, succeeded, type Outcome } from '../lib/outcome';
 import Notice, { LoadNotice, NoticeRow } from './Notice';
-import { awaitStartedRun, canDelete, keepPolling, parseProgress, publishVerb, runGoing, runLabel, runSize, shownRuns } from '../lib/runs-view';
+import { awaitStartedRun, canDelete, changesSummary, keepPolling, parseProgress, publishVerb, runGoing, runLabel, runSize, shownRuns } from '../lib/runs-view';
 
 const POLL_MS = 5000;
 const ZONE = Intl.DateTimeFormat().resolvedOptions().timeZone;
@@ -39,14 +39,23 @@ function Changes({ run }: { run: number }) {
   }, [run]);
   if (message !== '') return <LoadNotice message={message} />;
   if (c === null) return <p className="muted">Comparing…</p>;
+  const summary = changesSummary(c);
+  if (summary.same) {
+    return (
+      <div className="run-changes">
+        <p>{summary.line}</p>
+      </div>
+    );
+  }
   return (
     <div className="run-changes">
       <h3>
         Run {c.run} against run {c.against}
       </h3>
       <p>
-        {c.ratings} ratings (was {c.ratings_before}), {c.new} new, {c.gone} gone. Moved more than
-        1 point: {c.moved_1}; 10: {c.moved_10}; 50: {c.moved_50}; 100: {c.moved_100}.
+        {c.ratings} ratings (was {c.ratings_before}), {c.new} new, {c.gone} gone.
+        {summary.thresholds.length > 0 &&
+          ` Moved more than ${summary.thresholds.map((t) => `${t.points} point${t.points === 1 ? '' : 's'}: ${t.count}`).join('; ')}.`}
       </p>
       {c.biggest.length > 0 && (
         <div className="table-responsive">

@@ -2637,7 +2637,7 @@ export interface components {
             moved_10: number;
             moved_50: number;
             moved_100: number;
-            /** @description The 20 biggest moves in the overall format */
+            /** @description The 20 biggest moves in the overall format, of players who moved at all */
             biggest: components["schemas"]["RunMove"][];
         };
         RunMove: {

@@ -3423,7 +3423,7 @@ type Run struct {
 type RunChanges struct {
 	Against int64 `json:"against"`
 
-	// Biggest The 20 biggest moves in the overall format
+	// Biggest The 20 biggest moves in the overall format, of players who moved at all
 	Biggest []RunMove `json:"biggest"`
 
 	// Gone Ratings in the other run but not this one

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { awaitStartedRun, canDelete, keepPolling, parseProgress, publishVerb, runGoing, runLabel, runSize, shownRuns, sizeText } from './runs-view';
+import { awaitStartedRun, canDelete, changesSummary, keepPolling, parseProgress, publishVerb, runGoing, runLabel, runSize, shownRuns, sizeText } from './runs-view';
 
 describe('parseProgress', () => {
   it('reads the step, label, time taken and time left from an engine line', () => {
@@ -126,5 +126,30 @@ describe('runSize', () => {
     ['a run still going, its rows not yet recorded', 'running', 0, ''],
   ] as const)('writes %s', (_, status, bytes, want) => {
     expect(runSize({ status, bytes })).toBe(want);
+  });
+});
+
+describe('changesSummary', () => {
+  const still = { run: 45, against: 44, new: 0, gone: 0, moved_1: 0, moved_10: 0, moved_50: 0, moved_100: 0, biggest: [] };
+
+  it('says in one line that nothing changed when no rating or player did', () => {
+    expect(changesSummary(still)).toEqual({ same: true, line: 'Run 45 rates everyone as run 44 did' });
+  });
+
+  it.each([
+    ['a player gone', { ...still, gone: 1 }, []],
+    ['a new player', { ...still, new: 1 }, []],
+    ['a move under a point', { ...still, biggest: [{ change: 0.4 }] }, []],
+    [
+      'moves past some thresholds',
+      { ...still, moved_1: 3, moved_10: 3, moved_50: 2, biggest: [{ change: -120 }] },
+      [
+        { points: 1, count: 3 },
+        { points: 10, count: 3 },
+        { points: 50, count: 2 },
+      ],
+    ],
+  ])('lists only the thresholds someone crossed after %s', (_name, c, thresholds) => {
+    expect(changesSummary(c)).toEqual({ same: false, thresholds });
   });
 });

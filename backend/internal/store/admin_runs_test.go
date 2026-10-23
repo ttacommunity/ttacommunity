@@ -74,7 +74,7 @@ func TestRunChangesCountsHowFarRatingsMoved(t *testing.T) {
 	for _, r := range []struct {
 		name          string
 		before, after float64
-	}{{"ann", 1500, 1500.5}, {"bob", 1500, 1520}, {"cat", 1500, 1560}, {"dan", 1500, 1380}} {
+	}{{"ann", 1500, 1500.5}, {"bob", 1500, 1520}, {"cat", 1500, 1560}, {"dan", 1500, 1380}, {"eve", 1500, 1500}} {
 		addRating(t, pool, before, "glicko2_daneo", 0, r.name, nil, r.before)
 		addRating(t, pool, after, "glicko2_daneo", 0, r.name, nil, r.after)
 	}
@@ -85,14 +85,14 @@ func TestRunChangesCountsHowFarRatingsMoved(t *testing.T) {
 	if err != nil {
 		t.Fatalf("RunChanges: %v", err)
 	}
-	if got.Ratings != 5 || got.RatingsBefore != 5 || got.New != 1 || got.Gone != 1 {
-		t.Errorf("counts = %+v, want 5 and 5 ratings, 1 new, 1 gone", got)
+	if got.Ratings != 6 || got.RatingsBefore != 6 || got.New != 1 || got.Gone != 1 {
+		t.Errorf("counts = %+v, want 6 and 6 ratings, 1 new, 1 gone", got)
 	}
 	if got.Moved1 != 3 || got.Moved10 != 3 || got.Moved50 != 2 || got.Moved100 != 1 {
 		t.Errorf("moved = >1 %d, >10 %d, >50 %d, >100 %d; want 3, 3, 2, 1", got.Moved1, got.Moved10, got.Moved50, got.Moved100)
 	}
-	if len(got.Biggest) == 0 || got.Biggest[0].Name != "dan" || got.Biggest[0].Change != -120 {
-		t.Errorf("biggest = %+v, want dan -120 first", got.Biggest)
+	if len(got.Biggest) != 4 || got.Biggest[0].Name != "dan" || got.Biggest[0].Change != -120 {
+		t.Errorf("biggest = %+v, want dan -120 first and the four who moved alone", got.Biggest)
 	}
 	if _, err := NewAdminStore(asAdminLogin(t, pool)).RunChanges(ctx, after, 9999); !errors.Is(err, ErrRunNotFound) {
 		t.Errorf("RunChanges against no run = %v, want ErrRunNotFound", err)

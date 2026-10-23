@@ -3988,7 +3988,7 @@ components:
         moved_100:
           type: integer
         biggest:
-          description: The 20 biggest moves in the overall format
+          description: The 20 biggest moves in the overall format, of players who moved at all
           type: array
           items:
             $ref: "#/components/schemas/RunMove"
