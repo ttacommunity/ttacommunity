@@ -126,7 +126,10 @@ jobs:
           mise trust && mise install node
       - run: PATH="$HOME/.local/share/mise/shims:$PATH" bash scripts/ci.sh --only web
 
+  # The jobs below need no area but wait for the gate, so it takes the first free runner.
   checks:
+    needs: changes
+    if: ${{ !cancelled() }}
     runs-on: ${{ vars.RUNNER_AMD64 || 'ubuntu-24.04' }}
     timeout-minutes: 20 # the longest job takes 7; a step killed at the runner's memory limit otherwise waits for hours
     container: docker.io/library/debian:trixie-slim@sha256:a99cfc517144bc59b1978475ec53b46ecabec7e43635402ee5b77cc54cd1b20a
@@ -153,6 +156,8 @@ jobs:
         run: PATH="$HOME/.local/share/mise/shims:$PATH" bash scripts/ci.sh --only checks
 
   secrets:
+    needs: changes
+    if: ${{ !cancelled() }}
     runs-on: ${{ vars.RUNNER_AMD64 || 'ubuntu-24.04' }}
     timeout-minutes: 20 # the longest job takes 7; a step killed at the runner's memory limit otherwise waits for hours
     container: docker.io/library/debian:trixie-slim@sha256:a99cfc517144bc59b1978475ec53b46ecabec7e43635402ee5b77cc54cd1b20a
@@ -174,6 +179,8 @@ jobs:
           grep -qE ' [1-9][0-9]* commits scanned' "$RUNNER_TEMP/gitleaks.log"
 
   sast:
+    needs: changes
+    if: ${{ !cancelled() }}
     runs-on: ${{ vars.RUNNER_AMD64 || 'ubuntu-24.04' }}
     timeout-minutes: 20 # the longest job takes 7; a step killed at the runner's memory limit otherwise waits for hours
     container: docker.io/library/debian:trixie-slim@sha256:a99cfc517144bc59b1978475ec53b46ecabec7e43635402ee5b77cc54cd1b20a
