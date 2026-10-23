@@ -2,6 +2,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { playerVersus, type Format, type PlayerVersus } from '@ttac/shared/ratings';
 import { versusTally } from '../lib/career';
+import { formatTournamentDisplay } from '../lib/achievements';
 import Segmented from '@ttac/shared/Segmented';
 import PlayerLink from './PlayerLink';
 import Waiting from './Waiting';
@@ -124,7 +125,7 @@ export default function VersusDialog({
               {tally.rows.map((m) => (
                 <tr key={m.match_id}>
                   <td>{m.date}</td>
-                  <td className="h2h-tournament">{m.tournament || 'Competitive Match'}</td>
+                  <td className="h2h-tournament">{formatTournamentDisplay(m.tournament) || 'Competitive Match'}</td>
                   <td>{m.player_count}p</td>
                   <td>
                     <span className={`placement-badge place-${m.name_place}`}>#{m.name_place}</span>

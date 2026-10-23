@@ -23,6 +23,7 @@ import BackLink from '@ttac/shared/BackLink';
 import { ExtraBadges, Flag } from './PlayerMarks';
 import RatingChart from './RatingChart';
 import VersusDialog from './VersusDialog';
+import { formatTournamentDisplay } from '../lib/achievements';
 import ViewSelectors from './ViewSelectors';
 import * as show from '../lib/leaderboard-display';
 import { DEFAULT_VIEW } from '../lib/leaderboard-view';
@@ -367,7 +368,7 @@ function Games({
             {data?.matches.map((m) => (
               <tr key={m.match_id}>
                 <td className="cell-date">{m.date}</td>
-                <td className="cell-tournament">{m.tournament}</td>
+                <td className="cell-tournament">{formatTournamentDisplay(m.tournament)}</td>
                 <td>
                   <span className="badge badge-seats">{m.player_count}P</span>
                 </td>
