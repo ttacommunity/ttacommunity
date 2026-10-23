@@ -233,7 +233,6 @@ export default function CalibrationPanel({ apiUrl }: { apiUrl: string }) {
                   <th scope="col" data-tooltip="Composite Predictive Score (0–100): Weighted index of predictive quality = Brier Score MSE (35%) + Expected Calibration Error ECE (35%) + Log Loss Cross-Entropy (15%) + Favorite Accuracy (15%). Higher is better.">
                     Score ⓘ
                   </th>
-                  <th scope="col">Evaluation Verdict &amp; Profile</th>
                 </tr>
               </thead>
               <tbody>
@@ -255,7 +254,6 @@ export default function CalibrationPanel({ apiUrl }: { apiUrl: string }) {
                         <td>
                           <span className="score-badge">{rm.composite.toFixed(1)}</span>
                         </td>
-                        <td>{rm.verdict}</td>
                       </tr>
                     ))}
               </tbody>

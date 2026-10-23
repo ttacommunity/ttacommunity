@@ -435,8 +435,8 @@
   opacity: 0.75;
 }
 
-.mean-daneo { background: var(--gold-wash-faint); border: 1px solid var(--gold-wash-strong); color: var(--accent-gold-bright); }
-.mean-std { background: rgba(255, 202, 40, 0.15); border: 1px solid rgba(255, 202, 40, 0.4); color: #fde047; }
+.mean-daneo { background: rgba(168, 85, 247, 0.15); border: 1px solid rgba(168, 85, 247, 0.4); color: #c084fc; }
+.mean-std { background: rgba(234, 179, 8, 0.15); border: 1px solid rgba(234, 179, 8, 0.4); color: #fde047; }
 
 .corr-grid {
   display: grid;

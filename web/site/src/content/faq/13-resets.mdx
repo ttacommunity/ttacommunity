@@ -4,7 +4,7 @@ label: 'Season Resets'
 order: 13
 ---
 
-{/* Written by DANeo for the original ratings site. */}
+import FaqFigure from '../../components/FaqFigure.astro';
 
 <div class="faq-card">
   <h3>Why Introduce Season Resets? Career Inertia vs. Seasonal Stakes</h3>
@@ -192,7 +192,7 @@ $$
   <div>
 
       <p>
-        In an out-of-sample walk-forward evaluation across 56 monthly evaluation windows (2022&ndash;2026, 308,000+ predictions), <strong>GlickoD with Softer Reset achieved both the lowest Brier score (0.2050) and the lowest Expected Calibration Error (0.34%) across all tested configurations</strong>:
+        In an out-of-sample walk-forward evaluation across monthly evaluation windows (predicting each month strictly from prior games alone), <strong>GlickoD with Softer Reset achieves the lowest Brier score (<FaqFigure name="daneo_softer.0.brier" fallback="0.2127" />) across tested configurations</strong>:
       </p>
 
       <div class="faq-table-wrap-loose">
@@ -203,50 +203,26 @@ $$
               <th>Reset Mode</th>
               <th>ECE (&darr;)</th>
               <th>Brier Score (MSE &darr;)</th>
-              <th>Accuracy (&uarr;)</th>
-              <th class="left">Diagnostic Profile</th>
             </tr>
           </thead>
           <tbody>
             <tr class="row-green-strong">
               <td class="left bold c-green-deep">GlickoD</td>
               <td><span class="faq-chip faq-chip-green">Softer Reset</span></td>
-              <td class="heavy stat c-mint">0.34%</td>
-              <td class="heavy stat c-mint">0.2050</td>
-              <td class="heavy stat c-mint">66.8%</td>
-              <td class="left fs-84 c-mint"><strong>Flagship Benchmark</strong> &bull; Lowest Brier score and calibration error across all seasons.</td>
+              <td class="heavy stat c-mint"><FaqFigure name="daneo_softer.0.ece" fallback="0.60" />%</td>
+              <td class="heavy stat c-mint"><FaqFigure name="daneo_softer.0.brier" fallback="0.2127" /></td>
             </tr>
             <tr class="row-green-soft">
               <td class="left bold c-green-deep">GlickoD</td>
               <td><span class="faq-chip c-mint">Continuous</span></td>
-              <td class="heavy stat c-mint">0.36%</td>
-              <td class="heavy stat c-mint">0.2051</td>
-              <td class="heavy stat c-mint">66.8%</td>
-              <td class="left fs-84 c-mint">Unbroken career progression with calibrated priors and &phi;-evidence scaling.</td>
-            </tr>
-            <tr>
-              <td class="left bold c-green">Glicko-2 MP-Weighted</td>
-              <td><span class="faq-chip">Softer Reset</span></td>
-              <td class="heavy stat c-green">1.04%</td>
-              <td class="heavy stat">0.2141</td>
-              <td class="heavy stat">64.5%</td>
-              <td class="left fs-84 c-muted">Coulom uniform fractional evidence weighting ($w = \frac{1}{N-1}$) with gentle regression.</td>
-            </tr>
-            <tr>
-              <td class="left bold c-green">Glicko-2 MP-Weighted</td>
-              <td><span class="faq-chip">Continuous</span></td>
-              <td class="heavy stat">1.15%</td>
-              <td class="stat">0.2141</td>
-              <td class="stat">64.5%</td>
-              <td class="left fs-84 c-muted">Baseline multiplayer model retaining career memory without newcomer prior recalibration.</td>
+              <td class="heavy stat c-mint"><FaqFigure name="daneo.0.ece" fallback="0.65" />%</td>
+              <td class="heavy stat c-mint"><FaqFigure name="daneo.0.brier" fallback="0.2130" /></td>
             </tr>
             <tr>
               <td class="left bold c-gold">Glicko-2 Standard</td>
               <td><span class="faq-chip">Continuous</span></td>
-              <td class="heavy stat">1.47%</td>
-              <td class="stat">0.2143</td>
-              <td class="stat">64.0%</td>
-              <td class="left fs-84 c-muted">Official online baseline (naive 1v1 pairwise decomposition without multiplayer weighting).</td>
+              <td class="heavy stat"><FaqFigure name="std.0.ece" fallback="1.47" />%</td>
+              <td class="stat"><FaqFigure name="std.0.brier" fallback="0.2131" /></td>
             </tr>
           </tbody>
         </table>
