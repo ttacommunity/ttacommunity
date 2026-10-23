@@ -21,7 +21,6 @@ defaults:
     shell: bash
 
 env:
-  MISE_VERSION: v2026.9.14
   MISE_YES: '1'
   # The checkout belongs to another user than the job container's root.
   GIT_CONFIG_COUNT: '1'
@@ -49,7 +48,7 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ github.token }}
         run: |
-          scripts/install-mise.sh "$MISE_VERSION" /usr/local/bin
+          scripts/install-mise.sh /usr/local/bin
           mise trust && mise install go ko crane
       # ko builds in userspace, with mise's Go; platforms come from backend/.ko.yaml.
       - env:
@@ -85,7 +84,7 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ github.token }}
         run: |
-          scripts/install-mise.sh "$MISE_VERSION" /usr/local/bin
+          scripts/install-mise.sh /usr/local/bin
           mise trust && mise install uv crane
       - env:
           TOKEN: ${{ github.token }}

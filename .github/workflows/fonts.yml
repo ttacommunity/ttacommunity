@@ -36,6 +36,6 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ github.token }}
         run: |
-          scripts/install-mise.sh v2026.9.14 /usr/local/bin
+          scripts/install-mise.sh /usr/local/bin
           mise trust && mise install node
       - run: cd web/site && PATH="$HOME/.local/share/mise/shims:$PATH" node scripts/fonts.mjs check
