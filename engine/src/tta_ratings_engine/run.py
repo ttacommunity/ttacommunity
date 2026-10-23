@@ -630,20 +630,26 @@ def _record_stats(conn, run_id):
 
 
 def _record_rows(conn, run_id):
-    """Records the run's rows in each table whose rows go with their run, for admin's sizes."""
+    """Records the run's rows in each table whose rows go with their run, and their bytes, for admin's sizes."""
     tables = conn.execute(
         "SELECT conrelid::regclass::text AS t FROM pg_constraint "
         "WHERE confrelid = 'rating_runs'::regclass AND contype = 'f' AND confdeltype = 'c'"
     ).fetchall()
-    counts = {
+    sizes = {
         r["t"]: conn.execute(
-            f"SELECT count(*) AS n FROM {r['t']} WHERE run_id = %s", (run_id,)
-        ).fetchone()["n"]
+            f"SELECT count(*) AS n, coalesce(sum(pg_column_size(t.*)), 0) AS b "
+            f"FROM {r['t']} t WHERE run_id = %s",
+            (run_id,),
+        ).fetchone()
         for r in tables
     }
     conn.execute(
-        "UPDATE rating_runs SET result_rows = %s WHERE run_id = %s",
-        (Jsonb(counts), run_id),
+        "UPDATE rating_runs SET result_rows = %s, result_bytes = %s WHERE run_id = %s",
+        (
+            Jsonb({t: s["n"] for t, s in sizes.items()}),
+            sum(s["b"] for s in sizes.values()),
+            run_id,
+        ),
     )
 
 

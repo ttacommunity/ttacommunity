@@ -56,7 +56,6 @@ type Admins interface {
 	// StartDeleteRun marks a run for deletion; DeleteRun then removes it, in the background.
 	StartDeleteRun(ctx context.Context, run int64, engineGoing bool) error
 	DeleteRun(ctx context.Context, run int64) error
-	RunSizes(ctx context.Context) (map[int64]int64, error)
 	Publish(ctx context.Context, run int64) error
 	RunChanges(ctx context.Context, run, before int64) (store.RunChanges, error)
 	// StartRun starts the engine now and returns its Job's name, or enginejob.ErrRunning or ErrNotSetUp.

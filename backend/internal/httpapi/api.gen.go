@@ -1373,7 +1373,7 @@ type AdminRoleRole string
 
 // AdminRun defines model for AdminRun.
 type AdminRun struct {
-	// Bytes About how much room the run takes on disk: each run table's size shared among the runs by the rows each recorded as it ended. 0 while it is going
+	// Bytes The bytes of the rows the run wrote to the run tables, before indexes, recorded as it ended and unmoved by later deletes. 0 while it is going
 	Bytes int64 `json:"bytes"`
 
 	// Current The run the site shows
@@ -2386,6 +2386,9 @@ type CreatedGroup struct {
 
 // DataSummary defines model for DataSummary.
 type DataSummary struct {
+	// DatabaseBytes The ratings database's size on disk
+	DatabaseBytes int64 `json:"database_bytes"`
+
 	// Games Played games
 	Games int `json:"games"`
 
@@ -2401,6 +2404,9 @@ type DataSummary struct {
 	// NeverPlayed Games recorded but never played, kept and not rated
 	NeverPlayed int `json:"never_played"`
 	Players     int `json:"players"`
+
+	// RunsBytes The runs' sizes added up, as each recorded as it ended. The database is larger by its input data, indexes, and the room deleted runs left
+	RunsBytes int64 `json:"runs_bytes"`
 
 	// Unplaced Games in no tournament; a rating run refuses to start while any are
 	Unplaced int `json:"unplaced"`

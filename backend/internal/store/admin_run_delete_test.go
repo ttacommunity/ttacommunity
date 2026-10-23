@@ -124,29 +124,31 @@ func TestDeleteRunRefusesARunProtectedSinceItWasMarked(t *testing.T) {
 	}
 }
 
-func TestRunSizesShareEachTableByTheRowsEachRunRecorded(t *testing.T) {
+func TestARunsSizeIsTheOneRecordedAsItEndedWhateverIsDeletedSince(t *testing.T) {
 	pool := migrated(t)
 	ctx := context.Background()
 	a := NewAdminStore(asAdminLogin(t, pool))
-	small := addRun(t, pool, "complete", time.Time{})
-	big := addRun(t, pool, "complete", time.Time{})
-	empty := addRun(t, pool, "failed", time.Time{})
-	going := addRun(t, pool, "running", time.Time{})
-	for run, n := range map[int64]int{small: 1, big: 3, going: 2} {
+	kept := addRun(t, pool, "complete", time.Time{})
+	gone := addRun(t, pool, "complete", time.Time{})
+	for run, n := range map[int64]int{kept: 1, gone: 3} {
 		withRatings(t, pool, run, n)
-	}
-	for run, n := range map[int64]int{small: 1, big: 3} {
-		if _, err := pool.Exec(ctx, "UPDATE rating_runs SET result_rows = jsonb_build_object('player_ratings', $2::int) WHERE run_id = $1", run, n); err != nil {
+		if _, err := pool.Exec(ctx, "UPDATE rating_runs SET result_bytes = $2 WHERE run_id = $1", run, 1000*n); err != nil {
 			t.Fatal(err)
 		}
 	}
-
-	got, err := a.RunSizes(ctx)
-	if err != nil {
-		t.Fatalf("RunSizes: %v", err)
+	if err := a.StartDeleteRun(ctx, gone, false); err != nil {
+		t.Fatalf("StartDeleteRun: %v", err)
 	}
-	if got[small] <= 0 || got[big] != 3*got[small] || got[empty] != 0 || got[going] != 0 {
-		t.Errorf("sizes = %v, want run %d three times run %d, and runs %d and %d, which recorded no rows, none", got, big, small, empty, going)
+	if err := a.DeleteRun(ctx, gone); err != nil {
+		t.Fatalf("DeleteRun: %v", err)
+	}
+
+	runs, err := a.Runs(ctx)
+	if err != nil {
+		t.Fatalf("Runs: %v", err)
+	}
+	if len(runs) != 1 || runs[0].ID != kept || runs[0].Bytes != 1000 {
+		t.Errorf("runs after deleting run %d = %+v, want run %d alone at 1000 bytes", gone, runs, kept)
 	}
 }
 

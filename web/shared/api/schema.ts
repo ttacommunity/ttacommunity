@@ -2585,7 +2585,7 @@ export interface components {
         AdminRun: {
             /**
              * Format: int64
-             * @description About how much room the run takes on disk: each run table's size shared among the runs by the rows each recorded as it ended. 0 while it is going
+             * @description The bytes of the rows the run wrote to the run tables, before indexes, recorded as it ended and unmoved by later deletes. 0 while it is going
              */
             bytes: number;
             /** Format: int64 */
@@ -2671,6 +2671,16 @@ export interface components {
             summary: string;
         };
         DataSummary: {
+            /**
+             * Format: int64
+             * @description The ratings database's size on disk
+             */
+            database_bytes: number;
+            /**
+             * Format: int64
+             * @description The runs' sizes added up, as each recorded as it ended. The database is larger by its input data, indexes, and the room deleted runs left
+             */
+            runs_bytes: number;
             /** @description Played games */
             games: number;
             /** @description Games recorded but never played, kept and not rated */

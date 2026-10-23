@@ -26,6 +26,7 @@ type AdminRun struct {
 	Progress                string
 	ProgressAt              *time.Time
 	Protected, Deleting     bool
+	Bytes                   int64 // of the rows it wrote, recorded as it ended; 0 while going
 }
 
 // Runs returns the community ranking's runs, newest first, each with its latest progress line.
@@ -34,7 +35,7 @@ func (a *AdminStore) Runs(ctx context.Context) ([]AdminRun, error) {
 		SELECT r.run_id, r.status, r.started_at, r.finished_at, r.published_at,
 		       EXISTS (SELECT 1 FROM current_run c WHERE c.run_id = r.run_id),
 		       coalesce(r.games, 0), coalesce(r.players, 0), r.engine_version,
-		       coalesce(p.line, ''), p.updated_at, r.protected, r.deleting
+		       coalesce(p.line, ''), p.updated_at, r.protected, r.deleting, r.result_bytes
 		FROM rating_runs r LEFT JOIN run_progress p USING (run_id)
 		WHERE r.ranking_id = community_ranking()
 		ORDER BY r.run_id DESC`)
@@ -44,7 +45,7 @@ func (a *AdminStore) Runs(ctx context.Context) ([]AdminRun, error) {
 	runs, err := pgx.CollectRows(rows, func(row pgx.CollectableRow) (AdminRun, error) {
 		var r AdminRun
 		err := row.Scan(&r.ID, &r.Status, &r.StartedAt, &r.FinishedAt, &r.PublishedAt, &r.Current,
-			&r.Games, &r.Players, &r.EngineVersion, &r.Progress, &r.ProgressAt, &r.Protected, &r.Deleting)
+			&r.Games, &r.Players, &r.EngineVersion, &r.Progress, &r.ProgressAt, &r.Protected, &r.Deleting, &r.Bytes)
 		return r, err
 	})
 	if err != nil {

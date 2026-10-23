@@ -3904,8 +3904,8 @@ components:
       properties:
         bytes:
           description: >-
-            About how much room the run takes on disk: each run table's size
-            shared among the runs by the rows each recorded as it ended. 0
+            The bytes of the rows the run wrote to the run tables, before
+            indexes, recorded as it ended and unmoved by later deletes. 0
             while it is going
           type: integer
           format: int64
@@ -4054,8 +4054,19 @@ components:
           maxLength: 1000
     DataSummary:
       type: object
-      required: [games, never_played, unplaced, players, latest_game, last_load, last_load_refused]
+      required: [games, never_played, unplaced, players, latest_game, last_load, last_load_refused, database_bytes, runs_bytes]
       properties:
+        database_bytes:
+          description: The ratings database's size on disk
+          type: integer
+          format: int64
+        runs_bytes:
+          description: >-
+            The runs' sizes added up, as each recorded as it ended. The
+            database is larger by its input data, indexes, and the room
+            deleted runs left
+          type: integer
+          format: int64
         games:
           description: Played games
           type: integer

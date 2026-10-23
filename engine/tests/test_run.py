@@ -768,6 +768,32 @@ def test_a_run_records_the_rows_it_wrote_to_each_table(conn, add_match, kind):
     }
 
 
+def result_bytes(conn, run_id):
+    return conn.execute(
+        "SELECT result_bytes FROM rating_runs WHERE run_id = %s", (run_id,)
+    ).fetchone()["result_bytes"]
+
+
+def row_bytes(conn, table, run_id):
+    return conn.execute(
+        f"SELECT coalesce(sum(pg_column_size(t.*)), 0) AS b FROM {table} t WHERE run_id = %s",
+        (run_id,),
+    ).fetchone()["b"]
+
+
+@pytest.mark.parametrize("kind", ["full", "tournaments only"])
+def test_a_run_records_the_bytes_of_the_rows_it_wrote(conn, add_match, kind):
+    season(add_match)
+    run_id = run(conn, "v1", formats=[2], log=lambda _: None, make_current=True)
+    if kind == "tournaments only":
+        run_id = run(conn, "v2", tournaments_only=True, log=lambda _: None)
+
+    got = result_bytes(conn, run_id)
+
+    assert got > 0
+    assert got == sum(row_bytes(conn, t, run_id) for t in run_tables(conn))
+
+
 def test_a_failed_run_records_the_rows_it_left(conn, add_match, monkeypatch):
     season(add_match)
     monkeypatch.setattr(runner, "derive_tournament_badges", boom)

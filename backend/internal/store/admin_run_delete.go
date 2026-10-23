@@ -1,4 +1,4 @@
-// Protecting rating runs from deletion, deleting the rest, and how much room each takes.
+// Protecting rating runs from deletion, and deleting the rest.
 
 package store
 
@@ -97,27 +97,4 @@ func deletable(ctx context.Context, tx pgx.Tx, run int64, engineGoing bool) erro
 		return ErrRunRunning
 	}
 	return nil
-}
-
-// RunSizes estimates how many bytes each run takes: each run table's size on disk, shared among the runs by the
-// rows each recorded in it as it ended. A run that recorded none, as one still going, takes 0.
-func (a *AdminStore) RunSizes(ctx context.Context) (map[int64]int64, error) {
-	rows, err := a.pool.Query(ctx, `
-		WITH t AS (SELECT conrelid::regclass::text AS t, pg_total_relation_size(conrelid) AS bytes FROM pg_constraint
-		           WHERE confrelid = 'rating_runs'::regclass AND contype = 'f' AND confdeltype = 'c'),
-		n AS (SELECT r.run_id, t.t, t.bytes, coalesce((r.result_rows ->> t.t)::numeric, 0) AS n FROM rating_runs r CROSS JOIN t),
-		total AS (SELECT t, sum(n) AS n FROM n GROUP BY t)
-		SELECT n.run_id, coalesce(sum(floor(n.bytes * n.n / nullif(total.n, 0))), 0)::bigint FROM n JOIN total USING (t) GROUP BY n.run_id`)
-	if err != nil {
-		return nil, fmt.Errorf("estimating run sizes: %w", err)
-	}
-	sizes := map[int64]int64{}
-	var run, bytes int64
-	if _, err := pgx.ForEachRow(rows, []any{&run, &bytes}, func() error {
-		sizes[run] = bytes
-		return nil
-	}); err != nil {
-		return nil, fmt.Errorf("estimating run sizes: %w", err)
-	}
-	return sizes, nil
 }
