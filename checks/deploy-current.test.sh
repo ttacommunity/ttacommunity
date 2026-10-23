@@ -15,6 +15,7 @@ repo() {
   cp "$check" "$dir/checks/"
   printf 'go = "1.0.0"\nko = "1.0.0"\ncrane = "1.0.0"\nuv = "1.0.0"\nyq = "1.0.0"\n' >"$dir/mise.toml"
   echo 'package main' >"$dir/backend/main.go"
+  echo 'package main' >"$dir/backend/main_test.go"
   echo 'x = 1' >"$dir/engine/engine.py"
   echo 'echo build' >"$dir/scripts/engine-image.sh"
   git -C "$dir" init -q
@@ -41,6 +42,7 @@ cases=(
   "crane|s/^crane = .*/crane = \"2.0.0\"/|mise.toml|1|api"
   "backend-code|s/main/other/|backend/main.go|1|api"
   "backend-code-load|s/main/other/|backend/main.go|1|load"
+  "a-go-test-no-binary-has|s/main/other/|backend/main_test.go|0|-"
   "go-load|s/^go = .*/go = \"2.0.0\"/|mise.toml|1|load"
   "engine-code|s/1/2/|engine/engine.py|1|engine"
 )
