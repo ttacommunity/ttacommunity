@@ -28,12 +28,11 @@ jobs:
   go:
     runs-on: ${{ vars.RUNNER_AMD64 || 'ubuntu-24.04' }}
     timeout-minutes: 15 # each job takes 2; a step killed at the runner's memory limit otherwise waits for hours
-    container: docker.io/library/debian:trixie-slim@sha256:a99cfc517144bc59b1978475ec53b46ecabec7e43635402ee5b77cc54cd1b20a
+    container: docker.io/library/buildpack-deps:trixie@sha256:880a5e3d451b50a7b1acd06093a980771a40c2fac2bce29a2145e0f4825266f4
     env:
       # govulncheck measured 1.2 GB unchecked, under 600 MB with this; a job gets 1 GiB.
       GOMEMLIMIT: 600MiB
     steps:
-      - run: apt-get update -qq && apt-get install -y -qq --no-install-recommends bash ca-certificates curl git xz-utils >/dev/null
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
@@ -48,9 +47,8 @@ jobs:
   engine:
     runs-on: ${{ vars.RUNNER_AMD64 || 'ubuntu-24.04' }}
     timeout-minutes: 15
-    container: docker.io/library/debian:trixie-slim@sha256:a99cfc517144bc59b1978475ec53b46ecabec7e43635402ee5b77cc54cd1b20a
+    container: docker.io/library/buildpack-deps:trixie@sha256:880a5e3d451b50a7b1acd06093a980771a40c2fac2bce29a2145e0f4825266f4
     steps:
-      - run: apt-get update -qq && apt-get install -y -qq --no-install-recommends bash ca-certificates curl git xz-utils >/dev/null
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
@@ -67,9 +65,8 @@ jobs:
   web:
     runs-on: ${{ vars.RUNNER_AMD64 || 'ubuntu-24.04' }}
     timeout-minutes: 15
-    container: docker.io/library/debian:trixie-slim@sha256:a99cfc517144bc59b1978475ec53b46ecabec7e43635402ee5b77cc54cd1b20a
+    container: docker.io/library/buildpack-deps:trixie@sha256:880a5e3d451b50a7b1acd06093a980771a40c2fac2bce29a2145e0f4825266f4
     steps:
-      - run: apt-get update -qq && apt-get install -y -qq --no-install-recommends bash ca-certificates curl git xz-utils >/dev/null
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
