@@ -72,8 +72,9 @@ start_test_db() {
   dev_test_db && return 0
   need podman "a throwaway Postgres for integration tests" || return 1
   stop_pg
+  # Thrown away after the run, so it skips the flushes to disk that slow every CREATE and DROP DATABASE.
   podman run -d --name "$PG_NAME" -e POSTGRES_USER=ttac -e POSTGRES_PASSWORD=local-only \
-    -e POSTGRES_DB=ttac_test -p 127.0.0.1:55439:5432 "$PG_IMAGE" >/dev/null || return 1
+    -e POSTGRES_DB=ttac_test -p 127.0.0.1:55439:5432 "$PG_IMAGE" -c fsync=off -c full_page_writes=off >/dev/null || return 1
   for _ in $(seq 1 60); do
     if podman exec "$PG_NAME" pg_isready -U ttac -d ttac_test >/dev/null 2>&1; then
       export TEST_DATABASE_URL='postgres://ttac:local-only@127.0.0.1:55439/ttac_test?sslmode=disable'
