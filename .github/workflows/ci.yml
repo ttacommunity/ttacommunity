@@ -97,6 +97,8 @@ jobs:
           POSTGRES_PASSWORD: ci-only-not-a-real-secret
     env:
       TEST_DATABASE_URL: postgres://ttac:ci-only-not-a-real-secret@${{ vars.RUNNER_AMD64 && '127.0.0.1' || 'postgres' }}:5432/ttac_test?sslmode=disable
+      # The service is thrown away with the job, so the tests turn off its flushes to disk.
+      TEST_DATABASE_THROWAWAY: '1'
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:

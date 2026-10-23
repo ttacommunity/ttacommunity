@@ -46,8 +46,22 @@ def drop_database(name):
         )
 
 
+def skip_flushes():
+    """Turns off the server's flushes to disk, which make each test's CREATE and DROP DATABASE slow.
+
+    Only for a server thrown away after the run, as CI's is: a crash can corrupt it
+    (https://www.postgresql.org/docs/current/non-durability.html).
+    """
+    with psycopg.connect(server_url(), autocommit=True) as admin:
+        admin.execute("ALTER SYSTEM SET fsync = off")
+        admin.execute("ALTER SYSTEM SET full_page_writes = off")
+        admin.execute("SELECT pg_reload_conf()")
+
+
 @pytest.fixture(scope="session")
 def template_db():
+    if os.environ.get("TEST_DATABASE_THROWAWAY") == "1":
+        skip_flushes()
     name = "engine_template_" + secrets.token_hex(6)
     create_database(name)
     try:
