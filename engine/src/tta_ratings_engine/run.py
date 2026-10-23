@@ -319,6 +319,7 @@ def run(
         log(f"run {run_id}: failed")
         raise
 
+    _vacuum_player_tables(conn)
     with conn.transaction():
         _record_stats(conn, run_id)
         _record_rows(conn, run_id)
@@ -610,6 +611,13 @@ def _recompute_tournaments(conn, run_id, source, log):
     derive_tournament_badges(**on_run)
     progress.advance("titles", 1, "titles")
     progress.summary()
+
+
+def _vacuum_player_tables(conn):
+    """Vacuums and analyses the tables player pages read from their indexes alone, so a new run's rows are
+    marked visible to those reads before the run can be published. Runs outside a transaction."""
+    for table in ("pairwise_matches", "rating_history"):
+        conn.execute(f"VACUUM (ANALYZE) {table}")
 
 
 def _record_stats(conn, run_id):

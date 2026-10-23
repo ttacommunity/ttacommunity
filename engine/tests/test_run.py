@@ -969,3 +969,28 @@ def test_ratings_converge_on_true_strength(
         f"seed {seed}, {months} months of {games} games: want correlation >= {min_correlation} "
         f"and RD <= {max_rd} for all {len(strength)} players; got " + "; ".join(wrong)
     )
+
+
+def manual_vacuums(conn, table):
+    conn.execute("SELECT pg_stat_clear_snapshot()")
+    return conn.execute(
+        "SELECT vacuum_count FROM pg_stat_user_tables WHERE relname = %s", (table,)
+    ).fetchone()["vacuum_count"]
+
+
+@pytest.mark.parametrize("kind", ["full", "tournaments only"])
+def test_a_run_vacuums_the_tables_player_pages_read_by_index_only(
+    conn, add_match, kind
+):
+    season(add_match)
+    before = {
+        t: manual_vacuums(conn, t) for t in ("pairwise_matches", "rating_history")
+    }
+    run(conn, "v1", formats=[2], log=lambda _: None, make_current=True)
+    if kind == "tournaments only":
+        before = {t: manual_vacuums(conn, t) for t in before}
+        run(conn, "v2", tournaments_only=True, log=lambda _: None)
+
+    assert {t: manual_vacuums(conn, t) for t in before} == {
+        t: n + 1 for t, n in before.items()
+    }
