@@ -259,18 +259,22 @@ rm /dev/shm/r2-id /dev/shm/r2-sk /dev/shm/r2-ep
 `ttacommunity-config-backup` only, and `backup-config-r2` for `backup-r2` in
 the last command.
 
-`cloudflare-readonly` holds an account API token (My Profile, API Tokens,
-Create Custom Token; `cf` cannot make one) that the nightly `backup-config`
-job reads Cloudflare's settings with. Its permissions, all Read, and nothing
-else:
+`cloudflare-readonly` holds an account-owned API token (Manage account,
+Account API tokens, Create Token, custom; `cf` cannot make one) that the
+nightly `backup-config` job reads Cloudflare's settings with. Its
+permissions, all Read, and nothing else:
 
 | On | Permissions |
 |---|---|
-| Account `ttacommunity` | Access: Apps and Policies; Access: Organizations, Identity Providers, and Groups; Access: Service Tokens; Turnstile Sites; Email Routing Addresses; Workers Scripts; Workers CI; Workers R2 Storage |
-| Zone `ttacommunity.org` only | Zone; DNS; Email Routing Rules; Zone WAF; Cache Settings |
+| The whole account | Access: Apps; Access: Policies; Access: Organizations; Access: Identity Providers; Access: Groups; Access: Service Tokens; Turnstile Sites; Email Routing Addresses; Workers CI; Workers Scripts; Workers R2 Storage |
+| Zone `ttacommunity.org` only | DNS; Zone; Email Routing Rules; Zone WAF; Cache Settings |
 
+An account-owned token is 53 characters, and `/user/tokens/verify` calls it
+invalid: check it with a read instead (`GET /zones?name=ttacommunity.org`).
 A hand run of the job (`deploy/backup-config.yaml`) names the first read
-the token is refused, should one be missing. With the token at the prompt:
+the token is refused, should one be missing. Run the `read` line on its
+own and paste the token at its prompt (pasting the whole block feeds the
+next line to the prompt), then the rest:
 
 ```sh
 umask 077
