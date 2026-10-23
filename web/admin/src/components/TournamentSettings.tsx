@@ -70,7 +70,7 @@ export default function TournamentSettings() {
               <CardSettings t={t.data} onReload={load} />
               <RegulationsCard t={t.data} onReload={load} />
               <StoriesSettings t={t.data} onReload={load} />
-              <SeasonsCard t={t.data} onReload={load} />
+              <SeasonsCard t={t.data} all={all} onReload={load} />
             </>
           )}
         </>

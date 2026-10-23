@@ -13,6 +13,7 @@ import {
   moveChoices,
   newGroupBody,
   rowTotals,
+  seasonDestinations,
   toggled,
   topLevel,
   typeLabel,
@@ -170,6 +171,10 @@ describe('tournament groups', () => {
     ['removes one chosen', ['a', 'b'], 'a', ['b']],
   ])('toggles a choice: %s', (_, chosen, slug, want) => {
     expect(toggled(chosen, slug)).toEqual(want);
+  });
+
+  it('finds destinations for moving a season excluding groups and self', () => {
+    expect(slugs(seasonDestinations(LIST, 'slow_burn'))).toEqual(['quick_2p', 'swiss_open', 'wc_2027_tiebreak']);
   });
 
   const G = { name: 'Swiss Open', kind: 'series', description: 'Every year' };

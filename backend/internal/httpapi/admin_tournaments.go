@@ -14,9 +14,9 @@ import (
 )
 
 // refused are the store's answers to a change it will not make, each a request the admin can correct.
-var refused = []error{store.ErrBadScoring, store.ErrBadLevelName, store.ErrBadPlayerCounts, store.ErrBadKind, store.ErrGroupCycle,
+var refused = []error{store.ErrBadScoring, store.ErrBadLevelName, store.ErrBadPlayerCounts, store.ErrBadKind, store.ErrBadPodiumSource, store.ErrGroupCycle,
 	store.ErrBadGroup, store.ErrNotAGroup, store.ErrBadPenalty, store.ErrBadPodium, store.ErrBadCard, store.ErrBadStory,
-	store.ErrSeasonHasGames}
+	store.ErrSeasonHasGames, store.ErrSeasonExists}
 
 // refusal returns the status and message for a store error a change can meet: 400 for a refused change, 404 for no
 // such tournament or season, or 0 for an error that is not the admin's to correct.
@@ -66,8 +66,14 @@ func (s *server) GetAdminTournament(ctx context.Context, req GetAdminTournamentR
 			Podium: podiumEntries(se.Podium), PodiumNote: se.PodiumNote, SuggestedPodium: podiumEntries(se.Suggested),
 			SuggestedFrom: AdminSeasonSuggestedFrom(se.SuggestedFrom), Games: se.Games, Finished: se.Finished, Players: se.Players}
 	}
+	var ps *AdminTournamentPodiumSource
+	if t.PodiumSource != "" {
+		s := AdminTournamentPodiumSource(t.PodiumSource)
+		ps = &s
+	}
 	out := AdminTournament{Slug: t.Slug, Name: t.Name, OriginalName: t.OriginalName, Parent: t.Parent, Description: t.Description,
 		IsGroup: t.IsGroup, Games: t.Games, FirstGame: dateOf(t.FirstGame), LastGame: dateOf(t.LastGame), Kind: TournamentKind(t.Kind),
+		PodiumSource: ps,
 		TopDivisions: append([]string{}, t.TopDivisions...), Visible: t.Visible, Rated: t.Rated, Community: t.Community, Blitz: t.Blitz,
 		Points2p: append(PlacePoints{}, t.Points[2]...), Points3p: append(PlacePoints{}, t.Points[3]...),
 		Points4p: append(PlacePoints{}, t.Points[4]...), SeasonName: t.SeasonName, StageName: t.StageName, Card: tournamentCard(t.Card),
@@ -80,6 +86,10 @@ func (s *server) GetAdminTournament(ctx context.Context, req GetAdminTournamentR
 func tournamentSettings(b *TournamentSettings) (store.TournamentSettings, bool) {
 	settings := store.TournamentSettings{Visible: b.Visible, Rated: b.Rated, Community: b.Community, Blitz: b.Blitz,
 		SeasonName: b.SeasonName, StageName: b.StageName, Parent: b.Parent, Description: b.Description, Name: b.Name}
+	if b.PodiumSource != nil {
+		s := string(*b.PodiumSource)
+		settings.PodiumSource = &s
+	}
 	if b.RatedPlayerCounts != nil {
 		settings.RatedPlayerCounts = *b.RatedPlayerCounts
 	}
@@ -98,8 +108,8 @@ func tournamentSettings(b *TournamentSettings) (store.TournamentSettings, bool) 
 		}
 	}
 	asked := b.Visible != nil || b.Rated != nil || b.Community != nil || b.Blitz != nil || b.RatedPlayerCounts != nil || b.Kind != nil ||
-		b.TopDivisions != nil || settings.Points != nil || b.SeasonName != nil || b.StageName != nil || b.Parent != nil ||
-		b.Description != nil || b.Name != nil
+		b.PodiumSource != nil || b.TopDivisions != nil || settings.Points != nil || b.SeasonName != nil || b.StageName != nil ||
+		b.Parent != nil || b.Description != nil || b.Name != nil
 	return settings, asked
 }
 
@@ -184,8 +194,16 @@ func seasonChange(season string, b *SeasonChange) (store.SeasonChange, string) {
 		}
 		c.StageNotes = *b.StageNotes
 	}
+	if b.MoveToTournament != nil && strings.TrimSpace(*b.MoveToTournament) != "" {
+		m := strings.TrimSpace(*b.MoveToTournament)
+		c.MoveToTournament = &m
+		if b.NewSeason != nil && strings.TrimSpace(*b.NewSeason) != "" {
+			ns := strings.TrimSpace(*b.NewSeason)
+			c.NewSeason = &ns
+		}
+	}
 	if c.Podium == nil && !c.ClearPodium && c.Rated == nil && c.InChampions == nil && c.InCommunity == nil &&
-		c.TimeoutPenalty == nil && c.Note == nil && len(c.StageNotes) == 0 {
+		c.TimeoutPenalty == nil && c.Note == nil && len(c.StageNotes) == 0 && c.MoveToTournament == nil {
 		return store.SeasonChange{}, "nothing to change"
 	}
 	return c, ""

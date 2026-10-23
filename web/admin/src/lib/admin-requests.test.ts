@@ -21,6 +21,8 @@ describe('admin requests', () => {
     ['stories', req.setStories('worlds', []), '/api/tournaments/worlds', 'PATCH', { stories: [] }],
     ['a new season, trimmed', req.addSeason('worlds', ' 2028 '), '/api/tournaments/worlds/seasons', 'POST', { label: '2028' }],
     ['removing a season', req.removeSeason('worlds', '2028 B'), '/api/tournaments/worlds/seasons/2028%20B', 'DELETE', undefined],
+    ['moving a season', req.moveSeason('worlds', '2024', 'worlds_group'), '/api/tournaments/worlds/seasons/2024', 'PATCH', { move_to_tournament: 'worlds_group' }],
+    ['moving and renaming a season', req.moveSeason('worlds', '2024', 'worlds_group', '2024 Final'), '/api/tournaments/worlds/seasons/2024', 'PATCH', { move_to_tournament: 'worlds_group', new_season: '2024 Final' }],
     ['a season\'s rating', req.setSeasonFlag('worlds', '2024', 'rated', false), '/api/tournaments/worlds/seasons/2024', 'PATCH', { rated: false }],
     ['a season among the champions', req.setSeasonFlag('worlds', '2024', 'champions', true), '/api/tournaments/worlds/seasons/2024', 'PATCH', { in_champions: true }],
     ['a season in the community leaderboard', req.setSeasonFlag('worlds', '2024', 'community', false), '/api/tournaments/worlds/seasons/2024', 'PATCH', { in_community: false }],

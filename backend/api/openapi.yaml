@@ -4345,6 +4345,11 @@ components:
           $ref: "#/components/schemas/PlacePoints"
         kind:
           $ref: "#/components/schemas/TournamentKind"
+        podium_source:
+          description: "How its podium is chosen: top_divisions, final_stage, recorded, or none"
+          type: string
+          enum: [top_divisions, final_stage, recorded, none]
+          nullable: true
         top_divisions:
           description: A league's divisions whose final standings make its podium; empty for none
           type: array
@@ -4542,6 +4547,14 @@ components:
         clear_podium:
           description: Removes its podium set by hand
           type: boolean
+        move_to_tournament:
+          description: Move the season into another tournament (its slug)
+          type: string
+          maxLength: 100
+        new_season:
+          description: When moving, optionally rename the season's label in the destination tournament
+          type: string
+          maxLength: 64
     PodiumSetting:
       type: object
       additionalProperties: false
@@ -4613,7 +4626,7 @@ components:
           type: string
           maxLength: 100
         name:
-          description: A group's new name (only a group is renamed)
+          description: A tournament's or group's new name
           type: string
           minLength: 1
           maxLength: 100
@@ -4622,6 +4635,11 @@ components:
           maxLength: 2000
         kind:
           $ref: "#/components/schemas/TournamentKind"
+        podium_source:
+          description: "How its podium is chosen: top_divisions (final standings), final_stage (games in final stage), recorded (organisers' placements), or none"
+          type: string
+          enum: [top_divisions, final_stage, recorded, none]
+          nullable: true
         top_divisions:
           description: A league's divisions whose final standings make its podium on the site; empty for none
           type: array

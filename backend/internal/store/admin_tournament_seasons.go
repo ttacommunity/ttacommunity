@@ -171,15 +171,17 @@ func (a *AdminStore) RemoveSeason(ctx context.Context, slug, label string) error
 
 // SeasonChange is a change to one season: each part that is not nil, true or empty is set.
 type SeasonChange struct {
-	Podium         *[]PodiumEntry
-	PodiumNote     string
-	ClearPodium    bool
-	Rated          *bool
-	InChampions    *bool
-	InCommunity    *bool
-	TimeoutPenalty *float64
-	Note           *string
-	StageNotes     map[string]string
+	Podium           *[]PodiumEntry
+	PodiumNote       string
+	ClearPodium      bool
+	Rated            *bool
+	InChampions      *bool
+	InCommunity      *bool
+	TimeoutPenalty   *float64
+	Note             *string
+	StageNotes       map[string]string
+	MoveToTournament *string
+	NewSeason        *string
 }
 
 // ChangeSeason sets every part of c on a tournament's season in one transaction, so a refused part changes
@@ -197,6 +199,13 @@ func (a *AdminStore) ChangeSeason(ctx context.Context, slug, season string, c Se
 			{c.InCommunity != nil, func() error { return tx.SetSeasonInCommunity(ctx, slug, season, *c.InCommunity) }},
 			{c.TimeoutPenalty != nil, func() error { return tx.SetSeasonPenalty(ctx, slug, season, *c.TimeoutPenalty) }},
 			{c.Note != nil, func() error { return tx.SetNote(ctx, slug, season, "", *c.Note) }},
+			{c.MoveToTournament != nil, func() error {
+				newLabel := season
+				if c.NewSeason != nil && strings.TrimSpace(*c.NewSeason) != "" {
+					newLabel = strings.TrimSpace(*c.NewSeason)
+				}
+				return tx.MoveSeason(ctx, slug, season, *c.MoveToTournament, newLabel)
+			}},
 		}
 		for _, st := range steps {
 			if st.asked {
@@ -278,4 +287,69 @@ func (a *AdminStore) SetSeasonRated(ctx context.Context, slug, season string, ra
 		return ErrNoTournament
 	}
 	return nil
+}
+
+// MoveSeason moves a season from one tournament to another, optionally renaming its label.
+// It returns ErrNoTournament when the source season or destination tournament does not exist,
+// or ErrSeasonExists when the destination tournament already has that season label.
+func (a *AdminStore) MoveSeason(ctx context.Context, fromTournament, season, toTournament, newLabel string) error {
+	newLabel = strings.TrimSpace(newLabel)
+	if newLabel == "" {
+		newLabel = season
+	}
+	newLabel = seasonPrefix.ReplaceAllString(newLabel, "")
+	if newLabel == "" || len(newLabel) > 64 {
+		return errors.New("a season's label is 1 to 64 characters")
+	}
+
+	return pgx.BeginFunc(ctx, a.pool, func(tx pgx.Tx) error {
+		var tournamentID int64
+		err := tx.QueryRow(ctx, `SELECT se.tournament_id FROM series t JOIN tournaments se USING (series_id)
+			WHERE t.slug = $1 AND se.label = $2`, fromTournament, season).Scan(&tournamentID)
+		if errors.Is(err, pgx.ErrNoRows) {
+			return ErrNoTournament
+		} else if err != nil {
+			return fmt.Errorf("finding %s season %s: %w", fromTournament, season, err)
+		}
+
+		var destSeriesID int64
+		err = tx.QueryRow(ctx, `SELECT series_id FROM series WHERE slug = $1`, toTournament).Scan(&destSeriesID)
+		if errors.Is(err, pgx.ErrNoRows) {
+			return ErrNoTournament
+		} else if err != nil {
+			return fmt.Errorf("finding destination tournament %s: %w", toTournament, err)
+		}
+
+		var exists bool
+		err = tx.QueryRow(ctx, `SELECT EXISTS (SELECT 1 FROM tournaments WHERE series_id = $1 AND label = $2)`,
+			destSeriesID, newLabel).Scan(&exists)
+		if err != nil {
+			return fmt.Errorf("checking destination season %s %s: %w", toTournament, newLabel, err)
+		}
+		if exists {
+			return ErrSeasonExists
+		}
+
+		if _, err := tx.Exec(ctx, `UPDATE tournaments SET series_id = $1, label = $2 WHERE tournament_id = $3`,
+			destSeriesID, newLabel, tournamentID); err != nil {
+			return fmt.Errorf("moving tournament season: %w", err)
+		}
+
+		if _, err := tx.Exec(ctx, `UPDATE cge_tournaments SET series_id = $1 WHERE tournament_id = $2`,
+			destSeriesID, tournamentID); err != nil {
+			return fmt.Errorf("moving cge_tournaments: %w", err)
+		}
+
+		if _, err := tx.Exec(ctx, `UPDATE tournament_season_notes SET tournament = $1, season = $2
+			WHERE tournament = $3 AND season = $4`, toTournament, newLabel, fromTournament, season); err != nil {
+			return fmt.Errorf("moving tournament_season_notes: %w", err)
+		}
+
+		if _, err := tx.Exec(ctx, `UPDATE tournament_podium_overrides SET tournament = $1, season = $2
+			WHERE tournament = $3 AND season = $4`, toTournament, newLabel, fromTournament, season); err != nil {
+			return fmt.Errorf("moving tournament_podium_overrides: %w", err)
+		}
+
+		return nil
+	})
 }

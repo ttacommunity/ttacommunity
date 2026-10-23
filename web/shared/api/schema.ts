@@ -2829,6 +2829,11 @@ export interface components {
             points_3p: components["schemas"]["PlacePoints"];
             points_4p: components["schemas"]["PlacePoints"];
             kind: components["schemas"]["TournamentKind"];
+            /**
+             * @description How its podium is chosen: top_divisions, final_stage, recorded, or none
+             * @enum {string|null}
+             */
+            podium_source?: "top_divisions" | "final_stage" | "recorded" | "none" | null;
             /** @description A league's divisions whose final standings make its podium; empty for none */
             top_divisions: string[];
             /** @description The player counts whose games count towards ratings */
@@ -2946,6 +2951,10 @@ export interface components {
             podium?: components["schemas"]["PodiumSetting"];
             /** @description Removes its podium set by hand */
             clear_podium?: boolean;
+            /** @description Move the season into another tournament (its slug) */
+            move_to_tournament?: string;
+            /** @description When moving, optionally rename the season's label in the destination tournament */
+            new_season?: string;
         };
         PodiumSetting: {
             podium: components["schemas"]["PodiumEntry"][];
@@ -2971,10 +2980,15 @@ export interface components {
             members?: string[];
             /** @description The slug of the group to put it in; empty takes it out of any */
             parent?: string;
-            /** @description A group's new name (only a group is renamed) */
+            /** @description A tournament's or group's new name */
             name?: string;
             description?: string;
             kind?: components["schemas"]["TournamentKind"];
+            /**
+             * @description How its podium is chosen: top_divisions (final standings), final_stage (games in final stage), recorded (organisers' placements), or none
+             * @enum {string|null}
+             */
+            podium_source?: "top_divisions" | "final_stage" | "recorded" | "none" | null;
             /** @description A league's divisions whose final standings make its podium on the site; empty for none */
             top_divisions?: string[];
             /** @description The player counts whose games count towards ratings, from the next run */
@@ -8708,8 +8722,10 @@ export const standingDifferenceKindValues: ReadonlyArray<FlattenedDeepRequired<c
 export const adminTitleValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["AdminTitle"]> = ["SGM", "WCS", "WCB", "GM", "M", "P", "G", "S", "B", "W", ""];
 export const adminPersonRoleValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["AdminPerson"]["role"]> = ["admin", "organiser"];
 export const adminRoleRoleValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["AdminRole"]["role"]> = ["admin", "organiser"];
+export const adminTournamentPodium_sourceValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["AdminTournament"]["podium_source"]> = ["top_divisions", "final_stage", "recorded", "none"];
 export const adminSeasonSuggested_fromValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["AdminSeason"]["suggested_from"]> = ["recorded", "final_stage", ""];
 export const tournamentKindValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["TournamentKind"]> = ["league", "cup", "ladder", "series", "group"];
+export const tournamentSettingsPodium_sourceValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["TournamentSettings"]["podium_source"]> = ["top_divisions", "final_stage", "recorded", "none"];
 export const adminMeRoleValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["AdminMe"]["role"]> = ["admin", "organiser"];
 export const blitzRoundKindValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["BlitzRound"]["kind"]> = ["swiss", "knockout"];
 export const blitzResultValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["BlitzResult"]> = ["a", "b", "draw", "double_loss"];
