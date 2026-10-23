@@ -31,9 +31,10 @@ export function sizeText(bytes: number | undefined): string {
   return unit === 0 ? `${bytes} B` : `${(bytes / 1000 ** unit).toFixed(1)} ${UNITS[unit]}`;
 }
 
-/** runSize writes a run's size, or '' while it is going, as its rows are recorded only when it ends. */
-export function runSize(run: { status: string; bytes: number }): string {
-  return sizeText(run.status === 'running' ? undefined : run.bytes);
+/** runSize writes one of a run's sizes (its rows, or what it takes on disk), or '' while it is going, as they
+ * are recorded only when it ends. */
+export function runSize(status: string, bytes: number): string {
+  return sizeText(status === 'running' ? undefined : bytes);
 }
 
 /** keepPolling says whether the runs may change without the admin: one is going or being deleted, or a run
@@ -70,4 +71,24 @@ export function shownRuns<T>(runs: readonly T[], all: boolean, n: number): T[] {
 /** runGoing says whether a run is going. */
 export function runGoing(runs: readonly { status: string }[]): boolean {
   return runs.some((r) => r.status === 'running');
+}
+
+type Changes = { run: number; against: number; new: number; gone: number; moved_1: number; moved_10: number; moved_50: number; moved_100: number; biggest: { change: number }[] };
+
+/** A threshold someone's rating moved past, and how many did. */
+export type Threshold = { points: number; count: number };
+
+/** changesSummary says what a comparison shows: one line when no rating or player changed, else the move
+ * thresholds someone crossed, each with how many did. */
+export function changesSummary(c: Changes): { same: true; line: string } | { same: false; thresholds: Threshold[] } {
+  if (c.new === 0 && c.gone === 0 && c.moved_1 === 0 && c.biggest.length === 0) {
+    return { same: true, line: `Run ${c.run} rates everyone as run ${c.against} did` };
+  }
+  const counts: Threshold[] = [
+    { points: 1, count: c.moved_1 },
+    { points: 10, count: c.moved_10 },
+    { points: 50, count: c.moved_50 },
+    { points: 100, count: c.moved_100 },
+  ];
+  return { same: false, thresholds: counts.filter((t) => t.count > 0) };
 }

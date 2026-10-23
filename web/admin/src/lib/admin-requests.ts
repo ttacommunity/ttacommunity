@@ -168,8 +168,8 @@ export const clearTitle = (player: string) => to(`/api/titles/${encodeURICompone
 
 /** startRun starts a rating run. */
 export const startRun = () => to('/api/runs', 'POST');
-/** stopRun stops the run that is going. */
-export const stopRun = () => to('/api/runs/stop', 'POST');
+/** stopRun stops run, which must be the one going. */
+export const stopRun = (run: number) => to(`/api/runs/${run}/stop`, 'POST');
 /** publishRun makes a run the one the site shows. */
 export const publishRun = (run: number) => to(`/api/runs/${run}/publish`, 'POST');
 /** protectRun keeps a run from being deleted, or lets it be. */

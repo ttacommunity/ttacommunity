@@ -5,6 +5,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"slices"
 	"strings"
 	"time"
 
@@ -19,10 +20,6 @@ func (s *server) GetAdminRuns(ctx context.Context, _ GetAdminRunsRequestObject) 
 		return GetAdminRuns403JSONResponse{forbidden(onlyAdminsRun)}, err
 	}
 	runs, err := s.admins.Runs(ctx)
-	if err != nil {
-		return nil, err
-	}
-	sizes, err := s.admins.RunSizes(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -41,7 +38,7 @@ func (s *server) GetAdminRuns(ctx context.Context, _ GetAdminRunsRequestObject) 
 		out[i] = AdminRun{
 			Id: r.ID, Status: AdminRunStatus(r.Status), StartedAt: r.StartedAt, FinishedAt: r.FinishedAt, PublishedAt: r.PublishedAt,
 			Current: r.Current, Games: r.Games, Players: r.Players, EngineVersion: r.EngineVersion, Progress: r.Progress, ProgressAt: r.ProgressAt,
-			Protected: r.Protected, Deleting: r.Deleting, Bytes: sizes[r.ID],
+			Protected: r.Protected, Deleting: r.Deleting, Bytes: r.Bytes, DiskBytes: r.DiskBytes,
 		}
 	}
 	return GetAdminRuns200JSONResponse{Body: out, Headers: GetAdminRuns200ResponseHeaders{CacheControl: cacheNone}}, nil
@@ -117,10 +114,17 @@ func (s *server) GetAdminRunChanges(ctx context.Context, req GetAdminRunChangesR
 	}, Headers: GetAdminRunChanges200ResponseHeaders{CacheControl: cacheNone}}, nil
 }
 
-func (s *server) PostAdminRunStop(ctx context.Context, _ PostAdminRunStopRequestObject) (PostAdminRunStopResponseObject, error) {
+func (s *server) PostAdminRunStop(ctx context.Context, req PostAdminRunStopRequestObject) (PostAdminRunStopResponseObject, error) {
 	me, ok, err := adminOnly(ctx)
 	if err != nil || !ok {
 		return PostAdminRunStop403JSONResponse{forbidden(onlyAdminsRun)}, err
+	}
+	runs, err := s.admins.Runs(ctx)
+	if err != nil {
+		return nil, err
+	}
+	if !slices.ContainsFunc(runs, func(r store.AdminRun) bool { return r.ID == req.Run && r.Status == "running" }) {
+		return PostAdminRunStop409JSONResponse{conflict409(fmt.Sprintf("run %d is not the one going", req.Run))}, nil
 	}
 	jobs, err := s.admins.StopRun(ctx)
 	switch {

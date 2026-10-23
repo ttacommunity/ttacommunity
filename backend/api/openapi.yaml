@@ -2544,26 +2544,6 @@ paths:
           $ref: "#/components/responses/Conflict"
         "503":
           $ref: "#/components/responses/NotSetUp"
-  /v1/admin/runs/stop:
-    post:
-      operationId: postAdminRunStop
-      tags: [admin]
-      summary: Stop the rating run that is going (admins only)
-      description: >
-        Deletes the engine's Job. The engine marks its run failed, with the
-        progress line "stopped", as it ends. Audited. The Origin must be the
-        admin site.
-      responses:
-        "204":
-          description: Stopping
-        "401":
-          $ref: "#/components/responses/Unauthorized"
-        "403":
-          $ref: "#/components/responses/Forbidden"
-        "409":
-          $ref: "#/components/responses/Conflict"
-        "503":
-          $ref: "#/components/responses/NotSetUp"
   /v1/admin/runs/{run}:
     patch:
       operationId: patchAdminRun
@@ -2629,6 +2609,29 @@ paths:
           $ref: "#/components/responses/NotFound"
         "409":
           $ref: "#/components/responses/Conflict"
+  /v1/admin/runs/{run}/stop:
+    post:
+      operationId: postAdminRunStop
+      tags: [admin]
+      summary: Stop the rating run that is going (admins only)
+      description: >
+        Deletes the engine's Job. The engine marks its run failed, with the
+        progress line "stopped", as it ends. Refused unless the run named is
+        the one going, so a stop confirmed for a run that has since ended
+        stops nothing. Audited. The Origin must be the admin site.
+      parameters:
+        - $ref: "#/components/parameters/AdminRunId"
+      responses:
+        "204":
+          description: Stopping
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "503":
+          $ref: "#/components/responses/NotSetUp"
   /v1/admin/runs/{run}/changes:
     get:
       operationId: getAdminRunChanges
@@ -3900,13 +3903,20 @@ components:
   schemas:
     AdminRun:
       type: object
-      required: [id, status, started_at, current, games, players, engine_version, progress, protected, deleting, bytes]
+      required: [id, status, started_at, current, games, players, engine_version, progress, protected, deleting, bytes, disk_bytes]
       properties:
         bytes:
           description: >-
-            About how much room the run takes on disk: each run table's size
-            shared among the runs by the rows each recorded as it ended. 0
-            while it is going
+            The bytes of the rows the run wrote to the run tables, as a dump of
+            it would weigh, recorded as it ended and unmoved by later deletes.
+            0 while it is going
+          type: integer
+          format: int64
+        disk_bytes:
+          description: >-
+            What the run takes on disk, as deleting it frees: its rows with its
+            share of the run tables' indexes, recorded as it ended. 0 while it
+            is going
           type: integer
           format: int64
         id:
@@ -3988,7 +3998,7 @@ components:
         moved_100:
           type: integer
         biggest:
-          description: The 20 biggest moves in the overall format
+          description: The 20 biggest moves in the overall format, of players who moved at all
           type: array
           items:
             $ref: "#/components/schemas/RunMove"
@@ -4054,8 +4064,19 @@ components:
           maxLength: 1000
     DataSummary:
       type: object
-      required: [games, never_played, unplaced, players, latest_game, last_load, last_load_refused]
+      required: [games, never_played, unplaced, players, latest_game, last_load, last_load_refused, database_bytes, runs_disk_bytes]
       properties:
+        database_bytes:
+          description: The ratings database's size on disk
+          type: integer
+          format: int64
+        runs_disk_bytes:
+          description: >-
+            What the runs take on disk added up, as each recorded as it ended.
+            The database is larger by its input data and the room deleted runs
+            left
+          type: integer
+          format: int64
         games:
           description: Played games
           type: integer

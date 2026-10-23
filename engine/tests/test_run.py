@@ -768,6 +768,40 @@ def test_a_run_records_the_rows_it_wrote_to_each_table(conn, add_match, kind):
     }
 
 
+def recorded_bytes(conn, run_id):
+    return conn.execute(
+        "SELECT result_bytes, disk_bytes FROM rating_runs WHERE run_id = %s", (run_id,)
+    ).fetchone()
+
+
+def table_bytes(conn, table, run_id):
+    """Returns the bytes of the run's rows in table, and with its share of the table's indexes."""
+    r = conn.execute(
+        f"SELECT coalesce(sum(pg_column_size(t.*)), 0) AS b, count(*) AS n, "
+        f"(SELECT count(*) FROM {table}) AS total, pg_indexes_size(%s::regclass) AS idx "
+        f"FROM {table} t WHERE run_id = %s",
+        (table, run_id),
+    ).fetchone()
+    return r["b"], r["b"] + (r["idx"] * r["n"] // r["total"] if r["total"] else 0)
+
+
+@pytest.mark.parametrize("kind", ["full", "tournaments only"])
+def test_a_run_records_the_bytes_of_its_rows_and_what_it_takes_on_disk(
+    conn, add_match, kind
+):
+    season(add_match)
+    run_id = run(conn, "v1", formats=[2], log=lambda _: None, make_current=True)
+    if kind == "tournaments only":
+        run_id = run(conn, "v2", tournaments_only=True, log=lambda _: None)
+
+    got = recorded_bytes(conn, run_id)
+
+    sizes = [table_bytes(conn, t, run_id) for t in run_tables(conn)]
+    assert got["result_bytes"] > 0
+    assert got["result_bytes"] == sum(rows for rows, _ in sizes)
+    assert got["disk_bytes"] == sum(disk for _, disk in sizes) > got["result_bytes"]
+
+
 def test_a_failed_run_records_the_rows_it_left(conn, add_match, monkeypatch):
     season(add_match)
     monkeypatch.setattr(runner, "derive_tournament_badges", boom)

@@ -50,8 +50,28 @@ func TestDataSummaryOfAnEmptyDatabase(t *testing.T) {
 	if err != nil {
 		t.Fatalf("DataSummary: %v", err)
 	}
+	got.DatabaseBytes = 0 // an empty database still has a size
 	if got != (DataSummary{}) {
 		t.Errorf("summary = %+v, want nothing", got)
+	}
+}
+
+func TestDataSummaryGivesTheDatabasesSizeAndTheRunsTotal(t *testing.T) {
+	pool := migrated(t)
+	ctx := context.Background()
+	for _, b := range []int64{1000, 2000} {
+		run := addRun(t, pool, "complete", time.Time{})
+		if _, err := pool.Exec(ctx, "UPDATE rating_runs SET disk_bytes = $2 WHERE run_id = $1", run, b); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	got, err := NewAdminStore(asAdminLogin(t, pool)).DataSummary(ctx)
+	if err != nil {
+		t.Fatalf("DataSummary: %v", err)
+	}
+	if got.RunsDiskBytes != 3000 || got.DatabaseBytes <= got.RunsDiskBytes {
+		t.Errorf("runs %d bytes on disk, database %d, want 3000 and the database larger", got.RunsDiskBytes, got.DatabaseBytes)
 	}
 }
 

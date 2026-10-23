@@ -5,7 +5,7 @@ import * as req from '../lib/admin-requests';
 import { adminRequest, type AdminRun, type RunChanges, type StartedRun } from '../lib/admin-api';
 import { loadFailure, outcomeOf, refusalOf, refused, shownAt, succeeded, type Outcome } from '../lib/outcome';
 import Notice, { LoadNotice, NoticeRow } from './Notice';
-import { awaitStartedRun, canDelete, keepPolling, parseProgress, publishVerb, runGoing, runLabel, runSize, shownRuns } from '../lib/runs-view';
+import { awaitStartedRun, canDelete, changesSummary, keepPolling, parseProgress, publishVerb, runGoing, runLabel, runSize, shownRuns } from '../lib/runs-view';
 
 const POLL_MS = 5000;
 const ZONE = Intl.DateTimeFormat().resolvedOptions().timeZone;
@@ -39,14 +39,23 @@ function Changes({ run }: { run: number }) {
   }, [run]);
   if (message !== '') return <LoadNotice message={message} />;
   if (c === null) return <p className="muted">Comparing…</p>;
+  const summary = changesSummary(c);
+  if (summary.same) {
+    return (
+      <div className="run-changes">
+        <p>{summary.line}</p>
+      </div>
+    );
+  }
   return (
     <div className="run-changes">
       <h3>
         Run {c.run} against run {c.against}
       </h3>
       <p>
-        {c.ratings} ratings (was {c.ratings_before}), {c.new} new, {c.gone} gone. Moved more than
-        1 point: {c.moved_1}; 10: {c.moved_10}; 50: {c.moved_50}; 100: {c.moved_100}.
+        {c.ratings} ratings (was {c.ratings_before}), {c.new} new, {c.gone} gone.
+        {summary.thresholds.length > 0 &&
+          ` Moved more than ${summary.thresholds.map((t) => `${t.points} point${t.points === 1 ? '' : 's'}: ${t.count}`).join('; ')}.`}
       </p>
       {c.biggest.length > 0 && (
         <div className="table-responsive">
@@ -123,7 +132,7 @@ export default function RunsPanel() {
     const sure = await dialog.confirm({ heading: `Stop run ${run.id}?`, text: 'It is marked failed, and its work so far is not kept.', action: 'Stop run', final: true });
     if (!sure) return;
     setOutcome(null);
-    const r = await req.send(req.stopRun());
+    const r = await req.send(req.stopRun(run.id));
     setOutcome(outcomeOf(r, `Stopping run ${run.id}. It shows as failed once the engine has ended.`, 'runs'));
     await load();
   };
@@ -143,9 +152,9 @@ export default function RunsPanel() {
     await load();
   };
   const remove = async (run: AdminRun) => {
-    const size = runSize(run);
+    const size = runSize(run.status, run.disk_bytes);
     const sure = await dialog.confirm({
-      heading: `Delete run ${run.id}${size === '' ? '' : ` (${size})`}?`,
+      heading: `Delete run ${run.id}${size === '' ? '' : ` (${size} on disk)`}?`,
       text: 'Every result of it is deleted too. This cannot be undone.',
       action: 'Delete run',
       final: true,
@@ -197,6 +206,8 @@ export default function RunsPanel() {
                 <th scope="col" className="run-wide">Games</th>
                 <th scope="col" className="run-wide">Players</th>
                 <th scope="col">Size</th>
+                <th scope="col">On disk</th>
+                <th scope="col" className="run-wide">Engine</th>
                 <th scope="col">Protect</th>
                 <th scope="col">Actions</th>
               </tr>
@@ -212,7 +223,7 @@ export default function RunsPanel() {
                     onProtect={(on) => void protect(r, on)}
                     onDelete={() => void remove(r)}
                   />
-                  <NoticeRow outcome={shownAt(outcome, `run ${r.id}`)} columns={8} onClose={close} />
+                  <NoticeRow outcome={shownAt(outcome, `run ${r.id}`)} columns={10} onClose={close} />
                 </Fragment>
               ))}
             </tbody>
@@ -258,7 +269,9 @@ function RunRow({
       <td>{when(run.started_at)}</td>
       <td className="run-wide">{run.games > 0 ? run.games.toLocaleString() : ''}</td>
       <td className="run-wide">{run.players > 0 ? run.players.toLocaleString() : ''}</td>
-      <td>{runSize(run)}</td>
+      <td>{runSize(run.status, run.bytes)}</td>
+      <td>{runSize(run.status, run.disk_bytes)}</td>
+      <td className="run-wide">{run.engine_version}</td>
       <td>
         <input
           type="checkbox"

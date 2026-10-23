@@ -1798,26 +1798,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/v1/admin/runs/stop": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Stop the rating run that is going (admins only)
-         * @description Deletes the engine's Job. The engine marks its run failed, with the progress line "stopped", as it ends. Audited. The Origin must be the admin site.
-         */
-        post: operations["postAdminRunStop"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/v1/admin/runs/{run}": {
         parameters: {
             query?: never;
@@ -1856,6 +1836,26 @@ export interface paths {
          * @description Audited. The Origin must be the admin site.
          */
         post: operations["postAdminRunPublish"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/runs/{run}/stop": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Stop the rating run that is going (admins only)
+         * @description Deletes the engine's Job. The engine marks its run failed, with the progress line "stopped", as it ends. Refused unless the run named is the one going, so a stop confirmed for a run that has since ended stops nothing. Audited. The Origin must be the admin site.
+         */
+        post: operations["postAdminRunStop"];
         delete?: never;
         options?: never;
         head?: never;
@@ -2585,9 +2585,14 @@ export interface components {
         AdminRun: {
             /**
              * Format: int64
-             * @description About how much room the run takes on disk: each run table's size shared among the runs by the rows each recorded as it ended. 0 while it is going
+             * @description The bytes of the rows the run wrote to the run tables, as a dump of it would weigh, recorded as it ended and unmoved by later deletes. 0 while it is going
              */
             bytes: number;
+            /**
+             * Format: int64
+             * @description What the run takes on disk, as deleting it frees: its rows with its share of the run tables' indexes, recorded as it ended. 0 while it is going
+             */
+            disk_bytes: number;
             /** Format: int64 */
             id: number;
             /** @enum {string} */
@@ -2637,7 +2642,7 @@ export interface components {
             moved_10: number;
             moved_50: number;
             moved_100: number;
-            /** @description The 20 biggest moves in the overall format */
+            /** @description The 20 biggest moves in the overall format, of players who moved at all */
             biggest: components["schemas"]["RunMove"][];
         };
         RunMove: {
@@ -2671,6 +2676,16 @@ export interface components {
             summary: string;
         };
         DataSummary: {
+            /**
+             * Format: int64
+             * @description The ratings database's size on disk
+             */
+            database_bytes: number;
+            /**
+             * Format: int64
+             * @description What the runs take on disk added up, as each recorded as it ended. The database is larger by its input data and the room deleted runs left
+             */
+            runs_disk_bytes: number;
             /** @description Played games */
             games: number;
             /** @description Games recorded but never played, kept and not rated */
@@ -7530,28 +7545,6 @@ export interface operations {
             503: components["responses"]["NotSetUp"];
         };
     };
-    postAdminRunStop: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Stopping */
-            204: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            401: components["responses"]["Unauthorized"];
-            403: components["responses"]["Forbidden"];
-            409: components["responses"]["Conflict"];
-            503: components["responses"]["NotSetUp"];
-        };
-    };
     deleteAdminRun: {
         parameters: {
             query?: never;
@@ -7629,6 +7622,31 @@ export interface operations {
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
             409: components["responses"]["Conflict"];
+        };
+    };
+    postAdminRunStop: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Any run's id, published or not */
+                run: components["parameters"]["AdminRunId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Stopping */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            409: components["responses"]["Conflict"];
+            503: components["responses"]["NotSetUp"];
         };
     };
     getAdminRunChanges: {

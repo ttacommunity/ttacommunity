@@ -26,6 +26,7 @@ type AdminRun struct {
 	Progress                string
 	ProgressAt              *time.Time
 	Protected, Deleting     bool
+	Bytes, DiskBytes        int64 // of the rows it wrote, and with its share of their indexes; recorded as it ended, 0 while going
 }
 
 // Runs returns the community ranking's runs, newest first, each with its latest progress line.
@@ -34,7 +35,7 @@ func (a *AdminStore) Runs(ctx context.Context) ([]AdminRun, error) {
 		SELECT r.run_id, r.status, r.started_at, r.finished_at, r.published_at,
 		       EXISTS (SELECT 1 FROM current_run c WHERE c.run_id = r.run_id),
 		       coalesce(r.games, 0), coalesce(r.players, 0), r.engine_version,
-		       coalesce(p.line, ''), p.updated_at, r.protected, r.deleting
+		       coalesce(p.line, ''), p.updated_at, r.protected, r.deleting, r.result_bytes, r.disk_bytes
 		FROM rating_runs r LEFT JOIN run_progress p USING (run_id)
 		WHERE r.ranking_id = community_ranking()
 		ORDER BY r.run_id DESC`)
@@ -44,7 +45,7 @@ func (a *AdminStore) Runs(ctx context.Context) ([]AdminRun, error) {
 	runs, err := pgx.CollectRows(rows, func(row pgx.CollectableRow) (AdminRun, error) {
 		var r AdminRun
 		err := row.Scan(&r.ID, &r.Status, &r.StartedAt, &r.FinishedAt, &r.PublishedAt, &r.Current,
-			&r.Games, &r.Players, &r.EngineVersion, &r.Progress, &r.ProgressAt, &r.Protected, &r.Deleting)
+			&r.Games, &r.Players, &r.EngineVersion, &r.Progress, &r.ProgressAt, &r.Protected, &r.Deleting, &r.Bytes, &r.DiskBytes)
 		return r, err
 	})
 	if err != nil {
@@ -99,7 +100,8 @@ type RunChanges struct {
 const changesModel = "glicko2_daneo"
 
 // RunChanges compares run's ratings with before's: how many moved by more than 1, 10, 50 and 100 points, who
-// is new or gone, and the 20 biggest moves. It returns ErrRunNotFound when either run does not exist.
+// is new or gone, and the 20 biggest moves, of players who moved at all. It returns ErrRunNotFound when either
+// run does not exist.
 func (a *AdminStore) RunChanges(ctx context.Context, run, before int64) (RunChanges, error) {
 	var found int
 	if err := a.pool.QueryRow(ctx, "SELECT count(*) FROM rating_runs WHERE run_id IN ($1, $2)", run, before).Scan(&found); err != nil {
@@ -125,7 +127,7 @@ func (a *AdminStore) RunChanges(ctx context.Context, run, before int64) (RunChan
 	rows, err := a.pool.Query(ctx, `
 		SELECT a.player_name, b.c_rating, a.c_rating, a.c_rating - b.c_rating
 		FROM player_ratings a JOIN player_ratings b USING (model_type, player_count, player_name)
-		WHERE a.run_id = $1 AND b.run_id = $2 AND a.model_type = $3 AND a.player_count = 0
+		WHERE a.run_id = $1 AND b.run_id = $2 AND a.model_type = $3 AND a.player_count = 0 AND a.c_rating <> b.c_rating
 		ORDER BY abs(a.c_rating - b.c_rating) DESC, a.player_name LIMIT 20`, run, before, changesModel)
 	if err != nil {
 		return RunChanges{}, fmt.Errorf("comparing runs %d and %d: %w", run, before, err)
