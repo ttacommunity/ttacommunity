@@ -32,10 +32,9 @@ function Unchanged($Name, $Path) {
 if ($LASTEXITCODE -ne 0) { $failures.Add('tests (scripts\test.ps1)') }
 
 Run-Step . 'go: gofmt' { & $bash checks/gofmt.sh origin/main }
-Run-Step backend 'go: vet' { go vet ./... }
-Run-Step backend 'go: vet, integration' { go vet -tags=integration ./... }
-Run-Step backend 'go: staticcheck' { go tool staticcheck ./... }
-Run-Step backend 'go: staticcheck, integration' { go tool staticcheck -tags=integration ./... }
+# With the tag every file is built (scripts/ci.sh fails a file built only without it).
+Run-Step backend 'go: vet' { go vet -tags=integration ./... }
+Run-Step backend 'go: staticcheck' { go tool staticcheck -tags=integration ./... }
 Run-Step backend 'go: build' { go build -o $devNull ./... }
 Run-Step backend 'spec: generate Go' { go generate ./internal/httpapi }
 Unchanged 'backend/internal/httpapi/api.gen.go' backend/internal/httpapi/api.gen.go

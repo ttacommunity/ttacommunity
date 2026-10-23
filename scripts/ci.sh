@@ -91,11 +91,15 @@ step "go"
 if need go "the backend"; then
   cd "$ROOT/backend" || exit 1
   if full; then
-    unformatted=$(gofmt -l .)
-    [ -z "$unformatted" ] || fail "not gofmt-clean: $unformatted"
-    run go vet ./...
+    # A missing gofmt prints no file names, so it must be found and must succeed.
+    if need gofmt "Go formatting"; then
+      unformatted=$(gofmt -l .) || fail "gofmt -l"
+      [ -z "$unformatted" ] || fail "not gofmt-clean: $unformatted"
+    fi
+    # With the tag every file is built, until a file says it is built only without it.
+    git grep --untracked -qE '^//go:build .*!integration' -- '*.go' &&
+      fail "a file is built only without -tags=integration: vet and staticcheck below would skip it"
     run go vet -tags=integration ./...
-    run go tool staticcheck ./...
     run go tool staticcheck -tags=integration ./...
   fi
   # Coverage is reported, never enforced: each package's is on its "ok" line, the total below.
@@ -105,8 +109,12 @@ if need go "the backend"; then
   echo "  unit tests' total coverage: $total"
   [ -n "${GITHUB_STEP_SUMMARY:-}" ] && echo "Go unit tests' coverage: $total (reported, never enforced)" >>"$GITHUB_STEP_SUMMARY"
   rm -f "$cover"
-  if start_test_db; then
-    run go test -tags=integration -count=1 ./...
+  # The unit tests above already ran; only the packages with integration-tagged files run again.
+  mapfile -t integration < <(git grep --untracked -l '^//go:build integration' -- '*.go' | xargs -r -n1 dirname | sort -u | sed 's|^|./|')
+  if [ "${#integration[@]}" = 0 ]; then
+    fail "integration tests: no file has //go:build integration"
+  elif start_test_db; then
+    run go test -tags=integration -count=1 "${integration[@]}"
   else
     fail "integration tests: no database"
   fi

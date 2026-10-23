@@ -29,7 +29,12 @@ Push-Location (Join-Path $root backend)
 Write-Host "  unit tests' total coverage: $((go tool cover "-func=$cover" | Select-Object -Last 1) -split '\s+' | Select-Object -Last 1)"
 Pop-Location
 Remove-Item $cover
-Run-Step backend 'go: integration tests' { go test -tags=integration -count=1 ./... }
+# Only the packages with integration-tagged files run again, as in scripts/ci.sh.
+Run-Step backend 'go: integration tests' {
+    $pkgs = @(git grep --untracked -l '^//go:build integration' -- '*.go' | ForEach-Object { "./$($_ -replace '/[^/]+$', '')" } | Sort-Object -Unique)
+    if ($pkgs.Count -eq 0) { Write-Host 'no file has //go:build integration'; $global:LASTEXITCODE = 1; return }
+    go test -tags=integration -count=1 @pkgs
+}
 Run-Step engine 'engine: sync' { uv sync --frozen --quiet }
 Run-Step engine 'engine: tests' { uv run --frozen pytest -q -m 'not slow' }
 $env:COREPACK_ENABLE_DOWNLOAD_PROMPT = '0'
