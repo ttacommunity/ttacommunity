@@ -112,11 +112,12 @@ type Rival struct {
 	Games, Wins, Losses, Draws int
 }
 
-// playerGames selects the ids of the games run rated for the player named $2.
-const playerGames = `
+// inPlayerGames keeps the games of game_lines m that run $1 rated for the player named $2. An array, not a join,
+// so the planner reads only those games instead of building the whole view.
+const inPlayerGames = `m.game_id = ANY(ARRAY(
 	SELECT match_id FROM pairwise_matches WHERE run_id = $1 AND player_a = $2
 	UNION
-	SELECT match_id FROM pairwise_matches WHERE run_id = $1 AND player_b = $2`
+	SELECT match_id FROM pairwise_matches WHERE run_id = $1 AND player_b = $2))`
 
 // resolve returns the stored name for asked in a published run: the exact
 // name, else the only one equal to it ignoring case. Players with deleted or
@@ -180,7 +181,7 @@ func (r *RatingsReader) Player(ctx context.Context, run int64, asked string) (Pl
 
 	rows, err := r.pool.Query(ctx, `
 		SELECT m.player_count, count(*), max(m.date)
-		FROM game_lines m JOIN (`+playerGames+`) mine ON mine.match_id = m.game_id
+		FROM game_lines m WHERE `+inPlayerGames+`
 		GROUP BY m.player_count`, run, name)
 	if err != nil {
 		return Player{}, fmt.Errorf("counting a player's games in run %d: %w", run, err)
@@ -255,10 +256,10 @@ func (r *RatingsReader) PlayerMatches(ctx context.Context, run int64, asked stri
 	if err != nil {
 		return "", MatchPage{}, err
 	}
-	const inFormat = ` WHERE $3 = 0 OR m.player_count = $3`
+	const inFormat = ` WHERE ` + inPlayerGames + ` AND ($3 = 0 OR m.player_count = $3)`
 	var mp MatchPage
 	err = r.pool.QueryRow(ctx, `
-		SELECT count(*) FROM game_lines m JOIN (`+playerGames+`) mine ON mine.match_id = m.game_id`+inFormat,
+		SELECT count(*) FROM game_lines m`+inFormat,
 		run, name, format).Scan(&mp.Total)
 	if err != nil {
 		return "", MatchPage{}, fmt.Errorf("counting a player's games in run %d: %w", run, err)
@@ -268,7 +269,7 @@ func (r *RatingsReader) PlayerMatches(ctx context.Context, run int64, asked stri
 
 	rows, err := r.pool.Query(ctx, `
 		SELECT m.game_id, m.name, m.date, m.player_count, m.share_code, m.players, m.cultures
-		FROM game_lines m JOIN (`+playerGames+`) mine ON mine.match_id = m.game_id`+inFormat+`
+		FROM game_lines m`+inFormat+`
 		ORDER BY m.date DESC, m.game_id DESC
 		LIMIT $4 OFFSET $5`, run, name, format, gamesPerPage, (mp.Page-1)*gamesPerPage)
 	if err != nil {
@@ -568,11 +569,11 @@ func (r *RatingsReader) Versus(ctx context.Context, run int64, asked, other stri
 	}
 	rows, err := r.pool.Query(ctx, `
 		SELECT m.game_id, m.name, m.date, m.player_count, m.share_code, m.players, m.cultures
-		FROM game_lines m JOIN (
+		FROM game_lines m
+		WHERE m.game_id = ANY(ARRAY(
 			SELECT match_id FROM pairwise_matches WHERE run_id = $1 AND player_a = $2 AND player_b = $3
 			UNION
-			SELECT match_id FROM pairwise_matches WHERE run_id = $1 AND player_a = $3 AND player_b = $2) shared
-			ON shared.match_id = m.game_id
+			SELECT match_id FROM pairwise_matches WHERE run_id = $1 AND player_a = $3 AND player_b = $2))
 		ORDER BY m.date DESC, m.game_id DESC
 		LIMIT $4`, run, a, b, sharedGames)
 	if err != nil {
@@ -607,10 +608,10 @@ func (r *RatingsReader) PlayerMatrix(ctx context.Context, run int64, asked strin
 	} else {
 		rows, err = r.pool.Query(ctx, `
 			WITH last AS (
-				SELECT model_type, max(period_date) AS period_date FROM rating_history
-				WHERE run_id = $1 AND player_count = $3 AND model_type = ANY($4)
-					AND extract(year FROM period_date) = $5
-				GROUP BY model_type)
+				SELECT model_type, (SELECT max(period_date) FROM rating_history
+					WHERE run_id = $1 AND model_type = m.model_type AND player_count = $3
+						AND period_date >= make_date($5, 1, 1) AND period_date < make_date($5 + 1, 1, 1)) AS period_date
+				FROM unnest($4::text[]) m (model_type))
 			SELECT h.model_type, h.rating, h.rd, h.c_rating,
 				(SELECT count(*) + 1 FROM rating_history o
 				 WHERE o.run_id = $1 AND o.model_type = h.model_type AND o.player_count = $3
