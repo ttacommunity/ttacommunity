@@ -73,7 +73,7 @@ Run-Step . 'checks: PowerShell parses' { & "$root/checks/ps-parse.ps1" }
 
 Write-Host "`nNot covered here:"
 Write-Host '  - Go race detector and the engine''s slow tests: Linux CI runs them'
-Write-Host "  - deploy/'s pins and env values, image digests, workflows, shellcheck and the backup-config test (bash stubs): CI runs them"
+Write-Host "  - deploy/'s pins and env values, image digests, workflows and shellcheck: CI runs them"
 Write-Host '  - gofmt on Go files this branch does not change: main is clean, CI checks every file'
 Write-Host '  - gitleaks and semgrep: their own CI jobs (secrets, sast)'
 if ($failures.Count -gt 0) {

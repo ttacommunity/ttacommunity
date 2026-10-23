@@ -12,4 +12,6 @@ resources:
   - api-rbac.yaml
   - engine.yaml
   - backup.yaml
+  - backup-config-rbac.yaml
+  - backup-config.yaml
   - cloudflare-tunnel.yaml

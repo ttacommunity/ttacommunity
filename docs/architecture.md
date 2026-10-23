@@ -495,15 +495,15 @@ refuses deletion of any copy younger than 29 days, whatever token asks.
   logins, the sign-in and R2 keys, the tunnel credentials.
 - **The Cloudflare settings that are not in git** (below).
 
-The last two go to the bucket `ttacommunity-config-backup`, by
-`scripts/backup-config.sh` (or its `.ps1` twin), which a maintainer runs
-after changing a Secret or a Cloudflare setting. It exports each as JSON in
-memory, uploads it only when its SHA-256 differs from the newest copy's
-(the fingerprint is stored as the copy's metadata), and never writes
-anything unencrypted to disk. Its token can write that bucket only, and
-no pod holds it; the nightly job's token cannot reach this bucket. Nothing
-here is personal data, so these copies are kept (there is no deletion rule).
-Restoring the Secrets is one command for a key holder:
+The last two go to the bucket `ttacommunity-config-backup`, nightly, by a
+second CronJob. It reads the Secrets from the Kubernetes API as a service
+account that may read Secrets in this namespace and nothing else, and the
+Cloudflare settings with an API token that can only read them; it holds no
+database login. Each export is encrypted in memory and written whole, every
+night, as `secrets/<time>.json.age` and `cloudflare/<time>.json.age`. Its
+R2 token can write that bucket only, and the database backup's token cannot
+reach it. A lifecycle rule deletes a copy after 90 days. Restoring the
+Secrets is one command for a key holder:
 `age -d -i <key> secrets/<time>.json.age | kubectl apply --dry-run=server -f -`,
 then the same without `--dry-run`.
 

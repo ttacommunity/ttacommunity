@@ -25,7 +25,8 @@ Pipe values in; never use `--from-literal`, which leaves them in shell history.
 | `turnstile-signin` | `secret` | `api`, `api-dev` | The secret of the Turnstile widget "ttacommunity email sign-in", whose sitekey is the site's `PUBLIC_TURNSTILE_SITEKEY` (README) |
 | `ratings-backup` | `password`, `database-url` | `backup`'s `backup` init container | The backup job's login `ratings_backup_job`, a member of `ratings_backup` (reads the backed-up tables, writes nothing) |
 | `backup-r2` | `endpoint`, `access-key-id`, `secret-access-key` | `backup`'s `upload` container (rclone) | The R2 bucket `ttacommunity-backup` (EU jurisdiction): the account's EU S3 endpoint, and an R2 token that can write objects in that bucket only |
-| `backup-config-r2` | `endpoint`, `access-key-id`, `secret-access-key` | `scripts/backup-config.sh` and `.ps1`, run by a maintainer; no pod | The R2 bucket `ttacommunity-config-backup` (EU): the EU endpoint and an R2 token that can write objects in that bucket only. The job's token cannot reach this bucket, nor this one the job's |
+| `backup-config-r2` | `endpoint`, `access-key-id`, `secret-access-key` | `backup-config`'s `upload` container (rclone) | The R2 bucket `ttacommunity-config-backup` (EU): the EU endpoint and an R2 token that can write objects in that bucket only. The database backup's token cannot reach this bucket, nor this one its |
+| `cloudflare-readonly` | `token` | `backup-config`'s `export` init container | A Cloudflare API token that can only read the settings the configuration backup exports (below, "Backups": its permissions). It can change nothing |
 | `ttac-api-tunnel` | `credentials.json` | `ttac-api-tunnel` | The `ttac-api` tunnel's credentials (below, "The tunnels") |
 | `ttac-api-dev-tunnel` | `credentials.json` | `ttac-api-dev-tunnel` | The `ttac-api-dev` tunnel's credentials (below) |
 | `ttacommunity-github-app`, **in `flux-system`** | `githubAppID`, `githubAppInstallationID`, `githubAppPrivateKey` | Flux | Reads this repo as the GitHub App `ttacommunity-flux` (contents and metadata, read only). The cluster's maintainers hold it |
@@ -35,9 +36,9 @@ Pipe values in; never use `--from-literal`, which leaves them in shell history.
 None needs keeping in a password manager: each is either made new on a
 rebuild or reissued by the service it comes from. There is also an encrypted
 copy of every Secret here in the R2 bucket `ttacommunity-config-backup`, made
-by `scripts/backup-config.sh` (or `.ps1`) after a change; a holder of the
-backup key restores them all at once (README, "Back up the Secrets and
-Cloudflare's settings"). Reissuing is for when that copy is stale or lost.
+nightly by the `backup-config` CronJob; a holder of the backup key restores
+them all at once (README, "The Secrets and Cloudflare's settings are backed
+up nightly"). Reissuing is for when that copy is lost.
 
 | Secret | How it comes back |
 |---|---|
@@ -51,6 +52,7 @@ Cloudflare's settings"). Reissuing is for when that copy is stale or lost.
 | `ttac-api-tunnel`, `ttac-api-dev-tunnel` | **Reissued**: a new tunnel on the Cloudflare account (below, "The tunnels") |
 | `ratings-backup` | **New on a rebuild**, or at any time: a new password with `ALTER ROLE`, then the Secret (below, "Backups") |
 | `backup-r2`, `backup-config-r2` | **Reissued**: a new R2 token for the bucket, then the Secret (below, "Backups"); delete the old token |
+| `cloudflare-readonly` | **Reissued**: a new API token with the permissions below ("Backups"), then the Secret; delete the old token |
 | `ghcr`, `ttacommunity-github-app` | **Reissued** by the cluster's maintainers, who issued them |
 
 ## Creating them
@@ -255,8 +257,27 @@ rm /dev/shm/r2-id /dev/shm/r2-sk /dev/shm/r2-ep
 
 `backup-config-r2` is made the same way, with a token applied to
 `ttacommunity-config-backup` only, and `backup-config-r2` for `backup-r2` in
-the last command. No pod mounts it: `scripts/backup-config.sh` reads it when
-a maintainer runs the script.
+the last command.
+
+`cloudflare-readonly` holds an account API token (My Profile, API Tokens,
+Create Custom Token; `cf` cannot make one) that the nightly `backup-config`
+job reads Cloudflare's settings with. Its permissions, all Read, and nothing
+else:
+
+| On | Permissions |
+|---|---|
+| Account `ttacommunity` | Access: Apps and Policies; Access: Organizations, Identity Providers, and Groups; Access: Service Tokens; Turnstile Sites; Email Routing Addresses; Workers Scripts; Workers CI; Workers R2 Storage |
+| Zone `ttacommunity.org` only | Zone; DNS; Email Routing Rules; Zone WAF; Cache Settings |
+
+A hand run of the job (`deploy/backup-config.yaml`) names the first read
+the token is refused, should one be missing. With the token at the prompt:
+
+```sh
+umask 077
+read -rsp 'Cloudflare API token: ' t; echo; printf %s "$t" > /dev/shm/cf-token; unset t
+kubectl -n ttacommunity create secret generic cloudflare-readonly --from-file=token=/dev/shm/cf-token
+rm /dev/shm/cf-token
+```
 
 ### The tunnels
 
