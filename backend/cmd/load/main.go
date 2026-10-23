@@ -7,9 +7,11 @@ package main
 
 import (
 	"context"
+	"errors"
 	"flag"
 	"fmt"
 	"io"
+	"net/http"
 	"os"
 	"os/signal"
 	"path/filepath"
@@ -21,6 +23,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"ttacommunity/backend/internal/backup"
+	"ttacommunity/backend/internal/configbackup"
 	"ttacommunity/backend/internal/countrycsv"
 	"ttacommunity/backend/internal/matchcsv"
 	"ttacommunity/backend/internal/store"
@@ -36,6 +39,7 @@ func main() {
 	export := flag.String("export", "", "write every input table to the directory named (new or empty), one CSV each, with a manifest")
 	backup := flag.String("backup", "", "write every input table but sign-in secrets to the directory named (new or empty), one CSV each, with a manifest: it holds personal data")
 	backupTo := flag.String("backup-to", "", "write a backup, zipped and encrypted with age to BACKUP_AGE_RECIPIENT, to the directory named as <time>.zip.age, for the backup job to upload")
+	backupConfigTo := flag.String("backup-config-to", "", "write the namespace's Secrets and the Cloudflare settings of BACKUP_CONFIG_ZONE (read with CLOUDFLARE_API_TOKEN), each as JSON encrypted with age to BACKUP_AGE_RECIPIENT, to secrets/<time>.json.age and cloudflare/<time>.json.age under the directory named, for the backup-config job to upload; touches no database")
 	restore := flag.String("restore", "", "load an export or a backup from the directory named into a new database, after applying the migrations")
 	addAdmin := flag.String("add-admin", "", "add or update the admin with the Discord id named, with -name and -role")
 	adminName := flag.String("name", "", "with -add-admin: the admin's name as admin shows it")
@@ -52,6 +56,7 @@ func main() {
 		fmt.Fprintln(os.Stderr, "       load -export <directory>")
 		fmt.Fprintln(os.Stderr, "       load -backup <directory>")
 		fmt.Fprintln(os.Stderr, "       load -backup-to <directory>")
+		fmt.Fprintln(os.Stderr, "       load -backup-config-to <directory>")
 		fmt.Fprintln(os.Stderr, "       load -restore <directory>")
 		fmt.Fprintln(os.Stderr, "       load -export-upstream <file>")
 		fmt.Fprintln(os.Stderr, "       load -check-standings <file>")
@@ -66,7 +71,7 @@ func main() {
 		flag.PrintDefaults()
 	}
 	flag.Parse()
-	one := !*reset && btoi(*migrate)+btoi(*classify)+btoi(*countries)+btoi(*facts != "")+btoi(*export != "")+btoi(*backup != "")+btoi(*backupTo != "")+btoi(*restore != "")+btoi(*upstream != "")+btoi(*addAdmin != "")+btoi(*standings != "")+btoi(*cgeExtract != "")+btoi(*inputTables) == 1
+	one := !*reset && btoi(*migrate)+btoi(*classify)+btoi(*countries)+btoi(*facts != "")+btoi(*export != "")+btoi(*backup != "")+btoi(*backupTo != "")+btoi(*backupConfigTo != "")+btoi(*restore != "")+btoi(*upstream != "")+btoi(*addAdmin != "")+btoi(*standings != "")+btoi(*cgeExtract != "")+btoi(*inputTables) == 1
 	var err error
 	switch {
 	case *inputTables && one && flag.NArg() == 0:
@@ -85,6 +90,8 @@ func main() {
 		err = exportTo(*backup, store.Backup)
 	case *backupTo != "" && one && flag.NArg() == 0:
 		err = backupToDir(*backupTo, time.Now())
+	case *backupConfigTo != "" && one && flag.NArg() == 0:
+		err = backupConfigToDir(*backupConfigTo, time.Now())
 	case *restore != "" && one && flag.NArg() == 0:
 		err = restoreFrom(*restore)
 	case *addAdmin != "" && one && flag.NArg() == 0:
@@ -104,7 +111,7 @@ func main() {
 		err = checkStandings(*standings)
 	case *cgeExtract != "" && *cgeSettings != "" && one && flag.NArg() == 0:
 		err = loadCGEExtract(*cgeExtract, *cgeSettings, *cgePairs, *apply)
-	case !*migrate && !*classify && !*countries && *facts == "" && *export == "" && *backup == "" && *backupTo == "" && *restore == "" && *upstream == "" && *addAdmin == "" && *standings == "" && *cgeExtract == "" && !*inputTables && flag.NArg() == 1:
+	case !*migrate && !*classify && !*countries && *facts == "" && *export == "" && *backup == "" && *backupTo == "" && *backupConfigTo == "" && *restore == "" && *upstream == "" && *addAdmin == "" && *standings == "" && *cgeExtract == "" && !*inputTables && flag.NArg() == 1:
 		err = run(*reset, flag.Arg(0))
 	default:
 		flag.Usage()
@@ -160,7 +167,7 @@ func backupToDir(dir string, now time.Time) error {
 	}
 	return withPool(func(ctx context.Context, pool *pgxpool.Pool) error {
 		var m store.Manifest
-		path, size, err := backup.Write(dir, now, r, func(w io.Writer) error {
+		path, size, err := backup.Write(dir, backup.Name(now), r, func(w io.Writer) error {
 			var err error
 			m, err = store.BackupZip(ctx, pool, w)
 			return err
@@ -174,6 +181,54 @@ func backupToDir(dir string, now time.Time) error {
 		}
 		return nil
 	})
+}
+
+// serviceAccountDir is where Kubernetes mounts a pod's token and the cluster's CA.
+const serviceAccountDir = "/var/run/secrets/kubernetes.io/serviceaccount"
+
+// backupConfigToDir writes the namespace's Secrets and the Cloudflare settings, each encrypted to
+// BACKUP_AGE_RECIPIENT, to dir/secrets and dir/cloudflare as <time>.json.age, and reports each file and size.
+// It refuses to start outside a cluster or without CLOUDFLARE_API_TOKEN and BACKUP_CONFIG_ZONE.
+func backupConfigToDir(dir string, now time.Time) error {
+	r, err := backup.RecipientFrom(os.Getenv)
+	if err != nil {
+		return err
+	}
+	cluster, err := configbackup.ClusterFrom(os.Getenv, serviceAccountDir)
+	if err != nil {
+		return err
+	}
+	account := configbackup.Account{API: "https://api.cloudflare.com/client/v4", Token: os.Getenv("CLOUDFLARE_API_TOKEN"), Zone: os.Getenv("BACKUP_CONFIG_ZONE"), Client: &http.Client{Timeout: 60 * time.Second}}
+	if account.Token == "" || account.Zone == "" {
+		return errors.New("CLOUDFLARE_API_TOKEN and BACKUP_CONFIG_ZONE must both be set")
+	}
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer stop()
+	for _, part := range []struct {
+		name string
+		read func(context.Context) ([]byte, error)
+	}{
+		{"secrets", func(ctx context.Context) ([]byte, error) { return configbackup.Secrets(ctx, cluster) }},
+		{"cloudflare", func(ctx context.Context) ([]byte, error) { return configbackup.Cloudflare(ctx, account) }},
+	} {
+		doc, err := part.read(ctx)
+		if err != nil {
+			return fmt.Errorf("backing up %s: %w", part.name, err)
+		}
+		sub := filepath.Join(dir, part.name)
+		if err := os.MkdirAll(sub, 0o755); err != nil {
+			return fmt.Errorf("backing up %s: %w", part.name, err)
+		}
+		path, size, err := backup.Write(sub, backup.Stamp(now)+".json.age", r, func(w io.Writer) error {
+			_, err := w.Write(doc)
+			return err
+		})
+		if err != nil {
+			return fmt.Errorf("backing up %s: %w", part.name, err)
+		}
+		fmt.Printf("backed up %s to %s (%d bytes, encrypted)\n", part.name, path, size)
+	}
+	return nil
 }
 
 // restoreFrom applies the migrations, then loads the export in dir into the

@@ -198,7 +198,6 @@ if full && area checks; then
     run bash checks/deploy-env-strings.sh
   fi
   run bash checks/deploy-current.test.sh
-  run bash checks/backup-config.test.sh
   if need jq "the engine's golden hashes"; then
     run bash checks/engine-golden.test.sh
     run bash checks/engine-golden.sh

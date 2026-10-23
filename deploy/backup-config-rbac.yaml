@@ -1,0 +1,35 @@
+# The configuration backup's own account: it may read every Secret in this
+# namespace, and nothing else. Kubernetes cannot narrow that to names or
+# metadata, so this is the one pod that can read them all; it holds no other
+# credential and runs for a minute a night.
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: backup-config
+  namespace: ttacommunity
+automountServiceAccountToken: false
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: backup-config-reads-secrets
+  namespace: ttacommunity
+rules:
+  - apiGroups: [""]
+    resources: [secrets]
+    verbs: [get, list]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: backup-config-reads-secrets
+  namespace: ttacommunity
+subjects:
+  - kind: ServiceAccount
+    name: backup-config
+    namespace: ttacommunity
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: backup-config-reads-secrets

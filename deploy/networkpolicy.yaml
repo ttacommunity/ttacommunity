@@ -227,3 +227,37 @@ spec:
       ports:
         - protocol: TCP
           port: 443
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: backup-config-egress
+  namespace: ttacommunity
+spec:
+  # The configuration backup reads the Secrets from the Kubernetes API (its
+  # service address, and the control plane it forwards to), and Cloudflare's
+  # API and R2 on any public address on 443, RFC1918 excluded. Not the database.
+  podSelector:
+    matchLabels:
+      app: backup-config
+  policyTypes: [Egress]
+  egress:
+    - to:
+        - ipBlock:
+            cidr: 10.43.0.1/32
+      ports:
+        - protocol: TCP
+          port: 443
+    - to:
+        - ipBlock:
+            cidr: 192.168.68.101/32
+      ports:
+        - protocol: TCP
+          port: 6443
+    - to:
+        - ipBlock:
+            cidr: 0.0.0.0/0
+            except: [10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16, 169.254.0.0/16]
+      ports:
+        - protocol: TCP
+          port: 443

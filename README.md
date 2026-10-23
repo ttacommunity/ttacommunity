@@ -708,32 +708,26 @@ application must exist before its domain is declared, and it covers
 `*.admin.ttacommunity.org` before previews are turned on: `dev`'s
 preview is `dev.admin.ttacommunity.org`.
 
-### Back up the Secrets and Cloudflare's settings
+### The Secrets and Cloudflare's settings are backed up nightly
 
-After changing a Secret in the cluster or a Cloudflare setting that is not
-in git (an Access policy, a DNS record, a build trigger, a bucket rule…),
-run:
-
-```powershell
-scripts\backup-config.ps1          # -Check: say what would upload, upload nothing
-```
+The CronJob `backup-config` (`deploy/backup-config.yaml`) runs at 03:30 UTC:
+`load -backup-config-to` exports the namespace's Secrets and the Cloudflare
+settings that are not in git (Access, DNS, Turnstile, Email Routing, the
+zone's rulesets, Workers Builds, the R2 buckets' rules) as JSON, encrypts
+each with `age` to the maintainers' key, and rclone puts them in the R2
+bucket `ttacommunity-config-backup` as `secrets/<time>.json.age` and
+`cloudflare/<time>.json.age`. Nothing unencrypted touches a disk. It needs
+the Secrets `cloudflare-readonly` and `backup-config-r2` (`deploy/SECRETS.md`).
+A copy is kept for 90 days. To take one now:
 
 ```bash
-scripts/backup-config.sh           # --check: the same
+kubectl -n ttacommunity create job --from=cronjob/backup-config backup-config-manual-1
+kubectl -n ttacommunity logs job/backup-config-manual-1 --all-containers -f
 ```
-
-It exports the namespace's Secrets and the Cloudflare settings as JSON,
-encrypts each with `age` to the maintainers' key (`mise install` gives you
-`age`, `rclone` and `jq`) and uploads it to the R2 bucket
-`ttacommunity-config-backup`, only when its SHA-256 differs from the newest
-copy's. It needs `kubectl` on the cluster, `cf` signed in to the project's
-account, and the Secret `backup-config-r2` (`deploy/SECRETS.md`). Nothing
-unencrypted is written to disk or printed; the output names each copy and
-its fingerprint. A run takes about a minute, most of it Cloudflare reads.
 
 Restoring, for a holder of the private key: list the copies with
 `rclone lsjson r2:ttacommunity-config-backup -R` (an `r2` remote on the
-same token), then
+bucket's token), then
 `rclone cat r2:ttacommunity-config-backup/secrets/<time>.json.age | age -d -i <key file> | kubectl apply --dry-run=server -f -`,
 and the same without `--dry-run`. The Cloudflare copy decrypts to the
 exact values; what each one recreates, and what is reissued by hand

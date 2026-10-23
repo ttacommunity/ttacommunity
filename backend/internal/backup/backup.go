@@ -27,12 +27,11 @@ func RecipientFrom(getenv func(string) string) (*age.X25519Recipient, error) {
 	return r, nil
 }
 
-// Write writes what write produces, encrypted to r, to dir as Name(at), and returns the file's path and size.
+// Write writes what write produces, encrypted to r, to dir as name, and returns the file's path and size.
 // The file gets its name only once complete, so a failed backup leaves nothing in dir. Nothing unencrypted reaches
 // the disk.
-func Write(dir string, at time.Time, r age.Recipient, write func(io.Writer) error) (string, int64, error) {
-	name := Name(at)
-	// The partial file's name never ends in .zip.age, so the upload cannot take it.
+func Write(dir, name string, r age.Recipient, write func(io.Writer) error) (string, int64, error) {
+	// The partial file's name never ends in .age, so the upload cannot take it.
 	f, err := os.CreateTemp(dir, "."+name+".partial-*")
 	if err != nil {
 		return "", 0, fmt.Errorf("backing up: %w", err)
@@ -63,7 +62,12 @@ func Write(dir string, at time.Time, r age.Recipient, write func(io.Writer) erro
 	return path, size, nil
 }
 
-// Name names the backup taken at at, in UTC: 2026-10-21T030005Z.zip.age.
+// Name names the database backup taken at at, in UTC: 2026-10-21T030005Z.zip.age.
 func Name(at time.Time) string {
-	return at.UTC().Format("2006-01-02T150405Z") + ".zip.age"
+	return Stamp(at) + ".zip.age"
+}
+
+// Stamp is the time a backup was taken, in UTC, as its file names start: 2026-10-21T030005Z.
+func Stamp(at time.Time) string {
+	return at.UTC().Format("2006-01-02T150405Z")
 }
