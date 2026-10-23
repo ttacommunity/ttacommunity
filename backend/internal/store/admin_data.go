@@ -12,13 +12,14 @@ import (
 // DataSummary is what admin's Data card shows. Games are played games; NeverPlayed are kept but not rated;
 // Unplaced are games in no tournament, which stop a rating run; LastLoad is the load job's latest import (games
 // entered in admin or by players aside), and LastLoadRefused the rows it refused. The times are nil before anything
-// is loaded. DatabaseBytes is the database's size on disk, and RunsBytes the runs' recorded sizes added up.
+// is loaded. DatabaseBytes is the database's size on disk, and RunsDiskBytes what the runs take of it, as each
+// recorded as it ended.
 type DataSummary struct {
 	Games, NeverPlayed, Unplaced, Players int
 	LatestGame                            *time.Time
 	LastLoad                              *time.Time
 	LastLoadRefused                       int
-	DatabaseBytes, RunsBytes              int64
+	DatabaseBytes, RunsDiskBytes          int64
 }
 
 // DataSummary counts the loaded games and players, when they were last loaded, and the room the database and
@@ -34,9 +35,9 @@ func (a *AdminStore) DataSummary(ctx context.Context) (DataSummary, error) {
 		       (SELECT max(created_at) FROM import_batches WHERE source = 'load'),
 		       (SELECT count(*) FROM refused_rows WHERE batch_id = (SELECT max(batch_id) FROM import_batches WHERE source = 'load')),
 		       pg_database_size(current_database()),
-		       (SELECT coalesce(sum(result_bytes), 0) FROM rating_runs)
+		       (SELECT coalesce(sum(disk_bytes), 0) FROM rating_runs)
 		FROM games`).Scan(&d.Games, &d.NeverPlayed, &d.Unplaced, &d.Players, &d.LatestGame, &d.LastLoad, &d.LastLoadRefused,
-		&d.DatabaseBytes, &d.RunsBytes)
+		&d.DatabaseBytes, &d.RunsDiskBytes)
 	if err != nil {
 		return DataSummary{}, fmt.Errorf("summarising the data: %w", err)
 	}

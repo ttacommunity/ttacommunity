@@ -195,7 +195,7 @@ func TestAdminRunsGiveEachRunsSize(t *testing.T) {
 		t.Fatalf("GET runs = %d %s", rec.Code, rec.Body)
 	}
 	wantJSON(t, rec.Body.Bytes(), "0", `{"id": 9, "bytes": 0}`)
-	wantJSON(t, rec.Body.Bytes(), "1", `{"id": 8, "bytes": 3500000000}`)
+	wantJSON(t, rec.Body.Bytes(), "1", `{"id": 8, "bytes": 3500000000, "disk_bytes": 9000000000}`)
 	wantJSON(t, rec.Body.Bytes(), "2", `{"id": 7, "bytes": 4000000000}`)
 }
 

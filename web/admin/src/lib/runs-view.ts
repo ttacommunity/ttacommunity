@@ -31,9 +31,10 @@ export function sizeText(bytes: number | undefined): string {
   return unit === 0 ? `${bytes} B` : `${(bytes / 1000 ** unit).toFixed(1)} ${UNITS[unit]}`;
 }
 
-/** runSize writes a run's size, or '' while it is going, as its rows are recorded only when it ends. */
-export function runSize(run: { status: string; bytes: number }): string {
-  return sizeText(run.status === 'running' ? undefined : run.bytes);
+/** runSize writes one of a run's sizes (its rows, or what it takes on disk), or '' while it is going, as they
+ * are recorded only when it ends. */
+export function runSize(status: string, bytes: number): string {
+  return sizeText(status === 'running' ? undefined : bytes);
 }
 
 /** keepPolling says whether the runs may change without the admin: one is going or being deleted, or a run

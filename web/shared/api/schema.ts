@@ -2585,9 +2585,14 @@ export interface components {
         AdminRun: {
             /**
              * Format: int64
-             * @description The bytes of the rows the run wrote to the run tables, before indexes, recorded as it ended and unmoved by later deletes. 0 while it is going
+             * @description The bytes of the rows the run wrote to the run tables, as a dump of it would weigh, recorded as it ended and unmoved by later deletes. 0 while it is going
              */
             bytes: number;
+            /**
+             * Format: int64
+             * @description What the run takes on disk, as deleting it frees: its rows with its share of the run tables' indexes, recorded as it ended. 0 while it is going
+             */
+            disk_bytes: number;
             /** Format: int64 */
             id: number;
             /** @enum {string} */
@@ -2678,9 +2683,9 @@ export interface components {
             database_bytes: number;
             /**
              * Format: int64
-             * @description The runs' sizes added up, as each recorded as it ended. The database is larger by its input data, indexes, and the room deleted runs left
+             * @description What the runs take on disk added up, as each recorded as it ended. The database is larger by its input data and the room deleted runs left
              */
-            runs_bytes: number;
+            runs_disk_bytes: number;
             /** @description Played games */
             games: number;
             /** @description Games recorded but never played, kept and not rated */

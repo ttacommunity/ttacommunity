@@ -132,7 +132,7 @@ func TestARunsSizeIsTheOneRecordedAsItEndedWhateverIsDeletedSince(t *testing.T) 
 	gone := addRun(t, pool, "complete", time.Time{})
 	for run, n := range map[int64]int{kept: 1, gone: 3} {
 		withRatings(t, pool, run, n)
-		if _, err := pool.Exec(ctx, "UPDATE rating_runs SET result_bytes = $2 WHERE run_id = $1", run, 1000*n); err != nil {
+		if _, err := pool.Exec(ctx, "UPDATE rating_runs SET result_bytes = $2, disk_bytes = $3 WHERE run_id = $1", run, 1000*n, 3000*n); err != nil {
 			t.Fatal(err)
 		}
 	}
@@ -147,8 +147,8 @@ func TestARunsSizeIsTheOneRecordedAsItEndedWhateverIsDeletedSince(t *testing.T) 
 	if err != nil {
 		t.Fatalf("Runs: %v", err)
 	}
-	if len(runs) != 1 || runs[0].ID != kept || runs[0].Bytes != 1000 {
-		t.Errorf("runs after deleting run %d = %+v, want run %d alone at 1000 bytes", gone, runs, kept)
+	if len(runs) != 1 || runs[0].ID != kept || runs[0].Bytes != 1000 || runs[0].DiskBytes != 3000 {
+		t.Errorf("runs after deleting run %d = %+v, want run %d alone at 1000 bytes, 3000 on disk", gone, runs, kept)
 	}
 }
 

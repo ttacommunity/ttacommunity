@@ -57,7 +57,7 @@ type fakeAdmins struct {
 // 6 (complete, never published), 7 (complete, published second, current), 8 (complete) and 9 (running).
 var fakeRuns = []store.AdminRun{
 	{ID: 9, Status: "running", Progress: "[3/10] models 2p"},
-	{ID: 8, Status: "complete", Games: 100, Bytes: 3_500_000_000},
+	{ID: 8, Status: "complete", Games: 100, Bytes: 3_500_000_000, DiskBytes: 9_000_000_000},
 	{ID: 7, Status: "complete", Games: 90, Current: true, PublishedAt: at("2026-10-02T10:00:00Z"), Bytes: 4_000_000_000},
 	{ID: 6, Status: "complete"},
 	{ID: 5, Status: "complete", PublishedAt: at("2026-10-01T10:00:00Z")},
@@ -375,7 +375,7 @@ func (*fakeAdmins) ExportZip(_ context.Context, w io.Writer) error {
 
 func (*fakeAdmins) DataSummary(context.Context) (store.DataSummary, error) {
 	latest := time.Date(2026, 10, 2, 0, 0, 0, 0, time.UTC)
-	return store.DataSummary{Games: 144691, NeverPlayed: 36, Unplaced: 0, Players: 5210, LatestGame: &latest, DatabaseBytes: 2_019_000_000, RunsBytes: 765_000_000}, nil
+	return store.DataSummary{Games: 144691, NeverPlayed: 36, Unplaced: 0, Players: 5210, LatestGame: &latest, DatabaseBytes: 2_019_000_000, RunsDiskBytes: 1_765_000_000}, nil
 }
 
 func (*fakeAdmins) CheckStandings(context.Context) (store.StandingsCheck, error) {

@@ -3903,13 +3903,20 @@ components:
   schemas:
     AdminRun:
       type: object
-      required: [id, status, started_at, current, games, players, engine_version, progress, protected, deleting, bytes]
+      required: [id, status, started_at, current, games, players, engine_version, progress, protected, deleting, bytes, disk_bytes]
       properties:
         bytes:
           description: >-
-            The bytes of the rows the run wrote to the run tables, before
-            indexes, recorded as it ended and unmoved by later deletes. 0
-            while it is going
+            The bytes of the rows the run wrote to the run tables, as a dump of
+            it would weigh, recorded as it ended and unmoved by later deletes.
+            0 while it is going
+          type: integer
+          format: int64
+        disk_bytes:
+          description: >-
+            What the run takes on disk, as deleting it frees: its rows with its
+            share of the run tables' indexes, recorded as it ended. 0 while it
+            is going
           type: integer
           format: int64
         id:
@@ -4057,17 +4064,17 @@ components:
           maxLength: 1000
     DataSummary:
       type: object
-      required: [games, never_played, unplaced, players, latest_game, last_load, last_load_refused, database_bytes, runs_bytes]
+      required: [games, never_played, unplaced, players, latest_game, last_load, last_load_refused, database_bytes, runs_disk_bytes]
       properties:
         database_bytes:
           description: The ratings database's size on disk
           type: integer
           format: int64
-        runs_bytes:
+        runs_disk_bytes:
           description: >-
-            The runs' sizes added up, as each recorded as it ended. The
-            database is larger by its input data, indexes, and the room
-            deleted runs left
+            What the runs take on disk added up, as each recorded as it ended.
+            The database is larger by its input data and the room deleted runs
+            left
           type: integer
           format: int64
         games:

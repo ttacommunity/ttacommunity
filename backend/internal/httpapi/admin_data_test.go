@@ -24,7 +24,7 @@ func TestAdminDataSummaryIsForAdminsAndOrganisers(t *testing.T) {
 		if got.Games != 144691 || got.NeverPlayed != 36 || got.LatestGame == nil || got.LastLoad != nil {
 			t.Errorf("data = %+v", got)
 		}
-		wantJSON(t, rec.Body.Bytes(), "", `{"database_bytes": 2019000000, "runs_bytes": 765000000}`)
+		wantJSON(t, rec.Body.Bytes(), "", `{"database_bytes": 2019000000, "runs_disk_bytes": 1765000000}`)
 	}
 }
 

@@ -1373,14 +1373,17 @@ type AdminRoleRole string
 
 // AdminRun defines model for AdminRun.
 type AdminRun struct {
-	// Bytes The bytes of the rows the run wrote to the run tables, before indexes, recorded as it ended and unmoved by later deletes. 0 while it is going
+	// Bytes The bytes of the rows the run wrote to the run tables, as a dump of it would weigh, recorded as it ended and unmoved by later deletes. 0 while it is going
 	Bytes int64 `json:"bytes"`
 
 	// Current The run the site shows
 	Current bool `json:"current"`
 
 	// Deleting Being deleted in the background
-	Deleting      bool       `json:"deleting"`
+	Deleting bool `json:"deleting"`
+
+	// DiskBytes What the run takes on disk, as deleting it frees: its rows with its share of the run tables' indexes, recorded as it ended. 0 while it is going
+	DiskBytes     int64      `json:"disk_bytes"`
 	EngineVersion string     `json:"engine_version"`
 	FinishedAt    *time.Time `json:"finished_at,omitempty"`
 	Games         int        `json:"games"`
@@ -2405,8 +2408,8 @@ type DataSummary struct {
 	NeverPlayed int `json:"never_played"`
 	Players     int `json:"players"`
 
-	// RunsBytes The runs' sizes added up, as each recorded as it ended. The database is larger by its input data, indexes, and the room deleted runs left
-	RunsBytes int64 `json:"runs_bytes"`
+	// RunsDiskBytes What the runs take on disk added up, as each recorded as it ended. The database is larger by its input data and the room deleted runs left
+	RunsDiskBytes int64 `json:"runs_disk_bytes"`
 
 	// Unplaced Games in no tournament; a rating run refuses to start while any are
 	Unplaced int `json:"unplaced"`

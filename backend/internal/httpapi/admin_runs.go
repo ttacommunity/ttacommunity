@@ -38,7 +38,7 @@ func (s *server) GetAdminRuns(ctx context.Context, _ GetAdminRunsRequestObject) 
 		out[i] = AdminRun{
 			Id: r.ID, Status: AdminRunStatus(r.Status), StartedAt: r.StartedAt, FinishedAt: r.FinishedAt, PublishedAt: r.PublishedAt,
 			Current: r.Current, Games: r.Games, Players: r.Players, EngineVersion: r.EngineVersion, Progress: r.Progress, ProgressAt: r.ProgressAt,
-			Protected: r.Protected, Deleting: r.Deleting, Bytes: r.Bytes,
+			Protected: r.Protected, Deleting: r.Deleting, Bytes: r.Bytes, DiskBytes: r.DiskBytes,
 		}
 	}
 	return GetAdminRuns200JSONResponse{Body: out, Headers: GetAdminRuns200ResponseHeaders{CacheControl: cacheNone}}, nil

@@ -125,7 +125,7 @@ describe('runSize', () => {
     ['a failed run with nothing left', 'failed', 0, '0 B'],
     ['a run still going, its rows not yet recorded', 'running', 0, ''],
   ] as const)('writes %s', (_, status, bytes, want) => {
-    expect(runSize({ status, bytes })).toBe(want);
+    expect(runSize(status, bytes)).toBe(want);
   });
 });
 

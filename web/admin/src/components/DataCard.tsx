@@ -76,7 +76,7 @@ export default function DataCard() {
               <dt>Database</dt>
               <dd>
                 {sizeText(d.database_bytes)}
-                <span className="muted"> · rating runs {sizeText(d.runs_bytes)}</span>
+                <span className="muted"> · rating runs {sizeText(d.runs_disk_bytes)}</span>
               </dd>
             </div>
           </dl>

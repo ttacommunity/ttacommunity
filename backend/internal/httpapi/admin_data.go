@@ -18,7 +18,7 @@ func (s *server) GetAdminData(ctx context.Context, _ GetAdminDataRequestObject) 
 	}
 	body := DataSummary{
 		Games: d.Games, NeverPlayed: d.NeverPlayed, Unplaced: d.Unplaced, Players: d.Players,
-		LastLoad: d.LastLoad, LastLoadRefused: d.LastLoadRefused, DatabaseBytes: d.DatabaseBytes, RunsBytes: d.RunsBytes,
+		LastLoad: d.LastLoad, LastLoadRefused: d.LastLoadRefused, DatabaseBytes: d.DatabaseBytes, RunsDiskBytes: d.RunsDiskBytes,
 	}
 	if d.LatestGame != nil {
 		body.LatestGame = &openapi_types.Date{Time: *d.LatestGame}
