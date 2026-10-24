@@ -495,7 +495,7 @@ def test_world_champions_hold_wc_in_their_title_year(conn, add_match, run_id, pl
         tournament="RL_s09 - King",
     )
     add_match(
-        ("Alder440", 10),
+        ("alder440", 10),
         ("SilverTree", 5),
         ("BronzeTree", 2),
         ("Bob", 1),
@@ -509,7 +509,7 @@ def test_world_champions_hold_wc_in_their_title_year(conn, add_match, run_id, pl
     assert got[("Willow_Tree", 2023)] == "WC"
     assert got[("SilverTree", 2023)] == "WCS"
     assert got[("BronzeTree", 2023)] == "WCB"
-    assert got[("Alder440", 2025)] == "WC"
+    assert got[("alder440", 2025)] == "WC"
     assert ("Marten_Fisher", 2024) not in got
 
 
@@ -604,3 +604,19 @@ def test_derive_tournament_badges_picks_later_same_day_game(conn, add_match, run
     derive_tournament_badges(conn=conn, run_id=run_id)
     got = titles(conn, run_id)
     assert got["Ann"][2] == "Played in Royal League Count Season 9"
+
+
+def test_a_podium_name_is_matched_to_a_player_exactly(conn, add_match, run_id, place):
+    place("worlds", 2025, "Final", "alder440")
+    add_match(
+        ("Alder440", 10), ("Bob", 5), day=date(2024, 6, 2), tournament="Friendly Cup"
+    )
+
+    derive(conn, run_id)
+
+    got = (
+        titles(conn, run_id).get("Alder440"),
+        peaks(conn, run_id).get("Alder440"),
+        yearly(conn, run_id).get(("Alder440", 2025)),
+    )
+    assert got == (None, None, None)

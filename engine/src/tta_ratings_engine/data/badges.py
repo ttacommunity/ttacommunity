@@ -346,7 +346,7 @@ def derive_tournament_badges(*, conn: DictConnection, run_id: int) -> dict[str, 
             cur.executemany(
                 """
                 INSERT INTO player_yearly_titles (run_id, player_name, year, title)
-                SELECT %s, name, %s, %s FROM players WHERE lower(name) = lower(%s)
+                SELECT %s, name, %s, %s FROM players WHERE name = %s
                 ON CONFLICT (run_id, player_name, year) DO UPDATE SET title = EXCLUDED.title
             """,
                 [
