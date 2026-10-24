@@ -97,7 +97,7 @@ def test_campaign_reads_a_match_name_as_upstream(name, want):
     assert campaign(name) == want
 
 
-def test_finish_date_takes_a_recorded_date_or_the_fallback():
+def test_finish_date_takes_a_recorded_date_or_the_fallback_else_none():
     dates = {("international", 30): "2025-08-14", ("royal_league", 8): "2026-05-27"}
     assert (
         finish_date("International Championship", "Season 30", "2025-08-01", dates)
@@ -111,7 +111,7 @@ def test_finish_date_takes_a_recorded_date_or_the_fallback():
     assert (
         finish_date("TCL Round 31", "Tournament", "2024-01-02", dates) == "2024-01-02"
     )
-    assert finish_date("TCL Round 31", "Tournament", None, dates) == "2026-01-01"
+    assert finish_date("TCL Round 31", "Tournament", None, dates) == ""
 
 
 def test_player_achievements_sum_the_four_circuits_boards():
@@ -223,7 +223,7 @@ def test_player_records_list_a_champions_seasons_as_upstream(records):
                "1x 1st, 1x 2nd, 0x 3rd", "45 pts", "gold", "Participated in 2 seasons, total score: 45 pts",
                "Career / All-Time", career=True),
         record(4, "International Championship", "Season 29", "Grandmaster", "1 / 3", "25 pts", "gold",
-               "Season 29 International Championship Standing (1 of 3)", "2026-01-01"),
+               "Season 29 International Championship Standing (1 of 3)", ""),
         record(5, "International Championship", "Season 30", "Grandmaster", "2 / 3", "20 pts", "silver",
                "Season 30 International Championship Standing (2 of 3) • Record: 1W - 1L (50.0% win rate)",
                "2025-08-14"),
@@ -254,7 +254,7 @@ def test_player_records_worlds_podium_silver_and_bronze(records):
     worlds_bob = [r for r in records["bob"] if r["tournament"] == "World Championship"]
     assert worlds_bob == [
         record(2, "World Championship", "2025", "Championship Final", "2 / 4", "Silver Medal & Vice-Champion", "silver",
-               "Through the Ages World Championship 2025 Runner-up & Vice-Champion", "2026-01-01"),
+               "Through the Ages World Championship 2025 Runner-up & Vice-Champion", ""),
     ]  # fmt: skip
 
 

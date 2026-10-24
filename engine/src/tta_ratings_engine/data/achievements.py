@@ -13,7 +13,6 @@ from typing import Any
 from tta_ratings_engine.data.seats import by_place, seats_of
 
 PLACES = ("gold", "silver", "bronze")
-FALLBACK_DATE = "2026-01-01"
 CAREER = "Career / All-Time"
 # Each league's name, and its career division and season details, on the sheet rows.
 SHEETS = {
@@ -179,7 +178,7 @@ def finish_date(
     fallback: str | None,
     dates: dict[tuple[str, int], str],
 ) -> str:
-    """Returns a league season's recorded finish date, else fallback, else upstream's 2026-01-01."""
+    """Returns a league season's finish date, else fallback, else "" (undated)."""
     for word, series in (("International", "international"), ("Intermezzo", "intermezzo"),
                          ("Royal League", "royal_league")):  # fmt: skip
         if word in tournament:
@@ -187,7 +186,7 @@ def finish_date(
             if m and (series, int(m.group(1))) in dates:
                 return dates[(series, int(m.group(1)))]
             break
-    return fallback or FALLBACK_DATE
+    return fallback or ""
 
 
 def _medal(place: int) -> str | None:
@@ -248,7 +247,7 @@ def _worlds_rows(official, dates):
                 "points": points,
                 "medal": medal,
                 "details": details,
-                "finish_date": dates.get(("worlds", year), FALLBACK_DATE),
+                "finish_date": dates.get(("worlds", year), ""),
                 "career": False,
             }
             rows.append(rec)
@@ -293,7 +292,7 @@ def _sheet_rows(series, top, standings, official, boards, dates):
                     "points": f"{points:g} pts",
                     "medal": None if p.get("shared") else _medal(rank),
                     "details": details,
-                    "finish_date": dates.get((series, season), FALLBACK_DATE),
+                    "finish_date": dates.get((series, season), ""),
                     "career": False,
                 }
                 season_recs[(name, season)] = rec
@@ -350,7 +349,7 @@ def _royal_league_rows(top, standings, official, dates):
                 rec = {"player_name": p, "tournament": "Royal League", "season": f"Season {season}",
                        "division": "Emperor", "placement": f"{place} / 8", "points": points,
                        "medal": PLACES[place - 1], "details": f"{details} (Season {season})",
-                       "finish_date": dates.get(("royal_league", season), FALLBACK_DATE), "career": False}  # fmt: skip
+                       "finish_date": dates.get(("royal_league", season), ""), "career": False}  # fmt: skip
                 rows.append(rec)
                 keys[(p, "Royal League", f"Season {season}")] = rec
     return rows, keys
@@ -447,7 +446,7 @@ def _campaign_rows(rows, keys, dates):
                     official["details"] += (
                         f" • Record: {w}W - {n - w}L ({pct}% win rate)"
                     )
-                if official["finish_date"] in (FALLBACK_DATE, ""):
+                if not official["finish_date"]:
                     official["finish_date"] = finish
                 continue
             out.append({"player_name": p, "tournament": tournament, "season": season, "division": division,

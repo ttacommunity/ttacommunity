@@ -620,3 +620,22 @@ def test_a_podium_name_is_matched_to_a_player_exactly(conn, add_match, run_id, p
         yearly(conn, run_id).get(("Alder440", 2025)),
     )
     assert got == (None, None, None)
+
+
+def test_an_undated_top_division_win_is_a_peak_but_no_recent_or_year_title(
+    conn, add_match, run_id, place
+):
+    place("royal_league", 1, "Emperor", "Ann", "Bob")
+    add_match(("Ann", 10), ("Bob", 5), day=date(2026, 6, 1), tournament="RL_s09 - King")
+
+    derive(conn, run_id)
+
+    assert (
+        titles(conn, run_id)["Ann"][0],
+        peaks(conn, run_id)["Ann"],
+        yearly(conn, run_id)[("Ann", 2026)],
+    ) == (
+        "M",
+        ("SGM", None),
+        "M",
+    )
