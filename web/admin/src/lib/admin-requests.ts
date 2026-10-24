@@ -37,6 +37,9 @@ export const setStories = (slug: string, stories: Schemas['Story'][]) => to(tour
 export const addSeason = (slug: string, label: string) => to(`${tournament(slug)}/seasons`, 'POST', { label: label.trim() });
 /** removeSeason removes a season that has no games. */
 export const removeSeason = (slug: string, label: string) => to(season(slug, label), 'DELETE');
+/** moveSeason moves a season to another tournament, optionally with a new season label. */
+export const moveSeason = (slug: string, label: string, toTournament: string, newSeason?: string) =>
+  to(season(slug, label), 'PATCH', { move_to_tournament: toTournament, ...(newSeason ? { new_season: newSeason } : {}) });
 /** setNote saves a season's note (stage "") or a stage's, trimmed; an empty one removes it. */
 export function setNote(slug: string, label: string, stage: string, note: string): Request {
   const change: Schemas['SeasonChange'] = stage === '' ? { note: note.trim() } : { stage_notes: { [stage]: note.trim() } };

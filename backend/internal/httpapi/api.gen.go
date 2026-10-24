@@ -214,6 +214,30 @@ func (e AdminTitle) Valid() bool {
 	}
 }
 
+// Defines values for AdminTournamentPodiumSource.
+const (
+	AdminTournamentPodiumSourceFinalStage   AdminTournamentPodiumSource = "final_stage"
+	AdminTournamentPodiumSourceNone         AdminTournamentPodiumSource = "none"
+	AdminTournamentPodiumSourceRecorded     AdminTournamentPodiumSource = "recorded"
+	AdminTournamentPodiumSourceTopDivisions AdminTournamentPodiumSource = "top_divisions"
+)
+
+// Valid indicates whether the value is a known member of the AdminTournamentPodiumSource enum.
+func (e AdminTournamentPodiumSource) Valid() bool {
+	switch e {
+	case AdminTournamentPodiumSourceFinalStage:
+		return true
+	case AdminTournamentPodiumSourceNone:
+		return true
+	case AdminTournamentPodiumSourceRecorded:
+		return true
+	case AdminTournamentPodiumSourceTopDivisions:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for BlitzEntrantChangeStatus.
 const (
 	BlitzEntrantChangeStatusActive  BlitzEntrantChangeStatus = "active"
@@ -847,6 +871,30 @@ func (e TournamentRecordMedal) Valid() bool {
 	case Gold:
 		return true
 	case Silver:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for TournamentSettingsPodiumSource.
+const (
+	TournamentSettingsPodiumSourceFinalStage   TournamentSettingsPodiumSource = "final_stage"
+	TournamentSettingsPodiumSourceNone         TournamentSettingsPodiumSource = "none"
+	TournamentSettingsPodiumSourceRecorded     TournamentSettingsPodiumSource = "recorded"
+	TournamentSettingsPodiumSourceTopDivisions TournamentSettingsPodiumSource = "top_divisions"
+)
+
+// Valid indicates whether the value is a known member of the TournamentSettingsPodiumSource enum.
+func (e TournamentSettingsPodiumSource) Valid() bool {
+	switch e {
+	case TournamentSettingsPodiumSourceFinalStage:
+		return true
+	case TournamentSettingsPodiumSourceNone:
+		return true
+	case TournamentSettingsPodiumSourceRecorded:
+		return true
+	case TournamentSettingsPodiumSourceTopDivisions:
 		return true
 	default:
 		return false
@@ -1510,6 +1558,9 @@ type AdminTournament struct {
 	// Parent The slug of the group it is in; empty for none
 	Parent string `json:"parent"`
 
+	// PodiumSource How its podium is chosen: top_divisions, final_stage, recorded, or none
+	PodiumSource *AdminTournamentPodiumSource `json:"podium_source,omitempty"`
+
 	// Points2p Points for each place in a game of that many players, best place first, from the next run; empty for a player count the tournament does not score. Never negative, never higher for a worse place
 	Points2p PlacePoints `json:"points_2p"`
 
@@ -1543,6 +1594,9 @@ type AdminTournament struct {
 	// Visible Shown on the site though not rated
 	Visible bool `json:"visible"`
 }
+
+// AdminTournamentPodiumSource How its podium is chosen: top_divisions, final_stage, recorded, or none
+type AdminTournamentPodiumSource string
 
 // AdminTournamentRow defines model for AdminTournamentRow.
 type AdminTournamentRow struct {
@@ -3467,6 +3521,12 @@ type SeasonChange struct {
 	// InCommunity It counts in the community leaderboard, from the next run
 	InCommunity *bool `json:"in_community,omitempty"`
 
+	// MoveToTournament Move the season into another tournament (its slug)
+	MoveToTournament *string `json:"move_to_tournament,omitempty"`
+
+	// NewSeason When moving, optionally rename the season's label in the destination tournament
+	NewSeason *string `json:"new_season,omitempty"`
+
 	// Note Its own note; empty removes it
 	Note   *string        `json:"note,omitempty"`
 	Podium *PodiumSetting `json:"podium,omitempty"`
@@ -3757,11 +3817,14 @@ type TournamentSettings struct {
 	// Members A group's members, exactly
 	Members *[]string `json:"members,omitempty"`
 
-	// Name A group's new name (only a group is renamed)
+	// Name A tournament's or group's new name
 	Name *string `json:"name,omitempty"`
 
 	// Parent The slug of the group to put it in; empty takes it out of any
 	Parent *string `json:"parent,omitempty"`
+
+	// PodiumSource How its podium is chosen: top_divisions (final standings), final_stage (games in final stage), recorded (organisers' placements), or none
+	PodiumSource *TournamentSettingsPodiumSource `json:"podium_source,omitempty"`
 
 	// Points2p Points for each place in a game of that many players, best place first, from the next run; empty for a player count the tournament does not score. Never negative, never higher for a worse place
 	Points2p *PlacePoints `json:"points_2p,omitempty"`
@@ -3790,6 +3853,9 @@ type TournamentSettings struct {
 	TopDivisions *[]string `json:"top_divisions,omitempty"`
 	Visible      *bool     `json:"visible,omitempty"`
 }
+
+// TournamentSettingsPodiumSource How its podium is chosen: top_divisions (final standings), final_stage (games in final stage), recorded (organisers' placements), or none
+type TournamentSettingsPodiumSource string
 
 // TrophyRow One player on a series' board: medals and a title for the leagues
 // and the World Championship, medals and honours for the cups, or

@@ -140,6 +140,13 @@ export function toggled(chosen: readonly string[], slug: string): string[] {
   return chosen.includes(slug) ? chosen.filter((s) => s !== slug) : [...chosen, slug];
 }
 
+/** seasonDestinations returns non-group tournaments other than currentSlug, sorted by name. */
+export function seasonDestinations<T extends Grouped>(list: readonly T[], currentSlug: string): T[] {
+  return list
+    .filter((t) => !t.is_group && t.slug !== currentSlug)
+    .sort((a, b) => a.name.localeCompare(b.name));
+}
+
 type GroupForm<K extends string> = { name: string; kind: K; description: string };
 
 /** groupChange returns what saving a group's settings sends, trimmed, or null when nothing changed or it has no name. */

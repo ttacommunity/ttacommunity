@@ -247,6 +247,9 @@
   align-items: center;
   margin-bottom: 0.25rem;
 }
+.move-season-input {
+  width: 6rem;
+}
 .runs-actions {
   margin-bottom: 0.75rem;
 }

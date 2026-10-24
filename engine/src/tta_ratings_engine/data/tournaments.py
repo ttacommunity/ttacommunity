@@ -583,7 +583,7 @@ def derive_tournaments(*, conn: DictConnection, run_id: int) -> None:
             "SELECT series, season, division, player_name, place, points "
             "FROM tournament_official_placements WHERE series = ANY(%s) "
             "ORDER BY place, player_name",
-            (list(SERIES),),
+            (list(rules),),
         ).fetchall():
             official[(r["series"], r["season"], r["division"])].append(r)
         dates = {
@@ -666,8 +666,7 @@ def derive_tournaments(*, conn: DictConnection, run_id: int) -> None:
         player_record_rows = player_records(
             rows=match_order(rows),
             top_divisions={
-                s: rules[s].top_divisions
-                for s in (holder(conn, "international"), holder(conn, "intermezzo"))
+                s: r.top_divisions for s, r in rules.items() if r.top_divisions
             },
             standings=derived,
             official=official,

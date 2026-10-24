@@ -128,7 +128,7 @@ func TestSetMembersRefusesWhatAGroupCannotHold(t *testing.T) {
 	}
 }
 
-func TestSetTournamentRenamesOnlyAGroup(t *testing.T) {
+func TestSetTournamentRenamesAnyTournamentOrGroup(t *testing.T) {
 	a := groupedSeries(t)
 	ctx := context.Background()
 	g := group(t, a, "Leagues", "league")
@@ -140,8 +140,12 @@ func TestSetTournamentRenamesOnlyAGroup(t *testing.T) {
 	if got := listed(t, a, g).Name; got != name {
 		t.Errorf("name = %q, want %q", got, name)
 	}
-	if err := a.SetTournament(ctx, "international", TournamentSettings{Name: &name}); !errors.Is(err, ErrNotAGroup) {
-		t.Errorf("renaming a tournament = %v, want ErrNotAGroup", err)
+	newName := "International Championship Renamed"
+	if err := a.SetTournament(ctx, "international", TournamentSettings{Name: &newName}); err != nil {
+		t.Fatalf("renaming a tournament: %v", err)
+	}
+	if got := listed(t, a, "international").Name; got != newName {
+		t.Errorf("renamed tournament name = %q, want %q", got, newName)
 	}
 }
 

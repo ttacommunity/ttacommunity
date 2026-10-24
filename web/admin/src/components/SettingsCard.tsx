@@ -20,6 +20,7 @@ import {
 export default function SettingsCard({ t, onChange }: { t: AdminTournament; onChange: (t: AdminTournament) => void }) {
   const [refusal, setRefusal] = useState<Outcome | null>(null);
   const notice = (at: string) => <Notice outcome={shownAt(refusal, at)} onClose={() => setRefusal(null)} />;
+  const [name, setName] = useState(t.name);
   const [divisions, setDivisions] = useState(divisionText(t.top_divisions));
   const [points, setPoints] = useState({ 2: pointsText(t.points_2p), 3: pointsText(t.points_3p), 4: pointsText(t.points_4p) });
   const [levels, setLevels] = useState({ season_name: t.season_name, stage_name: t.stage_name });
@@ -81,9 +82,25 @@ export default function SettingsCard({ t, onChange }: { t: AdminTournament; onCh
         </fieldset>
         {notice('rated counts')}
         <div className="setting">
+          <label htmlFor="setting-name">
+            <strong>Name</strong>
+            <span className="muted"> · Display name on the site</span>
+          </label>{' '}
+          <input className="input-antique" id="setting-name" value={name} maxLength={100} onChange={(e) => setName(e.target.value)} />{' '}
+          <button
+            type="button"
+            className="btn-antique"
+            onClick={() => void patch({ name: name.trim() }, 'name')}
+            disabled={name.trim() === '' || name.trim() === t.name}
+          >
+            Save
+          </button>
+        </div>
+        {notice('name')}
+        <div className="setting">
           <label htmlFor="setting-kind">
             <strong>Kind</strong>
-            <span className="muted"> · A league's podium is its top divisions' standings; a ladder has none</span>
+            <span className="muted"> · League, Cup, or Ladder format</span>
           </label>{' '}
           <select className="input-antique" id="setting-kind" value={t.kind} onChange={(e) => void patch({ kind: e.target.value as AdminTournament['kind'] }, 'kind')}>
             <option value="league">League</option>
@@ -92,7 +109,26 @@ export default function SettingsCard({ t, onChange }: { t: AdminTournament; onCh
           </select>
         </div>
         {notice('kind')}
-        {t.kind === 'league' && (
+        <div className="setting">
+          <label htmlFor="setting-podium-source">
+            <strong>Podium source</strong>
+            <span className="muted"> · How podium places are determined</span>
+          </label>{' '}
+          <select
+            className="input-antique"
+            id="setting-podium-source"
+            value={t.podium_source ?? ''}
+            onChange={(e) => void patch({ podium_source: (e.target.value || null) as AdminTournament['podium_source'] }, 'podium source')}
+          >
+            <option value="">Default (by kind)</option>
+            <option value="top_divisions">Top divisions</option>
+            <option value="final_stage">Final stage games</option>
+            <option value="recorded">Organisers' recorded placements</option>
+            <option value="none">None</option>
+          </select>
+        </div>
+        {notice('podium source')}
+        {(t.podium_source === 'top_divisions' || (t.podium_source == null && t.kind === 'league')) && (
           <div className="setting">
             <label htmlFor="setting-top">
               <strong>Top divisions</strong>

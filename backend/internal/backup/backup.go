@@ -55,6 +55,9 @@ func Write(dir, name string, r age.Recipient, write func(io.Writer) error) (stri
 	if err != nil {
 		return "", 0, fmt.Errorf("backing up: %w", err)
 	}
+	if err := f.Close(); err != nil {
+		return "", 0, fmt.Errorf("backing up: %w", err)
+	}
 	path := filepath.Join(dir, name)
 	if err := os.Rename(f.Name(), path); err != nil {
 		return "", 0, fmt.Errorf("backing up: %w", err)

@@ -2,10 +2,11 @@
 import { useState, type FormEvent } from 'react';
 import { useDialog } from '@ttac/shared/Dialog';
 import * as req from '../lib/admin-requests';
-import type { AdminTournament } from '../lib/admin-api';
+import type { AdminTournament, AdminTournamentRow } from '../lib/admin-api';
 import { seasonSummary, stageRows } from '../lib/season-counts';
 import { fieldId, hasPenalty, renamedFrom, toggled } from '../lib/tournament-page';
 import { refusalOf, shownAt, type Outcome } from '../lib/outcome';
+import MoveSeasonButton from './MoveSeasonButton';
 import NoteBox from './NoteBox';
 import Notice from './Notice';
 import PenaltyBox from './PenaltyBox';
@@ -14,7 +15,15 @@ import StagesTable from './StagesTable';
 
 /** SeasonsCard lists a tournament's seasons with their counts, settings, notes and podiums, each season's stages on
  * demand, and adds or removes a season without games. */
-export default function SeasonsCard({ t, onReload }: { t: AdminTournament; onReload: () => Promise<void> }) {
+export default function SeasonsCard({
+  t,
+  all = [],
+  onReload,
+}: {
+  t: AdminTournament;
+  all?: readonly AdminTournamentRow[];
+  onReload: () => Promise<void>;
+}) {
   const [refusal, setRefusal] = useState<Outcome | null>(null);
   const close = () => setRefusal(null);
   const dialog = useDialog();
@@ -80,7 +89,8 @@ export default function SeasonsCard({ t, onReload }: { t: AdminTournament; onRel
                 <button type="button" className="btn-antique btn-settings" aria-expanded={shown.includes(se.label)} onClick={() => toggle(se.label)}>
                   {shown.includes(se.label) ? 'Hide stages' : 'Show stages'}
                 </button>
-              )}
+              )}{' '}
+              <MoveSeasonButton fromSlug={t.slug} season={se.label} all={all} onReload={onReload} />
             </p>
             {shown.includes(se.label) && <StagesTable slug={t.slug} season={se.label} rows={stageRows(se.stages)} onReload={onReload} />}
             <label className="season-rated">

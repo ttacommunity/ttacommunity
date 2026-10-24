@@ -27,10 +27,15 @@ type TournamentSettings struct {
 	Points map[int][]float64
 	// SeasonName and StageName name its seasons and stages (nil unchanged, "" the default).
 	SeasonName, StageName *string
-	// Parent is the slug of the group to put it in, "" for none; Description replaces its description, and Name a
-	// group's name (nil unchanged).
+	// Parent is the slug of the group to put it in, "" for none; Description replaces its description, and Name
+	// renames the tournament or group (nil unchanged).
 	Parent, Description, Name *string
+	// PodiumSource is how its podium is derived: top_divisions, final_stage, recorded, or none (nil unchanged).
+	PodiumSource *string
 }
+
+// ErrBadPodiumSource means a podium source other than top_divisions, final_stage, recorded, or none.
+var ErrBadPodiumSource = errors.New("podium source is top_divisions, final_stage, recorded, or none")
 
 // ErrBadLevelName means a season or stage name longer than 32 characters.
 var ErrBadLevelName = errors.New("a season or stage name is at most 32 characters")
@@ -104,6 +109,9 @@ func (a *AdminStore) SetTournament(ctx context.Context, slug string, s Tournamen
 			return ErrBadGroup
 		}
 	}
+	if s.PodiumSource != nil && *s.PodiumSource != "" && !slices.Contains([]string{"top_divisions", "final_stage", "recorded", "none"}, *s.PodiumSource) {
+		return ErrBadPodiumSource
+	}
 	return pgx.BeginFunc(ctx, a.pool, func(tx pgx.Tx) error {
 		var id int64
 		if err := tx.QueryRow(ctx, "SELECT series_id FROM series WHERE slug = $1", slug).Scan(&id); errors.Is(err, pgx.ErrNoRows) {
@@ -119,11 +127,17 @@ func (a *AdminStore) SetTournament(ctx context.Context, slug string, s Tournamen
 			return ErrBadKind
 		}
 		if s.Name != nil {
-			if !isGroup {
-				return ErrNotAGroup
-			}
 			if _, err := tx.Exec(ctx, "UPDATE series SET name = $2 WHERE series_id = $1", id, *s.Name); err != nil {
 				return fmt.Errorf("renaming %s: %w", slug, err)
+			}
+		}
+		if s.PodiumSource != nil {
+			var ps *string
+			if *s.PodiumSource != "" {
+				ps = s.PodiumSource
+			}
+			if _, err := tx.Exec(ctx, "UPDATE series SET podium_source = $2 WHERE series_id = $1", id, ps); err != nil {
+				return fmt.Errorf("setting podium source of %s: %w", slug, err)
 			}
 		}
 		if s.Parent != nil {

@@ -273,3 +273,52 @@ func TestChangeSeasonRefusedChangesNothing(t *testing.T) {
 		})
 	}
 }
+
+func TestMoveSeasonMovesBetweenTournaments(t *testing.T) {
+	pool := migrated(t)
+	ctx := context.Background()
+	placedOn(t, pool, map[string]time.Time{
+		"International S30 - Grandmaster game 1": day("2024-09-15"),
+		"Intermezzo S24 - Bronze 1 game 1":       day("2024-09-16"),
+	})
+	a := NewAdminStore(asAdminLogin(t, pool))
+
+	if err := a.SetNote(ctx, "international", "30", "", "Top tier season."); err != nil {
+		t.Fatalf("SetNote: %v", err)
+	}
+
+	dest := "intermezzo"
+	newLabel := "99"
+	if err := a.ChangeSeason(ctx, "international", "30", SeasonChange{MoveToTournament: &dest, NewSeason: &newLabel}); err != nil {
+		t.Fatalf("ChangeSeason MoveSeason: %v", err)
+	}
+
+	intnl := adminTournament(t, a, "international")
+	for _, se := range intnl.Seasons {
+		if se.Label == "30" {
+			t.Errorf("international still has season 30 after move")
+		}
+	}
+
+	im := adminTournament(t, a, "intermezzo")
+	found := false
+	for _, se := range im.Seasons {
+		if se.Label == "99" {
+			found = true
+			if se.Note != "Top tier season." {
+				t.Errorf("season 99 note = %q, want %q", se.Note, "Top tier season.")
+			}
+		}
+	}
+	if !found {
+		t.Errorf("intermezzo does not have moved season 99")
+	}
+
+	// Refuses collision with existing season
+	destIntnl := "international"
+	existingLabel := "99"
+	if err := a.MoveSeason(ctx, "intermezzo", "99", dest, existingLabel); !errors.Is(err, ErrSeasonExists) {
+		t.Errorf("moving to existing label = %v, want ErrSeasonExists", err)
+	}
+	_ = destIntnl
+}
