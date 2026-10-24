@@ -32,7 +32,7 @@ export function formatDay(day: string): string {
   return new Date(`${day}T00:00:00Z`).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'UTC' });
 }
 
-/** formatInstantDay writes the day a UTC instant falls on in timeZone (the viewer's when not given), as "1 Oct 2026". */
-export function formatInstantDay(instant: string, timeZone?: string): string {
-  return new Date(instant).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric', timeZone });
+/** viewerZone returns the browser's IANA time zone, the one a visitor's times are shown in. */
+export function viewerZone(): string {
+  return Intl.DateTimeFormat().resolvedOptions().timeZone;
 }

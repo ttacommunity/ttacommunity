@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { formatDay, formatInstant, formatInstantDay, formatTime } from './time';
+import { formatDay, formatInstant, formatTime } from './time';
 
 describe('formatInstant', () => {
   it.each([
@@ -54,15 +54,5 @@ describe.each(['America/New_York', 'UTC', 'Australia/Sydney'])('formatDay with t
     ['New Year\'s Eve', '2025-12-31', '31 Dec 2025'],
   ])('shows %s as that day', (_name, day, want) => {
     expect(formatDay(day)).toBe(want);
-  });
-});
-
-describe('formatInstantDay', () => {
-  it.each([
-    ['late evening in UTC', '2026-09-30T23:30:00Z', 'UTC', '30 Sept 2026'],
-    ['the next morning in Sydney', '2026-09-30T23:30:00Z', 'Australia/Sydney', '1 Oct 2026'],
-    ['the evening before in Los Angeles', '2026-10-01T02:00:00Z', 'America/Los_Angeles', '30 Sept 2026'],
-  ])('shows %s', (_name, instant, zone, want) => {
-    expect(formatInstantDay(instant, zone)).toBe(want);
   });
 });

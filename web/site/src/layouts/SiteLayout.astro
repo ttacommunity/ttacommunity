@@ -76,6 +76,7 @@ const current = currentSection(Astro.url.pathname);
     <script>
       import { PUBLIC_API_URL } from 'astro:env/client';
       import { currentRun } from '@ttac/shared/ratings';
+      import { viewerZone } from '@ttac/shared/time';
       import { runFacts } from '../lib/run-facts';
       import { placeTooltip } from '../lib/tooltip-position';
 
@@ -83,7 +84,7 @@ const current = currentSection(Astro.url.pathname);
       const facts = document.querySelector('.run-facts');
       if (facts) {
         currentRun(PUBLIC_API_URL)
-          .then((run) => (facts.textContent = runFacts(run)))
+          .then((run) => (facts.textContent = runFacts(run, viewerZone())))
           .catch(() => undefined);
       }
 

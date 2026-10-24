@@ -8,7 +8,7 @@ import {
   type Run,
   type LeaderboardRow,
 } from '@ttac/shared/ratings';
-import { formatDay, formatInstantDay } from '@ttac/shared/time';
+import { formatDay, formatInstant, viewerZone } from '@ttac/shared/time';
 import { podiumCard, seasonName, type PodiumCard } from '../lib/catalogue-view';
 import { seatRankClass, settled, type Section } from '../lib/home-view';
 import { waitingText } from '../lib/waiting';
@@ -211,7 +211,7 @@ export default function HomePage({ apiUrl }: { apiUrl: string }) {
             )}
             {data.run.finished_at && (
               <div className="home-stat-pill">
-                Updated: <strong>{formatInstantDay(data.run.finished_at)}</strong>
+                Updated: <strong>{formatInstant(data.run.finished_at, viewerZone())}</strong>
               </div>
             )}
           </div>
