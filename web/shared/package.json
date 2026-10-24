@@ -7,6 +7,7 @@
   },
   "exports": {
     "./time": "./src/time.ts",
+    "./numbers": "./src/numbers.ts",
     "./api": "./api/schema.ts",
     "./ratings": "./src/ratings.ts",
     "./blitz": "./src/blitz.ts",

@@ -2,7 +2,7 @@
 import { useEffect, useRef, useState } from 'react';
 import type { FeedSettings, TournamentFeedFilter } from '../lib/feed-settings';
 import { DEFAULT_FEED_SETTINGS } from '../lib/feed-settings';
-import { fetchTournamentDivisions, PREMIER_DIVISIONS } from '../lib/feed-data';
+import { divisionsToFetch, fetchTournamentDivisions, PREMIER_DIVISIONS } from '../lib/feed-data';
 import SearchBox, { type SearchPlayer } from './SearchBox';
 import './FeedOptionsModal.css';
 
@@ -33,7 +33,8 @@ export default function FeedOptionsModal({
   const dialogRef = useRef<HTMLDialogElement>(null);
   const [staged, setStaged] = useState<FeedSettings>(settings);
   const [divisionsMap, setDivisionsMap] = useState<Record<string, string[]>>(PREMIER_DIVISIONS);
-  const [loadingDivisions, setLoadingDivisions] = useState<Record<string, boolean>>({});
+  const [divisionsState, setDivisionsState] = useState<Record<string, 'loading' | 'ready' | 'failed'>>({});
+  const askedDivisions = useRef(new Set(Object.keys(PREMIER_DIVISIONS)));
 
   useEffect(() => {
     const d = dialogRef.current;
@@ -50,22 +51,19 @@ export default function FeedOptionsModal({
     };
   }, []);
 
-  // Fetch divisions for any configured tournaments that don't have them cached yet
   useEffect(() => {
-    for (const t of staged.tournaments) {
-      if (!divisionsMap[t.slug] && !loadingDivisions[t.slug]) {
-        setLoadingDivisions((prev) => ({ ...prev, [t.slug]: true }));
-        fetchTournamentDivisions(apiUrl, runId, t.slug)
-          .then((groups) => {
-            setDivisionsMap((prev) => ({ ...prev, [t.slug]: groups }));
-            setLoadingDivisions((prev) => ({ ...prev, [t.slug]: false }));
-          })
-          .catch(() => {
-            setLoadingDivisions((prev) => ({ ...prev, [t.slug]: false }));
-          });
-      }
+    for (const slug of divisionsToFetch(staged.tournaments, askedDivisions.current)) {
+      askedDivisions.current.add(slug);
+      setDivisionsState((prev) => ({ ...prev, [slug]: 'loading' }));
+      fetchTournamentDivisions(apiUrl, runId, slug).then(
+        (groups) => {
+          setDivisionsMap((prev) => ({ ...prev, [slug]: groups }));
+          setDivisionsState((prev) => ({ ...prev, [slug]: 'ready' }));
+        },
+        () => setDivisionsState((prev) => ({ ...prev, [slug]: 'failed' })),
+      );
     }
-  }, [apiUrl, runId, staged.tournaments, divisionsMap, loadingDivisions]);
+  }, [apiUrl, runId, staged.tournaments]);
 
   const addTournament = (slug: string) => {
     if (!slug) return;
@@ -178,7 +176,7 @@ export default function FeedOptionsModal({
             ) : (
               staged.tournaments.map((t, idx) => {
                 const divisions = divisionsMap[t.slug] || [];
-                const isLoading = loadingDivisions[t.slug];
+                const state = divisionsState[t.slug];
 
                 return (
                   <div key={`${t.slug}-${t.division || 'all'}-${idx}`} className="feed-tourney-row">
@@ -204,9 +202,8 @@ export default function FeedOptionsModal({
                         {t.division && !divisions.includes(t.division) && (
                           <option value={t.division}>{t.division}</option>
                         )}
-                        {isLoading && divisions.length === 0 && (
-                          <option value="" disabled>Loading divisions…</option>
-                        )}
+                        {state === 'loading' && <option value="" disabled>Loading divisions…</option>}
+                        {state === 'failed' && <option value="" disabled>Divisions could not be loaded</option>}
                       </select>
 
                       <button
@@ -268,6 +265,7 @@ export default function FeedOptionsModal({
             value=""
             placeholder="Search and add competitor..."
             onSearch={addPlayer}
+            clearOnSearch
           />
 
           <div className="player-tags-container" aria-label="Selected competitors">

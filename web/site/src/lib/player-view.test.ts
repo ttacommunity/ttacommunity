@@ -178,6 +178,9 @@ describe('signedDelta', () => {
     [-3, '-3.0'],
     [0, '0.0'],
     [-0, '0.0'],
+    [0.04, '0.0'],
+    [-0.04, '0.0'],
+    [0.05, '+0.1'],
     [null, '—'],
   ])('writes upstream ΔR: %s as %s', (delta, want) => {
     expect(signedDelta(delta)).toBe(want);

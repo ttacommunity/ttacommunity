@@ -33,14 +33,15 @@ beforeAll(async () => {
 
 afterEach(() => vi.unstubAllGlobals());
 
-/** network stubs the certificates and the API, recording every request the Worker makes. */
-function network() {
+/** network stubs the certificates and the API (unreachable when apiDown), recording every request the Worker makes. */
+function network({ apiDown = false } = {}) {
   const calls: { url: string; init?: RequestInit }[] = [];
   vi.stubGlobal(
     'fetch',
     vi.fn(async (url: string, init?: RequestInit) => {
       calls.push({ url, init });
       if (url === `${TEAM}/cdn-cgi/access/certs`) return Response.json({ keys: [jwk] });
+      if (apiDown) throw new TypeError('Network connection lost.');
       if (url.endsWith('/v1/admin/export')) {
         return new Response('PK zip', {
           headers: { 'Content-Type': 'application/zip', 'Content-Disposition': 'attachment; filename="ttacommunity-data.zip"' },
@@ -131,6 +132,14 @@ describe('the admin Worker', () => {
     network();
     const res = await worker.fetch(new Request(`${SITE}/api/me`, { headers: { 'Cf-Access-Jwt-Assertion': good } }), env().env);
     expect(res.headers.get('X-Request-Id')).toBe('0123456789abcdef');
+  });
+
+  it('answers a JSON 502 when the API cannot be reached', async () => {
+    network({ apiDown: true });
+    const res = await worker.fetch(new Request(`${SITE}/api/me`, { headers: { 'Cf-Access-Jwt-Assertion': good } }), env().env);
+    expect(res.status).toBe(502);
+    expect(await res.json()).toEqual({ error: 'the API could not be reached' });
+    expect(res.headers.get('Cache-Control')).toBe('no-store');
   });
 
   it("keeps Access's signing keys for a while rather than fetching them on every request", async () => {

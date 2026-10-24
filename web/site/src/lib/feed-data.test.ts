@@ -1,7 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import {
   catalogueGameToFeedMatch,
+  divisionsToFetch,
   fetchFeedMatches,
+  fetchTournamentDivisions,
   playerMatchToFeedMatch,
   mergeFeedMatches,
   type FeedMatch,
@@ -114,7 +116,7 @@ describe('feed-data', () => {
     expect(merged[1]?.division).toBe('Grandmaster');
   });
 
-  it('provides sensible fallback divisions for premier tournaments', async () => {
+  it('knows the premier tournaments\' divisions before asking', async () => {
     const { PREMIER_DIVISIONS } = await import('./feed-data');
     expect(PREMIER_DIVISIONS.royal_league).toContain('Emperor');
     expect(PREMIER_DIVISIONS.international).toContain('Grandmaster');
@@ -201,5 +203,55 @@ describe('fetchFeedMatches', () => {
       mockFetch,
     );
     expect(got.map((m) => m.matchId)).toEqual([201]);
+  });
+});
+
+describe('divisionsToFetch', () => {
+  it.each([
+    ['each tournament once, in order', ['royal', 'cup', 'royal'], [], ['royal', 'cup']],
+    ['none already asked for', ['royal', 'cup'], ['royal'], ['cup']],
+    ['nothing when every one was asked for', ['cup', 'cup'], ['cup'], []],
+  ])('gives %s', (_name, slugs, asked, want) => {
+    expect(divisionsToFetch(slugs.map((slug) => ({ slug, name: slug })), new Set(asked))).toEqual(want);
+  });
+});
+
+describe('fetchTournamentDivisions', () => {
+  const seasons = (labels: string[]) => labels.map((label) => ({ label }));
+  /** api answers the tournament with its seasons, and each season's games with groups; it records every URL asked. */
+  const api = (labels: string[], groups: Record<string, string[]>, failGames = false) => {
+    const asked: string[] = [];
+    const fetchFn = (async (input: RequestInfo | URL) => {
+      const url = String(input);
+      asked.push(url);
+      if (!url.includes('/games?')) return Response.json({ slug: 'cup', seasons: seasons(labels) });
+      if (failGames) return Response.json({ error: 'no' }, { status: 500 });
+      const season = new URL(url).searchParams.get('season') ?? '';
+      return Response.json({ groups: groups[season] ?? [], games: [] });
+    }) as typeof fetch;
+    return { asked, fetchFn };
+  };
+
+  it("gives the latest season's groups, asking for that season alone", async () => {
+    const { asked, fetchFn } = api(['1', '2', '3'], { '1': ['Old'], '3': ['A', 'B'] });
+    expect(await fetchTournamentDivisions('https://api.example', 5, 'cup', fetchFn)).toEqual(['A', 'B']);
+    expect(asked.filter((u) => u.includes('/games?'))).toHaveLength(1);
+  });
+
+  it('gives no divisions when the latest season has no groups, without walking older seasons', async () => {
+    const { asked, fetchFn } = api(['1', '2'], { '1': ['Old'] });
+    expect(await fetchTournamentDivisions('https://api.example', 5, 'cup', fetchFn)).toEqual([]);
+    expect(asked.filter((u) => u.includes('/games?'))).toHaveLength(1);
+  });
+
+  it('gives no divisions for a tournament with no seasons, asking for no games', async () => {
+    const { asked, fetchFn } = api([], {});
+    expect(await fetchTournamentDivisions('https://api.example', 5, 'cup', fetchFn)).toEqual([]);
+    expect(asked).toHaveLength(1);
+  });
+
+  it('fails when the API fails, rather than give a fixed list', async () => {
+    const { fetchFn } = api(['1'], {}, true);
+    await expect(fetchTournamentDivisions('https://api.example', 5, 'royal_league', fetchFn)).rejects.toMatchObject({ status: 500 });
   });
 });

@@ -15,11 +15,11 @@ const run: Run = {
 
 describe('runFacts', () => {
   it('gives the years, games, players and when the run was computed', () => {
-    expect(runFacts(run, 'UTC')).toBe(' (2017–2026) • 135,393 games • 3,526 players • updated 1 Oct 2026');
+    expect(runFacts(run, 'UTC')).toBe(' (2017–2026) • 135,393 games • 3,526 players • updated 1 Oct 2026, 01:10 (UTC)');
   });
 
-  it('dates the update in the zone asked for', () => {
-    expect(runFacts({ ...run, finished_at: '2026-09-30T23:30:00Z' }, 'Australia/Sydney')).toContain('updated 1 Oct 2026');
+  it('times the update to the minute in the zone asked for, naming it', () => {
+    expect(runFacts({ ...run, finished_at: '2026-09-30T23:30:00Z' }, 'Australia/Sydney')).toContain('updated 1 Oct 2026, 09:30 (Australia/Sydney)');
   });
 
   it('leaves out what the run did not record', () => {

@@ -26,3 +26,13 @@ export function formatTime(instant: string, timeZone: string): string {
     hourCycle: 'h23',
   }).format(date);
 }
+
+/** formatDay writes a calendar date (YYYY-MM-DD) as "24 Feb 2025", the same day in every time zone. */
+export function formatDay(day: string): string {
+  return new Date(`${day}T00:00:00Z`).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'UTC' });
+}
+
+/** viewerZone returns the browser's IANA time zone, the one a visitor's times are shown in. */
+export function viewerZone(): string {
+  return Intl.DateTimeFormat().resolvedOptions().timeZone;
+}

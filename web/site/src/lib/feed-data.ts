@@ -1,12 +1,13 @@
 /** Aggregation and transformation functions for the landing page community pulse feed. */
 import {
   catalogueGames,
+  catalogueTournament,
   playerMatches,
   RatingsApiError,
   type CatalogueGame,
   type PlayerMatch,
 } from '@ttac/shared/ratings';
-import type { FeedSettings } from './feed-settings';
+import type { FeedSettings, TournamentFeedFilter } from './feed-settings';
 
 export interface FeedMatchSeat {
   name: string;
@@ -82,32 +83,16 @@ export const PREMIER_DIVISIONS: Record<string, string[]> = {
   intermezzo: ['Grandmaster', 'Diamond', 'Platinum', 'Gold', 'Silver', 'Bronze'],
 };
 
-/** Fetches available divisions/groups for a tournament from its latest seasons, falling back to known premier tiers. */
-export async function fetchTournamentDivisions(
-  apiUrl: string,
-  runId: number,
-  slug: string,
-): Promise<string[]> {
-  try {
-    const { catalogueTournament } = await import('@ttac/shared/ratings');
-    const tourney = await catalogueTournament(apiUrl, runId, slug);
-    if (tourney && tourney.seasons && tourney.seasons.length > 0) {
-      // Look through seasons in reverse (newest first) to find one with populated groups
-      for (let i = tourney.seasons.length - 1; i >= 0; i--) {
-        const s = tourney.seasons[i];
-        if (s && s.label) {
-          const gamesRes = await catalogueGames(apiUrl, runId, slug, { season: s.label, page: 1 }).catch(() => null);
-          if (gamesRes && gamesRes.groups && gamesRes.groups.length > 0) {
-            return gamesRes.groups;
-          }
-        }
+/** divisionsToFetch returns the tournaments whose divisions are still to be asked for: each slug once, in order, none in asked. */
+export function divisionsToFetch(tournaments: readonly TournamentFeedFilter[], asked: ReadonlySet<string>): string[] {
+  return [...new Set(tournaments.map((t) => t.slug))].filter((slug) => !asked.has(slug));
+}
 
-      }
-    }
-  } catch {
-    // network or parsing failure - fall back below
-  }
-  return PREMIER_DIVISIONS[slug] ?? [];
+/** fetchTournamentDivisions returns the groups of a tournament's latest season, none when it has no seasons; it rejects when the API fails. */
+export async function fetchTournamentDivisions(apiUrl: string, runId: number, slug: string, fetchFn: typeof fetch = fetch): Promise<string[]> {
+  const latest = (await catalogueTournament(apiUrl, runId, slug, fetchFn)).seasons.at(-1);
+  if (latest === undefined) return [];
+  return (await catalogueGames(apiUrl, runId, slug, { season: latest.label, page: 1 }, fetchFn)).groups;
 }
 
 /** isFinishedCatalogueGame checks that a game is completed (state is 'played' and has at least two seats). */
