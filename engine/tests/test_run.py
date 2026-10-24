@@ -815,6 +815,35 @@ def test_a_run_counts_its_players_seats(conn, db_url, add_match, kind):
     assert got == {"games": 2, "wins": 2}
 
 
+def seat_tiers(conn, run_id):
+    return conn.execute(
+        "SELECT tier, player_count, seat, place, seats, outright_wins, draws, win_shares "
+        "FROM seat_tier_stats WHERE run_id = %s ORDER BY 1, 2, 3, 4",
+        (run_id,),
+    ).fetchall()
+
+
+@pytest.mark.parametrize("kind", ["full", "parallel", "tournaments only"])
+def test_a_run_tiers_its_seats_by_its_finished_ratings(conn, db_url, add_match, kind):
+    for month in range(1, 7):
+        add_match(("Ann", 10), ("Bob", 5), day=date(2021, month, 3))
+    add_match(("Ann", 10), ("Bob", 5), ("Cat", 1), day=date(2021, 7, 3))
+    run_id = run(
+        conn, "v1", formats=[0], log=lambda _: None, make_current=True,
+        workers=2 if kind == "parallel" else 1, url=db_url,
+    )  # fmt: skip
+    if kind == "tournaments only":
+        run_id = run(conn, "v2", tournaments_only=True, log=lambda _: None)
+    got = seat_tiers(conn, run_id)
+
+    conn.execute("DELETE FROM seat_tier_stats WHERE run_id = %s", (run_id,))
+    conn.execute("SELECT derive_seat_tier_stats(%s)", (run_id,))
+
+    assert {r["tier"] for r in got} - {"advanced"}, "every game in the default tier"
+    assert got == seat_tiers(conn, run_id)
+    assert count(conn, "run_format_counts", run_id) == 2
+
+
 def recorded_bytes(conn, run_id):
     return conn.execute(
         "SELECT result_bytes, disk_bytes FROM rating_runs WHERE run_id = %s", (run_id,)

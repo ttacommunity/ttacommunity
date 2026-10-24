@@ -217,6 +217,31 @@ func withSeatStats(t *testing.T, pool *pgxpool.Pool, run int64) {
 	}
 }
 
+// withSeatTiers records run's seat results by skill tier from its pairs, seats and rating history so far, as the
+// engine does in a run.
+func withSeatTiers(t *testing.T, pool *pgxpool.Pool, run int64) {
+	t.Helper()
+	ctx := context.Background()
+	if _, err := pool.Exec(ctx, "DELETE FROM seat_tier_stats WHERE run_id = $1", run); err != nil {
+		t.Fatalf("clearing run %d's seat tiers: %v", run, err)
+	}
+	if _, err := pool.Exec(ctx, "SELECT derive_seat_tier_stats($1)", run); err != nil {
+		t.Fatalf("deriving run %d's seat tiers: %v", run, err)
+	}
+}
+
+// withFormatCounts records run's games and pairs per format from its pairs so far, as the engine does in a run.
+func withFormatCounts(t *testing.T, pool *pgxpool.Pool, run int64) {
+	t.Helper()
+	ctx := context.Background()
+	if _, err := pool.Exec(ctx, "DELETE FROM run_format_counts WHERE run_id = $1", run); err != nil {
+		t.Fatalf("clearing run %d's format counts: %v", run, err)
+	}
+	if _, err := pool.Exec(ctx, "SELECT derive_run_format_counts($1)", run); err != nil {
+		t.Fatalf("deriving run %d's format counts: %v", run, err)
+	}
+}
+
 // withYearRecords records run's player records by format and year from its pairs so far, as the engine does in a run.
 func withYearRecords(t *testing.T, pool *pgxpool.Pool, run int64) {
 	t.Helper()
