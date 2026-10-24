@@ -2,6 +2,7 @@ from datetime import date
 
 import pytest
 
+from tta_ratings_engine.data.badges import derive_tournament_badges
 from tta_ratings_engine.data.db import RunNotRunning
 from tta_ratings_engine.data.seats import Seat
 from tta_ratings_engine.data.tournaments import (
@@ -930,7 +931,7 @@ def test_a_recorded_podium_beats_the_derived_one(conn, worlds_game, run_id, plac
 
     derive_tournaments(conn=conn, run_id=run_id)
 
-    assert worlds_podium(conn, run_id, 2025) == []
+    assert [p[0] for p in worlds_podium(conn, run_id, 2025)][:1] == ["bob"]
     assert world_titles(conn, run_id) == {"dan": 1}
 
 
@@ -1225,3 +1226,55 @@ def test_the_world_championships_podium_source_decides_its_podium(
     derive_tournaments(conn=conn, run_id=run_id)
 
     assert world_titles(conn, run_id) == want
+
+
+def admin_podium(conn, season, *places):
+    for place, name in places:
+        conn.execute(
+            "INSERT INTO tournament_podium_overrides (tournament, season, place, player_name) VALUES ('worlds', %s, %s, %s)",
+            (str(season), place, name),
+        )
+    conn.commit()
+
+
+@pytest.mark.parametrize(
+    ("source", "recorded", "admin", "want"),
+    [
+        ("final_stage", (), [(1, "dan")], {"dan": "WC", "cat": "WCS", "ann": "WCB"}),
+        (
+            "recorded",
+            ("dan", "ann", "cat"),
+            [(2, "bob")],
+            {"dan": "WC", "bob": "WCS", "cat": "WCB"},
+        ),
+        (
+            "final_stage",
+            ("dan",),
+            [(3, "bob")],
+            {"dan": "WC", "cat": "WCS", "bob": "WCB"},
+        ),
+    ],
+)
+def test_each_world_championship_place_comes_from_admin_then_recorded_then_the_final(
+    conn, worlds_game, run_id, place, source, recorded, admin, want
+):
+    podium_from(conn, "worlds", source)
+    a_final(worlds_game)
+    if recorded:
+        place("worlds", 2025, "Final", *recorded)
+    admin_podium(conn, 2025, *admin)
+
+    derive_tournaments(conn=conn, run_id=run_id)
+    derive_tournament_badges(conn=conn, run_id=run_id)
+
+    medal = {(1, 0, 0): "WC", (0, 1, 0): "WCS", (0, 0, 1): "WCB"}
+    board = {p: medal[b[:3]] for p, b in boards(conn, run_id, "worlds").items()}
+    years = {
+        r["player_name"]: r["title"]
+        for r in conn.execute(
+            "SELECT player_name, title FROM player_yearly_titles WHERE run_id = %s AND year = 2025",
+            (run_id,),
+        ).fetchall()
+        if r["title"].startswith("WC")
+    }
+    assert (board, years) == (want, want)

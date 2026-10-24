@@ -84,25 +84,14 @@ SERIES_NAMES = {
 def world_podiums(conn, run_id) -> list[tuple[str, int, int]]:
     """Returns each World Championship season's podium finishes (place 1, 2, 3), oldest first: (player, season, place).
 
-    Admin's podium beats a recorded one, which beats the run's derived final.
+    They are the medals of the run's World Championship records, whose podium tournaments.worlds_podium chose.
     """
     rows = conn.execute(
         """
-        WITH admin AS (
-            SELECT season::int AS season, place, player_name FROM tournament_podium_overrides
-            WHERE tournament = 'worlds' AND place BETWEEN 1 AND 3 AND season ~ '^[0-9]+$'),
-        recorded AS (
-            SELECT season, place, player_name FROM tournament_official_placements
-            WHERE series = 'worlds' AND place BETWEEN 1 AND 3
-              AND (season, place) NOT IN (SELECT season, place FROM admin)),
-        derived AS (
-            SELECT season, place, player_name FROM tournament_standings
-            WHERE run_id = %s AND series = 'worlds' AND division = 'Final' AND place BETWEEN 1 AND 3
-              AND (season, place) NOT IN (SELECT season, place FROM admin)
-              AND (season, place) NOT IN (SELECT season, place FROM tournament_official_placements WHERE series = 'worlds'))
-        SELECT season, place, player_name FROM admin
-        UNION ALL SELECT season, place, player_name FROM recorded
-        UNION ALL SELECT season, place, player_name FROM derived
+        SELECT player_name, season::int AS season,
+               CASE medal WHEN 'gold' THEN 1 WHEN 'silver' THEN 2 ELSE 3 END AS place
+        FROM tournament_records
+        WHERE run_id = %s AND NOT career AND tournament = 'World Championship' AND medal IS NOT NULL
         ORDER BY season, place, player_name
         """,
         (run_id,),

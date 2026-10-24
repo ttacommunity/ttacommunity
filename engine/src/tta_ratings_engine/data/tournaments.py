@@ -526,17 +526,30 @@ def _league_boards(standings, official, series_rules):
     return boards
 
 
+def worlds_podium(*sources: dict[int, list[dict]]) -> list[dict]:
+    """Returns a World Championship season's podium in place order, each place from the first of sources that has it.
+
+    sources map a place to its rows, highest precedence first: admin's, recorded, derived.
+    """
+    places = sorted({place for source in sources for place in source})
+    return [
+        row for place in places for row in next(s[place] for s in sources if place in s)
+    ]
+
+
 def _worlds_podiums(conn, run_id, official, standing_rows, final, worlds):
-    """Puts each World Championship season's podium into official, by precedence: admin's, recorded, derived.
+    """Puts each World Championship season's podium into official, place by place: admin's, recorded, derived.
 
     worlds is the slug of the series holding the World Championship rules. A final is derived only when final's
     podium source is the final stage; scored by final's rules, it adds its standings to standing_rows.
     """
-    recorded = {season for series, season, _ in official if series == worlds}
+    recorded: dict[int, dict[int, list[dict]]] = defaultdict(lambda: defaultdict(list))
+    for key in [k for k in official if k[0] == worlds]:
+        for p in official.pop(key):
+            recorded[key[1]][p["place"]].append(p)
+    derived: dict[int, dict[int, list[dict]]] = defaultdict(lambda: defaultdict(list))
     finals = worlds_finals(conn) if final.podium == "final_stage" else {}
     for season, games in sorted(finals.items()):
-        if season in recorded:
-            continue
         standings = final_podium(games, final)
         if standings is None:
             continue
@@ -545,23 +558,23 @@ def _worlds_podiums(conn, run_id, official, standing_rows, final, worlds):
                 (run_id, worlds, season, "Final", "Final", s["player_name"],
                  s["place"], s["points"], s["games"], s["placings"])
             )  # fmt: skip
-        official[(worlds, season, "Final")] = [
-            {"series": worlds, "season": season, "division": "Final", **s}
-            for s in standings[:3]
-        ]
-    overrides = defaultdict(list)
+        for s in standings[:3]:
+            derived[season][s["place"]].append(
+                {"series": worlds, "season": season, "division": "Final", **s}
+            )
+    admin: dict[int, dict[int, list[dict]]] = defaultdict(lambda: defaultdict(list))
     for r in conn.execute(
         "SELECT season::int AS season, place, player_name FROM tournament_podium_overrides "
         "WHERE tournament = %s AND season ~ '^[0-9]+$' ORDER BY place",
         (worlds,),
     ).fetchall():
-        overrides[r["season"]].append(
+        admin[r["season"]][r["place"]].append(
             {"series": worlds, "division": "Final", "points": None, **r}
         )
-    for season, placed in overrides.items():
-        for key in [k for k in official if k[0] == worlds and k[1] == season]:
-            del official[key]
-        official[(worlds, season, "Final")] = placed
+    for season in sorted(set(recorded) | set(derived) | set(admin)):
+        official[(worlds, season, "Final")] = worlds_podium(
+            admin.get(season, {}), recorded.get(season, {}), derived.get(season, {})
+        )
 
 
 def _board_rows(run_id, boards):

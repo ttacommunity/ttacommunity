@@ -9,6 +9,7 @@ from tta_ratings_engine.data.badges import (
     parse_badge_reason,
 )
 from tta_ratings_engine.data.db import RunNotRunning
+from tta_ratings_engine.data.tournaments import derive_tournaments
 
 
 def test_badge_classification():
@@ -368,6 +369,12 @@ def test_a_title_set_in_admin(overrides, player, want):
 # End to end, on Postgres: titles derived from matches and written per run.
 
 
+def derive(conn, run_id):
+    """Derives the run's tournament results, then its titles from them."""
+    derive_tournaments(conn=conn, run_id=run_id)
+    derive_tournament_badges(conn=conn, run_id=run_id)
+
+
 def titles(conn, run_id):
     return {
         r["player_name"]: (r["title"], r["title_count"], r["badge_reason"])
@@ -384,7 +391,7 @@ def test_the_reigning_champion_is_the_latest_seasons_winner(
     place("worlds", 2024, "Final", "Marten_Fisher", "pipit4")
     place("worlds", 2025, "Final", "alder440", "kittiwake")
     add_match(("Ann", 10), ("Bob", 5), day=date(2024, 6, 1), tournament="RL_s09 - Duke")
-    derive_tournament_badges(conn=conn, run_id=run_id)
+    derive(conn, run_id)
     assert "alder440" not in titles(conn, run_id)
 
     add_match(
@@ -393,7 +400,7 @@ def test_the_reigning_champion_is_the_latest_seasons_winner(
         day=date(2024, 6, 2),
         tournament="Friendly Cup",
     )
-    derive_tournament_badges(conn=conn, run_id=run_id)
+    derive(conn, run_id)
     got = titles(conn, run_id)
     assert got["alder440"][0] == "WC"
     assert got.get("Marten_Fisher", ("",))[0] != "WC"
@@ -458,7 +465,7 @@ def test_world_champions_peak_at_their_title_year(conn, add_match, run_id, place
         tournament="Friendly Cup",
     )
 
-    derive_tournament_badges(conn=conn, run_id=run_id)
+    derive(conn, run_id)
 
     got = peaks(conn, run_id)
     assert got["Willow_Tree"] == ("WC", 2023)
@@ -496,7 +503,7 @@ def test_world_champions_hold_wc_in_their_title_year(conn, add_match, run_id, pl
         tournament="Friendly Cup",
     )
 
-    derive_tournament_badges(conn=conn, run_id=run_id)
+    derive(conn, run_id)
 
     got = yearly(conn, run_id)
     assert got[("Willow_Tree", 2023)] == "WC"
@@ -506,15 +513,11 @@ def test_world_champions_hold_wc_in_their_title_year(conn, add_match, run_id, pl
     assert ("Marten_Fisher", 2024) not in got
 
 
-def test_the_reigning_champion_comes_from_admin_then_recorded_then_the_runs_final(
+def test_the_reigning_champion_comes_from_admin_then_recorded(
     conn, add_match, run_id, place
 ):
     place("worlds", 2024, "Final", "Marten_Fisher")
-    conn.execute(
-        "INSERT INTO tournament_standings VALUES (%s, 'worlds', 2025, 'Final', 'Final', 'alder440', 1, 16, 4, %s)",
-        (run_id, [3, 1, 0, 0]),
-    )
-    conn.commit()
+    place("worlds", 2025, "Final", "alder440")
     add_match(
         ("alder440", 10),
         ("Marten_Fisher", 5),
@@ -523,14 +526,14 @@ def test_the_reigning_champion_comes_from_admin_then_recorded_then_the_runs_fina
         tournament="Friendly Cup",
     )
 
-    derive_tournament_badges(conn=conn, run_id=run_id)
+    derive(conn, run_id)
     assert titles(conn, run_id)["alder440"][0] == "WC"
 
     conn.execute(
         "INSERT INTO tournament_podium_overrides (tournament, season, place, player_name) VALUES ('worlds', '2025', 1, 'pipit4')"
     )
     conn.commit()
-    derive_tournament_badges(conn=conn, run_id=run_id)
+    derive(conn, run_id)
     got = titles(conn, run_id)
     assert got["pipit4"][0] == "WC"
     assert got.get("alder440", ("",))[0] != "WC"
