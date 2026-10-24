@@ -120,6 +120,24 @@
   border-radius: 6px;
 }
 
+.view-bar.view-bar-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.view-group {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  flex-shrink: 0;
+}
+
+.view-group-reset {
+  margin-left: auto;
+}
+
 .view-bar-label {
   margin-right: 0.35rem;
   font-family: var(--font-heading);
