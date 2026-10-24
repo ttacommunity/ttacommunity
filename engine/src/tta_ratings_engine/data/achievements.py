@@ -330,11 +330,15 @@ def _sheet_rows(series, top, standings, official, boards, dates):
     return rows, keys
 
 
-def _royal_league_rows(official, dates):
-    """Returns the Royal League podium rows, latest season first as the organiser's page lists them."""
+def _royal_league_rows(top, standings, official, dates):
+    """Returns the Royal League podium rows, latest season first as the organiser's page lists them.
+
+    A top-division season's official placements make its podium, else its standings, as its board counts it.
+    """
     rows, keys = [], {}
-    podiums = sorted(((season, placed) for (series, season, division), placed in official.items()
-                      if series == "royal_league" and division == "Emperor"), reverse=True)  # fmt: skip
+    combined = {**standings, **official}
+    podiums = sorted(((season, placed) for (series, season, division), placed in combined.items()
+                      if series == "royal_league" and division in top), reverse=True)  # fmt: skip
     for season, placed in podiums:
         for place in (1, 2, 3):
             points, details = RL_PLACES[place - 1]
@@ -468,7 +472,9 @@ def player_records(
         )
         made += sheet
         keys |= sheet_keys
-    rl, rl_keys = _royal_league_rows(official, dates)
+    rl, rl_keys = _royal_league_rows(
+        top_divisions.get("royal_league", frozenset()), standings, official, dates
+    )
     keys |= rl_keys
     made += rl + _honour_rows(honours)
     made += _campaign_rows(rows, keys, dates)

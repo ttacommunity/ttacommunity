@@ -25,7 +25,11 @@ def match(tournament, *players, day, match_id):
     }
 
 
-TOP = {"international": {"Grandmaster"}, "intermezzo": {"Grandmaster"}}
+TOP = {
+    "international": {"Grandmaster"},
+    "intermezzo": {"Grandmaster"},
+    "royal_league": {"Emperor"},
+}
 
 
 def placed(player, place, points=None):
@@ -512,3 +516,21 @@ def test_player_records_unnamed_international_season_does_not_award_gold_or_gran
     assert ann_rec["season"] == "Season 14"
     assert ann_rec["division"] == "Division"
     assert ann_rec["medal"] is None
+
+
+def test_a_royal_league_season_without_official_placements_takes_its_podium_from_the_standings():
+    standings = {
+        ("royal_league", 1, "Emperor"): [placed("bob", 1, 12.0), placed("ann", 2, 10.0)],
+        ("royal_league", 9, "Emperor"): [placed("ann", 1, 12.0), placed("bob", 2, 10.0), placed("cat", 3, 8.0),
+                                         placed("dan", 4, 6.0)],
+        ("royal_league", 9, "King"): [placed("eve", 1, 12.0)],
+    }  # fmt: skip
+    official = {("royal_league", 1, "Emperor"): [placed("ann", 1), placed("bob", 2)]}
+
+    got = player_records(rows=[], top_divisions=TOP, standings=standings, official=official, boards={},
+                         honours=[], dates={})  # fmt: skip
+
+    assert sorted((r["season"], r["player_name"], r["medal"]) for r in got if r["tournament"] == "Royal League") == [
+        ("Season 1", "ann", "gold"), ("Season 1", "bob", "silver"),
+        ("Season 9", "ann", "gold"), ("Season 9", "bob", "silver"), ("Season 9", "cat", "bronze"),
+    ]  # fmt: skip
