@@ -1,12 +1,12 @@
 #!/usr/bin/env bash
-# Install a pinned mise release (linux/amd64) after checking its published sha256.
-# mise then installs the toolchain that mise.toml pins.
+# Install the mise release pinned here (linux/amd64) after checking its published sha256.
+# mise then installs the toolchain that mise.toml pins. Every workflow installs mise this way.
 #
-# Usage: scripts/install-mise.sh <version, e.g. v2026.9.14> <bin dir>
+# Usage: scripts/install-mise.sh <bin dir>
 set -euo pipefail
 
-version=${1:?usage: install-mise.sh <version> <bin dir>}
-bindir=${2:?usage: install-mise.sh <version> <bin dir>}
+version=v2026.9.14
+bindir=${1:?usage: install-mise.sh <bin dir>}
 asset="mise-${version}-linux-x64"
 base="https://github.com/jdx/mise/releases/download/${version}"
 

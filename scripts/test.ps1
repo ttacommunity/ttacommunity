@@ -11,6 +11,7 @@ function Run-Step($Dir, $Name, [scriptblock]$Command) {
     Write-Host "`n== $Name"
     Push-Location (Join-Path $root $Dir)
     try {
+        $global:LASTEXITCODE = 0
         & $Command
         if ($LASTEXITCODE -ne 0) { $failures.Add($Name) }
     } finally {
@@ -29,7 +30,12 @@ Push-Location (Join-Path $root backend)
 Write-Host "  unit tests' total coverage: $((go tool cover "-func=$cover" | Select-Object -Last 1) -split '\s+' | Select-Object -Last 1)"
 Pop-Location
 Remove-Item $cover
-Run-Step backend 'go: integration tests' { go test -tags=integration -count=1 ./... }
+# Only the packages with integration-tagged files run again, as in scripts/ci.sh.
+Run-Step backend 'go: integration tests' {
+    $pkgs = @(git grep --untracked -l '^//go:build integration' -- '*.go' | ForEach-Object { "./$($_ -replace '/[^/]+$', '')" } | Sort-Object -Unique)
+    if ($pkgs.Count -eq 0) { Write-Host 'no file has //go:build integration'; $global:LASTEXITCODE = 1; return }
+    go test -tags=integration -count=1 @pkgs
+}
 Run-Step engine 'engine: sync' { uv sync --frozen --quiet }
 Run-Step engine 'engine: tests' { uv run --frozen pytest -q -m 'not slow' }
 $env:COREPACK_ENABLE_DOWNLOAD_PROMPT = '0'
@@ -38,6 +44,7 @@ Run-Step web 'web: tests' { corepack pnpm test }
 Run-Step infra/access-oidc 'sign-in worker: install' { npm ci --omit=dev --ignore-scripts --no-audit --no-fund --silent }
 Run-Step infra/access-oidc 'sign-in worker: tests' { npm test }
 Run-Step infra/build-notifier 'build notifier: tests' { npm test }
+Run-Step infra/mail-forward 'mail forwarder: tests' { npm test }
 
 Write-Host "`nNot covered here:"
 Write-Host '  - Go race detector (needs a C compiler on Windows; Linux CI runs it)'

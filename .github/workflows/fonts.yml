@@ -19,7 +19,8 @@ defaults:
 jobs:
   check:
     runs-on: ${{ vars.RUNNER_AMD64 || 'ubuntu-24.04' }}
-    container: docker.io/library/debian:trixie-slim@sha256:a99cfc517144bc59b1978475ec53b46ecabec7e43635402ee5b77cc54cd1b20a
+    timeout-minutes: 10 # it takes 1; a step killed at the runner's memory limit otherwise waits for hours
+    container: docker.io/library/buildpack-deps:trixie@sha256:880a5e3d451b50a7b1acd06093a980771a40c2fac2bce29a2145e0f4825266f4
     env:
       MISE_YES: '1'
       COREPACK_ENABLE_DOWNLOAD_PROMPT: '0'
@@ -28,7 +29,6 @@ jobs:
       GIT_CONFIG_KEY_0: safe.directory
       GIT_CONFIG_VALUE_0: '*'
     steps:
-      - run: apt-get update -qq && apt-get install -y -qq --no-install-recommends bash ca-certificates curl git xz-utils >/dev/null
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
@@ -36,6 +36,6 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ github.token }}
         run: |
-          scripts/install-mise.sh v2026.9.14 /usr/local/bin
+          scripts/install-mise.sh /usr/local/bin
           mise trust && mise install node
       - run: cd web/site && PATH="$HOME/.local/share/mise/shims:$PATH" node scripts/fonts.mjs check
