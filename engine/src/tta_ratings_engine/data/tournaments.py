@@ -128,7 +128,8 @@ class SeriesRulesMissing(Exception):
 class Series:
     """How one series is named, scored, ranked and shown, as upstream does it.
 
-    points (by player count) and top_divisions come from the tournament settings, through series_rules.
+    points (by player count), top_divisions and podium (where its podium comes from: podium_sources gives the
+    choices) come from the tournament settings, through series_rules.
     """
 
     parse: Callable[[str], Parsed | None]
@@ -139,6 +140,9 @@ class Series:
     season_records: bool = True
     points: dict[int, list[float]] = field(default_factory=dict)
     top_divisions: frozenset[str] = frozenset()
+    podium: str = ""
+    # Where a podium can come from: its top divisions' standings, its final stage's games, recorded placements.
+    podium_sources: frozenset[str] = frozenset({"top_divisions", "recorded", "none"})
 
 
 SERIES = {
@@ -169,21 +173,23 @@ SERIES = {
         record_min_games=0,
         record_division="",
         season_records=False,
+        podium_sources=frozenset({"final_stage", "recorded", "none"}),
     ),
 }
 
 
 def series_rules(conn) -> tuple[dict[str, Series], Series]:
-    """Returns each series holding one of SERIES' rule sets (its results_rules), by slug, with its points and top
-    divisions from its tournament settings, and the World Championship final's rules.
+    """Returns each series holding one of SERIES' rule sets (its results_rules), by slug, with its points, top
+    divisions and podium source from its tournament settings, and the World Championship final's rules.
 
     The World Championship's points score only its final: its other stages have no standings. Raises
-    SeriesRulesMissing when a rule set has no series, a league no points or top divisions, or the final no points.
+    SeriesRulesMissing when a rule set has no series, a league no points or top divisions, the final no points, or
+    a series no podium source its rules can give.
     """
     rows = {
         r["results_rules"]: r
         for r in conn.execute(
-            "SELECT se.slug, se.results_rules, se.top_divisions, "
+            "SELECT se.slug, se.results_rules, se.top_divisions, se.podium_source, "
             "coalesce(s.points_2p, '{}') AS points_2p, coalesce(s.points_3p, '{}') AS points_3p, "
             "coalesce(s.points_4p, '{}') AS points_4p "
             "FROM series se LEFT JOIN settings s ON s.series_id = se.series_id WHERE se.results_rules IS NOT NULL"
@@ -199,15 +205,20 @@ def series_rules(conn) -> tuple[dict[str, Series], Series]:
         top = frozenset(r["top_divisions"])
         if not points:
             raise SeriesRulesMissing(f"{slug} has no points per place")
+        podium = r["podium_source"]
+        if podium not in base.podium_sources:
+            raise SeriesRulesMissing(
+                f"{slug}'s podium source is {podium!r}, not one of {sorted(base.podium_sources)}"
+            )
         if name == "worlds":
             rules[slug], final = (
-                replace(base, top_divisions=top),
-                replace(base, points=points),
+                replace(base, top_divisions=top, podium=podium),
+                replace(base, points=points, podium=podium),
             )
             continue
         if not top:
             raise SeriesRulesMissing(f"{slug} has no top divisions")
-        rules[slug] = replace(base, points=points, top_divisions=top)
+        rules[slug] = replace(base, points=points, top_divisions=top, podium=podium)
     if final is None:
         raise SeriesRulesMissing("no series holds the worlds rules")
     return rules, final
@@ -518,11 +529,12 @@ def _league_boards(standings, official, series_rules):
 def _worlds_podiums(conn, run_id, official, standing_rows, final, worlds):
     """Puts each World Championship season's podium into official, by precedence: admin's, recorded, derived.
 
-    worlds is the slug of the series holding the World Championship rules. A derived final, scored by final's
-    rules, adds its standings to standing_rows.
+    worlds is the slug of the series holding the World Championship rules. A final is derived only when final's
+    podium source is the final stage; scored by final's rules, it adds its standings to standing_rows.
     """
     recorded = {season for series, season, _ in official if series == worlds}
-    for season, games in sorted(worlds_finals(conn).items()):
+    finals = worlds_finals(conn) if final.podium == "final_stage" else {}
+    for season, games in sorted(finals.items()):
         if season in recorded:
             continue
         standings = final_podium(games, final)
@@ -656,9 +668,15 @@ def derive_tournaments(*, conn: DictConnection, run_id: int) -> None:
                 )  # fmt: skip
                 derived[(series, season, division)].append(s)
         # A season still being played shows its standings, but no podium yet.
-        finished = {k: v for k, v in derived.items() if k[:2] not in in_progress}
+        finished = {
+            k: v
+            for k, v in derived.items()
+            if k[:2] not in in_progress and rules[k[0]].podium == "top_divisions"
+        }
         worlds = holder(conn, "worlds")
         _worlds_podiums(conn, run_id, official, standing_rows, final, worlds)
+        for k in [k for k in official if rules[k[0]].podium == "none"]:
+            del official[k]
         boards = _league_boards(finished, official, rules)
         boards["worlds"] = worlds_board(
             [{**p, "season": season} for (series, season, _), placed in official.items()

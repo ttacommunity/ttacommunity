@@ -879,6 +879,11 @@ def world_titles(conn, run_id):
     }
 
 
+def podium_from(conn, slug, source):
+    conn.execute("UPDATE series SET podium_source = %s WHERE slug = %s", (source, slug))
+    conn.commit()
+
+
 def a_final(worlds_game, season=2025, status="finished"):
     worlds_game(
         season, "Stage 7", 7, status, ("ann", 90), ("bob", 80), ("cat", 70), ("dan", 60)
@@ -894,6 +899,7 @@ def a_final(worlds_game, season=2025, status="finished"):
 def test_a_finished_world_championship_takes_its_podium_from_the_final(
     conn, worlds_game, run_id
 ):
+    podium_from(conn, "worlds", "final_stage")
     a_final(worlds_game)
 
     derive_tournaments(conn=conn, run_id=run_id)
@@ -908,6 +914,7 @@ def test_a_finished_world_championship_takes_its_podium_from_the_final(
 
 
 def test_a_world_championship_still_running_has_no_podium(conn, worlds_game, run_id):
+    podium_from(conn, "worlds", "final_stage")
     a_final(worlds_game, status="running")
 
     derive_tournaments(conn=conn, run_id=run_id)
@@ -917,6 +924,7 @@ def test_a_world_championship_still_running_has_no_podium(conn, worlds_game, run
 
 
 def test_a_recorded_podium_beats_the_derived_one(conn, worlds_game, run_id, place):
+    podium_from(conn, "worlds", "final_stage")
     a_final(worlds_game)
     place("worlds", 2025, "Final", "dan", "ann", "cat")
 
@@ -927,6 +935,7 @@ def test_a_recorded_podium_beats_the_derived_one(conn, worlds_game, run_id, plac
 
 
 def test_an_admin_podium_beats_a_recorded_one(conn, worlds_game, run_id, place):
+    podium_from(conn, "worlds", "final_stage")
     a_final(worlds_game)
     place("worlds", 2025, "Final", "dan", "ann", "cat")
     for p, name in enumerate(("ann", "dan", "bob"), start=1):
@@ -976,6 +985,7 @@ def test_top_divisions_come_from_the_tournament_settings(conn, add_match, run_id
 def test_the_world_championship_final_is_scored_from_its_settings(
     conn, worlds_game, run_id
 ):
+    podium_from(conn, "worlds", "final_stage")
     conn.execute(
         "UPDATE settings SET points_4p = '{1,1,1,0}', points_3p = '{1,1,0}', points_2p = '{1,0}' WHERE series_id = (SELECT series_id FROM series WHERE slug = 'worlds')"
     )
@@ -994,6 +1004,9 @@ def test_the_world_championship_final_is_scored_from_its_settings(
         "DELETE FROM settings WHERE series_id = (SELECT series_id FROM series WHERE slug = 'worlds')",
         "DELETE FROM series WHERE slug = 'international'",
         "UPDATE series SET results_rules = NULL WHERE slug = 'intermezzo'",
+        "UPDATE series SET podium_source = NULL WHERE slug = 'international'",
+        "UPDATE series SET podium_source = 'final_stage' WHERE slug = 'intermezzo'",
+        "UPDATE series SET podium_source = 'top_divisions' WHERE slug = 'worlds'",
     ],
 )
 def test_derive_refuses_a_series_without_its_rules(conn, run_id, change):
@@ -1167,3 +1180,48 @@ def test_a_finished_season_without_a_date_is_dated_by_its_last_game(
         (run_id,),
     ).fetchall()
     assert [r["finish_date"] for r in got] == ["2024-02-09"]
+
+
+@pytest.mark.parametrize(
+    ("source", "recorded", "want"),
+    [
+        ("top_divisions", False, {"ann", "bob", "cat"}),
+        ("recorded", False, set()),
+        ("recorded", True, {"dan", "eve", "fay"}),
+        ("none", True, set()),
+    ],
+)
+def test_a_leagues_podium_source_decides_its_podium(
+    conn, add_match, run_id, place, source, recorded, want
+):
+    podium_from(conn, "international", source)
+    add_match(("ann", 90), ("bob", 80), ("cat", 70), tournament=gm(1))
+    if recorded:
+        place("international", 30, "Grandmaster", "dan", "eve", "fay")
+
+    derive_tournaments(conn=conn, run_id=run_id)
+
+    assert set(board(conn, run_id)) == want
+
+
+@pytest.mark.parametrize(
+    ("source", "recorded", "want"),
+    [
+        ("final_stage", False, {"bob": 1}),
+        ("final_stage", True, {"dan": 1}),
+        ("recorded", False, {}),
+        ("recorded", True, {"dan": 1}),
+        ("none", True, {}),
+    ],
+)
+def test_the_world_championships_podium_source_decides_its_podium(
+    conn, worlds_game, run_id, place, source, recorded, want
+):
+    podium_from(conn, "worlds", source)
+    a_final(worlds_game)
+    if recorded:
+        place("worlds", 2025, "Final", "dan", "ann", "cat")
+
+    derive_tournaments(conn=conn, run_id=run_id)
+
+    assert world_titles(conn, run_id) == want
