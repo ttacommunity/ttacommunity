@@ -276,20 +276,18 @@ def test_player_records_rank_other_groups_by_wins_as_upstream(records):
     )
 
 
-def test_achievement_season_rows_agree_with_tournament_boards(records):
-    for name in ("ann", "bob", "cat", "dan"):
-        seasons = [r for r in records[name] if not r["career"]]
-        golds = sum(1 for r in seasons if r["medal"] == "gold")
-        silvers = sum(1 for r in seasons if r["medal"] == "silver")
-        bronzes = sum(1 for r in seasons if r["medal"] == "bronze")
-        if name == "ann":
-            assert (golds, silvers, bronzes) == (2, 1, 0)
-        elif name == "bob":
-            assert (golds, silvers, bronzes) == (1, 2, 0)
-        elif name == "cat":
-            assert (golds, silvers, bronzes) == (1, 0, 2)
-        elif name == "dan":
-            assert (golds, silvers, bronzes) == (0, 1, 0)
+@pytest.mark.parametrize(
+    ("name", "want"),
+    [("ann", (2, 1, 0)), ("bob", (1, 2, 0)), ("cat", (1, 0, 2)), ("dan", (0, 1, 0))],
+)
+def test_achievement_season_rows_agree_with_tournament_boards(records, name, want):
+    seasons = [r for r in records[name] if not r["career"]]
+
+    got = tuple(
+        sum(1 for r in seasons if r["medal"] == m) for m in ("gold", "silver", "bronze")
+    )
+
+    assert got == want
 
 
 def test_player_records_write_each_honour_series_in_upstreams_order():
