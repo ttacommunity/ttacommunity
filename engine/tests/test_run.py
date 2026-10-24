@@ -390,6 +390,24 @@ def test_a_tournaments_only_run_counts_the_year_records(conn, add_match):
     )
 
 
+def test_a_tournaments_only_run_recomputes_every_table_as_a_full_run_does(
+    conn, add_match
+):
+    golden_season(add_match)
+    full = run(conn, "v1", log=lambda _: None, make_current=True)
+
+    fast = run(conn, "v2", tournaments_only=True, log=lambda _: None)
+
+    differ = [
+        t
+        for t in runner.RECOMPUTED_TABLES
+        if rows_of(conn, t, fast) != rows_of(conn, t, full)
+    ]
+    filled = [t for t in runner.RECOMPUTED_TABLES if count(conn, t, full) > 0]
+    assert differ == []
+    assert len(filled) > len(runner.RECOMPUTED_TABLES) // 2
+
+
 def test_a_tournaments_only_run_refuses_changed_matches(conn, add_match):
     season(add_match)
     full = run(conn, "v1", formats=[2], log=lambda _: None, make_current=True)
