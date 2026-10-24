@@ -152,7 +152,7 @@ The tables fall into five groups:
 | **Games** | Every game and its seats: players, culture, place, outcome, CGE game, account and times; its state (played, never played, unconfirmed, running, prepared). A seat CGE holds no account for belongs to the player "Unknown player", who is nobody: the engine rates no pair with it. The input to every run | `games`, `seats`, `players`, `player_accounts`, `import_batches`, `refused_rows` | load job |
 | **Catalogue and recorded facts** | Series, tournaments, stages and groups with their settings; what counts towards which ranking; and what games cannot say: official placements, divisions, podium and title overrides, rules, notes, cards, regulations, stories, CGE's own standings, community points | `series`, `tournaments`, `stages`, `groups`, `settings`, `rankings`, `ranking_series`, `cge_tournaments`, `tournament_official_placements`, `tournament_cards`, `community_scores`, `badges` | load job, admin |
 | **Runs** | One row per computation: its ranking, engine version, input fingerprint, status, progress, whether it is protected; and which run each ranking publishes | `rating_runs`, `run_progress`, `current_run` | engine, admin |
-| **Run results** | Everything a run computes, each row keyed by `run_id`: ratings and history per model and format, the 1v1 pairs, each player's record per format and year, calibration, titles, tournament standings, boards, records and achievements, the community leaderboard | `player_ratings`, `rating_history`, `pairwise_matches`, `player_year_records`, `player_titles`, `tournament_standings`, `tournament_records`, `community_rankings` | engine |
+| **Run results** | Everything a run computes, each row keyed by `run_id`: ratings and history per model and format, the 1v1 pairs, each player's record per format and year and seat statistics, calibration, titles, tournament standings, boards, records and achievements, the community leaderboard | `player_ratings`, `rating_history`, `pairwise_matches`, `player_year_records`, `player_seat_stats`, `player_titles`, `tournament_standings`, `tournament_records`, `community_rankings` | engine |
 | **Admin** | Who may use admin and with which role; an audit of every admin change, which names members by id and a change by the fields it set, never a member's details | `admins`, `admin_audit` | admin |
 
 Patterns that hold across the schema:
@@ -167,6 +167,12 @@ Patterns that hold across the schema:
   covering per-player indexes alone. A run result table is one with a
   foreign key to `rating_runs` `ON DELETE CASCADE`; a test fails one that
   is not partitioned by run
+- **A player's rows are read together.** What a player page counts over many
+  games (seat statistics, records by year) is counted once as the run is
+  made; a player's tournament records are written together. When a run is
+  published, and after each engine run, `prewarm_player_pages` loads what
+  the player pages read for the current run into the database's memory, and
+  the server reloads its memory after a restart (`pg_prewarm`)
 - **Facts are keyed by name** (tournament or series, season, player), not by
   foreign keys to games, so a recorded fact survives a re-import of the games
 - **The export is the import.** Every input table (Games, Catalogue and
