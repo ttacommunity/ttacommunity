@@ -188,34 +188,44 @@ export default function HomePage({ apiUrl }: { apiUrl: string }) {
     <div className="home-container">
       {/* Hero Header */}
       <section className="home-hero">
-        <div className="home-hero-badge-row">
-          <span className="home-platform-badge">🏛️ Official Competitive Platform</span>
-        </div>
-        <h1 className="home-hero-title">Through the Ages Community</h1>
-        <p className="home-hero-subtitle">
-          The definitive home for competitive Through the Ages: verified Glicko-D community ratings, premier tournament circuits,
-          the World Championship Hall of Fame, and automated blitz matchmaking.
-        </p>
+        <div className="home-hero-layout">
+          <div className="home-hero-logo-col">
+            <img
+              src="/img/HubLogo.png"
+              alt="Through the Ages Community"
+              className="home-hero-logo"
+              width="825"
+              height="460"
+            />
+          </div>
+          <div className="home-hero-content-col">
+            <h1 className="home-hero-title">Through the Ages Community</h1>
+            <p className="home-hero-subtitle">
+              The definitive home for competitive Through the Ages: verified Glicko-D community ratings, premier tournament circuits,
+              the World Championship Hall of Fame, and automated blitz matchmaking.
+            </p>
 
-        {data && (
-          <div className="home-stats-bar">
-            {data.run.players !== null && (
-              <div className="home-stat-pill">
-                Active Players: <strong>{count(data.run.players)}</strong>
-              </div>
-            )}
-            {data.run.games !== null && (
-              <div className="home-stat-pill">
-                Recorded Matches: <strong>{count(data.run.games)}</strong>
-              </div>
-            )}
-            {data.run.finished_at && (
-              <div className="home-stat-pill">
-                Updated: <strong>{formatInstant(data.run.finished_at, viewerZone())}</strong>
+            {data && (
+              <div className="home-stats-bar">
+                {data.run.players !== null && (
+                  <div className="home-stat-pill">
+                    Active Players: <strong>{count(data.run.players)}</strong>
+                  </div>
+                )}
+                {data.run.games !== null && (
+                  <div className="home-stat-pill">
+                    Recorded Matches: <strong>{count(data.run.games)}</strong>
+                  </div>
+                )}
+                {data.run.finished_at && (
+                  <div className="home-stat-pill">
+                    Updated: <strong>{formatInstant(data.run.finished_at, viewerZone())}</strong>
+                  </div>
+                )}
               </div>
             )}
           </div>
-        )}
+        </div>
       </section>
 
       {/* 3 Pillar Cards (The Hub) */}
