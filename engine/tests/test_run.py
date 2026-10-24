@@ -2,6 +2,7 @@ import hashlib
 import json
 import multiprocessing
 import os
+import random
 import signal
 import sys
 from datetime import UTC, date, datetime, timedelta
@@ -167,15 +168,12 @@ def test_a_run_writes_tournament_results(conn, add_match):
 )
 def test_a_recorded_fact_changes_the_input_fingerprint(conn, add_match, fact):
     season(add_match)
-    first = run(conn, "v1", formats=[2], log=lambda _: None)
+    ranking = conn.execute("SELECT community_ranking() AS id").fetchone()["id"]
+    first = runner.input_fingerprint(conn, ranking)
     conn.execute(fact)
     conn.commit()
-    second = run(conn, "v1", formats=[2], log=lambda _: None)
 
-    assert (
-        the_run(conn, second)["input_fingerprint"]
-        != the_run(conn, first)["input_fingerprint"]
-    )
+    assert runner.input_fingerprint(conn, ranking) != first
 
 
 def test_a_run_is_not_published_unless_asked(conn, add_match):
@@ -184,6 +182,24 @@ def test_a_run_is_not_published_unless_asked(conn, add_match):
     run(conn, "v-test", formats=[2], log=lambda _: None)
 
     assert current(conn) is None
+
+
+def prewarmed(lines):
+    return [line for line in lines if "player pages prewarmed" in line]
+
+
+def test_a_run_ends_by_prewarming_the_current_runs_player_pages(conn, add_match):
+    season(add_match)
+    first, second = [], []
+
+    unpublished = run(conn, "v1", formats=[2], log=first.append)
+    published = run(conn, "v1", formats=[2], log=second.append, make_current=True)
+
+    assert unpublished != published
+    assert prewarmed(first) == []  # nothing is current yet
+    [line] = prewarmed(second)
+    assert line.startswith(f"run {published}'s player pages prewarmed: ")
+    assert int(line.split(": ")[1].split()[0]) > 0
 
 
 def test_a_run_can_be_published_when_it_completes(conn, add_match):
@@ -360,6 +376,18 @@ def test_a_tournaments_only_run_copies_the_ratings_and_recomputes_tournaments(
         ("Bob", 1)
     ]  # the recorded place replaces the derived one
     assert count(conn, "player_titles", fast) == count(conn, "player_titles", full)
+
+
+def test_a_tournaments_only_run_counts_the_year_records(conn, add_match):
+    season(add_match)
+    full = run(conn, "v1", formats=[2], log=lambda _: None, make_current=True)
+
+    fast = run(conn, "v2", tournaments_only=True, log=lambda _: None)
+
+    assert count(conn, "player_year_records", full) > 0
+    assert rows_of(conn, "player_year_records", fast) == rows_of(
+        conn, "player_year_records", full
+    )
 
 
 def test_a_tournaments_only_run_refuses_changed_matches(conn, add_match):
@@ -742,7 +770,7 @@ def run_tables(conn):
         r["t"]
         for r in conn.execute(
             "SELECT conrelid::regclass::text AS t FROM pg_constraint "
-            "WHERE confrelid = 'rating_runs'::regclass AND contype = 'f' AND confdeltype = 'c'"
+            "WHERE confrelid = 'rating_runs'::regclass AND contype = 'f' AND confdeltype = 'c' AND conparentid = 0"
         ).fetchall()
     ]
 
@@ -768,6 +796,54 @@ def test_a_run_records_the_rows_it_wrote_to_each_table(conn, add_match, kind):
     }
 
 
+@pytest.mark.parametrize("kind", ["full", "parallel", "tournaments only"])
+def test_a_run_counts_its_players_seats(conn, db_url, add_match, kind):
+    season(add_match)
+    run_id = run(
+        conn, "v1", formats=[2], log=lambda _: None, make_current=True,
+        workers=2 if kind == "parallel" else 1, url=db_url,
+    )  # fmt: skip
+    if kind == "tournaments only":
+        run_id = run(conn, "v2", tournaments_only=True, log=lambda _: None)
+
+    got = conn.execute(
+        "SELECT games, wins FROM player_seat_stats WHERE run_id = %s AND player_name = 'Ann' "
+        "AND player_count = 2 AND seat = 1",
+        (run_id,),
+    ).fetchone()
+
+    assert got == {"games": 2, "wins": 2}
+
+
+def seat_tiers(conn, run_id):
+    return conn.execute(
+        "SELECT tier, player_count, seat, place, seats, outright_wins, draws, win_shares "
+        "FROM seat_tier_stats WHERE run_id = %s ORDER BY 1, 2, 3, 4",
+        (run_id,),
+    ).fetchall()
+
+
+@pytest.mark.parametrize("kind", ["full", "parallel", "tournaments only"])
+def test_a_run_tiers_its_seats_by_its_finished_ratings(conn, db_url, add_match, kind):
+    for month in range(1, 7):
+        add_match(("Ann", 10), ("Bob", 5), day=date(2021, month, 3))
+    add_match(("Ann", 10), ("Bob", 5), ("Cat", 1), day=date(2021, 7, 3))
+    run_id = run(
+        conn, "v1", formats=[0], log=lambda _: None, make_current=True,
+        workers=2 if kind == "parallel" else 1, url=db_url,
+    )  # fmt: skip
+    if kind == "tournaments only":
+        run_id = run(conn, "v2", tournaments_only=True, log=lambda _: None)
+    got = seat_tiers(conn, run_id)
+
+    conn.execute("DELETE FROM seat_tier_stats WHERE run_id = %s", (run_id,))
+    conn.execute("SELECT derive_seat_tier_stats(%s)", (run_id,))
+
+    assert {r["tier"] for r in got} - {"advanced"}, "every game in the default tier"
+    assert got == seat_tiers(conn, run_id)
+    assert count(conn, "run_format_counts", run_id) == 2
+
+
 def recorded_bytes(conn, run_id):
     return conn.execute(
         "SELECT result_bytes, disk_bytes FROM rating_runs WHERE run_id = %s", (run_id,)
@@ -775,14 +851,13 @@ def recorded_bytes(conn, run_id):
 
 
 def table_bytes(conn, table, run_id):
-    """Returns the bytes of the run's rows in table, and with its share of the table's indexes."""
+    """Returns the bytes of the run's rows in table, and what the run's partition of it takes on disk."""
     r = conn.execute(
-        f"SELECT coalesce(sum(pg_column_size(t.*)), 0) AS b, count(*) AS n, "
-        f"(SELECT count(*) FROM {table}) AS total, pg_indexes_size(%s::regclass) AS idx "
+        f"SELECT coalesce(sum(pg_column_size(t.*)), 0) AS b, pg_total_relation_size(%s::regclass) AS disk "
         f"FROM {table} t WHERE run_id = %s",
-        (table, run_id),
+        (f"{table}_run{run_id}", run_id),
     ).fetchone()
-    return r["b"], r["b"] + (r["idx"] * r["n"] // r["total"] if r["total"] else 0)
+    return r["b"], r["disk"]
 
 
 @pytest.mark.parametrize("kind", ["full", "tournaments only"])
@@ -903,3 +978,91 @@ def test_the_results_match_the_engine_versions_golden_hash(conn, add_match):
         f'bump the version in engine/pyproject.toml and add "<new version>": "{got}" to tests/golden.json. '
         "A version's hash never changes."
     )
+
+
+def league(add_match, seed, players, months, games):
+    """Loads a synthetic two-player league and returns each player's true strength.
+
+    Strengths are spread evenly from 1200 to 1900; each month every player plays `games` games
+    against random opponents, won with the Elo probability of the strength gap.
+    """
+    rng = random.Random(seed)
+    names = [f"Sweep{i:02d}" for i in range(players)]
+    strength = {n: 1200 + 700 * i / (players - 1) for i, n in enumerate(names)}
+    for month in range(months):
+        day = date(2022 + month // 12, month % 12 + 1, 10)
+        for _ in range(players * games // 2):
+            a, b = rng.sample(names, 2)
+            a_wins = rng.random() < 1 / (1 + 10 ** ((strength[b] - strength[a]) / 400))
+            winner, loser = (a, b) if a_wins else (b, a)
+            add_match((winner, 10), (loser, 5), day=day)
+    return strength
+
+
+def rank_correlation(xs, ys):
+    """Returns Spearman's rank correlation of two equal-length lists without ties."""
+    rx = {v: r for r, v in enumerate(sorted(xs))}
+    ry = {v: r for r, v in enumerate(sorted(ys))}
+    a = [rx[x] for x in xs]
+    b = [ry[y] for y in ys]
+    n = len(a)
+    return 1 - 6 * sum((p - q) ** 2 for p, q in zip(a, b, strict=True)) / (
+        n * (n * n - 1)
+    )
+
+
+@pytest.mark.slow
+@pytest.mark.parametrize("seed", [1, 2, 3])
+@pytest.mark.parametrize(
+    ("months", "games", "min_correlation", "max_rd"),
+    [
+        pytest.param(6, 4, 0.8, 160, id="6-months-4-games"),
+        pytest.param(18, 8, 0.95, 80, id="18-months-8-games"),
+    ],
+)
+def test_ratings_converge_on_true_strength(
+    conn, add_match, seed, months, games, min_correlation, max_rd
+):
+    strength = league(add_match, seed, players=24, months=months, games=games)
+
+    run_id = run(conn, "v-sweep", formats=[2], log=lambda _: None)
+
+    wrong = []
+    for model in sorted(KEPT):
+        rows = conn.execute(
+            "SELECT player_name, rating, rd FROM player_ratings "
+            "WHERE run_id = %s AND model_type = %s AND player_count = 2",
+            (run_id, model),
+        ).fetchall()
+        got = rank_correlation(
+            [strength[r["player_name"]] for r in rows], [r["rating"] for r in rows]
+        )
+        widest = max(r["rd"] for r in rows)
+        if len(rows) != len(strength) or got < min_correlation or widest > max_rd:
+            wrong.append(
+                f"{model}: {len(rows)} players, rank correlation {got:.3f}, widest RD {widest:.0f}"
+            )
+    assert not wrong, (
+        f"seed {seed}, {months} months of {games} games: want correlation >= {min_correlation} "
+        f"and RD <= {max_rd} for all {len(strength)} players; got " + "; ".join(wrong)
+    )
+
+
+def manual_vacuums(conn, table):
+    conn.execute("SELECT pg_stat_clear_snapshot()")
+    row = conn.execute(
+        "SELECT vacuum_count FROM pg_stat_user_tables WHERE relname = %s", (table,)
+    ).fetchone()
+    return row and row["vacuum_count"]
+
+
+@pytest.mark.parametrize("kind", ["full", "tournaments only"])
+def test_a_run_vacuums_its_partition_of_every_run_table(conn, add_match, kind):
+    season(add_match)
+    run_id = run(conn, "v1", formats=[2], log=lambda _: None, make_current=True)
+    if kind == "tournaments only":
+        run_id = run(conn, "v2", tournaments_only=True, log=lambda _: None)
+
+    assert {t: manual_vacuums(conn, f"{t}_run{run_id}") for t in run_tables(conn)} == {
+        t: 1 for t in run_tables(conn)
+    }

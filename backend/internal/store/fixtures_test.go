@@ -51,6 +51,11 @@ func migrateTemplate() (string, error) {
 		return "", fmt.Errorf("connecting to the test server: %w", err)
 	}
 	defer admin.Close(ctx)
+	if os.Getenv("TEST_DATABASE_THROWAWAY") == "1" {
+		if err := skipFlushes(ctx, admin); err != nil {
+			return "", err
+		}
+	}
 	name := "ratings_template_" + rand.Text()[:12]
 	if _, err := admin.Exec(ctx, "CREATE DATABASE "+pgx.Identifier{name}.Sanitize()); err != nil {
 		return "", fmt.Errorf("creating %s: %w", name, err)
@@ -65,6 +70,18 @@ func migrateTemplate() (string, error) {
 		return name, fmt.Errorf("MigrateRatings: %w", err)
 	}
 	return name, nil
+}
+
+// skipFlushes turns off the server's flushes to disk, which make each test's CREATE and DROP DATABASE slow.
+// Only for a server thrown away after the run, as CI's is: a crash can corrupt it
+// (https://www.postgresql.org/docs/current/non-durability.html).
+func skipFlushes(ctx context.Context, admin *pgx.Conn) error {
+	for _, stmt := range []string{"ALTER SYSTEM SET fsync = off", "ALTER SYSTEM SET full_page_writes = off", "SELECT pg_reload_conf()"} {
+		if _, err := admin.Exec(ctx, stmt); err != nil {
+			return fmt.Errorf("%s: %w", stmt, err)
+		}
+	}
+	return nil
 }
 
 // TestMain drops the template database once every test has run.
@@ -185,6 +202,43 @@ func withSpans(t *testing.T, pool *pgxpool.Pool, run int64) {
 	}
 	if _, err := pool.Exec(ctx, "SELECT derive_catalogue_spans($1)", run); err != nil {
 		t.Fatalf("deriving run %d's catalogue spans: %v", run, err)
+	}
+}
+
+// withSeatStats records run's seat statistics from its pairs and the seats so far, as the engine does in a run.
+func withSeatStats(t *testing.T, pool *pgxpool.Pool, run int64) {
+	t.Helper()
+	ctx := context.Background()
+	if _, err := pool.Exec(ctx, "DELETE FROM player_seat_stats WHERE run_id = $1", run); err != nil {
+		t.Fatalf("clearing run %d's seat stats: %v", run, err)
+	}
+	if _, err := pool.Exec(ctx, "SELECT derive_player_seat_stats($1)", run); err != nil {
+		t.Fatalf("deriving run %d's seat stats: %v", run, err)
+	}
+}
+
+// withSeatTiers records run's seat results by skill tier from its pairs, seats and rating history so far, as the
+// engine does in a run.
+func withSeatTiers(t *testing.T, pool *pgxpool.Pool, run int64) {
+	t.Helper()
+	ctx := context.Background()
+	if _, err := pool.Exec(ctx, "DELETE FROM seat_tier_stats WHERE run_id = $1", run); err != nil {
+		t.Fatalf("clearing run %d's seat tiers: %v", run, err)
+	}
+	if _, err := pool.Exec(ctx, "SELECT derive_seat_tier_stats($1)", run); err != nil {
+		t.Fatalf("deriving run %d's seat tiers: %v", run, err)
+	}
+}
+
+// withFormatCounts records run's games and pairs per format from its pairs so far, as the engine does in a run.
+func withFormatCounts(t *testing.T, pool *pgxpool.Pool, run int64) {
+	t.Helper()
+	ctx := context.Background()
+	if _, err := pool.Exec(ctx, "DELETE FROM run_format_counts WHERE run_id = $1", run); err != nil {
+		t.Fatalf("clearing run %d's format counts: %v", run, err)
+	}
+	if _, err := pool.Exec(ctx, "SELECT derive_run_format_counts($1)", run); err != nil {
+		t.Fatalf("deriving run %d's format counts: %v", run, err)
 	}
 }
 

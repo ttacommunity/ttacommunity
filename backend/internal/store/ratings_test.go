@@ -380,3 +380,57 @@ func TestEverySecurityDefinerFunctionSearchesTheTemporarySchemaLast(t *testing.T
 		t.Errorf("SECURITY DEFINER functions without search_path public, pg_temp: %q", got)
 	}
 }
+
+// runTables lists the tables whose rows are a run's results: those deleted with their run, partitions left out.
+func runTables(t *testing.T, pool *pgxpool.Pool) []string {
+	t.Helper()
+	rows, err := pool.Query(context.Background(), `
+		SELECT conrelid::regclass::text FROM pg_constraint
+		WHERE confrelid = 'rating_runs'::regclass AND contype = 'f' AND confdeltype = 'c' AND conparentid = 0
+		ORDER BY 1`)
+	if err != nil {
+		t.Fatalf("listing run tables: %v", err)
+	}
+	names, err := pgx.CollectRows(rows, pgx.RowTo[string])
+	if err != nil {
+		t.Fatalf("listing run tables: %v", err)
+	}
+	return names
+}
+
+func TestEveryRunTableIsPartitionedByRun(t *testing.T) {
+	pool := migrated(t)
+	tables := runTables(t, pool)
+	if len(tables) < 20 {
+		t.Fatalf("run tables = %v, want the 21 or more a run writes", tables)
+	}
+	for _, table := range tables {
+		var key string
+		err := pool.QueryRow(context.Background(), `
+			SELECT p.partstrat::text || ' ' || a.attname FROM pg_partitioned_table p
+			JOIN pg_attribute a ON a.attrelid = p.partrelid AND a.attnum = p.partattrs[0]
+			WHERE p.partrelid = $1::regclass`, table).Scan(&key)
+		if err != nil || key != "l run_id" {
+			t.Errorf("%s: partition key %q, %v; want a list of run_id", table, key, err)
+		}
+	}
+}
+
+func TestARunsRowsGoInItsOwnPartition(t *testing.T) {
+	pool := migrated(t)
+	ctx := context.Background()
+	run := addRun(t, pool, "complete", time.Time{})
+	withRatings(t, pool, run, 1)
+
+	partitions := len(runPartitions(t, pool, run))
+	if want := len(runTables(t, pool)); partitions != want {
+		t.Errorf("run %d has %d partitions, want one in each of the %d run tables", run, partitions, want)
+	}
+	var in string
+	if err := pool.QueryRow(ctx, "SELECT tableoid::regclass::text FROM player_ratings WHERE run_id = $1", run).Scan(&in); err != nil {
+		t.Fatalf("finding the run's rating: %v", err)
+	}
+	if want := fmt.Sprintf("player_ratings_run%d", run); in != want {
+		t.Errorf("run %d's rating is in %s, want %s", run, in, want)
+	}
+}

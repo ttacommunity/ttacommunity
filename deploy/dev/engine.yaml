@@ -39,7 +39,7 @@ spec:
               type: RuntimeDefault
           containers:
             - name: engine
-              image: ghcr.io/ttacommunity/ttacommunity/engine:sha-2427726a@sha256:3de86737c82383af459b97bdf720a23cd74b53a2df3185ee55516c32b8e0364c
+              image: ghcr.io/ttacommunity/ttacommunity/engine:sha-9daf1ecd@sha256:87a00abf5ef494fe0c45ceb849e8bde7df99e4b6d25a1d9082807fbaeeef8049
               args: [-m, tta_ratings_engine.run, --workers, "4"]
               env:
                 - name: RATINGS_DATABASE_URL

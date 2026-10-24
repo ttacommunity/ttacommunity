@@ -72,8 +72,9 @@ start_test_db() {
   dev_test_db && return 0
   need podman "a throwaway Postgres for integration tests" || return 1
   stop_pg
+  # Thrown away after the run, so it skips the flushes to disk that slow every CREATE and DROP DATABASE.
   podman run -d --name "$PG_NAME" -e POSTGRES_USER=ttac -e POSTGRES_PASSWORD=local-only \
-    -e POSTGRES_DB=ttac_test -p 127.0.0.1:55439:5432 "$PG_IMAGE" >/dev/null || return 1
+    -e POSTGRES_DB=ttac_test -p 127.0.0.1:55439:5432 "$PG_IMAGE" -c fsync=off -c full_page_writes=off >/dev/null || return 1
   for _ in $(seq 1 60); do
     if podman exec "$PG_NAME" pg_isready -U ttac -d ttac_test >/dev/null 2>&1; then
       export TEST_DATABASE_URL='postgres://ttac:local-only@127.0.0.1:55439/ttac_test?sslmode=disable'
@@ -91,11 +92,15 @@ step "go"
 if need go "the backend"; then
   cd "$ROOT/backend" || exit 1
   if full; then
-    unformatted=$(gofmt -l .)
-    [ -z "$unformatted" ] || fail "not gofmt-clean: $unformatted"
-    run go vet ./...
+    # A missing gofmt prints no file names, so it must be found and must succeed.
+    if need gofmt "Go formatting"; then
+      unformatted=$(gofmt -l .) || fail "gofmt -l"
+      [ -z "$unformatted" ] || fail "not gofmt-clean: $unformatted"
+    fi
+    # With the tag every file is built, until a file says it is built only without it.
+    git grep --untracked -qE '^//go:build .*!integration' -- '*.go' &&
+      fail "a file is built only without -tags=integration: vet and staticcheck below would skip it"
     run go vet -tags=integration ./...
-    run go tool staticcheck ./...
     run go tool staticcheck -tags=integration ./...
   fi
   # Coverage is reported, never enforced: each package's is on its "ok" line, the total below.
@@ -105,8 +110,12 @@ if need go "the backend"; then
   echo "  unit tests' total coverage: $total"
   [ -n "${GITHUB_STEP_SUMMARY:-}" ] && echo "Go unit tests' coverage: $total (reported, never enforced)" >>"$GITHUB_STEP_SUMMARY"
   rm -f "$cover"
-  if start_test_db; then
-    run go test -tags=integration -count=1 ./...
+  # The unit tests above already ran; only the packages with integration-tagged files run again.
+  mapfile -t integration < <(git grep --untracked -l '^//go:build integration' -- '*.go' | xargs -r -n1 dirname | sort -u | sed 's|^|./|')
+  if [ "${#integration[@]}" = 0 ]; then
+    fail "integration tests: no file has //go:build integration"
+  elif start_test_db; then
+    run go test -tags=integration -count=1 "${integration[@]}"
   else
     fail "integration tests: no database"
   fi
@@ -169,7 +178,7 @@ if need corepack "the web workspace"; then
       [ -f "$site/dist/index.html" ] || fail "$site: the build produced no dist/index.html"
       [ -f "$site/dist/_headers" ] || fail "$site: _headers did not reach the output root"
       grep -q '^  Content-Security-Policy:' "$site/dist/_headers" 2>/dev/null || fail "$site: _headers sets no CSP"
-      run node "$ROOT/checks/csp-inline.mjs" "$site/dist"
+      grep -q 'csp-inline\.mjs dist' "$site/package.json" || fail "$site: its build no longer runs checks/csp-inline.mjs"
       want=$(cat "$site/.node-version" 2>/dev/null)
       have=$(node --version | sed 's/^v\([0-9]*\).*/\1/')
       [ "$want" = "$have" ] || fail "$site/.node-version says '$want' but this is Node $have"
@@ -257,7 +266,7 @@ printf '\n\033[1mNot covered here:\033[0m\n'
 for item in "${not_covered[@]}" \
   "Cloudflare's own Workers build (check its build log after a merge to main)" \
   "container images: built by the CI image jobs, not by this script" \
-  "gitleaks and semgrep: their own CI jobs (secrets, sast)"; do
+  "gitleaks and semgrep: steps of CI's checks job, after this script"; do
   echo "  - $item"
 done
 

@@ -1059,3 +1059,20 @@ def test_a_rule_set_derives_the_results_of_the_series_that_holds_it(
         "SELECT DISTINCT series FROM tournament_standings WHERE run_id = %s", (run_id,)
     ).fetchall()
     assert [r["series"] for r in got] == ["kings_league"]
+
+
+def test_a_players_records_are_stored_together(conn, add_match, run_id):
+    for season in (30, 31):
+        add_match(("cat", 90), ("Ann", 80), ("bob", 70), tournament=gm(1, season))
+
+    derive_tournaments(conn=conn, run_id=run_id)
+
+    stored = [
+        r["p"]
+        for r in conn.execute(
+            "SELECT lower(player_name) AS p FROM tournament_records WHERE run_id = %s ORDER BY ctid",
+            (run_id,),
+        ).fetchall()
+    ]
+    assert len(stored) > 3
+    assert stored == sorted(stored)

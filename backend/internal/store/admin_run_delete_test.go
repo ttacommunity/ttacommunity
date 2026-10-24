@@ -8,6 +8,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -89,6 +90,9 @@ func TestDeleteRunRemovesTheRunAndItsResults(t *testing.T) {
 	if err := a.StartDeleteRun(ctx, gone, false); err != nil {
 		t.Fatalf("StartDeleteRun: %v", err)
 	}
+	if n := len(runPartitions(t, pool, gone)); n == 0 {
+		t.Fatalf("run %d has no partitions before deleting: nothing to prove", gone)
+	}
 	if err := a.DeleteRun(ctx, gone); err != nil {
 		t.Fatalf("DeleteRun: %v", err)
 	}
@@ -101,6 +105,28 @@ func TestDeleteRunRemovesTheRunAndItsResults(t *testing.T) {
 	if runs != 1 || ratingsKept != 2 || ratingsGone != 0 {
 		t.Errorf("after deleting: %d runs, %d kept ratings, %d of the deleted run's; want 1, 2, 0", runs, ratingsKept, ratingsGone)
 	}
+	if left := runPartitions(t, pool, gone); len(left) != 0 {
+		t.Errorf("the deleted run's partitions left = %v, want none", left)
+	}
+	if kept := runPartitions(t, pool, keep); len(kept) == 0 {
+		t.Errorf("the kept run's partitions = none, want them kept")
+	}
+}
+
+// runPartitions lists the partitions that hold run's rows.
+func runPartitions(t *testing.T, pool *pgxpool.Pool, run int64) []string {
+	t.Helper()
+	rows, err := pool.Query(context.Background(), `
+		SELECT c.relname::text FROM pg_class c
+		WHERE c.relispartition AND pg_get_expr(c.relpartbound, c.oid) = format('FOR VALUES IN (%L)', $1::bigint)`, run)
+	if err != nil {
+		t.Fatalf("listing run %d's partitions: %v", run, err)
+	}
+	names, err := pgx.CollectRows(rows, pgx.RowTo[string])
+	if err != nil {
+		t.Fatalf("listing run %d's partitions: %v", run, err)
+	}
+	return names
 }
 
 func TestDeleteRunRefusesARunProtectedSinceItWasMarked(t *testing.T) {

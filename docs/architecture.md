@@ -67,10 +67,9 @@ load job) → **import batch** (validated; duplicates, renamed players and junk
 are matched or *refused*, never silently kept) → **run**, started from admin
 (the api creates a Job from the engine's CronJob) or by hand → **published**
 from admin once its checks pass (a one-row switch) → the API serves it, and
-Cloudflare caches each response until the next publish. The seat analysis,
-which reads every seat of a run, is computed on the run's first request and
-kept in the api's memory, so a corrected result shows there from the next run
-(or the api's next restart).
+Cloudflare caches each response until the next publish. The analysis pages'
+counts (seat results by skill tier, games and pairs per format) are counted
+as the run is made, so a corrected result shows there from the next run.
 
 ### Rating runs
 
@@ -152,14 +151,27 @@ The tables fall into five groups:
 | **Games** | Every game and its seats: players, culture, place, outcome, CGE game, account and times; its state (played, never played, unconfirmed, running, prepared). A seat CGE holds no account for belongs to the player "Unknown player", who is nobody: the engine rates no pair with it. The input to every run | `games`, `seats`, `players`, `player_accounts`, `import_batches`, `refused_rows` | load job |
 | **Catalogue and recorded facts** | Series, tournaments, stages and groups with their settings; what counts towards which ranking; and what games cannot say: official placements, divisions, podium and title overrides, rules, notes, cards, regulations, stories, CGE's own standings, community points | `series`, `tournaments`, `stages`, `groups`, `settings`, `rankings`, `ranking_series`, `cge_tournaments`, `tournament_official_placements`, `tournament_cards`, `community_scores`, `badges` | load job, admin |
 | **Runs** | One row per computation: its ranking, engine version, input fingerprint, status, progress, whether it is protected; and which run each ranking publishes | `rating_runs`, `run_progress`, `current_run` | engine, admin |
-| **Run results** | Everything a run computes, each row keyed by `run_id`: ratings and history per model and format, the 1v1 pairs, each player's record per format and year, calibration, titles, tournament standings, boards, records and achievements, the community leaderboard | `player_ratings`, `rating_history`, `pairwise_matches`, `player_year_records`, `player_titles`, `tournament_standings`, `tournament_records`, `community_rankings` | engine |
+| **Run results** | Everything a run computes, each row keyed by `run_id`: ratings and history per model and format, the 1v1 pairs, each player's record per format and year and seat statistics, the analysis pages' counts, calibration, titles, tournament standings, boards, records and achievements, the community leaderboard | `player_ratings`, `rating_history`, `pairwise_matches`, `player_year_records`, `player_seat_stats`, `seat_tier_stats`, `run_format_counts`, `player_titles`, `tournament_standings`, `tournament_records`, `community_rankings` | engine |
 | **Admin** | Who may use admin and with which role; an audit of every admin change, which names members by id and a change by the fields it set, never a member's details | `admins`, `admin_audit` | admin |
 
 Patterns that hold across the schema:
 
 - **Runs, not overwrites.** A result table never changes a published run's
-  rows; deleting a run deletes its results with it (the foreign keys
-  cascade). A protected run cannot be deleted
+  rows. A protected run cannot be deleted
+- **One partition per run.** Every run result table is partitioned by
+  `run_id` (`<table>_run<id>`): a trigger on `rating_runs` adds a new run's
+  partitions, and `delete_run` drops them, so deleting a run leaves nothing
+  to vacuum. The engine vacuums its run's partitions before the run can be
+  published, so the player pages read a run's pairs and history from their
+  covering per-player indexes alone. A run result table is one with a
+  foreign key to `rating_runs` `ON DELETE CASCADE`; a test fails one that
+  is not partitioned by run
+- **A player's rows are read together.** What a player page counts over many
+  games (seat statistics, records by year) is counted once as the run is
+  made; a player's tournament records are written together. When a run is
+  published, and after each engine run, `prewarm_player_pages` loads what
+  the player pages read for the current run into the database's memory, and
+  the server reloads its memory after a restart (`pg_prewarm`)
 - **Facts are keyed by name** (tournament or series, season, player), not by
   foreign keys to games, so a recorded fact survives a re-import of the games
 - **The export is the import.** Every input table (Games, Catalogue and

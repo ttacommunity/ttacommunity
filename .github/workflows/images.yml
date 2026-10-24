@@ -21,7 +21,6 @@ defaults:
     shell: bash
 
 env:
-  MISE_VERSION: v2026.9.14
   MISE_YES: '1'
   # The checkout belongs to another user than the job container's root.
   GIT_CONFIG_COUNT: '1'
@@ -34,13 +33,12 @@ jobs:
   api:
     runs-on: ${{ vars.RUNNER_AMD64 || 'ubuntu-24.04' }}
     timeout-minutes: 15 # a build takes 4; a step killed at the runner's memory limit otherwise waits for hours
-    container: docker.io/library/debian:trixie-slim@sha256:a99cfc517144bc59b1978475ec53b46ecabec7e43635402ee5b77cc54cd1b20a
+    container: docker.io/library/buildpack-deps:trixie@sha256:880a5e3d451b50a7b1acd06093a980771a40c2fac2bce29a2145e0f4825266f4
     if: github.event_name != 'pull_request' || contains(github.event.pull_request.labels.*.name, 'images')
     permissions:
       contents: read
       packages: write
     steps:
-      - run: apt-get update -qq && apt-get install -y -qq --no-install-recommends bash ca-certificates curl git jq xz-utils >/dev/null
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
@@ -49,8 +47,8 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ github.token }}
         run: |
-          scripts/install-mise.sh "$MISE_VERSION" /usr/local/bin
-          mise trust && mise install go ko crane
+          scripts/install-mise.sh /usr/local/bin
+          mise trust && mise install go ko crane jq
       # ko builds in userspace, with mise's Go; platforms come from backend/.ko.yaml.
       - env:
           TOKEN: ${{ github.token }}
@@ -70,13 +68,12 @@ jobs:
   engine:
     runs-on: ${{ vars.RUNNER_AMD64 || 'ubuntu-24.04' }}
     timeout-minutes: 15
-    container: docker.io/library/debian:trixie-slim@sha256:a99cfc517144bc59b1978475ec53b46ecabec7e43635402ee5b77cc54cd1b20a
+    container: docker.io/library/buildpack-deps:trixie@sha256:880a5e3d451b50a7b1acd06093a980771a40c2fac2bce29a2145e0f4825266f4
     if: github.event_name != 'pull_request' || contains(github.event.pull_request.labels.*.name, 'images')
     permissions:
       contents: read
       packages: write
     steps:
-      - run: apt-get update -qq && apt-get install -y -qq --no-install-recommends bash ca-certificates curl git jq xz-utils >/dev/null
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
@@ -85,8 +82,8 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ github.token }}
         run: |
-          scripts/install-mise.sh "$MISE_VERSION" /usr/local/bin
-          mise trust && mise install uv crane
+          scripts/install-mise.sh /usr/local/bin
+          mise trust && mise install uv crane jq
       - env:
           TOKEN: ${{ github.token }}
           ACTOR: ${{ github.actor }}

@@ -92,6 +92,9 @@ spec:
             - postgres
             - -c
             - shared_buffers=512MB
+            # Reload the pages that were in memory after a restart (autoprewarm).
+            - -c
+            - shared_preload_libraries=pg_prewarm
             # Notice a client that vanished without closing in ~2 minutes, not
             # the OS default of ~2 hours.
             - -c

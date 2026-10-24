@@ -244,8 +244,7 @@ func (r *RatingsReader) Activity(ctx context.Context, run int64, inactiveOnOrBef
 	}
 
 	rows, err := r.pool.Query(ctx, `
-		SELECT player_count, count(DISTINCT match_id), count(*) FROM pairwise_matches WHERE run_id = $1
-		GROUP BY player_count ORDER BY player_count`, run)
+		SELECT player_count, games, pairs FROM run_format_counts WHERE run_id = $1 ORDER BY player_count`, run)
 	if err == nil {
 		a.Formats, err = pgx.CollectRows(rows, pgx.RowToStructByPos[FormatCount])
 	}
@@ -323,7 +322,7 @@ func (r *RatingsReader) SeatAnalysis(ctx context.Context, run int64, format int,
 	if err := r.requirePublished(ctx, run); err != nil {
 		return nil, err
 	}
-	tiers, err := r.seatCountsOf(ctx, run)
+	tiers, err := r.readSeatCounts(ctx, run)
 	if err != nil {
 		return nil, err
 	}
@@ -334,56 +333,11 @@ func (r *RatingsReader) SeatAnalysis(ctx context.Context, run int64, format int,
 	return seatGroups(counts, format), nil
 }
 
-// seatCountsOf returns run's seat counts for every tier in seatTiers, reading them on the run's first request
-// and from memory after, while it is one of the latest runs asked for: every tier and format of the page then
-// answers without the database.
-func (r *RatingsReader) seatCountsOf(ctx context.Context, run int64) (map[string]seatCounts, error) {
-	return r.seats.Get(run, struct{}{}, func() (map[string]seatCounts, error) {
-		return r.readSeatCounts(ctx, run)
-	})
-}
-
-// readSeatCounts reads run's seat counts for every tier in seatTiers, in one query.
+// readSeatCounts reads the seat counts run recorded, for every tier in seatTiers.
 func (r *RatingsReader) readSeatCounts(ctx context.Context, run int64) (map[string]seatCounts, error) {
 	rows, err := r.pool.Query(ctx, `
-		WITH games_in_run AS (
-			SELECT match_id AS game_id, date, player_count
-			FROM (
-				SELECT match_id, date, player_count,
-					row_number() OVER (PARTITION BY match_id) AS rn
-				FROM pairwise_matches
-				WHERE run_id = $1
-			) x
-			WHERE rn = 1
-		),
-		seat_rows AS (
-			SELECT g.player_count, coalesce(s.starting_position + 1, s.seat) AS seat, s.place,
-				avg(coalesce(rh.rating, 1500.0)) OVER game AS avg_rating,
-				count(*) FILTER (WHERE s.place = 1) OVER game AS winners
-			FROM games_in_run g
-			JOIN seats s ON s.game_id = g.game_id
-			LEFT JOIN LATERAL (
-				SELECT rating FROM rating_history h
-				WHERE h.run_id = $1 AND h.model_type = 'glicko2_daneo' AND h.player_count = 0
-				  AND h.player_name = s.player_name AND h.period_date <= g.date
-				ORDER BY h.period_date DESC LIMIT 1
-			) rh ON true
-			WINDOW game AS (PARTITION BY s.game_id)
-		)
-		SELECT
-			CASE
-				WHEN avg_rating >= 1750 THEN 'grandmaster'
-				WHEN avg_rating >= 1625 THEN 'master'
-				WHEN avg_rating >= 1500 THEN 'advanced'
-				WHEN avg_rating >= 1375 THEN 'intermediate'
-				ELSE 'beginner'
-			END,
-			player_count, seat, place, count(*),
-			count(*) FILTER (WHERE place = 1 AND winners = 1),
-			count(*) FILTER (WHERE place = 1 AND winners > 1),
-			coalesce(sum(CASE WHEN place = 1 THEN 1.0::float8 / winners ELSE 0 END), 0)::float8
-		FROM seat_rows
-		GROUP BY 1, 2, 3, 4`, run)
+		SELECT tier, player_count, seat, place, seats, outright_wins, draws, win_shares
+		FROM seat_tier_stats WHERE run_id = $1`, run)
 	if err != nil {
 		return nil, fmt.Errorf("reading run %d's seat analysis: %w", run, err)
 	}
