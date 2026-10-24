@@ -309,6 +309,35 @@ func TestPlayerTakesGamesAsTheRunRatedThem(t *testing.T) {
 	}
 }
 
+func TestVersusTakesGamesAsTheRunRatedThem(t *testing.T) {
+	pool := migrated(t)
+	r := NewRatingsReader(asReader(t, pool))
+	ctx := context.Background()
+	run := publishedRun(t, pool)
+	addPlayers(t, pool, "ann", "bob", "cy")
+	duel := addGame(t, pool, run, "2025-01-05", "Duel", Seat{"ann", 9}, Seat{"bob", 5})
+	trio := addGame(t, pool, run, "2025-01-10", "Trio", Seat{"ann", 9}, Seat{"bob", 5}, Seat{"cy", 1})
+	if _, err := pool.Exec(ctx, "UPDATE games SET date = '2025-03-01' WHERE game_id = $1", duel); err != nil {
+		t.Fatalf("moving the game after the run: %v", err)
+	}
+	if _, err := pool.Exec(ctx, "DELETE FROM seats WHERE game_id = $1 AND player_name = 'cy'", trio); err != nil {
+		t.Fatalf("removing a seat after the run: %v", err)
+	}
+
+	_, _, games, err := r.Versus(ctx, run, "ann", "bob")
+	if err != nil {
+		t.Fatalf("Versus: %v", err)
+	}
+	var got []string
+	for _, g := range games {
+		got = append(got, fmt.Sprintf("%d %s %dP", g.ID, g.Date.Format(time.DateOnly), g.PlayerCount))
+	}
+	want := []string{fmt.Sprintf("%d 2025-01-10 3P", trio), fmt.Sprintf("%d 2025-01-05 2P", duel)}
+	if !slices.Equal(got, want) {
+		t.Errorf("shared games = %q, want %q (the run's dates and formats, newest first)", got, want)
+	}
+}
+
 func TestHiddenNamesFindsDeletedAndBannedAccountsIgnoringCase(t *testing.T) {
 	pool := migrated(t)
 	addPlayers(t, pool, "ann", "bob", "cy")

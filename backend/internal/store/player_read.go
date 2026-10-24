@@ -273,35 +273,34 @@ func (r *RatingsReader) PlayerMatches(ctx context.Context, run int64, asked stri
 	if err != nil {
 		return "", MatchPage{}, fmt.Errorf("paging a player's games in run %d: %w", run, err)
 	}
-	rated, err := pgx.CollectRows(rows, func(row pgx.CollectableRow) (PlayerMatch, error) {
-		var m PlayerMatch
-		err := row.Scan(&m.ID, &m.Date, &m.PlayerCount)
-		return m, err
-	})
-	if err != nil {
-		return "", MatchPage{}, fmt.Errorf("paging a player's games in run %d: %w", run, err)
-	}
-	mp.Matches, err = r.gamesAsRated(ctx, rated)
+	mp.Matches, err = r.gamesAsRated(ctx, rows)
 	if err != nil {
 		return "", MatchPage{}, fmt.Errorf("reading a player's games in run %d: %w", run, err)
 	}
 	return name, mp, nil
 }
 
-// gamesAsRated returns the games named by rated, in its order, with their tournament, replay code and seats,
-// and the date and format rated gives.
-func (r *RatingsReader) gamesAsRated(ctx context.Context, rated []PlayerMatch) ([]PlayerMatch, error) {
+// gamesAsRated reads rows of a run's games (id, date, format) and returns those games in their order, with
+// their tournament, replay code and seats, and the run's date and format.
+func (r *RatingsReader) gamesAsRated(ctx context.Context, rows pgx.Rows) ([]PlayerMatch, error) {
+	rated, err := pgx.CollectRows(rows, func(row pgx.CollectableRow) (PlayerMatch, error) {
+		var m PlayerMatch
+		return m, row.Scan(&m.ID, &m.Date, &m.PlayerCount)
+	})
+	if err != nil {
+		return nil, err
+	}
 	ids := make([]int64, len(rated))
 	for i, m := range rated {
 		ids[i] = m.ID
 	}
-	rows, err := r.pool.Query(ctx, `
+	lines, err := r.pool.Query(ctx, `
 		SELECT m.game_id, m.name, m.date, m.player_count, m.share_code, m.players, m.cultures
 		FROM game_lines m WHERE m.game_id = ANY($1)`, ids)
 	if err != nil {
 		return nil, err
 	}
-	games, err := pgx.CollectRows(rows, scanMatch)
+	games, err := pgx.CollectRows(lines, scanMatch)
 	if err != nil {
 		return nil, err
 	}
@@ -604,18 +603,16 @@ func (r *RatingsReader) Versus(ctx context.Context, run int64, asked, other stri
 		return "", "", nil, err
 	}
 	rows, err := r.pool.Query(ctx, `
-		SELECT m.game_id, m.name, m.date, m.player_count, m.share_code, m.players, m.cultures
-		FROM game_lines m
-		WHERE m.game_id = ANY(ARRAY(
-			SELECT match_id FROM pairwise_matches WHERE run_id = $1 AND player_a = $2 AND player_b = $3
+		SELECT match_id, date, player_count FROM (
+			SELECT match_id, date, player_count FROM pairwise_matches WHERE run_id = $1 AND player_a = $2 AND player_b = $3
 			UNION
-			SELECT match_id FROM pairwise_matches WHERE run_id = $1 AND player_a = $3 AND player_b = $2))
-		ORDER BY m.date DESC, m.game_id DESC
+			SELECT match_id, date, player_count FROM pairwise_matches WHERE run_id = $1 AND player_a = $3 AND player_b = $2) shared
+		ORDER BY date DESC, match_id DESC
 		LIMIT $4`, run, a, b, sharedGames)
 	if err != nil {
 		return "", "", nil, fmt.Errorf("reading shared games in run %d: %w", run, err)
 	}
-	games, err := pgx.CollectRows(rows, scanMatch)
+	games, err := r.gamesAsRated(ctx, rows)
 	if err != nil {
 		return "", "", nil, fmt.Errorf("reading shared games in run %d: %w", run, err)
 	}
