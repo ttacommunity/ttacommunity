@@ -1,7 +1,23 @@
 /** A page's sub tabs, the same on the site and in admin: upstream's records tabs choosing which panel shows. */
-import type { ReactNode } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import Segmented from './Segmented';
 import { shownTab } from './tabs';
+
+/** useHash follows the address's hash ("#pairings"), so a link can open a tab and back returns to the last one: the hash ('' until mounted) and a function that sets it. */
+export function useHash(): [string, (value: string) => void] {
+  const [hash, setHash] = useState('');
+  useEffect(() => {
+    const follow = () => setHash(window.location.hash);
+    follow();
+    window.addEventListener('hashchange', follow);
+    return () => window.removeEventListener('hashchange', follow);
+  }, []);
+  const choose = (value: string) => {
+    if (window.location.hash !== `#${value}`) history.pushState(null, '', `#${value}`);
+    setHash(`#${value}`);
+  };
+  return [hash, choose];
+}
 
 export interface Tab<T> {
   value: T;

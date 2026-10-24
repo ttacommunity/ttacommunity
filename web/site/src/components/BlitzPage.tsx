@@ -4,7 +4,8 @@ import { RatingsApiError, blitzEdition, blitzEditions, type BlitzEdition, type B
 import type { components } from '@ttac/shared/api';
 import { formatLabel, reachedLabel, scoringSentence, zoneLabel } from '@ttac/shared/blitz';
 import BackLink from '@ttac/shared/BackLink';
-import SubTabs from '@ttac/shared/SubTabs';
+import SubTabs, { useHash } from '@ttac/shared/SubTabs';
+import { hashTab } from '@ttac/shared/tabs';
 import { blitzGames, editionHref, editionParams, editionViews, notPlaying, ratingText, resultsUpdated, roundOptions, splitRounds, type BlitzGamesFilter, type EditionView } from '../lib/blitz';
 import BlitzReport from './BlitzReport';
 import { yourRow, type MyBlitzMatch } from '../lib/blitz-report';
@@ -104,7 +105,7 @@ function BlitzList({ apiUrl }: { apiUrl: string }) {
 
 function EditionPage({ apiUrl, slug, edition }: { apiUrl: string; slug: string; edition: string }) {
   const [load, setLoad] = useState<Load<BlitzEdition>>({ kind: 'loading' });
-  const [view, setView] = useState<EditionView | null>(null);
+  const [hash, setHash] = useHash();
   // Asked again after the player reports, so their result shows at once.
   const [asked, setAsked] = useState(0);
   const [mine, setMine] = useState<MyBlitzMatch | null>(null);
@@ -135,6 +136,7 @@ function EditionPage({ apiUrl, slug, edition }: { apiUrl: string; slug: string; 
   const { swiss, knockout } = splitRounds(ed.rounds);
   const latest = ed.rounds.length === 0 ? null : Math.max(...ed.rounds.map((r) => r.number));
   const countryOf = new Map(ed.standings.map((s) => [s.name, s.country]));
+  const views = editionViews(ed.rounds);
   const panels: Record<EditionView, { label: string; panel: ReactNode }> = {
     standings: { label: 'Standings', panel: <StandingsPanel standings={ed.standings} scoring={scoringSentence(ed.points, ed.fide_points)} /> },
     pairings: { label: 'Pairings', panel: <PairingsPanel ed={ed} swiss={swiss} you={yourRow(mine)} /> },
@@ -190,7 +192,7 @@ function EditionPage({ apiUrl, slug, edition }: { apiUrl: string; slug: string; 
         </section>
       )}
       <section className="rating-card blitz-card" aria-label="Standings, pairings and players">
-        <SubTabs label="Show" tabs={editionViews(ed.rounds).map((v) => ({ value: v, ...panels[v] }))} chosen={view} onChoose={setView} />
+        <SubTabs label="Show" tabs={views.map((v) => ({ value: v, ...panels[v] }))} chosen={hashTab(views, hash)} onChoose={setHash} />
       </section>
     </>
   );
