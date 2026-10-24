@@ -291,7 +291,7 @@ def _sheet_rows(series, top, standings, official, boards, dates):
                     "division": "Grandmaster",
                     "placement": f"{rank} / {total}",
                     "points": f"{points:g} pts",
-                    "medal": _medal(rank),
+                    "medal": None if p.get("shared") else _medal(rank),
                     "details": details,
                     "finish_date": dates.get((series, season), FALLBACK_DATE),
                     "career": False,
@@ -342,7 +342,11 @@ def _royal_league_rows(top, standings, official, dates):
     for season, placed in podiums:
         for place in (1, 2, 3):
             points, details = RL_PLACES[place - 1]
-            for p in (x["player_name"] for x in placed if x["place"] == place):
+            for p in (
+                x["player_name"]
+                for x in placed
+                if x["place"] == place and not x.get("shared")
+            ):
                 rec = {"player_name": p, "tournament": "Royal League", "season": f"Season {season}",
                        "division": "Emperor", "placement": f"{place} / 8", "points": points,
                        "medal": PLACES[place - 1], "details": f"{details} (Season {season})",

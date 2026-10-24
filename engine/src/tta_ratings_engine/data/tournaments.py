@@ -259,14 +259,11 @@ def worlds_finals(conn) -> dict[int, list[list[Seat]]]:
 
 def final_podium(games, final: Series):
     """Returns a final's standings under final's rules, or None when they cannot split a tie for a podium place."""
-    t = _tally(games)
-    order = _league_order(t)
-    points, above, performance = t["points"], t["above"], t["performance"]
-    for a, b in itertools.pairwise(order[:4]):
-        tied = [p for p in order if points[p] == points[a]]
-        level = points[a] == points[b] and performance[a] == performance[b]
-        if level and (len(tied) != 2 or above[a][b] == above[b][a]):
+    start = 1
+    for place in _league_order(_tally(games)):
+        if len(place) > 1 and start <= 3:
             return None
+        start += len(place)
     return rank_group(games, final)
 
 
@@ -308,28 +305,29 @@ def _tally(games):
 
 
 def _league_order(t):
-    """Orders a league group: points, then a two-way tie by head-to-head, then performance, then name.
+    """Returns a league group's places, each its players: by points, then a two-way tie by head-to-head, then
+    performance. Players level on all of them share a place, in name order.
 
     The rulebooks' extra games and previous-season rule are not applied.
     """
     points, above, performance = t["points"], t["above"], t["performance"]
-    order = []
+    places = []
     for pts in sorted(set(points.values()), reverse=True):
         tied = sorted(
             (p for p in points if points[p] == pts), key=lambda p: (-performance[p], p)
         )
-        if len(tied) == 2:
+        if len(tied) == 2 and above[tied[0]][tied[1]] != above[tied[1]][tied[0]]:
             a, b = tied
-            if above[b][a] > above[a][b]:
-                tied = [b, a]
-            elif above[a][b] == above[b][a]:
-                tied = sorted(tied, key=lambda p: (-performance[p], p))
-        order.extend(tied)
-    return order
+            places += [[a], [b]] if above[a][b] > above[b][a] else [[b], [a]]
+            continue
+        for _, level in itertools.groupby(tied, key=lambda p: performance[p]):
+            places.append(list(level))
+    return places
 
 
 def _duel_order(t):
-    """Orders a Royal League group as upstream: points, head-to-head points, wins, total score."""
+    """Returns a Royal League group's places as upstream orders them, each its players: points, head-to-head
+    points, wins, total score. Players level on all four share a place, in name order."""
     points, h2h, wins, score = t["points"], t["h2h"], t["wins"], t["score"]
 
     def compare(a, b):
@@ -343,23 +341,36 @@ def _duel_order(t):
                 return -1 if x > y else 1
         return 0
 
-    return sorted(sorted(points), key=functools.cmp_to_key(compare))
+    places: list[list[str]] = []
+    for p in sorted(sorted(points), key=functools.cmp_to_key(compare)):
+        if places and compare(places[-1][0], p) == 0:
+            places[-1].append(p)
+        else:
+            places.append([p])
+    return places
 
 
 def rank_group(games: list[list[Seat]], rules: Series):
-    """Returns a group's standings as dicts in place order, by its seats' game points and the series' tiebreaks."""
+    """Returns a group's standings as dicts in place order, by its seats' game points and the series' tiebreaks.
+
+    Players the tiebreaks cannot split share their place (shared is true), and the next place counts them all.
+    """
     t = _tally(games)
-    order = _duel_order(t) if rules.duel else _league_order(t)
-    return [
-        {
-            "player_name": p,
-            "place": i,
-            "points": t["points"][p],
-            "games": t["games"][p],
-            "placings": t["placings"][p],
-        }
-        for i, p in enumerate(order, start=1)
-    ]
+    out: list[dict[str, Any]] = []
+    for place in _duel_order(t) if rules.duel else _league_order(t):
+        at = len(out) + 1
+        out += [
+            {
+                "player_name": p,
+                "place": at,
+                "points": t["points"][p],
+                "games": t["games"][p],
+                "placings": t["placings"][p],
+                "shared": len(place) > 1,
+            }
+            for p in place
+        ]
+    return out
 
 
 def _components(games):
@@ -507,7 +518,8 @@ def _league_boards(standings, official, series_rules):
             m = medals[(series, s["player_name"])]
             if not rules.duel:
                 m["points"] += s["points"] or 0.0
-            if s["place"] <= 3:
+            # A shared place waits for a playoff or a ruling, recorded as an official placement.
+            if s["place"] <= 3 and not s.get("shared"):
                 m[("gold", "silver", "bronze")[s["place"] - 1]] += 1
                 m["first"] = season if m["first"] is None else m["first"]
                 if rules.duel:

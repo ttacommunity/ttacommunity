@@ -196,6 +196,25 @@ def seats(*rows):
             [("bob", 1, 3.0), ("ann", 2, 3.0), ("cat", 3, 2.0), ("dan", 4, 0.0)],
             id="Royal League: ann and bob drew and won once each, bob scored more",
         ),
+        pytest.param(
+            "international",
+            [
+                seats(("ann", 1, 5, 100), ("bob", 2, 2, 90), ("cat", 3, 0, 80)),
+                seats(("bob", 1, 5, 100), ("ann", 2, 2, 90), ("cat", 3, 0, 80)),
+            ],
+            [("ann", 1, 7.0), ("bob", 1, 7.0), ("cat", 3, 0.0)],
+            id="a league's tie level on head-to-head and shares is a shared place",
+        ),
+        pytest.param(
+            "royal_league",
+            [
+                seats(("ann", 1, 1, 100), ("bob", 1, 1, 100)),
+                seats(("ann", 1, 2, 100), ("cat", 2, 0, 90)),
+                seats(("bob", 1, 2, 100), ("cat", 2, 0, 90)),
+            ],
+            [("ann", 1, 3.0), ("bob", 1, 3.0), ("cat", 3, 0.0)],
+            id="Royal League: level on every tiebreak is a shared place",
+        ),
     ],
 )
 def test_rank_group_breaks_ties_by_the_series_rules(series, games, want):
@@ -1278,3 +1297,20 @@ def test_each_world_championship_place_comes_from_admin_then_recorded_then_the_f
         if r["title"].startswith("WC")
     }
     assert (board, years) == (want, want)
+
+
+def test_a_shared_place_gives_no_medal_until_a_ruling(conn, add_match, run_id, place):
+    add_match(("ann", 100), ("bob", 90), ("cat", 80), tournament=gm(1))
+    add_match(("bob", 100), ("ann", 90), ("cat", 80), tournament=gm(2))
+
+    derive_tournaments(conn=conn, run_id=run_id)
+    shared = medals_and_records(conn, run_id)[:2]
+    place("international", 30, "Grandmaster", "bob", "ann", "cat")
+    derive_tournaments(conn=conn, run_id=run_id)
+    ruled = medals_and_records(conn, run_id)[:2]
+
+    assert shared == ({"cat": (0, 0, 1)}, {"cat": "bronze"})
+    assert ruled == (
+        {"bob": (1, 0, 0), "ann": (0, 1, 0), "cat": (0, 0, 1)},
+        {"bob": "gold", "ann": "silver", "cat": "bronze"},
+    )
