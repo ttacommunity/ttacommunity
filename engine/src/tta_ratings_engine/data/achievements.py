@@ -381,6 +381,8 @@ def _honour_rows(honours):
 def _campaign_rows(rows, keys, dates):
     """Returns upstream's campaign rows: every match-name group a player played
     in, and appends each official row's record to it instead where one exists.
+
+    An official row keeps its own division, which its standings gave it, whatever the games' names say.
     """
     groups = {}
     for r in rows:
@@ -433,8 +435,6 @@ def _campaign_rows(rows, keys, dates):
             medal = None
             official = keys.get((p, tournament, season))
             if official is not None:
-                if division and division not in ("Main", "Division"):
-                    official["division"] = division
                 if "Record:" not in official["details"]:
                     official["details"] += (
                         f" • Record: {w}W - {n - w}L ({pct}% win rate)"

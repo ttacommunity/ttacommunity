@@ -436,6 +436,55 @@ def test_slow_burn_records_take_its_edition_and_stage_from_the_catalogue():
     assert {r["medal"] for r in got} == {None}
 
 
+@pytest.mark.parametrize(
+    ("series", "game", "tournament"),
+    [
+        (
+            "intermezzo",
+            "Intermezzo S11 - Grandmaster 1 game 1",
+            "Intermezzo Championship",
+        ),
+        (
+            "international",
+            "International S11 - Grandmaster 1 game 1",
+            "International Championship",
+        ),
+    ],
+)
+def test_a_standings_record_keeps_its_division_whatever_its_games_are_named(
+    series, game, tournament
+):
+    rows = [
+        match(
+            game,
+            ("ann", 90),
+            ("bob", 80),
+            ("cat", 70),
+            day=date(2021, 9, 1),
+            match_id=1,
+        )
+    ]
+    standings = {
+        (series, 11, "Grandmaster"): [
+            placed("ann", 1, 4.0),
+            placed("bob", 2, 2.0),
+            placed("cat", 3, 0.0),
+        ]
+    }
+
+    got = player_records(rows=rows, top_divisions=TOP, standings=standings, official={}, boards={}, honours=[],
+                         dates={})  # fmt: skip
+
+    ann = next(
+        r
+        for r in got
+        if r["player_name"] == "ann"
+        and r["tournament"] == tournament
+        and not r["career"]
+    )
+    assert (ann["division"], ann["medal"]) == ("Grandmaster", "gold")
+
+
 def test_player_records_unnamed_international_season_does_not_award_gold_or_grandmaster():
     rows = [
         match("International S14", ("ann", 90), ("bob", 80), ("cat", 70), ("dan", 60),
