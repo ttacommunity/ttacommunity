@@ -272,11 +272,12 @@ agent runs them itself.
   math: **do not edit them** to make something else easier. Storage changes
   go in the adapter layer. A change that *intends* to move ratings is a
   maintainers' decision, made explicitly
-- **A change that moves ratings is a new engine version.** Bump `version` in
-  `engine/pyproject.toml` and add its hash to `engine/tests/golden.json`
-  (the golden test's failure prints it). CI fails a change that moves
-  ratings without a new version, and a version's hash never changes. Every
-  run records the version
+- **A change that moves results is a new engine version.** Bump `version`
+  in `engine/pyproject.toml` and add its hashes to `engine/tests/golden.json`
+  (the golden test's failure prints them): `ratings` for the ratings,
+  `derived` for tournament results and titles, so a version shows which it
+  moved. CI fails a change that moves results without a new version, and a
+  version's hashes never change. Every run records the version
 - The engine reads only the database: no web code, scraping, CSV or
   spreadsheet parsing. Loading and checking data is the Go load job's work
 - **Runs, not overwrites**: each computation writes a new run; publishing is

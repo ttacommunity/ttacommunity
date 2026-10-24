@@ -938,10 +938,15 @@ def stable(value):
     return str(value)
 
 
-def results_hash(conn, run_id):
-    """A hash of every row a run computed, table by table, in a stable order."""
+# The ratings: what the models compute from the rated pairs. The rest of a run is derived from the games.
+RATINGS_TABLES = runner.COPIED_TABLES + ["pairwise_matches"]
+DERIVED_TABLES = [t for t in runner.RECOMPUTED_TABLES if t not in RATINGS_TABLES]
+
+
+def results_hash(conn, run_id, tables):
+    """A hash of every row a run computed in tables, table by table, in a stable order."""
     digest = hashlib.sha256()
-    for table in sorted(runner.COPIED_TABLES + runner.RECOMPUTED_TABLES):
+    for table in sorted(tables):
         rows = conn.execute(
             f"SELECT * FROM {table} WHERE run_id = %s", (run_id,)
         ).fetchall()
@@ -971,12 +976,22 @@ def test_the_results_match_the_engine_versions_golden_hash(conn, add_match):
     assert {(r["model_type"], r["player_count"]) for r in rated} == {
         (m, f) for m in MODEL_TYPES for f in FORMATS
     }
-    version, got = runner.engine_version(), results_hash(conn, run_id)
+    version = runner.engine_version()
+    got = {
+        "ratings": results_hash(conn, run_id, RATINGS_TABLES),
+        "derived": results_hash(conn, run_id, DERIVED_TABLES),
+    }
     want = json.loads(GOLDEN.read_text()).get(version)
     assert got == want, (
-        f"engine {version}'s results hash to {got}, not {want}. If this change is meant to move ratings, "
-        f'bump the version in engine/pyproject.toml and add "<new version>": "{got}" to tests/golden.json. '
-        "A version's hash never changes."
+        f"engine {version}'s results hash to {json.dumps(got)}, not {json.dumps(want)}. If this change is meant "
+        "to move results, bump the version in engine/pyproject.toml and add "
+        f'"<new version>": {json.dumps(got)} to tests/golden.json. A version\'s hashes never change.'
+    )
+
+
+def test_every_run_table_is_hashed_once():
+    assert sorted(RATINGS_TABLES + DERIVED_TABLES) == sorted(
+        runner.COPIED_TABLES + runner.RECOMPUTED_TABLES
     )
 
 
