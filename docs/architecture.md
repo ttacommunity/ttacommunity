@@ -66,10 +66,23 @@ They live in the ratings DB beside the members they link to. The app DB
 load job) → **import batch** (validated; duplicates, renamed players and junk
 are matched or *refused*, never silently kept) → **run**, started from admin
 (the api creates a Job from the engine's CronJob) or by hand → **published**
-from admin once its checks pass (a one-row switch) → the API serves it, and
-Cloudflare caches each response until the next publish. The analysis pages'
-counts (seat results by skill tier, games and pairs per format) are counted
-as the run is made, so a corrected result shows there from the next run.
+from admin once its checks pass (a one-row switch) → the API serves it. The
+analysis pages' counts (seat results by skill tier, games and pairs per
+format) are counted as the run is made, so a corrected result shows there
+from the next run.
+
+**How a new run reaches visitors.** Every ratings answer is at a URL that
+names its run (`/v1/runs/{run}/…`), and the site asks `/v1/runs/current`
+first. A published run is new URLs, so nothing is purged. Cloudflare and
+browsers keep what the API's `Cache-Control` says:
+
+| Answers | Kept for | Why |
+|---|---|---|
+| `/v1/runs/current` | 60 s | A new run shows within about two minutes (Cloudflare, then the browser) |
+| Under `/v1/runs/{run}/`, and `/robots.txt` | 5 min | A run never changes, but its answers include player details edited between runs, and an answer's shape can change with a deploy |
+| `/v1/blitz`, `/v1/community/editions` | 60 s | They change during an event |
+| `/v1/countries` | a day | Changes only with a release |
+| A blitz edition, sign-in, `/v1/me…`, admin, health, every error | never (`no-store`) | Changes as results are recorded, is personal, or must not stick |
 
 ### Rating runs
 

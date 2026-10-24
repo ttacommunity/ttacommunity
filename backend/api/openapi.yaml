@@ -15,6 +15,9 @@ paths:
       responses:
         "200":
           description: Up
+          headers:
+            Cache-Control:
+              $ref: "#/components/headers/CacheControl"
           content:
             application/json:
               schema:
