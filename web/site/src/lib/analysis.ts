@@ -1,6 +1,7 @@
 /** Upstream's model analysis in the browser: its model list, composite score, ranking and curve filters. */
+import { signed } from '@ttac/shared/numbers';
 import { titleName } from './leaderboard-display';
-import type { Activity, CalibrationRow, CountryRatings, Format, TitleCode } from '@ttac/shared/ratings';
+import type { Activity, CalibrationRow, CountryRatings, Format, SeatStatsGroup, TitleCode } from '@ttac/shared/ratings';
 
 export type { CountryRatings };
 
@@ -223,9 +224,15 @@ export function seatDelta(winRate: number, playerCount: number): number {
 }
 
 
+/** seatSpread returns the first seat's win rate less the last seat's, in points to two places; null without every seat. */
+export function seatSpread(group: SeatStatsGroup | undefined): number | null {
+  if (group === undefined || group.seats.length < group.player_count) return null;
+  const spread = Number((group.seats[0].win_rate - group.seats[group.player_count - 1].win_rate).toFixed(2));
+  return Object.is(spread, -0) ? 0 : spread;
+}
+
 /** seatDeltaText formats the delta with explicit sign and two decimal places (e.g. "+2.47%"). */
 export function seatDeltaText(delta: number): string {
-  const sign = delta > 0 ? '+' : '';
-  return `${sign}${delta.toFixed(2)}%`;
+  return `${signed(delta, 2)}%`;
 }
 

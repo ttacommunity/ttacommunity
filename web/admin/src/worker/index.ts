@@ -43,7 +43,12 @@ export default {
     const origin = request.headers.get('Origin');
     if (origin) headers.set('Origin', origin);
     const body = request.method === 'GET' || request.method === 'HEAD' ? undefined : await request.arrayBuffer();
-    const res = await fetch(`${api}${path}`, { method: request.method, headers, body });
+    let res: Response;
+    try {
+      res = await fetch(`${api}${path}`, { method: request.method, headers, body });
+    } catch {
+      return refuse(502, 'the API could not be reached');
+    }
     const out = new Headers({ 'Content-Type': res.headers.get('Content-Type') ?? 'application/json', 'Cache-Control': 'no-store' });
     for (const name of ['Content-Disposition', 'X-Request-Id']) {
       const value = res.headers.get(name);

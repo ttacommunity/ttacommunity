@@ -37,6 +37,7 @@ type Fetch = (input: string, init: RequestInit) => Promise<Response>;
 
 function refusal(status: number, { error, requestId }: ErrorFields): string {
   if (status === 401) return 'Your sign-in has ended. Reload the page to sign in again.';
+  if (status === 502) return 'The API could not be reached. Try again in a minute.';
   if ([400, 403, 404, 409, 413, 503].includes(status)) return `Refused: ${error ?? 'not allowed'}.`;
   const ref = requestId === undefined ? '' : ` Quote ref ${requestId}.`;
   return `The API failed (${status}). Try again, or tell an admin.${ref}`;

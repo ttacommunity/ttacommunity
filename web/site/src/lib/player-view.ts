@@ -1,4 +1,5 @@
 /** Upstream's player page in the browser: its address, options, chart series and rivals table. */
+import { signed } from '@ttac/shared/numbers';
 import type { Format, Model, Player, PlayerHistory, PlayerRating, Rival } from '@ttac/shared/ratings';
 import { ENGINES, parseView, resetApplies, type Engine, type Remembered, type ResetMode } from './leaderboard-view';
 
@@ -111,12 +112,9 @@ export function chartData(history: PlayerHistory, mode: ResetMode, curve: 'expec
   return { labels, series };
 }
 
-/** signedDelta writes a game's rating change as upstream does: a sign when not zero, one decimal, a dash for none. */
+/** signedDelta writes a change as upstream writes ΔR: one decimal, a sign unless it rounds to zero, a dash for none. */
 export function signedDelta(delta: number | null): string {
-  if (delta === null) return '—';
-  if (delta > 0) return `+${delta.toFixed(1)}`;
-  if (delta < 0) return delta.toFixed(1);
-  return '0.0';
+  return delta === null ? '—' : signed(delta, 1);
 }
 
 /** score writes a game score, without decimals when it is whole. */

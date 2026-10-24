@@ -1,16 +1,14 @@
 /** Players' accounts on the Members tab: requests to be linked, approved or refused by admins and organisers, and accounts linked to no one, removed by admins. */
 import { Fragment } from 'react';
 import { useDialog } from '@ttac/shared/Dialog';
+import { formatTime, viewerZone } from '@ttac/shared/time';
 import type { AdminAccount, AdminMe, LinkApproved, Load } from '../lib/admin-api';
 import * as req from '../lib/admin-requests';
 import { outcomeOf, shownAt, type Outcome } from '../lib/outcome';
 import { detailsHint, requestHint, standing, who } from '../lib/sign-ins';
 import Notice, { LoadNotice, NoticeRow } from './Notice';
 
-/** when shows an instant in the viewer's zone, as admin's tables do. */
-function when(iso: string): string {
-  return new Date(iso).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' });
-}
+const ZONE = viewerZone();
 
 /** Said is the Members tab's outcome, shared so each shows where it belongs, and after reloads what an answer changes. */
 type Said = { outcome: Outcome | null; say: (o: Outcome | null) => void; after: () => Promise<void> };
@@ -58,7 +56,7 @@ export function WaitingRequests({ accounts, waiting, outcome, say, after }: { ac
               <tr>
                 <th scope="col">Signs in with</th>
                 <th scope="col">Asks to be</th>
-                <th scope="col">Asked</th>
+                <th scope="col">Asked ({ZONE})</th>
                 <th scope="col">
                   <span className="visually-hidden">Actions</span>
                 </th>
@@ -77,7 +75,7 @@ export function WaitingRequests({ accounts, waiting, outcome, say, after }: { ac
                         <span className="row-detail muted">{requestHint(r, l).text}</span>
                         <span className="row-detail muted">{detailsHint(r).text}</span>
                       </td>
-                      <td>{when(r.requested_at)}</td>
+                      <td>{formatTime(r.requested_at, ZONE)}</td>
                       <td className="run-buttons">
                         <button type="button" className="btn-antique" onClick={() => void approve(l, r.id)}>
                           Approve
@@ -128,7 +126,7 @@ export function UnlinkedSignIns({ unlinked, role, outcome, say, after }: { unlin
               <tr>
                 <th scope="col">Signs in with</th>
                 <th scope="col">Where it stands</th>
-                <th scope="col">Last signed in</th>
+                <th scope="col">Last signed in ({ZONE})</th>
                 <th scope="col">
                   <span className="visually-hidden">Actions</span>
                 </th>
@@ -145,7 +143,7 @@ export function UnlinkedSignIns({ unlinked, role, outcome, say, after }: { unlin
                         {l.refused === null ? <span className="muted">{s.text}</span> : s.text}
                         {s.detail !== '' && <span className="row-detail muted">{s.detail}</span>}
                       </td>
-                      <td>{when(l.signed_in_at)}</td>
+                      <td>{formatTime(l.signed_in_at, ZONE)}</td>
                       <td className="run-buttons">
                         {role === 'admin' && (
                           <button type="button" className="btn-antique" onClick={() => void remove(l)}>

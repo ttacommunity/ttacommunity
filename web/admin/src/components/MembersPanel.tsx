@@ -2,6 +2,7 @@
 import { Fragment, useEffect, useState, type FormEvent } from 'react';
 import { offsetLabel } from '@ttac/shared/blitz';
 import { useDialog } from '@ttac/shared/Dialog';
+import { formatInstant, viewerZone } from '@ttac/shared/time';
 import { adminRequest, type AdminAccount, type AdminMe, type AdminMember, type Load, type MemberAdded, type MemberChange } from '../lib/admin-api';
 import * as req from '../lib/admin-requests';
 import { countryNames, type Country } from '../lib/countries';
@@ -26,12 +27,11 @@ function draftOf(m: AdminMember): Draft {
 /** SignedInAs shows the account linked to a member: its ways in, how it was linked and when it was last used. */
 function SignedInAs({ login }: { login: AdminAccount | undefined }) {
   if (login === undefined) return <span className="muted">—</span>;
-  const day = new Date(login.signed_in_at).toLocaleDateString(undefined, { day: 'numeric', month: 'short' });
   return (
     <>
       {who(login)}
       <span className="row-detail muted">
-        {howLinked(login)} · last in {day}
+        {howLinked(login)} · last in {formatInstant(login.signed_in_at, viewerZone())}
       </span>
     </>
   );

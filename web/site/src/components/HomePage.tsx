@@ -8,6 +8,7 @@ import {
   type Run,
   type LeaderboardRow,
 } from '@ttac/shared/ratings';
+import { formatDay, formatInstant, viewerZone } from '@ttac/shared/time';
 import { podiumCard, seasonName, type PodiumCard } from '../lib/catalogue-view';
 import { seatRankClass, settled, type Section } from '../lib/home-view';
 import { waitingText } from '../lib/waiting';
@@ -35,11 +36,6 @@ interface HomeData {
 type Load = { kind: 'loading' } | { kind: 'error'; message: string } | { kind: 'ready'; data: HomeData };
 
 const count = (n: number | null | undefined) => (n ?? 0).toLocaleString('en-US');
-
-function formatDate(iso: string | null | undefined): string {
-  if (!iso) return '';
-  return new Date(iso).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
-}
 
 function scoreFormatted(n: number) {
   return Number.isInteger(n) ? String(n) : n.toFixed(1);
@@ -215,7 +211,7 @@ export default function HomePage({ apiUrl }: { apiUrl: string }) {
             )}
             {data.run.finished_at && (
               <div className="home-stat-pill">
-                Updated: <strong>{formatDate(data.run.finished_at)}</strong>
+                Updated: <strong>{formatInstant(data.run.finished_at, viewerZone())}</strong>
               </div>
             )}
           </div>
@@ -526,7 +522,7 @@ export default function HomePage({ apiUrl }: { apiUrl: string }) {
                               {seasonName(t.seasonLabel, t.seasonWord)}
                             </span>
                           </div>
-                          {t.finished && <span className="tourney-date">{formatDate(t.finished)}</span>}
+                          {t.finished && <span className="tourney-date">{formatDay(t.finished)}</span>}
                         </div>
 
                         {/* Podium with Spoiler Protection */}

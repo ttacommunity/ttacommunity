@@ -18,6 +18,7 @@ import {
   type AnalysisFilters,
   seatDelta,
   seatDeltaText,
+  seatSpread,
   SEAT_TIERS,
 } from './analysis';
 
@@ -204,6 +205,19 @@ describe('seat helpers', () => {
     expect(seatDeltaText(2.47)).toBe('+2.47%');
     expect(seatDeltaText(-2.39)).toBe('-2.39%');
     expect(seatDeltaText(0)).toBe('0.00%');
+    expect(seatDeltaText(0.004)).toBe('0.00%');
+    expect(seatDeltaText(-0.004)).toBe('0.00%');
+  });
+
+  it.each([
+    ['first seat ahead', 4, [30, 26, 23, 21], 9],
+    ['last seat ahead', 3, [31, 33, 36], -5],
+    ['two players', 2, [52.5, 47.5], 5],
+    ['too few seats', 4, [30, 26, 23], null],
+    ['no group', null, [], null],
+  ])('seatSpread gives %s', (_name, players, rates, want) => {
+    const group = players === null ? undefined : { player_count: players, total_games: 100, seats: rates.map((win_rate, i) => ({ seat: i + 1, games: 100, wins: 0, draws: 0, win_rate, places: [] })) };
+    expect(seatSpread(group)).toBe(want);
   });
 
   it('provides the 6 expected skill tiers', () => {

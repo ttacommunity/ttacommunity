@@ -35,6 +35,11 @@ describe('adminRequest', () => {
       status: 413,
       message: 'Refused: request body too large.',
     });
+    expect(await adminRequest('/api/me', {}, answer(502, { error: 'the API could not be reached' }))).toEqual({
+      ok: false,
+      status: 502,
+      message: 'The API could not be reached. Try again in a minute.',
+    });
     expect(await adminRequest('/api/x', {}, answer(500, 'not json'))).toEqual({
       ok: false,
       status: 500,

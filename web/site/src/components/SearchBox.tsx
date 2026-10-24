@@ -12,6 +12,8 @@ interface Props {
   value: string;
   /** Called with the term searched; in field mode the page's own form searches instead. */
   onSearch?: (term: string) => void;
+  /** Empties the box after each search, for adding names one at a time. */
+  clearOnSearch?: boolean;
   /** Field mode: the box is one field of the page's own form, sent under this name. */
   name?: string;
   inputClassName?: string;
@@ -48,6 +50,7 @@ export default function SearchBox({
   players,
   value,
   onSearch,
+  clearOnSearch = false,
   name,
   inputClassName = 'input-antique',
   placeholder = 'Search player ...',
@@ -67,6 +70,11 @@ export default function SearchBox({
 
   useEffect(() => setText(value), [value]);
 
+  const search = (term: string) => {
+    onSearch?.(term);
+    if (clearOnSearch) setText('');
+  };
+
   const pick = (name: string) => {
     if (fill) {
       setText(name);
@@ -82,7 +90,7 @@ export default function SearchBox({
     if (field && input.current !== null) {
       input.current.value = term;
       input.current.form?.requestSubmit();
-    } else onSearch?.(term);
+    } else search(term);
   };
 
   const onKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
@@ -177,7 +185,7 @@ export default function SearchBox({
       onSubmit={(e) => {
         e.preventDefault();
         setOpen(false);
-        onSearch?.(text.trim());
+        search(text.trim());
       }}
     >
       {box}
