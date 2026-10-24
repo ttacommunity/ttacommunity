@@ -1,10 +1,20 @@
 /** Admin's header, the site's: brand, then admin's sections as its links, and the site's menu on phones. */
 import { useEffect, useRef, useState } from 'react';
 import homeButton from '@ttac/shared/styles/img/home-button.webp';
-import type { TABS, TabKey } from '../lib/admin-tabs';
+import { siteUrlFor, type TABS, type TabKey } from '../lib/admin-tabs';
 
 /** AdminHeader links each of tabs (current marked, with its count when counts has one) to admin's home; on phones they open from the menu button. */
-export default function AdminHeader({ tabs, current, counts = {} }: { tabs: typeof TABS; current: TabKey | null; counts?: Partial<Record<TabKey, number>> }) {
+export default function AdminHeader({
+  tabs,
+  current,
+  counts = {},
+  siteUrl,
+}: {
+  tabs: typeof TABS;
+  current: TabKey | null;
+  counts?: Partial<Record<TabKey, number>>;
+  siteUrl?: string;
+}) {
   const [open, setOpen] = useState(false);
   const backdrop = useRef<HTMLDivElement>(null);
   useEffect(() => {
@@ -69,6 +79,13 @@ export default function AdminHeader({ tabs, current, counts = {} }: { tabs: type
               )}
             </a>
           ))}
+          <a
+            href={siteUrl ?? (typeof window !== 'undefined' ? siteUrlFor(window.location.hostname) : siteUrlFor())}
+            className="admin-hub-link"
+            onClick={() => setOpen(false)}
+          >
+            Community Hub
+          </a>
         </nav>
       </div>
     </header>

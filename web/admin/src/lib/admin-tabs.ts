@@ -41,3 +41,10 @@ export function panelsFor(tab: TabKey, role: Role): Panel[] {
 export function tabCounts(waiting: number, flagged: number): Partial<Record<TabKey, number>> {
   return { ...(waiting > 0 ? { members: waiting } : {}), ...(flagged > 0 ? { blitz: flagged } : {}) };
 }
+
+/** siteUrlFor returns the public Community Hub URL matching the admin host: localhost/127.0.0.1 for local dev, dev.ttacommunity.org for dev admin, else the production hub. */
+export function siteUrlFor(hostname: string = ''): string {
+  if (hostname === '127.0.0.1' || hostname === 'localhost') return 'http://127.0.0.1:4321';
+  if (hostname.startsWith('dev.') || hostname.includes('ttacommunity-dev')) return 'https://dev.ttacommunity.org';
+  return 'https://ttacommunity.org';
+}
