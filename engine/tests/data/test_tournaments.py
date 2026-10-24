@@ -1333,3 +1333,21 @@ def test_a_season_with_official_placements_counts_no_derived_top_division(
         {"dan": (1, 0, 0), "eve": (0, 1, 0), "fay": (0, 0, 1)},
         {"dan": "gold", "eve": "silver", "fay": "bronze"},
     )
+
+
+@pytest.mark.parametrize(("final", "want"), [(True, "1 / 4"), (False, "1")])
+def test_a_world_championship_record_gives_its_finals_field(
+    conn, worlds_game, run_id, place, final, want
+):
+    if final:
+        a_final(worlds_game)
+    place("worlds", 2025, "Final", "dan", "ann", "cat")
+
+    derive_tournaments(conn=conn, run_id=run_id)
+
+    got = conn.execute(
+        "SELECT placement FROM tournament_records WHERE run_id = %s AND player_name = 'dan' "
+        "AND tournament = 'World Championship'",
+        (run_id,),
+    ).fetchone()
+    assert got["placement"] == want

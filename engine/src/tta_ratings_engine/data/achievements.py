@@ -197,7 +197,14 @@ def _pct(wins: int, games: int) -> float:
     return round(wins / max(1, games) * 100.0, 1)
 
 
+def _ordinal(n: int) -> str:
+    """Returns n as an English ordinal: 1st, 2nd, 3rd, 4th, 11th, 21st."""
+    end = "th" if 10 <= n % 100 <= 20 else {1: "st", 2: "nd", 3: "rd"}.get(n % 10, "th")
+    return f"{n}{end}"
+
+
 def _worlds_rows(official, dates):
+    """Returns the World Championship podium rows; a place is out of its final's field where a row gives one."""
     champions = {
         season: p["player_name"]
         for (series, season, _), placed in official.items()
@@ -237,13 +244,15 @@ def _worlds_rows(official, dates):
             else:
                 points = ""
                 medal = None
-                details = f"Through the Ages World Championship {year} 4th Place"
+                details = f"Through the Ages World Championship {year} {_ordinal(place)} Place"
             rec = {
                 "player_name": name,
                 "tournament": "World Championship",
                 "season": str(year),
                 "division": "Championship Final",
-                "placement": f"{place} / 4",
+                "placement": f"{place} / {p['field']}"
+                if p.get("field")
+                else str(place),
                 "points": points,
                 "medal": medal,
                 "details": details,

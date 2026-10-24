@@ -217,7 +217,7 @@ def records():
 
 def test_player_records_list_a_champions_seasons_as_upstream(records):
     assert records["ann"] == [
-        record(1, "World Championship", "2024", "Championship Final", "1 / 4", "Gold Medal & World Title", "gold",
+        record(1, "World Championship", "2024", "Championship Final", "1", "Gold Medal & World Title", "gold",
                "Through the Ages World Championship 2024 Winner & Reigning World Champion", "2024-12-15"),
         record(3, "International Championship", "Career (2 seasons)", "Grandmaster / Hall of Fame",
                "1x 1st, 1x 2nd, 0x 3rd", "45 pts", "gold", "Participated in 2 seasons, total score: 45 pts",
@@ -253,7 +253,7 @@ def test_player_records_break_a_season_tie_by_standings_place(records):
 def test_player_records_worlds_podium_silver_and_bronze(records):
     worlds_bob = [r for r in records["bob"] if r["tournament"] == "World Championship"]
     assert worlds_bob == [
-        record(2, "World Championship", "2025", "Championship Final", "2 / 4", "Silver Medal & Vice-Champion", "silver",
+        record(2, "World Championship", "2025", "Championship Final", "2", "Silver Medal & Vice-Champion", "silver",
                "Through the Ages World Championship 2025 Runner-up & Vice-Champion", ""),
     ]  # fmt: skip
 
@@ -546,3 +546,25 @@ def test_career_points_add_the_seasons_points_not_their_rounded_text():
 
     career = next(r for r in got if r["career"])
     assert career["points"] == f"{third + third:g} pts"
+
+
+def test_a_world_championship_row_gives_its_finals_field_when_known():
+    official = {
+        ("worlds", 2024, "Final"): [
+            {**placed("ann", 1), "field": 7},
+            {**placed("eve", 5), "field": 7},
+        ],
+        ("worlds", 2022, "Final"): [placed("bob", 1)],
+    }
+
+    got = player_records(rows=[], top_divisions=TOP, standings={}, official=official, boards={}, honours=[],
+                         dates={})  # fmt: skip
+
+    assert {r["player_name"]: r["placement"] for r in got} == {
+        "ann": "1 / 7",
+        "bob": "1",
+        "eve": "5 / 7",
+    }
+    assert next(r["details"] for r in got if r["player_name"] == "eve").endswith(
+        "2024 5th Place"
+    )

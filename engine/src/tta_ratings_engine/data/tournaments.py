@@ -567,15 +567,22 @@ def _worlds_podiums(conn, run_id, official, standing_rows, final, worlds):
     """Puts each World Championship season's podium into official, place by place: admin's, recorded, derived.
 
     worlds is the slug of the series holding the World Championship rules. A final is derived only when final's
-    podium source is the final stage; scored by final's rules, it adds its standings to standing_rows.
+    podium source is the final stage; scored by final's rules, it adds its standings to standing_rows. Each row
+    gives its final's field, the players in the final's games, where they are known.
     """
     recorded: dict[int, dict[int, list[dict]]] = defaultdict(lambda: defaultdict(list))
     for key in [k for k in official if k[0] == worlds]:
         for p in official.pop(key):
             recorded[key[1]][p["place"]].append(p)
     derived: dict[int, dict[int, list[dict]]] = defaultdict(lambda: defaultdict(list))
-    finals = worlds_finals(conn) if final.podium == "final_stage" else {}
-    for season, games in sorted(finals.items()):
+    finals = worlds_finals(conn)
+    fields = {
+        season: len({s.player for seats in games for s in seats})
+        for season, games in finals.items()
+    }
+    for season, games in sorted(
+        finals.items() if final.podium == "final_stage" else ()
+    ):
         standings = final_podium(games, final)
         if standings is None:
             continue
@@ -598,9 +605,12 @@ def _worlds_podiums(conn, run_id, official, standing_rows, final, worlds):
             {"series": worlds, "division": "Final", "points": None, **r}
         )
     for season in sorted(set(recorded) | set(derived) | set(admin)):
-        official[(worlds, season, "Final")] = worlds_podium(
+        podium = worlds_podium(
             admin.get(season, {}), recorded.get(season, {}), derived.get(season, {})
         )
+        official[(worlds, season, "Final")] = [
+            {**p, "field": fields.get(season)} for p in podium
+        ]
 
 
 def _board_rows(run_id, boards):
