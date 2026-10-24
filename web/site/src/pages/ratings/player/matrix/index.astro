@@ -3,6 +3,6 @@ import { PUBLIC_API_URL } from 'astro:env/client';
 import SiteLayout from '../../../../layouts/SiteLayout.astro';
 import MatrixPage from '../../../../components/MatrixPage';
 ---
-<SiteLayout title="Comparison Matrix | Through the Ages" description="A player's ratings across every model and season in Through the Ages.">
+<SiteLayout title="Career Years | Through the Ages" description="A player's career trajectory and peak seasons in Through the Ages.">
   <MatrixPage client:only="react" apiUrl={PUBLIC_API_URL} />
 </SiteLayout>

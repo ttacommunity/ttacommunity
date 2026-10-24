@@ -36,24 +36,26 @@ export default function ViewSelectors({
 }) {
   return (
     <div className="view-selectors">
-      <Segmented
-        label="Reset mode"
-        look="raised"
-        groupClass="view-bar"
-        prefix={<span className="view-bar-label">Reset Mode:</span>}
-        options={RESET_MODES.map((m) => ({ value: m.value, label: m.name, tooltip: m.desc }))}
-        value={reset}
-        link={linkReset}
-      />
-      <Segmented
-        label="Format"
-        look="raised"
-        groupClass="view-bar"
-        prefix={<span className="view-bar-label">Format:</span>}
-        options={FORMATS.map((f) => ({ value: f, label: show.formatName(f), tooltip: `View rating and history for ${show.formatName(f)}` }))}
-        value={format}
-        link={linkFormat}
-      />
+      <div className="view-bar view-bar-row">
+        <Segmented
+          label="Format"
+          look="raised"
+          groupClass="view-group view-group-format"
+          prefix={<span className="view-bar-label">Format:</span>}
+          options={FORMATS.map((f) => ({ value: f, label: show.formatName(f), tooltip: `View rating and history for ${show.formatName(f)}` }))}
+          value={format}
+          link={linkFormat}
+        />
+        <Segmented
+          label="Reset mode"
+          look="raised"
+          groupClass="view-group view-group-reset"
+          prefix={<span className="view-bar-label">Reset Mode:</span>}
+          options={RESET_MODES.map((m) => ({ value: m.value, label: m.name, tooltip: m.desc }))}
+          value={reset}
+          link={linkReset}
+        />
+      </div>
       {children}
     </div>
   );

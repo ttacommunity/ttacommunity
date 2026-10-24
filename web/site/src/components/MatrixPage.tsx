@@ -1,20 +1,17 @@
-/** A player's comparison matrix page, as upstream's: every engine and reset mode, and the year-by-year career. */
+/** A player's career years and historical performance page: every reset mode, and the year-by-year career. */
 import { useCallback, useEffect, useState, type MouseEvent, type ReactNode } from 'react';
 import {
   currentRun,
   player as fetchPlayer,
   playerCareer,
-  playerMatrix,
-  type MatrixCell,
   type Player,
   type PlayerCareer,
-  type PlayerMatrix,
   type TitleCode,
 } from '@ttac/shared/ratings';
 import BackLink from '@ttac/shared/BackLink';
 import { Flag } from './PlayerMarks';
 import * as show from '../lib/leaderboard-display';
-import { DEFAULT_VIEW, type Engine } from '../lib/leaderboard-view';
+import { DEFAULT_VIEW } from '../lib/leaderboard-view';
 import { careerPeakYear, scoreYears, wcLabel } from '../lib/career';
 import { matrixParams, pageModel, parseMatrixView, profileHref, type MatrixView } from '../lib/player-view';
 import { achievementsHref } from '../lib/achievements';
@@ -26,11 +23,6 @@ import ViewSelectors from './ViewSelectors';
 import Waiting from './Waiting';
 
 type Load<T> = { kind: 'loading' } | { kind: 'error'; message: string } | { kind: 'ready'; data: T };
-
-const ROWS: { engine: Engine; name: string; note: ReactNode; className: string }[] = [
-  { engine: 'glicko2_daneo', name: '👑 GlickoD', note: 'φ^(N-2) MP decomposition & 15-game re-calibration', className: 'row-daneo' },
-  { engine: 'glicko2_std', name: 'Glicko-2 Standard', note: 'Naive 1v1 pairwise baseline', className: '' },
-];
 
 function readView(): MatrixView {
   return parseMatrixView(new URLSearchParams(window.location.search), recall(window.localStorage));
@@ -64,7 +56,7 @@ function TitleBadge({ code, card }: { code: TitleCode; card?: boolean }) {
   return <span className={`badge badge-small badge-${code.toLowerCase()}`}>{show.titleName(code)}</span>;
 }
 
-/** Shows the player named in the address; model, reset mode, format and year are part of it, so a view can be shared. */
+/** Shows the player's career years and peak season evaluation. */
 export default function MatrixPage({ apiUrl }: { apiUrl: string }) {
   const [view, setView] = useState<MatrixView>(readView);
   const [run, setRun] = useState<Load<number>>({ kind: 'loading' });
@@ -93,20 +85,16 @@ export default function MatrixPage({ apiUrl }: { apiUrl: string }) {
   }, [apiUrl]);
 
   const runId = run.kind === 'ready' && view.name !== '' ? run.data : null;
-  const { name, format, year } = view;
+  const { name, format } = view;
   const model = pageModel(view.engine, view.reset);
   const profile = useLoad<Player>(`${runId}|${name}`, runId === null ? null : () => fetchPlayer(apiUrl, runId, name));
   const career = useLoad<PlayerCareer>(
     `${runId}|${name}|${format}|${model}`,
     runId === null ? null : () => playerCareer(apiUrl, runId, name, format, model),
   );
-  const matrix = useLoad<PlayerMatrix>(
-    `${runId}|${name}|${format}|${year}`,
-    runId === null ? null : () => playerMatrix(apiUrl, runId, name, format, year),
-  );
 
   useEffect(() => {
-    document.title = `${name || 'Player'} - Comparison Matrix | Through the Ages`;
+    document.title = `${name || 'Player'} - Career Years | Through the Ages`;
   }, [name]);
 
   if (name === '') return <Message>No player was named. Choose one from the leaderboard.</Message>;
@@ -127,19 +115,7 @@ export default function MatrixPage({ apiUrl }: { apiUrl: string }) {
         format={format}
         linkReset={(reset) => linkTo({ ...view, reset })}
         linkFormat={(f) => linkTo({ ...view, format: f })}
-      >
-        <nav className="view-bar" aria-label="Snapshot year">
-          <span className="view-bar-label">Snapshot Filter:</span>
-          <a {...linkTo({ ...view, year: null })} className={year === null ? 'year-pill active' : 'year-pill'}>
-            All-Time (Live)
-          </a>
-          {years.map((y) => (
-            <a key={y.year} {...linkTo({ ...view, year: y.year })} className={year === y.year ? 'year-pill active' : 'year-pill'}>
-              {y.year}
-            </a>
-          ))}
-        </nav>
-      </ViewSelectors>
+      />
 
       {best !== null && (
         <div className="peak-year-card">
@@ -172,48 +148,6 @@ export default function MatrixPage({ apiUrl }: { apiUrl: string }) {
           </div>
         </div>
       )}
-
-      <div className="rating-card matrix-card">
-        <div className="matrix-card-head">
-          <div>
-            <h2>📊 Rating Model × Reset Mode Comparison Matrix</h2>
-            <p>
-              Direct multi-paradigm rating cross-reference in <strong>{formatName}</strong>.
-            </p>
-          </div>
-          <span className="matrix-snapshot">{year !== null ? `Snapshot: End of Season ${year}` : 'Current Live Ratings'}</span>
-        </div>
-        <ScrollTable hint="full matrix data">
-          <table className="matrix-table">
-            <caption className="visually-hidden">
-              Ratings by engine and reset mode, {formatName}
-              {year !== null ? `, end of ${year}` : ''}
-            </caption>
-            <thead>
-              <tr>
-                <th className="matrix-engine-col">Rating Engine</th>
-                <th>Continuous (Career)</th>
-                <th>Season Reset</th>
-              </tr>
-            </thead>
-            <tbody>
-              {ROWS.map((row) => (
-                <tr key={row.engine} className={row.className || undefined}>
-                  <th scope="row">
-                    <div className="matrix-engine-name">{row.name}</div>
-                    <div className="matrix-engine-note">{row.note}</div>
-                  </th>
-                  {(['', '_softer'] as const).map((suffix) => (
-                    <td key={suffix}>
-                      <Cell cell={matrix.kind === 'ready' ? matrix.data.cells.find((c) => c.model === `${row.engine}${suffix}`) : undefined} />
-                    </td>
-                  ))}
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </ScrollTable>
-      </div>
 
       <div className="rating-card matrix-card">
         <div className="matrix-card-head">
@@ -329,7 +263,7 @@ function Header({ player, view }: { player: Player; view: MatrixView }) {
           )}
         </div>
         <div className="matrix-subtitle">
-          Cross-Mode Rating Matrix • Career Peak Year Evaluation • Format: <strong>{show.formatName(format)}</strong>
+          Career Peak Year Evaluation • Format: <strong>{show.formatName(format)}</strong>
         </div>
       </div>
       <div className="matrix-header-links">
@@ -337,23 +271,6 @@ function Header({ player, view }: { player: Player; view: MatrixView }) {
           🏆 Achievements »
         </a>
       </div>
-    </div>
-  );
-}
-
-function Cell({ cell }: { cell: MatrixCell | undefined }) {
-  if (cell === undefined) return <span className="matrix-unranked">Unranked</span>;
-  return (
-    <div className="matrix-cell-box">
-      <div className="matrix-val-primary">
-        {cell.rating.toFixed(1)} <span className="matrix-val-rd">±{cell.rd.toFixed(1)}</span>
-      </div>
-      <div className="matrix-val-c">C: {cell.c_rating.toFixed(1)}</div>
-      {cell.rank !== null && (
-        <div className="matrix-val-meta">
-          Rank: <strong>#{cell.rank}</strong>
-        </div>
-      )}
     </div>
   );
 }

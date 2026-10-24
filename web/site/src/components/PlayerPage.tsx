@@ -256,7 +256,7 @@ function Header({
           <span aria-hidden="true">🏆</span> Tournament Achievements »
         </a>
         <a href={matrixHref(player.name, view)} className="btn-tournament-achievements btn-matrix">
-          <span aria-hidden="true">📊</span> Comparison Matrix &amp; Career Years »
+          <span aria-hidden="true">📊</span> Career Years »
         </a>
       </div>
     </div>
