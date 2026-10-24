@@ -1,6 +1,7 @@
 /** Rating runs, for admins: start one, watch its progress, compare and publish it, and protect or delete old ones. */
 import { Fragment, useEffect, useState } from 'react';
 import { useDialog } from '@ttac/shared/Dialog';
+import { formatTime, viewerZone } from '@ttac/shared/time';
 import * as req from '../lib/admin-requests';
 import { adminRequest, type AdminRun, type RunChanges, type StartedRun } from '../lib/admin-api';
 import { loadFailure, outcomeOf, refusalOf, refused, shownAt, succeeded, type Outcome } from '../lib/outcome';
@@ -8,11 +9,11 @@ import Notice, { LoadNotice, NoticeRow } from './Notice';
 import { awaitStartedRun, canDelete, changesSummary, keepPolling, parseProgress, publishVerb, runGoing, runLabel, runSize, shownRuns } from '../lib/runs-view';
 
 const POLL_MS = 5000;
-const ZONE = Intl.DateTimeFormat().resolvedOptions().timeZone;
+const ZONE = viewerZone();
 const SHOWN = 8;
 
 function when(iso: string | undefined): string {
-  return iso === undefined ? '' : new Date(iso).toLocaleString(undefined, { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
+  return iso === undefined ? '' : formatTime(iso, ZONE);
 }
 
 function ProgressCell({ run }: { run: AdminRun }) {
