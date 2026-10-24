@@ -196,16 +196,88 @@ function matches(p: RankedRow, term: string): boolean {
   return p.name.toLowerCase().includes(t) || p.country?.toLowerCase() === t;
 }
 
+/** ParsedSearch separates positive matching terms from negative exclusion terms. */
+export interface ParsedSearch {
+  positive: string[];
+  negative: string[];
+}
+
+/** parseSearch parses a search string into positive and negative exclusion terms. */
+export function parseSearch(term: string): ParsedSearch {
+  if (term.trim() === '') return { positive: [], negative: [] };
+  const rawTerms = term.split(',').map((t) => t.trim()).filter((t) => t !== '');
+  const positive: string[] = [];
+  const negative: string[] = [];
+  for (const t of rawTerms) {
+    if (t.startsWith('-') || t.startsWith('!')) {
+      const stripped = t.slice(1).trim();
+      if (stripped !== '') negative.push(stripped);
+    } else {
+      positive.push(t);
+    }
+  }
+  return { positive, negative };
+}
+
+/** excludePlayer adds a negative exclusion term for playerName to term, deduplicating and removing positive match. */
+export function excludePlayer(term: string, playerName: string): string {
+  const target = playerName.trim();
+  if (!target) return term;
+  const { negative } = parseSearch(term);
+  if (negative.some((n) => n.toLowerCase() === target.toLowerCase())) {
+    return term;
+  }
+  const parts = term
+    .split(',')
+    .map((t) => t.trim())
+    .filter((t) => {
+      if (t === '') return false;
+      if (!t.startsWith('-') && !t.startsWith('!') && t.toLowerCase() === target.toLowerCase()) {
+        return false;
+      }
+      return true;
+    });
+  parts.push(`-${target}`);
+  return parts.join(', ');
+}
+
+/** includePlayer removes any negative exclusion for playerName from term. */
+export function includePlayer(term: string, playerName: string): string {
+  const target = playerName.trim().toLowerCase();
+  if (!target) return term;
+  const parts = term
+    .split(',')
+    .map((t) => t.trim())
+    .filter((t) => {
+      if (t === '') return false;
+      if (t.startsWith('-') || t.startsWith('!')) {
+        return t.slice(1).trim().toLowerCase() !== target;
+      }
+      return true;
+    });
+  return parts.join(', ');
+}
+
 /**
  * search applies upstream's search: a comma list shows its players; one term jumps to an exact name or a single
- * match, keeping the whole table; otherwise only the matches show, with their ranks.
+ * match, keeping the whole table; otherwise only the matches show, with their ranks. Negative terms (- or !)
+ * exclude players matching that term.
  */
 export function search(pool: RankedRow[], term: string): { rows: RankedRow[]; jumpTo: string | null } {
   if (term === '') return { rows: pool, jumpTo: null };
-  if (term.includes(',')) {
-    const terms = term.split(',').map((t) => t.trim()).filter((t) => t !== '');
-    return { rows: pool.filter((p) => terms.some((t) => matches(p, t))), jumpTo: null };
+  const { positive, negative } = parseSearch(term);
+  const notExcluded = (p: RankedRow) => !negative.some((neg) => matches(p, neg));
+
+  if (term.includes(',') || negative.length > 0) {
+    if (positive.length === 0) {
+      return { rows: pool.filter(notExcluded), jumpTo: null };
+    }
+    return {
+      rows: pool.filter((p) => positive.some((t) => matches(p, t)) && notExcluded(p)),
+      jumpTo: null,
+    };
   }
+
   const found = pool.filter((p) => matches(p, term));
   const exact = found.find((p) => p.name.toLowerCase() === term.toLowerCase());
   if (exact || found.length === 1) return { rows: pool, jumpTo: (exact ?? found[0]).name };
@@ -315,7 +387,8 @@ export function hasFilters(view: View): boolean {
 
 /** suggest returns up to 12 players for the last term typed: exact, then prefix, then substring matches. */
 export function suggest<T extends { name: string }>(rows: readonly T[], input: string): T[] {
-  const q = (input.split(',').pop() ?? '').trim().toLowerCase();
+  let q = (input.split(',').pop() ?? '').trim().toLowerCase();
+  if (q.startsWith('-') || q.startsWith('!')) q = q.slice(1).trim();
   if (q.length < 2) return [];
   const group = (name: string) => (name.toLowerCase() === q ? 0 : name.toLowerCase().startsWith(q) ? 1 : 2);
   return rows

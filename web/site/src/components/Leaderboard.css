@@ -406,6 +406,148 @@
   color: var(--loss);
 }
 
+.filter-pill.filter-pill-excluded {
+  background: rgba(220, 53, 69, 0.1);
+  border-color: rgba(220, 53, 69, 0.35);
+  color: #ff9999;
+}
+
+.filter-pill.filter-pill-excluded a {
+  color: #ffb3b3;
+}
+
+.filter-pill.filter-pill-excluded a:hover {
+  color: var(--text-bright);
+}
+
+.search-matches-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.65rem;
+  padding: 0.4rem 0.6rem;
+  background: rgba(0, 0, 0, 0.2);
+  border: 1px solid var(--border-subtle);
+  border-radius: 4px;
+  font-size: 0.8rem;
+}
+
+.search-matches-label {
+  color: var(--text-muted);
+  font-family: var(--font-heading);
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+}
+
+.search-matches-chips {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.search-match-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.15rem 0.45rem;
+  background: var(--gold-wash-faint);
+  border: 1px solid var(--gold-wash-strong);
+  border-radius: 3px;
+  color: var(--text-bright);
+  font-size: 0.75rem;
+}
+
+.search-match-chip .chip-dismiss-btn,
+.search-match-chip .chip-restore-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 14px;
+  height: 14px;
+  padding: 0;
+  background: transparent;
+  border: none;
+  border-radius: 50%;
+  color: var(--text-muted);
+  font-size: 0.75rem;
+  font-weight: 700;
+  line-height: 1;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.search-match-chip .chip-dismiss-btn:hover {
+  background: rgba(220, 53, 69, 0.25);
+  color: #ff6b6b;
+}
+
+.search-match-chip.chip-excluded {
+  background: rgba(220, 53, 69, 0.08);
+  border-color: rgba(220, 53, 69, 0.3);
+  color: var(--text-muted);
+  text-decoration: line-through;
+}
+
+.search-match-chip.chip-excluded .chip-restore-btn {
+  color: var(--accent-gold);
+  text-decoration: none;
+}
+
+.search-match-chip.chip-excluded .chip-restore-btn:hover {
+  background: var(--gold-wash);
+  color: var(--text-bright);
+}
+
+.player-row-content {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.4rem;
+}
+
+.player-name-wrapper {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.btn-exclude-row {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  padding: 0;
+  margin-left: auto;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 3px;
+  color: var(--text-muted);
+  font-size: 0.65rem;
+  cursor: pointer;
+  opacity: 0.35;
+  transition: all 0.15s ease;
+}
+
+tr:hover .btn-exclude-row,
+.btn-exclude-row:focus-visible {
+  opacity: 1;
+  border-color: rgba(220, 53, 69, 0.3);
+  background: rgba(220, 53, 69, 0.1);
+  color: #ff8585;
+}
+
+.btn-exclude-row:hover {
+  opacity: 1;
+  background: rgba(220, 53, 69, 0.3);
+  border-color: rgba(220, 53, 69, 0.6);
+  color: #fff;
+}
+
 /* Sortable headers are links, as upstream's. */
 .leaderboard-table thead th a {
   display: inline-flex;

@@ -65,7 +65,8 @@ export default function SearchBox({
   const [open, setOpen] = useState(false);
   const [active, setActive] = useState(-1);
   const listId = useId();
-  const query = (text.split(',').pop() ?? '').trim();
+  const rawQuery = (text.split(',').pop() ?? '').trim();
+  const highlightQuery = rawQuery.startsWith('-') || rawQuery.startsWith('!') ? rawQuery.slice(1).trim() : rawQuery;
   const found = open ? suggest(players, text) : [];
 
   useEffect(() => setText(value), [value]);
@@ -83,7 +84,10 @@ export default function SearchBox({
       return;
     }
     const parts = text.split(',');
-    parts[parts.length - 1] = parts.length > 1 ? ` ${name}` : name;
+    const last = parts[parts.length - 1].trim();
+    const prefix = last.startsWith('-') ? '-' : last.startsWith('!') ? '!' : '';
+    const item = `${prefix}${name}`;
+    parts[parts.length - 1] = parts.length > 1 ? ` ${item}` : item;
     const term = parts.join(',').trim();
     setText(term);
     setOpen(false);
@@ -161,7 +165,7 @@ export default function SearchBox({
               <span className="search-suggestion-left">
                 {flagEmoji(p.country) && <span className="flag-icon">{flagEmoji(p.country)}</span>}
                 <span className="search-suggestion-name">
-                  <Highlighted name={p.name} query={query} />
+                  <Highlighted name={p.name} query={highlightQuery} />
                 </span>
               </span>
               {p.title && <span className={`badge badge-${p.title.code.toLowerCase()}`}>{p.title.code}</span>}

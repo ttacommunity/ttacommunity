@@ -24,6 +24,9 @@ import {
   viewParams,
   yearDeltas,
   yearRows,
+  parseSearch,
+  excludePlayer,
+  includePlayer,
   type View, rankChange } from './leaderboard-view';
 
 function row(name: string, c_rating: number, opponents = 40, last_played: string | null = '2026-01-01', extra: Partial<LeaderboardRow> = {}): LeaderboardRow {
@@ -169,8 +172,48 @@ describe('search', () => {
     expect(names(search(pool, 'bob, hann ,'))).toEqual(['Bob', 'Hannah']);
   });
 
+  it('excludes unintended matches when negative terms are present in comma-separated list', () => {
+    // "ann" matches "Annika", "ann", and "Hannah". With -Hannah, Hannah is excluded.
+    expect(names(search(pool, 'ann, -Hannah'))).toEqual(['Annika', 'ann']);
+    // With exclamation prefix !Hannah
+    expect(names(search(pool, 'ann, !Hannah'))).toEqual(['Annika', 'ann']);
+  });
+
+  it('filters by negative terms alone', () => {
+    expect(names(search(pool, '-Bob'))).toEqual(['Annika', 'ann', 'Hannah']);
+  });
+
   it('shows nobody when nothing matches', () => {
     expect(search(pool, 'zzz').rows).toEqual([]);
+  });
+});
+
+describe('parseSearch', () => {
+  it('splits positive and negative terms', () => {
+    expect(parseSearch('')).toEqual({ positive: [], negative: [] });
+    expect(parseSearch('weidenbaum, yaop, Arne, -barnes, !other')).toEqual({
+      positive: ['weidenbaum', 'yaop', 'Arne'],
+      negative: ['barnes', 'other'],
+    });
+  });
+});
+
+describe('excludePlayer and includePlayer', () => {
+  it('appends negative exclusion if not already present', () => {
+    expect(excludePlayer('Arne', 'barnes')).toBe('Arne, -barnes');
+    expect(excludePlayer('Arne, -barnes', 'barnes')).toBe('Arne, -barnes');
+    expect(excludePlayer('weidenbaum, Arne', 'barnes')).toBe('weidenbaum, Arne, -barnes');
+  });
+
+  it('removes matching positive term and adds exclusion when unselecting an explicit positive term', () => {
+    expect(excludePlayer('Arne, barnes', 'barnes')).toBe('Arne, -barnes');
+  });
+
+  it('removes negative exclusion when re-including a player', () => {
+    expect(includePlayer('Arne, -barnes', 'barnes')).toBe('Arne');
+    expect(includePlayer('Arne, !barnes', 'barnes')).toBe('Arne');
+    expect(includePlayer('-barnes', 'barnes')).toBe('');
+    expect(includePlayer('Arne, -barnes, -wolvs', 'barnes')).toBe('Arne, -wolvs');
   });
 });
 
@@ -257,6 +300,7 @@ describe('suggest', () => {
 
   it('suggests for the last name of a comma-separated list, at most 12', () => {
     expect(suggest(rows, 'bob, jo').map((p) => p.name)).toEqual(['Joanna']);
+    expect(suggest(rows, 'bob, -jo').map((p) => p.name)).toEqual(['Joanna']);
     expect(suggest(Array.from({ length: 20 }, (_, i) => row(`xx${i}`, 1)), 'xx')).toHaveLength(12);
   });
 });

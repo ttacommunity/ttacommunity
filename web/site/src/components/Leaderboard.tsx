@@ -30,6 +30,9 @@ import {
   modelOf,
   nextSort,
   page,
+  parseSearch,
+  excludePlayer,
+  includePlayer,
   parseView,
   rankPool,
   search,
@@ -166,6 +169,19 @@ export default function Leaderboard({ apiUrl }: { apiUrl: string }) {
     () => page(sortRows(found.rows, view.sort, view.order), view.page, found.jumpTo),
     [found, view.sort, view.order, view.page],
   );
+  const parsedSearch = useMemo(() => parseSearch(view.search), [view.search]);
+  const onExclude = useCallback(
+    (name: string) => go({ ...view, search: excludePlayer(view.search, name), page: 1 }),
+    [go, view],
+  );
+  const onInclude = useCallback(
+    (name: string) => go({ ...view, search: includePlayer(view.search, name), page: 1 }),
+    [go, view],
+  );
+  const showMatchesBar =
+    (found.rows.length > 0 || parsedSearch.negative.length > 0) &&
+    (view.search.includes(',') || parsedSearch.positive.length > 1 || parsedSearch.negative.length > 0) &&
+    found.rows.length <= 40;
 
   return (
     <div className={optionsOpen ? 'leaderboard-layout options-open' : 'leaderboard-layout'}>
@@ -220,14 +236,32 @@ export default function Leaderboard({ apiUrl }: { apiUrl: string }) {
 
         <div className="leaderboard-filters">
           <div className="leaderboard-pills">
-            {view.search !== '' && (
+            {parsedSearch.positive.length > 0 && (
               <span className="filter-pill">
-                Search: &quot;{view.search}&quot;{' '}
-                <a {...linkTo({ ...view, search: '', page: 1 })} aria-label="Clear search">
+                Search: &quot;{parsedSearch.positive.join(', ')}&quot;{' '}
+                <a
+                  {...linkTo({
+                    ...view,
+                    search: parsedSearch.negative.length > 0 ? parsedSearch.negative.map((n) => `-${n}`).join(', ') : '',
+                    page: 1,
+                  })}
+                  aria-label="Clear search terms"
+                >
                   ✕
                 </a>
               </span>
             )}
+            {parsedSearch.negative.map((neg) => (
+              <span key={neg} className="filter-pill filter-pill-excluded">
+                Excluded: &quot;{neg}&quot;{' '}
+                <a
+                  {...linkTo({ ...view, search: includePlayer(view.search, neg), page: 1 })}
+                  aria-label={`Remove exclusion for ${neg}`}
+                >
+                  ✕
+                </a>
+              </span>
+            ))}
             {view.title !== null && (
               <span className="filter-pill">
                 Title: {view.title}{' '}
@@ -282,6 +316,42 @@ export default function Leaderboard({ apiUrl }: { apiUrl: string }) {
           </div>
         </div>
 
+        {showMatchesBar && (
+          <div className="search-matches-bar" aria-label="Search matches filter">
+            <span className="search-matches-label">Matches ({found.rows.length}):</span>
+            <div className="search-matches-chips">
+              {found.rows.map((p) => (
+                <span key={p.name} className="search-match-chip">
+                  <span className="chip-name">{p.name}</span>
+                  <button
+                    type="button"
+                    className="chip-dismiss-btn"
+                    title={`Exclude ${p.name}`}
+                    aria-label={`Exclude ${p.name} from search`}
+                    onClick={() => onExclude(p.name)}
+                  >
+                    ✕
+                  </button>
+                </span>
+              ))}
+              {parsedSearch.negative.map((neg) => (
+                <span key={neg} className="search-match-chip chip-excluded">
+                  <span className="chip-name">{neg}</span>
+                  <button
+                    type="button"
+                    className="chip-restore-btn"
+                    title={`Restore ${neg}`}
+                    aria-label={`Restore ${neg} to search`}
+                    onClick={() => onInclude(neg)}
+                  >
+                    +
+                  </button>
+                </span>
+              ))}
+            </div>
+          </div>
+        )}
+
         <Waiting load={state} what="the leaderboard" form="inline" />
         {state.kind === 'ready' && (
           <>
@@ -293,6 +363,7 @@ export default function Leaderboard({ apiUrl }: { apiUrl: string }) {
               linkTo={linkTo}
               caption={`${show.modelLabel(model)}, ${show.formatName(view.format)}, run ${state.board.run_id}`}
               hidden={hidden === null ? null : { note: hiddenNote(hidden, view, view.search), show: hidden.show }}
+              onExclude={onExclude}
             />
             <Pager
               page={shown.page}
@@ -437,6 +508,7 @@ interface TableProps {
   caption: string;
   /** Who the search found behind the filters, and the view that shows them; null when nobody is hidden. */
   hidden: { note: string; show: View } | null;
+  onExclude?: (name: string) => void;
 }
 
 /** Change shows one rating change beside its value, as upstream's delta badge. */
@@ -462,7 +534,7 @@ function RankChange({ delta, rank }: { delta: Delta | undefined; rank: number | 
 }
 
 /** The table of one page of players, with sortable headers and the searched player highlighted. */
-function Table({ view, rows, jumpTo, changes, linkTo, caption, hidden }: TableProps) {
+function Table({ view, rows, jumpTo, changes, linkTo, caption, hidden, onExclude }: TableProps) {
   const jumped = useRef<HTMLTableRowElement>(null);
   useEffect(() => {
     const t = setTimeout(() => jumped.current?.scrollIntoView({ behavior: 'smooth', block: 'center' }), 150);
@@ -499,17 +571,32 @@ function Table({ view, rows, jumpTo, changes, linkTo, caption, hidden }: TablePr
                 <Flag country={p.country} />
               </td>
               <th scope="row">
-                <PlayerLink name={p.name} className="player-link" />
-                {p.provisional && (
-                  <span className="calibrating-badge" data-tooltip={`Provisional / Prior Calibration (${p.opponents}/15 opponents faced)`}>
-                    ⏳
+                <div className="player-row-content">
+                  <span className="player-name-wrapper">
+                    <PlayerLink name={p.name} className="player-link" />
+                    {p.provisional && (
+                      <span className="calibrating-badge" data-tooltip={`Provisional / Prior Calibration (${p.opponents}/15 opponents faced)`}>
+                        ⏳
+                      </span>
+                    )}
+                    {!p.active && view.status === 'all' && (
+                      <span className="retired-badge" data-tooltip="Inactive / Retired (no competitive match in > 12 months)">
+                        Retired
+                      </span>
+                    )}
                   </span>
-                )}
-                {!p.active && view.status === 'all' && (
-                  <span className="retired-badge" data-tooltip="Inactive / Retired (no competitive match in > 12 months)">
-                    Retired
-                  </span>
-                )}
+                  {view.search !== '' && onExclude && (
+                    <button
+                      type="button"
+                      className="btn-exclude-row"
+                      title={`Exclude "${p.name}" from search`}
+                      aria-label={`Exclude "${p.name}" from search`}
+                      onClick={() => onExclude(p.name)}
+                    >
+                      ✕
+                    </button>
+                  )}
+                </div>
               </th>
               <td>
                 <TitleBadge title={p.title} />
