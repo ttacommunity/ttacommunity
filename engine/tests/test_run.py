@@ -2,6 +2,7 @@ import hashlib
 import json
 import multiprocessing
 import os
+import random
 import signal
 import sys
 from datetime import UTC, date, datetime, timedelta
@@ -167,15 +168,12 @@ def test_a_run_writes_tournament_results(conn, add_match):
 )
 def test_a_recorded_fact_changes_the_input_fingerprint(conn, add_match, fact):
     season(add_match)
-    first = run(conn, "v1", formats=[2], log=lambda _: None)
+    ranking = conn.execute("SELECT community_ranking() AS id").fetchone()["id"]
+    first = runner.input_fingerprint(conn, ranking)
     conn.execute(fact)
     conn.commit()
-    second = run(conn, "v1", formats=[2], log=lambda _: None)
 
-    assert (
-        the_run(conn, second)["input_fingerprint"]
-        != the_run(conn, first)["input_fingerprint"]
-    )
+    assert runner.input_fingerprint(conn, ranking) != first
 
 
 def test_a_run_is_not_published_unless_asked(conn, add_match):
@@ -902,4 +900,72 @@ def test_the_results_match_the_engine_versions_golden_hash(conn, add_match):
         f"engine {version}'s results hash to {got}, not {want}. If this change is meant to move ratings, "
         f'bump the version in engine/pyproject.toml and add "<new version>": "{got}" to tests/golden.json. '
         "A version's hash never changes."
+    )
+
+
+def league(add_match, seed, players, months, games):
+    """Loads a synthetic two-player league and returns each player's true strength.
+
+    Strengths are spread evenly from 1200 to 1900; each month every player plays `games` games
+    against random opponents, won with the Elo probability of the strength gap.
+    """
+    rng = random.Random(seed)
+    names = [f"Sweep{i:02d}" for i in range(players)]
+    strength = {n: 1200 + 700 * i / (players - 1) for i, n in enumerate(names)}
+    for month in range(months):
+        day = date(2022 + month // 12, month % 12 + 1, 10)
+        for _ in range(players * games // 2):
+            a, b = rng.sample(names, 2)
+            a_wins = rng.random() < 1 / (1 + 10 ** ((strength[b] - strength[a]) / 400))
+            winner, loser = (a, b) if a_wins else (b, a)
+            add_match((winner, 10), (loser, 5), day=day)
+    return strength
+
+
+def rank_correlation(xs, ys):
+    """Returns Spearman's rank correlation of two equal-length lists without ties."""
+    rx = {v: r for r, v in enumerate(sorted(xs))}
+    ry = {v: r for r, v in enumerate(sorted(ys))}
+    a = [rx[x] for x in xs]
+    b = [ry[y] for y in ys]
+    n = len(a)
+    return 1 - 6 * sum((p - q) ** 2 for p, q in zip(a, b, strict=True)) / (
+        n * (n * n - 1)
+    )
+
+
+@pytest.mark.slow
+@pytest.mark.parametrize("seed", [1, 2, 3])
+@pytest.mark.parametrize(
+    ("months", "games", "min_correlation", "max_rd"),
+    [
+        pytest.param(6, 4, 0.8, 160, id="6-months-4-games"),
+        pytest.param(18, 8, 0.95, 80, id="18-months-8-games"),
+    ],
+)
+def test_ratings_converge_on_true_strength(
+    conn, add_match, seed, months, games, min_correlation, max_rd
+):
+    strength = league(add_match, seed, players=24, months=months, games=games)
+
+    run_id = run(conn, "v-sweep", formats=[2], log=lambda _: None)
+
+    wrong = []
+    for model in sorted(KEPT):
+        rows = conn.execute(
+            "SELECT player_name, rating, rd FROM player_ratings "
+            "WHERE run_id = %s AND model_type = %s AND player_count = 2",
+            (run_id, model),
+        ).fetchall()
+        got = rank_correlation(
+            [strength[r["player_name"]] for r in rows], [r["rating"] for r in rows]
+        )
+        widest = max(r["rd"] for r in rows)
+        if len(rows) != len(strength) or got < min_correlation or widest > max_rd:
+            wrong.append(
+                f"{model}: {len(rows)} players, rank correlation {got:.3f}, widest RD {widest:.0f}"
+            )
+    assert not wrong, (
+        f"seed {seed}, {months} months of {games} games: want correlation >= {min_correlation} "
+        f"and RD <= {max_rd} for all {len(strength)} players; got " + "; ".join(wrong)
     )

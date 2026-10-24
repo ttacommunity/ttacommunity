@@ -51,6 +51,11 @@ func migrateTemplate() (string, error) {
 		return "", fmt.Errorf("connecting to the test server: %w", err)
 	}
 	defer admin.Close(ctx)
+	if os.Getenv("TEST_DATABASE_THROWAWAY") == "1" {
+		if err := skipFlushes(ctx, admin); err != nil {
+			return "", err
+		}
+	}
 	name := "ratings_template_" + rand.Text()[:12]
 	if _, err := admin.Exec(ctx, "CREATE DATABASE "+pgx.Identifier{name}.Sanitize()); err != nil {
 		return "", fmt.Errorf("creating %s: %w", name, err)
@@ -65,6 +70,18 @@ func migrateTemplate() (string, error) {
 		return name, fmt.Errorf("MigrateRatings: %w", err)
 	}
 	return name, nil
+}
+
+// skipFlushes turns off the server's flushes to disk, which make each test's CREATE and DROP DATABASE slow.
+// Only for a server thrown away after the run, as CI's is: a crash can corrupt it
+// (https://www.postgresql.org/docs/current/non-durability.html).
+func skipFlushes(ctx context.Context, admin *pgx.Conn) error {
+	for _, stmt := range []string{"ALTER SYSTEM SET fsync = off", "ALTER SYSTEM SET full_page_writes = off", "SELECT pg_reload_conf()"} {
+		if _, err := admin.Exec(ctx, stmt); err != nil {
+			return fmt.Errorf("%s: %w", stmt, err)
+		}
+	}
+	return nil
 }
 
 // TestMain drops the template database once every test has run.

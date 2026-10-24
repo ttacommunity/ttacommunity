@@ -2,6 +2,8 @@
 
 import os
 import secrets
+from collections import deque
+from concurrent.futures import ThreadPoolExecutor
 from datetime import date
 from pathlib import Path
 
@@ -46,8 +48,22 @@ def drop_database(name):
         )
 
 
+def skip_flushes():
+    """Turns off the server's flushes to disk, which make each test's CREATE and DROP DATABASE slow.
+
+    Only for a server thrown away after the run, as CI's is: a crash can corrupt it
+    (https://www.postgresql.org/docs/current/non-durability.html).
+    """
+    with psycopg.connect(server_url(), autocommit=True) as admin:
+        admin.execute("ALTER SYSTEM SET fsync = off")
+        admin.execute("ALTER SYSTEM SET full_page_writes = off")
+        admin.execute("SELECT pg_reload_conf()")
+
+
 @pytest.fixture(scope="session")
 def template_db():
+    if os.environ.get("TEST_DATABASE_THROWAWAY") == "1":
+        skip_flushes()
     name = "engine_template_" + secrets.token_hex(6)
     create_database(name)
     try:
@@ -77,12 +93,53 @@ def template_db():
         drop_database(name)
 
 
+class Copies:
+    """Fresh copies of the template, made two ahead and dropped after use by two background threads.
+
+    Tests run one at a time, so the copies a test needs are made while the tests before it run.
+    """
+
+    def __init__(self, template):
+        self.template = template
+        self.worker = ThreadPoolExecutor(max_workers=2)
+        self.drops = []
+        self.ready = deque(self.worker.submit(self.copy) for _ in range(2))
+
+    def copy(self):
+        name = "engine_test_" + secrets.token_hex(6)
+        create_database(name, template=self.template)
+        return name
+
+    def take(self):
+        """Returns a fresh copy's name, and starts making the next."""
+        name = self.ready.popleft().result()
+        self.ready.append(self.worker.submit(self.copy))
+        return name
+
+    def drop_later(self, name):
+        self.drops.append(self.worker.submit(drop_database, name))
+
+    def close(self):
+        """Drops the spare copy and waits for every drop, raising the first that failed."""
+        for spare in self.ready:
+            self.drop_later(spare.result())
+        self.worker.shutdown(wait=True)
+        for done in self.drops:
+            done.result()
+
+
+@pytest.fixture(scope="session")
+def copies(template_db):
+    c = Copies(template_db)
+    yield c
+    c.close()
+
+
 @pytest.fixture
-def db_url(template_db):
-    name = "engine_test_" + secrets.token_hex(6)
-    create_database(name, template=template_db)
+def db_url(copies):
+    name = copies.take()
     yield url_for(name)
-    drop_database(name)
+    copies.drop_later(name)
 
 
 @pytest.fixture
