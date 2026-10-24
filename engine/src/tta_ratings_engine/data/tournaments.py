@@ -426,6 +426,21 @@ def classify(rows, recorded, corrections, series_rules):
     return out
 
 
+def seasons_in_progress(unplayed, series_rules, dates) -> set[tuple[str, int]]:
+    """Returns the (series, season)s whose top division still has a game to play and that have no finish date.
+
+    unplayed are the classified games CGE has prepared or is running; dates map (series, season) to a recorded
+    finish date. A game never played is not waited for.
+    """
+    return {
+        (g["series"], g["season"])
+        for g in unplayed
+        if g["season"] is not None
+        and g["division"] in series_rules[g["series"]].top_divisions
+        and (g["series"], g["season"]) not in dates
+    }
+
+
 def season_records(rows, rules: Series):
     """Returns the premier seasonal records: one per player and season.
 
@@ -592,12 +607,28 @@ def derive_tournaments(*, conn: DictConnection, run_id: int) -> None:
                 "SELECT series, season, finish_date FROM tournament_finish_dates"
             ).fetchall()
         }
+        recorded_dates = set(dates)
         honours = conn.execute(
             "SELECT series, player_name, gold, silver, bronze, points "
             "FROM tournament_career_honours ORDER BY series, player_name"
         ).fetchall()
         classified = classify(rows, recorded, corrections, rules)
         by_id = {r["match_id"]: r for r in rows}
+        unplayed = conn.execute(
+            "SELECT m.game_id AS match_id, m.name AS tournament, m.group_name AS group_label, "
+            "coalesce(m.players, '{}') AS players FROM game_lines m "
+            "WHERE m.state IN ('prepared', 'running') ORDER BY m.game_id"
+        ).fetchall()
+        in_progress = seasons_in_progress(
+            classify(unplayed, recorded, corrections, rules), rules, dates
+        )
+        # A finished season with no recorded date ends on its last game.
+        for g in classified:
+            of = (g["series"], g["season"])
+            if g["season"] is not None and of not in in_progress:
+                day = by_id[g["match_id"]]["date"].isoformat()
+                if of not in recorded_dates and day > dates.get(of, ""):
+                    dates[of] = day
 
         groups = defaultdict(list)
         records = defaultdict(list)
@@ -608,6 +639,7 @@ def derive_tournaments(*, conn: DictConnection, run_id: int) -> None:
                 and g["season"] is not None
                 and not g["tiebreak"]
                 and rules[g["series"]].season_records
+                and (g["series"], g["season"]) not in in_progress
             ):
                 records[g["series"]].append({**r, **g})
             if g["division"] is not None and not g["tiebreak"]:
@@ -623,9 +655,11 @@ def derive_tournaments(*, conn: DictConnection, run_id: int) -> None:
                      s["place"], s["points"], s["games"], s["placings"])
                 )  # fmt: skip
                 derived[(series, season, division)].append(s)
+        # A season still being played shows its standings, but no podium yet.
+        finished = {k: v for k, v in derived.items() if k[:2] not in in_progress}
         worlds = holder(conn, "worlds")
         _worlds_podiums(conn, run_id, official, standing_rows, final, worlds)
-        boards = _league_boards(derived, official, rules)
+        boards = _league_boards(finished, official, rules)
         boards["worlds"] = worlds_board(
             [{**p, "season": season} for (series, season, _), placed in official.items()
              if series == worlds for p in placed]
@@ -668,7 +702,7 @@ def derive_tournaments(*, conn: DictConnection, run_id: int) -> None:
             top_divisions={
                 s: r.top_divisions for s, r in rules.items() if r.top_divisions
             },
-            standings=derived,
+            standings=finished,
             official=official,
             boards=boards,
             honours=honours,

@@ -1076,3 +1076,94 @@ def test_a_players_records_are_stored_together(conn, add_match, run_id):
     ]
     assert len(stored) > 3
     assert stored == sorted(stored)
+
+
+def medals_and_records(conn, run_id):
+    """The run's international board medals and its top-division season records, by player."""
+    board_medals = {
+        r["player_name"]: (r["gold"], r["silver"], r["bronze"])
+        for r in conn.execute(
+            "SELECT player_name, gold, silver, bronze FROM tournament_boards WHERE run_id = %s AND series = 'international'",
+            (run_id,),
+        ).fetchall()
+    }
+    record_medals = {
+        r["player_name"]: r["medal"]
+        for r in conn.execute(
+            "SELECT player_name, medal FROM tournament_records WHERE run_id = %s AND NOT career "
+            "AND tournament = 'International Championship' AND medal IS NOT NULL",
+            (run_id,),
+        ).fetchall()
+    }
+    seasons = conn.execute(
+        "SELECT count(*) AS n FROM tournament_season_records WHERE run_id = %s",
+        (run_id,),
+    ).fetchone()["n"]
+    return board_medals, record_medals, seasons
+
+
+@pytest.mark.parametrize(
+    ("state", "dated", "finished"),
+    [
+        ("running", False, False),
+        ("prepared", False, False),
+        ("never_played", False, True),
+        ("running", True, True),
+    ],
+)
+def test_a_seasons_results_wait_for_its_top_division_to_finish(
+    conn, add_match, run_id, state, dated, finished
+):
+    for n in range(1, 7):
+        add_match(("ann", 90), ("bob", 80), ("cat", 70), ("dan", 60), tournament=gm(n))
+    add_match(
+        ("ann", 0), ("bob", 0), ("cat", 0), ("dan", 0), tournament=gm(7), state=state
+    )
+    if dated:
+        conn.execute(
+            "INSERT INTO tournament_finish_dates VALUES ('international', 30, '2024-02-01', 'test')"
+        )
+        conn.commit()
+
+    derive_tournaments(conn=conn, run_id=run_id)
+
+    got = medals_and_records(conn, run_id)
+    if finished:
+        assert got == (
+            {"ann": (1, 0, 0), "bob": (0, 1, 0), "cat": (0, 0, 1)},
+            {"ann": "gold", "bob": "silver", "cat": "bronze"},
+            4,
+        )
+    else:
+        assert got == ({}, {}, 0)
+    assert len(standings(conn, run_id, 30)) == 4
+
+
+def test_a_finished_season_without_a_date_is_dated_by_its_last_game(
+    conn, add_match, run_id
+):
+    for n in range(1, 7):
+        add_match(
+            ("ann", 90),
+            ("bob", 80),
+            ("cat", 70),
+            ("dan", 60),
+            tournament=gm(n),
+            day=date(2024, 1, n),
+        )
+    add_match(
+        ("eve", 90),
+        ("fay", 80),
+        ("gil", 70),
+        tournament="International S30 - Gold game 1",
+        day=date(2024, 2, 9),
+    )
+
+    derive_tournaments(conn=conn, run_id=run_id)
+
+    got = conn.execute(
+        "SELECT DISTINCT finish_date FROM tournament_records WHERE run_id = %s AND NOT career "
+        "AND tournament = 'International Championship' AND division = 'Grandmaster'",
+        (run_id,),
+    ).fetchall()
+    assert [r["finish_date"] for r in got] == ["2024-02-09"]
