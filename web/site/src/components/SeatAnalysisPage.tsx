@@ -143,7 +143,7 @@ export default function SeatAnalysisPage({ apiUrl }: { apiUrl: string }) {
               </div>
               <ScrollTable hint="Scroll horizontally for all placement columns">
                 <table className="site-table">
-                  <caption className="sr-only">
+                  <caption className="visually-hidden">
                     {pc}-Player Turn Order Win Rates and Placement Distribution
                   </caption>
                   <thead>
