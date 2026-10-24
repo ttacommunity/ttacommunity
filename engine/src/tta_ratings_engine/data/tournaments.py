@@ -496,6 +496,20 @@ def season_records(rows, rules: Series):
     return {k: v for k, v in got.items() if v["games"] >= rules.record_min_games}
 
 
+def top_division_seasons(standings, official, series_rules):
+    """Returns each league season's top-division rows: its official placements where it has any, else its standings.
+
+    standings and official map (series, season, division) to rows; so does the result, one podium per season.
+    """
+    top = {
+        k: rows
+        for k, rows in {**standings, **official}.items()
+        if series_rules[k[0]].points and k[2] in series_rules[k[0]].top_divisions
+    }
+    ruled = {k[:2] for k in official if k in top}
+    return {k: rows for k, rows in top.items() if k in official or k[:2] not in ruled}
+
+
 def _league_boards(standings, official, series_rules):
     """Returns each league's trophyboard in upstream's order: medals in the top
     division, official placements over derived ones.
@@ -509,7 +523,7 @@ def _league_boards(standings, official, series_rules):
     medals = defaultdict(
         lambda: {"gold": 0, "silver": 0, "bronze": 0, "points": 0.0, "first": None}
     )
-    seasons = {**standings, **official}
+    seasons = top_division_seasons(standings, official, series_rules)
     for (series, season, division), rows in sorted(seasons.items()):
         rules = series_rules[series]
         if not rules.points or division not in rules.top_divisions:
@@ -745,7 +759,7 @@ def derive_tournaments(*, conn: DictConnection, run_id: int) -> None:
             top_divisions={
                 s: r.top_divisions for s, r in rules.items() if r.top_divisions
             },
-            standings=finished,
+            standings=top_division_seasons(finished, official, rules),
             official=official,
             boards=boards,
             honours=honours,

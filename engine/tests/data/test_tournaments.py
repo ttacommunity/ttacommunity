@@ -1314,3 +1314,22 @@ def test_a_shared_place_gives_no_medal_until_a_ruling(conn, add_match, run_id, p
         {"bob": (1, 0, 0), "ann": (0, 1, 0), "cat": (0, 0, 1)},
         {"bob": "gold", "ann": "silver", "cat": "bronze"},
     )
+
+
+def test_a_season_with_official_placements_counts_no_derived_top_division(
+    conn, add_match, run_id, place
+):
+    add_match(
+        ("ann", 90),
+        ("bob", 80),
+        ("cat", 70),
+        tournament="International S30 - Diamond game 1",
+    )
+    place("international", 30, "Grandmaster", "dan", "eve", "fay")
+
+    derive_tournaments(conn=conn, run_id=run_id)
+
+    assert medals_and_records(conn, run_id)[:2] == (
+        {"dan": (1, 0, 0), "eve": (0, 1, 0), "fay": (0, 0, 1)},
+        {"dan": "gold", "eve": "silver", "fay": "bronze"},
+    )
