@@ -25,8 +25,8 @@
 }
 
 .home-hero-logo-col {
-  flex: 0 0 260px;
-  max-width: 280px;
+  flex: 0 0 340px;
+  max-width: 360px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -34,11 +34,10 @@
 
 .home-hero-logo {
   width: 100%;
-  max-width: 280px;
+  max-width: 360px;
   height: auto;
-  border-radius: 8px;
   object-fit: contain;
-  filter: drop-shadow(0 4px 12px rgba(0, 0, 0, 0.5));
+  filter: drop-shadow(0 6px 16px rgba(0, 0, 0, 0.55));
 }
 
 .home-hero-content-col {
@@ -1050,7 +1049,7 @@
   }
   .home-hero-logo-col {
     flex: 0 0 auto;
-    max-width: 220px;
+    max-width: 270px;
     margin: 0 auto;
   }
   .home-hero-content-col {

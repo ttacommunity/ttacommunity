@@ -194,7 +194,7 @@ export default function HomePage({ apiUrl }: { apiUrl: string }) {
               src="/img/HubLogo.png"
               alt="Through the Ages Community"
               className="home-hero-logo"
-              width="825"
+              width="537"
               height="460"
             />
           </div>
