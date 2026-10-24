@@ -45,9 +45,13 @@ func ClassifyMatches(ctx context.Context, pool *pgxpool.Pool) (Classified, error
 	if _, err := tx.Exec(ctx, `
 		WITH added AS (
 			INSERT INTO series (slug, name, original_name, kind, top_divisions, tournament_noun, stage_noun,
-			                    community_scoring, community_code, results_rules)
+			                    community_scoring, community_code, results_rules, podium_source)
 			SELECT slug, name, name, kind, coalesce(string_to_array(nullif(tops, ''), '|'), '{}'), season_name, stage_name,
-			       nullif(scoring, ''), nullif(code, ''), nullif(results, '')
+			       nullif(scoring, ''), nullif(code, ''), nullif(results, ''),
+			       -- Where its podium comes from, as migration 00051 gave the tournaments it found.
+			       CASE WHEN results = 'worlds' THEN 'recorded'
+			            WHEN kind = 'league' OR results IN ('international', 'intermezzo', 'royal_league') THEN 'top_divisions'
+			            WHEN kind = 'cup' THEN 'final_stage' WHEN kind = 'ladder' THEN 'none' END
 			FROM unnest($1::text[], $2::text[], $3::text[], $4::text[], $5::text[], $6::text[], $10::text[], $11::text[],
 			            $12::text[]) AS x(slug, name, kind, tops, season_name, stage_name, scoring, code, results)
 			ON CONFLICT (slug) DO NOTHING
