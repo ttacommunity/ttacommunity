@@ -726,27 +726,19 @@ func (r *RatingsReader) PlayerSeats(ctx context.Context, run int64, asked string
 		return PlayerSeatStats{}, err
 	}
 
-	// Only the player's own rows are read: their seats, and their pairs in the run for the games rated, or every played game.
-	mine := `
-			SELECT r.player_count, s.game_id, s.starting_position, s.seat, s.place, s.culture
-			FROM seats s
-			JOIN (SELECT match_id, player_count FROM pairwise_matches WHERE run_id = $1 AND player_a = $2
-				UNION
-				SELECT match_id, player_count FROM pairwise_matches WHERE run_id = $1 AND player_b = $2) r
-				ON r.match_id = s.game_id
-			WHERE s.player_name = $2`
+	// The games rated are counted by the run as it is made; every played game is counted here, from the player's seats.
+	query := `
+		SELECT player_count, seat, games, wins, draws, avg_culture, p1, p2, p3, p4
+		FROM player_seat_stats WHERE run_id = $1 AND player_name = $2
+		ORDER BY player_count, seat`
 	args := []any{run, name}
 	if unrated {
-		mine = `
+		query = `
+		WITH mine AS (
 			SELECT (SELECT count(*) FROM seats o WHERE o.game_id = s.game_id) AS player_count,
 				s.game_id, s.starting_position, s.seat, s.place, s.culture
 			FROM seats s JOIN games g ON g.game_id = s.game_id AND g.state = 'played'
-			WHERE s.player_name = $1`
-		args = []any{name}
-	}
-
-	query := `
-		WITH mine AS (` + mine + `),
+			WHERE s.player_name = $1),
 		player_seats AS (
 			SELECT
 				m.player_count,
@@ -770,6 +762,8 @@ func (r *RatingsReader) PlayerSeats(ctx context.Context, run int64, asked string
 		FROM player_seats
 		GROUP BY player_count, seat
 		ORDER BY player_count, seat`
+		args = []any{name}
+	}
 
 	rows, err := r.pool.Query(ctx, query, args...)
 	if err != nil {

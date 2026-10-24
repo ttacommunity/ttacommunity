@@ -766,6 +766,25 @@ def test_a_run_records_the_rows_it_wrote_to_each_table(conn, add_match, kind):
     }
 
 
+@pytest.mark.parametrize("kind", ["full", "parallel", "tournaments only"])
+def test_a_run_counts_its_players_seats(conn, db_url, add_match, kind):
+    season(add_match)
+    run_id = run(
+        conn, "v1", formats=[2], log=lambda _: None, make_current=True,
+        workers=2 if kind == "parallel" else 1, url=db_url,
+    )  # fmt: skip
+    if kind == "tournaments only":
+        run_id = run(conn, "v2", tournaments_only=True, log=lambda _: None)
+
+    got = conn.execute(
+        "SELECT games, wins FROM player_seat_stats WHERE run_id = %s AND player_name = 'Ann' "
+        "AND player_count = 2 AND seat = 1",
+        (run_id,),
+    ).fetchone()
+
+    assert got == {"games": 2, "wins": 2}
+
+
 def recorded_bytes(conn, run_id):
     return conn.execute(
         "SELECT result_bytes, disk_bytes FROM rating_runs WHERE run_id = %s", (run_id,)

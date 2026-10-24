@@ -25,6 +25,7 @@ from tta_ratings_engine.data.catalogue import derive_catalogue
 from tta_ratings_engine.data.community import derive_community
 from tta_ratings_engine.data.db import connect
 from tta_ratings_engine.data.pairwise import expand_pairwise
+from tta_ratings_engine.data.seat_stats import derive_seat_stats
 from tta_ratings_engine.data.tournaments import derive_tournaments
 from tta_ratings_engine.data.year_records import derive_year_records
 from tta_ratings_engine.models.evaluation.standard_eval import (
@@ -93,6 +94,7 @@ RESULT_TABLES = [
     "tournament_records",
     "catalogue_spans",
     "player_year_records",
+    "player_seat_stats",
 ]
 
 
@@ -118,7 +120,7 @@ RECOMPUTED_TABLES = [
     "tournament_games", "tournament_standings", "tournament_boards", "tournament_season_records",
     "tournament_series", "tournament_legends", "tournament_achievements", "tournament_records",
     "community_event_points", "community_edition_points", "community_rankings", "catalogue_spans",
-    "player_year_records",
+    "player_year_records", "player_seat_stats",
 ]  # fmt: skip
 
 
@@ -384,6 +386,7 @@ def _compute(conn, run_id, formats, log):
     progress.working_on("pairs")
     with Heartbeat(progress):
         expand_pairwise(conn, run_id)
+        derive_seat_stats(conn=conn, run_id=run_id)
         months = {fmt: eval_months(conn, run_id, fmt) for fmt in formats}
         progress.total = 1 + 2 * len(MODELS) * len(formats) + 2 + sum(months.values())
         progress.total_cost = (
@@ -499,6 +502,7 @@ def _compute_parallel(conn, run_id, formats, log, workers, url):
     progress.working_on("pairs")
     with Heartbeat(progress):
         expand_pairwise(conn, run_id)
+        derive_seat_stats(conn=conn, run_id=run_id)
         months = {fmt: eval_months(conn, run_id, fmt) for fmt in formats}
         tasks = _tasks(formats)
         progress.total = 1 + len(tasks) + 1  # tournaments and titles are reported apart
@@ -597,6 +601,7 @@ def _recompute_tournaments(conn, run_id, source, log):
     pair_columns = _columns(conn, "pairwise_matches", ("run_id", "pairwise_id"))
     if _pairs_md5(conn, run_id, pair_columns) != _pairs_md5(conn, source, pair_columns):
         raise MatchesChanged(f"the matches changed since run {source}: make a full run")
+    derive_seat_stats(conn=conn, run_id=run_id)
     progress.advance("pairs", 1, "pairs")
 
     progress.working_on("copy")
