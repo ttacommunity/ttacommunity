@@ -266,7 +266,7 @@ def _sheet_rows(series, top, standings, official, boards, dates):
     A season ranks its players by their verified division standings place, so rows agree with medal boards.
     """
     tournament, career_division, standing = SHEETS[series]
-    season_recs = {}
+    season_recs, season_points = {}, {}
     seasons = defaultdict(list)
     combined = {**standings, **official}
     for (s, season, division), placed in sorted(combined.items()):
@@ -296,16 +296,13 @@ def _sheet_rows(series, top, standings, official, boards, dates):
                     "career": False,
                 }
                 season_recs[(name, season)] = rec
+                season_points[(name, season)] = points
 
     career = defaultdict(
         lambda: {"gold": 0, "silver": 0, "bronze": 0, "points": 0.0, "seasons": 0}
     )
-    for (name, season), rec in season_recs.items():
-        pts = rec["points"].split()[0] if rec["points"] else "0"
-        try:
-            career[name]["points"] += float(pts)
-        except ValueError:
-            pass
+    for name, season in season_recs:
+        career[name]["points"] += season_points[(name, season)]
         career[name]["seasons"] += 1
     for b in boards.get(series, []):
         career[b["player_name"]].update({m: b[m] for m in PLACES})

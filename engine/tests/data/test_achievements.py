@@ -532,3 +532,17 @@ def test_a_royal_league_season_without_official_placements_takes_its_podium_from
         ("Season 1", "ann", "gold"), ("Season 1", "bob", "silver"),
         ("Season 9", "ann", "gold"), ("Season 9", "bob", "silver"), ("Season 9", "cat", "bronze"),
     ]  # fmt: skip
+
+
+def test_career_points_add_the_seasons_points_not_their_rounded_text():
+    third = 1 / 3
+    standings = {
+        ("intermezzo", season, "Grandmaster"): [placed("ann", 1, third)]
+        for season in (1, 2)
+    }
+
+    got = player_records(rows=[], top_divisions=TOP, standings=standings, official={}, boards={}, honours=[],
+                         dates={})  # fmt: skip
+
+    career = next(r for r in got if r["career"])
+    assert career["points"] == f"{third + third:g} pts"
