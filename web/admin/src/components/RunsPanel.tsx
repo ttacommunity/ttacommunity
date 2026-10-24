@@ -1,6 +1,7 @@
 /** Rating runs, for admins: start one, watch its progress, compare and publish it, and protect or delete old ones. */
 import { Fragment, useEffect, useState } from 'react';
 import { useDialog } from '@ttac/shared/Dialog';
+import { signed } from '@ttac/shared/numbers';
 import { formatTime, viewerZone } from '@ttac/shared/time';
 import * as req from '../lib/admin-requests';
 import { adminRequest, type AdminRun, type RunChanges, type StartedRun } from '../lib/admin-api';
@@ -76,7 +77,7 @@ function Changes({ run }: { run: number }) {
                   <th scope="row">{m.name}</th>
                   <td>{m.before.toFixed(0)}</td>
                   <td>{m.after.toFixed(0)}</td>
-                  <td>{(m.change > 0 ? '+' : '') + m.change.toFixed(0)}</td>
+                  <td>{signed(m.change, 0)}</td>
                 </tr>
               ))}
             </tbody>

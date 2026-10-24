@@ -11,7 +11,7 @@ import {
   type SeatPlaceRate,
 } from '@ttac/shared/ratings';
 import Segmented, { type Option } from '@ttac/shared/Segmented';
-import { SEAT_TIERS, seatDelta, seatDeltaText } from '../lib/analysis';
+import { SEAT_TIERS, seatDelta, seatDeltaText, seatSpread } from '../lib/analysis';
 import ScrollTable from './ScrollTable';
 import Waiting from './Waiting';
 
@@ -69,9 +69,9 @@ export default function SeatAnalysisPage({ apiUrl }: { apiUrl: string }) {
   const group3P = data.groups.find((g: SeatStatsGroup) => g.player_count === 3);
   const group2P = data.groups.find((g: SeatStatsGroup) => g.player_count === 2);
 
-  const delta4P = group4P && group4P.seats.length >= 4 ? (group4P.seats[0].win_rate - group4P.seats[3].win_rate).toFixed(2) : null;
-  const delta3P = group3P && group3P.seats.length >= 3 ? (group3P.seats[0].win_rate - group3P.seats[2].win_rate).toFixed(2) : null;
-  const delta2P = group2P && group2P.seats.length >= 2 ? (group2P.seats[0].win_rate - group2P.seats[1].win_rate).toFixed(2) : null;
+  const delta4P = seatSpread(group4P);
+  const delta3P = seatSpread(group3P);
+  const delta2P = seatSpread(group2P);
 
   return (
     <>
@@ -83,17 +83,17 @@ export default function SeatAnalysisPage({ apiUrl }: { apiUrl: string }) {
         </div>
         <div className="metric-card">
           <div className="metric-label">4-Player Seat 1 vs 4</div>
-          <div className="metric-number">{delta4P !== null ? `+${delta4P}%` : '—'}</div>
+          <div className="metric-number">{delta4P !== null ? seatDeltaText(delta4P) : '—'}</div>
           <div className="metric-note">First vs fourth player spread</div>
         </div>
         <div className="metric-card">
           <div className="metric-label">3-Player Seat 1 vs 3</div>
-          <div className="metric-number">{delta3P !== null ? `+${delta3P}%` : '—'}</div>
+          <div className="metric-number">{delta3P !== null ? seatDeltaText(delta3P) : '—'}</div>
           <div className="metric-note">First vs third player spread</div>
         </div>
         <div className="metric-card">
           <div className="metric-label">2-Player Seat 1 vs 2</div>
-          <div className="metric-number">{delta2P !== null ? `${Number(delta2P) > 0 ? '+' : ''}${delta2P}%` : '—'}</div>
+          <div className="metric-number">{delta2P !== null ? seatDeltaText(delta2P) : '—'}</div>
           <div className="metric-note">Starting duel advantage</div>
         </div>
       </div>
