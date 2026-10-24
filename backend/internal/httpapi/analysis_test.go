@@ -110,10 +110,16 @@ func TestDistributionAndAgreementComputeFromTheRunsRatings(t *testing.T) {
 	if f.gotFmt != 2 || d.Format != 2 || len(d.Engines) != 2 || d.Engines[1].Model != Glicko2Std || d.Engines[1].Counts[6] != 1 || d.Engines[1].ActiveMean != 1650 {
 		t.Errorf("distribution = %+v (format asked %d)", d, f.gotFmt)
 	}
+	if got := rec.Header().Get("Cache-Control"); got != "public, max-age=300" {
+		t.Errorf("GET distribution: Cache-Control = %q, want %q", got, "public, max-age=300")
+	}
 
 	rec, _ = serve(t, &fakeAnalysis{ratings: ratings}, "/v1/runs/7/analysis/agreement")
 	if got := strings.TrimSpace(rec.Body.String()); got != `{"format":0,"run_id":7,"sample":0,"top":[],"weakest":[]}` {
 		t.Errorf("GET agreement with one player: %s", got)
+	}
+	if got := rec.Header().Get("Cache-Control"); got != "public, max-age=300" {
+		t.Errorf("GET agreement: Cache-Control = %q, want %q", got, "public, max-age=300")
 	}
 }
 
@@ -209,6 +215,9 @@ func TestActivityUsesTheSiteCutoffAndRoundsAsUpstreamsSQL(t *testing.T) {
 		`"formats":[{"format":2,"games":10,"pairs":10},{"format":3,"games":20,"pairs":60}],"inactive":4,"run_id":7,"titles":[{"code":"GM","players":2}]}`
 	if got := strings.TrimSpace(rec.Body.String()); rec.Code != http.StatusOK || got != want {
 		t.Errorf("GET activity: %d %s\nwant 200 %s", rec.Code, got, want)
+	}
+	if got := rec.Header().Get("Cache-Control"); got != "public, max-age=300" {
+		t.Errorf("GET activity: Cache-Control = %q, want %q", got, "public, max-age=300")
 	}
 	if !f.gotCutoff.Equal(time.Date(2025, 8, 31, 0, 0, 0, 0, time.UTC)) {
 		t.Errorf("activity cutoff = %v, want 12 months before the run's last game: 2025-08-31", f.gotCutoff)

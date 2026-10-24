@@ -9463,15 +9463,23 @@ type GetHealthzResponseObject interface {
 	VisitGetHealthzResponse(w http.ResponseWriter) error
 }
 
-type GetHealthz200JSONResponse Health
+type GetHealthz200ResponseHeaders struct {
+	CacheControl string
+}
+
+type GetHealthz200JSONResponse struct {
+	Body    Health
+	Headers GetHealthz200ResponseHeaders
+}
 
 func (response GetHealthz200JSONResponse) VisitGetHealthzResponse(w http.ResponseWriter) error {
 
 	var buf bytes.Buffer
-	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
 		return err
 	}
 	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
 	w.WriteHeader(200)
 	_, err := buf.WriteTo(w)
 	return err

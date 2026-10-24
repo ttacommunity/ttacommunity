@@ -5169,6 +5169,7 @@ export interface operations {
             /** @description Up */
             200: {
                 headers: {
+                    "Cache-Control": components["headers"]["CacheControl"];
                     [name: string]: unknown;
                 };
                 content: {

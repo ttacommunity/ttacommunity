@@ -23,9 +23,9 @@ import (
 	"ttacommunity/backend/internal/store"
 )
 
-// Cache lifetimes. A run's answers are cached for five minutes while the site
-// is in testing, so an answer whose shape changes never outlives a deploy by
-// long. Which run is current is cached for a minute.
+// Cache lifetimes, at Cloudflare and in browsers. A new run is new URLs, so nothing is
+// purged; a run's answers last five minutes as they include player details edited between
+// runs, and which run is current lasts a minute (docs/architecture.md#data-flow-for-ratings).
 const (
 	cacheRun     = "public, max-age=300"
 	cacheCurrent = "public, max-age=60"
@@ -348,7 +348,7 @@ type server struct {
 // GetHealthz reports that the process is up. It checks no dependency, so a
 // database outage does not get the pod restarted.
 func (s *server) GetHealthz(context.Context, GetHealthzRequestObject) (GetHealthzResponseObject, error) {
-	return GetHealthz200JSONResponse{Status: "ok"}, nil
+	return GetHealthz200JSONResponse{Body: Health{Status: "ok"}, Headers: GetHealthz200ResponseHeaders{CacheControl: cacheNone}}, nil
 }
 
 // robotsTxt keeps crawlers off the player routes, which every crawled player

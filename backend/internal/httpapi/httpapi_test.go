@@ -322,13 +322,14 @@ func TestTheModelsTheSiteNamesAreTheOnesTheEngineComputes(t *testing.T) {
 
 func TestHealthz(t *testing.T) {
 	tests := []struct {
-		name     string
-		method   string
-		path     string
-		wantCode int
-		wantBody string
+		name      string
+		method    string
+		path      string
+		wantCode  int
+		wantBody  string
+		wantCache string
 	}{
-		{name: "get is ok", method: http.MethodGet, path: "/healthz", wantCode: http.StatusOK, wantBody: `{"status":"ok"}` + "\n"},
+		{name: "get is ok", method: http.MethodGet, path: "/healthz", wantCode: http.StatusOK, wantBody: `{"status":"ok"}` + "\n", wantCache: "no-store"},
 		{name: "post is refused", method: http.MethodPost, path: "/healthz", wantCode: http.StatusMethodNotAllowed},
 		{name: "unknown path is not found", method: http.MethodGet, path: "/nope", wantCode: http.StatusNotFound},
 	}
@@ -343,6 +344,9 @@ func TestHealthz(t *testing.T) {
 			}
 			if tt.wantBody != "" && rec.Body.String() != tt.wantBody {
 				t.Errorf("%s %s: body = %q, want %q", tt.method, tt.path, rec.Body.String(), tt.wantBody)
+			}
+			if got := rec.Header().Get("Cache-Control"); tt.wantCache != "" && got != tt.wantCache {
+				t.Errorf("%s %s: Cache-Control = %q, want %q", tt.method, tt.path, got, tt.wantCache)
 			}
 			if tt.wantCode == http.StatusOK && rec.Header().Get("Content-Type") != "application/json" {
 				t.Errorf("%s %s: Content-Type = %q, want %q", tt.method, tt.path, rec.Header().Get("Content-Type"), "application/json")
@@ -365,6 +369,9 @@ func TestRobotsTxtKeepsCrawlersOffPlayersOnly(t *testing.T) {
 	lines := strings.Split(rec.Body.String(), "\n")
 	if !slices.Contains(lines, "Disallow: /v1/runs/*/players/") || slices.Contains(lines, "Disallow: /") {
 		t.Errorf("GET /robots.txt: body = %q, want only the player routes disallowed", rec.Body.String())
+	}
+	if got := rec.Header().Get("Cache-Control"); got != "public, max-age=300" {
+		t.Errorf("GET /robots.txt: Cache-Control = %q, want %q", got, "public, max-age=300")
 	}
 	if ratings.calls != 0 {
 		t.Errorf("GET /robots.txt: touched the database %d times, want 0", ratings.calls)
