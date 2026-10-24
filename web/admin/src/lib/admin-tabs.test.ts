@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { panelsFor, tabCounts, tabFrom, tabsFor } from './admin-tabs';
+import { panelsFor, siteUrlFor, tabCounts, tabFrom, tabsFor } from './admin-tabs';
 
 describe('admin tabs', () => {
   it.each([
@@ -45,5 +45,16 @@ describe('admin tabs', () => {
     ['none waiting', 0, 0, {}],
   ] as const)('counts on the tabs: %s', (_name, waiting, flagged, want) => {
     expect(tabCounts(waiting, flagged)).toEqual(want);
+  });
+
+  it.each([
+    ['local dev IP', '127.0.0.1', 'http://127.0.0.1:4321'],
+    ['localhost', 'localhost', 'http://127.0.0.1:4321'],
+    ['dev admin subdomain', 'dev.admin.ttacommunity.org', 'https://dev.ttacommunity.org'],
+    ['dev worker host', 'ttacommunity-dev.example.com', 'https://dev.ttacommunity.org'],
+    ['production admin', 'admin.ttacommunity.org', 'https://ttacommunity.org'],
+    ['empty or unknown', '', 'https://ttacommunity.org'],
+  ] as const)('resolves site URL for %s: %s -> %s', (_name, host, want) => {
+    expect(siteUrlFor(host)).toBe(want);
   });
 });
