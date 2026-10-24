@@ -3,6 +3,8 @@ from datetime import date
 import pytest
 
 from tta_ratings_engine.data.community import (
+    CommunityCodeMissing,
+    CommunitySeasonUndated,
     best_eight,
     counted,
     derive_community,
@@ -750,3 +752,50 @@ def test_a_series_scores_as_its_community_scoring_says_not_by_its_slug(
     derive_community(conn=conn, run_id=run_id)
     got = {p: pts for _, _, p, pts in event_points(conn, run_id)}
     assert got == {"ann": 1000, "bob": 480}
+
+
+def test_a_season_with_no_quarter_and_no_games_is_refused_by_name(
+    conn, run_id, catalogue
+):
+    catalogue("international", "30", [("", 21, 21)])
+    points_table(conn, "international", 2025, {("Grandmaster", 1): 1000})
+    cge_line(conn, 21, 21, "Grandmaster", 1, "ann", 1)
+
+    with pytest.raises(CommunitySeasonUndated, match="international season 30"):
+        derive_community(conn=conn, run_id=run_id)
+
+
+def test_a_scoring_series_with_no_community_code_is_refused_by_name(
+    conn, run_id, catalogue
+):
+    catalogue(
+        "grass_league",
+        "30",
+        [("", 21, 21)],
+        quarter=(2025, 3),
+        scoring="league",
+        kind="league",
+    )
+    points_table(conn, "grass_league", 2025, {("Grandmaster", 1): 1000})
+    cge_line(conn, 21, 21, "Grandmaster", 1, "ann", 1)
+
+    with pytest.raises(CommunityCodeMissing, match="grass_league"):
+        derive_community(conn=conn, run_id=run_id)
+
+
+def test_a_ladder_with_no_community_code_is_refused_by_name(
+    conn, run_id, catalogue, add_match, move_last_game
+):
+    catalogue("grass_ladder", "1", [("", None, None)], kind="ladder")
+    conn.execute(
+        "INSERT INTO community_ladders VALUES ('grass_ladder', 2024, 0.8, NULL, '{1,0.4,0}', 10, 'tab')"
+    )
+    points_table(conn, "grass_ladder", 2024, {("leaderboard", 1): 1000})
+    add_match(
+        ("ann", 300), ("bob", 200), day=date(2025, 3, 1), placed=None, group="Tier 1"
+    )
+    move_last_game("grass_ladder", "Tier 1", label="1")
+    conn.commit()
+
+    with pytest.raises(CommunityCodeMissing, match="grass_ladder"):
+        derive_community(conn=conn, run_id=run_id)
