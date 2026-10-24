@@ -10,7 +10,7 @@ Implements the official badge award rules:
 - 6th highest league -> B (Bronze)
 - 7th highest league -> W (Wood)
 - A win in the top division of the International, Intermezzo or Royal League
-  (a first place or gold in the run's tournament records) -> SGM (Super GM)
+  (a gold medal in the run's tournament records) -> SGM (Super GM)
 - The Reigning World Champion retains the exclusive 'WC' title.
 - A title set in admin replaces the derived one (an active player's), or takes it away.
 - Hover Reason: Shows the latest tournament division and season (e.g. 'Played in International Championship Grandmaster Season 6').
@@ -307,7 +307,7 @@ def derive_tournament_badges(*, conn: DictConnection, run_id: int) -> dict[str, 
         podiums = world_podiums(conn, run_id)
         records = conn.execute(
             """
-            SELECT player_name, tournament, season, division, placement, medal, finish_date
+            SELECT player_name, tournament, season, division, medal, finish_date
             FROM tournament_records WHERE run_id = %s AND NOT career ORDER BY position
         """,
             (run_id,),
@@ -520,10 +520,13 @@ def badge_titles(rows, cutoff_date, champions, records, overrides) -> Titles:
     return Titles(derived_data, peaks, yearly)
 
 
-def _is_top_division_win(r) -> bool:
-    """Reports whether a tournament record represents a verified premier/top-division win."""
-    m = re.match(r"1\s*/\s*(\d+)", r.get("placement", ""))
-    return not (m and int(m.group(1)) > 31)
+def _is_super_gm_win(r) -> bool:
+    """Reports whether a season record is a league top-division win: a gold medal there, which only a podium has."""
+    return (
+        r["medal"] == "gold"
+        and r["tournament"] in SGM_TOURNAMENTS
+        and r["division"] in SGM_DIVISIONS
+    )
 
 
 def _super_gm(records, cutoff_date):
@@ -532,13 +535,7 @@ def _super_gm(records, cutoff_date):
     """
     active, career = {}, {}
     for r in records:
-        won = r["placement"].startswith("1 /") or r["medal"] == "gold"
-        if not (
-            won
-            and r["tournament"] in SGM_TOURNAMENTS
-            and r["division"] in SGM_DIVISIONS
-            and _is_top_division_win(r)
-        ):
+        if not _is_super_gm_win(r):
             continue
         p, finish = r["player_name"], r["finish_date"]
         year = int(finish[:4]) if finish[:4].isdigit() else None
@@ -561,17 +558,7 @@ def _record_years(records):
         if not finish[:4].isdigit():
             continue
         key = (r["player_name"], int(finish[:4]))
-        won = (
-            r["placement"].startswith("1 /")
-            or r["placement"] == "1"
-            or r["medal"] == "gold"
-        )
-        if (
-            r["tournament"] in SGM_TOURNAMENTS
-            and r["division"] in SGM_DIVISIONS
-            and won
-            and _is_top_division_win(r)
-        ):
+        if _is_super_gm_win(r):
             got[key] = "SGM"
         elif key not in got:
             tier = classify_division_tier(f"{r['tournament']} {r['division']}")

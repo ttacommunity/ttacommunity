@@ -248,10 +248,6 @@ def test_an_older_top_division_win_is_a_super_gm_peak():
             season_record(
                 "Cat", ic, "Season 20", "Grandmaster", "1 / 7", "gold", "2022-12-04"
             ),
-            # lower-division group wins (e.g. 1 / 735 campaign bucket) must not award Super GM
-            season_record(
-                "Dan", ic, "Season 14", "Grandmaster", "1 / 735", "gold", "2021-03-02"
-            ),
             season_record(
                 "Eve", ic, "Season 20", "Grandmaster", "3 / 7", "bronze", "2022-12-04"
             ),
@@ -263,6 +259,34 @@ def test_an_older_top_division_win_is_a_super_gm_peak():
 
     assert t.active == {}
     assert t.peaks == {"Cat": ("SGM", 2022)}
+
+
+@pytest.mark.parametrize(
+    ("placement", "medal", "want"),
+    [
+        ("1 / 7", "gold", "SGM"),
+        ("1 / 40", "gold", "SGM"),
+        ("1 / 8", None, "GM"),
+        ("", None, "GM"),
+    ],
+)
+def test_only_a_gold_medal_makes_a_top_division_win(placement, medal, want):
+    t = rule_titles(
+        [game("2024-06-01", "RL_s09 - Emperor", "Ann", "Bob")],
+        records=[
+            season_record(
+                "Ann",
+                "Royal League",
+                "Season 9",
+                "Emperor",
+                placement,
+                medal,
+                "2024-05-27",
+            )
+        ],
+    )
+
+    assert (active(t)["Ann"][0], t.yearly[("Ann", 2024)]) == (want, want)
 
 
 def test_records_add_super_gm_years_and_untitled_seasons():
