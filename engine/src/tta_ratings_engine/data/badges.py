@@ -2,7 +2,7 @@
 
 Implements the official badge award rules:
 - Recency Rule: Badges are displayed only for players active within the last 1 year (12 months) in tournament play.
-- Highest league in Intermezzo (3P), International Championship (4P), Royal League (2P), or World Championship -> GM (Grandmaster)
+- Highest league in Intermezzo (3P), International Championship (4P) or Royal League (2P) -> GM (Grandmaster)
 - 2nd highest league -> M (Master)
 - 3rd highest league -> P (Platinum)
 - 4th highest league -> G (Gold)
@@ -11,7 +11,8 @@ Implements the official badge award rules:
 - 7th highest league -> W (Wood)
 - A win in the top division of the International, Intermezzo or Royal League
   (a gold medal in the run's tournament records) -> SGM (Super GM)
-- The Reigning World Champion retains the exclusive 'WC' title.
+- The Reigning World Champion retains the exclusive 'WC' title; a World Championship podium gives WC, WCS or
+  WCB in its year and as a peak. Playing in the World Championship gives no division title.
 - A title set in admin replaces the derived one (an active player's), or takes it away.
 - Hover Reason: Shows the latest tournament division and season (e.g. 'Played in International Championship Grandmaster Season 6').
 """
