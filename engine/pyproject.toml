@@ -1,6 +1,6 @@
 [project]
 name = "tta-ratings-engine"
-version = "1.6.0"
+version = "1.7.0"
 description = "The ttacommunity rating engine: DANeo's Glicko rating math, run against Postgres"
 requires-python = "==3.12.*"
 dependencies = [

@@ -20,6 +20,7 @@ import psycopg
 from psycopg import sql
 from psycopg.types.json import Jsonb
 
+from tta_ratings_engine.data.analysis_counts import derive_analysis_counts
 from tta_ratings_engine.data.badges import derive_tournament_badges
 from tta_ratings_engine.data.catalogue import derive_catalogue
 from tta_ratings_engine.data.community import derive_community
@@ -95,6 +96,8 @@ RESULT_TABLES = [
     "catalogue_spans",
     "player_year_records",
     "player_seat_stats",
+    "seat_tier_stats",
+    "run_format_counts",
 ]
 
 
@@ -120,7 +123,7 @@ RECOMPUTED_TABLES = [
     "tournament_games", "tournament_standings", "tournament_boards", "tournament_season_records",
     "tournament_series", "tournament_legends", "tournament_achievements", "tournament_records",
     "community_event_points", "community_edition_points", "community_rankings", "catalogue_spans",
-    "player_year_records", "player_seat_stats",
+    "player_year_records", "player_seat_stats", "seat_tier_stats", "run_format_counts",
 ]  # fmt: skip
 
 
@@ -418,6 +421,7 @@ def _compute(conn, run_id, formats, log):
         derive_community(**on_run)
         derive_catalogue(**on_run)
         derive_year_records(**on_run)
+        derive_analysis_counts(**on_run)
         progress.advance("tournaments", STEP_COST["tournaments", None], "tournaments")
 
         progress.working_on("titles")
@@ -536,6 +540,8 @@ def _compute_parallel(conn, run_id, formats, log, workers, url):
             raise
         finally:
             pool.shutdown(cancel_futures=True)
+        # After the workers: it reads their ratings.
+        derive_analysis_counts(conn=conn, run_id=run_id)
     progress.summary()
 
 
@@ -621,6 +627,7 @@ def _recompute_tournaments(conn, run_id, source, log):
     derive_community(**on_run)
     derive_catalogue(**on_run)
     derive_year_records(**on_run)
+    derive_analysis_counts(**on_run)
     progress.advance("tournaments", 1, "tournaments")
     progress.working_on("titles")
     derive_tournament_badges(**on_run)

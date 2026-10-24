@@ -189,6 +189,8 @@ func TestActivityCountsPlayersGamesTitlesAndCountries(t *testing.T) {
 	addGame(t, pool, run, "2025-01-02", "Cup", Seat{"gm1", 1}, Seat{"m1", 0}, Seat{"p1", 0})
 	addGame(t, pool, run, "2025-01-03", "Cup", Seat{"gm1", 1}, Seat{"m1", 0}, Seat{"p1", 0})
 	addGame(t, pool, other, "2025-01-04", "Cup", Seat{"gm1", 1}, Seat{"m1", 0})
+	withFormatCounts(t, pool, run)
+	withFormatCounts(t, pool, other)
 
 	got, err := r.Activity(ctx, run, day("2025-05-31"))
 	if err != nil {
@@ -206,6 +208,24 @@ func TestActivityCountsPlayersGamesTitlesAndCountries(t *testing.T) {
 	want := "[{PL 5 1925.5 1883.667 1837.75 1770.2} {FR 1 <nil> <nil> <nil> 1600} {CZ 1 <nil> <nil> <nil> 1550}]"
 	if s := countryText(got.Countries); s != want {
 		t.Errorf("countries = %s\nwant %s (Standard, all formats; titles from this run; unrated players left out; ties in reverse code order)", s, want)
+	}
+}
+
+func TestActivityReadsTheFormatsItsRunRecorded(t *testing.T) {
+	pool := migrated(t)
+	r := NewRatingsReader(asReader(t, pool))
+	ctx := context.Background()
+	run := publishedRun(t, pool)
+	addGame(t, pool, run, "2025-01-01", "Cup", Seat{"ann", 1}, Seat{"bob", 0})
+	withFormatCounts(t, pool, run)
+	addGame(t, pool, run, "2025-01-02", "Cup", Seat{"ann", 1}, Seat{"bob", 0}, Seat{"cat", 0})
+
+	got, err := r.Activity(ctx, run, day("2025-05-31"))
+	if err != nil {
+		t.Fatalf("Activity: %v", err)
+	}
+	if fmt.Sprint(got.Formats) != "[{2 1 1}]" {
+		t.Errorf("formats = %v, want [{2 1 1}], as recorded before the 3-player game was added", got.Formats)
 	}
 }
 
@@ -238,6 +258,7 @@ func TestSeatAnalysisGroupsByPlayerCountAndFiltersByTier(t *testing.T) {
 	addGame(t, pool, run, "2025-01-01", "Cup 1", Seat{"gm1", 100}, Seat{"gm2", 90})
 	addGame(t, pool, run, "2025-01-02", "Cup 2", Seat{"m1", 90}, Seat{"m2", 100})
 	addGame(t, pool, run, "2025-01-03", "Cup 3", Seat{"m1", 95}, Seat{"m2", 95})
+	withSeatTiers(t, pool, run)
 
 	gotAll, err := r.SeatAnalysis(ctx, run, 2, "all")
 	if err != nil {
@@ -296,6 +317,7 @@ func TestSeatAnalysisFractionalWinSharesForMultiwayTies(t *testing.T) {
 
 	// 4-player game: 4-way tie for 1st place -> each gets 1/4 win share (25.0% win rate)
 	addGame(t, pool, run, "2025-01-02", "Cup 4P", Seat{"p1", 100}, Seat{"p2", 100}, Seat{"p3", 100}, Seat{"p4", 100})
+	withSeatTiers(t, pool, run)
 
 	got3P, err := r.SeatAnalysis(ctx, run, 3, "all")
 	if err != nil {
@@ -348,6 +370,7 @@ func TestSeatAnalysisUsesRatingWhenPlayedToDetermineTier(t *testing.T) {
 
 	// Game played on 2025-06-15 (at GM level)
 	addGame(t, pool, run, "2025-06-15", "Late Duel", Seat{"rising1", 100}, Seat{"rising2", 90})
+	withSeatTiers(t, pool, run)
 
 	// Check grandmaster tier: should ONLY contain the 2025 game (1 game), NOT the 2024 game
 	gmGroups, err := r.SeatAnalysis(ctx, run, 2, "grandmaster")
@@ -368,7 +391,7 @@ func TestSeatAnalysisUsesRatingWhenPlayedToDetermineTier(t *testing.T) {
 	}
 }
 
-func TestSeatAnalysisIsComputedOncePerRun(t *testing.T) {
+func TestSeatAnalysisReadsTheCountsItsRunRecorded(t *testing.T) {
 	pool := migrated(t)
 	r := NewRatingsReader(asReader(t, pool))
 	ctx := context.Background()
@@ -377,13 +400,11 @@ func TestSeatAnalysisIsComputedOncePerRun(t *testing.T) {
 	addRating(t, pool, run, "glicko2_daneo", 0, "gm1", ptr(1), 1700)
 	addRating(t, pool, run, "glicko2_daneo", 0, "gm2", ptr(2), 1700)
 	game := addGame(t, pool, run, "2025-01-01", "Cup 1", Seat{"gm1", 100}, Seat{"gm2", 90})
-
-	if _, err := r.SeatAnalysis(ctx, run, 2, "all"); err != nil {
-		t.Fatalf("SeatAnalysis(2, all): %v", err)
-	}
+	withSeatTiers(t, pool, run)
 	if _, err := pool.Exec(ctx, "UPDATE seats SET place = 3 - place WHERE game_id = $1", game); err != nil {
 		t.Fatalf("swapping the places: %v", err)
 	}
+
 	got, err := r.SeatAnalysis(ctx, run, 0, "grandmaster")
 	if err != nil {
 		t.Fatalf("SeatAnalysis(0, grandmaster): %v", err)
@@ -392,40 +413,7 @@ func TestSeatAnalysisIsComputedOncePerRun(t *testing.T) {
 		t.Fatalf("SeatAnalysis(0, grandmaster) has %d groups, want 3", len(got))
 	}
 	if w := got[0].Seats[0].Wins; w != 1 {
-		t.Errorf("seat 1's wins = %d, want 1, as counted before the places were swapped", w)
-	}
-}
-
-func TestSeatAnalysisReadsARunAgainOnceTwoOthersWereAskedFor(t *testing.T) {
-	pool := migrated(t)
-	r := NewRatingsReader(asReader(t, pool))
-	ctx := context.Background()
-	run := publishedRun(t, pool)
-	addPlayers(t, pool, "gm1", "gm2")
-	addRating(t, pool, run, "glicko2_daneo", 0, "gm1", ptr(1), 1700)
-	addRating(t, pool, run, "glicko2_daneo", 0, "gm2", ptr(2), 1700)
-	game := addGame(t, pool, run, "2025-01-01", "Cup 1", Seat{"gm1", 100}, Seat{"gm2", 90})
-
-	if _, err := r.SeatAnalysis(ctx, run, 2, "all"); err != nil {
-		t.Fatalf("SeatAnalysis(2, all): %v", err)
-	}
-	if _, err := pool.Exec(ctx, "UPDATE seats SET place = 3 - place WHERE game_id = $1", game); err != nil {
-		t.Fatalf("swapping the places: %v", err)
-	}
-	for _, other := range []int64{publishedRun(t, pool), publishedRun(t, pool)} {
-		if _, err := r.SeatAnalysis(ctx, other, 0, "all"); err != nil {
-			t.Fatalf("SeatAnalysis of run %d: %v", other, err)
-		}
-	}
-	got, err := r.SeatAnalysis(ctx, run, 0, "grandmaster")
-	if err != nil {
-		t.Fatalf("SeatAnalysis(0, grandmaster): %v", err)
-	}
-	if len(got) != 3 {
-		t.Fatalf("SeatAnalysis(0, grandmaster) has %d groups, want 3", len(got))
-	}
-	if w := got[0].Seats[0].Wins; w != 0 {
-		t.Errorf("seat 1's wins = %d, want 0, as counted again after the places were swapped", w)
+		t.Errorf("seat 1's wins = %d, want 1, as recorded before the places were swapped", w)
 	}
 }
 
