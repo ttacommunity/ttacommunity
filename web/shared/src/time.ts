@@ -26,3 +26,13 @@ export function formatTime(instant: string, timeZone: string): string {
     hourCycle: 'h23',
   }).format(date);
 }
+
+/** formatDay writes a calendar date (YYYY-MM-DD) as "24 Feb 2025", the same day in every time zone. */
+export function formatDay(day: string): string {
+  return new Date(`${day}T00:00:00Z`).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'UTC' });
+}
+
+/** formatInstantDay writes the day a UTC instant falls on in timeZone (the viewer's when not given), as "1 Oct 2026". */
+export function formatInstantDay(instant: string, timeZone?: string): string {
+  return new Date(instant).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric', timeZone });
+}

@@ -1,6 +1,7 @@
 /** The loaded data at a glance: games, players, and when they were last loaded. */
 import { useEffect, useState } from 'react';
 import type { components } from '@ttac/shared/api';
+import { formatDay } from '@ttac/shared/time';
 import { adminDownload, adminRequest, exportFileName } from '../lib/admin-api';
 import { refusalOf, type Outcome } from '../lib/outcome';
 import { sizeText } from '../lib/runs-view';
@@ -61,7 +62,7 @@ export default function DataCard() {
             </div>
             <div>
               <dt>Latest game</dt>
-              <dd>{d.latest_game === null ? 'None' : new Date(d.latest_game).toLocaleDateString(undefined, { dateStyle: 'medium' })}</dd>
+              <dd>{d.latest_game === null ? 'None' : formatDay(d.latest_game)}</dd>
             </div>
             <div>
               <dt>Last loaded</dt>
