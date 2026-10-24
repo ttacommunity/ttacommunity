@@ -6,19 +6,21 @@ set -euo pipefail
 cd "$(dirname "$0")/.."
 usage() {
   cat >&2 <<'EOF'
-Usage: scripts/seed-dev-db.sh [--replace] [--latest-run | --no-runs | --all-runs]
+Usage: scripts/seed-dev-db.sh [--replace] [--latest-run | --no-runs | --all-runs] [--prewarm]
   --latest-run  inputs and production's current published run (the default)
   --no-runs     inputs only, as a baseline holds them: nothing published until an engine run
   --all-runs    everything, every run
   --replace     drop ratings_dev first (otherwise an existing one is refused)
+  --prewarm     let ratings_dev prewarm its player pages (off by default: dev shares production's memory)
 EOF
   exit 64
 }
-mode=latest-run replace=0
+mode=latest-run replace=0 prewarm=0
 for arg in "$@"; do
   case "$arg" in
     --latest-run | --no-runs | --all-runs) mode=${arg#--} ;;
     --replace) replace=1 ;;
+    --prewarm) prewarm=1 ;;
     *) usage ;;
   esac
 done
@@ -81,4 +83,8 @@ sql -d ratings_dev <<'SQL'
 GRANT USAGE ON SCHEMA public TO ratings_read;
 ALTER DEFAULT PRIVILEGES FOR ROLE ratings_dev IN SCHEMA public GRANT SELECT ON TABLES TO ratings_read;
 SQL
+# Only a superuser can create pg_prewarm; without it prewarm_player_pages loads nothing. DROP EXTENSION turns it off.
+if [ "$prewarm" = 1 ]; then
+  sql -d ratings_dev -c "CREATE EXTENSION IF NOT EXISTS pg_prewarm"
+fi
 sql -d ratings_dev -Atc "select 'players: ' || count(*) from players union all select 'rating runs: ' || count(*) from rating_runs union all select 'current run: ' || coalesce((select run_id::text from current_run), 'none')"

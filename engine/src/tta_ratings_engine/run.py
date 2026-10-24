@@ -338,6 +338,7 @@ def run(
             _publish(conn, run_id, clock())
     close_progress()
     log(f"run {run_id}: complete" + (", and now current" if make_current else ""))
+    _prewarm_current(conn, ranking_id, log)
     return run_id
 
 
@@ -631,6 +632,16 @@ def _vacuum_run(conn, run_id):
     indexes alone, planned with fresh statistics, before the run can be published. Runs outside a transaction."""
     for r in conn.execute(RUN_PARTITIONS, (run_id,)).fetchall():
         conn.execute(sql.SQL("VACUUM (ANALYZE) {}").format(sql.Identifier(r["t"])))
+
+
+def _prewarm_current(conn, ranking_id, log):
+    """Loads the ranking's current run's player pages into the database's memory, which a run's writes evict."""
+    row = conn.execute(
+        "SELECT run_id, prewarm_player_pages(run_id) AS blocks FROM current_run WHERE ranking_id = %s",
+        (ranking_id,),
+    ).fetchone()
+    if row:
+        log(f"run {row['run_id']}'s player pages prewarmed: {row['blocks']} blocks")
 
 
 def _record_stats(conn, run_id):

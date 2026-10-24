@@ -81,6 +81,16 @@ func (a *AdminStore) Publish(ctx context.Context, run int64) error {
 	})
 }
 
+// PrewarmPlayerPages loads what the player pages read for a run into the database's memory, and returns the
+// blocks loaded: 0 where the server cannot prewarm.
+func (a *AdminStore) PrewarmPlayerPages(ctx context.Context, run int64) (int64, error) {
+	var blocks int64
+	if err := a.pool.QueryRow(ctx, "SELECT prewarm_player_pages($1)", run).Scan(&blocks); err != nil {
+		return 0, fmt.Errorf("prewarming run %d's player pages: %w", run, err)
+	}
+	return blocks, nil
+}
+
 // RunMove is one player's rating change between two runs.
 type RunMove struct {
 	Name          string

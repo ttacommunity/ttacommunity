@@ -35,6 +35,8 @@ type fakeAdmins struct {
 	engine string
 	// deleted receives each run DeleteRun removes, from the handler's background delete.
 	deleted chan int64
+	// prewarmed receives each run PrewarmPlayerPages loads, from the handler's background prewarm.
+	prewarmed chan int64
 	// entrants, format, points (FIDE's while zero) and rounds are the blitz edition us_open 2026's
 	// (admin_blitz_test.go, admin_blitz_rounds_test.go).
 	entrants []store.BlitzEntrant
@@ -144,6 +146,13 @@ func (f *fakeAdmins) StartDeleteRun(_ context.Context, run int64, engineGoing bo
 	}
 	f.notes = append(f.notes, fmt.Sprintf("delete %d", run))
 	return nil
+}
+
+func (f *fakeAdmins) PrewarmPlayerPages(_ context.Context, run int64) (int64, error) {
+	if f.prewarmed != nil {
+		f.prewarmed <- run
+	}
+	return 1, nil
 }
 
 func (f *fakeAdmins) DeleteRun(_ context.Context, run int64) error {

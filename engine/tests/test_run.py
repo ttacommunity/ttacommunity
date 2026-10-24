@@ -184,6 +184,24 @@ def test_a_run_is_not_published_unless_asked(conn, add_match):
     assert current(conn) is None
 
 
+def prewarmed(lines):
+    return [line for line in lines if "player pages prewarmed" in line]
+
+
+def test_a_run_ends_by_prewarming_the_current_runs_player_pages(conn, add_match):
+    season(add_match)
+    first, second = [], []
+
+    unpublished = run(conn, "v1", formats=[2], log=first.append)
+    published = run(conn, "v1", formats=[2], log=second.append, make_current=True)
+
+    assert unpublished != published
+    assert prewarmed(first) == []  # nothing is current yet
+    [line] = prewarmed(second)
+    assert line.startswith(f"run {published}'s player pages prewarmed: ")
+    assert int(line.split(": ")[1].split()[0]) > 0
+
+
 def test_a_run_can_be_published_when_it_completes(conn, add_match):
     season(add_match)
 

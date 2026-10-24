@@ -40,6 +40,25 @@ func TestAnAdminStartsAndPublishesRunsAndEachIsAudited(t *testing.T) {
 	}
 }
 
+func TestPublishingARunPrewarmsItsPlayerPages(t *testing.T) {
+	const site, owner = "https://ttac-admin.example", "111111111111111111"
+	f := &fakeAdmins{prewarmed: make(chan int64, 1)}
+	if rec := adminDoAs(t, f, owner, http.MethodPost, "/v1/admin/runs/9/publish", site, ""); rec.Code != http.StatusConflict {
+		t.Fatalf("publish 9 = %d %s, want 409", rec.Code, rec.Body)
+	}
+	if rec := adminDoAs(t, f, owner, http.MethodPost, "/v1/admin/runs/8/publish", site, ""); rec.Code != http.StatusNoContent {
+		t.Fatalf("publish 8 = %d %s, want 204", rec.Code, rec.Body)
+	}
+	select {
+	case got := <-f.prewarmed:
+		if got != 8 {
+			t.Errorf("the background prewarm loaded run %d, want 8 (the refused 9 is never loaded)", got)
+		}
+	case <-time.After(5 * time.Second):
+		t.Fatal("the background prewarm never ran")
+	}
+}
+
 func TestRunChangesAreRefusedWhenTheyShouldBe(t *testing.T) {
 	const site, owner, org = "https://ttac-admin.example", "111111111111111111", "222222222222222222"
 	tests := []struct {
