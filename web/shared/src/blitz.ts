@@ -9,12 +9,22 @@ export type BlitzPoints = components['schemas']['BlitzPoints'];
 /** MatchResultView is what a match's result line needs: both names (b null for the bye), the result, the game played and whether it was ruled. */
 export type MatchResultView = { a: string; b: string | null; result: BlitzResult | null; game: BlitzPlayedGame | null; ruled: boolean };
 
-/** scoreText writes a game's cultures as "250–200", naming a player who resigned or timed out. */
-function scoreText(m: MatchResultView, game: BlitzPlayedGame): string {
-  const score = `${game.a_culture}–${game.b_culture}`;
+/** endings names a player who resigned or timed out (", Cy resigned"), '' when both finished. */
+function endings(m: MatchResultView, game: BlitzPlayedGame): string {
   const ended = (name: string | null, outcome: BlitzPlayedGame['a_outcome']) =>
     outcome === 'finished' ? '' : `, ${name ?? '?'} ${outcome === 'resigned' ? 'resigned' : 'timed out'}`;
-  return score + ended(m.a, game.a_outcome) + ended(m.b, game.b_outcome);
+  return ended(m.a, game.a_outcome) + ended(m.b, game.b_outcome);
+}
+
+/** scoreText writes a game's cultures as "250–200", the winner's first when b won, with how it ended. */
+function scoreText(m: MatchResultView, game: BlitzPlayedGame): string {
+  const score = m.result === 'b' ? `${game.b_culture}–${game.a_culture}` : `${game.a_culture}–${game.b_culture}`;
+  return score + endings(m, game);
+}
+
+/** namedScores writes each player's culture by name ("Ann 250, Cy 200"), for a game whose result a ruling replaced. */
+function namedScores(m: MatchResultView, game: BlitzPlayedGame): string {
+  return `${m.a} ${game.a_culture}, ${m.b ?? '?'} ${game.b_culture}` + endings(m, game);
 }
 
 /** drawnGame says whether a game ended level: both players finished on the same culture. */
@@ -22,7 +32,7 @@ function drawnGame(g: BlitzPlayedGame): boolean {
   return g.a_outcome === 'finished' && g.b_outcome === 'finished' && g.a_culture === g.b_culture;
 }
 
-/** resultSummary says how a match ended: "bye", "" while undecided, else who won (or a draw, or a double loss), the score, "by ruling" when the organisers overruled a game, "by forfeit" when they decided it with no game played, and who went through as the higher seed when a knockout game was drawn. */
+/** resultSummary says how a match ended: "bye", "" while undecided, else who won (or a draw, or a double loss), the score with the winner's first, "by ruling" when the organisers overruled a game, "by forfeit" when they decided it with no game played, and who went through as the higher seed when a knockout game was drawn. */
 export function resultSummary(m: MatchResultView): string {
   if (m.b === null) return 'bye';
   if (m.result === null) return '';
@@ -31,7 +41,7 @@ export function resultSummary(m: MatchResultView): string {
     return `Draw ${scoreText(m, m.game)}: ${m.result === 'a' ? m.a : m.b} through as the higher seed`;
   }
   if (!m.ruled) return m.game === null ? who : `${who} ${scoreText(m, m.game)}`;
-  if (m.game !== null) return `${who} by ruling (game ${scoreText(m, m.game)})`;
+  if (m.game !== null) return `${who} by ruling (game: ${namedScores(m, m.game)})`;
   return { a: `${m.a} won by forfeit`, b: `${m.b} won by forfeit`, draw: 'Draw by ruling', double_loss: 'Both forfeited' }[m.result];
 }
 

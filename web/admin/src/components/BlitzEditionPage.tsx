@@ -3,7 +3,8 @@ import { Fragment, useEffect, useState, type FormEvent } from 'react';
 import Segmented from '@ttac/shared/Segmented';
 import BackLink from '@ttac/shared/BackLink';
 import { useDialog } from '@ttac/shared/Dialog';
-import SubTabs from '@ttac/shared/SubTabs';
+import SubTabs, { useHash } from '@ttac/shared/SubTabs';
+import { hashTab } from '@ttac/shared/tabs';
 import { formatLabel, offsetLabel, resultSummary, roundShown, roundSummary, roundTitle, scoringSentence, seededName, turnMark, turnOrder } from '@ttac/shared/blitz';
 import { formatInstant } from '@ttac/shared/time';
 import { adminDownload, adminRequest, firstError, type AdminBlitzEdition, type AdminMe, type BlitzEntrantIds, type Load } from '../lib/admin-api';
@@ -856,7 +857,7 @@ type View = 'rounds' | 'entrants' | 'standings';
 
 /** EditionTabs shows one of the format and rounds, the entrants (with the form to add one first) or the standings, chosen by its tabs, the site's sub tabs. */
 function EditionTabs(props: Props) {
-  const [view, setView] = useState<View | null>(null);
+  const [hash, setHash] = useHash();
   return (
     <section className="rating-card admin-card" aria-label="Rounds, entrants and standings">
       <SubTabs<View>
@@ -884,8 +885,8 @@ function EditionTabs(props: Props) {
           },
           { value: 'standings', label: 'Standings', panel: <StandingsPanel standings={props.ed.standings} scoring={scoringSentence(props.ed.points, props.ed.fide_points)} /> },
         ]}
-        chosen={view}
-        onChoose={setView}
+        chosen={hashTab<View>(['rounds', 'entrants', 'standings'], hash)}
+        onChoose={setHash}
       />
     </section>
   );
