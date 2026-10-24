@@ -624,8 +624,7 @@ function PositionSeatStats({
                 {overall.strongest_seat.player_count}P {seatName(overall.strongest_seat.seat)}
               </strong>
               <span className="delta-tag delta-pos">
-                {overall.strongest_seat.delta_win_rate >= 0 ? '+' : ''}
-                {overall.strongest_seat.delta_win_rate.toFixed(1)}% vs Format
+                {signedDelta(overall.strongest_seat.delta_win_rate)}% vs Format
               </span>
             </div>
           )}
@@ -636,8 +635,7 @@ function PositionSeatStats({
                 {overall.weakest_seat.player_count}P {seatName(overall.weakest_seat.seat)}
               </strong>
               <span className="delta-tag delta-neg">
-                {overall.weakest_seat.delta_win_rate >= 0 ? '+' : ''}
-                {overall.weakest_seat.delta_win_rate.toFixed(1)}% vs Format
+                {signedDelta(overall.weakest_seat.delta_win_rate)}% vs Format
               </span>
             </div>
           )}
@@ -698,8 +696,7 @@ function PositionSeatStats({
                       <td>
                         {row.games > 0 ? (
                           <span className={`seat-delta-badge ${deltaClass}`}>
-                            {row.delta_win_rate > 0 ? '+' : ''}
-                            {row.delta_win_rate.toFixed(1)}%
+                            {signedDelta(row.delta_win_rate)}%
                           </span>
                         ) : (
                           '—'
