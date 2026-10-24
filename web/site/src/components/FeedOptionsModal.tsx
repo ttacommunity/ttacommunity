@@ -265,6 +265,7 @@ export default function FeedOptionsModal({
             value=""
             placeholder="Search and add competitor..."
             onSearch={addPlayer}
+            clearOnSearch
           />
 
           <div className="player-tags-container" aria-label="Selected competitors">
