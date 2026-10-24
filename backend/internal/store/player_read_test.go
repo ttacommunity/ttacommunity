@@ -271,6 +271,73 @@ func TestPlayerMatchesPagesTheRunsGamesNewestFirst(t *testing.T) {
 	}
 }
 
+func TestPlayerTakesGamesAsTheRunRatedThem(t *testing.T) {
+	pool := migrated(t)
+	r := NewRatingsReader(asReader(t, pool))
+	ctx := context.Background()
+	run := publishedRun(t, pool)
+	addPlayers(t, pool, "ann", "bob", "cy")
+	addGame(t, pool, run, "2025-01-05", "Duel", Seat{"ann", 9}, Seat{"bob", 5})
+	fixed := addGame(t, pool, run, "2025-01-10", "Trio", Seat{"ann", 9}, Seat{"bob", 5}, Seat{"cy", 1})
+	if _, err := pool.Exec(ctx, "UPDATE games SET date = '2025-03-01' WHERE game_id = $1", fixed); err != nil {
+		t.Fatalf("moving the game after the run: %v", err)
+	}
+	if _, err := pool.Exec(ctx, "DELETE FROM seats WHERE game_id = $1 AND player_name = 'cy'", fixed); err != nil {
+		t.Fatalf("removing a seat after the run: %v", err)
+	}
+
+	p, err := r.Player(ctx, run, "ann")
+	if err != nil {
+		t.Fatalf("Player: %v", err)
+	}
+	if want := map[int]int{0: 2, 2: 1, 3: 1}; fmt.Sprint(p.Games) != fmt.Sprint(want) {
+		t.Errorf("games = %v, want %v (the run's formats)", p.Games, want)
+	}
+	if p.LastPlayed == nil || !p.LastPlayed.Equal(day("2025-01-10")) {
+		t.Errorf("last played = %v, want the run's 2025-01-10", p.LastPlayed)
+	}
+
+	_, page, err := r.PlayerMatches(ctx, run, "ann", 3, 1)
+	if err != nil {
+		t.Fatalf("PlayerMatches: %v", err)
+	}
+	if page.Total != 1 || len(page.Matches) != 1 || page.Matches[0].ID != fixed {
+		t.Fatalf("3P games = %+v, want the trio as the run rated it", page)
+	}
+	if m := page.Matches[0]; !m.Date.Equal(day("2025-01-10")) || m.PlayerCount != 3 {
+		t.Errorf("trio = %v, %dP; want the run's 2025-01-10, 3P", m.Date, m.PlayerCount)
+	}
+}
+
+func TestVersusTakesGamesAsTheRunRatedThem(t *testing.T) {
+	pool := migrated(t)
+	r := NewRatingsReader(asReader(t, pool))
+	ctx := context.Background()
+	run := publishedRun(t, pool)
+	addPlayers(t, pool, "ann", "bob", "cy")
+	duel := addGame(t, pool, run, "2025-01-05", "Duel", Seat{"ann", 9}, Seat{"bob", 5})
+	trio := addGame(t, pool, run, "2025-01-10", "Trio", Seat{"ann", 9}, Seat{"bob", 5}, Seat{"cy", 1})
+	if _, err := pool.Exec(ctx, "UPDATE games SET date = '2025-03-01' WHERE game_id = $1", duel); err != nil {
+		t.Fatalf("moving the game after the run: %v", err)
+	}
+	if _, err := pool.Exec(ctx, "DELETE FROM seats WHERE game_id = $1 AND player_name = 'cy'", trio); err != nil {
+		t.Fatalf("removing a seat after the run: %v", err)
+	}
+
+	_, _, games, err := r.Versus(ctx, run, "ann", "bob")
+	if err != nil {
+		t.Fatalf("Versus: %v", err)
+	}
+	var got []string
+	for _, g := range games {
+		got = append(got, fmt.Sprintf("%d %s %dP", g.ID, g.Date.Format(time.DateOnly), g.PlayerCount))
+	}
+	want := []string{fmt.Sprintf("%d 2025-01-10 3P", trio), fmt.Sprintf("%d 2025-01-05 2P", duel)}
+	if !slices.Equal(got, want) {
+		t.Errorf("shared games = %q, want %q (the run's dates and formats, newest first)", got, want)
+	}
+}
+
 func TestHiddenNamesFindsDeletedAndBannedAccountsIgnoringCase(t *testing.T) {
 	pool := migrated(t)
 	addPlayers(t, pool, "ann", "bob", "cy")
@@ -894,6 +961,7 @@ func TestPlayerSeats(t *testing.T) {
 
 	// 3P unrated game (run=0): ann seat 1 wins outright
 	addGame(t, pool, 0, "2026-01-04", "Exhibition", Seat{"ann", 200}, Seat{"bob", 150}, Seat{"cyd", 100})
+	withSeatStats(t, pool, run)
 
 	// 1. Rated only
 	ratedStats, err := r.PlayerSeats(ctx, run, "ann", false)
@@ -920,6 +988,27 @@ func TestPlayerSeats(t *testing.T) {
 	}
 	if allStats.Overall.TotalGames != 4 || allStats.Overall.TotalWins != 2 || allStats.Overall.TotalDraws != 1 {
 		t.Errorf("all games total: games %d, wins %d, draws %d; want 4, 2, 1", allStats.Overall.TotalGames, allStats.Overall.TotalWins, allStats.Overall.TotalDraws)
+	}
+}
+
+func TestPlayerSeatsAreTheRunsCount(t *testing.T) {
+	pool := migrated(t)
+	r := NewRatingsReader(asReader(t, pool))
+	ctx := context.Background()
+	run := publishedRun(t, pool)
+	addPlayers(t, pool, "ann", "bob")
+	duel := addGame(t, pool, run, "2026-01-01", "Duel", Seat{"ann", 150}, Seat{"bob", 100})
+	withSeatStats(t, pool, run)
+	if _, err := pool.Exec(ctx, "UPDATE seats SET place = 1 WHERE game_id = $1", duel); err != nil {
+		t.Fatalf("sharing first place after the run: %v", err)
+	}
+
+	got, err := r.PlayerSeats(ctx, run, "ann", false)
+	if err != nil {
+		t.Fatalf("PlayerSeats: %v", err)
+	}
+	if got.Overall.TotalWins != 1 || got.Overall.TotalDraws != 0 {
+		t.Errorf("wins %d, draws %d; want the run's 1 win, 0 draws", got.Overall.TotalWins, got.Overall.TotalDraws)
 	}
 }
 

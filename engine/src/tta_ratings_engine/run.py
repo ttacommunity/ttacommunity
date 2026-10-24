@@ -17,6 +17,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 
 import psycopg
+from psycopg import sql
 from psycopg.types.json import Jsonb
 
 from tta_ratings_engine.data.badges import derive_tournament_badges
@@ -24,6 +25,7 @@ from tta_ratings_engine.data.catalogue import derive_catalogue
 from tta_ratings_engine.data.community import derive_community
 from tta_ratings_engine.data.db import connect
 from tta_ratings_engine.data.pairwise import expand_pairwise
+from tta_ratings_engine.data.seat_stats import derive_seat_stats
 from tta_ratings_engine.data.tournaments import derive_tournaments
 from tta_ratings_engine.data.year_records import derive_year_records
 from tta_ratings_engine.models.evaluation.standard_eval import (
@@ -92,8 +94,16 @@ RESULT_TABLES = [
     "tournament_records",
     "catalogue_spans",
     "player_year_records",
+    "player_seat_stats",
 ]
 
+
+# A run's partition of each run table (the trigger on rating_runs adds them), as t, and the table, as parent.
+RUN_PARTITIONS = (
+    "SELECT c.relname AS t, i.inhparent::regclass::text AS parent "
+    "FROM pg_class c JOIN pg_inherits i ON i.inhrelid = c.oid "
+    "WHERE c.relispartition AND pg_get_expr(c.relpartbound, c.oid) = format('FOR VALUES IN (%%L)', %s::bigint)"
+)
 
 # What a completed run records about its input, for the site's header and footer.
 RUN_STATS = ["games", "players", "pairs", "first_game", "last_game", "result_rows"]
@@ -110,7 +120,7 @@ RECOMPUTED_TABLES = [
     "tournament_games", "tournament_standings", "tournament_boards", "tournament_season_records",
     "tournament_series", "tournament_legends", "tournament_achievements", "tournament_records",
     "community_event_points", "community_edition_points", "community_rankings", "catalogue_spans",
-    "player_year_records",
+    "player_year_records", "player_seat_stats",
 ]  # fmt: skip
 
 
@@ -319,6 +329,7 @@ def run(
         log(f"run {run_id}: failed")
         raise
 
+    _vacuum_run(conn, run_id)
     with conn.transaction():
         _record_stats(conn, run_id)
         _record_rows(conn, run_id)
@@ -327,6 +338,7 @@ def run(
             _publish(conn, run_id, clock())
     close_progress()
     log(f"run {run_id}: complete" + (", and now current" if make_current else ""))
+    _prewarm_current(conn, ranking_id, log)
     return run_id
 
 
@@ -375,6 +387,7 @@ def _compute(conn, run_id, formats, log):
     progress.working_on("pairs")
     with Heartbeat(progress):
         expand_pairwise(conn, run_id)
+        derive_seat_stats(conn=conn, run_id=run_id)
         months = {fmt: eval_months(conn, run_id, fmt) for fmt in formats}
         progress.total = 1 + 2 * len(MODELS) * len(formats) + 2 + sum(months.values())
         progress.total_cost = (
@@ -490,6 +503,7 @@ def _compute_parallel(conn, run_id, formats, log, workers, url):
     progress.working_on("pairs")
     with Heartbeat(progress):
         expand_pairwise(conn, run_id)
+        derive_seat_stats(conn=conn, run_id=run_id)
         months = {fmt: eval_months(conn, run_id, fmt) for fmt in formats}
         tasks = _tasks(formats)
         progress.total = 1 + len(tasks) + 1  # tournaments and titles are reported apart
@@ -588,6 +602,7 @@ def _recompute_tournaments(conn, run_id, source, log):
     pair_columns = _columns(conn, "pairwise_matches", ("run_id", "pairwise_id"))
     if _pairs_md5(conn, run_id, pair_columns) != _pairs_md5(conn, source, pair_columns):
         raise MatchesChanged(f"the matches changed since run {source}: make a full run")
+    derive_seat_stats(conn=conn, run_id=run_id)
     progress.advance("pairs", 1, "pairs")
 
     progress.working_on("copy")
@@ -605,11 +620,29 @@ def _recompute_tournaments(conn, run_id, source, log):
     derive_tournaments(**on_run)
     derive_community(**on_run)
     derive_catalogue(**on_run)
+    derive_year_records(**on_run)
     progress.advance("tournaments", 1, "tournaments")
     progress.working_on("titles")
     derive_tournament_badges(**on_run)
     progress.advance("titles", 1, "titles")
     progress.summary()
+
+
+def _vacuum_run(conn, run_id):
+    """Vacuums and analyses the run's partition of each run table, so player pages read its rows from their
+    indexes alone, planned with fresh statistics, before the run can be published. Runs outside a transaction."""
+    for r in conn.execute(RUN_PARTITIONS, (run_id,)).fetchall():
+        conn.execute(sql.SQL("VACUUM (ANALYZE) {}").format(sql.Identifier(r["t"])))
+
+
+def _prewarm_current(conn, ranking_id, log):
+    """Loads the ranking's current run's player pages into the database's memory, which a run's writes evict."""
+    row = conn.execute(
+        "SELECT run_id, prewarm_player_pages(run_id) AS blocks FROM current_run WHERE ranking_id = %s",
+        (ranking_id,),
+    ).fetchone()
+    if row:
+        log(f"run {row['run_id']}'s player pages prewarmed: {row['blocks']} blocks")
 
 
 def _record_stats(conn, run_id):
@@ -630,20 +663,17 @@ def _record_stats(conn, run_id):
 
 
 def _record_rows(conn, run_id):
-    """Records the run's rows in each table whose rows go with their run, their bytes, and with the run's share
-    of the tables' indexes what it takes on disk, for admin's sizes."""
-    tables = conn.execute(
-        "SELECT conrelid::regclass::text AS t FROM pg_constraint "
-        "WHERE confrelid = 'rating_runs'::regclass AND contype = 'f' AND confdeltype = 'c'"
-    ).fetchall()
+    """Records the run's rows in each run table, their bytes, and what its partitions take on disk with their
+    indexes, for admin's sizes."""
     sizes = {
-        r["t"]: conn.execute(
-            f"SELECT count(*) AS n, coalesce(sum(pg_column_size(t.*)), 0) AS b, "
-            f"(SELECT count(*) FROM {r['t']}) AS total, pg_indexes_size(%s::regclass) AS idx "
-            f"FROM {r['t']} t WHERE run_id = %s",
-            (r["t"], run_id),
+        p["parent"]: conn.execute(
+            sql.SQL(
+                "SELECT count(*) AS n, coalesce(sum(pg_column_size(t.*)), 0) AS b, "
+                "pg_total_relation_size(%s::regclass) AS disk FROM {} t"
+            ).format(sql.Identifier(p["t"])),
+            (p["t"],),
         ).fetchone()
-        for r in tables
+        for p in conn.execute(RUN_PARTITIONS, (run_id,)).fetchall()
     }
     conn.execute(
         "UPDATE rating_runs SET result_rows = %s, result_bytes = %s, disk_bytes = %s "
@@ -651,10 +681,7 @@ def _record_rows(conn, run_id):
         (
             Jsonb({t: s["n"] for t, s in sizes.items()}),
             sum(s["b"] for s in sizes.values()),
-            sum(
-                s["b"] + (s["idx"] * s["n"] // s["total"] if s["total"] else 0)
-                for s in sizes.values()
-            ),
+            sum(s["disk"] for s in sizes.values()),
             run_id,
         ),
     )

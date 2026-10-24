@@ -80,8 +80,21 @@ func (s *server) PostAdminRunPublish(ctx context.Context, req PostAdminRunPublis
 	if err := s.admins.Audit(ctx, me.DiscordID, "run.publish", fmt.Sprint(req.Run), map[string]any{}); err != nil {
 		return nil, err
 	}
+	go func(run int64) {
+		ctx, cancel := context.WithTimeout(context.Background(), prewarmTimeout)
+		defer cancel()
+		blocks, err := s.admins.PrewarmPlayerPages(ctx, run)
+		if err != nil {
+			s.log.Warn("prewarming the published run failed; its player pages load as they are visited", "run", run, "err", err)
+			return
+		}
+		s.log.Info("prewarmed the published run's player pages", "run", run, "blocks", blocks)
+	}(req.Run)
 	return PostAdminRunPublish204Response{}, nil
 }
+
+// prewarmTimeout bounds the background prewarm after a publish: a run's player pages are a few hundred MB.
+const prewarmTimeout = 10 * time.Minute
 
 func (s *server) GetAdminRunChanges(ctx context.Context, req GetAdminRunChangesRequestObject) (GetAdminRunChangesResponseObject, error) {
 	if _, ok, err := adminOnly(ctx); err != nil || !ok {

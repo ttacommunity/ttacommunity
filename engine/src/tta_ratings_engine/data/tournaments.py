@@ -708,7 +708,11 @@ def derive_tournaments(*, conn: DictConnection, run_id: int) -> None:
             "COPY tournament_records (run_id, player_name, position, tournament, season, "
             "division, placement, points, medal, details, finish_date, career) FROM STDIN"
         ) as copy:
-            for r in player_record_rows:
+            # A player's records written together, so their page reads a few blocks rather than one per record.
+            for r in sorted(
+                player_record_rows,
+                key=lambda r: (r["player_name"].lower(), r["position"]),
+            ):
                 copy.write_row(
                     (run_id, r["player_name"], r["position"], r["tournament"], r["season"],
                      r["division"], r["placement"], r["points"], r["medal"], r["details"],

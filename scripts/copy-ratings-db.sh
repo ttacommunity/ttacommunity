@@ -14,14 +14,16 @@ trap 'rm -f "$dump" "$list"' EXIT
 
 inputs_sql=$(sed "s/.*/'&'/" "$inputs_file" | paste -sd, -)
 [ -n "$inputs_sql" ] || { echo "copy-ratings-db.sh: $inputs_file lists no input tables" >&2; exit 1; }
-run_tables=$(q -d "$src" -c "SELECT string_agg(table_name, ' ' ORDER BY table_name) FROM information_schema.tables
-  WHERE table_schema = 'public' AND table_type = 'BASE TABLE' AND table_name NOT IN ('goose_db_version', $inputs_sql)")
+# A run table's partitions (one per run) go with it.
+run_tables=$(q -d "$src" -c "SELECT string_agg(relname, ' ' ORDER BY relname) FROM pg_class
+  WHERE relnamespace = 'public'::regnamespace AND relkind IN ('r', 'p') AND NOT relispartition
+    AND relname NOT IN ('goose_db_version', $inputs_sql)")
 without=$(q -d "$src" -c "SELECT string_agg(t, ' ') FROM unnest(string_to_array('$run_tables', ' ')) t
   WHERE NOT EXISTS (SELECT FROM information_schema.columns c WHERE c.table_schema = 'public' AND c.table_name = t AND c.column_name = 'run_id')")
 [ -z "$without" ] || { echo "copy-ratings-db.sh: not inputs, yet no run_id: $without" >&2; exit 1; }
 exclude=""
 if [ "$mode" != all-runs ]; then
-  for t in $run_tables; do exclude="$exclude --exclude-table-data=public.$t"; done
+  for t in $run_tables; do exclude="$exclude --exclude-table-data-and-children=public.$t"; done
 fi
 run=""
 if [ "$mode" = latest-run ]; then
@@ -31,8 +33,9 @@ fi
 
 # shellcheck disable=SC2086
 pg_dump -Fc -U "$PGSU" -d "$src" $exclude -f "$dump"
-# The source owner's default privileges cannot be set by the target's owner, who gets its own.
-pg_restore -l "$dump" | grep -v "DEFAULT ACL" > "$list"
+# The source owner's default privileges cannot be set by the target's owner, who gets its own, nor can it create an
+# extension (seed-dev-db.sh --prewarm does, as the superuser).
+pg_restore -l "$dump" | grep -v -e "DEFAULT ACL" -e " EXTENSION " > "$list"
 pg_restore --exit-on-error --no-owner --role="$owner" -L "$list" --section=pre-data --section=data -U "$PGSU" -d "$dst" "$dump"
 
 if [ -n "$run" ]; then
@@ -46,3 +49,19 @@ if [ -n "$run" ]; then
   q -d "$dst" -c "UPDATE rating_runs SET copied_from = NULL"
 fi
 pg_restore --exit-on-error --no-owner --role="$owner" -L "$list" --section=post-data -U "$PGSU" -d "$dst" "$dump"
+
+# Partitions of the runs left out are empty; delete_run would never reach them.
+q -d "$dst" <<'SQL'
+DO $$
+DECLARE
+    p regclass;
+BEGIN
+    FOR p IN SELECT c.oid::regclass FROM pg_class c
+             WHERE c.relnamespace = 'public'::regnamespace AND c.relkind = 'r' AND c.relispartition
+               AND NOT EXISTS (SELECT 1 FROM rating_runs r
+                               WHERE pg_get_expr(c.relpartbound, c.oid) = format('FOR VALUES IN (%L)', r.run_id)) LOOP
+        EXECUTE format('DROP TABLE %s', p);
+    END LOOP;
+END
+$$;
+SQL

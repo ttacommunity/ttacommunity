@@ -34,6 +34,22 @@ func TestRunsListsNewestFirstWithProgressAndTheCurrentRun(t *testing.T) {
 	}
 }
 
+func TestPrewarmPlayerPagesLoadsARunsPagesForAdminOnly(t *testing.T) {
+	pool := migrated(t)
+	ctx := context.Background()
+	run := publishedRun(t, pool)
+	addPlayers(t, pool, "ann", "bob")
+	addGame(t, pool, run, "2026-01-01", "Duel", Seat{"ann", 150}, Seat{"bob", 100})
+
+	blocks, err := NewAdminStore(asAdminLogin(t, pool)).PrewarmPlayerPages(ctx, run)
+	if err != nil || blocks == 0 {
+		t.Errorf("PrewarmPlayerPages(%d) = %d, %v; want blocks loaded", run, blocks, err)
+	}
+	if _, err := asReader(t, pool).Exec(ctx, "SELECT prewarm_player_pages($1)", run); err == nil {
+		t.Error("the read login prewarmed a run, want permission denied")
+	}
+}
+
 func TestPublishMakesACompleteRunCurrentAndRefusesOthers(t *testing.T) {
 	pool := migrated(t)
 	ctx := context.Background()

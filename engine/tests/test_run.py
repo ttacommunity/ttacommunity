@@ -184,6 +184,24 @@ def test_a_run_is_not_published_unless_asked(conn, add_match):
     assert current(conn) is None
 
 
+def prewarmed(lines):
+    return [line for line in lines if "player pages prewarmed" in line]
+
+
+def test_a_run_ends_by_prewarming_the_current_runs_player_pages(conn, add_match):
+    season(add_match)
+    first, second = [], []
+
+    unpublished = run(conn, "v1", formats=[2], log=first.append)
+    published = run(conn, "v1", formats=[2], log=second.append, make_current=True)
+
+    assert unpublished != published
+    assert prewarmed(first) == []  # nothing is current yet
+    [line] = prewarmed(second)
+    assert line.startswith(f"run {published}'s player pages prewarmed: ")
+    assert int(line.split(": ")[1].split()[0]) > 0
+
+
 def test_a_run_can_be_published_when_it_completes(conn, add_match):
     season(add_match)
 
@@ -358,6 +376,18 @@ def test_a_tournaments_only_run_copies_the_ratings_and_recomputes_tournaments(
         ("Bob", 1)
     ]  # the recorded place replaces the derived one
     assert count(conn, "player_titles", fast) == count(conn, "player_titles", full)
+
+
+def test_a_tournaments_only_run_counts_the_year_records(conn, add_match):
+    season(add_match)
+    full = run(conn, "v1", formats=[2], log=lambda _: None, make_current=True)
+
+    fast = run(conn, "v2", tournaments_only=True, log=lambda _: None)
+
+    assert count(conn, "player_year_records", full) > 0
+    assert rows_of(conn, "player_year_records", fast) == rows_of(
+        conn, "player_year_records", full
+    )
 
 
 def test_a_tournaments_only_run_refuses_changed_matches(conn, add_match):
@@ -740,7 +770,7 @@ def run_tables(conn):
         r["t"]
         for r in conn.execute(
             "SELECT conrelid::regclass::text AS t FROM pg_constraint "
-            "WHERE confrelid = 'rating_runs'::regclass AND contype = 'f' AND confdeltype = 'c'"
+            "WHERE confrelid = 'rating_runs'::regclass AND contype = 'f' AND confdeltype = 'c' AND conparentid = 0"
         ).fetchall()
     ]
 
@@ -766,6 +796,25 @@ def test_a_run_records_the_rows_it_wrote_to_each_table(conn, add_match, kind):
     }
 
 
+@pytest.mark.parametrize("kind", ["full", "parallel", "tournaments only"])
+def test_a_run_counts_its_players_seats(conn, db_url, add_match, kind):
+    season(add_match)
+    run_id = run(
+        conn, "v1", formats=[2], log=lambda _: None, make_current=True,
+        workers=2 if kind == "parallel" else 1, url=db_url,
+    )  # fmt: skip
+    if kind == "tournaments only":
+        run_id = run(conn, "v2", tournaments_only=True, log=lambda _: None)
+
+    got = conn.execute(
+        "SELECT games, wins FROM player_seat_stats WHERE run_id = %s AND player_name = 'Ann' "
+        "AND player_count = 2 AND seat = 1",
+        (run_id,),
+    ).fetchone()
+
+    assert got == {"games": 2, "wins": 2}
+
+
 def recorded_bytes(conn, run_id):
     return conn.execute(
         "SELECT result_bytes, disk_bytes FROM rating_runs WHERE run_id = %s", (run_id,)
@@ -773,14 +822,13 @@ def recorded_bytes(conn, run_id):
 
 
 def table_bytes(conn, table, run_id):
-    """Returns the bytes of the run's rows in table, and with its share of the table's indexes."""
+    """Returns the bytes of the run's rows in table, and what the run's partition of it takes on disk."""
     r = conn.execute(
-        f"SELECT coalesce(sum(pg_column_size(t.*)), 0) AS b, count(*) AS n, "
-        f"(SELECT count(*) FROM {table}) AS total, pg_indexes_size(%s::regclass) AS idx "
+        f"SELECT coalesce(sum(pg_column_size(t.*)), 0) AS b, pg_total_relation_size(%s::regclass) AS disk "
         f"FROM {table} t WHERE run_id = %s",
-        (table, run_id),
+        (f"{table}_run{run_id}", run_id),
     ).fetchone()
-    return r["b"], r["b"] + (r["idx"] * r["n"] // r["total"] if r["total"] else 0)
+    return r["b"], r["disk"]
 
 
 @pytest.mark.parametrize("kind", ["full", "tournaments only"])
@@ -969,3 +1017,23 @@ def test_ratings_converge_on_true_strength(
         f"seed {seed}, {months} months of {games} games: want correlation >= {min_correlation} "
         f"and RD <= {max_rd} for all {len(strength)} players; got " + "; ".join(wrong)
     )
+
+
+def manual_vacuums(conn, table):
+    conn.execute("SELECT pg_stat_clear_snapshot()")
+    row = conn.execute(
+        "SELECT vacuum_count FROM pg_stat_user_tables WHERE relname = %s", (table,)
+    ).fetchone()
+    return row and row["vacuum_count"]
+
+
+@pytest.mark.parametrize("kind", ["full", "tournaments only"])
+def test_a_run_vacuums_its_partition_of_every_run_table(conn, add_match, kind):
+    season(add_match)
+    run_id = run(conn, "v1", formats=[2], log=lambda _: None, make_current=True)
+    if kind == "tournaments only":
+        run_id = run(conn, "v2", tournaments_only=True, log=lambda _: None)
+
+    assert {t: manual_vacuums(conn, f"{t}_run{run_id}") for t in run_tables(conn)} == {
+        t: 1 for t in run_tables(conn)
+    }

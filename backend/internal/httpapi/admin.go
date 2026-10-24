@@ -57,6 +57,8 @@ type Admins interface {
 	StartDeleteRun(ctx context.Context, run int64, engineGoing bool) error
 	DeleteRun(ctx context.Context, run int64) error
 	Publish(ctx context.Context, run int64) error
+	// PrewarmPlayerPages loads a run's player pages into the database's memory and returns the blocks loaded.
+	PrewarmPlayerPages(ctx context.Context, run int64) (int64, error)
 	RunChanges(ctx context.Context, run, before int64) (store.RunChanges, error)
 	// StartRun starts the engine now and returns its Job's name, or enginejob.ErrRunning or ErrNotSetUp.
 	StartRun(ctx context.Context) (string, error)
