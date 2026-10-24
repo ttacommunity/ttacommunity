@@ -620,6 +620,7 @@ def _recompute_tournaments(conn, run_id, source, log):
     derive_tournaments(**on_run)
     derive_community(**on_run)
     derive_catalogue(**on_run)
+    derive_year_records(**on_run)
     progress.advance("tournaments", 1, "tournaments")
     progress.working_on("titles")
     derive_tournament_badges(**on_run)

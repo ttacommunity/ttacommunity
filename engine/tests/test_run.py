@@ -378,6 +378,18 @@ def test_a_tournaments_only_run_copies_the_ratings_and_recomputes_tournaments(
     assert count(conn, "player_titles", fast) == count(conn, "player_titles", full)
 
 
+def test_a_tournaments_only_run_counts_the_year_records(conn, add_match):
+    season(add_match)
+    full = run(conn, "v1", formats=[2], log=lambda _: None, make_current=True)
+
+    fast = run(conn, "v2", tournaments_only=True, log=lambda _: None)
+
+    assert count(conn, "player_year_records", full) > 0
+    assert rows_of(conn, "player_year_records", fast) == rows_of(
+        conn, "player_year_records", full
+    )
+
+
 def test_a_tournaments_only_run_refuses_changed_matches(conn, add_match):
     season(add_match)
     full = run(conn, "v1", formats=[2], log=lambda _: None, make_current=True)
