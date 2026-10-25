@@ -219,7 +219,8 @@ func recoverPanics(next http.Handler, mux *http.ServeMux, log *slog.Logger) http
 				panic(v)
 			}
 			if v != nil {
-				log.Error("handler panicked", "route", routeOf(mux, r), "request_id", requestID(r.Context()), "panic", fmt.Sprint(v), "stack", string(debug.Stack()))
+				// The value's type only: a database error's text can carry its host and user.
+				log.Error("handler panicked", "route", routeOf(mux, r), "request_id", requestID(r.Context()), "panic", fmt.Sprintf("%T", v), "stack", string(debug.Stack()))
 				serverError(w, r)
 			}
 		}()

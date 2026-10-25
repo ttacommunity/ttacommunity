@@ -603,8 +603,8 @@ func TestRecoverPanics(t *testing.T) {
 		wantCode int
 		wantLog  string
 	}{
-		{"panic with an error", func(http.ResponseWriter, *http.Request) { panic(errors.New("kaboom")) }, http.StatusInternalServerError, "kaboom"},
-		{"panic with a string", func(http.ResponseWriter, *http.Request) { panic("kaboom") }, http.StatusInternalServerError, "kaboom"},
+		{"panic with an error", func(http.ResponseWriter, *http.Request) { panic(errors.New("dial db.internal.test as ratings_admin")) }, http.StatusInternalServerError, `"panic":"*errors.errorString"`},
+		{"panic with a string", func(http.ResponseWriter, *http.Request) { panic("dial db.internal.test as ratings_admin") }, http.StatusInternalServerError, `"panic":"string"`},
 		{"no panic", func(w http.ResponseWriter, _ *http.Request) { w.WriteHeader(http.StatusTeapot) }, http.StatusTeapot, ""},
 	}
 	for _, tt := range tests {
@@ -633,8 +633,8 @@ func TestRecoverPanics(t *testing.T) {
 			if !strings.Contains(logs, `"route":"GET /boom/{name}"`) || !strings.Contains(logs, tt.wantLog) {
 				t.Errorf("log = %q, want the route and %q", logs, tt.wantLog)
 			}
-			if strings.Contains(logs, "Someplayer") || strings.Contains(logs, "203.0.113.9") {
-				t.Errorf("log = %q, carries the path or the client IP", logs)
+			if strings.Contains(logs, "Someplayer") || strings.Contains(logs, "203.0.113.9") || strings.Contains(logs, "db.internal.test") {
+				t.Errorf("log = %q, carries the path, the client IP or the panic's text", logs)
 			}
 			var line struct{ Stack string }
 			if err := json.Unmarshal(buf.Bytes(), &line); err != nil || !strings.Contains(line.Stack, "httpapi_test.go") {
