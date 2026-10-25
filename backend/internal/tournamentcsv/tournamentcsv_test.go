@@ -34,8 +34,12 @@ func FuzzReaders(f *testing.F) {
 		check(t, "ReadCorrections", ReadCorrections, in)
 		check(t, "ReadFinishDates", ReadFinishDates, in)
 		check(t, "ReadHonours", ReadHonours, in)
-		check(t, "ReadCommunityStandings", ReadCommunityStandings, in)
-		check(t, "ReadCommunityScores", ReadCommunityScores, in)
+		check(t, "ReadCommunityStandings", func(f string, r io.Reader) (Result[Standing], error) {
+			return ReadCommunityStandings(f, r, editions)
+		}, in)
+		check(t, "ReadCommunityScores", func(f string, r io.Reader) (Result[Score], error) {
+			return ReadCommunityScores(f, r, editions)
+		}, in)
 		check(t, "ReadCGETournaments", ReadCGETournaments, in)
 		check(t, "ReadCGEStandings", ReadCGEStandings, in)
 		check(t, "ReadCommunityLadders", ReadCommunityLadders, in)

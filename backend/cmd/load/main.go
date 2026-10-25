@@ -356,8 +356,8 @@ func btoi(b bool) int {
 	return 0
 }
 
-// replaceFacts reads the file first, then replaces every recorded fact of
-// one kind in one transaction, after applying any pending migration.
+// replaceFacts reads the file, then replaces every recorded fact of one kind
+// in one transaction, after applying any pending migration.
 func replaceFacts(kind, file string) error {
 	switch kind {
 	case "divisions":
@@ -385,9 +385,9 @@ func replaceFacts(kind, file string) error {
 	case "season_notes":
 		return loadFacts(kind, file, tournamentcsv.ReadSeasonNotes, store.ReplaceSeasonNotes)
 	case "community":
-		return loadFacts(kind, file, tournamentcsv.ReadCommunityStandings, store.ReplaceCommunityStandings)
+		return loadCommunityFacts(kind, file, tournamentcsv.ReadCommunityStandings, store.ReplaceCommunityStandings)
 	case "community_scores":
-		return loadFacts(kind, file, tournamentcsv.ReadCommunityScores, store.ReplaceCommunityScores)
+		return loadCommunityFacts(kind, file, tournamentcsv.ReadCommunityScores, store.ReplaceCommunityScores)
 	case "community_points":
 		return loadFacts(kind, file, tournamentcsv.ReadCommunityPoints, store.ReplaceCommunityPoints)
 	case "community_quarters":
@@ -403,10 +403,6 @@ func loadFacts[T any](
 	read func(string, io.Reader) (tournamentcsv.Result[T], error),
 	replace func(context.Context, *pgxpool.Pool, []T) (store.FactsReplaced, error),
 ) error {
-	dbURL := os.Getenv("RATINGS_DATABASE_URL")
-	if dbURL == "" {
-		return fmt.Errorf("RATINGS_DATABASE_URL is not set")
-	}
 	f, err := os.Open(file)
 	if err != nil {
 		return fmt.Errorf("opening %s: %w", file, err)
@@ -416,7 +412,43 @@ func loadFacts[T any](
 	if err != nil {
 		return err
 	}
+	return withRatings(func(ctx context.Context, pool *pgxpool.Pool) error {
+		replaced, err := replace(ctx, pool, res.Facts)
+		if err != nil {
+			return err
+		}
+		reportFacts(os.Stdout, kind, file, res.Rows, res.Refused, replaced)
+		return nil
+	})
+}
 
+// loadCommunityFacts is loadFacts for a community file, which refuses a row
+// naming an edition the database does not hold.
+func loadCommunityFacts[T any](
+	kind, file string,
+	read func(string, io.Reader, []string) (tournamentcsv.Result[T], error),
+	replace func(context.Context, *pgxpool.Pool, []T) (store.FactsReplaced, error),
+) error {
+	var editions []string
+	err := withRatings(func(ctx context.Context, pool *pgxpool.Pool) (err error) {
+		editions, err = store.CommunityEditionSlugs(ctx, pool)
+		return err
+	})
+	if err != nil {
+		return err
+	}
+	return loadFacts(kind, file, func(f string, r io.Reader) (tournamentcsv.Result[T], error) {
+		return read(f, r, editions)
+	}, replace)
+}
+
+// withRatings opens the ratings database, applies any pending migration, and
+// runs fn with it.
+func withRatings(fn func(context.Context, *pgxpool.Pool) error) error {
+	dbURL := os.Getenv("RATINGS_DATABASE_URL")
+	if dbURL == "" {
+		return fmt.Errorf("RATINGS_DATABASE_URL is not set")
+	}
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 	pool, err := pgxpool.New(ctx, dbURL)
@@ -427,12 +459,7 @@ func loadFacts[T any](
 	if err := store.MigrateRatings(ctx, pool); err != nil {
 		return err
 	}
-	replaced, err := replace(ctx, pool, res.Facts)
-	if err != nil {
-		return err
-	}
-	reportFacts(os.Stdout, kind, file, res.Rows, res.Refused, replaced)
-	return nil
+	return fn(ctx, pool)
 }
 
 // reportFacts writes what was read and written. It names the file, lines

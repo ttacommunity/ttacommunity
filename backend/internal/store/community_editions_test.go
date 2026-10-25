@@ -254,3 +254,22 @@ func TestCommunityLeaderboardLayoutFallsBackToTheRecordedPodiumOfItsYear(t *test
 		t.Errorf("champion = %q, %q; want bob, World Champion (2024): the latest podium up to 2025", got.Info.WC, got.Info.WCDesc)
 	}
 }
+
+func TestCommunityEditionSlugsListsEveryEdition(t *testing.T) {
+	ctx := context.Background()
+	pool := migrated(t)
+	a := NewAdminStore(asAdminLogin(t, pool))
+	hidden := CommunityEdition{Slug: "2031", Name: "Invented 2031", Title: "Invented 2031", ShortName: "2031", Year: 2031, CountingEvents: 5}
+	if err := a.CreateCommunityEdition(ctx, hidden); err != nil {
+		t.Fatalf("CreateCommunityEdition: %v", err)
+	}
+	got, err := CommunityEditionSlugs(ctx, pool)
+	if err != nil {
+		t.Fatalf("CommunityEditionSlugs: %v", err)
+	}
+	for _, want := range []string{"2024", "race26", "2031"} {
+		if !slices.Contains(got, want) {
+			t.Errorf("CommunityEditionSlugs() = %q, want it to hold %q", got, want)
+		}
+	}
+}
