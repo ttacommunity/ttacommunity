@@ -1,5 +1,6 @@
 /** What both sites say about a blitz tournament: a zone's offset, a format, its points, how a match's result and turn order read, how a folded round is summed up, how a round and a seeded player are named, and how the standings share places. */
 import type { components } from '../api/schema';
+import type { SortColumns } from './sort';
 
 export type BlitzFormat = components['schemas']['BlitzFormat'];
 export type BlitzResult = components['schemas']['BlitzResult'];
@@ -197,3 +198,15 @@ export function byFinish<T extends { name: string; place_from: number }>(standin
     })
     .map(({ s }) => s);
 }
+
+export type BlitzStanding = components['schemas']['BlitzStanding'];
+
+/** STANDING_COLUMNS are the standings tables' sortable columns, on the site and in admin. */
+export const STANDING_COLUMNS: SortColumns<BlitzStanding, 'place' | 'player' | 'points' | 'played' | 'byes' | 'buchholz'> = {
+  place: { value: (s) => s.place_from, first: 'asc' },
+  player: { value: (s) => s.name, first: 'asc' },
+  points: { value: (s) => s.points, first: 'desc' },
+  played: { value: (s) => s.games, first: 'desc' },
+  byes: { value: (s) => s.byes, first: 'desc' },
+  buchholz: { value: (s) => s.buchholz, first: 'desc' },
+};

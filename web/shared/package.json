@@ -17,7 +17,9 @@
     "./SubTabs": "./src/SubTabs.tsx",
     "./BackLink": "./src/BackLink.tsx",
     "./Dialog": "./src/Dialog.tsx",
-    "./tabs": "./src/tabs.ts"
+    "./tabs": "./src/tabs.ts",
+    "./sort": "./src/sort.ts",
+    "./SortHeader": "./src/SortHeader.tsx"
   },
   "devDependencies": {
     "openapi-typescript": "7.13.0",

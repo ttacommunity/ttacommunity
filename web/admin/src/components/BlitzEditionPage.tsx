@@ -4,8 +4,9 @@ import Segmented from '@ttac/shared/Segmented';
 import BackLink from '@ttac/shared/BackLink';
 import { useDialog } from '@ttac/shared/Dialog';
 import SubTabs, { useHash } from '@ttac/shared/SubTabs';
+import SortHeader, { useSort } from '@ttac/shared/SortHeader';
 import { hashTab } from '@ttac/shared/tabs';
-import { byFinish, formatLabel, latestFinishes, offsetLabel, placeLabel, resultSummary, roundShown, roundSummary, roundTitle, scoringSentence, seededName, turnMark, turnOrder } from '@ttac/shared/blitz';
+import { STANDING_COLUMNS, byFinish, formatLabel, latestFinishes, offsetLabel, placeLabel, resultSummary, roundShown, roundSummary, roundTitle, scoringSentence, seededName, turnMark, turnOrder } from '@ttac/shared/blitz';
 import { formatInstant } from '@ttac/shared/time';
 import { adminDownload, adminRequest, firstError, type AdminBlitzEdition, type AdminMe, type BlitzEntrantIds, type Load } from '../lib/admin-api';
 import * as req from '../lib/admin-requests';
@@ -1488,6 +1489,7 @@ function ReplaceForm({ at, round, match, out, ed, nameOf, onDone, onCancel }: Re
 
 /** StandingsPanel shows the standings as the site does, in the order given: how the edition scores, then place, points, games played, byes and Buchholz, dropped players last. */
 function StandingsPanel({ standings, scoring }: { standings: BlitzStanding[]; scoring: string }) {
+  const [rows, sort, sortBy] = useSort(standings, STANDING_COLUMNS);
   return (
     <>
       <p className="muted">
@@ -1504,16 +1506,28 @@ function StandingsPanel({ standings, scoring }: { standings: BlitzStanding[]; sc
             <caption className="visually-hidden">The standings</caption>
             <thead>
               <tr>
-                <th scope="col">Rank</th>
-                <th scope="col">Player</th>
-                <th scope="col">Points</th>
-                <th scope="col">Played</th>
-                <th scope="col">Byes</th>
-                <th scope="col">Buchholz</th>
+                <SortHeader col="place" sort={sort} onSort={sortBy}>
+                  Rank
+                </SortHeader>
+                <SortHeader col="player" sort={sort} onSort={sortBy}>
+                  Player
+                </SortHeader>
+                <SortHeader col="points" sort={sort} onSort={sortBy}>
+                  Points
+                </SortHeader>
+                <SortHeader col="played" sort={sort} onSort={sortBy}>
+                  Played
+                </SortHeader>
+                <SortHeader col="byes" sort={sort} onSort={sortBy}>
+                  Byes
+                </SortHeader>
+                <SortHeader col="buchholz" sort={sort} onSort={sortBy}>
+                  Buchholz
+                </SortHeader>
               </tr>
             </thead>
             <tbody>
-              {standings.map((s) => (
+              {rows.map((s) => (
                 <tr key={s.name} className={s.status === 'dropped' ? 'muted' : ''}>
                   <td>{placeLabel(s)}</td>
                   <th scope="row">

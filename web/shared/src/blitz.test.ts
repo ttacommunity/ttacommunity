@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { byFinish, formatLabel, knockoutStage, latestFinishes, placeLabel, offsetLabel, pointsList, pointsText, reachedLabel, resultSummary, resultTag, roundShown, roundSummary, roundTitle, scoringSentence, seededName, turnMark, turnOrder, zoneLabel, type BlitzPlayedGame } from './blitz';
+import { STANDING_COLUMNS, byFinish, formatLabel, knockoutStage, latestFinishes, placeLabel, offsetLabel, pointsList, pointsText, reachedLabel, resultSummary, resultTag, roundShown, roundSummary, roundTitle, scoringSentence, seededName, turnMark, turnOrder, zoneLabel, type BlitzPlayedGame } from './blitz';
+import { sortRows } from './sort';
 
 const game = (aCulture: number, bCulture: number, aOutcome: BlitzPlayedGame['a_outcome'] = 'finished', bOutcome: BlitzPlayedGame['b_outcome'] = 'finished'): BlitzPlayedGame => ({
   share_code: 'ABCD1234',
@@ -232,5 +233,18 @@ describe('byFinish', () => {
     ['never across places', [row('Ann', 1), row('Bo', 2)], ['Ann', 'Bo']],
   ] as const)('keeps %s', (_name, rows, want) => {
     expect(byFinish(rows, finished).map((r) => r.name)).toEqual(want);
+  });
+});
+
+describe('STANDING_COLUMNS', () => {
+  const standing = (name: string, place: number, points: number, buchholz: number) => ({ rank: place, place_from: place, place_to: place, name, country: null, points, games: 1, byes: 0, buchholz, status: 'active' as const });
+  const rows = [standing('cy', 1, 2, 1), standing('Ann', 2, 1, 3), standing('bo', 3, 1, 2)];
+  it.each([
+    ['place', { col: 'place', desc: false }, ['cy', 'Ann', 'bo']],
+    ['player', { col: 'player', desc: false }, ['Ann', 'bo', 'cy']],
+    ['points', { col: 'points', desc: true }, ['cy', 'Ann', 'bo']],
+    ['buchholz', { col: 'buchholz', desc: true }, ['Ann', 'bo', 'cy']],
+  ] as const)('sorts the standings by %s', (_name, sort, want) => {
+    expect(sortRows(rows, STANDING_COLUMNS, sort).map((r) => r.name)).toEqual(want);
   });
 });

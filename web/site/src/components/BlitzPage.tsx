@@ -2,7 +2,8 @@
 import { useEffect, useState, type ReactNode } from 'react';
 import { RatingsApiError, blitzEdition, blitzEditions, type BlitzEdition, type BlitzEditions } from '@ttac/shared/ratings';
 import type { components } from '@ttac/shared/api';
-import { byFinish, formatLabel, latestFinishes, placeLabel, reachedLabel, scoringSentence, zoneLabel } from '@ttac/shared/blitz';
+import { STANDING_COLUMNS, byFinish, formatLabel, latestFinishes, placeLabel, reachedLabel, scoringSentence, zoneLabel } from '@ttac/shared/blitz';
+import SortHeader, { useSort } from '@ttac/shared/SortHeader';
 import BackLink from '@ttac/shared/BackLink';
 import SubTabs, { useHash } from '@ttac/shared/SubTabs';
 import { hashTab } from '@ttac/shared/tabs';
@@ -200,6 +201,7 @@ function EditionPage({ apiUrl, slug, edition }: { apiUrl: string; slug: string; 
 
 /** StandingsPanel shows the standings, in the order given, with how the edition scores and how ties are broken. */
 function StandingsPanel({ standings, scoring }: { standings: BlitzStanding[]; scoring: string }) {
+  const [rows, sort, sortBy] = useSort(standings, STANDING_COLUMNS);
   return (
     <section aria-labelledby="blitz-standings">
       <h2 id="blitz-standings" className="rating-card-heading">
@@ -217,26 +219,28 @@ function StandingsPanel({ standings, scoring }: { standings: BlitzStanding[]; sc
           <caption>The standings after the results recorded so far</caption>
           <thead>
             <tr>
-              <th scope="col" className="num">
+              <SortHeader col="place" sort={sort} onSort={sortBy} className="num">
                 Rank
-              </th>
-              <th scope="col">Player</th>
-              <th scope="col" className="num">
+              </SortHeader>
+              <SortHeader col="player" sort={sort} onSort={sortBy}>
+                Player
+              </SortHeader>
+              <SortHeader col="points" sort={sort} onSort={sortBy} className="num">
                 Points
-              </th>
-              <th scope="col" className="num">
+              </SortHeader>
+              <SortHeader col="played" sort={sort} onSort={sortBy} className="num">
                 Played
-              </th>
-              <th scope="col" className="num">
+              </SortHeader>
+              <SortHeader col="byes" sort={sort} onSort={sortBy} className="num">
                 Byes
-              </th>
-              <th scope="col" className="num">
+              </SortHeader>
+              <SortHeader col="buchholz" sort={sort} onSort={sortBy} className="num">
                 Buchholz
-              </th>
+              </SortHeader>
             </tr>
           </thead>
           <tbody>
-            {standings.map((s) => (
+            {rows.map((s) => (
               <tr key={s.name} className={s.status === 'dropped' ? 'blitz-dropped' : ''}>
                 <td className="num">{placeLabel(s)}</td>
                 <th scope="row">
