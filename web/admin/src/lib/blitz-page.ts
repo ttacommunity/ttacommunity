@@ -1,6 +1,7 @@
-/** The blitz edition page's decisions: the edition the address names, its address, advice on its format, its points summed up and changed, and its settings summed up. */
+/** The blitz edition page's decisions: the edition the address names, its address, advice on its format, its points summed up and changed, its settings summed up, and how its tables sort. */
 import type { components } from '@ttac/shared/api';
-import { formatLabel, pointsList, type BlitzPoints } from '@ttac/shared/blitz';
+import { EDITION_COLUMNS, ENTRANT_COLUMNS, formatLabel, pointsList, type BlitzPoints, type EditionRow, type EntrantRow } from '@ttac/shared/blitz';
+import type { SortColumns } from '@ttac/shared/sort';
 import { organisersSummary, threadTextSummary } from './blitz-threads';
 
 type Schemas = components['schemas'];
@@ -80,3 +81,19 @@ export function settingsRows(ed: {
     { key: 'Thread text', value: threadTextSummary(ed.thread_text) },
   ];
 }
+
+/** ADMIN_ENTRANT_COLUMNS are the entrants table's sortable columns: the site's, then Discord name, email, country, status and skips, an empty value last. */
+export const ADMIN_ENTRANT_COLUMNS: SortColumns<EntrantRow & { discord_name: string; email: string; country: string | null; status: string; skips: readonly number[] }, 'player' | 'zone' | 'rating' | 'discord' | 'email' | 'country' | 'status' | 'skips'> = {
+  ...ENTRANT_COLUMNS,
+  discord: { value: (e) => (e.discord_name === '' ? null : e.discord_name), first: 'asc' },
+  email: { value: (e) => (e.email === '' ? null : e.email), first: 'asc' },
+  country: { value: (e) => e.country, first: 'asc' },
+  status: { value: (e) => e.status, first: 'asc' },
+  skips: { value: (e) => e.skips.length, first: 'desc' },
+};
+
+/** ADMIN_EDITION_COLUMNS are admin's editions list's sortable columns: the site's, and how many dropped out. */
+export const ADMIN_EDITION_COLUMNS: SortColumns<EditionRow & { dropped: number }, 'tournament' | 'edition' | 'format' | 'reached' | 'players' | 'dropped'> = {
+  ...EDITION_COLUMNS,
+  dropped: { value: (e) => e.dropped, first: 'desc' },
+};

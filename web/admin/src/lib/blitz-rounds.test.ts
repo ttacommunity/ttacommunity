@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { byeTakers, canDeleteRound, finishRounds, canResetEdition, entrantActions, entrantState, resetsOf, partnersFor, leftUnpaired, pairCounts, reconcilePending, replaceableSide, canPair, decidedOnly, nextRound, openRound, pairAction, flaggedMatches, reportNote, rulingChoices, rulingLabel, newestFirst, samePairs, shownAfter, undecided, unpaired, unsavedMatch, zoneGapLabel, type AdminBlitzRound } from './blitz-rounds';
+import { byeTakers, canDeleteRound, finishRounds, flaggedColumns, matchColumns, canResetEdition, entrantActions, entrantState, resetsOf, partnersFor, leftUnpaired, pairCounts, reconcilePending, replaceableSide, canPair, decidedOnly, nextRound, openRound, pairAction, flaggedMatches, reportNote, rulingChoices, rulingLabel, newestFirst, samePairs, shownAfter, undecided, unpaired, unsavedMatch, zoneGapLabel, type AdminBlitzRound } from './blitz-rounds';
+import { sortRows } from '@ttac/shared/sort';
 
 const round = (id: number, number: number, published: boolean, matches: AdminBlitzRound['matches']): AdminBlitzRound => ({
   id,
@@ -399,5 +400,45 @@ describe('finishRounds', () => {
     ['nothing of a draft', [round(2, 2, false, [{ ...match(20, 1, 2, 'a'), game }])], []],
   ] as const)('keeps %s', (_name, rounds, want) => {
     expect(finishRounds(rounds, names)).toEqual(want);
+  });
+});
+
+describe('matchColumns', () => {
+  const names: Record<number, string> = { 1: 'cy', 2: 'Ann', 3: 'bo', 4: 'di' };
+  const ratings: Record<number, number | null> = { 1: 1500, 2: null, 3: 1800, 4: 1600 };
+  const columns = matchColumns(
+    (id) => names[id],
+    (id) => ratings[id],
+  );
+  const rows = [
+    { m: { ...match(10, 1, 2, 'a'), zone_gap_minutes: 120, rating_gap: null, decided_at: '2026-10-15T09:00:00Z' }, i: 0 },
+    { m: { ...match(11, 3, 4), zone_gap_minutes: 0, rating_gap: 200 }, i: 1 },
+    { m: { ...match(12, 4, null), decided_at: null }, i: 2 },
+  ];
+  it.each([
+    ['player', { col: 'player', desc: false }, [11, 10, 12]],
+    ['opponent, the bye last', { col: 'opponent', desc: false }, [10, 11, 12]],
+    ['the player rating, the highest first, unrated last', { col: 'rating', desc: true }, [11, 12, 10]],
+    ['the opponent rating, the bye last', { col: 'opponentRating', desc: true }, [11, 10, 12]],
+    ['clocks, the closest first, the bye last', { col: 'clocks', desc: false }, [11, 10, 12]],
+    ['the rating gap, the widest first', { col: 'gap', desc: true }, [11, 10, 12]],
+    ['the result, the latest decided first, undecided last', { col: 'result', desc: true }, [10, 11, 12]],
+  ] as const)('sorts a round by %s', (_name, sort, want) => {
+    expect(sortRows(rows, columns, sort).map((r) => r.m.id)).toEqual(want);
+  });
+});
+
+describe('flaggedColumns', () => {
+  const columns = flaggedColumns((id) => ({ 1: 'cy', 2: 'Ann', 3: 'bo', 4: 'di' })[id] ?? '?');
+  const rows = [
+    { round: round(2, 2, true, []), match: { ...match(20, 1, 2, 'a'), decided_at: '2026-10-20T09:00:00Z' } },
+    { round: round(1, 1, true, []), match: { ...match(10, 3, 4, 'b'), decided_at: '2026-10-21T09:00:00Z' } },
+  ];
+  it.each([
+    ['round', { col: 'round', desc: false }, [10, 20]],
+    ['game, by its players', { col: 'game', desc: false }, [10, 20]],
+    ['the result, the latest decided first', { col: 'result', desc: true }, [10, 20]],
+  ] as const)('sorts the flagged reports by %s', (_name, sort, want) => {
+    expect(sortRows(rows, columns, sort).map((r) => r.match.id)).toEqual(want);
   });
 });

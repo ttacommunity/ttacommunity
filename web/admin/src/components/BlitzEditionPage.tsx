@@ -5,20 +5,21 @@ import BackLink from '@ttac/shared/BackLink';
 import { useDialog } from '@ttac/shared/Dialog';
 import SubTabs, { useHash } from '@ttac/shared/SubTabs';
 import SortHeader, { useSort } from '@ttac/shared/SortHeader';
+import { nextSort, sortRows, type Sort } from '@ttac/shared/sort';
 import { hashTab } from '@ttac/shared/tabs';
-import { STANDING_COLUMNS, byFinish, formatLabel, latestFinishes, offsetLabel, placeLabel, resultSummary, roundShown, roundSummary, roundTitle, scoringSentence, seededName, turnMark, turnOrder } from '@ttac/shared/blitz';
+import { ENTRANT_COLUMNS, STANDING_COLUMNS, byFinish, formatLabel, latestFinishes, offsetLabel, placeLabel, resultSummary, roundShown, roundSummary, roundTitle, scoringSentence, seededName, turnMark, turnOrder } from '@ttac/shared/blitz';
 import { formatInstant } from '@ttac/shared/time';
 import { adminDownload, adminRequest, firstError, type AdminBlitzEdition, type AdminMe, type BlitzEntrantIds, type Load } from '../lib/admin-api';
 import * as req from '../lib/admin-requests';
 import { tabsFor } from '../lib/admin-tabs';
-import { editionFormatWarnings, editionParams, formatAdvice, pointsChanged, pointsForm, pointsFrom, settingsRows, type AdminBlitzEntrant, type PointsForm } from '../lib/blitz-page';
+import { ADMIN_ENTRANT_COLUMNS, editionFormatWarnings, editionParams, formatAdvice, pointsChanged, pointsForm, pointsFrom, settingsRows, type AdminBlitzEntrant, type PointsForm } from '../lib/blitz-page';
 import { chooseTurn, emptyGameForm, gameRecordFrom, TURNS, type BlitzStanding, type GameForm } from '@ttac/shared/game-form';
 import { deadlineForm, deadlineLabel, deadlineLocked, organiserChoices, threadTextSavable, threadsBlocker, threadsFileName, type DeadlineForm, type ThreadText } from '../lib/blitz-threads';
 import { entrantToAdd, wildcardChoices, type PersonChoice, type PersonDetails } from '../lib/person-form';
 import { countryNames, type Country } from '../lib/countries';
 import { clockIn, type Region } from '../lib/zones';
 import { loadFailure, outcomeOf, refused, shownAt, succeeded, type Outcome } from '../lib/outcome';
-import { asChanges, byeTakers, canDeleteRound, canResetEdition, decidedOnly, finishRounds, resetsOf, entrantActions, entrantState, leftUnpaired, newestFirst, openRound, flaggedMatches, pairAction, pairCounts, partnersFor, reconcilePending, replaceableSide, reportNote, rulingChoices, rulingLabel, samePairs, shownAfter, unpaired, unsavedMatch, zoneGapLabel, type AdminBlitzMatch, type AdminBlitzRound, type Pending } from '../lib/blitz-rounds';
+import { asChanges, byeTakers, canDeleteRound, canResetEdition, decidedOnly, finishRounds, flaggedColumns, matchColumns, type MatchColumn, resetsOf, entrantActions, entrantState, leftUnpaired, newestFirst, openRound, flaggedMatches, pairAction, pairCounts, partnersFor, reconcilePending, replaceableSide, reportNote, rulingChoices, rulingLabel, samePairs, shownAfter, unpaired, unsavedMatch, zoneGapLabel, type AdminBlitzMatch, type AdminBlitzRound, type Pending } from '../lib/blitz-rounds';
 import AdminHeader from './AdminHeader';
 import CountryPick from './CountryPick';
 import InfoTip from './InfoTip';
@@ -117,6 +118,7 @@ function FlaggedResults({ at, ed, regions, onReload, outcome, say }: Omit<Props,
   const nameOf = (id: number) => byId.get(id)?.name ?? `entrant ${id}`;
   const pairOf = (m: AdminBlitzMatch) => `${nameOf(m.a)} v ${nameOf(m.b as number)}`;
   const view = (m: AdminBlitzMatch) => ({ a: nameOf(m.a), b: nameOf(m.b as number), result: m.result, game: m.game, ruled: m.ruling !== '' });
+  const [flaggedRows, flaggedSort, sortFlagged] = useSort(flagged, flaggedColumns(nameOf));
   const run = async (r: req.Request, done: string) => {
     say(outcomeOf(await req.send(r), done, 'flagged'));
     await onReload();
@@ -145,16 +147,22 @@ function FlaggedResults({ at, ed, regions, onReload, outcome, say }: Omit<Props,
             <caption className="visually-hidden">Reports flagged by a player, oldest round first</caption>
             <thead>
               <tr>
-                <th scope="col">Round</th>
-                <th scope="col">Game</th>
-                <th scope="col">Reported result</th>
+                <SortHeader col="round" sort={flaggedSort} onSort={sortFlagged}>
+                  Round
+                </SortHeader>
+                <SortHeader col="game" sort={flaggedSort} onSort={sortFlagged}>
+                  Game
+                </SortHeader>
+                <SortHeader col="result" sort={flaggedSort} onSort={sortFlagged}>
+                  Reported result
+                </SortHeader>
                 <th scope="col">
                   <span className="visually-hidden">Actions</span>
                 </th>
               </tr>
             </thead>
             <tbody>
-              {flagged.map(({ round: r, match: m }) => (
+              {flaggedRows.map(({ round: r, match: m }) => (
                 <Fragment key={m.id}>
                   <tr>
                     <td>{roundTitle(r.number, ed.format)}</td>
@@ -222,6 +230,7 @@ type RoundView = 'round' | 'unpaired';
 
 /** UnpairedList shows the open round's unpaired players, with what pairing them by hand needs: rating and time zone. */
 function UnpairedList({ round, players }: { round: number; players: readonly AdminBlitzEntrant[] }) {
+  const [rows, sort, sortBy] = useSort(players, ENTRANT_COLUMNS);
   if (players.length === 0) return <p className="muted">Everyone is paired.</p>;
   return (
     <div className="table-responsive">
@@ -229,13 +238,19 @@ function UnpairedList({ round, players }: { round: number; players: readonly Adm
         <caption className="visually-hidden">Round {round}&apos;s unpaired players</caption>
         <thead>
           <tr>
-            <th scope="col">Player</th>
-            <th scope="col">Rating</th>
-            <th scope="col">Time zone</th>
+            <SortHeader col="player" sort={sort} onSort={sortBy}>
+              Player
+            </SortHeader>
+            <SortHeader col="rating" sort={sort} onSort={sortBy}>
+              Rating
+            </SortHeader>
+            <SortHeader col="zone" sort={sort} onSort={sortBy}>
+              Time zone
+            </SortHeader>
           </tr>
         </thead>
         <tbody>
-          {players.map((e) => (
+          {rows.map((e) => (
             <tr key={e.id}>
               <th scope="row">{e.name}</th>
               <td>{e.rating === null ? '–' : Math.round(e.rating)}</td>
@@ -274,6 +289,11 @@ function RoundsPanel({ at, ed, regions, onReload, outcome, say }: Props) {
     return r === null ? '–' : String(Math.round(r));
   };
   const open = openRound(ed.rounds);
+  const [matchSorts, setMatchSorts] = useState<Record<number, Sort<MatchColumn>>>({});
+  const matchCols = matchColumns(nameOf, (id) => byId.get(id)?.rating ?? null);
+  // A sorted row keeps i, its place in the round, which unpairing by hand goes by.
+  const sortedOf = (r: AdminBlitzRound) => sortRows(shownOf(r).map((m, i) => ({ m, i })), matchCols, matchSorts[r.id] ?? null);
+  const sortRound = (r: AdminBlitzRound) => (col: MatchColumn) => setMatchSorts((s) => ({ ...s, [r.id]: nextSort(s[r.id] ?? null, col, matchCols) }));
   // pending is the open round's matches as changed here and not yet saved, kept true to each reload (someone removed
   // drops out of it); null while the saved ones are shown.
   const [unsaved, setPending] = useState<Pending | null>(null);
@@ -511,20 +531,34 @@ function RoundsPanel({ at, ed, regions, onReload, outcome, say }: Props) {
                     <caption className="visually-hidden">Round {r.number}&apos;s matches</caption>
                     <thead>
                       <tr>
-                        <th scope="col">Player</th>
-                        <th scope="col">Rating</th>
-                        <th scope="col">Opponent</th>
-                        <th scope="col">Rating</th>
-                        <th scope="col">Clocks</th>
-                        <th scope="col">Rating gap</th>
-                        <th scope="col">Result</th>
+                        <SortHeader col="player" sort={matchSorts[r.id] ?? null} onSort={sortRound(r)}>
+                          Player
+                        </SortHeader>
+                        <SortHeader col="rating" sort={matchSorts[r.id] ?? null} onSort={sortRound(r)}>
+                          Rating
+                        </SortHeader>
+                        <SortHeader col="opponent" sort={matchSorts[r.id] ?? null} onSort={sortRound(r)}>
+                          Opponent
+                        </SortHeader>
+                        <SortHeader col="opponentRating" sort={matchSorts[r.id] ?? null} onSort={sortRound(r)}>
+                          Rating
+                        </SortHeader>
+                        <SortHeader col="clocks" sort={matchSorts[r.id] ?? null} onSort={sortRound(r)}>
+                          Clocks
+                        </SortHeader>
+                        <SortHeader col="gap" sort={matchSorts[r.id] ?? null} onSort={sortRound(r)}>
+                          Rating gap
+                        </SortHeader>
+                        <SortHeader col="result" sort={matchSorts[r.id] ?? null} onSort={sortRound(r)}>
+                          Result
+                        </SortHeader>
                         <th scope="col">
                           <span className="visually-hidden">Actions</span>
                         </th>
                       </tr>
                     </thead>
                     <tbody>
-                      {shownOf(r).map((m, i) => (
+                      {sortedOf(r).map(({ m, i }) => (
                         <Fragment key={m.id === 0 ? `new-${i}` : m.id}>
                           <tr className={m.repeat ? 'row-error' : ''}>
                             <th scope="row">{seededName(nameOf(m.a), m.a_seed)}</th>
@@ -659,6 +693,7 @@ function RoundsPanel({ at, ed, regions, onReload, outcome, say }: Props) {
 /** EntrantsPanel lists every entrant with what admin knows of them and where they stand in the newest round, and edits one, or removes, drops, reinstates one or has them skip the next round. */
 function EntrantsPanel({ at, ed, regions, countries, onReload, outcome, say }: Props) {
   const actions = (e: AdminBlitzEntrant) => entrantActions(e, ed);
+  const [entrants, sort, sortBy] = useSort(ed.entrants, ADMIN_ENTRANT_COLUMNS);
   const nameOf = (id: number) => ed.entrants.find((x) => x.id === id)?.name ?? `entrant ${id}`;
   const dialog = useDialog();
   const [editing, setEditing] = useState<{ id: number; discord_name: string; email: string; country: string; zone: string } | null>(null);
@@ -723,21 +758,37 @@ function EntrantsPanel({ at, ed, regions, countries, onReload, outcome, say }: P
             <caption className="visually-hidden">Every entrant, in sign-up order</caption>
             <thead>
               <tr>
-                <th scope="col">Username</th>
-                <th scope="col">Discord</th>
-                <th scope="col">Email</th>
-                <th scope="col">Country</th>
-                <th scope="col">Time zone</th>
-                <th scope="col">Rating</th>
-                <th scope="col">Status</th>
-                <th scope="col">Skips</th>
+                <SortHeader col="player" sort={sort} onSort={sortBy}>
+                  Username
+                </SortHeader>
+                <SortHeader col="discord" sort={sort} onSort={sortBy}>
+                  Discord
+                </SortHeader>
+                <SortHeader col="email" sort={sort} onSort={sortBy}>
+                  Email
+                </SortHeader>
+                <SortHeader col="country" sort={sort} onSort={sortBy}>
+                  Country
+                </SortHeader>
+                <SortHeader col="zone" sort={sort} onSort={sortBy}>
+                  Time zone
+                </SortHeader>
+                <SortHeader col="rating" sort={sort} onSort={sortBy}>
+                  Rating
+                </SortHeader>
+                <SortHeader col="status" sort={sort} onSort={sortBy}>
+                  Status
+                </SortHeader>
+                <SortHeader col="skips" sort={sort} onSort={sortBy}>
+                  Skips
+                </SortHeader>
                 <th scope="col">
                   <span className="visually-hidden">Actions</span>
                 </th>
               </tr>
             </thead>
             <tbody>
-              {ed.entrants.map((e) => (
+              {entrants.map((e) => (
                 <Fragment key={e.id}>
                   {editing?.id === e.id ? (
                     <tr>

@@ -1,6 +1,7 @@
 /** The rounds card's decisions: when a round can be paired, which round may still change, who is unpaired, the matches a change by hand produces, and the rounds the standings order by. */
 import type { components } from '@ttac/shared/api';
 import type { FinishRound } from '@ttac/shared/blitz';
+import type { SortColumns } from '@ttac/shared/sort';
 
 type Schemas = components['schemas'];
 export type AdminBlitzRound = Schemas['AdminBlitzRound'];
@@ -271,4 +272,29 @@ export function finishRounds(rounds: readonly AdminBlitzRound[], nameOf: (id: nu
   return rounds
     .filter((r) => r.published_at !== null)
     .map((r) => ({ number: r.number, kind: r.kind, matches: r.matches.map((m) => ({ a: nameOf(m.a), b: m.b === null ? null : nameOf(m.b), game: m.game })) }));
+}
+
+/** MatchColumn is a round's matches table's sortable column. */
+export type MatchColumn = 'player' | 'rating' | 'opponent' | 'opponentRating' | 'clocks' | 'gap' | 'result';
+
+/** matchColumns are a round's matches table's sortable columns, for a match at its place i in the round; a bye has no opponent, clocks or rating gap, and result sorts by when it was decided. */
+export function matchColumns(nameOf: (id: number) => string, ratingOf: (id: number) => number | null): SortColumns<{ m: AdminBlitzMatch; i: number }, MatchColumn> {
+  return {
+    player: { value: ({ m }) => nameOf(m.a), first: 'asc' },
+    rating: { value: ({ m }) => ratingOf(m.a), first: 'desc' },
+    opponent: { value: ({ m }) => (m.b === null ? null : nameOf(m.b)), first: 'asc' },
+    opponentRating: { value: ({ m }) => (m.b === null ? null : ratingOf(m.b)), first: 'desc' },
+    clocks: { value: ({ m }) => (m.b === null ? null : m.zone_gap_minutes), first: 'asc' },
+    gap: { value: ({ m }) => m.rating_gap, first: 'desc' },
+    result: { value: ({ m }) => m.decided_at, first: 'desc' },
+  };
+}
+
+/** flaggedColumns are the flagged reports table's sortable columns: the round, the game by its players, and when its result was decided. */
+export function flaggedColumns(nameOf: (id: number) => string): SortColumns<{ round: AdminBlitzRound; match: AdminBlitzMatch }, 'round' | 'game' | 'result'> {
+  return {
+    round: { value: ({ round, match }) => [round.number, match.id], first: 'asc' },
+    game: { value: ({ match }) => [nameOf(match.a), match.b === null ? null : nameOf(match.b)], first: 'asc' },
+    result: { value: ({ match }) => match.decided_at, first: 'desc' },
+  };
 }
