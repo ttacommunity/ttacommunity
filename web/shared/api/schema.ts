@@ -3152,6 +3152,13 @@ export interface components {
         /** @description One row of the standings */
         BlitzStanding: {
             rank: number;
+            /**
+             * @description The first rank of the place this row shares with the rows only the
+             *     edition's draw separates it from (equal points, direct encounter
+             *     and Buchholz); place_to is the last. Equal for a place held alone
+             */
+            place_from: number;
+            place_to: number;
             name: string;
             /** @description A two-letter country code, null for none */
             country: string | null;

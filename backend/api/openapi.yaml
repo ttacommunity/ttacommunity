@@ -4933,9 +4933,17 @@ components:
     BlitzStanding:
       description: One row of the standings
       type: object
-      required: [rank, name, country, points, games, byes, buchholz, status]
+      required: [rank, place_from, place_to, name, country, points, games, byes, buchholz, status]
       properties:
         rank:
+          type: integer
+        place_from:
+          description: |
+            The first rank of the place this row shares with the rows only the
+            edition's draw separates it from (equal points, direct encounter
+            and Buchholz); place_to is the last. Equal for a place held alone
+          type: integer
+        place_to:
           type: integer
         name:
           type: string

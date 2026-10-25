@@ -43,14 +43,16 @@ type Played struct {
 	Forfeit bool
 }
 
-// Standing is one row: the rank, points, games played (forfeits and byes aside), byes, Buchholz, and dropped.
+// Standing is one row: the rank, the place it shares with those only the draw separates it from (PlaceFrom to
+// PlaceTo), points, games played (forfeits and byes aside), byes, Buchholz, and dropped.
 type Standing struct {
-	ID          int64
-	Rank        int
-	Points      float64
-	Games, Byes int
-	Buchholz    float64
-	Dropped     bool
+	ID                 int64
+	Rank               int
+	PlaceFrom, PlaceTo int
+	Points             float64
+	Games, Byes        int
+	Buchholz           float64
+	Dropped            bool
 }
 
 // Scoring is what each outcome is worth, in points: a game won, drawn or lost (a ruled draw is a draw), a win or
@@ -98,7 +100,7 @@ func (s Scoring) points(m Played) (a, b float64, lostA, lostB bool) {
 // tie-breaks of FIDE's regulations for Swiss tournaments: Direct Encounter, then Buchholz, with unplayed rounds as its
 // Article 16 has them (rounds is the tournament's number of Swiss rounds); then by a draw from the seed, the same
 // every time.
-// Dropped players come last, their points kept. Ranks run 1, 2, 3…: a tie the draw broke reads like any other.
+// Dropped players come last, their points kept. Ranks run 1, 2, 3…; players only the draw separates share a place.
 func Standings(entrants []Entrant, matches []Played, rounds int, seed uint64, scoring Scoring) []Standing {
 	rows := map[int64]*Standing{}
 	skipped := map[int64][]int{}
@@ -233,6 +235,17 @@ func Standings(entrants []Entrant, matches []Played, rounds int, seed uint64, sc
 			})
 			for _, id := range tied {
 				out = append(out, *rows[id])
+			}
+			// Equal Buchholz leaves only the draw between them, so they share a place.
+			for start := len(out) - len(tied); start < len(out); {
+				end := start + 1
+				for end < len(out) && out[end].Buchholz == out[start].Buchholz {
+					end++
+				}
+				for i := start; i < end; i++ {
+					out[i].PlaceFrom, out[i].PlaceTo = start+1, end
+				}
+				start = end
 			}
 		}
 	}
