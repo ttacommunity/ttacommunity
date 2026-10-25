@@ -902,17 +902,6 @@
   text-align: left;
 }
 
-.sort-header {
-  padding: 0;
-  background: none;
-  border: none;
-  color: inherit;
-  font: inherit;
-  letter-spacing: inherit;
-  text-transform: inherit;
-  cursor: pointer;
-}
-
 .activity-table .country-rank {
   color: var(--text-muted);
   font-weight: 700;

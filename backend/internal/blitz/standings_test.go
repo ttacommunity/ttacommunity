@@ -362,3 +362,45 @@ func TestCheckScoringRefusesPointsOutOfRangeOrOrder(t *testing.T) {
 		})
 	}
 }
+
+func TestStandingsSharePlacesOnlyTheDrawSeparates(t *testing.T) {
+	tests := []struct {
+		name    string
+		players int64
+		matches []blitz.Played
+		want    map[int64][2]int
+	}{
+		{"before any result, everyone shares the first place", 4, nil,
+			map[int64][2]int{1: {1, 4}, 2: {1, 4}, 3: {1, 4}, 4: {1, 4}}},
+		{"after a round, the winners share the first places and the losers the next", 4,
+			[]blitz.Played{game(1, 1, 2, blitz.WinA), game(1, 3, 4, blitz.WinA)},
+			map[int64][2]int{1: {1, 2}, 3: {1, 2}, 2: {3, 4}, 4: {3, 4}}},
+		{"direct encounter separates two players level on points; a drawn encounter and equal Buchholz leave a shared place", 6,
+			[]blitz.Played{
+				game(1, 1, 2, blitz.WinA), game(1, 3, 4, blitz.Draw), game(1, 5, 6, blitz.WinA),
+				game(2, 3, 1, blitz.WinA), game(2, 2, 5, blitz.WinA), game(2, 6, 4, blitz.WinA),
+				game(3, 4, 1, blitz.WinA), game(3, 6, 2, blitz.WinA), game(3, 5, 3, blitz.WinA),
+			},
+			map[int64][2]int{1: {5, 5}, 2: {6, 6}, 3: {3, 4}, 4: {3, 4}}},
+		{"Buchholz separates two players level on points who have not met", 6,
+			[]blitz.Played{
+				forfeit(1, 1, 2, blitz.WinA), game(1, 3, 4, blitz.Draw), game(1, 5, 6, blitz.WinA),
+				game(2, 3, 1, blitz.WinA), game(2, 2, 5, blitz.WinA), game(2, 6, 4, blitz.WinA),
+				game(3, 4, 1, blitz.WinA), game(3, 6, 2, blitz.WinA), game(3, 5, 3, blitz.WinA),
+			},
+			map[int64][2]int{2: {5, 5}, 1: {6, 6}}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var entrants []blitz.Entrant
+			for id := range tt.players {
+				entrants = append(entrants, blitz.Entrant{ID: id + 1})
+			}
+			for _, s := range blitz.Standings(entrants, tt.matches, 8, 1, blitz.FIDEScoring) {
+				if want, ok := tt.want[s.ID]; ok && (s.PlaceFrom != want[0] || s.PlaceTo != want[1]) {
+					t.Errorf("player %d's place = %d–%d, want %d–%d", s.ID, s.PlaceFrom, s.PlaceTo, want[0], want[1])
+				}
+			}
+		})
+	}
+}

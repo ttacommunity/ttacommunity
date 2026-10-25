@@ -2,15 +2,17 @@
 import { useEffect, useState, type ReactNode } from 'react';
 import { RatingsApiError, blitzEdition, blitzEditions, type BlitzEdition, type BlitzEditions } from '@ttac/shared/ratings';
 import type { components } from '@ttac/shared/api';
-import { formatLabel, reachedLabel, scoringSentence, zoneLabel } from '@ttac/shared/blitz';
+import { EDITION_COLUMNS, ENTRANT_COLUMNS, STANDING_COLUMNS, byFinish, formatLabel, latestFinishes, placeLabel, reachedLabel, scoringSentence, zoneLabel } from '@ttac/shared/blitz';
+import SortHeader, { useSort } from '@ttac/shared/SortHeader';
+import { nextSort, type Sort } from '@ttac/shared/sort';
 import BackLink from '@ttac/shared/BackLink';
 import SubTabs, { useHash } from '@ttac/shared/SubTabs';
 import { hashTab } from '@ttac/shared/tabs';
-import { blitzGames, editionHref, editionParams, editionViews, notPlaying, ratingText, resultsUpdated, roundOptions, splitRounds, type BlitzGamesFilter, type EditionView } from '../lib/blitz';
+import { BLITZ_GAME_COLUMNS, blitzGames, editionHref, editionParams, editionViews, notPlaying, ratingText, resultsUpdated, roundOptions, splitRounds, type BlitzGamesFilter, type EditionView } from '../lib/blitz';
 import BlitzReport from './BlitzReport';
 import { yourRow, type MyBlitzMatch } from '../lib/blitz-report';
 import type { YourRow } from '../lib/blitz';
-import { gamesTag } from '../lib/games-table';
+import { gamesTag, type GamesColumn } from '../lib/games-table';
 import GamesTable, { GamesPages } from './GamesTable';
 import PlayerPicker from './PlayerPicker';
 import { catalogueHref } from '../lib/catalogue-view';
@@ -66,40 +68,54 @@ function BlitzList({ apiUrl }: { apiUrl: string }) {
             Tournaments
           </h2>
           {load.data.editions.length === 0 && <p className="muted">No blitz tournament is running yet.</p>}
-          {load.data.editions.length > 0 && (
-            <div className="blitz-table-wrap">
-              <table className="blitz-table">
-                <caption>Every blitz tournament, newest edition first</caption>
-                <thead>
-                  <tr>
-                    <th scope="col">Tournament</th>
-                    <th scope="col">Edition</th>
-                    <th scope="col">Format</th>
-                    <th scope="col">Reached</th>
-                    <th scope="col" className="num">
-                      Players
-                    </th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {load.data.editions.map((r) => (
-                    <tr key={`${r.tournament}/${r.edition}`}>
-                      <th scope="row">
-                        <a href={editionHref(r.tournament, r.edition)}>{r.name}</a>
-                      </th>
-                      <td>{r.edition}</td>
-                      <td>{formatLabel(r.format)}</td>
-                      <td>{reachedLabel(r.round, r.format, r.champion)}</td>
-                      <td className="num">{r.entrants}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
+          {load.data.editions.length > 0 && <EditionsTable editions={load.data.editions} />}
         </section>
       )}
     </>
+  );
+}
+
+/** EditionsTable lists every blitz edition, newest first, sortable by any column. */
+function EditionsTable({ editions }: { editions: BlitzEditions['editions'] }) {
+  const [rows, sort, sortBy] = useSort(editions, EDITION_COLUMNS);
+  return (
+    <div className="blitz-table-wrap">
+      <table className="blitz-table">
+        <caption>Every blitz tournament, newest edition first</caption>
+        <thead>
+          <tr>
+            <SortHeader col="tournament" sort={sort} onSort={sortBy}>
+              Tournament
+            </SortHeader>
+            <SortHeader col="edition" sort={sort} onSort={sortBy}>
+              Edition
+            </SortHeader>
+            <SortHeader col="format" sort={sort} onSort={sortBy}>
+              Format
+            </SortHeader>
+            <SortHeader col="reached" sort={sort} onSort={sortBy}>
+              Reached
+            </SortHeader>
+            <SortHeader col="players" sort={sort} onSort={sortBy} className="num">
+              Players
+            </SortHeader>
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((r) => (
+            <tr key={`${r.tournament}/${r.edition}`}>
+              <th scope="row">
+                <a href={editionHref(r.tournament, r.edition)}>{r.name}</a>
+              </th>
+              <td>{r.edition}</td>
+              <td>{formatLabel(r.format)}</td>
+              <td>{reachedLabel(r.round, r.format, r.champion)}</td>
+              <td className="num">{r.entrants}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
   );
 }
 
@@ -138,7 +154,7 @@ function EditionPage({ apiUrl, slug, edition }: { apiUrl: string; slug: string; 
   const countryOf = new Map(ed.standings.map((s) => [s.name, s.country]));
   const views = editionViews(ed.rounds);
   const panels: Record<EditionView, { label: string; panel: ReactNode }> = {
-    standings: { label: 'Standings', panel: <StandingsPanel standings={ed.standings} scoring={scoringSentence(ed.points, ed.fide_points)} /> },
+    standings: { label: 'Standings', panel: <StandingsPanel standings={byFinish(ed.standings, latestFinishes(ed.rounds))} scoring={scoringSentence(ed.points, ed.fide_points)} /> },
     pairings: { label: 'Pairings', panel: <PairingsPanel ed={ed} swiss={swiss} you={yourRow(mine)} /> },
     players: { label: 'Players', panel: <PlayersPanel entrants={ed.entrants} /> },
   };
@@ -183,12 +199,7 @@ function EditionPage({ apiUrl, slug, edition }: { apiUrl: string; slug: string; 
             and the winners of neighbouring matches meet next, through to the final. A drawn game sends the higher seed
             through.
           </p>
-          <GamesTable
-            caption="The knockout's games, first round to final"
-            context="Round"
-            rows={blitzGames(knockout, ed.format, { round: null, player: '', coded: false, page: 1 }, viewerZone(), yourRow(mine)).rows}
-            empty="No knockout games yet."
-          />
+          <KnockoutGames rounds={knockout} format={ed.format} you={yourRow(mine)} />
         </section>
       )}
       <section className="rating-card blitz-card" aria-label="Standings, pairings and players">
@@ -198,8 +209,9 @@ function EditionPage({ apiUrl, slug, edition }: { apiUrl: string; slug: string; 
   );
 }
 
-/** StandingsPanel shows the standings, with how the edition scores and how ties are broken. */
+/** StandingsPanel shows the standings, in the order given, with how the edition scores and how ties are broken. */
 function StandingsPanel({ standings, scoring }: { standings: BlitzStanding[]; scoring: string }) {
+  const [rows, sort, sortBy] = useSort(standings, STANDING_COLUMNS);
   return (
     <section aria-labelledby="blitz-standings">
       <h2 id="blitz-standings" className="rating-card-heading">
@@ -208,35 +220,39 @@ function StandingsPanel({ standings, scoring }: { standings: BlitzStanding[]; sc
       <p className="blitz-intro">
         {scoring} Ties are broken by the Swiss tie-breaks: Direct Encounter (the games
         among the tied players), then Buchholz (the sum of the opponents&apos; scores; a bye, a forfeit or a missed round
-        counts as a game against an opponent on the player&apos;s own score), then a draw fixed for the edition.
+        counts as a game against an opponent on the player&apos;s own score). Players still level share a place, such as
+        1–12, listed by when their game in the latest round finished; where one order is needed, as for the knockout, a
+        draw fixed for the edition decides.
       </p>
       <div className="blitz-table-wrap">
         <table className="blitz-table">
           <caption>The standings after the results recorded so far</caption>
           <thead>
             <tr>
-              <th scope="col" className="num">
+              <SortHeader col="place" sort={sort} onSort={sortBy} className="num">
                 Rank
-              </th>
-              <th scope="col">Player</th>
-              <th scope="col" className="num">
+              </SortHeader>
+              <SortHeader col="player" sort={sort} onSort={sortBy}>
+                Player
+              </SortHeader>
+              <SortHeader col="points" sort={sort} onSort={sortBy} className="num">
                 Points
-              </th>
-              <th scope="col" className="num">
+              </SortHeader>
+              <SortHeader col="played" sort={sort} onSort={sortBy} className="num">
                 Played
-              </th>
-              <th scope="col" className="num">
+              </SortHeader>
+              <SortHeader col="byes" sort={sort} onSort={sortBy} className="num">
                 Byes
-              </th>
-              <th scope="col" className="num">
+              </SortHeader>
+              <SortHeader col="buchholz" sort={sort} onSort={sortBy} className="num">
                 Buchholz
-              </th>
+              </SortHeader>
             </tr>
           </thead>
           <tbody>
-            {standings.map((s) => (
+            {rows.map((s) => (
               <tr key={s.name} className={s.status === 'dropped' ? 'blitz-dropped' : ''}>
-                <td className="num">{s.rank}</td>
+                <td className="num">{placeLabel(s)}</td>
                 <th scope="row">
                   <span className="blitz-flag">
                     <Flag country={s.country} />
@@ -259,6 +275,7 @@ function StandingsPanel({ standings, scoring }: { standings: BlitzStanding[]; sc
 
 /** PlayersPanel shows the entrants still in, in sign-up order, with their time zones and ratings. */
 function PlayersPanel({ entrants }: { entrants: BlitzEdition['entrants'] }) {
+  const [rows, sort, sortBy] = useSort(entrants, ENTRANT_COLUMNS);
   return (
     <section aria-labelledby="blitz-entrants">
       <h2 id="blitz-entrants" className="rating-card-heading">
@@ -271,15 +288,19 @@ function PlayersPanel({ entrants }: { entrants: BlitzEdition['entrants'] }) {
             <caption>The players still in, in sign-up order</caption>
             <thead>
               <tr>
-                <th scope="col">Player</th>
-                <th scope="col">Time zone</th>
-                <th scope="col" className="num">
+                <SortHeader col="player" sort={sort} onSort={sortBy}>
+                  Player
+                </SortHeader>
+                <SortHeader col="zone" sort={sort} onSort={sortBy}>
+                  Time zone
+                </SortHeader>
+                <SortHeader col="rating" sort={sort} onSort={sortBy} className="num">
                   Rating
-                </th>
+                </SortHeader>
               </tr>
             </thead>
             <tbody>
-              {entrants.map((e) => (
+              {rows.map((e) => (
                 <tr key={e.name}>
                   <th scope="row">
                     <span className="blitz-flag">
@@ -299,6 +320,22 @@ function PlayersPanel({ entrants }: { entrants: BlitzEdition['entrants'] }) {
   );
 }
 
+/** KnockoutGames lists the knockout's games, first round to final, sortable by any column. */
+function KnockoutGames({ rounds, format, you }: { rounds: BlitzRound[]; format: BlitzEdition['format']; you: YourRow | null }) {
+  const [sort, setSort] = useState<Sort<GamesColumn>>(null);
+  const games = blitzGames(rounds, format, { round: null, player: '', coded: false, page: 1 }, viewerZone(), you, sort);
+  return (
+    <GamesTable
+      caption="The knockout's games, first round to final"
+      context="Round"
+      rows={games.rows}
+      empty="No knockout games yet."
+      sort={sort}
+      onSort={(col) => setSort((s) => nextSort(s, col, BLITZ_GAME_COLUMNS))}
+    />
+  );
+}
+
 /** viewerZone is the browser's time zone, whose clocks the games' dates are on. */
 function viewerZone(): string {
   return Intl.DateTimeFormat().resolvedOptions().timeZone;
@@ -307,9 +344,14 @@ function viewerZone(): string {
 /** PairingsPanel lists the Swiss rounds' games as the games list does: narrowed by round (the latest at first), player and replay code, a page at a time, the signed-in player's game marked. */
 function PairingsPanel({ ed, swiss, you }: { ed: BlitzEdition; swiss: BlitzRound[]; you: YourRow | null }) {
   const [filter, setFilter] = useState<BlitzGamesFilter>({ round: swiss[0]?.number ?? null, player: '', coded: false, page: 1 });
+  const [sort, setSort] = useState<Sort<GamesColumn>>(null);
   const narrow = (next: Partial<BlitzGamesFilter>) => setFilter((f) => ({ ...f, ...next, page: next.page ?? 1 }));
+  const sortBy = (col: GamesColumn) => {
+    setSort((s) => nextSort(s, col, BLITZ_GAME_COLUMNS));
+    narrow({});
+  };
   const zone = viewerZone();
-  const games = blitzGames(swiss, ed.format, filter, zone, you);
+  const games = blitzGames(swiss, ed.format, filter, zone, you, sort);
   return (
     <section aria-labelledby="blitz-rounds">
       <div className="panel-header panel-header-split">
@@ -340,7 +382,7 @@ function PairingsPanel({ ed, swiss, you }: { ed: BlitzEdition; swiss: BlitzRound
         Who plays whom and how each game went, ratings beside the names. Arrange your game with your opponent on Discord. Dates are on your clocks ({zone}). Click a
         code to copy it. A recorded game is on the <a href={catalogueHref(ed.tournament)}>tournament&apos;s page</a> too.
       </p>
-      <GamesTable caption="The games these filters keep, latest round first" context="Round" rows={games.rows} empty="No games match these filters." />
+      <GamesTable caption="The games these filters keep, latest round first" context="Round" rows={games.rows} empty="No games match these filters." sort={sort} onSort={sortBy} />
       <GamesPages page={games.page} pages={games.pages} onPage={(page) => narrow({ page })} />
       {notPlaying(swiss, filter.round, ed.format).map((r) => (
         <p key={r.round} className="blitz-intro">

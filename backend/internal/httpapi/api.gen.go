@@ -1966,6 +1966,12 @@ type BlitzStanding struct {
 	Games int    `json:"games"`
 	Name  string `json:"name"`
 
+	// PlaceFrom The first rank of the place this row shares with the rows only the
+	// edition's draw separates it from (equal points, direct encounter
+	// and Buchholz); place_to is the last. Equal for a place held alone
+	PlaceFrom int `json:"place_from"`
+	PlaceTo   int `json:"place_to"`
+
 	// Points As the edition's points score each result and bye (FIDE's by default)
 	Points float64 `json:"points"`
 	Rank   int     `json:"rank"`

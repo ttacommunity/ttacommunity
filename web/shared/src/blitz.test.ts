@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { formatLabel, knockoutStage, offsetLabel, pointsList, pointsText, reachedLabel, resultSummary, resultTag, roundShown, roundSummary, roundTitle, scoringSentence, seededName, turnMark, turnOrder, zoneLabel, type BlitzPlayedGame } from './blitz';
+import { EDITION_COLUMNS, ENTRANT_COLUMNS, STANDING_COLUMNS, byFinish, offsetMinutes, formatLabel, knockoutStage, latestFinishes, placeLabel, offsetLabel, pointsList, pointsText, reachedLabel, resultSummary, resultTag, roundShown, roundSummary, roundTitle, scoringSentence, seededName, turnMark, turnOrder, zoneLabel, type BlitzPlayedGame } from './blitz';
+import { sortRows } from './sort';
 
 const game = (aCulture: number, bCulture: number, aOutcome: BlitzPlayedGame['a_outcome'] = 'finished', bOutcome: BlitzPlayedGame['b_outcome'] = 'finished'): BlitzPlayedGame => ({
   share_code: 'ABCD1234',
@@ -191,5 +192,95 @@ describe('scoringSentence', () => {
     ["the edition's own, every outcome", OURS, false, "This edition's points: win 3, draw 1½, loss ½, forfeit win 1, forfeit loss 0, bye 2½, skip 10."],
   ])('%s', (_, points, fide, want) => {
     expect(scoringSentence(points, fide)).toBe(want);
+  });
+});
+
+describe('placeLabel', () => {
+  it.each([
+    ['a place held alone', 3, 3, '3'],
+    ['a shared place', 1, 12, '1–12'],
+  ] as const)('writes %s', (_name, from, to, want) => {
+    expect(placeLabel({ place_from: from, place_to: to })).toBe(want);
+  });
+});
+
+describe('latestFinishes', () => {
+  const played = (a: string, b: string | null, at: string | null) => ({ a, b, game: at === null ? null : { finished_at: at } });
+  it.each([
+    ['each player of the latest Swiss round with a played game, by when it finished',
+      [{ number: 1, kind: 'swiss', matches: [played('Ann', 'Cy', '2026-10-19T16:00:00Z')] }, { number: 2, kind: 'swiss', matches: [played('Ann', 'Di', '2026-10-26T10:00:00Z'), played('Cy', 'Bo', null)] }],
+      { Ann: '2026-10-26T10:00:00Z', Di: '2026-10-26T10:00:00Z' }],
+    ['the round before while the latest has no game yet',
+      [{ number: 1, kind: 'swiss', matches: [played('Ann', 'Cy', '2026-10-19T16:00:00Z')] }, { number: 2, kind: 'swiss', matches: [played('Ann', 'Cy', null)] }],
+      { Ann: '2026-10-19T16:00:00Z', Cy: '2026-10-19T16:00:00Z' }],
+    ['no knockout round', [{ number: 7, kind: 'knockout', matches: [played('Ann', 'Cy', '2026-12-01T10:00:00Z')] }], {}],
+    ['nobody for a bye', [{ number: 1, kind: 'swiss', matches: [played('Ann', null, null)] }], {}],
+  ] as const)('finds %s', (_name, rounds, want) => {
+    expect(Object.fromEntries(latestFinishes(rounds))).toEqual(want);
+  });
+});
+
+describe('byFinish', () => {
+  const row = (name: string, from: number) => ({ name, place_from: from });
+  const finished = new Map([
+    ['Ann', '2026-10-19T18:00:00Z'],
+    ['Bo', '2026-10-19T16:00:00Z'],
+    ['Di', '2026-10-19T17:00:00Z'],
+  ]);
+  it.each([
+    ['earliest finish first within a shared place', [row('Ann', 1), row('Bo', 1), row('Di', 1)], ['Bo', 'Di', 'Ann']],
+    ['players without a game after, in the order given', [row('Cy', 1), row('Ed', 1), row('Ann', 1)], ['Ann', 'Cy', 'Ed']],
+    ['never across places', [row('Ann', 1), row('Bo', 2)], ['Ann', 'Bo']],
+  ] as const)('keeps %s', (_name, rows, want) => {
+    expect(byFinish(rows, finished).map((r) => r.name)).toEqual(want);
+  });
+});
+
+describe('STANDING_COLUMNS', () => {
+  const standing = (name: string, place: number, points: number, buchholz: number) => ({ rank: place, place_from: place, place_to: place, name, country: null, points, games: 1, byes: 0, buchholz, status: 'active' as const });
+  const rows = [standing('cy', 1, 2, 1), standing('Ann', 2, 1, 3), standing('bo', 3, 1, 2)];
+  it.each([
+    ['place', { col: 'place', desc: false }, ['cy', 'Ann', 'bo']],
+    ['player', { col: 'player', desc: false }, ['Ann', 'bo', 'cy']],
+    ['points', { col: 'points', desc: true }, ['cy', 'Ann', 'bo']],
+    ['buchholz', { col: 'buchholz', desc: true }, ['Ann', 'bo', 'cy']],
+  ] as const)('sorts the standings by %s', (_name, sort, want) => {
+    expect(sortRows(rows, STANDING_COLUMNS, sort).map((r) => r.name)).toEqual(want);
+  });
+});
+
+describe('EDITION_COLUMNS', () => {
+  const ed = (name: string, swiss: number, round: number | null, champion: string | null, entrants: number) => ({ name, edition: '2026', format: { swiss_rounds: swiss, knockout_size: 8 }, round, champion, entrants });
+  const rows = [ed('B Open', 6, 3, null, 20), ed('a Cup', 8, null, null, 30), ed('C Open', 6, 6, 'Ann', 10)];
+  it.each([
+    ['tournament', { col: 'tournament', desc: false }, ['a Cup', 'B Open', 'C Open']],
+    ['format, the longest first', { col: 'format', desc: true }, ['a Cup', 'B Open', 'C Open']],
+    ['reached, a champion first, then the latest round, not started last', { col: 'reached', desc: true }, ['C Open', 'B Open', 'a Cup']],
+    ['players', { col: 'players', desc: true }, ['a Cup', 'B Open', 'C Open']],
+  ] as const)('sorts the editions by %s', (_name, sort, want) => {
+    expect(sortRows(rows, EDITION_COLUMNS, sort).map((r) => r.name)).toEqual(want);
+  });
+});
+
+describe('offsetMinutes', () => {
+  it.each([
+    ['+02:00', 120],
+    ['-04:00', -240],
+    ['+05:30', 330],
+    ['', null],
+  ] as const)('reads %s as %s', (offset, want) => {
+    expect(offsetMinutes(offset)).toBe(want);
+  });
+});
+
+describe('ENTRANT_COLUMNS', () => {
+  const e = (name: string, zone: string, utc_offset: string, rating: number | null) => ({ name, zone, utc_offset, rating });
+  const rows = [e('cy', 'Europe/Berlin', '+02:00', 1500), e('Ann', 'Unknown', '', null), e('bo', 'US East', '-04:00', 1800), e('di', 'Europe/Paris', '+02:00', 1600)];
+  it.each([
+    ['player', { col: 'player', desc: false }, ['Ann', 'bo', 'cy', 'di']],
+    ['time zone, west to east, then by name, unknown last', { col: 'zone', desc: false }, ['bo', 'cy', 'di', 'Ann']],
+    ['rating, the highest first, unrated last', { col: 'rating', desc: true }, ['bo', 'di', 'cy', 'Ann']],
+  ] as const)('sorts the entrants by %s', (_name, sort, want) => {
+    expect(sortRows(rows, ENTRANT_COLUMNS, sort).map((r) => r.name)).toEqual(want);
   });
 });

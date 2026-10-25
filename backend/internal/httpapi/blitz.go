@@ -110,7 +110,7 @@ func blitzStandings(ed store.BlitzEdition) []BlitzStanding {
 		if s.Dropped {
 			status = "dropped"
 		}
-		out = append(out, BlitzStanding{Rank: s.Rank, Name: names[s.ID], Country: nullableText(countries[s.ID]), Points: s.Points, Games: s.Games,
+		out = append(out, BlitzStanding{Rank: s.Rank, PlaceFrom: s.PlaceFrom, PlaceTo: s.PlaceTo, Name: names[s.ID], Country: nullableText(countries[s.ID]), Points: s.Points, Games: s.Games,
 			Byes: s.Byes, Buchholz: s.Buchholz, Status: BlitzStandingStatus(status)})
 	}
 	return out

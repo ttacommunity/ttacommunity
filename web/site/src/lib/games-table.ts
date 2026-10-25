@@ -6,6 +6,9 @@ export type GameSeat = { label: string; link: string | null; detail: string; sco
 /** GameRow is one game: its date ('' for none), what it belongs to (a season, a round), where it was played, a state to tag it with, whether it went unplayed, its seats and its replay code. */
 export type GameRow = { key: string; date: string; context: string; where: string; tag: string; unplayed: boolean; seats: GameSeat[]; code: string | null; you?: string };
 
+/** GamesColumn is a games table's column, as a sorted table names it. */
+export type GamesColumn = 'date' | 'context' | 'game' | 'players' | 'code';
+
 /** GAMES_PER_PAGE is how many games a page shows, as the API pages a tournament's games. */
 export const GAMES_PER_PAGE = 50;
 

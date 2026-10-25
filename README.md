@@ -191,11 +191,28 @@ serve a production build locally and put it and the API behind
 `cloudflared` quick tunnels. Quick tunnels need no Cloudflare account, and
 **their URLs are public until you stop them**.
 
-1. Run the API against your local ratings database:
+1. Stop `scripts/dev.sh`, then run the API against your local ratings
+   database **with every dev sign-in off**. `.env`'s `ADMIN_DEV_USER` and
+   the other `*_DEV_*` settings sign in anyone who reaches the API, and
+   behind a tunnel that is anyone with its URL. Without them, player
+   sign-in needs a Discord client, so give it a placeholder that signs
+   nobody in, and leave Turnstile and email unset:
 
    ```bash
-   cd backend && set -a && . ../.env && set +a && go run ./cmd/api
+   cd backend && set -a && . ../.env && set +a &&
+     ADMIN_DEV_USER= DISCORD_DEV_USER= MICROSOFT_DEV_USER= GOOGLE_DEV_USER= EMAIL_DEV_MAIL= \
+     MICROSOFT_DEV_EMAIL= GOOGLE_DEV_EMAIL= DISCORD_CLIENT_ID=tunnel DISCORD_CLIENT_SECRET=tunnel \
+     TURNSTILE_SECRET= RESEND_API_KEY= EMAIL_FROM= EMAIL_SUPPORT= \
+     MICROSOFT_CLIENT_ID= MICROSOFT_CLIENT_SECRET= GOOGLE_CLIENT_ID= GOOGLE_CLIENT_SECRET= \
+     go run ./cmd/api
    ```
+
+   Check it: its log has no "bypassed" or "stand-in" warning, and
+   `curl -s -o /dev/null -w '%{http_code}\n' http://127.0.0.1:8080/v1/admin/me`
+   prints `401`. **Never leave the API's tunnel up while `scripts/dev.sh`
+   runs**: its API listens on the same port with the dev sign-ins on. Admin
+   cannot be shown this way: it signs in through Access, or `ADMIN_DEV_USER`
+   on `127.0.0.1` only
 
 2. Open a tunnel to it, and note the `https://….trycloudflare.com` URL it
    prints:

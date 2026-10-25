@@ -93,8 +93,8 @@ func TestTheSiteListsBlitzEditionsAndTheirEntrants(t *testing.T) {
 	}
 	// bob beat Ann in a game, so he goes first despite the lower Buchholz; round 2 is unplayed for both.
 	wantStandings := []BlitzStanding{
-		{Rank: 1, Name: "bob", Country: nil, Points: 1, Games: 1, Byes: 0, Buchholz: 2, Status: "active"},
-		{Rank: 2, Name: "Ann", Country: &de, Points: 1, Games: 1, Byes: 1, Buchholz: 2.5, Status: "active"},
+		{Rank: 1, PlaceFrom: 1, PlaceTo: 1, Name: "bob", Country: nil, Points: 1, Games: 1, Byes: 0, Buchholz: 2, Status: "active"},
+		{Rank: 2, PlaceFrom: 2, PlaceTo: 2, Name: "Ann", Country: &de, Points: 1, Games: 1, Byes: 1, Buchholz: 2.5, Status: "active"},
 	}
 	if diff := cmp.Diff(wantStandings, ed.Standings); diff != "" {
 		t.Errorf("standings (-want +got):\n%s", diff)
@@ -240,6 +240,37 @@ func TestTheSiteScoresByTheEditionsPoints(t *testing.T) {
 			for _, s := range got.Standings {
 				if s.Name == "bob" && s.Points != tt.wantBob {
 					t.Errorf("bob, who won round 1's game = %g points, want %g", s.Points, tt.wantBob)
+				}
+			}
+		})
+	}
+}
+
+func TestTheSiteStandingsSharePlacesOnlyTheDrawSeparates(t *testing.T) {
+	bob, at := int64(8), time.Date(2026, 10, 12, 12, 0, 0, 0, time.UTC)
+	tests := []struct {
+		name    string
+		matches []store.BlitzMatch
+		want    map[string][2]int
+	}{
+		{"before any result, both share the first place", []store.BlitzMatch{{ID: 1, A: 7, B: &bob}}, map[string][2]int{"Ann": {1, 2}, "bob": {1, 2}}},
+		{"a result separates them", []store.BlitzMatch{{ID: 1, A: 7, B: &bob, Result: "a", GameID: new(int64(500)), DecidedAt: &at}}, map[string][2]int{"Ann": {1, 1}, "bob": {2, 2}}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ed := store.BlitzEdition{
+				BlitzEditionRow: store.BlitzEditionRow{Slug: "us_open", Name: "US Open", Edition: "2026", Format: store.DefaultBlitzFormat, Points: blitz.FIDEScoring, Entrants: 2, Round: new(1)},
+				Entrants:        []store.BlitzEntrant{{ID: 7, Name: "Ann", Zone: "UTC", Status: "active"}, {ID: 8, Name: "bob", Zone: "UTC", Status: "active"}},
+				Rounds:          []store.BlitzRound{{ID: 101, Number: 1, Kind: "swiss", PublishedAt: &at, Matches: tt.matches}},
+			}
+			rec, _ := serve(t, &fakeRatings{run: store.PublishedRun{ID: 7}, blitzEdition: &ed}, "/v1/blitz/us_open/2026")
+			var got BlitzEdition
+			if err := json.Unmarshal(rec.Body.Bytes(), &got); err != nil || rec.Code != http.StatusOK {
+				t.Fatalf("GET /v1/blitz/us_open/2026 = %d %s", rec.Code, rec.Body)
+			}
+			for _, s := range got.Standings {
+				if want := tt.want[s.Name]; s.PlaceFrom != want[0] || s.PlaceTo != want[1] {
+					t.Errorf("%s's place = %d–%d, want %d–%d", s.Name, s.PlaceFrom, s.PlaceTo, want[0], want[1])
 				}
 			}
 		})

@@ -1,5 +1,6 @@
-/** What both sites say about a blitz tournament: a zone's offset, a format, its points, how a match's result and turn order read, how a folded round is summed up, and how a round and a seeded player are named. */
+/** What both sites say about a blitz tournament: a zone's offset, a format, its points, how a match's result and turn order read, how a folded round is summed up, how a round and a seeded player are named, and how the standings share places. */
 import type { components } from '../api/schema';
+import type { SortColumns } from './sort';
 
 export type BlitzFormat = components['schemas']['BlitzFormat'];
 export type BlitzResult = components['schemas']['BlitzResult'];
@@ -160,3 +161,81 @@ export function reachedLabel(round: number | null, f: BlitzFormat, champion: str
   if (champion !== null) return `Finished: champion ${champion}`;
   return round === null ? 'Pairing not started' : roundTitle(round, f);
 }
+
+/** placeLabel writes a standing's place: "3" when held alone, "1–12" when shared. */
+export function placeLabel(s: { place_from: number; place_to: number }): string {
+  return s.place_from === s.place_to ? String(s.place_from) : `${s.place_from}–${s.place_to}`;
+}
+
+/** FinishRound is what latestFinishes reads of a round: its number, kind, and each match's players and game. */
+export type FinishRound = { number: number; kind: 'swiss' | 'knockout'; matches: readonly { a: string; b: string | null; game: { finished_at: string } | null }[] };
+
+/** latestFinishes maps each player with a game in the latest Swiss round that has one to when that game finished. */
+export function latestFinishes(rounds: readonly FinishRound[]): Map<string, string> {
+  const latest = rounds
+    .filter((r) => r.kind === 'swiss' && r.matches.some((m) => m.game !== null))
+    .reduce<FinishRound | null>((best, r) => (best === null || r.number > best.number ? r : best), null);
+  const out = new Map<string, string>();
+  for (const m of latest?.matches ?? []) {
+    if (m.game === null || m.b === null) continue;
+    out.set(m.a, m.game.finished_at);
+    out.set(m.b, m.game.finished_at);
+  }
+  return out;
+}
+
+/** byFinish orders the standings within each shared place by when each player's game finished (finished, from latestFinishes), earliest first; those without one follow in the order given. */
+export function byFinish<T extends { name: string; place_from: number }>(standings: readonly T[], finished: ReadonlyMap<string, string>): T[] {
+  const at = (s: T) => finished.get(s.name) ?? null;
+  return standings
+    .map((s, i) => ({ s, i }))
+    .sort((x, y) => {
+      if (x.s.place_from !== y.s.place_from) return x.i - y.i;
+      const a = at(x.s);
+      const b = at(y.s);
+      if (a === null || b === null) return a === b ? x.i - y.i : a === null ? 1 : -1;
+      return a === b ? x.i - y.i : a < b ? -1 : 1;
+    })
+    .map(({ s }) => s);
+}
+
+export type BlitzStanding = components['schemas']['BlitzStanding'];
+
+/** STANDING_COLUMNS are the standings tables' sortable columns, on the site and in admin. */
+export const STANDING_COLUMNS: SortColumns<BlitzStanding, 'place' | 'player' | 'points' | 'played' | 'byes' | 'buchholz'> = {
+  place: { value: (s) => s.place_from, first: 'asc' },
+  player: { value: (s) => s.name, first: 'asc' },
+  points: { value: (s) => s.points, first: 'desc' },
+  played: { value: (s) => s.games, first: 'desc' },
+  byes: { value: (s) => s.byes, first: 'desc' },
+  buchholz: { value: (s) => s.buchholz, first: 'desc' },
+};
+
+/** EditionRow is what an editions list shows of an edition, on the site and in admin. */
+export type EditionRow = { name: string; edition: string; format: BlitzFormat; round: number | null; champion: string | null; entrants: number };
+
+/** EDITION_COLUMNS are an editions list's sortable columns; reached puts a champion first, then the latest round. */
+export const EDITION_COLUMNS: SortColumns<EditionRow, 'tournament' | 'edition' | 'format' | 'reached' | 'players'> = {
+  tournament: { value: (e) => e.name, first: 'asc' },
+  edition: { value: (e) => e.edition, first: 'desc' },
+  format: { value: (e) => [e.format.swiss_rounds, e.format.knockout_size], first: 'desc' },
+  reached: { value: (e) => [e.champion === null ? 0 : 1, e.round], first: 'desc' },
+  players: { value: (e) => e.entrants, first: 'desc' },
+};
+
+/** offsetMinutes reads a UTC offset ("+05:30") as minutes east of UTC; null for none (''). */
+export function offsetMinutes(offset: string): number | null {
+  const m = /^([+-])(\d{2}):(\d{2})$/.exec(offset);
+  if (m === null) return null;
+  return (m[1] === '-' ? -1 : 1) * (Number(m[2]) * 60 + Number(m[3]));
+}
+
+/** EntrantRow is what an entrants table shows of every entrant, on the site and in admin. */
+export type EntrantRow = { name: string; zone: string; utc_offset: string; rating: number | null };
+
+/** ENTRANT_COLUMNS are an entrants table's sortable columns; zone sorts west to east, then by the zone's name. */
+export const ENTRANT_COLUMNS: SortColumns<EntrantRow, 'player' | 'zone' | 'rating'> = {
+  player: { value: (e) => e.name, first: 'asc' },
+  zone: { value: (e) => [offsetMinutes(e.utc_offset), e.zone], first: 'asc' },
+  rating: { value: (e) => e.rating, first: 'desc' },
+};

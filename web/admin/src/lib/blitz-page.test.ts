@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { editionFormatWarnings, editionHref, editionParams, formatAdvice, pointsChanged, pointsForm, pointsFrom, pointsSummary, settingsRows } from './blitz-page';
+import { ADMIN_EDITION_COLUMNS, ADMIN_ENTRANT_COLUMNS, editionFormatWarnings, editionHref, editionParams, formatAdvice, pointsChanged, pointsForm, pointsFrom, pointsSummary, settingsRows } from './blitz-page';
+import { sortRows } from '@ttac/shared/sort';
 import { formatLabel } from '@ttac/shared/blitz';
 import { organisersSummary, threadTextSummary } from './blitz-threads';
 
@@ -94,5 +95,25 @@ describe('settingsRows', () => {
       { key: 'Organisers', value: organisersSummary(ed.organisers) },
       { key: 'Thread text', value: threadTextSummary(ed.thread_text) },
     ]);
+  });
+});
+
+describe('ADMIN_ENTRANT_COLUMNS', () => {
+  const e = (name: string, discord: string, country: string | null, status: 'active' | 'dropped' | 'pending', skips: number[]) => ({ name, discord_name: discord, email: '', country, zone: 'UTC', utc_offset: '+00:00', rating: null, status, skips });
+  const rows = [e('cy', 'zed', 'DE', 'active', [2]), e('Ann', '', null, 'dropped', []), e('bo', 'amy', 'CA', 'active', [2, 3])];
+  it.each([
+    ['Discord name, none last', { col: 'discord', desc: false }, ['bo', 'cy', 'Ann']],
+    ['country, none last', { col: 'country', desc: false }, ['bo', 'cy', 'Ann']],
+    ['status', { col: 'status', desc: false }, ['cy', 'bo', 'Ann']],
+    ['skips, the most first', { col: 'skips', desc: true }, ['bo', 'cy', 'Ann']],
+  ] as const)('sorts the entrants by %s', (_name, sort, want) => {
+    expect(sortRows(rows, ADMIN_ENTRANT_COLUMNS, sort).map((r) => r.name)).toEqual(want);
+  });
+});
+
+describe('ADMIN_EDITION_COLUMNS', () => {
+  const ed = (name: string, dropped: number) => ({ name, edition: '2026', format: { swiss_rounds: 6, knockout_size: 8 }, round: null, champion: null, entrants: 10, dropped });
+  it('sorts the editions by players dropped, the most first', () => {
+    expect(sortRows([ed('a', 1), ed('b', 3)], ADMIN_EDITION_COLUMNS, { col: 'dropped', desc: true }).map((r) => r.name)).toEqual(['b', 'a']);
   });
 });

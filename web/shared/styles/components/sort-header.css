@@ -1,0 +1,21 @@
+/* A sortable column's header: the header's own look, as a button, with an arrow saying which way it sorts. */
+.sort-header {
+  padding: 0;
+  background: none;
+  border: none;
+  color: inherit;
+  font: inherit;
+  letter-spacing: inherit;
+  text-transform: inherit;
+  text-align: inherit;
+  cursor: pointer;
+}
+
+.sort-arrow {
+  margin-left: 0.3em;
+  opacity: 0.6;
+}
+
+[aria-sort] .sort-arrow {
+  opacity: 1;
+}
