@@ -23,6 +23,11 @@ export function playerHref(name: string): string {
   return `/ratings/player/?${new URLSearchParams({ name })}`;
 }
 
+/** hasPlayerPage is false for the names the API gives no page: a deleted or banned player, and an empty seat. */
+export function hasPlayerPage(name: string): boolean {
+  return name !== 'Deleted player' && name !== 'Unknown player';
+}
+
 /** parsePlayerView reads the page's choices from its address, then remembered choices, then the defaults. */
 export function parsePlayerView(params: URLSearchParams, remembered: Remembered): PlayerView {
   const { engine, reset, format } = parseView(params, remembered);

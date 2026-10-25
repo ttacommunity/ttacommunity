@@ -25,6 +25,9 @@ const notHiddenPlayer = `NOT EXISTS (
 	WHERE pa.player_id = p.player_id AND (pa.deleted OR pa.banned)
 )`
 
+// notUnknownPlayer excludes UnknownPlayer: an empty seat, nobody to look up. Its seats still show by that name.
+const notUnknownPlayer = `p.name <> '` + UnknownPlayer + `'`
+
 // hiddenName is true when the name in column is, ignoring case, a player with any deleted or banned CGE account.
 func hiddenName(column string) string {
 	return `EXISTS (
@@ -122,12 +125,12 @@ const playerRunGames = `
 
 // resolve returns the stored name for asked in a published run: the exact
 // name, else the only one equal to it ignoring case. Players with deleted or
-// banned CGE accounts are not resolved.
+// banned CGE accounts, and UnknownPlayer, are not resolved.
 func (r *RatingsReader) resolve(ctx context.Context, run int64, asked string) (string, error) {
 	if err := r.requirePublished(ctx, run); err != nil {
 		return "", err
 	}
-	rows, err := r.pool.Query(ctx, "SELECT p.name FROM players p WHERE lower(p.name) = lower($1) AND "+notHiddenPlayer, asked)
+	rows, err := r.pool.Query(ctx, "SELECT p.name FROM players p WHERE lower(p.name) = lower($1) AND "+notUnknownPlayer+" AND "+notHiddenPlayer, asked)
 	if err != nil {
 		return "", fmt.Errorf("looking up a player: %w", err)
 	}

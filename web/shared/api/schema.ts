@@ -162,8 +162,9 @@ export interface paths {
          *     each format, with their title, career peak, country and game counts.
          *     A name that matches no player exactly is looked up ignoring case,
          *     if only one player matches. Players whose CGE accounts are deleted
-         *     or banned return 404. Country and titles can change without a new
-         *     run, so this is cached for five minutes.
+         *     or banned return 404, as does "Unknown player", the name games give
+         *     a seat CGE has no account for. Country and titles can change
+         *     without a new run, so this is cached for five minutes.
          */
         get: operations["getPlayer"];
         put?: never;

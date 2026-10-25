@@ -452,7 +452,7 @@ func (r *RatingsReader) CatalogueTournament(ctx context.Context, run int64, slug
 		JOIN groups gr USING (group_id) JOIN stages st USING (stage_id)
 		JOIN tournaments se USING (tournament_id) JOIN series t USING (series_id)
 		WHERE t.slug = $1 AND (t.visible OR EXISTS (SELECT 1 FROM ranking_series rt WHERE rt.series_id = t.series_id))
-		  AND `+notHiddenPlayer+`
+		  AND `+notUnknownPlayer+` AND `+notHiddenPlayer+`
 		ORDER BY p.name`, slug)
 	if err != nil {
 		return fail("players", err)
