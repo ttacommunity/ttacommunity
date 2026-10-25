@@ -126,6 +126,72 @@ func TestPlayerHidesDeletedAndBannedAccounts(t *testing.T) {
 	}
 }
 
+func TestUnknownPlayerIsNobodyToLookUp(t *testing.T) {
+	pool := migrated(t)
+	ctx := context.Background()
+	run := publishedRun(t, pool)
+	placedOn(t, pool, map[string]time.Time{"Wimbledon 2024 Stage 1 - group 1 game 1": day("2024-07-01")})
+	setSeats(t, pool, "%game 1", Seat{"ann", 120}, Seat{UnknownPlayer, 0})
+	withSpans(t, pool, run)
+	r := NewRatingsReader(asReader(t, pool))
+	a := NewAdminStore(asAdminLogin(t, pool))
+	resolved := func(err error) ([]string, error) {
+		if errors.Is(err, ErrPlayerNotFound) {
+			return nil, nil
+		}
+		return []string{UnknownPlayer}, err
+	}
+
+	tests := []struct {
+		name  string
+		names func() ([]string, error)
+	}{
+		{"the player page", func() ([]string, error) {
+			_, err := r.Player(ctx, run, UnknownPlayer)
+			return resolved(err)
+		}},
+		{"the player's achievements", func() ([]string, error) {
+			_, _, _, err := r.PlayerAchievements(ctx, run, UnknownPlayer)
+			return resolved(err)
+		}},
+		{"the player's unrated seats", func() ([]string, error) {
+			_, err := r.PlayerSeats(ctx, run, UnknownPlayer, true)
+			return resolved(err)
+		}},
+		{"player search", func() ([]string, error) {
+			got, err := r.ComparedPlayers(ctx, run, 0, []string{"unknown"})
+			var names []string
+			for _, p := range got {
+				names = append(names, p.Name)
+			}
+			return names, err
+		}},
+		{"a tournament's players", func() ([]string, error) {
+			got, err := r.CatalogueTournament(ctx, run, "wimbledon")
+			return got.Players, err
+		}},
+		{"admin's people", func() ([]string, error) {
+			got, err := a.People(ctx, "unknown", 10)
+			var names []string
+			for _, c := range got {
+				names = append(names, c.Name)
+			}
+			return names, err
+		}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			names, err := tt.names()
+			if err != nil {
+				t.Fatalf("%s: %v", tt.name, err)
+			}
+			if slices.Contains(names, UnknownPlayer) {
+				t.Errorf("%s = %q, want no %q", tt.name, names, UnknownPlayer)
+			}
+		})
+	}
+}
+
 func TestPlayerGivesRatingsGamesAndDetails(t *testing.T) {
 	pool := migrated(t)
 	r := NewRatingsReader(asReader(t, pool))

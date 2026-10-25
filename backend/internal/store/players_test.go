@@ -11,6 +11,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/pressly/goose/v3"
 )
@@ -385,6 +386,63 @@ func TestThePublicReaderCannotReadSignIns(t *testing.T) {
 	}
 }
 
+func TestThePlayerLoginCannotLinkOrFillAnAccountByItsID(t *testing.T) {
+	pool, _, p := playersFixture(t)
+	other := signedIn(t, p, discordID("100000000000000002", "player_two", ""), "token-2")
+	player := asPlayerLogin(t, pool)
+	for _, q := range []string{"SELECT link_by_email($1, now())", "SELECT fill_member_from_logins($1)"} {
+		var pgErr *pgconn.PgError
+		if _, err := player.Exec(context.Background(), q, other.ID); !errors.As(err, &pgErr) || pgErr.Code != "42501" {
+			t.Errorf("%s as ratings_player = %v, want permission denied (42501)", q, err)
+		}
+	}
+}
+
+func TestMigration53sDownGivesThePlayerLoginTheAccountKeyedFunctionsBack(t *testing.T) {
+	pool, _, p := playersFixture(t)
+	other := signedIn(t, p, discordID("100000000000000002", "player_two", ""), "token-2")
+	ctx := context.Background()
+	if err := withRatingsMigrations(pool, func(g *goose.Provider) error { _, err := g.DownTo(ctx, 52); return err }); err != nil {
+		t.Fatalf("migrating down to 52: %v", err)
+	}
+	if _, err := asPlayerLogin(t, pool).Exec(ctx, "SELECT link_by_email($1, now())", other.ID); err != nil {
+		t.Errorf("link_by_email as ratings_player after the Down: %v, want it run", err)
+	}
+	var left bool
+	if err := pool.QueryRow(ctx, "SELECT EXISTS (SELECT FROM pg_proc WHERE proname IN ('link_own_by_email', 'fill_own_member'))").Scan(&left); err != nil || left {
+		t.Errorf("session-keyed functions after the Down: %t, %v; want none", left, err)
+	}
+}
+
+func TestLinkingOwnAccountByEmailNeedsALiveSession(t *testing.T) {
+	tests := []struct {
+		name  string
+		token string
+		at    time.Time
+		want  bool
+	}{
+		{"the session's own account", "token", signInAt, true},
+		{"no such session", "nobody", signInAt, false},
+		{"an ended session", "token", signInAt.Add(SessionLife), false},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			pool, a, p := playersFixture(t)
+			emailSignedIn(t, p, "player@example.test", "token")
+			if _, err := a.AddMember(context.Background(), Member{Name: "ann", Email: "player@example.test", Zone: "UTC"}); err != nil {
+				t.Fatalf("AddMember: %v", err)
+			}
+			var linked bool
+			if err := asPlayerLogin(t, pool).QueryRow(context.Background(), "SELECT link_own_by_email($1, $2)", tokenHash(tt.token), tt.at).Scan(&linked); err != nil {
+				t.Fatalf("link_own_by_email: %v", err)
+			}
+			if linked != tt.want {
+				t.Errorf("link_own_by_email(%s at %s) = %t, want %t", tt.token, tt.at, linked, tt.want)
+			}
+		})
+	}
+}
+
 func TestCheckLimitsAcceptsThePlayerLoginAndRefusesStrongerOnes(t *testing.T) {
 	pool := migrated(t)
 	if err := NewPlayerStore(asPlayerLogin(t, pool)).CheckLimits(context.Background()); err != nil {
@@ -405,6 +463,8 @@ func TestCheckLimitsRefusesAPlayerLoginGivenMore(t *testing.T) {
 		"GRANT UPDATE (banned) ON members TO ratings_player", "GRANT DELETE ON logins TO ratings_player", "GRANT DELETE ON accounts TO ratings_player",
 		"GRANT INSERT ON admins TO ratings_player", "GRANT SELECT (email) ON members TO ratings_player",
 		"GRANT CREATE ON SCHEMA public TO ratings_player",
+		"GRANT EXECUTE ON FUNCTION link_by_email(bigint, timestamptz) TO ratings_player",
+		"GRANT EXECUTE ON FUNCTION fill_member_from_logins(bigint) TO ratings_player",
 	} {
 		t.Run(grant, func(t *testing.T) {
 			pool := migrated(t)

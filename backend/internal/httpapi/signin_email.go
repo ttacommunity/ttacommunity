@@ -159,7 +159,7 @@ func (s *server) PostMyEmailLogin(ctx context.Context, req PostMyEmailLoginReque
 
 func (s *server) DeleteMyLogin(ctx context.Context, req DeleteMyLoginRequestObject) (DeleteMyLoginResponseObject, error) {
 	if !req.Provider.Valid() {
-		return DeleteMyLogin404JSONResponse{notFound404("no such way in: discord or email")}, nil
+		return DeleteMyLogin404JSONResponse{notFound404("no such way in: discord, email, microsoft or google")}, nil
 	}
 	hash, _ := ctx.Value(sessionKey{}).([]byte)
 	err := s.signIns.RemoveOwnLogin(ctx, hash, string(req.Provider), s.now())

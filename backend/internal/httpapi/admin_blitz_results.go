@@ -21,6 +21,9 @@ func (s *server) PutAdminBlitzMatchGame(ctx context.Context, req PutAdminBlitzMa
 		return PutAdminBlitzMatchGame400JSONResponse{badRequest400("the game: share_code, a, b, finished_on, finished_time and zone")}, nil
 	}
 	finished, err := blitz.FinishedAt(req.Body.FinishedOn.Format(time.DateOnly), req.Body.FinishedTime, strings.TrimSpace(req.Body.Zone))
+	if err == nil {
+		err = blitz.FinishedBy(finished, s.now())
+	}
 	if err != nil {
 		return PutAdminBlitzMatchGame400JSONResponse{badRequest400(err.Error())}, nil
 	}

@@ -406,7 +406,7 @@ type Candidate struct {
 }
 
 // candidates finds up to limit members and players the ratings know who are no member, whose name, or ratings
-// spelling, holds q in any case; members of the edition editionID are left out (none for 0). The name itself comes
+// spelling, holds q in any case; members of the edition editionID (none for 0) and UnknownPlayer are left out. The name itself comes
 // first, then names starting with q, then the rest; people with an account or in an edition before the rest, then
 // by name.
 func candidates(ctx context.Context, db conn, editionID int64, q string, limit int) ([]Candidate, error) {
@@ -422,6 +422,7 @@ func candidates(ctx context.Context, db conn, editionID int64, q string, limit i
 			SELECT 0, p.name, p.name, '', '', '', '', false, false
 			FROM players p
 			WHERE NOT EXISTS (SELECT 1 FROM members m WHERE m.player_id = p.player_id OR lower(m.tta_name) = lower(p.name))
+			  AND `+notUnknownPlayer+`
 		)
 		SELECT member_id, name, player, discord_name, email, country, zone, banned FROM people
 		WHERE strpos(lower(name), lower($2)) > 0 OR strpos(lower(player), lower($2)) > 0

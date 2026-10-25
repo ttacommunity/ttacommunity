@@ -37,6 +37,9 @@ var ErrBadBlitzFlag = errors.New("a flag says what is wrong, in at most 500 char
 // ErrBlitzNotFlagged means an organiser kept a report that is not flagged.
 var ErrBlitzNotFlagged = errors.New("only a flagged report is kept")
 
+// ErrBlitzFinishedAhead is a report of a game finishing after now.
+var ErrBlitzFinishedAhead = errors.New("a game cannot finish after now")
+
 // reportError turns what report_blitz_game and answer_blitz_report answer into an error, nil for want.
 func reportError(got, want string) error {
 	if code, ok := strings.CutPrefix(got, "taken:"); ok {
@@ -69,13 +72,15 @@ func reportError(got, want string) error {
 		return ErrBlitzResultLocked
 	case "bad":
 		return ErrBadBlitzFlag
+	case "ahead":
+		return ErrBlitzFinishedAhead
 	}
 	return fmt.Errorf("unexpected answer %q", got)
 }
 
 // ReportBlitzGame records the game of the match matchID, in the shown edition, as the player whose session hashes to
 // tokenHash, at now; reporting again corrects it while players may. It returns ErrBlitzShareCodeNeeded,
-// ErrBadBlitzGame, ErrNoSession, ErrNotLinked, ErrMemberBanned, ErrNoBlitzEdition, ErrNoBlitzMatch, ErrNotYourMatch,
+// ErrBadBlitzGame, ErrBlitzFinishedAhead, ErrNoSession, ErrNotLinked, ErrMemberBanned, ErrNoBlitzEdition, ErrNoBlitzMatch, ErrNotYourMatch,
 // ErrBlitzBye, ErrBlitzRoundClosed, ErrBlitzResultLocked, or a *BlitzShareCodeError.
 func (s *PlayerStore) ReportBlitzGame(ctx context.Context, tokenHash []byte, slug, edition string, matchID int64, g BlitzGame, now time.Time) error {
 	if strings.TrimSpace(g.ShareCode) == "" {

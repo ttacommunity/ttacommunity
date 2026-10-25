@@ -366,9 +366,8 @@ func TestRobotsTxtKeepsCrawlersOffPlayersOnly(t *testing.T) {
 	if rec.Code != http.StatusOK || !strings.HasPrefix(rec.Header().Get("Content-Type"), "text/plain") {
 		t.Fatalf("GET /robots.txt: %d %q, want 200 text/plain", rec.Code, rec.Header().Get("Content-Type"))
 	}
-	lines := strings.Split(rec.Body.String(), "\n")
-	if !slices.Contains(lines, "Disallow: /v1/runs/*/players/") || slices.Contains(lines, "Disallow: /") {
-		t.Errorf("GET /robots.txt: body = %q, want only the player routes disallowed", rec.Body.String())
+	if want := "User-agent: *\nDisallow: /v1/runs/*/players/\n"; rec.Body.String() != want {
+		t.Errorf("GET /robots.txt: body = %q, want %q", rec.Body.String(), want)
 	}
 	if got := rec.Header().Get("Cache-Control"); got != "public, max-age=300" {
 		t.Errorf("GET /robots.txt: Cache-Control = %q, want %q", got, "public, max-age=300")
@@ -604,8 +603,8 @@ func TestRecoverPanics(t *testing.T) {
 		wantCode int
 		wantLog  string
 	}{
-		{"panic with an error", func(http.ResponseWriter, *http.Request) { panic(errors.New("kaboom")) }, http.StatusInternalServerError, "kaboom"},
-		{"panic with a string", func(http.ResponseWriter, *http.Request) { panic("kaboom") }, http.StatusInternalServerError, "kaboom"},
+		{"panic with an error", func(http.ResponseWriter, *http.Request) { panic(errors.New("dial db.internal.test as ratings_admin")) }, http.StatusInternalServerError, `"panic":"*errors.errorString"`},
+		{"panic with a string", func(http.ResponseWriter, *http.Request) { panic("dial db.internal.test as ratings_admin") }, http.StatusInternalServerError, `"panic":"string"`},
 		{"no panic", func(w http.ResponseWriter, _ *http.Request) { w.WriteHeader(http.StatusTeapot) }, http.StatusTeapot, ""},
 	}
 	for _, tt := range tests {
@@ -634,8 +633,8 @@ func TestRecoverPanics(t *testing.T) {
 			if !strings.Contains(logs, `"route":"GET /boom/{name}"`) || !strings.Contains(logs, tt.wantLog) {
 				t.Errorf("log = %q, want the route and %q", logs, tt.wantLog)
 			}
-			if strings.Contains(logs, "Someplayer") || strings.Contains(logs, "203.0.113.9") {
-				t.Errorf("log = %q, carries the path or the client IP", logs)
+			if strings.Contains(logs, "Someplayer") || strings.Contains(logs, "203.0.113.9") || strings.Contains(logs, "db.internal.test") {
+				t.Errorf("log = %q, carries the path, the client IP or the panic's text", logs)
 			}
 			var line struct{ Stack string }
 			if err := json.Unmarshal(buf.Bytes(), &line); err != nil || !strings.Contains(line.Stack, "httpapi_test.go") {

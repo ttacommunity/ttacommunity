@@ -103,8 +103,9 @@ func NewPlayerStore(pool *pgxpool.Pool) *PlayerStore {
 }
 
 // CheckLimits returns ErrPlayerLoginTooStrong if the pool's role is a superuser, can create tables, can write
-// games, players, admins or more of a member than their country and zone, can read a member's email, or can delete
-// a login or an account. The api calls it at start, so a misconfigured login refuses to serve.
+// games, players, admins or more of a member than their country and zone, can read a member's email, can delete
+// a login or an account, or can link or fill an account by its id. The api calls it at start, so a misconfigured
+// login refuses to serve.
 func (s *PlayerStore) CheckLimits(ctx context.Context) error {
 	var tooStrong bool
 	err := s.pool.QueryRow(ctx, `
@@ -120,7 +121,9 @@ func (s *PlayerStore) CheckLimits(ctx context.Context) error {
 			             AND a.attname NOT IN ('country_code', 'zone') AND has_column_privilege('members', a.attname, 'UPDATE'))
 			OR has_column_privilege('members', 'email', 'SELECT')
 			OR has_table_privilege('logins', 'DELETE, TRUNCATE')
-			OR has_table_privilege('accounts', 'DELETE, TRUNCATE')`).Scan(&tooStrong)
+			OR has_table_privilege('accounts', 'DELETE, TRUNCATE')
+			OR has_function_privilege('link_by_email(bigint, timestamptz)', 'EXECUTE')
+			OR has_function_privilege('fill_member_from_logins(bigint)', 'EXECUTE')`).Scan(&tooStrong)
 	if err != nil {
 		return fmt.Errorf("checking the player login's privileges: %w", err)
 	}
@@ -156,10 +159,10 @@ func signIn(ctx context.Context, tx pgx.Tx, id Identity, tokenHash []byte, now t
 			return false, err
 		}
 	}
-	if err := autoLink(ctx, tx, account, id, now); err != nil {
+	if err := startSession(ctx, tx, login, tokenHash, now); err != nil {
 		return false, err
 	}
-	return first, startSession(ctx, tx, login, tokenHash, now)
+	return first, autoLink(ctx, tx, account, id, tokenHash, now)
 }
 
 // contactEmail is the Microsoft or Google email id vouches for, trimmed and lower-cased, or "" for none or one that is
@@ -187,8 +190,9 @@ func startSession(ctx context.Context, tx pgx.Tx, login int64, tokenHash []byte,
 }
 
 // autoLink links account at now by id's Discord name or email address, as SignIn describes, and fills its member's
-// missing Discord name and email from its logins, linked now or before.
-func autoLink(ctx context.Context, tx pgx.Tx, account int64, id Identity, now time.Time) error {
+// missing Discord name and email from its logins, linked now or before. session hashes the token of a session the
+// account has started, by which the player login's functions find the account.
+func autoLink(ctx context.Context, tx pgx.Tx, account int64, id Identity, session []byte, now time.Time) error {
 	linked := false
 	switch id.Provider {
 	case "discord":
@@ -204,7 +208,7 @@ func autoLink(ctx context.Context, tx pgx.Tx, account int64, id Identity, now ti
 		}
 		linked = tag.RowsAffected() > 0
 	case "email":
-		if err := tx.QueryRow(ctx, "SELECT link_by_email($1, $2)", account, now).Scan(&linked); err != nil {
+		if err := tx.QueryRow(ctx, "SELECT link_own_by_email($1, $2)", session, now).Scan(&linked); err != nil {
 			return fmt.Errorf("linking a sign-in by email: %w", err)
 		}
 	}
@@ -213,11 +217,14 @@ func autoLink(ctx context.Context, tx pgx.Tx, account int64, id Identity, now ti
 			return err
 		}
 	}
-	return fillMember(ctx, tx, account)
+	if _, err := tx.Exec(ctx, "SELECT fill_own_member($1, $2)", session, now); err != nil {
+		return fmt.Errorf("filling a member's details from their logins: %w", err)
+	}
+	return nil
 }
 
 // fillMember gives the member account is linked to, if any, the Discord name and email of its logins where the
-// member has none.
+// member has none. The admin login runs it; the player login fills through its session, as autoLink does.
 func fillMember(ctx context.Context, c conn, account int64) error {
 	if _, err := c.Exec(ctx, "SELECT fill_member_from_logins($1)", account); err != nil {
 		return fmt.Errorf("filling a member's details from their logins: %w", err)
@@ -279,7 +286,8 @@ func canAddLogin(ctx context.Context, tx pgx.Tx, account int64, id Identity) err
 }
 
 // addLogin adds id to account at now as another way in, or for an email address in place of the account's old one,
-// linking the account by it as SignIn does, and returns the login. It returns ErrLoginTaken or ErrHasLoginOfKind.
+// and returns the login; the caller links the account by it with autoLink once a session is started. It returns
+// ErrLoginTaken or ErrHasLoginOfKind.
 func addLogin(ctx context.Context, tx pgx.Tx, account int64, id Identity, now time.Time) (int64, error) {
 	if _, err := tx.Exec(ctx, "SELECT FROM accounts WHERE account_id = $1 FOR UPDATE", account); err != nil {
 		return 0, fmt.Errorf("reading an account: %w", err)
@@ -292,7 +300,7 @@ func addLogin(ctx context.Context, tx pgx.Tx, account int64, id Identity, now ti
 		err := tx.QueryRow(ctx, "UPDATE logins SET subject = $2, username = $2 WHERE account_id = $1 AND provider = 'email' RETURNING login_id",
 			account, id.Subject).Scan(&login)
 		if err == nil {
-			return login, autoLink(ctx, tx, account, id, now)
+			return login, nil
 		}
 		if !errors.Is(err, pgx.ErrNoRows) {
 			return 0, fmt.Errorf("changing an email address: %w", err)
@@ -306,7 +314,7 @@ func addLogin(ctx context.Context, tx pgx.Tx, account int64, id Identity, now ti
 	if err != nil {
 		return 0, fmt.Errorf("adding a way in: %w", err)
 	}
-	return login, autoLink(ctx, tx, account, id, now)
+	return login, nil
 }
 
 // AddLogin adds the Discord, Microsoft or Google account id, at now, to the account whose session hashes to
@@ -323,8 +331,10 @@ func (s *PlayerStore) AddLogin(ctx context.Context, tokenHash []byte, id Identit
 		if err != nil {
 			return fmt.Errorf("reading a session: %w", err)
 		}
-		_, err = addLogin(ctx, tx, account, id, now)
-		return err
+		if _, err := addLogin(ctx, tx, account, id, now); err != nil {
+			return err
+		}
+		return autoLink(ctx, tx, account, id, tokenHash, now)
 	})
 }
 

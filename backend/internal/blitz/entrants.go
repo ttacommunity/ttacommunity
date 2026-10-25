@@ -90,3 +90,11 @@ func FinishedAt(day, clock, zone string) (time.Time, error) {
 	}
 	return at, nil
 }
+
+// FinishedBy refuses at, a game's finish read to the minute, when it is after the minute now is in.
+func FinishedBy(at, now time.Time) error {
+	if at.After(now.Truncate(time.Minute)) {
+		return fmt.Errorf("a game cannot finish after now: %s UTC has not come yet", at.UTC().Format("2006-01-02 15:04"))
+	}
+	return nil
+}

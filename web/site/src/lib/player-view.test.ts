@@ -3,6 +3,7 @@ import type { Player, PlayerHistory, Rival } from '@ttac/shared/ratings';
 import {
   chartData,
   formatCards,
+  hasPlayerPage,
   isProvisional,
   matrixHref,
   matrixParams,
@@ -28,6 +29,16 @@ describe('playerHref', () => {
     ['query characters', 'a&b=c', '/ratings/player/?name=a%26b%3Dc'],
   ])('puts the name in the query, encoded: %s', (_name, name, want) => {
     expect(playerHref(name)).toBe(want);
+  });
+});
+
+describe('hasPlayerPage', () => {
+  it.each([
+    ['a player', 'alder440', true],
+    ['a deleted or banned player', 'Deleted player', false],
+    ['an empty seat', 'Unknown player', false],
+  ])('%s', (_name, name, want) => {
+    expect(hasPlayerPage(name)).toBe(want);
   });
 });
 

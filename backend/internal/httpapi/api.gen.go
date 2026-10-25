@@ -1785,7 +1785,7 @@ type BlitzGameRecord struct {
 	// FinishedOn The day it finished, on the clocks of zone
 	FinishedOn openapi_types.Date `json:"finished_on"`
 
-	// FinishedTime The time it finished, as 21:30 on the clocks of zone
+	// FinishedTime The time it finished, as 21:30 on the clocks of zone. A finish after the current minute is refused
 	FinishedTime string `json:"finished_time"`
 
 	// ShareCode Empty for a game without one
