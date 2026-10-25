@@ -1,5 +1,6 @@
-/** The rounds card's decisions: when a round can be paired, which round may still change, who is unpaired, and the matches a change by hand produces. */
+/** The rounds card's decisions: when a round can be paired, which round may still change, who is unpaired, the matches a change by hand produces, and the rounds the standings order by. */
 import type { components } from '@ttac/shared/api';
+import type { FinishRound } from '@ttac/shared/blitz';
 
 type Schemas = components['schemas'];
 export type AdminBlitzRound = Schemas['AdminBlitzRound'];
@@ -263,4 +264,11 @@ export function zoneGapLabel(minutes: number): string {
   const h = Math.floor(minutes / 60);
   const m = minutes % 60;
   return m === 0 ? `${h} h apart` : `${h} h ${m} apart`;
+}
+
+/** finishRounds gives the published rounds as latestFinishes reads them, each player named by nameOf. */
+export function finishRounds(rounds: readonly AdminBlitzRound[], nameOf: (id: number) => string): FinishRound[] {
+  return rounds
+    .filter((r) => r.published_at !== null)
+    .map((r) => ({ number: r.number, kind: r.kind, matches: r.matches.map((m) => ({ a: nameOf(m.a), b: m.b === null ? null : nameOf(m.b), game: m.game })) }));
 }

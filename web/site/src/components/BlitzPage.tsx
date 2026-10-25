@@ -2,7 +2,7 @@
 import { useEffect, useState, type ReactNode } from 'react';
 import { RatingsApiError, blitzEdition, blitzEditions, type BlitzEdition, type BlitzEditions } from '@ttac/shared/ratings';
 import type { components } from '@ttac/shared/api';
-import { formatLabel, reachedLabel, scoringSentence, zoneLabel } from '@ttac/shared/blitz';
+import { byFinish, formatLabel, latestFinishes, placeLabel, reachedLabel, scoringSentence, zoneLabel } from '@ttac/shared/blitz';
 import BackLink from '@ttac/shared/BackLink';
 import SubTabs, { useHash } from '@ttac/shared/SubTabs';
 import { hashTab } from '@ttac/shared/tabs';
@@ -138,7 +138,7 @@ function EditionPage({ apiUrl, slug, edition }: { apiUrl: string; slug: string; 
   const countryOf = new Map(ed.standings.map((s) => [s.name, s.country]));
   const views = editionViews(ed.rounds);
   const panels: Record<EditionView, { label: string; panel: ReactNode }> = {
-    standings: { label: 'Standings', panel: <StandingsPanel standings={ed.standings} scoring={scoringSentence(ed.points, ed.fide_points)} /> },
+    standings: { label: 'Standings', panel: <StandingsPanel standings={byFinish(ed.standings, latestFinishes(ed.rounds))} scoring={scoringSentence(ed.points, ed.fide_points)} /> },
     pairings: { label: 'Pairings', panel: <PairingsPanel ed={ed} swiss={swiss} you={yourRow(mine)} /> },
     players: { label: 'Players', panel: <PlayersPanel entrants={ed.entrants} /> },
   };
@@ -198,7 +198,7 @@ function EditionPage({ apiUrl, slug, edition }: { apiUrl: string; slug: string; 
   );
 }
 
-/** StandingsPanel shows the standings, with how the edition scores and how ties are broken. */
+/** StandingsPanel shows the standings, in the order given, with how the edition scores and how ties are broken. */
 function StandingsPanel({ standings, scoring }: { standings: BlitzStanding[]; scoring: string }) {
   return (
     <section aria-labelledby="blitz-standings">
@@ -208,7 +208,9 @@ function StandingsPanel({ standings, scoring }: { standings: BlitzStanding[]; sc
       <p className="blitz-intro">
         {scoring} Ties are broken by the Swiss tie-breaks: Direct Encounter (the games
         among the tied players), then Buchholz (the sum of the opponents&apos; scores; a bye, a forfeit or a missed round
-        counts as a game against an opponent on the player&apos;s own score), then a draw fixed for the edition.
+        counts as a game against an opponent on the player&apos;s own score). Players still level share a place, such as
+        1–12, listed by when their game in the latest round finished; where one order is needed, as for the knockout, a
+        draw fixed for the edition decides.
       </p>
       <div className="blitz-table-wrap">
         <table className="blitz-table">
@@ -236,7 +238,7 @@ function StandingsPanel({ standings, scoring }: { standings: BlitzStanding[]; sc
           <tbody>
             {standings.map((s) => (
               <tr key={s.name} className={s.status === 'dropped' ? 'blitz-dropped' : ''}>
-                <td className="num">{s.rank}</td>
+                <td className="num">{placeLabel(s)}</td>
                 <th scope="row">
                   <span className="blitz-flag">
                     <Flag country={s.country} />

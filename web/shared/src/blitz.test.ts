@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { formatLabel, knockoutStage, offsetLabel, pointsList, pointsText, reachedLabel, resultSummary, resultTag, roundShown, roundSummary, roundTitle, scoringSentence, seededName, turnMark, turnOrder, zoneLabel, type BlitzPlayedGame } from './blitz';
+import { byFinish, formatLabel, knockoutStage, latestFinishes, placeLabel, offsetLabel, pointsList, pointsText, reachedLabel, resultSummary, resultTag, roundShown, roundSummary, roundTitle, scoringSentence, seededName, turnMark, turnOrder, zoneLabel, type BlitzPlayedGame } from './blitz';
 
 const game = (aCulture: number, bCulture: number, aOutcome: BlitzPlayedGame['a_outcome'] = 'finished', bOutcome: BlitzPlayedGame['b_outcome'] = 'finished'): BlitzPlayedGame => ({
   share_code: 'ABCD1234',
@@ -191,5 +191,46 @@ describe('scoringSentence', () => {
     ["the edition's own, every outcome", OURS, false, "This edition's points: win 3, draw 1½, loss ½, forfeit win 1, forfeit loss 0, bye 2½, skip 10."],
   ])('%s', (_, points, fide, want) => {
     expect(scoringSentence(points, fide)).toBe(want);
+  });
+});
+
+describe('placeLabel', () => {
+  it.each([
+    ['a place held alone', 3, 3, '3'],
+    ['a shared place', 1, 12, '1–12'],
+  ] as const)('writes %s', (_name, from, to, want) => {
+    expect(placeLabel({ place_from: from, place_to: to })).toBe(want);
+  });
+});
+
+describe('latestFinishes', () => {
+  const played = (a: string, b: string | null, at: string | null) => ({ a, b, game: at === null ? null : { finished_at: at } });
+  it.each([
+    ['each player of the latest Swiss round with a played game, by when it finished',
+      [{ number: 1, kind: 'swiss', matches: [played('Ann', 'Cy', '2026-10-19T16:00:00Z')] }, { number: 2, kind: 'swiss', matches: [played('Ann', 'Di', '2026-10-26T10:00:00Z'), played('Cy', 'Bo', null)] }],
+      { Ann: '2026-10-26T10:00:00Z', Di: '2026-10-26T10:00:00Z' }],
+    ['the round before while the latest has no game yet',
+      [{ number: 1, kind: 'swiss', matches: [played('Ann', 'Cy', '2026-10-19T16:00:00Z')] }, { number: 2, kind: 'swiss', matches: [played('Ann', 'Cy', null)] }],
+      { Ann: '2026-10-19T16:00:00Z', Cy: '2026-10-19T16:00:00Z' }],
+    ['no knockout round', [{ number: 7, kind: 'knockout', matches: [played('Ann', 'Cy', '2026-12-01T10:00:00Z')] }], {}],
+    ['nobody for a bye', [{ number: 1, kind: 'swiss', matches: [played('Ann', null, null)] }], {}],
+  ] as const)('finds %s', (_name, rounds, want) => {
+    expect(Object.fromEntries(latestFinishes(rounds))).toEqual(want);
+  });
+});
+
+describe('byFinish', () => {
+  const row = (name: string, from: number) => ({ name, place_from: from });
+  const finished = new Map([
+    ['Ann', '2026-10-19T18:00:00Z'],
+    ['Bo', '2026-10-19T16:00:00Z'],
+    ['Di', '2026-10-19T17:00:00Z'],
+  ]);
+  it.each([
+    ['earliest finish first within a shared place', [row('Ann', 1), row('Bo', 1), row('Di', 1)], ['Bo', 'Di', 'Ann']],
+    ['players without a game after, in the order given', [row('Cy', 1), row('Ed', 1), row('Ann', 1)], ['Ann', 'Cy', 'Ed']],
+    ['never across places', [row('Ann', 1), row('Bo', 2)], ['Ann', 'Bo']],
+  ] as const)('keeps %s', (_name, rows, want) => {
+    expect(byFinish(rows, finished).map((r) => r.name)).toEqual(want);
   });
 });

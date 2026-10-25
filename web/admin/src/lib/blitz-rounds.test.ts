@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { byeTakers, canDeleteRound, canResetEdition, entrantActions, entrantState, resetsOf, partnersFor, leftUnpaired, pairCounts, reconcilePending, replaceableSide, canPair, decidedOnly, nextRound, openRound, pairAction, flaggedMatches, reportNote, rulingChoices, rulingLabel, newestFirst, samePairs, shownAfter, undecided, unpaired, unsavedMatch, zoneGapLabel, type AdminBlitzRound } from './blitz-rounds';
+import { byeTakers, canDeleteRound, finishRounds, canResetEdition, entrantActions, entrantState, resetsOf, partnersFor, leftUnpaired, pairCounts, reconcilePending, replaceableSide, canPair, decidedOnly, nextRound, openRound, pairAction, flaggedMatches, reportNote, rulingChoices, rulingLabel, newestFirst, samePairs, shownAfter, undecided, unpaired, unsavedMatch, zoneGapLabel, type AdminBlitzRound } from './blitz-rounds';
 
 const round = (id: number, number: number, published: boolean, matches: AdminBlitzRound['matches']): AdminBlitzRound => ({
   id,
@@ -388,5 +388,16 @@ describe('flaggedMatches', () => {
     const rounds = [round(12, 2, true, [flagged(21), match(22, 3, 4, 'a')]), round(11, 1, true, [flagged(11), { ...match(12, 3, 4, 'b'), reported_by: 3, report: 'resolved' as const }])];
     expect(flaggedMatches(rounds).map((f) => `${f.round.number}:${f.match.id}`)).toEqual(['1:11', '2:21']);
     expect(flaggedMatches([round(11, 1, true, [match(12, 3, 4, 'b')])])).toEqual([]);
+  });
+});
+
+describe('finishRounds', () => {
+  const game = { share_code: '', a_culture: 200, a_outcome: 'finished', a_turn: 1, b_culture: 90, b_outcome: 'finished', b_turn: 2, finished_at: '2026-10-19T16:00:00Z' } as const;
+  const names = (id: number) => `p${id}`;
+  it.each([
+    ['a published round, its players by name', [round(1, 1, true, [{ ...match(10, 1, 2, 'a'), game }, match(11, 3, null)])], [{ number: 1, kind: 'swiss', matches: [{ a: 'p1', b: 'p2', game }, { a: 'p3', b: null, game: null }] }]],
+    ['nothing of a draft', [round(2, 2, false, [{ ...match(20, 1, 2, 'a'), game }])], []],
+  ] as const)('keeps %s', (_name, rounds, want) => {
+    expect(finishRounds(rounds, names)).toEqual(want);
   });
 });

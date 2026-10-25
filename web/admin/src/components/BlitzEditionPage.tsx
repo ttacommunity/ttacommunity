@@ -5,7 +5,7 @@ import BackLink from '@ttac/shared/BackLink';
 import { useDialog } from '@ttac/shared/Dialog';
 import SubTabs, { useHash } from '@ttac/shared/SubTabs';
 import { hashTab } from '@ttac/shared/tabs';
-import { formatLabel, offsetLabel, resultSummary, roundShown, roundSummary, roundTitle, scoringSentence, seededName, turnMark, turnOrder } from '@ttac/shared/blitz';
+import { byFinish, formatLabel, latestFinishes, offsetLabel, placeLabel, resultSummary, roundShown, roundSummary, roundTitle, scoringSentence, seededName, turnMark, turnOrder } from '@ttac/shared/blitz';
 import { formatInstant } from '@ttac/shared/time';
 import { adminDownload, adminRequest, firstError, type AdminBlitzEdition, type AdminMe, type BlitzEntrantIds, type Load } from '../lib/admin-api';
 import * as req from '../lib/admin-requests';
@@ -17,7 +17,7 @@ import { entrantToAdd, wildcardChoices, type PersonChoice, type PersonDetails } 
 import { countryNames, type Country } from '../lib/countries';
 import { clockIn, type Region } from '../lib/zones';
 import { loadFailure, outcomeOf, refused, shownAt, succeeded, type Outcome } from '../lib/outcome';
-import { asChanges, byeTakers, canDeleteRound, canResetEdition, decidedOnly, resetsOf, entrantActions, entrantState, leftUnpaired, newestFirst, openRound, flaggedMatches, pairAction, pairCounts, partnersFor, reconcilePending, replaceableSide, reportNote, rulingChoices, rulingLabel, samePairs, shownAfter, unpaired, unsavedMatch, zoneGapLabel, type AdminBlitzMatch, type AdminBlitzRound, type Pending } from '../lib/blitz-rounds';
+import { asChanges, byeTakers, canDeleteRound, canResetEdition, decidedOnly, finishRounds, resetsOf, entrantActions, entrantState, leftUnpaired, newestFirst, openRound, flaggedMatches, pairAction, pairCounts, partnersFor, reconcilePending, replaceableSide, reportNote, rulingChoices, rulingLabel, samePairs, shownAfter, unpaired, unsavedMatch, zoneGapLabel, type AdminBlitzMatch, type AdminBlitzRound, type Pending } from '../lib/blitz-rounds';
 import AdminHeader from './AdminHeader';
 import CountryPick from './CountryPick';
 import InfoTip from './InfoTip';
@@ -858,6 +858,8 @@ type View = 'rounds' | 'entrants' | 'standings';
 /** EditionTabs shows one of the format and rounds, the entrants (with the form to add one first) or the standings, chosen by its tabs, the site's sub tabs. */
 function EditionTabs(props: Props) {
   const [hash, setHash] = useHash();
+  const names = new Map(props.ed.entrants.map((e) => [e.id, e.name]));
+  const nameOf = (id: number) => names.get(id) ?? '?';
   return (
     <section className="rating-card admin-card" aria-label="Rounds, entrants and standings">
       <SubTabs<View>
@@ -883,7 +885,7 @@ function EditionTabs(props: Props) {
               </>
             ),
           },
-          { value: 'standings', label: 'Standings', panel: <StandingsPanel standings={props.ed.standings} scoring={scoringSentence(props.ed.points, props.ed.fide_points)} /> },
+          { value: 'standings', label: 'Standings', panel: <StandingsPanel standings={byFinish(props.ed.standings, latestFinishes(finishRounds(props.ed.rounds, nameOf)))} scoring={scoringSentence(props.ed.points, props.ed.fide_points)} /> },
         ]}
         chosen={hashTab<View>(['rounds', 'entrants', 'standings'], hash)}
         onChoose={setHash}
@@ -1484,14 +1486,16 @@ function ReplaceForm({ at, round, match, out, ed, nameOf, onDone, onCancel }: Re
   );
 }
 
-/** StandingsPanel shows the standings as the site does: how the edition scores, then rank, points, games played, byes and Buchholz, dropped players last. */
+/** StandingsPanel shows the standings as the site does, in the order given: how the edition scores, then place, points, games played, byes and Buchholz, dropped players last. */
 function StandingsPanel({ standings, scoring }: { standings: BlitzStanding[]; scoring: string }) {
   return (
     <>
       <p className="muted">
         {scoring} Ties are broken by the Swiss tie-breaks: Direct Encounter (the games
         among the tied players), then Buchholz (the sum of the opponents&apos; scores; a bye, a forfeit or a missed round
-        counts as a game against an opponent on the player&apos;s own score), then a draw fixed for the edition.
+        counts as a game against an opponent on the player&apos;s own score). Players still level share a place, such as
+        1–12, listed by when their game in the latest round finished; where one order is needed, as for the knockout, a
+        draw fixed for the edition decides.
       </p>
       {standings.length === 0 && <p className="muted">Nobody to rank yet.</p>}
       {standings.length > 0 && (
@@ -1511,7 +1515,7 @@ function StandingsPanel({ standings, scoring }: { standings: BlitzStanding[]; sc
             <tbody>
               {standings.map((s) => (
                 <tr key={s.name} className={s.status === 'dropped' ? 'muted' : ''}>
-                  <td>{s.rank}</td>
+                  <td>{placeLabel(s)}</td>
                   <th scope="row">
                     {s.name}
                     {s.status === 'dropped' && <span className="row-detail muted">dropped</span>}

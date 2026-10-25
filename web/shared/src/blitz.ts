@@ -1,4 +1,4 @@
-/** What both sites say about a blitz tournament: a zone's offset, a format, its points, how a match's result and turn order read, how a folded round is summed up, and how a round and a seeded player are named. */
+/** What both sites say about a blitz tournament: a zone's offset, a format, its points, how a match's result and turn order read, how a folded round is summed up, how a round and a seeded player are named, and how the standings share places. */
 import type { components } from '../api/schema';
 
 export type BlitzFormat = components['schemas']['BlitzFormat'];
@@ -159,4 +159,41 @@ export function seededName(name: string, seed: number | null): string {
 export function reachedLabel(round: number | null, f: BlitzFormat, champion: string | null): string {
   if (champion !== null) return `Finished: champion ${champion}`;
   return round === null ? 'Pairing not started' : roundTitle(round, f);
+}
+
+/** placeLabel writes a standing's place: "3" when held alone, "1–12" when shared. */
+export function placeLabel(s: { place_from: number; place_to: number }): string {
+  return s.place_from === s.place_to ? String(s.place_from) : `${s.place_from}–${s.place_to}`;
+}
+
+/** FinishRound is what latestFinishes reads of a round: its number, kind, and each match's players and game. */
+export type FinishRound = { number: number; kind: 'swiss' | 'knockout'; matches: readonly { a: string; b: string | null; game: { finished_at: string } | null }[] };
+
+/** latestFinishes maps each player with a game in the latest Swiss round that has one to when that game finished. */
+export function latestFinishes(rounds: readonly FinishRound[]): Map<string, string> {
+  const latest = rounds
+    .filter((r) => r.kind === 'swiss' && r.matches.some((m) => m.game !== null))
+    .reduce<FinishRound | null>((best, r) => (best === null || r.number > best.number ? r : best), null);
+  const out = new Map<string, string>();
+  for (const m of latest?.matches ?? []) {
+    if (m.game === null || m.b === null) continue;
+    out.set(m.a, m.game.finished_at);
+    out.set(m.b, m.game.finished_at);
+  }
+  return out;
+}
+
+/** byFinish orders the standings within each shared place by when each player's game finished (finished, from latestFinishes), earliest first; those without one follow in the order given. */
+export function byFinish<T extends { name: string; place_from: number }>(standings: readonly T[], finished: ReadonlyMap<string, string>): T[] {
+  const at = (s: T) => finished.get(s.name) ?? null;
+  return standings
+    .map((s, i) => ({ s, i }))
+    .sort((x, y) => {
+      if (x.s.place_from !== y.s.place_from) return x.i - y.i;
+      const a = at(x.s);
+      const b = at(y.s);
+      if (a === null || b === null) return a === b ? x.i - y.i : a === null ? 1 : -1;
+      return a === b ? x.i - y.i : a < b ? -1 : 1;
+    })
+    .map(({ s }) => s);
 }
