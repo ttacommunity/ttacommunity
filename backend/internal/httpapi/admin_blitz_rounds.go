@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"ttacommunity/backend/internal/blitz"
+	"ttacommunity/backend/internal/pairing"
 	"ttacommunity/backend/internal/store"
 )
 
@@ -70,7 +71,7 @@ func (s *server) adminBlitzRound(r store.BlitzRound, ed store.BlitzEdition, rate
 			a, b := byID[m.A], byID[*m.B]
 			oa, _ := blitz.OffsetMinutes(a.Zone, now)
 			ob, _ := blitz.OffsetMinutes(b.Zone, now)
-			am.ZoneGapMinutes = blitz.ZoneGap(oa, ob)
+			am.ZoneGapMinutes = pairing.ZoneGap(oa, ob)
 			if ra, ok := rated[a.Player]; ok {
 				if rb, ok := rated[b.Player]; ok {
 					gap := ra.Rating - rb.Rating
@@ -112,10 +113,32 @@ func knockoutReserve(r store.BlitzRound, ed store.BlitzEdition) *int64 {
 	return nil
 }
 
+// roundSwitches are the time-zone and rating switches a round is paired with.
+type roundSwitches struct{ Timezone, Rating bool }
+
+// method is the pairing method the switches choose.
+func (c roundSwitches) method() pairing.Method {
+	switch {
+	case c.Timezone:
+		return pairing.Timezone
+	case c.Rating:
+		return pairing.Rating
+	}
+	return pairing.Random
+}
+
+// pairingError is the message for a round that cannot be paired, with what admin can do about it.
+func pairingError(err error) string {
+	if errors.Is(err, pairing.ErrNoPairing) {
+		return err.Error() + ": lower the Swiss rounds in Format to go on to the knockout"
+	}
+	return err.Error()
+}
+
 // pairingPlayers turns the edition's active entrants into what the pairing needs, as of now, leaving out the
 // round named by except (0 for none: a new round) when counting points, places, opponents and byes, and the
 // entrants in busy (already paired, or skipping the round).
-func pairingPlayers(ed store.BlitzEdition, rated map[string]store.Rated, now time.Time, except int64, busy map[int64]bool) []blitz.Player {
+func pairingPlayers(ed store.BlitzEdition, rated map[string]store.Rated, now time.Time, except int64, busy map[int64]bool) []pairing.Player {
 	var others []store.BlitzRound
 	for _, r := range ed.Rounds {
 		if r.ID != except {
@@ -127,13 +150,13 @@ func pairingPlayers(ed store.BlitzEdition, rated map[string]store.Rated, now tim
 	for _, s := range blitzStandings(store.BlitzEdition{BlitzEditionRow: ed.BlitzEditionRow, Entrants: ed.Entrants, Rounds: others}) {
 		points[s.Name], places[s.Name] = s.Points, s.Rank
 	}
-	var players []blitz.Player
+	var players []pairing.Player
 	for _, e := range ed.Entrants {
 		if e.Status != "active" || busy[e.ID] {
 			continue
 		}
 		offset, _ := blitz.OffsetMinutes(e.Zone, now)
-		p := blitz.Player{ID: e.ID, Points: points[e.Name], Place: places[e.Name], Offset: offset, Opponents: met[e.ID], HadBye: byes[e.ID]}
+		p := pairing.Player{ID: e.ID, Points: points[e.Name], Place: places[e.Name], Offset: offset, Opponents: met[e.ID], HadBye: byes[e.ID]}
 		if r, ok := rated[e.Player]; ok {
 			p.Rating, p.Rated = r.Rating, true
 		}
@@ -212,7 +235,7 @@ func (s *server) PostAdminBlitzRound(ctx context.Context, req PostAdminBlitzRoun
 	if !tournamentSlug.MatchString(req.Tournament) {
 		return PostAdminBlitzRound400JSONResponse{badRequest400("bad parameter: tournament")}, nil
 	}
-	criteria := blitz.Criteria{Timezone: true}
+	criteria := roundSwitches{Timezone: true}
 	if req.Body != nil && req.Body.Timezone != nil {
 		criteria.Timezone = *req.Body.Timezone
 	}
@@ -249,9 +272,9 @@ func (s *server) PostAdminBlitzRound(ctx context.Context, req PostAdminBlitzRoun
 		for _, e := range skippers(ed.Entrants, next) {
 			busy[e.ID] = true
 		}
-		paired, err := blitz.Pair(pairingPlayers(ed, rated, now, 0, busy), criteria, seed)
-		if errors.Is(err, blitz.ErrTooFew) || errors.Is(err, blitz.ErrNoPairing) {
-			return PostAdminBlitzRound400JSONResponse{badRequest400(err.Error())}, nil
+		paired, err := pairing.Pair(pairingPlayers(ed, rated, now, 0, busy), criteria.method(), seed)
+		if errors.Is(err, pairing.ErrTooFew) || errors.Is(err, pairing.ErrNoPairing) {
+			return PostAdminBlitzRound400JSONResponse{badRequest400(pairingError(err))}, nil
 		}
 		if err != nil {
 			return nil, err
@@ -273,7 +296,7 @@ func (s *server) PostAdminBlitzRound(ctx context.Context, req PostAdminBlitzRoun
 		case err != nil:
 			return nil, err
 		}
-		criteria = blitz.Criteria{}
+		criteria = roundSwitches{}
 		round = store.BlitzRound{Kind: "knockout", Seed: int64(seed), Matches: matches}
 	}
 	made, err := s.admins.AddBlitzRound(ctx, req.Tournament, req.Edition, round)
@@ -421,7 +444,7 @@ func (s *server) PostAdminBlitzRoundPairing(ctx context.Context, req PostAdminBl
 	if !tournamentSlug.MatchString(req.Tournament) {
 		return PostAdminBlitzRoundPairing400JSONResponse{badRequest400("bad parameter: tournament")}, nil
 	}
-	criteria := blitz.Criteria{Timezone: true}
+	criteria := roundSwitches{Timezone: true}
 	if req.Body != nil && req.Body.Timezone != nil {
 		criteria.Timezone = *req.Body.Timezone
 	}
@@ -477,9 +500,9 @@ func (s *server) PostAdminBlitzRoundPairing(ctx context.Context, req PostAdminBl
 	case 1:
 		proposal.Matches = append(proposal.Matches, store.BlitzMatch{A: free[0].ID})
 	default:
-		paired, err := blitz.Pair(free, criteria, seed)
-		if errors.Is(err, blitz.ErrNoPairing) {
-			return PostAdminBlitzRoundPairing400JSONResponse{badRequest400(err.Error())}, nil
+		paired, err := pairing.Pair(free, criteria.method(), seed)
+		if errors.Is(err, pairing.ErrNoPairing) {
+			return PostAdminBlitzRoundPairing400JSONResponse{badRequest400(pairingError(err))}, nil
 		}
 		if err != nil {
 			return nil, err
