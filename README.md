@@ -521,8 +521,11 @@ deploys both together:
 
 3. Nothing to do for migrations: each api pod's `migrate` init container
    (the api image run with `-migrate`, as the database's owner) applies them
-   before the new api starts, one pod at a time. Migrations only add, so the
-   api still running from before is unaffected while it happens
+   before the new api starts, one pod at a time. The api from before keeps
+   serving meanwhile. Until TTA Pulse is live, a migration may also drop what
+   its pull request stops using, and the old api can fail for the minute or
+   two of the rollout; the pull request says so. Once Pulse is live,
+   migrations only add, and a removal follows in a later pull request
 
 `checks/deploy-current.sh` fails if `deploy/` pins an image built from older
 code than the branch's, so a late code change needs a new image and pin.

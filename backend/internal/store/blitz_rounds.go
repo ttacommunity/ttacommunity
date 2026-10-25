@@ -338,8 +338,7 @@ func (a *AdminStore) AddBlitzRound(ctx context.Context, slug, edition string, r 
 			return err
 		}
 		if err := tx.QueryRow(ctx, `
-			INSERT INTO blitz_rounds (tournament_id, number, kind, method, timezone, rating, seed)
-			VALUES ($1, $2, $3, nullif($4, ''), $4 IN ('dutch-timezone', 'timezone'), $4 = 'rating', $5)
+			INSERT INTO blitz_rounds (tournament_id, number, kind, method, seed) VALUES ($1, $2, $3, nullif($4, ''), $5)
 			RETURNING round_id`, edID, r.Number, r.Kind, r.Method, r.Seed).Scan(&r.ID); err != nil {
 			return fmt.Errorf("adding a round to %s %s: %w", slug, edition, err)
 		}

@@ -36,8 +36,6 @@ func withPeople(t *testing.T, pool *pgxpool.Pool) *pgxpool.Pool {
 		 VALUES (sha256('link'), 'ann@example.test', '/', now(), now())`,
 		`INSERT INTO blitz_editions (tournament_id, swiss_rounds, knockout_size) SELECT tournament_id, 8, 8 FROM tournaments LIMIT 1`,
 		`INSERT INTO blitz_entries (tournament_id, member_id) SELECT tournament_id, member_id FROM blitz_editions, members`,
-		`INSERT INTO blitz_organisers (tournament_id, member_id) SELECT tournament_id, min(member_id) FROM blitz_entries GROUP BY 1`,
-		`INSERT INTO blitz_thread_texts (tournament_id, message, no_discord) SELECT tournament_id, 'Round {round}', 'none' FROM blitz_editions`,
 		`INSERT INTO blitz_rounds (tournament_id, number, method, seed) SELECT tournament_id, 1, 'dutch', 7 FROM blitz_editions`,
 		`INSERT INTO blitz_matches (round_id, entry_a, entry_b)
 		 SELECT round_id, min(entry_id), max(entry_id) FROM blitz_rounds, blitz_entries GROUP BY round_id`,

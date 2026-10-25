@@ -59,13 +59,6 @@ func TestARoundKeepsTheMethodItWasPairedWith(t *testing.T) {
 		if got := ed.Rounds[len(ed.Rounds)-1].Method; got != method {
 			t.Errorf("round method = %q, want %q", got, method)
 		}
-		var timezone, rating bool
-		if err := a.pool.QueryRow(ctx, "SELECT timezone, rating FROM blitz_rounds WHERE round_id = $1", r.ID).Scan(&timezone, &rating); err != nil {
-			t.Fatalf("reading the switches: %v", err)
-		}
-		if wantTZ, wantRating := method == "dutch-timezone" || method == "timezone", method == "rating"; timezone != wantTZ || rating != wantRating {
-			t.Errorf("%s: switches timezone=%v rating=%v, want %v %v for the api before the methods", method, timezone, rating, wantTZ, wantRating)
-		}
 		if err := a.DeleteBlitzRound(ctx, "us_open", "2026", r.ID); err != nil {
 			t.Fatalf("DeleteBlitzRound: %v", err)
 		}
@@ -82,6 +75,7 @@ func TestTheDatabaseRefusesAPairingMethodOutOfPlace(t *testing.T) {
 		{"round 1 by rating", "UPDATE blitz_editions SET pairing_first = 'rating'", "blitz_editions_pairing_first_check"},
 		{"later rounds at random", "UPDATE blitz_editions SET pairing_later = 'random'", "blitz_editions_pairing_later_check"},
 		{"a method nobody knows", "UPDATE blitz_rounds SET method = 'swiss-ish'", "blitz_rounds_method_check"},
+		{"a Swiss round without one", "UPDATE blitz_rounds SET method = NULL", "blitz_rounds_method_kind_check"},
 		{"a knockout round with one", "UPDATE blitz_rounds SET kind = 'knockout'", "blitz_rounds_method_kind_check"},
 	}
 	for _, tt := range tests {
