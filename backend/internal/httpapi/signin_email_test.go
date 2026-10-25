@@ -2,12 +2,16 @@ package httpapi
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"net/http"
 	"net/url"
+	"os"
 	"strings"
 	"testing"
 	"time"
+
+	"gopkg.in/yaml.v3"
 
 	"ttacommunity/backend/internal/store"
 	"ttacommunity/backend/internal/turnstile"
@@ -242,6 +246,36 @@ func TestRemovingAWayIn(t *testing.T) {
 				t.Errorf("changes = %q, want %q", got, tt.wantNote)
 			}
 		})
+	}
+}
+
+func TestAnUnknownWayInNamesEveryProvider(t *testing.T) {
+	raw, err := os.ReadFile("../../api/openapi.yaml")
+	if err != nil {
+		t.Fatalf("reading the spec: %v", err)
+	}
+	var spec struct {
+		Components struct {
+			Schemas struct {
+				LoginProvider struct {
+					Enum []string `yaml:"enum"`
+				} `yaml:"LoginProvider"`
+			} `yaml:"schemas"`
+		} `yaml:"components"`
+	}
+	if err := yaml.Unmarshal(raw, &spec); err != nil {
+		t.Fatalf("parsing the spec: %v", err)
+	}
+	f := newFakeSignIns()
+	rec := playerDo(t, f, http.MethodDelete, "/v1/me/logins/myspace", siteOrigin, "", sessionFor(f, "token", store.Account{ID: 7}))
+	var body Error
+	if err := json.Unmarshal(rec.Body.Bytes(), &body); err != nil {
+		t.Fatalf("removing myspace: body %q: %v", rec.Body, err)
+	}
+	for _, p := range spec.Components.Schemas.LoginProvider.Enum {
+		if !strings.Contains(body.Error, p) {
+			t.Errorf("removing myspace: error = %q, want it to name %q", body.Error, p)
+		}
 	}
 }
 
