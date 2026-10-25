@@ -3,6 +3,7 @@ import { Fragment, useEffect, useRef, useState, type FormEvent } from 'react';
 import Segmented from '@ttac/shared/Segmented';
 import BackLink from '@ttac/shared/BackLink';
 import { useDialog } from '@ttac/shared/Dialog';
+import InfoDialog from '@ttac/shared/InfoDialog';
 import SubTabs, { useHash } from '@ttac/shared/SubTabs';
 import SortHeader, { useSort } from '@ttac/shared/SortHeader';
 import { nextSort, sortRows, type Sort } from '@ttac/shared/sort';
@@ -1046,12 +1047,8 @@ function RoundDeadline({ at, ed, round, regions, unsaved, onReload, say }: Round
 
 /** DiscordTextDialog shows a round's Discord text in a modal, read-only, with a button to copy it; if the browser refuses the copy, the text is selected to copy by hand. */
 function DiscordTextDialog({ title, text, onClose }: { title: string; text: string; onClose: () => void }) {
-  const box = useRef<HTMLDialogElement>(null);
   const area = useRef<HTMLTextAreaElement>(null);
   const [copied, setCopied] = useState('');
-  useEffect(() => {
-    box.current?.showModal();
-  }, []);
   const copy = async () => {
     try {
       await navigator.clipboard.writeText(text);
@@ -1061,24 +1058,18 @@ function DiscordTextDialog({ title, text, onClose }: { title: string; text: stri
       setCopied('Copying was refused: the text is selected, copy it by hand.');
     }
   };
+  const copyButton = (
+    <button type="button" className="btn-antique" onClick={() => void copy()}>
+      Copy
+    </button>
+  );
   return (
-    <dialog ref={box} className="site-dialog" aria-labelledby="discord-text-heading" onClose={onClose}>
-      <h2 id="discord-text-heading" className="site-dialog-heading">
-        {title}
-      </h2>
+    <InfoDialog title={title} onClose={onClose} actions={copyButton}>
       <textarea ref={area} className="input-antique discord-text" readOnly rows={Math.min(14, text.split('\n').length + 1)} value={text} aria-label="Discord text" />
       <p className="muted" role="status">
         {copied}
       </p>
-      <div className="site-dialog-buttons">
-        <button type="button" className="btn-antique" onClick={() => box.current?.close()}>
-          Close
-        </button>
-        <button type="button" className="btn-antique" onClick={() => void copy()}>
-          Copy
-        </button>
-      </div>
-    </dialog>
+    </InfoDialog>
   );
 }
 

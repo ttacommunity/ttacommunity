@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { components } from '@ttac/shared/api';
-import { blitzGames, editionHref, editionParams, editionViews, notPlaying, ratingText, resultsUpdated, roundOptions, splitRounds } from './blitz';
+import { blitzGames, editionHref, editionParams, editionViews, notPlaying, pairingNotes, ratingText, resultsUpdated, roundOptions, splitRounds } from './blitz';
+import { PAIRING_METHODS } from '@ttac/shared/blitz';
 
 describe('splitRounds', () => {
   it('puts the Swiss rounds newest first and the knockout rounds in bracket order, first to final', () => {
@@ -197,5 +198,39 @@ describe("blitzGames' row of the signed-in player's game", () => {
     ['no game of theirs', null, ['', '', '', '']],
   ] as const)('%s', (_name, you, want) => {
     expect(blitzGames(rounds, format, { ...all, round: 2 }, 'UTC', you).rows.map((r) => r.you ?? '')).toEqual(want);
+  });
+});
+
+describe('pairingNotes', () => {
+  const ed = (first: 'dutch' | 'random', later: 'dutch' | 'rating', bye = 1) => ({
+    pairing: { first, later },
+    points: { bye },
+    format: { swiss_rounds: 8, knockout_size: 8 },
+    rounds: [] as { number: number; kind: 'swiss' | 'knockout'; method: 'dutch' | 'timezone' | null }[],
+  });
+  it.each([
+    ['one method for every round', ed('dutch', 'dutch'), [['Every Swiss round', 'dutch']]],
+    ['round 1 and the later rounds', ed('random', 'rating'), [['Round 1', 'random'], ['Later rounds', 'rating']]],
+  ] as const)('names the methods: %s', (_, edition, want) => {
+    expect(pairingNotes(edition).methods).toEqual(want.map(([when, m]) => ({ when, label: PAIRING_METHODS[m].label, about: PAIRING_METHODS[m].about })));
+  });
+  it.each([
+    ['a whole point', 1, 'worth 1 point'],
+    ['half a point', 0.5, 'worth ½ point'],
+    ['points', 3, 'worth 3 points'],
+  ])('says what the bye is worth: %s', (_, bye, want) => {
+    expect(pairingNotes(ed('dutch', 'dutch', bye)).rules.join(' ')).toContain(want);
+  });
+  it('lists the method each Swiss round was paired with, the knockout left out', () => {
+    const edition = ed('dutch', 'dutch');
+    edition.rounds = [
+      { number: 1, kind: 'swiss', method: 'timezone' },
+      { number: 2, kind: 'swiss', method: 'dutch' },
+      { number: 9, kind: 'knockout', method: null },
+    ];
+    expect(pairingNotes(edition).paired).toEqual([
+      { round: 'Round 1', label: PAIRING_METHODS.timezone.label },
+      { round: 'Round 2', label: PAIRING_METHODS.dutch.label },
+    ]);
   });
 });

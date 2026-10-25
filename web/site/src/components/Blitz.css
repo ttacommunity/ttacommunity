@@ -1,5 +1,16 @@
 /* The Blitz section: the list of editions and an edition's knockout, standings, rounds and entrants, in the site's card and table look. */
 
+/* The rounds paired so far in "How pairings work", their bullets in line with the dialog's text. */
+.blitz-paired-list {
+  padding-left: 0;
+  list-style-position: inside;
+}
+
+/* The edition header's "How pairings work" button, under its subtitle. */
+.blitz-how-paired {
+  margin-top: 0.75rem;
+}
+
 .blitz-card {
   max-width: 56rem;
   margin: 0 auto 1.5rem;

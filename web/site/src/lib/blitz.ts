@@ -1,6 +1,6 @@
 /** The Blitz section's decisions: which edition the address names, its address, how a rating reads, which rounds are the pairings and which the bracket, an edition's tabs, its games as table rows, who sat a round out, and when results last changed. */
 import type { components } from '@ttac/shared/api';
-import { resultTag, roundTitle, seededName, turnMark, type BlitzFormat } from '@ttac/shared/blitz';
+import { PAIRING_METHODS, pointsText, resultTag, roundTitle, seededName, turnMark, type BlitzFormat, type PairingMethod, type PairingMethods } from '@ttac/shared/blitz';
 import { formatInstant } from '@ttac/shared/time';
 import { outcomeNote } from './catalogue-view';
 import { pageOf, type GameRow, type GameSeat, type GamesColumn } from './games-table';
@@ -124,4 +124,25 @@ export function roundOptions(rounds: readonly { number: number }[], format: Blit
 /** resultsUpdated says when the edition's latest result was recorded, on the clocks of zone; '' before the first. */
 export function resultsUpdated(at: string | null, zone: string): string {
   return at === null ? '' : `Results last updated ${formatInstant(at, zone)}.`;
+}
+
+/** PairingNotes is what the "How pairings work" dialog says: the edition's methods, the rules every method keeps, and the method each Swiss round so far was paired with. */
+export type PairingNotes = { methods: { when: string; label: string; about: string }[]; rules: string[]; paired: { round: string; label: string }[] };
+
+/** pairingNotes explains how an edition's rounds are paired: one method for every Swiss round or round 1's and the later rounds', the rules that hold whatever the method, and the method each Swiss round shown was paired with. */
+export function pairingNotes(ed: {
+  pairing: PairingMethods;
+  points: { bye: number };
+  format: BlitzFormat;
+  rounds: readonly { number: number; kind: 'swiss' | 'knockout'; method: PairingMethod | null }[];
+}): PairingNotes {
+  const method = (when: string, m: PairingMethod) => ({ when, label: PAIRING_METHODS[m].label, about: PAIRING_METHODS[m].about });
+  const methods = ed.pairing.first === ed.pairing.later ? [method('Every Swiss round', ed.pairing.first)] : [method('Round 1', ed.pairing.first), method('Later rounds', ed.pairing.later)];
+  const bye = `${pointsText(ed.points.bye)} ${ed.points.bye > 0 && ed.points.bye <= 1 ? 'point' : 'points'}`;
+  const rules = [
+    'Nobody meets the same opponent twice.',
+    `With an odd number of players, one player gets a bye, worth ${bye}: from the lowest score, someone who has not had one.`,
+  ];
+  const paired = ed.rounds.flatMap((r) => (r.kind === 'swiss' && r.method !== null ? [{ round: roundTitle(r.number, ed.format), label: PAIRING_METHODS[r.method].label }] : []));
+  return { methods, rules, paired };
 }
