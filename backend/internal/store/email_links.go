@@ -125,7 +125,10 @@ func (s *PlayerStore) UseEmailLink(ctx context.Context, linkHash, sessionHash []
 			return err
 		}
 		out.Added = true
-		return startSession(ctx, tx, login, sessionHash, now)
+		if err := startSession(ctx, tx, login, sessionHash, now); err != nil {
+			return err
+		}
+		return autoLink(ctx, tx, *account, id, sessionHash, now)
 	})
 	return out, err
 }
