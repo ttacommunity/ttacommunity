@@ -100,6 +100,27 @@ func TestFinishedAtReadsTheClockInTheZoneGiven(t *testing.T) {
 	}
 }
 
+func TestFinishedByTakesAFinishUpToTheMinuteNowIsIn(t *testing.T) {
+	now := time.Date(2026, 10, 14, 21, 30, 40, 0, time.UTC)
+	tests := []struct {
+		name string
+		at   time.Time
+		ok   bool
+	}{
+		{"a day before", now.AddDate(0, 0, -1), true},
+		{"the minute now is in", time.Date(2026, 10, 14, 21, 30, 0, 0, time.UTC), true},
+		{"the next minute", time.Date(2026, 10, 14, 21, 31, 0, 0, time.UTC), false},
+		{"a day ahead", now.AddDate(0, 0, 1), false},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if err := blitz.FinishedBy(tt.at, now); (err == nil) != tt.ok {
+				t.Errorf("FinishedBy(%s, %s) = %v, want ok %t", tt.at, now, err, tt.ok)
+			}
+		})
+	}
+}
+
 func TestFinishedAtRefusesWhatIsNotADayATimeAndAZone(t *testing.T) {
 	for _, in := range [][3]string{
 		{"2026-02-30", "21:30", "UTC"}, {"14/10/2026", "21:30", "UTC"}, {"2026-10-14", "24:00", "UTC"},

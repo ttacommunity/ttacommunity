@@ -153,6 +153,7 @@ func TestReportsAreRefused(t *testing.T) {
 		{name: "no share code", game: BlitzGame{A: finished(50, 1), B: finished(40, 2), Finished: finishedAt}, want: ErrBlitzShareCodeNeeded},
 		{name: "a game out of bounds", game: BlitzGame{ShareCode: "X", A: finished(-1, 1), B: finished(40, 2), Finished: finishedAt}, want: ErrBadBlitzGame},
 		{name: "no turn order", game: BlitzGame{ShareCode: "X", A: finished(50, 0), B: finished(40, 0), Finished: finishedAt}, want: ErrBadBlitzGame},
+		{name: "finished after now", game: BlitzGame{ShareCode: "X", A: finished(50, 1), B: finished(40, 2), Finished: reportsAt.Add(time.Minute)}, want: ErrBlitzFinishedAhead},
 		{name: "the next round is paired", before: func(t *testing.T, a *AdminStore, p *PlayerStore, matches []int64) {
 			for _, m := range matches {
 				if err := a.RecordBlitzRuling(context.Background(), "us_open", "2026", m, "a", "ruled"); err != nil {
@@ -230,6 +231,14 @@ func TestReportsAreRefused(t *testing.T) {
 			t.Errorf("ReportBlitzGame = %v, want a *BlitzShareCodeError", err)
 		}
 	})
+}
+
+func TestAPlayerMayReportAGameFinishedThisMinute(t *testing.T) {
+	_, p, _, _, matches := reportsFixture(t)
+	game := BlitzGame{ShareCode: "NOW", A: finished(50, 1), B: finished(40, 2), Finished: reportsAt.Truncate(time.Minute)}
+	if err := p.ReportBlitzGame(context.Background(), tokenHash("ann"), "us_open", "2026", matches[0], game, reportsAt.Add(59*time.Second)); err != nil {
+		t.Errorf("ReportBlitzGame finished this minute = %v, want nil", err)
+	}
 }
 
 func TestAnswersAreRefused(t *testing.T) {
@@ -501,6 +510,25 @@ func TestMigration41sDownTakesAGameWithoutTurnOrderAgain(t *testing.T) {
 		                '[{"name": "Ann", "outcome": "finished", "culture": 50, "place": 1}, {"name": "Bob", "outcome": "finished", "culture": 40, "place": 2}]', NULL) w
 		WHERE s.slug = 'us_open' AND t.label = '2026'`, finishedAt).Scan(&written); err != nil || written == nil {
 		t.Errorf("write_game without positions after the Down = %v, %v; want a game written", written, err)
+	}
+}
+
+func TestMigration52sDownTakesAReportFinishedAheadAgain(t *testing.T) {
+	a, p, _, _, matches := reportsFixture(t)
+	ctx := context.Background()
+	cfg := a.pool.(*pgxpool.Pool).Config().Copy()
+	cfg.AfterConnect = nil // the owner migrates, not the admin login
+	pool, err := pgxpool.NewWithConfig(ctx, cfg)
+	if err != nil {
+		t.Fatalf("opening the owner's pool: %v", err)
+	}
+	t.Cleanup(pool.Close)
+	if err := withRatingsMigrations(pool, func(p *goose.Provider) error { _, err := p.DownTo(ctx, 51); return err }); err != nil {
+		t.Fatalf("migrating down to 51: %v", err)
+	}
+	game := BlitzGame{ShareCode: "AHEAD", A: finished(50, 1), B: finished(40, 2), Finished: reportsAt.Add(time.Hour)}
+	if err := p.ReportBlitzGame(ctx, tokenHash("ann"), "us_open", "2026", matches[0], game, reportsAt); err != nil {
+		t.Errorf("ReportBlitzGame finished ahead after the Down = %v, want nil", err)
 	}
 }
 

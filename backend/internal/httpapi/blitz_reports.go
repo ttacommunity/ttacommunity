@@ -102,7 +102,7 @@ func reportRefusal(err error) (int, string) {
 	case errors.As(err, &taken):
 		return http.StatusConflict, "that share code is already on another game"
 	case errors.Is(err, store.ErrBlitzShareCodeNeeded), errors.Is(err, store.ErrBadBlitzGame), errors.Is(err, store.ErrBadBlitzFlag),
-		errors.Is(err, store.ErrBlitzBye):
+		errors.Is(err, store.ErrBlitzBye), errors.Is(err, store.ErrBlitzFinishedAhead):
 		return http.StatusBadRequest, err.Error()
 	case errors.Is(err, store.ErrNoSession):
 		return http.StatusUnauthorized, "not signed in"
@@ -130,6 +130,9 @@ func (s *server) PutMyBlitzGame(ctx context.Context, req PutMyBlitzGameRequestOb
 		return PutMyBlitzGame400JSONResponse{badRequest400("the game: share_code, a, b, finished_on, finished_time and zone")}, nil
 	}
 	finished, err := blitz.FinishedAt(req.Body.FinishedOn.Format(time.DateOnly), req.Body.FinishedTime, strings.TrimSpace(req.Body.Zone))
+	if err == nil {
+		err = blitz.FinishedBy(finished, s.now())
+	}
 	if err != nil {
 		return PutMyBlitzGame400JSONResponse{badRequest400(err.Error())}, nil
 	}

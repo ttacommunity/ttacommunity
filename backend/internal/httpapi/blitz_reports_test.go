@@ -168,7 +168,7 @@ func TestPlayersReportConfirmAndFlag(t *testing.T) {
 	cookie := sessionFor(f, "token", member(1008, "bob"))
 	for _, r := range []struct{ method, path, body string }{
 		{http.MethodPut, "/v1/me/blitz/us_open/2026/matches/21/game",
-			`{"share_code": "REP-1", "a": {"culture": 50, "outcome": "finished", "turn": 2}, "b": {"culture": 40, "outcome": "finished", "turn": 1}, "finished_on": "2026-10-14", "finished_time": "21:30", "zone": "Europe/Berlin"}`},
+			`{"share_code": "REP-1", "a": {"culture": 50, "outcome": "finished", "turn": 2}, "b": {"culture": 40, "outcome": "finished", "turn": 1}, "finished_on": "2026-10-10", "finished_time": "21:30", "zone": "Europe/Berlin"}`},
 		{http.MethodPost, "/v1/me/blitz/us_open/2026/matches/21/confirm", ""},
 		{http.MethodPost, "/v1/me/blitz/us_open/2026/matches/21/flag", `{"reason": "I won on culture"}`},
 	} {
@@ -176,7 +176,7 @@ func TestPlayersReportConfirmAndFlag(t *testing.T) {
 			t.Errorf("%s %s = %d %s, want 204", r.method, r.path, rec.Code, rec.Body)
 		}
 	}
-	want := "report us_open 2026 21 by bob: REP-1 50/finished/turn 2 40/finished/turn 1 at 2026-10-14T19:30:00Z|" +
+	want := "report us_open 2026 21 by bob: REP-1 50/finished/turn 2 40/finished/turn 1 at 2026-10-10T19:30:00Z|" +
 		"confirm us_open 2026 21 by bob|flag us_open 2026 21 by bob: I won on culture"
 	if got := strings.Join(f.notes, "|"); got != want {
 		t.Errorf("what reached the store = %q, want %q", got, want)
@@ -184,7 +184,7 @@ func TestPlayersReportConfirmAndFlag(t *testing.T) {
 }
 
 func TestPlayersReportsAreRefusedWithTheStatusTheyNeed(t *testing.T) {
-	game := `{"share_code": "REP-1", "a": {"culture": 50, "outcome": "finished", "turn": 1}, "b": {"culture": 40, "outcome": "finished", "turn": 2}, "finished_on": "2026-10-14", "finished_time": "21:30", "zone": "UTC"}`
+	game := `{"share_code": "REP-1", "a": {"culture": 50, "outcome": "finished", "turn": 1}, "b": {"culture": 40, "outcome": "finished", "turn": 2}, "finished_on": "2026-10-10", "finished_time": "21:30", "zone": "UTC"}`
 	tests := []struct {
 		name string
 		err  error
@@ -193,6 +193,7 @@ func TestPlayersReportsAreRefusedWithTheStatusTheyNeed(t *testing.T) {
 		{"no share code", store.ErrBlitzShareCodeNeeded, http.StatusBadRequest},
 		{"a bad game", store.ErrBadBlitzGame, http.StatusBadRequest},
 		{"a bye", store.ErrBlitzBye, http.StatusBadRequest},
+		{"finished after now", store.ErrBlitzFinishedAhead, http.StatusBadRequest},
 		{"an ended session", store.ErrNoSession, http.StatusUnauthorized},
 		{"not linked", store.ErrNotLinked, http.StatusForbidden},
 		{"banned", store.ErrMemberBanned, http.StatusForbidden},
@@ -213,6 +214,18 @@ func TestPlayersReportsAreRefusedWithTheStatusTheyNeed(t *testing.T) {
 			}
 		})
 	}
+	t.Run("a game finishing after now", func(t *testing.T) {
+		f := newFakeSignIns()
+		cookie := sessionFor(f, "token", member(1008, "bob"))
+		ahead := strings.Replace(game, `"finished_on": "2026-10-10"`, `"finished_on": "2026-10-12"`, 1)
+		rec := playerDo(t, f, http.MethodPut, "/v1/me/blitz/us_open/2026/matches/21/game", siteOrigin, ahead, cookie)
+		if rec.Code != http.StatusBadRequest || !strings.Contains(rec.Body.String(), "after now") {
+			t.Errorf("PUT game finishing after now = %d %s, want 400 saying so", rec.Code, rec.Body)
+		}
+		if len(f.notes) != 0 {
+			t.Errorf("a refused game reached the store: %q", f.notes)
+		}
+	})
 	t.Run("a flag of the wrong length", func(t *testing.T) {
 		f := newFakeSignIns()
 		f.reportErr = store.ErrBadBlitzFlag
