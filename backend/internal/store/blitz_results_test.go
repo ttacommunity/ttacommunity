@@ -20,7 +20,7 @@ func blitzRoundOne(t *testing.T) (*AdminStore, *RatingsReader, []int64, []int64)
 	t.Helper()
 	a, reader, ids := blitzWithEntrants(t)
 	ctx := context.Background()
-	r, err := a.AddBlitzRound(ctx, "us_open", "2026", BlitzRound{Seed: 7, Matches: []BlitzMatch{{A: ids[0], B: &ids[1]}, {A: ids[2], B: &ids[3]}}})
+	r, err := a.AddBlitzRound(ctx, "us_open", "2026", BlitzRound{Method: "dutch", Seed: 7, Matches: []BlitzMatch{{A: ids[0], B: &ids[1]}, {A: ids[2], B: &ids[3]}}})
 	if err != nil {
 		t.Fatalf("AddBlitzRound: %v", err)
 	}
@@ -207,7 +207,7 @@ func TestBlitzGamesThatCannotBeRecorded(t *testing.T) {
 	if err != nil {
 		t.Fatalf("AddBlitzEntrants(Eve): %v", err)
 	}
-	r1, err := a.AddBlitzRound(ctx, "us_open", "2026", BlitzRound{Seed: 8, Matches: []BlitzMatch{{A: ids[0], B: &ids[1]}, {A: ids[2], B: &ids[3]}, {A: eve[0]}}})
+	r1, err := a.AddBlitzRound(ctx, "us_open", "2026", BlitzRound{Method: "dutch", Seed: 8, Matches: []BlitzMatch{{A: ids[0], B: &ids[1]}, {A: ids[2], B: &ids[3]}, {A: eve[0]}}})
 	if err != nil {
 		t.Fatalf("AddBlitzRound: %v", err)
 	}
@@ -334,7 +334,7 @@ func TestBlitzRoundsWaitForResultsAndKeepDecidedMatches(t *testing.T) {
 	a, _, ids, matches := blitzRoundOne(t)
 	ctx := context.Background()
 	ann, bob, cy, dee := ids[0], ids[1], ids[2], ids[3]
-	next := BlitzRound{Seed: 9, Matches: []BlitzMatch{{A: ann, B: &cy}, {A: bob, B: &dee}}}
+	next := BlitzRound{Method: "dutch", Seed: 9, Matches: []BlitzMatch{{A: ann, B: &cy}, {A: bob, B: &dee}}}
 	if _, err := a.AddBlitzRound(ctx, "us_open", "2026", next); !errors.Is(err, ErrBlitzRoundUndecided) || !containsAll(err.Error(), "Ann", "Bob", "Cy", "Dee") {
 		t.Errorf("round 2 before any result = %v, want ErrBlitzRoundUndecided naming both matches", err)
 	}

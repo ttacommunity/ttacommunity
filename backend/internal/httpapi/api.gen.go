@@ -277,6 +277,33 @@ func (e BlitzOutcome) Valid() bool {
 	}
 }
 
+// Defines values for BlitzPairingMethod.
+const (
+	BlitzPairingMethodDutch         BlitzPairingMethod = "dutch"
+	BlitzPairingMethodDutchTimezone BlitzPairingMethod = "dutch-timezone"
+	BlitzPairingMethodRandom        BlitzPairingMethod = "random"
+	BlitzPairingMethodRating        BlitzPairingMethod = "rating"
+	BlitzPairingMethodTimezone      BlitzPairingMethod = "timezone"
+)
+
+// Valid indicates whether the value is a known member of the BlitzPairingMethod enum.
+func (e BlitzPairingMethod) Valid() bool {
+	switch e {
+	case BlitzPairingMethodDutch:
+		return true
+	case BlitzPairingMethodDutchTimezone:
+		return true
+	case BlitzPairingMethodRandom:
+		return true
+	case BlitzPairingMethodRating:
+		return true
+	case BlitzPairingMethodTimezone:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for BlitzReport.
 const (
 	Confirmed BlitzReport = "confirmed"
@@ -1002,31 +1029,31 @@ func (e GetLeaderboardCsvParamsStatus) Valid() bool {
 
 // Defines values for GetLeaderboardCsvParamsSort.
 const (
-	CRating    GetLeaderboardCsvParamsSort = "c_rating"
-	LastPlayed GetLeaderboardCsvParamsSort = "last_played"
-	Name       GetLeaderboardCsvParamsSort = "name"
-	Opps       GetLeaderboardCsvParamsSort = "opps"
-	Rank       GetLeaderboardCsvParamsSort = "rank"
-	Rating     GetLeaderboardCsvParamsSort = "rating"
-	WinRate    GetLeaderboardCsvParamsSort = "win_rate"
+	GetLeaderboardCsvParamsSortCRating    GetLeaderboardCsvParamsSort = "c_rating"
+	GetLeaderboardCsvParamsSortLastPlayed GetLeaderboardCsvParamsSort = "last_played"
+	GetLeaderboardCsvParamsSortName       GetLeaderboardCsvParamsSort = "name"
+	GetLeaderboardCsvParamsSortOpps       GetLeaderboardCsvParamsSort = "opps"
+	GetLeaderboardCsvParamsSortRank       GetLeaderboardCsvParamsSort = "rank"
+	GetLeaderboardCsvParamsSortRating     GetLeaderboardCsvParamsSort = "rating"
+	GetLeaderboardCsvParamsSortWinRate    GetLeaderboardCsvParamsSort = "win_rate"
 )
 
 // Valid indicates whether the value is a known member of the GetLeaderboardCsvParamsSort enum.
 func (e GetLeaderboardCsvParamsSort) Valid() bool {
 	switch e {
-	case CRating:
+	case GetLeaderboardCsvParamsSortCRating:
 		return true
-	case LastPlayed:
+	case GetLeaderboardCsvParamsSortLastPlayed:
 		return true
-	case Name:
+	case GetLeaderboardCsvParamsSortName:
 		return true
-	case Opps:
+	case GetLeaderboardCsvParamsSortOpps:
 		return true
-	case Rank:
+	case GetLeaderboardCsvParamsSortRank:
 		return true
-	case Rating:
+	case GetLeaderboardCsvParamsSortRating:
 		return true
-	case WinRate:
+	case GetLeaderboardCsvParamsSortWinRate:
 		return true
 	default:
 		return false
@@ -1166,6 +1193,9 @@ type AdminBlitzEdition struct {
 	// Organisers The members the Discord thread messages tell players to ping, in the order added
 	Organisers []AdminBlitzOrganiser `json:"organisers"`
 
+	// Pairing How an edition's Swiss rounds are paired, round 1 and the rounds after it
+	Pairing BlitzPairingMethods `json:"pairing"`
+
 	// Points What each outcome is worth in an edition's standings, 0 to 10 in
 	// halves, a win at least a draw and a draw at least a loss. FIDE's
 	// by default: win 1, draw 0.5, loss 0, a forfeit as a win or a loss,
@@ -1296,17 +1326,18 @@ type AdminBlitzRound struct {
 	Id       int64               `json:"id"`
 	Kind     AdminBlitzRoundKind `json:"kind"`
 	Matches  []AdminBlitzMatch   `json:"matches"`
-	Number   int                 `json:"number"`
+
+	// Method The method a Swiss round was paired with; null for a knockout round
+	Method *BlitzPairingMethod `json:"method"`
+	Number int                 `json:"number"`
 
 	// PublishedAt Null for a draft
 	PublishedAt *time.Time `json:"published_at"`
-	Rating      bool       `json:"rating"`
 
 	// Reserve For a knockout round, the entrant who replaces a player who
 	// dropped: the best Swiss place among active entrants not in the
 	// round. Null for a Swiss round, or with nobody left.
-	Reserve  *int64 `json:"reserve"`
-	Timezone bool   `json:"timezone"`
+	Reserve *int64 `json:"reserve"`
 }
 
 // AdminBlitzRoundKind defines model for AdminBlitzRound.Kind.
@@ -1678,6 +1709,9 @@ type BlitzEdition struct {
 	Format BlitzFormat `json:"format"`
 	Name   string      `json:"name"`
 
+	// Pairing How an edition's Swiss rounds are paired, round 1 and the rounds after it
+	Pairing BlitzPairingMethods `json:"pairing"`
+
 	// Points What each outcome is worth in an edition's standings, 0 to 10 in
 	// halves, a win at least a draw and a draw at least a loss. FIDE's
 	// by default: win 1, draw 0.5, loss 0, a forfeit as a win or a loss,
@@ -1824,12 +1858,27 @@ type BlitzOrganiserAdd struct {
 // BlitzOutcome How a player's game ended
 type BlitzOutcome string
 
-// BlitzPairing The criteria to pair by, as for a new round, and the matches to keep as they are
+// BlitzPairing The matches to keep as they are
 type BlitzPairing struct {
 	// Keep Matches that stay as they are; everyone active and in none of them is paired
-	Keep     *[]BlitzMatchChange `json:"keep,omitempty"`
-	Rating   *bool               `json:"rating,omitempty"`
-	Timezone *bool               `json:"timezone,omitempty"`
+	Keep *[]BlitzMatchChange `json:"keep,omitempty"`
+}
+
+// BlitzPairingMethod How a Swiss round is paired: dutch is FIDE's Dutch system (C.04.3,
+// without colours); dutch-timezone the same, with the closest time
+// zones choosing among the opponents it ranks equally; timezone the
+// closest time zones, then ratings, within a score group; rating the
+// closest ratings within a score group; random chance within a score
+// group
+type BlitzPairingMethod string
+
+// BlitzPairingMethods How an edition's Swiss rounds are paired, round 1 and the rounds after it
+type BlitzPairingMethods struct {
+	// First Round 1's method, one of dutch, dutch-timezone, timezone or random
+	First BlitzPairingMethod `json:"first"`
+
+	// Later The later rounds' method, one of dutch, dutch-timezone, timezone or rating
+	Later BlitzPairingMethod `json:"later"`
 }
 
 // BlitzPlayedGame A played game as recorded, each side as the match names them
@@ -1918,10 +1967,13 @@ type BlitzResult string
 // BlitzRound A published round as the site shows it
 type BlitzRound struct {
 	// Kind A Swiss round, or a knockout round (its matches in bracket order)
-	Kind        BlitzRoundKind     `json:"kind"`
-	Matches     []BlitzPublicMatch `json:"matches"`
-	Number      int                `json:"number"`
-	PublishedAt time.Time          `json:"published_at"`
+	Kind    BlitzRoundKind     `json:"kind"`
+	Matches []BlitzPublicMatch `json:"matches"`
+
+	// Method The method a Swiss round was paired with; null for a knockout round
+	Method      *BlitzPairingMethod `json:"method"`
+	Number      int                 `json:"number"`
+	PublishedAt time.Time           `json:"published_at"`
 
 	// Skipped Who sat the round out, by username, in sign-up order
 	Skipped []string `json:"skipped"`
@@ -3108,12 +3160,6 @@ type NewBlitzEntrants struct {
 	Entrants []NewBlitzEntrant `json:"entrants"`
 }
 
-// NewBlitzRound The criteria to pair by; the time zone fit is on unless turned off
-type NewBlitzRound struct {
-	Rating   *bool `json:"rating,omitempty"`
-	Timezone *bool `json:"timezone,omitempty"`
-}
-
 // NewGroup defines model for NewGroup.
 type NewGroup struct {
 	Description *string `json:"description,omitempty"`
@@ -4280,11 +4326,11 @@ type PatchAdminBlitzEntrantJSONRequestBody = BlitzEntrantChange
 // PostAdminBlitzOrganiserJSONRequestBody defines body for PostAdminBlitzOrganiser for application/json ContentType.
 type PostAdminBlitzOrganiserJSONRequestBody = BlitzOrganiserAdd
 
+// PutAdminBlitzPairingJSONRequestBody defines body for PutAdminBlitzPairing for application/json ContentType.
+type PutAdminBlitzPairingJSONRequestBody = BlitzPairingMethods
+
 // PutAdminBlitzPointsJSONRequestBody defines body for PutAdminBlitzPoints for application/json ContentType.
 type PutAdminBlitzPointsJSONRequestBody = BlitzPoints
-
-// PostAdminBlitzRoundJSONRequestBody defines body for PostAdminBlitzRound for application/json ContentType.
-type PostAdminBlitzRoundJSONRequestBody = NewBlitzRound
 
 // PutAdminBlitzRoundDeadlineJSONRequestBody defines body for PutAdminBlitzRoundDeadline for application/json ContentType.
 type PutAdminBlitzRoundDeadlineJSONRequestBody = BlitzDeadlineSet
@@ -4438,6 +4484,9 @@ type ServerInterface interface {
 	// DeleteAdminBlitzOrganiser Stop a member organising a blitz edition
 	// (DELETE /v1/admin/blitz/{tournament}/{edition}/organisers/{member})
 	DeleteAdminBlitzOrganiser(w http.ResponseWriter, r *http.Request, tournament AdminTournamentSlug, edition BlitzEditionLabel, member MemberId)
+	// PutAdminBlitzPairing Set how a blitz edition's Swiss rounds are paired
+	// (PUT /v1/admin/blitz/{tournament}/{edition}/pairing)
+	PutAdminBlitzPairing(w http.ResponseWriter, r *http.Request, tournament AdminTournamentSlug, edition BlitzEditionLabel)
 	// DeleteAdminBlitzPoints Reset a blitz edition's points to FIDE's
 	// (DELETE /v1/admin/blitz/{tournament}/{edition}/points)
 	DeleteAdminBlitzPoints(w http.ResponseWriter, r *http.Request, tournament AdminTournamentSlug, edition BlitzEditionLabel)
@@ -5434,6 +5483,41 @@ func (siw *ServerInterfaceWrapper) DeleteAdminBlitzOrganiser(w http.ResponseWrit
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.DeleteAdminBlitzOrganiser(w, r, tournament, edition, member)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// PutAdminBlitzPairing operation middleware
+func (siw *ServerInterfaceWrapper) PutAdminBlitzPairing(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "tournament" -------------
+	var tournament AdminTournamentSlug
+
+	err = runtime.BindStyledParameterWithOptions("simple", "tournament", r.PathValue("tournament"), &tournament, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "tournament", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "edition" -------------
+	var edition BlitzEditionLabel
+
+	err = runtime.BindStyledParameterWithOptions("simple", "edition", r.PathValue("edition"), &edition, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "edition", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.PutAdminBlitzPairing(w, r, tournament, edition)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -9364,6 +9448,7 @@ func HandlerWithOptions(si ServerInterface, options StdHTTPServerOptions) http.H
 	m.HandleFunc(http.MethodDelete+" "+options.BaseURL+"/v1/admin/blitz/{tournament}/{edition}/organisers/{member}", wrapper.DeleteAdminBlitzOrganiser)
 	m.HandleFunc(http.MethodDelete+" "+options.BaseURL+"/v1/admin/blitz/{tournament}/{edition}/points", wrapper.DeleteAdminBlitzPoints)
 	m.HandleFunc(http.MethodPut+" "+options.BaseURL+"/v1/admin/blitz/{tournament}/{edition}/points", wrapper.PutAdminBlitzPoints)
+	m.HandleFunc(http.MethodPut+" "+options.BaseURL+"/v1/admin/blitz/{tournament}/{edition}/pairing", wrapper.PutAdminBlitzPairing)
 	m.HandleFunc(http.MethodDelete+" "+options.BaseURL+"/v1/admin/blitz/{tournament}/{edition}/thread-text", wrapper.DeleteAdminBlitzThreadText)
 	m.HandleFunc(http.MethodPut+" "+options.BaseURL+"/v1/admin/blitz/{tournament}/{edition}/thread-text", wrapper.PutAdminBlitzThreadText)
 	m.HandleFunc(http.MethodPut+" "+options.BaseURL+"/v1/admin/blitz/{tournament}/{edition}/rounds/{round}/deadline", wrapper.PutAdminBlitzRoundDeadline)
@@ -11158,6 +11243,84 @@ func (response DeleteAdminBlitzOrganiser404JSONResponse) VisitDeleteAdminBlitzOr
 	return err
 }
 
+type PutAdminBlitzPairingRequestObject struct {
+	Tournament AdminTournamentSlug `json:"tournament"`
+	Edition    BlitzEditionLabel   `json:"edition"`
+	Body       *PutAdminBlitzPairingJSONRequestBody
+}
+
+type PutAdminBlitzPairingResponseObject interface {
+	VisitPutAdminBlitzPairingResponse(w http.ResponseWriter) error
+}
+
+type PutAdminBlitzPairing204Response struct {
+}
+
+func (response PutAdminBlitzPairing204Response) VisitPutAdminBlitzPairingResponse(w http.ResponseWriter) error {
+	w.WriteHeader(204)
+	return nil
+}
+
+type PutAdminBlitzPairing400JSONResponse struct{ BadRequestJSONResponse }
+
+func (response PutAdminBlitzPairing400JSONResponse) VisitPutAdminBlitzPairingResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PutAdminBlitzPairing401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response PutAdminBlitzPairing401JSONResponse) VisitPutAdminBlitzPairingResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PutAdminBlitzPairing403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response PutAdminBlitzPairing403JSONResponse) VisitPutAdminBlitzPairingResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PutAdminBlitzPairing404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response PutAdminBlitzPairing404JSONResponse) VisitPutAdminBlitzPairingResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
 type DeleteAdminBlitzPointsRequestObject struct {
 	Tournament AdminTournamentSlug `json:"tournament"`
 	Edition    BlitzEditionLabel   `json:"edition"`
@@ -11408,7 +11571,6 @@ func (response PostAdminBlitzReset409JSONResponse) VisitPostAdminBlitzResetRespo
 type PostAdminBlitzRoundRequestObject struct {
 	Tournament AdminTournamentSlug `json:"tournament"`
 	Edition    BlitzEditionLabel   `json:"edition"`
-	Body       *PostAdminBlitzRoundJSONRequestBody
 }
 
 type PostAdminBlitzRoundResponseObject interface {
@@ -18363,6 +18525,9 @@ type StrictServerInterface interface {
 	// DeleteAdminBlitzOrganiser Stop a member organising a blitz edition
 	// (DELETE /v1/admin/blitz/{tournament}/{edition}/organisers/{member})
 	DeleteAdminBlitzOrganiser(ctx context.Context, request DeleteAdminBlitzOrganiserRequestObject) (DeleteAdminBlitzOrganiserResponseObject, error)
+	// PutAdminBlitzPairing Set how a blitz edition's Swiss rounds are paired
+	// (PUT /v1/admin/blitz/{tournament}/{edition}/pairing)
+	PutAdminBlitzPairing(ctx context.Context, request PutAdminBlitzPairingRequestObject) (PutAdminBlitzPairingResponseObject, error)
 	// DeleteAdminBlitzPoints Reset a blitz edition's points to FIDE's
 	// (DELETE /v1/admin/blitz/{tournament}/{edition}/points)
 	DeleteAdminBlitzPoints(ctx context.Context, request DeleteAdminBlitzPointsRequestObject) (DeleteAdminBlitzPointsResponseObject, error)
@@ -19392,6 +19557,40 @@ func (sh *strictHandler) DeleteAdminBlitzOrganiser(w http.ResponseWriter, r *htt
 	}
 }
 
+// PutAdminBlitzPairing operation middleware
+func (sh *strictHandler) PutAdminBlitzPairing(w http.ResponseWriter, r *http.Request, tournament AdminTournamentSlug, edition BlitzEditionLabel) {
+	var request PutAdminBlitzPairingRequestObject
+
+	request.Tournament = tournament
+	request.Edition = edition
+
+	var body PutAdminBlitzPairingJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.PutAdminBlitzPairing(ctx, request.(PutAdminBlitzPairingRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "PutAdminBlitzPairing")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(PutAdminBlitzPairingResponseObject); ok {
+		if err := validResponse.VisitPutAdminBlitzPairingResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
 // DeleteAdminBlitzPoints operation middleware
 func (sh *strictHandler) DeleteAdminBlitzPoints(w http.ResponseWriter, r *http.Request, tournament AdminTournamentSlug, edition BlitzEditionLabel) {
 	var request DeleteAdminBlitzPointsRequestObject
@@ -19486,13 +19685,6 @@ func (sh *strictHandler) PostAdminBlitzRound(w http.ResponseWriter, r *http.Requ
 
 	request.Tournament = tournament
 	request.Edition = edition
-
-	var body PostAdminBlitzRoundJSONRequestBody
-	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
-		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
-		return
-	}
-	request.Body = &body
 
 	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
 		return sh.ssi.PostAdminBlitzRound(ctx, request.(PostAdminBlitzRoundRequestObject))

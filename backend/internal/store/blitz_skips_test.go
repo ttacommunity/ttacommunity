@@ -30,10 +30,10 @@ func TestASkipLeavesAnEntrantOutOfTheNextSwissRound(t *testing.T) {
 	if n, err := a.SkipBlitzRound(ctx, "us_open", "2026", dee); err != nil || n != 1 {
 		t.Fatalf("SkipBlitzRound(Dee) before round 1 = %d, %v; want round 1", n, err)
 	}
-	if _, err := a.AddBlitzRound(ctx, "us_open", "2026", BlitzRound{Seed: 1, Matches: []BlitzMatch{{A: ann, B: &dee}}}); !errors.Is(err, ErrBadBlitzMatch) || !strings.Contains(err.Error(), "Dee") {
+	if _, err := a.AddBlitzRound(ctx, "us_open", "2026", BlitzRound{Method: "dutch", Seed: 1, Matches: []BlitzMatch{{A: ann, B: &dee}}}); !errors.Is(err, ErrBadBlitzMatch) || !strings.Contains(err.Error(), "Dee") {
 		t.Errorf("pairing Dee in the round she skips = %v, want ErrBadBlitzMatch naming Dee", err)
 	}
-	r1, err := a.AddBlitzRound(ctx, "us_open", "2026", BlitzRound{Seed: 1, Matches: []BlitzMatch{{A: ann, B: &bob}, {A: cy}}})
+	r1, err := a.AddBlitzRound(ctx, "us_open", "2026", BlitzRound{Method: "dutch", Seed: 1, Matches: []BlitzMatch{{A: ann, B: &bob}, {A: cy}}})
 	if err != nil {
 		t.Fatalf("AddBlitzRound: %v", err)
 	}
@@ -77,7 +77,7 @@ func TestSkippingADraftRoundTakesThePlayerOutOfIt(t *testing.T) {
 	a, _, ids := blitzWithEntrants(t)
 	ctx := context.Background()
 	ann, bob, cy, dee := ids[0], ids[1], ids[2], ids[3]
-	if _, err := a.AddBlitzRound(ctx, "us_open", "2026", BlitzRound{Seed: 1, Matches: []BlitzMatch{{A: ann, B: &bob}, {A: cy, B: &dee}}}); err != nil {
+	if _, err := a.AddBlitzRound(ctx, "us_open", "2026", BlitzRound{Method: "dutch", Seed: 1, Matches: []BlitzMatch{{A: ann, B: &bob}, {A: cy, B: &dee}}}); err != nil {
 		t.Fatalf("AddBlitzRound: %v", err)
 	}
 	if n, err := a.SkipBlitzRound(ctx, "us_open", "2026", bob); err != nil || n != 1 {
@@ -124,7 +124,7 @@ func TestSkipsThatCannotBe(t *testing.T) {
 			roundOnePublished(t, a, ids)
 		}, func(a *AdminStore, ids []int64) error { return skip(a, "2026", ids[0]) }, ErrBlitzSkipNotSwiss},
 		{"skipping a draft round with a result already", func(t *testing.T, a *AdminStore, ids []int64) {
-			r, err := a.AddBlitzRound(context.Background(), "us_open", "2026", BlitzRound{Seed: 1, Matches: []BlitzMatch{{A: ids[0], B: &ids[1]}, {A: ids[2], B: &ids[3]}}})
+			r, err := a.AddBlitzRound(context.Background(), "us_open", "2026", BlitzRound{Method: "dutch", Seed: 1, Matches: []BlitzMatch{{A: ids[0], B: &ids[1]}, {A: ids[2], B: &ids[3]}}})
 			if err != nil {
 				t.Fatalf("AddBlitzRound: %v", err)
 			}
@@ -200,7 +200,7 @@ func TestTheKnockoutClearsSkipsOfRoundsNoLongerSwiss(t *testing.T) {
 // roundOnePublished publishes round 1 of blitzWithEntrants' four: Ann v Bob, Cy v Dee.
 func roundOnePublished(t *testing.T, a *AdminStore, ids []int64) {
 	t.Helper()
-	r, err := a.AddBlitzRound(context.Background(), "us_open", "2026", BlitzRound{Seed: 1, Matches: []BlitzMatch{{A: ids[0], B: &ids[1]}, {A: ids[2], B: &ids[3]}}})
+	r, err := a.AddBlitzRound(context.Background(), "us_open", "2026", BlitzRound{Method: "dutch", Seed: 1, Matches: []BlitzMatch{{A: ids[0], B: &ids[1]}, {A: ids[2], B: &ids[3]}}})
 	if err != nil {
 		t.Fatalf("AddBlitzRound: %v", err)
 	}

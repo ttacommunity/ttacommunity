@@ -2832,25 +2832,18 @@ paths:
       summary: Pair the edition's next round as a draft
       description: |
         Audited. The Origin must be the admin site. Everyone active is
-        paired on equal points where possible, never with an opponent they
-        have met; within a score group the pairs are the best time-zone fit
-        (and the closest ratings, when asked), chance deciding the rest. With
-        an odd count the lowest in the standings without a bye gets it. After
-        the last Swiss round it pairs the knockout instead: first the top of
-        the standings, 1 v 8, 2 v 7… for eight, then each round's winners,
-        neighbouring matches meeting, until the final; the criteria do not
-        apply. Refused while a draft exists, a match so far has no result or
-        a knockout match no winner, the knockout lacks players, or the
-        edition is finished.
+        paired by the edition's pairing methods (BlitzPairingMethods):
+        round 1's for the first Swiss round, the later rounds' after it,
+        never with an opponent they have met. The round records the method.
+        After the last Swiss round it pairs the knockout instead: first the
+        top of the standings, 1 v 8, 2 v 7… for eight, then each round's
+        winners, neighbouring matches meeting, until the final. Refused
+        while a draft exists, a match so far has no result or a knockout
+        match no winner, the knockout lacks players, or the edition is
+        finished.
       parameters:
         - $ref: "#/components/parameters/AdminTournamentSlug"
         - $ref: "#/components/parameters/BlitzEditionLabel"
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/NewBlitzRound"
       responses:
         "201":
           description: The draft round
@@ -2901,7 +2894,7 @@ paths:
       summary: Propose a pairing of a round's unpaired players, without saving it
       description: |
         Everyone active and in no kept match is paired as for a new round, by
-        the criteria given. The matches named in keep stay as they are, and
+        the method the round records. The matches named in keep stay as they are, and
         so does a match of the round that already has a result; without
         keep, everyone else is paired again. A kept bye goes back into the
         pairing when an odd number is left over, and one player left over
@@ -3419,6 +3412,35 @@ paths:
           $ref: "#/components/responses/NotFound"
         "409":
           $ref: "#/components/responses/Conflict"
+  /v1/admin/blitz/{tournament}/{edition}/pairing:
+    put:
+      operationId: putAdminBlitzPairing
+      tags: [admin]
+      summary: Set how a blitz edition's Swiss rounds are paired
+      description: |
+        Audited. The Origin must be the admin site. Allowed at any time: the
+        next round paired follows it, and rounds already paired keep the
+        method they record.
+      parameters:
+        - $ref: "#/components/parameters/AdminTournamentSlug"
+        - $ref: "#/components/parameters/BlitzEditionLabel"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/BlitzPairingMethods"
+      responses:
+        "204":
+          description: Saved
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
   /v1/admin/blitz/{tournament}/{edition}/thread-text:
     put:
       operationId: putAdminBlitzThreadText
@@ -4784,8 +4806,10 @@ components:
     BlitzEdition:
       description: A blitz edition for the site, with the entrants still in, the published rounds and the standings
       type: object
-      required: [tournament, name, edition, format, points, fide_points, entrants, rounds, standings, champion, results_updated_at]
+      required: [tournament, name, edition, format, points, fide_points, pairing, entrants, rounds, standings, champion, results_updated_at]
       properties:
+        pairing:
+          $ref: "#/components/schemas/BlitzPairingMethods"
         results_updated_at:
           description: When the latest result in a published round was recorded; null before the first
           type: string
@@ -4828,8 +4852,13 @@ components:
     BlitzRound:
       description: A published round as the site shows it
       type: object
-      required: [number, kind, published_at, matches, skipped]
+      required: [number, kind, method, published_at, matches, skipped]
       properties:
+        method:
+          description: The method a Swiss round was paired with; null for a knockout round
+          allOf:
+            - $ref: "#/components/schemas/BlitzPairingMethod"
+          nullable: true
         skipped:
           description: Who sat the round out, by username, in sign-up order
           type: array
@@ -4974,28 +5003,35 @@ components:
           description: Dropped players come last
           type: string
           enum: [active, dropped]
-    NewBlitzRound:
-      description: The criteria to pair by; the time zone fit is on unless turned off
+    BlitzPairingMethod:
+      description: |
+        How a Swiss round is paired: dutch is FIDE's Dutch system (C.04.3,
+        without colours); dutch-timezone the same, with the closest time
+        zones choosing among the opponents it ranks equally; timezone the
+        closest time zones, then ratings, within a score group; rating the
+        closest ratings within a score group; random chance within a score
+        group
+      type: string
+      enum: [dutch, dutch-timezone, timezone, rating, random]
+    BlitzPairingMethods:
+      description: How an edition's Swiss rounds are paired, round 1 and the rounds after it
       type: object
       additionalProperties: false
+      required: [first, later]
       properties:
-        timezone:
-          type: boolean
-          default: true
-        rating:
-          type: boolean
-          default: false
+        first:
+          description: Round 1's method, one of dutch, dutch-timezone, timezone or random
+          allOf:
+            - $ref: "#/components/schemas/BlitzPairingMethod"
+        later:
+          description: The later rounds' method, one of dutch, dutch-timezone, timezone or rating
+          allOf:
+            - $ref: "#/components/schemas/BlitzPairingMethod"
     BlitzPairing:
-      description: The criteria to pair by, as for a new round, and the matches to keep as they are
+      description: The matches to keep as they are
       type: object
       additionalProperties: false
       properties:
-        timezone:
-          type: boolean
-          default: true
-        rating:
-          type: boolean
-          default: false
         keep:
           description: Matches that stay as they are; everyone active and in none of them is paired
           type: array
@@ -5071,7 +5107,7 @@ components:
           nullable: true
     AdminBlitzRound:
       type: object
-      required: [id, number, kind, timezone, rating, published_at, deadline, matches, reserve]
+      required: [id, number, kind, method, published_at, deadline, matches, reserve]
       properties:
         id:
           type: integer
@@ -5081,10 +5117,11 @@ components:
         kind:
           type: string
           enum: [swiss, knockout]
-        timezone:
-          type: boolean
-        rating:
-          type: boolean
+        method:
+          description: The method a Swiss round was paired with; null for a knockout round
+          allOf:
+            - $ref: "#/components/schemas/BlitzPairingMethod"
+          nullable: true
         published_at:
           description: Null for a draft
           type: string
@@ -5215,8 +5252,10 @@ components:
             type: integer
     AdminBlitzEdition:
       type: object
-      required: [tournament, name, edition, format, points, fide_points, entrants, rounds, standings, champion, organisers, thread_text]
+      required: [tournament, name, edition, format, points, fide_points, pairing, entrants, rounds, standings, champion, organisers, thread_text]
       properties:
+        pairing:
+          $ref: "#/components/schemas/BlitzPairingMethods"
         points:
           $ref: "#/components/schemas/BlitzPoints"
         fide_points:

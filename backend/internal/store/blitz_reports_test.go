@@ -160,7 +160,7 @@ func TestReportsAreRefused(t *testing.T) {
 					t.Fatalf("RecordBlitzRuling: %v", err)
 				}
 			}
-			if _, err := a.AddBlitzRound(context.Background(), "us_open", "2026", BlitzRound{Seed: 8}); err != nil {
+			if _, err := a.AddBlitzRound(context.Background(), "us_open", "2026", BlitzRound{Method: "dutch", Seed: 8}); err != nil {
 				t.Fatalf("AddBlitzRound(2): %v", err)
 			}
 		}, want: ErrBlitzRoundClosed},
@@ -572,7 +572,7 @@ func TestAnEditionSaysWhenTheNextRoundIsPairedBeforeItIsPublished(t *testing.T) 
 			t.Fatalf("RecordBlitzRuling: %v", err)
 		}
 	}
-	if _, err := a.AddBlitzRound(ctx, "us_open", "2026", BlitzRound{Seed: 8}); err != nil {
+	if _, err := a.AddBlitzRound(ctx, "us_open", "2026", BlitzRound{Method: "dutch", Seed: 8}); err != nil {
 		t.Fatalf("AddBlitzRound(2): %v", err)
 	}
 	ed, err := reader.BlitzEdition(ctx, "us_open", "2026")

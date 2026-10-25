@@ -42,6 +42,7 @@ type fakeAdmins struct {
 	entrants []store.BlitzEntrant
 	format   store.BlitzFormat
 	points   blitz.Scoring
+	pairing  store.BlitzPairing
 	rounds   []store.BlitzRound
 	// organisers and threadText are us_open 2026's (admin_blitz_threads_test.go).
 	organisers []store.BlitzOrganiser

@@ -1980,16 +1980,15 @@ export interface paths {
         /**
          * Pair the edition's next round as a draft
          * @description Audited. The Origin must be the admin site. Everyone active is
-         *     paired on equal points where possible, never with an opponent they
-         *     have met; within a score group the pairs are the best time-zone fit
-         *     (and the closest ratings, when asked), chance deciding the rest. With
-         *     an odd count the lowest in the standings without a bye gets it. After
-         *     the last Swiss round it pairs the knockout instead: first the top of
-         *     the standings, 1 v 8, 2 v 7… for eight, then each round's winners,
-         *     neighbouring matches meeting, until the final; the criteria do not
-         *     apply. Refused while a draft exists, a match so far has no result or
-         *     a knockout match no winner, the knockout lacks players, or the
-         *     edition is finished.
+         *     paired by the edition's pairing methods (BlitzPairingMethods):
+         *     round 1's for the first Swiss round, the later rounds' after it,
+         *     never with an opponent they have met. The round records the method.
+         *     After the last Swiss round it pairs the knockout instead: first the
+         *     top of the standings, 1 v 8, 2 v 7… for eight, then each round's
+         *     winners, neighbouring matches meeting, until the final. Refused
+         *     while a draft exists, a match so far has no result or a knockout
+         *     match no winner, the knockout lacks players, or the edition is
+         *     finished.
          */
         post: operations["postAdminBlitzRound"];
         delete?: never;
@@ -2031,7 +2030,7 @@ export interface paths {
         /**
          * Propose a pairing of a round's unpaired players, without saving it
          * @description Everyone active and in no kept match is paired as for a new round, by
-         *     the criteria given. The matches named in keep stay as they are, and
+         *     the method the round records. The matches named in keep stay as they are, and
          *     so does a match of the round that already has a result; without
          *     keep, everyone else is paired again. A kept bye goes back into the
          *     pairing when an odd number is left over, and one player left over
@@ -2388,6 +2387,28 @@ export interface paths {
          * @description Audited. The Origin must be the admin site. Refused once the knockout has a round.
          */
         delete: operations["deleteAdminBlitzPoints"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/blitz/{tournament}/{edition}/pairing": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Set how a blitz edition's Swiss rounds are paired
+         * @description Audited. The Origin must be the admin site. Allowed at any time: the
+         *     next round paired follows it, and rounds already paired keep the
+         *     method they record.
+         */
+        put: operations["putAdminBlitzPairing"];
+        post?: never;
+        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
@@ -3060,6 +3081,7 @@ export interface components {
         };
         /** @description A blitz edition for the site, with the entrants still in, the published rounds and the standings */
         BlitzEdition: {
+            pairing: components["schemas"]["BlitzPairingMethods"];
             /**
              * Format: date-time
              * @description When the latest result in a published round was recorded; null before the first
@@ -3086,6 +3108,8 @@ export interface components {
         };
         /** @description A published round as the site shows it */
         BlitzRound: {
+            /** @description The method a Swiss round was paired with; null for a knockout round */
+            method: components["schemas"]["BlitzPairingMethod"] | null;
             /** @description Who sat the round out, by username, in sign-up order */
             skipped: string[];
             number: number;
@@ -3186,19 +3210,25 @@ export interface components {
              */
             status: "active" | "dropped";
         };
-        /** @description The criteria to pair by; the time zone fit is on unless turned off */
-        NewBlitzRound: {
-            /** @default true */
-            timezone: boolean;
-            /** @default false */
-            rating: boolean;
+        /**
+         * @description How a Swiss round is paired: dutch is FIDE's Dutch system (C.04.3,
+         *     without colours); dutch-timezone the same, with the closest time
+         *     zones choosing among the opponents it ranks equally; timezone the
+         *     closest time zones, then ratings, within a score group; rating the
+         *     closest ratings within a score group; random chance within a score
+         *     group
+         * @enum {string}
+         */
+        BlitzPairingMethod: "dutch" | "dutch-timezone" | "timezone" | "rating" | "random";
+        /** @description How an edition's Swiss rounds are paired, round 1 and the rounds after it */
+        BlitzPairingMethods: {
+            /** @description Round 1's method, one of dutch, dutch-timezone, timezone or random */
+            first: components["schemas"]["BlitzPairingMethod"];
+            /** @description The later rounds' method, one of dutch, dutch-timezone, timezone or rating */
+            later: components["schemas"]["BlitzPairingMethod"];
         };
-        /** @description The criteria to pair by, as for a new round, and the matches to keep as they are */
+        /** @description The matches to keep as they are */
         BlitzPairing: {
-            /** @default true */
-            timezone: boolean;
-            /** @default false */
-            rating: boolean;
             /** @description Matches that stay as they are; everyone active and in none of them is paired */
             keep?: components["schemas"]["BlitzMatchChange"][];
         };
@@ -3248,8 +3278,8 @@ export interface components {
             number: number;
             /** @enum {string} */
             kind: "swiss" | "knockout";
-            timezone: boolean;
-            rating: boolean;
+            /** @description The method a Swiss round was paired with; null for a knockout round */
+            method: components["schemas"]["BlitzPairingMethod"] | null;
             /**
              * Format: date-time
              * @description Null for a draft
@@ -3331,6 +3361,7 @@ export interface components {
             skips: number[];
         };
         AdminBlitzEdition: {
+            pairing: components["schemas"]["BlitzPairingMethods"];
             points: components["schemas"]["BlitzPoints"];
             /** @description True when the points are FIDE's, so Reset has nothing to do */
             fide_points: boolean;
@@ -7866,11 +7897,7 @@ export interface operations {
             };
             cookie?: never;
         };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["NewBlitzRound"];
-            };
-        };
+        requestBody?: never;
         responses: {
             /** @description The draft round */
             201: {
@@ -8465,6 +8492,37 @@ export interface operations {
             409: components["responses"]["Conflict"];
         };
     };
+    putAdminBlitzPairing: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The tournament's slug */
+                tournament: components["parameters"]["AdminTournamentSlug"];
+                /** @description The edition's label, as admin lists it (a season) */
+                edition: components["parameters"]["BlitzEditionLabel"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BlitzPairingMethods"];
+            };
+        };
+        responses: {
+            /** @description Saved */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
     putAdminBlitzThreadText: {
         parameters: {
             query?: never;
@@ -8740,6 +8798,7 @@ export const blitzRoundKindValues: ReadonlyArray<FlattenedDeepRequired<component
 export const blitzResultValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["BlitzResult"]> = ["a", "b", "draw", "double_loss"];
 export const blitzOutcomeValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["BlitzOutcome"]> = ["finished", "resigned", "timed_out"];
 export const blitzStandingStatusValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["BlitzStanding"]["status"]> = ["active", "dropped"];
+export const blitzPairingMethodValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["BlitzPairingMethod"]> = ["dutch", "dutch-timezone", "timezone", "rating", "random"];
 export const adminBlitzRoundKindValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["AdminBlitzRound"]["kind"]> = ["swiss", "knockout"];
 export const adminBlitzEntrantStatusValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["AdminBlitzEntrant"]["status"]> = ["active", "dropped"];
 export const blitzReportValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["BlitzReport"]> = ["reported", "confirmed", "flagged", "resolved"];

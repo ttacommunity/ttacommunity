@@ -102,7 +102,7 @@ func (s *server) GetAdminBlitzEdition(ctx context.Context, req GetAdminBlitzEdit
 	}
 	row := adminBlitzEditionRow(ed.BlitzEditionRow)
 	body := AdminBlitzEdition{Tournament: row.Tournament, Name: row.Name, Edition: row.Edition, Format: row.Format, Champion: row.Champion,
-		Points: blitzPoints(ed.Points), FidePoints: ed.Points == blitz.FIDEScoring,
+		Points: blitzPoints(ed.Points), FidePoints: ed.Points == blitz.FIDEScoring, Pairing: blitzPairing(ed.Pairing),
 		Entrants: make([]AdminBlitzEntrant, len(ed.Entrants)), Rounds: make([]AdminBlitzRound, len(ed.Rounds)), Standings: blitzStandings(ed),
 		Organisers: make([]AdminBlitzOrganiser, len(ed.Organisers))}
 	for i, o := range ed.Organisers {
@@ -365,6 +365,29 @@ func (s *server) PutAdminBlitzPoints(ctx context.Context, req PutAdminBlitzPoint
 		return nil, err
 	}
 	return PutAdminBlitzPoints204Response{}, nil
+}
+
+func (s *server) PutAdminBlitzPairing(ctx context.Context, req PutAdminBlitzPairingRequestObject) (PutAdminBlitzPairingResponseObject, error) {
+	me, _ := adminFrom(ctx)
+	if !tournamentSlug.MatchString(req.Tournament) {
+		return PutAdminBlitzPairing404JSONResponse{notFound404("no such blitz edition")}, nil
+	}
+	if req.Body == nil {
+		return PutAdminBlitzPairing400JSONResponse{badRequest400("the pairing: first and later")}, nil
+	}
+	p := store.BlitzPairing{First: string(req.Body.First), Later: string(req.Body.Later)}
+	switch err := s.admins.SetBlitzPairing(ctx, req.Tournament, req.Edition, p); {
+	case errors.Is(err, store.ErrBadBlitzPairing):
+		return PutAdminBlitzPairing400JSONResponse{badRequest400(err.Error())}, nil
+	case errors.Is(err, store.ErrNoBlitzEdition):
+		return PutAdminBlitzPairing404JSONResponse{notFound404("no such blitz edition")}, nil
+	case err != nil:
+		return nil, err
+	}
+	if err := s.admins.Audit(ctx, me.DiscordID, "blitz.pairing", blitzEditionKey(req.Tournament, req.Edition), req.Body); err != nil {
+		return nil, err
+	}
+	return PutAdminBlitzPairing204Response{}, nil
 }
 
 func (s *server) DeleteAdminBlitzPoints(ctx context.Context, req DeleteAdminBlitzPointsRequestObject) (DeleteAdminBlitzPointsResponseObject, error) {

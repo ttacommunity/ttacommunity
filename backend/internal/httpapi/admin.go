@@ -108,6 +108,8 @@ type Admins interface {
 	SetBlitzRoundDeadline(ctx context.Context, slug, edition string, roundID int64, at time.Time, zone string) error
 	// SetBlitzPoints sets what each outcome of the edition is worth.
 	SetBlitzPoints(ctx context.Context, slug, edition string, points blitz.Scoring) error
+	// SetBlitzPairing sets how the edition's Swiss rounds are paired.
+	SetBlitzPairing(ctx context.Context, slug, edition string, p store.BlitzPairing) error
 	// SetBlitzThreadText replaces what the edition's thread messages say; ResetBlitzThreadText puts back the default.
 	SetBlitzThreadText(ctx context.Context, slug, edition string, t store.BlitzThreadText) error
 	ResetBlitzThreadText(ctx context.Context, slug, edition string) error

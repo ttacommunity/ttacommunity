@@ -88,7 +88,7 @@ func threadsFixture() *fakeAdmins {
 			{ID: 11, Name: "Eve", DiscordName: "eve", Zone: "UTC", Status: "active"},
 		},
 		format: store.BlitzFormat{SwissRounds: 8, KnockoutSize: 8},
-		rounds: []store.BlitzRound{{ID: 101, Number: 1, Kind: "swiss", Seed: 1,
+		rounds: []store.BlitzRound{{ID: 101, Number: 1, Kind: "swiss", Method: "timezone", Seed: 1,
 			Matches: []store.BlitzMatch{{ID: 1010, A: 7, B: &cy}, {ID: 1011, A: 11}, {ID: 1012, A: 9, B: &dee}}}},
 		members: []store.Member{{ID: 21, Name: "Carol", DiscordName: "carol_tta", Zone: "UTC"}},
 	}

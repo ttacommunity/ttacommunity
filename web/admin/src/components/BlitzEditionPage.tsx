@@ -267,7 +267,6 @@ function UnpairedList({ round, players }: { round: number; players: readonly Adm
 
 /** RoundsPanel pairs rounds, changes the open one by hand and publishes it, and shows every round newest first, each match's result recorded in a row below it. */
 function RoundsPanel({ at, ed, regions, onReload, outcome, say }: Props) {
-  const [criteria, setCriteria] = useState({ timezone: true, rating: false });
   const dialog = useDialog();
   const [pick, setPick] = useState({ a: '', b: '', bye: '' });
   const [recording, setRecording] = useState<number | null>(null);
@@ -318,11 +317,11 @@ function RoundsPanel({ at, ed, regions, onReload, outcome, say }: Props) {
   };
   const pair = async () => {
     if (action.kind === 'next') {
-      await run(req.pairBlitzRound(at.slug, at.edition, criteria), `${roundTitle(action.round.number, ed.format)} paired as a draft.`, 'rounds');
+      await run(req.pairBlitzRound(at.slug, at.edition), `${roundTitle(action.round.number, ed.format)} paired as a draft.`, 'rounds');
       return;
     }
     if (action.kind !== 'fill' || open === null) return;
-    const res = await req.send<AdminBlitzRound>(req.proposeBlitzPairing(at.slug, at.edition, open.id, { ...criteria, keep: asChanges(shownOf(open)) }));
+    const res = await req.send<AdminBlitzRound>(req.proposeBlitzPairing(at.slug, at.edition, open.id, { keep: asChanges(shownOf(open)) }));
     if (!res.ok) {
       say(refused(res.message, 'rounds'));
       return;
@@ -397,7 +396,6 @@ function RoundsPanel({ at, ed, regions, onReload, outcome, say }: Props) {
     setRecording(null);
     await run(req.resetBlitzEdition(at.slug, at.edition), `${ed.name} ${ed.edition} reset: pair round 1 again.`, 'reset edition', 'rounds');
   };
-  const swiss = (open?.kind ?? (action.kind === 'next' ? action.round.kind : null)) === 'swiss';
   // choose offers the players given, the unpaired ones a pick may take.
   const choose = (value: string, set: (v: string) => void, label: string, players: readonly AdminBlitzEntrant[]) => (
     <label>
@@ -418,18 +416,6 @@ function RoundsPanel({ at, ed, regions, onReload, outcome, say }: Props) {
       <h3>Rounds</h3>
       <p className="muted">Pair each round, change it by hand, publish it, then record its results.</p>
       <div className="admin-add">
-        {swiss && (
-          <>
-            <label className="setting-inline check-inline">
-              <input type="checkbox" checked={criteria.timezone} onChange={(e) => setCriteria({ ...criteria, timezone: e.target.checked })} />
-              Time-zone fit
-            </label>
-            <label className="setting-inline check-inline">
-              <input type="checkbox" checked={criteria.rating} onChange={(e) => setCriteria({ ...criteria, rating: e.target.checked })} />
-              Closest ratings
-            </label>
-          </>
-        )}
         <button type="button" className="btn-antique" disabled={action.kind === 'none'} onClick={() => void pair()}>
           {action.kind === 'next' ? `Pair ${roundTitle(action.round.number, ed.format)}` : 'Pair'}
         </button>

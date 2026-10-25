@@ -32,19 +32,6 @@ func metBefore(rounds []store.BlitzRound, except int64) map[int64][]int64 {
 	return met
 }
 
-// hadBye lists who has had a bye in any round.
-func hadBye(rounds []store.BlitzRound) map[int64]bool {
-	byes := map[int64]bool{}
-	for _, r := range rounds {
-		for _, m := range r.Matches {
-			if m.B == nil {
-				byes[m.A] = true
-			}
-		}
-	}
-	return byes
-}
-
 // adminBlitzRound shows a round with each match's gaps as the entrants are now and, in a Swiss round, whether a
 // pair has met in another Swiss round (the knockout may repeat a pairing).
 func (s *server) adminBlitzRound(r store.BlitzRound, ed store.BlitzEdition, rated map[string]store.Rated, now time.Time) AdminBlitzRound {
@@ -59,7 +46,7 @@ func (s *server) adminBlitzRound(r store.BlitzRound, ed store.BlitzEdition, rate
 		}
 	}
 	met := metBefore(swiss, r.ID)
-	out := AdminBlitzRound{Id: r.ID, Number: r.Number, Kind: AdminBlitzRoundKind(r.Kind), Timezone: r.Timezone, Rating: r.Rating,
+	out := AdminBlitzRound{Id: r.ID, Number: r.Number, Kind: AdminBlitzRoundKind(r.Kind), Method: roundMethod(r),
 		PublishedAt: r.PublishedAt, Matches: make([]AdminBlitzMatch, len(r.Matches))}
 	if r.Deadline != nil {
 		out.Deadline = &BlitzDeadline{At: *r.Deadline, Zone: r.DeadlineZone}
@@ -113,18 +100,12 @@ func knockoutReserve(r store.BlitzRound, ed store.BlitzEdition) *int64 {
 	return nil
 }
 
-// roundSwitches are the time-zone and rating switches a round is paired with.
-type roundSwitches struct{ Timezone, Rating bool }
-
-// method is the pairing method the switches choose.
-func (c roundSwitches) method() pairing.Method {
-	switch {
-	case c.Timezone:
-		return pairing.Timezone
-	case c.Rating:
-		return pairing.Rating
+// roundMethod is the method a Swiss round was paired with, nil for a knockout round.
+func roundMethod(r store.BlitzRound) *BlitzPairingMethod {
+	if r.Method == "" {
+		return nil
 	}
-	return pairing.Random
+	return new(BlitzPairingMethod(r.Method))
 }
 
 // pairingError is the message for a round that cannot be paired, with what admin can do about it.
@@ -136,8 +117,8 @@ func pairingError(err error) string {
 }
 
 // pairingPlayers turns the edition's active entrants into what the pairing needs, as of now, leaving out the
-// round named by except (0 for none: a new round) when counting points, places, opponents and byes, and the
-// entrants in busy (already paired, or skipping the round).
+// round named by except (0 for none: a new round) when counting points, places, opponents, byes and floats, and the
+// entrants in busy (already paired, or skipping the round). Starting ranks follow the ratings (startingRanks).
 func pairingPlayers(ed store.BlitzEdition, rated map[string]store.Rated, now time.Time, except int64, busy map[int64]bool) []pairing.Player {
 	var others []store.BlitzRound
 	for _, r := range ed.Rounds {
@@ -145,24 +126,68 @@ func pairingPlayers(ed store.BlitzEdition, rated map[string]store.Rated, now tim
 			others = append(others, r)
 		}
 	}
-	met, byes := metBefore(others, 0), hadBye(others)
+	without := store.BlitzEdition{BlitzEditionRow: ed.BlitzEditionRow, Entrants: ed.Entrants, Rounds: others}
+	met := metBefore(others, 0)
 	points, places := map[string]float64{}, map[string]int{}
-	for _, s := range blitzStandings(store.BlitzEdition{BlitzEditionRow: ed.BlitzEditionRow, Entrants: ed.Entrants, Rounds: others}) {
+	for _, s := range blitzStandings(without) {
 		points[s.Name], places[s.Name] = s.Points, s.Rank
 	}
+	entrants, matches, numbers := swissPlayed(without)
+	history := blitz.Histories(entrants, matches, numbers, ed.Points)
+	ranks := startingRanks(ed.Entrants, rated)
 	var players []pairing.Player
 	for _, e := range ed.Entrants {
 		if e.Status != "active" || busy[e.ID] {
 			continue
 		}
 		offset, _ := blitz.OffsetMinutes(e.Zone, now)
-		p := pairing.Player{ID: e.ID, Points: points[e.Name], Place: places[e.Name], Offset: offset, Opponents: met[e.ID], HadBye: byes[e.ID]}
+		h := history[e.ID]
+		p := pairing.Player{ID: e.ID, Points: points[e.Name], TPN: ranks[e.ID], Place: places[e.Name], Offset: offset, Opponents: met[e.ID],
+			HadBye: h.HadBye, Unplayed: h.Unplayed, Floats: h.Floats}
 		if r, ok := rated[e.Player]; ok {
 			p.Rating, p.Rated = r.Rating, true
 		}
 		players = append(players, p)
 	}
 	return players
+}
+
+// startingRanks numbers the active entrants 1, 2, 3… by rating, highest first, the unrated last, then by name
+// without case, for the Dutch system's order within a score group.
+func startingRanks(entrants []store.BlitzEntrant, rated map[string]store.Rated) map[int64]int {
+	var active []store.BlitzEntrant
+	for _, e := range entrants {
+		if e.Status == "active" {
+			active = append(active, e)
+		}
+	}
+	slices.SortStableFunc(active, func(a, b store.BlitzEntrant) int {
+		ra, okA := rated[a.Player]
+		rb, okB := rated[b.Player]
+		switch {
+		case okA != okB:
+			if okA {
+				return -1
+			}
+			return 1
+		case okA && ra.Rating != rb.Rating:
+			return cmp.Compare(rb.Rating, ra.Rating)
+		}
+		return cmp.Compare(strings.ToLower(a.Name), strings.ToLower(b.Name))
+	})
+	ranks := make(map[int64]int, len(active))
+	for i, e := range active {
+		ranks[e.ID] = i + 1
+	}
+	return ranks
+}
+
+// nextMethod is how the edition's next Swiss round is paired: round 1's method for its first, else the later one.
+func nextMethod(ed store.BlitzEdition, swissMade int) string {
+	if swissMade == 0 {
+		return ed.Pairing.First
+	}
+	return ed.Pairing.Later
 }
 
 // errNoKnockout means the knockout's next round cannot be paired yet, or at all.
@@ -235,13 +260,6 @@ func (s *server) PostAdminBlitzRound(ctx context.Context, req PostAdminBlitzRoun
 	if !tournamentSlug.MatchString(req.Tournament) {
 		return PostAdminBlitzRound400JSONResponse{badRequest400("bad parameter: tournament")}, nil
 	}
-	criteria := roundSwitches{Timezone: true}
-	if req.Body != nil && req.Body.Timezone != nil {
-		criteria.Timezone = *req.Body.Timezone
-	}
-	if req.Body != nil && req.Body.Rating != nil {
-		criteria.Rating = *req.Body.Rating
-	}
 	ed, err := s.admins.BlitzEdition(ctx, req.Tournament, req.Edition)
 	if errors.Is(err, store.ErrNoBlitzEdition) {
 		return PostAdminBlitzRound404JSONResponse{notFound404("no such blitz edition")}, nil
@@ -272,14 +290,15 @@ func (s *server) PostAdminBlitzRound(ctx context.Context, req PostAdminBlitzRoun
 		for _, e := range skippers(ed.Entrants, next) {
 			busy[e.ID] = true
 		}
-		paired, err := pairing.Pair(pairingPlayers(ed, rated, now, 0, busy), criteria.method(), seed)
+		method := nextMethod(ed, swissMade)
+		paired, err := pairing.Pair(pairingPlayers(ed, rated, now, 0, busy), pairing.Method(method), seed)
 		if errors.Is(err, pairing.ErrTooFew) || errors.Is(err, pairing.ErrNoPairing) {
 			return PostAdminBlitzRound400JSONResponse{badRequest400(pairingError(err))}, nil
 		}
 		if err != nil {
 			return nil, err
 		}
-		round = store.BlitzRound{Kind: "swiss", Timezone: criteria.Timezone, Rating: criteria.Rating, Seed: int64(seed)}
+		round = store.BlitzRound{Kind: "swiss", Method: method, Seed: int64(seed)}
 		for _, m := range paired.Matches {
 			round.Matches = append(round.Matches, store.BlitzMatch{A: m.A, B: new(m.B)})
 		}
@@ -296,7 +315,6 @@ func (s *server) PostAdminBlitzRound(ctx context.Context, req PostAdminBlitzRoun
 		case err != nil:
 			return nil, err
 		}
-		criteria = roundSwitches{}
 		round = store.BlitzRound{Kind: "knockout", Seed: int64(seed), Matches: matches}
 	}
 	made, err := s.admins.AddBlitzRound(ctx, req.Tournament, req.Edition, round)
@@ -310,7 +328,7 @@ func (s *server) PostAdminBlitzRound(ctx context.Context, req PostAdminBlitzRoun
 	case err != nil:
 		return nil, err
 	}
-	if err := s.admins.Audit(ctx, me.DiscordID, "blitz.round.add", blitzEditionKey(req.Tournament, req.Edition), map[string]any{"round": made.Number, "kind": made.Kind, "timezone": criteria.Timezone, "rating": criteria.Rating, "seed": seed}); err != nil {
+	if err := s.admins.Audit(ctx, me.DiscordID, "blitz.round.add", blitzEditionKey(req.Tournament, req.Edition), map[string]any{"round": made.Number, "kind": made.Kind, "method": made.Method, "seed": seed}); err != nil {
 		return nil, err
 	}
 	ed.Rounds = append(ed.Rounds, made)
@@ -444,13 +462,6 @@ func (s *server) PostAdminBlitzRoundPairing(ctx context.Context, req PostAdminBl
 	if !tournamentSlug.MatchString(req.Tournament) {
 		return PostAdminBlitzRoundPairing400JSONResponse{badRequest400("bad parameter: tournament")}, nil
 	}
-	criteria := roundSwitches{Timezone: true}
-	if req.Body != nil && req.Body.Timezone != nil {
-		criteria.Timezone = *req.Body.Timezone
-	}
-	if req.Body != nil && req.Body.Rating != nil {
-		criteria.Rating = *req.Body.Rating
-	}
 	ed, err := s.admins.BlitzEdition(ctx, req.Tournament, req.Edition)
 	if errors.Is(err, store.ErrNoBlitzEdition) {
 		return PostAdminBlitzRoundPairing404JSONResponse{notFound404("no such blitz edition")}, nil
@@ -485,7 +496,7 @@ func (s *server) PostAdminBlitzRoundPairing(ctx context.Context, req PostAdminBl
 	for _, e := range skippers(ed.Entrants, round.Number) {
 		busy[e.ID] = true
 	}
-	proposal := store.BlitzRound{ID: round.ID, Number: round.Number, Kind: round.Kind, Timezone: criteria.Timezone, Rating: criteria.Rating, PublishedAt: round.PublishedAt, Matches: kept}
+	proposal := store.BlitzRound{ID: round.ID, Number: round.Number, Kind: round.Kind, Method: round.Method, PublishedAt: round.PublishedAt, Matches: kept}
 	now := s.now()
 	free := pairingPlayers(ed, rated, now, round.ID, busy)
 	if i := slices.IndexFunc(proposal.Matches, func(m store.BlitzMatch) bool { return m.B == nil }); i >= 0 && len(free)%2 == 1 {
@@ -500,7 +511,7 @@ func (s *server) PostAdminBlitzRoundPairing(ctx context.Context, req PostAdminBl
 	case 1:
 		proposal.Matches = append(proposal.Matches, store.BlitzMatch{A: free[0].ID})
 	default:
-		paired, err := pairing.Pair(free, criteria.method(), seed)
+		paired, err := pairing.Pair(free, pairing.Method(round.Method), seed)
 		if errors.Is(err, pairing.ErrNoPairing) {
 			return PostAdminBlitzRoundPairing400JSONResponse{badRequest400(pairingError(err))}, nil
 		}

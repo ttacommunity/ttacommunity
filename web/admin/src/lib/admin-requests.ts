@@ -90,8 +90,10 @@ export const setBlitzFormat = (slug: string, edition: string, format: Schemas['B
 export const setBlitzPoints = (slug: string, edition: string, points: Schemas['BlitzPoints']) => to(`${blitz(slug, edition)}/points`, 'PUT', points);
 /** resetBlitzPoints puts FIDE's points back. */
 export const resetBlitzPoints = (slug: string, edition: string) => to(`${blitz(slug, edition)}/points`, 'DELETE');
-/** pairBlitzRound pairs the edition's next round as a draft, by the criteria given. */
-export const pairBlitzRound = (slug: string, edition: string, criteria: Schemas['NewBlitzRound']) => to(`${blitz(slug, edition)}/rounds`, 'POST', criteria);
+/** setBlitzPairing sets how an edition's Swiss rounds are paired, round 1 and the rounds after it. */
+export const setBlitzPairing = (slug: string, edition: string, pairing: Schemas['BlitzPairingMethods']) => to(`${blitz(slug, edition)}/pairing`, 'PUT', pairing);
+/** pairBlitzRound pairs the edition's next round as a draft, by its pairing methods. */
+export const pairBlitzRound = (slug: string, edition: string) => to(`${blitz(slug, edition)}/rounds`, 'POST');
 /** proposeBlitzPairing asks for a round with the matches in keep (and those with a result) as they are and everyone else paired, without saving it. */
 export const proposeBlitzPairing = (slug: string, edition: string, round: number, pairing: Schemas['BlitzPairing']) =>
   to(`${blitz(slug, edition)}/rounds/${round}/pairing`, 'POST', pairing);

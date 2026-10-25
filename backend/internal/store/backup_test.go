@@ -38,7 +38,7 @@ func withPeople(t *testing.T, pool *pgxpool.Pool) *pgxpool.Pool {
 		`INSERT INTO blitz_entries (tournament_id, member_id) SELECT tournament_id, member_id FROM blitz_editions, members`,
 		`INSERT INTO blitz_organisers (tournament_id, member_id) SELECT tournament_id, min(member_id) FROM blitz_entries GROUP BY 1`,
 		`INSERT INTO blitz_thread_texts (tournament_id, message, no_discord) SELECT tournament_id, 'Round {round}', 'none' FROM blitz_editions`,
-		`INSERT INTO blitz_rounds (tournament_id, number, seed) SELECT tournament_id, 1, 7 FROM blitz_editions`,
+		`INSERT INTO blitz_rounds (tournament_id, number, method, seed) SELECT tournament_id, 1, 'dutch', 7 FROM blitz_editions`,
 		`INSERT INTO blitz_matches (round_id, entry_a, entry_b)
 		 SELECT round_id, min(entry_id), max(entry_id) FROM blitz_rounds, blitz_entries GROUP BY round_id`,
 		`INSERT INTO blitz_skips (entry_id, number) SELECT min(entry_id), 2 FROM blitz_entries`,
@@ -78,7 +78,7 @@ func TestRestoreGivesBackExactlyWhatWasBackedUp(t *testing.T) {
 	for _, q := range []string{
 		`INSERT INTO members (tta_name) VALUES ('Cid')`,
 		`INSERT INTO accounts (created_at) VALUES (now())`,
-		`INSERT INTO blitz_rounds (tournament_id, number, seed) SELECT tournament_id, 2, 7 FROM blitz_editions`,
+		`INSERT INTO blitz_rounds (tournament_id, number, method, seed) SELECT tournament_id, 2, 'dutch', 7 FROM blitz_editions`,
 	} {
 		if _, err := fresh.Exec(ctx, q); err != nil {
 			t.Errorf("%s after restore: %v (identity not moved past the restored ids)", q, err)
