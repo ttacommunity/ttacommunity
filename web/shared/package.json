@@ -18,6 +18,7 @@
     "./BackLink": "./src/BackLink.tsx",
     "./Dialog": "./src/Dialog.tsx",
     "./InfoDialog": "./src/InfoDialog.tsx",
+    "./modal": "./src/modal.ts",
     "./tabs": "./src/tabs.ts",
     "./sort": "./src/sort.ts",
     "./SortHeader": "./src/SortHeader.tsx"

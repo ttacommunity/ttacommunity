@@ -476,8 +476,8 @@ function WaysIn({ apiUrl, me, refresh }: { apiUrl: string; me: Me; refresh: () =
   const [address, setAddress] = useState('');
   const [said, setSaid] = useState<{ ok: boolean; text: string } | null>(null);
   const [busy, setBusy] = useState(false);
-  const remove = async (provider: (typeof ways)[number]['provider'], label: string) => {
-    const sure = await dialog.confirm({ heading: `Remove ${label}?`, text: 'You will no longer sign in that way. You can add it again later.', action: 'Remove' });
+  const remove = async (provider: (typeof ways)[number]['provider'], label: string, opener: HTMLElement) => {
+    const sure = await dialog.confirm({ heading: `Remove ${label}?`, text: 'You will no longer sign in that way. You can add it again later.', action: 'Remove' }, opener);
     if (!sure) return;
     const done = await removeWayIn(apiUrl, provider);
     setSaid(done.ok ? { ok: true, text: `Removed ${label}.` } : { ok: false, text: done.message });
@@ -509,7 +509,7 @@ function WaysIn({ apiUrl, me, refresh }: { apiUrl: string; me: Me; refresh: () =
               </button>
             )}
             {w.removable && (
-              <button type="button" className="btn-antique" onClick={() => void remove(w.provider, w.label)}>
+              <button type="button" className="btn-antique" onClick={(e) => void remove(w.provider, w.label, e.currentTarget)}>
                 Remove
               </button>
             )}
@@ -598,8 +598,8 @@ function SignOut({ apiUrl, state, zone }: { apiUrl: string; state: AccountState;
     rememberSignedIn(browserStorage(), false);
     window.location.assign(to);
   };
-  const remove = async () => {
-    if (await dialog.confirm(deleteQuestion(state))) await leave(() => deleteAccount(apiUrl), '/account/?signin=deleted');
+  const remove = async (opener: HTMLElement) => {
+    if (await dialog.confirm(deleteQuestion(state), opener)) await leave(() => deleteAccount(apiUrl), '/account/?signin=deleted');
   };
   return (
     <div className="account-sign-out account-row">
@@ -608,7 +608,7 @@ function SignOut({ apiUrl, state, zone }: { apiUrl: string; state: AccountState;
       <button type="button" className="btn-antique" onClick={() => void leave(() => signOut(apiUrl), '/account/')}>
         Sign out
       </button>
-      <button type="button" className="btn-antique btn-danger" onClick={() => void remove()}>
+      <button type="button" className="btn-antique btn-danger" onClick={(e) => void remove(e.currentTarget)}>
         Delete account
       </button>
       {problem !== '' && (

@@ -22,13 +22,16 @@ function BadgeRow({ badge, onReload, outcome, say }: { badge: AdminBadge; onRelo
     say(outcomeOf(r, `Saved ${label.trim()}.`, at));
     await onReload();
   };
-  const remove = async () => {
-    const sure = await dialog.confirm({
-      heading: `Remove the ${badge.label} badge?`,
-      text: 'It is taken from everyone who holds it.',
-      action: 'Remove badge',
-      final: true,
-    });
+  const remove = async (opener: HTMLElement) => {
+    const sure = await dialog.confirm(
+      {
+        heading: `Remove the ${badge.label} badge?`,
+        text: 'It is taken from everyone who holds it.',
+        action: 'Remove badge',
+        final: true,
+      },
+      opener,
+    );
     if (!sure) return;
     const r = await req.send(req.removeBadge(badge.id));
     say(outcomeOf(r, `Removed the ${badge.label} badge.`, at, 'badges'));
@@ -68,7 +71,7 @@ function BadgeRow({ badge, onReload, outcome, say }: { badge: AdminBadge; onRelo
         >
           Save
         </button>
-        <button type="button" className="btn-antique" onClick={() => void remove()}>
+        <button type="button" className="btn-antique" onClick={(e) => void remove(e.currentTarget)}>
           Remove badge
         </button>
       </div>

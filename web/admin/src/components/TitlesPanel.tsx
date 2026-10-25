@@ -34,8 +34,8 @@ export default function TitlesPanel() {
     if (r.ok) setForm({ name: '', title: 'GM', reason: '' });
     await load();
   };
-  const remove = async (o: TitleOverride) => {
-    if (!(await dialog.confirm({ heading: `Remove the title set for ${o.name}?`, text: 'The next run derives it again.', action: 'Remove' }))) return;
+  const remove = async (o: TitleOverride, opener: HTMLElement) => {
+    if (!(await dialog.confirm({ heading: `Remove the title set for ${o.name}?`, text: 'The next run derives it again.', action: 'Remove' }, opener))) return;
     const r = await req.send(req.clearTitle(o.name));
     setOutcome(outcomeOf(r, `Removed ${o.name}'s title. The next run derives it again.`, `title ${o.name}`, 'titles'));
     await load();
@@ -74,7 +74,7 @@ export default function TitlesPanel() {
                     <td>{titleLabel(o.title)}</td>
                     <td>{o.reason}</td>
                     <td>
-                      <button type="button" className="btn-antique" onClick={() => void remove(o)}>
+                      <button type="button" className="btn-antique" onClick={(e) => void remove(o, e.currentTarget)}>
                         Remove
                       </button>
                     </td>

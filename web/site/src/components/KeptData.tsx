@@ -1,5 +1,6 @@
 /** "Data we keep" on the account page: a button that opens a dialog listing everything kept about the signed-in player, fetched when it opens. */
 import { useEffect, useRef, useState } from 'react';
+import { useModal } from '@ttac/shared/modal';
 import { fetchMyData, keptGroups, shownZone, type KeptGroup, type MyData } from '../lib/kept-data';
 import Waiting from './Waiting';
 import './KeptData.css';
@@ -8,29 +9,25 @@ type Load = { kind: 'loading' } | { kind: 'error'; message: string } | { kind: '
 
 /** KeptData is the button, and the dialog while it is open; savedZone is the player's own zone, for the times. */
 export default function KeptData({ apiUrl, savedZone }: { apiUrl: string; savedZone: string }) {
-  const [open, setOpen] = useState(false);
+  const [opener, setOpener] = useState<HTMLElement | null>(null);
   return (
     <>
-      <button type="button" className="btn-antique" onClick={() => setOpen(true)}>
+      <button type="button" className="btn-antique" onClick={(e) => setOpener(e.currentTarget)}>
         Data we keep
       </button>
-      {open && <KeptDialog apiUrl={apiUrl} savedZone={savedZone} onClose={() => setOpen(false)} />}
+      {opener !== null && <KeptDialog apiUrl={apiUrl} savedZone={savedZone} opener={opener} onClose={() => setOpener(null)} />}
     </>
   );
 }
 
-function KeptDialog({ apiUrl, savedZone, onClose }: { apiUrl: string; savedZone: string; onClose: () => void }) {
+function KeptDialog({ apiUrl, savedZone, opener, onClose }: { apiUrl: string; savedZone: string; opener: HTMLElement; onClose: () => void }) {
   const dialog = useRef<HTMLDialogElement>(null);
   const [load, setLoad] = useState<Load>({ kind: 'loading' });
   const zone = shownZone(savedZone, Intl.DateTimeFormat().resolvedOptions().timeZone);
+  // A click on the backdrop closes it; Esc and Close are the keyboard's ways.
+  const closed = useModal(dialog, opener, onClose, { backdropCloses: true });
 
   useEffect(() => {
-    const d = dialog.current;
-    if (d === null) return;
-    d.showModal();
-    // A click on the backdrop closes it; Esc and Close are the keyboard's ways.
-    const onBackdrop = (e: MouseEvent) => e.target === d && d.close();
-    d.addEventListener('click', onBackdrop);
     let stale = false;
     fetchMyData(apiUrl)
       .then((data) => {
@@ -40,14 +37,13 @@ function KeptDialog({ apiUrl, savedZone, onClose }: { apiUrl: string; savedZone:
       .catch((e: unknown) => !stale && setLoad({ kind: 'error', message: e instanceof Error ? e.message : String(e) }));
     return () => {
       stale = true;
-      d.removeEventListener('click', onBackdrop);
     };
   }, [apiUrl]);
 
   const names = typeof Intl.DisplayNames === 'function' ? new Intl.DisplayNames(['en'], { type: 'region' }) : null;
   const groups = load.kind === 'ready' ? keptGroups(load.data, zone, (code) => names?.of(code) ?? code) : [];
   return (
-    <dialog ref={dialog} className="kept-modal" aria-labelledby="kept-title" onClose={onClose}>
+    <dialog ref={dialog} className="kept-modal" aria-labelledby="kept-title" onClose={closed}>
       <div className="kept-head">
         <h2 id="kept-title">Data we keep</h2>
         <button type="button" className="kept-close" aria-label="Close" onClick={() => dialog.current?.close()}>

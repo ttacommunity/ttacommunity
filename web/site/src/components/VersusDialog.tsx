@@ -1,5 +1,6 @@
 /** Upstream's head-to-head popup: two players' latest shared games, filtered by format. */
 import { useEffect, useRef, useState } from 'react';
+import { useModal } from '@ttac/shared/modal';
 import { playerVersus, type Format, type PlayerVersus } from '@ttac/shared/ratings';
 import { versusTally } from '../lib/career';
 import { formatTournamentDisplay } from '../lib/achievements';
@@ -16,13 +17,14 @@ const FORMATS: { value: Format; label: string }[] = [
   { value: 4, label: '4-Player' },
 ];
 
-/** VersusDialog shows name's shared games with other, opening at format; onClose runs when it closes. */
+/** VersusDialog shows name's shared games with other, opening at format; onClose runs when it closes, focus back on opener. */
 export default function VersusDialog({
   apiUrl,
   runId,
   name,
   other,
   format: initial,
+  opener,
   onClose,
 }: {
   apiUrl: string;
@@ -30,26 +32,22 @@ export default function VersusDialog({
   name: string;
   other: string;
   format: Format;
+  opener: HTMLElement;
   onClose: () => void;
 }) {
   const dialog = useRef<HTMLDialogElement>(null);
   const [state, setState] = useState<Load>({ kind: 'loading' });
   const [format, setFormat] = useState<Format>(initial);
+  // A click on the backdrop closes it, as upstream's; Esc and × are the keyboard's ways.
+  const closed = useModal(dialog, opener, onClose, { backdropCloses: true });
 
   useEffect(() => {
-    const d = dialog.current;
-    if (d === null) return;
-    d.showModal();
-    // A click on the backdrop closes it, as upstream's; Esc and × are the keyboard's ways.
-    const onBackdrop = (e: MouseEvent) => e.target === d && d.close();
-    d.addEventListener('click', onBackdrop);
     let stale = false;
     playerVersus(apiUrl, runId, name, other)
       .then((data) => !stale && setState({ kind: 'ready', data }))
       .catch((e: unknown) => !stale && setState({ kind: 'error', message: e instanceof Error ? e.message : String(e) }));
     return () => {
       stale = true;
-      d.removeEventListener('click', onBackdrop);
     };
   }, [apiUrl, runId, name, other]);
 
@@ -62,7 +60,7 @@ export default function VersusDialog({
       ref={dialog}
       className="h2h-modal"
       aria-labelledby="h2h-title"
-      onClose={onClose}
+      onClose={closed}
     >
       <div className="h2h-head">
         <h3 id="h2h-title">

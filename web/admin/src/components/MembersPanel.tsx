@@ -72,14 +72,17 @@ export default function MembersPanel({ role, accounts, reloadAccounts }: Props) 
   const after = async () => {
     await Promise.all([load(), reloadAccounts()]);
   };
-  const unlink = async (m: AdminMember) => {
+  const unlink = async (m: AdminMember, opener: HTMLElement) => {
     const l = signIns.byMember.get(m.id);
     if (l === undefined) return;
-    const sure = await dialog.confirm({
-      heading: `Unlink ${who(l)} from ${m.name}?`,
-      text: 'They stay signed in, unlinked, and are not linked by Discord name or email again.',
-      action: 'Unlink',
-    });
+    const sure = await dialog.confirm(
+      {
+        heading: `Unlink ${who(l)} from ${m.name}?`,
+        text: 'They stay signed in, unlinked, and are not linked by Discord name or email again.',
+        action: 'Unlink',
+      },
+      opener,
+    );
     if (!sure) return;
     setOutcome(outcomeOf(await req.send(req.unlinkAccount(l.id)), `Unlinked ${who(l)} from ${m.name}.`, `member ${m.id}`));
     await after();
@@ -103,24 +106,30 @@ export default function MembersPanel({ role, accounts, reloadAccounts }: Props) 
     if (editing.cge_user.trim() !== '') change.cge_user = Number(editing.cge_user);
     if (await run(req.setMember(editing.id, change), 'Saved.', `member ${editing.id}`)) setEditing(null);
   };
-  const ban = async (m: AdminMember) => {
-    const reason = await dialog.ask({
-      heading: `Ban ${m.name}?`,
-      text: 'A banned member cannot be entered in an edition; their games and ratings stay.',
-      field: 'The reason',
-      required: true,
-      maxLength: 1000,
-      action: 'Ban',
-    });
+  const ban = async (m: AdminMember, opener: HTMLElement) => {
+    const reason = await dialog.ask(
+      {
+        heading: `Ban ${m.name}?`,
+        text: 'A banned member cannot be entered in an edition; their games and ratings stay.',
+        field: 'The reason',
+        required: true,
+        maxLength: 1000,
+        action: 'Ban',
+      },
+      opener,
+    );
     if (reason !== null) await run(req.banMember(m.id, reason), `${m.name} is banned.`, `member ${m.id}`);
   };
-  const remove = async (m: AdminMember) => {
-    const sure = await dialog.confirm({
-      heading: `Remove ${m.name}?`,
-      text: 'Only for a mistaken entry: a member in an edition cannot be removed.',
-      action: 'Remove',
-      final: true,
-    });
+  const remove = async (m: AdminMember, opener: HTMLElement) => {
+    const sure = await dialog.confirm(
+      {
+        heading: `Remove ${m.name}?`,
+        text: 'Only for a mistaken entry: a member in an edition cannot be removed.',
+        action: 'Remove',
+        final: true,
+      },
+      opener,
+    );
     if (sure) await run(req.removeMember(m.id), `Removed ${m.name}.`, `member ${m.id}`, 'members');
   };
   return (
@@ -259,12 +268,12 @@ export default function MembersPanel({ role, accounts, reloadAccounts }: Props) 
                             Edit
                           </button>
                           {signIns.byMember.has(m.id) && (
-                            <button type="button" className="btn-antique" onClick={() => void unlink(m)}>
+                            <button type="button" className="btn-antique" onClick={(e) => void unlink(m, e.currentTarget)}>
                               Unlink
                             </button>
                           )}
                           {role === 'admin' && !m.banned && (
-                            <button type="button" className="btn-antique" onClick={() => void ban(m)}>
+                            <button type="button" className="btn-antique" onClick={(e) => void ban(m, e.currentTarget)}>
                               Ban
                             </button>
                           )}
@@ -274,7 +283,7 @@ export default function MembersPanel({ role, accounts, reloadAccounts }: Props) 
                             </button>
                           )}
                           {role === 'admin' && (
-                            <button type="button" className="btn-antique" onClick={() => void remove(m)}>
+                            <button type="button" className="btn-antique" onClick={(e) => void remove(m, e.currentTarget)}>
                               Remove
                             </button>
                           )}

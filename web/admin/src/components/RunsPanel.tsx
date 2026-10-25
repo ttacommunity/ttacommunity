@@ -114,12 +114,15 @@ export default function RunsPanel() {
     return () => window.clearInterval(timer);
   }, [changing, waitingUntil]);
 
-  const start = async () => {
-    const sure = await dialog.confirm({
-      heading: 'Start a rating run now?',
-      text: 'It usually takes 20 to 40 minutes, and is not shown on the site until you publish it.',
-      action: 'Start run',
-    });
+  const start = async (opener: HTMLElement) => {
+    const sure = await dialog.confirm(
+      {
+        heading: 'Start a rating run now?',
+        text: 'It usually takes 20 to 40 minutes, and is not shown on the site until you publish it.',
+        action: 'Start run',
+      },
+      opener,
+    );
     if (!sure) return;
     setOutcome(null);
     const r = await req.send<StartedRun>(req.startRun());
@@ -130,17 +133,17 @@ export default function RunsPanel() {
     setOutcome(succeeded(`Started ${r.data.job}. Its run appears here once the engine connects.`, 'runs'));
     setWaitingUntil(awaitStartedRun(Date.now()));
   };
-  const stop = async (run: AdminRun) => {
-    const sure = await dialog.confirm({ heading: `Stop run ${run.id}?`, text: 'It is marked failed, and its work so far is not kept.', action: 'Stop run', final: true });
+  const stop = async (run: AdminRun, opener: HTMLElement) => {
+    const sure = await dialog.confirm({ heading: `Stop run ${run.id}?`, text: 'It is marked failed, and its work so far is not kept.', action: 'Stop run', final: true }, opener);
     if (!sure) return;
     setOutcome(null);
     const r = await req.send(req.stopRun(run.id));
     setOutcome(outcomeOf(r, `Stopping run ${run.id}. It shows as failed once the engine has ended.`, 'runs'));
     await load();
   };
-  const publish = async (run: AdminRun) => {
+  const publish = async (run: AdminRun, opener: HTMLElement) => {
     const verb = publishVerb(runs ?? [], run);
-    if (!(await dialog.confirm({ heading: `${verb} run ${run.id}?`, text: 'The site shows it at once.', action: `${verb} run ${run.id}` }))) return;
+    if (!(await dialog.confirm({ heading: `${verb} run ${run.id}?`, text: 'The site shows it at once.', action: `${verb} run ${run.id}` }, opener))) return;
     setOutcome(null);
     const r = await req.send(req.publishRun(run.id));
     setOutcome(outcomeOf(r, `Run ${run.id} is now the one the site shows.`, `run ${run.id}`));
@@ -153,14 +156,17 @@ export default function RunsPanel() {
     setOutcome(refusalOf(r, `run ${run.id}`));
     await load();
   };
-  const remove = async (run: AdminRun) => {
+  const remove = async (run: AdminRun, opener: HTMLElement) => {
     const size = runSize(run.status, run.disk_bytes);
-    const sure = await dialog.confirm({
-      heading: `Delete run ${run.id}${size === '' ? '' : ` (${size} on disk)`}?`,
-      text: 'Every result of it is deleted too. This cannot be undone.',
-      action: 'Delete run',
-      final: true,
-    });
+    const sure = await dialog.confirm(
+      {
+        heading: `Delete run ${run.id}${size === '' ? '' : ` (${size} on disk)`}?`,
+        text: 'Every result of it is deleted too. This cannot be undone.',
+        action: 'Delete run',
+        final: true,
+      },
+      opener,
+    );
     if (!sure) return;
     setOutcome(null);
     const r = await req.send(req.deleteRun(run.id));
@@ -180,7 +186,7 @@ export default function RunsPanel() {
         can be published again to roll back.
       </p>
       <div className="runs-actions">
-        <button type="button" className="btn-antique" onClick={() => void start()} disabled={going}>
+        <button type="button" className="btn-antique" onClick={(e) => void start(e.currentTarget)} disabled={going}>
           {going ? 'A run is going' : 'Start a run now'}
         </button>
       </div>
@@ -191,7 +197,7 @@ export default function RunsPanel() {
           <div key={r.id} className="run-block">
             <h3>Run {r.id} is going</h3>
             <ProgressCell run={r} />
-            <button type="button" className="btn-antique run-stop" onClick={() => void stop(r)}>
+            <button type="button" className="btn-antique run-stop" onClick={(e) => void stop(r, e.currentTarget)}>
               Stop this run
             </button>
           </div>
@@ -221,9 +227,9 @@ export default function RunsPanel() {
                     run={r}
                     comparing={comparing === r.id}
                     onCompare={() => setComparing(comparing === r.id ? null : r.id)}
-                    onPublish={() => void publish(r)}
+                    onPublish={(opener) => void publish(r, opener)}
                     onProtect={(on) => void protect(r, on)}
-                    onDelete={() => void remove(r)}
+                    onDelete={(opener) => void remove(r, opener)}
                   />
                   <NoticeRow outcome={shownAt(outcome, `run ${r.id}`)} columns={10} onClose={close} />
                 </Fragment>
@@ -257,9 +263,9 @@ function RunRow({
   run: AdminRun;
   comparing: boolean;
   onCompare: () => void;
-  onPublish: () => void;
+  onPublish: (opener: HTMLElement) => void;
   onProtect: (on: boolean) => void;
-  onDelete: () => void;
+  onDelete: (opener: HTMLElement) => void;
 }) {
   const state = run.current ? 'shown' : run.status;
   return (
@@ -285,7 +291,7 @@ function RunRow({
       </td>
       <td>
         {canDelete(run) && (
-          <button type="button" className="btn-antique run-delete" onClick={onDelete}>
+          <button type="button" className="btn-antique run-delete" onClick={(e) => onDelete(e.currentTarget)}>
             Delete
           </button>
         )}
@@ -295,7 +301,7 @@ function RunRow({
               Changes {comparing ? '▾' : '▸'}
             </button>
             {!run.current && (
-              <button type="button" className="btn-antique" onClick={onPublish}>
+              <button type="button" className="btn-antique" onClick={(e) => onPublish(e.currentTarget)}>
                 Publish
               </button>
             )}
