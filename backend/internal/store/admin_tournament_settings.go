@@ -232,7 +232,7 @@ type TournamentChange struct {
 // ChangeTournament sets every part of c on tournament slug in one transaction, so a refused part changes
 // nothing. It returns what the refused part's Set method would.
 func (a *AdminStore) ChangeTournament(ctx context.Context, slug string, c TournamentChange) error {
-	return a.inTx(ctx, func(tx *AdminStore) error {
+	return a.InTx(ctx, func(tx *AdminStore) error {
 		if c.Settings != nil {
 			if err := tx.SetTournament(ctx, slug, *c.Settings); err != nil {
 				return err

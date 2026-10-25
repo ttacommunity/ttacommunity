@@ -25,7 +25,10 @@ const adminPrefix = "/v1/admin/"
 type Admins interface {
 	Verify(ctx context.Context, token string) (access.Identity, error)
 	Admin(ctx context.Context, discordID string) (store.Admin, error)
+	// Audit records a change; it runs inside Change, so the audit row commits with the change or not at all.
 	Audit(ctx context.Context, discordID, action, target string, detail any) error
+	// Change runs fn in one transaction, given Admins whose writes are in it, committed only when fn returns nil.
+	Change(ctx context.Context, fn func(tx Admins) error) error
 	// AllowedOrigin is the admin site's origin, the only one a change may come from.
 	AllowedOrigin() string
 	TournamentRows(ctx context.Context) ([]store.AdminTournamentRow, error)
@@ -225,14 +228,16 @@ func (s *server) PutAdminAdmin(ctx context.Context, req PutAdminAdminRequestObje
 	if b == nil || b.Name == "" || len(b.Name) > 64 || !b.Role.Valid() {
 		return PutAdminAdmin400JSONResponse{BadRequestJSONResponse{Body: Error{Error: "a name and a role (admin or organiser)"}, Headers: BadRequestResponseHeaders{CacheControl: cacheNone}}}, nil
 	}
-	err = s.admins.SetAdmin(ctx, store.Admin{DiscordID: req.DiscordId, Name: b.Name, Role: string(b.Role)})
+	err = s.admins.Change(ctx, func(tx Admins) error {
+		if err := tx.SetAdmin(ctx, store.Admin{DiscordID: req.DiscordId, Name: b.Name, Role: string(b.Role)}); err != nil {
+			return err
+		}
+		return tx.Audit(ctx, me.DiscordID, "admin.set", req.DiscordId, b)
+	})
 	if errors.Is(err, store.ErrLastAdmin) {
 		return PutAdminAdmin403JSONResponse{forbidden("admin must keep at least one admin; make someone else admin first")}, nil
 	}
 	if err != nil {
-		return nil, err
-	}
-	if err := s.admins.Audit(ctx, me.DiscordID, "admin.set", req.DiscordId, b); err != nil {
 		return nil, err
 	}
 	return PutAdminAdmin204Response{}, nil
@@ -243,7 +248,12 @@ func (s *server) DeleteAdminAdmin(ctx context.Context, req DeleteAdminAdminReque
 	if err != nil || !ok {
 		return DeleteAdminAdmin403JSONResponse{forbidden("only admins manage admin")}, err
 	}
-	err = s.admins.RemoveAdmin(ctx, req.DiscordId)
+	err = s.admins.Change(ctx, func(tx Admins) error {
+		if err := tx.RemoveAdmin(ctx, req.DiscordId); err != nil {
+			return err
+		}
+		return tx.Audit(ctx, me.DiscordID, "admin.remove", req.DiscordId, map[string]any{})
+	})
 	if errors.Is(err, store.ErrLastAdmin) {
 		return DeleteAdminAdmin403JSONResponse{forbidden("admin must keep at least one admin; make someone else admin first")}, nil
 	}
@@ -251,9 +261,6 @@ func (s *server) DeleteAdminAdmin(ctx context.Context, req DeleteAdminAdminReque
 		return DeleteAdminAdmin404JSONResponse{NotFoundJSONResponse{Body: Error{Error: "not in admin"}, Headers: NotFoundResponseHeaders{CacheControl: cacheNone}}}, nil
 	}
 	if err != nil {
-		return nil, err
-	}
-	if err := s.admins.Audit(ctx, me.DiscordID, "admin.remove", req.DiscordId, map[string]any{}); err != nil {
 		return nil, err
 	}
 	return DeleteAdminAdmin204Response{}, nil

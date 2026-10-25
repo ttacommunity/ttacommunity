@@ -187,7 +187,7 @@ type SeasonChange struct {
 // ChangeSeason sets every part of c on a tournament's season in one transaction, so a refused part changes
 // nothing. It returns what the refused part's Set method would.
 func (a *AdminStore) ChangeSeason(ctx context.Context, slug, season string, c SeasonChange) error {
-	return a.inTx(ctx, func(tx *AdminStore) error {
+	return a.InTx(ctx, func(tx *AdminStore) error {
 		steps := []struct {
 			asked bool
 			do    func() error

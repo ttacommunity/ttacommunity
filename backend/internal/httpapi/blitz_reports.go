@@ -211,7 +211,13 @@ func (s *server) PostAdminBlitzMatchKeep(ctx context.Context, req PostAdminBlitz
 	if !tournamentSlug.MatchString(req.Tournament) {
 		return PostAdminBlitzMatchKeep404JSONResponse{notFound404("no such blitz edition")}, nil
 	}
-	switch err := s.admins.KeepBlitzReport(ctx, req.Tournament, req.Edition, req.Match); {
+	err := s.admins.Change(ctx, func(tx Admins) error {
+		if err := tx.KeepBlitzReport(ctx, req.Tournament, req.Edition, req.Match); err != nil {
+			return err
+		}
+		return tx.Audit(ctx, me.DiscordID, "blitz.match.keep", fmt.Sprint(req.Match), map[string]any{})
+	})
+	switch {
 	case errors.Is(err, store.ErrBlitzNotFlagged):
 		return PostAdminBlitzMatchKeep409JSONResponse{conflict409(err.Error())}, nil
 	case errors.Is(err, store.ErrNoBlitzEdition):
@@ -219,9 +225,6 @@ func (s *server) PostAdminBlitzMatchKeep(ctx context.Context, req PostAdminBlitz
 	case errors.Is(err, store.ErrNoBlitzMatch):
 		return PostAdminBlitzMatchKeep404JSONResponse{notFound404("no such match")}, nil
 	case err != nil:
-		return nil, err
-	}
-	if err := s.admins.Audit(ctx, me.DiscordID, "blitz.match.keep", fmt.Sprint(req.Match), map[string]any{}); err != nil {
 		return nil, err
 	}
 	return PostAdminBlitzMatchKeep204Response{}, nil

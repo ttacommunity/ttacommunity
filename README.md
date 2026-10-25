@@ -765,7 +765,8 @@ Admin is the `ttac-admin` site and the API's `/v1/admin/` routes:
 - **The API verifies the token again** (signature, issuer, the admin app's
   audience, expiry, a Discord id), then looks the Discord id up in `admins`:
   role `admin` or `organiser`. A change must come from `ADMIN_ORIGIN`, and
-  every change is written to `admin_audit`
+  every change is written to `admin_audit` in the change's own
+  transaction: a change whose audit row fails is not made
 - **The API refuses to start** without `ACCESS_TEAM`, `ACCESS_AUD`,
   `ADMIN_ORIGIN` and `RATINGS_ADMIN_DATABASE_URL`, or when the admin login
   could change games, players or a run's ratings

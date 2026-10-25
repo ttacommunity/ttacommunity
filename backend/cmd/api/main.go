@@ -160,6 +160,14 @@ type adminDeps struct {
 // AllowedOrigin is the admin site's origin, the only one a change may come from.
 func (d adminDeps) AllowedOrigin() string { return d.origin }
 
+// Change runs fn in one transaction on the admin login, so a change and its audit commit together or not at all.
+func (d adminDeps) Change(ctx context.Context, fn func(tx httpapi.Admins) error) error {
+	return d.InTx(ctx, func(tx *store.AdminStore) error {
+		d.AdminStore = tx
+		return fn(d)
+	})
+}
+
 // StartRun starts the engine now, or returns enginejob.ErrNotSetUp when ENGINE_CRONJOB is not set.
 func (d adminDeps) StartRun(ctx context.Context) (string, error) {
 	if d.starter == nil {

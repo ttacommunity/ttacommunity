@@ -31,7 +31,7 @@ type Admin struct {
 
 // AdminStore reads admins and writes the audit, as the ratings_admin login.
 type AdminStore struct {
-	pool     conn          // the admin login's pool, or a transaction begun on it by inTx
+	pool     conn          // the admin login's pool, or a transaction begun on it by InTx
 	snapshot *pgxpool.Pool // exports begin their own read-only snapshot, so they need the pool itself
 }
 
@@ -48,8 +48,9 @@ func NewAdminStore(pool *pgxpool.Pool) *AdminStore {
 	return &AdminStore{pool: pool, snapshot: pool}
 }
 
-// inTx runs fn with a store whose statements are all in one transaction, committed only when fn returns nil.
-func (a *AdminStore) inTx(ctx context.Context, fn func(tx *AdminStore) error) error {
+// InTx runs fn with a store whose statements are all in one transaction, committed only when fn returns nil.
+// The store's own transactions inside it become savepoints, so a change and its Audit commit together.
+func (a *AdminStore) InTx(ctx context.Context, fn func(tx *AdminStore) error) error {
 	return pgx.BeginFunc(ctx, a.pool, func(tx pgx.Tx) error {
 		return fn(&AdminStore{pool: tx, snapshot: a.snapshot})
 	})

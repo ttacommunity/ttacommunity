@@ -14,7 +14,14 @@ func (s *server) PostAdminBlitzSkip(ctx context.Context, req PostAdminBlitzSkipR
 	if !tournamentSlug.MatchString(req.Tournament) {
 		return PostAdminBlitzSkip404JSONResponse{notFound404("no such blitz edition")}, nil
 	}
-	round, err := s.admins.SkipBlitzRound(ctx, req.Tournament, req.Edition, req.Entrant)
+	var round int
+	err := s.admins.Change(ctx, func(tx Admins) error {
+		var err error
+		if round, err = tx.SkipBlitzRound(ctx, req.Tournament, req.Edition, req.Entrant); err != nil {
+			return err
+		}
+		return tx.Audit(ctx, me.DiscordID, "blitz.entrant.skip", fmt.Sprint(req.Entrant), map[string]int{"round": round})
+	})
 	switch {
 	case errors.Is(err, store.ErrNoBlitzEdition):
 		return PostAdminBlitzSkip404JSONResponse{notFound404("no such blitz edition")}, nil
@@ -25,9 +32,6 @@ func (s *server) PostAdminBlitzSkip(ctx context.Context, req PostAdminBlitzSkipR
 	case err != nil:
 		return nil, err
 	}
-	if err := s.admins.Audit(ctx, me.DiscordID, "blitz.entrant.skip", fmt.Sprint(req.Entrant), map[string]int{"round": round}); err != nil {
-		return nil, err
-	}
 	return PostAdminBlitzSkip201JSONResponse{Body: BlitzSkip{Round: round}, Headers: PostAdminBlitzSkip201ResponseHeaders{CacheControl: cacheNone}}, nil
 }
 
@@ -36,7 +40,13 @@ func (s *server) DeleteAdminBlitzSkip(ctx context.Context, req DeleteAdminBlitzS
 	if !tournamentSlug.MatchString(req.Tournament) {
 		return DeleteAdminBlitzSkip404JSONResponse{notFound404("no such blitz edition")}, nil
 	}
-	switch err := s.admins.UnskipBlitzRound(ctx, req.Tournament, req.Edition, req.Entrant); {
+	err := s.admins.Change(ctx, func(tx Admins) error {
+		if err := tx.UnskipBlitzRound(ctx, req.Tournament, req.Edition, req.Entrant); err != nil {
+			return err
+		}
+		return tx.Audit(ctx, me.DiscordID, "blitz.entrant.unskip", fmt.Sprint(req.Entrant), nil)
+	})
+	switch {
 	case errors.Is(err, store.ErrNoBlitzEdition):
 		return DeleteAdminBlitzSkip404JSONResponse{notFound404("no such blitz edition")}, nil
 	case errors.Is(err, store.ErrNoBlitzEntrant):
@@ -44,9 +54,6 @@ func (s *server) DeleteAdminBlitzSkip(ctx context.Context, req DeleteAdminBlitzS
 	case errors.Is(err, store.ErrBlitzNotSkipping):
 		return DeleteAdminBlitzSkip409JSONResponse{conflict409(err.Error())}, nil
 	case err != nil:
-		return nil, err
-	}
-	if err := s.admins.Audit(ctx, me.DiscordID, "blitz.entrant.unskip", fmt.Sprint(req.Entrant), nil); err != nil {
 		return nil, err
 	}
 	return DeleteAdminBlitzSkip204Response{}, nil

@@ -86,7 +86,18 @@ func (s *server) PostAdminMember(ctx context.Context, req PostAdminMemberRequest
 			*field = *given
 		}
 	}
-	id, err := s.admins.AddMember(ctx, m)
+	set, err := fieldsSet(req.Body)
+	if err != nil {
+		return nil, err
+	}
+	var id int64
+	err = s.admins.Change(ctx, func(tx Admins) error {
+		var err error
+		if id, err = tx.AddMember(ctx, m); err != nil {
+			return err
+		}
+		return tx.Audit(ctx, me.DiscordID, "member.add", fmt.Sprint(id), map[string][]string{"set": set})
+	})
 	var exists *store.MemberExistsError
 	switch {
 	case errors.As(err, &exists):
@@ -94,13 +105,6 @@ func (s *server) PostAdminMember(ctx context.Context, req PostAdminMemberRequest
 	case errors.Is(err, store.ErrBadMember):
 		return PostAdminMember400JSONResponse{badRequest400(err.Error())}, nil
 	case err != nil:
-		return nil, err
-	}
-	set, err := fieldsSet(req.Body)
-	if err != nil {
-		return nil, err
-	}
-	if err := s.admins.Audit(ctx, me.DiscordID, "member.add", fmt.Sprint(id), map[string][]string{"set": set}); err != nil {
 		return nil, err
 	}
 	return PostAdminMember201JSONResponse{Body: MemberAdded{Id: id}, Headers: PostAdminMember201ResponseHeaders{CacheControl: cacheNone}}, nil
@@ -120,7 +124,16 @@ func (s *server) PatchAdminMember(ctx context.Context, req PatchAdminMemberReque
 		}
 		c.Zone = &zone
 	}
-	err := s.admins.SetMember(ctx, req.Member, c)
+	set, err := fieldsSet(req.Body)
+	if err != nil {
+		return nil, err
+	}
+	err = s.admins.Change(ctx, func(tx Admins) error {
+		if err := tx.SetMember(ctx, req.Member, c); err != nil {
+			return err
+		}
+		return tx.Audit(ctx, me.DiscordID, "member.set", fmt.Sprint(req.Member), map[string][]string{"set": set})
+	})
 	var exists *store.MemberExistsError
 	switch {
 	case errors.As(err, &exists), errors.Is(err, store.ErrCGEAccountTaken):
@@ -132,13 +145,6 @@ func (s *server) PatchAdminMember(ctx context.Context, req PatchAdminMemberReque
 	case err != nil:
 		return nil, err
 	}
-	set, err := fieldsSet(req.Body)
-	if err != nil {
-		return nil, err
-	}
-	if err := s.admins.Audit(ctx, me.DiscordID, "member.set", fmt.Sprint(req.Member), map[string][]string{"set": set}); err != nil {
-		return nil, err
-	}
 	return PatchAdminMember204Response{}, nil
 }
 
@@ -147,15 +153,18 @@ func (s *server) DeleteAdminMember(ctx context.Context, req DeleteAdminMemberReq
 	if err != nil || !ok {
 		return DeleteAdminMember403JSONResponse{forbidden("only admins remove members")}, err
 	}
-	switch err := s.admins.RemoveMember(ctx, req.Member); {
+	err = s.admins.Change(ctx, func(tx Admins) error {
+		if err := tx.RemoveMember(ctx, req.Member); err != nil {
+			return err
+		}
+		return tx.Audit(ctx, me.DiscordID, "member.remove", fmt.Sprint(req.Member), nil)
+	})
+	switch {
 	case errors.Is(err, store.ErrMemberInUse), errors.Is(err, store.ErrMemberSignedIn):
 		return DeleteAdminMember409JSONResponse{conflict409(err.Error())}, nil
 	case errors.Is(err, store.ErrNoMember):
 		return DeleteAdminMember404JSONResponse{notFound404("no such member")}, nil
 	case err != nil:
-		return nil, err
-	}
-	if err := s.admins.Audit(ctx, me.DiscordID, "member.remove", fmt.Sprint(req.Member), nil); err != nil {
 		return nil, err
 	}
 	return DeleteAdminMember204Response{}, nil
@@ -169,15 +178,18 @@ func (s *server) PutAdminMemberBan(ctx context.Context, req PutAdminMemberBanReq
 	if req.Body == nil {
 		return PutAdminMemberBan400JSONResponse{badRequest400("a reason")}, nil
 	}
-	switch err := s.admins.BanMember(ctx, req.Member, req.Body.Reason); {
+	err = s.admins.Change(ctx, func(tx Admins) error {
+		if err := tx.BanMember(ctx, req.Member, req.Body.Reason); err != nil {
+			return err
+		}
+		return tx.Audit(ctx, me.DiscordID, "member.ban", fmt.Sprint(req.Member), req.Body)
+	})
+	switch {
 	case errors.Is(err, store.ErrBadMember):
 		return PutAdminMemberBan400JSONResponse{badRequest400("a ban needs a reason of at most 1000 characters")}, nil
 	case errors.Is(err, store.ErrNoMember):
 		return PutAdminMemberBan404JSONResponse{notFound404("no such member")}, nil
 	case err != nil:
-		return nil, err
-	}
-	if err := s.admins.Audit(ctx, me.DiscordID, "member.ban", fmt.Sprint(req.Member), req.Body); err != nil {
 		return nil, err
 	}
 	return PutAdminMemberBan204Response{}, nil
@@ -188,13 +200,16 @@ func (s *server) DeleteAdminMemberBan(ctx context.Context, req DeleteAdminMember
 	if err != nil || !ok {
 		return DeleteAdminMemberBan403JSONResponse{forbidden("only admins lift bans")}, err
 	}
-	switch err := s.admins.UnbanMember(ctx, req.Member); {
+	err = s.admins.Change(ctx, func(tx Admins) error {
+		if err := tx.UnbanMember(ctx, req.Member); err != nil {
+			return err
+		}
+		return tx.Audit(ctx, me.DiscordID, "member.unban", fmt.Sprint(req.Member), nil)
+	})
+	switch {
 	case errors.Is(err, store.ErrNoMember):
 		return DeleteAdminMemberBan404JSONResponse{notFound404("no such member")}, nil
 	case err != nil:
-		return nil, err
-	}
-	if err := s.admins.Audit(ctx, me.DiscordID, "member.unban", fmt.Sprint(req.Member), nil); err != nil {
 		return nil, err
 	}
 	return DeleteAdminMemberBan204Response{}, nil
