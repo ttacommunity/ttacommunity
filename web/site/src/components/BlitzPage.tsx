@@ -126,7 +126,7 @@ function EditionPage({ apiUrl, slug, edition }: { apiUrl: string; slug: string; 
   // Asked again after the player reports, so their result shows at once.
   const [asked, setAsked] = useState(0);
   const [mine, setMine] = useState<MyBlitzMatch | null>(null);
-  const [howPaired, setHowPaired] = useState(false);
+  const [howPaired, setHowPaired] = useState<HTMLElement | null>(null);
   useEffect(() => {
     blitzEdition(apiUrl, slug, edition)
       .then((data) => setLoad({ kind: 'ready', data }))
@@ -172,11 +172,11 @@ function EditionPage({ apiUrl, slug, edition }: { apiUrl: string; slug: string; 
         <div className="tournaments-subtitle">
           {formatLabel(ed.format)}. {reachedLabel(latest, ed.format, ed.champion)}. {resultsUpdated(ed.results_updated_at, viewerZone())}
         </div>
-        <button type="button" className="btn-antique blitz-how-paired" onClick={() => setHowPaired(true)}>
+        <button type="button" className="btn-antique blitz-how-paired" onClick={(e) => setHowPaired(e.currentTarget)}>
           How pairings work
         </button>
       </div>
-      {howPaired && <HowPairedDialog ed={ed} onClose={() => setHowPaired(false)} />}
+      {howPaired !== null && <HowPairedDialog ed={ed} opener={howPaired} onClose={() => setHowPaired(null)} />}
       <BlitzReport apiUrl={apiUrl} slug={slug} edition={edition} onChanged={() => setAsked((n) => n + 1)} onMatch={setMine} />
       {ed.rounds.length === 0 && (
         <section className="rating-card blitz-card" aria-labelledby="blitz-not-started">
@@ -216,10 +216,10 @@ function EditionPage({ apiUrl, slug, edition }: { apiUrl: string; slug: string; 
 }
 
 /** HowPairedDialog explains how the edition's rounds are paired: its methods, the rules every method keeps, and the method each Swiss round shown was paired with. */
-function HowPairedDialog({ ed, onClose }: { ed: BlitzEdition; onClose: () => void }) {
+function HowPairedDialog({ ed, opener, onClose }: { ed: BlitzEdition; opener: HTMLElement; onClose: () => void }) {
   const notes = pairingNotes(ed);
   return (
-    <InfoDialog title="How pairings work" onClose={onClose}>
+    <InfoDialog title="How pairings work" opener={opener} onClose={onClose}>
       {notes.methods.map((m) => (
         <p key={m.when} className="site-dialog-text">
           <strong>

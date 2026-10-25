@@ -71,7 +71,7 @@ export default function HomePage({ apiUrl }: { apiUrl: string }) {
 
   // Feed configuration and match state
   const [feedSettings, setFeedSettings] = useState<FeedSettings>(DEFAULT_FEED_SETTINGS);
-  const [showOptionsModal, setShowOptionsModal] = useState(false);
+  const [optionsOpener, setOptionsOpener] = useState<HTMLElement | null>(null);
   const [feedMatches, setFeedMatches] = useState<Section<FeedMatch[]>>({ kind: 'loading' });
 
   // Spoilers state
@@ -344,7 +344,7 @@ export default function HomePage({ apiUrl }: { apiUrl: string }) {
                   <button
                     type="button"
                     className="feed-options-btn"
-                    onClick={() => setShowOptionsModal(true)}
+                    onClick={(e) => setOptionsOpener(e.currentTarget)}
                     title="Customize tournaments, divisions, and players in feed"
                     aria-label="Feed filter options"
                   >
@@ -411,7 +411,7 @@ export default function HomePage({ apiUrl }: { apiUrl: string }) {
                     <button
                       type="button"
                       className="feed-options-btn feed-filter-inline-btn"
-                      onClick={() => setShowOptionsModal(true)}
+                      onClick={(e) => setOptionsOpener(e.currentTarget)}
                     >
                       <span>⚙️</span> Filter / Add
                     </button>
@@ -674,8 +674,9 @@ export default function HomePage({ apiUrl }: { apiUrl: string }) {
         )}
       </section>
 
-      {showOptionsModal && data && (
+      {optionsOpener !== null && data && (
         <FeedOptionsModal
+          opener={optionsOpener}
           apiUrl={apiUrl}
           runId={data.run.run_id}
           availableTournaments={data.availableTournaments.kind === 'ready' ? data.availableTournaments.data : []}
@@ -687,7 +688,7 @@ export default function HomePage({ apiUrl }: { apiUrl: string }) {
               saveFeedSettings(window.localStorage, next);
             }
           }}
-          onClose={() => setShowOptionsModal(false)}
+          onClose={() => setOptionsOpener(null)}
         />
       )}
     </div>

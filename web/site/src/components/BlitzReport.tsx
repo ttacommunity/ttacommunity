@@ -66,8 +66,8 @@ export default function BlitzReport({ apiUrl, slug, edition, onChanged, onMatch 
     setBusy(true);
     await done(await confirmReport(apiUrl, slug, edition, match.id), 'Confirmed.');
   };
-  const flag = async () => {
-    const reason = await dialog.ask(flagQuestion(match));
+  const flag = async (opener: HTMLElement) => {
+    const reason = await dialog.ask(flagQuestion(match), opener);
     if (reason === null) return;
     setBusy(true);
     await done(await flagReport(apiUrl, slug, edition, match.id, reason), 'Flagged for the organisers.');
@@ -138,7 +138,7 @@ export default function BlitzReport({ apiUrl, slug, edition, onChanged, onMatch 
             </button>
           )}
           {match.actions.includes('flag') && (
-            <button type="button" className="btn-antique" disabled={busy} onClick={() => void flag()}>
+            <button type="button" className="btn-antique" disabled={busy} onClick={(e) => void flag(e.currentTarget)}>
               Flag as wrong
             </button>
           )}

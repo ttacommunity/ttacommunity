@@ -452,7 +452,7 @@ type Compare = { apiUrl: string; runId: number; format: Format };
 
 function Rivals({ state, compare }: { state: Load<PlayerRivals>; compare: Compare | null }) {
   const [rv, setRv] = useState<RivalsView>({ filter: '', minGames: 1, expanded: false, sort: null });
-  const [versus, setVersus] = useState<string | null>(null);
+  const [versus, setVersus] = useState<{ other: string; opener: HTMLElement } | null>(null);
   const all = state.kind === 'ready' ? state.data.rivals : [];
   const rows = visibleRivals(all, rv);
   const filtering = rv.filter.trim() !== '' || rv.minGames > 1;
@@ -534,7 +534,7 @@ function Rivals({ state, compare }: { state: Load<PlayerRivals>; compare: Compar
                   <strong className={r.win_rate >= 50 ? 'rival-rate good' : 'rival-rate bad'}>{r.win_rate.toFixed(1)}%</strong>
                 </td>
                 <td>
-                  <button type="button" className="btn-h2h-compare" onClick={() => setVersus(r.name)}>
+                  <button type="button" className="btn-h2h-compare" onClick={(e) => setVersus({ other: r.name, opener: e.currentTarget })}>
                     <span aria-hidden="true">⚔️</span> Compare
                   </button>
                 </td>
@@ -548,8 +548,9 @@ function Rivals({ state, compare }: { state: Load<PlayerRivals>; compare: Compar
           apiUrl={compare.apiUrl}
           runId={compare.runId}
           name={state.data.name}
-          other={versus}
+          other={versus.other}
           format={compare.format}
+          opener={versus.opener}
           onClose={() => setVersus(null)}
         />
       )}

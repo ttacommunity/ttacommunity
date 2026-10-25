@@ -124,12 +124,15 @@ function FlaggedResults({ at, ed, regions, onReload, outcome, say }: Omit<Props,
     say(outcomeOf(await req.send(r), done, 'flagged'));
     await onReload();
   };
-  const keep = async (r: AdminBlitzRound, m: AdminBlitzMatch) => {
-    const sure = await dialog.confirm({ heading: `Keep the reported result of ${pairOf(m)}?`, text: 'The flag is resolved and the result stays as reported. Players still cannot change it; Reset opens it to them again.', action: 'Keep result' });
+  const keep = async (r: AdminBlitzRound, m: AdminBlitzMatch, opener: HTMLElement) => {
+    const sure = await dialog.confirm(
+      { heading: `Keep the reported result of ${pairOf(m)}?`, text: 'The flag is resolved and the result stays as reported. Players still cannot change it; Reset opens it to them again.', action: 'Keep result' },
+      opener,
+    );
     if (sure) await run(req.keepBlitzReport(at.slug, at.edition, r.id, m.id), `${pairOf(m)}: report kept.`);
   };
-  const reset = async (r: AdminBlitzRound, m: AdminBlitzMatch) => {
-    const sure = await dialog.confirm({ heading: `Reset ${pairOf(m)}?`, text: 'Its result and game go, as if never played; the players can report it again.', action: 'Reset game', final: true });
+  const reset = async (r: AdminBlitzRound, m: AdminBlitzMatch, opener: HTMLElement) => {
+    const sure = await dialog.confirm({ heading: `Reset ${pairOf(m)}?`, text: 'Its result and game go, as if never played; the players can report it again.', action: 'Reset game', final: true }, opener);
     if (sure) await run(req.resetBlitzResult(at.slug, at.edition, r.id, m.id), `${pairOf(m)} reset: the players can report it again.`);
   };
   return (
@@ -174,14 +177,14 @@ function FlaggedResults({ at, ed, regions, onReload, outcome, say }: Omit<Props,
                       <span className="row-detail row-flagged">{reportNote(m, nameOf)}</span>
                     </td>
                     <td className="run-buttons">
-                      <button type="button" className="btn-antique" onClick={() => void keep(r, m)}>
+                      <button type="button" className="btn-antique" onClick={(e) => void keep(r, m, e.currentTarget)}>
                         Keep
                       </button>
                       <button type="button" className="btn-antique" aria-expanded={correcting === m.id} onClick={() => setCorrecting(correcting === m.id ? null : m.id)}>
                         Correct
                       </button>
                       {resets.matches.includes(m.id) && (
-                        <button type="button" className="btn-antique" onClick={() => void reset(r, m)}>
+                        <button type="button" className="btn-antique" onClick={(e) => void reset(r, m, e.currentTarget)}>
                           Reset
                         </button>
                       )}
@@ -352,46 +355,56 @@ function RoundsPanel({ at, ed, regions, onReload, outcome, say }: Props) {
     if (r.published_at === null) await run(req.publishBlitzRound(at.slug, at.edition, r.id), `${roundTitle(r.number, ed.format)} published.`, 'rounds');
     else if (changed(r)) say(succeeded(`${roundTitle(r.number, ed.format)} updated: the site shows it now.`, 'rounds'));
   };
-  const remove = async (r: AdminBlitzRound) => {
+  const remove = async (r: AdminBlitzRound, opener: HTMLElement) => {
     const title = roundTitle(r.number, ed.format);
     const what = r.published_at === null ? `the draft of ${title}` : `${title}, published but not yet played`;
-    if (!(await dialog.confirm({ heading: `Delete ${what}?`, text: 'Pair again afterwards.', action: 'Delete round', final: true }))) return;
+    if (!(await dialog.confirm({ heading: `Delete ${what}?`, text: 'Pair again afterwards.', action: 'Delete round', final: true }, opener))) return;
     setPending(null);
     await run(req.deleteBlitzRound(at.slug, at.edition, r.id), `${title} deleted.`, 'rounds');
   };
   const resets = resetsOf(ed.rounds);
-  const resetResult = async (r: AdminBlitzRound, m: AdminBlitzMatch) => {
+  const resetResult = async (r: AdminBlitzRound, m: AdminBlitzMatch, opener: HTMLElement) => {
     const pair = `${nameOf(m.a)} v ${nameOf(m.b as number)}`;
-    if (!(await dialog.confirm({ heading: `Reset ${pair}?`, text: 'Its result, ruling and game go, as if never played.', action: 'Reset game', final: true }))) return;
+    if (!(await dialog.confirm({ heading: `Reset ${pair}?`, text: 'Its result, ruling and game go, as if never played.', action: 'Reset game', final: true }, opener))) return;
     setRecording(null);
     await run(req.resetBlitzResult(at.slug, at.edition, r.id, m.id), `${pair} reset.`, `match ${m.id}`);
   };
-  const keepReport = async (r: AdminBlitzRound, m: AdminBlitzMatch) => {
+  const keepReport = async (r: AdminBlitzRound, m: AdminBlitzMatch, opener: HTMLElement) => {
     const pair = `${nameOf(m.a)} v ${nameOf(m.b as number)}`;
-    if (!(await dialog.confirm({ heading: `Keep the reported result of ${pair}?`, text: 'The flag is resolved and the result stays as reported. Players still cannot change it; Reset opens it to them again.', action: 'Keep result' }))) return;
+    const sure = await dialog.confirm(
+      { heading: `Keep the reported result of ${pair}?`, text: 'The flag is resolved and the result stays as reported. Players still cannot change it; Reset opens it to them again.', action: 'Keep result' },
+      opener,
+    );
+    if (!sure) return;
     await run(req.keepBlitzReport(at.slug, at.edition, r.id, m.id), `${pair}: report kept.`, `match ${m.id}`);
   };
-  const resetRound = async (r: AdminBlitzRound) => {
+  const resetRound = async (r: AdminBlitzRound, opener: HTMLElement) => {
     const title = roundTitle(r.number, ed.format);
-    const sure = await dialog.confirm({
-      heading: `Reset every result of ${title}?`,
-      text: 'Its results, rulings and games go; the pairing stays, and can then be deleted.',
-      action: 'Reset round',
-      final: true,
-    });
+    const sure = await dialog.confirm(
+      {
+        heading: `Reset every result of ${title}?`,
+        text: 'Its results, rulings and games go; the pairing stays, and can then be deleted.',
+        action: 'Reset round',
+        final: true,
+      },
+      opener,
+    );
     if (!sure) return;
     setRecording(null);
     await run(req.resetBlitzRound(at.slug, at.edition, r.id), `${title}'s results reset.`, `round ${r.id}`);
   };
-  const resetEdition = async () => {
+  const resetEdition = async (opener: HTMLElement) => {
     const games = ed.rounds.flatMap((r) => r.matches).filter((m) => m.game !== null).length;
     const what = `${ed.rounds.length} round${ed.rounds.length === 1 ? '' : 's'} and ${games} recorded game${games === 1 ? '' : 's'}`;
-    const sure = await dialog.confirm({
-      heading: `Reset ${ed.name} ${ed.edition}?`,
-      text: `This deletes ${what}, puts every dropped player back in and clears every skip. Entrants, organisers, format, points and thread text stay. It cannot be undone.`,
-      action: 'Reset edition',
-      final: true,
-    });
+    const sure = await dialog.confirm(
+      {
+        heading: `Reset ${ed.name} ${ed.edition}?`,
+        text: `This deletes ${what}, puts every dropped player back in and clears every skip. Entrants, organisers, format, points and thread text stay. It cannot be undone.`,
+        action: 'Reset edition',
+        final: true,
+      },
+      opener,
+    );
     if (!sure) return;
     setPending(null);
     setRecording(null);
@@ -437,7 +450,7 @@ function RoundsPanel({ at, ed, regions, onReload, outcome, say }: Props) {
         )}
         {open !== null && canDeleteRound(open) && (
           <span className="with-tip">
-            <button type="button" className="btn-antique" onClick={() => void remove(open)}>
+            <button type="button" className="btn-antique" onClick={(e) => void remove(open, e.currentTarget)}>
               {open.published_at === null ? 'Delete draft' : 'Delete round'}
             </button>
             <InfoTip label="When to delete a round">
@@ -488,7 +501,7 @@ function RoundsPanel({ at, ed, regions, onReload, outcome, say }: Props) {
             {resets.round === r.id && !changed(r) && (
               <>
                 {' '}
-                <button type="button" className="btn-antique btn-settings" onClick={() => void resetRound(r)}>
+                <button type="button" className="btn-antique btn-settings" onClick={(e) => void resetRound(r, e.currentTarget)}>
                   Reset results
                 </button>
               </>
@@ -584,12 +597,12 @@ function RoundsPanel({ at, ed, regions, onReload, outcome, say }: Props) {
                                 </button>
                               )}
                               {m.report === 'flagged' && !changed(r) && (
-                                <button type="button" className="btn-antique" onClick={() => void keepReport(r, m)}>
+                                <button type="button" className="btn-antique" onClick={(e) => void keepReport(r, m, e.currentTarget)}>
                                   Keep
                                 </button>
                               )}
                               {resets.matches.includes(m.id) && !changed(r) && (
-                                <button type="button" className="btn-antique" onClick={() => void resetResult(r, m)}>
+                                <button type="button" className="btn-antique" onClick={(e) => void resetResult(r, m, e.currentTarget)}>
                                   Reset
                                 </button>
                               )}
@@ -673,7 +686,7 @@ function RoundsPanel({ at, ed, regions, onReload, outcome, say }: Props) {
             again and every skip goes. Entrants and their details, organisers, format, points and thread text stay.
             To undo less, reset a round&apos;s results (latest round only), then delete the round.
           </p>
-          <button type="button" className="btn-antique" onClick={() => void resetEdition()}>
+          <button type="button" className="btn-antique" onClick={(e) => void resetEdition(e.currentTarget)}>
             Reset {ed.name} {ed.edition}
           </button>
           <Notice outcome={shownAt(outcome, 'reset edition')} onClose={close} />
@@ -704,10 +717,10 @@ function EntrantsPanel({ at, ed, regions, countries, onReload, outcome, say }: P
     say(outcomeOf(r, `${e.name} plays the next round after all.`, `entrant ${e.id}`));
     await onReload();
   };
-  const skip = async (e: AdminBlitzEntrant, round: number) => {
+  const skip = async (e: AdminBlitzEntrant, round: number, opener: HTMLElement) => {
     const left = leftUnpaired(e.id, ed.rounds.filter((r) => r.number === round)).map(nameOf);
     const unpaired = left.length === 0 ? '' : ` ${left.join(' and ')} will be unpaired.`;
-    if (!(await dialog.confirm({ heading: `${e.name} skips round ${round}?`, text: `They score the edition's skip points for it.${unpaired}`, action: 'Skip' }))) return;
+    if (!(await dialog.confirm({ heading: `${e.name} skips round ${round}?`, text: `They score the edition's skip points for it.${unpaired}`, action: 'Skip' }, opener))) return;
     const r = await req.send(req.skipBlitzRound(at.slug, at.edition, e.id));
     say(outcomeOf(r, `${e.name} skips round ${round}.${left.length === 0 ? '' : ` ${left.join(' and ')} ${left.length === 1 ? 'is' : 'are'} unpaired now: Pair fills them in.`}`, `entrant ${e.id}`));
     await onReload();
@@ -722,10 +735,10 @@ function EntrantsPanel({ at, ed, regions, countries, onReload, outcome, say }: P
     if (r.ok) setEditing(null);
     await onReload();
   };
-  const remove = async (e: AdminBlitzEntrant) => {
+  const remove = async (e: AdminBlitzEntrant, opener: HTMLElement) => {
     const left = leftUnpaired(e.id, ed.rounds).map((id) => ed.entrants.find((x) => x.id === id)?.name ?? `entrant ${id}`);
     const unpaired = left.length === 0 ? '' : ` ${left.join(' and ')} will be unpaired.`;
-    const sure = await dialog.confirm({ heading: `Remove ${e.name} from the edition?`, text: unpaired === '' ? undefined : unpaired.trim(), action: 'Remove', final: true });
+    const sure = await dialog.confirm({ heading: `Remove ${e.name} from the edition?`, text: unpaired === '' ? undefined : unpaired.trim(), action: 'Remove', final: true }, opener);
     if (!sure) return;
     const r = await req.send(req.removeBlitzEntrant(at.slug, at.edition, e.id));
     say(outcomeOf(r, `Removed ${e.name}.${left.length === 0 ? '' : ` ${left.join(' and ')} ${left.length === 1 ? 'is' : 'are'} unpaired now: Pair fills them in.`}`, `entrant ${e.id}`, 'entrants'));
@@ -846,12 +859,12 @@ function EntrantsPanel({ at, ed, regions, countries, onReload, outcome, say }: P
                           </button>
                         )}
                         {actions(e).action === 'remove' && (
-                          <button type="button" className="btn-antique" onClick={() => void remove(e)}>
+                          <button type="button" className="btn-antique" onClick={(ev) => void remove(e, ev.currentTarget)}>
                             Remove
                           </button>
                         )}
                         {actions(e).skip !== null && (
-                          <button type="button" className="btn-antique" onClick={() => void skip(e, actions(e).skip as number)}>
+                          <button type="button" className="btn-antique" onClick={(ev) => void skip(e, actions(e).skip as number, ev.currentTarget)}>
                             Skip R{actions(e).skip}
                           </button>
                         )}
@@ -989,7 +1002,7 @@ type RoundDeadlineProps = Pick<Props, 'at' | 'ed' | 'regions' | 'onReload' | 'sa
 /** RoundDeadline shows a round's deadline and sets it (a day and a time on a zone's clocks) until the round is finished, and shows the round's Discord text to copy once it has a game. */
 function RoundDeadline({ at, ed, round, regions, unsaved, onReload, say }: RoundDeadlineProps) {
   const [form, setForm] = useState<DeadlineForm | null>(null);
-  const [discord, setDiscord] = useState<string | null>(null);
+  const [discord, setDiscord] = useState<{ text: string; opener: HTMLElement } | null>(null);
   const blocker = discordBlocker(round, unsaved);
   const save = async (e: FormEvent) => {
     e.preventDefault();
@@ -999,13 +1012,13 @@ function RoundDeadline({ at, ed, round, regions, unsaved, onReload, say }: Round
     if (r.ok) setForm(null);
     await onReload();
   };
-  const showDiscord = async () => {
+  const showDiscord = async (opener: HTMLElement) => {
     const r = await adminRequest<BlitzDiscordText>(req.blitzDiscordTextPath(at.slug, at.edition, round.id), {});
     if (!r.ok) {
       say(refused(r.message, `round ${round.id}`));
       return;
     }
-    setDiscord(r.data.text);
+    setDiscord({ text: r.data.text, opener });
   };
   return (
     <>
@@ -1016,12 +1029,14 @@ function RoundDeadline({ at, ed, round, regions, unsaved, onReload, say }: Round
             {round.deadline === null ? 'Set deadline' : 'Change deadline'}
           </button>
         )}{' '}
-        <button type="button" className="btn-antique btn-settings" disabled={blocker !== ''} onClick={() => void showDiscord()}>
+        <button type="button" className="btn-antique btn-settings" disabled={blocker !== ''} onClick={(e) => void showDiscord(e.currentTarget)}>
           Discord text
         </button>
         {blocker !== '' && <span className="row-detail muted">{blocker}</span>}
       </p>
-      {discord !== null && <DiscordTextDialog title={`${roundTitle(round.number, ed.format)}: Discord text`} text={discord} onClose={() => setDiscord(null)} />}
+      {discord !== null && (
+        <DiscordTextDialog title={`${roundTitle(round.number, ed.format)}: Discord text`} text={discord.text} opener={discord.opener} onClose={() => setDiscord(null)} />
+      )}
       {form !== null && !deadlineLocked(round) && (
         <form className="result-row" onSubmit={(e) => void save(e)}>
           <label>
@@ -1046,7 +1061,7 @@ function RoundDeadline({ at, ed, round, regions, unsaved, onReload, say }: Round
 }
 
 /** DiscordTextDialog shows a round's Discord text in a modal, read-only, with a button to copy it; if the browser refuses the copy, the text is selected to copy by hand. */
-function DiscordTextDialog({ title, text, onClose }: { title: string; text: string; onClose: () => void }) {
+function DiscordTextDialog({ title, text, opener, onClose }: { title: string; text: string; opener: HTMLElement; onClose: () => void }) {
   const area = useRef<HTMLTextAreaElement>(null);
   const [copied, setCopied] = useState('');
   const copy = async () => {
@@ -1064,7 +1079,7 @@ function DiscordTextDialog({ title, text, onClose }: { title: string; text: stri
     </button>
   );
   return (
-    <InfoDialog title={title} onClose={onClose} actions={copyButton}>
+    <InfoDialog title={title} opener={opener} onClose={onClose} actions={copyButton}>
       <textarea ref={area} className="input-antique discord-text" readOnly rows={Math.min(14, text.split('\n').length + 1)} value={text} aria-label="Discord text" />
       <p className="muted" role="status">
         {copied}

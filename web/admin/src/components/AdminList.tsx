@@ -37,8 +37,8 @@ export default function AdminList({ myName }: { myName: string }) {
     await load();
     return r.ok;
   };
-  const remove = async (p: AdminPerson) => {
-    if (!(await dialog.confirm({ heading: `Take ${p.name} out of admin?`, action: 'Take out' }))) return;
+  const remove = async (p: AdminPerson, opener: HTMLElement) => {
+    if (!(await dialog.confirm({ heading: `Take ${p.name} out of admin?`, action: 'Take out' }, opener))) return;
     const r = await req.send(req.removeAdmin(p.discord_id));
     setOutcome(outcomeOf(r, `Removed ${p.name}. Their sign-in lasts until it ends or is revoked in Cloudflare Access.`, `admin ${p.discord_id}`, 'admins'));
     await load();
@@ -100,7 +100,7 @@ export default function AdminList({ myName }: { myName: string }) {
                         </select>
                       </td>
                       <td>
-                        <button type="button" className="btn-antique" onClick={() => void remove(p)}>
+                        <button type="button" className="btn-antique" onClick={(e) => void remove(p, e.currentTarget)}>
                           {me ? 'Remove me' : 'Remove'}
                         </button>
                       </td>

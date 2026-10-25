@@ -23,15 +23,18 @@ export function WaitingRequests({ accounts, waiting, outcome, say, after }: { ac
     say(outcomeOf(r, done, `account ${l.id}`, 'waiting'));
     await after();
   };
-  const refuse = async (l: AdminAccount, request: number) => {
-    const reason = await dialog.ask({
-      heading: `Refuse ${who(l)}'s request?`,
-      text: 'They see the reason, and may ask again.',
-      field: 'The reason',
-      required: false,
-      maxLength: 500,
-      action: 'Refuse',
-    });
+  const refuse = async (l: AdminAccount, request: number, opener: HTMLElement) => {
+    const reason = await dialog.ask(
+      {
+        heading: `Refuse ${who(l)}'s request?`,
+        text: 'They see the reason, and may ask again.',
+        field: 'The reason',
+        required: false,
+        maxLength: 500,
+        action: 'Refuse',
+      },
+      opener,
+    );
     if (reason === null) return;
     say(outcomeOf(await req.send(req.refuseLink(request, reason)), `Refused ${who(l)}'s request.`, `account ${l.id}`, 'waiting'));
     await after();
@@ -80,7 +83,7 @@ export function WaitingRequests({ accounts, waiting, outcome, say, after }: { ac
                         <button type="button" className="btn-antique" onClick={() => void approve(l, r.id)}>
                           Approve
                         </button>
-                        <button type="button" className="btn-antique" onClick={() => void refuse(l, r.id)}>
+                        <button type="button" className="btn-antique" onClick={(e) => void refuse(l, r.id, e.currentTarget)}>
                           Refuse
                         </button>
                       </td>
@@ -101,13 +104,16 @@ export function WaitingRequests({ accounts, waiting, outcome, say, after }: { ac
 export function UnlinkedSignIns({ unlinked, role, outcome, say, after }: { unlinked: AdminAccount[]; role: AdminMe['role'] } & Said) {
   const close = () => say(null);
   const dialog = useDialog();
-  const remove = async (l: AdminAccount) => {
-    const sure = await dialog.confirm({
-      heading: `Remove ${who(l)}'s account?`,
-      text: 'Every way they sign in goes; they are signed out everywhere, and their requests go.',
-      action: 'Remove',
-      final: true,
-    });
+  const remove = async (l: AdminAccount, opener: HTMLElement) => {
+    const sure = await dialog.confirm(
+      {
+        heading: `Remove ${who(l)}'s account?`,
+        text: 'Every way they sign in goes; they are signed out everywhere, and their requests go.',
+        action: 'Remove',
+        final: true,
+      },
+      opener,
+    );
     if (!sure) return;
     say(outcomeOf(await req.send(req.removeAccount(l.id)), `Removed ${who(l)}'s account.`, `account ${l.id}`, 'unlinked'));
     await after();
@@ -146,7 +152,7 @@ export function UnlinkedSignIns({ unlinked, role, outcome, say, after }: { unlin
                       <td>{formatTime(l.signed_in_at, ZONE)}</td>
                       <td className="run-buttons">
                         {role === 'admin' && (
-                          <button type="button" className="btn-antique" onClick={() => void remove(l)}>
+                          <button type="button" className="btn-antique" onClick={(e) => void remove(l, e.currentTarget)}>
                             Remove
                           </button>
                         )}

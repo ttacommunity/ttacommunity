@@ -1,5 +1,6 @@
 /** Modal dialog allowing users to customize their community pulse feed tournaments, divisions, and players. */
 import { useEffect, useRef, useState } from 'react';
+import { useModal } from '@ttac/shared/modal';
 import type { FeedSettings, TournamentFeedFilter } from '../lib/feed-settings';
 import { DEFAULT_FEED_SETTINGS } from '../lib/feed-settings';
 import { divisionsToFetch, fetchTournamentDivisions, PREMIER_DIVISIONS } from '../lib/feed-data';
@@ -18,6 +19,7 @@ interface FeedOptionsModalProps {
   searchPlayers: SearchPlayer[];
   settings: FeedSettings;
   onSave: (nextSettings: FeedSettings) => void;
+  opener: HTMLElement;
   onClose: () => void;
 }
 
@@ -28,6 +30,7 @@ export default function FeedOptionsModal({
   searchPlayers,
   settings,
   onSave,
+  opener,
   onClose,
 }: FeedOptionsModalProps) {
   const dialogRef = useRef<HTMLDialogElement>(null);
@@ -36,20 +39,7 @@ export default function FeedOptionsModal({
   const [divisionsState, setDivisionsState] = useState<Record<string, 'loading' | 'ready' | 'failed'>>({});
   const askedDivisions = useRef(new Set(Object.keys(PREMIER_DIVISIONS)));
 
-  useEffect(() => {
-    const d = dialogRef.current;
-    if (!d) return;
-    d.showModal();
-
-    const onBackdrop = (e: MouseEvent) => {
-      if (e.target === d) d.close();
-    };
-    d.addEventListener('click', onBackdrop);
-
-    return () => {
-      d.removeEventListener('click', onBackdrop);
-    };
-  }, []);
+  const closed = useModal(dialogRef, opener, onClose, { backdropCloses: true });
 
   useEffect(() => {
     for (const slug of divisionsToFetch(staged.tournaments, askedDivisions.current)) {
@@ -142,7 +132,7 @@ export default function FeedOptionsModal({
       ref={dialogRef}
       className="feed-options-modal"
       aria-labelledby="feed-modal-title"
-      onClose={onClose}
+      onClose={closed}
     >
       <div className="feed-modal-head">
         <h3 id="feed-modal-title" className="feed-modal-title">

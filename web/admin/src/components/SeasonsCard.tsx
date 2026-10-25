@@ -46,8 +46,8 @@ export default function SeasonsCard({
     setRefusal(refusalOf(r, `season ${label}`));
     if (r.ok) await onReload();
   };
-  const removeSeason = async (label: string) => {
-    const sure = await dialog.confirm({ heading: `Remove ${t.name} season ${label}?`, text: 'Its notes go with it.', action: 'Remove season', final: true });
+  const removeSeason = async (label: string, opener: HTMLElement) => {
+    const sure = await dialog.confirm({ heading: `Remove ${t.name} season ${label}?`, text: 'Its notes go with it.', action: 'Remove season', final: true }, opener);
     if (!sure) return;
     setRefusal(null);
     const r = await req.send(req.removeSeason(t.slug, label));
@@ -124,7 +124,7 @@ export default function SeasonsCard({
             {!se.has_games && (
               <div className="season-empty">
                 <span className="muted">No games recorded.</span>
-                <button type="button" className="btn-antique" onClick={() => void removeSeason(se.label)}>
+                <button type="button" className="btn-antique" onClick={(e) => void removeSeason(se.label, e.currentTarget)}>
                   Remove season
                 </button>
               </div>
