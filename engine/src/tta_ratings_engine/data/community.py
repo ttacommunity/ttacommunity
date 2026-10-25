@@ -15,6 +15,15 @@ from typing import Any
 
 from tta_ratings_engine.data.db import DictConnection, require_running
 
+
+class CommunitySeasonUndated(Exception):
+    """Raised when a season scores in the community leaderboard with neither a quarter nor a game to date it."""
+
+
+class CommunityCodeMissing(Exception):
+    """Raised when a series scores in the community leaderboard without its code in the organisers' sheet."""
+
+
 ROUNDS = {256: "R256", 128: "R128", 64: "R64", 32: "R32", 16: "QF", 8: "SF", 4: "Final"}
 FLOORS = {"The Top", "The Elevator", "2nd Floor", "The Stairs"}
 
@@ -81,6 +90,15 @@ SHEET_EDITIONS = {
 def event_code(code, season):
     """Returns the organisers' code for a season from its series' code: ic_{} gives ic_30, wrld stays wrld."""
     return code.format(int(season)) if "{" in code else code
+
+
+def code_of(codes, slug):
+    """Returns slug's code from series_codes, or raises CommunityCodeMissing naming it."""
+    if slug not in codes:
+        raise CommunityCodeMissing(
+            f"{slug} scores in the community leaderboard but has no community code"
+        )
+    return codes[slug]
 
 
 def series_codes(conn):
@@ -249,7 +267,8 @@ def scored(kind, lines, table):
 def derive_community(*, conn: DictConnection, run_id: int) -> None:
     """Replaces the run's community event points, for every season of a tournament in the leaderboard.
 
-    In one committed transaction. Raises RunNotRunning unless the run is running.
+    In one committed transaction. Raises RunNotRunning unless the run is running, CommunitySeasonUndated for a
+    season with nothing to date it by, and CommunityCodeMissing for a series without its sheet code.
     """
     with conn.transaction():
         require_running(conn, run_id)
@@ -306,6 +325,10 @@ def derive_community(*, conn: DictConnection, run_id: int) -> None:
             if not lines:
                 continue
             edition = s["year"] or s["finished"]
+            if edition is None:
+                raise CommunitySeasonUndated(
+                    f"{s['slug']} season {s['label']} has CGE standings but no quarter and no games"
+                )
             table = table_for(points, s["slug"], edition)
             for name, pts in scored(s["scoring"], lines, table).items():
                 rows.append((run_id, s["slug"], s["label"], name, pts))
@@ -353,7 +376,7 @@ def _rank_editions(conn, run_id, rows, points):
             continue
         # Two counting seasons giving one event in a quarter: the later finished, then the later label, counts;
         # never whichever row came last. A season that should not count is switched off in admin.
-        key = (name, event_code(codes[slug], season))
+        key = (name, event_code(code_of(codes, slug), season))
         rank = (finished.get((slug, season)) or date.min, season)
         if key not in chosen[q] or rank > chosen[q][key]:
             chosen[q][key], events[q][key] = rank, pts
@@ -523,5 +546,5 @@ def _ladder_points(ladders, edition, quarters, points, codes):
             totals.update(round_points(games, rule))
         table = table_for(points, slug, year)
         for rank, name in ranked({n: t for n, t in totals.items() if t > 0}):
-            got[(name, codes[slug])] = table.get(("leaderboard", rank), 0)
+            got[(name, code_of(codes, slug))] = table.get(("leaderboard", rank), 0)
     return got

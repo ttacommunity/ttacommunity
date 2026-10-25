@@ -128,7 +128,8 @@ class SeriesRulesMissing(Exception):
 class Series:
     """How one series is named, scored, ranked and shown, as upstream does it.
 
-    points (by player count) and top_divisions come from the tournament settings, through series_rules.
+    points (by player count), top_divisions and podium (where its podium comes from: podium_sources gives the
+    choices) come from the tournament settings, through series_rules.
     """
 
     parse: Callable[[str], Parsed | None]
@@ -139,6 +140,9 @@ class Series:
     season_records: bool = True
     points: dict[int, list[float]] = field(default_factory=dict)
     top_divisions: frozenset[str] = frozenset()
+    podium: str = ""
+    # Where a podium can come from: its top divisions' standings, its final stage's games, recorded placements.
+    podium_sources: frozenset[str] = frozenset({"top_divisions", "recorded", "none"})
 
 
 SERIES = {
@@ -169,21 +173,23 @@ SERIES = {
         record_min_games=0,
         record_division="",
         season_records=False,
+        podium_sources=frozenset({"final_stage", "recorded", "none"}),
     ),
 }
 
 
 def series_rules(conn) -> tuple[dict[str, Series], Series]:
-    """Returns each series holding one of SERIES' rule sets (its results_rules), by slug, with its points and top
-    divisions from its tournament settings, and the World Championship final's rules.
+    """Returns each series holding one of SERIES' rule sets (its results_rules), by slug, with its points, top
+    divisions and podium source from its tournament settings, and the World Championship final's rules.
 
     The World Championship's points score only its final: its other stages have no standings. Raises
-    SeriesRulesMissing when a rule set has no series, a league no points or top divisions, or the final no points.
+    SeriesRulesMissing when a rule set has no series, a league no points or top divisions, the final no points, or
+    a series no podium source its rules can give.
     """
     rows = {
         r["results_rules"]: r
         for r in conn.execute(
-            "SELECT se.slug, se.results_rules, se.top_divisions, "
+            "SELECT se.slug, se.results_rules, se.top_divisions, se.podium_source, "
             "coalesce(s.points_2p, '{}') AS points_2p, coalesce(s.points_3p, '{}') AS points_3p, "
             "coalesce(s.points_4p, '{}') AS points_4p "
             "FROM series se LEFT JOIN settings s ON s.series_id = se.series_id WHERE se.results_rules IS NOT NULL"
@@ -199,15 +205,20 @@ def series_rules(conn) -> tuple[dict[str, Series], Series]:
         top = frozenset(r["top_divisions"])
         if not points:
             raise SeriesRulesMissing(f"{slug} has no points per place")
+        podium = r["podium_source"]
+        if podium not in base.podium_sources:
+            raise SeriesRulesMissing(
+                f"{slug}'s podium source is {podium!r}, not one of {sorted(base.podium_sources)}"
+            )
         if name == "worlds":
             rules[slug], final = (
-                replace(base, top_divisions=top),
-                replace(base, points=points),
+                replace(base, top_divisions=top, podium=podium),
+                replace(base, points=points, podium=podium),
             )
             continue
         if not top:
             raise SeriesRulesMissing(f"{slug} has no top divisions")
-        rules[slug] = replace(base, points=points, top_divisions=top)
+        rules[slug] = replace(base, points=points, top_divisions=top, podium=podium)
     if final is None:
         raise SeriesRulesMissing("no series holds the worlds rules")
     return rules, final
@@ -248,14 +259,11 @@ def worlds_finals(conn) -> dict[int, list[list[Seat]]]:
 
 def final_podium(games, final: Series):
     """Returns a final's standings under final's rules, or None when they cannot split a tie for a podium place."""
-    t = _tally(games)
-    order = _league_order(t)
-    points, above, performance = t["points"], t["above"], t["performance"]
-    for a, b in itertools.pairwise(order[:4]):
-        tied = [p for p in order if points[p] == points[a]]
-        level = points[a] == points[b] and performance[a] == performance[b]
-        if level and (len(tied) != 2 or above[a][b] == above[b][a]):
+    start = 1
+    for place in _league_order(_tally(games)):
+        if len(place) > 1 and start <= 3:
             return None
+        start += len(place)
     return rank_group(games, final)
 
 
@@ -297,28 +305,29 @@ def _tally(games):
 
 
 def _league_order(t):
-    """Orders a league group: points, then a two-way tie by head-to-head, then performance, then name.
+    """Returns a league group's places, each its players: by points, then a two-way tie by head-to-head, then
+    performance. Players level on all of them share a place, in name order.
 
     The rulebooks' extra games and previous-season rule are not applied.
     """
     points, above, performance = t["points"], t["above"], t["performance"]
-    order = []
+    places = []
     for pts in sorted(set(points.values()), reverse=True):
         tied = sorted(
             (p for p in points if points[p] == pts), key=lambda p: (-performance[p], p)
         )
-        if len(tied) == 2:
+        if len(tied) == 2 and above[tied[0]][tied[1]] != above[tied[1]][tied[0]]:
             a, b = tied
-            if above[b][a] > above[a][b]:
-                tied = [b, a]
-            elif above[a][b] == above[b][a]:
-                tied = sorted(tied, key=lambda p: (-performance[p], p))
-        order.extend(tied)
-    return order
+            places += [[a], [b]] if above[a][b] > above[b][a] else [[b], [a]]
+            continue
+        for _, level in itertools.groupby(tied, key=lambda p: performance[p]):
+            places.append(list(level))
+    return places
 
 
 def _duel_order(t):
-    """Orders a Royal League group as upstream: points, head-to-head points, wins, total score."""
+    """Returns a Royal League group's places as upstream orders them, each its players: points, head-to-head
+    points, wins, total score. Players level on all four share a place, in name order."""
     points, h2h, wins, score = t["points"], t["h2h"], t["wins"], t["score"]
 
     def compare(a, b):
@@ -332,23 +341,36 @@ def _duel_order(t):
                 return -1 if x > y else 1
         return 0
 
-    return sorted(sorted(points), key=functools.cmp_to_key(compare))
+    places: list[list[str]] = []
+    for p in sorted(sorted(points), key=functools.cmp_to_key(compare)):
+        if places and compare(places[-1][0], p) == 0:
+            places[-1].append(p)
+        else:
+            places.append([p])
+    return places
 
 
 def rank_group(games: list[list[Seat]], rules: Series):
-    """Returns a group's standings as dicts in place order, by its seats' game points and the series' tiebreaks."""
+    """Returns a group's standings as dicts in place order, by its seats' game points and the series' tiebreaks.
+
+    Players the tiebreaks cannot split share their place (shared is true), and the next place counts them all.
+    """
     t = _tally(games)
-    order = _duel_order(t) if rules.duel else _league_order(t)
-    return [
-        {
-            "player_name": p,
-            "place": i,
-            "points": t["points"][p],
-            "games": t["games"][p],
-            "placings": t["placings"][p],
-        }
-        for i, p in enumerate(order, start=1)
-    ]
+    out: list[dict[str, Any]] = []
+    for place in _duel_order(t) if rules.duel else _league_order(t):
+        at = len(out) + 1
+        out += [
+            {
+                "player_name": p,
+                "place": at,
+                "points": t["points"][p],
+                "games": t["games"][p],
+                "placings": t["placings"][p],
+                "shared": len(place) > 1,
+            }
+            for p in place
+        ]
+    return out
 
 
 def _components(games):
@@ -426,6 +448,21 @@ def classify(rows, recorded, corrections, series_rules):
     return out
 
 
+def seasons_in_progress(unplayed, series_rules, dates) -> set[tuple[str, int]]:
+    """Returns the (series, season)s whose top division still has a game to play and that have no finish date.
+
+    unplayed are the classified games CGE has prepared or is running; dates map (series, season) to a recorded
+    finish date. A game never played is not waited for.
+    """
+    return {
+        (g["series"], g["season"])
+        for g in unplayed
+        if g["season"] is not None
+        and g["division"] in series_rules[g["series"]].top_divisions
+        and (g["series"], g["season"]) not in dates
+    }
+
+
 def season_records(rows, rules: Series):
     """Returns the premier seasonal records: one per player and season.
 
@@ -459,6 +496,20 @@ def season_records(rows, rules: Series):
     return {k: v for k, v in got.items() if v["games"] >= rules.record_min_games}
 
 
+def top_division_seasons(standings, official, series_rules):
+    """Returns each league season's top-division rows: its official placements where it has any, else its standings.
+
+    standings and official map (series, season, division) to rows; so does the result, one podium per season.
+    """
+    top = {
+        k: rows
+        for k, rows in {**standings, **official}.items()
+        if series_rules[k[0]].points and k[2] in series_rules[k[0]].top_divisions
+    }
+    ruled = {k[:2] for k in official if k in top}
+    return {k: rows for k, rows in top.items() if k in official or k[:2] not in ruled}
+
+
 def _league_boards(standings, official, series_rules):
     """Returns each league's trophyboard in upstream's order: medals in the top
     division, official placements over derived ones.
@@ -472,7 +523,7 @@ def _league_boards(standings, official, series_rules):
     medals = defaultdict(
         lambda: {"gold": 0, "silver": 0, "bronze": 0, "points": 0.0, "first": None}
     )
-    seasons = {**standings, **official}
+    seasons = top_division_seasons(standings, official, series_rules)
     for (series, season, division), rows in sorted(seasons.items()):
         rules = series_rules[series]
         if not rules.points or division not in rules.top_divisions:
@@ -481,7 +532,8 @@ def _league_boards(standings, official, series_rules):
             m = medals[(series, s["player_name"])]
             if not rules.duel:
                 m["points"] += s["points"] or 0.0
-            if s["place"] <= 3:
+            # A shared place waits for a playoff or a ruling, recorded as an official placement.
+            if s["place"] <= 3 and not s.get("shared"):
                 m[("gold", "silver", "bronze")[s["place"] - 1]] += 1
                 m["first"] = season if m["first"] is None else m["first"]
                 if rules.duel:
@@ -500,16 +552,37 @@ def _league_boards(standings, official, series_rules):
     return boards
 
 
-def _worlds_podiums(conn, run_id, official, standing_rows, final, worlds):
-    """Puts each World Championship season's podium into official, by precedence: admin's, recorded, derived.
+def worlds_podium(*sources: dict[int, list[dict]]) -> list[dict]:
+    """Returns a World Championship season's podium in place order, each place from the first of sources that has it.
 
-    worlds is the slug of the series holding the World Championship rules. A derived final, scored by final's
-    rules, adds its standings to standing_rows.
+    sources map a place to its rows, highest precedence first: admin's, recorded, derived.
     """
-    recorded = {season for series, season, _ in official if series == worlds}
-    for season, games in sorted(worlds_finals(conn).items()):
-        if season in recorded:
-            continue
+    places = sorted({place for source in sources for place in source})
+    return [
+        row for place in places for row in next(s[place] for s in sources if place in s)
+    ]
+
+
+def _worlds_podiums(conn, run_id, official, standing_rows, final, worlds):
+    """Puts each World Championship season's podium into official, place by place: admin's, recorded, derived.
+
+    worlds is the slug of the series holding the World Championship rules. A final is derived only when final's
+    podium source is the final stage; scored by final's rules, it adds its standings to standing_rows. Each row
+    gives its final's field, the players in the final's games, where they are known.
+    """
+    recorded: dict[int, dict[int, list[dict]]] = defaultdict(lambda: defaultdict(list))
+    for key in [k for k in official if k[0] == worlds]:
+        for p in official.pop(key):
+            recorded[key[1]][p["place"]].append(p)
+    derived: dict[int, dict[int, list[dict]]] = defaultdict(lambda: defaultdict(list))
+    finals = worlds_finals(conn)
+    fields = {
+        season: len({s.player for seats in games for s in seats})
+        for season, games in finals.items()
+    }
+    for season, games in sorted(
+        finals.items() if final.podium == "final_stage" else ()
+    ):
         standings = final_podium(games, final)
         if standings is None:
             continue
@@ -518,23 +591,26 @@ def _worlds_podiums(conn, run_id, official, standing_rows, final, worlds):
                 (run_id, worlds, season, "Final", "Final", s["player_name"],
                  s["place"], s["points"], s["games"], s["placings"])
             )  # fmt: skip
-        official[(worlds, season, "Final")] = [
-            {"series": worlds, "season": season, "division": "Final", **s}
-            for s in standings[:3]
-        ]
-    overrides = defaultdict(list)
+        for s in standings[:3]:
+            derived[season][s["place"]].append(
+                {"series": worlds, "season": season, "division": "Final", **s}
+            )
+    admin: dict[int, dict[int, list[dict]]] = defaultdict(lambda: defaultdict(list))
     for r in conn.execute(
         "SELECT season::int AS season, place, player_name FROM tournament_podium_overrides "
         "WHERE tournament = %s AND season ~ '^[0-9]+$' ORDER BY place",
         (worlds,),
     ).fetchall():
-        overrides[r["season"]].append(
+        admin[r["season"]][r["place"]].append(
             {"series": worlds, "division": "Final", "points": None, **r}
         )
-    for season, placed in overrides.items():
-        for key in [k for k in official if k[0] == worlds and k[1] == season]:
-            del official[key]
-        official[(worlds, season, "Final")] = placed
+    for season in sorted(set(recorded) | set(derived) | set(admin)):
+        podium = worlds_podium(
+            admin.get(season, {}), recorded.get(season, {}), derived.get(season, {})
+        )
+        official[(worlds, season, "Final")] = [
+            {**p, "field": fields.get(season)} for p in podium
+        ]
 
 
 def _board_rows(run_id, boards):
@@ -592,12 +668,28 @@ def derive_tournaments(*, conn: DictConnection, run_id: int) -> None:
                 "SELECT series, season, finish_date FROM tournament_finish_dates"
             ).fetchall()
         }
+        recorded_dates = set(dates)
         honours = conn.execute(
             "SELECT series, player_name, gold, silver, bronze, points "
             "FROM tournament_career_honours ORDER BY series, player_name"
         ).fetchall()
         classified = classify(rows, recorded, corrections, rules)
         by_id = {r["match_id"]: r for r in rows}
+        unplayed = conn.execute(
+            "SELECT m.game_id AS match_id, m.name AS tournament, m.group_name AS group_label, "
+            "coalesce(m.players, '{}') AS players FROM game_lines m "
+            "WHERE m.state IN ('prepared', 'running') ORDER BY m.game_id"
+        ).fetchall()
+        in_progress = seasons_in_progress(
+            classify(unplayed, recorded, corrections, rules), rules, dates
+        )
+        # A finished season with no recorded date ends on its last game.
+        for g in classified:
+            of = (g["series"], g["season"])
+            if g["season"] is not None and of not in in_progress:
+                day = by_id[g["match_id"]]["date"].isoformat()
+                if of not in recorded_dates and day > dates.get(of, ""):
+                    dates[of] = day
 
         groups = defaultdict(list)
         records = defaultdict(list)
@@ -608,6 +700,7 @@ def derive_tournaments(*, conn: DictConnection, run_id: int) -> None:
                 and g["season"] is not None
                 and not g["tiebreak"]
                 and rules[g["series"]].season_records
+                and (g["series"], g["season"]) not in in_progress
             ):
                 records[g["series"]].append({**r, **g})
             if g["division"] is not None and not g["tiebreak"]:
@@ -623,9 +716,17 @@ def derive_tournaments(*, conn: DictConnection, run_id: int) -> None:
                      s["place"], s["points"], s["games"], s["placings"])
                 )  # fmt: skip
                 derived[(series, season, division)].append(s)
+        # A season still being played shows its standings, but no podium yet.
+        finished = {
+            k: v
+            for k, v in derived.items()
+            if k[:2] not in in_progress and rules[k[0]].podium == "top_divisions"
+        }
         worlds = holder(conn, "worlds")
         _worlds_podiums(conn, run_id, official, standing_rows, final, worlds)
-        boards = _league_boards(derived, official, rules)
+        for k in [k for k in official if rules[k[0]].podium == "none"]:
+            del official[k]
+        boards = _league_boards(finished, official, rules)
         boards["worlds"] = worlds_board(
             [{**p, "season": season} for (series, season, _), placed in official.items()
              if series == worlds for p in placed]
@@ -668,7 +769,7 @@ def derive_tournaments(*, conn: DictConnection, run_id: int) -> None:
             top_divisions={
                 s: r.top_divisions for s, r in rules.items() if r.top_divisions
             },
-            standings=derived,
+            standings=top_division_seasons(finished, official, rules),
             official=official,
             boards=boards,
             honours=honours,

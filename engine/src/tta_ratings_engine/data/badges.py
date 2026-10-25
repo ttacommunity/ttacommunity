@@ -2,7 +2,7 @@
 
 Implements the official badge award rules:
 - Recency Rule: Badges are displayed only for players active within the last 1 year (12 months) in tournament play.
-- Highest league in Intermezzo (3P), International Championship (4P), Royal League (2P), or World Championship -> GM (Grandmaster)
+- Highest league in Intermezzo (3P), International Championship (4P) or Royal League (2P) -> GM (Grandmaster)
 - 2nd highest league -> M (Master)
 - 3rd highest league -> P (Platinum)
 - 4th highest league -> G (Gold)
@@ -10,8 +10,9 @@ Implements the official badge award rules:
 - 6th highest league -> B (Bronze)
 - 7th highest league -> W (Wood)
 - A win in the top division of the International, Intermezzo or Royal League
-  (a first place or gold in the run's tournament records) -> SGM (Super GM)
-- The Reigning World Champion retains the exclusive 'WC' title.
+  (a gold medal in the run's tournament records) -> SGM (Super GM)
+- The Reigning World Champion retains the exclusive 'WC' title; a World Championship podium gives WC, WCS or
+  WCB in its year and as a peak. Playing in the World Championship gives no division title.
 - A title set in admin replaces the derived one (an active player's), or takes it away.
 - Hover Reason: Shows the latest tournament division and season (e.g. 'Played in International Championship Grandmaster Season 6').
 """
@@ -84,25 +85,14 @@ SERIES_NAMES = {
 def world_podiums(conn, run_id) -> list[tuple[str, int, int]]:
     """Returns each World Championship season's podium finishes (place 1, 2, 3), oldest first: (player, season, place).
 
-    Admin's podium beats a recorded one, which beats the run's derived final.
+    They are the medals of the run's World Championship records, whose podium tournaments.worlds_podium chose.
     """
     rows = conn.execute(
         """
-        WITH admin AS (
-            SELECT season::int AS season, place, player_name FROM tournament_podium_overrides
-            WHERE tournament = 'worlds' AND place BETWEEN 1 AND 3 AND season ~ '^[0-9]+$'),
-        recorded AS (
-            SELECT season, place, player_name FROM tournament_official_placements
-            WHERE series = 'worlds' AND place BETWEEN 1 AND 3
-              AND (season, place) NOT IN (SELECT season, place FROM admin)),
-        derived AS (
-            SELECT season, place, player_name FROM tournament_standings
-            WHERE run_id = %s AND series = 'worlds' AND division = 'Final' AND place BETWEEN 1 AND 3
-              AND (season, place) NOT IN (SELECT season, place FROM admin)
-              AND (season, place) NOT IN (SELECT season, place FROM tournament_official_placements WHERE series = 'worlds'))
-        SELECT season, place, player_name FROM admin
-        UNION ALL SELECT season, place, player_name FROM recorded
-        UNION ALL SELECT season, place, player_name FROM derived
+        SELECT player_name, season::int AS season,
+               CASE medal WHEN 'gold' THEN 1 WHEN 'silver' THEN 2 ELSE 3 END AS place
+        FROM tournament_records
+        WHERE run_id = %s AND NOT career AND tournament = 'World Championship' AND medal IS NOT NULL
         ORDER BY season, place, player_name
         """,
         (run_id,),
@@ -307,7 +297,7 @@ def derive_tournament_badges(*, conn: DictConnection, run_id: int) -> dict[str, 
         podiums = world_podiums(conn, run_id)
         records = conn.execute(
             """
-            SELECT player_name, tournament, season, division, placement, medal, finish_date
+            SELECT player_name, tournament, season, division, medal, finish_date
             FROM tournament_records WHERE run_id = %s AND NOT career ORDER BY position
         """,
             (run_id,),
@@ -357,7 +347,7 @@ def derive_tournament_badges(*, conn: DictConnection, run_id: int) -> dict[str, 
             cur.executemany(
                 """
                 INSERT INTO player_yearly_titles (run_id, player_name, year, title)
-                SELECT %s, name, %s, %s FROM players WHERE lower(name) = lower(%s)
+                SELECT %s, name, %s, %s FROM players WHERE name = %s
                 ON CONFLICT (run_id, player_name, year) DO UPDATE SET title = EXCLUDED.title
             """,
                 [
@@ -520,10 +510,13 @@ def badge_titles(rows, cutoff_date, champions, records, overrides) -> Titles:
     return Titles(derived_data, peaks, yearly)
 
 
-def _is_top_division_win(r) -> bool:
-    """Reports whether a tournament record represents a verified premier/top-division win."""
-    m = re.match(r"1\s*/\s*(\d+)", r.get("placement", ""))
-    return not (m and int(m.group(1)) > 31)
+def _is_super_gm_win(r) -> bool:
+    """Reports whether a season record is a league top-division win: a gold medal there, which only a podium has."""
+    return (
+        r["medal"] == "gold"
+        and r["tournament"] in SGM_TOURNAMENTS
+        and r["division"] in SGM_DIVISIONS
+    )
 
 
 def _super_gm(records, cutoff_date):
@@ -532,13 +525,7 @@ def _super_gm(records, cutoff_date):
     """
     active, career = {}, {}
     for r in records:
-        won = r["placement"].startswith("1 /") or r["medal"] == "gold"
-        if not (
-            won
-            and r["tournament"] in SGM_TOURNAMENTS
-            and r["division"] in SGM_DIVISIONS
-            and _is_top_division_win(r)
-        ):
+        if not _is_super_gm_win(r):
             continue
         p, finish = r["player_name"], r["finish_date"]
         year = int(finish[:4]) if finish[:4].isdigit() else None
@@ -561,17 +548,7 @@ def _record_years(records):
         if not finish[:4].isdigit():
             continue
         key = (r["player_name"], int(finish[:4]))
-        won = (
-            r["placement"].startswith("1 /")
-            or r["placement"] == "1"
-            or r["medal"] == "gold"
-        )
-        if (
-            r["tournament"] in SGM_TOURNAMENTS
-            and r["division"] in SGM_DIVISIONS
-            and won
-            and _is_top_division_win(r)
-        ):
+        if _is_super_gm_win(r):
             got[key] = "SGM"
         elif key not in got:
             tier = classify_division_tier(f"{r['tournament']} {r['division']}")

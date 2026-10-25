@@ -88,12 +88,16 @@ time: if the estimates drift, update `STEP_COST` from those lines.
 ## Versions
 
 Every run records the engine's version, from `pyproject.toml`. A change that
-moves ratings is a new version: bump it, and add the new version's hash to
+moves results is a new version: bump it, and add the new version's hashes to
 `tests/golden.json`. `test_the_results_match_the_engine_versions_golden_hash`
-rates a small invented season in every format and hashes every result, so a
-change that moves ratings without a new version fails, and its message gives
-the hash. A refactor keeps the hash. A version's hash never changes once it
-is on `main` (`checks/engine-golden.sh`).
+rates a small invented season in every format and hashes every result in two
+parts: `ratings` (the rated pairs, ratings, history and calibration) and
+`derived` (tournament results, titles and the other tables derived from the
+games). A change that moves either without a new version fails, and its
+message gives the hashes; a version whose `ratings` hash equals the last
+one's left ratings alone. A refactor keeps both. A version's hashes never
+change once it is on `main` (`checks/engine-golden.sh`). Versions before
+1.8.0 have one hash over both parts.
 
 ## Running the tests
 

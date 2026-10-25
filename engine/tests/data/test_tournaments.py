@@ -2,6 +2,7 @@ from datetime import date
 
 import pytest
 
+from tta_ratings_engine.data.badges import derive_tournament_badges
 from tta_ratings_engine.data.db import RunNotRunning
 from tta_ratings_engine.data.seats import Seat
 from tta_ratings_engine.data.tournaments import (
@@ -194,6 +195,25 @@ def seats(*rows):
             ],
             [("bob", 1, 3.0), ("ann", 2, 3.0), ("cat", 3, 2.0), ("dan", 4, 0.0)],
             id="Royal League: ann and bob drew and won once each, bob scored more",
+        ),
+        pytest.param(
+            "international",
+            [
+                seats(("ann", 1, 5, 100), ("bob", 2, 2, 90), ("cat", 3, 0, 80)),
+                seats(("bob", 1, 5, 100), ("ann", 2, 2, 90), ("cat", 3, 0, 80)),
+            ],
+            [("ann", 1, 7.0), ("bob", 1, 7.0), ("cat", 3, 0.0)],
+            id="a league's tie level on head-to-head and shares is a shared place",
+        ),
+        pytest.param(
+            "royal_league",
+            [
+                seats(("ann", 1, 1, 100), ("bob", 1, 1, 100)),
+                seats(("ann", 1, 2, 100), ("cat", 2, 0, 90)),
+                seats(("bob", 1, 2, 100), ("cat", 2, 0, 90)),
+            ],
+            [("ann", 1, 3.0), ("bob", 1, 3.0), ("cat", 3, 0.0)],
+            id="Royal League: level on every tiebreak is a shared place",
         ),
     ],
 )
@@ -879,6 +899,11 @@ def world_titles(conn, run_id):
     }
 
 
+def podium_from(conn, slug, source):
+    conn.execute("UPDATE series SET podium_source = %s WHERE slug = %s", (source, slug))
+    conn.commit()
+
+
 def a_final(worlds_game, season=2025, status="finished"):
     worlds_game(
         season, "Stage 7", 7, status, ("ann", 90), ("bob", 80), ("cat", 70), ("dan", 60)
@@ -894,6 +919,7 @@ def a_final(worlds_game, season=2025, status="finished"):
 def test_a_finished_world_championship_takes_its_podium_from_the_final(
     conn, worlds_game, run_id
 ):
+    podium_from(conn, "worlds", "final_stage")
     a_final(worlds_game)
 
     derive_tournaments(conn=conn, run_id=run_id)
@@ -908,6 +934,7 @@ def test_a_finished_world_championship_takes_its_podium_from_the_final(
 
 
 def test_a_world_championship_still_running_has_no_podium(conn, worlds_game, run_id):
+    podium_from(conn, "worlds", "final_stage")
     a_final(worlds_game, status="running")
 
     derive_tournaments(conn=conn, run_id=run_id)
@@ -917,16 +944,18 @@ def test_a_world_championship_still_running_has_no_podium(conn, worlds_game, run
 
 
 def test_a_recorded_podium_beats_the_derived_one(conn, worlds_game, run_id, place):
+    podium_from(conn, "worlds", "final_stage")
     a_final(worlds_game)
     place("worlds", 2025, "Final", "dan", "ann", "cat")
 
     derive_tournaments(conn=conn, run_id=run_id)
 
-    assert worlds_podium(conn, run_id, 2025) == []
+    assert [p[0] for p in worlds_podium(conn, run_id, 2025)][:1] == ["bob"]
     assert world_titles(conn, run_id) == {"dan": 1}
 
 
 def test_an_admin_podium_beats_a_recorded_one(conn, worlds_game, run_id, place):
+    podium_from(conn, "worlds", "final_stage")
     a_final(worlds_game)
     place("worlds", 2025, "Final", "dan", "ann", "cat")
     for p, name in enumerate(("ann", "dan", "bob"), start=1):
@@ -976,6 +1005,7 @@ def test_top_divisions_come_from_the_tournament_settings(conn, add_match, run_id
 def test_the_world_championship_final_is_scored_from_its_settings(
     conn, worlds_game, run_id
 ):
+    podium_from(conn, "worlds", "final_stage")
     conn.execute(
         "UPDATE settings SET points_4p = '{1,1,1,0}', points_3p = '{1,1,0}', points_2p = '{1,0}' WHERE series_id = (SELECT series_id FROM series WHERE slug = 'worlds')"
     )
@@ -994,6 +1024,9 @@ def test_the_world_championship_final_is_scored_from_its_settings(
         "DELETE FROM settings WHERE series_id = (SELECT series_id FROM series WHERE slug = 'worlds')",
         "DELETE FROM series WHERE slug = 'international'",
         "UPDATE series SET results_rules = NULL WHERE slug = 'intermezzo'",
+        "UPDATE series SET podium_source = NULL WHERE slug = 'international'",
+        "UPDATE series SET podium_source = 'final_stage' WHERE slug = 'intermezzo'",
+        "UPDATE series SET podium_source = 'top_divisions' WHERE slug = 'worlds'",
     ],
 )
 def test_derive_refuses_a_series_without_its_rules(conn, run_id, change):
@@ -1076,3 +1109,245 @@ def test_a_players_records_are_stored_together(conn, add_match, run_id):
     ]
     assert len(stored) > 3
     assert stored == sorted(stored)
+
+
+def medals_and_records(conn, run_id):
+    """The run's international board medals and its top-division season records, by player."""
+    board_medals = {
+        r["player_name"]: (r["gold"], r["silver"], r["bronze"])
+        for r in conn.execute(
+            "SELECT player_name, gold, silver, bronze FROM tournament_boards WHERE run_id = %s AND series = 'international'",
+            (run_id,),
+        ).fetchall()
+    }
+    record_medals = {
+        r["player_name"]: r["medal"]
+        for r in conn.execute(
+            "SELECT player_name, medal FROM tournament_records WHERE run_id = %s AND NOT career "
+            "AND tournament = 'International Championship' AND medal IS NOT NULL",
+            (run_id,),
+        ).fetchall()
+    }
+    seasons = conn.execute(
+        "SELECT count(*) AS n FROM tournament_season_records WHERE run_id = %s",
+        (run_id,),
+    ).fetchone()["n"]
+    return board_medals, record_medals, seasons
+
+
+@pytest.mark.parametrize(
+    ("state", "dated", "finished"),
+    [
+        ("running", False, False),
+        ("prepared", False, False),
+        ("never_played", False, True),
+        ("running", True, True),
+    ],
+)
+def test_a_seasons_results_wait_for_its_top_division_to_finish(
+    conn, add_match, run_id, state, dated, finished
+):
+    for n in range(1, 7):
+        add_match(("ann", 90), ("bob", 80), ("cat", 70), ("dan", 60), tournament=gm(n))
+    add_match(
+        ("ann", 0), ("bob", 0), ("cat", 0), ("dan", 0), tournament=gm(7), state=state
+    )
+    if dated:
+        conn.execute(
+            "INSERT INTO tournament_finish_dates VALUES ('international', 30, '2024-02-01', 'test')"
+        )
+        conn.commit()
+
+    derive_tournaments(conn=conn, run_id=run_id)
+
+    got = medals_and_records(conn, run_id)
+    if finished:
+        assert got == (
+            {"ann": (1, 0, 0), "bob": (0, 1, 0), "cat": (0, 0, 1)},
+            {"ann": "gold", "bob": "silver", "cat": "bronze"},
+            4,
+        )
+    else:
+        assert got == ({}, {}, 0)
+    assert len(standings(conn, run_id, 30)) == 4
+
+
+def test_a_finished_season_without_a_date_is_dated_by_its_last_game(
+    conn, add_match, run_id
+):
+    for n in range(1, 7):
+        add_match(
+            ("ann", 90),
+            ("bob", 80),
+            ("cat", 70),
+            ("dan", 60),
+            tournament=gm(n),
+            day=date(2024, 1, n),
+        )
+    add_match(
+        ("eve", 90),
+        ("fay", 80),
+        ("gil", 70),
+        tournament="International S30 - Gold game 1",
+        day=date(2024, 2, 9),
+    )
+
+    derive_tournaments(conn=conn, run_id=run_id)
+
+    got = conn.execute(
+        "SELECT DISTINCT finish_date FROM tournament_records WHERE run_id = %s AND NOT career "
+        "AND tournament = 'International Championship' AND division = 'Grandmaster'",
+        (run_id,),
+    ).fetchall()
+    assert [r["finish_date"] for r in got] == ["2024-02-09"]
+
+
+@pytest.mark.parametrize(
+    ("source", "recorded", "want"),
+    [
+        ("top_divisions", False, {"ann", "bob", "cat"}),
+        ("recorded", False, set()),
+        ("recorded", True, {"dan", "eve", "fay"}),
+        ("none", True, set()),
+    ],
+)
+def test_a_leagues_podium_source_decides_its_podium(
+    conn, add_match, run_id, place, source, recorded, want
+):
+    podium_from(conn, "international", source)
+    add_match(("ann", 90), ("bob", 80), ("cat", 70), tournament=gm(1))
+    if recorded:
+        place("international", 30, "Grandmaster", "dan", "eve", "fay")
+
+    derive_tournaments(conn=conn, run_id=run_id)
+
+    assert set(board(conn, run_id)) == want
+
+
+@pytest.mark.parametrize(
+    ("source", "recorded", "want"),
+    [
+        ("final_stage", False, {"bob": 1}),
+        ("final_stage", True, {"dan": 1}),
+        ("recorded", False, {}),
+        ("recorded", True, {"dan": 1}),
+        ("none", True, {}),
+    ],
+)
+def test_the_world_championships_podium_source_decides_its_podium(
+    conn, worlds_game, run_id, place, source, recorded, want
+):
+    podium_from(conn, "worlds", source)
+    a_final(worlds_game)
+    if recorded:
+        place("worlds", 2025, "Final", "dan", "ann", "cat")
+
+    derive_tournaments(conn=conn, run_id=run_id)
+
+    assert world_titles(conn, run_id) == want
+
+
+def admin_podium(conn, season, *places):
+    for place, name in places:
+        conn.execute(
+            "INSERT INTO tournament_podium_overrides (tournament, season, place, player_name) VALUES ('worlds', %s, %s, %s)",
+            (str(season), place, name),
+        )
+    conn.commit()
+
+
+@pytest.mark.parametrize(
+    ("source", "recorded", "admin", "want"),
+    [
+        ("final_stage", (), [(1, "dan")], {"dan": "WC", "cat": "WCS", "ann": "WCB"}),
+        (
+            "recorded",
+            ("dan", "ann", "cat"),
+            [(2, "bob")],
+            {"dan": "WC", "bob": "WCS", "cat": "WCB"},
+        ),
+        (
+            "final_stage",
+            ("dan",),
+            [(3, "bob")],
+            {"dan": "WC", "cat": "WCS", "bob": "WCB"},
+        ),
+    ],
+)
+def test_each_world_championship_place_comes_from_admin_then_recorded_then_the_final(
+    conn, worlds_game, run_id, place, source, recorded, admin, want
+):
+    podium_from(conn, "worlds", source)
+    a_final(worlds_game)
+    if recorded:
+        place("worlds", 2025, "Final", *recorded)
+    admin_podium(conn, 2025, *admin)
+
+    derive_tournaments(conn=conn, run_id=run_id)
+    derive_tournament_badges(conn=conn, run_id=run_id)
+
+    medal = {(1, 0, 0): "WC", (0, 1, 0): "WCS", (0, 0, 1): "WCB"}
+    board = {p: medal[b[:3]] for p, b in boards(conn, run_id, "worlds").items()}
+    years = {
+        r["player_name"]: r["title"]
+        for r in conn.execute(
+            "SELECT player_name, title FROM player_yearly_titles WHERE run_id = %s AND year = 2025",
+            (run_id,),
+        ).fetchall()
+        if r["title"].startswith("WC")
+    }
+    assert (board, years) == (want, want)
+
+
+def test_a_shared_place_gives_no_medal_until_a_ruling(conn, add_match, run_id, place):
+    add_match(("ann", 100), ("bob", 90), ("cat", 80), tournament=gm(1))
+    add_match(("bob", 100), ("ann", 90), ("cat", 80), tournament=gm(2))
+
+    derive_tournaments(conn=conn, run_id=run_id)
+    shared = medals_and_records(conn, run_id)[:2]
+    place("international", 30, "Grandmaster", "bob", "ann", "cat")
+    derive_tournaments(conn=conn, run_id=run_id)
+    ruled = medals_and_records(conn, run_id)[:2]
+
+    assert shared == ({"cat": (0, 0, 1)}, {"cat": "bronze"})
+    assert ruled == (
+        {"bob": (1, 0, 0), "ann": (0, 1, 0), "cat": (0, 0, 1)},
+        {"bob": "gold", "ann": "silver", "cat": "bronze"},
+    )
+
+
+def test_a_season_with_official_placements_counts_no_derived_top_division(
+    conn, add_match, run_id, place
+):
+    add_match(
+        ("ann", 90),
+        ("bob", 80),
+        ("cat", 70),
+        tournament="International S30 - Diamond game 1",
+    )
+    place("international", 30, "Grandmaster", "dan", "eve", "fay")
+
+    derive_tournaments(conn=conn, run_id=run_id)
+
+    assert medals_and_records(conn, run_id)[:2] == (
+        {"dan": (1, 0, 0), "eve": (0, 1, 0), "fay": (0, 0, 1)},
+        {"dan": "gold", "eve": "silver", "fay": "bronze"},
+    )
+
+
+@pytest.mark.parametrize(("final", "want"), [(True, "1 / 4"), (False, "1")])
+def test_a_world_championship_record_gives_its_finals_field(
+    conn, worlds_game, run_id, place, final, want
+):
+    if final:
+        a_final(worlds_game)
+    place("worlds", 2025, "Final", "dan", "ann", "cat")
+
+    derive_tournaments(conn=conn, run_id=run_id)
+
+    got = conn.execute(
+        "SELECT placement FROM tournament_records WHERE run_id = %s AND player_name = 'dan' "
+        "AND tournament = 'World Championship'",
+        (run_id,),
+    ).fetchone()
+    assert got["placement"] == want

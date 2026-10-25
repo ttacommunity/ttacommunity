@@ -24,6 +24,8 @@ cases=(
   'a-new-version|{"1.0.0": "aaa"}|{"1.0.0": "aaa", "1.1.0": "bbb"}|0|-'
   'an-old-hash-changed|{"1.0.0": "aaa"}|{"1.0.0": "bbb"}|1|1.0.0'
   'an-old-version-removed|{"1.0.0": "aaa"}|{"1.1.0": "bbb"}|1|1.0.0'
+  'two-hashes-unchanged|{"1.0.0": {"ratings": "aaa", "derived": "bbb"}}|{"1.0.0": {"ratings": "aaa", "derived": "bbb"}}|0|-'
+  'a-derived-hash-changed|{"1.0.0": {"ratings": "aaa", "derived": "bbb"}}|{"1.0.0": {"ratings": "aaa", "derived": "ccc"}}|1|1.0.0'
 )
 
 failed=0

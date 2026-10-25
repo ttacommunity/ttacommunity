@@ -275,23 +275,24 @@ func TestClassifyMatchesGivesNewSeriesTheEnginesRules(t *testing.T) {
 	if _, err := ClassifyMatches(ctx, pool); err != nil {
 		t.Fatalf("ClassifyMatches: %v", err)
 	}
-	tests := []struct{ slug, scoring, code, results string }{
-		{"international", "league", "ic_{}", "international"},
-		{"worlds", "worlds", "wrld", "worlds"},
-		{"wimbledon", "knockout", "wmbl", ""},
-		{"mercurial_ladder", "", "ml", ""},
+	tests := []struct{ slug, scoring, code, results, podium string }{
+		{"international", "league", "ic_{}", "international", "top_divisions"},
+		{"worlds", "worlds", "wrld", "worlds", "recorded"},
+		{"wimbledon", "knockout", "wmbl", "", "final_stage"},
+		{"mercurial_ladder", "", "ml", "", "none"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.slug, func(t *testing.T) {
-			var scoring, code, results string
+			var scoring, code, results, podium string
 			err := pool.QueryRow(ctx, `SELECT coalesce(community_scoring, ''), coalesce(community_code, ''),
-				coalesce(results_rules, '') FROM series WHERE slug = $1`, tt.slug).Scan(&scoring, &code, &results)
+				coalesce(results_rules, ''), coalesce(podium_source, '') FROM series WHERE slug = $1`,
+				tt.slug).Scan(&scoring, &code, &results, &podium)
 			if err != nil {
 				t.Fatal(err)
 			}
-			if scoring != tt.scoring || code != tt.code || results != tt.results {
-				t.Errorf("community scoring, code, results rules = %q, %q, %q, want %q, %q, %q",
-					scoring, code, results, tt.scoring, tt.code, tt.results)
+			if scoring != tt.scoring || code != tt.code || results != tt.results || podium != tt.podium {
+				t.Errorf("community scoring, code, results rules, podium source = %q, %q, %q, %q, want %q, %q, %q, %q",
+					scoring, code, results, podium, tt.scoring, tt.code, tt.results, tt.podium)
 			}
 		})
 	}
