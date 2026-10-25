@@ -146,7 +146,12 @@ func (s *server) PatchAdminTournament(ctx context.Context, req PatchAdminTournam
 		}
 		change.Stories = &list
 	}
-	err := s.admins.ChangeTournament(ctx, req.Tournament, change)
+	err := s.admins.Change(ctx, func(tx Admins) error {
+		if err := tx.ChangeTournament(ctx, req.Tournament, change); err != nil {
+			return err
+		}
+		return tx.Audit(ctx, a.DiscordID, "tournament.settings", req.Tournament, b)
+	})
 	switch code, msg := refusal(err); code {
 	case http.StatusNotFound:
 		return PatchAdminTournament404JSONResponse{notFound404(msg)}, nil
@@ -154,9 +159,6 @@ func (s *server) PatchAdminTournament(ctx context.Context, req PatchAdminTournam
 		return PatchAdminTournament400JSONResponse{badRequest400(msg)}, nil
 	}
 	if err != nil {
-		return nil, err
-	}
-	if err := s.admins.Audit(ctx, a.DiscordID, "tournament.settings", req.Tournament, b); err != nil {
 		return nil, err
 	}
 	return PatchAdminTournament204Response{}, nil
@@ -221,7 +223,12 @@ func (s *server) PatchAdminSeason(ctx context.Context, req PatchAdminSeasonReque
 	if msg != "" {
 		return PatchAdminSeason400JSONResponse{badRequest400(msg)}, nil
 	}
-	err := s.admins.ChangeSeason(ctx, req.Tournament, req.Season, change)
+	err := s.admins.Change(ctx, func(tx Admins) error {
+		if err := tx.ChangeSeason(ctx, req.Tournament, req.Season, change); err != nil {
+			return err
+		}
+		return tx.Audit(ctx, a.DiscordID, "tournament.season", req.Tournament, map[string]any{"season": req.Season, "change": req.Body})
+	})
 	switch code, msg := refusal(err); code {
 	case http.StatusNotFound:
 		return PatchAdminSeason404JSONResponse{notFound404(msg)}, nil
@@ -229,9 +236,6 @@ func (s *server) PatchAdminSeason(ctx context.Context, req PatchAdminSeasonReque
 		return PatchAdminSeason400JSONResponse{badRequest400(msg)}, nil
 	}
 	if err != nil {
-		return nil, err
-	}
-	if err := s.admins.Audit(ctx, a.DiscordID, "tournament.season", req.Tournament, map[string]any{"season": req.Season, "change": req.Body}); err != nil {
 		return nil, err
 	}
 	return PatchAdminSeason204Response{}, nil
@@ -242,15 +246,18 @@ func (s *server) DeleteAdminSeason(ctx context.Context, req DeleteAdminSeasonReq
 	if !ok {
 		return nil, errors.New("admin route reached without the gate")
 	}
-	switch err := s.admins.RemoveSeason(ctx, req.Tournament, req.Season); {
+	err := s.admins.Change(ctx, func(tx Admins) error {
+		if err := tx.RemoveSeason(ctx, req.Tournament, req.Season); err != nil {
+			return err
+		}
+		return tx.Audit(ctx, a.DiscordID, "tournament.season.remove", req.Tournament, map[string]string{"label": req.Season})
+	})
+	switch {
 	case errors.Is(err, store.ErrNoTournament):
 		return DeleteAdminSeason404JSONResponse{notFound404("no such season")}, nil
 	case errors.Is(err, store.ErrSeasonHasGames):
 		return DeleteAdminSeason400JSONResponse{badRequest400("the season has games, so it stays")}, nil
 	case err != nil:
-		return nil, err
-	}
-	if err := s.admins.Audit(ctx, a.DiscordID, "tournament.season.remove", req.Tournament, map[string]string{"label": req.Season}); err != nil {
 		return nil, err
 	}
 	return DeleteAdminSeason204Response{}, nil
@@ -265,15 +272,18 @@ func (s *server) PostAdminSeason(ctx context.Context, req PostAdminSeasonRequest
 		return PostAdminSeason400JSONResponse{badRequest400("a season needs a label")}, nil
 	}
 	label := strings.TrimSpace(req.Body.Label)
-	switch err := s.admins.AddSeason(ctx, req.Tournament, label); {
+	err := s.admins.Change(ctx, func(tx Admins) error {
+		if err := tx.AddSeason(ctx, req.Tournament, label); err != nil {
+			return err
+		}
+		return tx.Audit(ctx, a.DiscordID, "tournament.season.add", req.Tournament, map[string]string{"label": label})
+	})
+	switch {
 	case errors.Is(err, store.ErrNoTournament):
 		return PostAdminSeason404JSONResponse{notFound404("no such tournament")}, nil
 	case errors.Is(err, store.ErrSeasonExists):
 		return PostAdminSeason400JSONResponse{badRequest400("the tournament already has that season")}, nil
 	case err != nil:
-		return nil, err
-	}
-	if err := s.admins.Audit(ctx, a.DiscordID, "tournament.season.add", req.Tournament, map[string]string{"label": label}); err != nil {
 		return nil, err
 	}
 	return PostAdminSeason204Response{}, nil

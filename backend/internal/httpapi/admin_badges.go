@@ -53,16 +53,20 @@ func (s *server) PostAdminBadge(ctx context.Context, req PostAdminBadgeRequestOb
 	if msg != "" {
 		return PostAdminBadge400JSONResponse{badRequest400(msg)}, nil
 	}
-	id, err := s.admins.AddBadge(ctx, b)
+	var id int64
+	err = s.admins.Change(ctx, func(tx Admins) error {
+		var err error
+		if id, err = tx.AddBadge(ctx, b); err != nil {
+			return err
+		}
+		return tx.Audit(ctx, me.DiscordID, "badge.add", b.Label, req.Body)
+	})
 	switch {
 	case errors.Is(err, store.ErrBadgeExists):
 		return PostAdminBadge409JSONResponse{conflictBadge()}, nil
 	case errors.Is(err, store.ErrBadBadge):
 		return PostAdminBadge400JSONResponse{badRequest400("a badge's label is 1 to 16 characters")}, nil
 	case err != nil:
-		return nil, err
-	}
-	if err := s.admins.Audit(ctx, me.DiscordID, "badge.add", b.Label, req.Body); err != nil {
 		return nil, err
 	}
 	return PostAdminBadge201JSONResponse{
@@ -84,7 +88,13 @@ func (s *server) PutAdminBadge(ctx context.Context, req PutAdminBadgeRequestObje
 	if req.Body.Players != nil {
 		b.Players = append([]string{}, *req.Body.Players...)
 	}
-	switch err := s.admins.SetBadge(ctx, b); {
+	err = s.admins.Change(ctx, func(tx Admins) error {
+		if err := tx.SetBadge(ctx, b); err != nil {
+			return err
+		}
+		return tx.Audit(ctx, me.DiscordID, "badge.set", fmt.Sprint(req.Badge), req.Body)
+	})
+	switch {
 	case errors.Is(err, store.ErrNoBadge):
 		return PutAdminBadge404JSONResponse{notFound404("no such badge")}, nil
 	case errors.Is(err, store.ErrBadgeExists):
@@ -96,9 +106,6 @@ func (s *server) PutAdminBadge(ctx context.Context, req PutAdminBadgeRequestObje
 	case err != nil:
 		return nil, err
 	}
-	if err := s.admins.Audit(ctx, me.DiscordID, "badge.set", fmt.Sprint(req.Badge), req.Body); err != nil {
-		return nil, err
-	}
 	return PutAdminBadge204Response{}, nil
 }
 
@@ -107,13 +114,16 @@ func (s *server) DeleteAdminBadge(ctx context.Context, req DeleteAdminBadgeReque
 	if err != nil || !ok {
 		return DeleteAdminBadge403JSONResponse{forbidden(onlyAdminsBadge)}, err
 	}
-	switch err := s.admins.RemoveBadge(ctx, req.Badge); {
+	err = s.admins.Change(ctx, func(tx Admins) error {
+		if err := tx.RemoveBadge(ctx, req.Badge); err != nil {
+			return err
+		}
+		return tx.Audit(ctx, me.DiscordID, "badge.remove", fmt.Sprint(req.Badge), map[string]any{})
+	})
+	switch {
 	case errors.Is(err, store.ErrNoBadge):
 		return DeleteAdminBadge404JSONResponse{notFound404("no such badge")}, nil
 	case err != nil:
-		return nil, err
-	}
-	if err := s.admins.Audit(ctx, me.DiscordID, "badge.remove", fmt.Sprint(req.Badge), map[string]any{}); err != nil {
 		return nil, err
 	}
 	return DeleteAdminBadge204Response{}, nil

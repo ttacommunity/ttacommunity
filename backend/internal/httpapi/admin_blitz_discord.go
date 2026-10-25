@@ -50,7 +50,10 @@ func (s *server) GetAdminBlitzRoundDiscord(ctx context.Context, req GetAdminBlit
 	if len(games) == 0 {
 		return GetAdminBlitzRoundDiscord409JSONResponse{conflict409("the round has no game to write")}, nil
 	}
-	if err := s.admins.Audit(ctx, me.DiscordID, "blitz.round.discord", fmt.Sprint(req.Round), nil); err != nil {
+	err = s.admins.Change(ctx, func(tx Admins) error {
+		return tx.Audit(ctx, me.DiscordID, "blitz.round.discord", fmt.Sprint(req.Round), nil)
+	})
+	if err != nil {
 		return nil, err
 	}
 	return GetAdminBlitzRoundDiscord200JSONResponse{Body: BlitzDiscordText{Text: blitz.DiscordText(games)},
@@ -70,7 +73,13 @@ func (s *server) PutAdminBlitzRoundDeadline(ctx context.Context, req PutAdminBli
 	if err != nil {
 		return PutAdminBlitzRoundDeadline400JSONResponse{badRequest400(err.Error())}, nil
 	}
-	switch err := s.admins.SetBlitzRoundDeadline(ctx, req.Tournament, req.Edition, req.Round, at.UTC(), zone); {
+	err = s.admins.Change(ctx, func(tx Admins) error {
+		if err := tx.SetBlitzRoundDeadline(ctx, req.Tournament, req.Edition, req.Round, at.UTC(), zone); err != nil {
+			return err
+		}
+		return tx.Audit(ctx, me.DiscordID, "blitz.round.deadline", fmt.Sprint(req.Round), req.Body)
+	})
+	switch {
 	case errors.Is(err, store.ErrNoBlitzEdition):
 		return PutAdminBlitzRoundDeadline404JSONResponse{notFound404("no such blitz edition")}, nil
 	case errors.Is(err, store.ErrNoBlitzRound):
@@ -78,9 +87,6 @@ func (s *server) PutAdminBlitzRoundDeadline(ctx context.Context, req PutAdminBli
 	case errors.Is(err, store.ErrBlitzRoundFinished):
 		return PutAdminBlitzRoundDeadline409JSONResponse{conflict409(err.Error())}, nil
 	case err != nil:
-		return nil, err
-	}
-	if err := s.admins.Audit(ctx, me.DiscordID, "blitz.round.deadline", fmt.Sprint(req.Round), req.Body); err != nil {
 		return nil, err
 	}
 	return PutAdminBlitzRoundDeadline204Response{}, nil

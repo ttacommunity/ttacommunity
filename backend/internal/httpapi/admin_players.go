@@ -35,15 +35,18 @@ func (s *server) PutAdminTitle(ctx context.Context, req PutAdminTitleRequestObje
 	if b == nil || !b.Title.Valid() || strings.TrimSpace(b.Reason) == "" || len(b.Reason) > 300 || len(req.Player) > 200 {
 		return PutAdminTitle400JSONResponse{badRequest400("a title the engine gives (not WC), or none, with a reason under 300 characters")}, nil
 	}
-	switch err := s.admins.SetTitle(ctx, store.TitleOverride{Name: req.Player, Title: string(b.Title), Reason: b.Reason}); {
+	err = s.admins.Change(ctx, func(tx Admins) error {
+		if err := tx.SetTitle(ctx, store.TitleOverride{Name: req.Player, Title: string(b.Title), Reason: b.Reason}); err != nil {
+			return err
+		}
+		return tx.Audit(ctx, me.DiscordID, "player.title", req.Player, b)
+	})
+	switch {
 	case errors.Is(err, store.ErrNoPlayer):
 		return PutAdminTitle404JSONResponse{notFound404("no player has that name")}, nil
 	case errors.Is(err, store.ErrBadTitle):
 		return PutAdminTitle400JSONResponse{badRequest400("a title the engine gives (not WC), or none, with a reason")}, nil
 	case err != nil:
-		return nil, err
-	}
-	if err := s.admins.Audit(ctx, me.DiscordID, "player.title", req.Player, b); err != nil {
 		return nil, err
 	}
 	return PutAdminTitle204Response{}, nil
@@ -54,13 +57,16 @@ func (s *server) DeleteAdminTitle(ctx context.Context, req DeleteAdminTitleReque
 	if err != nil || !ok {
 		return DeleteAdminTitle403JSONResponse{forbidden(onlyAdminsTitle)}, err
 	}
-	switch err := s.admins.ClearTitle(ctx, req.Player); {
+	err = s.admins.Change(ctx, func(tx Admins) error {
+		if err := tx.ClearTitle(ctx, req.Player); err != nil {
+			return err
+		}
+		return tx.Audit(ctx, me.DiscordID, "player.title.clear", req.Player, map[string]any{})
+	})
+	switch {
 	case errors.Is(err, store.ErrNoTitle):
 		return DeleteAdminTitle404JSONResponse{notFound404("no title is set in admin for that player")}, nil
 	case err != nil:
-		return nil, err
-	}
-	if err := s.admins.Audit(ctx, me.DiscordID, "player.title.clear", req.Player, map[string]any{}); err != nil {
 		return nil, err
 	}
 	return DeleteAdminTitle204Response{}, nil

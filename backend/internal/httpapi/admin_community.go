@@ -72,10 +72,13 @@ func (s *server) PostAdminCommunityEdition(ctx context.Context, req PostAdminCom
 		Visible:        b.Visible,
 		SortOrder:      b.SortOrder,
 	}
-	if err := s.admins.CreateCommunityEdition(ctx, ed); err != nil {
-		return nil, err
-	}
-	if err := s.admins.Audit(ctx, me.DiscordID, "community_edition.add", ed.Slug, ed); err != nil {
+	err = s.admins.Change(ctx, func(tx Admins) error {
+		if err := tx.CreateCommunityEdition(ctx, ed); err != nil {
+			return err
+		}
+		return tx.Audit(ctx, me.DiscordID, "community_edition.add", ed.Slug, ed)
+	})
+	if err != nil {
 		return nil, err
 	}
 	return PostAdminCommunityEdition201Response{}, nil
@@ -107,14 +110,16 @@ func (s *server) PatchAdminCommunityEdition(ctx context.Context, req PatchAdminC
 		Visible:        b.Visible,
 		SortOrder:      b.SortOrder,
 	}
-	err = s.admins.SetCommunityEdition(ctx, slug, chg)
+	err = s.admins.Change(ctx, func(tx Admins) error {
+		if err := tx.SetCommunityEdition(ctx, slug, chg); err != nil {
+			return err
+		}
+		return tx.Audit(ctx, me.DiscordID, "community_edition.edit", slug, b)
+	})
 	if errors.Is(err, store.ErrNoCommunityEdition) {
 		return PatchAdminCommunityEdition404JSONResponse{notFound404("no such edition")}, nil
 	}
 	if err != nil {
-		return nil, err
-	}
-	if err := s.admins.Audit(ctx, me.DiscordID, "community_edition.edit", slug, b); err != nil {
 		return nil, err
 	}
 	return PatchAdminCommunityEdition204Response{}, nil

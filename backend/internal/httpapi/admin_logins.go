@@ -39,7 +39,14 @@ func (s *server) GetAdminAccounts(ctx context.Context, _ GetAdminAccountsRequest
 
 func (s *server) PutAdminLinkApproval(ctx context.Context, req PutAdminLinkApprovalRequestObject) (PutAdminLinkApprovalResponseObject, error) {
 	me, _ := adminFrom(ctx)
-	got, err := s.admins.ApproveLink(ctx, req.LinkRequest, s.now())
+	var got store.LinkApproved
+	err := s.admins.Change(ctx, func(tx Admins) error {
+		var err error
+		if got, err = tx.ApproveLink(ctx, req.LinkRequest, s.now()); err != nil {
+			return err
+		}
+		return tx.Audit(ctx, me.DiscordID, "link.approve", fmt.Sprint(req.LinkRequest), map[string]any{"member": got.MemberID, "created": got.Created})
+	})
 	switch {
 	case errors.Is(err, store.ErrNoRequest):
 		return PutAdminLinkApproval404JSONResponse{notFound404("no such request waiting for an answer")}, nil
@@ -47,9 +54,6 @@ func (s *server) PutAdminLinkApproval(ctx context.Context, req PutAdminLinkAppro
 		errors.Is(err, store.ErrBadMember):
 		return PutAdminLinkApproval409JSONResponse{conflict409(err.Error())}, nil
 	case err != nil:
-		return nil, err
-	}
-	if err := s.admins.Audit(ctx, me.DiscordID, "link.approve", fmt.Sprint(req.LinkRequest), map[string]any{"member": got.MemberID, "created": got.Created}); err != nil {
 		return nil, err
 	}
 	return PutAdminLinkApproval200JSONResponse{Body: LinkApproved{Member: got.Member, Created: got.Created},
@@ -61,7 +65,12 @@ func (s *server) PutAdminLinkRefusal(ctx context.Context, req PutAdminLinkRefusa
 	if req.Body == nil {
 		return PutAdminLinkRefusal400JSONResponse{badRequest400("a reason the player sees: reason, which may be empty")}, nil
 	}
-	err := s.admins.RefuseLink(ctx, req.LinkRequest, req.Body.Reason, s.now())
+	err := s.admins.Change(ctx, func(tx Admins) error {
+		if err := tx.RefuseLink(ctx, req.LinkRequest, req.Body.Reason, s.now()); err != nil {
+			return err
+		}
+		return tx.Audit(ctx, me.DiscordID, "link.refuse", fmt.Sprint(req.LinkRequest), req.Body)
+	})
 	switch {
 	case errors.Is(err, store.ErrBadReason):
 		return PutAdminLinkRefusal400JSONResponse{badRequest400(err.Error())}, nil
@@ -70,20 +79,20 @@ func (s *server) PutAdminLinkRefusal(ctx context.Context, req PutAdminLinkRefusa
 	case err != nil:
 		return nil, err
 	}
-	if err := s.admins.Audit(ctx, me.DiscordID, "link.refuse", fmt.Sprint(req.LinkRequest), req.Body); err != nil {
-		return nil, err
-	}
 	return PutAdminLinkRefusal204Response{}, nil
 }
 
 func (s *server) DeleteAdminAccountMember(ctx context.Context, req DeleteAdminAccountMemberRequestObject) (DeleteAdminAccountMemberResponseObject, error) {
 	me, _ := adminFrom(ctx)
-	if err := s.admins.UnlinkAccount(ctx, req.Account); errors.Is(err, store.ErrNoAccount) {
+	err := s.admins.Change(ctx, func(tx Admins) error {
+		if err := tx.UnlinkAccount(ctx, req.Account); err != nil {
+			return err
+		}
+		return tx.Audit(ctx, me.DiscordID, "account.unlink", fmt.Sprint(req.Account), nil)
+	})
+	if errors.Is(err, store.ErrNoAccount) {
 		return DeleteAdminAccountMember404JSONResponse{notFound404("no such account")}, nil
 	} else if err != nil {
-		return nil, err
-	}
-	if err := s.admins.Audit(ctx, me.DiscordID, "account.unlink", fmt.Sprint(req.Account), nil); err != nil {
 		return nil, err
 	}
 	return DeleteAdminAccountMember204Response{}, nil
@@ -97,12 +106,15 @@ func (s *server) DeleteAdminAccount(ctx context.Context, req DeleteAdminAccountR
 	if !ok {
 		return DeleteAdminAccount403JSONResponse{forbidden("only an admin removes an account")}, nil
 	}
-	if err := s.admins.RemoveAccount(ctx, req.Account); errors.Is(err, store.ErrNoAccount) {
+	err = s.admins.Change(ctx, func(tx Admins) error {
+		if err := tx.RemoveAccount(ctx, req.Account); err != nil {
+			return err
+		}
+		return tx.Audit(ctx, me.DiscordID, "account.remove", fmt.Sprint(req.Account), nil)
+	})
+	if errors.Is(err, store.ErrNoAccount) {
 		return DeleteAdminAccount404JSONResponse{notFound404("no such account")}, nil
 	} else if err != nil {
-		return nil, err
-	}
-	if err := s.admins.Audit(ctx, me.DiscordID, "account.remove", fmt.Sprint(req.Account), nil); err != nil {
 		return nil, err
 	}
 	return DeleteAdminAccount204Response{}, nil

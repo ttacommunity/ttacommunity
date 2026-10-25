@@ -57,6 +57,49 @@ func TestAuditRecordsWhoDidWhat(t *testing.T) {
 	}
 }
 
+func TestAChangeStandsOnlyWithItsAudit(t *testing.T) {
+	pool := migrated(t)
+	a := NewAdminStore(asAdminLogin(t, pool))
+	tests := []struct {
+		name      string
+		label     string
+		detail    any
+		cancel    bool // the request is given up between the change and its audit
+		wantStand bool
+	}{
+		{name: "the audit is written", label: "Kept", detail: map[string]any{}, wantStand: true},
+		{name: "the database refuses the audit row", label: "Refused", detail: map[string]string{"note": "a\x00b"}},
+		{name: "the request is given up before the audit", label: "Given up", detail: map[string]any{}, cancel: true},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ctx, cancel := context.WithCancel(context.Background())
+			defer cancel()
+			err := a.InTx(ctx, func(tx *AdminStore) error {
+				if _, err := tx.AddBadge(ctx, Badge{Label: tt.label}); err != nil {
+					return err
+				}
+				if tt.cancel {
+					cancel()
+				}
+				return tx.Audit(ctx, "100000000000000001", "badge.add", tt.label, tt.detail)
+			})
+			if (err == nil) != tt.wantStand {
+				t.Errorf("InTx err = %v, want the change to stand %v", err, tt.wantStand)
+			}
+			var badges, audits int
+			if err := pool.QueryRow(context.Background(), `
+				SELECT (SELECT count(*) FROM badges WHERE label = $1), (SELECT count(*) FROM admin_audit WHERE target = $1)`,
+				tt.label).Scan(&badges, &audits); err != nil {
+				t.Fatal(err)
+			}
+			if want := map[bool]int{true: 1, false: 0}[tt.wantStand]; badges != want || audits != want {
+				t.Errorf("badges = %d, audit rows = %d; want %d of each", badges, audits, want)
+			}
+		})
+	}
+}
+
 func TestThePublicReaderCannotReadAdminsOrTheAudit(t *testing.T) {
 	reader := asReader(t, migrated(t))
 	for _, table := range []string{"admins", "admin_audit"} {

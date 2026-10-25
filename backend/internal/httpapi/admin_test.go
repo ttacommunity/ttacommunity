@@ -51,6 +51,9 @@ type fakeAdmins struct {
 	added      []store.BlitzEntrant
 	candidates []store.Candidate
 	searched   string
+	// inChange is set while Change runs fn; auditErr is what Audit answers there.
+	inChange bool
+	auditErr error
 }
 
 // fakeRuns are runs 4 (complete, published third, after a roll back), 5 (complete, published first),
@@ -535,7 +538,19 @@ func (*fakeAdmins) Admin(_ context.Context, id string) (store.Admin, error) {
 	return store.Admin{}, store.ErrNotAdmin
 }
 
+func (f *fakeAdmins) Change(_ context.Context, fn func(tx Admins) error) error {
+	f.inChange = true
+	defer func() { f.inChange = false }()
+	return fn(f)
+}
+
 func (f *fakeAdmins) Audit(_ context.Context, id, action, target string, detail any) error {
+	if !f.inChange {
+		return errors.New("audited outside a Change: " + action)
+	}
+	if f.auditErr != nil {
+		return f.auditErr
+	}
 	b, err := json.Marshal(detail)
 	if err != nil {
 		return err
@@ -595,6 +610,24 @@ func TestAdminRoutesRefuseWithoutAVerifiedAdmin(t *testing.T) {
 			}
 			if rec.Header().Get("Cache-Control") != "no-store" {
 				t.Errorf("Cache-Control = %q, want no-store", rec.Header().Get("Cache-Control"))
+			}
+		})
+	}
+}
+
+func TestAnAuditThatFailsAnswers500(t *testing.T) {
+	const site, owner = "https://ttac-admin.example", "111111111111111111"
+	tests := []struct{ name, method, path, body string }{
+		{"adding a badge", http.MethodPost, "/v1/admin/badges", `{"label": "TD", "description": ""}`},
+		{"removing a badge", http.MethodDelete, "/v1/admin/badges/3", ""},
+		{"publishing a run", http.MethodPost, "/v1/admin/runs/8/publish", ""},
+		{"exporting the data", http.MethodGet, "/v1/admin/export", ""},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			f := &fakeAdmins{auditErr: errors.New("the audit row was refused")}
+			if rec := adminDoAs(t, f, owner, tt.method, tt.path, site, tt.body); rec.Code != http.StatusInternalServerError {
+				t.Errorf("%s %s with the audit failing = %d %s, want 500", tt.method, tt.path, rec.Code, rec.Body)
 			}
 		})
 	}

@@ -31,7 +31,10 @@ func (s *server) GetAdminExport(ctx context.Context, _ GetAdminExportRequestObje
 	if !ok {
 		return nil, errors.New("admin route reached without the gate")
 	}
-	if err := s.admins.Audit(ctx, me.DiscordID, "data.export", "all", map[string]any{}); err != nil {
+	err := s.admins.Change(ctx, func(tx Admins) error {
+		return tx.Audit(ctx, me.DiscordID, "data.export", "all", map[string]any{})
+	})
+	if err != nil {
 		return nil, err
 	}
 	r, w := io.Pipe()

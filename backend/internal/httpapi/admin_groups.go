@@ -21,7 +21,14 @@ func (s *server) PostAdminGroup(ctx context.Context, req PostAdminGroupRequestOb
 	if b.Members != nil {
 		g.Members = *b.Members
 	}
-	slug, err := s.admins.CreateGroup(ctx, g)
+	var slug string
+	err := s.admins.Change(ctx, func(tx Admins) error {
+		var err error
+		if slug, err = tx.CreateGroup(ctx, g); err != nil {
+			return err
+		}
+		return tx.Audit(ctx, a.DiscordID, "tournament.group", slug, b)
+	})
 	switch {
 	case errors.Is(err, store.ErrBadGroup), errors.Is(err, store.ErrGroupCycle):
 		return PostAdminGroup400JSONResponse{badRequest400(err.Error())}, nil
@@ -30,9 +37,6 @@ func (s *server) PostAdminGroup(ctx context.Context, req PostAdminGroupRequestOb
 	case errors.Is(err, store.ErrNoTournament):
 		return PostAdminGroup404JSONResponse{NotFoundJSONResponse{Body: Error{Error: "no such tournament"}, Headers: NotFoundResponseHeaders{CacheControl: cacheNone}}}, nil
 	case err != nil:
-		return nil, err
-	}
-	if err := s.admins.Audit(ctx, a.DiscordID, "tournament.group", slug, b); err != nil {
 		return nil, err
 	}
 	return PostAdminGroup201JSONResponse{Body: CreatedGroup{Slug: slug}, Headers: PostAdminGroup201ResponseHeaders{CacheControl: cacheNone}}, nil

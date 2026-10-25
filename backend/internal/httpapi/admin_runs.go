@@ -49,16 +49,21 @@ func (s *server) PostAdminRun(ctx context.Context, _ PostAdminRunRequestObject) 
 	if err != nil || !ok {
 		return PostAdminRun403JSONResponse{forbidden(onlyAdminsRun)}, err
 	}
-	job, err := s.admins.StartRun(ctx)
+	// The Job starts before the commit, so it runs unaudited only if the audit row or the commit fails.
+	var job string
+	err = s.admins.Change(ctx, func(tx Admins) error {
+		var err error
+		if job, err = tx.StartRun(ctx); err != nil {
+			return err
+		}
+		return tx.Audit(ctx, me.DiscordID, "run.start", job, map[string]any{})
+	})
 	switch {
 	case errors.Is(err, enginejob.ErrRunning):
 		return PostAdminRun409JSONResponse{conflict409("a rating run is already going")}, nil
 	case errors.Is(err, enginejob.ErrNotSetUp):
 		return PostAdminRun503JSONResponse{NotSetUpJSONResponse{Body: Error{Error: "starting runs is not set up here"}, Headers: NotSetUpResponseHeaders{CacheControl: cacheNone}}}, nil
 	case err != nil:
-		return nil, err
-	}
-	if err := s.admins.Audit(ctx, me.DiscordID, "run.start", job, map[string]any{}); err != nil {
 		return nil, err
 	}
 	return PostAdminRun202JSONResponse{Body: StartedRun{Job: job}, Headers: PostAdminRun202ResponseHeaders{CacheControl: cacheNone}}, nil
@@ -69,15 +74,18 @@ func (s *server) PostAdminRunPublish(ctx context.Context, req PostAdminRunPublis
 	if err != nil || !ok {
 		return PostAdminRunPublish403JSONResponse{forbidden(onlyAdminsRun)}, err
 	}
-	switch err := s.admins.Publish(ctx, req.Run); {
+	err = s.admins.Change(ctx, func(tx Admins) error {
+		if err := tx.Publish(ctx, req.Run); err != nil {
+			return err
+		}
+		return tx.Audit(ctx, me.DiscordID, "run.publish", fmt.Sprint(req.Run), map[string]any{})
+	})
+	switch {
 	case errors.Is(err, store.ErrRunNotFound):
 		return PostAdminRunPublish404JSONResponse{notFound404("no such run")}, nil
 	case errors.Is(err, store.ErrRunNotComplete):
 		return PostAdminRunPublish409JSONResponse{conflict409("only a complete run can be published")}, nil
 	case err != nil:
-		return nil, err
-	}
-	if err := s.admins.Audit(ctx, me.DiscordID, "run.publish", fmt.Sprint(req.Run), map[string]any{}); err != nil {
 		return nil, err
 	}
 	go func(run int64) {
@@ -139,16 +147,20 @@ func (s *server) PostAdminRunStop(ctx context.Context, req PostAdminRunStopReque
 	if !slices.ContainsFunc(runs, func(r store.AdminRun) bool { return r.ID == req.Run && r.Status == "running" }) {
 		return PostAdminRunStop409JSONResponse{conflict409(fmt.Sprintf("run %d is not the one going", req.Run))}, nil
 	}
-	jobs, err := s.admins.StopRun(ctx)
+	// As with a start, the Jobs stop before the commit.
+	err = s.admins.Change(ctx, func(tx Admins) error {
+		jobs, err := tx.StopRun(ctx)
+		if err != nil {
+			return err
+		}
+		return tx.Audit(ctx, me.DiscordID, "run.stop", strings.Join(jobs, ","), map[string]any{})
+	})
 	switch {
 	case errors.Is(err, enginejob.ErrNotRunning):
 		return PostAdminRunStop409JSONResponse{conflict409("no rating run is going")}, nil
 	case errors.Is(err, enginejob.ErrNotSetUp):
 		return PostAdminRunStop503JSONResponse{NotSetUpJSONResponse{Body: Error{Error: "stopping runs is not set up here"}, Headers: NotSetUpResponseHeaders{CacheControl: cacheNone}}}, nil
 	case err != nil:
-		return nil, err
-	}
-	if err := s.admins.Audit(ctx, me.DiscordID, "run.stop", strings.Join(jobs, ","), map[string]any{}); err != nil {
 		return nil, err
 	}
 	return PostAdminRunStop204Response{}, nil
@@ -194,17 +206,20 @@ func (s *server) PatchAdminRun(ctx context.Context, req PatchAdminRunRequestObje
 	if req.Body == nil {
 		return PatchAdminRun400JSONResponse{badRequest400("say whether the run is protected")}, nil
 	}
-	switch err := s.admins.SetRunProtected(ctx, req.Run, req.Body.Protected); {
-	case errors.Is(err, store.ErrRunNotFound):
-		return PatchAdminRun404JSONResponse{notFound404("no such run")}, nil
-	case err != nil:
-		return nil, err
-	}
 	action := "run.unprotect"
 	if req.Body.Protected {
 		action = "run.protect"
 	}
-	if err := s.admins.Audit(ctx, me.DiscordID, action, fmt.Sprint(req.Run), map[string]any{}); err != nil {
+	err = s.admins.Change(ctx, func(tx Admins) error {
+		if err := tx.SetRunProtected(ctx, req.Run, req.Body.Protected); err != nil {
+			return err
+		}
+		return tx.Audit(ctx, me.DiscordID, action, fmt.Sprint(req.Run), map[string]any{})
+	})
+	switch {
+	case errors.Is(err, store.ErrRunNotFound):
+		return PatchAdminRun404JSONResponse{notFound404("no such run")}, nil
+	case err != nil:
 		return nil, err
 	}
 	return PatchAdminRun204Response{}, nil
@@ -222,7 +237,13 @@ func (s *server) DeleteAdminRun(ctx context.Context, req DeleteAdminRunRequestOb
 		}
 		going = true
 	}
-	switch err := s.admins.StartDeleteRun(ctx, req.Run, going); {
+	err = s.admins.Change(ctx, func(tx Admins) error {
+		if err := tx.StartDeleteRun(ctx, req.Run, going); err != nil {
+			return err
+		}
+		return tx.Audit(ctx, me.DiscordID, "run.delete", fmt.Sprint(req.Run), map[string]any{})
+	})
+	switch {
 	case errors.Is(err, store.ErrRunNotFound):
 		return DeleteAdminRun404JSONResponse{notFound404("no such run")}, nil
 	case errors.Is(err, store.ErrRunProtected):
@@ -232,9 +253,6 @@ func (s *server) DeleteAdminRun(ctx context.Context, req DeleteAdminRunRequestOb
 	case errors.Is(err, store.ErrRunRunning):
 		return DeleteAdminRun409JSONResponse{conflict409("the run is still running")}, nil
 	case err != nil:
-		return nil, err
-	}
-	if err := s.admins.Audit(ctx, me.DiscordID, "run.delete", fmt.Sprint(req.Run), map[string]any{}); err != nil {
 		return nil, err
 	}
 	go func(run int64) {
