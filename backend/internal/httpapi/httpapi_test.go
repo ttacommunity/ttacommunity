@@ -366,9 +366,8 @@ func TestRobotsTxtKeepsCrawlersOffPlayersOnly(t *testing.T) {
 	if rec.Code != http.StatusOK || !strings.HasPrefix(rec.Header().Get("Content-Type"), "text/plain") {
 		t.Fatalf("GET /robots.txt: %d %q, want 200 text/plain", rec.Code, rec.Header().Get("Content-Type"))
 	}
-	lines := strings.Split(rec.Body.String(), "\n")
-	if !slices.Contains(lines, "Disallow: /v1/runs/*/players/") || slices.Contains(lines, "Disallow: /") {
-		t.Errorf("GET /robots.txt: body = %q, want only the player routes disallowed", rec.Body.String())
+	if want := "User-agent: *\nDisallow: /v1/runs/*/players/\n"; rec.Body.String() != want {
+		t.Errorf("GET /robots.txt: body = %q, want %q", rec.Body.String(), want)
 	}
 	if got := rec.Header().Get("Cache-Control"); got != "public, max-age=300" {
 		t.Errorf("GET /robots.txt: Cache-Control = %q, want %q", got, "public, max-age=300")
