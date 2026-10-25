@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { EDITION_COLUMNS, ENTRANT_COLUMNS, STANDING_COLUMNS, byFinish, offsetMinutes, formatLabel, knockoutStage, latestFinishes, placeLabel, offsetLabel, pointsList, pointsText, reachedLabel, resultSummary, resultTag, roundShown, roundSummary, roundTitle, scoringSentence, seededName, turnMark, turnOrder, zoneLabel, type BlitzPlayedGame } from './blitz';
+import { EDITION_COLUMNS, ENTRANT_COLUMNS, STANDING_COLUMNS, byFinish, offsetMinutes, formatLabel, knockoutStage, latestFinishes, placeLabel, offsetLabel, pairingSummary, pointsList, pointsText, reachedLabel, resultSummary, resultTag, roundShown, roundSummary, roundTitle, scoringSentence, seededName, turnMark, turnOrder, zoneLabel, type BlitzPlayedGame } from './blitz';
 import { sortRows } from './sort';
 
 const game = (aCulture: number, bCulture: number, aOutcome: BlitzPlayedGame['a_outcome'] = 'finished', bOutcome: BlitzPlayedGame['b_outcome'] = 'finished'): BlitzPlayedGame => ({
@@ -282,5 +282,14 @@ describe('ENTRANT_COLUMNS', () => {
     ['rating, the highest first, unrated last', { col: 'rating', desc: true }, ['bo', 'di', 'cy', 'Ann']],
   ] as const)('sorts the entrants by %s', (_name, sort, want) => {
     expect(sortRows(rows, ENTRANT_COLUMNS, sort).map((r) => r.name)).toEqual(want);
+  });
+});
+
+describe('pairingSummary', () => {
+  it.each([
+    ['one method throughout', { first: 'dutch', later: 'dutch' }, "FIDE's Dutch system, every round"],
+    ['round 1 and the later rounds', { first: 'random', later: 'dutch-timezone' }, 'Round 1: Random; later rounds: Dutch, time zones as tiebreak'],
+  ] as const)('%s', (_, pairing, want) => {
+    expect(pairingSummary(pairing)).toBe(want);
   });
 });

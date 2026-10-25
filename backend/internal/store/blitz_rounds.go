@@ -39,8 +39,8 @@ type BlitzMatch struct {
 }
 
 // BlitzRound is one round of an edition: its number, kind (swiss or knockout), the method ("" for a knockout round)
-// and seed that paired it, when it was published (nil for a draft), the deadline to play by and the zone it was set in (nil and "" until
-// set) and its matches in the order made.
+// and seed that paired it, when it was published (nil for a draft), the deadline to play by and the zone it was set
+// in (nil and "" until set) and its matches in the order made.
 type BlitzRound struct {
 	ID           int64
 	Number       int

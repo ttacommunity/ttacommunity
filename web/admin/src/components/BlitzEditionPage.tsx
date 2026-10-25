@@ -7,7 +7,7 @@ import SubTabs, { useHash } from '@ttac/shared/SubTabs';
 import SortHeader, { useSort } from '@ttac/shared/SortHeader';
 import { nextSort, sortRows, type Sort } from '@ttac/shared/sort';
 import { hashTab } from '@ttac/shared/tabs';
-import { ENTRANT_COLUMNS, STANDING_COLUMNS, byFinish, formatLabel, latestFinishes, offsetLabel, placeLabel, resultSummary, roundShown, roundSummary, roundTitle, scoringSentence, seededName, turnMark, turnOrder } from '@ttac/shared/blitz';
+import { ENTRANT_COLUMNS, FIRST_METHODS, LATER_METHODS, PAIRING_METHODS, STANDING_COLUMNS, byFinish, formatLabel, latestFinishes, pairingSummary, offsetLabel, placeLabel, resultSummary, roundShown, roundSummary, roundTitle, scoringSentence, seededName, turnMark, turnOrder, type PairingMethod } from '@ttac/shared/blitz';
 import { formatInstant } from '@ttac/shared/time';
 import { adminDownload, adminRequest, firstError, type AdminBlitzEdition, type AdminMe, type BlitzEntrantIds, type Load } from '../lib/admin-api';
 import * as req from '../lib/admin-requests';
@@ -19,7 +19,7 @@ import { entrantToAdd, wildcardChoices, type PersonChoice, type PersonDetails } 
 import { countryNames, type Country } from '../lib/countries';
 import { clockIn, type Region } from '../lib/zones';
 import { loadFailure, outcomeOf, refused, shownAt, succeeded, type Outcome } from '../lib/outcome';
-import { asChanges, byeTakers, canDeleteRound, canResetEdition, decidedOnly, finishRounds, flaggedColumns, matchColumns, type MatchColumn, resetsOf, entrantActions, entrantState, leftUnpaired, newestFirst, openRound, flaggedMatches, pairAction, pairCounts, partnersFor, reconcilePending, replaceableSide, reportNote, rulingChoices, rulingLabel, samePairs, shownAfter, unpaired, unsavedMatch, zoneGapLabel, type AdminBlitzMatch, type AdminBlitzRound, type Pending } from '../lib/blitz-rounds';
+import { asChanges, byeTakers, canDeleteRound, canResetEdition, decidedOnly, finishRounds, flaggedColumns, matchColumns, nextPairing, type MatchColumn, resetsOf, entrantActions, entrantState, leftUnpaired, newestFirst, openRound, flaggedMatches, pairAction, pairCounts, partnersFor, reconcilePending, replaceableSide, reportNote, rulingChoices, rulingLabel, samePairs, shownAfter, unpaired, unsavedMatch, zoneGapLabel, type AdminBlitzMatch, type AdminBlitzRound, type Pending } from '../lib/blitz-rounds';
 import AdminHeader from './AdminHeader';
 import CountryPick from './CountryPick';
 import InfoTip from './InfoTip';
@@ -447,6 +447,11 @@ function RoundsPanel({ at, ed, regions, onReload, outcome, say }: Props) {
           </span>
         )}
       </div>
+      {action.kind === 'next' && action.round.kind === 'swiss' && (
+        <p className="muted round-hint">
+          {roundTitle(action.round.number, ed.format)} is paired by {PAIRING_METHODS[nextPairing(ed.pairing, ed.rounds)].label} (Settings, Pairing).
+        </p>
+      )}
       <Notice outcome={shownAt(outcome, 'rounds')} onClose={close} />
       {open !== null && open.kind === 'swiss' && free.length > 0 && (
         <>
@@ -471,6 +476,7 @@ function RoundsPanel({ at, ed, regions, onReload, outcome, say }: Props) {
         <div key={r.id} className="round-block">
           <h3>
             {roundTitle(r.number, ed.format)} · {r.published_at === null ? 'draft' : `published ${formatInstant(r.published_at, zone)}`}
+            {r.method !== null && <span className="row-detail">{PAIRING_METHODS[r.method].label}</span>}
             {changed(r) && <span className="row-detail">unsaved changes</span>}
           </h3>
           <p className="season-summary">
@@ -961,6 +967,8 @@ function EditionSettings(props: Props) {
         <FormatPanel {...props} />
         <h4>Points</h4>
         <PointsPanel key={JSON.stringify(props.ed.points)} {...props} />
+        <h4>Pairing</h4>
+        <PairingPanel key={JSON.stringify(props.ed.pairing)} {...props} />
         <h4>Organisers</h4>
         <OrganisersPanel {...props} />
         <h4>Thread text</h4>
@@ -1186,6 +1194,44 @@ function PointsPanel({ at, ed, onReload, outcome, say }: Props) {
         )}
       </form>
       <Notice outcome={shownAt(outcome, 'points')} onClose={() => say(null)} />
+    </>
+  );
+}
+
+/** PairingPanel sets how the edition's Swiss rounds are paired, round 1 and the rounds after it, at any time. Keyed by the saved pairing, so a save starts the form again from it. */
+function PairingPanel({ at, ed, onReload, outcome, say }: Props) {
+  const [pairing, setPairing] = useState(ed.pairing);
+  const save = async (e: FormEvent) => {
+    e.preventDefault();
+    const r = await req.send(req.setBlitzPairing(at.slug, at.edition, pairing));
+    say(outcomeOf(r, `Pairing saved: ${pairingSummary(pairing)}.`, 'pairing'));
+    await onReload();
+  };
+  const choice = (label: string, key: 'first' | 'later', methods: readonly PairingMethod[]) => (
+    <label>
+      {label}
+      <select className="input-antique" value={pairing[key]} onChange={(e) => setPairing({ ...pairing, [key]: methods.find((m) => m === e.target.value) ?? pairing[key] })}>
+        {methods.map((m) => (
+          <option key={m} value={m}>
+            {PAIRING_METHODS[m].label}
+          </option>
+        ))}
+      </select>
+    </label>
+  );
+  return (
+    <>
+      <form className="admin-add" onSubmit={(e) => void save(e)}>
+        {choice('Round 1', 'first', FIRST_METHODS)}
+        {choice('Later rounds', 'later', LATER_METHODS)}
+        <button type="submit" className="btn-antique">
+          Save
+        </button>
+      </form>
+      <Notice outcome={shownAt(outcome, 'pairing')} onClose={() => say(null)} />
+      <p className="muted round-hint">Round 1: {PAIRING_METHODS[pairing.first].about}</p>
+      <p className="muted round-hint">Later rounds: {PAIRING_METHODS[pairing.later].about}</p>
+      <p className="muted round-hint">Nobody meets the same opponent twice. The next round paired follows this; rounds already paired keep their method.</p>
     </>
   );
 }

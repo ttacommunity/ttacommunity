@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { byeTakers, canDeleteRound, finishRounds, flaggedColumns, matchColumns, canResetEdition, entrantActions, entrantState, resetsOf, partnersFor, leftUnpaired, pairCounts, reconcilePending, replaceableSide, canPair, decidedOnly, nextRound, openRound, pairAction, flaggedMatches, reportNote, rulingChoices, rulingLabel, newestFirst, samePairs, shownAfter, undecided, unpaired, unsavedMatch, zoneGapLabel, type AdminBlitzRound } from './blitz-rounds';
+import { byeTakers, canDeleteRound, nextPairing, finishRounds, flaggedColumns, matchColumns, canResetEdition, entrantActions, entrantState, resetsOf, partnersFor, leftUnpaired, pairCounts, reconcilePending, replaceableSide, canPair, decidedOnly, nextRound, openRound, pairAction, flaggedMatches, reportNote, rulingChoices, rulingLabel, newestFirst, samePairs, shownAfter, undecided, unpaired, unsavedMatch, zoneGapLabel, type AdminBlitzRound } from './blitz-rounds';
 import { sortRows } from '@ttac/shared/sort';
 
 const round = (id: number, number: number, published: boolean, matches: AdminBlitzRound['matches']): AdminBlitzRound => ({
@@ -106,6 +106,16 @@ describe('undecided', () => {
   it('names a knockout match without a winner, a draw or a double loss', () => {
     const rounds = [round(1, 1, true, [match(1, 1, 2, 'a')]), knockout(2, 2, true, [match(2, 1, 3, 'draw'), match(3, 2, 4, 'b'), match(4, 5, 6, 'double_loss')])];
     expect(undecided(rounds, (id) => `p${id}`)).toEqual(['p1 v p3 (no winner yet)', 'p5 v p6 (no winner yet)']);
+  });
+});
+
+describe('nextPairing', () => {
+  const pairing = { first: 'random', later: 'dutch' } as const;
+  it.each([
+    ["round 1's method before any round", [], 'random'],
+    ['the later method once a Swiss round exists', [round(1, 1, true, [])], 'dutch'],
+  ])('%s', (_, rounds, want) => {
+    expect(nextPairing(pairing, rounds)).toBe(want);
   });
 });
 

@@ -1,4 +1,4 @@
-/** What both sites say about a blitz tournament: a zone's offset, a format, its points, how a match's result and turn order read, how a folded round is summed up, how a round and a seeded player are named, and how the standings share places. */
+/** What both sites say about a blitz tournament: a zone's offset, a format, its points, how a match's result and turn order read, how a folded round is summed up, how a round and a seeded player are named, how the standings share places, and how rounds are paired. */
 import type { components } from '../api/schema';
 import type { SortColumns } from './sort';
 
@@ -108,6 +108,36 @@ export function roundShown(round: number, newest: number, toggled: ReadonlySet<n
 export function formatLabel(f: BlitzFormat): string {
   const swiss = `${f.swiss_rounds} Swiss round${f.swiss_rounds === 1 ? '' : 's'}`;
   return f.knockout_size === 0 ? `${swiss}, no knockout` : `${swiss}, then a top-${f.knockout_size} knockout`;
+}
+
+export type PairingMethod = components['schemas']['BlitzPairingMethod'];
+export type PairingMethods = components['schemas']['BlitzPairingMethods'];
+
+/** FIRST_METHODS are the methods round 1 may be paired by, in the order offered. */
+export const FIRST_METHODS: readonly PairingMethod[] = ['dutch', 'dutch-timezone', 'timezone', 'random'];
+/** LATER_METHODS are the methods the rounds after round 1 may be paired by, in the order offered. */
+export const LATER_METHODS: readonly PairingMethod[] = ['dutch', 'dutch-timezone', 'timezone', 'rating'];
+
+/** PAIRING_METHODS names each pairing method and says in plain words how it pairs a round. */
+export const PAIRING_METHODS: Record<PairingMethod, { label: string; about: string }> = {
+  dutch: {
+    label: "FIDE's Dutch system",
+    about:
+      'Players on the same points meet. Each score group is ranked by rating and split in two, and the top half plays the bottom half: the first against the first of the bottom half, the second against the second, and so on. Pairs change only to avoid a rematch, and a player left over moves down to the next group.',
+  },
+  'dutch-timezone': {
+    label: 'Dutch, time zones as tiebreak',
+    about: "As FIDE's Dutch system, the top half of each score group plays the bottom half; within that, each player meets the opponent in the bottom half closest to their time zone.",
+  },
+  timezone: { label: 'Closest time zones', about: 'Players on the same points meet the opponent closest to their time zone, then the closest in rating.' },
+  rating: { label: 'Closest ratings', about: 'Players on the same points meet the opponent closest in rating.' },
+  random: { label: 'Random', about: 'Opponents are drawn by chance.' },
+};
+
+/** pairingSummary says in one line how an edition's rounds are paired: one method for every round, or round 1's and the later rounds'. */
+export function pairingSummary(p: PairingMethods): string {
+  if (p.first === p.later) return `${PAIRING_METHODS[p.first].label}, every round`;
+  return `Round 1: ${PAIRING_METHODS[p.first].label}; later rounds: ${PAIRING_METHODS[p.later].label}`;
 }
 
 /** pointsText writes points in halves as a player reads them: 0, ½, 1, 2½. */
