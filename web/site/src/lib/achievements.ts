@@ -365,20 +365,17 @@ function parsePlacementNumber(p: string): number {
 
 const MEDAL_RANK: Record<string, number> = { gold: 3, silver: 2, bronze: 1 };
 
+/** CGE's division ranks, highest first: the leagues' tiers, then the Royal League's, as the API orders groups. */
+const DIVISION_RANKS = ['grandmaster', 'master', 'diamond', 'platinum', 'gold', 'silver', 'bronze', 'wood', 'emperor', 'king', 'prince', 'duke', 'marquess', 'count', 'viscount', 'baron', 'knight'];
+
+/** divisionScore ranks a division within its tournament, higher better: by its first word's rank, else its tier or division number (Premier is 1), else lowest. */
 function divisionScore(d: string): number {
   const dl = d.toLowerCase();
-  if (dl.includes('emperor')) return 100;
-  if (dl.includes('king')) return 90;
-  if (dl.includes('archduke')) return 80;
-  if (dl.includes('duke')) return 70;
-  if (dl.includes('marquess')) return 60;
-  if (dl.includes('count')) return 50;
-  if (dl.includes('viscount')) return 40;
-  if (dl.includes('baron')) return 30;
-  if (dl.includes('premier') || dl.includes('tier 1') || dl.includes('division 1')) return 90;
-  if (dl.includes('tier 2') || dl.includes('division 2')) return 70;
-  if (dl.includes('tier 3') || dl.includes('division 3')) return 50;
-  return 10;
+  const rank = DIVISION_RANKS.indexOf(dl.split(' ')[0] ?? '');
+  if (rank >= 0) return 1000 - rank;
+  if (dl.includes('premier')) return 99;
+  const n = /\b(?:tier|division) (\d+)\b/.exec(dl);
+  return n ? 100 - Number(n[1]) : 0;
 }
 
 function compareRecords(a: TournamentRecord, b: TournamentRecord): number {

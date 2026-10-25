@@ -366,6 +366,23 @@ describe('majorBestResults', () => {
     expect(res.totalMatches).toBe(13);
     expect(res.winRate).toBeCloseTo(69.2, 1);
   });
+
+  it.each([
+    ['a higher league tier over a better place below it', 'International Championship', [['Bronze 22', '1 / 7'], ['Platinum 3', '5 / 7']], 'Platinum 3'],
+    ['Grandmaster over Master', 'International Championship', [['Master 1', '1 / 7'], ['Grandmaster', '6 / 7']], 'Grandmaster'],
+    ['Bronze over Wood', 'International Championship', [['Wood 1', '1 / 7'], ['Bronze 3', '7 / 7']], 'Bronze 3'],
+    ['the better place within one tier', 'International Championship', [['Gold 8', '2 / 7'], ['Gold 2', '1 / 7']], 'Gold 2'],
+    ['Division 2 over Division 12', 'International Championship', [['Division 12', '1 / 4'], ['Division 2', '4 / 4']], 'Division 2'],
+    ['Diamond over Platinum in the Intermezzo', 'Intermezzo Championship', [['Platinum 1', '1 / 6'], ['Diamond', '4 / 6']], 'Diamond'],
+    ['Prince over Baron', 'Royal League', [['Baron 4', '1 / 8'], ['Prince', '8 / 8']], 'Prince'],
+    ['Count over Viscount', 'Royal League', [['Viscount 2', '1 / 8'], ['Count 5', '8 / 8']], 'Count 5'],
+    ['Baron over Knight', 'Royal League', [['Knight 9', '1 / 8'], ['Baron 1', '8 / 8']], 'Baron 1'],
+  ])('picks %s', (_name, tournament, seasons, want) => {
+    const records = seasons.map(([division, placement], i) => rec({ tournament, season: `Season ${i + 1}`, division, placement }));
+    const res = majorBestResults(records);
+    const best = tournament === 'Royal League' ? res.rl : tournament.startsWith('Intermezzo') ? res.im : res.ic;
+    expect(best?.division).toBe(want);
+  });
 });
 
 describe('tournamentOverviews', () => {
