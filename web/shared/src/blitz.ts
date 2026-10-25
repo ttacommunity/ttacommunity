@@ -210,3 +210,32 @@ export const STANDING_COLUMNS: SortColumns<BlitzStanding, 'place' | 'player' | '
   byes: { value: (s) => s.byes, first: 'desc' },
   buchholz: { value: (s) => s.buchholz, first: 'desc' },
 };
+
+/** EditionRow is what an editions list shows of an edition, on the site and in admin. */
+export type EditionRow = { name: string; edition: string; format: BlitzFormat; round: number | null; champion: string | null; entrants: number };
+
+/** EDITION_COLUMNS are an editions list's sortable columns; reached puts a champion first, then the latest round. */
+export const EDITION_COLUMNS: SortColumns<EditionRow, 'tournament' | 'edition' | 'format' | 'reached' | 'players'> = {
+  tournament: { value: (e) => e.name, first: 'asc' },
+  edition: { value: (e) => e.edition, first: 'desc' },
+  format: { value: (e) => [e.format.swiss_rounds, e.format.knockout_size], first: 'desc' },
+  reached: { value: (e) => [e.champion === null ? 0 : 1, e.round], first: 'desc' },
+  players: { value: (e) => e.entrants, first: 'desc' },
+};
+
+/** offsetMinutes reads a UTC offset ("+05:30") as minutes east of UTC; null for none (''). */
+export function offsetMinutes(offset: string): number | null {
+  const m = /^([+-])(\d{2}):(\d{2})$/.exec(offset);
+  if (m === null) return null;
+  return (m[1] === '-' ? -1 : 1) * (Number(m[2]) * 60 + Number(m[3]));
+}
+
+/** EntrantRow is what an entrants table shows of every entrant, on the site and in admin. */
+export type EntrantRow = { name: string; zone: string; utc_offset: string; rating: number | null };
+
+/** ENTRANT_COLUMNS are an entrants table's sortable columns; zone sorts west to east, then by the zone's name. */
+export const ENTRANT_COLUMNS: SortColumns<EntrantRow, 'player' | 'zone' | 'rating'> = {
+  player: { value: (e) => e.name, first: 'asc' },
+  zone: { value: (e) => [offsetMinutes(e.utc_offset), e.zone], first: 'asc' },
+  rating: { value: (e) => e.rating, first: 'desc' },
+};

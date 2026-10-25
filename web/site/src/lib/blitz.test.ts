@@ -73,6 +73,26 @@ const rounds = [
 ];
 const all = { round: null, player: '', coded: false, page: 1 };
 
+describe('blitzGames sorted', () => {
+  it.each([
+    ['in the order given, unsorted', null, ['2-1', '2-2', '2-3', '2-4', '1-1']],
+    ['by date, the latest first, unplayed last', { col: 'date', desc: true }, ['2-1', '1-1', '2-2', '2-3', '2-4']],
+    ['by round, then game', { col: 'context', desc: false }, ['1-1', '2-1', '2-2', '2-3', '2-4']],
+    ['by game number, then round', { col: 'game', desc: false }, ['1-1', '2-1', '2-2', '2-3', '2-4']],
+    ['by players: round, then date, unplayed last', { col: 'players', desc: false }, ['1-1', '2-1', '2-2', '2-3', '2-4']],
+    ['by replay code, none last', { col: 'code', desc: false }, ['2-1', '1-1', '2-2', '2-3', '2-4']],
+  ] as const)('lists the games %s', (_name, sort, want) => {
+    expect(blitzGames(rounds, format, all, 'UTC', null, sort).rows.map((r) => r.key)).toEqual(want);
+  });
+  it('breaks a tie on round and date by the highest score', () => {
+    const at = '2026-10-14T23:30:00Z';
+    const low = { ...played('', at), a_culture: 90, b_culture: 80 };
+    const high = { ...played('', at), a_culture: 120, b_culture: 300 };
+    const level = [round(1, [match('Ann', 'Cy', { result: 'a', game: low }), match('Bo', 'Di', { result: 'b', game: high })])];
+    expect(blitzGames(level, format, all, 'UTC', null, { col: 'players', desc: false }).rows.map((r) => r.key)).toEqual(['1-2', '1-1']);
+  });
+});
+
 describe('blitzGames', () => {
   it('turns a played match into a row: its date in the zone, round, game number, rated players linked with their ratings and turns, the scores, how it ended and the code', () => {
     expect(blitzGames(rounds, format, all, 'Australia/Sydney').rows[0]).toEqual({

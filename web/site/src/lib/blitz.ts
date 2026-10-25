@@ -3,7 +3,8 @@ import type { components } from '@ttac/shared/api';
 import { resultTag, roundTitle, seededName, turnMark, type BlitzFormat } from '@ttac/shared/blitz';
 import { formatInstant } from '@ttac/shared/time';
 import { outcomeNote } from './catalogue-view';
-import { pageOf, type GameRow, type GameSeat } from './games-table';
+import { pageOf, type GameRow, type GameSeat, type GamesColumn } from './games-table';
+import { sortRows, type Sort, type SortColumns } from '@ttac/shared/sort';
 
 type BlitzRound = components['schemas']['BlitzRound'];
 type BlitzMatch = components['schemas']['BlitzPublicMatch'];
@@ -50,14 +51,25 @@ export type BlitzGamesFilter = { round: number | null; player: string; coded: bo
 /** YourRow names the signed-in player's game, by its round and the player on its side a, and what its row says to them. */
 export type YourRow = { round: number; sideA: string; label: string };
 
-/** blitzGames lists the matches of rounds, in the order given, as games-table rows narrowed by filter, with dates on the clocks of zone, the signed-in player's game marked: one page of them, the page and pages, and how many games (byes aside) and how many with a replay code the filter keeps. */
-export function blitzGames(rounds: readonly BlitzRound[], format: BlitzFormat, filter: BlitzGamesFilter, zone: string, you: YourRow | null = null) {
+type KeptMatch = { r: BlitzRound; m: BlitzMatch; i: number };
+
+/** BLITZ_GAME_COLUMNS are a blitz games table's sortable columns; players sorts by round, then date, then the highest score. */
+export const BLITZ_GAME_COLUMNS: SortColumns<KeptMatch, GamesColumn> = {
+  date: { value: ({ m }) => m.game?.finished_at ?? null, first: 'desc' },
+  context: { value: ({ r, i }) => [r.number, i], first: 'asc' },
+  game: { value: ({ r, i }) => [i, r.number], first: 'asc' },
+  players: { value: ({ r, m }) => [r.number, m.game?.finished_at ?? null, m.game === null ? null : -Math.max(m.game.a_culture, m.game.b_culture)], first: 'asc' },
+  code: { value: ({ m }) => (coded(m) ? (m.game?.share_code ?? null) : null), first: 'asc' },
+};
+
+/** blitzGames lists the matches of rounds, in the order given or by sort, as games-table rows narrowed by filter, with dates on the clocks of zone, the signed-in player's game marked: one page of them, the page and pages, and how many games (byes aside) and how many with a replay code the filter keeps. */
+export function blitzGames(rounds: readonly BlitzRound[], format: BlitzFormat, filter: BlitzGamesFilter, zone: string, you: YourRow | null = null, sort: Sort<GamesColumn> = null) {
   const day = new Intl.DateTimeFormat('en-CA', { timeZone: zone, year: 'numeric', month: '2-digit', day: '2-digit' });
   const kept = rounds
     .filter((r) => filter.round === null || r.number === filter.round)
     .flatMap((r) => r.matches.map((m, i) => ({ r, m, i })))
     .filter(({ m }) => (filter.player === '' || m.a === filter.player || m.b === filter.player) && (!filter.coded || coded(m)));
-  const rows = kept.map(({ r, m, i }) => {
+  const rows = sortRows(kept, BLITZ_GAME_COLUMNS, sort).map(({ r, m, i }) => {
     const row = blitzRow(r.number, i + 1, m, format, day);
     return you !== null && r.number === you.round && m.a === you.sideA ? { ...row, you: you.label } : row;
   });
