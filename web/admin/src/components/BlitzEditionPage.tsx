@@ -1,5 +1,5 @@
 /** A blitz edition's page, in three tabs: its format and rounds (paired, changed by hand, published, their results recorded), its entrants (searched for and added, edited, dropped, removed), and the standings. */
-import { Fragment, useEffect, useState, type FormEvent } from 'react';
+import { Fragment, useEffect, useRef, useState, type FormEvent } from 'react';
 import Segmented from '@ttac/shared/Segmented';
 import BackLink from '@ttac/shared/BackLink';
 import { useDialog } from '@ttac/shared/Dialog';
@@ -9,12 +9,12 @@ import { nextSort, sortRows, type Sort } from '@ttac/shared/sort';
 import { hashTab } from '@ttac/shared/tabs';
 import { ENTRANT_COLUMNS, FIRST_METHODS, LATER_METHODS, PAIRING_METHODS, STANDING_COLUMNS, byFinish, formatLabel, latestFinishes, pairingSummary, offsetLabel, placeLabel, resultSummary, roundShown, roundSummary, roundTitle, scoringSentence, seededName, turnMark, turnOrder, type PairingMethod } from '@ttac/shared/blitz';
 import { formatInstant } from '@ttac/shared/time';
-import { adminDownload, adminRequest, firstError, type AdminBlitzEdition, type AdminMe, type BlitzEntrantIds, type Load } from '../lib/admin-api';
+import { adminRequest, firstError, type AdminBlitzEdition, type AdminMe, type BlitzDiscordText, type BlitzEntrantIds, type Load } from '../lib/admin-api';
 import * as req from '../lib/admin-requests';
 import { tabsFor } from '../lib/admin-tabs';
 import { ADMIN_ENTRANT_COLUMNS, editionFormatWarnings, editionParams, formatAdvice, pointsChanged, pointsForm, pointsFrom, settingsRows, type AdminBlitzEntrant, type PointsForm } from '../lib/blitz-page';
 import { chooseTurn, emptyGameForm, gameRecordFrom, TURNS, type BlitzStanding, type GameForm } from '@ttac/shared/game-form';
-import { deadlineForm, deadlineLabel, deadlineLocked, organiserChoices, threadTextSavable, threadsBlocker, threadsFileName, type DeadlineForm, type ThreadText } from '../lib/blitz-threads';
+import { deadlineForm, deadlineLabel, deadlineLocked, discordBlocker, type DeadlineForm } from '../lib/blitz-deadlines';
 import { entrantToAdd, wildcardChoices, type PersonChoice, type PersonDetails } from '../lib/person-form';
 import { countryNames, type Country } from '../lib/countries';
 import { clockIn, type Region } from '../lib/zones';
@@ -493,7 +493,7 @@ function RoundsPanel({ at, ed, regions, onReload, outcome, say }: Props) {
               </>
             )}
           </p>
-          <RoundThreads at={at} ed={ed} round={r} regions={regions} unsaved={changed(r)} onReload={onReload} say={say} />
+          <RoundDeadline at={at} ed={ed} round={r} regions={regions} unsaved={changed(r)} onReload={onReload} say={say} />
           <Notice outcome={shownAt(outcome, `round ${r.id}`)} onClose={close} />
           {shown(r) && (
             <>
@@ -969,10 +969,6 @@ function EditionSettings(props: Props) {
         <PointsPanel key={JSON.stringify(props.ed.points)} {...props} />
         <h4>Pairing</h4>
         <PairingPanel key={JSON.stringify(props.ed.pairing)} {...props} />
-        <h4>Organisers</h4>
-        <OrganisersPanel {...props} />
-        <h4>Thread text</h4>
-        <ThreadTextPanel key={`${props.ed.thread_text.message}\n${props.ed.thread_text.no_discord}`} {...props} />
       </div>
     </div>
   );
@@ -987,96 +983,13 @@ function FormatWarnings({ warnings }: { warnings: readonly string[] }) {
   ));
 }
 
-/** OrganisersPanel lists the members every round's Discord threads tell players to ping, removes one, and adds a member found by their username. */
-function OrganisersPanel({ at, ed, onReload, outcome, say }: Props) {
-  const [typed, setTyped] = useState('');
-  const found = usePeopleSearch('/api/people', typed, false, ed);
-  const choices = organiserChoices(found, ed.organisers);
-  const change = async (r: req.Request, done: string) => {
-    const res = await req.send(r);
-    say(outcomeOf(res, done, 'organisers'));
-    if (res.ok) setTyped('');
-    await onReload();
-  };
-  return (
-    <>
-      <p className="muted">Each game&apos;s Discord thread tells its players to ping them, by Discord username.</p>
-      {ed.organisers.length === 0 && <p className="muted">None yet.</p>}
-      {ed.organisers.length > 0 && (
-        <ul className="organiser-list">
-          {ed.organisers.map((o) => (
-            <li key={o.member}>
-              {o.name} <span className="muted">{o.discord_name === '' ? 'no Discord username yet' : `@${o.discord_name}`}</span>{' '}
-              <button type="button" className="btn-antique" onClick={() => void change(req.removeBlitzOrganiser(at.slug, at.edition, o.member), `${o.name} no longer organises it.`)}>
-                Remove
-              </button>
-            </li>
-          ))}
-        </ul>
-      )}
-      <div className="admin-add">
-        <PickBox
-          label="Add an organiser"
-          text={typed}
-          placeholder="Type a member's name"
-          options={choices}
-          onText={setTyped}
-          onPick={(o) => {
-            const c = choices.find((x) => x.key === o.key);
-            if (c !== undefined && !c.disabled) void change(req.addBlitzOrganiser(at.slug, at.edition, Number(c.key)), `${c.label} organises it now.`);
-          }}
-        />
-      </div>
-      <Notice outcome={shownAt(outcome, 'organisers')} onClose={() => say(null)} />
-    </>
-  );
-}
+type RoundDeadlineProps = Pick<Props, 'at' | 'ed' | 'regions' | 'onReload' | 'say'> & { round: AdminBlitzRound; unsaved: boolean };
 
-/** ThreadTextPanel edits what each game's Discord thread says, the welcome message and the sentence for a player without Discord, and resets it to the default. Keyed by the saved text, so a save or reset starts the form again from it. */
-function ThreadTextPanel({ at, ed, onReload, outcome, say }: Props) {
-  const saved = ed.thread_text;
-  const [form, setForm] = useState<ThreadText>({ message: saved.message, no_discord: saved.no_discord });
-  const send = async (r: req.Request, done: string) => {
-    const res = await req.send(r);
-    say(outcomeOf(res, done, 'thread text'));
-    await onReload();
-  };
-  return (
-    <>
-      <p className="muted">
-        Each game&apos;s Discord thread starts with the message, then whom to ping, then the sentence for each player without Discord. Wherever they appear, {'{players}'} becomes
-        the two players, by Discord username (their TTA username without one), {'{deadline}'} the round&apos;s deadline, on each reader&apos;s clock, and {'{name}'} the TTA
-        username of the player without Discord. Leave a box empty to leave it out.
-      </p>
-      <div className="note-box">
-        <label htmlFor="thread-message">Message</label>
-        <textarea id="thread-message" className="regulations-text" rows={5} maxLength={1500} value={form.message} onChange={(e) => setForm({ ...form, message: e.target.value })} />
-      </div>
-      <div className="note-box">
-        <label htmlFor="thread-no-discord">For a player without Discord</label>
-        <textarea id="thread-no-discord" className="regulations-text" rows={3} maxLength={300} value={form.no_discord} onChange={(e) => setForm({ ...form, no_discord: e.target.value })} />
-      </div>
-      <div className="note-actions">
-        <button type="button" className="btn-antique" disabled={!threadTextSavable(form, saved)} onClick={() => void send(req.setBlitzThreadText(at.slug, at.edition, form), 'Thread text saved.')}>
-          Save
-        </button>
-        {saved.edited && (
-          <button type="button" className="btn-antique" onClick={() => void send(req.resetBlitzThreadText(at.slug, at.edition), 'Thread text back to the default.')}>
-            Reset to default
-          </button>
-        )}
-      </div>
-      <Notice outcome={shownAt(outcome, 'thread text')} onClose={() => say(null)} />
-    </>
-  );
-}
-
-type RoundThreadsProps = Pick<Props, 'at' | 'ed' | 'regions' | 'onReload' | 'say'> & { round: AdminBlitzRound; unsaved: boolean };
-
-/** RoundThreads shows a round's deadline and sets it (a day and a time on a zone's clocks) until the round is finished, and downloads the round's Discord threads once they can be made. */
-function RoundThreads({ at, ed, round, regions, unsaved, onReload, say }: RoundThreadsProps) {
+/** RoundDeadline shows a round's deadline and sets it (a day and a time on a zone's clocks) until the round is finished, and shows the round's Discord text to copy once it has a game. */
+function RoundDeadline({ at, ed, round, regions, unsaved, onReload, say }: RoundDeadlineProps) {
   const [form, setForm] = useState<DeadlineForm | null>(null);
-  const blocker = threadsBlocker(round, ed.organisers.length, unsaved);
+  const [discord, setDiscord] = useState<string | null>(null);
+  const blocker = discordBlocker(round, unsaved);
   const save = async (e: FormEvent) => {
     e.preventDefault();
     if (form === null) return;
@@ -1085,19 +998,13 @@ function RoundThreads({ at, ed, round, regions, unsaved, onReload, say }: RoundT
     if (r.ok) setForm(null);
     await onReload();
   };
-  const download = async () => {
-    const r = await adminDownload(req.blitzThreadsPath(at.slug, at.edition, round.id));
+  const showDiscord = async () => {
+    const r = await adminRequest<BlitzDiscordText>(req.blitzDiscordTextPath(at.slug, at.edition, round.id), {});
     if (!r.ok) {
       say(refused(r.message, `round ${round.id}`));
       return;
     }
-    const url = URL.createObjectURL(r.data);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = threadsFileName(at.slug, at.edition, round.number);
-    a.click();
-    URL.revokeObjectURL(url);
-    say(succeeded(`${roundTitle(round.number, ed.format)}: Discord threads downloaded.`, `round ${round.id}`));
+    setDiscord(r.data.text);
   };
   return (
     <>
@@ -1108,11 +1015,12 @@ function RoundThreads({ at, ed, round, regions, unsaved, onReload, say }: RoundT
             {round.deadline === null ? 'Set deadline' : 'Change deadline'}
           </button>
         )}{' '}
-        <button type="button" className="btn-antique btn-settings" disabled={blocker !== ''} onClick={() => void download()}>
-          Discord threads
+        <button type="button" className="btn-antique btn-settings" disabled={blocker !== ''} onClick={() => void showDiscord()}>
+          Discord text
         </button>
         {blocker !== '' && <span className="row-detail muted">{blocker}</span>}
       </p>
+      {discord !== null && <DiscordTextDialog title={`${roundTitle(round.number, ed.format)}: Discord text`} text={discord} onClose={() => setDiscord(null)} />}
       {form !== null && !deadlineLocked(round) && (
         <form className="result-row" onSubmit={(e) => void save(e)}>
           <label>
@@ -1133,6 +1041,44 @@ function RoundThreads({ at, ed, round, regions, unsaved, onReload, say }: RoundT
         </form>
       )}
     </>
+  );
+}
+
+/** DiscordTextDialog shows a round's Discord text in a modal, read-only, with a button to copy it; if the browser refuses the copy, the text is selected to copy by hand. */
+function DiscordTextDialog({ title, text, onClose }: { title: string; text: string; onClose: () => void }) {
+  const box = useRef<HTMLDialogElement>(null);
+  const area = useRef<HTMLTextAreaElement>(null);
+  const [copied, setCopied] = useState('');
+  useEffect(() => {
+    box.current?.showModal();
+  }, []);
+  const copy = async () => {
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopied('Copied: paste it into Discord.');
+    } catch {
+      area.current?.select();
+      setCopied('Copying was refused: the text is selected, copy it by hand.');
+    }
+  };
+  return (
+    <dialog ref={box} className="site-dialog" aria-labelledby="discord-text-heading" onClose={onClose}>
+      <h2 id="discord-text-heading" className="site-dialog-heading">
+        {title}
+      </h2>
+      <textarea ref={area} className="input-antique discord-text" readOnly rows={Math.min(14, text.split('\n').length + 1)} value={text} aria-label="Discord text" />
+      <p className="muted" role="status">
+        {copied}
+      </p>
+      <div className="site-dialog-buttons">
+        <button type="button" className="btn-antique" onClick={() => box.current?.close()}>
+          Close
+        </button>
+        <button type="button" className="btn-antique" onClick={() => void copy()}>
+          Copy
+        </button>
+      </div>
+    </dialog>
   );
 }
 

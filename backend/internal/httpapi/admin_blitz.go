@@ -103,13 +103,7 @@ func (s *server) GetAdminBlitzEdition(ctx context.Context, req GetAdminBlitzEdit
 	row := adminBlitzEditionRow(ed.BlitzEditionRow)
 	body := AdminBlitzEdition{Tournament: row.Tournament, Name: row.Name, Edition: row.Edition, Format: row.Format, Champion: row.Champion,
 		Points: blitzPoints(ed.Points), FidePoints: ed.Points == blitz.FIDEScoring, Pairing: blitzPairing(ed.Pairing),
-		Entrants: make([]AdminBlitzEntrant, len(ed.Entrants)), Rounds: make([]AdminBlitzRound, len(ed.Rounds)), Standings: blitzStandings(ed),
-		Organisers: make([]AdminBlitzOrganiser, len(ed.Organisers))}
-	for i, o := range ed.Organisers {
-		body.Organisers[i] = AdminBlitzOrganiser{Member: o.MemberID, Name: o.Name, DiscordName: o.DiscordName}
-	}
-	text, edited := threadText(ed)
-	body.ThreadText = AdminBlitzThreadText{Message: text.Message, NoDiscord: text.NoDiscord, Edited: edited}
+		Entrants: make([]AdminBlitzEntrant, len(ed.Entrants)), Rounds: make([]AdminBlitzRound, len(ed.Rounds)), Standings: blitzStandings(ed)}
 	for i, e := range ed.Entrants {
 		body.Entrants[i] = s.adminBlitzEntrant(e, rated)
 	}

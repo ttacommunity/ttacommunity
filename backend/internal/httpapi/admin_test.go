@@ -44,9 +44,6 @@ type fakeAdmins struct {
 	points   blitz.Scoring
 	pairing  store.BlitzPairing
 	rounds   []store.BlitzRound
-	// organisers and threadText are us_open 2026's (admin_blitz_threads_test.go).
-	organisers []store.BlitzOrganiser
-	threadText *store.BlitzThreadText
 	// members are the community's (admin_members_test.go).
 	members []store.Member
 	// added is every entrant AddBlitzEntrants was given; candidates is what BlitzCandidates finds, and searched

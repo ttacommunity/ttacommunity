@@ -2,7 +2,6 @@ import { describe, expect, it } from 'vitest';
 import { ADMIN_EDITION_COLUMNS, ADMIN_ENTRANT_COLUMNS, editionFormatWarnings, editionHref, editionParams, formatAdvice, pointsChanged, pointsForm, pointsFrom, pointsSummary, settingsRows } from './blitz-page';
 import { sortRows } from '@ttac/shared/sort';
 import { formatLabel, pairingSummary } from '@ttac/shared/blitz';
-import { organisersSummary, threadTextSummary } from './blitz-threads';
 
 describe('editionParams', () => {
   it.each([
@@ -86,16 +85,14 @@ describe('pointsForm and pointsFrom', () => {
 });
 
 describe('settingsRows', () => {
-  it('sums up the format, points, pairing, organisers and thread text, in that order', () => {
+  it('sums up the format, points and pairing, in that order', () => {
     const points = { win: 1, draw: 0.5, loss: 0, forfeit_win: 1, forfeit_loss: 0, bye: 1, skip: 0 };
     const pairing = { first: 'dutch', later: 'rating' } as const;
-    const ed = { format: { swiss_rounds: 8, knockout_size: 8 }, points, fide_points: true, pairing, organisers: [{ name: 'Carol' }], thread_text: { edited: true } };
+    const ed = { format: { swiss_rounds: 8, knockout_size: 8 }, points, fide_points: true, pairing };
     expect(settingsRows(ed)).toEqual([
       { key: 'Format', value: formatLabel(ed.format) },
       { key: 'Points', value: pointsSummary(points, true) },
       { key: 'Pairing', value: pairingSummary(pairing) },
-      { key: 'Organisers', value: organisersSummary(ed.organisers) },
-      { key: 'Thread text', value: threadTextSummary(ed.thread_text) },
     ]);
   });
 });

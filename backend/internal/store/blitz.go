@@ -71,14 +71,11 @@ type BlitzEntrant struct {
 	Skips                                                   []int
 }
 
-// BlitzEdition is an edition with its entrants, in sign-up order, its rounds (the published ones, for the site)
-// and, for admin, its organisers in the order added and its own thread text (nil until set).
+// BlitzEdition is an edition with its entrants, in sign-up order, and its rounds (the published ones, for the site).
 type BlitzEdition struct {
 	BlitzEditionRow
-	Entrants   []BlitzEntrant
-	Rounds     []BlitzRound
-	Organisers []BlitzOrganiser
-	ThreadText *BlitzThreadText
+	Entrants []BlitzEntrant
+	Rounds   []BlitzRound
 }
 
 // BlitzEntrantChange is what admin may change on an entrant: its status, or the member's Discord name, email,
@@ -210,15 +207,6 @@ func blitzEdition(ctx context.Context, db conn, public bool, slug, edition strin
 		got.Entrants[i].Skips = skips[got.Entrants[i].ID]
 	}
 	if got.Rounds, err = blitzRounds(ctx, db, public, slug, edition); err != nil {
-		return BlitzEdition{}, err
-	}
-	if public {
-		return got, nil
-	}
-	if got.Organisers, err = blitzOrganisers(ctx, db, slug, edition); err != nil {
-		return BlitzEdition{}, err
-	}
-	if got.ThreadText, err = blitzThreadText(ctx, db, slug, edition); err != nil {
 		return BlitzEdition{}, err
 	}
 	return got, nil

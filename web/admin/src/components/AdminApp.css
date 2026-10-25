@@ -600,6 +600,14 @@
   font-size: 1rem;
   color: var(--accent-gold);
 }
+/* A round's Discord text, read-only in its dialog: the whole width, a line per game. */
+.discord-text {
+  display: block;
+  box-sizing: border-box;
+  width: 100%;
+  resize: vertical;
+  font-family: var(--font-stats);
+}
 .result-row {
   display: flex;
   flex-wrap: wrap;
