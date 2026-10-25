@@ -1,25 +1,26 @@
 /** A blitz edition's page, in three tabs: its format and rounds (paired, changed by hand, published, their results recorded), its entrants (searched for and added, edited, dropped, removed), and the standings. */
-import { Fragment, useEffect, useState, type FormEvent } from 'react';
+import { Fragment, useEffect, useRef, useState, type FormEvent } from 'react';
 import Segmented from '@ttac/shared/Segmented';
 import BackLink from '@ttac/shared/BackLink';
 import { useDialog } from '@ttac/shared/Dialog';
+import InfoDialog from '@ttac/shared/InfoDialog';
 import SubTabs, { useHash } from '@ttac/shared/SubTabs';
 import SortHeader, { useSort } from '@ttac/shared/SortHeader';
 import { nextSort, sortRows, type Sort } from '@ttac/shared/sort';
 import { hashTab } from '@ttac/shared/tabs';
-import { ENTRANT_COLUMNS, STANDING_COLUMNS, byFinish, formatLabel, latestFinishes, offsetLabel, placeLabel, resultSummary, roundShown, roundSummary, roundTitle, scoringSentence, seededName, turnMark, turnOrder } from '@ttac/shared/blitz';
+import { ENTRANT_COLUMNS, FIRST_METHODS, LATER_METHODS, PAIRING_METHODS, STANDING_COLUMNS, byFinish, formatLabel, latestFinishes, pairingSummary, offsetLabel, placeLabel, resultSummary, roundShown, roundSummary, roundTitle, scoringSentence, seededName, turnMark, turnOrder, type PairingMethod } from '@ttac/shared/blitz';
 import { formatInstant } from '@ttac/shared/time';
-import { adminDownload, adminRequest, firstError, type AdminBlitzEdition, type AdminMe, type BlitzEntrantIds, type Load } from '../lib/admin-api';
+import { adminRequest, firstError, type AdminBlitzEdition, type AdminMe, type BlitzDiscordText, type BlitzEntrantIds, type Load } from '../lib/admin-api';
 import * as req from '../lib/admin-requests';
 import { tabsFor } from '../lib/admin-tabs';
 import { ADMIN_ENTRANT_COLUMNS, editionFormatWarnings, editionParams, formatAdvice, pointsChanged, pointsForm, pointsFrom, settingsRows, type AdminBlitzEntrant, type PointsForm } from '../lib/blitz-page';
 import { chooseTurn, emptyGameForm, gameRecordFrom, TURNS, type BlitzStanding, type GameForm } from '@ttac/shared/game-form';
-import { deadlineForm, deadlineLabel, deadlineLocked, organiserChoices, threadTextSavable, threadsBlocker, threadsFileName, type DeadlineForm, type ThreadText } from '../lib/blitz-threads';
+import { deadlineForm, deadlineLabel, deadlineLocked, discordBlocker, type DeadlineForm } from '../lib/blitz-deadlines';
 import { entrantToAdd, wildcardChoices, type PersonChoice, type PersonDetails } from '../lib/person-form';
 import { countryNames, type Country } from '../lib/countries';
 import { clockIn, type Region } from '../lib/zones';
 import { loadFailure, outcomeOf, refused, shownAt, succeeded, type Outcome } from '../lib/outcome';
-import { asChanges, byeTakers, canDeleteRound, canResetEdition, decidedOnly, finishRounds, flaggedColumns, matchColumns, type MatchColumn, resetsOf, entrantActions, entrantState, leftUnpaired, newestFirst, openRound, flaggedMatches, pairAction, pairCounts, partnersFor, reconcilePending, replaceableSide, reportNote, rulingChoices, rulingLabel, samePairs, shownAfter, unpaired, unsavedMatch, zoneGapLabel, type AdminBlitzMatch, type AdminBlitzRound, type Pending } from '../lib/blitz-rounds';
+import { asChanges, byeTakers, canDeleteRound, canResetEdition, decidedOnly, finishRounds, flaggedColumns, matchColumns, nextPairing, type MatchColumn, resetsOf, entrantActions, entrantState, leftUnpaired, newestFirst, openRound, flaggedMatches, pairAction, pairCounts, partnersFor, reconcilePending, replaceableSide, reportNote, rulingChoices, rulingLabel, samePairs, shownAfter, unpaired, unsavedMatch, zoneGapLabel, type AdminBlitzMatch, type AdminBlitzRound, type Pending } from '../lib/blitz-rounds';
 import AdminHeader from './AdminHeader';
 import CountryPick from './CountryPick';
 import InfoTip from './InfoTip';
@@ -267,7 +268,6 @@ function UnpairedList({ round, players }: { round: number; players: readonly Adm
 
 /** RoundsPanel pairs rounds, changes the open one by hand and publishes it, and shows every round newest first, each match's result recorded in a row below it. */
 function RoundsPanel({ at, ed, regions, onReload, outcome, say }: Props) {
-  const [criteria, setCriteria] = useState({ timezone: true, rating: false });
   const dialog = useDialog();
   const [pick, setPick] = useState({ a: '', b: '', bye: '' });
   const [recording, setRecording] = useState<number | null>(null);
@@ -318,11 +318,11 @@ function RoundsPanel({ at, ed, regions, onReload, outcome, say }: Props) {
   };
   const pair = async () => {
     if (action.kind === 'next') {
-      await run(req.pairBlitzRound(at.slug, at.edition, criteria), `${roundTitle(action.round.number, ed.format)} paired as a draft.`, 'rounds');
+      await run(req.pairBlitzRound(at.slug, at.edition), `${roundTitle(action.round.number, ed.format)} paired as a draft.`, 'rounds');
       return;
     }
     if (action.kind !== 'fill' || open === null) return;
-    const res = await req.send<AdminBlitzRound>(req.proposeBlitzPairing(at.slug, at.edition, open.id, { ...criteria, keep: asChanges(shownOf(open)) }));
+    const res = await req.send<AdminBlitzRound>(req.proposeBlitzPairing(at.slug, at.edition, open.id, { keep: asChanges(shownOf(open)) }));
     if (!res.ok) {
       say(refused(res.message, 'rounds'));
       return;
@@ -397,7 +397,6 @@ function RoundsPanel({ at, ed, regions, onReload, outcome, say }: Props) {
     setRecording(null);
     await run(req.resetBlitzEdition(at.slug, at.edition), `${ed.name} ${ed.edition} reset: pair round 1 again.`, 'reset edition', 'rounds');
   };
-  const swiss = (open?.kind ?? (action.kind === 'next' ? action.round.kind : null)) === 'swiss';
   // choose offers the players given, the unpaired ones a pick may take.
   const choose = (value: string, set: (v: string) => void, label: string, players: readonly AdminBlitzEntrant[]) => (
     <label>
@@ -418,18 +417,6 @@ function RoundsPanel({ at, ed, regions, onReload, outcome, say }: Props) {
       <h3>Rounds</h3>
       <p className="muted">Pair each round, change it by hand, publish it, then record its results.</p>
       <div className="admin-add">
-        {swiss && (
-          <>
-            <label className="setting-inline check-inline">
-              <input type="checkbox" checked={criteria.timezone} onChange={(e) => setCriteria({ ...criteria, timezone: e.target.checked })} />
-              Time-zone fit
-            </label>
-            <label className="setting-inline check-inline">
-              <input type="checkbox" checked={criteria.rating} onChange={(e) => setCriteria({ ...criteria, rating: e.target.checked })} />
-              Closest ratings
-            </label>
-          </>
-        )}
         <button type="button" className="btn-antique" disabled={action.kind === 'none'} onClick={() => void pair()}>
           {action.kind === 'next' ? `Pair ${roundTitle(action.round.number, ed.format)}` : 'Pair'}
         </button>
@@ -461,6 +448,11 @@ function RoundsPanel({ at, ed, regions, onReload, outcome, say }: Props) {
           </span>
         )}
       </div>
+      {action.kind === 'next' && action.round.kind === 'swiss' && (
+        <p className="muted round-hint">
+          {roundTitle(action.round.number, ed.format)} is paired by {PAIRING_METHODS[nextPairing(ed.pairing, ed.rounds)].label} (Settings, Pairing).
+        </p>
+      )}
       <Notice outcome={shownAt(outcome, 'rounds')} onClose={close} />
       {open !== null && open.kind === 'swiss' && free.length > 0 && (
         <>
@@ -485,6 +477,7 @@ function RoundsPanel({ at, ed, regions, onReload, outcome, say }: Props) {
         <div key={r.id} className="round-block">
           <h3>
             {roundTitle(r.number, ed.format)} · {r.published_at === null ? 'draft' : `published ${formatInstant(r.published_at, zone)}`}
+            {r.method !== null && <span className="row-detail">{PAIRING_METHODS[r.method].label}</span>}
             {changed(r) && <span className="row-detail">unsaved changes</span>}
           </h3>
           <p className="season-summary">
@@ -501,7 +494,7 @@ function RoundsPanel({ at, ed, regions, onReload, outcome, say }: Props) {
               </>
             )}
           </p>
-          <RoundThreads at={at} ed={ed} round={r} regions={regions} unsaved={changed(r)} onReload={onReload} say={say} />
+          <RoundDeadline at={at} ed={ed} round={r} regions={regions} unsaved={changed(r)} onReload={onReload} say={say} />
           <Notice outcome={shownAt(outcome, `round ${r.id}`)} onClose={close} />
           {shown(r) && (
             <>
@@ -975,10 +968,8 @@ function EditionSettings(props: Props) {
         <FormatPanel {...props} />
         <h4>Points</h4>
         <PointsPanel key={JSON.stringify(props.ed.points)} {...props} />
-        <h4>Organisers</h4>
-        <OrganisersPanel {...props} />
-        <h4>Thread text</h4>
-        <ThreadTextPanel key={`${props.ed.thread_text.message}\n${props.ed.thread_text.no_discord}`} {...props} />
+        <h4>Pairing</h4>
+        <PairingPanel key={JSON.stringify(props.ed.pairing)} {...props} />
       </div>
     </div>
   );
@@ -993,96 +984,13 @@ function FormatWarnings({ warnings }: { warnings: readonly string[] }) {
   ));
 }
 
-/** OrganisersPanel lists the members every round's Discord threads tell players to ping, removes one, and adds a member found by their username. */
-function OrganisersPanel({ at, ed, onReload, outcome, say }: Props) {
-  const [typed, setTyped] = useState('');
-  const found = usePeopleSearch('/api/people', typed, false, ed);
-  const choices = organiserChoices(found, ed.organisers);
-  const change = async (r: req.Request, done: string) => {
-    const res = await req.send(r);
-    say(outcomeOf(res, done, 'organisers'));
-    if (res.ok) setTyped('');
-    await onReload();
-  };
-  return (
-    <>
-      <p className="muted">Each game&apos;s Discord thread tells its players to ping them, by Discord username.</p>
-      {ed.organisers.length === 0 && <p className="muted">None yet.</p>}
-      {ed.organisers.length > 0 && (
-        <ul className="organiser-list">
-          {ed.organisers.map((o) => (
-            <li key={o.member}>
-              {o.name} <span className="muted">{o.discord_name === '' ? 'no Discord username yet' : `@${o.discord_name}`}</span>{' '}
-              <button type="button" className="btn-antique" onClick={() => void change(req.removeBlitzOrganiser(at.slug, at.edition, o.member), `${o.name} no longer organises it.`)}>
-                Remove
-              </button>
-            </li>
-          ))}
-        </ul>
-      )}
-      <div className="admin-add">
-        <PickBox
-          label="Add an organiser"
-          text={typed}
-          placeholder="Type a member's name"
-          options={choices}
-          onText={setTyped}
-          onPick={(o) => {
-            const c = choices.find((x) => x.key === o.key);
-            if (c !== undefined && !c.disabled) void change(req.addBlitzOrganiser(at.slug, at.edition, Number(c.key)), `${c.label} organises it now.`);
-          }}
-        />
-      </div>
-      <Notice outcome={shownAt(outcome, 'organisers')} onClose={() => say(null)} />
-    </>
-  );
-}
+type RoundDeadlineProps = Pick<Props, 'at' | 'ed' | 'regions' | 'onReload' | 'say'> & { round: AdminBlitzRound; unsaved: boolean };
 
-/** ThreadTextPanel edits what each game's Discord thread says, the welcome message and the sentence for a player without Discord, and resets it to the default. Keyed by the saved text, so a save or reset starts the form again from it. */
-function ThreadTextPanel({ at, ed, onReload, outcome, say }: Props) {
-  const saved = ed.thread_text;
-  const [form, setForm] = useState<ThreadText>({ message: saved.message, no_discord: saved.no_discord });
-  const send = async (r: req.Request, done: string) => {
-    const res = await req.send(r);
-    say(outcomeOf(res, done, 'thread text'));
-    await onReload();
-  };
-  return (
-    <>
-      <p className="muted">
-        Each game&apos;s Discord thread starts with the message, then whom to ping, then the sentence for each player without Discord. Wherever they appear, {'{players}'} becomes
-        the two players, by Discord username (their TTA username without one), {'{deadline}'} the round&apos;s deadline, on each reader&apos;s clock, and {'{name}'} the TTA
-        username of the player without Discord. Leave a box empty to leave it out.
-      </p>
-      <div className="note-box">
-        <label htmlFor="thread-message">Message</label>
-        <textarea id="thread-message" className="regulations-text" rows={5} maxLength={1500} value={form.message} onChange={(e) => setForm({ ...form, message: e.target.value })} />
-      </div>
-      <div className="note-box">
-        <label htmlFor="thread-no-discord">For a player without Discord</label>
-        <textarea id="thread-no-discord" className="regulations-text" rows={3} maxLength={300} value={form.no_discord} onChange={(e) => setForm({ ...form, no_discord: e.target.value })} />
-      </div>
-      <div className="note-actions">
-        <button type="button" className="btn-antique" disabled={!threadTextSavable(form, saved)} onClick={() => void send(req.setBlitzThreadText(at.slug, at.edition, form), 'Thread text saved.')}>
-          Save
-        </button>
-        {saved.edited && (
-          <button type="button" className="btn-antique" onClick={() => void send(req.resetBlitzThreadText(at.slug, at.edition), 'Thread text back to the default.')}>
-            Reset to default
-          </button>
-        )}
-      </div>
-      <Notice outcome={shownAt(outcome, 'thread text')} onClose={() => say(null)} />
-    </>
-  );
-}
-
-type RoundThreadsProps = Pick<Props, 'at' | 'ed' | 'regions' | 'onReload' | 'say'> & { round: AdminBlitzRound; unsaved: boolean };
-
-/** RoundThreads shows a round's deadline and sets it (a day and a time on a zone's clocks) until the round is finished, and downloads the round's Discord threads once they can be made. */
-function RoundThreads({ at, ed, round, regions, unsaved, onReload, say }: RoundThreadsProps) {
+/** RoundDeadline shows a round's deadline and sets it (a day and a time on a zone's clocks) until the round is finished, and shows the round's Discord text to copy once it has a game. */
+function RoundDeadline({ at, ed, round, regions, unsaved, onReload, say }: RoundDeadlineProps) {
   const [form, setForm] = useState<DeadlineForm | null>(null);
-  const blocker = threadsBlocker(round, ed.organisers.length, unsaved);
+  const [discord, setDiscord] = useState<string | null>(null);
+  const blocker = discordBlocker(round, unsaved);
   const save = async (e: FormEvent) => {
     e.preventDefault();
     if (form === null) return;
@@ -1091,19 +999,13 @@ function RoundThreads({ at, ed, round, regions, unsaved, onReload, say }: RoundT
     if (r.ok) setForm(null);
     await onReload();
   };
-  const download = async () => {
-    const r = await adminDownload(req.blitzThreadsPath(at.slug, at.edition, round.id));
+  const showDiscord = async () => {
+    const r = await adminRequest<BlitzDiscordText>(req.blitzDiscordTextPath(at.slug, at.edition, round.id), {});
     if (!r.ok) {
       say(refused(r.message, `round ${round.id}`));
       return;
     }
-    const url = URL.createObjectURL(r.data);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = threadsFileName(at.slug, at.edition, round.number);
-    a.click();
-    URL.revokeObjectURL(url);
-    say(succeeded(`${roundTitle(round.number, ed.format)}: Discord threads downloaded.`, `round ${round.id}`));
+    setDiscord(r.data.text);
   };
   return (
     <>
@@ -1114,11 +1016,12 @@ function RoundThreads({ at, ed, round, regions, unsaved, onReload, say }: RoundT
             {round.deadline === null ? 'Set deadline' : 'Change deadline'}
           </button>
         )}{' '}
-        <button type="button" className="btn-antique btn-settings" disabled={blocker !== ''} onClick={() => void download()}>
-          Discord threads
+        <button type="button" className="btn-antique btn-settings" disabled={blocker !== ''} onClick={() => void showDiscord()}>
+          Discord text
         </button>
         {blocker !== '' && <span className="row-detail muted">{blocker}</span>}
       </p>
+      {discord !== null && <DiscordTextDialog title={`${roundTitle(round.number, ed.format)}: Discord text`} text={discord} onClose={() => setDiscord(null)} />}
       {form !== null && !deadlineLocked(round) && (
         <form className="result-row" onSubmit={(e) => void save(e)}>
           <label>
@@ -1139,6 +1042,34 @@ function RoundThreads({ at, ed, round, regions, unsaved, onReload, say }: RoundT
         </form>
       )}
     </>
+  );
+}
+
+/** DiscordTextDialog shows a round's Discord text in a modal, read-only, with a button to copy it; if the browser refuses the copy, the text is selected to copy by hand. */
+function DiscordTextDialog({ title, text, onClose }: { title: string; text: string; onClose: () => void }) {
+  const area = useRef<HTMLTextAreaElement>(null);
+  const [copied, setCopied] = useState('');
+  const copy = async () => {
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopied('Copied: paste it into Discord.');
+    } catch {
+      area.current?.select();
+      setCopied('Copying was refused: the text is selected, copy it by hand.');
+    }
+  };
+  const copyButton = (
+    <button type="button" className="btn-antique" onClick={() => void copy()}>
+      Copy
+    </button>
+  );
+  return (
+    <InfoDialog title={title} onClose={onClose} actions={copyButton}>
+      <textarea ref={area} className="input-antique discord-text" readOnly rows={Math.min(14, text.split('\n').length + 1)} value={text} aria-label="Discord text" />
+      <p className="muted" role="status">
+        {copied}
+      </p>
+    </InfoDialog>
   );
 }
 
@@ -1200,6 +1131,44 @@ function PointsPanel({ at, ed, onReload, outcome, say }: Props) {
         )}
       </form>
       <Notice outcome={shownAt(outcome, 'points')} onClose={() => say(null)} />
+    </>
+  );
+}
+
+/** PairingPanel sets how the edition's Swiss rounds are paired, round 1 and the rounds after it, at any time. Keyed by the saved pairing, so a save starts the form again from it. */
+function PairingPanel({ at, ed, onReload, outcome, say }: Props) {
+  const [pairing, setPairing] = useState(ed.pairing);
+  const save = async (e: FormEvent) => {
+    e.preventDefault();
+    const r = await req.send(req.setBlitzPairing(at.slug, at.edition, pairing));
+    say(outcomeOf(r, `Pairing saved: ${pairingSummary(pairing)}.`, 'pairing'));
+    await onReload();
+  };
+  const choice = (label: string, key: 'first' | 'later', methods: readonly PairingMethod[]) => (
+    <label>
+      {label}
+      <select className="input-antique" value={pairing[key]} onChange={(e) => setPairing({ ...pairing, [key]: methods.find((m) => m === e.target.value) ?? pairing[key] })}>
+        {methods.map((m) => (
+          <option key={m} value={m}>
+            {PAIRING_METHODS[m].label}
+          </option>
+        ))}
+      </select>
+    </label>
+  );
+  return (
+    <>
+      <form className="admin-add" onSubmit={(e) => void save(e)}>
+        {choice('Round 1', 'first', FIRST_METHODS)}
+        {choice('Later rounds', 'later', LATER_METHODS)}
+        <button type="submit" className="btn-antique">
+          Save
+        </button>
+      </form>
+      <Notice outcome={shownAt(outcome, 'pairing')} onClose={() => say(null)} />
+      <p className="muted round-hint">Round 1: {PAIRING_METHODS[pairing.first].about}</p>
+      <p className="muted round-hint">Later rounds: {PAIRING_METHODS[pairing.later].about}</p>
+      <p className="muted round-hint">Nobody meets the same opponent twice. The next round paired follows this; rounds already paired keep their method.</p>
     </>
   );
 }

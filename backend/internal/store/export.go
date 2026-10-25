@@ -63,7 +63,7 @@ var exportColumns = map[string][]string{"members": {"member_id", "tta_name", "cg
 // needs), blitz tournaments' editions, entrants, organisers, thread texts, rounds and skips, which reference the
 // members, and players' accounts, sign-ins, sessions, requests to be linked and emailed links. A backup restores
 // them in this order, after ExportTables.
-var NotExported = []string{"refused_rows", "admins", "admin_audit", "blitz_editions", "blitz_entries", "blitz_organisers", "blitz_thread_texts", "blitz_rounds", "blitz_matches", "blitz_skips",
+var NotExported = []string{"refused_rows", "admins", "admin_audit", "blitz_editions", "blitz_entries", "blitz_rounds", "blitz_matches", "blitz_skips",
 	"accounts", "logins", "link_requests", "player_sessions", "email_links"}
 
 // NotBackedUp are the input tables a backup leaves out: short-lived sign-in secrets. Players sign in again after a restore.

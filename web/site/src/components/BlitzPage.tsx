@@ -6,9 +6,10 @@ import { EDITION_COLUMNS, ENTRANT_COLUMNS, STANDING_COLUMNS, byFinish, formatLab
 import SortHeader, { useSort } from '@ttac/shared/SortHeader';
 import { nextSort, type Sort } from '@ttac/shared/sort';
 import BackLink from '@ttac/shared/BackLink';
+import InfoDialog from '@ttac/shared/InfoDialog';
 import SubTabs, { useHash } from '@ttac/shared/SubTabs';
 import { hashTab } from '@ttac/shared/tabs';
-import { BLITZ_GAME_COLUMNS, blitzGames, editionHref, editionParams, editionViews, notPlaying, ratingText, resultsUpdated, roundOptions, splitRounds, type BlitzGamesFilter, type EditionView } from '../lib/blitz';
+import { BLITZ_GAME_COLUMNS, blitzGames, editionHref, editionParams, editionViews, notPlaying, pairingNotes, ratingText, resultsUpdated, roundOptions, splitRounds, type BlitzGamesFilter, type EditionView } from '../lib/blitz';
 import BlitzReport from './BlitzReport';
 import { yourRow, type MyBlitzMatch } from '../lib/blitz-report';
 import type { YourRow } from '../lib/blitz';
@@ -125,6 +126,7 @@ function EditionPage({ apiUrl, slug, edition }: { apiUrl: string; slug: string; 
   // Asked again after the player reports, so their result shows at once.
   const [asked, setAsked] = useState(0);
   const [mine, setMine] = useState<MyBlitzMatch | null>(null);
+  const [howPaired, setHowPaired] = useState(false);
   useEffect(() => {
     blitzEdition(apiUrl, slug, edition)
       .then((data) => setLoad({ kind: 'ready', data }))
@@ -170,7 +172,11 @@ function EditionPage({ apiUrl, slug, edition }: { apiUrl: string; slug: string; 
         <div className="tournaments-subtitle">
           {formatLabel(ed.format)}. {reachedLabel(latest, ed.format, ed.champion)}. {resultsUpdated(ed.results_updated_at, viewerZone())}
         </div>
+        <button type="button" className="btn-antique blitz-how-paired" onClick={() => setHowPaired(true)}>
+          How pairings work
+        </button>
       </div>
+      {howPaired && <HowPairedDialog ed={ed} onClose={() => setHowPaired(false)} />}
       <BlitzReport apiUrl={apiUrl} slug={slug} edition={edition} onChanged={() => setAsked((n) => n + 1)} onMatch={setMine} />
       {ed.rounds.length === 0 && (
         <section className="rating-card blitz-card" aria-labelledby="blitz-not-started">
@@ -206,6 +212,40 @@ function EditionPage({ apiUrl, slug, edition }: { apiUrl: string; slug: string; 
         <SubTabs label="Show" tabs={views.map((v) => ({ value: v, ...panels[v] }))} chosen={hashTab(views, hash)} onChoose={setHash} />
       </section>
     </>
+  );
+}
+
+/** HowPairedDialog explains how the edition's rounds are paired: its methods, the rules every method keeps, and the method each Swiss round shown was paired with. */
+function HowPairedDialog({ ed, onClose }: { ed: BlitzEdition; onClose: () => void }) {
+  const notes = pairingNotes(ed);
+  return (
+    <InfoDialog title="How pairings work" onClose={onClose}>
+      {notes.methods.map((m) => (
+        <p key={m.when} className="site-dialog-text">
+          <strong>
+            {m.when}: {m.label}.
+          </strong>{' '}
+          {m.about}
+        </p>
+      ))}
+      {notes.rules.map((r) => (
+        <p key={r} className="site-dialog-text">
+          {r}
+        </p>
+      ))}
+      {notes.paired.length > 0 && (
+        <>
+          <p className="site-dialog-text">Paired so far:</p>
+          <ul className="site-dialog-text blitz-paired-list">
+            {notes.paired.map((p) => (
+              <li key={p.round}>
+                {p.round}: {p.label}
+              </li>
+            ))}
+          </ul>
+        </>
+      )}
+    </InfoDialog>
   );
 }
 

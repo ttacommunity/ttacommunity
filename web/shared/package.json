@@ -17,6 +17,7 @@
     "./SubTabs": "./src/SubTabs.tsx",
     "./BackLink": "./src/BackLink.tsx",
     "./Dialog": "./src/Dialog.tsx",
+    "./InfoDialog": "./src/InfoDialog.tsx",
     "./tabs": "./src/tabs.ts",
     "./sort": "./src/sort.ts",
     "./SortHeader": "./src/SortHeader.tsx"

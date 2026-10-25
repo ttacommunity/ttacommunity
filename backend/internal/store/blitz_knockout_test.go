@@ -16,7 +16,7 @@ func TestABlitzKnockoutIsPlayedToAChampion(t *testing.T) {
 	if err := a.SetBlitzFormat(ctx, "us_open", "2026", BlitzFormat{SwissRounds: 1, KnockoutSize: 4}); err != nil {
 		t.Fatalf("SetBlitzFormat: %v", err)
 	}
-	swiss, err := a.AddBlitzRound(ctx, "us_open", "2026", BlitzRound{Seed: 1, Matches: []BlitzMatch{{A: ann, B: &bob}, {A: cy, B: &dee}}})
+	swiss, err := a.AddBlitzRound(ctx, "us_open", "2026", BlitzRound{Method: "dutch", Seed: 1, Matches: []BlitzMatch{{A: ann, B: &bob}, {A: cy, B: &dee}}})
 	if err != nil {
 		t.Fatalf("AddBlitzRound(swiss): %v", err)
 	}
@@ -135,7 +135,7 @@ func TestADroppedKnockoutPlayerIsReplaced(t *testing.T) {
 	if err := a.SetBlitzFormat(ctx, "us_open", "2026", BlitzFormat{SwissRounds: 1, KnockoutSize: 2}); err != nil {
 		t.Fatalf("SetBlitzFormat: %v", err)
 	}
-	swiss, err := a.AddBlitzRound(ctx, "us_open", "2026", BlitzRound{Seed: 1, Matches: []BlitzMatch{{A: ann, B: &bob}, {A: cy, B: &dee}, {A: eve}}})
+	swiss, err := a.AddBlitzRound(ctx, "us_open", "2026", BlitzRound{Method: "dutch", Seed: 1, Matches: []BlitzMatch{{A: ann, B: &bob}, {A: cy, B: &dee}, {A: eve}}})
 	if err != nil {
 		t.Fatalf("AddBlitzRound(swiss): %v", err)
 	}

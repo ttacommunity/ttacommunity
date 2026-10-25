@@ -118,9 +118,11 @@ func (f *fakeAdmins) DeleteBlitzRound(_ context.Context, slug, edition string, i
 	return nil
 }
 
-// fourEntered gives the fake Ann (7, Berlin, rated), Cy (8, Berlin, rated), bob (9, New York) and Dee (10, Chicago).
+// fourEntered gives the fake Ann (7, Berlin, rated), Cy (8, Berlin, rated), bob (9, New York) and Dee (10, Chicago),
+// in an edition paired by time zone throughout.
 func fourEntered(f *fakeAdmins) {
 	f.blitzEntrants()
+	f.pairing = store.BlitzPairing{First: "timezone", Later: "timezone"}
 	_, _ = f.AddBlitzEntrants(context.Background(), "us_open", "2026", []store.BlitzEntrant{
 		{Name: "Cy", Player: "Cy", Zone: "Europe/Berlin"}, {Name: "bob", Zone: "America/New_York"}, {Name: "Dee", Zone: "America/Chicago"},
 	})
@@ -292,13 +294,13 @@ func TestBlitzRoundChangesAreRefusedWhenTheyShouldBe(t *testing.T) {
 	const site, owner = "https://ttac-admin.example", "111111111111111111"
 	draft := func(f *fakeAdmins) {
 		fourEntered(f)
-		f.rounds = []store.BlitzRound{{ID: 101, Number: 1, Kind: "swiss", Seed: 1}}
+		f.rounds = []store.BlitzRound{{ID: 101, Number: 1, Kind: "swiss", Method: "timezone", Seed: 1}}
 	}
 	twoRounds := func(f *fakeAdmins) {
 		draft(f)
 		at := time.Date(2026, 10, 5, 12, 0, 0, 0, time.UTC)
 		f.rounds[0].PublishedAt = &at
-		f.rounds = append(f.rounds, store.BlitzRound{ID: 102, Number: 2, Kind: "swiss", Seed: 2})
+		f.rounds = append(f.rounds, store.BlitzRound{ID: 102, Number: 2, Kind: "swiss", Method: "timezone", Seed: 2})
 	}
 	oneDecided := func(f *fakeAdmins) {
 		roundOnePublished(f)
@@ -392,7 +394,7 @@ func TestTheByeGoesByTheEditionsPoints(t *testing.T) {
 			f.notes = nil
 			cy, dee := int64(8), int64(10)
 			at := time.Date(2026, 10, 12, 12, 0, 0, 0, time.UTC)
-			f.rounds = []store.BlitzRound{{ID: 101, Number: 1, Kind: "swiss", Seed: 1, PublishedAt: &at, Matches: []store.BlitzMatch{
+			f.rounds = []store.BlitzRound{{ID: 101, Number: 1, Kind: "swiss", Method: "timezone", Seed: 1, PublishedAt: &at, Matches: []store.BlitzMatch{
 				{ID: 1010, A: 7, B: &cy, Result: "a", Ruling: "no-show", DecidedAt: &at},
 				{ID: 1011, A: 9, B: &dee, Result: "a", GameID: new(int64(500)), DecidedAt: &at},
 				{ID: 1012, A: ids[0]}}}}
@@ -416,7 +418,7 @@ func TestAdminStandingsCountOnlyPublishedRounds(t *testing.T) {
 	f := &fakeAdmins{}
 	roundOnePublished(f)
 	cy := int64(8)
-	f.rounds = append(f.rounds, store.BlitzRound{ID: 102, Number: 2, Kind: "swiss", Matches: []store.BlitzMatch{{ID: 1020, A: 7, B: &cy}, {ID: 1021, A: 9}}})
+	f.rounds = append(f.rounds, store.BlitzRound{ID: 102, Number: 2, Kind: "swiss", Method: "timezone", Matches: []store.BlitzMatch{{ID: 1020, A: 7, B: &cy}, {ID: 1021, A: 9}}})
 	rec := adminDoWith(t, &fakeRatings{run: store.PublishedRun{ID: 7}}, f, org, http.MethodGet, "/v1/admin/blitz/us_open/2026", site, "")
 	var ed AdminBlitzEdition
 	if err := json.Unmarshal(rec.Body.Bytes(), &ed); err != nil || rec.Code != http.StatusOK {

@@ -1,55 +1,20 @@
-// Pairing a Swiss round: players on the same points meet, never the same opponent twice (a round that cannot avoid
-// it is refused), and within a score group the pairs are the best time-zone fit (then the closest ratings, when
-// asked), with chance deciding the rest.
-package blitz
+// The closest-fit methods: players on the same points meet, and within a score group the pairs are the best
+// time-zone fit and then the closest ratings, as the criteria ask, with chance deciding the rest.
+package pairing
 
 import (
 	"cmp"
-	"errors"
 	"math"
 	"math/bits"
 	"math/rand/v2"
 	"slices"
 )
 
-// Player is an entrant as the pairing sees them: their points so far, their place in the standings before the
-// round (1 the top, 0 when not known), rating (Rated false when they have none), the zone's offset from UTC in
-// minutes at pairing time, who they have met, and whether they had a bye.
-type Player struct {
-	ID        int64
-	Points    float64
-	Place     int
-	Rating    float64
-	Rated     bool
-	Offset    int
-	Opponents []int64
-	HadBye    bool
+// criteria are what the closest-fit pairing minimises within a score group: the zone gap when timezone, then the
+// rating gap when rating. What is left is decided by the seed.
+type criteria struct {
+	timezone, rating bool
 }
-
-// Criteria are what the pairing minimises within a score group: the zone gap when Timezone, then the rating gap
-// when Rating. What is left is decided by the seed.
-type Criteria struct {
-	Timezone, Rating bool
-}
-
-// Match is one pairing, with its zone gap in minutes and rating gap.
-type Match struct {
-	A, B      int64
-	ZoneGap   int
-	RatingGap float64
-}
-
-// Round is a pairing of everyone: the matches, and the bye when the count is odd.
-type Round struct {
-	Matches []Match
-	Bye     *int64
-}
-
-// ErrTooFew means fewer than two players to pair.
-var ErrTooFew = errors.New("a round needs at least two players")
-
-// ErrNoPairing means no round pairs every player without someone meeting an opponent again.
-var ErrNoPairing = errors.New("no round pairs everyone without someone meeting an opponent again: lower the Swiss rounds in Format to go on to the knockout")
 
 // unratedAs is the rating an unrated player is given for a rating gap.
 const unratedAs = 1500
@@ -57,22 +22,9 @@ const unratedAs = 1500
 // dpPlayers is the largest group paired by the exact search; a larger one is paired greedily from the top.
 const dpPlayers = 20
 
-// ZoneGap is the distance in minutes between two UTC offsets on the 24-hour circle.
-func ZoneGap(a, b int) int {
-	d := a - b
-	if d < 0 {
-		d = -d
-	}
-	d %= 1440
-	return min(d, 1440-d)
-}
-
-// Pair pairs the players for a round, never two who have met before. The seed makes the same players give the
-// same round. It returns ErrNoPairing when no round pairs everyone without a repeat.
-func Pair(players []Player, c Criteria, seed uint64) (Round, error) {
-	if len(players) < 2 {
-		return Round{}, ErrTooFew
-	}
+// closest pairs the players by the criteria, never two who have met before. The seed makes the same players give
+// the same round. It returns ErrNoPairing when no round pairs everyone without a repeat.
+func closest(players []Player, c criteria, seed uint64) (Round, error) {
 	rng := rand.New(rand.NewPCG(seed, seed^0x9E3779B97F4A7C15))
 	ranked := rank(players, rng)
 	jitter := map[[2]int64]float64{}
@@ -85,10 +37,10 @@ func Pair(players []Player, c Criteria, seed uint64) (Round, error) {
 			jitter[key] = rng.Float64()
 		}
 		v := math.Abs(a.Points-b.Points) * 1e6
-		if c.Timezone {
+		if c.timezone {
 			v += float64(ZoneGap(a.Offset, b.Offset)) * 1000
 		}
-		if c.Rating {
+		if c.rating {
 			v += ratingGap(a, b)
 		}
 		return v + jitter[key]
@@ -234,37 +186,6 @@ func byeOrder(ranked []Player) []int {
 		return fresh
 	}
 	return all
-}
-
-// scoreGroups splits ranked players into runs of equal points, highest first.
-func scoreGroups(ranked []Player) [][]Player {
-	var groups [][]Player
-	for i, p := range ranked {
-		if i == 0 || p.Points != ranked[i-1].Points {
-			groups = append(groups, nil)
-		}
-		groups[len(groups)-1] = append(groups[len(groups)-1], p)
-	}
-	return groups
-}
-
-func met(a, b Player) bool {
-	return slices.Contains(a.Opponents, b.ID) || slices.Contains(b.Opponents, a.ID)
-}
-
-func ratingOf(p Player) float64 {
-	if p.Rated {
-		return p.Rating
-	}
-	return unratedAs
-}
-
-func ratingGap(a, b Player) float64 {
-	return math.Abs(ratingOf(a) - ratingOf(b))
-}
-
-func match(a, b Player) Match {
-	return Match{A: a.ID, B: b.ID, ZoneGap: ZoneGap(a.Offset, b.Offset), RatingGap: ratingGap(a, b)}
 }
 
 // matching pairs an even pool at the least total cost: exactly for a small pool, else greedily from the top.

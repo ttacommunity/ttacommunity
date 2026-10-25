@@ -87,7 +87,7 @@ func roundOnePublished(f *fakeAdmins) {
 	fourEntered(f)
 	cy, dee := int64(8), int64(10)
 	at := time.Date(2026, 10, 12, 12, 0, 0, 0, time.UTC)
-	f.rounds = []store.BlitzRound{{ID: 101, Number: 1, Kind: "swiss", Seed: 1, PublishedAt: &at,
+	f.rounds = []store.BlitzRound{{ID: 101, Number: 1, Kind: "swiss", Method: "timezone", Seed: 1, PublishedAt: &at,
 		Matches: []store.BlitzMatch{{ID: 1010, A: 7, B: &cy}, {ID: 1011, A: 9, B: &dee}}}}
 }
 

@@ -2832,25 +2832,18 @@ paths:
       summary: Pair the edition's next round as a draft
       description: |
         Audited. The Origin must be the admin site. Everyone active is
-        paired on equal points where possible, never with an opponent they
-        have met; within a score group the pairs are the best time-zone fit
-        (and the closest ratings, when asked), chance deciding the rest. With
-        an odd count the lowest in the standings without a bye gets it. After
-        the last Swiss round it pairs the knockout instead: first the top of
-        the standings, 1 v 8, 2 v 7… for eight, then each round's winners,
-        neighbouring matches meeting, until the final; the criteria do not
-        apply. Refused while a draft exists, a match so far has no result or
-        a knockout match no winner, the knockout lacks players, or the
-        edition is finished.
+        paired by the edition's pairing methods (BlitzPairingMethods):
+        round 1's for the first Swiss round, the later rounds' after it,
+        never with an opponent they have met. The round records the method.
+        After the last Swiss round it pairs the knockout instead: first the
+        top of the standings, 1 v 8, 2 v 7… for eight, then each round's
+        winners, neighbouring matches meeting, until the final. Refused
+        while a draft exists, a match so far has no result or a knockout
+        match no winner, the knockout lacks players, or the edition is
+        finished.
       parameters:
         - $ref: "#/components/parameters/AdminTournamentSlug"
         - $ref: "#/components/parameters/BlitzEditionLabel"
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/NewBlitzRound"
       responses:
         "201":
           description: The draft round
@@ -2901,7 +2894,7 @@ paths:
       summary: Propose a pairing of a round's unpaired players, without saving it
       description: |
         Everyone active and in no kept match is paired as for a new round, by
-        the criteria given. The matches named in keep stay as they are, and
+        the method the round records. The matches named in keep stay as they are, and
         so does a match of the round that already has a result; without
         keep, everyone else is paired again. A kept bye goes back into the
         pairing when an odd number is left over, and one player left over
@@ -3095,8 +3088,8 @@ paths:
       description: |
         Audited. The Origin must be the admin site. Every round, result and
         game goes, every dropped entrant is in again and every skip goes.
-        The entrants and their details, the organisers, format, points and
-        thread text stay. Ratings runs lose their rows for the games, as a
+        The entrants and their details, the format, points and pairing
+        stay. Ratings runs lose their rows for the games, as a
         match's reset does.
       parameters:
         - $ref: "#/components/parameters/AdminTournamentSlug"
@@ -3321,54 +3314,6 @@ paths:
           $ref: "#/components/responses/NotFound"
         "409":
           $ref: "#/components/responses/Conflict"
-  /v1/admin/blitz/{tournament}/{edition}/organisers:
-    post:
-      operationId: postAdminBlitzOrganiser
-      tags: [admin]
-      summary: Add a member as an organiser of a blitz edition
-      description: |
-        Audited. The Origin must be the admin site. Every round's Discord
-        thread messages tell players to ping the organisers. Adding one
-        again changes nothing.
-      parameters:
-        - $ref: "#/components/parameters/AdminTournamentSlug"
-        - $ref: "#/components/parameters/BlitzEditionLabel"
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/BlitzOrganiserAdd"
-      responses:
-        "204":
-          description: Added
-        "400":
-          $ref: "#/components/responses/BadRequest"
-        "401":
-          $ref: "#/components/responses/Unauthorized"
-        "403":
-          $ref: "#/components/responses/Forbidden"
-        "404":
-          $ref: "#/components/responses/NotFound"
-  /v1/admin/blitz/{tournament}/{edition}/organisers/{member}:
-    delete:
-      operationId: deleteAdminBlitzOrganiser
-      tags: [admin]
-      summary: Stop a member organising a blitz edition
-      description: Audited. The Origin must be the admin site.
-      parameters:
-        - $ref: "#/components/parameters/AdminTournamentSlug"
-        - $ref: "#/components/parameters/BlitzEditionLabel"
-        - $ref: "#/components/parameters/MemberId"
-      responses:
-        "204":
-          description: Removed
-        "401":
-          $ref: "#/components/responses/Unauthorized"
-        "403":
-          $ref: "#/components/responses/Forbidden"
-        "404":
-          $ref: "#/components/responses/NotFound"
   /v1/admin/blitz/{tournament}/{edition}/points:
     put:
       operationId: putAdminBlitzPoints
@@ -3419,12 +3364,15 @@ paths:
           $ref: "#/components/responses/NotFound"
         "409":
           $ref: "#/components/responses/Conflict"
-  /v1/admin/blitz/{tournament}/{edition}/thread-text:
+  /v1/admin/blitz/{tournament}/{edition}/pairing:
     put:
-      operationId: putAdminBlitzThreadText
+      operationId: putAdminBlitzPairing
       tags: [admin]
-      summary: Set what a blitz edition's Discord thread messages say
-      description: Audited. The Origin must be the admin site. Replaces the edition's text, or the default.
+      summary: Set how a blitz edition's Swiss rounds are paired
+      description: |
+        Audited. The Origin must be the admin site. Allowed at any time: the
+        next round paired follows it, and rounds already paired keep the
+        method they record.
       parameters:
         - $ref: "#/components/parameters/AdminTournamentSlug"
         - $ref: "#/components/parameters/BlitzEditionLabel"
@@ -3433,29 +3381,12 @@ paths:
         content:
           application/json:
             schema:
-              $ref: "#/components/schemas/BlitzThreadTextSet"
+              $ref: "#/components/schemas/BlitzPairingMethods"
       responses:
         "204":
           description: Saved
         "400":
           $ref: "#/components/responses/BadRequest"
-        "401":
-          $ref: "#/components/responses/Unauthorized"
-        "403":
-          $ref: "#/components/responses/Forbidden"
-        "404":
-          $ref: "#/components/responses/NotFound"
-    delete:
-      operationId: deleteAdminBlitzThreadText
-      tags: [admin]
-      summary: Reset a blitz edition's Discord thread messages to the default text
-      description: Audited. The Origin must be the admin site. An edition already on the default stays on it.
-      parameters:
-        - $ref: "#/components/parameters/AdminTournamentSlug"
-        - $ref: "#/components/parameters/BlitzEditionLabel"
-      responses:
-        "204":
-          description: Reset
         "401":
           $ref: "#/components/responses/Unauthorized"
         "403":
@@ -3494,42 +3425,32 @@ paths:
           $ref: "#/components/responses/NotFound"
         "409":
           $ref: "#/components/responses/Conflict"
-  /v1/admin/blitz/{tournament}/{edition}/rounds/{round}/threads:
+  /v1/admin/blitz/{tournament}/{edition}/rounds/{round}/discord:
     get:
-      operationId: getAdminBlitzRoundThreads
+      operationId: getAdminBlitzRoundDiscord
       tags: [admin]
-      summary: Download a round's Discord threads as text to paste
+      summary: A round's games as text to paste into Discord
       description: |
-        Audited, as it holds Discord names. A block per game with two
-        players, numbered as the site numbers them, between --- lines: the
-        thread's title (Round 3 · Game 1 · Ann vs Bob, by TTA username, at
-        most 100 characters), then the edition's message with any {players}
-        mentioned by Discord username and any {deadline} as a Discord
-        timestamp, then whom to ping: the organisers by Discord username.
-        A player whose Discord name cannot be a username is named by TTA
-        username, and the edition's no-Discord sentence follows for them;
-        an organiser's shows as @???, for the organiser to fill in. A blank
-        line parts the blocks. Any round once paired, draft or published;
-        refused while the round has no deadline, the edition no organiser,
-        or the round no game.
+        Audited, as it holds Discord names. A line per game with two
+        players, in the order the site numbers them, as "@ann vs @bob",
+        every line but the last ending in a comma; pasted into Discord, it
+        notifies everyone playing. A player whose Discord name cannot be a
+        username is named by TTA username. Any round once paired, draft or
+        published; refused while the round has no game.
       parameters:
         - $ref: "#/components/parameters/AdminTournamentSlug"
         - $ref: "#/components/parameters/BlitzEditionLabel"
         - $ref: "#/components/parameters/BlitzRoundId"
       responses:
         "200":
-          description: The threads, as plain text
+          description: The text
           headers:
             Cache-Control:
               $ref: "#/components/headers/CacheControl"
-            Content-Disposition:
-              required: true
-              schema:
-                type: string
           content:
-            text/plain:
+            application/json:
               schema:
-                type: string
+                $ref: "#/components/schemas/BlitzDiscordText"
         "401":
           $ref: "#/components/responses/Unauthorized"
         "403":
@@ -4784,8 +4705,10 @@ components:
     BlitzEdition:
       description: A blitz edition for the site, with the entrants still in, the published rounds and the standings
       type: object
-      required: [tournament, name, edition, format, points, fide_points, entrants, rounds, standings, champion, results_updated_at]
+      required: [tournament, name, edition, format, points, fide_points, pairing, entrants, rounds, standings, champion, results_updated_at]
       properties:
+        pairing:
+          $ref: "#/components/schemas/BlitzPairingMethods"
         results_updated_at:
           description: When the latest result in a published round was recorded; null before the first
           type: string
@@ -4828,8 +4751,13 @@ components:
     BlitzRound:
       description: A published round as the site shows it
       type: object
-      required: [number, kind, published_at, matches, skipped]
+      required: [number, kind, method, published_at, matches, skipped]
       properties:
+        method:
+          description: The method a Swiss round was paired with; null for a knockout round
+          allOf:
+            - $ref: "#/components/schemas/BlitzPairingMethod"
+          nullable: true
         skipped:
           description: Who sat the round out, by username, in sign-up order
           type: array
@@ -4974,28 +4902,35 @@ components:
           description: Dropped players come last
           type: string
           enum: [active, dropped]
-    NewBlitzRound:
-      description: The criteria to pair by; the time zone fit is on unless turned off
+    BlitzPairingMethod:
+      description: |
+        How a Swiss round is paired: dutch is FIDE's Dutch system (C.04.3,
+        without colours); dutch-timezone the same, with the closest time
+        zones choosing among the opponents it ranks equally; timezone the
+        closest time zones, then ratings, within a score group; rating the
+        closest ratings within a score group; random chance within a score
+        group
+      type: string
+      enum: [dutch, dutch-timezone, timezone, rating, random]
+    BlitzPairingMethods:
+      description: How an edition's Swiss rounds are paired, round 1 and the rounds after it
       type: object
       additionalProperties: false
+      required: [first, later]
       properties:
-        timezone:
-          type: boolean
-          default: true
-        rating:
-          type: boolean
-          default: false
+        first:
+          description: Round 1's method, one of dutch, dutch-timezone, timezone or random
+          allOf:
+            - $ref: "#/components/schemas/BlitzPairingMethod"
+        later:
+          description: The later rounds' method, one of dutch, dutch-timezone, timezone or rating
+          allOf:
+            - $ref: "#/components/schemas/BlitzPairingMethod"
     BlitzPairing:
-      description: The criteria to pair by, as for a new round, and the matches to keep as they are
+      description: The matches to keep as they are
       type: object
       additionalProperties: false
       properties:
-        timezone:
-          type: boolean
-          default: true
-        rating:
-          type: boolean
-          default: false
         keep:
           description: Matches that stay as they are; everyone active and in none of them is paired
           type: array
@@ -5071,7 +5006,7 @@ components:
           nullable: true
     AdminBlitzRound:
       type: object
-      required: [id, number, kind, timezone, rating, published_at, deadline, matches, reserve]
+      required: [id, number, kind, method, published_at, deadline, matches, reserve]
       properties:
         id:
           type: integer
@@ -5081,10 +5016,11 @@ components:
         kind:
           type: string
           enum: [swiss, knockout]
-        timezone:
-          type: boolean
-        rating:
-          type: boolean
+        method:
+          description: The method a Swiss round was paired with; null for a knockout round
+          allOf:
+            - $ref: "#/components/schemas/BlitzPairingMethod"
+          nullable: true
         published_at:
           description: Null for a draft
           type: string
@@ -5215,20 +5151,15 @@ components:
             type: integer
     AdminBlitzEdition:
       type: object
-      required: [tournament, name, edition, format, points, fide_points, entrants, rounds, standings, champion, organisers, thread_text]
+      required: [tournament, name, edition, format, points, fide_points, pairing, entrants, rounds, standings, champion]
       properties:
+        pairing:
+          $ref: "#/components/schemas/BlitzPairingMethods"
         points:
           $ref: "#/components/schemas/BlitzPoints"
         fide_points:
           description: True when the points are FIDE's, so Reset has nothing to do
           type: boolean
-        organisers:
-          description: The members the Discord thread messages tell players to ping, in the order added
-          type: array
-          items:
-            $ref: "#/components/schemas/AdminBlitzOrganiser"
-        thread_text:
-          $ref: "#/components/schemas/AdminBlitzThreadText"
         champion:
           description: The winner of the knockout's final, by username; null until the final has a winner
           type: string
@@ -5425,61 +5356,13 @@ components:
           minimum: 0
           maximum: 10
           multipleOf: 0.5
-    AdminBlitzThreadText:
-      description: What the edition's Discord thread messages say, its own text or the default
+    BlitzDiscordText:
+      description: A round's games as text to paste into Discord
       type: object
-      required: [message, no_discord, edited]
+      required: [text]
       properties:
-        message:
-          description: The welcome message, where {players} and {deadline} are filled in
+        text:
           type: string
-        no_discord:
-          description: The sentence for a player without a Discord username, where {name} is filled in
-          type: string
-        edited:
-          description: True when the edition has its own text, false for the default
-          type: boolean
-    BlitzThreadTextSet:
-      description: |
-        An edition's own thread text, written as typed, surrounding spaces
-        trimmed. In the message, {players} becomes the game's players and
-        {deadline} the round's deadline; in the no-Discord sentence, {name}
-        becomes the player's TTA username. Each is optional, and an empty
-        part is left out of the threads.
-      type: object
-      additionalProperties: false
-      required: [message, no_discord]
-      properties:
-        message:
-          type: string
-          maxLength: 1500
-        no_discord:
-          type: string
-          maxLength: 300
-    AdminBlitzOrganiser:
-      description: A member who organises an edition
-      type: object
-      required: [member, name, discord_name]
-      properties:
-        member:
-          type: integer
-          format: int64
-        name:
-          description: The TTA username
-          type: string
-        discord_name:
-          description: Empty when not known
-          type: string
-    BlitzOrganiserAdd:
-      description: The member to add as an organiser
-      type: object
-      additionalProperties: false
-      required: [member]
-      properties:
-        member:
-          type: integer
-          format: int64
-          minimum: 1
     BlitzDeadline:
       description: A deadline, and the time zone it was set in
       type: object

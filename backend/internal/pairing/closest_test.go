@@ -1,4 +1,4 @@
-package blitz_test
+package pairing_test
 
 import (
 	"errors"
@@ -7,22 +7,22 @@ import (
 	"sort"
 	"testing"
 
-	"ttacommunity/backend/internal/blitz"
+	"ttacommunity/backend/internal/pairing"
 )
 
 // placed gives a player their place in the standings.
-func placed(p blitz.Player, place int) blitz.Player {
+func placed(p pairing.Player, place int) pairing.Player {
 	p.Place = place
 	return p
 }
 
 // rated makes a player with an offset in hours, a rating and points.
-func rated(id int64, hours float64, rating, points float64) blitz.Player {
-	return blitz.Player{ID: id, Offset: int(hours * 60), Rating: rating, Rated: true, Points: points}
+func rated(id int64, hours float64, rating, points float64) pairing.Player {
+	return pairing.Player{ID: id, Offset: int(hours * 60), Rating: rating, Rated: true, Points: points}
 }
 
 // pairs lists a round's matches as "a-b" with the lower id first, sorted, and the bye as "bye:n".
-func pairs(r blitz.Round) []string {
+func pairs(r pairing.Round) []string {
 	var out []string
 	for _, m := range r.Matches {
 		a, b := m.A, m.B
@@ -45,16 +45,16 @@ func TestZoneGapIsCircular(t *testing.T) {
 		{120, 120, 0}, {120, -240, 360}, {-600, 780, 60}, {840, -720, 120}, {0, 720, 720}, {-720, 720, 0},
 	}
 	for _, tt := range tests {
-		if got := blitz.ZoneGap(tt.a, tt.b); got != tt.want {
+		if got := pairing.ZoneGap(tt.a, tt.b); got != tt.want {
 			t.Errorf("ZoneGap(%d, %d) = %d, want %d", tt.a, tt.b, got, tt.want)
 		}
 	}
 }
 
 func TestPairPutsPlayersInTheSameZoneTogether(t *testing.T) {
-	players := []blitz.Player{rated(1, 2, 1500, 0), rated(2, -4, 1500, 0), rated(3, 2, 1500, 0), rated(4, -4, 1500, 0)}
+	players := []pairing.Player{rated(1, 2, 1500, 0), rated(2, -4, 1500, 0), rated(3, 2, 1500, 0), rated(4, -4, 1500, 0)}
 	for seed := uint64(1); seed <= 3; seed++ {
-		got, err := blitz.Pair(players, blitz.Criteria{Timezone: true}, seed)
+		got, err := pairing.Pair(players, pairing.Timezone, seed)
 		if err != nil {
 			t.Fatalf("Pair: %v", err)
 		}
@@ -72,20 +72,20 @@ func TestPairPutsPlayersInTheSameZoneTogether(t *testing.T) {
 func TestPairGivesTheByeToTheLowestRankedWithoutOne(t *testing.T) {
 	tests := []struct {
 		name    string
-		players []blitz.Player
+		players []pairing.Player
 		want    int64
 	}{
-		{"the lowest by points", []blitz.Player{rated(1, 0, 1500, 2), rated(2, 0, 1500, 1), rated(3, 0, 1500, 0)}, 3},
-		{"the lowest by rating on equal points", []blitz.Player{rated(1, 0, 1800, 0), rated(2, 0, 1600, 0), rated(3, 0, 1700, 0)}, 2},
-		{"an unrated player below every rated one", []blitz.Player{rated(1, 0, 1800, 0), rated(2, 0, 1600, 0), {ID: 3}}, 3},
-		{"the next one up when the lowest had a bye", []blitz.Player{rated(1, 0, 1800, 0), rated(2, 0, 1600, 0), {ID: 3, HadBye: true}}, 2},
-		{"the lowest again when everyone had one", []blitz.Player{{ID: 1, HadBye: true, Points: 1}, {ID: 2, HadBye: true, Points: 1}, {ID: 3, HadBye: true}}, 3},
-		{"the lowest in the standings, whatever the ratings", []blitz.Player{placed(rated(1, 0, 1800, 0), 3), placed(rated(2, 0, 1600, 0), 1), placed(rated(3, 0, 1700, 0), 2)}, 1},
-		{"the next one up in the standings when the lowest had a bye", []blitz.Player{placed(blitz.Player{ID: 1, HadBye: true}, 3), placed(rated(2, 0, 1600, 0), 1), placed(rated(3, 0, 1700, 0), 2)}, 3},
+		{"the lowest by points", []pairing.Player{rated(1, 0, 1500, 2), rated(2, 0, 1500, 1), rated(3, 0, 1500, 0)}, 3},
+		{"the lowest by rating on equal points", []pairing.Player{rated(1, 0, 1800, 0), rated(2, 0, 1600, 0), rated(3, 0, 1700, 0)}, 2},
+		{"an unrated player below every rated one", []pairing.Player{rated(1, 0, 1800, 0), rated(2, 0, 1600, 0), {ID: 3}}, 3},
+		{"the next one up when the lowest had a bye", []pairing.Player{rated(1, 0, 1800, 0), rated(2, 0, 1600, 0), {ID: 3, HadBye: true}}, 2},
+		{"the lowest again when everyone had one", []pairing.Player{{ID: 1, HadBye: true, Points: 1}, {ID: 2, HadBye: true, Points: 1}, {ID: 3, HadBye: true}}, 3},
+		{"the lowest in the standings, whatever the ratings", []pairing.Player{placed(rated(1, 0, 1800, 0), 3), placed(rated(2, 0, 1600, 0), 1), placed(rated(3, 0, 1700, 0), 2)}, 1},
+		{"the next one up in the standings when the lowest had a bye", []pairing.Player{placed(pairing.Player{ID: 1, HadBye: true}, 3), placed(rated(2, 0, 1600, 0), 1), placed(rated(3, 0, 1700, 0), 2)}, 3},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := blitz.Pair(tt.players, blitz.Criteria{Timezone: true}, 7)
+			got, err := pairing.Pair(tt.players, pairing.Timezone, 7)
 			if err != nil {
 				t.Fatalf("Pair: %v", err)
 			}
@@ -101,10 +101,10 @@ func TestPairGivesTheByeToTheLowestRankedWithoutOne(t *testing.T) {
 
 func TestPairNeverRepeatsAnOpponentWhileItCan(t *testing.T) {
 	// 1 and 3 share a zone, as do 2 and 4, but 1 has met 3 and 2 has met 4: only cross-zone pairs are legal.
-	players := []blitz.Player{rated(1, 2, 1500, 0), rated(2, -4, 1500, 0), rated(3, 2, 1500, 0), rated(4, -4, 1500, 0)}
+	players := []pairing.Player{rated(1, 2, 1500, 0), rated(2, -4, 1500, 0), rated(3, 2, 1500, 0), rated(4, -4, 1500, 0)}
 	players[0].Opponents, players[2].Opponents = []int64{3}, []int64{1}
 	players[1].Opponents, players[3].Opponents = []int64{4}, []int64{2}
-	got, err := blitz.Pair(players, blitz.Criteria{Timezone: true}, 1)
+	got, err := pairing.Pair(players, pairing.Timezone, 1)
 	if err != nil {
 		t.Fatalf("Pair: %v", err)
 	}
@@ -122,7 +122,7 @@ func TestPairNeverRepeatsAnOpponentWhileItCan(t *testing.T) {
 }
 
 // repeats lists a round's matches between players who have met before.
-func repeats(players []blitz.Player, r blitz.Round) []string {
+func repeats(players []pairing.Player, r pairing.Round) []string {
 	met := map[[2]int64]bool{}
 	for _, p := range players {
 		for _, o := range p.Opponents {
@@ -141,10 +141,10 @@ func repeats(players []blitz.Player, r blitz.Round) []string {
 func TestPairFindsARoundWithoutRepeatsTheScoreGroupsMiss(t *testing.T) {
 	// The leaders 1 and 2 could meet, but then 3 and 4, who have met, would be left: only 1-3 and 2-4 (or 1-4 and
 	// 2-3) pair everyone without a repeat.
-	players := []blitz.Player{rated(1, 0, 1500, 2), rated(2, 0, 1500, 2), rated(3, 0, 1500, 0), rated(4, 0, 1500, 0)}
+	players := []pairing.Player{rated(1, 0, 1500, 2), rated(2, 0, 1500, 2), rated(3, 0, 1500, 0), rated(4, 0, 1500, 0)}
 	players[2].Opponents, players[3].Opponents = []int64{4}, []int64{3}
 	for seed := uint64(1); seed <= 5; seed++ {
-		got, err := blitz.Pair(players, blitz.Criteria{Timezone: true}, seed)
+		got, err := pairing.Pair(players, pairing.Timezone, seed)
 		if err != nil {
 			t.Fatalf("Pair(seed %d): %v", seed, err)
 		}
@@ -156,7 +156,7 @@ func TestPairFindsARoundWithoutRepeatsTheScoreGroupsMiss(t *testing.T) {
 
 func TestPairRefusesARoundThatWouldRepeatAnOpponent(t *testing.T) {
 	// Four players who have all met: every pairing repeats.
-	players := []blitz.Player{rated(1, 0, 1500, 0), rated(2, 0, 1500, 0), rated(3, 0, 1500, 0), rated(4, 0, 1500, 0)}
+	players := []pairing.Player{rated(1, 0, 1500, 0), rated(2, 0, 1500, 0), rated(3, 0, 1500, 0), rated(4, 0, 1500, 0)}
 	for i := range players {
 		for j := range players {
 			if i != j {
@@ -164,18 +164,18 @@ func TestPairRefusesARoundThatWouldRepeatAnOpponent(t *testing.T) {
 			}
 		}
 	}
-	if got, err := blitz.Pair(players, blitz.Criteria{}, 1); !errors.Is(err, blitz.ErrNoPairing) {
+	if got, err := pairing.Pair(players, pairing.Random, 1); !errors.Is(err, pairing.ErrNoPairing) {
 		t.Errorf("Pair = %v, %v; want ErrNoPairing", pairs(got), err)
 	}
 }
 
 func TestPairKeepsScoreGroupsTogetherAndFloatsTheOddOneDown(t *testing.T) {
-	players := []blitz.Player{
+	players := []pairing.Player{
 		rated(1, 0, 1500, 2), rated(2, 0, 1500, 2),
 		rated(3, 0, 1500, 1), rated(4, 0, 1500, 1), rated(5, 0, 1500, 1),
 		rated(6, 0, 1500, 0), rated(7, 0, 1500, 0), rated(8, 0, 1500, 0),
 	}
-	got, err := blitz.Pair(players, blitz.Criteria{Timezone: true}, 3)
+	got, err := pairing.Pair(players, pairing.Timezone, 3)
 	if err != nil {
 		t.Fatalf("Pair: %v", err)
 	}
@@ -186,7 +186,7 @@ func TestPairKeepsScoreGroupsTogetherAndFloatsTheOddOneDown(t *testing.T) {
 		t.Errorf("eight players gave %d matches and bye %v, want 4 and none", len(got.Matches), got.Bye)
 	}
 	// 5, the lowest of the odd 1-point group, floats down: exactly one match crosses score groups.
-	byID := map[int64]blitz.Player{}
+	byID := map[int64]pairing.Player{}
 	for _, p := range players {
 		byID[p.ID] = p
 	}
@@ -205,8 +205,8 @@ func TestPairKeepsScoreGroupsTogetherAndFloatsTheOddOneDown(t *testing.T) {
 }
 
 func TestPairUsesRatingsWithinAZoneWhenAsked(t *testing.T) {
-	players := []blitz.Player{rated(1, 1, 2000, 0), rated(2, 1, 1400, 0), rated(3, 1, 1900, 0), rated(4, 1, 1500, 0)}
-	got, err := blitz.Pair(players, blitz.Criteria{Timezone: true, Rating: true}, 5)
+	players := []pairing.Player{rated(1, 1, 2000, 0), rated(2, 1, 1400, 0), rated(3, 1, 1900, 0), rated(4, 1, 1500, 0)}
+	got, err := pairing.Pair(players, pairing.Timezone, 5)
 	if err != nil {
 		t.Fatalf("Pair: %v", err)
 	}
@@ -216,21 +216,21 @@ func TestPairUsesRatingsWithinAZoneWhenAsked(t *testing.T) {
 }
 
 func TestPairIsTheSameForASeedAndVariesAcrossSeeds(t *testing.T) {
-	var players []blitz.Player
+	var players []pairing.Player
 	for i := int64(1); i <= 8; i++ {
 		players = append(players, rated(i, 0, 1500, 0))
 	}
-	first, err := blitz.Pair(players, blitz.Criteria{}, 11)
+	first, err := pairing.Pair(players, pairing.Random, 11)
 	if err != nil {
 		t.Fatalf("Pair: %v", err)
 	}
-	again, _ := blitz.Pair(players, blitz.Criteria{}, 11)
+	again, _ := pairing.Pair(players, pairing.Random, 11)
 	if !slices.Equal(pairs(first), pairs(again)) {
 		t.Errorf("seed 11 twice = %v and %v", pairs(first), pairs(again))
 	}
 	seen := map[string]bool{}
 	for seed := uint64(1); seed <= 20; seed++ {
-		r, _ := blitz.Pair(players, blitz.Criteria{}, seed)
+		r, _ := pairing.Pair(players, pairing.Random, seed)
 		seen[fmt.Sprint(pairs(r))] = true
 	}
 	if len(seen) < 2 {
@@ -239,12 +239,12 @@ func TestPairIsTheSameForASeedAndVariesAcrossSeeds(t *testing.T) {
 }
 
 func TestPairHandlesATwentyFourPlayerRoundOne(t *testing.T) {
-	var players []blitz.Player
+	var players []pairing.Player
 	for i := int64(1); i <= 24; i++ {
 		zone := []float64{2, -4, 8}[i%3]
 		players = append(players, rated(i, zone, 1500+float64(i)*10, 0))
 	}
-	got, err := blitz.Pair(players, blitz.Criteria{Timezone: true}, 2)
+	got, err := pairing.Pair(players, pairing.Timezone, 2)
 	if err != nil {
 		t.Fatalf("Pair: %v", err)
 	}
@@ -259,7 +259,7 @@ func TestPairHandlesATwentyFourPlayerRoundOne(t *testing.T) {
 }
 
 func TestPairRefusesFewerThanTwoPlayers(t *testing.T) {
-	if _, err := blitz.Pair([]blitz.Player{rated(1, 0, 1500, 0)}, blitz.Criteria{}, 1); !errors.Is(err, blitz.ErrTooFew) {
+	if _, err := pairing.Pair([]pairing.Player{rated(1, 0, 1500, 0)}, pairing.Random, 1); !errors.Is(err, pairing.ErrTooFew) {
 		t.Errorf("Pair(one player) = %v, want ErrTooFew", err)
 	}
 }

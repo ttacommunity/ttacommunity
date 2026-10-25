@@ -69,17 +69,16 @@ func skippers(entrants []store.BlitzEntrant, number int) []store.BlitzEntrant {
 	return out
 }
 
-// swissStandings ranks an edition's entrants by its published Swiss rounds' results and skips, as its points score
-// them, and its tiebreak seed. The knockout's results never count: the standings after the last Swiss round are its
-// seeds.
-func swissStandings(ed store.BlitzEdition) []blitz.Standing {
+// swissPlayed is an edition's published Swiss rounds as the blitz package sees them: the entrants with the rounds
+// they skipped, the matches, and the rounds' numbers.
+func swissPlayed(ed store.BlitzEdition) ([]blitz.Entrant, []blitz.Played, []int) {
 	var matches []blitz.Played
-	published := map[int]bool{}
+	var numbers []int
 	for _, r := range ed.Rounds {
 		if r.Kind == "knockout" || r.PublishedAt == nil {
 			continue
 		}
-		published[r.Number] = true
+		numbers = append(numbers, r.Number)
 		for _, m := range r.Matches {
 			matches = append(matches, played(r.Number, m))
 		}
@@ -88,13 +87,26 @@ func swissStandings(ed store.BlitzEdition) []blitz.Standing {
 	for _, e := range ed.Entrants {
 		var skipped []int
 		for _, n := range e.Skips {
-			if published[n] {
+			if slices.Contains(numbers, n) {
 				skipped = append(skipped, n)
 			}
 		}
 		entrants = append(entrants, blitz.Entrant{ID: e.ID, Dropped: e.Status == "dropped", Skipped: skipped})
 	}
+	return entrants, matches, numbers
+}
+
+// swissStandings ranks an edition's entrants by its published Swiss rounds' results and skips, as its points score
+// them, and its tiebreak seed. The knockout's results never count: the standings after the last Swiss round are its
+// seeds.
+func swissStandings(ed store.BlitzEdition) []blitz.Standing {
+	entrants, matches, _ := swissPlayed(ed)
 	return blitz.Standings(entrants, matches, ed.Format.SwissRounds, uint64(ed.TiebreakSeed), ed.Points)
+}
+
+// blitzPairing is an edition's pairing methods as the API sends them.
+func blitzPairing(p store.BlitzPairing) BlitzPairingMethods {
+	return BlitzPairingMethods{First: BlitzPairingMethod(p.First), Later: BlitzPairingMethod(p.Later)}
 }
 
 // blitzStandings is the edition's standings as the API sends them.
@@ -145,7 +157,7 @@ func (s *server) GetBlitzEdition(ctx context.Context, req GetBlitzEditionRequest
 	}
 	row := blitzEditionRow(ed.BlitzEditionRow)
 	body := BlitzEdition{Tournament: row.Tournament, Name: row.Name, Edition: row.Edition, Format: row.Format,
-		Points: blitzPoints(ed.Points), FidePoints: ed.Points == blitz.FIDEScoring,
+		Points: blitzPoints(ed.Points), FidePoints: ed.Points == blitz.FIDEScoring, Pairing: blitzPairing(ed.Pairing),
 		Entrants: []BlitzEntrant{}, Rounds: make([]BlitzRound, len(ed.Rounds)), Standings: blitzStandings(ed), Champion: row.Champion}
 	for _, e := range ed.Entrants {
 		if e.Status != "active" {
@@ -170,7 +182,7 @@ func (s *server) GetBlitzEdition(ctx context.Context, req GetBlitzEditionRequest
 		return nil
 	}
 	for i, r := range ed.Rounds {
-		pr := BlitzRound{Number: r.Number, Kind: BlitzRoundKind(r.Kind), Matches: make([]BlitzPublicMatch, len(r.Matches)), Skipped: []string{}}
+		pr := BlitzRound{Number: r.Number, Kind: BlitzRoundKind(r.Kind), Method: roundMethod(r), Matches: make([]BlitzPublicMatch, len(r.Matches)), Skipped: []string{}}
 		for _, e := range skippers(ed.Entrants, r.Number) {
 			pr.Skipped = append(pr.Skipped, e.Name)
 		}

@@ -101,16 +101,11 @@ type Admins interface {
 	ResetBlitzResult(ctx context.Context, slug, edition string, matchID int64) error
 	ResetBlitzRound(ctx context.Context, slug, edition string, roundID int64) error
 	ResetBlitzEdition(ctx context.Context, slug, edition string) error
-	// AddBlitzOrganiser and RemoveBlitzOrganiser change who the edition's Discord threads tell players to ping;
-	// SetBlitzRoundDeadline sets the deadline a round's threads give.
-	AddBlitzOrganiser(ctx context.Context, slug, edition string, member int64) error
-	RemoveBlitzOrganiser(ctx context.Context, slug, edition string, member int64) error
 	SetBlitzRoundDeadline(ctx context.Context, slug, edition string, roundID int64, at time.Time, zone string) error
 	// SetBlitzPoints sets what each outcome of the edition is worth.
 	SetBlitzPoints(ctx context.Context, slug, edition string, points blitz.Scoring) error
-	// SetBlitzThreadText replaces what the edition's thread messages say; ResetBlitzThreadText puts back the default.
-	SetBlitzThreadText(ctx context.Context, slug, edition string, t store.BlitzThreadText) error
-	ResetBlitzThreadText(ctx context.Context, slug, edition string) error
+	// SetBlitzPairing sets how the edition's Swiss rounds are paired.
+	SetBlitzPairing(ctx context.Context, slug, edition string, p store.BlitzPairing) error
 	// The community's members: listed, added (returning the id), changed, banned and unbanned, removed.
 	Members(ctx context.Context) ([]store.Member, error)
 	AddMember(ctx context.Context, m store.Member) (int64, error)

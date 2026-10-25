@@ -35,6 +35,10 @@ func (f *fakeAdmins) blitzRow() store.BlitzEditionRow {
 	if f.points != (blitz.Scoring{}) {
 		row.Points = f.points
 	}
+	row.Pairing = store.DefaultBlitzPairing
+	if f.pairing != (store.BlitzPairing{}) {
+		row.Pairing = f.pairing
+	}
 	for _, r := range f.rounds {
 		if r.PublishedAt != nil && (row.Round == nil || r.Number > *row.Round) {
 			row.Round = new(r.Number)
@@ -87,7 +91,7 @@ func (f *fakeAdmins) BlitzEdition(_ context.Context, slug, edition string) (stor
 	if slug != "us_open" || edition != "2026" {
 		return store.BlitzEdition{}, store.ErrNoBlitzEdition
 	}
-	return store.BlitzEdition{BlitzEditionRow: f.blitzRow(), Entrants: f.blitzEntrants(), Rounds: slices.Clone(f.rounds), Organisers: slices.Clone(f.organisers), ThreadText: f.threadText}, nil
+	return store.BlitzEdition{BlitzEditionRow: f.blitzRow(), Entrants: f.blitzEntrants(), Rounds: slices.Clone(f.rounds)}, nil
 }
 
 func (f *fakeAdmins) SetBlitzFormat(_ context.Context, slug, edition string, format store.BlitzFormat) error {
@@ -114,6 +118,18 @@ func (f *fakeAdmins) SetBlitzPoints(_ context.Context, slug, edition string, poi
 	}
 	f.points = points
 	f.notes = append(f.notes, fmt.Sprintf("points %g/%g/%g/%g/%g/%g/%g", points.Win, points.Draw, points.Loss, points.ForfeitWin, points.ForfeitLoss, points.Bye, points.Skip))
+	return nil
+}
+
+func (f *fakeAdmins) SetBlitzPairing(_ context.Context, slug, edition string, p store.BlitzPairing) error {
+	if slug != "us_open" || edition != "2026" {
+		return store.ErrNoBlitzEdition
+	}
+	if !slices.Contains(store.BlitzFirstMethods, p.First) || !slices.Contains(store.BlitzLaterMethods, p.Later) {
+		return store.ErrBadBlitzPairing
+	}
+	f.pairing = p
+	f.notes = append(f.notes, "pairing "+p.First+"/"+p.Later)
 	return nil
 }
 

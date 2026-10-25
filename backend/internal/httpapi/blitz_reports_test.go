@@ -69,7 +69,7 @@ func reportsEdition(change func(ed *store.BlitzEdition, m *store.BlitzMatch)) *s
 			{ID: 8, MemberID: 1008, Name: "bob", Zone: "UTC", Status: "active"},
 			{ID: 9, MemberID: 1009, Name: "Cy", Zone: "UTC", Status: "active"},
 		},
-		Rounds: []store.BlitzRound{{ID: 101, Number: 1, Kind: "swiss", PublishedAt: &at,
+		Rounds: []store.BlitzRound{{ID: 101, Number: 1, Kind: "swiss", Method: "timezone", PublishedAt: &at,
 			Matches: []store.BlitzMatch{{ID: 21, A: 7, B: &bob}, {ID: 22, A: 9}}}},
 	}
 	if change != nil {

@@ -1,8 +1,7 @@
 /** The blitz edition page's decisions: the edition the address names, its address, advice on its format, its points summed up and changed, its settings summed up, and how its tables sort. */
 import type { components } from '@ttac/shared/api';
-import { EDITION_COLUMNS, ENTRANT_COLUMNS, formatLabel, pointsList, type BlitzPoints, type EditionRow, type EntrantRow } from '@ttac/shared/blitz';
+import { EDITION_COLUMNS, ENTRANT_COLUMNS, formatLabel, pairingSummary, pointsList, type BlitzPoints, type EditionRow, type EntrantRow, type PairingMethods } from '@ttac/shared/blitz';
 import type { SortColumns } from '@ttac/shared/sort';
-import { organisersSummary, threadTextSummary } from './blitz-threads';
 
 type Schemas = components['schemas'];
 export type AdminBlitzEntrant = Schemas['AdminBlitzEntrant'];
@@ -66,19 +65,17 @@ export function pointsFrom(f: PointsForm): BlitzPoints {
   return { win: Number(f.win), draw: Number(f.draw), loss: Number(f.loss), forfeit_win: Number(f.forfeit_win), forfeit_loss: Number(f.forfeit_loss), bye: Number(f.bye), skip: Number(f.skip) };
 }
 
-/** settingsRows sums up an edition's settings while they are not being edited: format, points, organisers and thread text, in that order. */
+/** settingsRows sums up an edition's settings while they are not being edited: format, points and pairing, in that order. */
 export function settingsRows(ed: {
   format: { swiss_rounds: number; knockout_size: number };
   points: BlitzPoints;
   fide_points: boolean;
-  organisers: readonly { name: string }[];
-  thread_text: { edited: boolean };
+  pairing: PairingMethods;
 }): { key: string; value: string }[] {
   return [
     { key: 'Format', value: formatLabel(ed.format) },
     { key: 'Points', value: pointsSummary(ed.points, ed.fide_points) },
-    { key: 'Organisers', value: organisersSummary(ed.organisers) },
-    { key: 'Thread text', value: threadTextSummary(ed.thread_text) },
+    { key: 'Pairing', value: pairingSummary(ed.pairing) },
   ];
 }
 

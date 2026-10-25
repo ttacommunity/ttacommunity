@@ -37,10 +37,10 @@ func (f *fakeRatings) BlitzEdition(ctx context.Context, slug, edition string) (s
 		{ID: 7, MemberID: 1007, Name: "Ann", Player: "Ann", Zone: "Europe/Berlin", Country: "DE", Status: "active"},
 		{ID: 8, MemberID: 1008, Name: "bob", Zone: "America/New_York", Status: "active"},
 	}, Rounds: []store.BlitzRound{
-		{ID: 101, Number: 1, Kind: "swiss", PublishedAt: &at, Matches: []store.BlitzMatch{{ID: 1, A: 7, B: &bob, Result: "b", GameID: &game, DecidedAt: &at,
+		{ID: 101, Number: 1, Kind: "swiss", Method: "timezone", PublishedAt: &at, Matches: []store.BlitzMatch{{ID: 1, A: 7, B: &bob, Result: "b", GameID: &game, DecidedAt: &at,
 			Game:   &store.BlitzGame{ShareCode: "ABCD1234", A: store.BlitzSide{Culture: 200, Outcome: "finished"}, B: store.BlitzSide{Culture: 210, Outcome: "finished"}, Finished: finished},
 			Ruling: "Ann played with an alt account"}}},
-		{ID: 102, Number: 2, Kind: "swiss", PublishedAt: &at, Matches: []store.BlitzMatch{{ID: 2, A: 7}}},
+		{ID: 102, Number: 2, Kind: "swiss", Method: "timezone", PublishedAt: &at, Matches: []store.BlitzMatch{{ID: 2, A: 7}}},
 	}}, nil
 }
 
@@ -132,7 +132,7 @@ func TestTheSiteShowsTheKnockoutWithSeedsAndTheChampion(t *testing.T) {
 			Entrants: 2, Round: new(2), Champion: new("bob")},
 		Entrants: []store.BlitzEntrant{{ID: 7, Name: "Ann", Zone: "UTC", Status: "active"}, {ID: 8, Name: "bob", Zone: "UTC", Status: "active"}},
 		Rounds: []store.BlitzRound{
-			{ID: 101, Number: 1, Kind: "swiss", PublishedAt: &at, Matches: []store.BlitzMatch{{ID: 1, A: 7, B: &bob, Result: "a", Ruling: "ruled", DecidedAt: &at}}},
+			{ID: 101, Number: 1, Kind: "swiss", Method: "timezone", PublishedAt: &at, Matches: []store.BlitzMatch{{ID: 1, A: 7, B: &bob, Result: "a", Ruling: "ruled", DecidedAt: &at}}},
 			{ID: 102, Number: 2, Kind: "knockout", PublishedAt: &at, Matches: []store.BlitzMatch{{ID: 2, A: 7, B: &bob, Slot: new(0), SeedA: new(1), SeedB: new(2), Result: "b", Ruling: "ruled", DecidedAt: &at}}},
 		},
 	}
@@ -169,7 +169,7 @@ func TestTheSiteStandingsTellAForfeitFromAGame(t *testing.T) {
 			ed := store.BlitzEdition{
 				BlitzEditionRow: store.BlitzEditionRow{Slug: "us_open", Name: "US Open", Edition: "2026", Format: store.DefaultBlitzFormat, Points: blitz.FIDEScoring, Entrants: 2, Round: new(1)},
 				Entrants:        []store.BlitzEntrant{{ID: 7, Name: "Ann", Zone: "UTC", Status: "active"}, {ID: 8, Name: "bob", Zone: "UTC", Status: "active"}},
-				Rounds: []store.BlitzRound{{ID: 101, Number: 1, Kind: "swiss", PublishedAt: &at,
+				Rounds: []store.BlitzRound{{ID: 101, Number: 1, Kind: "swiss", Method: "timezone", PublishedAt: &at,
 					Matches: []store.BlitzMatch{{ID: 1, A: 7, B: &bob, Result: "b", GameID: tt.game, Ruling: "ruled", DecidedAt: &at}}}},
 			}
 			rec, _ := serve(t, &fakeRatings{run: store.PublishedRun{ID: 7}, blitzEdition: &ed}, "/v1/blitz/us_open/2026")
@@ -261,7 +261,7 @@ func TestTheSiteStandingsSharePlacesOnlyTheDrawSeparates(t *testing.T) {
 			ed := store.BlitzEdition{
 				BlitzEditionRow: store.BlitzEditionRow{Slug: "us_open", Name: "US Open", Edition: "2026", Format: store.DefaultBlitzFormat, Points: blitz.FIDEScoring, Entrants: 2, Round: new(1)},
 				Entrants:        []store.BlitzEntrant{{ID: 7, Name: "Ann", Zone: "UTC", Status: "active"}, {ID: 8, Name: "bob", Zone: "UTC", Status: "active"}},
-				Rounds:          []store.BlitzRound{{ID: 101, Number: 1, Kind: "swiss", PublishedAt: &at, Matches: tt.matches}},
+				Rounds:          []store.BlitzRound{{ID: 101, Number: 1, Kind: "swiss", Method: "timezone", PublishedAt: &at, Matches: tt.matches}},
 			}
 			rec, _ := serve(t, &fakeRatings{run: store.PublishedRun{ID: 7}, blitzEdition: &ed}, "/v1/blitz/us_open/2026")
 			var got BlitzEdition

@@ -16,6 +16,9 @@ export default function AdminHeader({
   siteUrl?: string;
 }) {
   const [open, setOpen] = useState(false);
+  // The build has no host, so the hub starts as the production one and turns into this host's once in the browser.
+  const [hub, setHub] = useState(siteUrl ?? siteUrlFor());
+  useEffect(() => setHub(siteUrl ?? siteUrlFor(window.location.hostname)), [siteUrl]);
   const backdrop = useRef<HTMLDivElement>(null);
   useEffect(() => {
     // A click outside the menu closes it, as on the site; Escape and the close button do for the keyboard.
@@ -80,7 +83,7 @@ export default function AdminHeader({
             </a>
           ))}
           <a
-            href={siteUrl ?? (typeof window !== 'undefined' ? siteUrlFor(window.location.hostname) : siteUrlFor())}
+            href={hub}
             className="admin-hub-link"
             onClick={() => setOpen(false)}
           >

@@ -22,6 +22,23 @@ type BlitzFormat struct {
 // DefaultBlitzFormat is an edition's format until admin sets one: the US Open's.
 var DefaultBlitzFormat = BlitzFormat{SwissRounds: 8, KnockoutSize: 8}
 
+// BlitzPairing is how an edition's Swiss rounds are paired: round 1's method and the later rounds'.
+type BlitzPairing struct {
+	First, Later string
+}
+
+// DefaultBlitzPairing is a new edition's pairing: FIDE's Dutch system throughout.
+var DefaultBlitzPairing = BlitzPairing{First: "dutch", Later: "dutch"}
+
+// BlitzFirstMethods and BlitzLaterMethods are the methods round 1 and the later rounds may be paired by.
+var (
+	BlitzFirstMethods = []string{"dutch", "dutch-timezone", "timezone", "random"}
+	BlitzLaterMethods = []string{"dutch", "dutch-timezone", "timezone", "rating"}
+)
+
+// ErrBadBlitzPairing means a method round 1 or the later rounds may not be paired by.
+var ErrBadBlitzPairing = errors.New("round 1 is paired by dutch, dutch-timezone, timezone or random, and later rounds by dutch, dutch-timezone, timezone or rating")
+
 // BlitzEditionRow is one edition of a blitz series as the lists show it: the series' slug and name, the
 // edition's label and format, how many entrants are in and dropped, and the seed that breaks what the
 // standings' tiebreaks leave (0 until the edition has a row of its own).
@@ -34,6 +51,8 @@ type BlitzEditionRow struct {
 	TiebreakSeed int64
 	// Points are what each outcome is worth, FIDE's until admin sets them.
 	Points blitz.Scoring
+	// Pairing is how its Swiss rounds are paired, DefaultBlitzPairing until admin sets it.
+	Pairing BlitzPairing
 	// Round is the latest published round's number, nil before the first is published; PairedRound is the latest
 	// round's, published or not.
 	Round, PairedRound *int
@@ -52,14 +71,11 @@ type BlitzEntrant struct {
 	Skips                                                   []int
 }
 
-// BlitzEdition is an edition with its entrants, in sign-up order, its rounds (the published ones, for the site)
-// and, for admin, its organisers in the order added and its own thread text (nil until set).
+// BlitzEdition is an edition with its entrants, in sign-up order, and its rounds (the published ones, for the site).
 type BlitzEdition struct {
 	BlitzEditionRow
-	Entrants   []BlitzEntrant
-	Rounds     []BlitzRound
-	Organisers []BlitzOrganiser
-	ThreadText *BlitzThreadText
+	Entrants []BlitzEntrant
+	Rounds   []BlitzRound
 }
 
 // BlitzEntrantChange is what admin may change on an entrant: its status, or the member's Discord name, email,
@@ -123,6 +139,7 @@ func blitzEditionRows(ctx context.Context, db conn, public bool, slug, edition s
 		SELECT s.slug, s.name, t.label, coalesce(e.swiss_rounds, $4), coalesce(e.knockout_size, $5),
 		       coalesce(e.points_win, $6), coalesce(e.points_draw, $7), coalesce(e.points_loss, $8), coalesce(e.points_forfeit_win, $9),
 		       coalesce(e.points_forfeit_loss, $10), coalesce(e.points_bye, $11), coalesce(e.points_skip, $12),
+		       coalesce(e.pairing_first, $13), coalesce(e.pairing_later, $14),
 		       (SELECT count(*) FROM blitz_entries x WHERE x.tournament_id = t.tournament_id AND x.status = 'active')::int,
 		       (SELECT count(*) FROM blitz_entries x WHERE x.tournament_id = t.tournament_id AND x.status = 'dropped')::int,
 		       coalesce(e.tiebreak_seed, 0),
@@ -135,7 +152,7 @@ func blitzEditionRows(ctx context.Context, db conn, public bool, slug, edition s
 		WHERE s.blitz AND (s.visible OR NOT $1) AND ($2 = '' OR (s.slug = $2 AND t.label = $3))
 		ORDER BY s.name, coalesce(substring(t.label FROM '^[0-9]+')::int, -1) DESC, t.label DESC`,
 		public, slug, edition, DefaultBlitzFormat.SwissRounds, DefaultBlitzFormat.KnockoutSize, fide.Win, fide.Draw, fide.Loss, fide.ForfeitWin,
-		fide.ForfeitLoss, fide.Bye, fide.Skip)
+		fide.ForfeitLoss, fide.Bye, fide.Skip, DefaultBlitzPairing.First, DefaultBlitzPairing.Later)
 	if err != nil {
 		return nil, fmt.Errorf("listing blitz editions: %w", err)
 	}
@@ -143,7 +160,7 @@ func blitzEditionRows(ctx context.Context, db conn, public bool, slug, edition s
 		var r BlitzEditionRow
 		p := &r.Points
 		return r, row.Scan(&r.Slug, &r.Name, &r.Edition, &r.Format.SwissRounds, &r.Format.KnockoutSize, &p.Win, &p.Draw, &p.Loss, &p.ForfeitWin,
-			&p.ForfeitLoss, &p.Bye, &p.Skip, &r.Entrants, &r.Dropped, &r.TiebreakSeed, &r.Round, &r.PairedRound, &r.Flagged, &r.Champion)
+			&p.ForfeitLoss, &p.Bye, &p.Skip, &r.Pairing.First, &r.Pairing.Later, &r.Entrants, &r.Dropped, &r.TiebreakSeed, &r.Round, &r.PairedRound, &r.Flagged, &r.Champion)
 	})
 	if err != nil {
 		return nil, fmt.Errorf("listing blitz editions: %w", err)
@@ -190,15 +207,6 @@ func blitzEdition(ctx context.Context, db conn, public bool, slug, edition strin
 		got.Entrants[i].Skips = skips[got.Entrants[i].ID]
 	}
 	if got.Rounds, err = blitzRounds(ctx, db, public, slug, edition); err != nil {
-		return BlitzEdition{}, err
-	}
-	if public {
-		return got, nil
-	}
-	if got.Organisers, err = blitzOrganisers(ctx, db, slug, edition); err != nil {
-		return BlitzEdition{}, err
-	}
-	if got.ThreadText, err = blitzThreadText(ctx, db, slug, edition); err != nil {
 		return BlitzEdition{}, err
 	}
 	return got, nil
@@ -296,6 +304,24 @@ func (a *AdminStore) SetBlitzPoints(ctx context.Context, slug, edition string, s
 			       points_forfeit_loss = $6, points_bye = $7, points_skip = $8
 			WHERE tournament_id = $1`, id, s.Win, s.Draw, s.Loss, s.ForfeitWin, s.ForfeitLoss, s.Bye, s.Skip); err != nil {
 			return fmt.Errorf("setting %s %s's points: %w", slug, edition, err)
+		}
+		return nil
+	})
+}
+
+// SetBlitzPairing sets how an edition's Swiss rounds are paired, at any time, or returns ErrBadBlitzPairing or
+// ErrNoBlitzEdition.
+func (a *AdminStore) SetBlitzPairing(ctx context.Context, slug, edition string, p BlitzPairing) error {
+	if !slices.Contains(BlitzFirstMethods, p.First) || !slices.Contains(BlitzLaterMethods, p.Later) {
+		return ErrBadBlitzPairing
+	}
+	return pgx.BeginFunc(ctx, a.pool, func(tx pgx.Tx) error {
+		id, err := blitzEditionID(ctx, tx, slug, edition)
+		if err != nil {
+			return err
+		}
+		if _, err := tx.Exec(ctx, "UPDATE blitz_editions SET pairing_first = $2, pairing_later = $3 WHERE tournament_id = $1", id, p.First, p.Later); err != nil {
+			return fmt.Errorf("setting %s %s's pairing: %w", slug, edition, err)
 		}
 		return nil
 	})
