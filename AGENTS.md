@@ -268,8 +268,8 @@ agent runs them itself.
 
 ## Engine (`engine/`)
 
-- **The numbers are the product.** `engine.py` and `solver.py` are DANeo's
-  math: **do not edit them** to make something else easier. Storage changes
+- **The numbers are the product.** `models/glicko2/engine.py` is DANeo's
+  math: **do not edit it** to make something else easier. Storage changes
   go in the adapter layer. A change that *intends* to move ratings is a
   maintainers' decision, made explicitly
 - **A change that moves results is a new engine version.** Bump `version`
@@ -319,8 +319,7 @@ agent runs them itself.
   interactive. TypeScript `strict`, no `any` in shared code
 - **Plain CSS**: tokens as custom properties in `shared`, scoped `<style>` per
   component. No Tailwind, no CSS-in-JS, **no inline `style="…"`**
-- **The ratings pages are a faithful visual copy of DANeo's site.** Follow
-  upstream's look; don't redesign it without the maintainers' say-so
+- **Don't redesign a page's look without the maintainers' say-so**
 - Content pages are **MDX** in `src/content/`. Maths is TeX (`$…$`, `$$…$$`),
   rendered by KaTeX as MathML
 - Times are shown in the viewer's zone, labelled. The API sends UTC
