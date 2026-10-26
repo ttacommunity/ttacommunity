@@ -366,6 +366,31 @@ After pulling a new migration, apply it to a database you already loaded:
 cd backend && set -a && . ../.env && set +a && go run ./cmd/load migrate
 ```
 
+### Load the challenges
+
+The baseline holds no challenges or entries. Load the committed challenge
+list, then the old challenges site's entries. Until its export is in the
+data repo, its public list will do for local work: it has every entry but
+the hidden ones, none marked checked.
+
+```bash
+cd backend && set -a && . ../.env && set +a
+go run ./cmd/load challenges ../web/site/src/data/challenges.json
+curl -sSf -o /tmp/entries.json https://tta-challenges.olesch.workers.dev/api/entries
+go run ./cmd/load challenge-entries /tmp/entries.json
+```
+
+```powershell
+. scripts\env.ps1; cd backend
+go run ./cmd/load challenges ..\web\site\src\data\challenges.json
+curl.exe -sSf -o $env:TEMP\entries.json https://tta-challenges.olesch.workers.dev/api/entries
+go run ./cmd/load challenge-entries $env:TEMP\entries.json
+```
+
+Each prints what it did; an entry it refuses is named by its id on the old
+site, with the reason. Loading the entries again replaces every imported
+entry, admins' marks on them included.
+
 ### Add new data
 
 New games and facts are loaded on top of a restored baseline, and the next
