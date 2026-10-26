@@ -40,6 +40,11 @@ func withPeople(t *testing.T, pool *pgxpool.Pool) *pgxpool.Pool {
 		`INSERT INTO blitz_matches (round_id, entry_a, entry_b)
 		 SELECT round_id, min(entry_id), max(entry_id) FROM blitz_rounds, blitz_entries GROUP BY round_id`,
 		`INSERT INTO blitz_skips (entry_id, number) SELECT min(entry_id), 2 FROM blitz_entries`,
+		`INSERT INTO challenges (challenge_id, position, challenge_set, challenge_group, slot, difficulty, players, name, rules, opponents)
+		 VALUES ('1ai', 0, 'original', 'classic', 0, 1, 2, 'First', '{"Win."}', '[{"level": "easy"}]')`,
+		`INSERT INTO challenge_entries (challenge_id, member_id, name, account_id, domination, proof_url, created_at, source, hidden, hidden_reason)
+		 SELECT '1ai', min(member_id), 'ann', (SELECT min(account_id) FROM accounts), 50, 'https://discord.com/channels/1/2/3', now(), 'web', true, 'a duplicate'
+		 FROM members`,
 	} {
 		if _, err := pool.Exec(ctx, q); err != nil {
 			t.Fatalf("filling %q: %v", q, err)
