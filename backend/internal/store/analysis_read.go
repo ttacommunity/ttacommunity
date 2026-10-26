@@ -130,6 +130,28 @@ type ComparedRating struct {
 	WinRate             float64
 }
 
+// PlayerNamesLike returns up to limit names containing term, ignoring case, strongest first by GlickoD's all-format
+// C rating: the Discord bot's suggestions. Players with a deleted or banned CGE account, and UnknownPlayer, are left
+// out.
+func (r *RatingsReader) PlayerNamesLike(ctx context.Context, run int64, term string, limit int) ([]string, error) {
+	if err := r.requirePublished(ctx, run); err != nil {
+		return nil, err
+	}
+	rows, err := r.pool.Query(ctx, `
+		SELECT p.name FROM players p
+		LEFT JOIN player_ratings g ON g.run_id = $1 AND g.player_name = p.name AND g.model_type = 'glicko2_daneo' AND g.player_count = 0
+		WHERE strpos(lower(p.name), lower($2)) > 0 AND `+notUnknownPlayer+` AND `+notHiddenPlayer+`
+		ORDER BY g.c_rating DESC NULLS LAST, p.name LIMIT $3`, run, term, limit)
+	if err != nil {
+		return nil, fmt.Errorf("finding player names in run %d: %w", run, err)
+	}
+	names, err := pgx.CollectRows(rows, pgx.RowTo[string])
+	if err != nil {
+		return nil, fmt.Errorf("finding player names in run %d: %w", run, err)
+	}
+	return names, nil
+}
+
 // ComparedPlayers returns up to 15 players whose name contains a term or
 // whose country is one, ignoring case, strongest first by GlickoD's all-format
 // C rating; with no terms, the DefaultCompared players who exist, in order.

@@ -1412,6 +1412,54 @@ paths:
           description: Signed out
         "403":
           $ref: "#/components/responses/NotFromSite"
+  /v1/discord/interactions:
+    post:
+      operationId: answerDiscordInteraction
+      tags: [discord]
+      summary: Discord's Interactions Endpoint, for our slash commands
+      description: |
+        Discord sends each use of our slash commands here (`/rating` and
+        `/myrating`), and its own PING. Every request must carry Discord's Ed25519
+        signature over `X-Signature-Timestamp` and the body, by the
+        application's public key (`DISCORD_APP_PUBLIC_KEY`); any other is
+        refused with 401. Without a key set here, it is a 404. Answers the
+        asker alone, unless they share a rating with everyone. Never cached.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DiscordInteraction"
+      responses:
+        "200":
+          description: The answer, in Discord's interaction response format
+          headers:
+            Cache-Control:
+              $ref: "#/components/headers/CacheControl"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DiscordReply"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          description: No signature, or not Discord's
+          headers:
+            Cache-Control:
+              $ref: "#/components/headers/CacheControl"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: No Discord application is set up here
+          headers:
+            Cache-Control:
+              $ref: "#/components/headers/CacheControl"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
   /v1/me:
     get:
       operationId: getMe
@@ -7599,6 +7647,96 @@ components:
           type: integer
         bronze:
           type: integer
+    DiscordInteraction:
+      description: What Discord sends, as far as we read it; the rest is ignored
+      type: object
+      required: [type]
+      properties:
+        type:
+          description: 1 PING, 2 a command used, 4 suggestions asked for the option being typed
+          type: integer
+        data:
+          $ref: "#/components/schemas/DiscordCommandData"
+        member:
+          $ref: "#/components/schemas/DiscordGuildMember"
+        user:
+          $ref: "#/components/schemas/DiscordUser"
+    DiscordCommandData:
+      type: object
+      properties:
+        name:
+          description: The command's name
+          type: string
+        options:
+          type: array
+          items:
+            $ref: "#/components/schemas/DiscordOption"
+    DiscordGuildMember:
+      description: Who used the command in a server
+      type: object
+      properties:
+        user:
+          $ref: "#/components/schemas/DiscordUser"
+    DiscordOption:
+      type: object
+      required: [name, type]
+      properties:
+        name:
+          type: string
+        type:
+          type: integer
+        value:
+          description: A string or a number, by the option's type
+        focused:
+          description: The option being typed, when suggestions are asked for
+          type: boolean
+    DiscordUser:
+      description: Who used the command in a direct message, or within member in a server
+      type: object
+      required: [id]
+      properties:
+        id:
+          type: string
+    DiscordReply:
+      type: object
+      required: [type]
+      properties:
+        type:
+          description: 1 PONG, 4 a message, 8 suggestions
+          type: integer
+        data:
+          $ref: "#/components/schemas/DiscordReplyData"
+    DiscordReplyData:
+      type: object
+      properties:
+        content:
+          type: string
+        flags:
+          description: 64 shows the message to the asker alone
+          type: integer
+        allowed_mentions:
+          $ref: "#/components/schemas/DiscordAllowedMentions"
+        choices:
+          type: array
+          items:
+            $ref: "#/components/schemas/DiscordChoice"
+    DiscordAllowedMentions:
+      type: object
+      required: [parse]
+      properties:
+        parse:
+          description: Always empty, so a reply mentions no one
+          type: array
+          items:
+            type: string
+    DiscordChoice:
+      type: object
+      required: [name, value]
+      properties:
+        name:
+          type: string
+        value:
+          type: string
     Me:
       description: |
         The signed-in player: where this session signed in and their names there, every way into their account, the

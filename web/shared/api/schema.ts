@@ -1043,6 +1043,31 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/discord/interactions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Discord's Interactions Endpoint, for our slash commands
+         * @description Discord sends each use of our slash commands here (`/rating` and
+         *     `/myrating`), and its own PING. Every request must carry Discord's Ed25519
+         *     signature over `X-Signature-Timestamp` and the body, by the
+         *     application's public key (`DISCORD_APP_PUBLIC_KEY`); any other is
+         *     refused with 401. Without a key set here, it is a 404. Answers the
+         *     asker alone, unless they share a rating with everyone. Never cached.
+         */
+        post: operations["answerDiscordInteraction"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/me": {
         parameters: {
             query?: never;
@@ -4655,6 +4680,55 @@ export interface components {
             silver: number;
             bronze: number;
         };
+        /** @description What Discord sends, as far as we read it; the rest is ignored */
+        DiscordInteraction: {
+            /** @description 1 PING, 2 a command used, 4 suggestions asked for the option being typed */
+            type: number;
+            data?: components["schemas"]["DiscordCommandData"];
+            member?: components["schemas"]["DiscordGuildMember"];
+            user?: components["schemas"]["DiscordUser"];
+        };
+        DiscordCommandData: {
+            /** @description The command's name */
+            name?: string;
+            options?: components["schemas"]["DiscordOption"][];
+        };
+        /** @description Who used the command in a server */
+        DiscordGuildMember: {
+            user?: components["schemas"]["DiscordUser"];
+        };
+        DiscordOption: {
+            name: string;
+            type: number;
+            /** @description A string or a number, by the option's type */
+            value?: unknown;
+            /** @description The option being typed, when suggestions are asked for */
+            focused?: boolean;
+        };
+        /** @description Who used the command in a direct message, or within member in a server */
+        DiscordUser: {
+            id: string;
+        };
+        DiscordReply: {
+            /** @description 1 PONG, 4 a message, 8 suggestions */
+            type: number;
+            data?: components["schemas"]["DiscordReplyData"];
+        };
+        DiscordReplyData: {
+            content?: string;
+            /** @description 64 shows the message to the asker alone */
+            flags?: number;
+            allowed_mentions?: components["schemas"]["DiscordAllowedMentions"];
+            choices?: components["schemas"]["DiscordChoice"][];
+        };
+        DiscordAllowedMentions: {
+            /** @description Always empty, so a reply mentions no one */
+            parse: string[];
+        };
+        DiscordChoice: {
+            name: string;
+            value: string;
+        };
         /**
          * @description The signed-in player: where this session signed in and their names there, every way into their account, the
          *     member they are linked to (null until linked), their latest request to be linked (null if none), and their
@@ -6311,6 +6385,52 @@ export interface operations {
                 content?: never;
             };
             403: components["responses"]["NotFromSite"];
+        };
+    };
+    answerDiscordInteraction: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DiscordInteraction"];
+            };
+        };
+        responses: {
+            /** @description The answer, in Discord's interaction response format */
+            200: {
+                headers: {
+                    "Cache-Control": components["headers"]["CacheControl"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DiscordReply"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            /** @description No signature, or not Discord's */
+            401: {
+                headers: {
+                    "Cache-Control": components["headers"]["CacheControl"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description No Discord application is set up here */
+            404: {
+                headers: {
+                    "Cache-Control": components["headers"]["CacheControl"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
         };
     };
     getMe: {
