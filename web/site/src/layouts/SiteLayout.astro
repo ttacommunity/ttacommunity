@@ -84,7 +84,7 @@ const current = currentSection(Astro.url.pathname);
       const facts = document.querySelector('.run-facts');
       if (facts) {
         currentRun(PUBLIC_API_URL)
-          .then((run) => (facts.textContent = runFacts(run, viewerZone())))
+          .then((run) => (facts.textContent = runFacts(run, viewerZone(), 2420)))
           .catch(() => undefined);
       }
 
