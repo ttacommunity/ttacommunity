@@ -93,30 +93,90 @@ export function isProvisional(player: Player, format: Format): boolean {
   return games < PROVISIONAL_BELOW && !idle;
 }
 
+export type ChartMode = 'continuous' | 'softer' | 'all';
+export type ChartCurve = 'expected' | 'conservative' | 'all';
+
+export interface ChartSeriesLine {
+  key: string;
+  label: string;
+  color: string;
+  fill?: string;
+  borderDash?: number[];
+  curve: 'expected' | 'conservative';
+  data: (number | null)[];
+}
+
 /** The chart's lines: one value per label and engine, null where the engine has none. */
 export interface ChartData {
   labels: string[];
   series: Record<Engine, (number | null)[]>;
+  lines: ChartSeriesLine[];
 }
 
 const tenth = (x: number) => Math.round(x * 10) / 10;
 
 /**
- * chartData lines each engine's history up on every date any model has, as upstream's chart does, in the continuous
- * or season-reset models and on the expected or conservative curve.
+ * chartData lines each engine's history up on every date any model has, in the continuous
+ * or season-reset models and on the expected or conservative curve, or all selections at once.
  */
-export function chartData(history: PlayerHistory, mode: ResetMode, curve: 'expected' | 'conservative'): ChartData {
+export function chartData(history: PlayerHistory, mode: ChartMode, curve: ChartCurve): ChartData {
   const labels = [...new Set(history.series.flatMap((s) => s.points.map((p) => p.date)))].sort();
   const suffix = mode === 'softer' ? '_softer' : '';
   const series = {} as ChartData['series'];
   for (const engine of ENGINES) {
-    const points = history.series.find((s) => s.model === `${engine}${suffix}`)?.points ?? [];
-    const at = new Map(points.map((p) => [p.date, tenth(curve === 'expected' ? p.rating : p.c_rating)]));
+    const points = history.series.find((s) => s.model === engine + suffix)?.points ?? [];
+    const at = new Map(points.map((p) => [p.date, tenth(curve === 'conservative' ? p.c_rating : p.rating)]));
     series[engine] = labels.map((d) => at.get(d) ?? null);
   }
-  return { labels, series };
-}
 
+  const lines: ChartSeriesLine[] = [];
+  const modes: ('continuous' | 'softer')[] = mode === 'all' ? ['continuous', 'softer'] : [mode];
+  const curves: ('expected' | 'conservative')[] = curve === 'all' ? ['expected', 'conservative'] : [curve];
+
+  for (const m of modes) {
+    for (const engine of ENGINES) {
+      if (engine === 'glicko2_std' && m === 'softer') continue;
+      const mSuffix = m === 'softer' ? '_softer' : '';
+      const modelSeries = history.series.find((s) => s.model === engine + mSuffix);
+      if (!modelSeries || modelSeries.points.length === 0) continue;
+
+      const points = modelSeries.points;
+      const atRating = new Map(points.map((p) => [p.date, tenth(p.rating)]));
+      const atCRating = new Map(points.map((p) => [p.date, tenth(p.c_rating)]));
+
+      const engineName = engine === 'glicko2_daneo' ? '👑 GlickoD' : 'Glicko-2 Standard';
+      const modeLabel = m === 'softer' ? ' (Season Reset)' : mode === 'all' ? ' (Continuous)' : '';
+      const baseColor =
+        engine === 'glicko2_daneo'
+          ? m === 'softer'
+            ? '#38bdf8'
+            : '#c084fc'
+          : '#e5a93c';
+      const baseFill =
+        engine === 'glicko2_daneo'
+          ? m === 'softer'
+            ? 'rgba(56, 189, 248, 0.12)'
+            : 'rgba(168, 85, 247, 0.12)'
+          : 'rgba(229, 169, 60, 0.1)';
+
+      for (const c of curves) {
+        const curveLabel = curves.length > 1 || curve === 'conservative' ? (c === 'conservative' ? ' (C)' : ' (E)') : '';
+        const isDashed = c === 'conservative';
+        lines.push({
+          key: engine + '-' + m + '-' + c,
+          label: engineName + modeLabel + curveLabel,
+          color: baseColor,
+          fill: isDashed ? 'transparent' : baseFill,
+          borderDash: isDashed ? [5, 5] : undefined,
+          curve: c,
+          data: labels.map((d) => (c === 'conservative' ? atCRating.get(d) ?? null : atRating.get(d) ?? null)),
+        });
+      }
+    }
+  }
+
+  return { labels, series, lines };
+}
 /** signedDelta writes a change as upstream writes ΔR: one decimal, a sign unless it rounds to zero, a dash for none. */
 export function signedDelta(delta: number | null): string {
   return delta === null ? '—' : signed(delta, 1);
