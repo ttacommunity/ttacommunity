@@ -1,0 +1,3661 @@
+[
+  {
+    "id": "1ai",
+    "set": "original",
+    "group": "classic",
+    "slot": 0,
+    "difficulty": 1,
+    "players": 2,
+    "name": "Two-Player Classic",
+    "description": [],
+    "rules": [
+      "Win a classic game versus one easy AI."
+    ],
+    "opponents": [
+      {
+        "level": "easy",
+        "name": null,
+        "flags": {}
+      }
+    ],
+    "flags": {},
+    "agesToPlay": 3
+  },
+  {
+    "id": "2ai",
+    "set": "original",
+    "group": "classic",
+    "slot": 1,
+    "difficulty": 2,
+    "players": 3,
+    "name": "Three-Player Classic",
+    "description": [],
+    "rules": [
+      "Win a classic game versus two medium AIs."
+    ],
+    "opponents": [
+      {
+        "level": "medium",
+        "name": null,
+        "flags": {}
+      },
+      {
+        "level": "medium",
+        "name": null,
+        "flags": {}
+      }
+    ],
+    "flags": {},
+    "agesToPlay": 3
+  },
+  {
+    "id": "3ai",
+    "set": "original",
+    "group": "classic",
+    "slot": 2,
+    "difficulty": 3,
+    "players": 4,
+    "name": "Four-Player Classic",
+    "description": [],
+    "rules": [
+      "Win a classic game versus three top AIs."
+    ],
+    "opponents": [
+      {
+        "level": "hard",
+        "name": null,
+        "flags": {}
+      },
+      {
+        "level": "hard",
+        "name": null,
+        "flags": {}
+      },
+      {
+        "level": "hard",
+        "name": null,
+        "flags": {}
+      }
+    ],
+    "flags": {},
+    "agesToPlay": 3
+  },
+  {
+    "id": "cheap1",
+    "set": "original",
+    "group": "cheap",
+    "slot": 0,
+    "difficulty": 1,
+    "players": 4,
+    "name": "Low-Priced Lands",
+    "description": [],
+    "rules": [
+      "In this game, everything costs 20 percent less. Have fun. And win."
+    ],
+    "opponents": [
+      {
+        "level": "easy",
+        "name": null,
+        "flags": {}
+      },
+      {
+        "level": "easy",
+        "name": null,
+        "flags": {}
+      },
+      {
+        "level": "easy",
+        "name": null,
+        "flags": {}
+      }
+    ],
+    "flags": {
+      "techCostPercentage": -20,
+      "resCostPercentage": -20,
+      "foodCostPercentage": -20
+    },
+    "agesToPlay": 3
+  },
+  {
+    "id": "cheap2",
+    "set": "original",
+    "group": "cheap",
+    "slot": 1,
+    "difficulty": 2,
+    "players": 3,
+    "name": "Civilizations on Sale",
+    "description": [],
+    "rules": [
+      "Now everything costs 30 percent less. And the opponents are tougher. Defeat them."
+    ],
+    "opponents": [
+      {
+        "level": "medium",
+        "name": null,
+        "flags": {}
+      },
+      {
+        "level": "medium",
+        "name": null,
+        "flags": {}
+      }
+    ],
+    "flags": {
+      "techCostPercentage": -30,
+      "resCostPercentage": -30,
+      "foodCostPercentage": -30
+    },
+    "agesToPlay": 3
+  },
+  {
+    "id": "cheap3",
+    "set": "original",
+    "group": "cheap",
+    "slot": 2,
+    "difficulty": 3,
+    "players": 2,
+    "name": "Discounted Duel",
+    "description": [],
+    "rules": [
+      "A discount of 40 percent on everything! Defeat a single clever opponent."
+    ],
+    "opponents": [
+      {
+        "level": "hard",
+        "name": null,
+        "flags": {}
+      }
+    ],
+    "flags": {
+      "techCostPercentage": -40,
+      "resCostPercentage": -40,
+      "foodCostPercentage": -40
+    },
+    "agesToPlay": 3
+  },
+  {
+    "id": "immortals1",
+    "set": "original",
+    "group": "immortals",
+    "slot": 0,
+    "difficulty": 1,
+    "players": 3,
+    "name": "Clash of the Immortals",
+    "description": [
+      "If you could choose only one leader to lead you till the end of the ages, which one would it be?"
+    ],
+    "rules": [
+      "You can take only one leader during the entire game.",
+      "Leaders do not die at the end of any age, but there are twice as many Infiltrate aggressions!",
+      "Defeat both opponents, even though they start with a +1 culture rating."
+    ],
+    "opponents": [
+      {
+        "level": "easy",
+        "name": null,
+        "flags": {
+          "immortalLeader": 1,
+          "oneLeader": 1,
+          "bonusCulture": 1
+        }
+      },
+      {
+        "level": "easy",
+        "name": null,
+        "flags": {
+          "immortalLeader": 1,
+          "oneLeader": 1,
+          "bonusCulture": 1
+        }
+      }
+    ],
+    "flags": {
+      "infiltrateMultiplier": 2,
+      "removeIconoclasm": 1
+    },
+    "agesToPlay": 3
+  },
+  {
+    "id": "immortals2",
+    "set": "original",
+    "group": "immortals",
+    "slot": 1,
+    "difficulty": 2,
+    "players": 4,
+    "name": "Battle of the Immortals",
+    "description": [
+      "And which leader will you choose this time?"
+    ],
+    "rules": [
+      "You can take only one leader during the entire game.",
+      "Leaders do not die at the end of any age, but there are three times as many Infiltrate aggressions!",
+      "Defeat all opponents, even though they start with +1 culture and strength ratings."
+    ],
+    "opponents": [
+      {
+        "level": "medium",
+        "name": null,
+        "flags": {
+          "immortalLeader": 1,
+          "oneLeader": 1,
+          "bonusCulture": 1,
+          "bonusStrength": 1
+        }
+      },
+      {
+        "level": "medium",
+        "name": null,
+        "flags": {
+          "immortalLeader": 1,
+          "oneLeader": 1,
+          "bonusCulture": 1,
+          "bonusStrength": 1
+        }
+      },
+      {
+        "level": "medium",
+        "name": null,
+        "flags": {
+          "immortalLeader": 1,
+          "oneLeader": 1,
+          "bonusCulture": 1,
+          "bonusStrength": 1
+        }
+      }
+    ],
+    "flags": {
+      "infiltrateMultiplier": 3,
+      "removeIconoclasm": 1
+    },
+    "agesToPlay": 3
+  },
+  {
+    "id": "immortals3",
+    "set": "original",
+    "group": "immortals",
+    "slot": 2,
+    "difficulty": 3,
+    "players": 2,
+    "name": "War of the Immortals",
+    "description": [
+      "The final immortal confrontation is here. Choose your leader wisely."
+    ],
+    "rules": [
+      "You can take only one leader during the entire game.",
+      "Leaders do not die at the end of any age, but there are four times as many Infiltrate aggressions!",
+      "Defeat your opponent, even though he starts with +1 culture, science, and strength ratings."
+    ],
+    "opponents": [
+      {
+        "level": "hard",
+        "name": null,
+        "flags": {
+          "immortalLeader": 1,
+          "oneLeader": 1,
+          "bonusCulture": 1,
+          "bonusStrength": 1,
+          "bonusScience": 1
+        }
+      }
+    ],
+    "flags": {
+      "infiltrateMultiplier": 4,
+      "removeIconoclasm": 1
+    },
+    "agesToPlay": 3
+  },
+  {
+    "id": "epic1",
+    "set": "original",
+    "group": "epic",
+    "slot": 0,
+    "difficulty": 2,
+    "players": 2,
+    "name": "Epic Game for Two",
+    "description": [],
+    "rules": [
+      "The game will be longer. In Ages I, II, and III, there is one extra copy of each yellow action card.",
+      "Your opponent starts with 30 culture. Catch up and overtake him."
+    ],
+    "opponents": [
+      {
+        "level": "medium",
+        "name": null,
+        "flags": {
+          "startingCulture": 30
+        }
+      }
+    ],
+    "flags": {
+      "extraActionCards": 1
+    },
+    "agesToPlay": 3
+  },
+  {
+    "id": "epic2",
+    "set": "original",
+    "group": "epic",
+    "slot": 1,
+    "difficulty": 3,
+    "players": 3,
+    "name": "Epic Game for Three",
+    "description": [],
+    "rules": [
+      "The game will be longer. In Ages I, II, and III, there is one extra copy of each yellow action card.",
+      "Your opponents start with 60 culture each. Catch up and overtake them both."
+    ],
+    "opponents": [
+      {
+        "level": "medium",
+        "name": null,
+        "flags": {
+          "startingCulture": 60
+        }
+      },
+      {
+        "level": "hard",
+        "name": null,
+        "flags": {
+          "startingCulture": 60
+        }
+      }
+    ],
+    "flags": {
+      "extraActionCards": 1
+    },
+    "agesToPlay": 3
+  },
+  {
+    "id": "epic3",
+    "set": "original",
+    "group": "epic",
+    "slot": 2,
+    "difficulty": 4,
+    "players": 4,
+    "name": "Epic Game for Four",
+    "description": [],
+    "rules": [
+      "The game will be longer. In Ages I, II, and III, there is one extra copy of each yellow action card.",
+      "Your opponents start with 90 culture each. Catch up and overtake them all."
+    ],
+    "opponents": [
+      {
+        "level": "hard",
+        "name": null,
+        "flags": {
+          "startingCulture": 90
+        }
+      },
+      {
+        "level": "medium",
+        "name": null,
+        "flags": {
+          "startingCulture": 90
+        }
+      },
+      {
+        "level": "hard",
+        "name": null,
+        "flags": {
+          "startingCulture": 90
+        }
+      }
+    ],
+    "flags": {
+      "extraActionCards": 1
+    },
+    "agesToPlay": 3
+  },
+  {
+    "id": "epic4",
+    "set": "original",
+    "group": "epic",
+    "slot": 3,
+    "difficulty": 5,
+    "players": 4,
+    "name": "Super Epic Game",
+    "description": [],
+    "rules": [
+      "The game will be much longer. In Ages I, II, and III, there is one extra copy of each yellow action card and each technology card.",
+      "Your three opponents start with 180 culture each. Can you still overtake them all?"
+    ],
+    "opponents": [
+      {
+        "level": "hard",
+        "name": null,
+        "flags": {
+          "startingCulture": 180
+        }
+      },
+      {
+        "level": "hard",
+        "name": null,
+        "flags": {
+          "startingCulture": 180
+        }
+      },
+      {
+        "level": "hard",
+        "name": null,
+        "flags": {
+          "startingCulture": 180
+        }
+      }
+    ],
+    "flags": {
+      "extraActionCards": 1,
+      "extraTechCards": 1
+    },
+    "agesToPlay": 3
+  },
+  {
+    "id": "impact1",
+    "set": "original",
+    "group": "impacts",
+    "slot": 0,
+    "difficulty": 2,
+    "players": 4,
+    "name": "Deep Impact",
+    "description": [
+      "Your opponents are suppressing your influence.\nCan you win anyway?"
+    ],
+    "rules": [
+      "Your end-of-turn culture production is 2/3 of normal.",
+      "Age III events give twice the usual number of points to everyone.",
+      "There are no wars. Defeat your three opponents."
+    ],
+    "opponents": [
+      {
+        "level": "easy",
+        "name": null,
+        "flags": {}
+      },
+      {
+        "level": "medium",
+        "name": null,
+        "flags": {}
+      },
+      {
+        "level": "medium",
+        "name": null,
+        "flags": {}
+      }
+    ],
+    "flags": {
+      "impactMultiplier": 2,
+      "removeWars": 1,
+      "removeImpactBalance": 1,
+      "removeImpactCulture": 1
+    },
+    "agesToPlay": 3
+  },
+  {
+    "id": "impact2",
+    "set": "original",
+    "group": "impacts",
+    "slot": 1,
+    "difficulty": 3,
+    "players": 3,
+    "name": "Deeper Impact",
+    "description": [
+      "Your opponents are heavily suppressing your influence.\nCan you win anyway?"
+    ],
+    "rules": [
+      "Your end-of-turn culture production is 1/3 of normal.",
+      "Age III events give three times the usual number of points to everyone.",
+      "There are no wars. Defeat your two opponents."
+    ],
+    "opponents": [
+      {
+        "level": "medium",
+        "name": null,
+        "flags": {}
+      },
+      {
+        "level": "hard",
+        "name": null,
+        "flags": {}
+      }
+    ],
+    "flags": {
+      "impactMultiplier": 3,
+      "removeWars": 1,
+      "removeImpactBalance": 1,
+      "removeImpactCulture": 1
+    },
+    "agesToPlay": 3
+  },
+  {
+    "id": "impact3",
+    "set": "original",
+    "group": "impacts",
+    "slot": 2,
+    "difficulty": 4,
+    "players": 2,
+    "name": "The Deepest Impact",
+    "description": [
+      "Your opponent is completely suppressing your influence. Can you win anyway?"
+    ],
+    "rules": [
+      "During production, you produce no culture.",
+      "Age III events give four times the usual number of points to both of you.",
+      "There are no wars. Defeat your opponent."
+    ],
+    "opponents": [
+      {
+        "level": "hard",
+        "name": null,
+        "flags": {}
+      }
+    ],
+    "flags": {
+      "impactMultiplier": 4,
+      "removeWars": 1,
+      "removeImpactBalance": 1,
+      "removeImpactCulture": 1
+    },
+    "agesToPlay": 3
+  },
+  {
+    "id": "time_traveller1",
+    "set": "original",
+    "group": "time_travellers",
+    "slot": 0,
+    "difficulty": 2,
+    "players": 2,
+    "name": "Time Traveler - Joan",
+    "description": [
+      "Joan had a vision. She saw the dawn of civilization. When she woke up, she realized she was really there, in ancient times.",
+      "She believes she was sent there by God, and she is determined to lead her people to a glorious victory. You stand in her way."
+    ],
+    "rules": [
+      "Defeat an opponent who starts with Joan of Arc in play."
+    ],
+    "opponents": [
+      {
+        "level": "medium",
+        "name": "Joan",
+        "flags": {
+          "startingLeader": "JOAN_OF_ARC"
+        }
+      }
+    ],
+    "flags": {
+      "removeIconoclasm": 1
+    },
+    "agesToPlay": 3
+  },
+  {
+    "id": "time_traveller2",
+    "set": "original",
+    "group": "time_travellers",
+    "slot": 1,
+    "difficulty": 3,
+    "players": 2,
+    "name": "Time Traveler - Napoleon",
+    "description": [
+      "Napoleon never accepted his defeat and imprisonment. Although closely guarded, he managed to escape in a way no one expected - against the flow of time.",
+      "Now, in ancient times, with all his strategic knowledge, he will easily conquer the world. Or will he?"
+    ],
+    "rules": [
+      "Defeat an opponent who starts with Napoleon Bonaparte in play."
+    ],
+    "opponents": [
+      {
+        "level": "medium",
+        "name": "Napoleon",
+        "flags": {
+          "startingLeader": "NAPOLEON_BONAPARTE"
+        }
+      }
+    ],
+    "flags": {
+      "removeIconoclasm": 1
+    },
+    "agesToPlay": 3
+  },
+  {
+    "id": "time_traveller3",
+    "set": "original",
+    "group": "time_travellers",
+    "slot": 2,
+    "difficulty": 4,
+    "players": 2,
+    "name": "Time Traveler - Churchill",
+    "description": [
+      "Sir Winston Churchill swore to protect his country forever. A puny thing like death cannot stop him. His spirit has traveled thousands of years into the past to fulfill his oath.",
+      "Can you keep pace with such determination?"
+    ],
+    "rules": [
+      "Defeat an opponent who starts with Winston Churchill in play."
+    ],
+    "opponents": [
+      {
+        "level": "medium",
+        "name": "Winston",
+        "flags": {
+          "startingLeader": "WINSTON_CHURCHILL"
+        }
+      }
+    ],
+    "flags": {
+      "removeIconoclasm": 1
+    },
+    "agesToPlay": 3
+  },
+  {
+    "id": "time_travellers",
+    "set": "original",
+    "group": "time_travellers",
+    "slot": 3,
+    "difficulty": 5,
+    "players": 4,
+    "name": "Time Travelers - Showdown",
+    "description": [
+      "Three great leaders traveled back in time to lead their nations to greatness. It is impossible to prevail in this competition? Or is it?"
+    ],
+    "rules": [
+      "Defeat all three opponents. One starts with Joan of Arc, one with Napoleon Bonaparte, and one with Winston Churchill.",
+      "Good luck."
+    ],
+    "opponents": [
+      {
+        "level": "hard",
+        "name": "Joan",
+        "flags": {
+          "startingLeader": "JOAN_OF_ARC"
+        }
+      },
+      {
+        "level": "medium",
+        "name": "Napoleon",
+        "flags": {
+          "startingLeader": "NAPOLEON_BONAPARTE"
+        }
+      },
+      {
+        "level": "easy",
+        "name": "Winston",
+        "flags": {
+          "startingLeader": "WINSTON_CHURCHILL"
+        }
+      }
+    ],
+    "flags": {
+      "removeIconoclasm": 1
+    },
+    "agesToPlay": 3
+  },
+  {
+    "id": "fate1",
+    "set": "original",
+    "group": "fate",
+    "slot": 0,
+    "difficulty": 3,
+    "players": 4,
+    "name": "Harsh Fate",
+    "description": [
+      "What if bad things happen mostly to you?"
+    ],
+    "rules": [
+      "There are no wars, aggressions, or pacts. But there are twice as many strength-related events, and playing an event gives twice the usual culture.",
+      "Defeat three opponents who each have +2 strength."
+    ],
+    "opponents": [
+      {
+        "level": "easy",
+        "name": "Clotho",
+        "flags": {
+          "bonusStrength": 2
+        }
+      },
+      {
+        "level": "medium",
+        "name": "Lachesis",
+        "flags": {
+          "bonusStrength": 2
+        }
+      },
+      {
+        "level": "hard",
+        "name": "Atropos",
+        "flags": {
+          "bonusStrength": 2
+        }
+      }
+    ],
+    "flags": {
+      "extraStrengthEvents": 1,
+      "extraAge3Tactics": 2,
+      "removeWars": 1,
+      "removeAggressions": 1,
+      "removePacts": 1,
+      "eventRewardMultiplier": 2
+    },
+    "agesToPlay": 3
+  },
+  {
+    "id": "fate2",
+    "set": "original",
+    "group": "fate",
+    "slot": 1,
+    "difficulty": 4,
+    "players": 4,
+    "name": "Cruel Fate",
+    "description": [
+      "Does it seem like bad things are always happening to you?"
+    ],
+    "rules": [
+      "There are no wars, aggressions, or pacts. But there are three times as many strength-related events, and playing an event gives three times the usual culture.",
+      "Defeat three opponents who each have +3 strength."
+    ],
+    "opponents": [
+      {
+        "level": "easy",
+        "name": "Decima",
+        "flags": {
+          "bonusStrength": 3
+        }
+      },
+      {
+        "level": "medium",
+        "name": "Morta",
+        "flags": {
+          "bonusStrength": 3
+        }
+      },
+      {
+        "level": "hard",
+        "name": "Nona",
+        "flags": {
+          "bonusStrength": 3
+        }
+      }
+    ],
+    "flags": {
+      "extraStrengthEvents": 2,
+      "extraAge3Tactics": 2,
+      "removeWars": 1,
+      "removeAggressions": 1,
+      "removePacts": 1,
+      "eventRewardMultiplier": 3
+    },
+    "agesToPlay": 3
+  },
+  {
+    "id": "fate3",
+    "set": "original",
+    "group": "fate",
+    "slot": 2,
+    "difficulty": 5,
+    "players": 4,
+    "name": "Remorseless Fate",
+    "description": [
+      "What if tons of bad things happen to you?"
+    ],
+    "rules": [
+      "There are no wars, aggressions, or pacts. But there are four times as many strength-related events, and playing an event gives four times the usual culture.",
+      "Defeat three opponents who each have +4 strength."
+    ],
+    "opponents": [
+      {
+        "level": "easy",
+        "name": "Urd",
+        "flags": {
+          "bonusStrength": 4
+        }
+      },
+      {
+        "level": "medium",
+        "name": "Verdandi",
+        "flags": {
+          "bonusStrength": 4
+        }
+      },
+      {
+        "level": "hard",
+        "name": "Skuld",
+        "flags": {
+          "bonusStrength": 4
+        }
+      }
+    ],
+    "flags": {
+      "extraStrengthEvents": 3,
+      "extraAge3Tactics": 2,
+      "removeWars": 1,
+      "removeAggressions": 1,
+      "removePacts": 1,
+      "eventRewardMultiplier": 4
+    },
+    "agesToPlay": 3
+  },
+  {
+    "id": "gods1",
+    "set": "original",
+    "group": "gods",
+    "slot": 0,
+    "difficulty": 3,
+    "players": 4,
+    "name": "Three Gods",
+    "description": [
+      "They are mighty. And they don't like you. Deal with them!"
+    ],
+    "rules": [
+      "Defeat three opponents. One has +2 strength. One has 2 extra military actions. One has a bit of both."
+    ],
+    "opponents": [
+      {
+        "level": "easy",
+        "name": "Thor",
+        "flags": {
+          "bonusStrength": 2
+        }
+      },
+      {
+        "level": "hard",
+        "name": "Loki",
+        "flags": {
+          "extraMilActions": 2
+        }
+      },
+      {
+        "level": "medium",
+        "name": "Odin",
+        "flags": {
+          "bonusStrength": 1,
+          "extraMilActions": 1
+        }
+      }
+    ],
+    "flags": {},
+    "agesToPlay": 3
+  },
+  {
+    "id": "gods2",
+    "set": "original",
+    "group": "gods",
+    "slot": 1,
+    "difficulty": 4,
+    "players": 3,
+    "name": "Two Gods",
+    "description": [
+      "It is harsh to be caught in a clash between two gods. Especially the warlike ones."
+    ],
+    "rules": [
+      "Defeat two opponents. One gets +1 strength for each urban building. The other gets +1 strength for each unit."
+    ],
+    "opponents": [
+      {
+        "level": "hard",
+        "name": "Athena",
+        "flags": {
+          "strengthPerUrban": 1
+        }
+      },
+      {
+        "level": "medium",
+        "name": "Ares",
+        "flags": {
+          "strengthPerUnit": 1
+        }
+      }
+    ],
+    "flags": {},
+    "agesToPlay": 3
+  },
+  {
+    "id": "gods3",
+    "set": "original",
+    "group": "gods",
+    "slot": 2,
+    "difficulty": 6,
+    "players": 2,
+    "name": "Goddess of War",
+    "description": [
+      "Head of a lioness. Heart of a lioness. Strength of a lioness."
+    ],
+    "rules": [
+      "Defeat one fierce opponent. She starts with an extra military action and +1 strength. In each age, her strength bonus doubles."
+    ],
+    "opponents": [
+      {
+        "level": "hard",
+        "name": "Sekhmet",
+        "flags": {
+          "geometricStrength": 1,
+          "extraMilActions": 1
+        }
+      }
+    ],
+    "flags": {},
+    "agesToPlay": 3
+  },
+  {
+    "id": "wonders1",
+    "set": "original",
+    "group": "wonders",
+    "slot": 0,
+    "difficulty": 3,
+    "players": 3,
+    "name": "Time of Wonders",
+    "description": [
+      "You believe life is full of wonders. But not everyone sees it that way. Each missed opportunity strengthens the Sins among humankind."
+    ],
+    "rules": [
+      "When you take a wonder, you pay one civil action less than usual.",
+      "Your opponents never take wonders, but whenever a wonder of Age I or higher is discarded, Pride scores 12 culture and Gluttony gains 6 food.",
+      "(Michelangelo and wonder scoring events are not in the game, but there are three times as many Engineering Genius cards.)"
+    ],
+    "opponents": [
+      {
+        "level": "easy",
+        "name": "Pride",
+        "flags": {
+          "noWonders": 1,
+          "wonderDiscCult": 12
+        }
+      },
+      {
+        "level": "medium",
+        "name": "Gluttony",
+        "flags": {
+          "noWonders": 1,
+          "wonderDiscFood": 6
+        }
+      }
+    ],
+    "flags": {
+      "removeMichelangelo": 1,
+      "removeImpactWonders": 1,
+      "removePactWonders": 1,
+      "extraEngineeringGenius": 2,
+      "diluteWonders": 3,
+      "removeAncientKnowledge": 1
+    },
+    "agesToPlay": 3
+  },
+  {
+    "id": "wonders2",
+    "set": "original",
+    "group": "wonders",
+    "slot": 1,
+    "difficulty": 5,
+    "players": 3,
+    "name": "Age of Wonders",
+    "description": [
+      "Another chance to build a world full of wonders. And another pair of Sins who prosper from missed opportunities."
+    ],
+    "rules": [
+      "When you take a wonder, you pay one civil action less than usual.",
+      "Your opponents never take wonders, but whenever a wonder of Age I or higher is discarded, Wrath gets +2 strength permanently and Envy steals 2 science and 3 culture from you.",
+      "(Michelangelo and wonder scoring events are not in the game, but there are three times as many Engineering Genius cards.)"
+    ],
+    "opponents": [
+      {
+        "level": "medium",
+        "name": "Wrath",
+        "flags": {
+          "noWonders": 1,
+          "wonderDiscStr": 2
+        }
+      },
+      {
+        "level": "hard",
+        "name": "Envy",
+        "flags": {
+          "noWonders": 1,
+          "wonderDiscStealSci": 2,
+          "wonderDiscStealCult": 3
+        }
+      }
+    ],
+    "flags": {
+      "removeMichelangelo": 1,
+      "removeImpactWonders": 1,
+      "removePactWonders": 1,
+      "extraEngineeringGenius": 2,
+      "diluteWonders": 3,
+      "removeAncientKnowledge": 1
+    },
+    "agesToPlay": 3
+  },
+  {
+    "id": "wonders3",
+    "set": "original",
+    "group": "wonders",
+    "slot": 2,
+    "difficulty": 6,
+    "players": 4,
+    "name": "World of Wonders",
+    "description": [
+      "The ultimate test of your wonder-building skills. Three Sins eagerly await each slip-up."
+    ],
+    "rules": [
+      "When you take a wonder, you pay two civil actions less than usual.",
+      "Your opponents never take wonders, but whenever a wonder of Age I or higher is discarded, Greed gains 6 resources, Sloth scores 6 science points, and Lust drains 2 strength from you permanently.",
+      "(Michelangelo and wonder scoring events are not in the game, but there are three times as many Engineering Genius cards.)"
+    ],
+    "opponents": [
+      {
+        "level": "hard",
+        "name": "Greed",
+        "flags": {
+          "noWonders": 1,
+          "wonderDiscRes": 6
+        }
+      },
+      {
+        "level": "hard",
+        "name": "Sloth",
+        "flags": {
+          "noWonders": 1,
+          "wonderDiscSci": 6
+        }
+      },
+      {
+        "level": "hard",
+        "name": "Lust",
+        "flags": {
+          "noWonders": 1,
+          "wonderDiscStealStr": 2
+        }
+      }
+    ],
+    "flags": {
+      "removeMichelangelo": 1,
+      "removeImpactWonders": 1,
+      "removePactWonders": 1,
+      "extraEngineeringGenius": 2,
+      "diluteWonders": 3,
+      "removeAncientKnowledge": 1
+    },
+    "agesToPlay": 3
+  },
+  {
+    "id": "1ai_exp",
+    "set": "expansion",
+    "group": "classic",
+    "slot": 0,
+    "difficulty": 1,
+    "players": 2,
+    "name": "Two-Player Classic",
+    "description": [],
+    "rules": [
+      "Win a classic game versus one easy AI."
+    ],
+    "opponents": [
+      {
+        "level": "easy",
+        "name": null,
+        "flags": {}
+      }
+    ],
+    "flags": {},
+    "agesToPlay": 3
+  },
+  {
+    "id": "2ai_exp",
+    "set": "expansion",
+    "group": "classic",
+    "slot": 1,
+    "difficulty": 2,
+    "players": 3,
+    "name": "Three-Player Classic",
+    "description": [],
+    "rules": [
+      "Win a classic game versus two medium AIs."
+    ],
+    "opponents": [
+      {
+        "level": "medium",
+        "name": null,
+        "flags": {}
+      },
+      {
+        "level": "medium",
+        "name": null,
+        "flags": {}
+      }
+    ],
+    "flags": {},
+    "agesToPlay": 3
+  },
+  {
+    "id": "3ai_exp",
+    "set": "expansion",
+    "group": "classic",
+    "slot": 2,
+    "difficulty": 3,
+    "players": 4,
+    "name": "Four-Player Classic",
+    "description": [],
+    "rules": [
+      "Win a classic game versus three top AIs."
+    ],
+    "opponents": [
+      {
+        "level": "hard",
+        "name": null,
+        "flags": {}
+      },
+      {
+        "level": "hard",
+        "name": null,
+        "flags": {}
+      },
+      {
+        "level": "hard",
+        "name": null,
+        "flags": {}
+      }
+    ],
+    "flags": {},
+    "agesToPlay": 3
+  },
+  {
+    "id": "cheap1_exp",
+    "set": "expansion",
+    "group": "cheap",
+    "slot": 0,
+    "difficulty": 1,
+    "players": 4,
+    "name": "Low-Priced Lands",
+    "description": [],
+    "rules": [
+      "In this game, everything costs 20 percent less. Have fun. And win."
+    ],
+    "opponents": [
+      {
+        "level": "easy",
+        "name": null,
+        "flags": {}
+      },
+      {
+        "level": "easy",
+        "name": null,
+        "flags": {}
+      },
+      {
+        "level": "easy",
+        "name": null,
+        "flags": {}
+      }
+    ],
+    "flags": {
+      "techCostPercentage": -20,
+      "resCostPercentage": -20,
+      "foodCostPercentage": -20
+    },
+    "agesToPlay": 3
+  },
+  {
+    "id": "cheap2_exp",
+    "set": "expansion",
+    "group": "cheap",
+    "slot": 1,
+    "difficulty": 2,
+    "players": 3,
+    "name": "Civilizations on Sale",
+    "description": [],
+    "rules": [
+      "Now everything costs 30 percent less. And the opponents are tougher. Defeat them."
+    ],
+    "opponents": [
+      {
+        "level": "medium",
+        "name": null,
+        "flags": {}
+      },
+      {
+        "level": "medium",
+        "name": null,
+        "flags": {}
+      }
+    ],
+    "flags": {
+      "techCostPercentage": -30,
+      "resCostPercentage": -30,
+      "foodCostPercentage": -30
+    },
+    "agesToPlay": 3
+  },
+  {
+    "id": "cheap3_exp",
+    "set": "expansion",
+    "group": "cheap",
+    "slot": 2,
+    "difficulty": 3,
+    "players": 2,
+    "name": "Discounted Duel",
+    "description": [],
+    "rules": [
+      "A discount of 40 percent on everything! Defeat a single clever opponent."
+    ],
+    "opponents": [
+      {
+        "level": "hard",
+        "name": null,
+        "flags": {}
+      }
+    ],
+    "flags": {
+      "techCostPercentage": -40,
+      "resCostPercentage": -40,
+      "foodCostPercentage": -40
+    },
+    "agesToPlay": 3
+  },
+  {
+    "id": "immortals1_exp",
+    "set": "expansion",
+    "group": "immortals",
+    "slot": 0,
+    "difficulty": 1,
+    "players": 3,
+    "name": "Clash of the Immortals",
+    "description": [
+      "If you could choose only one leader to lead you till the end of the ages, which one would it be?"
+    ],
+    "rules": [
+      "You can take only one leader during the entire game.",
+      "Leaders do not die at the end of any age, but there are twice as many Infiltrate aggressions!",
+      "Defeat both opponents, even though they start with a +1 culture rating."
+    ],
+    "opponents": [
+      {
+        "level": "easy",
+        "name": null,
+        "flags": {
+          "immortalLeader": 1,
+          "oneLeader": 1,
+          "bonusCulture": 1
+        }
+      },
+      {
+        "level": "easy",
+        "name": null,
+        "flags": {
+          "immortalLeader": 1,
+          "oneLeader": 1,
+          "bonusCulture": 1
+        }
+      }
+    ],
+    "flags": {
+      "infiltrateMultiplier": 2,
+      "removeIconoclasm": 1
+    },
+    "agesToPlay": 3
+  },
+  {
+    "id": "immortals2_exp",
+    "set": "expansion",
+    "group": "immortals",
+    "slot": 1,
+    "difficulty": 2,
+    "players": 4,
+    "name": "Battle of the Immortals",
+    "description": [
+      "And which leader will you choose this time?"
+    ],
+    "rules": [
+      "You can take only one leader during the entire game.",
+      "Leaders do not die at the end of any age, but there are three times as many Infiltrate aggressions!",
+      "Defeat all opponents, even though they start with +1 culture and strength ratings."
+    ],
+    "opponents": [
+      {
+        "level": "medium",
+        "name": null,
+        "flags": {
+          "immortalLeader": 1,
+          "oneLeader": 1,
+          "bonusCulture": 1,
+          "bonusStrength": 1
+        }
+      },
+      {
+        "level": "medium",
+        "name": null,
+        "flags": {
+          "immortalLeader": 1,
+          "oneLeader": 1,
+          "bonusCulture": 1,
+          "bonusStrength": 1
+        }
+      },
+      {
+        "level": "medium",
+        "name": null,
+        "flags": {
+          "immortalLeader": 1,
+          "oneLeader": 1,
+          "bonusCulture": 1,
+          "bonusStrength": 1
+        }
+      }
+    ],
+    "flags": {
+      "infiltrateMultiplier": 3,
+      "removeIconoclasm": 1
+    },
+    "agesToPlay": 3
+  },
+  {
+    "id": "immortals3_exp",
+    "set": "expansion",
+    "group": "immortals",
+    "slot": 2,
+    "difficulty": 3,
+    "players": 2,
+    "name": "War of the Immortals",
+    "description": [
+      "The final immortal confrontation is here. Choose your leader wisely."
+    ],
+    "rules": [
+      "You can take only one leader during the entire game.",
+      "Leaders do not die at the end of any age, but there are four times as many Infiltrate aggressions!",
+      "Defeat your opponent, even though he starts with +1 culture, science, and strength ratings."
+    ],
+    "opponents": [
+      {
+        "level": "hard",
+        "name": null,
+        "flags": {
+          "immortalLeader": 1,
+          "oneLeader": 1,
+          "bonusCulture": 1,
+          "bonusStrength": 1,
+          "bonusScience": 1
+        }
+      }
+    ],
+    "flags": {
+      "infiltrateMultiplier": 4,
+      "removeIconoclasm": 1
+    },
+    "agesToPlay": 3
+  },
+  {
+    "id": "epic1_exp",
+    "set": "expansion",
+    "group": "epic",
+    "slot": 0,
+    "difficulty": 2,
+    "players": 2,
+    "name": "Epic Game for Two",
+    "description": [],
+    "rules": [
+      "The game will be longer. In Ages I, II, and III, there is one extra copy of each yellow action card.",
+      "Your opponent starts with 30 culture. Catch up and overtake him."
+    ],
+    "opponents": [
+      {
+        "level": "medium",
+        "name": null,
+        "flags": {
+          "startingCulture": 30
+        }
+      }
+    ],
+    "flags": {
+      "extraActionCards": 1
+    },
+    "agesToPlay": 3
+  },
+  {
+    "id": "epic2_exp",
+    "set": "expansion",
+    "group": "epic",
+    "slot": 1,
+    "difficulty": 3,
+    "players": 3,
+    "name": "Epic Game for Three",
+    "description": [],
+    "rules": [
+      "The game will be longer. In Ages I, II, and III, there is one extra copy of each yellow action card.",
+      "Your opponents start with 60 culture each. Catch up and overtake them both."
+    ],
+    "opponents": [
+      {
+        "level": "medium",
+        "name": null,
+        "flags": {
+          "startingCulture": 60
+        }
+      },
+      {
+        "level": "hard",
+        "name": null,
+        "flags": {
+          "startingCulture": 60
+        }
+      }
+    ],
+    "flags": {
+      "extraActionCards": 1
+    },
+    "agesToPlay": 3
+  },
+  {
+    "id": "epic3_exp",
+    "set": "expansion",
+    "group": "epic",
+    "slot": 2,
+    "difficulty": 4,
+    "players": 4,
+    "name": "Epic Game for Four",
+    "description": [],
+    "rules": [
+      "The game will be longer. In Ages I, II, and III, there is one extra copy of each yellow action card.",
+      "Your opponents start with 90 culture each. Catch up and overtake them all."
+    ],
+    "opponents": [
+      {
+        "level": "hard",
+        "name": null,
+        "flags": {
+          "startingCulture": 90
+        }
+      },
+      {
+        "level": "medium",
+        "name": null,
+        "flags": {
+          "startingCulture": 90
+        }
+      },
+      {
+        "level": "hard",
+        "name": null,
+        "flags": {
+          "startingCulture": 90
+        }
+      }
+    ],
+    "flags": {
+      "extraActionCards": 1
+    },
+    "agesToPlay": 3
+  },
+  {
+    "id": "epic4_exp",
+    "set": "expansion",
+    "group": "epic",
+    "slot": 3,
+    "difficulty": 5,
+    "players": 4,
+    "name": "Super Epic Game",
+    "description": [],
+    "rules": [
+      "The game will be much longer. In Ages I, II, and III, there is one extra copy of each yellow action card and each technology card.",
+      "Your three opponents start with 180 culture each. Can you still overtake them all?"
+    ],
+    "opponents": [
+      {
+        "level": "hard",
+        "name": null,
+        "flags": {
+          "startingCulture": 180
+        }
+      },
+      {
+        "level": "hard",
+        "name": null,
+        "flags": {
+          "startingCulture": 180
+        }
+      },
+      {
+        "level": "hard",
+        "name": null,
+        "flags": {
+          "startingCulture": 180
+        }
+      }
+    ],
+    "flags": {
+      "extraActionCards": 1,
+      "extraTechCards": 1
+    },
+    "agesToPlay": 3
+  },
+  {
+    "id": "impact1_exp",
+    "set": "expansion",
+    "group": "impacts",
+    "slot": 0,
+    "difficulty": 2,
+    "players": 4,
+    "name": "Deep Impact",
+    "description": [
+      "Your opponents are suppressing your influence.\nCan you win anyway?"
+    ],
+    "rules": [
+      "Your end-of-turn culture production is 2/3 of normal.",
+      "Age III events give twice the usual number of points to everyone.",
+      "There are no wars. Defeat your three opponents."
+    ],
+    "opponents": [
+      {
+        "level": "easy",
+        "name": null,
+        "flags": {}
+      },
+      {
+        "level": "medium",
+        "name": null,
+        "flags": {}
+      },
+      {
+        "level": "medium",
+        "name": null,
+        "flags": {}
+      }
+    ],
+    "flags": {
+      "impactMultiplier": 2,
+      "removeWars": 1,
+      "removeImpactBalance": 1,
+      "removeImpactCulture": 1
+    },
+    "agesToPlay": 3
+  },
+  {
+    "id": "impact2_exp",
+    "set": "expansion",
+    "group": "impacts",
+    "slot": 1,
+    "difficulty": 3,
+    "players": 3,
+    "name": "Deeper Impact",
+    "description": [
+      "Your opponents are heavily suppressing your influence.\nCan you win anyway?"
+    ],
+    "rules": [
+      "Your end-of-turn culture production is 1/3 of normal.",
+      "Age III events give three times the usual number of points to everyone.",
+      "There are no wars. Defeat your two opponents."
+    ],
+    "opponents": [
+      {
+        "level": "medium",
+        "name": null,
+        "flags": {}
+      },
+      {
+        "level": "hard",
+        "name": null,
+        "flags": {}
+      }
+    ],
+    "flags": {
+      "impactMultiplier": 3,
+      "removeWars": 1,
+      "removeImpactBalance": 1,
+      "removeImpactCulture": 1
+    },
+    "agesToPlay": 3
+  },
+  {
+    "id": "impact3_exp",
+    "set": "expansion",
+    "group": "impacts",
+    "slot": 2,
+    "difficulty": 4,
+    "players": 2,
+    "name": "The Deepest Impact",
+    "description": [
+      "Your opponent is completely suppressing your influence. Can you win anyway?"
+    ],
+    "rules": [
+      "During production, you produce no culture.",
+      "Age III events give four times the usual number of points to both of you.",
+      "There are no wars. Defeat your opponent."
+    ],
+    "opponents": [
+      {
+        "level": "hard",
+        "name": null,
+        "flags": {}
+      }
+    ],
+    "flags": {
+      "impactMultiplier": 4,
+      "removeWars": 1,
+      "removeImpactBalance": 1,
+      "removeImpactCulture": 1
+    },
+    "agesToPlay": 3
+  },
+  {
+    "id": "time_traveller1_exp",
+    "set": "expansion",
+    "group": "time_travellers",
+    "slot": 0,
+    "difficulty": 2,
+    "players": 2,
+    "name": "Time Traveler - Žižka",
+    "description": [
+      "Jan Žižka was so highly admired by his troops that they renamed themselves The Orphans after his death. Little did they know that their beloved leader is not really dead.",
+      "In fact, he was summoned by an ancient shaman, who searched through the eddies of time and space to find a brilliant military mind to lead his tribe."
+    ],
+    "rules": [
+      "Defeat an opponent who starts with Jan Žižka in play."
+    ],
+    "opponents": [
+      {
+        "level": "medium",
+        "name": "Jan",
+        "flags": {
+          "startingLeader": "ZIZKA"
+        }
+      }
+    ],
+    "flags": {
+      "removeIconoclasm": 1
+    },
+    "agesToPlay": 3
+  },
+  {
+    "id": "time_traveller2_exp",
+    "set": "expansion",
+    "group": "time_travellers",
+    "slot": 1,
+    "difficulty": 3,
+    "players": 2,
+    "name": "Time Traveler - Maria Theresa",
+    "description": [
+      "Maria Theresa always wanted to ensure the best possible future for her dominion. When she was offered an opportunity to also give it the best possible past, she did not hesitate.",
+      "Brought back through an ancient portal, she will lead her people to victory. Unless you stop her."
+    ],
+    "rules": [
+      "Defeat an opponent who starts with Maria Theresa in play."
+    ],
+    "opponents": [
+      {
+        "level": "medium",
+        "name": "Maria Theresa",
+        "flags": {
+          "startingLeader": "MARIA_THERESA"
+        }
+      }
+    ],
+    "flags": {
+      "removeIconoclasm": 1
+    },
+    "agesToPlay": 3
+  },
+  {
+    "id": "time_traveller3_exp",
+    "set": "expansion",
+    "group": "time_travellers",
+    "slot": 2,
+    "difficulty": 4,
+    "players": 2,
+    "name": "Time Traveler - Marlene",
+    "description": [
+      "What if Marlene Dietrich was inspired by her meeting with Amelia Earhart? What if her airplane also disappeared without a trace?",
+      "At the dawn of mankind, an ancient tribe is bowing to their new goddess. A goddess who descended from heaven in a metal bird."
+    ],
+    "rules": [
+      "Defeat an opponent who starts with Marlene Dietrich and Air Forces in play."
+    ],
+    "opponents": [
+      {
+        "level": "medium",
+        "name": "Marlene",
+        "flags": {
+          "startingLeader": "MARLENE_DIETRICH",
+          "startingAirForces": 1
+        }
+      }
+    ],
+    "flags": {
+      "removeIconoclasm": 1
+    },
+    "agesToPlay": 3
+  },
+  {
+    "id": "time_travellers_exp",
+    "set": "expansion",
+    "group": "time_travellers",
+    "slot": 3,
+    "difficulty": 5,
+    "players": 4,
+    "name": "Time Travelers - Showdown",
+    "description": [
+      "Three great leaders have met in the past. Who among them will lead their nation to victory? Or could it be that a fourth nation, as yet completely unknown, will prevail?"
+    ],
+    "rules": [
+      "Defeat all three opponents. One starts with Jan Žižka, one with Maria Theresa, and one with Marlene Dietrich and Air Forces in play.",
+      "Good luck."
+    ],
+    "opponents": [
+      {
+        "level": "hard",
+        "name": "Jan",
+        "flags": {
+          "startingLeader": "ZIZKA"
+        }
+      },
+      {
+        "level": "medium",
+        "name": "Maria Theresa",
+        "flags": {
+          "startingLeader": "MARIA_THERESA"
+        }
+      },
+      {
+        "level": "easy",
+        "name": "Marlene",
+        "flags": {
+          "startingLeader": "MARLENE_DIETRICH",
+          "startingAirForces": 1
+        }
+      }
+    ],
+    "flags": {
+      "removeIconoclasm": 1
+    },
+    "agesToPlay": 3
+  },
+  {
+    "id": "fate1_exp",
+    "set": "expansion",
+    "group": "fate",
+    "slot": 0,
+    "difficulty": 3,
+    "players": 4,
+    "name": "Harsh Fate",
+    "description": [
+      "What if bad things happen mostly to you?"
+    ],
+    "rules": [
+      "There are no wars, aggressions, or pacts. But there are twice as many strength-related events, and playing an event gives twice the usual culture.",
+      "Defeat three opponents who each have +2 strength."
+    ],
+    "opponents": [
+      {
+        "level": "easy",
+        "name": "Clotho",
+        "flags": {
+          "bonusStrength": 2
+        }
+      },
+      {
+        "level": "medium",
+        "name": "Lachesis",
+        "flags": {
+          "bonusStrength": 2
+        }
+      },
+      {
+        "level": "hard",
+        "name": "Atropos",
+        "flags": {
+          "bonusStrength": 2
+        }
+      }
+    ],
+    "flags": {
+      "extraStrengthEvents": 1,
+      "extraAge3Tactics": 2,
+      "removeWars": 1,
+      "removeAggressions": 1,
+      "removePacts": 1,
+      "eventRewardMultiplier": 2
+    },
+    "agesToPlay": 3
+  },
+  {
+    "id": "fate2_exp",
+    "set": "expansion",
+    "group": "fate",
+    "slot": 1,
+    "difficulty": 4,
+    "players": 4,
+    "name": "Cruel Fate",
+    "description": [
+      "Does it seem like bad things are always happening to you?"
+    ],
+    "rules": [
+      "There are no wars, aggressions, or pacts. But there are three times as many strength-related events, and playing an event gives three times the usual culture.",
+      "Defeat three opponents who each have +3 strength."
+    ],
+    "opponents": [
+      {
+        "level": "easy",
+        "name": "Decima",
+        "flags": {
+          "bonusStrength": 3
+        }
+      },
+      {
+        "level": "medium",
+        "name": "Morta",
+        "flags": {
+          "bonusStrength": 3
+        }
+      },
+      {
+        "level": "hard",
+        "name": "Nona",
+        "flags": {
+          "bonusStrength": 3
+        }
+      }
+    ],
+    "flags": {
+      "extraStrengthEvents": 2,
+      "extraAge3Tactics": 2,
+      "removeWars": 1,
+      "removeAggressions": 1,
+      "removePacts": 1,
+      "eventRewardMultiplier": 3
+    },
+    "agesToPlay": 3
+  },
+  {
+    "id": "fate3_exp",
+    "set": "expansion",
+    "group": "fate",
+    "slot": 2,
+    "difficulty": 5,
+    "players": 4,
+    "name": "Remorseless Fate",
+    "description": [
+      "What if tons of bad things happen to you?"
+    ],
+    "rules": [
+      "There are no wars, aggressions, or pacts. But there are four times as many strength-related events, and playing an event gives four times the usual culture.",
+      "Defeat three opponents who each have +4 strength."
+    ],
+    "opponents": [
+      {
+        "level": "easy",
+        "name": "Urd",
+        "flags": {
+          "bonusStrength": 4
+        }
+      },
+      {
+        "level": "medium",
+        "name": "Verdandi",
+        "flags": {
+          "bonusStrength": 4
+        }
+      },
+      {
+        "level": "hard",
+        "name": "Skuld",
+        "flags": {
+          "bonusStrength": 4
+        }
+      }
+    ],
+    "flags": {
+      "extraStrengthEvents": 3,
+      "extraAge3Tactics": 2,
+      "removeWars": 1,
+      "removeAggressions": 1,
+      "removePacts": 1,
+      "eventRewardMultiplier": 4
+    },
+    "agesToPlay": 3
+  },
+  {
+    "id": "gods1_exp",
+    "set": "expansion",
+    "group": "gods",
+    "slot": 0,
+    "difficulty": 3,
+    "players": 4,
+    "name": "Three Gods",
+    "description": [
+      "They are mighty. And they don't like you. Deal with them!"
+    ],
+    "rules": [
+      "Defeat three opponents. One has +2 strength. One has 2 extra military actions. One has a bit of both."
+    ],
+    "opponents": [
+      {
+        "level": "easy",
+        "name": "Thor",
+        "flags": {
+          "bonusStrength": 2
+        }
+      },
+      {
+        "level": "hard",
+        "name": "Loki",
+        "flags": {
+          "extraMilActions": 2
+        }
+      },
+      {
+        "level": "medium",
+        "name": "Odin",
+        "flags": {
+          "bonusStrength": 1,
+          "extraMilActions": 1
+        }
+      }
+    ],
+    "flags": {},
+    "agesToPlay": 3
+  },
+  {
+    "id": "gods2_exp",
+    "set": "expansion",
+    "group": "gods",
+    "slot": 1,
+    "difficulty": 4,
+    "players": 3,
+    "name": "Two Gods",
+    "description": [
+      "It is harsh to be caught in a clash between two gods. Especially the warlike ones."
+    ],
+    "rules": [
+      "Defeat two opponents. One gets +1 strength for each urban building. The other gets +1 strength for each unit."
+    ],
+    "opponents": [
+      {
+        "level": "hard",
+        "name": "Athena",
+        "flags": {
+          "strengthPerUrban": 1
+        }
+      },
+      {
+        "level": "medium",
+        "name": "Ares",
+        "flags": {
+          "strengthPerUnit": 1
+        }
+      }
+    ],
+    "flags": {},
+    "agesToPlay": 3
+  },
+  {
+    "id": "gods3_exp",
+    "set": "expansion",
+    "group": "gods",
+    "slot": 2,
+    "difficulty": 6,
+    "players": 2,
+    "name": "Goddess of War",
+    "description": [
+      "Head of a lioness. Heart of a lioness. Strength of a lioness."
+    ],
+    "rules": [
+      "Defeat one fierce opponent. She starts with an extra military action and +1 strength. In each age, her strength bonus doubles."
+    ],
+    "opponents": [
+      {
+        "level": "hard",
+        "name": "Sekhmet",
+        "flags": {
+          "geometricStrength": 1,
+          "extraMilActions": 1
+        }
+      }
+    ],
+    "flags": {},
+    "agesToPlay": 3
+  },
+  {
+    "id": "wonders1_exp",
+    "set": "expansion",
+    "group": "wonders",
+    "slot": 0,
+    "difficulty": 3,
+    "players": 3,
+    "name": "Time of Wonders",
+    "description": [
+      "You believe life is full of wonders. But not everyone sees it that way. Each missed opportunity strengthens the Sins among humankind."
+    ],
+    "rules": [
+      "When you take a wonder, you pay one civil action less than usual.",
+      "Your opponents never take wonders, but whenever a wonder of Age I or higher is discarded, Pride scores 12 culture and Gluttony gains 6 food.",
+      "(Michelangelo and wonder scoring events are not in the game, but there are three times as many Engineering Genius cards.)"
+    ],
+    "opponents": [
+      {
+        "level": "easy",
+        "name": "Pride",
+        "flags": {
+          "noWonders": 1,
+          "wonderDiscCult": 12
+        }
+      },
+      {
+        "level": "medium",
+        "name": "Gluttony",
+        "flags": {
+          "noWonders": 1,
+          "wonderDiscFood": 6
+        }
+      }
+    ],
+    "flags": {
+      "removeMichelangelo": 1,
+      "removeImpactWonders": 1,
+      "removePactWonders": 1,
+      "extraEngineeringGenius": 2,
+      "diluteWonders": 3,
+      "removeAncientKnowledge": 1
+    },
+    "agesToPlay": 3
+  },
+  {
+    "id": "wonders2_exp",
+    "set": "expansion",
+    "group": "wonders",
+    "slot": 1,
+    "difficulty": 5,
+    "players": 3,
+    "name": "Age of Wonders",
+    "description": [
+      "Another chance to build a world full of wonders. And another pair of Sins who prosper from missed opportunities."
+    ],
+    "rules": [
+      "When you take a wonder, you pay one civil action less than usual.",
+      "Your opponents never take wonders, but whenever a wonder of Age I or higher is discarded, Wrath gets +2 strength permanently and Envy steals 2 science and 3 culture from you.",
+      "(Michelangelo and wonder scoring events are not in the game, but there are three times as many Engineering Genius cards.)"
+    ],
+    "opponents": [
+      {
+        "level": "medium",
+        "name": "Wrath",
+        "flags": {
+          "noWonders": 1,
+          "wonderDiscStr": 2
+        }
+      },
+      {
+        "level": "hard",
+        "name": "Envy",
+        "flags": {
+          "noWonders": 1,
+          "wonderDiscStealSci": 2,
+          "wonderDiscStealCult": 3
+        }
+      }
+    ],
+    "flags": {
+      "removeMichelangelo": 1,
+      "removeImpactWonders": 1,
+      "removePactWonders": 1,
+      "extraEngineeringGenius": 2,
+      "diluteWonders": 3,
+      "removeAncientKnowledge": 1
+    },
+    "agesToPlay": 3
+  },
+  {
+    "id": "wonders3_exp",
+    "set": "expansion",
+    "group": "wonders",
+    "slot": 2,
+    "difficulty": 6,
+    "players": 4,
+    "name": "World of Wonders",
+    "description": [
+      "The ultimate test of your wonder-building skills. Three Sins eagerly await each slip-up."
+    ],
+    "rules": [
+      "When you take a wonder, you pay two civil actions less than usual.",
+      "Your opponents never take wonders, but whenever a wonder of Age I or higher is discarded, Greed gains 6 resources, Sloth scores 6 science points, and Lust drains 2 strength from you permanently.",
+      "(Michelangelo and wonder scoring events are not in the game, but there are three times as many Engineering Genius cards.)"
+    ],
+    "opponents": [
+      {
+        "level": "hard",
+        "name": "Greed",
+        "flags": {
+          "noWonders": 1,
+          "wonderDiscRes": 6
+        }
+      },
+      {
+        "level": "hard",
+        "name": "Sloth",
+        "flags": {
+          "noWonders": 1,
+          "wonderDiscSci": 6
+        }
+      },
+      {
+        "level": "hard",
+        "name": "Lust",
+        "flags": {
+          "noWonders": 1,
+          "wonderDiscStealStr": 2
+        }
+      }
+    ],
+    "flags": {
+      "removeMichelangelo": 1,
+      "removeImpactWonders": 1,
+      "removePactWonders": 1,
+      "extraEngineeringGenius": 2,
+      "diluteWonders": 3,
+      "removeAncientKnowledge": 1
+    },
+    "agesToPlay": 3
+  },
+  {
+    "id": "kidnappers1_exp",
+    "set": "expansion",
+    "group": "kidnappers",
+    "slot": 0,
+    "difficulty": 2,
+    "players": 4,
+    "name": "Kidnappers",
+    "description": [
+      "What if kidnapping were a common political maneuver? And what if we changed some rules to give you more cards to steal? Give it a try ..."
+    ],
+    "rules": [
+      "No civil card can be played in the same Action Phase as it was taken. Wonders are taken to your hand, too.",
+      "During each Politics Phase, players have a Kidnapping aggression available.",
+      "The game has one extra round in Age IV.",
+      "Defeat three opponents who have +1 strength."
+    ],
+    "opponents": [
+      {
+        "level": "medium",
+        "name": null,
+        "flags": {
+          "bonusStrength": 1
+        }
+      },
+      {
+        "level": "medium",
+        "name": null,
+        "flags": {
+          "bonusStrength": 1
+        }
+      },
+      {
+        "level": "medium",
+        "name": null,
+        "flags": {
+          "bonusStrength": 1
+        }
+      }
+    ],
+    "flags": {
+      "cardsDelay": 1,
+      "specialKidnapping": 1,
+      "extraRound": 1
+    },
+    "agesToPlay": 3
+  },
+  {
+    "id": "kidnappers2_exp",
+    "set": "expansion",
+    "group": "kidnappers",
+    "slot": 1,
+    "difficulty": 3,
+    "players": 3,
+    "name": "Elite Kidnappers",
+    "description": [
+      "Fewer players, but stronger! Do not let them take what is yours ..."
+    ],
+    "rules": [
+      "No civil card can be played in the same Action Phase as it was taken. Even wonders are taken into your hand, and construction cannot start immediately.",
+      "During each Politics Phase, players have a Kidnapping aggression available.",
+      "The game has one extra round in Age IV.",
+      "Defeat two opponents who have +2 strength."
+    ],
+    "opponents": [
+      {
+        "level": "medium",
+        "name": null,
+        "flags": {
+          "bonusStrength": 2
+        }
+      },
+      {
+        "level": "hard",
+        "name": null,
+        "flags": {
+          "bonusStrength": 2
+        }
+      }
+    ],
+    "flags": {
+      "cardsDelay": 1,
+      "specialKidnapping": 1,
+      "extraRound": 1
+    },
+    "agesToPlay": 3
+  },
+  {
+    "id": "kidnappers3_exp",
+    "set": "expansion",
+    "group": "kidnappers",
+    "slot": 2,
+    "difficulty": 4,
+    "players": 2,
+    "name": "Master Kidnapper",
+    "description": [
+      "One ultimate opponent. Can you still prevail?"
+    ],
+    "rules": [
+      "No civil card can be played in the same Action Phase as it was taken. Even wonders are taken into your hand, and construction cannot start immediately.",
+      "During each Politics Phase, players have a Kidnapping aggression available.",
+      "The game has one extra round in Age IV.",
+      "Defeat an ultimate opponent who has +3 strength!"
+    ],
+    "opponents": [
+      {
+        "level": "hard",
+        "name": null,
+        "flags": {
+          "bonusStrength": 3
+        }
+      }
+    ],
+    "flags": {
+      "cardsDelay": 1,
+      "specialKidnapping": 1,
+      "extraRound": 1
+    },
+    "agesToPlay": 3
+  },
+  {
+    "id": "1ai_mix",
+    "set": "mix",
+    "group": "classic",
+    "slot": 0,
+    "difficulty": 1,
+    "players": 2,
+    "name": "Two-Player Classic",
+    "description": [],
+    "rules": [
+      "Win a classic game versus one easy AI."
+    ],
+    "opponents": [
+      {
+        "level": "easy",
+        "name": null,
+        "flags": {}
+      }
+    ],
+    "flags": {},
+    "agesToPlay": 3
+  },
+  {
+    "id": "2ai_mix",
+    "set": "mix",
+    "group": "classic",
+    "slot": 1,
+    "difficulty": 2,
+    "players": 3,
+    "name": "Three-Player Classic",
+    "description": [],
+    "rules": [
+      "Win a classic game versus two medium AIs."
+    ],
+    "opponents": [
+      {
+        "level": "medium",
+        "name": null,
+        "flags": {}
+      },
+      {
+        "level": "medium",
+        "name": null,
+        "flags": {}
+      }
+    ],
+    "flags": {},
+    "agesToPlay": 3
+  },
+  {
+    "id": "3ai_mix",
+    "set": "mix",
+    "group": "classic",
+    "slot": 2,
+    "difficulty": 3,
+    "players": 4,
+    "name": "Four-Player Classic",
+    "description": [],
+    "rules": [
+      "Win a classic game versus three top AIs."
+    ],
+    "opponents": [
+      {
+        "level": "hard",
+        "name": null,
+        "flags": {}
+      },
+      {
+        "level": "hard",
+        "name": null,
+        "flags": {}
+      },
+      {
+        "level": "hard",
+        "name": null,
+        "flags": {}
+      }
+    ],
+    "flags": {},
+    "agesToPlay": 3
+  },
+  {
+    "id": "cheap1_mix",
+    "set": "mix",
+    "group": "cheap",
+    "slot": 0,
+    "difficulty": 1,
+    "players": 4,
+    "name": "Low-Priced Lands",
+    "description": [],
+    "rules": [
+      "In this game, everything costs 20 percent less. Have fun. And win."
+    ],
+    "opponents": [
+      {
+        "level": "easy",
+        "name": null,
+        "flags": {}
+      },
+      {
+        "level": "easy",
+        "name": null,
+        "flags": {}
+      },
+      {
+        "level": "easy",
+        "name": null,
+        "flags": {}
+      }
+    ],
+    "flags": {
+      "techCostPercentage": -20,
+      "resCostPercentage": -20,
+      "foodCostPercentage": -20
+    },
+    "agesToPlay": 3
+  },
+  {
+    "id": "cheap2_mix",
+    "set": "mix",
+    "group": "cheap",
+    "slot": 1,
+    "difficulty": 2,
+    "players": 3,
+    "name": "Civilizations on Sale",
+    "description": [],
+    "rules": [
+      "Now everything costs 30 percent less. And the opponents are tougher. Defeat them."
+    ],
+    "opponents": [
+      {
+        "level": "medium",
+        "name": null,
+        "flags": {}
+      },
+      {
+        "level": "medium",
+        "name": null,
+        "flags": {}
+      }
+    ],
+    "flags": {
+      "techCostPercentage": -30,
+      "resCostPercentage": -30,
+      "foodCostPercentage": -30
+    },
+    "agesToPlay": 3
+  },
+  {
+    "id": "cheap3_mix",
+    "set": "mix",
+    "group": "cheap",
+    "slot": 2,
+    "difficulty": 3,
+    "players": 2,
+    "name": "Discounted Duel",
+    "description": [],
+    "rules": [
+      "A discount of 40 percent on everything! Defeat a single clever opponent."
+    ],
+    "opponents": [
+      {
+        "level": "hard",
+        "name": null,
+        "flags": {}
+      }
+    ],
+    "flags": {
+      "techCostPercentage": -40,
+      "resCostPercentage": -40,
+      "foodCostPercentage": -40
+    },
+    "agesToPlay": 3
+  },
+  {
+    "id": "immortals1_mix",
+    "set": "mix",
+    "group": "immortals",
+    "slot": 0,
+    "difficulty": 1,
+    "players": 3,
+    "name": "Clash of the Immortals",
+    "description": [
+      "If you could choose only one leader to lead you till the end of the ages, which one would it be?"
+    ],
+    "rules": [
+      "You can take only one leader during the entire game.",
+      "Leaders do not die at the end of any age, but there are twice as many Infiltrate aggressions!",
+      "Defeat both opponents, even though they start with a +1 culture rating."
+    ],
+    "opponents": [
+      {
+        "level": "easy",
+        "name": null,
+        "flags": {
+          "immortalLeader": 1,
+          "oneLeader": 1,
+          "bonusCulture": 1
+        }
+      },
+      {
+        "level": "easy",
+        "name": null,
+        "flags": {
+          "immortalLeader": 1,
+          "oneLeader": 1,
+          "bonusCulture": 1
+        }
+      }
+    ],
+    "flags": {
+      "infiltrateMultiplier": 2,
+      "removeIconoclasm": 1
+    },
+    "agesToPlay": 3
+  },
+  {
+    "id": "immortals2_mix",
+    "set": "mix",
+    "group": "immortals",
+    "slot": 1,
+    "difficulty": 2,
+    "players": 4,
+    "name": "Battle of the Immortals",
+    "description": [
+      "And which leader will you choose this time?"
+    ],
+    "rules": [
+      "You can take only one leader during the entire game.",
+      "Leaders do not die at the end of any age, but there are three times as many Infiltrate aggressions!",
+      "Defeat all opponents, even though they start with +1 culture and strength ratings."
+    ],
+    "opponents": [
+      {
+        "level": "medium",
+        "name": null,
+        "flags": {
+          "immortalLeader": 1,
+          "oneLeader": 1,
+          "bonusCulture": 1,
+          "bonusStrength": 1
+        }
+      },
+      {
+        "level": "medium",
+        "name": null,
+        "flags": {
+          "immortalLeader": 1,
+          "oneLeader": 1,
+          "bonusCulture": 1,
+          "bonusStrength": 1
+        }
+      },
+      {
+        "level": "medium",
+        "name": null,
+        "flags": {
+          "immortalLeader": 1,
+          "oneLeader": 1,
+          "bonusCulture": 1,
+          "bonusStrength": 1
+        }
+      }
+    ],
+    "flags": {
+      "infiltrateMultiplier": 3,
+      "removeIconoclasm": 1
+    },
+    "agesToPlay": 3
+  },
+  {
+    "id": "immortals3_mix",
+    "set": "mix",
+    "group": "immortals",
+    "slot": 2,
+    "difficulty": 3,
+    "players": 2,
+    "name": "War of the Immortals",
+    "description": [
+      "The final immortal confrontation is here. Choose your leader wisely."
+    ],
+    "rules": [
+      "You can take only one leader during the entire game.",
+      "Leaders do not die at the end of any age, but there are four times as many Infiltrate aggressions!",
+      "Defeat your opponent, even though he starts with +1 culture, science, and strength ratings."
+    ],
+    "opponents": [
+      {
+        "level": "hard",
+        "name": null,
+        "flags": {
+          "immortalLeader": 1,
+          "oneLeader": 1,
+          "bonusCulture": 1,
+          "bonusStrength": 1,
+          "bonusScience": 1
+        }
+      }
+    ],
+    "flags": {
+      "infiltrateMultiplier": 4,
+      "removeIconoclasm": 1
+    },
+    "agesToPlay": 3
+  },
+  {
+    "id": "epic1_mix",
+    "set": "mix",
+    "group": "epic",
+    "slot": 0,
+    "difficulty": 2,
+    "players": 2,
+    "name": "Epic Game for Two",
+    "description": [],
+    "rules": [
+      "The game will be longer. In Ages I, II, and III, there is one extra copy of each yellow action card.",
+      "Your opponent starts with 30 culture. Catch up and overtake him."
+    ],
+    "opponents": [
+      {
+        "level": "medium",
+        "name": null,
+        "flags": {
+          "startingCulture": 30
+        }
+      }
+    ],
+    "flags": {
+      "extraActionCards": 1
+    },
+    "agesToPlay": 3
+  },
+  {
+    "id": "epic2_mix",
+    "set": "mix",
+    "group": "epic",
+    "slot": 1,
+    "difficulty": 3,
+    "players": 3,
+    "name": "Epic Game for Three",
+    "description": [],
+    "rules": [
+      "The game will be longer. In Ages I, II, and III, there is one extra copy of each yellow action card.",
+      "Your opponents start with 60 culture each. Catch up and overtake them both."
+    ],
+    "opponents": [
+      {
+        "level": "medium",
+        "name": null,
+        "flags": {
+          "startingCulture": 60
+        }
+      },
+      {
+        "level": "hard",
+        "name": null,
+        "flags": {
+          "startingCulture": 60
+        }
+      }
+    ],
+    "flags": {
+      "extraActionCards": 1
+    },
+    "agesToPlay": 3
+  },
+  {
+    "id": "epic3_mix",
+    "set": "mix",
+    "group": "epic",
+    "slot": 2,
+    "difficulty": 4,
+    "players": 4,
+    "name": "Epic Game for Four",
+    "description": [],
+    "rules": [
+      "The game will be longer. In Ages I, II, and III, there is one extra copy of each yellow action card.",
+      "Your opponents start with 90 culture each. Catch up and overtake them all."
+    ],
+    "opponents": [
+      {
+        "level": "hard",
+        "name": null,
+        "flags": {
+          "startingCulture": 90
+        }
+      },
+      {
+        "level": "medium",
+        "name": null,
+        "flags": {
+          "startingCulture": 90
+        }
+      },
+      {
+        "level": "hard",
+        "name": null,
+        "flags": {
+          "startingCulture": 90
+        }
+      }
+    ],
+    "flags": {
+      "extraActionCards": 1
+    },
+    "agesToPlay": 3
+  },
+  {
+    "id": "epic4_mix",
+    "set": "mix",
+    "group": "epic",
+    "slot": 3,
+    "difficulty": 5,
+    "players": 4,
+    "name": "Super Epic Game",
+    "description": [],
+    "rules": [
+      "The game will be much longer. In Ages I, II, and III, there is one extra copy of each yellow action card and each technology card.",
+      "Your three opponents start with 180 culture each. Can you still overtake them all?"
+    ],
+    "opponents": [
+      {
+        "level": "hard",
+        "name": null,
+        "flags": {
+          "startingCulture": 180
+        }
+      },
+      {
+        "level": "hard",
+        "name": null,
+        "flags": {
+          "startingCulture": 180
+        }
+      },
+      {
+        "level": "hard",
+        "name": null,
+        "flags": {
+          "startingCulture": 180
+        }
+      }
+    ],
+    "flags": {
+      "extraActionCards": 1,
+      "extraTechCards": 1
+    },
+    "agesToPlay": 3
+  },
+  {
+    "id": "impact1_mix",
+    "set": "mix",
+    "group": "impacts",
+    "slot": 0,
+    "difficulty": 2,
+    "players": 4,
+    "name": "Deep Impact",
+    "description": [
+      "Your opponents are suppressing your influence.\nCan you win anyway?"
+    ],
+    "rules": [
+      "Your end-of-turn culture production is 2/3 of normal.",
+      "Age III events give twice the usual number of points to everyone.",
+      "There are no wars. Defeat your three opponents."
+    ],
+    "opponents": [
+      {
+        "level": "easy",
+        "name": null,
+        "flags": {}
+      },
+      {
+        "level": "medium",
+        "name": null,
+        "flags": {}
+      },
+      {
+        "level": "medium",
+        "name": null,
+        "flags": {}
+      }
+    ],
+    "flags": {
+      "impactMultiplier": 2,
+      "removeWars": 1,
+      "removeImpactBalance": 1,
+      "removeImpactCulture": 1
+    },
+    "agesToPlay": 3
+  },
+  {
+    "id": "impact2_mix",
+    "set": "mix",
+    "group": "impacts",
+    "slot": 1,
+    "difficulty": 3,
+    "players": 3,
+    "name": "Deeper Impact",
+    "description": [
+      "Your opponents are heavily suppressing your influence.\nCan you win anyway?"
+    ],
+    "rules": [
+      "Your end-of-turn culture production is 1/3 of normal.",
+      "Age III events give three times the usual number of points to everyone.",
+      "There are no wars. Defeat your two opponents."
+    ],
+    "opponents": [
+      {
+        "level": "medium",
+        "name": null,
+        "flags": {}
+      },
+      {
+        "level": "hard",
+        "name": null,
+        "flags": {}
+      }
+    ],
+    "flags": {
+      "impactMultiplier": 3,
+      "removeWars": 1,
+      "removeImpactBalance": 1,
+      "removeImpactCulture": 1
+    },
+    "agesToPlay": 3
+  },
+  {
+    "id": "impact3_mix",
+    "set": "mix",
+    "group": "impacts",
+    "slot": 2,
+    "difficulty": 4,
+    "players": 2,
+    "name": "The Deepest Impact",
+    "description": [
+      "Your opponent is completely suppressing your influence. Can you win anyway?"
+    ],
+    "rules": [
+      "During production, you produce no culture.",
+      "Age III events give four times the usual number of points to both of you.",
+      "There are no wars. Defeat your opponent."
+    ],
+    "opponents": [
+      {
+        "level": "hard",
+        "name": null,
+        "flags": {}
+      }
+    ],
+    "flags": {
+      "impactMultiplier": 4,
+      "removeWars": 1,
+      "removeImpactBalance": 1,
+      "removeImpactCulture": 1
+    },
+    "agesToPlay": 3
+  },
+  {
+    "id": "time_traveller1_mix",
+    "set": "mix",
+    "group": "time_travellers",
+    "slot": 0,
+    "difficulty": 2,
+    "players": 3,
+    "name": "Medieval Time Travelers",
+    "description": [
+      "How did these two arrive in ancient times? That's not important. What matters is that both Jan Žižka and Joan of Arc are determined to lead their nations to glory, and each is in the other's way. You are in the way of both."
+    ],
+    "rules": [
+      "Defeat opponents who start with Joan of Arc and Jan Žižka in play."
+    ],
+    "opponents": [
+      {
+        "level": "medium",
+        "name": "Joan",
+        "flags": {
+          "startingLeader": "JOAN_OF_ARC"
+        }
+      },
+      {
+        "level": "medium",
+        "name": "Jan",
+        "flags": {
+          "startingLeader": "ZIZKA"
+        }
+      }
+    ],
+    "flags": {
+      "removeIconoclasm": 1
+    },
+    "agesToPlay": 3
+  },
+  {
+    "id": "time_traveller2_mix",
+    "set": "mix",
+    "group": "time_travellers",
+    "slot": 1,
+    "difficulty": 3,
+    "players": 3,
+    "name": "Rennaisance Time Travelers",
+    "description": [
+      "Napoleon Bonaparte and Maria Theresa never met on the battlefield. They had to travel to the depths of history to start a mighty clash of their nations. Too bad for anyone in their way."
+    ],
+    "rules": [
+      "Defeat opponents who start with Napoleon Bonaparte and Maria Theresa in play."
+    ],
+    "opponents": [
+      {
+        "level": "medium",
+        "name": "Napoleon",
+        "flags": {
+          "startingLeader": "NAPOLEON_BONAPARTE_2"
+        }
+      },
+      {
+        "level": "medium",
+        "name": "Maria Theresa",
+        "flags": {
+          "startingLeader": "MARIA_THERESA"
+        }
+      }
+    ],
+    "flags": {
+      "removeIconoclasm": 1
+    },
+    "agesToPlay": 3
+  },
+  {
+    "id": "time_traveller3_mix",
+    "set": "mix",
+    "group": "time_travellers",
+    "slot": 2,
+    "difficulty": 4,
+    "players": 3,
+    "name": "Modern Time Travelers",
+    "description": [
+      "Sir Winston Churchill, with his unmistakable cigar. And Marlene Dietrich - with an airplane! These two can write history. Make sure they do not erase your nation from it."
+    ],
+    "rules": [
+      "Defeat two opponents - one starts with Winston Churchill and one with Marlene Dietrich and Air Forces in play."
+    ],
+    "opponents": [
+      {
+        "level": "medium",
+        "name": "Winston",
+        "flags": {
+          "startingLeader": "WINSTON_CHURCHILL"
+        }
+      },
+      {
+        "level": "medium",
+        "name": "Marlene",
+        "flags": {
+          "startingLeader": "MARLENE_DIETRICH",
+          "startingAirForces": 1
+        }
+      }
+    ],
+    "flags": {
+      "removeIconoclasm": 1
+    },
+    "agesToPlay": 3
+  },
+  {
+    "id": "time_travellers_mix",
+    "set": "mix",
+    "group": "time_travellers",
+    "slot": 3,
+    "difficulty": 6,
+    "players": 4,
+    "name": "Time Traveler - Final Battle",
+    "description": [
+      "You were ready for anything - but this is even worse. This cruel man has traveled back in time to eradicate you and all other nations."
+    ],
+    "rules": [
+      "Defeat The Dictator. (Also defeat the other two unfortunate nations who are obviously in the wrong place at the wrong time.)",
+      "Good luck."
+    ],
+    "opponents": [
+      {
+        "level": "hard",
+        "name": "The Dictator",
+        "flags": {
+          "startingLeader": "DICTATOR"
+        }
+      },
+      {
+        "level": "hard",
+        "name": null,
+        "flags": {}
+      },
+      {
+        "level": "hard",
+        "name": null,
+        "flags": {}
+      }
+    ],
+    "flags": {
+      "removeIconoclasm": 1
+    },
+    "agesToPlay": 3
+  },
+  {
+    "id": "fate1_mix",
+    "set": "mix",
+    "group": "fate",
+    "slot": 0,
+    "difficulty": 3,
+    "players": 4,
+    "name": "Harsh Fate",
+    "description": [
+      "What if bad things happen mostly to you?"
+    ],
+    "rules": [
+      "There are no wars, aggressions, or pacts. But there are twice as many strength-related events, and playing an event gives twice the usual culture.",
+      "Defeat three opponents who each have +2 strength."
+    ],
+    "opponents": [
+      {
+        "level": "easy",
+        "name": "Clotho",
+        "flags": {
+          "bonusStrength": 2
+        }
+      },
+      {
+        "level": "medium",
+        "name": "Lachesis",
+        "flags": {
+          "bonusStrength": 2
+        }
+      },
+      {
+        "level": "hard",
+        "name": "Atropos",
+        "flags": {
+          "bonusStrength": 2
+        }
+      }
+    ],
+    "flags": {
+      "extraStrengthEvents": 1,
+      "extraAge3Tactics": 2,
+      "removeWars": 1,
+      "removeAggressions": 1,
+      "removePacts": 1,
+      "eventRewardMultiplier": 2
+    },
+    "agesToPlay": 3
+  },
+  {
+    "id": "fate2_mix",
+    "set": "mix",
+    "group": "fate",
+    "slot": 1,
+    "difficulty": 4,
+    "players": 4,
+    "name": "Cruel Fate",
+    "description": [
+      "Does it seem like bad things are always happening to you?"
+    ],
+    "rules": [
+      "There are no wars, aggressions, or pacts. But there are three times as many strength-related events, and playing an event gives three times the usual culture.",
+      "Defeat three opponents who each have +3 strength."
+    ],
+    "opponents": [
+      {
+        "level": "easy",
+        "name": "Decima",
+        "flags": {
+          "bonusStrength": 3
+        }
+      },
+      {
+        "level": "medium",
+        "name": "Morta",
+        "flags": {
+          "bonusStrength": 3
+        }
+      },
+      {
+        "level": "hard",
+        "name": "Nona",
+        "flags": {
+          "bonusStrength": 3
+        }
+      }
+    ],
+    "flags": {
+      "extraStrengthEvents": 2,
+      "extraAge3Tactics": 2,
+      "removeWars": 1,
+      "removeAggressions": 1,
+      "removePacts": 1,
+      "eventRewardMultiplier": 3
+    },
+    "agesToPlay": 3
+  },
+  {
+    "id": "fate3_mix",
+    "set": "mix",
+    "group": "fate",
+    "slot": 2,
+    "difficulty": 5,
+    "players": 4,
+    "name": "Remorseless Fate",
+    "description": [
+      "What if tons of bad things happen to you?"
+    ],
+    "rules": [
+      "There are no wars, aggressions, or pacts. But there are four times as many strength-related events, and playing an event gives four times the usual culture.",
+      "Defeat three opponents who each have +4 strength."
+    ],
+    "opponents": [
+      {
+        "level": "easy",
+        "name": "Urd",
+        "flags": {
+          "bonusStrength": 4
+        }
+      },
+      {
+        "level": "medium",
+        "name": "Verdandi",
+        "flags": {
+          "bonusStrength": 4
+        }
+      },
+      {
+        "level": "hard",
+        "name": "Skuld",
+        "flags": {
+          "bonusStrength": 4
+        }
+      }
+    ],
+    "flags": {
+      "extraStrengthEvents": 3,
+      "extraAge3Tactics": 2,
+      "removeWars": 1,
+      "removeAggressions": 1,
+      "removePacts": 1,
+      "eventRewardMultiplier": 4
+    },
+    "agesToPlay": 3
+  },
+  {
+    "id": "gods1_mix",
+    "set": "mix",
+    "group": "gods",
+    "slot": 0,
+    "difficulty": 3,
+    "players": 4,
+    "name": "Three Gods",
+    "description": [
+      "They are mighty. And they don't like you. Deal with them!"
+    ],
+    "rules": [
+      "Defeat three opponents. One has +2 strength. One has 2 extra military actions. One has a bit of both."
+    ],
+    "opponents": [
+      {
+        "level": "easy",
+        "name": "Thor",
+        "flags": {
+          "bonusStrength": 2
+        }
+      },
+      {
+        "level": "hard",
+        "name": "Loki",
+        "flags": {
+          "extraMilActions": 2
+        }
+      },
+      {
+        "level": "medium",
+        "name": "Odin",
+        "flags": {
+          "bonusStrength": 1,
+          "extraMilActions": 1
+        }
+      }
+    ],
+    "flags": {},
+    "agesToPlay": 3
+  },
+  {
+    "id": "gods2_mix",
+    "set": "mix",
+    "group": "gods",
+    "slot": 1,
+    "difficulty": 4,
+    "players": 3,
+    "name": "Two Gods",
+    "description": [
+      "It is harsh to be caught in a clash between two gods. Especially the warlike ones."
+    ],
+    "rules": [
+      "Defeat two opponents. One gets +1 strength for each urban building. The other gets +1 strength for each unit."
+    ],
+    "opponents": [
+      {
+        "level": "hard",
+        "name": "Athena",
+        "flags": {
+          "strengthPerUrban": 1
+        }
+      },
+      {
+        "level": "medium",
+        "name": "Ares",
+        "flags": {
+          "strengthPerUnit": 1
+        }
+      }
+    ],
+    "flags": {},
+    "agesToPlay": 3
+  },
+  {
+    "id": "gods3_mix",
+    "set": "mix",
+    "group": "gods",
+    "slot": 2,
+    "difficulty": 6,
+    "players": 2,
+    "name": "Goddess of War",
+    "description": [
+      "Head of a lioness. Heart of a lioness. Strength of a lioness."
+    ],
+    "rules": [
+      "Defeat one fierce opponent. She starts with an extra military action and +1 strength. In each age, her strength bonus doubles."
+    ],
+    "opponents": [
+      {
+        "level": "hard",
+        "name": "Sekhmet",
+        "flags": {
+          "geometricStrength": 1,
+          "extraMilActions": 1
+        }
+      }
+    ],
+    "flags": {},
+    "agesToPlay": 3
+  },
+  {
+    "id": "wonders1_mix",
+    "set": "mix",
+    "group": "wonders",
+    "slot": 0,
+    "difficulty": 3,
+    "players": 3,
+    "name": "Time of Wonders",
+    "description": [
+      "You believe life is full of wonders. But not everyone sees it that way. Each missed opportunity strengthens the Sins among humankind."
+    ],
+    "rules": [
+      "When you take a wonder, you pay two civil action less than usual.",
+      "Your opponents never take wonders, but whenever a wonder of Age I or higher is discarded, Pride scores 12 culture and Gluttony gains 6 food.",
+      "(Michelangelo and wonder scoring events are not in the game, but there are four times as many Engineering Genius cards.)"
+    ],
+    "opponents": [
+      {
+        "level": "easy",
+        "name": "Pride",
+        "flags": {
+          "noWonders": 1,
+          "wonderDiscCult": 12
+        }
+      },
+      {
+        "level": "medium",
+        "name": "Gluttony",
+        "flags": {
+          "noWonders": 1,
+          "wonderDiscFood": 6
+        }
+      }
+    ],
+    "flags": {
+      "removeMichelangelo": 1,
+      "removeImpactWonders": 1,
+      "removePactWonders": 1,
+      "extraEngineeringGenius": 3,
+      "diluteWonders": 3,
+      "removeAncientKnowledge": 1
+    },
+    "agesToPlay": 3
+  },
+  {
+    "id": "wonders2_mix",
+    "set": "mix",
+    "group": "wonders",
+    "slot": 1,
+    "difficulty": 5,
+    "players": 3,
+    "name": "Age of Wonders",
+    "description": [
+      "Another chance to build a world full of wonders. And another pair of Sins who prosper from missed opportunities."
+    ],
+    "rules": [
+      "When you take a wonder, you pay two civil action less than usual.",
+      "Your opponents never take wonders, but whenever a wonder of Age I or higher is discarded, Wrath gets +2 strength permanently and Envy steals 2 science and 3 culture from you.",
+      "(Michelangelo and wonder scoring events are not in the game, but there are four times as many Engineering Genius cards.)"
+    ],
+    "opponents": [
+      {
+        "level": "medium",
+        "name": "Wrath",
+        "flags": {
+          "noWonders": 1,
+          "wonderDiscStr": 2
+        }
+      },
+      {
+        "level": "hard",
+        "name": "Envy",
+        "flags": {
+          "noWonders": 1,
+          "wonderDiscStealSci": 2,
+          "wonderDiscStealCult": 3
+        }
+      }
+    ],
+    "flags": {
+      "removeMichelangelo": 1,
+      "removeImpactWonders": 1,
+      "removePactWonders": 1,
+      "extraEngineeringGenius": 3,
+      "diluteWonders": 3,
+      "removeAncientKnowledge": 1
+    },
+    "agesToPlay": 3
+  },
+  {
+    "id": "wonders3_mix",
+    "set": "mix",
+    "group": "wonders",
+    "slot": 2,
+    "difficulty": 6,
+    "players": 4,
+    "name": "World of Wonders",
+    "description": [
+      "The ultimate test of your wonder-building skills. Three Sins eagerly await each slip-up."
+    ],
+    "rules": [
+      "When you take a wonder, you pay three civil actions less than usual.",
+      "Your opponents never take wonders, but whenever a wonder of Age I or higher is discarded, Greed gains 6 resources, Sloth scores 6 science points, and Lust drains 2 strength from you permanently.",
+      "(Michelangelo and wonder scoring events are not in the game, but there are four times as many Engineering Genius cards.)"
+    ],
+    "opponents": [
+      {
+        "level": "hard",
+        "name": "Greed",
+        "flags": {
+          "noWonders": 1,
+          "wonderDiscRes": 6
+        }
+      },
+      {
+        "level": "hard",
+        "name": "Sloth",
+        "flags": {
+          "noWonders": 1,
+          "wonderDiscSci": 6
+        }
+      },
+      {
+        "level": "hard",
+        "name": "Lust",
+        "flags": {
+          "noWonders": 1,
+          "wonderDiscStealStr": 2
+        }
+      }
+    ],
+    "flags": {
+      "removeMichelangelo": 1,
+      "removeImpactWonders": 1,
+      "removePactWonders": 1,
+      "extraEngineeringGenius": 3,
+      "diluteWonders": 3,
+      "removeAncientKnowledge": 1
+    },
+    "agesToPlay": 3
+  },
+  {
+    "id": "kidnappers1_mix",
+    "set": "mix",
+    "group": "kidnappers",
+    "slot": 0,
+    "difficulty": 2,
+    "players": 4,
+    "name": "Kidnappers",
+    "description": [
+      "What if kidnapping were a common political maneuver? And what if we changed some rules to give you more cards to steal? Give it a try ..."
+    ],
+    "rules": [
+      "No civil card can be played in the same Action Phase as it was taken. Wonders are taken to your hand, too.",
+      "During each Politics Phase, players have a Kidnapping aggression available.",
+      "The game has one extra round in Age IV.",
+      "Defeat three opponents who have +1 strength."
+    ],
+    "opponents": [
+      {
+        "level": "medium",
+        "name": null,
+        "flags": {
+          "bonusStrength": 1
+        }
+      },
+      {
+        "level": "medium",
+        "name": null,
+        "flags": {
+          "bonusStrength": 1
+        }
+      },
+      {
+        "level": "medium",
+        "name": null,
+        "flags": {
+          "bonusStrength": 1
+        }
+      }
+    ],
+    "flags": {
+      "cardsDelay": 1,
+      "specialKidnapping": 1,
+      "extraRound": 1
+    },
+    "agesToPlay": 3
+  },
+  {
+    "id": "kidnappers2_mix",
+    "set": "mix",
+    "group": "kidnappers",
+    "slot": 1,
+    "difficulty": 3,
+    "players": 3,
+    "name": "Elite Kidnappers",
+    "description": [
+      "Fewer players, but stronger! Do not let them take what is yours ..."
+    ],
+    "rules": [
+      "No civil card can be played in the same Action Phase as it was taken. Even wonders are taken into your hand, and construction cannot start immediately.",
+      "During each Politics Phase, players have a Kidnapping aggression available.",
+      "The game has one extra round in Age IV.",
+      "Defeat two opponents who have +2 strength."
+    ],
+    "opponents": [
+      {
+        "level": "medium",
+        "name": null,
+        "flags": {
+          "bonusStrength": 2
+        }
+      },
+      {
+        "level": "hard",
+        "name": null,
+        "flags": {
+          "bonusStrength": 2
+        }
+      }
+    ],
+    "flags": {
+      "cardsDelay": 1,
+      "specialKidnapping": 1,
+      "extraRound": 1
+    },
+    "agesToPlay": 3
+  },
+  {
+    "id": "kidnappers3_mix",
+    "set": "mix",
+    "group": "kidnappers",
+    "slot": 2,
+    "difficulty": 4,
+    "players": 2,
+    "name": "Master Kidnapper",
+    "description": [
+      "One ultimate opponent. Can you still prevail?"
+    ],
+    "rules": [
+      "No civil card can be played in the same Action Phase as it was taken. Even wonders are taken into your hand, and construction cannot start immediately.",
+      "During each Politics Phase, players have a Kidnapping aggression available.",
+      "The game has one extra round in Age IV.",
+      "Defeat an ultimate opponent who has +3 strength!"
+    ],
+    "opponents": [
+      {
+        "level": "hard",
+        "name": null,
+        "flags": {
+          "bonusStrength": 3
+        }
+      }
+    ],
+    "flags": {
+      "cardsDelay": 1,
+      "specialKidnapping": 1,
+      "extraRound": 1
+    },
+    "agesToPlay": 3
+  },
+  {
+    "id": "mix1_mix",
+    "set": "mix",
+    "group": "mix",
+    "slot": 0,
+    "difficulty": 3,
+    "players": 4,
+    "name": "True Mix",
+    "description": [
+      "All the leaders and all the wonders in one game. Unlimited possibilities. Enjoy!"
+    ],
+    "rules": [
+      "All 8 wonders and all 12 leaders appear in each age.",
+      "Players may take a second leader from the same age, as long as they are from different sets (expansion vs. the base game). When you replace a leader, you get 1 more civil action back.",
+      "When taking a wonder, players pay extra civil actions only for completed wonders from the same set (base game or expansion); Michelangelo does not discount this, though. Players produce 1 extra culture for every two wonders they have.",
+      "Defeat three opponents who start with 60 culture.",
+      "(Note: Triplet achievements do not work in this type of challenge. That would be too cheap :)"
+    ],
+    "opponents": [
+      {
+        "level": "medium",
+        "name": null,
+        "flags": {
+          "startingCulture": 60
+        }
+      },
+      {
+        "level": "medium",
+        "name": null,
+        "flags": {
+          "startingCulture": 60
+        }
+      },
+      {
+        "level": "medium",
+        "name": null,
+        "flags": {
+          "startingCulture": 60
+        }
+      }
+    ],
+    "flags": {
+      "allWonders": 1,
+      "allLeaders": 1,
+      "leadersMixRule": 1,
+      "wondersMixRule": 1,
+      "extraActionsForRetiring": 1,
+      "extraCultureFor2Wonders": 1
+    },
+    "agesToPlay": 3
+  },
+  {
+    "id": "mix2_mix",
+    "set": "mix",
+    "group": "mix",
+    "slot": 1,
+    "difficulty": 4,
+    "players": 3,
+    "name": "Epic Mix",
+    "description": [
+      "Another mixed challenge, with even bigger rewards for wonders and leaders, and an even bigger lead for your opponents."
+    ],
+    "rules": [
+      "All 8 wonders and all 12 leaders appear in each age.",
+      "Players may take a second leader from the same age, as long as they are from different sets (expansion vs. the base game). When you replace a leader, you get 2 more civil actions back.",
+      "When taking a wonder, players pay extra civil actions only for completed wonders from the same set (base game or expansion); Michelangelo does not discount this, though. Players produce 2 extra culture for every two wonders they have.",
+      "Defeat two opponents who start with 120 culture."
+    ],
+    "opponents": [
+      {
+        "level": "hard",
+        "name": null,
+        "flags": {
+          "startingCulture": 120
+        }
+      },
+      {
+        "level": "medium",
+        "name": null,
+        "flags": {
+          "startingCulture": 120
+        }
+      }
+    ],
+    "flags": {
+      "allWonders": 1,
+      "allLeaders": 1,
+      "leadersMixRule": 1,
+      "wondersMixRule": 1,
+      "extraActionsForRetiring": 2,
+      "extraCultureFor2Wonders": 2
+    },
+    "agesToPlay": 3
+  },
+  {
+    "id": "mix3_mix",
+    "set": "mix",
+    "group": "mix",
+    "slot": 2,
+    "difficulty": 5,
+    "players": 2,
+    "name": "Ultimate Mix",
+    "description": [
+      "An ultimate mixed challenge! (Well, we know you see one more after it :)"
+    ],
+    "rules": [
+      "All 8 wonders and all 12 leaders appear in each age.",
+      "Players may take a second leader from the same age, as long as they are from different sets (expansion vs. the base game). When you replace a leader, you get 3 more civil actions back.",
+      "When taking a wonder, players pay extra civil actions only for completed wonders from the same set (base game or expansion); Michelangelo does not discount this, though. Players produce 3 extra culture for every two wonders they have.",
+      "Defeat an opponent who starts with 240 culture."
+    ],
+    "opponents": [
+      {
+        "level": "hard",
+        "name": null,
+        "flags": {
+          "startingCulture": 240
+        }
+      }
+    ],
+    "flags": {
+      "allWonders": 1,
+      "allLeaders": 1,
+      "leadersMixRule": 1,
+      "wondersMixRule": 1,
+      "extraActionsForRetiring": 3,
+      "extraCultureFor2Wonders": 3
+    },
+    "agesToPlay": 3
+  },
+  {
+    "id": "mix4_mix",
+    "set": "mix",
+    "group": "mix",
+    "slot": 3,
+    "difficulty": 6,
+    "players": 4,
+    "name": "The Final Mix",
+    "description": [
+      "Was the last challenge not epic enough with only one opponent? Same rules, but more of everything."
+    ],
+    "rules": [
+      "All 8 wonders and all 12 leaders appear in each age.",
+      "Players may take a second leader from the same age, as long as they are from different sets (expansion vs. the base game). When you replace a leader, you get 4 more civil actions back.",
+      "When taking a wonder, players pay extra civil actions only for completed wonders from the same set (base game or expansion); Michelangelo does not discount this, though. Players produce 1 food, 1 resource, 1 science, and 1 culture for every two wonders they have.",
+      "Your three opponents start with 999 culture. Well, each of them has only 333, but still, that leaves you plenty of work to do. Have fun!"
+    ],
+    "opponents": [
+      {
+        "level": "hard",
+        "name": null,
+        "flags": {
+          "startingCulture": 333
+        }
+      },
+      {
+        "level": "hard",
+        "name": null,
+        "flags": {
+          "startingCulture": 333
+        }
+      },
+      {
+        "level": "hard",
+        "name": null,
+        "flags": {
+          "startingCulture": 333
+        }
+      }
+    ],
+    "flags": {
+      "allWonders": 1,
+      "allLeaders": 1,
+      "leadersMixRule": 1,
+      "wondersMixRule": 1,
+      "extraActionsForRetiring": 4,
+      "extraCultureFor2Wonders": 1,
+      "extraScienceFor2Wonders": 1,
+      "extraRockFor2Wonders": 1,
+      "extraFoodFor2Wonders": 1
+    },
+    "agesToPlay": 3
+  }
+]
