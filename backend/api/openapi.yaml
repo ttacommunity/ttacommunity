@@ -1050,6 +1050,25 @@ paths:
           $ref: "#/components/responses/BadRequest"
         "404":
           $ref: "#/components/responses/NotFound"
+  /v1/challenges:
+    get:
+      operationId: getChallenges
+      summary: The game's challenges, each with its verified record
+      description: |
+        Every challenge in the game's order, with the entry that holds its
+        record among verified entries (those linking a Discord proof): the
+        highest domination, a bugged entry never counting. Cached for a
+        minute, as entries change it.
+      responses:
+        "200":
+          description: The challenges, in the game's order
+          headers:
+            Cache-Control:
+              $ref: "#/components/headers/CacheControl"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ChallengeList"
   /v1/blitz:
     get:
       operationId: getBlitzEditions
@@ -2067,6 +2086,38 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/AdminAuditPage"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+  /v1/admin/challenges/entries:
+    get:
+      operationId: getAdminChallengeEntries
+      tags: [admin]
+      summary: A page of every challenge entry, newest first (admins and organisers)
+      description: |
+        Every entry, hidden ones included, with what only admin sees: who
+        submitted it, why it is hidden and whether its proof was checked.
+      parameters:
+        - name: page
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+      responses:
+        "200":
+          description: The page and how many entries there are
+          headers:
+            Cache-Control:
+              $ref: "#/components/headers/CacheControl"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminChallengeEntries"
         "400":
           $ref: "#/components/responses/BadRequest"
         "401":
@@ -4961,6 +5012,126 @@ components:
         entrants:
           description: How many entrants are still in
           type: integer
+    ChallengeList:
+      type: object
+      required: [challenges]
+      properties:
+        challenges:
+          type: array
+          items:
+            $ref: "#/components/schemas/Challenge"
+    Challenge:
+      description: One of the game's challenges, with its verified record
+      type: object
+      required: [id, set, group, slot, difficulty, players, name, record]
+      properties:
+        id:
+          type: string
+          example: epic1_exp
+        set:
+          type: string
+          enum: [original, expansion, mix]
+        group:
+          description: The group the game lists it under, such as classic or epic
+          type: string
+        slot:
+          description: Its place in the group
+          type: integer
+        difficulty:
+          type: integer
+        players:
+          description: Players in the game, the player's own seat included
+          type: integer
+        name:
+          type: string
+        record:
+          description: The verified entry holding the record, null when no verified entry counts
+          allOf:
+            - $ref: "#/components/schemas/ChallengeRecord"
+          nullable: true
+    ChallengeRecord:
+      description: The entry holding a challenge's record
+      type: object
+      required: [player, domination, proof_url, entered_at]
+      properties:
+        player:
+          description: The member's TTA username, or the name the entry was made under when it is not linked to a member
+          type: string
+        domination:
+          type: integer
+        proof_url:
+          description: The Discord message proving it
+          type: string
+        entered_at:
+          type: string
+          format: date-time
+    AdminChallengeEntries:
+      type: object
+      required: [total, page, page_size, entries]
+      properties:
+        total:
+          description: Every entry, on every page
+          type: integer
+        page:
+          type: integer
+        page_size:
+          type: integer
+        entries:
+          type: array
+          items:
+            $ref: "#/components/schemas/AdminChallengeEntry"
+    AdminChallengeEntry:
+      description: An entry as admin sees it
+      type: object
+      required: [id, challenge, challenge_name, player, member, entered_as, account, domination, proof_url, entered_at,
+        source, hidden, hidden_reason, bugged, checked]
+      properties:
+        id:
+          type: integer
+          format: int64
+        challenge:
+          type: string
+        challenge_name:
+          type: string
+        player:
+          description: The linked member's TTA username, else the name it was entered under
+          type: string
+        member:
+          description: The linked member's id, null when not linked
+          type: integer
+          format: int64
+          nullable: true
+        entered_as:
+          description: The name it was entered under
+          type: string
+        account:
+          description: The account that submitted it, null for an imported entry
+          type: integer
+          format: int64
+          nullable: true
+        domination:
+          type: integer
+        proof_url:
+          description: The proof link, null for an unverified entry
+          type: string
+          nullable: true
+        entered_at:
+          type: string
+          format: date-time
+        source:
+          description: Where it came from, sheet for the old spreadsheet and web for the old site
+          type: string
+          enum: [sheet, web]
+        hidden:
+          type: boolean
+        hidden_reason:
+          type: string
+        bugged:
+          description: Made through a since-fixed game bug, listed but never counted
+          type: boolean
+        checked:
+          description: An admin has looked at the proof
+          type: boolean
     BlitzEditions:
       type: object
       required: [editions]

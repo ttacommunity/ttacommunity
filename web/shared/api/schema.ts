@@ -744,6 +744,29 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/challenges": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The game's challenges, each with its verified record
+         * @description Every challenge in the game's order, with the entry that holds its
+         *     record among verified entries (those linking a Discord proof): the
+         *     highest domination, a bugged entry never counting. Cached for a
+         *     minute, as entries change it.
+         */
+        get: operations["getChallenges"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/blitz": {
         parameters: {
             query?: never;
@@ -1458,6 +1481,27 @@ export interface paths {
          *     records, with who made it. A page past the last gives the last.
          */
         get: operations["getAdminAudit"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/challenges/entries": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * A page of every challenge entry, newest first (admins and organisers)
+         * @description Every entry, hidden ones included, with what only admin sees: who
+         *     submitted it, why it is hidden and whether its proof was checked.
+         */
+        get: operations["getAdminChallengeEntries"];
         put?: never;
         post?: never;
         delete?: never;
@@ -3105,6 +3149,80 @@ export interface components {
             format: components["schemas"]["BlitzFormat"];
             /** @description How many entrants are still in */
             entrants: number;
+        };
+        ChallengeList: {
+            challenges: components["schemas"]["Challenge"][];
+        };
+        /** @description One of the game's challenges, with its verified record */
+        Challenge: {
+            /** @example epic1_exp */
+            id: string;
+            /** @enum {string} */
+            set: "original" | "expansion" | "mix";
+            /** @description The group the game lists it under, such as classic or epic */
+            group: string;
+            /** @description Its place in the group */
+            slot: number;
+            difficulty: number;
+            /** @description Players in the game, the player's own seat included */
+            players: number;
+            name: string;
+            /** @description The verified entry holding the record, null when no verified entry counts */
+            record: components["schemas"]["ChallengeRecord"] | null;
+        };
+        /** @description The entry holding a challenge's record */
+        ChallengeRecord: {
+            /** @description The member's TTA username, or the name the entry was made under when it is not linked to a member */
+            player: string;
+            domination: number;
+            /** @description The Discord message proving it */
+            proof_url: string;
+            /** Format: date-time */
+            entered_at: string;
+        };
+        AdminChallengeEntries: {
+            /** @description Every entry, on every page */
+            total: number;
+            page: number;
+            page_size: number;
+            entries: components["schemas"]["AdminChallengeEntry"][];
+        };
+        /** @description An entry as admin sees it */
+        AdminChallengeEntry: {
+            /** Format: int64 */
+            id: number;
+            challenge: string;
+            challenge_name: string;
+            /** @description The linked member's TTA username, else the name it was entered under */
+            player: string;
+            /**
+             * Format: int64
+             * @description The linked member's id, null when not linked
+             */
+            member: number | null;
+            /** @description The name it was entered under */
+            entered_as: string;
+            /**
+             * Format: int64
+             * @description The account that submitted it, null for an imported entry
+             */
+            account: number | null;
+            domination: number;
+            /** @description The proof link, null for an unverified entry */
+            proof_url: string | null;
+            /** Format: date-time */
+            entered_at: string;
+            /**
+             * @description Where it came from, sheet for the old spreadsheet and web for the old site
+             * @enum {string}
+             */
+            source: "sheet" | "web";
+            hidden: boolean;
+            hidden_reason: string;
+            /** @description Made through a since-fixed game bug, listed but never counted */
+            bugged: boolean;
+            /** @description An admin has looked at the proof */
+            checked: boolean;
         };
         BlitzEditions: {
             editions: components["schemas"]["BlitzEditionRow"][];
@@ -6331,6 +6449,27 @@ export interface operations {
             404: components["responses"]["NotFound"];
         };
     };
+    getChallenges: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The challenges, in the game's order */
+            200: {
+                headers: {
+                    "Cache-Control": components["headers"]["CacheControl"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ChallengeList"];
+                };
+            };
+        };
+    };
     getBlitzEditions: {
         parameters: {
             query?: never;
@@ -7248,6 +7387,32 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["AdminAuditPage"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    getAdminChallengeEntries: {
+        parameters: {
+            query?: {
+                page?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The page and how many entries there are */
+            200: {
+                headers: {
+                    "Cache-Control": components["headers"]["CacheControl"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminChallengeEntries"];
                 };
             };
             400: components["responses"]["BadRequest"];
@@ -9017,6 +9182,8 @@ export const standingDifferenceKindValues: ReadonlyArray<FlattenedDeepRequired<c
 export const adminTitleValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["AdminTitle"]> = ["SGM", "WCS", "WCB", "GM", "M", "P", "G", "S", "B", "W", ""];
 export const adminSeasonSuggested_fromValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["AdminSeason"]["suggested_from"]> = ["recorded", "final_stage", ""];
 export const tournamentKindValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["TournamentKind"]> = ["league", "cup", "ladder", "series", "group"];
+export const challengeSetValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["Challenge"]["set"]> = ["original", "expansion", "mix"];
+export const adminChallengeEntrySourceValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["AdminChallengeEntry"]["source"]> = ["sheet", "web"];
 export const blitzResultValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["BlitzResult"]> = ["a", "b", "draw", "double_loss"];
 export const seatOutcomeValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["SeatOutcome"]> = ["finished", "resigned", "timed_out"];
 export const blitzPairingMethodValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["BlitzPairingMethod"]> = ["dutch", "dutch-timezone", "timezone", "rating", "random"];
