@@ -158,6 +158,9 @@ jobs:
           GITHUB_TOKEN: ${{ github.token }}
           GH_TOKEN: ${{ github.token }}
           PR_DRAFT: ${{ github.event.pull_request.draft }}
+          PR_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          PR_AUTHOR_ASSOCIATION: ${{ github.event.pull_request.author_association }}
         run: PATH="$HOME/.local/share/mise/shims:$PATH" bash scripts/ci.sh --only checks
       # gitleaks passes "0 commits scanned" when git fails, so require a scan.
       # From HEAD only: its default --all would scan every fetched branch, not the commits under test.

@@ -69,12 +69,14 @@ Run-Step . 'checks: comment density' { & $bash checks/comment-density.sh }
 Run-Step . 'checks: raw HTML' { & $bash checks/no-raw-html.sh }
 Run-Step . 'checks: secret scan''s test' { & $bash checks/secret-scan.test.sh }
 Run-Step . 'checks: secrets' { & $bash checks/secret-scan.sh --all }
+Run-Step . 'checks: sign-off check''s test' { & $bash checks/dco.test.sh }
 Run-Step . 'checks: PowerShell parses' { & "$root/checks/ps-parse.ps1" }
 
 Write-Host "`nNot covered here:"
 Write-Host '  - Go race detector and the engine''s slow tests: Linux CI runs them'
 Write-Host "  - deploy/'s pins and env values, image digests, workflows and shellcheck: CI runs them"
 Write-Host '  - gofmt on Go files this branch does not change: main is clean, CI checks every file'
+Write-Host "  - sign-offs on an outsider's pull request (checks/dco.sh): CI checks each pull request"
 Write-Host '  - gitleaks and semgrep: steps of CI''s checks job, after scripts/ci.sh'
 if ($failures.Count -gt 0) {
     Write-Host "`n$($failures.Count) step(s) FAILED: $($failures -join ', ')" -ForegroundColor Red
