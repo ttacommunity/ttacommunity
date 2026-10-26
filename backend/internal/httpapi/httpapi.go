@@ -124,12 +124,13 @@ type Requests interface {
 // NewMux returns the API's handler with every route in the spec registered. Admin routes go through
 // the admin gate, without CORS; with admins nil they refuse every request. Sign-in routes go through
 // their own gate, with CORS for the site alone; with signIns nil they refuse every request. The
-// Discord bot's endpoint takes only requests Discord signed, without CORS; with discord nil it is a 404. A panic
-// answers 500. Every response carries an X-Request-Id, which a 500's body and log line repeat. Each
-// request is reported to requests, timed by now, and logged when slower than slowRequest.
-func NewMux(ratings Ratings, admins Admins, signIns SignIns, discord DiscordApp, log *slog.Logger, requests Requests, now func() time.Time) http.Handler {
+// Discord bot's endpoint takes only requests Discord signed, without CORS; with discord nil it is a 404.
+// With visits nil the visit count is a 404. A panic answers 500. Every response carries an X-Request-Id,
+// which a 500's body and log line repeat. Each request is reported to requests, timed by now, and logged
+// when slower than slowRequest.
+func NewMux(ratings Ratings, admins Admins, signIns SignIns, discord DiscordApp, visits Visits, log *slog.Logger, requests Requests, now func() time.Time) http.Handler {
 	mux := http.NewServeMux()
-	registerRoutes(mux, ratings, admins, signIns, discord, log, now)
+	registerRoutes(mux, ratings, admins, signIns, discord, visits, log, now)
 	// limitBodies needs the server's own writer, so it sits outside observe's.
 	public := routeDiscord(routeSignIns(publicCORS(mux), signInGate(mux, signIns, now, log)), discordGate(mux, discord, log))
 	routed := recoverPanics(routeAdmin(public, adminGate(mux, admins, log)), mux, log)
@@ -192,8 +193,8 @@ func (w *statusWriter) Unwrap() http.ResponseWriter {
 	return w.ResponseWriter
 }
 
-func registerRoutes(router ServeMux, ratings Ratings, admins Admins, signIns SignIns, discord DiscordApp, log *slog.Logger, now func() time.Time) {
-	srv := &server{ratings: ratings, admins: admins, signIns: signIns, discord: discord, log: log, agreement: runcache.New[Format, analysis.Agreement](), now: now}
+func registerRoutes(router ServeMux, ratings Ratings, admins Admins, signIns SignIns, discord DiscordApp, visits Visits, log *slog.Logger, now func() time.Time) {
+	srv := &server{ratings: ratings, admins: admins, signIns: signIns, discord: discord, visits: visits, log: log, agreement: runcache.New[Format, analysis.Agreement](), now: now}
 	strict := NewStrictHandlerWithOptions(srv, nil, StrictHTTPServerOptions{
 		RequestErrorHandlerFunc:  badRequest,
 		ResponseErrorHandlerFunc: internalError(log),
@@ -343,6 +344,7 @@ type server struct {
 	admins    Admins
 	signIns   SignIns
 	discord   DiscordApp
+	visits    Visits
 	log       *slog.Logger
 	agreement *runcache.Cache[Format, analysis.Agreement]
 	// now is the clock, for what depends on the time of the request (a time zone's offset today).

@@ -805,6 +805,29 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/site/visits": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * How many visits the site had in the last 28 days
+         * @description Visits as Cloudflare Web Analytics counts them, bots left out: no
+         *     cookies, so a person who comes back is counted again, and a browser
+         *     that blocks the beacon is not counted. The API counts them again every
+         *     hour, so this is cached for an hour.
+         */
+        get: operations["getSiteVisits"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/auth/discord": {
         parameters: {
             query?: never;
@@ -3620,6 +3643,17 @@ export interface components {
              */
             last_game: string | null;
         };
+        SiteVisits: {
+            /** @description The visits in the `days` days up to `as_of`, an estimate from Cloudflare's sample */
+            visits: number;
+            /** @description How many days the count covers */
+            days: number;
+            /**
+             * Format: date-time
+             * @description When the visits were counted
+             */
+            as_of: string;
+        };
         /**
          * @description The rating model: Glicko-D, continuous (`glicko2_daneo`) or reset
          *     gently each season (`glicko2_daneo_softer`), or standard Glicko-2
@@ -6146,6 +6180,47 @@ export interface operations {
                 };
                 content: {
                     "application/json": string[];
+                };
+            };
+        };
+    };
+    getSiteVisits: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The count */
+            200: {
+                headers: {
+                    "Cache-Control": components["headers"]["CacheControl"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SiteVisits"];
+                };
+            };
+            /** @description This API does not count visits */
+            404: {
+                headers: {
+                    "Cache-Control": components["headers"]["CacheControl"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description The visits have not been counted in the last day */
+            503: {
+                headers: {
+                    "Cache-Control": components["headers"]["CacheControl"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
                 };
             };
         };

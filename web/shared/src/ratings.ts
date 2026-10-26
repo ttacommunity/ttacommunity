@@ -73,6 +73,7 @@ export type PodiumPlace = components['schemas']['PodiumPlace'];
 export type RecentPodiums = components['schemas']['RecentPodiums'];
 export type RecentPodium = components['schemas']['RecentPodium'];
 export type CGETournament = components['schemas']['CGETournament'];
+export type SiteVisits = components['schemas']['SiteVisits'];
 export type BlitzEditions = components['schemas']['BlitzEditions'];
 export type BlitzEditionRow = components['schemas']['BlitzEditionRow'];
 export type BlitzEdition = components['schemas']['BlitzEdition'];
@@ -365,6 +366,11 @@ export async function catalogueGames(base: string, run: number, slug: string, fi
 /** Returns every edition of the blitz tournaments shown on the site. */
 export async function blitzEditions(base: string, fetchFn: typeof fetch = fetch): Promise<BlitzEditions> {
   return get<BlitzEditions>(fetchFn, base, '/v1/blitz');
+}
+
+/** Returns how many visits the site had in its last days, as Cloudflare Web Analytics counts them. */
+export async function siteVisits(base: string, fetchFn: typeof fetch = fetch): Promise<SiteVisits> {
+  return get<SiteVisits>(fetchFn, base, '/v1/site/visits');
 }
 
 /** Returns a blitz edition's format and the entrants still in. */

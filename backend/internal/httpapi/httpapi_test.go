@@ -243,7 +243,7 @@ func stepClock(step time.Duration) func() time.Time {
 
 // newMux is NewMux for tests that are not about what it reports of each request.
 func newMux(ratings Ratings, admins Admins, log *slog.Logger) http.Handler {
-	return NewMux(ratings, admins, nil, nil, log, &recordedRequests{}, stepClock(time.Millisecond))
+	return NewMux(ratings, admins, nil, nil, nil, log, &recordedRequests{}, stepClock(time.Millisecond))
 }
 
 func serve(t *testing.T, ratings Ratings, path string) (*httptest.ResponseRecorder, string) {
@@ -283,7 +283,7 @@ func TestRoutesMatchTheSpec(t *testing.T) {
 		}
 	}
 	router := &recordingRouter{ServeMux: http.NewServeMux()}
-	registerRoutes(router, &fakeRatings{}, nil, nil, nil, slog.New(slog.DiscardHandler), stepClock(time.Millisecond))
+	registerRoutes(router, &fakeRatings{}, nil, nil, nil, nil, slog.New(slog.DiscardHandler), stepClock(time.Millisecond))
 
 	slices.Sort(want)
 	slices.Sort(router.patterns)
@@ -833,7 +833,7 @@ func TestTheAPIReportsEachRequestByRouteAndStatus(t *testing.T) {
 			req := httptest.NewRequest(http.MethodGet, tt.path, nil)
 			req.Header.Set("Cf-Access-Jwt-Assertion", "good-111111111111111111")
 
-			NewMux(tt.ratings, tt.admins, nil, nil, slog.New(slog.DiscardHandler), requests, stepClock(time.Millisecond)).ServeHTTP(httptest.NewRecorder(), req)
+			NewMux(tt.ratings, tt.admins, nil, nil, nil, slog.New(slog.DiscardHandler), requests, stepClock(time.Millisecond)).ServeHTTP(httptest.NewRecorder(), req)
 
 			if len(requests.got) != 1 || requests.got[0] != tt.want {
 				t.Errorf("GET %s reported %+v, want one %+v", tt.path, requests.got, tt.want)
@@ -856,7 +856,7 @@ func TestTheAPILogsASlowRequest(t *testing.T) {
 			var logs bytes.Buffer
 			rec := httptest.NewRecorder()
 
-			NewMux(&fakeRatings{}, nil, nil, nil, slog.New(slog.NewJSONHandler(&logs, nil)), &recordedRequests{}, stepClock(tt.took)).
+			NewMux(&fakeRatings{}, nil, nil, nil, nil, slog.New(slog.NewJSONHandler(&logs, nil)), &recordedRequests{}, stepClock(tt.took)).
 				ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/healthz?player=Someplayer", nil))
 
 			if !tt.wantLogs {

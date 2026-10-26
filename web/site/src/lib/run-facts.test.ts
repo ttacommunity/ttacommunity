@@ -18,8 +18,13 @@ describe('runFacts', () => {
     expect(runFacts(run, 'UTC')).toBe(' (2017–2026) • 135,393 games • 3,526 players • updated 1 Oct 2026, 01:10 (UTC)');
   });
 
-  it('includes the 28-day visitor metric when provided', () => {
-    expect(runFacts(run, 'UTC', 2420)).toBe(' (2017–2026) • 135,393 games • 3,526 players • 2,420 visitors (last 28 days) • updated 1 Oct 2026, 01:10 (UTC)');
+  it('gives the visits beside the players, with the days they cover', () => {
+    const visits = { visits: 1190, days: 28, as_of: '2026-10-27T05:00:00Z' };
+    expect(runFacts(run, 'UTC', visits)).toContain(' • 3,526 players • 1,190 visits (last 28 days) • ');
+  });
+
+  it('leaves out the visits when there is no count', () => {
+    expect(runFacts(run, 'UTC', null)).not.toContain('visits');
   });
 
   it('times the update to the minute in the zone asked for, naming it', () => {

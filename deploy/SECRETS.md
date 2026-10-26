@@ -27,6 +27,7 @@ Pipe values in; never use `--from-literal`, which leaves them in shell history.
 | `backup-r2` | `endpoint`, `access-key-id`, `secret-access-key` | `backup`'s `upload` container (rclone) | The R2 bucket `ttacommunity-backup` (EU jurisdiction): the account's EU S3 endpoint, and an R2 token that can write objects in that bucket only |
 | `backup-config-r2` | `endpoint`, `access-key-id`, `secret-access-key` | `backup-config`'s `upload` container (rclone) | The R2 bucket `ttacommunity-config-backup` (EU): the EU endpoint and an R2 token that can write objects in that bucket only. The database backup's token cannot reach this bucket, nor this one its |
 | `cloudflare-readonly` | `token` | `backup-config`'s `export` init container | A Cloudflare API token that can only read the settings the configuration backup exports (below, "Backups": its permissions). It can change nothing |
+| `cloudflare-analytics` | `token`, `account-id` | `api`, `api-dev` | The site's visit count: a Cloudflare API token that can only read the account's analytics (below, "The visit count"), and the account's id. Optional: without it the api counts no visits |
 | `ttac-api-tunnel` | `credentials.json` | `ttac-api-tunnel` | The `ttac-api` tunnel's credentials (below, "The tunnels") |
 | `ttac-api-dev-tunnel` | `credentials.json` | `ttac-api-dev-tunnel` | The `ttac-api-dev` tunnel's credentials (below) |
 | `ttacommunity-github-app`, **in `flux-system`** | `githubAppID`, `githubAppInstallationID`, `githubAppPrivateKey` | Flux | Reads this repo as the GitHub App `ttacommunity-flux` (contents and metadata, read only). The cluster's maintainers hold it |
@@ -53,6 +54,7 @@ up nightly"). Reissuing is for when that copy is lost.
 | `ratings-backup` | **New on a rebuild**, or at any time: a new password with `ALTER ROLE`, then the Secret (below, "Backups") |
 | `backup-r2`, `backup-config-r2` | **Reissued**: a new R2 token for the bucket, then the Secret (below, "Backups"); delete the old token |
 | `cloudflare-readonly` | **Reissued**: a new API token with the permissions below ("Backups"), then the Secret; delete the old token |
+| `cloudflare-analytics` | **Reissued**: a new API token with Account Analytics Read alone (below, "The visit count"), then the Secret; delete the old token |
 | `ghcr`, `ttacommunity-github-app` | **Reissued** by the cluster's maintainers, who issued them |
 
 ## Creating them
@@ -284,6 +286,28 @@ umask 077
 read -rsp 'Cloudflare API token: ' t; echo; printf %s "$t" > /dev/shm/cf-token; unset t
 kubectl -n ttacommunity create secret generic cloudflare-readonly --from-file=token=/dev/shm/cf-token
 rm /dev/shm/cf-token
+```
+
+### The visit count
+
+`cloudflare-analytics` holds an account-owned API token (Manage account,
+Account API tokens, Create Token, custom; `cf` cannot make one) with one
+permission, **Account Analytics: Read** on the project's account, and the
+account's id. The api asks Cloudflare's GraphQL API for the site's Web
+Analytics visits with it every hour. Check the token with a read (an
+account-owned token fails `/user/tokens/verify`):
+`curl -s https://api.cloudflare.com/client/v4/graphql -H "Authorization: Bearer $t" --data '{"query":"{viewer{accounts(filter:{accountTag:\"<id>\"}){accountTag}}}"}'`
+names the account when it can read it. Run the `read` line on its own, then
+the rest, in this repo (its `cf` profile is the project's account):
+
+```sh
+umask 077
+read -rsp 'Cloudflare API token: ' t; echo; printf %s "$t" > /dev/shm/cf-token; unset t
+cf auth whoami | jq -r '.accounts[0].id' | tr -d '\n' > /dev/shm/cf-account
+kubectl -n ttacommunity create secret generic cloudflare-analytics \
+  --from-file=token=/dev/shm/cf-token --from-file=account-id=/dev/shm/cf-account
+rm /dev/shm/cf-token /dev/shm/cf-account
+kubectl -n ttacommunity rollout restart deployment/api deployment/api-dev
 ```
 
 ### The tunnels

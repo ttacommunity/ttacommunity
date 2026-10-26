@@ -167,6 +167,19 @@ spec:
                 secretKeyRef:
                   name: turnstile-signin
                   key: secret
+            # The dev site's visit count, with production's token: SITE_ORIGIN makes it count dev's host alone.
+            - name: CLOUDFLARE_ANALYTICS_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: cloudflare-analytics
+                  key: token
+                  optional: true
+            - name: CLOUDFLARE_ACCOUNT_ID
+              valueFrom:
+                secretKeyRef:
+                  name: cloudflare-analytics
+                  key: account-id
+                  optional: true
           resources:
             requests:
               cpu: 25m
