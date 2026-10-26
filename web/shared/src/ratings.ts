@@ -78,6 +78,8 @@ export type BlitzEditions = components['schemas']['BlitzEditions'];
 export type BlitzEditionRow = components['schemas']['BlitzEditionRow'];
 export type BlitzEdition = components['schemas']['BlitzEdition'];
 export type BlitzEntrant = components['schemas']['BlitzEntrant'];
+export type ChallengeList = components['schemas']['ChallengeList'];
+export type Challenge = components['schemas']['Challenge'];
 
 /** isSlug says whether s matches the API's pattern for a tournament in a path. */
 export function isSlug(s: string): boolean {
@@ -376,6 +378,11 @@ export async function blitzEditions(base: string, fetchFn: typeof fetch = fetch)
 /** Returns how many visits the site had in its last days, as Cloudflare Web Analytics counts them. */
 export async function siteVisits(base: string, fetchFn: typeof fetch = fetch): Promise<SiteVisits> {
   return get<SiteVisits>(fetchFn, base, '/v1/site/visits');
+}
+
+/** Returns the game's challenges in its order, each with its verified record. */
+export async function challenges(base: string, fetchFn: typeof fetch = fetch): Promise<ChallengeList> {
+  return get<ChallengeList>(fetchFn, base, '/v1/challenges');
 }
 
 /** Returns a blitz edition's format and the entrants still in. */

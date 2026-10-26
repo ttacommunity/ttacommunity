@@ -35,6 +35,10 @@ export const sections: readonly NavSection[] = [
       { label: 'Blitz', href: '/blitz/', description: 'Weekly pairings, results and standings' },
     ],
   },
+  {
+    label: 'Challenges',
+    pages: [{ label: 'Challenges', href: '/challenges/', description: 'Every challenge and its verified record' }],
+  },
 ];
 
 /** Place is where a path sits: its section, and the menu page it is or is below (none for Home). */

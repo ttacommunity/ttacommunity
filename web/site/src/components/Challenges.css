@@ -1,0 +1,66 @@
+/* The Challenges section: a card per set, a table per group, in the site's card and table look. */
+.challenges-card {
+  max-width: 56rem;
+  margin: 0 auto 1.5rem;
+  padding: 1.5rem 1.75rem;
+}
+.challenges-card .muted {
+  color: var(--text-muted);
+}
+.challenges-table-wrap {
+  overflow-x: auto;
+  margin-top: 1rem;
+}
+.challenges-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-family: var(--font-stats);
+  font-size: 0.95rem;
+}
+.challenges-table caption {
+  caption-side: top;
+  padding-bottom: 0.5rem;
+  text-align: left;
+  color: var(--accent-gold);
+  font-family: var(--font-subheading);
+  font-size: 1.1rem;
+}
+.challenges-table th,
+.challenges-table td {
+  padding: 0.45rem 0.6rem;
+  border-bottom: 1px solid var(--border-subtle);
+  text-align: left;
+  vertical-align: middle;
+}
+.challenges-table thead th {
+  color: var(--text-muted);
+  font-weight: 600;
+  font-size: 0.85rem;
+  white-space: nowrap;
+}
+.challenges-table tbody th {
+  font-weight: 600;
+}
+.challenges-table .num {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+.challenges-picture {
+  width: 4.5rem;
+}
+.challenges-picture img {
+  display: block;
+  width: 4.25rem;
+  height: auto;
+  border: 1px solid var(--border-subtle);
+  border-radius: 4px;
+}
+@media (max-width: 600px) {
+  .challenges-card {
+    padding: 1rem;
+  }
+  .challenges-picture,
+  .challenges-table thead th:first-child {
+    display: none;
+  }
+}
