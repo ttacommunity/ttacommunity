@@ -202,6 +202,15 @@ func ReplaceLadderWins(ctx context.Context, pool *pgxpool.Pool, wins []tournamen
 	return FactsReplaced{Written: n, Unknown: len(wins) - n}, err
 }
 
+// SeriesSlugs returns every series' slug, visible or not: the series a load may give stages, notes and podiums to.
+func SeriesSlugs(ctx context.Context, pool *pgxpool.Pool) ([]string, error) {
+	rows, err := pool.Query(ctx, `SELECT slug FROM series ORDER BY slug`)
+	if err != nil {
+		return nil, fmt.Errorf("reading series: %w", err)
+	}
+	return pgx.CollectRows(rows, pgx.RowTo[string])
+}
+
 // ReplaceCGEStages replaces every stage's link to the CGE tournament season
 // it was played as, in one transaction. A row naming a stage the catalogue
 // lacks is counted, not written.

@@ -4,7 +4,7 @@ import { adminRequest, type AdminResult } from './admin-api';
 
 type Schemas = components['schemas'];
 type Method = 'POST' | 'PUT' | 'PATCH' | 'DELETE';
-export type SeasonFlag = 'rated' | 'champions' | 'community';
+export type SeasonFlag = 'rated' | 'champions' | 'community' | 'here';
 
 /** Request is one change: where it goes, and how. */
 export type Request = { path: string; init: { method: Method; json?: unknown } };
@@ -52,12 +52,13 @@ export const setPodium = (slug: string, label: string, podium: Schemas['PodiumSe
 /** clearPodium removes the podium set by hand from a season. */
 export const clearPodium = (slug: string, label: string) => to(season(slug, label), 'PATCH', { clear_podium: true });
 
-const FLAGS: Record<SeasonFlag, 'rated' | 'in_champions' | 'in_community'> = {
+const FLAGS: Record<SeasonFlag, 'rated' | 'in_champions' | 'in_community' | 'run_here'> = {
   rated: 'rated',
   champions: 'in_champions',
   community: 'in_community',
+  here: 'run_here',
 };
-/** setSeasonFlag turns one of a season's switches on or off: rated, among the champions, in the community leaderboard. */
+/** setSeasonFlag turns one of a season's switches on or off: rated, among the champions, in the community leaderboard, run on this site. */
 export const setSeasonFlag = (slug: string, label: string, flag: SeasonFlag, on: boolean) =>
   to(season(slug, label), 'PATCH', { [FLAGS[flag]]: on });
 

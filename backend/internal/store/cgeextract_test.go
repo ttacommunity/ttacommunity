@@ -585,3 +585,79 @@ func TestApplyCGEExtractRemovesTheCopyAnEarlierLoadAddedOfAGameConfirmedByHand(t
 		})
 	}
 }
+
+func TestPlanCGEExtractLeavesOutTheGamesOfASeasonRunOnThisSite(t *testing.T) {
+	tests := []struct {
+		name        string
+		runHere     bool
+		wantStages  string
+		wantGames   int
+		wantLeftOut int
+		wantPenalty string
+	}{
+		{"a season CGE runs takes its stages, games and settings", false, "Round 1, Stage 1", 1, 0, "-1"},
+		{"a season run on this site takes CGE's page only", true, "Round 1", 0, 1, "none"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			pool := migrated(t)
+			ctx := context.Background()
+			for _, q := range []string{
+				`INSERT INTO series (slug, name) VALUES ('lantern_open', 'Lantern Open')`,
+				fmt.Sprintf(`INSERT INTO tournaments (series_id, label, run_here) SELECT series_id, '2031', %t FROM series WHERE slug = 'lantern_open'`, tt.runHere),
+				`INSERT INTO stages (tournament_id, label) SELECT tournament_id, 'Round 1' FROM tournaments WHERE label = '2031'`,
+				`INSERT INTO cge_tournaments (cge_tournament, name, status, series_id, tournament_id)
+				 SELECT 7001, 'Lantern Open', 'Stage 1 of 11', series_id, tournament_id FROM tournaments WHERE label = '2031'`,
+			} {
+				if _, err := pool.Exec(ctx, q); err != nil {
+					t.Fatalf("%s: %v", q, err)
+				}
+			}
+			x := cgeextract.Extract{
+				Seats:       extractOf(7001, 300, "CODEGGGG", cgeDone(5, "eve", 1, 100), cgeDone(6, "fay", 2, 50)),
+				Tournaments: map[int]cgeextract.Tournament{7001: {ID: 7001, Name: "Lantern Open", OrganiserID: 5}},
+			}
+			plan, err := PlanCGEExtract(ctx, pool, x, nil)
+			if err != nil {
+				t.Fatalf("PlanCGEExtract: %v", err)
+			}
+			if plan.RunHere != tt.wantLeftOut {
+				t.Errorf("games left out = %d, want %d", plan.RunHere, tt.wantLeftOut)
+			}
+			penalty := -1.0
+			in := CGEInput{Extract: x, Settings: []cgeextract.Settings{{TournamentID: 7001, TimeoutPenalty: &penalty}}}
+			if _, err := ApplyCGEExtract(ctx, pool, plan, in); err != nil {
+				t.Fatalf("ApplyCGEExtract: %v", err)
+			}
+			var stages, page, setting string
+			if err := pool.QueryRow(ctx, `SELECT coalesce((SELECT s.timeout_penalty::text FROM settings s
+				JOIN tournaments t USING (tournament_id) WHERE t.label = '2031'), 'none')`).Scan(&setting); err != nil {
+				t.Fatal(err)
+			}
+			if setting != tt.wantPenalty {
+				t.Errorf("time-out penalty from CGE = %s, want %s", setting, tt.wantPenalty)
+			}
+			var games int
+			if err := pool.QueryRow(ctx, `SELECT string_agg(st.label, ', ' ORDER BY st.label) FROM stages st
+				JOIN tournaments t USING (tournament_id) WHERE t.label = '2031'`).Scan(&stages); err != nil {
+				t.Fatal(err)
+			}
+			if stages != tt.wantStages {
+				t.Errorf("stages = %q, want %q", stages, tt.wantStages)
+			}
+			if err := pool.QueryRow(ctx, "SELECT count(*) FROM games WHERE share_code = 'CODEGGGG'").Scan(&games); err != nil {
+				t.Fatal(err)
+			}
+			if games != tt.wantGames {
+				t.Errorf("games added = %d, want %d", games, tt.wantGames)
+			}
+			if err := pool.QueryRow(ctx, `SELECT c.name || ', ' || c.status || ', ' || t.label FROM cge_tournaments c
+				JOIN tournaments t USING (tournament_id) WHERE c.cge_tournament = 7001`).Scan(&page); err != nil {
+				t.Fatal(err)
+			}
+			if page != "Lantern Open, Stage 1 of 11, 2031" {
+				t.Errorf("CGE's page = %q, want it kept and linked to 2031 either way", page)
+			}
+		})
+	}
+}

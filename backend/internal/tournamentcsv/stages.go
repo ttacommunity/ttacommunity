@@ -5,8 +5,6 @@ import (
 	"io"
 	"slices"
 	"strconv"
-
-	"ttacommunity/backend/internal/gamename"
 )
 
 // CGEStagesHeader is a CGE stages file's first line, exactly.
@@ -23,19 +21,21 @@ type CGEStage struct {
 	CGESeason     int
 }
 
-// ReadCGEStages reads a CGE stages CSV. A stage given twice keeps the first row.
-func ReadCGEStages(file string, r io.Reader) (Result[CGEStage], error) {
-	return read(file, r, CGEStagesHeader, parseCGEStage, func(x CGEStage) string {
+// ReadCGEStages reads a CGE stages CSV, refusing a row naming a series not in
+// series. A stage given twice keeps the first row.
+func ReadCGEStages(file string, r io.Reader, series []string) (Result[CGEStage], error) {
+	parse := func(f func(int) string) (CGEStage, Reason) { return parseCGEStage(series, f) }
+	return read(file, r, CGEStagesHeader, parse, func(x CGEStage) string {
 		return fmt.Sprint(x.Tournament, "\x00", x.Season, "\x00", x.Stage)
 	})
 }
 
-func parseCGEStage(f func(int) string) (CGEStage, Reason) {
+func parseCGEStage(series []string, f func(int) string) (CGEStage, Reason) {
 	t, errT := strconv.Atoi(f(3))
 	s, errS := strconv.Atoi(f(4))
 	x := CGEStage{Tournament: f(0), Season: f(1), Stage: f(2), CGETournament: t, CGESeason: s}
 	switch {
-	case !slices.ContainsFunc(gamename.Tournaments, func(g gamename.Tournament) bool { return g.Slug == x.Tournament }):
+	case !slices.Contains(series, x.Tournament):
 		return x, BadSeries
 	case !trimmed(x.Season):
 		return x, BadSeason

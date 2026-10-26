@@ -62,7 +62,7 @@ func (s *server) GetAdminTournament(ctx context.Context, req GetAdminTournamentR
 				Finished: st.Finished, Players: st.Players}
 		}
 		seasons[j] = AdminSeason{Label: se.Label, OriginalName: se.OriginalName, Note: se.Note, HasGames: se.HasGames, Rated: se.Rated,
-			InChampions: se.InChampions, InCommunity: se.InCommunity, TimeoutPenalty: se.TimeoutPenalty, Stages: stages,
+			InChampions: se.InChampions, InCommunity: se.InCommunity, RunHere: se.RunHere, TimeoutPenalty: se.TimeoutPenalty, Stages: stages,
 			Podium: podiumEntries(se.Podium), PodiumNote: se.PodiumNote, SuggestedPodium: podiumEntries(se.Suggested),
 			SuggestedFrom: AdminSeasonSuggestedFrom(se.SuggestedFrom), Games: se.Games, Finished: se.Finished, Players: se.Players}
 	}
@@ -176,7 +176,7 @@ func seasonChange(season string, b *SeasonChange) (store.SeasonChange, string) {
 	case b.Note != nil && len(*b.Note) > 2000:
 		return store.SeasonChange{}, "a note is at most 2,000 characters"
 	}
-	c := store.SeasonChange{Rated: b.Rated, InChampions: b.InChampions, InCommunity: b.InCommunity,
+	c := store.SeasonChange{Rated: b.Rated, InChampions: b.InChampions, InCommunity: b.InCommunity, RunHere: b.RunHere,
 		TimeoutPenalty: b.TimeoutPenalty, Note: b.Note, ClearPodium: b.ClearPodium != nil && *b.ClearPodium}
 	if p := b.Podium; p != nil {
 		podium := make([]store.PodiumEntry, len(p.Podium))
@@ -204,7 +204,7 @@ func seasonChange(season string, b *SeasonChange) (store.SeasonChange, string) {
 			c.NewSeason = &ns
 		}
 	}
-	if c.Podium == nil && !c.ClearPodium && c.Rated == nil && c.InChampions == nil && c.InCommunity == nil &&
+	if c.Podium == nil && !c.ClearPodium && c.Rated == nil && c.InChampions == nil && c.InCommunity == nil && c.RunHere == nil &&
 		c.TimeoutPenalty == nil && c.Note == nil && len(c.StageNotes) == 0 && c.MoveToTournament == nil {
 		return store.SeasonChange{}, "nothing to change"
 	}

@@ -2817,6 +2817,8 @@ export interface components {
             in_champions: boolean;
             /** @description It counts in the community leaderboard (when its tournament does) */
             in_community: boolean;
+            /** @description It is run on this site, CGE only advertising it; its CGE tournament gives its page, never its stages, games or settings */
+            run_here: boolean;
             /**
              * Format: double
              * @description The points a player loses in its standings for each game they time out of, 0 or below
@@ -2887,6 +2889,8 @@ export interface components {
             in_champions?: boolean;
             /** @description It counts in the community leaderboard, from the next run */
             in_community?: boolean;
+            /** @description It is run on this site, so CGE's loads take its CGE tournament's page and never its stages, games or settings */
+            run_here?: boolean;
             /**
              * Format: double
              * @description The points a player loses in its standings for each game they time out of, from the next run

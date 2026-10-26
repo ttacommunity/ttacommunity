@@ -12,15 +12,17 @@ const podiumsHeader = "cup,season,final,finished,place,player,source\n"
 func TestReadPodiumsTakesEachPlace(t *testing.T) {
 	in := podiumsHeader +
 		"wimbledon,2024,,2025-02-24,1,sora,CGE /tournaments/detail/4991/7\n" +
-		"french_open,2025,odd games,2026-05-19,3,Siskin,CGE /tournaments/detail/5459\n"
+		"french_open,2025,odd games,2026-05-19,3,Siskin,CGE /tournaments/detail/5459\n" +
+		"lantern_cup,2031,,2031-03-01,2,wheatear,s\n"
 
-	got, err := ReadPodiums("p.csv", strings.NewReader(in))
+	got, err := ReadPodiums("p.csv", strings.NewReader(in), knownSeries)
 	if err != nil {
 		t.Fatalf("ReadPodiums: %v", err)
 	}
 	want := []Podium{
 		{Cup: "wimbledon", Season: "2024", Final: "", Finished: day(2025, 2, 24), Place: 1, Player: "sora", Source: "CGE /tournaments/detail/4991/7"},
 		{Cup: "french_open", Season: "2025", Final: "odd games", Finished: day(2026, 5, 19), Place: 3, Player: "Siskin", Source: "CGE /tournaments/detail/5459"},
+		{Cup: "lantern_cup", Season: "2031", Finished: day(2031, 3, 1), Place: 2, Player: "wheatear", Source: "s"},
 	}
 	if !slices.Equal(got.Facts, want) || len(got.Refused) != 0 {
 		t.Errorf("podiums = %+v, refused %v; want %+v", got.Facts, got.Refused, want)
@@ -45,7 +47,7 @@ func TestReadPodiumsRefusesBadRows(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := ReadPodiums("p.csv", strings.NewReader(podiumsHeader+tt.row+"\n"))
+			got, err := ReadPodiums("p.csv", strings.NewReader(podiumsHeader+tt.row+"\n"), knownSeries)
 			if err != nil {
 				t.Fatalf("ReadPodiums(%q): %v", tt.row, err)
 			}
@@ -58,7 +60,7 @@ func TestReadPodiumsRefusesBadRows(t *testing.T) {
 }
 
 func TestReadPodiumsRefusesAPlaceTwice(t *testing.T) {
-	got, err := ReadPodiums("p.csv", strings.NewReader(podiumsHeader+"wimbledon,2024,,2025-02-24,1,sora,s\nwimbledon,2024,,2025-02-24,1,wheatear,s\n"))
+	got, err := ReadPodiums("p.csv", strings.NewReader(podiumsHeader+"wimbledon,2024,,2025-02-24,1,sora,s\nwimbledon,2024,,2025-02-24,1,wheatear,s\n"), knownSeries)
 	if err != nil {
 		t.Fatalf("ReadPodiums: %v", err)
 	}

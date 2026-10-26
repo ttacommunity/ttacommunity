@@ -201,6 +201,7 @@ if full && area checks; then
   step "checks"
   run bash checks/comment-density.sh
   run bash checks/no-raw-html.sh
+  run bash checks/secret-scan.test.sh
   run bash checks/secret-scan.sh --all
   if need kustomize "deploy/'s env values" && need yq "deploy/'s env values"; then
     run bash checks/deploy-env-strings.test.sh

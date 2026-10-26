@@ -297,7 +297,10 @@ session the file gives to another game of ours is removed as a copy. A seat
 CGE holds no account for (an empty seat that timed out) is kept as the
 player "Unknown player", who is nobody and is never rated; the load counts
 those in rated tournaments, each worth looking up (the older match files
-may hold the player, as for the pair above). It prints the plan and writes
+may hold the player, as for the pair above). A season ticked "Run on this
+site" in admin (a blitz tournament CGE only advertises) takes its CGE
+tournament's page and nothing else: this load leaves out its games and
+settings, so it gets no stages from CGE either. It prints the plan and writes
 nothing unless given `-apply`; loading the same extract again changes
 nothing, except that it merges a hidden series' stages back into one
 tournament where an earlier load split them:
@@ -354,8 +357,9 @@ comes from:
 | `community_scores` | `edition,player,event,score,source` | Each player's points in each event column of an edition (`wrld`, `ic_30`, `aus`…) |
 
 Loading a file replaces every fact of its kind, in one transaction; names
-that are not players are counted and skipped, and bad rows are refused with
-their line and reason. A season's time-out penalty set in admin is kept when
+that are not players are counted and skipped. A bad row is refused with its
+line and reason, and then nothing is written: fix the file and load it
+again. A season's time-out penalty set in admin is kept when
 `rules` are reloaded. The next rating run uses them:
 
 ```bash

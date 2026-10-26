@@ -318,6 +318,7 @@ func TestAnOrganiserChangesASeasonAndItIsAuditedOnce(t *testing.T) {
 	}{
 		{"out of the community leaderboard", `{"in_community": false}`, "season 2023 Play Off community false"},
 		{"out of the champions", `{"in_champions": false}`, "season 2023 Play Off champions false"},
+		{"run on this site", `{"run_here": true}`, "season 2023 Play Off run here true"},
 		{"its note", `{"note": "Replayed."}`, "2023 Play Off||Replayed."},
 		{"several at once, the podium first", `{"rated": true, "in_champions": true, "podium": {"podium": [{"place": 1, "name": "a"}], "note": ""}}`,
 			"podium 2023 Play Off [{1 a}] |season 2023 Play Off rated true|season 2023 Play Off champions true"},
@@ -334,5 +335,5 @@ func TestAnOrganiserChangesASeasonAndItIsAuditedOnce(t *testing.T) {
 		})
 	}
 	rec := adminDo(t, &fakeAdmins{}, http.MethodGet, "/v1/admin/tournaments/worlds", "", "")
-	wantJSON(t, rec.Body.Bytes(), "seasons.0", `{"in_community": true, "in_champions": true}`)
+	wantJSON(t, rec.Body.Bytes(), "seasons.0", `{"in_community": true, "in_champions": true, "run_here": true}`)
 }

@@ -13,6 +13,7 @@ import (
 	"strings"
 
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 // ErrNoCommunityEdition means no edition with that slug exists.
@@ -573,4 +574,14 @@ func formatRangeDesc(prefix string, cols []string) string {
 		return fmt.Sprintf("%s Season %d", prefix, nums[0])
 	}
 	return fmt.Sprintf("Sum of %d seasons (S%02d–S%02d)", len(nums), nums[0], nums[len(nums)-1])
+}
+
+// CommunityEditionSlugs returns every community edition's slug, visible or not:
+// the editions a load may give standings and scores to.
+func CommunityEditionSlugs(ctx context.Context, pool *pgxpool.Pool) ([]string, error) {
+	rows, err := pool.Query(ctx, `SELECT slug FROM community_editions ORDER BY slug`)
+	if err != nil {
+		return nil, fmt.Errorf("reading community editions: %w", err)
+	}
+	return pgx.CollectRows(rows, pgx.RowTo[string])
 }

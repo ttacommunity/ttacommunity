@@ -6,8 +6,6 @@ import (
 	"slices"
 	"strconv"
 	"time"
-
-	"ttacommunity/backend/internal/gamename"
 )
 
 // PodiumsHeader is a podiums file's first line, exactly.
@@ -26,19 +24,21 @@ type Podium struct {
 	Source   string
 }
 
-// ReadPodiums reads a podiums CSV. A place given twice in a final keeps the first row.
-func ReadPodiums(file string, r io.Reader) (Result[Podium], error) {
-	return read(file, r, PodiumsHeader, parsePodium, func(x Podium) string {
+// ReadPodiums reads a podiums CSV, refusing a row naming a series not in
+// series. A place given twice in a final keeps the first row.
+func ReadPodiums(file string, r io.Reader, series []string) (Result[Podium], error) {
+	parse := func(f func(int) string) (Podium, Reason) { return parsePodium(series, f) }
+	return read(file, r, PodiumsHeader, parse, func(x Podium) string {
 		return fmt.Sprint(x.Cup, "\x00", x.Season, "\x00", x.Final, "\x00", x.Place)
 	})
 }
 
-func parsePodium(f func(int) string) (Podium, Reason) {
+func parsePodium(series []string, f func(int) string) (Podium, Reason) {
 	finished, dateErr := time.Parse(time.DateOnly, f(3))
 	place, err := strconv.Atoi(f(4))
 	x := Podium{Cup: f(0), Season: f(1), Final: f(2), Finished: finished, Place: place, Player: f(5), Source: f(6)}
 	switch {
-	case !slices.ContainsFunc(gamename.Tournaments, func(t gamename.Tournament) bool { return t.Slug == x.Cup }):
+	case !slices.Contains(series, x.Cup):
 		return x, BadSeries
 	case !trimmed(x.Season):
 		return x, BadSeason

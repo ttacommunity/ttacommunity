@@ -59,9 +59,11 @@ type AdminSeason struct {
 	TimeoutPenalty float64
 	// InCommunity is whether the season counts in the community leaderboard.
 	InCommunity bool
-	Stages      []AdminStage
-	Podium      []PodiumEntry
-	PodiumNote  string
+	// RunHere is whether it is run on this site: its CGE tournament gives its page, never its stages or games.
+	RunHere    bool
+	Stages     []AdminStage
+	Podium     []PodiumEntry
+	PodiumNote string
 	// Suggested is the podium to start from when admin has set none: the organisers' recorded one (SuggestedFrom
 	// "recorded"), else the final stage's games when it is one group ("final_stage"), else none ("").
 	Suggested     []PodiumEntry
@@ -135,6 +137,7 @@ func (a *AdminStore) tournament(ctx context.Context, slug string) ([]AdminTourna
 		       coalesce((SELECT note FROM tournament_season_notes n WHERE n.tournament = t.slug AND n.season = se.label AND n.stage = ''), ''),
 		       coalesce((SELECT note FROM tournament_season_notes n WHERE n.tournament = t.slug AND n.season = se.label AND n.stage = st.label AND st.label <> ''), ''),
 		       d.last IS NOT NULL, coalesce(se.rated, true), coalesce(se.in_champions, true), coalesce(se.in_community, true),
+		       coalesce(se.run_here, false),
 		       t.rated_player_counts, t.kind, coalesce(t.podium_source, ''), t.top_divisions, t.original_name,
 		       coalesce(sp.points_2p, '{}'), coalesce(sp.points_3p, '{}'), coalesce(sp.points_4p, '{}'), t.tournament_noun, t.stage_noun,
 		       coalesce((SELECT r.timeout_penalty FROM settings r WHERE r.tournament_id = se.tournament_id), 0),
@@ -159,7 +162,7 @@ func (a *AdminStore) tournament(ctx context.Context, slug string) ([]AdminTourna
 	var card Card
 	var season, stage, seasonNote, stageNote *string
 	var seasonOriginal, stageOriginal string
-	var hasGames, seasonRated, inChampions, inCommunity bool
+	var hasGames, seasonRated, inChampions, inCommunity, runHere bool
 	var counts []int
 	var kind, podiumSource, original string
 	var top []string
@@ -170,7 +173,7 @@ func (a *AdminStore) tournament(ctx context.Context, slug string) ([]AdminTourna
 	var isGroup bool
 	_, err = pgx.ForEachRow(rows, []any{&rowSlug, &name, &visible, &community, &blitz, &rated, &regulations,
 		&card.Icon, &card.Tagline, &card.Summary, &card.Subtitle, &card.Cadence, &cgeRegulations, &season, &stage, &seasonOriginal, &stageOriginal, &seasonNote, &stageNote, &hasGames,
-		&seasonRated, &inChampions, &inCommunity, &counts, &kind, &podiumSource, &top, &original, &p2, &p3, &p4, &seasonName, &stageName, &penalty, &parent, &description, &isGroup}, func() error {
+		&seasonRated, &inChampions, &inCommunity, &runHere, &counts, &kind, &podiumSource, &top, &original, &p2, &p3, &p4, &seasonName, &stageName, &penalty, &parent, &description, &isGroup}, func() error {
 		if len(out) == 0 || out[len(out)-1].Slug != rowSlug {
 			out = append(out, AdminTournament{Slug: rowSlug, Name: name, Visible: visible, Rated: rated, Community: community, Blitz: blitz,
 				Regulations: regulations, CGERegulations: cgeRegulations, Card: card, RatedPlayerCounts: counts,
@@ -183,7 +186,7 @@ func (a *AdminStore) tournament(ctx context.Context, slug string) ([]AdminTourna
 			return nil
 		}
 		if len(t.Seasons) == 0 || t.Seasons[len(t.Seasons)-1].Label != *season {
-			t.Seasons = append(t.Seasons, AdminSeason{Label: *season, OriginalName: seasonOriginal, Note: *seasonNote, HasGames: hasGames, Rated: seasonRated, InChampions: inChampions, InCommunity: inCommunity, TimeoutPenalty: penalty, Stages: []AdminStage{}})
+			t.Seasons = append(t.Seasons, AdminSeason{Label: *season, OriginalName: seasonOriginal, Note: *seasonNote, HasGames: hasGames, Rated: seasonRated, InChampions: inChampions, InCommunity: inCommunity, RunHere: runHere, TimeoutPenalty: penalty, Stages: []AdminStage{}})
 		}
 		s := &t.Seasons[len(t.Seasons)-1]
 		if *stage != "" {

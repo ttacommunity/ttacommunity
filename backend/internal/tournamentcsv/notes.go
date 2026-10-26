@@ -3,8 +3,6 @@ package tournamentcsv
 import (
 	"io"
 	"slices"
-
-	"ttacommunity/backend/internal/gamename"
 )
 
 // SeasonNotesHeader is a season notes file's first line, exactly.
@@ -20,17 +18,19 @@ type SeasonNote struct {
 	Source     string
 }
 
-// ReadSeasonNotes reads a season notes CSV. A season or stage given twice keeps the first row.
-func ReadSeasonNotes(file string, r io.Reader) (Result[SeasonNote], error) {
-	return read(file, r, SeasonNotesHeader, parseSeasonNote, func(x SeasonNote) string {
+// ReadSeasonNotes reads a season notes CSV, refusing a row naming a series not
+// in series. A season or stage given twice keeps the first row.
+func ReadSeasonNotes(file string, r io.Reader, series []string) (Result[SeasonNote], error) {
+	parse := func(f func(int) string) (SeasonNote, Reason) { return parseSeasonNote(series, f) }
+	return read(file, r, SeasonNotesHeader, parse, func(x SeasonNote) string {
 		return x.Tournament + "\x00" + x.Season + "\x00" + x.Stage
 	})
 }
 
-func parseSeasonNote(f func(int) string) (SeasonNote, Reason) {
+func parseSeasonNote(series []string, f func(int) string) (SeasonNote, Reason) {
 	x := SeasonNote{Tournament: f(0), Season: f(1), Stage: f(2), Note: f(3), Source: f(4)}
 	switch {
-	case !slices.ContainsFunc(gamename.Tournaments, func(g gamename.Tournament) bool { return g.Slug == x.Tournament }):
+	case !slices.Contains(series, x.Tournament):
 		return x, BadSeries
 	case !trimmed(x.Season):
 		return x, BadSeason

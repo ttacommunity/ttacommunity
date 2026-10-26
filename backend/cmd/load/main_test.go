@@ -1,9 +1,15 @@
 package main
 
 import (
+	"context"
+	"io"
+	"os"
+	"path/filepath"
 	"slices"
 	"strings"
 	"testing"
+
+	"github.com/jackc/pgx/v5/pgxpool"
 
 	"ttacommunity/backend/internal/countrycsv"
 	"ttacommunity/backend/internal/matchcsv"
@@ -69,6 +75,29 @@ func TestReportFactsCountsAndNamesNoPlayer(t *testing.T) {
 	}
 	if strings.Contains(got, "secretname") {
 		t.Errorf("report names a player:\n%s", got)
+	}
+}
+
+func TestLoadFactsWritesNothingWhenARowIsRefused(t *testing.T) {
+	file := filepath.Join(t.TempDir(), "p.csv")
+	if err := os.WriteFile(file, []byte("cup\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("RATINGS_DATABASE_URL", "postgres://127.0.0.1:1/never")
+	read := func(string, io.Reader) (tournamentcsv.Result[tournamentcsv.Podium], error) {
+		return tournamentcsv.Result[tournamentcsv.Podium]{
+			Rows:    2,
+			Facts:   []tournamentcsv.Podium{{Cup: "wimbledon"}},
+			Refused: []tournamentcsv.Refusal{{File: file, Line: 3, Reason: tournamentcsv.BadSeries}},
+		}, nil
+	}
+	replace := func(context.Context, *pgxpool.Pool, []tournamentcsv.Podium) (store.FactsReplaced, error) {
+		t.Error("replace was called for a file with a refused row")
+		return store.FactsReplaced{}, nil
+	}
+	err := loadFacts("podiums", file, read, replace)
+	if err == nil || !strings.Contains(err.Error(), "1 of 2 rows refused") {
+		t.Errorf("loadFacts = %v, want an error naming the 1 of 2 rows refused", err)
 	}
 }
 

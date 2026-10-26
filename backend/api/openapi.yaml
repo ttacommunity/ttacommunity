@@ -4319,7 +4319,7 @@ components:
             $ref: "#/components/schemas/AdminSeason"
     AdminSeason:
       type: object
-      required: [label, original_name, note, has_games, rated, in_champions, in_community, timeout_penalty, stages, podium, podium_note, suggested_podium, suggested_from, games, finished, players]
+      required: [label, original_name, note, has_games, rated, in_champions, in_community, run_here, timeout_penalty, stages, podium, podium_note, suggested_podium, suggested_from, games, finished, players]
       properties:
         games:
           description: Its games, across its stages (a season without stages keeps them in one, unnamed, that stages leaves out)
@@ -4335,6 +4335,9 @@ components:
           type: boolean
         in_community:
           description: It counts in the community leaderboard (when its tournament does)
+          type: boolean
+        run_here:
+          description: It is run on this site, CGE only advertising it; its CGE tournament gives its page, never its stages, games or settings
           type: boolean
         timeout_penalty:
           description: The points a player loses in its standings for each game they time out of, 0 or below
@@ -4451,6 +4454,9 @@ components:
           type: boolean
         in_community:
           description: It counts in the community leaderboard, from the next run
+          type: boolean
+        run_here:
+          description: It is run on this site, so CGE's loads take its CGE tournament's page and never its stages, games or settings
           type: boolean
         timeout_penalty:
           description: The points a player loses in its standings for each game they time out of, from the next run

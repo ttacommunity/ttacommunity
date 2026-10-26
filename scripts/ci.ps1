@@ -67,6 +67,7 @@ foreach ($site in 'site', 'admin') {
 
 Run-Step . 'checks: comment density' { & $bash checks/comment-density.sh }
 Run-Step . 'checks: raw HTML' { & $bash checks/no-raw-html.sh }
+Run-Step . 'checks: secret scan''s test' { & $bash checks/secret-scan.test.sh }
 Run-Step . 'checks: secrets' { & $bash checks/secret-scan.sh --all }
 Run-Step . 'checks: PowerShell parses' { & "$root/checks/ps-parse.ps1" }
 
