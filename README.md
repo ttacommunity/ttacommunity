@@ -248,6 +248,76 @@ curl -s "https://<site-tunnel>.trycloudflare.com/ratings/" | grep -o 'props="[^"
 The preview sends none of `public/_headers`, so the real CSP is only
 checked on the deployed site.
 
+### The Discord bot
+
+The api answers our Discord slash commands (`/rating <name>` and `/myrating`) at
+`POST /v1/discord/interactions`: Discord sends each use of a command there,
+signed with the application's key, and the api checks the signature before
+anything else. The commands are defined in
+`backend/cmd/discord-commands/commands.json`. With no
+`DISCORD_APP_PUBLIC_KEY` set, the endpoint is a 404.
+
+**In production** the app is "TTA Community Hub" (its bot "TTA Hub Bot"),
+owned by the maintainers' Discord team. It is private (Public Bot off), so
+only the team adds it to a server: the maintainers' test server and the TTA
+community server. Its public key is `DISCORD_APP_PUBLIC_KEY` in
+`deploy/api.yaml`, and its Interactions Endpoint URL is
+`https://api.ttacommunity.org/v1/discord/interactions`. To add it to a
+server, a team member opens the install link below (step 4) with its
+Application ID and picks the server, then registers the commands there
+(step 3 of "Try it", with that server's id). After a change to
+`commands.json`, register again in each server.
+
+**A Discord application to try it with**, once. Make your own: an app has
+one endpoint, so pointing the production app at your machine would stop it
+answering everyone else.
+
+1. In Discord: User Settings → Advanced → Developer Mode on. Then
+   right-click your server → Copy Server ID
+2. https://discord.com/developers/applications → New Application. On
+   General Information, note the Application ID and the Public Key (not
+   secret)
+3. Installation: Guild Install only, Install Link "None". Then Bot: Public
+   Bot off
+4. Add it to your server: open
+   `https://discord.com/oauth2/authorize?client_id=<application id>&scope=applications.commands&integration_type=0`
+   and pick the server. It asks for no permissions; your server's audit
+   log shows it was added
+
+**Try it against your local api:**
+
+1. Discord must reach the api, so it goes behind a quick tunnel: start it
+   as in "Show a local build to someone", step 1, **with every dev sign-in
+   off**, adding `DISCORD_APP_PUBLIC_KEY=<the public key>` to that command.
+   Its log says "the Discord bot's endpoint is on"
+2. Open the tunnel (step 2 there) and note its URL. In the application's
+   General Information, set **Interactions Endpoint URL** to
+   `https://<api-tunnel>.trycloudflare.com/v1/discord/interactions` and
+   save. Discord checks it first: a PING, and a request with a bad
+   signature that must be refused, so the save working proves both
+3. Register the commands, again after any change to `commands.json`. On
+   the Bot page, Reset Token and copy it. The program reads it from the
+   environment, so it is never in a file or your shell history. Run the
+   line for your shell from `backend/`, alone: pasted with another line
+   after it, the prompt would take that line as the token.
+
+   ```bash
+   read -rsp 'Discord bot token: ' t; echo; DISCORD_BOT_TOKEN="$t" go run ./cmd/discord-commands -app <application id> -server <server id>; unset t
+   ```
+
+   ```powershell
+   $t = Read-Host -AsSecureString 'Discord bot token'; $env:DISCORD_BOT_TOKEN = [Net.NetworkCredential]::new('', $t).Password; go run ./cmd/discord-commands -app <application id> -server <server id>; Remove-Item Env:DISCORD_BOT_TOKEN
+   ```
+
+   "Missing Access" (403) means the application is not in that server
+4. Type `/rating` and a name in your server, or `/myrating`. Stop the
+   tunnel when you are done; its URL changes each time, so step 2 is
+   repeated each session
+
+`/myrating` looks up the Discord account that used it, so it
+finds you only on an api where you signed in with Discord for real, not
+with the local stand-in.
+
 ## Load ratings data
 
 No match or rating data is kept in this repo. The data lives outside it, and

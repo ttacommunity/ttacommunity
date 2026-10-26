@@ -144,7 +144,7 @@ func playerDo(t *testing.T, signIns SignIns, method, path, origin, body string, 
 		req.AddCookie(c)
 	}
 	rec := httptest.NewRecorder()
-	NewMux(&fakeRatings{}, nil, signIns, slog.New(slog.DiscardHandler), &recordedRequests{}, stepClock(time.Millisecond)).ServeHTTP(rec, req)
+	NewMux(&fakeRatings{}, nil, signIns, nil, slog.New(slog.DiscardHandler), &recordedRequests{}, stepClock(time.Millisecond)).ServeHTTP(rec, req)
 	return rec
 }
 

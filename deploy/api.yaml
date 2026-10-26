@@ -73,7 +73,7 @@ spec:
       # Applies the ratings migrations before the api starts, as the database's owner (goose's lock serialises pods).
       initContainers:
         - name: migrate
-          image: ghcr.io/ttacommunity/ttacommunity/api:sha-b7b66efe@sha256:e11a899db8a1730a443d880e07c148de9c564e7f51c43ac90f52196e13ed09db
+          image: ghcr.io/ttacommunity/ttacommunity/api:sha-5ff6c97e@sha256:2e1854b113901154d4c1c016c292c75ec48e20aa38b5c9e443114b68aa3c68f7
           args: [-migrate]
           env:
             - name: RATINGS_DATABASE_URL
@@ -94,7 +94,7 @@ spec:
               drop: [ALL]
       containers:
         - name: api
-          image: ghcr.io/ttacommunity/ttacommunity/api:sha-b7b66efe@sha256:e11a899db8a1730a443d880e07c148de9c564e7f51c43ac90f52196e13ed09db
+          image: ghcr.io/ttacommunity/ttacommunity/api:sha-5ff6c97e@sha256:2e1854b113901154d4c1c016c292c75ec48e20aa38b5c9e443114b68aa3c68f7
           ports:
             - name: http
               containerPort: 8080
@@ -142,6 +142,10 @@ spec:
                 secretKeyRef:
                   name: discord-signin
                   key: client-secret
+            # The Discord bot's endpoint (/v1/discord/interactions): the public key of the app "TTA Community Hub",
+            # which every request must be signed with. Not a secret.
+            - name: DISCORD_APP_PUBLIC_KEY
+              value: 2db20ec76c297c9a91bc5d54f2561e3d4fae559178d34c05bda04ed17d068840
             # Microsoft sign-in, for any personal, work or school account: the app "TTA Community" in its own
             # Entra tenant. The api refuses to start with only one of these.
             - name: MICROSOFT_CLIENT_ID

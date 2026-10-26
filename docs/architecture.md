@@ -37,6 +37,7 @@ flowchart LR
     worker -.->|games, results| cge["CGE API"]
     worker -.->|bot DMs| discord["Discord"]
     api -->|player sign-in| discord
+    discord -->|"slash commands, signed"| api
     api -->|player sign-in| microsoft["Microsoft"]
     api -->|player sign-in| google["Google"]
     api -.-> adb
@@ -46,7 +47,7 @@ flowchart LR
 
 | Piece | Role | Writes to |
 |---|---|---|
-| **api** | Public ratings reads (cacheable, by run), and **admin routes that accept only a valid admin-app Access JWT** (audience-pinned, fail closed), reached through admin's Worker. Starts engine runs as Kubernetes Jobs. **Player sign-in** with Discord: server-side sessions, and the signed-in player's own routes, fetched by the site alone with credentials. *(Planned: Tournaments and Pulse actions.)* | Ratings DB: admin's edits, runs started and published, through a role that can write only those; players' sign-ins, sessions and requests, through a third |
+| **api** | Public ratings reads (cacheable, by run), and **admin routes that accept only a valid admin-app Access JWT** (audience-pinned, fail closed), reached through admin's Worker. Starts engine runs as Kubernetes Jobs. **Player sign-in** with Discord: server-side sessions, and the signed-in player's own routes, fetched by the site alone with credentials. **The Discord bot's endpoint**, for our slash commands. *(Planned: Tournaments and Pulse actions.)* | Ratings DB: admin's edits, runs started and published, through a role that can write only those; players' sign-ins, sessions and requests, through a third |
 | **engine** | Reads the games, computes every model and the tournament results, and writes a **new run**. It never overwrites a published one | Ratings DB: the run's result tables |
 | **load** (`cmd/load`) | The data load job, run by hand: restores a baseline export, loads match CSVs, CGE's games and recorded facts, applies migrations, exports. It validates every row and records what it refuses | Ratings DB input tables |
 | **site, admin** | Astro, built and hosted by Cloudflare from `main` (previews from `dev`). One public site with sections, and admin on its own host behind Access. Types generated from the OpenAPI spec | nothing |
@@ -479,6 +480,16 @@ TTA community server and email via `mail-relay`.
   the address CGE holds waits on CGE's API.
 - **The player routes answer the site alone**: CORS with credentials for
   the site's exact origin, never `*`, and never cached.
+- **The Discord bot's endpoint takes only Discord's requests**
+  (`/v1/discord/interactions`, the api's answer to our slash commands):
+  each must carry an Ed25519 signature by the application's public key
+  (`DISCORD_APP_PUBLIC_KEY`), checked before anything else, and any other
+  is refused with 401. So the Discord id in it is the one Discord vouches
+  for, and no shared secret exists. With no key set it is a 404. A
+  player's own rating is found through the player login, which already
+  reads sign-ins. Replies go to the asker alone unless they share them,
+  mention no one, and escape Discord's formatting, since player names are
+  scraped.
 - **CSRF:** the sites and the API are same-site, so `SameSite` does not
   protect. Every state-changing request checks `Origin`.
 - **Egress:** default-deny. The api reaches only public HTTPS (Cloudflare

@@ -3,6 +3,7 @@ package main
 
 import (
 	"context"
+	"crypto/ed25519"
 	"errors"
 	"flag"
 	"fmt"
@@ -21,6 +22,7 @@ import (
 
 	"ttacommunity/backend/internal/access"
 	"ttacommunity/backend/internal/discord"
+	"ttacommunity/backend/internal/discordbot"
 	"ttacommunity/backend/internal/enginejob"
 	"ttacommunity/backend/internal/google"
 	"ttacommunity/backend/internal/httpapi"
@@ -112,6 +114,14 @@ func main() {
 	if os.Getenv("GOOGLE_DEV_USER") != "" {
 		log.Warn("Google sign-in is a stand-in for local development (GOOGLE_DEV_USER)")
 	}
+	discord, err := openDiscord(os.Getenv, signIns.PlayerStore, signIns.SiteOrigin())
+	if err != nil {
+		log.Error("refusing to start: the Discord bot is not set up", "err", err)
+		os.Exit(1)
+	}
+	if discord != nil {
+		log.Info("the Discord bot's endpoint is on")
+	}
 
 	ln, err := net.Listen("tcp", addr)
 	if err != nil {
@@ -120,7 +130,7 @@ func main() {
 	}
 	log.Info("api listening", "addr", ln.Addr().String())
 	serveMetrics(ctx, os.Getenv("METRICS_ADDR"), reg, log)
-	if err := httpapi.Serve(ctx, ln, httpapi.NewMux(ratings, admins, signIns, log, reg, time.Now), log); err != nil {
+	if err := httpapi.Serve(ctx, ln, httpapi.NewMux(ratings, admins, signIns, discord, log, reg, time.Now), log); err != nil {
 		log.Error("api stopped", "err", err)
 		os.Exit(1)
 	}
@@ -493,3 +503,30 @@ func isOrigin(s string) bool {
 	}
 	return ok && rest != "" && !strings.ContainsAny(rest, "/?#@")
 }
+
+// openDiscord builds the Discord bot's endpoint from getenv's DISCORD_APP_PUBLIC_KEY, linking replies to site and
+// reading Discord accounts through members. Unset leaves it off (nil); a key that is not one is an error.
+func openDiscord(getenv func(string) string, members *store.PlayerStore, site string) (httpapi.DiscordApp, error) {
+	hexKey := getenv("DISCORD_APP_PUBLIC_KEY")
+	if hexKey == "" {
+		return nil, nil
+	}
+	key, err := discordbot.ParsePublicKey(hexKey)
+	if err != nil {
+		return nil, fmt.Errorf("DISCORD_APP_PUBLIC_KEY: %w", err)
+	}
+	return discordDeps{PlayerStore: members, key: key, site: site}, nil
+}
+
+// discordDeps is the Discord application the bot answers for, reading Discord accounts through the player login.
+type discordDeps struct {
+	*store.PlayerStore
+	key  ed25519.PublicKey
+	site string
+}
+
+// PublicKey is the application's key, which every request must be signed with.
+func (d discordDeps) PublicKey() ed25519.PublicKey { return d.key }
+
+// Site is the site's origin, which replies link to.
+func (d discordDeps) Site() string { return d.site }

@@ -1,7 +1,11 @@
 package main
 
 import (
+	"bytes"
 	"context"
+	"crypto/ed25519"
+	"encoding/hex"
+	"fmt"
 	"maps"
 	"strings"
 	"testing"
@@ -160,5 +164,37 @@ func TestTheMicrosoftAndGoogleStandInsAreOnlyForThisMachine(t *testing.T) {
 		if err == nil || !strings.Contains(err.Error(), "player login") {
 			t.Errorf("openSignIns on this machine with %s_DEV_USER = %v, want it past the config, failing only to reach the database", app.prefix, err)
 		}
+	}
+}
+
+func TestTheDiscordBotIsOffOrHasAPublicKey(t *testing.T) {
+	// An invented application key, from a fixed seed.
+	key := hex.EncodeToString(ed25519.NewKeyFromSeed(bytes.Repeat([]byte{7}, ed25519.SeedSize)).Public().(ed25519.PublicKey))
+	tests := []struct {
+		name, key string
+		wantOn    bool
+		wantErr   bool
+	}{
+		{"off", "", false, false},
+		{"a key that is not one", "not-a-key", false, true},
+		{"a key cut short", key[:62], false, true},
+		{"the application's public key", key, true, false},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			discord, err := openDiscord(func(k string) string { return map[string]string{"DISCORD_APP_PUBLIC_KEY": tt.key}[k] }, nil, "https://site.example")
+			if (err != nil) != tt.wantErr {
+				t.Fatalf("openDiscord error = %v, want an error: %v", err, tt.wantErr)
+			}
+			if tt.wantErr && !strings.Contains(err.Error(), "DISCORD_APP_PUBLIC_KEY") {
+				t.Errorf("openDiscord error = %v, want it to name DISCORD_APP_PUBLIC_KEY", err)
+			}
+			if (discord != nil) != tt.wantOn {
+				t.Fatalf("openDiscord = %v, want the bot on: %v", discord, tt.wantOn)
+			}
+			if tt.wantOn && (fmt.Sprintf("%x", []byte(discord.PublicKey())) != key || discord.Site() != "https://site.example") {
+				t.Errorf("openDiscord = key %x, site %q; want key %s, site https://site.example", []byte(discord.PublicKey()), discord.Site(), key)
+			}
+		})
 	}
 }

@@ -2492,6 +2492,79 @@ type DataSummary struct {
 	Unplaced int `json:"unplaced"`
 }
 
+// DiscordAllowedMentions defines model for DiscordAllowedMentions.
+type DiscordAllowedMentions struct {
+	// Parse Always empty, so a reply mentions no one
+	Parse []string `json:"parse"`
+}
+
+// DiscordChoice defines model for DiscordChoice.
+type DiscordChoice struct {
+	Name  string `json:"name"`
+	Value string `json:"value"`
+}
+
+// DiscordCommandData defines model for DiscordCommandData.
+type DiscordCommandData struct {
+	// Name The command's name
+	Name    *string          `json:"name,omitempty"`
+	Options *[]DiscordOption `json:"options,omitempty"`
+}
+
+// DiscordGuildMember Who used the command in a server
+type DiscordGuildMember struct {
+	// User Who used the command in a direct message, or within member in a server
+	User *DiscordUser `json:"user,omitempty"`
+}
+
+// DiscordInteraction What Discord sends, as far as we read it; the rest is ignored
+type DiscordInteraction struct {
+	Data *DiscordCommandData `json:"data,omitempty"`
+
+	// Member Who used the command in a server
+	Member *DiscordGuildMember `json:"member,omitempty"`
+
+	// Type 1 PING, 2 a command used, 4 suggestions asked for the option being typed
+	Type int `json:"type"`
+
+	// User Who used the command in a direct message, or within member in a server
+	User *DiscordUser `json:"user,omitempty"`
+}
+
+// DiscordOption defines model for DiscordOption.
+type DiscordOption struct {
+	// Focused The option being typed, when suggestions are asked for
+	Focused *bool  `json:"focused,omitempty"`
+	Name    string `json:"name"`
+	Type    int    `json:"type"`
+
+	// Value A string or a number, by the option's type
+	Value interface{} `json:"value,omitempty"`
+}
+
+// DiscordReply defines model for DiscordReply.
+type DiscordReply struct {
+	Data *DiscordReplyData `json:"data,omitempty"`
+
+	// Type 1 PONG, 4 a message, 8 suggestions
+	Type int `json:"type"`
+}
+
+// DiscordReplyData defines model for DiscordReplyData.
+type DiscordReplyData struct {
+	AllowedMentions *DiscordAllowedMentions `json:"allowed_mentions,omitempty"`
+	Choices         *[]DiscordChoice        `json:"choices,omitempty"`
+	Content         *string                 `json:"content,omitempty"`
+
+	// Flags 64 shows the message to the asker alone
+	Flags *int `json:"flags,omitempty"`
+}
+
+// DiscordUser Who used the command in a direct message, or within member in a server
+type DiscordUser struct {
+	Id string `json:"id"`
+}
+
 // Distribution defines model for Distribution.
 type Distribution struct {
 	Engines []EngineDistribution `json:"engines"`
@@ -4357,6 +4430,9 @@ type SendEmailSignInJSONRequestBody = EmailSignInAsk
 // FinishEmailSignInJSONRequestBody defines body for FinishEmailSignIn for application/json ContentType.
 type FinishEmailSignInJSONRequestBody = EmailSignInToken
 
+// AnswerDiscordInteractionJSONRequestBody defines body for AnswerDiscordInteraction for application/json ContentType.
+type AnswerDiscordInteractionJSONRequestBody = DiscordInteraction
+
 // PostMyBlitzFlagJSONRequestBody defines body for PostMyBlitzFlag for application/json ContentType.
 type PostMyBlitzFlagJSONRequestBody = BlitzFlag
 
@@ -4635,6 +4711,9 @@ type ServerInterface interface {
 	// GetCountries The countries a player may give as theirs
 	// (GET /v1/countries)
 	GetCountries(w http.ResponseWriter, r *http.Request)
+	// AnswerDiscordInteraction Discord's Interactions Endpoint, for our slash commands
+	// (POST /v1/discord/interactions)
+	AnswerDiscordInteraction(w http.ResponseWriter, r *http.Request)
 	// DeleteMe Delete the signed-in player's account
 	// (DELETE /v1/me)
 	DeleteMe(w http.ResponseWriter, r *http.Request)
@@ -7316,6 +7395,20 @@ func (siw *ServerInterfaceWrapper) GetCountries(w http.ResponseWriter, r *http.R
 	handler.ServeHTTP(w, r)
 }
 
+// AnswerDiscordInteraction operation middleware
+func (siw *ServerInterfaceWrapper) AnswerDiscordInteraction(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.AnswerDiscordInteraction(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // DeleteMe operation middleware
 func (siw *ServerInterfaceWrapper) DeleteMe(w http.ResponseWriter, r *http.Request) {
 
@@ -9173,6 +9266,7 @@ func HandlerWithOptions(si ServerInterface, options StdHTTPServerOptions) http.H
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/v1/auth/email", wrapper.SendEmailSignIn)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/v1/auth/email/finish", wrapper.FinishEmailSignIn)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/v1/auth/sign-out", wrapper.SignOut)
+	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/v1/discord/interactions", wrapper.AnswerDiscordInteraction)
 	m.HandleFunc(http.MethodDelete+" "+options.BaseURL+"/v1/me", wrapper.DeleteMe)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/v1/me", wrapper.GetMe)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/v1/me/data", wrapper.GetMyData)
@@ -15482,6 +15576,95 @@ func (response GetCountries200JSONResponse) VisitGetCountriesResponse(w http.Res
 	return err
 }
 
+type AnswerDiscordInteractionRequestObject struct {
+	Body *AnswerDiscordInteractionJSONRequestBody
+}
+
+type AnswerDiscordInteractionResponseObject interface {
+	VisitAnswerDiscordInteractionResponse(w http.ResponseWriter) error
+}
+
+type AnswerDiscordInteraction200ResponseHeaders struct {
+	CacheControl string
+}
+
+type AnswerDiscordInteraction200JSONResponse struct {
+	Body    DiscordReply
+	Headers AnswerDiscordInteraction200ResponseHeaders
+}
+
+func (response AnswerDiscordInteraction200JSONResponse) VisitAnswerDiscordInteractionResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type AnswerDiscordInteraction400JSONResponse struct{ BadRequestJSONResponse }
+
+func (response AnswerDiscordInteraction400JSONResponse) VisitAnswerDiscordInteractionResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type AnswerDiscordInteraction401ResponseHeaders struct {
+	CacheControl string
+}
+
+type AnswerDiscordInteraction401JSONResponse struct {
+	Body    Error
+	Headers AnswerDiscordInteraction401ResponseHeaders
+}
+
+func (response AnswerDiscordInteraction401JSONResponse) VisitAnswerDiscordInteractionResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type AnswerDiscordInteraction404ResponseHeaders struct {
+	CacheControl string
+}
+
+type AnswerDiscordInteraction404JSONResponse struct {
+	Body    Error
+	Headers AnswerDiscordInteraction404ResponseHeaders
+}
+
+func (response AnswerDiscordInteraction404JSONResponse) VisitAnswerDiscordInteractionResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
 type DeleteMeRequestObject struct {
 }
 
@@ -18231,6 +18414,9 @@ type StrictServerInterface interface {
 	// GetCountries The countries a player may give as theirs
 	// (GET /v1/countries)
 	GetCountries(ctx context.Context, request GetCountriesRequestObject) (GetCountriesResponseObject, error)
+	// AnswerDiscordInteraction Discord's Interactions Endpoint, for our slash commands
+	// (POST /v1/discord/interactions)
+	AnswerDiscordInteraction(ctx context.Context, request AnswerDiscordInteractionRequestObject) (AnswerDiscordInteractionResponseObject, error)
 	// DeleteMe Delete the signed-in player's account
 	// (DELETE /v1/me)
 	DeleteMe(ctx context.Context, request DeleteMeRequestObject) (DeleteMeResponseObject, error)
@@ -20833,6 +21019,37 @@ func (sh *strictHandler) GetCountries(w http.ResponseWriter, r *http.Request) {
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(GetCountriesResponseObject); ok {
 		if err := validResponse.VisitGetCountriesResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// AnswerDiscordInteraction operation middleware
+func (sh *strictHandler) AnswerDiscordInteraction(w http.ResponseWriter, r *http.Request) {
+	var request AnswerDiscordInteractionRequestObject
+
+	var body AnswerDiscordInteractionJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.AnswerDiscordInteraction(ctx, request.(AnswerDiscordInteractionRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "AnswerDiscordInteraction")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(AnswerDiscordInteractionResponseObject); ok {
+		if err := validResponse.VisitAnswerDiscordInteractionResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {

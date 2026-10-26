@@ -468,3 +468,31 @@ func TestComparedPlayersLeavesOutHiddenPlayers(t *testing.T) {
 		})
 	}
 }
+
+func TestPlayerNamesLikeFindsNamesAloneStrongestFirst(t *testing.T) {
+	pool := migrated(t)
+	r := NewRatingsReader(asReader(t, pool))
+	ctx := context.Background()
+	run := publishedRun(t, pool)
+	addPlayers(t, pool, "Annika", "hannah", "bob", "Zed")
+	setCountries(t, pool, map[string]string{"Zed": "AN"})
+	for name, c := range map[string]float64{"Annika": 1700, "hannah": 1800, "bob": 1600, "Zed": 1900} {
+		addRating(t, pool, run, "glicko2_daneo", 0, name, ptr(1), c)
+	}
+	tests := []struct {
+		term  string
+		limit int
+		want  string
+	}{
+		{"AN", 5, "[hannah Annika]"},
+		{"AN", 1, "[hannah]"},
+		{"b", 5, "[bob]"},
+		{"a_n", 5, "[]"},
+	}
+	for _, tt := range tests {
+		got, err := r.PlayerNamesLike(ctx, run, tt.term, tt.limit)
+		if err != nil || fmt.Sprint(got) != tt.want {
+			t.Errorf("PlayerNamesLike(%q, %d) = %v, %v; want %s: names containing it, by GlickoD C rating, no country matches", tt.term, tt.limit, got, err, tt.want)
+		}
+	}
+}
