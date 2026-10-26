@@ -20,6 +20,7 @@ import TitlesPanel from './TitlesPanel';
 import BadgesPanel from './BadgesPanel';
 import CommunityPanel from './CommunityPanel';
 import BlitzPanel from './BlitzPanel';
+import ChallengesPanel from './ChallengesPanel';
 import MembersPanel from './MembersPanel';
 import AuditPanel from './AuditPanel';
 import './AdminApp.css';
@@ -90,6 +91,8 @@ function panel(p: Panel, myName: string, role: AdminMe['role'], signIns: SignIns
       return <CommunityPanel />;
     case 'blitz':
       return <BlitzPanel />;
+    case 'challenges':
+      return <ChallengesPanel />;
     case 'members':
       return <MembersPanel role={role} accounts={signIns.accounts} reloadAccounts={signIns.reload} />;
     case 'data':

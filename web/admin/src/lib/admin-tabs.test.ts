@@ -3,8 +3,8 @@ import { groupsFor, panelsFor, siteUrlFor, tabCounts, tabFrom, tabsFor } from '.
 
 describe('admin tabs', () => {
   it.each([
-    ['admin', ['tournaments', 'community', 'blitz', 'members', 'data', 'titles', 'admins', 'audit']],
-    ['organiser', ['tournaments', 'blitz', 'members', 'data']],
+    ['admin', ['tournaments', 'community', 'blitz', 'challenges', 'members', 'data', 'titles', 'admins', 'audit']],
+    ['organiser', ['tournaments', 'blitz', 'challenges', 'members', 'data']],
   ] as const)('shows %s its tabs', (role, want) => {
     expect(tabsFor(role).map((t) => t.key)).toEqual(want);
   });
@@ -21,6 +21,7 @@ describe('admin tabs', () => {
     ['#audit', 'organiser', 'tournaments'],
     ['#data', 'organiser', 'data'],
     ['#blitz', 'organiser', 'blitz'],
+    ['#challenges', 'organiser', 'challenges'],
     ['#signins', 'organiser', 'members'],
   ] as const)('opens %s for an %s on %s', (hash, role, want) => {
     expect(tabFrom(hash, role)).toBe(want);
@@ -34,6 +35,7 @@ describe('admin tabs', () => {
     ['titles', 'admin', ['titles', 'badges']],
     ['tournaments', 'organiser', ['tournaments']],
     ['blitz', 'organiser', ['blitz']],
+    ['challenges', 'organiser', ['challenges']],
     ['members', 'organiser', ['members']],
     ['admins', 'admin', ['admins']],
     ['audit', 'admin', ['audit']],
