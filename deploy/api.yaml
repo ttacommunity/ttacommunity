@@ -142,6 +142,10 @@ spec:
                 secretKeyRef:
                   name: discord-signin
                   key: client-secret
+            # The Discord bot's endpoint (/v1/discord/interactions): the public key of the app "TTA Community Hub",
+            # which every request must be signed with. Not a secret.
+            - name: DISCORD_APP_PUBLIC_KEY
+              value: 2db20ec76c297c9a91bc5d54f2561e3d4fae559178d34c05bda04ed17d068840
             # Microsoft sign-in, for any personal, work or school account: the app "TTA Community" in its own
             # Entra tenant. The api refuses to start with only one of these.
             - name: MICROSOFT_CLIENT_ID

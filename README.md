@@ -257,7 +257,20 @@ anything else. The commands are defined in
 `backend/cmd/discord-commands/commands.json`. With no
 `DISCORD_APP_PUBLIC_KEY` set, the endpoint is a 404.
 
-**A Discord application to try it with**, once:
+**In production** the app is "TTA Community Hub" (its bot "TTA Hub Bot"),
+owned by the maintainers' Discord team. It is private (Public Bot off), so
+only the team adds it to a server: the maintainers' test server and the TTA
+community server. Its public key is `DISCORD_APP_PUBLIC_KEY` in
+`deploy/api.yaml`, and its Interactions Endpoint URL is
+`https://api.ttacommunity.org/v1/discord/interactions`. To add it to a
+server, a team member opens the install link below (step 4) with its
+Application ID and picks the server, then registers the commands there
+(step 3 of "Try it", with that server's id). After a change to
+`commands.json`, register again in each server.
+
+**A Discord application to try it with**, once. Make your own: an app has
+one endpoint, so pointing the production app at your machine would stop it
+answering everyone else.
 
 1. In Discord: User Settings → Advanced → Developer Mode on. Then
    right-click your server → Copy Server ID
