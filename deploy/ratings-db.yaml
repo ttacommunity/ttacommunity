@@ -135,6 +135,13 @@ spec:
               mountPath: /var/run/postgresql
             - name: tmp
               mountPath: /tmp
+          # Up to 10 minutes to start: crash recovery replays the WAL before Postgres accepts connections.
+          startupProbe:
+            exec:
+              command: [pg_isready, -h, /var/run/postgresql, -U, ratings, -d, ratings]
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 60
           readinessProbe:
             exec:
               command: [pg_isready, -h, /var/run/postgresql, -U, ratings, -d, ratings]
@@ -143,7 +150,6 @@ spec:
           livenessProbe:
             exec:
               command: [pg_isready, -h, /var/run/postgresql, -U, ratings, -d, ratings]
-            initialDelaySeconds: 60
             periodSeconds: 30
             timeoutSeconds: 10
             failureThreshold: 5
