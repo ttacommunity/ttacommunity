@@ -1,14 +1,13 @@
 ---
 /** The analysis pages' subpage nav, with each page's own labels as upstream has them. */
 interface Props {
-  page: 'overview' | 'movers' | 'activity' | 'seats';
+  page: 'overview' | 'activity' | 'seats';
 }
 
 const { page } = Astro.props;
 const plain = page === 'activity';
 const links = [
   { id: 'overview', href: '/ratings/analysis/', label: plain ? 'Overview & Calibration' : '📈 Overview & Calibration' },
-  { id: 'movers', href: '/ratings/analysis/movers/', label: plain ? 'Multi-Engine Comparison' : '⚖ Multi-Engine Player Comparison' },
   { id: 'seats', href: '/ratings/analysis/seats/', label: plain ? 'Turn Order & Seats' : '🎲 Turn Order & Seats' },
   { id: 'activity', href: '/ratings/analysis/activity/', label: plain ? 'Activity & Demographics' : '🌎 Activity & Demographics' },
 ];
@@ -20,20 +19,3 @@ const links = [
     </a>
   ))}
 </nav>
-
-<script>
-  import { parseAnalysisParams, parseMoversParams } from '../lib/analysis';
-  import { recall } from '../lib/remembered';
-
-  // Upstream's overview and comparison pages link to the comparison in the format they opened with.
-  const nav = document.querySelector<HTMLElement>('.subpage-nav');
-  const movers = nav?.querySelector<HTMLAnchorElement>('[data-link="movers"]');
-  const params = new URLSearchParams(window.location.search);
-  const format =
-    nav?.dataset.page === 'overview'
-      ? parseAnalysisParams(params, recall(window.localStorage)).format
-      : nav?.dataset.page === 'movers'
-        ? parseMoversParams(params).format
-        : null;
-  if (movers && format !== null) movers.href = `/ratings/analysis/movers/?format=${format}`;
-</script>

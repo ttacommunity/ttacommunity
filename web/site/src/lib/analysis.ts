@@ -140,11 +140,6 @@ export function agreementName(key: ModelInfo['key']): string {
   return info.family === 'glicko2_daneo' ? family : `${family} (Career)`;
 }
 
-/** parseMoversParams reads the comparison's search and format; upstream ignores its min_games. */
-export function parseMoversParams(params: URLSearchParams): { search: string; format: Format } {
-  const f = Number(params.get('format') ?? NaN);
-  return { search: (params.get('search') ?? '').trim(), format: ([0, 2, 3, 4] as const).find((x) => x === f) ?? 0 };
-}
 
 const count = (n: number) => n.toLocaleString('en-US');
 
