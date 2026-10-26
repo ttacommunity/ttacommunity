@@ -373,21 +373,21 @@ func replaceFacts(kind, file string) error {
 	case "rules":
 		return loadFacts(kind, file, tournamentcsv.ReadRules, store.ReplaceRules)
 	case "podiums":
-		return loadFacts(kind, file, tournamentcsv.ReadPodiums, store.ReplacePodiums)
+		return loadKnownFacts(kind, file, store.SeriesSlugs, tournamentcsv.ReadPodiums, store.ReplacePodiums)
 	case "cge_tournaments":
 		return loadFacts(kind, file, tournamentcsv.ReadCGETournaments, store.ReplaceCGETournaments)
 	case "cge_stages":
-		return loadFacts(kind, file, tournamentcsv.ReadCGEStages, store.ReplaceCGEStages)
+		return loadKnownFacts(kind, file, store.SeriesSlugs, tournamentcsv.ReadCGEStages, store.ReplaceCGEStages)
 	case "cge_standings":
 		return loadFacts(kind, file, tournamentcsv.ReadCGEStandings, store.ReplaceCGEStandings)
 	case "ladder_wins":
 		return loadFacts(kind, file, tournamentcsv.ReadLadderWins, store.ReplaceLadderWins)
 	case "season_notes":
-		return loadFacts(kind, file, tournamentcsv.ReadSeasonNotes, store.ReplaceSeasonNotes)
+		return loadKnownFacts(kind, file, store.SeriesSlugs, tournamentcsv.ReadSeasonNotes, store.ReplaceSeasonNotes)
 	case "community":
-		return loadCommunityFacts(kind, file, tournamentcsv.ReadCommunityStandings, store.ReplaceCommunityStandings)
+		return loadKnownFacts(kind, file, store.CommunityEditionSlugs, tournamentcsv.ReadCommunityStandings, store.ReplaceCommunityStandings)
 	case "community_scores":
-		return loadCommunityFacts(kind, file, tournamentcsv.ReadCommunityScores, store.ReplaceCommunityScores)
+		return loadKnownFacts(kind, file, store.CommunityEditionSlugs, tournamentcsv.ReadCommunityScores, store.ReplaceCommunityScores)
 	case "community_points":
 		return loadFacts(kind, file, tournamentcsv.ReadCommunityPoints, store.ReplaceCommunityPoints)
 	case "community_quarters":
@@ -422,23 +422,25 @@ func loadFacts[T any](
 	})
 }
 
-// loadCommunityFacts is loadFacts for a community file, which refuses a row
-// naming an edition the database does not hold.
-func loadCommunityFacts[T any](
+// loadKnownFacts is loadFacts for a file whose reader refuses a row naming a
+// slug the database does not hold, such as a series or a community edition:
+// known lists those slugs.
+func loadKnownFacts[T any](
 	kind, file string,
+	known func(context.Context, *pgxpool.Pool) ([]string, error),
 	read func(string, io.Reader, []string) (tournamentcsv.Result[T], error),
 	replace func(context.Context, *pgxpool.Pool, []T) (store.FactsReplaced, error),
 ) error {
-	var editions []string
+	var slugs []string
 	err := withRatings(func(ctx context.Context, pool *pgxpool.Pool) (err error) {
-		editions, err = store.CommunityEditionSlugs(ctx, pool)
+		slugs, err = known(ctx, pool)
 		return err
 	})
 	if err != nil {
 		return err
 	}
 	return loadFacts(kind, file, func(f string, r io.Reader) (tournamentcsv.Result[T], error) {
-		return read(f, r, editions)
+		return read(f, r, slugs)
 	}, replace)
 }
 

@@ -357,3 +357,20 @@ func TestReplaceCGETournamentsLinksOursAndRatesNoNewOne(t *testing.T) {
 		t.Errorf("community ranking = %q: want survivors_cup, and nations_cup left for admin", rated)
 	}
 }
+
+func TestSeriesSlugsListsEverySeries(t *testing.T) {
+	ctx := context.Background()
+	pool := migrated(t)
+	if _, err := pool.Exec(ctx, `INSERT INTO series (slug, name, visible) VALUES ('lantern_cup', 'Lantern Cup', true), ('moth_open', 'Moth Open', false)`); err != nil {
+		t.Fatal(err)
+	}
+	got, err := SeriesSlugs(ctx, pool)
+	if err != nil {
+		t.Fatalf("SeriesSlugs: %v", err)
+	}
+	for _, want := range []string{"lantern_cup", "moth_open"} {
+		if !slices.Contains(got, want) {
+			t.Errorf("SeriesSlugs() = %q, want it to hold %q", got, want)
+		}
+	}
+}
