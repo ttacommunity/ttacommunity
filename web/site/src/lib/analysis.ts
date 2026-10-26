@@ -14,7 +14,6 @@ export interface ModelInfo {
   name: string;
   family: Family;
   reset: Reset;
-  retro: boolean;
   color: string;
   bg: string;
   verdict: string;
@@ -25,17 +24,16 @@ const m = (
   name: string,
   family: Family,
   reset: Reset,
-  retro: boolean,
   color: string,
   bg: string,
   verdict: string,
-): ModelInfo => ({ key, name, family, reset, retro, color, bg, verdict });
+): ModelInfo => ({ key, name, family, reset, color, bg, verdict });
 
 /** MODELS is upstream's MODEL_METADATA, in its order (ties in the ranking keep it). */
 export const MODELS: readonly ModelInfo[] = [
-  m('glicko2_daneo', 'GlickoD (Continuous)', 'glicko2_daneo', 'continuous', true, '#8b5cf6', 'rgba(139, 92, 246, 0.25)', '★ The Premier Flagship — Golden ratio multiplayer information decomposition (φ^(N-2)), 15-game re-calibration, and bilateral composite variance.'),
-  m('glicko2_daneo_softer', 'GlickoD (Season Reset)', 'glicko2_daneo', 'softer', true, '#a855f7', 'rgba(168, 85, 247, 0.25)', '★ Peak Statistical & Competitive Harmony — Golden Ratio decomposition with Season Reset (α ≈ 1.45, λ ≈ 0.12), 15-game re-calibration, and all-time record 0.24% ECE.'),
-  m('glicko2_std', 'Glicko-2 Standard (Continuous)', 'glicko2_std', 'continuous', false, '#ffca28', 'rgba(255, 202, 40, 0.2)', '★ High Forward Responsiveness — Standard pairwise Elo dynamics; classical odometer benchmark.'),
+  m('glicko2_daneo', 'GlickoD (Continuous)', 'glicko2_daneo', 'continuous', '#8b5cf6', 'rgba(139, 92, 246, 0.25)', '★ The Premier Flagship — Golden ratio multiplayer information decomposition (φ^(N-2)), 15-game re-calibration, and bilateral composite variance.'),
+  m('glicko2_daneo_softer', 'GlickoD (Season Reset)', 'glicko2_daneo', 'softer', '#a855f7', 'rgba(168, 85, 247, 0.25)', '★ Peak Statistical & Competitive Harmony — Golden Ratio decomposition with Season Reset (α ≈ 1.45, λ ≈ 0.12), 15-game re-calibration, and all-time record 0.24% ECE.'),
+  m('glicko2_std', 'Glicko-2 Standard (Continuous)', 'glicko2_std', 'continuous', '#ffca28', 'rgba(255, 202, 40, 0.2)', '★ High Forward Responsiveness — Standard pairwise Elo dynamics; classical odometer benchmark.'),
 ];
 
 const clamp = (x: number) => Math.max(0, Math.min(1, x));

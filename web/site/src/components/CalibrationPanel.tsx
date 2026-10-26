@@ -160,7 +160,7 @@ export default function CalibrationPanel({ apiUrl }: { apiUrl: string }) {
           pointRadius: m.reset === 'continuous' ? 6 : 5,
           pointHoverRadius: 8,
           borderWidth: m.reset === 'continuous' ? 3 : 2.2,
-          borderDash: m.retro ? [2, 2] : m.reset === 'softer' ? [4, 2] : [],
+          borderDash: m.family === 'glicko2_daneo' ? [2, 2] : [],
           tension: 0.2,
           order: 1,
         };

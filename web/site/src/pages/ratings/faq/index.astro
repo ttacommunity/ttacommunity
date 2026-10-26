@@ -10,7 +10,7 @@ const sections = await Promise.all(tabs.map(async (t) => ({ ...t.data, Content: 
 // Upstream picks out its two GlickoD tabs in gold.
 const tabClass: Record<string, string> = { 'gold-standard': 'tab-gold', 'recalibration-15': 'tab-bronze' };
 ---
-<SiteLayout title="FAQ & Model Guide - Through the Ages Rating Engine" description="How the Through the Ages rating engines work: GlickoD, Glicko-2, WHR, conservative ratings, formats, titles and season resets.">
+<SiteLayout title="FAQ & Model Guide - Through the Ages Rating Engine" description="How the Through the Ages rating engines work: GlickoD, Glicko-2, conservative ratings, formats, titles and season resets.">
   <div class="faq-container" data-api-url={PUBLIC_API_URL}>
     <div class="analysis-hero-card faq-hero">
       <div>

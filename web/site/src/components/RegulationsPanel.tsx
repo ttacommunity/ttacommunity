@@ -24,7 +24,7 @@ export default function RegulationsPanel({ box, rated }: { box: RegulationsBox; 
       {rated && (
         <div className="rules-note">
           <strong>Rating Integration:</strong> Matches played in this circuit are parsed with match integrity validation and
-          automatically update player Glicko-2 and WHR parameters according to their multiplayer weighting rules.
+          automatically update player Glicko-2 parameters according to their multiplayer weighting rules.
         </div>
       )}
     </div>
