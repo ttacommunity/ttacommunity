@@ -37,7 +37,7 @@ describe('currentSection', () => {
     ['a section without its slash', '/ratings', '/ratings/'],
     ['a page under a section', '/ratings/player/x/', '/ratings/'],
     ['the most specific section', '/ratings/analysis/', '/ratings/analysis/'],
-    ['a page under the most specific section', '/ratings/analysis/movers/', '/ratings/analysis/'],
+    ['a page under the most specific section', '/ratings/analysis/seats/', '/ratings/analysis/'],
     ['another specific section', '/ratings/faq/', '/ratings/faq/'],
     ['a page under another specific section', '/ratings/hall_of_fame/royal_league/', '/ratings/hall_of_fame/'],
     ['the blitz section, on the root site', '/blitz/', '/blitz/'],

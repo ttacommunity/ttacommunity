@@ -10,7 +10,6 @@ import {
   announceFormat,
   onFormat,
   parseAnalysisParams,
-  parseMoversParams,
   sortCountries,
   titleLabel,
   type CountryRatings,
@@ -101,16 +100,6 @@ describe('agreementName', () => {
     ['glicko2_std', 'G2 Std (Career)'],
   ] as const)("names %s %s, as upstream's agreement cards do", (model, want) => {
     expect(agreementName(model)).toBe(want);
-  });
-});
-
-describe('parseMoversParams', () => {
-  it.each([
-    ['a search, trimmed, and a format', 'search=%20b440,IT%20&format=3', { search: 'b440,IT', format: 3 }],
-    ['a format that is not a number, as all formats', 'format=x', { search: '', format: 0 }],
-    ['a format we do not have, as all formats', 'format=5&min_games=3', { search: '', format: 0 }],
-  ])('reads %s, as upstream', (_name, query, want) => {
-    expect(parseMoversParams(new URLSearchParams(query))).toEqual(want);
   });
 });
 
