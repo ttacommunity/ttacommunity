@@ -181,6 +181,20 @@ describe('chartData', () => {
     expect(got.series.glicko2_daneo).toEqual([1400, null, null]);
     expect(got.series.glicko2_std).toEqual([null, null, null]);
   });
+
+  it('supports selecting all modes and all curves simultaneously', () => {
+    const got = chartData(history, 'all', 'all');
+    expect(got.lines.map((l) => l.label)).toEqual([
+      '👑 GlickoD (Continuous) (E)',
+      '👑 GlickoD (Continuous) (C)',
+      '👑 GlickoD (Season Reset) (E)',
+      '👑 GlickoD (Season Reset) (C)',
+    ]);
+    expect(got.lines[0].data).toEqual([null, 1800, 1810]);
+    expect(got.lines[1].data).toEqual([null, 1690, 1700.1]);
+    expect(got.lines[2].data).toEqual([1500.6, null, null]);
+    expect(got.lines[3].data).toEqual([1400, null, null]);
+  });
 });
 
 describe('signedDelta', () => {

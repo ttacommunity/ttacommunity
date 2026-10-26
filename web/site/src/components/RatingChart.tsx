@@ -1,4 +1,4 @@
-/** Upstream's rating trajectory chart: five engines, continuous or season reset, expected or conservative. */
+/** Upstream's rating trajectory chart: models, continuous or season reset, expected or conservative. */
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   CategoryScale,
@@ -11,18 +11,10 @@ import {
   Tooltip,
 } from 'chart.js';
 import type { PlayerHistory } from '@ttac/shared/ratings';
-import { ENGINES, type Engine, type ResetMode } from '../lib/leaderboard-view';
-import { chartData, runYears, type ChartData } from '../lib/player-view';
+import { chartData, runYears, type ChartCurve, type ChartData, type ChartMode } from '../lib/player-view';
 import Segmented from '@ttac/shared/Segmented';
 
 Chart.register(LineController, LineElement, PointElement, LinearScale, CategoryScale, Legend, Tooltip);
-
-type Curve = 'expected' | 'conservative';
-
-const LINES: Record<Engine, { name: string; color: string; fill: string; width: number; point: number; tension: number }> = {
-  glicko2_daneo: { name: '👑 GlickoD', color: '#c084fc', fill: 'rgba(168, 85, 247, 0.15)', width: 2.5, point: 1.5, tension: 0.1 },
-  glicko2_std: { name: 'Glicko-2 Standard', color: '#e5a93c', fill: 'rgba(229, 169, 60, 0.1)', width: 2, point: 1, tension: 0.1 },
-};
 
 function Toggle<T extends string>({
   label,
@@ -52,21 +44,21 @@ function Toggle<T extends string>({
 
 /** summary describes each line's first and latest value, the chart's text alternative. */
 function summary(data: ChartData): string {
-  const lines = ENGINES.flatMap((engine) => {
-    const at = data.series[engine].flatMap((v, i) => (v === null ? [] : [{ v, d: data.labels[i] }]));
+  const lines = data.lines.flatMap((line) => {
+    const at = line.data.flatMap((v, i) => (v === null ? [] : [{ v, d: data.labels[i] }]));
     const first = at[0];
     const last = at[at.length - 1];
-    return first && last ? [`${LINES[engine].name}: ${first.v} on ${first.d}, ${last.v} on ${last.d}`] : [];
+    return first && last ? [`${line.label}: ${first.v} on ${first.d}, ${last.v} on ${last.d}`] : [];
   });
   return `Rating history. ${lines.join('. ')}.`;
 }
 
-/** RatingChart draws a player's history, with upstream's mode and curve switches. */
+/** RatingChart draws a player's history, with instant in-place mode and curve switches and all-selections support. */
 export default function RatingChart({ history }: { history: PlayerHistory | null }) {
   const canvas = useRef<HTMLCanvasElement>(null);
   const chart = useRef<Chart<'line'> | null>(null);
-  const [mode, setMode] = useState<ResetMode>('continuous');
-  const [curve, setCurve] = useState<Curve>('expected');
+  const [mode, setMode] = useState<ChartMode>('continuous');
+  const [curve, setCurve] = useState<ChartCurve>('expected');
   const data = useMemo(() => (history === null ? null : chartData(history, mode, curve)), [history, mode, curve]);
   const empty = data !== null && data.labels.length === 0;
   const years = data === null || empty ? null : runYears(data.labels[0] ?? null, data.labels.at(-1) ?? null);
@@ -81,6 +73,7 @@ export default function RatingChart({ history }: { history: PlayerHistory | null
       options: {
         responsive: true,
         maintainAspectRatio: false,
+        animation: false,
         interaction: { mode: 'index', intersect: false },
         plugins: {
           legend: { labels: { color: '#f3e5c8', font: { family: font, size: 12 } } },
@@ -102,30 +95,26 @@ export default function RatingChart({ history }: { history: PlayerHistory | null
       chart.current?.destroy();
       chart.current = null;
     };
-    // Made once per history: the switches only change its data, below, keeping the legend's choices.
   }, [history, empty]);
 
   useEffect(() => {
     const c = chart.current;
     if (c === null || data === null) return;
-    const suffix = `${mode === 'softer' ? '[Reset] ' : ''}${curve === 'conservative' ? '(C)' : '(E)'}`;
     c.data.labels = data.labels;
-    c.data.datasets = ENGINES.map((engine, i) => {
-      const line = LINES[engine];
-      return {
-        label: `${line.name} ${suffix}`,
-        data: data.series[engine],
-        borderColor: line.color,
-        backgroundColor: line.fill,
-        borderWidth: line.width,
-        pointRadius: line.point,
-        tension: line.tension,
-        spanGaps: true,
-        hidden: c.data.datasets[i] !== undefined && !c.isDatasetVisible(i),
-      };
-    });
-    c.update();
-  }, [data, mode, curve]);
+    c.data.datasets = data.lines.map((line, i) => ({
+      label: line.label,
+      data: line.data,
+      borderColor: line.color,
+      backgroundColor: line.fill ?? 'transparent',
+      borderWidth: line.borderDash ? 2 : 2.5,
+      borderDash: line.borderDash,
+      pointRadius: 1.5,
+      tension: 0.1,
+      spanGaps: true,
+      hidden: c.data.datasets[i] !== undefined && !c.isDatasetVisible(i),
+    }));
+    c.update('none');
+  }, [data]);
 
   return (
     <div className="chart-container">
@@ -140,6 +129,7 @@ export default function RatingChart({ history }: { history: PlayerHistory | null
             options={[
               { value: 'continuous', label: 'Continuous' },
               { value: 'softer', label: 'Season Reset' },
+              { value: 'all', label: 'All Modes' },
             ]}
             value={mode}
             onChange={setMode}
@@ -150,6 +140,7 @@ export default function RatingChart({ history }: { history: PlayerHistory | null
             options={[
               { value: 'expected', label: 'Expected Mean (E = R)' },
               { value: 'conservative', label: 'Conservative (C = μ − 3σ)' },
+              { value: 'all', label: 'All Curves' },
             ]}
             value={curve}
             onChange={setCurve}
