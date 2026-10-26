@@ -15,6 +15,7 @@ from tta_ratings_engine.models.glicko2.calculator import (
     CALIBRATED_TAU,
     GOLDEN_MP_WEIGHTS,
     INACTIVITY_DRIFT_PER_MONTH,
+    MODELS,
     RESET_ALPHA_SOFTER,
     RESET_LAMBDA_SOFTER,
     PlayerThresholds,
@@ -40,26 +41,15 @@ IDEAL_POINTS = [0.525, 0.575, 0.625, 0.675, 0.725, 0.775, 0.825, 0.875, 0.925, 0
 BIN_EDGES = np.linspace(0.5, 1.0, 11)
 NUM_BINS = len(BIN_LABELS)
 
-# The models a run evaluates: the ones run.py computes.
-ALL_MODELS = [
-    "glicko2_daneo",
-    "glicko2_daneo_softer",
-    "glicko2_std",
-]
-
 
 def is_retro(m: str) -> bool:
-    """Returns True if the model utilizes Option A 15-game emergent prior calibration."""
-    return "retro" in m or "daneo" in m
+    """Returns True if model m (a MODELS name) uses Option A 15-game emergent prior calibration."""
+    return get_fam(m) == "glicko2_daneo"
 
 
 def get_fam(m: str) -> str:
-    """Extracts the underlying engine family."""
-    if "daneo" in m:
-        return "daneo"
-    if "mp" in m:
-        return "mp"
-    return "std"
+    """Returns the engine of model m (a MODELS name)."""
+    return MODELS[m][0]
 
 
 def compute_metrics_from_preds(
@@ -194,9 +184,9 @@ def run_walk_forward_evaluation(
             )
 
         if models_filter:
-            models = [m for m in ALL_MODELS if m in models_filter]
+            models = [m for m in MODELS if m in models_filter]
         else:
-            models = ALL_MODELS
+            models = list(MODELS)
 
         g2_models = list(models)
 
@@ -227,16 +217,14 @@ def run_walk_forward_evaluation(
         games_played_p2 = {m: defaultdict(set) for m in g2_models}
 
         def weight_of(fam, r, p_cnt):
-            if fam == "daneo":
+            if fam == "glicko2_daneo":
                 return GOLDEN_MP_WEIGHTS.get(p_cnt, 1.0)
-            if fam == "mp":
-                return r["weight"]
             return 1.0
 
         def run_up(fam, r_cur, items):
             enc3 = [(it[0], it[1], it[2]) for it in items]
             return update_rating(
-                r_cur, enc3, tau=CALIBRATED_TAU, weighted=fam in ("daneo", "mp")
+                r_cur, enc3, tau=CALIBRATED_TAU, weighted=fam == "glicko2_daneo"
             )
 
         def drift_inactive(r_map, active):
@@ -334,7 +322,7 @@ def run_walk_forward_evaluation(
         def apply_annual_resets(prev_y: str, cur_y: str):
             if prev_y is not None and cur_y != prev_y:
                 for m_key in g2_models:
-                    if "_softer" in m_key:
+                    if MODELS[m_key][1] == "softer":
                         r_map = g2_ratings[m_key]
                         act_players = [
                             r
@@ -471,7 +459,7 @@ def run_walk_forward_evaluation(
 
             if verbose and (idx % 6 == 0 or idx == len(eval_months) - 1):
                 stat_parts = []
-                for sample_m in ALL_MODELS:
+                for sample_m in models:
                     if sample_m in monthly_results[tm]:
                         stat_parts.append(
                             f"{sample_m}: {monthly_results[tm][sample_m]['brier']:.4f}"
@@ -558,28 +546,3 @@ def run_walk_forward_evaluation(
         "aggregated": aggregated_results,
         "monthly": monthly_results,
     }
-
-
-def run_walk_forward_all(
-    start_eval_month: str = "2022-01",
-    verbose: bool = True,
-    models_filter: list[str] | None = None,
-    formats: list[int] | None = None,
-    *,
-    conn: psycopg.Connection,
-    run_id: int,
-) -> dict[int, Any]:
-    """Runs walk-forward evaluation across formats, committing each format's results into the run."""
-    all_res = {}
-    if formats is None:
-        formats = [0, 2, 3, 4]
-    for fmt in formats:
-        all_res[fmt] = run_walk_forward_evaluation(
-            player_count=fmt,
-            start_eval_month=start_eval_month,
-            verbose=verbose,
-            models_filter=models_filter,
-            conn=conn,
-            run_id=run_id,
-        )
-    return all_res

@@ -19,39 +19,35 @@ from tta_ratings_engine.models.evaluation.walk_forward import (
 from tta_ratings_engine.models.glicko2.calculator import (
     CALIBRATED_SIGMA,
     CALIBRATED_TAU,
+    CALIBRATION_THRESHOLD,
     GOLDEN_MP_WEIGHTS,
     INACTIVITY_DRIFT_PER_MONTH,
-    RESET_ALPHA_HARD,
-    RESET_ALPHA_SOFT,
+    MODELS,
     RESET_ALPHA_SOFTER,
-    RESET_LAMBDA_HARD,
-    RESET_LAMBDA_SOFT,
     RESET_LAMBDA_SOFTER,
     compute_decoupled_scaling,
     compute_player_thresholds,
     get_tier_mean,
+    model_name,
 )
 from tta_ratings_engine.models.glicko2.engine import GLICKO2_SCALE as G2_SCALE
 from tta_ratings_engine.models.glicko2.engine import Rating, update_rating
 
 
 def evaluate_standard_glicko2(
-    weighted: bool = False,
+    engine: str = "glicko2_std",
     reset_mode: str = "continuous",
     player_count: int = 0,
-    engine: str | None = None,
-    retro_calibrated: bool = False,
-    calibration_threshold: int = 15,
     *,
     conn: psycopg.Connection,
     run_id: int,
 ) -> dict[str, Any]:
-    """Runs sequential step-by-step match-time prediction evaluation for Glicko-2 on the run's pairs."""
-    base_model = (
-        engine if engine is not None else ("glicko2_mp" if weighted else "glicko2_std")
-    )
-    if base_model == "glicko2_daneo":
-        retro_calibrated = True
+    """Runs sequential step-by-step match-time prediction evaluation for Glicko-2 on the run's pairs.
+
+    engine and reset_mode are as for compute_glicko2_ratings. Raises ValueError for an unknown either.
+    """
+    model_name(engine, reset_mode)
+    retro_calibrated = weighted = engine == "glicko2_daneo"
 
     with conn.transaction():
         rows = load_pairs(conn, run_id, player_count)
@@ -70,7 +66,7 @@ def evaluate_standard_glicko2(
         player_thresholds: dict[str, int] = {}
         if retro_calibrated:
             player_thresholds = compute_player_thresholds(
-                rows, standard_threshold=calibration_threshold
+                rows, standard_threshold=CALIBRATION_THRESHOLD
             )
             ratings_p1: dict[str, Rating] = defaultdict(
                 lambda: Rating(1500.0, 350.0, CALIBRATED_SIGMA)
@@ -106,25 +102,6 @@ def evaluate_standard_glicko2(
                             30.0,
                         )
 
-                    base_a = (
-                        RESET_ALPHA_SOFTER
-                        if reset_mode == "softer"
-                        else (
-                            RESET_ALPHA_SOFT
-                            if reset_mode == "soft"
-                            else RESET_ALPHA_HARD
-                        )
-                    )
-                    base_l = (
-                        RESET_LAMBDA_SOFTER
-                        if reset_mode == "softer"
-                        else (
-                            RESET_LAMBDA_SOFT
-                            if reset_mode == "soft"
-                            else RESET_LAMBDA_HARD
-                        )
-                    )
-
                     for p_name, r_cur in list(ratings_p1.items()):
                         if r_cur.rd < 350.0:
                             tm = get_tier_mean(
@@ -137,8 +114,8 @@ def evaluate_standard_glicko2(
                                 sigma_pop=pop_sigma,
                                 rd_mean=pop_rd_mean,
                                 rd_min=pop_rd_min,
-                                base_alpha=base_a,
-                                base_lambda=base_l,
+                                base_alpha=RESET_ALPHA_SOFTER,
+                                base_lambda=RESET_LAMBDA_SOFTER,
                             )
                             new_rd = min(350.0, r_cur.rd * eff_alpha)
                             new_r = (1.0 - eff_lambda) * r_cur.rating + eff_lambda * tm
@@ -153,12 +130,7 @@ def evaluate_standard_glicko2(
                     out_a = m["outcome_a"]
                     m_pcount = m.get("player_count", player_count)
 
-                    if base_model == "glicko2_daneo":
-                        w = GOLDEN_MP_WEIGHTS.get(m_pcount, 1.0)
-                    elif base_model == "glicko2_mp" or weighted:
-                        w = m["weight"]
-                    else:
-                        w = 1.0
+                    w = GOLDEN_MP_WEIGHTS.get(m_pcount, 1.0) if weighted else 1.0
 
                     p1_encounters[pa].append((ratings_p1[pb], out_a, w, m_pcount, mid))
                     p1_encounters[pb].append(
@@ -175,7 +147,7 @@ def evaluate_standard_glicko2(
                             games_played_p1[p_name].add(mid)
                             distinct_new.append(mid)
                     total_games = len(games_played_p1[p_name])
-                    p_thresh = player_thresholds.get(p_name, calibration_threshold)
+                    p_thresh = player_thresholds.get(p_name, CALIBRATION_THRESHOLD)
 
                     def run_update_p1(r_cur, items):
                         enc3 = [(it[0], it[1], it[2]) for it in items]
@@ -183,10 +155,7 @@ def evaluate_standard_glicko2(
                             r_cur,
                             enc3,
                             tau=CALIBRATED_TAU,
-                            weighted=(
-                                base_model in ("glicko2_mp", "glicko2_daneo")
-                                or weighted
-                            ),
+                            weighted=weighted,
                         )
 
                     if (
@@ -219,7 +188,7 @@ def evaluate_standard_glicko2(
                         ratings_p1[p_name] = run_update_p1(ratings_p1[p_name], enc_list)
 
                 for p_name in list(ratings_p1.keys()):
-                    p_thresh = player_thresholds.get(p_name, calibration_threshold)
+                    p_thresh = player_thresholds.get(p_name, CALIBRATION_THRESHOLD)
                     if (
                         p_name not in p1_active
                         and ratings_p1[p_name].rd < 350.0
@@ -262,7 +231,7 @@ def evaluate_standard_glicko2(
                     for p, r in ratings.items()
                     if (
                         len(games_played_p2[p])
-                        >= player_thresholds.get(p, calibration_threshold)
+                        >= player_thresholds.get(p, CALIBRATION_THRESHOLD)
                         if retro_calibrated
                         else True
                     )
@@ -285,26 +254,11 @@ def evaluate_standard_glicko2(
                         30.0,
                     )
 
-                base_a = (
-                    RESET_ALPHA_SOFTER
-                    if reset_mode == "softer"
-                    else (
-                        RESET_ALPHA_SOFT if reset_mode == "soft" else RESET_ALPHA_HARD
-                    )
-                )
-                base_l = (
-                    RESET_LAMBDA_SOFTER
-                    if reset_mode == "softer"
-                    else (
-                        RESET_LAMBDA_SOFT if reset_mode == "soft" else RESET_LAMBDA_HARD
-                    )
-                )
-
                 for p_name in list(ratings.keys()):
                     is_eligible = (
                         (
                             len(games_played_p2[p_name])
-                            >= player_thresholds.get(p_name, calibration_threshold)
+                            >= player_thresholds.get(p_name, CALIBRATION_THRESHOLD)
                         )
                         if retro_calibrated
                         else True
@@ -320,8 +274,8 @@ def evaluate_standard_glicko2(
                             sigma_pop=pop_sigma,
                             rd_mean=pop_rd_mean,
                             rd_min=pop_rd_min,
-                            base_alpha=base_a,
-                            base_lambda=base_l,
+                            base_alpha=RESET_ALPHA_SOFTER,
+                            base_lambda=RESET_LAMBDA_SOFTER,
                         )
                         new_rd = min(350.0, ratings[p_name].rd * eff_alpha)
                         new_r = (1.0 - eff_lambda) * ratings[
@@ -359,12 +313,7 @@ def evaluate_standard_glicko2(
                 out_a = m["outcome_a"]
                 m_pcount = m.get("player_count", player_count)
 
-                if base_model == "glicko2_daneo":
-                    w = GOLDEN_MP_WEIGHTS.get(m_pcount, 1.0)
-                elif base_model == "glicko2_mp" or weighted:
-                    w = m["weight"]
-                else:
-                    w = 1.0
+                w = GOLDEN_MP_WEIGHTS.get(m_pcount, 1.0) if weighted else 1.0
 
                 ra = get_current_rating(pa)
                 rb = get_current_rating(pb)
@@ -381,9 +330,7 @@ def evaluate_standard_glicko2(
                         r_cur,
                         enc3,
                         tau=CALIBRATED_TAU,
-                        weighted=(
-                            base_model in ("glicko2_mp", "glicko2_daneo") or weighted
-                        ),
+                        weighted=weighted,
                     )
 
                 if retro_calibrated:
@@ -395,7 +342,7 @@ def evaluate_standard_glicko2(
                             games_played_p2[p_name].add(mid)
                             distinct_new.append(mid)
                     total_games = len(games_played_p2[p_name])
-                    p_thresh = player_thresholds.get(p_name, calibration_threshold)
+                    p_thresh = player_thresholds.get(p_name, CALIBRATION_THRESHOLD)
 
                     if p_name not in calibrated_priors:
                         ratings[p_name] = run_update_p2(
@@ -426,7 +373,7 @@ def evaluate_standard_glicko2(
 
             # Apply mild inactivity drift to already-active players who missed this month
             for p_name in list(ratings.keys()):
-                p_thresh = player_thresholds.get(p_name, calibration_threshold)
+                p_thresh = player_thresholds.get(p_name, CALIBRATION_THRESHOLD)
                 is_active_or_uncalibrated = (p_name in active_players) or (
                     retro_calibrated and len(games_played_p2[p_name]) < p_thresh
                 )
@@ -457,13 +404,6 @@ def run_standard_calibration_all(
     if formats is None:
         formats = [0, 2, 3, 4]
 
-    # The models a run computes (run.py's MODELS): model, MP-weighted, reset mode, engine, retro-calibrated.
-    model_configs = [
-        ("glicko2_daneo", None, "continuous", "glicko2_daneo", True),
-        ("glicko2_daneo_softer", None, "softer", "glicko2_daneo", True),
-        ("glicko2_std", False, "continuous", "glicko2_std", False),
-    ]
-
     with conn.transaction():
         require_running(conn, run_id)
         for fmt in formats:
@@ -473,29 +413,19 @@ def run_standard_calibration_all(
             if verbose:
                 print(f"\n--- Standard Calibration: Format {fmt_label} ---")
 
-            for m_type, is_mp, reset_m, eng_base, is_retro in model_configs:
+            for m_type, (engine, reset_mode) in MODELS.items():
                 if model_filter and m_type not in model_filter:
                     continue
                 if verbose:
                     print(f"  Evaluating {m_type} ({fmt_label})...")
 
-                on_run = {"conn": conn, "run_id": run_id}
-                if eng_base == "glicko2_daneo":
-                    res = evaluate_standard_glicko2(
-                        engine="glicko2_daneo",
-                        reset_mode=reset_m,
-                        player_count=fmt,
-                        retro_calibrated=True,
-                        **on_run,
-                    )
-                else:
-                    res = evaluate_standard_glicko2(
-                        weighted=is_mp,
-                        reset_mode=reset_m,
-                        player_count=fmt,
-                        retro_calibrated=is_retro,
-                        **on_run,
-                    )
+                res = evaluate_standard_glicko2(
+                    engine=engine,
+                    reset_mode=reset_mode,
+                    player_count=fmt,
+                    conn=conn,
+                    run_id=run_id,
+                )
 
                 all_results[fmt][m_type] = res
 

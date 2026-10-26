@@ -35,7 +35,7 @@ from tta_ratings_engine.models.evaluation.standard_eval import (
 from tta_ratings_engine.models.evaluation.walk_forward import (
     run_walk_forward_evaluation,
 )
-from tta_ratings_engine.models.glicko2.calculator import compute_glicko2_ratings
+from tta_ratings_engine.models.glicko2.calculator import MODELS, compute_glicko2_ratings
 from tta_ratings_engine.progress import Heartbeat, Progress
 
 FORMATS = [0, 2, 3, 4]
@@ -53,17 +53,7 @@ STEP_COST = {
     ("walk-forward", 0): 5.9, ("walk-forward", 2): 0.8, ("walk-forward", 3): 3.4, ("walk-forward", 4): 2.2,
 }  # fmt: skip
 
-_g2 = compute_glicko2_ratings
-_softer = {"reset_mode": "softer"}
-
-# The models a run computes: Glicko-D, continuous and with a season reset, which the site shows, and standard
-# Glicko-2 as the benchmark (the country stats read it). The other variants were retired in 2026-10.
-MODELS = [
-    ("glicko2_daneo", _g2, {"engine": "glicko2_daneo"}),
-    ("glicko2_daneo_softer", _g2, {"engine": "glicko2_daneo", **_softer}),
-    ("glicko2_std", _g2, {"weighted": False}),
-]
-MODEL_TYPES = [name for name, _, _ in MODELS]
+MODEL_TYPES = list(MODELS)
 
 
 RESULT_TABLES = [
@@ -407,9 +397,11 @@ def _compute(conn, run_id, formats, log):
 
         on_run = {"conn": conn, "run_id": run_id}
         for fmt in formats:
-            for name, compute, kwargs in MODELS:
+            for name, (engine, reset_mode) in MODELS.items():
                 progress.working_on(f"{name} {_label(fmt)}")
-                compute(player_count=fmt, **kwargs, **on_run)
+                compute_glicko2_ratings(
+                    engine=engine, reset_mode=reset_mode, player_count=fmt, **on_run
+                )
                 progress.advance(
                     f"{name} {_label(fmt)}",
                     STEP_COST["models", fmt],
@@ -480,8 +472,10 @@ def _run_task(url, run_id, kind, fmt, name):
     with connect(url) as conn:
         on_run = {"conn": conn, "run_id": run_id}
         if kind == "models":
-            _, compute, kwargs = next(m for m in MODELS if m[0] == name)
-            compute(player_count=fmt, **kwargs, **on_run)
+            engine, reset_mode = MODELS[name]
+            compute_glicko2_ratings(
+                engine=engine, reset_mode=reset_mode, player_count=fmt, **on_run
+            )
         elif kind == "calibration":
             run_standard_calibration_all(
                 verbose=False, model_filter=[name], formats=[fmt], **on_run
