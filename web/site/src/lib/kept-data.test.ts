@@ -55,14 +55,14 @@ function fact(groups: KeptGroup[], groupId: string, listId: string, key: string)
 }
 
 describe('keptGroups', () => {
-  it('lists the player record first, as the part a player knows best, and leaves it out before a link', () => {
-    expect(keptGroups(data, ZONE, country).map((g) => g.id)).toEqual(['member', 'account', 'logins', 'requests', 'sessions', 'links']);
+  it('lists the player record and its challenge dominations first, as the part a player knows best, and leaves them out before a link', () => {
+    expect(keptGroups(data, ZONE, country).map((g) => g.id)).toEqual(['member', 'challenges', 'account', 'logins', 'requests', 'sessions', 'links']);
     expect(keptGroups({ ...data, member: null }, ZONE, country).map((g) => g.id)).toEqual(['account', 'logins', 'requests', 'sessions', 'links']);
   });
 
   it('gives every group a rule saying when what it lists is removed', () => {
     const groups = keptGroups(data, ZONE, country);
-    expect(groups).toHaveLength(6);
+    expect(groups).toHaveLength(7);
     for (const g of groups) {
       const rules = [g.rule, ...g.lists.map((l) => l.rule)].filter((r) => r !== '');
       expect(rules.length, g.id).toBeGreaterThan(0);
