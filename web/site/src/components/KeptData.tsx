@@ -69,7 +69,7 @@ function Group({ group }: { group: KeptGroup }) {
     <section className="kept-group" aria-labelledby={`kept-${group.id}`}>
       <h3 id={`kept-${group.id}`}>{group.heading}</h3>
       {group.rule !== '' && <p className="kept-rule">{group.rule}</p>}
-      {group.lists.length === 0 && <p className="kept-rule">{group.empty}</p>}
+      {group.lists.length === 0 && group.empty !== '' && <p className="kept-rule">{group.empty}</p>}
       {group.lists.map((l) => (
         <div key={l.id} className={l.thisBrowser ? 'kept-list kept-this' : 'kept-list'}>
           {l.title !== '' && <h4>{l.title}</h4>}

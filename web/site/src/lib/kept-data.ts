@@ -30,7 +30,7 @@ const list = (id: string, title: string, rule: string, facts: Fact[], thisBrowse
 export function keptGroups(data: MyData, zone: string, countryName: (code: string) => string): KeptGroup[] {
   const when = (instant: string) => formatTime(instant, zone);
   // The player record first: it is the part a player knows best.
-  const groups: KeptGroup[] = data.member === null ? [] : [memberGroup(data.member, when, countryName)];
+  const groups: KeptGroup[] = data.member === null ? [] : [memberGroup(data.member, when, countryName), challengesGroup];
   groups.push(
     { id: 'account', heading: 'Your account', rule: 'Removed if you delete your account.', lists: [list('account', '', '', accountFacts(data.account, when, countryName))], empty: '' },
     {
@@ -124,6 +124,15 @@ function memberGroup(m: NonNullable<MyData['member']>, when: (instant: string) =
     empty: '',
   };
 }
+
+const challengesGroup: KeptGroup = {
+  id: 'challenges',
+  heading: 'Challenge dominations',
+  rule:
+    'Each domination entered under your TTA username, with its proof link and when it was entered, public on the Challenges pages. They stay if you delete your account; to have them removed, or shown without your name, write to privacy@ttacommunity.org.',
+  lists: [],
+  empty: '',
+};
 
 function requestFacts(r: MyData['requests'][number], when: (instant: string) => string): Fact[] {
   const answered = r.decided_at === null ? '' : ` ${when(r.decided_at)}`;
