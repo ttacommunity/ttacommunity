@@ -7,7 +7,7 @@ const page = await getEntry('pages', 'methodology');
 if (page === undefined) throw new Error('src/content/methodology.mdx is missing');
 const { Content } = await render(page);
 ---
-<SiteLayout title="Methodology | Through the Ages" description="The mathematics behind the Through the Ages rating engines: Glicko-2, multiplayer weighting, WHR, season resets and GlickoD.">
+<SiteLayout title="Methodology | Through the Ages" description="The mathematics behind the Through the Ages rating engines: Glicko-2, multiplayer weighting, season resets and GlickoD.">
   <div class="methodology">
     <div class="analysis-hero-card">
       <div>

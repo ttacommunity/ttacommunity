@@ -30,14 +30,8 @@ markers = ["slow: convergence sweeps; CI runs them on main only"]
 target-version = "py312"
 # Upstream's code, kept as copied until it is refactored. Remove a file once it is.
 extend-exclude = [
-    "src/tta_ratings_engine/models/glicko2/adaptive_t.py",
     "src/tta_ratings_engine/models/glicko2/engine.py",
-    "src/tta_ratings_engine/models/whr/engine.py",
-    "src/tta_ratings_engine/models/whr/solver.py",
-    "tests/models/glicko2/test_adaptive_t.py",
     "tests/models/glicko2/test_engine.py",
-    "tests/models/whr/test_engine.py",
-    "tests/models/whr/test_solver.py",
 ]
 
 [tool.ruff.lint]

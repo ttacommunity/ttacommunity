@@ -478,7 +478,7 @@ const headers: [SortKey | null, string, string][] = [
   ['name', 'Player', 'Player username.'],
   [null, 'Title', 'Official TTA Titles: WC (World Champion), GM (Grandmaster), M (Master), P (Platinum), G (Gold), S (Silver), B (Bronze), W (Wood).'],
   ['c_rating', 'C-Rating', 'Conservative Rating: C = Rating - 3 × RD (99.7% confidence lower bound). Prevents unearned top spots with high uncertainty.'],
-  ['rating', 'Rating ± RD', 'Glicko-2 / WHR Skill Rating (mean μ) and Rating Deviation (RD / σ). Default starting rating is 1500 ± 350.'],
+  ['rating', 'Rating ± RD', 'Glicko-2 Skill Rating (mean μ) and Rating Deviation (RD / σ). Default starting rating is 1500 ± 350.'],
   ['opps', 'Opps', 'Total competitive opponents faced across all recorded tournament games in this format.'],
   [null, 'W-L-D', 'Total Wins, Losses, and Draws accumulated across competitive tournament matches.'],
   ['win_rate', 'Win %', 'Effective win percentage: (Wins + 0.5 × Draws) / Opponents × 100.'],
@@ -493,7 +493,7 @@ function wldName(view: View): string {
 
 function wldTip(view: View): string {
   if (view.year === null) return 'Total Wins, Losses, and Draws accumulated across competitive tournament matches.';
-  const how = '(Glicko-2 & WHR ratings are calculated based on the chosen reset mode).';
+  const how = '(Ratings are calculated based on the chosen reset mode).';
   return view.stats === 'career'
     ? `Cumulative career match record through Season ${view.year}. ${how}`
     : `Match record for Season ${view.year} only. ${how}`;

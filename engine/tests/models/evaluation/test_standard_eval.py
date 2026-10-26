@@ -102,3 +102,19 @@ def test_a_finished_run_is_never_written_to(conn, add_match, run_id):
         )
 
     assert stored(conn, run_id) == []
+
+
+@pytest.mark.parametrize(
+    ("engine", "reset_mode"),
+    [("glicko2_daneo", "soft"), ("glicko2_mp", "continuous")],
+)
+def test_an_unknown_engine_or_reset_is_refused(
+    conn, add_match, run_id, engine, reset_mode
+):
+    seed(add_match)
+    expand_pairwise(conn, run_id)
+
+    with pytest.raises(ValueError, match="unknown"):
+        evaluate_standard_glicko2(
+            engine=engine, reset_mode=reset_mode, conn=conn, run_id=run_id
+        )

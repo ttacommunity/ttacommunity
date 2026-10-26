@@ -74,7 +74,10 @@ from datetime import date
 
 from tta_ratings_engine.data.db import RunNotRunning
 from tta_ratings_engine.data.pairwise import expand_pairwise
-from tta_ratings_engine.models.glicko2.calculator import compute_glicko2_ratings
+from tta_ratings_engine.models.glicko2.calculator import (
+    compute_glicko2_ratings,
+    model_name,
+)
 
 
 def season(add_match):
@@ -163,15 +166,53 @@ def test_the_model_type_names_the_engine_and_reset(conn, add_match, run_id):
     compute_glicko2_ratings(
         engine="glicko2_daneo", reset_mode="softer", conn=conn, run_id=run_id
     )
-    compute_glicko2_ratings(
-        weighted=True, retro_calibrated=True, conn=conn, run_id=run_id
-    )
+    compute_glicko2_ratings(engine="glicko2_std", conn=conn, run_id=run_id)
 
     types = {
         r["model_type"]
         for r in conn.execute("SELECT DISTINCT model_type FROM player_ratings")
     }
-    assert types == {"glicko2_daneo_softer", "glicko2_mp_retro"}
+    assert types == {"glicko2_daneo_softer", "glicko2_std"}
+
+
+@pytest.mark.parametrize(
+    ("engine", "reset_mode", "want"),
+    [
+        ("glicko2_daneo", "continuous", "glicko2_daneo"),
+        ("glicko2_daneo", "softer", "glicko2_daneo_softer"),
+        ("glicko2_std", "continuous", "glicko2_std"),
+        ("glicko2_std", "softer", "glicko2_std_softer"),
+    ],
+)
+def test_a_models_name_is_its_engine_and_reset(engine, reset_mode, want):
+    assert model_name(engine, reset_mode) == want
+
+
+@pytest.mark.parametrize(
+    ("engine", "reset_mode"),
+    [
+        ("glicko2_daneo", "soft"),
+        ("glicko2_daneo", "amplified"),
+        ("glicko2_std", ""),
+        ("glicko2_mp", "continuous"),
+        ("whr", "continuous"),
+    ],
+)
+def test_an_unknown_engine_or_reset_is_refused(engine, reset_mode):
+    with pytest.raises(ValueError, match="unknown"):
+        model_name(engine, reset_mode)
+
+
+def test_an_unknown_reset_writes_nothing(conn, add_match, run_id):
+    season(add_match)
+    expand_pairwise(conn, run_id)
+
+    with pytest.raises(ValueError, match="unknown"):
+        compute_glicko2_ratings(
+            engine="glicko2_daneo", reset_mode="soft", conn=conn, run_id=run_id
+        )
+
+    assert conn.execute("SELECT count(*) AS n FROM player_ratings").fetchone()["n"] == 0
 
 
 def test_ineligible_games_do_not_move_ratings(conn, add_match, run_id):

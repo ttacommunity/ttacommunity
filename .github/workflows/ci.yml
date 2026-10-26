@@ -160,10 +160,11 @@ jobs:
           PR_DRAFT: ${{ github.event.pull_request.draft }}
         run: PATH="$HOME/.local/share/mise/shims:$PATH" bash scripts/ci.sh --only checks
       # gitleaks passes "0 commits scanned" when git fails, so require a scan.
+      # From HEAD only: its default --all would scan every fetched branch, not the commits under test.
       - name: secrets
         if: ${{ !cancelled() }}
         run: |
-          PATH="$HOME/.local/share/mise/shims:$PATH" gitleaks git --redact --no-banner --no-color . 2>&1 | tee "$RUNNER_TEMP/gitleaks.log"
+          PATH="$HOME/.local/share/mise/shims:$PATH" gitleaks git --redact --no-banner --no-color --log-opts="--full-history --diff-filter=tuxdb HEAD" . 2>&1 | tee "$RUNNER_TEMP/gitleaks.log"
           grep -qE ' [1-9][0-9]* commits scanned' "$RUNNER_TEMP/gitleaks.log"
       # Reports without blocking, as GitLab's SAST did; findings are triaged by hand.
       - name: sast
