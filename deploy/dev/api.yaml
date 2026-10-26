@@ -183,6 +183,7 @@ spec:
               path: /readyz
               port: http
             periodSeconds: 10
+            timeoutSeconds: 3
           livenessProbe:
             httpGet:
               path: /healthz
