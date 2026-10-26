@@ -906,3 +906,23 @@ with the cluster's own configuration.
 ```bash
 curl -s http://127.0.0.1:8081/metrics | grep '^ttacapi_'
 ```
+
+## License
+
+- **Code** is under the [GNU Affero General Public License](LICENSE),
+  version 3 or any later version (`AGPL-3.0-or-later`). Whoever runs a
+  changed copy as a website must offer its source to the people using it
+- **Documentation and the site's written content** (`docs/`, this
+  repository's Markdown files and `web/site/src/content/`) are under
+  [Creative Commons Attribution 4.0](LICENSE-docs.txt) (`CC-BY-4.0`)
+- **Under their own terms:** `infra/access-oidc/` (Erisa's
+  discord-oidc-worker, MIT, its `LICENSE`); the fonts in
+  `web/site/public/fonts/` (SIL Open Font License 1.1, from Google Fonts);
+  the flags in `web/site/public/flags/` (public domain, from Flagpedia);
+  `CODE_OF_CONDUCT.md` (adapted from Contributor Covenant 3.0, CC BY-SA
+  4.0); the Google and Microsoft logos on the sign-in buttons (their owners'
+  trademarks)
+
+No match or rating data is kept in this repository. How a contribution
+comes under these licenses: [`CONTRIBUTING.md`](CONTRIBUTING.md), "Sign off
+your commits".

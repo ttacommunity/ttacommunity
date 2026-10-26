@@ -358,6 +358,9 @@ agent runs them itself.
 - **Commit messages**: one line, imperative, capitalised, no full stop, about
   50 characters (72 at most). Describe the change in plain words:
   `Add sign-in with Discord to the API`. No AI or tool attribution trailers
+- **Contributors outside the maintainers sign off each commit**
+  (`git commit -s`): `CONTRIBUTING.md` says why, and `checks/dco.sh` fails
+  a pull request whose commits lack it
 - **Pull requests have two sections only**: **What it does** and **How to
   test it** (commands and URLs). Merging needs a maintainer
 - **One issue per pull request.** Work for another issue goes on its own
