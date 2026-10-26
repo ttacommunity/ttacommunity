@@ -174,6 +174,8 @@ type AccountAdmin interface {
 	RefuseLink(ctx context.Context, request int64, reason string, now time.Time) error
 	UnlinkAccount(ctx context.Context, account int64) error
 	RemoveAccount(ctx context.Context, account int64) error
+	// ChallengeEntryPage returns a page (from 1) of every challenge entry, size to a page, newest first.
+	ChallengeEntryPage(ctx context.Context, page, size int) (store.AdminChallengeEntries, error)
 }
 
 type adminKey struct{}

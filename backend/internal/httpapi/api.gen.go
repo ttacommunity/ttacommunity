@@ -19,6 +19,24 @@ import (
 	openapi_types "github.com/oapi-codegen/runtime/types"
 )
 
+// Defines values for AdminChallengeEntrySource.
+const (
+	Sheet AdminChallengeEntrySource = "sheet"
+	Web   AdminChallengeEntrySource = "web"
+)
+
+// Valid indicates whether the value is a known member of the AdminChallengeEntrySource enum.
+func (e AdminChallengeEntrySource) Valid() bool {
+	switch e {
+	case Sheet:
+		return true
+	case Web:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for AdminRunStatus.
 const (
 	AdminRunStatusComplete AdminRunStatus = "complete"
@@ -214,6 +232,27 @@ func (e CalibrationRowMode) Valid() bool {
 	case Standard:
 		return true
 	case WalkForward:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ChallengeSet.
+const (
+	Expansion ChallengeSet = "expansion"
+	Mix       ChallengeSet = "mix"
+	Original  ChallengeSet = "original"
+)
+
+// Valid indicates whether the value is a known member of the ChallengeSet enum.
+func (e ChallengeSet) Valid() bool {
+	switch e {
+	case Expansion:
+		return true
+	case Mix:
+		return true
+	case Original:
 		return true
 	default:
 		return false
@@ -1091,6 +1130,53 @@ type AdminBlitzRound struct {
 	// round. Null for a Swiss round, or with nobody left.
 	Reserve *int64 `json:"reserve"`
 }
+
+// AdminChallengeEntries defines model for AdminChallengeEntries.
+type AdminChallengeEntries struct {
+	Entries  []AdminChallengeEntry `json:"entries"`
+	Page     int                   `json:"page"`
+	PageSize int                   `json:"page_size"`
+
+	// Total Every entry, on every page
+	Total int `json:"total"`
+}
+
+// AdminChallengeEntry An entry as admin sees it
+type AdminChallengeEntry struct {
+	// Account The account that submitted it, null for an imported entry
+	Account *int64 `json:"account"`
+
+	// Bugged Made through a since-fixed game bug, listed but never counted
+	Bugged        bool   `json:"bugged"`
+	Challenge     string `json:"challenge"`
+	ChallengeName string `json:"challenge_name"`
+
+	// Checked An admin has looked at the proof
+	Checked    bool `json:"checked"`
+	Domination int  `json:"domination"`
+
+	// EnteredAs The name it was entered under
+	EnteredAs    string    `json:"entered_as"`
+	EnteredAt    time.Time `json:"entered_at"`
+	Hidden       bool      `json:"hidden"`
+	HiddenReason string    `json:"hidden_reason"`
+	Id           int64     `json:"id"`
+
+	// Member The linked member's id, null when not linked
+	Member *int64 `json:"member"`
+
+	// Player The linked member's TTA username, else the name it was entered under
+	Player string `json:"player"`
+
+	// ProofUrl The proof link, null for an unverified entry
+	ProofUrl *string `json:"proof_url"`
+
+	// Source Where it came from, sheet for the old spreadsheet and web for the old site
+	Source AdminChallengeEntrySource `json:"source"`
+}
+
+// AdminChallengeEntrySource Where it came from, sheet for the old spreadsheet and web for the old site
+type AdminChallengeEntrySource string
 
 // AdminLinkRefused An account's last request to be linked, when it was refused and neither a new request nor a link has followed
 type AdminLinkRefused struct {
@@ -2093,6 +2179,48 @@ type CatalogueTournament struct {
 
 	// TopTierWins A ladder's players by their wins in its top tier, most first, as its organisers count them (half a win for a tie)
 	TopTierWins []LadderWin `json:"top_tier_wins"`
+}
+
+// Challenge One of the game's challenges, with its verified record
+type Challenge struct {
+	Difficulty int `json:"difficulty"`
+
+	// Group The group the game lists it under, such as classic or epic
+	Group string `json:"group"`
+
+	// Id Example: epic1_exp
+	Id   string `json:"id"`
+	Name string `json:"name"`
+
+	// Players Players in the game, the player's own seat included
+	Players int `json:"players"`
+
+	// Record The verified entry holding the record, null when no verified entry counts
+	Record *ChallengeRecord `json:"record"`
+	Set    ChallengeSet     `json:"set"`
+
+	// Slot Its place in the group
+	Slot int `json:"slot"`
+}
+
+// ChallengeSet defines model for Challenge.Set.
+type ChallengeSet string
+
+// ChallengeList defines model for ChallengeList.
+type ChallengeList struct {
+	Challenges []Challenge `json:"challenges"`
+}
+
+// ChallengeRecord The entry holding a challenge's record
+type ChallengeRecord struct {
+	Domination int       `json:"domination"`
+	EnteredAt  time.Time `json:"entered_at"`
+
+	// Player The member's TTA username, or the name the entry was made under when it is not linked to a member
+	Player string `json:"player"`
+
+	// ProofUrl The Discord message proving it
+	ProofUrl string `json:"proof_url"`
 }
 
 // Champion defines model for Champion.
@@ -4009,6 +4137,11 @@ type GetAdminBlitzCandidatesParams struct {
 	Q string `form:"q" json:"q"`
 }
 
+// GetAdminChallengeEntriesParams defines parameters for GetAdminChallengeEntries.
+type GetAdminChallengeEntriesParams struct {
+	Page *int `form:"page,omitempty" json:"page,omitempty"`
+}
+
 // GetAdminPeopleParams defines parameters for GetAdminPeople.
 type GetAdminPeopleParams struct {
 	// Q Part of a name, at least two characters
@@ -4426,6 +4559,9 @@ type ServerInterface interface {
 	// DeleteAdminBlitzRoundResults Reset every result of the latest round, its pairing kept
 	// (DELETE /v1/admin/blitz/{tournament}/{edition}/rounds/{round}/results)
 	DeleteAdminBlitzRoundResults(w http.ResponseWriter, r *http.Request, tournament AdminTournamentSlug, edition BlitzEditionLabel, round BlitzRoundId)
+	// GetAdminChallengeEntries A page of every challenge entry, newest first (admins and organisers)
+	// (GET /v1/admin/challenges/entries)
+	GetAdminChallengeEntries(w http.ResponseWriter, r *http.Request, params GetAdminChallengeEntriesParams)
 	// GetAdminCommunityEditions Every edition of the community leaderboard
 	// (GET /v1/admin/community/editions)
 	GetAdminCommunityEditions(w http.ResponseWriter, r *http.Request)
@@ -4564,6 +4700,9 @@ type ServerInterface interface {
 	// GetBlitzEdition A blitz edition's format and the entrants still in
 	// (GET /v1/blitz/{tournament}/{edition})
 	GetBlitzEdition(w http.ResponseWriter, r *http.Request, tournament AdminTournamentSlug, edition BlitzEditionLabel)
+	// GetChallenges The game's challenges, each with its verified record
+	// (GET /v1/challenges)
+	GetChallenges(w http.ResponseWriter, r *http.Request)
 	// GetCommunityEditions Visible editions of the community leaderboard
 	// (GET /v1/community/editions)
 	GetCommunityEditions(w http.ResponseWriter, r *http.Request)
@@ -6137,6 +6276,39 @@ func (siw *ServerInterfaceWrapper) DeleteAdminBlitzRoundResults(w http.ResponseW
 	handler.ServeHTTP(w, r)
 }
 
+// GetAdminChallengeEntries operation middleware
+func (siw *ServerInterfaceWrapper) GetAdminChallengeEntries(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params GetAdminChallengeEntriesParams
+
+	// ------------- Optional query parameter "page" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "page", r.URL.Query(), &params.Page, runtime.BindQueryParameterOptions{Type: "integer", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "page"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "page", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetAdminChallengeEntries(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // GetAdminCommunityEditions operation middleware
 func (siw *ServerInterfaceWrapper) GetAdminCommunityEditions(w http.ResponseWriter, r *http.Request) {
 
@@ -7305,6 +7477,20 @@ func (siw *ServerInterfaceWrapper) GetBlitzEdition(w http.ResponseWriter, r *htt
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.GetBlitzEdition(w, r, tournament, edition)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetChallenges operation middleware
+func (siw *ServerInterfaceWrapper) GetChallenges(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetChallenges(w, r)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -9215,6 +9401,7 @@ func HandlerWithOptions(si ServerInterface, options StdHTTPServerOptions) http.H
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/v1/runs/{run}/podiums", wrapper.GetRecentPodiums)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/v1/community/editions", wrapper.GetCommunityEditions)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/v1/runs/{run}/community/{edition}", wrapper.GetCommunityLeaderboard)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/v1/challenges", wrapper.GetChallenges)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/v1/blitz", wrapper.GetBlitzEditions)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/v1/blitz/{tournament}/{edition}", wrapper.GetBlitzEdition)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/v1/countries", wrapper.GetCountries)
@@ -9249,6 +9436,7 @@ func HandlerWithOptions(si ServerInterface, options StdHTTPServerOptions) http.H
 	m.HandleFunc(http.MethodDelete+" "+options.BaseURL+"/v1/admin/admins/{discord_id}", wrapper.DeleteAdminAdmin)
 	m.HandleFunc(http.MethodPut+" "+options.BaseURL+"/v1/admin/admins/{discord_id}", wrapper.PutAdminAdmin)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/v1/admin/audit", wrapper.GetAdminAudit)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/v1/admin/challenges/entries", wrapper.GetAdminChallengeEntries)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/v1/admin/members", wrapper.GetAdminMembers)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/v1/admin/members", wrapper.PostAdminMember)
 	m.HandleFunc(http.MethodDelete+" "+options.BaseURL+"/v1/admin/members/{member}", wrapper.DeleteAdminMember)
@@ -12527,6 +12715,81 @@ func (response DeleteAdminBlitzRoundResults409JSONResponse) VisitDeleteAdminBlit
 	return err
 }
 
+type GetAdminChallengeEntriesRequestObject struct {
+	Params GetAdminChallengeEntriesParams
+}
+
+type GetAdminChallengeEntriesResponseObject interface {
+	VisitGetAdminChallengeEntriesResponse(w http.ResponseWriter) error
+}
+
+type GetAdminChallengeEntries200ResponseHeaders struct {
+	CacheControl string
+}
+
+type GetAdminChallengeEntries200JSONResponse struct {
+	Body    AdminChallengeEntries
+	Headers GetAdminChallengeEntries200ResponseHeaders
+}
+
+func (response GetAdminChallengeEntries200JSONResponse) VisitGetAdminChallengeEntriesResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetAdminChallengeEntries400JSONResponse struct{ BadRequestJSONResponse }
+
+func (response GetAdminChallengeEntries400JSONResponse) VisitGetAdminChallengeEntriesResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetAdminChallengeEntries401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response GetAdminChallengeEntries401JSONResponse) VisitGetAdminChallengeEntriesResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetAdminChallengeEntries403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response GetAdminChallengeEntries403JSONResponse) VisitGetAdminChallengeEntriesResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
 type GetAdminCommunityEditionsRequestObject struct {
 }
 
@@ -15571,6 +15834,35 @@ func (response GetBlitzEdition404JSONResponse) VisitGetBlitzEditionResponse(w ht
 	return err
 }
 
+type GetChallengesRequestObject struct {
+}
+
+type GetChallengesResponseObject interface {
+	VisitGetChallengesResponse(w http.ResponseWriter) error
+}
+
+type GetChallenges200ResponseHeaders struct {
+	CacheControl string
+}
+
+type GetChallenges200JSONResponse struct {
+	Body    ChallengeList
+	Headers GetChallenges200ResponseHeaders
+}
+
+func (response GetChallenges200JSONResponse) VisitGetChallengesResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
 type GetCommunityEditionsRequestObject struct {
 }
 
@@ -18399,6 +18691,9 @@ type StrictServerInterface interface {
 	// DeleteAdminBlitzRoundResults Reset every result of the latest round, its pairing kept
 	// (DELETE /v1/admin/blitz/{tournament}/{edition}/rounds/{round}/results)
 	DeleteAdminBlitzRoundResults(ctx context.Context, request DeleteAdminBlitzRoundResultsRequestObject) (DeleteAdminBlitzRoundResultsResponseObject, error)
+	// GetAdminChallengeEntries A page of every challenge entry, newest first (admins and organisers)
+	// (GET /v1/admin/challenges/entries)
+	GetAdminChallengeEntries(ctx context.Context, request GetAdminChallengeEntriesRequestObject) (GetAdminChallengeEntriesResponseObject, error)
 	// GetAdminCommunityEditions Every edition of the community leaderboard
 	// (GET /v1/admin/community/editions)
 	GetAdminCommunityEditions(ctx context.Context, request GetAdminCommunityEditionsRequestObject) (GetAdminCommunityEditionsResponseObject, error)
@@ -18537,6 +18832,9 @@ type StrictServerInterface interface {
 	// GetBlitzEdition A blitz edition's format and the entrants still in
 	// (GET /v1/blitz/{tournament}/{edition})
 	GetBlitzEdition(ctx context.Context, request GetBlitzEditionRequestObject) (GetBlitzEditionResponseObject, error)
+	// GetChallenges The game's challenges, each with its verified record
+	// (GET /v1/challenges)
+	GetChallenges(ctx context.Context, request GetChallengesRequestObject) (GetChallengesResponseObject, error)
 	// GetCommunityEditions Visible editions of the community leaderboard
 	// (GET /v1/community/editions)
 	GetCommunityEditions(ctx context.Context, request GetCommunityEditionsRequestObject) (GetCommunityEditionsResponseObject, error)
@@ -19876,6 +20174,32 @@ func (sh *strictHandler) DeleteAdminBlitzRoundResults(w http.ResponseWriter, r *
 	}
 }
 
+// GetAdminChallengeEntries operation middleware
+func (sh *strictHandler) GetAdminChallengeEntries(w http.ResponseWriter, r *http.Request, params GetAdminChallengeEntriesParams) {
+	var request GetAdminChallengeEntriesRequestObject
+
+	request.Params = params
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.GetAdminChallengeEntries(ctx, request.(GetAdminChallengeEntriesRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetAdminChallengeEntries")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(GetAdminChallengeEntriesResponseObject); ok {
+		if err := validResponse.VisitGetAdminChallengeEntriesResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
 // GetAdminCommunityEditions operation middleware
 func (sh *strictHandler) GetAdminCommunityEditions(w http.ResponseWriter, r *http.Request) {
 	var request GetAdminCommunityEditionsRequestObject
@@ -21129,6 +21453,30 @@ func (sh *strictHandler) GetBlitzEdition(w http.ResponseWriter, r *http.Request,
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(GetBlitzEditionResponseObject); ok {
 		if err := validResponse.VisitGetBlitzEditionResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// GetChallenges operation middleware
+func (sh *strictHandler) GetChallenges(w http.ResponseWriter, r *http.Request) {
+	var request GetChallengesRequestObject
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.GetChallenges(ctx, request.(GetChallengesRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetChallenges")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(GetChallengesResponseObject); ok {
+		if err := validResponse.VisitGetChallengesResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {

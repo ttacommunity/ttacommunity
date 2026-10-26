@@ -18,6 +18,13 @@ type Ratings interface {
 	TournamentReads
 	CatalogueReads
 	BlitzReads
+	ChallengeReads
+}
+
+// ChallengeReads are challenges.go's reads: the challenges, and every entry not hidden.
+type ChallengeReads interface {
+	Challenges(ctx context.Context) ([]store.ChallengeRow, error)
+	ChallengeEntries(ctx context.Context) ([]store.ChallengeEntry, error)
 }
 
 // BlitzReads are the site's blitz tournament reads: the shown editions, and one with its active entrants.

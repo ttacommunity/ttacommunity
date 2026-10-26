@@ -53,6 +53,8 @@ type fakeAdmins struct {
 	added      []store.BlitzEntrant
 	candidates []store.Candidate
 	searched   string
+	// pageSize is the page size ChallengeEntryPage was last asked for (admin_challenges_test.go).
+	pageSize int
 	// inChange is set while Change runs fn; auditErr is what Audit answers there.
 	inChange bool
 	auditErr error
