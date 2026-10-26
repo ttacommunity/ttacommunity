@@ -1487,8 +1487,11 @@ type AdminSeason struct {
 	PodiumNote string        `json:"podium_note"`
 
 	// Rated Its games count towards ratings, from the next run
-	Rated  bool         `json:"rated"`
-	Stages []AdminStage `json:"stages"`
+	Rated bool `json:"rated"`
+
+	// RunHere It is run on this site, CGE only advertising it; its CGE tournament gives its page, never its stages, games or settings
+	RunHere bool         `json:"run_here"`
+	Stages  []AdminStage `json:"stages"`
 
 	// SuggestedFrom Where the suggestion comes from; recorded (the organisers' placements), final_stage (its one-group final's games, by game points then culture), or empty for none
 	SuggestedFrom AdminSeasonSuggestedFrom `json:"suggested_from"`
@@ -3547,6 +3550,9 @@ type SeasonChange struct {
 
 	// Rated Its games count towards ratings, from the next run
 	Rated *bool `json:"rated,omitempty"`
+
+	// RunHere It is run on this site, so CGE's loads take its CGE tournament's page and never its stages, games or settings
+	RunHere *bool `json:"run_here,omitempty"`
 
 	// StageNotes Notes by stage label; an empty note removes one
 	StageNotes *map[string]string `json:"stage_notes,omitempty"`

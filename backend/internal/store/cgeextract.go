@@ -3,26 +3,46 @@ package store
 import (
 	"context"
 	"fmt"
+	"slices"
 	"strings"
 
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"ttacommunity/backend/internal/cgeextract"
 )
 
 // CGEPlan is how CGE's extract meets our games, before anything is written: its games, how they match ours,
-// the accounts each name has played under, and our series for each linked CGE tournament.
+// the accounts each name has played under, and our series for each linked CGE tournament. RunHere counts the
+// games it leaves out, of CGE tournaments linked to seasons run on this site.
 type CGEPlan struct {
 	Games    []cgeextract.Game
 	Ours     []cgeextract.OurGame
 	Matching cgeextract.Matching
 	Names    map[string][]int
 	Series   map[int]int64
+	RunHere  int
 }
 
 // PlanCGEExtract reads our games and matches the extract's to them, confirmed pairs first, writing nothing.
+// The games of a CGE tournament linked to a season run on this site are left out.
 func PlanCGEExtract(ctx context.Context, pool *pgxpool.Pool, x cgeextract.Extract, confirmed map[string]int64) (CGEPlan, error) {
-	plan := CGEPlan{Games: cgeextract.Games(x.Seats), Names: map[string][]int{}, Series: map[int]int64{}}
+	plan := CGEPlan{Names: map[string][]int{}, Series: map[int]int64{}}
+	rows, err := pool.Query(ctx, `SELECT c.cge_tournament FROM cge_tournaments c JOIN tournaments t USING (tournament_id) WHERE t.run_here`)
+	if err != nil {
+		return CGEPlan{}, fmt.Errorf("reading the CGE tournaments run on this site: %w", err)
+	}
+	here, err := pgx.CollectRows(rows, pgx.RowTo[int])
+	if err != nil {
+		return CGEPlan{}, fmt.Errorf("reading the CGE tournaments run on this site: %w", err)
+	}
+	for _, g := range cgeextract.Games(x.Seats) {
+		if slices.Contains(here, g.TournamentID) {
+			plan.RunHere++
+			continue
+		}
+		plan.Games = append(plan.Games, g)
+	}
 	addName := func(name string, account int) {
 		k := strings.ToLower(name)
 		for _, a := range plan.Names[k] {
@@ -37,7 +57,7 @@ func PlanCGEExtract(ctx context.Context, pool *pgxpool.Pool, x cgeextract.Extrac
 			addName(s.PlayerName, s.PlayerID)
 		}
 	}
-	rows, err := pool.Query(ctx, `
+	rows, err = pool.Query(ctx, `
 		SELECT player_name, cge_user FROM seats WHERE cge_user IS NOT NULL
 		UNION SELECT name, cge_user FROM player_accounts`)
 	if err != nil {

@@ -121,6 +121,16 @@ export default function SeasonsCard({
               Counts in the community leaderboard{' '}
               <span className="muted">(from the next engine run, when the tournament counts; untick a play-off that should not score)</span>
             </label>
+            <label className="season-rated">
+              <input
+                id={fieldId('season-here', se.label)}
+                type="checkbox"
+                checked={se.run_here}
+                onChange={(e) => void setFlag(se.label, 'here', e.target.checked)}
+              />{' '}
+              Run on this site{' '}
+              <span className="muted">(CGE only advertises it: its CGE page shows, but CGE's loads never add its stages, games or settings)</span>
+            </label>
             {!se.has_games && (
               <div className="season-empty">
                 <span className="muted">No games recorded.</span>

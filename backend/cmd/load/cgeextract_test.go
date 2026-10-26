@@ -16,6 +16,7 @@ func TestReportCGEExtractCountsAndNamesNoPlayer(t *testing.T) {
 			{SessionID: 3, ShareCode: "CODECCCC", State: "finished"},
 		},
 		Matching: cgeextract.Matching{Matched: map[int64]int{10: 1}, Added: []int{2}, HeldBack: []int{3}, OursOnly: []int64{11, 12}},
+		RunHere:  4,
 	}
 	refused := []cgeextract.Refusal{{Line: 7, Reason: cgeextract.BadID}}
 	var b strings.Builder
@@ -23,7 +24,7 @@ func TestReportCGEExtractCountsAndNamesNoPlayer(t *testing.T) {
 	reportCGEExtract(&b, plan, refused, nil)
 
 	got := b.String()
-	for _, want := range []string{"CGE games: 3", "matched to ours: 1", "only CGE has: 1 (running 1)",
+	for _, want := range []string{"CGE games: 3", "left out, in seasons run on this site: 4", "matched to ours: 1", "only CGE has: 1 (running 1)",
 		"held back as possible copies: 1", "  CODECCCC", "ours only: 2", "refused: 1", "  line 7 bad_id",
 		"nothing written: add -apply"} {
 		if !strings.Contains(got, want) {

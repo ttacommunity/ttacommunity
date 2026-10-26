@@ -177,6 +177,7 @@ type SeasonChange struct {
 	Rated            *bool
 	InChampions      *bool
 	InCommunity      *bool
+	RunHere          *bool
 	TimeoutPenalty   *float64
 	Note             *string
 	StageNotes       map[string]string
@@ -197,6 +198,7 @@ func (a *AdminStore) ChangeSeason(ctx context.Context, slug, season string, c Se
 			{c.Rated != nil, func() error { return tx.SetSeasonRated(ctx, slug, season, *c.Rated) }},
 			{c.InChampions != nil, func() error { return tx.SetSeasonInChampions(ctx, slug, season, *c.InChampions) }},
 			{c.InCommunity != nil, func() error { return tx.SetSeasonInCommunity(ctx, slug, season, *c.InCommunity) }},
+			{c.RunHere != nil, func() error { return tx.SetSeasonRunHere(ctx, slug, season, *c.RunHere) }},
 			{c.TimeoutPenalty != nil, func() error { return tx.SetSeasonPenalty(ctx, slug, season, *c.TimeoutPenalty) }},
 			{c.Note != nil, func() error { return tx.SetNote(ctx, slug, season, "", *c.Note) }},
 			{c.MoveToTournament != nil, func() error {
@@ -244,6 +246,20 @@ func (a *AdminStore) SetSeasonInCommunity(ctx context.Context, slug, season stri
 		WHERE t.series_id = se.series_id AND t.slug = $1 AND se.label = $2`, slug, season, in)
 	if err != nil {
 		return fmt.Errorf("setting whether %s %s counts in the community leaderboard: %w", slug, season, err)
+	}
+	if tag.RowsAffected() == 0 {
+		return ErrNoTournament
+	}
+	return nil
+}
+
+// SetSeasonRunHere sets whether a season is run on this site, so CGE's loads take its CGE tournament's page and
+// never its stages or games, or returns ErrNoTournament for a season that does not exist.
+func (a *AdminStore) SetSeasonRunHere(ctx context.Context, slug, season string, here bool) error {
+	tag, err := a.pool.Exec(ctx, `UPDATE tournaments se SET run_here = $3 FROM series t
+		WHERE t.series_id = se.series_id AND t.slug = $1 AND se.label = $2`, slug, season, here)
+	if err != nil {
+		return fmt.Errorf("setting whether %s %s is run on this site: %w", slug, season, err)
 	}
 	if tag.RowsAffected() == 0 {
 		return ErrNoTournament

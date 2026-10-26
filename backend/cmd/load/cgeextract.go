@@ -107,6 +107,7 @@ func reportCGEExtract(w io.Writer, plan store.CGEPlan, refused []cgeextract.Refu
 		byState[states[s]]++
 	}
 	fmt.Fprintf(w, "CGE games: %d\n", len(plan.Games))
+	fmt.Fprintf(w, "left out, in seasons run on this site: %d\n", plan.RunHere)
 	fmt.Fprintf(w, "matched to ours: %d\n", len(plan.Matching.Matched))
 	fmt.Fprintf(w, "only CGE has: %d (", len(plan.Matching.Added))
 	for i, state := range slices.Sorted(maps.Keys(byState)) {

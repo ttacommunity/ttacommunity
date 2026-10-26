@@ -183,6 +183,28 @@ func TestASeasonCanBeLeftOutOfTheCommunityLeaderboard(t *testing.T) {
 	}
 }
 
+func TestASeasonCanBeRunOnThisSite(t *testing.T) {
+	pool := migrated(t)
+	ctx := context.Background()
+	placedOn(t, pool, map[string]time.Time{
+		"Wimbledon 2024 Stage 1 - group 1 game 1": day("2024-07-01"),
+		"Wimbledon 2025 Stage 1 - group 1 game 1": day("2025-07-01"),
+	})
+	a := NewAdminStore(asAdminLogin(t, pool))
+	run := true
+	if err := a.ChangeSeason(ctx, "wimbledon", "2024", SeasonChange{RunHere: &run}); err != nil {
+		t.Fatalf("ChangeSeason: %v", err)
+	}
+	for _, se := range adminTournament(t, a, "wimbledon").Seasons {
+		if se.RunHere != (se.Label == "2024") {
+			t.Errorf("season %s run on this site = %v", se.Label, se.RunHere)
+		}
+	}
+	if err := a.ChangeSeason(ctx, "wimbledon", "1999", SeasonChange{RunHere: &run}); !errors.Is(err, ErrNoTournament) {
+		t.Errorf("no such season = %v, want ErrNoTournament", err)
+	}
+}
+
 func TestAdminSetsASeasonsTimeoutPenalty(t *testing.T) {
 	pool := migrated(t)
 	ctx := context.Background()

@@ -731,7 +731,8 @@ func writeSettings(ctx context.Context, tx pgx.Tx, plan CGEPlan, in CGEInput, go
 	return nil
 }
 
-// settingsTarget returns the settings column and our id CGE's settings row belongs to, or 0 for none.
+// settingsTarget returns the settings column and our id CGE's settings row belongs to, or 0 for none, as for
+// a season run on this site.
 func settingsTarget(ctx context.Context, tx pgx.Tx, plan CGEPlan, in CGEInput, s cgeextract.Settings) (string, int64, error) {
 	var id int64
 	if s.StageID != 0 {
@@ -746,9 +747,14 @@ func settingsTarget(ctx context.Context, tx pgx.Tx, plan CGEPlan, in CGEInput, s
 		return "stage_id", id, err
 	}
 	var tournament *int64
-	err := tx.QueryRow(ctx, "SELECT tournament_id FROM cge_tournaments WHERE cge_tournament = $1", s.TournamentID).Scan(&tournament)
+	var here bool
+	err := tx.QueryRow(ctx, `SELECT c.tournament_id, coalesce(t.run_here, false) FROM cge_tournaments c
+		LEFT JOIN tournaments t USING (tournament_id) WHERE c.cge_tournament = $1`, s.TournamentID).Scan(&tournament, &here)
 	if err != nil && err != pgx.ErrNoRows {
 		return "", 0, err
+	}
+	if here {
+		return "", 0, nil
 	}
 	if tournament != nil {
 		return "tournament_id", *tournament, nil
