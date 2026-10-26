@@ -145,7 +145,7 @@ export function chartData(history: PlayerHistory, mode: ChartMode, curve: ChartC
       const atCRating = new Map(points.map((p) => [p.date, tenth(p.c_rating)]));
 
       const engineName = engine === 'glicko2_daneo' ? '👑 GlickoD' : 'Glicko-2 Standard';
-      const modeLabel = m === 'softer' ? ' (Season Reset)' : mode === 'all' ? ' (Continuous)' : '';
+      const modeLabel = modes.length > 1 ? (m === 'softer' ? ' (Season Reset)' : ' (Continuous)') : '';
       const baseColor =
         engine === 'glicko2_daneo'
           ? m === 'softer'
@@ -160,7 +160,7 @@ export function chartData(history: PlayerHistory, mode: ChartMode, curve: ChartC
           : 'rgba(229, 169, 60, 0.1)';
 
       for (const c of curves) {
-        const curveLabel = curves.length > 1 || curve === 'conservative' ? (c === 'conservative' ? ' (C)' : ' (E)') : '';
+        const curveLabel = curves.length > 1 ? (c === 'conservative' ? ' (C)' : ' (E)') : '';
         const isDashed = c === 'conservative';
         lines.push({
           key: engine + '-' + m + '-' + c,
