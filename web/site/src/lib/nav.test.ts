@@ -3,7 +3,7 @@ import { breadcrumb, placeOf, sections } from './nav';
 
 describe('sections', () => {
   it('lists Home, then the sections with pages', () => {
-    expect(sections.map((s) => s.label)).toEqual(['Home', 'Ratings', 'Tournaments']);
+    expect(sections.map((s) => s.label)).toEqual(['Home', 'Ratings', 'Tournaments', 'Challenges']);
   });
   it('gives every page a description', () => {
     const pages = sections.flatMap((s) => s.pages);

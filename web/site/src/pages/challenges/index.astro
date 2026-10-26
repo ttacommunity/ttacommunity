@@ -1,0 +1,10 @@
+---
+/** The Challenges section: the game's challenges with their verified records. */
+import { PUBLIC_API_URL } from 'astro:env/client';
+import SiteLayout from '../../layouts/SiteLayout.astro';
+import ChallengesPage from '../../components/ChallengesPage';
+import '../../components/HallOfFame.css';
+---
+<SiteLayout title="Challenges | Through the Ages community" description="The game's single-player challenges and the highest verified domination for each.">
+  <ChallengesPage client:only="react" apiUrl={PUBLIC_API_URL} />
+</SiteLayout>
