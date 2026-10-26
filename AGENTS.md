@@ -360,7 +360,9 @@ agent runs them itself.
   `Add sign-in with Discord to the API`. No AI or tool attribution trailers
 - **Contributors outside the maintainers sign off each commit**
   (`git commit -s`): `CONTRIBUTING.md` says why, and `checks/dco.sh` fails
-  a pull request whose commits lack it
+  a pull request whose commits lack it. A maintainer is exempt once their
+  membership of the ttacommunity organisation is public (its People page):
+  GitHub reports a private member as a contributor
 - **Pull requests have two sections only**: **What it does** and **How to
   test it** (commands and URLs). Merging needs a maintainer
 - **One issue per pull request.** Work for another issue goes on its own
