@@ -3727,6 +3727,18 @@ type SeriesCount struct {
 	Series Series `json:"series"`
 }
 
+// SiteVisits defines model for SiteVisits.
+type SiteVisits struct {
+	// AsOf When the visits were counted
+	AsOf time.Time `json:"as_of"`
+
+	// Days How many days the count covers
+	Days int `json:"days"`
+
+	// Visits The visits in the `days` days up to `as_of`, an estimate from Cloudflare's sample
+	Visits int `json:"visits"`
+}
+
 // StageCheck defines model for StageCheck.
 type StageCheck struct {
 	Agree         int                  `json:"agree"`
@@ -4831,6 +4843,9 @@ type ServerInterface interface {
 	// GetYearLeaderboard The ratings at the end of a year, for the season archive
 	// (GET /v1/runs/{run}/years/{year}/leaderboard)
 	GetYearLeaderboard(w http.ResponseWriter, r *http.Request, run RunId, year int, params GetYearLeaderboardParams)
+	// GetSiteVisits How many visits the site had in the last 28 days
+	// (GET /v1/site/visits)
+	GetSiteVisits(w http.ResponseWriter, r *http.Request)
 }
 
 // ServerInterfaceWrapper converts contexts to parameters.
@@ -9102,6 +9117,20 @@ func (siw *ServerInterfaceWrapper) GetYearLeaderboard(w http.ResponseWriter, r *
 	handler.ServeHTTP(w, r)
 }
 
+// GetSiteVisits operation middleware
+func (siw *ServerInterfaceWrapper) GetSiteVisits(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetSiteVisits(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 type UnescapedCookieParamError struct {
 	ParamName string
 	Err       error
@@ -9257,6 +9286,7 @@ func HandlerWithOptions(si ServerInterface, options StdHTTPServerOptions) http.H
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/v1/blitz", wrapper.GetBlitzEditions)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/v1/blitz/{tournament}/{edition}", wrapper.GetBlitzEdition)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/v1/countries", wrapper.GetCountries)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/v1/site/visits", wrapper.GetSiteVisits)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/v1/auth/discord", wrapper.StartDiscordSignIn)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/v1/auth/discord/callback", wrapper.FinishDiscordSignIn)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/v1/auth/microsoft", wrapper.StartMicrosoftSignIn)
@@ -18151,6 +18181,79 @@ func (response GetYearLeaderboard404JSONResponse) VisitGetYearLeaderboardRespons
 	return err
 }
 
+type GetSiteVisitsRequestObject struct {
+}
+
+type GetSiteVisitsResponseObject interface {
+	VisitGetSiteVisitsResponse(w http.ResponseWriter) error
+}
+
+type GetSiteVisits200ResponseHeaders struct {
+	CacheControl string
+}
+
+type GetSiteVisits200JSONResponse struct {
+	Body    SiteVisits
+	Headers GetSiteVisits200ResponseHeaders
+}
+
+func (response GetSiteVisits200JSONResponse) VisitGetSiteVisitsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetSiteVisits404ResponseHeaders struct {
+	CacheControl string
+}
+
+type GetSiteVisits404JSONResponse struct {
+	Body    Error
+	Headers GetSiteVisits404ResponseHeaders
+}
+
+func (response GetSiteVisits404JSONResponse) VisitGetSiteVisitsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetSiteVisits503ResponseHeaders struct {
+	CacheControl string
+}
+
+type GetSiteVisits503JSONResponse struct {
+	Body    Error
+	Headers GetSiteVisits503ResponseHeaders
+}
+
+func (response GetSiteVisits503JSONResponse) VisitGetSiteVisitsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(503)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
 // StrictServerInterface represents all server handlers.
 type StrictServerInterface interface {
 	// GetHealthz The process is up
@@ -18534,6 +18637,9 @@ type StrictServerInterface interface {
 	// GetYearLeaderboard The ratings at the end of a year, for the season archive
 	// (GET /v1/runs/{run}/years/{year}/leaderboard)
 	GetYearLeaderboard(ctx context.Context, request GetYearLeaderboardRequestObject) (GetYearLeaderboardResponseObject, error)
+	// GetSiteVisits How many visits the site had in the last 28 days
+	// (GET /v1/site/visits)
+	GetSiteVisits(ctx context.Context, request GetSiteVisitsRequestObject) (GetSiteVisitsResponseObject, error)
 }
 
 type StrictHandlerFunc func(ctx context.Context, w http.ResponseWriter, r *http.Request, request any) (any, error)
@@ -22122,6 +22228,30 @@ func (sh *strictHandler) GetYearLeaderboard(w http.ResponseWriter, r *http.Reque
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(GetYearLeaderboardResponseObject); ok {
 		if err := validResponse.VisitGetYearLeaderboardResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// GetSiteVisits operation middleware
+func (sh *strictHandler) GetSiteVisits(w http.ResponseWriter, r *http.Request) {
+	var request GetSiteVisitsRequestObject
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.GetSiteVisits(ctx, request.(GetSiteVisitsRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetSiteVisits")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(GetSiteVisitsResponseObject); ok {
+		if err := validResponse.VisitGetSiteVisitsResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {

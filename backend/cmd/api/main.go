@@ -122,6 +122,11 @@ func main() {
 	if discord != nil {
 		log.Info("the Discord bot's endpoint is on")
 	}
+	visits, err := openVisits(ctx, os.Getenv, signIns.SiteOrigin(), log)
+	if err != nil {
+		log.Error("refusing to start: counting visits is not set up", "err", err)
+		os.Exit(1)
+	}
 
 	ln, err := net.Listen("tcp", addr)
 	if err != nil {
@@ -130,7 +135,7 @@ func main() {
 	}
 	log.Info("api listening", "addr", ln.Addr().String())
 	serveMetrics(ctx, os.Getenv("METRICS_ADDR"), reg, log)
-	if err := httpapi.Serve(ctx, ln, httpapi.NewMux(ratings, admins, signIns, discord, log, reg, time.Now), log); err != nil {
+	if err := httpapi.Serve(ctx, ln, httpapi.NewMux(ratings, admins, signIns, discord, visits, log, reg, time.Now), log); err != nil {
 		log.Error("api stopped", "err", err)
 		os.Exit(1)
 	}

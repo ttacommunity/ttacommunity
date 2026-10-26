@@ -1077,6 +1077,43 @@ paths:
                 type: array
                 items:
                   type: string
+  /v1/site/visits:
+    get:
+      operationId: getSiteVisits
+      summary: How many visits the site had in the last 28 days
+      description: |
+        Visits as Cloudflare Web Analytics counts them, bots left out: no
+        cookies, so a person who comes back is counted again, and a browser
+        that blocks the beacon is not counted. The API counts them again every
+        hour, so this is cached for an hour.
+      responses:
+        "200":
+          description: The count
+          headers:
+            Cache-Control:
+              $ref: "#/components/headers/CacheControl"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SiteVisits"
+        "404":
+          description: This API does not count visits
+          headers:
+            Cache-Control:
+              $ref: "#/components/headers/CacheControl"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "503":
+          description: The visits have not been counted in the last day
+          headers:
+            Cache-Control:
+              $ref: "#/components/headers/CacheControl"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
   /v1/auth/discord:
     get:
       operationId: startDiscordSignIn
@@ -5754,6 +5791,20 @@ components:
           type: string
           format: date
           nullable: true
+    SiteVisits:
+      type: object
+      required: [visits, days, as_of]
+      properties:
+        visits:
+          description: The visits in the `days` days up to `as_of`, an estimate from Cloudflare's sample
+          type: integer
+        days:
+          description: How many days the count covers
+          type: integer
+        as_of:
+          description: When the visits were counted
+          type: string
+          format: date-time
     Model:
       description: |
         The rating model: Glicko-D, continuous (`glicko2_daneo`) or reset

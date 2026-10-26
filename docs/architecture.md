@@ -493,7 +493,8 @@ TTA community server and email via `mail-relay`.
 - **CSRF:** the sites and the API are same-site, so `SameSite` does not
   protect. Every state-changing request checks `Origin`.
 - **Egress:** default-deny. The api reaches only public HTTPS (Cloudflare
-  Access's signing keys, Discord's OAuth) and the Kubernetes API (to start
+  Access's signing keys, Discord's OAuth, Cloudflare's GraphQL API for the
+  visit count) and the Kubernetes API (to start
   engine Jobs); the worker
   *(planned)* will reach CGE and Discord. RFC1918 ranges are excluded.
 - **Personal data** (Discord id and handle, optional email, TTA username,
@@ -509,7 +510,13 @@ TTA community server and email via `mail-relay`.
   path continues past it); it reports to the site's own origin. Cloudflare
   states that Web Analytics "does not collect or use your visitors'
   personal data" ([Cloudflare Web
-  Analytics](https://developers.cloudflare.com/web-analytics/about/))
+  Analytics](https://developers.cloudflare.com/web-analytics/about/)).
+  The footer's visit count comes from it: every hour the api asks
+  Cloudflare's GraphQL API for the visits to the site's host in the last
+  28 days, bots left out, with a token that can only read analytics, and
+  serves the last answer at `/v1/site/visits`. It counts visits, not
+  people: there are no cookies to tell a returning visitor apart, and a
+  browser that blocks the beacon is not counted
 
 ## Backups
 

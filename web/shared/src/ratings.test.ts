@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   catalogueGames,
   RatingsApiError,
+  siteVisits,
   activity,
   tournamentSeries,
   hallOfFame,
@@ -281,6 +282,17 @@ describe('errorFields', () => {
     ['fields that are not strings', { error: 404, request_id: ['x'] }, undefined, undefined],
   ])('%s', (_, body, error, requestId) => {
     expect(errorFields(body)).toEqual({ error, requestId });
+  });
+});
+
+describe('siteVisits', () => {
+  it('reads the visit count without credentials', async () => {
+    const f = fakeFetch(200, '{"visits":190,"days":28,"as_of":"2026-10-27T05:00:00Z"}');
+    const visits = await siteVisits('https://api.example', f.fetch);
+
+    expect(visits.visits).toBe(190);
+    expect(f.calls[0]?.url).toBe('https://api.example/v1/site/visits');
+    expect(f.calls[0]?.init?.credentials).toBe('omit');
   });
 });
 
