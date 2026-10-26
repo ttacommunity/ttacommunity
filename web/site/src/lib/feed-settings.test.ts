@@ -41,7 +41,7 @@ describe('feed-settings', () => {
       tournaments: [
         { slug: 'royal_league', name: 'Royal League', division: 'King 1' },
       ],
-      players: ['pajada', 'BlixLT'],
+      players: ['ann', 'Bob'],
     };
 
     saveFeedSettings(mockStorage, custom);
