@@ -354,8 +354,9 @@ comes from:
 | `community_scores` | `edition,player,event,score,source` | Each player's points in each event column of an edition (`wrld`, `ic_30`, `aus`…) |
 
 Loading a file replaces every fact of its kind, in one transaction; names
-that are not players are counted and skipped, and bad rows are refused with
-their line and reason. A season's time-out penalty set in admin is kept when
+that are not players are counted and skipped. A bad row is refused with its
+line and reason, and then nothing is written: fix the file and load it
+again. A season's time-out penalty set in admin is kept when
 `rules` are reloaded. The next rating run uses them:
 
 ```bash

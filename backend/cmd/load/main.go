@@ -357,7 +357,8 @@ func btoi(b bool) int {
 }
 
 // replaceFacts reads the file, then replaces every recorded fact of one kind
-// in one transaction, after applying any pending migration.
+// in one transaction, after applying any pending migration. A file with any
+// refused row writes nothing.
 func replaceFacts(kind, file string) error {
 	switch kind {
 	case "divisions":
@@ -411,6 +412,11 @@ func loadFacts[T any](
 	f.Close()
 	if err != nil {
 		return err
+	}
+	// A replace drops every row it is not given, so a refused row would remove the fact it was meant to correct.
+	if len(res.Refused) > 0 {
+		reportFacts(os.Stdout, kind, file, res.Rows, res.Refused, store.FactsReplaced{})
+		return fmt.Errorf("%s: %d of %d rows refused, so nothing was written", file, len(res.Refused), res.Rows)
 	}
 	return withRatings(func(ctx context.Context, pool *pgxpool.Pool) error {
 		replaced, err := replace(ctx, pool, res.Facts)
