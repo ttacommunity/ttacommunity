@@ -18,6 +18,10 @@ describe('runFacts', () => {
     expect(runFacts(run, 'UTC')).toBe(' (2017–2026) • 135,393 games • 3,526 players • updated 1 Oct 2026, 01:10 (UTC)');
   });
 
+  it('includes the 28-day visitor metric when provided', () => {
+    expect(runFacts(run, 'UTC', 2420)).toBe(' (2017–2026) • 135,393 games • 3,526 players • 2,420 visitors (last 28 days) • updated 1 Oct 2026, 01:10 (UTC)');
+  });
+
   it('times the update to the minute in the zone asked for, naming it', () => {
     expect(runFacts({ ...run, finished_at: '2026-09-30T23:30:00Z' }, 'Australia/Sydney')).toContain('updated 1 Oct 2026, 09:30 (Australia/Sydney)');
   });
