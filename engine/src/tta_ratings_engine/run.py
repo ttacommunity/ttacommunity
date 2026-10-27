@@ -56,41 +56,6 @@ STEP_COST = {
 MODEL_TYPES = list(MODELS)
 
 
-RESULT_TABLES = [
-    "rating_runs",
-    "pairwise_matches",
-    "player_ratings",
-    "rating_history",
-    "player_titles",
-    "standard_calibration",
-    "walk_forward_calibration",
-    "tournament_group_divisions",
-    "tournament_official_placements",
-    "tournament_season_corrections",
-    "tournament_finish_dates",
-    "tournament_career_honours",
-    "settings",
-    "seats",
-    "tournament_cup_podiums",
-    "tournament_podium_overrides",
-    "player_title_overrides",
-    "tournaments",
-    "tournament_games",
-    "tournament_standings",
-    "tournament_boards",
-    "tournament_season_records",
-    "tournament_series",
-    "tournament_legends",
-    "tournament_achievements",
-    "tournament_records",
-    "catalogue_spans",
-    "player_year_records",
-    "player_seat_stats",
-    "seat_tier_stats",
-    "run_format_counts",
-]
-
-
 # A run's partition of each run table (the trigger on rating_runs adds them), as t, and the table, as parent.
 RUN_PARTITIONS = (
     "SELECT c.relname AS t, i.inhparent::regclass::text AS parent "
@@ -114,6 +79,13 @@ RECOMPUTED_TABLES = [
     "tournament_series", "tournament_legends", "tournament_achievements", "tournament_records",
     "community_event_points", "community_edition_points", "community_rankings", "catalogue_spans",
     "player_year_records", "player_seat_stats", "seat_tier_stats", "run_format_counts",
+]  # fmt: skip
+# The tables a run reads, besides the games, and rating_runs.
+INPUT_TABLES = [
+    "rating_runs", "tournament_group_divisions", "tournament_official_placements",
+    "tournament_season_corrections", "tournament_finish_dates", "tournament_career_honours",
+    "settings", "seats", "tournament_cup_podiums", "tournament_podium_overrides",
+    "player_title_overrides", "tournaments",
 ]  # fmt: skip
 
 
@@ -142,11 +114,11 @@ class SchemaOutOfDate(Exception):
 
 
 def check_schema(conn):
-    """Raises SchemaOutOfDate naming every table in RESULT_TABLES, every RUN_STATS column, run_progress and the
+    """Raises SchemaOutOfDate naming every input and run table, every RUN_STATS column, run_progress and the
     seasons' rated column, that does not exist."""
     missing = [
         t
-        for t in RESULT_TABLES
+        for t in INPUT_TABLES + COPIED_TABLES + RECOMPUTED_TABLES
         if conn.execute("SELECT to_regclass(%s) AS t", (t,)).fetchone()["t"] is None
     ]
     if not missing:
@@ -305,10 +277,8 @@ def run(
 
     log, close_progress = _progress_to_run(log, run_id, url)
     try:
-        if source is None and workers > 1:
-            _compute_parallel(conn, run_id, formats, log, workers, url)
-        elif source is None:
-            _compute(conn, run_id, formats, log)
+        if source is None:
+            _compute(conn, run_id, formats, log, workers, url)
         else:
             _recompute_tournaments(conn, run_id, source, log)
     except BaseException as e:
@@ -375,128 +345,12 @@ def _progress_to_run(log, run_id, url):
     return record, close
 
 
-def _compute(conn, run_id, formats, log):
-    progress = Progress(1, log=log)
-    progress.working_on("pairs")
-    with Heartbeat(progress):
-        expand_pairwise(conn, run_id)
-        derive_seat_stats(conn=conn, run_id=run_id)
-        months = {fmt: eval_months(conn, run_id, fmt) for fmt in formats}
-        progress.total = 1 + 2 * len(MODELS) * len(formats) + 2 + sum(months.values())
-        progress.total_cost = (
-            STEP_COST["pairs", None]
-            + STEP_COST["tournaments", None]
-            + STEP_COST["titles", None]
-            + sum(
-                len(MODELS) * (STEP_COST["models", f] + STEP_COST["calibration", f])
-                + months[f] * STEP_COST["walk-forward", f]
-                for f in formats
-            )
-        )
-        progress.advance("pairs", STEP_COST["pairs", None], "pairs")
+def _compute(conn, run_id, formats, log, workers, url):
+    """Expands the run's pairs, then runs the steps after them (_tasks).
 
-        on_run = {"conn": conn, "run_id": run_id}
-        for fmt in formats:
-            for name, (engine, reset_mode) in MODELS.items():
-                progress.working_on(f"{name} {_label(fmt)}")
-                compute_glicko2_ratings(
-                    engine=engine, reset_mode=reset_mode, player_count=fmt, **on_run
-                )
-                progress.advance(
-                    f"{name} {_label(fmt)}",
-                    STEP_COST["models", fmt],
-                    f"models {_label(fmt)}",
-                )
-
-        progress.working_on("tournaments")
-        derive_tournaments(**on_run)
-        derive_community(**on_run)
-        derive_catalogue(**on_run)
-        derive_year_records(**on_run)
-        derive_analysis_counts(**on_run)
-        progress.advance("tournaments", STEP_COST["tournaments", None], "tournaments")
-
-        progress.working_on("titles")
-        derive_tournament_badges(**on_run)
-        progress.advance("titles", STEP_COST["titles", None], "titles")
-
-        for fmt in formats:
-            for name in MODEL_TYPES:
-                progress.working_on(f"calibration {name} {_label(fmt)}")
-                run_standard_calibration_all(
-                    verbose=False, model_filter=[name], formats=[fmt], **on_run
-                )
-                progress.advance(
-                    f"calibration {name} {_label(fmt)}",
-                    STEP_COST["calibration", fmt],
-                    f"calibration {_label(fmt)}",
-                )
-
-        for fmt in formats:
-            label = f"walk-forward {_label(fmt)}"
-            progress.working_on(label)
-
-            def month_done(month, label=label, fmt=fmt):
-                progress.advance(
-                    f"{label} {month}", STEP_COST["walk-forward", fmt], label
-                )
-
-            run_walk_forward_evaluation(
-                player_count=fmt,
-                start_eval_month=WALK_FORWARD_START,
-                verbose=False,
-                on_month=month_done,
-                **on_run,
-            )
-    progress.summary()
-
-
-def _tasks(formats):
-    """Returns the steps after the pairs as (kind, format, model), longest first.
-
-    Each reads only the run's pairs and the loaded data, never another
-    step's results, so they can run in any order.
+    With one worker the steps run here, one after another; with more, in
+    that many processes, each connecting to url.
     """
-    tasks = [("walk-forward", fmt, None) for fmt in formats]
-    tasks += [("calibration", fmt, name) for fmt in formats for name in MODEL_TYPES]
-    tasks += [("models", fmt, name) for fmt in formats for name in MODEL_TYPES]
-    return tasks + [("tournaments", None, None)]
-
-
-def _run_task(url, run_id, kind, fmt, name):
-    """Runs one task from _tasks on its own connection to url, in a worker process.
-
-    Returns the seconds it took.
-    """
-    start = time.monotonic()
-    with connect(url) as conn:
-        on_run = {"conn": conn, "run_id": run_id}
-        if kind == "models":
-            engine, reset_mode = MODELS[name]
-            compute_glicko2_ratings(
-                engine=engine, reset_mode=reset_mode, player_count=fmt, **on_run
-            )
-        elif kind == "calibration":
-            run_standard_calibration_all(
-                verbose=False, model_filter=[name], formats=[fmt], **on_run
-            )
-        elif kind == "walk-forward":
-            run_walk_forward_evaluation(
-                player_count=fmt, start_eval_month=WALK_FORWARD_START, verbose=False, **on_run
-            )  # fmt: skip
-        elif kind == "tournaments":
-            derive_tournaments(**on_run)
-            derive_community(**on_run)
-            derive_catalogue(**on_run)
-            derive_year_records(**on_run)
-            derive_tournament_badges(**on_run)
-        else:
-            raise ValueError(f"unknown engine task: {kind}")
-    return time.monotonic() - start
-
-
-def _compute_parallel(conn, run_id, formats, log, workers, url):
-    """As _compute, but the steps after the pairs run in worker processes."""
     progress = Progress(1, log=log)
     progress.working_on("pairs")
     with Heartbeat(progress):
@@ -516,27 +370,84 @@ def _compute_parallel(conn, run_id, formats, log, workers, url):
             )
         )
         progress.advance("pairs", STEP_COST["pairs", None], "pairs")
-        progress.working_on(f"{len(tasks)} steps in {workers} workers")
-
-        # spawn, not fork: a forked child would share the parent's database socket.
-        pool = ProcessPoolExecutor(
-            workers, mp_context=multiprocessing.get_context("spawn")
-        )
-        try:
-            pending = {pool.submit(_run_task, url, run_id, *t): t for t in tasks}
-            while pending:
-                done, _ = wait(pending, return_when=FIRST_COMPLETED)
-                for future in done:
-                    kind, fmt, name = pending.pop(future)
-                    _report(progress, months, kind, fmt, name, future.result())
-        except BaseException:
-            _terminate_workers(pool)
-            raise
-        finally:
-            pool.shutdown(cancel_futures=True)
-        # After the workers: it reads their ratings.
+        if workers == 1:
+            for task in tasks:
+                progress.working_on(_step_label(*task))
+                seconds = _timed_task(conn, run_id, *task)
+                _report(progress, months, *task, seconds)
+        else:
+            _run_in_workers(progress, months, run_id, tasks, workers, url)
+        # After the other steps: it reads their ratings.
         derive_analysis_counts(conn=conn, run_id=run_id)
     progress.summary()
+
+
+def _tasks(formats):
+    """Returns the steps after the pairs as (kind, format, model), longest first.
+
+    Each reads only the run's pairs and the loaded data, never another
+    step's results, so they can run in any order.
+    """
+    tasks = [("walk-forward", fmt, None) for fmt in formats]
+    tasks += [("calibration", fmt, name) for fmt in formats for name in MODEL_TYPES]
+    tasks += [("models", fmt, name) for fmt in formats for name in MODEL_TYPES]
+    return tasks + [("tournaments", None, None)]
+
+
+def _timed_task(conn, run_id, kind, fmt, name):
+    """Runs one task from _tasks on conn and returns the seconds it took."""
+    start = time.monotonic()
+    on_run = {"conn": conn, "run_id": run_id}
+    if kind == "models":
+        engine, reset_mode = MODELS[name]
+        compute_glicko2_ratings(
+            engine=engine, reset_mode=reset_mode, player_count=fmt, **on_run
+        )
+    elif kind == "calibration":
+        run_standard_calibration_all(
+            verbose=False, model_filter=[name], formats=[fmt], **on_run
+        )
+    elif kind == "walk-forward":
+        run_walk_forward_evaluation(
+            player_count=fmt, start_eval_month=WALK_FORWARD_START, verbose=False, **on_run
+        )  # fmt: skip
+    elif kind == "tournaments":
+        derive_tournaments(**on_run)
+        derive_community(**on_run)
+        derive_catalogue(**on_run)
+        derive_year_records(**on_run)
+        derive_tournament_badges(**on_run)
+    else:
+        raise ValueError(f"unknown engine task: {kind}")
+    return time.monotonic() - start
+
+
+def _run_task(url, run_id, kind, fmt, name):
+    """Runs one task from _tasks in a worker process, on its own connection to url.
+
+    Returns the seconds it took.
+    """
+    with connect(url) as conn:
+        return _timed_task(conn, run_id, kind, fmt, name)
+
+
+def _run_in_workers(progress, months, run_id, tasks, workers, url):
+    """Runs tasks in that many worker processes, reporting each as it finishes."""
+    progress.working_on(f"{len(tasks)} steps in {workers} workers")
+    # spawn, not fork: a forked child would share the parent's database socket.
+    pool = ProcessPoolExecutor(workers, mp_context=multiprocessing.get_context("spawn"))
+    try:
+        pending = {pool.submit(_run_task, url, run_id, *t): t for t in tasks}
+        while pending:
+            done, _ = wait(pending, return_when=FIRST_COMPLETED)
+            for future in done:
+                kind, fmt, name = pending.pop(future)
+                _report(progress, months, kind, fmt, name, future.result())
+    except BaseException:
+        _terminate_workers(pool)
+        raise
+    finally:
+        pool.shutdown(cancel_futures=True)
 
 
 def _terminate_workers(pool):
@@ -550,6 +461,16 @@ def _terminate_workers(pool):
         process.join(5)
 
 
+def _step_label(kind, fmt, name):
+    """Returns how progress names a task from _tasks."""
+    if kind == "tournaments":
+        return "tournaments"
+    if kind == "walk-forward":
+        return f"walk-forward {_label(fmt)}"
+    label = name if kind == "models" else f"calibration {name}"
+    return f"{label} {_label(fmt)}"
+
+
 def _report(progress, months, kind, fmt, name, seconds):
     """Advances progress for one finished task from _tasks that took seconds."""
     if kind == "tournaments":
@@ -557,13 +478,12 @@ def _report(progress, months, kind, fmt, name, seconds):
         progress.advance("tournaments", cost, "tournaments", seconds=seconds)
         progress.advance("titles", STEP_COST["titles", None], "titles", seconds=0.0)
     elif kind == "walk-forward":
-        label = f"walk-forward {_label(fmt)}"
+        label = _step_label(kind, fmt, name)
         cost = months[fmt] * STEP_COST["walk-forward", fmt]
         progress.advance(label, cost, label, seconds=seconds)
     else:
-        label = name if kind == "models" else f"calibration {name}"
         progress.advance(
-            f"{label} {_label(fmt)}",
+            _step_label(kind, fmt, name),
             STEP_COST[kind, fmt],
             f"{kind} {_label(fmt)}",
             seconds=seconds,

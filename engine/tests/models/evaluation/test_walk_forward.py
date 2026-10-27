@@ -9,8 +9,26 @@ from tta_ratings_engine.data.db import RunNotRunning
 from tta_ratings_engine.data.pairwise import expand_pairwise
 from tta_ratings_engine.models.evaluation.walk_forward import (
     compute_metrics_from_preds,
+    favourite,
     run_walk_forward_evaluation,
 )
+from tta_ratings_engine.models.glicko2.engine import Rating
+
+
+@pytest.mark.parametrize(
+    ("name", "a", "b", "score_a", "want_score"),
+    [
+        ("a is the favourite", 1700, 1500, 0.0, 0.0),
+        ("b is the favourite", 1500, 1700, 0.0, 1.0),
+        ("even", 1500, 1500, 1.0, 1.0),
+    ],
+)
+def test_a_game_is_predicted_for_its_favourite(name, a, b, score_a, want_score):
+    p, score = favourite(Rating(a, 80, 0.06), Rating(b, 80, 0.06), score_a)
+
+    assert p >= 0.5, name
+    assert (p > 0.5) == (a != b), name
+    assert score == want_score, name
 
 
 def test_compute_metrics_from_preds():

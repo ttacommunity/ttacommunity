@@ -68,6 +68,172 @@ def test_daneo_golden_ratio_weights_and_invariant():
     assert abs(delta_4 - phi_inv_sq) < 1e-6
 
 
+# The steps the rating loops share.
+
+from tta_ratings_engine.models.glicko2.calculator import (
+    CALIBRATED_SIGMA,
+    GOLDEN_MP_WEIGHTS,
+    SecondPass,
+    count_new_games,
+    drifted,
+    match_id,
+    month_encounters,
+    new_rating,
+    new_year,
+    season_reset,
+    split_at_threshold,
+)
+from tta_ratings_engine.models.glicko2.engine import Rating
+
+
+def rated(rating, rd=100.0):
+    return Rating(rating, rd, CALIBRATED_SIGMA)
+
+
+def game(a, b, score_a, player_count=2, match_id=1, day="2022-01-05"):
+    return {
+        "player_a": a,
+        "player_b": b,
+        "outcome_a": score_a,
+        "player_count": player_count,
+        "match_id": match_id,
+        "date": day,
+    }
+
+
+@pytest.mark.parametrize(
+    ("weighted", "want"), [(True, GOLDEN_MP_WEIGHTS[3]), (False, 1.0)]
+)
+def test_an_encounter_carries_the_opponent_score_and_weight(weighted, want):
+    ann, bob = rated(1600), rated(1400)
+    by_name = {"Ann": ann, "Bob": bob}
+
+    got = month_encounters(
+        [game("Ann", "Bob", 1.0, player_count=3, match_id=7)],
+        by_name.__getitem__,
+        weighted,
+        player_count=0,
+    )
+
+    assert got == {"Ann": [(bob, 1.0, want, 3, 7)], "Bob": [(ann, 0.0, want, 3, 7)]}
+
+
+@pytest.mark.parametrize(("b_first", "want"), [(False, ["Ann", "Bob"]), (True, ["Bob", "Ann"])])  # fmt: skip
+def test_b_first_looks_up_player_b_before_player_a(b_first, want):
+    looked_up = []
+
+    def rating_of(p):
+        looked_up.append(p)
+        return new_rating()
+
+    got = month_encounters([game("Ann", "Bob", 0.5)], rating_of, True, 2, b_first)
+
+    assert looked_up == want
+    assert list(got) == ["Ann", "Bob"], "encounters stay in the order players play"
+
+
+def test_a_pair_without_a_match_id_is_its_date_and_players():
+    pair = {"player_a": "Ann", "player_b": "Bob", "date": "2022-01-05"}
+
+    assert match_id(pair) == ("2022-01-05", "Ann", "Bob")
+
+
+def test_a_game_with_several_pairs_counts_once():
+    seen = {1}
+    encounters = [(new_rating(), 1.0, 1.0, 3, g) for g in (1, 2, 2, 3)]
+
+    assert count_new_games(seen, encounters) == (1, 3, [2, 3])
+    assert seen == {1, 2, 3}
+
+
+def test_a_month_splits_at_the_games_up_to_the_threshold():
+    encounters = [(new_rating(), 1.0, 1.0, 3, g) for g in (2, 2, 3, 4)]
+
+    up_to, after = split_at_threshold(encounters, [2, 3, 4], needed=2)
+
+    assert [it[4] for it in up_to] == [2, 2, 3]
+    assert [it[4] for it in after] == [4]
+
+
+@pytest.mark.parametrize(
+    ("previous", "month", "want"),
+    [
+        (None, "2022-01", False),
+        ("2022-01", "2022-02", False),
+        ("2021-12", "2022-01", True),
+        ("2020-06", "2022-03", True),
+    ],
+)
+def test_a_new_year_is_a_month_in_a_later_year(previous, month, want):
+    assert new_year(previous, month) == want
+
+
+@pytest.mark.parametrize(
+    ("rd", "want_wider", "want_rd_at_most"),
+    [(60.0, True, 350.0), (350.0, False, 350.0)],
+)
+def test_a_month_away_widens_the_rd_to_350_at_most(rd, want_wider, want_rd_at_most):
+    got = drifted(rated(1700, rd))
+
+    assert got.rating == 1700
+    assert (got.rd > rd) == want_wider
+    assert got.rd <= want_rd_at_most
+
+
+@pytest.mark.parametrize(
+    ("name", "rating", "eligible"),
+    [("ineligible", rated(2100, 40), False), ("unrated", rated(2100, 350.0), True)],
+)
+def test_a_season_reset_leaves_out_players_it_should(name, rating, eligible):
+    ratings = {"Ann": rating, "Bob": rated(1500, 40), "Cat": rated(1400, 40)}
+    without_ann = {"Bob": rated(1500, 40), "Cat": rated(1400, 40)}
+
+    season_reset(ratings, lambda p: eligible or p != "Ann")
+    season_reset(without_ann, lambda p: True)
+
+    assert ratings["Ann"] == rating, name
+    assert {p: ratings[p] for p in without_ann} == without_ann, (
+        f"{name}: not in the population"
+    )
+
+
+def test_a_season_reset_deflates_only_players_above_the_mean():
+    ratings = {"Ann": rated(1900, 80), "Bob": rated(1500, 80), "Cat": rated(1100, 30)}
+
+    season_reset(ratings, lambda p: True)
+
+    assert ratings["Ann"].rating < 1900
+    assert ratings["Cat"].rating == 1100
+    assert ratings["Cat"].rd > 30, "the most certain player's RD still widens"
+
+
+def test_a_retro_player_is_held_at_their_prior_until_their_threshold():
+    prior = rated(1800, 60)
+    model = SecondPass({"Ann": prior}, {"Ann": 2}, weighted=True, retro=True, player_count=2)  # fmt: skip
+
+    model.rate_month([game("Ann", "Bob", 0.0, match_id=1)])
+    model.rate_month([game("Ann", "Bob", 0.0, match_id=2)])
+    held = model.ratings["Ann"]
+    model.rate_month([game("Ann", "Bob", 0.0, match_id=g) for g in (3, 4)])
+
+    assert held == prior, "held through game 2, the threshold"
+    assert model.ratings["Ann"].rating < prior.rating, "games 3 and 4 are past it"
+
+
+@pytest.mark.parametrize(
+    ("retro", "want_drift"),
+    [(False, True), (True, False)],
+)
+def test_only_a_calibrated_player_drifts_in_a_month_away(retro, want_drift):
+    model = SecondPass({}, {"Ann": 15}, weighted=retro, retro=retro, player_count=2)
+    model.rate_month([game("Ann", "Bob", 1.0)])
+    before = model.ratings["Ann"]
+
+    model.rate_month([game("Cat", "Dan", 1.0, match_id=2)])
+
+    assert (model.ratings["Ann"].rd > before.rd) == want_drift
+
+
 # End to end, on Postgres: a small synthetic season through the calculator.
 
 from datetime import date

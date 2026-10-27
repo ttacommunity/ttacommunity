@@ -224,16 +224,17 @@ def test_a_run_records_its_version_and_input(conn, add_match):
     assert runs[2]["input_fingerprint"] != runs[1]["input_fingerprint"]
 
 
-def test_progress_counts_every_step_up_front(conn, add_match):
+@pytest.mark.parametrize("workers", [1, 2])
+def test_progress_counts_every_step_up_front(conn, db_url, add_match, workers):
     season(add_match)
     lines = []
 
-    run(conn, "v-test", formats=[0, 2], log=lines.append)
+    run(conn, "v-test", formats=[0, 2], log=lines.append, workers=workers, url=db_url)
 
     progress = [line for line in lines if line.startswith("[")]
     # pairs + 3 models x 2 formats + tournaments + titles + 3 calibrations x 2
-    # + walk-forward months (2 + 2)
-    assert progress[-1].startswith("[19/19] ")
+    # + one walk-forward per format
+    assert progress[-1].startswith("[17/17] ")
 
 
 def test_a_failure_marks_the_run_failed_and_is_raised(conn, add_match, monkeypatch):
@@ -291,14 +292,16 @@ def test_a_run_ends_with_the_time_each_phase_took(conn, add_match):
         for line in lines
         if " steps in " in line or " step in " in line
     ]
-    assert phases == [
-        "pairs",
-        "models 2p",
-        "tournaments",
-        "titles",
-        "calibration 2p",
-        "walk-forward 2p",
-    ]
+    assert sorted(phases) == sorted(
+        [
+            "pairs",
+            "models 2p",
+            "tournaments",
+            "titles",
+            "calibration 2p",
+            "walk-forward 2p",
+        ]
+    )
 
 
 def test_every_step_has_a_cost_for_the_eta():
@@ -458,18 +461,6 @@ def test_a_parallel_run_writes_what_a_sequential_run_writes(conn, db_url, add_ma
     for table in runner.COPIED_TABLES + runner.RECOMPUTED_TABLES:
         assert rows_of(conn, table, parallel) == rows_of(conn, table, sequential), table
     assert count(conn, "walk_forward_calibration", parallel) > 0
-
-
-def test_a_parallel_run_counts_every_task_up_front(conn, db_url, add_match):
-    season(add_match)
-    lines = []
-
-    run(conn, "v-test", formats=[0, 2], log=lines.append, workers=2, url=db_url)
-
-    progress = [line for line in lines if line.startswith("[")]
-    # pairs + 3 models x 2 formats + tournaments + titles + 3 calibrations x 2
-    # + one walk-forward per format
-    assert progress[-1].startswith("[17/17] ")
 
 
 def test_a_parallel_run_needs_the_database_url(conn, add_match):

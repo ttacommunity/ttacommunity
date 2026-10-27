@@ -2,6 +2,7 @@
 
 import math
 from collections import defaultdict
+from collections.abc import Callable
 from datetime import UTC, date, datetime
 from typing import Any
 
@@ -179,11 +180,7 @@ class PlayerThresholds:
         for r in rows:
             d_str = r["date"][:10]
             self.max_date_str = max(self.max_date_str, d_str)
-            mid = (
-                r["match_id"]
-                if "match_id" in r
-                else (r["date"], r["player_a"], r["player_b"])
-            )
+            mid = match_id(r)
             for p in (r["player_a"], r["player_b"]):
                 self.games[p].add(mid)
                 self.last_date[p] = max(self.last_date.get(p, d_str), d_str)
@@ -215,6 +212,350 @@ def compute_player_thresholds(
     return {p: thresholds.get(p, standard_threshold) for p in thresholds.games}
 
 
+def new_rating() -> Rating:
+    """Returns the rating a player starts from, before any game."""
+    return Rating(1500.0, 350.0, CALIBRATED_SIGMA)
+
+
+def match_id(m: Any) -> Any:
+    """Returns pair m's game: its match_id, or (date, player_a, player_b) for a pair without one."""
+    return m["match_id"] if "match_id" in m else (m["date"], m["player_a"], m["player_b"])  # fmt: skip
+
+
+def by_month(rows: list[Any]) -> list[tuple[str, list[Any]]]:
+    """Returns rows grouped by calendar month ('YYYY-MM'), as (month, rows), months in order."""
+    periods: dict[str, list[Any]] = defaultdict(list)
+    for r in rows:
+        periods[r["date"][:7]].append(r)
+    return [(m, periods[m]) for m in sorted(periods)]
+
+
+def new_year(previous: str | None, month: str) -> bool:
+    """Returns True if month ('YYYY-MM') starts a calendar year after previous (None before the first)."""
+    return previous is not None and month[:4] != previous[:4]
+
+
+# A player's encounter: (opponent's rating, score, weight, player count, game).
+Encounter = tuple[Rating, float, float, int, Any]
+
+
+def month_encounters(
+    matches: list[Any],
+    rating_of: Callable[[str], Rating],
+    weighted: bool,
+    player_count: int,
+    b_first: bool = False,
+) -> dict[str, list[Encounter]]:
+    """Returns each player's encounters in matches, players in the order they first play.
+
+    rating_of gives an opponent's rating; weighted weighs a pair by its format's
+    GOLDEN_MP_WEIGHTS, else 1. b_first looks up player_b before player_a: where
+    rating_of adds new players to a map, that sets their order in it.
+    """
+    encounters: dict[str, list[Encounter]] = defaultdict(list)
+    for m in matches:
+        pa, pb = m["player_a"], m["player_b"]
+        out_a = m["outcome_a"]
+        m_pcount = m.get("player_count", player_count)
+        w = GOLDEN_MP_WEIGHTS.get(m_pcount, 1.0) if weighted else 1.0
+        if b_first:
+            rb = rating_of(pb)
+            ra = rating_of(pa)
+        else:
+            ra = rating_of(pa)
+            rb = rating_of(pb)
+        mid = match_id(m)
+        encounters[pa].append((rb, out_a, w, m_pcount, mid))
+        encounters[pb].append((ra, 1.0 - out_a, w, m_pcount, mid))
+    return encounters
+
+
+def count_new_games(
+    seen: set[Any], encounters: list[Encounter]
+) -> tuple[int, int, list[Any]]:
+    """Adds encounters' games to seen, a player's games so far.
+
+    Returns the number of games before, the number after, and the new games in order.
+    """
+    before = len(seen)
+    new = []
+    for it in encounters:
+        if it[4] not in seen:
+            seen.add(it[4])
+            new.append(it[4])
+    return before, len(seen), new
+
+
+def split_at_threshold(
+    encounters: list[Encounter], new_games: list[Any], needed: int
+) -> tuple[list[Encounter], list[Encounter]]:
+    """Splits encounters into those of the first `needed` of new_games, and the rest."""
+    up_to = set(new_games[:needed])
+    return (
+        [it for it in encounters if it[4] in up_to],
+        [it for it in encounters if it[4] not in up_to],
+    )
+
+
+def rate(r: Rating, encounters: list[Encounter], weighted: bool) -> Rating:
+    """Returns r after one Glicko-2 update over encounters, at the calibrated tau."""
+    return update_rating(
+        r,
+        [(it[0], it[1], it[2]) for it in encounters],
+        tau=CALIBRATED_TAU,
+        weighted=weighted,
+    )
+
+
+def drifted(r: Rating) -> Rating:
+    """Returns r after a month without games: its RD grows by the inactivity drift, to 350 at most."""
+    phi_new = (r.phi**2 + INACTIVITY_DRIFT_PER_MONTH**2) ** 0.5
+    return Rating(r.rating, min(350.0, phi_new * GLICKO2_SCALE), r.sigma)
+
+
+def season_reset(ratings: dict[str, Rating], eligible: Callable[[str], bool]) -> None:
+    """Resets, in place, every eligible player whose RD is under 350, for a new season.
+
+    Each is regressed toward their tier anchor and their RD widened
+    (compute_decoupled_scaling), against those players' mean, spread and RD.
+    """
+    active = [r for p, r in ratings.items() if eligible(p) and r.rd < 350.0]
+    if active:
+        pop_mu = sum(r.rating for r in active) / len(active)
+        pop_sigma = max(
+            50.0, (sum((r.rating - pop_mu) ** 2 for r in active) / len(active)) ** 0.5
+        )
+        pop_rd_mean = sum(r.rd for r in active) / len(active)
+        pop_rd_min = max(20.0, min(r.rd for r in active))
+    else:
+        pop_mu, pop_sigma, pop_rd_mean, pop_rd_min = 1500.0, 175.0, 75.0, 30.0
+
+    for p_name in list(ratings.keys()):
+        r_cur = ratings[p_name]
+        if eligible(p_name) and r_cur.rd < 350.0:
+            tier_mean = get_tier_mean(r_cur.rating, mean_rating=pop_mu, sigma=pop_sigma)
+            eff_alpha, eff_lambda = compute_decoupled_scaling(
+                r_cur.rating,
+                r_cur.rd,
+                mean_rating=pop_mu,
+                sigma_pop=pop_sigma,
+                rd_mean=pop_rd_mean,
+                rd_min=pop_rd_min,
+                base_alpha=RESET_ALPHA_SOFTER,
+                base_lambda=RESET_LAMBDA_SOFTER,
+            )
+            new_rd = min(350.0, r_cur.rd * eff_alpha)
+            new_r = (1.0 - eff_lambda) * r_cur.rating + eff_lambda * tier_mean
+            ratings[p_name] = Rating(new_r, new_rd, r_cur.sigma)
+
+
+def _prior_pass(
+    months: list[tuple[str, list[Any]]],
+    thresholds: dict[str, int],
+    weighted: bool,
+    softer: bool,
+    player_count: int,
+    current_priors: dict[str, Rating] | None,
+    alpha: float,
+) -> dict[str, Rating]:
+    """One pass of the retro calibration's pass 1: each player's rating at their threshold game.
+
+    Each player is followed on their own path from 1500 (discovery), against
+    opponents as the world sees them. With current_priors, the world starts
+    from them, holds a player at theirs until their threshold game, and a new
+    prior moves alpha of the way from the current one.
+    """
+    discovery: dict[str, Rating] = defaultdict(new_rating)
+    world: dict[str, Rating] = defaultdict(new_rating)
+    if current_priors:
+        for p_name, pr in current_priors.items():
+            world[p_name] = Rating(pr.rating, pr.rd, pr.sigma)
+    games: dict[str, set[Any]] = defaultdict(set)
+    found: dict[str, Rating] = {}
+
+    previous = None
+    for month, matches in months:
+        if softer and new_year(previous, month):
+            season_reset(world, lambda p: True)
+        previous = month
+
+        encounters = month_encounters(
+            matches, world.__getitem__, weighted, player_count, b_first=True
+        )
+        for p_name, enc_list in encounters.items():
+            prev_games, total_games, distinct_new = count_new_games(
+                games[p_name], enc_list
+            )
+            p_thresh = thresholds.get(p_name, CALIBRATION_THRESHOLD)
+            has_prior = current_priors is not None and p_name in current_priors
+
+            if prev_games < p_thresh <= total_games and p_name not in found:
+                enc_up, enc_after = split_at_threshold(
+                    enc_list, distinct_new, p_thresh - prev_games
+                )
+                r_at = rate(discovery[p_name], enc_up, weighted)
+                if has_prior:
+                    # Damped relaxation update for fixed-point stability
+                    cur = current_priors[p_name]
+                    d_r = (1.0 - alpha) * cur.rating + alpha * r_at.rating
+                    d_rd = (1.0 - alpha) * cur.rd + alpha * r_at.rd
+                    found[p_name] = Rating(d_r, d_rd, r_at.sigma)
+                else:
+                    found[p_name] = Rating(r_at.rating, r_at.rd, r_at.sigma)
+                discovery[p_name] = (
+                    rate(r_at, enc_after, weighted) if enc_after else r_at
+                )
+            else:
+                discovery[p_name] = rate(discovery[p_name], enc_list, weighted)
+
+            # Option A* Surgical Split: a prior stands in for the games up to the threshold
+            if not has_prior:
+                world[p_name] = rate(world[p_name], enc_list, weighted)
+            elif total_games <= p_thresh:
+                pass
+            elif prev_games < p_thresh and total_games > p_thresh:
+                _, enc_after = split_at_threshold(
+                    enc_list, distinct_new, p_thresh - prev_games
+                )
+                if enc_after:
+                    world[p_name] = rate(world[p_name], enc_after, weighted)
+            else:
+                world[p_name] = rate(world[p_name], enc_list, weighted)
+
+        for p_name in list(world.keys()):
+            p_thresh = thresholds.get(p_name, CALIBRATION_THRESHOLD)
+            is_frozen = (
+                current_priors
+                and p_name in current_priors
+                and len(games[p_name]) < p_thresh
+            )
+            if (
+                not is_frozen
+                and p_name not in encounters
+                and world[p_name].rd < 350.0
+                and len(games[p_name]) >= p_thresh
+            ):
+                world[p_name] = drifted(world[p_name])
+
+    return found
+
+
+def calibrated_priors(
+    months: list[tuple[str, list[Any]]],
+    thresholds: dict[str, int],
+    weighted: bool,
+    softer: bool,
+    player_count: int,
+) -> dict[str, Rating]:
+    """Pass 1 of the retro calibration: each player's prior, refined over up to five passes.
+
+    The first pass is naive; each after it starts from the last one's priors
+    and moves each half way (relaxation 0.5), until none moves by 0.5 or more.
+    """
+    priors = _prior_pass(
+        months, thresholds, weighted, softer, player_count, None, alpha=1.0
+    )
+    max_prior_iterations = 5
+    tolerance = 0.5
+    relaxation = 0.5
+    if priors and max_prior_iterations > 1:
+        for _ in range(1, max_prior_iterations):
+            new_priors = _prior_pass(
+                months, thresholds, weighted, softer, player_count, priors, relaxation
+            )
+            max_d = 0.0
+            for p_name, p_r in new_priors.items():
+                if p_name in priors:
+                    max_d = max(max_d, abs(p_r.rating - priors[p_name].rating))
+            priors = new_priors
+            if max_d < tolerance:
+                break
+    return priors
+
+
+class SecondPass:
+    """Pass 2: a model's ratings, month by month.
+
+    A retro-calibrated model starts a player with a prior from it, holds them
+    there until their threshold game, then rates only the games after it.
+    """
+
+    def __init__(
+        self,
+        priors: dict[str, Rating],
+        thresholds: dict[str, int] | PlayerThresholds,
+        weighted: bool,
+        retro: bool,
+        player_count: int,
+    ):
+        self.ratings = {p: Rating(r.rating, r.rd, r.sigma) for p, r in priors.items()}
+        self.priors = priors
+        self.thresholds = thresholds
+        self.weighted = weighted
+        self.retro = retro
+        self.player_count = player_count
+        self.games: dict[str, set[Any]] = defaultdict(set)
+
+    def rating(self, p_name: str) -> Rating:
+        """Returns the player's rating, starting them from new_rating() when they have none."""
+        if p_name not in self.ratings:
+            self.ratings[p_name] = new_rating()
+        return self.ratings[p_name]
+
+    def calibrated(self, p_name: str) -> bool:
+        """Returns True once the player has played their threshold's number of games."""
+        return len(self.games[p_name]) >= self.thresholds.get(
+            p_name, CALIBRATION_THRESHOLD
+        )
+
+    def season_reset(self) -> None:
+        """Resets the rated players for a new season; a retro model resets only calibrated ones."""
+        season_reset(self.ratings, lambda p: not self.retro or self.calibrated(p))
+
+    def rate_month(self, matches: list[Any]) -> list[str]:
+        """Rates a month's pairs, then drifts the calibrated players who missed it.
+
+        Returns the players who played, in the order they first played.
+        """
+        encounters = month_encounters(
+            matches, self.rating, self.weighted, self.player_count
+        )
+        for p_name, enc_list in encounters.items():
+            self._rate(p_name, enc_list)
+        for p_name in list(self.ratings.keys()):
+            is_active_or_uncalibrated = (p_name in encounters) or (
+                self.retro and not self.calibrated(p_name)
+            )
+            if not is_active_or_uncalibrated and self.ratings[p_name].rd < 350.0:
+                self.ratings[p_name] = drifted(self.ratings[p_name])
+        return list(encounters)
+
+    def _rate(self, p_name: str, enc_list: list[Encounter]) -> None:
+        if not self.retro:
+            self.ratings[p_name] = rate(self.rating(p_name), enc_list, self.weighted)
+            return
+        prev_games, total_games, distinct_new = count_new_games(
+            self.games[p_name], enc_list
+        )
+        p_thresh = self.thresholds.get(p_name, CALIBRATION_THRESHOLD)
+        if p_name not in self.priors:
+            self.ratings[p_name] = rate(self.rating(p_name), enc_list, self.weighted)
+        elif total_games <= p_thresh:
+            # Option A: Frozen during initial calibration window (1..p_thresh games) to prevent double valuation
+            pass
+        elif prev_games < p_thresh and total_games > p_thresh:
+            # Surgical Split in transition month: matches up to threshold are frozen; only matches after threshold update
+            _, enc_after = split_at_threshold(
+                enc_list, distinct_new, p_thresh - prev_games
+            )
+            if enc_after:
+                self.ratings[p_name] = rate(
+                    self.rating(p_name), enc_after, self.weighted
+                )
+        else:
+            self.ratings[p_name] = rate(self.rating(p_name), enc_list, self.weighted)
+
+
 def compute_glicko2_ratings(
     engine: str = "glicko2_std",
     reset_mode: str = "continuous",
@@ -239,417 +580,30 @@ def compute_glicko2_ratings(
     model_type = model_name(engine, reset_mode)
     # DANeo Gold Standard is inherently retro-calibrated and multiplayer-weighted
     retro_calibrated = weighted = engine == "glicko2_daneo"
+    softer = reset_mode != "continuous"
 
     with conn.transaction():
         rows = load_pairs(conn, run_id, player_count)
+        months = by_month(rows)
 
-        # Group matches by calendar month (YYYY-MM)
-        periods = defaultdict(list)
-        period_dates = {}
-        for r in rows:
-            m_key = r["date"][:7]
-            periods[m_key].append(r)
-            period_dates[m_key] = r["date"][:10]
-
-        sorted_months = sorted(periods.keys())
-
-        # -----------------------------------------------------------------
-        # PASS 1 (If retro_calibrated): Iterative Discovery of emergent priors
-        # -----------------------------------------------------------------
-        calibrated_priors: dict[str, Rating] = {}
-        player_thresholds: dict[str, int] = {}
+        thresholds: dict[str, int] = {}
+        priors: dict[str, Rating] = {}
         if retro_calibrated:
-            player_thresholds = compute_player_thresholds(
+            thresholds = compute_player_thresholds(
                 rows, standard_threshold=CALIBRATION_THRESHOLD
             )
+            priors = calibrated_priors(months, thresholds, weighted, softer, player_count)  # fmt: skip
 
-            def _run_pass1_iteration(
-                current_priors: dict[str, Rating] | None, alpha: float = 0.5
-            ) -> dict[str, Rating]:
-                # ratings_discovery: tracking each player's own discovery path from 1500
-                ratings_p1_discovery: dict[str, Rating] = defaultdict(
-                    lambda: Rating(1500.0, 350.0, CALIBRATED_SIGMA)
-                )
-                # ratings_p1_world: ratings presented to opponents
-                ratings_p1_world: dict[str, Rating] = defaultdict(
-                    lambda: Rating(1500.0, 350.0, CALIBRATED_SIGMA)
-                )
-                if current_priors:
-                    for p_name, pr in current_priors.items():
-                        ratings_p1_world[p_name] = Rating(pr.rating, pr.rd, pr.sigma)
-
-                games_played_p1 = defaultdict(set)
-                prev_year_p1 = None
-                new_discovered: dict[str, Rating] = {}
-
-                for m_key in sorted_months:
-                    cur_year = m_key[:4]
-                    if (
-                        prev_year_p1 is not None
-                        and cur_year != prev_year_p1
-                        and reset_mode != "continuous"
-                    ):
-                        act_p1 = [r for r in ratings_p1_world.values() if r.rd < 350.0]
-                        if act_p1:
-                            pop_mu = sum(r.rating for r in act_p1) / len(act_p1)
-                            pop_sigma = max(
-                                50.0,
-                                (
-                                    sum((r.rating - pop_mu) ** 2 for r in act_p1)
-                                    / len(act_p1)
-                                )
-                                ** 0.5,
-                            )
-                            pop_rd_mean = sum(r.rd for r in act_p1) / len(act_p1)
-                            pop_rd_min = max(20.0, min(r.rd for r in act_p1))
-                        else:
-                            pop_mu, pop_sigma, pop_rd_mean, pop_rd_min = (
-                                1500.0,
-                                175.0,
-                                75.0,
-                                30.0,
-                            )
-
-                        for p_name, r_cur in list(ratings_p1_world.items()):
-                            if r_cur.rd < 350.0:
-                                tier_mean = get_tier_mean(
-                                    r_cur.rating, mean_rating=pop_mu, sigma=pop_sigma
-                                )
-                                eff_alpha, eff_lambda = compute_decoupled_scaling(
-                                    r_cur.rating,
-                                    r_cur.rd,
-                                    mean_rating=pop_mu,
-                                    sigma_pop=pop_sigma,
-                                    rd_mean=pop_rd_mean,
-                                    rd_min=pop_rd_min,
-                                    base_alpha=RESET_ALPHA_SOFTER,
-                                    base_lambda=RESET_LAMBDA_SOFTER,
-                                )
-                                new_rd = min(350.0, r_cur.rd * eff_alpha)
-                                new_r = (
-                                    1.0 - eff_lambda
-                                ) * r_cur.rating + eff_lambda * tier_mean
-                                ratings_p1_world[p_name] = Rating(
-                                    new_r, new_rd, r_cur.sigma
-                                )
-                    prev_year_p1 = cur_year
-
-                    p1_matches = periods[m_key]
-                    p1_encounters = defaultdict(list)
-                    for m in p1_matches:
-                        pa, pb = m["player_a"], m["player_b"]
-                        mid = m["match_id"] if "match_id" in m else (m["date"], pa, pb)
-                        out_a = m["outcome_a"]
-                        m_pcount = m.get("player_count", player_count)
-
-                        w = GOLDEN_MP_WEIGHTS.get(m_pcount, 1.0) if weighted else 1.0
-
-                        # Opponents are evaluated via ratings_p1_world!
-                        p1_encounters[pa].append(
-                            (ratings_p1_world[pb], out_a, w, m_pcount, mid)
-                        )
-                        p1_encounters[pb].append(
-                            (ratings_p1_world[pa], 1.0 - out_a, w, m_pcount, mid)
-                        )
-
-                    p1_active = set(p1_encounters.keys())
-                    for p_name, enc_list in p1_encounters.items():
-                        prev_games = len(games_played_p1[p_name])
-                        distinct_new = []
-                        for it in enc_list:
-                            mid = it[4]
-                            if mid not in games_played_p1[p_name]:
-                                games_played_p1[p_name].add(mid)
-                                distinct_new.append(mid)
-                        total_games = len(games_played_p1[p_name])
-                        p_thresh = player_thresholds.get(p_name, CALIBRATION_THRESHOLD)
-
-                        def run_update_p1(r_cur, items):
-                            enc3 = [(it[0], it[1], it[2]) for it in items]
-                            return update_rating(
-                                r_cur,
-                                enc3,
-                                tau=CALIBRATED_TAU,
-                                weighted=weighted,
-                            )
-
-                        # 1. Update ratings_p1_discovery for player's personal discovery path
-                        if (
-                            prev_games < p_thresh
-                            and total_games >= p_thresh
-                            and p_name not in new_discovered
-                        ):
-                            needed = p_thresh - prev_games
-                            mids_up_to_thresh = set(distinct_new[:needed])
-                            enc_up_to_thresh = [
-                                it for it in enc_list if it[4] in mids_up_to_thresh
-                            ]
-                            enc_after_thresh = [
-                                it for it in enc_list if it[4] not in mids_up_to_thresh
-                            ]
-
-                            r_at_thresh = run_update_p1(
-                                ratings_p1_discovery[p_name], enc_up_to_thresh
-                            )
-                            if current_priors and p_name in current_priors:
-                                # Damped relaxation update for fixed-point stability
-                                d_r = (1.0 - alpha) * current_priors[
-                                    p_name
-                                ].rating + alpha * r_at_thresh.rating
-                                d_rd = (1.0 - alpha) * current_priors[
-                                    p_name
-                                ].rd + alpha * r_at_thresh.rd
-                                new_discovered[p_name] = Rating(
-                                    d_r, d_rd, r_at_thresh.sigma
-                                )
-                            else:
-                                new_discovered[p_name] = Rating(
-                                    r_at_thresh.rating,
-                                    r_at_thresh.rd,
-                                    r_at_thresh.sigma,
-                                )
-
-                            if enc_after_thresh:
-                                ratings_p1_discovery[p_name] = run_update_p1(
-                                    r_at_thresh, enc_after_thresh
-                                )
-                            else:
-                                ratings_p1_discovery[p_name] = r_at_thresh
-                        elif prev_games >= p_thresh:
-                            ratings_p1_discovery[p_name] = run_update_p1(
-                                ratings_p1_discovery[p_name], enc_list
-                            )
-                        else:
-                            # Still provisional (total_games < p_thresh)
-                            ratings_p1_discovery[p_name] = run_update_p1(
-                                ratings_p1_discovery[p_name], enc_list
-                            )
-
-                        # 2. Update ratings_p1_world (Option A* Surgical Split)
-                        if current_priors and p_name in current_priors:
-                            if total_games <= p_thresh:
-                                pass  # Frozen during provisional window
-                            elif prev_games < p_thresh and total_games > p_thresh:
-                                needed = p_thresh - prev_games
-                                mids_up = set(distinct_new[:needed])
-                                enc_after = [
-                                    it for it in enc_list if it[4] not in mids_up
-                                ]
-                                if enc_after:
-                                    ratings_p1_world[p_name] = run_update_p1(
-                                        ratings_p1_world[p_name], enc_after
-                                    )
-                            else:
-                                ratings_p1_world[p_name] = run_update_p1(
-                                    ratings_p1_world[p_name], enc_list
-                                )
-                        else:
-                            ratings_p1_world[p_name] = run_update_p1(
-                                ratings_p1_world[p_name], enc_list
-                            )
-
-                    for p_name in list(ratings_p1_world.keys()):
-                        p_thresh = player_thresholds.get(p_name, CALIBRATION_THRESHOLD)
-                        is_frozen = (
-                            current_priors
-                            and p_name in current_priors
-                            and len(games_played_p1[p_name]) < p_thresh
-                        )
-                        if (
-                            not is_frozen
-                            and p_name not in p1_active
-                            and ratings_p1_world[p_name].rd < 350.0
-                            and len(games_played_p1[p_name]) >= p_thresh
-                        ):
-                            r_cur = ratings_p1_world[p_name]
-                            phi_new = (
-                                r_cur.phi**2 + INACTIVITY_DRIFT_PER_MONTH**2
-                            ) ** 0.5
-                            new_rd = min(350.0, phi_new * GLICKO2_SCALE)
-                            ratings_p1_world[p_name] = Rating(
-                                r_cur.rating, new_rd, r_cur.sigma
-                            )
-
-                return new_discovered
-
-            # Initial Pass (k = 0): naive initial discovery
-            calibrated_priors = _run_pass1_iteration(None, alpha=1.0)
-
-            # Iterative refinement passes (k = 1..max_iterations-1)
-            max_prior_iterations = 5
-            tolerance = 0.5
-            relaxation = 0.5
-
-            if calibrated_priors and max_prior_iterations > 1:
-                for _ in range(1, max_prior_iterations):
-                    new_priors = _run_pass1_iteration(
-                        calibrated_priors, alpha=relaxation
-                    )
-                    max_d = 0.0
-                    for p_name, p_r in new_priors.items():
-                        if p_name in calibrated_priors:
-                            d = abs(p_r.rating - calibrated_priors[p_name].rating)
-                            max_d = max(max_d, d)
-                    calibrated_priors = new_priors
-                    if max_d < tolerance:
-                        break
-
-        # -----------------------------------------------------------------
-        # PASS 2 (or Standard Pass): Chronological calculation with Option A*
-        # -----------------------------------------------------------------
-        ratings: dict[str, Rating] = {}
-        if retro_calibrated:
-            for p_name, p_r in calibrated_priors.items():
-                ratings[p_name] = Rating(p_r.rating, p_r.rd, p_r.sigma)
-
-        def get_current_rating(p: str) -> Rating:
-            if p not in ratings:
-                ratings[p] = Rating(1500.0, 350.0, CALIBRATED_SIGMA)
-            return ratings[p]
-
+        model = SecondPass(priors, thresholds, weighted, retro_calibrated, player_count)  # fmt: skip
         history_records = []
-        games_played_p2 = defaultdict(set)
-        prev_year = None
-
-        for m_key in sorted_months:
-            cur_year = m_key[:4]
-
-            # Apply season reset when transitioning across calendar year boundaries
-            if (
-                prev_year is not None
-                and cur_year != prev_year
-                and reset_mode != "continuous"
-            ):
-                act_p2 = [
-                    r
-                    for p, r in ratings.items()
-                    if (
-                        len(games_played_p2[p])
-                        >= player_thresholds.get(p, CALIBRATION_THRESHOLD)
-                        if retro_calibrated
-                        else True
-                    )
-                    and r.rd < 350.0
-                ]
-                if act_p2:
-                    pop_mu = sum(r.rating for r in act_p2) / len(act_p2)
-                    pop_sigma = max(
-                        50.0,
-                        (sum((r.rating - pop_mu) ** 2 for r in act_p2) / len(act_p2))
-                        ** 0.5,
-                    )
-                    pop_rd_mean = sum(r.rd for r in act_p2) / len(act_p2)
-                    pop_rd_min = max(20.0, min(r.rd for r in act_p2))
-                else:
-                    pop_mu, pop_sigma, pop_rd_mean, pop_rd_min = (
-                        1500.0,
-                        175.0,
-                        75.0,
-                        30.0,
-                    )
-
-                for p_name in list(ratings.keys()):
-                    is_eligible_for_reset = (
-                        (
-                            len(games_played_p2[p_name])
-                            >= player_thresholds.get(p_name, CALIBRATION_THRESHOLD)
-                        )
-                        if retro_calibrated
-                        else True
-                    )
-                    if is_eligible_for_reset and ratings[p_name].rd < 350.0:
-                        tier_mean = get_tier_mean(
-                            ratings[p_name].rating, mean_rating=pop_mu, sigma=pop_sigma
-                        )
-                        eff_alpha, eff_lambda = compute_decoupled_scaling(
-                            ratings[p_name].rating,
-                            ratings[p_name].rd,
-                            mean_rating=pop_mu,
-                            sigma_pop=pop_sigma,
-                            rd_mean=pop_rd_mean,
-                            rd_min=pop_rd_min,
-                            base_alpha=RESET_ALPHA_SOFTER,
-                            base_lambda=RESET_LAMBDA_SOFTER,
-                        )
-                        new_rd = min(350.0, ratings[p_name].rd * eff_alpha)
-                        new_r = (1.0 - eff_lambda) * ratings[
-                            p_name
-                        ].rating + eff_lambda * tier_mean
-                        ratings[p_name] = Rating(new_r, new_rd, ratings[p_name].sigma)
-
-            prev_year = cur_year
-            period_matches = periods[m_key]
-            period_date_str = period_dates[m_key]
-
-            # Collect matches per player in this month
-            player_encounters = defaultdict(list)
-            for m in period_matches:
-                pa, pb = m["player_a"], m["player_b"]
-                mid = m["match_id"] if "match_id" in m else (m["date"], pa, pb)
-                out_a = m["outcome_a"]
-                m_pcount = m.get("player_count", player_count)
-
-                w = GOLDEN_MP_WEIGHTS.get(m_pcount, 1.0) if weighted else 1.0
-
-                ra = get_current_rating(pa)
-                rb = get_current_rating(pb)
-
-                player_encounters[pa].append((rb, out_a, w, m_pcount, mid))
-                player_encounters[pb].append((ra, 1.0 - out_a, w, m_pcount, mid))
-
-            active_players = set(player_encounters.keys())
-
-            # Update active players
-            for p_name, enc_list in player_encounters.items():
-
-                def run_update_p2(r_cur, items):
-                    enc3 = [(it[0], it[1], it[2]) for it in items]
-                    return update_rating(
-                        r_cur,
-                        enc3,
-                        tau=CALIBRATED_TAU,
-                        weighted=weighted,
-                    )
-
-                if retro_calibrated:
-                    prev_games = len(games_played_p2[p_name])
-                    distinct_new = []
-                    for it in enc_list:
-                        mid = it[4]
-                        if mid not in games_played_p2[p_name]:
-                            games_played_p2[p_name].add(mid)
-                            distinct_new.append(mid)
-                    total_games = len(games_played_p2[p_name])
-                    p_thresh = player_thresholds.get(p_name, CALIBRATION_THRESHOLD)
-
-                    if p_name not in calibrated_priors:
-                        ratings[p_name] = run_update_p2(
-                            get_current_rating(p_name), enc_list
-                        )
-                    elif total_games <= p_thresh:
-                        # Option A: Frozen during initial calibration window (1..p_thresh games) to prevent double valuation
-                        pass
-                    elif prev_games < p_thresh and total_games > p_thresh:
-                        # Surgical Split in transition month: matches up to threshold are frozen; only matches after threshold update
-                        needed = p_thresh - prev_games
-                        mids_up_to_thresh = set(distinct_new[:needed])
-                        enc_after_thresh = [
-                            it for it in enc_list if it[4] not in mids_up_to_thresh
-                        ]
-                        if enc_after_thresh:
-                            ratings[p_name] = run_update_p2(
-                                get_current_rating(p_name), enc_after_thresh
-                            )
-                    else:
-                        ratings[p_name] = run_update_p2(
-                            get_current_rating(p_name), enc_list
-                        )
-                else:
-                    ratings[p_name] = run_update_p2(
-                        get_current_rating(p_name), enc_list
-                    )
-
-                curr = get_current_rating(p_name)
+        previous = None
+        for month, matches in months:
+            if softer and new_year(previous, month):
+                model.season_reset()
+            previous = month
+            period_date_str = matches[-1]["date"][:10]
+            for p_name in model.rate_month(matches):
+                curr = model.ratings[p_name]
                 history_records.append(
                     (
                         model_type,
@@ -662,111 +616,10 @@ def compute_glicko2_ratings(
                     )
                 )
 
-            # Apply mild inactivity drift to already-active players who missed this month
-            for p_name in list(ratings.keys()):
-                p_thresh = player_thresholds.get(p_name, CALIBRATION_THRESHOLD)
-                is_active_or_uncalibrated = (p_name in active_players) or (
-                    retro_calibrated and len(games_played_p2[p_name]) < p_thresh
-                )
-                if not is_active_or_uncalibrated and ratings[p_name].rd < 350.0:
-                    r_cur = ratings[p_name]
-                    phi_new = (r_cur.phi**2 + INACTIVITY_DRIFT_PER_MONTH**2) ** 0.5
-                    new_rd = min(350.0, phi_new * GLICKO2_SCALE)
-                    ratings[p_name] = Rating(r_cur.rating, new_rd, r_cur.sigma)
-
-        # Aggregate player statistics for this format
-        if player_count and player_count > 0:
-            stats_rows = conn.execute(
-                """
-                SELECT 
-                    p.name,
-                    COUNT(pm.pairwise_id) as opps_count,
-                    SUM(CASE WHEN pm.player_a = p.name AND pm.outcome_a = 1.0 THEN 1
-                             WHEN pm.player_b = p.name AND pm.outcome_a = 0.0 THEN 1 ELSE 0 END) as wins,
-                    SUM(CASE WHEN pm.player_a = p.name AND pm.outcome_a = 0.0 THEN 1
-                             WHEN pm.player_b = p.name AND pm.outcome_a = 1.0 THEN 1 ELSE 0 END) as losses,
-                    SUM(CASE WHEN pm.outcome_a = 0.5 THEN 1 ELSE 0 END) as draws,
-                    MAX(pm.date) as last_played
-                FROM players p
-                INNER JOIN pairwise_matches pm ON (p.name = pm.player_a OR p.name = pm.player_b) AND pm.player_count = %s AND pm.run_id = %s
-                GROUP BY p.name
-            """,
-                (player_count, run_id),
-            ).fetchall()
-        else:
-            stats_rows = conn.execute(
-                """
-                SELECT 
-                    p.name,
-                    COUNT(pm.pairwise_id) as opps_count,
-                    SUM(CASE WHEN pm.player_a = p.name AND pm.outcome_a = 1.0 THEN 1
-                             WHEN pm.player_b = p.name AND pm.outcome_a = 0.0 THEN 1 ELSE 0 END) as wins,
-                    SUM(CASE WHEN pm.player_a = p.name AND pm.outcome_a = 0.0 THEN 1
-                             WHEN pm.player_b = p.name AND pm.outcome_a = 1.0 THEN 1 ELSE 0 END) as losses,
-                    SUM(CASE WHEN pm.outcome_a = 0.5 THEN 1 ELSE 0 END) as draws,
-                    MAX(pm.date) as last_played
-                FROM players p
-                LEFT JOIN pairwise_matches pm ON (p.name = pm.player_a OR p.name = pm.player_b) AND pm.run_id = %s
-                GROUP BY p.name
-            """,
-                (run_id,),
-            ).fetchall()
-        player_stats = {r["name"]: r for r in stats_rows}
-
-        # Rank players by conservative rating C = rating - 3*rd
-        player_rankings = []
-        for p_name, r_obj in ratings.items():
-            st = player_stats.get(p_name)
-            opps = st["opps_count"] if st else 0
-            if player_count and player_count > 0 and opps == 0:
-                continue
-            w_cnt = st["wins"] if st else 0
-            l_cnt = st["losses"] if st else 0
-            d_cnt = st["draws"] if st else 0
-            wr = round((w_cnt + 0.5 * d_cnt) / max(1, opps) * 100.0, 2)
-            lp = st["last_played"] if st else None
-
-            player_rankings.append(
-                {
-                    "name": p_name,
-                    "rating": round(r_obj.rating, 2),
-                    "rd": round(r_obj.rd, 2),
-                    "sigma": round(r_obj.sigma, 4),
-                    "c_rating": round(r_obj.conservative_rating, 2),
-                    "opps": opps,
-                    "wins": w_cnt,
-                    "losses": l_cnt,
-                    "draws": d_cnt,
-                    "win_rate": wr,
-                    "last_played": lp,
-                }
-            )
-
-        player_rankings.sort(key=lambda x: x["c_rating"], reverse=True)
-
-        rating_rows = []
-        for rank, p_data in enumerate(player_rankings, 1):
-            rating_rows.append(
-                (
-                    model_type,
-                    player_count,
-                    p_data["name"],
-                    p_data["rating"],
-                    p_data["rd"],
-                    p_data["sigma"],
-                    p_data["c_rating"],
-                    rank,
-                    0,
-                    p_data["opps"],
-                    p_data["opps"],
-                    p_data["wins"],
-                    p_data["losses"],
-                    p_data["draws"],
-                    p_data["win_rate"],
-                    p_data["last_played"],
-                )
-            )
-
+        ratings = model.ratings
+        rating_rows = _rating_rows(
+            model_type, player_count, ratings, _player_stats(conn, run_id, player_count)
+        )
         save_model_results(
             conn, run_id, model_type, player_count, rating_rows, history_records
         )
@@ -776,3 +629,111 @@ def compute_glicko2_ratings(
             f"Successfully saved {len(rating_rows)} ratings and {len(history_records)} history points for {model_type} ({fmt_label})."
         )
         return ratings
+
+
+def _player_stats(
+    conn: psycopg.Connection, run_id: int, player_count: int
+) -> dict[str, Any]:
+    """Returns each player's pairs, wins, losses, draws and last game in the run's format, by name."""
+    if player_count and player_count > 0:
+        stats_rows = conn.execute(
+            """
+            SELECT
+                p.name,
+                COUNT(pm.pairwise_id) as opps_count,
+                SUM(CASE WHEN pm.player_a = p.name AND pm.outcome_a = 1.0 THEN 1
+                         WHEN pm.player_b = p.name AND pm.outcome_a = 0.0 THEN 1 ELSE 0 END) as wins,
+                SUM(CASE WHEN pm.player_a = p.name AND pm.outcome_a = 0.0 THEN 1
+                         WHEN pm.player_b = p.name AND pm.outcome_a = 1.0 THEN 1 ELSE 0 END) as losses,
+                SUM(CASE WHEN pm.outcome_a = 0.5 THEN 1 ELSE 0 END) as draws,
+                MAX(pm.date) as last_played
+            FROM players p
+            INNER JOIN pairwise_matches pm ON (p.name = pm.player_a OR p.name = pm.player_b) AND pm.player_count = %s AND pm.run_id = %s
+            GROUP BY p.name
+        """,
+            (player_count, run_id),
+        ).fetchall()
+    else:
+        stats_rows = conn.execute(
+            """
+            SELECT
+                p.name,
+                COUNT(pm.pairwise_id) as opps_count,
+                SUM(CASE WHEN pm.player_a = p.name AND pm.outcome_a = 1.0 THEN 1
+                         WHEN pm.player_b = p.name AND pm.outcome_a = 0.0 THEN 1 ELSE 0 END) as wins,
+                SUM(CASE WHEN pm.player_a = p.name AND pm.outcome_a = 0.0 THEN 1
+                         WHEN pm.player_b = p.name AND pm.outcome_a = 1.0 THEN 1 ELSE 0 END) as losses,
+                SUM(CASE WHEN pm.outcome_a = 0.5 THEN 1 ELSE 0 END) as draws,
+                MAX(pm.date) as last_played
+            FROM players p
+            LEFT JOIN pairwise_matches pm ON (p.name = pm.player_a OR p.name = pm.player_b) AND pm.run_id = %s
+            GROUP BY p.name
+        """,
+            (run_id,),
+        ).fetchall()
+    return {r["name"]: r for r in stats_rows}
+
+
+def _rating_rows(
+    model_type: str,
+    player_count: int,
+    ratings: dict[str, Rating],
+    player_stats: dict[str, Any],
+) -> list[tuple[Any, ...]]:
+    """Returns the model's player_ratings rows, ranked by conservative rating C = rating - 3*rd.
+
+    A format leaves out players with no pair in it.
+    """
+    player_rankings = []
+    for p_name, r_obj in ratings.items():
+        st = player_stats.get(p_name)
+        opps = st["opps_count"] if st else 0
+        if player_count and player_count > 0 and opps == 0:
+            continue
+        w_cnt = st["wins"] if st else 0
+        l_cnt = st["losses"] if st else 0
+        d_cnt = st["draws"] if st else 0
+        wr = round((w_cnt + 0.5 * d_cnt) / max(1, opps) * 100.0, 2)
+        lp = st["last_played"] if st else None
+
+        player_rankings.append(
+            {
+                "name": p_name,
+                "rating": round(r_obj.rating, 2),
+                "rd": round(r_obj.rd, 2),
+                "sigma": round(r_obj.sigma, 4),
+                "c_rating": round(r_obj.conservative_rating, 2),
+                "opps": opps,
+                "wins": w_cnt,
+                "losses": l_cnt,
+                "draws": d_cnt,
+                "win_rate": wr,
+                "last_played": lp,
+            }
+        )
+
+    player_rankings.sort(key=lambda x: x["c_rating"], reverse=True)
+
+    rating_rows = []
+    for rank, p_data in enumerate(player_rankings, 1):
+        rating_rows.append(
+            (
+                model_type,
+                player_count,
+                p_data["name"],
+                p_data["rating"],
+                p_data["rd"],
+                p_data["sigma"],
+                p_data["c_rating"],
+                rank,
+                0,
+                p_data["opps"],
+                p_data["opps"],
+                p_data["wins"],
+                p_data["losses"],
+                p_data["draws"],
+                p_data["win_rate"],
+                p_data["last_played"],
+            )
+        )
+    return rating_rows

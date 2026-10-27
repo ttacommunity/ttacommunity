@@ -347,6 +347,47 @@ def _rank_editions(conn, run_id, rows, points):
     compute takes the organisers' sheet points, in the editions the sheet has.
     """
     codes = series_codes(conn)
+    latest = conn.execute(
+        "SELECT max(date) AS d FROM games WHERE state = 'played'"
+    ).fetchone()["d"]
+    events = _quarter_events(conn, rows, codes)
+    ladders = _ladder_rounds(conn)
+    firsts = list(events) + [
+        (d.year, (d.month - 1) // 3 + 1)
+        for _, _, rounds in ladders.values()
+        for _, d, _, _ in rounds
+    ]
+    if not firsts or latest is None:
+        conn.execute(
+            "DELETE FROM community_edition_points WHERE run_id = %s", (run_id,)
+        )
+        conn.execute("DELETE FROM community_rankings WHERE run_id = %s", (run_id,))
+        return
+    sheet = _sheet_scores(conn)
+    point_rows, rank_rows = [], []
+    for edition, in_it in editions(min(firsts), latest).items():
+        p_rows, r_rows = _edition_rows(
+            run_id, edition, in_it, events, ladders, points, codes, sheet
+        )
+        point_rows += p_rows
+        rank_rows += r_rows
+    conn.execute("DELETE FROM community_edition_points WHERE run_id = %s", (run_id,))
+    conn.execute("DELETE FROM community_rankings WHERE run_id = %s", (run_id,))
+    with conn.cursor() as cur:
+        cur.executemany(
+            "INSERT INTO community_edition_points VALUES (%s, %s, %s, %s, %s, %s, %s)",
+            point_rows,
+        )
+        cur.executemany(
+            "INSERT INTO community_rankings VALUES (%s, %s, %s, %s, %s, %s)", rank_rows
+        )
+
+
+def _quarter_events(conn, rows, codes):
+    """Returns each quarter's event points, {(year, quarter): {(player, event code): points}}.
+
+    A season counts in its recorded quarter, else the one it finished in.
+    """
     quarters = {
         (r["tournament"], r["season"]): (r["year"], r["quarter"])
         for r in conn.execute(
@@ -360,9 +401,6 @@ def _rank_editions(conn, run_id, rows, points):
             "JOIN tournaments s ON s.tournament_id = m.tournament_id JOIN series t ON t.series_id = m.series_id GROUP BY 1, 2"
         )
     }
-    latest = conn.execute(
-        "SELECT max(date) AS d FROM games WHERE state = 'played'"
-    ).fetchone()["d"]
     events = defaultdict(dict)  # (year, quarter) -> {(player, code): points}
     chosen = defaultdict(
         dict
@@ -380,18 +418,11 @@ def _rank_editions(conn, run_id, rows, points):
         rank = (finished.get((slug, season)) or date.min, season)
         if key not in chosen[q] or rank > chosen[q][key]:
             chosen[q][key], events[q][key] = rank, pts
-    ladders = _ladder_rounds(conn)
-    firsts = list(events) + [
-        (d.year, (d.month - 1) // 3 + 1)
-        for _, _, rounds in ladders.values()
-        for _, d, _, _ in rounds
-    ]
-    if not firsts or latest is None:
-        conn.execute(
-            "DELETE FROM community_edition_points WHERE run_id = %s", (run_id,)
-        )
-        conn.execute("DELETE FROM community_rankings WHERE run_id = %s", (run_id,))
-        return
+    return events
+
+
+def _sheet_scores(conn):
+    """Returns the organisers' sheet points by edition, {edition: {(player, event code): score}}, names as players spell them."""
     spelling = {
         r["name"].lower(): r["name"] for r in conn.execute("SELECT name FROM players")
     }
@@ -402,54 +433,48 @@ def _rank_editions(conn, run_id, rows, points):
         if r["edition"] in SHEET_EDITIONS:
             name = spelling.get(r["player_name"].lower(), r["player_name"])
             sheet[SHEET_EDITIONS[r["edition"]]][(name, r["event"])] = r["score"]
-    point_rows, rank_rows = [], []
-    for edition, in_it in editions(min(firsts), latest).items():
-        scored = defaultdict(dict)
-        sources = {}
-        for q in in_it:
-            for (name, code), pts in events.get(q, {}).items():
-                scored[name][code] = pts
-                sources[(name, code)] = "computed"
-        for (name, code), pts in _ladder_points(
-            ladders, edition, in_it, points, codes
-        ).items():
+    return sheet
+
+
+def _edition_rows(run_id, edition, in_it, events, ladders, points, codes, sheet):
+    """Returns one edition's event point rows and ranking rows; in_it are its quarters."""
+    point_rows = []
+    scored = defaultdict(dict)
+    sources = {}
+    for q in in_it:
+        for (name, code), pts in events.get(q, {}).items():
             scored[name][code] = pts
             sources[(name, code)] = "computed"
-        computed = {code for _, code in sources}
-        for (name, code), pts in sheet.get(edition, {}).items():
-            if code not in computed:
-                scored[name][code] = pts
-                sources[(name, code)] = "sheet"
-        totals, counts = {}, {}
-        for name, evs in scored.items():
-            totals[name], counts[name] = best_eight(evs)
-            best = counted(evs)
-            for code, pts in evs.items():
-                point_rows.append(
-                    (
-                        run_id,
-                        edition,
-                        name,
-                        code,
-                        pts,
-                        sources[(name, code)],
-                        code in best,
-                    )
+    for (name, code), pts in _ladder_points(
+        ladders, edition, in_it, points, codes
+    ).items():
+        scored[name][code] = pts
+        sources[(name, code)] = "computed"
+    computed = {code for _, code in sources}
+    for (name, code), pts in sheet.get(edition, {}).items():
+        if code not in computed:
+            scored[name][code] = pts
+            sources[(name, code)] = "sheet"
+    totals, counts = {}, {}
+    for name, evs in scored.items():
+        totals[name], counts[name] = best_eight(evs)
+        best = counted(evs)
+        for code, pts in evs.items():
+            point_rows.append(
+                (
+                    run_id,
+                    edition,
+                    name,
+                    code,
+                    pts,
+                    sources[(name, code)],
+                    code in best,
                 )
-        rank_rows += [
-            (run_id, edition, rank, p, totals[p], counts[p])
-            for rank, p in ranked(totals)
-        ]
-    conn.execute("DELETE FROM community_edition_points WHERE run_id = %s", (run_id,))
-    conn.execute("DELETE FROM community_rankings WHERE run_id = %s", (run_id,))
-    with conn.cursor() as cur:
-        cur.executemany(
-            "INSERT INTO community_edition_points VALUES (%s, %s, %s, %s, %s, %s, %s)",
-            point_rows,
-        )
-        cur.executemany(
-            "INSERT INTO community_rankings VALUES (%s, %s, %s, %s, %s, %s)", rank_rows
-        )
+            )
+    rank_rows = [
+        (run_id, edition, rank, p, totals[p], counts[p]) for rank, p in ranked(totals)
+    ]
+    return point_rows, rank_rows
 
 
 def _ladder_rounds(conn):
